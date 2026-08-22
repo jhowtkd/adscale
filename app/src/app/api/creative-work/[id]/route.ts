@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
@@ -19,6 +18,8 @@ import { toPublicLayerizationState } from "@/server/layerize/contracts";
 import { toPublicLayerEditorSummary } from "@/server/layer-editor/contracts";
 import { getLayerEditorAccess } from "@/server/layer-editor/quota";
 import {
+  acceptCreativeWorkLayerRegenerationCandidate,
+  discardCreativeWorkLayerRegenerationCandidate,
   heartbeatCreativeWorkLayerEditor,
   openCreativeWorkLayerEditor,
   releaseCreativeWorkLayerEditor,
@@ -26,8 +27,6 @@ import {
 } from "@/server/application/manage-creative-work-layer-editor";
 import { layerEditorMutableSnapshotSchema } from "@/server/layer-editor/contracts";
 import { requestCreativeWorkLayerRegeneration } from "@/server/application/request-creative-work-layer-regeneration";
-import { acceptLayerRegenerationCandidate, discardLayerRegenerationCandidate, getCreativeWorkLayerEditorOutput, layerEditorFromOutput } from "@/server/repositories/creative-work-layer-editor";
-import { objectStorage } from "@/server/storage";
 import { publishCreativeWorkLayerEditor } from "@/server/application/publish-creative-work-layer-editor";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import {
@@ -501,12 +500,11 @@ export async function PATCH(
       return result.ok ? NextResponse.json(result, { status: result.accepted ? 202 : 200 }) : apiError(result.code, result.code === "disabled" ? 403 : result.code === "layer_regeneration_dispatch_failed" ? 503 : 409);
     }
     if ("action" in parsed.data && (parsed.data.action === "acceptLayerCandidate" || parsed.data.action === "discardLayerCandidate")) {
-      if (!(await getLayerEditorAccess(workspace.id, new Date())).enabled) return apiError("layer_editor_not_available", 403);
-      const row=await getCreativeWorkLayerEditorOutput({workspaceId:workspace.id,workItemId:id,outputId:parsed.data.outputId}); const state=layerEditorFromOutput(row); const candidate=state?.regeneration;
-      if(!state||!candidate||candidate.id!==parsed.data.operationId)return apiError("layer_editor_revision_conflict",409);
-      if(parsed.data.action==="discardLayerCandidate") { const updated=await discardLayerRegenerationCandidate({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id,now:new Date()}); if(!updated)return apiError("layer_editor_revision_conflict",409); if(candidate.candidateKey) void objectStorage.delete(candidate.candidateKey).catch(() => undefined); return NextResponse.json({ok:true}); }
-      if(candidate.status!=="ready"||!candidate.candidateKey)return apiError("layer_editor_revision_conflict",409);
-      const key=`creative-work/${id}/layer-editor/${parsed.data.outputId}/layers/${candidate.layerId}/revisions/${parsed.data.expectedRevision+1}/${randomUUID()}.png`; await objectStorage.put(key,await objectStorage.get(candidate.candidateKey),"image/png"); const updated=await acceptLayerRegenerationCandidate({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id,immutableKey:key,now:new Date()}); if(!updated){void objectStorage.delete(key).catch(() => undefined);return apiError("layer_editor_revision_conflict",409);} void objectStorage.delete(candidate.candidateKey).catch(() => undefined); return NextResponse.json({ok:true});
+      const command = parsed.data.action === "acceptLayerCandidate"
+        ? acceptCreativeWorkLayerRegenerationCandidate
+        : discardCreativeWorkLayerRegenerationCandidate;
+      const result = await command({ ...parsed.data, workspaceId: workspace.id, workItemId: id, userId: user.id });
+      return result.ok ? NextResponse.json({ ok: true }) : apiError(result.code, result.code === "layer_editor_not_available" ? 403 : 409);
     }
     if ("action" in parsed.data && parsed.data.action === "publishLayerEditor") { const result=await publishCreativeWorkLayerEditor({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id}); if(!result.ok)return apiError(result.code,result.code === "layer_editor_not_available" ? 403 : 409); const output=result.output; return NextResponse.json({ok:true,replay:result.replay,output:{id:output.id,parentOutputId:output.parentOutputId,status:output.status,isSelected:output.isSelected,creativeLevel:output.creativeLevel,targetFormat:output.targetFormat,versionNumber:output.versionNumber}},{status:result.replay?200:201}); }
 

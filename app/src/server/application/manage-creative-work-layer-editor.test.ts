@@ -6,12 +6,19 @@ const output = vi.hoisted(() => vi.fn());
 const holderName = vi.hoisted(() => vi.fn());
 const acquire = vi.hoisted(() => vi.fn());
 const recover = vi.hoisted(() => vi.fn());
+const accept = vi.hoisted(() => vi.fn());
+const discard = vi.hoisted(() => vi.fn());
+const storageGet = vi.hoisted(() => vi.fn());
+const storagePut = vi.hoisted(() => vi.fn());
+const storageDelete = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/layer-editor/quota", () => ({ getLayerEditorAccess: access }));
 vi.mock("@/server/repositories/creative-work-layer-editor", () => ({
   getCreativeWorkLayerEditorOutput: output,
   getCreativeWorkLayerEditorLeaseHolderName: holderName,
   acquireCreativeWorkLayerEditorLease: acquire,
+  acceptLayerRegenerationCandidate: accept,
+  discardLayerRegenerationCandidate: discard,
   recoverStaleLayerRegeneration: recover,
   heartbeatCreativeWorkLayerEditorLease: vi.fn(),
   initializeCreativeWorkLayerEditor: vi.fn(),
@@ -20,9 +27,9 @@ vi.mock("@/server/repositories/creative-work-layer-editor", () => ({
   saveCreativeWorkLayerEditorSnapshot: vi.fn(),
   seedLayerEditorState: vi.fn(),
 }));
-vi.mock("@/server/storage", () => ({ objectStorage: { signedDownloadUrl: vi.fn(async (key: string) => `signed:${key}`) } }));
+vi.mock("@/server/storage", () => ({ objectStorage: { signedDownloadUrl: vi.fn(async (key: string) => `signed:${key}`), get: (...args: unknown[]) => storageGet(...args), put: (...args: unknown[]) => storagePut(...args), delete: (...args: unknown[]) => storageDelete(...args) } }));
 
-import { openCreativeWorkLayerEditor } from "./manage-creative-work-layer-editor";
+import { acceptCreativeWorkLayerRegenerationCandidate, discardCreativeWorkLayerRegenerationCandidate, openCreativeWorkLayerEditor } from "./manage-creative-work-layer-editor";
 
 const state: LayerEditorStateV1 = {
   schemaVersion: 1, revision: 1, sourceLayerizationAttemptId: "attempt", canvas: { width: 20, height: 20 },
@@ -40,6 +47,11 @@ describe("openCreativeWorkLayerEditor lease holder projection", () => {
     access.mockResolvedValue({ enabled: true, period: null, layerize: null, regeneration: null });
     output.mockResolvedValue({ layerEditor: state, status: "completed", isSelected: true });
     recover.mockResolvedValue(null);
+    accept.mockResolvedValue({ id: "output" });
+    discard.mockResolvedValue({ id: "output" });
+    storageGet.mockResolvedValue(Buffer.from("candidate"));
+    storagePut.mockResolvedValue(undefined);
+    storageDelete.mockResolvedValue(undefined);
   });
 
   it("projects the workspace-scoped holder name, never the calling member name", async () => {
@@ -102,5 +114,29 @@ describe("openCreativeWorkLayerEditor lease holder projection", () => {
 
     expect(recover).toHaveBeenCalledWith(expect.objectContaining({ outputId: "output", now: expect.any(Date) }));
     expect(result).toMatchObject({ ok: true, document: { regeneration: { status: "submission_unknown" } } });
+  });
+
+  it("owns the immutable acceptance key and cleans only a CAS loser", async () => {
+    const regeneration = { id: "00000000-0000-4000-8000-000000000099", status: "ready" as const, layerId: state.layers[0]!.id, instruction: "Change", requestedByUserId: "viewer", usageKey: "usage", candidateKey: "candidate/private.png", providerRequestId: "request", failureCode: null, createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" };
+    output.mockResolvedValue({ layerEditor: { ...state, regeneration }, status: "completed", isSelected: true });
+    accept.mockResolvedValue(null);
+    const input = { workspaceId: "workspace-a", workItemId: "work", outputId: "output", userId: "viewer", leaseId: state.lease!.id, expectedRevision: 1, operationId: regeneration.id };
+
+    await expect(acceptCreativeWorkLayerRegenerationCandidate(input)).resolves.toEqual({ ok: false, code: "layer_editor_revision_conflict" });
+    const immutableKey = storagePut.mock.calls[0]?.[0];
+    expect(immutableKey).toMatch(/^creative-work\/work\/layer-editor\/output\/layers\/.+\/revisions\/2\//);
+    expect(storageDelete).toHaveBeenCalledWith(immutableKey);
+    expect(storageDelete).not.toHaveBeenCalledWith(regeneration.candidateKey);
+  });
+
+  it("gates discard by entitlement and deletes a candidate only after its transition", async () => {
+    const regeneration = { id: "00000000-0000-4000-8000-000000000099", status: "ready" as const, layerId: state.layers[0]!.id, instruction: "Change", requestedByUserId: "viewer", usageKey: "usage", candidateKey: "candidate/private.png", providerRequestId: "request", failureCode: null, createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" };
+    output.mockResolvedValue({ layerEditor: { ...state, regeneration }, status: "completed", isSelected: true });
+    const input = { workspaceId: "workspace-a", workItemId: "work", outputId: "output", userId: "viewer", leaseId: state.lease!.id, expectedRevision: 1, operationId: regeneration.id };
+    await expect(discardCreativeWorkLayerRegenerationCandidate(input)).resolves.toEqual({ ok: true });
+    expect(storageDelete).toHaveBeenCalledWith(regeneration.candidateKey);
+    access.mockResolvedValue({ enabled: false });
+    await expect(discardCreativeWorkLayerRegenerationCandidate(input)).resolves.toEqual({ ok: false, code: "layer_editor_not_available" });
+    expect(discard).toHaveBeenCalledOnce();
   });
 });
