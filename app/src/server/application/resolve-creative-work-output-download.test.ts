@@ -112,6 +112,26 @@ describe("resolveCreativeWorkOutputDownload", () => {
     expect(mockSigned).not.toHaveBeenCalled();
   });
 
+  it("downloads a published editor PSD even when the layerization source is not completed", async () => {
+    mockGet.mockResolvedValue({
+      work: workItem,
+      outputs: [{
+        ...completedOutput,
+        layerization: { status: "failed" },
+        layerEditor: {
+          schemaVersion: 1, revision: 1, sourceLayerizationAttemptId: "attempt", canvas: { width: 2, height: 2 }, layers: [
+            { id: "00000000-0000-4000-8000-000000000001", source: { order: 0, name: "Base", visible: true, x: 0, y: 0, width: 2, height: 2, key: "layers/base.png" }, order: 0, name: "Base", visible: true, x: 0, y: 0, width: 2, height: 2, currentKey: "layers/base.png", currentKind: "source", restorableKey: null },
+            { id: "00000000-0000-4000-8000-000000000002", source: { order: 1, name: "Product", visible: true, x: 0, y: 0, width: 2, height: 2, key: "layers/product.png" }, order: 1, name: "Product", visible: true, x: 0, y: 0, width: 2, height: 2, currentKey: "layers/product.png", currentKind: "source", restorableKey: null },
+          ], lease: null, regeneration: null,
+          publishedPsdKey: "creative-work/output-1/editor/published.psd", updatedAt: "2026-08-22T00:00:00.000Z",
+        },
+      }],
+    } as never);
+
+    await expect(resolveCreativeWorkOutputDownload({ workspaceId: "ws-1", workItemId: "work-1", outputId: "output-1", format: "psd" })).resolves.toMatchObject({ ok: true, value: { outputKey: "creative-work/output-1/editor/published.psd" } });
+    expect(mockSigned).toHaveBeenCalledWith("creative-work/output-1/editor/published.psd");
+  });
+
   it("materializes the diagnostic ZIP only when it is requested", async () => {
     const base = await sharp({ create: { width: 2, height: 2, channels: 4, background: [20, 30, 40, 255] } }).png().toBuffer();
     mockGetObject.mockResolvedValue(base);

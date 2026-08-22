@@ -114,8 +114,9 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
             <LayerRegenerationPanel document={editor.document} selectedLayerId={selected} mode={editor.mode === "edit" ? "edit" : "read"} access={editor.access ?? { enabled: false, period: null, layerize: null, regeneration: null }} onRegenerate={(id, instruction) => act(() => editor.regenerate(id, instruction))} onAccept={() => act(editor.acceptCandidate)} onDiscard={() => act(editor.discardCandidate)} />
           </aside> : null}
         </div>
+        {editor.hasUnresolvedConflict ? <p role="alert" className="border-t border-amber-500/40 bg-amber-50 px-4 py-3 text-sm text-amber-950">{t("editorConflict")}</p> : null}
         <div role="status" aria-live="polite" className="sr-only">{notice || editor.mode}</div>
-        <div ref={alertRef} role="alert" tabIndex={-1} className="sr-only">{error}</div>
+        <div ref={alertRef} role="alert" tabIndex={-1} className="sr-only">{error || (editor.hasUnresolvedConflict ? t("editorConflict") : "")}</div>
       </DialogContent>
     </Dialog>
   );

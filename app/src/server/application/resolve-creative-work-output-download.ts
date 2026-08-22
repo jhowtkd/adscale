@@ -113,6 +113,9 @@ export async function resolveCreativeWorkOutputDownload(
 
   const format = input.format ?? "original";
   const editor = layerEditorStateFromDatabase(output.layerEditor);
+  if (format === "psd" && editor?.publishedPsdKey) {
+    return { ok: true, value: { url: await objectStorage.signedDownloadUrl(editor.publishedPsdKey), outputKey: editor.publishedPsdKey } };
+  }
   if (["layer", "layer-candidate", "draft-png", "draft-psd"].includes(format)) {
     if (!editor) return { ok: false, error: { code: "output_not_ready", status: "layer_editor_not_started" } };
     let outputKey: string | null = null;

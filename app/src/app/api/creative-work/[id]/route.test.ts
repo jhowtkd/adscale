@@ -1305,11 +1305,32 @@ describe("PATCH /api/creative-work/[id]", () => {
     });
     await Promise.resolve();
 
-    const immutableKey = `creative-work/work-1/layer-editor/${outputId}/layers/${layerId}/revisions/5.png`;
     expect(response.status).toBe(409);
-    expect(layerEditorStoragePutMock).toHaveBeenCalledWith(immutableKey, Buffer.from("candidate"), "image/png");
+    const immutableKey = layerEditorStoragePutMock.mock.calls[0]?.[0];
+    expect(immutableKey).toMatch(new RegExp(`^creative-work/work-1/layer-editor/${outputId}/layers/${layerId}/revisions/5/[0-9a-f-]+\\.png$`));
     expect(layerEditorStorageDeleteMock).toHaveBeenCalledWith(immutableKey);
     expect(layerEditorStorageDeleteMock).not.toHaveBeenCalledWith(candidateKey);
+  });
+
+  it("never deletes the winning immutable asset when concurrent candidate accepts race", async () => {
+    const outputId = "00000000-0000-4000-8000-000000000111";
+    const operationId = "00000000-0000-4000-8000-000000000113";
+    const layerId = "00000000-0000-4000-8000-000000000114";
+    const candidateKey = "layer-editor-candidates/private/candidate.png";
+    getLayerEditorOutputMock.mockResolvedValue({ id: outputId });
+    layerEditorFromOutputMock.mockReturnValue({ regeneration: { id: operationId, status: "ready", layerId, candidateKey } });
+    layerEditorStorageGetMock.mockResolvedValue(Buffer.from("candidate"));
+    acceptCandidateMock.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: outputId });
+
+    const request = { action: "acceptLayerCandidate", outputId, leaseId: "00000000-0000-4000-8000-000000000112", expectedRevision: 4, operationId };
+    const [loser, winner] = await Promise.all([requestPatch(request), requestPatch(request)]);
+    await Promise.resolve();
+
+    expect([loser.status, winner.status].sort()).toEqual([200, 409]);
+    const [loserKey, winnerKey] = layerEditorStoragePutMock.mock.calls.map(([key]) => key);
+    expect(loserKey).not.toBe(winnerKey);
+    expect(layerEditorStorageDeleteMock).toHaveBeenCalledWith(loserKey);
+    expect(layerEditorStorageDeleteMock).not.toHaveBeenCalledWith(winnerKey);
   });
 
   it("discards the candidate storage object only after the discard transition succeeds", async () => {

@@ -85,3 +85,13 @@ export async function releaseLayerEditorQuota(input: { workspaceId: string; kind
     return { released: true };
   });
 }
+
+/** A replay is recoverable only while its compensating release has not been recorded. */
+export async function isLayerEditorQuotaReleased(input: { workspaceId: string; kind: LayerEditorQuotaKind; operationId: string }): Promise<boolean> {
+  const claimKey = `layer-editor:${input.workspaceId}:${input.kind}:${input.operationId}:release`;
+  const [release] = await db.select({ id: usageEvents.id }).from(usageEvents).where(and(
+    eq(usageEvents.workspaceId, input.workspaceId),
+    eq(usageEvents.idempotencyKey, claimKey),
+  )).limit(1);
+  return Boolean(release);
+}
