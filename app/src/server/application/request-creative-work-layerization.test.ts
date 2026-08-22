@@ -330,4 +330,21 @@ describe("requestCreativeWorkLayerization", () => {
     expect(claimMock).not.toHaveBeenCalled();
     expect(sendMock).not.toHaveBeenCalled();
   });
+
+  it("does not resend a queued attempt after durable dispatch confirmation", async () => {
+    let dispatched = false;
+    quotaClaimMock.mockImplementation(async () => ({ ok: true as const, replay: dispatched }));
+    dispatchCommittedMock.mockImplementation(async () => dispatched);
+    markDispatchCommittedMock.mockImplementation(async () => { dispatched = true; return true; });
+    sendMock.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("must not send"));
+    await expect(requestCreativeWorkLayerization(input)).resolves.toMatchObject({ ok: true, accepted: true });
+    await expect(requestCreativeWorkLayerization(input)).resolves.toMatchObject({ ok: true, accepted: false, replay: true });
+    expect(sendMock).toHaveBeenCalledOnce(); expect(failQueuedMock).not.toHaveBeenCalled(); expect(quotaReleaseMock).not.toHaveBeenCalled();
+  });
+
+  it("does not compensate after Layerize dispatch marker persistence fails", async () => {
+    sendMock.mockReset(); sendMock.mockResolvedValue(undefined); markDispatchCommittedMock.mockReset(); markDispatchCommittedMock.mockRejectedValue(new Error("marker"));
+    await expect(requestCreativeWorkLayerization(input)).rejects.toThrow("marker");
+    expect(failQueuedMock).not.toHaveBeenCalled(); expect(quotaReleaseMock).not.toHaveBeenCalled();
+  });
 });

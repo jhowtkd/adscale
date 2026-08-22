@@ -226,4 +226,27 @@ describe("requestCreativeWorkLayerRegeneration", () => {
 
     expect(release).not.toHaveBeenCalled();
   });
+
+  it("does not resend after durable dispatch confirmation", async () => {
+    let dispatched = false;
+    claim.mockImplementation(async () => ({ ok: true as const, replay: dispatched }));
+    reserve.mockResolvedValue({ id: input.outputId });
+    getOutput.mockResolvedValue({ layerEditor: {} });
+    stateFromOutput.mockReturnValue({ regeneration: { id: input.operationId, status: "reserved" } });
+    dispatchCommitted.mockImplementation(async () => dispatched);
+    markDispatchCommitted.mockImplementation(async () => { dispatched = true; return true; });
+    send.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("must not send"));
+    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toMatchObject({ ok: true, accepted: true });
+    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: true, accepted: false, replay: true });
+    expect(send).toHaveBeenCalledOnce();
+    expect(rollback).not.toHaveBeenCalled(); expect(release).not.toHaveBeenCalled();
+  });
+
+  it("does not compensate after dispatch marker persistence fails", async () => {
+    claim.mockResolvedValue({ ok: true, replay: false }); reserve.mockResolvedValue({ id: input.outputId });
+    getOutput.mockResolvedValue({ layerEditor: {} }); stateFromOutput.mockReturnValue({ regeneration: { id: input.operationId, status: "reserved" } });
+    send.mockReset(); send.mockResolvedValue(undefined); markDispatchCommitted.mockReset(); markDispatchCommitted.mockRejectedValue(new Error("marker"));
+    await expect(requestCreativeWorkLayerRegeneration(input)).rejects.toThrow("marker");
+    expect(rollback).not.toHaveBeenCalled(); expect(release).not.toHaveBeenCalled();
+  });
 });
