@@ -22,6 +22,7 @@ import type {
   DeterministicBrandFidelityReport,
   ResidualBrandFidelityReview,
 } from "@/server/creative-work/brand-fidelity";
+import type { LayerEditorAccessV1 } from "@/server/layer-editor/contracts";
 
 type CreativeResultCardProps = {
   output: CreativeWorkOutput;
@@ -37,9 +38,12 @@ type CreativeResultCardProps = {
   isRevising?: boolean;
   hidePreview?: boolean;
   canLayerize?: boolean;
-  onLayerize?: (outputId: string, retry?: boolean) => void;
+  onLayerize?: (outputId: string, retry?: boolean, operationId?: string) => Promise<"accepted" | "terminal" | "uncertain" | void> | void;
   onDownloadLayerized?: (outputId: string, format: "psd" | "zip") => void;
   isLayerizing?: boolean;
+  onOpenLayerEditor?: (outputId: string) => void;
+  layerEditorAccess?: LayerEditorAccessV1;
+  isMobile?: boolean;
 };
 
 const STATUS_LABELS: Record<CreativeWorkOutput["status"], string> = {
@@ -81,6 +85,9 @@ export function CreativeResultCard({
   onLayerize,
   onDownloadLayerized,
   isLayerizing = false,
+  onOpenLayerEditor,
+  layerEditorAccess,
+  isMobile = false,
 }: CreativeResultCardProps) {
   const [editing, setEditing] = useState(false);
   const [instruction, setInstruction] = useState("");
@@ -88,6 +95,8 @@ export function CreativeResultCard({
   const [submitting, setSubmitting] = useState(false);
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [confirmingSelection, setConfirmingSelection] = useState(false);
+  const [layerizeConfirmation, setLayerizeConfirmation] = useState<{ operationId: string; retry: boolean } | null>(null);
+  const [submittingLayerize, setSubmittingLayerize] = useState(false);
   const t = useTranslations("dashboard.home.composer.results");
   const tVoice = useTranslations("feedback.voice");
   const layerizeRegionRef = useRef<HTMLDivElement>(null);
@@ -113,6 +122,8 @@ export function CreativeResultCard({
   const layerizationFailureMessage = t(`layerizeFailure.${layerization?.failureCode
     ? LAYERIZATION_FAILURE_KEYS[layerization.failureCode]
     : "unknown"}`);
+  const layerizeRemaining = layerEditorAccess?.layerize?.remaining ?? null;
+  const canStartLayerize = canLayerize && !isMobile && (layerizeRemaining === null || layerizeRemaining > 0);
   useEffect(() => {
     if (layerizationBusy || isLayerizing) {
       layerizationWasBusy.current = true;
@@ -135,6 +146,17 @@ export function CreativeResultCard({
     && Array.isArray(storedBrandFidelity.residual.signals)
     ? storedBrandFidelity.residual
     : null;
+
+  const confirmLayerize = async () => {
+    if (!layerizeConfirmation || !onLayerize) return;
+    setSubmittingLayerize(true);
+    try {
+      const outcome = await onLayerize(output.id, layerizeConfirmation.retry, layerizeConfirmation.operationId);
+      if (outcome !== "uncertain") setLayerizeConfirmation(null);
+    } finally {
+      setSubmittingLayerize(false);
+    }
+  };
 
   return (
     <div
@@ -303,11 +325,14 @@ export function CreativeResultCard({
               </button>
             ) : null}
             <button type="button" className={actionClass} onClick={() => onDownload(output.id)}>Baixar</button>
+            {(layerization?.status === "completed" || output.layerEditor) && onOpenLayerEditor ? <button type="button" className={actionClass} onClick={() => onOpenLayerEditor(output.id)}>{output.isSelected ? "Editar camadas" : "Visualizar camadas"}</button> : null}
+            {layerization?.status === "completed" && onDownloadLayerized ? <button type="button" className={`${actionClass} border-[var(--focus-ring)]`} onClick={() => onDownloadLayerized(output.id, "psd")}>{t("downloadPsdWithLayers", { count: layerization.layers.length })}</button> : null}
             {onRevise ? <button type="button" className={actionClass} aria-expanded={editing} onClick={() => setEditing((value) => !value)}>Editar</button> : null}
           </div>
-          {canLayerize && output.isSelected && onLayerize ? (
+          {output.isSelected && onLayerize && !isMobile && (canLayerize || layerization) ? (
             <div ref={layerizeRegionRef} tabIndex={-1} aria-busy={layerizationBusy || isLayerizing} className="space-y-2 border-t border-[var(--border-subtle)] pt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" data-testid="layerization-actions">
               <p className="text-xs font-medium text-[var(--text-secondary)]">{t("layerizeSection")}</p>
+              {layerizeRemaining !== null ? <p className="text-xs text-[var(--text-secondary)]">{t("layerizeQuotaRemaining", { count: layerizeRemaining })}</p> : null}
               {!layerization || layerization.status === "failed" ? (
                 <>
                   {layerization?.status === "failed" ? (
@@ -318,8 +343,8 @@ export function CreativeResultCard({
                       type="button"
                       className={actionClass}
                       aria-busy={isLayerizing}
-                      disabled={isLayerizing}
-                      onClick={() => onLayerize(output.id, Boolean(layerization))}
+                      disabled={isLayerizing || !canStartLayerize}
+                      onClick={() => setLayerizeConfirmation({ operationId: crypto.randomUUID(), retry: Boolean(layerization) })}
                     >
                       {isLayerizing ? t("layerizeProcessing") : layerization ? t("layerizeRetry") : t("layerizeStart")}
                     </button>
@@ -328,15 +353,19 @@ export function CreativeResultCard({
               ) : layerization.status === "submission_unknown" ? (
                 <p className="text-xs text-[var(--text-secondary)]">{t("layerizeSubmissionUnknown")}</p>
               ) : layerization.status === "completed" ? (
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" className={`${actionClass} border-[var(--focus-ring)]`} onClick={() => onDownloadLayerized?.(output.id, "psd")}>{t("downloadPsdWithLayers", { count: layerization.layers.length })}</button>
-                  <button type="button" className={actionClass} onClick={() => onDownloadLayerized?.(output.id, "zip")}>{t("downloadPngs")}</button>
-                </div>
+                <p className="text-xs text-[var(--text-secondary)]">{t("layerizeCompleted")}</p>
               ) : (
                 <p className="text-xs text-[var(--text-secondary)]">
                   {layerization.status === "queued" ? t("layerizeQueued") : layerization.status === "processing" ? t("layerizeProcessing") : layerization.status === "finalizing" ? t("layerizeFinalizing") : t("layerizeReconciling")}
                 </p>
               )}
+              {layerizeConfirmation ? <div role="dialog" aria-label={t("layerizeConfirmTitle")} className="rounded-[var(--radius-control)] border border-[var(--border-default)] p-3">
+                <p className="text-sm">{t("layerizeConfirmDescription")}</p>
+                <div className="mt-2 flex gap-2">
+                  <button type="button" className={actionClass} onClick={() => setLayerizeConfirmation(null)}>{t("layerizeCancel")}</button>
+                  <button type="button" className={actionClass} disabled={isLayerizing || submittingLayerize} onClick={() => void confirmLayerize()}>{t("layerizeConfirm")}</button>
+                </div>
+              </div> : null}
               <p aria-live="polite" className="sr-only" data-testid="layerization-live-region">
                 {layerization?.status === "queued"
                   ? t("layerizeQueued")

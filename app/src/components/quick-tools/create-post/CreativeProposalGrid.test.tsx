@@ -6,7 +6,14 @@ vi.mock("next-intl", () => ({
 }));
 
 const annotationMocks = vi.hoisted(() => ({ compile: vi.fn((annotations: Array<{ comment: string }>, generalComment?: string) => [generalComment?.trim(), ...annotations.map((annotation, index) => `${index + 1}. ${annotation.comment}`)].filter(Boolean).join("\n")), render: vi.fn(), isMobile: vi.fn(() => false) }));
+const layerEditorMocks = vi.hoisted(() => ({ render: vi.fn() }));
 vi.mock("@/lib/hooks/use-media-query", () => ({ useIsMobile: annotationMocks.isMobile }));
+vi.mock("@/components/creative-work/layer-editor/LayerEditorDialog", () => ({
+  LayerEditorDialog: (props: { open: boolean; workItemId: string; outputId: string; mode: "edit" | "inspect"; onOpenChange: (open: boolean) => void }) => {
+    layerEditorMocks.render(props);
+    return props.open ? <div data-testid="layer-editor-dialog" data-work-item-id={props.workItemId} data-output-id={props.outputId} data-mode={props.mode} /> : null;
+  },
+}));
 vi.mock("@/components/assistant/CreativeAnnotationEditor", () => ({
   default: ({ onAdd, annotations, isMobile, layout, sidePanel, onBusyChange, generalComment = "", onGeneralCommentChange }: { onAdd: (item: { x: number; y: number; width: number; height: number; comment: string }) => void; annotations: Array<{ comment: string }>; isMobile: boolean; layout?: string; sidePanel?: React.ReactNode; onBusyChange?: (busy: boolean) => void; generalComment?: string; onGeneralCommentChange?: (comment: string) => void }) => <div data-testid="annotation-editor" data-layout={layout} data-mobile={String(isMobile)} data-count={annotations.length}><div data-testid="annotation-editor-preview">{isMobile ? <div data-testid="annotation-mobile-drawing-disabled" /> : <button type="button" onClick={() => onAdd({ x: 0.1, y: 0.2, width: 0.3, height: 0.2, comment: "Reduzir título" })}>add annotation</button>}</div><aside data-testid="annotation-editor-right-panel"><textarea data-testid="annotation-general-comment" value={generalComment} onChange={(event) => onGeneralCommentChange?.(event.target.value)} /><button type="button" onClick={() => onBusyChange?.(true)}>voice busy</button><button type="button" onClick={() => onBusyChange?.(false)}>voice idle</button>{annotations.length > 0 ? <ol data-testid="annotation-numbered-list"><li>1. Reduzir título</li></ol> : null}{sidePanel}</aside></div>,
 }));
@@ -219,6 +226,42 @@ describe("CreativeProposalGrid", () => {
     expect(screen.getByRole("dialog")).toBeVisible();
     expect(screen.getByTestId("annotation-editor")).toBeVisible();
     expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-layout", "split");
+  });
+
+  it("opens one edit dialog for the selected layerized output and closes annotation inspection", () => {
+    const layerized = {
+      ...balancedCompleted,
+      isSelected: true,
+      layerEditor: { revision: 2, layerCount: 3, regenerationStatus: null, updatedAt: "2026-08-22T00:00:00.000Z" },
+    };
+    const before = window.location.href;
+    render(<CreativeProposalGrid outputs={[layerized]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Ampliar Equilibrada em 4:5" }));
+    expect(screen.getByTestId("annotation-editor")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Editar camadas", hidden: true }));
+
+    expect(screen.queryByTestId("annotation-editor")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("layer-editor-dialog")).toHaveLength(1);
+    expect(screen.getByTestId("layer-editor-dialog")).toHaveAttribute("data-output-id", "out-balanced");
+    expect(screen.getByTestId("layer-editor-dialog")).toHaveAttribute("data-mode", "edit");
+    expect(window.location.href).toBe(before);
+  });
+
+  it("opens inspect mode for an unselected output and on mobile", () => {
+    const inspectable = {
+      ...balancedCompleted,
+      layerEditor: { revision: 2, layerCount: 3, regenerationStatus: null, updatedAt: "2026-08-22T00:00:00.000Z" },
+    };
+    const { unmount } = render(<CreativeProposalGrid outputs={[inspectable]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Visualizar camadas" }));
+    expect(screen.getByTestId("layer-editor-dialog")).toHaveAttribute("data-mode", "inspect");
+    unmount();
+
+    annotationMocks.isMobile.mockReturnValue(true);
+    render(<CreativeProposalGrid outputs={[{ ...inspectable, isSelected: true }]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Editar camadas" }));
+    expect(screen.getByTestId("layer-editor-dialog")).toHaveAttribute("data-mode", "inspect");
   });
 
   it("submits one annotated revision and clears only on success", async () => {

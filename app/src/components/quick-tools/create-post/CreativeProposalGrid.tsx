@@ -5,6 +5,7 @@ import { Expand } from "lucide-react";
 import { useTranslations } from "next-intl";
 import CreativeAnnotationEditor from "@/components/assistant/CreativeAnnotationEditor";
 import { CreativeResultCard } from "@/components/creative-work/CreativeResultCard";
+import { LayerEditorDialog } from "@/components/creative-work/layer-editor/LayerEditorDialog";
 import {
   OUTPUT_ANNOTATION_COMMENT_MAX_LENGTH,
   OUTPUT_ANNOTATION_MAX_COUNT,
@@ -24,6 +25,7 @@ import {
 import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { useIsMobile } from "@/lib/hooks/use-media-query";
 import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
+import type { LayerEditorAccessV1 } from "@/server/layer-editor/contracts";
 
 type CreativeProposalGridProps = {
   outputs: CreativeWorkOutput[];
@@ -40,9 +42,10 @@ type CreativeProposalGridProps = {
   isRevising?: (outputId: string) => boolean;
   isSaving?: (outputId: string) => boolean;
   canLayerize?: boolean;
-  onLayerize?: (outputId: string, retry?: boolean) => void;
+  onLayerize?: (outputId: string, retry?: boolean, operationId?: string) => Promise<"accepted" | "terminal" | "uncertain" | void> | void;
   onDownloadLayerized?: (outputId: string, format: "psd" | "zip") => void;
   isLayerizing?: (outputId: string) => boolean;
+  layerEditorAccess?: LayerEditorAccessV1;
 };
 
 const LEVEL_ORDER: CreativeWorkOutput["creativeLevel"][] = ["conservative", "balanced", "bold"];
@@ -78,6 +81,7 @@ export default function CreativeProposalGrid({
   onLayerize,
   onDownloadLayerized,
   isLayerizing,
+  layerEditorAccess,
 }: CreativeProposalGridProps) {
   const latest = new Map<string, CreativeWorkOutput>();
   for (const output of outputs) {
@@ -95,6 +99,7 @@ export default function CreativeProposalGrid({
   const approve = onApprove ?? onSave ?? (() => undefined);
   const [selectedId, setSelectedId] = useState(visible[0]?.id);
   const [expanded, setExpanded] = useState(false);
+  const [layerEditorOutputId, setLayerEditorOutputId] = useState<string | null>(null);
   const [annotationsByOutput, setAnnotationsByOutput] = useState<Record<string, OutputAnnotation[]>>({});
   const [generalCommentsByOutput, setGeneralCommentsByOutput] = useState<Record<string, string>>({});
   const [submittingAnnotations, setSubmittingAnnotations] = useState(false);
@@ -103,6 +108,10 @@ export default function CreativeProposalGrid({
   const isMobile = useIsMobile();
   const t = useTranslations("dashboard.home.composer.results");
   const selected = visible.find((output) => output.id === selectedId) ?? visible[0];
+  const layerEditorOutput = layerEditorOutputId
+    ? outputs.find((output) => output.id === layerEditorOutputId)
+    : null;
+  const layerEditorMode = isMobile || !layerEditorOutput?.isSelected ? "inspect" : "edit";
   const selectedAnnotations = selected ? annotationsByOutput[selected.id] ?? [] : [];
   const selectedGeneralComment = selected ? generalCommentsByOutput[selected.id] ?? "" : "";
 
@@ -190,6 +199,13 @@ export default function CreativeProposalGrid({
             onLayerize={onLayerize}
             onDownloadLayerized={onDownloadLayerized}
             isLayerizing={isLayerizing?.(selected.id)}
+            layerEditorAccess={layerEditorAccess}
+            isMobile={isMobile}
+            onOpenLayerEditor={(outputId) => {
+              setExpanded(false);
+              setAnnotationVoiceBusy(false);
+              setLayerEditorOutputId(outputId);
+            }}
             hidePreview
           />
         </div>
@@ -263,6 +279,19 @@ export default function CreativeProposalGrid({
           </DialogBody>
         </DialogContent>
       </Dialog>
+
+      {layerEditorOutput ? (
+        <LayerEditorDialog
+          key={layerEditorOutput.id}
+          open
+          workItemId={layerEditorOutput.workItemId}
+          outputId={layerEditorOutput.id}
+          mode={layerEditorMode}
+          onOpenChange={(open) => {
+            if (!open) setLayerEditorOutputId(null);
+          }}
+        />
+      ) : null}
     </>
   );
 }

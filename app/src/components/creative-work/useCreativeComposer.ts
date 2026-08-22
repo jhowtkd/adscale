@@ -1117,13 +1117,15 @@ export function useCreativeComposer({
     }
   }, [retryOutputMutation]);
 
-  const layerizeOutput = useCallback(async (outputId: string, retry = false) => {
-    if (!workIdRef.current) return;
+  const layerizeOutput = useCallback(async (outputId: string, retry = false, operationId = crypto.randomUUID()): Promise<"accepted" | "terminal" | "uncertain"> => {
+    if (!workIdRef.current) return "terminal";
     try {
-      await layerizeOutputMutation.mutateAsync({ workItemId: workIdRef.current, outputId, operationId: crypto.randomUUID(), ...(retry ? { retry: true } : {}) });
+      await layerizeOutputMutation.mutateAsync({ workItemId: workIdRef.current, outputId, operationId, ...(retry ? { retry: true } : {}) });
       setAnnouncement(retry ? tResults("layerizeRestarted") : tResults("layerizeStarted"));
+      return "accepted";
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : tResults("layerizeRequestFailed"));
+      return isApiRequestUncertain(cause) ? "uncertain" : "terminal";
     }
   }, [layerizeOutputMutation, tResults]);
 
@@ -1339,6 +1341,7 @@ export function useCreativeComposer({
     addFiles, addInspiration, updateSource, editSource, retrySource, removeSource, generate,
     retryOutput, retryRevisionOutput, approveOutput, reviseOutput, linkCampaign,
     canLayerize: detail?.canLayerize ?? false,
+    layerEditorAccess: detail?.layerEditorAccess,
     layerizeOutput,
     downloadLayerizedOutput: (outputId: string, format: "psd" | "zip") => {
       if (!workIdRef.current) return;
