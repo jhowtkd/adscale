@@ -11,6 +11,7 @@ import {
   useLinkCreativeWorkCampaign,
   usePrepareCreativeWork,
   useReviseOutput,
+  useSelectOutput,
   useTriggerTriplet,
   useSuggestCreativeDirections,
 } from "./use-creative-work";
@@ -136,6 +137,33 @@ describe("creative source client contract", () => {
       code: "rateLimitExceeded",
       status: 429,
     });
+  });
+});
+
+describe("selection client contract", () => {
+  it("re-reads the output policy when selection loses a server race", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: "Revise antes de aprovar",
+        code: "creativeWorkOutputConfirmationRequired",
+        details: { rationale: "objective_inconclusive", nextStep: "review_then_confirm" },
+      }),
+    } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+    const { result } = renderHook(() => useSelectOutput(), { wrapper: wrapperWith(queryClient) });
+
+    await expect(act(() => result.current.mutateAsync({
+      workItemId: "work-1",
+      outputId: "output-1",
+      saveToLibrary: false,
+    }))).rejects.toMatchObject({ code: "creativeWorkOutputConfirmationRequired" });
+
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["creative-work", "work-1"],
+    }));
   });
 });
 

@@ -739,6 +739,9 @@ export function useSelectOutput() {
         invalidateCanonicalWorks(queryClient),
       ]);
     },
+    onError: (_error, variables) => queryClient.invalidateQueries({
+      queryKey: ["creative-work", variables.workItemId],
+    }),
   });
 }
 
