@@ -13,6 +13,8 @@ describe("toPublicLayerizationState", () => {
         normalizedBoundingBox: { x: 0, y: 0, width: 1, height: 1 }, storageKey: "private/layer.png", sourceBytes: 10 }],
       psdKey: "private/piece.psd", diagnosticZipKey: "private/piece.zip", fidelity: null, failureCode: null,
     });
+    expect(value).toMatchObject({ operationId: "attempt-1" });
+    expect(value).not.toHaveProperty("attemptId");
     expect(value?.layers[0]).not.toHaveProperty("storageKey");
     expect(value).not.toHaveProperty("callbackTokenHash");
     expect(value).not.toHaveProperty("providerEndpoint");

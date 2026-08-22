@@ -252,7 +252,7 @@ describe("useLayerEditor", () => {
     expect(callsFor("openLayerEditor")).toHaveLength(3);
   });
 
-  it("replaces only a definitively compensated regeneration operation id", async () => {
+  it("retains the regeneration operation id after ambiguous dispatch failure", async () => {
     vi.useFakeTimers();
     patch.mockImplementation((...params: unknown[]) => {
       const body = params[1] as { action: string };
@@ -264,7 +264,7 @@ describe("useLayerEditor", () => {
     await expect(hook.result.current.regenerate(editorDocument.layers[0]!.id, "Change")).rejects.toThrow("dispatch");
     const ids = callsFor("regenerateLayer").map(([, body]) => (body as { operationId: string }).operationId);
     expect(ids).toHaveLength(2);
-    expect(ids[0]).not.toBe(ids[1]);
+    expect(ids[0]).toBe(ids[1]);
   });
 
   for (const [action, invoke] of [
