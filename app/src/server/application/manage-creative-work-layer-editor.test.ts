@@ -6,13 +6,16 @@ const output = vi.hoisted(() => vi.fn());
 const holderName = vi.hoisted(() => vi.fn());
 const acquire = vi.hoisted(() => vi.fn());
 const recover = vi.hoisted(() => vi.fn());
+const recoverReserved = vi.hoisted(() => vi.fn());
+const releaseQuota = vi.hoisted(() => vi.fn());
+const operationLock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 const accept = vi.hoisted(() => vi.fn());
 const discard = vi.hoisted(() => vi.fn());
 const storageGet = vi.hoisted(() => vi.fn());
 const storagePut = vi.hoisted(() => vi.fn());
 const storageDelete = vi.hoisted(() => vi.fn());
 
-vi.mock("@/server/layer-editor/quota", () => ({ getLayerEditorAccess: access }));
+vi.mock("@/server/layer-editor/quota", () => ({ getLayerEditorAccess: access, releaseLayerEditorQuota: releaseQuota, withLayerEditorOperationLock: operationLock }));
 vi.mock("@/server/repositories/creative-work-layer-editor", () => ({
   getCreativeWorkLayerEditorOutput: output,
   getCreativeWorkLayerEditorLeaseHolderName: holderName,
@@ -20,6 +23,7 @@ vi.mock("@/server/repositories/creative-work-layer-editor", () => ({
   acceptLayerRegenerationCandidate: accept,
   discardLayerRegenerationCandidate: discard,
   recoverStaleLayerRegeneration: recover,
+  recoverStaleReservedLayerRegeneration: recoverReserved,
   heartbeatCreativeWorkLayerEditorLease: vi.fn(),
   initializeCreativeWorkLayerEditor: vi.fn(),
   layerizationFromOutput: vi.fn(),
@@ -29,7 +33,7 @@ vi.mock("@/server/repositories/creative-work-layer-editor", () => ({
 }));
 vi.mock("@/server/storage", () => ({ objectStorage: { signedDownloadUrl: vi.fn(async (key: string) => `signed:${key}`), get: (...args: unknown[]) => storageGet(...args), put: (...args: unknown[]) => storagePut(...args), delete: (...args: unknown[]) => storageDelete(...args) } }));
 
-import { acceptCreativeWorkLayerRegenerationCandidate, discardCreativeWorkLayerRegenerationCandidate, openCreativeWorkLayerEditor } from "./manage-creative-work-layer-editor";
+import { acceptCreativeWorkLayerRegenerationCandidate, discardCreativeWorkLayerRegenerationCandidate, openCreativeWorkLayerEditor, recoverCreativeWorkLayerEditorStaleRegeneration } from "./manage-creative-work-layer-editor";
 
 const state: LayerEditorStateV1 = {
   schemaVersion: 1, revision: 1, sourceLayerizationAttemptId: "attempt", canvas: { width: 20, height: 20 },
@@ -47,6 +51,9 @@ describe("openCreativeWorkLayerEditor lease holder projection", () => {
     access.mockResolvedValue({ enabled: true, period: null, layerize: null, regeneration: null });
     output.mockResolvedValue({ layerEditor: state, status: "completed", isSelected: true });
     recover.mockResolvedValue(null);
+    recoverReserved.mockResolvedValue(null);
+    releaseQuota.mockResolvedValue({ released: true });
+    operationLock.mockImplementation(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({}));
     accept.mockResolvedValue({ id: "output" });
     discard.mockResolvedValue({ id: "output" });
     storageGet.mockResolvedValue(Buffer.from("candidate"));
@@ -114,6 +121,20 @@ describe("openCreativeWorkLayerEditor lease holder projection", () => {
 
     expect(recover).toHaveBeenCalledWith(expect.objectContaining({ outputId: "output", now: expect.any(Date) }));
     expect(result).toMatchObject({ ok: true, document: { regeneration: { status: "submission_unknown" } } });
+  });
+
+  it("transitions and compensates a stale reservation exactly once in one operation transaction", async () => {
+    const reserved = { ...state, regeneration: { id: "00000000-0000-4000-8000-000000000099", status: "reserved" as const, layerId: state.layers[0]!.id, instruction: "Change", requestedByUserId: "viewer", usageKey: "usage", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" } };
+    const terminal = { ...reserved, regeneration: { ...reserved.regeneration, status: "failed" as const, failureCode: "layer_regeneration_dispatch_stale" } };
+    output.mockResolvedValue({ layerEditor: reserved });
+    recoverReserved.mockResolvedValueOnce({ layerEditor: terminal }).mockResolvedValueOnce(null);
+    const recovery = { workspaceId: "workspace-a", workItemId: "work", outputId: "output", now: new Date("2026-08-22T00:06:00.000Z") };
+
+    await expect(recoverCreativeWorkLayerEditorStaleRegeneration(recovery)).resolves.toMatchObject({ layerEditor: terminal });
+    await expect(recoverCreativeWorkLayerEditorStaleRegeneration(recovery)).resolves.toBeNull();
+    expect(operationLock).toHaveBeenCalledWith(expect.objectContaining({ operationId: reserved.regeneration.id }), expect.any(Function));
+    expect(releaseQuota).toHaveBeenCalledTimes(1);
+    expect(releaseQuota).toHaveBeenCalledWith(expect.objectContaining({ operationId: reserved.regeneration.id, kind: "layer_regeneration_v1" }), recovery.now, expect.anything());
   });
 
   it("owns the immutable acceptance key and cleans only a CAS loser", async () => {
