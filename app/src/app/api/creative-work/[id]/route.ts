@@ -25,6 +25,9 @@ import {
   saveCreativeWorkLayerEditor,
 } from "@/server/application/manage-creative-work-layer-editor";
 import { layerEditorMutableSnapshotSchema } from "@/server/layer-editor/contracts";
+import { requestCreativeWorkLayerRegeneration } from "@/server/application/request-creative-work-layer-regeneration";
+import { acceptLayerRegenerationCandidate, discardLayerRegenerationCandidate, getCreativeWorkLayerEditorOutput, layerEditorFromOutput } from "@/server/repositories/creative-work-layer-editor";
+import { objectStorage } from "@/server/storage";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import {
   CREATIVE_SOURCE_USAGES,
@@ -147,6 +150,8 @@ const openLayerEditorSchema = z.object({ action: z.literal("openLayerEditor"), o
 const heartbeatLayerEditorSchema = z.object({ action: z.literal("heartbeatLayerEditor"), outputId: z.string().uuid(), leaseId: z.string().uuid() }).strict();
 const releaseLayerEditorSchema = z.object({ action: z.literal("releaseLayerEditor"), outputId: z.string().uuid(), leaseId: z.string().uuid() }).strict();
 const saveLayerEditorSchema = z.object({ action: z.literal("saveLayerEditor"), outputId: z.string().uuid(), leaseId: z.string().uuid(), expectedRevision: z.number().int().positive(), snapshot: layerEditorMutableSnapshotSchema }).strict();
+const regenerateLayerSchema=z.object({action:z.literal("regenerateLayer"),outputId:z.string().uuid(),leaseId:z.string().uuid(),expectedRevision:z.number().int().positive(),operationId:z.string().uuid(),layerId:z.string().uuid(),instruction:z.string().trim().min(1).max(2000)}).strict();
+const candidateActionSchema=z.object({action:z.enum(["acceptLayerCandidate","discardLayerCandidate"]),outputId:z.string().uuid(),leaseId:z.string().uuid(),expectedRevision:z.number().int().positive(),operationId:z.string().uuid()}).strict();
 const linkCampaignSchema = z.object({ action: z.literal("linkCampaign"), campaignId: z.string().min(1).nullable() }).strict();
 const sourceUsageSchema = z.enum(CREATIVE_SOURCE_USAGES);
 const attachSourceSchema = z.union([
@@ -168,6 +173,7 @@ const patchCreativeWorkSchema = z.union([
   linkCampaignSchema, resolveBrandConflictSchema,
   layerizeOutputSchema,
   openLayerEditorSchema, heartbeatLayerEditorSchema, releaseLayerEditorSchema, saveLayerEditorSchema,
+  regenerateLayerSchema,candidateActionSchema,
 ]);
 
 function dispatchSourceAnalysis(workspaceId: string, workItemId: string, sourceId: string) {
@@ -483,6 +489,17 @@ export async function PATCH(
     }
     if ("action" in parsed.data && parsed.data.action === "releaseLayerEditor") {
       return NextResponse.json(await releaseCreativeWorkLayerEditor({ workspaceId: workspace.id, workItemId: id, outputId: parsed.data.outputId, userId: user.id, leaseId: parsed.data.leaseId }));
+    }
+    if ("action" in parsed.data && parsed.data.action === "regenerateLayer") {
+      const result=await requestCreativeWorkLayerRegeneration({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id});
+      return result.ok?NextResponse.json(result,{status:result.accepted?202:200}):apiError(result.code, result.code==="layer_regeneration_dispatch_failed"?503:409);
+    }
+    if ("action" in parsed.data && (parsed.data.action === "acceptLayerCandidate" || parsed.data.action === "discardLayerCandidate")) {
+      const row=await getCreativeWorkLayerEditorOutput({workspaceId:workspace.id,workItemId:id,outputId:parsed.data.outputId}); const state=layerEditorFromOutput(row); const candidate=state?.regeneration;
+      if(!state||!candidate||candidate.id!==parsed.data.operationId)return apiError("layer_editor_revision_conflict",409);
+      if(parsed.data.action==="discardLayerCandidate") { const updated=await discardLayerRegenerationCandidate({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id,now:new Date()}); if(!updated)return apiError("layer_editor_revision_conflict",409); if(candidate.candidateKey) void objectStorage.delete(candidate.candidateKey); return NextResponse.json({ok:true}); }
+      if(candidate.status!=="ready"||!candidate.candidateKey)return apiError("layer_editor_revision_conflict",409);
+      const key=`creative-work/${id}/layer-editor/${parsed.data.outputId}/layers/${candidate.layerId}/revisions/${parsed.data.expectedRevision+1}.png`; await objectStorage.put(key,await objectStorage.get(candidate.candidateKey),"image/png"); const updated=await acceptLayerRegenerationCandidate({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id,immutableKey:key,now:new Date()}); if(!updated){void objectStorage.delete(key);return apiError("layer_editor_revision_conflict",409);} void objectStorage.delete(candidate.candidateKey); return NextResponse.json({ok:true});
     }
 
     if ("action" in parsed.data && parsed.data.action === "autosave") {
