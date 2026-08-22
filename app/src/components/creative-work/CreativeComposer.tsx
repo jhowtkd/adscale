@@ -698,6 +698,7 @@ export function CreativeComposer({ composer, composerRef }: {
             isApproving={composer.isApprovingOutput}
             approvalErrorOutputId={composer.approvalErrorOutputId}
             isRevising={composer.isRevisingOutput}
+            onLayerEditorPublished={composer.refreshOutputs}
           />
         </section>
       ) : null}

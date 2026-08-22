@@ -1362,6 +1362,7 @@ export function useCreativeComposer({
         && current.revisionInstruction === reviseOutputMutation.variables?.instruction
         && current.revisionAssetId === reviseOutputMutation.variables?.revisionAssetId;
     },
+    refreshOutputs: async () => { await detailQuery.refetch(); },
   };
 }
 

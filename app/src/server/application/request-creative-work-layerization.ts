@@ -104,6 +104,14 @@ export async function requestCreativeWorkLayerization(input: {
   if (existing?.status === "submission_unknown") {
     return { ok: false, error: { code: "submission_unknown", state: existing } };
   }
+  if (existing?.status === "queued" && existing.attemptId === input.operationId) {
+    try {
+      await inngest.send({ id: `creative-work-layerize:${input.outputId}:${existing.attemptId}`, name: heavyImageEventName("creative-work.layerize"), data: { workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId, attemptId: existing.attemptId } });
+      return { ok: true, accepted: false, replay: true, state: existing };
+    } catch {
+      return { ok: false, error: { code: "dispatch_failed" } };
+    }
+  }
   if (existing && existing.status !== "failed") {
     return { ok: false, error: { code: "already_running", state: existing } };
   }

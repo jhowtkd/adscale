@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Download, Redo2, Undo2, Upload, X } from "lucide-react";
+import { Download, Redo2, RotateCcw, Undo2, Upload, X } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { LayerCanvas } from "./LayerCanvas";
@@ -16,6 +16,7 @@ type LayerEditorDialogProps = {
   outputId: string;
   mode?: "edit" | "inspect";
   onOpenChange: (open: boolean) => void;
+  onPublished?: () => void | Promise<void>;
 };
 
 function isEditableTarget(target: EventTarget | null) {
@@ -23,7 +24,7 @@ function isEditableTarget(target: EventTarget | null) {
   return target.isContentEditable || Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
 }
 
-export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", onOpenChange }: LayerEditorDialogProps) {
+export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", onOpenChange, onPublished }: LayerEditorDialogProps) {
   const editor = useLayerEditor({ workItemId, outputId, mode });
   const { canRedo, canUndo, mode: editorMode, redo, undo } = editor;
   const t = useTranslations("dashboard.home.composer.results");
@@ -78,6 +79,23 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
       setError(reason instanceof Error ? reason.message : t("editorSaveError"));
     }
   };
+  const publish = async () => {
+    setExporting(true);
+    try {
+      const result = await editor.publish();
+      if (!result || typeof result !== "object" || !("ok" in result) || result.ok !== true) {
+        setError(t("editorSaveError"));
+        return;
+      }
+      setNotice(t("editorPublished"));
+      onOpenChange(false);
+      void Promise.resolve(onPublished?.()).catch(() => undefined);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t("editorSaveError"));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) void close(); else onOpenChange(next); }}>
@@ -95,19 +113,17 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
           </> : null}
           <Button variant="outline" size="sm" disabled={!editor.document || exporting} onClick={() => void runExport("draft-png")}><Download />{t("editorExportPng")}</Button>
           <Button variant="outline" size="sm" disabled={!editor.document || exporting} onClick={() => void runExport("draft-psd")}><Download />{t("editorExportPsd")}</Button>
-          {editor.mode === "edit" && editor.document ? <Button size="sm" disabled={exporting} onClick={async () => {
-            setExporting(true);
-            try {
-              await editor.publish();
-              setNotice(t("editorPublished"));
-            } catch (reason) {
-              setError(reason instanceof Error ? reason.message : t("editorSaveError"));
-            } finally {
-              setExporting(false);
-            }
-          }}><Upload />{t("editorPublish")}</Button> : null}
+          {editor.mode === "edit" && editor.document ? <Button size="sm" disabled={exporting} onClick={() => void publish()}><Upload />{t("editorPublish")}</Button> : null}
         </header>
-        <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[3.5rem_minmax(0,1fr)_22rem]">
+          {editor.document ? <aside aria-label={t("editorTools")} className="hidden min-h-0 flex-col items-center gap-2 border-r bg-muted/20 px-1 py-3 xl:flex">
+            {editor.mode === "edit" ? <>
+              <Button variant="ghost" size="icon" title={t("editorUndo")} aria-label={t("editorUndo")} disabled={!editor.canUndo} onClick={editor.undo}><Undo2 /></Button>
+              <Button variant="ghost" size="icon" title={t("editorRedo")} aria-label={t("editorRedo")} disabled={!editor.canRedo} onClick={editor.redo}><Redo2 /></Button>
+              <Button variant="ghost" size="icon" title={t("editorRestoreAll")} aria-label={t("editorRestoreAll")} onClick={() => restore(true)}><RotateCcw /></Button>
+            </> : null}
+            <Button variant="ghost" size="icon" title={t("editorExportPng")} aria-label={t("editorExportPng")} disabled={exporting} onClick={() => void runExport("draft-png")}><Download /></Button>
+          </aside> : null}
           {editor.document ? <LayerCanvas document={editor.document} selectedLayerId={selected} onSelect={setSelected} mode={editor.mode === "edit" ? "edit" : "read"} dispatch={editor.dispatch} visibilityOverrides={editor.mode === "edit" ? undefined : inspectVisibility} /> : <div role={editor.openError ? "alert" : undefined} className="grid place-items-center p-6">{editor.openError ?? t("editorLoading")}</div>}
           {editor.document ? <aside className="min-h-0 overflow-y-auto border-l bg-muted/20 max-md:border-t max-md:border-l-0">
             <LayerPanel document={editor.document} selectedLayerId={selected} onSelect={setSelected} mode={editor.mode} dispatch={editor.dispatch} onInspectVisibilityChange={(id, visible) => setInspectVisibility((current) => ({ ...current, [id]: visible }))} />

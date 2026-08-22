@@ -681,6 +681,7 @@
           "editorCloseSaveFailed": "Could not save before closing",
           "editorUndo": "Undo",
           "editorRedo": "Redo",
+          "editorTools": "Editor tools",
           "editorLayerName": "Layer name",
           "editorPublished": "New version created",
           "editorCanvas": "Layer canvas",

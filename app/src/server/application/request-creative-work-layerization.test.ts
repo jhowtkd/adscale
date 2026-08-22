@@ -74,7 +74,7 @@ describe("requestCreativeWorkLayerization", () => {
     else process.env.ATLASCLOUD_API_KEY = originalAtlasCloudKey;
   });
 
-  it("claims one attempt and replays a second command without another event", async () => {
+  it("claims one attempt and redelivers the stable event for a queued replay", async () => {
     const first = await requestCreativeWorkLayerization(input);
     expect(first.ok).toBe(true);
     if (!first.ok) return;
@@ -82,10 +82,9 @@ describe("requestCreativeWorkLayerization", () => {
 
     const second = await requestCreativeWorkLayerization(input);
 
-    expect(second.ok).toBe(false);
-    if (!second.ok) expect(second.error.code).toBe("already_running");
+    expect(second).toMatchObject({ ok: true, accepted: false, replay: true });
     expect(claimMock).toHaveBeenCalledOnce();
-    expect(sendMock).toHaveBeenCalledOnce();
+    expect(sendMock).toHaveBeenCalledTimes(2);
   });
 
   it("recovers a quota claim that exists before the layerization reservation", async () => {

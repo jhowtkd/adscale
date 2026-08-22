@@ -31,12 +31,22 @@ describe("requestCreativeWorkLayerRegeneration", () => {
   it("replays a claimed operation without reserving or dispatching a second event", async () => {
     claim.mockResolvedValue({ ok: true, replay: true });
     getOutput.mockResolvedValue({ layerEditor: {} });
-    stateFromOutput.mockReturnValue({ regeneration: { id: input.operationId } });
+    stateFromOutput.mockReturnValue({ regeneration: { id: input.operationId, status: "processing" } });
 
     await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: true, accepted: false, replay: true });
 
     expect(reserve).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("redelivers the stable event for a replayed reservation", async () => {
+    claim.mockResolvedValue({ ok: true, replay: true });
+    getOutput.mockResolvedValue({ layerEditor: {} });
+    stateFromOutput.mockReturnValue({ regeneration: { id: input.operationId, status: "reserved" } });
+    send.mockResolvedValue(undefined);
+
+    await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: true, accepted: false, replay: true });
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ id: `creative-work-layer-regenerate:${input.outputId}:${input.operationId}` }));
   });
 
   it("rejects a released or undispatched quota replay that has no matching regeneration", async () => {

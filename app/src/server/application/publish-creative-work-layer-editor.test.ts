@@ -70,6 +70,7 @@ describe("publishCreativeWorkLayerEditor", () => {
     const result = await publishCreativeWorkLayerEditor(input);
 
     expect(result).toMatchObject({ ok: true, replay: false, output: { id: "child-1", parentOutputId: parent.id, isSelected: false, status: "completed" } });
+    expect(JSON.stringify(result)).not.toMatch(/outputKey|layerEditor|publishedPsdKey|private\//);
     const prefix = `creative-work/${input.workItemId}/layer-editor/${input.outputId}/published/${input.operationId}`;
     expect(storagePut).toHaveBeenNthCalledWith(1, `${prefix}/piece.png`, Buffer.from("draft/piece.png"), "image/png");
     expect(storagePut).toHaveBeenNthCalledWith(2, `${prefix}/piece.psd`, Buffer.from("draft/piece.psd"), "image/vnd.adobe.photoshop");

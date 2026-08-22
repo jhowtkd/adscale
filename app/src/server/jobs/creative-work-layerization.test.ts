@@ -26,6 +26,7 @@ const writePsdMock = vi.hoisted(() => vi.fn());
 const writeZipMock = vi.hoisted(() => vi.fn());
 const loggerInfoMock = vi.hoisted(() => vi.fn());
 const loggerWarnMock = vi.hoisted(() => vi.fn());
+const quotaReleaseMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => getCreativeWorkMock(...args),
@@ -50,6 +51,7 @@ vi.mock("@/server/storage", () => ({
     putStream: (...args: unknown[]) => objectPutStreamMock(...args),
   },
 }));
+vi.mock("@/server/layer-editor/quota", () => ({ releaseLayerEditorQuota: (...args: unknown[]) => quotaReleaseMock(...args) }));
 vi.mock("@/lib/logger", () => ({
   logger: {
     info: (...args: unknown[]) => loggerInfoMock(...args),
@@ -344,10 +346,12 @@ describe("creative work layerization job", () => {
     getCreativeWorkMock.mockResolvedValue({
       outputs: [{ id: event.outputId, status: "completed", isSelected: false, outputKey: "creative-work/original.png" }],
     });
+    failMock.mockResolvedValue(row({ ...state("failed"), failureCode: "no_longer_eligible" }));
 
     await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
     expect(provider.submit).not.toHaveBeenCalled();
     expect(failMock).toHaveBeenCalledWith(expect.objectContaining({ code: "no_longer_eligible" }));
+    expect(quotaReleaseMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: event.attemptId }), expect.any(Date));
   });
 
   it("does not submit if selection changes after the signed URL is issued", async () => {

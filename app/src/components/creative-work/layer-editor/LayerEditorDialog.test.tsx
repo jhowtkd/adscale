@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicLayerEditorDocumentV1 } from "@/server/layer-editor/contracts";
 
@@ -13,7 +13,7 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => ({
     editorTitle: "Editor de camadas", editorReadOnly: "Somente leitura", editorSaveError: "Não foi possível salvar as alterações",
     editorSaving: "Salvando alterações", editorSaved: "Alterações salvas", editorLayers: "Camadas", editorClose: "Fechar editor", editorLoading: "Carregando", editorLayerCount: "{count} camadas", editorCloseSaveFailed: "Não foi possível salvar antes de fechar", editorRegenerate: "Regenerar camada", editorInstruction: "Instrução", editorQuotaRemaining: "Cota restante: {count}", editorNoActiveRegeneration: "Sem regeneração ativa", editorSelectLayer: "Selecione uma camada", editorConfirmRegeneration: "Confirmar regeneração", editorRestoreLayer: "Restaurar camada",
-    editorRestoreAll: "Restaurar tudo", editorExportPng: "Exportar PNG", editorExportPsd: "Exportar PSD", editorPublish: "Criar nova versão", editorUndo: "Desfazer", editorRedo: "Refazer", editorLayerName: "Nome da camada", editorPublished: "Nova versão criada", editorCanvas: "Canvas de camadas", editorSelectedLayer: "Camada selecionada", editorResizeHandle: "Redimensionar {handle}",
+    editorRestoreAll: "Restaurar tudo", editorExportPng: "Exportar PNG", editorExportPsd: "Exportar PSD", editorPublish: "Criar nova versão", editorUndo: "Desfazer", editorRedo: "Refazer", editorLayerName: "Nome da camada", editorPublished: "Nova versão criada", editorCanvas: "Canvas de camadas", editorSelectedLayer: "Camada selecionada", editorResizeHandle: "Redimensionar {handle}", editorTools: "Ferramentas do editor",
   }[key] ?? key),
 }));
 
@@ -75,6 +75,7 @@ describe("LayerEditorDialog", () => {
     expect(screen.getByRole("dialog", { name: "Editor de camadas" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Canvas de camadas" })).toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Camadas" })).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Ferramentas do editor" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Criar nova versão" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Produto/ }));
     expect(screen.getByLabelText("Camada selecionada")).toHaveClass("z-[200]");
@@ -100,8 +101,8 @@ describe("LayerEditorDialog", () => {
     mocks.useLayerEditor.mockReturnValue(value);
     render(<LayerEditorDialog open workItemId="work-3" outputId="output-3" onOpenChange={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Desfazer" }));
-    fireEvent.click(screen.getByRole("button", { name: "Refazer" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Desfazer" })[0]!);
+    fireEvent.click(screen.getAllByRole("button", { name: "Refazer" })[0]!);
     expect(value.undo).toHaveBeenCalledTimes(1);
     expect(value.redo).toHaveBeenCalledTimes(1);
 
@@ -128,7 +129,7 @@ describe("LayerEditorDialog", () => {
     expect(screen.getByRole("button", { name: "Restaurar camada" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: /Produto/ }));
     fireEvent.click(screen.getByRole("button", { name: "Restaurar camada" }));
-    fireEvent.click(screen.getByRole("button", { name: "Restaurar tudo" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Restaurar tudo" })[0]!);
 
     expect(confirm).toHaveBeenCalledTimes(2);
     expect(value.dispatch).toHaveBeenNthCalledWith(1, { type: "restore", id: document.layers[0].id });
@@ -144,8 +145,35 @@ describe("LayerEditorDialog", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Produto/ }));
     fireEvent.click(screen.getByRole("button", { name: "Restaurar camada" }));
-    fireEvent.click(screen.getByRole("button", { name: "Restaurar tudo" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Restaurar tudo" })[0]!);
 
     expect(value.dispatch).not.toHaveBeenCalled();
+  });
+
+  it("hands off only after a confirmed publication", async () => {
+    const value = editor("edit");
+    const onOpenChange = vi.fn();
+    const onPublished = vi.fn().mockResolvedValue(undefined);
+    value.publish.mockResolvedValue({ ok: true });
+    mocks.useLayerEditor.mockReturnValue(value);
+    render(<LayerEditorDialog open workItemId="work-6" outputId="output-6" onOpenChange={onOpenChange} onPublished={onPublished} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Criar nova versão" }));
+
+    await waitFor(() => expect(onPublished).toHaveBeenCalledTimes(1));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("keeps the editor open when publication is not confirmed", async () => {
+    const value = editor("edit");
+    const onOpenChange = vi.fn();
+    value.publish.mockResolvedValue(null);
+    mocks.useLayerEditor.mockReturnValue(value);
+    render(<LayerEditorDialog open workItemId="work-7" outputId="output-7" onOpenChange={onOpenChange} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Criar nova versão" }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Não foi possível salvar as alterações"));
+    expect(onOpenChange).not.toHaveBeenCalled();
   });
 });
