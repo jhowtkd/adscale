@@ -76,6 +76,12 @@ export function useLayerEditor(input: LayerEditorInput) {
 
   const acceptServerDocument = useCallback((document: PublicLayerEditorDocumentV1, nextAccess?: LayerEditorAccessV1) => {
     if (document.revision < serverRevision.current) return false;
+    const current = sessionRef.current?.present;
+    if (document.revision === serverRevision.current && current?.revision === document.revision) {
+      const currentExpiry = current.lease.expiresAt ? Date.parse(current.lease.expiresAt) : Number.NEGATIVE_INFINITY;
+      const incomingExpiry = document.lease.expiresAt ? Date.parse(document.lease.expiresAt) : Number.NEGATIVE_INFINITY;
+      if ((current.lease.mode === "edit" && document.lease.mode !== "edit") || incomingExpiry < currentExpiry) return false;
+    }
     serverRevision.current = document.revision;
     if (nextAccess) setAccess(nextAccess);
     if (!dirty.current) applyCanonicalDocument(document);
@@ -156,10 +162,9 @@ export function useLayerEditor(input: LayerEditorInput) {
     } catch (error) {
       const document = conflictDocument(error);
       if (!document) throw error;
-      serverRevision.current = document.revision;
+      if (requestSequence !== latestOpenRequest.current || !acceptServerDocument(document)) return;
       leaseRef.current = null;
       setLeaseId(null);
-      applyCanonicalDocument(document);
       // Opening a live lease held by somebody else is an expected read-only
       // view, not a failed local save. Keep it clean so close can succeed.
       dirty.current = false;
@@ -171,9 +176,7 @@ export function useLayerEditor(input: LayerEditorInput) {
       setOpenError(error instanceof Error ? error.message : "Unable to open the layer editor");
       return;
     }
-    if (requestSequence !== latestOpenRequest.current || response.document.revision < serverRevision.current) return;
-    serverRevision.current = response.document.revision;
-    setAccess(response.access);
+    if (requestSequence !== latestOpenRequest.current || !acceptServerDocument(response.document, response.access)) return;
     leaseRef.current = response.document.lease.leaseId;
     setLeaseId(response.document.lease.leaseId);
     const nextMode: LayerEditorMode = response.document.lease.mode === "edit"
@@ -190,7 +193,7 @@ export function useLayerEditor(input: LayerEditorInput) {
     }
     setOpenError(null);
     if (discardLocal || !dirty.current) applyCanonicalDocument(response.document);
-  }, [applyCanonicalDocument, input.mode, input.outputId, input.workItemId, stop]);
+  }, [acceptServerDocument, applyCanonicalDocument, input.mode, input.outputId, input.workItemId, stop]);
 
   useEffect(() => {
     const opening = setTimeout(() => {
@@ -247,8 +250,7 @@ export function useLayerEditor(input: LayerEditorInput) {
         outputId: input.outputId,
         leaseId,
       }).then((response) => {
-        serverRevision.current = response.document.revision;
-      acceptServerDocument(response.document, response.access);
+        acceptServerDocument(response.document, response.access);
       }).catch((error) => {
         const code = typeof error === "object" && error && "code" in error ? (error as { code?: string }).code : null;
         if (code === "layer_editor_locked" || code === "layer_editor_revision_conflict") markConflict(conflictDocument(error));
