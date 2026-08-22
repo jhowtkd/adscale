@@ -18,6 +18,8 @@ type LayerEditorExecutor = Pick<typeof db, "select" | "update">;
 export type LayerEditorScope = { workspaceId: string; workItemId: string; outputId: string };
 export type LayerEditorMutationScope = LayerEditorScope & { userId: string; leaseId: string; expectedRevision: number };
 export const LAYER_EDITOR_REGENERATION_PROCESSING_STALE_MS = 5 * 60 * 1000;
+/** Reserved and processing states have both crossed an event boundary. */
+export const LAYER_EDITOR_REGENERATION_RESERVED_STALE_MS = LAYER_EDITOR_REGENERATION_PROCESSING_STALE_MS;
 
 /** Only an in-flight candidate blocks ordinary, non-provider editor work. */
 export function hasActiveLayerEditorRegeneration(state: LayerEditorStateV1 | null | undefined): boolean {
@@ -157,13 +159,13 @@ export async function clearTerminalLayerRegenerationForRetry(input: LayerEditorM
  const next={...state,revision:state.revision+1,regeneration:null,updatedAt:input.now.toISOString()};
  const [updated]=await executor.update(creativeWorkOutputs).set({layerEditor:withPersistedLease(next),updatedAt:input.now}).where(and(scope(input),sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(input.expectedRevision)}`,...ownedLiveLease(input,input.now),sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'id' = ${regeneration.id}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'status' in ('failed', 'submission_unknown')`)).returning(); return updated??null;
 }
-async function regenerationState(input: LayerEditorScope & { operationId: string; fromStatus: "reserved" | "processing"; status: "processing" | "ready" | "failed" | "submission_unknown"; candidateKey?: string; providerRequestId?: string | null; failureCode?: string; now: Date }) {
- const row=await getCreativeWorkLayerEditorOutput(input); const state=layerEditorStateFromDatabase(row?.layerEditor); if(!state||state.regeneration?.id!==input.operationId||state.regeneration.status!==input.fromStatus)return null;
+async function regenerationState(input: LayerEditorScope & { operationId: string; fromStatus: "reserved" | "processing"; status: "processing" | "ready" | "failed" | "submission_unknown"; candidateKey?: string; providerRequestId?: string | null; failureCode?: string; now: Date }, executor: LayerEditorExecutor = db) {
+ const row=await getCreativeWorkLayerEditorOutput(input, executor); const state=layerEditorStateFromDatabase(row?.layerEditor); if(!state||state.regeneration?.id!==input.operationId||state.regeneration.status!==input.fromStatus)return null;
  const regeneration={...state.regeneration,status:input.status,candidateKey:input.candidateKey??state.regeneration.candidateKey,providerRequestId:input.providerRequestId??state.regeneration.providerRequestId,failureCode:input.failureCode??null,updatedAt:input.now.toISOString()};
  // Do not rewrite the aggregate: heartbeat/release own the lease subtree and
  // may safely advance it while a worker performs this DB-only transition.
  const layerEditor = sql`jsonb_set(jsonb_set(jsonb_set(${creativeWorkOutputs.layerEditor}, '{revision}', ${JSON.stringify(state.revision + 1)}::jsonb), '{regeneration}', ${JSON.stringify(regeneration)}::jsonb), '{updatedAt}', ${JSON.stringify(input.now.toISOString())}::jsonb)`;
- const [updated]=await db.update(creativeWorkOutputs).set({layerEditor,updatedAt:input.now}).where(and(scope(input),sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(state.revision)}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'id' = ${input.operationId}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'status' = ${input.fromStatus}`)).returning(); return updated??null;
+ const [updated]=await executor.update(creativeWorkOutputs).set({layerEditor,updatedAt:input.now}).where(and(scope(input),sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(state.revision)}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'id' = ${input.operationId}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'status' = ${input.fromStatus}`)).returning(); return updated??null;
 }
 export const markLayerRegenerationProcessing=(input: LayerEditorScope & {operationId:string;now:Date})=>regenerationState({...input,fromStatus:"reserved",status:"processing"});
 export const completeLayerRegenerationCandidate=(input: LayerEditorScope & {operationId:string;candidateKey:string;providerRequestId:string|null;now:Date})=>regenerationState({...input,fromStatus:"processing",status:"ready",candidateKey:input.candidateKey,providerRequestId:input.providerRequestId});
@@ -172,6 +174,16 @@ export async function recoverStaleLayerRegeneration(input: LayerEditorScope & { 
  const row = await getCreativeWorkLayerEditorOutput(input); const state = layerEditorStateFromDatabase(row?.layerEditor); const regeneration = state?.regeneration;
  if (!regeneration || regeneration.status !== "processing" || Date.parse(regeneration.updatedAt) > input.now.getTime() - LAYER_EDITOR_REGENERATION_PROCESSING_STALE_MS) return null;
  return regenerationState({ ...input, operationId: regeneration.id, fromStatus: "processing", status: "submission_unknown", failureCode: "layer_regeneration_submission_unknown", now: input.now });
+}
+/**
+ * A stale reservation is proof that no worker claimed provider execution: the
+ * worker's first CAS is reserved -> processing. Callers release its quota in
+ * the same transaction only when this transition succeeds.
+ */
+export async function recoverStaleReservedLayerRegeneration(input: LayerEditorScope & { operationId: string; now: Date }, executor: LayerEditorExecutor = db): Promise<Output | null> {
+ const row = await getCreativeWorkLayerEditorOutput(input, executor); const state = layerEditorStateFromDatabase(row?.layerEditor); const regeneration = state?.regeneration;
+ if (!regeneration || regeneration.id !== input.operationId || regeneration.status !== "reserved" || Date.parse(regeneration.updatedAt) > input.now.getTime() - LAYER_EDITOR_REGENERATION_RESERVED_STALE_MS) return null;
+ return regenerationState({ ...input, operationId: regeneration.id, fromStatus: "reserved", status: "failed", failureCode: "layer_regeneration_dispatch_stale", now: input.now }, executor);
 }
 export async function acceptLayerRegenerationCandidate(input: LayerEditorMutationScope & {operationId:string;immutableKey:string;now:Date}) { const row=await getCreativeWorkLayerEditorOutput(input); const state=layerEditorStateFromDatabase(row?.layerEditor); const regen=state?.regeneration; if(!state||!regen||state.lease?.id!==input.leaseId||state.lease.userId!==input.userId||Date.parse(state.lease.expiresAt)<=input.now.getTime()||regen.id!==input.operationId||regen.status!=="ready"||!regen.candidateKey)return null; const next={...state,revision:state.revision+1,layers:state.layers.map(l=>l.id===regen.layerId?{...l,currentKey:input.immutableKey,currentKind:"regenerated" as const,restorableKey:null}:l),regeneration:null,updatedAt:input.now.toISOString()}; const [updated]=await db.update(creativeWorkOutputs).set({layerEditor:withPersistedLease(next),updatedAt:input.now}).where(and(scope(input),sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(input.expectedRevision)}`,...ownedLiveLease(input,input.now),sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'id' = ${input.operationId}`)).returning(); return updated??null; }
 export async function discardLayerRegenerationCandidate(input: LayerEditorMutationScope & {operationId:string;now:Date}) { const row=await getCreativeWorkLayerEditorOutput(input); const state=layerEditorStateFromDatabase(row?.layerEditor); const regeneration=state?.regeneration; if(!state||state.lease?.id!==input.leaseId||state.lease.userId!==input.userId||Date.parse(state.lease.expiresAt)<=input.now.getTime()||regeneration?.id!==input.operationId||regeneration.status!=="ready"||!regeneration.candidateKey)return null; const next={...state,revision:state.revision+1,regeneration:null,updatedAt:input.now.toISOString()}; const [updated]=await db.update(creativeWorkOutputs).set({layerEditor:withPersistedLease(next),updatedAt:input.now}).where(and(scope(input),sql`${creativeWorkOutputs.layerEditor}->>'revision' = ${String(input.expectedRevision)}`,...ownedLiveLease(input,input.now),sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'id' = ${input.operationId}`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'status' = 'ready'`,sql`${creativeWorkOutputs.layerEditor}->'regeneration'->>'candidateKey' is not null`)).returning(); return updated??null; }

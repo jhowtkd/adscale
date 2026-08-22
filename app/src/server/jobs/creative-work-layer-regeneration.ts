@@ -1,7 +1,8 @@
 import { type Inngest } from "inngest";
 import OpenAI from "openai";
 import { inngest } from "./client";
-import { layerEditorFromOutput, markLayerRegenerationProcessing, completeLayerRegenerationCandidate, failLayerRegeneration, recoverStaleLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
+import { layerEditorFromOutput, markLayerRegenerationProcessing, completeLayerRegenerationCandidate, failLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
+import { recoverCreativeWorkLayerEditorStaleRegeneration } from "@/server/application/manage-creative-work-layer-editor";
 import { objectStorage } from "@/server/storage";
 import { OpenAILayerRegenerationProvider, normalizeLayerCandidate, type LayerRegenerationProvider } from "@/server/layer-editor/openai-provider";
 import { renderLayerEditorPng } from "@/server/layer-editor/artifacts";
@@ -13,7 +14,7 @@ function isAmbiguousProviderFailure(error: unknown) {
 }
 
 export async function runCreativeWorkLayerRegeneration(input:{workspaceId:string;workItemId:string;outputId:string;operationId:string}, provider:LayerRegenerationProvider=new OpenAILayerRegenerationProvider()) {
- const now=new Date(); const claimed=await markLayerRegenerationProcessing({...input,now}); const state=layerEditorFromOutput(claimed); const regen=state?.regeneration; if(!state||!regen||regen.id!==input.operationId){ await recoverStaleLayerRegeneration({ ...input, now }); return {status:"skipped" as const}; } const layer=state.layers.find((x)=>x.id===regen.layerId); if(!layer)return {status:"skipped" as const};
+ const now=new Date(); const claimed=await markLayerRegenerationProcessing({...input,now}); const state=layerEditorFromOutput(claimed); const regen=state?.regeneration; if(!state||!regen||regen.id!==input.operationId){ await recoverCreativeWorkLayerEditorStaleRegeneration({ ...input, now }); return {status:"skipped" as const}; } const layer=state.layers.find((x)=>x.id===regen.layerId); if(!layer)return {status:"skipped" as const};
  let selectedLayer: Buffer;
  let composite: Buffer;
  try {

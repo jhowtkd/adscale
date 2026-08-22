@@ -3,7 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { LAYER_EDITOR_SIGNED_URL_TTL_SECONDS, layerEditorStateFromDatabase, type LayerEditorAccessV1, type LayerEditorMutableSnapshotV1, type LayerEditorStateV1, type PublicLayerEditorDocumentV1 } from "@/server/layer-editor/contracts";
-import { getLayerEditorAccess } from "@/server/layer-editor/quota";
+import { getLayerEditorAccess, releaseLayerEditorQuota, withLayerEditorOperationLock } from "@/server/layer-editor/quota";
 import {
   acquireCreativeWorkLayerEditorLease,
   acceptLayerRegenerationCandidate,
@@ -15,6 +15,7 @@ import {
   layerizationFromOutput,
   releaseCreativeWorkLayerEditorLease,
   recoverStaleLayerRegeneration,
+  recoverStaleReservedLayerRegeneration,
   saveCreativeWorkLayerEditorSnapshot,
   seedLayerEditorState,
   type LayerEditorMutationScope,
@@ -54,6 +55,19 @@ async function accessOrUnavailable(workspaceId: string): Promise<LayerEditorAcce
   return access.enabled ? access : null;
 }
 
+/** Keep the terminal transition and quota compensation indivisible. */
+export async function recoverCreativeWorkLayerEditorStaleRegeneration(input: LayerEditorScope & { now: Date }) {
+  const state = layerEditorStateFromDatabase((await getCreativeWorkLayerEditorOutput(input))?.layerEditor);
+  const regeneration = state?.regeneration;
+  if (regeneration?.status !== "reserved") return recoverStaleLayerRegeneration(input);
+  return withLayerEditorOperationLock({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: regeneration.id }, async (executor) => {
+    const recovered = await recoverStaleReservedLayerRegeneration({ ...input, operationId: regeneration.id }, executor);
+    if (!recovered) return null;
+    await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: regeneration.id }, input.now, executor);
+    return recovered;
+  });
+}
+
 export async function openCreativeWorkLayerEditor(input: OpenLayerEditorInput): Promise<LayerEditorCommandResult> {
   const access = await accessOrUnavailable(input.workspaceId);
   if (!access) return { ok: false, status: 403, code: "layer_editor_not_available" };
@@ -71,7 +85,7 @@ export async function openCreativeWorkLayerEditor(input: OpenLayerEditorInput): 
     state = layerEditorStateFromDatabase(output?.layerEditor);
   }
   if (!state) return { ok: false, status: 409, code: "layer_editor_not_available" };
-  const recovered = await recoverStaleLayerRegeneration({ workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId, now: new Date() });
+  const recovered = await recoverCreativeWorkLayerEditorStaleRegeneration({ workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: input.outputId, now: new Date() });
   state = layerEditorStateFromDatabase(recovered?.layerEditor) ?? state;
   const hasLiveCallerLease = state.lease?.userId === input.userId && Date.parse(state.lease.expiresAt) > Date.now();
   if (input.mode === "edit" && !hasLiveCallerLease) {

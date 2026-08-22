@@ -11,7 +11,7 @@ const publicationTransaction = vi.hoisted(() => vi.fn());
 
 function persistedLayerEditor(value: unknown): unknown {
   if (!value || typeof value !== "object" || !("queryChunks" in value)) return value;
-  const serialized = (value as { queryChunks: unknown[] }).queryChunks.find((chunk): chunk is string => typeof chunk === "string" && chunk.startsWith("{\"schemaVersion\""));
+  const serialized = (value as { queryChunks: unknown[] }).queryChunks.find((chunk): chunk is string => typeof chunk === "string" && chunk.includes("\"schemaVersion\""));
   if (!serialized) return value;
   return { ...JSON.parse(serialized) as LayerEditorStateV1, lease: store.row?.layerEditor.lease ?? null };
 }
@@ -38,6 +38,7 @@ import {
   rollbackReservedLayerRegeneration,
   reserveLayerRegeneration,
   recoverStaleLayerRegeneration,
+  recoverStaleReservedLayerRegeneration,
   saveCreativeWorkLayerEditorSnapshot,
 } from "./creative-work-layer-editor";
 import { creativeWorkVersionLockScope } from "./creative-work";
@@ -189,6 +190,26 @@ describe("creative work layer editor regeneration repository", () => {
     expect(store.update).not.toBeNull();
     store.row = { layerEditor: editorState({ regeneration: { id: operationId, status: "processing", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: "2026-08-22T00:05:59.000Z", updatedAt: "2026-08-22T00:05:59.000Z" } }) };
     await expect(recoverStaleLayerRegeneration({ ...scope, now: new Date("2026-08-22T00:06:00.000Z") })).resolves.toBeNull();
+  });
+
+  it("recovers only a stale matching reservation before any worker can claim it", async () => {
+    store.row = { layerEditor: editorState({ regeneration: { id: operationId, status: "reserved", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" } }) };
+
+    const recovered = await recoverStaleReservedLayerRegeneration({ ...scope, operationId, now: new Date("2026-08-22T00:06:00.000Z") });
+    expect(recovered).not.toBeNull();
+    const chunks = (store.update?.layerEditor as { queryChunks: unknown[] }).queryChunks;
+    expect(chunks.map(String).join("")).toContain("layer_regeneration_dispatch_stale");
+
+    // A late delivery still carries the old operation id, but the recovered
+    // terminal state cannot satisfy its reserved -> processing CAS.
+    store.row = { layerEditor: editorState({ regeneration: { id: operationId, status: "failed", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: "layer_regeneration_dispatch_stale", createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:06:00.000Z" } }) };
+    await expect(markLayerRegenerationProcessing({ ...scope, operationId, now: new Date("2026-08-22T00:06:00.000Z") })).resolves.toBeNull();
+
+    store.row = { layerEditor: editorState({ regeneration: { id: operationId, status: "reserved", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: "2026-08-22T00:05:59.000Z", updatedAt: "2026-08-22T00:05:59.000Z" } }) };
+    await expect(recoverStaleReservedLayerRegeneration({ ...scope, operationId, now: new Date("2026-08-22T00:06:00.000Z") })).resolves.toBeNull();
+    await expect(recoverStaleReservedLayerRegeneration({ ...scope, operationId: "other", now: new Date("2026-08-22T00:06:00.000Z") })).resolves.toBeNull();
+    store.row = { layerEditor: editorState({ regeneration: { id: operationId, status: "ready", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: "candidate.png", providerRequestId: null, failureCode: null, createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" } }) };
+    await expect(recoverStaleReservedLayerRegeneration({ ...scope, operationId, now: new Date("2026-08-22T00:06:00.000Z") })).resolves.toBeNull();
   });
 
   it("accepts only the selected candidate layer and clears restoration for the immutable result", async () => {

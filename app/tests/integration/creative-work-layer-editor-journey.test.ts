@@ -241,18 +241,42 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work native layer edit
     expect(rolledBack).toMatchObject({ regeneration: null, lease: { expiresAt: heartbeatBeforeRollback.document.lease.expiresAt } });
     if (!rolledBack) throw new Error("Synthetic rollback should preserve the valid lease");
 
-    const operationId = randomUUID();
+    // A delivered event can die before its first reserved -> processing CAS.
+    // Recovery must terminalize it and compensate its claim before a fresh
+    // operation can reserve the only unit again.
+    const staleOperationId = randomUUID();
     const dispatch = vi.spyOn(inngest, "send").mockResolvedValue({ ids: ["synthetic-regeneration"] } as never);
     await expect(requestCreativeWorkLayerRegeneration({
       ...scope,
       userId: memberA,
       leaseId: openedByA.document.lease.leaseId,
       expectedRevision: rolledBack.revision,
+      operationId: staleOperationId,
+      layerId: productLayer.id,
+      instruction: "Stale synthetic dispatch",
+    })).resolves.toMatchObject({ ok: true, accepted: true });
+    expect(dispatch).toHaveBeenCalledOnce();
+    const staleAt = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    await db.update(creativeWorkOutputs).set({
+      layerEditor: sql`jsonb_set(jsonb_set(${creativeWorkOutputs.layerEditor}, '{regeneration,updatedAt}', ${JSON.stringify(staleAt)}::jsonb), '{updatedAt}', ${JSON.stringify(staleAt)}::jsonb)`,
+    }).where(and(eq(creativeWorkOutputs.workspaceId, workspace.id), eq(creativeWorkOutputs.id, parent.id)));
+    const recoveredOpen = await openCreativeWorkLayerEditor({ ...scope, userId: memberA, userName: "Editor A", mode: "inspect" });
+    expect(recoveredOpen).toMatchObject({ ok: true, document: { regeneration: { id: staleOperationId, status: "failed", failureCode: "layer_regeneration_dispatch_stale" } } });
+    if (!recoveredOpen.ok) throw new Error("Stale reservation recovery should project a terminal document");
+    const releaseRows = await db.select({ amount: usageEvents.amount }).from(usageEvents).where(and(eq(usageEvents.workspaceId, workspace.id), eq(usageEvents.idempotencyKey, `layer-editor:${workspace.id}:layer_regeneration_v1:${staleOperationId}:release`)));
+    expect(releaseRows).toEqual([{ amount: -1 }]);
+
+    const operationId = randomUUID();
+    await expect(requestCreativeWorkLayerRegeneration({
+      ...scope,
+      userId: memberA,
+      leaseId: openedByA.document.lease.leaseId,
+      expectedRevision: recoveredOpen.document.revision,
       operationId,
       layerId: productLayer.id,
       instruction: "Change only the product color",
     })).resolves.toMatchObject({ ok: true, accepted: true });
-    expect(dispatch).toHaveBeenCalledOnce();
+    expect(dispatch).toHaveBeenCalledTimes(2);
     expect(layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(scope))?.lease?.expiresAt).toBe(heartbeatBeforeRollback.document.lease.expiresAt);
 
     const candidate = await transparentCandidateFixture();

@@ -19,8 +19,8 @@ vi.mock("@/server/repositories/creative-work-layer-editor", () => ({
   markLayerRegenerationProcessing: markProcessing,
   completeLayerRegenerationCandidate: completeCandidate,
   failLayerRegeneration: failRegeneration,
-  recoverStaleLayerRegeneration: recoverStale,
 }));
+vi.mock("@/server/application/manage-creative-work-layer-editor", () => ({ recoverCreativeWorkLayerEditorStaleRegeneration: recoverStale }));
 vi.mock("@/server/storage", () => ({ objectStorage: { get: getObject, put: putObject, delete: deleteObject } }));
 vi.mock("@/server/layer-editor/artifacts", () => ({ renderLayerEditorPng: render }));
 vi.mock("@/server/layer-editor/quota", () => ({ releaseLayerEditorQuota: releaseQuota }));
@@ -97,6 +97,27 @@ describe("creativeWorkLayerRegenerationJob", () => {
 
     expect(recoverStale).toHaveBeenCalledWith(expect.objectContaining(input));
     expect(provider.regenerate).not.toHaveBeenCalled();
+  });
+
+  it("skips a late worker after stale reserved recovery so a fresh operation is the only provider call", async () => {
+    markProcessing.mockResolvedValue(null);
+    stateFromOutput.mockReturnValue(null);
+    recoverStale.mockResolvedValue({ id: input.outputId });
+    const provider = { regenerate: vi.fn() };
+
+    await expect(runCreativeWorkLayerRegeneration(input, provider)).resolves.toEqual({ status: "skipped" });
+
+    expect(recoverStale).toHaveBeenCalledWith(expect.objectContaining(input));
+    expect(provider.regenerate).not.toHaveBeenCalled();
+
+    const replacementOperationId = "00000000-0000-4000-8000-000000000099";
+    const replacement = { ...state, regeneration: { ...state.regeneration!, id: replacementOperationId, status: "reserved" as const } };
+    markProcessing.mockResolvedValue({ id: input.outputId });
+    stateFromOutput.mockImplementation((row) => row ? replacement : null);
+    provider.regenerate.mockResolvedValue({ buffer: Buffer.from("candidate"), requestId: "request-1" });
+
+    await expect(runCreativeWorkLayerRegeneration({ ...input, operationId: replacementOperationId }, provider)).resolves.toEqual({ status: "ready" });
+    expect(provider.regenerate).toHaveBeenCalledOnce();
   });
 
   it("records submission_unknown for ambiguous provider timeout after invocation", async () => {
