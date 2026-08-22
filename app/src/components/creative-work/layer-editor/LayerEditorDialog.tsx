@@ -133,8 +133,8 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
           {editor.mode !== "edit" ? <span className="rounded bg-muted px-2 py-1 text-xs">{editor.document?.lease.heldByName ? `${t("editorReadOnly")}: ${editor.document.lease.heldByName}` : t("editorReadOnly")}</span> : null}
           <span className="text-xs text-muted-foreground" aria-live="polite">{error ? t("editorSaveError") : exporting ? t("editorSaving") : saveLabel}</span>
           {canMutate ? <>
-            <Button variant="outline" size="icon" disabled={!editor.canUndo} onClick={editor.undo} aria-label={t("editorUndo")}><Undo2 /></Button>
-            <Button variant="outline" size="icon" disabled={!editor.canRedo} onClick={editor.redo} aria-label={t("editorRedo")}><Redo2 /></Button>
+            <Button variant="outline" size="icon" className="min-h-11 min-w-11" disabled={!editor.canUndo} onClick={editor.undo} aria-label={t("editorUndo")}><Undo2 /></Button>
+            <Button variant="outline" size="icon" className="min-h-11 min-w-11" disabled={!editor.canRedo} onClick={editor.redo} aria-label={t("editorRedo")}><Redo2 /></Button>
             <Button variant="outline" size="sm" disabled={!selected} onClick={() => restore(false)}>{t("editorRestoreLayer")}</Button>
             <Button variant="outline" size="sm" onClick={() => restore(true)}>{t("editorRestoreAll")}</Button>
           </> : null}
