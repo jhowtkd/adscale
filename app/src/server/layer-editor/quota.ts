@@ -124,3 +124,17 @@ export async function isLayerEditorQuotaReleased(input: { workspaceId: string; k
   )).limit(1);
   return Boolean(release);
 }
+
+export async function markLayerEditorQuotaReservationCommitted(input: { workspaceId: string; kind: LayerEditorQuotaKind; operationId: string }, executor: Pick<LayerEditorOperationExecutor, "update"> = db): Promise<boolean> {
+  const claimKey = `layer-editor:${input.workspaceId}:${input.kind}:${input.operationId}`;
+  const rows = await executor.update(usageEvents).set({
+    metadata: sql`coalesce(${usageEvents.metadata}, '{}'::jsonb) || '{"reservationCommitted":true}'::jsonb`,
+  }).where(and(eq(usageEvents.workspaceId, input.workspaceId), eq(usageEvents.idempotencyKey, claimKey))).returning({ id: usageEvents.id });
+  return rows.length > 0;
+}
+
+export async function isLayerEditorQuotaReservationCommitted(input: { workspaceId: string; kind: LayerEditorQuotaKind; operationId: string }, executor: Pick<LayerEditorOperationExecutor, "select"> = db): Promise<boolean> {
+  const claimKey = `layer-editor:${input.workspaceId}:${input.kind}:${input.operationId}`;
+  const [claim] = await executor.select({ metadata: usageEvents.metadata }).from(usageEvents).where(and(eq(usageEvents.workspaceId, input.workspaceId), eq(usageEvents.idempotencyKey, claimKey))).limit(1);
+  return (claim?.metadata as Record<string, unknown> | null)?.reservationCommitted === true;
+}
