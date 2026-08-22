@@ -53,7 +53,7 @@ describe("image-worker", () => {
     const options = buildImageWorkerConnectOptions();
     expect(options.appId).toBe("adscale-image-worker");
     expect(options.maxWorkerConcurrency).toBe(2);
-    expect(options.functionCount).toBe(6);
+    expect(options.functionCount).toBe(7);
     expect(options.functionIds).toEqual([
       "generate-creative-work-output-v2",
       "generate-derivation-v2",
@@ -61,6 +61,7 @@ describe("image-worker", () => {
       "analyze-workspace-asset-v2",
       "analyze-brand-training-asset-v2",
       "layerize-creative-work-output-v2",
+      "regenerate-creative-work-layer-v2",
     ]);
   });
 
