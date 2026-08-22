@@ -38,7 +38,7 @@ import {
   writeStoredLayerizationPsd,
 } from "@/server/layerize/artifacts";
 import { inngest } from "./client";
-import { releaseLayerEditorQuota } from "@/server/layer-editor/quota";
+import { releaseLayerEditorQuota, withLayerEditorOperationLock } from "@/server/layer-editor/quota";
 
 export type CreativeWorkLayerizationEvent = {
   workspaceId: string;
@@ -143,11 +143,14 @@ function callbackDeadlinePassed(state: LayerizationState): boolean {
 }
 
 async function failBeforeProvider(event: CreativeWorkLayerizationEvent, code: "no_longer_eligible" | "source_missing" | "missing_configuration") {
-  const failed = await failCreativeWorkLayerization({ workspaceId: event.workspaceId, workItemId: event.workItemId, outputId: event.outputId, code });
-  const state = layerizationStateFromDatabase(failed?.layerization);
-  if (state?.status === "failed" && state.failureCode === code && !state.providerRequestId) {
-    await releaseLayerEditorQuota({ workspaceId: event.workspaceId, kind: "layerize_v1", operationId: event.attemptId }, new Date());
-  }
+  return withLayerEditorOperationLock({ workspaceId: event.workspaceId, kind: "layerize_v1", operationId: event.attemptId }, async (executor) => {
+    const failed = await failCreativeWorkLayerization({ workspaceId: event.workspaceId, workItemId: event.workItemId, outputId: event.outputId, code }, executor);
+    const state = layerizationStateFromDatabase(failed?.layerization);
+    if (state?.status === "failed" && state.failureCode === code && !state.providerRequestId) {
+      await releaseLayerEditorQuota({ workspaceId: event.workspaceId, kind: "layerize_v1", operationId: event.attemptId }, new Date(), executor);
+    }
+    return failed;
+  });
 }
 
 export async function runCreativeWorkLayerization(input: {

@@ -93,7 +93,7 @@ export type PublicLayerizationState = Pick<
   "status" | "createdAt" | "updatedAt" | "latencyMs" | "baseWidth" | "baseHeight" | "fidelity" | "failureCode"
 > & {
   operationId: string;
-  layers: Array<Omit<LayerizationLayer, "storageKey" | "sourceBytes">>;
+  layers: Array<Pick<LayerizationLayer, "order" | "isBase" | "name" | "description" | "x" | "y" | "width" | "height" | "normalizedBoundingBox">>;
 };
 
 export function toPublicLayerizationState(value: unknown): PublicLayerizationState | null {
@@ -103,10 +103,22 @@ export function toPublicLayerizationState(value: unknown): PublicLayerizationSta
     operationId: state.attemptId,
     status: state.status, createdAt: state.createdAt, updatedAt: state.updatedAt, latencyMs: state.latencyMs,
     baseWidth: state.baseWidth, baseHeight: state.baseHeight, fidelity: state.fidelity, failureCode: state.failureCode,
-    layers: state.layers.map(({ storageKey: _storageKey, sourceBytes: _sourceBytes, ...layer }) => {
-      void _storageKey; void _sourceBytes;
-      return { ...layer };
-    }),
+    layers: state.layers.map((layer) => ({
+      order: layer.order,
+      isBase: layer.isBase,
+      name: layer.name,
+      description: layer.description,
+      x: layer.x,
+      y: layer.y,
+      width: layer.width,
+      height: layer.height,
+      normalizedBoundingBox: {
+        x: layer.normalizedBoundingBox.x,
+        y: layer.normalizedBoundingBox.y,
+        width: layer.normalizedBoundingBox.width,
+        height: layer.normalizedBoundingBox.height,
+      },
+    })),
   };
 }
 

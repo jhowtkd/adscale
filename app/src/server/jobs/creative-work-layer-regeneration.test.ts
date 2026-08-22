@@ -12,6 +12,7 @@ const deleteObject = vi.hoisted(() => vi.fn());
 const render = vi.hoisted(() => vi.fn());
 const normalize = vi.hoisted(() => vi.fn());
 const releaseQuota = vi.hoisted(() => vi.fn());
+const operationLock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 
 vi.mock("@/server/repositories/creative-work-layer-editor", () => ({
   getCreativeWorkLayerEditorOutput: vi.fn(),
@@ -23,7 +24,7 @@ vi.mock("@/server/repositories/creative-work-layer-editor", () => ({
 vi.mock("@/server/application/manage-creative-work-layer-editor", () => ({ recoverCreativeWorkLayerEditorStaleRegeneration: recoverStale }));
 vi.mock("@/server/storage", () => ({ objectStorage: { get: getObject, put: putObject, delete: deleteObject } }));
 vi.mock("@/server/layer-editor/artifacts", () => ({ renderLayerEditorPng: render }));
-vi.mock("@/server/layer-editor/quota", () => ({ releaseLayerEditorQuota: releaseQuota }));
+vi.mock("@/server/layer-editor/quota", () => ({ releaseLayerEditorQuota: releaseQuota, withLayerEditorOperationLock: operationLock }));
 vi.mock("@/server/layer-editor/openai-provider", () => ({
   OpenAILayerRegenerationProvider: class {},
   normalizeLayerCandidate: normalize,
@@ -59,6 +60,7 @@ describe("creativeWorkLayerRegenerationJob", () => {
     completeCandidate.mockResolvedValue({ id: input.outputId });
     failRegeneration.mockResolvedValue({ id: input.outputId });
     releaseQuota.mockResolvedValue({ released: true });
+    operationLock.mockImplementation(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({}));
   });
 
   it("has zero automatic retries", () => {
@@ -144,8 +146,9 @@ describe("creativeWorkLayerRegenerationJob", () => {
     await expect(runCreativeWorkLayerRegeneration(input, provider)).resolves.toEqual({ status: "failed" });
 
     expect(provider.regenerate).not.toHaveBeenCalled();
-    expect(failRegeneration).toHaveBeenCalledWith(expect.objectContaining({ ...input, status: "failed", failureCode: "layer_regeneration_preparation_failed" }));
-    expect(releaseQuota).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }), expect.any(Date));
+    expect(failRegeneration).toHaveBeenCalledWith(expect.objectContaining({ ...input, status: "failed", failureCode: "layer_regeneration_preparation_failed" }), expect.anything());
+    expect(releaseQuota).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }), expect.any(Date), expect.anything());
+    expect(operationLock).toHaveBeenCalledWith(expect.objectContaining({ operationId: input.operationId }), expect.any(Function));
   });
 
   it("records failed when a returned candidate is not transparent", async () => {

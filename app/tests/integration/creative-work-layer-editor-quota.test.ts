@@ -3,7 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/server/db";
 import { usageEvents, user, workspaceEntitlements, workspaceMembers, workspaces } from "@/server/db/schema";
-import { claimLayerEditorQuota, releaseLayerEditorQuota, withLayerEditorOperationLock } from "@/server/layer-editor/quota";
+import { claimLayerEditorQuota, releaseLayerEditorQuota, withLayerEditorOperationLock, withLayerEditorPostDispatchLock } from "@/server/layer-editor/quota";
 
 const configured = Boolean(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL);
 const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -97,6 +97,29 @@ describe.skipIf(!configured)("layer editor regeneration quota", () => {
     const releases = await db.select({ amount: usageEvents.amount }).from(usageEvents).where(and(eq(usageEvents.workspaceId, workspaceId!), eq(usageEvents.idempotencyKey, `layer-editor:${workspaceId}:layer_regeneration_v1:${operationId}:release`)));
     expect(releases).toHaveLength(1);
     expect(releases[0]?.amount).toBe(-1);
+  });
+
+  it("serializes a Layerize recovery and queued redelivery on the post-dispatch lock", async () => {
+    const input = { workspaceId: workspaceId!, kind: "layerize_v1" as const, operationId: "00000000-0000-4000-8000-000000000107" };
+    let releaseRecovery!: () => void;
+    const recoveryMayFinish = new Promise<void>((resolve) => { releaseRecovery = resolve; });
+    let replayEntered = false;
+
+    const recovery = withLayerEditorPostDispatchLock(input, async () => {
+      await recoveryMayFinish;
+      return "terminalized";
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const replay = withLayerEditorPostDispatchLock(input, async () => {
+      replayEntered = true;
+      return "rechecked";
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(replayEntered).toBe(false);
+
+    releaseRecovery();
+    await expect(recovery).resolves.toBe("terminalized");
+    await expect(replay).resolves.toBe("rechecked");
   });
 
   it("completes more distinct locked operations than the pool size on their own transaction executor", async () => {

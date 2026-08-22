@@ -13,6 +13,7 @@ const quotaCommittedMock = vi.hoisted(() => vi.fn());
 const markCommittedMock = vi.hoisted(() => vi.fn());
 const dispatchCommittedMock = vi.hoisted(() => vi.fn());
 const markDispatchCommittedMock = vi.hoisted(() => vi.fn());
+const refreshQueuedMock = vi.hoisted(() => vi.fn());
 const operationLockMock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 const dispatchLockMock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 
@@ -25,6 +26,7 @@ vi.mock("@/server/repositories/creative-work-layerization", () => ({
   failQueuedCreativeWorkLayerization: (...args: unknown[]) => failQueuedMock(...args),
   getCreativeWorkLayerizationOutput: (...args: unknown[]) => getOutputMock(...args),
   hashLayerizationCallbackToken: () => "a".repeat(64),
+  refreshQueuedCreativeWorkLayerizationDispatch: (...args: unknown[]) => refreshQueuedMock(...args),
 }));
 vi.mock("@/server/jobs/client", () => ({
   inngest: { send: (...args: unknown[]) => sendMock(...args) },
@@ -88,6 +90,7 @@ describe("requestCreativeWorkLayerization", () => {
     markCommittedMock.mockResolvedValue(true);
     dispatchCommittedMock.mockResolvedValue(false);
     markDispatchCommittedMock.mockResolvedValue(true);
+    refreshQueuedMock.mockResolvedValue({ id: "output-1" });
     clearFailedMock.mockImplementation(async () => {
       output.layerization = null;
       return { id: "output-1", layerization: null };
@@ -135,6 +138,32 @@ describe("requestCreativeWorkLayerization", () => {
     await expect(requestCreativeWorkLayerization(input)).resolves.toMatchObject({ ok: false, error: { code: "layer_editor_not_available" } });
 
     expect(sendMock).toHaveBeenCalledOnce();
+  });
+
+  it("rechecks a queued replay after the post-dispatch lock so expired recovery cannot receive a false acceptance", async () => {
+    let entered!: () => void;
+    const enteredLock = new Promise<void>((resolve) => { entered = resolve; });
+    let release!: () => void;
+    const wait = new Promise<void>((resolve) => { release = resolve; });
+    dispatchLockMock.mockImplementation(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => {
+      entered();
+      await wait;
+      return run({});
+    });
+
+    const pending = requestCreativeWorkLayerization(input);
+    await enteredLock;
+    output.layerization = { ...(output.layerization as Record<string, unknown>), status: "submission_unknown", failureCode: "submission_unknown" };
+    release();
+
+    await expect(pending).resolves.toMatchObject({ ok: false, error: { code: "submission_unknown" } });
+    expect(sendMock).not.toHaveBeenCalled();
+    expect(refreshQueuedMock).not.toHaveBeenCalled();
+  });
+
+  it("refreshes the queued recovery deadline only after it invokes the stable event send", async () => {
+    await expect(requestCreativeWorkLayerization(input)).resolves.toMatchObject({ ok: true, accepted: true });
+    expect(refreshQueuedMock).toHaveBeenCalledWith(expect.objectContaining({ attemptId: input.operationId, now: expect.any(Date) }), expect.anything());
   });
 
   it("redelivers a queued replay after an ambiguous dispatch rejection", async () => {

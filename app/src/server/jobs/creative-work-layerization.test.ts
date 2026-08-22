@@ -27,6 +27,7 @@ const writeZipMock = vi.hoisted(() => vi.fn());
 const loggerInfoMock = vi.hoisted(() => vi.fn());
 const loggerWarnMock = vi.hoisted(() => vi.fn());
 const quotaReleaseMock = vi.hoisted(() => vi.fn());
+const operationLockMock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => getCreativeWorkMock(...args),
@@ -51,7 +52,7 @@ vi.mock("@/server/storage", () => ({
     putStream: (...args: unknown[]) => objectPutStreamMock(...args),
   },
 }));
-vi.mock("@/server/layer-editor/quota", () => ({ releaseLayerEditorQuota: (...args: unknown[]) => quotaReleaseMock(...args) }));
+vi.mock("@/server/layer-editor/quota", () => ({ releaseLayerEditorQuota: (...args: unknown[]) => quotaReleaseMock(...args), withLayerEditorOperationLock: (...args: unknown[]) => operationLockMock(...args) }));
 vi.mock("@/lib/logger", () => ({
   logger: {
     info: (...args: unknown[]) => loggerInfoMock(...args),
@@ -201,6 +202,7 @@ describe("creative work layerization job", () => {
     provider.status.mockResolvedValue("COMPLETED");
     provider.result.mockResolvedValue({ provider: "payload" });
     stillSelectedMock.mockResolvedValue(true);
+    operationLockMock.mockImplementation(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({}));
   });
 
   it("submits once, keeps the original, stores private artifacts, and strips provider URLs from state", async () => {
@@ -314,7 +316,7 @@ describe("creative work layerization job", () => {
 
     await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
 
-    expect(quotaReleaseMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: event.attemptId }), expect.any(Date));
+    expect(quotaReleaseMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: event.attemptId }), expect.any(Date), expect.anything());
     expect(markReconcilingMock).not.toHaveBeenCalled();
   });
 
@@ -366,8 +368,8 @@ describe("creative work layerization job", () => {
 
     await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
     expect(provider.submit).not.toHaveBeenCalled();
-    expect(failMock).toHaveBeenCalledWith(expect.objectContaining({ code: "no_longer_eligible" }));
-    expect(quotaReleaseMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: event.attemptId }), expect.any(Date));
+    expect(failMock).toHaveBeenCalledWith(expect.objectContaining({ code: "no_longer_eligible" }), expect.anything());
+    expect(quotaReleaseMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: event.attemptId }), expect.any(Date), expect.anything());
   });
 
   it("does not submit if selection changes after the signed URL is issued", async () => {
@@ -382,7 +384,7 @@ describe("creative work layerization job", () => {
     await expect(runCreativeWorkLayerization({ event, provider })).resolves.toEqual({ status: "failed" });
     expect(objectSignedUrlMock).toHaveBeenCalledOnce();
     expect(provider.submit).not.toHaveBeenCalled();
-    expect(failMock).toHaveBeenCalledWith(expect.objectContaining({ code: "no_longer_eligible" }));
+    expect(failMock).toHaveBeenCalledWith(expect.objectContaining({ code: "no_longer_eligible" }), expect.anything());
   });
 
   it("keeps a known provider request reconciling after the callback deadline", async () => {

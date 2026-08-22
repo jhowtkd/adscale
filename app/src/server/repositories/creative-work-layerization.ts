@@ -6,6 +6,7 @@ import { db } from "@/server/db";
 import { creativeWorkOutputs } from "@/server/db/schema";
 import {
   LAYERIZATION_RECOVERY_LEASE_MS,
+  LAYERIZATION_CALLBACK_TTL_MS,
   layerizationStateFromDatabase,
   type LayerizationState,
   type LayerizationStatus,
@@ -124,6 +125,27 @@ export async function claimCreativeWorkLayerizationProcessing(
   return claimed ?? null;
 }
 
+/** Extend only a matching queued attempt after its stable event is delivered. */
+export async function refreshQueuedCreativeWorkLayerizationDispatch(input: {
+  workspaceId: string;
+  workItemId: string;
+  outputId: string;
+  attemptId: string;
+  now: Date;
+}, executor: Pick<LayerizationExecutor, "update"> = db): Promise<LayerizationOutputRow | null> {
+  const updatedAt = input.now.toISOString();
+  const callbackDeadlineAt = new Date(input.now.getTime() + LAYERIZATION_CALLBACK_TTL_MS).toISOString();
+  const [updated] = await executor.update(creativeWorkOutputs).set({
+    layerization: patchLayerizationState({ updatedAt, callbackDeadlineAt }),
+    updatedAt: input.now,
+  }).where(and(
+    scope(input.workspaceId, input.workItemId, input.outputId),
+    sql`${creativeWorkOutputs.layerization}->>'status' = 'queued'`,
+    sql`${creativeWorkOutputs.layerization}->>'attemptId' = ${input.attemptId}`,
+  )).returning();
+  return updated ?? null;
+}
+
 export async function recordCreativeWorkLayerizationProviderRequest(
   workspaceId: string,
   workItemId: string,
@@ -207,10 +229,10 @@ export async function claimExpiredCreativeWorkLayerizationRecovery(input: {
   workItemId: string;
   outputId: string;
   now: Date;
-}): Promise<LayerizationOutputRow | null> {
+}, executor: Pick<LayerizationExecutor, "update"> = db): Promise<LayerizationOutputRow | null> {
   const now = input.now.toISOString();
   const leaseBefore = new Date(input.now.getTime() - LAYERIZATION_RECOVERY_LEASE_MS).toISOString();
-  const [claimed] = await db.update(creativeWorkOutputs).set({
+  const [claimed] = await executor.update(creativeWorkOutputs).set({
     layerization: sql`${creativeWorkOutputs.layerization} || jsonb_build_object(
       'status', case
         when ${creativeWorkOutputs.layerization}->>'providerRequestId' is null then 'submission_unknown'
@@ -371,8 +393,8 @@ export async function failCreativeWorkLayerization(input: {
   workItemId: string;
   outputId: string;
   code: LayerizationState["failureCode"];
-}): Promise<LayerizationOutputRow | null> {
-  const [updated] = await db.update(creativeWorkOutputs).set({
+}, executor: LayerizationExecutor = db): Promise<LayerizationOutputRow | null> {
+  const [updated] = await executor.update(creativeWorkOutputs).set({
     layerization: patchLayerizationStatus("failed", input.code),
     updatedAt: new Date(),
   }).where(and(
@@ -380,5 +402,5 @@ export async function failCreativeWorkLayerization(input: {
     sql`${creativeWorkOutputs.layerization}->>'status' in ('queued', 'processing', 'reconciling', 'finalizing')`,
   )).returning();
   if (updated) return updated;
-  return getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId);
+  return getCreativeWorkLayerizationOutput(input.workspaceId, input.workItemId, input.outputId, executor);
 }
