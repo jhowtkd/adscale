@@ -1,6 +1,6 @@
 import "server-only";
 import { materializeLayerEditorDraft } from "@/server/layer-editor/artifacts";
-import { findCreativeWorkLayerEditorPublicationByOperation, getCreativeWorkLayerEditorOutput, layerEditorFromOutput, publishCreativeWorkLayerEditorVersion } from "@/server/repositories/creative-work-layer-editor";
+import { findCreativeWorkLayerEditorPublicationByOperation, getCreativeWorkLayerEditorOutput, hasActiveLayerEditorRegeneration, layerEditorFromOutput, publishCreativeWorkLayerEditorVersion } from "@/server/repositories/creative-work-layer-editor";
 import { objectStorage } from "@/server/storage";
 import { getLayerEditorAccess } from "@/server/layer-editor/quota";
 
@@ -10,7 +10,7 @@ function toPublicPublishedChild(output: { id: string; parentOutputId: string | n
 
 export async function publishCreativeWorkLayerEditor(input:{workspaceId:string;workItemId:string;outputId:string;userId:string;leaseId:string;expectedRevision:number;operationId:string}) {
  if (!(await getLayerEditorAccess(input.workspaceId, new Date())).enabled) return {ok:false as const,code:"layer_editor_not_available" as const};
- const parent=await getCreativeWorkLayerEditorOutput(input); const state=layerEditorFromOutput(parent); if(!parent||!state||state.revision!==input.expectedRevision||state.lease?.id!==input.leaseId||state.lease.userId!==input.userId||Date.parse(state.lease.expiresAt)<=Date.now()||state.regeneration)return {ok:false as const,code:"layer_editor_publish_conflict" as const};
+ const parent=await getCreativeWorkLayerEditorOutput(input); const state=layerEditorFromOutput(parent); if(!parent||!state||state.revision!==input.expectedRevision||state.lease?.id!==input.leaseId||state.lease.userId!==input.userId||Date.parse(state.lease.expiresAt)<=Date.now()||hasActiveLayerEditorRegeneration(state))return {ok:false as const,code:"layer_editor_publish_conflict" as const};
  const existing = await findCreativeWorkLayerEditorPublicationByOperation(input);
  if (existing) {
    const expectedKey = `layer-editor-publish:${input.operationId}:${parent.id}:${state.revision}`;

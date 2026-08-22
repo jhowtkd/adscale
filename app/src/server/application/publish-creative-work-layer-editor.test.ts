@@ -15,6 +15,7 @@ const store = vi.hoisted(() => ({ existing: null as Record<string, unknown> | nu
 vi.mock("@/server/repositories/creative-work-layer-editor", () => ({
   getCreativeWorkLayerEditorOutput: getEditorOutput,
   layerEditorFromOutput: stateFromOutput,
+  hasActiveLayerEditorRegeneration: (editor: LayerEditorStateV1) => ["reserved", "processing", "ready"].includes(editor.regeneration?.status ?? ""),
   findCreativeWorkLayerEditorPublicationByOperation: findPublication,
   publishCreativeWorkLayerEditorVersion: publishVersion,
 }));
@@ -154,5 +155,15 @@ describe("publishCreativeWorkLayerEditor", () => {
 
     await expect(publishCreativeWorkLayerEditor(input)).resolves.toEqual({ ok: false, code: "layer_editor_not_available" });
     expect(materialize).not.toHaveBeenCalled();
+  });
+
+  it.each(["failed", "submission_unknown"] as const)("publishes after terminal %s evidence without erasing the parent", async (status) => {
+    const terminal = { ...state, regeneration: { id: "00000000-0000-4000-8000-000000000099", status, layerId: state.layers[0]!.id, instruction: "Change", requestedByUserId: input.userId, usageKey: "usage", candidateKey: null, providerRequestId: null, failureCode: "provider_failure", createdAt: state.updatedAt, updatedAt: state.updatedAt } };
+    stateFromOutput.mockImplementation((row: { layerEditor?: LayerEditorStateV1 } | null) => row === parent ? terminal : row?.layerEditor ?? null);
+
+    await expect(publishCreativeWorkLayerEditor(input)).resolves.toMatchObject({ ok: true });
+
+    expect(terminal.regeneration).toMatchObject({ status, failureCode: "provider_failure" });
+    expect((publishVersion.mock.calls[0]?.[0] as { rebasedEditor: LayerEditorStateV1 }).rebasedEditor.regeneration).toBeNull();
   });
 });

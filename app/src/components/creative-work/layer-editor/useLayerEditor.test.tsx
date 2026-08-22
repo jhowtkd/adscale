@@ -164,6 +164,18 @@ describe("useLayerEditor", () => {
     expect(callsFor("saveLayerEditor")).toHaveLength(0);
   });
 
+  it.each(["failed", "submission_unknown"] as const)("allows local edits after terminal %s evidence", async (status) => {
+    vi.useFakeTimers();
+    const terminal = { ...editorDocument, regeneration: { id: "00000000-0000-4000-8000-000000000099", status, layerId: editorDocument.layers[0]!.id, instruction: "Change", candidateUrl: null, failureCode: "provider_failure" } };
+    patch.mockImplementation(async (_work: string, body: { action: string }) => response(body.action === "saveLayerEditor" ? { ...terminal, revision: 2 } : terminal));
+    const hook = await openHook();
+
+    act(() => hook.result.current.dispatch({ type: "rename", id: editorDocument.layers[0]!.id, name: "Allowed" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(750); });
+
+    expect(callsFor("saveLayerEditor")).toHaveLength(1);
+  });
+
   it("reports saving, saved, and explicit conflict recovery states", async () => {
     vi.useFakeTimers();
     const saving = deferred<ReturnType<typeof response>>();

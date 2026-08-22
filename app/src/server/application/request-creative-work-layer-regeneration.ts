@@ -29,13 +29,20 @@ export async function requestCreativeWorkLayerRegeneration(input: { workspaceId:
     const cleared = await clearTerminalLayerRegenerationForRetry({ ...input, now: new Date() });
     const clearedState = layerEditorFromOutput(cleared);
     if (!clearedState) {
-      if (!quota.replay) await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, new Date());
+      await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, new Date());
       return { ok: false as const, code: "layer_editor_revision_conflict" as const };
     }
     expectedRevision = clearedState.revision;
   }
   const reserved=await reserveLayerRegeneration({...input,expectedRevision,instruction,usageKey:`layer-editor:${input.workspaceId}:regeneration:${input.operationId}`,now:new Date()});
-  if(!reserved){ if(!quota.replay) await releaseLayerEditorQuota({workspaceId:input.workspaceId,kind:"layer_regeneration_v1",operationId:input.operationId},new Date()); const state=layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(input)); if(state?.regeneration?.id===input.operationId)return {ok:true as const,accepted:false,replay:true}; return {ok:false as const,code:"layer_editor_revision_conflict" as const}; }
+  if(!reserved){
+    const state=layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(input));
+    if(state?.regeneration?.id===input.operationId)return {ok:true as const,accepted:false,replay:true};
+    // A persisted claim without a matching reservation is a pre-provider
+    // crash/lost-CAS state. Releasing is idempotent even for a replayed claim.
+    await releaseLayerEditorQuota({workspaceId:input.workspaceId,kind:"layer_regeneration_v1",operationId:input.operationId},new Date());
+    return {ok:false as const,code:"layer_editor_revision_conflict" as const};
+  }
   try { await inngest.send({id:`creative-work-layer-regenerate:${input.outputId}:${input.operationId}`,name:heavyImageEventName("creative-work.layer-regenerate"),data:{workspaceId:input.workspaceId,workItemId:input.workItemId,outputId:input.outputId,operationId:input.operationId}}); }
   catch {
     const now = new Date();

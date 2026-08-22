@@ -35,7 +35,7 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
   const [inspectVisibility, setInspectVisibility] = useState<Record<string, boolean>>({});
   const alertRef = useRef<HTMLDivElement>(null);
   const regenerationPanelRef = useRef<HTMLDivElement>(null);
-  const canMutate = editor.mode === "edit" && !editor.document?.regeneration;
+  const canMutate = editor.mode === "edit" && !["reserved", "processing", "ready"].includes(editor.document?.regeneration?.status ?? "");
 
   useEffect(() => { if (error) alertRef.current?.focus(); }, [error]);
 
