@@ -28,6 +28,7 @@ import { layerEditorMutableSnapshotSchema } from "@/server/layer-editor/contract
 import { requestCreativeWorkLayerRegeneration } from "@/server/application/request-creative-work-layer-regeneration";
 import { acceptLayerRegenerationCandidate, discardLayerRegenerationCandidate, getCreativeWorkLayerEditorOutput, layerEditorFromOutput } from "@/server/repositories/creative-work-layer-editor";
 import { objectStorage } from "@/server/storage";
+import { publishCreativeWorkLayerEditor } from "@/server/application/publish-creative-work-layer-editor";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import {
   CREATIVE_SOURCE_USAGES,
@@ -152,6 +153,7 @@ const releaseLayerEditorSchema = z.object({ action: z.literal("releaseLayerEdito
 const saveLayerEditorSchema = z.object({ action: z.literal("saveLayerEditor"), outputId: z.string().uuid(), leaseId: z.string().uuid(), expectedRevision: z.number().int().positive(), snapshot: layerEditorMutableSnapshotSchema }).strict();
 const regenerateLayerSchema=z.object({action:z.literal("regenerateLayer"),outputId:z.string().uuid(),leaseId:z.string().uuid(),expectedRevision:z.number().int().positive(),operationId:z.string().uuid(),layerId:z.string().uuid(),instruction:z.string().trim().min(1).max(2000)}).strict();
 const candidateActionSchema=z.object({action:z.enum(["acceptLayerCandidate","discardLayerCandidate"]),outputId:z.string().uuid(),leaseId:z.string().uuid(),expectedRevision:z.number().int().positive(),operationId:z.string().uuid()}).strict();
+const publishLayerEditorSchema=z.object({action:z.literal("publishLayerEditor"),outputId:z.string().uuid(),leaseId:z.string().uuid(),expectedRevision:z.number().int().positive(),operationId:z.string().uuid()}).strict();
 const linkCampaignSchema = z.object({ action: z.literal("linkCampaign"), campaignId: z.string().min(1).nullable() }).strict();
 const sourceUsageSchema = z.enum(CREATIVE_SOURCE_USAGES);
 const attachSourceSchema = z.union([
@@ -174,6 +176,7 @@ const patchCreativeWorkSchema = z.union([
   layerizeOutputSchema,
   openLayerEditorSchema, heartbeatLayerEditorSchema, releaseLayerEditorSchema, saveLayerEditorSchema,
   regenerateLayerSchema,candidateActionSchema,
+  publishLayerEditorSchema,
 ]);
 
 function dispatchSourceAnalysis(workspaceId: string, workItemId: string, sourceId: string) {
@@ -501,6 +504,7 @@ export async function PATCH(
       if(candidate.status!=="ready"||!candidate.candidateKey)return apiError("layer_editor_revision_conflict",409);
       const key=`creative-work/${id}/layer-editor/${parsed.data.outputId}/layers/${candidate.layerId}/revisions/${parsed.data.expectedRevision+1}.png`; await objectStorage.put(key,await objectStorage.get(candidate.candidateKey),"image/png"); const updated=await acceptLayerRegenerationCandidate({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id,immutableKey:key,now:new Date()}); if(!updated){void objectStorage.delete(key);return apiError("layer_editor_revision_conflict",409);} void objectStorage.delete(candidate.candidateKey); return NextResponse.json({ok:true});
     }
+    if ("action" in parsed.data && parsed.data.action === "publishLayerEditor") { const result=await publishCreativeWorkLayerEditor({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id}); return result.ok?NextResponse.json(result,{status:result.replay?200:201}):apiError(result.code,409); }
 
     if ("action" in parsed.data && parsed.data.action === "autosave") {
       const aggregate = await getCreativeWork(workspace.id, id);
