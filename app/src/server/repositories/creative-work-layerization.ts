@@ -228,6 +228,7 @@ export async function claimExpiredCreativeWorkLayerizationRecovery(input: {
   workspaceId: string;
   workItemId: string;
   outputId: string;
+  attemptId: string;
   now: Date;
 }, executor: Pick<LayerizationExecutor, "update"> = db): Promise<LayerizationOutputRow | null> {
   const now = input.now.toISOString();
@@ -244,6 +245,7 @@ export async function claimExpiredCreativeWorkLayerizationRecovery(input: {
     updatedAt: input.now,
   }).where(and(
     scope(input.workspaceId, input.workItemId, input.outputId),
+    sql`${creativeWorkOutputs.layerization}->>'attemptId' = ${input.attemptId}`,
     sql`(
       (
         ${creativeWorkOutputs.layerization}->>'status' in ('queued', 'processing', 'reconciling')
