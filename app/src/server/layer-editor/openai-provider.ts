@@ -40,5 +40,9 @@ export async function normalizeLayerCandidate(buffer: Buffer, bounds: { width: n
   const raw = await image.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   let hasAlpha = false; for (let index = 3; index < raw.data.length; index += raw.info.channels) if (raw.data[index]! > 0) { hasAlpha = true; break; }
   if (!hasAlpha) throw new Error("Candidate alpha is empty");
-  return sharp(buffer).trim({ background: { r: 0, g: 0, b: 0, alpha: 0 } }).resize(bounds.width, bounds.height, { fit: "contain" }).extend({ top: 0, bottom: 0, left: 0, right: 0, background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+  return sharp(buffer)
+    .trim({ background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .resize(bounds.width, bounds.height, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer();
 }

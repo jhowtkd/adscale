@@ -75,14 +75,14 @@ describe("creative work layer editor regeneration repository", () => {
     expect(store.update).toBeNull();
   });
 
-  it("accepts only the selected candidate layer and preserves source restoration", async () => {
+  it("accepts only the selected candidate layer and clears restoration for the immutable result", async () => {
     store.row = { layerEditor: editorState({ regeneration: { id: operationId, status: "ready", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: "private/candidate.png", providerRequestId: "request-1", failureCode: null, createdAt: now.toISOString(), updatedAt: now.toISOString() } }) };
     const originalOther = store.row.layerEditor.layers[1];
 
     const updated = await acceptLayerRegenerationCandidate({ ...mutation, operationId, immutableKey: "immutable/accepted.png" });
     const state = layerEditorFromOutput(updated);
 
-    expect(state?.layers.find((layer) => layer.id === layerId)).toMatchObject({ currentKey: "immutable/accepted.png", currentKind: "regenerated", restorableKey: "private/source-product.png" });
+    expect(state?.layers.find((layer) => layer.id === layerId)).toMatchObject({ currentKey: "immutable/accepted.png", currentKind: "regenerated", restorableKey: null });
     expect(state?.layers.find((layer) => layer.id === otherLayerId)).toEqual(originalOther);
     expect(state?.regeneration).toBeNull();
   });
@@ -128,7 +128,7 @@ describe("creative work layer editor publication repository", () => {
         execute: vi.fn(async () => undefined),
         select: (fields?: unknown) => ({ from: () => ({ where: () => fields
           ? Promise.resolve([{ maxVersion: 7 }])
-          : { limit: async () => (++plainSelects === 1 ? [parent] : existing ? [existing] : []) },
+          : { for: (lock: string) => ({ limit: async () => { expect(lock).toBe("update"); return [parent]; } }), limit: async () => existing ? [existing] : [] },
         }) }),
         insert: () => ({ values: (values: Record<string, unknown>) => ({ returning: async () => {
           insertCount += 1;
@@ -161,7 +161,7 @@ describe("creative work layer editor publication repository", () => {
       let plainSelects = 0;
       const tx = {
         execute: vi.fn(async () => undefined),
-        select: () => ({ from: () => ({ where: () => ({ limit: async () => (++plainSelects === 1 ? [parent] : [{ id: "other", parentOutputId: "other-parent", outputKey: "other.png" }]) }) }) }),
+        select: () => ({ from: () => ({ where: () => ({ for: () => ({ limit: async () => [parent] }), limit: async () => [{ id: "other", parentOutputId: "other-parent", outputKey: "other.png" }] }) }) }),
         insert: vi.fn(),
       };
       return callback(tx as never);

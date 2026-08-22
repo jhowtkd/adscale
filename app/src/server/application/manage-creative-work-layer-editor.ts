@@ -6,6 +6,7 @@ import { LAYER_EDITOR_SIGNED_URL_TTL_SECONDS, layerEditorStateFromDatabase, type
 import { getLayerEditorAccess } from "@/server/layer-editor/quota";
 import {
   acquireCreativeWorkLayerEditorLease,
+  getCreativeWorkLayerEditorLeaseHolderName,
   getCreativeWorkLayerEditorOutput,
   heartbeatCreativeWorkLayerEditorLease,
   initializeCreativeWorkLayerEditor,
@@ -23,7 +24,7 @@ export type LayerEditorCommandResult =
   | { ok: true; document: PublicLayerEditorDocumentV1; access: LayerEditorAccessV1 }
   | { ok: false; status: 403 | 404 | 409; code: "layer_editor_not_available" | "layer_editor_locked" | "layer_editor_revision_conflict"; document?: PublicLayerEditorDocumentV1 };
 
-async function project(state: LayerEditorStateV1, input: { userId: string; userName: string | null }): Promise<PublicLayerEditorDocumentV1> {
+async function project(state: LayerEditorStateV1, input: { workspaceId: string; userId: string; userName: string | null }): Promise<PublicLayerEditorDocumentV1> {
   const [layers, candidateUrl] = await Promise.all([
     Promise.all(state.layers.map(async (layer) => ({
       id: layer.id,
@@ -34,9 +35,12 @@ async function project(state: LayerEditorStateV1, input: { userId: string; userN
     state.regeneration?.candidateKey ? objectStorage.signedDownloadUrl(state.regeneration.candidateKey, LAYER_EDITOR_SIGNED_URL_TTL_SECONDS) : Promise.resolve(null),
   ]);
   const ownsLease = state.lease?.userId === input.userId;
+  const heldByName = state.lease && !ownsLease
+    ? await getCreativeWorkLayerEditorLeaseHolderName(input.workspaceId, state.lease.userId)
+    : null;
   return {
     schemaVersion: 1, revision: state.revision, canvas: state.canvas, layers,
-    lease: { mode: ownsLease ? "edit" : "read", leaseId: ownsLease ? state.lease?.id ?? null : null, heldByName: state.lease && !ownsLease ? input.userName : null, expiresAt: state.lease?.expiresAt ?? null },
+    lease: { mode: ownsLease ? "edit" : "read", leaseId: ownsLease ? state.lease?.id ?? null : null, heldByName, expiresAt: state.lease?.expiresAt ?? null },
     regeneration: state.regeneration ? { id: state.regeneration.id, status: state.regeneration.status, layerId: state.regeneration.layerId, instruction: state.regeneration.instruction, candidateUrl, failureCode: state.regeneration.failureCode } : null,
     updatedAt: state.updatedAt,
   };
