@@ -11,11 +11,12 @@ const quotaCommitted = vi.hoisted(() => vi.fn());
 const markCommitted = vi.hoisted(() => vi.fn());
 const dispatchCommitted = vi.hoisted(() => vi.fn());
 const markDispatchCommitted = vi.hoisted(() => vi.fn());
+const refreshDispatch = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
 const operationLock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 const dispatchLock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 vi.mock("@/server/layer-editor/quota", () => ({ claimLayerEditorQuota: claim, isLayerEditorQuotaReleased: quotaReleased, isLayerEditorQuotaReservationCommitted: quotaCommitted, markLayerEditorQuotaReservationCommitted: markCommitted, isLayerEditorQuotaDispatchCommitted: dispatchCommitted, markLayerEditorQuotaDispatchCommitted: markDispatchCommitted, releaseLayerEditorQuota: release, withLayerEditorOperationLock: operationLock, withLayerEditorPostDispatchLock: dispatchLock }));
-vi.mock("@/server/repositories/creative-work-layer-editor", () => ({ clearTerminalLayerRegenerationForRetry: clearTerminal, reserveLayerRegeneration: reserve, rollbackReservedLayerRegeneration: rollback, getCreativeWorkLayerEditorOutput: getOutput, layerEditorFromOutput: stateFromOutput }));
+vi.mock("@/server/repositories/creative-work-layer-editor", () => ({ clearTerminalLayerRegenerationForRetry: clearTerminal, reserveLayerRegeneration: reserve, rollbackReservedLayerRegeneration: rollback, refreshReservedLayerRegenerationDispatch: refreshDispatch, getCreativeWorkLayerEditorOutput: getOutput, layerEditorFromOutput: stateFromOutput }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
 import { requestCreativeWorkLayerRegeneration } from "./request-creative-work-layer-regeneration";
 const input = { workspaceId: "w", workItemId: "i", outputId: "o", userId: "u", leaseId: "00000000-0000-4000-8000-000000000001", expectedRevision: 1, operationId: "00000000-0000-4000-8000-000000000002", layerId: "00000000-0000-4000-8000-000000000003", instruction: "x" };
@@ -36,6 +37,7 @@ describe("requestCreativeWorkLayerRegeneration", () => {
     markCommitted.mockResolvedValue(true);
     dispatchCommitted.mockResolvedValue(false);
     markDispatchCommitted.mockResolvedValue(true);
+    refreshDispatch.mockResolvedValue({ id: input.outputId });
     stateFromOutput.mockReturnValue({ regeneration: { id: input.operationId, status: "reserved" } });
   });
 
@@ -205,6 +207,34 @@ describe("requestCreativeWorkLayerRegeneration", () => {
 
     expect(release).not.toHaveBeenCalled();
     expect(rollback).not.toHaveBeenCalled();
+    expect(refreshDispatch).toHaveBeenCalledWith(expect.objectContaining({ operationId: input.operationId }), expect.anything());
+  });
+
+  it("does not redeliver a reservation that stale recovery terminalized while it waited for the dispatch lock", async () => {
+    claim.mockResolvedValue({ ok: true, replay: true });
+    getOutput.mockResolvedValue({ layerEditor: {} });
+    let current = { regeneration: { id: input.operationId, status: "reserved" } };
+    stateFromOutput.mockImplementation(() => current);
+    let enterDispatchLock!: () => void;
+    const reachedDispatchLock = new Promise<void>((resolve) => { enterDispatchLock = resolve; });
+    let releaseDispatchLock!: () => void;
+    const release = new Promise<void>((resolve) => { releaseDispatchLock = resolve; });
+    dispatchLock.mockImplementation(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => {
+      enterDispatchLock();
+      await release;
+      return run({});
+    });
+
+    const replay = requestCreativeWorkLayerRegeneration(input);
+    await reachedDispatchLock;
+    // The recovery held the same post-dispatch advisory lock first and
+    // terminalized the reservation with its quota compensation.
+    current = { regeneration: { id: input.operationId, status: "failed" } };
+    releaseDispatchLock();
+
+    await expect(replay).resolves.toEqual({ ok: false, code: "layer_editor_revision_conflict" });
+    expect(send).not.toHaveBeenCalled();
+    expect(refreshDispatch).not.toHaveBeenCalled();
   });
 
   it("does not turn a compensated dispatch failure into a successful replay", async () => {

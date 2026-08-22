@@ -3,7 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { LAYER_EDITOR_SIGNED_URL_TTL_SECONDS, layerEditorStateFromDatabase, type LayerEditorAccessV1, type LayerEditorMutableSnapshotV1, type LayerEditorStateV1, type PublicLayerEditorDocumentV1 } from "@/server/layer-editor/contracts";
-import { getLayerEditorAccess, releaseLayerEditorQuota, withLayerEditorOperationLock } from "@/server/layer-editor/quota";
+import { getLayerEditorAccess, releaseLayerEditorQuota, withLayerEditorPostDispatchLock } from "@/server/layer-editor/quota";
 import {
   acquireCreativeWorkLayerEditorLease,
   acceptLayerRegenerationCandidate,
@@ -60,7 +60,7 @@ export async function recoverCreativeWorkLayerEditorStaleRegeneration(input: Lay
   const state = layerEditorStateFromDatabase((await getCreativeWorkLayerEditorOutput(input))?.layerEditor);
   const regeneration = state?.regeneration;
   if (regeneration?.status !== "reserved") return recoverStaleLayerRegeneration(input);
-  return withLayerEditorOperationLock({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: regeneration.id }, async (executor) => {
+  return withLayerEditorPostDispatchLock({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: regeneration.id }, async (executor) => {
     const recovered = await recoverStaleReservedLayerRegeneration({ ...input, operationId: regeneration.id }, executor);
     if (!recovered) return null;
     await releaseLayerEditorQuota({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: regeneration.id }, input.now, executor);

@@ -8,14 +8,14 @@ const acquire = vi.hoisted(() => vi.fn());
 const recover = vi.hoisted(() => vi.fn());
 const recoverReserved = vi.hoisted(() => vi.fn());
 const releaseQuota = vi.hoisted(() => vi.fn());
-const operationLock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
+const postDispatchLock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 const accept = vi.hoisted(() => vi.fn());
 const discard = vi.hoisted(() => vi.fn());
 const storageGet = vi.hoisted(() => vi.fn());
 const storagePut = vi.hoisted(() => vi.fn());
 const storageDelete = vi.hoisted(() => vi.fn());
 
-vi.mock("@/server/layer-editor/quota", () => ({ getLayerEditorAccess: access, releaseLayerEditorQuota: releaseQuota, withLayerEditorOperationLock: operationLock }));
+vi.mock("@/server/layer-editor/quota", () => ({ getLayerEditorAccess: access, releaseLayerEditorQuota: releaseQuota, withLayerEditorPostDispatchLock: postDispatchLock }));
 vi.mock("@/server/repositories/creative-work-layer-editor", () => ({
   getCreativeWorkLayerEditorOutput: output,
   getCreativeWorkLayerEditorLeaseHolderName: holderName,
@@ -53,7 +53,7 @@ describe("openCreativeWorkLayerEditor lease holder projection", () => {
     recover.mockResolvedValue(null);
     recoverReserved.mockResolvedValue(null);
     releaseQuota.mockResolvedValue({ released: true });
-    operationLock.mockImplementation(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({}));
+    postDispatchLock.mockImplementation(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({}));
     accept.mockResolvedValue({ id: "output" });
     discard.mockResolvedValue({ id: "output" });
     storageGet.mockResolvedValue(Buffer.from("candidate"));
@@ -132,7 +132,7 @@ describe("openCreativeWorkLayerEditor lease holder projection", () => {
 
     await expect(recoverCreativeWorkLayerEditorStaleRegeneration(recovery)).resolves.toMatchObject({ layerEditor: terminal });
     await expect(recoverCreativeWorkLayerEditorStaleRegeneration(recovery)).resolves.toBeNull();
-    expect(operationLock).toHaveBeenCalledWith(expect.objectContaining({ operationId: reserved.regeneration.id }), expect.any(Function));
+    expect(postDispatchLock).toHaveBeenCalledWith(expect.objectContaining({ operationId: reserved.regeneration.id }), expect.any(Function));
     expect(releaseQuota).toHaveBeenCalledTimes(1);
     expect(releaseQuota).toHaveBeenCalledWith(expect.objectContaining({ operationId: reserved.regeneration.id, kind: "layer_regeneration_v1" }), recovery.now, expect.anything());
   });

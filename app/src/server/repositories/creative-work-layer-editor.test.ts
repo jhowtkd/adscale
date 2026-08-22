@@ -39,6 +39,7 @@ import {
   reserveLayerRegeneration,
   recoverStaleLayerRegeneration,
   recoverStaleReservedLayerRegeneration,
+  refreshReservedLayerRegenerationDispatch,
   saveCreativeWorkLayerEditorSnapshot,
 } from "./creative-work-layer-editor";
 import { creativeWorkVersionLockScope } from "./creative-work";
@@ -210,6 +211,20 @@ describe("creative work layer editor regeneration repository", () => {
     await expect(recoverStaleReservedLayerRegeneration({ ...scope, operationId: "other", now: new Date("2026-08-22T00:06:00.000Z") })).resolves.toBeNull();
     store.row = { layerEditor: editorState({ regeneration: { id: operationId, status: "ready", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: "candidate.png", providerRequestId: null, failureCode: null, createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" } }) };
     await expect(recoverStaleReservedLayerRegeneration({ ...scope, operationId, now: new Date("2026-08-22T00:06:00.000Z") })).resolves.toBeNull();
+  });
+
+  it("refreshes a reserved dispatch age without changing its revision or allowing terminal states to revive", async () => {
+    const stale = editorState({ regeneration: { id: operationId, status: "reserved", layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: null, providerRequestId: null, failureCode: null, createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" } });
+    store.row = { layerEditor: stale };
+    await expect(refreshReservedLayerRegenerationDispatch({ ...scope, operationId, now: new Date("2026-08-22T00:06:00.000Z") })).resolves.not.toBeNull();
+    const chunks = (store.update?.layerEditor as { queryChunks: unknown[] }).queryChunks;
+    expect(chunks.map(String).join("")).toContain("2026-08-22T00:06:00.000Z");
+
+    store.row = { layerEditor: editorState({ regeneration: { ...stale.regeneration!, updatedAt: "2026-08-22T00:06:00.000Z" } }) };
+    await expect(recoverStaleReservedLayerRegeneration({ ...scope, operationId, now: new Date("2026-08-22T00:06:01.000Z") })).resolves.toBeNull();
+
+    store.row = { layerEditor: editorState({ regeneration: { ...stale.regeneration!, status: "failed", failureCode: "layer_regeneration_dispatch_stale" } }) };
+    await expect(refreshReservedLayerRegenerationDispatch({ ...scope, operationId, now: new Date("2026-08-22T00:06:00.000Z") })).resolves.toBeNull();
   });
 
   it("accepts only the selected candidate layer and clears restoration for the immutable result", async () => {
