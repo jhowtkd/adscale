@@ -25,6 +25,7 @@ function isEditableTarget(target: EventTarget | null) {
 
 export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", onOpenChange }: LayerEditorDialogProps) {
   const editor = useLayerEditor({ workItemId, outputId, mode });
+  const { canRedo, canUndo, mode: editorMode, redo, undo } = editor;
   const t = useTranslations("dashboard.home.composer.results");
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -36,22 +37,22 @@ export function LayerEditorDialog({ open, workItemId, outputId, mode = "edit", o
   useEffect(() => { if (error) alertRef.current?.focus(); }, [error]);
 
   useEffect(() => {
-    if (!open || editor.mode !== "edit") return;
+    if (!open || editorMode !== "edit") return;
     const onKeyDown = (event: KeyboardEvent) => {
       if ((!event.metaKey && !event.ctrlKey) || event.key.toLowerCase() !== "z" || isEditableTarget(event.target)) return;
       if (event.shiftKey) {
-        if (!editor.canRedo) return;
+        if (!canRedo) return;
         event.preventDefault();
-        editor.redo();
+        redo();
         return;
       }
-      if (!editor.canUndo) return;
+      if (!canUndo) return;
       event.preventDefault();
-      editor.undo();
+      undo();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [editor.canRedo, editor.canUndo, editor.mode, editor.redo, editor.undo, open]);
+  }, [canRedo, canUndo, editorMode, open, redo, undo]);
 
   const close = async () => {
     if (await editor.flushAndRelease()) onOpenChange(false);

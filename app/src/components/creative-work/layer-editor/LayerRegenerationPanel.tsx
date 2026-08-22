@@ -31,7 +31,14 @@ export function LayerRegenerationPanel({ document, selectedLayerId, access, mode
     <small className="block text-right text-muted-foreground">{instruction.length}/2000</small>
     <p role="status" className="text-sm">{regeneration?.status ?? t("editorNoActiveRegeneration")}</p>
     {regeneration?.status === "submission_unknown" ? <p role="alert" className="rounded border border-amber-500/50 bg-amber-50 p-2 text-sm text-amber-900">{t("editorSubmissionUnknown")}</p> : null}
-    {regeneration?.status === "ready" && layer ? <div className="space-y-2"><div className="grid grid-cols-2 gap-2">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={layer.imageUrl} alt={t("editorCurrent", { name: layer.name })} className="aspect-square w-full rounded object-contain" />{regeneration.candidateUrl ? <img src={regeneration.candidateUrl} alt={t("editorCandidate", { name: layer.name })} className="aspect-square w-full rounded object-contain" /> : null}</div><div className="flex gap-2"><Button className="min-h-11 flex-1" disabled={mode !== "edit"} onClick={onAccept}>{t("editorAcceptCandidate")}</Button><Button variant="outline" className="min-h-11 flex-1" disabled={mode !== "edit"} onClick={onDiscard}>{t("editorDiscardCandidate")}</Button></div></div> : null}
+    {regeneration?.status === "ready" && layer ? <div className="space-y-2"><div className="grid grid-cols-2 gap-2">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={layer.imageUrl} alt={t("editorCurrent", { name: layer.name })} className="aspect-square w-full rounded object-contain" />
+      {regeneration.candidateUrl ? <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={regeneration.candidateUrl} alt={t("editorCandidate", { name: layer.name })} className="aspect-square w-full rounded object-contain" />
+      </> : null}
+    </div><div className="flex gap-2"><Button className="min-h-11 flex-1" disabled={mode !== "edit"} onClick={onAccept}>{t("editorAcceptCandidate")}</Button><Button variant="outline" className="min-h-11 flex-1" disabled={mode !== "edit"} onClick={onDiscard}>{t("editorDiscardCandidate")}</Button></div></div> : null}
     {!regeneration || regeneration.status === "failed" || regeneration.status === "submission_unknown" ? <Button className="min-h-11 w-full" disabled={blocked} onClick={() => confirm ? layer && onRegenerate?.(layer.id, instruction.trim()) : setConfirm(true)}>{confirm ? t("editorConfirmRegeneration") : t("editorRegenerate")}</Button> : null}
   </section>;
 }

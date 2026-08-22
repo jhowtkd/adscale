@@ -138,7 +138,7 @@ export function useLayerEditor(input: LayerEditorInput) {
     stopped.current = nextMode !== "edit";
     setOpenError(null);
     if (!dirty.current) applyCanonicalDocument(response.document);
-  }, [applyCanonicalDocument, input.mode, input.outputId, input.workItemId]);
+  }, [applyCanonicalDocument, input.mode, input.outputId, input.workItemId, stop]);
 
   useEffect(() => {
     const opening = setTimeout(() => {
@@ -158,7 +158,7 @@ export function useLayerEditor(input: LayerEditorInput) {
         });
       }
     };
-  }, [input.outputId, input.workItemId, open]);
+  }, [input.outputId, input.workItemId, open, stop]);
 
   const commitSession = useCallback((next: LayerEditorSessionState) => {
     if (next === sessionRef.current) return;
@@ -234,14 +234,15 @@ export function useLayerEditor(input: LayerEditorInput) {
   }, [command]);
 
   const document = session?.present ?? null;
+  const regenerationStatus = document?.regeneration?.status;
 
   useEffect(() => {
-    if (!document || !(["reserved", "processing"] as const).includes(document.regeneration?.status as "reserved" | "processing")) return;
+    if (!( ["reserved", "processing"] as const).includes(regenerationStatus as "reserved" | "processing")) return;
     const polling = setInterval(() => {
       if (!stopped.current) void open();
     }, 2_000);
     return () => clearInterval(polling);
-  }, [document?.regeneration?.status, open]);
+  }, [open, regenerationStatus]);
 
   const exportDraft = useCallback(async (format: "draft-png" | "draft-psd") => {
     const popup = globalThis.window.open("about:blank", "_blank");
