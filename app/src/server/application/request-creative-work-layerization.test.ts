@@ -11,6 +11,8 @@ const quotaReleaseMock = vi.hoisted(() => vi.fn());
 const quotaReleasedMock = vi.hoisted(() => vi.fn());
 const quotaCommittedMock = vi.hoisted(() => vi.fn());
 const markCommittedMock = vi.hoisted(() => vi.fn());
+const dispatchCommittedMock = vi.hoisted(() => vi.fn());
+const markDispatchCommittedMock = vi.hoisted(() => vi.fn());
 const operationLockMock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 const dispatchLockMock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (executor: unknown) => Promise<unknown>) => run({})));
 
@@ -35,6 +37,8 @@ vi.mock("@/server/layer-editor/quota", () => ({
   isLayerEditorQuotaReleased: (...args: unknown[]) => quotaReleasedMock(...args),
   isLayerEditorQuotaReservationCommitted: (...args: unknown[]) => quotaCommittedMock(...args),
   markLayerEditorQuotaReservationCommitted: (...args: unknown[]) => markCommittedMock(...args),
+  isLayerEditorQuotaDispatchCommitted: (...args: unknown[]) => dispatchCommittedMock(...args),
+  markLayerEditorQuotaDispatchCommitted: (...args: unknown[]) => markDispatchCommittedMock(...args),
   releaseLayerEditorQuota: (...args: unknown[]) => quotaReleaseMock(...args),
   withLayerEditorOperationLock: (...args: unknown[]) => operationLockMock(...args),
   withLayerEditorPostDispatchLock: (...args: unknown[]) => dispatchLockMock(...args),
@@ -82,6 +86,8 @@ describe("requestCreativeWorkLayerization", () => {
     quotaReleasedMock.mockResolvedValue(false);
     quotaCommittedMock.mockResolvedValue(false);
     markCommittedMock.mockResolvedValue(true);
+    dispatchCommittedMock.mockResolvedValue(false);
+    markDispatchCommittedMock.mockResolvedValue(true);
     clearFailedMock.mockImplementation(async () => {
       output.layerization = null;
       return { id: "output-1", layerization: null };

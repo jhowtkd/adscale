@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { claimLayerEditorQuota, isLayerEditorQuotaReleased, isLayerEditorQuotaReservationCommitted, markLayerEditorQuotaReservationCommitted, releaseLayerEditorQuota, withLayerEditorOperationLock, withLayerEditorPostDispatchLock, type LayerEditorOperationExecutor } from "@/server/layer-editor/quota";
+import { claimLayerEditorQuota, isLayerEditorQuotaDispatchCommitted, isLayerEditorQuotaReleased, isLayerEditorQuotaReservationCommitted, markLayerEditorQuotaDispatchCommitted, markLayerEditorQuotaReservationCommitted, releaseLayerEditorQuota, withLayerEditorOperationLock, withLayerEditorPostDispatchLock, type LayerEditorOperationExecutor } from "@/server/layer-editor/quota";
 import { clearTerminalLayerRegenerationForRetry, getCreativeWorkLayerEditorOutput, layerEditorFromOutput, reserveLayerRegeneration, rollbackReservedLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
@@ -12,8 +12,10 @@ export async function requestCreativeWorkLayerRegeneration(input: { workspaceId:
       const state = layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(input, executor));
       if (state?.regeneration?.id !== input.operationId) return { ok: false as const, code: "layer_editor_revision_conflict" as const };
       if (state.regeneration.status !== "reserved") return { ok: true as const, accepted: true, replay: false };
+      if (await isLayerEditorQuotaDispatchCommitted({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, executor)) return { ok: true as const, accepted: false, replay: true };
       try {
         await inngest.send({id:`creative-work-layer-regenerate:${input.outputId}:${input.operationId}`,name:heavyImageEventName("creative-work.layer-regenerate"),data:{workspaceId:input.workspaceId,workItemId:input.workItemId,outputId:input.outputId,operationId:input.operationId}});
+        await markLayerEditorQuotaDispatchCommitted({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, executor);
         return {ok:true as const,accepted:decision.accepted,replay:decision.replay};
       } catch {
         const rolledBack = await rollbackReservedLayerRegeneration({ ...input, now: new Date() }, executor);
