@@ -181,7 +181,7 @@ async function main() {
   })));
   const primary = await seedVariant({ workspaceId, userId, profileId: profile.id, variant: { label: "primary", selected: true } });
   const candidate = await seedVariant({ workspaceId, userId, profileId: profile.id, variant: { label: "ready candidate", selected: true, readyCandidate: true } });
-  const foreign = await seedVariant({ workspaceId, userId, profileId: profile.id, variant: { label: "foreign lease", selected: false, foreignLeaseUserId } });
+  const foreign = await seedVariant({ workspaceId, userId, profileId: profile.id, variant: { label: "foreign lease", selected: true, foreignLeaseUserId } });
   const fixture = { email: E2E_EMAIL, password: E2E_PASSWORD, userId, workspaceId, ...primary, readyCandidateWorkItemId: candidate.workItemId, readyCandidateOutputId: candidate.outputId, foreignLeaseWorkItemId: foreign.workItemId, foreignLeaseOutputId: foreign.outputId };
   fs.mkdirSync(path.dirname(FIXTURE_PATH), { recursive: true });
   fs.writeFileSync(FIXTURE_PATH, `${JSON.stringify(fixture, null, 2)}\n`);
