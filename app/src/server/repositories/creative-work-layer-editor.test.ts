@@ -5,15 +5,25 @@ const store = vi.hoisted(() => ({
   row: null as { layerEditor: LayerEditorStateV1 } | null,
   update: null as Record<string, unknown> | null,
   casLoses: false,
+  renewLeaseBeforeReturning: null as (() => void) | null,
 }));
 const publicationTransaction = vi.hoisted(() => vi.fn());
+
+function persistedLayerEditor(value: unknown): unknown {
+  if (!value || typeof value !== "object" || !("queryChunks" in value)) return value;
+  const serialized = (value as { queryChunks: unknown[] }).queryChunks.find((chunk): chunk is string => typeof chunk === "string" && chunk.startsWith("{\"schemaVersion\""));
+  if (!serialized) return value;
+  return { ...JSON.parse(serialized) as LayerEditorStateV1, lease: store.row?.layerEditor.lease ?? null };
+}
 
 vi.mock("@/server/db", () => ({
   db: {
     select: () => ({ from: () => ({ where: () => ({ limit: async () => store.row ? [store.row] : [] }) }) }),
     update: () => ({ set: (value: Record<string, unknown>) => ({ where: () => ({ returning: async () => {
       store.update = value;
-      return store.casLoses || !store.row ? [] : [{ ...store.row, layerEditor: value.layerEditor }];
+      if (store.casLoses || !store.row) return [];
+      store.renewLeaseBeforeReturning?.();
+      return [{ ...store.row, layerEditor: persistedLayerEditor(value.layerEditor) }];
     } }) }) }),
     transaction: (...args: unknown[]) => publicationTransaction(...args),
   },
@@ -59,6 +69,7 @@ describe("creative work layer editor regeneration repository", () => {
     store.row = { layerEditor: editorState() };
     store.update = null;
     store.casLoses = false;
+    store.renewLeaseBeforeReturning = null;
   });
 
   it.each([
@@ -86,6 +97,37 @@ describe("creative work layer editor regeneration repository", () => {
 
     await expect(saveCreativeWorkLayerEditorSnapshot({ ...mutation, snapshot, now })).resolves.toBeNull();
     expect(store.update).toBeNull();
+  });
+
+  it("preserves a same-holder heartbeat renewal across snapshot save, reserve, accept, and discard", async () => {
+    const renewedExpiresAt = "2026-08-22T00:02:30.000Z";
+    const renewBetweenReadAndWrite = () => {
+      const current = store.row!.layerEditor;
+      store.row = { layerEditor: { ...current, lease: { ...current.lease!, expiresAt: renewedExpiresAt } } };
+    };
+    const snapshot = { layers: editorState().layers.map(({ id, order, name, visible, x, y, width, height }) => ({ id, order, name, visible, x, y, width, height, useSource: false })) };
+
+    store.renewLeaseBeforeReturning = renewBetweenReadAndWrite;
+    await expect(saveCreativeWorkLayerEditorSnapshot({ ...mutation, snapshot, now })).resolves.toMatchObject({ layerEditor: { lease: { expiresAt: renewedExpiresAt } } });
+
+    store.row = { layerEditor: editorState() };
+    await expect(reserveLayerRegeneration({ ...mutation, operationId, layerId, instruction: "New color", usageKey: "usage-1" })).resolves.toMatchObject({ layerEditor: { lease: { expiresAt: renewedExpiresAt } } });
+
+    const ready = { id: operationId, status: "ready" as const, layerId, instruction: "New color", requestedByUserId: "user-1", usageKey: "usage-1", candidateKey: "private/candidate.png", providerRequestId: "request-1", failureCode: null, createdAt: now.toISOString(), updatedAt: now.toISOString() };
+    store.row = { layerEditor: editorState({ regeneration: ready }) };
+    await expect(acceptLayerRegenerationCandidate({ ...mutation, operationId, immutableKey: "immutable/accepted.png" })).resolves.toMatchObject({ layerEditor: { lease: { expiresAt: renewedExpiresAt } } });
+
+    store.row = { layerEditor: editorState({ regeneration: ready }) };
+    await expect(discardLayerRegenerationCandidate({ ...mutation, operationId })).resolves.toMatchObject({ layerEditor: { lease: { expiresAt: renewedExpiresAt } } });
+  });
+
+  it.each([
+    ["a replaced holder", { lease: { ...editorState().lease!, userId: "other-user" } }],
+    ["an expired lease", { lease: { ...editorState().lease!, expiresAt: "2026-08-21T23:59:59.000Z" } }],
+  ])("rejects a snapshot save for %s", async (_label, override) => {
+    store.row = { layerEditor: editorState(override) };
+    const snapshot = { layers: store.row.layerEditor.layers.map(({ id, order, name, visible, x, y, width, height }) => ({ id, order, name, visible, x, y, width, height, useSource: false })) };
+    await expect(saveCreativeWorkLayerEditorSnapshot({ ...mutation, snapshot, now })).resolves.toBeNull();
   });
 
   it.each(["failed", "submission_unknown"] as const)("allows a snapshot save after terminal %s evidence", async (status) => {
