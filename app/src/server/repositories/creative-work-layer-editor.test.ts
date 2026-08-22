@@ -123,7 +123,6 @@ describe("creative work layer editor publication repository", () => {
       let release!: () => void;
       queue = new Promise<void>((resolve) => { release = resolve; });
       await previous;
-      let plainSelects = 0;
       const tx = {
         execute: vi.fn(async () => undefined),
         select: (fields?: unknown) => ({ from: () => ({ where: () => fields
@@ -158,7 +157,6 @@ describe("creative work layer editor publication repository", () => {
     const parentState = editorState();
     const parent = { id: scope.outputId, workspaceId: scope.workspaceId, workItemId: scope.workItemId, creativeLevel: "balanced", targetFormat: "4:5", directionId: null, directionSnapshot: null, layerEditor: parentState };
     publicationTransaction.mockImplementation(async (callback: (tx: never) => unknown) => {
-      let plainSelects = 0;
       const tx = {
         execute: vi.fn(async () => undefined),
         select: () => ({ from: () => ({ where: () => ({ for: () => ({ limit: async () => [parent] }), limit: async () => [{ id: "other", parentOutputId: "other-parent", outputKey: "other.png" }] }) }) }),

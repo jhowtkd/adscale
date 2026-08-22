@@ -1,7 +1,7 @@
 import { type Inngest } from "inngest";
 import OpenAI from "openai";
 import { inngest } from "./client";
-import { getCreativeWorkLayerEditorOutput, layerEditorFromOutput, markLayerRegenerationProcessing, completeLayerRegenerationCandidate, failLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
+import { layerEditorFromOutput, markLayerRegenerationProcessing, completeLayerRegenerationCandidate, failLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
 import { objectStorage } from "@/server/storage";
 import { OpenAILayerRegenerationProvider, normalizeLayerCandidate, type LayerRegenerationProvider } from "@/server/layer-editor/openai-provider";
 import { renderLayerEditorPng } from "@/server/layer-editor/artifacts";
