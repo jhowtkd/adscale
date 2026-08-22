@@ -98,7 +98,8 @@ describe("CampaignsV6View motion selection contract", () => {
     } as CampaignV6Row;
     const { rerender } = render(view(new Set(), vi.fn(), [detailedRow]));
 
-    expect(screen.getByText(/Marca Aurora.*Variações.*2 resultados.*Revisar/)).toBeVisible();
+    expect(screen.getByText(/Marca Aurora.*Variações.*2 resultados/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Revisar: Aquisição" })).toBeVisible();
     expect(screen.getByRole("status", { name: "Carregando preview: Peça da Marca Aurora" })).toBeVisible();
 
     fireEvent.error(screen.getByRole("img", { name: "Peça da Marca Aurora" }));
@@ -111,13 +112,25 @@ describe("CampaignsV6View motion selection contract", () => {
   it("renders failed status as danger and generating status as warning", () => {
     render(
       view(new Set(), vi.fn(), [
-        { ...row, id: "failed", name: "Failed", status: "Failed", statusVariant: "danger" },
+        { ...row, id: "failed", name: "Failed", status: "Failed", statusVariant: "danger", nextAction: "Tentar novamente" },
         { ...row, id: "generating", name: "Generating", status: "Generating", statusVariant: "warning" },
       ]),
     );
 
     expect(screen.getByText("Failed", { selector: "span" })).toHaveClass("bg-[var(--danger-bg)]");
     expect(screen.getByText("Generating", { selector: "span" })).toHaveClass("bg-[var(--warning-bg)]");
+    expect(screen.getByRole("link", { name: "Tentar novamente: Failed" })).toHaveAttribute(
+      "href",
+      "/campaigns/campaign-1",
+    );
+  });
+
+  it("keeps the approved queue as the only canonical presentation", () => {
+    renderView();
+
+    expect(screen.queryByRole("button", { name: "Grade" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Quadro" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Abrir: Aquisição" })).toBeVisible();
   });
 
   it("keeps checkbox semantics and exposes the selected visual state", () => {
