@@ -9,6 +9,13 @@ const mocks = vi.hoisted(() => ({
 vi.mock("./useLayerEditor", () => ({
   useLayerEditor: (input: unknown) => mocks.useLayerEditor(input),
 }));
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => ({
+    editorTitle: "Editor de camadas", editorReadOnly: "Somente leitura", editorSaveError: "Não foi possível salvar as alterações",
+    editorSaving: "Salvando alterações", editorSaved: "Alterações salvas", editorRestoreLayer: "Restaurar camada",
+    editorRestoreAll: "Restaurar tudo", editorExportPng: "Exportar PNG", editorExportPsd: "Exportar PSD", editorPublish: "Criar nova versão",
+  }[key] ?? key),
+}));
 
 import { LayerEditorDialog } from "./LayerEditorDialog";
 

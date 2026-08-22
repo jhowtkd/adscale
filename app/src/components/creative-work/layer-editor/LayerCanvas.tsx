@@ -10,13 +10,14 @@ type LayerCanvasProps = {
   onSelect: (id: string) => void;
   mode: "edit" | "read";
   dispatch?: (command: LayerEditorCommand) => void;
+  visibilityOverrides?: Record<string, boolean>;
 };
 
 type Box = { x: number; y: number; width: number; height: number };
 type Handle = "move" | "north-west" | "north-east" | "south-west" | "south-east";
 type PointerGesture = { pointerId: number; layerId: string; handle: Handle; startClientX: number; startClientY: number; start: Box; current: Box };
 
-export function LayerCanvas({ document, selectedLayerId, onSelect, mode, dispatch }: LayerCanvasProps) {
+export function LayerCanvas({ document, selectedLayerId, onSelect, mode, dispatch, visibilityOverrides = {} }: LayerCanvasProps) {
   const [zoom, setZoom] = useState(100);
   const [preview, setPreview] = useState<Box | null>(null);
   const gesture = useRef<PointerGesture | null>(null);
@@ -104,7 +105,7 @@ export function LayerCanvas({ document, selectedLayerId, onSelect, mode, dispatc
       </div>
       <div className="relative flex-1 overflow-auto bg-[linear-gradient(45deg,#ddd_25%,transparent_25%),linear-gradient(-45deg,#ddd_25%,transparent_25%)] bg-[size:16px_16px]">
         <div className="relative origin-top-left" style={{ width: document.canvas.width, height: document.canvas.height, transform: `scale(${zoom / 100})` }}>
-          {[...document.layers].sort((left, right) => right.order - left.order).filter((layer) => layer.visible).map((layer) => {
+          {[...document.layers].sort((left, right) => right.order - left.order).filter((layer) => visibilityOverrides[layer.id] ?? layer.visible).map((layer) => {
             const box = layer.id === selected?.id && preview ? preview : layer;
             return (
               // eslint-disable-next-line @next/next/no-img-element
@@ -128,7 +129,7 @@ export function LayerCanvas({ document, selectedLayerId, onSelect, mode, dispatc
                 ["north-east", "top-0 right-0"],
                 ["south-west", "bottom-0 left-0"],
                 ["south-east", "bottom-0 right-0"],
-              ].map(([handle, position]) => <span key={handle} data-handle={handle} className={`absolute h-2 w-2 bg-primary ${position}`} />)}
+              ].map(([handle, position]) => <span key={handle} data-handle={handle} aria-label={`Redimensionar ${handle}`} className={`absolute z-10 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center ${position}`}><span data-handle={handle} className="h-2 w-2 rounded-sm bg-primary" /></span>)}
             </div>
           ) : null}
         </div>
