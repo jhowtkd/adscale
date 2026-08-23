@@ -338,10 +338,12 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work native layer edit
       saveToLibrary: false,
       confirmObjective: true,
     })).resolves.toMatchObject({ ok: true, value: { output: { id: publication.output.id, isSelected: true } } });
-    const [persistedParent, persistedChild] = await db.select().from(creativeWorkOutputs).where(and(
+    const persistedOutputs = await db.select().from(creativeWorkOutputs).where(and(
       eq(creativeWorkOutputs.workspaceId, workspace.id),
       inArray(creativeWorkOutputs.id, [parent.id, publication.output.id]),
     ));
+    const persistedParent = persistedOutputs.find((output) => output.id === parent.id)!;
+    const persistedChild = persistedOutputs.find((output) => output.id === publication.output.id)!;
     expect(persistedParent.outputKey).toBe(originalKey);
     expect(persistedParent.isSelected).toBe(false);
     expect(persistedChild.isSelected).toBe(true);

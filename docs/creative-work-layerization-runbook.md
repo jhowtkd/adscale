@@ -35,8 +35,9 @@ ou lançamento de geração do ADScale é criado.
 
 1. Confirm the deploy has the migration, `ATLASCLOUD_API_KEY` only in the server secret
    store, and `APP_URL`/`BETTER_AUTH_URL` points at the callback origin.
-2. Confirm the Dono da plataforma account is in `PLATFORM_OWNER_EMAILS` (or the existing
-   development allowlist).
+2. Confirm the target workspace has an active `layer_editor_v1` entitlement and
+   the test actor is an authenticated member of that workspace. Only owner/ops
+   may request the diagnostic ZIP.
 3. Run `npm run typecheck`, the layerization unit tests, `npm test`, and
    `npm run convergence:gate` plus `graphify update .` from the repository
    root. Keep the gate report separate from dirty unrelated worktree changes.
@@ -46,7 +47,7 @@ ou lançamento de geração do ADScale é criado.
 
 ## Recovery
 
-- Recovery is read-triggered: a detail read by the Dono da plataforma asks the canonical application service to claim expired `queued`/`processing`/`reconciling` attempts or a stale five-minute `finalizing` lease.
+- Recovery is read-triggered: an authorized workspace member's detail read asks the canonical application service to claim expired `queued`/`processing`/`reconciling` attempts or a stale five-minute `finalizing` lease. Scoped recovery remains safe after entitlement revocation and never dispatches a new paid provider request.
 - An expired `queued` attempt, or any attempt without a persisted provider request id, becomes `submission_unknown`; it is never submitted again automatically.
 - A known provider request keeps reconciling after the callback deadline until fal returns an explicit terminal failure or a valid result. A stale `finalizing` lease returns to `reconciling` and rewrites only deterministic private artifact keys.
 - If recovery event dispatch fails, a compare-and-set releases only that attempt's five-minute lease. The next authorized detail read can retry immediately; duplicate events cannot create another paid submission because the provider request id is already durable.
@@ -74,9 +75,9 @@ production deployment, partner contract approval, or paid generation.
 
 1. **Synthetic contract smoke:** fake provider HTTP, deterministic PNG layers,
    in-memory/private object storage, no real Atlas credential or external network, and only a fake `ATLASCLOUD_API_KEY` value to enable the guarded action in-process.
-2. **Authenticated acceptance smoke:** deployed Dono da plataforma and ordinary-user requests using
+2. **Authenticated acceptance smoke:** deployed authenticated workspace-member requests using
    only synthetic or owned assets; verify authorization, state transitions,
-   private PSD/ZIP downloads, and original-output immutability. Record build,
+   private PSD download, owner/ops-only diagnostic ZIP, and original-output immutability. Record build,
    deploy, and auth evidence separately.
 3. **Paid provider smoke:** only after partner schema/price/retention approval,
    with a synthetic or owned asset and explicit economic evidence. This is a

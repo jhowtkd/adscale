@@ -119,6 +119,7 @@ export function LayerCanvas({ document, selectedLayerId, onSelect, mode, dispatc
           })}
           {selected ? (
             <div
+              role="group"
               aria-label={t("editorSelectedLayer")}
               tabIndex={mode === "edit" ? 0 : undefined}
               onKeyDown={transformFromKey}
@@ -134,7 +135,7 @@ export function LayerCanvas({ document, selectedLayerId, onSelect, mode, dispatc
                 ["north-east", "top-0 right-0"],
                 ["south-west", "bottom-0 left-0"],
                 ["south-east", "bottom-0 right-0"],
-              ].map(([handle, position]) => <span key={handle} data-testid={`layer-resize-handle-${handle}`} data-handle={handle} aria-label={t("editorResizeHandle", { handle })} className={`absolute z-10 flex -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center ${position}`} style={{ width: resizeHitTarget, height: resizeHitTarget }}><span data-handle={handle} className="h-2 w-2 rounded-sm bg-primary" /></span>)}
+              ].map(([handle, position]) => <span key={handle} data-testid={`layer-resize-handle-${handle}`} data-handle={handle} aria-hidden="true" className={`absolute z-10 flex -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center ${position}`} style={{ width: resizeHitTarget, height: resizeHitTarget }}><span data-handle={handle} className="h-2 w-2 rounded-sm bg-primary" /></span>)}
             </div>
           ) : null}
         </div>

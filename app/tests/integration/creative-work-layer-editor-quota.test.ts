@@ -41,6 +41,7 @@ describe.skipIf(!configured)("layer editor regeneration quota", () => {
     expect(Number(rows[0]?.amount)).toBe(1);
     const winner = left.ok ? "00000000-0000-4000-8000-000000000101" : "00000000-0000-4000-8000-000000000102";
     await expect(claimLayerEditorQuota({ ...base, operationId: winner }, new Date())).resolves.toEqual({ ok: true, replay: true });
+    await expect(releaseLayerEditorQuota({ ...base, operationId: winner }, new Date())).resolves.toEqual({ released: true });
   });
 
   it("binds an operation replay to its original output and command", async () => {
@@ -58,6 +59,7 @@ describe.skipIf(!configured)("layer editor regeneration quota", () => {
       await expect(claimLayerEditorQuota(base, new Date())).resolves.toEqual({ ok: false, code: "disabled" });
     } finally {
       await db.update(workspaceEntitlements).set({ status: "active" }).where(eq(workspaceEntitlements.workspaceId, workspaceId!));
+      await releaseLayerEditorQuota(base, new Date());
     }
   });
 

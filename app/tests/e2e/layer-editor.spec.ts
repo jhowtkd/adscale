@@ -25,6 +25,8 @@ type LayerEditorFixture = {
   readyCandidateOutputId: string;
   foreignLeaseWorkItemId: string;
   foreignLeaseOutputId: string;
+  submissionUnknownWorkItemId: string;
+  submissionUnknownOutputId: string;
 };
 
 function fixture(): LayerEditorFixture {
@@ -73,13 +75,24 @@ test.describe("native layer editor", () => {
     await selected.focus();
     await selected.press("ArrowRight");
     await selected.press("Shift+Alt+ArrowRight");
-    await page.getByRole("button", { name: "Desfazer" }).click();
-    await page.getByRole("button", { name: "Refazer" }).click();
+    await dialog.getByRole("button", { name: "Desfazer" }).first().click();
+    await dialog.getByRole("button", { name: "Refazer" }).first().click();
     await page.waitForTimeout(800); // autosave debounce
+    const persistedGeometry = await selected.boundingBox();
+    if (!persistedGeometry) throw new Error("Edited layer geometry must be measurable");
 
     await expect(dialog).toHaveScreenshot("layer-editor-desktop.png", { animations: "disabled" });
     await page.reload();
     await expect(page.getByRole("button", { name: "Editar camadas" })).toBeVisible();
+    await page.getByRole("button", { name: "Editar camadas" }).click();
+    await page.getByRole("button", { name: "Produto sintético" }).click();
+    await expect(page.getByRole("textbox", { name: "Nome da camada" })).toHaveValue("Produto sintético");
+    const reloadedGeometry = await page.getByLabel("Camada selecionada").boundingBox();
+    if (!reloadedGeometry) throw new Error("Reloaded layer geometry must be measurable");
+    expect(reloadedGeometry.x).toBeCloseTo(persistedGeometry.x, 0);
+    expect(reloadedGeometry.y).toBeCloseTo(persistedGeometry.y, 0);
+    expect(reloadedGeometry.width).toBeCloseTo(persistedGeometry.width, 0);
+    expect(reloadedGeometry.height).toBeCloseTo(persistedGeometry.height, 0);
   });
 
   test("tablet keeps 44px controls and supports touch geometry and reorder gestures", async ({ page }) => {
@@ -87,15 +100,15 @@ test.describe("native layer editor", () => {
     const dialog = await openEditor(page);
     await page.getByRole("button", { name: /Product|Produto sintético/ }).click();
     const controls = [
-      page.getByRole("button", { name: "Desfazer" }),
-      page.getByRole("button", { name: "Refazer" }),
-      page.getByRole("button", { name: "Restaurar camada" }),
-      page.getByRole("button", { name: "Restaurar tudo" }),
-      page.getByRole("button", { name: "Exportar PNG" }).first(),
-      page.getByRole("button", { name: "Exportar PSD" }),
-      page.getByRole("button", { name: "Criar nova versão" }),
-      page.getByRole("button", { name: /Ocultar Product|Ocultar Produto sintético/ }),
-      page.getByRole("button", { name: /Product|Produto sintético/ }),
+      dialog.getByRole("button", { name: "Desfazer" }).first(),
+      dialog.getByRole("button", { name: "Refazer" }).first(),
+      dialog.getByRole("button", { name: "Restaurar camada" }),
+      dialog.getByRole("button", { name: "Restaurar tudo" }).first(),
+      dialog.getByRole("button", { name: "Exportar PNG" }).first(),
+      dialog.getByRole("button", { name: "Exportar PSD" }),
+      dialog.getByRole("button", { name: "Criar nova versão" }),
+      dialog.getByRole("button", { name: /Ocultar Product|Ocultar Produto sintético/ }),
+      dialog.locator("[data-layer-order='0']").getByRole("button").first(),
     ];
     for (const control of controls) {
       const box = await control.boundingBox();
@@ -119,11 +132,14 @@ test.describe("native layer editor", () => {
     await page.waitForTimeout(800);
 
     const reorderHandle = page.getByRole("button", { name: /^(Reordenar|Reorder) / });
+    const handleBox = await reorderHandle.boundingBox();
     const reorderTarget = page.locator("[data-layer-order]").nth(1);
     const targetBox = await reorderTarget.boundingBox();
-    if (!targetBox) throw new Error("Layer reorder target must be measurable");
-    await reorderHandle.dispatchEvent("pointerdown", { pointerId: 72, pointerType: "touch", clientX: before.x + 5, clientY: before.y + 5 });
-    await reorderHandle.dispatchEvent("pointerup", { pointerId: 72, pointerType: "touch", clientX: targetBox.x + 8, clientY: targetBox.y + 8 });
+    if (!handleBox || !targetBox) throw new Error("Layer reorder controls must be measurable");
+    await reorderHandle.dispatchEvent("pointerdown", { pointerId: 72, pointerType: "touch", clientX: handleBox.x + 8, clientY: handleBox.y + 8 });
+    await reorderHandle.dispatchEvent("pointermove", { pointerId: 72, pointerType: "touch", clientX: targetBox.x + 8, clientY: targetBox.y + targetBox.height / 2 });
+    await expect(reorderTarget).toHaveAttribute("data-layer-drop-target", "true");
+    await reorderHandle.dispatchEvent("pointerup", { pointerId: 72, pointerType: "touch", clientX: targetBox.x + 8, clientY: targetBox.y + targetBox.height / 2 });
     await page.waitForTimeout(800);
     expect(editorMutations.length).toBeGreaterThanOrEqual(2);
     await expect(dialog).toHaveScreenshot("layer-editor-tablet.png", { animations: "disabled" });
@@ -150,6 +166,7 @@ test.describe("native layer editor", () => {
   test("shows a seeded ready candidate before immutable accept", async ({ page }) => {
     const seeded = fixture();
     const dialog = await openEditor(page, seeded.readyCandidateWorkItemId);
+    await page.getByRole("button", { name: /Product|Produto sintético/ }).click();
     await expect(page.getByRole("img", { name: /Atual:/ })).toBeVisible();
     await expect(page.getByRole("img", { name: /Candidata:/ })).toBeVisible();
     await expect(dialog).toHaveScreenshot("layer-editor-candidate.png", { animations: "disabled" });
@@ -175,5 +192,30 @@ test.describe("native layer editor", () => {
     await expect(page.getByRole("button", { name: "Regenerar camada" })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Criar nova versão" })).toBeEnabled();
     await expect(dialog).toHaveScreenshot("layer-editor-exhausted-quota.png", { animations: "disabled" });
+  });
+
+  test("renders submission_unknown as an explicit terminal reconciliation state", async ({ page }) => {
+    const seeded = fixture();
+    await openEditor(page, seeded.submissionUnknownWorkItemId);
+    await page.getByRole("button", { name: /Product|Produto sintético/ }).click();
+    await expect(page.getByRole("alert").filter({ hasText: /envio precisa de reconciliação|submission requires reconciliation/i })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Editor de camadas" }).getByRole("button", { name: /Regenerar camada|Regenerate layer/ })).toBeDisabled();
+  });
+
+  test("publishes a child and returns to refreshed results", async ({ page }) => {
+    const seeded = fixture();
+    const before = await page.request.get(`/api/creative-work/${seeded.workItemId}`);
+    expect(before.ok()).toBeTruthy();
+    const beforeCount = ((await before.json()) as { outputs: unknown[] }).outputs.length;
+    const dialog = await openEditor(page);
+
+    await page.getByRole("button", { name: "Criar nova versão" }).click();
+
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole("button", { name: /^(Editar|Visualizar) camadas$|^(Edit|View) layers$/ })).toBeVisible();
+    await expect.poll(async () => {
+      const response = await page.request.get(`/api/creative-work/${seeded.workItemId}`);
+      return ((await response.json()) as { outputs: unknown[] }).outputs.length;
+    }).toBe(beforeCount + 1);
   });
 });

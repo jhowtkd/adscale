@@ -64,7 +64,7 @@ async function syntheticPng(width: number, height: number, background: [number, 
   return sharp({ create: { width, height, channels: 4, background } }).png().toBuffer();
 }
 
-type Variant = { label: string; selected: boolean; foreignLeaseUserId?: string; readyCandidate?: boolean };
+type Variant = { label: string; selected: boolean; foreignLeaseUserId?: string; readyCandidate?: boolean; submissionUnknown?: boolean };
 
 async function seedVariant(input: { workspaceId: string; userId: string; profileId: string; variant: Variant }) {
   const [work] = await db.insert(creativeWorkItems).values({
@@ -107,6 +107,10 @@ async function seedVariant(input: { workspaceId: string; userId: string; profile
     id: crypto.randomUUID(), status: "ready" as const, layerId: productId, instruction: "Synthetic ready candidate",
     requestedByUserId: input.userId, usageKey: `layer-editor-e2e:candidate:${work.id}`,
     candidateKey, providerRequestId: "synthetic-candidate", failureCode: null, createdAt: now, updatedAt: now,
+  } : input.variant.submissionUnknown ? {
+    id: crypto.randomUUID(), status: "submission_unknown" as const, layerId: productId, instruction: "Synthetic uncertain submission",
+    requestedByUserId: input.userId, usageKey: `layer-editor-e2e:submission-unknown:${work.id}`,
+    candidateKey: null, providerRequestId: null, failureCode: "submission_unknown", createdAt: now, updatedAt: now,
   } : null;
   const [output] = await db.insert(creativeWorkOutputs).values({
     workspaceId: input.workspaceId,
@@ -181,8 +185,9 @@ async function main() {
   })));
   const primary = await seedVariant({ workspaceId, userId, profileId: profile.id, variant: { label: "primary", selected: true } });
   const candidate = await seedVariant({ workspaceId, userId, profileId: profile.id, variant: { label: "ready candidate", selected: true, readyCandidate: true } });
-  const foreign = await seedVariant({ workspaceId, userId, profileId: profile.id, variant: { label: "foreign lease", selected: true, foreignLeaseUserId } });
-  const fixture = { email: E2E_EMAIL, password: E2E_PASSWORD, userId, workspaceId, ...primary, readyCandidateWorkItemId: candidate.workItemId, readyCandidateOutputId: candidate.outputId, foreignLeaseWorkItemId: foreign.workItemId, foreignLeaseOutputId: foreign.outputId };
+  const foreign = await seedVariant({ workspaceId, userId, profileId: profile.id, variant: { label: "foreign lease", selected: true, foreignLeaseUserId: foreignUserId } });
+  const terminal = await seedVariant({ workspaceId, userId, profileId: profile.id, variant: { label: "submission unknown", selected: true, submissionUnknown: true } });
+  const fixture = { email: E2E_EMAIL, password: E2E_PASSWORD, userId, workspaceId, ...primary, readyCandidateWorkItemId: candidate.workItemId, readyCandidateOutputId: candidate.outputId, foreignLeaseWorkItemId: foreign.workItemId, foreignLeaseOutputId: foreign.outputId, submissionUnknownWorkItemId: terminal.workItemId, submissionUnknownOutputId: terminal.outputId };
   fs.mkdirSync(path.dirname(FIXTURE_PATH), { recursive: true });
   fs.writeFileSync(FIXTURE_PATH, `${JSON.stringify(fixture, null, 2)}\n`);
   console.log("Layer editor E2E seed ready:");

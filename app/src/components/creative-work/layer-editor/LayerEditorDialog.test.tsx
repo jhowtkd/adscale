@@ -77,7 +77,7 @@ describe("LayerEditorDialog", () => {
 
     expect(screen.getByRole("dialog", { name: "Editor de camadas" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Canvas de camadas" })).toBeInTheDocument();
-    expect(screen.getByRole("complementary", { name: "Camadas" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Camadas" })).toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Ferramentas do editor" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Criar nova versão" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Produto/ }));
@@ -92,7 +92,7 @@ describe("LayerEditorDialog", () => {
 
     expect(screen.getByRole("dialog", { name: "Editor de camadas" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Canvas de camadas" })).toBeInTheDocument();
-    expect(screen.getByRole("complementary", { name: "Camadas" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Camadas" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Criar nova versão" })).not.toBeInTheDocument();
     expect(mocks.useLayerEditor).toHaveBeenCalledWith({ workItemId: "work-2", outputId: "output-2", mode: "inspect" });
   });

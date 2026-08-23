@@ -19,7 +19,9 @@ type LayerPanelProps = {
 export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspect", dispatch, onInspectVisibilityChange }: LayerPanelProps) {
   const t = useTranslations("dashboard.home.composer.results");
   const [inspectVisibility, setInspectVisibility] = useState<Record<string, boolean>>({});
-  const reorder = useRef<{ id: string; pointerId: number } | null>(null);
+  const [reorderTarget, setReorderTarget] = useState<number | null>(null);
+  const panel = useRef<HTMLElement>(null);
+  const reorder = useRef<{ id: string; pointerId: number; order: number } | null>(null);
 
   const visible = (layer: PublicLayerEditorDocumentV1["layers"][number]) =>
     mode !== "edit" ? (inspectVisibility[layer.id] ?? layer.visible) : layer.visible;
@@ -36,26 +38,48 @@ export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspec
 
   const beginReorder = (event: React.PointerEvent<HTMLButtonElement>, layerId: string) => {
     if (mode !== "edit" || !dispatch) return;
-    reorder.current = { id: layerId, pointerId: event.pointerId };
-    event.currentTarget.setPointerCapture(event.pointerId);
+    const order = document.layers.find((layer) => layer.id === layerId)?.order ?? 0;
+    reorder.current = { id: layerId, pointerId: event.pointerId, order };
+    setReorderTarget(order);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const moveReorder = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const active = reorder.current;
+    if (!active || active.pointerId !== event.pointerId) return;
+    const rows = [...(panel.current?.querySelectorAll<HTMLElement>("[data-layer-order]") ?? [])];
+    const nearest = rows.reduce<HTMLElement | null>((best, row) => {
+      if (!best) return row;
+      const distance = Math.abs(event.clientY - (row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2));
+      const bestDistance = Math.abs(event.clientY - (best.getBoundingClientRect().top + best.getBoundingClientRect().height / 2));
+      return distance < bestDistance ? row : best;
+    }, null);
+    const order = Number(nearest?.dataset.layerOrder);
+    if (Number.isInteger(order)) {
+      active.order = order;
+      setReorderTarget(order);
+    }
   };
   const finishReorder = (event: React.PointerEvent<HTMLButtonElement>) => {
     const active = reorder.current;
     if (!active || active.pointerId !== event.pointerId || mode !== "edit") return;
     reorder.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    const target = globalThis.document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-layer-order]");
-    const order = target?.dataset.layerOrder;
-    if (order !== undefined) dispatch?.({ type: "reorder", id: active.id, order: Number(order) });
+    setReorderTarget(null);
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture?.(event.pointerId);
+    dispatch?.({ type: "reorder", id: active.id, order: active.order });
+  };
+  const cancelReorder = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (reorder.current?.pointerId !== event.pointerId) return;
+    reorder.current = null;
+    setReorderTarget(null);
   };
 
   return (
-    <aside aria-label={t("editorLayers")} className="overflow-y-auto">
+    <section ref={panel} aria-label={t("editorLayers")} className="overflow-y-auto">
       {[...document.layers].sort((left, right) => left.order - right.order).map((layer) => {
         const isSelected = layer.id === selectedLayerId;
         const isVisible = visible(layer);
         return (
-          <div key={layer.id} data-layer-order={layer.order} className={isSelected ? "border-l-2 border-primary bg-muted p-2" : "p-2"}>
+          <div key={layer.id} data-layer-order={layer.order} data-layer-drop-target={reorderTarget === layer.order || undefined} className={`${isSelected ? "border-l-2 border-primary bg-muted" : ""} ${reorderTarget === layer.order ? "ring-2 ring-primary" : ""} p-2`}>
             <button
               type="button"
               onClick={() => onSelect(layer.id)}
@@ -73,7 +97,7 @@ export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspec
               <>
                 <LayerNameEditor key={`${layer.id}:${layer.name}`} layer={layer} dispatch={dispatch} />
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" size="icon" className="min-h-11 min-w-11 touch-none cursor-grab" aria-label={t("editorReorder", { name: layer.name })} title={t("editorReorder", { name: layer.name })} onPointerDown={(event) => beginReorder(event, layer.id)} onPointerUp={finishReorder}><GripVertical /></Button>
+                  <Button type="button" variant="outline" size="icon" className="min-h-11 min-w-11 touch-none cursor-grab" aria-label={t("editorReorder", { name: layer.name })} title={t("editorReorder", { name: layer.name })} onPointerDown={(event) => beginReorder(event, layer.id)} onPointerMove={moveReorder} onPointerUp={finishReorder} onPointerCancel={cancelReorder}><GripVertical /></Button>
                   <Button type="button" variant="outline" size="icon" className="min-h-11 min-w-11" aria-label={isVisible ? t("editorHide", { name: layer.name }) : t("editorShow", { name: layer.name })} title={isVisible ? t("editorHide", { name: layer.name }) : t("editorShow", { name: layer.name })} onClick={() => toggleVisibility(layer)}>{isVisible ? <EyeOff /> : <Eye />}</Button>
                   <Button type="button" variant="outline" size="icon" className="min-h-11 min-w-11" aria-label={t("editorBringForward")} title={t("editorBringForward")} onClick={() => dispatch?.({ type: "reorder", id: layer.id, order: 0 })}><BringToFront /></Button>
                   <Button type="button" variant="outline" size="icon" className="min-h-11 min-w-11" aria-label={t("editorSendBack")} title={t("editorSendBack")} onClick={() => dispatch?.({ type: "reorder", id: layer.id, order: document.layers.length - 1 })}><SendToBack /></Button>
@@ -85,7 +109,7 @@ export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspec
           </div>
         );
       })}
-    </aside>
+    </section>
   );
 }
 
