@@ -107,7 +107,15 @@ export function AdminInspirationsPanel() {
 
       {errorMessage ? <p role="alert" className="text-sm text-[var(--danger-text)]">{errorMessage}</p> : null}
       {query.isError ? (
-        <p role="alert" className="text-sm text-[var(--danger-text)]">Não foi possível carregar as inspirações.</p>
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--danger-text)]"
+        >
+          <span>Não foi possível carregar as inspirações.</span>
+          <Button type="button" variant="outline" size="sm" onClick={() => void query.refetch()}>
+            Tentar novamente
+          </Button>
+        </div>
       ) : query.isLoading ? (
         <p role="status" className="text-sm text-[var(--text-muted)]">Carregando inspirações...</p>
       ) : inspirations.length === 0 ? (
@@ -147,6 +155,11 @@ export function AdminInspirationsPanel() {
           ))}
         </div>
       )}
+      {query.dataUpdatedAt > 0 ? (
+        <p className="text-xs text-[var(--text-muted)]">
+          Atualizado às {new Date(query.dataUpdatedAt).toLocaleTimeString()}
+        </p>
+      ) : null}
     </Panel>
   );
 }
