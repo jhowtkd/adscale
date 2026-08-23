@@ -40,7 +40,7 @@ export function LayerRegenerationPanel({ document, selectedLayerId, access, mode
     <small className="block text-right text-muted-foreground">{instruction.length}/2000</small>
     <p role="status" className="text-sm">{regeneration?.status ?? t("editorNoActiveRegeneration")}</p>
     {regeneration?.status === "reserved" ? <Button className="min-h-11 w-full" disabled={mode !== "edit"} onClick={onRetryDispatch}>{t("editorRetryDispatch")}</Button> : null}
-    {regeneration?.status === "submission_unknown" ? <p role="alert" className="rounded border border-amber-500/50 bg-amber-50 p-2 text-sm text-amber-900">{t("editorSubmissionUnknown")}</p> : null}
+    {regeneration?.status === "submission_unknown" ? <p role="alert" className="rounded border border-[var(--warning-border)] bg-[var(--warning-bg)] p-2 text-sm text-[var(--warning-text)]">{t("editorSubmissionUnknown")}</p> : null}
     {regeneration?.status === "ready" && layer ? <div className="space-y-2"><div className="grid grid-cols-2 gap-2">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={layer.imageUrl} alt={t("editorCurrent", { name: layer.name })} className="aspect-square w-full rounded object-contain" />

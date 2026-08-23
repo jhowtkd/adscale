@@ -94,7 +94,7 @@ export default function LibraryV6View({
     <div className="space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+          <p className="font-mono text-[var(--text-caption)] uppercase tracking-wider text-[var(--text-muted)]">
             {labels.sectionLabel}
           </p>
           <h1 className="product-page-title text-[var(--text-primary)]">{labels.title}</h1>
@@ -319,12 +319,12 @@ function AssetCard({
           </span>
         )}
         {previewState === "loading" && asset.imageUrl ? (
-          <span role="status" aria-label={labels.previewLoading} className="absolute inset-x-0 bottom-2 mx-auto w-fit rounded bg-black/60 px-2 py-1 text-[10px] text-white">
+          <span role="status" aria-label={labels.previewLoading} className="absolute inset-x-0 bottom-2 mx-auto w-fit rounded bg-black/60 px-2 py-1 text-[var(--text-caption)] text-white">
             {labels.previewLoading}
           </span>
         ) : null}
         {previewState === "dark" ? (
-          <span role="status" aria-label={labels.previewDark} className="absolute inset-x-0 bottom-2 mx-auto w-fit rounded bg-black/75 px-2 py-1 text-[10px] text-white">
+          <span role="status" aria-label={labels.previewDark} className="absolute inset-x-0 bottom-2 mx-auto w-fit rounded bg-black/75 px-2 py-1 text-[var(--text-caption)] text-white">
             {labels.previewDark}
           </span>
         ) : null}

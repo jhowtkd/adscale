@@ -321,11 +321,11 @@ function UploadField({
           className="sr-only"
         />
       </label>
-      <p className="text-[11px] text-[var(--text-muted)]">
+      <p className="text-[var(--text-caption)] text-[var(--text-muted)]">
         {t("assets.uploadHint")}
       </p>
       {validationError ? (
-        <p role="alert" className="text-[11px] text-[var(--danger-text)]">
+        <p role="alert" className="text-[var(--text-caption)] text-[var(--danger-text)]">
           {validationError}
         </p>
       ) : null}
@@ -343,7 +343,7 @@ function EmptyState() {
       <p className="text-xs font-medium text-[var(--text-primary)]">
         {t("assets.emptyTitle")}
       </p>
-      <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+      <p className="mt-1 text-[var(--text-caption)] text-[var(--text-muted)]">
         {t("assets.emptyDescription")}
       </p>
     </div>
@@ -400,7 +400,7 @@ function PendingAnalysisCard({ asset }: { asset: BrandTrainingAssetRecord }) {
         <p className="text-sm font-medium text-[var(--text-primary)]">
           {asset.label}
         </p>
-        <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+        <p className="mt-0.5 text-[var(--text-caption)] text-[var(--text-muted)]">
           {t("assets.statusPendingAnalysis")}
         </p>
       </div>
@@ -457,17 +457,17 @@ function PendingApprovalCard({
         <p className="text-sm font-medium text-[var(--text-primary)]">
           {asset.label}
         </p>
-        <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+        <p className="mt-0.5 text-[var(--text-caption)] text-[var(--text-muted)]">
           {t("assets.statusPendingApproval")}
         </p>
       </div>
 
-      <p className="text-[11px] text-[var(--text-muted)]">
+      <p className="text-[var(--text-caption)] text-[var(--text-muted)]">
         {t("assets.analysisExplanation")}
       </p>
 
       <div className="grid gap-2 sm:grid-cols-2">
-        <label className="space-y-1 text-[11px] text-[var(--text-muted)]">
+        <label className="space-y-1 text-[var(--text-caption)] text-[var(--text-muted)]">
           <span>{t("assets.category")}</span>
           <select
             aria-label={t("assets.category")}
@@ -482,7 +482,7 @@ function PendingApprovalCard({
             ))}
           </select>
         </label>
-        <label className="space-y-1 text-[11px] text-[var(--text-muted)]">
+        <label className="space-y-1 text-[var(--text-caption)] text-[var(--text-muted)]">
           <span>{t("assets.usageMode")}</span>
           <select
             aria-label={t("assets.usageMode")}
@@ -499,7 +499,7 @@ function PendingApprovalCard({
         </label>
       </div>
 
-      <label className="block space-y-1 text-[11px] text-[var(--text-muted)]">
+      <label className="block space-y-1 text-[var(--text-caption)] text-[var(--text-muted)]">
         <span>{t("assets.descriptionField")}</span>
         <textarea
           value={analysis.description}
@@ -514,7 +514,7 @@ function PendingApprovalCard({
       {blocksExact ? (
         <p
           role="alert"
-          className="rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-2 py-1.5 text-[11px] text-[var(--danger-text)]"
+          className="rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-2 py-1.5 text-[var(--text-caption)] text-[var(--danger-text)]"
         >
           {t("assets.transparentRequired")}
         </p>
@@ -569,16 +569,16 @@ function ApprovedCard({
         <p className="text-sm font-medium text-[var(--text-primary)]">
           {asset.label}
         </p>
-        <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+        <p className="mt-0.5 text-[var(--text-caption)] text-[var(--text-muted)]">
           {t(`assets.categories.${category}`)} · {t(`assets.usageModes.${usageMode}`)}
         </p>
         {reviewedAt ? (
-          <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+          <p className="mt-0.5 text-[var(--text-caption)] text-[var(--text-muted)]">
             {t("assets.reviewedAt", { when: reviewedAt })}
           </p>
         ) : null}
         {onConfirm ? (
-          <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+          <p className="mt-0.5 text-[var(--text-caption)] text-[var(--text-muted)]">
             {t("assets.statusLegacyUnreviewed")}
           </p>
         ) : null}
@@ -616,7 +616,7 @@ function ArchivedCard({ asset }: { asset: BrandTrainingAssetRecord }) {
         <p className="text-sm font-medium text-[var(--text-primary)]">
           {asset.label}
         </p>
-        <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+        <p className="mt-0.5 text-[var(--text-caption)] text-[var(--text-muted)]">
           {t("assets.statusArchived")}
         </p>
       </div>
