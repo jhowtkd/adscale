@@ -104,12 +104,12 @@ export default function PasswordInput({
           type="button"
           onClick={() => setVisible(!visible)}
           aria-label={visible ? "Hide password" : "Show password"}
+          aria-pressed={visible}
           className={cn(
             "absolute right-3 top-1/2 -translate-y-1/2",
             "text-[var(--neutral-text)] hover:text-[var(--text-primary)]",
             "transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
           )}
-          tabIndex={-1}
         >
           {visible ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
