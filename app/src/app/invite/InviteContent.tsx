@@ -77,6 +77,13 @@ async function requestInviteWithTimeout(path: string, token: string, signal?: Ab
   }
 }
 
+function isAbortError(error: unknown): boolean {
+  return (
+    (error instanceof Error && error.name === "AbortError") ||
+    (typeof error === "object" && error !== null && "name" in error && error.name === "AbortError")
+  );
+}
+
 export default function InviteContent() {
   return (
     <Suspense fallback={<InviteLoading />}>
@@ -104,7 +111,7 @@ function inviteErrorMessage(error: unknown, t: ReturnType<typeof useTranslations
   if (code === "inviteRemoved") return t("inviteRemoved");
   if (code === "inviteAlreadyAccepted") return t("inviteAlreadyAccepted");
   if (code === "inviteEmailMismatch") return t("inviteEmailMismatch");
-  if (error instanceof Error && error.name === "AbortError") return t("inviteTimeout");
+  if (isAbortError(error)) return t("inviteTimeout");
   return error instanceof Error ? error.message : t("genericError");
 }
 
@@ -147,7 +154,8 @@ function InviteContentInner() {
           : "ready";
   const currentError = acceptInviteMutation.error ?? previewQuery.error;
   const error = !token ? t("invalidToken") : inviteErrorMessage(currentError, t);
-  const canSwitchAccount = currentError instanceof InviteRequestError && currentError.code === "inviteEmailMismatch";
+  const isTimeout = isAbortError(currentError);
+  const canSwitchAccount = isTimeout || (currentError instanceof InviteRequestError && currentError.code === "inviteEmailMismatch");
 
   return (
     <AuthPageShell showBranding={false}>
@@ -212,9 +220,19 @@ function InviteContentInner() {
                 <Button variant="outline" onClick={goBack}>{t("backToAdscale")}</Button>
                 {canSwitchAccount ? (
                   <Button onClick={goToLogin}>{t("switchAccount")}</Button>
-                ) : previewQuery.isError ? (
+                ) : null}
+                {isTimeout ? (
+                  <Button onClick={() => {
+                    if (previewQuery.isError) {
+                      void previewQuery.refetch();
+                    } else {
+                      acceptInviteMutation.reset();
+                      acceptInviteMutation.mutate(token!);
+                    }
+                  }}>{t("retry")}</Button>
+                ) : !canSwitchAccount && previewQuery.isError ? (
                   <Button onClick={() => previewQuery.refetch()}>{t("retry")}</Button>
-                ) : acceptInviteMutation.isError ? (
+                ) : !canSwitchAccount && acceptInviteMutation.isError ? (
                   <Button onClick={() => { acceptInviteMutation.reset(); acceptInviteMutation.mutate(token!); }}>{t("retry")}</Button>
                 ) : null}
               </div>
