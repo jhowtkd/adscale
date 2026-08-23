@@ -65,7 +65,7 @@ export function BrandKnowledgeReview({ clientProfileId }: { clientProfileId: str
       <div className="flex items-center justify-between gap-2 border-t border-[var(--border-dim)] pt-3">
         <div>
           <p className="text-xs font-medium text-[var(--text-secondary)]">{t("historyTitle")}</p>
-          <div className="text-[10px] text-[var(--text-muted)]">
+          <div className="text-[var(--text-caption)] text-[var(--text-muted)]">
             {data.versions.map((version) => (
               <details key={version.id}>
                 <summary>v{version.versionNumber} · {version.hash.slice(0, 12)} · {version.publishedByUserId} · {new Date(version.publishedAt).toLocaleDateString()}</summary>
@@ -87,7 +87,7 @@ export function BrandKnowledgeReview({ clientProfileId }: { clientProfileId: str
 function ClaimSummary({ claim }: { claim: BrandKnowledgeClaimRecord }) {
   const t = useTranslations("brandTraining.knowledge");
   return (
-    <div className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] p-2 text-[10px] text-[var(--text-muted)]">
+    <div className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] p-2 text-[var(--text-caption)] text-[var(--text-muted)]">
       <p className="font-mono text-[var(--text-primary)]">{JSON.stringify(claim.value)}</p>
       <p>{t("authority")}: {claim.authority} · {t("confidence")}: {claim.confidence}</p>
       <p>{claim.evidenceRefs.map((evidence) => `${evidence.type} · ${evidence.path}`).join("; ")}</p>
@@ -122,8 +122,8 @@ function ClaimEditor({
         <span className="text-[var(--text-muted)]">{t(claim.status)}</span>
       </div>
       <textarea aria-label={`${claim.claimKey} value`} aria-invalid={invalid} value={draft} onChange={(event) => setDraft(event.target.value)} rows={2} className="w-full rounded border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2 py-1 font-mono text-xs text-[var(--text-primary)]" />
-      <p className="text-[10px] text-[var(--text-muted)]">{t("authority")}: {claim.authority} · {t("confidence")}: {claim.confidence}</p>
-      <p className="text-[10px] text-[var(--text-muted)]">{t("evidence")}: {claim.evidenceRefs.map((evidence) => `${evidence.type} · ${evidence.path}`).join("; ")}</p>
+      <p className="text-[var(--text-caption)] text-[var(--text-muted)]">{t("authority")}: {claim.authority} · {t("confidence")}: {claim.confidence}</p>
+      <p className="text-[var(--text-caption)] text-[var(--text-muted)]">{t("evidence")}: {claim.evidenceRefs.map((evidence) => `${evidence.type} · ${evidence.path}`).join("; ")}</p>
       <div className="flex flex-wrap gap-2">
         <Button type="button" disabled={pending} onClick={() => onReview({ claimId: claim.id, status: "approved" })}>{t("approve")}</Button>
         <Button type="button" variant="outline" disabled={pending} onClick={save}>{t("saveEdit")}</Button>

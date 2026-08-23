@@ -167,7 +167,7 @@ export function CreativeResultCard({
           <span data-testid="proposal-level-name">{label}</span>
           <span className="ml-1 text-[var(--text-muted)]">· {output.targetFormat ?? "4:5"} · v{output.versionNumber ?? 1}</span>
         </p>
-        <span aria-label={`Status ${STATUS_LABELS[output.status]}`} className="rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+        <span aria-label={`Status ${STATUS_LABELS[output.status]}`} className="rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-[var(--text-caption)] uppercase tracking-wider text-[var(--text-muted)]">
           {STATUS_LABELS[output.status]}
         </span>
       </header>
@@ -242,7 +242,7 @@ export function CreativeResultCard({
                   </span>
                 </div>
                 {brandCheck.evidence.length > 0 ? (
-                  <p className="break-all text-[10px] text-[var(--text-muted)]">
+                  <p className="break-all text-[var(--text-caption)] text-[var(--text-muted)]">
                     {brandCheck.evidence.map((item) => item.path).join(" · ")}
                   </p>
                 ) : null}

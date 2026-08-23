@@ -79,7 +79,7 @@ export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspec
         const isSelected = layer.id === selectedLayerId;
         const isVisible = visible(layer);
         return (
-          <div key={layer.id} data-layer-order={layer.order} data-layer-drop-target={reorderTarget === layer.order || undefined} className={`${isSelected ? "border-l-2 border-primary bg-muted" : ""} ${reorderTarget === layer.order ? "ring-2 ring-primary" : ""} p-2`}>
+          <div key={layer.id} data-layer-order={layer.order} data-layer-drop-target={reorderTarget === layer.order || undefined} className={`${isSelected ? "border-l-2 border-[var(--selection-border)] bg-muted" : ""} ${reorderTarget === layer.order ? "ring-2 ring-[var(--selection-border)]" : ""} p-2`}>
             <button
               type="button"
               onClick={() => onSelect(layer.id)}

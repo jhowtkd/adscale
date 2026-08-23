@@ -377,7 +377,7 @@ function Dropzone({
     <div className="space-y-2">
       <div className="flex items-baseline justify-between">
         <span className="text-xs font-medium text-[var(--text-primary)]">{label}</span>
-        <span className="text-[11px] text-[var(--text-muted)]">{hint}</span>
+        <span className="text-[var(--text-caption)] text-[var(--text-muted)]">{hint}</span>
       </div>
       <label
         htmlFor={inputId}
@@ -562,7 +562,7 @@ export function BrandFontFiles({ clientProfileId }: { clientProfileId: string })
     <div className="space-y-3 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-3">
       <div>
         <h3 className="text-xs font-semibold text-[var(--text-primary)]">{t("title")}</h3>
-        <p className="text-[11px] text-[var(--text-muted)]">{t("generativeNotice")}</p>
+        <p className="text-[var(--text-caption)] text-[var(--text-muted)]">{t("generativeNotice")}</p>
       </div>
       {fonts.data && fonts.data.length > 0 && (
         <ul className="space-y-1 text-xs text-[var(--text-primary)]">

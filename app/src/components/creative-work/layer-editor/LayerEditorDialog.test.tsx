@@ -81,7 +81,7 @@ describe("LayerEditorDialog", () => {
     expect(screen.getByRole("complementary", { name: "Ferramentas do editor" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Criar nova versão" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Produto/ }));
-    expect(screen.getByLabelText("Camada selecionada")).toHaveClass("z-[200]");
+    expect(screen.getByLabelText("Camada selecionada")).toHaveClass("z-[var(--layer-skip-link)]");
     expect(mocks.useLayerEditor).toHaveBeenCalledWith({ workItemId: "work-1", outputId: "output-1", mode: "edit" });
   });
 
