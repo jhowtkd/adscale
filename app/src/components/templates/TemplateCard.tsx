@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Trash2, Copy, Pencil, Check, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ContextualHelp } from "@/components/ui/contextual-help";
 import type { CampaignTemplate } from "@/lib/hooks/use-templates";
 
 interface TemplateCardProps {
@@ -35,6 +36,13 @@ export default function TemplateCard({
     format_adaptation: tCampaign("modes.formatAdaptation.label"),
     restyling: tCampaign("modes.restyling.label"),
   };
+  const modeDescriptions: Record<string, string> = {
+    art_variation: tCampaign("modes.artVariation.description"),
+    format_adaptation: tCampaign("modes.formatAdaptation.description"),
+    restyling: tCampaign("modes.restyling.description"),
+  };
+  const modeLabel = modeLabels[template.generationMode] || template.generationMode;
+  const modeDescription = modeDescriptions[template.generationMode];
 
   const handleSave = () => {
     if (editName.trim() && editName.trim() !== template.name) {
@@ -112,12 +120,16 @@ export default function TemplateCard({
             </p>
           )}
         </div>
-        <Badge
-          variant="neutral"
-          className="text-[10px] flex-shrink-0 ml-2"
-        >
-          {modeLabels[template.generationMode] || template.generationMode}
-        </Badge>
+        <span className="ml-2 inline-flex shrink-0 items-center gap-1">
+          <Badge variant="neutral" className="text-[10px]">
+            {modeLabel}
+          </Badge>
+          {modeDescription ? (
+            <ContextualHelp label={tTemplate("modeHelpLabel", { mode: modeLabel })}>
+              {modeDescription}
+            </ContextualHelp>
+          ) : null}
+        </span>
       </div>
 
       <div className="space-y-1.5 mb-4">

@@ -16,6 +16,9 @@ describe("template composer CTA", () => {
 
     expect(page).toContain("bg-[var(--action-primary-bg)]");
     expect(card).toContain('variant="neutral"');
+    expect(card).toContain("ContextualHelp");
+    expect(card).toContain('tTemplate("modeHelpLabel"');
+    expect(card).toContain("modes.artVariation.description");
     expect(card).toContain("text-[var(--utility-icon)]");
     expect(card).toContain("bg-[var(--action-primary-bg)]");
     expect(card).toContain("hover:text-[var(--danger-text)]");

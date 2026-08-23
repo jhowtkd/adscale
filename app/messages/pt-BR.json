@@ -2862,6 +2862,7 @@
     "loadTemplateNotFound": "Template não encontrado ou indisponível neste workspace.",
     "ctaCount": "{count} CTAs definidas",
     "formats": "Formatos",
+    "modeHelpLabel": "Ajuda sobre {mode}",
     "deleteConfirm": "Tem certeza que deseja excluir este template?",
     "emptyTitle": "Nenhum template de briefing ainda",
     "emptyDescription": "Abra um Trabalho, conclua o briefing e salve-o como template para reutilizar seus padrões de briefing e aprovação.",
