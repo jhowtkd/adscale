@@ -90,6 +90,17 @@ describe("InviteContent", () => {
     expect(screen.getByRole("button", { name: "retry" })).toBeVisible();
   });
 
+  it("offers retry, account switching, and a safe return after a timeout", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new DOMException("timed out", "AbortError"));
+
+    renderInvite();
+
+    expect(await screen.findByText("inviteTimeout")).toBeVisible();
+    expect(screen.getByRole("button", { name: "switchAccount" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "retry" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "backToAdscale" })).toBeVisible();
+  });
+
   it("rejects a missing token without a request", async () => {
     mocks.token = null;
     const fetchSpy = vi.spyOn(globalThis, "fetch");
