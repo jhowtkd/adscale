@@ -8,8 +8,6 @@ import { useIsMobile } from "@/lib/hooks/use-media-query";
 import AssistantMobileTabs, { type AssistantMobileTab } from "./AssistantMobileTabs";
 import { useAssistantSurface } from "./AssistantSurfaceContext";
 
-const CONTEXT_OPEN_KEY = "adscale:assistant-context-open";
-
 export default function AssistantShell({
   sidebar,
   main,
@@ -33,12 +31,13 @@ export default function AssistantShell({
   const isMobile = useIsMobile();
   const searchParams = useSearchParams();
   const activeThreadId = searchParams.get("threadId");
-  const [contextOpen, setContextOpen] = useState(() => {
-    if (!activeThreadId) return false;
-    if (typeof window === "undefined") return true;
-    const stored = window.sessionStorage.getItem(CONTEXT_OPEN_KEY);
-    return stored === null ? true : stored === "true";
-  });
+  const hasContext = Boolean(activeThreadId);
+  const [contextOpenByThread, setContextOpenByThread] = useState<
+    Partial<Record<string, boolean>>
+  >({});
+  const contextOpen = activeThreadId
+    ? contextOpenByThread[activeThreadId] ?? false
+    : false;
   // Tab preference is keyed by thread so navigating to a new thread lands on
   // chat without a setState-in-effect sync (lint: react-hooks/set-state-in-effect).
   const threadTabKey = activeThreadId ?? "_none";
@@ -51,9 +50,11 @@ export default function AssistantShell({
   };
 
   const toggleContext = () => {
-    const next = !contextOpen;
-    setContextOpen(next);
-    window.sessionStorage.setItem(CONTEXT_OPEN_KEY, String(next));
+    if (!activeThreadId) return;
+    setContextOpenByThread((prev) => ({
+      ...prev,
+      [activeThreadId]: !contextOpen,
+    }));
   };
 
   // Workspace mode trades the context panel for a wider visual workspace; the
@@ -67,7 +68,7 @@ export default function AssistantShell({
       className="relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--surface-base)]"
     >
       {main}
-      {!isMobile && !isWorkspace && !contextOpen ? (
+      {!isMobile && !isWorkspace && hasContext && !contextOpen ? (
         <button
           type="button"
           onClick={toggleContext}
@@ -99,7 +100,11 @@ export default function AssistantShell({
             </div>
           ) : null}
         </div>
-        <AssistantMobileTabs activeTab={mobileTab} onTabChange={setMobileTab} />
+        <AssistantMobileTabs
+          activeTab={mobileTab}
+          onTabChange={setMobileTab}
+          showContext={hasContext}
+        />
       </div>
     );
   }
@@ -113,12 +118,12 @@ export default function AssistantShell({
             hideDesktopSidebar
               ? isWorkspace
                 ? "grid-cols-[minmax(320px,0.65fr)_minmax(640px,1.35fr)]"
-                : contextOpen
+                : hasContext && contextOpen
                   ? "grid-cols-[1fr_320px]"
                   : "grid-cols-1"
               : isWorkspace
                 ? "grid-cols-[220px_minmax(320px,0.65fr)_minmax(640px,1.35fr)]"
-                : contextOpen
+                : hasContext && contextOpen
                   ? "grid-cols-[240px_1fr_320px]"
                   : "grid-cols-[240px_1fr]"
           )}
@@ -141,7 +146,7 @@ export default function AssistantShell({
             >
               {contextPanel}
             </aside>
-          ) : contextOpen ? (
+          ) : hasContext && contextOpen ? (
             <aside
               data-testid="assistant-desktop-context"
               className="relative min-h-0 overflow-hidden border-l border-[var(--border-subtle)] bg-[var(--surface-base)]"

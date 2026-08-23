@@ -8,22 +8,27 @@ export type AssistantMobileTab = "tree" | "chat" | "context";
 export default function AssistantMobileTabs({
   activeTab,
   onTabChange,
+  showContext,
 }: {
   activeTab: AssistantMobileTab;
   onTabChange: (tab: AssistantMobileTab) => void;
+  showContext: boolean;
 }) {
   const t = useTranslations("assistant.tabs");
 
   const tabs: { id: AssistantMobileTab; label: string }[] = [
     { id: "tree", label: t("tree") },
     { id: "chat", label: t("chat") },
-    { id: "context", label: t("context") },
+    ...(showContext ? [{ id: "context" as const, label: t("context") }] : []),
   ];
 
   return (
     <nav
       aria-label={t("chat")}
-      className="layer-shell-floating fixed bottom-0 left-0 right-0 grid grid-cols-3 border-t border-[var(--border-subtle)] bg-[var(--surface-base)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden"
+      className={cn(
+        "layer-shell-floating fixed bottom-0 left-0 right-0 grid border-t border-[var(--border-subtle)] bg-[var(--surface-base)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden",
+        showContext ? "grid-cols-3" : "grid-cols-2"
+      )}
     >
       {tabs.map((tab) => {
         const active = tab.id === activeTab;
