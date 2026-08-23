@@ -38,7 +38,7 @@ describe("AssistantShell", () => {
     mockUseSearchParams.mockReturnValue(new URLSearchParams("threadId=thread-1"));
   });
 
-  it("renders desktop three-column regions with slot content", () => {
+  it("keeps context collapsed by default and expands it on demand", () => {
     mockUseIsMobile.mockReturnValue(false);
     shell({
       sidebar: <div>Sidebar slot</div>,
@@ -49,6 +49,10 @@ describe("AssistantShell", () => {
     expect(screen.getByTestId("assistant-desktop-layout")).toBeInTheDocument();
     expect(screen.getByTestId("assistant-desktop-sidebar")).toHaveTextContent("Sidebar slot");
     expect(screen.getByTestId("assistant-desktop-main")).toHaveTextContent("Main slot");
+    expect(screen.queryByTestId("assistant-desktop-context")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand context panel" }));
+
     expect(screen.getByTestId("assistant-desktop-context")).toHaveTextContent("Context slot");
   });
 
@@ -69,6 +73,57 @@ describe("AssistantShell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "context" }));
     expect(screen.getByTestId("assistant-mobile-context")).toHaveTextContent("Context slot");
+  });
+
+  it("keeps context unavailable until a conversation exists", () => {
+    mockUseSearchParams.mockReturnValue(new URLSearchParams());
+    mockUseIsMobile.mockReturnValue(false);
+    const { rerender } = shell({
+      sidebar: <div>Sidebar slot</div>,
+      main: <div>Main slot</div>,
+      contextPanel: <div>Context slot</div>,
+    });
+
+    expect(screen.queryByTestId("assistant-desktop-context")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Expand context panel" })).not.toBeInTheDocument();
+
+    mockUseIsMobile.mockReturnValue(true);
+    rerender(
+      <AssistantSurfaceProvider>
+        <AssistantShell
+          sidebar={<div>Sidebar slot</div>}
+          main={<div>Main slot</div>}
+          contextPanel={<div>Context slot</div>}
+        />
+      </AssistantSurfaceProvider>
+    );
+
+    expect(screen.queryByRole("button", { name: "context" })).not.toBeInTheDocument();
+  });
+
+  it("does not carry an open context panel into a new conversation", () => {
+    mockUseIsMobile.mockReturnValue(false);
+    const { rerender } = shell({
+      sidebar: <div>Sidebar slot</div>,
+      main: <div>Main slot</div>,
+      contextPanel: <div>Context slot</div>,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Expand context panel" }));
+    expect(screen.getByTestId("assistant-desktop-context")).toBeInTheDocument();
+
+    mockUseSearchParams.mockReturnValue(new URLSearchParams("threadId=thread-2"));
+    rerender(
+      <AssistantSurfaceProvider>
+        <AssistantShell
+          sidebar={<div>Sidebar slot</div>}
+          main={<div>Main slot</div>}
+          contextPanel={<div>Context slot</div>}
+        />
+      </AssistantSurfaceProvider>
+    );
+
+    expect(screen.queryByTestId("assistant-desktop-context")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Expand context panel" })).toBeInTheDocument();
   });
 
   it("switches to workspace grid and renders the workspace column in workspace mode", () => {
@@ -96,6 +151,9 @@ describe("AssistantShell", () => {
 
     expect(screen.queryByTestId("assistant-desktop-sidebar")).not.toBeInTheDocument();
     expect(screen.getByTestId("assistant-desktop-main")).toHaveTextContent("Main slot");
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand context panel" }));
+
     expect(screen.getByTestId("assistant-desktop-layout").className).toContain(
       "grid-cols-[1fr_320px]"
     );

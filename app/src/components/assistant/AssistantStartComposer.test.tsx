@@ -2,10 +2,14 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AssistantStartComposer from "./AssistantStartComposer";
-import { AssistantSurfaceProvider } from "./AssistantSurfaceContext";
+import {
+  AssistantSurfaceProvider,
+  useAssistantSurface,
+} from "./AssistantSurfaceContext";
 
 const mockReplace = vi.fn();
 const mockMutateAsync = vi.fn();
+const mockUpsertGuidedFlow = vi.fn();
 const mockUploadChatAttachment = vi.fn();
 
 vi.mock("next/navigation", () => ({
@@ -34,7 +38,7 @@ vi.mock("@/lib/hooks/use-assistant-threads", () => ({
 
 vi.mock("@/lib/hooks/use-guided-flow", () => ({
   useUpsertGuidedFlow: () => ({
-    mutateAsync: vi.fn(),
+    mutateAsync: mockUpsertGuidedFlow,
     isPending: false,
   }),
 }));
@@ -77,6 +81,11 @@ function createWrapper() {
   };
 }
 
+function PendingMessageProbe() {
+  const { pendingFirstMessage } = useAssistantSurface();
+  return <output data-testid="pending-first-message">{JSON.stringify(pendingFirstMessage)}</output>;
+}
+
 describe("AssistantStartComposer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -116,6 +125,10 @@ describe("AssistantStartComposer", () => {
       "href",
       "/?compose=1"
     );
+    expect(screen.getByText("sendBriefing")).toBeInTheDocument();
+    expect(screen.getByText("organizeBriefing")).toBeInTheDocument();
+    expect(screen.getByText("firstActionHint")).toBeInTheDocument();
+    expect(screen.queryByText("accessFull")).not.toBeInTheDocument();
   });
 
   it("creates a thread and navigates when submitting a first message", async () => {
@@ -127,7 +140,7 @@ describe("AssistantStartComposer", () => {
 
     const textarea = screen.getByRole("textbox");
     fireEvent.change(textarea, { target: { value: "Revisar última milestone" } });
-    fireEvent.click(screen.getByRole("button", { name: "send" }));
+    fireEvent.click(screen.getByRole("button", { name: "sendBriefing" }));
 
     await waitFor(() => {
       expect(mockMutateAsync).toHaveBeenCalledWith(
@@ -141,6 +154,56 @@ describe("AssistantStartComposer", () => {
     await waitFor(() => {
       expect(onSelectThread).toHaveBeenCalledWith("thread-new");
       expect(mockReplace).toHaveBeenCalledWith("/assistant?threadId=thread-new");
+      expect(mockUpsertGuidedFlow).not.toHaveBeenCalled();
+    });
+  });
+
+  it("preserves the first message and attachments while creating the conversation", async () => {
+    render(
+      <>
+        <AssistantStartComposer onSelectThread={vi.fn()} />
+        <PendingMessageProbe />
+      </>,
+      { wrapper: createWrapper() }
+    );
+
+    fireEvent.change(screen.getByTestId("assistant-start-file-input"), {
+      target: {
+        files: [new File(["image"], "reference.png", { type: "image/png" })],
+      },
+    });
+    await waitFor(() => expect(screen.getByText("reference.png")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Use esta referência" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "sendBriefing" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("pending-first-message")).toHaveTextContent(
+        "Use esta referência"
+      );
+      expect(screen.getByTestId("pending-first-message")).toHaveTextContent(
+        "reference.png"
+      );
+    });
+  });
+
+  it("submits with Enter and keeps Shift+Enter for a new line", async () => {
+    render(<AssistantStartComposer onSelectThread={vi.fn()} />, {
+      wrapper: createWrapper(),
+    });
+
+    const textarea = screen.getByRole("textbox");
+    fireEvent.change(textarea, { target: { value: "Briefing pelo teclado" } });
+    fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(textarea, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+      expect(mockReplace).toHaveBeenCalledWith("/assistant?threadId=thread-new");
     });
   });
 
@@ -150,7 +213,7 @@ describe("AssistantStartComposer", () => {
       { wrapper: createWrapper() }
     );
 
-    const sendButton = screen.getByRole("button", { name: "send" });
+    const sendButton = screen.getByRole("button", { name: "sendBriefing" });
     expect(sendButton).toBeDisabled();
   });
 
@@ -171,7 +234,7 @@ describe("AssistantStartComposer", () => {
     fireEvent.change(screen.getByRole("textbox"), {
       target: { value: "Create something" },
     });
-    expect(screen.getByRole("button", { name: "send" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "sendBriefing" })).toBeDisabled();
     expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
@@ -285,7 +348,7 @@ describe("AssistantStartComposer goal-agent experience", () => {
 
     const textarea = screen.getByRole("textbox");
     fireEvent.change(textarea, { target: { value: "Quero vender mais" } });
-    fireEvent.click(screen.getByRole("button", { name: "send" }));
+    fireEvent.click(screen.getByRole("button", { name: "sendBriefing" }));
 
     await waitFor(() => {
       expect(mockMutateAsync).toHaveBeenCalledWith(
@@ -304,7 +367,7 @@ describe("AssistantStartComposer goal-agent experience", () => {
 
     const textarea = screen.getByRole("textbox");
     fireEvent.change(textarea, { target: { value: "Oi" } });
-    fireEvent.click(screen.getByRole("button", { name: "send" }));
+    fireEvent.click(screen.getByRole("button", { name: "sendBriefing" }));
 
     await waitFor(() => {
       expect(mockMutateAsync).toHaveBeenCalledWith(
