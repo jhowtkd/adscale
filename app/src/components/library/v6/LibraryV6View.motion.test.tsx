@@ -25,6 +25,7 @@ const labels: LibraryV6Labels = {
   previewLoading: "Carregando preview",
   previewNoPreview: "Preview indisponível",
   previewError: "Erro no preview",
+  previewDark: "Imagem escura real",
   retryPreview: "Tentar novamente",
   replaceAsset: "Substituir asset",
   originLabel: "Origem",
@@ -107,6 +108,48 @@ describe("LibraryV6View visual role contract", () => {
     expect(onReplace).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     await waitFor(() => expect(screen.getByRole("status", { name: "Carregando preview" })).toBeInTheDocument());
+  });
+
+  it("labels a genuinely dark image after its preview loads", async () => {
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage: vi.fn(),
+      getImageData: () => ({ data: new Uint8ClampedArray([8, 8, 8, 255]) }),
+    } as unknown as CanvasRenderingContext2D);
+
+    try {
+      const { container } = render(
+        <LibraryV6View
+          labels={labels}
+          assets={[{
+            id: "asset-dark",
+            name: "Fundo noturno",
+            tags: [],
+            sizeLabel: "1 MB",
+            dimensionsLabel: "1080×1080",
+            aspectRatioLabel: "1:1",
+            source: "upload",
+            createdAtLabel: "10/08/2026",
+            kind: "reference",
+            imageUrl: "/dark.png",
+            glyph: "FN",
+            gradient: "bg-black",
+          }]}
+          shownCount={1}
+          totalCount={1}
+          searchQuery=""
+        />,
+      );
+
+      const image = container.querySelector("img")!;
+      Object.defineProperty(image, "naturalWidth", { configurable: true, value: 1080 });
+      Object.defineProperty(image, "naturalHeight", { configurable: true, value: 1080 });
+      fireEvent.load(image);
+      await waitFor(() => expect(screen.getByRole("status", { name: "Imagem escura real" })).toBeInTheDocument());
+      expect(screen.getByRole("img", { name: "Fundo noturno — Imagem escura real" })).toBeInTheDocument();
+      expect(container.querySelector('[data-preview-state="dark"]')).toBeInTheDocument();
+    } finally {
+      getContext.mockRestore();
+    }
   });
 
   it("names assets without a preview accessibly", () => {

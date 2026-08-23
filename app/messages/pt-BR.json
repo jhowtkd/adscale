@@ -2838,6 +2838,7 @@
       "previewLoading": "Carregando preview…",
       "previewNoPreview": "Preview indisponível para este asset",
       "previewError": "Não foi possível carregar o preview",
+      "previewDark": "Imagem escura real",
       "retryPreview": "Tentar novamente",
       "replaceAsset": "Substituir asset",
       "originLabel": "Origem",

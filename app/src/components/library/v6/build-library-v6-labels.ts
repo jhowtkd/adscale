@@ -27,6 +27,7 @@ export function buildLibraryV6Labels(t: Translate): LibraryV6Labels {
     previewLoading: t("v6.previewLoading"),
     previewNoPreview: t("v6.previewNoPreview"),
     previewError: t("v6.previewError"),
+    previewDark: t("v6.previewDark"),
     retryPreview: t("v6.retryPreview"),
     replaceAsset: t("v6.replaceAsset"),
     originLabel: t("v6.originLabel"),

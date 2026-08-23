@@ -36,6 +36,7 @@ export type LibraryV6Labels = {
   previewLoading: string;
   previewNoPreview: string;
   previewError: string;
+  previewDark: string;
   retryPreview: string;
   replaceAsset: string;
   originLabel: string;
