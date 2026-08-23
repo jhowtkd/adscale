@@ -44,6 +44,8 @@ import {
   creativeWorkOutputs,
   session,
   user,
+  usageEvents,
+  workspaceEntitlements,
   workspaceMembers,
   workspaces,
 } from "@/server/db/schema";
@@ -129,9 +131,11 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
   afterAll(async () => {
     memory.clear();
     if (createdWorkspaceIds.length > 0) {
+      await db.delete(usageEvents).where(inArray(usageEvents.workspaceId, createdWorkspaceIds));
       await db.delete(creativeWorkOutputs).where(inArray(creativeWorkOutputs.workspaceId, createdWorkspaceIds));
       await db.delete(creativeWorkItems).where(inArray(creativeWorkItems.workspaceId, createdWorkspaceIds));
       await db.delete(clientProfiles).where(inArray(clientProfiles.workspaceId, createdWorkspaceIds));
+      await db.delete(workspaceEntitlements).where(inArray(workspaceEntitlements.workspaceId, createdWorkspaceIds));
       await db.delete(workspaceMembers).where(inArray(workspaceMembers.workspaceId, createdWorkspaceIds));
       await db.delete(workspaces).where(inArray(workspaces.id, createdWorkspaceIds));
     }
@@ -169,6 +173,13 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
     });
     const [workspace] = await db.insert(workspaces).values({ name: `Layerize ${runId}`, slug: `layerize-${runId}` }).returning();
     await db.insert(workspaceMembers).values({ workspaceId: workspace.id, userId, role: "owner" });
+    await db.insert(workspaceEntitlements).values({
+      workspaceId: workspace.id,
+      kind: "layer_editor_v1",
+      status: "active",
+      metadata: { layerizeMonthlyLimit: 5, regenerationMonthlyLimit: 5 },
+      startsAt: new Date(Date.now() - 60_000),
+    });
     const [profile] = await db.insert(clientProfiles).values({ workspaceId: workspace.id, name: "Synthetic brand" }).returning();
     const [work] = await db.insert(creativeWorkItems).values({
       workspaceId: workspace.id,
