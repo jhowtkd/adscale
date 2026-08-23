@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, SyntheticEvent } from "react";
 import { Search, Upload, X } from "lucide-react";
 import type { LibraryV6Asset, LibraryV6Labels } from "./library-v6-types";
 
@@ -34,6 +34,35 @@ type LibraryV6ViewProps = {
   onLoadMore?: () => void;
   isLoadingMore?: boolean;
 };
+
+function averageImageLuminance(image: HTMLImageElement): number | null {
+  if (!image.naturalWidth || !image.naturalHeight) return null;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 8;
+  canvas.height = 8;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return null;
+
+  try {
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let luminance = 0;
+    let alphaTotal = 0;
+
+    for (let index = 0; index < pixels.length; index += 4) {
+      const alpha = pixels[index + 3] / 255;
+      if (alpha === 0) continue;
+      luminance += ((0.2126 * pixels[index] + 0.7152 * pixels[index + 1] + 0.0722 * pixels[index + 2]) / 255) * alpha;
+      alphaTotal += alpha;
+    }
+
+    return alphaTotal > 0 ? luminance / alphaTotal : null;
+  } catch {
+    // Private or cross-origin assets can make canvas reads unavailable.
+    return null;
+  }
+}
 
 export default function LibraryV6View({
   labels,
@@ -218,7 +247,7 @@ function AssetCard({
   onDelete?: (id: string, name: string) => void;
   onReplace?: () => void;
 }) {
-  const [previewState, setPreviewState] = useState<"loading" | "ready" | "no-preview" | "error">(
+  const [previewState, setPreviewState] = useState<"loading" | "ready" | "dark" | "no-preview" | "error">(
     useImagePreview && asset.imageUrl ? "loading" : "no-preview",
   );
   const [retryKey, setRetryKey] = useState(0);
@@ -235,22 +264,27 @@ function AssetCard({
     setRetryKey((key) => key + 1);
   };
 
+  const handlePreviewLoad = (event: SyntheticEvent<HTMLImageElement>) => {
+    const luminance = averageImageLuminance(event.currentTarget);
+    setPreviewState(luminance !== null && luminance < 0.18 ? "dark" : "ready");
+  };
+
   return (
     <article
       data-motion-highlight="focus"
       className="group overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] transition-[border-color,background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-product)] focus-within:border-[var(--selection-border)] focus-within:bg-[var(--selection-bg)] focus-within:shadow-[0_0_0_2px_var(--focus-ring)]"
     >
       <div className={`relative flex h-32 items-center justify-center ${asset.gradient}`} data-preview-state={previewState}>
-        {(previewState === "loading" || previewState === "ready") && asset.imageUrl ? (
+        {(previewState === "loading" || previewState === "ready" || previewState === "dark") && asset.imageUrl ? (
           <Image
             key={`${asset.id}-${retryKey}`}
             src={asset.imageUrl}
-            alt={asset.name}
+            alt={previewState === "dark" ? `${asset.name} — ${labels.previewDark}` : asset.name}
             fill
             className="object-cover"
             sizes="(max-width: 768px) 50vw, 25vw"
             unoptimized
-            onLoad={() => setPreviewState("ready")}
+            onLoad={handlePreviewLoad}
             onError={() => setPreviewState("error")}
           />
         ) : previewState === "loading" ? (
@@ -287,6 +321,11 @@ function AssetCard({
         {previewState === "loading" && asset.imageUrl ? (
           <span role="status" aria-label={labels.previewLoading} className="absolute inset-x-0 bottom-2 mx-auto w-fit rounded bg-black/60 px-2 py-1 text-[10px] text-white">
             {labels.previewLoading}
+          </span>
+        ) : null}
+        {previewState === "dark" ? (
+          <span role="status" aria-label={labels.previewDark} className="absolute inset-x-0 bottom-2 mx-auto w-fit rounded bg-black/75 px-2 py-1 text-[10px] text-white">
+            {labels.previewDark}
           </span>
         ) : null}
         {interactive && onDelete ? (

@@ -2900,6 +2900,7 @@
       "previewLoading": "Loading preview…",
       "previewNoPreview": "Preview unavailable for this asset",
       "previewError": "Preview could not be loaded",
+      "previewDark": "Dark image preview",
       "retryPreview": "Try again",
       "replaceAsset": "Replace asset",
       "originLabel": "Origin",
