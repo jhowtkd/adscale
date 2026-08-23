@@ -409,9 +409,6 @@ export function CreativeComposer({ composer, composerRef }: {
                 fullPreview
               />
             ))}
-          </div>
-          <div className="min-w-0 space-y-4" data-testid="variation-guidance">
-            {variationDirections}
             {readyVariationSource ? (
               <CreativeVariationBrief
                 source={readyVariationSource}
@@ -424,6 +421,9 @@ export function CreativeComposer({ composer, composerRef }: {
                 )}
               />
             ) : null}
+          </div>
+          <div className="min-w-0 space-y-4" data-testid="variation-guidance">
+            {variationDirections}
           </div>
         </section>
       ) : variationDirections}
