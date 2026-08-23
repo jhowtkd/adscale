@@ -205,10 +205,11 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
       "content-type": "application/json",
       cookie: `${await signedSessionCookie(sessionToken)}; adscale_active_workspace=${workspace.id}`,
     };
+    const operationId = randomUUID();
     const accepted = await PATCH(new Request(`https://app.example/api/creative-work/${work.id}`, {
       method: "PATCH",
       headers: authHeaders,
-      body: JSON.stringify({ action: "layerizeOutput", outputId: output.id }),
+      body: JSON.stringify({ action: "layerizeOutput", outputId: output.id, operationId }),
     }), { params: Promise.resolve({ id: work.id }) });
     expect(accepted.status).toBe(202);
     expect(dispatched).toHaveLength(1);
@@ -217,7 +218,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work layerization HTTP
     const patchReplay = await PATCH(new Request(`https://app.example/api/creative-work/${work.id}`, {
       method: "PATCH",
       headers: authHeaders,
-      body: JSON.stringify({ action: "layerizeOutput", outputId: output.id }),
+      body: JSON.stringify({ action: "layerizeOutput", outputId: output.id, operationId }),
     }), { params: Promise.resolve({ id: work.id }) });
     expect(patchReplay.status).toBe(200);
     await expect(patchReplay.json()).resolves.toMatchObject({ replay: true });
