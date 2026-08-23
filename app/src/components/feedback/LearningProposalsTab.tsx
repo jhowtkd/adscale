@@ -164,7 +164,15 @@ export function LearningProposalsTab({
 
   if (proposalsQuery.isError) {
     return (
-      <p className="text-sm text-[var(--text-muted)]">Unable to load learning proposals.</p>
+      <div
+        role="alert"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-text)]"
+      >
+        <span>Unable to load learning proposals.</span>
+        <Button type="button" variant="outline" size="sm" onClick={() => void proposalsQuery.refetch()}>
+          Try again
+        </Button>
+      </div>
     );
   }
 
@@ -316,6 +324,11 @@ export function LearningProposalsTab({
           </table>
         </div>
       )}
+      {proposalsQuery.dataUpdatedAt > 0 ? (
+        <p className="text-xs text-[var(--text-muted)]">
+          Updated at {new Date(proposalsQuery.dataUpdatedAt).toLocaleTimeString()}
+        </p>
+      ) : null}
     </div>
   );
 }

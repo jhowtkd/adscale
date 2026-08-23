@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-22T23:05:02.570Z",
+  "generatedAt": "2026-08-23T13:03:57.986Z",
   "schemaVersion": 2,
-  "fingerprint": "0fcdb2fec98bf9c5a7f91e213833b37d3c74201d46a728c72ce7083282174e94",
+  "fingerprint": "86bc1b5d1fbffd1f190e4e83a1d227fb7248330881eb4d8b262a2d6384935d9a",
   "counts": {
     "dashboardPages": 15,
     "apiRoutes": 170,
@@ -1552,21 +1552,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/feedback/FactualAlertsPanel.tsx:129",
+      "id": "nav:app/src/components/feedback/FactualAlertsPanel.tsx:138",
       "kind": "cta_navigation",
       "destination": "/admin/quality/brands/${alert.clientProfileId}",
       "file": "app/src/components/feedback/FactualAlertsPanel.tsx",
-      "line": 129,
-      "evidence": "app/src/components/feedback/FactualAlertsPanel.tsx:129",
+      "line": 138,
+      "evidence": "app/src/components/feedback/FactualAlertsPanel.tsx:138",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/feedback/FactualAlertsPanel.tsx:148",
+      "id": "nav:app/src/components/feedback/FactualAlertsPanel.tsx:157",
       "kind": "cta_navigation",
       "destination": "/feedback",
       "file": "app/src/components/feedback/FactualAlertsPanel.tsx",
-      "line": 148,
-      "evidence": "app/src/components/feedback/FactualAlertsPanel.tsx:148",
+      "line": 157,
+      "evidence": "app/src/components/feedback/FactualAlertsPanel.tsx:157",
       "requiresDecision": false
     },
     {

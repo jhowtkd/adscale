@@ -215,6 +215,10 @@ export function BetaSessionsPanel() {
   }, [resolvedSession?.id]);
 
   const panelError = activeSessionsQuery.error ?? storedSessionQuery.error;
+  const panelUpdatedAt = Math.max(
+    activeSessionsQuery.dataUpdatedAt,
+    storedSessionQuery.dataUpdatedAt
+  );
   if (panelError instanceof Error && panelError.message === "forbidden") {
     return null;
   }
@@ -239,6 +243,30 @@ export function BetaSessionsPanel() {
           Run operator-guided sessions with runbook stage notes. Events attach via session ID.
         </p>
       </div>
+
+      {panelError ? (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-text)]"
+        >
+          <span>Não foi possível carregar as sessões beta.</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              void Promise.all([activeSessionsQuery.refetch(), storedSessionQuery.refetch()]);
+            }}
+          >
+            Tentar novamente
+          </Button>
+        </div>
+      ) : null}
+      {panelUpdatedAt > 0 ? (
+        <p className="text-xs text-[var(--text-muted)]">
+          Atualizado às {new Date(panelUpdatedAt).toLocaleTimeString()}
+        </p>
+      ) : null}
 
       {!resolvedSession ? (
         <div className="grid gap-3 sm:grid-cols-2">

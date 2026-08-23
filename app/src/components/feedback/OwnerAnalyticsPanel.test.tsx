@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { OwnerAnalyticsPanel } from "./OwnerAnalyticsPanel";
 
@@ -15,6 +15,8 @@ vi.mock("next-intl", () => ({
       exportCsv: "Export CSV",
       loading: "Loading analytics…",
       loadError: "Unable to load analytics.",
+      retry: "Retry",
+      lastUpdated: "Updated at {time}",
       noData: "No data for current filters.",
       "filters.toggle": "Filters",
       "filters.workspaceId": "Workspace",
@@ -181,5 +183,22 @@ describe("OwnerAnalyticsPanel", () => {
     await vi.waitFor(() => {
       expect(container.firstChild).toBeNull();
     });
+  });
+
+  it("offers a retry when analytics loading fails", async () => {
+    let calls = 0;
+    mockApiFetch.mockImplementation(async () => {
+      calls += 1;
+      return { ok: false, status: 500 } as Response;
+    });
+
+    renderPanel();
+
+    expect(await screen.findByText("Unable to load analytics.")).toBeInTheDocument();
+    const retry = screen.getByRole("button", { name: "Retry" });
+    const callsBeforeRetry = calls;
+    fireEvent.click(retry);
+
+    await waitFor(() => expect(calls).toBeGreaterThan(callsBeforeRetry));
   });
 });

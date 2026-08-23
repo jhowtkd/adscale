@@ -373,6 +373,33 @@ const DEFAULT_QUEUE_FILTERS: CorpusQueueFilterState = {
   status: "pending",
 };
 
+function QueryFailure({
+  message,
+  onRetry,
+  updatedAt,
+}: {
+  message: string;
+  onRetry: () => void;
+  updatedAt?: number;
+}) {
+  return (
+    <div
+      role="alert"
+      className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-text)]"
+    >
+      <span>{message}</span>
+      <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+        Try again
+      </Button>
+      {updatedAt && updatedAt > 0 ? (
+        <span className="w-full text-xs text-[var(--text-muted)]">
+          Updated at {new Date(updatedAt).toLocaleTimeString()}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 async function fetchCorpusCandidates(
   workspaceId: string | undefined
 ): Promise<CorpusCandidateListResponse | null> {
@@ -731,10 +758,14 @@ function ImpactReportView({
   report,
   isLoading,
   isError,
+  onRetry,
+  updatedAt,
 }: {
   report: ImpactReportResponse | null | undefined;
   isLoading: boolean;
   isError: boolean;
+  onRetry: () => void;
+  updatedAt: number;
 }) {
   if (isLoading) {
     return <p className="text-sm text-[var(--text-muted)]">Loading learning impact report…</p>;
@@ -742,9 +773,11 @@ function ImpactReportView({
 
   if (isError || report == null) {
     return (
-      <p className="text-sm text-[var(--text-muted)]">
-        Learning impact report unavailable for this workspace.
-      </p>
+      <QueryFailure
+        message="Learning impact report unavailable for this workspace."
+        onRetry={onRetry}
+        updatedAt={updatedAt}
+      />
     );
   }
 
@@ -941,10 +974,14 @@ function QualityImprovementReportView({
   report,
   isLoading,
   isError,
+  onRetry,
+  updatedAt,
 }: {
   report: QualityReportResponse | null | undefined;
   isLoading: boolean;
   isError: boolean;
+  onRetry: () => void;
+  updatedAt: number;
 }) {
   if (isLoading) {
     return <p className="text-sm text-[var(--text-muted)]">Loading quality improvement report…</p>;
@@ -952,9 +989,11 @@ function QualityImprovementReportView({
 
   if (isError || report == null) {
     return (
-      <p className="text-sm text-[var(--text-muted)]">
-        Quality improvement report unavailable for this workspace.
-      </p>
+      <QueryFailure
+        message="Quality improvement report unavailable for this workspace."
+        onRetry={onRetry}
+        updatedAt={updatedAt}
+      />
     );
   }
 
@@ -1094,10 +1133,14 @@ function CalibrationTabContent({
   report,
   isLoading,
   isError,
+  onRetry,
+  updatedAt,
 }: {
   report: CalibrationReportResponse | null | undefined;
   isLoading: boolean;
   isError: boolean;
+  onRetry: () => void;
+  updatedAt: number;
 }) {
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
@@ -1174,9 +1217,11 @@ function CalibrationTabContent({
 
   if (isError || report == null) {
     return (
-      <p className="text-sm text-[var(--text-muted)]">
-        Calibration report unavailable for this workspace.
-      </p>
+      <QueryFailure
+        message="Calibration report unavailable for this workspace."
+        onRetry={onRetry}
+        updatedAt={updatedAt}
+      />
     );
   }
 
@@ -1434,6 +1479,8 @@ function TrendTabContent({
   report,
   isLoading,
   isError,
+  onRetry,
+  updatedAt,
   cohortFilter,
   onCohortChange,
   trendFilters,
@@ -1444,6 +1491,8 @@ function TrendTabContent({
   report: QualityTrendReportResponse | null | undefined;
   isLoading: boolean;
   isError: boolean;
+  onRetry: () => void;
+  updatedAt: number;
   cohortFilter: HumanQualityCorpusCohort | "";
   onCohortChange: (value: HumanQualityCorpusCohort | "") => void;
   trendFilters: TrendDimensionFilters;
@@ -1476,9 +1525,11 @@ function TrendTabContent({
 
   if (isError || report == null) {
     return (
-      <p className="text-sm text-[var(--text-muted)]">
-        Quality trend report unavailable for this workspace.
-      </p>
+      <QueryFailure
+        message="Quality trend report unavailable for this workspace."
+        onRetry={onRetry}
+        updatedAt={updatedAt}
+      />
     );
   }
 
@@ -1841,6 +1892,8 @@ function CandidatesTabContent({
   items,
   isLoading,
   isError,
+  onRetry,
+  updatedAt,
   promoteCohort,
   onPromoteCohortChange,
   promotingId,
@@ -1849,6 +1902,8 @@ function CandidatesTabContent({
   items: CorpusCandidateListResponse["items"];
   isLoading: boolean;
   isError: boolean;
+  onRetry: () => void;
+  updatedAt: number;
   promoteCohort: HumanQualityCorpusCohort;
   onPromoteCohortChange: (cohort: HumanQualityCorpusCohort) => void;
   promotingId: string | null;
@@ -1860,9 +1915,11 @@ function CandidatesTabContent({
 
   if (isError) {
     return (
-      <p className="text-sm text-[var(--text-muted)]">
-        Candidate list unavailable for this scope.
-      </p>
+      <QueryFailure
+        message="Candidate list unavailable for this scope."
+        onRetry={onRetry}
+        updatedAt={updatedAt}
+      />
     );
   }
 
@@ -1957,11 +2014,15 @@ function CoverageTabContent({
   globalEvidence,
   isLoading,
   isError,
+  onRetry,
+  updatedAt,
 }: {
   report: SampleCoverageReportResponse | null | undefined;
   globalEvidence?: GlobalCorpusEvidenceResponse | null;
   isLoading: boolean;
   isError: boolean;
+  onRetry: () => void;
+  updatedAt: number;
 }) {
   if (isLoading) {
     return <p className="text-sm text-[var(--text-muted)]">Loading sample coverage report…</p>;
@@ -1969,9 +2030,11 @@ function CoverageTabContent({
 
   if (isError || report == null) {
     return (
-      <p className="text-sm text-[var(--text-muted)]">
-        Sample coverage report unavailable for this scope.
-      </p>
+      <QueryFailure
+        message="Sample coverage report unavailable for this scope."
+        onRetry={onRetry}
+        updatedAt={updatedAt}
+      />
     );
   }
 
@@ -2120,6 +2183,8 @@ function CalibrationTask(props: CohortQualityTaskProps) {
       report={query.data}
       isLoading={query.isLoading}
       isError={query.isError}
+      onRetry={() => void query.refetch()}
+      updatedAt={query.dataUpdatedAt}
     />
   );
 }
@@ -2131,7 +2196,15 @@ function ImpactTask(props: CohortQualityTaskProps) {
     retry: false,
   });
 
-  return <ImpactReportView report={query.data} isLoading={query.isLoading} isError={query.isError} />;
+  return (
+    <ImpactReportView
+      report={query.data}
+      isLoading={query.isLoading}
+      isError={query.isError}
+      onRetry={() => void query.refetch()}
+      updatedAt={query.dataUpdatedAt}
+    />
+  );
 }
 
 function QualityTask(props: CohortQualityTaskProps) {
@@ -2146,6 +2219,8 @@ function QualityTask(props: CohortQualityTaskProps) {
       report={query.data}
       isLoading={query.isLoading}
       isError={query.isError}
+      onRetry={() => void query.refetch()}
+      updatedAt={query.dataUpdatedAt}
     />
   );
 }
@@ -2169,6 +2244,10 @@ function CoverageTask(props: CohortQualityTaskProps) {
       globalEvidence={globalEvidenceQuery.data}
       isLoading={coverageQuery.isLoading || globalEvidenceQuery.isLoading}
       isError={coverageQuery.isError}
+      onRetry={() => {
+        void Promise.all([coverageQuery.refetch(), globalEvidenceQuery.refetch()]);
+      }}
+      updatedAt={Math.max(coverageQuery.dataUpdatedAt, globalEvidenceQuery.dataUpdatedAt)}
     />
   );
 }
@@ -2203,6 +2282,8 @@ function TrendTask(props: ScopedQualityTaskProps) {
       report={query.data}
       isLoading={query.isLoading}
       isError={query.isError}
+      onRetry={() => void query.refetch()}
+      updatedAt={query.dataUpdatedAt}
       cohortFilter={cohortFilter}
       onCohortChange={setCohortFilter}
       trendFilters={trendFilters}
@@ -2253,6 +2334,8 @@ function CandidatesTask(props: ScopedQualityTaskProps) {
       items={candidatesQuery.data?.items ?? []}
       isLoading={candidatesQuery.isLoading}
       isError={candidatesQuery.isError}
+      onRetry={() => void candidatesQuery.refetch()}
+      updatedAt={candidatesQuery.dataUpdatedAt}
       promoteCohort={promoteCohort}
       onPromoteCohortChange={setPromoteCohort}
       promotingId={promotingCandidateId}
@@ -2576,7 +2659,11 @@ export function HumanQualityCorpusPanel() {
           ) : queueQuery.isLoading ? (
             <p className="text-sm text-[var(--text-muted)]">Loading corpus queue…</p>
           ) : queueQuery.isError ? (
-            <p className="text-sm text-[var(--text-muted)]">Unable to load corpus queue.</p>
+            <QueryFailure
+              message="Unable to load corpus queue."
+              onRetry={() => void queueQuery.refetch()}
+              updatedAt={queueQuery.dataUpdatedAt}
+            />
           ) : (
             <div className="space-y-3 pt-2">
               {corpusScope === "global" ? (
@@ -2914,6 +3001,11 @@ export function HumanQualityCorpusPanel() {
               </form>
               </div>
             </div>
+          ) : null}
+          {queueQuery.dataUpdatedAt > 0 ? (
+            <p className="text-xs text-[var(--text-muted)]">
+              Updated at {new Date(queueQuery.dataUpdatedAt).toLocaleTimeString()}
+            </p>
           ) : null}
             </div>
           )}

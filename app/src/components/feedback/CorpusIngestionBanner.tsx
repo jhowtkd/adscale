@@ -80,7 +80,21 @@ export function CorpusIngestionBanner() {
     );
   }
 
-  if (statusQuery.isError || !statusQuery.data) {
+  if (statusQuery.isError) {
+    return (
+      <div
+        role="alert"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger-text)]"
+      >
+        <span>Não foi possível carregar o status de ingestão.</span>
+        <Button type="button" variant="outline" size="sm" onClick={() => void statusQuery.refetch()}>
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
+
+  if (!statusQuery.data) {
     return null;
   }
 
@@ -138,6 +152,11 @@ export function CorpusIngestionBanner() {
         <p className="text-xs text-[var(--success-text)]">{backfillSummary}</p>
       ) : null}
       {backfillError ? <p className="text-xs text-[var(--danger-text)]">{backfillError}</p> : null}
+      {statusQuery.dataUpdatedAt > 0 ? (
+        <p className="text-xs text-[var(--text-muted)]">
+          Atualizado às {new Date(statusQuery.dataUpdatedAt).toLocaleTimeString()}
+        </p>
+      ) : null}
     </div>
   );
 }
