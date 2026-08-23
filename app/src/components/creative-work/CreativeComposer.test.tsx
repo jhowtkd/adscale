@@ -265,15 +265,20 @@ describe("CreativeComposer", () => {
     const referenceAndContext = screen.getByTestId("variation-reference-context");
     const guidance = screen.getByTestId("variation-guidance");
     const directions = screen.getByTestId("variation-directions-region");
+    const context = screen.getByRole("heading", { name: "Leitura da IA" }).closest("section")!;
     const optionalSettings = screen.getByTestId("creative-optional-settings");
     const action = screen.getByTestId("creative-generate-action");
 
     expect(workspace).toHaveClass("items-start", "lg:grid-cols-2");
     expect(referenceAndContext).toContainElement(screen.getByRole("img", { name: "arte.png" }));
+    expect(referenceAndContext).toContainElement(context);
     expect(guidance).toContainElement(directions);
-    expect(guidance).toContainElement(screen.getByRole("heading", { name: "Leitura da IA" }));
     expect(
       referenceAndContext.compareDocumentPosition(directions)
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      context.compareDocumentPosition(directions)
         & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(

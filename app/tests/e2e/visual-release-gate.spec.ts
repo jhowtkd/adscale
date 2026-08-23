@@ -229,9 +229,11 @@ test.describe("visual release gate", () => {
     const variationWorkspace = page.getByTestId("variation-workspace");
     const referenceContext = page.getByTestId("variation-reference-context");
     const directions = page.getByTestId("variation-directions-region");
+    const contextHeading = referenceContext.getByRole("heading", { name: /leitura da ia|ai reading/i });
     const optionalSettings = page.getByTestId("creative-optional-settings");
     const generateAction = page.getByTestId("creative-generate-action");
     await expect(variationWorkspace).toBeVisible();
+    await expect(contextHeading).toBeVisible();
     for (const source of manifest.variationSources) {
       const preview = page.getByRole("img", { name: source.name, exact: true });
       await expect(preview).toBeVisible();
@@ -253,27 +255,32 @@ test.describe("visual release gate", () => {
     await expect(directions.getByRole("textbox", { name: labels.manualDirections, exact: true })).toBeVisible();
 
     if (testInfo.project.use.hasTouch) {
-      const [referenceBox, directionsBox, optionalSettingsBox, generateActionBox] = await Promise.all([
+      const [referenceBox, contextBox, directionsBox, optionalSettingsBox, generateActionBox] = await Promise.all([
         referenceContext.boundingBox(),
+        contextHeading.boundingBox(),
         directions.boundingBox(),
         optionalSettings.boundingBox(),
         generateAction.boundingBox(),
       ]);
       expect(referenceBox, "mobile reference context bounds").not.toBeNull();
+      expect(contextBox, "mobile AI context bounds").not.toBeNull();
       expect(directionsBox, "mobile directions bounds").not.toBeNull();
       expect(optionalSettingsBox, "mobile optional settings bounds").not.toBeNull();
       expect(generateActionBox, "mobile generate action bounds").not.toBeNull();
-      expect(referenceBox!.y, "mobile reference context precedes directions").toBeLessThan(directionsBox!.y);
+      expect(referenceBox!.y, "mobile reference precedes AI context").toBeLessThan(contextBox!.y);
+      expect(contextBox!.y, "mobile AI context precedes directions").toBeLessThan(directionsBox!.y);
       expect(directionsBox!.y, "mobile directions precede optional settings").toBeLessThan(optionalSettingsBox!.y);
       expect(optionalSettingsBox!.y, "mobile optional settings precede generate action").toBeLessThan(generateActionBox!.y);
     } else {
-      const [referenceBox, directionsBox, optionalSettingsBox, generateActionBox] = await Promise.all([
+      const [referenceBox, contextBox, directionsBox, optionalSettingsBox, generateActionBox] = await Promise.all([
         referenceContext.boundingBox(),
+        contextHeading.boundingBox(),
         directions.boundingBox(),
         optionalSettings.boundingBox(),
         generateAction.boundingBox(),
       ]);
       expect(referenceBox, "desktop reference context bounds").not.toBeNull();
+      expect(contextBox, "desktop AI context bounds").not.toBeNull();
       expect(directionsBox, "desktop directions bounds").not.toBeNull();
       expect(optionalSettingsBox, "desktop optional settings bounds").not.toBeNull();
       expect(generateActionBox, "desktop generate action bounds").not.toBeNull();
