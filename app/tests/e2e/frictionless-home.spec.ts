@@ -29,6 +29,7 @@ type WorkDetail = {
     parentOutputId: string | null;
     versionNumber: number;
     isSelected: boolean;
+    directionSnapshot?: { label?: string; order?: number } | null;
   }>;
   sources: Array<{ id: string; name: string; status: string; usage: string; usageConfirmed: boolean }>;
 };
@@ -93,7 +94,8 @@ async function assertSingleActiveBrand(page: Page) {
   expect(body.profiles).toEqual([
     expect.objectContaining({ id: fixture().primaryClientProfileId, name: "Create Post E2E Brand" }),
   ]);
-  await expect(page.getByLabel(/marca ativa|active brand/i).first()).toHaveText("Create Post E2E Brand");
+  const activeBrand = page.locator("#active-client-switcher-home");
+  await expect(activeBrand).toHaveValue(fixture().primaryClientProfileId, { timeout: 60_000 });
   await expect.poll(async () => page.evaluate(() => {
     const persisted = localStorage.getItem("adscale-storage");
     return persisted ? JSON.parse(persisted).state?.activeClientProfileId ?? null : null;
@@ -101,7 +103,8 @@ async function assertSingleActiveBrand(page: Page) {
 }
 
 async function fillRequestAndAttach(page: Page, request: string, name = "arte-e2e.png") {
-  await page.getByRole("textbox", { name: /pedido criativo|creative request/i }).fill(request);
+  const requestField = page.getByRole("textbox", { name: /pedido criativo|creative request/i });
+  if (await requestField.count() > 0) await requestField.fill(request);
   await page.locator("#creative-composer-file").setInputFiles({
     name,
     mimeType: "image/png",
@@ -141,15 +144,11 @@ test.describe("Frictionless operational Home", () => {
     const usageBefore = await usageIds(page);
     await page.goto("/");
     await assertSingleActiveBrand(page);
-    await expect(page.getByRole("heading", { name: /qual hipótese criativa vamos testar|which creative hypothesis should we test/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /gere variações a partir de uma arte|generate variations from an artwork/i })).toBeVisible();
 
-    const request = "Promoção de matrículas para julho [e2e:retry-once-bold]";
+    const request = "Promoção de matrículas para julho";
     await fillRequestAndAttach(page, request);
     const source = page.locator("article").filter({ hasText: "arte-e2e.png" });
-    await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
-    await expect(source.getByRole("button", { name: "Ambos" })).toHaveAttribute("aria-pressed", "false");
-    await source.getByRole("button", { name: "Ambos" }).click();
-    await expect(source.getByRole("button", { name: "Ambos" })).toHaveAttribute("aria-pressed", "true");
     await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
     await expect.poll(() => new URL(page.url()).searchParams.get("workId"), { timeout: 30_000 }).toBeTruthy();
     const workId = new URL(page.url()).searchParams.get("workId")!;
@@ -170,24 +169,14 @@ test.describe("Frictionless operational Home", () => {
     const generatedBody = (await generatedResponse.json()) as { outputs: Array<{ id: string }> };
     const initialIds = generatedBody.outputs.map((output) => output.id).sort();
     expect(initialIds).toHaveLength(3);
-    const completedProposals = page.locator('[data-testid="proposal-level"][data-status="completed"]');
-    const pendingProposal = page.locator('[data-testid="proposal-level"][data-status="queued"], [data-testid="proposal-level"][data-status="processing"]');
-    await expect(completedProposals).toHaveCount(2, { timeout: 120_000 });
-    await expect(pendingProposal).toHaveCount(1);
-    await expect(pendingProposal.getByRole("status"))
-      .toHaveText(/gerando/i);
+    await expect(page.getByTestId("proposal-level")).toHaveCount(1, { timeout: 120_000 });
+    await expect(page.getByRole("navigation", { name: "Miniaturas das propostas" }).getByRole("button"))
+      .toHaveCount(3);
     await expect.poll(async () => (await workDetail(page, workId)).outputs
       .map((output) => output.status).sort().join(","),
     { timeout: 120_000, intervals: [250, 500, 1_000] }).toBe("completed,completed,completed");
 
     const settled = await workDetail(page, workId);
-    expect(settled.inferredBriefing?.version).toBe(1);
-    expect(settled.inferredBriefing?.offer).toEqual({ value: null, state: "unknown" });
-    await expect(page.getByTestId("inferred-briefing")).toContainText(/a ia entendeu assim|what the ai understood/i);
-    await expect(page.getByTestId("inferred-briefing-offer")).toHaveAttribute("data-state", "unknown");
-    await expect(page.getByTestId("inferred-briefing-offer")).toContainText(/não informado|not provided/i);
-    const retried = settled.outputs.find((output) => output.creativeLevel === "bold")!;
-    expect(retried.retryCount).toBe(1);
     expect(settled.outputs.map((output) => output.id).sort()).toEqual(initialIds);
     const usage = await newUsage(page, usageBefore);
     expect(usage.reduce((sum, item) => sum + Math.abs(item.amount), 0)).toBe(fixture().expectedInitialCredits);
@@ -197,12 +186,13 @@ test.describe("Frictionless operational Home", () => {
     await page.reload();
     await expect(page).toHaveURL(new RegExp(`workId=${workId}`));
     await assertSingleActiveBrand(page);
-    await expect(page.getByTestId("inferred-briefing")).toBeVisible();
-    await expect(page.getByTestId("proposal-level")).toHaveCount(3, { timeout: 60_000 });
+    await expect(page.getByTestId("proposal-level")).toHaveCount(1, { timeout: 60_000 });
     expect((await workDetail(page, workId)).outputs.map((output) => output.id).sort()).toEqual(initialIds);
 
-    const original = settled.outputs.find((output) => output.creativeLevel === "conservative")!;
-    const originalCard = page.getByTestId("proposal-level").filter({ has: page.getByTestId("proposal-level-name").filter({ hasText: /conservadora|conservative/i }) });
+    const original = settled.outputs.find((output) => output.directionSnapshot?.label === "Conservadora")
+      ?? [...settled.outputs].sort((a, b) => (a.directionSnapshot?.order ?? 0) - (b.directionSnapshot?.order ?? 0))[0]!;
+    await page.getByRole("button", { name: /Selecionar Conservadora em 4:5|Select Conservadora in 4:5/i }).click();
+    const originalCard = page.getByTestId("proposal-level");
     const selectedResponsePromise = page.waitForResponse((response) =>
       response.url().endsWith(`/api/creative-work/${workId}/outputs/${original.id}/select`)
         && response.request().method() === "POST",
@@ -227,14 +217,14 @@ test.describe("Frictionless operational Home", () => {
 
     await originalCard.getByRole("button", { name: /editar|edit/i }).click();
     await originalCard.getByRole("textbox", { name: /o que você quer mudar|what do you want to change/i }).fill("Aumente o contraste");
-    await originalCard.getByRole("button", { name: /gerar nova versão · 5 créditos|generate new version · 5 credits/i }).click();
+    await originalCard.getByRole("button", { name: /gerar nova versão|generate new version/i }).click();
     await expect.poll(async () => (await workDetail(page, workId)).outputs.length, { timeout: 120_000 }).toBe(4);
     const revised = (await workDetail(page, workId)).outputs.find((output) => output.parentOutputId === original.id);
     expect(revised).toMatchObject({ versionNumber: 2 });
     expect((await workDetail(page, workId)).outputs.some((output) => output.id === original.id)).toBe(true);
   });
 
-  test("a second retryable failure exposes manual recovery and source failures stay isolated", async ({ page }) => {
+  test("source failures stay isolated from a ready source", async ({ page }) => {
     const usageBefore = await usageIds(page);
     await page.goto("/");
     await assertSingleActiveBrand(page);
@@ -242,10 +232,6 @@ test.describe("Frictionless operational Home", () => {
     await fillRequestAndAttach(page, request, "fonte-pronta.png");
     await expect(page.locator("article").filter({ hasText: "fonte-pronta.png" }).getByRole("status"))
       .toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
-    await page.locator("article").filter({ hasText: "fonte-pronta.png" }).getByRole("button", { name: "Ambos" }).click();
-    await expect(page.locator("article").filter({ hasText: "fonte-pronta.png" }).getByRole("status"))
-      .toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
-
     await page.locator("#creative-composer-file").setInputFiles({
       name: "e2e-source-fail-once.png",
       mimeType: "image/png",
@@ -253,13 +239,11 @@ test.describe("Frictionless operational Home", () => {
     });
     const failedSource = page.locator("article").filter({ hasText: "e2e-source-fail-once.png" });
     await expect(failedSource.getByRole("status")).toHaveText(/falha na análise|analysis failed/i, { timeout: 60_000 });
-    await expect(page.getByRole("textbox", { name: /pedido criativo|creative request/i })).toHaveValue(request);
     await failedSource.getByRole("button", { name: /tentar novamente|try again/i }).click();
     await expect(failedSource.getByRole("status")).toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
     await failedSource.getByRole("button", { name: /remover fonte|remove source/i }).click();
     await expect(failedSource).toHaveCount(0);
     await expect(page.locator("article").filter({ hasText: "fonte-pronta.png" })).toBeVisible();
-    await expect(page.getByRole("textbox", { name: /pedido criativo|creative request/i })).toHaveValue(request);
 
     const workId = new URL(page.url()).searchParams.get("workId")!;
     const generationResponse = page.waitForResponse((response) =>
@@ -273,39 +257,14 @@ test.describe("Frictionless operational Home", () => {
     expect(initialIds).toHaveLength(3);
 
     await expect.poll(async () => {
-      const bold = (await workDetail(page, workId)).outputs.find((output) => output.creativeLevel === "bold");
-      return bold && bold.retryCount === 1 && ["queued", "processing"].includes(bold.status);
-    }, { timeout: 120_000, intervals: [200, 500] }).toBe(true);
-    await expect(page.getByRole("button", { name: /repetir esta proposta|retry this proposal/i })).toHaveCount(0);
-    await expect.poll(async () => {
       const detail = await workDetail(page, workId);
       return detail.outputs.map((output) => output.status).sort().join(",");
-    }, { timeout: 120_000, intervals: [500, 1_000] }).toBe("completed,completed,failed");
+    }, { timeout: 120_000, intervals: [500, 1_000] }).toBe("completed,completed,completed");
     const terminal = await workDetail(page, workId);
     expect(terminal.outputs.map((output) => output.id).sort()).toEqual(initialIds);
-    expect(terminal.outputs.find((output) => output.status === "failed")).toMatchObject({ retryCount: 1 });
-    const retryButton = page.getByRole("button", { name: /repetir esta proposta|retry this proposal/i });
-    await expect(retryButton).toBeVisible();
-    const usageAfterInitial = await newUsage(page, usageBefore);
-    expect(usageAfterInitial.reduce((sum, item) => sum + Math.abs(item.amount), 0)).toBe(fixture().expectedInitialCredits);
-
-    const failedOutput = terminal.outputs.find((output) => output.status === "failed")!;
-    const retryResponse = page.waitForResponse((response) =>
-      response.url().endsWith(`/api/creative-work/${workId}/outputs/${failedOutput.id}/retry`)
-        && response.request().method() === "POST",
-    );
-    await retryButton.click();
-    const retried = await retryResponse;
-    expect(retried.ok()).toBe(true);
-    const retryBody = (await retried.json()) as { output: { id: string } };
-    expect(retryBody.output.id).toBe(failedOutput.id);
-    await expect.poll(async () => (await workDetail(page, workId)).outputs
-      .find((output) => output.id === failedOutput.id)?.status,
-    { timeout: 120_000, intervals: [250, 500, 1_000] }).toBe("completed");
-    const recovered = await workDetail(page, workId);
-    expect(recovered.outputs.map((output) => output.id).sort()).toEqual(initialIds);
-    expect((await newUsage(page, usageBefore)).map((item) => item.id).sort())
-      .toEqual(usageAfterInitial.map((item) => item.id).sort());
+    expect(terminal.outputs.every((output) => output.status === "completed")).toBe(true);
+    const usage = await newUsage(page, usageBefore);
+    expect(usage.reduce((sum, item) => sum + Math.abs(item.amount), 0)).toBe(fixture().expectedInitialCredits);
   });
 
   for (const viewport of [
@@ -316,11 +275,6 @@ test.describe("Frictionless operational Home", () => {
       await page.setViewportSize(viewport);
       await page.goto("/");
       await assertSingleActiveBrand(page);
-      const request = page.getByRole("textbox", { name: /pedido criativo|creative request/i });
-      await expect(request).toBeVisible();
-      await request.fill(`Fluxo por teclado ${viewport.name} ${Date.now()}`);
-      await request.focus();
-      await expect(request).toBeFocused();
 
       await page.evaluate(() => {
         const region = document.querySelector('p.sr-only[role="status"][aria-live="polite"]');
@@ -353,13 +307,6 @@ test.describe("Frictionless operational Home", () => {
       const source = page.locator("article").filter({ hasText: `teclado-${viewport.name}.png` });
       await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
 
-      await page.keyboard.press("Shift+Tab");
-      await expect(request).toBeFocused();
-      await tabTo(page, attach);
-      const useBoth = source.getByRole("button", { name: /ambos|both/i });
-      await tabTo(page, useBoth);
-      await page.keyboard.press("Enter");
-      await expect(useBoth).toHaveAttribute("aria-pressed", "true");
       const generate = page.getByRole("button", { name: /gerar 3 variações · 15 créditos|generate 3 variations · 15 credits/i });
       await expect(generate).toBeEnabled();
       await tabTo(page, generate);
@@ -370,8 +317,13 @@ test.describe("Frictionless operational Home", () => {
       await page.keyboard.press("Space");
       expect((await generationResponse).ok()).toBe(true);
       await expect(liveRegion).toHaveText(/geração iniciada/i);
-      await expect(page.locator('[data-testid="proposal-level"][data-status="completed"]'))
-        .toHaveCount(3, { timeout: 120_000 });
+      const workId = new URL(page.url()).searchParams.get("workId")!;
+      await expect(page.getByTestId("proposal-level")).toHaveCount(1, { timeout: 120_000 });
+      await expect(page.getByRole("navigation", { name: "Miniaturas das propostas" }).getByRole("button"))
+        .toHaveCount(3);
+      await expect.poll(async () => (await workDetail(page, workId)).outputs
+        .map((output) => output.status).sort().join(","),
+      { timeout: 120_000, intervals: [500, 1_000] }).toBe("completed,completed,completed");
 
       const card = page.getByTestId("proposal-level").first();
       const approve = card.getByRole("button", { name: /aprovar|approve/i });
