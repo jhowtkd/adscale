@@ -535,6 +535,8 @@ export async function createIdentitySnapshot(
       fonts,
       fontAssets,
       toneOfVoice: brandKit?.toneOfVoice ?? null,
+      ...(brandKit?.visualNotes ? { visualNotes: brandKit.visualNotes } : {}),
+      ...(brandKit?.constraints ? { constraints: brandKit.constraints } : {}),
       prohibitedElements: brandKit?.prohibitedElements ?? null,
       requiredElements: brandKit?.requiredElements ?? null,
     },

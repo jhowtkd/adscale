@@ -67,6 +67,8 @@ function snapshot(
       colors: ["#000000"],
       fonts: ["Inter"],
       toneOfVoice: "Direto",
+      visualNotes: "Fundo azul-marinho com amarelo só em destaque",
+      constraints: "Não usar clipart ou elementos 3D decorativos",
       prohibitedElements: "Sem clipart",
       requiredElements: "Logo visível",
     },
@@ -157,6 +159,8 @@ describe("buildSocialPostPrompt", () => {
     expect(prompt).toContain("Logo visível");
     expect(prompt).toContain("#000000");
     expect(prompt).toContain("Inter");
+    expect(prompt).toContain("Fundo azul-marinho com amarelo só em destaque");
+    expect(prompt).toContain("Não usar clipart ou elementos 3D decorativos");
   });
 
   it("surfaces rule-mode findings from assets", () => {

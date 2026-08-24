@@ -141,6 +141,12 @@ function buildBrandKitBlock(
   lines.push(
     `- Tone of voice: ${brandKit.toneOfVoice ?? "(not provided)"}`,
   );
+  if (brandKit.visualNotes?.trim()) {
+    lines.push(`- Visual notes: ${brandKit.visualNotes.trim()}`);
+  }
+  if (brandKit.constraints?.trim()) {
+    lines.push(`- Visual constraints: ${brandKit.constraints.trim()}`);
+  }
   lines.push(
     `- Required elements: ${brandKit.requiredElements ?? "(not provided)"}`,
   );

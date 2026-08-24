@@ -519,6 +519,9 @@ export interface CreativeWorkIdentitySnapshot {
     fonts: string[];
     fontAssets?: import("../brand-training/font-assets").BrandFontAsset[];
     toneOfVoice: string | null;
+    /** Optional on legacy snapshots; visual-only guidance stays on the image path. */
+    visualNotes?: string | null;
+    constraints?: string | null;
     prohibitedElements: string | null;
     requiredElements: string | null;
   };
