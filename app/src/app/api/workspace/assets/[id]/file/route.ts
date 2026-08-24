@@ -4,6 +4,25 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
 
+function syntheticVisualFixture(asset: { key: string; width: number | null; height: number | null }) {
+  if (
+    process.env.VISUAL_FOUNDATIONS_SKIP_STORAGE !== "true" ||
+    !asset.key.startsWith("e2e/visual-foundations/") ||
+    !asset.width ||
+    !asset.height
+  ) {
+    return null;
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${asset.width}" height="${asset.height}" viewBox="0 0 ${asset.width} ${asset.height}"><rect width="100%" height="100%" fill="#172018"/></svg>`;
+  return new NextResponse(svg, {
+    headers: {
+      "Cache-Control": "no-store",
+      "Content-Type": "image/svg+xml",
+    },
+  });
+}
+
 /**
  * Authenticated file access for library assets (upload + creative_work).
  * Mirrors creative-work output download: 302 to a short-lived signed URL so
@@ -23,6 +42,9 @@ export async function GET(
     if (!asset) {
       return apiError("assetNotFound", 404);
     }
+
+    const syntheticFixture = syntheticVisualFixture(asset);
+    if (syntheticFixture) return syntheticFixture;
 
     const url = await objectStorage.signedDownloadUrl(asset.key);
     const wantsJson =

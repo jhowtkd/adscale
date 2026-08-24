@@ -12,7 +12,7 @@ export default defineConfig({
   reporter: [["list"]],
   outputDir: "test-results/visual-release-gate/artifacts",
   webServer: {
-    command: "E2E_DISABLE_RATE_LIMIT=true PLATFORM_OWNER_EMAILS=visual-foundations@example.test npm run dev:next",
+    command: "NODE_ENV=production E2E_DISABLE_RATE_LIMIT=true PLATFORM_OWNER_EMAILS=visual-foundations@example.test npm run start",
     url: "http://localhost:3000/login",
     timeout: 120_000,
     reuseExistingServer: true,

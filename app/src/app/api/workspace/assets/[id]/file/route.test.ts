@@ -35,6 +35,7 @@ const mockSigned = vi.mocked(objectStorage.signedDownloadUrl);
 describe("GET /api/workspace/assets/[id]/file", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.VISUAL_FOUNDATIONS_SKIP_STORAGE;
   });
 
   it("redirects to a signed URL for workspace assets", async () => {
@@ -63,5 +64,26 @@ describe("GET /api/workspace/assets/[id]/file", () => {
       { params: Promise.resolve({ id: "missing" }) }
     );
     expect(res.status).toBe(404);
+  });
+
+  it("serves synthetic visual fixtures without storage", async () => {
+    process.env.VISUAL_FOUNDATIONS_SKIP_STORAGE = "true";
+    mockGet.mockResolvedValue({
+      id: "asset-1",
+      workspaceId: "workspace-1",
+      key: "e2e/visual-foundations/workspace/vf-variation-square-240x240.svg",
+      width: 240,
+      height: 240,
+    } as never);
+
+    const res = await GET(
+      new Request("http://localhost/api/workspace/assets/asset-1/file"),
+      { params: Promise.resolve({ id: "asset-1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("image/svg+xml");
+    expect(await res.text()).toContain('width="240" height="240"');
+    expect(mockSigned).not.toHaveBeenCalled();
   });
 });
