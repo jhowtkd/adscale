@@ -83,6 +83,8 @@ export function logCreativeWorkBriefingCheck(fields: {
   version: number;
   readiness: BriefingReadiness;
   code: "ok" | "missing_direction";
+  automaticRevisionCount?: number;
+  reviewResult?: "not_needed" | "passed" | "blocked" | "failed";
 }): void {
   try {
     logger.info({ event: "creative_work_briefing_check", jobType: "creative_work", ...fields });
