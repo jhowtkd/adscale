@@ -104,6 +104,8 @@ function buildProviderOnlyPrompt(input: {
   const colors = input.identitySnapshot.brandKit.colors.length > 0
     ? input.identitySnapshot.brandKit.colors.join(", ")
     : "(none provided)";
+  const visualNotes = input.identitySnapshot.brandKit.visualNotes?.trim();
+  const visualConstraints = input.identitySnapshot.brandKit.constraints?.trim();
 
   return [
     "PROVIDER-ONLY ABSTRACT BACKGROUND — VISUAL PROMPT",
@@ -115,6 +117,13 @@ function buildProviderOnlyPrompt(input: {
     "",
     "ABSTRACT COLOR GUIDANCE:",
     `Use only these approved palette colors as abstract atmosphere and contrast guidance: ${colors}`,
+    ...(visualNotes || visualConstraints
+      ? [
+          "VISUAL BRAND GUIDANCE:",
+          ...(visualNotes ? [`- Visual notes: ${visualNotes}`] : []),
+          ...(visualConstraints ? [`- Visual constraints: ${visualConstraints}`] : []),
+        ]
+      : []),
     "OPERATOR VISUAL DIRECTION (use for visual motifs and composition only; do not reproduce its wording):",
     buildOperatorVisualDirection(input.inputSnapshot.request, input.copy),
     "Do not infer or reproduce any brand identity from text; the application owns all semantic content and exact assets.",
