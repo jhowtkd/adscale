@@ -270,7 +270,21 @@ export interface BrandTrainingAssetRecord {
     | "pending_analysis"
     | "pending_approval"
     | "approved"
-    | "archived";
+    | "archived"
+    | "rejected";
+  rejectionReason?: {
+    code:
+      | "brand_drift"
+      | "excessive_accent_color"
+      | "generic_stock_photo"
+      | "decorative_3d"
+      | "text_density"
+      | "weak_hierarchy"
+      | "literal_reference_copy"
+      | "prohibited_element"
+      | "other";
+    note?: string;
+  } | null;
   trainingCategory?:
     | "logo"
     | "graphic"
@@ -444,7 +458,8 @@ export interface ReviewBrandTrainingAssetInput {
   trainingCategory: "logo" | "graphic" | "character" | "visual_reference";
   usageMode: "exact" | "reference" | "rule";
   analysis: BrandTrainingAssetRecord["trainingAnalysis"] | null;
-  reviewStatus: "approved" | "archived";
+  reviewStatus: "approved" | "archived" | "rejected";
+  rejectionReason?: BrandTrainingAssetRecord["rejectionReason"];
 }
 
 export function useReviewBrandTrainingAsset(clientProfileId: string | null) {
@@ -463,6 +478,7 @@ export function useReviewBrandTrainingAsset(clientProfileId: string | null) {
             usageMode: input.usageMode,
             analysis: input.analysis,
             reviewStatus: input.reviewStatus,
+            rejectionReason: input.rejectionReason ?? null,
           }),
         },
       );

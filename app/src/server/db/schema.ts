@@ -395,6 +395,9 @@ export const clientReferences = adscaleSchema.table(
     reviewStatus: text("review_status").$type<
       import("../brand-training/contracts").BrandTrainingReviewStatus
     >(),
+    rejectionReason: jsonb("rejection_reason").$type<
+      import("../brand-training/contracts").BrandTrainingRejection
+    >(),
     reviewedAt: timestamp("reviewed_at", { mode: "date" }),
     reviewedByUserId: text("reviewed_by_user_id").references(() => user.id, {
       onDelete: "set null",

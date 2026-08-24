@@ -610,6 +610,13 @@
       "when": 1786655123001,
       "tag": "0086_creative_work_layer_editor",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1786655123002,
+      "tag": "0087_rejected_brand_training_assets",
+      "breakpoints": true
     }
   ]
 }

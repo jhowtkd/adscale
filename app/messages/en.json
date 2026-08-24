@@ -2576,6 +2576,21 @@
       "statusLegacyUnreviewed": "Legacy asset not yet reviewed",
       "statusApproved": "Approved",
       "statusArchived": "Archived",
+      "statusRejected": "Rejected",
+      "reject": "Mark as rejected",
+      "rejectionReason": "Structured reason",
+      "rejectionNote": "Note (optional)",
+      "rejectionReasons": {
+        "brand_drift": "Brand drift",
+        "excessive_accent_color": "Excessive accent color",
+        "generic_stock_photo": "Generic stock photo",
+        "decorative_3d": "Decorative 3D",
+        "text_density": "Text density",
+        "weak_hierarchy": "Weak hierarchy",
+        "literal_reference_copy": "Literal reference copy",
+        "prohibited_element": "Prohibited element",
+        "other": "Other reason"
+      },
       "confirmLegacy": "Confirm asset",
       "categories": {
         "logo": "Logo",

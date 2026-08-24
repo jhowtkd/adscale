@@ -18,11 +18,32 @@ export const BRAND_TRAINING_REVIEW_STATUSES = [
   "pending_approval",
   "approved",
   "archived",
+  "rejected",
+] as const;
+
+export const BRAND_TRAINING_REJECTION_REASONS = [
+  "brand_drift",
+  "excessive_accent_color",
+  "generic_stock_photo",
+  "decorative_3d",
+  "text_density",
+  "weak_hierarchy",
+  "literal_reference_copy",
+  "prohibited_element",
+  "other",
 ] as const;
 
 export type BrandTrainingCategory = (typeof BRAND_TRAINING_CATEGORIES)[number];
 export type BrandTrainingUsageMode = (typeof BRAND_TRAINING_USAGE_MODES)[number];
 export type BrandTrainingReviewStatus = (typeof BRAND_TRAINING_REVIEW_STATUSES)[number];
+export type BrandTrainingRejectionReason = (typeof BRAND_TRAINING_REJECTION_REASONS)[number];
+
+export const brandTrainingRejectionReasonSchema = z.object({
+  code: z.enum(BRAND_TRAINING_REJECTION_REASONS),
+  note: z.string().trim().max(240).optional(),
+});
+
+export type BrandTrainingRejection = z.infer<typeof brandTrainingRejectionReasonSchema>;
 
 const colorCoverageSchema = z.object({
   hex: z.string(),
@@ -143,7 +164,16 @@ export function preserveHumanStructure(
 export const reviewTrainingAssetSchema = z.object({
   trainingCategory: z.enum(BRAND_TRAINING_CATEGORIES),
   usageMode: z.enum(BRAND_TRAINING_USAGE_MODES),
-  // The route allows null only when preserving a legacy approved row or archiving.
+  // The route allows null when preserving legacy analysis, archiving, or rejecting.
   analysis: brandTrainingAnalysisSchema.nullable().optional(),
-  reviewStatus: z.enum(["approved", "archived"]),
+  reviewStatus: z.enum(["approved", "archived", "rejected"]),
+  rejectionReason: brandTrainingRejectionReasonSchema.nullable().optional(),
+}).superRefine((value, ctx) => {
+  if (value.reviewStatus === "rejected" && !value.rejectionReason) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["rejectionReason"],
+      message: "Rejected training assets require a structured reason",
+    });
+  }
 });
