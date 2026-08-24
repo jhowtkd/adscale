@@ -47,6 +47,7 @@ import {
   getCreativeWork,
   setCreativeWorkCopy,
 } from "@/server/repositories/creative-work";
+import { buildCreativeWorkFactPack } from "@/server/creative-work/fact-pack";
 import { confirmSocialPostWork } from "./confirm-social-post-work";
 
 const mockGet = vi.mocked(getCreativeWork);
@@ -185,6 +186,36 @@ describe("confirmSocialPostWork", () => {
 
     expect(result.ok).toBe(true);
     expect(mockSetCopy).toHaveBeenCalledWith("ws-1", "work-1", copy);
+  });
+
+  it("blocks unsupported claims in an editable Peça Única copy before persist", async () => {
+    const factPack = buildCreativeWorkFactPack({
+      request: "algo moderno para Instagram",
+      mode: "single",
+      sources: [],
+      brand: null,
+      clientProfileId: profileId,
+    });
+    mockGet.mockResolvedValue({
+      work: {
+        ...workItem,
+        toolKind: "single",
+        inputSnapshot: { factPack },
+      },
+      outputs: [],
+    } as never);
+
+    const result = await confirmSocialPostWork({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      copy: { ...copy, body: "Garanta 50% de desconto hoje." },
+      selectedReferenceIds: [],
+    });
+
+    expect(result).toEqual({ ok: false, error: { code: "invalid_copy" } });
+    expect(mockSetCopy).not.toHaveBeenCalled();
+    expect(mockSnapshot).not.toHaveBeenCalled();
+    expect(mockConfirm).not.toHaveBeenCalled();
   });
 
   it("maps identity reference errors", async () => {

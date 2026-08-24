@@ -8,7 +8,11 @@ import {
   type CanonicalBriefingWrite,
 } from "@/server/creative-work/canonical/briefing-persist";
 import type { CanonicalCreativeWork } from "@/server/creative-work/canonical/types";
-import type { SocialPostCopy } from "@/server/creative-work/contracts";
+import {
+  resolveCreativeWorkFactPack,
+  type SocialPostCopy,
+} from "@/server/creative-work/contracts";
+import { validateSocialPostCopyAgainstFactPack } from "@/server/creative-work/fact-pack";
 import {
   createIdentitySnapshot,
   IdentitySnapshotMissingAlphaError,
@@ -119,6 +123,15 @@ export async function confirmSocialPostWork(
   const copy = resolveCopyWrite(input, existing.work.copy);
   if (!copy) {
     return { ok: false, error: { code: "invalid_copy" } };
+  }
+
+  // Peça Única copy is operator-editable, so enforce the same frozen fact
+  // contract here as the generated-copy path before persisting it.
+  if (existing.work.toolKind === "single") {
+    const factPack = resolveCreativeWorkFactPack(existing.work.inputSnapshot);
+    if (factPack && validateSocialPostCopyAgainstFactPack(copy, factPack).length > 0) {
+      return { ok: false, error: { code: "invalid_copy" } };
+    }
   }
 
   await setCreativeWorkCopy(input.workspaceId, input.workItemId, copy);
