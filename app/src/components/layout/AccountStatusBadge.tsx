@@ -23,7 +23,7 @@ export default function AccountStatusBadge({
 
   return (
     <span
-      aria-label={t("badgeAriaLabel")}
+      title={t("badgeAriaLabel")}
       className={cn(
         "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
         badgeStyles[variant],

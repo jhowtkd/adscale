@@ -7,15 +7,15 @@ vi.mock("next-intl", () => ({
 }));
 
 describe("AccountStatusBadge", () => {
-  it("renders tester badge with accessible label", () => {
+  it("renders tester badge with explanatory title", () => {
     render(<AccountStatusBadge variant="tester" />);
 
-    expect(screen.getByLabelText("testerMode.badgeAriaLabel")).toHaveTextContent("testerMode.badge");
+    expect(screen.getByTitle("testerMode.badgeAriaLabel")).toHaveTextContent("testerMode.badge");
   });
 
   it("renders demo badge", () => {
     render(<AccountStatusBadge variant="demo" />);
 
-    expect(screen.getByLabelText("demoMode.badgeAriaLabel")).toHaveTextContent("demoMode.badge");
+    expect(screen.getByTitle("demoMode.badgeAriaLabel")).toHaveTextContent("demoMode.badge");
   });
 });
