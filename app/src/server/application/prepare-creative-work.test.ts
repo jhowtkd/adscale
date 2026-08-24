@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const inferBrief = vi.hoisted(() => vi.fn());
+const reviewBrief = vi.hoisted(() => vi.fn());
 const envState = vi.hoisted(() => ({ qualityRecoveryEnabled: "false" }));
 const transactionExecutor = { scope: "preparation-tx" } as never;
 
@@ -26,6 +27,10 @@ vi.mock("@/server/validation/env", () => ({
 vi.mock("@/server/creative-work/prepare", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/creative-work/prepare")>()),
   inferSocialPostBrief: inferBrief,
+}));
+vi.mock("@/server/creative-work/briefing-review", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/creative-work/briefing-review")>()),
+  reviewInferredBriefingOnce: reviewBrief,
 }));
 
 import { generateSocialPostCopy, CreativeCopyContextError } from "@/server/creative-work/copy";
@@ -60,6 +65,7 @@ describe("prepareCreativeWork", () => {
     withLock.mockImplementation(async (_workspaceId, _workItemId, callback) => callback(transactionExecutor) as never);
     getKit.mockResolvedValue({ name: "Cenbrap", toneOfVoice: "Direto", requiredElements: null, prohibitedElements: null } as never);
     generateCopy.mockResolvedValue({ headline: "Julho", body: "Matricule-se", cta: "Saiba mais" });
+    reviewBrief.mockResolvedValue(null);
     inferBrief.mockReturnValue({ theme: work.request, objective: "Promover matrícula", audience: "Público", offer: "Matrícula" });
     updateDraft.mockImplementation(async (_ws, _id, _updatedAt, patch) => ({ ...work, ...patch } as never));
     getSourceAssets.mockResolvedValue(new Map());
@@ -146,8 +152,77 @@ describe("prepareCreativeWork", () => {
         },
       },
     });
+    expect(reviewBrief).toHaveBeenCalledOnce();
     expect(generateCopy).not.toHaveBeenCalled();
     expect(updateDraft).not.toHaveBeenCalled();
+  });
+
+  it("revises a blocked briefing once and persists the recovered envelope", async () => {
+    const sparseWork = { ...work, toolKind: "single", request: "Pedido sem direção" };
+    getWork.mockResolvedValue({ work: sparseWork, outputs: [], sources: [] } as never);
+    inferBrief.mockReturnValue({ theme: "", objective: "", audience: "", offer: null });
+    reviewBrief.mockResolvedValue({
+      theme: "Curso de Psicologia",
+      objective: "Apresentar o curso",
+      audience: "Profissionais",
+      offer: null,
+    });
+
+    const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(result.ok).toBe(true);
+    expect(reviewBrief).toHaveBeenCalledOnce();
+    expect(generateCopy).toHaveBeenCalledOnce();
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+      brief: expect.objectContaining({ theme: "Curso de Psicologia" }),
+      inputSnapshot: expect.objectContaining({
+        inferredBriefing: expect.objectContaining({
+          message: { value: "Curso de Psicologia", state: "inferred", confidence: "medium" },
+          readiness: "exploratory",
+        }),
+      }),
+    }), transactionExecutor);
+  });
+
+  it("does not loop after the single automatic revision fails validation", async () => {
+    const sparseWork = { ...work, toolKind: "single", request: "Pedido sem direção" };
+    getWork.mockResolvedValue({ work: sparseWork, outputs: [], sources: [] } as never);
+    inferBrief.mockReturnValue({ theme: "", objective: "", audience: "", offer: null });
+    reviewBrief.mockResolvedValue({ theme: "", objective: "", audience: "", offer: null } as never);
+
+    const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(result).toMatchObject({ ok: false, error: { code: "briefing_blocked" } });
+    expect(reviewBrief).toHaveBeenCalledOnce();
+    expect(generateCopy).not.toHaveBeenCalled();
+    expect(updateDraft).not.toHaveBeenCalled();
+  });
+
+  it("reuses a recovered briefing without a second automatic review", async () => {
+    const sparseWork = { ...work, toolKind: "single", request: "Pedido sem direção" };
+    let current = { ...sparseWork } as typeof sparseWork & { inputSnapshot?: unknown; brief?: unknown; copy?: unknown };
+    getWork.mockImplementation(async () => ({ work: current, outputs: [], sources: [] } as never));
+    inferBrief.mockReturnValue({ theme: "", objective: "", audience: "", offer: null });
+    reviewBrief.mockResolvedValue({
+      theme: "Curso de Psicologia",
+      objective: "Apresentar o curso",
+      audience: "Profissionais",
+      offer: null,
+    });
+    updateDraft.mockImplementation(async (_ws, _id, _updatedAt, patch) => {
+      current = { ...current, ...patch } as typeof current;
+      return current as never;
+    });
+
+    const first = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    const second = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    expect(inferBrief).toHaveBeenCalledOnce();
+    expect(reviewBrief).toHaveBeenCalledOnce();
+    expect(generateCopy).toHaveBeenCalledOnce();
+    expect(updateDraft).toHaveBeenCalledOnce();
   });
 
   it("freezes the selected font and layout into the Peça única input snapshot", async () => {
