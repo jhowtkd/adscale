@@ -963,6 +963,18 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(body.details.choices).toHaveLength(2);
   });
 
+  it("maps a blocked briefing to 422 with its actionable reason", async () => {
+    const details = { reason: "missing_direction", readiness: "blocked" };
+    prepareMock.mockResolvedValue({ ok: false, error: { code: "briefing_blocked", details } });
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
+    }), { params: makeParams("work-1") });
+    const body = await res.json();
+    expect(res.status).toBe(422);
+    expect(body.code).toBe("briefing_blocked");
+    expect(body.details).toEqual(details);
+  });
+
   it("persists the brand conflict choice bound to the detected brand and invalidates the prepared blocks so the same draft resumes", async () => {
     getWorkMock.mockResolvedValue({
       work: { ...workItem, toolKind: "restyle", settings: { targetFormats: [] } },

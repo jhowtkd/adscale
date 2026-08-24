@@ -19,6 +19,10 @@ import type {
   CreativeWorkBriefingOverrides,
   InferredBriefing,
 } from "@/server/creative-work/contracts";
+import {
+  creativeWorkFactPackSchema,
+  inferredBriefingSchema,
+} from "@/server/creative-work/contracts";
 import type { PublicLayerizationState } from "@/server/layerize/contracts";
 import type { LayerEditorAccessV1, PublicLayerEditorSummaryV1 } from "@/server/layer-editor/contracts";
 
@@ -311,6 +315,24 @@ export function extractCreativeWorkBrandConflict(cause: unknown): CreativeWorkBr
     sourceId: typeof candidate.sourceId === "string" ? candidate.sourceId : "",
     choices: candidate.choices as readonly CreativeWorkBrandChoice[],
   };
+}
+
+/** Typed payload of the pre-generation briefing safety check. */
+export function extractCreativeWorkBriefingBlocked(cause: unknown): {
+  reason: "missing_direction";
+  briefing: InferredBriefing;
+  factPack: CreativeWorkFactPack;
+} | null {
+  if (!(cause instanceof Error) || !("code" in cause)) return null;
+  if ((cause as { code?: unknown }).code !== "briefing_blocked") return null;
+  const details = (cause as { details?: unknown }).details;
+  if (!details || typeof details !== "object") return null;
+  const candidate = details as Record<string, unknown>;
+  if (candidate.reason !== "missing_direction") return null;
+  const briefing = inferredBriefingSchema.safeParse(candidate.briefing);
+  const factPack = creativeWorkFactPackSchema.safeParse(candidate.factPack);
+  if (!briefing.success || briefing.data.readiness !== "blocked" || !factPack.success) return null;
+  return { reason: "missing_direction", briefing: briefing.data, factPack: factPack.data };
 }
 
 export function mapCreativeWorkDetail(data: {

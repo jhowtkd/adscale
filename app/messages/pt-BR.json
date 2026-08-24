@@ -2461,7 +2461,8 @@
     "voiceConfigNotFound": "Nenhuma proposta de voz para aprovar. Gere a voz primeiro.",
     "unknown": "Erro desconhecido. Tente novamente.",
     "invalid_context": "O pedido ou as fontes não têm informação suficiente para gerar com fidelidade. Ajuste o texto ou as artes e tente novamente.",
-    "brand_conflict": "A arte de conteúdo pertence a uma marca diferente da marca ativa. Escolha qual marca a peça deve seguir."
+    "brand_conflict": "A arte de conteúdo pertence a uma marca diferente da marca ativa. Escolha qual marca a peça deve seguir.",
+    "briefing_blocked": "O pedido ainda precisa de uma direção clara e segura. Diga o que a peça deve comunicar e tente novamente."
   },
   "brandTraining": {
     "title": "Treinar identidade de marca",

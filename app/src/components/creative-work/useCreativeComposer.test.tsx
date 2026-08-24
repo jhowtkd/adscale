@@ -1683,6 +1683,43 @@ describe("useCreativeComposer", () => {
     expect(result.current.briefingFactPack).toEqual(briefingFactPack);
   });
 
+  it("shows a blocked briefing and disables paid generation until the request changes", async () => {
+    const briefing = {
+      version: 1,
+      message: { value: null, state: "unknown" },
+      objective: { value: null, state: "unknown" },
+      audience: { value: null, state: "unknown" },
+      offer: { value: null, state: "unknown" },
+      tone: { value: null, state: "unknown" },
+      constraints: { value: null, state: "unknown" },
+      readiness: "blocked",
+      confidence: "high",
+    } as const;
+    const factPack = {
+      version: 1,
+      request: "Pedido salvo",
+      facts: [],
+      brand: { requiredElements: [], prohibitedElements: [] },
+      identity: { clientProfileId: profileA.id, brandName: "Marca A", brandAuthority: "active" },
+    } as const;
+    mocks.work.mockReturnValue({ data: workDetail({ toolKind: "single" }), isLoading: false });
+    mocks.prepare.mockRejectedValue(Object.assign(new Error("Direção insuficiente"), {
+      code: "briefing_blocked",
+      details: { reason: "missing_direction", readiness: "blocked", confidence: "high", briefing, factPack },
+    }));
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", initialIntent: "single" }));
+
+    await act(async () => { await result.current.generate(); });
+
+    expect(result.current.inferredBriefing).toEqual(briefing);
+    expect(result.current.canGenerate).toBe(false);
+    expect(mocks.generate).not.toHaveBeenCalled();
+
+    act(() => { result.current.setRequest("Nova direção segura"); });
+    expect(result.current.inferredBriefing).toBeNull();
+  });
+
   it("reconciles an uncertain generation response before showing an error", async () => {
     const refetch = vi.fn().mockResolvedValue({ data: {
       ...workDetail({ status: "generating" }),
