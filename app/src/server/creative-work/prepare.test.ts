@@ -154,6 +154,28 @@ describe("inferSocialPostBrief", () => {
     expect(briefing.audience).toEqual({ value: null, state: "unknown" });
   });
 
+  it("uses inline briefing overrides as authoritative fields", () => {
+    const request = "Uma peça para matrículas";
+    const factPack = {
+      version: 1,
+      request,
+      facts: [{ value: "Matrículas", class: "product" as const, required: true, origin: "request" as const }],
+      brand: { requiredElements: [], prohibitedElements: [] },
+      identity: { clientProfileId: "profile-1", brandName: "Marca", brandAuthority: "active" as const },
+    };
+    const briefing = buildInferredBriefing({
+      request,
+      brief: inferSocialPostBrief(request, []),
+      factPack,
+      toneOfVoice: "Institucional",
+      briefingOverrides: { message: "Matrículas abertas", audience: "Professores", tone: "Direto" },
+    });
+
+    expect(briefing.message).toEqual({ value: "Matrículas abertas", state: "sourced" });
+    expect(briefing.audience).toEqual({ value: "Professores", state: "sourced" });
+    expect(briefing.tone).toEqual({ value: "Direto", state: "sourced" });
+  });
+
   it("preserves request and brand constraints as sourced content", () => {
     const request = "Matrículas em julho com vagas limitadas";
     const briefing = buildInferredBriefing({

@@ -257,6 +257,7 @@ export type CreativeWorkDraftPatch = Partial<{
   inputSnapshot: CreativeWorkInputSnapshot | null;
   brief: SocialPostBrief | null;
   copy: SocialPostCopy | null;
+  identitySnapshot: CreativeWorkItem["identitySnapshot"] | null;
 }>;
 
 export async function updateCreativeWorkDraft(workspaceId: string, workItemId: string, patch: CreativeWorkDraftPatch): Promise<CreativeWorkItem | null> {

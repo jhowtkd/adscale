@@ -458,7 +458,18 @@ export function CreativeComposer({ composer, composerRef }: {
               <div key={key} data-testid={`inferred-briefing-${key}`} data-state={field.state}>
                 <dt className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">{label}</dt>
                 <dd className="mt-1 text-sm text-[var(--text-primary)]">
-                  {field.value ?? briefingUnknown}
+                  <input
+                    aria-label={label}
+                    defaultValue={field.value ?? ""}
+                    placeholder={briefingUnknown}
+                    onBlur={(event) => void composer.editBriefingField(key, event.currentTarget.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.currentTarget.blur();
+                    }}
+                    disabled={composer.briefingEditState === "saving"}
+                    className="w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2 py-1 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60"
+                  />
+                  <span className="sr-only">{field.value ?? briefingUnknown}</span>
                   <span className="ml-2 text-xs text-[var(--text-muted)]">
                     {briefingStateLabels[field.state]}
                     {field.confidence ? ` · ${briefingConfidenceLabels[field.confidence]}` : ""}
@@ -472,6 +483,15 @@ export function CreativeComposer({ composer, composerRef }: {
             {" · "}
             {t("briefingConfidence")}: <strong>{briefingConfidenceLabels[inferredBriefing.confidence]}</strong>
           </p>
+          {composer.briefingEditState !== "idle" ? (
+            <p className="mt-2 text-xs text-[var(--text-secondary)]" role="status" aria-live="polite">
+              {composer.briefingEditState === "saving"
+                ? t("actionSaving")
+                : composer.briefingEditState === "saved"
+                  ? t("briefingEditSaved")
+                  : t("briefingEditError")}
+            </p>
+          ) : null}
         </section>
       ) : null}
 

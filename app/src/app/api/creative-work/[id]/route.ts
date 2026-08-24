@@ -36,9 +36,16 @@ import {
   creativeWorkIntentSchema,
   creativeWorkPreparationSchema,
   creativeWorkSettingsSchema,
+  creativeWorkBriefingOverridesSchema,
+  CREATIVE_WORK_BRIEFING_FIELDS,
   displayRequestForCreativeWork,
   resolveCreativeWorkFactPack,
   resolveCreativeWorkInferredBriefing,
+  socialPostBriefSchema,
+  type CreativeWorkBriefingField,
+  type CreativeWorkBriefingOverrides,
+  type InferredBriefing,
+  type CreativeWorkFactPack,
   socialPostCopySchema,
 } from "@/server/creative-work/contracts";
 import {
@@ -56,6 +63,7 @@ import {
   updateCreativeWorkSource,
   updateCreativeWorkSourceIfUnchanged,
   updateCreativeWorkDraft,
+  updateCreativeWorkDraftIfUnchanged,
 } from "@/server/repositories/creative-work";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getTemplateById } from "@/server/repositories/template";
@@ -142,6 +150,12 @@ const autosaveSchema = z.object({
   if (!parsed.success) parsed.error.issues.forEach((issue) => context.addIssue(issue));
 });
 const prepareSchema = z.object({ action: z.literal("prepare") }).strict();
+const editBriefingSchema = z.object({
+  action: z.literal("editBriefing"),
+  field: z.enum(CREATIVE_WORK_BRIEFING_FIELDS),
+  value: z.string().max(240).nullable(),
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
+}).strict();
 // R-003: persists the restyle brand-conflict choice ("source" | "active") in
 // CreativeWorkSettings so the same draft resumes without a new question.
 const resolveBrandConflictSchema = z.object({
@@ -177,7 +191,7 @@ const editSourceAnalysisSchema = z.object({
   style: styleBriefSchema.nullable(),
 }).strict();
 const patchCreativeWorkSchema = z.union([
-  autosaveSchema, prepareSchema, attachSourceSchema, updateSourceSchema,
+  autosaveSchema, prepareSchema, editBriefingSchema, attachSourceSchema, updateSourceSchema,
   retrySourceSchema, removeSourceSchema, editSourceAnalysisSchema, confirmCreativeWorkSchema,
   linkCampaignSchema, resolveBrandConflictSchema,
   layerizeOutputSchema,
@@ -185,6 +199,54 @@ const patchCreativeWorkSchema = z.union([
   regenerateLayerSchema,candidateActionSchema,
   publishLayerEditorSchema,
 ]);
+
+function briefingFieldValue(value: string | null) {
+  const normalized = value?.trim() || null;
+  return normalized
+    ? { value: normalized, state: "sourced" as const }
+    : { value: null, state: "unknown" as const };
+}
+
+function applyBriefingEdit(input: {
+  briefing: InferredBriefing;
+  factPack: CreativeWorkFactPack;
+  field: CreativeWorkBriefingField;
+  value: string | null;
+  overrides: CreativeWorkBriefingOverrides;
+}) {
+  const value = briefingFieldValue(input.value);
+  const nextBriefing = {
+    ...input.briefing,
+    [input.field]: value,
+  } as InferredBriefing;
+  const hasDirection = Boolean(nextBriefing.message.value && nextBriefing.objective.value);
+  const hasFacts = input.factPack.facts.some((fact) => [
+    "price", "date", "offer", "benefit", "proof", "condition", "credential", "modality", "guarantee", "product", "service",
+  ].includes(fact.class));
+  const readiness = !hasDirection ? "blocked" : hasFacts ? "ready" : "exploratory";
+  nextBriefing.readiness = readiness;
+  nextBriefing.confidence = readiness === "exploratory" ? "low" : readiness === "blocked" ? "high" : "medium";
+
+  const previous = input.overrides[input.field];
+  const overrideClass = input.field === "offer" ? "offer" : "text";
+  const facts = input.factPack.facts.filter((fact) =>
+    !(fact.origin === "request" && previous && fact.class === overrideClass && fact.value === previous.trim()),
+  );
+  const normalized = input.value?.trim() || null;
+  if (normalized) {
+    facts.push({
+      value: normalized,
+      class: input.field === "offer" ? "offer" : "text",
+      required: true,
+      origin: "request",
+    });
+  }
+  return {
+    briefing: nextBriefing,
+    factPack: { ...input.factPack, facts },
+    overrides: { ...input.overrides, [input.field]: normalized },
+  };
+}
 
 function dispatchSourceAnalysis(workspaceId: string, workItemId: string, sourceId: string) {
   return inngest.send({ name: heavyImageEventName("creative-work.source.analyze"), data: { workspaceId, workItemId, sourceId } });
@@ -555,6 +617,75 @@ export async function PATCH(
       });
       if (!work) return apiError("creativeWorkNotFound", 404);
       return NextResponse.json({ work });
+    }
+
+    if ("action" in parsed.data && parsed.data.action === "editBriefing") {
+      const aggregate = await getCreativeWork(workspace.id, id);
+      if (!aggregate) return apiError("creativeWorkNotFound", 404);
+      if (aggregate.work.status !== "draft") return apiError("creativeWorkNotDraft", 409);
+      if (aggregate.work.toolKind !== "single") return apiError("invalidInput", 400);
+      if (aggregate.work.updatedAt.toISOString() !== parsed.data.expectedUpdatedAt) {
+        return apiError("stale_input", 409);
+      }
+      const snapshot = aggregate.work.inputSnapshot;
+      const briefing = resolveCreativeWorkInferredBriefing(snapshot);
+      const factPack = resolveCreativeWorkFactPack(snapshot);
+      if (!snapshot || !briefing || !factPack) return apiError("creativeWorkNotReady", 409);
+      const parsedOverrides = creativeWorkBriefingOverridesSchema.safeParse(
+        snapshot.briefingOverrides ?? aggregate.work.settings.briefingOverrides ?? {},
+      );
+      if (!parsedOverrides.success) return apiError("creativeWorkNotReady", 409);
+      const edited = applyBriefingEdit({
+        briefing,
+        factPack,
+        field: parsed.data.field,
+        value: parsed.data.value,
+        overrides: parsedOverrides.data,
+      });
+      const nextOverrides = creativeWorkBriefingOverridesSchema.parse(edited.overrides);
+      const nextVersion = (aggregate.work.settings.briefingVersion ?? 0) + 1;
+      const nextSettings = {
+        ...aggregate.work.settings,
+        briefingOverrides: nextOverrides,
+        briefingVersion: nextVersion,
+      };
+      const nextBrief = aggregate.work.brief && ["message", "objective", "audience", "offer"].includes(parsed.data.field)
+        ? {
+            ...aggregate.work.brief,
+            ...(parsed.data.field === "message" ? { theme: parsed.data.value?.trim() ?? "" } : {}),
+            ...(parsed.data.field === "objective" ? { objective: parsed.data.value?.trim() ?? "" } : {}),
+            ...(parsed.data.field === "audience" ? { audience: parsed.data.value?.trim() ?? "" } : {}),
+            ...(parsed.data.field === "offer" ? { offer: parsed.data.value?.trim() || null } : {}),
+          }
+        : aggregate.work.brief;
+      const parsedNextBrief = nextBrief ? socialPostBriefSchema.safeParse(nextBrief) : null;
+      const updatedSnapshot = {
+        ...snapshot,
+        settings: nextSettings,
+        briefingOverrides: nextOverrides,
+        inferredBriefing: edited.briefing,
+        factPack: edited.factPack,
+      };
+      const work = await updateCreativeWorkDraftIfUnchanged(
+        workspace.id,
+        id,
+        aggregate.work.updatedAt,
+        {
+          settings: nextSettings,
+          brief: parsedNextBrief?.success ? parsedNextBrief.data : null,
+          copy: null,
+          identitySnapshot: null,
+          inputSnapshot: updatedSnapshot,
+        },
+      );
+      if (!work) return apiError("stale_input", 409);
+      return NextResponse.json({
+        work,
+        briefing: edited.briefing,
+        briefingFactPack: edited.factPack,
+        briefingOverrides: nextOverrides,
+        briefingVersion: nextVersion,
+      });
     }
 
     if ("action" in parsed.data && parsed.data.action === "prepare") {
