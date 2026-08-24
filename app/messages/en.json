@@ -2460,7 +2460,8 @@
     "voiceConfigNotFound": "No voice proposal to approve. Generate the voice first.",
     "unknown": "Unknown error. Please try again.",
     "invalid_context": "The request or sources don't have enough information to generate faithfully. Adjust the text or artworks and try again.",
-    "brand_conflict": "The content artwork belongs to a different brand than the active one. Choose which brand the piece should follow."
+    "brand_conflict": "The content artwork belongs to a different brand than the active one. Choose which brand the piece should follow.",
+    "briefing_blocked": "The request still needs a clear, safe direction. Add what the piece should communicate and try again."
   },
   "brandTraining": {
     "title": "Train brand identity",

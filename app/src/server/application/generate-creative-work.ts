@@ -19,7 +19,7 @@ import { env } from "@/server/validation/env";
 
 export type GenerateCreativeWorkResult =
   | { ok: true; value: { work: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["work"]; outputs: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["outputs"]; billingKey: string; brandTrainingSuggestion: string | null } }
-  | { ok: false; error: { code: "work_not_found" | "work_not_draft" | "work_not_prepared" | "invalid_context" | "brand_conflict" | "stale_input" | "credit_blocked" | "dispatch_failed"; details?: unknown } };
+  | { ok: false; error: { code: "work_not_found" | "work_not_draft" | "work_not_prepared" | "invalid_context" | "brand_conflict" | "briefing_blocked" | "stale_input" | "credit_blocked" | "dispatch_failed"; details?: unknown } };
 
 async function buildInputSnapshot(
   workspaceId: string,
@@ -96,6 +96,9 @@ export async function generateCreativeWork(input: {
         // the two brand choices and billing stays blocked until the user
         // resolves the conflict.
         return { ok: false, error: { code: "brand_conflict" as const, details: prepared.error.details } };
+      }
+      if (prepared.error.code === "briefing_blocked") {
+        return { ok: false, error: { code: "briefing_blocked" as const, details: prepared.error.details } };
       }
       return { ok: false, error: { code: "work_not_prepared" as const, details: prepared.error } };
     }

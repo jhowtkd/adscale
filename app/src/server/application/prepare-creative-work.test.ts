@@ -128,6 +128,28 @@ describe("prepareCreativeWork", () => {
     }), transactionExecutor);
   });
 
+  it("blocks an incomplete single-piece briefing before copy or persistence", async () => {
+    const sparseWork = { ...work, toolKind: "single", request: "Pedido sem direção" };
+    getWork.mockResolvedValue({ work: sparseWork, outputs: [], sources: [] } as never);
+    inferBrief.mockReturnValue({ theme: "", objective: "", audience: "", offer: null });
+
+    const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "briefing_blocked",
+        details: {
+          reason: "missing_direction",
+          readiness: "blocked",
+          briefing: { readiness: "blocked" },
+        },
+      },
+    });
+    expect(generateCopy).not.toHaveBeenCalled();
+    expect(updateDraft).not.toHaveBeenCalled();
+  });
+
   it("freezes the selected font and layout into the Peça única input snapshot", async () => {
     const single = {
       ...work,

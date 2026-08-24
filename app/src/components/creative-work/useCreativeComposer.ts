@@ -25,6 +25,7 @@ import {
   useTriggerTriplet,
   useSuggestCreativeDirections,
   extractCreativeWorkBrandConflict,
+  extractCreativeWorkBriefingBlocked,
   type CreativeSourceUsage,
   type CreativeWorkBrandChoice,
   type CreativeWorkBrandConflict,
@@ -1073,7 +1074,13 @@ export function useCreativeComposer({
   }, [runSourceAction]);
 
   const generate = useCallback(async () => {
-    if (submitGuardRef.current || generateMutation.isPending || editBriefingMutation.isPending || briefingEditState === "saving") return;
+    if (
+      submitGuardRef.current
+      || generateMutation.isPending
+      || editBriefingMutation.isPending
+      || briefingEditState === "saving"
+      || inferredBriefing?.readiness === "blocked"
+    ) return;
     const current = detailQuery.data?.work;
     // A work left "ready" without outputs by an uncertain submit (prepare
     // confirmed, generation unconfirmed) resumes straight at the generation
@@ -1126,37 +1133,43 @@ export function useCreativeComposer({
       const conflict = extractCreativeWorkBrandConflict(cause);
       if (conflict) {
         setBrandConflict(conflict);
-      } else if (isApiRequestUncertain(cause) && workIdRef.current) {
-        setActionPhase("reconciling");
-        try {
-          const reconciled = await detailQuery.refetch();
-          const detail = reconciled.data;
-          // Acceptance requires real evidence of generation: an in-flight
-          // status or persisted outputs. "ready" without outputs only proves
-          // the prepare step landed — the flow stays retryable, not accepted.
-          const accepted = Boolean(
-            detail
-            && (detail.work.status === "generating" || detail.outputs.length > 0),
-          );
-          if (accepted) {
-            setError(null);
-            setAnnouncement("Geração aceita; acompanhando o processamento");
-          } else {
-            setError(detail?.work.status === "ready" || phase === "submitting"
-              ? "A geração não foi confirmada. Tente gerar novamente."
-              : "A preparação não foi confirmada. Tente gerar novamente.");
-          }
-        } catch {
-          setError("Não foi possível confirmar o estado da geração. Atualize e tente novamente.");
-        }
       } else {
-        setError(cause instanceof Error ? cause.message : "Falha ao gerar");
+        const blocked = extractCreativeWorkBriefingBlocked(cause);
+        if (blocked) {
+          setInferredBriefingContext({ briefing: blocked.briefing, factPack: blocked.factPack });
+          setError(cause instanceof Error ? cause.message : "A direção do briefing precisa ser corrigida.");
+        } else if (isApiRequestUncertain(cause) && workIdRef.current) {
+          setActionPhase("reconciling");
+          try {
+            const reconciled = await detailQuery.refetch();
+            const detail = reconciled.data;
+            // Acceptance requires real evidence of generation: an in-flight
+            // status or persisted outputs. "ready" without outputs only proves
+            // the prepare step landed — the flow stays retryable, not accepted.
+            const accepted = Boolean(
+              detail
+              && (detail.work.status === "generating" || detail.outputs.length > 0),
+            );
+            if (accepted) {
+              setError(null);
+              setAnnouncement("Geração aceita; acompanhando o processamento");
+            } else {
+              setError(detail?.work.status === "ready" || phase === "submitting"
+                ? "A geração não foi confirmada. Tente gerar novamente."
+                : "A preparação não foi confirmada. Tente gerar novamente.");
+            }
+          } catch {
+            setError("Não foi possível confirmar o estado da geração. Atualize e tente novamente.");
+          }
+        } else {
+          setError(cause instanceof Error ? cause.message : "Falha ao gerar");
+        }
       }
     } finally {
       submitGuardRef.current = false;
       setActionPhase("idle");
     }
-  }, [briefingEditState, detailQuery, editBriefingMutation.isPending, flushAutosave, generateMutation, prepareMutation]);
+  }, [briefingEditState, detailQuery, editBriefingMutation.isPending, flushAutosave, generateMutation, inferredBriefing, prepareMutation]);
 
   const resolveBrandConflict = useCallback(async (choice: CreativeWorkBrandChoice) => {
     // Double-click guard: one choice in flight per conflict.
@@ -1303,6 +1316,7 @@ export function useCreativeComposer({
     && (intent !== "single" || fontOptions.length <= 1 || Boolean(fontAssetKey))
     && !isUploading && actionPhase === "idle" && !generateMutation.isPending
     && !editBriefingMutation.isPending && briefingEditState !== "saving"
+    && inferredBriefing?.readiness !== "blocked"
     // A brand choice being applied resumes the submit itself — a manual
     // click in that window would race it with a concurrent generate.
     && !resolveBrandConflictMutation.isPending;

@@ -699,6 +699,7 @@ export async function PATCH(
         // R-003: an explicit brand conflict is a 422 whose details carry the
         // two short choices (source/active) — billing stays blocked.
         if (prepared.error.code === "brand_conflict") return apiError("brand_conflict", 422, prepared.error.details);
+        if (prepared.error.code === "briefing_blocked") return apiError("briefing_blocked", 422, prepared.error.details);
         return apiError("creativeWorkNotReady", 409);
       }
       return NextResponse.json(prepared.value);

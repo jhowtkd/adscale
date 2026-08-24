@@ -22,6 +22,7 @@ import {
   buildTypographyPlan,
   TypographyPlanError,
 } from "@/server/creative-work/typography-plan";
+import { logCreativeWorkBriefingCheck } from "@/server/creative-work/job-telemetry";
 import {
   creativeWorkPreparationSchema,
   generationPolicyVersionFromSwitch,
@@ -224,11 +225,44 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       // question ever appears without a confident conflict).
       brandAuthority,
     });
-    const parsedBrief = socialPostBriefSchema.safeParse(applyCreativeWorkBriefingOverrides(inferSocialPostBrief(
+    const inferredBrief = applyCreativeWorkBriefingOverrides(inferSocialPostBrief(
       aggregate.work.request,
       contentAnalyses,
-    ), preparation.data.settings.briefingOverrides));
+    ), preparation.data.settings.briefingOverrides);
+    const parsedBrief = socialPostBriefSchema.safeParse(inferredBrief);
     if (!parsedBrief.success) {
+      // Keep the normal brief contract strict, but let Peça única surface a
+      // typed blocked briefing when the inference itself lacks direction.
+      if (preparation.data.intent === "single" && (!inferredBrief.theme.trim() || !inferredBrief.objective.trim())) {
+        const blockedBriefing = buildInferredBriefing({
+          request: aggregate.work.request,
+          brief: inferredBrief,
+          factPack,
+          toneOfVoice: brandAuthority.kind === "source" ? null : brandKit?.toneOfVoice ?? null,
+          briefingOverrides: preparation.data.settings.briefingOverrides,
+        });
+        logCreativeWorkBriefingCheck({
+          workspaceId: input.workspaceId,
+          workItemId: input.workItemId,
+          generationCorrelationId: aggregate.work.generationCorrelationId,
+          version: blockedBriefing.version,
+          readiness: blockedBriefing.readiness,
+          code: "missing_direction",
+        });
+        return {
+          ok: false as const,
+          error: {
+            code: "briefing_blocked" as const,
+            details: {
+              reason: "missing_direction" as const,
+              readiness: blockedBriefing.readiness,
+              confidence: blockedBriefing.confidence,
+              briefing: blockedBriefing,
+              factPack,
+            },
+          },
+        };
+      }
       return { ok: false as const, error: { code: "invalid_preparation" as const } };
     }
     const briefing = preparation.data.intent === "single"
@@ -240,6 +274,31 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
           briefingOverrides: preparation.data.settings.briefingOverrides,
         })
       : null;
+    if (briefing) {
+      logCreativeWorkBriefingCheck({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        generationCorrelationId: aggregate.work.generationCorrelationId,
+        version: briefing.version,
+        readiness: briefing.readiness,
+        code: briefing.readiness === "blocked" ? "missing_direction" : "ok",
+      });
+      if (briefing.readiness === "blocked") {
+        return {
+          ok: false as const,
+          error: {
+            code: "briefing_blocked" as const,
+            details: {
+              reason: "missing_direction" as const,
+              readiness: briefing.readiness,
+              confidence: briefing.confidence,
+              briefing,
+              factPack,
+            },
+          },
+        };
+      }
+    }
     // R-011: the env switch is a creation-time policy. Its current value is
     // frozen into the snapshot here; jobs later obey this frozen version and
     // never re-read the env, so rollback only affects newly prepared work.

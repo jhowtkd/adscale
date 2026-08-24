@@ -1,5 +1,6 @@
 import "server-only";
 import { logger } from "@/lib/logger";
+import type { BriefingReadiness } from "./contracts";
 
 function truncateTelemetryMessage(value: unknown, max = 500): string {
   const text = value instanceof Error ? value.message : String(value);
@@ -70,6 +71,35 @@ export type CreativeWorkGenerationLifecycleEvent =
   | "creative_work_generation_requested"
   | "creative_work_generation_accepted"
   | "creative_work_generation_dispatched";
+
+/**
+ * Safe pre-generation telemetry: keep the decision auditable without logging
+ * the operator's request, inferred values, or factual source contents.
+ */
+export function logCreativeWorkBriefingCheck(fields: {
+  workspaceId: string;
+  workItemId: string;
+  generationCorrelationId?: string;
+  version: number;
+  readiness: BriefingReadiness;
+  code: "ok" | "missing_direction";
+}): void {
+  try {
+    logger.info({ event: "creative_work_briefing_check", jobType: "creative_work", ...fields });
+  } catch (error) {
+    try {
+      logger.warn({
+        event: "creative_work_telemetry_emit_failed",
+        sourceEvent: "creative_work_briefing_check",
+        jobType: "creative_work",
+        ...fields,
+        errorMessage: truncateTelemetryMessage(error),
+      });
+    } catch {
+      // Observability never changes preparation or charging behavior.
+    }
+  }
+}
 
 export function logCreativeWorkGenerationLifecycle(fields: {
   event: CreativeWorkGenerationLifecycleEvent;
