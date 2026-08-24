@@ -506,7 +506,7 @@ export interface CreativeWorkIdentitySnapshot {
     operatorSelectedReferenceIds: string[];
     reasons: Record<string, string[]>;
   };
-  /** Archived/rejected creatives are textual constraints, never image references. */
+  /** Rejected creatives are textual constraints, never image references; archived rows stay inactive. */
   negativePatterns?: Array<{
     referenceId: string;
     label: string;

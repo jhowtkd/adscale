@@ -2577,6 +2577,21 @@
       "statusLegacyUnreviewed": "Legado ainda não revisado",
       "statusApproved": "Aprovado",
       "statusArchived": "Arquivado",
+      "statusRejected": "Reprovado",
+      "reject": "Marcar como reprovado",
+      "rejectionReason": "Motivo estruturado",
+      "rejectionNote": "Observação (opcional)",
+      "rejectionReasons": {
+        "brand_drift": "Deriva de marca",
+        "excessive_accent_color": "Amarelo ou acento em excesso",
+        "generic_stock_photo": "Foto genérica de banco de imagem",
+        "decorative_3d": "3D decorativo",
+        "text_density": "Densidade de texto",
+        "weak_hierarchy": "Hierarquia fraca",
+        "literal_reference_copy": "Cópia literal da referência",
+        "prohibited_element": "Elemento proibido",
+        "other": "Outro motivo"
+      },
       "confirmLegacy": "Confirmar material",
       "categories": {
         "logo": "Logo",

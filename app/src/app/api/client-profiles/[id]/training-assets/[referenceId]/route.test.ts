@@ -346,6 +346,85 @@ describe("PATCH /api/client-profiles/[id]/training-assets/[referenceId]", () => 
     );
   });
 
+  it("requires a structured reason when rejecting a reference", async () => {
+    const res = await PATCH(
+      patchRequest({
+        trainingCategory: "graphic",
+        usageMode: "reference",
+        analysis: validAnalysis,
+        reviewStatus: "rejected",
+      }),
+      { params: Promise.resolve({ id: PROFILE_ID, referenceId: REFERENCE_ID }) },
+    );
+
+    expect(res.status).toBe(400);
+    expect(reviewTrainingReference).not.toHaveBeenCalled();
+  });
+
+  it("rejects a reference with a structured reason and no positive side effects", async () => {
+    reviewTrainingReference.mockResolvedValue({
+      id: REFERENCE_ID,
+      reviewStatus: "rejected",
+      rejectionReason: { code: "brand_drift", note: "Fora da identidade" },
+      trainingAnalysis: validAnalysis,
+    });
+
+    const res = await PATCH(
+      patchRequest({
+        trainingCategory: "visual_reference",
+        usageMode: "reference",
+        analysis: validAnalysis,
+        reviewStatus: "rejected",
+        rejectionReason: { code: "brand_drift", note: "Fora da identidade" },
+      }),
+      { params: Promise.resolve({ id: PROFILE_ID, referenceId: REFERENCE_ID }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(reviewTrainingReference).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        reviewStatus: "rejected",
+        rejectionReason: { code: "brand_drift", note: "Fora da identidade" },
+      }),
+    );
+    expect(mocks.createBrandKnowledgeCandidates).not.toHaveBeenCalled();
+  });
+
+  it("allows an archived reference to be explicitly reclassified as rejected", async () => {
+    getTrainingReferences.mockResolvedValue([
+      {
+        id: REFERENCE_ID,
+        workspaceId: WORKSPACE_ID,
+        clientProfileId: PROFILE_ID,
+        assetKey: ASSET_KEY,
+        reviewStatus: "archived",
+        trainingAnalysis: validAnalysis,
+      },
+    ]);
+
+    const res = await PATCH(
+      patchRequest({
+        trainingCategory: "visual_reference",
+        usageMode: "reference",
+        analysis: null,
+        reviewStatus: "rejected",
+        rejectionReason: { code: "weak_hierarchy" },
+      }),
+      { params: Promise.resolve({ id: PROFILE_ID, referenceId: REFERENCE_ID }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(reviewTrainingReference).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        reviewStatus: "rejected",
+        analysis: validAnalysis,
+        rejectionReason: { code: "weak_hierarchy" },
+      }),
+    );
+  });
+
   it("archives with analysis: null (legacy upload without AI analysis)", async () => {
     reviewTrainingReference.mockResolvedValue({
       id: REFERENCE_ID,

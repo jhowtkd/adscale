@@ -8,6 +8,7 @@ import type {
   BrandTrainingCategory,
   BrandTrainingUsageMode,
   BrandTrainingReviewStatus,
+  BrandTrainingRejection,
 } from "../brand-training/contracts";
 import type {
   BrandFontAssetRecord,
@@ -286,7 +287,8 @@ export interface ReviewTrainingReferenceInput {
   trainingCategory: BrandTrainingCategory;
   usageMode: BrandTrainingUsageMode;
   analysis: BrandTrainingAnalysis | null;
-  reviewStatus: Extract<BrandTrainingReviewStatus, "approved" | "archived">;
+  reviewStatus: Extract<BrandTrainingReviewStatus, "approved" | "archived" | "rejected">;
+  rejectionReason?: BrandTrainingRejection | null;
   reviewedByUserId: string;
 }
 
@@ -357,6 +359,7 @@ export async function getTrainingReferences(
           "pending_approval",
           "approved",
           "archived",
+          "rejected",
         ]),
       ),
     )
@@ -392,6 +395,23 @@ export async function getArchivedTrainingReferences(
         eq(clientReferences.workspaceId, workspaceId),
         eq(clientReferences.clientProfileId, clientProfileId),
         eq(clientReferences.reviewStatus, "archived"),
+      ),
+    )
+    .orderBy(desc(clientReferences.createdAt));
+}
+
+export async function getRejectedTrainingReferences(
+  workspaceId: string,
+  clientProfileId: string,
+) {
+  return db
+    .select()
+    .from(clientReferences)
+    .where(
+      and(
+        eq(clientReferences.workspaceId, workspaceId),
+        eq(clientReferences.clientProfileId, clientProfileId),
+        eq(clientReferences.reviewStatus, "rejected"),
       ),
     )
     .orderBy(desc(clientReferences.createdAt));
@@ -472,6 +492,7 @@ export async function reviewTrainingReference(
       usageMode: review.usageMode,
       ...(preserveAnalysis ? {} : { trainingAnalysis: review.analysis }),
       reviewStatus: review.reviewStatus,
+      rejectionReason: review.rejectionReason ?? null,
       reviewedAt: new Date(),
       reviewedByUserId: review.reviewedByUserId,
     })
@@ -484,6 +505,7 @@ export async function reviewTrainingReference(
           "pending_approval",
           "approved",
           "archived",
+          "rejected",
         ]),
       ),
     )

@@ -166,7 +166,7 @@ describe("buildSocialPostPrompt", () => {
     expect(prompt).toContain("Use sparingly");
   });
 
-  it("turns archived creatives into explicit text-only negative patterns", () => {
+  it("turns rejected creatives into explicit text-only negative patterns", () => {
     const prompt = buildSocialPostPrompt({
       ...promptInput,
       identitySnapshot: snapshot({

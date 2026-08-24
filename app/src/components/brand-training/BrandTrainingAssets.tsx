@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Archive, Check, Loader2, Upload } from "lucide-react";
+import { Archive, Check, CircleX, Loader2, Upload } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ type Category = (typeof CATEGORIES)[number];
 
 const USAGE_MODES = ["exact", "reference", "rule"] as const;
 type UsageMode = (typeof USAGE_MODES)[number];
+type RejectionReason = NonNullable<BrandTrainingAssetRecord["rejectionReason"]>;
 
 interface AssetDraft {
   trainingCategory: Category;
@@ -73,6 +74,10 @@ export function BrandTrainingAssets({
   );
   const archived = useMemo(
     () => assets.filter((a) => a.reviewStatus === "archived"),
+    [assets],
+  );
+  const rejected = useMemo(
+    () => assets.filter((a) => a.reviewStatus === "rejected"),
     [assets],
   );
 
@@ -163,6 +168,23 @@ export function BrandTrainingAssets({
                 },
               )
             }
+            onReject={(rejectionReason) =>
+              review.mutate(
+                {
+                  referenceId: asset.id,
+                  trainingCategory:
+                    (asset.trainingCategory as Category | null) ?? "visual_reference",
+                  usageMode: (asset.usageMode as UsageMode | null) ?? "reference",
+                  analysis: asset.trainingAnalysis ?? null,
+                  reviewStatus: "rejected",
+                  rejectionReason,
+                },
+                {
+                  onSuccess: () => addToast("success", tc("saved")),
+                  onError: (err) => addToast("error", err.message),
+                },
+              )
+            }
             submitting={review.isPending}
           />
         )}
@@ -207,6 +229,23 @@ export function BrandTrainingAssets({
                 },
               )
             }
+            onReject={(rejectionReason) =>
+              review.mutate(
+                {
+                  referenceId: asset.id,
+                  trainingCategory:
+                    (asset.trainingCategory as Category | null) ?? "visual_reference",
+                  usageMode: (asset.usageMode as UsageMode | null) ?? "reference",
+                  analysis: asset.trainingAnalysis ?? null,
+                  reviewStatus: "rejected",
+                  rejectionReason,
+                },
+                {
+                  onSuccess: () => addToast("success", tc("saved")),
+                  onError: (err) => addToast("error", err.message),
+                },
+              )
+            }
             submitting={review.isPending}
           />
         )}
@@ -235,6 +274,23 @@ export function BrandTrainingAssets({
                 },
               )
             }
+            onReject={(rejectionReason) =>
+              review.mutate(
+                {
+                  referenceId: asset.id,
+                  trainingCategory:
+                    (asset.trainingCategory as Category | null) ?? "visual_reference",
+                  usageMode: (asset.usageMode as UsageMode | null) ?? "reference",
+                  analysis: asset.trainingAnalysis ?? null,
+                  reviewStatus: "rejected",
+                  rejectionReason,
+                },
+                {
+                  onSuccess: () => addToast("success", tc("saved")),
+                  onError: (err) => addToast("error", err.message),
+                },
+              )
+            }
             submitting={review.isPending}
           />
         )}
@@ -243,7 +299,36 @@ export function BrandTrainingAssets({
       <Group
         title={t("assets.statusArchived")}
         items={archived}
-        renderItem={(asset) => <ArchivedCard key={asset.id} asset={asset} />}
+        renderItem={(asset) => (
+          <ArchivedCard
+            key={asset.id}
+            asset={asset}
+            onReject={(rejectionReason) =>
+              review.mutate(
+                {
+                  referenceId: asset.id,
+                  trainingCategory:
+                    (asset.trainingCategory as Category | null) ?? "visual_reference",
+                  usageMode: (asset.usageMode as UsageMode | null) ?? "reference",
+                  analysis: asset.trainingAnalysis ?? null,
+                  reviewStatus: "rejected",
+                  rejectionReason,
+                },
+                {
+                  onSuccess: () => addToast("success", tc("saved")),
+                  onError: (err) => addToast("error", err.message),
+                },
+              )
+            }
+            submitting={review.isPending}
+          />
+        )}
+      />
+
+      <Group
+        title={t("assets.statusRejected")}
+        items={rejected}
+        renderItem={(asset) => <RejectedCard key={asset.id} asset={asset} />}
       />
     </section>
   );
@@ -412,6 +497,7 @@ function PendingApprovalCard({
   asset,
   onApprove,
   onArchive,
+  onReject,
   submitting,
 }: {
   asset: BrandTrainingAssetRecord;
@@ -419,6 +505,7 @@ function PendingApprovalCard({
     analysis: AssetDraft["analysis"];
   }) => void;
   onArchive: () => void;
+  onReject: (reason: RejectionReason) => void;
   submitting: boolean;
 }) {
   const t = useTranslations("brandTraining");
@@ -543,6 +630,7 @@ function PendingApprovalCard({
           {t("assets.approve")}
         </Button>
       </div>
+      <RejectControl submitting={submitting} onReject={onReject} />
     </li>
   );
 }
@@ -551,11 +639,13 @@ function ApprovedCard({
   asset,
   onConfirm,
   onArchive,
+  onReject,
   submitting,
 }: {
   asset: BrandTrainingAssetRecord;
   onConfirm?: () => void;
   onArchive: () => void;
+  onReject: (reason: RejectionReason) => void;
   submitting: boolean;
 }) {
   const t = useTranslations("brandTraining");
@@ -600,11 +690,20 @@ function ApprovedCard({
           </Button>
         ) : null}
       </div>
+      <RejectControl submitting={submitting} onReject={onReject} />
     </li>
   );
 }
 
-function ArchivedCard({ asset }: { asset: BrandTrainingAssetRecord }) {
+function ArchivedCard({
+  asset,
+  onReject,
+  submitting,
+}: {
+  asset: BrandTrainingAssetRecord;
+  onReject: (reason: RejectionReason) => void;
+  submitting: boolean;
+}) {
   const t = useTranslations("brandTraining");
   return (
     <li
@@ -620,6 +719,94 @@ function ArchivedCard({ asset }: { asset: BrandTrainingAssetRecord }) {
           {t("assets.statusArchived")}
         </p>
       </div>
+      <RejectControl submitting={submitting} onReject={onReject} />
     </li>
+  );
+}
+
+function RejectedCard({ asset }: { asset: BrandTrainingAssetRecord }) {
+  const t = useTranslations("brandTraining");
+  const reason = asset.rejectionReason;
+  return (
+    <li
+      role="status"
+      className="space-y-2 rounded-lg border border-[var(--danger-border)] bg-[var(--surface-base)] p-3 opacity-80"
+    >
+      <AssetThumb url={asset.url} label={asset.label} />
+      <div>
+        <p className="text-sm font-medium text-[var(--text-primary)]">{asset.label}</p>
+        <p className="mt-0.5 text-[var(--text-caption)] text-[var(--danger-text)]">
+          {t("assets.statusRejected")}
+          {reason ? ` · ${t(`assets.rejectionReasons.${reason.code}`)}` : ""}
+        </p>
+        {reason?.note ? (
+          <p className="mt-1 text-[var(--text-caption)] text-[var(--text-muted)]">{reason.note}</p>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
+function RejectControl({
+  submitting,
+  onReject,
+}: {
+  submitting: boolean;
+  onReject: (reason: RejectionReason) => void;
+}) {
+  const t = useTranslations("brandTraining");
+  const [code, setCode] = useState<RejectionReason["code"]>("brand_drift");
+  const [note, setNote] = useState("");
+  const reasonCodes: RejectionReason["code"][] = [
+    "brand_drift",
+    "excessive_accent_color",
+    "generic_stock_photo",
+    "decorative_3d",
+    "text_density",
+    "weak_hierarchy",
+    "literal_reference_copy",
+    "prohibited_element",
+    "other",
+  ];
+
+  return (
+    <div className="space-y-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] p-2">
+      <label className="block space-y-1 text-[var(--text-caption)] text-[var(--text-muted)]">
+        <span>{t("assets.rejectionReason")}</span>
+        <select
+          aria-label={t("assets.rejectionReason")}
+          value={code}
+          onChange={(event) => setCode(event.target.value as RejectionReason["code"])}
+          className="block w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-[3px] focus:ring-[var(--focus-ring)]"
+        >
+          {reasonCodes.map((value) => (
+            <option key={value} value={value}>
+              {t(`assets.rejectionReasons.${value}`)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block space-y-1 text-[var(--text-caption)] text-[var(--text-muted)]">
+        <span>{t("assets.rejectionNote")}</span>
+        <input
+          aria-label={t("assets.rejectionNote")}
+          value={note}
+          maxLength={240}
+          onChange={(event) => setNote(event.target.value)}
+          className="block w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-[3px] focus:ring-[var(--focus-ring)]"
+        />
+      </label>
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={submitting}
+          onClick={() => onReject({ code, ...(note.trim() ? { note: note.trim() } : {}) })}
+        >
+          <CircleX size={14} className="mr-1" />
+          {t("assets.reject")}
+        </Button>
+      </div>
+    </div>
   );
 }

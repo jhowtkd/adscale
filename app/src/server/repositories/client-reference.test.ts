@@ -52,6 +52,7 @@ import {
   createTrainingReference,
   getTrainingReferences,
   getApprovedTrainingReferences,
+  getRejectedTrainingReferences,
   recordTrainingAnalysis,
   reviewTrainingReference,
 } from "./client-reference";
@@ -300,6 +301,20 @@ describe("client-reference repository", () => {
     });
   });
 
+  describe("getRejectedTrainingReferences", () => {
+    it("scopes by workspace, profile, and rejected status", async () => {
+      const rows = [{ id: "ref-1", reviewStatus: "rejected" }];
+      orderByMock.mockResolvedValue(rows);
+
+      const result = await getRejectedTrainingReferences("ws-1", "profile-1");
+
+      expect(selectMock).toHaveBeenCalledTimes(1);
+      expect(whereMock).toHaveBeenCalledTimes(1);
+      expect(orderByMock).toHaveBeenCalledTimes(1);
+      expect(result).toBe(rows);
+    });
+  });
+
   describe("recordTrainingAnalysis", () => {
     it("moves the pending_analysis row to pending_approval inside the triple-id scope", async () => {
       returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "pending_approval" }]);
@@ -409,6 +424,32 @@ describe("client-reference repository", () => {
       const setArg = setMock.mock.calls[0]?.[0] as Record<string, unknown>;
       expect(setArg).not.toHaveProperty("trainingAnalysis");
       expect(whereMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("records a structured rejection without wiping analysis", async () => {
+      returningMock.mockResolvedValue([{ id: "ref-1", reviewStatus: "rejected" }]);
+
+      const result = await reviewTrainingReference(
+        { workspaceId: "ws-1", clientProfileId: "profile-1", referenceId: "ref-1" },
+        {
+          trainingCategory: "visual_reference",
+          usageMode: "reference",
+          analysis: null,
+          reviewStatus: "rejected",
+          rejectionReason: { code: "brand_drift", note: "Fora da identidade" },
+          reviewedByUserId: "user-1",
+        },
+      );
+
+      expect(result?.reviewStatus).toBe("rejected");
+      expect(setMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reviewStatus: "rejected",
+          rejectionReason: { code: "brand_drift", note: "Fora da identidade" },
+        }),
+      );
+      const setArg = setMock.mock.calls[0]?.[0] as Record<string, unknown>;
+      expect(setArg).not.toHaveProperty("trainingAnalysis");
     });
   });
 });

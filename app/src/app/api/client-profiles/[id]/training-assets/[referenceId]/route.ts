@@ -17,7 +17,7 @@ import { createBrandKnowledgeCandidates } from "@/server/repositories/brand-know
 /**
  * PATCH /api/client-profiles/:id/training-assets/:referenceId
  *
- * Authenticated review for a brand training asset (approve or archive).
+ * Authenticated review for a brand training asset (approve, archive, or reject).
  */
 export async function PATCH(
   request: Request,
@@ -51,7 +51,8 @@ export async function PATCH(
     if (
       body.reviewStatus === "approved" &&
       reference.reviewStatus !== "pending_approval" &&
-      reference.reviewStatus !== "approved"
+      reference.reviewStatus !== "approved" &&
+      reference.reviewStatus !== "rejected"
     ) {
       return apiError("clientProfileNotFound", 404);
     }
@@ -61,6 +62,18 @@ export async function PATCH(
       body.analysis == null
     ) {
       return apiError("invalidInput", 400);
+    }
+    if (body.reviewStatus === "rejected" && !body.rejectionReason) {
+      return apiError("invalidInput", 400);
+    }
+    if (
+      body.reviewStatus === "rejected" &&
+      reference.reviewStatus !== "pending_approval" &&
+      reference.reviewStatus !== "approved" &&
+      reference.reviewStatus !== "archived" &&
+      reference.reviewStatus !== "rejected"
+    ) {
+      return apiError("clientProfileNotFound", 404);
     }
 
     // Exact mode needs alpha only when approving — archive must not be blocked
@@ -81,6 +94,7 @@ export async function PATCH(
         usageMode: body.usageMode,
         analysis: body.analysis ?? reference.trainingAnalysis ?? null,
         reviewStatus: body.reviewStatus,
+        rejectionReason: body.rejectionReason ?? null,
         reviewedByUserId: user.id,
       },
     );

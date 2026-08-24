@@ -57,6 +57,27 @@ describe("brand training contracts", () => {
     expect(parsed.reviewStatus).toBe("archived");
   });
 
+  it("requires a structured reason for rejected evidence", () => {
+    const parsed = reviewTrainingAssetSchema.parse({
+      trainingCategory: "visual_reference",
+      usageMode: "reference",
+      analysis: null,
+      reviewStatus: "rejected",
+      rejectionReason: { code: "brand_drift", note: "Fora da identidade" },
+    });
+
+    expect(parsed.reviewStatus).toBe("rejected");
+    expect(parsed.rejectionReason?.code).toBe("brand_drift");
+    expect(() =>
+      reviewTrainingAssetSchema.parse({
+        trainingCategory: "visual_reference",
+        usageMode: "reference",
+        analysis: null,
+        reviewStatus: "rejected",
+      }),
+    ).toThrow();
+  });
+
   it("keeps measurement and structure as separate optional blocks", () => {
     const parsed = reviewTrainingAssetSchema.parse({
       trainingCategory: "visual_reference",
