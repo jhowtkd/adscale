@@ -306,6 +306,9 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
         factPack,
         brandName: brandAuthority.kind === "source" ? brandAuthority.brandName : brandKit?.name ?? "Marca",
         toneOfVoice: brandAuthority.kind === "source" ? null : brandKit?.toneOfVoice ?? null,
+        toneNotes: brandAuthority.kind === "source" ? null : brandKit?.toneNotes ?? null,
+        description: brandAuthority.kind === "source" ? null : brandKit?.description ?? null,
+        constraints: brandAuthority.kind === "source" ? null : brandKit?.constraints ?? null,
         requiredElements: brandAuthority.kind === "source" ? null : brandKit?.requiredElements ?? null,
         prohibitedElements: brandAuthority.kind === "source" ? null : brandKit?.prohibitedElements ?? null,
       });

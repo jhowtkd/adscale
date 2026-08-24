@@ -80,6 +80,28 @@ describe("prepareCreativeWork", () => {
     if (result.ok) expect(result.value.quote).toMatchObject({ unitCount: 3, credits: 15 });
   });
 
+  it("routes copy-safe brand context while keeping the visual fields explicit", async () => {
+    getKit.mockResolvedValue({
+      name: "Cenbrap",
+      description: "Educação clínica para profissionais",
+      toneNotes: "Técnico e acolhedor",
+      constraints: "Não usar elementos 3D decorativos",
+      toneOfVoice: "Direto",
+      requiredElements: "Apoio à decisão: não substitui avaliação médica",
+      prohibitedElements: "Sem promessas de cura",
+    } as never);
+    getWork.mockResolvedValue({ work, outputs: [], sources: [] } as never);
+
+    const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(result.ok).toBe(true);
+    expect(generateCopy).toHaveBeenCalledWith(expect.objectContaining({
+      description: "Educação clínica para profissionais",
+      toneNotes: "Técnico e acolhedor",
+      constraints: "Não usar elementos 3D decorativos",
+    }));
+  });
+
   it("persists an exploratory briefing with an unknown offer instead of using the theme as fallback", async () => {
     const sparseWork = { ...work, toolKind: "single", request: "Algo moderno para Instagram" };
     getWork.mockResolvedValue({ work: sparseWork, outputs: [], sources: [] } as never);
