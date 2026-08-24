@@ -13,6 +13,7 @@ import {
   useCreativeWork,
   useCreativeWorkSourceActions,
   usePrepareCreativeWork,
+  useEditCreativeWorkBriefing,
   useRetryOutput,
   useLayerizeOutput,
   useReviseOutput,
@@ -38,6 +39,8 @@ import {
   type CreativeDirection,
   type CreativeDirectionPool,
   type CreativeWorkFactPack,
+  type CreativeWorkBriefingField,
+  type CreativeWorkBriefingOverrides,
   type InferredBriefing,
 } from "@/server/creative-work/contracts";
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
@@ -57,6 +60,8 @@ type DraftSnapshot = {
     textLayout?: "top" | "center" | "bottom" | "side";
     fontAssetKey?: string;
     directionPool?: CreativeDirectionPool;
+    briefingOverrides?: CreativeWorkBriefingOverrides;
+    briefingVersion?: number;
   };
 };
 type DraftSource = ({ assetId: string } | { templateId: string }) & { usage?: CreativeSourceUsage };
@@ -140,6 +145,8 @@ function snapshotFromWork(work: Pick<CreativeWorkItem, "request" | "toolKind" | 
           selectedIds: [...work.settings.directionPool.selectedIds],
         },
       } : {}),
+      ...(work.settings.briefingOverrides ? { briefingOverrides: { ...work.settings.briefingOverrides } } : {}),
+      ...(work.settings.briefingVersion !== undefined ? { briefingVersion: work.settings.briefingVersion } : {}),
     },
   };
 }
@@ -197,6 +204,7 @@ export function useCreativeComposer({
   } | null>(null);
   const inferredBriefing = inferredBriefingContext?.briefing ?? null;
   const briefingFactPack = inferredBriefingContext?.factPack ?? null;
+  const [briefingEditState, setBriefingEditState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [directionSuggestionState, setDirectionSuggestionState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   // #129: the pending set carries how it was fetched — the initial/late
   // response replaces the current pool (preserveSelection=false); an explicit
@@ -236,6 +244,8 @@ export function useCreativeComposer({
   const fontAssetKeyRef = useRef<string | null>(null);
   const directionPoolRef = useRef<CreativeDirectionPool | null>(directionPool);
   const formatModeRef = useRef<"auto" | "manual">("auto");
+  const briefingOverridesRef = useRef<CreativeWorkBriefingOverrides | undefined>(undefined);
+  const briefingVersionRef = useRef<number | undefined>(undefined);
   const hydratedWorkRef = useRef<string | null>(null);
   const lastPersistedRef = useRef<string | null>(null);
   const createInFlightRef = useRef<Promise<string | null> | null>(null);
@@ -272,6 +282,7 @@ export function useCreativeComposer({
   const createMutation = useCreateCreativeWorkDraft();
   const autosaveMutation = useAutosaveCreativeWork();
   const prepareMutation = usePrepareCreativeWork();
+  const editBriefingMutation = useEditCreativeWorkBriefing();
   const sourceMutation = useCreativeWorkSourceActions();
   const generateMutation = useTriggerTriplet();
   const suggestDirectionMutation = useSuggestCreativeDirections();
@@ -318,6 +329,8 @@ export function useCreativeComposer({
     // direction; the visible default pool is only materialized on interaction.
     directionPoolRef.current = hydrated.settings.directionPool ?? null;
     formatModeRef.current = hydrated.settings.formatMode;
+    briefingOverridesRef.current = hydrated.settings.briefingOverrides;
+    briefingVersionRef.current = hydrated.settings.briefingVersion;
     lastPersistedRef.current = signature(hydrated);
     /* TanStack Query is the external persisted source for hydration. */
     setRequestState(work.request);
@@ -326,6 +339,7 @@ export function useCreativeComposer({
         ? { briefing: detailQuery.data.inferredBriefing, factPack: detailQuery.data.briefingFactPack }
         : null,
     );
+    setBriefingEditState("idle");
     setIntent(intentRef.current);
     setFormat(work.format);
     setFormatMode(hydrated.settings.formatMode);
@@ -366,6 +380,8 @@ export function useCreativeComposer({
           selectedIds: [...directionPoolRef.current.selectedIds],
         },
       } : {}),
+      ...(briefingOverridesRef.current ? { briefingOverrides: { ...briefingOverridesRef.current } } : {}),
+      ...(briefingVersionRef.current !== undefined ? { briefingVersion: briefingVersionRef.current } : {}),
     },
   }), []);
 
@@ -620,7 +636,32 @@ export function useCreativeComposer({
     requestRef.current = value;
     setRequestState(value);
     setInferredBriefingContext(null);
+    setBriefingEditState("idle");
   }, []);
+
+  const editBriefingField = useCallback(async (field: CreativeWorkBriefingField, value: string) => {
+    const id = workIdRef.current;
+    const current = detailQuery.data?.work;
+    if (!id || !current || current.status !== "draft" || intentRef.current !== "single" || !inferredBriefing) return;
+    setBriefingEditState("saving");
+    setError(null);
+    try {
+      const edited = await editBriefingMutation.mutateAsync({
+        workItemId: id,
+        field,
+        value: value.trim() || null,
+        expectedUpdatedAt: new Date(current.updatedAt).toISOString(),
+      });
+      briefingOverridesRef.current = edited.briefingOverrides;
+      briefingVersionRef.current = edited.briefingVersion;
+      setInferredBriefingContext({ briefing: edited.briefing, factPack: edited.briefingFactPack });
+      setBriefingEditState("saved");
+      setAnnouncement("Briefing salvo");
+    } catch (cause) {
+      setBriefingEditState("error");
+      setError(cause instanceof Error ? cause.message : "Falha ao salvar o briefing");
+    }
+  }, [detailQuery.data?.work, editBriefingMutation, inferredBriefing]);
 
   const switchToProtocol = useCallback(async (next: ComposerIntent) => {
     const previous = intentRef.current;
@@ -655,6 +696,9 @@ export function useCreativeComposer({
     setError(null);
     setBrandConflict(null);
     setInferredBriefingContext(null);
+    setBriefingEditState("idle");
+    briefingOverridesRef.current = undefined;
+    briefingVersionRef.current = undefined;
     directionSuggestionRequestedRef.current = null;
     directionTouchedRef.current = false;
     setPendingDirectionSuggestions(null);
@@ -1029,7 +1073,7 @@ export function useCreativeComposer({
   }, [runSourceAction]);
 
   const generate = useCallback(async () => {
-    if (submitGuardRef.current || generateMutation.isPending) return;
+    if (submitGuardRef.current || generateMutation.isPending || editBriefingMutation.isPending || briefingEditState === "saving") return;
     const current = detailQuery.data?.work;
     // A work left "ready" without outputs by an uncertain submit (prepare
     // confirmed, generation unconfirmed) resumes straight at the generation
@@ -1112,7 +1156,7 @@ export function useCreativeComposer({
       submitGuardRef.current = false;
       setActionPhase("idle");
     }
-  }, [detailQuery, flushAutosave, generateMutation, prepareMutation]);
+  }, [briefingEditState, detailQuery, editBriefingMutation.isPending, flushAutosave, generateMutation, prepareMutation]);
 
   const resolveBrandConflict = useCallback(async (choice: CreativeWorkBrandChoice) => {
     // Double-click guard: one choice in flight per conflict.
@@ -1258,6 +1302,7 @@ export function useCreativeComposer({
     && (intent !== "format_adaptation" || targetFormats.length > 0)
     && (intent !== "single" || fontOptions.length <= 1 || Boolean(fontAssetKey))
     && !isUploading && actionPhase === "idle" && !generateMutation.isPending
+    && !editBriefingMutation.isPending && briefingEditState !== "saving"
     // A brand choice being applied resumes the submit itself — a manual
     // click in that window would race it with a concurrent generate.
     && !resolveBrandConflictMutation.isPending;
@@ -1326,6 +1371,8 @@ export function useCreativeComposer({
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
     settingsLocked: Boolean(detail?.work && detail.work.status !== "draft"),
     inferredBriefing, briefingFactPack, brandIdentity,
+    briefingOverrides: detail?.work.settings.briefingOverrides ?? briefingOverridesRef.current ?? {},
+    editBriefingField, briefingEditState,
     campaignId: detail?.work.campaignId ?? null, campaigns,
     error, announcement, approvalErrorOutputId, brandTrainingSuggestion: brandTrainingSuggestion ?? persistedBrandTrainingSuggestion,
     brandConflict, resolveBrandConflict,

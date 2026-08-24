@@ -562,6 +562,8 @@
         "briefingConfidenceHigh": "Alta",
         "briefingConfidenceMedium": "Média",
         "briefingConfidenceLow": "Baixa",
+        "briefingEditSaved": "Briefing salvo",
+        "briefingEditError": "Não foi possível salvar o briefing. Recarregue e tente novamente.",
         "uploading": "Enviando...",
         "dropHint": "ou arraste e solte aqui",
         "retryTemplate": "Tentar anexar template novamente",

@@ -112,7 +112,25 @@ export type CreativeWorkSettings = {
    * directions feature; those keep the historical three-level behavior.
    */
   directionPool?: CreativeDirectionPool;
+  /** Explicit operator edits to the inferred single-piece briefing. */
+  briefingOverrides?: CreativeWorkBriefingOverrides;
+  /** Monotonic version for inline briefing edits. */
+  briefingVersion?: number;
 };
+
+export const CREATIVE_WORK_BRIEFING_FIELDS = [
+  "message", "objective", "audience", "offer", "tone", "constraints",
+] as const;
+export type CreativeWorkBriefingField = (typeof CREATIVE_WORK_BRIEFING_FIELDS)[number];
+export const creativeWorkBriefingOverridesSchema = z.object({
+  message: z.string().trim().max(240).nullable().optional(),
+  objective: z.string().trim().max(240).nullable().optional(),
+  audience: z.string().trim().max(240).nullable().optional(),
+  offer: z.string().trim().max(240).nullable().optional(),
+  tone: z.string().trim().max(240).nullable().optional(),
+  constraints: z.string().trim().max(240).nullable().optional(),
+}).strict();
+export type CreativeWorkBriefingOverrides = z.infer<typeof creativeWorkBriefingOverridesSchema>;
 export const CREATIVE_WORK_GENERATION_POLICY_VERSIONS = ["legacy", "quality_recovery_v1"] as const;
 export type CreativeWorkGenerationPolicyVersion = (typeof CREATIVE_WORK_GENERATION_POLICY_VERSIONS)[number];
 
@@ -238,6 +256,8 @@ export type CreativeWorkInputSnapshot = {
   factPack?: CreativeWorkFactPack;
   /** Versioned presentation contract; absent on legacy snapshots. */
   inferredBriefing?: InferredBriefing;
+  /** Explicit operator edits that produced the frozen briefing. */
+  briefingOverrides?: CreativeWorkBriefingOverrides;
   /** Frozen rendering decision; absent on legacy and non-single snapshots. */
   typographyPlan?: TypographyPlan;
   request: string;
@@ -373,6 +393,8 @@ export const creativeWorkSettingsSchema = z.object({
   brandConflictChoice: z.enum(CREATIVE_WORK_BRAND_CHOICES).optional(),
   brandConflictDetectedBrand: z.string().trim().min(1).optional(),
   directionPool: creativeDirectionPoolSchema.optional(),
+  briefingOverrides: creativeWorkBriefingOverridesSchema.optional(),
+  briefingVersion: z.number().int().nonnegative().optional(),
 });
 export const creativeWorkPreparationSchema = z.object({
   intent: creativeWorkIntentSchema,

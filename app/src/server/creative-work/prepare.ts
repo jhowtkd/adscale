@@ -6,6 +6,7 @@ import type {
   CreativeWorkFormat,
   InferredBriefing,
   SocialPostBrief,
+  CreativeWorkBriefingOverrides,
 } from "./contracts";
 
 export function inferCreativeWorkFormat(
@@ -70,6 +71,20 @@ export function inferSocialPostBrief(request: string, analyses: readonly Content
   };
 }
 
+export function applyCreativeWorkBriefingOverrides(
+  brief: SocialPostBrief,
+  overrides?: CreativeWorkBriefingOverrides,
+): SocialPostBrief {
+  if (!overrides) return brief;
+  return {
+    ...brief,
+    ...(Object.prototype.hasOwnProperty.call(overrides, "message") ? { theme: overrides.message ?? "" } : {}),
+    ...(Object.prototype.hasOwnProperty.call(overrides, "objective") ? { objective: overrides.objective ?? "" } : {}),
+    ...(Object.prototype.hasOwnProperty.call(overrides, "audience") ? { audience: overrides.audience ?? "" } : {}),
+    ...(Object.prototype.hasOwnProperty.call(overrides, "offer") ? { offer: overrides.offer ?? null } : {}),
+  };
+}
+
 const FACTUAL_CLASSES = new Set([
   "price", "date", "offer", "benefit", "proof", "condition", "credential", "modality", "guarantee", "product", "service",
 ]);
@@ -111,17 +126,27 @@ export function buildInferredBriefing(input: {
   brief: SocialPostBrief;
   factPack: CreativeWorkFactPack;
   toneOfVoice?: string | null;
+  briefingOverrides?: CreativeWorkBriefingOverrides;
 }): InferredBriefing {
-  const message = input.brief.theme.trim();
-  const objective = input.brief.objective.trim();
-  const audience = input.brief.audience.trim();
+  const brief = applyCreativeWorkBriefingOverrides(input.brief, input.briefingOverrides);
+  const message = brief.theme.trim();
+  const objective = brief.objective.trim();
+  const audience = brief.audience.trim();
   // A request discount is an explicit offer even though the fact pack keeps
   // its factual class as `price`; source offers remain the richer value.
   const offerFact = input.factPack.facts.find((fact) => fact.class === "offer")
     ?? input.factPack.facts.find((fact) => fact.class === "price" && fact.origin === "request");
-  const offer = offerFact?.value ?? "";
-  const tone = findExplicitTone(input.request) ?? input.toneOfVoice?.trim() ?? "";
-  const constraints = sourcedConstraints(input.factPack);
+  const hasOfferOverride = Object.prototype.hasOwnProperty.call(input.briefingOverrides ?? {}, "offer");
+  const hasMessageOverride = Object.prototype.hasOwnProperty.call(input.briefingOverrides ?? {}, "message");
+  const hasObjectiveOverride = Object.prototype.hasOwnProperty.call(input.briefingOverrides ?? {}, "objective");
+  const hasAudienceOverride = Object.prototype.hasOwnProperty.call(input.briefingOverrides ?? {}, "audience");
+  const offer = hasOfferOverride ? brief.offer?.trim() ?? "" : offerFact?.value ?? "";
+  const tone = Object.prototype.hasOwnProperty.call(input.briefingOverrides ?? {}, "tone")
+    ? input.briefingOverrides?.tone?.trim() ?? ""
+    : findExplicitTone(input.request) ?? input.toneOfVoice?.trim() ?? "";
+  const constraints = Object.prototype.hasOwnProperty.call(input.briefingOverrides ?? {}, "constraints")
+    ? input.briefingOverrides?.constraints?.trim() ?? ""
+    : sourcedConstraints(input.factPack);
   const hasFactualContext = input.factPack.facts.some((fact) => FACTUAL_CLASSES.has(fact.class));
   const hasActionableDirection = Boolean(message && objective);
   const readiness: BriefingReadiness = hasActionableDirection
@@ -137,13 +162,13 @@ export function buildInferredBriefing(input: {
   return {
     version: 1,
     message: message
-      ? knownField(message, valueHasOrigin(message, input.factPack) ? "sourced" : "inferred")
+      ? knownField(message, hasMessageOverride || valueHasOrigin(message, input.factPack) ? "sourced" : "inferred")
       : unknownField(),
     objective: objective
-      ? knownField(objective, "inferred", "medium")
+      ? knownField(objective, hasObjectiveOverride ? "sourced" : "inferred", "medium")
       : unknownField(),
     audience: audience
-      ? knownField(audience, valueHasOrigin(audience, input.factPack) ? "sourced" : "inferred")
+      ? knownField(audience, hasAudienceOverride || valueHasOrigin(audience, input.factPack) ? "sourced" : "inferred")
       : unknownField(),
     offer: offer ? knownField(offer, "sourced") : unknownField(),
     tone: tone ? knownField(tone, "sourced") : unknownField(),

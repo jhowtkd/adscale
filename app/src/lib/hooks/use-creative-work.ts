@@ -15,6 +15,8 @@ import type {
   CreativeDirection,
   CreativeDirectionPool,
   CreativeWorkFactPack,
+  CreativeWorkBriefingField,
+  CreativeWorkBriefingOverrides,
   InferredBriefing,
 } from "@/server/creative-work/contracts";
 import type { PublicLayerizationState } from "@/server/layerize/contracts";
@@ -113,6 +115,8 @@ export interface CreativeWorkItem {
     textLayout?: "top" | "center" | "bottom" | "side";
     fontAssetKey?: string;
     directionPool?: CreativeDirectionPool;
+    briefingOverrides?: CreativeWorkBriefingOverrides;
+    briefingVersion?: number;
   };
   copy: SocialPostCopy | null;
   identitySnapshot: CreativeWorkIdentitySnapshot | null;
@@ -518,6 +522,30 @@ export function usePrepareCreativeWork() {
         { action: "prepare" },
         120_000,
       ),
+    onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
+  });
+}
+
+export function useEditCreativeWorkBriefing() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      workItemId: string;
+      field: CreativeWorkBriefingField;
+      value: string | null;
+      expectedUpdatedAt: string;
+    }) => patchJson<{
+      work: CreativeWorkDraftItem;
+      briefing: InferredBriefing;
+      briefingFactPack: CreativeWorkFactPack;
+      briefingOverrides: CreativeWorkBriefingOverrides;
+      briefingVersion: number;
+    }>(`/api/creative-work/${input.workItemId}`, {
+      action: "editBriefing",
+      field: input.field,
+      value: input.value,
+      expectedUpdatedAt: input.expectedUpdatedAt,
+    }),
     onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
   });
 }

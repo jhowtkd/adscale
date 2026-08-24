@@ -14,6 +14,7 @@ import {
   deriveCreativeWorkTitle,
   inferCreativeWorkFormat,
   inferSocialPostBrief,
+  applyCreativeWorkBriefingOverrides,
   buildInferredBriefing,
 } from "@/server/creative-work/prepare";
 import { resolveCreativeWorkProtocol } from "@/server/creative-work/protocol";
@@ -217,15 +218,16 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       })),
       brand: creativeWorkFactPackBrandFromKit(brandKit),
       clientProfileId: aggregate.work.clientProfileId,
+      briefingOverrides: preparation.data.settings.briefingOverrides,
       // R-003: a resolved "source" choice makes the art's explicit brand the
       // required identity; otherwise the active brand is registered (and no
       // question ever appears without a confident conflict).
       brandAuthority,
     });
-    const parsedBrief = socialPostBriefSchema.safeParse(inferSocialPostBrief(
+    const parsedBrief = socialPostBriefSchema.safeParse(applyCreativeWorkBriefingOverrides(inferSocialPostBrief(
       aggregate.work.request,
       contentAnalyses,
-    ));
+    ), preparation.data.settings.briefingOverrides));
     if (!parsedBrief.success) {
       return { ok: false as const, error: { code: "invalid_preparation" as const } };
     }
@@ -235,6 +237,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
           brief: parsedBrief.data,
           factPack,
           toneOfVoice: brandAuthority.kind === "source" ? null : brandKit?.toneOfVoice ?? null,
+          briefingOverrides: preparation.data.settings.briefingOverrides,
         })
       : null;
     // R-011: the env switch is a creation-time policy. Its current value is
@@ -247,6 +250,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       ...(typographyPlan ? { typographyPlan } : {}),
       request: aggregate.work.request,
       settings: preparation.data.settings,
+      ...(preparation.data.settings.briefingOverrides ? { briefingOverrides: preparation.data.settings.briefingOverrides } : {}),
       sources: effectiveSources.map(({ source, usage }) => ({
         sourceId: source.id,
         updatedAt: source.updatedAt.toISOString(),

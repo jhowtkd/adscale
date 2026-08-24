@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   autosave: vi.fn(),
   prepare: vi.fn(),
+  editBriefing: vi.fn(),
   source: vi.fn(),
   generate: vi.fn(),
   suggest: vi.fn(),
@@ -36,6 +37,7 @@ vi.mock("@/lib/hooks/use-creative-work", async (importOriginal) => ({
   useCreateCreativeWorkDraft: () => ({ mutateAsync: mocks.create, isPending: false }),
   useAutosaveCreativeWork: () => ({ mutateAsync: mocks.autosave, isPending: false }),
   usePrepareCreativeWork: () => ({ mutateAsync: mocks.prepare, isPending: false }),
+  useEditCreativeWorkBriefing: () => ({ mutateAsync: mocks.editBriefing, isPending: false }),
   useCreativeWorkSourceActions: () => ({ mutateAsync: mocks.source, isPending: false }),
   useTriggerTriplet: () => ({ mutateAsync: mocks.generate, isPending: false }),
   useSuggestCreativeDirections: () => ({ mutateAsync: mocks.suggest, isPending: false }),
@@ -1480,6 +1482,83 @@ describe("useCreativeComposer", () => {
       workItemId: "work-1", request: "Edição da marca persistida",
     }));
     expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("keeps generation disabled while an inline briefing edit is saving", async () => {
+    const updatedAt = new Date("2026-07-13T12:00:00.000Z");
+    const briefing = {
+      version: 1,
+      message: { value: "Mensagem", state: "sourced" },
+      objective: { value: "Objetivo", state: "sourced" },
+      audience: { value: null, state: "unknown" },
+      offer: { value: null, state: "unknown" },
+      tone: { value: null, state: "unknown" },
+      constraints: { value: null, state: "unknown" },
+      readiness: "exploratory" as const,
+      confidence: "low" as const,
+    };
+    const factPack = {
+      version: 1,
+      request: "Pedido salvo",
+      facts: [],
+      brand: { requiredElements: [], prohibitedElements: [] },
+      identity: { clientProfileId: profileA.id, brandName: "Marca A", brandAuthority: "active" as const },
+    };
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({
+          toolKind: "single",
+          request: "Pedido salvo",
+          updatedAt,
+          settings: { targetFormats: [], briefingOverrides: {}, briefingVersion: 1 },
+          inputSnapshot: {
+            request: "Pedido salvo",
+            settings: { targetFormats: [], briefingOverrides: {}, briefingVersion: 1 },
+            sources: [],
+            inferredBriefing: briefing,
+            factPack,
+          },
+        }),
+        inferredBriefing: briefing,
+        briefingFactPack: factPack,
+        sources: [],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const pending = deferred<{
+      work: ReturnType<typeof workDetail>["work"];
+      briefing: typeof briefing;
+      briefingFactPack: typeof factPack;
+      briefingOverrides: { audience: string };
+      briefingVersion: number;
+    }>();
+    mocks.editBriefing.mockReturnValueOnce(pending.promise);
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.inferredBriefing).toEqual(briefing);
+
+    let edit!: Promise<void>;
+    act(() => { edit = result.current.editBriefingField("audience", "Professores"); });
+    expect(mocks.editBriefing).toHaveBeenCalledWith({
+      workItemId: "work-1",
+      field: "audience",
+      value: "Professores",
+      expectedUpdatedAt: updatedAt.toISOString(),
+    });
+    expect(result.current.briefingEditState).toBe("saving");
+    expect(result.current.canGenerate).toBe(false);
+
+    pending.resolve({
+      work: workDetail().work,
+      briefing,
+      briefingFactPack: factPack,
+      briefingOverrides: { audience: "Professores" },
+      briefingVersion: 2,
+    });
+    await act(async () => { await edit; });
+    expect(result.current.briefingEditState).toBe("saved");
   });
 
   it("waits for create A, persists latest B, then prepares and generates", async () => {

@@ -526,6 +526,8 @@
         "briefingConfidenceHigh": "High",
         "briefingConfidenceMedium": "Medium",
         "briefingConfidenceLow": "Low",
+        "briefingEditSaved": "Briefing saved",
+        "briefingEditError": "Could not save the briefing. Reload and try again.",
         "uploading": "Uploading...",
         "dropHint": "or drag and drop here",
         "retryTemplate": "Retry template attachment",

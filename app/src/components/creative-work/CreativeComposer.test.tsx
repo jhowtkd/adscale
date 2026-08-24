@@ -84,7 +84,7 @@ function composer(overrides = {}) {
     textLayout: "top", setTextLayout: vi.fn(), fontAssetKey: null, setFontAssetKey: vi.fn(), fontOptions: [],
     directionPool, toggleDirection: vi.fn(), setManualDirectionInstruction: vi.fn(), directionSuggestionState: "idle", pendingDirectionSuggestions: null, applyDirectionSuggestions: vi.fn(), requestDirectionSuggestions: vi.fn(), keepCurrentDirections: vi.fn(), state: "empty", actionPhase: "idle",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
-    inferredBriefing: null, briefingFactPack: null,
+    inferredBriefing: null, briefingFactPack: null, briefingOverrides: {}, briefingEditState: "idle", editBriefingField: vi.fn(),
     campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(), approveOutput: vi.fn(),
     downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(), isApprovingOutput: vi.fn(), approvalErrorOutputId: null, isRevisingOutput: vi.fn(),
     canGenerate: true, isUploading: false, settingsLocked: false, error: null, announcement: "", brandTrainingSuggestion: null, brandIdentity: null, requiresBrandSelection: false,
@@ -189,6 +189,32 @@ describe("CreativeComposer", () => {
     }));
 
     expect(screen.queryByTestId("inferred-briefing")).not.toBeInTheDocument();
+  });
+
+  it("saves an inline briefing field on blur and Enter", () => {
+    const editBriefingField = vi.fn();
+    renderComposer(composer({
+      intent: "single",
+      editBriefingField,
+      sources: [readySource],
+      inferredBriefing: {
+        version: 1,
+        message: { value: "Mensagem", state: "sourced" },
+        objective: { value: "Objetivo", state: "sourced" },
+        audience: { value: null, state: "unknown" },
+        offer: { value: null, state: "unknown" },
+        tone: { value: null, state: "unknown" },
+        constraints: { value: null, state: "unknown" },
+        readiness: "exploratory",
+        confidence: "low",
+      },
+    }));
+
+    const audience = screen.getByLabelText("Público");
+    fireEvent.change(audience, { target: { value: "Professores" } });
+    fireEvent.blur(audience);
+
+    expect(editBriefingField).toHaveBeenCalledWith("audience", "Professores");
   });
 
   it("shows the frozen Brand Cortex identity only on Peça única", () => {
