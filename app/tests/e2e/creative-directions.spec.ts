@@ -290,7 +290,7 @@ function directionChips(page: Page): Locator {
   // explicit aria-label, so match it directly.
   return page
     .locator('div[role="group"][aria-label="Direcionamentos"], div[role="group"][aria-label="Directions"]')
-    .getByRole("button");
+    .locator('button[aria-pressed]');
 }
 
 function chip(page: Page, label: string): Locator {
