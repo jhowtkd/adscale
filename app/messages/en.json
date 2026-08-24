@@ -529,7 +529,7 @@
         "uploading": "Uploading...",
         "dropHint": "or drag and drop here",
         "retryTemplate": "Retry template attachment",
-        "generate": "Generate {count, plural, one {# variation} other {# variations}}",
+        "generate": "Generate {count, plural, one {# variation} other {# variations}} · {credits} credits",
         "generateRestyle": "Generate restyle",
         "actionSaving": "Saving",
         "actionPreparing": "Preparing",

@@ -655,6 +655,7 @@ export function CreativeComposer({ composer, composerRef }: {
                   ? t("generateRestyle")
                   : t("generate", {
                       count: composer.quote.unitCount,
+                      credits: composer.quote.credits,
                     })
               }
             />

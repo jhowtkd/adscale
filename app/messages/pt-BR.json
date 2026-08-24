@@ -565,7 +565,7 @@
         "uploading": "Enviando...",
         "dropHint": "ou arraste e solte aqui",
         "retryTemplate": "Tentar anexar template novamente",
-        "generate": "Gerar {count, plural, one {# variação} other {# variações}}",
+        "generate": "Gerar {count, plural, one {# variação} other {# variações}} · {credits} créditos",
         "generateRestyle": "Gerar reestilização",
         "actionSaving": "Salvando",
         "actionPreparing": "Preparando",
