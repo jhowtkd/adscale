@@ -123,6 +123,39 @@ function safeTranslate(t: (k: string) => string, key: string): string | null {
   return value;
 }
 
+/** Shared accessible notification control for the desktop sidebar and mobile header. */
+export function NotificationMenu({ className }: { className?: string }) {
+  const tCommon = useTranslations("common");
+  const tNotificationPanel = useTranslations("notificationPanel");
+  const [open, setOpen] = useState(false);
+  const bellRef = useRef<HTMLButtonElement | null>(null);
+  const { data: items = [] } = useNotifications({ refetchInterval: 30_000 });
+  const markAllAsRead = useMarkAllNotificationsAsRead();
+  const clearAll = useClearAllNotifications();
+  const markAsRead = useMarkNotificationAsRead();
+  const unreadCount = items.filter((item) => !item.readAt).length;
+
+  return (
+    <div className={cn("relative", className)}>
+      <button
+        ref={bellRef}
+        type="button"
+        aria-label={`${tCommon("notifications")}${unreadCount > 0 ? ` (${unreadCount})` : ""}`}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => setOpen((value) => !value)}
+        className={cn("relative flex size-9 items-center justify-center rounded-[var(--radius-control)] text-[var(--utility-icon)] hover:bg-[var(--surface-base)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]", open && "bg-[var(--selection-bg)] text-[var(--selection-text)]")}
+      >
+        <Bell size={16} aria-hidden="true" />
+        {unreadCount > 0 ? <span aria-hidden="true" className="absolute -right-1 -top-1 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-[var(--info-dot)] px-1 text-[10px] font-semibold text-[var(--text-on-accent)]">{unreadCount > 9 ? "9+" : unreadCount}</span> : null}
+      </button>
+      <AnimatePresence>
+        {open ? <NotificationPanel items={items} onClose={() => setOpen(false)} onClear={() => clearAll.mutate()} onMarkAsRead={(id) => markAsRead.mutate(id)} onMarkAllAsRead={() => markAllAsRead.mutate()} bellRef={bellRef} tCommon={tCommon} tNotificationPanel={tNotificationPanel} /> : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export default function TopBar({
   variant = "floating",
 }: {

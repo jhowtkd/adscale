@@ -13,6 +13,7 @@ import {
   useUpdateUserProfile,
   useUploadProfileAvatar,
 } from "@/lib/hooks/use-user-profile";
+import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -232,6 +233,10 @@ export default function ProfileTab() {
             timezone={timezone}
             updateForm={updateForm}
           />
+          <div className="border-t border-[var(--border-dim)] pt-5">
+            <p className="mb-2 text-xs font-medium tracking-wide text-[var(--text-secondary)]">Idioma</p>
+            <LanguageSwitcher />
+          </div>
         </div>
       </div>
 

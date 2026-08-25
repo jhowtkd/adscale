@@ -8,7 +8,7 @@ import FeedbackDocsLink from "@/components/feedback/FeedbackDocsLink";
 
 const helpLinks = [
   {
-    href: "/campaigns?new=1",
+    href: "/?mode=briefing&compose=1",
     titleKey: "links.create.title",
     descriptionKey: "links.create.description",
   },
@@ -30,9 +30,9 @@ export default async function DocsPage() {
   const t = await getTranslations("docs");
 
   return (
-    <PageFrame>
+    <PageFrame width="reading">
       <PageHeader title={t("title")} description={t("subtitle")} />
-      <div className="space-y-6">
+      <div className="space-y-8">
         <Panel>
         <ul className="divide-y divide-[var(--border-dim)]">
           {helpLinks.map((link) => (

@@ -35,6 +35,7 @@ export type CampaignsV6Labels = {
   subtitle: string;
   sortPrefix: string;
   newCampaign: string;
+  newWork?: string;
   searchPlaceholder: string;
   searchAriaLabel: string;
   filtersAria: string;

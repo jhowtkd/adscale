@@ -149,8 +149,9 @@ export default function CampaignsV6View({
             onClick={interactive ? onNewCampaign : undefined}
             className="inline-flex items-center gap-2 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
-            {labels.newCampaign}
+            {labels.newWork ?? labels.newCampaign}
           </button>
+          {interactive ? <Link href="/campaigns/new" className="inline-flex min-h-[var(--control-touch)] items-center rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{labels.newCampaign}</Link> : null}
         </div>
       </header>
 

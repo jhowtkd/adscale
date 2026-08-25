@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import Footer from "./Footer";
 import V6ShellLayout from "./V6ShellLayout";
 import MobileMoreSheet from "./MobileMoreSheet";
+import { NotificationMenu } from "./TopBar";
 import { BookOpen, FolderOpen, Home, MoreHorizontal, Tag } from "lucide-react";
 
 interface AppShellProps {
@@ -29,6 +30,10 @@ export default function AppShell({ children }: AppShellProps) {
 
   return (
     <V6ShellLayout>
+      <header className="v6-mobile-header fixed inset-x-0 top-0 z-[calc(var(--layer-shell-floating)+1)] flex h-12 items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 md:hidden">
+        <span className="text-sm font-semibold text-[var(--text-primary)]">ADScale</span>
+        <NotificationMenu />
+      </header>
       <main id="main" className="v6-shell-main shell-offset-bottom-mobile min-h-screen">
         <div className="relative min-w-0 overflow-x-clip shell-min-height-below-topbar">{children}</div>
         <Footer />

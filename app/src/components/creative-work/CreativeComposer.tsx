@@ -17,9 +17,12 @@ import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCrea
 
 const FORMATS = ["1:1", "4:5", "9:16"] as const;
 
-export function CreativeComposer({ composer, composerRef }: {
+export function CreativeComposer({ composer, composerRef, hideSourceUpload = false, layout = "studio" }: {
   composer: CreativeComposerViewModel;
   composerRef: CreativeComposerModel["composerRef"];
+  /** Briefing-first entry keeps the canonical request but omits source upload. */
+  hideSourceUpload?: boolean;
+  layout?: "studio" | "piece";
 }) {
   const t = useTranslations("dashboard.home.composer");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -231,7 +234,7 @@ export function CreativeComposer({ composer, composerRef }: {
   }
 
   return (
-    <section id="creative-composer" aria-labelledby="creative-composer-title" className="space-y-4 scroll-mt-24">
+    <section id="creative-composer" aria-labelledby="creative-composer-title" className={cn("space-y-4 scroll-mt-24", layout === "piece" && "mx-auto max-w-5xl")}>
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 id="creative-composer-title" className="text-2xl font-semibold text-[var(--text-primary)]">{title}</h1>
@@ -351,7 +354,7 @@ export function CreativeComposer({ composer, composerRef }: {
               className="w-full resize-y bg-transparent text-base text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
             />
           </> : null}
-          <div className={cn("flex flex-wrap items-center gap-3", isSingle && "mt-3 border-t border-[var(--border-subtle)] pt-3")}>
+          {!hideSourceUpload ? <div className={cn("flex flex-wrap items-center gap-3", isSingle && "mt-3 border-t border-[var(--border-subtle)] pt-3")}>
             <input
               ref={fileInputRef}
               id="creative-composer-file"
@@ -372,7 +375,7 @@ export function CreativeComposer({ composer, composerRef }: {
               {composer.isUploading ? t("uploading") : t("addArt")}
             </button>
             <span className="hidden text-xs text-[var(--text-muted)] sm:inline">{t("dropHint")}</span>
-          </div>
+          </div> : null}
         </div>
       )}
 

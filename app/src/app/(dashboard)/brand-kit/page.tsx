@@ -24,12 +24,7 @@ export default function BrandKitPage() {
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
       <header className="max-w-[760px] space-y-4">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h1 className="product-page-title text-[var(--text-primary)]">{t("brandKit")}</h1>
-            <span className="rounded-full border border-[color-mix(in_oklch,var(--warning-text)_40%,transparent)] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--warning-text)]">
-              {t("brandKitBeta")}
-            </span>
-          </div>
+          <h1 className="product-page-title text-[var(--text-primary)]">{t("brands")}</h1>
           <p className="text-sm text-[var(--text-secondary)]">{t("brandKitHint")}</p>
         </div>
 

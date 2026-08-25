@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { LayoutDashboard, LayoutTemplate, Settings, Sparkles, type LucideIcon } from "lucide-react";
+import { BookOpen, LayoutDashboard, LogOut, Settings, type LucideIcon } from "lucide-react";
+import { authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 import {
   Sheet,
   SheetBody,
@@ -28,6 +30,7 @@ type MobileMoreItem = {
 
 export default function MobileMoreSheet({ open, onOpenChange }: MobileMoreSheetProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const tNav = useTranslations("navigation");
 
   // Config lives in More (item 45); primary tabs are Home · Trabalhos · Biblioteca · Marcas
@@ -44,19 +47,7 @@ export default function MobileMoreSheet({ open, onOpenChange }: MobileMoreSheetP
       icon: Settings,
       active: pathname.startsWith("/settings"),
     },
-    {
-      href: "/templates",
-      label: tNav("templates"),
-      icon: LayoutTemplate,
-      active: pathname.startsWith("/templates"),
-    },
-    {
-      href: "/assistant",
-      label: tNav("creativeIntelligenceAdvanced"),
-      icon: Sparkles,
-      active: pathname.startsWith("/assistant"),
-      badge: "BETA",
-    },
+    { href: "/docs", label: tNav("docs"), icon: BookOpen, active: pathname.startsWith("/docs") },
   ];
 
   return (
@@ -92,6 +83,10 @@ export default function MobileMoreSheet({ open, onOpenChange }: MobileMoreSheetP
               ) : null}
             </Link>
           ))}
+          <button type="button" onClick={() => void authClient.signOut({ fetchOptions: { onSuccess: () => router.push("/login") } })} className="flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-base)]">
+            <LogOut size={18} aria-hidden="true" className="text-[var(--utility-icon)]" />
+            {tNav("logout")}
+          </button>
         </SheetBody>
       </SheetContent>
     </Sheet>
