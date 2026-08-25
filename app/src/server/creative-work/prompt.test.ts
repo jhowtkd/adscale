@@ -242,7 +242,8 @@ describe("buildSocialPostPrompt", () => {
   it("reserves clean placement instructions for exact-mode assets", () => {
     const prompt = buildSocialPostPrompt(promptInput);
 
-    expect(prompt).toContain("RESERVED PLACEMENTS");
+    expect(prompt).toContain("RESERVED PLACEMENTS — PROVIDER EXCLUSION (HIGHEST PRIORITY)");
+    expect(prompt).toContain("Do not draw, trace, imitate, preserve, or repeat these assets in provider-generated pixels");
     expect(prompt).toContain("logo-exact");
     expect(prompt).toContain("southeast");
   });
@@ -327,6 +328,24 @@ function factPackSection(prompt: string): string {
 }
 
 describe("buildCreativeWorkPrompt", () => {
+  it("keeps an exact logo out of the provider layer even when the content source already shows it", () => {
+    const prompt = buildCreativeWorkPrompt(
+      creativeWorkPromptInput({
+        mode: "art_variation",
+        references: [slot("content", "455.png")],
+        identitySnapshot: snapshot({
+          assets: [asset({ label: "Logo Cenbrap", category: "logo", usageMode: "exact" })],
+        }),
+      }),
+    );
+
+    expect(prompt).toContain("Do not draw, trace, imitate, preserve, or repeat these assets in provider-generated pixels");
+    expect(prompt).toContain("even when one is visible in a content/reference image or named as a required brand element");
+    expect(prompt.indexOf("PROVIDER EXCLUSION (HIGHEST PRIORITY)")).toBeGreaterThan(
+      prompt.indexOf("Required elements: Logo visível"),
+    );
+  });
+
   it("criterion 1: never contains generic audience placeholders and keeps the full untruncated request", () => {
     const prompt = buildCreativeWorkPrompt(creativeWorkPromptInput({ mode: "social_post" }));
 

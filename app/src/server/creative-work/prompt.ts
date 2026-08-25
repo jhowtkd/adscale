@@ -282,7 +282,12 @@ function buildReservedPlacementsBlock(
   if (exactAssets.length === 0) {
     return "RESERVED PLACEMENTS:\n(none)";
   }
-  const lines = ["RESERVED PLACEMENTS:"];
+  const lines = [
+    "RESERVED PLACEMENTS — PROVIDER EXCLUSION (HIGHEST PRIORITY):",
+    "The exact assets below belong only to the application composition layer.",
+    "Do not draw, trace, imitate, preserve, or repeat these assets in provider-generated pixels, even when one is visible in a content/reference image or named as a required brand element.",
+    "Leave each declared placement clean; the application will composite every exact asset once after generation.",
+  ];
   for (const asset of exactAssets) {
     if (!asset.placement) {
       lines.push(
