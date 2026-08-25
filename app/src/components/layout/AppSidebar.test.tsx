@@ -11,6 +11,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("next-intl", () => ({
   useTranslations: (ns: string) => (key: string) => `${ns}.${key}`,
+  useLocale: () => "pt-BR",
 }));
 vi.mock("@/lib/store", () => ({
   useAppStore: (selector: (s: { user: { firstName: string; lastName: string; email: string }; billing: { planName: string } }) => unknown) =>
@@ -38,6 +39,9 @@ vi.mock("next/image", () => ({ default: () => null }));
 vi.mock("./AppSidebarCampaignMap", () => ({
   default: () => <div data-testid="campaign-map" />,
 }));
+vi.mock("./SidebarRecentWorks", () => ({
+  default: () => <div data-testid="sidebar-recent-works" />,
+}));
 vi.mock("./SidebarBrandKitFeature", () => ({
   default: () => (
     <a href="/brand-kit" data-testid="sidebar-brand-kit-feature">
@@ -47,6 +51,9 @@ vi.mock("./SidebarBrandKitFeature", () => ({
 }));
 vi.mock("./ActiveBrandSwitcher", () => ({
   default: () => <div data-testid="active-brand-switcher" />,
+}));
+vi.mock("./TopBar", () => ({
+  NotificationMenu: () => <div data-testid="notification-menu" />,
 }));
 
 import AppSidebar from "./AppSidebar";
@@ -169,21 +176,23 @@ describe("AppSidebar role-aware navigation", () => {
       "overflow-hidden",
     );
 
-    const feedback = screen.getByRole("link", {
-      name: "navigation.feedback",
-    });
-
+    const docs = screen.getByRole("link", { name: "navigation.docs" });
     const config = screen.getByRole("link", {
       name: "navigation.config",
     });
+    const feedback = screen.getByRole("link", { name: "navigation.feedback" });
 
     expect(
-      region.compareDocumentPosition(feedback)
+      region.compareDocumentPosition(docs)
       & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 
     expect(
-      feedback.compareDocumentPosition(config)
+      docs.compareDocumentPosition(config)
+      & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      config.compareDocumentPosition(feedback)
       & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });

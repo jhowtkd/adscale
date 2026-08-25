@@ -4,6 +4,7 @@ import AppShell from "./AppShell";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/campaigns",
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 vi.mock("next-intl", () => ({
@@ -12,6 +13,7 @@ vi.mock("next-intl", () => ({
 
 vi.mock("./TopBar", () => ({
   default: () => <div data-testid="top-bar" />,
+  NotificationMenu: () => <div data-testid="notification-menu" />,
 }));
 
 vi.mock("./AppSidebar", () => ({

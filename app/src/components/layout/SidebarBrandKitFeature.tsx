@@ -11,7 +11,13 @@ export default function SidebarBrandKitFeature() {
   const tNav = useTranslations("navigation");
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { activeClientProfileId, requiresSelection, isLoading: profilesLoading, isError: profilesError } = useActiveClientProfile();
+  const {
+    activeClientProfileId,
+    activeProfile,
+    requiresSelection,
+    isLoading: profilesLoading,
+    isError: profilesError,
+  } = useActiveClientProfile();
   const { data: training, isLoading, isError: trainingError } = useBrandTrainingStatus(activeClientProfileId);
   const settingsTab = searchParams.get("tab");
   const isActive =
@@ -38,7 +44,7 @@ export default function SidebarBrandKitFeature() {
       >
         <span className="flex items-center justify-between gap-2">
           <span className="text-[13px] font-semibold text-[var(--text-primary)]">
-            {tNav("brandKit")}
+            {activeProfile?.name ?? tNav("brands")}
           </span>
         </span>
         <span className="text-[11px] text-[var(--text-muted)]">
