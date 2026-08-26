@@ -496,6 +496,42 @@ describe("useCreativeComposer", () => {
     expect(result.current.canGenerate).toBe(false);
   });
 
+  it("skips a stored variation draft only for an explicit fresh Studio entry", async () => {
+    const storedDraftId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const storedValues = new Map<string, string>();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (key: string) => storedValues.get(key) ?? null,
+        setItem: (key: string, value: string) => storedValues.set(key, value),
+        removeItem: (key: string) => storedValues.delete(key),
+        clear: () => storedValues.clear(),
+      },
+    });
+    window.localStorage.setItem(
+      "adscale:creative-draft:v1:profile-a:variations",
+      storedDraftId,
+    );
+    window.history.replaceState({}, "", "/?mode=arte&compose=1&intent=variations&fresh=1");
+
+    const fresh = renderHook(() => useCreativeComposer({
+      initialIntent: "variations",
+      freshEntry: true,
+    }));
+    await act(async () => Promise.resolve());
+
+    expect(fresh.result.current.workId).toBeNull();
+    expect(window.location.search).not.toContain("workId=");
+
+    fresh.unmount();
+    window.history.replaceState({}, "", "/?intent=variations");
+    const resumed = renderHook(() => useCreativeComposer({ initialIntent: "variations" }));
+
+    await act(async () => Promise.resolve());
+    expect(resumed.result.current.workId).toBe(storedDraftId);
+    expect(window.location.search).toContain(`workId=${storedDraftId}`);
+  });
+
   it("stops retrying autosave after the server reports a non-draft conflict", async () => {
     mocks.work.mockReturnValue({
       data: workDetail({ id: WORK_ID, status: "draft" }),

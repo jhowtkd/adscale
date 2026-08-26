@@ -24,17 +24,40 @@ describe("parseDashboardSearchParams", () => {
         templateId: "../../other-workspace",
         intent: "social_post",
       })
-    ).toEqual({});
+    ).toEqual({ initialIntent: "variations" });
   });
 
   it("keeps a safe template on reload with workId so attachment can replay idempotently", () => {
     expect(
       parseDashboardSearchParams({ workId: WORK_ID, templateId: TEMPLATE_ID })
-    ).toEqual({ workId: WORK_ID, templateId: TEMPLATE_ID });
+    ).toEqual({ workId: WORK_ID, templateId: TEMPLATE_ID, initialIntent: "variations" });
   });
 
   it("accepts only UUID work identifiers", () => {
-    expect(parseDashboardSearchParams({ workId: WORK_ID })).toEqual({ workId: WORK_ID });
-    expect(parseDashboardSearchParams({ workId: "../../other-workspace" })).toEqual({});
+    expect(parseDashboardSearchParams({ workId: WORK_ID })).toEqual({ workId: WORK_ID, initialIntent: "variations" });
+    expect(parseDashboardSearchParams({ workId: "../../other-workspace" })).toEqual({ initialIntent: "variations" });
+  });
+
+  it("uses briefing mode only when an explicit intent is absent", () => {
+    expect(parseDashboardSearchParams({ mode: "briefing" })).toMatchObject({
+      studioMode: "briefing",
+      initialIntent: "single",
+    });
+    expect(parseDashboardSearchParams({ mode: "arte" })).toMatchObject({
+      studioMode: "arte",
+      initialIntent: "variations",
+    });
+    expect(parseDashboardSearchParams({ mode: "briefing", intent: "restyle" })).toMatchObject({
+      studioMode: "briefing",
+      initialIntent: "restyle",
+    });
+  });
+
+  it("accepts the explicit fresh Studio entry without broadening other query inputs", () => {
+    expect(parseDashboardSearchParams({ intent: "variations", fresh: "1" })).toMatchObject({
+      initialIntent: "variations",
+      freshEntry: true,
+    });
+    expect(parseDashboardSearchParams({ fresh: "true" })).toEqual({ initialIntent: "variations" });
   });
 });

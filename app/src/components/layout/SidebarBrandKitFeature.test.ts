@@ -39,7 +39,7 @@ describe("brandStatusKey", () => {
       errorLoadingWorks: ptBR.common.errorLoadingWorks,
       unavailable: ptBR.navigation.brandKitStatusUnavailable,
     }).toEqual({
-      home: "Início",
+      home: "Estúdio",
       works: "Trabalhos",
       overview: "Visão geral",
       brand: "Marca",
@@ -65,7 +65,7 @@ describe("brandStatusKey", () => {
       errorLoadingWorks: en.common.errorLoadingWorks,
       unavailable: en.navigation.brandKitStatusUnavailable,
     }).toEqual({
-      home: "Home",
+      home: "Studio",
       works: "Works",
       overview: "Overview",
       brand: "Brand",

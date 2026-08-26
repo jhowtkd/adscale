@@ -123,12 +123,13 @@ const readySource = {
   },
 };
 
-function renderComposer(value = composer()) {
+function renderComposer(value = composer(), props: { hideSourceUpload?: boolean; layout?: "studio" | "piece" } = {}) {
   const { composerRef, ...viewModel } = value;
   return render(
     <CreativeComposer
       composer={viewModel as CreativeComposerViewModel}
       composerRef={composerRef as CreativeComposerModel["composerRef"]}
+      {...props}
     />,
   );
 }
@@ -745,6 +746,30 @@ describe("CreativeComposer", () => {
     expect(value.approveOutput).toHaveBeenCalledWith("output-1", true);
     expect(screen.getAllByRole("button", { name: "Baixar" })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Editar" })).toHaveLength(1);
+  });
+
+  it("puts piece results before briefing controls in DOM order while Studio keeps its existing flow", () => {
+    const output = {
+      id: "output-1", workspaceId: "ws-1", workItemId: "work-1", creativeLevel: "conservative",
+      targetFormat: "4:5", versionNumber: 1, parentOutputId: null, revisionInstruction: null,
+      revisionAssetId: null, retryCount: 0, operationKey: "conservative:4:5:1", status: "completed",
+      outputKey: "out/1.png", cost: 5, failureCode: null, quality: null, isSelected: false,
+      createdAt: new Date(), updatedAt: new Date(),
+    };
+    const piece = renderComposer(composer({ workId: "work-1", outputs: [output] }), { layout: "piece" });
+    const pieceResults = screen.getByRole("heading", { name: "Resultados" }).closest("section")!;
+    const pieceDropzone = screen.getByTestId("creative-composer-dropzone");
+    const pieceAction = screen.getByTestId("creative-generate-action");
+
+    expect(pieceResults.compareDocumentPosition(pieceDropzone) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(pieceResults.compareDocumentPosition(pieceAction) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    piece.unmount();
+    renderComposer(composer({ workId: "work-1", outputs: [output] }));
+    const studioResults = screen.getByRole("heading", { name: "Resultados" }).closest("section")!;
+    const studioDropzone = screen.getByTestId("creative-composer-dropzone");
+
+    expect(studioDropzone.compareDocumentPosition(studioResults) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("groups an existing campaign without creating one", () => {

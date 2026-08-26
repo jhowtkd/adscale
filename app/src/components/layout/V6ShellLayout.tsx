@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, type ReactNode } from "react";
-import TopBar from "./TopBar";
 import AppSidebar from "./AppSidebar";
 import { FeedbackProvider } from "@/components/feedback/FeedbackProvider";
 import { MissionInsightProvider } from "@/components/mission-insights/MissionInsightProvider";
@@ -18,7 +17,6 @@ export default function V6ShellLayout({ children }: { children: ReactNode }) {
               <FeedbackBreadcrumbTracker />
             </Suspense>
             <AppSidebar />
-            <TopBar variant="shell-floating" />
             {children}
           </div>
         </MissionInsightProvider>

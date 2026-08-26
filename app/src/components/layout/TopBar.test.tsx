@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import TopBar, { deriveRouteTitle } from "./TopBar";
+import TopBar, { deriveRouteTitle, NotificationMenu } from "./TopBar";
 import { useAppStore } from "@/lib/store";
 
 vi.mock("@/lib/store", () => ({
@@ -187,6 +187,29 @@ describe("TopBar notifications", () => {
     await waitFor(() => {
       expect(screen.getByText("Derivação pronta")).toBeInTheDocument();
     });
+  });
+
+  it("keeps the notification dialog viewport-bounded from its right edge", async () => {
+    render(<NotificationMenu />, { wrapper: createWrapper() });
+
+    fireEvent.click(screen.getByRole("button", { name: /notifications/i }));
+
+    const dialog = await screen.findByRole("dialog", { name: /notifications/i });
+    expect(dialog).toHaveClass(
+      "absolute",
+      "right-0",
+      "w-[360px]",
+      "max-w-[calc(100vw-2rem)]",
+      "flex",
+      "flex-col",
+      "max-h-[calc(100dvh-5rem)]",
+      "overflow-hidden",
+    );
+    expect(dialog.querySelector("div[class*='overflow-y-auto']")).toHaveClass(
+      "min-h-0",
+      "flex-1",
+      "overflow-y-auto",
+    );
   });
 
   it("collapses 39 identical derivation_completed notifications into a single consolidated row", async () => {

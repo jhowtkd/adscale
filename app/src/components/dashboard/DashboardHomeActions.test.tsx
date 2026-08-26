@@ -111,7 +111,7 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("active-client-switcher")).toBeInTheDocument();
     expect(protocols?.compareDocumentPosition(continueLink)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(continueLink).toHaveAttribute("href", "/creative-work/w1");
-    expect(screen.getAllByRole("button").filter((button) => button.hasAttribute("aria-pressed"))).toHaveLength(4);
+    expect(screen.getAllByRole("button").filter((button) => button.hasAttribute("aria-pressed"))).toHaveLength(6);
     expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
     expect(screen.queryByText("dashboard.home.chooseIntent")).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -190,6 +190,37 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("creative-composer")).toHaveTextContent("restyle:5");
   });
 
+  it("keeps the visible studio mode tied to the composer when a guarded switch is cancelled", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    const guardedSelectIntent = vi.fn();
+    let intent: "variations" | "single" = "variations";
+    useComposerMock.mockImplementation(() => ({
+      intent,
+      clientProfileId: "p1",
+      quote: { unitCount: 1, credits: 5 },
+      selectIntent: guardedSelectIntent,
+      addInspiration: addInspirationMock,
+    }));
+
+    const { rerender } = render(<DashboardHomeActions studioMode="arte" />);
+    const modes = screen.getByRole("group", { name: "dashboard.home.studioModeLabel" });
+    const [art, briefing] = modes.querySelectorAll<HTMLButtonElement>("button");
+
+    expect(art).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(briefing!);
+    expect(guardedSelectIntent).toHaveBeenCalledWith("single");
+    // A protocol guard can defer then cancel this change. The composer intent
+    // stays variations, so the Studio switch must stay on Com arte as well.
+    expect(briefing).toHaveAttribute("aria-pressed", "false");
+
+    rerender(<DashboardHomeActions studioMode="arte" />);
+    expect(modes.querySelectorAll<HTMLButtonElement>("button")[0]).toHaveAttribute("aria-pressed", "true");
+
+    intent = "single";
+    rerender(<DashboardHomeActions studioMode="arte" />);
+    expect(modes.querySelectorAll<HTMLButtonElement>("button")[1]).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("passes safe route presets to the same composer instance", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
 
@@ -207,6 +238,22 @@ describe("DashboardHomeActions", () => {
       focusComposer: true,
       initialTemplateId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     });
+  });
+
+  it("uses the URL Studio mode only to seed a new composer intent", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+
+    render(<DashboardHomeActions studioMode="briefing" />);
+
+    expect(useComposerMock).toHaveBeenCalledWith(expect.objectContaining({ initialIntent: "single" }));
+  });
+
+  it("passes the explicit fresh Studio contract to the canonical composer", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+
+    render(<DashboardHomeActions freshEntry />);
+
+    expect(useComposerMock).toHaveBeenCalledWith(expect.objectContaining({ freshEntry: true }));
   });
 
   it("shows a brand-aware first-creation prompt when nothing is actionable", () => {
@@ -251,9 +298,9 @@ describe("DashboardHomeActions", () => {
     render(<DashboardHomeActions />);
 
     expect(useCreativeWorkMock).toHaveBeenCalledWith("w1");
-    const fan = screen.getByTestId("recent-production-fan");
+    const fan = screen.getByTestId("continue-work-thumbnail");
     const previews = fan.querySelectorAll("img");
-    expect(previews).toHaveLength(2);
+    expect(previews).toHaveLength(1);
     expect(previews[0]).toHaveAttribute("src", "/api/creative-work/w1/outputs/output-new/download");
   });
 

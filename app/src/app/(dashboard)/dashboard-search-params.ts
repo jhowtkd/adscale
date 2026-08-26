@@ -3,16 +3,21 @@ import { z } from "zod";
 
 type DashboardSearchParams = Record<string, string | string[] | undefined>;
 
+export type StudioMode = "arte" | "briefing";
+
 const COMPOSER_INTENTS = new Set<ComposerIntent>([
   "variations",
   "single",
   "format_adaptation",
   "restyle",
 ]);
+const STUDIO_MODES = new Set<StudioMode>(["arte", "briefing"]);
 
 export function parseDashboardSearchParams(searchParams: DashboardSearchParams): {
   workId?: string;
-  initialIntent?: ComposerIntent;
+  initialIntent: ComposerIntent;
+  studioMode?: StudioMode;
+  freshEntry?: true;
   focusComposer?: true;
   templateId?: string;
 } {
@@ -22,6 +27,10 @@ export function parseDashboardSearchParams(searchParams: DashboardSearchParams):
     && COMPOSER_INTENTS.has(searchParams.intent as ComposerIntent)
     ? searchParams.intent as ComposerIntent
     : undefined;
+  const studioMode = typeof searchParams.mode === "string"
+    && STUDIO_MODES.has(searchParams.mode as StudioMode)
+    ? searchParams.mode as StudioMode
+    : undefined;
   const templateId = typeof searchParams.templateId === "string"
     && z.string().uuid().safeParse(searchParams.templateId).success
     ? searchParams.templateId
@@ -29,7 +38,11 @@ export function parseDashboardSearchParams(searchParams: DashboardSearchParams):
 
   return {
     ...(workId ? { workId } : {}),
-    ...(intent ? { initialIntent: intent } : {}),
+    // An explicit protocol is a resume/deep-link contract. Otherwise the
+    // studio mode selects the least surprising canonical protocol.
+    initialIntent: intent ?? (studioMode === "briefing" ? "single" : "variations"),
+    ...(studioMode ? { studioMode } : {}),
+    ...(searchParams.fresh === "1" ? { freshEntry: true as const } : {}),
     ...(searchParams.compose === "1" ? { focusComposer: true as const } : {}),
     ...(templateId ? { templateId } : {}),
   };

@@ -17,9 +17,12 @@ import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCrea
 
 const FORMATS = ["1:1", "4:5", "9:16"] as const;
 
-export function CreativeComposer({ composer, composerRef }: {
+export function CreativeComposer({ composer, composerRef, hideSourceUpload = false, layout = "studio" }: {
   composer: CreativeComposerViewModel;
   composerRef: CreativeComposerModel["composerRef"];
+  /** Briefing-first entry keeps the canonical request but omits source upload. */
+  hideSourceUpload?: boolean;
+  layout?: "studio" | "piece";
 }) {
   const t = useTranslations("dashboard.home.composer");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -219,6 +222,47 @@ export function CreativeComposer({ composer, composerRef }: {
     void composer.addFiles(Array.from(event.dataTransfer.files));
   };
 
+  const results = composer.outputs.length > 0 ? (
+    <section aria-labelledby="creative-results-title" className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 id="creative-results-title" className="text-lg font-semibold text-[var(--text-primary)]">Resultados</h2>
+          <p className="text-sm text-[var(--text-muted)]">Cada resultado fica salvo assim que termina.</p>
+        </div>
+        <label className="text-sm text-[var(--text-secondary)]">
+          <span className="sr-only">Agrupar em campanha</span>
+          <select
+            aria-label="Agrupar em campanha"
+            value={composer.campaignId ?? ""}
+            onChange={(event) => void composer.linkCampaign(event.target.value || null)}
+            className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2"
+          >
+            <option value="">Sem campanha</option>
+            {composer.campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
+          </select>
+        </label>
+      </div>
+      <CreativeProposalGrid
+        outputs={composer.outputs}
+        onRetry={composer.retryOutput}
+        onRetryRevision={composer.retryRevisionOutput}
+        onApprove={composer.approveOutput}
+        onDownload={composer.downloadOutput}
+        canLayerize={composer.canLayerize}
+        layerEditorAccess={composer.layerEditorAccess}
+        onLayerize={composer.layerizeOutput}
+        onDownloadLayerized={composer.downloadLayerizedOutput}
+        isLayerizing={composer.isLayerizingOutput}
+        onRevise={composer.reviseOutput}
+        isRetrying={composer.isRetryingOutput}
+        isApproving={composer.isApprovingOutput}
+        approvalErrorOutputId={composer.approvalErrorOutputId}
+        isRevising={composer.isRevisingOutput}
+        onLayerEditorPublished={composer.refreshOutputs}
+      />
+    </section>
+  ) : null;
+
   if (composer.workError) {
     return (
       <section id="creative-composer" className="rounded-[var(--radius-object)] border border-[var(--danger-border)] bg-[var(--surface-raised)] p-6 text-center">
@@ -231,8 +275,8 @@ export function CreativeComposer({ composer, composerRef }: {
   }
 
   return (
-    <section id="creative-composer" aria-labelledby="creative-composer-title" className="space-y-4 scroll-mt-24">
-      <div className="flex items-center justify-between gap-3">
+    <section id="creative-composer" aria-labelledby="creative-composer-title" className={cn("space-y-4 scroll-mt-24", layout === "piece" && "mx-auto flex max-w-5xl flex-col")}>
+      <div className={cn("flex items-center justify-between gap-3", layout === "piece" && "order-[-2]")}>
         <div>
           <h1 id="creative-composer-title" className="text-2xl font-semibold text-[var(--text-primary)]">{title}</h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</p>
@@ -241,6 +285,8 @@ export function CreativeComposer({ composer, composerRef }: {
           {t("brand")}: {composer.brandName ?? t("noBrand")}
         </span>
       </div>
+
+      {layout === "piece" ? results : null}
 
       {composer.intent === "single" && composer.brandIdentity ? (
         <section
@@ -351,7 +397,7 @@ export function CreativeComposer({ composer, composerRef }: {
               className="w-full resize-y bg-transparent text-base text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
             />
           </> : null}
-          <div className={cn("flex flex-wrap items-center gap-3", isSingle && "mt-3 border-t border-[var(--border-subtle)] pt-3")}>
+          {!hideSourceUpload ? <div className={cn("flex flex-wrap items-center gap-3", isSingle && "mt-3 border-t border-[var(--border-subtle)] pt-3")}>
             <input
               ref={fileInputRef}
               id="creative-composer-file"
@@ -372,7 +418,7 @@ export function CreativeComposer({ composer, composerRef }: {
               {composer.isUploading ? t("uploading") : t("addArt")}
             </button>
             <span className="hidden text-xs text-[var(--text-muted)] sm:inline">{t("dropHint")}</span>
-          </div>
+          </div> : null}
         </div>
       )}
 
@@ -683,46 +729,7 @@ export function CreativeComposer({ composer, composerRef }: {
         </button>
       </div>
 
-      {composer.outputs.length > 0 ? (
-        <section aria-labelledby="creative-results-title" className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 id="creative-results-title" className="text-lg font-semibold text-[var(--text-primary)]">Resultados</h2>
-              <p className="text-sm text-[var(--text-muted)]">Cada resultado fica salvo assim que termina.</p>
-            </div>
-            <label className="text-sm text-[var(--text-secondary)]">
-              <span className="sr-only">Agrupar em campanha</span>
-              <select
-                aria-label="Agrupar em campanha"
-                value={composer.campaignId ?? ""}
-                onChange={(event) => void composer.linkCampaign(event.target.value || null)}
-                className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2"
-              >
-                <option value="">Sem campanha</option>
-                {composer.campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
-              </select>
-            </label>
-          </div>
-          <CreativeProposalGrid
-            outputs={composer.outputs}
-            onRetry={composer.retryOutput}
-            onRetryRevision={composer.retryRevisionOutput}
-            onApprove={composer.approveOutput}
-            onDownload={composer.downloadOutput}
-            canLayerize={composer.canLayerize}
-            layerEditorAccess={composer.layerEditorAccess}
-            onLayerize={composer.layerizeOutput}
-            onDownloadLayerized={composer.downloadLayerizedOutput}
-            isLayerizing={composer.isLayerizingOutput}
-            onRevise={composer.reviseOutput}
-            isRetrying={composer.isRetryingOutput}
-            isApproving={composer.isApprovingOutput}
-            approvalErrorOutputId={composer.approvalErrorOutputId}
-            isRevising={composer.isRevisingOutput}
-            onLayerEditorPublished={composer.refreshOutputs}
-          />
-        </section>
-      ) : null}
+      {layout === "studio" ? results : null}
 
       {composer.error ? (
         <div className="flex flex-wrap items-center gap-3" role="alert">

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Press_Start_2P, Space_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
-import { getLocale, getMessages } from "next-intl/server";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import QueryProvider from "@/components/providers/QueryProvider";
@@ -58,7 +58,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
+  const [locale, messages, tCommon] = await Promise.all([getLocale(), getMessages(), getTranslations("common")]);
 
   return (
     <html lang={locale} className={`${inter.variable} ${spaceMono.variable} ${pressStart.variable} dark antialiased`} suppressHydrationWarning data-scroll-behavior="smooth">
@@ -72,7 +72,7 @@ export default async function RootLayout({
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-[var(--surface-base)] focus:text-[var(--text-primary)] focus:rounded-md focus:shadow-lg focus:ring-2 focus:ring-[var(--focus-ring)]"
         >
-          Pular para conteúdo principal
+          {tCommon("skipToContent")}
         </a>
         <NextIntlClientProvider messages={messages} locale={locale}>
           <QueryProvider>

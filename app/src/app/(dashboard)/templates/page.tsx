@@ -26,7 +26,7 @@ export default function TemplatesPage() {
 
   const handleUseTemplate = (template: CampaignTemplate) => {
     // Keep this destination literal: the convergence inventory tracks CTA routes statically.
-    router.push(`/?templateId=${encodeURIComponent(template.id)}&compose=1`);
+    router.push(`/?mode=briefing&templateId=${encodeURIComponent(template.id)}&compose=1`);
   };
 
   const handleDelete = async (id: string) => {
@@ -53,7 +53,7 @@ export default function TemplatesPage() {
         description={tTemplate("subtitle")}
         actions={templates && templates.length > 0 ? (
           <Button
-            onClick={() => router.push("/campaigns")}
+            onClick={() => router.push("/?mode=briefing&compose=1")}
             className="bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
           >
             <Plus size={16} aria-hidden="true" />
@@ -93,7 +93,7 @@ export default function TemplatesPage() {
               description={tTemplate("emptyDescription")}
               action={{
                 label: tTemplate("createFromCampaign"),
-                href: "/campaigns",
+                href: "/?mode=briefing&compose=1",
               }}
             />
           </div>

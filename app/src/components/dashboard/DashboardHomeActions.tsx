@@ -16,61 +16,28 @@ import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useCreativeWork, type CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { cn } from "@/lib/utils";
-
-const FAN_CARD_TRANSFORMS = [
-  "group-hover:-translate-x-10 group-hover:-rotate-[18deg] group-focus-visible:-translate-x-10 group-focus-visible:-rotate-[18deg]",
-  "group-hover:-translate-x-6 group-hover:-rotate-[10deg] group-focus-visible:-translate-x-6 group-focus-visible:-rotate-[10deg]",
-  "group-hover:-translate-x-2 group-hover:-rotate-2 group-focus-visible:-translate-x-2 group-focus-visible:-rotate-2",
-  "group-hover:translate-x-1 group-hover:rotate-[8deg] group-focus-visible:translate-x-1 group-focus-visible:rotate-[8deg]",
-  "group-hover:translate-x-3 group-hover:rotate-[16deg] group-focus-visible:translate-x-3 group-focus-visible:rotate-[16deg]",
-] as const;
+import type { StudioMode } from "@/app/(dashboard)/dashboard-search-params";
 
 function toTimestamp(value: Date | string) {
   return value instanceof Date ? value.getTime() : new Date(value).getTime();
 }
 
-function RecentProductionFan({ outputs }: { outputs: CreativeWorkOutput[] }) {
-  const previews = useMemo(
+function ContinueWorkThumbnail({ outputs }: { outputs: CreativeWorkOutput[] }) {
+  const preview = useMemo(
     () => [...outputs]
       .filter((output) => output.status === "completed" && output.outputKey)
       .sort((a, b) => toTimestamp(b.createdAt) - toTimestamp(a.createdAt))
-      .slice(0, 5),
+      .at(0) ?? null,
     [outputs],
   );
-  const cards: Array<CreativeWorkOutput | null> = previews.length > 0
-    ? previews
-    : [null, null, null];
 
   return (
     <span
-      data-testid="recent-production-fan"
+      data-testid="continue-work-thumbnail"
       aria-hidden="true"
-      className="relative h-28 w-24 shrink-0 justify-self-end sm:h-32 sm:w-28 lg:h-36 lg:w-36"
+      className="grid aspect-[4/5] w-20 shrink-0 place-items-center overflow-hidden rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] sm:w-24"
     >
-      {cards.map((output, index) => (
-        <span
-          key={output?.id ?? `placeholder-${index}`}
-          style={{ zIndex: cards.length - index }}
-          className={cn(
-            "absolute right-1 top-1 flex h-24 w-[4.5rem] origin-bottom-left items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-[var(--surface-inset)] shadow-[0_8px_24px_-10px_rgba(0,0,0,0.65)] transition-transform duration-500 ease-out motion-reduce:transition-none sm:h-28 sm:w-20 lg:h-32 lg:w-24",
-            FAN_CARD_TRANSFORMS[index],
-          )}
-        >
-          {output ? (
-            <Image
-              src={`/api/creative-work/${output.workItemId}/outputs/${output.id}/download`}
-              alt=""
-              width={96}
-              height={128}
-              unoptimized
-              loading="lazy"
-              className="size-full object-cover"
-            />
-          ) : (
-            <ImageIcon size={20} className="text-[var(--text-muted)]" />
-          )}
-        </span>
-      ))}
+      {preview ? <Image src={`/api/creative-work/${preview.workItemId}/outputs/${preview.id}/download`} alt="" width={96} height={120} unoptimized loading="lazy" className="size-full object-cover" /> : <ImageIcon size={20} className="text-[var(--text-muted)]" />}
     </span>
   );
 }
@@ -92,16 +59,16 @@ function ContinueWorkCard({
   return (
     <Link
       href={href}
-      className="group grid min-h-40 grid-cols-[minmax(0,1fr)_6rem] items-center gap-5 overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-6 transition-colors hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:min-h-44 sm:grid-cols-[minmax(0,1fr)_8rem] sm:p-7 lg:min-h-48 lg:grid-cols-[minmax(0,1fr)_10rem]"
+      className="group grid min-h-24 grid-cols-[minmax(0,1fr)_5rem] items-center gap-4 overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 transition-colors hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:grid-cols-[minmax(0,1fr)_6rem] sm:p-5"
     >
       <span className="min-w-0">
         <span id="continue-work-title" className="block text-base font-semibold text-[var(--text-primary)] sm:text-lg">{title}</span>
         <span className="mt-2 block truncate text-sm text-[var(--text-secondary)]">{hint}</span>
-        <span className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
+        <span className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
           <ArrowRight size={17} aria-hidden="true" />
         </span>
       </span>
-      <RecentProductionFan outputs={data?.outputs ?? []} />
+      <ContinueWorkThumbnail outputs={data?.outputs ?? []} />
     </Link>
   );
 }
@@ -111,22 +78,38 @@ export default function DashboardHomeActions({
   initialIntent,
   focusComposer = false,
   templateId,
+  studioMode,
+  freshEntry = false,
 }: {
   workId?: string;
   initialIntent?: ComposerIntent;
   focusComposer?: boolean;
   templateId?: string;
+  studioMode?: StudioMode;
+  freshEntry?: boolean;
 }) {
   const t = useTranslations("dashboard.home");
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
   const { activeProfile } = useActiveClientProfile();
+  // The URL mode only seeds a new composer. Once it exists, its intent is the
+  // authority because protocol switches may be deferred or cancelled.
+  const initialStudioIntent = initialIntent
+    ?? (studioMode === "briefing" ? "single" : studioMode === "arte" ? "variations" : undefined);
   const { composerRef, ...composer } = useCreativeComposer({
     initialWorkId: workId,
-    initialIntent,
+    initialIntent: initialStudioIntent,
     focusComposer,
     initialTemplateId: templateId,
+    ...(freshEntry ? { freshEntry: true } : {}),
   });
   const continueTarget = useMemo(() => resolveContinueWork(works), [works]);
+  // The composer owns protocol switching, including a deferred switch that is
+  // later cancelled. Deriving this keeps the visual mode on the same state.
+  const mode: StudioMode = composer.intent === "single" ? "briefing" : "arte";
+
+  const selectStudioMode = (nextMode: StudioMode) => {
+    composer.selectIntent(nextMode === "briefing" ? "single" : "variations");
+  };
 
   if (isError && works.length === 0) {
     return (
@@ -141,18 +124,27 @@ export default function DashboardHomeActions({
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-8 px-4 py-8 sm:px-6 lg:py-12">
+    <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-6 lg:py-12">
       <AccessGatePanel />
-      <CreativeToolCards
-        selected={composer.intent}
-        onSelect={composer.selectIntent}
-        headerAction={(
-          <ActiveBrandSwitcher
-            id="active-client-switcher-home"
-            className="mt-0 w-full sm:w-64"
-          />
-        )}
-      />
+      <header className="flex flex-col gap-4 border-b border-[var(--border-subtle)] pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("studioLabel")}</p>
+          <h1 className="mt-1 product-page-title text-[var(--text-primary)]">{mode === "arte" ? t("studioArtTitle") : t("studioBriefingTitle")}</h1>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">{mode === "arte" ? t("studioArtSubtitle") : t("studioBriefingSubtitle")}</p>
+        </div>
+        <ActiveBrandSwitcher id="active-client-switcher-home" className="mt-0 w-full sm:w-64" />
+      </header>
+
+      <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label={t("studioModeLabel")}>
+        {(["arte", "briefing"] as const).map((value) => (
+          <button key={value} type="button" aria-pressed={mode === value} onClick={() => selectStudioMode(value)} className={cn("min-h-20 rounded-[var(--radius-control)] border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]", mode === value ? "border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--selection-text)]" : "border-[var(--border-subtle)] bg-[var(--surface-base)] text-[var(--text-primary)] hover:bg-[var(--surface-raised)]")}>
+            <span className="block text-sm font-semibold">{value === "arte" ? t("studioWithArt") : t("studioWithBriefing")}</span>
+            <span className="mt-1 block text-xs opacity-80">{value === "arte" ? t("studioWithArtHint") : t("studioWithBriefingHint")}</span>
+          </button>
+        ))}
+      </div>
+
+      <CreativeToolCards selected={composer.intent} onSelect={composer.selectIntent} />
 
       {composer.pendingProtocolSwitch ? (
         <div
@@ -191,7 +183,7 @@ export default function DashboardHomeActions({
         </div>
       ) : null}
 
-      <CreativeComposer composer={composer} composerRef={composerRef} />
+      <CreativeComposer composer={composer} composerRef={composerRef} hideSourceUpload={mode === "briefing" && composer.intent === "single"} />
 
       <section aria-labelledby={isLoading && works.length === 0 ? undefined : "continue-work-title"}>
         {isLoading && works.length === 0 ? (

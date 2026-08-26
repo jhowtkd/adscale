@@ -1,9 +1,12 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import AppShell from "./AppShell";
 
+let pathname = "/campaigns";
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/campaigns",
+  usePathname: () => pathname,
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 vi.mock("next-intl", () => ({
@@ -12,6 +15,7 @@ vi.mock("next-intl", () => ({
 
 vi.mock("./TopBar", () => ({
   default: () => <div data-testid="top-bar" />,
+  NotificationMenu: () => <div data-testid="notification-menu" />,
 }));
 
 vi.mock("./AppSidebar", () => ({
@@ -43,6 +47,9 @@ vi.mock("./DeploymentVersionGuard", () => ({
 }));
 
 describe("AppShell", () => {
+  beforeEach(() => {
+    pathname = "/campaigns";
+  });
   it("exposes a single primary main landmark for page content", () => {
     render(
       <AppShell>
@@ -83,5 +90,27 @@ describe("AppShell", () => {
     );
 
     expect(screen.getByRole("main").className).not.toContain("dot-grid");
+  });
+
+  it("mounts one notification control outside the sidebar", () => {
+    render(
+      <AppShell>
+        <p>Page body</p>
+      </AppShell>
+    );
+
+    expect(screen.getAllByTestId("notification-menu")).toHaveLength(1);
+    expect(screen.getByRole("banner")).toHaveClass("md:left-auto", "md:right-[var(--shell-v6-gap)]");
+  });
+
+  it("marks More active for Docs, which lives in that mobile sheet", () => {
+    pathname = "/docs";
+    render(
+      <AppShell>
+        <p>Docs body</p>
+      </AppShell>
+    );
+
+    expect(screen.getByRole("button", { name: /more/i })).toHaveClass("bg-[var(--active-navigation-bg)]");
   });
 });

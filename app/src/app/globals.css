@@ -136,7 +136,7 @@
   --text-section: 1rem;
   --text-page: 1.25rem;
   --text-display: 1.5rem;
-  --radius-control: 0.375rem;
+  --radius-control: 0.5rem;
   --radius-panel: 0.5rem;
   --radius-object: 0.75rem;
   --radius-overlay: 0.75rem;
@@ -420,6 +420,11 @@
    ============================================ */
 
 @layer base {
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
   * {
     @apply border-border outline-ring/50;
   }
@@ -743,7 +748,7 @@
     object-fit: contain;
     object-position: center;
     filter: brightness(0) invert(1);
-    opacity: 0.42;
+    opacity: 0.88;
   }
 
   .v6-shell-topbar {
@@ -783,6 +788,17 @@
     overflow: hidden;
   }
 
+  @media (min-width: 768px) {
+    .v6-shell-main {
+      padding-top: calc(var(--shell-v6-gap) * 2);
+    }
+
+    .v6-shell-main.assistant-shell-host {
+      height: calc(100dvh - (var(--shell-v6-gap) * 2));
+      max-height: calc(100dvh - (var(--shell-v6-gap) * 2));
+    }
+  }
+
   @media (max-width: 767px) {
     .v6-shell-sidebar {
       display: none;
@@ -797,8 +813,9 @@
     }
 
     .v6-shell-main.assistant-shell-host {
-      height: calc(100dvh - var(--shell-v6-topbar-offset) - var(--shell-safe-bottom));
-      max-height: calc(100dvh - var(--shell-v6-topbar-offset) - var(--shell-safe-bottom));
+      height: 100dvh;
+      max-height: 100dvh;
+      padding-top: 3rem;
     }
   }
   .layer-popover { z-index: var(--layer-popover); }

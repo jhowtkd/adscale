@@ -8,9 +8,9 @@ import {
   BookOpen,
   FolderOpen,
   House,
-  LayoutDashboard,
   LogOut,
   Settings,
+  Tag,
   type LucideIcon,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store";
@@ -21,6 +21,7 @@ import { authClient } from "@/lib/auth-client";
 import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
 import SidebarBrandKitFeature from "@/components/layout/SidebarBrandKitFeature";
 import AppSidebarCampaignMap from "@/components/layout/AppSidebarCampaignMap";
+import SidebarRecentWorks from "@/components/layout/SidebarRecentWorks";
 import { cn } from "@/lib/utils";
 
 export default function AppSidebar() {
@@ -47,12 +48,13 @@ export default function AppSidebar() {
   const isTesterAccount = billingStatus?.access?.kind === "tester";
   const isPlatformOwner = ownerAccess?.allowed === true;
 
-  // Frictionless shell: Início · Trabalhos · Biblioteca, with Marca/Configurações below.
+  // The shell has four primary destinations. Overview stays available from the account card.
   const isWorks = pathname.startsWith("/campaigns");
-  const isHome = pathname === "/" || pathname === "/quick-tools/create-post";
-  const isOverview = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+  const isHome = pathname === "/" || pathname === "/quick-tools/create-post" || pathname.startsWith("/creative-work/");
   const isLibrary = pathname.startsWith("/library");
+  const isBrand = pathname.startsWith("/brand-kit");
   const isConfig = pathname.startsWith("/settings");
+  const isDocs = pathname.startsWith("/docs");
 
   const worksCount = works.length > 0 ? String(works.length) : undefined;
 
@@ -100,16 +102,16 @@ export default function AppSidebar() {
           count={worksCount}
         />
         <IconNavItem
-          href="/dashboard"
-          active={isOverview}
-          label={tNav("dashboard")}
-          icon={LayoutDashboard}
-        />
-        <IconNavItem
           href="/library"
           active={isLibrary}
           label={tLibrary("title")}
           icon={BookOpen}
+        />
+        <IconNavItem
+          href="/brand-kit"
+          active={isBrand}
+          label={tNav("brands")}
+          icon={Tag}
         />
       </nav>
 
@@ -119,27 +121,26 @@ export default function AppSidebar() {
         data-testid="sidebar-campaign-region"
         className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden border-t border-[var(--border-subtle)] pt-3"
       >
+        <SidebarRecentWorks />
         <AppSidebarCampaignMap />
       </div>
 
-      {isPlatformOwner && (
-        <div className="mt-2 shrink-0 border-t border-[var(--border-subtle)] pt-2">
-          <TextNavItem
-            href="/feedback"
-            active={pathname.startsWith("/feedback")}
-            label={tNav("feedback")}
-          />
-        </div>
-      )}
-
       <div className="mt-auto shrink-0 border-t border-[var(--border-subtle)] pt-3">
+        <TextNavItem
+          href="/docs"
+          active={isDocs}
+          label={tNav("docs")}
+          icon={BookOpen}
+        />
         <TextNavItem
           href="/settings"
           active={isConfig}
           label={tNav("config")}
           icon={Settings}
         />
-        <div
+        {isPlatformOwner ? <TextNavItem href="/feedback" active={pathname.startsWith("/feedback")} label={tNav("feedback")} /> : null}
+        <Link
+          href="/dashboard"
           className="flex items-center gap-2 rounded-[var(--radius-control)] px-2 py-2 transition-colors hover:bg-[var(--surface-base)]"
         >
           <span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full bg-[var(--selection-bg)] text-xs font-bold text-[var(--selection-text)]">
@@ -152,11 +153,11 @@ export default function AppSidebar() {
             </div>
             {!isTesterAccount ? (
               <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                {planLabel}
+                {billingStatus?.creditBalance ?? planLabel} {tNav("credits")}
               </p>
             ) : null}
           </div>
-        </div>
+        </Link>
         <button
           type="button"
           onClick={handleLogout}
@@ -190,7 +191,7 @@ function IconNavItem({
       aria-current={active ? "page" : undefined}
       title={count ? `${label} (${count})` : label}
       className={cn(
-        "relative flex flex-col items-center gap-1 rounded-[var(--radius-control)] px-1 py-2 text-[10px] font-medium transition-colors",
+        "relative flex min-h-14 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] px-1 py-2 text-[10px] font-medium transition-colors",
         active
           ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]"
           : "text-[var(--text-secondary)] hover:bg-[var(--surface-base)] hover:text-[var(--text-primary)]"
@@ -203,7 +204,7 @@ function IconNavItem({
       />
       <span className="flex min-h-6 max-w-full items-center text-center leading-tight">{label}</span>
       {count ? (
-        <span className="absolute right-0.5 top-0.5 rounded border border-[var(--border-subtle)] bg-[var(--surface-base)] px-1 font-mono text-[8px] text-[var(--text-muted)]">
+        <span className="absolute right-0.5 top-0.5 inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-base)] px-1 font-mono text-[8px] tabular-nums text-[var(--text-muted)]">
           {count}
         </span>
       ) : null}

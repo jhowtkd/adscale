@@ -29,25 +29,27 @@ export default function SettingsV6View({
         <p className="text-sm text-[var(--text-secondary)]">{labels.subtitle}</p>
       </header>
 
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="divide-y divide-[var(--border-subtle)] overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)]">
         {cards.map((card) => {
           const isActive = activeCardId === card.id;
           const content = (
             <article
-              className={`flex h-full flex-col gap-3 rounded-[var(--radius-object)] border p-5 transition-colors ${
+              className={`flex min-h-20 items-center gap-4 p-4 text-left transition-colors ${
                 isActive
-                  ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
+                  ? "bg-[var(--selection-bg)]"
                   : card.enabled
-                    ? "border-[var(--border-subtle)] bg-[var(--surface-base)] hover:border-[var(--border-default)]"
-                    : "border-[var(--border-subtle)] bg-[var(--surface-base)]"
+                    ? "hover:bg-[var(--surface-raised)]"
+                    : ""
               }`}
             >
-              <span className="grid h-10 w-10 place-items-center rounded-[var(--radius-control)] bg-[var(--neutral-bg)] text-[var(--utility-icon)]">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-control)] bg-[var(--neutral-bg)] text-[var(--utility-icon)]">
                 <span aria-hidden="true">{card.icon}</span>
               </span>
-              <h2 className="text-base font-semibold text-[var(--text-primary)]">{card.title}</h2>
-              <p className="flex-1 text-sm leading-relaxed text-[var(--text-secondary)]">{card.description}</p>
-              <div className="flex items-center justify-between border-t border-[var(--border-subtle)] pt-3">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-sm font-semibold text-[var(--text-primary)]">{card.title}</h2>
+                <p className="mt-0.5 truncate text-sm text-[var(--text-secondary)]">{card.description}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-3">
                 <SettingsBadge variant={card.badgeVariant} label={card.badge} />
                 <span className="text-sm text-[var(--text-muted)]">
                   {card.actionLabel}

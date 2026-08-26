@@ -216,7 +216,7 @@ export default function DashboardV6View({
         pulseClass={pulseClass}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+      <div className="hidden" aria-hidden="true">
         <section
           className="min-w-0 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5 sm:p-6"
           data-tour-step="4"
