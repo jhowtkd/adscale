@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   activateSignupTrial,
+  activateSignupTrialForOwner,
   createPendingTrialEntitlement,
   ENTITLEMENT_STATUS_PENDING_VERIFICATION,
   TRIAL_CREDIT_GRANT_SOURCE,
@@ -489,3 +490,123 @@ describe("activateSignupTrial", () => {
     expect(mockUpdateEntitlementStatus).not.toHaveBeenCalled();
   });
 });
+
+describe("activateSignupTrialForOwner", () => {
+  const ownerUserId = "user-owner-1";
+  const workspaceId = "ws-trial-1";
+
+  const pendingEntitlement = {
+    id: "ent-trial-1",
+    workspaceId,
+    kind: "trial",
+    status: "pending_verification",
+    sourceCode: null,
+    redeemedByUserId: ownerUserId,
+    metadata: null,
+    startsAt: new Date(),
+    expiresAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const activeEntitlement = {
+    ...pendingEntitlement,
+    status: "active",
+  };
+
+  const trialCreditGrant = {
+    id: "grant-trial-1",
+    workspaceId,
+    source: "signup_trial",
+    sourceId: pendingEntitlement.id,
+    amount: 500,
+    remaining: 500,
+    expiresAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  let mockTxSelect: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    mockTxSelect = vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([{ role: "owner" }]),
+        }),
+      }),
+    });
+
+    mockDbTransaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
+      return cb({
+        select: mockTxSelect,
+      });
+    });
+
+    mockGetTrialEntitlementByWorkspaceForUpdate.mockResolvedValue(pendingEntitlement);
+    mockCreateCreditGrant.mockResolvedValue(trialCreditGrant);
+    mockUpdateEntitlementStatus.mockResolvedValue(activeEntitlement);
+    mockGetCreditGrantBySourceId.mockResolvedValue(null);
+  });
+
+  it("finds owner workspace and activates signup trial successfully", async () => {
+    vi.mocked(db.select).mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([{ workspaceId }]),
+          }),
+        }),
+      }),
+    } as never);
+
+    const result = await activateSignupTrialForOwner(ownerUserId);
+
+    expect(result.status).toBe("activated");
+    if (result.status === "activated") {
+      expect(result.entitlement.status).toBe("active");
+      expect(result.grant.amount).toBe(500);
+    }
+  });
+
+  it("returns not_eligible when user is not an owner of any workspace", async () => {
+    vi.mocked(db.select).mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      }),
+    } as never);
+
+    const result = await activateSignupTrialForOwner("non-owner-user");
+
+    expect(result).toEqual({
+      status: "not_eligible",
+      entitlement: null,
+      grant: null,
+    });
+  });
+
+  it("propagates errors thrown during trial activation", async () => {
+    vi.mocked(db.select).mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([{ workspaceId }]),
+          }),
+        }),
+      }),
+    } as never);
+
+    mockCreateCreditGrant.mockRejectedValueOnce(new Error("Credit grant failure"));
+
+    await expect(activateSignupTrialForOwner(ownerUserId)).rejects.toThrow(
+      "Credit grant failure"
+    );
+  });
+});
+

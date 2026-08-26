@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import {
   creditGrants,
@@ -136,3 +136,29 @@ export async function activateSignupTrial(input: {
     };
   });
 }
+
+export async function activateSignupTrialForOwner(
+  userId: string
+): Promise<ActivateSignupTrialResult> {
+  const member = await db
+    .select({ workspaceId: workspaceMembers.workspaceId })
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.userId, userId),
+        eq(workspaceMembers.role, "owner")
+      )
+    )
+    .orderBy(asc(workspaceMembers.createdAt))
+    .limit(1);
+
+  if (!member[0]) {
+    return { status: "not_eligible", entitlement: null, grant: null };
+  }
+
+  return activateSignupTrial({
+    workspaceId: member[0].workspaceId,
+    userId,
+  });
+}
+

@@ -19,6 +19,10 @@ import {
   isDevAdminEmail,
 } from "./dev-admin";
 import { isE2EControlledProviderEnabled } from "../ai/providers/e2e-controlled-provider";
+import {
+  activateSignupTrialForOwner,
+  createPendingTrialEntitlement,
+} from "../billing/trial";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -78,6 +82,9 @@ export const auth = betterAuth({
       const locale = await getUserLocale(user.id);
       await sendVerificationMessage({ to: user.email, url, locale });
     },
+    afterEmailVerification: async (user) => {
+      await activateSignupTrialForOwner(user.id);
+    },
   },
   plugins: [
     magicLink({
@@ -111,17 +118,28 @@ export const auth = betterAuth({
           };
         },
         after: async (user) => {
-          const workspace = await db
-            .insert(schema.workspaces)
-            .values({
-              name: `${user.name || user.email}'s Workspace`,
-              slug: `workspace-${user.id.slice(0, 8)}`,
-            })
-            .returning();
-          await db.insert(schema.workspaceMembers).values({
-            workspaceId: workspace[0].id,
-            userId: user.id,
-            role: "owner",
+          await db.transaction(async (tx) => {
+            const workspace = await tx
+              .insert(schema.workspaces)
+              .values({
+                name: `${user.name || user.email}'s Workspace`,
+                slug: `workspace-${user.id.slice(0, 8)}`,
+              })
+              .returning();
+            await tx.insert(schema.workspaceMembers).values({
+              workspaceId: workspace[0].id,
+              userId: user.id,
+              role: "owner",
+            });
+            if (!isDevAdminEmail(user.email)) {
+              await createPendingTrialEntitlement(
+                {
+                  workspaceId: workspace[0].id,
+                  userId: user.id,
+                },
+                tx
+              );
+            }
           });
         },
       },
