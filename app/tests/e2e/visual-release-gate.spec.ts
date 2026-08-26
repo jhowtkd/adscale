@@ -174,7 +174,7 @@ test.describe("visual release gate", () => {
     });
   }
 
-  test("ticket #167 keeps contextual help and neutral shell controls releasable", async ({ page }, testInfo) => {
+  test("ticket #167 keeps polished creation controls releasable", async ({ page }, testInfo) => {
     manifest = seedVisualManifest();
     const width = testInfo.project.use.viewport?.width;
     if (width !== 390 && width !== 1280) {
@@ -200,30 +200,11 @@ test.describe("visual release gate", () => {
 
     const protocol = page.getByRole("button", { name: new RegExp(`^${labels.protocol}\\b`) });
     const help = page.getByRole("button", { name: labels.help, exact: true });
-    const tooltip = page.getByRole("tooltip");
     await protocol.click();
     await expect(protocol).toHaveAttribute("aria-pressed", "true");
     await expect(protocol).toHaveClass(/(?:^|\s)bg-\[var\(--selection-bg\)\](?:\s|$)/);
-    await expect(help).toBeVisible();
+    await expect(help).toHaveCount(0);
     await expect(page.locator('header a[href="/docs"]')).toHaveCount(0);
-
-    if (testInfo.project.use.hasTouch) {
-      await help.tap();
-      await expect(tooltip).toBeVisible();
-      await help.tap();
-      await expect(tooltip).toBeHidden();
-    } else {
-      await help.hover();
-      await expect(tooltip).toBeVisible();
-      await page.keyboard.press("Escape");
-      await expect(tooltip).toBeHidden();
-
-      await page.mouse.move(0, 0);
-      await help.focus();
-      await expect(tooltip).toBeVisible();
-      await page.keyboard.press("Escape");
-      await expect(tooltip).toBeHidden();
-    }
 
     await page.goto(manifest.routes.variationWorkspace, { waitUntil: "domcontentloaded" });
     const variationWorkspace = page.getByTestId("variation-workspace");

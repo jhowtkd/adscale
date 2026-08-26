@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { Paperclip, Sparkles } from "lucide-react";
+import { Check, Paperclip, Sparkles } from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
 import { cn } from "@/lib/utils";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
@@ -130,39 +130,46 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
   ] : [];
   const variationDirections = isVariations && directions ? (
     <fieldset
-      className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4"
+      className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5"
       data-testid="variation-directions-region"
     >
-      <legend className="px-1 text-sm font-medium text-[var(--text-primary)]">{t("directionsTitle")}</legend>
-      <p className="mt-1 text-sm text-[var(--text-muted)]">{t("directionsHint")}</p>
+      <legend className="px-1 text-sm font-semibold text-[var(--text-primary)]">{t("directionsTitle")}</legend>
+      <p className="mt-1 max-w-2xl text-sm leading-5 text-[var(--text-muted)]">{t("directionsHint")}</p>
       {composer.directionSuggestionState === "loading" ? (
         <p className="mt-2 text-xs text-[var(--text-muted)]" role="status">{t("directionsLoading")}</p>
       ) : null}
-      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={t("directionsTitle")}>
-        {directions.directions.map((direction) => {
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2" role="group" aria-label={t("directionsTitle")}>
+        {directions.directions.map((direction, index) => {
           const selected = directions.selectedIds.includes(direction.id);
+          const fillsLastRow = directions.directions.length % 2 === 1
+            && index === directions.directions.length - 1;
           return (
-            <div key={direction.id} className="flex items-center gap-1">
-              <button
-                type="button"
-                aria-pressed={selected}
-                disabled={!selected && directions.selectedIds.length >= 5}
-                onClick={() => composer.toggleDirection(direction.id)}
-                className={cn(
-                  "rounded-full border px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50",
-                  selected
-                    ? "border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--selection-text)]"
-                    : "border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-secondary)]",
-                )}
-              >
-                {direction.label}
-              </button>
-              <ContextualHelp
-                label={t("directionHelpLabel", { direction: direction.label })}
-              >
-                {t("directionHelp", { instruction: direction.instruction })}
-              </ContextualHelp>
-            </div>
+            <button
+              key={direction.id}
+              type="button"
+              aria-label={direction.label}
+              aria-pressed={selected}
+              disabled={!selected && directions.selectedIds.length >= 5}
+              onClick={() => composer.toggleDirection(direction.id)}
+              className={cn(
+                "group min-h-28 rounded-[var(--radius-control)] border p-3 text-left transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50",
+                fillsLastRow && "sm:col-span-2",
+                selected
+                  ? "border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--selection-text)] ring-1 ring-inset ring-[var(--selection-border)]"
+                  : "border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-inset)]",
+              )}
+            >
+              <span className="flex items-start justify-between gap-3">
+                <span className="text-sm font-semibold text-[var(--text-primary)]">{direction.label}</span>
+                {selected ? (
+                  <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--selection-text)] text-[var(--surface-base)]">
+                    <Check size={12} strokeWidth={2.5} aria-hidden="true" />
+                  </span>
+                ) : null}
+              </span>
+              <span className="mt-2 block text-xs leading-5 text-[var(--text-muted)]">{direction.instruction}</span>
+            </button>
           );
         })}
       </div>
@@ -199,7 +206,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         <button type="button" onClick={composer.requestDirectionSuggestions} className="mt-3 text-sm font-semibold text-[var(--text-secondary)] underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{t("suggestAgain")}</button>
       ) : null}
       <details
-        className="mt-3 rounded-[var(--radius-control)] bg-[var(--surface-inset)] px-3 py-2"
+        className="mt-4 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-3 transition-colors open:bg-[var(--surface-base)]"
         onToggle={(event) => setManualDirectionsOpen(event.currentTarget.open)}
       >
         <summary className="cursor-pointer text-sm font-medium text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{t("manualDirections")}</summary>
