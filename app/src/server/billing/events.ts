@@ -142,7 +142,7 @@ async function processInvoicePaid(event: Stripe.Event) {
   }
 
   let subscription = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId);
-  if (!subscription) {
+  if (!subscription || subscription.status === "checkout_completed") {
     const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
     subscription = await syncSubscription(stripeSubscription);
   }
@@ -177,7 +177,7 @@ async function processInvoicePaymentFailed(event: Stripe.Event) {
   }
 
   let subscription = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId);
-  if (!subscription) {
+  if (!subscription || subscription.status === "checkout_completed") {
     const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
     subscription = await syncSubscription(stripeSubscription);
   }

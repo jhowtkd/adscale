@@ -83,7 +83,6 @@ export async function POST(
     const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_plan",
-      amount: 1,
       idempotencyKey: `competitor-strategy:${campaignId}`,
       metadata: { campaignId, competitorCount: competitorResults.length },
     });

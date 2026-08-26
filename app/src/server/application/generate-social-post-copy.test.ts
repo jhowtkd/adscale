@@ -120,7 +120,7 @@ describe("generateSocialPostCopy", () => {
     expect(mockSetCopy).not.toHaveBeenCalled();
   });
 
-  it("spends 2 credits, generates, persists, returns canonical", async () => {
+  it("spends copy_generation credits, generates, persists, returns canonical", async () => {
     const result = await generateSocialPostCopy({
       workspaceId: "ws-1",
       workItemId: "work-1",
@@ -134,7 +134,6 @@ describe("generateSocialPostCopy", () => {
       expect.objectContaining({
         workspaceId: "ws-1",
         action: "copy_generation",
-        amount: 2,
         idempotencyKey: "creative-work:work-1:copy",
       })
     );

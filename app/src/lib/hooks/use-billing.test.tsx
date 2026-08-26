@@ -228,5 +228,124 @@ describe("billing hooks", () => {
       method: "POST",
     });
   });
-});
 
+  it("when status reports pending trial, queries POST /api/billing/trial/activate once and refetches status", async () => {
+    mockApiFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            billing: {
+              hasCustomer: false,
+              subscriptionStatus: "none",
+              access: {
+                kind: "none",
+                label: "Sem acesso ativo",
+                remainingAds: null,
+                hasSpendAccess: false,
+                beta: null,
+                trial: { status: "pending_verification" },
+              },
+              pastDue: null,
+              canceled: null,
+              subscription: null,
+              creditBalance: 0,
+            },
+          }),
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            status: "activated",
+            entitlement: { id: "ent-1", status: "active" },
+            grant: { id: "grant-1", amount: 500 },
+          }),
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            billing: {
+              hasCustomer: false,
+              subscriptionStatus: "none",
+              access: {
+                kind: "trial",
+                label: "Trial",
+                remainingAds: 10,
+                hasSpendAccess: true,
+                beta: null,
+                trial: { status: "active" },
+              },
+              pastDue: null,
+              canceled: null,
+              subscription: null,
+              creditBalance: 500,
+            },
+          }),
+      } as unknown as Response);
+
+    const { result } = renderHook(() => useBillingStatus(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(mockApiFetch).toHaveBeenNthCalledWith(1, "/api/billing/status");
+    expect(mockApiFetch).toHaveBeenNthCalledWith(2, "/api/billing/trial/activate", {
+      method: "POST",
+    });
+    expect(mockApiFetch).toHaveBeenNthCalledWith(3, "/api/billing/status");
+
+    expect(result.current.data?.access.kind).toBe("trial");
+    expect(result.current.data?.access.trial?.status).toBe("active");
+    expect(result.current.data?.creditBalance).toBe(500);
+  });
+
+  it("when trial activation fails, surfaces as a temporary billing query error rather than none access", async () => {
+    mockApiFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            billing: {
+              hasCustomer: false,
+              subscriptionStatus: "none",
+              access: {
+                kind: "none",
+                label: "Sem acesso ativo",
+                remainingAds: null,
+                hasSpendAccess: false,
+                beta: null,
+                trial: { status: "pending_verification" },
+              },
+              pastDue: null,
+              canceled: null,
+              subscription: null,
+              creditBalance: 0,
+            },
+          }),
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: () =>
+          Promise.resolve({
+            error: "Email unverified",
+            code: "email_unverified",
+          }),
+      } as unknown as Response);
+
+    const { result } = renderHook(() => useBillingStatus(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(result.current.data).toBeUndefined();
+    expect(mockApiFetch).toHaveBeenNthCalledWith(1, "/api/billing/status");
+    expect(mockApiFetch).toHaveBeenNthCalledWith(2, "/api/billing/trial/activate", {
+      method: "POST",
+    });
+  });
+});

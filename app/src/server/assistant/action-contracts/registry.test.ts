@@ -15,7 +15,7 @@ describe("ACTION_CONTRACT_REGISTRY", () => {
     expect(contract.creditImpact).toEqual({
       kind: "creditAction",
       action: "restyling",
-      label: "5 créditos",
+      label: "50 créditos",
     });
     expect(contract.requiredFields).toEqual(["baseCreativeId"]);
   });

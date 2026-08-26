@@ -38,10 +38,6 @@ vi.mock("@/lib/hooks/use-billing", () => ({
     mutate: mockCheckoutMutate,
     isPending: false,
   })),
-  useRedeemBetaAccess: vi.fn(() => ({
-    mutateAsync: vi.fn(),
-    isPending: false,
-  })),
   useCreditHistory: vi.fn(),
 }));
 
@@ -189,6 +185,33 @@ describe("BillingTab account states", () => {
     expect(screen.getAllByText("billing.account.accessKinds.beta").length).toBeGreaterThan(0);
   });
 
+  it("shows signup trial labels and the scaled low-credit warning", () => {
+    mockBillingStatus({
+      hasCustomer: false,
+      subscriptionStatus: "none",
+      access: {
+        kind: "trial",
+        label: "Trial",
+        remainingAds: 1,
+        hasSpendAccess: true,
+        beta: null,
+        trial: { status: "active" },
+      },
+      pastDue: null,
+      canceled: null,
+      subscription: null,
+      creditBalance: 50,
+    });
+
+    render(<BillingTab />, { wrapper: createWrapper() });
+
+    expect(screen.getByText("billing.account.accessLabels.trial")).toBeInTheDocument();
+    expect(screen.getByText("billing.account.statusLabels.trial")).toBeInTheDocument();
+    expect(
+      screen.getByText('billing.account.lowCredits.trial:{"credits":50}')
+    ).toBeInTheDocument();
+  });
+
   it("shows active status from subscriptionStatus when subscription object is null", () => {
     mockBillingStatus({
       hasCustomer: true,
@@ -241,7 +264,7 @@ describe("BillingTab account states", () => {
     expect(screen.getByText(/jun.*2026/i)).toBeInTheDocument();
   });
 
-  it("shows no-access beta redeem section", () => {
+  it("shows plan options and no beta redeem section for workspace with no access", () => {
     mockBillingStatus({
       hasCustomer: false,
       subscriptionStatus: "none",
@@ -260,8 +283,54 @@ describe("BillingTab account states", () => {
 
     render(<BillingTab />, { wrapper: createWrapper() });
 
-    expect(screen.getByText("billing.account.noAccess.title")).toBeInTheDocument();
-    expect(screen.getAllByText("billing.account.accessKinds.none").length).toBeGreaterThan(0);
+    expect(screen.getByText("billing.account.plans.title")).toBeInTheDocument();
+    expect(screen.queryByText("billing.account.noAccess.title")).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/beta/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /redeem/i })).not.toBeInTheDocument();
+  });
+
+  it("renders paid plan cards with active pricing model (300/1,200/3,600 credits and R$ 47/147/397)", () => {
+    mockBillingStatus({
+      hasCustomer: false,
+      subscriptionStatus: "none",
+      access: {
+        kind: "none",
+        label: "Sem acesso ativo",
+        remainingAds: null,
+        hasSpendAccess: false,
+        beta: null,
+      },
+      pastDue: null,
+      canceled: null,
+      subscription: null,
+      creditBalance: 0,
+    });
+
+    render(<BillingTab />, { wrapper: createWrapper() });
+
+    expect(screen.getByText("Starter")).toBeInTheDocument();
+    expect(screen.getByText("Growth")).toBeInTheDocument();
+    expect(screen.getByText("Scale")).toBeInTheDocument();
+
+    // Check pricing and credits derived from planTiers
+    expect(screen.getByText(/R\$\s*47/)).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s*147/)).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s*397/)).toBeInTheDocument();
+
+    expect(screen.getByText(/300/)).toBeInTheDocument();
+    expect(screen.getByText(/1[.,]200/)).toBeInTheDocument();
+    expect(screen.getByText(/3[.,]600/)).toBeInTheDocument();
+
+    // Stale pricing must not be present
+    expect(screen.queryByText(/29/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/79/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/199/)).not.toBeInTheDocument();
+
+    // Buttons trigger checkout for respective plans
+    const subscribeButtons = screen.getAllByRole("button", { name: "billing.account.plans.startTrial" });
+    expect(subscribeButtons).toHaveLength(3);
+    fireEvent.click(subscribeButtons[0]);
+    expect(mockCheckoutMutate).toHaveBeenCalledWith({ planKey: "starter" });
   });
 
   it("renders grant history rows", () => {

@@ -230,6 +230,9 @@ export const creditGrants = adscaleSchema.table(
   (table) => [
     index("credit_grants_workspace_id_idx").on(table.workspaceId),
     index("credit_grants_source_id_idx").on(table.sourceId),
+    uniqueIndex("credit_grants_source_source_id_uidx")
+      .on(table.source, table.sourceId)
+      .where(sql`${table.sourceId} is not null`),
   ]
 );
 

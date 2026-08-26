@@ -89,7 +89,6 @@ export async function generateSocialPostCopy(
   const spendResult = await spend({
     workspaceId: input.workspaceId,
     action: "copy_generation",
-    amount: 2,
     idempotencyKey: `creative-work:${input.workItemId}:copy`,
     metadata: {
       creativeWorkId: input.workItemId,

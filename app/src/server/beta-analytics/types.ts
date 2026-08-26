@@ -27,6 +27,7 @@ export const ALLOWED_PROPERTY_KEYS = [
   "traceId",
   "evidenceEventCount",
   "blockedFieldCount",
+  "creditUnitVersion",
 ] as const;
 
 export type AllowedPropertyKey = (typeof ALLOWED_PROPERTY_KEYS)[number];

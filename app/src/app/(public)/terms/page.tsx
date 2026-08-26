@@ -59,7 +59,7 @@ export default function TermsPage() {
           <h2 className="text-lg font-semibold text-[var(--text-primary)]">5. Pagamentos e assinaturas</h2>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>Planos pagos são cobrados mensalmente via Stripe.</li>
-            <li>Trial de 14 dias. Cancelamento pode ser feito a qualquer momento pelo portal do Stripe.</li>
+            <li>Cancelamento pode ser feito a qualquer momento pelo portal do Stripe.</li>
             <li>Não realizamos reembolsos parciais de períodos já iniciados, exceto em caso de falha técnica comprovada.</li>
             <li>Créditos não utilizados não são transferidos entre meses, salvo disposição contratual específica.</li>
           </ul>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { GENERATION_CREDIT_COSTS } from "@/lib/billing/credit-units";
 import type {
   BrandTrainingAnalysis,
   BrandTrainingCategory,
@@ -485,14 +486,22 @@ export function quoteCreativeWork(input: {
         },
       };
     });
-    return { plans, unitCount: plans.length, credits: plans.length * 5 };
+    return {
+      plans,
+      unitCount: plans.length,
+      credits: plans.length * GENERATION_CREDIT_COSTS.creativeWorkOutput,
+    };
   }
   const plans: CreativeWorkOutputPlan[] = input.intent === "variations" || input.intent === "social_post"
     ? CREATIVE_LEVELS.map((creativeLevel) => ({ creativeLevel, targetFormat: input.format, versionNumber: 1 }))
     // Exactly one output per target format, without duplicates (R-001).
     : (input.intent === "format_adaptation" ? [...new Set(input.targetFormats)] : [input.format])
       .map((targetFormat) => ({ creativeLevel: "balanced" as const, targetFormat, versionNumber: 1 }));
-  return { plans, unitCount: plans.length, credits: plans.length * 5 };
+  return {
+    plans,
+    unitCount: plans.length,
+    credits: plans.length * GENERATION_CREDIT_COSTS.creativeWorkOutput,
+  };
 }
 
 export interface CreativeWorkIdentityAssetSnapshot {

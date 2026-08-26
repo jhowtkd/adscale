@@ -9,8 +9,10 @@ import {
 
 export const BETA_ENTITLEMENT_KIND = "beta_tester" as const;
 export const TESTER_ENTITLEMENT_KIND = "tester" as const;
+export const TRIAL_ENTITLEMENT_KIND = "trial" as const;
 export const ENTITLEMENT_STATUS_ACTIVE = "active" as const;
 export const ENTITLEMENT_STATUS_REVOKED = "revoked" as const;
+export const ENTITLEMENT_STATUS_PENDING_VERIFICATION = "pending_verification" as const;
 export const LAYER_EDITOR_ENTITLEMENT_KIND = "layer_editor_v1" as const;
 
 export const layerEditorEntitlementMetadataSchema = z.object({
@@ -24,7 +26,7 @@ export type TesterEntitlementMetadata = {
   grantedByEmail?: string;
 };
 
-type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 function activeEntitlementFilter(kind: string) {
   const now = new Date();
@@ -34,7 +36,6 @@ function activeEntitlementFilter(kind: string) {
     or(isNull(workspaceEntitlements.expiresAt), gt(workspaceEntitlements.expiresAt, now))
   );
 }
-
 export async function getActiveBetaEntitlementByWorkspace(
   workspaceId: string,
   tx?: DbOrTx
@@ -215,4 +216,95 @@ export async function recordBetaRedemption(
     .returning();
 
   return rows[0];
+}
+
+export async function getTrialEntitlementByWorkspace(
+  workspaceId: string,
+  tx?: DbOrTx,
+  lock = false
+) {
+  const client = tx ?? db;
+  const query = client
+    .select()
+    .from(workspaceEntitlements)
+    .where(
+      and(
+        eq(workspaceEntitlements.workspaceId, workspaceId),
+        eq(workspaceEntitlements.kind, TRIAL_ENTITLEMENT_KIND)
+      )
+    )
+    .limit(1);
+
+  if (lock) {
+    const rows = await query.for("update");
+    return rows[0] ?? null;
+  }
+
+  const rows = await query;
+  return rows[0] ?? null;
+}
+
+export async function getTrialEntitlementByWorkspaceForUpdate(
+  workspaceId: string,
+  tx: DbOrTx
+) {
+  return getTrialEntitlementByWorkspace(workspaceId, tx, true);
+}
+
+export async function getActiveTrialEntitlementByWorkspace(
+  workspaceId: string,
+  tx?: DbOrTx
+) {
+  const client = tx ?? db;
+  const rows = await client
+    .select()
+    .from(workspaceEntitlements)
+    .where(
+      and(
+        eq(workspaceEntitlements.workspaceId, workspaceId),
+        activeEntitlementFilter(TRIAL_ENTITLEMENT_KIND)
+      )
+    )
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+export async function createPendingTrialEntitlement(
+  data: {
+    workspaceId: string;
+    userId: string;
+  },
+  tx: DbOrTx
+) {
+  const rows = await tx
+    .insert(workspaceEntitlements)
+    .values({
+      workspaceId: data.workspaceId,
+      kind: TRIAL_ENTITLEMENT_KIND,
+      status: ENTITLEMENT_STATUS_PENDING_VERIFICATION,
+      redeemedByUserId: data.userId,
+      updatedAt: new Date(),
+    })
+    .returning();
+
+  return rows[0];
+}
+
+export async function updateEntitlementStatus(
+  id: string,
+  status: string,
+  tx?: DbOrTx
+) {
+  const client = tx ?? db;
+  const rows = await client
+    .update(workspaceEntitlements)
+    .set({
+      status,
+      updatedAt: new Date(),
+    })
+    .where(eq(workspaceEntitlements.id, id))
+    .returning();
+
+  return rows[0] ?? null;
 }

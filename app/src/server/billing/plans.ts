@@ -1,14 +1,11 @@
+import { PLAN_CREDIT_GRANTS } from "@/lib/billing/credit-units";
 import { env } from "@/server/validation/env";
 
 export const billingPlanKeys = ["starter", "growth", "scale"] as const;
 
 export type BillingPlanKey = (typeof billingPlanKeys)[number];
 
-export const planCreditGrants: Record<BillingPlanKey, number> = {
-  starter: 30,
-  growth: 120,
-  scale: 360,
-};
+export const planCreditGrants: Record<BillingPlanKey, number> = PLAN_CREDIT_GRANTS;
 
 const priceIdsByPlan: Record<BillingPlanKey, string> = {
   starter: env.STRIPE_STARTER_PRICE_ID,

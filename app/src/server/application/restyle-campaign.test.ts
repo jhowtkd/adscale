@@ -116,7 +116,6 @@ describe("restyleCampaign", () => {
       campaignId: "c1",
       userId: "u1",
       billingAction: "image_derivation",
-      billingAmount: 5,
       billingAttemptId: "attempt-1",
       styleIntensity: "strong",
     });
@@ -124,6 +123,7 @@ describe("restyleCampaign", () => {
     expect(mockSpend).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "image_derivation",
+        amount: 50,
         idempotencyKey: "restyling:c1:base-1:style-1:strong:attempt-1",
       })
     );
@@ -135,7 +135,6 @@ describe("restyleCampaign", () => {
       campaignId: "c1",
       userId: "u1",
       billingAction: "image_derivation",
-      billingAmount: 5,
       billingAttemptId: "a",
     });
     mockCreate.mockResolvedValue({
@@ -149,7 +148,6 @@ describe("restyleCampaign", () => {
       campaignId: "c1",
       userId: "u1",
       billingAction: "image_derivation",
-      billingAmount: 5,
       billingAttemptId: "b",
     });
     const keys = mockSpend.mock.calls.map(
@@ -173,7 +171,6 @@ describe("restyleCampaign", () => {
       baseCreativeId: "base-1",
       styleAssetId: "style-1",
       billingAction: "restyling",
-      billingAmount: 5,
       billingIdempotencyKey: "assistant-action:a1:quick_restyle",
       assistantActionId: "a1",
     });
@@ -224,7 +221,6 @@ describe("restyleCampaign", () => {
       campaignId: "c1",
       userId: "u1",
       billingAction: "image_derivation",
-      billingAmount: 5,
       billingAttemptId: "attempt-x",
     });
 
@@ -237,7 +233,7 @@ describe("restyleCampaign", () => {
       expect.objectContaining({
         workspaceId: "ws-1",
         idempotencyKey: "restyling:c1:base-1:style-1:default:attempt-x:dispatch-refund",
-        amount: 5,
+        amount: 50,
       }),
     );
   });

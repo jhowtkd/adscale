@@ -71,7 +71,7 @@ function paidAccess() {
   return {
     kind: "paid" as const,
     label: "Assinatura ativa",
-    creditBalance: 20,
+    creditBalance: 200,
     remainingAds: 4,
     hasSpendAccess: true,
     subscription: null,
@@ -83,7 +83,7 @@ function betaAccess() {
   return {
     kind: "beta" as const,
     label: "Acesso beta",
-    creditBalance: 50,
+    creditBalance: 500,
     remainingAds: 10,
     hasSpendAccess: true,
     subscription: null,
@@ -95,7 +95,7 @@ function noAccess() {
   return {
     kind: "none" as const,
     label: "Sem acesso ativo",
-    creditBalance: 20,
+    creditBalance: 200,
     remainingAds: null,
     hasSpendAccess: false,
     subscriptionStatus: "none" as const,
@@ -109,7 +109,7 @@ function pastDueAccess() {
   return {
     kind: "paid" as const,
     label: "Pagamento pendente",
-    creditBalance: 30,
+    creditBalance: 300,
     remainingAds: 6,
     hasSpendAccess: true,
     subscriptionStatus: "past_due" as const,
@@ -140,13 +140,13 @@ describe("credit entitlement service", () => {
       null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>
     );
     mockGetWorkspaceBillingAccess.mockResolvedValue(paidAccess());
-    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 20)]);
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 200)]);
   });
 
   it("allows active subscriptions with enough credits", async () => {
     const result = await canSpend("workspace-1", "image_derivation");
 
-    expect(result).toEqual({ allowed: true, amount: 5, balance: 20 });
+    expect(result).toEqual({ allowed: true, amount: 50, balance: 200 });
   });
 
   it("blocks workspaces without paid or beta access", async () => {
@@ -156,53 +156,53 @@ describe("credit entitlement service", () => {
 
     expect(result).toEqual({
       allowed: false,
-      amount: 5,
-      balance: 20,
+      amount: 50,
+      balance: 200,
       reason: "inactive_subscription",
     });
   });
 
   it("allows past_due workspaces to spend existing credits", async () => {
     mockGetWorkspaceBillingAccess.mockResolvedValue(pastDueAccess());
-    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 30)]);
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 300)]);
 
     const result = await canSpend("workspace-1", "image_derivation");
 
-    expect(result).toEqual({ allowed: true, amount: 5, balance: 30 });
+    expect(result).toEqual({ allowed: true, amount: 50, balance: 300 });
   });
 
   it("allows beta workspaces with enough credits", async () => {
     mockGetWorkspaceBillingAccess.mockResolvedValue(betaAccess());
-    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 50)]);
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 500)]);
 
     const result = await canSpend("workspace-1", "image_derivation");
 
-    expect(result).toEqual({ allowed: true, amount: 5, balance: 50 });
+    expect(result).toEqual({ allowed: true, amount: 50, balance: 500 });
   });
 
   it("blocks beta workspaces without credits", async () => {
     mockGetWorkspaceBillingAccess.mockResolvedValue(betaAccess());
-    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 2)]);
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 20)]);
 
     const result = await canSpend("workspace-1", "image_derivation");
 
     expect(result).toEqual({
       allowed: false,
-      amount: 5,
-      balance: 2,
+      amount: 50,
+      balance: 20,
       reason: "insufficient_credits",
     });
   });
 
   it("blocks insufficient credit balance", async () => {
-    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 3)]);
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 30)]);
 
     const result = await canSpend("workspace-1", "image_derivation");
 
     expect(result).toEqual({
       allowed: false,
-      amount: 5,
-      balance: 3,
+      amount: 50,
+      balance: 30,
       reason: "insufficient_credits",
     });
   });
@@ -212,7 +212,7 @@ describe("credit entitlement service", () => {
       id: "usage-1",
       workspaceId: "workspace-1",
       type: "image_derivation",
-      amount: 5,
+      amount: 50,
       idempotencyKey: "derivation:123",
       metadata: null,
       createdAt: new Date(),
@@ -232,16 +232,16 @@ describe("credit entitlement service", () => {
 
   it("debits grants and records usage with metadata", async () => {
     mockGetAvailableCreditGrants.mockResolvedValue([
-      grant("grant-1", 3),
-      grant("grant-2", 7),
+      grant("grant-1", 30),
+      grant("grant-2", 70),
     ]);
     mockTrackUsage.mockResolvedValue({
       id: "usage-1",
       workspaceId: "workspace-1",
       type: "image_derivation",
-      amount: 5,
+      amount: 50,
       idempotencyKey: "derivation:123",
-      metadata: { derivationId: "123", creditAmount: 5 },
+      metadata: { derivationId: "123", creditAmount: 50 },
       createdAt: new Date(),
     });
 
@@ -253,12 +253,12 @@ describe("credit entitlement service", () => {
     });
 
     expect(mockUpdateCreditGrantRemaining).toHaveBeenCalledWith("grant-1", 0, expect.anything());
-    expect(mockUpdateCreditGrantRemaining).toHaveBeenCalledWith("grant-2", 5, expect.anything());
+    expect(mockUpdateCreditGrantRemaining).toHaveBeenCalledWith("grant-2", 50, expect.anything());
     expect(mockTrackUsage).toHaveBeenCalledWith(
       "workspace-1",
       "image_derivation",
-      5,
-      { derivationId: "123", creditAmount: 5, unlimitedBillingBypass: undefined },
+      50,
+      { derivationId: "123", creditAmount: 50, unlimitedBillingBypass: undefined },
       "derivation:123",
       expect.anything()
     );
@@ -270,9 +270,9 @@ describe("credit entitlement service", () => {
       id: "usage-1",
       workspaceId: "workspace-1",
       type: "image_derivation",
-      amount: 5,
+      amount: 50,
       idempotencyKey: "derivation:123",
-      metadata: { derivationId: "123", creditAmount: 5 },
+      metadata: { derivationId: "123", creditAmount: 50 },
       createdAt: new Date(),
     });
 
@@ -284,7 +284,7 @@ describe("credit entitlement service", () => {
       metadata: {
         campaignId: "550e8400-e29b-41d4-a716-446655440001",
         derivationId: "550e8400-e29b-41d4-a716-446655440002",
-        estimateCredits: 5,
+        estimateCredits: 50,
         betaSessionId: VALID_SESSION_ID,
       },
     });
@@ -301,8 +301,9 @@ describe("credit entitlement service", () => {
         properties: expect.objectContaining({
           operation: "image_derivation",
           operation_key: "image_derivation",
-          actualCredits: 5,
-          estimateCredits: 5,
+          actualCredits: 50,
+          estimateCredits: 50,
+          creditUnitVersion: 2,
         }),
       })
     );
@@ -313,22 +314,22 @@ describe("credit entitlement service", () => {
       id: "usage-1",
       workspaceId: "workspace-1",
       type: "image_derivation",
-      amount: 8,
+      amount: 80,
       idempotencyKey: "derivation:delta",
-      metadata: { creditAmount: 8 },
+      metadata: { creditAmount: 80 },
       createdAt: new Date(),
     });
 
     await recordUsage({
       workspaceId: "workspace-1",
       action: "image_derivation",
-      amount: 8,
+      amount: 80,
       idempotencyKey: "derivation:delta",
       userId: "user-1",
       metadata: {
         preview: true,
         operation_key: "preview",
-        estimateCredits: 5,
+        estimateCredits: 50,
       },
     });
     await flushAnalytics();
@@ -338,16 +339,17 @@ describe("credit entitlement service", () => {
         eventKey: "credit_spend",
         properties: expect.objectContaining({
           operation_key: "preview",
-          estimateCredits: 5,
-          actualCredits: 8,
-          creditDelta: 3,
+          estimateCredits: 50,
+          actualCredits: 80,
+          creditDelta: 30,
+          creditUnitVersion: 2,
         }),
       })
     );
   });
 
   it("emits credit_blocked when recordUsage is blocked and userId is provided", async () => {
-    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 3)]);
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 30)]);
 
     const result = await recordUsage({
       workspaceId: "workspace-1",
@@ -367,7 +369,8 @@ describe("credit entitlement service", () => {
           operation: "image_derivation",
           operation_key: "image_derivation",
           reasonCode: "insufficient_credits",
-          estimateCredits: 5,
+          estimateCredits: 50,
+          creditUnitVersion: 2,
         }),
       })
     );
@@ -378,9 +381,9 @@ describe("credit entitlement service", () => {
       id: "usage-1",
       workspaceId: "workspace-1",
       type: "image_derivation",
-      amount: 5,
+      amount: 50,
       idempotencyKey: "derivation:123",
-      metadata: { creditAmount: 5 },
+      metadata: { creditAmount: 50 },
       createdAt: new Date(),
     });
     mockRecordBetaAnalyticsEvent.mockRejectedValue(new Error("analytics down"));
@@ -404,15 +407,15 @@ describe("refundCredits", () => {
       null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>
     );
     mockWorkspaceHasUnlimitedBillingAccess.mockResolvedValue(false);
-    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 10)]);
-    mockGetRefundableCreditGrants.mockResolvedValue([grant("grant-1", 10)]);
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 100)]);
+    mockGetRefundableCreditGrants.mockResolvedValue([grant("grant-1", 100)]);
     mockCreateCreditTransaction.mockResolvedValue({
       id: "tx-1",
       userId: "user-1",
       workspaceId: "workspace-1",
       campaignId: null,
       derivationId: null,
-      amount: 5,
+      amount: 50,
       type: "refund",
       description: "image_derivation_refund",
       createdAt: new Date(),
@@ -421,15 +424,15 @@ describe("refundCredits", () => {
       id: "usage-r1",
       workspaceId: "workspace-1",
       type: "image_derivation",
-      amount: -5,
+      amount: -50,
       idempotencyKey: "refund-key",
-      metadata: { refund: true, creditAmount: 5 },
+      metadata: { refund: true, creditAmount: 50 },
       createdAt: new Date(),
     });
   });
 
   it("credits grants back and creates refund transaction", async () => {
-    mockGetRefundableCreditGrants.mockResolvedValue([grant("grant-1", 8)]);
+    mockGetRefundableCreditGrants.mockResolvedValue([grant("grant-1", 80)]);
 
     const result = await refundCredits({
       workspaceId: "workspace-1",
@@ -442,16 +445,16 @@ describe("refundCredits", () => {
     expect(result.status).toBe("refunded");
     expect(mockUpdateCreditGrantRemaining).toHaveBeenCalledWith(
       "grant-1",
-      13,
+      130,
       expect.anything()
     );
     expect(mockTrackUsage).toHaveBeenCalledWith(
       "workspace-1",
       "image_derivation",
-      -5,
+      -50,
       expect.objectContaining({
         refund: true,
-        creditAmount: 5,
+        creditAmount: 50,
         actionId: "action-1",
         derivationId: "derivation-1",
       }),
@@ -462,7 +465,7 @@ describe("refundCredits", () => {
       expect.objectContaining({
         userId: "user-1",
         workspaceId: "workspace-1",
-        amount: 5,
+        amount: 50,
         type: "refund",
         description: "image_derivation_refund",
         derivationId: "derivation-1",
@@ -475,9 +478,9 @@ describe("refundCredits", () => {
       id: "usage-r1",
       workspaceId: "workspace-1",
       type: "image_derivation",
-      amount: -5,
+      amount: -50,
       idempotencyKey: "assistant-action:action-1:refund",
-      metadata: { refund: true, creditAmount: 5 },
+      metadata: { refund: true, creditAmount: 50 },
       createdAt: new Date(),
     };
     mockGetUsageByIdempotencyKey.mockResolvedValue(existingUsage);
@@ -520,7 +523,7 @@ describe("refundCredits", () => {
     expect(result.status).toBe("refunded");
     expect(mockUpdateCreditGrantRemaining).toHaveBeenCalledWith(
       "grant-drained",
-      5,
+      50,
       expect.anything()
     );
   });
@@ -533,7 +536,7 @@ describe("refundCredits", () => {
       type: "image_derivation",
       amount: 0,
       idempotencyKey: "creative-work:work-1:output:output-1:generate",
-      metadata: { creditAmount: 5, unlimitedBillingBypass: true },
+      metadata: { creditAmount: 50, unlimitedBillingBypass: true },
       createdAt: new Date(),
     });
 
@@ -541,7 +544,7 @@ describe("refundCredits", () => {
       workspaceId: "workspace-1",
       action: "image_derivation",
       idempotencyKey: "creative-work:work-1:output:output-1:generate",
-      amount: 5,
+      amount: 50,
       metadata: { creativeWorkId: "work-1", outputId: "output-1" },
       userId: "user-1",
     });
@@ -552,7 +555,7 @@ describe("refundCredits", () => {
     expect(result.settlement).toEqual({
       kind: "unlimited_billing_bypass",
       billedCredits: 0,
-      listedCredits: 5,
+      listedCredits: 50,
       internalDebit: false,
       refund: "not_applicable",
       reason: "settled_without_internal_debit",
@@ -580,7 +583,7 @@ describe("refundCredits", () => {
       0,
       expect.objectContaining({
         refund: true,
-        creditAmount: 5,
+        creditAmount: 50,
         unlimitedBillingBypass: true,
       }),
       "assistant-action:action-dev:refund",
@@ -588,7 +591,7 @@ describe("refundCredits", () => {
     );
     expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
       expect.objectContaining({
-        amount: 5,
+        amount: 50,
         type: "refund",
         userId: "user-1",
       })
@@ -621,13 +624,13 @@ describe("refundCredits", () => {
     expect(mockTrackUsage).toHaveBeenCalledWith(
       "workspace-1",
       "landing_page",
-      -10,
-      expect.objectContaining({ creditAmount: 10 }),
+      -100,
+      expect.objectContaining({ creditAmount: 100 }),
       "assistant-action:action-lp:refund",
       expect.anything()
     );
     expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: 10, type: "refund" })
+      expect.objectContaining({ amount: 100, type: "refund" })
     );
   });
 });

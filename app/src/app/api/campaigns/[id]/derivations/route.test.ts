@@ -187,8 +187,8 @@ describe("POST /api/campaigns/[id]/derivations outputLearningApplication", () =>
         origin: "campaign",
         surface: "campaign",
         unitCount: 2,
-        unitChargeAmount: 5,
-        chargeAmount: 10,
+        unitChargeAmount: 50,
+        chargeAmount: 100,
         parentId: "camp-1",
       }),
       expect.objectContaining({
@@ -196,7 +196,7 @@ describe("POST /api/campaigns/[id]/derivations outputLearningApplication", () =>
         metadata: expect.objectContaining({
           campaignId: "camp-1",
           operation_key: "batch",
-          estimateCredits: 10,
+          estimateCredits: 100,
         }),
       })
     );

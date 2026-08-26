@@ -617,6 +617,20 @@
       "when": 1786655123002,
       "tag": "0087_rejected_brand_training_assets",
       "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1786655123003,
+      "tag": "0088_credit_unit_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1787731200000,
+      "tag": "0089_credit_grant_source_idempotency",
+      "breakpoints": true
     }
   ]
 }

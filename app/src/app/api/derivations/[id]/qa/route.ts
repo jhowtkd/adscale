@@ -93,7 +93,6 @@ export async function POST(
     const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_qa",
-      amount: 1,
       idempotencyKey: `qa:${id}`,
       metadata: { derivationId: id, campaignId: derivation.campaignId },
     });

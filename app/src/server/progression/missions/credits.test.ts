@@ -33,7 +33,7 @@ describe("mission credit estimates", () => {
   });
 
   it("detects insufficient credits for active mission", () => {
-    expect(missionHasInsufficientCredits("preview", 4)).toBe(true);
-    expect(missionHasInsufficientCredits("preview", 5)).toBe(false);
+    expect(missionHasInsufficientCredits("preview", 49)).toBe(true);
+    expect(missionHasInsufficientCredits("preview", 50)).toBe(false);
   });
 });

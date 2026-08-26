@@ -26,20 +26,14 @@ import {
   UNLIMITED_CREDIT_BALANCE,
   workspaceHasUnlimitedBillingAccess,
 } from "@/server/billing/unlimited-access";
+import {
+  CREDIT_COSTS,
+  CREDIT_UNIT_VERSION,
+  LOW_CREDIT_THRESHOLD,
+  type CreditAction,
+} from "@/lib/billing/credit-units";
 
-export const CREDIT_COSTS = {
-  creative_plan: 1,
-  image_derivation: 5,
-  regeneration: 5,
-  restyling: 5,
-  delivery_package_child: 5,
-  landing_page: 10,
-  creative_qa: 1,
-  copy_generation: 2,
-  personaSimulation: 3,
-} as const;
-
-export type CreditAction = keyof typeof CREDIT_COSTS;
+export { CREDIT_COSTS, type CreditAction };
 
 export type SpendCheck =
   | { allowed: true; amount: number; balance: number }
@@ -105,6 +99,7 @@ function emitCreditBlockedAnalytics(
       operation_key: operationKey,
       reasonCode: check.reason,
       estimateCredits: check.amount,
+      creditUnitVersion: CREDIT_UNIT_VERSION,
     },
   }).catch((err) => {
     logger.warn("[recordUsage] credit_blocked analytics failed", err);
@@ -143,6 +138,7 @@ function emitCreditSpendAnalytics(
       operation_key: operationKey,
       actualCredits,
       estimateCredits,
+      creditUnitVersion: CREDIT_UNIT_VERSION,
       ...(creditDelta !== undefined ? { creditDelta } : {}),
     },
   }).catch((err) => {
@@ -322,7 +318,7 @@ export async function recordUsage(input: {
   const newBalance = unlimitedBillingBypass
     ? UNLIMITED_CREDIT_BALANCE
     : check.balance - check.amount;
-  if (!unlimitedBillingBypass && newBalance < 10) {
+  if (!unlimitedBillingBypass && newBalance < LOW_CREDIT_THRESHOLD) {
     try {
       const recipients = await getWorkspaceNotificationRecipients(input.workspaceId);
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);

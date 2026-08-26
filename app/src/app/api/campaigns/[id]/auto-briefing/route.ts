@@ -80,7 +80,6 @@ export async function POST(
     const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_qa",
-      amount: 1,
       idempotencyKey: `auto-briefing:${campaignId}:${imageKey}`,
       metadata: { campaignId, imageKey },
     });

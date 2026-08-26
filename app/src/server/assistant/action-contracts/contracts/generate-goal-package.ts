@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { GOAL_FORMATS } from "@/lib/assistant/goal";
+import { GENERATION_CREDIT_COSTS } from "@/lib/billing/credit-units";
 import type { ActionContract } from "../types";
 
 const PACKAGE_FORMATS = GOAL_FORMATS.filter((f) => f !== "1:1");
 
 /**
  * Proposes the three missing package formats once a 1:1 base is approved. The
- * base already counts toward the four-format package, so this charges 15
+ * base already counts toward the four-format package, so this charges 150
  * credits once for the three additional formats (4:5, 9:16, 16:9) and is
  * non-refundable. Each child preserves the approved base's copy, offer, CTA,
  * identity, and creative level — format adaptation varies only layout.
@@ -34,8 +35,8 @@ export const generateGoalPackageContract: ActionContract<
   creditImpact: {
     kind: "creditAction",
     action: "delivery_package_child",
-    amount: 15,
-    label: "15 créditos — três formatos adicionais",
+    amount: GENERATION_CREDIT_COSTS.goalPackage,
+    label: `${GENERATION_CREDIT_COSTS.goalPackage} créditos — três formatos adicionais`,
   },
   confirmationPolicy: "required",
   alwaysRiskCopy: [

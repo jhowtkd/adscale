@@ -262,4 +262,100 @@ describe("billing status route", () => {
     expect(mockGetMemberRole).toHaveBeenCalledWith("workspace-1", "user-1");
     expect(body.billing.access.role).toBe("member");
   });
+
+  it("returns pending trial status in access.trial when trial entitlement is pending_verification", async () => {
+    mockGetWorkspaceBillingAccess.mockResolvedValue({
+      kind: "none",
+      label: "Sem acesso ativo",
+      creditBalance: 0,
+      remainingAds: null,
+      hasSpendAccess: false,
+      subscriptionStatus: "none",
+      subscription: null,
+      latestSubscription: null,
+      betaEntitlement: null,
+      testerEntitlement: null,
+      trialEntitlement: {
+        id: "ent-trial-1",
+        workspaceId: "workspace-1",
+        kind: "trial",
+        status: "pending_verification",
+        sourceCode: null,
+        redeemedByUserId: "user-1",
+        metadata: null,
+        startsAt: new Date(),
+        expiresAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    } as unknown as Awaited<ReturnType<typeof getWorkspaceBillingAccess>>);
+
+    const response = await GET(new Request("http://localhost/api/billing/status"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.billing.access.kind).toBe("none");
+    expect(body.billing.access.trial).toEqual({
+      status: "pending_verification",
+    });
+  });
+
+  it("returns active trial status in access.trial when trial entitlement is active", async () => {
+    mockGetWorkspaceBillingAccess.mockResolvedValue({
+      kind: "trial",
+      label: "Trial",
+      creditBalance: 500,
+      remainingAds: 10,
+      hasSpendAccess: true,
+      subscriptionStatus: "none",
+      subscription: null,
+      latestSubscription: null,
+      betaEntitlement: null,
+      testerEntitlement: null,
+      trialEntitlement: {
+        id: "ent-trial-1",
+        workspaceId: "workspace-1",
+        kind: "trial",
+        status: "active",
+        sourceCode: null,
+        redeemedByUserId: "user-1",
+        metadata: null,
+        startsAt: new Date(),
+        expiresAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    } as unknown as Awaited<ReturnType<typeof getWorkspaceBillingAccess>>);
+
+    const response = await GET(new Request("http://localhost/api/billing/status"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.billing.access.kind).toBe("trial");
+    expect(body.billing.access.trial).toEqual({
+      status: "active",
+    });
+  });
+
+  it("returns null access.trial when no trial entitlement exists", async () => {
+    mockGetWorkspaceBillingAccess.mockResolvedValue({
+      kind: "paid",
+      label: "Assinatura ativa",
+      creditBalance: 120,
+      remainingAds: 24,
+      hasSpendAccess: true,
+      subscriptionStatus: "active",
+      subscription: null,
+      latestSubscription: null,
+      betaEntitlement: null,
+      testerEntitlement: null,
+      trialEntitlement: null,
+    } as unknown as Awaited<ReturnType<typeof getWorkspaceBillingAccess>>);
+
+    const response = await GET(new Request("http://localhost/api/billing/status"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.billing.access.trial).toBeNull();
+  });
 });

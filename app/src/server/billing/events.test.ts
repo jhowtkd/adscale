@@ -182,8 +182,8 @@ describe("processStripeEvent", () => {
       workspaceId: "workspace-1",
       source: "stripe_invoice",
       sourceId: "in_123",
-      amount: 120,
-      remaining: 120,
+      amount: 1200,
+      remaining: 1200,
       expiresAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -224,13 +224,15 @@ describe("processStripeEvent", () => {
 
     const result = await processStripeEvent(event);
 
-    expect(mockCreateCreditGrant).toHaveBeenCalledWith({
-      workspaceId: "workspace-1",
-      source: "stripe_invoice",
-      sourceId: "in_123",
-      amount: 120,
-      expiresAt: periodEnd,
-    });
+    expect(mockCreateCreditGrant).toHaveBeenCalledWith(
+      {
+        workspaceId: "workspace-1",
+        source: "stripe_invoice",
+        sourceId: "in_123",
+        amount: 1200,
+        expiresAt: periodEnd,
+      }
+    );
     expect(result).toEqual({ status: "processed", type: "invoice.paid" });
   });
 
@@ -277,13 +279,15 @@ describe("processStripeEvent", () => {
       workspaceId: "workspace-1",
       stripeCustomerId: "cus_123",
     });
-    expect(mockCreateCreditGrant).toHaveBeenCalledWith({
-      workspaceId: "workspace-1",
-      source: "stripe_invoice",
-      sourceId: "in_123",
-      amount: 120,
-      expiresAt: periodEnd,
-    });
+    expect(mockCreateCreditGrant).toHaveBeenCalledWith(
+      {
+        workspaceId: "workspace-1",
+        source: "stripe_invoice",
+        sourceId: "in_123",
+        amount: 1200,
+        expiresAt: periodEnd,
+      }
+    );
     expect(result).toEqual({ status: "processed", type: "invoice.paid" });
   });
 
@@ -389,13 +393,87 @@ describe("processStripeEvent", () => {
     const result = await processStripeEvent(event);
 
     expect(mockGetSubscription).toHaveBeenCalledWith("sub_123");
-    expect(mockCreateCreditGrant).toHaveBeenCalledWith({
+    expect(mockCreateCreditGrant).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        source: "stripe_invoice",
+        sourceId: "in_123",
+        amount: 1200,
+        expiresAt: periodEnd,
+      })
+    );
+    expect(result).toEqual({ status: "processed", type: "invoice.paid" });
+  });
+
+  it("syncs subscription from Stripe and grants credits when local subscription is in checkout_completed state", async () => {
+    const periodEnd = new Date("2026-06-19T00:00:00.000Z");
+    mockGetSubscription.mockResolvedValue({
+      id: "local-sub-id",
       workspaceId: "workspace-1",
-      source: "stripe_invoice",
-      sourceId: "in_123",
-      amount: 120,
-      expiresAt: periodEnd,
+      billingCustomerId: "cus_123",
+      stripeSubscriptionId: "sub_123",
+      stripeCustomerId: "cus_123",
+      status: "checkout_completed",
+      planKey: "starter",
+      priceId: "price_starter",
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+      cancelAtPeriodEnd: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
+    mockStripeSubscriptionRetrieve.mockResolvedValue({
+      id: "sub_123",
+      customer: "cus_123",
+      status: "active",
+      metadata: {
+        workspaceId: "workspace-1",
+        planKey: "starter",
+      },
+      items: { data: [{ price: { id: "price_starter" } }] },
+      current_period_start: 1779148800,
+      current_period_end: 1781827200,
+      cancel_at_period_end: false,
+    } as unknown as Stripe.Response<Stripe.Subscription>);
+    mockUpsertSubscription.mockResolvedValue({
+      id: "local-sub-id",
+      workspaceId: "workspace-1",
+      billingCustomerId: null,
+      stripeSubscriptionId: "sub_123",
+      stripeCustomerId: "cus_123",
+      status: "active",
+      planKey: "starter",
+      priceId: "price_starter",
+      currentPeriodStart: new Date("2026-05-19T00:00:00.000Z"),
+      currentPeriodEnd: periodEnd,
+      cancelAtPeriodEnd: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const event = stripeEvent("invoice.paid", {
+      id: "in_first_invoice",
+      subscription: "sub_123",
+    });
+
+    const result = await processStripeEvent(event);
+
+    expect(mockStripeSubscriptionRetrieve).toHaveBeenCalledWith("sub_123");
+    expect(mockUpsertSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        status: "active",
+        planKey: "starter",
+      })
+    );
+    expect(mockCreateCreditGrant).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        source: "stripe_invoice",
+        sourceId: "in_first_invoice",
+        amount: 300,
+      })
+    );
     expect(result).toEqual({ status: "processed", type: "invoice.paid" });
   });
 });

@@ -77,7 +77,6 @@ export async function POST(
     const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "image_derivation",
-      amount: 5,
       idempotencyKey: `competitor-analyze:${campaignId}:${validFiles.map(({ file }) => file.name).join("|")}`,
       metadata: { campaignId, fileCount: validFiles.length },
     });

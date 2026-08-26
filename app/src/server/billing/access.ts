@@ -7,6 +7,7 @@ import {
 import {
   getActiveBetaEntitlementByWorkspace,
   getActiveTesterEntitlementByWorkspace,
+  getTrialEntitlementByWorkspace,
 } from "@/server/repositories/entitlements";
 
 import {
@@ -26,7 +27,7 @@ import { UNLIMITED_CREDIT_BALANCE } from "@/server/billing/unlimited-access";
 export const PAST_DUE_SPEND_POLICY = "existing_credits_spendable" as const;
 export const PAST_DUE_LABEL = "Pagamento pendente";
 
-export type WorkspaceAccessKind = "paid" | "beta" | "tester" | "none";
+export type WorkspaceAccessKind = "paid" | "trial" | "beta" | "tester" | "none";
 
 export type SubscriptionStatus =
   | "trialing"
@@ -46,6 +47,7 @@ export type WorkspaceBillingAccess = {
   latestSubscription: Awaited<ReturnType<typeof getLatestSubscriptionByWorkspace>> | null;
   betaEntitlement: Awaited<ReturnType<typeof getActiveBetaEntitlementByWorkspace>> | null;
   testerEntitlement: Awaited<ReturnType<typeof getActiveTesterEntitlementByWorkspace>> | null;
+  trialEntitlement: Awaited<ReturnType<typeof getTrialEntitlementByWorkspace>> | null;
 };
 
 export function normalizeSubscriptionStatus(
@@ -73,8 +75,14 @@ function totalRemaining(grants: Array<{ remaining: number }>) {
 export async function getWorkspaceBillingAccess(
   workspaceId: string
 ): Promise<WorkspaceBillingAccess> {
-  const [subscription, latestSubscription, grants, betaEntitlement, testerEntitlement] =
-    await Promise.all([
+  const [
+    subscription,
+    latestSubscription,
+    grants,
+    betaEntitlement,
+    testerEntitlement,
+    trialEntitlement,
+  ] = await Promise.all([
     getActiveSubscriptionByWorkspace(workspaceId),
     getLatestSubscriptionByWorkspace(workspaceId),
     getAvailableCreditGrants(workspaceId),
@@ -86,6 +94,7 @@ export async function getWorkspaceBillingAccess(
       logger.error("[billing] tester entitlement lookup failed", error);
       return null;
     }),
+    getTrialEntitlementByWorkspace(workspaceId),
   ]);
   const creditBalance = totalRemaining(grants);
   const subscriptionStatus = normalizeSubscriptionStatus(latestSubscription?.status);
@@ -102,6 +111,7 @@ export async function getWorkspaceBillingAccess(
       latestSubscription: null,
       betaEntitlement: null,
       testerEntitlement: null,
+      trialEntitlement,
     };
   }
 
@@ -117,6 +127,7 @@ export async function getWorkspaceBillingAccess(
       latestSubscription: null,
       betaEntitlement: null,
       testerEntitlement,
+      trialEntitlement,
     };
   }
 
@@ -132,6 +143,7 @@ export async function getWorkspaceBillingAccess(
       latestSubscription,
       betaEntitlement,
       testerEntitlement: null,
+      trialEntitlement,
     };
   }
 
@@ -147,6 +159,7 @@ export async function getWorkspaceBillingAccess(
       latestSubscription,
       betaEntitlement,
       testerEntitlement: null,
+      trialEntitlement,
     };
   }
 
@@ -163,6 +176,23 @@ export async function getWorkspaceBillingAccess(
       latestSubscription,
       betaEntitlement: null,
       testerEntitlement: null,
+      trialEntitlement,
+    };
+  }
+
+  if (trialEntitlement?.status === "active") {
+    return {
+      kind: "trial",
+      label: "Trial",
+      creditBalance,
+      remainingAds: creditsToRemainingAds(creditBalance),
+      hasSpendAccess: true,
+      subscriptionStatus,
+      subscription: null,
+      latestSubscription,
+      betaEntitlement: null,
+      testerEntitlement: null,
+      trialEntitlement,
     };
   }
 
@@ -177,6 +207,7 @@ export async function getWorkspaceBillingAccess(
     latestSubscription,
     betaEntitlement: null,
     testerEntitlement: null,
+    trialEntitlement,
   };
 }
 

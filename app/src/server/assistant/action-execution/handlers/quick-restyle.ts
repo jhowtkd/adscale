@@ -25,7 +25,6 @@ export async function executeQuickRestyle(ctx: ActionExecutionContext) {
     styleAssetId: parsed.data.styleReferenceId,
     // Preserve assistant billing action (distinct from panel image_derivation).
     billingAction: "restyling",
-    billingAmount: 5,
     billingIdempotencyKey: `assistant-action:${ctx.actionId}:quick_restyle`,
     billingMetadata: {
       actionId: ctx.actionId,

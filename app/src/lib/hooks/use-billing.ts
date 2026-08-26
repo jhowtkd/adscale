@@ -2,7 +2,7 @@ import { apiFetch } from "@/lib/api-client";
 import { STALE_TIME } from "@/lib/query-config";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-export type BillingAccessKind = "paid" | "beta" | "tester" | "none";
+export type BillingAccessKind = "paid" | "trial" | "beta" | "tester" | "none";
 
 /**
  * Workspace membership role of the current user. Surfaced on the billing
@@ -40,6 +40,9 @@ export interface BillingStatus {
       remainingAds: number;
       exhausted: boolean;
     } | null;
+    trial?: {
+      status: "pending_verification" | "active";
+    } | null;
   };
   pastDue: {
     recoveryAction: PastDueRecoveryAction;
@@ -58,7 +61,7 @@ export interface BillingStatus {
   creditBalance: number;
 }
 
-async function fetchBillingStatus(): Promise<BillingStatus> {
+export async function fetchBillingStatusOnce(): Promise<BillingStatus> {
   const res = await apiFetch("/api/billing/status");
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -66,6 +69,25 @@ async function fetchBillingStatus(): Promise<BillingStatus> {
   }
   const data = await res.json();
   return data.billing;
+}
+
+async function activateSignupTrialClient(): Promise<void> {
+  const res = await apiFetch("/api/billing/trial/activate", {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || err.code || "Erro ao ativar trial");
+  }
+}
+
+export async function fetchBillingStatus(): Promise<BillingStatus> {
+  const initial = await fetchBillingStatusOnce();
+  if (initial.access?.trial?.status === "pending_verification") {
+    await activateSignupTrialClient();
+    return fetchBillingStatusOnce();
+  }
+  return initial;
 }
 
 export interface StartCheckoutInput {
@@ -119,29 +141,6 @@ export function useBillingPortal() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: openBillingPortal,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["billing", "status"] });
-    },
-  });
-}
-
-async function redeemBetaAccess(code: string) {
-  const res = await apiFetch("/api/billing/beta/redeem", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ code }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || data.code || "Erro ao resgatar código beta");
-  }
-  return data;
-}
-
-export function useRedeemBetaAccess() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: redeemBetaAccess,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["billing", "status"] });
     },

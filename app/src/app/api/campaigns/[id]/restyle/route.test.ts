@@ -229,7 +229,7 @@ describe("POST /api/campaigns/[id]/restyle", () => {
       expect.objectContaining({
         workspaceId: "workspace-1",
         action: "image_derivation",
-        amount: 5,
+        amount: 50,
         idempotencyKey: expect.stringContaining("restyling:camp-1:"),
       })
     );

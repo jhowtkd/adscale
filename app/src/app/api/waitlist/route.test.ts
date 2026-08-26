@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { POST } from "./route";
+import { POST, OPTIONS } from "./route";
 
 const mockFindByEmail = vi.fn();
 const mockCreateSignup = vi.fn();
@@ -7,10 +7,6 @@ const mockUpdateResendContactId = vi.fn();
 const mockSyncContact = vi.fn();
 const mockSendConfirmation = vi.fn();
 const mockRateLimit = vi.fn();
-
-vi.mock("next-intl/server", () => ({
-  getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
-}));
 
 vi.mock("@/lib/rate-limit", () => ({
   rateLimit: (...args: unknown[]) => mockRateLimit(...args),
@@ -30,94 +26,73 @@ vi.mock("@/server/services/email", () => ({
   sendWaitlistConfirmationEmail: (...args: unknown[]) => mockSendConfirmation(...args),
 }));
 
-vi.mock("@/lib/logger", () => ({
-  logger: { error: vi.fn(), warn: vi.fn() },
-}));
-
-const validPayload = {
-  name: "Ana Silva",
-  email: "ana@empresa.com",
-  sector: "saas",
-  whatsapp: "+55 (11) 99999-9999",
-  consent: true,
-  locale: "pt-BR",
-};
-
-function postRequest(body: unknown) {
+function postRequest(body: unknown, origin?: string) {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (origin) {
+    headers.origin = origin;
+  }
   return new Request("http://localhost/api/waitlist", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(body),
   });
 }
 
-describe("POST /api/waitlist", () => {
+function optionsRequest(origin?: string) {
+  const headers: Record<string, string> = {};
+  if (origin) {
+    headers.origin = origin;
+  }
+  return new Request("http://localhost/api/waitlist", {
+    method: "OPTIONS",
+    headers,
+  });
+}
+
+describe("POST and OPTIONS /api/waitlist (closed)", () => {
+  const originalEnv = process.env.MARKETING_ALLOWED_ORIGINS;
+
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRateLimit.mockResolvedValue({ success: true });
-    mockFindByEmail.mockResolvedValue(null);
-    mockCreateSignup.mockResolvedValue({
-      id: "w1",
-      name: "Ana Silva",
-      email: "ana@empresa.com",
-      sector: "saas",
-    });
-    mockSyncContact.mockResolvedValue("contact_1");
-    mockSendConfirmation.mockResolvedValue(undefined);
+    process.env.MARKETING_ALLOWED_ORIGINS = "https://example.com,https://adscale.app";
   });
 
-  it("returns 201 when signup is created", async () => {
-    const res = await POST(postRequest(validPayload));
-    const json = await res.json();
-
-    expect(res.status).toBe(201);
-    expect(json).toEqual({ status: "created" });
-    expect(mockCreateSignup).toHaveBeenCalledWith(
-      expect.objectContaining({
+  it("returns 410 Gone with error waitlist_closed on POST", async () => {
+    const res = await POST(
+      postRequest({
+        name: "Ana Silva",
         email: "ana@empresa.com",
-        whatsapp: "5511999999999",
-        consentVersion: "2026-06-08",
+        sector: "saas",
+        whatsapp: "+5511999999999",
       })
     );
-    expect(mockSyncContact).toHaveBeenCalled();
-    expect(mockSendConfirmation).toHaveBeenCalledWith({
-      to: "ana@empresa.com",
-      locale: "pt-BR",
-    });
-  });
-
-  it("returns 409 when email is already registered", async () => {
-    mockFindByEmail.mockResolvedValue({ id: "existing", email: "ana@empresa.com" });
-
-    const res = await POST(postRequest(validPayload));
     const json = await res.json();
 
-    expect(res.status).toBe(409);
-    expect(json).toEqual({
-      status: "already_registered",
-      message: "duplicateEmail",
-    });
-    expect(mockCreateSignup).not.toHaveBeenCalled();
-  });
+    expect(res.status).toBe(410);
+    expect(json).toEqual({ error: "waitlist_closed" });
 
-  it("returns 400 when consent is false", async () => {
-    const res = await POST(postRequest({ ...validPayload, consent: false }));
-    const json = await res.json();
-
-    expect(res.status).toBe(400);
-    expect(json.error).toBe("invalidInput");
-    expect(mockCreateSignup).not.toHaveBeenCalled();
-  });
-
-  it("returns 201 for honeypot without creating signup", async () => {
-    const res = await POST(postRequest({ ...validPayload, website: "https://spam.bot" }));
-    const json = await res.json();
-
-    expect(res.status).toBe(201);
-    expect(json).toEqual({ status: "created" });
-    expect(mockCreateSignup).not.toHaveBeenCalled();
+    // Verify no side-effects occur
+    expect(mockRateLimit).not.toHaveBeenCalled();
     expect(mockFindByEmail).not.toHaveBeenCalled();
+    expect(mockCreateSignup).not.toHaveBeenCalled();
+    expect(mockUpdateResendContactId).not.toHaveBeenCalled();
     expect(mockSyncContact).not.toHaveBeenCalled();
     expect(mockSendConfirmation).not.toHaveBeenCalled();
+  });
+
+  it("includes CORS headers on POST when allowed origin is provided", async () => {
+    const res = await POST(
+      postRequest({ email: "ana@empresa.com" }, "https://example.com")
+    );
+    expect(res.status).toBe(410);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://example.com");
+  });
+
+  it("returns 204 with CORS headers on OPTIONS", async () => {
+    const res = await OPTIONS(optionsRequest("https://example.com"));
+
+    expect(res.status).toBe(204);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://example.com");
+    expect(res.headers.get("Access-Control-Allow-Methods")).toContain("POST");
   });
 });

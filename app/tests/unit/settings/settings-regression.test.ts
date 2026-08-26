@@ -9,7 +9,6 @@ import {
   useBillingPortal,
   useBillingStatus,
   useCreditHistory,
-  useRedeemBetaAccess,
   useStartCheckout,
 } from "@/lib/hooks/use-billing";
 import {
@@ -33,7 +32,6 @@ describe("settings regression guard (TRUST-05)", () => {
     expect(useBillingStatus).toBeTypeOf("function");
     expect(useStartCheckout).toBeTypeOf("function");
     expect(useBillingPortal).toBeTypeOf("function");
-    expect(useRedeemBetaAccess).toBeTypeOf("function");
     expect(useCreditHistory).toBeTypeOf("function");
   });
 

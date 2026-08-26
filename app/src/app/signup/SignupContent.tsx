@@ -3,15 +3,15 @@
 import { useReducer } from "react";
 import AuthCard from "@/components/auth/AuthCard";
 import AuthPageShell from "@/components/auth/AuthPageShell";
-import { AuthV6ErrorAlert } from "@/components/auth/v6/AuthV6Alert";
+import { AuthV6ErrorAlert, AuthV6SuccessAlert } from "@/components/auth/v6/AuthV6Alert";
 import AuthV6Header from "@/components/auth/v6/AuthV6Header";
 import PasswordInput from "@/components/auth/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { authClient } from "@/lib/auth-client";
 
 interface SignupState {
   name: string;
@@ -20,6 +20,10 @@ interface SignupState {
   consent: boolean;
   error: string;
   loading: boolean;
+  submittedEmail: string;
+  resending: boolean;
+  resendSuccess: boolean;
+  resendError: string;
 }
 
 const initialSignupState: SignupState = {
@@ -29,6 +33,10 @@ const initialSignupState: SignupState = {
   consent: false,
   error: "",
   loading: false,
+  submittedEmail: "",
+  resending: false,
+  resendSuccess: false,
+  resendError: "",
 };
 
 function signupReducer(state: SignupState, payload: Partial<SignupState>): SignupState {
@@ -45,10 +53,20 @@ const authTextLinkClass =
   "font-medium text-[var(--neutral-text)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]";
 
 export default function SignupContent() {
-  const router = useRouter();
   const t = useTranslations("auth");
   const [state, dispatch] = useReducer(signupReducer, initialSignupState);
-  const { name, email, password, consent, error, loading } = state;
+  const {
+    name,
+    email,
+    password,
+    consent,
+    error,
+    loading,
+    submittedEmail,
+    resending,
+    resendSuccess,
+    resendError,
+  } = state;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -74,13 +92,91 @@ export default function SignupContent() {
         throw new Error(data.message || "Signup failed");
       }
 
-      router.push("/");
-      router.refresh();
+      dispatch({ submittedEmail: email, error: "" });
     } catch (err) {
       dispatch({ error: err instanceof Error ? err.message : "Signup failed" });
     } finally {
       dispatch({ loading: false });
     }
+  }
+
+  async function handleResend() {
+    if (!submittedEmail || resending) return;
+    dispatch({ resending: true, resendSuccess: false, resendError: "" });
+
+    try {
+      const res = await authClient.sendVerificationEmail({
+        email: submittedEmail,
+        callbackURL: "/",
+      });
+
+      if (res?.error) {
+        throw new Error(res.error.message || t("verificationEmailError"));
+      }
+
+      dispatch({ resendSuccess: true });
+    } catch (err) {
+      dispatch({
+        resendError: err instanceof Error ? err.message : t("verificationEmailError"),
+      });
+    } finally {
+      dispatch({ resending: false });
+    }
+  }
+
+  if (submittedEmail) {
+    return (
+      <AuthPageShell>
+        <AuthCard>
+          <div className="space-y-6">
+            <AuthV6Header
+              sectionLabel={t("v6.accessLabel")}
+              title={t("confirmEmailTitle")}
+              subtitle={t("confirmEmailSubtitle")}
+            />
+
+            <div className="space-y-4">
+              {resendSuccess ? (
+                <AuthV6SuccessAlert>{t("verificationEmailSent")}</AuthV6SuccessAlert>
+              ) : null}
+
+              {resendError ? (
+                <AuthV6ErrorAlert>{resendError}</AuthV6ErrorAlert>
+              ) : null}
+
+              <div className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 text-center space-y-2">
+                <p className="text-xs text-[var(--text-muted)]">
+                  {t("confirmEmailSentTo")}
+                </p>
+                <p className="font-semibold text-[var(--text-primary)] break-all">
+                  {submittedEmail}
+                </p>
+                <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
+                  {t("confirmEmailTrialNotice")}
+                </p>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full rounded-[var(--radius-control)] border-[var(--border-default)] hover:bg-[var(--surface-raised)]"
+                onClick={handleResend}
+                disabled={resending}
+              >
+                {resending ? t("resendingVerificationEmail") : t("resendVerificationEmail")}
+              </Button>
+            </div>
+
+            <p className="text-center text-sm text-[var(--text-secondary)]">
+              {t("hasAccount")}{" "}
+              <Link href="/login" className={authTextLinkClass}>
+                {t("signIn")}
+              </Link>
+            </p>
+          </div>
+        </AuthCard>
+      </AuthPageShell>
+    );
   }
 
   return (

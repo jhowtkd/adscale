@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer } from "react";
 import { AlertTriangle, CreditCard, TrendingUp, Check, Zap, Crown, Sparkles, XCircle } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   brlCurrency,
   calculateForecast,
+  planTiers,
   pricingAssumptions,
   USD_BRL_PLANNING_RATE,
   usdCurrency,
@@ -16,15 +17,17 @@ import {
   useBillingPortal,
   useBillingStatus,
   useCreditHistory,
-  useRedeemBetaAccess,
   useStartCheckout,
   type BillingStatus,
 } from "@/lib/hooks/use-billing";
+import { LOW_CREDIT_THRESHOLD } from "@/lib/billing/credit-units";
 
-const planConfig = {
-  starter: { name: "Starter", credits: 30, price: "R$ 29/mês", icon: Zap, color: "var(--text-secondary)" },
-  growth: { name: "Growth", credits: 120, price: "R$ 79/mês", icon: TrendingUp, color: "var(--utility-icon)" },
-  scale: { name: "Scale", credits: 360, price: "R$ 199/mês", icon: Crown, color: "var(--utility-icon)" },
+const paidPlanTiers = planTiers.filter((tier) => !tier.trial);
+
+const tierVisuals: Record<string, { icon: typeof Zap; color: string }> = {
+  starter: { icon: Zap, color: "var(--text-secondary)" },
+  growth: { icon: TrendingUp, color: "var(--utility-icon)" },
+  scale: { icon: Crown, color: "var(--utility-icon)" },
 };
 
 type ForecastInputs = typeof pricingAssumptions;
@@ -57,9 +60,12 @@ function resolveAccessLabel(
   if (access?.kind === "tester") {
     return t("accessLabels.tester");
   }
+  if (access?.kind === "trial") {
+    return t("accessLabels.trial");
+  }
   if (subscription?.planKey) {
-    const planName =
-      planConfig[subscription.planKey as keyof typeof planConfig]?.name ?? subscription.planKey;
+    const tier = planTiers.find((t) => t.key === subscription.planKey);
+    const planName = tier?.name ?? subscription.planKey;
     return t("accessLabels.plan", { plan: planName });
   }
   return t("accessLabels.noPlan");
@@ -73,6 +79,7 @@ function resolveStatusLabel(
   const status = billingStatus?.subscriptionStatus;
   if (access?.kind === "beta") return t("statusLabels.beta");
   if (access?.kind === "tester") return t("statusLabels.tester");
+  if (access?.kind === "trial") return t("statusLabels.trial");
   if (status === "past_due") return t("statusLabels.pastDue");
   if (status === "canceled") return t("statusLabels.canceled");
   if (status === "trialing") return t("statusLabels.trial");
@@ -99,9 +106,6 @@ export default function BillingTab() {
   const { data: creditHistory, isLoading: grantsLoading } = useCreditHistory();
   const portal = useBillingPortal();
   const checkout = useStartCheckout();
-  const redeemBeta = useRedeemBetaAccess();
-  const [betaCode, setBetaCode] = useState("");
-  const [betaError, setBetaError] = useState("");
   const [forecastInputs, updateForecastInputs] = useReducer(forecastReducer, pricingAssumptions);
   const {
     campaignsPerMonth,
@@ -138,11 +142,13 @@ export default function BillingTab() {
   const subscription = billingStatus?.subscription;
   const access = billingStatus?.access;
   const subscriptionStatus = billingStatus?.subscriptionStatus ?? "none";
-  const isTrialing = subscriptionStatus === "trialing";
+  const isPaidSubscriptionTrial = subscriptionStatus === "trialing";
+  const isSignupTrial = access?.kind === "trial";
+  const isTrialing = isPaidSubscriptionTrial || isSignupTrial;
   const isActive = subscriptionStatus === "active";
   const isPastDue = subscriptionStatus === "past_due";
   const isCanceled = subscriptionStatus === "canceled";
-  const hasPaidPlan = isActive || isTrialing;
+  const hasPaidPlan = isActive || isPaidSubscriptionTrial;
   const isBeta = access?.kind === "beta";
   const hasSpendAccess = access?.hasSpendAccess ?? (hasPaidPlan || isBeta);
   const grants = creditHistory?.grants ?? [];
@@ -156,16 +162,6 @@ export default function BillingTab() {
     const query = nextParams.toString();
     router.replace(query ? `/settings?${query}` : "/settings?tab=billing", { scroll: false });
   }, [queryClient, router, searchParams]);
-
-  async function handleRedeemBeta() {
-    setBetaError("");
-    try {
-      await redeemBeta.mutateAsync(betaCode);
-      setBetaCode("");
-    } catch (err) {
-      setBetaError(err instanceof Error ? err.message : t("noAccess.error"));
-    }
-  }
 
   if (isLoading) {
     return (
@@ -239,7 +235,7 @@ export default function BillingTab() {
         </div>
       )}
 
-      {(billingStatus?.creditBalance ?? 0) <= 10 && hasSpendAccess && !isBeta && (
+      {(billingStatus?.creditBalance ?? 0) <= LOW_CREDIT_THRESHOLD && hasSpendAccess && !isBeta && (
         <div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4 text-sm text-[var(--warning-text)]">
           {isTrialing
             ? t("lowCredits.trial", { credits: billingStatus?.creditBalance ?? 0 })
@@ -247,74 +243,57 @@ export default function BillingTab() {
         </div>
       )}
 
-      {access?.kind === "none" && !isCanceled && (
-        <section className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
-          <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("noAccess.title")}</h3>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("noAccess.description")}</p>
-          <p className="mt-2 text-xs text-[var(--text-muted)]">{t("accessKinds.none")}</p>
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-            <input
-              type="text"
-              value={betaCode}
-              onChange={(event) => setBetaCode(event.target.value)}
-              placeholder={t("noAccess.placeholder")}
-              className="h-10 flex-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--focus-ring)]"
-            />
-            <button
-              type="button"
-              onClick={handleRedeemBeta}
-              disabled={redeemBeta.isPending || !betaCode.trim()}
-              className="h-10 shrink-0 rounded-md bg-[var(--action-primary-bg)] px-4 text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] disabled:opacity-60"
-            >
-              {redeemBeta.isPending ? t("noAccess.redeeming") : t("noAccess.action")}
-            </button>
-          </div>
-          {betaError ? <p className="mt-2 text-sm text-[var(--danger-text)]">{betaError}</p> : null}
-        </section>
-      )}
-
       {!hasSpendAccess && (
         <section className="space-y-4">
           <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("plans.title")}</h3>
           <p className="text-sm text-[var(--text-secondary)]">{t("plans.subtitle")}</p>
           <div className="grid gap-4 sm:grid-cols-3">
-            {(Object.entries(planConfig) as [keyof typeof planConfig, (typeof planConfig)["starter"]][]).map(
-              ([key, plan]) => (
+            {paidPlanTiers.map((tier) => {
+              const visuals = tierVisuals[tier.key] ?? { icon: Zap, color: "var(--text-secondary)" };
+              const Icon = visuals.icon;
+              return (
                 <div
-                  key={key}
+                  key={tier.key}
                   className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5 transition-colors hover:border-[var(--border-medium)]"
                 >
-                  <div className="mb-4 flex size-10 items-center justify-center rounded-md" style={{ background: `${plan.color}20`, color: plan.color }}>
-                    <plan.icon size={20} />
+                  <div
+                    className="mb-4 flex size-10 items-center justify-center rounded-md"
+                    style={{ background: `${visuals.color}20`, color: visuals.color }}
+                  >
+                    <Icon size={20} />
                   </div>
-                  <h4 className="text-base font-semibold text-[var(--text-primary)]">{plan.name}</h4>
-                  <p className="mt-1 text-2xl font-bold text-[var(--text-primary)]">{plan.price}</p>
-                  <p className="text-sm text-[var(--text-secondary)]">{plan.credits} credits/mo</p>
+                  <h4 className="text-base font-semibold text-[var(--text-primary)]">{tier.name}</h4>
+                  <p className="mt-1 text-2xl font-bold text-[var(--text-primary)]">
+                    {brlCurrency.format(tier.priceBrl)}/{tier.period}
+                  </p>
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    {tier.credits.toLocaleString("pt-BR")} créditos/mês
+                  </p>
                   <ul className="mt-4 space-y-2">
                     <li className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                      <Check size={14} style={{ color: plan.color }} />
+                      <Check size={14} style={{ color: visuals.color }} />
                       {t("plans.features.plans")}
                     </li>
                     <li className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                      <Check size={14} style={{ color: plan.color }} />
+                      <Check size={14} style={{ color: visuals.color }} />
                       {t("plans.features.derivations")}
                     </li>
                     <li className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                      <Check size={14} style={{ color: plan.color }} />
+                      <Check size={14} style={{ color: visuals.color }} />
                       {t("plans.features.export")}
                     </li>
                   </ul>
                   <button
                     type="button"
-                    onClick={() => checkout.mutate({ planKey: key })}
+                    onClick={() => checkout.mutate({ planKey: tier.key as "starter" | "growth" | "scale" })}
                     disabled={checkout.isPending}
                     className="mt-5 h-10 w-full rounded-md bg-[var(--action-primary-bg)] text-sm font-medium text-[var(--action-primary-text)] transition-colors hover:bg-[var(--action-primary-hover)] disabled:opacity-60"
                   >
                     {checkout.isPending ? t("plans.redirecting") : t("plans.startTrial")}
                   </button>
                 </div>
-              )
-            )}
+              );
+            })}
           </div>
         </section>
       )}

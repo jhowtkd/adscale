@@ -114,7 +114,7 @@ describe("generateCreativeWork", () => {
       includePublishedBrandKnowledge: false,
     });
     expect(confirmSnapshots).toHaveBeenCalledWith("ws-1", "work-1", expect.anything(), preparedWork.inputSnapshot, identitySnapshot);
-    expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 3, chargeAmount: 15, unitChargeAmount: 5, billingKey: "creative-work:work-1:initial" }), expect.anything());
+    expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 3, chargeAmount: 150, unitChargeAmount: 50, billingKey: "creative-work:work-1:initial" }), expect.anything());
     expect(createOutputs).toHaveBeenCalledWith("ws-1", "work-1", [
       { creativeLevel: "conservative", targetFormat: "4:5", versionNumber: 1 },
       { creativeLevel: "balanced", targetFormat: "4:5", versionNumber: 1 },
@@ -129,7 +129,7 @@ describe("generateCreativeWork", () => {
       event: "creative_work_generation_accepted",
       unitCount: 3,
       outputIds: ["a", "b", "c"],
-      credits: 15,
+      credits: 150,
       result: "accepted",
     }));
   });
@@ -192,12 +192,12 @@ describe("generateCreativeWork", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it("charges five credits for one single output", async () => {
+  it("charges fifty credits for one single output", async () => {
     getWork.mockResolvedValue({ work: { ...work, toolKind: "single" }, outputs: [], sources: [] });
     prepare.mockResolvedValue({ ok: true, value: { work: { ...preparedWork, toolKind: "single" }, quote: {} } });
     createOutputs.mockResolvedValue({ outputs: [rows[1]], newlyCreatedIds: [rows[1].id] });
     await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
-    expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 1, chargeAmount: 5 }), expect.anything());
+    expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 1, chargeAmount: 50 }), expect.anything());
   });
 
   it("enables published Brand Cortex snapshots only for Peça única behind the rollout switch", async () => {
@@ -272,7 +272,7 @@ describe("generateCreativeWork", () => {
       { creativeLevel: "balanced", targetFormat: "1:1", versionNumber: 1 },
       { creativeLevel: "balanced", targetFormat: "9:16", versionNumber: 1 },
     ]);
-    expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 2, chargeAmount: 10 }), expect.anything());
+    expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 2, chargeAmount: 100 }), expect.anything());
   });
 
   it("creates one output per selected direction when a direction pool is present", async () => {
@@ -304,7 +304,7 @@ describe("generateCreativeWork", () => {
         directionSnapshot: { label: "B", instruction: "B instruction", order: 1, safetyBand: "experimental" },
       },
     ]);
-    expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 1, chargeAmount: 5 }), expect.anything());
+    expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 1, chargeAmount: 50 }), expect.anything());
   });
 
   it("fails newly-created rows and refunds the exact quote when dispatch fails", async () => {
@@ -314,7 +314,7 @@ describe("generateCreativeWork", () => {
     expect(failQueuedOutput).toHaveBeenCalledTimes(3);
     expect(refreshStatus).toHaveBeenCalledWith("ws-1", "work-1");
     expect(refund).toHaveBeenCalledTimes(3);
-    expect(refund).toHaveBeenCalledWith(expect.objectContaining({ amount: 5, idempotencyKey: "creative-work:work-1:output:a:dispatch-refund" }));
+    expect(refund).toHaveBeenCalledWith(expect.objectContaining({ amount: 50, idempotencyKey: "creative-work:work-1:output:a:dispatch-refund" }));
   });
 
   it("resumes a frozen ready work after a previously blocked charge", async () => {

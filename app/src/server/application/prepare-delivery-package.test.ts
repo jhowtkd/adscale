@@ -113,7 +113,7 @@ describe("prepareDeliveryPackage", () => {
     expect(mockSpend).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "delivery_package_child",
-        amount: 10,
+        amount: 100,
         // Key binds claimed child ids so a later attempt cannot replay this settlement.
         idempotencyKey: expect.stringMatching(
           /^delivery-package:src-1:4:5,9:16:child-4:5,child-9:16$/,
@@ -171,7 +171,7 @@ describe("prepareDeliveryPackage", () => {
       expect.objectContaining({
         workspaceId: "ws-1",
         action: "delivery_package_child",
-        amount: 10,
+        amount: 100,
         idempotencyKey: expect.stringMatching(
           /^delivery-package:src-1:4:5,9:16:child-4:5,child-9:16:dispatch-refund$/,
         ),
@@ -218,7 +218,7 @@ describe("prepareDeliveryPackage", () => {
     expect(mockSpend).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "delivery_package_child",
-        amount: 5,
+        amount: 50,
         idempotencyKey: expect.stringMatching(
           /^delivery-package:src-1:4:5:child-4:5$/,
         ),

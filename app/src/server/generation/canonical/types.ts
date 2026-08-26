@@ -162,13 +162,7 @@ export type RetryDecision =
   | { retry: true; reason: string }
   | { retry: false; reason: string };
 
-/** Standard credit amounts already used by existing callers. */
-export const GENERATION_CREDIT_COSTS = {
-  singleDerivation: 5,
-  creativeWorkOutput: 5,
-  creativeWorkTriplet: 15,
-  goalPackage: 15,
-} as const;
+export { GENERATION_CREDIT_COSTS } from "@/lib/billing/credit-units";
 
 /**
  * Cobrança de lote (ex.: triplet Criar Post) — NÃO é um GenerationRequest.

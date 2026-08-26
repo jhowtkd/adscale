@@ -17,10 +17,9 @@ export default function PlansTab() {
   const checkout = useStartCheckout();
   const reducedMotion = useReducedMotion();
 
-  async function startPlanCheckout(planName: string) {
-    const planKey = planName.toLowerCase();
-    if (!["starter", "growth", "scale"].includes(planKey)) return;
-    await checkout.mutateAsync({ planKey: planKey as "starter" | "growth" | "scale" });
+  async function startPlanCheckout(tierKey: string) {
+    if (tierKey !== "starter" && tierKey !== "growth" && tierKey !== "scale") return;
+    await checkout.mutateAsync({ planKey: tierKey as "starter" | "growth" | "scale" });
   }
 
   return (
@@ -101,7 +100,7 @@ export default function PlansTab() {
 
               <button
                 type="button"
-                onClick={() => startPlanCheckout(tier.name)}
+                onClick={() => startPlanCheckout(tier.key)}
                 disabled={tier.trial || checkout.isPending}
                 className={cn(
                   "mt-5 min-h-[var(--control-touch)] rounded-md text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-60",
