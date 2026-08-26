@@ -813,8 +813,9 @@
     }
 
     .v6-shell-main.assistant-shell-host {
-      height: calc(100dvh - var(--shell-v6-topbar-offset) - var(--shell-safe-bottom));
-      max-height: calc(100dvh - var(--shell-v6-topbar-offset) - var(--shell-safe-bottom));
+      height: calc(100dvh - 3rem - var(--shell-safe-bottom));
+      max-height: calc(100dvh - 3rem - var(--shell-safe-bottom));
+      padding-top: 3rem;
     }
   }
   .layer-popover { z-index: var(--layer-popover); }

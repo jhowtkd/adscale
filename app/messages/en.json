@@ -59,6 +59,11 @@
     "en": "English"
   },
   "common": {
+    "backToCampaign": "Back to campaign",
+    "works": "Works",
+    "newVariation": "New variation",
+    "viewSite": "View site",
+    "language": "Language",
     "skipToContent": "Skip to content",
     "save": "Save",
     "cancel": "Cancel",

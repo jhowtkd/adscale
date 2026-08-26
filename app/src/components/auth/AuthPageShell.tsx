@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 interface AuthPageShellProps {
   children: ReactNode;
@@ -11,6 +12,7 @@ interface AuthPageShellProps {
 }
 
 export default function AuthPageShell({ children, showBranding = true }: AuthPageShellProps) {
+  const t = useTranslations("common");
   void showBranding; // compatibility with the existing auth route interface
 
   return (
@@ -19,7 +21,7 @@ export default function AuthPageShell({ children, showBranding = true }: AuthPag
       <div className="relative z-10 w-full max-w-[440px]">
         <div className="mb-5 flex items-center justify-between px-1 text-sm text-[var(--text-secondary)]">
           <span className="font-semibold text-[var(--text-primary)]">ADScale</span>
-          <Link href="/" className="underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">Ver o site</Link>
+          <Link href="/" className="underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{t("viewSite")}</Link>
         </div>
         {children}
       </div>

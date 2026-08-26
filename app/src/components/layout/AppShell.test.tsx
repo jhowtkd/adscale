@@ -86,4 +86,14 @@ describe("AppShell", () => {
 
     expect(screen.getByRole("main").className).not.toContain("dot-grid");
   });
+
+  it("mounts one notification control outside the sidebar", () => {
+    render(
+      <AppShell>
+        <p>Page body</p>
+      </AppShell>
+    );
+
+    expect(screen.getAllByTestId("notification-menu")).toHaveLength(1);
+  });
 });

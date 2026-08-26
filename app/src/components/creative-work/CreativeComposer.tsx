@@ -234,7 +234,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
   }
 
   return (
-    <section id="creative-composer" aria-labelledby="creative-composer-title" className={cn("space-y-4 scroll-mt-24", layout === "piece" && "mx-auto max-w-5xl")}>
+    <section id="creative-composer" aria-labelledby="creative-composer-title" className={cn("space-y-4 scroll-mt-24", layout === "piece" && "mx-auto flex max-w-5xl flex-col")}>
       <div className={cn("flex items-center justify-between gap-3", layout === "piece" && "order-[-2]")}>
         <div>
           <h1 id="creative-composer-title" className="text-2xl font-semibold text-[var(--text-primary)]">{title}</h1>

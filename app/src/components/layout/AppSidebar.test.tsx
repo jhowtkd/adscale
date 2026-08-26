@@ -135,6 +135,7 @@ describe("AppSidebar role-aware navigation", () => {
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
     expect(screen.queryByText("navigation.templates")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("notification-menu")).not.toBeInTheDocument();
     expect(screen.getByTestId("campaign-map")).toBeInTheDocument();
   });
 

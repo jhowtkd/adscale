@@ -22,7 +22,6 @@ import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
 import SidebarBrandKitFeature from "@/components/layout/SidebarBrandKitFeature";
 import AppSidebarCampaignMap from "@/components/layout/AppSidebarCampaignMap";
 import SidebarRecentWorks from "@/components/layout/SidebarRecentWorks";
-import { NotificationMenu } from "@/components/layout/TopBar";
 import { cn } from "@/lib/utils";
 
 export default function AppSidebar() {
@@ -127,7 +126,6 @@ export default function AppSidebar() {
       </div>
 
       <div className="mt-auto shrink-0 border-t border-[var(--border-subtle)] pt-3">
-        <div className="mb-2 flex justify-end px-1"><NotificationMenu /></div>
         <TextNavItem
           href="/docs"
           active={isDocs}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowRight, ImageIcon } from "lucide-react";
 import { AccessGatePanel } from "@/components/billing/AccessGatePanel";
@@ -89,17 +89,22 @@ export default function DashboardHomeActions({
   const t = useTranslations("dashboard.home");
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
   const { activeProfile } = useActiveClientProfile();
+  // The URL mode only seeds a new composer. Once it exists, its intent is the
+  // authority because protocol switches may be deferred or cancelled.
+  const initialStudioIntent = initialIntent
+    ?? (studioMode === "briefing" ? "single" : studioMode === "arte" ? "variations" : undefined);
   const { composerRef, ...composer } = useCreativeComposer({
     initialWorkId: workId,
-    initialIntent,
+    initialIntent: initialStudioIntent,
     focusComposer,
     initialTemplateId: templateId,
   });
   const continueTarget = useMemo(() => resolveContinueWork(works), [works]);
-  const [mode, setMode] = useState<StudioMode>(studioMode ?? (initialIntent === "single" ? "briefing" : "arte"));
+  // The composer owns protocol switching, including a deferred switch that is
+  // later cancelled. Deriving this keeps the visual mode on the same state.
+  const mode: StudioMode = composer.intent === "single" ? "briefing" : "arte";
 
   const selectStudioMode = (nextMode: StudioMode) => {
-    setMode(nextMode);
     composer.selectIntent(nextMode === "briefing" ? "single" : "variations");
   };
 
