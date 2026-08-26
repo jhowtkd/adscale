@@ -747,7 +747,7 @@ describe("CreativeComposer", () => {
     expect(screen.getAllByRole("button", { name: "Editar" })).toHaveLength(1);
   });
 
-  it("puts piece results before briefing controls in DOM order while Studio keeps its existing flow", () => {
+  it("turns a completed piece into review plus AI reading while Studio keeps its creation flow", () => {
     const output = {
       id: "output-1", workspaceId: "ws-1", workItemId: "work-1", creativeLevel: "conservative",
       targetFormat: "4:5", versionNumber: 1, parentOutputId: null, revisionInstruction: null,
@@ -755,13 +755,13 @@ describe("CreativeComposer", () => {
       outputKey: "out/1.png", cost: 5, failureCode: null, quality: null, isSelected: false,
       createdAt: new Date(), updatedAt: new Date(),
     };
-    const piece = renderComposer(composer({ workId: "work-1", outputs: [output] }), { layout: "piece" });
+    const piece = renderComposer(composer({ workId: "work-1", outputs: [output], sources: [readySource] }), { layout: "piece" });
     const pieceResults = screen.getByRole("heading", { name: "Resultados" }).closest("section")!;
-    const pieceDropzone = screen.getByTestId("creative-composer-dropzone");
-    const pieceAction = screen.getByTestId("creative-generate-action");
+    const pieceReading = screen.getByRole("heading", { name: "Leitura da IA" }).closest("section")!;
 
-    expect(pieceResults.compareDocumentPosition(pieceDropzone) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(pieceResults.compareDocumentPosition(pieceAction) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(pieceResults.compareDocumentPosition(pieceReading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByTestId("creative-composer-dropzone")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("creative-generate-action")).not.toBeInTheDocument();
 
     piece.unmount();
     renderComposer(composer({ workId: "work-1", outputs: [output] }));

@@ -251,6 +251,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
       </div>
       <CreativeProposalGrid
         outputs={composer.outputs}
+        layout={layout}
         onRetry={composer.retryOutput}
         onRetryRevision={composer.retryRevisionOutput}
         onApprove={composer.approveOutput}
@@ -277,6 +278,40 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         <Link href="/" className="mt-4 inline-flex rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
           {t("startNew")}
         </Link>
+      </section>
+    );
+  }
+
+  if (layout === "piece" && isVariations && results && !composer.brandConflict) {
+    return (
+      <section id="creative-composer" aria-labelledby="creative-composer-title" className="mx-auto flex max-w-5xl scroll-mt-24 flex-col gap-5">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 id="creative-composer-title" className="text-2xl font-semibold text-[var(--text-primary)]">{title}</h1>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</p>
+          </div>
+          <span className="rounded-full bg-[var(--surface-inset)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
+            {t("brand")}: {composer.brandName ?? t("noBrand")}
+          </span>
+        </div>
+
+        {results}
+
+        {readyVariationSource ? (
+          <CreativeVariationBrief
+            source={readyVariationSource}
+            request={composer.request}
+            brandName={composer.brandName}
+            onSave={({ contentAnalysis, styleAnalysis }) => composer.editSource(
+              readyVariationSource.id,
+              contentAnalysis,
+              styleAnalysis,
+            )}
+          />
+        ) : null}
+
+        {composer.error ? <p className="text-sm text-[var(--danger-text)]" role="alert">{composer.error}</p> : null}
+        <p role="status" aria-live="polite" className="sr-only">{composer.announcement ?? composer.state}</p>
       </section>
     );
   }

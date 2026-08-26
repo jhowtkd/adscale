@@ -2,7 +2,19 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BarChart3, CreditCard, Lock, Monitor, Package, Plug, User, Users, type LucideIcon } from "lucide-react";
 import type { SettingsV6Card, SettingsV6Labels } from "./settings-v6-types";
+
+const cardIcons: Record<string, LucideIcon> = {
+  profile: User,
+  workspace: Monitor,
+  team: Users,
+  billing: CreditCard,
+  creditHistory: BarChart3,
+  plans: Package,
+  integrations: Plug,
+  privacy: Lock,
+};
 
 type SettingsV6ViewProps = {
   labels: SettingsV6Labels;
@@ -22,36 +34,37 @@ export default function SettingsV6View({
   panel,
 }: SettingsV6ViewProps) {
   return (
-    <div className="space-y-8">
-      <header className="space-y-2 border-b border-[var(--border-subtle)] pb-6">
+    <div className="space-y-6">
+      <header className="space-y-2">
         <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]">{labels.sectionLabel}</p>
         <h1 className="product-page-title text-[var(--text-primary)]">{labels.title}</h1>
         <p className="text-sm text-[var(--text-secondary)]">{labels.subtitle}</p>
       </header>
 
-      <ul className="divide-y divide-[var(--border-subtle)] overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)]">
+      <ul data-testid="settings-card-grid" className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {cards.map((card) => {
           const isActive = activeCardId === card.id;
+          const Icon = cardIcons[card.id];
           const content = (
             <article
-              className={`flex min-h-20 items-center gap-4 p-4 text-left transition-colors ${
+              className={`flex min-h-44 flex-col rounded-[var(--radius-object)] border p-5 text-left transition-colors ${
                 isActive
-                  ? "bg-[var(--selection-bg)]"
+                  ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
                   : card.enabled
-                    ? "hover:bg-[var(--surface-raised)]"
-                    : ""
+                    ? "border-[var(--border-subtle)] bg-[var(--surface-raised)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-base)]"
+                    : "border-[var(--border-subtle)] bg-[var(--surface-base)]"
               }`}
             >
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-control)] bg-[var(--neutral-bg)] text-[var(--utility-icon)]">
-                <span aria-hidden="true">{card.icon}</span>
+                {Icon ? <Icon size={18} strokeWidth={1.7} aria-hidden="true" /> : null}
               </span>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-sm font-semibold text-[var(--text-primary)]">{card.title}</h2>
-                <p className="mt-0.5 truncate text-sm text-[var(--text-secondary)]">{card.description}</p>
+              <div className="mt-4 min-w-0 flex-1">
+                <h2 className="text-base font-semibold text-[var(--text-primary)]">{card.title}</h2>
+                <p className="mt-1 text-sm leading-5 text-[var(--text-secondary)]">{card.description}</p>
               </div>
-              <div className="flex shrink-0 items-center gap-3">
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
                 <SettingsBadge variant={card.badgeVariant} label={card.badge} />
-                <span className="text-sm text-[var(--text-muted)]">
+                <span className="inline-flex min-h-9 items-center rounded-[var(--radius-control)] border border-[var(--border-default)] px-3 py-1.5 text-sm font-medium text-[var(--text-secondary)]">
                   {card.actionLabel}
                 </span>
               </div>
@@ -62,11 +75,11 @@ export default function SettingsV6View({
             <li key={card.id}>
               {interactive && card.enabled ? (
                 onSelectCard ? (
-                  <button type="button" className="block h-full w-full text-left" onClick={() => onSelectCard(card.id)}>
+                  <button type="button" aria-current={isActive ? "page" : undefined} className="block h-full w-full rounded-[var(--radius-object)] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" onClick={() => onSelectCard(card.id)}>
                     {content}
                   </button>
                 ) : (
-                  <Link href={card.href} className="block h-full">
+                  <Link href={card.href} aria-current={isActive ? "page" : undefined} className="block h-full rounded-[var(--radius-object)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
                     {content}
                   </Link>
                 )

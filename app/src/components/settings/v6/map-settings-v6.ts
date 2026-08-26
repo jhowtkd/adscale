@@ -3,16 +3,16 @@ import type { SettingsV6Card } from "./settings-v6-types";
 
 const cardMeta: Record<
   SettingsTabId,
-  { icon: string; descriptionKey: string; status: "available" | "requiresConfiguration" | "comingSoon"; badgeVariant: SettingsV6Card["badgeVariant"] }
+  { descriptionKey: string; status: "available" | "requiresConfiguration" | "comingSoon"; badgeVariant: SettingsV6Card["badgeVariant"] }
 > = {
-  team: { icon: "👥", descriptionKey: "teamCard", status: "available", badgeVariant: "success" },
-  profile: { icon: "👤", descriptionKey: "profileCard", status: "available", badgeVariant: "success" },
-  workspace: { icon: "🖥", descriptionKey: "workspaceCard", status: "available", badgeVariant: "success" },
-  billing: { icon: "💳", descriptionKey: "billingCard", status: "requiresConfiguration", badgeVariant: "warning" },
-  creditHistory: { icon: "📊", descriptionKey: "creditHistoryCard", status: "available", badgeVariant: "success" },
-  plans: { icon: "📦", descriptionKey: "plansCard", status: "requiresConfiguration", badgeVariant: "warning" },
-  integrations: { icon: "🔌", descriptionKey: "integrationsCard", status: "comingSoon", badgeVariant: "neutral" },
-  privacy: { icon: "🔒", descriptionKey: "privacyCard", status: "available", badgeVariant: "success" },
+  team: { descriptionKey: "teamCard", status: "available", badgeVariant: "success" },
+  profile: { descriptionKey: "profileCard", status: "available", badgeVariant: "success" },
+  workspace: { descriptionKey: "workspaceCard", status: "available", badgeVariant: "success" },
+  billing: { descriptionKey: "billingCard", status: "requiresConfiguration", badgeVariant: "warning" },
+  creditHistory: { descriptionKey: "creditHistoryCard", status: "available", badgeVariant: "success" },
+  plans: { descriptionKey: "plansCard", status: "requiresConfiguration", badgeVariant: "warning" },
+  integrations: { descriptionKey: "integrationsCard", status: "comingSoon", badgeVariant: "neutral" },
+  privacy: { descriptionKey: "privacyCard", status: "available", badgeVariant: "success" },
 };
 
 export function mapSettingsToV6Cards({
@@ -30,7 +30,6 @@ export function mapSettingsToV6Cards({
       badgeVariant: tab.enabled ? meta.badgeVariant : "neutral",
       actionLabel: t(`v6.actions.${tab.enabled ? meta.status : "comingSoon"}`),
       enabled: tab.enabled,
-      icon: meta.icon,
       href: `/settings?tab=${tab.id}`,
     };
   });
