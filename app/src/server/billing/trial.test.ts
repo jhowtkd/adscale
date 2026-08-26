@@ -34,7 +34,6 @@ vi.mock("@/server/db", () => {
     },
   };
 });
-
 vi.mock("@/server/repositories/billing", () => ({
   createCreditGrant: vi.fn(),
   getCreditGrantBySourceId: vi.fn(),
@@ -609,4 +608,3 @@ describe("activateSignupTrialForOwner", () => {
     );
   });
 });
-

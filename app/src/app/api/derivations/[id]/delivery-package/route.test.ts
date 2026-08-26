@@ -418,7 +418,7 @@ describe("POST /api/derivations/[id]/delivery-package", () => {
       expect.objectContaining({
         workspaceId: "workspace-1",
         action: "delivery_package_child",
-        amount: 10,
+        amount: 100,
         idempotencyKey: expect.stringMatching(
           /^delivery-package:source-id:4:5,9:16:[^:]+:dispatch-refund$/,
         ),

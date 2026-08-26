@@ -29,6 +29,7 @@ import {
 import {
   CREDIT_COSTS,
   CREDIT_UNIT_VERSION,
+  LOW_CREDIT_THRESHOLD,
   type CreditAction,
 } from "@/lib/billing/credit-units";
 
@@ -317,7 +318,7 @@ export async function recordUsage(input: {
   const newBalance = unlimitedBillingBypass
     ? UNLIMITED_CREDIT_BALANCE
     : check.balance - check.amount;
-  if (!unlimitedBillingBypass && newBalance < 10) {
+  if (!unlimitedBillingBypass && newBalance < LOW_CREDIT_THRESHOLD) {
     try {
       const recipients = await getWorkspaceNotificationRecipients(input.workspaceId);
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);

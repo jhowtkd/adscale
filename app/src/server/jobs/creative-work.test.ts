@@ -762,7 +762,7 @@ describe("creativeWorkOutputJob", () => {
       workspaceId: "workspace-1",
       decision: expect.objectContaining({
         refund: true,
-        amount: 5,
+        amount: 50,
         idempotencyKey: "creative-output:output-1:compensatory-refund",
       }),
     }));
@@ -849,7 +849,7 @@ describe("creativeWorkOutputJob", () => {
       "work-1",
       "output-1",
       expect.objectContaining({
-        cost: 5,
+        cost: 50,
         outputKey: expect.stringContaining("creative-work/output-1/"),
         // The score from `analyzeDerivationCreative` is now persisted on
         // the output row — it must no longer be silently dropped.
@@ -1580,7 +1580,7 @@ describe("creativeWorkOutputJob", () => {
         workspaceId: "workspace-1",
         decision: expect.objectContaining({
           refund: true,
-          amount: 5,
+          amount: 50,
           idempotencyKey: "creative-output:output-1:compensatory-refund",
         }),
       }),
@@ -1617,7 +1617,7 @@ describe("creativeWorkOutputJob", () => {
         workspaceId: "workspace-1",
         decision: expect.objectContaining({
           refund: true,
-          amount: 5,
+          amount: 50,
           idempotencyKey: "creative-output:output-1:compensatory-refund",
         }),
       }),
@@ -1906,7 +1906,7 @@ describe("creativeWorkOutputJob", () => {
       expect(settleTerminalRefundMock).toHaveBeenCalledWith(
         expect.objectContaining({
           workspaceId: "workspace-1",
-          decision: expect.objectContaining({ refund: true, amount: 5 }),
+          decision: expect.objectContaining({ refund: true, amount: 50 }),
         }),
       );
       expect(completeMock).not.toHaveBeenCalled();
@@ -1931,7 +1931,7 @@ describe("creativeWorkOutputJob", () => {
       expect(settleTerminalRefundMock).toHaveBeenCalledWith(
         expect.objectContaining({
           workspaceId: "workspace-1",
-          decision: expect.objectContaining({ refund: true, amount: 5 }),
+          decision: expect.objectContaining({ refund: true, amount: 50 }),
         }),
       );
     });
@@ -2094,7 +2094,7 @@ describe("creativeWorkOutputJob", () => {
       expect(settleTerminalRefundMock).toHaveBeenCalledWith(
         expect.objectContaining({
           workspaceId: "workspace-1",
-          decision: expect.objectContaining({ refund: true, amount: 5 }),
+          decision: expect.objectContaining({ refund: true, amount: 50 }),
         }),
       );
     });
@@ -2602,7 +2602,7 @@ describe("creativeWorkOutputJob", () => {
           decision: expect.objectContaining({
             refund: true,
             idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
-            amount: 5,
+            amount: 50,
           }),
           metadata: expect.objectContaining({
             description: "creative_work_output_terminal_refund",
@@ -2802,7 +2802,7 @@ describe("creativeWorkOutputJob", () => {
           decision: expect.objectContaining({
             refund: true,
             idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
-            amount: 5,
+            amount: 50,
           }),
         }),
       );

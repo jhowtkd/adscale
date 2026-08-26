@@ -136,7 +136,6 @@ export async function activateSignupTrial(input: {
     };
   });
 }
-
 export async function activateSignupTrialForOwner(
   userId: string
 ): Promise<ActivateSignupTrialResult> {
@@ -161,4 +160,3 @@ export async function activateSignupTrialForOwner(
     userId,
   });
 }
-

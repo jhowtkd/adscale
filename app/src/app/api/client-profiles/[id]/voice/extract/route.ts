@@ -122,7 +122,6 @@ export async function POST(
     const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_qa",
-      amount: 1,
       idempotencyKey: `voice-extract:${workspace.id}:${id}:${inputsHash}`,
       metadata: { workspaceId: workspace.id, clientProfileId: id },
     });

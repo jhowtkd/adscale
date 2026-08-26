@@ -131,7 +131,7 @@ describe("startSocialPostWork", () => {
       draftKey: "draft-key", brief: null, title: "Promoção de matrícula para julho",
     }));
     expect(mockCreateDraft.mock.calls[0][0]).not.toHaveProperty("campaignId");
-    if (result.ok) expect(result.value.quote).toMatchObject({ unitCount: 3, credits: 15 });
+    if (result.ok) expect(result.value.quote).toMatchObject({ unitCount: 3, credits: 150 });
   });
 
   it("returns the same repository draft for a repeated draft key", async () => {

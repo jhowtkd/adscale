@@ -1,5 +1,6 @@
 export const CREDIT_UNIT_VERSION = 2;
 export const TRIAL_CREDIT_GRANT = 500;
+export const LOW_CREDIT_THRESHOLD = 100;
 export const CREDIT_COSTS = {
   creative_plan: 10,
   image_derivation: 50,

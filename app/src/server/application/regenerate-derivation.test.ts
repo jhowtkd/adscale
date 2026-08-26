@@ -172,7 +172,7 @@ describe("regenerateDerivation", () => {
       expect.objectContaining({
         workspaceId: "ws-1",
         action: "regeneration",
-        amount: 5,
+        amount: 50,
         idempotencyKey: "regen:d1:1:dispatch-refund",
       }),
     );

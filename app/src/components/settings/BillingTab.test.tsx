@@ -185,6 +185,33 @@ describe("BillingTab account states", () => {
     expect(screen.getAllByText("billing.account.accessKinds.beta").length).toBeGreaterThan(0);
   });
 
+  it("shows signup trial labels and the scaled low-credit warning", () => {
+    mockBillingStatus({
+      hasCustomer: false,
+      subscriptionStatus: "none",
+      access: {
+        kind: "trial",
+        label: "Trial",
+        remainingAds: 1,
+        hasSpendAccess: true,
+        beta: null,
+        trial: { status: "active" },
+      },
+      pastDue: null,
+      canceled: null,
+      subscription: null,
+      creditBalance: 50,
+    });
+
+    render(<BillingTab />, { wrapper: createWrapper() });
+
+    expect(screen.getByText("billing.account.accessLabels.trial")).toBeInTheDocument();
+    expect(screen.getByText("billing.account.statusLabels.trial")).toBeInTheDocument();
+    expect(
+      screen.getByText('billing.account.lowCredits.trial:{"credits":50}')
+    ).toBeInTheDocument();
+  });
+
   it("shows active status from subscriptionStatus when subscription object is null", () => {
     mockBillingStatus({
       hasCustomer: true,

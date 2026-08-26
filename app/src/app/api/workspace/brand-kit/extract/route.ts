@@ -48,7 +48,6 @@ export async function POST(request: Request) {
     const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_qa",
-      amount: 1,
       idempotencyKey: `brand-kit-extract:${workspace.id}:${file.name}:${file.size}`,
       metadata: { workspaceId: workspace.id },
     });

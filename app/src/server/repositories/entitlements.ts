@@ -36,7 +36,6 @@ function activeEntitlementFilter(kind: string) {
     or(isNull(workspaceEntitlements.expiresAt), gt(workspaceEntitlements.expiresAt, now))
   );
 }
-
 export async function getActiveBetaEntitlementByWorkspace(
   workspaceId: string,
   tx?: DbOrTx
@@ -309,4 +308,3 @@ export async function updateEntitlementStatus(
 
   return rows[0] ?? null;
 }
-

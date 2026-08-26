@@ -94,10 +94,7 @@ export async function getWorkspaceBillingAccess(
       logger.error("[billing] tester entitlement lookup failed", error);
       return null;
     }),
-    getTrialEntitlementByWorkspace(workspaceId).catch((error) => {
-      logger.error("[billing] trial entitlement lookup failed", error);
-      return null;
-    }),
+    getTrialEntitlementByWorkspace(workspaceId),
   ]);
   const creditBalance = totalRemaining(grants);
   const subscriptionStatus = normalizeSubscriptionStatus(latestSubscription?.status);

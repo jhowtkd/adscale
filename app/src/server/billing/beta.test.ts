@@ -87,7 +87,7 @@ describe("redeemBetaAccess", () => {
       workspaceId: "workspace-1",
       source: "beta_tester",
       sourceId: "ent-1",
-      amount: 50,
+      amount: 500,
       remaining: 50,
       expiresAt: null,
       createdAt: new Date(),
@@ -136,7 +136,7 @@ describe("redeemBetaAccess", () => {
     expect(mockCreateCreditGrant).toHaveBeenCalledWith(
       expect.objectContaining({
         source: "beta_tester",
-        amount: 50,
+        amount: 500,
       }),
       expect.anything()
     );

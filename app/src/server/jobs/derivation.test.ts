@@ -2278,7 +2278,7 @@ describe("creative revision callback (failure path)", () => {
         decision: expect.objectContaining({
           refund: true,
           idempotencyKey: "assistant-action:action-creative-1:refund",
-          amount: 5,
+          amount: 50,
         }),
         metadata: expect.objectContaining({
           actionId: "action-creative-1",

@@ -349,5 +349,3 @@ describe("billing hooks", () => {
     });
   });
 });
-
-

@@ -65,7 +65,7 @@ describe("decideCreativeWorkRefund", () => {
     });
     expect(pre).toMatchObject({
       refund: true,
-      amount: 5,
+      amount: 50,
       idempotencyKey: "creative-output:o1:compensatory-refund",
     });
 
@@ -89,7 +89,7 @@ describe("decideCreativeWorkRefund", () => {
       })
     ).toEqual({
       refund: true,
-      amount: 5,
+      amount: 50,
       idempotencyKey: "creative-output:o1:compensatory-refund",
       reason: "creative_work_post_provider_total_failure",
     });
@@ -105,7 +105,7 @@ describe("decideCreativeWorkRefund", () => {
       })
     ).toEqual({
       refund: true,
-      amount: 5,
+      amount: 50,
       idempotencyKey: "creative-output:o1:compensatory-refund",
       reason: "creative_work_job_failure",
     });

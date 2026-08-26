@@ -52,13 +52,13 @@ describe("quoteCreativeWork", () => {
           { creativeLevel: "conservative", targetFormat: "4:5", versionNumber: 1 },
           { creativeLevel: "balanced", targetFormat: "4:5", versionNumber: 1 },
           { creativeLevel: "bold", targetFormat: "4:5", versionNumber: 1 },
-        ], unitCount: 3, credits: 15,
+        ], unitCount: 3, credits: 150,
       });
   });
 
   it.each([
-    [{ intent: "single" as const, format: "1:1" as const, targetFormats: [] }, 1, 5],
-    [{ intent: "format_adaptation" as const, format: "4:5" as const, targetFormats: ["1:1", "9:16"] as const }, 2, 10],
+    [{ intent: "single" as const, format: "1:1" as const, targetFormats: [] }, 1, 50],
+    [{ intent: "format_adaptation" as const, format: "4:5" as const, targetFormats: ["1:1", "9:16"] as const }, 2, 100],
   ])("quotes exact plans for %o", (input, unitCount, credits) => {
     const quote = quoteCreativeWork(input);
     expect(quote).toMatchObject({ unitCount, credits });

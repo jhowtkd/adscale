@@ -218,9 +218,9 @@ describe("creative work contracts", () => {
   });
 
   it.each([
-    [{ intent: "variations" as const, format: "4:5" as const, targetFormats: [] }, { unitCount: 3, credits: 15 }],
-    [{ intent: "single" as const, format: "4:5" as const, targetFormats: [] }, { unitCount: 1, credits: 5 }],
-    [{ intent: "format_adaptation" as const, format: "4:5" as const, targetFormats: ["1:1", "9:16"] as const }, { unitCount: 2, credits: 10 }],
+    [{ intent: "variations" as const, format: "4:5" as const, targetFormats: [] }, { unitCount: 3, credits: 150 }],
+    [{ intent: "single" as const, format: "4:5" as const, targetFormats: [] }, { unitCount: 1, credits: 50 }],
+    [{ intent: "format_adaptation" as const, format: "4:5" as const, targetFormats: ["1:1", "9:16"] as const }, { unitCount: 2, credits: 100 }],
   ])("quotes %o", (input, expected) => {
     expect(quoteCreativeWork(input)).toMatchObject(expected);
   });
@@ -246,7 +246,7 @@ describe("creative work contracts", () => {
       },
     ]);
     expect(quote.unitCount).toBe(1);
-    expect(quote.credits).toBe(5);
+    expect(quote.credits).toBe(50);
   });
 
   it("falls back to three levels when the direction pool is absent", () => {
@@ -322,7 +322,7 @@ describe("creative work contracts", () => {
       { creativeLevel: "balanced", targetFormat: "9:16", versionNumber: 1 },
     ]);
     expect(quote.unitCount).toBe(2);
-    expect(quote.credits).toBe(10);
+    expect(quote.credits).toBe(100);
   });
 
   it("keeps migration 0075 backward compatible while backfilling new columns", () => {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
+import { CREDIT_COSTS, CREDIT_UNIT_VERSION } from "@/lib/billing/credit-units";
 import { checkRateLimit } from "@/lib/with-rate-limit";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCampaignById } from "@/server/repositories/campaign";
@@ -132,7 +133,8 @@ async function emitCreditBlockedAnalytics(
         operation_key: "creative_qa",
         reasonCode:
           body.details?.analytics?.reasonCode ?? body.code ?? "insufficient_credits",
-        estimateCredits: 1,
+        estimateCredits: CREDIT_COSTS.creative_qa,
+        creditUnitVersion: CREDIT_UNIT_VERSION,
         stage: "readiness",
         missionKey: "readiness",
       },
@@ -337,7 +339,6 @@ export async function POST(
     const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "creative_qa",
-      amount: 1,
       idempotencyKey,
       metadata: { campaignId, assetId, forceRerun },
     });

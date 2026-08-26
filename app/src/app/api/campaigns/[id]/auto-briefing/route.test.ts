@@ -147,7 +147,6 @@ describe("POST /api/campaigns/:id/auto-briefing", () => {
       expect.objectContaining({
         workspaceId: "workspace-1",
         action: "creative_qa",
-        amount: 1,
         idempotencyKey: "auto-briefing:camp-1:assets/image.png",
       })
     );

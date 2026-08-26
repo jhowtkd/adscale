@@ -149,7 +149,7 @@ describe("POST /api/workspace/brand-kit/extract-multi", () => {
     expect(res.status).toBe(201);
     expect(spendOrApiError).toHaveBeenCalledTimes(1);
     expect(spendOrApiError).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "creative_qa", amount: 1 }),
+      expect.objectContaining({ action: "creative_qa" }),
     );
     expect(extractBrandKitFromImage).toHaveBeenCalledTimes(1);
 

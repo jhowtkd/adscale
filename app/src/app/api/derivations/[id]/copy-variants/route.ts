@@ -53,7 +53,6 @@ export async function POST(
     const creditError = await spendOrApiError({
       workspaceId: workspace.id,
       action: "copy_generation",
-      amount: 2,
       idempotencyKey: `copy-gen:${derivationId}:${JSON.stringify(parsed.data)}`,
       metadata: { derivationId, campaignId: campaign.id },
       userId: user.id,

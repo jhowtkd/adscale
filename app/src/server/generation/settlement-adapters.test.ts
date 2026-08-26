@@ -103,8 +103,8 @@ const batch = {
   intent: { mode: "social_post", objective: "Sell" },
   parentId: "work-1",
   unitCount: 3,
-  chargeAmount: 15,
-  unitChargeAmount: 5,
+  chargeAmount: 150,
+  unitChargeAmount: 50,
   billingKey: "creative-work:work-1:initial",
   refundPolicy: "default",
 } as const;
@@ -240,7 +240,7 @@ describe("Generation Settlement production adapters", () => {
     expect(chargeUnit).toHaveBeenCalledWith(
       expect.objectContaining({
         intent: { mode: "format_adaptation", objective: null },
-        cost: { chargeAmount: 5, refundPolicy: "default" },
+        cost: { chargeAmount: 50, refundPolicy: "default" },
         destination: expect.objectContaining({
           kind: "derivation",
           id: child.id,
@@ -1006,7 +1006,7 @@ describe("Generation Settlement production adapters", () => {
 
     expect(failChild).toHaveBeenCalledWith(child.id, "workspace-1");
     expect(refund).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: 5 }),
+      expect.objectContaining({ amount: 50 }),
     );
   });
 
@@ -1055,7 +1055,7 @@ describe("Generation Settlement production adapters", () => {
     expect(chargeBatch).toHaveBeenCalledWith(
       expect.objectContaining({
         unitCount: 1,
-        chargeAmount: 5,
+        chargeAmount: 50,
         billingKey: "creative-work:work-1:revision:output-v2",
         intent: { mode: "creative_revision", objective: "Sell" },
       }),
@@ -1090,7 +1090,7 @@ describe("Generation Settlement production adapters", () => {
       generationCorrelationId: "generation-revision-1",
       unitCount: 1,
       outputIds: ["output-v2"],
-      credits: 5,
+      credits: 50,
     }));
     expect(logLifecycle).toHaveBeenCalledWith(expect.objectContaining({
       event: "creative_work_generation_dispatched",
@@ -1380,7 +1380,7 @@ describe("Generation Settlement production adapters", () => {
     expect(refund).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
-        amount: 5,
+        amount: 50,
         idempotencyKey:
           "creative-work:work-1:revision:output-v2:dispatch-refund",
       }),
@@ -1460,8 +1460,8 @@ function tripletAdapter() {
     planVersionId: "plan-1",
     goalRunId: "goal-1",
     locale: "pt-BR",
-    amount: 15,
-    unitChargeAmount: 5,
+    amount: 150,
+    unitChargeAmount: 50,
   });
 }
 
@@ -1480,8 +1480,8 @@ function goalPackageAdapter() {
     planVersionId: "plan-1",
     goalRunId: "goal-1",
     locale: "pt-BR",
-    amount: 15,
-    unitChargeAmount: 5,
+    amount: 150,
+    unitChargeAmount: 50,
   });
 }
 
@@ -1536,7 +1536,7 @@ describe("Assistant generation settlement adapters", () => {
     expect(createChild).toHaveBeenCalledTimes(3);
     expect(chargeBatch).toHaveBeenCalledWith(
       expect.objectContaining({
-        chargeAmount: 15,
+        chargeAmount: 150,
         billingKey: "assistant-action:action-triplet:creative-triplet",
         intent: { mode: "art_variation", objective: null },
       }),
@@ -1580,7 +1580,7 @@ describe("Assistant generation settlement adapters", () => {
     expect(refund).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "image_derivation",
-        amount: 15,
+        amount: 150,
         idempotencyKey:
           "assistant-action:action-triplet:creative-triplet:dispatch-refund",
       }),
@@ -1610,7 +1610,7 @@ describe("Assistant generation settlement adapters", () => {
     expect(createPackageChild).toHaveBeenCalledTimes(3);
     expect(chargeBatch).toHaveBeenCalledWith(
       expect.objectContaining({
-        chargeAmount: 15,
+        chargeAmount: 150,
         billingKey: "assistant-action:action-package:goal-package",
       }),
       expect.objectContaining({
@@ -1641,7 +1641,7 @@ describe("Assistant generation settlement adapters", () => {
     expect(refund).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "delivery_package_child",
-        amount: 15,
+        amount: 150,
         idempotencyKey:
           "assistant-action:action-package:goal-package:dispatch-refund",
       }),
@@ -1658,7 +1658,7 @@ describe("Assistant generation settlement adapters", () => {
     expect(chargeUnit).toHaveBeenCalledWith(
       expect.objectContaining({
         intent: { mode: "art_variation", objective: null },
-        cost: { chargeAmount: 5, refundPolicy: "default" },
+        cost: { chargeAmount: 50, refundPolicy: "default" },
         idempotency: expect.objectContaining({
           billingKey: "assistant-action:action-preview:preview",
         }),
@@ -1694,7 +1694,7 @@ describe("Assistant generation settlement adapters", () => {
     expect(refund).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "image_derivation",
-        amount: 5,
+        amount: 50,
         idempotencyKey:
           "assistant-action:action-preview:preview:dispatch-refund",
       }),

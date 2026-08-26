@@ -3,6 +3,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 const MIGRATION_PATH = path.resolve(__dirname, "../../../drizzle/0087_credit_unit_v2.sql");
+const IDEMPOTENCY_MIGRATION_PATH = path.resolve(
+  __dirname,
+  "../../../drizzle/0088_credit_grant_source_idempotency.sql"
+);
 const JOURNAL_PATH = path.resolve(__dirname, "../../../drizzle/meta/_journal.json");
 
 const EXPECTED_CREDIT_ACTIONS = [
@@ -95,5 +99,16 @@ describe("0087_credit_unit_v2 migration", () => {
     expect(typeof entry87.when).toBe("number");
     const entry86 = journal.entries.find((e: { idx: number }) => e.idx === 86);
     expect(entry87.when).toBeGreaterThan(entry86.when);
+  });
+});
+
+describe("0088_credit_grant_source_idempotency migration", () => {
+  it("guards existing duplicates and enforces one grant per source id", () => {
+    const sql = fs.readFileSync(IDEMPOTENCY_MIGRATION_PATH, "utf-8");
+
+    expect(sql).toMatch(/HAVING\s+count\(\*\)\s*>\s*1/i);
+    expect(sql).toMatch(/CREATE\s+UNIQUE\s+INDEX/i);
+    expect(sql).toMatch(/\("source",\s*"source_id"\)/i);
+    expect(sql).toMatch(/WHERE\s+"source_id"\s+IS\s+NOT\s+NULL/i);
   });
 });

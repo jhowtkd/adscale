@@ -114,10 +114,10 @@ describe("useCreativeComposer", () => {
         format: input.format,
         settings: input.settings,
       },
-      quote: { unitCount: 3, credits: 15 },
+      quote: { unitCount: 3, credits: 150 },
     }));
     mocks.autosave.mockResolvedValue({ work: { id: "work-1" } });
-    mocks.prepare.mockResolvedValue({ work: workDetail().work, quote: { unitCount: 3, credits: 15 } });
+    mocks.prepare.mockResolvedValue({ work: workDetail().work, quote: { unitCount: 3, credits: 150 } });
     mocks.generate.mockResolvedValue({ work: { status: "generating" }, outputs: [] });
     mocks.suggest.mockResolvedValue({ directions: [] });
     mocks.upload.mockResolvedValue({ assetId: "asset-1", name: "arte.png" });
@@ -189,7 +189,7 @@ describe("useCreativeComposer", () => {
 
     expect(result.current.intent).toBe("format_adaptation");
     expect(result.current.targetFormats).toEqual(["1:1", "9:16"]);
-    expect(result.current.quote).toEqual({ unitCount: 2, credits: 10 });
+    expect(result.current.quote).toEqual({ unitCount: 2, credits: 100 });
   });
 
   it("offers only human-approved brand font files", () => {
@@ -232,14 +232,14 @@ describe("useCreativeComposer", () => {
 
     act(() => result.current.toggleDirection(pool.selectedIds[0]));
     expect(result.current.directionPool?.selectedIds).toHaveLength(2);
-    expect(result.current.quote).toEqual({ unitCount: 2, credits: 10 });
+    expect(result.current.quote).toEqual({ unitCount: 2, credits: 100 });
 
     act(() => {
       result.current.toggleDirection(pool.directions[3].id);
       result.current.toggleDirection(pool.directions[4].id);
     });
     expect(result.current.directionPool?.selectedIds).toHaveLength(4);
-    expect(result.current.quote).toEqual({ unitCount: 4, credits: 20 });
+    expect(result.current.quote).toEqual({ unitCount: 4, credits: 200 });
 
     act(() => result.current.toggleDirection(pool.selectedIds[1]));
     expect(result.current.directionPool?.selectedIds).toHaveLength(3);
@@ -276,7 +276,7 @@ describe("useCreativeComposer", () => {
 
     expect(mocks.suggest).toHaveBeenCalledWith("work-1");
     expect(result.current.directionPool?.selectedIds).toEqual(suggestions.slice(0, 3).map((suggestion) => suggestion.id));
-    expect(result.current.quote).toEqual({ unitCount: 3, credits: 15 });
+    expect(result.current.quote).toEqual({ unitCount: 3, credits: 150 });
   });
 
   it("requests suggestions again on demand even when suggestions are already persisted (#129)", async () => {
@@ -349,7 +349,7 @@ describe("useCreativeComposer", () => {
       ...keptIds,
       ...suggestions.slice(0, 3).map((suggestion) => suggestion.id),
     ]);
-    expect(result.current.quote).toEqual({ unitCount: 2, credits: 10 });
+    expect(result.current.quote).toEqual({ unitCount: 2, credits: 100 });
   });
 
   it("applies the full received set with new selections when confirming the late initial response (#129)", async () => {
@@ -403,7 +403,7 @@ describe("useCreativeComposer", () => {
       suggestions.slice(0, 3).map((suggestion) => suggestion.id),
     );
     expect(result.current.pendingDirectionSuggestions).toBeNull();
-    expect(result.current.quote).toEqual({ unitCount: 3, credits: 15 });
+    expect(result.current.quote).toEqual({ unitCount: 3, credits: 150 });
   });
 
   it("preserves the selected chips when confirming a 'Sugerir novamente' response (#129)", async () => {
@@ -575,7 +575,7 @@ describe("useCreativeComposer", () => {
     act(() => result.current.confirmProtocolSwitch());
     await act(async () => creating.resolve({
       work: workDetail({ id: WORK_ID, request: "Pedido antigo", toolKind: "variations" }).work,
-      quote: { unitCount: 3, credits: 15 },
+      quote: { unitCount: 3, credits: 150 },
     }));
 
     expect(result.current.intent).toBe("restyle");
@@ -649,7 +649,7 @@ describe("useCreativeComposer", () => {
     const replace = vi.spyOn(window.history, "replaceState");
     mocks.create.mockImplementation((input: { templateId?: string }) => Promise.resolve({
       work: { ...workDetail({ id: WORK_ID }).work, request: "", toolKind: "variations" },
-      quote: { unitCount: 3, credits: 15 },
+      quote: { unitCount: 3, credits: 150 },
       input,
     }));
     const wrapper = ({ children }: { children: ReactNode }) => (
@@ -898,7 +898,7 @@ describe("useCreativeComposer", () => {
           id: WORK_ID,
           request: "Campanha mobile",
         },
-        quote: { unitCount: 3, credits: 15 },
+        quote: { unitCount: 3, credits: 150 },
       });
       await adding;
     });
@@ -934,7 +934,7 @@ describe("useCreativeComposer", () => {
           id: WORK_ID,
           request: "Campanha mobile",
         },
-        quote: { unitCount: 3, credits: 15 },
+        quote: { unitCount: 3, credits: 150 },
       });
       await adding;
     });
@@ -1022,7 +1022,7 @@ describe("useCreativeComposer", () => {
     await act(async () => {
       creating.resolve({
         work: { ...workDetail().work, id: WORK_ID },
-        quote: { unitCount: 3, credits: 15 },
+        quote: { unitCount: 3, credits: 150 },
       });
       await adding;
     });
@@ -1033,7 +1033,7 @@ describe("useCreativeComposer", () => {
   it("rejects an unsafe work identifier returned while creating a draft", async () => {
     mocks.create.mockResolvedValue({
       work: { ...workDetail().work, id: "../../other-workspace" },
-      quote: { unitCount: 3, credits: 15 },
+      quote: { unitCount: 3, credits: 150 },
     });
     const { result } = renderHook(() => useCreativeComposer());
 
@@ -1149,7 +1149,7 @@ describe("useCreativeComposer", () => {
     act(() => result.current.selectIntent("single"));
 
     expect(result.current.intent).toBe("single");
-    expect(result.current.quote).toEqual({ unitCount: 1, credits: 5 });
+    expect(result.current.quote).toEqual({ unitCount: 1, credits: 50 });
     expect(document.activeElement).toBe(textarea);
     textarea.remove();
     vi.unstubAllGlobals();
@@ -1382,9 +1382,9 @@ describe("useCreativeComposer", () => {
   });
 
   it.each([
-    ["single", { targetFormats: [] }, { unitCount: 1, credits: 5 }],
-    ["restyle", { targetFormats: [] }, { unitCount: 1, credits: 5 }],
-    ["format_adaptation", { targetFormats: ["1:1", "9:16"] }, { unitCount: 2, credits: 10 }],
+    ["single", { targetFormats: [] }, { unitCount: 1, credits: 50 }],
+    ["restyle", { targetFormats: [] }, { unitCount: 1, credits: 50 }],
+    ["format_adaptation", { targetFormats: ["1:1", "9:16"] }, { unitCount: 2, credits: 100 }],
   ] as const)("hydrates %s as authoritative without autosaving variations over it", async (toolKind, settings, expectedQuote) => {
     mocks.work.mockReturnValue({ data: workDetail({ toolKind, settings }), isLoading: false, isError: false });
     const { result } = renderHook(() =>
@@ -1398,15 +1398,15 @@ describe("useCreativeComposer", () => {
   });
 
   it.each([
-    ["restyle", { unitCount: 1, credits: 5 }],
-    ["single", { unitCount: 1, credits: 5 }],
-    ["format_adaptation", { unitCount: 2, credits: 10 }],
+    ["restyle", { unitCount: 1, credits: 50 }],
+    ["single", { unitCount: 1, credits: 50 }],
+    ["format_adaptation", { unitCount: 2, credits: 100 }],
   ] as const)("starts a separate %s draft instead of mutating the restored work", async (nextIntent, expectedQuote) => {
     mocks.work.mockReturnValue({ data: workDetail({ toolKind: "variations" }), isLoading: false, isError: false });
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
     expect(result.current.intent).toBe("variations");
-    expect(result.current.quote).toEqual({ unitCount: 3, credits: 15 });
+    expect(result.current.quote).toEqual({ unitCount: 3, credits: 150 });
     await act(async () => Promise.resolve());
     act(() => result.current.selectIntent(nextIntent));
     await act(async () => Promise.resolve());
@@ -1459,7 +1459,7 @@ describe("useCreativeComposer", () => {
 
     createA.resolve({
       work: { ...workDetail().work, id: WORK_ID, request: "Pedido A", toolKind: "variations" },
-      quote: { unitCount: 3, credits: 15 },
+      quote: { unitCount: 3, credits: 150 },
     });
     await act(async () => { await generation; });
 
@@ -1476,7 +1476,7 @@ describe("useCreativeComposer", () => {
       .mockReturnValueOnce(lostResponse.promise)
       .mockResolvedValueOnce({
         work: { ...workDetail().work, id: WORK_ID, request: "Pedido A", toolKind: "variations" },
-        quote: { unitCount: 3, credits: 15 },
+        quote: { unitCount: 3, credits: 150 },
       });
     const { result } = renderHook(() => useCreativeComposer());
 
@@ -1552,7 +1552,7 @@ describe("useCreativeComposer", () => {
     mocks.work.mockReturnValue({ data: workDetail(), isLoading: false });
     mocks.prepare.mockResolvedValue({
       work: workDetail().work,
-      quote: { unitCount: 3, credits: 15 },
+      quote: { unitCount: 3, credits: 150 },
       briefing,
       briefingFactPack,
       readiness: briefing.readiness,
@@ -1638,7 +1638,7 @@ describe("useCreativeComposer", () => {
         format: "9:16",
         settings: { targetFormats: [], formatMode: "auto" },
       }).work,
-      quote: { unitCount: 1, credits: 5 },
+      quote: { unitCount: 1, credits: 50 },
     });
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
@@ -1823,7 +1823,7 @@ describe("useCreativeComposer", () => {
       }))
       .mockResolvedValueOnce({
         work: { ...workDetail().work, format: "4:5" },
-        quote: { unitCount: 1, credits: 5 },
+        quote: { unitCount: 1, credits: 50 },
       });
     mocks.generate.mockResolvedValue({ work: { status: "generating" }, outputs: [], brandTrainingSuggestion: null });
     mocks.resolveBrandConflict.mockResolvedValue({ work: workDetail().work });

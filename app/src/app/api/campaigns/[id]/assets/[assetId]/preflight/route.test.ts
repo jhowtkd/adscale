@@ -282,7 +282,8 @@ describe("POST /api/campaigns/[id]/assets/[assetId]/preflight", () => {
         properties: expect.objectContaining({
           operation: "creative_qa",
           reasonCode: "insufficient_credits",
-          estimateCredits: 1,
+          estimateCredits: 10,
+          creditUnitVersion: 2,
           stage: "readiness",
           missionKey: "readiness",
         }),

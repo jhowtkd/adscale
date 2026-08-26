@@ -3817,6 +3817,7 @@
       "accessLabels": {
         "beta": "Beta ({remaining} anúncios restantes)",
         "tester": "Tester (uso ilimitado)",
+        "trial": "Trial de 500 créditos",
         "noPlan": "Sem plano ativo",
         "plan": "{plan}"
       },

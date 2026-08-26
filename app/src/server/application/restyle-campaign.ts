@@ -4,7 +4,7 @@
  *
  * Billing action/key stay adapter-owned (panel vs chat may use different ledgers).
  */
-import type { CreditAction } from "@/server/billing/credits";
+import { CREDIT_COSTS, type CreditAction } from "@/lib/billing/credit-units";
 import type { SpendResult } from "@/server/billing/paywall";
 import { restyleCampaignSettlementAdapter } from "@/server/generation/settlement-adapters";
 import { startGenerationSettlement } from "@/server/generation/settlement";
@@ -51,7 +51,6 @@ export type RestyleCampaignInput = {
   /** Distinguishes successive panel restyles that share base/style/params. */
   billingAttemptId?: string;
   billingMetadata?: Record<string, unknown>;
-  billingAmount?: number;
   assistantActionId?: string | null;
 };
 
@@ -206,10 +205,7 @@ export async function restyleCampaign(
       ? `${baseAsset.width}x${baseAsset.height}`
       : "1:1";
 
-  const billingAmount = input.billingAmount;
-  if (billingAmount == null || billingAmount <= 0) {
-    return { ok: false, error: { code: "invalid_input" } };
-  }
+  const billingAmount = CREDIT_COSTS[input.billingAction];
 
   const settled = await startGenerationSettlement(
     restyleCampaignSettlementAdapter({

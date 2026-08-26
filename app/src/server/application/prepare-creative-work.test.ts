@@ -77,7 +77,7 @@ describe("prepareCreativeWork", () => {
       brief: expect.objectContaining({ theme: "Promoção de matrícula para julho" }),
       copy: { headline: "Julho", body: "Matricule-se", cta: "Saiba mais" },
     }), transactionExecutor);
-    if (result.ok) expect(result.value.quote).toMatchObject({ unitCount: 3, credits: 15 });
+    if (result.ok) expect(result.value.quote).toMatchObject({ unitCount: 3, credits: 150 });
   });
 
   it("persists an exploratory briefing with an unknown offer instead of using the theme as fallback", async () => {

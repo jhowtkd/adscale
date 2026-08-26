@@ -3788,6 +3788,7 @@
       "accessLabels": {
         "beta": "Beta ({remaining} ads remaining)",
         "tester": "Tester (unlimited usage)",
+        "trial": "500-credit trial",
         "noPlan": "No active plan",
         "plan": "{plan}"
       },

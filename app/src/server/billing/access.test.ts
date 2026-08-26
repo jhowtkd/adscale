@@ -407,14 +407,12 @@ describe("getWorkspaceBillingAccess", () => {
     expect(access.creditBalance).toBe(200);
   });
 
-  it("falls back when trial entitlement lookup fails", async () => {
+  it("surfaces a temporary trial lookup failure instead of returning no access", async () => {
     mockGetActiveSubscription.mockResolvedValue(null);
     mockGetTrialEntitlement.mockRejectedValue(new Error("trial relation missing"));
 
-    const access = await getWorkspaceBillingAccess("workspace-1");
-
-    expect(access.kind).toBe("none");
-    expect(access.hasSpendAccess).toBe(false);
-    expect(access.trialEntitlement).toBeNull();
+    await expect(getWorkspaceBillingAccess("workspace-1")).rejects.toThrow(
+      "trial relation missing"
+    );
   });
 });

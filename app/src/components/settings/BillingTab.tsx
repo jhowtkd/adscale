@@ -20,6 +20,7 @@ import {
   useStartCheckout,
   type BillingStatus,
 } from "@/lib/hooks/use-billing";
+import { LOW_CREDIT_THRESHOLD } from "@/lib/billing/credit-units";
 
 const paidPlanTiers = planTiers.filter((tier) => !tier.trial);
 
@@ -59,6 +60,9 @@ function resolveAccessLabel(
   if (access?.kind === "tester") {
     return t("accessLabels.tester");
   }
+  if (access?.kind === "trial") {
+    return t("accessLabels.trial");
+  }
   if (subscription?.planKey) {
     const tier = planTiers.find((t) => t.key === subscription.planKey);
     const planName = tier?.name ?? subscription.planKey;
@@ -75,6 +79,7 @@ function resolveStatusLabel(
   const status = billingStatus?.subscriptionStatus;
   if (access?.kind === "beta") return t("statusLabels.beta");
   if (access?.kind === "tester") return t("statusLabels.tester");
+  if (access?.kind === "trial") return t("statusLabels.trial");
   if (status === "past_due") return t("statusLabels.pastDue");
   if (status === "canceled") return t("statusLabels.canceled");
   if (status === "trialing") return t("statusLabels.trial");
@@ -137,11 +142,13 @@ export default function BillingTab() {
   const subscription = billingStatus?.subscription;
   const access = billingStatus?.access;
   const subscriptionStatus = billingStatus?.subscriptionStatus ?? "none";
-  const isTrialing = subscriptionStatus === "trialing";
+  const isPaidSubscriptionTrial = subscriptionStatus === "trialing";
+  const isSignupTrial = access?.kind === "trial";
+  const isTrialing = isPaidSubscriptionTrial || isSignupTrial;
   const isActive = subscriptionStatus === "active";
   const isPastDue = subscriptionStatus === "past_due";
   const isCanceled = subscriptionStatus === "canceled";
-  const hasPaidPlan = isActive || isTrialing;
+  const hasPaidPlan = isActive || isPaidSubscriptionTrial;
   const isBeta = access?.kind === "beta";
   const hasSpendAccess = access?.hasSpendAccess ?? (hasPaidPlan || isBeta);
   const grants = creditHistory?.grants ?? [];
@@ -228,7 +235,7 @@ export default function BillingTab() {
         </div>
       )}
 
-      {(billingStatus?.creditBalance ?? 0) <= 10 && hasSpendAccess && !isBeta && (
+      {(billingStatus?.creditBalance ?? 0) <= LOW_CREDIT_THRESHOLD && hasSpendAccess && !isBeta && (
         <div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4 text-sm text-[var(--warning-text)]">
           {isTrialing
             ? t("lowCredits.trial", { credits: billingStatus?.creditBalance ?? 0 })

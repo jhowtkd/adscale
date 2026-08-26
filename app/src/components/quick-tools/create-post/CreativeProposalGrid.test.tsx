@@ -272,7 +272,7 @@ describe("CreativeProposalGrid", () => {
     fireEvent.click(screen.getByRole("button", { name: /Ampliar/ }));
     fireEvent.click(screen.getByRole("button", { name: "add annotation" }));
     expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-count", "1");
-    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 50 créditos" }));
     await waitFor(() => expect(onRevise).toHaveBeenCalledWith("out-balanced", "1. Reduzir título", annotatedFile));
     expect(onRevise).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -283,7 +283,7 @@ describe("CreativeProposalGrid", () => {
     render(<CreativeProposalGrid outputs={[balancedCompleted]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={onRevise} />);
     fireEvent.click(screen.getByRole("button", { name: /Ampliar/ }));
     fireEvent.change(screen.getByTestId("annotation-general-comment"), { target: { value: "  Ajustar contraste  " } });
-    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 50 créditos" }));
     await waitFor(() => expect(onRevise).toHaveBeenCalledWith("out-balanced", "Ajustar contraste", null));
     expect(onRevise).toHaveBeenCalledTimes(1);
     expect(annotationMocks.render).not.toHaveBeenCalled();
@@ -299,7 +299,7 @@ describe("CreativeProposalGrid", () => {
     fireEvent.click(screen.getByRole("button", { name: /Ampliar/ }));
     fireEvent.change(screen.getByTestId("annotation-general-comment"), { target: { value: "Ajustar contraste" } });
     fireEvent.click(screen.getByRole("button", { name: "add annotation" }));
-    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 50 créditos" }));
     await waitFor(() => expect(onRevise).toHaveBeenCalledWith("out-balanced", "Ajustar contraste\n1. Reduzir título", annotatedFile));
     expect(annotationMocks.render).toHaveBeenCalledTimes(1);
   });
@@ -312,12 +312,12 @@ describe("CreativeProposalGrid", () => {
     fireEvent.click(screen.getByRole("button", { name: /Ampliar/ }));
     fireEvent.click(screen.getByRole("button", { name: "add annotation" }));
     fireEvent.click(screen.getByRole("button", { name: "voice busy" }));
-    const revise = screen.getByRole("button", { name: "Gerar variação · 5 créditos" });
+    const revise = screen.getByRole("button", { name: "Gerar variação · 50 créditos" });
     expect(revise).toBeDisabled();
     fireEvent.click(revise);
     expect(onRevise).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "voice idle" }));
-    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 50 créditos" }));
     await waitFor(() => expect(onRevise).toHaveBeenCalledWith("out-balanced", "1. Reduzir título", annotatedFile));
     expect(onRevise).toHaveBeenCalledTimes(1);
   });
@@ -328,7 +328,7 @@ describe("CreativeProposalGrid", () => {
     fireEvent.click(screen.getByRole("button", { name: "add annotation" }));
     const rightPanel = screen.getByTestId("annotation-editor-right-panel");
     expect(rightPanel).toContainElement(screen.getByTestId("annotation-numbered-list"));
-    expect(rightPanel).toContainElement(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
+    expect(rightPanel).toContainElement(screen.getByRole("button", { name: "Gerar variação · 50 créditos" }));
     expect(screen.getByTestId("annotation-editor-preview")).not.toContainElement(screen.getByTestId("annotation-numbered-list"));
   });
 
@@ -339,10 +339,10 @@ describe("CreativeProposalGrid", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ampliar Conservadora em 4:5" }));
     fireEvent.click(screen.getByRole("button", { name: "add annotation" }));
     fireEvent.change(screen.getByTestId("annotation-general-comment"), { target: { value: "Primeiro" } });
-    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 50 créditos" }));
     await waitFor(() => expect(onRevise).toHaveBeenCalledTimes(1));
     expect(await screen.findByRole("alert")).toHaveTextContent("annotationRevisionError");
-    expect(screen.getByRole("button", { name: "Gerar variação · 5 créditos" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Gerar variação · 50 créditos" })).toBeEnabled();
     expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-count", "1");
     expect(screen.getByTestId("annotation-general-comment")).toHaveValue("Primeiro");
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
@@ -367,9 +367,9 @@ describe("CreativeProposalGrid", () => {
     fireEvent.click(screen.getByRole("button", { name: /Ampliar/ }));
     fireEvent.click(screen.getByRole("button", { name: "add annotation" }));
     fireEvent.change(screen.getByTestId("annotation-general-comment"), { target: { value: "Manter este texto" } });
-    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 50 créditos" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("annotationPreparationError");
-    expect(screen.getByRole("button", { name: "Gerar variação · 5 créditos" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Gerar variação · 50 créditos" })).toBeEnabled();
     expect(annotationMocks.render).toHaveBeenCalledTimes(1);
     expect(onRevise).not.toHaveBeenCalled();
     expect(screen.getByTestId("annotation-editor")).toHaveAttribute("data-count", "1");
@@ -391,7 +391,7 @@ describe("CreativeProposalGrid", () => {
     expect(screen.getByTestId("annotation-mobile-drawing-disabled")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "add annotation" })).not.toBeInTheDocument();
     fireEvent.change(screen.getByTestId("annotation-general-comment"), { target: { value: "Ajustar contraste" } });
-    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 5 créditos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Gerar variação · 50 créditos" }));
     await waitFor(() => expect(onRevise).toHaveBeenCalledWith("out-balanced", "Ajustar contraste", null));
     expect(onRevise).toHaveBeenCalledTimes(1);
   });

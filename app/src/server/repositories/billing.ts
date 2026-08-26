@@ -251,7 +251,7 @@ export async function createCreditGrant(
   tx?: DbOrTx
 ) {
   const client = tx ?? db;
-  const rows = await client
+  const insert = client
     .insert(creditGrants)
     .values({
       workspaceId: data.workspaceId,
@@ -260,8 +260,17 @@ export async function createCreditGrant(
       amount: data.amount,
       remaining: data.amount,
       expiresAt: data.expiresAt ?? null,
-    })
-    .returning();
+    });
+  const rows = data.sourceId
+    ? await insert.onConflictDoNothing().returning()
+    : await insert.returning();
 
-  return rows[0];
+  if (rows[0]) return rows[0];
+
+  if (data.sourceId) {
+    const existing = await getCreditGrantBySourceId(data.source, data.sourceId, client);
+    if (existing) return existing;
+  }
+
+  throw new Error("credit_grant_insert_failed");
 }

@@ -62,7 +62,6 @@ export async function POST(
       styleIntensity,
       creativeLevel,
       billingAction: "image_derivation",
-      billingAmount: 5,
       // Each panel click is a new settlement; network retries may send Idempotency-Key.
       billingAttemptId:
         request.headers.get("idempotency-key")?.trim() ||
