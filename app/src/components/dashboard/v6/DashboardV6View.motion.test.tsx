@@ -56,7 +56,8 @@ describe("DashboardV6View motion values", () => {
     expect(screen.getByText("heroEmptyDescription")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "heroEmptyAction" })).toHaveAttribute("href", "/?compose=1");
     expect(screen.getByRole("link", { name: "activityEmptyAction" })).toHaveAttribute("href", "/?compose=1");
-    expect(screen.getByRole("link", { name: "briefingEmptyAction" })).toHaveAttribute("href", "/?compose=1");
+    expect(screen.queryByRole("link", { name: "briefingEmptyAction" })).not.toBeInTheDocument();
+    expect(screen.getByText("briefingEmptyAction").closest("[aria-hidden='true']")).toBeInTheDocument();
   });
 
   it("does not announce an empty featured work while works are loading", () => {
