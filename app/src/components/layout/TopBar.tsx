@@ -556,9 +556,9 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -8, scale: 0.98 }}
       transition={{ duration: 0.15 }}
-      className="layer-popover absolute right-0 top-[calc(100%+0.5rem)] z-[var(--layer-popover)] w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-[0_24px_80px_rgba(0,0,0,0.1)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+      className="layer-popover absolute right-0 top-[calc(100%+0.5rem)] z-[var(--layer-popover)] flex max-h-[calc(100dvh-5rem)] w-[360px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-[0_24px_80px_rgba(0,0,0,0.1)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
     >
-      <div className="flex items-center justify-between border-b border-[var(--border-dim)] px-4 py-3">
+      <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-dim)] px-4 py-3">
         <div>
           <p className="text-sm font-semibold text-[var(--text-primary)]">
             {tCommon("notifications")}
@@ -588,7 +588,7 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
           <Clock3 size={16} className="text-[var(--text-muted)]" />
         )}
       </div>
-      <div className="max-h-[320px] overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {items.length === 0 ? (
           <div className="px-4 py-6 text-sm text-[var(--text-muted)]">
             {tCommon("noNotifications")}
