@@ -15,7 +15,16 @@ const protocolButton = (intent: "variations" | "single" | "format_adaptation" | 
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: Record<string, string>) =>
-    key === "continueCampaignHint" && values?.name ? `Continue: ${values.name}` : `dashboard.home.${key}`,
+    key === "continueBrand" && values?.name
+      ? `Marca ${values.name}`
+      : ({
+          createCampaign: "Nova campanha",
+          continueWhereLeftOff: "Continuar de onde parei",
+          continueOriginCampaign: "Campanha",
+          continueOriginCreativeWork: "Criação avulsa",
+          "continueStates.generating": "Gerando",
+          "continueStates.reviewing": "Em revisão",
+        }[key] ?? `dashboard.home.${key}`),
 }));
 vi.mock("@/lib/hooks/use-canonical-works", () => ({
   useCanonicalWorks: (...args: unknown[]) => useCanonicalWorksMock(...args),
@@ -91,7 +100,7 @@ describe("DashboardHomeActions", () => {
       data: [{
         id: "creative_work:w1", originKind: "creative_work", originId: "w1", origin: "quick_tool",
         workspaceId: "ws", name: "Post social", state: "generating", updatedAt: "2026-07-13T12:00:00.000Z",
-        resumable: true, resumeHref: "/creative-work/w1",
+        resumable: true, resumeHref: "/creative-work/w1", brandName: "Marca A",
       }],
       isLoading: false, isError: false, refetch: vi.fn(),
     });
@@ -99,12 +108,16 @@ describe("DashboardHomeActions", () => {
     render(<DashboardHomeActions workId="opened-work" />);
 
     const protocols = screen.getByRole("heading", { name: "dashboard.home.title" }).closest("section");
-    const continueLink = screen.getByRole("link", { name: /Continue: Post social/i });
+    const continueLink = screen.getByRole("link", { name: /Post social/i });
 
     expect(screen.getByTestId("creative-composer")).toBeInTheDocument();
     expect(screen.getByTestId("active-client-switcher")).toBeInTheDocument();
-    expect(protocols?.compareDocumentPosition(continueLink)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(continueLink.compareDocumentPosition(protocols!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(continueLink).toHaveAttribute("href", "/creative-work/w1");
+    expect(continueLink).toHaveTextContent("Criação avulsa");
+    expect(continueLink).toHaveTextContent("Marca Marca A");
+    expect(continueLink).toHaveTextContent("Gerando");
+    expect(screen.getByRole("link", { name: "Nova campanha" })).toHaveAttribute("href", "/campaigns/new");
     expect(screen.getAllByRole("button").filter((button) => button.hasAttribute("aria-pressed"))).toHaveLength(6);
     expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
     expect(screen.queryByText("dashboard.home.chooseIntent")).not.toBeInTheDocument();
@@ -123,7 +136,7 @@ describe("DashboardHomeActions", () => {
 
     render(<DashboardHomeActions workId="w1" />);
 
-    expect(screen.getByRole("link", { name: /Continue: Post social/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Post social/i })).toHaveAttribute(
       "href",
       "/creative-work/w1",
     );
@@ -141,7 +154,7 @@ describe("DashboardHomeActions", () => {
 
     render(<DashboardHomeActions workId="w1" />);
 
-    expect(screen.getByRole("link", { name: /Continue: Post social/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Post social/i })).toHaveAttribute(
       "href",
       "/campaigns/c1?creativeWork=w1",
     );

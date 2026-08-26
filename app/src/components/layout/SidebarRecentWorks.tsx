@@ -68,7 +68,7 @@ export default function SidebarRecentWorks() {
           </Link>
         </div>
       ) : (
-        <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+        <div className="v6-sidebar-scroll min-h-0 flex-1 space-y-1 overflow-y-auto">
           {groups.map((group, index) => (
             <details
               key={group.clientProfileId}

@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowRight, ImageIcon } from "lucide-react";
+import { ArrowRight, ImageIcon, Plus } from "lucide-react";
 import { AccessGatePanel } from "@/components/billing/AccessGatePanel";
 import { CreativeComposer } from "@/components/creative-work/CreativeComposer";
 import { CreativeToolCards } from "@/components/creative-work/CreativeToolCards";
@@ -35,37 +35,41 @@ function ContinueWorkThumbnail({ outputs }: { outputs: CreativeWorkOutput[] }) {
     <span
       data-testid="continue-work-thumbnail"
       aria-hidden="true"
-      className="grid aspect-[4/5] w-20 shrink-0 place-items-center overflow-hidden rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] sm:w-24"
+      className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-inset)]"
     >
-      {preview ? <Image src={`/api/creative-work/${preview.workItemId}/outputs/${preview.id}/download`} alt="" width={96} height={120} unoptimized loading="lazy" className="size-full object-cover" /> : <ImageIcon size={20} className="text-[var(--text-muted)]" />}
+      {preview ? <Image src={`/api/creative-work/${preview.workItemId}/outputs/${preview.id}/download`} alt="" width={48} height={48} unoptimized loading="lazy" className="size-full object-cover" /> : <ImageIcon size={18} className="text-[var(--text-muted)]" />}
     </span>
   );
 }
 
 function ContinueWorkCard({
   target,
-  href,
-  title,
-  hint,
+  brandName,
 }: {
   target: Extract<ContinueWorkTarget, { kind: "work" }>;
-  href: string;
-  title: string;
-  hint: string;
+  brandName: string;
 }) {
+  const t = useTranslations("dashboard.home");
   const creativeWorkId = target.originKind === "creative_work" ? target.originId : null;
   const { data } = useCreativeWork(creativeWorkId);
 
   return (
     <Link
-      href={href}
-      className="group grid min-h-24 grid-cols-[minmax(0,1fr)_5rem] items-center gap-4 overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 transition-colors hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:grid-cols-[minmax(0,1fr)_6rem] sm:p-5"
+      href={target.href}
+      className="group grid min-h-16 grid-cols-[minmax(0,1fr)_3rem] items-center gap-3 overflow-hidden rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3 transition-colors hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
     >
       <span className="min-w-0">
-        <span id="continue-work-title" className="block text-base font-semibold text-[var(--text-primary)] sm:text-lg">{title}</span>
-        <span className="mt-2 block truncate text-sm text-[var(--text-secondary)]">{hint}</span>
-        <span className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
-          <ArrowRight size={17} aria-hidden="true" />
+        <span id="continue-work-title" className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("continueWhereLeftOff")}</span>
+        <span className="mt-1 flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{target.name}</span>
+          <ArrowRight size={14} className="shrink-0 text-[var(--text-secondary)] transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+        </span>
+        <span className="mt-1 flex flex-wrap gap-x-2 text-xs text-[var(--text-muted)]">
+          <span>{target.originKind === "campaign" ? t("continueOriginCampaign") : t("continueOriginCreativeWork")}</span>
+          <span aria-hidden="true">·</span>
+          <span>{t("continueBrand", { name: brandName })}</span>
+          <span aria-hidden="true">·</span>
+          <span>{t(`continueStates.${target.state}`)}</span>
         </span>
       </span>
       <ContinueWorkThumbnail outputs={data?.outputs ?? []} />
@@ -132,8 +136,28 @@ export default function DashboardHomeActions({
           <h1 className="mt-1 product-page-title text-[var(--text-primary)]">{mode === "arte" ? t("studioArtTitle") : t("studioBriefingTitle")}</h1>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">{mode === "arte" ? t("studioArtSubtitle") : t("studioBriefingSubtitle")}</p>
         </div>
-        <ActiveBrandSwitcher id="active-client-switcher-home" className="mt-0 w-full sm:w-64" />
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <Link
+            href="/campaigns/new"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 text-sm font-semibold text-[var(--action-primary-text)] transition-colors hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          >
+            <Plus size={16} aria-hidden="true" />
+            {t("createCampaign")}
+          </Link>
+          <ActiveBrandSwitcher id="active-client-switcher-home" className="mt-0 w-full sm:w-64" />
+        </div>
       </header>
+
+      {isLoading && works.length === 0 ? (
+        <div className="h-[74px] animate-pulse rounded-[var(--radius-control)] bg-[var(--surface-raised)]" aria-hidden="true" />
+      ) : continueTarget.kind === "work" ? (
+        <section aria-labelledby="continue-work-title">
+          <ContinueWorkCard
+            target={continueTarget}
+            brandName={continueTarget.brandName ?? t("continueBrandUnknown")}
+          />
+        </section>
+      ) : null}
 
       <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label={t("studioModeLabel")}>
         {(["arte", "briefing"] as const).map((value) => (
@@ -185,27 +209,16 @@ export default function DashboardHomeActions({
 
       <CreativeComposer composer={composer} composerRef={composerRef} hideSourceUpload={mode === "briefing" && composer.intent === "single"} />
 
-      <section aria-labelledby={isLoading && works.length === 0 ? undefined : "continue-work-title"}>
-        {isLoading && works.length === 0 ? (
-          <div className="h-40 animate-pulse rounded-[var(--radius-object)] bg-[var(--surface-raised)] sm:h-44 lg:h-48" aria-hidden="true" />
-        ) : continueTarget.kind === "work" ? (
-          <ContinueWorkCard
-            target={continueTarget}
-            // #126: a work without a campaign resumes on its own page — the
-            // Home never intercepts the canonical destination with an anchor.
-            href={continueTarget.href}
-            title={t("continueWhereLeftOff")}
-            hint={t("continueCampaignHint", { name: continueTarget.name })}
-          />
-        ) : (
+      {!isLoading && continueTarget.kind === "empty" ? (
+        <section aria-labelledby="continue-work-title">
           <div className="rounded-[var(--radius-object)] border border-dashed border-[var(--border-subtle)] bg-[var(--surface-base)] p-5">
             <h2 id="continue-work-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("firstCreationTitle")}</h2>
             <p className="mt-1 text-sm text-[var(--text-muted)]">
               {t("firstCreationPrompt")} {activeProfile?.name ?? ""}
             </p>
           </div>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       <div data-testid="brand-inspirations-slot" className="min-h-16">
         <BrandInspirations clientProfileId={composer.clientProfileId} onAttach={composer.addInspiration} />

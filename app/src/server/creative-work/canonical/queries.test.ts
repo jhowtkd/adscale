@@ -79,7 +79,7 @@ describe("canonical queries isolation", () => {
         offer: null,
         constraints: null,
         notes: null,
-        clientProfileId: null,
+        clientProfileId: "66666666-6666-4666-8666-666666666666",
         status: "active",
         creativeDiagnosisStatus: "ready",
         createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -132,6 +132,7 @@ describe("canonical queries isolation", () => {
     expect(list).toHaveLength(2);
     expect(list[0].originKind).toBe("creative_work");
     expect(list[0].brandName).toBe("Marca Aurora");
+    expect(list[1].brandName).toBe("Marca Aurora");
     expect(list.map((i) => i.workspaceId)).toEqual([WS, WS]);
   });
 
