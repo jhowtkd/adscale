@@ -24,6 +24,16 @@ export async function GET(request: Request) {
       access.kind === "beta" && access.remainingAds !== null
         ? getBetaAllowanceSummary(access.remainingAds)
         : null;
+    const trialStatus =
+      access.trialEntitlement &&
+      (access.trialEntitlement.status === "active" ||
+        access.trialEntitlement.status === "pending_verification")
+        ? {
+            status: access.trialEntitlement.status as
+              | "pending_verification"
+              | "active",
+          }
+        : null;
 
     const isPastDue = access.subscriptionStatus === "past_due";
     const isCanceled = access.subscriptionStatus === "canceled";
@@ -39,6 +49,7 @@ export async function GET(request: Request) {
           remainingAds: access.remainingAds,
           hasSpendAccess: access.hasSpendAccess,
           beta: betaSummary,
+          trial: trialStatus,
         },
         pastDue: isPastDue
           ? {

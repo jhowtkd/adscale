@@ -9,6 +9,7 @@ vi.mock("@/server/repositories/billing", () => ({
 vi.mock("@/server/repositories/entitlements", () => ({
   getActiveBetaEntitlementByWorkspace: vi.fn(),
   getActiveTesterEntitlementByWorkspace: vi.fn(),
+  getTrialEntitlementByWorkspace: vi.fn(),
 }));
 
 vi.mock("@/server/auth/platform-owner", () => ({
@@ -23,18 +24,21 @@ import {
 import {
   getActiveBetaEntitlementByWorkspace,
   getActiveTesterEntitlementByWorkspace,
+  getTrialEntitlementByWorkspace,
 } from "@/server/repositories/entitlements";
 import { workspaceHasPlatformOwnerMember } from "@/server/auth/platform-owner";
 import {
   getWorkspaceBillingAccess,
   normalizeSubscriptionStatus,
 } from "./access";
+import { canSpend } from "./credits";
 
 const mockGetActiveSubscription = vi.mocked(getActiveSubscriptionByWorkspace);
 const mockGetLatestSubscription = vi.mocked(getLatestSubscriptionByWorkspace);
 const mockGetAvailableCreditGrants = vi.mocked(getAvailableCreditGrants);
 const mockGetActiveBetaEntitlement = vi.mocked(getActiveBetaEntitlementByWorkspace);
 const mockGetActiveTesterEntitlement = vi.mocked(getActiveTesterEntitlementByWorkspace);
+const mockGetTrialEntitlement = vi.mocked(getTrialEntitlementByWorkspace);
 const mockWorkspaceHasPlatformOwner = vi.mocked(workspaceHasPlatformOwnerMember);
 
 const activeSubscription = {
@@ -84,9 +88,10 @@ describe("normalizeSubscriptionStatus", () => {
 describe("getWorkspaceBillingAccess", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetAvailableCreditGrants.mockResolvedValue([grant(20)]);
+    mockGetAvailableCreditGrants.mockResolvedValue([grant(200)]);
     mockGetActiveBetaEntitlement.mockResolvedValue(null);
     mockGetActiveTesterEntitlement.mockResolvedValue(null);
+    mockGetTrialEntitlement.mockResolvedValue(null);
     mockGetLatestSubscription.mockResolvedValue(null);
     mockWorkspaceHasPlatformOwner.mockResolvedValue(false);
   });
@@ -168,7 +173,7 @@ describe("getWorkspaceBillingAccess", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-    mockGetAvailableCreditGrants.mockResolvedValue([grant(50)]);
+    mockGetAvailableCreditGrants.mockResolvedValue([grant(500)]);
 
     const access = await getWorkspaceBillingAccess("workspace-1");
 
@@ -177,7 +182,130 @@ describe("getWorkspaceBillingAccess", () => {
     expect(access.remainingAds).toBe(10);
   });
 
-  it("returns none when neither paid nor beta access exists", async () => {
+  it("paid subscription wins over trial", async () => {
+    mockGetActiveSubscription.mockResolvedValue(activeSubscription);
+    mockGetLatestSubscription.mockResolvedValue(activeSubscription);
+    mockGetTrialEntitlement.mockResolvedValue({
+      id: "trial-1",
+      workspaceId: "workspace-1",
+      kind: "trial",
+      status: "active",
+      sourceCode: null,
+      redeemedByUserId: "user-1",
+      metadata: null,
+      startsAt: new Date(),
+      expiresAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const access = await getWorkspaceBillingAccess("workspace-1");
+
+    expect(access.kind).toBe("paid");
+    expect(access.label).toBe("Assinatura ativa");
+    expect(access.hasSpendAccess).toBe(true);
+    expect(access.trialEntitlement?.status).toBe("active");
+  });
+
+  it("active trial with positive balance spends", async () => {
+    mockGetActiveSubscription.mockResolvedValue(null);
+    mockGetTrialEntitlement.mockResolvedValue({
+      id: "trial-1",
+      workspaceId: "workspace-1",
+      kind: "trial",
+      status: "active",
+      sourceCode: null,
+      redeemedByUserId: "user-1",
+      metadata: null,
+      startsAt: new Date(),
+      expiresAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    mockGetAvailableCreditGrants.mockResolvedValue([grant(500)]);
+
+    const access = await getWorkspaceBillingAccess("workspace-1");
+
+    expect(access.kind).toBe("trial");
+    expect(access.label).toBe("Trial");
+    expect(access.hasSpendAccess).toBe(true);
+    expect(access.remainingAds).toBe(10);
+    expect(access.creditBalance).toBe(500);
+    expect(access.trialEntitlement?.id).toBe("trial-1");
+
+    const spendCheck = await canSpend("workspace-1", "image_derivation");
+    expect(spendCheck.allowed).toBe(true);
+    expect(spendCheck.amount).toBe(50);
+  });
+
+  it("active trial with zero balance remains kind: trial and causes canSpend to return insufficient_credits", async () => {
+    mockGetActiveSubscription.mockResolvedValue(null);
+    mockGetTrialEntitlement.mockResolvedValue({
+      id: "trial-1",
+      workspaceId: "workspace-1",
+      kind: "trial",
+      status: "active",
+      sourceCode: null,
+      redeemedByUserId: "user-1",
+      metadata: null,
+      startsAt: new Date(),
+      expiresAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    mockGetAvailableCreditGrants.mockResolvedValue([]);
+
+    const access = await getWorkspaceBillingAccess("workspace-1");
+
+    expect(access.kind).toBe("trial");
+    expect(access.label).toBe("Trial");
+    expect(access.hasSpendAccess).toBe(true);
+    expect(access.remainingAds).toBe(0);
+    expect(access.creditBalance).toBe(0);
+
+    const spendCheck = await canSpend("workspace-1", "image_derivation");
+    expect(spendCheck).toEqual({
+      allowed: false,
+      amount: 50,
+      balance: 0,
+      reason: "insufficient_credits",
+    });
+  });
+
+  it("pending trial returns no spend access (kind: none)", async () => {
+    mockGetActiveSubscription.mockResolvedValue(null);
+    mockGetTrialEntitlement.mockResolvedValue({
+      id: "trial-1",
+      workspaceId: "workspace-1",
+      kind: "trial",
+      status: "pending_verification",
+      sourceCode: null,
+      redeemedByUserId: "user-1",
+      metadata: null,
+      startsAt: new Date(),
+      expiresAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    mockGetAvailableCreditGrants.mockResolvedValue([]);
+
+    const access = await getWorkspaceBillingAccess("workspace-1");
+
+    expect(access.kind).toBe("none");
+    expect(access.hasSpendAccess).toBe(false);
+    expect(access.remainingAds).toBeNull();
+    expect(access.trialEntitlement?.status).toBe("pending_verification");
+
+    const spendCheck = await canSpend("workspace-1", "image_derivation");
+    expect(spendCheck).toEqual({
+      allowed: false,
+      amount: 50,
+      balance: 0,
+      reason: "inactive_subscription",
+    });
+  });
+
+  it("returns none when neither paid, trial, nor beta access exists", async () => {
     mockGetActiveSubscription.mockResolvedValue(null);
 
     const access = await getWorkspaceBillingAccess("workspace-1");
@@ -185,6 +313,7 @@ describe("getWorkspaceBillingAccess", () => {
     expect(access.kind).toBe("none");
     expect(access.subscriptionStatus).toBe("none");
     expect(access.hasSpendAccess).toBe(false);
+    expect(access.trialEntitlement).toBeNull();
   });
 
   it("exposes past_due subscription status while falling back to beta access", async () => {
@@ -223,7 +352,7 @@ describe("getWorkspaceBillingAccess", () => {
     };
     mockGetActiveSubscription.mockResolvedValue(null);
     mockGetLatestSubscription.mockResolvedValue(pastDueSubscription);
-    mockGetAvailableCreditGrants.mockResolvedValue([grant(30)]);
+    mockGetAvailableCreditGrants.mockResolvedValue([grant(300)]);
 
     const access = await getWorkspaceBillingAccess("workspace-1");
 
@@ -275,6 +404,17 @@ describe("getWorkspaceBillingAccess", () => {
 
     expect(access.kind).toBe("none");
     expect(access.hasSpendAccess).toBe(false);
-    expect(access.creditBalance).toBe(20);
+    expect(access.creditBalance).toBe(200);
+  });
+
+  it("falls back when trial entitlement lookup fails", async () => {
+    mockGetActiveSubscription.mockResolvedValue(null);
+    mockGetTrialEntitlement.mockRejectedValue(new Error("trial relation missing"));
+
+    const access = await getWorkspaceBillingAccess("workspace-1");
+
+    expect(access.kind).toBe("none");
+    expect(access.hasSpendAccess).toBe(false);
+    expect(access.trialEntitlement).toBeNull();
   });
 });
