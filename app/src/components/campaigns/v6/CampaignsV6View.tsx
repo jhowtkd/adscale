@@ -264,7 +264,12 @@ export default function CampaignsV6View({
             ))}
           </ul>
         ) : viewMode === "grid" ? (
-          <CampaignGrid rows={rows} labels={labels} interactive={interactive} />
+          <CampaignGrid
+            rows={rows}
+            labels={labels}
+            interactive={interactive}
+            onDelete={onDelete}
+          />
         ) : (
           <div className="p-5">{alternateView}</div>
         )}
@@ -277,19 +282,21 @@ function CampaignGrid({
   rows,
   labels,
   interactive,
+  onDelete,
 }: {
   rows: CampaignV6Row[];
   labels: CampaignsV6Labels;
   interactive: boolean;
+  onDelete?: (id: string) => void;
 }) {
   return (
     <ul className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
       {rows.map((row) => (
-        <li key={row.id} className="min-w-0">
+        <li key={row.id} className="relative min-w-0">
           <Link
             href={interactive ? row.href : "#"}
             aria-label={`${labels.openCampaign}: ${row.name}`}
-            className="flex min-h-36 min-w-0 flex-col justify-between rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 transition-colors hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            className="flex min-h-36 min-w-0 flex-col justify-between rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 pr-14 transition-colors hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             onClick={interactive ? undefined : (event) => event.preventDefault()}
           >
             <div className="flex items-start justify-between gap-3">
@@ -314,6 +321,22 @@ function CampaignGrid({
               </p>
             </div>
           </Link>
+          {interactive && row.originKind === "campaign" ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                type="button"
+                aria-label={labels.actionsFor(row.name)}
+                className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-[var(--radius-control)] text-[var(--utility-icon)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              >
+                ⋮
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="border-[var(--border-subtle)] bg-[var(--surface-raised)]">
+                <DropdownMenuItem className="text-[var(--danger-text)]" onClick={() => onDelete?.(row.id)}>
+                  {labels.delete}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
         </li>
       ))}
     </ul>

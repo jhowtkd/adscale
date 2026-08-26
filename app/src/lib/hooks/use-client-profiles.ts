@@ -102,6 +102,14 @@ async function createClientProfile(payload: {
   };
 }
 
+async function deleteClientProfile(id: string): Promise<void> {
+  const res = await apiFetch(`/api/client-profiles/${id}`, { method: "DELETE" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Erro ao excluir perfil");
+  }
+}
+
 async function createClientReference(
   clientProfileId: string,
   payload: {
@@ -166,6 +174,14 @@ export function useCreateClientProfile() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createClientProfile,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["client-profiles"] }),
+  });
+}
+
+export function useDeleteClientProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteClientProfile,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["client-profiles"] }),
   });
 }

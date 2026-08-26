@@ -1,6 +1,11 @@
 import { eq, and, desc, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "../db";
-import { clientProfiles, clientReferences } from "../db/schema";
+import {
+  campaigns,
+  clientProfiles,
+  clientReferences,
+  creativeWorkItems,
+} from "../db/schema";
 import { isWorkspaceAssetKey } from "./asset";
 import { isWorkspaceDerivationOutputKey } from "./derivation";
 import type {
@@ -75,6 +80,26 @@ export async function getClientProfile(workspaceId: string, id: string) {
     .where(and(eq(clientProfiles.workspaceId, workspaceId), eq(clientProfiles.id, id)))
     .limit(1);
   return result[0] ?? null;
+}
+
+export async function deleteEmptyClientProfile(workspaceId: string, id: string) {
+  const [deleted] = await db
+    .delete(clientProfiles)
+    .where(and(
+      eq(clientProfiles.workspaceId, workspaceId),
+      eq(clientProfiles.id, id),
+      isNull(clientProfiles.logoAssetKey),
+      sql`coalesce(jsonb_array_length(${clientProfiles.brandFontAssets}), 0) = 0`,
+      sql`not exists (select 1 from ${clientReferences} where ${clientReferences.clientProfileId} = ${clientProfiles.id})`,
+      sql`not exists (select 1 from ${campaigns} where ${campaigns.clientProfileId} = ${clientProfiles.id})`,
+      sql`not exists (select 1 from ${creativeWorkItems} where ${creativeWorkItems.clientProfileId} = ${clientProfiles.id})`,
+    ))
+    .returning({ id: clientProfiles.id });
+
+  if (deleted) return { status: "deleted" as const };
+  return (await getClientProfile(workspaceId, id))
+    ? { status: "in_use" as const }
+    : { status: "not_found" as const };
 }
 
 export async function addBrandFontAsset(
