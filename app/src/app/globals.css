@@ -813,8 +813,8 @@
     }
 
     .v6-shell-main.assistant-shell-host {
-      height: calc(100dvh - 3rem - var(--shell-safe-bottom));
-      max-height: calc(100dvh - 3rem - var(--shell-safe-bottom));
+      height: 100dvh;
+      max-height: 100dvh;
       padding-top: 3rem;
     }
   }

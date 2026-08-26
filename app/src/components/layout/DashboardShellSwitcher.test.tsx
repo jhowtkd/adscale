@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
 let pathname = "/assistant";
@@ -41,5 +42,16 @@ describe("DashboardShellSwitcher", () => {
 
     expect(screen.getByTestId("app-shell")).toHaveTextContent("Campaign content");
     expect(screen.queryByRole("link", { name: "Studio" })).not.toBeInTheDocument();
+  });
+
+  it("leaves mobile tab reservation to AssistantShell after reserving only the product header", () => {
+    const styles = readFileSync("src/app/globals.css", "utf8");
+    const mobileStyles = styles.slice(styles.indexOf("@media (max-width: 767px)"));
+    const mobileAssistantRule = mobileStyles.match(/\.v6-shell-main\.assistant-shell-host \{([^}]*)\}/)?.[1];
+
+    expect(mobileAssistantRule).toContain("height: 100dvh;");
+    expect(mobileAssistantRule).toContain("max-height: 100dvh;");
+    expect(mobileAssistantRule).toContain("padding-top: 3rem;");
+    expect(mobileAssistantRule).not.toContain("shell-safe-bottom");
   });
 });

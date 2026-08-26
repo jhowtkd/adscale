@@ -248,6 +248,14 @@ describe("DashboardHomeActions", () => {
     expect(useComposerMock).toHaveBeenCalledWith(expect.objectContaining({ initialIntent: "single" }));
   });
 
+  it("passes the explicit fresh Studio contract to the canonical composer", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+
+    render(<DashboardHomeActions freshEntry />);
+
+    expect(useComposerMock).toHaveBeenCalledWith(expect.objectContaining({ freshEntry: true }));
+  });
+
   it("shows a brand-aware first-creation prompt when nothing is actionable", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
 

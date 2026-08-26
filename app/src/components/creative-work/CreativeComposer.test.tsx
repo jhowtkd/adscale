@@ -748,7 +748,7 @@ describe("CreativeComposer", () => {
     expect(screen.getAllByRole("button", { name: "Editar" })).toHaveLength(1);
   });
 
-  it("uses a flex ordering context so piece results lead the briefing controls", () => {
+  it("puts piece results before briefing controls in DOM order while Studio keeps its existing flow", () => {
     const output = {
       id: "output-1", workspaceId: "ws-1", workItemId: "work-1", creativeLevel: "conservative",
       targetFormat: "4:5", versionNumber: 1, parentOutputId: null, revisionInstruction: null,
@@ -756,10 +756,20 @@ describe("CreativeComposer", () => {
       outputKey: "out/1.png", cost: 5, failureCode: null, quality: null, isSelected: false,
       createdAt: new Date(), updatedAt: new Date(),
     };
-    renderComposer(composer({ workId: "work-1", outputs: [output] }), { layout: "piece" });
+    const piece = renderComposer(composer({ workId: "work-1", outputs: [output] }), { layout: "piece" });
+    const pieceResults = screen.getByRole("heading", { name: "Resultados" }).closest("section")!;
+    const pieceDropzone = screen.getByTestId("creative-composer-dropzone");
+    const pieceAction = screen.getByTestId("creative-generate-action");
 
-    expect(document.querySelector("#creative-composer")).toHaveClass("flex", "flex-col");
-    expect(screen.getByRole("heading", { name: "Resultados" }).closest("section")).toHaveClass("order-[-1]");
+    expect(pieceResults.compareDocumentPosition(pieceDropzone) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(pieceResults.compareDocumentPosition(pieceAction) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    piece.unmount();
+    renderComposer(composer({ workId: "work-1", outputs: [output] }));
+    const studioResults = screen.getByRole("heading", { name: "Resultados" }).closest("section")!;
+    const studioDropzone = screen.getByTestId("creative-composer-dropzone");
+
+    expect(studioDropzone.compareDocumentPosition(studioResults) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("groups an existing campaign without creating one", () => {

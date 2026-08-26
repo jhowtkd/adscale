@@ -29,7 +29,7 @@ export function CreativeWorkResumeSurface({
         {campaignId ? t("backToCampaign") : t("works")}
       </Link>
       <CreativeComposer composer={composer} composerRef={composerRef} layout="piece" />
-      <Link href="/?mode=arte&compose=1&intent=variations" className="inline-flex text-sm font-medium text-[var(--text-secondary)] underline underline-offset-2 hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+      <Link href="/?mode=arte&compose=1&intent=variations&fresh=1" className="inline-flex text-sm font-medium text-[var(--text-secondary)] underline underline-offset-2 hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
         {t("newVariation")}
       </Link>
     </div>

@@ -33,7 +33,7 @@ describe("CreativeWorkResumeSurface", () => {
     expect(screen.getByTestId("creative-composer")).toHaveAttribute("data-layout", "piece");
     expect(screen.getByRole("link", { name: "New variation" })).toHaveAttribute(
       "href",
-      "/?mode=arte&compose=1&intent=variations",
+      "/?mode=arte&compose=1&intent=variations&fresh=1",
     );
   });
 });
