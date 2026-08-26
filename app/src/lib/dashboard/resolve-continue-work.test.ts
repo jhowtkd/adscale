@@ -45,6 +45,7 @@ describe("resolveContinueWork", () => {
         resumable: true,
         updatedAt: "2026-07-13T10:00:00.000Z",
         resumeHref: "/creative-work/b",
+        brandName: "Marca B",
       }),
     ]);
     expect(result).toEqual(
@@ -53,6 +54,7 @@ describe("resolveContinueWork", () => {
         name: "Hot",
         href: "/creative-work/b",
         originId: "b",
+        brandName: "Marca B",
       })
     );
   });

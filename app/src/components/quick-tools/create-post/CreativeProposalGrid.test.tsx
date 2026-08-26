@@ -214,6 +214,23 @@ describe("CreativeProposalGrid", () => {
     expect(screen.getByRole("img", { name: /equilibrada.*9:16/i })).toHaveClass("object-contain");
   });
 
+  it("renders a piece review as a centered one-column surface", () => {
+    render(
+      <CreativeProposalGrid
+        outputs={[conservativeCompleted, balancedCompleted]}
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        onRevise={vi.fn()}
+        layout="piece"
+      />,
+    );
+
+    expect(screen.getByTestId("proposal-review-surface")).toHaveClass("max-w-4xl", "grid-cols-1");
+    expect(screen.getByRole("navigation", { name: "Miniaturas das propostas" })).not.toHaveClass("lg:flex-col");
+    expect(screen.getByTestId("review-preview")).toHaveClass("h-[min(72vh,680px)]");
+  });
+
   it("opens the selected proposal in a faithful enlarged inspector", () => {
     render(
       <CreativeProposalGrid

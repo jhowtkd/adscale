@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { useIsMobile } from "@/lib/hooks/use-media-query";
+import { cn } from "@/lib/utils";
 import type { LayerEditorAccessV1 } from "@/server/layer-editor/contracts";
 
 type CreativeProposalGridProps = {
@@ -36,6 +37,7 @@ type CreativeProposalGridProps = {
   isLayerizing?: (outputId: string) => boolean;
   layerEditorAccess?: LayerEditorAccessV1;
   onLayerEditorPublished?: () => void | Promise<void>;
+  layout?: "studio" | "piece";
 };
 
 const LEVEL_ORDER: CreativeWorkOutput["creativeLevel"][] = ["conservative", "balanced", "bold"];
@@ -73,6 +75,7 @@ export default function CreativeProposalGrid({
   isLayerizing,
   layerEditorAccess,
   onLayerEditorPublished,
+  layout = "studio",
 }: CreativeProposalGridProps) {
   const latest = new Map<string, CreativeWorkOutput>();
   for (const output of outputs) {
@@ -102,12 +105,21 @@ export default function CreativeProposalGrid({
 
   const label = outputLabel(selected);
   const format = selected.targetFormat ?? "4:5";
+  const aspectRatio = format.replace(":", " / ");
   const available = selected.status === "completed" && (selected.hasOutput ?? Boolean(selected.outputKey));
 
   return (
     <>
-      <div className="grid gap-4 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-3 lg:grid-cols-[5.5rem_minmax(0,1fr)_16rem] lg:p-5">
-        <nav aria-label="Miniaturas das propostas" className="flex gap-2 overflow-x-auto lg:flex-col">
+      <div
+        data-testid="proposal-review-surface"
+        className={cn(
+          "grid gap-4 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-3 lg:p-5",
+          layout === "piece"
+            ? "mx-auto w-full max-w-4xl grid-cols-1"
+            : "lg:grid-cols-[5.5rem_minmax(0,1fr)_16rem]",
+        )}
+      >
+        <nav aria-label="Miniaturas das propostas" className={cn("flex gap-2 overflow-x-auto", layout === "studio" && "lg:flex-col")}>
           {visible.map((output) => {
             const outputFormat = output.targetFormat ?? "4:5";
             const outputName = outputLabel(output);
@@ -131,15 +143,18 @@ export default function CreativeProposalGrid({
           })}
         </nav>
 
-        <div className="min-w-0">
+        <div className={cn("min-w-0", layout === "piece" && "flex justify-center rounded-[var(--radius-object)] bg-[var(--surface-inset)] p-4 sm:p-6")}>
           <button
             type="button"
             data-testid="review-preview"
             disabled={!available}
             aria-label={`Ampliar ${label} em ${format}`}
             onClick={() => setExpanded(true)}
-            className="group relative mx-auto flex w-full items-center justify-center overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] disabled:cursor-default"
-            style={{ aspectRatio: format.replace(":", " / ") }}
+            className={cn(
+              "group relative mx-auto flex w-full items-center justify-center overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] disabled:cursor-default",
+              layout === "piece" && "h-[min(72vh,680px)]",
+            )}
+            style={layout === "studio" ? { aspectRatio } : undefined}
           >
             {available ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -151,7 +166,7 @@ export default function CreativeProposalGrid({
           </button>
         </div>
 
-        <div role="list" aria-label="Superfície de aprovação" className="min-w-0">
+        <div role="list" aria-label="Superfície de aprovação" className={cn("min-w-0", layout === "piece" && "border-t border-[var(--border-subtle)] pt-4")}>
           <CreativeResultCard
             output={selected}
             label={label}

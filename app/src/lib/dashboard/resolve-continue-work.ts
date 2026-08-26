@@ -13,6 +13,7 @@ export type ContinueWorkTarget =
       state: string;
       originKind: string;
       originId: string;
+      brandName: string | null;
     }
   | { kind: "empty" };
 
@@ -47,5 +48,6 @@ export function resolveContinueWork(
     state: pick.state,
     originKind: pick.originKind,
     originId: pick.originId,
+    brandName: pick.brandName ?? null,
   };
 }

@@ -20,7 +20,6 @@ import { usePlatformOwnerAccess } from "@/lib/hooks/use-platform-owner";
 import { authClient } from "@/lib/auth-client";
 import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
 import SidebarBrandKitFeature from "@/components/layout/SidebarBrandKitFeature";
-import AppSidebarCampaignMap from "@/components/layout/AppSidebarCampaignMap";
 import SidebarRecentWorks from "@/components/layout/SidebarRecentWorks";
 import { cn } from "@/lib/utils";
 
@@ -122,7 +121,6 @@ export default function AppSidebar() {
         className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden border-t border-[var(--border-subtle)] pt-3"
       >
         <SidebarRecentWorks />
-        <AppSidebarCampaignMap />
       </div>
 
       <div className="mt-auto shrink-0 border-t border-[var(--border-subtle)] pt-3">

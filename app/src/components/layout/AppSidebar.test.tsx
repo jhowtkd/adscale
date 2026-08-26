@@ -36,9 +36,6 @@ vi.mock("@/lib/auth-client", () => ({
   },
 }));
 vi.mock("next/image", () => ({ default: () => null }));
-vi.mock("./AppSidebarCampaignMap", () => ({
-  default: () => <div data-testid="campaign-map" />,
-}));
 vi.mock("./SidebarRecentWorks", () => ({
   default: () => <div data-testid="sidebar-recent-works" />,
 }));
@@ -138,7 +135,7 @@ describe("AppSidebar role-aware navigation", () => {
     ).toBeTruthy();
     expect(screen.queryByText("navigation.templates")).not.toBeInTheDocument();
     expect(screen.queryByTestId("notification-menu")).not.toBeInTheDocument();
-    expect(screen.getByTestId("campaign-map")).toBeInTheDocument();
+    expect(screen.getAllByTestId("sidebar-recent-works")).toHaveLength(1);
   });
 
   it("does NOT show the Laboratório section header", () => {

@@ -82,6 +82,7 @@ export async function listCanonicalWorks(
         completedDerivations: c.completedDerivations,
         failedDerivations: c.failedDerivations,
       });
+      summary.brandName = brandNameByProfileId.get(c.clientProfileId ?? "") ?? summary.brandName ?? null;
       if (options.emitTelemetry) {
         compareProjectionTelemetry({
           workspaceId,
