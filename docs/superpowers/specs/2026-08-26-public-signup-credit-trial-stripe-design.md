@@ -2,7 +2,7 @@
 
 **Data:** 2026-08-26
 
-**Status:** Desenho aprovado em chat; aguardando revisao deste documento
+**Status:** Aprovado pelo usuario em 2026-08-26
 
 **Repositorios:** `ADScale_2` (app, dados e billing) e `site-adscale` (landing)
 
