@@ -38,11 +38,11 @@ vi.mock("@/server/repositories/usage", () => ({
 vi.mock("@/server/billing/credits", () => ({
   refundCredits: vi.fn(),
   CREDIT_COSTS: {
-    image_derivation: 5,
-    creative_work_output: 5,
-    social_post: 5,
-    restyling: 5,
-    regeneration: 5,
+    image_derivation: 50,
+    creative_work_output: 50,
+    social_post: 50,
+    restyling: 50,
+    regeneration: 50,
   },
 }));
 vi.mock("@/server/generation/settlement-adapters", () => ({

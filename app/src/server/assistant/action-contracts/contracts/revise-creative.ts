@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CREDIT_COSTS } from "@/lib/billing/credit-units";
 import type { ActionContract } from "../types";
 
 export const reviseCreativeInputSchema = z
@@ -32,7 +33,7 @@ export const reviseCreativeContract: ActionContract<
   creditImpact: {
     kind: "creditAction",
     action: "image_derivation",
-    label: "5 créditos",
+    label: `${CREDIT_COSTS.image_derivation} créditos`,
   },
   confirmationPolicy: "required",
 };

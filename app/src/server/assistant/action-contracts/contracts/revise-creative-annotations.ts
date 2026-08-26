@@ -1,10 +1,11 @@
 import { z } from "zod";
+import { CREDIT_COSTS } from "@/lib/billing/credit-units";
 import type { ActionContract } from "../types";
 
 /**
  * One paid annotation revision batch. The user draws multiple rectangle
  * annotations on the selected base; they are frozen and submitted as a single
- * non-refundable 5-credit revision that produces one child derivation whose
+ * non-refundable 50-credit revision that produces one child derivation whose
  * `parentId` is the source. The annotations stay attached to the source version
  * even after the new version is produced.
  */
@@ -38,8 +39,8 @@ export const reviseCreativeAnnotationsContract: ActionContract<
   creditImpact: {
     kind: "creditAction",
     action: "image_derivation",
-    amount: 5,
-    label: "5 créditos",
+    amount: CREDIT_COSTS.image_derivation,
+    label: `${CREDIT_COSTS.image_derivation} créditos`,
   },
   confirmationPolicy: "required",
   alwaysRiskCopy: [

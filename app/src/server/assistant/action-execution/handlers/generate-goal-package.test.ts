@@ -88,8 +88,8 @@ describe("executeGenerateGoalPackage", () => {
         planVersionId: ctx.inputSnapshot.planVersionId,
         goalRunId: ctx.inputSnapshot.goalRunId,
         locale: "pt-BR",
-        amount: 15,
-        unitChargeAmount: 5,
+        amount: 150,
+        unitChargeAmount: 50,
       }),
     );
     expect(settleMock).toHaveBeenCalledWith(adapter);

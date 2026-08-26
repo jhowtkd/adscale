@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { GENERATION_CREDIT_COSTS } from "@/lib/billing/credit-units";
 import type { ActionContract } from "../types";
 
 /**
@@ -7,7 +8,7 @@ import type { ActionContract } from "../types";
  * that differ ONLY in `creativeLevel` (conservative, balanced, bold), so the
  * three candidates form a clean controlled comparison at equal visual weight.
  *
- * The 15-credit charge is fixed and definitive: there is no refund, including
+ * The 150-credit charge is fixed and definitive: there is no refund, including
  * when an individual generation fails technically. That policy is stated on
  * every confirmation card via `alwaysRiskCopy`.
  */
@@ -34,8 +35,8 @@ export const generateCreativeTripletContract: ActionContract<
   creditImpact: {
     kind: "creditAction",
     action: "image_derivation",
-    amount: 15,
-    label: "15 créditos",
+    amount: GENERATION_CREDIT_COSTS.triplet,
+    label: `${GENERATION_CREDIT_COSTS.triplet} créditos`,
   },
   confirmationPolicy: "required",
   alwaysRiskCopy: [

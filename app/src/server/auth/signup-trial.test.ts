@@ -12,7 +12,20 @@ const mockActivateSignupTrialForOwner = vi.fn();
 const mockIsDevAdminEmail = vi.fn();
 const mockEnsureDevAdminEmailVerified = vi.fn();
 
-let capturedConfig: any = null;
+interface CapturedAuthConfig {
+  databaseHooks?: {
+    user?: {
+      create?: {
+        after?: (user: { id: string; name?: string | null; email: string }) => Promise<unknown>;
+      };
+    };
+  };
+  emailVerification?: {
+    afterEmailVerification?: (user: { id: string; email: string }) => Promise<unknown>;
+  };
+}
+
+let capturedConfig: CapturedAuthConfig = {};
 
 vi.mock("server-only", () => ({}));
 
