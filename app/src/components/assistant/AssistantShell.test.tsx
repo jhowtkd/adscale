@@ -61,6 +61,7 @@ describe("AssistantShell", () => {
     });
 
     expect(screen.getByTestId("assistant-mobile-layout")).toBeInTheDocument();
+    expect(screen.getByTestId("assistant-mobile-layout")).toHaveClass("shell-offset-bottom-mobile");
     expect(screen.getByTestId("assistant-mobile-chat")).toHaveTextContent("Main slot");
     expect(screen.queryByTestId("assistant-desktop-layout")).not.toBeInTheDocument();
 

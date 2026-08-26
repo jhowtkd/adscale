@@ -52,4 +52,12 @@ describe("parseDashboardSearchParams", () => {
       initialIntent: "restyle",
     });
   });
+
+  it("accepts the explicit fresh Studio entry without broadening other query inputs", () => {
+    expect(parseDashboardSearchParams({ intent: "variations", fresh: "1" })).toMatchObject({
+      initialIntent: "variations",
+      freshEntry: true,
+    });
+    expect(parseDashboardSearchParams({ fresh: "true" })).toEqual({ initialIntent: "variations" });
+  });
 });

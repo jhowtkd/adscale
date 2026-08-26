@@ -144,11 +144,14 @@ export function useCreativeComposer({
   initialIntent = "variations",
   focusComposer = false,
   initialTemplateId,
+  freshEntry = false,
 }: {
   initialWorkId?: string;
   initialIntent?: ComposerIntent;
   focusComposer?: boolean;
   initialTemplateId?: string;
+  /** A canonical Studio entry that intentionally starts without draft resume. */
+  freshEntry?: boolean;
 } = {}) {
   const tResults = useTranslations("dashboard.home.composer.results");
   const active = useActiveClientProfile();
@@ -374,14 +377,14 @@ export function useCreativeComposer({
 
   useEffect(() => {
     const profileId = active.activeClientProfileId;
-    if (initialWorkId || workIdRef.current || !profileId || restoredProfileRef.current === profileId) return;
+    if (freshEntry || initialWorkId || workIdRef.current || !profileId || restoredProfileRef.current === profileId) return;
     restoredProfileRef.current = profileId;
     const storedWorkId = readStoredDraft(profileId, intentRef.current);
     if (!storedWorkId) return;
     workIdRef.current = storedWorkId;
     setWorkId(storedWorkId);
     exposeWorkId(storedWorkId);
-  }, [active.activeClientProfileId, exposeWorkId, initialWorkId]);
+  }, [active.activeClientProfileId, exposeWorkId, freshEntry, initialWorkId]);
 
   const consumeInitialTemplateParams = useCallback(() => {
     if (

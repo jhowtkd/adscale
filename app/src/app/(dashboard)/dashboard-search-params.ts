@@ -17,6 +17,7 @@ export function parseDashboardSearchParams(searchParams: DashboardSearchParams):
   workId?: string;
   initialIntent: ComposerIntent;
   studioMode?: StudioMode;
+  freshEntry?: true;
   focusComposer?: true;
   templateId?: string;
 } {
@@ -41,6 +42,7 @@ export function parseDashboardSearchParams(searchParams: DashboardSearchParams):
     // studio mode selects the least surprising canonical protocol.
     initialIntent: intent ?? (studioMode === "briefing" ? "single" : "variations"),
     ...(studioMode ? { studioMode } : {}),
+    ...(searchParams.fresh === "1" ? { freshEntry: true as const } : {}),
     ...(searchParams.compose === "1" ? { focusComposer: true as const } : {}),
     ...(templateId ? { templateId } : {}),
   };

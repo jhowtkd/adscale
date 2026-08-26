@@ -222,6 +222,47 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
     void composer.addFiles(Array.from(event.dataTransfer.files));
   };
 
+  const results = composer.outputs.length > 0 ? (
+    <section aria-labelledby="creative-results-title" className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 id="creative-results-title" className="text-lg font-semibold text-[var(--text-primary)]">Resultados</h2>
+          <p className="text-sm text-[var(--text-muted)]">Cada resultado fica salvo assim que termina.</p>
+        </div>
+        <label className="text-sm text-[var(--text-secondary)]">
+          <span className="sr-only">Agrupar em campanha</span>
+          <select
+            aria-label="Agrupar em campanha"
+            value={composer.campaignId ?? ""}
+            onChange={(event) => void composer.linkCampaign(event.target.value || null)}
+            className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2"
+          >
+            <option value="">Sem campanha</option>
+            {composer.campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
+          </select>
+        </label>
+      </div>
+      <CreativeProposalGrid
+        outputs={composer.outputs}
+        onRetry={composer.retryOutput}
+        onRetryRevision={composer.retryRevisionOutput}
+        onApprove={composer.approveOutput}
+        onDownload={composer.downloadOutput}
+        canLayerize={composer.canLayerize}
+        layerEditorAccess={composer.layerEditorAccess}
+        onLayerize={composer.layerizeOutput}
+        onDownloadLayerized={composer.downloadLayerizedOutput}
+        isLayerizing={composer.isLayerizingOutput}
+        onRevise={composer.reviseOutput}
+        isRetrying={composer.isRetryingOutput}
+        isApproving={composer.isApprovingOutput}
+        approvalErrorOutputId={composer.approvalErrorOutputId}
+        isRevising={composer.isRevisingOutput}
+        onLayerEditorPublished={composer.refreshOutputs}
+      />
+    </section>
+  ) : null;
+
   if (composer.workError) {
     return (
       <section id="creative-composer" className="rounded-[var(--radius-object)] border border-[var(--danger-border)] bg-[var(--surface-raised)] p-6 text-center">
@@ -244,6 +285,8 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           {t("brand")}: {composer.brandName ?? t("noBrand")}
         </span>
       </div>
+
+      {layout === "piece" ? results : null}
 
       {composer.intent === "single" && composer.brandIdentity ? (
         <section
@@ -665,46 +708,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         </button>
       </div>
 
-      {composer.outputs.length > 0 ? (
-        <section aria-labelledby="creative-results-title" className={cn("space-y-4", layout === "piece" && "order-[-1]")}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 id="creative-results-title" className="text-lg font-semibold text-[var(--text-primary)]">Resultados</h2>
-              <p className="text-sm text-[var(--text-muted)]">Cada resultado fica salvo assim que termina.</p>
-            </div>
-            <label className="text-sm text-[var(--text-secondary)]">
-              <span className="sr-only">Agrupar em campanha</span>
-              <select
-                aria-label="Agrupar em campanha"
-                value={composer.campaignId ?? ""}
-                onChange={(event) => void composer.linkCampaign(event.target.value || null)}
-                className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2"
-              >
-                <option value="">Sem campanha</option>
-                {composer.campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
-              </select>
-            </label>
-          </div>
-          <CreativeProposalGrid
-            outputs={composer.outputs}
-            onRetry={composer.retryOutput}
-            onRetryRevision={composer.retryRevisionOutput}
-            onApprove={composer.approveOutput}
-            onDownload={composer.downloadOutput}
-            canLayerize={composer.canLayerize}
-            layerEditorAccess={composer.layerEditorAccess}
-            onLayerize={composer.layerizeOutput}
-            onDownloadLayerized={composer.downloadLayerizedOutput}
-            isLayerizing={composer.isLayerizingOutput}
-            onRevise={composer.reviseOutput}
-            isRetrying={composer.isRetryingOutput}
-            isApproving={composer.isApprovingOutput}
-            approvalErrorOutputId={composer.approvalErrorOutputId}
-            isRevising={composer.isRevisingOutput}
-            onLayerEditorPublished={composer.refreshOutputs}
-          />
-        </section>
-      ) : null}
+      {layout === "studio" ? results : null}
 
       {composer.error ? (
         <div className="flex flex-wrap items-center gap-3" role="alert">

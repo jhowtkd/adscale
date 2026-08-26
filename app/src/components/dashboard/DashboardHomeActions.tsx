@@ -79,12 +79,14 @@ export default function DashboardHomeActions({
   focusComposer = false,
   templateId,
   studioMode,
+  freshEntry = false,
 }: {
   workId?: string;
   initialIntent?: ComposerIntent;
   focusComposer?: boolean;
   templateId?: string;
   studioMode?: StudioMode;
+  freshEntry?: boolean;
 }) {
   const t = useTranslations("dashboard.home");
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
@@ -98,6 +100,7 @@ export default function DashboardHomeActions({
     initialIntent: initialStudioIntent,
     focusComposer,
     initialTemplateId: templateId,
+    ...(freshEntry ? { freshEntry: true } : {}),
   });
   const continueTarget = useMemo(() => resolveContinueWork(works), [works]);
   // The composer owns protocol switching, including a deferred switch that is
