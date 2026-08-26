@@ -235,7 +235,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
 
   return (
     <section id="creative-composer" aria-labelledby="creative-composer-title" className={cn("space-y-4 scroll-mt-24", layout === "piece" && "mx-auto max-w-5xl")}>
-      <div className="flex items-center justify-between gap-3">
+      <div className={cn("flex items-center justify-between gap-3", layout === "piece" && "order-[-2]")}>
         <div>
           <h1 id="creative-composer-title" className="text-2xl font-semibold text-[var(--text-primary)]">{title}</h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</p>
@@ -687,7 +687,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
       </div>
 
       {composer.outputs.length > 0 ? (
-        <section aria-labelledby="creative-results-title" className="space-y-4">
+        <section aria-labelledby="creative-results-title" className={cn("space-y-4", layout === "piece" && "order-[-1]")}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 id="creative-results-title" className="text-lg font-semibold text-[var(--text-primary)]">Resultados</h2>
