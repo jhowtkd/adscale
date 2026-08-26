@@ -2,9 +2,8 @@
 
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { CopyPlus, Image, Maximize, WandSparkles } from "lucide-react";
+import { Check, CopyPlus, Image, Maximize, WandSparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ContextualHelp } from "@/components/ui/contextual-help";
 import type { ComposerIntent } from "./useCreativeComposer";
 
 const TOOLS = [
@@ -28,31 +27,41 @@ export function CreativeToolCards({ selected, onSelect, headerAction }: {
         </h2>
         {headerAction}
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {TOOLS.map(({ id, icon: Icon }) => (
-          <div key={id} className="relative h-full">
-            <button
-              type="button"
-              aria-pressed={selected === id}
-              onClick={() => onSelect(id)}
-              className={cn(
-                "h-full w-full rounded-[var(--radius-object)] border bg-[var(--surface-raised)] p-4 pr-12 text-left",
-                "transition-colors hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
-                selected === id
-                  ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
-                  : "border-[var(--border-subtle)]",
-              )}
-            >
-              <Icon size={18} aria-hidden="true" className="mb-3 text-[var(--utility-icon)]" />
-              <span className="block text-sm font-semibold text-[var(--text-primary)]">{t(id)}</span>
-              <span className="mt-1 block text-xs text-[var(--text-muted)]">{t(`${id}Description`)}</span>
-            </button>
-            <div className="absolute right-2 top-2">
-              <ContextualHelp label={t(`${id}HelpLabel`)}>
-                {t(`${id}Help`)}
-              </ContextualHelp>
-            </div>
-          </div>
+          <button
+            key={id}
+            type="button"
+            aria-pressed={selected === id}
+            onClick={() => onSelect(id)}
+            className={cn(
+              "group flex min-h-32 w-full flex-col rounded-[var(--radius-object)] border p-4 text-left transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+              selected === id
+                ? "border-[var(--selection-border)] bg-[var(--selection-bg)] ring-1 ring-inset ring-[var(--selection-border)]"
+                : "border-[var(--border-subtle)] bg-[var(--surface-raised)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-inset)]",
+            )}
+          >
+            <span className="flex w-full items-start justify-between gap-3">
+              <span
+                className={cn(
+                  "inline-flex size-8 items-center justify-center rounded-[var(--radius-control)] border",
+                  selected === id
+                    ? "border-[var(--selection-border)] bg-[var(--surface-base)] text-[var(--selection-text)]"
+                    : "border-[var(--border-subtle)] bg-[var(--surface-base)] text-[var(--utility-icon)]",
+                )}
+              >
+                <Icon size={17} aria-hidden="true" />
+              </span>
+              {selected === id ? (
+                <span className="inline-flex size-6 items-center justify-center rounded-full bg-[var(--selection-text)] text-[var(--surface-base)]">
+                  <Check size={14} strokeWidth={2.5} aria-hidden="true" />
+                </span>
+              ) : null}
+            </span>
+            <span className="mt-4 block text-sm font-semibold text-[var(--text-primary)]">{t(id)}</span>
+            <span className="mt-1 block text-xs leading-5 text-[var(--text-muted)]">{t(`${id}Description`)}</span>
+          </button>
         ))}
       </div>
     </section>

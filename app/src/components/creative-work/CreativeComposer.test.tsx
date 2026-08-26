@@ -324,14 +324,13 @@ describe("CreativeComposer", () => {
     );
   });
 
-  it("explains directions from their available instruction without changing selection or the five-direction limit", async () => {
+  it("shows each direction instruction inside its selectable card without separate help controls", () => {
     const value = composer();
     renderComposer(value);
 
-    const help = screen.getByRole("button", { name: "Ajuda sobre Conservadora" });
-    fireEvent.focus(help);
-    expect(await screen.findByRole("tooltip")).toHaveTextContent("Usa a orientação Preservar");
-    expect(help).toHaveAttribute("aria-describedby");
+    expect(screen.getByText("Preservar")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Ajuda sobre Conservadora" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ousada" })).toHaveClass("sm:col-span-2");
 
     fireEvent.click(screen.getByRole("button", { name: "Conservadora" }));
     expect(value.toggleDirection).toHaveBeenCalledWith("00000000-0000-4000-8000-000000000001");
