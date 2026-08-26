@@ -30,8 +30,8 @@ export default function AppShell({ children }: AppShellProps) {
 
   return (
     <V6ShellLayout>
-      <header className="v6-mobile-header fixed inset-x-0 top-0 z-[calc(var(--layer-shell-floating)+1)] flex h-12 items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 md:hidden">
-        <span className="text-sm font-semibold text-[var(--text-primary)]">ADScale</span>
+      <header className="fixed inset-x-0 top-0 z-[calc(var(--layer-shell-floating)+1)] flex h-12 items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 md:left-[calc(var(--shell-v6-gap)+var(--shell-v6-sidebar-width)-3.75rem)] md:right-auto md:top-[calc(var(--shell-v6-gap)+0.75rem)] md:h-9 md:border-0 md:bg-transparent md:px-0">
+        <span className="text-sm font-semibold text-[var(--text-primary)] md:hidden">ADScale</span>
         <NotificationMenu />
       </header>
       <main id="main" className="v6-shell-main shell-offset-bottom-mobile min-h-screen">

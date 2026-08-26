@@ -234,7 +234,7 @@ export default function ProfileTab() {
             updateForm={updateForm}
           />
           <div className="border-t border-[var(--border-dim)] pt-5">
-            <p className="mb-2 text-xs font-medium tracking-wide text-[var(--text-secondary)]">Idioma</p>
+            <p className="mb-2 text-xs font-medium tracking-wide text-[var(--text-secondary)]">{tc("language")}</p>
             <LanguageSwitcher />
           </div>
         </div>

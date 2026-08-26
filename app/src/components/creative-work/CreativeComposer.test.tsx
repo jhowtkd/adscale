@@ -123,12 +123,13 @@ const readySource = {
   },
 };
 
-function renderComposer(value = composer()) {
+function renderComposer(value = composer(), props: { hideSourceUpload?: boolean; layout?: "studio" | "piece" } = {}) {
   const { composerRef, ...viewModel } = value;
   return render(
     <CreativeComposer
       composer={viewModel as CreativeComposerViewModel}
       composerRef={composerRef as CreativeComposerModel["composerRef"]}
+      {...props}
     />,
   );
 }
@@ -745,6 +746,20 @@ describe("CreativeComposer", () => {
     expect(value.approveOutput).toHaveBeenCalledWith("output-1", true);
     expect(screen.getAllByRole("button", { name: "Baixar" })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Editar" })).toHaveLength(1);
+  });
+
+  it("uses a flex ordering context so piece results lead the briefing controls", () => {
+    const output = {
+      id: "output-1", workspaceId: "ws-1", workItemId: "work-1", creativeLevel: "conservative",
+      targetFormat: "4:5", versionNumber: 1, parentOutputId: null, revisionInstruction: null,
+      revisionAssetId: null, retryCount: 0, operationKey: "conservative:4:5:1", status: "completed",
+      outputKey: "out/1.png", cost: 5, failureCode: null, quality: null, isSelected: false,
+      createdAt: new Date(), updatedAt: new Date(),
+    };
+    renderComposer(composer({ workId: "work-1", outputs: [output] }), { layout: "piece" });
+
+    expect(document.querySelector("#creative-composer")).toHaveClass("flex", "flex-col");
+    expect(screen.getByRole("heading", { name: "Resultados" }).closest("section")).toHaveClass("order-[-1]");
   });
 
   it("groups an existing campaign without creating one", () => {

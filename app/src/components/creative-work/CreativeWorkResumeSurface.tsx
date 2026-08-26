@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { CreativeComposer } from "./CreativeComposer";
 import { useCreativeComposer } from "./useCreativeComposer";
 
@@ -12,6 +13,7 @@ export function CreativeWorkResumeSurface({
   workId: string;
   campaignId?: string | null;
 }) {
+  const t = useTranslations("common");
   const { composerRef, ...composer } = useCreativeComposer({
     initialWorkId: workId,
     focusComposer: true,
@@ -24,11 +26,11 @@ export function CreativeWorkResumeSurface({
         className="inline-flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
       >
         <ArrowLeft size={16} aria-hidden="true" />
-        {campaignId ? "Voltar para a campanha" : "Trabalhos"}
+        {campaignId ? t("backToCampaign") : t("works")}
       </Link>
       <CreativeComposer composer={composer} composerRef={composerRef} layout="piece" />
-      <Link href={`/?workId=${encodeURIComponent(workId)}&intent=variations`} className="inline-flex text-sm font-medium text-[var(--text-secondary)] underline underline-offset-2 hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
-        Nova variação
+      <Link href="/?mode=arte&compose=1&intent=variations" className="inline-flex text-sm font-medium text-[var(--text-secondary)] underline underline-offset-2 hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+        {t("newVariation")}
       </Link>
     </div>
   );
