@@ -79,7 +79,6 @@ export async function createCheckoutSession(input: {
       planKey: input.planKey,
     },
     subscription_data: {
-      trial_period_days: 14,
       metadata: {
         workspaceId: input.workspace.id,
         planKey: input.planKey,

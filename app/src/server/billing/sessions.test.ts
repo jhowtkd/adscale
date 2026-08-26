@@ -101,6 +101,50 @@ describe("billing sessions", () => {
     expect(session.url).toBe("https://checkout.stripe.com/session");
   });
 
+  it("creates checkout session without trial_period_days and with full subscription metadata", async () => {
+    mockGetBillingCustomerByWorkspace.mockResolvedValue({
+      id: "billing-customer-id",
+      workspaceId: "workspace-1",
+      stripeCustomerId: "cus_existing",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    stripeMocks.checkoutSessionCreate.mockResolvedValue({
+      id: "cs_test",
+      url: "https://checkout.stripe.com/session",
+    });
+
+    await createCheckoutSession({
+      workspace: { id: "workspace-1", name: "Acme" },
+      user: { id: "user-1", email: "user@example.com", name: "User" },
+      planKey: "growth",
+    });
+
+    expect(stripeMocks.checkoutSessionCreate).toHaveBeenCalledWith({
+      mode: "subscription",
+      customer: "cus_existing",
+      client_reference_id: "workspace-1",
+      line_items: [{ price: "price_growth", quantity: 1 }],
+      success_url: "https://app.example.com/billing/success",
+      cancel_url: "https://app.example.com/billing/cancel",
+      allow_promotion_codes: true,
+      metadata: {
+        workspaceId: "workspace-1",
+        userId: "user-1",
+        planKey: "growth",
+      },
+      subscription_data: {
+        metadata: {
+          workspaceId: "workspace-1",
+          planKey: "growth",
+        },
+      },
+    });
+
+    const createCall = stripeMocks.checkoutSessionCreate.mock.calls[0]?.[0];
+    expect(createCall.subscription_data).not.toHaveProperty("trial_period_days");
+  });
+
   it("appends returnPath to checkout success and cancel URLs", async () => {
     mockGetBillingCustomerByWorkspace.mockResolvedValue({
       id: "billing-customer-id",

@@ -303,6 +303,7 @@ describe("credit entitlement service", () => {
           operation_key: "image_derivation",
           actualCredits: 50,
           estimateCredits: 50,
+          creditUnitVersion: 2,
         }),
       })
     );
@@ -341,6 +342,7 @@ describe("credit entitlement service", () => {
           estimateCredits: 50,
           actualCredits: 80,
           creditDelta: 30,
+          creditUnitVersion: 2,
         }),
       })
     );
@@ -368,6 +370,7 @@ describe("credit entitlement service", () => {
           operation_key: "image_derivation",
           reasonCode: "insufficient_credits",
           estimateCredits: 50,
+          creditUnitVersion: 2,
         }),
       })
     );

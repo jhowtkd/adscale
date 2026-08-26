@@ -262,6 +262,50 @@ describe("BillingTab account states", () => {
     expect(screen.queryByRole("button", { name: /redeem/i })).not.toBeInTheDocument();
   });
 
+  it("renders paid plan cards with active pricing model (300/1,200/3,600 credits and R$ 47/147/397)", () => {
+    mockBillingStatus({
+      hasCustomer: false,
+      subscriptionStatus: "none",
+      access: {
+        kind: "none",
+        label: "Sem acesso ativo",
+        remainingAds: null,
+        hasSpendAccess: false,
+        beta: null,
+      },
+      pastDue: null,
+      canceled: null,
+      subscription: null,
+      creditBalance: 0,
+    });
+
+    render(<BillingTab />, { wrapper: createWrapper() });
+
+    expect(screen.getByText("Starter")).toBeInTheDocument();
+    expect(screen.getByText("Growth")).toBeInTheDocument();
+    expect(screen.getByText("Scale")).toBeInTheDocument();
+
+    // Check pricing and credits derived from planTiers
+    expect(screen.getByText(/R\$\s*47/)).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s*147/)).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s*397/)).toBeInTheDocument();
+
+    expect(screen.getByText(/300/)).toBeInTheDocument();
+    expect(screen.getByText(/1[.,]200/)).toBeInTheDocument();
+    expect(screen.getByText(/3[.,]600/)).toBeInTheDocument();
+
+    // Stale pricing must not be present
+    expect(screen.queryByText(/29/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/79/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/199/)).not.toBeInTheDocument();
+
+    // Buttons trigger checkout for respective plans
+    const subscribeButtons = screen.getAllByRole("button", { name: "billing.account.plans.startTrial" });
+    expect(subscribeButtons).toHaveLength(3);
+    fireEvent.click(subscribeButtons[0]);
+    expect(mockCheckoutMutate).toHaveBeenCalledWith({ planKey: "starter" });
+  });
+
   it("renders grant history rows", () => {
     mockBillingStatus({
       hasCustomer: true,

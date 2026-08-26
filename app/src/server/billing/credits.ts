@@ -26,7 +26,11 @@ import {
   UNLIMITED_CREDIT_BALANCE,
   workspaceHasUnlimitedBillingAccess,
 } from "@/server/billing/unlimited-access";
-import { CREDIT_COSTS, type CreditAction } from "@/lib/billing/credit-units";
+import {
+  CREDIT_COSTS,
+  CREDIT_UNIT_VERSION,
+  type CreditAction,
+} from "@/lib/billing/credit-units";
 
 export { CREDIT_COSTS, type CreditAction };
 
@@ -94,6 +98,7 @@ function emitCreditBlockedAnalytics(
       operation_key: operationKey,
       reasonCode: check.reason,
       estimateCredits: check.amount,
+      creditUnitVersion: CREDIT_UNIT_VERSION,
     },
   }).catch((err) => {
     logger.warn("[recordUsage] credit_blocked analytics failed", err);
@@ -132,6 +137,7 @@ function emitCreditSpendAnalytics(
       operation_key: operationKey,
       actualCredits,
       estimateCredits,
+      creditUnitVersion: CREDIT_UNIT_VERSION,
       ...(creditDelta !== undefined ? { creditDelta } : {}),
     },
   }).catch((err) => {
