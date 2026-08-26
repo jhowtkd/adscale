@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
 import type { FactualIssueAlert } from "@/server/human-quality/calibration/types";
 
 const factualAlertsQueryKey = (workspaceId?: string, clientProfileId?: string) =>
@@ -54,7 +55,15 @@ export function FactualAlertsPanel({
 
   if (alertsQuery.isError) {
     return (
-      <p className="text-sm text-[var(--text-muted)]">Unable to load factual issue alerts.</p>
+      <div
+        role="alert"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-text)]"
+      >
+        <span>Unable to load factual issue alerts.</span>
+        <Button type="button" variant="outline" size="sm" onClick={() => void alertsQuery.refetch()}>
+          Try again
+        </Button>
+      </div>
     );
   }
 
@@ -166,6 +175,11 @@ export function FactualAlertsPanel({
           </table>
         </div>
       )}
+      {alertsQuery.dataUpdatedAt > 0 ? (
+        <p className="text-xs text-[var(--text-muted)]">
+          Updated at {new Date(alertsQuery.dataUpdatedAt).toLocaleTimeString()}
+        </p>
+      ) : null}
     </section>
   );
 }

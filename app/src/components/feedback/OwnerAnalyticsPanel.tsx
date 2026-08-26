@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useAnalyticsLabels } from "@/components/feedback/analytics-labels";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type MissionFunnelRow = {
@@ -463,6 +464,12 @@ export function OwnerAnalyticsPanel({
   const funnel = funnelQuery.data;
   const guidedFlow = guidedFlowQuery.data;
   const credit = creditQuery.data;
+  const analyticsError = funnelQuery.isError || guidedFlowQuery.isError || creditQuery.isError;
+  const analyticsUpdatedAt = Math.max(
+    funnelQuery.dataUpdatedAt,
+    guidedFlowQuery.dataUpdatedAt,
+    creditQuery.dataUpdatedAt
+  );
   const exportUrl = `/api/feedback/analytics/export.csv?${query}`;
   const noDataLabel = t("noData");
 
@@ -544,6 +551,29 @@ export function OwnerAnalyticsPanel({
             </label>
           </div>
         </details>
+
+        {analyticsError ? (
+          <div
+            role="alert"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] p-3 text-sm text-[var(--danger-text)]"
+          >
+            <span>{t("loadError")}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void Promise.all([
+                  funnelQuery.refetch(),
+                  guidedFlowQuery.refetch(),
+                  creditQuery.refetch(),
+                ]);
+              }}
+            >
+              {t("retry")}
+            </Button>
+          </div>
+        ) : null}
 
         {funnelQuery.isLoading ? (
           <p className="text-sm text-[var(--text-muted)]">{t("loading")}</p>
@@ -1052,9 +1082,14 @@ export function OwnerAnalyticsPanel({
               </AnalyticsGroup>
             </div>
           </>
-        ) : (
+        ) : analyticsError ? null : (
           <p className="text-sm text-[var(--text-muted)]">{t("loadError")}</p>
         )}
+        {analyticsUpdatedAt > 0 ? (
+          <p className="text-xs text-[var(--text-muted)]">
+            {t("lastUpdated", { time: new Date(analyticsUpdatedAt).toLocaleTimeString() })}
+          </p>
+        ) : null}
       </section>
     </div>
   );

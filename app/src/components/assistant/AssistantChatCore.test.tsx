@@ -102,6 +102,39 @@ describe("AssistantChatCore", () => {
     expect(mockSendMessage).toHaveBeenCalledWith("Hello assistant");
   });
 
+  it("forwards the preserved first message and attachments once", async () => {
+    mockSendMessage.mockResolvedValue(undefined);
+    const onConsumed = vi.fn();
+    const pendingFirstMessage = {
+      text: "Use esta referência",
+      attachments: [
+        {
+          assetId: "asset-1",
+          key: "uploads/reference.png",
+          url: "https://example.com/reference.png",
+          type: "image/png",
+          name: "reference.png",
+          size: 123,
+        },
+      ],
+    };
+
+    renderCore(
+      <AssistantChatCore
+        threadId="thread-1"
+        variant="full"
+        pendingFirstMessage={pendingFirstMessage}
+        onPendingFirstMessageConsumed={onConsumed}
+      />
+    );
+
+    await vi.waitFor(() => {
+      expect(mockSendMessage).toHaveBeenCalledWith(pendingFirstMessage);
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+      expect(onConsumed).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("renders server history and streaming assistant text", () => {
     mockUseAssistantThread.mockReturnValue({
       data: {

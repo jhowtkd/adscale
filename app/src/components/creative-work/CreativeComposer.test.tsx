@@ -84,7 +84,7 @@ function composer(overrides = {}) {
     textLayout: "top", setTextLayout: vi.fn(), fontAssetKey: null, setFontAssetKey: vi.fn(), fontOptions: [],
     directionPool, toggleDirection: vi.fn(), setManualDirectionInstruction: vi.fn(), directionSuggestionState: "idle", pendingDirectionSuggestions: null, applyDirectionSuggestions: vi.fn(), requestDirectionSuggestions: vi.fn(), keepCurrentDirections: vi.fn(), state: "empty", actionPhase: "idle",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
-    inferredBriefing: null, briefingFactPack: null,
+    inferredBriefing: null, briefingFactPack: null, briefingOverrides: {}, briefingEditState: "idle", editBriefingField: vi.fn(),
     campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(), approveOutput: vi.fn(),
     downloadOutput: vi.fn(), reviseOutput: vi.fn(), isRetryingOutput: vi.fn(), isApprovingOutput: vi.fn(), approvalErrorOutputId: null, isRevisingOutput: vi.fn(),
     canGenerate: true, isUploading: false, settingsLocked: false, error: null, announcement: "", brandTrainingSuggestion: null, brandIdentity: null, requiresBrandSelection: false,
@@ -192,6 +192,32 @@ describe("CreativeComposer", () => {
     expect(screen.queryByTestId("inferred-briefing")).not.toBeInTheDocument();
   });
 
+  it("saves an inline briefing field on blur and Enter", () => {
+    const editBriefingField = vi.fn();
+    renderComposer(composer({
+      intent: "single",
+      editBriefingField,
+      sources: [readySource],
+      inferredBriefing: {
+        version: 1,
+        message: { value: "Mensagem", state: "sourced" },
+        objective: { value: "Objetivo", state: "sourced" },
+        audience: { value: null, state: "unknown" },
+        offer: { value: null, state: "unknown" },
+        tone: { value: null, state: "unknown" },
+        constraints: { value: null, state: "unknown" },
+        readiness: "exploratory",
+        confidence: "low",
+      },
+    }));
+
+    const audience = screen.getByLabelText("Público");
+    fireEvent.change(audience, { target: { value: "Professores" } });
+    fireEvent.blur(audience);
+
+    expect(editBriefingField).toHaveBeenCalledWith("audience", "Professores");
+  });
+
   it("shows the frozen Brand Cortex identity only on Peça única", () => {
     renderComposer(composer({
       intent: "single",
@@ -266,15 +292,20 @@ describe("CreativeComposer", () => {
     const referenceAndContext = screen.getByTestId("variation-reference-context");
     const guidance = screen.getByTestId("variation-guidance");
     const directions = screen.getByTestId("variation-directions-region");
+    const context = screen.getByRole("heading", { name: "Leitura da IA" }).closest("section")!;
     const optionalSettings = screen.getByTestId("creative-optional-settings");
     const action = screen.getByTestId("creative-generate-action");
 
     expect(workspace).toHaveClass("items-start", "lg:grid-cols-2");
     expect(referenceAndContext).toContainElement(screen.getByRole("img", { name: "arte.png" }));
+    expect(referenceAndContext).toContainElement(context);
     expect(guidance).toContainElement(directions);
-    expect(guidance).toContainElement(screen.getByRole("heading", { name: "Leitura da IA" }));
     expect(
       referenceAndContext.compareDocumentPosition(directions)
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      context.compareDocumentPosition(directions)
         & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
@@ -293,14 +324,13 @@ describe("CreativeComposer", () => {
     );
   });
 
-  it("explains directions from their available instruction without changing selection or the five-direction limit", async () => {
+  it("shows each direction instruction inside its selectable card without separate help controls", () => {
     const value = composer();
     renderComposer(value);
 
-    const help = screen.getByRole("button", { name: "Ajuda sobre Conservadora" });
-    fireEvent.focus(help);
-    expect(await screen.findByRole("tooltip")).toHaveTextContent("Usa a orientação Preservar");
-    expect(help).toHaveAttribute("aria-describedby");
+    expect(screen.getByText("Preservar")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Ajuda sobre Conservadora" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ousada" })).toHaveClass("sm:col-span-2");
 
     fireEvent.click(screen.getByRole("button", { name: "Conservadora" }));
     expect(value.toggleDirection).toHaveBeenCalledWith("00000000-0000-4000-8000-000000000001");

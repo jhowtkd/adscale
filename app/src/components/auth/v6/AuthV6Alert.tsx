@@ -15,6 +15,8 @@ export function AuthV6ErrorAlert({ children }: { children: ReactNode }) {
 export function AuthV6SuccessAlert({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
+      role="status"
+      aria-live="polite"
       className={cn(
         "rounded-[var(--radius-control)] border border-[var(--success-border)] bg-[var(--success-bg)] px-3 py-2 text-sm text-[var(--success-text)]",
         className,

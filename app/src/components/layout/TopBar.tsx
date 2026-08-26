@@ -74,7 +74,7 @@ export function deriveRouteTitle({
   tAssistant,
   tLibrary,
 }: RouteTitleArgs): string {
-  if (pathname === "/") return tNav("home");
+  if (pathname === "/" || pathname.startsWith("/quick-tools/")) return tNav("home");
 
   if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
     return tNav("dashboard");
@@ -91,7 +91,7 @@ export function deriveRouteTitle({
   if (pathname === "/library" || pathname.startsWith("/library/")) {
     return tLibrary("title");
   }
-
+  if (pathname === "/brand-kit" || pathname.startsWith("/brand-kit/")) return tNav("brandKit");
   if (CAMPAIGN_DETAIL_PATH_REGEX.test(pathname)) {
     return campaignDetailTitle || tCommon("pageTitle");
   }

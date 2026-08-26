@@ -1,19 +1,9 @@
 "use client";
 
-import { useState, type SetStateAction } from "react";
+import { useState } from "react";
 import { Expand } from "lucide-react";
-import { useTranslations } from "next-intl";
-import CreativeAnnotationEditor from "@/components/assistant/CreativeAnnotationEditor";
 import { CreativeResultCard } from "@/components/creative-work/CreativeResultCard";
 import { LayerEditorDialog } from "@/components/creative-work/layer-editor/LayerEditorDialog";
-import {
-  OUTPUT_ANNOTATION_COMMENT_MAX_LENGTH,
-  OUTPUT_ANNOTATION_MAX_COUNT,
-  compileOutputAnnotationInstruction,
-  renderAnnotatedOutputFile,
-  type OutputAnnotation,
-} from "@/components/creative-work/output-annotation";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogBody,
@@ -24,7 +14,6 @@ import {
 } from "@/components/ui/dialog";
 import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { useIsMobile } from "@/lib/hooks/use-media-query";
-import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import type { LayerEditorAccessV1 } from "@/server/layer-editor/contracts";
 
 type CreativeProposalGridProps = {
@@ -35,7 +24,7 @@ type CreativeProposalGridProps = {
   /** Legacy wizard alias; remove with the wizard redirect. */
   onSave?: (outputId: string) => void;
   onDownload: (outputId: string) => void;
-  onRevise?: (outputId: string, instruction: string, attachment: File | null) => Promise<boolean>;
+  onRevise?: (outputId: string, instruction: string, attachment: File | null) => void | Promise<void>;
   isRetrying?: (outputId: string) => boolean;
   isApproving?: (outputId: string) => boolean;
   approvalErrorOutputId?: string | null;
@@ -102,34 +91,12 @@ export default function CreativeProposalGrid({
   const [selectedId, setSelectedId] = useState(visible[0]?.id);
   const [expanded, setExpanded] = useState(false);
   const [layerEditorOutputId, setLayerEditorOutputId] = useState<string | null>(null);
-  const [annotationsByOutput, setAnnotationsByOutput] = useState<Record<string, OutputAnnotation[]>>({});
-  const [generalCommentsByOutput, setGeneralCommentsByOutput] = useState<Record<string, string>>({});
-  const [submittingAnnotations, setSubmittingAnnotations] = useState(false);
-  const [annotationError, setAnnotationError] = useState<string | null>(null);
-  const [annotationVoiceBusy, setAnnotationVoiceBusy] = useState(false);
   const isMobile = useIsMobile();
-  const t = useTranslations("dashboard.home.composer.results");
   const selected = visible.find((output) => output.id === selectedId) ?? visible[0];
   const layerEditorOutput = layerEditorOutputId
     ? outputs.find((output) => output.id === layerEditorOutputId)
     : null;
   const layerEditorMode = isMobile || !layerEditorOutput?.isSelected ? "inspect" : "edit";
-  const selectedAnnotations = selected ? annotationsByOutput[selected.id] ?? [] : [];
-  const selectedGeneralComment = selected ? generalCommentsByOutput[selected.id] ?? "" : "";
-
-  const updateSelectedAnnotations = (next: OutputAnnotation[]) => {
-    if (!selected) return;
-    setAnnotationsByOutput((current) => ({ ...current, [selected.id]: next }));
-  };
-
-  const updateSelectedGeneralComment = (update: SetStateAction<string>) => {
-    const outputId = selected?.id;
-    if (!outputId) return;
-    setGeneralCommentsByOutput((current) => ({
-      ...current,
-      [outputId]: typeof update === "function" ? update(current[outputId] ?? "") : update,
-    }));
-  };
 
   if (!selected) return null;
 
@@ -205,7 +172,6 @@ export default function CreativeProposalGrid({
             isMobile={isMobile}
             onOpenLayerEditor={(outputId) => {
               setExpanded(false);
-              setAnnotationVoiceBusy(false);
               setLayerEditorOutputId(outputId);
             }}
             hidePreview
@@ -213,73 +179,17 @@ export default function CreativeProposalGrid({
         </div>
       </div>
 
-      <Dialog open={expanded} onOpenChange={(open) => {
-        setExpanded(open);
-        if (!open) setAnnotationVoiceBusy(false);
-      }}>
+      <Dialog open={expanded} onOpenChange={setExpanded}>
         <DialogContent size="xl" className="h-[min(92dvh,900px)] max-h-[92dvh]">
           <DialogHeader>
             <DialogTitle>{label} · {format}</DialogTitle>
             <DialogDescription>Inspeção ampliada na proporção original, sem corte.</DialogDescription>
           </DialogHeader>
-          <DialogBody className="min-h-0 overflow-y-auto">
-            {available ? <CreativeAnnotationEditor
-              imageUrl={outputSource(selected)}
-              annotations={selectedAnnotations}
-              isMobile={isMobile}
-              layout="split"
-              onBusyChange={setAnnotationVoiceBusy}
-              generalComment={selectedGeneralComment}
-              onGeneralCommentChange={updateSelectedGeneralComment}
-              maxAnnotations={OUTPUT_ANNOTATION_MAX_COUNT}
-              commentMaxLength={OUTPUT_ANNOTATION_COMMENT_MAX_LENGTH}
-              onAdd={(annotation) => updateSelectedAnnotations([
-                ...selectedAnnotations,
-                { id: crypto.randomUUID(), status: "draft", ...annotation },
-              ])}
-              onRemove={(annotationId) => updateSelectedAnnotations(selectedAnnotations.filter((annotation) => annotation.id !== annotationId))}
-              sidePanel={<>
-                <p className="text-sm text-[var(--text-secondary)]">{t("annotationHelp")}</p>
-                {annotationError ? <p role="alert" className="text-sm text-[var(--danger-text)]">{annotationError}</p> : null}
-                <Button
-                  type="button"
-                  disabled={!onRevise || (!selectedGeneralComment.trim() && selectedAnnotations.length === 0) || annotationVoiceBusy || submittingAnnotations || isRevising?.(selected.id)}
-                  onClick={async () => {
-                    if (!onRevise || (!selectedGeneralComment.trim() && selectedAnnotations.length === 0) || annotationVoiceBusy) return;
-                    setSubmittingAnnotations(true);
-                    setAnnotationError(null);
-                    try {
-                      const instruction = compileOutputAnnotationInstruction(selectedAnnotations, selectedGeneralComment);
-                      const file = selectedAnnotations.length > 0
-                        ? await renderAnnotatedOutputFile({ outputId: selected.id, imageUrl: outputSource(selected), annotations: selectedAnnotations })
-                        : null;
-                      const accepted = await onRevise(selected.id, instruction, file);
-                      if (accepted) {
-                        setAnnotationsByOutput((current) => {
-                          const next = { ...current };
-                          delete next[selected.id];
-                          return next;
-                        });
-                        setGeneralCommentsByOutput((current) => {
-                          const next = { ...current };
-                          delete next[selected.id];
-                          return next;
-                        });
-                        setExpanded(false);
-                      } else {
-                        setAnnotationError(t("annotationRevisionError"));
-                      }
-                    } catch {
-                      setAnnotationError(t("annotationPreparationError"));
-                    } finally {
-                      setSubmittingAnnotations(false);
-                    }
-                  }}
-                >
-                  {t("revisionCta", { credits: GENERATION_CREDIT_COSTS.creativeWorkOutput })}
-                </Button>
-              </>}
-            /> : null}
+          <DialogBody className="flex min-h-0 items-center justify-center bg-[var(--surface-inset)] p-2 sm:p-4">
+            {available ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={outputSource(selected)} alt={`Proposta ${label}, formato ${format}, ampliada`} className="max-h-full max-w-full object-contain" />
+            ) : null}
           </DialogBody>
         </DialogContent>
       </Dialog>

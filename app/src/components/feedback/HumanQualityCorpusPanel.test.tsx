@@ -310,6 +310,23 @@ describe("HumanQualityCorpusPanel", () => {
     vi.clearAllMocks();
   });
 
+  it("offers a retry when the corpus queue fails to load", async () => {
+    let calls = 0;
+    mockApiFetch.mockImplementation(async () => {
+      calls += 1;
+      return { ok: false, status: 500 } as Response;
+    });
+
+    renderPanel();
+
+    expect(await screen.findByText("Unable to load corpus queue.")).toBeInTheDocument();
+    const retry = screen.getByRole("button", { name: "Try again" });
+    const callsBeforeRetry = calls;
+    fireEvent.click(retry);
+
+    await waitFor(() => expect(calls).toBeGreaterThan(callsBeforeRetry));
+  });
+
   it("returns null when owner is forbidden", async () => {
     mockApiFetch.mockResolvedValue({ ok: false, status: 403 } as Response);
 

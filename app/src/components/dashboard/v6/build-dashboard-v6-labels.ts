@@ -7,6 +7,9 @@ export function buildDashboardV6Labels(t: Translate): Omit<DashboardV6Labels, "g
   return {
     kpisAria: t("kpisAria"),
     heroProduction: t("heroProduction"),
+    heroEmptyTitle: t("heroEmptyTitle"),
+    heroEmptyDescription: t("heroEmptyDescription"),
+    heroEmptyAction: t("heroEmptyAction"),
     openCampaign: t("openCampaign"),
     viewBriefing: t("viewBriefing"),
     metaBriefing: t("metaBriefing"),
@@ -38,8 +41,14 @@ export function buildDashboardV6Labels(t: Translate): Omit<DashboardV6Labels, "g
   };
 }
 
+export function normalizeDashboardFirstName(firstName: string) {
+  const normalized = firstName.trim();
+  return normalized.toLowerCase() === "user" ? "" : normalized;
+}
+
 export function buildDashboardV6Greeting(t: Translate, firstName: string, hour = new Date().getHours()) {
-  if (!firstName.trim()) return t("greetingNoName");
+  const normalizedFirstName = normalizeDashboardFirstName(firstName);
+  if (!normalizedFirstName) return t("greetingNoName");
   const key = hour < 12 ? "greetingMorning" : hour < 18 ? "greetingAfternoon" : "greetingEvening";
-  return t(key, { firstName });
+  return t(key, { firstName: normalizedFirstName });
 }

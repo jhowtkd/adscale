@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import VoiceInputButton, { appendTranscript } from "@/components/ui/VoiceInputButton";
 import type {
   FeedbackCategory,
   FeedbackContextPayload,
@@ -80,10 +79,9 @@ function FeedbackForm({ context, submitting, onSubmit, onOpenChange }: FeedbackF
   const [category, setCategory] = useState<FeedbackCategory>(defaults.category);
   const [message, setMessage] = useState(defaults.message);
   const [followUpAllowed, setFollowUpAllowed] = useState(false);
-  const [voiceBusy, setVoiceBusy] = useState(false);
 
   const handleSubmit = async () => {
-    if (voiceBusy || !message.trim()) return;
+    if (!message.trim()) return;
     await onSubmit({
       type,
       severity,
@@ -156,11 +154,6 @@ function FeedbackForm({ context, submitting, onSubmit, onOpenChange }: FeedbackF
             placeholder={t("messagePlaceholder")}
             className="min-h-[120px] rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-3 py-2 text-sm"
           />
-          <VoiceInputButton
-            disabled={submitting}
-            onBusyChange={setVoiceBusy}
-            onTranscript={(text) => setMessage((current) => appendTranscript(current, text, 4_000))}
-          />
         </div>
 
         <label className="flex items-start gap-2 text-sm text-[var(--text-secondary)]">
@@ -189,7 +182,7 @@ function FeedbackForm({ context, submitting, onSubmit, onOpenChange }: FeedbackF
         <Button
           type="button"
           onClick={handleSubmit}
-          disabled={submitting || voiceBusy || !message.trim()}
+          disabled={submitting || !message.trim()}
         >
           {submitting ? t("submitting") : t("submit")}
         </Button>

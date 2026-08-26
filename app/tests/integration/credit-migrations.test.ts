@@ -53,7 +53,7 @@ describeWithDatabase("credit migrations against disposable PostgreSQL fixtures",
           ('readiness_completed', '{"estimateCredits":9,"keep":"yes"}');
       `);
 
-      for (const statement of migrationStatements("0087_credit_unit_v2.sql", schema)) {
+      for (const statement of migrationStatements("0088_credit_unit_v2.sql", schema)) {
         await pool.query(statement);
       }
 
@@ -90,7 +90,7 @@ describeWithDatabase("credit migrations against disposable PostgreSQL fixtures",
   it("serializes concurrent grants for the same source id", async () => {
     await withDisposableSchema(async (schema) => {
       await pool.query(`CREATE TABLE "${schema}"."credit_grants" ("source" text NOT NULL, "source_id" text)`);
-      for (const statement of migrationStatements("0088_credit_grant_source_idempotency.sql", schema)) {
+      for (const statement of migrationStatements("0089_credit_grant_source_idempotency.sql", schema)) {
         await pool.query(statement);
       }
 

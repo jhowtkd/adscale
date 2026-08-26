@@ -1,42 +1,29 @@
 "use client";
 
 import {
-  useEffect,
   useRef,
   useState,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
-  type ReactNode,
-  type SetStateAction,
 } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import VoiceInputButton, { appendTranscript } from "@/components/ui/VoiceInputButton";
-
-export type CreativeAnnotationItem = {
-  id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  comment: string;
-  status: "draft" | "submitted" | "addressed";
-};
+import type { AssistantGoalPresentation } from "@/lib/assistant/goal";
 
 export interface CreativeAnnotationEditorProps {
   imageUrl: string;
-  annotations: readonly CreativeAnnotationItem[];
-  onAdd: (annotation: Omit<CreativeAnnotationItem, "id" | "status">) => void;
+  versionId: string;
+  annotations: AssistantGoalPresentation["annotations"];
+  onAdd: (annotation: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    comment: string;
+  }) => void;
   onRemove: (annotationId: string) => void;
   /** When true (mobile), renders the list + comment input but disables drawing. */
   isMobile?: boolean;
-  maxAnnotations?: number;
-  commentMaxLength?: number;
-  layout?: "stacked" | "split";
-  sidePanel?: ReactNode;
-  onBusyChange?: (busy: boolean) => void;
-  generalComment?: string;
-  onGeneralCommentChange?: (comment: SetStateAction<string>) => void;
 }
 
 interface DraftRect {
@@ -45,13 +32,6 @@ interface DraftRect {
   width: number;
   height: number;
 }
-
-const DRAFT_CONTROLS = [
-  { field: "x", label: "annotationX", min: 0 },
-  { field: "y", label: "annotationY", min: 0 },
-  { field: "width", label: "annotationWidth", min: 1 },
-  { field: "height", label: "annotationHeight", min: 1 },
-] as const;
 
 /**
  * Desktop rectangle annotation editor. The user draws rectangles with pointer
@@ -67,33 +47,12 @@ export default function CreativeAnnotationEditor({
   onAdd,
   onRemove,
   isMobile = false,
-  maxAnnotations = Number.POSITIVE_INFINITY,
-  commentMaxLength = 1_000,
-  layout = "stacked",
-  sidePanel,
-  onBusyChange,
-  generalComment: controlledGeneralComment,
-  onGeneralCommentChange,
 }: CreativeAnnotationEditorProps) {
   const t = useTranslations("assistant.goal");
-  const tVoice = useTranslations("feedback.voice");
   const overlayRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<DraftRect | null>(null);
   const [comment, setComment] = useState("");
-  const [voiceBusy, setVoiceBusy] = useState(false);
-  const [uncontrolledGeneralComment, setUncontrolledGeneralComment] = useState("");
-  const [generalVoiceBusy, setGeneralVoiceBusy] = useState(false);
   const startRef = useRef<{ x: number; y: number } | null>(null);
-  const annotationLimitReached = annotations.filter((item) => item.status !== "addressed").length >= maxAnnotations;
-  const voiceBusyAny = voiceBusy || generalVoiceBusy;
-  const generalComment = controlledGeneralComment ?? uncontrolledGeneralComment;
-  const setGeneralComment = onGeneralCommentChange ?? setUncontrolledGeneralComment;
-
-  useEffect(() => {
-    onBusyChange?.(voiceBusyAny);
-  }, [onBusyChange, voiceBusyAny]);
-
-  useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
 
   const toNormalized = (clientX: number, clientY: number) => {
     const bounds = overlayRef.current?.getBoundingClientRect();
@@ -105,14 +64,14 @@ export default function CreativeAnnotationEditor({
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (isMobile || annotationLimitReached || event.pointerType === "touch") return;
+    if (isMobile) return;
     event.preventDefault();
     startRef.current = toNormalized(event.clientX, event.clientY);
     setDraft({ ...startRef.current, width: 0, height: 0 });
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (isMobile || annotationLimitReached || event.pointerType === "touch" || !startRef.current) return;
+    if (isMobile || !startRef.current) return;
     const end = toNormalized(event.clientX, event.clientY);
     const start = startRef.current;
     setDraft({
@@ -123,8 +82,8 @@ export default function CreativeAnnotationEditor({
     });
   };
 
-  const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (isMobile || annotationLimitReached || event.pointerType === "touch" || !draft || !startRef.current) return;
+  const handlePointerUp = () => {
+    if (isMobile || !draft || !startRef.current) return;
     // Reject rectangles smaller than 1% of image width or height.
     if (draft.width < 0.01 || draft.height < 0.01) {
       setDraft(null);
@@ -137,7 +96,7 @@ export default function CreativeAnnotationEditor({
 
   const handleSave = () => {
     const trimmed = comment.trim();
-    if (!draft || !trimmed || annotationLimitReached) return;
+    if (!draft || !trimmed) return;
     onAdd({ ...draft, comment: trimmed });
     setDraft(null);
     setComment("");
@@ -146,20 +105,6 @@ export default function CreativeAnnotationEditor({
   const handleCancel = () => {
     setDraft(null);
     setComment("");
-  };
-
-  const setDraftPercent = (field: keyof DraftRect, rawValue: string) => {
-    const value = Number(rawValue) / 100;
-    if (!Number.isFinite(value)) return;
-    setDraft((current) => {
-      if (!current) return current;
-      const next = { ...current, [field]: value };
-      next.x = Math.min(Math.max(next.x, 0), 0.99);
-      next.y = Math.min(Math.max(next.y, 0), 0.99);
-      next.width = Math.min(Math.max(next.width, 0.01), 1 - next.x);
-      next.height = Math.min(Math.max(next.height, 0.01), 1 - next.y);
-      return next;
-    });
   };
 
   const handleItemKeyDown = (
@@ -174,7 +119,7 @@ export default function CreativeAnnotationEditor({
 
   return (
     <section
-      className={layout === "split" ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]" : "flex flex-col gap-3"}
+      className="flex flex-col gap-3"
       data-testid="assistant-annotation-editor"
     >
       <div className="relative w-full">
@@ -197,7 +142,6 @@ export default function CreativeAnnotationEditor({
           <div
             ref={overlayRef}
             data-testid="assistant-annotation-overlay"
-            aria-disabled={annotationLimitReached}
             className="absolute inset-0 cursor-crosshair touch-none"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
@@ -237,54 +181,21 @@ export default function CreativeAnnotationEditor({
         )}
       </div>
 
-      <div data-testid="assistant-annotation-right-panel" className="flex flex-col gap-3">
-        {!isMobile && !draft ? (
-          <button
-            type="button"
-            disabled={annotationLimitReached}
-            onClick={() => setDraft({ x: 0.25, y: 0.25, width: 0.5, height: 0.5 })}
-            className="self-start rounded-md border border-[var(--border-dim)] px-3 py-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:text-[var(--text-muted)]"
-          >
-            {t("annotationKeyboardAdd")}
-          </button>
-        ) : null}
-        {draft ? (
-          <div className="flex flex-col gap-2 rounded-lg border border-[var(--selection-border)] bg-[var(--surface-raised)] p-3">
-            <div className="grid grid-cols-2 gap-2">
-              {DRAFT_CONTROLS.map(({ field, label, min }) => (
-                <label key={field} className="text-xs text-[var(--text-secondary)]">
-                  {t(label)}
-                  <input
-                    type="number"
-                    min={min}
-                    max={100}
-                    step={1}
-                    value={Math.round(draft[field] * 100)}
-                    onChange={(event) => setDraftPercent(field, event.target.value)}
-                    className="mt-1 block w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-inset)] px-2 py-1 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                  />
-                </label>
-              ))}
-            </div>
-            <label className="text-xs font-medium text-[var(--text-secondary)]">
-              {t("annotationComment")}
-            </label>
-            <textarea
-              data-testid="assistant-annotation-comment"
-              value={comment}
-              onChange={(event) => setComment(event.target.value)}
-              rows={2}
-              maxLength={commentMaxLength}
-              className="block w-full resize-none rounded-md border border-[var(--border-dim)] bg-[var(--surface-inset)] px-2 py-1 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-              placeholder={t("annotationCommentPlaceholder")}
-              autoFocus
-            />
-            <VoiceInputButton
-              onBusyChange={setVoiceBusy}
-              onTranscript={(text) => setComment((current) => appendTranscript(current, text, commentMaxLength))}
-            />
-            <p className="text-xs text-[var(--text-muted)]">{tVoice("privacy")}</p>
-            <div className="flex justify-end gap-2">
+      {draft ? (
+        <div className="flex flex-col gap-2 rounded-lg border border-[var(--selection-border)] bg-[var(--surface-raised)] p-3">
+          <label className="text-xs font-medium text-[var(--text-secondary)]">
+            {t("annotationComment")}
+          </label>
+          <textarea
+            data-testid="assistant-annotation-comment"
+            value={comment}
+            onChange={(event) => setComment(event.target.value)}
+            rows={2}
+            className="block w-full resize-none rounded-md border border-[var(--border-dim)] bg-[var(--surface-inset)] px-2 py-1 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            placeholder={t("annotationCommentPlaceholder")}
+            autoFocus
+          />
+          <div className="flex justify-end gap-2">
             <button
               type="button"
               data-testid="assistant-annotation-cancel"
@@ -297,40 +208,19 @@ export default function CreativeAnnotationEditor({
               type="button"
               data-testid="assistant-annotation-save"
               onClick={handleSave}
-              disabled={!comment.trim() || voiceBusy || annotationLimitReached}
+              disabled={!comment.trim()}
               className={cn(
                 "rounded-md px-3 py-1 text-xs font-medium",
-                comment.trim() && !voiceBusy && !annotationLimitReached
+                comment.trim()
                   ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-text)]"
                   : "cursor-not-allowed bg-[var(--surface-inset)] text-[var(--text-muted)]"
               )}
             >
               {t("save")}
             </button>
-            </div>
           </div>
-        ) : null}
-
-      {layout === "split" ? <div className="flex flex-col gap-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-3">
-        <label className="text-xs font-medium text-[var(--text-secondary)]" htmlFor="assistant-annotation-general-comment">
-          {t("annotationGeneralComment")}
-        </label>
-        <textarea
-          id="assistant-annotation-general-comment"
-          data-testid="assistant-annotation-general-comment"
-          value={generalComment}
-          onChange={(event) => setGeneralComment(event.target.value)}
-          rows={2}
-          maxLength={commentMaxLength}
-          className="block w-full resize-none rounded-md border border-[var(--border-dim)] bg-[var(--surface-inset)] px-2 py-1 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-          placeholder={t("annotationGeneralCommentPlaceholder")}
-        />
-        <VoiceInputButton
-          onBusyChange={setGeneralVoiceBusy}
-          onTranscript={(text) => setGeneralComment((current) => appendTranscript(current, text, commentMaxLength))}
-        />
-        <p className="text-xs text-[var(--text-muted)]">{tVoice("privacy")}</p>
-      </div> : null}
+        </div>
+      ) : null}
 
       {annotations.length > 0 ? (
         <ul className="flex flex-col gap-1">
@@ -366,8 +256,6 @@ export default function CreativeAnnotationEditor({
           ))}
         </ul>
       ) : null}
-      {sidePanel}
-      </div>
     </section>
   );
 }

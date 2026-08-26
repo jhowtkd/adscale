@@ -14,6 +14,7 @@ import {
   deriveCreativeWorkTitle,
   inferCreativeWorkFormat,
   inferSocialPostBrief,
+  applyCreativeWorkBriefingOverrides,
   buildInferredBriefing,
 } from "@/server/creative-work/prepare";
 import { resolveCreativeWorkProtocol } from "@/server/creative-work/protocol";
@@ -21,6 +22,11 @@ import {
   buildTypographyPlan,
   TypographyPlanError,
 } from "@/server/creative-work/typography-plan";
+import {
+  checkInferredBriefing,
+  reviewInferredBriefingOnce,
+} from "@/server/creative-work/briefing-review";
+import { logCreativeWorkBriefingCheck } from "@/server/creative-work/job-telemetry";
 import {
   creativeWorkPreparationSchema,
   generationPolicyVersionFromSwitch,
@@ -32,6 +38,7 @@ import {
   type CreativeSourceStatus,
   type CreativeSourceUsage,
   type CreativeWorkInputSnapshot,
+  type SocialPostBrief,
 } from "@/server/creative-work/contracts";
 import type { ContentBrief } from "@/server/ai/image-analysis";
 import { getBrandKit } from "@/server/repositories/brand-kit";
@@ -105,6 +112,12 @@ export async function detectCreativeWorkDraftBrandConflict(input: {
 function withoutPolicyVersion(snapshot: CreativeWorkInputSnapshot | null) {
   const rest = { ...snapshot };
   delete rest.generationPolicyVersion;
+  return rest;
+}
+
+function withoutBriefing(snapshot: CreativeWorkInputSnapshot | null) {
+  const rest = withoutPolicyVersion(snapshot);
+  delete rest.inferredBriefing;
   return rest;
 }
 
@@ -217,49 +230,143 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       })),
       brand: creativeWorkFactPackBrandFromKit(brandKit),
       clientProfileId: aggregate.work.clientProfileId,
+      briefingOverrides: preparation.data.settings.briefingOverrides,
       // R-003: a resolved "source" choice makes the art's explicit brand the
       // required identity; otherwise the active brand is registered (and no
       // question ever appears without a confident conflict).
       brandAuthority,
     });
-    const parsedBrief = socialPostBriefSchema.safeParse(inferSocialPostBrief(
-      aggregate.work.request,
-      contentAnalyses,
-    ));
-    if (!parsedBrief.success) {
-      return { ok: false as const, error: { code: "invalid_preparation" as const } };
-    }
-    const briefing = preparation.data.intent === "single"
-      ? buildInferredBriefing({
-          request: aggregate.work.request,
-          brief: parsedBrief.data,
-          factPack,
-          toneOfVoice: brandAuthority.kind === "source" ? null : brandKit?.toneOfVoice ?? null,
-        })
-      : null;
-    // R-011: the env switch is a creation-time policy. Its current value is
-    // frozen into the snapshot here; jobs later obey this frozen version and
-    // never re-read the env, so rollback only affects newly prepared work.
-    const snapshot: CreativeWorkInputSnapshot = {
+    const snapshotBase: CreativeWorkInputSnapshot = {
       generationPolicyVersion: generationPolicyVersionFromSwitch(env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED),
       factPack,
-      ...(briefing ? { inferredBriefing: briefing } : {}),
       ...(typographyPlan ? { typographyPlan } : {}),
       request: aggregate.work.request,
       settings: preparation.data.settings,
+      ...(preparation.data.settings.briefingOverrides ? { briefingOverrides: preparation.data.settings.briefingOverrides } : {}),
       sources: effectiveSources.map(({ source, usage }) => ({
         sourceId: source.id,
         updatedAt: source.updatedAt.toISOString(),
         assetKey: sourceAssets.get(source.id)?.assetKey ?? null,
         mimeType: sourceAssets.get(source.id)?.mimeType ?? null,
-        // Frozen display name for provider-facing reference labels (R-003):
-        // asset-backed sources carry the file name; template/text sources
-        // stay null and fall back to a role label in the reference plan.
         label: sourceAssets.get(source.id)?.name ?? null,
         usage,
         content: source.contentAnalysis,
         style: source.styleAnalysis,
       })),
+    };
+    const persistedBriefing = resolveCreativeWorkInferredBriefing(aggregate.work.inputSnapshot);
+    const persistedBrief = socialPostBriefSchema.safeParse(aggregate.work.brief);
+    const persistedCopy = socialPostCopySchema.safeParse(aggregate.work.copy);
+    if (
+      preparation.data.intent === "single" &&
+      persistedBriefing &&
+      persistedBrief.success &&
+      persistedCopy.success &&
+      resolveGenerationPolicyVersion(aggregate.work.inputSnapshot) === resolveGenerationPolicyVersion(snapshotBase) &&
+      canonicalJsonStringify(withoutBriefing(aggregate.work.inputSnapshot)) === canonicalJsonStringify(withoutPolicyVersion(snapshotBase)) &&
+      aggregate.work.format === effectiveFormat
+    ) {
+      const quote = quoteCreativeWork({
+        intent: preparation.data.intent,
+        format: effectiveFormat,
+        targetFormats: preparation.data.settings.targetFormats,
+        directionPool: preparation.data.settings.directionPool,
+      });
+      return {
+        ok: true as const,
+        value: {
+          briefing: persistedBriefing,
+          briefingFactPack: factPack,
+          readiness: persistedBriefing.readiness,
+          confidence: persistedBriefing.confidence,
+          work: aggregate.work,
+          quote,
+        },
+      };
+    }
+    const inferredBrief = applyCreativeWorkBriefingOverrides(inferSocialPostBrief(
+      aggregate.work.request,
+      contentAnalyses,
+    ), preparation.data.settings.briefingOverrides);
+    const parsedBrief = socialPostBriefSchema.safeParse(inferredBrief);
+    let effectiveBrief: SocialPostBrief | null = parsedBrief.success ? parsedBrief.data : null;
+    if (!parsedBrief.success && preparation.data.intent !== "single") {
+      return { ok: false as const, error: { code: "invalid_preparation" as const } };
+    }
+    let briefing = preparation.data.intent === "single"
+      ? buildInferredBriefing({
+          request: aggregate.work.request,
+          brief: parsedBrief.success ? parsedBrief.data : inferredBrief,
+          factPack,
+          toneOfVoice: brandAuthority.kind === "source" ? null : brandKit?.toneOfVoice ?? null,
+          briefingOverrides: preparation.data.settings.briefingOverrides,
+        })
+      : null;
+    if (briefing) {
+      let check = checkInferredBriefing(briefing, factPack);
+      let automaticRevisionCount = 0;
+      let reviewResult: "not_needed" | "passed" | "blocked" | "failed" = "not_needed";
+      if (!check.ok) {
+        automaticRevisionCount = 1;
+        reviewResult = "failed";
+        const revisedBrief = await reviewInferredBriefingOnce({
+          briefing,
+          factPack,
+          findings: check.findings,
+        });
+        if (revisedBrief) {
+          const revisedBriefing = buildInferredBriefing({
+            request: aggregate.work.request,
+            brief: revisedBrief,
+            factPack,
+            toneOfVoice: brandAuthority.kind === "source" ? null : brandKit?.toneOfVoice ?? null,
+            briefingOverrides: preparation.data.settings.briefingOverrides,
+          });
+          check = checkInferredBriefing(revisedBriefing, factPack);
+          if (check.ok) {
+            briefing = revisedBriefing;
+            effectiveBrief = revisedBrief;
+            reviewResult = "passed";
+          } else {
+            reviewResult = "blocked";
+          }
+        }
+      }
+      logCreativeWorkBriefingCheck({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        generationCorrelationId: aggregate.work.generationCorrelationId,
+        version: briefing.version,
+        readiness: briefing.readiness,
+        code: check.ok ? "ok" : "missing_direction",
+        automaticRevisionCount,
+        reviewResult,
+      });
+      if (!check.ok || briefing.readiness === "blocked") {
+        return {
+          ok: false as const,
+          error: {
+            code: "briefing_blocked" as const,
+            details: {
+              reason: "missing_direction" as const,
+              readiness: briefing.readiness,
+              confidence: briefing.confidence,
+              briefing,
+              factPack,
+            },
+          },
+        };
+      }
+    }
+    if (!effectiveBrief) {
+      return { ok: false as const, error: { code: "invalid_preparation" as const } };
+    }
+    // R-011: the env switch is a creation-time policy. Its current value is
+    // frozen into the snapshot here; jobs later obey this frozen version and
+    // never re-read the env, so rollback only affects newly prepared work.
+    const snapshot: CreativeWorkInputSnapshot = {
+      ...snapshotBase,
+      ...(briefing ? { inferredBriefing: briefing } : {}),
     };
     const quote = quoteCreativeWork({
       intent: preparation.data.intent,
@@ -302,10 +409,13 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       // art's brand; the active kit's voice and element lists belong to the
       // other brand and must not leak into the preserved-source piece.
       copy = await generateSocialPostCopy({
-        brief: parsedBrief.data,
+        brief: effectiveBrief,
         factPack,
         brandName: brandAuthority.kind === "source" ? brandAuthority.brandName : brandKit?.name ?? "Marca",
         toneOfVoice: brandAuthority.kind === "source" ? null : brandKit?.toneOfVoice ?? null,
+        toneNotes: brandAuthority.kind === "source" ? null : brandKit?.toneNotes ?? null,
+        description: brandAuthority.kind === "source" ? null : brandKit?.description ?? null,
+        constraints: brandAuthority.kind === "source" ? null : brandKit?.constraints ?? null,
         requiredElements: brandAuthority.kind === "source" ? null : brandKit?.requiredElements ?? null,
         prohibitedElements: brandAuthority.kind === "source" ? null : brandKit?.prohibitedElements ?? null,
       });
@@ -323,9 +433,9 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       input.workItemId,
       aggregate.work.updatedAt,
       {
-        brief: parsedBrief.data,
+        brief: effectiveBrief,
         copy,
-        title: deriveCreativeWorkTitle(parsedBrief.data.theme),
+        title: deriveCreativeWorkTitle(effectiveBrief.theme),
         format: effectiveFormat,
         settings: preparation.data.settings,
         inputSnapshot: snapshot,

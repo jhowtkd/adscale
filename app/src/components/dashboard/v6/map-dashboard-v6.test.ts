@@ -68,7 +68,7 @@ const templates = [
 ];
 
 describe("mapDashboardToV6View", () => {
-  it("renders campaign platforms and uses em dash only when empty", () => {
+  it("renders campaign platforms and names the missing-data state", () => {
     const view = mapDashboardToV6View({
       stats: baseStats,
       firstName: "Ana",
@@ -77,7 +77,7 @@ describe("mapDashboardToV6View", () => {
     });
 
     expect(view.activity[0]?.platforms).toBe("Meta, Google");
-    expect(view.activity[1]?.platforms).toBe("—");
+    expect(view.activity[1]?.platforms).toBe("platformUnavailable");
   });
 
   it("shows 0% vs período anterior when change is zero", () => {
@@ -103,6 +103,17 @@ describe("mapDashboardToV6View", () => {
 
     expect(view.kpis).toHaveLength(3);
     expect(JSON.stringify({ hero: view.hero, kpis: view.kpis })).not.toMatch(/credit|crédit/i);
+  });
+
+  it("uses the useful briefing empty state instead of technical placeholders", () => {
+    const view = mapDashboardToV6View({
+      stats: baseStats,
+      firstName: "Ana",
+      templates: [templates[0]],
+      ...labels,
+    });
+
+    expect(view.briefingRows).toEqual([]);
   });
 
   it("prepends the create-post quick action to the recipes list", () => {

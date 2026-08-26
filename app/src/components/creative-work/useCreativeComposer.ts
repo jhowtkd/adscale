@@ -13,6 +13,7 @@ import {
   useCreativeWork,
   useCreativeWorkSourceActions,
   usePrepareCreativeWork,
+  useEditCreativeWorkBriefing,
   useRetryOutput,
   useLayerizeOutput,
   useReviseOutput,
@@ -24,12 +25,14 @@ import {
   useTriggerTriplet,
   useSuggestCreativeDirections,
   extractCreativeWorkBrandConflict,
+  extractCreativeWorkBriefingBlocked,
   type CreativeSourceUsage,
   type CreativeWorkBrandChoice,
   type CreativeWorkBrandConflict,
   type CreativeWorkItem,
   type CreativeWorkOutput,
   type CreativeWorkQuote,
+  type CreativeWorkSource,
 } from "@/lib/hooks/use-creative-work";
 import {
   createDefaultCreativeDirectionPool,
@@ -37,6 +40,8 @@ import {
   type CreativeDirection,
   type CreativeDirectionPool,
   type CreativeWorkFactPack,
+  type CreativeWorkBriefingField,
+  type CreativeWorkBriefingOverrides,
   type InferredBriefing,
 } from "@/server/creative-work/contracts";
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
@@ -56,6 +61,8 @@ type DraftSnapshot = {
     textLayout?: "top" | "center" | "bottom" | "side";
     fontAssetKey?: string;
     directionPool?: CreativeDirectionPool;
+    briefingOverrides?: CreativeWorkBriefingOverrides;
+    briefingVersion?: number;
   };
 };
 type DraftSource = ({ assetId: string } | { templateId: string }) & { usage?: CreativeSourceUsage };
@@ -90,6 +97,24 @@ function clearStoredDraft(clientProfileId: string, intent: ComposerIntent): void
   window.localStorage.removeItem(draftStorageKey(clientProfileId, intent));
 }
 
+function reusableSourceForProtocol(
+  previous: ComposerIntent,
+  next: ComposerIntent,
+  sources: readonly CreativeWorkSource[],
+): DraftSource | null {
+  if (next === "single") return null;
+  const original = sources.find((source) =>
+    source.status === "ready"
+    && source.usageConfirmed
+    && source.usage !== "style"
+    && (previous !== "single" || source.usage === "content")
+    && Boolean(source.assetId || source.templateId)
+  );
+  if (!original) return null;
+  const identity = original.assetId ? { assetId: original.assetId } : { templateId: original.templateId! };
+  return { ...identity, usage: next === "restyle" ? "content" : "both" };
+}
+
 function canonicalQuote(
   intent: ComposerIntent,
   format: Format,
@@ -121,6 +146,8 @@ function snapshotFromWork(work: Pick<CreativeWorkItem, "request" | "toolKind" | 
           selectedIds: [...work.settings.directionPool.selectedIds],
         },
       } : {}),
+      ...(work.settings.briefingOverrides ? { briefingOverrides: { ...work.settings.briefingOverrides } } : {}),
+      ...(work.settings.briefingVersion !== undefined ? { briefingVersion: work.settings.briefingVersion } : {}),
     },
   };
 }
@@ -181,6 +208,7 @@ export function useCreativeComposer({
   } | null>(null);
   const inferredBriefing = inferredBriefingContext?.briefing ?? null;
   const briefingFactPack = inferredBriefingContext?.factPack ?? null;
+  const [briefingEditState, setBriefingEditState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [directionSuggestionState, setDirectionSuggestionState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   // #129: the pending set carries how it was fetched — the initial/late
   // response replaces the current pool (preserveSelection=false); an explicit
@@ -220,6 +248,8 @@ export function useCreativeComposer({
   const fontAssetKeyRef = useRef<string | null>(null);
   const directionPoolRef = useRef<CreativeDirectionPool | null>(directionPool);
   const formatModeRef = useRef<"auto" | "manual">("auto");
+  const briefingOverridesRef = useRef<CreativeWorkBriefingOverrides | undefined>(undefined);
+  const briefingVersionRef = useRef<number | undefined>(undefined);
   const hydratedWorkRef = useRef<string | null>(null);
   const lastPersistedRef = useRef<string | null>(null);
   const createInFlightRef = useRef<Promise<string | null> | null>(null);
@@ -238,7 +268,6 @@ export function useCreativeComposer({
   const lifecycleRef = useRef(0);
   const persistOnUnmountRef = useRef<() => Promise<void>>(async () => undefined);
   const revisionAttemptsRef = useRef(new Map<string, { revisionKey: string; revisionAssetId: string | null }>());
-  const revisionInFlightRef = useRef(new Map<string, Promise<boolean>>());
 
   const detailQuery = useCreativeWork(workId);
   const brandFontsQuery = useBrandFonts(
@@ -257,6 +286,7 @@ export function useCreativeComposer({
   const createMutation = useCreateCreativeWorkDraft();
   const autosaveMutation = useAutosaveCreativeWork();
   const prepareMutation = usePrepareCreativeWork();
+  const editBriefingMutation = useEditCreativeWorkBriefing();
   const sourceMutation = useCreativeWorkSourceActions();
   const generateMutation = useTriggerTriplet();
   const suggestDirectionMutation = useSuggestCreativeDirections();
@@ -303,6 +333,8 @@ export function useCreativeComposer({
     // direction; the visible default pool is only materialized on interaction.
     directionPoolRef.current = hydrated.settings.directionPool ?? null;
     formatModeRef.current = hydrated.settings.formatMode;
+    briefingOverridesRef.current = hydrated.settings.briefingOverrides;
+    briefingVersionRef.current = hydrated.settings.briefingVersion;
     lastPersistedRef.current = signature(hydrated);
     /* TanStack Query is the external persisted source for hydration. */
     setRequestState(work.request);
@@ -311,6 +343,7 @@ export function useCreativeComposer({
         ? { briefing: detailQuery.data.inferredBriefing, factPack: detailQuery.data.briefingFactPack }
         : null,
     );
+    setBriefingEditState("idle");
     setIntent(intentRef.current);
     setFormat(work.format);
     setFormatMode(hydrated.settings.formatMode);
@@ -351,6 +384,8 @@ export function useCreativeComposer({
           selectedIds: [...directionPoolRef.current.selectedIds],
         },
       } : {}),
+      ...(briefingOverridesRef.current ? { briefingOverrides: { ...briefingOverridesRef.current } } : {}),
+      ...(briefingVersionRef.current !== undefined ? { briefingVersion: briefingVersionRef.current } : {}),
     },
   }), []);
 
@@ -605,7 +640,32 @@ export function useCreativeComposer({
     requestRef.current = value;
     setRequestState(value);
     setInferredBriefingContext(null);
+    setBriefingEditState("idle");
   }, []);
+
+  const editBriefingField = useCallback(async (field: CreativeWorkBriefingField, value: string) => {
+    const id = workIdRef.current;
+    const current = detailQuery.data?.work;
+    if (!id || !current || current.status !== "draft" || intentRef.current !== "single" || !inferredBriefing) return;
+    setBriefingEditState("saving");
+    setError(null);
+    try {
+      const edited = await editBriefingMutation.mutateAsync({
+        workItemId: id,
+        field,
+        value: value.trim() || null,
+        expectedUpdatedAt: new Date(current.updatedAt).toISOString(),
+      });
+      briefingOverridesRef.current = edited.briefingOverrides;
+      briefingVersionRef.current = edited.briefingVersion;
+      setInferredBriefingContext({ briefing: edited.briefing, factPack: edited.briefingFactPack });
+      setBriefingEditState("saved");
+      setAnnouncement("Briefing salvo");
+    } catch (cause) {
+      setBriefingEditState("error");
+      setError(cause instanceof Error ? cause.message : "Falha ao salvar o briefing");
+    }
+  }, [detailQuery.data?.work, editBriefingMutation, inferredBriefing]);
 
   const switchToProtocol = useCallback(async (next: ComposerIntent) => {
     const previous = intentRef.current;
@@ -613,8 +673,10 @@ export function useCreativeComposer({
 
     const currentWork = detailQuery.data?.work;
     const currentWorkId = workIdRef.current;
-    const currentIsDraft = Boolean(currentWorkId && currentWork?.status === "draft");
+    const currentIsDraft = Boolean(currentWorkId && currentWork?.id === currentWorkId && currentWork.status === "draft");
+    const currentHasContext = currentIsDraft && Boolean(currentWork?.request.trim() || detailQuery.data?.sources.length);
     const profileId = currentWork?.clientProfileId ?? active.activeClientProfileId;
+    const reusableSource = reusableSourceForProtocol(previous, next, detailQuery.data?.sources ?? []);
 
     if (currentIsDraft) {
       try {
@@ -638,6 +700,9 @@ export function useCreativeComposer({
     setError(null);
     setBrandConflict(null);
     setInferredBriefingContext(null);
+    setBriefingEditState("idle");
+    briefingOverridesRef.current = undefined;
+    briefingVersionRef.current = undefined;
     directionSuggestionRequestedRef.current = null;
     directionTouchedRef.current = false;
     setPendingDirectionSuggestions(null);
@@ -664,10 +729,11 @@ export function useCreativeComposer({
     else {
       draftKeyRef.current = crypto.randomUUID();
       exposeIntent(next);
+      if (reusableSource) await ensureDraft(reusableSource);
     }
-    setProtocolSwitchNotice(currentIsDraft ? { from: previous, to: next } : null);
+    setProtocolSwitchNotice(currentHasContext ? { from: previous, to: next } : null);
     if (next !== "restyle") requestAnimationFrame(() => composerRef.current?.focus());
-  }, [active.activeClientProfileId, detailQuery.data?.work, exposeIntent, exposeWorkId, flushAutosave]);
+  }, [active.activeClientProfileId, detailQuery.data, ensureDraft, exposeIntent, exposeWorkId, flushAutosave]);
 
   const selectIntent = useCallback((next: ComposerIntent) => {
     if (next === intentRef.current) return;
@@ -1011,7 +1077,13 @@ export function useCreativeComposer({
   }, [runSourceAction]);
 
   const generate = useCallback(async () => {
-    if (submitGuardRef.current || generateMutation.isPending) return;
+    if (
+      submitGuardRef.current
+      || generateMutation.isPending
+      || editBriefingMutation.isPending
+      || briefingEditState === "saving"
+      || inferredBriefing?.readiness === "blocked"
+    ) return;
     const current = detailQuery.data?.work;
     // A work left "ready" without outputs by an uncertain submit (prepare
     // confirmed, generation unconfirmed) resumes straight at the generation
@@ -1064,37 +1136,43 @@ export function useCreativeComposer({
       const conflict = extractCreativeWorkBrandConflict(cause);
       if (conflict) {
         setBrandConflict(conflict);
-      } else if (isApiRequestUncertain(cause) && workIdRef.current) {
-        setActionPhase("reconciling");
-        try {
-          const reconciled = await detailQuery.refetch();
-          const detail = reconciled.data;
-          // Acceptance requires real evidence of generation: an in-flight
-          // status or persisted outputs. "ready" without outputs only proves
-          // the prepare step landed — the flow stays retryable, not accepted.
-          const accepted = Boolean(
-            detail
-            && (detail.work.status === "generating" || detail.outputs.length > 0),
-          );
-          if (accepted) {
-            setError(null);
-            setAnnouncement("Geração aceita; acompanhando o processamento");
-          } else {
-            setError(detail?.work.status === "ready" || phase === "submitting"
-              ? "A geração não foi confirmada. Tente gerar novamente."
-              : "A preparação não foi confirmada. Tente gerar novamente.");
-          }
-        } catch {
-          setError("Não foi possível confirmar o estado da geração. Atualize e tente novamente.");
-        }
       } else {
-        setError(cause instanceof Error ? cause.message : "Falha ao gerar");
+        const blocked = extractCreativeWorkBriefingBlocked(cause);
+        if (blocked) {
+          setInferredBriefingContext({ briefing: blocked.briefing, factPack: blocked.factPack });
+          setError(cause instanceof Error ? cause.message : "A direção do briefing precisa ser corrigida.");
+        } else if (isApiRequestUncertain(cause) && workIdRef.current) {
+          setActionPhase("reconciling");
+          try {
+            const reconciled = await detailQuery.refetch();
+            const detail = reconciled.data;
+            // Acceptance requires real evidence of generation: an in-flight
+            // status or persisted outputs. "ready" without outputs only proves
+            // the prepare step landed — the flow stays retryable, not accepted.
+            const accepted = Boolean(
+              detail
+              && (detail.work.status === "generating" || detail.outputs.length > 0),
+            );
+            if (accepted) {
+              setError(null);
+              setAnnouncement("Geração aceita; acompanhando o processamento");
+            } else {
+              setError(detail?.work.status === "ready" || phase === "submitting"
+                ? "A geração não foi confirmada. Tente gerar novamente."
+                : "A preparação não foi confirmada. Tente gerar novamente.");
+            }
+          } catch {
+            setError("Não foi possível confirmar o estado da geração. Atualize e tente novamente.");
+          }
+        } else {
+          setError(cause instanceof Error ? cause.message : "Falha ao gerar");
+        }
       }
     } finally {
       submitGuardRef.current = false;
       setActionPhase("idle");
     }
-  }, [detailQuery, flushAutosave, generateMutation, prepareMutation]);
+  }, [briefingEditState, detailQuery, editBriefingMutation.isPending, flushAutosave, generateMutation, inferredBriefing, prepareMutation]);
 
   const resolveBrandConflict = useCallback(async (choice: CreativeWorkBrandChoice) => {
     // Double-click guard: one choice in flight per conflict.
@@ -1150,51 +1228,27 @@ export function useCreativeComposer({
     }
   }, [selectOutputMutation]);
 
-  const reviseOutput = useCallback((outputId: string, instruction: string, attachment: File | null): Promise<boolean> => {
-    const trimmedInstruction = instruction.trim();
-    const workItemId = workIdRef.current;
-    if (!workItemId || !trimmedInstruction) return Promise.resolve(false);
-    return (async () => {
-      try {
-        const attachmentFingerprint = attachment
-          ? Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", await attachment.arrayBuffer())), (byte) => byte.toString(16).padStart(2, "0")).join("")
-          : "";
-        const attemptKey = `${outputId}:${trimmedInstruction}:${attachmentFingerprint}`;
-        const inFlight = revisionInFlightRef.current.get(attemptKey);
-        if (inFlight) return inFlight;
-
-        const execution = (async () => {
-          try {
-            let attempt = revisionAttemptsRef.current.get(attemptKey);
-            if (!attempt) {
-              const uploaded = attachment ? await uploadChatAttachment(attachment) : null;
-              attempt = { revisionKey: crypto.randomUUID(), revisionAssetId: uploaded?.assetId ?? null };
-              revisionAttemptsRef.current.set(attemptKey, attempt);
-            }
-            await reviseOutputMutation.mutateAsync({
-              workItemId,
-              outputId,
-              instruction: trimmedInstruction,
-              ...attempt,
-            });
-            revisionAttemptsRef.current.delete(attemptKey);
-            setAnnouncement("Nova variação em geração");
-            return true;
-          } catch (cause) {
-            setError(cause instanceof Error ? cause.message : "Falha ao gerar nova variação");
-            return false;
-          }
-        })();
-        revisionInFlightRef.current.set(attemptKey, execution);
-        void execution.finally(() => {
-          if (revisionInFlightRef.current.get(attemptKey) === execution) revisionInFlightRef.current.delete(attemptKey);
-        });
-        return execution;
-      } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Falha ao gerar nova variação");
-        return false;
+  const reviseOutput = useCallback(async (outputId: string, instruction: string, attachment: File | null) => {
+    if (!workIdRef.current || !instruction.trim()) return;
+    const attemptKey = `${outputId}:${instruction.trim()}:${attachment?.name ?? ""}:${attachment?.size ?? 0}`;
+    try {
+      let attempt = revisionAttemptsRef.current.get(attemptKey);
+      if (!attempt) {
+        const uploaded = attachment ? await uploadChatAttachment(attachment) : null;
+        attempt = { revisionKey: crypto.randomUUID(), revisionAssetId: uploaded?.assetId ?? null };
+        revisionAttemptsRef.current.set(attemptKey, attempt);
       }
-    })();
+      await reviseOutputMutation.mutateAsync({
+        workItemId: workIdRef.current,
+        outputId,
+        instruction: instruction.trim(),
+        ...attempt,
+      });
+      revisionAttemptsRef.current.delete(attemptKey);
+      setAnnouncement("Nova versão em geração");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Falha ao gerar nova versão");
+    }
   }, [reviseOutputMutation]);
 
   const retryRevisionOutput = useCallback(async (output: CreativeWorkOutput) => {
@@ -1264,6 +1318,8 @@ export function useCreativeComposer({
     && (intent !== "format_adaptation" || targetFormats.length > 0)
     && (intent !== "single" || fontOptions.length <= 1 || Boolean(fontAssetKey))
     && !isUploading && actionPhase === "idle" && !generateMutation.isPending
+    && !editBriefingMutation.isPending && briefingEditState !== "saving"
+    && inferredBriefing?.readiness !== "blocked"
     // A brand choice being applied resumes the submit itself — a manual
     // click in that window would race it with a concurrent generate.
     && !resolveBrandConflictMutation.isPending;
@@ -1332,6 +1388,8 @@ export function useCreativeComposer({
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
     settingsLocked: Boolean(detail?.work && detail.work.status !== "draft"),
     inferredBriefing, briefingFactPack, brandIdentity,
+    briefingOverrides: detail?.work.settings.briefingOverrides ?? briefingOverridesRef.current ?? {},
+    editBriefingField, briefingEditState,
     campaignId: detail?.work.campaignId ?? null, campaigns,
     error, announcement, approvalErrorOutputId, brandTrainingSuggestion: brandTrainingSuggestion ?? persistedBrandTrainingSuggestion,
     brandConflict, resolveBrandConflict,

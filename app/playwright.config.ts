@@ -27,8 +27,8 @@ export default defineConfig({
     {
       name: "isolated-visual",
       testMatch: /visual-(shell|foundations|release-gate|a11y-gate)\.spec\.ts$/,
-      fullyParallel: true,
-      workers: 2,
+      fullyParallel: false,
+      workers: 1,
       use: { ...devices["Desktop Chrome"] },
     },
     {

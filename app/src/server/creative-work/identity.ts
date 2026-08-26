@@ -3,7 +3,7 @@ import { db } from "../db";
 import { workspaceAssets } from "../db/schema";
 import {
   getApprovedTrainingReferences,
-  getArchivedTrainingReferences,
+  getRejectedTrainingReferences,
 } from "../repositories/client-reference";
 import { getBrandKit } from "../repositories/brand-kit";
 import { getActiveBrandKnowledgeVersion } from "../repositories/brand-knowledge";
@@ -43,6 +43,13 @@ interface ApprovedReferenceRow {
   trainingCategory: BrandTrainingCategory;
   usageMode: BrandTrainingUsageMode;
   trainingAnalysis: BrandTrainingAnalysis | null;
+}
+
+interface RejectedReferenceRow {
+  id: string;
+  label: string;
+  trainingAnalysis: BrandTrainingAnalysis | null;
+  rejectionReason: { code: string; note?: string } | null;
 }
 
 interface WorkspaceAssetRow {
@@ -418,9 +425,9 @@ export async function createIdentitySnapshot(
 ): Promise<CreativeWorkIdentitySnapshot> {
   const { workspaceId, clientProfileId, selectedReferenceIds } = input;
 
-  const [approved, archived, activeBrandKnowledge] = await Promise.all([
+  const [approved, rejected, activeBrandKnowledge] = await Promise.all([
     getApprovedTrainingReferences(workspaceId, clientProfileId) as Promise<ApprovedReferenceRow[]>,
-    getArchivedTrainingReferences(workspaceId, clientProfileId) as Promise<ApprovedReferenceRow[]>,
+    getRejectedTrainingReferences(workspaceId, clientProfileId) as Promise<RejectedReferenceRow[]>,
     input.includePublishedBrandKnowledge
       ? getActiveBrandKnowledgeVersion(workspaceId, clientProfileId)
       : null,
@@ -486,14 +493,16 @@ export async function createIdentitySnapshot(
   }
 
   const brandKit = await getBrandKit(workspaceId, clientProfileId);
-  // ponytail: archived is today's rejection state; split the statuses if
-  // neutral archival is introduced later.
-  const negativePatterns = archived
-    .filter((ref) => ref.trainingAnalysis != null)
+  const negativePatterns = rejected
     .map((ref) => ({
       referenceId: ref.id,
       label: ref.label,
-      description: readAnalysisText(ref.trainingAnalysis),
+      description: [
+        readAnalysisText(ref.trainingAnalysis),
+        ref.rejectionReason
+          ? `rejection_reason=${ref.rejectionReason.code}${ref.rejectionReason.note ? `: ${ref.rejectionReason.note}` : ""}`
+          : "",
+      ].filter((part) => part.length > 0).join(" "),
     }))
     .filter((pattern) => pattern.description.length > 0)
     .sort((a, b) => a.referenceId.localeCompare(b.referenceId));
@@ -535,6 +544,8 @@ export async function createIdentitySnapshot(
       fonts,
       fontAssets,
       toneOfVoice: brandKit?.toneOfVoice ?? null,
+      ...(brandKit?.visualNotes ? { visualNotes: brandKit.visualNotes } : {}),
+      ...(brandKit?.constraints ? { constraints: brandKit.constraints } : {}),
       prohibitedElements: brandKit?.prohibitedElements ?? null,
       requiredElements: brandKit?.requiredElements ?? null,
     },

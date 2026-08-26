@@ -139,12 +139,24 @@ function CampaignsProductContent() {
     if (originFilter !== "all") {
       list = list.filter((w) => w.originKind === originFilter);
     }
-    const q = searchInput.trim().toLowerCase();
+    const q = searchInput.trim().toLocaleLowerCase();
     if (q) {
-      list = list.filter((w) => w.name.toLowerCase().includes(q));
+      list = list.filter((work) => {
+        const originLabel = work.originKind === "campaign"
+          ? labels.originCampaigns
+          : labels.originPosts;
+        return [
+          work.name,
+          work.brandName,
+          labels.formatProtocol?.(work.protocol),
+          work.state,
+          labels.formatNextAction?.(work.nextAction),
+          originLabel,
+        ].some((value) => value?.toLocaleLowerCase().includes(q));
+      });
     }
     return list;
-  }, [canonicalWorks, originFilter, searchInput]);
+  }, [canonicalWorks, labels, originFilter, searchInput]);
 
   const rows = useMemo(
     () =>
@@ -213,8 +225,8 @@ function CampaignsProductContent() {
         title={
           hasActiveFilters ||
           (isCanonicalMode && (originFilter !== "all" || searchInput))
-            ? tc("noCampaignsMatch")
-            : tc("noCampaignsYet")
+            ? tc(isCanonicalMode ? "noWorksMatch" : "noCampaignsMatch")
+            : tc(isCanonicalMode ? "noWorksYet" : "noCampaignsYet")
         }
         description={
           hasActiveFilters ||
@@ -247,7 +259,7 @@ function CampaignsProductContent() {
       <div className="py-8">
         <EmptyState
           icon={AlertCircle}
-          title={tc("errorLoading")}
+          title={tc(isCanonicalMode ? "errorLoadingWorks" : "errorLoading")}
           description={
             worksErrorObj instanceof Error
               ? worksErrorObj.message
@@ -408,7 +420,7 @@ function CampaignsV6ViewSkeleton() {
       sortOption="newest"
       sortLabel="Atualização"
       sortOptions={[]}
-      viewMode="grid"
+      viewMode="list"
     />
   );
 }

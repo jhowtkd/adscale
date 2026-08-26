@@ -5,14 +5,20 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
-import { useBrandTrainingStatus } from "@/lib/hooks/use-brand-training";
+import { useBrandTrainingStatus, type BrandTrainingStatus } from "@/lib/hooks/use-brand-training";
 
 export default function SidebarBrandKitFeature() {
   const tNav = useTranslations("navigation");
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { activeClientProfileId, activeProfile } = useActiveClientProfile();
-  const { data: training, isLoading } = useBrandTrainingStatus(activeClientProfileId);
+  const {
+    activeClientProfileId,
+    activeProfile,
+    requiresSelection,
+    isLoading: profilesLoading,
+    isError: profilesError,
+  } = useActiveClientProfile();
+  const { data: training, isLoading, isError: trainingError } = useBrandTrainingStatus(activeClientProfileId);
   const settingsTab = searchParams.get("tab");
   const isActive =
     pathname.startsWith("/brand-kit") ||
@@ -42,15 +48,24 @@ export default function SidebarBrandKitFeature() {
           </span>
         </span>
         <span className="text-[11px] text-[var(--text-muted)]">
-          {isLoading
+          {isLoading || profilesLoading
             ? tNav("brandKitStatusLoading")
-            : training?.trained
-              ? tNav("brandKitStatusReady")
-              : activeClientProfileId
-                ? tNav("brandKitStatusSetup")
-                : tNav("brandKitStatusSelect")}
+            : trainingError || profilesError
+              ? tNav("brandKitStatusUnavailable")
+              : tNav(brandStatusKey(activeClientProfileId, training, requiresSelection))}
         </span>
       </span>
     </Link>
   );
+}
+
+export function brandStatusKey(
+  activeClientProfileId: string | null,
+  training?: BrandTrainingStatus,
+  requiresSelection = false,
+) {
+  if (requiresSelection) return "brandKitStatusSetup";
+  if (!activeClientProfileId) return "brandKitStatusSelect";
+  if (training?.needsReview) return "brandKitStatusReview";
+  return training?.trained ? "brandKitStatusReady" : "brandKitStatusSetup";
 }

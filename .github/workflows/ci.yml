@@ -101,15 +101,59 @@ jobs:
           DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           BETTER_AUTH_URL: http://localhost:3000
+          OPENAI_API_KEY: sk-test1234567890123456789012345678901234567890
+          OPENAI_TEXT_MODEL: gpt-4o
+          OPENAI_IMAGE_MODEL: gpt-image-1
+          MINIMAX_API_KEY: minimax-test-key-for-ci
+          R2_ACCOUNT_ID: test
+          R2_ACCESS_KEY_ID: test
+          R2_SECRET_ACCESS_KEY: test
+          R2_BUCKET: test
+          R2_PUBLIC_BASE_URL: https://test.example.com
+          INNGEST_EVENT_KEY: test
+          INNGEST_SIGNING_KEY: test
+          RESEND_API_KEY: re_test_ci
+          EMAIL_FROM: "ADScale <onboarding@example.com>"
           APP_URL: http://localhost:3000
+          STRIPE_SECRET_KEY: sk_test_ci
+          STRIPE_WEBHOOK_SECRET: whsec_test_ci
+          STRIPE_STARTER_PRICE_ID: price_starter
+          STRIPE_GROWTH_PRICE_ID: price_growth
+          STRIPE_SCALE_PRICE_ID: price_scale
+          STRIPE_SUCCESS_URL: http://localhost:3000/settings?tab=billing&checkout=success
+          STRIPE_CANCEL_URL: http://localhost:3000/settings?tab=plans&checkout=cancel
+          E2E_DISABLE_RATE_LIMIT: "true"
           NODE_ENV: production
 
       - name: Install Playwright browsers
         run: cd app && npx playwright install --with-deps chromium
 
-      - name: Run v6 preview a11y gate
-        continue-on-error: true
-        run: cd app && npx playwright test --grep "v6 preview a11y gate"
+      - name: Run visual a11y gate
+        run: cd app && npx playwright test tests/e2e/visual-a11y-gate.spec.ts
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
           E2E_BASE_URL: http://localhost:3000
+          BETTER_AUTH_SECRET: "01234567890123456789012345678901"
+          BETTER_AUTH_URL: http://localhost:3000
+          OPENAI_API_KEY: sk-test1234567890123456789012345678901234567890
+          OPENAI_TEXT_MODEL: gpt-4o
+          OPENAI_IMAGE_MODEL: gpt-image-1
+          MINIMAX_API_KEY: minimax-test-key-for-ci
+          R2_ACCOUNT_ID: test
+          R2_ACCESS_KEY_ID: test
+          R2_SECRET_ACCESS_KEY: test
+          R2_BUCKET: test
+          R2_PUBLIC_BASE_URL: https://test.example.com
+          INNGEST_EVENT_KEY: test
+          INNGEST_SIGNING_KEY: test
+          RESEND_API_KEY: re_test_ci
+          EMAIL_FROM: "ADScale <onboarding@example.com>"
+          APP_URL: http://localhost:3000
+          STRIPE_SECRET_KEY: sk_test_ci
+          STRIPE_WEBHOOK_SECRET: whsec_test_ci
+          STRIPE_STARTER_PRICE_ID: price_starter
+          STRIPE_GROWTH_PRICE_ID: price_growth
+          STRIPE_SCALE_PRICE_ID: price_scale
+          STRIPE_SUCCESS_URL: http://localhost:3000/settings?tab=billing&checkout=success
+          STRIPE_CANCEL_URL: http://localhost:3000/settings?tab=plans&checkout=cancel
+          VISUAL_FOUNDATIONS_SKIP_STORAGE: "true"

@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-const MIGRATION_PATH = path.resolve(__dirname, "../../../drizzle/0087_credit_unit_v2.sql");
+const MIGRATION_PATH = path.resolve(__dirname, "../../../drizzle/0088_credit_unit_v2.sql");
 const IDEMPOTENCY_MIGRATION_PATH = path.resolve(
   __dirname,
-  "../../../drizzle/0088_credit_grant_source_idempotency.sql"
+  "../../../drizzle/0089_credit_grant_source_idempotency.sql"
 );
 const JOURNAL_PATH = path.resolve(__dirname, "../../../drizzle/meta/_journal.json");
 
@@ -26,7 +26,7 @@ const FORBIDDEN_TECHNICAL_TYPES = [
   "generation_dispatch_ack",
 ] as const;
 
-describe("0087_credit_unit_v2 migration", () => {
+describe("0088_credit_unit_v2 migration", () => {
   it("migration file exists and is non-empty", () => {
     expect(fs.existsSync(MIGRATION_PATH)).toBe(true);
     const sql = fs.readFileSync(MIGRATION_PATH, "utf-8");
@@ -92,17 +92,17 @@ describe("0087_credit_unit_v2 migration", () => {
   it("is registered in drizzle journal metadata", () => {
     expect(fs.existsSync(JOURNAL_PATH)).toBe(true);
     const journal = JSON.parse(fs.readFileSync(JOURNAL_PATH, "utf-8"));
+    const entry88 = journal.entries.find((e: { idx: number }) => e.idx === 88);
+    expect(entry88).toBeDefined();
+    expect(entry88.tag).toBe("0088_credit_unit_v2");
+    expect(entry88.version).toBe("7");
+    expect(typeof entry88.when).toBe("number");
     const entry87 = journal.entries.find((e: { idx: number }) => e.idx === 87);
-    expect(entry87).toBeDefined();
-    expect(entry87.tag).toBe("0087_credit_unit_v2");
-    expect(entry87.version).toBe("7");
-    expect(typeof entry87.when).toBe("number");
-    const entry86 = journal.entries.find((e: { idx: number }) => e.idx === 86);
-    expect(entry87.when).toBeGreaterThan(entry86.when);
+    expect(entry88.when).toBeGreaterThan(entry87.when);
   });
 });
 
-describe("0088_credit_grant_source_idempotency migration", () => {
+describe("0089_credit_grant_source_idempotency migration", () => {
   it("guards existing duplicates and enforces one grant per source id", () => {
     const sql = fs.readFileSync(IDEMPOTENCY_MIGRATION_PATH, "utf-8");
 

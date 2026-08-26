@@ -347,6 +347,37 @@ describe("BrandTrainingAssets", () => {
     );
   });
 
+  it("records a structured rejection from the pending card", async () => {
+    const mutate = vi.fn();
+    useReviewBrandTrainingAssetMock.mockReturnValue({
+      mutate,
+      isPending: false,
+    });
+    useBrandTrainingAssetsMock.mockReturnValue({
+      data: [asset({ id: "ref-reject" })],
+      isLoading: false,
+    });
+
+    render(<BrandTrainingAssets clientProfileId="profile-1" />, {
+      wrapper: createWrapper(),
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "brandTraining.assets.reject",
+      }),
+    );
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        referenceId: "ref-reject",
+        reviewStatus: "rejected",
+        rejectionReason: { code: "brand_drift" },
+      }),
+      expect.any(Object),
+    );
+  });
+
   it("archives approved assets with analysis: null (no empty description)", async () => {
     const mutate = vi.fn();
     useReviewBrandTrainingAssetMock.mockReturnValue({

@@ -35,6 +35,7 @@ const VARIATION_SOURCES = [
   { name: "vf-variation-square-240x240.svg", width: 240, height: 240, color: "#0f766e", label: "Square" },
   { name: "vf-variation-vertical-180x320.svg", width: 180, height: 320, color: "#7c3aed", label: "Vertical" },
 ] as const;
+const SKIP_STORAGE_UPLOADS = process.env.VISUAL_FOUNDATIONS_SKIP_STORAGE === "true";
 
 function variationSourceSvg({ width, height, color, label }: (typeof VARIATION_SOURCES)[number]) {
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="#172018"/><rect x="12" y="12" width="${width - 24}" height="${height - 24}" fill="${color}"/><text x="${width / 2}" y="${height / 2}" fill="white" font-family="Arial" font-size="20" text-anchor="middle">${label}</text></svg>`);
@@ -188,7 +189,7 @@ async function main() {
   for (const fixture of VARIATION_SOURCES) {
     const source = variationSourceSvg(fixture);
     const key = `e2e/visual-foundations/${workspaceId.slice(0, 8)}/${fixture.name}`;
-    await objectStorage.put(key, source, "image/svg+xml");
+    if (!SKIP_STORAGE_UPLOADS) await objectStorage.put(key, source, "image/svg+xml");
     variationAssets.push(await createWorkspaceAsset({
       workspaceId,
       key,

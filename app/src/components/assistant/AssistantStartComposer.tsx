@@ -340,7 +340,7 @@ export default function AssistantStartComposer({
               type="submit"
               size="default"
               disabled={!canSend}
-              aria-label={t("send")}
+              aria-label={createThread.isPending ? t("submitting") : t("sendBriefing")}
               className={cn(
                 "min-h-11 rounded-[var(--radius-control)] px-4",
                 canSend

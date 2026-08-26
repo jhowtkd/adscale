@@ -125,6 +125,9 @@ export async function generateSocialPostCopy(
       brief: existing.work.brief,
       brandName: profile.name,
       toneOfVoice: brandKit?.toneOfVoice ?? null,
+      toneNotes: brandKit?.toneNotes ?? null,
+      description: brandKit?.description ?? null,
+      constraints: brandKit?.constraints ?? null,
       requiredElements: brandKit?.requiredElements ?? null,
       prohibitedElements: brandKit?.prohibitedElements ?? null,
     });

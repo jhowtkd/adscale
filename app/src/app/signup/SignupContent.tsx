@@ -137,9 +137,7 @@ export default function SignupContent() {
 
             <div className="space-y-4">
               {resendSuccess ? (
-                <AuthV6SuccessAlert>
-                  <span role="status">{t("verificationEmailSent")}</span>
-                </AuthV6SuccessAlert>
+                <AuthV6SuccessAlert>{t("verificationEmailSent")}</AuthV6SuccessAlert>
               ) : null}
 
               {resendError ? (

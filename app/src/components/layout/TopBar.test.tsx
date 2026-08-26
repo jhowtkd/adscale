@@ -301,12 +301,13 @@ describe("TopBar shell-floating", () => {
 
 const ptTitleDict = {
   navigation: {
-    dashboard: "Dashboard",
+    dashboard: "Visão geral",
     home: "Início",
+    brandKit: "Marca",
     campaigns: "Campanhas",
     settings: "Configurações",
   },
-  common: { pageTitle: "Campanhas", notifications: "Notificações" },
+  common: { pageTitle: "Trabalhos", notifications: "Notificações" },
   settings: {
     title: "Configurações",
     "profile.title": "Perfil",
@@ -319,12 +320,13 @@ const ptTitleDict = {
 
 const enTitleDict = {
   navigation: {
-    dashboard: "Dashboard",
+    dashboard: "Overview",
     home: "Home",
+    brandKit: "Brand",
     campaigns: "Campaigns",
     settings: "Settings",
   },
-  common: { pageTitle: "Campaigns", notifications: "Notifications" },
+  common: { pageTitle: "Works", notifications: "Notifications" },
   settings: {
     title: "Settings",
     "profile.title": "Profile",
@@ -354,10 +356,10 @@ describe("deriveRouteTitle", () => {
     ).toBe("Início");
   });
 
-  it("returns Dashboard label for /dashboard", () => {
+  it("returns Visão geral label for /dashboard", () => {
     expect(
       deriveRouteTitle({ pathname: "/dashboard", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Dashboard");
+    ).toBe("Visão geral");
   });
 
   it("returns Assistente for /assistant", () => {
@@ -366,16 +368,16 @@ describe("deriveRouteTitle", () => {
     ).toBe("Assistente");
   });
 
-  it("returns Campanhas for /campaigns", () => {
+  it("returns Trabalhos for /campaigns", () => {
     expect(
       deriveRouteTitle({ pathname: "/campaigns", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Campanhas");
+    ).toBe("Trabalhos");
   });
 
-  it("returns Campanhas for /campaigns/new", () => {
+  it("returns Trabalhos for /campaigns/new", () => {
     expect(
       deriveRouteTitle({ pathname: "/campaigns/new", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Campanhas");
+    ).toBe("Trabalhos");
   });
 
   it("returns the campaign detail title from the store on /campaigns/[id]", () => {
@@ -384,10 +386,19 @@ describe("deriveRouteTitle", () => {
     ).toBe("Cenbrap em Dobro");
   });
 
-  it("falls back to Campanhas on /campaigns/[id] when the store title is empty", () => {
+  it("falls back to Trabalhos on /campaigns/[id] when the store title is empty", () => {
     expect(
       deriveRouteTitle({ pathname: "/campaigns/abc-123", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Campanhas");
+    ).toBe("Trabalhos");
+  });
+
+  it("uses canonical labels for legacy Home and Brand routes", () => {
+    expect(
+      deriveRouteTitle({ pathname: "/quick-tools/create-post", campaignDetailTitle: "", ...baseArgs })
+    ).toBe("Início");
+    expect(
+      deriveRouteTitle({ pathname: "/brand-kit", campaignDetailTitle: "", ...baseArgs })
+    ).toBe("Marca");
   });
 
   it("returns Configurações for /settings", () => {
@@ -414,7 +425,7 @@ describe("deriveRouteTitle", () => {
     ).toBe("Custom Tool");
   });
 
-  it("respects the EN dictionary for /assistant, /campaigns and /settings", () => {
+  it("respects the EN dictionary for canonical shell routes", () => {
     const tNavEn = makeTranslator(enTitleDict)("navigation");
     const tCommonEn = makeTranslator(enTitleDict)("common");
     const tSettingsEn = makeTranslator(enTitleDict)("settings");
@@ -432,7 +443,13 @@ describe("deriveRouteTitle", () => {
     ).toBe("Assistant");
     expect(
       deriveRouteTitle({ pathname: "/campaigns", campaignDetailTitle: "", ...enArgs })
-    ).toBe("Campaigns");
+    ).toBe("Works");
+    expect(
+      deriveRouteTitle({ pathname: "/dashboard", campaignDetailTitle: "", ...enArgs })
+    ).toBe("Overview");
+    expect(
+      deriveRouteTitle({ pathname: "/brand-kit", campaignDetailTitle: "", ...enArgs })
+    ).toBe("Brand");
     expect(
       deriveRouteTitle({ pathname: "/settings", campaignDetailTitle: "", ...enArgs })
     ).toBe("Settings");
@@ -466,12 +483,12 @@ describe("TopBar header title per route", () => {
     expect(titleParagraph?.textContent).toBe("Assistente");
   });
 
-  it("renders Campanhas on /campaigns (distinguishing from the nav link of the same label)", () => {
+  it("renders Trabalhos on /campaigns", () => {
     mockUsePathname.mockReturnValue("/campaigns");
     render(<TopBar />, { wrapper: createWrapper() });
     const titleParagraph = document.querySelector("header > div > p");
     expect(titleParagraph).not.toBeNull();
-    expect(titleParagraph?.textContent).toBe("Campanhas");
+    expect(titleParagraph?.textContent).toBe("Trabalhos");
   });
 
   it("renders Configurações on /settings", () => {

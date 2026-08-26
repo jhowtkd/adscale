@@ -12,8 +12,6 @@ import {
   getCreativeWorkSelectionPolicy,
 } from "@/lib/creative-work-selection-policy";
 import { ActionStatusIcon } from "@/components/animations/ActionStatusIcon";
-import VoiceInputButton, { appendTranscript } from "@/components/ui/VoiceInputButton";
-import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import {
   isLayerizationRetryableFailure,
   type LayerizationFailureCode,
@@ -31,7 +29,7 @@ type CreativeResultCardProps = {
   onRetryRevision?: (output: CreativeWorkOutput) => void | Promise<void>;
   onApprove: (outputId: string, confirmObjective?: boolean) => void;
   onDownload: (outputId: string) => void;
-  onRevise?: (outputId: string, instruction: string, attachment: File | null) => Promise<boolean>;
+  onRevise?: (outputId: string, instruction: string, attachment: File | null) => void | Promise<void>;
   isRetrying?: boolean;
   isApproving?: boolean;
   approvalError?: boolean;
@@ -93,12 +91,10 @@ export function CreativeResultCard({
   const [instruction, setInstruction] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [voiceBusy, setVoiceBusy] = useState(false);
   const [confirmingSelection, setConfirmingSelection] = useState(false);
   const [layerizeConfirmation, setLayerizeConfirmation] = useState<{ operationId: string; retry: boolean } | null>(null);
   const [submittingLayerize, setSubmittingLayerize] = useState(false);
   const t = useTranslations("dashboard.home.composer.results");
-  const tVoice = useTranslations("feedback.voice");
   const layerizeRegionRef = useRef<HTMLDivElement>(null);
   const layerizationWasBusy = useRef(false);
   const isCompleted = output.status === "completed" && (output.hasOutput ?? Boolean(output.outputKey));
@@ -171,7 +167,7 @@ export function CreativeResultCard({
           <span data-testid="proposal-level-name">{label}</span>
           <span className="ml-1 text-[var(--text-muted)]">· {output.targetFormat ?? "4:5"} · v{output.versionNumber ?? 1}</span>
         </p>
-        <span aria-label={`Status ${STATUS_LABELS[output.status]}`} className="rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+        <span className="rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-[var(--text-caption)] uppercase tracking-wider text-[var(--text-muted)]">
           {STATUS_LABELS[output.status]}
         </span>
       </header>
@@ -213,7 +209,7 @@ export function CreativeResultCard({
         </div>
       ) : null}
 
-      {selectionPolicy?.verdict === "fail" ? (
+      {selectionPolicy && !selectionPolicy.selectable ? (
         <div
           role="note"
           data-testid="objective-selection-blocked"
@@ -224,7 +220,7 @@ export function CreativeResultCard({
         </div>
       ) : null}
 
-      {selectionPolicy?.verdict === "legacy" ? (
+      {selectionPolicy?.verdict === "legacy" && selectionPolicy.selectable ? (
         <div role="note" data-testid="legacy-selection-review" className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-2 text-xs text-[var(--text-secondary)]">
           {t("legacyReviewRequired")}
         </div>
@@ -246,7 +242,7 @@ export function CreativeResultCard({
                   </span>
                 </div>
                 {brandCheck.evidence.length > 0 ? (
-                  <p className="break-all text-[10px] text-[var(--text-muted)]">
+                  <p className="break-all text-[var(--text-caption)] text-[var(--text-muted)]">
                     {brandCheck.evidence.map((item) => item.path).join(" · ")}
                   </p>
                 ) : null}
@@ -393,7 +389,7 @@ export function CreativeResultCard({
               className="space-y-3 rounded-[var(--radius-control)] bg-[var(--surface-raised)] p-3"
               onSubmit={async (event) => {
                 event.preventDefault();
-                if (submitting || isRevising || voiceBusy || !instruction.trim()) return;
+                if (submitting || isRevising) return;
                 setSubmitting(true);
                 try {
                   await onRevise(output.id, instruction.trim(), attachment);
@@ -409,16 +405,9 @@ export function CreativeResultCard({
                   value={instruction}
                   onChange={(event) => setInstruction(event.target.value)}
                   rows={3}
-                  maxLength={2_000}
                   className="mt-2 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] p-2 font-normal"
                 />
               </label>
-              <VoiceInputButton
-                disabled={submitting || isRevising}
-                onBusyChange={setVoiceBusy}
-                onTranscript={(text) => setInstruction((current) => appendTranscript(current, text, 2_000))}
-              />
-              <p className="text-xs text-[var(--text-muted)]">{tVoice("privacy")}</p>
               <label className="block text-sm text-[var(--text-secondary)]">
                 Anexo opcional
                 <input
@@ -429,8 +418,8 @@ export function CreativeResultCard({
                   className="mt-2 block w-full text-xs"
                 />
               </label>
-              <button type="submit" className={actionClass} disabled={!instruction.trim() || voiceBusy || isRevising || submitting}>
-                {t("revisionCta", { credits: GENERATION_CREDIT_COSTS.creativeWorkOutput })}
+              <button type="submit" className={actionClass} disabled={!instruction.trim() || isRevising || submitting}>
+                Gerar nova versão
               </button>
             </form>
           ) : null}

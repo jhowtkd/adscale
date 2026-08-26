@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import FeedbackModal from "./FeedbackModal";
 
 vi.mock("next-intl", () => ({
@@ -16,7 +16,7 @@ vi.mock("next-intl", () => ({
       message: "Message",
       messagePlaceholder: "Details",
       followUp: "Follow up",
-      privacyNote: "Voice audio notice",
+      privacyNote: "Privacy",
       cancel: "Cancel",
       submit: "Submit",
       "types.suggestion": "Suggestion",
@@ -27,10 +27,6 @@ vi.mock("next-intl", () => ({
     };
     return labels[key] ?? key;
   },
-}));
-vi.mock("@/components/ui/VoiceInputButton", () => ({
-  default: ({ onTranscript, onBusyChange }: { onTranscript: (text: string) => void; onBusyChange?: (busy: boolean) => void }) => <div><button type="button" onClick={() => onTranscript("Texto ditado")}>mock voice</button><button type="button" onClick={() => onBusyChange?.(true)}>mock busy</button></div>,
-  appendTranscript: (current: string, text: string, max: number) => [current, text].filter(Boolean).join(" ").slice(0, max),
 }));
 
 describe("FeedbackModal", () => {
@@ -57,15 +53,5 @@ describe("FeedbackModal", () => {
     expect(
       screen.getByDisplayValue("Friction during credit friction")
     ).toBeInTheDocument();
-    expect(screen.getByText("Voice audio notice")).toBeVisible();
-  });
-
-  it("appends voice feedback and blocks submit while voice is busy", () => {
-    render(<FeedbackModal open onOpenChange={vi.fn()} context={{ contextKind: "global" }} submitting={false} onSubmit={vi.fn()} />);
-    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Atual" } });
-    fireEvent.click(screen.getByRole("button", { name: "mock voice" }));
-    expect(screen.getByLabelText("Message")).toHaveValue("Atual Texto ditado");
-    fireEvent.click(screen.getByRole("button", { name: "mock busy" }));
-    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
   });
 });

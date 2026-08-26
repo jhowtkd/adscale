@@ -23,7 +23,7 @@ const mocks = vi.hoisted(() => {
 
   return {
     getApprovedTrainingReferencesMock: vi.fn(),
-    getArchivedTrainingReferencesMock: vi.fn(),
+    getRejectedTrainingReferencesMock: vi.fn(),
     getBrandKitMock: vi.fn(),
     getActiveBrandKnowledgeVersionMock: vi.fn(),
     selectResults,
@@ -40,7 +40,7 @@ vi.mock("../db", () => ({
 
 vi.mock("../repositories/client-reference", () => ({
   getApprovedTrainingReferences: mocks.getApprovedTrainingReferencesMock,
-  getArchivedTrainingReferences: mocks.getArchivedTrainingReferencesMock,
+  getRejectedTrainingReferences: mocks.getRejectedTrainingReferencesMock,
 }));
 
 vi.mock("../repositories/brand-kit", () => ({
@@ -134,7 +134,7 @@ describe("creative-work identity module", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.selectResults.length = 0;
-    mocks.getArchivedTrainingReferencesMock.mockResolvedValue([]);
+    mocks.getRejectedTrainingReferencesMock.mockResolvedValue([]);
     mocks.getActiveBrandKnowledgeVersionMock.mockResolvedValue(null);
   });
 
@@ -468,9 +468,9 @@ describe("creative-work identity module", () => {
       expect(photo.assets[0]?.referenceId).toBe("photo");
     });
 
-    it("keeps archived creatives as text-only negative patterns", async () => {
+    it("keeps rejected creatives as text-only negative patterns", async () => {
       mocks.getApprovedTrainingReferencesMock.mockResolvedValue([]);
-      mocks.getArchivedTrainingReferencesMock.mockResolvedValue([
+      mocks.getRejectedTrainingReferencesMock.mockResolvedValue([
         {
           ...approvedReference({
             id: "rejected",
@@ -484,7 +484,8 @@ describe("creative-work identity module", () => {
               confidence: 0.9,
             },
           }),
-          reviewStatus: "archived",
+          reviewStatus: "rejected",
+          rejectionReason: { code: "brand_drift", note: "Fora da identidade" },
         },
       ]);
       mocks.getBrandKitMock.mockResolvedValue(null);
@@ -502,9 +503,24 @@ describe("creative-work identity module", () => {
         {
           referenceId: "rejected",
           label: "Asset",
-          description: "Layout crowded with duplicated badges dense badge wall illegible footer",
+          description: "Layout crowded with duplicated badges dense badge wall illegible footer rejection_reason=brand_drift: Fora da identidade",
         },
       ]);
+    });
+
+    it("does not turn archived creatives into negative evidence", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([]);
+      mocks.getRejectedTrainingReferencesMock.mockResolvedValue([]);
+
+      const snapshot = await createIdentitySnapshot({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        selectedReferenceIds: [],
+        brief: socialBrief,
+        format: "1:1",
+      });
+
+      expect(snapshot.negativePatterns).toEqual([]);
     });
 
     it("keeps approved rule-mode assets as textual guidance in the ranked fallback", async () => {

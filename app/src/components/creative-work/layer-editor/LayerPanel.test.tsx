@@ -36,6 +36,24 @@ describe("LayerPanel inspect visibility", () => {
     expect(screen.getByLabelText("Camadas")).not.toHaveClass("touch-none");
   });
 
+  it("tracks the nearest row midpoint during a touch reorder and commits once on release", () => {
+    const dispatch = vi.fn();
+    const { container } = render(<LayerPanel document={document} selectedLayerId={document.layers[0]!.id} onSelect={vi.fn()} mode="edit" dispatch={dispatch} />);
+    const rows = [...container.querySelectorAll<HTMLElement>("[data-layer-order]")];
+    rows[0]!.getBoundingClientRect = () => ({ top: 0, bottom: 60, height: 60, left: 0, right: 200, width: 200, x: 0, y: 0, toJSON: vi.fn() });
+    rows[1]!.getBoundingClientRect = () => ({ top: 60, bottom: 120, height: 60, left: 0, right: 200, width: 200, x: 0, y: 60, toJSON: vi.fn() });
+    const handle = screen.getByLabelText("editorReorder");
+
+    fireEvent.pointerDown(handle, { pointerId: 7, pointerType: "touch", clientY: 10 });
+    fireEvent.pointerMove(handle, { pointerId: 7, pointerType: "touch", clientY: 100 });
+    expect(rows[1]).toHaveAttribute("data-layer-drop-target", "true");
+    expect(dispatch).not.toHaveBeenCalled();
+
+    fireEvent.pointerUp(handle, { pointerId: 7, pointerType: "touch", clientY: 100 });
+    expect(dispatch).toHaveBeenCalledOnce();
+    expect(dispatch).toHaveBeenCalledWith({ type: "reorder", id: document.layers[0]!.id, order: 1 });
+  });
+
   it("projects temporary mobile visibility into the canvas without dispatching a mutation", () => {
     const dispatch = vi.fn();
     const onVisibility = vi.fn();

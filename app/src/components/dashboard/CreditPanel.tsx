@@ -50,7 +50,6 @@ export default function CreditPanel({ remaining, total, planKey, renewalDate }: 
                 "text-xs font-mono font-bold",
                 isLow ? "text-[var(--danger-text)]" : "text-[var(--success-text)]",
               )}
-              aria-label={isLow ? t("lowBalance") : undefined}
             >
               {percentage}%
             </span>

@@ -10,7 +10,7 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => ({
 }[key] ?? key) }));
 
 describe("CreativeToolCards", () => {
-  it("selects a preset in the same composer without navigation and explains protocols", async () => {
+  it("selects a polished protocol card without separate help controls", () => {
     const onSelect = vi.fn();
     render(<CreativeToolCards selected="variations" onSelect={onSelect} />);
 
@@ -18,15 +18,11 @@ describe("CreativeToolCards", () => {
     expect(screen.getByRole("button", { pressed: true })).toHaveClass(
       "border-[var(--selection-border)]",
       "bg-[var(--selection-bg)]",
+      "ring-[var(--selection-border)]",
       "focus-visible:ring-[var(--focus-ring)]",
     );
-    expect(screen.getAllByRole("button", { name: /Ajuda sobre/i })).toHaveLength(4);
-    const card = screen.getByRole("button", { pressed: true });
-    const help = screen.getByRole("button", { name: "Ajuda sobre Variações" });
-    expect(card).not.toContainElement(help);
-    expect(help).not.toContainElement(card);
-    fireEvent.focus(help);
-    expect(await screen.findByRole("tooltip")).toHaveTextContent("Compara abordagens");
+    expect(screen.queryByRole("button", { name: /Ajuda sobre/i })).not.toBeInTheDocument();
+    expect(screen.getAllByText("desc")).toHaveLength(4);
     fireEvent.click(screen.getByRole("button", { name: /^peça única/i }));
 
     expect(onSelect).toHaveBeenCalledWith("single");

@@ -15,7 +15,13 @@ import type {
   CreativeDirection,
   CreativeDirectionPool,
   CreativeWorkFactPack,
+  CreativeWorkBriefingField,
+  CreativeWorkBriefingOverrides,
   InferredBriefing,
+} from "@/server/creative-work/contracts";
+import {
+  creativeWorkFactPackSchema,
+  inferredBriefingSchema,
 } from "@/server/creative-work/contracts";
 import type { PublicLayerizationState } from "@/server/layerize/contracts";
 import type { LayerEditorAccessV1, PublicLayerEditorSummaryV1 } from "@/server/layer-editor/contracts";
@@ -113,6 +119,8 @@ export interface CreativeWorkItem {
     textLayout?: "top" | "center" | "bottom" | "side";
     fontAssetKey?: string;
     directionPool?: CreativeDirectionPool;
+    briefingOverrides?: CreativeWorkBriefingOverrides;
+    briefingVersion?: number;
   };
   copy: SocialPostCopy | null;
   identitySnapshot: CreativeWorkIdentitySnapshot | null;
@@ -307,6 +315,24 @@ export function extractCreativeWorkBrandConflict(cause: unknown): CreativeWorkBr
     sourceId: typeof candidate.sourceId === "string" ? candidate.sourceId : "",
     choices: candidate.choices as readonly CreativeWorkBrandChoice[],
   };
+}
+
+/** Typed payload of the pre-generation briefing safety check. */
+export function extractCreativeWorkBriefingBlocked(cause: unknown): {
+  reason: "missing_direction";
+  briefing: InferredBriefing;
+  factPack: CreativeWorkFactPack;
+} | null {
+  if (!(cause instanceof Error) || !("code" in cause)) return null;
+  if ((cause as { code?: unknown }).code !== "briefing_blocked") return null;
+  const details = (cause as { details?: unknown }).details;
+  if (!details || typeof details !== "object") return null;
+  const candidate = details as Record<string, unknown>;
+  if (candidate.reason !== "missing_direction") return null;
+  const briefing = inferredBriefingSchema.safeParse(candidate.briefing);
+  const factPack = creativeWorkFactPackSchema.safeParse(candidate.factPack);
+  if (!briefing.success || briefing.data.readiness !== "blocked" || !factPack.success) return null;
+  return { reason: "missing_direction", briefing: briefing.data, factPack: factPack.data };
 }
 
 export function mapCreativeWorkDetail(data: {
@@ -518,6 +544,30 @@ export function usePrepareCreativeWork() {
         { action: "prepare" },
         120_000,
       ),
+    onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
+  });
+}
+
+export function useEditCreativeWorkBriefing() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      workItemId: string;
+      field: CreativeWorkBriefingField;
+      value: string | null;
+      expectedUpdatedAt: string;
+    }) => patchJson<{
+      work: CreativeWorkDraftItem;
+      briefing: InferredBriefing;
+      briefingFactPack: CreativeWorkFactPack;
+      briefingOverrides: CreativeWorkBriefingOverrides;
+      briefingVersion: number;
+    }>(`/api/creative-work/${input.workItemId}`, {
+      action: "editBriefing",
+      field: input.field,
+      value: input.value,
+      expectedUpdatedAt: input.expectedUpdatedAt,
+    }),
     onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
   });
 }
@@ -757,6 +807,9 @@ export function useSelectOutput() {
         invalidateCanonicalWorks(queryClient),
       ]);
     },
+    onError: (_error, variables) => queryClient.invalidateQueries({
+      queryKey: ["creative-work", variables.workItemId],
+    }),
   });
 }
 

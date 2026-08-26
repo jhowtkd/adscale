@@ -290,7 +290,7 @@ function directionChips(page: Page): Locator {
   // explicit aria-label, so match it directly.
   return page
     .locator('div[role="group"][aria-label="Direcionamentos"], div[role="group"][aria-label="Directions"]')
-    .getByRole("button");
+    .locator('button[aria-pressed]');
 }
 
 function chip(page: Page, label: string): Locator {
@@ -443,14 +443,23 @@ test.describe("Creative directions #128 — chip selection journeys", () => {
       });
     }
 
-    // The grid renders the five direction labels in the persisted order.
-    await expect(page.getByTestId("proposal-level")).toHaveCount(5);
-    await expect(page.getByTestId("proposal-level-name")).toHaveText([...FALLBACK_LABELS]);
+    // The grid keeps one faithful approval surface and exposes every
+    // direction through its ordered thumbnail rail.
+    await expect(page.getByTestId("proposal-level")).toHaveCount(1);
+    const thumbnails = page.getByRole("navigation", { name: "Miniaturas das propostas" }).getByRole("button");
+    await expect(thumbnails).toHaveCount(5);
+    expect(await thumbnails.evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")))).toEqual(
+      [...FALLBACK_LABELS].map((label) => `Selecionar ${label} em 4:5`),
+    );
+    for (const label of FALLBACK_LABELS) {
+      await page.getByRole("button", { name: `Selecionar ${label} em 4:5` }).click();
+      await expect(page.getByTestId("proposal-level-name")).toHaveText(label);
+    }
 
     // Reload resumes the same five rows — same IDs, same binding.
     const firstIds = detail.outputs.map((output) => output.id).sort();
     await page.reload();
-    await expect(page.getByTestId("proposal-level")).toHaveCount(5);
+    await expect(page.getByRole("navigation", { name: "Miniaturas das propostas" }).getByRole("button")).toHaveCount(5);
     const reloaded = await apiGetWork(page.request, workId);
     expect(reloaded.outputs.map((output) => output.id).sort()).toEqual(firstIds);
 
@@ -588,11 +597,12 @@ test.describe("Creative directions #130 — partial failure and isolated retry",
       .map((output) => ({ id: output.id, outputKey: output.outputKey }))
       .sort((left, right) => left.id.localeCompare(right.id));
 
-    // UI: on the work's own page, the four completed outputs are available
-    // and only the failed card offers the retry.
+    // UI: on the work's own page, the five outputs are available through one
+    // faithful approval surface and only the failed direction offers retry.
     await page.goto(`/creative-work/${workId}`);
-    await expect(page.getByTestId("proposal-level")).toHaveCount(5);
-    await expect(page.locator('[data-testid="proposal-level"][data-status="completed"]')).toHaveCount(4);
+    const outputThumbnails = page.getByRole("navigation", { name: "Miniaturas das propostas" }).getByRole("button");
+    await expect(outputThumbnails).toHaveCount(5);
+    await page.getByRole("button", { name: "Selecionar Direção Delta em 4:5" }).click();
     const failedCard = page.locator('[data-testid="proposal-level"][data-status="failed"]');
     await expect(failedCard).toHaveCount(1);
     await expect(failedCard.getByTestId("proposal-level-name")).toHaveText("Direção Delta");

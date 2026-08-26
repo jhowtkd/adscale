@@ -29,7 +29,7 @@ Set these in the Blueprint creation screen or service environment settings:
 - `STRIPE_GROWTH_PRICE_ID`
 - `STRIPE_SCALE_PRICE_ID`
 
-`ATLASCLOUD_API_KEY` is optional and enables Seedream layerization only for the **Dono da plataforma**. Leave it unset until the provider review and paid smoke are explicitly approved; it is not required to deploy the rest of ADScale.
+`ATLASCLOUD_API_KEY` is optional and enables Seedream layerization for authenticated members of workspaces with an active `layer_editor_v1` entitlement. The diagnostic ZIP remains owner/ops-only. Leave the key unset until the provider review and paid smoke are explicitly approved; it is not required to deploy the rest of ADScale.
 
 For Resend, create a fresh API key in the Resend dashboard and use it as `RESEND_API_KEY`. If an API key was pasted into chat or logs, revoke it and replace it before deploying.
 

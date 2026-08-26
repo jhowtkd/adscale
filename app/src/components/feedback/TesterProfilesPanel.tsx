@@ -123,6 +123,19 @@ export function TesterProfilesPanel() {
       </form>
 
       {errorMessage ? <p className="text-sm text-[var(--danger-text)]">{errorMessage}</p> : null}
+      {query.isError ? (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-text)]"
+        >
+          <span>Não foi possível carregar os perfis tester.</span>
+          <Button type="button" variant="outline" size="sm" onClick={() => void query.refetch()}>
+            Tentar novamente
+          </Button>
+        </div>
+      ) : query.isLoading ? (
+        <p className="text-sm text-[var(--text-muted)]">Carregando perfis tester…</p>
+      ) : null}
 
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
@@ -176,6 +189,11 @@ export function TesterProfilesPanel() {
           </tbody>
         </table>
       </div>
+      {query.dataUpdatedAt > 0 ? (
+        <p className="text-xs text-[var(--text-muted)]">
+          Atualizado às {new Date(query.dataUpdatedAt).toLocaleTimeString()}
+        </p>
+      ) : null}
     </Panel>
   );
 }

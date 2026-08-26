@@ -160,11 +160,11 @@ test("unknown in-memory debt is rejected below the immutable cap", () => {
   assert.ok(diagnostics.some(({ code, file }) => code === "UNKNOWN_IMMUTABLE_DEBT_FINGERPRINT" && file === probe.file));
 });
 
-test("Sol's text-[13px] probe fails at current 227/244", () => {
+test("Sol's text-[13px] probe fails at current 174/244", () => {
   const sources = loadAuthenticatedSources();
   const probe = { file: "app/src/components/SolProbe.tsx", content: `const probe = "text-[13px]";` };
-  assert.equal(collectDebtEntries(sources, "dialect").length, 226);
-  assert.equal(collectDebtEntries([...sources, probe], "dialect").length, 227);
+  assert.equal(collectDebtEntries(sources, "dialect").length, 173);
+  assert.equal(collectDebtEntries([...sources, probe], "dialect").length, 174);
   assert.ok(validateContract({ css: minimal, sources: [...sources, probe], section: "dialect", requireComplete: false })
     .some(({ code, file }) => code === "ARBITRARY_VISUAL_DIALECT" && file === probe.file));
 });

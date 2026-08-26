@@ -94,6 +94,79 @@ describe("selectCreativeWorkOutputCommand", () => {
     expect(mockEnsure).not.toHaveBeenCalled();
   });
 
+  it("selects an objective pass directly regardless of subjective score", async () => {
+    mockGet.mockResolvedValue({
+      work: workItem,
+      outputs: [{
+        ...completedOutput,
+        quality: { schemaVersion: 1, objectiveVerdict: "pass", qualityScore: 1 },
+      }],
+    } as never);
+
+    const result = await selectCreativeWorkOutputCommand({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mockSelect).toHaveBeenCalledWith("ws-1", "work-1", "output-1", {
+      confirmObjective: undefined,
+    });
+  });
+
+  it.each([
+    [{ schemaVersion: 1, objectiveVerdict: "fail", qualityScore: 100 }, "objective_fail"],
+    [{ qualityVerdict: "invalid", qualityScore: 100 }, "objective_legacy_fail"],
+    [{ qualityVerdict: "acceptable", hardFailures: [{ code: "wrong_brand" }] }, "objective_legacy_fail"],
+  ] as const)("blocks an objective rejection for %j", async (quality, rationale) => {
+    mockGet.mockResolvedValue({
+      work: workItem,
+      outputs: [{ ...completedOutput, quality }],
+    } as never);
+
+    const result = await selectCreativeWorkOutputCommand({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      confirmObjective: true,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: "objective_selection_blocked",
+        policy: expect.objectContaining({ rationale, nextStep: "generate_again" }),
+      },
+    });
+    expect(mockSelect).not.toHaveBeenCalled();
+  });
+
+  it("requires explicit confirmation for inconclusive and safe legacy outputs", async () => {
+    for (const quality of [
+      { schemaVersion: 1, objectiveVerdict: "inconclusive" },
+      { qualityVerdict: "improvable", qualityScore: 40 },
+    ]) {
+      vi.clearAllMocks();
+      mockGet.mockResolvedValue({
+        work: workItem,
+        outputs: [{ ...completedOutput, quality }],
+      } as never);
+
+      const result = await selectCreativeWorkOutputCommand({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: "output-1",
+      });
+
+      expect(result).toEqual({
+        ok: false,
+        error: expect.objectContaining({ code: "objective_confirmation_required" }),
+      });
+      expect(mockSelect).not.toHaveBeenCalled();
+    }
+  });
+
   it("reports the current objective block when selection loses a quality race", async () => {
     mockGet
       .mockResolvedValueOnce({

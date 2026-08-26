@@ -173,7 +173,7 @@ export default function CampaignsV6View({
               aria-label={labels.searchAriaLabel}
               value={searchQuery}
               onChange={interactive && onSearchChange ? (e) => onSearchChange(e.target.value) : undefined}
-              readOnly={!interactive}
+              readOnly={!interactive || !onSearchChange}
               className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] py-2 pl-9 pr-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
             />
           </div>
@@ -218,26 +218,28 @@ export default function CampaignsV6View({
             </>
           ) : null}
 
-          <div className="ml-auto inline-flex rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] p-0.5">
-            <ViewToggle
-              pressed={viewMode === "list"}
-              label={labels.viewList}
-              onClick={interactive && onViewModeChange ? () => onViewModeChange("list") : undefined}
-            />
-            <ViewToggle
-              pressed={viewMode === "grid"}
-              label={labels.viewGrid}
-              onClick={interactive && onViewModeChange ? () => onViewModeChange("grid") : undefined}
-            />
-            {interactive && onViewModeChange ? (
+          {showCampaignFilters ? (
+            <div className="ml-auto inline-flex rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] p-0.5">
               <ViewToggle
-                pressed={viewMode === "board"}
-                label={labels.viewBoard}
-                onClick={() => onViewModeChange("board")}
-                className="hidden lg:inline-flex"
+                pressed={viewMode === "list"}
+                label={labels.viewList}
+                onClick={interactive && onViewModeChange ? () => onViewModeChange("list") : undefined}
               />
-            ) : null}
-          </div>
+              <ViewToggle
+                pressed={viewMode === "grid"}
+                label={labels.viewGrid}
+                onClick={interactive && onViewModeChange ? () => onViewModeChange("grid") : undefined}
+              />
+              {interactive && onViewModeChange ? (
+                <ViewToggle
+                  pressed={viewMode === "board"}
+                  label={labels.viewBoard}
+                  onClick={() => onViewModeChange("board")}
+                  className="hidden lg:inline-flex"
+                />
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         {isLoading ? (
@@ -353,7 +355,7 @@ function CampaignRow({
       data-motion-highlight={selected ? "selected" : "idle"}
       data-selection-marker={selected ? "selected" : undefined}
       className={cn(
-        "grid grid-cols-[auto_40px_minmax(0,1fr)_auto_auto_auto] items-center gap-3 px-4 py-3 sm:gap-3.5",
+        "grid min-w-0 grid-cols-[auto_3.5rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 sm:px-4",
         "transition-[background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-product)]",
         selected
           ? "bg-[var(--selection-bg)] shadow-[inset_3px_0_0_var(--selection-border)]"
@@ -368,16 +370,16 @@ function CampaignRow({
         onChange={(e) => onToggleSelect?.(row.id, e.target.checked)}
         onClick={(e) => e.stopPropagation()}
         disabled={!interactive || !isCampaign}
-        className="size-4 accent-[var(--selection-text)]"
+        className="row-span-2 size-4 accent-[var(--selection-text)]"
       />
       <span
-        className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--radius-control)] bg-[var(--neutral-bg)] text-xs font-bold text-[var(--neutral-text)]"
+        className="row-span-2 grid h-14 w-14 shrink-0 place-items-center rounded-[var(--radius-control)] bg-[var(--neutral-bg)] text-xs font-bold text-[var(--neutral-text)]"
       >
         <WorkPreview key={row.previewHref ?? "missing"} row={row} labels={labels} />
       </span>
       <div className="min-w-0">
         {interactive ? (
-          <Link href={row.href} className="truncate font-medium text-[var(--text-primary)] hover:underline" onClick={(e) => e.stopPropagation()}>
+          <Link href={row.href} className="block truncate font-medium text-[var(--text-primary)] hover:underline" onClick={(e) => e.stopPropagation()}>
             {row.name}
           </Link>
         ) : (
@@ -397,17 +399,33 @@ function CampaignRow({
           {row.brandName ? <> · {row.brandName}</> : null}
           {row.protocol ? <> · {row.protocol}</> : null}
           {row.resultCount !== undefined ? <> · {row.resultCount} {labels.resultsLabel ?? "resultados"}</> : null}
-          {row.nextAction ? <> · {row.nextAction}</> : null}
+          <> · {row.updated}</>
         </p>
       </div>
-      <CampaignBadge variant={row.statusVariant} label={row.status} />
-      <span className="hidden text-xs text-[var(--text-secondary)] sm:inline">{row.updated}</span>
+      <div className="col-start-3 flex min-w-0 flex-wrap items-center gap-2">
+        <CampaignBadge variant={row.statusVariant} label={row.status} />
+        {interactive ? (
+          <Link
+            href={row.href}
+            aria-label={`${row.nextAction ?? labels.openCampaign}: ${row.name}`}
+            className={cn(
+              "ml-auto inline-flex min-h-8 items-center rounded-[var(--radius-control)] px-3 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+              row.statusVariant === "danger"
+                ? "bg-[var(--danger-bg)] text-[var(--danger-text)]"
+                : "bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]",
+            )}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {row.nextAction ?? labels.openCampaign}
+          </Link>
+        ) : null}
+      </div>
       {interactive ? (
         <DropdownMenu>
           <DropdownMenuTrigger
             type="button"
             aria-label={labels.actionsFor(row.name)}
-            className="grid h-8 w-8 place-items-center rounded-[var(--radius-control)] text-[var(--utility-icon)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            className="row-span-2 grid h-8 w-8 place-items-center rounded-[var(--radius-control)] text-[var(--utility-icon)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             onClick={(e) => e.stopPropagation()}
           >
             ⋮
@@ -433,7 +451,7 @@ function CampaignRow({
         <button
           type="button"
           aria-label={labels.actionsFor(row.name)}
-          className="grid h-8 w-8 place-items-center rounded-[var(--radius-control)] text-[var(--utility-icon)]"
+          className="row-span-2 grid h-8 w-8 place-items-center rounded-[var(--radius-control)] text-[var(--utility-icon)]"
         >
           ⋮
         </button>
@@ -577,7 +595,7 @@ function CampaignBadge({
     neutral: "bg-[var(--neutral-bg)] text-[var(--neutral-text)]",
   };
   return (
-    <span className={`hidden rounded-full px-2.5 py-1 text-xs font-medium md:inline ${styles[variant]}`}>{label}</span>
+    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${styles[variant]}`}>{label}</span>
   );
 }
 

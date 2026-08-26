@@ -377,6 +377,24 @@ describe("generateCreativeWork", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it("forwards a blocked briefing before identity, charge, or image dispatch", async () => {
+    const details = {
+      reason: "missing_direction",
+      readiness: "blocked",
+      confidence: "high",
+      briefing: { readiness: "blocked" },
+    };
+    prepare.mockResolvedValue({ ok: false, error: { code: "briefing_blocked", details } });
+
+    const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+
+    expect(result).toEqual({ ok: false, error: { code: "briefing_blocked", details } });
+    expect(snapshot).not.toHaveBeenCalled();
+    expect(charge).not.toHaveBeenCalled();
+    expect(createOutputs).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("refunds the full batch after a synchronous partial dispatch failure", async () => {
     send.mockRejectedValue(new Error("partial"));
     failQueuedOutput.mockImplementation(async (_ws, _work, outputId) => outputId === "a" ? null : ({ id: outputId, status: "failed", failureCode: "dispatch_failed" }));

@@ -225,7 +225,9 @@ export default function FeedbackTriagePage() {
             key={tab}
             type="button"
             role="tab"
+            id={`owner-console-tab-${tab}`}
             aria-selected={consoleTab === tab}
+            aria-controls={`owner-console-panel-${tab}`}
             onClick={() => setConsoleTab(tab)}
             className={cn(
               "rounded-[var(--radius-control)] border px-3 py-2 text-sm font-medium",
@@ -239,6 +241,13 @@ export default function FeedbackTriagePage() {
         ))}
       </nav>
 
+      <div
+        id={`owner-console-panel-${consoleTab}`}
+        role="tabpanel"
+        aria-labelledby={`owner-console-tab-${consoleTab}`}
+        tabIndex={0}
+        className="min-w-0 space-y-6"
+      >
       {consoleTab === "metrics" ? <OwnerAnalyticsPanel sessionOptions={sessionOptions} /> : null}
       {consoleTab === "quality" ? <HumanQualityCorpusPanel /> : null}
       {consoleTab === "inspirations" ? <AdminInspirationsPanel /> : null}
@@ -412,75 +421,82 @@ export default function FeedbackTriagePage() {
               </p>
             </div>
 
-            <div className="grid gap-2 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
-              <p>Route: {detail.report.route ?? "—"}</p>
-              <p>Workspace: {detail.report.workspaceId}</p>
-              <p>Campaign: {detail.report.campaignId ?? "—"}</p>
-              <p>Derivation: {detail.report.derivationId ?? "—"}</p>
-            </div>
-
-            {detail.report.diagnosticContext &&
-            (detail.report.diagnosticContext as Record<string, unknown>).source ===
-              "mission_insight" ? (
-              <div className="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] p-4 space-y-2">
-                <h3 className="text-sm font-medium text-[var(--text-primary)]">
-                  Mission insight
-                </h3>
-                <div className="grid gap-1 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
-                  <p>Moment: {String(detail.report.diagnosticContext.moment ?? "—")}</p>
-                  <p>Mission: {String(detail.report.diagnosticContext.missionKey ?? "—")}</p>
-                  <p>Sentiment: {String(detail.report.diagnosticContext.sentiment ?? "—")}</p>
-                  <p>Reason: {String(detail.report.diagnosticContext.reason ?? "—")}</p>
-                  <p>Action: {String(detail.report.diagnosticContext.action ?? "—")}</p>
+            <details className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)]">
+              <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-[var(--text-primary)]">
+                {t("technicalDetails")}
+              </summary>
+              <div className="space-y-4 border-t border-[var(--border-dim)] px-3 py-3">
+                <div className="grid gap-2 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
+                  <p>{t("route")}: {detail.report.route ?? "—"}</p>
+                  <p>{t("workspace")}: {detail.report.workspaceId}</p>
+                  <p>{t("campaign")}: {detail.report.campaignId ?? "—"}</p>
+                  <p>{t("derivation")}: {detail.report.derivationId ?? "—"}</p>
                 </div>
-              </div>
-            ) : null}
 
-            {detail.report.contextCompleteness ? (
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(detail.report.contextCompleteness).map(([key, value]) => (
-                  <span
-                    key={key}
-                    className={cn(
-                      "rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-wide",
-                      value
-                        ? "bg-[var(--success-bg)] text-[var(--success-text)]"
-                        : "bg-[var(--surface-raised)] text-[var(--text-muted)]"
-                    )}
-                  >
-                    {key}: {value ? "yes" : "no"}
-                  </span>
-                ))}
-              </div>
-            ) : null}
+                {detail.report.diagnosticContext &&
+                (detail.report.diagnosticContext as Record<string, unknown>).source ===
+                  "mission_insight" ? (
+                  <div className="space-y-2 rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] p-4">
+                    <h3 className="text-sm font-medium text-[var(--text-primary)]">
+                      {t("missionInsight")}
+                    </h3>
+                    <div className="grid gap-1 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
+                      <p>Moment: {String(detail.report.diagnosticContext.moment ?? "—")}</p>
+                      <p>Mission: {String(detail.report.diagnosticContext.missionKey ?? "—")}</p>
+                      <p>Sentiment: {String(detail.report.diagnosticContext.sentiment ?? "—")}</p>
+                      <p>Reason: {String(detail.report.diagnosticContext.reason ?? "—")}</p>
+                      <p>Action: {String(detail.report.diagnosticContext.action ?? "—")}</p>
+                    </div>
+                  </div>
+                ) : null}
 
-            {detail.assetLinks.length > 0 ? (
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium text-[var(--text-primary)]">Assets</h3>
-                <ul className="space-y-1 text-sm">
-                  {detail.assetLinks.map((asset) => (
-                    <li key={`${asset.kind}-${asset.id}`}>
-                      {asset.url ? (
-                        <a
-                          href={asset.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[var(--selection-text)] hover:underline"
-                        >
-                          {asset.kind} · {asset.key ?? asset.id}
-                        </a>
-                      ) : (
-                        <span>{asset.kind} · {asset.id}</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+                {detail.report.contextCompleteness ? (
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(detail.report.contextCompleteness).map(([key, value]) => (
+                      <span
+                        key={key}
+                        className={cn(
+                          "rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-wide",
+                          value
+                            ? "bg-[var(--success-bg)] text-[var(--success-text)]"
+                            : "bg-[var(--surface-raised)] text-[var(--text-muted)]"
+                        )}
+                      >
+                        {key}: {value ? t("yes") : t("no")}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
+                {detail.assetLinks.length > 0 ? (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("assets")}</h3>
+                    <ul className="space-y-1 text-sm">
+                      {detail.assetLinks.map((asset) => (
+                        <li key={`${asset.kind}-${asset.id}`}>
+                          {asset.url ? (
+                            <a
+                              href={asset.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[var(--selection-text)] hover:underline"
+                            >
+                              {asset.kind} · {asset.key ?? asset.id}
+                            </a>
+                          ) : (
+                            <span>{asset.kind} · {asset.id}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
-            ) : null}
+            </details>
 
             <div className="grid gap-3">
               <label className="grid gap-1 text-sm">
-                <span className="font-medium text-[var(--text-primary)]">Internal notes</span>
+                <span className="font-medium text-[var(--text-primary)]">{t("internalNotes")}</span>
                 <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -489,7 +505,7 @@ export default function FeedbackTriagePage() {
                 />
               </label>
               <label className="grid gap-1 text-sm">
-                <span className="font-medium text-[var(--text-primary)]">Resolution summary</span>
+                <span className="font-medium text-[var(--text-primary)]">{t("resolutionSummary")}</span>
                 <Textarea
                   value={resolution}
                   onChange={(e) => setResolution(e.target.value)}
@@ -516,7 +532,7 @@ export default function FeedbackTriagePage() {
                     })
                   }
                 >
-                  Mark {nextStatus}
+                  {t("markStatus", { status: nextStatus })}
                 </Button>
               ))}
             </div>
@@ -531,6 +547,7 @@ export default function FeedbackTriagePage() {
         ) : null}
       </Panel>
       </div> : null}
+      </div>
     </PageFrame>
   );
 }

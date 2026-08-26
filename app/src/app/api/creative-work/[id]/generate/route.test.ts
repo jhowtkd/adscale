@@ -73,7 +73,7 @@ describe("POST /api/creative-work/[id]/generate", () => {
 
   it.each([
     ["work_not_found", 404], ["work_not_draft", 409], ["work_not_prepared", 409],
-    ["invalid_context", 422], ["brand_conflict", 422], ["credit_blocked", 402], ["dispatch_failed", 502],
+    ["invalid_context", 422], ["brand_conflict", 422], ["briefing_blocked", 422], ["credit_blocked", 402], ["dispatch_failed", 502],
   ])("maps %s", async (code, status) => {
     generate.mockResolvedValue({ ok: false, error: { code } });
     const response = await POST(request(), { params: Promise.resolve({ id: "work-1" }) });

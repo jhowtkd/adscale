@@ -62,19 +62,7 @@ export default function AssistantContextPanel({
   );
 
   if (!threadId) {
-    return (
-      <div
-        className="flex h-full flex-col p-4 pt-12"
-        data-testid="assistant-context-panel"
-      >
-        <div className="border-b border-[var(--border-subtle)] pb-4">
-          <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-            {t("title")}
-          </p>
-        </div>
-        <p className="mt-4 text-sm text-[var(--text-muted)]">{t("noThread")}</p>
-      </div>
-    );
+    return null;
   }
 
   const readinessDisplay = latestPending
@@ -167,11 +155,6 @@ export default function AssistantContextPanel({
                 {activeJobs.map((card) => {
                   const display = parseActionCardDisplay(card.payload.display);
                   const status = getCardStatus(card);
-                  const jobRef =
-                    typeof card.payload.jobRef === "object" &&
-                    card.payload.jobRef !== null
-                      ? (card.payload.jobRef as Record<string, unknown>)
-                      : null;
                   return (
                     <li
                       key={card.id}
@@ -183,11 +166,6 @@ export default function AssistantContextPanel({
                       <p className="text-xs text-[var(--text-muted)]">
                         {tStatus(`status.${status}`)}
                       </p>
-                      {jobRef && typeof jobRef.id === "string" ? (
-                        <p className="mt-1 font-mono text-xs text-[var(--text-muted)]">
-                          {String(jobRef.kind ?? "job")}: {jobRef.id}
-                        </p>
-                      ) : null}
                     </li>
                   );
                 })}

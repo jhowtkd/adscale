@@ -133,7 +133,7 @@ export function projectCreativeWorkAsCanonicalWork(
     ? resolveCreativeWorkInferredBriefing(work.inputSnapshot)
     : null;
   const theme = inferredBriefing ? inferredBriefing.message.value : work.brief?.theme ?? null;
-  const name = work.title?.trim() || theme?.trim() || `Criar Post ${work.id.slice(0, 8)}`;
+  const name = work.title?.trim() || theme?.trim() || "Criar Post";
 
   return {
     id: makeCanonicalWorkId("creative_work", work.id),

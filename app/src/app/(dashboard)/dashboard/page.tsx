@@ -6,12 +6,13 @@ import DashboardV6View from "@/components/dashboard/v6/DashboardV6View";
 import {
   buildDashboardV6Greeting,
   buildDashboardV6Labels,
+  normalizeDashboardFirstName,
 } from "@/components/dashboard/v6/build-dashboard-v6-labels";
 import { mapDashboardToV6View } from "@/components/dashboard/v6/map-dashboard-v6";
 import { useDashboardStats } from "@/lib/hooks/use-dashboard-stats";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useTemplates } from "@/lib/hooks/use-templates";
-import { useAppStore } from "@/lib/store";
+import { useUserProfile } from "@/lib/hooks/use-user-profile";
 
 const BRIEFING_KEYS = {
   objective: "briefingObjective",
@@ -27,10 +28,16 @@ export default function DashboardDataPage() {
   const tKpi = useTranslations("dashboard.kpi");
   const tStatus = useTranslations("campaign.status");
   const tHome = useTranslations("dashboard.home");
-  const firstName = useAppStore((s) => s.user.firstName);
+  const { data: userProfile, isPending: profilePending } = useUserProfile();
+  const firstName = normalizeDashboardFirstName(userProfile?.firstName ?? "");
   const { data: stats, isLoading, isError, refetch } = useDashboardStats("month", "7");
   const { data: templates = [], isLoading: templatesLoading } = useTemplates();
-  const { data: canonicalWorks } = useCanonicalWorks();
+  const {
+    data: canonicalWorks,
+    isLoading: canonicalWorksLoading,
+    isError: canonicalWorksError,
+    refetch: refetchCanonicalWorks,
+  } = useCanonicalWorks();
 
   const labels = useMemo(
     () => ({
@@ -80,7 +87,7 @@ export default function DashboardDataPage() {
     );
   }
 
-  const loading = isLoading || templatesLoading || !view;
+  const loading = isLoading || templatesLoading || profilePending || !view;
 
   const summary = view ? (
     <>
@@ -119,6 +126,17 @@ export default function DashboardDataPage() {
         labels={labels}
         summary={summary}
         isLoading={loading}
+        isHeroLoading={canonicalWorksLoading}
+        heroError={
+          canonicalWorksError && !canonicalWorks
+            ? {
+                title: tHome("errorTitle"),
+                description: tHome("errorDescription"),
+                retryLabel: tHome("retry"),
+                retry: () => void refetchCanonicalWorks(),
+              }
+            : undefined
+        }
         interactive
       />
     </div>

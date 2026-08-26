@@ -65,6 +65,7 @@ const failStaleSourcesMock = vi.hoisted(() => vi.fn());
 const refreshStatusMock = vi.hoisted(() => vi.fn());
 const confirmMock = vi.hoisted(() => vi.fn());
 const updateDraftMock = vi.hoisted(() => vi.fn());
+const updateDraftCasMock = vi.hoisted(() => vi.fn());
 const prepareMock = vi.hoisted(() => vi.fn());
 const detectDraftConflictMock = vi.hoisted(() => vi.fn());
 const createSourceMock = vi.hoisted(() => vi.fn());
@@ -91,6 +92,7 @@ vi.mock("@/server/repositories/creative-work", () => ({
   recordCreativeWorkGenerationAggregate: (...args: unknown[]) => recordAggregateMock(...args),
   refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
   updateCreativeWorkDraft: (...args: unknown[]) => updateDraftMock(...args),
+  updateCreativeWorkDraftIfUnchanged: (...args: unknown[]) => updateDraftCasMock(...args),
   createCreativeWorkSource: (...args: unknown[]) => createSourceMock(...args),
   updateCreativeWorkSource: (...args: unknown[]) => updateSourceMock(...args),
   updateCreativeWorkSourceIfUnchanged: (...args: unknown[]) => updateSourceCasMock(...args),
@@ -825,6 +827,87 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(prepareMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1" });
   });
 
+  it("edits one inferred briefing field with a versioned compare-and-swap", async () => {
+    const updatedAt = new Date("2026-07-13T12:00:00.000Z");
+    const briefing = {
+      version: 1,
+      message: { value: "Tema", state: "sourced" },
+      objective: { value: "Objetivo", state: "inferred", confidence: "medium" },
+      audience: { value: null, state: "unknown" },
+      offer: { value: null, state: "unknown" },
+      tone: { value: null, state: "unknown" },
+      constraints: { value: null, state: "unknown" },
+      readiness: "exploratory",
+      confidence: "low",
+    } as const;
+    const factPack = {
+      version: 1,
+      request: "Tema",
+      facts: [],
+      brand: { requiredElements: [], prohibitedElements: [] },
+      identity: { clientProfileId: profileId, brandName: "Marca", brandAuthority: "active" },
+    } as const;
+    const current = {
+      ...workItem,
+      toolKind: "single",
+      updatedAt,
+      settings: { targetFormats: [], briefingOverrides: {}, briefingVersion: 3 },
+      inputSnapshot: {
+        request: "Tema",
+        settings: { targetFormats: [], briefingOverrides: {}, briefingVersion: 3 },
+        sources: [],
+        inferredBriefing: briefing,
+        factPack,
+      },
+    };
+    getWorkMock.mockResolvedValue({ work: current, outputs: [], sources: [] });
+    const saved = { ...current, updatedAt: new Date("2026-07-13T12:00:01.000Z") };
+    updateDraftCasMock.mockResolvedValue(saved);
+
+    const res = await requestPatch({
+      action: "editBriefing",
+      field: "audience",
+      value: "Professores",
+      expectedUpdatedAt: updatedAt.toISOString(),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.briefing.audience).toEqual({ value: "Professores", state: "sourced" });
+    expect(body.briefingOverrides).toEqual({ audience: "Professores" });
+    expect(body.briefingVersion).toBe(4);
+    expect(updateDraftCasMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      updatedAt,
+      expect.objectContaining({ copy: null, identitySnapshot: null }),
+    );
+  });
+
+  it("rejects an inline edit whose snapshot is stale without writing", async () => {
+    const updatedAt = new Date("2026-07-13T12:00:00.000Z");
+    getWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        toolKind: "single",
+        updatedAt,
+        settings: { targetFormats: [], briefingOverrides: {}, briefingVersion: 1 },
+      },
+      outputs: [],
+      sources: [],
+    });
+
+    const res = await requestPatch({
+      action: "editBriefing",
+      field: "message",
+      value: "Novo tema",
+      expectedUpdatedAt: "2026-07-13T11:59:59.000Z",
+    });
+
+    expect(res.status).toBe(409);
+    expect(updateDraftCasMock).not.toHaveBeenCalled();
+  });
+
   it("links and unlinks only an existing compatible campaign", async () => {
     const linked = await requestPatch({ action: "linkCampaign", campaignId: "campaign-1" });
     expect(linked.status).toBe(200);
@@ -878,6 +961,18 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(body.code).toBe("brand_conflict");
     expect(body.details).toEqual(details);
     expect(body.details.choices).toHaveLength(2);
+  });
+
+  it("maps a blocked briefing to 422 with its actionable reason", async () => {
+    const details = { reason: "missing_direction", readiness: "blocked" };
+    prepareMock.mockResolvedValue({ ok: false, error: { code: "briefing_blocked", details } });
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
+    }), { params: makeParams("work-1") });
+    const body = await res.json();
+    expect(res.status).toBe(422);
+    expect(body.code).toBe("briefing_blocked");
+    expect(body.details).toEqual(details);
   });
 
   it("persists the brand conflict choice bound to the detected brand and invalidates the prepared blocks so the same draft resumes", async () => {

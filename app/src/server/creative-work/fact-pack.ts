@@ -6,6 +6,7 @@ import {
   type CreativeFactClass,
   type CreativeSourceUsage,
   type CreativeWorkFactPack,
+  type CreativeWorkBriefingOverrides,
   type SocialPostCopy,
 } from "./contracts";
 
@@ -149,6 +150,8 @@ export function buildCreativeWorkFactPack(input: {
   clientProfileId: string;
   /** Resolved brand authority (R-003). Defaults to the active workspace brand. */
   brandAuthority?: CreativeWorkBrandAuthority;
+  /** Explicit operator edits are request-authoritative facts. */
+  briefingOverrides?: CreativeWorkBriefingOverrides;
 }): CreativeWorkFactPack {
   const adaptation = input.mode === "format_adaptation";
   const sourceAuthority = input.brandAuthority?.kind === "source" ? input.brandAuthority : null;
@@ -164,6 +167,16 @@ export function buildCreativeWorkFactPack(input: {
   };
 
   pushAll(extractRequestFacts(input.request));
+  for (const [field, value] of Object.entries(input.briefingOverrides ?? {})) {
+    const trimmed = value?.trim();
+    if (!trimmed) continue;
+    pushAll([{
+      value: trimmed,
+      class: field === "offer" ? "offer" : "text",
+      required: true,
+      origin: "request",
+    }]);
+  }
   for (const source of input.sources) {
     if (source.usage === "style") continue;
     pushAll(sourceFactsFromContent(source, adaptation));

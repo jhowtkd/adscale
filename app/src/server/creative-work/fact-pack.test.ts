@@ -52,6 +52,27 @@ const styleSourceWithForeignFacts: CreativeWorkFactPackSourceInput = {
 };
 
 describe("buildCreativeWorkFactPack", () => {
+  it("records inline briefing overrides as required request facts", () => {
+    const pack = buildCreativeWorkFactPack({
+      request: "Criar uma peça para um curso",
+      mode: "social_post",
+      sources: [],
+      brand: null,
+      clientProfileId: "profile-1",
+      briefingOverrides: {
+        message: "Matrículas abertas",
+        audience: "Professores",
+        offer: "20% de desconto",
+      },
+    });
+
+    expect(pack.facts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ value: "Matrículas abertas", class: "text", required: true, origin: "request" }),
+      expect.objectContaining({ value: "Professores", class: "text", required: true, origin: "request" }),
+      expect.objectContaining({ value: "20% de desconto", class: "offer", required: true, origin: "request" }),
+    ]));
+  });
+
   it("keeps the full untruncated request and extracts request facts with provenance", () => {
     const longRequest = `${PSICOLOGIA_REQUEST}. ${"Detalhes da proposta com texto longo. ".repeat(12)}`;
     const pack = buildCreativeWorkFactPack({
