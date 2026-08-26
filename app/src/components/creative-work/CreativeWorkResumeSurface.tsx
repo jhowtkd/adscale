@@ -27,6 +27,9 @@ export function CreativeWorkResumeSurface({
         {campaignId ? "Voltar para a campanha" : "Trabalhos"}
       </Link>
       <CreativeComposer composer={composer} composerRef={composerRef} layout="piece" />
+      <Link href={`/?workId=${encodeURIComponent(workId)}&intent=variations`} className="inline-flex text-sm font-medium text-[var(--text-secondary)] underline underline-offset-2 hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+        Nova variação
+      </Link>
     </div>
   );
 }

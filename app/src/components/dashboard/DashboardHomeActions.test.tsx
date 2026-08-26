@@ -111,7 +111,7 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("active-client-switcher")).toBeInTheDocument();
     expect(protocols?.compareDocumentPosition(continueLink)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(continueLink).toHaveAttribute("href", "/creative-work/w1");
-    expect(screen.getAllByRole("button").filter((button) => button.hasAttribute("aria-pressed"))).toHaveLength(4);
+    expect(screen.getAllByRole("button").filter((button) => button.hasAttribute("aria-pressed"))).toHaveLength(6);
     expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
     expect(screen.queryByText("dashboard.home.chooseIntent")).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -251,9 +251,9 @@ describe("DashboardHomeActions", () => {
     render(<DashboardHomeActions />);
 
     expect(useCreativeWorkMock).toHaveBeenCalledWith("w1");
-    const fan = screen.getByTestId("recent-production-fan");
+    const fan = screen.getByTestId("continue-work-thumbnail");
     const previews = fan.querySelectorAll("img");
-    expect(previews).toHaveLength(2);
+    expect(previews).toHaveLength(1);
     expect(previews[0]).toHaveAttribute("src", "/api/creative-work/w1/outputs/output-new/download");
   });
 
