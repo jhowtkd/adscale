@@ -26,20 +26,9 @@ import {
   UNLIMITED_CREDIT_BALANCE,
   workspaceHasUnlimitedBillingAccess,
 } from "@/server/billing/unlimited-access";
+import { CREDIT_COSTS, type CreditAction } from "@/lib/billing/credit-units";
 
-export const CREDIT_COSTS = {
-  creative_plan: 1,
-  image_derivation: 5,
-  regeneration: 5,
-  restyling: 5,
-  delivery_package_child: 5,
-  landing_page: 10,
-  creative_qa: 1,
-  copy_generation: 2,
-  personaSimulation: 3,
-} as const;
-
-export type CreditAction = keyof typeof CREDIT_COSTS;
+export { CREDIT_COSTS, type CreditAction };
 
 export type SpendCheck =
   | { allowed: true; amount: number; balance: number }

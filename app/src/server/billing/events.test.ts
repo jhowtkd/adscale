@@ -182,8 +182,8 @@ describe("processStripeEvent", () => {
       workspaceId: "workspace-1",
       source: "stripe_invoice",
       sourceId: "in_123",
-      amount: 120,
-      remaining: 120,
+      amount: 1200,
+      remaining: 1200,
       expiresAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -228,7 +228,7 @@ describe("processStripeEvent", () => {
       workspaceId: "workspace-1",
       source: "stripe_invoice",
       sourceId: "in_123",
-      amount: 120,
+      amount: 1200,
       expiresAt: periodEnd,
     });
     expect(result).toEqual({ status: "processed", type: "invoice.paid" });
@@ -281,7 +281,7 @@ describe("processStripeEvent", () => {
       workspaceId: "workspace-1",
       source: "stripe_invoice",
       sourceId: "in_123",
-      amount: 120,
+      amount: 1200,
       expiresAt: periodEnd,
     });
     expect(result).toEqual({ status: "processed", type: "invoice.paid" });
@@ -393,7 +393,7 @@ describe("processStripeEvent", () => {
       workspaceId: "workspace-1",
       source: "stripe_invoice",
       sourceId: "in_123",
-      amount: 120,
+      amount: 1200,
       expiresAt: periodEnd,
     });
     expect(result).toEqual({ status: "processed", type: "invoice.paid" });

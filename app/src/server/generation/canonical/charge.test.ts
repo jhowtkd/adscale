@@ -83,7 +83,7 @@ function batchCharge(): GenerationBatchCharge {
 describe("chargeForGeneration", () => {
   beforeEach(() => {
     mockSpend.mockReset();
-    mockSpend.mockResolvedValue({ ok: true, creditsSpent: 5 });
+    mockSpend.mockResolvedValue({ ok: true, creditsSpent: 50 });
   });
 
   it("spends using unit GenerationRequest cost and billing key", async () => {
@@ -91,7 +91,7 @@ describe("chargeForGeneration", () => {
     await chargeForGeneration(req);
     expect(mockSpend).toHaveBeenCalledWith(
       expect.objectContaining({
-        amount: 5,
+        amount: 50,
         action: "image_derivation",
         idempotencyKey: "derivation:d1:generate",
         metadata: expect.objectContaining({
@@ -118,7 +118,7 @@ describe("chargeForGeneration", () => {
 describe("chargeForGenerationBatch", () => {
   beforeEach(() => {
     mockSpend.mockReset();
-    mockSpend.mockResolvedValue({ ok: true, creditsSpent: 15 });
+    mockSpend.mockResolvedValue({ ok: true, creditsSpent: 150 });
   });
 
   it("spends batch total and records unit economics in metadata", async () => {
@@ -127,12 +127,12 @@ describe("chargeForGenerationBatch", () => {
     });
     expect(mockSpend).toHaveBeenCalledWith(
       expect.objectContaining({
-        amount: 15,
+        amount: 150,
         idempotencyKey: "creative-work:work-1:triplet",
         metadata: expect.objectContaining({
           chargeKind: "batch",
           unitCount: 3,
-          unitChargeAmount: 5,
+          unitChargeAmount: 50,
           creativeWorkId: "work-1",
         }),
       })
@@ -143,7 +143,7 @@ describe("chargeForGenerationBatch", () => {
     await expect(
       chargeForGenerationBatch({
         ...batchCharge(),
-        chargeAmount: 14,
+        chargeAmount: 140,
       })
     ).rejects.toThrow(/unitChargeAmount \* unitCount/);
     expect(mockSpend).not.toHaveBeenCalled();
@@ -156,7 +156,7 @@ describe("chargeForBatchOrApiError", () => {
   });
 
   it("returns null when spend succeeds", async () => {
-    mockSpend.mockResolvedValue({ ok: true, creditsSpent: 15 });
+    mockSpend.mockResolvedValue({ ok: true, creditsSpent: 150 });
     await expect(chargeForBatchOrApiError(batchCharge())).resolves.toBeNull();
   });
 });
