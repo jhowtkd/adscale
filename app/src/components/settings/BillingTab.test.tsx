@@ -38,10 +38,6 @@ vi.mock("@/lib/hooks/use-billing", () => ({
     mutate: mockCheckoutMutate,
     isPending: false,
   })),
-  useRedeemBetaAccess: vi.fn(() => ({
-    mutateAsync: vi.fn(),
-    isPending: false,
-  })),
   useCreditHistory: vi.fn(),
 }));
 
@@ -241,7 +237,7 @@ describe("BillingTab account states", () => {
     expect(screen.getByText(/jun.*2026/i)).toBeInTheDocument();
   });
 
-  it("shows no-access beta redeem section", () => {
+  it("shows plan options and no beta redeem section for workspace with no access", () => {
     mockBillingStatus({
       hasCustomer: false,
       subscriptionStatus: "none",
@@ -260,8 +256,10 @@ describe("BillingTab account states", () => {
 
     render(<BillingTab />, { wrapper: createWrapper() });
 
-    expect(screen.getByText("billing.account.noAccess.title")).toBeInTheDocument();
-    expect(screen.getAllByText("billing.account.accessKinds.none").length).toBeGreaterThan(0);
+    expect(screen.getByText("billing.account.plans.title")).toBeInTheDocument();
+    expect(screen.queryByText("billing.account.noAccess.title")).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/beta/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /redeem/i })).not.toBeInTheDocument();
   });
 
   it("renders grant history rows", () => {

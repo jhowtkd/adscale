@@ -1,34 +1,19 @@
 "use client";
 
-import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   useBillingStatus,
-  useRedeemBetaAccess,
   useStartCheckout,
 } from "@/lib/hooks/use-billing";
 
 export function AccessGatePanel() {
   const t = useTranslations("billing.accessGate");
   const { data: billing, isLoading } = useBillingStatus();
-  const redeem = useRedeemBetaAccess();
   const checkout = useStartCheckout();
-  const [code, setCode] = useState("");
 
   if (isLoading || !billing) return null;
   if (billing.access.hasSpendAccess) return null;
-
-  const handleRedeem = async () => {
-    if (!code.trim()) return;
-    try {
-      await redeem.mutateAsync(code.trim());
-      setCode("");
-    } catch {
-      // o erro é exibido pelo bloco redeem.isError abaixo
-    }
-  };
 
   const handleCheckout = async () => {
     try {
@@ -52,22 +37,6 @@ export function AccessGatePanel() {
       <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("description")}</p>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="flex flex-1 flex-col gap-2 sm:flex-row">
-          <Input
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder={t("betaCodePlaceholder")}
-            className="sm:max-w-xs"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void handleRedeem()}
-            disabled={redeem.isPending || !code.trim()}
-          >
-            {redeem.isPending ? t("redeeming") : t("redeem")}
-          </Button>
-        </div>
         <Button
           type="button"
           onClick={() => void handleCheckout()}
@@ -77,14 +46,9 @@ export function AccessGatePanel() {
         </Button>
       </div>
 
-      {redeem.isError ? (
-        <p className="mt-2 text-xs text-[var(--danger-text)]">
-          {redeem.error instanceof Error ? redeem.error.message : t("redeemError")}
-        </p>
-      ) : null}
       {checkout.isError ? (
         <p className="mt-2 text-xs text-[var(--danger-text)]">
-          {checkout.error instanceof Error ? checkout.error.message : t("redeemError")}
+          {checkout.error instanceof Error ? checkout.error.message : t("checkoutError")}
         </p>
       ) : null}
     </section>

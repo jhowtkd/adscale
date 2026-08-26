@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer } from "react";
 import { AlertTriangle, CreditCard, TrendingUp, Check, Zap, Crown, Sparkles, XCircle } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -16,7 +16,6 @@ import {
   useBillingPortal,
   useBillingStatus,
   useCreditHistory,
-  useRedeemBetaAccess,
   useStartCheckout,
   type BillingStatus,
 } from "@/lib/hooks/use-billing";
@@ -99,9 +98,6 @@ export default function BillingTab() {
   const { data: creditHistory, isLoading: grantsLoading } = useCreditHistory();
   const portal = useBillingPortal();
   const checkout = useStartCheckout();
-  const redeemBeta = useRedeemBetaAccess();
-  const [betaCode, setBetaCode] = useState("");
-  const [betaError, setBetaError] = useState("");
   const [forecastInputs, updateForecastInputs] = useReducer(forecastReducer, pricingAssumptions);
   const {
     campaignsPerMonth,
@@ -156,16 +152,6 @@ export default function BillingTab() {
     const query = nextParams.toString();
     router.replace(query ? `/settings?${query}` : "/settings?tab=billing", { scroll: false });
   }, [queryClient, router, searchParams]);
-
-  async function handleRedeemBeta() {
-    setBetaError("");
-    try {
-      await redeemBeta.mutateAsync(betaCode);
-      setBetaCode("");
-    } catch (err) {
-      setBetaError(err instanceof Error ? err.message : t("noAccess.error"));
-    }
-  }
 
   if (isLoading) {
     return (
@@ -245,32 +231,6 @@ export default function BillingTab() {
             ? t("lowCredits.trial", { credits: billingStatus?.creditBalance ?? 0 })
             : t("lowCredits.paid", { credits: billingStatus?.creditBalance ?? 0 })}
         </div>
-      )}
-
-      {access?.kind === "none" && !isCanceled && (
-        <section className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
-          <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("noAccess.title")}</h3>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("noAccess.description")}</p>
-          <p className="mt-2 text-xs text-[var(--text-muted)]">{t("accessKinds.none")}</p>
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-            <input
-              type="text"
-              value={betaCode}
-              onChange={(event) => setBetaCode(event.target.value)}
-              placeholder={t("noAccess.placeholder")}
-              className="h-10 flex-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--focus-ring)]"
-            />
-            <button
-              type="button"
-              onClick={handleRedeemBeta}
-              disabled={redeemBeta.isPending || !betaCode.trim()}
-              className="h-10 shrink-0 rounded-md bg-[var(--action-primary-bg)] px-4 text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] disabled:opacity-60"
-            >
-              {redeemBeta.isPending ? t("noAccess.redeeming") : t("noAccess.action")}
-            </button>
-          </div>
-          {betaError ? <p className="mt-2 text-sm text-[var(--danger-text)]">{betaError}</p> : null}
-        </section>
       )}
 
       {!hasSpendAccess && (

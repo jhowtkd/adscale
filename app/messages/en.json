@@ -3686,13 +3686,10 @@
   "billing": {
     "accessGate": {
       "title": "Unlock your workspace",
-      "description": "You need an active plan or a beta code to generate creatives. Redeem a code below or start a plan.",
-      "betaCodePlaceholder": "Beta code",
-      "redeem": "Redeem",
-      "redeeming": "Redeeming...",
-      "redeemError": "Could not unlock access. Try again.",
+      "description": "You need an active plan to generate creatives. Choose a plan below to unlock your workspace.",
       "checkout": "Start a plan",
-      "redirecting": "Redirecting..."
+      "redirecting": "Redirecting...",
+      "checkoutError": "Could not start checkout. Try again."
     },
     "account": {
       "loading": "Loading billing...",
@@ -3714,7 +3711,7 @@
         "body": "You have {remaining} of {total} ad generations remaining in this beta program."
       },
       "lowCredits": {
-        "trial": "Low balance for new generations ({credits} credits left). Your trial ends soon.",
+        "trial": "Low balance for new generations ({credits} credits left). Upgrade to a paid plan to continue creating.",
         "paid": "Low balance for new generations ({credits} credits left). Consider upgrading your plan."
       },
       "noAccess": {
@@ -3727,8 +3724,8 @@
       },
       "plans": {
         "title": "Choose a plan",
-        "subtitle": "All plans include a 14-day free trial. Cancel anytime.",
-        "startTrial": "Start trial",
+        "subtitle": "Choose a plan to generate more ads and unlock higher limits. Cancel anytime.",
+        "startTrial": "Subscribe",
         "redirecting": "Redirecting...",
         "features": {
           "plans": "Creative plan generation",
@@ -3766,7 +3763,7 @@
         "manageBilling": "Manage billing",
         "opening": "Opening...",
         "upgrade": "Upgrade",
-        "startTrial": "Start free trial",
+        "startTrial": "Subscribe to a plan",
         "viewUsageHistory": "View usage history →"
       },
       "grants": {
@@ -3778,7 +3775,8 @@
         "date": "Date",
         "sources": {
           "stripe_invoice": "Monthly subscription",
-          "beta_tester": "Beta program"
+          "beta_tester": "Beta program",
+          "signup_trial": "Trial credits"
         }
       },
       "blockingRules": {
@@ -3797,7 +3795,7 @@
         "beta": "Beta access",
         "tester": "Tester",
         "pastDue": "Payment pending",
-        "trial": "Trial (14 days)",
+        "trial": "Trial",
         "active": "Active",
         "canceled": "Canceled",
         "inactive": "Inactive"
@@ -3805,13 +3803,13 @@
       "accessKinds": {
         "paid": "Paid subscription",
         "beta": "Beta program — not a paid plan",
-        "none": "No active access — subscribe or redeem beta"
+        "none": "No active access — subscribe to a plan to continue"
       }
     },
     "conversion": {
       "loading": "Redirecting...",
       "actions": {
-        "checkout": "Start free trial",
+        "checkout": "Subscribe to a plan",
         "billing": "View billing",
         "portal": "Update payment method"
       },

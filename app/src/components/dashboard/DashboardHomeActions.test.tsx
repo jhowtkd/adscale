@@ -31,12 +31,6 @@ vi.mock("@/lib/hooks/use-billing", () => ({
     data: { access: { hasSpendAccess: true } },
     isLoading: false,
   }),
-  useRedeemBetaAccess: () => ({
-    mutateAsync: vi.fn(),
-    isPending: false,
-    isError: false,
-    error: null,
-  }),
   useStartCheckout: () => ({
     mutateAsync: vi.fn(),
     isPending: false,

@@ -3715,13 +3715,10 @@
   "billing": {
     "accessGate": {
       "title": "Libere seu workspace",
-      "description": "Você precisa de um plano ativo ou de um código beta para gerar criativos. Resgate um código abaixo ou comece um plano.",
-      "betaCodePlaceholder": "Código beta",
-      "redeem": "Resgatar",
-      "redeeming": "Resgatando...",
-      "redeemError": "Não foi possível liberar o acesso. Tente novamente.",
+      "description": "Você precisa de um plano ativo para gerar criativos. Escolha um plano para liberar seu workspace.",
       "checkout": "Começar um plano",
-      "redirecting": "Redirecionando..."
+      "redirecting": "Redirecionando...",
+      "checkoutError": "Não foi possível iniciar o checkout. Tente novamente."
     },
     "account": {
       "loading": "Carregando cobrança...",
@@ -3743,7 +3740,7 @@
         "body": "Você tem {remaining} de {total} anúncios gerados restantes neste programa beta."
       },
       "lowCredits": {
-        "trial": "Saldo baixo para novas gerações ({credits} créditos restantes). Seu trial termina em breve.",
+        "trial": "Saldo baixo para novas gerações ({credits} créditos restantes). Faça upgrade para um plano pago para continuar criando.",
         "paid": "Saldo baixo para novas gerações ({credits} créditos restantes). Considere fazer um upgrade de plano."
       },
       "noAccess": {
@@ -3756,8 +3753,8 @@
       },
       "plans": {
         "title": "Escolha um plano",
-        "subtitle": "Todos os planos incluem 14 dias de trial gratuito. Cancele a qualquer momento.",
-        "startTrial": "Começar trial",
+        "subtitle": "Escolha um plano para gerar mais anúncios e desbloquear limites maiores. Cancele a qualquer momento.",
+        "startTrial": "Assinar plano",
         "redirecting": "Redirecionando...",
         "features": {
           "plans": "Geração de planos criativos",
@@ -3795,7 +3792,7 @@
         "manageBilling": "Gerenciar cobrança",
         "opening": "Abrindo...",
         "upgrade": "Fazer upgrade",
-        "startTrial": "Começar trial grátis",
+        "startTrial": "Assinar um plano",
         "viewUsageHistory": "Ver histórico de uso →"
       },
       "grants": {
@@ -3807,7 +3804,8 @@
         "date": "Data",
         "sources": {
           "stripe_invoice": "Assinatura mensal",
-          "beta_tester": "Programa beta"
+          "beta_tester": "Programa beta",
+          "signup_trial": "Créditos de teste"
         }
       },
       "blockingRules": {
@@ -3826,7 +3824,7 @@
         "beta": "Acesso beta",
         "tester": "Tester",
         "pastDue": "Pagamento pendente",
-        "trial": "Trial (14 dias)",
+        "trial": "Trial",
         "active": "Ativo",
         "canceled": "Cancelado",
         "inactive": "Inativo"
@@ -3834,13 +3832,13 @@
       "accessKinds": {
         "paid": "Assinatura paga",
         "beta": "Programa beta — não é plano pago",
-        "none": "Sem acesso ativo — assine ou resgate o beta"
+        "none": "Sem acesso ativo — assine um plano para continuar"
       }
     },
     "conversion": {
       "loading": "Redirecionando...",
       "actions": {
-        "checkout": "Começar trial grátis",
+        "checkout": "Assinar um plano",
         "billing": "Ver cobrança",
         "portal": "Atualizar pagamento"
       },

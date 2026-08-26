@@ -147,29 +147,6 @@ export function useBillingPortal() {
   });
 }
 
-async function redeemBetaAccess(code: string) {
-  const res = await apiFetch("/api/billing/beta/redeem", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ code }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || data.code || "Erro ao resgatar código beta");
-  }
-  return data;
-}
-
-export function useRedeemBetaAccess() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: redeemBetaAccess,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["billing", "status"] });
-    },
-  });
-}
-
 export interface CreditTransaction {
   id: string;
   userId: string;
