@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { Expand } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { CreativeResultCard } from "@/components/creative-work/CreativeResultCard";
 import { LayerEditorDialog } from "@/components/creative-work/layer-editor/LayerEditorDialog";
+import { TetrisLoader } from "@/components/ui/loader-tetris";
 import {
   Dialog,
   DialogBody,
@@ -77,6 +79,7 @@ export default function CreativeProposalGrid({
   onLayerEditorPublished,
   layout = "studio",
 }: CreativeProposalGridProps) {
+  const t = useTranslations("dashboard.home.composer");
   const latest = new Map<string, CreativeWorkOutput>();
   for (const output of outputs) {
     const key = output.directionId
@@ -107,6 +110,9 @@ export default function CreativeProposalGrid({
   const format = selected.targetFormat ?? "4:5";
   const aspectRatio = format.replace(":", " / ");
   const available = selected.status === "completed" && (selected.hasOutput ?? Boolean(selected.outputKey));
+  const generationCopy = selected.status === "processing"
+    ? [t("factoryProcessingTitle"), t("factoryProcessingDescription")]
+    : [t("factoryQueuedTitle"), t("factoryQueuedDescription")];
 
   return (
     <>
@@ -148,6 +154,7 @@ export default function CreativeProposalGrid({
             type="button"
             data-testid="review-preview"
             disabled={!available}
+            aria-busy={!available && selected.status !== "failed"}
             aria-label={`Ampliar ${label} em ${format}`}
             onClick={() => setExpanded(true)}
             className={cn(
@@ -160,7 +167,19 @@ export default function CreativeProposalGrid({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={outputSource(selected)} alt={`Proposta ${label}, formato ${format}`} className="h-full w-full object-contain" />
             ) : (
-              <span role="status" className="text-sm text-[var(--text-muted)]">{selected.status === "failed" ? "Falhou" : "Gerando…"}</span>
+              <span role="status" aria-live="polite" className="px-5">
+                {selected.status === "failed" ? (
+                  <p className="text-center text-sm text-[var(--text-muted)]">Falhou</p>
+                ) : (
+                  <span className="flex items-center gap-5 rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-base)] px-5 py-4 text-left shadow-sm">
+                    <TetrisLoader label={t("factoryActiveLabel")} />
+                    <span>
+                      <span className="block text-sm font-semibold text-[var(--text-primary)]">{generationCopy[0]}</span>
+                      <span className="mt-1 block text-xs text-[var(--text-muted)]">{generationCopy[1]}</span>
+                    </span>
+                  </span>
+                )}
+              </span>
             )}
             {available ? <span className="absolute right-3 top-3 rounded-full bg-black/70 p-2 text-white opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-visible:opacity-100"><Expand aria-hidden="true" className="size-4" /></span> : null}
           </button>

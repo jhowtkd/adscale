@@ -28,6 +28,9 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   previewUnavailable: "Imagem indisponível", sourceUploading: "Enviando imagem", sourceReady: "Imagem pronta",
   restyleAddArt: "Adicionar arte original", addStyleReference: "Adicionar referência de estilo", generateRestyle: "Gerar reestilização",
   actionSaving: "Salvando", actionPreparing: "Preparando", actionSubmitting: "Enviando para geração", actionGenerating: "Gerando",
+  factoryActiveLabel: "Fábrica criativa em atividade", factoryQueuedTitle: "Aquecendo as máquinas",
+  factoryQueuedDescription: "Sua peça entrou na linha de produção.", factoryProcessingTitle: "Aplicando tinta fresca",
+  factoryProcessingDescription: "As engrenagens estão montando seu criativo.",
   optionalSettings: "Ajustes opcionais", format: "Formato", formatAuto: "Automático (agora: 4:5)", targetFormats: "Formatos de destino",
   textLayout: "Posição do texto", textLayout_top: "Superior", textLayout_center: "Central", textLayout_bottom: "Inferior",
   brandFont: "Fonte da marca", brandFontChoose: "Escolha uma fonte",
@@ -56,12 +59,6 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
 
 import { CreativeComposer } from "./CreativeComposer";
 import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
-
-vi.mock("thinking-orbs", () => ({
-  ThinkingOrb: ({ state, size }: { state: string; size: number }) => (
-    <div data-testid="thinking-orb" data-state={state} data-size={size} />
-  ),
-}));
 
 function composer(overrides = {}) {
   const directionPool = {
@@ -524,19 +521,10 @@ describe("CreativeComposer", () => {
     expect(screen.getByRole("status")).not.toHaveClass("sr-only");
   });
 
-  it("shows the working orb only while the composer is generating", () => {
-    const { rerender } = renderComposer(composer({ state: "generating" }));
+  it("keeps generation feedback in the button without a competing global animation", () => {
+    renderComposer(composer({ state: "generating" }));
 
-    const orb = screen.getByTestId("thinking-orb");
-    expect(orb).toHaveAttribute("data-state", "working");
-    expect(orb).toHaveAttribute("data-size", "64");
-
-    rerender(
-      <CreativeComposer
-        composer={composer({ state: "analyzing" }) as CreativeComposerViewModel}
-        composerRef={{ current: null }}
-      />,
-    );
+    expect(screen.getByRole("button", { name: "Gerando" })).toBeDisabled();
     expect(screen.queryByTestId("thinking-orb")).not.toBeInTheDocument();
   });
 
@@ -738,7 +726,7 @@ describe("CreativeComposer", () => {
 
     expect(screen.getAllByRole("img")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Selecionar Ousada em 4:5" }));
-    expect(screen.getByText("Gerando…")).toBeVisible();
+    expect(screen.getByText("Aplicando tinta fresca")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Selecionar Conservadora em 4:5" }));
     fireEvent.click(screen.getAllByRole("button", { name: "reviewBeforeApprove" })[0]);
     fireEvent.click(screen.getAllByRole("button", { name: "confirmApproval" })[0]);

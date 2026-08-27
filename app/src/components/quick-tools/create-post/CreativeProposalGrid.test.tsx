@@ -1,8 +1,14 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: () => (key: string) => ({
+    factoryActiveLabel: "Fábrica criativa em atividade",
+    factoryQueuedTitle: "Aquecendo as máquinas",
+    factoryQueuedDescription: "Sua peça entrou na linha de produção.",
+    factoryProcessingTitle: "Aplicando tinta fresca",
+    factoryProcessingDescription: "As engrenagens estão montando seu criativo.",
+  })[key] ?? key,
 }));
 
 const layerEditorMocks = vi.hoisted(() => ({
@@ -164,6 +170,39 @@ describe("CreativeProposalGrid", () => {
     );
     expect(screen.getAllByTestId("proposal-level")).toHaveLength(1);
     expect(screen.getByTestId("proposal-level-name")).toHaveTextContent("Equilibrada");
+  });
+
+  it("shows the queued factory inside the selected preview", () => {
+    render(
+      <CreativeProposalGrid
+        outputs={[{ ...balancedCompleted, status: "queued", outputKey: null }]}
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+
+    const preview = screen.getByTestId("review-preview");
+    expect(preview).toHaveAttribute("aria-busy", "true");
+    const status = within(preview).getByRole("status");
+    expect(status).toHaveTextContent("Aquecendo as máquinas");
+    expect(status).toHaveTextContent("Sua peça entrou na linha de produção.");
+    expect(within(status).getByRole("img", { name: "Fábrica criativa em atividade" })).toBeVisible();
+  });
+
+  it("updates the factory copy when image processing starts", () => {
+    render(
+      <CreativeProposalGrid
+        outputs={[{ ...balancedCompleted, status: "processing", outputKey: null }]}
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+
+    const status = within(screen.getByTestId("review-preview")).getByRole("status");
+    expect(status).toHaveTextContent("Aplicando tinta fresca");
+    expect(status).toHaveTextContent("As engrenagens estão montando seu criativo.");
   });
 
   it("keeps outputs with the same level separate when they come from directions", () => {
