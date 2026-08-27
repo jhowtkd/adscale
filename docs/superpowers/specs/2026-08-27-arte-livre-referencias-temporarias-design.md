@@ -67,7 +67,8 @@ O rascunho persiste:
 - `category`;
 - `classificationSource`: `automatic` ou `user`;
 - `confidence`: `high`, `medium` ou `low`;
-- `userInstruction`: texto opcional de até 240 caracteres.
+- `userInstruction`: texto opcional de até 240 caracteres;
+- `hasTransparency`: resultado técnico da normalização, usado apenas para validar aplicação exata antes da chamada paga.
 
 O tratamento não é um campo livre do rascunho: ele é derivado por uma função pura a partir da categoria. Durante o prepare, o snapshot congela categoria, tratamento resolvido, instrução, chave do ativo, MIME type e rótulo. Assim, uma mudança futura no mapeamento não altera trabalhos já preparados.
 
