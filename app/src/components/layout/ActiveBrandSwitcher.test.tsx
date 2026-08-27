@@ -5,6 +5,7 @@ import ActiveBrandSwitcher from "./ActiveBrandSwitcher";
 
 const mocks = vi.hoisted(() => ({
   createProfile: vi.fn(),
+  deleteProfile: vi.fn(),
 }));
 
 vi.mock("next-intl", () => ({
@@ -17,6 +18,7 @@ vi.mock("@/lib/hooks/use-active-client-profile", () => ({
 
 vi.mock("@/lib/hooks/use-client-profiles", () => ({
   useCreateClientProfile: () => ({ mutate: mocks.createProfile, isPending: false }),
+  useDeleteClientProfile: () => ({ mutate: mocks.deleteProfile, isPending: false }),
 }));
 
 const mockUseActiveClientProfile = vi.mocked(useActiveClientProfile);
@@ -47,6 +49,24 @@ describe("ActiveBrandSwitcher", () => {
 
     expect(screen.getByRole("combobox", { name: "activeBrand" })).toHaveValue("one");
     expect(screen.getByRole("option", { name: "Brand One" })).toBeInTheDocument();
+  });
+
+  it("confirms deletion of the active brand", () => {
+    mockUseActiveClientProfile.mockReturnValue({
+      profiles: [profiles[0]],
+      activeProfile: profiles[0],
+      activeClientProfileId: "one",
+      requiresSelection: false,
+      isLoading: false,
+      selectProfile: vi.fn(),
+    } as ReturnType<typeof useActiveClientProfile>);
+
+    render(<ActiveBrandSwitcher />);
+
+    fireEvent.click(screen.getByRole("button", { name: "deleteBrand" }));
+    fireEvent.click(screen.getByRole("button", { name: "deleteBrandConfirm" }));
+
+    expect(mocks.deleteProfile).toHaveBeenCalledWith("one", expect.any(Object));
   });
 
   it("renders an accessible combobox and selects a profile", () => {

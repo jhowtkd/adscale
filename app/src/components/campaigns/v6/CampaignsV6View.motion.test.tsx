@@ -86,6 +86,35 @@ function renderView(selectedIds = new Set<string>(), onToggleSelect = vi.fn()) {
 }
 
 describe("CampaignsV6View motion selection contract", () => {
+  it("exposes campaign deletion from the grid", () => {
+    const onDelete = vi.fn();
+
+    render(
+      <CampaignsV6View
+        labels={labels}
+        rows={[row]}
+        totalCount={1}
+        searchQuery=""
+        statusFilter="all"
+        statusFilterLabel="Todos"
+        statusOptions={[]}
+        platformFilter="all"
+        platformFilterLabel="Todas"
+        platformOptions={[]}
+        sortOption="updated"
+        sortLabel="Recentes"
+        sortOptions={[]}
+        viewMode="grid"
+        onDelete={onDelete}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Ações para Aquisição" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Excluir" }));
+
+    expect(onDelete).toHaveBeenCalledWith("campaign-1");
+  });
+
   it("shows the brand, protocol, results, next action, and distinct preview states", () => {
     const detailedRow = {
       ...row,
