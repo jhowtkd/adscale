@@ -11,6 +11,30 @@ export const COMMERCIAL_STUDY_DISCLAIMER =
 export const COMMERCIAL_STUDY_EMAIL = "estudos@example.test";
 export const COMMERCIAL_STUDY_WORKSPACE = "ADScale — Estudos Editoriais";
 
+export type LabOwnerWorkspace = {
+  id: string;
+  name: string;
+  membershipCreatedAt: Date;
+};
+
+export function selectSignupLabWorkspace(
+  ownerWorkspaces: readonly LabOwnerWorkspace[],
+  labName: string = COMMERCIAL_STUDY_WORKSPACE,
+): { keepId: string; rename: boolean; extraIds: string[] } {
+  if (ownerWorkspaces.length === 0) {
+    throw new Error("User has no workspace.");
+  }
+  const sorted = [...ownerWorkspaces].sort(
+    (a, b) => a.membershipCreatedAt.getTime() - b.membershipCreatedAt.getTime(),
+  );
+  const keep = sorted[0];
+  return {
+    keepId: keep.id,
+    rename: keep.name !== labName,
+    extraIds: sorted.slice(1).map((workspace) => workspace.id),
+  };
+}
+
 export type ResolvedCommercialStudies = {
   sourceManifest: string;
   generatedAt: string;

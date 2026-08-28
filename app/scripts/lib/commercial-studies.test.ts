@@ -9,6 +9,8 @@ import {
   validateCommercialStudiesManifest,
   assertOriginalFiles,
   assertCommercialStudiesSeedEnvironment,
+  COMMERCIAL_STUDY_WORKSPACE,
+  selectSignupLabWorkspace,
 } from "./commercial-studies";
 
 const validStudy = (slug: "nike" | "mtv" | "absolut", originals: unknown[]) => ({
@@ -215,5 +217,39 @@ describe("commercial studies contract", () => {
       COMMERCIAL_STUDIES_SEED: "true",
       COMMERCIAL_STUDIES_EMAIL: "estudos@example.test",
     })).not.toThrow();
+  });
+
+  it("reuses the oldest owner workspace instead of inserting a second", () => {
+    const signup = {
+      id: "ws-signup",
+      name: "ADScale Estudos's Workspace",
+      membershipCreatedAt: new Date("2026-01-01"),
+    };
+    const extra = {
+      id: "ws-lab",
+      name: COMMERCIAL_STUDY_WORKSPACE,
+      membershipCreatedAt: new Date("2026-01-02"),
+    };
+    expect(selectSignupLabWorkspace([extra, signup])).toEqual({
+      keepId: "ws-signup",
+      rename: true,
+      extraIds: ["ws-lab"],
+    });
+  });
+
+  it("does not rename when the signup workspace already has the lab name", () => {
+    expect(
+      selectSignupLabWorkspace([
+        {
+          id: "ws-1",
+          name: COMMERCIAL_STUDY_WORKSPACE,
+          membershipCreatedAt: new Date("2026-01-01"),
+        },
+      ]),
+    ).toEqual({ keepId: "ws-1", rename: false, extraIds: [] });
+  });
+
+  it("throws when signup created no workspace", () => {
+    expect(() => selectSignupLabWorkspace([])).toThrow(/no workspace/);
   });
 });

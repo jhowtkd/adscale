@@ -27,7 +27,6 @@ import {
   setCreativeWorkCopy,
   setCreativeWorkStatus,
 } from "../src/server/repositories/creative-work";
-import { createWorkspace, addMember } from "../src/server/repositories/workspace";
 import type { BrandTrainingAnalysis } from "../src/server/brand-training/contracts";
 import type { SocialPostCopy } from "../src/server/creative-work/contracts";
 import {
@@ -38,6 +37,7 @@ import {
   COMMERCIAL_STUDY_WORKSPACE,
   loadCommercialStudiesManifest,
   ownedProfileName,
+  selectSignupLabWorkspace,
   type CommercialStudiesManifest,
   type CommercialStudySlug,
   type ResolvedCommercialStudies,
@@ -191,31 +191,46 @@ async function resolveDedicatedLabWorkspace(): Promise<LabAccount> {
     })
     .where(eq(user.id, account[0].id));
 
-  const existing = await db
+  const ownerWorkspaces = await db
+    .select({
+      id: workspaces.id,
+      name: workspaces.name,
+      membershipCreatedAt: workspaceMembers.createdAt,
+    })
+    .from(workspaces)
+    .innerJoin(workspaceMembers, eq(workspaceMembers.workspaceId, workspaces.id))
+    .where(and(eq(workspaceMembers.userId, account[0].id), eq(workspaceMembers.role, "owner")));
+
+  const plan = selectSignupLabWorkspace(ownerWorkspaces, COMMERCIAL_STUDY_WORKSPACE);
+  if (plan.rename) {
+    await db
+      .update(workspaces)
+      .set({ name: COMMERCIAL_STUDY_WORKSPACE, updatedAt: new Date() })
+      .where(eq(workspaces.id, plan.keepId));
+  }
+  if (plan.extraIds.length > 0) {
+    await db
+      .delete(workspaceMembers)
+      .where(
+        and(eq(workspaceMembers.userId, account[0].id), inArray(workspaceMembers.workspaceId, plan.extraIds)),
+      );
+    await db.delete(workspaces).where(inArray(workspaces.id, plan.extraIds));
+  }
+
+  await assertLabWorkspace(plan.keepId, account[0].id);
+  const remaining = await db
     .select({ id: workspaces.id, name: workspaces.name })
     .from(workspaces)
     .innerJoin(workspaceMembers, eq(workspaceMembers.workspaceId, workspaces.id))
-    .where(
-      and(
-        eq(workspaceMembers.userId, account[0].id),
-        eq(workspaceMembers.role, "owner"),
-        eq(workspaces.name, COMMERCIAL_STUDY_WORKSPACE),
-      ),
-    )
-    .limit(1);
-
-  let workspaceId = existing[0]?.id;
-  if (!workspaceId) {
-    const created = await createWorkspace({
-      name: COMMERCIAL_STUDY_WORKSPACE,
-      slug: `estudos-editoriais-${account[0].id.slice(0, 8)}`,
-    });
-    await addMember(created.id, account[0].id, "owner");
-    workspaceId = created.id;
+    .where(and(eq(workspaceMembers.userId, account[0].id), eq(workspaceMembers.role, "owner")));
+  if (
+    remaining.length !== 1 ||
+    remaining[0].id !== plan.keepId ||
+    remaining[0].name !== COMMERCIAL_STUDY_WORKSPACE
+  ) {
+    throw new Error("Lab account must have exactly one owner workspace named ADScale — Estudos Editoriais");
   }
-
-  await assertLabWorkspace(workspaceId, account[0].id);
-  return { email: COMMERCIAL_STUDY_EMAIL, userId: account[0].id, workspaceId };
+  return { email: COMMERCIAL_STUDY_EMAIL, userId: account[0].id, workspaceId: plan.keepId };
 }
 
 async function assertLabWorkspace(workspaceId: string, userId: string): Promise<void> {
