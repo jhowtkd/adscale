@@ -383,8 +383,8 @@ export function validateCommercialStudyArtifacts(
   const isolated = artifacts.filter((artifact) => artifact.kind === "isolated_result");
 
   for (const artifact of artifacts) {
-    if (artifact.kind === "isolated_result" && artifact.provenance === "controlled") {
-      throw new Error("controlled output cannot be labeled isolated_result");
+    if (artifact.kind === "isolated_result" && artifact.provenance !== "real") {
+      throw new Error("isolated_result requires real provenance, not controlled");
     }
     if (artifact.provenance === "real" && !artifact.providerEvidencePath) {
       throw new Error("real artifact requires provider evidence");

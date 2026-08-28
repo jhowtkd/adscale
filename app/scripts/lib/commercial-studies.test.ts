@@ -300,6 +300,14 @@ describe("commercial studies contract", () => {
     }], { requireRealResults: true })).toThrow(/controlled/);
   });
 
+  it("fails an isolated_result whose provenance is not real", () => {
+    expect(() => validateCommercialStudyArtifacts([{
+      id: "n1", brand: "nike", kind: "isolated_result", path: "results/n.png",
+      sha256: "a".repeat(64), width: 1080, height: 1350, provenance: "synthetic",
+      providerEvidencePath: "evidence/x.json", visualReview: "pending", editorialReview: "pending",
+    } as never], { requireRealResults: true })).toThrow(/real provenance/);
+  });
+
   it("allows validate-only with zero real results and real_results_pending", () => {
     expect(() => validateCommercialStudyArtifacts([], { requireRealResults: false })).not.toThrow();
   });
