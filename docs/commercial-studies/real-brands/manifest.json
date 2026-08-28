@@ -1,0 +1,408 @@
+{
+  "version": 1,
+  "environment": "development",
+  "disclaimer": "Estudo independente produzido no ADScale. Sem afiliação, patrocínio ou aprovação da marca analisada.",
+  "studies": [
+    {
+      "slug": "nike",
+      "brand": "Nike",
+      "campaign": "Just Do It 1988",
+      "hypothesis": "Uma ideia verbal curta sustenta atletas, produtos e décadas sem depender de uma única composição.",
+      "dossier": "nike.md",
+      "sources": [
+        {
+          "id": "nike-smithsonian",
+          "title": "Object record da campanha Just Do It",
+          "publisher": "Smithsonian National Museum of American History",
+          "author": "Smithsonian",
+          "url": "https://americanhistory.si.edu/it/collections/object/nmah_881602",
+          "accessedAt": "2026-08-28",
+          "purpose": "fonte"
+        },
+        {
+          "id": "nike-campaign-recap",
+          "title": "Happy Birthday Just Do It",
+          "publisher": "Medium",
+          "author": "Scott",
+          "url": "https://medium.com/@scott_10846/happy-birthday-just-do-it-fc37c6ec4862",
+          "accessedAt": "2026-08-28",
+          "purpose": "fonte"
+        },
+        {
+          "id": "nike-spot",
+          "title": "Spot Just Do It / Walt Stack",
+          "publisher": "YouTube",
+          "author": "Wieden+Kennedy",
+          "url": "https://youtu.be/0yO7xLAGugQ",
+          "accessedAt": "2026-08-28",
+          "purpose": "fonte"
+        }
+      ],
+      "originals": [
+        {
+          "id": "nike-just-do-it-1988-print",
+          "fileName": "nike-just-do-it-1988-print.jpg",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "role": "campaign_original",
+          "usageStatus": "approved",
+          "entersTraining": true,
+          "purpose": "internal_lab_training"
+        },
+        {
+          "id": "nike-walt-stack-1988-frame",
+          "fileName": "nike-walt-stack-1988-frame.jpg",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "role": "campaign_still",
+          "usageStatus": "approved",
+          "entersTraining": true,
+          "purpose": "internal_lab_training"
+        }
+      ],
+      "briefs": {
+        "recreation": {
+          "theme": "Just Do It 1988 — sistema da ponte",
+          "objective": "Recriar o sistema verbal e a composicao, sem o rosto de Walt Stack",
+          "audience": "",
+          "offer": null
+        },
+        "fresh": {
+          "theme": "Just Do It — peca nova no mesmo idioma",
+          "objective": "Nova peca com a mesma voz curta",
+          "audience": "",
+          "offer": null
+        }
+      }
+    },
+    {
+      "slug": "mtv",
+      "brand": "MTV",
+      "campaign": "Network IDs 1981-83",
+      "hypothesis": "Uma estrutura reconhecível troca textura e atitude sem perder identidade.",
+      "dossier": "mtv.md",
+      "sources": [
+        {
+          "id": "mtv-ids",
+          "title": "The MTV Network IDs",
+          "publisher": "fredseibert.com",
+          "author": "Fred Seibert",
+          "url": "https://fredseibert.com/post/68726321/the-mtv-network-ids",
+          "accessedAt": "2026-08-28",
+          "purpose": "fonte"
+        },
+        {
+          "id": "mtv-logo-history",
+          "title": "MTV Music Television the logo",
+          "publisher": "fredseibert.com",
+          "author": "Fred Seibert",
+          "url": "https://fredseibert.com/post/68774160/mtv-music-television-the-logo/amp",
+          "accessedAt": "2026-08-28",
+          "purpose": "fonte"
+        }
+      ],
+      "originals": [
+        {
+          "id": "mtv-id-1981-a",
+          "fileName": "mtv-id-1981-a.jpg",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "role": "campaign_original",
+          "usageStatus": "approved",
+          "entersTraining": true,
+          "purpose": "internal_lab_training"
+        },
+        {
+          "id": "mtv-id-1981-b",
+          "fileName": "mtv-id-1981-b.jpg",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "role": "campaign_still",
+          "usageStatus": "approved",
+          "entersTraining": true,
+          "purpose": "internal_lab_training"
+        }
+      ],
+      "briefs": {
+        "recreation": {
+          "theme": "Network ID — esqueleto M/TV",
+          "objective": "Recriar um ID, nao um logo estatico",
+          "audience": "",
+          "offer": null
+        },
+        "fresh": {
+          "theme": "Network ID — outra pele",
+          "objective": "Mesmo esqueleto, pele nova",
+          "audience": "",
+          "offer": null
+        }
+      }
+    },
+    {
+      "slug": "absolut",
+      "brand": "Absolut",
+      "campaign": "Absolut Perfection 1980",
+      "hypothesis": "Um objeto proprietário ancora uma série longa sem transformar consistência em repetição.",
+      "dossier": "absolut.md",
+      "sources": [
+        {
+          "id": "absolut-series",
+          "title": "The 21 best Absolut ads",
+          "publisher": "Business Insider",
+          "author": "Business Insider",
+          "url": "https://www.businessinsider.com/the-21-best-absolut-ads-2013-12",
+          "accessedAt": "2026-08-28",
+          "purpose": "fonte"
+        },
+        {
+          "id": "absolut-bottle",
+          "title": "The story of the Absolut bottle and brand",
+          "publisher": "The Absolut Company",
+          "author": "Absolut",
+          "url": "https://www.absolut.com/en-us/blog/vodka-and-spirits/the-story-of-the-absolut-bottle-and-brand/",
+          "accessedAt": "2026-08-28",
+          "purpose": "fonte"
+        }
+      ],
+      "originals": [
+        {
+          "id": "absolut-perfection-1980",
+          "fileName": "absolut-perfection-1980.jpg",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "role": "campaign_original",
+          "usageStatus": "approved",
+          "entersTraining": true,
+          "purpose": "internal_lab_training"
+        }
+      ],
+      "briefs": {
+        "recreation": {
+          "theme": "Absolut Perfection",
+          "objective": "Recriar garrafa, holofote e duas palavras",
+          "audience": "",
+          "offer": null
+        },
+        "fresh": {
+          "theme": "Absolut ______",
+          "objective": "Nova peca no sistema, sem copiar o halo",
+          "audience": "",
+          "offer": null
+        }
+      }
+    }
+  ],
+  "captures": [
+    {
+      "id": "nike-context-desktop",
+      "brand": "nike",
+      "stage": "context",
+      "routeKey": "brandTraining",
+      "viewport": { "width": 1440, "height": 1000 },
+      "waitFor": "main",
+      "output": "nike-context-1440.png"
+    },
+    {
+      "id": "nike-training-desktop",
+      "brand": "nike",
+      "stage": "training",
+      "routeKey": "brandTraining",
+      "viewport": { "width": 1440, "height": 1000 },
+      "waitFor": "img[alt]",
+      "output": "nike-training-1440.png"
+    },
+    {
+      "id": "nike-training-mobile",
+      "brand": "nike",
+      "stage": "training",
+      "routeKey": "brandTraining",
+      "viewport": { "width": 390, "height": 844 },
+      "waitFor": "img[alt]",
+      "output": "nike-training-390.png"
+    },
+    {
+      "id": "nike-direction-desktop",
+      "brand": "nike",
+      "stage": "direction",
+      "routeKey": "creativeWork",
+      "viewport": { "width": 1440, "height": 1000 },
+      "waitFor": "main",
+      "output": "nike-direction-1440.png"
+    },
+    {
+      "id": "nike-results-desktop",
+      "brand": "nike",
+      "stage": "results",
+      "routeKey": "library",
+      "viewport": { "width": 1440, "height": 1000 },
+      "waitFor": "main",
+      "output": "nike-results-1440.png"
+    },
+    {
+      "id": "nike-results-mobile",
+      "brand": "nike",
+      "stage": "results",
+      "routeKey": "library",
+      "viewport": { "width": 390, "height": 844 },
+      "waitFor": "main",
+      "output": "nike-results-390.png"
+    },
+    {
+      "id": "nike-decision-desktop",
+      "brand": "nike",
+      "stage": "decision",
+      "routeKey": "library",
+      "viewport": { "width": 1440, "height": 1000 },
+      "waitFor": "main",
+      "output": "nike-decision-1440.png"
+    },
+    {
+      "id": "nike-decision-mobile",
+      "brand": "nike",
+      "stage": "decision",
+      "routeKey": "library",
+      "viewport": { "width": 390, "height": 844 },
+      "waitFor": "main",
+      "output": "nike-decision-390.png"
+    },
+    {
+      "id": "mtv-context-desktop",
+      "brand": "mtv",
+      "stage": "context",
+      "routeKey": "brandTraining",
+      "viewport": { "width": 1440, "height": 1000 },
+      "waitFor": "main",
+      "output": "mtv-context-1440.png"
+    },
+    {
+      "id": "mtv-training-desktop",
+      "brand": "mtv",
+      "stage": "training",
+      "routeKey": "brandTraining",
+      "viewport": { "width": 1440, "height": 1000 },
+      "waitFor": "img[alt]",
+      "output": "mtv-training-1440.png"
+    },
+    {
+      "id": "mtv-training-mobile",
+      "brand": "mtv",
+      "stage": "training",
+      "routeKey": "brandTraining",
+      "viewport": { "width": 390, "height": 844 },
+      "waitFor": "img[alt]",
+      "output": "mtv-training-390.png"
+    },
+    {
+      "id": "mtv-direction-desktop",
+      "brand": "mtv",
+      "stage": "direction",
+      "routeKey": "creativeWork",
+      "viewport": { "width": 1440, "height": 1000 },
+      "waitFor": "main",
+      "output": "mtv-direction-1440.png"
+    },
+    {
+      "id": "mtv-results-desktop",
+      "brand": "mtv",
+      "stage": "results",
+      "routeKey": "library",
+      "viewport": { "width": 1440, "height": 1000 },
+      "waitFor": "main",
+      "output": "mtv-results-1440.png"
+    },
+    {
+      "id": "mtv-results-mobile",
+      "brand": "mtv",
+      "stage": "results",
+      "routeKey": "library",
+      "viewport": { "width": 390, "height": 844 },
+      "waitFor": "main",
+      "output": "mtv-results-390.png"
+    },
+    {
+      "id": "mtv-decision-desktop",
+      "brand": "mtv",
+      "stage": "decision",
+      "routeKey": "library",
+      "viewport": { "width": 1440, "height": 1000 },
+      "waitFor": "main",
+      "output": "mtv-decision-1440.png"
+    },
+    {
+      "id": "mtv-decision-mobile",
+      "brand": "mtv",
+      "stage": "decision",
+      "routeKey": "library",
+      "viewport": { "width": 390, "height": 844 },
+      "waitFor": "main",
+      "output": "mtv-decision-390.png"
+    },
+    {
+      "id": "absolut-context-desktop",
+      "brand": "absolut",
+      "stage": "context",
+      "routeKey": "brandTraining",
+      "viewport": { "width": 1440, "height": 1000 },
+      "waitFor": "main",
+      "output": "absolut-context-1440.png"
+    },
+    {
+      "id": "absolut-training-desktop",
+      "brand": "absolut",
+      "stage": "training",
+      "routeKey": "brandTraining",
+      "viewport": { "width": 1440, "height": 1000 },
+      "waitFor": "img[alt]",
+      "output": "absolut-training-1440.png"
+    },
+    {
+      "id": "absolut-training-mobile",
+      "brand": "absolut",
+      "stage": "training",
+      "routeKey": "brandTraining",
+      "viewport": { "width": 390, "height": 844 },
+      "waitFor": "img[alt]",
+      "output": "absolut-training-390.png"
+    },
+    {
+      "id": "absolut-direction-desktop",
+      "brand": "absolut",
+      "stage": "direction",
+      "routeKey": "creativeWork",
+      "viewport": { "width": 1440, "height": 1000 },
+      "waitFor": "main",
+      "output": "absolut-direction-1440.png"
+    },
+    {
+      "id": "absolut-results-desktop",
+      "brand": "absolut",
+      "stage": "results",
+      "routeKey": "library",
+      "viewport": { "width": 1440, "height": 1000 },
+      "waitFor": "main",
+      "output": "absolut-results-1440.png"
+    },
+    {
+      "id": "absolut-results-mobile",
+      "brand": "absolut",
+      "stage": "results",
+      "routeKey": "library",
+      "viewport": { "width": 390, "height": 844 },
+      "waitFor": "main",
+      "output": "absolut-results-390.png"
+    },
+    {
+      "id": "absolut-decision-desktop",
+      "brand": "absolut",
+      "stage": "decision",
+      "routeKey": "library",
+      "viewport": { "width": 1440, "height": 1000 },
+      "waitFor": "main",
+      "output": "absolut-decision-1440.png"
+    },
+    {
+      "id": "absolut-decision-mobile",
+      "brand": "absolut",
+      "stage": "decision",
+      "routeKey": "library",
+      "viewport": { "width": 390, "height": 844 },
+      "waitFor": "main",
+      "output": "absolut-decision-390.png"
+    }
+  ]
+}

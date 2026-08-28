@@ -54,3 +54,8 @@ app/tests/fixtures/goal-agent-e2e.json
 
 # loopany tool scratch (local-only PR cards/reports)
 loopany/
+
+docs/commercial-studies/real-brands/originals/*
+!docs/commercial-studies/real-brands/originals/README.md
+docs/commercial-studies/real-brands/screenshots/*.png
+docs/commercial-studies/real-brands/results/*.png
