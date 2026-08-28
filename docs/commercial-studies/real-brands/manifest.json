@@ -41,20 +41,20 @@
       "originals": [
         {
           "id": "nike-just-do-it-1988-print",
-          "fileName": "nike-just-do-it-1988-print.jpg",
-          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "fileName": "nike-just-do-it-1988-card.jpg",
+          "sha256": "76953e7c80dd3b59ab24229adb698fa4e08f7973bfeb99a3ffbe6b23e7eb578e",
           "role": "campaign_original",
-          "usageStatus": "review_required",
-          "entersTraining": false,
+          "usageStatus": "approved",
+          "entersTraining": true,
           "purpose": "internal_lab_training"
         },
         {
           "id": "nike-walt-stack-1988-frame",
-          "fileName": "nike-walt-stack-1988-frame.jpg",
-          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "fileName": "nike-walt-stack-1988-card.jpg",
+          "sha256": "f05c5540636bf082d41be226f7fa38d7b048322ff120358d6332ece4d236c0a0",
           "role": "campaign_still",
-          "usageStatus": "review_required",
-          "entersTraining": false,
+          "usageStatus": "approved",
+          "entersTraining": true,
           "purpose": "internal_lab_training"
         }
       ],
@@ -103,19 +103,19 @@
         {
           "id": "mtv-id-1981-a",
           "fileName": "mtv-id-1981-a.jpg",
-          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "sha256": "a61b7dc3a323279007d1fb18026b2f32c946b44b010c6125009df4d015bb2515",
           "role": "campaign_original",
-          "usageStatus": "review_required",
-          "entersTraining": false,
+          "usageStatus": "approved",
+          "entersTraining": true,
           "purpose": "internal_lab_training"
         },
         {
           "id": "mtv-id-1981-b",
           "fileName": "mtv-id-1981-b.jpg",
-          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "sha256": "a663b32d9aea9018c571271e96c70a47adf793f3208a8bb09f8a3b27d03da0ee",
           "role": "campaign_still",
-          "usageStatus": "review_required",
-          "entersTraining": false,
+          "usageStatus": "approved",
+          "entersTraining": true,
           "purpose": "internal_lab_training"
         }
       ],
@@ -164,10 +164,10 @@
         {
           "id": "absolut-perfection-1980",
           "fileName": "absolut-perfection-1980.jpg",
-          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "sha256": "a71cd7ab0e986e7d86d882576e70db6a94ffb0f6219fa1889aba922e7cc84f46",
           "role": "campaign_original",
-          "usageStatus": "review_required",
-          "entersTraining": false,
+          "usageStatus": "approved",
+          "entersTraining": true,
           "purpose": "internal_lab_training"
         }
       ],
@@ -193,7 +193,10 @@
       "brand": "nike",
       "stage": "context",
       "routeKey": "brandTraining",
-      "viewport": { "width": 1440, "height": 1000 },
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
       "waitFor": "main",
       "output": "nike-context-1440.png"
     },
@@ -202,8 +205,11 @@
       "brand": "nike",
       "stage": "training",
       "routeKey": "brandTraining",
-      "viewport": { "width": 1440, "height": 1000 },
-      "waitFor": "img[alt]",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "waitFor": "img[alt=\"nike-just-do-it-1988-print\"]",
       "output": "nike-training-1440.png"
     },
     {
@@ -211,8 +217,11 @@
       "brand": "nike",
       "stage": "training",
       "routeKey": "brandTraining",
-      "viewport": { "width": 390, "height": 844 },
-      "waitFor": "img[alt]",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "waitFor": "img[alt=\"nike-just-do-it-1988-print\"]",
       "output": "nike-training-390.png"
     },
     {
@@ -220,7 +229,10 @@
       "brand": "nike",
       "stage": "direction",
       "routeKey": "creativeWork",
-      "viewport": { "width": 1440, "height": 1000 },
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
       "waitFor": "main",
       "output": "nike-direction-1440.png"
     },
@@ -229,7 +241,10 @@
       "brand": "nike",
       "stage": "results",
       "routeKey": "library",
-      "viewport": { "width": 1440, "height": 1000 },
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
       "waitFor": "main",
       "output": "nike-results-1440.png"
     },
@@ -238,7 +253,10 @@
       "brand": "nike",
       "stage": "results",
       "routeKey": "library",
-      "viewport": { "width": 390, "height": 844 },
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
       "waitFor": "main",
       "output": "nike-results-390.png"
     },
@@ -247,7 +265,10 @@
       "brand": "nike",
       "stage": "decision",
       "routeKey": "library",
-      "viewport": { "width": 1440, "height": 1000 },
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
       "waitFor": "main",
       "output": "nike-decision-1440.png"
     },
@@ -256,7 +277,10 @@
       "brand": "nike",
       "stage": "decision",
       "routeKey": "library",
-      "viewport": { "width": 390, "height": 844 },
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
       "waitFor": "main",
       "output": "nike-decision-390.png"
     },
@@ -265,7 +289,10 @@
       "brand": "mtv",
       "stage": "context",
       "routeKey": "brandTraining",
-      "viewport": { "width": 1440, "height": 1000 },
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
       "waitFor": "main",
       "output": "mtv-context-1440.png"
     },
@@ -274,8 +301,11 @@
       "brand": "mtv",
       "stage": "training",
       "routeKey": "brandTraining",
-      "viewport": { "width": 1440, "height": 1000 },
-      "waitFor": "img[alt]",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "waitFor": "img[alt=\"mtv-id-1981-a\"]",
       "output": "mtv-training-1440.png"
     },
     {
@@ -283,8 +313,11 @@
       "brand": "mtv",
       "stage": "training",
       "routeKey": "brandTraining",
-      "viewport": { "width": 390, "height": 844 },
-      "waitFor": "img[alt]",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "waitFor": "img[alt=\"mtv-id-1981-a\"]",
       "output": "mtv-training-390.png"
     },
     {
@@ -292,7 +325,10 @@
       "brand": "mtv",
       "stage": "direction",
       "routeKey": "creativeWork",
-      "viewport": { "width": 1440, "height": 1000 },
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
       "waitFor": "main",
       "output": "mtv-direction-1440.png"
     },
@@ -301,7 +337,10 @@
       "brand": "mtv",
       "stage": "results",
       "routeKey": "library",
-      "viewport": { "width": 1440, "height": 1000 },
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
       "waitFor": "main",
       "output": "mtv-results-1440.png"
     },
@@ -310,7 +349,10 @@
       "brand": "mtv",
       "stage": "results",
       "routeKey": "library",
-      "viewport": { "width": 390, "height": 844 },
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
       "waitFor": "main",
       "output": "mtv-results-390.png"
     },
@@ -319,7 +361,10 @@
       "brand": "mtv",
       "stage": "decision",
       "routeKey": "library",
-      "viewport": { "width": 1440, "height": 1000 },
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
       "waitFor": "main",
       "output": "mtv-decision-1440.png"
     },
@@ -328,7 +373,10 @@
       "brand": "mtv",
       "stage": "decision",
       "routeKey": "library",
-      "viewport": { "width": 390, "height": 844 },
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
       "waitFor": "main",
       "output": "mtv-decision-390.png"
     },
@@ -337,7 +385,10 @@
       "brand": "absolut",
       "stage": "context",
       "routeKey": "brandTraining",
-      "viewport": { "width": 1440, "height": 1000 },
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
       "waitFor": "main",
       "output": "absolut-context-1440.png"
     },
@@ -346,8 +397,11 @@
       "brand": "absolut",
       "stage": "training",
       "routeKey": "brandTraining",
-      "viewport": { "width": 1440, "height": 1000 },
-      "waitFor": "img[alt]",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "waitFor": "img[alt=\"absolut-perfection-1980\"]",
       "output": "absolut-training-1440.png"
     },
     {
@@ -355,8 +409,11 @@
       "brand": "absolut",
       "stage": "training",
       "routeKey": "brandTraining",
-      "viewport": { "width": 390, "height": 844 },
-      "waitFor": "img[alt]",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "waitFor": "img[alt=\"absolut-perfection-1980\"]",
       "output": "absolut-training-390.png"
     },
     {
@@ -364,7 +421,10 @@
       "brand": "absolut",
       "stage": "direction",
       "routeKey": "creativeWork",
-      "viewport": { "width": 1440, "height": 1000 },
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
       "waitFor": "main",
       "output": "absolut-direction-1440.png"
     },
@@ -373,7 +433,10 @@
       "brand": "absolut",
       "stage": "results",
       "routeKey": "library",
-      "viewport": { "width": 1440, "height": 1000 },
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
       "waitFor": "main",
       "output": "absolut-results-1440.png"
     },
@@ -382,7 +445,10 @@
       "brand": "absolut",
       "stage": "results",
       "routeKey": "library",
-      "viewport": { "width": 390, "height": 844 },
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
       "waitFor": "main",
       "output": "absolut-results-390.png"
     },
@@ -391,7 +457,10 @@
       "brand": "absolut",
       "stage": "decision",
       "routeKey": "library",
-      "viewport": { "width": 1440, "height": 1000 },
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
       "waitFor": "main",
       "output": "absolut-decision-1440.png"
     },
@@ -400,7 +469,10 @@
       "brand": "absolut",
       "stage": "decision",
       "routeKey": "library",
-      "viewport": { "width": 390, "height": 844 },
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
       "waitFor": "main",
       "output": "absolut-decision-390.png"
     }

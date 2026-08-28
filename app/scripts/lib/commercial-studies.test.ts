@@ -279,6 +279,17 @@ describe("commercial studies contract", () => {
     expect(resolved.every((c) => c.output.endsWith(".png"))).toBe(true);
   });
 
+  it("waits for each brand's first original training asset", () => {
+    const manifest = loadCommercialStudiesManifest(realManifestPath);
+    const training = manifest.captures.filter((capture) => capture.stage === "training");
+    expect(training).toHaveLength(6);
+    for (const capture of training) {
+      const study = manifest.studies.find((item) => item.slug === capture.brand);
+      expect(study).toBeDefined();
+      expect(capture.waitFor).toBe(`img[alt="${study?.originals[0]?.id}"]`);
+    }
+  });
+
   it("rejects output paths that escape the screenshot directory", () => {
     expect(() => assertCaptureOutputPath("../x.png")).toThrow();
     expect(() => assertCaptureOutputPath("/tmp/x.png")).toThrow();

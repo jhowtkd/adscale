@@ -9,6 +9,7 @@ import {
   COMMERCIAL_STUDY_DISCLAIMER,
   assertCaptureOutputPath,
   loadCommercialStudiesManifest,
+  ownedProfileName,
   resolveCommercialCaptures,
   type ResolvedCapture,
   type ResolvedCommercialStudies,
@@ -180,6 +181,29 @@ async function injectCaptureOverlays(
   );
 }
 
+const ACTIVE_BRAND_SWITCHER_NAME = "Marca ativa";
+
+async function ensureActiveBrandSelected(
+  page: Page,
+  brand: ResolvedCapture["brand"],
+  clientProfileId: string,
+) {
+  const switcher = page.getByRole("combobox", { name: ACTIVE_BRAND_SWITCHER_NAME }).first();
+  try {
+    await switcher.waitFor({ state: "visible", timeout: 15_000 });
+  } catch {
+    return;
+  }
+  if ((await switcher.inputValue()) === clientProfileId) {
+    return;
+  }
+  await switcher.selectOption({ label: ownedProfileName(brand) });
+  if ((await switcher.inputValue()) !== clientProfileId) {
+    throw new Error(`could not activate brand profile for ${brand}`);
+  }
+  await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+}
+
 async function captureCommercialStudies() {
   const { sourceManifest, resolvedManifest, repoRoot } = commercialPaths();
   const manifest = loadCommercialStudiesManifest(sourceManifest);
@@ -220,14 +244,18 @@ async function captureCommercialStudies() {
         },
       );
       await page.goto(`${BASE_URL}${capture.route}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
+      await ensureActiveBrandSelected(page, capture.brand, study.clientProfileId);
       await page.waitForSelector(capture.waitFor, { timeout: 120_000 });
       await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
       await page.evaluate(() => document.fonts.ready);
       await injectCaptureOverlays(page, capture, sourceStudy);
       if (capture.stage === "training") {
-        const imageCount = await page.locator("img[alt]").count();
-        if (imageCount === 0) {
-          throw new Error("training capture has no img[alt]");
+        const assetsSelector = sourceStudy.originals
+          .map((original) => `img[alt="${original.id}"]`)
+          .join(", ");
+        const assetCount = await page.locator(assetsSelector).count();
+        if (assetCount === 0) {
+          throw new Error(`training capture has no original assets: ${assetsSelector}`);
         }
       }
       mkdirSync(path.dirname(filePath), { recursive: true });
