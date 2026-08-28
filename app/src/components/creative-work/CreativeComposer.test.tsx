@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
   default: ({ id }: { id?: string }) => <select id={id ?? "active-brand-switcher"} aria-label="Marca ativa"><option>Escolha</option></select>,
@@ -542,6 +542,45 @@ describe("CreativeComposer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     expect(value.updateSource).toHaveBeenCalledWith("source-1", "style");
     expect(value.retrySource).toHaveBeenCalledWith("source-1");
+  });
+
+  it("renders the temporary strip only for asset-backed Single sources and keeps legacy or other protocols on source chips", () => {
+    const pieceSource = {
+      ...readySource, id: "piece-source", name: "piece.png", assetId: "asset-piece", templateId: null,
+      previewUrl: "/api/workspace/assets/piece/file",
+      pieceReference: { version: 1, category: "style_reference", classificationSource: "user", confidence: "high", userInstruction: null, hasTransparency: false },
+    };
+    const legacySource = { ...readySource, id: "legacy-source", name: "legacy.png", assetId: "asset-legacy", templateId: null, previewUrl: "/api/workspace/assets/legacy/file" };
+    const value = composer({
+      intent: "single", sources: [pieceSource, legacySource],
+      updatePieceReference: vi.fn().mockResolvedValue(true), replacePieceReference: vi.fn().mockResolvedValue(true), promotePieceReference: vi.fn().mockResolvedValue(true),
+    });
+    const { rerender } = renderComposer(value);
+
+    const strip = screen.getAllByLabelText("title").find((element) => element.getAttribute("aria-label") === "title")!;
+    expect(within(strip).getByText("piece.png")).toBeInTheDocument();
+    expect(within(strip).queryByText("legacy.png")).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "legacy.png" })).toBeInTheDocument();
+
+    rerender(<CreativeComposer composer={composer({ intent: "variations", sources: [pieceSource] }) as CreativeComposerViewModel} composerRef={{ current: null }} />);
+    expect(screen.queryAllByLabelText("title").some((element) => element.getAttribute("aria-label") === "title")).toBe(false);
+    expect(screen.getByRole("img", { name: "piece.png" })).toBeInTheDocument();
+  });
+
+  it("locks every temporary-reference action while prepare or a source mutation is pending", () => {
+    const pieceSource = {
+      ...readySource, id: "piece-source", name: "piece.png", assetId: "asset-piece", templateId: null,
+      pieceReference: { version: 1, category: "style_reference", classificationSource: "user", confidence: "high", userInstruction: null, hasTransparency: false },
+    };
+    renderComposer(composer({
+      intent: "single", sources: [pieceSource], actionPhase: "preparing", sourceMutationPending: true,
+      updatePieceReference: vi.fn(), replacePieceReference: vi.fn(), promotePieceReference: vi.fn(),
+    }));
+
+    expect(screen.getByRole("button", { name: "replace: piece.png" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "remove: piece.png" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "promote: piece.png" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "category: piece.png" })).toBeDisabled();
   });
 
   it("mounts the manual instruction textarea only while open without clearing the direction state", () => {

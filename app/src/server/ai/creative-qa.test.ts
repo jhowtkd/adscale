@@ -17,6 +17,7 @@ import {
   buildCreativeWorkQaPrompt,
   extractObservableRubricSection,
   inspectCreativeWorkImageFile,
+  inspectExactCompositionAsset,
 } from "./creative-qa";
 
 describe("analyzeCreativeQa controlled E2E seam", () => {
@@ -464,6 +465,44 @@ describe("inspectCreativeWorkImageFile (deterministic, no vision model)", () => 
   });
 });
 
+describe("inspectExactCompositionAsset (deterministic binary preflight)", () => {
+  it("decodes a valid PNG before composition", async () => {
+    const png = await makePng(2, 2);
+    await expect(inspectExactCompositionAsset(png)).resolves.toEqual({
+      ok: true,
+      width: 2,
+      height: 2,
+      hasUsableTransparency: false,
+      error: null,
+    });
+  });
+
+  it("rejects a truncated PNG", async () => {
+    const png = await makePng(2, 2);
+    const result = await inspectExactCompositionAsset(png.subarray(0, 20));
+    expect(result.ok).toBe(false);
+    expect(result.width).toBeNull();
+    expect(result.height).toBeNull();
+    expect(result.hasUsableTransparency).toBe(false);
+  });
+
+  it.each([
+    ["opaque", 1, false],
+    ["transparent", 0.5, true],
+  ])("distinguishes %s RGBA pixels", async (_label, alpha, expectedTransparency) => {
+    const png = await sharp({
+      create: { width: 2, height: 2, channels: 4, background: { r: 20, g: 30, b: 40, alpha } },
+    }).png().toBuffer();
+    await expect(inspectExactCompositionAsset(png)).resolves.toEqual({
+      ok: true,
+      width: 2,
+      height: 2,
+      hasUsableTransparency: expectedTransparency,
+      error: null,
+    });
+  });
+});
+
 describe("normalizeCreativeWorkQaResult", () => {
   it("keeps valid findings and summary", () => {
     const result = normalizeCreativeWorkQaResult({
@@ -579,6 +618,7 @@ describe("buildCreativeWorkQaPrompt", () => {
     const prompt = buildCreativeWorkQaPrompt(baseInput);
     expect(prompt).toMatch(/exact logo\/brand assets and approved copy may be composited after the provider image/i);
     expect(prompt).toMatch(/optional style and brand_identity references are never mandatory/i);
+    expect(prompt).toMatch(/optional piece_visual references are also never mandatory/i);
     expect(prompt).toMatch(/only when a reference explicitly marked required is visibly omitted/i);
   });
 

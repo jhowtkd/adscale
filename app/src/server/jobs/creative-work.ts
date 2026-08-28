@@ -20,7 +20,11 @@ import {
 } from "@/server/generation/canonical/types";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
-import { settleTerminalRefund } from "@/server/generation/settlement";
+import {
+  settleTerminalRefund,
+  type TerminalRefundSettlementResult,
+} from "@/server/generation/settlement";
+import { resolveCreativeWorkOutputReactivation } from "@/server/generation/settlement-adapters";
 import {
   CREATIVE_WORK_MAX_IMAGE_CALLS,
   claimCreativeWorkOutputImageCall,
@@ -67,6 +71,7 @@ import {
 } from "@/server/creative-work/text-composite";
 import { buildTypographyPlan, isBrandFontAllowed } from "@/server/creative-work/typography-plan";
 import {
+  policyForExactAsset,
   preflightExactComposition,
   type CompositionProvenance,
 } from "@/server/creative-work/placement-policy";
@@ -77,6 +82,7 @@ import {
   resolveGenerationPolicyVersion,
 } from "@/server/creative-work/contracts";
 import { resolveCreativeWorkProtocol } from "@/server/creative-work/protocol";
+import { exactPieceReferenceAssets } from "@/server/creative-work/piece-reference";
 import {
   CreativeWorkReferenceError,
   planCreativeWorkReferences,
@@ -89,7 +95,10 @@ import type {
   CreativeWorkIdentitySnapshot,
   SocialPostCopy,
 } from "@/server/creative-work/contracts";
-import type { AnalyzeCreativeWorkQaReference } from "@/server/ai/creative-qa";
+import {
+  inspectExactCompositionAsset,
+  type AnalyzeCreativeWorkQaReference,
+} from "@/server/ai/creative-qa";
 import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-creative-work-output-library";
 import { inngest } from "./client";
 import { heavyImageEventName } from "./heavy-image-events";
@@ -283,8 +292,8 @@ const creativeWorkOutputJobConfig: {
       let recoveredGenerationCorrelationId = generationCorrelationId;
       let interruptedUnitCount = 1;
       let interruptedActiveUnitCount = 1;
-      let interruptedImageCallCount = 0;
-      let interruptedRetryCount = 0;
+  let interruptedImageCallCount = 0;
+  let interruptedRetryCount = 0;
       try {
         recoveredGenerationCorrelationId = await step.run(
           "load-interrupted-correlation",
@@ -316,21 +325,34 @@ const creativeWorkOutputJobConfig: {
       });
       if (!recovered) return;
 
-      const refunded = await step.run("refund-interrupted-output", async () =>
-        applyRefundDecision({
+      const refunded = await step.run("refund-interrupted-output", async () => {
+        const current = (await getCreativeWork(workspaceId, workItemId))?.outputs.find((candidate) => candidate.id === outputId);
+        const reactivation = await resolveCreativeWorkOutputReactivation({
           workspaceId,
           workItemId,
           outputId,
-          reason: error instanceof Error ? error.message : String(error),
-          decision: decideCreativeWorkRefund({
-            surface: "quick_tool",
-            failurePhase: "job_failure",
-            workItemId,
+          manualRetryAttempt: current?.manualRetryAttempt,
+        });
+        const canonical = decideCreativeWorkRefund({
+          surface: "quick_tool",
+          failurePhase: reactivation ? "terminal" : "job_failure",
+          workItemId,
+          outputId,
+        });
+        const settlement = await settleTerminalRefund({
+          workspaceId,
+          decision: reactivation && canonical.refund
+            ? { ...canonical, idempotencyKey: reactivation.refundKey, reason: "creative_work_terminal_reactivation_failure" }
+            : canonical,
+          metadata: {
+            creativeWorkId: workItemId,
             outputId,
-          }),
-          description: "creative_work_output_job_refund",
-        }),
-      );
+            reason: error instanceof Error ? error.message : String(error),
+            description: "creative_work_output_job_refund",
+          },
+        });
+        return settlement.applied;
+      });
       if (refunded === false) {
         await step.run("mark-interrupted-refund-pending", async () => {
           await markCreativeWorkOutputFailureCode(
@@ -437,6 +459,7 @@ const creativeWorkOutputJobHandler = async ({
     let generationUnitCount = 1;
     let activeUnitCount = 1;
     let terminalTelemetryEmitted = false;
+    let outputManualRetryAttempt: number | null = null;
     const incompleteOutputKeys = new Set<string>();
     let retainedOutputKey: string | null = null;
     const logCreativeWorkOutputTerminal = (
@@ -508,6 +531,7 @@ const creativeWorkOutputJobHandler = async ({
       const brief = work.brief;
       if (!brief) return { success: false, skipped: true, outputId };
       const output = scopeRaw.output;
+      outputManualRetryAttempt = output.manualRetryAttempt;
       generationCorrelationId = output.generationCorrelationId ?? scopeRaw.work.generationCorrelationId;
       generationUnitCount = scopeRaw.generationUnitCount;
       activeUnitCount = scopeRaw.initialProcessingUnitCount + (output.status === "queued" ? 1 : 0);
@@ -581,7 +605,12 @@ const creativeWorkOutputJobHandler = async ({
       const generationPolicyVersion = resolveGenerationPolicyVersion(work.inputSnapshot);
       isV1Policy = generationPolicyVersion === "quality_recovery_v1";
       imageCallCount = output.imageCallCount ?? 0;
-      const protocol = isV1Policy
+      // A frozen temporary Single reference needs its ordered provider plan
+      // even on a legacy-policy row.  This is deliberately derived from the
+      // snapshot contract rather than a new rollout flag.
+      const hasFrozenPieceReferences = work.toolKind === "single"
+        && Boolean(work.inputSnapshot?.sources.some((source) => source.pieceReference));
+      const protocol = (isV1Policy || hasFrozenPieceReferences)
         ? resolveCreativeWorkProtocol({
             toolKind: work.toolKind,
             format: output.targetFormat as CreativeWorkFormat,
@@ -664,10 +693,137 @@ const creativeWorkOutputJobHandler = async ({
       };
 
       const targetFormat = output.targetFormat as SocialPostFormat;
+      let executionIdentityAssets: CreativeWorkIdentitySnapshot["assets"];
+      try {
+        const exactKeys = new Set<string>();
+        const trainedExactAssets = identitySnapshot.assets.filter((asset) => asset.usageMode === "exact");
+        const occupiedGravities = trainedExactAssets.flatMap((asset) => {
+          const gravity = asset.placement?.gravity;
+          return gravity === "northwest" || gravity === "northeast" || gravity === "southwest" || gravity === "southeast" ? [gravity] : [];
+        });
+        // A current Piece instruction is authoritative over an older Brand
+        // Training reference with the same asset key. Allocate its corner
+        // around trained exact marks before deduplicating the merged set.
+        const exactPieceAssets = work.toolKind === "single"
+          ? exactPieceReferenceAssets(work.inputSnapshot?.sources ?? [], targetFormat, occupiedGravities)
+          : [];
+        executionIdentityAssets = [...exactPieceAssets, ...identitySnapshot.assets]
+          .filter((asset) => {
+            if (asset.usageMode !== "exact") return true;
+            if (exactKeys.has(asset.assetKey)) return false;
+            exactKeys.add(asset.assetKey);
+            return true;
+          });
+      } catch {
+        const refundSettlement = await refundTerminalOutput({
+          workspaceId,
+          workItemId,
+          outputId,
+          manualRetryAttempt: output.manualRetryAttempt,
+          reason: "exact_asset_preflight_failed",
+        });
+        terminalRefunded = refundSettlement.refunded && refundSettlement.applied;
+        const failureCode = exactPreflightFailureCode(refundSettlement);
+        await step.run("mark-failed-exact-plan-preflight", async () =>
+          failCreativeWorkOutput(workspaceId, workItemId, outputId, failureCode),
+        );
+        return { success: false, outputId, failureCode };
+      }
+      let executionIdentitySnapshot = { ...identitySnapshot, assets: executionIdentityAssets };
       const dimensions = getTargetDimensions(targetFormat) ?? {
         width: 1024,
         height: 1280,
       };
+      // Decode and validate every exact asset before prompt/provider work.
+      // Omissible graphics/characters are a best-effort decoration: record a
+      // deterministic omission and remove them from every later execution
+      // input. Required marks remain an all-or-nothing pre-provider gate.
+      let exactAssets = executionIdentityAssets.filter((asset) => asset.usageMode === "exact");
+      const preflightExactOmissions: CompositionProvenance["omitted"] = [];
+      const exactAssetBuffers = new Map<string, Buffer>();
+      const exactAssetDimensions = new Map<string, { width: number; height: number }>();
+      try {
+        for (const asset of exactAssets) {
+          const policy = policyForExactAsset(asset.category, targetFormat);
+          try {
+            const buffer = await objectStorage.get(asset.assetKey);
+            const inspection = await inspectExactCompositionAsset(buffer);
+            if (!inspection.ok) throw new Error("exact_asset_decode_failed");
+            if (asset.hasAlpha && !inspection.hasUsableTransparency) {
+              throw new Error("exact_asset_alpha_unusable");
+            }
+            exactAssetBuffers.set(asset.assetKey, buffer);
+            exactAssetDimensions.set(asset.assetKey, { width: inspection.width, height: inspection.height });
+          } catch (error) {
+            if (!policy?.omissible) throw error;
+            preflightExactOmissions.push({
+              referenceId: asset.referenceId,
+              assetKey: asset.assetKey,
+              label: asset.label,
+              reason: error instanceof Error && error.message === "exact_asset_alpha_unusable"
+                ? "exact_asset_missing_alpha"
+                : "exact_asset_load_failed",
+            });
+          }
+        }
+      } catch {
+        const refundSettlement = await refundTerminalOutput({ workspaceId, workItemId, outputId, manualRetryAttempt: output.manualRetryAttempt, reason: "exact_asset_preflight_failed" });
+        terminalRefunded = refundSettlement.refunded && refundSettlement.applied;
+        const failureCode = exactPreflightFailureCode(refundSettlement);
+        await step.run("mark-failed-exact-binary-preflight", async () =>
+          failCreativeWorkOutput(workspaceId, workItemId, outputId, failureCode),
+        );
+        return { success: false, outputId, failureCode };
+      }
+      if (preflightExactOmissions.length > 0) {
+        const omittedKeys = new Set(preflightExactOmissions.map((entry) => entry.assetKey));
+        executionIdentityAssets = executionIdentityAssets.filter((asset) => !omittedKeys.has(asset.assetKey));
+        exactAssets = executionIdentityAssets.filter((asset) => asset.usageMode === "exact");
+        for (const key of omittedKeys) {
+          exactAssetBuffers.delete(key);
+          exactAssetDimensions.delete(key);
+        }
+        executionIdentitySnapshot = { ...identitySnapshot, assets: executionIdentityAssets };
+      }
+      const exactPreflight = preflightExactComposition({
+        format: targetFormat,
+        dimensions,
+        assets: executionIdentityAssets,
+        inspectedAssets: exactAssetDimensions,
+        reportOmissions: true,
+      });
+      if (!exactPreflight.ok) {
+        const refundSettlement = await refundTerminalOutput({
+          workspaceId,
+          workItemId,
+          outputId,
+          manualRetryAttempt: output.manualRetryAttempt,
+          reason: "exact_asset_preflight_failed",
+        });
+        terminalRefunded = refundSettlement.refunded && refundSettlement.applied;
+        const failureCode = exactPreflightFailureCode(refundSettlement);
+        const failed = await step.run("mark-failed-exact-preflight", async () =>
+          failCreativeWorkOutput(workspaceId, workItemId, outputId, failureCode),
+        );
+        if (failed) {
+          logCreativeWorkOutputTerminal({
+            ...telemetryBase(), outcome: "failed", failureCode,
+            refunded: terminalRefunded, durationMs: jobTimer.elapsedMs(),
+          });
+        }
+        return { success: false, outputId, failureCode, blocked: exactPreflight.blocked };
+      }
+      if (exactPreflight.omitted?.length) {
+        const omittedKeys = new Set(exactPreflight.omitted.map((entry) => entry.assetKey));
+        preflightExactOmissions.push(...exactPreflight.omitted);
+        executionIdentityAssets = executionIdentityAssets.filter((asset) => !omittedKeys.has(asset.assetKey));
+        exactAssets = executionIdentityAssets.filter((asset) => asset.usageMode === "exact");
+        for (const key of omittedKeys) {
+          exactAssetBuffers.delete(key);
+          exactAssetDimensions.delete(key);
+        }
+        executionIdentitySnapshot = { ...identitySnapshot, assets: executionIdentityAssets };
+      }
       const typographyPlan = work.toolKind === "single"
         ? work.inputSnapshot?.typographyPlan ?? buildTypographyPlan({
             format: targetFormat,
@@ -715,16 +871,16 @@ const creativeWorkOutputJobHandler = async ({
           sources: [],
         };
 
-        const exactLogoLabels = new Set(
-          identitySnapshot.assets
+        const exactLogoAssetKeys = new Set(
+          executionIdentityAssets
             .filter((asset) => asset.usageMode === "exact" && asset.category === "logo")
-            .map((asset) => asset.label),
+            .map((asset) => asset.assetKey),
         );
         const referenceAssets = identitySnapshot.assets
           .filter((asset) => asset.usageMode === "reference")
           // The exact logo is composited after generation. Sending the same
           // logo as a provider reference invites a second, model-drawn mark.
-          .filter((asset) => !exactLogoLabels.has(asset.label))
+          .filter((asset) => !exactLogoAssetKeys.has(asset.assetKey))
           .slice(0, MAX_REFERENCE_IMAGES);
 
         if (output.parentOutputId && (!parentOutput?.outputKey || parentOutput.status !== "completed")) {
@@ -769,6 +925,7 @@ const creativeWorkOutputJobHandler = async ({
             })),
             revisionReferences,
             limit: MAX_REFERENCE_IMAGES,
+            allowPieceReferences: work.toolKind === "single",
           });
           // Buffers load BEFORE the prompt is assembled: the REFERENCES block
           // binds `#n` to the n-th attached image purely positionally, so the
@@ -897,7 +1054,7 @@ const creativeWorkOutputJobHandler = async ({
                 copy,
                 inputSnapshot,
                 factPack,
-                identitySnapshot,
+                identitySnapshot: executionIdentitySnapshot,
                 creativeLevel,
                 references: loadedSlots,
                 revisionInstruction: output.revisionInstruction,
@@ -907,7 +1064,7 @@ const creativeWorkOutputJobHandler = async ({
                 format: targetFormat,
                 brief,
                 copy,
-                identitySnapshot,
+                identitySnapshot: executionIdentitySnapshot,
                 inputSnapshot,
                 revisionInstruction: output.revisionInstruction,
                 creativeLevel,
@@ -919,7 +1076,7 @@ const creativeWorkOutputJobHandler = async ({
               copy,
               inputSnapshot,
               factPack,
-              identitySnapshot,
+              identitySnapshot: executionIdentitySnapshot,
               creativeLevel,
               references: loadedSlots,
               revisionInstruction: output.revisionInstruction,
@@ -933,7 +1090,7 @@ const creativeWorkOutputJobHandler = async ({
             format: targetFormat,
             brief,
             copy,
-            identitySnapshot,
+            identitySnapshot: executionIdentitySnapshot,
             inputSnapshot,
             revisionInstruction: output.revisionInstruction,
             creativeLevel,
@@ -941,7 +1098,7 @@ const creativeWorkOutputJobHandler = async ({
           const sourceReferences = (work.inputSnapshot?.sources ?? [])
             .filter((source) => (
               work.toolKind === "restyle" || source.usage === "style" || source.usage === "both"
-            ) && source.assetKey && source.mimeType)
+            ) && (work.toolKind !== "single" || source.pieceReference?.treatment !== "exact_application") && source.assetKey && source.mimeType)
             // Same label policy as the v1 plan: frozen display name when the
             // snapshot carries one, otherwise a role label — never the raw id.
             .map((source) => ({ assetKey: source.assetKey!, mimeType: source.mimeType!, label: source.label?.trim() || "Source image" }));
@@ -1029,44 +1186,6 @@ const creativeWorkOutputJobHandler = async ({
         attempt: output.retryCount,
       };
 
-      // Exact assets (logo…) must be composable before we spend a provider call.
-      const exactPreflight = preflightExactComposition({
-        format: targetFormat,
-        dimensions,
-        assets: identitySnapshot.assets,
-      });
-      if (!exactPreflight.ok) {
-        terminalRefunded = await refundTerminalOutput({
-          workspaceId,
-          workItemId,
-          outputId,
-          reason: "exact_asset_preflight_failed",
-        });
-        const failed = await step.run("mark-failed-exact-preflight", async () =>
-          failCreativeWorkOutput(
-            workspaceId,
-            workItemId,
-            outputId,
-            "exact_asset_preflight_failed",
-          ),
-        );
-        if (failed) {
-          logCreativeWorkOutputTerminal({
-            ...telemetryBase(),
-            outcome: "failed",
-            failureCode: "exact_asset_preflight_failed",
-            refunded: terminalRefunded,
-            durationMs: jobTimer.elapsedMs(),
-          });
-        }
-        return {
-          success: false,
-          outputId,
-          failureCode: "exact_asset_preflight_failed",
-          blocked: exactPreflight.blocked,
-        };
-      }
-
       // R-007: lease re-check between steps — abort BEFORE the provider call
       // when this job no longer owns the processing row.
       if (!(await checkLease("pre-generate"))) {
@@ -1147,12 +1266,14 @@ const creativeWorkOutputJobHandler = async ({
         // Durable budget already consumed before this run (e.g. a stalled
         // run raced a manual retry): terminal failure with ZERO provider
         // calls here, settled net zero by the idempotent terminal refund.
-        terminalRefunded = await refundTerminalOutput({
+        const refundSettlement = await refundTerminalOutput({
           workspaceId,
           workItemId,
           outputId,
+          manualRetryAttempt: output.manualRetryAttempt,
           reason: "image_call_budget_exhausted",
         });
+        terminalRefunded = refundSettlement.refunded && refundSettlement.applied;
         const failed = await step.run("mark-failed", async () =>
           failCreativeWorkOutput(workspaceId, workItemId, outputId, "image_call_budget_exhausted")
         );
@@ -1177,10 +1298,16 @@ const creativeWorkOutputJobHandler = async ({
 
       // Exact brand assets (logo etc.) are composited after generation —
       // never drawn by the image model. Policy is per-asset/per-format.
-      const exactAssets = identitySnapshot.assets.filter(
-        (asset) => asset.usageMode === "exact",
-      );
-      let compositionProvenance: CompositionProvenance | null = null;
+      let compositionProvenance: CompositionProvenance | null = preflightExactOmissions.length > 0
+        ? {
+            version: 1,
+            format: targetFormat,
+            dimensions,
+            composed: [],
+            omitted: [...preflightExactOmissions],
+            blocked: [],
+          }
+        : null;
       let textCompositionProvenance: TextCompositionProvenance | null = null;
 
       const composeApprovedText = async (
@@ -1217,11 +1344,14 @@ const creativeWorkOutputJobHandler = async ({
             base: baseBuffer,
             format: targetFormat,
             dimensions,
-            assets: identitySnapshot.assets,
-            loadAsset: (assetKey) => objectStorage.get(assetKey),
+            assets: executionIdentityAssets,
+            loadAsset: async (assetKey) => exactAssetBuffers.get(assetKey) ?? Promise.reject(new Error(`exact_asset_not_preflighted:${assetKey}`)),
           });
           await objectStorage.put(generatedOutputKey, result.buffer, "image/png");
-          return result.provenance;
+          return {
+            ...result.provenance,
+            omitted: [...preflightExactOmissions, ...result.provenance.omitted],
+          };
         })) as CompositionProvenance;
       }
 
@@ -1483,12 +1613,14 @@ const creativeWorkOutputJobHandler = async ({
         const correctionOutputKey = correctionResult.outputKey;
 
         if (!correctionOutputKey) {
-          terminalRefunded = await refundTerminalOutput({
+          const refundSettlement = await refundTerminalOutput({
             workspaceId,
             workItemId,
             outputId,
+            manualRetryAttempt: output.manualRetryAttempt,
             reason: "image_call_budget_exhausted",
           });
+          terminalRefunded = refundSettlement.refunded && refundSettlement.applied;
           const failed = await step.run("mark-failed", async () =>
             failCreativeWorkOutput(workspaceId, workItemId, outputId, "image_call_budget_exhausted")
           );
@@ -1515,15 +1647,18 @@ const creativeWorkOutputJobHandler = async ({
                 base: baseBuffer,
                 format: targetFormat,
                 dimensions,
-                assets: identitySnapshot.assets,
-                loadAsset: (assetKey) => objectStorage.get(assetKey),
+                assets: executionIdentityAssets,
+                loadAsset: async (assetKey) => exactAssetBuffers.get(assetKey) ?? Promise.reject(new Error(`exact_asset_not_preflighted:${assetKey}`)),
               });
               await objectStorage.put(
                 correctionOutputKey,
                 result.buffer,
                 "image/png",
               );
-              return result.provenance;
+              return {
+                ...result.provenance,
+                omitted: [...preflightExactOmissions, ...result.provenance.omitted],
+              };
             },
           )) as CompositionProvenance;
         }
@@ -1545,12 +1680,14 @@ const creativeWorkOutputJobHandler = async ({
           // The correction confirmed the objective failure — terminal. No
           // third call exists; the output settles net zero via the
           // idempotent terminal refund.
-          terminalRefunded = await refundTerminalOutput({
+          const refundSettlement = await refundTerminalOutput({
             workspaceId,
             workItemId,
             outputId,
+            manualRetryAttempt: output.manualRetryAttempt,
             reason: "creative_work_objective_correction_failed",
           });
+          terminalRefunded = refundSettlement.refunded && refundSettlement.applied;
           const failed = await step.run("mark-failed", async () =>
             failCreativeWorkOutput(workspaceId, workItemId, outputId, "factual_violation")
           );
@@ -1600,7 +1737,7 @@ const creativeWorkOutputJobHandler = async ({
             dimensions,
             typographyPlan,
             approvedFont,
-            exactAssets: identitySnapshot.assets,
+            exactAssets: executionIdentityAssets,
             exactComposition: compositionProvenance,
             textComposition: textCompositionProvenance,
             finalArtifact: await objectStorage.get(finalOutputKey),
@@ -1739,13 +1876,17 @@ const creativeWorkOutputJobHandler = async ({
               // already consumed — for v1 this is a terminal post-provider
               // failure and settles net zero (idempotent key). Legacy keeps
               // its historical no-refund behavior.
-              if (isV1Policy && providerInvoked) {
-                terminalRefunded = await refundTerminalOutput({
+              // If the queued->failed CAS lost, Inngest may already be
+              // processing the accepted event. Never refund that live debit.
+              if (failed && isV1Policy && providerInvoked) {
+                const refundSettlement = await refundTerminalOutput({
                   workspaceId,
                   workItemId,
                   outputId,
+                  manualRetryAttempt: outputManualRetryAttempt,
                   reason: "auto_retry_dispatch_failed",
                 });
+                terminalRefunded = refundSettlement.refunded && refundSettlement.applied;
               }
               if (failed) {
                 logCreativeWorkOutputTerminal({
@@ -1779,12 +1920,14 @@ const creativeWorkOutputJobHandler = async ({
       // never a second credit). Pre-provider failures were already refunded
       // above; legacy-frozen works keep the historical no-refund behavior.
       if (isV1Policy && providerInvoked) {
-        terminalRefunded = await refundTerminalOutput({
+        const refundSettlement = await refundTerminalOutput({
           workspaceId,
           workItemId,
           outputId,
+          manualRetryAttempt: outputManualRetryAttempt,
           reason: message,
         });
+        terminalRefunded = refundSettlement.refunded && refundSettlement.applied;
       } else if (providerInvoked) {
         terminalRefunded = await applyRefundDecision({
           workspaceId,
@@ -1903,7 +2046,7 @@ export function createCreativeWorkOutputJobV2(client: typeof inngest) {
  * does not re-decide policy. `description` labels the ledger row per refund
  * kind so analytics never misattributes a terminal refund as pregen.
  */
-async function applyRefundDecision({
+async function settleCreativeWorkRefundDecision({
   workspaceId,
   workItemId,
   outputId,
@@ -1917,7 +2060,7 @@ async function applyRefundDecision({
   reason: string;
   decision: RefundDecision;
   description: string;
-}): Promise<boolean> {
+}): Promise<TerminalRefundSettlementResult> {
   const result = await settleTerminalRefund({
     decision,
     workspaceId,
@@ -1933,52 +2076,98 @@ async function applyRefundDecision({
     logger.info(
       `[creativeWorkOutputJob] skip refund outputId=${outputId} reason=${result.reason}`,
     );
-    return true;
+    return result;
   }
   if (!result.applied) {
     logger.error(
       `[creativeWorkOutputJob] terminal refund FAILED outputId=${outputId} description=${description}: ${result.error}`,
     );
-    return false;
+    return result;
   }
   logger.info(
     `[creativeWorkOutputJob] terminal refund outputId=${outputId} status=${result.status} description=${description} reason=${reason}`,
   );
-  return true;
+  return result;
+}
+
+async function applyRefundDecision(input: {
+  workspaceId: string;
+  workItemId: string;
+  outputId: string;
+  reason: string;
+  decision: RefundDecision;
+  description: string;
+}): Promise<boolean> {
+  return (await settleCreativeWorkRefundDecision(input)).applied;
 }
 
 /**
  * R-006 terminal refund: a v1 output that fails after consuming provider
  * calls settles net zero. Idempotent per output (the decision key is
  * content-stable), so a repeated failure/redelivery credits at most once.
- * Returns whether the policy decided to refund.
+ * Returns the canonical settlement result. Callers must distinguish a policy
+ * decision from a liquidated refund so the reconciler can retry ambiguity.
  */
+type CreativeWorkTerminalRefundAttempt = "original" | "reactivation";
+type CreativeWorkTerminalRefundSettlement = TerminalRefundSettlementResult & {
+  attempt: CreativeWorkTerminalRefundAttempt;
+};
+
+function exactPreflightFailureCode(
+  settlement: CreativeWorkTerminalRefundSettlement,
+): "exact_asset_preflight_failed" | "exact_asset_preflight_failed_refund_pending" | "exact_asset_preflight_failed_reactivation_refund_pending" {
+  if (!settlement.refunded || settlement.applied) return "exact_asset_preflight_failed";
+  return settlement.attempt === "reactivation"
+    ? "exact_asset_preflight_failed_reactivation_refund_pending"
+    : "exact_asset_preflight_failed_refund_pending";
+}
+
 async function refundTerminalOutput({
   workspaceId,
   workItemId,
   outputId,
+  manualRetryAttempt,
   reason,
 }: {
   workspaceId: string;
   workItemId: string;
   outputId: string;
+  manualRetryAttempt: number | null;
   reason: string;
-}): Promise<boolean> {
-  const decision = decideCreativeWorkRefund({
+}): Promise<CreativeWorkTerminalRefundSettlement> {
+  const canonicalDecision = decideCreativeWorkRefund({
     surface: "quick_tool",
     failurePhase: "terminal",
     workItemId,
     outputId,
   });
-  await applyRefundDecision({
+  const reactivation = await resolveCreativeWorkOutputReactivation({
+    workspaceId,
+    workItemId,
+    outputId,
+    manualRetryAttempt,
+  });
+  const attempt: CreativeWorkTerminalRefundAttempt = reactivation
+    ? "reactivation"
+    : "original";
+  const decision = reactivation
+    ? {
+        ...canonicalDecision,
+        idempotencyKey: reactivation.refundKey,
+        reason: "creative_work_terminal_reactivation_failure",
+      }
+    : canonicalDecision;
+  const result = await settleCreativeWorkRefundDecision({
     workspaceId,
     workItemId,
     outputId,
     reason,
     decision,
-    description: "creative_work_output_terminal_refund",
+    description: reactivation
+      ? "creative_work_output_terminal_reactivation_refund"
+      : "creative_work_output_terminal_refund",
   });
-  return decision.refund;
+  return { ...result, attempt };
 }
 
 /**

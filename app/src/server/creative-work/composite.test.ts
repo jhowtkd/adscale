@@ -182,6 +182,44 @@ describe("composeExactBrandAssets", () => {
     expect([...southeastPixel.subarray(0, 3)]).toEqual([0, 0, 255]);
   });
 
+  it("fails rather than writing two exact layers into the same accepted box", async () => {
+    const base = await makeBase(100, 100);
+    const layers = [
+      { buffer: await makeTransparentLayer(20, 20), gravity: "southwest" as const, widthRatio: 0.2 },
+      { buffer: await makeTransparentLayer(20, 20, { r: 0, g: 0, b: 255 }), gravity: "southwest" as const, widthRatio: 0.2 },
+    ];
+
+    await expect(composeExactBrandAssets(base, layers, { width: 100, height: 100 }))
+      .rejects.toThrow("exact_asset_placement_collision");
+  });
+
+  it("fails before output when backdrop plates overlap despite asset boxes only touching", async () => {
+    const base = await makeBase(200, 200);
+    const backdrop = { rgba: { r: 7, g: 21, b: 34, alpha: 0.55 } };
+    // 40x93 scaled at 0.4 becomes 80x186. With 20px clearspace, northwest
+    // ends exactly where northeast starts (x=100), but each 90px backdrop
+    // plate extends 5px past that edge and would visibly overlap.
+    const layers = [
+      {
+        buffer: await makeTransparentLayer(40, 93, { r: 255, g: 201, b: 20 }),
+        gravity: "northwest" as const,
+        widthRatio: 0.4,
+        clearspacePx: 20,
+        backdrop,
+      },
+      {
+        buffer: await makeTransparentLayer(40, 93, { r: 0, g: 120, b: 255 }),
+        gravity: "northeast" as const,
+        widthRatio: 0.4,
+        clearspacePx: 20,
+        backdrop,
+      },
+    ];
+
+    await expect(composeExactBrandAssets(base, layers, { width: 200, height: 200 }))
+      .rejects.toThrow("exact_asset_placement_collision");
+  });
+
   it("rejects a layer that does not have alpha", async () => {
     const base = await makeBase(100, 100);
     const opaqueLayer = {
@@ -416,5 +454,62 @@ describe("pickContrastSafePlacement + runExactComposition", () => {
     const meta = await sharp(result.buffer).metadata();
     expect(meta.width).toBe(108);
     expect(meta.height).toBe(135);
+  });
+
+  it("reserves the first contrast fallback box so two planned right-corner logos do not overlap", async () => {
+    const width = 200;
+    const height = 200;
+    const raw = Buffer.alloc(width * height * 3);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const i = (y * width + x) * 3;
+        const value = x < width / 2 ? 10 : 240;
+        raw[i] = value;
+        raw[i + 1] = value;
+        raw[i + 2] = value;
+      }
+    }
+    const base = await sharp(raw, { raw: { width, height, channels: 3 } }).png().toBuffer();
+    const first = await makeTransparentLayer(40, 16, { r: 255, g: 201, b: 20 });
+    const second = await makeTransparentLayer(40, 16, { r: 255, g: 201, b: 20 });
+    const result = await runExactComposition({
+      base,
+      format: "1:1",
+      dimensions: { width, height },
+      assets: [
+        {
+          referenceId: "logo-southeast",
+          assetKey: "ws/logo-southeast.png",
+          label: "Logo sudeste",
+          category: "logo",
+          usageMode: "exact",
+          analysis: null,
+          mimeType: "image/png",
+          hasAlpha: true,
+          placement: { gravity: "southeast", widthRatio: 0.2 },
+        },
+        {
+          referenceId: "logo-northeast",
+          assetKey: "ws/logo-northeast.png",
+          label: "Logo nordeste",
+          category: "logo",
+          usageMode: "exact",
+          analysis: null,
+          mimeType: "image/png",
+          hasAlpha: true,
+          placement: { gravity: "northeast", widthRatio: 0.2 },
+        },
+      ],
+      loadAsset: async (assetKey) => assetKey.includes("southeast") ? first : second,
+    });
+
+    const [firstLayer, secondLayer] = result.provenance.composed;
+    expect([firstLayer?.gravity, secondLayer?.gravity]).toEqual(["southwest", "northwest"]);
+    const a = firstLayer?.box;
+    const b = secondLayer?.box;
+    expect(a).toBeDefined();
+    expect(b).toBeDefined();
+    if (!a || !b) throw new Error("expected exact placement boxes");
+    expect(a.left + a.width <= b.left || b.left + b.width <= a.left || a.top + a.height <= b.top || b.top + b.height <= a.top).toBe(true);
   });
 });

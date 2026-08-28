@@ -113,6 +113,41 @@ describe("preflightExactComposition", () => {
     });
     expect(result).toEqual({ ok: true });
   });
+
+  it("blocks an exact transparent seal whose decoded aspect cannot fit before the provider", () => {
+    const result = preflightExactComposition({
+      format: "4:5",
+      dimensions: { width: 1080, height: 1350 },
+      assets: [asset({ category: "logo", hasAlpha: true })],
+      inspectedAssets: new Map([["ws/logo.png", { width: 1, height: 10_000 }]]),
+    });
+    expect(result).toEqual(expect.objectContaining({ ok: false }));
+    if (!result.ok) expect(result.blocked[0]?.reason).toBe("exact_asset_no_space");
+  });
+
+  it("keeps a decoded transparent logo with a feasible aspect eligible", () => {
+    const result = preflightExactComposition({
+      format: "4:5",
+      dimensions: { width: 1080, height: 1350 },
+      assets: [asset({ category: "logo", hasAlpha: true })],
+      inspectedAssets: new Map([["ws/logo.png", { width: 200, height: 80 }]]),
+    });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("reports an impossible optional exact graphic as an omission instead of blocking", () => {
+    const result = preflightExactComposition({
+      format: "4:5",
+      dimensions: { width: 1080, height: 1350 },
+      assets: [asset({ category: "graphic", hasAlpha: true })],
+      inspectedAssets: new Map([["ws/logo.png", { width: 1, height: 10_000 }]]),
+      reportOmissions: true,
+    });
+    expect(result).toEqual(expect.objectContaining({ ok: true }));
+    if (result.ok) expect(result.omitted).toEqual([
+      expect.objectContaining({ assetKey: "ws/logo.png", reason: "exact_asset_no_space" }),
+    ]);
+  });
 });
 
 describe("buildStaticComposePlan", () => {

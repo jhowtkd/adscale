@@ -8,6 +8,7 @@ import {
 } from "@/server/repositories/creative-work";
 import { decideCreativeWorkRefund } from "@/server/generation/canonical/policies";
 import { settleTerminalRefund } from "@/server/generation/settlement";
+import { resolveCreativeWorkOutputReactivation } from "@/server/generation/settlement-adapters";
 import {
   logCreativeWorkGenerationAggregate,
   logCreativeWorkOutputTerminal,
@@ -46,12 +47,25 @@ export async function cancelCreativeWorkOutput(input: {
     };
   }
 
-  const decision = decideCreativeWorkRefund({
+  const canonicalDecision = decideCreativeWorkRefund({
     surface: "quick_tool",
     failurePhase: "terminal",
     workItemId: input.workItemId,
     outputId: input.outputId,
   });
+  const reactivation = await resolveCreativeWorkOutputReactivation({
+    workspaceId: input.workspaceId,
+    workItemId: input.workItemId,
+    outputId: input.outputId,
+    manualRetryAttempt: output.manualRetryAttempt,
+  });
+  const decision = reactivation && canonicalDecision.refund
+    ? {
+        ...canonicalDecision,
+        idempotencyKey: reactivation.refundKey,
+        reason: "creative_work_terminal_reactivation_failure",
+      }
+    : canonicalDecision;
   const settlement = await settleTerminalRefund({
     decision,
     workspaceId: input.workspaceId,

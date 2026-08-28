@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   prepare: vi.fn(),
   editBriefing: vi.fn(),
   source: vi.fn(),
+  sourcePending: vi.fn(() => false),
   generate: vi.fn(),
   suggest: vi.fn(),
   upload: vi.fn(),
@@ -38,7 +39,7 @@ vi.mock("@/lib/hooks/use-creative-work", async (importOriginal) => ({
   useAutosaveCreativeWork: () => ({ mutateAsync: mocks.autosave, isPending: false }),
   usePrepareCreativeWork: () => ({ mutateAsync: mocks.prepare, isPending: false }),
   useEditCreativeWorkBriefing: () => ({ mutateAsync: mocks.editBriefing, isPending: false }),
-  useCreativeWorkSourceActions: () => ({ mutateAsync: mocks.source, isPending: false }),
+  useCreativeWorkSourceActions: () => ({ mutateAsync: mocks.source, isPending: mocks.sourcePending() }),
   useTriggerTriplet: () => ({ mutateAsync: mocks.generate, isPending: false }),
   useSuggestCreativeDirections: () => ({ mutateAsync: mocks.suggest, isPending: false }),
   useRetryOutput: () => ({ mutateAsync: mocks.retryOutput, isPending: false, variables: undefined }),
@@ -135,6 +136,7 @@ describe("useCreativeComposer", () => {
     mocks.suggest.mockResolvedValue({ directions: [] });
     mocks.upload.mockResolvedValue({ assetId: "asset-1", name: "arte.png" });
     mocks.source.mockResolvedValue({ source: { id: "source-1" } });
+    mocks.sourcePending.mockReturnValue(false);
     mocks.selectOutput.mockResolvedValue({});
     // clearAllMocks keeps mockReturnValue implementations — reset explicitly.
     mocks.resolveBrandConflictPending.mockReturnValue(false);
@@ -1006,6 +1008,35 @@ describe("useCreativeComposer", () => {
     }));
   });
 
+  it("slices Single file selection to the remaining temporary-reference slots before upload", async () => {
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ toolKind: "single" }),
+        sources: [
+          { id: "source-1", assetId: "asset-1", status: "ready", usage: "both", usageConfirmed: true },
+          { id: "source-2", assetId: "asset-2", status: "ready", usage: "both", usageConfirmed: true },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    const files = [
+      new File(["1"], "first.png", { type: "image/png" }),
+      new File(["2"], "second.png", { type: "image/png" }),
+      new File(["3"], "third.png", { type: "image/png" }),
+    ];
+
+    await act(() => result.current.addFiles(files));
+
+    expect(mocks.upload).toHaveBeenCalledTimes(1);
+    expect(mocks.upload).toHaveBeenCalledWith(files[0]);
+    expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: "work-1", action: "attachSource", assetId: "asset-1", usage: "both",
+    }));
+    expect(result.current.announcement).toContain("2 arquivos não enviados pelo limite de 3");
+  });
+
   it("attaches an upload that finishes while the text-only draft is being created", async () => {
     const creating = deferred<{
       work: ReturnType<typeof workDetail>["work"];
@@ -1330,6 +1361,25 @@ describe("useCreativeComposer", () => {
     expect(result.current.canGenerate).toBe(false);
   });
 
+  it.each([
+    ["low confidence", { category: null, confidence: "low", classificationSource: "automatic", hasTransparency: false }],
+    ["failed", { category: "style_reference", confidence: "high", classificationSource: "automatic", hasTransparency: false }, "failed"],
+    ["exact without alpha", { category: "additional_logo_or_seal", confidence: "high", classificationSource: "user", hasTransparency: false }],
+  ] as const)("blocks Single generation for a %s temporary reference", (_label, pieceReference, status = "ready") => {
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ toolKind: "single" }),
+        sources: [{ id: "source-1", usage: "both", usageConfirmed: true, status, pieceReference }],
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    expect(result.current.canGenerate).toBe(false);
+  });
+
   it("enables restyle with two ready sources without asking for usage confirmation", () => {
     mocks.work.mockReturnValue({
       data: {
@@ -1345,6 +1395,23 @@ describe("useCreativeComposer", () => {
 
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
+    expect(result.current.canGenerate).toBe(true);
+  });
+
+  it("does not let a failed source block non-Single generation", () => {
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ toolKind: "variations" }),
+        sources: [
+          { id: "source-ready", usage: "style", usageConfirmed: false, status: "ready", pieceReference: null },
+          { id: "source-failed", usage: "style", usageConfirmed: false, status: "failed", pieceReference: null },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
     expect(result.current.canGenerate).toBe(true);
   });
 
@@ -1948,6 +2015,42 @@ describe("useCreativeComposer", () => {
 
     expect(result.current.state).toBe("analyzing");
     expect(result.current.canGenerate).toBe(false);
+  });
+
+  it("blocks generation while a piece-source mutation is in flight", async () => {
+    mocks.sourcePending.mockReturnValue(true);
+    mocks.work.mockReturnValue({ data: workDetail({ toolKind: "single" }), isLoading: false, isError: false });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", initialIntent: "single" }));
+
+    expect(result.current.canGenerate).toBe(false);
+    await act(async () => { await result.current.generate(); });
+    expect(mocks.prepare).not.toHaveBeenCalled();
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it("blocks generation from the instant a replacement upload begins until its source mutation settles", async () => {
+    const upload = deferred<{ assetId: string; name: string }>();
+    mocks.upload.mockReturnValue(upload.promise);
+    mocks.work.mockReturnValue({
+      data: {
+        work: workDetail({ toolKind: "single" }).work,
+        outputs: [],
+        sources: [{ id: "source-1", assetId: "asset-old", status: "ready", usage: "both", pieceReference: { category: "style_reference", confidence: "high" } }],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", initialIntent: "single" }));
+
+    let replacing!: Promise<boolean>;
+    act(() => { replacing = result.current.replacePieceReference("source-1", new File(["png"], "replacement.png", { type: "image/png" })); });
+    expect(result.current.canGenerate).toBe(false);
+    await act(async () => { await result.current.generate(); });
+    expect(mocks.prepare).not.toHaveBeenCalled();
+    upload.resolve({ assetId: "asset-new", name: "replacement.png" });
+    await act(async () => { await replacing; });
+    expect(mocks.source).toHaveBeenCalledWith({ workItemId: "work-1", action: "replacePieceReference", sourceId: "source-1", assetId: "asset-new" });
   });
 
   it("blocks generate() before prepare when sources are pending analysis", async () => {

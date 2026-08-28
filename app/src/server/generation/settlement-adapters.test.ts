@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const chargeUnit = vi.hoisted(() => vi.fn());
 const chargeBatch = vi.hoisted(() => vi.fn());
 const refund = vi.hoisted(() => vi.fn());
+const recordUsage = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
 const createOutputs = vi.hoisted(() => vi.fn());
 const createRevision = vi.hoisted(() => vi.fn());
@@ -30,7 +31,7 @@ vi.mock("@/server/generation/canonical/charge", () => ({
   chargeForGeneration: chargeUnit,
   chargeForGenerationBatch: chargeBatch,
 }));
-vi.mock("@/server/billing/credits", () => ({ refundCredits: refund }));
+vi.mock("@/server/billing/credits", () => ({ refundCredits: refund, recordUsage }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
 vi.mock("@/server/creative-work/job-telemetry", () => ({
   logCreativeWorkGenerationAggregate: logAggregate,
@@ -69,6 +70,9 @@ import {
   creativeWorkRevisionSettlementAdapter,
   creativeWorkSettlementAdapter,
   formatAdaptationSettlementAdapter,
+  reactivateCreativeWorkOutputRefund,
+  resolveCreativeWorkOutputReactivation,
+  resolveCreativeWorkOutputReactivationOutcome,
 } from "./settlement-adapters";
 import { startGenerationSettlement } from "./settlement";
 
@@ -1426,6 +1430,223 @@ describe("Generation Settlement production adapters", () => {
     ]);
     expect(chargeBatch).toHaveBeenCalledOnce();
     expect(send).toHaveBeenCalledOnce();
+  });
+});
+
+describe("creative-work manual retry settlement", () => {
+  beforeEach(() => {
+    getUsage.mockReset();
+    recordUsage.mockReset();
+    recordUsage.mockResolvedValue({ status: "recorded" });
+  });
+
+  it("re-debits exactly once from the canonical compensatory refund for manual attempt one", async () => {
+    getUsage.mockImplementation(async (_workspaceId, key) => key === "creative-output:output-1:compensatory-refund"
+      ? { id: "refund-1" }
+      : null);
+
+    await expect(reactivateCreativeWorkOutputRefund({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      retryAttempt: 1,
+      amount: 50,
+    })).resolves.toEqual({ reactivated: ["terminal"], reactivates: "creative-output:output-1:compensatory-refund" });
+    expect(recordUsage).toHaveBeenCalledOnce();
+    expect(recordUsage).toHaveBeenCalledWith(expect.objectContaining({
+      idempotencyKey: "creative-work:work-1:output:output-1:reactivate-terminal:1",
+      metadata: expect.objectContaining({ reactivates: "creative-output:output-1:compensatory-refund", manualRetryAttempt: 1 }),
+    }));
+  });
+
+  it("resolves modern and legacy outstanding debits to their distinct compensation keys", async () => {
+    getUsage.mockImplementation(async (_workspaceId, key) => (
+      key === "creative-work:work-1:output:output-1:reactivate-terminal:3"
+        || key === "creative-work:work-1:output:output-2:reactivate-terminal"
+        ? { id: key }
+        : null
+    ));
+    await expect(resolveCreativeWorkOutputReactivation({
+      workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-1", manualRetryAttempt: 3,
+    })).resolves.toMatchObject({ kind: "manual", refundKey: "creative-work:work-1:output:output-1:reactivate-terminal:3-refund" });
+    await expect(resolveCreativeWorkOutputReactivation({
+      workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-2", manualRetryAttempt: null,
+    })).resolves.toMatchObject({ kind: "legacy", refundKey: "creative-work:work-1:output:output-2:reactivate-terminal-refund" });
+  });
+
+  it("resolves legacy pregen before dispatch with no modern re-debit", async () => {
+    getUsage.mockImplementation(async (_workspaceId, key) => (
+      key === "creative-work:work-1:output:output-legacy:reactivate-pregen"
+        || key === "creative-work:work-1:output:output-legacy:reactivate-dispatch"
+        ? { id: key }
+        : null
+    ));
+    await expect(resolveCreativeWorkOutputReactivation({
+      workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-legacy", manualRetryAttempt: null,
+    })).resolves.toMatchObject({
+      kind: "legacy",
+      chargeKey: "creative-work:work-1:output:output-legacy:reactivate-pregen",
+      refundKey: "creative-work:work-1:output:output-legacy:reactivate-pregen-refund",
+    });
+  });
+
+  it("scans past a refunded legacy terminal to select a later outstanding dispatch debit", async () => {
+    getUsage.mockImplementation(async (_workspaceId, key) => (
+      key === "creative-work:work-1:output:output-mixed:reactivate-terminal"
+        || key === "creative-work:work-1:output:output-mixed:reactivate-terminal-refund"
+        || key === "creative-work:work-1:output:output-mixed:reactivate-dispatch"
+        ? { id: key }
+        : null
+    ));
+
+    await expect(resolveCreativeWorkOutputReactivationOutcome({
+      workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-mixed", manualRetryAttempt: null,
+    })).resolves.toEqual({
+      state: "outstanding",
+      kind: "legacy",
+      retryAttempt: null,
+      chargeKey: "creative-work:work-1:output:output-mixed:reactivate-dispatch",
+      refundKey: "creative-work:work-1:output:output-mixed:reactivate-dispatch-refund",
+    });
+  });
+
+  it("reports already_refunded only after every deterministic charged candidate is settled", async () => {
+    getUsage.mockImplementation(async (_workspaceId, key) => (
+      key === "creative-work:work-1:output:output-mixed:reactivate-terminal"
+        || key === "creative-work:work-1:output:output-mixed:reactivate-terminal-refund"
+        || key === "creative-work:work-1:output:output-mixed:reactivate-dispatch"
+        || key === "creative-work:work-1:output:output-mixed:reactivate-dispatch-refund"
+        ? { id: key }
+        : null
+    ));
+
+    await expect(resolveCreativeWorkOutputReactivationOutcome({
+      workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-mixed", manualRetryAttempt: null,
+    })).resolves.toMatchObject({
+      state: "already_refunded",
+      kind: "legacy",
+      chargeKey: "creative-work:work-1:output:output-mixed:reactivate-terminal",
+      refundKey: "creative-work:work-1:output:output-mixed:reactivate-terminal-refund",
+    });
+  });
+
+  it("does not let the original canonical refund predating a legacy debit settle that debit", async () => {
+    const originalRefundAt = new Date("2026-08-28T10:00:00.000Z");
+    const legacyDebitAt = new Date("2026-08-28T10:01:00.000Z");
+    getUsage.mockImplementation(async (_workspaceId, key) => {
+      if (key === "creative-work:work-1:output:output-historical:reactivate-pregen") return { id: key, createdAt: legacyDebitAt };
+      if (key === "creative-output:output-historical:compensatory-refund") return { id: key, createdAt: originalRefundAt };
+      return null;
+    });
+
+    await expect(resolveCreativeWorkOutputReactivationOutcome({
+      workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-historical", manualRetryAttempt: null,
+    })).resolves.toMatchObject({
+      state: "outstanding",
+      chargeKey: "creative-work:work-1:output:output-historical:reactivate-pregen",
+    });
+  });
+
+  it("recognizes a later canonical or terminal refund as historical compensation for a legacy debit", async () => {
+    const legacyDebitAt = new Date("2026-08-28T10:01:00.000Z");
+    const laterRefundAt = new Date("2026-08-28T10:02:00.000Z");
+    getUsage.mockImplementation(async (_workspaceId, key) => {
+      if (key === "creative-work:work-1:output:output-historical:reactivate-pregen") return { id: key, createdAt: legacyDebitAt };
+      if (key === "creative-work:work-1:output:output-historical:terminal-refund") return { id: key, createdAt: laterRefundAt };
+      return null;
+    });
+
+    await expect(resolveCreativeWorkOutputReactivationOutcome({
+      workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-historical", manualRetryAttempt: null,
+    })).resolves.toMatchObject({
+      state: "already_refunded",
+      chargeKey: "creative-work:work-1:output:output-historical:reactivate-pregen",
+    });
+  });
+
+  it("still selects a later outstanding legacy debit after an earlier one is historically compensated", async () => {
+    const earlyDebitAt = new Date("2026-08-28T10:01:00.000Z");
+    const laterRefundAt = new Date("2026-08-28T10:02:00.000Z");
+    const dispatchDebitAt = new Date("2026-08-28T10:03:00.000Z");
+    getUsage.mockImplementation(async (_workspaceId, key) => {
+      if (key === "creative-work:work-1:output:output-historical:reactivate-terminal") return { id: key, createdAt: earlyDebitAt };
+      if (key === "creative-output:output-historical:compensatory-refund") return { id: key, createdAt: laterRefundAt };
+      if (key === "creative-work:work-1:output:output-historical:reactivate-dispatch") return { id: key, createdAt: dispatchDebitAt };
+      return null;
+    });
+
+    await expect(resolveCreativeWorkOutputReactivationOutcome({
+      workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-historical", manualRetryAttempt: null,
+    })).resolves.toMatchObject({
+      state: "outstanding",
+      chargeKey: "creative-work:work-1:output:output-historical:reactivate-dispatch",
+    });
+  });
+
+  it("consumes one generic refund against only the most recent preceding legacy debit", async () => {
+    const terminalDebitAt = new Date("2026-08-28T10:01:00.000Z");
+    const dispatchDebitAt = new Date("2026-08-28T10:02:00.000Z");
+    const genericRefundAt = new Date("2026-08-28T10:03:00.000Z");
+    getUsage.mockImplementation(async (_workspaceId, key) => {
+      if (key === "creative-work:work-1:output:output-chronological:reactivate-terminal") return { id: key, createdAt: terminalDebitAt };
+      if (key === "creative-work:work-1:output:output-chronological:reactivate-dispatch") return { id: key, createdAt: dispatchDebitAt };
+      if (key === "creative-output:output-chronological:compensatory-refund") return { id: key, createdAt: genericRefundAt };
+      return null;
+    });
+
+    await expect(resolveCreativeWorkOutputReactivationOutcome({
+      workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-chronological", manualRetryAttempt: null,
+    })).resolves.toMatchObject({
+      state: "outstanding",
+      chargeKey: "creative-work:work-1:output:output-chronological:reactivate-terminal",
+    });
+  });
+
+  it("matches generic refunds chronologically once and leaves no legacy debit after two refunds", async () => {
+    const terminalDebitAt = new Date("2026-08-28T10:01:00.000Z");
+    const dispatchDebitAt = new Date("2026-08-28T10:02:00.000Z");
+    getUsage.mockImplementation(async (_workspaceId, key) => {
+      if (key === "creative-work:work-1:output:output-two-refunds:reactivate-terminal") return { id: key, createdAt: terminalDebitAt };
+      if (key === "creative-work:work-1:output:output-two-refunds:reactivate-dispatch") return { id: key, createdAt: dispatchDebitAt };
+      if (key === "creative-output:output-two-refunds:compensatory-refund") return { id: key, createdAt: new Date("2026-08-28T10:03:00.000Z") };
+      if (key === "creative-work:work-1:output:output-two-refunds:terminal-refund") return { id: key, createdAt: new Date("2026-08-28T10:04:00.000Z") };
+      return null;
+    });
+
+    await expect(resolveCreativeWorkOutputReactivationOutcome({
+      workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-two-refunds", manualRetryAttempt: null,
+    })).resolves.toMatchObject({ state: "already_refunded" });
+  });
+
+  it("does not reuse an explicit paired refund when matching a later generic refund", async () => {
+    const terminalDebitAt = new Date("2026-08-28T10:01:00.000Z");
+    const dispatchDebitAt = new Date("2026-08-28T10:02:00.000Z");
+    getUsage.mockImplementation(async (_workspaceId, key) => {
+      if (key === "creative-work:work-1:output:output-explicit:reactivate-terminal") return { id: key, createdAt: terminalDebitAt };
+      if (key === "creative-work:work-1:output:output-explicit:reactivate-terminal-refund") return { id: key, createdAt: new Date("2026-08-28T10:03:00.000Z") };
+      if (key === "creative-work:work-1:output:output-explicit:reactivate-dispatch") return { id: key, createdAt: dispatchDebitAt };
+      if (key === "creative-output:output-explicit:compensatory-refund") return { id: key, createdAt: new Date("2026-08-28T10:04:00.000Z") };
+      return null;
+    });
+
+    await expect(resolveCreativeWorkOutputReactivationOutcome({
+      workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-explicit", manualRetryAttempt: null,
+    })).resolves.toMatchObject({ state: "already_refunded" });
+  });
+
+  it("keeps a legacy debit outstanding when a generic historical refund has no ordering timestamp", async () => {
+    getUsage.mockImplementation(async (_workspaceId, key) => {
+      if (key === "creative-work:work-1:output:output-undated:reactivate-pregen") return { id: key, createdAt: new Date("2026-08-28T10:01:00.000Z") };
+      if (key === "creative-output:output-undated:compensatory-refund") return { id: key };
+      return null;
+    });
+
+    await expect(resolveCreativeWorkOutputReactivationOutcome({
+      workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-undated", manualRetryAttempt: null,
+    })).resolves.toMatchObject({
+      state: "outstanding",
+      chargeKey: "creative-work:work-1:output:output-undated:reactivate-pregen",
+    });
   });
 });
 

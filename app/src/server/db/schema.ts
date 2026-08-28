@@ -2653,6 +2653,7 @@ export const creativeWorkSources = adscaleSchema.table(
     status: text("status").notNull().$type<import("../creative-work/contracts").CreativeSourceStatus>(),
     contentAnalysis: jsonb("content_analysis").$type<import("../ai/image-analysis").ContentBrief>(),
     styleAnalysis: jsonb("style_analysis").$type<import("../ai/image-analysis").StyleBrief>(),
+    pieceReference: jsonb("piece_reference").$type<import("../creative-work/piece-reference").PieceReferenceDraft>(),
     failureCode: text("failure_code"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
@@ -2695,6 +2696,9 @@ export const creativeWorkOutputs = adscaleSchema.table(
     parentOutputId: uuid("parent_output_id"),
     revisionInstruction: text("revision_instruction"),
     revisionAssetId: uuid("revision_asset_id").references(() => workspaceAssets.id, { onDelete: "set null" }),
+    // Financial/manual retry ordinal.  retryCount remains the technical job
+    // retry counter and must not be used as a billing attempt identifier.
+    manualRetryAttempt: integer("manual_retry_attempt"),
     retryCount: integer("retry_count").notNull().default(0),
     imageCallCount: integer("image_call_count").notNull().default(0),
     operationKey: text("operation_key").notNull(),

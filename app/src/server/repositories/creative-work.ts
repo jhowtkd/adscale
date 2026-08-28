@@ -6,6 +6,7 @@ import {
   creativeWorkItems,
   creativeWorkOutputs,
   creativeWorkSources,
+  clientReferences,
   clientProfiles,
   workspaceAssets,
   campaignTemplates,
@@ -31,10 +32,104 @@ import {
 } from "../creative-work/contracts";
 import { getClientProfile, resolveCampaignClientProfileId } from "./client-reference";
 import { getCampaignById } from "./campaign";
+import { MAX_PIECE_REFERENCES, type PieceReferenceCategory } from "../creative-work/piece-reference";
 
 export type { CreativeWorkFormat } from "../creative-work/contracts";
 
 export type CreativeWorkToolKind = CreativeWorkIntent;
+
+export interface CreativeWorkPieceTrainingReferenceClaim {
+  reference: typeof clientReferences.$inferSelect;
+  claimed: boolean;
+}
+
+type CreativeWorkTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Atomically gets or creates the Brand Training row promoted from a Piece
+ * reference.  This deliberately uses a scoped advisory lock rather than a
+ * global uniqueness migration: older workspaces can contain historical
+ * duplicate references and must remain migratable.  The caller dispatches
+ * analysis only after this transaction commits.
+ */
+export async function claimCreativeWorkPieceTrainingReference(input: {
+  workspaceId: string;
+  clientProfileId: string;
+  assetKey: string;
+  label: string;
+}): Promise<CreativeWorkPieceTrainingReferenceClaim> {
+  return db.transaction((tx) => claimCreativeWorkPieceTrainingReferenceWithExecutor(tx, input));
+}
+
+async function claimCreativeWorkPieceTrainingReferenceWithExecutor(
+  tx: CreativeWorkTransaction,
+  input: { workspaceId: string; clientProfileId: string; assetKey: string; label: string },
+): Promise<CreativeWorkPieceTrainingReferenceClaim> {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${input.workspaceId}:${input.clientProfileId}:${input.assetKey}:piece-training`}))`);
+    const candidates = await tx.select().from(clientReferences).where(and(
+      eq(clientReferences.workspaceId, input.workspaceId),
+      eq(clientReferences.clientProfileId, input.clientProfileId),
+      eq(clientReferences.assetKey, input.assetKey),
+    )).orderBy(
+      sql`case
+        when ${clientReferences.reviewStatus} = 'approved' then 0
+        when ${clientReferences.reviewStatus} = 'pending_approval' then 1
+        when ${clientReferences.reviewStatus} = 'pending_analysis' then 2
+        when ${clientReferences.reviewStatus} is null then 3
+        else 4
+      end`,
+      desc(clientReferences.createdAt),
+    );
+    const reviewRank = (status: typeof clientReferences.$inferSelect["reviewStatus"]) =>
+      status === "approved" ? 0
+        : status === "pending_approval" ? 1
+          : status === "pending_analysis" ? 2
+            : status === null ? 3 : 4;
+    const existing = candidates
+      .filter((reference) =>
+        reference.reviewStatus !== "archived" && String(reference.reviewStatus) !== "rejected",
+      )
+      .sort((left, right) => reviewRank(left.reviewStatus) - reviewRank(right.reviewStatus)
+        || right.createdAt.getTime() - left.createdAt.getTime())[0];
+    if (existing) return { reference: existing, claimed: false };
+
+    const [reference] = await tx.insert(clientReferences).values({
+      workspaceId: input.workspaceId,
+      clientProfileId: input.clientProfileId,
+      assetKey: input.assetKey,
+      label: input.label,
+      kind: "other",
+      reviewStatus: "pending_analysis",
+    }).returning();
+    if (!reference) throw new Error("creative_work_piece_training_claim_without_row");
+    return { reference, claimed: true };
+}
+
+/** Validates a promotable Single source while the prepare/source lock is held. */
+export async function promoteCreativeWorkPieceReference(input: {
+  workspaceId: string; workItemId: string; sourceId: string; clientProfileId: string; assetKey: string; label: string;
+  expected: { assetId: string; assetKey: string; updatedAt: Date; category: PieceReferenceCategory };
+}): Promise<CreativeWorkPieceTrainingReferenceClaim | null> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${input.workspaceId}:${input.workItemId}:prepare`}))`);
+    const [source] = await tx.select({ id: creativeWorkSources.id, assetId: creativeWorkSources.assetId, updatedAt: creativeWorkSources.updatedAt, pieceReference: creativeWorkSources.pieceReference }).from(creativeWorkSources)
+      .innerJoin(creativeWorkItems, eq(creativeWorkItems.id, creativeWorkSources.workItemId))
+      .where(and(eq(creativeWorkSources.workspaceId, input.workspaceId), eq(creativeWorkSources.workItemId, input.workItemId), eq(creativeWorkSources.id, input.sourceId), eq(creativeWorkSources.status, "ready"), eq(creativeWorkItems.toolKind, "single"), eq(creativeWorkItems.clientProfileId, input.clientProfileId)))
+      .limit(1);
+    if (!source || source.assetId !== input.expected.assetId || source.updatedAt.getTime() !== input.expected.updatedAt.getTime()
+      || source.pieceReference?.category !== input.expected.category) return null;
+    const [asset] = await tx.select({ id: workspaceAssets.id, key: workspaceAssets.key, name: workspaceAssets.name })
+      .from(workspaceAssets)
+      .where(and(eq(workspaceAssets.workspaceId, input.workspaceId), eq(workspaceAssets.id, source.assetId)))
+      .limit(1);
+    if (!asset || asset.key !== input.expected.assetKey) return null;
+    return claimCreativeWorkPieceTrainingReferenceWithExecutor(tx, {
+      ...input,
+      assetKey: asset.key,
+      label: asset.name,
+    });
+  });
+}
 
 export type CreativeWorkInspirationCandidate = {
   id: string;
@@ -217,17 +312,53 @@ export async function createCreativeWorkDraftWithSource(
       eq(creativeWorkItems.createdByUserId, input.createdByUserId),
       eq(creativeWorkItems.draftKey, input.draftKey),
     )).limit(1);
-    const work = createdWork ?? existingWork;
-    if (!work) throw new Error("creative_work_draft_conflict_without_row");
+    const draft = createdWork ?? existingWork;
+    if (!draft) throw new Error("creative_work_draft_conflict_without_row");
+
+    // All sources take the same lock, including legacy/template sources. A
+    // replay can observe an older tool kind before waiting here, so the only
+    // authority for Single defaults and the aggregate cap is the row reread
+    // after the lock is held.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${pieceReferenceLockScope(input.workspaceId, draft.id)}))`);
+    const [work] = await tx.select().from(creativeWorkItems).where(and(
+      eq(creativeWorkItems.workspaceId, input.workspaceId),
+      eq(creativeWorkItems.id, draft.id),
+    )).limit(1);
+    if (!work) throw new Error("creative_work_draft_lock_lost_row");
     if (work.clientProfileId !== input.clientProfileId) return null;
+
+    // The unique source key alone cannot enforce the three-source aggregate
+    // cap when different assets arrive concurrently.
+    const isSinglePieceAsset = work.toolKind === "single" && asset;
+    if (work.toolKind === "single" && input.assetId) {
+      const [existingSource] = await tx.select().from(creativeWorkSources).where(and(
+        eq(creativeWorkSources.workspaceId, input.workspaceId),
+        eq(creativeWorkSources.workItemId, work.id),
+        eq(creativeWorkSources.assetId, asset.id),
+      )).limit(1);
+      if (existingSource) {
+        return existingSource.usage === "both"
+          ? { work, source: existingSource, claimedForAnalysis: false, asset }
+          : null;
+      }
+      const [{ sourceCount }] = await tx.select({ sourceCount: count() }).from(creativeWorkSources).where(and(
+        eq(creativeWorkSources.workspaceId, input.workspaceId),
+        eq(creativeWorkSources.workItemId, work.id),
+        isNotNull(creativeWorkSources.assetId),
+      ));
+      if (Number(sourceCount) >= MAX_PIECE_REFERENCES) return { limitReached: true as const };
+    }
 
     const [createdSource] = await tx.insert(creativeWorkSources).values({
       workspaceId: input.workspaceId,
       workItemId: work.id,
       ...(asset ? { assetId: asset.id } : { templateId: template!.id }),
-      usage: input.usage,
-      usageConfirmed: input.intent !== "single",
+      usage: isSinglePieceAsset ? "both" : input.usage,
+      usageConfirmed: isSinglePieceAsset ? true : work.toolKind !== "single",
       status: "uploaded",
+      pieceReference: isSinglePieceAsset
+        ? { version: 1, category: null, classificationSource: "automatic", confidence: "low", userInstruction: null, hasTransparency: false }
+        : null,
     }).onConflictDoNothing().returning();
     const [existingSource] = createdSource ? [] : await tx.select().from(creativeWorkSources).where(and(
       eq(creativeWorkSources.workspaceId, input.workspaceId),
@@ -238,7 +369,7 @@ export async function createCreativeWorkDraftWithSource(
     )).limit(1);
     const source = createdSource ?? existingSource;
     if (!source) throw new Error("creative_work_source_conflict_without_row");
-    if (!createdSource && source.usage !== input.usage) return null;
+    if (!createdSource && source.usage !== (isSinglePieceAsset ? "both" : input.usage)) return null;
     return {
       work,
       source,
@@ -259,6 +390,192 @@ export type CreativeWorkDraftPatch = Partial<{
   copy: SocialPostCopy | null;
   identitySnapshot: CreativeWorkItem["identitySnapshot"] | null;
 }>;
+
+const automaticPieceReference = {
+  version: 1 as const,
+  category: null,
+  classificationSource: "automatic" as const,
+  confidence: "low" as const,
+  userInstruction: null,
+  hasTransparency: false,
+};
+
+const pieceReferenceLockScope = (workspaceId: string, workItemId: string) =>
+  // Source writes and preparation must serialize on one per-work lock: a
+  // source committed after prepare reads cannot be absent from its snapshot.
+  `${workspaceId}:${workItemId}:prepare`;
+
+export type CreativeWorkAutosaveResult =
+  | { work: CreativeWorkItem; error: null; sourcesNeedingSingleAnalysis: CreativeWorkSource[] }
+  | { work: null; error: "not_found" | "not_draft" | "single_piece_reference_limit"; sourcesNeedingSingleAnalysis: [] };
+
+/**
+ * Serializes tool-mode changes with source claims.  The persisted tool kind is
+ * read after acquiring the same lock used by attachment, so an attach racing a
+ * Variations -> Single autosave cannot write an unclassified factual source.
+ */
+export async function autosaveCreativeWorkDraft(input: {
+  workspaceId: string;
+  workItemId: string;
+  request: string;
+  intent: CreativeWorkIntent;
+  format: CreativeWorkFormat;
+  settings: CreativeWorkSettings;
+}): Promise<CreativeWorkAutosaveResult> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${pieceReferenceLockScope(input.workspaceId, input.workItemId)}))`);
+    const [work] = await tx.select().from(creativeWorkItems).where(and(
+      eq(creativeWorkItems.workspaceId, input.workspaceId),
+      eq(creativeWorkItems.id, input.workItemId),
+    )).limit(1);
+    if (!work) return { work: null, error: "not_found", sourcesNeedingSingleAnalysis: [] };
+    if (work.status !== "draft") return { work: null, error: "not_draft", sourcesNeedingSingleAnalysis: [] };
+
+    let sourcesNeedingSingleAnalysis: CreativeWorkSource[] = [];
+
+    // Preserve legacy Single rows on ordinary autosaves. Normalization is a
+    // one-time Variations -> Single transition, not a rewrite of historical
+    // confirmation/piece-reference semantics.
+    if (work.toolKind !== "single" && input.intent === "single") {
+      const assetSources = await tx.select().from(creativeWorkSources).where(and(
+        eq(creativeWorkSources.workspaceId, input.workspaceId),
+        eq(creativeWorkSources.workItemId, input.workItemId),
+        isNotNull(creativeWorkSources.assetId),
+      ));
+      if (assetSources.length > MAX_PIECE_REFERENCES) {
+        return { work: null, error: "single_piece_reference_limit", sourcesNeedingSingleAnalysis: [] };
+      }
+      const normalizedSources = await Promise.all(assetSources.map((source) => tx.update(creativeWorkSources).set({
+        usage: "both",
+        usageConfirmed: true,
+        pieceReference: source.pieceReference ?? automaticPieceReference,
+        // Re-enter the durable claim state after the mode transition.  The
+        // new Single analysis reads the current tool kind and its own CAS;
+        // the old Variations attempt holds the prior timestamp and loses.
+        status: "uploaded",
+        failureCode: null,
+        contentAnalysis: null,
+        styleAnalysis: null,
+        // Invalidate an in-flight Variations analysis attempt. Its CAS still
+        // carries the pre-normalization timestamp and therefore cannot erase
+        // the piece-reference block after the vision call returns.
+        updatedAt: sql`greatest(${creativeWorkSources.updatedAt} + interval '1 millisecond', now())`,
+      }).where(and(
+        eq(creativeWorkSources.workspaceId, input.workspaceId),
+        eq(creativeWorkSources.workItemId, input.workItemId),
+        eq(creativeWorkSources.id, source.id),
+      )).returning()));
+      sourcesNeedingSingleAnalysis = normalizedSources.flatMap((rows) => rows);
+    }
+
+    const [updated] = await tx.update(creativeWorkItems).set({
+      request: input.request,
+      toolKind: input.intent,
+      format: input.format,
+      settings: input.settings,
+      brief: null,
+      copy: null,
+      inputSnapshot: null,
+      updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
+    }).where(and(
+      eq(creativeWorkItems.workspaceId, input.workspaceId),
+      eq(creativeWorkItems.id, input.workItemId),
+      eq(creativeWorkItems.status, "draft"),
+    )).returning();
+    return updated
+      ? { work: updated, error: null, sourcesNeedingSingleAnalysis }
+      : { work: null, error: "not_draft", sourcesNeedingSingleAnalysis: [] };
+  });
+}
+
+export type CreativeWorkPieceReferenceMutation =
+  | { kind: "correct"; category?: PieceReferenceCategory; userInstruction?: string | null }
+  | { kind: "replace"; assetId: string };
+
+/**
+ * Changes a Single Piece reference under the same draft/prepare lock.  The
+ * source mutation and prepared-artifact invalidation are one transaction, so
+ * a prepare that won the lock is observed as a conflict instead of producing
+ * a snapshot for a previous source revision.
+ */
+export async function mutateCreativeWorkPieceReference(input: {
+  workspaceId: string;
+  workItemId: string;
+  sourceId: string;
+  mutation: CreativeWorkPieceReferenceMutation;
+}): Promise<CreativeWorkSource | null> {
+  const abort = Symbol("piece_reference_mutation_conflict");
+  try {
+    return await withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (tx) => {
+      const [work] = await tx.select({ id: creativeWorkItems.id, toolKind: creativeWorkItems.toolKind })
+        .from(creativeWorkItems)
+        .where(and(
+          eq(creativeWorkItems.workspaceId, input.workspaceId),
+          eq(creativeWorkItems.id, input.workItemId),
+          eq(creativeWorkItems.status, "draft"),
+        )).limit(1);
+      if (!work || work.toolKind !== "single") throw abort;
+
+      const [source] = await tx.select().from(creativeWorkSources).where(and(
+        eq(creativeWorkSources.workspaceId, input.workspaceId),
+        eq(creativeWorkSources.workItemId, input.workItemId),
+        eq(creativeWorkSources.id, input.sourceId),
+        isNotNull(creativeWorkSources.assetId),
+      )).limit(1);
+      if (!source?.pieceReference || (input.mutation.kind === "correct" && source.status !== "ready")) throw abort;
+
+      const patch: CreativeWorkSourcePatch = input.mutation.kind === "correct"
+        ? {
+            pieceReference: {
+              ...source.pieceReference,
+              version: 1,
+              ...(input.mutation.category === undefined
+                ? {}
+                : { category: input.mutation.category, classificationSource: "user" }),
+              ...(input.mutation.userInstruction === undefined
+                ? {}
+                : { userInstruction: input.mutation.userInstruction?.trim() || null }),
+            },
+          }
+        : {
+            assetId: input.mutation.assetId,
+            contentAnalysis: null,
+            styleAnalysis: null,
+            status: "uploaded",
+            failureCode: null,
+            pieceReference: {
+              ...automaticPieceReference,
+              userInstruction: source.pieceReference.userInstruction,
+            },
+          };
+      const [updated] = await tx.update(creativeWorkSources).set({
+        ...patch,
+        updatedAt: sql`greatest(${creativeWorkSources.updatedAt} + interval '1 millisecond', now())`,
+      }).where(and(
+        eq(creativeWorkSources.workspaceId, input.workspaceId),
+        eq(creativeWorkSources.workItemId, input.workItemId),
+        eq(creativeWorkSources.id, input.sourceId),
+      )).returning();
+      if (!updated) throw abort;
+
+      const [invalidated] = await tx.update(creativeWorkItems).set({
+        brief: null,
+        copy: null,
+        inputSnapshot: null,
+        updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
+      }).where(and(
+        eq(creativeWorkItems.workspaceId, input.workspaceId),
+        eq(creativeWorkItems.id, input.workItemId),
+        eq(creativeWorkItems.status, "draft"),
+      )).returning();
+      if (!invalidated) throw abort;
+      return updated;
+    });
+  } catch (error) {
+    if (error === abort) return null;
+    throw error;
+  }
+}
 
 export async function updateCreativeWorkDraft(workspaceId: string, workItemId: string, patch: CreativeWorkDraftPatch): Promise<CreativeWorkItem | null> {
   const [row] = await db.update(creativeWorkItems).set({
@@ -294,7 +611,7 @@ export async function updateCreativeWorkDraftIfUnchanged(
 export function withCreativeWorkPreparationLock<T>(
   workspaceId: string,
   workItemId: string,
-  callback: (executor: Pick<typeof db, "select" | "update">) => Promise<T>,
+  callback: (executor: Pick<typeof db, "select" | "update" | "delete">) => Promise<T>,
 ): Promise<T> {
   // ponytail: holds one DB connection during the model call; move to a lease/state-machine if preparation throughput matters.
   return db.transaction(async (tx) => {
@@ -382,6 +699,7 @@ export interface CreateCreativeWorkSourceInput {
   status: CreativeSourceStatus;
   contentAnalysis?: CreativeWorkSource["contentAnalysis"];
   styleAnalysis?: CreativeWorkSource["styleAnalysis"];
+  pieceReference?: CreativeWorkSource["pieceReference"];
   failureCode?: string | null;
 }
 
@@ -390,13 +708,12 @@ export interface CreativeWorkSourceClaim {
   claimedForAnalysis: boolean;
 }
 
-export async function createCreativeWorkSource(input: CreateCreativeWorkSourceInput): Promise<CreativeWorkSourceClaim | null> {
+export interface CreativeWorkSourceLimitReached {
+  limitReached: true;
+}
+
+export async function createCreativeWorkSource(input: CreateCreativeWorkSourceInput): Promise<CreativeWorkSourceClaim | CreativeWorkSourceLimitReached | null> {
   if (Boolean(input.assetId) === Boolean(input.templateId)) return null;
-  const [work] = await db.select({ id: creativeWorkItems.id }).from(creativeWorkItems).where(and(
-    eq(creativeWorkItems.workspaceId, input.workspaceId),
-    eq(creativeWorkItems.id, input.workItemId),
-  )).limit(1);
-  if (!work) return null;
   const originTable = input.assetId ? workspaceAssets : campaignTemplates;
   const originId = input.assetId ?? input.templateId!;
   const [origin] = await db.select({ id: originTable.id }).from(originTable).where(and(
@@ -405,7 +722,39 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
   )).limit(1);
   if (!origin) return null;
   return db.transaction(async (tx) => {
-    const [row] = await tx.insert(creativeWorkSources).values(input).onConflictDoNothing().returning();
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${pieceReferenceLockScope(input.workspaceId, input.workItemId)}))`);
+    const [work] = await tx.select({ id: creativeWorkItems.id, toolKind: creativeWorkItems.toolKind }).from(creativeWorkItems).where(and(
+      eq(creativeWorkItems.workspaceId, input.workspaceId),
+      eq(creativeWorkItems.id, input.workItemId),
+      eq(creativeWorkItems.status, "draft"),
+    )).limit(1);
+    if (!work) return null;
+    const isSinglePieceAsset = work.toolKind === "single" && Boolean(input.assetId);
+    const sourceInput: CreateCreativeWorkSourceInput = {
+      ...input,
+      usage: isSinglePieceAsset ? "both" : input.usage,
+      usageConfirmed: isSinglePieceAsset ? true : work.toolKind !== "single",
+      ...(isSinglePieceAsset ? { pieceReference: automaticPieceReference } : {}),
+    };
+    if (work.toolKind === "single" && input.assetId) {
+      const [existing] = await tx.select().from(creativeWorkSources).where(and(
+        eq(creativeWorkSources.workspaceId, input.workspaceId),
+        eq(creativeWorkSources.workItemId, input.workItemId),
+        eq(creativeWorkSources.assetId, input.assetId),
+      )).limit(1);
+      if (existing) {
+        return existing.usage === sourceInput.usage
+          ? { source: existing, claimedForAnalysis: false }
+          : null;
+      }
+      const [{ sourceCount }] = await tx.select({ sourceCount: count() }).from(creativeWorkSources).where(and(
+        eq(creativeWorkSources.workspaceId, input.workspaceId),
+        eq(creativeWorkSources.workItemId, input.workItemId),
+        isNotNull(creativeWorkSources.assetId),
+      ));
+      if (Number(sourceCount) >= MAX_PIECE_REFERENCES) return { limitReached: true };
+    }
+    const [row] = await tx.insert(creativeWorkSources).values(sourceInput).onConflictDoNothing().returning();
     if (!row) {
       const originCondition = input.assetId
         ? eq(creativeWorkSources.assetId, input.assetId)
@@ -415,7 +764,7 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
         eq(creativeWorkSources.workItemId, input.workItemId),
         originCondition,
       )).limit(1);
-      return existing?.usage === input.usage
+      return existing?.usage === sourceInput.usage
         ? { source: existing, claimedForAnalysis: false }
         : null;
     }
@@ -429,7 +778,80 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
   });
 }
 
-export type CreativeWorkSourcePatch = Partial<Pick<CreativeWorkSource, "usage" | "usageConfirmed" | "status" | "contentAnalysis" | "styleAnalysis" | "failureCode">>;
+export type CreativeWorkSourcePatch = Partial<Pick<CreativeWorkSource, "assetId" | "usage" | "usageConfirmed" | "status" | "contentAnalysis" | "styleAnalysis" | "pieceReference" | "failureCode">>;
+
+export type CreativeWorkDraftSourceMutation =
+  | { kind: "remove" }
+  | { kind: "update"; patch: CreativeWorkSourcePatch; expected?: Pick<CreativeWorkSource, "status" | "usage" | "updatedAt"> };
+
+/**
+ * Draft-only source writers that are initiated by the browser share prepare's
+ * lock. This prevents a source change from landing after prepare froze its
+ * inputs, while leaving background analysis on its narrow CAS path.
+ */
+export async function mutateCreativeWorkDraftSource(input: {
+  workspaceId: string;
+  workItemId: string;
+  sourceId: string;
+  mutation: CreativeWorkDraftSourceMutation;
+}): Promise<CreativeWorkSource | null> {
+  const abort = Symbol("creative_work_draft_source_conflict");
+  try {
+    return await withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (tx) => {
+      const [work] = await tx.select({ id: creativeWorkItems.id }).from(creativeWorkItems).where(and(
+        eq(creativeWorkItems.workspaceId, input.workspaceId),
+        eq(creativeWorkItems.id, input.workItemId),
+        eq(creativeWorkItems.status, "draft"),
+      )).limit(1);
+      if (!work) throw abort;
+
+      const [source] = await tx.select().from(creativeWorkSources).where(and(
+        eq(creativeWorkSources.workspaceId, input.workspaceId),
+        eq(creativeWorkSources.workItemId, input.workItemId),
+        eq(creativeWorkSources.id, input.sourceId),
+      )).limit(1);
+      if (!source) throw abort;
+      const expected = input.mutation.kind === "update" ? input.mutation.expected : undefined;
+      if (expected && (
+        source.status !== expected.status
+        || source.usage !== expected.usage
+        || source.updatedAt.getTime() !== expected.updatedAt.getTime()
+      )) throw abort;
+
+      const [changed] = input.mutation.kind === "remove"
+        ? await tx.delete(creativeWorkSources).where(and(
+            eq(creativeWorkSources.workspaceId, input.workspaceId),
+            eq(creativeWorkSources.workItemId, input.workItemId),
+            eq(creativeWorkSources.id, input.sourceId),
+          )).returning()
+        : await tx.update(creativeWorkSources).set({
+            ...input.mutation.patch,
+            updatedAt: sql`greatest(${creativeWorkSources.updatedAt} + interval '1 millisecond', now())`,
+          }).where(and(
+            eq(creativeWorkSources.workspaceId, input.workspaceId),
+            eq(creativeWorkSources.workItemId, input.workItemId),
+            eq(creativeWorkSources.id, input.sourceId),
+          )).returning();
+      if (!changed) throw abort;
+
+      const [invalidated] = await tx.update(creativeWorkItems).set({
+        brief: null,
+        copy: null,
+        inputSnapshot: null,
+        updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
+      }).where(and(
+        eq(creativeWorkItems.workspaceId, input.workspaceId),
+        eq(creativeWorkItems.id, input.workItemId),
+        eq(creativeWorkItems.status, "draft"),
+      )).returning();
+      if (!invalidated) throw abort;
+      return changed;
+    });
+  } catch (error) {
+    if (error === abort) return null;
+    throw error;
+  }
+}
 
 export async function updateCreativeWorkSource(workspaceId: string, workItemId: string, sourceId: string, patch: CreativeWorkSourcePatch): Promise<CreativeWorkSource | null> {
   return db.transaction(async (tx) => {
@@ -1503,7 +1925,9 @@ export async function selectCreativeWorkOutput(
 export async function requeueFailedCreativeWorkOutput(
   workspaceId: string,
   workItemId: string,
-  outputId: string
+  outputId: string,
+  expectedRetryCount: number,
+  expectedManualRetryAttempt?: number | null,
 ): Promise<CreativeWorkOutput | null> {
   const [reset] = await db
     .update(creativeWorkOutputs)
@@ -1520,9 +1944,59 @@ export async function requeueFailedCreativeWorkOutput(
         eq(creativeWorkOutputs.workItemId, workItemId),
         eq(creativeWorkOutputs.id, outputId),
         eq(creativeWorkOutputs.status, "failed"),
+        eq(creativeWorkOutputs.retryCount, expectedRetryCount),
+        expectedManualRetryAttempt === undefined
+          ? undefined
+          : expectedManualRetryAttempt === null
+            ? isNull(creativeWorkOutputs.manualRetryAttempt)
+            : eq(creativeWorkOutputs.manualRetryAttempt, expectedManualRetryAttempt),
         lt(creativeWorkOutputs.imageCallCount, CREATIVE_WORK_MAX_IMAGE_CALLS)
       )
     )
     .returning();
   return reset ?? null;
+}
+
+/**
+ * Reserves a durable manual billing ordinal before a reactivation debit.  The
+ * status stays failed until the debit is accepted; duplicate clicks either
+ * join the same idempotency key or lose this CAS.
+ */
+export async function claimCreativeWorkOutputManualRetryAttempt(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string,
+  expectedRetryCount: number,
+  expectedManualRetryAttempt: number | null,
+  nextManualRetryAttempt: number,
+): Promise<CreativeWorkOutput | null> {
+  // A no-op ordinal update cannot establish ownership. Recovered charges join
+  // through the queued-state CAS instead; only a new ordinal is claimable.
+  if (expectedManualRetryAttempt === nextManualRetryAttempt) return null;
+  const [claimed] = await db.update(creativeWorkOutputs).set({
+    manualRetryAttempt: nextManualRetryAttempt,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.id, outputId),
+    eq(creativeWorkOutputs.status, "failed"),
+    eq(creativeWorkOutputs.retryCount, expectedRetryCount),
+    expectedManualRetryAttempt === null
+      ? isNull(creativeWorkOutputs.manualRetryAttempt)
+      : eq(creativeWorkOutputs.manualRetryAttempt, expectedManualRetryAttempt),
+    lt(creativeWorkOutputs.imageCallCount, CREATIVE_WORK_MAX_IMAGE_CALLS),
+  )).returning();
+  return claimed ?? null;
+}
+
+/** Releases an uncharged reservation; never touches queued/processing rows. */
+export async function releaseCreativeWorkOutputManualRetryAttempt(
+  workspaceId: string, workItemId: string, outputId: string, retryCount: number, reservedAttempt: number,
+): Promise<CreativeWorkOutput | null> {
+  const [released] = await db.update(creativeWorkOutputs).set({ manualRetryAttempt: null, updatedAt: new Date() }).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId), eq(creativeWorkOutputs.workItemId, workItemId), eq(creativeWorkOutputs.id, outputId),
+    eq(creativeWorkOutputs.status, "failed"), eq(creativeWorkOutputs.retryCount, retryCount), eq(creativeWorkOutputs.manualRetryAttempt, reservedAttempt),
+  )).returning();
+  return released ?? null;
 }

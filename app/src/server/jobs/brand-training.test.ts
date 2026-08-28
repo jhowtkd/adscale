@@ -144,11 +144,19 @@ describe("brandTrainingAnalyzeJob", () => {
     });
   });
 
-  it("has Inngest function id, retries, and trigger configured correctly", () => {
+  it("serializes duplicate analysis events by reference while retaining retries", () => {
     expect(brandTrainingAnalyzeJob).toBeDefined();
-    const opts = (brandTrainingAnalyzeJob as unknown as { opts: { id?: string; retries?: number; triggers?: Array<{ event?: string }> } }).opts;
+    const opts = (brandTrainingAnalyzeJob as unknown as {
+      opts: {
+        id?: string;
+        retries?: number;
+        concurrency?: Array<{ limit: number; key?: string }>;
+        triggers?: Array<{ event?: string }>;
+      };
+    }).opts;
     expect(opts.id).toBe("analyze-brand-training-asset");
     expect(opts.retries).toBe(2);
+    expect(opts.concurrency).toEqual([{ limit: 1, key: "event.data.referenceId" }]);
     expect(opts.triggers).toEqual([{ event: "brand.training.analyze" }]);
   });
 
@@ -307,9 +315,9 @@ describe("brandTrainingAnalyzeJob", () => {
     expect(mockRecordTrainingAnalysis).not.toHaveBeenCalled();
   });
 
-  it("short-circuits on stale retry: does not call OpenAI when analysis already exists", async () => {
-    // Simulate a retry where the previous attempt already enriched the approved
-    // row. The job must skip the LLM call entirely so we don't re-charge OpenAI.
+  it("skips the second serialized event after the first persists analysis", async () => {
+    // The concurrency key serializes duplicate events. Once the first event has
+    // persisted, the second re-reads this row and must not re-charge OpenAI.
     mockGetTrainingReferenceForAnalysis.mockResolvedValueOnce({
       id: baseEventData.referenceId,
       workspaceId: baseEventData.workspaceId,

@@ -30,6 +30,45 @@ export interface CreativeWorkRefundInput {
   outputId: string;
 }
 
+/** Manual retry debit and compensation keys are scoped to the durable retry ordinal. */
+export function creativeWorkTerminalReactivationIdempotencyKey(
+  workItemId: string,
+  outputId: string,
+  retryAttempt: number,
+): string {
+  return `creative-work:${workItemId}:output:${outputId}:reactivate-terminal:${retryAttempt}`;
+}
+
+export function creativeWorkTerminalReactivationRefundIdempotencyKey(
+  workItemId: string,
+  outputId: string,
+  retryAttempt: number,
+): string {
+  return `${creativeWorkTerminalReactivationIdempotencyKey(workItemId, outputId, retryAttempt)}-refund`;
+}
+
+export function creativeWorkLegacyTerminalReactivationIdempotencyKey(
+  workItemId: string,
+  outputId: string,
+): string {
+  return `creative-work:${workItemId}:output:${outputId}:reactivate-terminal`;
+}
+
+export function creativeWorkLegacyTerminalReactivationRefundIdempotencyKey(
+  workItemId: string,
+  outputId: string,
+): string {
+  return `${creativeWorkLegacyTerminalReactivationIdempotencyKey(workItemId, outputId)}-refund`;
+}
+
+export function creativeWorkTerminalRefundIdempotencyKey(workItemId: string, outputId: string): string {
+  return `creative-work:${workItemId}:output:${outputId}:terminal-refund`;
+}
+
+export function creativeWorkCompensatoryRefundIdempotencyKey(outputId: string): string {
+  return `creative-output:${outputId}:compensatory-refund`;
+}
+
 /**
  * Derivation / Assistente refund rules (current production behaviour):
  * - Charge happens upstream of the job.

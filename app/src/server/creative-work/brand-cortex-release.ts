@@ -126,7 +126,7 @@ export const brandCortexPilotManifestSchema = z.object({
       durationMs: z.number().nonnegative(),
       inputs: z.array(z.object({
         position: z.number().int().positive(),
-        role: z.enum(["revision", "original", "content", "style", "brand_identity"]),
+        role: z.enum(["revision", "original", "content", "style", "piece_required", "piece_visual", "brand_identity"]),
         required: z.boolean(),
         assetKey: z.string().min(1),
         label: z.string().min(1),

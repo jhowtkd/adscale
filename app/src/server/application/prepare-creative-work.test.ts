@@ -71,6 +71,115 @@ describe("prepareCreativeWork", () => {
     getSourceAssets.mockResolvedValue(new Map());
   });
 
+  it("blocks an automatic low-confidence piece reference before copy", async () => {
+    getWork.mockResolvedValue({ work: { ...work, toolKind: "single" }, outputs: [], sources: [{ id: "source-1", assetId: "asset-1", templateId: null, status: "ready", usage: "both", usageConfirmed: true, pieceReference: { version: 1, category: null, classificationSource: "automatic", confidence: "low", userInstruction: null, hasTransparency: false } }] } as never);
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).resolves.toEqual({ ok: false, error: { code: "piece_reference_required" } });
+    expect(generateCopy).not.toHaveBeenCalled();
+  });
+
+  it("returns the specific exact transparency error before any generation work", async () => {
+    getWork.mockResolvedValue({ work: { ...work, toolKind: "single" }, outputs: [], sources: [{ id: "source-1", assetId: "asset-1", templateId: null, status: "ready", usage: "both", usageConfirmed: true, pieceReference: { version: 1, category: "additional_logo_or_seal", classificationSource: "user", confidence: "high", userInstruction: null, hasTransparency: false } }] } as never);
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).resolves.toEqual({ ok: false, error: { code: "piece_reference_exact_incompatible" } });
+    expect(generateCopy).not.toHaveBeenCalled();
+  });
+
+  it("accepts a user-corrected reference, freezes its rendering contract, and keeps legacy sources compatible", async () => {
+    const corrected = {
+      id: "source-corrected", assetId: "asset-1", templateId: null, status: "ready", usage: "both", usageConfirmed: true, updatedAt: now,
+      contentAnalysis: null, styleAnalysis: { description: "editorial" },
+      pieceReference: { version: 1, category: "product_or_packaging", classificationSource: "user", confidence: "low", userInstruction: "Mostrar o rótulo", hasTransparency: false },
+    };
+    getWork.mockResolvedValue({ work: { ...work, toolKind: "single" }, outputs: [], sources: [corrected] } as never);
+    getSourceAssets.mockResolvedValue(new Map([["source-corrected", { assetKey: "workspaces/ws/assets/product.png", mimeType: "image/png", name: "product.png" }]]));
+
+    const correctedResult = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(correctedResult.ok).toBe(true);
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+      inputSnapshot: expect.objectContaining({ sources: [expect.objectContaining({
+        sourceId: "source-corrected", assetKey: "workspaces/ws/assets/product.png", mimeType: "image/png", label: "product.png",
+        pieceReference: {
+          version: 1, category: "product_or_packaging", treatment: "recognizable_preservation",
+          userInstruction: "Mostrar o rótulo", hasTransparency: false,
+        },
+      })] }),
+    }), transactionExecutor);
+
+    updateDraft.mockClear();
+    getWork.mockResolvedValue({
+      work: { ...work, toolKind: "single" }, outputs: [],
+      sources: [{ ...corrected, id: "source-legacy", pieceReference: undefined }],
+    } as never);
+    getSourceAssets.mockResolvedValue(new Map([["source-legacy", { assetKey: "workspaces/ws/assets/legacy.png", mimeType: "image/png", name: "legacy.png" }]]));
+
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).resolves.toMatchObject({ ok: true });
+    expect(updateDraft).toHaveBeenCalledOnce();
+  });
+
+  it("keeps Single temporary analyses visual-only when building facts and copy", async () => {
+    const temporary = {
+      id: "source-moodboard", assetId: "asset-moodboard", templateId: null, status: "ready", usage: "both", usageConfirmed: true, updatedAt: now,
+      contentAnalysis: { product: "Oferta inventada do moodboard", offer: "R$ 9,99", brandElements: ["Logo de terceiro"] }, styleAnalysis: { description: "Papel granulado" },
+      pieceReference: { version: 1, category: "style_reference", classificationSource: "user", confidence: "high", userInstruction: "Só textura", hasTransparency: false },
+    };
+    getWork.mockResolvedValue({ work: { ...work, toolKind: "single" }, outputs: [], sources: [temporary] } as never);
+    getSourceAssets.mockResolvedValue(new Map([["source-moodboard", { assetKey: "workspaces/ws/assets/moodboard.png", mimeType: "image/png", name: "moodboard.png" }]]));
+
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).resolves.toMatchObject({ ok: true });
+
+    const patch = updateDraft.mock.calls[0]?.[3] as { inputSnapshot: { factPack: unknown; sources: Array<{ pieceReference?: unknown }> } };
+    expect(JSON.stringify(patch.inputSnapshot.factPack)).not.toContain("Oferta inventada do moodboard");
+    expect(JSON.stringify(patch.inputSnapshot.factPack)).not.toContain("Logo de terceiro");
+    expect(patch.inputSnapshot.sources[0]?.pieceReference).toEqual(expect.objectContaining({ category: "style_reference", userInstruction: "Só textura" }));
+    expect(generateCopy).toHaveBeenCalledWith(expect.objectContaining({ factPack: expect.not.objectContaining({ facts: expect.arrayContaining([expect.objectContaining({ value: "Oferta inventada do moodboard" })]) }) }));
+  });
+
+  it.each(["variations", "format_adaptation"] as const)(
+    "treats stale Piece metadata as ordinary factual source data for persisted %s work",
+    async (toolKind) => {
+      const stale = {
+        id: "source-stale", assetId: "asset-stale", templateId: null, status: "ready", usage: "content", usageConfirmed: false, updatedAt: now,
+        contentAnalysis: { product: "Oferta da arte" }, styleAnalysis: null,
+        pieceReference: { version: 1, category: "additional_logo_or_seal", classificationSource: "automatic", confidence: "low", userInstruction: "rodapé", hasTransparency: false },
+      };
+      getWork.mockResolvedValue({ work: {
+        ...work,
+        toolKind,
+        settings: toolKind === "format_adaptation" ? { targetFormats: ["1:1"] } : work.settings,
+      }, outputs: [], sources: [stale] } as never);
+      getSourceAssets.mockResolvedValue(new Map([["source-stale", { assetKey: "workspaces/ws/assets/stale.png", mimeType: "image/png", name: "stale.png" }]]));
+
+      await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).resolves.toMatchObject({ ok: true });
+
+      const patch = updateDraft.mock.calls[0]?.[3] as { inputSnapshot: { factPack: unknown; sources: Array<{ pieceReference?: unknown }> } };
+      expect(JSON.stringify(patch.inputSnapshot.factPack)).toContain("Oferta da arte");
+      expect(patch.inputSnapshot.sources[0]?.pieceReference).toBeUndefined();
+    },
+  );
+
+  it("treats stale Piece metadata as ordinary source data for persisted restyle work", async () => {
+    const staleContent = {
+      id: "source-stale", assetId: "asset-stale", templateId: null, status: "ready", usage: "content", usageConfirmed: false, updatedAt: now,
+      contentAnalysis: { product: "Oferta da arte" }, styleAnalysis: null,
+      pieceReference: { version: 1, category: "additional_logo_or_seal", classificationSource: "automatic", confidence: "low", userInstruction: "rodapé", hasTransparency: false },
+    };
+    const style = {
+      id: "source-style", assetId: "asset-style", templateId: null, status: "ready", usage: "style", usageConfirmed: false, updatedAt: now,
+      contentAnalysis: null, styleAnalysis: { description: "Editorial" }, pieceReference: null,
+    };
+    getWork.mockResolvedValue({ work: { ...work, toolKind: "restyle" }, outputs: [], sources: [staleContent, style] } as never);
+    getSourceAssets.mockResolvedValue(new Map([
+      ["source-stale", { assetKey: "workspaces/ws/assets/stale.png", mimeType: "image/png", name: "stale.png" }],
+      ["source-style", { assetKey: "workspaces/ws/assets/style.png", mimeType: "image/png", name: "style.png" }],
+    ]));
+
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).resolves.toMatchObject({ ok: true });
+
+    const patch = updateDraft.mock.calls[0]?.[3] as { inputSnapshot: { factPack: unknown; sources: Array<{ sourceId: string; pieceReference?: unknown }> } };
+    expect(JSON.stringify(patch.inputSnapshot.factPack)).toContain("Oferta da arte");
+    expect(patch.inputSnapshot.sources.find((source) => source.sourceId === "source-stale")?.pieceReference).toBeUndefined();
+  });
+
   it("persists inferred brief and pure copy without a billing adapter", async () => {
     getWork.mockResolvedValue({ work, outputs: [], sources: [] } as never);
     const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });

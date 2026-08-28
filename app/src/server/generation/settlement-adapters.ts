@@ -19,6 +19,14 @@ import {
   type GenerationRequest,
   type GenerationSurface,
 } from "@/server/generation/canonical/types";
+import {
+  creativeWorkCompensatoryRefundIdempotencyKey,
+  creativeWorkLegacyTerminalReactivationIdempotencyKey,
+  creativeWorkLegacyTerminalReactivationRefundIdempotencyKey,
+  creativeWorkTerminalRefundIdempotencyKey,
+  creativeWorkTerminalReactivationIdempotencyKey,
+  creativeWorkTerminalReactivationRefundIdempotencyKey,
+} from "@/server/generation/canonical/policies";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import {
   logCreativeWorkGenerationAggregate,
@@ -2575,8 +2583,7 @@ export function restyleCampaignSettlementAdapter(input: {
  * later refund of the same kind can never be reactivated twice, and a new
  * refund kind still restores the net debit exactly once.
  */
-const CREATIVE_WORK_REFUND_KEY_KINDS = ["pregen", "terminal", "dispatch"] as const;
-type CreativeWorkRefundKeyKind = (typeof CREATIVE_WORK_REFUND_KEY_KINDS)[number];
+type CreativeWorkRefundKeyKind = "pregen" | "terminal" | "dispatch";
 
 function creativeWorkRefundIdempotencyKey(
   workItemId: string,
@@ -2584,14 +2591,6 @@ function creativeWorkRefundIdempotencyKey(
   kind: CreativeWorkRefundKeyKind,
 ): string {
   return `creative-work:${workItemId}:output:${outputId}:${kind}-refund`;
-}
-
-function creativeWorkReactivationIdempotencyKey(
-  workItemId: string,
-  outputId: string,
-  kind: CreativeWorkRefundKeyKind,
-): string {
-  return `creative-work:${workItemId}:output:${outputId}:reactivate-${kind}`;
 }
 
 /**
@@ -2609,47 +2608,161 @@ export async function reactivateCreativeWorkOutputRefund(input: {
   workspaceId: string;
   workItemId: string;
   outputId: string;
+  /** Durable manual ordinal, reserved by the guarded repository CAS. */
+  retryAttempt: number;
   amount: number;
   userId?: string;
-}): Promise<{ reactivated: CreativeWorkRefundKeyKind[] } | { blocked: true }> {
-  const reactivated: CreativeWorkRefundKeyKind[] = [];
-  for (const kind of CREATIVE_WORK_REFUND_KEY_KINDS) {
-    const refundKey = creativeWorkRefundIdempotencyKey(
-      input.workItemId,
-      input.outputId,
-      kind,
-    );
-    const refundRow = await getUsageByIdempotencyKey(input.workspaceId, refundKey);
-    if (!refundRow) continue;
-    const reactivationKey = creativeWorkReactivationIdempotencyKey(
-      input.workItemId,
-      input.outputId,
-      kind,
-    );
-    const existingReactivation = await getUsageByIdempotencyKey(
-      input.workspaceId,
-      reactivationKey,
-    );
-    if (existingReactivation) continue;
-    const result = await recordUsage({
-      workspaceId: input.workspaceId,
-      action: "image_derivation",
-      idempotencyKey: reactivationKey,
-      amount: input.amount,
-      metadata: {
-        creativeWorkId: input.workItemId,
-        outputId: input.outputId,
-        description: "creative_work_retry_reactivation",
-        reactivates: refundKey,
-      },
-      userId: input.userId,
-    });
-    if (result.status === "blocked") {
-      return { blocked: true };
-    }
-    reactivated.push(kind);
+}): Promise<{ reactivated: CreativeWorkRefundKeyKind[]; reactivates?: string } | { blocked: true }> {
+  if (!Number.isInteger(input.retryAttempt) || input.retryAttempt < 1) {
+    throw new Error("creative_work_retry_attempt_invalid");
   }
-  return { reactivated };
+  // A retry restores exactly one prior debit.  Older code looped over every
+  // refund kind, which could charge a customer multiple times for one click.
+  const refundKeys = input.retryAttempt === 1
+    ? [
+        creativeWorkCompensatoryRefundIdempotencyKey(input.outputId),
+        creativeWorkTerminalRefundIdempotencyKey(input.workItemId, input.outputId),
+        creativeWorkRefundIdempotencyKey(input.workItemId, input.outputId, "dispatch"),
+        creativeWorkRefundIdempotencyKey(input.workItemId, input.outputId, "pregen"),
+      ]
+    : [creativeWorkTerminalReactivationRefundIdempotencyKey(
+        input.workItemId,
+        input.outputId,
+        input.retryAttempt - 1,
+      )];
+  const refundKey = (await Promise.all(refundKeys.map(async (key) =>
+    (await getUsageByIdempotencyKey(input.workspaceId, key)) ? key : null,
+  ))).find((key): key is string => key !== null);
+  if (!refundKey) return { reactivated: [] };
+
+  const reactivationKey = creativeWorkTerminalReactivationIdempotencyKey(
+    input.workItemId,
+    input.outputId,
+    input.retryAttempt,
+  );
+  const existingReactivation = await getUsageByIdempotencyKey(input.workspaceId, reactivationKey);
+  if (existingReactivation) return { reactivated: ["terminal"], reactivates: refundKey };
+  const result = await recordUsage({
+    workspaceId: input.workspaceId,
+    action: "image_derivation",
+    idempotencyKey: reactivationKey,
+    amount: input.amount,
+    metadata: {
+      creativeWorkId: input.workItemId,
+      outputId: input.outputId,
+      description: "creative_work_retry_reactivation",
+      reactivates: refundKey,
+      manualRetryAttempt: input.retryAttempt,
+    },
+    userId: input.userId,
+  });
+  if (result.status === "blocked") return { blocked: true };
+  return { reactivated: ["terminal"], reactivates: refundKey };
+}
+
+/**
+ * Finds the one debit that a terminal/cancel/reconciliation path must
+ * compensate.  It intentionally understands historical fixed reactivation
+ * keys as well as the modern attempt-scoped ledger, so every terminal path
+ * reaches the same answer.
+ */
+export type CreativeWorkReactivationResolution =
+  | { state: "outstanding"; kind: "manual" | "legacy"; retryAttempt: number | null; chargeKey: string; refundKey: string }
+  | { state: "already_refunded"; kind: "manual" | "legacy"; retryAttempt: number | null; chargeKey: string; refundKey: string }
+  | { state: "none" };
+
+type UsageLedgerRow = NonNullable<Awaited<ReturnType<typeof getUsageByIdempotencyKey>>>;
+
+function isRefundAfterDebit(refund: UsageLedgerRow, debit: UsageLedgerRow): boolean {
+  // Historical canonical refunds are only a compensation for a fixed legacy
+  // reactivation when they were written later. The original refund commonly
+  // predates the reactivation that re-debited it and must not cancel that
+  // debit retroactively. Rows without timestamps keep the safer specific-key
+  // behavior: only their paired `reactivate-*-refund` key can settle them.
+  return refund.createdAt instanceof Date
+    && debit.createdAt instanceof Date
+    && refund.createdAt.getTime() > debit.createdAt.getTime();
+}
+
+type LegacyReactivationCandidate = {
+  kind: "terminal" | "pregen" | "dispatch";
+  chargeKey: string;
+  refundKey: string;
+  charge: UsageLedgerRow;
+  pairedRefund: UsageLedgerRow | null;
+};
+
+export async function resolveCreativeWorkOutputReactivationOutcome(input: {
+  workspaceId: string;
+  workItemId: string;
+  outputId: string;
+  manualRetryAttempt: number | null | undefined;
+}): Promise<CreativeWorkReactivationResolution> {
+  const attempt = input.manualRetryAttempt;
+  let alreadyRefunded: Exclude<CreativeWorkReactivationResolution, { state: "outstanding" } | { state: "none" }> | null = null;
+  if (attempt && attempt > 0) {
+    const chargeKey = creativeWorkTerminalReactivationIdempotencyKey(input.workItemId, input.outputId, attempt);
+    const refundKey = creativeWorkTerminalReactivationRefundIdempotencyKey(input.workItemId, input.outputId, attempt);
+    if (await getUsageByIdempotencyKey(input.workspaceId, chargeKey)) {
+      if (await getUsageByIdempotencyKey(input.workspaceId, refundKey)) {
+        alreadyRefunded = { state: "already_refunded", kind: "manual", retryAttempt: attempt, chargeKey, refundKey };
+      } else {
+        return {
+          state: "outstanding",
+          kind: "manual",
+          retryAttempt: attempt,
+          chargeKey,
+          refundKey,
+        };
+      }
+    }
+  }
+  // Historical releases created fixed keys for each refund kind. Generic
+  // terminal/compensatory refunds were not keyed to one legacy debit, so they
+  // are matched chronologically once: each can settle only the most recent
+  // preceding still-unmatched debit. Explicit paired refunds remain exact.
+  const candidates: LegacyReactivationCandidate[] = [];
+  for (const kind of ["terminal", "pregen", "dispatch"] as const) {
+    const chargeKey = kind === "terminal"
+      ? creativeWorkLegacyTerminalReactivationIdempotencyKey(input.workItemId, input.outputId)
+      : `creative-work:${input.workItemId}:output:${input.outputId}:reactivate-${kind}`;
+    const refundKey = kind === "terminal"
+      ? creativeWorkLegacyTerminalReactivationRefundIdempotencyKey(input.workItemId, input.outputId)
+      : `${chargeKey}-refund`;
+    const charge = await getUsageByIdempotencyKey(input.workspaceId, chargeKey);
+    if (!charge) continue;
+    const pairedRefund = await getUsageByIdempotencyKey(input.workspaceId, refundKey);
+    candidates.push({ kind, chargeKey, refundKey, charge, pairedRefund });
+  }
+  const genericRefunds = (await Promise.all([
+    getUsageByIdempotencyKey(input.workspaceId, creativeWorkCompensatoryRefundIdempotencyKey(input.outputId)),
+    getUsageByIdempotencyKey(input.workspaceId, creativeWorkTerminalRefundIdempotencyKey(input.workItemId, input.outputId)),
+  ])).filter((refund): refund is UsageLedgerRow => Boolean(refund));
+  const genericSettled = new Set<string>();
+  for (const refund of genericRefunds
+    .filter((candidate) => candidate.createdAt instanceof Date)
+    .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime())) {
+    const eligible = candidates
+      .filter((candidate) => !candidate.pairedRefund && !genericSettled.has(candidate.chargeKey)
+        && isRefundAfterDebit(refund, candidate.charge))
+      .sort((left, right) => right.charge.createdAt.getTime() - left.charge.createdAt.getTime()
+        || right.chargeKey.localeCompare(left.chargeKey))[0];
+    if (eligible) genericSettled.add(eligible.chargeKey);
+  }
+  for (const candidate of candidates) {
+    if (candidate.pairedRefund || genericSettled.has(candidate.chargeKey)) {
+      alreadyRefunded ??= { state: "already_refunded", kind: "legacy", retryAttempt: null, chargeKey: candidate.chargeKey, refundKey: candidate.refundKey };
+      continue;
+    }
+    return { state: "outstanding", kind: "legacy", retryAttempt: null, chargeKey: candidate.chargeKey, refundKey: candidate.refundKey };
+  }
+  return alreadyRefunded ?? { state: "none" };
+}
+
+/** Compatibility wrapper for terminal callers that only need an unpaid debit. */
+export async function resolveCreativeWorkOutputReactivation(input: Parameters<typeof resolveCreativeWorkOutputReactivationOutcome>[0]) {
+  const outcome = await resolveCreativeWorkOutputReactivationOutcome(input);
+  return outcome.state === "outstanding" ? outcome : null;
 }
 
 export function regenerateDerivationSettlementAdapter(input: {

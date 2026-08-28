@@ -137,6 +137,51 @@ describe("planCreativeWorkReferences", () => {
   });
 
   describe("social_post / art_variation", () => {
+    it("puts required temporary references before visual references and brand assets", () => {
+      const plan = planCreativeWorkReferences({
+        mode: "social_post",
+        sources: [
+          { ...source("product", "both"), pieceReference: { version: 1, category: "product_or_packaging", treatment: "recognizable_preservation", userInstruction: null, hasTransparency: false } },
+          { ...source("style", "both"), pieceReference: { version: 1, category: "style_reference", treatment: "style_direction", userInstruction: "cores", hasTransparency: false } },
+          { ...source("seal", "both"), pieceReference: { version: 1, category: "additional_logo_or_seal", treatment: "exact_application", userInstruction: null, hasTransparency: true } },
+        ],
+        identityReferenceAssets: [identity("brand")],
+        limit: LIMIT,
+      });
+      expect(plan.map((slot) => slot.role)).toEqual(["piece_required", "piece_visual", "brand_identity"]);
+    });
+
+    it.each([
+      ["social_post", "variations"],
+      ["restyling", "restyle"],
+      ["format_adaptation", "format_adaptation"],
+    ] as const)("ignores stale Piece metadata for persisted %s work", (mode) => {
+      const stalePiece = {
+        ...source("stale-seal", mode === "restyling" ? "style" : mode === "social_post" ? "both" : "content"),
+        pieceReference: {
+          version: 1 as const,
+          category: "additional_logo_or_seal" as const,
+          treatment: "exact_application" as const,
+          userInstruction: "no rodapé",
+          hasTransparency: true,
+        },
+      };
+      const sources = mode === "restyling"
+        ? [source("content", "content"), stalePiece]
+        : [stalePiece];
+      const plan = planCreativeWorkReferences({
+        mode,
+        sources,
+        identityReferenceAssets: [],
+        limit: LIMIT,
+        allowPieceReferences: false,
+      });
+
+      expect(plan.map((slot) => slot.role)).not.toContain("piece_required");
+      expect(plan.map((slot) => slot.role)).not.toContain("piece_visual");
+      expect(plan.map((slot) => slot.assetKey)).toContain("stale-seal.png");
+    });
+
     it("keeps content-only sources textual and orders optional sources before identity", () => {
       const plan = planCreativeWorkReferences({
         mode: "social_post",

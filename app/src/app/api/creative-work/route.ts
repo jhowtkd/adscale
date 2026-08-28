@@ -112,6 +112,8 @@ export async function POST(request: Request) {
           : { templateId: parsed.data.templateId! }),
       });
       if (!created) return apiError("invalidInput", 400);
+      if ("limitReached" in created) return apiError("creativeWorkPieceReferenceLimit", 409);
+      if (!("source" in created)) return apiError("invalidInput", 400);
 
       let source = created.source;
       if (created.claimedForAnalysis && source.templateId) {
@@ -144,7 +146,7 @@ export async function POST(request: Request) {
         }
       }
 
-      const origin = "asset" in created ? created.asset : created.template;
+      const origin = "asset" in created ? created.asset! : created.template!;
 
       return NextResponse.json(
         {
@@ -160,7 +162,7 @@ export async function POST(request: Request) {
             ...source,
             name: origin.name,
             origin: "asset" in created
-              ? (created.asset.source === "creative_work" ? "approved_work" : "upload")
+              ? (created.asset!.source === "creative_work" ? "approved_work" : "upload")
               : "template",
           },
         },

@@ -33,6 +33,29 @@ export interface ComposeExactBrandAssetLayer {
 const MIN_WIDTH_RATIO = 0.1;
 const MAX_WIDTH_RATIO = 0.8;
 
+type PlacementBox = { left: number; top: number; width: number; height: number };
+
+function boxesOverlap(left: PlacementBox, right: PlacementBox): boolean {
+  return !(
+    left.left + left.width <= right.left ||
+    right.left + right.width <= left.left ||
+    left.top + left.height <= right.top ||
+    right.top + right.height <= left.top
+  );
+}
+
+function renderedFootprint(box: PlacementBox, pad: number, hasBackdrop: boolean): PlacementBox {
+  if (!hasBackdrop) return box;
+  const extension = Math.round(pad * 0.25);
+  const expansion = Math.round(pad * 0.5);
+  return {
+    left: Math.max(0, box.left - extension),
+    top: Math.max(0, box.top - extension),
+    width: box.width + expansion,
+    height: box.height + expansion,
+  };
+}
+
 function clampWidthRatio(value: number): number {
   if (!Number.isFinite(value)) return MIN_WIDTH_RATIO;
   if (value < MIN_WIDTH_RATIO) return MIN_WIDTH_RATIO;
@@ -119,6 +142,8 @@ export async function pickContrastSafePlacement(input: {
   logo: Buffer;
   plan: CompositionLayerPlan;
   dimensions: { width: number; height: number };
+  /** Boxes accepted for earlier exact layers in snapshot order. */
+  occupiedBoxes?: readonly PlacementBox[];
 }): Promise<{
   gravity: BrandAssetGravity;
   contrast: number;
@@ -145,11 +170,7 @@ export async function pickContrastSafePlacement(input: {
     ...plan.policy.allowedGravities.filter((g) => g !== plan.gravity),
   ];
 
-  let best = {
-    gravity: plan.gravity,
-    contrast: 0,
-    usedBackdrop: false,
-  };
+  let best: { gravity: BrandAssetGravity; contrast: number; usedBackdrop: boolean } | null = null;
 
   for (const gravity of candidates) {
     const box = layerBox({
@@ -158,14 +179,21 @@ export async function pickContrastSafePlacement(input: {
       layer: layerSize,
       clearspacePx: plan.clearspacePx,
     });
+    if (input.occupiedBoxes?.some((occupied) => boxesOverlap(box, occupied))) {
+      continue;
+    }
     const under = await meanLuminanceInBox(base, box);
     const contrast = contrastRatio(logoLum, under);
-    if (contrast > best.contrast) {
+    if (!best || contrast > best.contrast) {
       best = { gravity, contrast, usedBackdrop: false };
     }
     if (contrast >= plan.policy.minContrast) {
       return { gravity, contrast, usedBackdrop: false };
     }
+  }
+
+  if (!best) {
+    throw new Error("exact_asset_placement_collision");
   }
 
   // No corner passes: keep best gravity and flag a backdrop plate.
@@ -187,6 +215,7 @@ export async function composeExactBrandAssets(
   }
 
   const composites: sharp.OverlayOptions[] = [];
+  const occupiedBoxes: PlacementBox[] = [];
 
   for (const layer of layers) {
     const resized = await buildResizedLayer(layer, dimensions);
@@ -197,6 +226,13 @@ export async function composeExactBrandAssets(
       layer: { width: resized.width, height: resized.height },
       clearspacePx: pad,
     });
+    const footprint = renderedFootprint(box, pad, Boolean(layer.backdrop));
+    if (occupiedBoxes.some((occupied) => boxesOverlap(footprint, occupied))) {
+      // This is the authoritative guard: callers that bypass route planning
+      // still cannot write an output with two exact layers in one box.
+      throw new Error("exact_asset_placement_collision");
+    }
+    occupiedBoxes.push(footprint);
 
     if (layer.backdrop) {
       const plate = await sharp({
@@ -271,6 +307,7 @@ export async function runExactComposition(input: {
   const finalLayers: CompositionLayerPlan[] = [];
   const omitted = [...staticPlan.omitted];
   const composeLayers: ComposeExactBrandAssetLayer[] = [];
+  const occupiedBoxes: PlacementBox[] = [];
 
   for (const plan of staticPlan.layers) {
     let buffer: Buffer;
@@ -308,6 +345,7 @@ export async function runExactComposition(input: {
       logo: buffer,
       plan,
       dimensions: input.dimensions,
+      occupiedBoxes,
     });
 
     if (
@@ -340,12 +378,16 @@ export async function runExactComposition(input: {
     const targetHeight = Math.max(1, Math.round(
       targetWidth * ((meta.height ?? targetWidth) / (meta.width ?? targetWidth)),
     ));
-    layerPlan.box = layerBox({
+    const assetBox = layerBox({
       gravity: picked.gravity,
       canvas: input.dimensions,
       layer: { width: targetWidth, height: targetHeight },
       clearspacePx: plan.clearspacePx,
     });
+    // Provenance records the rendered footprint when a contrast plate is used;
+    // later placement checks therefore reserve what Sharp will actually draw.
+    layerPlan.box = renderedFootprint(assetBox, plan.clearspacePx, picked.usedBackdrop);
+    occupiedBoxes.push(layerPlan.box);
     finalLayers.push(layerPlan);
 
     const logoLum = await meanOpaqueLuminance(buffer);

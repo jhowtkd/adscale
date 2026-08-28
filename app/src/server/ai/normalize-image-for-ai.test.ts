@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { InvalidImageInputError, normalizeImageForAi } from "./normalize-image-for-ai";
+import { inspectUsableTransparency, InvalidImageInputError, normalizeImageForAi } from "./normalize-image-for-ai";
 
 describe("normalizeImageForAi", () => {
   it("downscales a large JPEG to max 2048 without enlarging smaller images", async () => {
@@ -35,6 +35,22 @@ describe("normalizeImageForAi", () => {
     const result = await normalizeImageForAi({ buffer: png, mimeType: "image/png" });
     expect(result.mimeType).toBe("image/png");
     expect(result.hasTransparency).toBe(true);
+  });
+
+  it("keeps generic channel detection separate from exact usable-transparency inspection", async () => {
+    const png = await sharp({
+      create: {
+        width: 64,
+        height: 64,
+        channels: 4,
+        background: { r: 255, g: 0, b: 0, alpha: 1 },
+      },
+    }).png().toBuffer();
+
+    const result = await normalizeImageForAi({ buffer: png, mimeType: "image/png" });
+    expect(result.hasTransparency).toBe(true);
+    expect(result.mimeType).toBe("image/png");
+    await expect(inspectUsableTransparency(png)).resolves.toBe(false);
   });
 
   it("applies EXIF orientation", async () => {

@@ -557,6 +557,11 @@
         "requestLabel": "Pedido criativo",
         "placeholder": "Ex.: crie uma campanha de matrículas com tom acolhedor...",
         "addArt": "Adicionar arte",
+        "pieceReferences": {
+          "title": "Referências desta peça", "count": "{count} de 3 anexos", "add": "Adicionar referência", "limit": "Limite de 3 atingido", "uploading": "Enviando referência", "replace": "Substituir", "remove": "Remover", "retry": "Tentar novamente", "promote": "Salvar no treinamento da marca", "promoted": "Salvo no treinamento", "promotionFailed": "Não foi possível salvar no treinamento", "category": "Tipo", "choose": "Escolha um tipo", "instruction": "Como usar nesta arte?", "analyzing": "Analisando referência", "choiceRequired": "Escolha um tipo para continuar", "exactIncompatible": "Logo ou selo sem transparência utilizável", "ready": "Referência pronta", "failed": "Falha na análise",
+          "categories": { "person_or_character": "Personagem ou pessoa", "product_or_packaging": "Produto ou embalagem", "additional_logo_or_seal": "Logo ou selo adicional", "required_object_or_scene": "Objeto ou cenário obrigatório", "graphic_or_texture": "Grafismo ou textura", "style_reference": "Referência de estilo" },
+          "treatments": { "identity_preservation": "Preservação de identidade", "recognizable_preservation": "Preservação reconhecível", "exact_application": "Aplicação exata", "required_presence": "Presença obrigatória", "visual_language": "Linguagem visual", "style_direction": "Direção de estilo" }
+        },
         "restyleAddArt": "Adicionar arte original",
         "addStyleReference": "Adicionar referência de estilo",
         "originalArt": "Arte original",
@@ -2420,6 +2425,9 @@
     "derivationHardFailures": "Esta criação tem falhas graves de qualidade e não pode ser aprovada nem usada para entrega até ser corrigida",
     "derivationMissingOutput": "Variação criativa está sem imagem de saída",
     "invalidInput": "Entrada inválida",
+    "creativeWorkPieceReferenceLimit": "Você pode adicionar no máximo 3 referências a esta Peça.",
+    "creativeWorkPieceReferenceRequired": "Escolha um tipo para cada referência antes de gerar.",
+    "creativeWorkPieceReferenceExactIncompatible": "Este logo ou selo precisa de transparência; substitua-o ou escolha outro tipo.",
     "creativeWorkLayerizationNotEligible": "Apenas uma Peça concluída e aprovada pode ser separada em camadas.",
     "creativeWorkLayerizationNotConfigured": "A separação em camadas ainda não está configurada neste ambiente.",
     "creativeWorkLayerizationDispatchFailed": "Não foi possível iniciar a separação em camadas. Tente novamente.",

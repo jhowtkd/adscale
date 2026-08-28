@@ -217,8 +217,13 @@ export function preflightExactComposition(input: {
   format: string;
   dimensions: { width: number; height: number };
   assets: readonly CreativeWorkIdentityAssetSnapshot[];
-}): { ok: true } | { ok: false; blocked: CompositionProvenance["blocked"] } {
+  /** Decoded source dimensions from the binary preflight when available. */
+  inspectedAssets?: ReadonlyMap<string, { width: number; height: number }>;
+  /** Callers that can persist pre-provider omissions may opt into them. */
+  reportOmissions?: boolean;
+}): { ok: true; omitted?: CompositionProvenance["omitted"] } | { ok: false; blocked: CompositionProvenance["blocked"] } {
   const blocked: CompositionProvenance["blocked"] = [];
+  const omitted: CompositionProvenance["omitted"] = [];
   const exact = input.assets.filter((a) => a.usageMode === "exact");
 
   for (const asset of exact) {
@@ -226,12 +231,14 @@ export function preflightExactComposition(input: {
     if (!policy) continue;
 
     if (!asset.hasAlpha) {
-      blocked.push({
+      const result = {
         referenceId: asset.referenceId,
         assetKey: asset.assetKey,
         label: asset.label,
         reason: "exact_asset_missing_alpha",
-      });
+      } as const;
+      if (policy.omissible) omitted.push(result);
+      else blocked.push(result);
       continue;
     }
 
@@ -240,20 +247,31 @@ export function preflightExactComposition(input: {
       policy,
     );
     const targetW = Math.round(input.dimensions.width * widthRatio);
-    if (targetW < 8) {
-      if (policy.required && !policy.omissible) {
-        blocked.push({
+    const inspection = input.inspectedAssets?.get(asset.assetKey);
+    const targetH = inspection
+      ? Math.round(targetW * (inspection.height / inspection.width))
+      : null;
+    const pad = clearspacePx(input.dimensions, policy);
+    // Width is controlled by the category policy; the decoded aspect ratio is
+    // equally material. A very tall transparent seal can otherwise pass the
+    // metadata gate and become impossible only after a paid generation.
+    if (
+      targetW < 8
+      || (targetH !== null && (!Number.isFinite(targetH) || targetH + pad * 2 > input.dimensions.height))
+    ) {
+      const result = {
           referenceId: asset.referenceId,
           assetKey: asset.assetKey,
           label: asset.label,
           reason: "exact_asset_no_space",
-        });
-      }
+        } as const;
+      if (policy.omissible) omitted.push(result);
+      else blocked.push(result);
     }
   }
 
   if (blocked.length > 0) return { ok: false, blocked };
-  return { ok: true };
+  return input.reportOmissions && omitted.length > 0 ? { ok: true, omitted } : { ok: true };
 }
 
 export function buildStaticComposePlan(input: {
@@ -268,13 +286,16 @@ export function buildStaticComposePlan(input: {
   const layers: CompositionLayerPlan[] = [];
   const omitted: CompositionProvenance["omitted"] = [];
   const blocked: CompositionProvenance["blocked"] = [];
-  const pre = preflightExactComposition(input);
+  const pre = preflightExactComposition({ ...input, reportOmissions: true });
   if (!pre.ok) {
     return { layers: [], omitted: [], blocked: pre.blocked };
   }
+  omitted.push(...(pre.omitted ?? []));
+  const preflightOmittedKeys = new Set(omitted.map((entry) => entry.assetKey));
 
   for (const asset of input.assets) {
     if (asset.usageMode !== "exact") continue;
+    if (preflightOmittedKeys.has(asset.assetKey)) continue;
     const policy = policyForExactAsset(asset.category, input.format);
     if (!policy) continue;
 
