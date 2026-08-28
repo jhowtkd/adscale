@@ -45,7 +45,7 @@ Fora desta pergunta: portfólio atual de sabores, arte comissionada posterior, e
 
 | arquivo | papel | entra no treino | status | nota |
 |---|---|---|---|---|
-| `absolut-perfection-1980.jpg` | campaign_original | sim | approved | anúncio TBWA; treina o sistema, não o halo isolado |
+| `absolut-perfection-1980.jpg` | campaign_original | não | review_required | anúncio TBWA; treina o sistema, não o halo isolado |
 
 Finalidade do original: `internal_lab_training`. Binários ficam fora do git.
 

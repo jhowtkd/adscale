@@ -98,6 +98,72 @@ describe("commercial studies contract", () => {
     expect(() => validateCommercialStudiesManifest(manifest as never)).toThrow(/entersTraining/);
   });
 
+  it("allows pending originals without entersTraining", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cs-orig-"));
+    const pending = {
+      id: "n1",
+      fileName: "n1.jpg",
+      sha256: "a".repeat(64),
+      role: "campaign_original" as const,
+      usageStatus: "review_required" as const,
+      entersTraining: false,
+    };
+    const manifest = {
+      version: 1,
+      environment: "development",
+      disclaimer: COMMERCIAL_STUDY_DISCLAIMER,
+      studies: [
+        validStudy("nike", [pending, { ...pending, id: "n2", fileName: "n2.jpg", role: "campaign_still" }]),
+        validStudy("mtv", [
+          { ...pending, id: "m1", fileName: "m1.jpg" },
+          { ...pending, id: "m2", fileName: "m2.jpg", role: "campaign_still" },
+        ]),
+        validStudy("absolut", [{ ...pending, id: "a1", fileName: "a1.jpg" }]),
+      ],
+      captures: twentyFourCaptures(),
+    };
+    expect(() => validateCommercialStudiesManifest(manifest as never)).not.toThrow();
+    expect(() => assertOriginalFiles(manifest as never, dir)).toThrow(/entersTraining/);
+  });
+
+  it("rejects original fileNames that escape originalsDir", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cs-orig-"));
+    writeFileSync(join(dir, "ok.jpg"), "hello");
+    const sha = createHash("sha256").update("hello").digest("hex");
+    const approved = {
+      id: "n1",
+      fileName: "ok.jpg",
+      sha256: sha,
+      role: "campaign_original" as const,
+      usageStatus: "approved" as const,
+      entersTraining: true,
+    };
+    const baseStudies = [
+      validStudy("nike", [approved, { ...approved, id: "n2", role: "campaign_still" }]),
+      validStudy("mtv", [
+        { ...approved, id: "m1" },
+        { ...approved, id: "m2", role: "campaign_still" },
+      ]),
+      validStudy("absolut", [{ ...approved, id: "a1" }]),
+    ];
+    const wrap = (fileName: string) => ({
+      version: 1,
+      environment: "development",
+      disclaimer: COMMERCIAL_STUDY_DISCLAIMER,
+      studies: [
+        validStudy("nike", [
+          { ...approved, fileName },
+          { ...approved, id: "n2", role: "campaign_still" },
+        ]),
+        baseStudies[1],
+        baseStudies[2],
+      ],
+      captures: twentyFourCaptures(),
+    });
+    expect(() => assertOriginalFiles(wrap("../x.jpg") as never, dir)).toThrow();
+    expect(() => assertOriginalFiles(wrap("/tmp/x.jpg") as never, dir)).toThrow();
+  });
+
   it("requires original files to match sha256", () => {
     const dir = mkdtempSync(join(tmpdir(), "cs-orig-"));
     writeFileSync(join(dir, "ok.jpg"), "hello");

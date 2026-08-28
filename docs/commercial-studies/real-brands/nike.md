@@ -48,8 +48,8 @@ Fora desta pergunta: história corporativa da Nike, linha de produto atual, e qu
 
 | arquivo | papel | entra no treino | status | nota |
 |---|---|---|---|---|
-| `nike-just-do-it-1988-print.jpg` | campaign_original | sim | approved | print da ponte; composição, não retrato |
-| `nike-walt-stack-1988-frame.jpg` | campaign_still | sim | approved | still do spot; treina voz e ritmo, não a cara |
+| `nike-just-do-it-1988-print.jpg` | campaign_original | não | review_required | print da ponte; composição, não retrato |
+| `nike-walt-stack-1988-frame.jpg` | campaign_still | não | review_required | still do spot; treina voz e ritmo, não a cara |
 
 Finalidade dos originais: `internal_lab_training`. Binários ficam fora do git.
 

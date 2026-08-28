@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, isAbsolute, relative, resolve, sep } from "node:path";
 import { z } from "zod";
 
 export const COMMERCIAL_STUDY_SLUGS = ["nike", "mtv", "absolut"] as const;
@@ -91,6 +91,22 @@ function expectedRouteKey(stage: (typeof STAGES)[number]): "brandTraining" | "cr
   return "library";
 }
 
+function isBasenameOnly(fileName: string): boolean {
+  return !isAbsolute(fileName) && basename(fileName) === fileName && fileName !== "." && fileName !== "..";
+}
+
+function resolveOriginalFile(originalsRoot: string, fileName: string): string {
+  if (!isBasenameOnly(fileName)) {
+    throw new Error(`invalid original fileName ${fileName}`);
+  }
+  const filePath = resolve(originalsRoot, fileName);
+  const rel = relative(originalsRoot, filePath);
+  if (rel.startsWith(`..${sep}`) || rel === ".." || isAbsolute(rel)) {
+    throw new Error(`original path escapes originalsDir: ${fileName}`);
+  }
+  return filePath;
+}
+
 export function ownedProfileName(slug: CommercialStudySlug): string {
   return OWNED_PROFILE_NAMES[slug];
 }
@@ -120,12 +136,12 @@ export function validateCommercialStudiesManifest(manifest: CommercialStudiesMan
     }
 
     for (const original of study.originals) {
+      if (!isBasenameOnly(original.fileName)) {
+        throw new Error(`invalid original fileName ${original.fileName}`);
+      }
       if (original.entersTraining && original.usageStatus !== "approved") {
         throw new Error("entersTraining requires usageStatus approved");
       }
-    }
-    if (!study.originals.some((original) => original.entersTraining)) {
-      throw new Error("each study requires at least one original with entersTraining");
     }
   }
 
@@ -192,9 +208,13 @@ export function loadCommercialStudiesManifest(filePath: string): CommercialStudi
 }
 
 export function assertOriginalFiles(manifest: CommercialStudiesManifest, originalsDir: string): void {
+  const originalsRoot = resolve(originalsDir);
   for (const study of manifest.studies) {
+    if (!study.originals.some((original) => original.entersTraining)) {
+      throw new Error("each study requires at least one original with entersTraining");
+    }
     for (const original of study.originals) {
-      const filePath = join(originalsDir, original.fileName);
+      const filePath = resolveOriginalFile(originalsRoot, original.fileName);
       if (!existsSync(filePath)) {
         throw new Error(`Original file missing: ${original.fileName}`);
       }

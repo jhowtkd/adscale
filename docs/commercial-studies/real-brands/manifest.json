@@ -44,8 +44,8 @@
           "fileName": "nike-just-do-it-1988-print.jpg",
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "role": "campaign_original",
-          "usageStatus": "approved",
-          "entersTraining": true,
+          "usageStatus": "review_required",
+          "entersTraining": false,
           "purpose": "internal_lab_training"
         },
         {
@@ -53,8 +53,8 @@
           "fileName": "nike-walt-stack-1988-frame.jpg",
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "role": "campaign_still",
-          "usageStatus": "approved",
-          "entersTraining": true,
+          "usageStatus": "review_required",
+          "entersTraining": false,
           "purpose": "internal_lab_training"
         }
       ],
@@ -105,8 +105,8 @@
           "fileName": "mtv-id-1981-a.jpg",
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "role": "campaign_original",
-          "usageStatus": "approved",
-          "entersTraining": true,
+          "usageStatus": "review_required",
+          "entersTraining": false,
           "purpose": "internal_lab_training"
         },
         {
@@ -114,8 +114,8 @@
           "fileName": "mtv-id-1981-b.jpg",
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "role": "campaign_still",
-          "usageStatus": "approved",
-          "entersTraining": true,
+          "usageStatus": "review_required",
+          "entersTraining": false,
           "purpose": "internal_lab_training"
         }
       ],
@@ -166,8 +166,8 @@
           "fileName": "absolut-perfection-1980.jpg",
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "role": "campaign_original",
-          "usageStatus": "approved",
-          "entersTraining": true,
+          "usageStatus": "review_required",
+          "entersTraining": false,
           "purpose": "internal_lab_training"
         }
       ],

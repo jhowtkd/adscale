@@ -24,7 +24,7 @@ Coloque os arquivos em `originals/` sem raspar um corpus. Nomes esperados:
 - `mtv-id-1981-b.jpg`
 - `absolut-perfection-1980.jpg`
 
-Enquanto os binários reais não existirem, `manifest.json` guarda o sha256 sentinela do arquivo vazio. O seed recusa até o hash bater no arquivo local.
+Enquanto os binários reais não existirem, cada original fica `usageStatus: review_required` e `entersTraining: false`. O seed recusa até existir pelo menos um original aprovado cujo sha256 bata no arquivo local.
 
 ## Capturas
 
