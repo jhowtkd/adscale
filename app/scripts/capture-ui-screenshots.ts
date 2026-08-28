@@ -156,6 +156,10 @@ async function injectCaptureOverlays(
 ) {
   await page.evaluate(
     ({ stage, campaign, hypothesis, sourceTitle, disclaimer }) => {
+      const captureCss = document.createElement("style");
+      captureCss.setAttribute("data-commercial-study-capture-css", "");
+      captureCss.textContent = "nextjs-portal{display:none!important}";
+      document.head.appendChild(captureCss);
       const footer = document.createElement("footer");
       footer.setAttribute("data-commercial-study-disclaimer", "");
       footer.textContent = disclaimer;
@@ -182,6 +186,21 @@ async function injectCaptureOverlays(
 }
 
 const ACTIVE_BRAND_SWITCHER_NAME = "Marca ativa";
+const COOKIE_BANNER_ACCEPT_NECESSARY_NAME = "Apenas necessarios";
+const ADSCALE_COOKIE_CONSENT_KEY = "adscale_cookie_consent";
+
+async function dismissCookieBanner(page: Page) {
+  const hasStoredConsent = await page.evaluate(
+    (key) => localStorage.getItem(key) !== null,
+    ADSCALE_COOKIE_CONSENT_KEY,
+  );
+  if (hasStoredConsent) return;
+  await page
+    .getByRole("button", { name: COOKIE_BANNER_ACCEPT_NECESSARY_NAME })
+    .first()
+    .click({ timeout: 2_000 })
+    .catch(() => undefined);
+}
 
 async function ensureActiveBrandSelected(
   page: Page,
@@ -245,6 +264,7 @@ async function captureCommercialStudies() {
       );
       await page.goto(`${BASE_URL}${capture.route}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
       await ensureActiveBrandSelected(page, capture.brand, study.clientProfileId);
+      await dismissCookieBanner(page);
       await page.waitForSelector(capture.waitFor, { timeout: 120_000 });
       await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
       await page.evaluate(() => document.fonts.ready);
@@ -256,6 +276,13 @@ async function captureCommercialStudies() {
         const assetCount = await page.locator(assetsSelector).count();
         if (assetCount === 0) {
           throw new Error(`training capture has no original assets: ${assetsSelector}`);
+        }
+        const firstOriginalId = sourceStudy.originals[0]?.id;
+        if (firstOriginalId) {
+          await page
+            .locator(`img[alt="${firstOriginalId}"]`)
+            .first()
+            .scrollIntoViewIfNeeded();
         }
       }
       mkdirSync(path.dirname(filePath), { recursive: true });
