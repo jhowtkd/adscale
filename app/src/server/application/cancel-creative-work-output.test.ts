@@ -8,6 +8,7 @@ const recordAggregateMock = vi.hoisted(() => vi.fn());
 const settleRefundMock = vi.hoisted(() => vi.fn());
 const terminalMock = vi.hoisted(() => vi.fn());
 const aggregateMock = vi.hoisted(() => vi.fn());
+const usageLookupMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => getCreativeWorkMock(...args),
@@ -19,6 +20,10 @@ vi.mock("@/server/repositories/creative-work", () => ({
 
 vi.mock("@/server/generation/settlement", () => ({
   settleTerminalRefund: (...args: unknown[]) => settleRefundMock(...args),
+}));
+
+vi.mock("@/server/repositories/usage", () => ({
+  getUsageByIdempotencyKey: (...args: unknown[]) => usageLookupMock(...args),
 }));
 
 vi.mock("@/server/creative-work/job-telemetry", () => ({
@@ -54,6 +59,7 @@ describe("cancelCreativeWorkOutput", () => {
     getCreativeWorkMock.mockResolvedValue({ work, outputs: [{ ...queuedOutput, status: "queued" }] });
     cancelOutputMock.mockResolvedValue(queuedOutput);
     settleRefundMock.mockResolvedValue({ refunded: true, applied: true, status: "refunded" });
+    usageLookupMock.mockResolvedValue(null);
     refreshStatusMock.mockResolvedValue("partial");
     recordAggregateMock.mockResolvedValue(null);
   });
@@ -96,5 +102,17 @@ describe("cancelCreativeWorkOutput", () => {
     expect(result).toEqual({ ok: false, error: { code: "output_not_cancellable", status: "completed" } });
     expect(settleRefundMock).not.toHaveBeenCalled();
     expect(terminalMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [2, "creative-work:work-1:output:output-1:reactivate-terminal:2", "creative-work:work-1:output:output-1:reactivate-terminal:2-refund"],
+    [null, "creative-work:work-1:output:output-1:reactivate-pregen", "creative-work:work-1:output:output-1:reactivate-pregen-refund"],
+    [null, "creative-work:work-1:output:output-1:reactivate-dispatch", "creative-work:work-1:output:output-1:reactivate-dispatch-refund"],
+  ])("uses the real resolver for outstanding debit %s", async (manualRetryAttempt, chargeKey, refundKey) => {
+    getCreativeWorkMock.mockResolvedValue({ work, outputs: [{ ...queuedOutput, manualRetryAttempt }] });
+    cancelOutputMock.mockResolvedValue({ ...queuedOutput, manualRetryAttempt });
+    usageLookupMock.mockImplementation(async (_workspaceId: string, key: string) => key === chargeKey ? { id: key } : null);
+    await cancelCreativeWorkOutput({ workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-1" });
+    expect(settleRefundMock).toHaveBeenCalledWith(expect.objectContaining({ decision: expect.objectContaining({ idempotencyKey: refundKey }) }));
   });
 });

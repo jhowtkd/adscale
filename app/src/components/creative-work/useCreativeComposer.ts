@@ -46,6 +46,7 @@ import {
 } from "@/server/creative-work/contracts";
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
 import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
+import { isPieceReferenceReady, MAX_PIECE_REFERENCES, type PieceReferenceCategory } from "@/server/creative-work/piece-reference";
 
 export type ComposerState = "empty" | "saving" | "analyzing" | "ready" | "generating" | "results";
 export type ComposerActionPhase = "idle" | "saving" | "preparing" | "submitting" | "reconciling";
@@ -222,6 +223,7 @@ export function useCreativeComposer({
   // always trigger a new suggestion call (#129).
   const [directionSuggestionRetryToken, setDirectionSuggestionRetryToken] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const uploadInFlightRef = useRef(false);
   const [actionPhase, setActionPhase] = useState<ComposerActionPhase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [approvalErrorOutputId, setApprovalErrorOutputId] = useState<string | null>(null);
@@ -879,17 +881,26 @@ export function useCreativeComposer({
   ) => {
     const images = collectImageFiles(files);
     if (images.length === 0) return;
+    const accepted = intentRef.current === "single"
+      ? images.slice(0, Math.max(0, MAX_PIECE_REFERENCES - (detailQuery.data?.sources.filter((source) => source.assetId).length ?? 0)))
+      : images;
+    const rejectedByLimit = images.length - accepted.length;
+    if (accepted.length === 0) {
+      announce(`Limite de 3 atingido; ${rejectedByLimit} arquivo${rejectedByLimit === 1 ? "" : "s"} não enviado${rejectedByLimit === 1 ? "" : "s"}`);
+      return;
+    }
     if (!workIdRef.current && !active.activeClientProfileId) {
       focusBrandSwitcher();
       return;
     }
+    uploadInFlightRef.current = true;
     setIsUploading(true);
     setError(null);
     try {
       let hasRestyleContent = Boolean(detailQuery.data?.sources.some((source) =>
         source.usageConfirmed && (source.usage === "content" || source.usage === "both")
       ));
-      for (const file of images) {
+      for (const file of accepted) {
         const uploaded = await uploadChatAttachment(file);
         const usage: CreativeSourceUsage = preferredUsage ?? (intentRef.current === "restyle"
           ? (hasRestyleContent ? "style" : "content")
@@ -908,10 +919,12 @@ export function useCreativeComposer({
         }
       }
       setInferredBriefingContext(null);
-      announce(images.length === 1 ? "Arte adicionada" : `${images.length} artes adicionadas`);
+      const addedAnnouncement = accepted.length === 1 ? "Arte adicionada" : `${accepted.length} artes adicionadas`;
+      announce(rejectedByLimit > 0 ? `${addedAnnouncement}; ${rejectedByLimit} arquivo${rejectedByLimit === 1 ? "" : "s"} não enviado${rejectedByLimit === 1 ? "" : "s"} pelo limite de 3` : addedAnnouncement);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao adicionar arte");
     } finally {
+      uploadInFlightRef.current = false;
       setIsUploading(false);
     }
   }, [active.activeClientProfileId, announce, detailQuery.data?.sources, ensureDraft, sourceMutation]);
@@ -1075,6 +1088,32 @@ export function useCreativeComposer({
     if (!workIdRef.current) return Promise.resolve();
     return runSourceAction({ workItemId: workIdRef.current, action: "removeSource", sourceId });
   }, [runSourceAction]);
+  const updatePieceReference = useCallback((sourceId: string, patch: { category?: PieceReferenceCategory; userInstruction?: string | null }) => {
+    if (!workIdRef.current) return Promise.resolve(false);
+    return runSourceAction({ workItemId: workIdRef.current, action: "updatePieceReference", sourceId, ...patch });
+  }, [runSourceAction]);
+  const replacePieceReference = useCallback(async (sourceId: string, file: File) => {
+    if (!workIdRef.current) return false;
+    // The upload precedes the source mutation; hold the same visible lock for
+    // both so submit cannot prepare between selecting a replacement and its
+    // committed atomic source update.
+    uploadInFlightRef.current = true;
+    setIsUploading(true);
+    try {
+      const uploaded = await uploadChatAttachment(file);
+      return await runSourceAction({ workItemId: workIdRef.current, action: "replacePieceReference", sourceId, assetId: uploaded.assetId });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Falha ao substituir arte");
+      return false;
+    } finally {
+      uploadInFlightRef.current = false;
+      setIsUploading(false);
+    }
+  }, [runSourceAction]);
+  const promotePieceReference = useCallback(async (sourceId: string) => {
+    if (!workIdRef.current) return false;
+    return runSourceAction({ workItemId: workIdRef.current, action: "promotePieceReference", sourceId });
+  }, [runSourceAction]);
 
   const generate = useCallback(async () => {
     if (
@@ -1083,6 +1122,9 @@ export function useCreativeComposer({
       || editBriefingMutation.isPending
       || briefingEditState === "saving"
       || inferredBriefing?.readiness === "blocked"
+      || sourceMutation.isPending
+      || isUploading
+      || uploadInFlightRef.current
     ) return;
     const current = detailQuery.data?.work;
     // A work left "ready" without outputs by an uncertain submit (prepare
@@ -1172,7 +1214,7 @@ export function useCreativeComposer({
       submitGuardRef.current = false;
       setActionPhase("idle");
     }
-  }, [briefingEditState, detailQuery, editBriefingMutation.isPending, flushAutosave, generateMutation, inferredBriefing, prepareMutation]);
+  }, [briefingEditState, detailQuery, editBriefingMutation.isPending, flushAutosave, generateMutation, inferredBriefing, isUploading, prepareMutation, sourceMutation.isPending]);
 
   const resolveBrandConflict = useCallback(async (choice: CreativeWorkBrandChoice) => {
     // Double-click guard: one choice in flight per conflict.
@@ -1313,11 +1355,11 @@ export function useCreativeComposer({
       // A "ready" work without outputs holds a confirmed prepare whose
       // generation never landed — the submit stays retryable.
       || (detail.work.status === "ready" && detail.outputs.length === 0))
-    && !sources.some((source) => source.status === "uploaded" || source.status === "analyzing")
-    && (intent !== "single" || !sources.some((source) => source.usageConfirmed === false))
+    && !sources.some((source) => source.status === "uploaded" || source.status === "analyzing" || (intent === "single" && source.status === "failed"))
+    && (intent !== "single" || !sources.some((source) => source.pieceReference ? !isPieceReferenceReady(source.pieceReference) : source.usageConfirmed === false))
     && (intent !== "format_adaptation" || targetFormats.length > 0)
     && (intent !== "single" || fontOptions.length <= 1 || Boolean(fontAssetKey))
-    && !isUploading && actionPhase === "idle" && !generateMutation.isPending
+    && !isUploading && actionPhase === "idle" && !generateMutation.isPending && !sourceMutation.isPending
     && !editBriefingMutation.isPending && briefingEditState !== "saving"
     && inferredBriefing?.readiness !== "blocked"
     // A brand choice being applied resumes the submit itself — a manual
@@ -1386,6 +1428,7 @@ export function useCreativeComposer({
     pendingProtocolSwitch, confirmProtocolSwitch, cancelProtocolSwitch,
     protocolSwitchNotice, returnToPreviousProtocol,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
+    sourceMutationPending: sourceMutation.isPending,
     settingsLocked: Boolean(detail?.work && detail.work.status !== "draft"),
     inferredBriefing, briefingFactPack, brandIdentity,
     briefingOverrides: detail?.work.settings.briefingOverrides ?? briefingOverridesRef.current ?? {},
@@ -1400,7 +1443,7 @@ export function useCreativeComposer({
       ? retryInitialTemplate
       : null,
     workError: Boolean(workId && detailQuery.isError),
-    addFiles, addInspiration, updateSource, editSource, retrySource, removeSource, generate,
+    addFiles, addInspiration, updateSource, editSource, retrySource, removeSource, updatePieceReference, replacePieceReference, promotePieceReference, generate,
     retryOutput, retryRevisionOutput, approveOutput, reviseOutput, linkCampaign,
     canLayerize: detail?.canLayerize ?? false,
     layerEditorAccess: detail?.layerEditorAccess,

@@ -95,6 +95,7 @@ function buildProviderOnlyPrompt(input: {
   identitySnapshot: CreativeWorkIdentitySnapshot;
   creativeLevel: CreativeLevel;
   correction?: CreativeWorkObjectiveCorrection | null;
+  references?: readonly CreativeWorkReferenceSlot[];
 }): string {
   const fixedContract = buildFixedContract({
     ...input,
@@ -127,6 +128,10 @@ function buildProviderOnlyPrompt(input: {
     "OPERATOR VISUAL DIRECTION (use for visual motifs and composition only; do not reproduce its wording):",
     buildOperatorVisualDirection(input.inputSnapshot.request, input.copy),
     "Do not infer or reproduce any brand identity from text; the application owns all semantic content and exact assets.",
+    "",
+    buildReferenceRolesBlock(input.references ?? []),
+    "",
+    buildReservedPlacementsBlock(input.identitySnapshot.assets, true),
     ...(input.correction ? ["", buildObjectiveCorrectionBlock(input.correction)] : []),
     "",
     buildProviderOnlyLayerOverride(),
@@ -292,6 +297,7 @@ function buildReferenceModeBlock(
 
 function buildReservedPlacementsBlock(
   assets: CreativeWorkIdentityAssetSnapshot[],
+  providerSafe = false,
 ): string {
   const exactAssets = assets.filter((asset) => asset.usageMode === "exact");
   if (exactAssets.length === 0) {
@@ -312,7 +318,7 @@ function buildReservedPlacementsBlock(
     }
     const { gravity, widthRatio } = asset.placement;
     lines.push(
-      `- ${asset.label} (${asset.category}, ref=${asset.referenceId}): keep clean space at gravity=${gravity}, width=${widthRatio.toFixed(2)} of canvas`,
+      `- ${providerSafe ? "exact application asset" : asset.label} (${asset.category}, ref=${asset.referenceId}): keep clean space at gravity=${gravity}, width=${widthRatio.toFixed(2)} of canvas${!providerSafe && asset.compositionInstruction ? `; operator composition guidance=${asset.compositionInstruction}` : ""}`,
     );
   }
   return lines.join("\n");
@@ -342,7 +348,10 @@ export function buildSocialPostPrompt(input: BuildSocialPostPromptInput): string
     `REQUEST: ${input.inputSnapshot.request}`,
     `BRIEF: ${JSON.stringify(input.brief)}`,
     ...(input.revisionInstruction ? [`REVISION INSTRUCTION: ${input.revisionInstruction}`] : []),
-    ...input.inputSnapshot.sources.map((source) =>
+    // Piece references are role-bound visual authorities. Their content
+    // analysis is intentionally excluded here as well as from the fact pack,
+    // so an uploaded moodboard/seal can never become copy authority.
+    ...input.inputSnapshot.sources.filter((source) => !source.pieceReference).map((source) =>
       `- source=${source.sourceId} usage=${source.usage} content=${JSON.stringify(source.content)} style=${JSON.stringify(source.style)}`
     ),
   ].join("\n");
@@ -465,8 +474,11 @@ function buildReferenceRolesBlock(
   }
   const lines = ["REFERENCES (ordered, role-bound):"];
   references.forEach((slot, index) => {
+    const pieceRule = slot.pieceReference
+      ? `; category=${slot.pieceReference.category}; treatment=${slot.pieceReference.treatment}${slot.pieceReference.userInstruction ? `; instruction=${slot.pieceReference.userInstruction}` : ""}`
+      : "";
     lines.push(
-      `- #${index + 1} [${slot.role}] "${slot.label}" (${slot.required ? "required" : "optional"})`,
+      `- #${index + 1} [${slot.role}] "${slot.label}" (${slot.required ? "required" : "optional"})${pieceRule}`,
     );
   });
   // The `#n` ↔ provider-array binding is purely positional: the caller filters
@@ -479,6 +491,12 @@ function buildReferenceRolesBlock(
     lines.push(
       "BRAND IDENTITY references transfer ONLY abstract visual attributes: palette, hierarchy, rhythm, media treatment and atmosphere.",
       "Never copy their complete layout, visible copy, claims, products or logos; exact brand assets are composited separately.",
+    );
+  }
+  if (references.some((slot) => slot.role === "piece_required" || slot.role === "piece_visual")) {
+    lines.push(
+      "Required piece references must remain recognizable or present. Visual/style piece references transfer visual language only: never import their facts, visible copy, brands or logos.",
+      "A user instruction refines its derived treatment and cannot override these boundaries.",
     );
   }
   return lines.join("\n");

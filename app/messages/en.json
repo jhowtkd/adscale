@@ -528,6 +528,11 @@
         "requestLabel": "Creative request",
         "placeholder": "E.g. create an enrollment campaign with a warm tone...",
         "addArt": "Add image",
+        "pieceReferences": {
+          "title": "References for this piece", "count": "{count} of 3 attachments", "add": "Add reference", "limit": "Limit of 3 reached", "uploading": "Uploading reference", "replace": "Replace", "remove": "Remove", "retry": "Retry", "promote": "Save to brand training", "promoted": "Saved to training", "promotionFailed": "Could not save to training", "category": "Type", "choose": "Choose a type", "instruction": "How should this be used?", "analyzing": "Analyzing reference", "choiceRequired": "Choose a type to continue", "exactIncompatible": "Logo or seal has no usable transparency", "ready": "Reference ready", "failed": "Analysis failed",
+          "categories": { "person_or_character": "Character or person", "product_or_packaging": "Product or packaging", "additional_logo_or_seal": "Additional logo or seal", "required_object_or_scene": "Required object or scene", "graphic_or_texture": "Graphic or texture", "style_reference": "Style reference" },
+          "treatments": { "identity_preservation": "Identity preservation", "recognizable_preservation": "Recognizable preservation", "exact_application": "Exact application", "required_presence": "Required presence", "visual_language": "Visual language", "style_direction": "Style direction" }
+        },
         "restyleAddArt": "Add original artwork",
         "addStyleReference": "Add style reference",
         "originalArt": "Original artwork",
@@ -2420,6 +2425,9 @@
     "derivationHardFailures": "This creative has blocking quality failures and cannot be approved or used for delivery until they are fixed",
     "derivationMissingOutput": "Creative variant is missing output image",
     "invalidInput": "Invalid input",
+    "creativeWorkPieceReferenceLimit": "You can add up to 3 references to this Piece.",
+    "creativeWorkPieceReferenceRequired": "Choose a type for each reference before generating.",
+    "creativeWorkPieceReferenceExactIncompatible": "This logo or seal needs transparency; replace it or choose another type.",
     "creativeWorkLayerizationNotEligible": "Only a completed, approved Piece can be separated into layers.",
     "creativeWorkLayerizationNotConfigured": "Layer separation is not configured in this environment yet.",
     "creativeWorkLayerizationDispatchFailed": "Layer separation could not be started. Try again.",

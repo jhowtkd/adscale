@@ -53,25 +53,31 @@ import {
   failStaleProcessingCreativeWorkOutputs,
   failStaleCreativeWorkSources,
   createCreativeWorkSource,
-  deleteCreativeWorkSource,
+  promoteCreativeWorkPieceReference,
   getCreativeWork,
   linkCreativeWorkCampaign,
   listCreativeWorkOutputsNeedingRefund,
   markCreativeWorkOutputFailureCode,
   recordCreativeWorkGenerationAggregate,
   refreshCreativeWorkStatus,
-  updateCreativeWorkSource,
   updateCreativeWorkSourceIfUnchanged,
   updateCreativeWorkDraft,
   updateCreativeWorkDraftIfUnchanged,
+  autosaveCreativeWorkDraft,
+  mutateCreativeWorkPieceReference,
+  mutateCreativeWorkDraftSource,
 } from "@/server/repositories/creative-work";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getTemplateById } from "@/server/repositories/template";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
-import { decideCreativeWorkRefund } from "@/server/generation/canonical/policies";
+import {
+  decideCreativeWorkRefund,
+} from "@/server/generation/canonical/policies";
 import { settleTerminalRefund } from "@/server/generation/settlement";
+import { resolveCreativeWorkOutputReactivationOutcome } from "@/server/generation/settlement-adapters";
 import type { CreativeWorkSource } from "@/server/db/schema";
+import { PIECE_REFERENCE_CATEGORIES, type PieceReferenceCategory } from "@/server/creative-work/piece-reference";
 import { logger } from "@/lib/logger";
 import { env } from "@/server/validation/env";
 import {
@@ -96,14 +102,33 @@ async function refundCreativeWorkOutputCompensatory(input: {
   workItemId: string;
   outputId: string;
   reason: string;
+  manualRetryAttempt?: number | null;
   failurePhase?: "job_failure" | "terminal";
 }): Promise<boolean> {
-  const decision = decideCreativeWorkRefund({
+  const outcome = await resolveCreativeWorkOutputReactivationOutcome({
+    workspaceId: input.workspaceId,
+    workItemId: input.workItemId,
+    outputId: input.outputId,
+    manualRetryAttempt: input.manualRetryAttempt,
+  });
+  if (outcome.state === "already_refunded") return true;
+  const reactivation = outcome.state === "outstanding" ? outcome : null;
+  const canonicalFailurePhase: "job_failure" | "terminal" = reactivation || input.failurePhase === "terminal"
+    ? "terminal"
+    : "job_failure";
+  const canonicalDecision = decideCreativeWorkRefund({
     surface: "quick_tool",
-    failurePhase: input.failurePhase ?? "job_failure",
+    failurePhase: canonicalFailurePhase,
     workItemId: input.workItemId,
     outputId: input.outputId,
   });
+  const decision = reactivation && canonicalDecision.refund
+    ? {
+        ...canonicalDecision,
+        idempotencyKey: reactivation.refundKey,
+        reason: "creative_work_terminal_reactivation_failure",
+      }
+    : canonicalDecision;
   if (!decision.refund) return true;
   const settled = await settleTerminalRefund({
     decision,
@@ -184,6 +209,15 @@ const attachSourceSchema = z.union([
 const updateSourceSchema = z.object({ action: z.literal("updateSource"), sourceId: z.string().min(1), usage: sourceUsageSchema }).strict();
 const retrySourceSchema = z.object({ action: z.literal("retrySource"), sourceId: z.string().min(1) }).strict();
 const removeSourceSchema = z.object({ action: z.literal("removeSource"), sourceId: z.string().min(1) }).strict();
+
+const updatePieceReferenceSchema = z.object({
+  action: z.literal("updatePieceReference"), sourceId: z.string().uuid(),
+  category: z.enum(PIECE_REFERENCE_CATEGORIES).optional(), userInstruction: z.string().trim().max(240).nullable().optional(),
+}).strict().refine((value) => value.category !== undefined || value.userInstruction !== undefined);
+const replacePieceReferenceSchema = z.object({
+  action: z.literal("replacePieceReference"), sourceId: z.string().uuid(), assetId: z.string().uuid(),
+}).strict();
+const promotePieceReferenceSchema = z.object({ action: z.literal("promotePieceReference"), sourceId: z.string().uuid() }).strict();
 const editSourceAnalysisSchema = z.object({
   action: z.literal("editSourceAnalysis"),
   sourceId: z.string().min(1),
@@ -192,7 +226,7 @@ const editSourceAnalysisSchema = z.object({
 }).strict();
 const patchCreativeWorkSchema = z.union([
   autosaveSchema, prepareSchema, editBriefingSchema, attachSourceSchema, updateSourceSchema,
-  retrySourceSchema, removeSourceSchema, editSourceAnalysisSchema, confirmCreativeWorkSchema,
+  retrySourceSchema, removeSourceSchema, updatePieceReferenceSchema, replacePieceReferenceSchema, promotePieceReferenceSchema, editSourceAnalysisSchema, confirmCreativeWorkSchema,
   linkCampaignSchema, resolveBrandConflictSchema,
   layerizeOutputSchema,
   openLayerEditorSchema, heartbeatLayerEditorSchema, releaseLayerEditorSchema, saveLayerEditorSchema,
@@ -335,10 +369,11 @@ export async function GET(
       await Promise.all(
         staleOutputs.map(async (output) => {
           const refunded = await refundCreativeWorkOutputCompensatory({
-            workspaceId: workspace.id,
-            workItemId: id,
-              outputId: output.id,
-              reason: "stale_generation_timeout",
+              workspaceId: workspace.id,
+              workItemId: id,
+            outputId: output.id,
+            reason: "stale_generation_timeout",
+            manualRetryAttempt: output.manualRetryAttempt,
             });
           staleRefunds.set(output.id, refunded);
           if (!refunded) {
@@ -363,10 +398,18 @@ export async function GET(
             workItemId: id,
             outputId: output.id,
             reason: "retry_pending_compensatory_refund",
-            failurePhase: output.failureCode === "generation_canceled_refund_pending" ? "terminal" : "job_failure",
+            manualRetryAttempt: output.manualRetryAttempt,
+            // Terminal rows keep the original policy unless the shared ledger
+            // resolver finds an outstanding modern/legacy reactivation debit.
+            failurePhase: output.failureCode === "generation_canceled_refund_pending"
+              || output.failureCode === "exact_asset_preflight_failed_refund_pending"
+              ? "terminal"
+              : "job_failure",
           });
           if (refunded) {
-            const settledCode = (output.failureCode ?? "generation_timeout").replace(
+            const settledCode = (output.failureCode === "exact_asset_preflight_failed_reactivation_refund_pending"
+              ? "exact_asset_preflight_failed"
+              : output.failureCode ?? "generation_timeout").replace(
               /_refund_pending$/,
               "",
             );
@@ -599,24 +642,24 @@ export async function PATCH(
     if ("action" in parsed.data && parsed.data.action === "publishLayerEditor") { const result=await publishCreativeWorkLayerEditor({...parsed.data,workspaceId:workspace.id,workItemId:id,userId:user.id}); if(!result.ok)return apiError(result.code,result.code === "layer_editor_not_available" ? 403 : 409); const output=result.output; return NextResponse.json({ok:true,replay:result.replay,output:{id:output.id,parentOutputId:output.parentOutputId,status:output.status,isSelected:output.isSelected,creativeLevel:output.creativeLevel,targetFormat:output.targetFormat,versionNumber:output.versionNumber}},{status:result.replay?200:201}); }
 
     if ("action" in parsed.data && parsed.data.action === "autosave") {
-      const aggregate = await getCreativeWork(workspace.id, id);
-      if (!aggregate) return apiError("creativeWorkNotFound", 404);
-      if (aggregate.work.status !== "draft") return apiError("creativeWorkNotDraft", 409);
-      const unchanged = aggregate.work.request === parsed.data.request &&
-        aggregate.work.toolKind === parsed.data.intent &&
-        aggregate.work.format === parsed.data.format &&
-        JSON.stringify(aggregate.work.settings) === JSON.stringify(parsed.data.settings);
-      const work = unchanged ? aggregate.work : await updateCreativeWorkDraft(workspace.id, id, {
+      const autosaved = await autosaveCreativeWorkDraft({
+        workspaceId: workspace.id,
+        workItemId: id,
         request: parsed.data.request,
-        toolKind: parsed.data.intent,
+        intent: parsed.data.intent,
         format: parsed.data.format,
         settings: parsed.data.settings,
-        brief: null,
-        copy: null,
-        inputSnapshot: null,
       });
-      if (!work) return apiError("creativeWorkNotFound", 404);
-      return NextResponse.json({ work });
+      if (autosaved.error === "single_piece_reference_limit") return apiError("creativeWorkPieceReferenceLimit", 409);
+      if (autosaved.error === "not_draft") return apiError("creativeWorkNotDraft", 409);
+      if (!autosaved.work) return apiError("creativeWorkNotFound", 404);
+      // The repository committed the mode transition and every source's new
+      // CAS version before any event is emitted. A replay finds persisted
+      // Single and returns an empty list, so it cannot enqueue duplicates.
+      await Promise.all((autosaved.sourcesNeedingSingleAnalysis ?? []).map((source) =>
+        dispatchSourceAnalysisOrFail(workspace.id, id, source),
+      ));
+      return NextResponse.json({ work: autosaved.work });
     }
 
     if ("action" in parsed.data && parsed.data.action === "editBriefing") {
@@ -693,6 +736,8 @@ export async function PATCH(
       if (!prepared.ok) {
         if (prepared.error.code === "work_not_found") return apiError("creativeWorkNotFound", 404);
         if (prepared.error.code === "missing_input") return apiError("creativeWorkInputRequired", 422);
+        if (prepared.error.code === "piece_reference_required") return apiError("creativeWorkPieceReferenceRequired", 422);
+        if (prepared.error.code === "piece_reference_exact_incompatible") return apiError("creativeWorkPieceReferenceExactIncompatible", 422);
         // R-002: copy that cannot be grounded in the fact pack is a 422 with
         // its violations payload preserved — never a bare 409.
         if (prepared.error.code === "invalid_context") return apiError("invalid_context", 422, prepared.error.details);
@@ -745,6 +790,8 @@ export async function PATCH(
     }
 
     if ("action" in parsed.data && parsed.data.action === "attachSource") {
+      // This is authorization/lifecycle validation only. The repository reads
+      // toolKind again after its shared lock and owns Single normalization.
       const aggregate = await getCreativeWork(workspace.id, id);
       if (!aggregate) return apiError("creativeWorkNotFound", 404);
       if (aggregate.work.status !== "draft") return apiError("creativeWorkNotDraft", 409);
@@ -757,10 +804,13 @@ export async function PATCH(
         workItemId: id,
         ...(asset ? { assetId: asset.id } : { templateId: template!.id }),
         usage: parsed.data.usage,
-        usageConfirmed: aggregate.work.toolKind !== "single",
+        // The repository replaces this from the tool kind it reads under the
+        // source lock. This legacy-compatible value is never authoritative.
+        usageConfirmed: true,
         status: "uploaded",
       });
       if (!sourceClaim) return apiError("invalidInput", 400);
+      if ("limitReached" in sourceClaim) return apiError("creativeWorkPieceReferenceLimit", 409);
       const source = sourceClaim.source;
       if (!sourceClaim.claimedForAnalysis) return NextResponse.json({ source });
       if (source.templateId) {
@@ -781,20 +831,89 @@ export async function PATCH(
       const source = aggregate.sources.find((candidate) => candidate.id === sourceId);
       if (!source) return apiError("invalidInput", 404);
 
+      if (parsed.data.action === "updatePieceReference") {
+        if (aggregate.work.toolKind !== "single" || !source.assetId || source.status !== "ready" || !source.pieceReference) return apiError("invalidInput", 409);
+        const updated = await mutateCreativeWorkPieceReference({
+          workspaceId: workspace.id,
+          workItemId: id,
+          sourceId: source.id,
+          mutation: {
+            kind: "correct",
+            ...(parsed.data.category === undefined ? {} : { category: parsed.data.category }),
+            ...(parsed.data.userInstruction === undefined ? {} : { userInstruction: parsed.data.userInstruction }),
+          },
+        });
+        if (!updated) return apiError("invalidInput", 409);
+        return NextResponse.json({ source: updated });
+      }
+      if (parsed.data.action === "replacePieceReference") {
+        if (aggregate.work.toolKind !== "single" || !source.assetId || !source.pieceReference) return apiError("invalidInput", 409);
+        const asset = await getWorkspaceAssetById(parsed.data.assetId, workspace.id);
+        if (!asset || !asset.type.startsWith("image/")) return apiError("invalidInput", 400);
+        const updated = await mutateCreativeWorkPieceReference({
+          workspaceId: workspace.id,
+          workItemId: id,
+          sourceId: source.id,
+          mutation: { kind: "replace", assetId: asset.id },
+        });
+        if (!updated) return apiError("invalidInput", 409);
+        await dispatchSourceAnalysisOrFail(workspace.id, id, updated);
+        return NextResponse.json({ source: updated });
+      }
+      if (parsed.data.action === "promotePieceReference") {
+        if (aggregate.work.toolKind !== "single" || !aggregate.work.clientProfileId || !source.assetId || source.status !== "ready" || !source.pieceReference?.category) return apiError("invalidInput", 409);
+        const pieceReference = source.pieceReference;
+        const asset = await getWorkspaceAssetById(source.assetId, workspace.id);
+        if (!asset || !asset.type.startsWith("image/")) return apiError("invalidInput", 400);
+        const dispatchTrainingAnalysis = (referenceId: string) => inngest.send({
+          name: heavyImageEventName("brand.training.analyze"),
+          data: { workspaceId: workspace.id, clientProfileId: aggregate.work.clientProfileId, referenceId, assetKey: asset.key, mimeType: asset.type, hasAlpha: pieceReference.hasTransparency },
+        });
+        const claim = await promoteCreativeWorkPieceReference({
+          workspaceId: workspace.id,
+          workItemId: id,
+          sourceId: source.id,
+          clientProfileId: aggregate.work.clientProfileId,
+          assetKey: asset.key,
+          label: asset.name,
+          expected: { assetId: source.assetId, assetKey: asset.key, updatedAt: source.updatedAt, category: pieceReference.category as PieceReferenceCategory },
+        });
+        if (!claim) return apiError("invalidInput", 409);
+        // A pending row is intentionally retained if enqueueing fails. Brand
+        // Training serializes analysis by reference id, so retrying this
+        // dispatch is safe without holding the transaction across the call.
+        if (claim.claimed || claim.reference.reviewStatus === "pending_analysis") {
+          await dispatchTrainingAnalysis(claim.reference.id);
+        }
+        return NextResponse.json(
+          { reference: claim.reference, alreadySaved: !claim.claimed },
+          claim.claimed ? { status: 201 } : undefined,
+        );
+      }
+
       if (parsed.data.action === "removeSource") {
-        const removed = await deleteCreativeWorkSource(workspace.id, id, source.id);
+        const removed = await mutateCreativeWorkDraftSource({
+          workspaceId: workspace.id, workItemId: id, sourceId: source.id,
+          mutation: { kind: "remove" },
+        });
         if (!removed) return apiError("invalidInput", 409);
         return NextResponse.json({ removed: true });
       }
       if (parsed.data.action === "editSourceAnalysis") {
-        const updated = await updateCreativeWorkSource(workspace.id, id, source.id, {
-          contentAnalysis: source.usage === "style" ? null : parsed.data.content,
-          styleAnalysis: source.usage === "content" ? null : parsed.data.style,
-          status: "ready",
-          failureCode: null,
+        const updated = await mutateCreativeWorkDraftSource({
+          workspaceId: workspace.id, workItemId: id, sourceId: source.id,
+          mutation: {
+            kind: "update",
+            patch: {
+              contentAnalysis: source.usage === "style" ? null : parsed.data.content,
+              styleAnalysis: source.usage === "content" ? null : parsed.data.style,
+              status: "ready",
+              failureCode: null,
+            },
+            expected: { status: source.status, usage: source.usage, updatedAt: source.updatedAt },
+          },
         });
         if (!updated) return apiError("invalidInput", 409);
-        await updateCreativeWorkDraft(workspace.id, id, { brief: null, copy: null, inputSnapshot: null });
         return NextResponse.json({ source: updated });
       }
       // Allow retry for failed (normal) and uploaded (stuck: Inngest never claimed).
@@ -802,15 +921,18 @@ export async function PATCH(
       if (parsed.data.action === "retrySource" && source.status !== "failed" && source.status !== "uploaded") {
         return apiError("invalidInput", 409);
       }
-      const updated = parsed.data.action === "updateSource"
-        ? await updateCreativeWorkSource(workspace.id, id, source.id, { usage: parsed.data.usage, usageConfirmed: true, status: "uploaded", failureCode: null })
-        : await updateCreativeWorkSourceIfUnchanged(
-          workspace.id,
-          id,
-          source.id,
-          { status: source.status, usage: source.usage, updatedAt: source.updatedAt },
-          { status: "uploaded", failureCode: null },
-        );
+      const updated = await mutateCreativeWorkDraftSource({
+        workspaceId: workspace.id,
+        workItemId: id,
+        sourceId: source.id,
+        mutation: parsed.data.action === "updateSource"
+          ? { kind: "update", patch: { usage: parsed.data.usage, usageConfirmed: true, status: "uploaded", failureCode: null } }
+          : {
+              kind: "update",
+              patch: { status: "uploaded", failureCode: null },
+              expected: { status: source.status, usage: source.usage, updatedAt: source.updatedAt },
+            },
+      });
       if (!updated) return apiError("invalidInput", 409);
       if (updated.templateId) {
         const analyzed = await analyzeCreativeWorkSource({ workspaceId: workspace.id, workItemId: id, sourceId: source.id });

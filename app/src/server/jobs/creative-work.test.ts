@@ -4,8 +4,14 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import sharp from "sharp";
 
+const VALID_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLr0QAAAABJRU5ErkJggg==",
+  "base64",
+);
+
 const generateAndStoreImageMock = vi.hoisted(() => vi.fn());
 const runExactCompositionMock = vi.hoisted(() => vi.fn());
+const preflightExactCompositionMock = vi.hoisted(() => vi.fn());
 const analyzeDerivationCreativeMock = vi.hoisted(() => vi.fn());
 const planCreativeRoutesMock = vi.hoisted(() => vi.fn());
 const selectCreativeCandidateMock = vi.hoisted(() => vi.fn());
@@ -28,6 +34,7 @@ const ensureLibraryMock = vi.hoisted(() => vi.fn());
 const objectGetMock = vi.hoisted(() => vi.fn());
 const objectPutMock = vi.hoisted(() => vi.fn());
 const objectDeleteMock = vi.hoisted(() => vi.fn());
+const getUsageByIdempotencyKeyMock = vi.hoisted(() => vi.fn());
 
 const settleTerminalRefundMock = vi.hoisted(() =>
   vi.fn(
@@ -80,6 +87,10 @@ vi.mock("@/server/repositories/creative-work", () => ({
   markCreativeWorkOutputFailureCode: vi.fn(),
 }));
 
+vi.mock("@/server/repositories/usage", () => ({
+  getUsageByIdempotencyKey: (...args: unknown[]) => getUsageByIdempotencyKeyMock(...args),
+}));
+
 vi.mock("@/server/ai/normalize-image-for-ai", () => ({
   normalizeReferenceBuffers: async (references: unknown[]) => references,
 }));
@@ -111,6 +122,10 @@ vi.mock("@/server/ai/image-generation", () => ({
 vi.mock("@/server/creative-work/composite", () => ({
   runExactComposition: (...args: unknown[]) => runExactCompositionMock(...args),
 }));
+vi.mock("@/server/creative-work/placement-policy", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/creative-work/placement-policy")>()),
+  preflightExactComposition: (...args: unknown[]) => preflightExactCompositionMock(...args),
+}));
 
 vi.mock("@/server/ai/creative-route-planner", () => ({
   planCreativeRoutes: (...args: unknown[]) => planCreativeRoutesMock(...args),
@@ -128,6 +143,7 @@ vi.mock("@/server/ai/creative-score", () => ({
 
 const analyzeCreativeWorkQaMock = vi.hoisted(() => vi.fn());
 const inspectCreativeWorkImageFileMock = vi.hoisted(() => vi.fn());
+const inspectExactCompositionAssetMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/ai/creative-qa", async (importOriginal) => ({
   // Keep the real QA contracts (R-005 codes/types) and mock only the I/O
@@ -135,6 +151,7 @@ vi.mock("@/server/ai/creative-qa", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/ai/creative-qa")>()),
   analyzeCreativeWorkQa: (...args: unknown[]) => analyzeCreativeWorkQaMock(...args),
   inspectCreativeWorkImageFile: (...args: unknown[]) => inspectCreativeWorkImageFileMock(...args),
+  inspectExactCompositionAsset: (...args: unknown[]) => inspectExactCompositionAssetMock(...args),
 }));
 
 vi.mock("@/server/storage", () => ({
@@ -167,6 +184,7 @@ import { logger } from "@/lib/logger";
 import { observeImagePipelineExternalCall } from "@/server/ai/image-pipeline-telemetry";
 import { E2EControlledImageProvider } from "@/server/ai/providers/e2e-controlled-provider";
 import { creativeWorkOutputJob } from "./creative-work";
+import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 
 interface GenerateEvent {
   workspaceId: string;
@@ -255,6 +273,7 @@ function makeQueuedOutput(overrides: Partial<{
   id: string;
   status: string;
   creativeLevel: "conservative" | "balanced" | "bold";
+  manualRetryAttempt: number | null;
   retryCount: number;
   imageCallCount: number;
   versionNumber: number;
@@ -276,6 +295,7 @@ function makeQueuedOutput(overrides: Partial<{
     parentOutputId: overrides.parentOutputId ?? null,
     revisionInstruction: overrides.revisionInstruction ?? "Use mais contraste",
     revisionAssetId: null,
+    manualRetryAttempt: overrides.manualRetryAttempt ?? null,
     retryCount: overrides.retryCount ?? 0,
     imageCallCount: overrides.imageCallCount ?? 0,
     status: overrides.status ?? "queued",
@@ -310,12 +330,15 @@ async function runJob(
 
 describe("creativeWorkOutputJob", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    // Exact preflight now performs an additional storage read. Reset queued
+    // one-shot mocks between cases so a prior case cannot redirect that read
+    // and make unrelated provider/lease assertions order-dependent.
+    vi.resetAllMocks();
     vi.unstubAllEnvs();
     objectGetMock.mockImplementation(async (key: string) =>
       key.startsWith("creative-work/output-1/")
         ? Buffer.from("generated-png")
-        : Buffer.from("png-bytes"),
+        : VALID_PNG,
     );
     generateAndStoreImageMock.mockResolvedValue({
       outputKey: "creative-work/output-1/1700000000000.png",
@@ -352,6 +375,7 @@ describe("creativeWorkOutputJob", () => {
         blocked: [],
       },
     });
+    preflightExactCompositionMock.mockReturnValue({ ok: true });
     analyzeDerivationCreativeMock.mockResolvedValue({
       scoreStatus: "analyzed",
       qualityScore: 80,
@@ -364,6 +388,13 @@ describe("creativeWorkOutputJob", () => {
       height: 1080,
       format: "png",
       bytes: 4096,
+      error: null,
+    });
+    inspectExactCompositionAssetMock.mockResolvedValue({
+      ok: true,
+      width: 200,
+      height: 80,
+      hasUsableTransparency: true,
       error: null,
     });
     analyzeCreativeWorkQaMock.mockResolvedValue({
@@ -382,6 +413,7 @@ describe("creativeWorkOutputJob", () => {
     recordGenerationAggregateMock.mockResolvedValue(null);
     countProcessingOutputsMock.mockResolvedValue(1);
     settleTerminalRefundMock.mockClear();
+    getUsageByIdempotencyKeyMock.mockResolvedValue(null);
     requeueOnceMock.mockResolvedValue(null);
     // R-006/R-007 defaults: the first provider call is claimable and the
     // lease is always held; tests exercise exhaustion/lease-loss explicitly.
@@ -400,7 +432,7 @@ describe("creativeWorkOutputJob", () => {
         height: 1080,
         originalBytes: input.buffer.byteLength,
         finalBytes: input.buffer.byteLength,
-        hasTransparency: false,
+        hasTransparency: true,
       }),
     );
     sendMock.mockResolvedValue(undefined);
@@ -451,7 +483,7 @@ describe("creativeWorkOutputJob", () => {
     ]]);
     objectGetMock.mockImplementation(async (key: string) => {
       if (key === fontKey) return font;
-      return stored.get(key) ?? Buffer.from("png-bytes");
+      return stored.get(key) ?? VALID_PNG;
     });
     objectPutMock.mockImplementation(async (key: string, buffer: Buffer) => {
       stored.set(key, buffer);
@@ -768,6 +800,50 @@ describe("creativeWorkOutputJob", () => {
     }));
   });
 
+  it("compensates the outstanding manual retry debit when an interrupted worker is recovered", async () => {
+    const onFailure = (creativeWorkOutputJob as unknown as {
+      opts: { onFailure: (args: unknown) => Promise<unknown> };
+    }).opts.onFailure;
+    getCreativeWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [makeQueuedOutput({ manualRetryAttempt: 2 })],
+    });
+    getUsageByIdempotencyKeyMock.mockImplementation(async (_workspaceId: string, key: string) => (
+      key === "creative-work:work-1:output:output-1:reactivate-terminal:2"
+        ? { id: "manual-debit", idempotencyKey: key }
+        : null
+    ));
+    failMock.mockResolvedValue(makeQueuedOutput({ status: "failed", manualRetryAttempt: 2 }));
+    const step = { run: vi.fn(async (_name: string, fn: () => Promise<unknown>) => fn()) };
+
+    await onFailure({ event: { data: { event: { data: baseEvent } } }, error: new Error("worker lost"), step });
+
+    expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({
+      decision: expect.objectContaining({ idempotencyKey: "creative-work:work-1:output:output-1:reactivate-terminal:2-refund" }),
+    }));
+  });
+
+  it("uses the real resolver to compensate only an outstanding legacy dispatch debit on interruption", async () => {
+    const onFailure = (creativeWorkOutputJob as unknown as {
+      opts: { onFailure: (args: unknown) => Promise<unknown> };
+    }).opts.onFailure;
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    getUsageByIdempotencyKeyMock.mockImplementation(async (_workspaceId: string, key: string) => (
+      key === "creative-work:work-1:output:output-1:reactivate-dispatch"
+        ? { id: "legacy-dispatch", idempotencyKey: key }
+        : null
+    ));
+    failMock.mockResolvedValue(makeQueuedOutput({ status: "failed" }));
+    const step = { run: vi.fn(async (_name: string, fn: () => Promise<unknown>) => fn()) };
+    await onFailure({ event: { data: { event: { data: baseEvent } } }, error: new Error("worker lost"), step });
+    expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({
+      decision: expect.objectContaining({ idempotencyKey: "creative-work:work-1:output:output-1:reactivate-dispatch-refund" }),
+    }));
+    expect(settleTerminalRefundMock).not.toHaveBeenCalledWith(expect.objectContaining({
+      decision: expect.objectContaining({ idempotencyKey: "creative-output:output-1:compensatory-refund" }),
+    }));
+  });
+
   it("still emits the interrupted terminal event when aggregate telemetry fails", async () => {
     const onFailure = (creativeWorkOutputJob as unknown as {
       opts: { onFailure: (args: unknown) => Promise<unknown> };
@@ -933,7 +1009,7 @@ describe("creativeWorkOutputJob", () => {
               position: 1,
               role: "brand_identity",
               assetKey: identitySnapshot.assets[1].assetKey,
-              sha256: createHash("sha256").update("png-bytes").digest("hex"),
+              sha256: createHash("sha256").update(VALID_PNG).digest("hex"),
             })],
             directionSnapshot: output.directionSnapshot,
             directionSnapshotSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
@@ -1571,7 +1647,10 @@ describe("creativeWorkOutputJob", () => {
       outputs: [makeQueuedOutput()],
     });
     markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
-    objectGetMock.mockRejectedValueOnce(new Error("R2 timeout reading ref-1"));
+    objectGetMock.mockImplementation(async (assetKey: string) => {
+      if (assetKey.endsWith("ref-1.png")) throw new Error("R2 timeout reading ref-1");
+      return VALID_PNG;
+    });
 
     await runJob();
 
@@ -1865,7 +1944,9 @@ describe("creativeWorkOutputJob", () => {
       });
       markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
 
-      await runJob();
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: true });
 
       expect(planCreativeRoutesMock).not.toHaveBeenCalled();
       expect(generateAndStoreImageMock).toHaveBeenCalledTimes(1);
@@ -1957,6 +2038,31 @@ describe("creativeWorkOutputJob", () => {
       expect(objectGetMock).toHaveBeenCalledWith("estilo.png");
     });
 
+    it.each([
+      ["variations", [
+        { ...v1Source("stale-seal", "both"), pieceReference: { version: 1, category: "additional_logo_or_seal", treatment: "exact_application", userInstruction: "rodapé", hasTransparency: true } },
+      ], ["Style source", "Mood"]],
+      ["restyle", [
+        v1Source("content", "content"),
+        { ...v1Source("stale-seal", "style"), pieceReference: { version: 1, category: "additional_logo_or_seal", treatment: "exact_application", userInstruction: "rodapé", hasTransparency: true } },
+      ], ["Content source", "Style source", "Mood"]],
+      ["format_adaptation", [
+        { ...v1Source("stale-seal", "content"), pieceReference: { version: 1, category: "additional_logo_or_seal", treatment: "exact_application", userInstruction: "rodapé", hasTransparency: true } },
+      ], ["Original art", "Mood"]],
+    ] as const)("does not treat stale Piece metadata as exact composition for persisted %s work", async (toolKind, sources, expectedReferences) => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...workItem, toolKind, inputSnapshot: { ...v1Snapshot, sources } },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      await expect(runJob()).resolves.toMatchObject({ success: true });
+
+      expect(referenceNames()).toEqual(expectedReferences);
+      const compositionAssets = (runExactCompositionMock.mock.calls[0]?.[0] as { assets: Array<{ referenceId: string }> }).assets;
+      expect(compositionAssets.map((asset) => asset.referenceId)).not.toContain("stale-seal");
+    });
+
     it("Mudar estilo: never evicts mandatory content/style references for optional identity", async () => {
       const fourIdentityRefs = Array.from({ length: 4 }, (_, index) => ({
         referenceId: `ref-ref-${index}`,
@@ -2003,6 +2109,7 @@ describe("creativeWorkOutputJob", () => {
       const failingIdentityKey = "workspaces/workspace-1/brand-training/ref-1.png";
       objectGetMock.mockImplementation(async (key: string) => {
         if (key === failingIdentityKey) throw new Error("R2 NoSuchKey");
+        if (key === identitySnapshot.assets[0].assetKey) return VALID_PNG;
         return Buffer.from(`bytes:${key}`);
       });
 
@@ -2036,6 +2143,7 @@ describe("creativeWorkOutputJob", () => {
       const failingIdentityKey = "workspaces/workspace-1/brand-training/ref-1.png";
       objectGetMock.mockImplementation(async (key: string) => {
         if (key === failingIdentityKey) throw new Error("R2 NoSuchKey");
+        if (key === identitySnapshot.assets[0].assetKey) return VALID_PNG;
         return Buffer.from(`bytes:${key}`);
       });
 
@@ -2118,7 +2226,9 @@ describe("creativeWorkOutputJob", () => {
       });
       markProcessingMock.mockResolvedValue({ ...revision, status: "processing" });
 
-      await runJob();
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: true });
 
       expect(planCreativeRoutesMock).not.toHaveBeenCalled();
       expect(selectCreativeCandidateMock).not.toHaveBeenCalled();
@@ -2172,6 +2282,432 @@ describe("creativeWorkOutputJob", () => {
       // The legacy persisted-brief block and its generic audience are gone.
       expect(prompt).not.toContain("PERSISTED BRIEF AND INPUT:");
       expect(prompt).not.toContain("Público da marca");
+    });
+
+    it("keeps an exact temporary reference out of provider pixels by asset key while preflighting, reusing and composing it", async () => {
+      const temporaryExact = {
+        sourceId: "piece-seal", updatedAt: "2026-08-27T00:00:00.000Z",
+        assetKey: "workspaces/workspace-1/piece/seal.png", mimeType: "image/png", label: "Selo da Peça",
+        usage: "both" as const, content: null, style: null,
+        pieceReference: {
+          version: 1 as const, category: "additional_logo_or_seal" as const,
+          treatment: "exact_application" as const, userInstruction: "No rodapé", hasTransparency: true,
+        },
+      };
+      getCreativeWorkMock.mockResolvedValue({
+        work: {
+          ...v1Work("single"),
+          identitySnapshot: {
+            ...identitySnapshot,
+            assets: [
+              identitySnapshot.assets[0],
+              { ...identitySnapshot.assets[1], assetKey: temporaryExact.assetKey, label: "Mesmo arquivo com outro rótulo" },
+            ],
+          },
+          inputSnapshot: {
+            ...v1Snapshot,
+            sources: [temporaryExact],
+            factPack: {
+              version: 1, request: v1Snapshot.request, facts: [],
+              brand: { requiredElements: [], prohibitedElements: [] },
+              identity: { clientProfileId: "profile-1", brandName: "Cliente XPTO", brandAuthority: "active" },
+            },
+          },
+        },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      await runJob();
+
+      const providerInput = generateAndStoreImageMock.mock.calls[0]?.[0] as { referenceImages: Array<{ name: string }> };
+      expect(providerInput.referenceImages.length).toBeLessThanOrEqual(4);
+      expect(providerInput.referenceImages).toHaveLength(0);
+      expect(providerInput.referenceImages.map((reference) => reference.name)).not.toContain("Selo da Peça");
+      expect(preflightExactCompositionMock).toHaveBeenCalledWith(expect.objectContaining({
+        assets: expect.arrayContaining([expect.objectContaining({ referenceId: "piece-seal", assetKey: temporaryExact.assetKey, usageMode: "exact" })]),
+      }));
+      expect(runExactCompositionMock).toHaveBeenCalledWith(expect.objectContaining({
+        assets: expect.arrayContaining([expect.objectContaining({ referenceId: "piece-seal", assetKey: temporaryExact.assetKey, usageMode: "exact" })]),
+      }));
+      const exactLoads = objectGetMock.mock.calls.filter(([assetKey]) => assetKey === temporaryExact.assetKey);
+      expect(exactLoads).toHaveLength(1);
+      expect(objectGetMock.mock.invocationCallOrder[objectGetMock.mock.calls.findIndex(([assetKey]) => assetKey === temporaryExact.assetKey)])
+        .toBeLessThan(generateAndStoreImageMock.mock.invocationCallOrder[0]!);
+      expect(completeMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", expect.objectContaining({ cost: GENERATION_CREDIT_COSTS.creativeWorkOutput }));
+      expect(GENERATION_CREDIT_COSTS.creativeWorkOutput).toBe(50);
+    });
+
+  it("fails an unreadable exact temporary binary before the paid provider call", async () => {
+      const temporaryExact = {
+        sourceId: "piece-seal", updatedAt: "2026-08-27T00:00:00.000Z",
+        assetKey: "workspaces/workspace-1/piece/unreadable-seal.png", mimeType: "image/png", label: "Selo da Peça",
+        usage: "both" as const, content: null, style: null,
+        pieceReference: {
+          version: 1 as const, category: "additional_logo_or_seal" as const,
+          treatment: "exact_application" as const, userInstruction: null, hasTransparency: true,
+        },
+      };
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...v1Work("single"), inputSnapshot: { ...v1Snapshot, sources: [temporaryExact] } },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+      objectGetMock.mockImplementation(async (assetKey: string) => {
+        if (assetKey === temporaryExact.assetKey) throw new Error("storage unavailable");
+        return Buffer.from("png-bytes");
+      });
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: false, failureCode: "exact_asset_preflight_failed" });
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "exact_asset_preflight_failed");
+      expect(failMock).not.toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "exact_asset_preflight_failed_refund_pending");
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({
+        decision: expect.objectContaining({
+          idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+        }),
+      }));
+      expect(runExactCompositionMock).not.toHaveBeenCalled();
+    });
+
+    it("records exact preflight refund pending when terminal settlement is ambiguous", async () => {
+      const temporaryExact = {
+        sourceId: "piece-seal", updatedAt: "2026-08-27T00:00:00.000Z",
+        assetKey: "workspaces/workspace-1/piece/unreadable-pending-seal.png", mimeType: "image/png", label: "Selo da Peça",
+        usage: "both" as const, content: null, style: null,
+        pieceReference: {
+          version: 1 as const, category: "additional_logo_or_seal" as const,
+          treatment: "exact_application" as const, userInstruction: null, hasTransparency: true,
+        },
+      };
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...v1Work("single"), inputSnapshot: { ...v1Snapshot, sources: [temporaryExact] } },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+      objectGetMock.mockImplementation(async (assetKey: string) => {
+        if (assetKey === temporaryExact.assetKey) throw new Error("storage unavailable");
+        return Buffer.from("png-bytes");
+      });
+      settleTerminalRefundMock.mockResolvedValueOnce({
+        refunded: true,
+        applied: false,
+        reason: "creative_work_terminal_failure",
+        error: "ledger temporarily unavailable",
+      });
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({
+        success: false,
+        failureCode: "exact_asset_preflight_failed_refund_pending",
+      });
+      expect(failMock).toHaveBeenCalledWith(
+        "workspace-1",
+        "work-1",
+        "output-1",
+        "exact_asset_preflight_failed_refund_pending",
+      );
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+    });
+
+    it("retries an ambiguous exact preflight settlement with one stable terminal operation key", async () => {
+      const temporaryExact = {
+        sourceId: "piece-seal", updatedAt: "2026-08-27T00:00:00.000Z",
+        assetKey: "workspaces/workspace-1/piece/retry-unreadable-seal.png", mimeType: "image/png", label: "Selo da Peça",
+        usage: "both" as const, content: null, style: null,
+        pieceReference: {
+          version: 1 as const, category: "additional_logo_or_seal" as const,
+          treatment: "exact_application" as const, userInstruction: null, hasTransparency: true,
+        },
+      };
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...v1Work("single"), inputSnapshot: { ...v1Snapshot, sources: [temporaryExact] } },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+      objectGetMock.mockImplementation(async () => {
+        throw new Error("storage unavailable");
+      });
+      settleTerminalRefundMock
+        .mockResolvedValueOnce({
+          refunded: true,
+          applied: false,
+          reason: "creative_work_terminal_failure",
+          error: "ledger temporarily unavailable",
+        })
+        .mockResolvedValueOnce({
+          refunded: true,
+          applied: true,
+          reason: "creative_work_terminal_failure",
+          status: "refunded",
+        });
+
+      await expect(runJob()).resolves.toMatchObject({
+        success: false,
+        failureCode: "exact_asset_preflight_failed_refund_pending",
+      });
+      await expect(runJob()).resolves.toMatchObject({
+        success: false,
+        failureCode: "exact_asset_preflight_failed",
+      });
+
+      const operationKeys = settleTerminalRefundMock.mock.calls.map(
+        ([input]) => (input as { decision: { idempotencyKey: string } }).decision.idempotencyKey,
+      );
+      expect(operationKeys).toEqual([
+        "creative-work:work-1:output:output-1:terminal-refund",
+        "creative-work:work-1:output:output-1:terminal-refund",
+      ]);
+      expect(new Set(operationKeys).size).toBe(1);
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+    });
+
+    it("settles initial and reactivated exact preflight attempts with separate 50-credit operations", async () => {
+      const temporaryExact = {
+        sourceId: "piece-seal", updatedAt: "2026-08-27T00:00:00.000Z",
+        assetKey: "workspaces/workspace-1/piece/reactivated-unreadable-seal.png", mimeType: "image/png", label: "Selo da Peça",
+        usage: "both" as const, content: null, style: null,
+        pieceReference: {
+          version: 1 as const, category: "additional_logo_or_seal" as const,
+          treatment: "exact_application" as const, userInstruction: null, hasTransparency: true,
+        },
+      };
+      let terminalChargeReactivated = false;
+      getCreativeWorkMock.mockImplementation(async () => ({
+        work: { ...v1Work("single"), inputSnapshot: { ...v1Snapshot, sources: [temporaryExact] } },
+        outputs: [makeQueuedOutput(terminalChargeReactivated
+          ? { retryCount: 1, manualRetryAttempt: 1 }
+          : { retryCount: 0 })],
+      }));
+      markProcessingMock.mockImplementation(async () => makeQueuedOutput(terminalChargeReactivated
+        ? { status: "processing", retryCount: 1, manualRetryAttempt: 1 }
+        : { status: "processing", retryCount: 0 }));
+      objectGetMock.mockImplementation(async () => {
+        throw new Error("storage unavailable");
+      });
+      getUsageByIdempotencyKeyMock.mockImplementation(async (_workspaceId: string, key: string) => (
+        terminalChargeReactivated && key === "creative-work:work-1:output:output-1:reactivate-terminal:1"
+          ? { id: "reactivation-1", idempotencyKey: key }
+          : null
+      ));
+
+      // First terminal failure refunds the original charge. The retry route's
+      // existing settlement test records the matching 50-credit reactivation.
+      await expect(runJob()).resolves.toMatchObject({
+        success: false,
+        failureCode: "exact_asset_preflight_failed",
+      });
+      terminalChargeReactivated = true;
+      await expect(runJob()).resolves.toMatchObject({
+        success: false,
+        failureCode: "exact_asset_preflight_failed",
+      });
+
+      expect(settleTerminalRefundMock.mock.calls.map(
+        ([input]) => (input as { decision: { idempotencyKey: string; amount: number } }).decision,
+      )).toEqual([
+        {
+          idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+          amount: 50,
+          reason: "creative_work_terminal_failure",
+          refund: true,
+        },
+        {
+          idempotencyKey: "creative-work:work-1:output:output-1:reactivate-terminal:1-refund",
+          amount: 50,
+          reason: "creative_work_terminal_reactivation_failure",
+          refund: true,
+        },
+      ]);
+    });
+
+    it("keeps an ambiguous manual attempt two refund pending and recovers with the same key", async () => {
+      const temporaryExact = {
+        sourceId: "piece-seal", updatedAt: "2026-08-27T00:00:00.000Z",
+        assetKey: "workspaces/workspace-1/piece/reactivated-pending-seal.png", mimeType: "image/png", label: "Selo da Peça",
+        usage: "both" as const, content: null, style: null,
+        pieceReference: {
+          version: 1 as const, category: "additional_logo_or_seal" as const,
+          treatment: "exact_application" as const, userInstruction: null, hasTransparency: true,
+        },
+      };
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...v1Work("single"), inputSnapshot: { ...v1Snapshot, sources: [temporaryExact] } },
+        outputs: [makeQueuedOutput({ retryCount: 2, manualRetryAttempt: 2 })],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing", retryCount: 2, manualRetryAttempt: 2 }));
+      objectGetMock.mockImplementation(async () => {
+        throw new Error("storage unavailable");
+      });
+      getUsageByIdempotencyKeyMock.mockImplementation(async (_workspaceId: string, key: string) => (
+        key === "creative-work:work-1:output:output-1:reactivate-terminal:2"
+          ? { id: "reactivation-2", idempotencyKey: key }
+          : null
+      ));
+      settleTerminalRefundMock
+        .mockResolvedValueOnce({
+          refunded: true,
+          applied: false,
+          reason: "creative_work_terminal_reactivation_failure",
+          error: "ledger temporarily unavailable",
+        })
+        .mockResolvedValueOnce({
+          refunded: true,
+          applied: true,
+          reason: "creative_work_terminal_reactivation_failure",
+          status: "refunded",
+        });
+
+      await expect(runJob()).resolves.toMatchObject({
+        success: false,
+        failureCode: "exact_asset_preflight_failed_reactivation_refund_pending",
+      });
+      await expect(runJob()).resolves.toMatchObject({
+        success: false,
+        failureCode: "exact_asset_preflight_failed",
+      });
+
+      const keys = settleTerminalRefundMock.mock.calls.map(
+        ([input]) => (input as { decision: { idempotencyKey: string } }).decision.idempotencyKey,
+      );
+      expect(keys).toEqual([
+        "creative-work:work-1:output:output-1:reactivate-terminal:2-refund",
+        "creative-work:work-1:output:output-1:reactivate-terminal:2-refund",
+      ]);
+    });
+
+    it.each([
+      ["a truncated PNG", { ok: false, width: null, height: null, hasUsableTransparency: false, error: "corrupt image" }],
+      ["an opaque RGBA PNG", { ok: true, width: 2, height: 2, hasUsableTransparency: false, error: null }],
+    ])("blocks %s before the provider when an exact temporary mark is not compositable", async (_label, inspection) => {
+      const temporaryExact = {
+        sourceId: "piece-seal", updatedAt: "2026-08-27T00:00:00.000Z", assetKey: "workspaces/workspace-1/piece/seal-invalid.png", mimeType: "image/png", label: "Selo", usage: "both" as const, content: null, style: null,
+        pieceReference: { version: 1 as const, category: "additional_logo_or_seal" as const, treatment: "exact_application" as const, userInstruction: null, hasTransparency: true },
+      };
+      getCreativeWorkMock.mockResolvedValue({ work: { ...v1Work("single"), inputSnapshot: { ...v1Snapshot, sources: [temporaryExact] } }, outputs: [makeQueuedOutput()] });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+      inspectExactCompositionAssetMock.mockResolvedValueOnce(inspection);
+      objectGetMock.mockImplementation(async () => VALID_PNG);
+
+      await expect(runJob()).resolves.toMatchObject({ success: false, failureCode: "exact_asset_preflight_failed" });
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(inspectExactCompositionAssetMock).toHaveBeenCalledWith(VALID_PNG);
+    });
+
+    it("rejects an extremely vertical exact seal before the provider and refunds 50 credits", async () => {
+      const temporaryExact = {
+        sourceId: "piece-seal", updatedAt: "2026-08-27T00:00:00.000Z", assetKey: "workspaces/workspace-1/piece/vertical-seal.png", mimeType: "image/png", label: "Selo", usage: "both" as const, content: null, style: null,
+        pieceReference: { version: 1 as const, category: "additional_logo_or_seal" as const, treatment: "exact_application" as const, userInstruction: null, hasTransparency: true },
+      };
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...v1Work("single"), inputSnapshot: { ...v1Snapshot, sources: [temporaryExact] } },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+      objectGetMock.mockImplementation(async () => VALID_PNG);
+      inspectExactCompositionAssetMock.mockResolvedValueOnce({
+        ok: true, width: 1, height: 10_000, hasUsableTransparency: true, error: null,
+      });
+      preflightExactCompositionMock.mockReturnValueOnce({
+        ok: false,
+        blocked: [{ referenceId: "piece-seal", assetKey: temporaryExact.assetKey, label: "Selo", reason: "exact_asset_no_space" }],
+      });
+
+      await expect(runJob()).resolves.toMatchObject({ success: false, failureCode: "exact_asset_preflight_failed" });
+
+      expect(preflightExactCompositionMock).toHaveBeenCalledWith(expect.objectContaining({
+        inspectedAssets: expect.any(Map),
+      }));
+      const preflightInput = preflightExactCompositionMock.mock.calls.at(-1)?.[0] as {
+        inspectedAssets: Map<string, { width: number; height: number }>;
+      };
+      expect(preflightInput.inspectedAssets.get(temporaryExact.assetKey)).toEqual({ width: 1, height: 10_000 });
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({
+        decision: expect.objectContaining({ refund: true, amount: 50 }),
+      }));
+    });
+
+    it("refunds before the provider when exact temporary corner allocation is exhausted", async () => {
+      const temporaryExact = {
+        sourceId: "piece-seal", updatedAt: "2026-08-27T00:00:00.000Z", assetKey: "workspaces/workspace-1/piece/seal.png", mimeType: "image/png", label: "Selo", usage: "both" as const, content: null, style: null,
+        pieceReference: { version: 1 as const, category: "additional_logo_or_seal" as const, treatment: "exact_application" as const, userInstruction: null, hasTransparency: true },
+      };
+      const allCorners = ["northwest", "northeast", "southwest", "southeast"] as const;
+      getCreativeWorkMock.mockResolvedValue({
+        work: {
+          ...v1Work("single"),
+          identitySnapshot: {
+            ...identitySnapshot,
+            assets: allCorners.map((gravity, index) => ({
+              ...identitySnapshot.assets[0],
+              referenceId: `trained-${gravity}`,
+              assetKey: `workspaces/workspace-1/brand-training/${index}.png`,
+              placement: { gravity, widthRatio: 0.2 },
+            })),
+          },
+          inputSnapshot: { ...v1Snapshot, sources: [temporaryExact] },
+        },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      await expect(runJob()).resolves.toMatchObject({ success: false, failureCode: "exact_asset_preflight_failed" });
+
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(objectGetMock).not.toHaveBeenCalled();
+      expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "exact_asset_preflight_failed");
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({
+        decision: expect.objectContaining({ refund: true, amount: 50 }),
+      }));
+    });
+
+    it("uses the role-bound planner for a legacy Single snapshot with temporary references", async () => {
+      const temporaryVisual = {
+        sourceId: "piece-style", updatedAt: "2026-08-27T00:00:00.000Z", assetKey: "workspaces/workspace-1/piece/style.png", mimeType: "image/png", label: "Textura", usage: "both" as const, content: { product: "Não é fato" }, style: null,
+        pieceReference: { version: 1 as const, category: "style_reference" as const, treatment: "style_direction" as const, userInstruction: "Só textura", hasTransparency: false },
+      };
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...v1Work("single"), inputSnapshot: { ...v1Snapshot, generationPolicyVersion: "legacy", sources: [temporaryVisual] } },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      await expect(runJob()).resolves.toMatchObject({ success: true });
+
+      const providerInput = generateAndStoreImageMock.mock.calls[0]?.[0] as { prompt: string; referenceImages: Array<{ name: string }> };
+      expect(providerInput.referenceImages).toHaveLength(2);
+      expect(providerInput.referenceImages[0]?.name).toBe("Textura");
+      expect(providerInput.referenceImages).toHaveLength(2);
+      expect(providerInput.prompt).toContain("treatment=style_direction; instruction=Só textura");
+    });
+
+    it("deduplicates a promoted exact asset by asset key while preserving the current temporary instruction", async () => {
+      const duplicatedKey = "workspaces/workspace-1/piece/promoted-seal.png";
+      const temporaryExact = {
+        sourceId: "piece-seal", updatedAt: "2026-08-27T00:00:00.000Z", assetKey: duplicatedKey, mimeType: "image/png", label: "Selo", usage: "both" as const, content: null, style: null,
+        pieceReference: { version: 1 as const, category: "additional_logo_or_seal" as const, treatment: "exact_application" as const, userInstruction: "No topo à direita", hasTransparency: true },
+      };
+      getCreativeWorkMock.mockResolvedValue({
+        work: {
+          ...v1Work("single"),
+          identitySnapshot: { ...identitySnapshot, assets: [{ ...identitySnapshot.assets[0], assetKey: duplicatedKey }, identitySnapshot.assets[1]] },
+          inputSnapshot: { ...v1Snapshot, sources: [temporaryExact] },
+        },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      await runJob();
+
+      const compositionAssets = (runExactCompositionMock.mock.calls[0]?.[0] as { assets: Array<{ assetKey: string; referenceId: string; compositionInstruction?: string | null }> }).assets;
+      expect(compositionAssets.filter((asset) => asset.assetKey === duplicatedKey)).toHaveLength(1);
+      expect(compositionAssets.find((asset) => asset.assetKey === duplicatedKey)).toEqual(expect.objectContaining({
+        referenceId: "piece-seal", compositionInstruction: "No topo à direita",
+      }));
     });
 
     it("warns without failing when a v1 direct output resolves no frozen fact pack", async () => {
@@ -2274,6 +2810,43 @@ describe("creativeWorkOutputJob", () => {
       expect(settleTerminalRefundMock).not.toHaveBeenCalled();
       expect(sendMock).not.toHaveBeenCalled();
     });
+  });
+
+  it("omits an unreadable optional exact graphic before the provider and records the omission", async () => {
+    const optionalGraphic = {
+      ...identitySnapshot.assets[0],
+      referenceId: "ref-optional-graphic",
+      assetKey: "workspaces/workspace-1/brand-training/optional-graphic.png",
+      label: "Grafismo opcional",
+      category: "graphic" as const,
+      usageMode: "exact" as const,
+    };
+    getCreativeWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        toolKind: "single",
+        inputSnapshot: { request: "Pedido", settings: {}, sources: [], generationPolicyVersion: "quality_recovery_v1" },
+        identitySnapshot: { ...identitySnapshot, assets: [optionalGraphic] },
+      },
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    objectGetMock.mockImplementation(async (key: string) => {
+      if (key === optionalGraphic.assetKey) throw new Error("corrupt graphic");
+      return VALID_PNG;
+    });
+
+    await expect(runJob()).resolves.toMatchObject({ success: true });
+
+    expect(generateAndStoreImageMock).toHaveBeenCalledOnce();
+    expect(runExactCompositionMock).not.toHaveBeenCalled();
+    expect(completeMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", expect.objectContaining({
+      quality: expect.objectContaining({
+        exactComposition: expect.objectContaining({
+          omitted: expect.arrayContaining([expect.objectContaining({ assetKey: optionalGraphic.assetKey, reason: "exact_asset_load_failed" })]),
+        }),
+      }),
+    }));
   });
 
   describe("R-005 objective QA tri-state persistence (v1 direct)", () => {

@@ -1,5 +1,6 @@
 import type { GenerationMode } from "@/server/generation/canonical/types";
 import type { CreativeSourceUsage } from "./contracts";
+import type { FrozenPieceReference } from "./piece-reference";
 
 /**
  * R-003 / spec 8 — protocol-derived reference plan.
@@ -43,6 +44,8 @@ export type CreativeWorkReferenceRole =
   | "original"
   | "content"
   | "style"
+  | "piece_required"
+  | "piece_visual"
   | "brand_identity";
 
 export interface CreativeWorkReferenceSlot {
@@ -52,6 +55,7 @@ export interface CreativeWorkReferenceSlot {
   assetKey: string;
   mimeType: string;
   label: string;
+  pieceReference?: Pick<FrozenPieceReference, "category" | "treatment" | "userInstruction">;
 }
 
 export interface CreativeWorkReferencePlanSource {
@@ -65,6 +69,7 @@ export interface CreativeWorkReferencePlanSource {
    * label, never the raw internal source id.
    */
   label?: string | null;
+  pieceReference?: FrozenPieceReference;
 }
 
 export interface CreativeWorkReferencePlanAsset {
@@ -125,6 +130,8 @@ export function planCreativeWorkReferences(input: {
   revisionReferences?: readonly CreativeWorkReferencePlanAsset[];
   /** Provider reference cap (today: 4). */
   limit: number;
+  /** Only persisted Single Piece work may interpret frozen Piece metadata. */
+  allowPieceReferences?: boolean;
 }): CreativeWorkReferenceSlot[] {
   const revisionSlots: CreativeWorkReferenceSlot[] = (input.revisionReferences ?? []).map(
     (reference) => ({
@@ -139,6 +146,35 @@ export function planCreativeWorkReferences(input: {
   // Only asset-backed sources can occupy a visual slot. Template/text sources
   // still contribute through the fact pack and the prompt, never as pixels.
   const visualSources = input.sources.filter(isVisualSource);
+  const temporaryPieceSources = input.allowPieceReferences === false
+    ? []
+    : visualSources.filter((source) => source.pieceReference);
+  const requiredPieceSlots: CreativeWorkReferenceSlot[] = temporaryPieceSources.flatMap((source) => {
+    const reference = source.pieceReference!;
+    return ["identity_preservation", "recognizable_preservation", "required_presence"].includes(reference.treatment)
+      ? [{
+          role: "piece_required" as const,
+          required: true,
+          assetKey: source.assetKey,
+          mimeType: source.mimeType,
+          label: sourceLabel(source, "style"),
+          pieceReference: reference,
+        }]
+      : [];
+  });
+  const visualPieceSlots: CreativeWorkReferenceSlot[] = temporaryPieceSources.flatMap((source) => {
+    const reference = source.pieceReference!;
+    return ["visual_language", "style_direction"].includes(reference.treatment)
+      ? [{
+          role: "piece_visual" as const,
+          required: false,
+          assetKey: source.assetKey,
+          mimeType: source.mimeType,
+          label: sourceLabel(source, "style"),
+          pieceReference: reference,
+        }]
+      : [];
+  });
 
   let sourceSlots: CreativeWorkReferenceSlot[] = [];
   if (input.mode === "format_adaptation") {
@@ -163,6 +199,7 @@ export function planCreativeWorkReferences(input: {
     // social_post / art_variation / creative_revision: style|both sources are
     // optional visual guidance; content-only sources stay textual.
     sourceSlots = visualSources
+      .filter((source) => input.allowPieceReferences === false || !source.pieceReference)
       .filter((source) => source.usage !== "content")
       .map((source) => ({
         role: "style" as const,
@@ -183,8 +220,8 @@ export function planCreativeWorkReferences(input: {
     }),
   );
 
-  const required = [...revisionSlots, ...sourceSlots.filter((slot) => slot.required)];
-  const optional = [...sourceSlots.filter((slot) => !slot.required), ...identitySlots];
+  const required = [...revisionSlots, ...requiredPieceSlots, ...sourceSlots.filter((slot) => slot.required)];
+  const optional = [...visualPieceSlots, ...sourceSlots.filter((slot) => !slot.required), ...identitySlots];
   if (required.length > input.limit) {
     throw new CreativeWorkReferenceError(
       `mandatory references (${required.length}) exceed the provider reference limit (${input.limit})`,

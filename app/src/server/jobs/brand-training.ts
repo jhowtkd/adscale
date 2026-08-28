@@ -315,6 +315,10 @@ function buildBrandTrainingAnalyzeJob(
     {
       id: options.id,
       retries: 2,
+      // Duplicate promotion/retry events for one reference must serialize before
+      // reaching the vision provider. The later event re-reads the persisted
+      // analysis and exits through the stale-retry guard above.
+      concurrency: [{ limit: 1, key: "event.data.referenceId" }],
       onFailure: async ({ event, error }) => {
         const data = event.data.event.data as BrandTrainingAnalyzeEvent;
         const message = error instanceof Error ? error.message : "Unknown error";

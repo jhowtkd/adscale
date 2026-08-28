@@ -25,6 +25,8 @@ import {
 } from "@/server/creative-work/contracts";
 import type { PublicLayerizationState } from "@/server/layerize/contracts";
 import type { LayerEditorAccessV1, PublicLayerEditorSummaryV1 } from "@/server/layer-editor/contracts";
+import type { PieceReferenceCategory, PieceReferenceDraft } from "@/server/creative-work/piece-reference";
+import { brandTrainingAssetsKey } from "@/lib/hooks/use-brand-training";
 
 export type CreativeWorkStatus =
   | "draft"
@@ -170,6 +172,7 @@ export interface CreativeWorkSource {
   status: "uploaded" | "analyzing" | "ready" | "failed";
   contentAnalysis: ContentBrief | null;
   styleAnalysis: StyleBrief | null;
+  pieceReference: PieceReferenceDraft | null;
   failureCode: string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
@@ -593,6 +596,9 @@ type CreativeSourceAction =
   | { action: "attachSource"; assetId: string; templateId?: never; usage: CreativeSourceUsage }
   | { action: "attachSource"; templateId: string; assetId?: never; usage: CreativeSourceUsage }
   | { action: "updateSource"; sourceId: string; usage: CreativeSourceUsage }
+  | { action: "updatePieceReference"; sourceId: string; category?: PieceReferenceCategory; userInstruction?: string | null }
+  | { action: "replacePieceReference"; sourceId: string; assetId: string }
+  | { action: "promotePieceReference"; sourceId: string }
   | { action: "retrySource" | "removeSource"; sourceId: string }
   | { action: "editSourceAnalysis"; sourceId: string; content: ContentBrief | null; style: StyleBrief | null };
 
@@ -600,8 +606,11 @@ export function useCreativeWorkSourceActions() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ workItemId, ...action }: CreativeSourceAction & { workItemId: string }) =>
-      patchJson<{ source?: CreativeWorkSource; removed?: boolean }>(`/api/creative-work/${workItemId}`, action),
-    onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
+      patchJson<{ source?: CreativeWorkSource; removed?: boolean; reference?: { id: string; clientProfileId?: string }; alreadySaved?: boolean }>(`/api/creative-work/${workItemId}`, action),
+    onSuccess: async (data, input) => {
+      await invalidateCreativeDraft(queryClient, input.workItemId);
+      if (data.reference?.clientProfileId) await queryClient.invalidateQueries({ queryKey: brandTrainingAssetsKey(data.reference.clientProfileId) });
+    },
     onError: (_error, input) => invalidateCreativeDraft(queryClient, input.workItemId),
   });
 }

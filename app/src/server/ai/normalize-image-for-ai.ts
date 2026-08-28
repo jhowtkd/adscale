@@ -24,6 +24,27 @@ export type NormalizedImageForAi = {
   hasTransparency: boolean;
 };
 
+/** Exact composition requires at least one non-opaque alpha pixel. */
+export function hasUsableAlphaValue(alpha: number): boolean {
+  return alpha < 255;
+}
+
+/**
+ * Explicit pixel-level alpha inspection for exact-composition trust
+ * boundaries. It is intentionally separate from generic AI normalization so
+ * legacy callers only need Sharp's established metadata/resize pipeline.
+ */
+export async function inspectUsableTransparency(buffer: Buffer): Promise<boolean> {
+  const { data, info } = await sharp(buffer, { limitInputPixels: LIMIT_INPUT_PIXELS })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  for (let offset = 3; offset < data.length; offset += info.channels) {
+    if (hasUsableAlphaValue(data[offset]!)) return true;
+  }
+  return false;
+}
+
 /**
  * Normalize a buffer for AI model input only. Does not replace stored originals.
  * Applies EXIF orientation, caps the long edge at 2048 without enlarging,
@@ -56,6 +77,8 @@ export async function normalizeImageForAi(input: {
     throw new InvalidImageInputError("Image has invalid dimensions");
   }
 
+  // Generic callers preserve the historical channel-presence contract. Exact
+  // composition uses inspectUsableTransparency at its source-analysis gate.
   const hasTransparency = metadata.hasAlpha === true;
   const resized = pipeline.resize(MAX_DIMENSION, MAX_DIMENSION, {
     fit: "inside",

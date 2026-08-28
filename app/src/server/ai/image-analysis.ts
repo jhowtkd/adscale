@@ -2,6 +2,7 @@ import { env } from "@/server/validation/env";
 import { extractOutputText, getOpenAI } from "@/server/ai/utils";
 import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
 import { z } from "zod";
+import { PIECE_REFERENCE_CATEGORIES } from "@/server/creative-work/piece-reference";
 
 export const contentBriefSchema = z.object({
   summaryPt: z.string().trim().min(1).optional(),
@@ -14,6 +15,10 @@ export const contentBriefSchema = z.object({
   keyVisual: z.string(),
   textContent: z.object({ headline: z.string(), bullets: z.array(z.string()) }),
   format: z.string(),
+  pieceReference: z.object({
+    category: z.enum(PIECE_REFERENCE_CATEGORIES).nullable(),
+    confidence: z.enum(["high", "medium", "low"]),
+  }).optional(),
 });
 export type ContentBrief = z.infer<typeof contentBriefSchema>;
 
@@ -50,7 +55,8 @@ Write all reader-facing descriptions in Brazilian Portuguese. Never translate or
 
 export async function analyzeImageContent(
   imageBuffer: Buffer,
-  mimeType: string
+  mimeType: string,
+  options: { classifyPieceReference?: boolean } = {},
 ): Promise<ContentBrief> {
   if (isE2EControlledProviderEnabled()) {
     return contentBriefSchema.parse({
@@ -64,6 +70,7 @@ export async function analyzeImageContent(
       keyVisual: "produto em destaque",
       textContent: { headline: "Headline da arte", bullets: [] },
       format: "4:5",
+      ...(options.classifyPieceReference ? { pieceReference: { category: "product_or_packaging", confidence: "high" as const } } : {}),
     });
   }
   const base64 = imageBuffer.toString("base64");
@@ -72,7 +79,12 @@ export async function analyzeImageContent(
   const response = await getOpenAI().responses.create({
     model: env.OPENAI_TEXT_MODEL,
     input: [
-      { role: "system", content: CONTENT_SYSTEM_PROMPT },
+      {
+        role: "system",
+        content: options.classifyPieceReference
+          ? `${CONTENT_SYSTEM_PROMPT}\nAlso include pieceReference with category one of ${PIECE_REFERENCE_CATEGORIES.join(", ")} (or null) and confidence high, medium, or low. Use low when uncertain.`
+          : CONTENT_SYSTEM_PROMPT,
+      },
       {
         role: "user",
         content: [

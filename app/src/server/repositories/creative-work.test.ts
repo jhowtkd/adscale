@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import type { CreativeWorkItem, CreativeWorkOutput } from "../db/schema";
 import type { LayerizationState } from "../layerize/contracts";
+import { isPieceReferenceReady } from "../creative-work/piece-reference";
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -158,13 +160,20 @@ vi.mock("./campaign", () => ({ getCampaignById: scopeMocks.getCampaignById }));
 import { creativeWorkOutputs } from "../db/schema";
 import {
   claimCreativeWorkOutputImageCall,
+  claimCreativeWorkOutputManualRetryAttempt,
+  releaseCreativeWorkOutputManualRetryAttempt,
   countCreativeWorkProcessingOutputs,
   confirmCreativeWorkIdentity,
   confirmCreativeWorkSnapshotsIfUnchanged,
   completeCreativeWorkOutput,
   createCreativeWork,
   createCreativeWorkDraft,
+  autosaveCreativeWorkDraft,
+  mutateCreativeWorkPieceReference,
+  mutateCreativeWorkDraftSource,
   createCreativeWorkDraftWithSource,
+  claimCreativeWorkPieceTrainingReference,
+  promoteCreativeWorkPieceReference,
   createCreativeWorkSource,
   createPlannedCreativeWorkOutputs,
   createCreativeWorkRevision,
@@ -305,6 +314,410 @@ describe("creative-work repository", () => {
     scopeMocks.resolveCampaignClientProfileId.mockImplementation(async (_workspaceId, campaign) => campaign.clientProfileId ?? null);
   });
 
+  describe("piece-reference training promotion claims", () => {
+    it("keeps the migration additive for historical training-reference duplicates", () => {
+      const migration = readFileSync(
+        new URL("../../../drizzle/0089_creative_work_piece_reference.sql", import.meta.url),
+        "utf8",
+      );
+
+      expect(migration).toContain('ADD COLUMN IF NOT EXISTS "piece_reference" jsonb');
+      expect(migration).not.toContain("client_references_workspace_profile_asset_key_unique");
+      expect(migration).not.toContain("DELETE FROM");
+    });
+
+    it("serializes concurrent get-or-create claims to one scoped training reference", async () => {
+      const reference = {
+        id: "training-1", workspaceId: "ws-1", clientProfileId: "profile-1",
+        assetKey: "trusted/piece.png", label: "piece.png", kind: "other",
+        reviewStatus: "pending_analysis", createdAt: new Date(), notes: null,
+        trainingCategory: null, usageMode: null, trainingAnalysis: null,
+        reviewedAt: null, reviewedByUserId: null, sourceDerivationId: null,
+      };
+      // The first lock holder creates; a concurrent waiter observes that row
+      // after the same advisory lock is released.
+      mocks.state.selectResults.push([], [reference]);
+      mocks.state.insertResults.push([reference]);
+      const input = {
+        workspaceId: "ws-1", clientProfileId: "profile-1",
+        assetKey: "trusted/piece.png", label: "piece.png",
+      };
+
+      const [winner, loser] = await Promise.all([
+        claimCreativeWorkPieceTrainingReference(input),
+        claimCreativeWorkPieceTrainingReference(input),
+      ]);
+
+      expect(winner).toEqual({ reference, claimed: true });
+      expect(loser).toEqual({ reference, claimed: false });
+      expect(mocks.returningMock).toHaveBeenCalledOnce();
+      expect(mocks.executeMock).toHaveBeenCalledTimes(2);
+      expect(mocks.valuesMock).toHaveBeenCalledWith(expect.objectContaining({
+        workspaceId: "ws-1", clientProfileId: "profile-1", assetKey: "trusted/piece.png",
+        reviewStatus: "pending_analysis",
+      }));
+    });
+
+    it("prefers an approved historical duplicate and ignores archived or rejected rows", async () => {
+      const pending = { id: "pending", reviewStatus: "pending_analysis", createdAt: new Date("2026-08-01") };
+      const approved = { id: "approved", reviewStatus: "approved", createdAt: new Date("2026-08-02") };
+      mocks.state.selectResults.push([
+        { id: "archived", reviewStatus: "archived", createdAt: new Date("2026-08-03") },
+        { id: "rejected", reviewStatus: "rejected", createdAt: new Date("2026-08-04") },
+        approved,
+        pending,
+      ]);
+
+      await expect(claimCreativeWorkPieceTrainingReference({
+        workspaceId: "ws-1", clientProfileId: "profile-1", assetKey: "trusted/piece.png", label: "piece.png",
+      })).resolves.toEqual({ reference: approved, claimed: false });
+
+      expect(mocks.orderByMock).toHaveBeenCalled();
+      expect(mocks.returningMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Single Piece autosave and attachment serialization", () => {
+    it("rejects both same-ordinal recovery claims before a no-op update can claim ownership", async () => {
+      const first = claimCreativeWorkOutputManualRetryAttempt(
+        "ws-1", "work-1", "output-1", 4, 2, 2,
+      );
+      const second = claimCreativeWorkOutputManualRetryAttempt(
+        "ws-1", "work-1", "output-1", 4, 2, 2,
+      );
+      await expect(Promise.all([first, second])).resolves.toEqual([null, null]);
+      // Old code issued an UPDATE whose SET value equaled the WHERE value,
+      // allowing every caller to receive the same returned row as "claimed".
+      expect(mocks.txUpdateMock).not.toHaveBeenCalled();
+    });
+    it("releases only the exact failed manual reservation, never a newer ordinal", async () => {
+      mocks.state.updateResults.push([{ id: "output-1", manualRetryAttempt: null }]);
+
+      await expect(releaseCreativeWorkOutputManualRetryAttempt(
+        "ws-1", "work-1", "output-1", 4, 2,
+      )).resolves.toMatchObject({ id: "output-1", manualRetryAttempt: null });
+
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ manualRetryAttempt: null }));
+      const releaseWhere = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(releaseWhere.params).toEqual(expect.arrayContaining([
+        "ws-1", "work-1", "output-1", "failed", 4, 2,
+      ]));
+
+      mocks.state.updateResults.push([]);
+      await expect(releaseCreativeWorkOutputManualRetryAttempt(
+        "ws-1", "work-1", "output-1", 4, 2,
+      )).resolves.toBeNull();
+      // A failed CAS result means an ordinal changed by another attempt is
+      // untouched; the caller cannot clear a newer reservation.
+      expect(mocks.setMock).toHaveBeenCalledTimes(2);
+    });
+    it("promotes through one executor: prepare lock, locked snapshot read, then training claim lock/write", async () => {
+      const updatedAt = new Date("2026-08-28T12:00:00.000Z");
+      const source = {
+        id: "source-1", assetId: "asset-1", updatedAt,
+        pieceReference: { category: "logo" },
+      };
+      const reference = { id: "training-1", reviewStatus: "pending_analysis", assetKey: "trusted/logo.png" };
+      mocks.state.selectResults.push([source], [{ id: "asset-1", key: "trusted/logo.png", name: "locked-logo.png" }], []);
+      mocks.state.insertResults.push([reference]);
+
+      await expect(promoteCreativeWorkPieceReference({
+        workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1", clientProfileId: "profile-1",
+        assetKey: "trusted/logo.png", label: "logo.png",
+        expected: { assetId: "asset-1", assetKey: "trusted/logo.png", updatedAt, category: "logo" },
+      })).resolves.toEqual({ reference, claimed: true });
+
+      expect(mocks.transactionMock).toHaveBeenCalledOnce();
+      expect(mocks.executeMock).toHaveBeenCalledTimes(2);
+      const prepareLock = dialect.sqlToQuery(mocks.executeMock.mock.calls[0][0] as SQL);
+      const trainingLock = dialect.sqlToQuery(mocks.executeMock.mock.calls[1][0] as SQL);
+      expect(prepareLock.params).toContain("ws-1:work-1:prepare");
+      expect(trainingLock.params).toContain("ws-1:profile-1:trusted/logo.png:piece-training");
+      expect(mocks.executeMock.mock.invocationCallOrder[0]).toBeLessThan(mocks.selectMock.mock.invocationCallOrder[0]);
+      expect(mocks.selectMock.mock.invocationCallOrder[1]).toBeLessThan(mocks.executeMock.mock.invocationCallOrder[1]);
+      expect(mocks.executeMock.mock.invocationCallOrder[1]).toBeLessThan(mocks.valuesMock.mock.invocationCallOrder[0]);
+    });
+
+    it.each([
+      ["asset changed", { id: "source-1", assetId: "asset-2", updatedAt: new Date("2026-08-28T12:00:00.000Z"), pieceReference: { category: "logo" } }],
+      ["timestamp changed", { id: "source-1", assetId: "asset-1", updatedAt: new Date("2026-08-28T12:00:01.000Z"), pieceReference: { category: "logo" } }],
+      ["category changed", { id: "source-1", assetId: "asset-1", updatedAt: new Date("2026-08-28T12:00:00.000Z"), pieceReference: { category: "seal" } }],
+      ["source removed", null],
+    ])("rejects promotion when the locked snapshot is stale: %s", async (_reason, source) => {
+      const updatedAt = new Date("2026-08-28T12:00:00.000Z");
+      mocks.state.selectResults.push(source ? [source] : []);
+
+      await expect(promoteCreativeWorkPieceReference({
+        workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1", clientProfileId: "profile-1",
+        assetKey: "trusted/logo.png", label: "logo.png",
+        expected: { assetId: "asset-1", assetKey: "trusted/logo.png", updatedAt, category: "logo" },
+      })).resolves.toBeNull();
+
+      expect(mocks.transactionMock).toHaveBeenCalledOnce();
+      expect(mocks.executeMock).toHaveBeenCalledOnce();
+      expect(mocks.valuesMock).not.toHaveBeenCalled();
+    });
+    it.each([
+      ["asset key changed", { id: "asset-1", key: "trusted/rotated.png", name: "rotated.png" }],
+      ["asset removed", null],
+    ])("rejects promotion when the locked workspace asset is stale: %s", async (_reason, asset) => {
+      const updatedAt = new Date("2026-08-28T12:00:00.000Z");
+      mocks.state.selectResults.push(
+        [{ id: "source-1", assetId: "asset-1", updatedAt, pieceReference: { category: "logo" } }],
+        asset ? [asset] : [],
+      );
+
+      await expect(promoteCreativeWorkPieceReference({
+        workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1", clientProfileId: "profile-1",
+        assetKey: "prelock/logo.png", label: "prelock-logo.png",
+        expected: { assetId: "asset-1", assetKey: "trusted/logo.png", updatedAt, category: "logo" },
+      })).resolves.toBeNull();
+
+      expect(mocks.transactionMock).toHaveBeenCalledOnce();
+      expect(mocks.executeMock).toHaveBeenCalledOnce();
+      expect(mocks.valuesMock).not.toHaveBeenCalled();
+    });
+    it("uses the same per-work advisory scope for source attachment and preparation", () => {
+      const source = readFileSync(new URL("./creative-work.ts", import.meta.url), "utf8");
+      expect(source).toContain('`${workspaceId}:${workItemId}:prepare`');
+      expect(source).toContain('pg_advisory_xact_lock(hashtext(${`${workspaceId}:${workItemId}:prepare`}))');
+    });
+    it("distinguishes a missing work from a persisted non-draft autosave", async () => {
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "missing", request: "Peça", intent: "single", format: "4:5", settings: { targetFormats: [] },
+      })).resolves.toEqual({ work: null, error: "not_found", sourcesNeedingSingleAnalysis: [] });
+
+      mocks.state.selectResults.push([workItem({ id: "work-closed", toolKind: "single", status: "ready" })]);
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "work-closed", request: "Peça", intent: "single", format: "4:5", settings: { targetFormats: [] },
+      })).resolves.toEqual({ work: null, error: "not_draft", sourcesNeedingSingleAnalysis: [] });
+      expect(mocks.txUpdateMock).not.toHaveBeenCalled();
+    });
+    it("rejects a Variations to Single transition with four asset sources before changing the work", async () => {
+      const work = workItem({ id: "work-1", toolKind: "variations", status: "draft" });
+      mocks.state.selectResults.push([work], [
+        { id: "source-1", assetId: "asset-1" }, { id: "source-2", assetId: "asset-2" },
+        { id: "source-3", assetId: "asset-3" }, { id: "source-4", assetId: "asset-4" },
+      ]);
+
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "work-1", request: "Peça", intent: "single", format: "4:5", settings: { targetFormats: [] },
+      })).resolves.toEqual({ work: null, error: "single_piece_reference_limit", sourcesNeedingSingleAnalysis: [] });
+
+      expect(mocks.executeMock).toHaveBeenCalledOnce();
+      expect(mocks.txUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("normalizes up to three existing assets under the same lock before persisting Single", async () => {
+      const work = workItem({ id: "work-1", toolKind: "variations", status: "draft" });
+      const updated = workItem({ id: "work-1", toolKind: "single", status: "draft" });
+      const assetSources = [
+        { id: "source-1", assetId: "asset-1", pieceReference: null },
+        { id: "source-2", assetId: "asset-2", pieceReference: { version: 1, category: "style_reference" } },
+      ];
+      mocks.state.selectResults.push([work], assetSources);
+      const normalizedOne = { ...assetSources[0], usage: "both", usageConfirmed: true, status: "uploaded", failureCode: null };
+      const normalizedTwo = { ...assetSources[1], usage: "both", usageConfirmed: true, status: "uploaded", failureCode: null };
+      mocks.state.txUpdateResults.push([normalizedOne], [normalizedTwo], [updated]);
+
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "work-1", request: "Peça", intent: "single", format: "4:5", settings: { targetFormats: [] },
+      })).resolves.toEqual({ work: updated, error: null, sourcesNeedingSingleAnalysis: [normalizedOne, normalizedTwo] });
+
+      expect(mocks.executeMock).toHaveBeenCalledOnce();
+      expect(mocks.txSetMock).toHaveBeenNthCalledWith(1, expect.objectContaining({
+        usage: "both", usageConfirmed: true,
+        status: "uploaded", failureCode: null, contentAnalysis: null, styleAnalysis: null,
+        pieceReference: { version: 1, category: null, classificationSource: "automatic", confidence: "low", userInstruction: null, hasTransparency: false },
+        updatedAt: expect.anything(),
+      }));
+      expect(mocks.txSetMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        usage: "both", usageConfirmed: true,
+        pieceReference: { version: 1, category: "style_reference" },
+      }));
+    });
+
+    it("preserves legacy null Piece metadata and unconfirmed usage on an ordinary Single autosave", async () => {
+      const legacySingle = workItem({ id: "work-1", toolKind: "single", status: "draft" });
+      const updated = workItem({ id: "work-1", toolKind: "single", status: "draft" });
+      mocks.state.selectResults.push([legacySingle]);
+      mocks.state.txUpdateResults.push([updated]);
+
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "work-1", request: "Peça antiga", intent: "single", format: "4:5", settings: { targetFormats: [] },
+      })).resolves.toEqual({ work: updated, error: null, sourcesNeedingSingleAnalysis: [] });
+
+      // Only the work row is written: no source normalization may invent a
+      // Piece contract or confirm a historical source during a same-mode save.
+      expect(mocks.txSetMock).toHaveBeenCalledOnce();
+      expect(mocks.txSetMock.mock.calls[0]?.[0]).not.toHaveProperty("pieceReference");
+      expect(mocks.txSetMock.mock.calls[0]?.[0]).not.toHaveProperty("usageConfirmed");
+    });
+
+    it("serializes Piece correction with prepare and invalidates prepared artifacts in the same draft transaction", async () => {
+      const source = {
+        id: "source-1", assetId: "asset-1", status: "ready", usage: "both", usageConfirmed: true,
+        pieceReference: { version: 1, category: "style_reference", classificationSource: "automatic", confidence: "high", userInstruction: null, hasTransparency: false },
+      };
+      const corrected = {
+        ...source,
+        pieceReference: { ...source.pieceReference, category: "graphic_or_texture", classificationSource: "user", userInstruction: "Apenas textura" },
+      };
+      mocks.state.selectResults.push(
+        [{ id: "work-1", toolKind: "single" }],
+        [source],
+      );
+      mocks.state.txUpdateResults.push([corrected], [workItem({ toolKind: "single", status: "draft" })]);
+
+      await expect(mutateCreativeWorkPieceReference({
+        workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1",
+        mutation: { kind: "correct", category: "graphic_or_texture", userInstruction: "  Apenas textura  " },
+      })).resolves.toEqual(corrected);
+
+      expect(mocks.executeMock).toHaveBeenCalledWith(expect.anything());
+      expect(mocks.txSetMock).toHaveBeenNthCalledWith(1, expect.objectContaining({
+        pieceReference: expect.objectContaining({ category: "graphic_or_texture", classificationSource: "user", userInstruction: "Apenas textura" }),
+      }));
+      expect(mocks.txSetMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ brief: null, copy: null, inputSnapshot: null }));
+    });
+
+    it("preserves the locked sibling field for overlapping category and instruction corrections", async () => {
+      const original = {
+        id: "source-1", assetId: "asset-1", status: "ready", usage: "both", usageConfirmed: true,
+        pieceReference: { version: 1, category: "product_or_packaging", classificationSource: "automatic", confidence: "high", userInstruction: "Manter rótulo", hasTransparency: false },
+      };
+      const afterCategory = {
+        ...original,
+        pieceReference: { ...original.pieceReference, category: "style_reference", classificationSource: "user" },
+      };
+      const afterInstruction = {
+        ...afterCategory,
+        pieceReference: { ...afterCategory.pieceReference, userInstruction: "Só a textura" },
+      };
+      mocks.state.selectResults.push(
+        [{ id: "work-1", toolKind: "single" }], [original],
+        [{ id: "work-1", toolKind: "single" }], [afterCategory],
+      );
+      mocks.state.txUpdateResults.push(
+        [afterCategory], [workItem({ toolKind: "single", status: "draft" })],
+        [afterInstruction], [workItem({ toolKind: "single", status: "draft" })],
+      );
+
+      await mutateCreativeWorkPieceReference({
+        workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1",
+        mutation: { kind: "correct", category: "style_reference" },
+      });
+      await mutateCreativeWorkPieceReference({
+        workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1",
+        mutation: { kind: "correct", userInstruction: "Só a textura" },
+      });
+
+      expect(mocks.txSetMock).toHaveBeenNthCalledWith(1, expect.objectContaining({
+        pieceReference: expect.objectContaining({ category: "style_reference", userInstruction: "Manter rótulo" }),
+      }));
+      expect(mocks.txSetMock).toHaveBeenNthCalledWith(3, expect.objectContaining({
+        pieceReference: expect.objectContaining({ category: "style_reference", userInstruction: "Só a textura" }),
+      }));
+    });
+
+    it("does not confirm a low-confidence classification from instruction-only edits", async () => {
+      const automaticLow = {
+        id: "source-1", assetId: "asset-1", status: "ready", usage: "both", usageConfirmed: true,
+        pieceReference: { version: 1 as const, category: "product_or_packaging" as const, classificationSource: "automatic" as const, confidence: "low" as const, userInstruction: "Manter rótulo", hasTransparency: false },
+      };
+      const afterInstruction = {
+        ...automaticLow,
+        pieceReference: { ...automaticLow.pieceReference, userInstruction: null },
+      };
+      const afterConfirmation = {
+        ...afterInstruction,
+        pieceReference: { ...afterInstruction.pieceReference, classificationSource: "user" as const },
+      };
+      mocks.state.selectResults.push(
+        [{ id: "work-1", toolKind: "single" }], [automaticLow],
+        [{ id: "work-1", toolKind: "single" }], [afterInstruction],
+      );
+      mocks.state.txUpdateResults.push(
+        [afterInstruction], [workItem({ toolKind: "single", status: "draft" })],
+        [afterConfirmation], [workItem({ toolKind: "single", status: "draft" })],
+      );
+
+      await expect(mutateCreativeWorkPieceReference({
+        workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1",
+        mutation: { kind: "correct", userInstruction: "" },
+      })).resolves.toEqual(afterInstruction);
+      expect(isPieceReferenceReady(afterInstruction.pieceReference)).toBe(false);
+      expect(mocks.txSetMock).toHaveBeenNthCalledWith(1, expect.objectContaining({
+        pieceReference: expect.objectContaining({ classificationSource: "automatic", confidence: "low", userInstruction: null }),
+      }));
+
+      await expect(mutateCreativeWorkPieceReference({
+        workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1",
+        mutation: { kind: "correct", category: "product_or_packaging" },
+      })).resolves.toEqual(afterConfirmation);
+      expect(isPieceReferenceReady(afterConfirmation.pieceReference)).toBe(true);
+      expect(mocks.txSetMock).toHaveBeenNthCalledWith(3, expect.objectContaining({
+        pieceReference: expect.objectContaining({ category: "product_or_packaging", classificationSource: "user", confidence: "low", userInstruction: null }),
+      }));
+    });
+
+    it("returns a conflict without changing the source when prepare already made the work non-draft", async () => {
+      mocks.state.selectResults.push([]);
+
+      await expect(mutateCreativeWorkPieceReference({
+        workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1",
+        mutation: { kind: "replace", assetId: "asset-2" },
+      })).resolves.toBeNull();
+
+      expect(mocks.txSetMock).not.toHaveBeenCalled();
+    });
+
+    it("uses the prepare lock to atomically remove a draft source and invalidate its frozen inputs", async () => {
+      const source = { id: "source-1", workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", usage: "both", status: "ready", updatedAt: new Date() };
+      mocks.state.selectResults.push([{ id: "work-1" }], [source]);
+      mocks.state.deleteResults.push([source]);
+      mocks.state.txUpdateResults.push([workItem({ toolKind: "single", status: "draft" })]);
+
+      await expect(mutateCreativeWorkDraftSource({
+        workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1", mutation: { kind: "remove" },
+      })).resolves.toEqual(source);
+
+      expect(mocks.executeMock).toHaveBeenCalledWith(expect.anything());
+      expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({ brief: null, copy: null, inputSnapshot: null }));
+    });
+
+    it("returns a conflict without changing a source after prepare owns the draft", async () => {
+      mocks.state.selectResults.push([]);
+
+      await expect(mutateCreativeWorkDraftSource({
+        workspaceId: "ws-1", workItemId: "work-1", sourceId: "source-1", mutation: { kind: "update", patch: { status: "uploaded" } },
+      })).resolves.toBeNull();
+      expect(mocks.txSetMock).not.toHaveBeenCalled();
+    });
+
+    it("reads tool kind after the shared lock and normalizes a racing attach as Single", async () => {
+      const source = { id: "source-1", workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", usage: "both", usageConfirmed: true, status: "uploaded" };
+      mocks.state.selectResults.push(
+        [{ id: "asset-1" }],
+        [{ id: "work-1", toolKind: "single" }],
+        [],
+        [{ sourceCount: 0 }],
+      );
+      mocks.state.onConflictResults.push([source]);
+      mocks.state.txUpdateResults.push([workItem()]);
+
+      await expect(createCreativeWorkSource({
+        workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", usage: "content", usageConfirmed: false, status: "uploaded",
+      })).resolves.toEqual({ source, claimedForAnalysis: true });
+
+      expect(mocks.executeMock).toHaveBeenCalledOnce();
+      expect(mocks.valuesMock).toHaveBeenCalledWith(expect.objectContaining({
+        usage: "both", usageConfirmed: true,
+        pieceReference: { version: 1, category: null, classificationSource: "automatic", confidence: "low", userInstruction: null, hasTransparency: false },
+      }));
+    });
+  });
+
   describe("createCreativeWork", () => {
     it("inserts a social post work item with workspace and creator scope", async () => {
       const inserted = workItem({ id: "new-work" });
@@ -363,7 +776,7 @@ describe("creative-work repository", () => {
       const work = workItem({ id: "draft-asset", draftKey: "draft-key", request: "", brief: null });
       const source = { id: "source-1", workspaceId: "ws-1", workItemId: work.id, assetId: "asset-1", templateId: null, usage: "both", status: "uploaded" };
       const asset = { id: "asset-1", workspaceId: "ws-1", name: "arte.png", type: "image/png", source: "upload" };
-      mocks.state.selectResults.push([{ id: "profile-1" }], [asset]);
+      mocks.state.selectResults.push([{ id: "profile-1" }], [asset], [work]);
       mocks.state.onConflictResults.push([work], [source]);
 
       await expect(createCreativeWorkDraftWithSource({
@@ -380,7 +793,7 @@ describe("creative-work repository", () => {
       const work = workItem({ id: "draft-template", draftKey: "draft-key", request: "", brief: null });
       const source = { id: "source-template", workspaceId: "ws-1", workItemId: work.id, assetId: null, templateId: "template-1", usage: "both", status: "uploaded" };
       const template = { id: "template-1", workspaceId: "ws-1", name: "Lançamento" };
-      mocks.state.selectResults.push([{ id: "profile-1" }], [template]);
+      mocks.state.selectResults.push([{ id: "profile-1" }], [template], [work]);
       mocks.state.onConflictResults.push([work], [source]);
 
       await expect(createCreativeWorkDraftWithSource({
@@ -391,6 +804,80 @@ describe("creative-work repository", () => {
 
       expect(mocks.transactionMock).toHaveBeenCalledOnce();
       expect(mocks.onConflictDoNothingMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("normalizes an initial Single asset source while leaving a Single template legacy-shaped", async () => {
+      const assetWork = workItem({ id: "single-asset", draftKey: "single-asset-key", request: "", brief: null, toolKind: "single" });
+      const assetSource = { id: "single-asset-source", workspaceId: "ws-1", workItemId: assetWork.id, assetId: "asset-1", templateId: null, usage: "both", usageConfirmed: true, status: "uploaded" };
+      const asset = { id: "asset-1", workspaceId: "ws-1", name: "produto.png", type: "image/png", source: "upload" };
+      const templateWork = workItem({ id: "single-template", draftKey: "single-template-key", request: "", brief: null, toolKind: "single" });
+      const templateSource = { id: "single-template-source", workspaceId: "ws-1", workItemId: templateWork.id, assetId: null, templateId: "template-1", usage: "style", usageConfirmed: false, status: "uploaded" };
+      const template = { id: "template-1", workspaceId: "ws-1", name: "Lançamento" };
+      mocks.state.selectResults.push(
+        [{ id: "profile-1" }], [asset], [assetWork], [], [{ sourceCount: 0 }],
+        [{ id: "profile-1" }], [template], [templateWork],
+      );
+      mocks.state.onConflictResults.push([assetWork], [assetSource], [templateWork], [templateSource]);
+
+      await createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1", draftKey: "single-asset-key",
+        intent: "single", title: "", request: "", format: "4:5", settings: { targetFormats: [] }, assetId: "asset-1", usage: "style",
+      });
+      await createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1", draftKey: "single-template-key",
+        intent: "single", title: "", request: "", format: "4:5", settings: { targetFormats: [] }, templateId: "template-1", usage: "style",
+      });
+
+      expect(mocks.valuesMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        assetId: "asset-1", usage: "both", usageConfirmed: true,
+        pieceReference: { version: 1, category: null, classificationSource: "automatic", confidence: "low", userInstruction: null, hasTransparency: false },
+      }));
+      expect(mocks.valuesMock).toHaveBeenNthCalledWith(4, expect.objectContaining({
+        templateId: "template-1", usage: "style", usageConfirmed: false, pieceReference: null,
+      }));
+    });
+
+    it("takes a work-scoped advisory lock and rejects a fourth Single asset before insert", async () => {
+      mocks.state.selectResults.push(
+        [{ id: "asset-4", type: "image/png" }],
+        [{ id: "work-1", toolKind: "single" }],
+        [],
+        [{ sourceCount: 3 }],
+      );
+
+      await expect(createCreativeWorkSource({
+        workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-4", usage: "both", status: "uploaded",
+        pieceReference: { version: 1, category: null, classificationSource: "automatic", confidence: "low", userInstruction: null, hasTransparency: false },
+      })).resolves.toEqual({ limitReached: true });
+
+      expect(mocks.executeMock).toHaveBeenCalledOnce();
+      expect(mocks.onConflictDoNothingMock).not.toHaveBeenCalled();
+      const scopedCount = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(scopedCount.params).toEqual(expect.arrayContaining(["ws-1", "work-1"]));
+    });
+
+    it("re-reads the locked work before replaying a Variations request as a fourth Single asset", async () => {
+      const readBeforeLock = workItem({ id: "single-replay", draftKey: "replay-key", toolKind: "variations", clientProfileId: "profile-1", request: "", brief: null });
+      const lockedSingle = { ...readBeforeLock, toolKind: "single" as const };
+      const asset = { id: "asset-four", workspaceId: "ws-1", name: "quarto.png", type: "image/png", source: "upload" };
+      mocks.state.selectResults.push(
+        [{ id: "profile-1" }], [asset], [readBeforeLock], [lockedSingle], [], [{ sourceCount: 3 }],
+      );
+      mocks.state.onConflictResults.push([]);
+
+      await expect(createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1", draftKey: "replay-key",
+        intent: "variations", title: "", request: "", format: "4:5", settings: { targetFormats: [] }, assetId: "asset-four", usage: "style",
+      })).resolves.toEqual({ limitReached: true });
+
+      expect(mocks.executeMock).toHaveBeenCalledOnce();
+      expect(mocks.onConflictDoNothingMock).toHaveBeenCalledOnce();
+      expect(mocks.valuesMock).not.toHaveBeenCalledWith(expect.objectContaining({ assetId: "asset-four" }));
+      const lockOrder = mocks.executeMock.mock.invocationCallOrder[0];
+      const selectOrders = mocks.selectMock.mock.invocationCallOrder;
+      // profile, asset, stale Variations replay, lock, reread Single, source count
+      expect(selectOrders[2]).toBeLessThan(lockOrder!);
+      expect(lockOrder).toBeLessThan(selectOrders[3]!);
     });
 
     it.each([
@@ -439,7 +926,7 @@ describe("creative-work repository", () => {
       const work = workItem({ id: "same-draft", draftKey: "draft-key", clientProfileId: "profile-1", request: "", brief: null });
       const source = { id: "same-source", workspaceId: "ws-1", workItemId: work.id, assetId: "asset-1", templateId: null, usage: "both", status: "uploaded" };
       const asset = { id: "asset-1", workspaceId: "ws-1", name: "arte.png", type: "image/png", source: "upload" };
-      mocks.state.selectResults.push([{ id: "profile-1" }], [asset], [work], [source]);
+      mocks.state.selectResults.push([{ id: "profile-1" }], [asset], [work], [work], [source]);
       mocks.state.onConflictResults.push([], []);
 
       await expect(createCreativeWorkDraftWithSource({
@@ -462,7 +949,7 @@ describe("creative-work repository", () => {
         templateId: "templateId" in sourceOrigin ? sourceOrigin.templateId : null,
         usage: "content", status: "uploaded",
       };
-      mocks.state.selectResults.push([{ id: "profile-1" }], [origin], [work], [existing]);
+      mocks.state.selectResults.push([{ id: "profile-1" }], [origin], [work], [work], [existing]);
       mocks.state.onConflictResults.push([], []);
 
       await expect(createCreativeWorkDraftWithSource({
@@ -475,7 +962,7 @@ describe("creative-work repository", () => {
     it("rejects a replay when the draftKey belongs to another client profile", async () => {
       const work = workItem({ id: "other-draft", draftKey: "draft-key", clientProfileId: "other-profile", request: "", brief: null });
       const asset = { id: "asset-1", workspaceId: "ws-1", name: "arte.png", type: "image/png", source: "upload" };
-      mocks.state.selectResults.push([{ id: "profile-1" }], [asset], [work]);
+      mocks.state.selectResults.push([{ id: "profile-1" }], [asset], [work], [work]);
       mocks.state.onConflictResults.push([]);
 
       await expect(createCreativeWorkDraftWithSource({
@@ -488,7 +975,7 @@ describe("creative-work repository", () => {
     it("rejects the transaction when source persistence cannot be resolved", async () => {
       const work = workItem({ id: "draft-asset", draftKey: "draft-key", request: "", brief: null });
       const asset = { id: "asset-1", workspaceId: "ws-1", name: "arte.png", type: "image/png", source: "upload" };
-      mocks.state.selectResults.push([{ id: "profile-1" }], [asset], []);
+      mocks.state.selectResults.push([{ id: "profile-1" }], [asset], [work], []);
       mocks.state.onConflictResults.push([work], []);
 
       await expect(createCreativeWorkDraftWithSource({
@@ -1008,6 +1495,7 @@ describe("creative-work repository", () => {
         "ws-1",
         "work-1",
         "output-1",
+        1,
       )).resolves.toEqual(retried);
 
       expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -1016,6 +1504,7 @@ describe("creative-work repository", () => {
       }));
       const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
       expect(query.params).toContain("failed");
+      expect(query.params).toContain(1);
     });
 
     it("links only a same-workspace campaign with a compatible client profile", async () => {

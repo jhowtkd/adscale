@@ -41,6 +41,7 @@ import {
   type SocialPostBrief,
 } from "@/server/creative-work/contracts";
 import type { ContentBrief } from "@/server/ai/image-analysis";
+import { isPieceReferenceReady, pieceReferenceTreatment } from "@/server/creative-work/piece-reference";
 import { getBrandKit } from "@/server/repositories/brand-kit";
 import {
   getCreativeWork,
@@ -131,7 +132,19 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     if (aggregate.sources.some((source) => source.status === "uploaded" || source.status === "analyzing")) {
       return { ok: false as const, error: { code: "sources_not_ready" as const } };
     }
-    if (aggregate.work.toolKind === "single" && aggregate.sources.some((source) => !source.usageConfirmed)) {
+    if (aggregate.work.toolKind === "single" && aggregate.sources.some((source) => source.assetId && source.status === "failed")) {
+      return { ok: false as const, error: { code: "sources_not_ready" as const } };
+    }
+    const pieceReferences = aggregate.work.toolKind === "single"
+      ? aggregate.sources.filter((source) => source.assetId && source.pieceReference)
+      : [];
+    if (pieceReferences.some((source) => source.pieceReference?.category === "additional_logo_or_seal" && !source.pieceReference.hasTransparency)) {
+      return { ok: false as const, error: { code: "piece_reference_exact_incompatible" as const } };
+    }
+    if (pieceReferences.some((source) => !isPieceReferenceReady(source.pieceReference))) {
+      return { ok: false as const, error: { code: "piece_reference_required" as const } };
+    }
+    if (aggregate.work.toolKind === "single" && aggregate.sources.some((source) => !source.pieceReference && !source.usageConfirmed)) {
       return { ok: false as const, error: { code: "source_usage_required" as const } };
     }
     const readySources = aggregate.sources.filter((source) => source.status === "ready");
@@ -148,6 +161,12 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     }
     const sourceAssets = await getCreativeWorkSourceAssetDetails(input.workspaceId, readySources, executor);
     const effectiveSources = resolveEffectiveSources(aggregate.work.toolKind, readySources, sourceAssets);
+    // Temporary Single Piece assets are rendering authorities only.  Even
+    // when their persisted usage is "both" (the browser never controls it),
+    // their vision reading must not become copy/fact authority.
+    const factualEffectiveSources = effectiveSources.filter(({ source }) =>
+      aggregate.work.toolKind !== "single" || !source.pieceReference,
+    );
     if (aggregate.work.toolKind === "restyle" && (
       effectiveSources.length < 2
       || !effectiveSources.some(({ usage }) => usage === "content")
@@ -187,7 +206,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
         }
       }
     }
-    const contentAnalyses = effectiveSources.flatMap(({ source, usage }) =>
+    const contentAnalyses = factualEffectiveSources.flatMap(({ source, usage }) =>
       usage !== "style" && source.contentAnalysis ? [source.contentAnalysis] : []
     );
     const effectiveFormat = preparation.data.settings.formatMode === "auto"
@@ -223,7 +242,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     const factPack = buildCreativeWorkFactPack({
       request: aggregate.work.request,
       mode: protocol.mode,
-      sources: effectiveSources.map(({ source, usage }) => ({
+      sources: factualEffectiveSources.map(({ source, usage }) => ({
         sourceId: source.id,
         usage,
         content: source.contentAnalysis,
@@ -252,6 +271,15 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
         usage,
         content: source.contentAnalysis,
         style: source.styleAnalysis,
+        pieceReference: aggregate.work.toolKind === "single" && source.pieceReference?.category
+          ? {
+              version: 1,
+              category: source.pieceReference.category,
+              treatment: pieceReferenceTreatment(source.pieceReference.category),
+              userInstruction: source.pieceReference.userInstruction,
+              hasTransparency: source.pieceReference.hasTransparency,
+            }
+          : undefined,
       })),
     };
     const persistedBriefing = resolveCreativeWorkInferredBriefing(aggregate.work.inputSnapshot);

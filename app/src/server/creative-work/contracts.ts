@@ -277,6 +277,8 @@ export type CreativeWorkInputSnapshot = {
     usage: CreativeSourceUsage;
     content: ContentBrief | null;
     style: StyleBrief | null;
+    /** Frozen temporary Arte Livre reference; absent on legacy snapshots. */
+    pieceReference?: import("./piece-reference").FrozenPieceReference;
   }>;
 };
 
@@ -514,6 +516,8 @@ export interface CreativeWorkIdentityAssetSnapshot {
   analysis: BrandTrainingAnalysis | null;
   mimeType: string;
   hasAlpha: boolean;
+  /** Frozen operator guidance for deterministic exact composition. */
+  compositionInstruction?: string | null;
   placement: { gravity: "northwest" | "northeast" | "southwest" | "southeast" | "center"; widthRatio: number } | null;
 }
 

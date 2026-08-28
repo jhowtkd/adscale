@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import { hasUsableAlphaValue } from "./normalize-image-for-ai";
 import { env } from "@/server/validation/env";
 import { getOpenAI, extractOutputText } from "./utils";
 import type { CreativeContract } from "./creative-contract";
@@ -474,6 +475,44 @@ export async function inspectCreativeWorkImageFile(
   }
 }
 
+/**
+ * Decode an asset that will be composited exactly after image generation.
+ * This is intentionally an I/O boundary: callers can reject damaged marks
+ * before a paid provider call while reusing their already-loaded source
+ * buffer for composition.
+ */
+export type ExactCompositionAssetInspection =
+  | { ok: true; width: number; height: number; hasUsableTransparency: boolean; error: null }
+  | { ok: false; width: null; height: null; hasUsableTransparency: false; error: string };
+
+export async function inspectExactCompositionAsset(
+  imageBuffer: Buffer,
+): Promise<ExactCompositionAssetInspection> {
+  if (imageBuffer.byteLength === 0) {
+    return { ok: false, width: null, height: null, hasUsableTransparency: false, error: "empty image" };
+  }
+  try {
+    // metadata() can accept partial input. A raw conversion forces pixel
+    // decoding and lets us distinguish a nominal alpha channel from actual
+    // transparent pixels that make an exact mark compositable.
+    const { data, info } = await sharp(imageBuffer)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    if (!info.width || !info.height || info.channels < 4) {
+      return { ok: false, width: null, height: null, hasUsableTransparency: false, error: "invalid image dimensions" };
+    }
+    for (let offset = 3; offset < data.length; offset += info.channels) {
+      if (hasUsableAlphaValue(data[offset]!)) {
+        return { ok: true, width: info.width, height: info.height, hasUsableTransparency: true, error: null };
+      }
+    }
+    return { ok: true, width: info.width, height: info.height, hasUsableTransparency: false, error: null };
+  } catch (error) {
+    return { ok: false, width: null, height: null, hasUsableTransparency: false, error: shortErrorMessage(error) };
+  }
+}
+
 export interface AnalyzeCreativeWorkQaReference {
   role: CreativeWorkReferenceRole;
   label: string;
@@ -608,7 +647,7 @@ ${factPackSection(input)}
 
 ## DETERMINISTIC COMPOSITION AND REFERENCE AUTHORITY
 - In a single social_post, the exact logo/brand assets and approved copy may be composited after the provider image. Their presence in the OUTPUT is authorized; do not require a matching provider reference or flag the deterministic layer as ignored_mandatory_reference.
-- A reference marked optional is guidance only. In social_post, optional style and brand_identity references are never mandatory.
+- A reference marked optional is guidance only. In social_post, optional style and brand_identity references are never mandatory. Optional piece_visual references are also never mandatory; they may transfer visual language only and must never supply facts, copy, brands or logos.
 - Use ignored_mandatory_reference only when a reference explicitly marked required is visibly omitted, or when the mode policy says a required original/content/style authority was not preserved.
 
 ${creativeWorkQaModePolicy(input.mode)}

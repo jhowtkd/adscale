@@ -8,7 +8,7 @@ import {
   type ContentBrief,
   type StyleBrief,
 } from "@/server/ai/image-analysis";
-import { normalizeImageForAi } from "@/server/ai/normalize-image-for-ai";
+import { inspectUsableTransparency, normalizeImageForAi } from "@/server/ai/normalize-image-for-ai";
 import { getCreativeWork, updateCreativeWorkSourceIfUnchanged } from "@/server/repositories/creative-work";
 import { getTemplateById } from "@/server/repositories/template";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
@@ -27,7 +27,8 @@ async function reloadCreativeWorkSource(input: Input, fallback: NonNullable<Awai
 export async function analyzeCreativeWorkSource(input: Input) {
   const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);
   const source = aggregate?.sources.find((candidate) => candidate.id === input.sourceId);
-  if (!source) throw new Error("creative_work_source_not_found");
+  if (!source || !aggregate) throw new Error("creative_work_source_not_found");
+  const work = aggregate.work;
 
   if (source.status !== "uploaded") return source;
   const analyzing = await updateCreativeWorkSourceIfUnchanged(
@@ -43,6 +44,7 @@ export async function analyzeCreativeWorkSource(input: Input) {
   try {
     let contentAnalysis: ContentBrief | null = null;
     let styleAnalysis: StyleBrief | null = null;
+    let pieceReference = source.pieceReference;
     if (source.assetId) {
       const asset = await getWorkspaceAssetById(source.assetId, input.workspaceId);
       if (!asset || !asset.type.startsWith("image/")) throw new Error("creative_work_source_origin_invalid");
@@ -60,12 +62,32 @@ export async function analyzeCreativeWorkSource(input: Input) {
         buffer: rawBuffer,
         mimeType: asset.type,
       });
+      // A source classified for Single Piece may become an exact mark. Its
+      // persisted readiness must use real alpha pixels, not channel presence.
+      const hasUsableTransparency = work.toolKind === "single"
+        ? await inspectUsableTransparency(rawBuffer)
+        : normalized.hasTransparency;
       const [contentResult, styleResult] = await Promise.all([
-        source.usage !== "style" ? analyzeImageContent(normalized.buffer, normalized.mimeType) : null,
+        source.usage !== "style"
+          ? analyzeImageContent(normalized.buffer, normalized.mimeType, {
+              classifyPieceReference: work.toolKind === "single",
+            })
+          : null,
         source.usage !== "content" ? analyzeImageStyle(normalized.buffer, normalized.mimeType) : null,
       ]);
-      contentAnalysis = contentResult ? normalizeContentBrief(contentBriefSchema.parse(contentResult)) : null;
+      const { pieceReference: classified, ...contentWithoutPieceReference } = contentResult ?? {};
+      contentAnalysis = contentResult ? normalizeContentBrief(contentBriefSchema.parse(contentWithoutPieceReference)) : null;
       styleAnalysis = styleResult ? normalizeStyleBrief(styleBriefSchema.parse(styleResult)) : null;
+      pieceReference = work.toolKind === "single"
+        ? {
+            version: 1 as const,
+            category: classified?.category ?? null,
+            classificationSource: "automatic" as const,
+            confidence: classified?.confidence ?? "low",
+            userInstruction: source.pieceReference?.userInstruction ?? null,
+            hasTransparency: hasUsableTransparency,
+          }
+        : source.pieceReference;
     } else {
       const template = source.templateId ? await getTemplateById(source.templateId, input.workspaceId) : null;
       if (!template) throw new Error("creative_work_source_origin_invalid");
@@ -97,7 +119,7 @@ export async function analyzeCreativeWorkSource(input: Input) {
       input.workItemId,
       input.sourceId,
       attempt,
-      { status: "ready", contentAnalysis, styleAnalysis, failureCode: null },
+      { status: "ready", contentAnalysis, styleAnalysis, pieceReference, failureCode: null },
     );
     return ready ?? reloadCreativeWorkSource(input, analyzing);
   } catch (error) {

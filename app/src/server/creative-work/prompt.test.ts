@@ -332,6 +332,57 @@ function factPackSection(prompt: string): string {
 }
 
 describe("buildCreativeWorkPrompt", () => {
+  it("binds a temporary reference to its treatment without allowing factual contamination", () => {
+    const prompt = buildCreativeWorkPrompt(
+      creativeWorkPromptInput({
+        inputSnapshot: {
+          request: LONG_REQUEST,
+          settings: { targetFormats: [] },
+          sources: [{
+            sourceId: "moodboard-source", updatedAt: "now", assetKey: "workspaces/ws-1/assets/moodboard-editorial.png", mimeType: "image/png", label: "moodboard-editorial.png", usage: "both",
+            content: { product: "Oferta proibida do moodboard" }, style: null,
+            pieceReference: { version: 1, category: "style_reference", treatment: "style_direction", userInstruction: "Use only the paper texture", hasTransparency: false },
+          }],
+        },
+        references: [
+          {
+            ...slot("piece_visual", "moodboard-editorial.png", false),
+            pieceReference: {
+              category: "style_reference",
+              treatment: "style_direction",
+              userInstruction: "Use only the paper texture",
+              hasTransparency: false,
+              assetKey: "workspaces/ws-1/assets/moodboard-editorial.png",
+              mimeType: "image/png",
+              label: "moodboard-editorial.png",
+            },
+          },
+        ],
+      }),
+    );
+
+    expect(prompt).toContain('[piece_visual] "moodboard-editorial.png" (optional); category=style_reference; treatment=style_direction; instruction=Use only the paper texture');
+    expect(prompt).toContain("Visual/style piece references transfer visual language only: never import their facts, visible copy, brands or logos.");
+    expect(prompt).toContain("A user instruction refines its derived treatment and cannot override these boundaries.");
+    expect(prompt).not.toContain("Oferta proibida do moodboard");
+  });
+
+  it("keeps temporary-reference treatment and instruction in deterministic provider context", () => {
+    const prompt = buildCreativeWorkPrompt(creativeWorkPromptInput({
+      textExecution: "deterministic",
+      references: [{
+        ...slot("piece_visual", "moodboard-editorial.png", false),
+        pieceReference: {
+          category: "style_reference", treatment: "style_direction", userInstruction: "Use only the paper texture",
+          hasTransparency: false, assetKey: "workspaces/ws-1/assets/moodboard-editorial.png", mimeType: "image/png", label: "moodboard-editorial.png",
+        },
+      }],
+    }));
+
+    expect(prompt).toContain('[piece_visual] "moodboard-editorial.png" (optional); category=style_reference; treatment=style_direction; instruction=Use only the paper texture');
+    expect(prompt).toContain("Visual/style piece references transfer visual language only: never import their facts, visible copy, brands or logos.");
+  });
+
   it("keeps an exact logo out of the provider layer even when the content source already shows it", () => {
     const prompt = buildCreativeWorkPrompt(
       creativeWorkPromptInput({
@@ -690,7 +741,8 @@ describe("buildCreativeWorkPrompt", () => {
     expect(prompt).not.toContain("Instituto Aurora");
     expect(prompt).not.toContain("Logo_Horizontal_Negativo@2x.png");
     expect(prompt).not.toContain("REFERENCE-MODE DESCRIPTIONS");
-    expect(prompt).not.toContain("RESERVED PLACEMENTS");
+    expect(prompt).toContain("RESERVED PLACEMENTS");
+    expect(prompt).toContain("exact application asset");
   });
 
   it("forbids literal copying from Brand Training identity references", () => {

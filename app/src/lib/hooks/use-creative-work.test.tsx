@@ -103,6 +103,33 @@ describe("creative source client contract", () => {
     }));
   });
 
+  it("serializes temporary-reference actions without browser-owned analysis fields", async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, json: async () => ({ source: { id: "source-1" }, reference: { id: "reference-1", clientProfileId: "profile-1" } }) } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useCreativeWorkSourceActions(), { wrapper: wrapperWith(queryClient) });
+
+    await act(() => result.current.mutateAsync({
+      workItemId: "work-1", action: "updatePieceReference", sourceId: "source-1",
+      category: "style_reference", userInstruction: "Apenas a textura",
+    }));
+    await act(() => result.current.mutateAsync({
+      workItemId: "work-1", action: "replacePieceReference", sourceId: "source-1", assetId: "asset-2",
+    }));
+    await act(() => result.current.mutateAsync({
+      workItemId: "work-1", action: "promotePieceReference", sourceId: "source-1",
+    }));
+
+    expect(mockApiFetch).toHaveBeenNthCalledWith(1, "/api/creative-work/work-1", expect.objectContaining({
+      body: JSON.stringify({ action: "updatePieceReference", sourceId: "source-1", category: "style_reference", userInstruction: "Apenas a textura" }),
+    }));
+    expect(mockApiFetch).toHaveBeenNthCalledWith(2, "/api/creative-work/work-1", expect.objectContaining({
+      body: JSON.stringify({ action: "replacePieceReference", sourceId: "source-1", assetId: "asset-2" }),
+    }));
+    expect(mockApiFetch).toHaveBeenNthCalledWith(3, "/api/creative-work/work-1", expect.objectContaining({
+      body: JSON.stringify({ action: "promotePieceReference", sourceId: "source-1" }),
+    }));
+  });
+
   it("refetches detail when a source action fails so dispatch_failed is visible", async () => {
     mockApiFetch.mockResolvedValue({ ok: false, json: async () => ({ error: "dispatch failed" }) } as Response);
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

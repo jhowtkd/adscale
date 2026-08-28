@@ -9,6 +9,7 @@ import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { AnimatedDisplayValue } from "@/components/animations/AnimatedDisplayValue";
 import { ContextualHelp } from "@/components/ui/contextual-help";
 import { CreativeSourceChip } from "./CreativeSourceChip";
+import { PieceReferenceStrip } from "./PieceReferenceStrip";
 import { CreativeSourcePreviewCard } from "./CreativeSourcePreviewCard";
 import { CreativeVariationBrief } from "./CreativeVariationBrief";
 import CreativeProposalGrid from "@/components/quick-tools/create-post/CreativeProposalGrid";
@@ -47,7 +48,13 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
   const isRestyle = composer.intent === "restyle";
   const isVariations = composer.intent === "variations";
   const isSingle = composer.intent === "single";
+  const pieceReferenceActionsLocked = composer.settingsLocked
+    || composer.isUploading
+    || composer.sourceMutationPending
+    || composer.actionPhase !== "idle";
   const isFormatAdaptation = composer.intent === "format_adaptation";
+  const pieceReferenceSources = isSingle ? composer.sources.filter((source) => source.assetId && source.pieceReference) : [];
+  const legacySingleSources = isSingle ? composer.sources.filter((source) => !source.pieceReference) : [];
   // The manual-instruction textarea only exists while the "Direcionamentos
   // manuais" section is open — collapsed by default, never mounted outside it.
   const [manualDirectionsOpen, setManualDirectionsOpen] = useState(false);
@@ -438,7 +445,19 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
               className="w-full resize-y bg-transparent text-base text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
             />
           </> : null}
-          {!hideSourceUpload ? <div className={cn("flex flex-wrap items-center gap-3", isSingle && "mt-3 border-t border-[var(--border-subtle)] pt-3")}>
+          {isSingle && !hideSourceUpload ? <PieceReferenceStrip
+            sources={pieceReferenceSources}
+            assetSourceCount={composer.sources.filter((source) => Boolean(source.assetId)).length}
+            disabled={pieceReferenceActionsLocked}
+            uploading={composer.isUploading}
+            onAdd={(files) => void composer.addFiles(files)}
+            onUpdate={composer.updatePieceReference}
+            onReplace={composer.replacePieceReference}
+            onRetry={composer.retrySource}
+            onRemove={composer.removeSource}
+            onPromote={composer.promotePieceReference}
+          /> : null}
+          {!hideSourceUpload && !isSingle ? <div className={cn("flex flex-wrap items-center gap-3", isSingle && "mt-3 border-t border-[var(--border-subtle)] pt-3")}>
             <input
               ref={fileInputRef}
               id="creative-composer-file"
@@ -463,9 +482,9 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         </div>
       )}
 
-      {!isRestyle && !isVariations && composer.sources.length > 0 ? (
+      {!isRestyle && !isVariations && (!isSingle || legacySingleSources.length > 0) && composer.sources.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2">
-          {composer.sources.map((source) => (
+          {(isSingle ? legacySingleSources : composer.sources).map((source) => (
             <CreativeSourceChip
               key={source.id}
               source={source}
