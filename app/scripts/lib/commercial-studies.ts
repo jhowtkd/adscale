@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { basename, isAbsolute, relative, resolve, sep } from "node:path";
 import { z } from "zod";
+
+const { SOURCE_LABELS } = createRequire(__filename)("./evidence-honesty.mjs") as {
+  SOURCE_LABELS: readonly string[];
+};
 
 export const COMMERCIAL_STUDY_SLUGS = ["nike", "mtv", "absolut"] as const;
 export type CommercialStudySlug = (typeof COMMERCIAL_STUDY_SLUGS)[number];
@@ -342,6 +347,113 @@ export function assertOriginalFiles(manifest: CommercialStudiesManifest, origina
       if (digest !== original.sha256) {
         throw new Error(`sha256 mismatch for ${original.fileName}`);
       }
+    }
+  }
+}
+
+export const REAL_RESULTS_PENDING = "real_results_pending";
+
+export type CommercialStudyArtifact = {
+  id: string;
+  brand: CommercialStudySlug;
+  kind: "desktop" | "mobile" | "isolated_result";
+  path: string;
+  sha256: string;
+  width: number;
+  height: number;
+  provenance: "controlled" | "real";
+  providerEvidencePath: string | null;
+  visualReview: "pending" | "approved" | "rejected";
+  editorialReview: "pending" | "approved" | "rejected";
+};
+
+export type CommercialScreenshotIndexRow = {
+  id: string;
+  brand: string;
+  stage: string;
+  viewport: { width: number; height: number };
+  output: string;
+  status: string;
+};
+
+export function validateCommercialStudyArtifacts(
+  artifacts: CommercialStudyArtifact[],
+  options: { requireRealResults: boolean },
+): void {
+  const isolated = artifacts.filter((artifact) => artifact.kind === "isolated_result");
+
+  for (const artifact of artifacts) {
+    if (artifact.kind === "isolated_result" && artifact.provenance === "controlled") {
+      throw new Error("controlled output cannot be labeled isolated_result");
+    }
+    if (artifact.provenance === "real" && !artifact.providerEvidencePath) {
+      throw new Error("real artifact requires provider evidence");
+    }
+  }
+
+  if (isolated.length === 0) {
+    if (options.requireRealResults) {
+      throw new Error("real results required");
+    }
+    return;
+  }
+
+  for (const slug of COMMERCIAL_STUDY_SLUGS) {
+    const count = isolated.filter((artifact) => artifact.brand === slug).length;
+    if (count !== 2) {
+      throw new Error(`${slug} must have exactly two isolated results`);
+    }
+  }
+}
+
+export function validateCommercialScreenshotIndex(rows: CommercialScreenshotIndexRow[]): void {
+  if (rows.length !== 24) {
+    throw new Error("INDEX.json must have 24 rows");
+  }
+  const paths = new Set<string>();
+  for (const row of rows) {
+    if (paths.has(row.output)) {
+      throw new Error(`duplicate path ${row.output}`);
+    }
+    paths.add(row.output);
+    const desktop = row.viewport.width === 1440 && row.viewport.height === 1000;
+    const mobile = row.viewport.width === 390 && row.viewport.height === 844;
+    if (!desktop && !mobile) {
+      throw new Error(`invalid dimensions for ${row.id}`);
+    }
+  }
+}
+
+export function assertSelectedRealOutputIds(
+  studies: ResolvedCommercialStudies["studies"],
+): void {
+  for (const slug of COMMERCIAL_STUDY_SLUGS) {
+    const ids = studies[slug]?.selectedRealOutputIds ?? [];
+    if (ids.length !== 2) {
+      throw new Error(
+        `package mode requires selectedRealOutputIds length 2 for ${slug}, got ${ids.length}`,
+      );
+    }
+  }
+}
+
+export function assertRealProviderEvidence(evidence: unknown): void {
+  const text = JSON.stringify(evidence);
+  if (text.includes("e2e-controlled-image")) {
+    throw new Error("e2e-controlled-image cannot satisfy real provenance");
+  }
+  if (
+    evidence != null
+    && typeof evidence === "object"
+    && !Array.isArray(evidence)
+    && "sourceLabel" in evidence
+    && typeof evidence.sourceLabel === "string"
+  ) {
+    if (!(SOURCE_LABELS as readonly string[]).includes(evidence.sourceLabel)) {
+      throw new Error(`sourceLabel must be one of ${SOURCE_LABELS.join(", ")}`);
+    }
+    if (evidence.sourceLabel === "synthetic_fixture") {
+      throw new Error("synthetic_fixture cannot satisfy real provenance");
     }
   }
 }

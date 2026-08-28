@@ -35,3 +35,34 @@ Enquanto os binários reais não existirem, cada original fica `usageStatus: rev
 - Email: `estudos@example.test`
 - Workspace: `ADScale — Estudos Editoriais`
 - Perfis: `Estudo editorial — Nike — Just Do It`, `Estudo editorial — MTV — Network IDs`, `Estudo editorial — Absolut — Perfection`
+
+## Comandos
+
+Seed (desenvolvimento, conta de laboratório):
+
+```bash
+cd app && COMMERCIAL_STUDIES_SEED=true COMMERCIAL_STUDIES_EMAIL=estudos@example.test npm run seed:commercial-brand-studies
+```
+
+Captura (24 telas):
+
+```bash
+cd app && E2E_BASE_URL=http://localhost:3000 \
+  COMMERCIAL_STUDIES_EMAIL=estudos@example.test \
+  COMMERCIAL_STUDIES_PASSWORD='<local-only-password>' \
+  npm run capture:commercial-brand-studies
+```
+
+Validar evidência (sem copiar arquivos):
+
+```bash
+cd app && npm run validate:commercial-brand-studies
+```
+
+Empacotar os seis resultados reais selecionados:
+
+```bash
+cd app && NODE_OPTIONS='--conditions=react-server' tsx scripts/package-commercial-brand-studies.ts
+```
+
+O ensaio controlado não é arte final. Lotes pagos exigem aprovação por marca.

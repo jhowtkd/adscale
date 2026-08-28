@@ -15,6 +15,7 @@ import {
   loadCommercialStudiesManifest,
   resolveCommercialCaptures,
   assertCaptureOutputPath,
+  validateCommercialStudyArtifacts,
 } from "./commercial-studies";
 
 const realManifestPath = join(
@@ -281,5 +282,25 @@ describe("commercial studies contract", () => {
   it("rejects output paths that escape the screenshot directory", () => {
     expect(() => assertCaptureOutputPath("../x.png")).toThrow();
     expect(() => assertCaptureOutputPath("/tmp/x.png")).toThrow();
+  });
+
+  it("fails a real artifact without provider evidence", () => {
+    expect(() => validateCommercialStudyArtifacts([{
+      id: "n1", brand: "nike", kind: "isolated_result", path: "results/n.png",
+      sha256: "a".repeat(64), width: 1080, height: 1350, provenance: "real",
+      providerEvidencePath: null, visualReview: "pending", editorialReview: "pending",
+    }], { requireRealResults: true })).toThrow(/provider evidence/);
+  });
+
+  it("fails when a controlled output is labeled isolated_result", () => {
+    expect(() => validateCommercialStudyArtifacts([{
+      id: "n1", brand: "nike", kind: "isolated_result", path: "results/n.png",
+      sha256: "a".repeat(64), width: 1080, height: 1350, provenance: "controlled",
+      providerEvidencePath: "evidence/x.json", visualReview: "pending", editorialReview: "pending",
+    }], { requireRealResults: true })).toThrow(/controlled/);
+  });
+
+  it("allows validate-only with zero real results and real_results_pending", () => {
+    expect(() => validateCommercialStudyArtifacts([], { requireRealResults: false })).not.toThrow();
   });
 });
