@@ -5,6 +5,14 @@ import path from "node:path";
 import { chromium, type Page } from "@playwright/test";
 import { db } from "../src/server/db";
 import { clientProfiles } from "../src/server/db/schema";
+import {
+  COMMERCIAL_STUDY_DISCLAIMER,
+  assertCaptureOutputPath,
+  loadCommercialStudiesManifest,
+  resolveCommercialCaptures,
+  type ResolvedCapture,
+  type ResolvedCommercialStudies,
+} from "./lib/commercial-studies";
 
 const BASE_URL = (process.env.E2E_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const OUT_DIR = path.resolve(process.cwd(), "../docs/screenshots/app");
@@ -99,7 +107,174 @@ async function captureRoute(
   }
 }
 
+type CommercialCaptureResult = {
+  id: string;
+  brand: string;
+  stage: string;
+  route: string;
+  viewport: { width: number; height: number };
+  output: string;
+  status: "ok" | "skipped" | "error";
+  note?: string;
+};
+
+const commercialResults: CommercialCaptureResult[] = [];
+
+function commercialPaths() {
+  const repoRoot = path.resolve(process.cwd(), "..");
+  return {
+    repoRoot,
+    sourceManifest: path.join(repoRoot, "docs/commercial-studies/real-brands/manifest.json"),
+    resolvedManifest: path.join(repoRoot, "docs/commercial-studies/real-brands/evidence/resolved-manifest.json"),
+    indexPath: path.join(repoRoot, "docs/commercial-studies/real-brands/screenshots/INDEX.json"),
+  };
+}
+
+function writeCommercialIndex(extra?: { fatalError?: string }) {
+  const { indexPath } = commercialPaths();
+  mkdirSync(path.dirname(indexPath), { recursive: true });
+  writeFileSync(
+    indexPath,
+    `${JSON.stringify(
+      {
+        capturedAt: new Date().toISOString(),
+        baseUrl: BASE_URL,
+        results: commercialResults,
+        ...extra,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+}
+
+async function injectCaptureOverlays(
+  page: Page,
+  capture: ResolvedCapture,
+  study: { campaign: string; hypothesis: string; sources: Array<{ title: string }> },
+) {
+  await page.evaluate(
+    ({ stage, campaign, hypothesis, sourceTitle, disclaimer }) => {
+      const footer = document.createElement("footer");
+      footer.setAttribute("data-commercial-study-disclaimer", "");
+      footer.textContent = disclaimer;
+      footer.style.cssText =
+        "position:fixed;bottom:0;left:0;right:0;z-index:2147483647;background:#111;color:#fff;padding:8px 12px;font:12px/1.4 sans-serif;pointer-events:none";
+      document.body.appendChild(footer);
+      if (stage === "context") {
+        const header = document.createElement("header");
+        header.setAttribute("data-commercial-study-context", "");
+        header.style.cssText =
+          "position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#111;color:#fff;padding:8px 12px;font:12px/1.4 sans-serif;pointer-events:none;white-space:pre-wrap";
+        header.textContent = [campaign, hypothesis, sourceTitle, disclaimer].join("\n");
+        document.body.appendChild(header);
+      }
+    },
+    {
+      stage: capture.stage,
+      campaign: study.campaign,
+      hypothesis: study.hypothesis,
+      sourceTitle: study.sources[0]?.title ?? "",
+      disclaimer: COMMERCIAL_STUDY_DISCLAIMER,
+    },
+  );
+}
+
+async function captureCommercialStudies() {
+  const { sourceManifest, resolvedManifest, repoRoot } = commercialPaths();
+  const manifest = loadCommercialStudiesManifest(sourceManifest);
+  const runtime = JSON.parse(readFileSync(resolvedManifest, "utf8")) as ResolvedCommercialStudies;
+  const captures = resolveCommercialCaptures(manifest, runtime);
+  const email = process.env.COMMERCIAL_STUDIES_EMAIL ?? "";
+  const password = process.env.COMMERCIAL_STUDIES_PASSWORD ?? "";
+  if (!email || !password) {
+    throw new Error("COMMERCIAL_STUDIES_EMAIL and COMMERCIAL_STUDIES_PASSWORD are required");
+  }
+
+  const browser = await chromium.launch({ headless: true });
+  const authContext = await browser.newContext();
+  const page = await authContext.newPage();
+  await preparePage(page);
+  await login(page, email, password);
+
+  for (const capture of captures) {
+    const filePath = assertCaptureOutputPath(capture.output);
+    const output = path.relative(repoRoot, filePath).replaceAll("\\", "/");
+    try {
+      const study = runtime.studies[capture.brand];
+      const sourceStudy = manifest.studies.find((item) => item.slug === capture.brand);
+      if (!sourceStudy) {
+        throw new Error(`missing source study ${capture.brand}`);
+      }
+      await page.setViewportSize(capture.viewport);
+      await page.evaluate(
+        (payload) => {
+          localStorage.setItem("adscale-storage", JSON.stringify(payload));
+        },
+        {
+          state: {
+            activeClientProfileId: study.clientProfileId,
+            sidebarCollapsed: false,
+          },
+          version: 0,
+        },
+      );
+      await page.goto(`${BASE_URL}${capture.route}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
+      await page.waitForSelector(capture.waitFor, { timeout: 120_000 });
+      await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
+      await page.evaluate(() => document.fonts.ready);
+      await injectCaptureOverlays(page, capture, sourceStudy);
+      if (capture.stage === "training") {
+        const imageCount = await page.locator("img[alt]").count();
+        if (imageCount === 0) {
+          throw new Error("training capture has no img[alt]");
+        }
+      }
+      mkdirSync(path.dirname(filePath), { recursive: true });
+      await page.screenshot({ path: filePath, animations: "disabled" });
+      commercialResults.push({
+        id: capture.id,
+        brand: capture.brand,
+        stage: capture.stage,
+        route: capture.route,
+        viewport: capture.viewport,
+        output,
+        status: "ok",
+      });
+    } catch (error) {
+      commercialResults.push({
+        id: capture.id,
+        brand: capture.brand,
+        stage: capture.stage,
+        route: capture.route,
+        viewport: capture.viewport,
+        output,
+        status: "error",
+        note: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  await authContext.close();
+  await browser.close();
+  writeCommercialIndex();
+
+  const ok = commercialResults.filter((item) => item.status === "ok").length;
+  const skipped = commercialResults.filter((item) => item.status === "skipped").length;
+  const errors = commercialResults.filter((item) => item.status === "error").length;
+  console.log(`Captured ${ok} screenshots (${skipped} skipped, ${errors} errors)`);
+  console.log(`Summary: ${commercialPaths().indexPath}`);
+  if (errors > 0 || skipped > 0 || commercialResults.length !== 24) {
+    process.exitCode = 1;
+  }
+}
+
 async function main() {
+  if (process.argv.includes("--commercial-studies")) {
+    await captureCommercialStudies();
+    return;
+  }
+
   mkdirSync(OUT_DIR, { recursive: true });
   const manifest = JSON.parse(readFileSync(MANIFEST_PATH, "utf8")) as {
     routes: Record<string, string>;
@@ -254,6 +429,13 @@ async function main() {
 
 main().catch((error) => {
   console.error(error);
+  if (process.argv.includes("--commercial-studies")) {
+    writeCommercialIndex({
+      fatalError: error instanceof Error ? error.message : String(error),
+    });
+    process.exit(1);
+    return;
+  }
   const summaryPath = path.resolve(process.cwd(), "../docs/screenshots/INDEX.json");
   writeFileSync(
     summaryPath,

@@ -269,6 +269,64 @@ export function loadCommercialStudiesManifest(filePath: string): CommercialStudi
   return parsed;
 }
 
+export type ResolvedCapture = {
+  id: string;
+  brand: CommercialStudySlug;
+  stage: "context" | "training" | "direction" | "results" | "decision";
+  route: string;
+  viewport: { width: number; height: number };
+  waitFor: string;
+  output: string;
+};
+
+const COMMERCIAL_SCREENSHOTS_ROOT = resolve(
+  __dirname,
+  "../../../docs/commercial-studies/real-brands/screenshots",
+);
+
+export function assertCaptureOutputPath(output: string): string {
+  const root = resolve(COMMERCIAL_SCREENSHOTS_ROOT);
+  const resolved = resolve(root, basename(output));
+  const rel = relative(root, resolved);
+  if (
+    rel.startsWith("..") ||
+    isAbsolute(rel) ||
+    isAbsolute(output) ||
+    basename(output) !== output
+  ) {
+    throw new Error(`capture output escapes screenshot directory: ${output}`);
+  }
+  return resolved;
+}
+
+function routeForCapture(
+  routeKey: "brandTraining" | "creativeWork" | "library",
+  study: ResolvedCommercialStudies["studies"][CommercialStudySlug],
+): string {
+  if (routeKey === "brandTraining") return study.routes.brandTraining;
+  if (routeKey === "creativeWork") return study.routes.creativeWork;
+  return study.routes.library;
+}
+
+export function resolveCommercialCaptures(
+  manifest: CommercialStudiesManifest,
+  runtime: ResolvedCommercialStudies,
+): ResolvedCapture[] {
+  return manifest.captures.map((capture) => {
+    const study = runtime.studies[capture.brand];
+    assertCaptureOutputPath(capture.output);
+    return {
+      id: capture.id,
+      brand: capture.brand,
+      stage: capture.stage,
+      route: routeForCapture(capture.routeKey, study),
+      viewport: capture.viewport,
+      waitFor: capture.waitFor,
+      output: capture.output,
+    };
+  });
+}
+
 export function assertOriginalFiles(manifest: CommercialStudiesManifest, originalsDir: string): void {
   const originalsRoot = resolve(originalsDir);
   for (const study of manifest.studies) {

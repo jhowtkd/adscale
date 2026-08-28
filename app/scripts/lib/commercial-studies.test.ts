@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   COMMERCIAL_STUDY_DISCLAIMER,
@@ -11,7 +12,15 @@ import {
   assertCommercialStudiesSeedEnvironment,
   COMMERCIAL_STUDY_WORKSPACE,
   selectSignupLabWorkspace,
+  loadCommercialStudiesManifest,
+  resolveCommercialCaptures,
+  assertCaptureOutputPath,
 } from "./commercial-studies";
+
+const realManifestPath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../../docs/commercial-studies/real-brands/manifest.json",
+);
 
 const validStudy = (slug: "nike" | "mtv" | "absolut", originals: unknown[]) => ({
   slug,
@@ -251,5 +260,26 @@ describe("commercial studies contract", () => {
 
   it("throws when signup created no workspace", () => {
     expect(() => selectSignupLabWorkspace([])).toThrow(/no workspace/);
+  });
+
+  it("resolves 24 captures and rejects path escape", () => {
+    const runtime = {
+      sourceManifest: "manifest.json",
+      generatedAt: "2026-08-28T00:00:00.000Z",
+      account: { email: "estudos@example.test", userId: "u", workspaceId: "w" },
+      studies: {
+        nike: { clientProfileId: "p1", creativeWorkId: "w1", freshBrief: { theme: "Peca nova", objective: "Sistema", audience: "", offer: null }, trainingReferenceIds: [], originalAssetKeys: [], selectedRealOutputIds: [], routes: { brandTraining: "/brand-kit", creativeWork: "/creative-work/w1", library: "/library" } },
+        mtv: { clientProfileId: "p2", creativeWorkId: "w2", freshBrief: { theme: "Peca nova", objective: "Sistema", audience: "", offer: null }, trainingReferenceIds: [], originalAssetKeys: [], selectedRealOutputIds: [], routes: { brandTraining: "/brand-kit", creativeWork: "/creative-work/w2", library: "/library" } },
+        absolut: { clientProfileId: "p3", creativeWorkId: "w3", freshBrief: { theme: "Peca nova", objective: "Sistema", audience: "", offer: null }, trainingReferenceIds: [], originalAssetKeys: [], selectedRealOutputIds: [], routes: { brandTraining: "/brand-kit", creativeWork: "/creative-work/w3", library: "/library" } },
+      },
+    } as const;
+    const resolved = resolveCommercialCaptures(loadCommercialStudiesManifest(realManifestPath), runtime as never);
+    expect(resolved).toHaveLength(24);
+    expect(resolved.every((c) => c.output.endsWith(".png"))).toBe(true);
+  });
+
+  it("rejects output paths that escape the screenshot directory", () => {
+    expect(() => assertCaptureOutputPath("../x.png")).toThrow();
+    expect(() => assertCaptureOutputPath("/tmp/x.png")).toThrow();
   });
 });
