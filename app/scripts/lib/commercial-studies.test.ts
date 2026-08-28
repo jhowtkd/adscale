@@ -8,6 +8,7 @@ import {
   ownedProfileName,
   validateCommercialStudiesManifest,
   assertOriginalFiles,
+  assertCommercialStudiesSeedEnvironment,
 } from "./commercial-studies";
 
 const validStudy = (slug: "nike" | "mtv" | "absolut", originals: unknown[]) => ({
@@ -189,5 +190,30 @@ describe("commercial studies contract", () => {
     };
     validateCommercialStudiesManifest(manifest as never);
     expect(() => assertOriginalFiles(manifest as never, dir)).toThrow(/missing.jpg/);
+  });
+
+  it("rejects production, missing opt-in, and non-lab email", () => {
+    expect(() => assertCommercialStudiesSeedEnvironment({
+      NODE_ENV: "production",
+      COMMERCIAL_STUDIES_SEED: "true",
+      COMMERCIAL_STUDIES_EMAIL: "estudos@example.test",
+    })).toThrow(/development-only/);
+    expect(() => assertCommercialStudiesSeedEnvironment({
+      NODE_ENV: "development",
+      COMMERCIAL_STUDIES_EMAIL: "estudos@example.test",
+    })).toThrow(/development-only/);
+    expect(() => assertCommercialStudiesSeedEnvironment({
+      NODE_ENV: "development",
+      COMMERCIAL_STUDIES_SEED: "true",
+      COMMERCIAL_STUDIES_EMAIL: "person@gmail.com",
+    })).toThrow(/development-only/);
+  });
+
+  it("allows the locked lab email in development with opt-in", () => {
+    expect(() => assertCommercialStudiesSeedEnvironment({
+      NODE_ENV: "development",
+      COMMERCIAL_STUDIES_SEED: "true",
+      COMMERCIAL_STUDIES_EMAIL: "estudos@example.test",
+    })).not.toThrow();
   });
 });

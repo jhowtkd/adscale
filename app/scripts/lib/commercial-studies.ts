@@ -11,6 +11,44 @@ export const COMMERCIAL_STUDY_DISCLAIMER =
 export const COMMERCIAL_STUDY_EMAIL = "estudos@example.test";
 export const COMMERCIAL_STUDY_WORKSPACE = "ADScale — Estudos Editoriais";
 
+export type ResolvedCommercialStudies = {
+  sourceManifest: string;
+  generatedAt: string;
+  account: { email: string; userId: string; workspaceId: string };
+  studies: Record<
+    CommercialStudySlug,
+    {
+      clientProfileId: string;
+      creativeWorkId: string;
+      freshBrief: { theme: string; objective: string; audience: string; offer: string | null };
+      trainingReferenceIds: string[];
+      originalAssetKeys: string[];
+      selectedRealOutputIds: string[];
+      routes: {
+        brandTraining: "/brand-kit";
+        creativeWork: string;
+        library: "/library";
+      };
+      controlledUi: {
+        generating: string;
+        failed: string;
+        empty: string;
+      };
+    }
+  >;
+};
+
+export function assertCommercialStudiesSeedEnvironment(
+  environment: NodeJS.ProcessEnv = process.env,
+): void {
+  const local = environment.NODE_ENV !== "production";
+  const explicitlyEnabled = environment.COMMERCIAL_STUDIES_SEED === "true";
+  const email = environment.COMMERCIAL_STUDIES_EMAIL ?? "";
+  if (!local || !explicitlyEnabled || email !== COMMERCIAL_STUDY_EMAIL) {
+    throw new Error("Commercial studies seed is development-only and requires estudos@example.test");
+  }
+}
+
 const STAGES = ["context", "training", "direction", "results", "decision"] as const;
 const MOBILE_STAGES = ["training", "results", "decision"] as const;
 const OWNED_PROFILE_NAMES: Record<CommercialStudySlug, string> = {
