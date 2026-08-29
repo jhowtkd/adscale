@@ -20,7 +20,7 @@ Fora desta pergunta: história corporativa da Nike, linha de produto atual, e qu
 
 - A frase `Just Do It` como eixo verbal.
 - Ação como argumento: o feito vale mais do que o retrato.
-- Ponte, distância (17 milhas) e corpo em movimento como esqueleto da composição impressa.
+- Ponte, distância e corpo em movimento como esqueleto da composição impressa. A medida ("17 milhas") é narrativa do spot, não fato do fact pack — não escrever a medida na peça.
 - Corte seco, poucas palavras, sem explicação institucional.
 
 ## Elementos mutáveis
@@ -48,8 +48,10 @@ Fora desta pergunta: história corporativa da Nike, linha de produto atual, e qu
 
 | arquivo | papel | entra no treino | status | nota |
 |---|---|---|---|---|
-| `nike-just-do-it-1988-print.jpg` | campaign_original | não | review_required | print da ponte; composição, não retrato |
-| `nike-walt-stack-1988-frame.jpg` | campaign_still | não | review_required | still do spot; treina voz e ritmo, não a cara |
+| `nike-just-do-it-1988-card.jpg` | campaign_original | sim | approved | end card `Just do it.` do spot de 1988; treina o sistema verbal, sem semelhança |
+| `nike-walt-stack-1988-card.jpg` | campaign_still | sim | approved | title card `Walt Stack. 80 years old.`; treina voz e ritmo, não a cara |
+
+Nota: o upload disponível do spot é todo em close-up de Walt Stack; os cartões tipográficos foram os frames capturados. A composição da ponte fica como referência descrita no dossiê, não como arquivo.
 
 Finalidade dos originais: `internal_lab_training`. Binários ficam fora do git.
 

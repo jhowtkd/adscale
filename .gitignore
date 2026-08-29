@@ -23,7 +23,7 @@ dist/
 .opencode/
 .playwright-cli/
 .zcode/
-screenshots/
+/screenshots/
 
 # Project-specific
 PRODUCT.md
