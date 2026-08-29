@@ -14,6 +14,16 @@ import {
   type ResolvedCapture,
   type ResolvedCommercialStudies,
 } from "./lib/commercial-studies";
+import {
+  assertClientCaptureOutputPath,
+  clientCaseProfileName,
+  loadClientCasesManifest,
+  resolveClientCaptures,
+  type ClientCasesManifest,
+  type ClientResolvedCapture,
+} from "./lib/client-cases";
+
+type CaptureMode = "commercial-studies" | "client-cases";
 
 const BASE_URL = (process.env.E2E_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const OUT_DIR = path.resolve(process.cwd(), "../docs/screenshots/app");
@@ -121,18 +131,23 @@ type CommercialCaptureResult = {
 
 const commercialResults: CommercialCaptureResult[] = [];
 
-function commercialPaths() {
+function commercialPaths(mode: CaptureMode) {
   const repoRoot = path.resolve(process.cwd(), "..");
+  const root =
+    mode === "client-cases"
+      ? path.join(repoRoot, "docs/client-cases")
+      : path.join(repoRoot, "docs/commercial-studies/real-brands");
   return {
     repoRoot,
-    sourceManifest: path.join(repoRoot, "docs/commercial-studies/real-brands/manifest.json"),
-    resolvedManifest: path.join(repoRoot, "docs/commercial-studies/real-brands/evidence/resolved-manifest.json"),
-    indexPath: path.join(repoRoot, "docs/commercial-studies/real-brands/screenshots/INDEX.json"),
+    root,
+    sourceManifest: path.join(root, "manifest.json"),
+    resolvedManifest: path.join(root, "evidence/resolved-manifest.json"),
+    indexPath: path.join(root, "screenshots/INDEX.json"),
   };
 }
 
 function writeCommercialIndex(extra?: { fatalError?: string }) {
-  const { indexPath } = commercialPaths();
+  const { indexPath } = commercialPaths(currentMode);
   mkdirSync(path.dirname(indexPath), { recursive: true });
   writeFileSync(
     indexPath,
@@ -149,17 +164,23 @@ function writeCommercialIndex(extra?: { fatalError?: string }) {
   );
 }
 
+let currentMode: CaptureMode = "commercial-studies";
+
+type AnyResolvedCapture = ResolvedCapture | ClientResolvedCapture;
+
 async function injectCaptureOverlays(
   page: Page,
-  capture: ResolvedCapture,
+  capture: AnyResolvedCapture,
   study: { campaign: string; hypothesis: string; sources: Array<{ title: string }> },
+  mode: CaptureMode,
 ) {
   await page.evaluate(
-    ({ stage, campaign, hypothesis, sourceTitle, disclaimer }) => {
+    ({ showStudyChrome, stage, campaign, hypothesis, sourceTitle, disclaimer }) => {
       const captureCss = document.createElement("style");
       captureCss.setAttribute("data-commercial-study-capture-css", "");
       captureCss.textContent = "nextjs-portal{display:none!important}";
       document.head.appendChild(captureCss);
+      if (!showStudyChrome) return;
       const footer = document.createElement("footer");
       footer.setAttribute("data-commercial-study-disclaimer", "");
       footer.textContent = disclaimer;
@@ -176,10 +197,11 @@ async function injectCaptureOverlays(
       }
     },
     {
+      showStudyChrome: mode === "commercial-studies",
       stage: capture.stage,
       campaign: study.campaign,
       hypothesis: study.hypothesis,
-      sourceTitle: study.sources[0]?.title ?? "",
+      sourceTitle: study.sources?.[0]?.title ?? "",
       disclaimer: COMMERCIAL_STUDY_DISCLAIMER,
     },
   );
@@ -204,8 +226,9 @@ async function dismissCookieBanner(page: Page) {
 
 async function ensureActiveBrandSelected(
   page: Page,
-  brand: ResolvedCapture["brand"],
+  brand: string,
   clientProfileId: string,
+  mode: CaptureMode,
 ) {
   const switcher = page.getByRole("combobox", { name: ACTIVE_BRAND_SWITCHER_NAME }).first();
   try {
@@ -216,18 +239,29 @@ async function ensureActiveBrandSelected(
   if ((await switcher.inputValue()) === clientProfileId) {
     return;
   }
-  await switcher.selectOption({ label: ownedProfileName(brand) });
+  const label = mode === "client-cases" ? clientCaseProfileName(brand as never) : ownedProfileName(brand as never);
+  await switcher.selectOption({ label });
   if ((await switcher.inputValue()) !== clientProfileId) {
     throw new Error(`could not activate brand profile for ${brand}`);
   }
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
 }
 
-async function captureCommercialStudies() {
-  const { sourceManifest, resolvedManifest, repoRoot } = commercialPaths();
-  const manifest = loadCommercialStudiesManifest(sourceManifest);
-  const runtime = JSON.parse(readFileSync(resolvedManifest, "utf8")) as ResolvedCommercialStudies;
-  const captures = resolveCommercialCaptures(manifest, runtime);
+async function captureCommercialStudies(mode: CaptureMode) {
+  const { sourceManifest, resolvedManifest, repoRoot } = commercialPaths(mode);
+  const captures: AnyResolvedCapture[] = [];
+  let sourceStudies: Array<Record<string, unknown>> = [];
+  if (mode === "client-cases") {
+    const manifest = loadClientCasesManifest(sourceManifest);
+    const runtime = JSON.parse(readFileSync(resolvedManifest, "utf8"));
+    captures.push(...resolveClientCaptures(manifest, runtime));
+    sourceStudies = manifest.studies as unknown as Array<Record<string, unknown>>;
+  } else {
+    const manifest = loadCommercialStudiesManifest(sourceManifest);
+    const runtime = JSON.parse(readFileSync(resolvedManifest, "utf8")) as ResolvedCommercialStudies;
+    captures.push(...resolveCommercialCaptures(manifest, runtime));
+    sourceStudies = manifest.studies as unknown as Array<Record<string, unknown>>;
+  }
   const email = process.env.COMMERCIAL_STUDIES_EMAIL ?? "";
   const password = process.env.COMMERCIAL_STUDIES_PASSWORD ?? "";
   if (!email || !password) {
@@ -241,7 +275,10 @@ async function captureCommercialStudies() {
   await login(page, email, password);
 
   for (const capture of captures) {
-    const filePath = assertCaptureOutputPath(capture.output);
+    const filePath =
+      mode === "client-cases"
+        ? assertClientCaptureOutputPath(capture.output, commercialPaths(mode).root + "/screenshots")
+        : assertCaptureOutputPath(capture.output);
     const output = path.relative(repoRoot, filePath).replaceAll("\\", "/");
     try {
       const study = runtime.studies[capture.brand];
@@ -263,21 +300,22 @@ async function captureCommercialStudies() {
         },
       );
       await page.goto(`${BASE_URL}${capture.route}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
-      await ensureActiveBrandSelected(page, capture.brand, study.clientProfileId);
+      await ensureActiveBrandSelected(page, capture.brand, study.clientProfileId, mode);
       await dismissCookieBanner(page);
       await page.waitForSelector(capture.waitFor, { timeout: 120_000 });
       await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
       await page.evaluate(() => document.fonts.ready);
-      await injectCaptureOverlays(page, capture, sourceStudy);
+      await injectCaptureOverlays(page, capture, sourceStudy as never, mode);
       if (capture.stage === "training") {
-        const assetsSelector = sourceStudy.originals
+        const assetList = (sourceStudy.assets ?? sourceStudy.originals) as Array<{ id: string }> | undefined;
+        const assetsSelector = (assetList ?? [])
           .map((original) => `img[alt="${original.id}"]`)
           .join(", ");
-        const assetCount = await page.locator(assetsSelector).count();
+        const assetCount = assetsSelector ? await page.locator(assetsSelector).count() : 0;
         if (assetCount === 0) {
           throw new Error(`training capture has no original assets: ${assetsSelector}`);
         }
-        const firstOriginalId = sourceStudy.originals[0]?.id;
+        const firstOriginalId = (assetList ?? [])[0]?.id;
         if (firstOriginalId) {
           await page
             .locator(`img[alt="${firstOriginalId}"]`)
@@ -325,8 +363,14 @@ async function captureCommercialStudies() {
 }
 
 async function main() {
+  if (process.argv.includes("--client-cases")) {
+    currentMode = "client-cases";
+    await captureCommercialStudies("client-cases");
+    return;
+  }
+
   if (process.argv.includes("--commercial-studies")) {
-    await captureCommercialStudies();
+    await captureCommercialStudies("commercial-studies");
     return;
   }
 
@@ -484,7 +528,7 @@ async function main() {
 
 main().catch((error) => {
   console.error(error);
-  if (process.argv.includes("--commercial-studies")) {
+  if (process.argv.includes("--commercial-studies") || process.argv.includes("--client-cases")) {
     writeCommercialIndex({
       fatalError: error instanceof Error ? error.message : String(error),
     });

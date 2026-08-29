@@ -59,3 +59,7 @@ docs/commercial-studies/real-brands/originals/*
 !docs/commercial-studies/real-brands/originals/README.md
 docs/commercial-studies/real-brands/screenshots/*.png
 docs/commercial-studies/real-brands/results/*.png
+docs/client-cases/originals/*
+!docs/client-cases/originals/README.md
+docs/client-cases/screenshots/*.png
+docs/client-cases/results/*.png

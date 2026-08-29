@@ -35,6 +35,8 @@
     "seed:goal-agent-e2e": "tsx scripts/seed-goal-agent-e2e.ts",
     "seed:goal-agent-pilot": "tsx scripts/seed-goal-agent-pilot.ts",
     "seed:create-post-e2e": "NODE_OPTIONS='--conditions=react-server' tsx scripts/seed-create-post-e2e.ts",
+    "seed:client-cases": "NODE_OPTIONS='--conditions=react-server' tsx scripts/seed-client-cases.ts",
+    "capture:client-cases": "tsx scripts/capture-ui-screenshots.ts --client-cases",
     "seed:commercial-brand-studies": "NODE_OPTIONS='--conditions=react-server' tsx scripts/seed-commercial-brand-studies.ts",
     "validate:commercial-brand-studies": "NODE_OPTIONS='--conditions=react-server' tsx scripts/package-commercial-brand-studies.ts --validate-only",
     "capture:commercial-brand-studies": "tsx scripts/capture-ui-screenshots.ts --commercial-studies",
