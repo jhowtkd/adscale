@@ -1,0 +1,34 @@
+{
+  "outputId": "92f88625-e010-4db1-ac8a-b78cee42c70d",
+  "outputKey": "creative-work/92f88625-e010-4db1-ac8a-b78cee42c70d/1788036751655.png",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "rawRequestId": "req_13fb2f02960543bea2b55a77daf30142",
+  "durationMs": 37643,
+  "deliveredAt": "2026-08-29T20:53:17.438Z",
+  "cost": 50,
+  "promptSha256": "1ee8393c4ef72f478de513dbb8c9413e572f913bb01c33ee128dcced12c8c23f",
+  "dimensions": null,
+  "objectiveVerdict": null,
+  "qualityScore": 90,
+  "evaluatorSummary": null,
+  "references": [
+    {
+      "role": "brand_identity",
+      "label": "bk-11",
+      "assetKey": "client-cases/2e72445e/burger-king/bk-11.jpg"
+    },
+    {
+      "role": "brand_identity",
+      "label": "bk-09",
+      "assetKey": "client-cases/2e72445e/burger-king/bk-09.jpg"
+    },
+    {
+      "role": "brand_identity",
+      "label": "bk-12",
+      "assetKey": "client-cases/2e72445e/burger-king/bk-12.jpg"
+    }
+  ],
+  "providerCalls": 3,
+  "imageOperation": "edit"
+}

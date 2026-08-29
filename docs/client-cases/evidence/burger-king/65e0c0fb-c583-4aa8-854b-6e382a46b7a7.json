@@ -1,0 +1,40 @@
+{
+  "outputId": "65e0c0fb-c583-4aa8-854b-6e382a46b7a7",
+  "outputKey": "creative-work/65e0c0fb-c583-4aa8-854b-6e382a46b7a7/1788036072584.png",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "rawRequestId": "req_95b2075302314f67a602ac00422bd252",
+  "durationMs": 40999,
+  "deliveredAt": "2026-08-29T20:53:17.437Z",
+  "cost": 50,
+  "promptSha256": "a2415c6ee49ae1bd1fbad7d45b0fc15a9b59bb6b19cfb11b62ea59d5ba6bed37",
+  "dimensions": {
+    "ok": true,
+    "bytes": 2630061,
+    "width": 1080,
+    "format": "png",
+    "height": 1350
+  },
+  "objectiveVerdict": "pass",
+  "qualityScore": null,
+  "evaluatorSummary": "A peça preserva a marca Burger King, o sistema visual do rebrand, o produto embalado e toda a copy validada sem defeitos objetivos.",
+  "references": [
+    {
+      "role": "brand_identity",
+      "label": "bk-11",
+      "assetKey": "client-cases/2e72445e/burger-king/bk-11.jpg"
+    },
+    {
+      "role": "brand_identity",
+      "label": "bk-09",
+      "assetKey": "client-cases/2e72445e/burger-king/bk-09.jpg"
+    },
+    {
+      "role": "brand_identity",
+      "label": "bk-12",
+      "assetKey": "client-cases/2e72445e/burger-king/bk-12.jpg"
+    }
+  ],
+  "providerCalls": 1,
+  "imageOperation": "edit"
+}

@@ -1,0 +1,40 @@
+{
+  "outputId": "e48a8432-993b-43a9-8f3e-542d63fd666d",
+  "outputKey": "creative-work/e48a8432-993b-43a9-8f3e-542d63fd666d/1788035284134.png",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "rawRequestId": "req_424739540f8b49a09f3643684ab07412",
+  "durationMs": 36800,
+  "deliveredAt": "2026-08-29T20:53:17.436Z",
+  "cost": 50,
+  "promptSha256": "bb490de07aec98cc3d34e15f5cb7a586ac64aa766b4d41118da95fbccf970360",
+  "dimensions": {
+    "ok": true,
+    "bytes": 2528124,
+    "width": 1080,
+    "format": "png",
+    "height": 1350
+  },
+  "objectiveVerdict": "pass",
+  "qualityScore": null,
+  "evaluatorSummary": "A peça preserva a marca Amazon, a identidade visual, a embalagem como âncora e todo o texto validado de forma legível.",
+  "references": [
+    {
+      "role": "brand_identity",
+      "label": "amazon-01",
+      "assetKey": "client-cases/2e72445e/amazon/amazon-01.jpg"
+    },
+    {
+      "role": "brand_identity",
+      "label": "amazon-05",
+      "assetKey": "client-cases/2e72445e/amazon/amazon-05.jpg"
+    },
+    {
+      "role": "brand_identity",
+      "label": "amazon-09",
+      "assetKey": "client-cases/2e72445e/amazon/amazon-09.jpg"
+    }
+  ],
+  "providerCalls": 1,
+  "imageOperation": "edit"
+}
