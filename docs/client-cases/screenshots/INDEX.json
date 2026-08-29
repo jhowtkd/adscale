@@ -1,0 +1,294 @@
+{
+  "capturedAt": "2026-08-29T21:01:29.256Z",
+  "baseUrl": "http://localhost:3000",
+  "results": [
+    {
+      "id": "nike-context-desktop",
+      "brand": "nike",
+      "stage": "context",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/client-cases/screenshots/nike-context-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "nike-training-desktop",
+      "brand": "nike",
+      "stage": "training",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/client-cases/screenshots/nike-training-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "nike-training-mobile",
+      "brand": "nike",
+      "stage": "training",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/client-cases/screenshots/nike-training-390.png",
+      "status": "ok"
+    },
+    {
+      "id": "nike-direction-desktop",
+      "brand": "nike",
+      "stage": "direction",
+      "route": "/creative-work/755c44bb-f759-46e3-b179-b6184a10ef80",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/client-cases/screenshots/nike-direction-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "nike-results-desktop",
+      "brand": "nike",
+      "stage": "results",
+      "route": "/library",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/client-cases/screenshots/nike-results-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "nike-results-mobile",
+      "brand": "nike",
+      "stage": "results",
+      "route": "/library",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/client-cases/screenshots/nike-results-390.png",
+      "status": "ok"
+    },
+    {
+      "id": "nike-decision-desktop",
+      "brand": "nike",
+      "stage": "decision",
+      "route": "/library",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/client-cases/screenshots/nike-decision-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "nike-decision-mobile",
+      "brand": "nike",
+      "stage": "decision",
+      "route": "/library",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/client-cases/screenshots/nike-decision-390.png",
+      "status": "ok"
+    },
+    {
+      "id": "amazon-context-desktop",
+      "brand": "amazon",
+      "stage": "context",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/client-cases/screenshots/amazon-context-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "amazon-training-desktop",
+      "brand": "amazon",
+      "stage": "training",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/client-cases/screenshots/amazon-training-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "amazon-training-mobile",
+      "brand": "amazon",
+      "stage": "training",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/client-cases/screenshots/amazon-training-390.png",
+      "status": "ok"
+    },
+    {
+      "id": "amazon-direction-desktop",
+      "brand": "amazon",
+      "stage": "direction",
+      "route": "/creative-work/3f53303e-3e2c-433f-b134-f4589e30ba80",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/client-cases/screenshots/amazon-direction-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "amazon-results-desktop",
+      "brand": "amazon",
+      "stage": "results",
+      "route": "/library",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/client-cases/screenshots/amazon-results-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "amazon-results-mobile",
+      "brand": "amazon",
+      "stage": "results",
+      "route": "/library",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/client-cases/screenshots/amazon-results-390.png",
+      "status": "ok"
+    },
+    {
+      "id": "amazon-decision-desktop",
+      "brand": "amazon",
+      "stage": "decision",
+      "route": "/library",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/client-cases/screenshots/amazon-decision-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "amazon-decision-mobile",
+      "brand": "amazon",
+      "stage": "decision",
+      "route": "/library",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/client-cases/screenshots/amazon-decision-390.png",
+      "status": "ok"
+    },
+    {
+      "id": "burger-king-context-desktop",
+      "brand": "burger-king",
+      "stage": "context",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/client-cases/screenshots/burger-king-context-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "burger-king-training-desktop",
+      "brand": "burger-king",
+      "stage": "training",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/client-cases/screenshots/burger-king-training-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "burger-king-training-mobile",
+      "brand": "burger-king",
+      "stage": "training",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/client-cases/screenshots/burger-king-training-390.png",
+      "status": "ok"
+    },
+    {
+      "id": "burger-king-direction-desktop",
+      "brand": "burger-king",
+      "stage": "direction",
+      "route": "/creative-work/8e6d7997-3139-4294-b843-db71cb306228",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/client-cases/screenshots/burger-king-direction-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "burger-king-results-desktop",
+      "brand": "burger-king",
+      "stage": "results",
+      "route": "/library",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/client-cases/screenshots/burger-king-results-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "burger-king-results-mobile",
+      "brand": "burger-king",
+      "stage": "results",
+      "route": "/library",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/client-cases/screenshots/burger-king-results-390.png",
+      "status": "ok"
+    },
+    {
+      "id": "burger-king-decision-desktop",
+      "brand": "burger-king",
+      "stage": "decision",
+      "route": "/library",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/client-cases/screenshots/burger-king-decision-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "burger-king-decision-mobile",
+      "brand": "burger-king",
+      "stage": "decision",
+      "route": "/library",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/client-cases/screenshots/burger-king-decision-390.png",
+      "status": "ok"
+    }
+  ]
+}
