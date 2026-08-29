@@ -207,6 +207,14 @@ async function injectCaptureOverlays(
   );
 }
 
+function readDirSafe(dir: string): string[] {
+  try {
+    return require("node:fs").readdirSync(dir);
+  } catch {
+    return [];
+  }
+}
+
 const ACTIVE_BRAND_SWITCHER_NAME = "Marca ativa";
 const COOKIE_BANNER_ACCEPT_NECESSARY_NAME = "Apenas necessarios";
 const ADSCALE_COOKIE_CONSENT_KEY = "adscale_cookie_consent";
@@ -277,6 +285,7 @@ async function captureCommercialStudies(mode: CaptureMode) {
 
   if (mode === "client-cases") {
     const { root } = commercialPaths(mode);
+    const resultsDir = path.join(root, "results");
     await page.route("**/r2.dev/**", async (route) => {
       const raw = route.request().url();
       const target = raw.includes("/_next/image")
@@ -292,6 +301,23 @@ async function captureCommercialStudies(mode: CaptureMode) {
         } catch {
           // fall through to network
         }
+      }
+      if (parts[0] === "creative-work") {
+        const outputId = parts[1] ?? "";
+        const local = path.join(resultsDir, `${outputId}.png`);
+        for (const candidate of existsSync(resultsDir) ? [] : []) void candidate;
+        const files = existsSync(resultsDir) ? readDirSafe(resultsDir) : [];
+        const match = files.find((f) => f.endsWith(`-${outputId.slice(0, 8)}.png`) || f.includes(outputId.slice(0, 8)));
+        if (match) {
+          try {
+            const buffer = readFileSync(path.join(resultsDir, match));
+            await route.fulfill({ status: 200, contentType: "image/png", body: buffer });
+            return;
+          } catch {
+            // fall through to network
+          }
+        }
+        void local;
       }
       await route.continue();
     });
@@ -328,6 +354,20 @@ async function captureCommercialStudies(mode: CaptureMode) {
       await page.waitForSelector(capture.waitFor, { timeout: 120_000 });
       await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
       await page.evaluate(() => document.fonts.ready);
+      if (capture.route === "/library") {
+        await page
+          .waitForFunction(
+            () => document.body.innerText.includes("Resultado gerado"),
+            { timeout: 60_000, polling: 500 },
+          )
+          .catch(() => undefined);
+      }
+      await page
+        .waitForFunction(
+          () => Array.from(document.images).every((img) => img.complete && img.naturalWidth > 0),
+          { timeout: 45_000, polling: 700 },
+        )
+        .catch(() => undefined);
       await injectCaptureOverlays(page, capture, sourceStudy as never, mode);
       if (capture.stage === "training") {
         const assetList = (sourceStudy.assets ?? sourceStudy.originals) as Array<{ id: string }> | undefined;
