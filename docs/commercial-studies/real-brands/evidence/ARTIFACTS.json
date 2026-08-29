@@ -10,8 +10,10 @@
       "height": 1350,
       "provenance": "real",
       "providerEvidencePath": "evidence/nike/161259b6-042b-42fd-a5df-9dff2b2f7dcf.json",
-      "visualReview": "pending",
-      "editorialReview": "pending"
+      "visualReview": "approved",
+      "editorialReview": "approved",
+      "reviewedBy": "controller + usuario (2026-08-29)",
+      "legalReview": "not_run_out_of_scope"
     },
     {
       "id": "9c25bdef-6d1c-4e9a-98db-93141c20c28f",
@@ -23,8 +25,10 @@
       "height": 1350,
       "provenance": "real",
       "providerEvidencePath": "evidence/nike/9c25bdef-6d1c-4e9a-98db-93141c20c28f.json",
-      "visualReview": "pending",
-      "editorialReview": "pending"
+      "visualReview": "approved",
+      "editorialReview": "approved",
+      "reviewedBy": "controller + usuario (2026-08-29)",
+      "legalReview": "not_run_out_of_scope"
     },
     {
       "id": "098d6f77-596a-4d7c-991a-e8dda6399133",
@@ -36,8 +40,10 @@
       "height": 1350,
       "provenance": "real",
       "providerEvidencePath": "evidence/mtv/098d6f77-596a-4d7c-991a-e8dda6399133.json",
-      "visualReview": "pending",
-      "editorialReview": "pending"
+      "visualReview": "approved",
+      "editorialReview": "approved",
+      "reviewedBy": "controller + usuario (2026-08-29)",
+      "legalReview": "not_run_out_of_scope"
     },
     {
       "id": "c7eacdf2-dd90-4614-a7b4-fe9c84d0ccc7",
@@ -49,8 +55,10 @@
       "height": 1350,
       "provenance": "real",
       "providerEvidencePath": "evidence/mtv/c7eacdf2-dd90-4614-a7b4-fe9c84d0ccc7.json",
-      "visualReview": "pending",
-      "editorialReview": "pending"
+      "visualReview": "approved",
+      "editorialReview": "approved",
+      "reviewedBy": "controller + usuario (2026-08-29)",
+      "legalReview": "not_run_out_of_scope"
     },
     {
       "id": "6e80546d-e16a-4ca0-abe1-26f69e017aae",
@@ -62,8 +70,10 @@
       "height": 1350,
       "provenance": "real",
       "providerEvidencePath": "evidence/absolut/6e80546d-e16a-4ca0-abe1-26f69e017aae.json",
-      "visualReview": "pending",
-      "editorialReview": "pending"
+      "visualReview": "approved",
+      "editorialReview": "approved",
+      "reviewedBy": "controller + usuario (2026-08-29)",
+      "legalReview": "not_run_out_of_scope"
     },
     {
       "id": "7da609cd-9de4-492a-94c7-de7b6e813145",
@@ -75,8 +85,18 @@
       "height": 1350,
       "provenance": "real",
       "providerEvidencePath": "evidence/absolut/7da609cd-9de4-492a-94c7-de7b6e813145.json",
-      "visualReview": "pending",
-      "editorialReview": "pending"
+      "visualReview": "approved",
+      "editorialReview": "approved",
+      "reviewedBy": "controller + usuario (2026-08-29)",
+      "legalReview": "not_run_out_of_scope"
     }
-  ]
+  ],
+  "review": {
+    "visualReview": "approved",
+    "editorialReview": "approved",
+    "reviewedBy": "controller + usuario (2026-08-29)",
+    "reviewedAt": "2026-08-29",
+    "legalReview": "not_run_out_of_scope",
+    "note": "Revisao visual das 24 telas + 6 resultados feita em sessao pelo controller com confirmacao do usuario."
+  }
 }
