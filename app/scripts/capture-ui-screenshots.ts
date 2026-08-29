@@ -251,14 +251,15 @@ async function captureCommercialStudies(mode: CaptureMode) {
   const { sourceManifest, resolvedManifest, repoRoot } = commercialPaths(mode);
   const captures: AnyResolvedCapture[] = [];
   let sourceStudies: Array<Record<string, unknown>> = [];
+  let runtime: Record<string, { clientProfileId: string }> | ResolvedCommercialStudies;
   if (mode === "client-cases") {
     const manifest = loadClientCasesManifest(sourceManifest);
-    const runtime = JSON.parse(readFileSync(resolvedManifest, "utf8"));
-    captures.push(...resolveClientCaptures(manifest, runtime));
+    runtime = JSON.parse(readFileSync(resolvedManifest, "utf8"));
+    captures.push(...resolveClientCaptures(manifest, runtime as never));
     sourceStudies = manifest.studies as unknown as Array<Record<string, unknown>>;
   } else {
     const manifest = loadCommercialStudiesManifest(sourceManifest);
-    const runtime = JSON.parse(readFileSync(resolvedManifest, "utf8")) as ResolvedCommercialStudies;
+    runtime = JSON.parse(readFileSync(resolvedManifest, "utf8")) as ResolvedCommercialStudies;
     captures.push(...resolveCommercialCaptures(manifest, runtime));
     sourceStudies = manifest.studies as unknown as Array<Record<string, unknown>>;
   }
@@ -274,6 +275,28 @@ async function captureCommercialStudies(mode: CaptureMode) {
   await preparePage(page);
   await login(page, email, password);
 
+  if (mode === "client-cases") {
+    const { root } = commercialPaths(mode);
+    await page.route("**/r2.dev/**", async (route) => {
+      const raw = route.request().url();
+      const target = raw.includes("/_next/image")
+        ? new URL(raw).searchParams.get("url") ?? ""
+        : raw;
+      const withoutHost = target.replace(/^https:\/\/[^/]+\//, "");
+      const parts = decodeURIComponent(withoutHost).split("/");
+      if (parts[0] === "client-cases" && parts.length === 4) {
+        try {
+          const buffer = readFileSync(path.join(root, "originals", parts[2], parts[3]));
+          await route.fulfill({ status: 200, contentType: "image/jpeg", body: buffer });
+          return;
+        } catch {
+          // fall through to network
+        }
+      }
+      await route.continue();
+    });
+  }
+
   for (const capture of captures) {
     const filePath =
       mode === "client-cases"
@@ -282,7 +305,7 @@ async function captureCommercialStudies(mode: CaptureMode) {
     const output = path.relative(repoRoot, filePath).replaceAll("\\", "/");
     try {
       const study = runtime.studies[capture.brand];
-      const sourceStudy = manifest.studies.find((item) => item.slug === capture.brand);
+      const sourceStudy = sourceStudies.find((item) => item.slug === capture.brand);
       if (!sourceStudy) {
         throw new Error(`missing source study ${capture.brand}`);
       }
@@ -317,10 +340,23 @@ async function captureCommercialStudies(mode: CaptureMode) {
         }
         const firstOriginalId = (assetList ?? [])[0]?.id;
         if (firstOriginalId) {
+          const selector = `img[alt="${firstOriginalId}"]`;
+          await page.locator(selector).first().scrollIntoViewIfNeeded();
           await page
-            .locator(`img[alt="${firstOriginalId}"]`)
-            .first()
-            .scrollIntoViewIfNeeded();
+            .waitForFunction(
+              (sel) => {
+                const img = document.querySelector(sel);
+                if (!img) return false;
+                if (!img.complete || img.naturalWidth === 0) {
+                  const src = img.getAttribute("src");
+                  if (src) img.setAttribute("src", src);
+                }
+                return img.complete && img.naturalWidth > 0;
+              },
+              selector,
+              { timeout: 30_000, polling: 500 },
+            )
+            .catch(() => undefined);
         }
       }
       mkdirSync(path.dirname(filePath), { recursive: true });
@@ -356,7 +392,7 @@ async function captureCommercialStudies(mode: CaptureMode) {
   const skipped = commercialResults.filter((item) => item.status === "skipped").length;
   const errors = commercialResults.filter((item) => item.status === "error").length;
   console.log(`Captured ${ok} screenshots (${skipped} skipped, ${errors} errors)`);
-  console.log(`Summary: ${commercialPaths().indexPath}`);
+  console.log(`Summary: ${commercialPaths(mode).indexPath}`);
   if (errors > 0 || skipped > 0 || commercialResults.length !== 24) {
     process.exitCode = 1;
   }
