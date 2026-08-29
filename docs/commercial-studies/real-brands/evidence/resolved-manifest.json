@@ -37,7 +37,8 @@
         "generating": "888489e7-85a1-422e-adbd-33bdd3f0479f",
         "failed": "a43a8704-0245-41e5-88bf-5f00a7fd5226",
         "empty": "4d302c73-bee6-47d3-906e-7d0d2b1bb19d"
-      }
+      },
+      "freshWorkId": "8baeeda8-8733-4a53-b66b-f73783d19f5c"
     },
     "mtv": {
       "clientProfileId": "9d458287-63ee-4f8f-add9-47fb769e9d03",
@@ -69,7 +70,8 @@
         "generating": "ed31afff-03c6-4ba2-af95-21856dc6d688",
         "failed": "59630e57-a307-44f2-a99c-3557896ec8b7",
         "empty": "0e5ee612-25f1-4e27-b539-7b870f7cf47c"
-      }
+      },
+      "freshWorkId": "268e90af-2930-4958-9a63-b80d4dc0c8b0"
     },
     "absolut": {
       "clientProfileId": "e0ea6d9a-2086-4e35-9999-d373a8e91a37",
@@ -87,18 +89,21 @@
         "commercial-studies/2e72445e/absolut/absolut-perfection-1980.jpg"
       ],
       "selectedRealOutputIds": [
-        "26a78e7b-63d8-45a6-a3b5-bb68ef8ae797"
+        "6e80546d-e16a-4ca0-abe1-26f69e017aae",
+        "7da609cd-9de4-492a-94c7-de7b6e813145"
       ],
       "routes": {
         "brandTraining": "/brand-kit",
         "creativeWork": "/creative-work/b54704a6-3996-4bc3-91fc-070ce4a2fbfc",
-        "library": "/library"
+        "library": "/library",
+        "freshWork": "/creative-work/undefined"
       },
       "controlledUi": {
         "generating": "20ae4693-8988-4e44-b533-e4edacbabb2b",
         "failed": "261bd0ec-e866-4bc5-a341-839e5f6d1f0b",
         "empty": "3dc8186d-07e6-4653-b373-8c4e14ec9bb2"
-      }
+      },
+      "freshWorkId": "610d1dd6-6613-4fc1-a6d5-d0a5ecf03bfa"
     }
   },
   "selections": {
@@ -106,38 +111,38 @@
       {
         "outputId": "161259b6-042b-42fd-a5df-9dff2b2f7dcf",
         "outputKey": "creative-work/161259b6-042b-42fd-a5df-9dff2b2f7dcf/1787949064957.png",
-        "cost": 50,
-        "provider": "{\"model\": \"gpt-image-2\", \"provider\": \"openai\", \"durationMs\": 37488, \"rawRequestId\": \"req_707dea6ed8b84a2192ee3e76e4ca8857\"}"
+        "cost": 50
       },
       {
         "outputId": "9c25bdef-6d1c-4e9a-98db-93141c20c28f",
         "outputKey": "creative-work/9c25bdef-6d1c-4e9a-98db-93141c20c28f/1787960289793.png",
-        "cost": 50,
-        "provider": "{\"model\": \"gpt-image-2\", \"provider\": \"openai\", \"durationMs\": 41429, \"rawRequestId\": \"req_06f9fef38e5345fda45ccbd83f796b3f\"}"
+        "cost": 50
       }
     ],
     "absolut": [
       {
-        "outputId": "26a78e7b-63d8-45a6-a3b5-bb68ef8ae797",
-        "outputKey": "creative-work/26a78e7b-63d8-45a6-a3b5-bb68ef8ae797/1787962799343.png",
-        "cost": 50,
-        "provider": "{\"model\": \"gpt-image-2\", \"provider\": \"openai\", \"durationMs\": 32419, \"rawRequestId\": \"req_74f3030517d849b4aa876306810951c7\"}"
+        "outputId": "6e80546d-e16a-4ca0-abe1-26f69e017aae",
+        "outputKey": "creative-work/6e80546d-e16a-4ca0-abe1-26f69e017aae/1788008851862.png",
+        "cost": 50
+      },
+      {
+        "outputId": "7da609cd-9de4-492a-94c7-de7b6e813145",
+        "outputKey": "creative-work/7da609cd-9de4-492a-94c7-de7b6e813145/1788010482993.png",
+        "cost": 50
       }
     ],
     "mtv": [
       {
         "outputId": "098d6f77-596a-4d7c-991a-e8dda6399133",
         "outputKey": "creative-work/098d6f77-596a-4d7c-991a-e8dda6399133/1787956653112.png",
-        "cost": 50,
-        "provider": "{\"model\": \"gpt-image-2\", \"provider\": \"openai\", \"durationMs\": 43874, \"rawRequestId\": \"req_51fb0fd9e62f496da3d1e07d9ea8c279\"}"
+        "cost": 50
       },
       {
         "outputId": "c7eacdf2-dd90-4614-a7b4-fe9c84d0ccc7",
         "outputKey": "creative-work/c7eacdf2-dd90-4614-a7b4-fe9c84d0ccc7/1787957060955.png",
-        "cost": 50,
-        "provider": "{\"model\": \"gpt-image-2\", \"provider\": \"openai\", \"durationMs\": 44218, \"rawRequestId\": \"req_1999cd61ff94427c8f19fdd02f682a75\"}"
+        "cost": 50
       }
     ]
   },
-  "selectedAt": "2026-08-29T12:17:41.441Z"
+  "selectedAt": "2026-08-29T13:36:05.739Z"
 }

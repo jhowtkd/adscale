@@ -1,0 +1,46 @@
+{
+  "outputId": "161259b6-042b-42fd-a5df-9dff2b2f7dcf",
+  "outputKey": "creative-work/161259b6-042b-42fd-a5df-9dff2b2f7dcf/1787949064957.png",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "rawRequestId": "req_707dea6ed8b84a2192ee3e76e4ca8857",
+  "durationMs": 37488,
+  "deliveredAt": "2026-08-28T23:34:41.173Z",
+  "cost": 50,
+  "promptSha256": "ea3786e59d911eaed9c13bee59c4e3d71f6363b3ad6be29762b62a0982d436e8",
+  "artifactSha256": "ac2e53d8caf5d9070698ccaaa34451d9188e641228397672094a40f82b928650",
+  "dimensions": {
+    "ok": true,
+    "bytes": 1725895,
+    "width": 1080,
+    "format": "png",
+    "height": 1350
+  },
+  "objectiveVerdict": "pass",
+  "qualityScore": null,
+  "evaluatorSummary": "A peça preserva os fatos, a marca e a copy validados, sem elementos proibidos ou alegações não autorizadas.",
+  "references": [
+    {
+      "role": "brand_identity",
+      "label": "nike-just-do-it-1988-print",
+      "sha256": "79f6a7c479d3de0e84347e0e36c380eed4534d9349659222fae1e3fd7a83a94f",
+      "assetKey": "commercial-studies/2e72445e/nike/nike-just-do-it-1988-card.jpg",
+      "mimeType": "image/webp",
+      "position": 1,
+      "required": false,
+      "sourceMimeType": "image/jpeg"
+    },
+    {
+      "role": "brand_identity",
+      "label": "nike-walt-stack-1988-frame",
+      "sha256": "390053aa4f31e35f734d26fc6481552156ecc51aa7bc6422c4fffcdfcb20d6f9",
+      "assetKey": "commercial-studies/2e72445e/nike/nike-walt-stack-1988-card.jpg",
+      "mimeType": "image/webp",
+      "position": 2,
+      "required": false,
+      "sourceMimeType": "image/jpeg"
+    }
+  ],
+  "providerCalls": 1,
+  "imageOperation": "edit"
+}

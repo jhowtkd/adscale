@@ -1,0 +1,36 @@
+{
+  "outputId": "6e80546d-e16a-4ca0-abe1-26f69e017aae",
+  "outputKey": "creative-work/6e80546d-e16a-4ca0-abe1-26f69e017aae/1788008851862.png",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "rawRequestId": "req_1a25344b1bf14f6d8dcc5334a5bc70b3",
+  "durationMs": 42124,
+  "deliveredAt": "2026-08-29T13:25:24.063Z",
+  "cost": 50,
+  "promptSha256": "3ddcd0288fa2f295493e166e5638ae72349b59f3007ce5a3962ab690c66016ac",
+  "artifactSha256": "20d67da55dc3db60c5b2495556bd77dac09364a279f6493e67989d1c7e98db3c",
+  "dimensions": {
+    "ok": true,
+    "bytes": 2358146,
+    "width": 1080,
+    "format": "png",
+    "height": 1350
+  },
+  "objectiveVerdict": "pass",
+  "qualityScore": null,
+  "evaluatorSummary": "A peça preserva os fatos, a marca e as copies exigidas, sem defeitos objetivos visíveis.",
+  "references": [
+    {
+      "role": "brand_identity",
+      "label": "absolut-perfection-1980",
+      "sha256": "b8bddf0079e70e01323d987a586e7cb2d2d849784448b13076576bb72fcca3c8",
+      "assetKey": "commercial-studies/2e72445e/absolut/absolut-perfection-1980.jpg",
+      "mimeType": "image/webp",
+      "position": 1,
+      "required": false,
+      "sourceMimeType": "image/jpeg"
+    }
+  ],
+  "providerCalls": 1,
+  "imageOperation": "edit"
+}

@@ -1,0 +1,46 @@
+{
+  "outputId": "c7eacdf2-dd90-4614-a7b4-fe9c84d0ccc7",
+  "outputKey": "creative-work/c7eacdf2-dd90-4614-a7b4-fe9c84d0ccc7/1787957060955.png",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "rawRequestId": "req_1999cd61ff94427c8f19fdd02f682a75",
+  "durationMs": 44218,
+  "deliveredAt": "2026-08-28T23:34:41.173Z",
+  "cost": 50,
+  "promptSha256": "7fa0a3785a15ba925aeac65241f31efdd925442dd45b6236297229298c85a49c",
+  "artifactSha256": "95317601a49d43f89503c5c99ed0a9bf0241f45de9d3923be32105d2e4c56f28",
+  "dimensions": {
+    "ok": true,
+    "bytes": 3531900,
+    "width": 1080,
+    "format": "png",
+    "height": 1350
+  },
+  "objectiveVerdict": "pass",
+  "qualityScore": null,
+  "evaluatorSummary": "A peça preserva os fatos, a identidade M/TV e a copy validada, sem defeitos objetivos visíveis.",
+  "references": [
+    {
+      "role": "brand_identity",
+      "label": "mtv-id-1981-b",
+      "sha256": "2ee2b44804749233c688abdbc603a4d51cd01161d7b2dae5b6951db4d380f44e",
+      "assetKey": "commercial-studies/2e72445e/mtv/mtv-id-1981-b.jpg",
+      "mimeType": "image/webp",
+      "position": 1,
+      "required": false,
+      "sourceMimeType": "image/jpeg"
+    },
+    {
+      "role": "brand_identity",
+      "label": "mtv-id-1981-a",
+      "sha256": "3a6fd9eb0e4fdb840781c7c06135a4d27f413045c76a75a50aa1b2edc4232690",
+      "assetKey": "commercial-studies/2e72445e/mtv/mtv-id-1981-a.jpg",
+      "mimeType": "image/webp",
+      "position": 2,
+      "required": false,
+      "sourceMimeType": "image/jpeg"
+    }
+  ],
+  "providerCalls": 1,
+  "imageOperation": "edit"
+}

@@ -157,12 +157,14 @@ async function packageResults(): Promise<void> {
   const artifacts: CommercialStudyArtifact[] = [];
   for (const slug of COMMERCIAL_STUDY_SLUGS) {
     const study = runtime.studies[slug];
-    const aggregate = await getCreativeWork(runtime.account.workspaceId, study.creativeWorkId);
-    if (!aggregate) {
-      throw new Error(`Creative Work not found: ${study.creativeWorkId}`);
+    const workIds = [study.creativeWorkId, study.freshWorkId].filter(Boolean) as string[];
+    const outputs = [];
+    for (const workId of workIds) {
+      const aggregate = await getCreativeWork(runtime.account.workspaceId, workId);
+      if (aggregate) outputs.push(...aggregate.outputs);
     }
     for (const outputId of study.selectedRealOutputIds) {
-      const output = aggregate.outputs.find((item) => item.id === outputId);
+      const output = outputs.find((item) => item.id === outputId);
       if (!output || output.status !== "completed" || !output.outputKey) {
         throw new Error(`Completed output not found: ${outputId}`);
       }
