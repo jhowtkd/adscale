@@ -47,8 +47,8 @@ Fora desta pergunta: programação atual da MTV, clipe musical, e qualquer peça
 
 | arquivo | papel | entra no treino | status | nota |
 |---|---|---|---|---|
-| `mtv-id-1981-a.jpg` | campaign_original | não | review_required | still de ID; esqueleto, não clipe |
-| `mtv-id-1981-b.jpg` | campaign_still | não | review_required | segundo still; prova que a pele muda |
+| `mtv-id-1981-a.jpg` | campaign_original | sim | approved | grid 3×3 com nove peles do M/TV; esqueleto fixo, pele muda |
+| `mtv-id-1981-b.jpg` | campaign_still | sim | approved | recorte da variante roxa; prova que a pele muda |
 
 Finalidade dos originais: `internal_lab_training`. Binários ficam fora do git. Terceiro still (`mtv-id-1981-c.jpg`) é opcional.
 
