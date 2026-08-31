@@ -2032,6 +2032,8 @@ npx playwright test tests/e2e/creative-work-carousel.spec.ts --project=serial-fl
 
 Expected: PASS. Report unit, lint, typecheck, controlled-provider E2E, DB integration, paid/live generation, and human review as separate evidence categories.
 
+After the controlled E2E passes, open the seeded carousel at the `Mesa de sequência` state in the local browser, capture one desktop screenshot that shows the whole ordered deck and selected editor, inspect it for clipping/order/coherence, and send that image back in the implementation thread. Keep the screenshot as an untracked test artifact; do not add it to the repository or claim human visual approval from it.
+
 - [ ] **Step 9: Write the rollback/runbook**
 
 Document: keep percentage `0` until automated proof and human gate; internal → restricted → expanded stages; rollback to `0` stops only new creation; existing works remain readable/retryable/exportable; immediate rollback conditions are wrong order, stale snapshot, duplicate charge, cross-workspace slide, approved-copy mismatch, missing approved position, or overwritten version.
