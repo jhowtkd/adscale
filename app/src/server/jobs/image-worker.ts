@@ -2,6 +2,7 @@ import { connect } from "inngest/connect";
 import { pathToFileURL } from "node:url";
 import { imageWorkerInngest } from "./worker-client";
 import { createCreativeWorkOutputJobV2 } from "./creative-work";
+import { createCreativeWorkCarouselSlideJobV2 } from "./creative-work-carousel";
 import { createDerivationJobV2 } from "./derivation";
 import { createCreativeWorkSourceAnalyzeJobV2 } from "./creative-work-source";
 import { createWorkspaceAssetAnalyzeJobV2 } from "./workspace-asset";
@@ -30,6 +31,7 @@ export function assertImageWorkerEnv(env: NodeJS.ProcessEnv = process.env): void
 export function buildImageWorkerConnectOptions() {
   const functions = [
     createCreativeWorkOutputJobV2(imageWorkerInngest),
+    createCreativeWorkCarouselSlideJobV2(imageWorkerInngest),
     createDerivationJobV2(imageWorkerInngest),
     createCreativeWorkSourceAnalyzeJobV2(imageWorkerInngest),
     createWorkspaceAssetAnalyzeJobV2(imageWorkerInngest),

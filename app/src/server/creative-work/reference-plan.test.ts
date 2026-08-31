@@ -246,3 +246,96 @@ describe("planCreativeWorkReferences", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Carousel slide reference plan (Task 6): anchor_board role, anchors vs
+// non-anchors, provider cap of four, exact assets never sent to the provider.
+// ---------------------------------------------------------------------------
+
+import { planCarouselSlideReferences } from "./reference-plan";
+
+describe("planCarouselSlideReferences", () => {
+  const identity = [
+    { assetKey: "brand-training/logo.png", mimeType: "image/png", label: "Logo" },
+    { assetKey: "brand-training/mood.png", mimeType: "image/png", label: "Mood" },
+  ];
+  const temporary = { assetKey: "sources/temp-ref.png", mimeType: "image/png", label: "temp-ref.png" };
+
+  it("gives anchor slides brand/style references only — never an anchor board", () => {
+    const plan = planCarouselSlideReferences({
+      isAnchor: true,
+      anchorBoardKey: "creative-work/w1/carousel/board.png",
+      identityReferenceAssets: identity,
+      temporaryReference: temporary,
+    });
+
+    expect(plan.map((slot) => slot.role)).toEqual(["brand_identity", "brand_identity", "style"]);
+    expect(plan.some((slot) => slot.role === "anchor_board")).toBe(false);
+    expect(plan.every((slot) => !slot.required)).toBe(true);
+  });
+
+  it("puts the anchor board first for non-anchor slides, then brand/style", () => {
+    const plan = planCarouselSlideReferences({
+      isAnchor: false,
+      anchorBoardKey: "creative-work/w1/carousel/board.png",
+      identityReferenceAssets: identity,
+      temporaryReference: temporary,
+    });
+
+    expect(plan[0]).toMatchObject({
+      role: "anchor_board",
+      required: true,
+      assetKey: "creative-work/w1/carousel/board.png",
+      label: "Anchor board",
+    });
+    expect(plan.slice(1).map((slot) => slot.role)).toEqual(["brand_identity", "brand_identity", "style"]);
+  });
+
+  it("fails as reference_failure when a non-anchor slide has no anchor board key", () => {
+    expect(() => planCarouselSlideReferences({
+      isAnchor: false,
+      anchorBoardKey: null,
+      identityReferenceAssets: [],
+      temporaryReference: null,
+    })).toThrow(CreativeWorkReferenceError);
+    try {
+      planCarouselSlideReferences({
+        isAnchor: false,
+        anchorBoardKey: null,
+        identityReferenceAssets: [],
+        temporaryReference: null,
+      });
+      expect.unreachable();
+    } catch (error) {
+      expect((error as CreativeWorkReferenceError).code).toBe("reference_failure");
+    }
+  });
+
+  it("keeps the total provider references within four", () => {
+    const manyIdentity = Array.from({ length: 6 }, (_, i) => ({
+      assetKey: `brand-training/asset-${i}.png`,
+      mimeType: "image/png",
+      label: `asset-${i}`,
+    }));
+    const plan = planCarouselSlideReferences({
+      isAnchor: false,
+      anchorBoardKey: "board.png",
+      identityReferenceAssets: manyIdentity,
+      temporaryReference: temporary,
+    });
+    expect(plan).toHaveLength(4);
+    expect(plan[0]?.role).toBe("anchor_board");
+  });
+
+  it("never sends exact brand assets as provider references", () => {
+    const plan = planCarouselSlideReferences({
+      isAnchor: false,
+      anchorBoardKey: "board.png",
+      identityReferenceAssets: identity,
+      temporaryReference: null,
+    });
+    // Exact-asset keys (logo used for post-composition) are not among the slots.
+    expect(plan.every((slot) => slot.role !== "piece_required")).toBe(true);
+    expect(plan.filter((slot) => slot.role === "anchor_board")).toHaveLength(1);
+  });
+});

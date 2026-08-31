@@ -799,3 +799,145 @@ describe("buildCreativeWorkPrompt", () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// Carousel slide prompt (Task 6): frozen contract hash, no renderable copy,
+// reserved regions named, deterministic text contract, no editorial diffs.
+// ---------------------------------------------------------------------------
+
+import { buildCarouselSlidePrompt } from "./prompt";
+import type { CarouselDeckPlanV1, CarouselVisualContractV1 } from "./carousel-contracts";
+
+function carouselDeckFixture(): CarouselDeckPlanV1 {
+  return {
+    version: 1,
+    revision: "deck-r1",
+    workId: "work-1",
+    objective: "Divulgar o grupo de terapia",
+    audience: null,
+    tone: null,
+    promise: "Grupo de terapia em agosto",
+    format: "4:5",
+    slides: [
+      {
+        slideId: "slide-1", position: 1, role: "hook", purpose: "Prender a atenção",
+        primaryText: "Gancho exato do slide", secondaryText: "Apoio exato",
+        authority: "ai_proposal", sourceFactIds: [], layoutFamily: "impact",
+      },
+      {
+        slideId: "slide-2", position: 2, role: "context", purpose: "Contextualizar",
+        primaryText: "Contexto exato", secondaryText: null,
+        authority: "ai_proposal", sourceFactIds: [], layoutFamily: "development",
+      },
+    ],
+  };
+}
+
+function carouselContractFixture(): CarouselVisualContractV1 {
+  const region = { x: 80, y: 96, width: 864, height: 420, minFontPx: 42, maxFontPx: 82, align: "left" as const };
+  return {
+    version: 1,
+    brandSnapshotHash: "brand-hash-1",
+    temporaryReferenceId: null,
+    palette: ["#112233", "#AABBCC"],
+    typography: { fontAssetKey: null, fallbackFamily: "sans", authority: "fallback" },
+    directionInstruction: null,
+    layoutFamilies: {
+      impact: {
+        id: "impact-v1", density: "high", primaryRegion: region, secondaryRegion: null,
+        exactAssetSlots: [{ assetKey: "brand-training/logo.png", x: 800, y: 1100, width: 160, height: 160 }],
+        backgroundInstruction: "Text-free hero composition.",
+      },
+      development: {
+        id: "development-v1", density: "medium", primaryRegion: region, secondaryRegion: null,
+        exactAssetSlots: [], backgroundInstruction: "Text-free asymmetric composition.",
+      },
+      respite: {
+        id: "respite-v1", density: "low", primaryRegion: region, secondaryRegion: null,
+        exactAssetSlots: [], backgroundInstruction: "Text-free low-density composition.",
+      },
+    },
+    recurringMotifs: ["ondas suaves"],
+    exactAssetKeys: ["brand-training/logo.png"],
+    prohibitedElements: ["Sem clipart"],
+    safeAreaPx: 64,
+    contractHash: "a".repeat(64),
+  };
+}
+
+describe("buildCarouselSlidePrompt", () => {
+  const slide = { position: 1, role: "hook" as const, purpose: "Prender a atenção", layoutFamily: "impact" as const };
+  const baseInput = {
+    slide,
+    deck: carouselDeckFixture(),
+    contract: carouselContractFixture(),
+    factPack: null,
+    request: "Quero um carrossel sobre o grupo de terapia em agosto",
+    references: [],
+  };
+
+  it("includes the frozen contract hash, role, purpose and layout-family instruction", () => {
+    const prompt = buildCarouselSlidePrompt(baseInput);
+
+    expect(prompt).toContain(`sha256=${"a".repeat(64)}`);
+    expect(prompt).toContain("ROLE: hook");
+    expect(prompt).toContain("Prender a atenção");
+    expect(prompt).toContain("Text-free hero composition.");
+    expect(prompt).toContain("impact");
+  });
+
+  it("never sends the approved copy as renderable provider text", () => {
+    const prompt = buildCarouselSlidePrompt(baseInput);
+    const deck = carouselDeckFixture();
+
+    expect(prompt).not.toContain("Gancho exato do slide");
+    expect(prompt).not.toContain("Apoio exato");
+    expect(prompt).not.toContain("Contexto exato");
+    expect(prompt).not.toContain(deck.promise);
+  });
+
+  it("names the reserved text regions and exact-asset placements", () => {
+    const prompt = buildCarouselSlidePrompt(baseInput);
+
+    expect(prompt).toContain("RESERVED TEXT REGIONS");
+    expect(prompt).toContain("x=80");
+    expect(prompt).toContain("width=864");
+    expect(prompt).toContain("RESERVED PLACEMENTS");
+    expect(prompt).toContain("brand-training/logo.png");
+  });
+
+  it("carries the strict deterministic text contract", () => {
+    const prompt = buildCarouselSlidePrompt(baseInput);
+
+    expect(prompt).toContain("DETERMINISTIC TEXT CONTRACT:");
+    expect(prompt).toContain("Do not render any visible text, letters, words, labels or CTA");
+    expect(prompt).toContain("visually calm");
+  });
+
+  it("includes palette, motifs and prohibitions from the frozen contract", () => {
+    const prompt = buildCarouselSlidePrompt(baseInput);
+
+    expect(prompt).toContain("#112233");
+    expect(prompt).toContain("ondas suaves");
+    expect(prompt).toContain("Sem clipart");
+  });
+
+  it("includes the factual visual context from the request", () => {
+    const prompt = buildCarouselSlidePrompt(baseInput);
+
+    expect(prompt).toContain("grupo de terapia em agosto");
+  });
+
+  it("renders provider reference roles in order", () => {
+    const prompt = buildCarouselSlidePrompt({
+      ...baseInput,
+      references: [
+        { role: "anchor_board", required: true, assetKey: "board.png", mimeType: "image/png", label: "Anchor board" },
+        { role: "brand_identity", required: false, assetKey: "logo.png", mimeType: "image/png", label: "Logo" },
+      ],
+    });
+
+    expect(prompt).toContain('- #1 [anchor_board] "Anchor board" (required)');
+    expect(prompt).toContain('- #2 [brand_identity] "Logo" (optional)');
+  });
+});

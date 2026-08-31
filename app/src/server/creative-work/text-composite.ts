@@ -6,6 +6,7 @@ import sharp from "sharp";
 import { parseHexColor } from "../brand-training/measure-image";
 import type { BrandFontAsset } from "../brand-training/font-assets";
 import { canonicalJsonStringify } from "./canonical-json";
+import type { CarouselTextRegion } from "./carousel-contracts";
 import type { CreativeWorkFormat, SocialPostCopy } from "./contracts";
 import { contrastRatio, relativeLuminance } from "./placement-policy";
 import type { TextLayout, TypographyPlan } from "./typography-plan";
@@ -68,11 +69,6 @@ function escapePango(value: string): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
-}
-
-function textMarkup(role: TextRole, color: string, text: string): string {
-  const weight = ROLE_TEXT_WEIGHTS[role] === "bold" ? ' weight="bold"' : "";
-  return `<span foreground="${color}"${weight}>${escapePango(text)}</span>`;
 }
 
 function safeArea(format: CreativeWorkFormat, dimensions: { width: number; height: number }) {
@@ -245,33 +241,33 @@ function cacheFontFile(font: BrandFontAsset, fontBuffer: Buffer): Promise<string
   return pending;
 }
 
-async function renderText(input: {
-  role: TextRole;
+async function renderTextLayer(input: {
   text: string;
   box: TextBox;
-  font: BrandFontAsset;
-  fontPath: string;
+  fontFamily: string;
+  fontPath: string | null;
   color: string;
-  layout: TextLayout;
+  wrap: "word" | "word-char" | "none";
+  weight: "bold" | "regular";
+  minimumDpi: number;
 }) {
+  const weightAttr = input.weight === "bold" ? ' weight="bold"' : "";
+  const markup = `<span foreground="${input.color}"${weightAttr}>${escapePango(input.text)}</span>`;
   const result = await sharp({
     text: {
-      text: textMarkup(input.role, input.color, input.text),
-      font: input.font.family,
-      fontfile: input.fontPath,
+      text: markup,
+      font: input.fontFamily,
+      ...(input.fontPath ? { fontfile: input.fontPath } : {}),
       width: input.box.width,
       height: input.box.height,
       align: "left",
-      wrap: input.role === "cta" && input.layout === "side"
-        ? "none"
-        : input.layout === "side" ? "word" : "word-char",
+      wrap: input.wrap,
       rgba: true,
     },
   }).png().toBuffer({ resolveWithObject: true });
   const renderedDpi = result.info.textAutofitDpi ?? 0;
-  const minimumDpi = ROLE_MINIMUM_DPI[input.role];
   if (
-    renderedDpi < minimumDpi
+    renderedDpi < input.minimumDpi
     || result.info.width > input.box.width
     || result.info.height > input.box.height
   ) {
@@ -289,7 +285,31 @@ async function renderText(input: {
     })
     .png()
     .toBuffer();
-  return { buffer, renderedDpi, minimumDpi, textWeight: ROLE_TEXT_WEIGHTS[input.role] };
+  return { buffer, renderedDpi, minimumDpi: input.minimumDpi };
+}
+
+async function renderText(input: {
+  role: TextRole;
+  text: string;
+  box: TextBox;
+  font: BrandFontAsset;
+  fontPath: string;
+  color: string;
+  layout: TextLayout;
+}) {
+  const rendered = await renderTextLayer({
+    text: input.text,
+    box: input.box,
+    fontFamily: input.font.family,
+    fontPath: input.fontPath,
+    color: input.color,
+    wrap: input.role === "cta" && input.layout === "side"
+      ? "none"
+      : input.layout === "side" ? "word" : "word-char",
+    weight: ROLE_TEXT_WEIGHTS[input.role],
+    minimumDpi: ROLE_MINIMUM_DPI[input.role],
+  });
+  return { ...rendered, textWeight: ROLE_TEXT_WEIGHTS[input.role] };
 }
 
 export async function runTextComposition(input: {
@@ -428,4 +448,132 @@ export async function runSquareTextComposition(input: {
     brandColors: [],
     occupiedBoxes: [],
   });
+}
+
+// ---------------------------------------------------------------------------
+// Carousel slide composition (Task 6): region-based rendering onto the
+// text-free provider base, with the approved font or the Pango `sans`
+// fallback. Shares escapePango(), contrast, Sharp and font caching with
+// runTextComposition() through renderTextLayer(); runTextComposition()'s
+// signature and provenance stay untouched.
+// ---------------------------------------------------------------------------
+
+export interface CarouselCompositionProvenance {
+  version: 1;
+  copyHash: string;
+  baseHash: string;
+  outputHash: string;
+  fontAuthority: "approved" | "fallback";
+  fontFamily: string;
+  layers: Array<{
+    role: "primary" | "secondary";
+    textHash: string;
+    box: TextBox;
+    renderedDpi: number;
+    minimumDpi: number;
+  }>;
+}
+
+const CAROUSEL_TEXT_WEIGHTS = { primary: "bold", secondary: "regular" } as const;
+
+function regionToBox(region: CarouselTextRegion): TextBox {
+  return { left: region.x, top: region.y, width: region.width, height: region.height };
+}
+
+function regionInsideSafeArea(
+  region: CarouselTextRegion,
+  safeAreaPx: number,
+  dimensions: { width: number; height: number },
+): boolean {
+  return (
+    region.x >= safeAreaPx
+    && region.y >= safeAreaPx
+    && region.x + region.width <= dimensions.width - safeAreaPx
+    && region.y + region.height <= dimensions.height - safeAreaPx
+  );
+}
+
+export async function runCarouselTextComposition(input: {
+  base: Buffer;
+  dimensions: { width: number; height: number };
+  primaryText: string;
+  secondaryText: string | null;
+  primaryRegion: CarouselTextRegion;
+  secondaryRegion: CarouselTextRegion | null;
+  safeAreaPx: number;
+  font: BrandFontAsset | null;
+  fontBuffer: Buffer | null;
+  fallbackFamily: "sans" | null;
+  brandColors: readonly string[];
+}): Promise<{ buffer: Buffer; provenance: CarouselCompositionProvenance }> {
+  const fontAuthority = input.font ? "approved" : "fallback";
+  let fontFamily: string;
+  let fontPath: string | null = null;
+  if (input.font) {
+    if (!input.fontBuffer || hash(input.fontBuffer) !== input.font.sha256) {
+      throw new TextCompositionError("brand_font_hash_mismatch");
+    }
+    fontPath = await cacheFontFile(input.font, input.fontBuffer);
+    fontFamily = input.font.family;
+  } else {
+    fontFamily = input.fallbackFamily ?? "sans";
+  }
+
+  const regions: Array<{ role: "primary" | "secondary"; text: string; region: CarouselTextRegion }> = [
+    { role: "primary", text: input.primaryText, region: input.primaryRegion },
+  ];
+  if (input.secondaryText && input.secondaryRegion) {
+    regions.push({ role: "secondary", text: input.secondaryText, region: input.secondaryRegion });
+  }
+  for (const entry of regions) {
+    if (!regionInsideSafeArea(entry.region, input.safeAreaPx, input.dimensions)) {
+      throw new TextCompositionError("brand_text_safe_area");
+    }
+  }
+
+  const palette = choosePalette(input.brandColors);
+  const rendered = await Promise.all(
+    regions.map(async (entry) => ({
+      role: entry.role,
+      text: entry.text,
+      box: regionToBox(entry.region),
+      ...(await renderTextLayer({
+        text: entry.text,
+        box: regionToBox(entry.region),
+        fontFamily,
+        fontPath,
+        color: palette.text,
+        wrap: "word-char",
+        weight: CAROUSEL_TEXT_WEIGHTS[entry.role],
+        minimumDpi: entry.region.minFontPx,
+      })),
+    })),
+  );
+
+  const buffer = await sharp(input.base)
+    .resize(input.dimensions.width, input.dimensions.height, { fit: "cover" })
+    .composite(rendered.map((layer) => ({ input: layer.buffer, left: layer.box.left, top: layer.box.top })))
+    .png()
+    .toBuffer();
+
+  return {
+    buffer,
+    provenance: {
+      version: 1,
+      copyHash: hash(
+        canonicalJsonStringify({ primaryText: input.primaryText, secondaryText: input.secondaryText }),
+      ),
+      baseHash: hash(input.base),
+      outputHash: hash(buffer),
+      fontAuthority,
+      fontFamily,
+      layers: rendered.map((layer) => ({
+        role: layer.role,
+        textHash: hash(layer.text),
+        box: layer.box,
+        renderedDpi: layer.renderedDpi,
+        minimumDpi: layer.minimumDpi,
+      })),
+    },
+  };
 }

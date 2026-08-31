@@ -18,6 +18,10 @@ vi.mock("./creative-work", () => ({
   createCreativeWorkOutputJobV2: (client: WorkerClient) =>
     client.createFunction({ id: "generate-creative-work-output-v2" }, vi.fn()),
 }));
+vi.mock("./creative-work-carousel", () => ({
+  createCreativeWorkCarouselSlideJobV2: (client: WorkerClient) =>
+    client.createFunction({ id: "generate-creative-work-carousel-slide-v2" }, vi.fn()),
+}));
 vi.mock("./derivation", () => ({
   createDerivationJobV2: (client: WorkerClient) =>
     client.createFunction({ id: "generate-derivation-v2" }, vi.fn()),
@@ -49,13 +53,14 @@ describe("image-worker", () => {
     vi.clearAllMocks();
   });
 
-  it("registers exactly six heavy v2 jobs with concurrency 2", () => {
+  it("registers exactly eight heavy v2 jobs with concurrency 2", () => {
     const options = buildImageWorkerConnectOptions();
     expect(options.appId).toBe("adscale-image-worker");
     expect(options.maxWorkerConcurrency).toBe(2);
-    expect(options.functionCount).toBe(7);
+    expect(options.functionCount).toBe(8);
     expect(options.functionIds).toEqual([
       "generate-creative-work-output-v2",
+      "generate-creative-work-carousel-slide-v2",
       "generate-derivation-v2",
       "analyze-creative-work-source-v2",
       "analyze-workspace-asset-v2",
