@@ -505,13 +505,24 @@ describe("creative-work repository", () => {
       mocks.state.txUpdateResults.push([reopened]);
 
       await expect(autosaveCreativeWorkDraft({
-        workspaceId: "ws-1", workItemId: "work-ready", request: "Peça revisada", intent: "single", format: "4:5", settings: { targetFormats: [] },
+        workspaceId: "ws-1", workItemId: "work-ready", expectedUpdatedAt: ready.updatedAt, request: "Peça revisada", intent: "single", format: "4:5", settings: { targetFormats: [] },
       })).resolves.toEqual({ work: reopened, error: null, sourcesNeedingSingleAnalysis: [] });
 
       expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({
         status: "draft", identitySnapshot: null, brief: null, copy: null, inputSnapshot: null,
         request: "Peça revisada",
       }));
+    });
+
+    it("rejects a stale tab before it can reopen a newer prepared retry", async () => {
+      const r2 = workItem({ id: "work-ready", status: "ready", updatedAt: new Date("2026-08-31T12:00:01.000Z") });
+      mocks.state.selectResults.push([r2], [{ outputCount: 1 }]);
+
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "work-ready", expectedUpdatedAt: new Date("2026-08-31T12:00:00.000Z"), request: "R1", intent: "single", format: "4:5", settings: { targetFormats: [] },
+      })).resolves.toEqual({ work: null, error: "not_draft", sourcesNeedingSingleAnalysis: [] });
+
+      expect(mocks.txUpdateMock).not.toHaveBeenCalled();
     });
 
     it("does not reopen a ready work once it has outputs", async () => {
@@ -714,6 +725,21 @@ describe("creative-work repository", () => {
 
       expect(mocks.executeMock).toHaveBeenCalledWith(expect.anything());
       expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({ brief: null, copy: null, inputSnapshot: null }));
+    });
+
+    it("reopens a ready zero-output work before changing a source under its revision CAS", async () => {
+      const updatedAt = new Date("2026-08-31T12:00:00.000Z");
+      const ready = workItem({ id: "work-1", status: "ready", updatedAt });
+      const source = { id: "source-1", workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", usage: "both", status: "ready", updatedAt };
+      mocks.state.selectResults.push([ready], [{ outputCount: 0 }], [source]);
+      mocks.state.deleteResults.push([source]);
+      mocks.state.txUpdateResults.push([workItem({ status: "draft", brief: null, copy: null, inputSnapshot: null, identitySnapshot: null })]);
+
+      await expect(mutateCreativeWorkDraftSource({
+        workspaceId: "ws-1", workItemId: "work-1", expectedUpdatedAt: updatedAt, sourceId: "source-1", mutation: { kind: "remove" },
+      })).resolves.toEqual(source);
+
+      expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({ status: "draft", identitySnapshot: null, brief: null, copy: null, inputSnapshot: null }));
     });
 
     it("returns a conflict without changing a source after prepare owns the draft", async () => {

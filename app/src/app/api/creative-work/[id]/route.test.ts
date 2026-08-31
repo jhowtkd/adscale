@@ -173,10 +173,20 @@ function makeParams(id: string) {
 }
 
 function requestPatch(body: unknown) {
+  const action = typeof body === "object" && body !== null && "action" in body
+    ? (body as { action?: unknown }).action
+    : null;
+  const requiresRevision = new Set([
+    "autosave", "attachSource", "updateSource", "retrySource", "removeSource",
+    "updatePieceReference", "replacePieceReference", "promotePieceReference", "editSourceAnalysis",
+  ]).has(typeof action === "string" ? action : "");
+  const payload = requiresRevision && typeof body === "object" && body !== null
+    ? { expectedUpdatedAt: "2026-07-13T12:00:00.000Z", ...body }
+    : body;
   return PATCH(new Request("http://localhost/api/creative-work/work-1", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   }), { params: makeParams("work-1") });
 }
 
@@ -1038,11 +1048,12 @@ describe("PATCH /api/creative-work/[id]", () => {
     });
     const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "autosave", request: "Novo pedido", intent: "variations", format: "1:1", settings: { targetFormats: [] } }),
+      body: JSON.stringify({ action: "autosave", expectedUpdatedAt: "2026-07-13T12:00:00.000Z", request: "Novo pedido", intent: "variations", format: "1:1", settings: { targetFormats: [] } }),
     }), { params: makeParams("work-1") });
     expect(res.status).toBe(200);
     expect(autosaveDraftMock).toHaveBeenCalledWith({
       workspaceId: "workspace-1", workItemId: "work-1",
+      expectedUpdatedAt: new Date("2026-07-13T12:00:00.000Z"),
       request: "Novo pedido", intent: "variations", format: "1:1", settings: { targetFormats: [] },
     });
     expect(autosaveDraftMock.mock.calls[0][0]).not.toHaveProperty("clientProfileId");
@@ -1450,12 +1461,12 @@ describe("PATCH /api/creative-work/[id]", () => {
   it("attaches a workspace asset and dispatches analysis without trusting browser metadata", async () => {
     const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "attachSource", assetId: "asset-1", usage: "both" }),
+      body: JSON.stringify({ action: "attachSource", expectedUpdatedAt: "2026-07-13T12:00:00.000Z", assetId: "asset-1", usage: "both" }),
     }), { params: makeParams("work-1") });
 
     expect(res.status).toBe(200);
     expect(getAssetMock).toHaveBeenCalledWith("asset-1", "workspace-1");
-    expect(createSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", assetId: "asset-1", usage: "both", usageConfirmed: true, status: "uploaded" });
+    expect(createSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", expectedUpdatedAt: new Date("2026-07-13T12:00:00.000Z"), assetId: "asset-1", usage: "both", usageConfirmed: true, status: "uploaded" });
     expect(inngestSendMock).toHaveBeenCalledWith({ name: "creative-work.source.analyze", data: { workspaceId: "workspace-1", workItemId: "work-1", sourceId: "source-1" } });
   });
 
@@ -1498,7 +1509,7 @@ describe("PATCH /api/creative-work/[id]", () => {
 
     expect(valid.status).toBe(200);
     expect(mutatePieceReferenceMock).toHaveBeenCalledWith({
-      workspaceId: "workspace-1", workItemId: "work-1", sourceId,
+      workspaceId: "workspace-1", workItemId: "work-1", expectedUpdatedAt: new Date("2026-07-13T12:00:00.000Z"), sourceId,
       mutation: { kind: "correct", category: "style_reference", userInstruction: "Somente a textura" },
     });
 
@@ -1533,7 +1544,7 @@ describe("PATCH /api/creative-work/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(mutatePieceReferenceMock).toHaveBeenCalledWith({
-      workspaceId: "workspace-1", workItemId: "work-1", sourceId,
+      workspaceId: "workspace-1", workItemId: "work-1", expectedUpdatedAt: new Date("2026-07-13T12:00:00.000Z"), sourceId,
       mutation: { kind: "replace", assetId: replacementAssetId },
     });
     expect(inngestSendMock).toHaveBeenCalledWith({ name: "creative-work.source.analyze", data: { workspaceId: "workspace-1", workItemId: "work-1", sourceId } });
@@ -1639,12 +1650,12 @@ describe("PATCH /api/creative-work/[id]", () => {
 
     const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "attachSource", templateId: "template-1", usage: "both" }),
+      body: JSON.stringify({ action: "attachSource", expectedUpdatedAt: "2026-07-13T12:00:00.000Z", templateId: "template-1", usage: "both" }),
     }), { params: makeParams("work-1") });
 
     expect(res.status).toBe(200);
     expect(getTemplateMock).toHaveBeenCalledWith("template-1", "workspace-1");
-    expect(createSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", templateId: "template-1", usage: "both", usageConfirmed: true, status: "uploaded" });
+    expect(createSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", expectedUpdatedAt: new Date("2026-07-13T12:00:00.000Z"), templateId: "template-1", usage: "both", usageConfirmed: true, status: "uploaded" });
     expect(analyzeSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", sourceId: "source-template" });
     expect(inngestSendMock).not.toHaveBeenCalled();
   });
@@ -1849,7 +1860,7 @@ describe("PATCH /api/creative-work/[id]", () => {
     getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [{ id: "source-1", usage: "content", status: "ready" }] });
     await requestPatch({ action: "removeSource", sourceId: "source-1" });
     expect(mutateDraftSourceMock).toHaveBeenCalledWith({
-      workspaceId: "workspace-1", workItemId: "work-1", sourceId: "source-1", mutation: { kind: "remove" },
+      workspaceId: "workspace-1", workItemId: "work-1", expectedUpdatedAt: new Date("2026-07-13T12:00:00.000Z"), sourceId: "source-1", mutation: { kind: "remove" },
     });
     expect(inngestSendMock).not.toHaveBeenCalled();
   });

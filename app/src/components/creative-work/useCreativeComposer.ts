@@ -299,6 +299,7 @@ export function useCreativeComposer({
   const briefingVersionRef = useRef<number | undefined>(undefined);
   const hydratedWorkRef = useRef<string | null>(null);
   const lastPersistedRef = useRef<string | null>(null);
+  const workRevisionRef = useRef<string | null>(null);
   const createInFlightRef = useRef<Promise<string | null> | null>(null);
   const draftEpochRef = useRef(0);
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
@@ -437,6 +438,7 @@ export function useCreativeComposer({
     briefingVersionRef.current = hydrated.settings.briefingVersion;
     const hydratedSignature = signature(hydrated);
     lastPersistedRef.current = hydratedSignature;
+    if (work.updatedAt) workRevisionRef.current = new Date(work.updatedAt).toISOString();
     const hydratedPlan = detailQuery.data?.preparedPlan;
     if (initialWorkId && hydratedPlan) {
       preparedPlanInputRef.current = {
@@ -598,6 +600,25 @@ export function useCreativeComposer({
     }
   }, [detailQuery, exposeCampaignId, linkCampaignMutation, tHome]);
 
+  type SourceActionInput =
+    | { workItemId: string; action: "attachSource"; assetId: string; templateId?: never; usage: CreativeSourceUsage }
+    | { workItemId: string; action: "attachSource"; templateId: string; assetId?: never; usage: CreativeSourceUsage }
+    | { workItemId: string; action: "updateSource"; sourceId: string; usage: CreativeSourceUsage }
+    | { workItemId: string; action: "updatePieceReference"; sourceId: string; category?: PieceReferenceCategory; userInstruction?: string | null }
+    | { workItemId: string; action: "replacePieceReference"; sourceId: string; assetId: string }
+    | { workItemId: string; action: "promotePieceReference"; sourceId: string }
+    | { workItemId: string; action: "retrySource" | "removeSource"; sourceId: string }
+    | { workItemId: string; action: "editSourceAnalysis"; sourceId: string; content: ContentBrief | null; style: StyleBrief | null };
+  const mutateSource = useCallback(async (action: SourceActionInput) => {
+    const expectedUpdatedAt = workRevisionRef.current ?? (detailQuery.data?.work.updatedAt ? new Date(detailQuery.data.work.updatedAt).toISOString() : null);
+    if (!expectedUpdatedAt) throw new Error("Recarregue o trabalho antes de alterar a arte.");
+    const result = await sourceMutation.mutateAsync({ ...action, expectedUpdatedAt } as Parameters<typeof sourceMutation.mutateAsync>[0]);
+    const refreshed = await detailQuery.refetch?.();
+    const work = refreshed?.data?.work;
+    if (work?.id === action.workItemId && work.updatedAt) workRevisionRef.current = new Date(work.updatedAt).toISOString();
+    return result;
+  }, [detailQuery, sourceMutation]);
+
   const ensureDraft = useCallback((source?: DraftSource, silent = false) => {
     if (workflowVariant === "progressive" && !objectiveRef.current) return Promise.resolve(null);
     if (workIdRef.current) return Promise.resolve(workIdRef.current);
@@ -609,7 +630,7 @@ export function useCreativeComposer({
       // returning the source-less in-flight promise and silently dropping it.
       return creating.then(async (id) => {
         if (!id) return null;
-        await sourceMutation.mutateAsync({
+        await mutateSource({
           workItemId: id,
           action: "attachSource",
           ...source,
@@ -644,6 +665,7 @@ export function useCreativeComposer({
       workIdRef.current = result.work.id;
       lastPersistedRef.current = signature(snapshotFromWork(result.work));
       writeStoredDraft(active.activeClientProfileId!, intentRef.current, result.work.id);
+      if (result.work.updatedAt) workRevisionRef.current = new Date(result.work.updatedAt).toISOString();
       if (!silent && mountedRef.current) {
         setWorkId(result.work.id);
         setQuote(result.quote);
@@ -663,14 +685,21 @@ export function useCreativeComposer({
     });
     createInFlightRef.current = promise;
     return promise;
-  }, [active.activeClientProfileId, captureSnapshot, createMutation, enqueueSave, exposeWorkId, linkCampaign, recordCanonicalEvent, sourceMutation, workflowVariant]);
+  }, [active.activeClientProfileId, captureSnapshot, createMutation, enqueueSave, exposeWorkId, linkCampaign, mutateSource, recordCanonicalEvent, workflowVariant]);
 
   const persistSnapshot = useCallback((id: string, snapshot: DraftSnapshot, announce = true) => enqueueSave(async () => {
     if (autosaveBlockedWorkRef.current === id) return;
     const sentSignature = signature(snapshot);
     if (sentSignature === lastPersistedRef.current) return;
     try {
-      await autosaveMutation.mutateAsync({ workItemId: id, ...snapshot });
+      const result = await autosaveMutation.mutateAsync({
+        workItemId: id,
+        expectedUpdatedAt: workRevisionRef.current ?? (detailQuery.data?.work.updatedAt ? new Date(detailQuery.data.work.updatedAt).toISOString() : ""),
+        ...snapshot,
+      });
+      if (result.work?.updatedAt) {
+        workRevisionRef.current = new Date(result.work.updatedAt).toISOString();
+      }
     } catch (cause) {
       const code = cause instanceof Error && "code" in cause
         ? (cause as Error & { code?: unknown }).code
@@ -682,7 +711,7 @@ export function useCreativeComposer({
     }
     lastPersistedRef.current = sentSignature;
     if (announce && mountedRef.current) setAnnouncement("Alterações salvas");
-  }), [autosaveMutation, enqueueSave]);
+  }), [autosaveMutation, detailQuery.data?.work.updatedAt, enqueueSave]);
 
   const flushAutosave = useCallback(async (): Promise<string | null> => {
     if (initialWorkId && !hydratedWorkRef.current) return null;
@@ -1150,7 +1179,7 @@ export function useCreativeComposer({
         if (!existingId) {
           await ensureDraft({ assetId: uploaded.assetId, usage });
         } else {
-          await sourceMutation.mutateAsync({
+          await mutateSource({
             workItemId: existingId,
             action: "attachSource",
             assetId: uploaded.assetId,
@@ -1169,7 +1198,7 @@ export function useCreativeComposer({
       uploadInFlightRef.current = false;
       setIsUploading(false);
     }
-  }, [active.activeClientProfileId, announce, detailQuery.data?.sources, ensureDraft, markPlanInputEdited, sourceMutation, tHome, workflowVariant]);
+  }, [active.activeClientProfileId, announce, detailQuery.data?.sources, ensureDraft, markPlanInputEdited, mutateSource, tHome, workflowVariant]);
 
   const attachDraftSource = useCallback(async (source: DraftSource): Promise<boolean> => {
     if (!workIdRef.current && !active.activeClientProfileId) {
@@ -1179,7 +1208,7 @@ export function useCreativeComposer({
     const existingId = workIdRef.current;
     if (existingId) {
       markPlanInputEdited();
-      await sourceMutation.mutateAsync({
+      await mutateSource({
         workItemId: existingId,
         action: "attachSource",
         ...source,
@@ -1189,7 +1218,7 @@ export function useCreativeComposer({
       return true;
     }
     return Boolean(await ensureDraft(source));
-  }, [active.activeClientProfileId, ensureDraft, markPlanInputEdited, sourceMutation]);
+  }, [active.activeClientProfileId, ensureDraft, markPlanInputEdited, mutateSource]);
 
   const addInspiration = useCallback(async (inspiration: CreativeInspiration) => {
     if (!workIdRef.current && !active.activeClientProfileId) {
@@ -1299,10 +1328,10 @@ export function useCreativeComposer({
     workflowVariant,
   ]);
 
-  const runSourceAction = useCallback(async (action: Parameters<typeof sourceMutation.mutateAsync>[0]): Promise<boolean> => {
+  const runSourceAction = useCallback(async (action: SourceActionInput): Promise<boolean> => {
     try {
       markPlanInputEdited();
-      await sourceMutation.mutateAsync(action);
+      await mutateSource(action);
       setInferredBriefingContext(null);
       if (action.action === "updateSource") {
         recordStudioEvent("studio_source_role_selected", {
@@ -1315,7 +1344,7 @@ export function useCreativeComposer({
       setError(cause instanceof Error ? cause.message : "Falha ao atualizar arte");
       return false;
     }
-  }, [markPlanInputEdited, recordStudioEvent, sourceMutation]);
+  }, [markPlanInputEdited, mutateSource, recordStudioEvent]);
 
   const updateSource = useCallback((sourceId: string, usage: CreativeSourceUsage) => {
     if (!workIdRef.current) return Promise.resolve();
@@ -1335,7 +1364,7 @@ export function useCreativeComposer({
     if (!workIdRef.current) return Promise.resolve();
     const workItemId = workIdRef.current;
     markPlanInputEdited();
-    return sourceMutation.mutateAsync({ workItemId, action: "retrySource", sourceId })
+    return mutateSource({ workItemId, action: "retrySource", sourceId })
       .then(() => {
         setInferredBriefingContext(null);
       })
@@ -1351,7 +1380,7 @@ export function useCreativeComposer({
         }
         setError(cause instanceof Error ? cause.message : "Falha ao atualizar arte");
       });
-  }, [detailQuery, markPlanInputEdited, sourceMutation]);
+  }, [detailQuery, markPlanInputEdited, mutateSource]);
   const removeSource = useCallback((sourceId: string) => {
     if (!workIdRef.current) return Promise.resolve();
     return runSourceAction({ workItemId: workIdRef.current, action: "removeSource", sourceId });
@@ -1426,6 +1455,7 @@ export function useCreativeComposer({
       lastPersistedRef.current = signature(snapshotFromWork(prepared.work));
       setQuote(prepared.quote);
       formatRef.current = prepared.work.format;
+      if (prepared.work.updatedAt) workRevisionRef.current = new Date(prepared.work.updatedAt).toISOString();
       setFormat(prepared.work.format);
       preparedPlanInputRef.current = {
         revision: prepared.preparedPlan.preparedRevision,

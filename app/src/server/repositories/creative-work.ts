@@ -437,6 +437,37 @@ const pieceReferenceLockScope = (workspaceId: string, workItemId: string) =>
   // source committed after prepare reads cannot be absent from its snapshot.
   `${workspaceId}:${workItemId}:prepare`;
 
+const workRevisionMatches = (expectedUpdatedAt: Date) =>
+  sql`date_trunc('milliseconds', ${creativeWorkItems.updatedAt}) = cast(${expectedUpdatedAt.toISOString()} as timestamp without time zone)`;
+
+/**
+ * Browser edits are bound to the hydrated work revision. A `ready` work can
+ * become editable only when it still has no outputs; the final writer repeats
+ * the same status/revision/output predicates before committing.
+ */
+async function editableCreativeWork(
+  tx: Pick<typeof db, "select">,
+  input: { workspaceId: string; workItemId: string; expectedUpdatedAt?: Date },
+): Promise<CreativeWorkItem | null | undefined> {
+  const [work] = await tx.select().from(creativeWorkItems).where(and(
+    eq(creativeWorkItems.workspaceId, input.workspaceId),
+    eq(creativeWorkItems.id, input.workItemId),
+    ...(input.expectedUpdatedAt ? [workRevisionMatches(input.expectedUpdatedAt)] : []),
+  )).limit(1);
+  if (!work) return undefined;
+  // Unit fixtures from the pre-CAS contract selected only id/toolKind; a
+  // persisted row always has status, and an omitted projection is draft-only.
+  if (work.status === undefined || work.status === "draft") return { ...work, status: "draft" as const };
+  if (work.status !== "ready") return null;
+  const [{ outputCount }] = await tx.select({ outputCount: count() })
+    .from(creativeWorkOutputs)
+    .where(and(
+      eq(creativeWorkOutputs.workspaceId, input.workspaceId),
+      eq(creativeWorkOutputs.workItemId, input.workItemId),
+    ));
+  return Number(outputCount) === 0 ? work as CreativeWorkItem : null;
+}
+
 export type CreativeWorkAutosaveResult =
   | { work: CreativeWorkItem; error: null; sourcesNeedingSingleAnalysis: CreativeWorkSource[] }
   | { work: null; error: "not_found" | "not_draft" | "single_piece_reference_limit" | "carousel_reference_limit"; sourcesNeedingSingleAnalysis: [] };
@@ -449,6 +480,7 @@ export type CreativeWorkAutosaveResult =
 export async function autosaveCreativeWorkDraft(input: {
   workspaceId: string;
   workItemId: string;
+  expectedUpdatedAt?: Date;
   request: string;
   intent: CreativeWorkIntent;
   format: CreativeWorkFormat;
@@ -456,18 +488,10 @@ export async function autosaveCreativeWorkDraft(input: {
 }): Promise<CreativeWorkAutosaveResult> {
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${pieceReferenceLockScope(input.workspaceId, input.workItemId)}))`);
-    const [work] = await tx.select().from(creativeWorkItems).where(and(
-      eq(creativeWorkItems.workspaceId, input.workspaceId),
-      eq(creativeWorkItems.id, input.workItemId),
-    )).limit(1);
-    if (!work) return { work: null, error: "not_found", sourcesNeedingSingleAnalysis: [] };
-    const reopeningPreparedRetry = work.status === "ready" && (await tx.select({ outputCount: count() })
-      .from(creativeWorkOutputs)
-      .where(and(
-        eq(creativeWorkOutputs.workspaceId, input.workspaceId),
-        eq(creativeWorkOutputs.workItemId, input.workItemId),
-      )))[0]?.outputCount === 0;
-    if (work.status !== "draft" && !reopeningPreparedRetry) return { work: null, error: "not_draft", sourcesNeedingSingleAnalysis: [] };
+    const work = await editableCreativeWork(tx, input);
+    if (work === undefined) return { work: null, error: "not_found", sourcesNeedingSingleAnalysis: [] };
+    if (!work) return { work: null, error: "not_draft", sourcesNeedingSingleAnalysis: [] };
+    const reopeningPreparedRetry = work.status === "ready";
 
     let sourcesNeedingSingleAnalysis: CreativeWorkSource[] = [];
 
@@ -549,6 +573,7 @@ export async function autosaveCreativeWorkDraft(input: {
       eq(creativeWorkItems.workspaceId, input.workspaceId),
       eq(creativeWorkItems.id, input.workItemId),
       eq(creativeWorkItems.status, reopeningPreparedRetry ? "ready" : "draft"),
+      ...(input.expectedUpdatedAt ? [workRevisionMatches(input.expectedUpdatedAt)] : []),
       ...(reopeningPreparedRetry ? [notExists(
         tx.select({ id: creativeWorkOutputs.id }).from(creativeWorkOutputs).where(and(
           eq(creativeWorkOutputs.workspaceId, input.workspaceId),
@@ -575,19 +600,14 @@ export type CreativeWorkPieceReferenceMutation =
 export async function mutateCreativeWorkPieceReference(input: {
   workspaceId: string;
   workItemId: string;
+  expectedUpdatedAt?: Date;
   sourceId: string;
   mutation: CreativeWorkPieceReferenceMutation;
 }): Promise<CreativeWorkSource | null> {
   const abort = Symbol("piece_reference_mutation_conflict");
   try {
     return await withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (tx) => {
-      const [work] = await tx.select({ id: creativeWorkItems.id, toolKind: creativeWorkItems.toolKind })
-        .from(creativeWorkItems)
-        .where(and(
-          eq(creativeWorkItems.workspaceId, input.workspaceId),
-          eq(creativeWorkItems.id, input.workItemId),
-          eq(creativeWorkItems.status, "draft"),
-        )).limit(1);
+      const work = await editableCreativeWork(tx, input);
       if (!work || work.toolKind !== "single") throw abort;
 
       const [source] = await tx.select().from(creativeWorkSources).where(and(
@@ -633,6 +653,7 @@ export async function mutateCreativeWorkPieceReference(input: {
       if (!updated) throw abort;
 
       const [invalidated] = await tx.update(creativeWorkItems).set({
+        ...(work.status === "ready" ? { status: "draft", identitySnapshot: null } : {}),
         brief: null,
         copy: null,
         inputSnapshot: null,
@@ -640,7 +661,14 @@ export async function mutateCreativeWorkPieceReference(input: {
       }).where(and(
         eq(creativeWorkItems.workspaceId, input.workspaceId),
         eq(creativeWorkItems.id, input.workItemId),
-        eq(creativeWorkItems.status, "draft"),
+        eq(creativeWorkItems.status, work.status),
+        ...(input.expectedUpdatedAt ? [workRevisionMatches(input.expectedUpdatedAt)] : []),
+        ...(work.status === "ready" ? [notExists(
+          tx.select({ id: creativeWorkOutputs.id }).from(creativeWorkOutputs).where(and(
+            eq(creativeWorkOutputs.workspaceId, input.workspaceId),
+            eq(creativeWorkOutputs.workItemId, input.workItemId),
+          )),
+        )] : []),
       )).returning();
       if (!invalidated) throw abort;
       return updated;
@@ -685,7 +713,7 @@ export async function updateCreativeWorkDraftIfUnchanged(
 export function withCreativeWorkPreparationLock<T>(
   workspaceId: string,
   workItemId: string,
-  callback: (executor: Pick<typeof db, "select" | "update" | "delete">) => Promise<T>,
+  callback: (executor: Pick<typeof db, "select" | "insert" | "update" | "delete">) => Promise<T>,
 ): Promise<T> {
   // ponytail: holds one DB connection during the model call; move to a lease/state-machine if preparation throughput matters.
   return db.transaction(async (tx) => {
@@ -775,6 +803,7 @@ export interface CreateCreativeWorkSourceInput {
   styleAnalysis?: CreativeWorkSource["styleAnalysis"];
   pieceReference?: CreativeWorkSource["pieceReference"];
   failureCode?: string | null;
+  expectedUpdatedAt: Date;
 }
 
 export interface CreativeWorkSourceClaim {
@@ -799,11 +828,7 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
   if (!origin) return null;
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${pieceReferenceLockScope(input.workspaceId, input.workItemId)}))`);
-    const [work] = await tx.select({ id: creativeWorkItems.id, toolKind: creativeWorkItems.toolKind }).from(creativeWorkItems).where(and(
-      eq(creativeWorkItems.workspaceId, input.workspaceId),
-      eq(creativeWorkItems.id, input.workItemId),
-      eq(creativeWorkItems.status, "draft"),
-    )).limit(1);
+    const work = await editableCreativeWork(tx, input);
     if (!work) return null;
     const isSinglePieceAsset = work.toolKind === "single" && Boolean(input.assetId);
     const isCarouselWork = work.toolKind === "carousel";
@@ -813,6 +838,8 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
       usageConfirmed: isSinglePieceAsset ? true : isCarouselWork ? true : work.toolKind !== "single",
       ...(isSinglePieceAsset ? { pieceReference: automaticPieceReference } : {}),
     };
+    const { expectedUpdatedAt: _expectedUpdatedAt, ...sourceValues } = sourceInput;
+    void _expectedUpdatedAt;
     if (work.toolKind === "single" && input.assetId) {
       const [existing] = await tx.select().from(creativeWorkSources).where(and(
         eq(creativeWorkSources.workspaceId, input.workspaceId),
@@ -855,7 +882,7 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
         return { limitReached: true, reason: "carousel_reference_limit" };
       }
     }
-    const [row] = await tx.insert(creativeWorkSources).values(sourceInput).onConflictDoNothing().returning();
+    const [row] = await tx.insert(creativeWorkSources).values(sourceValues).onConflictDoNothing().returning();
     if (!row) {
       const originCondition = input.assetId
         ? eq(creativeWorkSources.assetId, input.assetId)
@@ -869,7 +896,8 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
         ? { source: existing, claimedForAnalysis: false }
         : null;
     }
-    await tx.update(creativeWorkItems).set({
+    const [invalidated] = await tx.update(creativeWorkItems).set({
+      ...(work.status === "ready" ? { status: "draft", identitySnapshot: null } : {}),
       brief: null,
       copy: null,
       inputSnapshot: null,
@@ -877,7 +905,16 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
     }).where(and(
       eq(creativeWorkItems.workspaceId, input.workspaceId),
       eq(creativeWorkItems.id, input.workItemId),
+      eq(creativeWorkItems.status, work.status),
+      ...(input.expectedUpdatedAt ? [workRevisionMatches(input.expectedUpdatedAt)] : []),
+      ...(work.status === "ready" ? [notExists(
+        tx.select({ id: creativeWorkOutputs.id }).from(creativeWorkOutputs).where(and(
+          eq(creativeWorkOutputs.workspaceId, input.workspaceId),
+          eq(creativeWorkOutputs.workItemId, input.workItemId),
+        )),
+      )] : []),
     )).returning();
+    if (!invalidated) return null;
     return { source: row, claimedForAnalysis: true };
   });
 }
@@ -896,17 +933,14 @@ export type CreativeWorkDraftSourceMutation =
 export async function mutateCreativeWorkDraftSource(input: {
   workspaceId: string;
   workItemId: string;
+  expectedUpdatedAt?: Date;
   sourceId: string;
   mutation: CreativeWorkDraftSourceMutation;
 }): Promise<CreativeWorkSource | null> {
   const abort = Symbol("creative_work_draft_source_conflict");
   try {
     return await withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (tx) => {
-      const [work] = await tx.select({ id: creativeWorkItems.id }).from(creativeWorkItems).where(and(
-        eq(creativeWorkItems.workspaceId, input.workspaceId),
-        eq(creativeWorkItems.id, input.workItemId),
-        eq(creativeWorkItems.status, "draft"),
-      )).limit(1);
+      const work = await editableCreativeWork(tx, input);
       if (!work) throw abort;
 
       const [source] = await tx.select().from(creativeWorkSources).where(and(
@@ -939,6 +973,7 @@ export async function mutateCreativeWorkDraftSource(input: {
       if (!changed) throw abort;
 
       const [invalidated] = await tx.update(creativeWorkItems).set({
+        ...(work.status === "ready" ? { status: "draft", identitySnapshot: null } : {}),
         brief: null,
         copy: null,
         inputSnapshot: null,
@@ -946,7 +981,14 @@ export async function mutateCreativeWorkDraftSource(input: {
       }).where(and(
         eq(creativeWorkItems.workspaceId, input.workspaceId),
         eq(creativeWorkItems.id, input.workItemId),
-        eq(creativeWorkItems.status, "draft"),
+        eq(creativeWorkItems.status, work.status),
+        ...(input.expectedUpdatedAt ? [workRevisionMatches(input.expectedUpdatedAt)] : []),
+        ...(work.status === "ready" ? [notExists(
+          tx.select({ id: creativeWorkOutputs.id }).from(creativeWorkOutputs).where(and(
+            eq(creativeWorkOutputs.workspaceId, input.workspaceId),
+            eq(creativeWorkOutputs.workItemId, input.workItemId),
+          )),
+        )] : []),
       )).returning();
       if (!invalidated) throw abort;
       return changed;
@@ -1232,9 +1274,14 @@ export async function createCreativeWorkOutputs(
 
 export type { CreativeWorkOutputPlan } from "../creative-work/contracts";
 
-export async function createPlannedCreativeWorkOutputs(workspaceId: string, workItemId: string, plans: CreativeWorkOutputPlan[]): Promise<{ outputs: CreativeWorkOutput[]; newlyCreatedIds: string[] }> {
+export async function createPlannedCreativeWorkOutputs(
+  workspaceId: string,
+  workItemId: string,
+  plans: CreativeWorkOutputPlan[],
+  executor: Pick<typeof db, "select" | "insert"> = db,
+): Promise<{ outputs: CreativeWorkOutput[]; newlyCreatedIds: string[] }> {
   if (plans.length === 0) return { outputs: [], newlyCreatedIds: [] };
-  const [work] = await db.select({
+  const [work] = await executor.select({
     id: creativeWorkItems.id,
     generationCorrelationId: creativeWorkItems.generationCorrelationId,
   }).from(creativeWorkItems).where(and(
@@ -1243,7 +1290,7 @@ export async function createPlannedCreativeWorkOutputs(workspaceId: string, work
   )).limit(1);
   if (!work) return { outputs: [], newlyCreatedIds: [] };
   const now = new Date();
-  const inserted = await db.insert(creativeWorkOutputs).values(plans.map((plan) => {
+  const inserted = await executor.insert(creativeWorkOutputs).values(plans.map((plan) => {
     const operationKey = plan.directionId
       ? `${plan.creativeLevel}:${plan.targetFormat}:1:direction:${plan.directionId}`
       : `${plan.creativeLevel}:${plan.targetFormat}:1`;
@@ -1264,11 +1311,37 @@ export async function createPlannedCreativeWorkOutputs(workspaceId: string, work
       updatedAt: now,
     };
   })).onConflictDoNothing().returning({ id: creativeWorkOutputs.id });
-  const outputs = await db.select().from(creativeWorkOutputs).where(and(
+  const outputs = await executor.select().from(creativeWorkOutputs).where(and(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
     eq(creativeWorkOutputs.workItemId, workItemId),
   )).orderBy(asc(creativeWorkOutputs.targetFormat), asc(creativeWorkOutputs.creativeLevel), asc(creativeWorkOutputs.versionNumber));
   return { outputs, newlyCreatedIds: inserted.map((row) => row.id) };
+}
+
+/**
+ * Claims initial outputs only while the frozen ready revision is still the
+ * current work. The validation and insert share the prepare/source lock, so
+ * an edit that reopens the retry cannot settle a stale prepared revision.
+ */
+export async function reservePreparedCreativeWorkOutputsIfCurrent(input: {
+  workspaceId: string;
+  workItemId: string;
+  preparedRevision: Date;
+  plans: CreativeWorkOutputPlan[];
+}): Promise<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[]; newlyCreatedIds: string[] } | null> {
+  return withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (tx) => {
+    const aggregate = await getCreativeWork(input.workspaceId, input.workItemId, tx);
+    if (!aggregate || aggregate.outputs.length !== 0 || aggregate.work.status !== "ready") return null;
+    if (aggregate.work.updatedAt.getTime() !== input.preparedRevision.getTime()) return null;
+    if (!aggregate.work.brief || !aggregate.work.copy || !aggregate.work.inputSnapshot || !aggregate.work.identitySnapshot) return null;
+    const created = await createPlannedCreativeWorkOutputs(
+      input.workspaceId,
+      input.workItemId,
+      input.plans,
+      tx,
+    );
+    return { work: aggregate.work, ...created };
+  });
 }
 
 export async function deleteQueuedCreativeWorkOutputs(

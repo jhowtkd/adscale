@@ -7,6 +7,7 @@ const confirm = vi.hoisted(() => vi.fn());
 const confirmSnapshots = vi.hoisted(() => vi.fn());
 const setLegacySnapshot = vi.hoisted(() => vi.fn());
 const getSourceAssets = vi.hoisted(() => vi.fn());
+const reservePreparedOutputs = vi.hoisted(() => vi.fn());
 const charge = vi.hoisted(() => vi.fn());
 const createOutputs = vi.hoisted(() => vi.fn());
 const deleteOutputs = vi.hoisted(() => vi.fn());
@@ -28,6 +29,7 @@ vi.mock("@/server/repositories/creative-work", () => ({
   confirmCreativeWorkSnapshotsIfUnchanged: confirmSnapshots,
   setCreativeWorkInputSnapshotIfMissing: setLegacySnapshot,
   getCreativeWorkSourceAssetDetails: getSourceAssets,
+  reservePreparedCreativeWorkOutputsIfCurrent: reservePreparedOutputs,
   withCreativeWorkPreparationLock: vi.fn(async (_ws, _id, callback) => callback({})),
   createPlannedCreativeWorkOutputs: createOutputs,
   deleteQueuedCreativeWorkOutputs: deleteOutputs,
@@ -89,6 +91,11 @@ describe("generateCreativeWork", () => {
     confirmSnapshots.mockResolvedValue({ ...preparedWork, status: "ready", identitySnapshot });
     setLegacySnapshot.mockImplementation(async (_ws, _id, inputSnapshot) => ({ ...preparedWork, status: "ready", identitySnapshot, inputSnapshot }));
     getSourceAssets.mockResolvedValue(new Map());
+    reservePreparedOutputs.mockResolvedValue({
+      work: { ...preparedWork, status: "ready", identitySnapshot },
+      outputs: rows,
+      newlyCreatedIds: rows.map((row) => row.id),
+    });
     charge.mockResolvedValue({ ok: true, creditsSpent: 15 });
     createOutputs.mockResolvedValue({ outputs: rows, newlyCreatedIds: rows.map((row) => row.id) });
     send.mockResolvedValue(undefined);
@@ -331,6 +338,19 @@ describe("generateCreativeWork", () => {
 
     expect(result).toMatchObject({ ok: false, error: { code: "stale_input" } });
     expect(snapshot).not.toHaveBeenCalled();
+    expect(charge).not.toHaveBeenCalled();
+    expect(createOutputs).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("revalidates a ready retry under the reservation lock when an edit reopens it", async () => {
+    const ready = { ...preparedWork, status: "ready" as const, identitySnapshot };
+    getWork.mockResolvedValueOnce({ work: ready, outputs: [], sources: [] });
+    reservePreparedOutputs.mockResolvedValueOnce(null);
+
+    const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+
+    expect(result).toMatchObject({ ok: false, error: { code: "stale_input" } });
     expect(charge).not.toHaveBeenCalled();
     expect(createOutputs).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();

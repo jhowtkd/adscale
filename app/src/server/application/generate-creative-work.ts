@@ -11,6 +11,7 @@ import {
   confirmCreativeWorkSnapshotsIfUnchanged,
   getCreativeWorkSourceAssetDetails,
   getCreativeWork,
+  reservePreparedCreativeWorkOutputsIfCurrent,
   setCreativeWorkInputSnapshotIfMissing,
   withCreativeWorkPreparationLock,
 } from "@/server/repositories/creative-work";
@@ -168,20 +169,39 @@ export async function generateCreativeWork(input: {
     billingKey,
     refundPolicy: "default",
   };
-  const settled = await startGenerationSettlement(
-    creativeWorkSettlementAdapter({
+  const reserveReadyWork = existing.outputs.length === 0
+    && existing.work.status === "ready"
+    && Boolean(existing.work.inputSnapshot && existing.work.identitySnapshot)
+    ? () => reservePreparedCreativeWorkOutputsIfCurrent({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        preparedRevision,
+        plans: quote.plans,
+      })
+    : undefined;
+  const settled = await (async () => {
+    try {
+      return await startGenerationSettlement(
+      creativeWorkSettlementAdapter({
       workspaceId: input.workspaceId,
       workItemId: input.workItemId,
       userId: input.userId,
       readyWork,
       plans: quote.plans,
       batch,
-      existing:
+        reserveReadyWork,
+        existing:
         existing.outputs.length > 0
           ? { work: existing.work, outputs: existing.outputs }
           : undefined,
-    }),
-  );
+      }),
+      );
+    } catch (cause) {
+      if (cause instanceof Error && "code" in cause && cause.code === "stale_input") return null;
+      throw cause;
+    }
+  })();
+  if (!settled) return { ok: false, error: { code: "stale_input" } };
   if (!settled.ok) {
     if (settled.error.code === "credit_blocked") {
       const spend: Extract<SpendResult, { ok: false }> = {

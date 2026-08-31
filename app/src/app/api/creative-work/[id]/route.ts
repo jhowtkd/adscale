@@ -170,6 +170,7 @@ const confirmCreativeWorkSchema = z
 
 const autosaveSchema = z.object({
   action: z.literal("autosave"),
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
   request: z.string(),
   intent: creativeWorkIntentSchema,
   format: creativeWorkFormatSchema,
@@ -211,23 +212,24 @@ const publishLayerEditorSchema=z.object({action:z.literal("publishLayerEditor"),
 const linkCampaignSchema = z.object({ action: z.literal("linkCampaign"), campaignId: z.string().min(1).nullable() }).strict();
 const sourceUsageSchema = z.enum(CREATIVE_SOURCE_USAGES);
 const attachSourceSchema = z.union([
-  z.object({ action: z.literal("attachSource"), assetId: z.string().min(1), usage: sourceUsageSchema }).strict(),
-  z.object({ action: z.literal("attachSource"), templateId: z.string().min(1), usage: sourceUsageSchema }).strict(),
+  z.object({ action: z.literal("attachSource"), expectedUpdatedAt: z.string().datetime({ offset: true }), assetId: z.string().min(1), usage: sourceUsageSchema }).strict(),
+  z.object({ action: z.literal("attachSource"), expectedUpdatedAt: z.string().datetime({ offset: true }), templateId: z.string().min(1), usage: sourceUsageSchema }).strict(),
 ]);
-const updateSourceSchema = z.object({ action: z.literal("updateSource"), sourceId: z.string().min(1), usage: sourceUsageSchema }).strict();
-const retrySourceSchema = z.object({ action: z.literal("retrySource"), sourceId: z.string().min(1) }).strict();
-const removeSourceSchema = z.object({ action: z.literal("removeSource"), sourceId: z.string().min(1) }).strict();
+const updateSourceSchema = z.object({ action: z.literal("updateSource"), expectedUpdatedAt: z.string().datetime({ offset: true }), sourceId: z.string().min(1), usage: sourceUsageSchema }).strict();
+const retrySourceSchema = z.object({ action: z.literal("retrySource"), expectedUpdatedAt: z.string().datetime({ offset: true }), sourceId: z.string().min(1) }).strict();
+const removeSourceSchema = z.object({ action: z.literal("removeSource"), expectedUpdatedAt: z.string().datetime({ offset: true }), sourceId: z.string().min(1) }).strict();
 
 const updatePieceReferenceSchema = z.object({
-  action: z.literal("updatePieceReference"), sourceId: z.string().uuid(),
+  action: z.literal("updatePieceReference"), expectedUpdatedAt: z.string().datetime({ offset: true }), sourceId: z.string().uuid(),
   category: z.enum(PIECE_REFERENCE_CATEGORIES).optional(), userInstruction: z.string().trim().max(240).nullable().optional(),
 }).strict().refine((value) => value.category !== undefined || value.userInstruction !== undefined);
 const replacePieceReferenceSchema = z.object({
-  action: z.literal("replacePieceReference"), sourceId: z.string().uuid(), assetId: z.string().uuid(),
+  action: z.literal("replacePieceReference"), expectedUpdatedAt: z.string().datetime({ offset: true }), sourceId: z.string().uuid(), assetId: z.string().uuid(),
 }).strict();
-const promotePieceReferenceSchema = z.object({ action: z.literal("promotePieceReference"), sourceId: z.string().uuid() }).strict();
+const promotePieceReferenceSchema = z.object({ action: z.literal("promotePieceReference"), expectedUpdatedAt: z.string().datetime({ offset: true }), sourceId: z.string().uuid() }).strict();
 const editSourceAnalysisSchema = z.object({
   action: z.literal("editSourceAnalysis"),
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
   sourceId: z.string().min(1),
   content: contentBriefSchema.nullable(),
   style: styleBriefSchema.nullable(),
@@ -679,6 +681,7 @@ export async function PATCH(
       const autosaved = await autosaveCreativeWorkDraft({
         workspaceId: workspace.id,
         workItemId: id,
+        expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
         request: parsed.data.request,
         intent: parsed.data.intent,
         format: parsed.data.format,
@@ -876,7 +879,6 @@ export async function PATCH(
       // toolKind again after its shared lock and owns Single normalization.
       const aggregate = await getCreativeWork(workspace.id, id);
       if (!aggregate) return apiError("creativeWorkNotFound", 404);
-      if (aggregate.work.status !== "draft") return apiError("creativeWorkNotDraft", 409);
       const asset = "assetId" in parsed.data ? await getWorkspaceAssetById(parsed.data.assetId, workspace.id) : null;
       const template = "templateId" in parsed.data ? await getTemplateById(parsed.data.templateId, workspace.id) : null;
       if ("assetId" in parsed.data && (!asset || !asset.type.startsWith("image/"))) return apiError("invalidInput", 400);
@@ -886,6 +888,7 @@ export async function PATCH(
         workItemId: id,
         ...(asset ? { assetId: asset.id } : { templateId: template!.id }),
         usage: parsed.data.usage,
+        expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
         // The repository replaces this from the tool kind it reads under the
         // source lock. This legacy-compatible value is never authoritative.
         usageConfirmed: true,
@@ -916,7 +919,6 @@ export async function PATCH(
       const sourceId = parsed.data.sourceId;
       const aggregate = await getCreativeWork(workspace.id, id);
       if (!aggregate) return apiError("creativeWorkNotFound", 404);
-      if (aggregate.work.status !== "draft") return apiError("creativeWorkNotDraft", 409);
       const source = aggregate.sources.find((candidate) => candidate.id === sourceId);
       if (!source) return apiError("invalidInput", 404);
 
@@ -925,6 +927,7 @@ export async function PATCH(
         const updated = await mutateCreativeWorkPieceReference({
           workspaceId: workspace.id,
           workItemId: id,
+          expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
           sourceId: source.id,
           mutation: {
             kind: "correct",
@@ -942,6 +945,7 @@ export async function PATCH(
         const updated = await mutateCreativeWorkPieceReference({
           workspaceId: workspace.id,
           workItemId: id,
+          expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
           sourceId: source.id,
           mutation: { kind: "replace", assetId: asset.id },
         });
@@ -951,6 +955,7 @@ export async function PATCH(
       }
       if (parsed.data.action === "promotePieceReference") {
         if (aggregate.work.toolKind !== "single" || !aggregate.work.clientProfileId || !source.assetId || source.status !== "ready" || !source.pieceReference?.category) return apiError("invalidInput", 409);
+        if (aggregate.work.updatedAt.toISOString() !== parsed.data.expectedUpdatedAt) return apiError("stale_input", 409);
         const pieceReference = source.pieceReference;
         const asset = await getWorkspaceAssetById(source.assetId, workspace.id);
         if (!asset || !asset.type.startsWith("image/")) return apiError("invalidInput", 400);
@@ -983,6 +988,7 @@ export async function PATCH(
       if (parsed.data.action === "removeSource") {
         const removed = await mutateCreativeWorkDraftSource({
           workspaceId: workspace.id, workItemId: id, sourceId: source.id,
+          expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
           mutation: { kind: "remove" },
         });
         if (!removed) return apiError("invalidInput", 409);
@@ -991,6 +997,7 @@ export async function PATCH(
       if (parsed.data.action === "editSourceAnalysis") {
         const updated = await mutateCreativeWorkDraftSource({
           workspaceId: workspace.id, workItemId: id, sourceId: source.id,
+          expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
           mutation: {
             kind: "update",
             patch: {
@@ -1013,6 +1020,7 @@ export async function PATCH(
       const updated = await mutateCreativeWorkDraftSource({
         workspaceId: workspace.id,
         workItemId: id,
+        expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
         sourceId: source.id,
         mutation: parsed.data.action === "updateSource"
           ? { kind: "update", patch: { usage: parsed.data.usage, usageConfirmed: true, status: "uploaded", failureCode: null } }

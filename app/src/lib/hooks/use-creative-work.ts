@@ -524,9 +524,10 @@ export function useCreateCreativeWorkDraft() {
 export function useAutosaveCreativeWork() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: Omit<CreativeDraftInput, "clientProfileId" | "draftKey"> & { workItemId: string }) =>
+    mutationFn: (input: Omit<CreativeDraftInput, "clientProfileId" | "draftKey"> & { workItemId: string; expectedUpdatedAt: string }) =>
       patchJson<{ work: CreativeWorkDraftItem }>(`/api/creative-work/${input.workItemId}`, {
         action: "autosave",
+        expectedUpdatedAt: input.expectedUpdatedAt,
         request: input.request,
         intent: input.intent,
         format: input.format,
@@ -598,7 +599,7 @@ export function useResolveBrandConflict() {
   });
 }
 
-type CreativeSourceAction =
+type CreativeSourceAction = (
   | { action: "attachSource"; assetId: string; templateId?: never; usage: CreativeSourceUsage }
   | { action: "attachSource"; templateId: string; assetId?: never; usage: CreativeSourceUsage }
   | { action: "updateSource"; sourceId: string; usage: CreativeSourceUsage }
@@ -606,7 +607,8 @@ type CreativeSourceAction =
   | { action: "replacePieceReference"; sourceId: string; assetId: string }
   | { action: "promotePieceReference"; sourceId: string }
   | { action: "retrySource" | "removeSource"; sourceId: string }
-  | { action: "editSourceAnalysis"; sourceId: string; content: ContentBrief | null; style: StyleBrief | null };
+  | { action: "editSourceAnalysis"; sourceId: string; content: ContentBrief | null; style: StyleBrief | null }
+) & { expectedUpdatedAt: string };
 
 export function useCreativeWorkSourceActions() {
   const queryClient = useQueryClient();

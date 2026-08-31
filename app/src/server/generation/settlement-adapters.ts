@@ -346,6 +346,8 @@ export function creativeWorkSettlementAdapter(input: {
   plans: CreativeWorkOutputPlan[];
   batch: GenerationBatchCharge;
   existing?: CreativeWorkSettlementValue;
+  /** Atomically validates a frozen retry and claims outputs under its work lock. */
+  reserveReadyWork?: () => Promise<{ work: CreativeWork; outputs: CreativeWorkOutputs; newlyCreatedIds: string[] } | null>;
 }): GenerationSettlementAdapter<
   CreativeWorkSettlementValue,
   CreativeWorkReservation
@@ -357,6 +359,15 @@ export function creativeWorkSettlementAdapter(input: {
           claimed: false,
           value: input.existing,
           newlyCreatedIds: [],
+        };
+      }
+      if (input.reserveReadyWork) {
+        const reserved = await input.reserveReadyWork();
+        if (!reserved) throw Object.assign(new Error("creative_work_stale_reservation"), { code: "stale_input" });
+        return {
+          claimed: reserved.newlyCreatedIds.length > 0,
+          value: { work: reserved.work, outputs: reserved.outputs },
+          newlyCreatedIds: reserved.newlyCreatedIds,
         };
       }
       const created = await createPlannedCreativeWorkOutputs(
