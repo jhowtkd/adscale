@@ -207,7 +207,7 @@ export default function DashboardHomeActions({
         </div>
       ) : null}
 
-      <CreativeComposer composer={composer} composerRef={composerRef} hideSourceUpload={mode === "briefing" && composer.intent === "single"} />
+      <CreativeComposer composer={composer} composerRef={composerRef} />
 
       {!isLoading && continueTarget.kind === "empty" ? (
         <section aria-labelledby="continue-work-title">
