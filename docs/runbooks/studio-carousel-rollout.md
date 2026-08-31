@@ -20,6 +20,9 @@ reaches the browser.
      completed by a human reviewer and validated with
      `npx tsx scripts/check-carousel-human-gate.ts <evidence-file>`.
    The nine-deck batch itself needs a separate paid-generation authorization.
+   **2026-08-31:** product owner waived the nine-deck human gate and left
+   `STUDIO_CAROUSEL_ROLLOUT_PERCENT` at `0`. The template stays
+   `pending_human_review`; this is not a validator PASS.
 2. **Internal**: raise to a small percentage in the Render dashboard (not in
    `render.yaml` defaults) after both gates PASS. Watch carousel funnel
    telemetry (`briefing_ready → generation_confirmed → output_ready →

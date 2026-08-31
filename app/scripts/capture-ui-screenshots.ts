@@ -1,6 +1,6 @@
 import "./load-env";
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { chromium, type Page } from "@playwright/test";
 import { db } from "../src/server/db";
@@ -209,7 +209,7 @@ async function injectCaptureOverlays(
 
 function readDirSafe(dir: string): string[] {
   try {
-    return require("node:fs").readdirSync(dir);
+    return readdirSync(dir);
   } catch {
     return [];
   }
