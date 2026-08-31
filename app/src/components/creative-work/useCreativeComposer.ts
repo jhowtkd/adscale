@@ -206,6 +206,7 @@ export function useCreativeComposer({
   /** A canonical Studio entry that intentionally starts without draft resume. */
   freshEntry?: boolean;
 } = {}) {
+  const tHome = useTranslations("dashboard.home");
   const tResults = useTranslations("dashboard.home.composer.results");
   const active = useActiveClientProfile();
   // Keep the old fallback internal only. A progressive plain entry must not
@@ -567,13 +568,13 @@ export function useCreativeComposer({
       pendingCampaignIdRef.current = null;
       setPendingCampaignId(null);
       exposeCampaignId(null);
-      setAnnouncement(campaignId ? "Campanha vinculada" : "Campanha removida");
+      setAnnouncement(campaignId ? tHome("composer.campaignLinked") : tHome("composer.campaignRemoved"));
       return true;
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Falha ao agrupar em campanha");
+      setError(cause instanceof Error ? cause.message : tHome("composer.campaignLinkFailed"));
       return false;
     }
-  }, [detailQuery, exposeCampaignId, linkCampaignMutation]);
+  }, [detailQuery, exposeCampaignId, linkCampaignMutation, tHome]);
 
   const ensureDraft = useCallback((source?: DraftSource, silent = false) => {
     if (workflowVariant === "progressive" && !objectiveRef.current) return Promise.resolve(null);
@@ -901,7 +902,7 @@ export function useCreativeComposer({
           const usage: CreativeSourceUsage = next === "restyle" ? "content" : "both";
           if (await ensureDraft({ assetId: uploaded.assetId, usage })) setBufferedFile(null);
         } catch (cause) {
-          setError(cause instanceof Error ? cause.message : "Falha ao adicionar arte");
+          setError(cause instanceof Error ? cause.message : tHome("composer.progressiveUploadFailed"));
         } finally {
           uploadInFlightRef.current = false;
           setIsUploading(false);
@@ -936,7 +937,7 @@ export function useCreativeComposer({
     });
     if (awaitTransition) return transition;
     void transition;
-  }, [actionPhase, bufferedFile, captureSnapshot, createMutation.isPending, ensureDraft, exposeIntent, isUploading, recordStudioEvent, sourceMutation.isPending, switchToProtocol, workflowVariant]);
+  }, [actionPhase, bufferedFile, captureSnapshot, createMutation.isPending, ensureDraft, exposeIntent, isUploading, recordStudioEvent, sourceMutation.isPending, switchToProtocol, tHome, workflowVariant]);
 
   const confirmProtocolSwitch = useCallback(() => {
     const next = pendingProtocolSwitch;
@@ -1077,7 +1078,9 @@ export function useCreativeComposer({
     if (images.length === 0) return false;
     if (workflowVariant === "progressive" && !objectiveRef.current) {
       setBufferedFile(images[0]!);
-      if (images.length > 1) announce("A primeira arte foi mantida; as demais podem ser adicionadas depois de escolher o objetivo.");
+      announce(images.length > 1
+        ? tHome("composer.progressiveMultipleFiles", { name: images[0]!.name })
+        : tHome("composer.progressiveBufferedFile", { name: images[0]!.name }));
       return true;
     }
     const accepted = intentRef.current === "single"
@@ -1128,7 +1131,7 @@ export function useCreativeComposer({
       uploadInFlightRef.current = false;
       setIsUploading(false);
     }
-  }, [active.activeClientProfileId, announce, detailQuery.data?.sources, ensureDraft, sourceMutation, workflowVariant]);
+  }, [active.activeClientProfileId, announce, detailQuery.data?.sources, ensureDraft, sourceMutation, tHome, workflowVariant]);
 
   const attachDraftSource = useCallback(async (source: DraftSource): Promise<boolean> => {
     if (!workIdRef.current && !active.activeClientProfileId) {

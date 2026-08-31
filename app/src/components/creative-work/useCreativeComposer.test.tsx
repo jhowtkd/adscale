@@ -68,7 +68,14 @@ vi.mock("@/lib/api-client", () => ({
   isApiRequestUncertain: (error: unknown) => error instanceof Error && error.name === "TimeoutError",
 }));
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: () => (key: string, values?: { name?: string }) => ({
+    "composer.campaignLinked": "Campaign linked",
+    "composer.campaignRemoved": "Campaign removed",
+    "composer.campaignLinkFailed": "Could not update the campaign association.",
+    "composer.progressiveBufferedFile": `${values?.name} is ready to use after you choose an objective.`,
+    "composer.progressiveMultipleFiles": `${values?.name} was kept; add the other images after choosing an objective.`,
+    "composer.progressiveUploadFailed": "Could not add the image.",
+  }[key] ?? key),
 }));
 
 import { useCreativeComposer } from "./useCreativeComposer";
@@ -183,11 +190,24 @@ describe("useCreativeComposer", () => {
     await act(async () => { await result.current.addFiles([first, second]); });
 
     expect(result.current.bufferedFile).toBe(first);
-    expect(result.current.announcement).toMatch(/primeira arte/i);
+    expect(result.current.announcement).toBe("primeira.png was kept; add the other images after choosing an objective.");
     expect(mocks.create).not.toHaveBeenCalled();
     expect(mocks.upload).not.toHaveBeenCalled();
     act(() => result.current.clearBufferedFile());
     expect(result.current.bufferedFile).toBeNull();
+  });
+
+  it("uses localized campaign announcements and fallback errors", async () => {
+    mocks.work.mockReturnValue({ data: workDetail({ id: WORK_ID }), isLoading: false, refetch: mocks.refetch });
+    mocks.refetch.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: WORK_ID }));
+
+    await act(async () => { await result.current.linkCampaign(TARGET_WORK_ID); });
+    expect(result.current.announcement).toBe("Campaign linked");
+
+    mocks.linkCampaign.mockRejectedValueOnce({});
+    await act(async () => { await result.current.linkCampaign(null); });
+    expect(result.current.error).toBe("Could not update the campaign association.");
   });
 
   it("materializes the selected progressive objective with the buffered file exactly once", async () => {

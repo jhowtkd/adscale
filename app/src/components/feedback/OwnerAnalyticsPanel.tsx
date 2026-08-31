@@ -230,10 +230,19 @@ type FunnelResponse = {
 };
 
 const STUDIO_ROLLOUT_STAGES = {
-  10: { eligibleSessions: 30, confirmedGenerations: 20, observation: "7 dias" },
-  50: { eligibleSessions: 60, confirmedGenerations: 40, observation: "7 dias" },
-  100: { eligibleSessions: 100, confirmedGenerations: 75, observation: "após 50% + 14 dias" },
+  10: { eligibleSessions: 30, confirmedGenerations: 20, observationDays: 7, observationKey: "observation7Days" },
+  50: { eligibleSessions: 60, confirmedGenerations: 40, observationDays: 7, observationKey: "observation7Days" },
+  100: { eligibleSessions: 100, confirmedGenerations: 75, observationDays: 14, observationKey: "observationAfter50" },
 } as const;
+
+function completeDaysInFilter(from: string, to: string): number {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return 0;
+  const start = Date.parse(`${from}T00:00:00.000Z`);
+  const end = Date.parse(`${to}T00:00:00.000Z`);
+  return Number.isFinite(start) && Number.isFinite(end) && end >= start
+    ? Math.floor((end - start) / 86_400_000)
+    : 0;
+}
 
 function formatGapMs(gapMs: number | null): string {
   if (gapMs === null) return "—";
@@ -479,6 +488,7 @@ export function OwnerAnalyticsPanel({
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [studioRolloutStage, setStudioRolloutStage] = useState<10 | 50 | 100>(10);
+  const [studioPriorStageConfirmed, setStudioPriorStageConfirmed] = useState(false);
 
   const filters = useMemo(
     () => ({ workspaceId, sessionId, from, to }),
@@ -522,11 +532,16 @@ export function OwnerAnalyticsPanel({
   const studioProgressive = funnel?.studioFunnel?.find((arm) => arm.variant === "progressive");
   const studioStageRequirement = STUDIO_ROLLOUT_STAGES[studioRolloutStage];
   const studioDataComplete = funnel?.dataComplete === true;
+  const studioObservationDays = completeDaysInFilter(from, to);
+  const studioObservationSufficient = studioObservationDays >= studioStageRequirement.observationDays;
+  const studioPriorStageSufficient = studioRolloutStage !== 100 || studioPriorStageConfirmed;
   const studioSampleSufficient = Boolean(
     studioDataComplete
       &&
-    studioControl
+      studioControl
       && studioProgressive
+      && studioObservationSufficient
+      && studioPriorStageSufficient
       && studioControl.eligibleSessions >= studioStageRequirement.eligibleSessions
       && studioProgressive.eligibleSessions >= studioStageRequirement.eligibleSessions
       && studioControl.confirmedGenerations >= studioStageRequirement.confirmedGenerations
@@ -534,6 +549,8 @@ export function OwnerAnalyticsPanel({
   );
   const studioGateFailures = studioControl && studioProgressive ? [
     !studioDataComplete ? t("studio.incompleteData") : null,
+    !studioObservationSufficient ? t("studio.observationWindowMissing", { days: studioStageRequirement.observationDays }) : null,
+    studioRolloutStage === 100 && !studioPriorStageConfirmed ? t("studio.priorStageMissing") : null,
     studioControl.completionRate !== null
       && studioProgressive.completionRate !== null
       && studioProgressive.completionRate - studioControl.completionRate < -0.05
@@ -735,7 +752,11 @@ export function OwnerAnalyticsPanel({
                           <select
                             aria-label={t("studio.stageAria")}
                             value={studioRolloutStage}
-                            onChange={(event) => setStudioRolloutStage(Number(event.target.value) as 10 | 50 | 100)}
+                            onChange={(event) => {
+                              const next = Number(event.target.value) as 10 | 50 | 100;
+                              setStudioRolloutStage(next);
+                              if (next !== 100) setStudioPriorStageConfirmed(false);
+                            }}
                             className="h-8 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 text-xs"
                           >
                             <option value={10}>10%</option>
@@ -754,9 +775,19 @@ export function OwnerAnalyticsPanel({
                           {studioSampleSufficient ? t("studio.sampleSufficient") : t("studio.sampleInsufficient")}
                         </span>
                         <span className="text-[var(--text-muted)]">
-                          {t("studio.requirement", { observation: studioStageRequirement.observation, sessions: studioStageRequirement.eligibleSessions, generations: studioStageRequirement.confirmedGenerations })}
+                          {t("studio.requirement", { observation: t(`studio.${studioStageRequirement.observationKey}`), sessions: studioStageRequirement.eligibleSessions, generations: studioStageRequirement.confirmedGenerations })}
                         </span>
                       </div>
+                      {studioRolloutStage === 100 ? (
+                        <label className="mb-3 inline-flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                          <input
+                            type="checkbox"
+                            checked={studioPriorStageConfirmed}
+                            onChange={(event) => setStudioPriorStageConfirmed(event.target.checked)}
+                          />
+                          {t("studio.priorStageConfirmation")}
+                        </label>
+                      ) : null}
                       {studioGateFailures.length > 0 ? (
                         <div className="mb-3 flex flex-wrap gap-2" role="status">
                           {studioGateFailures.map((failure) => (

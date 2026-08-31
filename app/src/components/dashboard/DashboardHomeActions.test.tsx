@@ -34,6 +34,10 @@ vi.mock("next-intl", () => ({
           continueOriginCreativeWork: "Criação avulsa",
           "continueStates.generating": "Gerando",
           "continueStates.reviewing": "Em revisão",
+          "composer.dropTarget": "Pedido criativo e área para soltar imagens",
+          "composer.dropHint": "ou arraste e solte aqui",
+          "composer.addArt": "Adicionar arte",
+          "composer.progressiveBufferedFile": values?.name ? `${values.name} está pronta para usar` : "",
         }[key] ?? `dashboard.home.${key}`),
 }));
 vi.mock("@/lib/hooks/use-canonical-works", () => ({
@@ -139,6 +143,7 @@ describe("DashboardHomeActions", () => {
     expect(continueLink).toHaveAttribute("href", "/creative-work/w1");
     expect(continueLink).toHaveTextContent("Criação avulsa");
     expect(continueLink).toHaveTextContent("Marca Marca A");
+    expect(continueLink).toHaveTextContent("Gerando");
     expect(continueLink).toHaveTextContent("dashboard.home.continueTrackGeneration");
     expect(screen.getByRole("button", { name: "Nova campanha" })).toHaveClass("border");
     expect(screen.getAllByRole("button").filter((button) => button.hasAttribute("aria-pressed"))).toHaveLength(6);
@@ -394,6 +399,26 @@ describe("DashboardHomeActions", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "dashboard.home.composer.requestLabel" }), { target: { value: "Uma campanha" } });
     expect(protocolButton("variations")).toBeInTheDocument();
     expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
+  });
+
+  it("accepts dropped multiple files and announces the buffered first file", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    const addFiles = vi.fn();
+    useComposerMock.mockReturnValue({
+      request: "", setRequest: vi.fn(), hasEntry: false, objectiveSelected: false, intent: "variations",
+      stage: "entry", preparedPlan: null, actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 1, credits: 5 },
+      bufferedFile: new File(["first"], "primeira.png", { type: "image/png" }), announcement: "primeira.png foi mantida; adicione as outras imagens depois de escolher um objetivo.", addFiles,
+    });
+
+    render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
+    const target = screen.getByRole("group", { name: "Pedido criativo e área para soltar imagens" });
+    const first = new File(["first"], "primeira.png", { type: "image/png" });
+    const second = new File(["second"], "segunda.png", { type: "image/png" });
+    fireEvent.drop(target, { dataTransfer: { files: [first, second] } });
+
+    expect(addFiles).toHaveBeenCalledWith([first, second]);
+    expect(screen.getByText(/primeira\.png foi mantida/i)).toHaveAttribute("aria-live", "polite");
+    expect(screen.getByLabelText("Adicionar arte")).toHaveAttribute("multiple");
   });
 
   it("keeps the progressive entry hierarchy compact at a narrow viewport", () => {

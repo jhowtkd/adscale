@@ -30,7 +30,7 @@ vi.mock("next-intl", () => ({
       "metrics.sessions": "{count} sessions",
       "metrics.creditBlocks": "{count} credit blocks",
       "metrics.creditSurprises": "{count} credit surprises",
-      "studio.title": "Estúdio progressivo", "studio.stage": "Estágio", "studio.stageAria": "Estágio de rollout", "studio.sampleSufficient": "Amostra suficiente", "studio.sampleInsufficient": "Amostra insuficiente", "studio.requirement": "{observation}; ≥{sessions} sessões e ≥{generations} gerações confirmadas por braço", "studio.incompleteData": "Dados incompletos: a consulta atingiu o limite de eventos", "studio.failureCompletion": "Conclusão mais de 5 pp abaixo do controle", "studio.failureAbandonment": "Abandono mais de 5 pp acima do controle", "studio.failureGeneration": "Falha mais de 0,5 pp acima do controle", "studio.failureRefund": "Reembolso mais de 0,5 pp acima do controle", "studio.metric": "Métrica", "studio.control": "Controle", "studio.progressive": "Progressivo",
+      "studio.title": "Estúdio progressivo", "studio.stage": "Estágio", "studio.stageAria": "Estágio de rollout", "studio.sampleSufficient": "Amostra suficiente", "studio.sampleInsufficient": "Amostra insuficiente", "studio.requirement": "{observation}; ≥{sessions} sessões e ≥{generations} gerações confirmadas por braço", "studio.incompleteData": "Dados incompletos: a consulta atingiu o limite de eventos", "studio.observation7Days": "7 dias completos", "studio.observationAfter50": "após 50% + 14 dias completos", "studio.observationWindowMissing": "Os filtros selecionados cobrem menos de {days} dias completos", "studio.priorStageConfirmation": "Confirmo que o estágio de rollout de 50% atingiu seu gate antes desta revisão", "studio.priorStageMissing": "Confirme a evidência do rollout anterior de 50% antes de avaliar o estágio de 100%", "studio.failureCompletion": "Conclusão mais de 5 pp abaixo do controle", "studio.failureAbandonment": "Abandono mais de 5 pp acima do controle", "studio.failureGeneration": "Falha mais de 0,5 pp acima do controle", "studio.failureRefund": "Reembolso mais de 0,5 pp acima do controle", "studio.metric": "Métrica", "studio.control": "Controle", "studio.progressive": "Progressivo",
       "studio.metrics.eligibleSessions": "Sessões elegíveis", "studio.metrics.confirmedGenerations": "Gerações confirmadas", "studio.metrics.goalSwitches": "Trocas de objetivo", "studio.metrics.sourceRoleCorrections": "Correções de papel", "studio.metrics.successfulResumes": "Retomadas bem-sucedidas", "studio.metrics.refinements": "Refinamentos iniciados", "studio.metrics.debited": "Gerações debitadas", "studio.metrics.compensated": "Gerações compensadas", "studio.metrics.completion24h": "Conclusão em 24 h", "studio.metrics.abandonment": "Abandono antes de gerar", "studio.metrics.failure": "Falha", "studio.metrics.refund": "Reembolso", "studio.metrics.entryToBriefing": "Entrada até briefing", "studio.metrics.entryToPlan": "Entrada até plano",
       "groups.coreFunnels": "Core funnels",
       "groups.credits": "Credits and billing",
@@ -65,7 +65,7 @@ vi.mock("next-intl", () => ({
     const handler = (key: string, values?: Record<string, unknown>) => {
       if (namespace === "feedback.analytics") {
         const template = analytics[key] ?? key;
-        return template.replace(/\{(count|observation|sessions|generations)\}/g, (_match, key) => String(values?.[key] ?? ""));
+        return template.replace(/\{(count|observation|sessions|generations|days)\}/g, (_match, key) => String(values?.[key] ?? ""));
       }
       if (namespace === "dashboard.missions.items") {
         return missionItems[key] ?? key;
@@ -107,7 +107,7 @@ describe("OwnerAnalyticsPanel", () => {
           ok: true,
           status: 200,
           json: async () => ({
-            dataComplete: false,
+            dataComplete: true,
             missionFunnel: [
               { missionKey: "export", entered: 0, completed: 1, conversionRate: null },
             ],
@@ -120,7 +120,7 @@ describe("OwnerAnalyticsPanel", () => {
             readinessOverrides: [],
             studioFunnel: [
               {
-                variant: "control", eligibleSessions: 30, confirmedGenerations: 20,
+                variant: "control", eligibleSessions: 100, confirmedGenerations: 75,
                 completionsWithin24h: 1, completionRate: 1,
                 abandonmentsBeforeGeneration: 0, abandonmentRate: 0,
                 goalSwitches: 0, sourceRoleCorrections: 0, successfulResumesWithin30m: 0,
@@ -130,7 +130,7 @@ describe("OwnerAnalyticsPanel", () => {
                 completionByInputMode: [],
               },
               {
-                variant: "progressive", eligibleSessions: 30, confirmedGenerations: 20,
+                variant: "progressive", eligibleSessions: 100, confirmedGenerations: 75,
                 completionsWithin24h: 0, completionRate: 0,
                 abandonmentsBeforeGeneration: 1, abandonmentRate: 1,
                 goalSwitches: 0, sourceRoleCorrections: 0, successfulResumesWithin30m: 0,
@@ -195,12 +195,21 @@ describe("OwnerAnalyticsPanel", () => {
     expect(screen.getByText("Core funnels")).toBeInTheDocument();
     expect(screen.getByText("Estúdio progressivo")).toBeInTheDocument();
     expect(screen.getByText("Amostra insuficiente")).toBeInTheDocument();
-    expect(screen.getByText("Dados incompletos: a consulta atingiu o limite de eventos")).toBeInTheDocument();
+    expect(screen.getByText("Os filtros selecionados cobrem menos de 7 dias completos")).toBeInTheDocument();
     expect(screen.getByText(/≥30 sessões e ≥20 gerações confirmadas por braço/)).toBeInTheDocument();
+    expect(screen.getByText("Amostra insuficiente")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-08-01" } });
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-08-08" } });
+    await waitFor(() => expect(screen.getByText("Amostra suficiente")).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText("Estágio de rollout"), { target: { value: "50" } });
     expect(screen.getByText(/≥60 sessões e ≥40 gerações confirmadas por braço/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Estágio de rollout"), { target: { value: "100" } });
-    expect(screen.getByText(/após 50% \+ 14 dias; ≥100 sessões e ≥75 gerações confirmadas por braço/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/após 50% \+ 14 dias completos; ≥100 sessões e ≥75 gerações confirmadas por braço/)).toBeInTheDocument());
+    expect(screen.getByText("Amostra insuficiente")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-08-15" } });
+    await waitFor(() => expect(screen.getByText("Confirme a evidência do rollout anterior de 50% antes de avaliar o estágio de 100%")).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText("Confirmo que o estágio de rollout de 50% atingiu seu gate antes desta revisão"));
+    await waitFor(() => expect(screen.getByText("Amostra suficiente")).toBeInTheDocument());
     expect(screen.getByText("Credits and billing")).toBeInTheDocument();
     expect(
       mockApiFetch.mock.calls.some(([url]) =>

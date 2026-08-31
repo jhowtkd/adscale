@@ -687,6 +687,13 @@
         "briefingEditError": "Não foi possível salvar o briefing. Recarregue e tente novamente.",
         "uploading": "Enviando...",
         "dropHint": "ou arraste e solte aqui",
+        "dropTarget": "Pedido criativo e área para soltar imagens",
+        "campaignLinked": "Campanha vinculada",
+        "campaignRemoved": "Campanha removida",
+        "campaignLinkFailed": "Não foi possível atualizar a associação com a campanha.",
+        "progressiveBufferedFile": "{name} está pronta para usar depois de escolher um objetivo.",
+        "progressiveMultipleFiles": "{name} foi mantida; adicione as outras imagens depois de escolher um objetivo.",
+        "progressiveUploadFailed": "Não foi possível adicionar a arte.",
         "retryTemplate": "Tentar anexar template novamente",
         "generate": "Gerar {count, plural, one {# variação} other {# variações}}",
         "generateRestyle": "Gerar novo estilo",
@@ -3669,7 +3676,7 @@
         "creditSurprises": "{count} surpresas de crédito"
       },
       "studio": {
-        "title": "Estúdio progressivo", "stage": "Estágio", "stageAria": "Estágio de rollout", "sampleSufficient": "Amostra suficiente", "sampleInsufficient": "Amostra insuficiente", "requirement": "{observation}; ≥{sessions} sessões e ≥{generations} gerações confirmadas por braço", "incompleteData": "Dados incompletos: a consulta atingiu o limite de eventos", "failureCompletion": "Conclusão mais de 5 pp abaixo do controle", "failureAbandonment": "Abandono mais de 5 pp acima do controle", "failureGeneration": "Falha mais de 0,5 pp acima do controle", "failureRefund": "Reembolso mais de 0,5 pp acima do controle", "metric": "Métrica", "control": "Controle", "progressive": "Progressivo",
+        "title": "Estúdio progressivo", "stage": "Estágio", "stageAria": "Estágio de rollout", "sampleSufficient": "Amostra suficiente", "sampleInsufficient": "Amostra insuficiente", "requirement": "{observation}; ≥{sessions} sessões e ≥{generations} gerações confirmadas por braço", "incompleteData": "Dados incompletos: a consulta atingiu o limite de eventos", "observation7Days": "7 dias completos", "observationAfter50": "após 50% + 14 dias completos", "observationWindowMissing": "Os filtros selecionados cobrem menos de {days} dias completos", "priorStageConfirmation": "Confirmo que o estágio de rollout de 50% atingiu seu gate antes desta revisão", "priorStageMissing": "Confirme a evidência do rollout anterior de 50% antes de avaliar o estágio de 100%", "failureCompletion": "Conclusão mais de 5 pp abaixo do controle", "failureAbandonment": "Abandono mais de 5 pp acima do controle", "failureGeneration": "Falha mais de 0,5 pp acima do controle", "failureRefund": "Reembolso mais de 0,5 pp acima do controle", "metric": "Métrica", "control": "Controle", "progressive": "Progressivo",
         "metrics": { "eligibleSessions": "Sessões elegíveis", "confirmedGenerations": "Gerações confirmadas", "goalSwitches": "Trocas de objetivo", "sourceRoleCorrections": "Correções de papel", "successfulResumes": "Retomadas bem-sucedidas", "refinements": "Refinamentos iniciados", "debited": "Gerações debitadas", "compensated": "Gerações compensadas", "completion24h": "Conclusão em 24 h", "abandonment": "Abandono antes de gerar", "failure": "Falha", "refund": "Reembolso", "entryToBriefing": "Entrada até briefing", "entryToPlan": "Entrada até plano" }
       },
       "groups": {

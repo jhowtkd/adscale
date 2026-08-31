@@ -81,6 +81,8 @@ function ContinueWorkCard({
           <span aria-hidden="true">·</span>
           <span>{t("continueBrand", { name: brandName })}</span>
           <span aria-hidden="true">·</span>
+          <span>{t(`continueStates.${target.state}`)}</span>
+          <span aria-hidden="true">·</span>
           <span>{nextAction}</span>
         </span>
       </span>
@@ -248,8 +250,20 @@ export default function DashboardHomeActions({
           <section className="space-y-3 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-5" aria-labelledby="progressive-entry-title">
             <h2 id="progressive-entry-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("progressiveTitle")}</h2>
             <p className="text-sm text-[var(--text-secondary)]">{t("progressiveSubtitle")}</p>
-            <textarea id="creative-composer-request" aria-label={t("composer.requestLabel")} value={composer.request} onChange={(event) => composer.setRequest(event.target.value)} rows={4} className="w-full resize-y rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] p-3 text-sm" />
-            <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-[var(--text-secondary)]"><Paperclip size={16} aria-hidden="true" />{t("composer.addArt")}<input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void composer.addFiles(event.target.files)} /></label>
+            <div
+              role="group"
+              aria-label={t("composer.dropTarget")}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                void composer.addFiles(event.dataTransfer.files);
+              }}
+              className="space-y-3 rounded-[var(--radius-control)] border border-dashed border-[var(--border-default)] p-3"
+            >
+              <textarea id="creative-composer-request" aria-label={t("composer.requestLabel")} value={composer.request} onChange={(event) => composer.setRequest(event.target.value)} rows={4} className="w-full resize-y rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] p-3 text-sm" />
+              <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-[var(--text-secondary)]"><Paperclip size={16} aria-hidden="true" />{t("composer.addArt")}<input className="sr-only" type="file" multiple accept="image/png,image/jpeg,image/webp" onChange={(event) => void composer.addFiles(event.target.files)} /></label>
+              <p aria-live="polite" className="text-xs text-[var(--text-muted)]">{composer.announcement || (composer.bufferedFile ? t("composer.progressiveBufferedFile", { name: composer.bufferedFile.name }) : t("composer.dropHint"))}</p>
+            </div>
           </section>
         ) : null}
         {showObjectives ? <section aria-labelledby="progressive-objective-title" className="space-y-3"><h2 id="progressive-objective-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("chooseObjective")}</h2><CreativeToolCards selected={null} onSelect={(intent) => { void composer.selectIntent(intent); }} /></section> : null}

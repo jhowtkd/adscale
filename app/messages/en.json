@@ -613,6 +613,13 @@
         "briefingEditError": "Could not save the briefing. Reload and try again.",
         "uploading": "Uploading...",
         "dropHint": "or drag and drop here",
+        "dropTarget": "Creative request and image drop target",
+        "campaignLinked": "Campaign linked",
+        "campaignRemoved": "Campaign removed",
+        "campaignLinkFailed": "Could not update the campaign association.",
+        "progressiveBufferedFile": "{name} is ready to use after you choose an objective.",
+        "progressiveMultipleFiles": "{name} was kept; add the other images after choosing an objective.",
+        "progressiveUploadFailed": "Could not add the image.",
         "retryTemplate": "Retry template attachment",
         "generate": "Generate {count, plural, one {# variation} other {# variations}}",
         "generateRestyle": "Generate new style",
@@ -3602,7 +3609,7 @@
         "creditSurprises": "{count} credit surprises"
       },
       "studio": {
-        "title": "Progressive Studio", "stage": "Stage", "stageAria": "Rollout stage", "sampleSufficient": "Sufficient sample", "sampleInsufficient": "Insufficient sample", "requirement": "{observation}; ≥{sessions} sessions and ≥{generations} confirmed generations per arm", "incompleteData": "Incomplete data: the query reached the event limit", "failureCompletion": "Completion is more than 5 pp below control", "failureAbandonment": "Abandonment is more than 5 pp above control", "failureGeneration": "Failure is more than 0.5 pp above control", "failureRefund": "Refund is more than 0.5 pp above control", "metric": "Metric", "control": "Control", "progressive": "Progressive",
+        "title": "Progressive Studio", "stage": "Stage", "stageAria": "Rollout stage", "sampleSufficient": "Sufficient sample", "sampleInsufficient": "Insufficient sample", "requirement": "{observation}; ≥{sessions} sessions and ≥{generations} confirmed generations per arm", "incompleteData": "Incomplete data: the query reached the event limit", "observation7Days": "7 complete days", "observationAfter50": "after 50% + 14 complete days", "observationWindowMissing": "The selected filters cover fewer than {days} complete days", "priorStageConfirmation": "I confirm the 50% rollout stage met its gate before this review", "priorStageMissing": "Confirm prior 50% rollout evidence before judging the 100% stage", "failureCompletion": "Completion is more than 5 pp below control", "failureAbandonment": "Abandonment is more than 5 pp above control", "failureGeneration": "Failure is more than 0.5 pp above control", "failureRefund": "Refund is more than 0.5 pp above control", "metric": "Metric", "control": "Control", "progressive": "Progressive",
         "metrics": { "eligibleSessions": "Eligible sessions", "confirmedGenerations": "Confirmed generations", "goalSwitches": "Objective switches", "sourceRoleCorrections": "Source role corrections", "successfulResumes": "Successful resumes", "refinements": "Refinements started", "debited": "Debited generations", "compensated": "Compensated generations", "completion24h": "Completion within 24 h", "abandonment": "Abandonment before generation", "failure": "Failure", "refund": "Refund", "entryToBriefing": "Entry to briefing", "entryToPlan": "Entry to plan" }
       },
       "groups": {
