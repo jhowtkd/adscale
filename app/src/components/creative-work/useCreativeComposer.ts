@@ -192,6 +192,7 @@ export function useCreativeComposer({
   studioSessionId,
   focusComposer = false,
   initialTemplateId,
+  initialCampaignId,
   freshEntry = false,
 }: {
   initialWorkId?: string;
@@ -201,6 +202,7 @@ export function useCreativeComposer({
   studioSessionId?: string;
   focusComposer?: boolean;
   initialTemplateId?: string;
+  initialCampaignId?: string;
   /** A canonical Studio entry that intentionally starts without draft resume. */
   freshEntry?: boolean;
 } = {}) {
@@ -215,6 +217,7 @@ export function useCreativeComposer({
     ? ["1:1", "9:16"]
     : [];
   const [workId, setWorkId] = useState<string | null>(initialWorkId ?? null);
+  const [pendingCampaignId, setPendingCampaignId] = useState<string | null>(initialCampaignId ?? null);
   const [request, setRequestState] = useState("");
   const [invalidatedPlanRevision, setInvalidatedPlanRevision] = useState<string | null>(null);
   const [intent, setIntent] = useState<ComposerIntent>(internalInitialIntent);
@@ -273,6 +276,7 @@ export function useCreativeComposer({
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const draftKeyRef = useRef(crypto.randomUUID());
   const workIdRef = useRef(workId);
+  const pendingCampaignIdRef = useRef(pendingCampaignId);
   const requestRef = useRef(request);
   const intentRef = useRef(intent);
   const objectiveRef = useRef(objective);
@@ -353,6 +357,7 @@ export function useCreativeComposer({
   }, [recordStudioEvent]);
 
   useEffect(() => { workIdRef.current = workId; }, [workId]);
+  useEffect(() => { pendingCampaignIdRef.current = pendingCampaignId; }, [pendingCampaignId]);
   useEffect(() => { requestRef.current = request; }, [request]);
   useEffect(() => { intentRef.current = intent; }, [intent]);
   useEffect(() => { objectiveRef.current = objective; }, [objective]);
@@ -485,6 +490,15 @@ export function useCreativeComposer({
     window.history.replaceState(window.history.state, "", `${window.location.pathname}?${params}`);
   }, []);
 
+  const exposeCampaignId = useCallback((campaignId: string | null) => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (campaignId) params.set("campaignId", campaignId);
+    else params.delete("campaignId");
+    const query = params.toString();
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+  }, []);
+
   useEffect(() => {
     const profileId = active.activeClientProfileId;
     if (freshEntry || initialWorkId || progressivePlainEntry || workIdRef.current || !profileId || restoredProfileRef.current === profileId) return;
@@ -519,6 +533,34 @@ export function useCreativeComposer({
     window.history.replaceState(window.history.state, "", destination);
     consumedTemplateUrlRef.current = true;
   }, [initialTemplateId]);
+
+  const linkCampaign = useCallback(async (campaignId: string | null): Promise<boolean> => {
+    if (!campaignId && !workIdRef.current) {
+      pendingCampaignIdRef.current = null;
+      setPendingCampaignId(null);
+      exposeCampaignId(null);
+      return true;
+    }
+    if (!workIdRef.current) {
+      if (!campaignId || !UUID_SCHEMA.safeParse(campaignId).success) return false;
+      pendingCampaignIdRef.current = campaignId;
+      setPendingCampaignId(campaignId);
+      exposeCampaignId(campaignId);
+      return true;
+    }
+    try {
+      await linkCampaignMutation.mutateAsync({ workItemId: workIdRef.current, campaignId });
+      await detailQuery.refetch();
+      pendingCampaignIdRef.current = null;
+      setPendingCampaignId(null);
+      exposeCampaignId(null);
+      setAnnouncement(campaignId ? "Campanha vinculada" : "Campanha removida");
+      return true;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Falha ao agrupar em campanha");
+      return false;
+    }
+  }, [detailQuery, exposeCampaignId, linkCampaignMutation]);
 
   const ensureDraft = useCallback((source?: DraftSource, silent = false) => {
     if (workflowVariant === "progressive" && !objectiveRef.current) return Promise.resolve(null);
@@ -572,6 +614,8 @@ export function useCreativeComposer({
         setAnnouncement("Rascunho salvo");
         exposeWorkId(result.work.id);
       }
+      const campaignId = pendingCampaignIdRef.current;
+      if (campaignId) await linkCampaign(campaignId);
       return result.work.id;
     }).catch((cause) => {
       if (draftEpoch === draftEpochRef.current && !silent && mountedRef.current) {
@@ -583,7 +627,7 @@ export function useCreativeComposer({
     });
     createInFlightRef.current = promise;
     return promise;
-  }, [active.activeClientProfileId, captureSnapshot, createMutation, enqueueSave, exposeWorkId, recordCanonicalEvent, sourceMutation, workflowVariant]);
+  }, [active.activeClientProfileId, captureSnapshot, createMutation, enqueueSave, exposeWorkId, linkCampaign, recordCanonicalEvent, sourceMutation, workflowVariant]);
 
   const persistSnapshot = useCallback((id: string, snapshot: DraftSnapshot, announce = true) => enqueueSave(async () => {
     if (autosaveBlockedWorkRef.current === id) return;
@@ -1099,7 +1143,10 @@ export function useCreativeComposer({
         : { assetId: assetId!, usage: inspiration.suggestedIntent === "restyle" ? "style" : "both" };
       if (!await attachDraftSource(source)) return;
       setAnnouncement("Inspiração adicionada");
-      requestAnimationFrame(() => composerRef.current?.focus());
+      requestAnimationFrame(() => {
+        if (inspiration.suggestedIntent === "restyle") document.getElementById("creative-composer-original-source")?.focus();
+        else composerRef.current?.focus();
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao adicionar inspiração");
     }
@@ -1454,16 +1501,6 @@ export function useCreativeComposer({
     }
   }, [reviseOutputMutation]);
 
-  const linkCampaign = useCallback(async (campaignId: string | null) => {
-    if (!workIdRef.current) return;
-    try {
-      await linkCampaignMutation.mutateAsync({ workItemId: workIdRef.current, campaignId });
-      setAnnouncement(campaignId ? "Campanha vinculada" : "Campanha removida");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Falha ao agrupar em campanha");
-    }
-  }, [linkCampaignMutation]);
-
   const detail = detailQuery.data;
   const objectiveSelected = objective !== null;
   const preparedPlan = detail?.preparedPlan ?? null;
@@ -1609,7 +1646,7 @@ export function useCreativeComposer({
     inferredBriefing, briefingFactPack, brandIdentity,
     briefingOverrides: detail?.work.settings.briefingOverrides ?? briefingOverridesRef.current ?? {},
     editBriefingField, briefingEditState,
-    campaignId: detail?.work.campaignId ?? null, campaigns,
+    campaignId: detail?.work.campaignId ?? pendingCampaignId, campaigns,
     error, announcement, approvalErrorOutputId, brandTrainingSuggestion: brandTrainingSuggestion ?? persistedBrandTrainingSuggestion,
     brandConflict, resolveBrandConflict,
     isResolvingBrandConflict: resolveBrandConflictMutation.isPending,

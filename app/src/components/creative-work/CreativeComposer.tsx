@@ -397,19 +397,21 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
             className="grid gap-4 sm:grid-cols-2"
             data-testid="restyle-source-grid"
           >
-            <CreativeSourcePreviewCard
-              label={t("originalArt")}
-              source={originalSource}
-              isUploading={composer.isUploading && !originalSource}
-              onChoose={() => fileInputRef.current?.click()}
-              onDrop={(files) => void composer.addFiles(files, "content")}
-              onRetry={() => {
-                if (originalSource) void composer.retrySource(originalSource.id);
-              }}
-              onRemove={() => {
-                if (originalSource) void composer.removeSource(originalSource.id);
-              }}
-            />
+            <div id="creative-composer-original-source" tabIndex={-1}>
+              <CreativeSourcePreviewCard
+                label={t("originalArt")}
+                source={originalSource}
+                isUploading={composer.isUploading && !originalSource}
+                onChoose={() => fileInputRef.current?.click()}
+                onDrop={(files) => void composer.addFiles(files, "content")}
+                onRetry={() => {
+                  if (originalSource) void composer.retrySource(originalSource.id);
+                }}
+                onRemove={() => {
+                  if (originalSource) void composer.removeSource(originalSource.id);
+                }}
+              />
+            </div>
 
             <CreativeSourcePreviewCard
               label={t("styleReference")}

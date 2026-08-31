@@ -1,6 +1,6 @@
 "use client";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -46,6 +46,9 @@ vi.mock("@/lib/hooks/use-billing", () => ({
     isError: false,
     error: null,
   }),
+}));
+vi.mock("@/lib/hooks/use-campaigns", () => ({
+  useCreateCampaign: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock("@/components/creative-work/useCreativeComposer", () => ({
   useCreativeComposer: (...args: unknown[]) => useComposerMock(...args),
@@ -117,11 +120,21 @@ describe("DashboardHomeActions", () => {
     expect(continueLink).toHaveTextContent("Criação avulsa");
     expect(continueLink).toHaveTextContent("Marca Marca A");
     expect(continueLink).toHaveTextContent("dashboard.home.continueTrackGeneration");
-    expect(screen.getByRole("link", { name: "Nova campanha" })).toHaveAttribute("href", "/campaigns/new");
+    expect(screen.getByRole("button", { name: "Nova campanha" })).toHaveClass("border");
     expect(screen.getAllByRole("button").filter((button) => button.hasAttribute("aria-pressed"))).toHaveLength(6);
     expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
     expect(screen.queryByText("dashboard.home.chooseIntent")).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("creates a campaign from the secondary dialog without extra briefing fields", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    render(<DashboardHomeActions />);
+    fireEvent.click(screen.getByRole("button", { name: "Nova campanha" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Nome da campanha");
+    expect(dialog).toHaveTextContent("Marca A");
+    expect(within(dialog).queryByLabelText(/público|plataforma|formato|objetivo|briefing/i)).not.toBeInTheDocument();
   });
 
   it("opens the work's own page even when continue targets the work open on Home (#126)", () => {

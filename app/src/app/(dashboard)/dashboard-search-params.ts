@@ -20,6 +20,7 @@ export function parseDashboardSearchParams(searchParams: DashboardSearchParams):
   freshEntry?: true;
   focusComposer?: true;
   templateId?: string;
+  campaignId?: string;
 } {
   const workIdCandidate = typeof searchParams.workId === "string" ? searchParams.workId.trim() : "";
   const workId = z.string().uuid().safeParse(workIdCandidate).success ? workIdCandidate : "";
@@ -35,6 +36,10 @@ export function parseDashboardSearchParams(searchParams: DashboardSearchParams):
     && z.string().uuid().safeParse(searchParams.templateId).success
     ? searchParams.templateId
     : undefined;
+  const campaignId = typeof searchParams.campaignId === "string"
+    && z.string().uuid().safeParse(searchParams.campaignId).success
+    ? searchParams.campaignId
+    : undefined;
 
   return {
     ...(workId ? { workId } : {}),
@@ -47,5 +52,6 @@ export function parseDashboardSearchParams(searchParams: DashboardSearchParams):
     ...(searchParams.fresh === "1" ? { freshEntry: true as const } : {}),
     ...(searchParams.compose === "1" ? { focusComposer: true as const } : {}),
     ...(templateId ? { templateId } : {}),
+    ...(campaignId ? { campaignId } : {}),
   };
 }

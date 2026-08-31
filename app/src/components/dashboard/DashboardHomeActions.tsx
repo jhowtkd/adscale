@@ -17,6 +17,8 @@ import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useCreativeWork, type CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
+import { useCreateCampaign } from "@/lib/hooks/use-campaigns";
+import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { StudioMode } from "@/app/(dashboard)/dashboard-search-params";
 import { getOrCreateStudioSession, type StudioRolloutVariant } from "@/lib/beta-analytics/studio-session";
@@ -87,6 +89,53 @@ function ContinueWorkCard({
   );
 }
 
+function CreateCampaignDialog({
+  activeProfile,
+  onCreated,
+}: {
+  activeProfile: { id: string; name: string } | null | undefined;
+  onCreated: (campaignId: string) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const createCampaign = useCreateCampaign();
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!activeProfile || !name.trim()) return;
+    setError(null);
+    try {
+      const campaign = await createCampaign.mutateAsync({
+        name: name.trim(),
+        client: activeProfile.name,
+        clientProfileId: activeProfile.id,
+      });
+      if (await onCreated(campaign.id)) {
+        setName("");
+        setOpen(false);
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Não foi possível criar a campanha.");
+    }
+  };
+  return <Dialog open={open} onOpenChange={setOpen}>
+    <button type="button" onClick={() => setOpen(true)} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] px-4 text-sm font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+      <Plus size={16} aria-hidden="true" />Nova campanha
+    </button>
+    <DialogContent size="sm" showCloseButton={!createCampaign.isPending}>
+      <form onSubmit={(event) => void submit(event)}>
+        <DialogHeader><DialogTitle>Nova campanha</DialogTitle></DialogHeader>
+        <DialogBody className="space-y-4">
+          <label className="block text-sm font-medium text-[var(--text-primary)]">Nome da campanha<input aria-label="Nome da campanha" required value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2" /></label>
+          <p className="text-sm text-[var(--text-secondary)]"><span className="font-medium text-[var(--text-primary)]">Marca</span><br />{activeProfile?.name ?? "Selecione uma marca"}</p>
+          {error ? <p role="alert" className="text-sm text-[var(--danger-text)]">{error}</p> : null}
+        </DialogBody>
+        <DialogFooter><button type="button" onClick={() => setOpen(false)} disabled={createCampaign.isPending} className="rounded-[var(--radius-control)] border border-[var(--border-default)] px-3 py-2 text-sm font-medium">Cancelar</button><button type="submit" disabled={!activeProfile || !name.trim() || createCampaign.isPending} className="rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-3 py-2 text-sm font-semibold text-[var(--action-primary-text)]">Criar campanha</button></DialogFooter>
+      </form>
+    </DialogContent>
+  </Dialog>;
+}
+
 export default function DashboardHomeActions({
   workId,
   initialIntent,
@@ -94,6 +143,7 @@ export default function DashboardHomeActions({
   templateId,
   studioMode,
   freshEntry = false,
+  campaignId,
   workspaceId,
   rolloutVariant = "control",
 }: {
@@ -103,6 +153,7 @@ export default function DashboardHomeActions({
   templateId?: string;
   studioMode?: StudioMode;
   freshEntry?: boolean;
+  campaignId?: string;
   workspaceId?: string;
   rolloutVariant?: StudioRolloutVariant;
 }) {
@@ -123,6 +174,7 @@ export default function DashboardHomeActions({
     initialIntent: initialStudioIntent,
     focusComposer,
     initialTemplateId: templateId,
+    initialCampaignId: campaignId,
     ...(workspaceId ? {
       workspaceId,
       workflowVariant: rolloutVariant,
@@ -159,9 +211,9 @@ export default function DashboardHomeActions({
     return (
       <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6 lg:py-12">
         <AccessGatePanel />
-        <header className="flex items-end justify-between border-b border-[var(--border-subtle)] pb-5">
+        <header className="flex items-end justify-between gap-3 border-b border-[var(--border-subtle)] pb-5">
           <div><p className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("studioLabel")}</p><h1 className="mt-1 product-page-title text-[var(--text-primary)]">{t("progressiveTitle")}</h1></div>
-          <ActiveBrandSwitcher id="active-client-switcher-home" className="w-56" />
+          <div className="flex items-center gap-2"><CreateCampaignDialog activeProfile={activeProfile} onCreated={composer.linkCampaign} /><ActiveBrandSwitcher id="active-client-switcher-home" className="w-56" /></div>
         </header>
         {isLoading && works.length === 0 ? <div className="h-16 animate-pulse rounded-[var(--radius-control)] bg-[var(--surface-raised)]" /> : continueTarget.kind === "work" ? <ContinueWorkCard target={continueTarget} brandName={continueTarget.brandName ?? t("continueBrandUnknown")} /> : null}
         {!composer.objectiveSelected ? (
@@ -190,13 +242,7 @@ export default function DashboardHomeActions({
           <p className="mt-1 text-sm text-[var(--text-secondary)]">{mode === "arte" ? t("studioArtSubtitle") : t("studioBriefingSubtitle")}</p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-          <Link
-            href="/campaigns/new"
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 text-sm font-semibold text-[var(--action-primary-text)] transition-colors hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-          >
-            <Plus size={16} aria-hidden="true" />
-            {t("createCampaign")}
-          </Link>
+          <CreateCampaignDialog activeProfile={activeProfile} onCreated={composer.linkCampaign} />
           <ActiveBrandSwitcher id="active-client-switcher-home" className="mt-0 w-full sm:w-64" />
         </div>
       </header>

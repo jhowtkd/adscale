@@ -3,6 +3,7 @@ import { parseDashboardSearchParams } from "./dashboard-search-params";
 
 const TEMPLATE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const WORK_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const CAMPAIGN_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 
 describe("parseDashboardSearchParams", () => {
   it.each(["variations", "single", "format_adaptation", "restyle"] as const)(
@@ -59,5 +60,11 @@ describe("parseDashboardSearchParams", () => {
       freshEntry: true,
     });
     expect(parseDashboardSearchParams({ fresh: "true" })).toEqual({});
+  });
+
+  it("keeps only a scalar UUID campaign context", () => {
+    expect(parseDashboardSearchParams({ campaignId: CAMPAIGN_ID })).toEqual({ campaignId: CAMPAIGN_ID });
+    expect(parseDashboardSearchParams({ campaignId: [CAMPAIGN_ID] })).toEqual({});
+    expect(parseDashboardSearchParams({ campaignId: "../campaign" })).toEqual({});
   });
 });

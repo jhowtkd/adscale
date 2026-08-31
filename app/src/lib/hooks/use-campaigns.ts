@@ -302,7 +302,10 @@ export function useCreateCampaign() {
   return useMutation({
     mutationFn: createCampaign,
     onSuccess: async () => {
-      await invalidateWorkListProjections(queryClient);
+      await Promise.all([
+        invalidateWorkListProjections(queryClient),
+        queryClient.invalidateQueries({ queryKey: ["creative-work", "campaign-options"] }),
+      ]);
     },
   });
 }

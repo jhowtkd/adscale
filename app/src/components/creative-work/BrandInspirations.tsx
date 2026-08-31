@@ -1,117 +1,62 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ImageIcon } from "lucide-react";
-import CampaignMasonryGrid, {
-  CampaignMasonryGridItem,
-} from "@/components/dashboard/CampaignMasonryGrid";
+import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useCreativeInspirations } from "@/lib/hooks/use-creative-inspirations";
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
 
-export function shuffleInspirations<T>(
-  inspirations: readonly T[],
-  random: () => number = Math.random,
-): T[] {
-  const shuffled = [...inspirations];
-  for (let index = shuffled.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(random() * (index + 1));
-    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
-  }
-  return shuffled;
+function originLabel(source: CreativeInspiration["source"]) {
+  return source === "curated" ? "Seleção ADScale" : source === "approved_work" ? "Trabalho aprovado" : "Template";
 }
 
-export function BrandInspirations({ clientProfileId, onAttach }: {
+export function BrandInspirations({
+  clientProfileId,
+  onAttach,
+}: {
   clientProfileId: string | null;
   onAttach: (inspiration: CreativeInspiration) => void | Promise<void>;
 }) {
-  const { data = [], isLoading, isError, refetch } = useCreativeInspirations(clientProfileId);
+  const [open, setOpen] = useState(false);
+  const [preview, setPreview] = useState<CreativeInspiration | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const membershipKey = useMemo(
-    () => `${clientProfileId ?? "global"}:${data
-      .map((item) => `${item.source}:${item.id}`)
-      .sort()
-      .join("|")}`,
-    [clientProfileId, data],
-  );
-  const [ordered, setOrdered] = useState<{
-    key: string;
-    items: CreativeInspiration[];
-  } | null>(null);
+  const { data = [], isLoading, isError, refetch } = useCreativeInspirations(clientProfileId);
+  const attach = async (inspiration: CreativeInspiration) => {
+    setPendingId(inspiration.id);
+    try {
+      await onAttach({ ...inspiration, suggestedIntent: "restyle" });
+      setOpen(false);
+      window.setTimeout(() => document.getElementById("creative-composer-original-source")?.focus(), 0);
+    } finally {
+      setPendingId(null);
+    }
+  };
 
-  if (ordered === null || ordered.key !== membershipKey) {
-    setOrdered({ key: membershipKey, items: shuffleInspirations(data) });
-  }
-
-  const byKey = useMemo(
-    () => new Map(data.map((item) => [`${item.source}:${item.id}`, item] as const)),
-    [data],
-  );
-  const randomizedInspirations = (ordered?.key === membershipKey ? ordered.items : data)
-    .map((item) => byKey.get(`${item.source}:${item.id}`))
-    .filter((item): item is CreativeInspiration => Boolean(item));
-
-  return (
-    <section aria-labelledby="brand-inspirations-title">
-      <h2 id="brand-inspirations-title" className="mb-3 text-sm font-semibold text-[var(--text-primary)]">
-        Inspirações
-      </h2>
-      {isLoading ? (
-        <p role="status" className="h-32 animate-pulse rounded-[var(--radius-object)] bg-[var(--surface-raised)] p-4 text-sm text-[var(--text-muted)]">
-          Carregando inspirações
-        </p>
-      ) : isError ? (
-        <div className="rounded-[var(--radius-object)] border border-[var(--danger-border)] bg-[var(--surface-raised)] p-4">
-          <p role="alert" className="text-sm text-[var(--danger-text)]">Não foi possível carregar as inspirações.</p>
-          <button type="button" onClick={() => void refetch()} className="mt-3 rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
-            Tentar novamente
-          </button>
-        </div>
-      ) : data.length === 0 ? (
-        <p role="status" className="rounded-[var(--radius-object)] border border-dashed border-[var(--border-subtle)] p-4 text-sm text-[var(--text-muted)]">
-          Nenhuma inspiração disponível ainda.
-        </p>
-      ) : (
-        <CampaignMasonryGrid
-          data-testid="brand-inspirations-grid"
-          className="sm:columns-2 lg:columns-3 2xl:columns-3 [column-gap:0.75rem]"
-        >
-          {randomizedInspirations.map((inspiration) => (
-            <CampaignMasonryGridItem
-              key={`${inspiration.source}:${inspiration.id}`}
-              className="mb-3"
-            >
-              <button
-                type="button"
-                aria-label={`Usar inspiração ${inspiration.title}`}
-                disabled={pendingId === inspiration.id}
-                onClick={() => {
-                  setPendingId(inspiration.id);
-                  void Promise.resolve(onAttach(inspiration)).finally(() => setPendingId(null));
-                }}
-                className="block w-full overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] transition-colors hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60"
-              >
-                {inspiration.previewUrl ? (
-                  // The browser's intrinsic image ratio is the masonry height.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    alt=""
-                    src={inspiration.previewUrl}
-                    loading="lazy"
-                    className="block h-auto w-full"
-                  />
-                ) : (
-                  <span
-                    aria-hidden="true"
-                    className="flex aspect-[4/3] items-center justify-center bg-[var(--surface-inset)] text-[var(--text-muted)]"
-                  >
-                    <ImageIcon size={22} />
-                  </span>
-                )}
+  return <>
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger render={<button type="button" className="rounded-[var(--radius-control)] border border-[var(--border-default)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" />}>Adicionar referência</SheetTrigger>
+      <SheetContent side="right" size="lg">
+        <SheetHeader><SheetTitle>Referências da marca</SheetTitle></SheetHeader>
+        <SheetBody>
+          {isLoading ? <p role="status">Carregando inspirações</p> : null}
+          {isError ? <div><p role="alert">Não foi possível carregar as inspirações.</p><button type="button" onClick={() => void refetch()}>Tentar novamente</button></div> : null}
+          {!isLoading && !isError && data.length === 0 ? <p role="status">Nenhuma inspiração disponível ainda.</p> : null}
+          {!isLoading && !isError && data.length > 0 ? <div className="grid gap-3 sm:grid-cols-2">
+            {data.map((inspiration) => <article key={`${inspiration.source}:${inspiration.id}`} className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-3">
+              <button type="button" aria-label={`Pré-visualizar inspiração ${inspiration.title}`} onClick={() => setPreview(inspiration)} className="block w-full overflow-hidden rounded-[var(--radius-control)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+                {inspiration.previewUrl ? <img src={inspiration.previewUrl} alt="" className="h-auto w-full" /> : <span className="flex aspect-[4/3] items-center justify-center bg-[var(--surface-inset)] text-[var(--text-muted)]"><ImageIcon /></span>}
               </button>
-            </CampaignMasonryGridItem>
-          ))}
-        </CampaignMasonryGrid>
-      )}
-    </section>
-  );
+              <p className="mt-2 text-sm font-medium text-[var(--text-primary)]">{inspiration.title}</p>
+              <p className="text-xs text-[var(--text-muted)]">{originLabel(inspiration.source)}</p>
+              <button type="button" disabled={pendingId === inspiration.id} onClick={() => void attach(inspiration)} className="mt-2 text-sm font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">Usar para mudar estilo</button>
+            </article>)}
+          </div> : null}
+        </SheetBody>
+      </SheetContent>
+    </Sheet>
+    <Dialog open={Boolean(preview)} onOpenChange={(next) => !next && setPreview(null)}>
+      <DialogContent size="lg"><DialogHeader><DialogTitle>{preview?.title}</DialogTitle></DialogHeader><DialogBody>{preview?.previewUrl ? <img src={preview.previewUrl} alt={`Pré-visualização de ${preview.title}`} className="h-auto w-full" /> : null}</DialogBody></DialogContent>
+    </Dialog>
+  </>;
 }
