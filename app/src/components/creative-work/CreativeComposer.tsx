@@ -363,6 +363,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           onAddStyleFiles={(files) => void composer.addFiles(files, "style")}
           onRetryStyleSource={carouselStyleSource ? () => void composer.retrySource(carouselStyleSource.id) : undefined}
           onRemoveStyleSource={carouselStyleSource ? () => void composer.removeSource(carouselStyleSource.id) : undefined}
+          approvedRevision={composer.carousel.approvedRevision}
         />
       ) : (<>
       {composer.intent === "single" && composer.brandIdentity ? (

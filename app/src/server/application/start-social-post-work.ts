@@ -137,11 +137,16 @@ export async function startSocialPostWork(
     );
   }
 
-  const quote = quoteCreativeWork({
-    intent: work.toolKind,
-    format: work.format,
-    targetFormats: work.settings?.targetFormats ?? [],
-    directionPool: work.settings?.directionPool,
-  });
+  // A carousel draft has no deck yet: the deck-size quote is applied only at
+  // generation confirmation via quoteCarouselDeck() (Task 5), so the create
+  // path answers a zero placeholder exactly like the client projection.
+  const quote = work.toolKind === "carousel"
+    ? { plans: [] as CreativeWorkOutputPlan[], unitCount: 0, credits: 0 }
+    : quoteCreativeWork({
+        intent: work.toolKind,
+        format: work.format,
+        targetFormats: work.settings?.targetFormats ?? [],
+        directionPool: work.settings?.directionPool,
+      });
   return { ok: true, value: { work, canonical, quote } };
 }

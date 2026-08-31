@@ -214,7 +214,13 @@ export default function DashboardHomeActions({
   ) : null;
   const inspirationsControl = <div data-testid="brand-inspirations-slot" className="min-h-16"><BrandInspirations clientProfileId={composer.clientProfileId} onAttach={composer.addInspiration} /></div>;
 
+  // Task 10: the carousel wizard owns its whole lifecycle (prepare → Gerar
+  // carrossel → generation states → deck review). The generic progressive
+  // plan-review/results surfaces never replace it — their proposals grid has
+  // no carousel outputs and would unmount the deck mid-flow.
+  const isCarouselWorkflow = composer.intent === "carousel";
   const progressiveResultsVisible = rolloutVariant === "progressive"
+    && !isCarouselWorkflow
     && (composer.stage === "generation" || composer.stage === "results");
   useEffect(() => {
     if (progressiveResultsVisible) progressiveResultsHeadingRef.current?.focus();
@@ -243,7 +249,7 @@ export default function DashboardHomeActions({
 
   if (rolloutVariant === "progressive") {
     const showObjectives = composer.hasEntry && !composer.objectiveSelected;
-    const showPlan = composer.stage === "plan" && composer.preparedPlan && !editingPreparedPlan;
+    const showPlan = composer.stage === "plan" && composer.preparedPlan && !editingPreparedPlan && !isCarouselWorkflow;
     const resultStage = progressiveResultsVisible;
     return (
       <div className={cn("mx-auto w-full space-y-6 px-4 py-8 sm:px-6 lg:py-12", resultStage ? "max-w-6xl" : "max-w-4xl")}>

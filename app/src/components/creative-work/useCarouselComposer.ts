@@ -11,7 +11,6 @@ import {
   usePlanCarouselWork,
   useReviseCarouselSlide,
   type CreativeWorkDetail,
-  type PublicCarouselSlide,
 } from "@/lib/hooks/use-creative-work";
 import type { PreparedPlanProjectionV1 } from "@/server/creative-work/prepared-plan";
 import {
@@ -19,7 +18,6 @@ import {
   validateCarouselDeckStructure,
   type CarouselDraftStateV1,
   type CarouselSlidePlanV1,
-  type CarouselStructureFinding,
 } from "@/server/creative-work/carousel-contracts";
 
 export type CarouselComposerPhase =
@@ -82,8 +80,8 @@ export function useCarouselComposer({
   // canonical events. Everything else is derived from persisted data.
   const [selectedSlideId, setSelectedSlideId] = useState<string | null>(null);
   const [generationPending, setGenerationPending] = useState(false);
-  const [reviewRecordedFor, setReviewRecordedFor] = useState<string | null>(null);
   const [approvedRecordedFor, setApprovedRecordedFor] = useState<string | null>(null);
+  const reviewRecordedRef = useRef<string | null>(null);
   const reviseInFlightRef = useRef(false);
 
   const detail = detailQuery.data ?? null;
@@ -96,10 +94,7 @@ export function useCarouselComposer({
   const quality = work?.carouselQuality ?? null;
   const preparedRevision = preparedPlan?.preparedRevision ?? null;
   const questions = draft?.blockingQuestions ?? [];
-  const findings = useMemo<CarouselStructureFinding[]>(
-    () => (draft?.plan ? validateCarouselDeckStructure(draft.plan) : []),
-    [draft?.plan],
-  );
+  const findings = draft?.plan ? validateCarouselDeckStructure(draft.plan) : [];
 
   const phase: CarouselComposerPhase = questions.length > 0
     ? "questions"
@@ -445,14 +440,14 @@ export function useCarouselComposer({
 
   useEffect(() => {
     // The FIRST persisted review phase records creative_work_reviewed once.
-    if (!workId || phase !== "review" || reviewRecordedFor === workId) return;
-    setReviewRecordedFor(workId);
+    if (!workId || phase !== "review" || reviewRecordedRef.current === workId) return;
+    reviewRecordedRef.current = workId;
     recordCanonicalEvent("creative_work_reviewed", {
       creativeWorkId: workId,
       protocol: "carousel",
       outputCount: slides.length,
     });
-  }, [phase, recordCanonicalEvent, reviewRecordedFor, slides.length, workId]);
+  }, [phase, recordCanonicalEvent, slides.length, workId]);
 
   return {
     draft,
@@ -462,6 +457,8 @@ export function useCarouselComposer({
     selectedSlide,
     phase,
     findings,
+    /** Approved deck revision from the work DTO — hosts pass it to the review/export gate. */
+    approvedRevision,
     canPrepare,
     canGenerate,
     canApprove,

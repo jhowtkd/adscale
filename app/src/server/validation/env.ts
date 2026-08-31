@@ -61,6 +61,13 @@ export const envSchema = z.object({
   /** New Peça única snapshots consume the active published Brand Cortex version. */
   BRAND_CORTEX_SINGLE_PIECE_ENABLED: z.enum(["true", "false"]).default("false"),
   STUDIO_PROGRESSIVE_ROLLOUT_PERCENT: z.coerce.number().int().min(0).max(100).default(0),
+  /**
+   * Task 10: percentage of workspaces with the NEW Studio carousel creation
+   * exposed. Both web and worker read the value, but only the authenticated
+   * dashboard page uses it (a derived boolean — never the raw percentage).
+   * Existing carousel works stay readable when the value returns to zero.
+   */
+  STUDIO_CAROUSEL_ROLLOUT_PERCENT: z.coerce.number().int().min(0).max(100).default(0),
 });
 
 const parsed = envSchema.safeParse(process.env);

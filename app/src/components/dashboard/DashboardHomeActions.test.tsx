@@ -533,6 +533,23 @@ describe("DashboardHomeActions", () => {
     expect(protocolButton("carousel")).toBeInTheDocument();
   });
 
+  it("keeps new-creation hidden at percent zero while old carousel work resumes", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      intent: "carousel", workId: "carousel-old", clientProfileId: "p1",
+      quote: { unitCount: 0, credits: 0 }, outputs: [],
+      selectIntent: selectIntentMock, addInspiration: addInspirationMock,
+    });
+
+    render(<DashboardHomeActions workId="carousel-old" />);
+
+    // Zero percent: no new carousel can start…
+    expect(screen.queryByRole("button", { name: /criar carrossel/i })).not.toBeInTheDocument();
+    // …but the existing work resumes through the same composer deck.
+    expect(useComposerMock).toHaveBeenCalledWith(expect.objectContaining({ initialWorkId: "carousel-old" }));
+    expect(screen.getByTestId("creative-composer")).toHaveTextContent("carousel:0:");
+  });
+
   it("preserves progressive free entry when selecting Criar carrossel", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     useComposerMock.mockImplementation(() => {
@@ -564,5 +581,50 @@ describe("DashboardHomeActions", () => {
     render(<DashboardHomeActions workId="carousel-1" />);
 
     expect(screen.getByTestId("creative-composer")).toHaveTextContent("carousel:0:");
+  });
+
+  it("keeps the carousel wizard mounted through the plan and results stages", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      request: "Sequência", hasEntry: true, objectiveSelected: true, intent: "carousel",
+      stage: "plan", preparedPlan: { preparedRevision: "revision-1", protocol: "carousel", materials: [], preserve: [], explore: [], formats: ["4:5"], outputCount: 5 },
+      preparedPlanCycle: 1, actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 0, credits: 0 },
+      workId: "carousel-1", outputs: [], carousel: { draft: null, slides: [], phase: "ready_to_generate" },
+      selectIntent: selectIntentMock,
+    });
+
+    const { rerender } = render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" carouselCreationEnabled />);
+
+    // The generic plan review never replaces the carousel wizard.
+    expect(screen.queryByTestId("prepared-plan")).not.toBeInTheDocument();
+    expect(screen.getByTestId("creative-composer")).toBeInTheDocument();
+
+    rerender(
+      <DashboardHomeActions
+        rolloutVariant="progressive"
+        workspaceId="ws"
+        carouselCreationEnabled
+        workId="carousel-1"
+      />,
+    );
+    useComposerMock.mockReturnValue({
+      request: "Sequência", hasEntry: true, objectiveSelected: true, intent: "carousel",
+      stage: "results", preparedPlan: null, actionPhase: "idle", clientProfileId: "p1",
+      quote: { unitCount: 0, credits: 0 }, workId: "carousel-1",
+      outputs: [], carousel: { draft: null, slides: [{ id: "s1" }], phase: "review" },
+      selectIntent: selectIntentMock,
+    });
+    rerender(
+      <DashboardHomeActions
+        rolloutVariant="progressive"
+        workspaceId="ws"
+        carouselCreationEnabled
+        workId="carousel-1"
+      />,
+    );
+
+    // The generic results grid never replaces the deck review either.
+    expect(screen.queryByTestId("progressive-results-summary")).not.toBeInTheDocument();
+    expect(screen.getByTestId("creative-composer")).toBeInTheDocument();
   });
 });

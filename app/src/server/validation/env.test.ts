@@ -125,4 +125,14 @@ describe("envSchema", () => {
     expect(schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", STUDIO_PROGRESSIVE_ROLLOUT_PERCENT: "100" }).STUDIO_PROGRESSIVE_ROLLOUT_PERCENT).toBe(100);
     expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", STUDIO_PROGRESSIVE_ROLLOUT_PERCENT: "101" })).toThrow();
   });
+
+  it("defaults the Studio carousel rollout to zero and bounds it like the progressive one", () => {
+    expect(schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy" }).STUDIO_CAROUSEL_ROLLOUT_PERCENT).toBe(0);
+    expect(schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", STUDIO_CAROUSEL_ROLLOUT_PERCENT: "25" }).STUDIO_CAROUSEL_ROLLOUT_PERCENT).toBe(25);
+    expect(schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", STUDIO_CAROUSEL_ROLLOUT_PERCENT: "100" }).STUDIO_CAROUSEL_ROLLOUT_PERCENT).toBe(100);
+    expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", STUDIO_CAROUSEL_ROLLOUT_PERCENT: "-1" })).toThrow();
+    expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", STUDIO_CAROUSEL_ROLLOUT_PERCENT: "101" })).toThrow();
+    expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", STUDIO_CAROUSEL_ROLLOUT_PERCENT: "abc" })).toThrow();
+    expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", STUDIO_CAROUSEL_ROLLOUT_PERCENT: "2.5" })).toThrow();
+  });
 });

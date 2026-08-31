@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config config/vitest.config.ts --passWithNoTests",
     "test:e2e": "playwright test",
+    "test:studio-e2e": "playwright test tests/e2e/frictionless-home.spec.ts",
     "test:create-post-e2e": "playwright test tests/e2e/create-post.spec.ts",
     "test:guided-e2e": "node scripts/run-guided-e2e.mjs",
     "test:visual-release": "playwright test --config playwright.release.config.ts",

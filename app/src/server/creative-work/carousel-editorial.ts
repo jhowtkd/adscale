@@ -326,6 +326,15 @@ function truncate(value: string, max: number): string {
 
 const CONTROLLED_ROLES: CarouselNarrativeRole[] = ["hook", "context", "problem", "evidence", "closing"];
 
+/** Deterministic E2E-only markers consumed by the controlled planner. */
+const CONTROLLED_ASK_MARKER = "[e2e:ask-once]";
+const CONTROLLED_E2E_MARKERS = /\[e2e:[a-z-]+\]/g;
+
+function controlledBaseText(input: ProposeCarouselDraftInput): string {
+  const raw = input.factPack.request.trim() || input.factPack.facts[0]?.value || "Conteúdo do carrossel";
+  return raw.replace(CONTROLLED_E2E_MARKERS, "").replace(/\s+/g, " ").trim();
+}
+
 function controlledSlideTexts(base: string, facts: readonly CreativeFact[]): string[] {
   const words = base.split(/\s+/).filter(Boolean);
   const texts: string[] = [];
@@ -347,10 +356,31 @@ function controlledSlideTexts(base: string, facts: readonly CreativeFact[]): str
   return texts.slice(0, 5);
 }
 
-/** Deterministic E2E deck derived only from the request and facts. */
-function controlledPlannerResponse(input: ProposeCarouselDraftInput): Extract<CarouselPlannerResponse, { kind: "deck" }> {
-  const base = input.factPack.request.trim() || input.factPack.facts[0]?.value || "Conteúdo do carrossel";
+/**
+ * Deterministic E2E deck derived only from the request and facts. When the
+ * operator asked for the one-question path (`[e2e:ask-once]`) and it was not
+ * answered yet, the planner asks exactly ONE blocking question; the merged
+ * answer unblocks the deck on the next call. That same marker path carries
+ * one tracked suggestion so the wizard's accept/reject surface stays
+ * exercised; the plain controlled deck (no marker) never changes shape.
+ */
+function controlledPlannerResponse(input: ProposeCarouselDraftInput): CarouselPlannerResponse {
+  const mergedAnswers = { ...(input.previous?.answers ?? {}), ...input.answers };
+  const asksOnce = input.request.includes(CONTROLLED_ASK_MARKER);
+  if (asksOnce && !Object.keys(mergedAnswers).some((field) => field.startsWith("e2e-"))) {
+    return {
+      kind: "questions",
+      questions: [{
+        id: "e2e-cta",
+        field: "cta",
+        question: "Qual chamada para ação deve fechar o carrossel?",
+        reason: "Pergunta controlada do provedor E2E: responda para organizar a sequência.",
+      }],
+    };
+  }
+  const base = controlledBaseText(input);
   const texts = controlledSlideTexts(base, input.factPack.facts);
+  const suggestionWords = base.split(/\s+/).filter(Boolean).slice(0, 5).join(" ");
   return {
     kind: "deck",
     objective: truncate(base, 240),
@@ -364,7 +394,15 @@ function controlledPlannerResponse(input: ProposeCarouselDraftInput): Extract<Ca
       secondaryText: null,
       sourceFactIds: [],
     })),
-    changes: [],
+    changes: asksOnce
+      ? [{
+          slideIndex: 2,
+          field: "secondaryText" as const,
+          before: null,
+          after: truncate(`${suggestionWords} na ordem do pedido`, 80),
+          reason: "Controle E2E: uma sugestão rastreada para aceitar ou rejeitar.",
+        }]
+      : [],
   };
 }
 
@@ -510,7 +548,18 @@ export async function proposeCarouselDraft(input: ProposeCarouselDraftInput): Pr
   const mergedAnswers = { ...(input.previous?.answers ?? {}), ...input.answers };
 
   if (isE2EControlledProviderEnabled()) {
-    return draftFromDeck(input, controlledPlannerResponse(input), mergedAnswers);
+    const controlled = controlledPlannerResponse(input);
+    if (controlled.kind === "questions") {
+      return {
+        version: 1,
+        revision: `questions-${shortHash(input.workId, canonicalJsonStringify(controlled.questions))}`,
+        answers: mergedAnswers,
+        blockingQuestions: controlled.questions,
+        plan: null,
+        changes: [],
+      };
+    }
+    return draftFromDeck(input, controlled, mergedAnswers);
   }
 
   const response = await requestPlannerResponse(input);
