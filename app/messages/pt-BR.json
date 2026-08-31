@@ -539,6 +539,14 @@
       "planReview": {
         "eyebrow": "Plano preparado", "title": "Revise seu plano", "subtitle": "A geração só começa após sua confirmação.",
         "objective": "Objetivo", "materials": "Materiais", "preserveTitle": "Preservar", "exploreTitle": "Explorar", "format": "Formato", "quantity": "Quantidade", "pieces": "{count} peças", "none": "Sem materiais",
+        "labels": {
+          "material": { "reference": "Referência", "art": "Arte" },
+          "output": {
+            "singlePiece": "Peça única",
+            "newStyle": "Novo estilo",
+            "level": { "conservative": "Conservadora", "balanced": "Equilibrada", "bold": "Ousada" }
+          }
+        },
         "edit": "Editar plano", "confirm": "Confirmar e gerar", "confirming": "Confirmando",
         "adjustments": { "title": "Ajustes", "action": "Edite o plano antes de confirmar e gerar." },
         "protocol": { "variations": "Variações", "single": "Peça única", "formatAdaptation": "Adaptar formatos", "restyle": "Novo estilo" },

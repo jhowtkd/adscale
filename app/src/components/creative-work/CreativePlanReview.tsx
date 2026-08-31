@@ -23,7 +23,8 @@ export function CreativePlanReview({ plan, busy, onEdit, onConfirm, readOnly = f
   const t = useTranslations("dashboard.home.planReview");
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (!readOnly) headingRef.current?.focus(); }, [plan.preparedRevision, readOnly]);
-  const material = (item: PreparedPlanProjectionV1["materials"][number]) => [item.label, t(`roles.${item.role}`), item.treatment ? t(`treatment.${item.treatment}`) : null].filter(Boolean).join(" · ");
+  const label = (item: { label?: string; labelKey?: string }) => item.label || (item.labelKey ? t(`labels.${item.labelKey}`) : t("none"));
+  const material = (item: PreparedPlanProjectionV1["materials"][number]) => [label(item), t(`roles.${item.role}`), item.treatment ? t(`treatment.${item.treatment}`) : null].filter(Boolean).join(" · ");
   const values = (items: string[], key: "preserve" | "explore") => items.map((item) => t(`${key}.${item}`)).join(" · ");
 
   return (

@@ -112,6 +112,24 @@ describe("projectPreparedPlanV1", () => {
     expect(projectPreparedPlanV1({ ...work("single"), inputSnapshot: { ...work("single").inputSnapshot, factPack: undefined } })).toBeNull();
   });
 
+  it("uses locale-neutral fallback keys while preserving supplied source labels", () => {
+    const base = work("single");
+    const fallbackPlan = projectPreparedPlanV1({
+      ...base,
+      inputSnapshot: {
+        ...base.inputSnapshot,
+        sources: [{ ...base.inputSnapshot!.sources[0], label: undefined }],
+      },
+    });
+    expect(fallbackPlan?.materials[0]).toMatchObject({ labelKey: "material.reference" });
+    expect(fallbackPlan?.materials[0]).not.toHaveProperty("label");
+    expect(fallbackPlan?.outputs[0]).toMatchObject({ labelKey: "output.singlePiece" });
+    expect(JSON.stringify(fallbackPlan)).not.toMatch(/Referência|Peça única|Novo estilo|Conservadora|Equilibrada|Ousada/);
+
+    const namedPlan = projectPreparedPlanV1(base);
+    expect(namedPlan?.materials[0]).toMatchObject({ label: "Produto" });
+  });
+
   it("returns null for a carousel work until the deck snapshot is frozen", () => {
     expect(projectPreparedPlanV1(work("carousel"))).toBeNull();
   });

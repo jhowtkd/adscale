@@ -10,22 +10,35 @@ import { resolveCarouselPreparedSnapshot } from "./carousel-contracts";
 type LegacyProtocol = Exclude<CreativeWorkIntent, "social_post" | "carousel">;
 type Preserve = "verified_facts" | "brand_requirements" | "source_content" | "source_visual_identity" | "piece_reference_identity" | "piece_reference_recognizability" | "piece_reference_exact_application" | "piece_reference_required_presence";
 type Explore = "composition" | "hierarchy" | "visual_language" | "format_layout" | "new_execution" | "piece_reference_visual_language" | "piece_reference_style_direction";
+type PreparedPlanLabelKey =
+  | "material.reference"
+  | "material.art"
+  | "output.singlePiece"
+  | "output.newStyle"
+  | "output.level.conservative"
+  | "output.level.balanced"
+  | "output.level.bold";
+type PreparedPlanLabel = {
+  /** Human-provided source and direction labels stay verbatim. */
+  label?: string;
+  /** Locale-neutral fallback rendered by the client. */
+  labelKey?: PreparedPlanLabelKey;
+};
 
 export type LegacyPreparedPlanProjectionV1 = {
   version: 1;
   workId: string;
   preparedRevision: string;
   protocol: LegacyProtocol;
-  materials: Array<{
+  materials: Array<PreparedPlanLabel & {
     sourceId: string;
-    label: string;
     role: "content" | "style" | "both" | "piece_reference" | "original_art";
     category: string | null;
     treatment: "identity_preservation" | "recognizable_preservation" | "exact_application" | "required_presence" | "visual_language" | "style_direction" | null;
   }>;
   preserve: Preserve[];
   explore: Explore[];
-  outputs: Array<{ label: string; targetFormat: CreativeWorkFormat; directionId: string | null }>;
+  outputs: Array<PreparedPlanLabel & { targetFormat: CreativeWorkFormat; directionId: string | null }>;
   outputCount: number;
   formats: CreativeWorkFormat[];
 };
@@ -38,8 +51,7 @@ export type CarouselPreparedPlanProjectionV1 = {
   materials: LegacyPreparedPlanProjectionV1["materials"];
   preserve: Preserve[];
   explore: Explore[];
-  outputs: Array<{
-    label: string;
+  outputs: Array<PreparedPlanLabel & {
     targetFormat: "4:5" | "1:1";
     directionId: null;
   }>;
@@ -51,7 +63,11 @@ export type PreparedPlanProjectionV1 =
   | LegacyPreparedPlanProjectionV1
   | CarouselPreparedPlanProjectionV1;
 
-const levelLabels = { conservative: "Conservadora", balanced: "Equilibrada", bold: "Ousada" } as const;
+const levelLabelKeys = {
+  conservative: "output.level.conservative",
+  balanced: "output.level.balanced",
+  bold: "output.level.bold",
+} as const satisfies Record<"conservative" | "balanced" | "bold", PreparedPlanLabelKey>;
 const treatmentKey = {
   identity_preservation: ["preserve", "piece_reference_identity"],
   recognizable_preservation: ["preserve", "piece_reference_recognizability"],
@@ -62,6 +78,12 @@ const treatmentKey = {
 } as const;
 
 function unique<T>(values: T[]): T[] { return [...new Set(values)]; }
+function sourceLabel(source: CreativeWorkInputSnapshot["sources"][number]): PreparedPlanLabel {
+  const label = source.label?.trim();
+  return label
+    ? { label }
+    : { labelKey: source.pieceReference ? "material.reference" : "material.art" };
+}
 function validSources(protocol: LegacyProtocol, snapshot: CreativeWorkInputSnapshot) {
   if (!Array.isArray(snapshot.sources) || !snapshot.settings || typeof snapshot.request !== "string") return false;
   const sources = snapshot.sources;
@@ -101,7 +123,7 @@ export function projectPreparedPlanV1(work: {
       protocol: "carousel",
       materials: work.inputSnapshot.sources.map((source) => ({
         sourceId: source.sourceId,
-        label: source.label?.trim() || (source.pieceReference ? "Referência" : "Arte"),
+        ...sourceLabel(source),
         role: "style",
         category: source.pieceReference?.category ?? null,
         treatment: source.pieceReference?.treatment ?? null,
@@ -120,7 +142,7 @@ export function projectPreparedPlanV1(work: {
   if (!validSources(protocol, snapshot)) return null;
   const materials = snapshot.sources.map((source) => ({
     sourceId: source.sourceId,
-    label: source.label?.trim() || (source.pieceReference ? "Referência" : "Arte"),
+    ...sourceLabel(source),
     role: protocol === "single" ? "piece_reference" as const : protocol === "format_adaptation" || (protocol === "restyle" && source.usage === "content") ? "original_art" as const : source.usage,
     category: source.pieceReference?.category ?? null,
     treatment: source.pieceReference?.treatment ?? null,
@@ -146,11 +168,18 @@ export function projectPreparedPlanV1(work: {
     explore.push("visual_language", "composition", "hierarchy");
   }
   const quote = quoteCreativeWork({ intent: protocol, format: work.format, targetFormats: snapshot.settings.targetFormats, directionPool: snapshot.settings.directionPool });
-  const outputs = quote.plans.map((plan) => ({
-    label: protocol === "single" ? "Peça única" : protocol === "restyle" ? "Novo estilo" : protocol === "format_adaptation" ? plan.targetFormat : plan.directionSnapshot?.label ?? levelLabels[plan.creativeLevel],
-    targetFormat: plan.targetFormat,
-    directionId: plan.directionId ?? null,
-  }));
+  const outputs = quote.plans.map((plan) => {
+    const outputLabel: PreparedPlanLabel = protocol === "single"
+      ? { labelKey: "output.singlePiece" }
+      : protocol === "restyle"
+        ? { labelKey: "output.newStyle" }
+        : protocol === "format_adaptation"
+          ? { label: plan.targetFormat }
+          : plan.directionSnapshot?.label
+            ? { label: plan.directionSnapshot.label }
+            : { labelKey: levelLabelKeys[plan.creativeLevel] };
+    return { ...outputLabel, targetFormat: plan.targetFormat, directionId: plan.directionId ?? null };
+  });
   return {
     version: 1,
     workId: work.id,

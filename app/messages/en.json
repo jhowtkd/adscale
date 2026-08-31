@@ -539,6 +539,14 @@
       "planReview": {
         "eyebrow": "Prepared plan", "title": "Review your plan", "subtitle": "Generation starts only after your confirmation.",
         "objective": "Objective", "materials": "Materials", "preserveTitle": "Preserve", "exploreTitle": "Explore", "format": "Format", "quantity": "Quantity", "pieces": "{count} pieces", "none": "No materials",
+        "labels": {
+          "material": { "reference": "Reference", "art": "Artwork" },
+          "output": {
+            "singlePiece": "Single piece",
+            "newStyle": "New style",
+            "level": { "conservative": "Conservative", "balanced": "Balanced", "bold": "Bold" }
+          }
+        },
         "edit": "Edit plan", "confirm": "Confirm and generate", "confirming": "Confirming",
         "adjustments": { "title": "Adjustments", "action": "Edit the plan before you confirm and generate." },
         "protocol": { "variations": "Variations", "single": "Single piece", "formatAdaptation": "Adapt formats", "restyle": "New style" },

@@ -2,7 +2,17 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { CreativePlanReview } from "./CreativePlanReview";
 
-vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: { count?: number }) => key === "pieces" ? `${values?.count} pieces` : key }));
+const localeState = vi.hoisted(() => ({ locale: "en" as "en" | "pt-BR" }));
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string, values?: { count?: number }) => {
+    if (key === "pieces") return `${values?.count} pieces`;
+    const labels = {
+      en: { "labels.material.reference": "Reference" },
+      "pt-BR": { "labels.material.reference": "Referência" },
+    };
+    return labels[localeState.locale][key as keyof typeof labels.en] ?? key;
+  },
+}));
 
 const plan = {
   version: 1 as const, workId: "work-1", preparedRevision: "2026-08-30T12:00:00.000Z", protocol: "single" as const,
@@ -50,5 +60,15 @@ describe("CreativePlanReview", () => {
     expect(within(adjustments).getByText("adjustments.title")).toBeVisible();
     expect(screen.queryByRole("button", { name: "edit" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "confirm" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["en", "Reference"],
+    ["pt-BR", "Referência"],
+  ] as const)("renders a locale-neutral fallback material in %s", (locale, expected) => {
+    localeState.locale = locale;
+    render(<CreativePlanReview plan={{ ...plan, materials: [{ ...plan.materials[0], label: undefined, labelKey: "material.reference" }] }} busy={false} onEdit={vi.fn()} onConfirm={vi.fn()} />);
+
+    expect(screen.getByText(`${expected} · roles.piece_reference · treatment.identity_preservation`)).toBeInTheDocument();
   });
 });
