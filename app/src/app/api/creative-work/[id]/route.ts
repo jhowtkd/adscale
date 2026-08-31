@@ -64,7 +64,6 @@ import {
   recordCreativeWorkGenerationAggregate,
   refreshCreativeWorkStatus,
   updateCreativeWorkSourceIfUnchanged,
-  updateCreativeWorkDraft,
   updateCreativeWorkDraftIfUnchanged,
   autosaveCreativeWorkDraft,
   mutateCreativeWorkPieceReference,
@@ -196,6 +195,7 @@ const editBriefingSchema = z.object({
 const resolveBrandConflictSchema = z.object({
   action: z.literal("resolveBrandConflict"),
   choice: z.enum(CREATIVE_WORK_BRAND_CHOICES),
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
 }).strict();
 const layerizeOutputSchema = z.object({
   action: z.literal("layerizeOutput"),
@@ -510,10 +510,16 @@ export async function GET(
         }
       }
     }
-    const canonical = withoutPrivateArtifactFields(projectCreativeWorkAsCanonicalWork(
-      result.work,
-      result.outputs
-    ));
+    // Carousel works generate through creative_work_carousel_slides and never
+    // own creative_work_outputs rows: the canonical projection's output-based
+    // state machine would reject every generating/completed carousel aggregate,
+    // so the detail GET projects the deck through carouselSlides instead.
+    const canonical = result.work.toolKind === "carousel"
+      ? null
+      : withoutPrivateArtifactFields(projectCreativeWorkAsCanonicalWork(
+          result.work,
+          result.outputs
+        ));
     const sources = await Promise.all((result.sources ?? []).map((source) => projectSourceDto(workspace.id, source)));
     const inferredBriefing = result.work.toolKind === "single"
       ? resolveCreativeWorkInferredBriefing(result.work.inputSnapshot)
@@ -843,6 +849,10 @@ export async function PATCH(
       // The brand choice exists only for restyle — the single new visible
       // decision of spec 11; other protocols never grow this wizard.
       if (aggregate.work.toolKind !== "restyle") return apiError("invalidInput", 400);
+      const expectedUpdatedAt = new Date(parsed.data.expectedUpdatedAt);
+      if (aggregate.work.updatedAt.toISOString() !== parsed.data.expectedUpdatedAt) {
+        return apiError("stale_input", 409);
+      }
       // R-003: the choice is bound to the conflict it answers. It is only
       // accepted while that exact conflict is detectable in the current
       // draft — a draft without a detectable conflict has nothing to
@@ -853,7 +863,7 @@ export async function PATCH(
         sources: aggregate.sources,
       });
       if (!conflict) return apiError("invalidInput", 400);
-      const work = await updateCreativeWorkDraft(workspace.id, id, {
+      const work = await updateCreativeWorkDraftIfUnchanged(workspace.id, id, expectedUpdatedAt, {
         settings: {
           ...aggregate.work.settings,
           brandConflictChoice: parsed.data.choice,
@@ -865,7 +875,7 @@ export async function PATCH(
         copy: null,
         inputSnapshot: null,
       });
-      if (!work) return apiError("creativeWorkNotFound", 404);
+      if (!work) return apiError("stale_input", 409);
       return NextResponse.json({ work });
     }
 

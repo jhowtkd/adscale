@@ -122,6 +122,7 @@ export async function POST(request: Request) {
       }
       if (!("source" in created)) return apiError("invalidInput", 400);
 
+      let work = created.work;
       let source = created.source;
       if (created.claimedForAnalysis && source.templateId) {
         try {
@@ -130,12 +131,14 @@ export async function POST(request: Request) {
             workItemId: created.work.id,
             sourceId: source.id,
           });
-          source = analyzed ?? (await getCreativeWork(workspace.id, created.work.id))?.sources
-            .find((candidate) => candidate.id === source.id) ?? source;
+          source = analyzed ?? source;
         } catch {
-          source = (await getCreativeWork(workspace.id, created.work.id))?.sources
-            .find((candidate) => candidate.id === source.id) ?? source;
+          // Reload the aggregate below: analysis may have persisted a failed
+          // source and advanced the work revision even when the command threw.
         }
+        const aggregate = await getCreativeWork(workspace.id, created.work.id);
+        if (aggregate?.work?.id) work = aggregate.work;
+        source = aggregate?.sources.find((candidate) => candidate.id === source.id) ?? source;
       } else if (created.claimedForAnalysis) {
         try {
           await inngest.send({
@@ -150,6 +153,8 @@ export async function POST(request: Request) {
             { status: source.status, usage: source.usage, updatedAt: source.updatedAt },
             { status: "failed", failureCode: "dispatch_failed" },
           ) ?? source;
+          const failed = await getCreativeWork(workspace.id, created.work.id);
+          if (failed?.work?.id) work = failed.work;
         }
       }
 
@@ -157,14 +162,18 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         {
-          work: created.work,
-          canonical: projectCreativeWorkAsCanonicalWork(created.work, []),
-          quote: quoteCreativeWork({
-            intent: created.work.toolKind,
-            format: created.work.format,
-            targetFormats: created.work.settings.targetFormats,
-            directionPool: created.work.settings.directionPool,
-          }),
+          work,
+          canonical: projectCreativeWorkAsCanonicalWork(work, []),
+          // Carousel drafts have no deck yet: the deck-size quote is applied
+          // at generation confirmation (Task 5), never through the legacy quoter.
+          quote: created.work.toolKind === "carousel"
+            ? { plans: [], unitCount: 0, credits: 0 }
+            : quoteCreativeWork({
+                intent: created.work.toolKind,
+                format: created.work.format,
+                targetFormats: created.work.settings.targetFormats,
+                directionPool: created.work.settings.directionPool,
+              }),
           source: {
             ...source,
             name: origin.name,

@@ -1663,6 +1663,39 @@ describe("useCreativeComposer", () => {
     expect(mocks.source).not.toHaveBeenCalled();
   });
 
+  it("mutates with the post-create revision after a template-backed draft", async () => {
+    const createdRevision = "2026-08-31T15:00:00.001Z";
+    mocks.create.mockImplementation((input: { request: string; intent: string; format: string; settings: { targetFormats: string[] } }) => Promise.resolve({
+      work: {
+        ...workDetail().work,
+        id: WORK_ID,
+        request: input.request,
+        toolKind: input.intent,
+        format: input.format,
+        settings: input.settings,
+        updatedAt: createdRevision,
+      },
+      quote: { unitCount: 3, credits: 150 },
+    }));
+    const { result } = renderHook(() => useCreativeComposer());
+
+    await act(() => result.current.addInspiration({
+      id: "template-1", source: "template", title: "Lançamento", previewUrl: null,
+      templateId: "template-1", assetId: null, suggestedIntent: "variations",
+    }));
+    await act(() => result.current.addInspiration({
+      id: "template-2", source: "template", title: "Outra", previewUrl: null,
+      templateId: "template-2", assetId: null, suggestedIntent: "variations",
+    }));
+
+    expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: WORK_ID,
+      action: "attachSource",
+      templateId: "template-2",
+      expectedUpdatedAt: createdRevision,
+    }));
+  });
+
   it("does not announce an attached inspiration when draft creation fails", async () => {
     mocks.create.mockRejectedValue(new Error("draft failed"));
     const { result } = renderHook(() => useCreativeComposer());
@@ -2699,7 +2732,8 @@ describe("useCreativeComposer", () => {
   });
 
   it("saves the brand choice on the same draft and resumes the interrupted submit (R-008)", async () => {
-    mocks.work.mockReturnValue({ data: workDetail({ toolKind: "restyle" }), isLoading: false });
+    const detail = workDetail({ toolKind: "restyle" });
+    mocks.work.mockReturnValue({ data: detail, isLoading: false });
     mocks.prepare
       .mockRejectedValueOnce(Object.assign(new Error("Conflito de marca"), {
         code: "brand_conflict",
@@ -2711,7 +2745,7 @@ describe("useCreativeComposer", () => {
         preparedPlan: preparedPlan("work-1", "restyle"),
       });
     mocks.generate.mockResolvedValue({ work: { status: "generating" }, outputs: [], brandTrainingSuggestion: null });
-    mocks.resolveBrandConflict.mockResolvedValue({ work: workDetail().work });
+    mocks.resolveBrandConflict.mockResolvedValue({ work: { ...detail.work, updatedAt: "2026-08-31T15:00:00.001Z" } });
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
     await act(async () => { await result.current.generateLegacy(); });
@@ -2722,7 +2756,11 @@ describe("useCreativeComposer", () => {
 
     // The choice persisted on the SAME draft (no create) and the interrupted
     // submit resumed: prepare ran again and generation was dispatched.
-    expect(mocks.resolveBrandConflict).toHaveBeenCalledWith({ workItemId: "work-1", choice: "source" });
+    expect(mocks.resolveBrandConflict).toHaveBeenCalledWith({
+      workItemId: "work-1",
+      choice: "source",
+      expectedUpdatedAt: new Date(detail.work.updatedAt).toISOString(),
+    });
     expect(mocks.create).not.toHaveBeenCalled();
     expect(mocks.prepare).toHaveBeenCalledTimes(2);
     expect(mocks.generate).toHaveBeenCalledOnce();

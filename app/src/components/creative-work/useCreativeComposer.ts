@@ -1675,18 +1675,34 @@ export function useCreativeComposer({
   const resolveBrandConflict = useCallback(async (choice: CreativeWorkBrandChoice) => {
     // Double-click guard: one choice in flight per conflict.
     if (!workIdRef.current || !brandConflict || resolveBrandConflictMutation.isPending) return;
+    const workItemId = workIdRef.current;
     try {
+      const expectedUpdatedAt = await resolveCanonicalWorkRevision(workItemId);
+      if (!expectedUpdatedAt) throw new Error("Recarregue o trabalho antes de continuar.");
       // The corrected authority is shown through a new prepared plan; only
       // the temporary control wrapper may subsequently confirm generation.
-      await resolveBrandConflictMutation.mutateAsync({ workItemId: workIdRef.current, choice });
+      const result = await resolveBrandConflictMutation.mutateAsync({
+        workItemId,
+        choice,
+        expectedUpdatedAt,
+      });
+      if (!setCanonicalWorkRevision(workItemId, result.work.updatedAt)) {
+        await refreshCanonicalWorkRevision(workItemId);
+      }
       setBrandConflict(null);
       setAnnouncement("Escolha de marca salva");
       const plan = await preparePlan();
       if (workflowVariant === "control" && plan) await confirmGeneration(plan.preparedRevision);
     } catch (cause) {
+      if (isCreativeWorkConflict(cause)) {
+        workRevisionRef.current = null;
+        workRevisionWorkIdRef.current = workItemId;
+        workRevisionRefreshRequiredRef.current = workItemId;
+        try { await refreshCanonicalWorkRevision(workItemId); } catch { /* keep blocked */ }
+      }
       setError(cause instanceof Error ? cause.message : "Falha ao salvar escolha de marca");
     }
-  }, [brandConflict, confirmGeneration, preparePlan, resolveBrandConflictMutation, workflowVariant]);
+  }, [brandConflict, confirmGeneration, preparePlan, refreshCanonicalWorkRevision, resolveBrandConflictMutation, resolveCanonicalWorkRevision, setCanonicalWorkRevision, workflowVariant]);
 
   const retryOutput = useCallback(async (outputId: string) => {
     if (!workIdRef.current) return;

@@ -602,6 +602,7 @@ interface V1WorkDetail {
     id: string;
     status: string;
     toolKind: string;
+    updatedAt: string;
     settings: Record<string, unknown>;
     copy: { headline: string; body: string; cta: string } | null;
     identitySnapshot?: {
@@ -1241,6 +1242,7 @@ test.describe("Creative Work v1 quality-recovery matrix (R-010)", () => {
     const edit = await page.request.patch(`/api/creative-work/${workId}`, {
       data: {
         action: "editSourceAnalysis",
+        expectedUpdatedAt: new Date(current.work.updatedAt).toISOString(),
         sourceId: contentSource!.id,
         content: {
           ...(currentContent.contentAnalysis ?? {}),
@@ -1262,8 +1264,13 @@ test.describe("Creative Work v1 quality-recovery matrix (R-010)", () => {
     expect(conflictDetails.choices).toEqual(["source", "active"]);
 
     // The choice persists on the SAME draft; the resumed prepare succeeds.
+    const beforeResolve = await apiGetWork(page.request, workId);
     const resolve = await page.request.patch(`/api/creative-work/${workId}`, {
-      data: { action: "resolveBrandConflict", choice: "active" },
+      data: {
+        action: "resolveBrandConflict",
+        choice: "active",
+        expectedUpdatedAt: new Date(beforeResolve.work.updatedAt).toISOString(),
+      },
     });
     expect(resolve.ok(), `resolveBrandConflict must succeed (got ${resolve.status()})`).toBeTruthy();
     const resolvedWork = (await resolve.json()) as { work: { id: string; settings: { brandConflictChoice?: string } } };

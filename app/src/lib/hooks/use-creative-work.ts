@@ -684,10 +684,15 @@ export function useEditCreativeWorkBriefing() {
 export function useResolveBrandConflict() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ workItemId, choice }: { workItemId: string; choice: CreativeWorkBrandChoice }) =>
+    mutationFn: ({ workItemId, choice, expectedUpdatedAt }: {
+      workItemId: string;
+      choice: CreativeWorkBrandChoice;
+      expectedUpdatedAt: string;
+    }) =>
       patchJson<{ work: CreativeWorkDraftItem }>(`/api/creative-work/${workItemId}`, {
         action: "resolveBrandConflict",
         choice,
+        expectedUpdatedAt,
       }),
     onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
   });

@@ -10,6 +10,7 @@ import {
   useCreativeWorkSourceActions,
   useLinkCreativeWorkCampaign,
   usePrepareCreativeWork,
+  useResolveBrandConflict,
   useReviseOutput,
   useSelectOutput,
   useTriggerTriplet,
@@ -52,6 +53,29 @@ describe("draft mutations", () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["creative-work"] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["creative-work", "work-1"] });
     expect(invalidateCanonicalWorks).toHaveBeenCalledWith(queryClient);
+  });
+});
+
+describe("resolveBrandConflict client contract", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("sends the required work revision with the brand choice", async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, json: async () => ({ work: { id: "work-1" } }) } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useResolveBrandConflict(), { wrapper: wrapperWith(queryClient) });
+    await act(() => result.current.mutateAsync({
+      workItemId: "work-1",
+      choice: "source",
+      expectedUpdatedAt: "2026-08-31T12:00:00.000Z",
+    }));
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/creative-work/work-1", expect.objectContaining({
+      method: "PATCH",
+      body: JSON.stringify({
+        action: "resolveBrandConflict",
+        choice: "source",
+        expectedUpdatedAt: "2026-08-31T12:00:00.000Z",
+      }),
+    }));
   });
 });
 

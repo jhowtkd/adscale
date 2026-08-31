@@ -1377,6 +1377,25 @@ describe("creative-work repository", () => {
       expect(query.params.at(-1)).toBe(capturedAt.toISOString());
     });
 
+    it("does not apply a stale brand-conflict patch after a newer revision committed", async () => {
+      const r1 = new Date("2026-08-31T12:00:00.000Z");
+      mocks.state.updateResults.push([]);
+      await expect(updateCreativeWorkDraftIfUnchanged("ws-1", "work-1", r1, {
+        settings: { targetFormats: [], brandConflictChoice: "source", brandConflictDetectedBrand: "XTB" },
+        brief: null,
+        copy: null,
+        inputSnapshot: null,
+      })).resolves.toBeNull();
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({
+        settings: { targetFormats: [], brandConflictChoice: "source", brandConflictDetectedBrand: "XTB" },
+        brief: null,
+        copy: null,
+        inputSnapshot: null,
+      }));
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.params.at(-1)).toBe(r1.toISOString());
+    });
+
     it("holds the preparation callback under a work-scoped advisory transaction lock", async () => {
       const callback = vi.fn(async (executor) => {
         expect(executor).toMatchObject({ execute: mocks.executeMock });

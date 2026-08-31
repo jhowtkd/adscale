@@ -180,6 +180,7 @@ function requestPatch(body: unknown) {
   const requiresRevision = new Set([
     "autosave", "attachSource", "updateSource", "retrySource", "removeSource",
     "updatePieceReference", "replacePieceReference", "promotePieceReference", "editSourceAnalysis",
+    "resolveBrandConflict",
   ]).has(typeof action === "string" ? action : "");
   const payload = requiresRevision && typeof body === "object" && body !== null
     ? { expectedUpdatedAt: "2026-07-13T12:00:00.000Z", ...body }
@@ -1379,15 +1380,84 @@ describe("PATCH /api/creative-work/[id]", () => {
       sourceId: "source-1",
       choices: ["source", "active"],
     });
-    updateDraftMock.mockResolvedValue({ ...workItem, toolKind: "restyle" });
+    updateDraftCasMock.mockResolvedValue({ ...workItem, toolKind: "restyle" });
     const res = await requestPatch({ action: "resolveBrandConflict", choice: "source" });
     expect(res.status).toBe(200);
-    expect(updateDraftMock).toHaveBeenCalledWith("workspace-1", "work-1", {
-      settings: { targetFormats: [], brandConflictChoice: "source", brandConflictDetectedBrand: "XTB" },
-      brief: null,
-      copy: null,
-      inputSnapshot: null,
+    expect(updateDraftCasMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      new Date("2026-07-13T12:00:00.000Z"),
+      {
+        settings: { targetFormats: [], brandConflictChoice: "source", brandConflictDetectedBrand: "XTB" },
+        brief: null,
+        copy: null,
+        inputSnapshot: null,
+      },
+    );
+    expect(updateDraftMock).not.toHaveBeenCalled();
+    expect(confirmMock).not.toHaveBeenCalled();
+    expect(inngestSendMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a stale resolveBrandConflict from R1 after a concurrent R2 autosave without overwriting settings", async () => {
+    getWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        toolKind: "restyle",
+        settings: { targetFormats: [], request: "R2" },
+        updatedAt: new Date("2026-07-13T12:00:01.000Z"),
+      },
+      outputs: [],
+      sources: [],
     });
+    detectDraftConflictMock.mockResolvedValue({
+      detectedBrand: "XTB",
+      activeBrand: "Cenbrap",
+      sourceId: "source-1",
+      choices: ["source", "active"],
+    });
+    const res = await requestPatch({
+      action: "resolveBrandConflict",
+      choice: "source",
+      expectedUpdatedAt: "2026-07-13T12:00:00.000Z",
+    });
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({ code: "stale_input" });
+    expect(updateDraftCasMock).not.toHaveBeenCalled();
+    expect(updateDraftMock).not.toHaveBeenCalled();
+    expect(detectDraftConflictMock).not.toHaveBeenCalled();
+    expect(confirmMock).not.toHaveBeenCalled();
+    expect(inngestSendMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when the CAS write loses a race after the revision pre-check", async () => {
+    getWorkMock.mockResolvedValue({
+      work: { ...workItem, toolKind: "restyle", settings: { targetFormats: [] } },
+      outputs: [],
+      sources: [],
+    });
+    detectDraftConflictMock.mockResolvedValue({
+      detectedBrand: "XTB",
+      activeBrand: "Cenbrap",
+      sourceId: "source-1",
+      choices: ["source", "active"],
+    });
+    updateDraftCasMock.mockResolvedValue(null);
+    const res = await requestPatch({ action: "resolveBrandConflict", choice: "active" });
+    expect(res.status).toBe(409);
+    expect(updateDraftCasMock).toHaveBeenCalledOnce();
+    expect(updateDraftMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects resolveBrandConflict without expectedUpdatedAt before reading the draft", async () => {
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "resolveBrandConflict", choice: "source" }),
+    }), { params: makeParams("work-1") });
+    expect(res.status).toBe(400);
+    expect(getWorkMock).not.toHaveBeenCalled();
+    expect(updateDraftCasMock).not.toHaveBeenCalled();
   });
 
   it("rejects resolveBrandConflict when no brand conflict is detectable in the current draft", async () => {
