@@ -766,7 +766,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           type="button"
           aria-busy={Boolean(pendingLabel)}
           disabled={!composer.canGenerate || Boolean(pendingLabel)}
-          onClick={() => void composer.generate()}
+          onClick={() => void composer.generateLegacy()}
           className={cn(
             "inline-flex min-h-[var(--control-touch)] w-full items-center justify-center gap-2 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] sm:w-auto",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
@@ -780,7 +780,6 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
                   ? t("generateRestyle")
                   : t("generate", {
                       count: composer.quote.unitCount,
-                      credits: composer.quote.credits,
                     })
               }
             />

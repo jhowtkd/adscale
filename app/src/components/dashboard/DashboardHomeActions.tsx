@@ -17,7 +17,7 @@ import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useCreativeWork, type CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { cn } from "@/lib/utils";
 import type { StudioMode } from "@/app/(dashboard)/dashboard-search-params";
-import type { StudioRolloutVariant } from "@/lib/beta-analytics/studio-session";
+import { getOrCreateStudioSession, type StudioRolloutVariant } from "@/lib/beta-analytics/studio-session";
 
 function toTimestamp(value: Date | string) {
   return value instanceof Date ? value.getTime() : new Date(value).getTime();
@@ -104,11 +104,20 @@ export default function DashboardHomeActions({
   // authority because protocol switches may be deferred or cancelled.
   const initialStudioIntent = initialIntent
     ?? (studioMode === "briefing" ? "single" : studioMode === "arte" ? "variations" : undefined);
+  const studioSession = useMemo(
+    () => workspaceId ? getOrCreateStudioSession(workspaceId) : null,
+    [workspaceId],
+  );
   const { composerRef, ...composer } = useCreativeComposer({
     initialWorkId: workId,
     initialIntent: initialStudioIntent,
     focusComposer,
     initialTemplateId: templateId,
+    ...(workspaceId ? {
+      workspaceId,
+      workflowVariant: rolloutVariant,
+      studioSessionId: studioSession?.id,
+    } : {}),
     ...(freshEntry ? { freshEntry: true } : {}),
   });
   const continueTarget = useMemo(() => resolveContinueWork(works), [works]);

@@ -79,7 +79,7 @@ function composer(overrides = {}) {
     composerRef: { current: null }, request: "", setRequest: vi.fn(), intent: "variations", selectIntent: vi.fn(),
     format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(),
     textLayout: "top", setTextLayout: vi.fn(), fontAssetKey: null, setFontAssetKey: vi.fn(), fontOptions: [],
-    directionPool, toggleDirection: vi.fn(), setManualDirectionInstruction: vi.fn(), directionSuggestionState: "idle", pendingDirectionSuggestions: null, applyDirectionSuggestions: vi.fn(), requestDirectionSuggestions: vi.fn(), keepCurrentDirections: vi.fn(), state: "empty", actionPhase: "idle",
+    directionPool, toggleDirection: vi.fn(), setManualDirectionInstruction: vi.fn(), directionSuggestionState: "idle", pendingDirectionSuggestions: null, applyDirectionSuggestions: vi.fn(), requestDirectionSuggestions: vi.fn(), keepCurrentDirections: vi.fn(), state: "empty", stage: "entry", objectiveSelected: true, preparedPlan: null, actionPhase: "idle",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
     inferredBriefing: null, briefingFactPack: null, briefingOverrides: {}, briefingEditState: "idle", editBriefingField: vi.fn(),
     campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(), approveOutput: vi.fn(),
@@ -88,7 +88,7 @@ function composer(overrides = {}) {
     brandConflict: null, resolveBrandConflict: vi.fn(), isResolvingBrandConflict: false,
     retryInitialTemplate: null,
     workError: false,
-    addFiles: vi.fn(), updateSource: vi.fn(), retrySource: vi.fn(), removeSource: vi.fn(), generate: vi.fn(),
+    addFiles: vi.fn(), updateSource: vi.fn(), retrySource: vi.fn(), removeSource: vi.fn(), preparePlan: vi.fn(), confirmGeneration: vi.fn(), generateLegacy: vi.fn(),
     ...overrides,
   };
 }
@@ -257,7 +257,7 @@ describe("CreativeComposer", () => {
     fireEvent.keyDown(textarea, { key: "Enter", code: "Enter" });
 
     expect(value.setRequest).toHaveBeenCalledWith("Linha 1\nLinha 2");
-    expect(value.generate).not.toHaveBeenCalled();
+    expect(value.generateLegacy).not.toHaveBeenCalled();
   });
 
   it("shows concise analysis without the legacy free-form instructions for variations", () => {
@@ -292,6 +292,8 @@ describe("CreativeComposer", () => {
     const context = screen.getByRole("heading", { name: "Leitura da IA" }).closest("section")!;
     const optionalSettings = screen.getByTestId("creative-optional-settings");
     const action = screen.getByTestId("creative-generate-action");
+
+    expect(action.textContent?.toLowerCase()).not.toMatch(/crédito|credit/);
 
     expect(workspace).toHaveClass("items-start", "lg:grid-cols-2");
     expect(referenceAndContext).toContainElement(screen.getByRole("img", { name: "arte.png" }));

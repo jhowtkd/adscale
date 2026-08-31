@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { logger } from "@/lib/logger";
+import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { objectStorage } from "@/server/storage";
 import { isRetryableProviderError } from "@/server/ai/image-generation";
 import { normalizeReferenceBuffers } from "@/server/ai/normalize-image-for-ai";
@@ -255,6 +256,27 @@ async function recordCreativeWorkGenerationAggregateTelemetry(
   if (aggregate.completionEmitted) {
     logCreativeWorkGenerationAggregate({ phase: "completed", ...fields });
   }
+}
+
+async function recordCreativeWorkFunnelEvent(
+  workspaceId: string,
+  workItemId: string,
+  eventKey: "output_ready" | "creative_work_failed",
+): Promise<void> {
+  const aggregate = await getCreativeWork(workspaceId, workItemId);
+  const work = aggregate?.work;
+  if (!work?.createdByUserId) return;
+  await recordBetaAnalyticsEvent({
+    workspaceId,
+    userId: work.createdByUserId,
+    eventKey,
+    source: "server",
+    properties: {
+      creativeWorkId: workItemId,
+      protocol: work.toolKind === "social_post" ? "variations" : work.toolKind,
+      outputCount: aggregate?.outputs.length ?? 0,
+    },
+  });
 }
 
 /**
@@ -1793,6 +1815,14 @@ const creativeWorkOutputJobHandler = async ({
       }
       retainedOutputKey = finalOutputKey;
 
+      try {
+        await recordCreativeWorkFunnelEvent(workspaceId, workItemId, "output_ready");
+      } catch (telemetryError) {
+        logger.warn(
+          `[creativeWorkOutputJob] output_ready telemetry failed outputId=${outputId}: ${telemetryError instanceof Error ? telemetryError.message : String(telemetryError)}`,
+        );
+      }
+
       // Phase 5 / item 37: library on complete (not only on select).
       // Isolated from generation success: a library/storage failure must never
       // reclassify a completed output as failed (retries: 0).
@@ -1987,10 +2017,12 @@ const creativeWorkOutputJobHandler = async ({
           );
         }
       }
+      let refreshedAsFailed = false;
       try {
-        await step.run("refresh-aggregate-status", async () => {
-          await refreshCreativeWorkStatus(workspaceId, workItemId);
-        });
+        const refreshedStatus = await step.run("refresh-aggregate-status", async () =>
+          refreshCreativeWorkStatus(workspaceId, workItemId),
+        );
+        refreshedAsFailed = refreshedStatus === "failed";
       } catch (statusError) {
         const detail =
           statusError instanceof Error
@@ -1999,6 +2031,15 @@ const creativeWorkOutputJobHandler = async ({
         logger.warn(
           `[creativeWorkOutputJob] refresh-status failed outputId=${outputId}: ${detail}`,
         );
+      }
+      if (refreshedAsFailed) {
+        try {
+          await recordCreativeWorkFunnelEvent(workspaceId, workItemId, "creative_work_failed");
+        } catch (telemetryError) {
+          logger.warn(
+            `[creativeWorkOutputJob] creative_work_failed telemetry failed outputId=${outputId}: ${telemetryError instanceof Error ? telemetryError.message : String(telemetryError)}`,
+          );
+        }
       }
       try {
         await step.run("record-generation-aggregate", async () => {

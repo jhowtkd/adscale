@@ -83,14 +83,27 @@ function active(overrides = {}) {
   };
 }
 
-function workDetail(overrides = {}) {
+function preparedPlan(workId = "work-1", protocol = "variations") {
   return {
-    work: {
+    version: 1 as const,
+    workId,
+    preparedRevision: "2026-08-30T12:00:00.000Z",
+    protocol,
+    materials: [],
+    preserve: [],
+    explore: [],
+    outputs: [],
+    outputCount: 3,
+    formats: ["4:5"],
+  };
+}
+
+function workDetail(overrides = {}) {
+  const work = {
       id: "work-1", clientProfileId: profileA.id, request: "Pedido salvo", toolKind: "variations",
       status: "draft", format: "4:5", settings: { targetFormats: [] }, ...overrides,
-    },
-    outputs: [], sources: [],
   };
+  return { work, outputs: [], sources: [], preparedPlan: preparedPlan(work.id, work.toolKind) };
 }
 
 function deferred<T>() {
@@ -131,7 +144,7 @@ describe("useCreativeComposer", () => {
       quote: { unitCount: 3, credits: 150 },
     }));
     mocks.autosave.mockResolvedValue({ work: { id: "work-1" } });
-    mocks.prepare.mockResolvedValue({ work: workDetail().work, quote: { unitCount: 3, credits: 150 } });
+    mocks.prepare.mockResolvedValue({ work: workDetail().work, quote: { unitCount: 3, credits: 150 }, preparedPlan: preparedPlan() });
     mocks.generate.mockResolvedValue({ work: { status: "generating" }, outputs: [] });
     mocks.suggest.mockResolvedValue({ directions: [] });
     mocks.upload.mockResolvedValue({ assetId: "asset-1", name: "arte.png" });
@@ -490,7 +503,7 @@ describe("useCreativeComposer", () => {
 
     act(() => result.current.setRequest("Não deve salvar"));
     await act(() => vi.advanceTimersByTimeAsync(1_000));
-    await act(() => result.current.generate());
+    await act(() => result.current.generateLegacy());
 
     expect(mocks.autosave).not.toHaveBeenCalled();
     expect(mocks.prepare).not.toHaveBeenCalled();
@@ -1674,7 +1687,7 @@ describe("useCreativeComposer", () => {
 
     act(() => result.current.setRequest("Pedido B"));
     let generation!: Promise<void>;
-    act(() => { generation = result.current.generate(); });
+    act(() => { generation = result.current.generateLegacy(); });
     expect(mocks.prepare).not.toHaveBeenCalled();
 
     createA.resolve({
@@ -1706,7 +1719,7 @@ describe("useCreativeComposer", () => {
     lostResponse.reject(new Error("response lost after commit"));
     await act(async () => { await Promise.resolve(); });
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(mocks.create).toHaveBeenCalledTimes(2);
     expect(mocks.autosave).toHaveBeenCalledWith(expect.objectContaining({ request: "Pedido B" }));
@@ -1741,13 +1754,48 @@ describe("useCreativeComposer", () => {
     act(() => result.current.setRequest("Pedido mais recente"));
 
     await act(async () => {
-      await Promise.all([result.current.generate(), result.current.generate()]);
+      await Promise.all([result.current.generateLegacy(), result.current.generateLegacy()]);
     });
 
     expect(mocks.autosave).toHaveBeenCalledOnce();
     expect(mocks.prepare).toHaveBeenCalledOnce();
     expect(mocks.generate).toHaveBeenCalledOnce();
     expect(mocks.autosave.mock.invocationCallOrder[0]).toBeLessThan(mocks.generate.mock.invocationCallOrder[0]);
+  });
+
+  it("prepares a plan without confirming generation", async () => {
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    let plan!: Awaited<ReturnType<typeof result.current.preparePlan>>;
+    await act(async () => { plan = await result.current.preparePlan(); });
+
+    expect(plan).toEqual(expect.objectContaining({ preparedRevision: "2026-08-30T12:00:00.000Z" }));
+    expect(mocks.prepare).toHaveBeenCalledOnce();
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it("confirms only the supplied prepared revision", async () => {
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => { await result.current.confirmGeneration("2026-08-30T12:00:00.000Z"); });
+
+    expect(mocks.prepare).not.toHaveBeenCalled();
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: "work-1",
+      preparedRevision: "2026-08-30T12:00:00.000Z",
+    }));
+  });
+
+  it("does not confirm when the prepared plan is missing", async () => {
+    mocks.work.mockReturnValue({ data: { ...workDetail(), preparedPlan: null }, isLoading: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => { await result.current.confirmGeneration(); });
+
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(result.current.error).toBe("Revise o plano antes de gerar.");
   });
 
   it("keeps the prepared briefing available to the Home surface", async () => {
@@ -1773,6 +1821,7 @@ describe("useCreativeComposer", () => {
     mocks.prepare.mockResolvedValue({
       work: workDetail().work,
       quote: { unitCount: 3, credits: 150 },
+      preparedPlan: preparedPlan(),
       briefing,
       briefingFactPack,
       readiness: briefing.readiness,
@@ -1780,7 +1829,7 @@ describe("useCreativeComposer", () => {
     });
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(result.current.inferredBriefing).toEqual(briefing);
     expect(result.current.briefingFactPack).toEqual(briefingFactPack);
@@ -1813,7 +1862,7 @@ describe("useCreativeComposer", () => {
 
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", initialIntent: "single" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(result.current.inferredBriefing).toEqual(briefing);
     expect(result.current.canGenerate).toBe(false);
@@ -1832,7 +1881,7 @@ describe("useCreativeComposer", () => {
     mocks.generate.mockRejectedValue(Object.assign(new Error("request timed out"), { name: "TimeoutError" }));
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(refetch).toHaveBeenCalledOnce();
     expect(result.current.error).toBeNull();
@@ -1848,7 +1897,7 @@ describe("useCreativeComposer", () => {
     mocks.generate.mockRejectedValue(Object.assign(new Error("request timed out"), { name: "TimeoutError" }));
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(refetch).toHaveBeenCalledOnce();
     expect(result.current.announcement).not.toContain("Geração aceita");
@@ -1869,11 +1918,14 @@ describe("useCreativeComposer", () => {
     await act(async () => Promise.resolve());
 
     expect(result.current.canGenerate).toBe(true);
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(mocks.autosave).not.toHaveBeenCalled();
     expect(mocks.prepare).not.toHaveBeenCalled();
-    expect(mocks.generate).toHaveBeenCalledWith("work-1");
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: "work-1",
+      preparedRevision: "2026-08-30T12:00:00.000Z",
+    }));
     expect(result.current.announcement).toContain("Geração iniciada");
   });
 
@@ -1896,10 +1948,11 @@ describe("useCreativeComposer", () => {
         settings: { targetFormats: [], formatMode: "auto" },
       }).work,
       quote: { unitCount: 1, credits: 50 },
+      preparedPlan: preparedPlan("work-1", "restyle"),
     });
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
     await act(() => vi.advanceTimersByTimeAsync(500));
 
     expect(result.current.format).toBe("9:16");
@@ -1915,7 +1968,7 @@ describe("useCreativeComposer", () => {
     });
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(result.current.brandTrainingSuggestion).toBe("missing_visual_references");
   });
@@ -2024,7 +2077,7 @@ describe("useCreativeComposer", () => {
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", initialIntent: "single" }));
 
     expect(result.current.canGenerate).toBe(false);
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
     expect(mocks.prepare).not.toHaveBeenCalled();
     expect(mocks.generate).not.toHaveBeenCalled();
   });
@@ -2046,7 +2099,7 @@ describe("useCreativeComposer", () => {
     let replacing!: Promise<boolean>;
     act(() => { replacing = result.current.replacePieceReference("source-1", new File(["png"], "replacement.png", { type: "image/png" })); });
     expect(result.current.canGenerate).toBe(false);
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
     expect(mocks.prepare).not.toHaveBeenCalled();
     upload.resolve({ assetId: "asset-new", name: "replacement.png" });
     await act(async () => { await replacing; });
@@ -2068,7 +2121,7 @@ describe("useCreativeComposer", () => {
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
     await act(async () => {
-      await result.current.generate();
+      await result.current.generateLegacy();
     });
 
     expect(mocks.prepare).not.toHaveBeenCalled();
@@ -2084,7 +2137,7 @@ describe("useCreativeComposer", () => {
     }));
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(result.current.brandConflict).toEqual({
       detectedBrand: "XTB", activeBrand: "Marca A", sourceId: "src-1", choices: ["source", "active"],
@@ -2101,7 +2154,7 @@ describe("useCreativeComposer", () => {
     }));
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(result.current.brandConflict).toBeNull();
     expect(result.current.error).toBe("Contexto inválido");
@@ -2117,12 +2170,13 @@ describe("useCreativeComposer", () => {
       .mockResolvedValueOnce({
         work: { ...workDetail().work, format: "4:5" },
         quote: { unitCount: 1, credits: 50 },
+        preparedPlan: preparedPlan("work-1", "restyle"),
       });
     mocks.generate.mockResolvedValue({ work: { status: "generating" }, outputs: [], brandTrainingSuggestion: null });
     mocks.resolveBrandConflict.mockResolvedValue({ work: workDetail().work });
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
     expect(result.current.brandConflict).not.toBeNull();
     expect(mocks.generate).not.toHaveBeenCalled();
 
@@ -2147,7 +2201,7 @@ describe("useCreativeComposer", () => {
     mocks.resolveBrandConflictPending.mockReturnValue(true);
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
     await act(async () => { await result.current.resolveBrandConflict("active"); });
 
     // A choice already in flight (isPending) drops the repeated command.
