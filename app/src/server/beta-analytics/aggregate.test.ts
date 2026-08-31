@@ -27,6 +27,32 @@ import {
 import { EXAMPLE_BETA_SESSION_FIXTURE } from "../repositories/beta-sessions.fixture";
 
 describe("beta analytics aggregate", () => {
+  it("discards explicitly cross-variant Studio events from the frozen arm", () => {
+    const events = STUDIO_ROLLOUT_FIXTURE_EVENTS.map((event) =>
+      event.eventKey === "generation_confirmed"
+        ? { ...event, properties: { ...event.properties, rolloutVariant: "progressive" } }
+        : event,
+    );
+
+    const control = aggregateStudioFunnel(events, STUDIO_ROLLOUT_FIXTURE_USAGE)
+      .find((arm) => arm.variant === "control");
+
+    expect(control?.confirmedGenerations).toBe(0);
+  });
+
+  it("counts a reopened work that reaches its next stage without a new confirmation", () => {
+    const events = STUDIO_ROLLOUT_FIXTURE_EVENTS.filter((event) => [
+      "studio-control-entry",
+      "studio-control-reopen-29",
+      "studio-control-reviewed",
+    ].includes(event.id));
+
+    const control = aggregateStudioFunnel(events, [], new Date("2026-07-03T00:00:00.000Z"))
+      .find((arm) => arm.variant === "control");
+
+    expect(control).toMatchObject({ confirmedGenerations: 0, successfulResumesWithin30m: 1 });
+  });
+
   it("computes mission conversion funnel per missionKey", () => {
     const funnel = aggregateMissionFunnel(ANALYTICS_FIXTURE_EVENTS);
 
