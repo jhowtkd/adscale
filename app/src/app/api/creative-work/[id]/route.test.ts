@@ -113,6 +113,7 @@ vi.mock("@/server/repositories/creative-work", () => ({
   updateCreativeWorkSourceIfUnchanged: (...args: unknown[]) => updateSourceCasMock(...args),
   mutateCreativeWorkPieceReference: (...args: unknown[]) => mutatePieceReferenceMock(...args),
   mutateCreativeWorkDraftSource: (...args: unknown[]) => mutateDraftSourceMock(...args),
+  isCreativeWorkRevisionConflict: (error: unknown) => error instanceof Error && (error as Error & { code?: unknown }).code === "stale_input",
   deleteCreativeWorkSource: (...args: unknown[]) => deleteSourceMock(...args),
   linkCreativeWorkCampaign: (...args: unknown[]) => linkCampaignMock(...args),
 }));
@@ -1107,6 +1108,20 @@ describe("PATCH /api/creative-work/[id]", () => {
     const late = await requestPatch({ action: "autosave", request: "Nova peça", intent: "single", format: "4:5", settings: { targetFormats: [] } });
     expect(late.status).toBe(409);
     expect((await late.json()).code).toBe("creativeWorkNotDraft");
+  });
+
+  it("maps a typed repository revision conflict to stale_input", async () => {
+    autosaveDraftMock.mockRejectedValueOnce(Object.assign(
+      new Error("creative_work_revision_conflict"),
+      { code: "stale_input" },
+    ));
+
+    const response = await requestPatch({
+      action: "autosave", request: "Nova peça", intent: "single", format: "4:5", settings: { targetFormats: [] },
+    });
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe("stale_input");
   });
 
   it("prepares through the existing detail patch", async () => {
