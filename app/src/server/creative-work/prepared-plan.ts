@@ -1,5 +1,6 @@
 import {
   quoteCreativeWork,
+  hasCreativeWorkProtocolSourceShape,
   resolveCreativeWorkFactPack,
   type CreativeWorkFormat,
   type CreativeWorkInputSnapshot,
@@ -86,15 +87,7 @@ function sourceLabel(source: CreativeWorkInputSnapshot["sources"][number]): Prep
 }
 function validSources(protocol: LegacyProtocol, snapshot: CreativeWorkInputSnapshot) {
   if (!Array.isArray(snapshot.sources) || !snapshot.settings || typeof snapshot.request !== "string") return false;
-  const sources = snapshot.sources;
-  if (protocol === "single") return snapshot.request.trim().length > 0 && sources.length <= 3;
-  if (protocol === "variations") return sources.length > 0;
-  if (protocol === "format_adaptation") return sources.length === 1;
-  return sources.length === 2
-    && new Set(sources.map((source) => source.sourceId)).size === 2
-    && sources.some((source) => source.usage === "content")
-    && sources.some((source) => source.usage === "style")
-    && !sources.some((source) => source.usage === "both");
+  return hasCreativeWorkProtocolSourceShape({ intent: protocol, request: snapshot.request, sources: snapshot.sources });
 }
 
 export function projectPreparedPlanV1(work: {

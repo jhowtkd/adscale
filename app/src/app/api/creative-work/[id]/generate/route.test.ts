@@ -73,31 +73,11 @@ describe("POST /api/creative-work/[id]/generate", () => {
 
   it.each([
     ["work_not_found", 404], ["work_not_draft", 409], ["work_not_prepared", 409],
-    ["invalid_context", 422], ["brand_conflict", 422], ["briefing_blocked", 422], ["credit_blocked", 402], ["dispatch_failed", 502],
+    ["credit_blocked", 402], ["dispatch_failed", 502],
   ])("maps %s", async (code, status) => {
     generate.mockResolvedValue({ ok: false, error: { code } });
     const response = await POST(request(), { params: Promise.resolve({ id: "work-1" }) });
     expect(response.status).toBe(status);
   });
 
-  it("maps invalid_context to 422 preserving the violations payload", async () => {
-    const violations = [{ class: "modality", value: "presencial", field: "body" }];
-    generate.mockResolvedValue({ ok: false, error: { code: "invalid_context", details: { violations } } });
-    const response = await POST(request(), { params: Promise.resolve({ id: "work-1" }) });
-    const body = await response.json();
-    expect(response.status).toBe(422);
-    expect(body.code).toBe("invalid_context");
-    expect(body.details).toEqual({ violations });
-  });
-
-  it("maps brand_conflict to 422 preserving the two brand choices (R-003)", async () => {
-    const details = { detectedBrand: "XTB", activeBrand: "Cenbrap", sourceId: "source-1", choices: ["source", "active"] };
-    generate.mockResolvedValue({ ok: false, error: { code: "brand_conflict", details } });
-    const response = await POST(request(), { params: Promise.resolve({ id: "work-1" }) });
-    const body = await response.json();
-    expect(response.status).toBe(422);
-    expect(body.code).toBe("brand_conflict");
-    expect(body.details).toEqual(details);
-    expect(body.details.choices).toHaveLength(2);
-  });
 });

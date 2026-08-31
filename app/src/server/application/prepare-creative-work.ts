@@ -29,6 +29,7 @@ import {
 import { logCreativeWorkBriefingCheck } from "@/server/creative-work/job-telemetry";
 import {
   creativeWorkPreparationSchema,
+  hasCreativeWorkProtocolSourceShape,
   generationPolicyVersionFromSwitch,
   quoteCreativeWork,
   resolveGenerationPolicyVersion,
@@ -135,13 +136,12 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       return { ok: false as const, error: { code: "source_usage_required" as const } };
     }
     const readySources = aggregate.sources.filter((source) => source.status === "ready");
-    if (!aggregate.work.request.trim() && readySources.length === 0) {
-      return { ok: false as const, error: { code: "missing_input" as const } };
-    }
-    if (aggregate.work.toolKind === "variations" && readySources.length < 1) {
-      return { ok: false as const, error: { code: "missing_input" as const } };
-    }
-    if (aggregate.work.toolKind === "format_adaptation" && readySources.length !== 1) {
+    if (aggregate.work.toolKind !== "social_post" && aggregate.work.toolKind !== "carousel"
+      && !hasCreativeWorkProtocolSourceShape({
+        intent: aggregate.work.toolKind,
+        request: aggregate.work.request,
+        sources: readySources.map((source) => ({ sourceId: source.id, usage: source.usage })),
+      })) {
       return { ok: false as const, error: { code: "missing_input" as const } };
     }
     const preparation = creativeWorkPreparationSchema.safeParse({

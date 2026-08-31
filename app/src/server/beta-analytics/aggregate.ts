@@ -1077,7 +1077,13 @@ export function aggregateStudioFunnel(
     const sessionEvents = chronologicalEvents.filter(
       (event) => event.workspaceId === session.workspaceId
         && inWindow(event.createdAt)
-        && propString(event, "studioSessionId") === session.id,
+        && propString(event, "studioSessionId") === session.id
+        // Pre-binding events lack a variant; retain them for historical
+        // reports, but reject any explicitly cross-variant event.
+        && (() => {
+          const eventVariant = propString(event, "rolloutVariant");
+          return eventVariant === null || eventVariant === session.variant;
+        })(),
     );
     const acceptedWorks = new Set(
       sessionEvents
@@ -1141,10 +1147,12 @@ export function aggregateStudioFunnel(
     for (const event of sessionEvents) {
       if (event.eventKey !== "creative_work_reopened") continue;
       const workId = studioWorkId(event);
-      if (!workId || !acceptedWorks.has(workId)) continue;
+      if (!workId) continue;
       const reopenedAt = event.createdAt.getTime();
-      const nextCanonicalStage = workEvents.find((candidate) =>
-        studioWorkId(candidate) === workId
+      const nextCanonicalStage = chronologicalEvents.find((candidate) =>
+        candidate.workspaceId === session.workspaceId
+        && inWindow(candidate.createdAt)
+        && studioWorkId(candidate) === workId
         && CANONICAL_STAGE_EVENTS.has(candidate.eventKey)
         && candidate.createdAt.getTime() > reopenedAt,
       );

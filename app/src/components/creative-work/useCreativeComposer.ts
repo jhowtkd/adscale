@@ -348,6 +348,7 @@ export function useCreativeComposer({
   const { recordEvent } = useRecordBetaEvent(undefined, { includeBetaSession: false });
   const canonicalEventsRef = useRef(new Set<string>());
   const shownPreparedRevisionRef = useRef<string | null>(null);
+  const planInputSignatureRef = useRef("");
 
   const recordStudioEvent = useCallback((eventKey: string, properties: Record<string, string | number | boolean> = {}) => {
     if (!workspaceId || !studioSessionId) return;
@@ -1396,6 +1397,11 @@ export function useCreativeComposer({
       setError("Revise o plano antes de gerar.");
       return;
     }
+    const preparedInput = preparedPlanInputRef.current;
+    if (preparedInput?.revision === revision && preparedInput.signature !== planInputSignatureRef.current) {
+      setError("Revise o plano antes de gerar.");
+      return;
+    }
     if (current && current.status !== "draft" && !(current.status === "ready" && (detailQuery.data?.outputs.length ?? 0) === 0)) return;
     setActionPhase("submitting");
     setError(null);
@@ -1556,7 +1562,23 @@ export function useCreativeComposer({
   const objectiveSelected = objective !== null;
   const preparedPlan = detail?.preparedPlan ?? null;
   const stage = projectComposerStage({ objectiveSelected, detail: detail ?? null });
-  const planInputSignature = `${intent}|${request}|${format}|${formatMode}|${targetFormats.join(",")}|${textLayout}|${directionPool?.selectedIds.join(",") ?? ""}`;
+  const planInputSignature = JSON.stringify({
+    intent,
+    request,
+    format,
+    formatMode,
+    targetFormats,
+    textLayout,
+    fontAssetKey,
+    directions: directionPool && {
+      selectedIds: directionPool.selectedIds,
+      selected: directionPool.directions
+        .filter((direction) => directionPool.selectedIds.includes(direction.id))
+        .map((direction) => ({ id: direction.id, label: direction.label, instruction: direction.instruction })),
+      manualInstruction: directionPool.manualInstruction,
+    },
+  });
+  planInputSignatureRef.current = planInputSignature;
   const preparedPlanInputRef = useRef<{ revision: string; signature: string } | null>(null);
   useEffect(() => {
     if (!preparedPlan) { preparedPlanInputRef.current = null; return; }
@@ -1623,7 +1645,11 @@ export function useCreativeComposer({
     && !resolveBrandConflictMutation.isPending;
   const hasEntry = Boolean(request.trim() || bufferedFile || initialTemplateId || detail?.sources.length);
   const canContinue = objectiveSelected && canGenerate;
-  const visiblePreparedPlan = invalidatedPlanRevision === preparedPlan?.preparedRevision ? null : preparedPlan;
+  const preparedInput = preparedPlanInputRef.current;
+  const planChangedSincePreparation = Boolean(preparedInput
+    && preparedInput.revision === preparedPlan?.preparedRevision
+    && preparedInput.signature !== planInputSignature);
+  const visiblePreparedPlan = invalidatedPlanRevision === preparedPlan?.preparedRevision || planChangedSincePreparation ? null : preparedPlan;
   const visibleStage = visiblePreparedPlan ? stage : stage === "plan" ? "configure" : stage;
   const canConfirm = Boolean(visiblePreparedPlan)
     && actionPhase === "idle"

@@ -101,6 +101,7 @@ function CreateCampaignDialog({
   const t = useTranslations("dashboard.home");
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
+  const [createdCampaignId, setCreatedCampaignId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const createCampaign = useCreateCampaign();
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -108,20 +109,22 @@ function CreateCampaignDialog({
     if (!activeProfile || !name.trim()) return;
     setError(null);
     try {
-      const campaign = await createCampaign.mutateAsync({
+      const campaignId = createdCampaignId ?? (await createCampaign.mutateAsync({
         name: name.trim(),
         client: activeProfile.name,
         clientProfileId: activeProfile.id,
-      });
-      if (await onCreated(campaign.id)) {
+      })).id;
+      if (!createdCampaignId) setCreatedCampaignId(campaignId);
+      if (await onCreated(campaignId)) {
         setName("");
+        setCreatedCampaignId(null);
         setOpen(false);
       } else setError(t("campaignDialog.linkFailed"));
     } catch {
       setError(t("campaignDialog.createFailed"));
     }
   };
-  return <Dialog open={open} onOpenChange={setOpen}>
+  return <Dialog open={open} onOpenChange={(nextOpen) => { setOpen(nextOpen); if (!nextOpen) setCreatedCampaignId(null); }}>
     <button type="button" onClick={() => setOpen(true)} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] px-4 text-sm font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
       <Plus size={16} aria-hidden="true" />{t("campaignDialog.open")}
     </button>
@@ -171,8 +174,8 @@ export default function DashboardHomeActions({
   const initialStudioIntent = initialIntent
     ?? (studioMode === "briefing" ? "single" : studioMode === "arte" ? "variations" : undefined);
   const studioSession = useMemo(
-    () => workspaceId ? getOrCreateStudioSession(workspaceId) : null,
-    [workspaceId],
+    () => workspaceId ? getOrCreateStudioSession(workspaceId, undefined, undefined, rolloutVariant) : null,
+    [rolloutVariant, workspaceId],
   );
   const { composerRef, ...composer } = useCreativeComposer({
     initialWorkId: workId,
@@ -287,7 +290,7 @@ export default function DashboardHomeActions({
         </> : composer.objectiveSelected && !showPlan ? <CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" /> : null}
         {showPlan && billing && !billing.access.hasSpendAccess ? <section className="rounded-[var(--radius-object)] border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4" role="alert"><p className="font-semibold text-[var(--warning-text)]">{t("insufficientBalance")}</p><Link href="/billing" className="mt-2 inline-flex text-sm font-semibold underline">{t("getCredits")}</Link></section> : null}
         {showPlan ? <CreativePlanReview plan={composer.preparedPlan!} busy={composer.actionPhase !== "idle"} onEdit={() => setEditingPreparedPlan(true)} onConfirm={(revision) => composer.confirmGeneration(revision)} /> : null}
-        {composer.objectiveSelected ? <section className="space-y-4" aria-label={t("chooseObjective")}><CreativeToolCards selected={composer.intent} onSelect={(intent) => composer.selectIntent(intent, true)} />{protocolSwitchControls}{inspirationsControl}</section> : null}
+        {composer.objectiveSelected && !resultStage ? <section className="space-y-4" aria-label={t("chooseObjective")}><CreativeToolCards selected={composer.intent} onSelect={(intent) => composer.selectIntent(intent, true)} />{protocolSwitchControls}{inspirationsControl}</section> : null}
       </div>
     );
   }

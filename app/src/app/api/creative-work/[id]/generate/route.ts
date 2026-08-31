@@ -50,11 +50,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         case "work_not_found": return apiError("creativeWorkNotFound", 404);
         case "credit_blocked": return apiError("insufficientCredits", 402, result.error.details);
         case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502);
-        // R-002: same mapping as the prepare route — 422 with details.violations.
-        case "invalid_context": return apiError("invalid_context", 422, result.error.details);
-        // R-003: brand conflict carries the two short choices in details.
-        case "brand_conflict": return apiError("brand_conflict", 422, result.error.details);
-        case "briefing_blocked": return apiError("briefing_blocked", 422, result.error.details);
         default: return apiError("creativeWorkNotReady", 409, result.error.details);
       }
     }

@@ -27,6 +27,7 @@ describe("getOrCreateStudioSession", () => {
     expect(JSON.parse(store.setItem.mock.calls[0]?.[1] ?? "{}")).toEqual({
       id: current.id,
       workspaceId,
+      rolloutVariant: "control",
       expiresAt: now + STUDIO_SESSION_TTL_MS,
     });
 
@@ -36,6 +37,15 @@ describe("getOrCreateStudioSession", () => {
     expect(getOrCreateStudioSession(workspaceId, now + 3, store).id).toMatch(/^[0-9a-f-]{36}$/i);
     store.setItem(STUDIO_SESSION_STORAGE_KEY, JSON.stringify({ ...current, expiresAt: now }));
     expect(getOrCreateStudioSession(workspaceId, now, store).id).not.toBe(current.id);
+  });
+
+  it("rotates the session when the rollout variant changes", () => {
+    const store = storage();
+    const control = getOrCreateStudioSession(workspaceId, 1_000, store, "control");
+    const progressive = getOrCreateStudioSession(workspaceId, 1_001, store, "progressive");
+
+    expect(progressive.id).not.toBe(control.id);
+    expect(progressive.rolloutVariant).toBe("progressive");
   });
 
   it("keeps a valid in-memory session when sessionStorage access throws", () => {

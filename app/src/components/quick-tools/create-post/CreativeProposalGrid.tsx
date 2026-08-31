@@ -77,32 +77,6 @@ function lineageRootId(outputs: readonly CreativeWorkOutput[], output: CreativeW
   return lineage.at(-1)?.id ?? output.id;
 }
 
-// History is the connected parent/child family rather than only ancestors of
-// the current visual. This retains failed descendants for retry while the
-// usable ancestor remains the visible source.
-function outputFamily(outputs: readonly CreativeWorkOutput[], current: CreativeWorkOutput) {
-  const byId = new Map(outputs.map((output) => [output.id, output]));
-  const visited = new Set<string>([current.id]);
-  const queue = [current.id];
-  while (queue.length) {
-    const id = queue.shift()!;
-    const output = byId.get(id);
-    const neighbours = [
-      output?.parentOutputId ? byId.get(output.parentOutputId) : undefined,
-      ...outputs.filter((candidate) => candidate.parentOutputId === id),
-    ];
-    for (const neighbour of neighbours) {
-      if (neighbour && !visited.has(neighbour.id)) {
-        visited.add(neighbour.id);
-        queue.push(neighbour.id);
-      }
-    }
-  }
-  return outputs
-    .filter((output) => visited.has(output.id))
-    .sort((left, right) => (right.versionNumber ?? 1) - (left.versionNumber ?? 1));
-}
-
 export default function CreativeProposalGrid({
   outputs,
   onRetry,
@@ -171,9 +145,9 @@ export default function CreativeProposalGrid({
   const generationCopy = selected.status === "processing"
     ? [t("factoryProcessingTitle"), t("factoryProcessingDescription")]
     : [t("factoryQueuedTitle"), t("factoryQueuedDescription")];
-  const selectedFamily = outputFamily(outputs, selected);
+  const selectedLineage = outputLineage(outputs, selected);
   const historyOutput = historyOutputId ? visible.find((output) => output.id === historyOutputId) : null;
-  const historyLineage = historyOutput ? outputFamily(outputs, historyOutput) : [];
+  const historyLineage = historyOutput ? outputLineage(outputs, historyOutput) : [];
   const compareAncestor = compareAncestorId
     ? historyLineage.find((output) => output.id === compareAncestorId && hasUsableOutput(output))
     : null;
@@ -281,7 +255,7 @@ export default function CreativeProposalGrid({
             }}
             hidePreview
           />
-          {selectedFamily.length > 1 ? <button type="button" onClick={() => setHistoryOutputId(selected.id)} className="mt-3 text-sm font-semibold underline">{t("proposal.variations", { count: selectedFamily.length })}</button> : null}
+          {selectedLineage.length > 1 ? <button type="button" onClick={() => setHistoryOutputId(selected.id)} className="mt-3 text-sm font-semibold underline">{t("proposal.variations", { count: selectedLineage.length })}</button> : null}
         </div>
       </div>
 

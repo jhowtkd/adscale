@@ -179,6 +179,9 @@ describe("DashboardHomeActions", () => {
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("A campanha foi criada, mas não foi possível vinculá-la a esta criação. Tente novamente."));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(linkCampaign).toHaveBeenCalledWith("campaign-1");
+    fireEvent.submit(within(dialog).getByRole("button", { name: "Criar campanha" }).closest("form")!);
+    await waitFor(() => expect(linkCampaign).toHaveBeenCalledTimes(2));
+    expect(createCampaignMutationMock).toHaveBeenCalledTimes(1);
   });
 
   it("opens the work's own page even when continue targets the work open on Home (#126)", () => {
@@ -480,9 +483,8 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("progressive-results-summary")).toHaveTextContent("Volta às aulas");
     expect(screen.getByTestId("progressive-results-summary")).not.toHaveTextContent("Campanha de matrículas");
     expect(screen.getByTestId("progressive-results-summary")).not.toHaveTextContent("work-1");
-    expect(screen.getByRole("button", { name: "Inspirações p1" })).toBeInTheDocument();
-    fireEvent.click(protocolButton("restyle"));
-    expect(selectIntentMock).toHaveBeenCalledWith("restyle", true);
+    expect(screen.queryByRole("button", { name: "Inspirações p1" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /restyle/i })).not.toBeInTheDocument();
   });
 
   it("marks an all-failed progressive result distinctly while keeping its controls reachable", () => {
@@ -496,8 +498,8 @@ describe("DashboardHomeActions", () => {
     render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
 
     expect(screen.getByTestId("progressive-results-summary")).toHaveTextContent("dashboard.home.resultStateFailed");
-    expect(screen.getByRole("button", { name: "Inspirações p1" })).toBeInTheDocument();
-    expect(protocolButton("variations")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Inspirações p1" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /variations/i })).not.toBeInTheDocument();
   });
 
   it("returns to confirmation after a successful no-op reprepare", async () => {
