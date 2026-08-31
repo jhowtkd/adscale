@@ -51,8 +51,8 @@ vi.mock("@/components/creative-work/useCreativeComposer", () => ({
   useCreativeComposer: (...args: unknown[]) => useComposerMock(...args),
 }));
 vi.mock("@/components/creative-work/CreativeComposer", () => ({
-  CreativeComposer: ({ composer, initialWorkId }: { composer?: { intent: string; quote: { credits: number } }; initialWorkId?: string }) => (
-    <div data-testid="creative-composer">{composer ? `${composer.intent}:${composer.quote.credits}` : initialWorkId}</div>
+  CreativeComposer: ({ composer, initialWorkId, hideSourceUpload }: { composer?: { intent: string; quote: { credits: number } }; initialWorkId?: string; hideSourceUpload?: boolean }) => (
+    <div data-testid="creative-composer" data-hide-source-upload={hideSourceUpload ? "true" : "false"}>{composer ? `${composer.intent}:${composer.quote.credits}` : initialWorkId}</div>
   ),
 }));
 vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
@@ -186,6 +186,7 @@ describe("DashboardHomeActions", () => {
 
     render(<DashboardHomeActions />);
     expect(screen.getByTestId("creative-composer")).toHaveTextContent("single:5");
+    expect(screen.getByTestId("creative-composer")).toHaveAttribute("data-hide-source-upload", "false");
 
     fireEvent.click(protocolButton("variations"));
     expect(screen.getByTestId("creative-composer")).toHaveTextContent("variations:5");
