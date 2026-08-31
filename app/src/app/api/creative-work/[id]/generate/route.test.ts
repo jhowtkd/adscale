@@ -2,8 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const generate = vi.hoisted(() => vi.fn());
 const revise = vi.hoisted(() => vi.fn());
+const generateCarousel = vi.hoisted(() => vi.fn());
+const getWork = vi.hoisted(() => vi.fn());
 vi.mock("@/server/application/generate-creative-work", () => ({ generateCreativeWork: generate }));
 vi.mock("@/server/application/revise-creative-work-output", () => ({ reviseCreativeWorkOutput: revise }));
+vi.mock("@/server/application/generate-carousel-work", () => ({ generateCarouselWork: generateCarousel }));
+vi.mock("@/server/repositories/creative-work", () => ({ getCreativeWork: getWork }));
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: vi.fn(async () => ({ user: { id: "user-1" }, workspace: { id: "ws-1" } })),
 }));
@@ -18,7 +22,9 @@ const request = (body: unknown = { action: "initial", preparedRevision: "2026-07
 describe("POST /api/creative-work/[id]/generate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getWork.mockResolvedValue({ work: { id: "work-1", toolKind: "single" }, outputs: [], sources: [] });
     generate.mockResolvedValue({ ok: true, value: { work: { id: "work-1" }, outputs: [{ id: "output-1" }], billingKey: "creative-work:work-1:initial", brandTrainingSuggestion: null } });
+    generateCarousel.mockResolvedValue({ ok: true, value: { work: { id: "work-1" }, carouselSlides: [{ id: "slide-1" }], preparedRevision: "prep-1" } });
     revise.mockResolvedValue({ ok: true, value: { output: { id: "output-v2", versionNumber: 2 } } });
   });
 
@@ -80,4 +86,50 @@ describe("POST /api/creative-work/[id]/generate", () => {
     expect(response.status).toBe(status);
   });
 
+  it("routes carousel works to generateCarouselWork and returns work, slides and revision with 202", async () => {
+    getWork.mockResolvedValue({ work: { id: "work-1", toolKind: "carousel" }, outputs: [], sources: [] });
+    const body = { action: "initial", preparedRevision: "prep-1", studioSessionId: "00000000-0000-4000-8000-000000000001", rolloutVariant: "progressive" };
+    const response = await POST(request(body), { params: Promise.resolve({ id: "work-1" }) });
+
+    expect(response.status).toBe(202);
+    expect(generateCarousel).toHaveBeenCalledWith({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      userId: "user-1",
+      preparedRevision: "prep-1",
+      studioSessionId: "00000000-0000-4000-8000-000000000001",
+      rolloutVariant: "progressive",
+    });
+    expect(generate).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toEqual({
+      work: { id: "work-1" },
+      carouselSlides: [{ id: "slide-1" }],
+      preparedRevision: "prep-1",
+    });
+  });
+
+  it("rejects a carousel request without preparedRevision before any command runs", async () => {
+    getWork.mockResolvedValue({ work: { id: "work-1", toolKind: "carousel" }, outputs: [], sources: [] });
+    const response = await POST(request({ action: "initial" }), { params: Promise.resolve({ id: "work-1" }) });
+
+    expect(response.status).toBe(400);
+    expect(generateCarousel).not.toHaveBeenCalled();
+    expect(generate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-carousel initial request without the datetime preparedRevision", async () => {
+    const response = await POST(request({ action: "initial", preparedRevision: "prep-1" }), { params: Promise.resolve({ id: "work-1" }) });
+
+    expect(response.status).toBe(400);
+    expect(generate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["stale_input", 409], ["credit_blocked", 402], ["dispatch_failed", 502], ["work_not_found", 404],
+  ])("maps carousel %s to %i", async (code, status) => {
+    getWork.mockResolvedValue({ work: { id: "work-1", toolKind: "carousel" }, outputs: [], sources: [] });
+    generateCarousel.mockResolvedValue({ ok: false, error: { code } });
+    const response = await POST(request({ action: "initial", preparedRevision: "prep-1" }), { params: Promise.resolve({ id: "work-1" }) });
+    expect(response.status).toBe(status);
+  });
 });

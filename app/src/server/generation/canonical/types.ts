@@ -91,7 +91,7 @@ export interface GenerationSource {
 }
 
 export interface GenerationDestination {
-  kind: "derivation" | "creative_work_output";
+  kind: "derivation" | "creative_work_output" | "creative_work_carousel_slide";
   id: string;
   storagePrefix: string;
   campaignId?: string;
