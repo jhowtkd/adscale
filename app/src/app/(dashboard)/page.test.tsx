@@ -24,18 +24,18 @@ describe("parseDashboardSearchParams", () => {
         templateId: "../../other-workspace",
         intent: "social_post",
       })
-    ).toEqual({ initialIntent: "variations" });
+    ).toEqual({});
   });
 
   it("keeps a safe template on reload with workId so attachment can replay idempotently", () => {
     expect(
       parseDashboardSearchParams({ workId: WORK_ID, templateId: TEMPLATE_ID })
-    ).toEqual({ workId: WORK_ID, templateId: TEMPLATE_ID, initialIntent: "variations" });
+    ).toEqual({ workId: WORK_ID, templateId: TEMPLATE_ID });
   });
 
   it("accepts only UUID work identifiers", () => {
-    expect(parseDashboardSearchParams({ workId: WORK_ID })).toEqual({ workId: WORK_ID, initialIntent: "variations" });
-    expect(parseDashboardSearchParams({ workId: "../../other-workspace" })).toEqual({ initialIntent: "variations" });
+    expect(parseDashboardSearchParams({ workId: WORK_ID })).toEqual({ workId: WORK_ID });
+    expect(parseDashboardSearchParams({ workId: "../../other-workspace" })).toEqual({});
   });
 
   it("uses briefing mode only when an explicit intent is absent", () => {
@@ -58,6 +58,6 @@ describe("parseDashboardSearchParams", () => {
       initialIntent: "variations",
       freshEntry: true,
     });
-    expect(parseDashboardSearchParams({ fresh: "true" })).toEqual({ initialIntent: "variations" });
+    expect(parseDashboardSearchParams({ fresh: "true" })).toEqual({});
   });
 });

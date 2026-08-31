@@ -157,6 +157,82 @@ describe("useCreativeComposer", () => {
     mocks.brandKnowledge.mockReturnValue({ data: { activeVersion: null }, isLoading: false });
   });
 
+  it("keeps text-only progressive entry local until an objective is chosen", async () => {
+    const { result } = renderHook(() => useCreativeComposer({ workflowVariant: "progressive" }));
+
+    act(() => result.current.setRequest("Nova campanha de primavera"));
+    await act(() => vi.advanceTimersByTimeAsync(600));
+
+    expect(result.current.objective).toBeNull();
+    expect(result.current.hasEntry).toBe(true);
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.autosave).not.toHaveBeenCalled();
+    expect(mocks.upload).not.toHaveBeenCalled();
+    expect(window.location.search).not.toContain("workId");
+  });
+
+  it("buffers only the first progressive file until the objective is chosen", async () => {
+    const first = new File(["first"], "primeira.png", { type: "image/png" });
+    const second = new File(["second"], "segunda.png", { type: "image/png" });
+    const { result } = renderHook(() => useCreativeComposer({ workflowVariant: "progressive" }));
+
+    await act(async () => { await result.current.addFiles([first, second]); });
+
+    expect(result.current.bufferedFile).toBe(first);
+    expect(result.current.announcement).toMatch(/primeira arte/i);
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.upload).not.toHaveBeenCalled();
+    act(() => result.current.clearBufferedFile());
+    expect(result.current.bufferedFile).toBeNull();
+  });
+
+  it("materializes the selected progressive objective with the buffered file exactly once", async () => {
+    const file = new File(["image"], "arte.png", { type: "image/png" });
+    const { result } = renderHook(() => useCreativeComposer({ workflowVariant: "progressive" }));
+    act(() => result.current.setRequest("Lançamento"));
+    await act(async () => { await result.current.addFiles([file]); });
+
+    await act(async () => { await result.current.selectIntent("variations"); });
+
+    expect(result.current.objective).toBe("variations");
+    expect(mocks.upload).toHaveBeenCalledWith(file);
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      request: "Lançamento",
+      intent: "variations",
+      assetId: "asset-1",
+    }));
+    expect(result.current.bufferedFile).toBeNull();
+    expect(window.location.search).toContain(`workId=${WORK_ID}`);
+  });
+
+  it("keeps a buffered progressive file after upload failure", async () => {
+    const file = new File(["image"], "arte.png", { type: "image/png" });
+    mocks.upload.mockRejectedValueOnce(new Error("upload indisponível"));
+    const { result } = renderHook(() => useCreativeComposer({ workflowVariant: "progressive" }));
+    await act(async () => { await result.current.addFiles([file]); });
+
+    await act(async () => { await result.current.selectIntent("single"); });
+
+    expect(result.current.bufferedFile).toBe(file);
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(result.current.error).toBe("upload indisponível");
+  });
+
+  it("holds a template link as progressive entry context until an explicit objective", async () => {
+    const { result } = renderHook(() => useCreativeComposer({
+      workflowVariant: "progressive",
+      initialTemplateId: TEMPLATE_ID,
+    }));
+    await act(async () => Promise.resolve());
+
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.source).not.toHaveBeenCalled();
+    await act(async () => { await result.current.selectIntent("restyle"); });
+    await act(async () => Promise.resolve());
+
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ templateId: TEMPLATE_ID }));
+  });
+
   it("exposes the frozen Brand Cortex snapshot on Peça única", async () => {
     mocks.work.mockReturnValue({
       data: workDetail({

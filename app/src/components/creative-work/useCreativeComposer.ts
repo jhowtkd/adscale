@@ -186,7 +186,7 @@ export function projectComposerStage(input: {
 
 export function useCreativeComposer({
   initialWorkId,
-  initialIntent = "variations",
+  initialIntent,
   workspaceId,
   workflowVariant = "control",
   studioSessionId,
@@ -206,25 +206,32 @@ export function useCreativeComposer({
 } = {}) {
   const tResults = useTranslations("dashboard.home.composer.results");
   const active = useActiveClientProfile();
-  const initialTargetFormats: Format[] = initialIntent === "format_adaptation"
+  // Keep the old fallback internal only. A progressive plain entry must not
+  // turn it into a selected objective or a persistence trigger.
+  const internalInitialIntent: ComposerIntent = initialIntent ?? "variations";
+  const progressivePlainEntry = workflowVariant === "progressive" && !initialWorkId && !initialIntent;
+  const initialObjective = progressivePlainEntry ? null : internalInitialIntent;
+  const initialTargetFormats: Format[] = internalInitialIntent === "format_adaptation"
     ? ["1:1", "9:16"]
     : [];
   const [workId, setWorkId] = useState<string | null>(initialWorkId ?? null);
   const [request, setRequestState] = useState("");
-  const [intent, setIntent] = useState<ComposerIntent>(initialIntent);
+  const [intent, setIntent] = useState<ComposerIntent>(internalInitialIntent);
+  const [objective, setObjective] = useState<ComposerIntent | null>(initialObjective);
+  const [bufferedFile, setBufferedFile] = useState<File | null>(null);
   const [format, setFormat] = useState<Format>("4:5");
   const [formatMode, setFormatMode] = useState<"auto" | "manual">("auto");
   const [targetFormats, setTargetFormats] = useState<Format[]>(initialTargetFormats);
   const [textLayout, setTextLayout] = useState<"top" | "center" | "bottom" | "side">("top");
   const [fontAssetKey, setFontAssetKey] = useState<string | null>(null);
   const [directionPool, setDirectionPool] = useState<CreativeDirectionPool | null>(
-    initialIntent === "variations" ? createDefaultCreativeDirectionPool() : null,
+    internalInitialIntent === "variations" ? createDefaultCreativeDirectionPool() : null,
   );
   const [quote, setQuote] = useState(() => canonicalQuote(
-    initialIntent,
+    internalInitialIntent,
     "4:5",
     initialTargetFormats,
-    initialIntent === "variations" ? createDefaultCreativeDirectionPool() : undefined,
+    internalInitialIntent === "variations" ? createDefaultCreativeDirectionPool() : undefined,
   ));
   const [inferredBriefingContext, setInferredBriefingContext] = useState<{
     briefing: InferredBriefing;
@@ -267,6 +274,7 @@ export function useCreativeComposer({
   const workIdRef = useRef(workId);
   const requestRef = useRef(request);
   const intentRef = useRef(intent);
+  const objectiveRef = useRef(objective);
   const formatRef = useRef(format);
   const targetFormatsRef = useRef(targetFormats);
   const textLayoutRef = useRef<"top" | "center" | "bottom" | "side">("top");
@@ -345,6 +353,7 @@ export function useCreativeComposer({
   useEffect(() => { workIdRef.current = workId; }, [workId]);
   useEffect(() => { requestRef.current = request; }, [request]);
   useEffect(() => { intentRef.current = intent; }, [intent]);
+  useEffect(() => { objectiveRef.current = objective; }, [objective]);
   useEffect(() => { formatRef.current = format; }, [format]);
   useEffect(() => { targetFormatsRef.current = targetFormats; }, [targetFormats]);
   useEffect(() => { textLayoutRef.current = textLayout; }, [textLayout]);
@@ -353,8 +362,8 @@ export function useCreativeComposer({
   useEffect(() => {
     recordStudioEvent("studio_entry_started");
     // The control presentation still starts with its visible default protocol.
-    recordStudioEvent("studio_goal_selected", { protocol: initialIntent });
-  }, [initialIntent, recordStudioEvent]);
+    if (initialObjective) recordStudioEvent("studio_goal_selected", { protocol: initialObjective });
+  }, [initialObjective, recordStudioEvent]);
 
   useEffect(() => {
     if (!initialWorkId || !detailQuery.data?.work) return;
@@ -476,14 +485,14 @@ export function useCreativeComposer({
 
   useEffect(() => {
     const profileId = active.activeClientProfileId;
-    if (freshEntry || initialWorkId || workIdRef.current || !profileId || restoredProfileRef.current === profileId) return;
+    if (freshEntry || initialWorkId || progressivePlainEntry || workIdRef.current || !profileId || restoredProfileRef.current === profileId) return;
     restoredProfileRef.current = profileId;
     const storedWorkId = readStoredDraft(profileId, intentRef.current);
     if (!storedWorkId) return;
     workIdRef.current = storedWorkId;
     setWorkId(storedWorkId);
     exposeWorkId(storedWorkId);
-  }, [active.activeClientProfileId, exposeWorkId, freshEntry, initialWorkId]);
+  }, [active.activeClientProfileId, exposeWorkId, freshEntry, initialWorkId, progressivePlainEntry]);
 
   const consumeInitialTemplateParams = useCallback(() => {
     if (
@@ -510,6 +519,7 @@ export function useCreativeComposer({
   }, [initialTemplateId]);
 
   const ensureDraft = useCallback((source?: DraftSource, silent = false) => {
+    if (workflowVariant === "progressive" && !objectiveRef.current) return Promise.resolve(null);
     if (workIdRef.current) return Promise.resolve(workIdRef.current);
     if (createInFlightRef.current) {
       const creating = createInFlightRef.current;
@@ -571,7 +581,7 @@ export function useCreativeComposer({
     });
     createInFlightRef.current = promise;
     return promise;
-  }, [active.activeClientProfileId, captureSnapshot, createMutation, enqueueSave, exposeWorkId, recordCanonicalEvent, sourceMutation]);
+  }, [active.activeClientProfileId, captureSnapshot, createMutation, enqueueSave, exposeWorkId, recordCanonicalEvent, sourceMutation, workflowVariant]);
 
   const persistSnapshot = useCallback((id: string, snapshot: DraftSnapshot, announce = true) => enqueueSave(async () => {
     if (autosaveBlockedWorkRef.current === id) return;
@@ -609,6 +619,7 @@ export function useCreativeComposer({
   }, [captureSnapshot, detailQuery.data?.work, ensureDraft, initialWorkId, persistSnapshot]);
 
   persistOnUnmountRef.current = async () => {
+    if (workflowVariant === "progressive" && !objectiveRef.current) return;
     if (initialWorkId && !hydratedWorkRef.current) return;
     await saveChainRef.current;
     const id = workIdRef.current ?? await ensureDraft(undefined, true);
@@ -685,6 +696,7 @@ export function useCreativeComposer({
   }, [focusComposer]);
 
   useEffect(() => {
+    if (workflowVariant === "progressive" && !objective) return;
     if (initialWorkId && !hydratedWorkRef.current) return;
     const current = detailQuery.data?.work;
     if (workIdRef.current && (!current || current.id !== workIdRef.current)) return;
@@ -702,7 +714,7 @@ export function useCreativeComposer({
       void save().catch((cause) => setError(cause instanceof Error ? cause.message : "Falha ao salvar"));
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [active.activeClientProfileId, captureSnapshot, detailQuery.data?.work, directionPool, ensureDraft, fontAssetKey, format, formatMode, initialWorkId, intent, persistSnapshot, request, targetFormats, textLayout]);
+  }, [active.activeClientProfileId, captureSnapshot, detailQuery.data?.work, directionPool, ensureDraft, fontAssetKey, format, formatMode, initialWorkId, intent, objective, persistSnapshot, request, targetFormats, textLayout, workflowVariant]);
 
   const setRequest = useCallback((value: string) => {
     requestRef.current = value;
@@ -804,6 +816,41 @@ export function useCreativeComposer({
   }, [active.activeClientProfileId, detailQuery.data, ensureDraft, exposeIntent, exposeWorkId, flushAutosave]);
 
   const selectIntent = useCallback((next: ComposerIntent) => {
+    if (workflowVariant === "progressive" && !objectiveRef.current) {
+      // This is the first durable decision. Keep the free-entry request and
+      // buffered file intact while only applying the protocol defaults.
+      objectiveRef.current = next;
+      setObjective(next);
+      intentRef.current = next;
+      setIntent(next);
+      const nextTargets: Format[] = next === "format_adaptation" ? ["1:1", "9:16"] : [];
+      targetFormatsRef.current = nextTargets;
+      setTargetFormats(nextTargets);
+      const nextDirectionPool = next === "variations" ? createDefaultCreativeDirectionPool() : null;
+      directionPoolRef.current = nextDirectionPool;
+      setDirectionPool(nextDirectionPool);
+      setQuote(canonicalQuote(next, formatRef.current, nextTargets, nextDirectionPool ?? undefined));
+      exposeIntent(next);
+      recordStudioEvent("studio_goal_selected", { protocol: next });
+      return (async () => {
+        if (bufferedFile) {
+        uploadInFlightRef.current = true;
+        setIsUploading(true);
+        try {
+          const uploaded = await uploadChatAttachment(bufferedFile);
+          const usage: CreativeSourceUsage = next === "restyle" ? "content" : "both";
+          if (await ensureDraft({ assetId: uploaded.assetId, usage })) setBufferedFile(null);
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : "Falha ao adicionar arte");
+        } finally {
+          uploadInFlightRef.current = false;
+          setIsUploading(false);
+        }
+        } else if (requestRef.current.trim()) {
+          await ensureDraft();
+        }
+      })();
+    }
     if (next === intentRef.current) return;
     const currentSnapshot = captureSnapshot();
     const hasUnsavedChanges = lastPersistedRef.current !== null
@@ -819,7 +866,7 @@ export function useCreativeComposer({
       return;
     }
     void switchToProtocol(next);
-  }, [actionPhase, captureSnapshot, createMutation.isPending, isUploading, sourceMutation.isPending, switchToProtocol]);
+  }, [actionPhase, bufferedFile, captureSnapshot, createMutation.isPending, ensureDraft, exposeIntent, isUploading, recordStudioEvent, sourceMutation.isPending, switchToProtocol, workflowVariant]);
 
   const confirmProtocolSwitch = useCallback(() => {
     const next = pendingProtocolSwitch;
@@ -946,18 +993,23 @@ export function useCreativeComposer({
     preferredUsage?: CreativeSourceUsage,
   ) => {
     const images = collectImageFiles(files);
-    if (images.length === 0) return;
+    if (images.length === 0) return false;
+    if (workflowVariant === "progressive" && !objectiveRef.current) {
+      setBufferedFile(images[0]!);
+      if (images.length > 1) announce("A primeira arte foi mantida; as demais podem ser adicionadas depois de escolher o objetivo.");
+      return true;
+    }
     const accepted = intentRef.current === "single"
       ? images.slice(0, Math.max(0, MAX_PIECE_REFERENCES - (detailQuery.data?.sources.filter((source) => source.assetId).length ?? 0)))
       : images;
     const rejectedByLimit = images.length - accepted.length;
     if (accepted.length === 0) {
       announce(`Limite de 3 atingido; ${rejectedByLimit} arquivo${rejectedByLimit === 1 ? "" : "s"} não enviado${rejectedByLimit === 1 ? "" : "s"}`);
-      return;
+      return false;
     }
     if (!workIdRef.current && !active.activeClientProfileId) {
       focusBrandSwitcher();
-      return;
+      return false;
     }
     uploadInFlightRef.current = true;
     setIsUploading(true);
@@ -987,13 +1039,15 @@ export function useCreativeComposer({
       setInferredBriefingContext(null);
       const addedAnnouncement = accepted.length === 1 ? "Arte adicionada" : `${accepted.length} artes adicionadas`;
       announce(rejectedByLimit > 0 ? `${addedAnnouncement}; ${rejectedByLimit} arquivo${rejectedByLimit === 1 ? "" : "s"} não enviado${rejectedByLimit === 1 ? "" : "s"} pelo limite de 3` : addedAnnouncement);
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao adicionar arte");
+      return false;
     } finally {
       uploadInFlightRef.current = false;
       setIsUploading(false);
     }
-  }, [active.activeClientProfileId, announce, detailQuery.data?.sources, ensureDraft, sourceMutation]);
+  }, [active.activeClientProfileId, announce, detailQuery.data?.sources, ensureDraft, sourceMutation, workflowVariant]);
 
   const attachDraftSource = useCallback(async (source: DraftSource): Promise<boolean> => {
     if (!workIdRef.current && !active.activeClientProfileId) {
@@ -1037,7 +1091,7 @@ export function useCreativeComposer({
         }
         assetId = payload.assetId;
       }
-      selectIntent(inspiration.suggestedIntent === "social_post" ? "variations" : inspiration.suggestedIntent);
+      await selectIntent(inspiration.suggestedIntent === "social_post" ? "variations" : inspiration.suggestedIntent);
       const source: DraftSource = inspiration.templateId
         ? { templateId: inspiration.templateId, usage: inspiration.suggestedIntent === "restyle" ? "style" : "both" }
         : { assetId: assetId!, usage: inspiration.suggestedIntent === "restyle" ? "style" : "both" };
@@ -1059,6 +1113,9 @@ export function useCreativeComposer({
 
   useEffect(() => {
     if (!initialTemplateId || autoTemplateRef.current === initialTemplateId) return;
+    // A template without a protocol is entry context, not permission to
+    // materialize a default draft. It attaches after the explicit objective.
+    if (workflowVariant === "progressive" && !objective) return;
     if (active.isLoading) return;
     if (initialWorkId && !hydratedWorkRef.current) return;
     if (detailQuery.data?.sources.some((source) => source.templateId === initialTemplateId)) {
@@ -1102,7 +1159,9 @@ export function useCreativeComposer({
     failedInitialTemplateId,
     initialTemplateId,
     initialWorkId,
+    objective,
     templateRetryToken,
+    workflowVariant,
   ]);
 
   const runSourceAction = useCallback(async (action: Parameters<typeof sourceMutation.mutateAsync>[0]): Promise<boolean> => {
@@ -1404,7 +1463,7 @@ export function useCreativeComposer({
   }, [linkCampaignMutation]);
 
   const detail = detailQuery.data;
-  const objectiveSelected = true;
+  const objectiveSelected = objective !== null;
   const preparedPlan = detail?.preparedPlan ?? null;
   const stage = projectComposerStage({ objectiveSelected, detail: detail ?? null });
   const state = useMemo<ComposerState>(() => {
@@ -1452,6 +1511,12 @@ export function useCreativeComposer({
     // A brand choice being applied resumes the submit itself — a manual
     // click in that window would race it with a concurrent generate.
     && !resolveBrandConflictMutation.isPending;
+  const hasEntry = Boolean(request.trim() || bufferedFile || initialTemplateId || detail?.sources.length);
+  const canContinue = objectiveSelected && canGenerate;
+  const canConfirm = Boolean(preparedPlan)
+    && actionPhase === "idle"
+    && !generateMutation.isPending
+    && !submitGuardRef.current;
 
   const campaigns = (campaignQuery.data ?? []).filter((campaign) =>
     !campaign.clientProfileId || campaign.clientProfileId === storedProfileId,
@@ -1511,7 +1576,7 @@ export function useCreativeComposer({
     fontOptions,
     directionPool, toggleDirection, setManualDirectionInstruction,
     directionSuggestionState, pendingDirectionSuggestions, applyDirectionSuggestions, requestDirectionSuggestions, keepCurrentDirections,
-    state, stage, objectiveSelected, preparedPlan, actionPhase, workId, clientProfileId, brandName,
+    state, stage, objective, objectiveSelected, bufferedFile, hasEntry, canContinue, canConfirm, preparedPlan, actionPhase, workId, clientProfileId, brandName,
     pendingProtocolSwitch, confirmProtocolSwitch, cancelProtocolSwitch,
     protocolSwitchNotice, returnToPreviousProtocol,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
@@ -1530,7 +1595,7 @@ export function useCreativeComposer({
       ? retryInitialTemplate
       : null,
     workError: Boolean(workId && detailQuery.isError),
-    addFiles, addInspiration, updateSource, editSource, retrySource, removeSource, updatePieceReference, replacePieceReference, promotePieceReference, preparePlan, confirmGeneration, generateLegacy,
+    addFiles, clearBufferedFile: () => setBufferedFile(null), addInspiration, updateSource, editSource, retrySource, removeSource, updatePieceReference, replacePieceReference, promotePieceReference, preparePlan, confirmGeneration, generateLegacy,
     retryOutput, retryRevisionOutput, approveOutput, reviseOutput, linkCampaign,
     canLayerize: detail?.canLayerize ?? false,
     layerEditorAccess: detail?.layerEditorAccess,

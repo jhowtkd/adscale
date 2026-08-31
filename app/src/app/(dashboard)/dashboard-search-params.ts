@@ -15,7 +15,7 @@ const STUDIO_MODES = new Set<StudioMode>(["arte", "briefing"]);
 
 export function parseDashboardSearchParams(searchParams: DashboardSearchParams): {
   workId?: string;
-  initialIntent: ComposerIntent;
+  initialIntent?: ComposerIntent;
   studioMode?: StudioMode;
   freshEntry?: true;
   focusComposer?: true;
@@ -38,9 +38,11 @@ export function parseDashboardSearchParams(searchParams: DashboardSearchParams):
 
   return {
     ...(workId ? { workId } : {}),
-    // An explicit protocol is a resume/deep-link contract. Otherwise the
-    // studio mode selects the least surprising canonical protocol.
-    initialIntent: intent ?? (studioMode === "briefing" ? "single" : "variations"),
+    // A plain root deliberately has no protocol. Legacy URLs still carry an
+    // explicit adapter so the control and old links remain compatible.
+    ...(intent ?? (studioMode === "briefing" ? "single" : studioMode === "arte" ? "variations" : undefined)
+      ? { initialIntent: intent ?? (studioMode === "briefing" ? "single" : "variations") }
+      : {}),
     ...(studioMode ? { studioMode } : {}),
     ...(searchParams.fresh === "1" ? { freshEntry: true as const } : {}),
     ...(searchParams.compose === "1" ? { focusComposer: true as const } : {}),
