@@ -158,7 +158,8 @@ export function projectPreparedPlanV1(work: {
     }
     explore.push("composition", "hierarchy", "new_execution");
   } else if (protocol === "variations") {
-    if (snapshot.sources.some((source) => source.usage !== "style")) preserve.push("source_content", "source_visual_identity");
+    if (snapshot.sources.some((source) => source.usage === "content" || source.usage === "both")) preserve.push("source_content");
+    if (snapshot.sources.some((source) => source.usage === "style" || source.usage === "both")) preserve.push("source_visual_identity");
     explore.push("composition", "hierarchy", "visual_language", "new_execution");
   } else if (protocol === "format_adaptation") {
     preserve.push("source_content", "source_visual_identity");

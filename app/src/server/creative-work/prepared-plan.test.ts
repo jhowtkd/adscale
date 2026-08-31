@@ -130,6 +130,25 @@ describe("projectPreparedPlanV1", () => {
     expect(namedPlan?.materials[0]).toMatchObject({ label: "Produto" });
   });
 
+  it.each([
+    ["content-only", ["content"], ["brand_requirements", "source_content"]],
+    ["style-only", ["style"], ["brand_requirements", "source_visual_identity"]],
+    ["both", ["both"], ["brand_requirements", "source_content", "source_visual_identity"]],
+    ["mixed content and style", ["content", "style"], ["brand_requirements", "source_content", "source_visual_identity"]],
+  ] as const)("preserves variation sources with %s usage", (_description, usages, expectedPreserve) => {
+    const base = work("variations");
+    const source = base.inputSnapshot!.sources[0]!;
+    const plan = projectPreparedPlanV1({
+      ...base,
+      inputSnapshot: {
+        ...base.inputSnapshot,
+        sources: usages.map((usage, index) => ({ ...source, sourceId: `source-${index}`, usage })),
+      },
+    });
+
+    expect(plan?.preserve).toEqual(expectedPreserve);
+  });
+
   it("returns null for a carousel work until the deck snapshot is frozen", () => {
     expect(projectPreparedPlanV1(work("carousel"))).toBeNull();
   });
