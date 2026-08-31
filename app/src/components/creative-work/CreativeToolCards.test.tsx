@@ -34,4 +34,30 @@ describe("CreativeToolCards", () => {
 
     expect(screen.getAllByRole("button", { pressed: false })).toHaveLength(4);
   });
+
+  it.each([
+    ["single", "Peça única", "creative-composer-request"],
+    ["variations", "Variações", "creative-composer-dropzone"],
+    ["format_adaptation", "Adaptar formatos", "creative-composer-dropzone"],
+    ["restyle", "Mudar estilo", "creative-composer-original-source"],
+  ] as const)("focuses the first revealed decision for %s", (intent, label, targetId) => {
+    const onSelect = vi.fn();
+    const target = document.createElement("div");
+    target.id = targetId;
+    target.tabIndex = -1;
+    document.body.append(target);
+    const frame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+
+    render(<CreativeToolCards selected={null} onSelect={onSelect} />);
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${label}`, "i") }));
+
+    expect(onSelect).toHaveBeenCalledWith(intent);
+    expect(target).toHaveFocus();
+
+    frame.mockRestore();
+    target.remove();
+  });
 });

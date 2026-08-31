@@ -28,12 +28,20 @@ function validSession(value: unknown, workspaceId: string, now: number): value i
 export function getOrCreateStudioSession(
   workspaceId: string,
   now = Date.now(),
-  storage: Pick<Storage, "getItem" | "setItem"> | undefined =
-    typeof window === "undefined" ? undefined : sessionStorage,
+  storage?: Pick<Storage, "getItem" | "setItem">,
 ): StudioSession {
+  let resolvedStorage = storage;
+  if (!resolvedStorage) {
+    try {
+      resolvedStorage = typeof window === "undefined" ? undefined : window.sessionStorage;
+    } catch {
+      resolvedStorage = undefined;
+    }
+  }
+
   let existing: unknown;
   try {
-    const stored = storage?.getItem(STUDIO_SESSION_STORAGE_KEY);
+    const stored = resolvedStorage?.getItem(STUDIO_SESSION_STORAGE_KEY);
     existing = stored ? JSON.parse(stored) : undefined;
   } catch {
     existing = undefined;
@@ -45,6 +53,10 @@ export function getOrCreateStudioSession(
     workspaceId,
     expiresAt: now + STUDIO_SESSION_TTL_MS,
   };
-  storage?.setItem(STUDIO_SESSION_STORAGE_KEY, JSON.stringify(session));
+  try {
+    resolvedStorage?.setItem(STUDIO_SESSION_STORAGE_KEY, JSON.stringify(session));
+  } catch {
+    // Telemetry storage is optional; the in-memory session remains usable.
+  }
   return session;
 }

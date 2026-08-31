@@ -414,11 +414,18 @@ describe("DashboardHomeActions", () => {
     const target = screen.getByRole("group", { name: "Pedido criativo e área para soltar imagens" });
     const first = new File(["first"], "primeira.png", { type: "image/png" });
     const second = new File(["second"], "segunda.png", { type: "image/png" });
+    const addArtButton = screen.getByRole("button", { name: "Adicionar arte" });
+    const fileInput = target.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const click = vi.spyOn(fileInput, "click");
+
+    expect(addArtButton).toHaveAttribute("type", "button");
+    fireEvent.click(addArtButton);
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(fileInput).toHaveAttribute("multiple");
     fireEvent.drop(target, { dataTransfer: { files: [first, second] } });
 
     expect(addFiles).toHaveBeenCalledWith([first, second]);
     expect(screen.getByText(/primeira\.png foi mantida/i)).toHaveAttribute("aria-live", "polite");
-    expect(screen.getByLabelText("Adicionar arte")).toHaveAttribute("multiple");
   });
 
   it("keeps the progressive entry hierarchy compact at a narrow viewport", () => {

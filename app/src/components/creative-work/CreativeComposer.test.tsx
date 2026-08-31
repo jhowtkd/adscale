@@ -361,6 +361,8 @@ describe("CreativeComposer", () => {
     fireEvent.drop(screen.getByTestId("creative-composer-dropzone"), { dataTransfer: { files: [file] } });
     expect(value.addFiles).toHaveBeenCalledWith([file]);
     expect(screen.getByLabelText("Adicionar arte", { selector: "input" })).toHaveAttribute("tabindex", "-1");
+    expect(screen.getByTestId("creative-composer-dropzone")).toHaveAttribute("id", "creative-composer-dropzone");
+    expect(screen.getByTestId("creative-composer-dropzone")).toHaveAttribute("tabindex", "-1");
     expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
   });
 

@@ -436,7 +436,9 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         </>
       ) : (
         <div
+          id="creative-composer-dropzone"
           data-testid="creative-composer-dropzone"
+          tabIndex={-1}
           onDragOver={(event) => event.preventDefault()}
           onDrop={handleDrop}
           className="rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-raised)] p-4 focus-within:ring-2 focus-within:ring-[var(--focus-ring)]"

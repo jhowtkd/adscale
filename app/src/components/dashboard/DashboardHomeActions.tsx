@@ -165,6 +165,7 @@ export default function DashboardHomeActions({
   const { activeProfile } = useActiveClientProfile();
   const { data: billing } = useBillingStatus();
   const progressiveResultsHeadingRef = useRef<HTMLHeadingElement>(null);
+  const progressiveFileInputRef = useRef<HTMLInputElement>(null);
   // The URL mode only seeds a new composer. Once it exists, its intent is the
   // authority because protocol switches may be deferred or cancelled.
   const initialStudioIntent = initialIntent
@@ -261,7 +262,8 @@ export default function DashboardHomeActions({
               className="space-y-3 rounded-[var(--radius-control)] border border-dashed border-[var(--border-default)] p-3"
             >
               <textarea id="creative-composer-request" aria-label={t("composer.requestLabel")} value={composer.request} onChange={(event) => composer.setRequest(event.target.value)} rows={4} className="w-full resize-y rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] p-3 text-sm" />
-              <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-[var(--text-secondary)]"><Paperclip size={16} aria-hidden="true" />{t("composer.addArt")}<input className="sr-only" type="file" multiple accept="image/png,image/jpeg,image/webp" onChange={(event) => void composer.addFiles(event.target.files)} /></label>
+              <button type="button" onClick={() => progressiveFileInputRef.current?.click()} className="inline-flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)]"><Paperclip size={16} aria-hidden="true" />{t("composer.addArt")}</button>
+              <input ref={progressiveFileInputRef} className="sr-only" type="file" multiple accept="image/png,image/jpeg,image/webp" tabIndex={-1} aria-hidden="true" onChange={(event) => void composer.addFiles(event.target.files)} />
               <p aria-live="polite" className="text-xs text-[var(--text-muted)]">{composer.announcement || (composer.bufferedFile ? t("composer.progressiveBufferedFile", { name: composer.bufferedFile.name }) : t("composer.dropHint"))}</p>
             </div>
           </section>

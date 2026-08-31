@@ -13,6 +13,13 @@ const TOOLS = [
   { id: "restyle", icon: WandSparkles },
 ] as const;
 
+const FOCUS_TARGETS: Record<ComposerIntent, string> = {
+  single: "creative-composer-request",
+  variations: "creative-composer-dropzone",
+  format_adaptation: "creative-composer-dropzone",
+  restyle: "creative-composer-original-source",
+};
+
 export function CreativeToolCards({ selected, onSelect, headerAction }: {
   selected: ComposerIntent | null;
   onSelect: (intent: ComposerIntent) => void | Promise<void>;
@@ -35,7 +42,7 @@ export function CreativeToolCards({ selected, onSelect, headerAction }: {
             aria-pressed={selected === id}
             onClick={() => {
               void onSelect(id);
-              requestAnimationFrame(() => document.getElementById("creative-composer-request")?.focus());
+              requestAnimationFrame(() => document.getElementById(FOCUS_TARGETS[id])?.focus());
             }}
             className={cn(
               "group flex min-h-28 w-full flex-col rounded-[var(--radius-object)] border p-3 text-left transition-colors",

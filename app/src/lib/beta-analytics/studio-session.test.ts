@@ -37,4 +37,34 @@ describe("getOrCreateStudioSession", () => {
     store.setItem(STUDIO_SESSION_STORAGE_KEY, JSON.stringify({ ...current, expiresAt: now }));
     expect(getOrCreateStudioSession(workspaceId, now, store).id).not.toBe(current.id);
   });
+
+  it("keeps a valid in-memory session when sessionStorage access throws", () => {
+    const sessionStorage = vi.spyOn(window, "sessionStorage", "get").mockImplementation(() => {
+      throw new DOMException("Storage unavailable", "SecurityError");
+    });
+
+    expect(() => getOrCreateStudioSession(workspaceId, 1_000)).not.toThrow();
+    expect(getOrCreateStudioSession(workspaceId, 1_000)).toMatchObject({
+      workspaceId,
+      expiresAt: 1_000 + STUDIO_SESSION_TTL_MS,
+    });
+
+    sessionStorage.mockRestore();
+  });
+
+  it("keeps a valid in-memory session when writing optional telemetry fails", () => {
+    const store = {
+      getItem: vi.fn(() => null),
+      setItem: vi.fn(() => {
+        throw new DOMException("Quota exceeded", "QuotaExceededError");
+      }),
+    };
+
+    expect(() => getOrCreateStudioSession(workspaceId, 1_000, store)).not.toThrow();
+    expect(getOrCreateStudioSession(workspaceId, 1_000, store)).toMatchObject({
+      workspaceId,
+      expiresAt: 1_000 + STUDIO_SESSION_TTL_MS,
+    });
+    expect(store.setItem).toHaveBeenCalled();
+  });
 });
