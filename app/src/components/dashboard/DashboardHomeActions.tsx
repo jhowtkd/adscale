@@ -152,6 +152,7 @@ export default function DashboardHomeActions({
   campaignId,
   workspaceId,
   rolloutVariant = "control",
+  carouselCreationEnabled = false,
 }: {
   workId?: string;
   initialIntent?: ComposerIntent;
@@ -162,6 +163,8 @@ export default function DashboardHomeActions({
   campaignId?: string;
   workspaceId?: string;
   rolloutVariant?: StudioRolloutVariant;
+  /** Task 10 wires the carousel rollout percentage to this gate. */
+  carouselCreationEnabled?: boolean;
 }) {
   const t = useTranslations("dashboard.home");
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
@@ -271,7 +274,7 @@ export default function DashboardHomeActions({
             </div>
           </section>
         ) : null}
-        {showObjectives ? <section aria-labelledby="progressive-objective-title" className="space-y-3"><h2 id="progressive-objective-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("chooseObjective")}</h2><CreativeToolCards selected={null} onSelect={(intent) => composer.selectIntent(intent, true)} /></section> : null}
+        {showObjectives ? <section aria-labelledby="progressive-objective-title" className="space-y-3"><h2 id="progressive-objective-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("chooseObjective")}</h2><CreativeToolCards selected={null} onSelect={(intent) => composer.selectIntent(intent, true)} carouselEnabled={carouselCreationEnabled} /></section> : null}
         {resultStage ? <>
           <section aria-labelledby="progressive-results-title" data-testid="progressive-results-summary" className="flex flex-wrap items-end justify-between gap-2 border-b border-[var(--border-subtle)] pb-3">
             <div><p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{composer.workTitle ?? (composer.request.trim() || t(`planReview.protocol.${composer.preparedPlan?.protocol === "format_adaptation" ? "formatAdaptation" : composer.preparedPlan?.protocol ?? composer.intent}`))}</p><h2 ref={progressiveResultsHeadingRef} id="progressive-results-title" tabIndex={-1} className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{t("resultsTitle")}</h2></div>
@@ -295,7 +298,7 @@ export default function DashboardHomeActions({
         </> : composer.objectiveSelected && !showPlan ? <CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" /> : null}
         {showPlan && billing && !billing.access.hasSpendAccess ? <section className="rounded-[var(--radius-object)] border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4" role="alert"><p className="font-semibold text-[var(--warning-text)]">{t("insufficientBalance")}</p><Link href="/billing" className="mt-2 inline-flex text-sm font-semibold underline">{t("getCredits")}</Link></section> : null}
         {showPlan ? <CreativePlanReview plan={composer.preparedPlan!} busy={composer.actionPhase !== "idle"} onEdit={() => setEditingPreparedPlan(true)} onConfirm={(revision) => composer.confirmGeneration(revision)} /> : null}
-        {composer.objectiveSelected && !resultStage ? <section className="space-y-4" aria-label={t("chooseObjective")}><CreativeToolCards selected={composer.intent} onSelect={(intent) => composer.selectIntent(intent, true)} />{protocolSwitchControls}{inspirationsControl}</section> : null}
+        {composer.objectiveSelected && !resultStage ? <section className="space-y-4" aria-label={t("chooseObjective")}><CreativeToolCards selected={composer.intent} onSelect={(intent) => composer.selectIntent(intent, true)} carouselEnabled={carouselCreationEnabled} />{protocolSwitchControls}{inspirationsControl}</section> : null}
       </div>
     );
   }
@@ -335,7 +338,7 @@ export default function DashboardHomeActions({
         ))}
       </div>
 
-      <CreativeToolCards selected={composer.intent} onSelect={(intent) => composer.selectIntent(intent, true)} />
+      <CreativeToolCards selected={composer.intent} onSelect={(intent) => composer.selectIntent(intent, true)} carouselEnabled={carouselCreationEnabled} />
 
       {protocolSwitchControls}
 

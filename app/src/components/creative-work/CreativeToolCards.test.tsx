@@ -4,7 +4,9 @@ import { CreativeToolCards } from "./CreativeToolCards";
 
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => ({
   variations: "Variações", single: "Peça única", format_adaptation: "Adaptar formatos", restyle: "Mudar estilo",
+  carousel: "Criar carrossel",
   variationsDescription: "desc", singleDescription: "desc", format_adaptationDescription: "desc", restyleDescription: "desc",
+  carouselDescription: "Transforme uma ideia ou texto em uma sequência visual coerente.",
   variationsHelpLabel: "Ajuda sobre Variações", singleHelpLabel: "Ajuda sobre Peça única", format_adaptationHelpLabel: "Ajuda sobre Adaptar formatos", restyleHelpLabel: "Ajuda sobre Mudar estilo",
   variationsHelp: "Compara abordagens", singleHelp: "Uma direção clara", format_adaptationHelp: "Outros canais", restyleHelp: "Muda o visual",
 }[key] ?? key) }));
@@ -36,11 +38,12 @@ describe("CreativeToolCards", () => {
   });
 
   it.each([
-    ["single", "Peça única", "creative-composer-request"],
-    ["variations", "Variações", "creative-composer-dropzone"],
-    ["format_adaptation", "Adaptar formatos", "creative-composer-dropzone"],
-    ["restyle", "Mudar estilo", "creative-composer-original-source"],
-  ] as const)("focuses the first revealed decision for %s", async (intent, label, targetId) => {
+    ["single", "Peça única", "creative-composer-request", false],
+    ["variations", "Variações", "creative-composer-dropzone", false],
+    ["format_adaptation", "Adaptar formatos", "creative-composer-dropzone", false],
+    ["restyle", "Mudar estilo", "creative-composer-original-source", false],
+    ["carousel", "Criar carrossel", "creative-composer-request", true],
+  ] as const)("focuses the first revealed decision for %s", async (intent, label, targetId, carouselEnabled) => {
     const onSelect = vi.fn();
     const target = document.createElement("div");
     target.id = targetId;
@@ -51,7 +54,7 @@ describe("CreativeToolCards", () => {
       return 1;
     });
 
-    render(<CreativeToolCards selected={null} onSelect={onSelect} />);
+    render(<CreativeToolCards selected={null} onSelect={onSelect} carouselEnabled={carouselEnabled} />);
     fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${label}`, "i") }));
 
     expect(onSelect).toHaveBeenCalledWith(intent);
@@ -103,5 +106,31 @@ describe("CreativeToolCards", () => {
 
     frame.mockRestore();
     target.remove();
+  });
+
+  it("offers the fifth explicit carousel card only when the rollout enables creation", () => {
+    const onSelect = vi.fn();
+    const { rerender } = render(<CreativeToolCards selected={null} onSelect={onSelect} />);
+
+    expect(screen.queryByRole("button", { name: /^criar carrossel/i })).not.toBeInTheDocument();
+
+    rerender(<CreativeToolCards selected={null} onSelect={onSelect} carouselEnabled />);
+    expect(screen.getAllByRole("button", { pressed: false })).toHaveLength(5);
+    expect(screen.getByRole("button", { name: /^criar carrossel/i })).toHaveTextContent(
+      "Transforme uma ideia ou texto em uma sequência visual coerente.",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^criar carrossel/i }));
+    expect(onSelect).toHaveBeenCalledWith("carousel");
+  });
+
+  it("keeps a resumed carousel deep link readable while new creation stays disabled", () => {
+    render(<CreativeToolCards selected="carousel" onSelect={vi.fn()} />);
+
+    const card = screen.getByRole("button", { name: /^criar carrossel/i });
+    expect(card).toBeDisabled();
+    expect(card).toHaveAttribute("aria-pressed", "true");
+    expect(card).toHaveTextContent("Transforme uma ideia ou texto em uma sequência visual coerente.");
+    expect(screen.getAllByRole("button", { pressed: false })).toHaveLength(4);
   });
 });

@@ -13,6 +13,7 @@ import { PieceReferenceStrip } from "./PieceReferenceStrip";
 import { CreativeSourcePreviewCard } from "./CreativeSourcePreviewCard";
 import { CreativeVariationBrief } from "./CreativeVariationBrief";
 import CreativeProposalGrid from "@/components/quick-tools/create-post/CreativeProposalGrid";
+import { CarouselComposer } from "./CarouselComposer";
 import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
 
 const FORMATS = ["1:1", "4:5", "9:16"] as const;
@@ -51,6 +52,10 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
   const isRestyle = composer.intent === "restyle";
   const isVariations = composer.intent === "variations";
   const isSingle = composer.intent === "single";
+  const isCarousel = composer.intent === "carousel";
+  const carouselStyleSource = isCarousel
+    ? composer.sources.find((source) => source.usage === "style") ?? null
+    : null;
   const pieceReferenceActionsLocked = composer.settingsLocked
     || composer.isUploading
     || composer.sourceMutationPending
@@ -73,20 +78,24 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
   const styleSource = isRestyle
     ? composer.sources.find((source) => source.usage === "style") ?? null
     : null;
-  const title = isRestyle
-    ? t("restyleTitle")
-    : isVariations
-      ? t("variationsTitle")
-      : isFormatAdaptation
-        ? t("formatAdaptationTitle")
-        : t("title");
-  const subtitle = isRestyle
-    ? t("restyleSubtitle")
-    : isVariations
-      ? t("variationsSubtitle")
-      : isFormatAdaptation
-        ? t("formatAdaptationSubtitle")
-        : t("subtitle");
+  const title = isCarousel
+    ? t("carousel.title")
+    : isRestyle
+      ? t("restyleTitle")
+      : isVariations
+        ? t("variationsTitle")
+        : isFormatAdaptation
+          ? t("formatAdaptationTitle")
+          : t("title");
+  const subtitle = isCarousel
+    ? t("carousel.subtitle")
+    : isRestyle
+      ? t("restyleSubtitle")
+      : isVariations
+        ? t("variationsSubtitle")
+        : isFormatAdaptation
+          ? t("formatAdaptationSubtitle")
+          : t("subtitle");
   const pendingLabel = composer.actionPhase === "saving"
     ? t("actionSaving")
     : composer.actionPhase === "preparing"
@@ -341,8 +350,21 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         </span>
       </div>
 
-      {layout === "piece" ? results : null}
+      {layout === "piece" && !isCarousel ? results : null}
 
+      {isCarousel ? (
+        <CarouselComposer
+          carousel={composer.carousel}
+          composerRef={composerRef}
+          request={composer.request}
+          onRequestChange={composer.setRequest}
+          styleSource={carouselStyleSource}
+          styleUploadPending={composer.isUploading}
+          onAddStyleFiles={(files) => void composer.addFiles(files, "style")}
+          onRetryStyleSource={carouselStyleSource ? () => void composer.retrySource(carouselStyleSource.id) : undefined}
+          onRemoveStyleSource={carouselStyleSource ? () => void composer.removeSource(carouselStyleSource.id) : undefined}
+        />
+      ) : (<>
       {composer.intent === "single" && composer.brandIdentity ? (
         <section
           data-testid="brand-identity"
@@ -800,7 +822,9 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         </button>
       </div>
 
-      {layout === "studio" ? results : null}
+      </>)}
+
+      {layout === "studio" && !isCarousel ? results : null}
 
       {composer.error ? (
         <div className="flex flex-wrap items-center gap-3" role="alert">

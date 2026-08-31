@@ -11,7 +11,7 @@ const useCreativeWorkMock = vi.fn();
 const selectIntentMock = vi.fn();
 const addInspirationMock = vi.fn();
 const createCampaignMutationMock = vi.fn();
-const protocolButton = (intent: "variations" | "single" | "format_adaptation" | "restyle") =>
+const protocolButton = (intent: "variations" | "single" | "format_adaptation" | "restyle" | "carousel") =>
   screen.getByRole("button", { name: `dashboard.home.${intent}dashboard.home.${intent}Description`, exact: true });
 
 vi.mock("next-intl", () => ({
@@ -106,13 +106,13 @@ describe("DashboardHomeActions", () => {
     useActiveProfileMock.mockReturnValue({ activeProfile: { id: "p1", name: "Marca A" } });
     useCreativeWorkMock.mockReturnValue({ data: undefined, isLoading: false });
     useComposerMock.mockImplementation(({ initialWorkId }: { initialWorkId?: string }) => {
-      const [intent, setIntent] = useState<"variations" | "single" | "format_adaptation" | "restyle">("single");
+      const [intent, setIntent] = useState<"variations" | "single" | "format_adaptation" | "restyle" | "carousel">("single");
       const [workId, setWorkId] = useState<string | null>(initialWorkId ?? null);
       return {
         intent,
         workId,
         clientProfileId: "p1",
-        quote: intent === "format_adaptation" ? { unitCount: 2, credits: 10 } : { unitCount: 1, credits: 5 },
+        quote: intent === "format_adaptation" ? { unitCount: 2, credits: 10 } : intent === "carousel" ? { unitCount: 0, credits: 0 } : { unitCount: 1, credits: 5 },
         selectIntent: (next: typeof intent) => { selectIntentMock(next); setIntent(next); },
         addInspiration: (inspiration: { id: string }) => {
           addInspirationMock(inspiration);
@@ -521,5 +521,48 @@ describe("DashboardHomeActions", () => {
     await waitFor(() => expect(screen.getByTestId("prepared-plan")).toHaveTextContent("revision-1"));
     fireEvent.click(screen.getByRole("button", { name: "Confirmar plano" }));
     expect(confirmGeneration).toHaveBeenCalledWith("revision-1");
+  });
+
+  it("hides the carousel card until the rollout enables creation", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    const { rerender } = render(<DashboardHomeActions />);
+
+    expect(screen.queryByRole("button", { name: /criar carrossel/i })).not.toBeInTheDocument();
+
+    rerender(<DashboardHomeActions carouselCreationEnabled />);
+    expect(protocolButton("carousel")).toBeInTheDocument();
+  });
+
+  it("preserves progressive free entry when selecting Criar carrossel", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockImplementation(() => {
+      const [request, setRequest] = useState("Sequência sobre matrículas");
+      return {
+        request, setRequest, hasEntry: Boolean(request), objectiveSelected: false, intent: "variations",
+        stage: "entry", preparedPlan: null, actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 0, credits: 0 },
+        addFiles: vi.fn(), selectIntent: selectIntentMock,
+      };
+    });
+
+    render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" carouselCreationEnabled />);
+    fireEvent.click(protocolButton("carousel"));
+
+    expect(selectIntentMock).toHaveBeenCalledWith("carousel", true);
+    expect(screen.getByRole("textbox", { name: "dashboard.home.composer.requestLabel" })).toHaveValue(
+      "Sequência sobre matrículas",
+    );
+  });
+
+  it("resumes a carousel work through the composer deck instead of the proposal grid", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      intent: "carousel", workId: "carousel-1", clientProfileId: "p1",
+      quote: { unitCount: 0, credits: 0 }, outputs: [],
+      selectIntent: selectIntentMock, addInspiration: addInspirationMock,
+    });
+
+    render(<DashboardHomeActions workId="carousel-1" />);
+
+    expect(screen.getByTestId("creative-composer")).toHaveTextContent("carousel:0:");
   });
 });

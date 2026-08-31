@@ -3,7 +3,18 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
   default: ({ id }: { id?: string }) => <select id={id ?? "active-brand-switcher"} aria-label="Marca ativa"><option>Escolha</option></select>,
 }));
-vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Record<string, string | number>) => ({
+const carouselComposerKeys: Record<string, string> = {
+  title: "Criar carrossel", subtitle: "Transforme uma ideia ou texto em uma sequência visual coerente.",
+  requestLabel: "Pedido do carrossel", requestPlaceholder: "Descreva a sequência que você precisa.",
+  addStyleReference: "Adicionar referência de estilo", uploadingStyle: "Enviando referência",
+  styleHint: "A referência vale só para este carrossel e nunca vira fato.",
+  sourceStatus_ready: "Referência pronta", retryStyleSource: "Tentar novamente",
+  removeStyleSource: "Remover referência de estilo", organizeContent: "Organizar conteúdo", organizing: "Organizando conteúdo",
+};
+
+vi.mock("next-intl", () => ({ useTranslations: (namespace?: string) => namespace === "dashboard.home.composer.carousel"
+  ? (key: string) => carouselComposerKeys[key] ?? key
+  : (key: string, values?: Record<string, string | number>) => ({
   requestLabel: "Pedido criativo", placeholder: "Descreva", addArt: "Adicionar arte", dropHint: "Solte aqui",
   restyleTitle: "Copiar o estilo da referência", restyleSubtitle: "Adicione a arte original e a referência de estilo.",
   variationsTitle: "Gere variações a partir de uma arte", variationsSubtitle: "Envie uma arte para a IA analisar.",
@@ -51,6 +62,12 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   extractedData: "Dados extraídos", retrySource: "Tentar novamente",
   brand: "Marca", noBrand: "Selecione uma marca", inspirationsSlot: "Inspirações",
   selectBrandMessage: "Selecione uma marca para começar", invalidWork: "Trabalho não encontrado", startNew: "Começar nova criação",
+  "carousel.title": "Criar carrossel", "carousel.subtitle": "Transforme uma ideia ou texto em uma sequência visual coerente.",
+  "carousel.requestLabel": "Pedido do carrossel", "carousel.requestPlaceholder": "Descreva a sequência que você precisa.",
+  "carousel.addStyleReference": "Adicionar referência de estilo", "carousel.uploadingStyle": "Enviando referência",
+  "carousel.styleHint": "A referência vale só para este carrossel e nunca vira fato.",
+  "carousel.sourceStatus_ready": "Referência pronta", "carousel.retryStyleSource": "Tentar novamente",
+  "carousel.removeStyleSource": "Remover referência de estilo", "carousel.organizeContent": "Organizar conteúdo", "carousel.organizing": "Organizando conteúdo",
   brandConflictTitle: "Qual marca vale nesta peça?",
   brandConflictDescription: `A arte de conteúdo é da marca ${values?.brand}, diferente da marca ativa.`,
   brandConflictChoiceSource: `Usar a marca da arte (${values?.brand})`,
@@ -91,6 +108,14 @@ function composer(overrides = {}) {
     retryInitialTemplate: null,
     workError: false,
     addFiles: vi.fn(), updateSource: vi.fn(), retrySource: vi.fn(), removeSource: vi.fn(), preparePlan: vi.fn(), confirmGeneration: vi.fn(), generateLegacy: vi.fn(),
+    carousel: {
+      draft: null, slides: [], quality: null, selectedSlideId: null, selectedSlide: null,
+      phase: "entry", findings: [], canPrepare: false, canGenerate: false, canApprove: false, isBusy: false,
+      askForPlan: vi.fn(), answerQuestions: vi.fn(), acceptChange: vi.fn(), rejectChange: vi.fn(),
+      editSlide: vi.fn(), addSlide: vi.fn(), removeSlide: vi.fn(), moveSlide: vi.fn(),
+      prepareCarousel: vi.fn(), generateCarousel: vi.fn(), reviseSlide: vi.fn(), retrySlide: vi.fn(),
+      approveDeck: vi.fn(), downloadSlide: vi.fn(), exportDeck: vi.fn(), selectSlide: vi.fn(),
+    },
     ...overrides,
   };
 }
@@ -901,5 +926,36 @@ describe("CreativeComposer", () => {
     );
     expect(generateButton).not.toBeDisabled();
     expect(generateButton).toHaveFocus();
+  });
+
+  it("renders the carousel wizard only for the carousel protocol instead of the proposal grid", () => {
+    const output = {
+      id: "output-1", workspaceId: "ws-1", workItemId: "work-1", creativeLevel: "conservative",
+      targetFormat: "4:5", versionNumber: 1, parentOutputId: null, revisionInstruction: null,
+      revisionAssetId: null, retryCount: 0, operationKey: "conservative:4:5:1", status: "completed",
+      outputKey: "out/1.png", cost: 5, failureCode: null, quality: null, isSelected: false,
+      createdAt: new Date(), updatedAt: new Date(),
+    };
+    renderComposer(composer({ workId: "work-1", intent: "carousel", outputs: [output] }));
+
+    expect(screen.getByTestId("carousel-composer")).toBeInTheDocument();
+    expect(screen.getByLabelText("Pedido do carrossel")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Resultados" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("creative-generate-action")).not.toBeInTheDocument();
+  });
+
+  it("keeps the current controls and results grid for the other protocols", () => {
+    const output = {
+      id: "output-1", workspaceId: "ws-1", workItemId: "work-1", creativeLevel: "conservative",
+      targetFormat: "4:5", versionNumber: 1, parentOutputId: null, revisionInstruction: null,
+      revisionAssetId: null, retryCount: 0, operationKey: "conservative:4:5:1", status: "completed",
+      outputKey: "out/1.png", cost: 5, failureCode: null, quality: null, isSelected: false,
+      createdAt: new Date(), updatedAt: new Date(),
+    };
+    renderComposer(composer({ workId: "work-1", outputs: [output] }));
+
+    expect(screen.queryByTestId("carousel-composer")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Resultados" })).toBeInTheDocument();
+    expect(screen.getByTestId("creative-generate-action")).toBeInTheDocument();
   });
 });
