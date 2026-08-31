@@ -180,6 +180,34 @@ type DerivationAutoRetryFunnelSummary = {
   }>;
 };
 
+type StudioFunnelArm = {
+  variant: "control" | "progressive";
+  eligibleSessions: number;
+  confirmedGenerations: number;
+  completionsWithin24h: number;
+  completionRate: number | null;
+  abandonmentsBeforeGeneration: number;
+  abandonmentRate: number | null;
+  goalSwitches: number;
+  sourceRoleCorrections: number;
+  successfulResumesWithin30m: number;
+  refinementsStarted: number;
+  debitedGenerations: number;
+  compensatedGenerations: number;
+  failedGenerations: number;
+  failureRate: number | null;
+  refundedGenerations: number;
+  refundRate: number | null;
+  medianEntryToBriefingMs: number | null;
+  medianEntryToPlanMs: number | null;
+  completionByInputMode: Array<{
+    inputMode: "text" | "art" | "both" | "unknown";
+    eligibleSessions: number;
+    completionsWithin24h: number;
+    completionRate: number | null;
+  }>;
+};
+
 type FunnelResponse = {
   missionFunnel: MissionFunnelRow[];
   cockpitStageFunnel: CockpitStageFunnelRow[];
@@ -196,6 +224,7 @@ type FunnelResponse = {
   draftToShareTiming?: DraftToShareTimingSummary;
   shareEngagementByAssistance?: ShareEngagementByAssistanceRow[];
   derivationAutoRetryFunnel?: DerivationAutoRetryFunnelSummary;
+  studioFunnel?: StudioFunnelArm[];
   totals: { events: number; sessions: number };
 };
 
@@ -203,6 +232,15 @@ function formatGapMs(gapMs: number | null): string {
   if (gapMs === null) return "—";
   if (gapMs < 60_000) return `${Math.round(gapMs / 1000)}s`;
   return `${Math.round(gapMs / 60_000)}m`;
+}
+
+function formatPercentagePointDelta(
+  control: number | null,
+  progressive: number | null,
+): string {
+  if (control === null || progressive === null) return "—";
+  const delta = Math.round((progressive - control) * 10_000) / 100;
+  return `${delta > 0 ? "+" : ""}${delta} pp`;
 }
 
 type CreditSignalsResponse = {
@@ -472,6 +510,38 @@ export function OwnerAnalyticsPanel({
   );
   const exportUrl = `/api/feedback/analytics/export.csv?${query}`;
   const noDataLabel = t("noData");
+  const studioControl = funnel?.studioFunnel?.find((arm) => arm.variant === "control");
+  const studioProgressive = funnel?.studioFunnel?.find((arm) => arm.variant === "progressive");
+  const studioSampleSufficient = Boolean(
+    studioControl
+      && studioProgressive
+      && studioControl.eligibleSessions >= 30
+      && studioProgressive.eligibleSessions >= 30
+      && studioControl.confirmedGenerations >= 20
+      && studioProgressive.confirmedGenerations >= 20,
+  );
+  const studioGateFailures = studioControl && studioProgressive ? [
+    studioControl.completionRate !== null
+      && studioProgressive.completionRate !== null
+      && studioProgressive.completionRate - studioControl.completionRate < -0.05
+      ? "Conclusão mais de 5 pp abaixo do controle"
+      : null,
+    studioControl.abandonmentRate !== null
+      && studioProgressive.abandonmentRate !== null
+      && studioProgressive.abandonmentRate - studioControl.abandonmentRate > 0.05
+      ? "Abandono mais de 5 pp acima do controle"
+      : null,
+    studioControl.failureRate !== null
+      && studioProgressive.failureRate !== null
+      && studioProgressive.failureRate - studioControl.failureRate > 0.005
+      ? "Falha mais de 0,5 pp acima do controle"
+      : null,
+    studioControl.refundRate !== null
+      && studioProgressive.refundRate !== null
+      && studioProgressive.refundRate - studioControl.refundRate > 0.005
+      ? "Reembolso mais de 0,5 pp acima do controle"
+      : null,
+  ].filter((value): value is string => value !== null) : [];
 
   return (
     <div className="space-y-6">
@@ -643,6 +713,59 @@ export function OwnerAnalyticsPanel({
                       ])}
                     />
                   </FunnelSection>
+
+                  {studioControl && studioProgressive ? (
+                    <FunnelSection title="Estúdio progressivo">
+                      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-1 font-medium",
+                            studioSampleSufficient
+                              ? "bg-[var(--success-bg)] text-[var(--success-text)]"
+                              : "bg-[var(--danger-bg)] text-[var(--danger-text)]",
+                          )}
+                        >
+                          {studioSampleSufficient ? "Amostra suficiente" : "Amostra insuficiente"}
+                        </span>
+                        <span className="text-[var(--text-muted)]">
+                          ≥30 sessões e ≥20 gerações confirmadas por braço
+                        </span>
+                      </div>
+                      {studioGateFailures.length > 0 ? (
+                        <div className="mb-3 flex flex-wrap gap-2" role="status">
+                          {studioGateFailures.map((failure) => (
+                            <span
+                              key={failure}
+                              className="rounded-full bg-[var(--danger-bg)] px-2 py-1 text-xs font-medium text-[var(--danger-text)]"
+                            >
+                              {failure}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      <FunnelTable
+                        title=""
+                        noDataLabel={noDataLabel}
+                        headers={["Métrica", "Controle", "Progressivo", "Δ"]}
+                        rows={[
+                          ["Sessões elegíveis", <CountCell key="control" value={studioControl.eligibleSessions} />, <CountCell key="progressive" value={studioProgressive.eligibleSessions} />, "—"],
+                          ["Gerações confirmadas", <CountCell key="control" value={studioControl.confirmedGenerations} />, <CountCell key="progressive" value={studioProgressive.confirmedGenerations} />, "—"],
+                          ["Trocas de objetivo", <CountCell key="control" value={studioControl.goalSwitches} />, <CountCell key="progressive" value={studioProgressive.goalSwitches} />, "—"],
+                          ["Correções de papel", <CountCell key="control" value={studioControl.sourceRoleCorrections} />, <CountCell key="progressive" value={studioProgressive.sourceRoleCorrections} />, "—"],
+                          ["Retomadas bem-sucedidas", <CountCell key="control" value={studioControl.successfulResumesWithin30m} />, <CountCell key="progressive" value={studioProgressive.successfulResumesWithin30m} />, "—"],
+                          ["Refinamentos iniciados", <CountCell key="control" value={studioControl.refinementsStarted} />, <CountCell key="progressive" value={studioProgressive.refinementsStarted} />, "—"],
+                          ["Gerações debitadas", <CountCell key="control" value={studioControl.debitedGenerations} />, <CountCell key="progressive" value={studioProgressive.debitedGenerations} />, "—"],
+                          ["Gerações compensadas", <CountCell key="control" value={studioControl.compensatedGenerations} />, <CountCell key="progressive" value={studioProgressive.compensatedGenerations} />, "—"],
+                          ["Conclusão em 24 h", <RateCell key="control" rate={studioControl.completionRate} />, <RateCell key="progressive" rate={studioProgressive.completionRate} />, formatPercentagePointDelta(studioControl.completionRate, studioProgressive.completionRate)],
+                          ["Abandono antes de gerar", <RateCell key="control" rate={studioControl.abandonmentRate} />, <RateCell key="progressive" rate={studioProgressive.abandonmentRate} />, formatPercentagePointDelta(studioControl.abandonmentRate, studioProgressive.abandonmentRate)],
+                          ["Falha", <RateCell key="control" rate={studioControl.failureRate} />, <RateCell key="progressive" rate={studioProgressive.failureRate} />, formatPercentagePointDelta(studioControl.failureRate, studioProgressive.failureRate)],
+                          ["Reembolso", <RateCell key="control" rate={studioControl.refundRate} />, <RateCell key="progressive" rate={studioProgressive.refundRate} />, formatPercentagePointDelta(studioControl.refundRate, studioProgressive.refundRate)],
+                          ["Entrada até briefing", formatGapMs(studioControl.medianEntryToBriefingMs), formatGapMs(studioProgressive.medianEntryToBriefingMs), "—"],
+                          ["Entrada até plano", formatGapMs(studioControl.medianEntryToPlanMs), formatGapMs(studioProgressive.medianEntryToPlanMs), "—"],
+                        ]}
+                      />
+                    </FunnelSection>
+                  ) : null}
 
                   <FunnelSection title={t("sections.recipeSelection")}>
                     <FunnelTable

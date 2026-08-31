@@ -115,6 +115,28 @@ describe("OwnerAnalyticsPanel", () => {
             creditSurprisesByOperation: [],
             sessionStageTimeline: [],
             readinessOverrides: [],
+            studioFunnel: [
+              {
+                variant: "control", eligibleSessions: 1, confirmedGenerations: 1,
+                completionsWithin24h: 1, completionRate: 1,
+                abandonmentsBeforeGeneration: 0, abandonmentRate: 0,
+                goalSwitches: 0, sourceRoleCorrections: 0, successfulResumesWithin30m: 0,
+                refinementsStarted: 0, debitedGenerations: 1, compensatedGenerations: 0,
+                failedGenerations: 0, failureRate: 0, refundedGenerations: 0, refundRate: 0,
+                medianEntryToBriefingMs: 60_000, medianEntryToPlanMs: null,
+                completionByInputMode: [],
+              },
+              {
+                variant: "progressive", eligibleSessions: 1, confirmedGenerations: 1,
+                completionsWithin24h: 0, completionRate: 0,
+                abandonmentsBeforeGeneration: 1, abandonmentRate: 1,
+                goalSwitches: 0, sourceRoleCorrections: 0, successfulResumesWithin30m: 0,
+                refinementsStarted: 0, debitedGenerations: 1, compensatedGenerations: 0,
+                failedGenerations: 1, failureRate: 1, refundedGenerations: 1, refundRate: 1,
+                medianEntryToBriefingMs: 60_000, medianEntryToPlanMs: 120_000,
+                completionByInputMode: [],
+              },
+            ],
             totals: { events: 1, sessions: 1 },
           }),
         } as Response;
@@ -168,6 +190,8 @@ describe("OwnerAnalyticsPanel", () => {
     expect(await screen.findByText("Preview gate")).toBeInTheDocument();
     expect(screen.getByText("Export CSV")).toBeInTheDocument();
     expect(screen.getByText("Core funnels")).toBeInTheDocument();
+    expect(screen.getByText("Estúdio progressivo")).toBeInTheDocument();
+    expect(screen.getByText("Amostra insuficiente")).toBeInTheDocument();
     expect(screen.getByText("Credits and billing")).toBeInTheDocument();
     expect(
       mockApiFetch.mock.calls.some(([url]) =>

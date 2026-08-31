@@ -1,4 +1,5 @@
 import type { BetaAnalyticsEvent, BetaSession } from "../db/schema";
+import type { StudioRolloutVariant } from "@/lib/beta-analytics/studio-session";
 import {
   BETA_RUNBOOK_STAGES,
   type BetaOperatorNotes,
@@ -129,6 +130,41 @@ export interface DerivationAutoRetryFunnelSummary extends DerivationAutoRetryBuc
   byFailureCode: DerivationAutoRetryByFailureCodeRow[];
 }
 
+export type StudioFunnelArm = {
+  variant: StudioRolloutVariant;
+  eligibleSessions: number;
+  confirmedGenerations: number;
+  completionsWithin24h: number;
+  completionRate: number | null;
+  abandonmentsBeforeGeneration: number;
+  abandonmentRate: number | null;
+  goalSwitches: number;
+  sourceRoleCorrections: number;
+  successfulResumesWithin30m: number;
+  refinementsStarted: number;
+  debitedGenerations: number;
+  compensatedGenerations: number;
+  failedGenerations: number;
+  failureRate: number | null;
+  refundedGenerations: number;
+  refundRate: number | null;
+  medianEntryToBriefingMs: number | null;
+  medianEntryToPlanMs: number | null;
+  completionByInputMode: Array<{
+    inputMode: "text" | "art" | "both" | "unknown";
+    eligibleSessions: number;
+    completionsWithin24h: number;
+    completionRate: number | null;
+  }>;
+};
+
+export type StudioUsageEvent = {
+  workspaceId: string;
+  amount: number | null;
+  metadata: unknown;
+  createdAt: Date;
+};
+
 export interface AnalyticsFunnelSummary {
   missionFunnel: MissionFunnelRow[];
   cockpitStageFunnel: CockpitStageFunnelRow[];
@@ -145,6 +181,7 @@ export interface AnalyticsFunnelSummary {
   draftToShareTiming: DraftToShareTimingSummary;
   shareEngagementByAssistance: ShareEngagementByAssistanceRow[];
   derivationAutoRetryFunnel: DerivationAutoRetryFunnelSummary;
+  studioFunnel: StudioFunnelArm[];
   totals: {
     events: number;
     sessions: number;
@@ -152,6 +189,21 @@ export interface AnalyticsFunnelSummary {
 }
 
 const POST_PREVIEW_STALL_THRESHOLD_MS = 15 * 60 * 1000;
+const STUDIO_SESSION_WINDOW_MS = 24 * 60 * 60 * 1000;
+const STUDIO_RESUME_WINDOW_MS = 30 * 60 * 1000;
+const STUDIO_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const STUDIO_INPUT_MODES = ["text", "art", "both", "unknown"] as const;
+const CANONICAL_STAGE_EVENTS = new Set([
+  "creative_work_started",
+  "briefing_ready",
+  "generation_confirmed",
+  "output_ready",
+  "creative_work_reviewed",
+  "creative_work_approved",
+  "creative_work_delivered",
+  "creative_work_abandoned",
+  "creative_work_failed",
+]);
 
 function median(values: number[]): number | null {
   if (values.length === 0) return null;
@@ -869,9 +921,261 @@ export function aggregateShareEngagementByAssistance(
     }));
 }
 
+type StudioInputMode = (typeof STUDIO_INPUT_MODES)[number];
+
+type StudioSessionEntry = {
+  id: string;
+  workspaceId: string;
+  variant: StudioRolloutVariant;
+  startedAt: number;
+};
+
+type StudioArmAccumulator = {
+  variant: StudioRolloutVariant;
+  eligibleSessions: number;
+  confirmedGenerations: number;
+  completionsWithin24h: number;
+  abandonmentsBeforeGeneration: number;
+  goalSwitches: number;
+  sourceRoleCorrections: number;
+  successfulResumesWithin30m: number;
+  refinementsStarted: number;
+  debitedGenerations: number;
+  compensatedGenerations: number;
+  failedGenerations: number;
+  refundedGenerations: number;
+  briefingTimes: number[];
+  planTimes: number[];
+  inputModes: Map<StudioInputMode, { eligibleSessions: number; completionsWithin24h: number }>;
+};
+
+function isStudioVariant(value: string | null): value is StudioRolloutVariant {
+  return value === "control" || value === "progressive";
+}
+
+function isStudioInputMode(value: string | null): value is Exclude<StudioInputMode, "unknown"> {
+  return value === "text" || value === "art" || value === "both";
+}
+
+function usageMetadata(metadata: unknown): Record<string, unknown> | null {
+  return metadata && typeof metadata === "object" && !Array.isArray(metadata)
+    ? metadata as Record<string, unknown>
+    : null;
+}
+
+function studioWorkId(event: BetaAnalyticsEvent): string | null {
+  return propString(event, "creativeWorkId");
+}
+
+function createStudioArm(variant: StudioRolloutVariant): StudioArmAccumulator {
+  return {
+    variant,
+    eligibleSessions: 0,
+    confirmedGenerations: 0,
+    completionsWithin24h: 0,
+    abandonmentsBeforeGeneration: 0,
+    goalSwitches: 0,
+    sourceRoleCorrections: 0,
+    successfulResumesWithin30m: 0,
+    refinementsStarted: 0,
+    debitedGenerations: 0,
+    compensatedGenerations: 0,
+    failedGenerations: 0,
+    refundedGenerations: 0,
+    briefingTimes: [],
+    planTimes: [],
+    inputModes: new Map(
+      STUDIO_INPUT_MODES.map((inputMode) => [
+        inputMode,
+        { eligibleSessions: 0, completionsWithin24h: 0 },
+      ]),
+    ),
+  };
+}
+
+function toStudioFunnelArm(arm: StudioArmAccumulator): StudioFunnelArm {
+  return {
+    variant: arm.variant,
+    eligibleSessions: arm.eligibleSessions,
+    confirmedGenerations: arm.confirmedGenerations,
+    completionsWithin24h: arm.completionsWithin24h,
+    completionRate: arm.eligibleSessions > 0 ? arm.completionsWithin24h / arm.eligibleSessions : null,
+    abandonmentsBeforeGeneration: arm.abandonmentsBeforeGeneration,
+    abandonmentRate: arm.eligibleSessions > 0 ? arm.abandonmentsBeforeGeneration / arm.eligibleSessions : null,
+    goalSwitches: arm.goalSwitches,
+    sourceRoleCorrections: arm.sourceRoleCorrections,
+    successfulResumesWithin30m: arm.successfulResumesWithin30m,
+    refinementsStarted: arm.refinementsStarted,
+    debitedGenerations: arm.debitedGenerations,
+    compensatedGenerations: arm.compensatedGenerations,
+    failedGenerations: arm.failedGenerations,
+    failureRate: arm.confirmedGenerations > 0 ? arm.failedGenerations / arm.confirmedGenerations : null,
+    refundedGenerations: arm.refundedGenerations,
+    refundRate: arm.confirmedGenerations > 0 ? arm.refundedGenerations / arm.confirmedGenerations : null,
+    medianEntryToBriefingMs: median(arm.briefingTimes),
+    medianEntryToPlanMs: arm.variant === "progressive" ? median(arm.planTimes) : null,
+    completionByInputMode: STUDIO_INPUT_MODES.map((inputMode) => {
+      const bucket = arm.inputModes.get(inputMode)!;
+      return {
+        inputMode,
+        eligibleSessions: bucket.eligibleSessions,
+        completionsWithin24h: bucket.completionsWithin24h,
+        completionRate: bucket.eligibleSessions > 0
+          ? bucket.completionsWithin24h / bucket.eligibleSessions
+          : null,
+      };
+    }),
+  };
+}
+
+/** Pure, session-windowed report for the temporary Studio rollout. */
+export function aggregateStudioFunnel(
+  events: BetaAnalyticsEvent[],
+  usageEvents: StudioUsageEvent[],
+): StudioFunnelArm[] {
+  const chronologicalEvents = [...events].sort(
+    (left, right) => left.createdAt.getTime() - right.createdAt.getTime(),
+  );
+  const entries = new Map<string, StudioSessionEntry>();
+
+  for (const event of chronologicalEvents) {
+    if (event.eventKey !== "studio_entry_started") continue;
+    const studioSessionId = propString(event, "studioSessionId");
+    const variant = propString(event, "rolloutVariant");
+    if (!studioSessionId || !STUDIO_UUID_PATTERN.test(studioSessionId) || !isStudioVariant(variant)) {
+      continue;
+    }
+    const key = `${event.workspaceId}:${studioSessionId}`;
+    if (!entries.has(key)) {
+      entries.set(key, {
+        id: studioSessionId,
+        workspaceId: event.workspaceId,
+        variant,
+        startedAt: event.createdAt.getTime(),
+      });
+    }
+  }
+
+  const arms = new Map<StudioRolloutVariant, StudioArmAccumulator>([
+    ["control", createStudioArm("control")],
+    ["progressive", createStudioArm("progressive")],
+  ]);
+
+  for (const session of entries.values()) {
+    const arm = arms.get(session.variant)!;
+    const windowEndsAt = session.startedAt + STUDIO_SESSION_WINDOW_MS;
+    const inWindow = (createdAt: Date) => {
+      const timestamp = createdAt.getTime();
+      return timestamp >= session.startedAt && timestamp <= windowEndsAt;
+    };
+    const sessionEvents = chronologicalEvents.filter(
+      (event) => event.workspaceId === session.workspaceId
+        && inWindow(event.createdAt)
+        && propString(event, "studioSessionId") === session.id,
+    );
+    const acceptedWorks = new Set(
+      sessionEvents
+        .filter((event) => event.eventKey === "generation_confirmed")
+        .map(studioWorkId)
+        .filter((workId): workId is string => Boolean(workId)),
+    );
+    const workEvents = chronologicalEvents.filter(
+      (event) => event.workspaceId === session.workspaceId
+        && inWindow(event.createdAt)
+        && (() => {
+          const workId = studioWorkId(event);
+          return workId !== null && acceptedWorks.has(workId);
+        })(),
+    );
+    const completedWorks = new Set(
+      workEvents
+        .filter((event) => event.source === "server" && event.eventKey === "output_ready")
+        .map(studioWorkId)
+        .filter((workId): workId is string => Boolean(workId)),
+    );
+    const failedWorks = new Set(
+      workEvents
+        .filter((event) => event.source === "server" && event.eventKey === "creative_work_failed")
+        .map(studioWorkId)
+        .filter((workId): workId is string => Boolean(workId)),
+    );
+
+    arm.eligibleSessions += 1;
+    arm.confirmedGenerations += acceptedWorks.size;
+    if (acceptedWorks.size === 0) arm.abandonmentsBeforeGeneration += 1;
+    if (completedWorks.size > 0) arm.completionsWithin24h += 1;
+    arm.failedGenerations += failedWorks.size;
+
+    const firstWorkStart = sessionEvents.find(
+      (event) => event.eventKey === "creative_work_started" && studioWorkId(event),
+    );
+    const inputModeValue = firstWorkStart ? propString(firstWorkStart, "inputMode") : null;
+    const inputMode: StudioInputMode = isStudioInputMode(inputModeValue) ? inputModeValue : "unknown";
+    const inputBucket = arm.inputModes.get(inputMode)!;
+    inputBucket.eligibleSessions += 1;
+    if (completedWorks.size > 0) inputBucket.completionsWithin24h += 1;
+
+    const firstBriefing = sessionEvents.find((event) => event.eventKey === "briefing_ready");
+    if (firstBriefing) arm.briefingTimes.push(firstBriefing.createdAt.getTime() - session.startedAt);
+    const firstPlan = sessionEvents.find((event) => event.eventKey === "studio_plan_shown");
+    if (firstPlan) arm.planTimes.push(firstPlan.createdAt.getTime() - session.startedAt);
+
+    let workStarted = false;
+    let goalSelections = 0;
+    for (const event of sessionEvents) {
+      if (event.eventKey === "creative_work_started") workStarted = true;
+      if (event.eventKey === "studio_goal_selected") {
+        goalSelections += 1;
+        if (workStarted && goalSelections >= 2) arm.goalSwitches += 1;
+      }
+      if (event.eventKey === "studio_source_role_selected") arm.sourceRoleCorrections += 1;
+      if (event.eventKey === "studio_refinement_started") arm.refinementsStarted += 1;
+    }
+
+    for (const event of sessionEvents) {
+      if (event.eventKey !== "creative_work_reopened") continue;
+      const workId = studioWorkId(event);
+      if (!workId || !acceptedWorks.has(workId)) continue;
+      const reopenedAt = event.createdAt.getTime();
+      const nextCanonicalStage = workEvents.find((candidate) =>
+        studioWorkId(candidate) === workId
+        && CANONICAL_STAGE_EVENTS.has(candidate.eventKey)
+        && candidate.createdAt.getTime() > reopenedAt,
+      );
+      if (nextCanonicalStage
+        && nextCanonicalStage.createdAt.getTime() <= reopenedAt + STUDIO_RESUME_WINDOW_MS) {
+        arm.successfulResumesWithin30m += 1;
+      }
+    }
+
+    for (const workId of acceptedWorks) {
+      const usageForWork = usageEvents.filter((usageEvent) => {
+        if (usageEvent.workspaceId !== session.workspaceId || !inWindow(usageEvent.createdAt)) return false;
+        return usageMetadata(usageEvent.metadata)?.creativeWorkId === workId;
+      });
+      if (usageForWork.some((usageEvent) => (usageEvent.amount ?? 0) > 0)) {
+        arm.debitedGenerations += 1;
+      }
+      const refunds = usageForWork.filter((usageEvent) => {
+        const metadata = usageMetadata(usageEvent.metadata);
+        return (usageEvent.amount ?? 0) < 0 && metadata?.refund === true;
+      });
+      if (refunds.length > 0) arm.refundedGenerations += 1;
+      if (refunds.some((usageEvent) => usageMetadata(usageEvent.metadata)?.description === "creative_work_dispatch_refund")) {
+        arm.compensatedGenerations += 1;
+      }
+    }
+  }
+
+  return (["control", "progressive"] as const).map((variant) =>
+    toStudioFunnelArm(arms.get(variant)!),
+  );
+}
+
 export function buildAnalyticsFunnelSummary(
   events: BetaAnalyticsEvent[],
-  sessions: BetaSession[] = []
+  sessions: BetaSession[] = [],
+  usageEvents: StudioUsageEvent[] = [],
 ): AnalyticsFunnelSummary {
   const sessionIds = new Set(
     events.map((e) => e.sessionId).filter((id): id is string => Boolean(id))
@@ -896,6 +1200,7 @@ export function buildAnalyticsFunnelSummary(
       sessions
     ),
     derivationAutoRetryFunnel: aggregateDerivationAutoRetryFunnel(events),
+    studioFunnel: aggregateStudioFunnel(events, usageEvents),
     totals: {
       events: events.length,
       sessions: sessionIds.size,

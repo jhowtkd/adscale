@@ -19,6 +19,10 @@ vi.mock("@/server/repositories/beta-sessions", () => ({
   listBetaSessions: vi.fn(),
 }));
 
+vi.mock("@/server/repositories/usage", () => ({
+  listUsageEventsForOwner: vi.fn(),
+}));
+
 vi.mock("@/server/feedback/mission-credit-signals", () => ({
   summarizeMissionCreditSignals: vi.fn(),
 }));
@@ -30,6 +34,7 @@ vi.mock("next-intl/server", () => ({
 import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { listBetaAnalyticsEventsForOwner } from "@/server/repositories/beta-analytics";
 import { listBetaSessions } from "@/server/repositories/beta-sessions";
+import { listUsageEventsForOwner } from "@/server/repositories/usage";
 import { summarizeMissionCreditSignals } from "@/server/feedback/mission-credit-signals";
 import { ANALYTICS_FIXTURE_EVENTS } from "@/server/beta-analytics/aggregate.fixture";
 import { EXAMPLE_BETA_SESSION_FIXTURE } from "@/server/repositories/beta-sessions.fixture";
@@ -38,6 +43,7 @@ import { WorkspaceAuthError, AUTH_ERROR_CODES } from "@/server/auth/errors";
 const mockRequireOwner = vi.mocked(requirePlatformOwner);
 const mockListEvents = vi.mocked(listBetaAnalyticsEventsForOwner);
 const mockListSessions = vi.mocked(listBetaSessions);
+const mockListUsage = vi.mocked(listUsageEventsForOwner);
 const mockCreditSummary = vi.mocked(summarizeMissionCreditSignals);
 
 const WORKSPACE_ID = EXAMPLE_BETA_SESSION_FIXTURE.workspaceId;
@@ -65,6 +71,7 @@ describe("owner analytics routes", () => {
     });
     mockListEvents.mockResolvedValue(ANALYTICS_FIXTURE_EVENTS);
     mockListSessions.mockResolvedValue([sessionRow()]);
+    mockListUsage.mockResolvedValue([]);
     mockCreditSummary.mockResolvedValue({
       healthyCount: 2,
       frustrationCount: 1,
@@ -88,6 +95,22 @@ describe("owner analytics routes", () => {
       expect(body.missionFunnel.length).toBeGreaterThan(0);
       expect(body.cockpitStageFunnel.length).toBeGreaterThan(0);
       expect(body.readinessOverrides.length).toBeGreaterThan(0);
+      expect(body.studioFunnel).toEqual(expect.arrayContaining([
+        expect.objectContaining({ variant: "control" }),
+        expect.objectContaining({ variant: "progressive" }),
+      ]));
+      expect(body).not.toHaveProperty("usageEvents");
+      expect(mockListUsage).toHaveBeenCalledWith({
+        workspaceId: WORKSPACE_ID,
+        from: undefined,
+        to: undefined,
+      });
+      expect(mockListEvents).toHaveBeenCalledWith({
+        workspaceId: WORKSPACE_ID,
+        sessionId: undefined,
+        from: undefined,
+        to: undefined,
+      });
     });
 
     it("returns 403 for non-platform-owner", async () => {

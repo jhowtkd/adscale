@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { db } from "../db";
 import { usageEvents } from "../db/schema";
 
@@ -79,4 +79,33 @@ export async function getUsageForWorkspace(workspaceId: string) {
     .from(usageEvents)
     .where(eq(usageEvents.workspaceId, workspaceId))
     .orderBy(desc(usageEvents.createdAt));
+}
+
+export async function listUsageEventsForOwner(filters: {
+  workspaceId?: string;
+  from?: Date;
+  to?: Date;
+} = {}) {
+  const conditions = [];
+  if (filters.workspaceId) {
+    conditions.push(eq(usageEvents.workspaceId, filters.workspaceId));
+  }
+  if (filters.from) {
+    conditions.push(gte(usageEvents.createdAt, filters.from));
+  }
+  if (filters.to) {
+    conditions.push(lte(usageEvents.createdAt, filters.to));
+  }
+
+  const query = db
+    .select({
+      workspaceId: usageEvents.workspaceId,
+      amount: usageEvents.amount,
+      metadata: usageEvents.metadata,
+      createdAt: usageEvents.createdAt,
+    })
+    .from(usageEvents)
+    .orderBy(desc(usageEvents.createdAt));
+
+  return conditions.length === 0 ? query : query.where(and(...conditions));
 }

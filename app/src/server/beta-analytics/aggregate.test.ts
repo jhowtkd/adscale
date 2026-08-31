@@ -15,10 +15,15 @@ import {
   aggregateSessionStageTimeline,
   aggregateShareEngagementByAssistance,
   aggregateShareLinkOpens,
+  aggregateStudioFunnel,
   buildAnalyticsFunnelSummary,
   eventsToCsvRows,
 } from "./aggregate";
-import { ANALYTICS_FIXTURE_EVENTS } from "./aggregate.fixture";
+import {
+  ANALYTICS_FIXTURE_EVENTS,
+  STUDIO_ROLLOUT_FIXTURE_EVENTS,
+  STUDIO_ROLLOUT_FIXTURE_USAGE,
+} from "./aggregate.fixture";
 import { EXAMPLE_BETA_SESSION_FIXTURE } from "../repositories/beta-sessions.fixture";
 
 describe("beta analytics aggregate", () => {
@@ -374,6 +379,70 @@ describe("beta analytics aggregate", () => {
     });
   });
 
+  it("aggregates frozen Studio arms without raw usage metadata", () => {
+    expect(
+      aggregateStudioFunnel(
+        STUDIO_ROLLOUT_FIXTURE_EVENTS,
+        STUDIO_ROLLOUT_FIXTURE_USAGE,
+      ),
+    ).toEqual([
+      {
+        variant: "control",
+        eligibleSessions: 2,
+        confirmedGenerations: 1,
+        completionsWithin24h: 1,
+        completionRate: 0.5,
+        abandonmentsBeforeGeneration: 1,
+        abandonmentRate: 0.5,
+        goalSwitches: 1,
+        sourceRoleCorrections: 1,
+        successfulResumesWithin30m: 1,
+        refinementsStarted: 1,
+        debitedGenerations: 1,
+        compensatedGenerations: 1,
+        failedGenerations: 1,
+        failureRate: 1,
+        refundedGenerations: 1,
+        refundRate: 1,
+        medianEntryToBriefingMs: 5 * 60 * 1000,
+        medianEntryToPlanMs: null,
+        completionByInputMode: [
+          { inputMode: "text", eligibleSessions: 1, completionsWithin24h: 1, completionRate: 1 },
+          { inputMode: "art", eligibleSessions: 0, completionsWithin24h: 0, completionRate: null },
+          { inputMode: "both", eligibleSessions: 0, completionsWithin24h: 0, completionRate: null },
+          { inputMode: "unknown", eligibleSessions: 1, completionsWithin24h: 0, completionRate: 0 },
+        ],
+      },
+      {
+        variant: "progressive",
+        eligibleSessions: 1,
+        confirmedGenerations: 1,
+        completionsWithin24h: 0,
+        completionRate: 0,
+        abandonmentsBeforeGeneration: 0,
+        abandonmentRate: 0,
+        goalSwitches: 0,
+        sourceRoleCorrections: 0,
+        successfulResumesWithin30m: 0,
+        refinementsStarted: 0,
+        debitedGenerations: 1,
+        compensatedGenerations: 0,
+        failedGenerations: 1,
+        failureRate: 1,
+        refundedGenerations: 1,
+        refundRate: 1,
+        medianEntryToBriefingMs: 2 * 60 * 1000,
+        medianEntryToPlanMs: 5 * 60 * 1000,
+        completionByInputMode: [
+          { inputMode: "text", eligibleSessions: 0, completionsWithin24h: 0, completionRate: null },
+          { inputMode: "art", eligibleSessions: 1, completionsWithin24h: 0, completionRate: 0 },
+          { inputMode: "both", eligibleSessions: 0, completionsWithin24h: 0, completionRate: null },
+          { inputMode: "unknown", eligibleSessions: 0, completionsWithin24h: 0, completionRate: null },
+        ],
+      },
+    ]);
+  });
+
   it("builds full funnel summary with totals", () => {
     const summary = buildAnalyticsFunnelSummary(ANALYTICS_FIXTURE_EVENTS);
 
@@ -393,6 +462,7 @@ describe("beta analytics aggregate", () => {
       byGenerationMode: [],
       byFailureCode: [],
     });
+    expect(summary.studioFunnel).toHaveLength(2);
   });
 
   it("exports events as CSV rows", () => {
