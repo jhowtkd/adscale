@@ -57,7 +57,6 @@ import { env } from "@/server/validation/env";
 function resolveEffectiveSources<TSource extends { id: string; templateId: string | null; usage: CreativeSourceUsage }>(
   toolKind: string,
   readySources: readonly TSource[],
-  _sourceAssets: ReadonlyMap<string, { source: string }>,
 ): Array<{ source: TSource; usage: CreativeSourceUsage }> {
   void toolKind;
   return readySources.map((source) => ({ source, usage: source.usage }));
@@ -82,12 +81,12 @@ export async function detectCreativeWorkDraftBrandConflict(input: {
 }): Promise<CreativeWorkBrandConflictDetails | null> {
   if (input.work.toolKind !== "restyle") return null;
   const readySources = input.sources.filter((source) => source.status === "ready");
-  const [sourceAssets, brandKit] = await Promise.all([
-    getCreativeWorkSourceAssetDetails(input.workspaceId, readySources),
-    getBrandKit(input.workspaceId, input.work.clientProfileId),
-  ]);
+  const brandKit = await getBrandKit(
+    input.workspaceId,
+    input.work.clientProfileId,
+  );
   return detectCreativeWorkBrandConflict({
-    sources: resolveEffectiveSources(input.work.toolKind, readySources, sourceAssets)
+    sources: resolveEffectiveSources(input.work.toolKind, readySources)
       .map(({ source, usage }) => ({
         sourceId: source.id,
         usage,
@@ -153,7 +152,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       return { ok: false as const, error: { code: "invalid_preparation" as const } };
     }
     const sourceAssets = await getCreativeWorkSourceAssetDetails(input.workspaceId, readySources, executor);
-    const effectiveSources = resolveEffectiveSources(aggregate.work.toolKind, readySources, sourceAssets);
+    const effectiveSources = resolveEffectiveSources(aggregate.work.toolKind, readySources);
     // Temporary Single Piece assets are rendering authorities only.  Even
     // when their persisted usage is "both" (the browser never controls it),
     // their vision reading must not become copy/fact authority.
