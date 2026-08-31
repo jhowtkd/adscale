@@ -280,6 +280,11 @@ export default function DashboardHomeActions({
           <details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-4">
             <summary className="cursor-pointer text-sm font-medium">{t("planUsed")}</summary>
             <div className="mt-3">
+              <dl data-testid="progressive-readonly-configuration" className="grid gap-1 text-sm text-[var(--text-secondary)]">
+                <div><dt className="sr-only">{t("composer.requestLabel")}</dt><dd>{composer.request}</dd></div>
+                <div><dt className="sr-only">{t("chooseObjective")}</dt><dd>{composer.intent}</dd></div>
+                <div><dt className="sr-only">{t("composer.targetFormats")}</dt><dd>{composer.targetFormats?.join(", ")}</dd></div>
+              </dl>
               {composer.preparedPlan ? <CreativePlanReview plan={composer.preparedPlan} busy={false} onEdit={() => undefined} onConfirm={() => undefined} readOnly /> : <p className="text-sm text-[var(--text-secondary)]">{composer.request || t("progressiveSubtitle")}</p>}
             </div>
           </details>

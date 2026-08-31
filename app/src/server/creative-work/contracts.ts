@@ -9,6 +9,7 @@ import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
 import type { TextLayout, TypographyPlan } from "./typography-plan";
 import { carouselDraftStateSchema } from "./carousel-contracts";
 import type { CarouselDraftStateV1, CarouselPreparedSnapshotV1 } from "./carousel-contracts";
+export { hasCreativeWorkProtocolSourceShape } from "@/lib/creative-work-protocol-eligibility";
 
 export const CREATIVE_LEVELS = ["conservative", "balanced", "bold"] as const;
 export const CREATIVE_WORK_INTENTS = [
@@ -28,21 +29,6 @@ export type CreativeSourceStatus = (typeof CREATIVE_SOURCE_STATUSES)[number];
 export type CreativeWorkFormat = "1:1" | "4:5" | "9:16";
 
 /** Canonical source-shape gate shared by preparation and plan projection. */
-export function hasCreativeWorkProtocolSourceShape(input: {
-  intent: Exclude<CreativeWorkIntent, "social_post" | "carousel">;
-  request: string;
-  sources: readonly { sourceId: string; usage: CreativeSourceUsage }[];
-}) {
-  const { intent, request, sources } = input;
-  if (intent === "single") return request.trim().length > 0 && sources.length <= 3;
-  if (intent === "variations") return sources.length > 0;
-  if (intent === "format_adaptation") return sources.length === 1;
-  return sources.length === 2
-    && new Set(sources.map((source) => source.sourceId)).size === 2
-    && sources.some((source) => source.usage === "content")
-    && sources.some((source) => source.usage === "style")
-    && !sources.some((source) => source.usage === "both");
-}
 /**
  * Brand authority chosen by the user when a restyle content art carries an
  * explicit brand that conflicts with the active workspace brand (R-003 /

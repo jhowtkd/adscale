@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useTranslations } from "next-intl";
+import { hasCreativeWorkProtocolSourceShape } from "@/lib/creative-work-protocol-eligibility";
 import { z } from "zod";
 import { collectImageFiles, uploadChatAttachment } from "@/lib/assistant/chat-attachments";
 import { apiFetch, isApiRequestUncertain } from "@/lib/api-client";
@@ -1598,19 +1599,11 @@ export function useCreativeComposer({
     ?? null;
   const sources = detail?.sources ?? [];
   const readySources = sources.filter((source) => source.status === "ready");
-  const restyleOriginal = readySources.find((source) => source.usage === "content")
-    ?? readySources.find((source) => source.usage === "both")
-    ?? null;
-  const restyleStyle = readySources.find((source) => source.usage === "style") ?? null;
-  const hasMeaningfulInput = intent === "restyle"
-    ? Boolean(
-      restyleOriginal
-      && restyleStyle
-      && restyleOriginal.id !== restyleStyle.id,
-    )
-    : intent === "variations" || intent === "format_adaptation"
-      ? readySources.length > 0
-      : Boolean(request.trim() || sources.length);
+  const hasMeaningfulInput = hasCreativeWorkProtocolSourceShape({
+    intent,
+    request,
+    sources: readySources.map((source) => ({ sourceId: source.id, usage: source.usage })),
+  });
   const canGenerate = Boolean(clientProfileId) && hasMeaningfulInput
     && (!detail?.work || detail.work.status === "draft"
       // A "ready" work without outputs holds a confirmed prepare whose
