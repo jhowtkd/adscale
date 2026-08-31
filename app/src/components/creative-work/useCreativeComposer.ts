@@ -1355,6 +1355,7 @@ export function useCreativeComposer({
     const current = detailQuery.data?.work;
     if (current && current.status !== "draft") return detailQuery.data?.preparedPlan ?? null;
     setActionPhase("saving");
+    const preparedInputSignature = signature(captureSnapshot());
     setError(null);
     setBrandConflict(null);
     try {
@@ -1367,6 +1368,10 @@ export function useCreativeComposer({
       }
       setActionPhase("preparing");
       const prepared = await prepareMutation.mutateAsync({ workItemId: id });
+      preparedPlanInputRef.current = {
+        revision: prepared.preparedPlan.preparedRevision,
+        signature: preparedInputSignature,
+      };
       if (prepared.briefing && prepared.briefingFactPack) setInferredBriefingContext({ briefing: prepared.briefing, factPack: prepared.briefingFactPack });
       lastPersistedRef.current = signature(snapshotFromWork(prepared.work));
       setQuote(prepared.quote);
@@ -1386,7 +1391,7 @@ export function useCreativeComposer({
     } finally {
       setActionPhase("idle");
     }
-  }, [detailQuery.data, flushAutosave, prepareMutation, recordCanonicalEvent]);
+  }, [captureSnapshot, detailQuery.data, flushAutosave, prepareMutation, recordCanonicalEvent]);
 
   const confirmGenerationCommand = useCallback(async (preparedRevision?: string): Promise<void> => {
     const current = detailQuery.data?.work;
@@ -1556,22 +1561,7 @@ export function useCreativeComposer({
   const objectiveSelected = objective !== null;
   const preparedPlan = detail?.preparedPlan ?? null;
   const stage = projectComposerStage({ objectiveSelected, detail: detail ?? null });
-  const planInputSignature = JSON.stringify({
-    intent,
-    request,
-    format,
-    formatMode,
-    targetFormats,
-    textLayout,
-    fontAssetKey,
-    directions: directionPool && {
-      selectedIds: directionPool.selectedIds,
-      selected: directionPool.directions
-        .filter((direction) => directionPool.selectedIds.includes(direction.id))
-        .map((direction) => ({ id: direction.id, label: direction.label, instruction: direction.instruction })),
-      manualInstruction: directionPool.manualInstruction,
-    },
-  });
+  const planInputSignature = signature(captureSnapshot());
   const preparedPlanInputRef = useRef<{ revision: string; signature: string } | null>(null);
   useEffect(() => {
     if (!preparedPlan) { preparedPlanInputRef.current = null; return; }

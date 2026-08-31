@@ -55,10 +55,8 @@ import { env } from "@/server/validation/env";
 
 /** Persisted roles are the only authority for preparation and conflict detection. */
 function resolveEffectiveSources<TSource extends { id: string; templateId: string | null; usage: CreativeSourceUsage }>(
-  toolKind: string,
   readySources: readonly TSource[],
 ): Array<{ source: TSource; usage: CreativeSourceUsage }> {
-  void toolKind;
   return readySources.map((source) => ({ source, usage: source.usage }));
 }
 
@@ -86,7 +84,7 @@ export async function detectCreativeWorkDraftBrandConflict(input: {
     input.work.clientProfileId,
   );
   return detectCreativeWorkBrandConflict({
-    sources: resolveEffectiveSources(input.work.toolKind, readySources)
+    sources: resolveEffectiveSources(readySources)
       .map(({ source, usage }) => ({
         sourceId: source.id,
         usage,
@@ -152,7 +150,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       return { ok: false as const, error: { code: "invalid_preparation" as const } };
     }
     const sourceAssets = await getCreativeWorkSourceAssetDetails(input.workspaceId, readySources, executor);
-    const effectiveSources = resolveEffectiveSources(aggregate.work.toolKind, readySources);
+    const effectiveSources = resolveEffectiveSources(readySources);
     // Temporary Single Piece assets are rendering authorities only.  Even
     // when their persisted usage is "both" (the browser never controls it),
     // their vision reading must not become copy/fact authority.

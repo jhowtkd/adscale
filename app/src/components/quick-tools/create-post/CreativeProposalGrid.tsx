@@ -111,10 +111,7 @@ export default function CreativeProposalGrid({
       latest.set(key, output);
       continue;
     }
-    const outputIsUsable = hasUsableOutput(output);
-    const currentIsUsable = hasUsableOutput(current);
-    if ((outputIsUsable && (!currentIsUsable || (output.versionNumber ?? 1) > (current.versionNumber ?? 1)))
-      || (!currentIsUsable && !outputIsUsable && (output.versionNumber ?? 1) > (current.versionNumber ?? 1))) {
+    if ((output.versionNumber ?? 1) > (current.versionNumber ?? 1)) {
       latest.set(key, output);
     }
   }
@@ -146,8 +143,9 @@ export default function CreativeProposalGrid({
     ? [t("factoryProcessingTitle"), t("factoryProcessingDescription")]
     : [t("factoryQueuedTitle"), t("factoryQueuedDescription")];
   const selectedLineage = outputLineage(outputs, selected);
-  const historyOutput = historyOutputId ? visible.find((output) => output.id === historyOutputId) : null;
+  const historyOutput = historyOutputId ? outputs.find((output) => output.id === historyOutputId) : null;
   const historyLineage = historyOutput ? outputLineage(outputs, historyOutput) : [];
+  const comparisonOutput = historyLineage.find(hasUsableOutput) ?? null;
   const compareAncestor = compareAncestorId
     ? historyLineage.find((output) => output.id === compareAncestorId && hasUsableOutput(output))
     : null;
@@ -283,13 +281,13 @@ export default function CreativeProposalGrid({
               if (output.parentOutputId && onRetryRevision) void onRetryRevision(output);
               else onRetry(output.id);
             }} className="text-sm font-semibold underline">{t("proposal.retry")}</button> : null}
-            {historyOutput && output.id !== historyOutput.id && hasUsableOutput(historyOutput) && hasUsableOutput(output) ? <button type="button" onClick={() => setCompareAncestorId(output.id)} className="text-sm font-semibold underline">{t("proposal.compare")}</button> : null}
+            {comparisonOutput && output.id !== comparisonOutput.id && hasUsableOutput(output) ? <button type="button" onClick={() => setCompareAncestorId(output.id)} className="text-sm font-semibold underline">{t("proposal.compare")}</button> : null}
           </article>)}
         </SheetBody></SheetContent>
       </Sheet>
-      <Dialog open={Boolean(historyOutput && hasUsableOutput(historyOutput) && compareAncestor)} onOpenChange={(open) => !open && setCompareAncestorId(null)}>
+      <Dialog open={Boolean(comparisonOutput && compareAncestor)} onOpenChange={(open) => !open && setCompareAncestorId(null)}>
         <DialogContent size="xl"><DialogHeader><DialogTitle>{t("proposal.compareTitle")}</DialogTitle></DialogHeader><DialogBody className="grid gap-4 sm:grid-cols-2">
-          {historyOutput ? <figure><figcaption className="mb-2 text-sm font-medium">{t("proposal.currentVariation")}</figcaption><img src={outputSource(historyOutput)} alt={t("proposal.currentVariation")} className="h-auto w-full" /></figure> : null}
+          {comparisonOutput ? <figure><figcaption className="mb-2 text-sm font-medium">{t("proposal.currentVariation")}</figcaption><img src={outputSource(comparisonOutput)} alt={t("proposal.currentVariation")} className="h-auto w-full" /></figure> : null}
           {compareAncestor ? <figure><figcaption className="mb-2 text-sm font-medium">{t("proposal.previousVariation")}</figcaption><img src={outputSource(compareAncestor)} alt={t("proposal.previousVariation")} className="h-auto w-full" /></figure> : null}
         </DialogBody></DialogContent>
       </Dialog>
