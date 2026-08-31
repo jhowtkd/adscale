@@ -15,13 +15,44 @@ import {
   aggregateSessionStageTimeline,
   aggregateShareEngagementByAssistance,
   aggregateShareLinkOpens,
+  aggregateStudioFunnel,
   buildAnalyticsFunnelSummary,
   eventsToCsvRows,
 } from "./aggregate";
-import { ANALYTICS_FIXTURE_EVENTS } from "./aggregate.fixture";
+import {
+  ANALYTICS_FIXTURE_EVENTS,
+  STUDIO_ROLLOUT_FIXTURE_EVENTS,
+  STUDIO_ROLLOUT_FIXTURE_USAGE,
+} from "./aggregate.fixture";
 import { EXAMPLE_BETA_SESSION_FIXTURE } from "../repositories/beta-sessions.fixture";
 
 describe("beta analytics aggregate", () => {
+  it("discards explicitly cross-variant Studio events from the frozen arm", () => {
+    const events = STUDIO_ROLLOUT_FIXTURE_EVENTS.map((event) =>
+      event.eventKey === "generation_confirmed"
+        ? { ...event, properties: { ...event.properties, rolloutVariant: "progressive" } }
+        : event,
+    );
+
+    const control = aggregateStudioFunnel(events, STUDIO_ROLLOUT_FIXTURE_USAGE)
+      .find((arm) => arm.variant === "control");
+
+    expect(control?.confirmedGenerations).toBe(0);
+  });
+
+  it("counts a reopened work that reaches its next stage without a new confirmation", () => {
+    const events = STUDIO_ROLLOUT_FIXTURE_EVENTS.filter((event) => [
+      "studio-control-entry",
+      "studio-control-reopen-29",
+      "studio-control-reviewed",
+    ].includes(event.id));
+
+    const control = aggregateStudioFunnel(events, [], new Date("2026-07-03T00:00:00.000Z"))
+      .find((arm) => arm.variant === "control");
+
+    expect(control).toMatchObject({ confirmedGenerations: 0, successfulResumesWithin30m: 1 });
+  });
+
   it("computes mission conversion funnel per missionKey", () => {
     const funnel = aggregateMissionFunnel(ANALYTICS_FIXTURE_EVENTS);
 
@@ -374,6 +405,105 @@ describe("beta analytics aggregate", () => {
     });
   });
 
+  it("aggregates frozen Studio arms without raw usage metadata", () => {
+    expect(
+      aggregateStudioFunnel(
+        STUDIO_ROLLOUT_FIXTURE_EVENTS,
+        STUDIO_ROLLOUT_FIXTURE_USAGE,
+      ),
+    ).toEqual([
+      {
+        variant: "control",
+        eligibleSessions: 2,
+        confirmedGenerations: 1,
+        completionsWithin24h: 1,
+        completionRate: 0.5,
+        abandonmentsBeforeGeneration: 1,
+        abandonmentRate: 0.5,
+        goalSwitches: 1,
+        sourceRoleCorrections: 1,
+        successfulResumesWithin30m: 1,
+        refinementsStarted: 1,
+        debitedGenerations: 1,
+        compensatedGenerations: 1,
+        failedGenerations: 1,
+        failureRate: 1,
+        refundedGenerations: 1,
+        refundRate: 1,
+        medianEntryToBriefingMs: 5 * 60 * 1000,
+        medianEntryToPlanMs: null,
+        completionByInputMode: [
+          { inputMode: "text", eligibleSessions: 1, completionsWithin24h: 1, completionRate: 1 },
+          { inputMode: "art", eligibleSessions: 0, completionsWithin24h: 0, completionRate: null },
+          { inputMode: "both", eligibleSessions: 0, completionsWithin24h: 0, completionRate: null },
+          { inputMode: "unknown", eligibleSessions: 1, completionsWithin24h: 0, completionRate: 0 },
+        ],
+      },
+      {
+        variant: "progressive",
+        eligibleSessions: 1,
+        confirmedGenerations: 1,
+        completionsWithin24h: 0,
+        completionRate: 0,
+        abandonmentsBeforeGeneration: 0,
+        abandonmentRate: 0,
+        goalSwitches: 0,
+        sourceRoleCorrections: 0,
+        successfulResumesWithin30m: 0,
+        refinementsStarted: 0,
+        debitedGenerations: 1,
+        compensatedGenerations: 0,
+        failedGenerations: 1,
+        failureRate: 1,
+        refundedGenerations: 1,
+        refundRate: 1,
+        medianEntryToBriefingMs: 2 * 60 * 1000,
+        medianEntryToPlanMs: 5 * 60 * 1000,
+        completionByInputMode: [
+          { inputMode: "text", eligibleSessions: 0, completionsWithin24h: 0, completionRate: null },
+          { inputMode: "art", eligibleSessions: 1, completionsWithin24h: 0, completionRate: 0 },
+          { inputMode: "both", eligibleSessions: 0, completionsWithin24h: 0, completionRate: null },
+          { inputMode: "unknown", eligibleSessions: 0, completionsWithin24h: 0, completionRate: null },
+        ],
+      },
+    ]);
+  });
+
+  it("excludes sessions that have not completed their 24-hour outcome window", () => {
+    const reportEnd = new Date("2026-08-10T12:00:00.000Z");
+    const boundarySession = "88888888-8888-4888-8888-888888888888";
+    const immatureSession = "99999999-9999-4999-8999-999999999999";
+    const base = STUDIO_ROLLOUT_FIXTURE_EVENTS[0]!;
+    const arms = aggregateStudioFunnel([
+      {
+        ...base,
+        id: "mature-boundary",
+        createdAt: new Date("2026-08-09T12:00:00.000Z"),
+        properties: { studioSessionId: boundarySession, rolloutVariant: "control" },
+      },
+      {
+        ...base,
+        id: "immature-after-boundary",
+        createdAt: new Date("2026-08-09T12:00:00.001Z"),
+        properties: { studioSessionId: immatureSession, rolloutVariant: "progressive" },
+      },
+    ], [], reportEnd);
+
+    expect(arms.find((arm) => arm.variant === "control")?.eligibleSessions).toBe(1);
+    expect(arms.find((arm) => arm.variant === "progressive")?.eligibleSessions).toBe(0);
+    expect(arms.find((arm) => arm.variant === "progressive")?.abandonmentsBeforeGeneration).toBe(0);
+  });
+
+  it("counts every repeated goal selection after a work starts as an objective switch", () => {
+    const repeat = STUDIO_ROLLOUT_FIXTURE_EVENTS.find((event) => event.id === "studio-control-goal-switch")!;
+    const control = aggregateStudioFunnel([
+      ...STUDIO_ROLLOUT_FIXTURE_EVENTS,
+      { ...repeat, id: "studio-control-goal-switch-again", createdAt: new Date("2026-07-01T23:57:30.000Z") },
+    ], STUDIO_ROLLOUT_FIXTURE_USAGE).find((arm) => arm.variant === "control");
+
+    expect(control?.goalSwitches).toBe(2);
+  });
+
   it("builds full funnel summary with totals", () => {
     const summary = buildAnalyticsFunnelSummary(ANALYTICS_FIXTURE_EVENTS);
 
@@ -393,6 +523,7 @@ describe("beta analytics aggregate", () => {
       byGenerationMode: [],
       byFailureCode: [],
     });
+    expect(summary.studioFunnel).toHaveLength(2);
   });
 
   it("exports events as CSV rows", () => {

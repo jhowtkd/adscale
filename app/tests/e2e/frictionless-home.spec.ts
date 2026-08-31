@@ -3,7 +3,9 @@ import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-const FIXTURE_PATH = path.resolve(__dirname, "../fixtures/create-post-e2e.json");
+const FIXTURE_PATH = process.env.CREATE_POST_E2E_FIXTURE_PATH
+  ? path.resolve(process.env.CREATE_POST_E2E_FIXTURE_PATH)
+  : path.resolve(__dirname, "../fixtures/create-post-e2e.json");
 
 type Fixture = {
   email: string;
@@ -11,10 +13,19 @@ type Fixture = {
   primaryClientProfileId: string;
   attachmentBufferBase64: string;
   expectedInitialCredits: number;
+  insufficientBalance: {
+    workspaceId: string;
+    email: string;
+    password: string;
+    clientProfileId: string;
+    contentArtAssetId: string;
+    expectedCredits: number;
+  };
 };
 
 type WorkDetail = {
   work: { id: string; campaignId: string | null; request: string };
+  preparedPlan?: { preparedRevision: string; outputCount: number } | null;
   inferredBriefing?: {
     version: number;
     offer: { value: string | null; state: string };
@@ -41,7 +52,7 @@ function fixture(): Fixture {
   return JSON.parse(fs.readFileSync(FIXTURE_PATH, "utf8")) as Fixture;
 }
 
-async function login(page: Page) {
+async function login(page: Page, credentials = fixture()) {
   await page.addInitScript(() => {
     localStorage.setItem(
       "adscale_cookie_consent",
@@ -49,7 +60,7 @@ async function login(page: Page) {
     );
   });
   const response = await page.request.post("/api/auth/sign-in/email", {
-    data: { email: fixture().email, password: fixture().password },
+    data: { email: credentials.email, password: credentials.password },
   });
   expect(response.ok(), await response.text()).toBe(true);
 }
@@ -105,11 +116,41 @@ async function assertSingleActiveBrand(page: Page) {
 async function fillRequestAndAttach(page: Page, request: string, name = "arte-e2e.png") {
   const requestField = page.getByRole("textbox", { name: /pedido criativo|creative request/i });
   if (await requestField.count() > 0) await requestField.fill(request);
-  await page.locator("#creative-composer-file").setInputFiles({
+  await page.locator('section[aria-labelledby="progressive-entry-title"] input[type="file"]').setInputFiles({
     name,
     mimeType: "image/png",
     buffer: Buffer.from(fixture().attachmentBufferBase64, "base64"),
   });
+}
+
+async function chooseVariations(page: Page) {
+  await page.getByRole("button", { name: /variações|variations/i }).first().click();
+}
+
+async function expectNoStudioPrice(page: Page) {
+  await expect(page.locator("main")).not.toContainText(/\b(crédito|credit)\b/i);
+}
+
+async function prepareAndConfirm(page: Page, workId: string) {
+  const continueToPlan = page.getByTestId("creative-generate-action").getByRole("button");
+  await expect(continueToPlan).toBeEnabled();
+  await continueToPlan.click();
+  await expect(page.getByRole("heading", { name: /revise seu plano|review your plan/i })).toBeVisible();
+  await expectNoStudioPrice(page);
+
+  // Reviewing with Enter must not start any provider request; confirmation is
+  // deliberately a separate explicit action in the progressive Studio flow.
+  await page.keyboard.press("Enter");
+  await expect.poll(async () => (await workDetail(page, workId)).outputs.length).toBe(0);
+
+  const generated = page.waitForResponse((response) =>
+    response.url().includes(`/api/creative-work/${workId}/generate`) && response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: /confirmar e gerar|confirm and generate/i }).evaluate((button: HTMLButtonElement) => {
+    button.click();
+    button.click();
+  });
+  return generated;
 }
 
 async function tabTo(page: Page, target: Locator, backwards = false) {
@@ -127,7 +168,7 @@ test.describe("Frictionless operational Home", () => {
     await login(page);
   });
 
-  test("one request, one attached art and one paid confirmation persist the same outputs", async ({ page }) => {
+  test("one request, one attached art and one explicit confirmation persist the same outputs", async ({ page }) => {
     const campaignMutations: string[] = [];
     const generationRequests: string[] = [];
     page.on("request", (request) => {
@@ -148,21 +189,14 @@ test.describe("Frictionless operational Home", () => {
 
     const request = "Promoção de matrículas para julho";
     await fillRequestAndAttach(page, request);
+    await expect.poll(() => new URL(page.url()).searchParams.get("workId")).toBeNull();
+    await chooseVariations(page);
     const source = page.locator("article").filter({ hasText: "arte-e2e.png" });
     await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
     await expect.poll(() => new URL(page.url()).searchParams.get("workId"), { timeout: 30_000 }).toBeTruthy();
     const workId = new URL(page.url()).searchParams.get("workId")!;
 
-    const paidConfirmation = page.getByRole("button", { name: /gerar 3 variações · 15 créditos|generate 3 variations · 15 credits/i });
-    await expect(paidConfirmation).toBeEnabled();
-    const generated = page.waitForResponse((response) =>
-      response.url().includes(`/api/creative-work/${workId}/generate`) && response.request().method() === "POST",
-    );
-    await paidConfirmation.evaluate((button: HTMLButtonElement) => {
-      button.click();
-      button.click();
-    });
-    const generatedResponse = await generated;
+    const generatedResponse = await prepareAndConfirm(page, workId);
     expect([200, 201, 202]).toContain(generatedResponse.status());
     await expect.poll(() => generationRequests.length).toBe(1);
 
@@ -172,6 +206,7 @@ test.describe("Frictionless operational Home", () => {
     await expect(page.getByTestId("proposal-level")).toHaveCount(1, { timeout: 120_000 });
     await expect(page.getByRole("navigation", { name: "Miniaturas das propostas" }).getByRole("button"))
       .toHaveCount(3);
+    await expectNoStudioPrice(page);
     await expect.poll(async () => (await workDetail(page, workId)).outputs
       .map((output) => output.status).sort().join(","),
     { timeout: 120_000, intervals: [250, 500, 1_000] }).toBe("completed,completed,completed");
@@ -230,6 +265,7 @@ test.describe("Frictionless operational Home", () => {
     await assertSingleActiveBrand(page);
     const request = "Variações de campanha [e2e:retry-twice-bold]";
     await fillRequestAndAttach(page, request, "fonte-pronta.png");
+    await chooseVariations(page);
     await expect(page.locator("article").filter({ hasText: "fonte-pronta.png" }).getByRole("status"))
       .toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
     await page.locator("#creative-composer-file").setInputFiles({
@@ -246,11 +282,7 @@ test.describe("Frictionless operational Home", () => {
     await expect(page.locator("article").filter({ hasText: "fonte-pronta.png" })).toBeVisible();
 
     const workId = new URL(page.url()).searchParams.get("workId")!;
-    const generationResponse = page.waitForResponse((response) =>
-      response.url().includes(`/api/creative-work/${workId}/generate`) && response.request().method() === "POST",
-    );
-    await page.getByRole("button", { name: /gerar 3 variações · 15 créditos|generate 3 variations · 15 credits/i }).click();
-    const generation = await generationResponse;
+    const generation = await prepareAndConfirm(page, workId);
     expect([200, 201, 202]).toContain(generation.status());
     const generationBody = (await generation.json()) as { outputs: Array<{ id: string }> };
     const initialIds = generationBody.outputs.map((output) => output.id).sort();
@@ -265,6 +297,42 @@ test.describe("Frictionless operational Home", () => {
     expect(terminal.outputs.every((output) => output.status === "completed")).toBe(true);
     const usage = await newUsage(page, usageBefore);
     expect(usage.reduce((sum, item) => sum + Math.abs(item.amount), 0)).toBe(fixture().expectedInitialCredits);
+  });
+
+  test("insufficient balance keeps the prepared Studio work intact", async ({ page }) => {
+    const insufficient = fixture().insufficientBalance;
+    await login(page, insufficient);
+    await page.goto("/");
+    await expect(page.locator("aside").getByText(/^0 (créditos|credits)$/i)).toBeVisible();
+
+    await fillRequestAndAttach(page, "Criação Studio sem saldo", "saldo-zero.png");
+    await chooseVariations(page);
+    const source = page.locator("article").filter({ hasText: "saldo-zero.png" });
+    await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
+    await expect.poll(() => new URL(page.url()).searchParams.get("workId")).toBeTruthy();
+    const workId = new URL(page.url()).searchParams.get("workId")!;
+
+    await page.getByTestId("creative-generate-action").getByRole("button").click();
+    const plan = page.locator("section").filter({
+      has: page.getByRole("heading", { name: /revise seu plano|review your plan/i }),
+    }).first();
+    await expect(plan).toBeVisible();
+    await expect(plan).not.toContainText(/\b\d+\s*(créditos|credits)\b/i);
+    const beforeBlock = await workDetail(page, workId);
+
+    const blocked = page.waitForResponse((response) =>
+      response.url().includes(`/api/creative-work/${workId}/generate`)
+        && response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: /confirmar e gerar|confirm and generate/i }).click();
+    expect((await blocked).status()).toBe(402);
+    await expect(page.getByRole("alert").filter({ hasText: /limite|limit|crédito|credit/i })).toBeVisible();
+
+    const afterBlock = await workDetail(page, workId);
+    expect(afterBlock.outputs).toHaveLength(0);
+    expect(afterBlock.work).toEqual(beforeBlock.work);
+    expect(afterBlock.preparedPlan).toEqual(beforeBlock.preparedPlan);
+    expect(afterBlock.sources).toEqual(beforeBlock.sources);
   });
 
   for (const viewport of [
@@ -289,12 +357,9 @@ test.describe("Frictionless operational Home", () => {
           .__frictionlessAnnouncements = messages;
       });
 
-      const attach = page.locator("button").filter({ hasText: /adicionar arte|add image/i });
+      const attach = page.locator('section[aria-labelledby="progressive-entry-title"] input[type="file"]');
       await tabTo(page, attach);
-      const chooserPromise = page.waitForEvent("filechooser");
-      await page.keyboard.press("Enter");
-      const chooser = await chooserPromise;
-      await chooser.setFiles({
+      await attach.setInputFiles({
         name: `teclado-${viewport.name}.png`,
         mimeType: "image/png",
         buffer: Buffer.from(fixture().attachmentBufferBase64, "base64"),
@@ -305,19 +370,23 @@ test.describe("Frictionless operational Home", () => {
           .__frictionlessAnnouncements ?? []
       )).toContain("Arte adicionada");
       const source = page.locator("article").filter({ hasText: `teclado-${viewport.name}.png` });
+      await chooseVariations(page);
       await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
 
-      const generate = page.getByRole("button", { name: /gerar 3 variações · 15 créditos|generate 3 variations · 15 credits/i });
+      const generate = page.getByTestId("creative-generate-action").getByRole("button");
       await expect(generate).toBeEnabled();
       await tabTo(page, generate);
+      await page.keyboard.press("Space");
+      const workId = new URL(page.url()).searchParams.get("workId")!;
+      await expect(page.getByRole("heading", { name: /revise seu plano|review your plan/i })).toBeVisible();
+      const confirm = page.getByRole("button", { name: /confirmar e gerar|confirm and generate/i });
       const generationResponse = page.waitForResponse((response) =>
         /\/api\/creative-work\/[^/]+\/generate$/.test(new URL(response.url()).pathname)
           && response.request().method() === "POST",
       );
-      await page.keyboard.press("Space");
+      await confirm.click();
       expect((await generationResponse).ok()).toBe(true);
-      await expect(liveRegion).toHaveText(/geração iniciada/i);
-      const workId = new URL(page.url()).searchParams.get("workId")!;
+      await expect(liveRegion).toHaveText(/geração iniciada|generation started/i);
       await expect(page.getByTestId("proposal-level")).toHaveCount(1, { timeout: 120_000 });
       await expect(page.getByRole("navigation", { name: "Miniaturas das propostas" }).getByRole("button"))
         .toHaveCount(3);

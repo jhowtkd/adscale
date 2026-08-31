@@ -482,15 +482,56 @@ describe("creative-work repository", () => {
       expect(source).toContain('`${workspaceId}:${workItemId}:prepare`');
       expect(source).toContain('pg_advisory_xact_lock(hashtext(${`${workspaceId}:${workItemId}:prepare`}))');
     });
-    it("distinguishes a missing work from a persisted non-draft autosave", async () => {
+    it("distinguishes a missing work from a persisted immutable autosave", async () => {
       await expect(autosaveCreativeWorkDraft({
         workspaceId: "ws-1", workItemId: "missing", request: "Peça", intent: "single", format: "4:5", settings: { targetFormats: [] },
       })).resolves.toEqual({ work: null, error: "not_found", sourcesNeedingSingleAnalysis: [] });
 
-      mocks.state.selectResults.push([workItem({ id: "work-closed", toolKind: "single", status: "ready" })]);
+      mocks.state.selectResults.push([workItem({ id: "work-closed", toolKind: "single", status: "completed" })]);
       await expect(autosaveCreativeWorkDraft({
         workspaceId: "ws-1", workItemId: "work-closed", request: "Peça", intent: "single", format: "4:5", settings: { targetFormats: [] },
       })).resolves.toEqual({ work: null, error: "not_draft", sourcesNeedingSingleAnalysis: [] });
+      expect(mocks.txUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("reopens a prepared ready retry with no outputs and invalidates its frozen plan", async () => {
+      const ready = workItem({
+        id: "work-ready", toolKind: "single", status: "ready",
+        brief: socialBrief, copy: socialCopy, inputSnapshot: { request: "Peça", settings: { targetFormats: [] }, sources: [] },
+        identitySnapshot: { clientProfileId: "profile-1", confirmedAt: "now", assets: [], brandKit: null },
+      });
+      const reopened = workItem({ ...ready, status: "draft", brief: null, copy: null, inputSnapshot: null, identitySnapshot: null });
+      mocks.state.selectResults.push([ready], [{ outputCount: 0 }]);
+      mocks.state.txUpdateResults.push([reopened]);
+
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "work-ready", expectedUpdatedAt: ready.updatedAt, request: "Peça revisada", intent: "single", format: "4:5", settings: { targetFormats: [] },
+      })).resolves.toEqual({ work: reopened, error: null, sourcesNeedingSingleAnalysis: [] });
+
+      expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({
+        status: "draft", identitySnapshot: null, brief: null, copy: null, inputSnapshot: null,
+        request: "Peça revisada",
+      }));
+    });
+
+    it("rejects a stale tab before it can reopen a newer prepared retry", async () => {
+      const r2 = workItem({ id: "work-ready", status: "ready", updatedAt: new Date("2026-08-31T12:00:01.000Z") });
+      mocks.state.selectResults.push([r2], [{ outputCount: 1 }]);
+
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "work-ready", expectedUpdatedAt: new Date("2026-08-31T12:00:00.000Z"), request: "R1", intent: "single", format: "4:5", settings: { targetFormats: [] },
+      })).rejects.toMatchObject({ code: "stale_input" });
+
+      expect(mocks.txUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("does not reopen a ready work once it has outputs", async () => {
+      mocks.state.selectResults.push([workItem({ id: "work-with-output", status: "ready" })], [{ outputCount: 1 }]);
+
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "work-with-output", request: "Peça", intent: "single", format: "4:5", settings: { targetFormats: [] },
+      })).resolves.toEqual({ work: null, error: "not_draft", sourcesNeedingSingleAnalysis: [] });
+
       expect(mocks.txUpdateMock).not.toHaveBeenCalled();
     });
     it("rejects a Variations to Single transition with four asset sources before changing the work", async () => {
@@ -684,6 +725,21 @@ describe("creative-work repository", () => {
 
       expect(mocks.executeMock).toHaveBeenCalledWith(expect.anything());
       expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({ brief: null, copy: null, inputSnapshot: null }));
+    });
+
+    it("reopens a ready zero-output work before changing a source under its revision CAS", async () => {
+      const updatedAt = new Date("2026-08-31T12:00:00.000Z");
+      const ready = workItem({ id: "work-1", status: "ready", updatedAt });
+      const source = { id: "source-1", workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", usage: "both", status: "ready", updatedAt };
+      mocks.state.selectResults.push([ready], [{ outputCount: 0 }], [source]);
+      mocks.state.deleteResults.push([source]);
+      mocks.state.txUpdateResults.push([workItem({ status: "draft", brief: null, copy: null, inputSnapshot: null, identitySnapshot: null })]);
+
+      await expect(mutateCreativeWorkDraftSource({
+        workspaceId: "ws-1", workItemId: "work-1", expectedUpdatedAt: updatedAt, sourceId: "source-1", mutation: { kind: "remove" },
+      })).resolves.toEqual(source);
+
+      expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({ status: "draft", identitySnapshot: null, brief: null, copy: null, inputSnapshot: null }));
     });
 
     it("returns a conflict without changing a source after prepare owns the draft", async () => {
@@ -1321,6 +1377,25 @@ describe("creative-work repository", () => {
       expect(query.params.at(-1)).toBe(capturedAt.toISOString());
     });
 
+    it("does not apply a stale brand-conflict patch after a newer revision committed", async () => {
+      const r1 = new Date("2026-08-31T12:00:00.000Z");
+      mocks.state.updateResults.push([]);
+      await expect(updateCreativeWorkDraftIfUnchanged("ws-1", "work-1", r1, {
+        settings: { targetFormats: [], brandConflictChoice: "source", brandConflictDetectedBrand: "XTB" },
+        brief: null,
+        copy: null,
+        inputSnapshot: null,
+      })).resolves.toBeNull();
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({
+        settings: { targetFormats: [], brandConflictChoice: "source", brandConflictDetectedBrand: "XTB" },
+        brief: null,
+        copy: null,
+        inputSnapshot: null,
+      }));
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.params.at(-1)).toBe(r1.toISOString());
+    });
+
     it("holds the preparation callback under a work-scoped advisory transaction lock", async () => {
       const callback = vi.fn(async (executor) => {
         expect(executor).toMatchObject({ execute: mocks.executeMock });
@@ -1343,9 +1418,14 @@ describe("creative-work repository", () => {
       })).resolves.toEqual({ source, claimedForAnalysis: true });
       expect(mocks.valuesMock).toHaveBeenCalledWith(expect.objectContaining({ assetId: "asset-1", usage: "both" }));
       expect(mocks.txUpdateMock).toHaveBeenCalledWith(expect.anything());
+      expect(mocks.txSetMock).toHaveBeenLastCalledWith(expect.objectContaining({
+        brief: null,
+        copy: null,
+        inputSnapshot: null,
+      }));
     });
 
-    it("touches the parent work after updating or deleting a source", async () => {
+    it("invalidates prepared fields after updating or deleting a source", async () => {
       const source = { id: "source-1", workspaceId: "ws-1", workItemId: "work-1", status: "ready" };
       mocks.state.txUpdateResults.push([source], [workItem()]);
       await updateCreativeWorkSource("ws-1", "work-1", "source-1", { status: "ready" });
@@ -1353,6 +1433,10 @@ describe("creative-work repository", () => {
       mocks.state.txUpdateResults.push([workItem()]);
       await deleteCreativeWorkSource("ws-1", "work-1", "source-1");
       expect(mocks.txUpdateMock).toHaveBeenCalledTimes(3);
+      expect(mocks.txSetMock.mock.calls.slice(1)).toEqual([
+        [expect.objectContaining({ brief: null, copy: null, inputSnapshot: null })],
+        [expect.objectContaining({ brief: null, copy: null, inputSnapshot: null })],
+      ]);
     });
 
     it("updates a source only for the expected attempt and advances its timestamp", async () => {
@@ -1369,6 +1453,11 @@ describe("creative-work repository", () => {
       expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({
         status: "analyzing",
         updatedAt: expect.anything(),
+      }));
+      expect(mocks.txSetMock).toHaveBeenLastCalledWith(expect.objectContaining({
+        brief: null,
+        copy: null,
+        inputSnapshot: null,
       }));
       const query = serializedCondition(mocks.whereMock.mock.calls[0][0]);
       expect(query.sql).toContain('"creative_work_sources"."status"');
@@ -2082,6 +2171,178 @@ describe("creative-work repository", () => {
         selectCreativeWorkOutput("ws-1", "work-1", "output-1", { confirmObjective: true })
       ).resolves.toBeNull();
       expect(mocks.txUpdateMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("carousel visual-reference cap", () => {
+    it("rejects a second non-failed carousel source before insert and analysis dispatch", async () => {
+      mocks.state.selectResults.push(
+        [{ id: "asset-2", type: "image/png" }],
+        [{ id: "work-1", toolKind: "carousel" }],
+        [],
+        [{ sourceCount: 1 }],
+      );
+
+      await expect(createCreativeWorkSource({
+        workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-2", usage: "content", status: "uploaded",
+      })).resolves.toEqual({ limitReached: true, reason: "carousel_reference_limit" });
+
+      expect(mocks.executeMock).toHaveBeenCalledOnce();
+      expect(mocks.valuesMock).not.toHaveBeenCalled();
+      const capCondition = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(capCondition.sql).toContain('"creative_work_sources"."status"');
+    });
+
+    it("allows the first carousel source by forcing its usage to style", async () => {
+      const work = workItem({ toolKind: "carousel", request: "", brief: null });
+      const source = { id: "source-1", workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", templateId: null, usage: "style", usageConfirmed: true, status: "uploaded" };
+      mocks.state.selectResults.push(
+        [{ id: "asset-1", type: "image/png" }],
+        [{ id: "work-1", toolKind: "carousel" }],
+        [],
+        [{ sourceCount: 0 }],
+      );
+      mocks.state.onConflictResults.push([source]);
+      mocks.state.txUpdateResults.push([work]);
+
+      await expect(createCreativeWorkSource({
+        workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", usage: "content", status: "uploaded",
+      })).resolves.toEqual({ source, claimedForAnalysis: true });
+
+      expect(mocks.valuesMock).toHaveBeenCalledWith(expect.objectContaining({
+        assetId: "asset-1", usage: "style", usageConfirmed: true,
+      }));
+    });
+
+    it("ignores failed carousel sources when enforcing the one-reference cap", async () => {
+      const work = workItem({ toolKind: "carousel", request: "", brief: null });
+      const source = { id: "source-2", workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-2", templateId: null, usage: "style", usageConfirmed: true, status: "uploaded" };
+      mocks.state.selectResults.push(
+        [{ id: "asset-2", type: "image/png" }],
+        [{ id: "work-1", toolKind: "carousel" }],
+        [],
+        [{ sourceCount: 0 }],
+      );
+      mocks.state.onConflictResults.push([source]);
+      mocks.state.txUpdateResults.push([work]);
+
+      await expect(createCreativeWorkSource({
+        workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-2", usage: "style", status: "uploaded",
+      })).resolves.toEqual({ source, claimedForAnalysis: true });
+    });
+
+    it("replays the same carousel source without counting it against the cap", async () => {
+      const existing = {
+        id: "source-existing", workspaceId: "ws-1", workItemId: "work-1",
+        assetId: "asset-1", templateId: null, usage: "style", status: "ready", updatedAt: new Date(),
+      };
+      mocks.state.selectResults.push(
+        [{ id: "asset-1", type: "image/png" }],
+        [{ id: "work-1", toolKind: "carousel" }],
+        [existing],
+      );
+
+      await expect(createCreativeWorkSource({
+        workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", usage: "content", status: "uploaded",
+      })).resolves.toEqual({ source: existing, claimedForAnalysis: false });
+
+      expect(mocks.valuesMock).not.toHaveBeenCalled();
+    });
+
+    it("caps the attachment-first draft creation for carousel before the source insert", async () => {
+      const work = workItem({ toolKind: "carousel", request: "", brief: null });
+      mocks.state.selectResults.push(
+        [{ id: "profile-1" }],
+        [{ id: "asset-1", type: "image/png" }],
+        [work],
+        [work],
+        [],
+        [{ sourceCount: 1 }],
+      );
+
+      await expect(createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1", draftKey: "carousel-key",
+        intent: "carousel", title: "", request: "", format: "4:5", settings: { targetFormats: [] },
+        assetId: "asset-1", usage: "content",
+      })).resolves.toEqual({ limitReached: true, reason: "carousel_reference_limit" });
+
+      expect(mocks.executeMock).toHaveBeenCalledOnce();
+      expect(mocks.valuesMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("forces the attachment-first carousel source usage to style", async () => {
+      const work = workItem({ toolKind: "carousel", request: "", brief: null });
+      const source = { id: "source-1", workspaceId: "ws-1", workItemId: work.id, assetId: "asset-1", templateId: null, usage: "style", usageConfirmed: true, status: "uploaded" };
+      mocks.state.selectResults.push(
+        [{ id: "profile-1" }],
+        [{ id: "asset-1", type: "image/png" }],
+        [work],
+        [],
+        [{ sourceCount: 0 }],
+      );
+      mocks.state.onConflictResults.push([work], [source]);
+
+      await expect(createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1", draftKey: "carousel-key",
+        intent: "carousel", title: "", request: "", format: "4:5", settings: { targetFormats: [] },
+        assetId: "asset-1", usage: "content",
+      })).resolves.toEqual({ work, source, asset: { id: "asset-1", type: "image/png" }, claimedForAnalysis: true });
+
+      expect(mocks.valuesMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        assetId: "asset-1", usage: "style", usageConfirmed: true,
+      }));
+    });
+
+    it("rejects an autosave into carousel while two non-failed sources exist", async () => {
+      mocks.state.selectResults.push(
+        [workItem({ toolKind: "variations", request: "", brief: null })],
+        [
+          { id: "source-1", usage: "content", status: "ready" },
+          { id: "source-2", usage: "style", status: "ready" },
+        ],
+      );
+
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "work-1", request: "", intent: "carousel", format: "4:5",
+        settings: { targetFormats: [] },
+      })).resolves.toEqual({ work: null, error: "carousel_reference_limit", sourcesNeedingSingleAnalysis: [] });
+
+      expect(mocks.txUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("renormalizes the single carousel source to style on autosave and re-queues its analysis", async () => {
+      const carouselWork = workItem({ toolKind: "carousel", request: "", brief: null });
+      const normalized = { id: "source-1", usage: "style", status: "uploaded", updatedAt: new Date("2026-08-30T12:00:00.001Z") };
+      mocks.state.selectResults.push(
+        [carouselWork],
+        [{ id: "source-1", usage: "content", status: "ready", updatedAt: new Date() }],
+      );
+      mocks.state.txUpdateResults.push([normalized], [carouselWork]);
+
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "work-1", request: "Novo pedido", intent: "carousel", format: "4:5",
+        settings: { targetFormats: [] },
+      })).resolves.toEqual({ work: carouselWork, error: null, sourcesNeedingSingleAnalysis: [normalized] });
+
+      expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({
+        usage: "style", usageConfirmed: true, status: "uploaded", failureCode: null,
+      }));
+    });
+
+    it("does not renormalize a carousel source that is already style", async () => {
+      const carouselWork = workItem({ toolKind: "carousel", request: "", brief: null });
+      mocks.state.selectResults.push(
+        [carouselWork],
+        [{ id: "source-1", usage: "style", status: "ready", updatedAt: new Date() }],
+      );
+      mocks.state.txUpdateResults.push([carouselWork]);
+
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "work-1", request: "Novo pedido", intent: "carousel", format: "4:5",
+        settings: { targetFormats: [] },
+      })).resolves.toEqual({ work: carouselWork, error: null, sourcesNeedingSingleAnalysis: [] });
+
+      expect(mocks.txSetMock).toHaveBeenCalledTimes(1);
     });
   });
 });

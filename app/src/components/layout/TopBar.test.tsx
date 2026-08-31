@@ -302,7 +302,7 @@ describe("TopBar shell-floating", () => {
 const ptTitleDict = {
   navigation: {
     dashboard: "Visão geral",
-    home: "Início",
+    home: "Estúdio",
     brandKit: "Marca",
     campaigns: "Campanhas",
     settings: "Configurações",
@@ -321,7 +321,7 @@ const ptTitleDict = {
 const enTitleDict = {
   navigation: {
     dashboard: "Overview",
-    home: "Home",
+    home: "Studio",
     brandKit: "Brand",
     campaigns: "Campaigns",
     settings: "Settings",
@@ -350,10 +350,10 @@ describe("deriveRouteTitle", () => {
   const tLibrary = makeTranslator(ptTitleDict)("library");
   const baseArgs = { tNav, tCommon, tSettings, tAssistant, tLibrary };
 
-  it("returns Início label for /", () => {
+  it("returns Estúdio label for /", () => {
     expect(
       deriveRouteTitle({ pathname: "/", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Início");
+    ).toBe("Estúdio");
   });
 
   it("returns Visão geral label for /dashboard", () => {
@@ -395,7 +395,7 @@ describe("deriveRouteTitle", () => {
   it("uses canonical labels for legacy Home and Brand routes", () => {
     expect(
       deriveRouteTitle({ pathname: "/quick-tools/create-post", campaignDetailTitle: "", ...baseArgs })
-    ).toBe("Início");
+    ).toBe("Estúdio");
     expect(
       deriveRouteTitle({ pathname: "/brand-kit", campaignDetailTitle: "", ...baseArgs })
     ).toBe("Marca");

@@ -1,0 +1,80 @@
+import { describe, expect, it, vi } from "vitest";
+import {
+  getOrCreateStudioSession,
+  STUDIO_SESSION_STORAGE_KEY,
+  STUDIO_SESSION_TTL_MS,
+} from "./studio-session";
+
+const workspaceId = "11111111-1111-4111-8111-111111111111";
+
+function storage() {
+  const values = new Map<string, string>();
+  return {
+    getItem: vi.fn((key: string) => values.get(key) ?? null),
+    setItem: vi.fn((key: string, value: string) => values.set(key, value)),
+  };
+}
+
+describe("getOrCreateStudioSession", () => {
+  it("reuses a valid workspace session and rotates invalid records", () => {
+    const store = storage();
+    const now = 1_000;
+    const current = getOrCreateStudioSession(workspaceId, now, store);
+    const reused = getOrCreateStudioSession(workspaceId, now + 1, store);
+
+    expect(reused).toEqual(current);
+    expect(current.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    expect(JSON.parse(store.setItem.mock.calls[0]?.[1] ?? "{}")).toEqual({
+      id: current.id,
+      workspaceId,
+      rolloutVariant: "control",
+      expiresAt: now + STUDIO_SESSION_TTL_MS,
+    });
+
+    store.setItem(STUDIO_SESSION_STORAGE_KEY, JSON.stringify({ ...current, workspaceId: "other" }));
+    expect(getOrCreateStudioSession(workspaceId, now + 2, store).id).not.toBe(current.id);
+    store.setItem(STUDIO_SESSION_STORAGE_KEY, "not-json");
+    expect(getOrCreateStudioSession(workspaceId, now + 3, store).id).toMatch(/^[0-9a-f-]{36}$/i);
+    store.setItem(STUDIO_SESSION_STORAGE_KEY, JSON.stringify({ ...current, expiresAt: now }));
+    expect(getOrCreateStudioSession(workspaceId, now, store).id).not.toBe(current.id);
+  });
+
+  it("rotates the session when the rollout variant changes", () => {
+    const store = storage();
+    const control = getOrCreateStudioSession(workspaceId, 1_000, store, "control");
+    const progressive = getOrCreateStudioSession(workspaceId, 1_001, store, "progressive");
+
+    expect(progressive.id).not.toBe(control.id);
+    expect(progressive.rolloutVariant).toBe("progressive");
+  });
+
+  it("keeps a valid in-memory session when sessionStorage access throws", () => {
+    const sessionStorage = vi.spyOn(window, "sessionStorage", "get").mockImplementation(() => {
+      throw new DOMException("Storage unavailable", "SecurityError");
+    });
+
+    expect(() => getOrCreateStudioSession(workspaceId, 1_000)).not.toThrow();
+    expect(getOrCreateStudioSession(workspaceId, 1_000)).toMatchObject({
+      workspaceId,
+      expiresAt: 1_000 + STUDIO_SESSION_TTL_MS,
+    });
+
+    sessionStorage.mockRestore();
+  });
+
+  it("keeps a valid in-memory session when writing optional telemetry fails", () => {
+    const store = {
+      getItem: vi.fn(() => null),
+      setItem: vi.fn(() => {
+        throw new DOMException("Quota exceeded", "QuotaExceededError");
+      }),
+    };
+
+    expect(() => getOrCreateStudioSession(workspaceId, 1_000, store)).not.toThrow();
+    expect(getOrCreateStudioSession(workspaceId, 1_000, store)).toMatchObject({
+      workspaceId,
+      expiresAt: 1_000 + STUDIO_SESSION_TTL_MS,
+    });
+    expect(store.setItem).toHaveBeenCalled();
+  });
+});

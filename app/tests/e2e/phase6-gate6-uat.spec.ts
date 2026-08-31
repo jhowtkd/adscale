@@ -740,6 +740,12 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
       });
       await composer.fill(requestText);
       await expect(composer).toHaveValue(requestText);
+      // The progressive Studio keeps the free entry as a local draft until
+      // the user explicitly picks an objective.
+      await expect
+        .poll(() => new URL(page.url()).searchParams.get("workId"))
+        .toBeNull();
+      await page.getByRole("button", { name: /variações|variations/i }).first().click();
       await expect
         .poll(
           () => new URL(page.url()).searchParams.get("workId"),
@@ -748,17 +754,17 @@ test.describe("Phase 6 Gate 6 UAT provider block", () => {
         .toBeTruthy();
       const workId = new URL(page.url()).searchParams.get("workId");
       expect(workId, `expected workId in URL ${page.url()}`).toBeTruthy();
-      const generateBtn = page.getByRole("button", {
-        name: /gerar 3 variações · 15 créditos|generate 3 variations · 15 credits/i,
-      });
+      const generateBtn = page.getByTestId("creative-generate-action").getByRole("button");
       await expect(generateBtn).toBeEnabled({ timeout: 10_000 });
+      await generateBtn.click();
+      await expect(page.getByRole("heading", { name: /revise seu plano|review your plan/i })).toBeVisible();
       const genWait = page.waitForResponse(
         (r) =>
           r.url().includes(`/api/creative-work/${workId}/generate`) &&
           r.request().method() === "POST",
         { timeout: 30_000 }
       );
-      await generateBtn.click();
+      await page.getByRole("button", { name: /confirmar e gerar|confirm and generate/i }).click();
       const genRes = await genWait;
       const genBody = await genRes.text().catch(() => "");
       expect([200, 201, 202].includes(genRes.status()), `generate HTTP ${genRes.status()} ${genBody.slice(0, 200)}`).toBeTruthy();

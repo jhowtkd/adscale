@@ -20,7 +20,9 @@ import {
   resolveGenerationPolicyVersion,
   socialPostBriefSchema,
   type CreativeWorkInputSnapshot,
+  type CreativeWorkSettings,
 } from "./contracts";
+import type { CarouselDraftStateV1 } from "./carousel-contracts";
 
 describe("creative work contracts", () => {
   it("builds a human-readable request from brief fields instead of JSON", () => {
@@ -207,6 +209,7 @@ describe("creative work contracts", () => {
       "single",
       "format_adaptation",
       "restyle",
+      "carousel",
     ]);
     expect(CREATIVE_SOURCE_USAGES).toEqual(["content", "style", "both"]);
     expect(CREATIVE_SOURCE_STATUSES).toEqual([
@@ -215,6 +218,25 @@ describe("creative work contracts", () => {
       "ready",
       "failed",
     ]);
+  });
+
+  it("refuses to quote a carousel intent because the deck quotes itself", () => {
+    expect(() => quoteCreativeWork({ intent: "carousel", format: "4:5", targetFormats: [] }))
+      .toThrow("carousel_requires_deck_quote");
+  });
+
+  it("carries the optional carousel draft on the settings envelope", () => {
+    const draft: CarouselDraftStateV1 = {
+      version: 1,
+      revision: "draft-r1",
+      answers: {},
+      blockingQuestions: [],
+      plan: null,
+      changes: [],
+    };
+    const settings: CreativeWorkSettings = { targetFormats: [], carouselDraft: draft };
+    const restored = JSON.parse(JSON.stringify(settings)) as CreativeWorkSettings;
+    expect(restored.carouselDraft).toEqual(draft);
   });
 
   it.each([

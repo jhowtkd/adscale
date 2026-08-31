@@ -10,16 +10,18 @@ const COMPOSER_INTENTS = new Set<ComposerIntent>([
   "single",
   "format_adaptation",
   "restyle",
+  "carousel",
 ]);
 const STUDIO_MODES = new Set<StudioMode>(["arte", "briefing"]);
 
 export function parseDashboardSearchParams(searchParams: DashboardSearchParams): {
   workId?: string;
-  initialIntent: ComposerIntent;
+  initialIntent?: ComposerIntent;
   studioMode?: StudioMode;
   freshEntry?: true;
   focusComposer?: true;
   templateId?: string;
+  campaignId?: string;
 } {
   const workIdCandidate = typeof searchParams.workId === "string" ? searchParams.workId.trim() : "";
   const workId = z.string().uuid().safeParse(workIdCandidate).success ? workIdCandidate : "";
@@ -35,15 +37,22 @@ export function parseDashboardSearchParams(searchParams: DashboardSearchParams):
     && z.string().uuid().safeParse(searchParams.templateId).success
     ? searchParams.templateId
     : undefined;
+  const campaignId = typeof searchParams.campaignId === "string"
+    && z.string().uuid().safeParse(searchParams.campaignId).success
+    ? searchParams.campaignId
+    : undefined;
 
   return {
     ...(workId ? { workId } : {}),
-    // An explicit protocol is a resume/deep-link contract. Otherwise the
-    // studio mode selects the least surprising canonical protocol.
-    initialIntent: intent ?? (studioMode === "briefing" ? "single" : "variations"),
+    // A plain root deliberately has no protocol. Legacy URLs still carry an
+    // explicit adapter so the control and old links remain compatible.
+    ...(intent ?? (studioMode === "briefing" ? "single" : studioMode === "arte" ? "variations" : undefined)
+      ? { initialIntent: intent ?? (studioMode === "briefing" ? "single" : "variations") }
+      : {}),
     ...(studioMode ? { studioMode } : {}),
     ...(searchParams.fresh === "1" ? { freshEntry: true as const } : {}),
     ...(searchParams.compose === "1" ? { focusComposer: true as const } : {}),
     ...(templateId ? { templateId } : {}),
+    ...(campaignId ? { campaignId } : {}),
   };
 }

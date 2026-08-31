@@ -3,7 +3,8 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
-import { runSquareTextComposition, runTextComposition } from "./text-composite";
+import { runCarouselTextComposition, runSquareTextComposition, runTextComposition } from "./text-composite";
+import { canonicalJsonStringify } from "./canonical-json";
 import { buildTypographyPlan } from "./typography-plan";
 
 describe("runSquareTextComposition", () => {
@@ -274,5 +275,207 @@ describe("runSquareTextComposition", () => {
       brandColors: [],
       occupiedBoxes: [],
     })).rejects.toMatchObject({ code: "brand_text_overflow" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Carousel slide composition (Task 6): region-based, approved-or-fallback font.
+// ---------------------------------------------------------------------------
+
+const CAROUSEL_DIMENSIONS = { width: 1024, height: 1280 };
+const CAROUSEL_PRIMARY_REGION = {
+  x: 80, y: 96, width: 864, height: 420, minFontPx: 42, maxFontPx: 82, align: "left" as const,
+};
+const CAROUSEL_SECONDARY_REGION = {
+  x: 80, y: 920, width: 720, height: 180, minFontPx: 24, maxFontPx: 38, align: "left" as const,
+};
+
+function carouselBase(): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: CAROUSEL_DIMENSIONS.width,
+      height: CAROUSEL_DIMENSIONS.height,
+      channels: 3,
+      background: { r: 238, g: 220, b: 190 },
+    },
+  }).png().toBuffer();
+}
+
+describe("runCarouselTextComposition", () => {
+  it("renders both regions with the sans fallback and records fallback provenance", async () => {
+    const base = await carouselBase();
+    const input = {
+      base,
+      dimensions: CAROUSEL_DIMENSIONS,
+      primaryText: "Gancho exato",
+      secondaryText: "Apoio exato",
+      primaryRegion: CAROUSEL_PRIMARY_REGION,
+      secondaryRegion: CAROUSEL_SECONDARY_REGION,
+      safeAreaPx: 64,
+      font: null,
+      fontBuffer: null,
+      fallbackFamily: "sans" as const,
+      brandColors: ["#071522"],
+    };
+
+    const result = await runCarouselTextComposition(input);
+
+    expect(await sharp(result.buffer).metadata()).toMatchObject({
+      width: 1024,
+      height: 1280,
+      format: "png",
+    });
+    expect(result.provenance).toMatchObject({
+      version: 1,
+      fontAuthority: "fallback",
+      fontFamily: "sans",
+      copyHash: createHash("sha256").update(canonicalJsonStringify({
+        primaryText: "Gancho exato",
+        secondaryText: "Apoio exato",
+      })).digest("hex"),
+      baseHash: createHash("sha256").update(base).digest("hex"),
+      outputHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
+    expect(result.provenance.layers).toHaveLength(2);
+    expect(result.provenance.layers[0]).toMatchObject({
+      role: "primary",
+      textHash: createHash("sha256").update("Gancho exato").digest("hex"),
+      box: { left: 80, top: 96, width: 864, height: 420 },
+      renderedDpi: expect.any(Number),
+      minimumDpi: 42,
+    });
+    expect(result.provenance.layers[1]).toMatchObject({
+      role: "secondary",
+      minimumDpi: 24,
+    });
+    // Reproducible: same input, same output hash.
+    const second = await runCarouselTextComposition(input);
+    expect(result.provenance.outputHash).toBe(second.provenance.outputHash);
+  });
+
+  it("renders a single layer when there is no secondary text", async () => {
+    const result = await runCarouselTextComposition({
+      base: await carouselBase(),
+      dimensions: CAROUSEL_DIMENSIONS,
+      primaryText: "Только заголовок",
+      secondaryText: null,
+      primaryRegion: CAROUSEL_PRIMARY_REGION,
+      secondaryRegion: CAROUSEL_SECONDARY_REGION,
+      safeAreaPx: 64,
+      font: null,
+      fontBuffer: null,
+      fallbackFamily: "sans",
+      brandColors: [],
+    });
+
+    expect(result.provenance.layers).toHaveLength(1);
+    expect(result.provenance.layers[0]?.role).toBe("primary");
+  });
+
+  it("enforces the approved font hash", async () => {
+    const fontBuffer = await readFile(join(
+      process.cwd(),
+      "node_modules/next/dist/compiled/@vercel/og/Geist-Regular.ttf",
+    ));
+    const font = {
+      assetKey: "fonts/geist.ttf",
+      family: "Geist",
+      source: "Licença do projeto",
+      weight: 400 as const,
+      style: "normal" as const,
+      sha256: createHash("sha256").update(fontBuffer).digest("hex"),
+      approvedAt: "2026-08-12T12:00:00.000Z",
+      approvedByUserId: "user-1",
+    };
+
+    await expect(runCarouselTextComposition({
+      base: await carouselBase(),
+      dimensions: CAROUSEL_DIMENSIONS,
+      primaryText: "Gancho",
+      secondaryText: null,
+      primaryRegion: CAROUSEL_PRIMARY_REGION,
+      secondaryRegion: null,
+      safeAreaPx: 64,
+      font: { ...font, sha256: "0".repeat(64) },
+      fontBuffer,
+      fallbackFamily: null,
+      brandColors: [],
+    })).rejects.toMatchObject({ code: "brand_font_hash_mismatch" });
+
+    // Correct hash composes with authority "approved" and the font family.
+    const ok = await runCarouselTextComposition({
+      base: await carouselBase(),
+      dimensions: CAROUSEL_DIMENSIONS,
+      primaryText: "Gancho",
+      secondaryText: null,
+      primaryRegion: CAROUSEL_PRIMARY_REGION,
+      secondaryRegion: null,
+      safeAreaPx: 64,
+      font,
+      fontBuffer,
+      fallbackFamily: null,
+      brandColors: [],
+    });
+    expect(ok.provenance).toMatchObject({ fontAuthority: "approved", fontFamily: "Geist" });
+  });
+
+  it("rejects regions outside the safe area", async () => {
+    await expect(runCarouselTextComposition({
+      base: await carouselBase(),
+      dimensions: CAROUSEL_DIMENSIONS,
+      primaryText: "Gancho",
+      secondaryText: null,
+      // x=10 is inside the 64px safe area margin — must be rejected.
+      primaryRegion: { ...CAROUSEL_PRIMARY_REGION, x: 10 },
+      secondaryRegion: null,
+      safeAreaPx: 64,
+      font: null,
+      fontBuffer: null,
+      fallbackFamily: "sans",
+      brandColors: [],
+    })).rejects.toMatchObject({ code: "brand_text_safe_area" });
+  });
+
+  it("fails with brand_text_overflow when copy cannot fit its region minimum", async () => {
+    await expect(runCarouselTextComposition({
+      base: await carouselBase(),
+      dimensions: CAROUSEL_DIMENSIONS,
+      primaryText: "Копия обязательная ".repeat(2000),
+      secondaryText: null,
+      primaryRegion: CAROUSEL_PRIMARY_REGION,
+      secondaryRegion: null,
+      safeAreaPx: 64,
+      font: null,
+      fontBuffer: null,
+      fallbackFamily: "sans",
+      brandColors: [],
+    })).rejects.toMatchObject({ code: "brand_text_overflow" });
+  });
+
+  it("keeps rendered layers inside their declared region bounds", async () => {
+    const result = await runCarouselTextComposition({
+      base: await carouselBase(),
+      dimensions: CAROUSEL_DIMENSIONS,
+      primaryText: "Gancho do carrossel",
+      secondaryText: "Linha de apoio",
+      primaryRegion: CAROUSEL_PRIMARY_REGION,
+      secondaryRegion: CAROUSEL_SECONDARY_REGION,
+      safeAreaPx: 64,
+      font: null,
+      fontBuffer: null,
+      fallbackFamily: "sans",
+      brandColors: ["#071522"],
+    });
+
+    for (const [layer, region] of [
+      [result.provenance.layers[0], CAROUSEL_PRIMARY_REGION],
+      [result.provenance.layers[1], CAROUSEL_SECONDARY_REGION],
+    ] as const) {
+      expect(layer).toBeDefined();
+      expect(layer!.box.left).toBeGreaterThanOrEqual(region.x);
+      expect(layer!.box.top).toBeGreaterThanOrEqual(region.y);
+      expect(layer!.box.left + layer!.box.width).toBeLessThanOrEqual(region.x + region.width);
+      expect(layer!.box.top + layer!.box.height).toBeLessThanOrEqual(region.y + region.height);
+    }
   });
 });

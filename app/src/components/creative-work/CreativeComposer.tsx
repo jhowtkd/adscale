@@ -13,16 +13,20 @@ import { PieceReferenceStrip } from "./PieceReferenceStrip";
 import { CreativeSourcePreviewCard } from "./CreativeSourcePreviewCard";
 import { CreativeVariationBrief } from "./CreativeVariationBrief";
 import CreativeProposalGrid from "@/components/quick-tools/create-post/CreativeProposalGrid";
+import { CarouselComposer } from "./CarouselComposer";
 import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
 
 const FORMATS = ["1:1", "4:5", "9:16"] as const;
 
-export function CreativeComposer({ composer, composerRef, hideSourceUpload = false, layout = "studio" }: {
+export function CreativeComposer({ composer, composerRef, hideSourceUpload = false, layout = "studio", workflowVariant = "control", resultsOnly = false }: {
   composer: CreativeComposerViewModel;
   composerRef: CreativeComposerModel["composerRef"];
   /** Briefing-first entry keeps the canonical request but omits source upload. */
   hideSourceUpload?: boolean;
   layout?: "studio" | "piece";
+  workflowVariant?: "control" | "progressive";
+  /** Progressive results stay visible while plan/configuration remains collapsed. */
+  resultsOnly?: boolean;
 }) {
   const t = useTranslations("dashboard.home.composer");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -48,6 +52,10 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
   const isRestyle = composer.intent === "restyle";
   const isVariations = composer.intent === "variations";
   const isSingle = composer.intent === "single";
+  const isCarousel = composer.intent === "carousel";
+  const carouselStyleSource = isCarousel
+    ? composer.sources.find((source) => source.usage === "style") ?? null
+    : null;
   const pieceReferenceActionsLocked = composer.settingsLocked
     || composer.isUploading
     || composer.sourceMutationPending
@@ -70,20 +78,24 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
   const styleSource = isRestyle
     ? composer.sources.find((source) => source.usage === "style") ?? null
     : null;
-  const title = isRestyle
-    ? t("restyleTitle")
-    : isVariations
-      ? t("variationsTitle")
-      : isFormatAdaptation
-        ? t("formatAdaptationTitle")
-        : t("title");
-  const subtitle = isRestyle
-    ? t("restyleSubtitle")
-    : isVariations
-      ? t("variationsSubtitle")
-      : isFormatAdaptation
-        ? t("formatAdaptationSubtitle")
-        : t("subtitle");
+  const title = isCarousel
+    ? t("carousel.title")
+    : isRestyle
+      ? t("restyleTitle")
+      : isVariations
+        ? t("variationsTitle")
+        : isFormatAdaptation
+          ? t("formatAdaptationTitle")
+          : t("title");
+  const subtitle = isCarousel
+    ? t("carousel.subtitle")
+    : isRestyle
+      ? t("restyleSubtitle")
+      : isVariations
+        ? t("variationsSubtitle")
+        : isFormatAdaptation
+          ? t("formatAdaptationSubtitle")
+          : t("subtitle");
   const pendingLabel = composer.actionPhase === "saving"
     ? t("actionSaving")
     : composer.actionPhase === "preparing"
@@ -236,24 +248,12 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
   };
 
   const results = composer.outputs.length > 0 ? (
-    <section aria-labelledby="creative-results-title" className="space-y-4">
+    <section {...(!resultsOnly ? { "aria-labelledby": "creative-results-title" } : {})} className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 id="creative-results-title" className="text-lg font-semibold text-[var(--text-primary)]">Resultados</h2>
-          <p className="text-sm text-[var(--text-muted)]">Cada resultado fica salvo assim que termina.</p>
-        </div>
-        <label className="text-sm text-[var(--text-secondary)]">
-          <span className="sr-only">Agrupar em campanha</span>
-          <select
-            aria-label="Agrupar em campanha"
-            value={composer.campaignId ?? ""}
-            onChange={(event) => void composer.linkCampaign(event.target.value || null)}
-            className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2"
-          >
-            <option value="">Sem campanha</option>
-            {composer.campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
-          </select>
-        </label>
+        {!resultsOnly ? <div>
+          <h2 id="creative-results-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("results.title")}</h2>
+          <p className="text-sm text-[var(--text-muted)]">{t("results.subtitle")}</p>
+        </div> : null}
       </div>
       <CreativeProposalGrid
         outputs={composer.outputs}
@@ -274,6 +274,20 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         isRevising={composer.isRevisingOutput}
         onLayerEditorPublished={composer.refreshOutputs}
       />
+      <div className="flex justify-end">
+        <label className="text-sm text-[var(--text-secondary)]">
+          <span className="sr-only">{t("results.campaignLabel")}</span>
+          <select
+            aria-label={t("results.campaignLabel")}
+            value={composer.campaignId ?? ""}
+            onChange={(event) => void composer.linkCampaign(event.target.value || null)}
+            className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2"
+          >
+            <option value="">{t("results.noCampaign")}</option>
+            {composer.campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
+          </select>
+        </label>
+      </div>
     </section>
   ) : null;
 
@@ -287,6 +301,8 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
       </section>
     );
   }
+
+  if (resultsOnly) return results;
 
   if (layout === "piece" && isVariations && results && !composer.brandConflict) {
     return (
@@ -334,8 +350,22 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         </span>
       </div>
 
-      {layout === "piece" ? results : null}
+      {layout === "piece" && !isCarousel ? results : null}
 
+      {isCarousel ? (
+        <CarouselComposer
+          carousel={composer.carousel}
+          composerRef={composerRef}
+          request={composer.request}
+          onRequestChange={composer.setRequest}
+          styleSource={carouselStyleSource}
+          styleUploadPending={composer.isUploading}
+          onAddStyleFiles={(files) => void composer.addFiles(files, "style")}
+          onRetryStyleSource={carouselStyleSource ? () => void composer.retrySource(carouselStyleSource.id) : undefined}
+          onRemoveStyleSource={carouselStyleSource ? () => void composer.removeSource(carouselStyleSource.id) : undefined}
+          approvedRevision={composer.carousel.approvedRevision}
+        />
+      ) : (<>
       {composer.intent === "single" && composer.brandIdentity ? (
         <section
           data-testid="brand-identity"
@@ -396,19 +426,21 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
             className="grid gap-4 sm:grid-cols-2"
             data-testid="restyle-source-grid"
           >
-            <CreativeSourcePreviewCard
-              label={t("originalArt")}
-              source={originalSource}
-              isUploading={composer.isUploading && !originalSource}
-              onChoose={() => fileInputRef.current?.click()}
-              onDrop={(files) => void composer.addFiles(files, "content")}
-              onRetry={() => {
-                if (originalSource) void composer.retrySource(originalSource.id);
-              }}
-              onRemove={() => {
-                if (originalSource) void composer.removeSource(originalSource.id);
-              }}
-            />
+            <div id="creative-composer-original-source" tabIndex={-1}>
+              <CreativeSourcePreviewCard
+                label={t("originalArt")}
+                source={originalSource}
+                isUploading={composer.isUploading && !originalSource}
+                onChoose={() => fileInputRef.current?.click()}
+                onDrop={(files) => void composer.addFiles(files, "content")}
+                onRetry={() => {
+                  if (originalSource) void composer.retrySource(originalSource.id);
+                }}
+                onRemove={() => {
+                  if (originalSource) void composer.removeSource(originalSource.id);
+                }}
+              />
+            </div>
 
             <CreativeSourcePreviewCard
               label={t("styleReference")}
@@ -427,7 +459,9 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         </>
       ) : (
         <div
+          id="creative-composer-dropzone"
           data-testid="creative-composer-dropzone"
+          tabIndex={-1}
           onDragOver={(event) => event.preventDefault()}
           onDrop={handleDrop}
           className="rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-raised)] p-4 focus-within:ring-2 focus-within:ring-[var(--focus-ring)]"
@@ -766,7 +800,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           type="button"
           aria-busy={Boolean(pendingLabel)}
           disabled={!composer.canGenerate || Boolean(pendingLabel)}
-          onClick={() => void composer.generate()}
+          onClick={() => void (workflowVariant === "progressive" ? composer.preparePlan() : composer.generateLegacy())}
           className={cn(
             "inline-flex min-h-[var(--control-touch)] w-full items-center justify-center gap-2 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] sm:w-auto",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
@@ -776,11 +810,12 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           {pendingLabel ?? (
             <AnimatedDisplayValue
               value={
-                isRestyle
+                workflowVariant === "progressive"
+                  ? t("continuePlan")
+                  : isRestyle
                   ? t("generateRestyle")
                   : t("generate", {
                       count: composer.quote.unitCount,
-                      credits: composer.quote.credits,
                     })
               }
             />
@@ -788,7 +823,9 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         </button>
       </div>
 
-      {layout === "studio" ? results : null}
+      </>)}
+
+      {layout === "studio" && !isCarousel ? results : null}
 
       {composer.error ? (
         <div className="flex flex-wrap items-center gap-3" role="alert">

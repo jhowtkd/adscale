@@ -180,7 +180,36 @@ type DerivationAutoRetryFunnelSummary = {
   }>;
 };
 
+type StudioFunnelArm = {
+  variant: "control" | "progressive";
+  eligibleSessions: number;
+  confirmedGenerations: number;
+  completionsWithin24h: number;
+  completionRate: number | null;
+  abandonmentsBeforeGeneration: number;
+  abandonmentRate: number | null;
+  goalSwitches: number;
+  sourceRoleCorrections: number;
+  successfulResumesWithin30m: number;
+  refinementsStarted: number;
+  debitedGenerations: number;
+  compensatedGenerations: number;
+  failedGenerations: number;
+  failureRate: number | null;
+  refundedGenerations: number;
+  refundRate: number | null;
+  medianEntryToBriefingMs: number | null;
+  medianEntryToPlanMs: number | null;
+  completionByInputMode: Array<{
+    inputMode: "text" | "art" | "both" | "unknown";
+    eligibleSessions: number;
+    completionsWithin24h: number;
+    completionRate: number | null;
+  }>;
+};
+
 type FunnelResponse = {
+  dataComplete?: boolean;
   missionFunnel: MissionFunnelRow[];
   cockpitStageFunnel: CockpitStageFunnelRow[];
   recipeFunnel?: RecipeFunnelRow[];
@@ -196,13 +225,38 @@ type FunnelResponse = {
   draftToShareTiming?: DraftToShareTimingSummary;
   shareEngagementByAssistance?: ShareEngagementByAssistanceRow[];
   derivationAutoRetryFunnel?: DerivationAutoRetryFunnelSummary;
+  studioFunnel?: StudioFunnelArm[];
   totals: { events: number; sessions: number };
 };
+
+const STUDIO_ROLLOUT_STAGES = {
+  10: { eligibleSessions: 30, confirmedGenerations: 20, observationDays: 7, observationKey: "observation7Days" },
+  50: { eligibleSessions: 60, confirmedGenerations: 40, observationDays: 7, observationKey: "observation7Days" },
+  100: { eligibleSessions: 100, confirmedGenerations: 75, observationDays: 14, observationKey: "observationAfter50" },
+} as const;
+
+function completeDaysInFilter(from: string, to: string): number {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return 0;
+  const start = Date.parse(`${from}T00:00:00.000Z`);
+  const end = Date.parse(`${to}T00:00:00.000Z`);
+  return Number.isFinite(start) && Number.isFinite(end) && end >= start
+    ? Math.floor((end - start) / 86_400_000)
+    : 0;
+}
 
 function formatGapMs(gapMs: number | null): string {
   if (gapMs === null) return "—";
   if (gapMs < 60_000) return `${Math.round(gapMs / 1000)}s`;
   return `${Math.round(gapMs / 60_000)}m`;
+}
+
+function formatPercentagePointDelta(
+  control: number | null,
+  progressive: number | null,
+): string {
+  if (control === null || progressive === null) return "—";
+  const delta = Math.round((progressive - control) * 10_000) / 100;
+  return `${delta > 0 ? "+" : ""}${delta} pp`;
 }
 
 type CreditSignalsResponse = {
@@ -433,6 +487,8 @@ export function OwnerAnalyticsPanel({
   const [sessionId, setSessionId] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [studioRolloutStage, setStudioRolloutStage] = useState<10 | 50 | 100>(10);
+  const [studioPriorStageConfirmed, setStudioPriorStageConfirmed] = useState(false);
 
   const filters = useMemo(
     () => ({ workspaceId, sessionId, from, to }),
@@ -472,6 +528,50 @@ export function OwnerAnalyticsPanel({
   );
   const exportUrl = `/api/feedback/analytics/export.csv?${query}`;
   const noDataLabel = t("noData");
+  const studioControl = funnel?.studioFunnel?.find((arm) => arm.variant === "control");
+  const studioProgressive = funnel?.studioFunnel?.find((arm) => arm.variant === "progressive");
+  const studioStageRequirement = STUDIO_ROLLOUT_STAGES[studioRolloutStage];
+  const studioDataComplete = funnel?.dataComplete === true;
+  const studioObservationDays = completeDaysInFilter(from, to);
+  const studioObservationSufficient = studioObservationDays >= studioStageRequirement.observationDays;
+  const studioPriorStageSufficient = studioRolloutStage !== 100 || studioPriorStageConfirmed;
+  const studioSampleSufficient = Boolean(
+    studioDataComplete
+      &&
+      studioControl
+      && studioProgressive
+      && studioObservationSufficient
+      && studioPriorStageSufficient
+      && studioControl.eligibleSessions >= studioStageRequirement.eligibleSessions
+      && studioProgressive.eligibleSessions >= studioStageRequirement.eligibleSessions
+      && studioControl.confirmedGenerations >= studioStageRequirement.confirmedGenerations
+      && studioProgressive.confirmedGenerations >= studioStageRequirement.confirmedGenerations,
+  );
+  const studioGateFailures = studioControl && studioProgressive ? [
+    !studioDataComplete ? t("studio.incompleteData") : null,
+    !studioObservationSufficient ? t("studio.observationWindowMissing", { days: studioStageRequirement.observationDays }) : null,
+    studioRolloutStage === 100 && !studioPriorStageConfirmed ? t("studio.priorStageMissing") : null,
+    studioControl.completionRate !== null
+      && studioProgressive.completionRate !== null
+      && studioProgressive.completionRate - studioControl.completionRate < -0.05
+      ? t("studio.failureCompletion")
+      : null,
+    studioControl.abandonmentRate !== null
+      && studioProgressive.abandonmentRate !== null
+      && studioProgressive.abandonmentRate - studioControl.abandonmentRate > 0.05
+      ? t("studio.failureAbandonment")
+      : null,
+    studioControl.failureRate !== null
+      && studioProgressive.failureRate !== null
+      && studioProgressive.failureRate - studioControl.failureRate > 0.005
+      ? t("studio.failureGeneration")
+      : null,
+    studioControl.refundRate !== null
+      && studioProgressive.refundRate !== null
+      && studioProgressive.refundRate - studioControl.refundRate > 0.005
+      ? t("studio.failureRefund")
+      : null,
+  ].filter((value): value is string => value !== null) : [];
 
   return (
     <div className="space-y-6">
@@ -643,6 +743,71 @@ export function OwnerAnalyticsPanel({
                       ])}
                     />
                   </FunnelSection>
+
+                  {studioControl && studioProgressive ? (
+                    <FunnelSection title={t("studio.title")}>
+                      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                        <label className="inline-flex items-center gap-2 text-[var(--text-secondary)]">
+                          {t("studio.stage")}
+                          <select
+                            aria-label={t("studio.stageAria")}
+                            value={studioRolloutStage}
+                            onChange={(event) => {
+                              const next = Number(event.target.value) as 10 | 50 | 100;
+                              setStudioRolloutStage(next);
+                              if (next !== 100) setStudioPriorStageConfirmed(false);
+                            }}
+                            className="h-8 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 text-xs"
+                          >
+                            <option value={10}>10%</option>
+                            <option value={50}>50%</option>
+                            <option value={100}>100%</option>
+                          </select>
+                        </label>
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-1 font-medium",
+                            studioSampleSufficient
+                              ? "bg-[var(--success-bg)] text-[var(--success-text)]"
+                              : "bg-[var(--danger-bg)] text-[var(--danger-text)]",
+                          )}
+                        >
+                          {studioSampleSufficient ? t("studio.sampleSufficient") : t("studio.sampleInsufficient")}
+                        </span>
+                        <span className="text-[var(--text-muted)]">
+                          {t("studio.requirement", { observation: t(`studio.${studioStageRequirement.observationKey}`), sessions: studioStageRequirement.eligibleSessions, generations: studioStageRequirement.confirmedGenerations })}
+                        </span>
+                      </div>
+                      {studioRolloutStage === 100 ? (
+                        <label className="mb-3 inline-flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                          <input
+                            type="checkbox"
+                            checked={studioPriorStageConfirmed}
+                            onChange={(event) => setStudioPriorStageConfirmed(event.target.checked)}
+                          />
+                          {t("studio.priorStageConfirmation")}
+                        </label>
+                      ) : null}
+                      {studioGateFailures.length > 0 ? (
+                        <div className="mb-3 flex flex-wrap gap-2" role="status">
+                          {studioGateFailures.map((failure) => (
+                            <span
+                              key={failure}
+                              className="rounded-full bg-[var(--danger-bg)] px-2 py-1 text-xs font-medium text-[var(--danger-text)]"
+                            >
+                              {failure}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      <FunnelTable
+                        title=""
+                        noDataLabel={noDataLabel}
+                        headers={[t("studio.metric"), t("studio.control"), t("studio.progressive"), "Δ"]}
+                        rows={[["eligibleSessions", <CountCell key="control" value={studioControl.eligibleSessions} />, <CountCell key="progressive" value={studioProgressive.eligibleSessions} />, "—"], ["confirmedGenerations", <CountCell key="control" value={studioControl.confirmedGenerations} />, <CountCell key="progressive" value={studioProgressive.confirmedGenerations} />, "—"], ["goalSwitches", <CountCell key="control" value={studioControl.goalSwitches} />, <CountCell key="progressive" value={studioProgressive.goalSwitches} />, "—"], ["sourceRoleCorrections", <CountCell key="control" value={studioControl.sourceRoleCorrections} />, <CountCell key="progressive" value={studioProgressive.sourceRoleCorrections} />, "—"], ["successfulResumes", <CountCell key="control" value={studioControl.successfulResumesWithin30m} />, <CountCell key="progressive" value={studioProgressive.successfulResumesWithin30m} />, "—"], ["refinements", <CountCell key="control" value={studioControl.refinementsStarted} />, <CountCell key="progressive" value={studioProgressive.refinementsStarted} />, "—"], ["debited", <CountCell key="control" value={studioControl.debitedGenerations} />, <CountCell key="progressive" value={studioProgressive.debitedGenerations} />, "—"], ["compensated", <CountCell key="control" value={studioControl.compensatedGenerations} />, <CountCell key="progressive" value={studioProgressive.compensatedGenerations} />, "—"], ["completion24h", <RateCell key="control" rate={studioControl.completionRate} />, <RateCell key="progressive" rate={studioProgressive.completionRate} />, formatPercentagePointDelta(studioControl.completionRate, studioProgressive.completionRate)], ["abandonment", <RateCell key="control" rate={studioControl.abandonmentRate} />, <RateCell key="progressive" rate={studioProgressive.abandonmentRate} />, formatPercentagePointDelta(studioControl.abandonmentRate, studioProgressive.abandonmentRate)], ["failure", <RateCell key="control" rate={studioControl.failureRate} />, <RateCell key="progressive" rate={studioProgressive.failureRate} />, formatPercentagePointDelta(studioControl.failureRate, studioProgressive.failureRate)], ["refund", <RateCell key="control" rate={studioControl.refundRate} />, <RateCell key="progressive" rate={studioProgressive.refundRate} />, formatPercentagePointDelta(studioControl.refundRate, studioProgressive.refundRate)], ["entryToBriefing", formatGapMs(studioControl.medianEntryToBriefingMs), formatGapMs(studioProgressive.medianEntryToBriefingMs), "—"], ["entryToPlan", formatGapMs(studioControl.medianEntryToPlanMs), formatGapMs(studioProgressive.medianEntryToPlanMs), "—"]].map(([metric, control, progressive, delta]) => [t(`studio.metrics.${metric}`), control, progressive, delta])}
+                      />
+                    </FunnelSection>
+                  ) : null}
 
                   <FunnelSection title={t("sections.recipeSelection")}>
                     <FunnelTable

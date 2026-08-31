@@ -1,9 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CreativeWorkCarouselSlide } from "@/server/db/schema";
+import type {
+  CarouselDeckPlanV1,
+  CarouselVisualContractV1,
+} from "@/server/creative-work/carousel-contracts";
+import type { CreativeWorkInputSnapshot } from "@/server/creative-work/contracts";
 
 const chargeUnit = vi.hoisted(() => vi.fn());
 const chargeBatch = vi.hoisted(() => vi.fn());
 const refund = vi.hoisted(() => vi.fn());
 const recordUsage = vi.hoisted(() => vi.fn());
+const spendPaywall = vi.hoisted(() => vi.fn());
+const queueSlide = vi.hoisted(() => vi.fn());
+const listSlides = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
 const createOutputs = vi.hoisted(() => vi.fn());
 const createRevision = vi.hoisted(() => vi.fn());
@@ -62,11 +71,18 @@ vi.mock("@/server/repositories/derivation", () => ({
   touchQueuedDerivation: touchChild,
 }));
 vi.mock("@/server/repositories/campaign", () => ({ updateCampaign }));
+vi.mock("@/server/billing/paywall", () => ({ spend: spendPaywall }));
+vi.mock("@/server/repositories/creative-work-carousel", () => ({
+  queueCarouselSlide: queueSlide,
+  listCurrentCarouselSlides: listSlides,
+}));
 
 import {
   assistantCreativeTripletSettlementAdapter,
   assistantGoalPackageSettlementAdapter,
   assistantPreviewSettlementAdapter,
+  carouselSlideBillingKey,
+  carouselSlideSettlementAdapter,
   creativeWorkRevisionSettlementAdapter,
   creativeWorkSettlementAdapter,
   formatAdaptationSettlementAdapter,
@@ -75,6 +91,7 @@ import {
   resolveCreativeWorkOutputReactivationOutcome,
 } from "./settlement-adapters";
 import { startGenerationSettlement } from "./settlement";
+import { CAROUSEL_SLIDE_GENERATE_EVENT, heavyImageEventName } from "@/server/jobs/heavy-image-events";
 
 const work = { id: "work-1", status: "ready", generationCorrelationId: "generation-1" };
 const outputs = ["a", "b", "c"].map((id) => ({
@@ -2363,5 +2380,293 @@ describe("Assistant generation settlement adapters", () => {
 
     expect(results.every((result) => result.ok)).toBe(true);
     expect(send).toHaveBeenCalledOnce();
+  });
+});
+
+function carouselSlideFixture(
+  overrides: Partial<CreativeWorkCarouselSlide> = {},
+): CreativeWorkCarouselSlide {
+  return {
+    id: "slide-1",
+    workspaceId: "workspace-1",
+    workItemId: "work-1",
+    lineageId: "lineage-1",
+    parentSlideId: null,
+    versionNumber: 1,
+    deckRevision: "deck-r1",
+    position: 1,
+    role: "hook",
+    primaryText: "Gancho exato",
+    secondaryText: null,
+    copyAuthority: "ai_proposal",
+    sourceFactIds: [],
+    layoutFamily: "impact",
+    status: "draft",
+    providerBaseKey: null,
+    outputKey: null,
+    previewKey: null,
+    visualContractHash: "contract-hash-1",
+    anchorKey: null,
+    generationOperationKey: "deck-r1:slide-1",
+    errorCode: null,
+    quality: null,
+    isCurrent: true,
+    createdAt: new Date("2026-08-30T10:00:00.000Z"),
+    queuedAt: null,
+    terminalAt: null,
+    updatedAt: new Date("2026-08-30T10:00:00.000Z"),
+    ...overrides,
+  } as CreativeWorkCarouselSlide;
+}
+
+export function carouselVisualContractFixture(): CarouselVisualContractV1 {
+  const region = { x: 80, y: 96, width: 864, height: 420, minFontPx: 42, maxFontPx: 82, align: "left" as const };
+  return {
+    version: 1,
+    brandSnapshotHash: "brand-hash-1",
+    temporaryReferenceId: null,
+    palette: ["#112233"],
+    typography: { fontAssetKey: null, fallbackFamily: "sans", authority: "fallback" },
+    directionInstruction: null,
+    layoutFamilies: {
+      impact: { id: "impact-v1", density: "high", primaryRegion: region, secondaryRegion: null, exactAssetSlots: [], backgroundInstruction: "impact" },
+      development: { id: "development-v1", density: "medium", primaryRegion: region, secondaryRegion: null, exactAssetSlots: [], backgroundInstruction: "development" },
+      respite: { id: "respite-v1", density: "low", primaryRegion: region, secondaryRegion: null, exactAssetSlots: [], backgroundInstruction: "respite" },
+    },
+    recurringMotifs: [],
+    exactAssetKeys: [],
+    prohibitedElements: [],
+    safeAreaPx: 64,
+    contractHash: "contract-hash-1",
+  };
+}
+
+export function carouselDeckFixture(slideCount = 5): CarouselDeckPlanV1 {
+  const roles = ["hook", "context", "problem", "argument", "closing", "evidence", "method", "cta"] as const;
+  return {
+    version: 1,
+    revision: "deck-r1",
+    workId: "work-1",
+    objective: "Divulgar o grupo de terapia",
+    audience: null,
+    tone: null,
+    promise: "Grupo de terapia em agosto",
+    format: "4:5",
+    slides: Array.from({ length: slideCount }, (_, index) => ({
+      slideId: `slide-${index + 1}`,
+      position: index + 1,
+      role: roles[index],
+      purpose: `Propósito ${index + 1}`,
+      primaryText: `Texto primário ${index + 1} do grupo de terapia`,
+      secondaryText: null,
+      authority: "ai_proposal" as const,
+      sourceFactIds: [],
+      layoutFamily: index === 0 ? "impact" : index === slideCount - 1 ? "respite" : "development",
+    })),
+  };
+}
+
+export function carouselWorkFixture(
+  slides: CreativeWorkCarouselSlide[],
+  deckSlideCount = 5,
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    work: {
+      id: "work-1",
+      workspaceId: "workspace-1",
+      toolKind: "carousel",
+      status: "generating",
+      clientProfileId: "profile-1",
+      carouselQuality: null,
+      inputSnapshot: {
+        carousel: {
+          version: 1,
+          preparedRevision: "prep-1",
+          deck: carouselDeckFixture(deckSlideCount),
+          visualContract: carouselVisualContractFixture(),
+        },
+      },
+      ...overrides,
+    },
+    outputs: [],
+    sources: [],
+  };
+}
+
+describe("carouselSlideSettlementAdapter", () => {
+  const billingKey = carouselSlideBillingKey("work-1", "slide-1");
+
+  function adapter(anchorKey: string | null = null) {
+    return carouselSlideSettlementAdapter({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      slideId: "slide-1",
+      userId: "user-1",
+      anchorKey,
+      operationKey: billingKey,
+    });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    spendPaywall.mockResolvedValue({ ok: true, creditsSpent: 50 });
+    refund.mockResolvedValue({ status: "refunded" });
+    send.mockResolvedValue(undefined);
+    trackUsage.mockResolvedValue({ id: "usage-ack" });
+    queueSlide.mockResolvedValue(null);
+    listSlides.mockResolvedValue([carouselSlideFixture({ status: "queued" })]);
+    getUsage.mockResolvedValue(null);
+    getWork.mockResolvedValue(carouselWorkFixture([carouselSlideFixture()]));
+  });
+
+  it("first claimant queues the slide and charges exactly one credit unit", async () => {
+    const queued = carouselSlideFixture({ status: "queued" });
+    queueSlide.mockResolvedValue(queued);
+    listSlides.mockResolvedValue([carouselSlideFixture({ status: "draft" })]);
+
+    const result = await startGenerationSettlement(adapter());
+
+    expect(result.ok).toBe(true);
+    expect(queueSlide).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      slideId: "slide-1",
+      anchorKey: null,
+      operationKey: billingKey,
+    }));
+    expect(spendPaywall).toHaveBeenCalledTimes(1);
+    expect(spendPaywall).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      amount: 50,
+      idempotencyKey: billingKey,
+    }));
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0]).toMatchObject({
+      name: heavyImageEventName(CAROUSEL_SLIDE_GENERATE_EVENT),
+      data: { slideId: "slide-1", position: 1, workspaceId: "workspace-1", workItemId: "work-1" },
+    });
+    // queue timestamp is recorded by the claim
+    expect(queueSlide).toHaveBeenCalledOnce();
+  });
+
+  it("replay joins the already-claimed row without a second charge", async () => {
+    queueSlide.mockResolvedValue(null);
+    listSlides.mockResolvedValue([carouselSlideFixture({ status: "queued" })]);
+    getUsage.mockImplementation(async (_workspaceId: string, idempotencyKey: string) =>
+      idempotencyKey.endsWith(":dispatch-refund")
+        ? null
+        : { metadata: { settlementDispatchAckRequired: true, settlementDispatchAckKey: `${billingKey}:dispatch-ack` } }
+    );
+
+    const result = await startGenerationSettlement(adapter());
+
+    expect(result.ok).toBe(true);
+    expect(spendPaywall).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("dispatches one stable Inngest event id derived from the billing key", async () => {
+    const slide = carouselSlideFixture({ status: "queued" });
+    const first = adapter();
+    const second = adapter();
+
+    await first.dispatch({ claimed: true, value: { slide } });
+    await second.dispatch({ claimed: true, value: { slide } });
+
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send.mock.calls[0][0].id).toBe(send.mock.calls[1][0].id);
+    expect(send.mock.calls[0][0].id).toBe(`${billingKey}:dispatch`);
+  });
+
+  it("dispatch failure marks only that slide and refunds only its own key", async () => {
+    const queued = carouselSlideFixture({ status: "queued" });
+    queueSlide.mockResolvedValue(queued);
+    listSlides.mockResolvedValue([carouselSlideFixture({ status: "draft" })]);
+    send.mockRejectedValue(new Error("inngest unavailable"));
+
+    const result = await startGenerationSettlement(adapter());
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe("dispatch_failed");
+    expect(result.error.value.slide.id).toBe("slide-1");
+    expect(refund).toHaveBeenCalledTimes(1);
+    expect(refund).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: `${billingKey}:dispatch-refund`,
+      amount: 50,
+    }));
+  });
+
+  it("a pre-provider failure settles net zero without dispatching or refunding", async () => {
+    const queued = carouselSlideFixture({ status: "queued" });
+    queueSlide.mockResolvedValue(queued);
+    listSlides.mockResolvedValue([carouselSlideFixture({ status: "draft" })]);
+    spendPaywall.mockResolvedValue({
+      ok: false,
+      status: 402,
+      conversionPayload: { reason: "insufficient_credits" },
+    });
+
+    const result = await startGenerationSettlement(adapter());
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe("credit_blocked");
+    expect(send).not.toHaveBeenCalled();
+    expect(refund).not.toHaveBeenCalled();
+  });
+
+  it("completed slide replay does not re-dispatch", async () => {
+    queueSlide.mockResolvedValue(null);
+    listSlides.mockResolvedValue([
+      carouselSlideFixture({ status: "completed", providerBaseKey: "base-1", outputKey: "out-1" }),
+    ]);
+
+    const result = await startGenerationSettlement(adapter());
+
+    expect(result.ok).toBe(true);
+    expect(spendPaywall).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("a non-anchor cannot queue without an anchorKey", async () => {
+    listSlides.mockResolvedValue([
+      carouselSlideFixture({ id: "slide-2", position: 2, status: "draft" }),
+    ]);
+
+    await expect(
+      startGenerationSettlement(carouselSlideSettlementAdapter({
+        workspaceId: "workspace-1",
+        workItemId: "work-1",
+        slideId: "slide-2",
+        userId: "user-1",
+        anchorKey: null,
+        operationKey: carouselSlideBillingKey("work-1", "slide-2"),
+      })),
+    ).rejects.toThrow("carousel_slide_missing_anchor_key");
+    expect(queueSlide).not.toHaveBeenCalled();
+    expect(spendPaywall).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("takes over a queued row that no charge owns instead of stranding it", async () => {
+    queueSlide.mockResolvedValue(null);
+    listSlides.mockResolvedValue([carouselSlideFixture({ status: "queued" })]);
+    getUsage.mockResolvedValue(null);
+
+    const result = await startGenerationSettlement(adapter());
+
+    expect(result.ok).toBe(true);
+    expect(spendPaywall).toHaveBeenCalledTimes(1);
+    expect(spendPaywall).toHaveBeenCalledWith(expect.objectContaining({
+      idempotencyKey: billingKey,
+      amount: 50,
+    }));
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0].id).toBe(`${billingKey}:dispatch`);
   });
 });

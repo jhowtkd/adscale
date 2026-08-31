@@ -655,3 +655,110 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
 
   return prompt;
 }
+
+// ---------------------------------------------------------------------------
+// Carousel slide prompt (Task 6). One text-free visual base per slide, fed
+// ONLY by the frozen prepared snapshot: contract hash, role/purpose, layout
+// family, palette/motifs/prohibitions and the frozen fact pack. Approved copy
+// and pending editorial diffs never reach the provider — the deterministic
+// text contract below reserves both text regions and the exact-asset slots.
+// ---------------------------------------------------------------------------
+
+import type {
+  CarouselDeckPlanV1,
+  CarouselLayoutFamily,
+  CarouselNarrativeRole,
+  CarouselVisualContractV1,
+} from "./carousel-contracts";
+
+export interface BuildCarouselSlidePromptInput {
+  slide: {
+    position: number;
+    role: CarouselNarrativeRole;
+    purpose: string;
+    layoutFamily: CarouselLayoutFamily;
+  };
+  deck: CarouselDeckPlanV1;
+  contract: CarouselVisualContractV1;
+  factPack: CreativeWorkFactPack | null;
+  request: string;
+  references: readonly CreativeWorkReferenceSlot[];
+}
+
+function buildCarouselReservedRegionsBlock(
+  contract: CarouselVisualContractV1,
+  layoutFamily: CarouselLayoutFamily,
+): string {
+  const plan = contract.layoutFamilies[layoutFamily];
+  const regionLines = (label: string, region: {
+    x: number; y: number; width: number; height: number;
+  } | null) =>
+    region
+      ? `- ${label}: x=${region.x} y=${region.y} width=${region.width} height=${region.height}`
+      : `- ${label}: (none)`;
+  const slotLines = [];
+  for (const slot of plan.exactAssetSlots) {
+    slotLines.push(
+      `- exact application asset ${slot.assetKey}: x=${slot.x} y=${slot.y} width=${slot.width} height=${slot.height}`,
+    );
+  }
+  if (plan.exactAssetSlots.length === 0) {
+    slotLines.push("- RESERVED PLACEMENTS: (none)");
+  } else {
+    slotLines.unshift("RESERVED PLACEMENTS — PROVIDER EXCLUSION:");
+  }
+  return [
+    "RESERVED TEXT REGIONS — PROVIDER EXCLUSION (HIGHEST PRIORITY):",
+    regionLines("primary text region", plan.primaryRegion),
+    regionLines("secondary text region", plan.secondaryRegion),
+    ...slotLines,
+    "Keep every region above clean and free of focal content; the application composites the approved copy and every exact asset after generation.",
+  ].join("\n");
+}
+
+export function buildCarouselSlidePrompt(input: BuildCarouselSlidePromptInput): string {
+  const { contract, deck } = input;
+  const layoutPlan = contract.layoutFamilies[input.slide.layoutFamily];
+
+  const factPackBlock = buildFactPackBlock({
+    factPack: input.factPack,
+    inputSnapshot: { request: input.request } as CreativeWorkInputSnapshot,
+  });
+
+  const palette = contract.palette.length > 0 ? contract.palette.join(", ") : "(none declared)";
+  const motifs = contract.recurringMotifs.length > 0 ? contract.recurringMotifs.join("; ") : "(none)";
+  const prohibitions = contract.prohibitedElements.length > 0 ? contract.prohibitedElements.join("; ") : "(none)";
+
+  return [
+    `CAROUSEL SLIDE ${input.slide.position}/${deck.slides.length} — TEXT-FREE VISUAL BASE`,
+    `FORMAT: ${deck.format}`,
+    "",
+    `FROZEN VISUAL CONTRACT: sha256=${contract.contractHash}`,
+    `ROLE: ${input.slide.role} — PURPOSE: ${input.slide.purpose}`,
+    `LAYOUT FAMILY: ${input.slide.layoutFamily} (density=${layoutPlan.density})`,
+    `BACKGROUND INSTRUCTION: ${layoutPlan.backgroundInstruction}`,
+    "",
+    factPackBlock,
+    "",
+    "FROZEN VISUAL SYSTEM:",
+    `- Palette: use only these approved colors as atmosphere and contrast guidance: ${palette}`,
+    `- Recurring motifs: ${motifs}`,
+    `- Prohibited elements: ${prohibitions}`,
+    contract.directionInstruction
+      ? `- Direction instruction: ${contract.directionInstruction}`
+      : "- Direction instruction: (none)",
+    "",
+    buildReferenceRolesBlock(input.references),
+    "",
+    buildCarouselReservedRegionsBlock(contract, input.slide.layoutFamily),
+    "",
+    [
+      "DETERMINISTIC TEXT CONTRACT:",
+      "Do not render any visible text, letters, words, labels or CTA in the image.",
+      "The approved copy of this slide is added by the application after generation; it is intentionally absent from this prompt.",
+      "Keep the reserved primary and secondary text regions visually calm and free of focal content.",
+      "Do not draw, trace, imitate or repeat any exact brand asset inside the reserved placements; exact assets are composited after generation.",
+      "Never copy wording, claims or lettering from any attached reference — references transfer visual language only.",
+    ].join("\n"),
+  ].join("\n");
+}

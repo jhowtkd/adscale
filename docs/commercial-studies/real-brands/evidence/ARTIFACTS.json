@@ -1,0 +1,102 @@
+{
+  "artifacts": [
+    {
+      "id": "161259b6-042b-42fd-a5df-9dff2b2f7dcf",
+      "brand": "nike",
+      "kind": "isolated_result",
+      "path": "results/nike-161259b6-042b-42fd-a5df-9dff2b2f7dcf.png",
+      "sha256": "ac2e53d8caf5d9070698ccaaa34451d9188e641228397672094a40f82b928650",
+      "width": 1080,
+      "height": 1350,
+      "provenance": "real",
+      "providerEvidencePath": "evidence/nike/161259b6-042b-42fd-a5df-9dff2b2f7dcf.json",
+      "visualReview": "approved",
+      "editorialReview": "approved",
+      "reviewedBy": "controller + usuario (2026-08-29)",
+      "legalReview": "not_run_out_of_scope"
+    },
+    {
+      "id": "9c25bdef-6d1c-4e9a-98db-93141c20c28f",
+      "brand": "nike",
+      "kind": "isolated_result",
+      "path": "results/nike-9c25bdef-6d1c-4e9a-98db-93141c20c28f.png",
+      "sha256": "c658153df3a10ec6e0c5d1c414717bb1bd34df3d50a06a170551e1f112d40ab3",
+      "width": 1080,
+      "height": 1350,
+      "provenance": "real",
+      "providerEvidencePath": "evidence/nike/9c25bdef-6d1c-4e9a-98db-93141c20c28f.json",
+      "visualReview": "approved",
+      "editorialReview": "approved",
+      "reviewedBy": "controller + usuario (2026-08-29)",
+      "legalReview": "not_run_out_of_scope"
+    },
+    {
+      "id": "098d6f77-596a-4d7c-991a-e8dda6399133",
+      "brand": "mtv",
+      "kind": "isolated_result",
+      "path": "results/mtv-098d6f77-596a-4d7c-991a-e8dda6399133.png",
+      "sha256": "0eeac269b32dfbb79bc29e20c7bbe6e52c89746ed69544e885656c38e5a0f10e",
+      "width": 1080,
+      "height": 1350,
+      "provenance": "real",
+      "providerEvidencePath": "evidence/mtv/098d6f77-596a-4d7c-991a-e8dda6399133.json",
+      "visualReview": "approved",
+      "editorialReview": "approved",
+      "reviewedBy": "controller + usuario (2026-08-29)",
+      "legalReview": "not_run_out_of_scope"
+    },
+    {
+      "id": "c7eacdf2-dd90-4614-a7b4-fe9c84d0ccc7",
+      "brand": "mtv",
+      "kind": "isolated_result",
+      "path": "results/mtv-c7eacdf2-dd90-4614-a7b4-fe9c84d0ccc7.png",
+      "sha256": "95317601a49d43f89503c5c99ed0a9bf0241f45de9d3923be32105d2e4c56f28",
+      "width": 1080,
+      "height": 1350,
+      "provenance": "real",
+      "providerEvidencePath": "evidence/mtv/c7eacdf2-dd90-4614-a7b4-fe9c84d0ccc7.json",
+      "visualReview": "approved",
+      "editorialReview": "approved",
+      "reviewedBy": "controller + usuario (2026-08-29)",
+      "legalReview": "not_run_out_of_scope"
+    },
+    {
+      "id": "6e80546d-e16a-4ca0-abe1-26f69e017aae",
+      "brand": "absolut",
+      "kind": "isolated_result",
+      "path": "results/absolut-6e80546d-e16a-4ca0-abe1-26f69e017aae.png",
+      "sha256": "20d67da55dc3db60c5b2495556bd77dac09364a279f6493e67989d1c7e98db3c",
+      "width": 1080,
+      "height": 1350,
+      "provenance": "real",
+      "providerEvidencePath": "evidence/absolut/6e80546d-e16a-4ca0-abe1-26f69e017aae.json",
+      "visualReview": "approved",
+      "editorialReview": "approved",
+      "reviewedBy": "controller + usuario (2026-08-29)",
+      "legalReview": "not_run_out_of_scope"
+    },
+    {
+      "id": "7da609cd-9de4-492a-94c7-de7b6e813145",
+      "brand": "absolut",
+      "kind": "isolated_result",
+      "path": "results/absolut-7da609cd-9de4-492a-94c7-de7b6e813145.png",
+      "sha256": "44ea5c78a815f9215974bbfbaef84491136813aea053c6dc8365f4281faf8a42",
+      "width": 1080,
+      "height": 1350,
+      "provenance": "real",
+      "providerEvidencePath": "evidence/absolut/7da609cd-9de4-492a-94c7-de7b6e813145.json",
+      "visualReview": "approved",
+      "editorialReview": "approved",
+      "reviewedBy": "controller + usuario (2026-08-29)",
+      "legalReview": "not_run_out_of_scope"
+    }
+  ],
+  "review": {
+    "visualReview": "approved",
+    "editorialReview": "approved",
+    "reviewedBy": "controller + usuario (2026-08-29)",
+    "reviewedAt": "2026-08-29",
+    "legalReview": "not_run_out_of_scope",
+    "note": "Revisao visual das 24 telas + 6 resultados feita em sessao pelo controller com confirmacao do usuario."
+  }
+}

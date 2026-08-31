@@ -25,6 +25,14 @@ const mocks = vi.hoisted(() => ({
   apiFetch: vi.fn(),
   brandFonts: vi.fn(() => ({ data: [], isLoading: false })),
   brandKnowledge: vi.fn(() => ({ data: { activeVersion: null }, isLoading: false })),
+  recordBetaEvent: vi.fn(),
+  carouselController: vi.fn(),
+}));
+
+// The carousel wizard controller has its own dedicated test file; the generic
+// controller tests only observe that it is wired through as-is.
+vi.mock("./useCarouselComposer", () => ({
+  useCarouselComposer: (...args: unknown[]) => mocks.carouselController(...args),
 }));
 
 vi.mock("@/lib/hooks/use-active-client-profile", () => ({
@@ -55,6 +63,9 @@ vi.mock("@/lib/hooks/use-brand-training", () => ({
   useBrandFonts: (...args: unknown[]) => mocks.brandFonts(...args),
   useBrandKnowledge: (...args: unknown[]) => mocks.brandKnowledge(...args),
 }));
+vi.mock("@/lib/hooks/use-record-beta-event", () => ({
+  useRecordBetaEvent: () => ({ recordEvent: mocks.recordBetaEvent }),
+}));
 vi.mock("@/lib/assistant/chat-attachments", () => ({
   collectImageFiles: (files: File[] | FileList | null) => Array.from(files ?? []),
   uploadChatAttachment: (...args: unknown[]) => mocks.upload(...args),
@@ -64,7 +75,14 @@ vi.mock("@/lib/api-client", () => ({
   isApiRequestUncertain: (error: unknown) => error instanceof Error && error.name === "TimeoutError",
 }));
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: () => (key: string, values?: { name?: string }) => ({
+    "composer.campaignLinked": "Campaign linked",
+    "composer.campaignRemoved": "Campaign removed",
+    "composer.campaignLinkFailed": "Could not update the campaign association.",
+    "composer.progressiveBufferedFile": `${values?.name} is ready to use after you choose an objective.`,
+    "composer.progressiveMultipleFiles": `${values?.name} was kept; add the other images after choosing an objective.`,
+    "composer.progressiveUploadFailed": "Could not add the image.",
+  }[key] ?? key),
 }));
 
 import { useCreativeComposer } from "./useCreativeComposer";
@@ -83,14 +101,28 @@ function active(overrides = {}) {
   };
 }
 
-function workDetail(overrides = {}) {
+function preparedPlan(workId = "work-1", protocol = "variations") {
   return {
-    work: {
-      id: "work-1", clientProfileId: profileA.id, request: "Pedido salvo", toolKind: "variations",
-      status: "draft", format: "4:5", settings: { targetFormats: [] }, ...overrides,
-    },
-    outputs: [], sources: [],
+    version: 1 as const,
+    workId,
+    preparedRevision: "2026-08-30T12:00:00.000Z",
+    protocol,
+    materials: [],
+    preserve: [],
+    explore: [],
+    outputs: [],
+    outputCount: 3,
+    formats: ["4:5"],
   };
+}
+
+function workDetail(overrides = {}) {
+  const now = new Date().toISOString();
+  const work = {
+      id: "work-1", clientProfileId: profileA.id, request: "Pedido salvo", toolKind: "variations",
+      status: "draft", format: "4:5", settings: { targetFormats: [] }, createdAt: now, updatedAt: now, ...overrides,
+  };
+  return { work, outputs: [], sources: [], preparedPlan: preparedPlan(work.id, work.toolKind) };
 }
 
 function deferred<T>() {
@@ -98,6 +130,38 @@ function deferred<T>() {
   let reject!: (error: unknown) => void;
   const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
   return { promise, resolve, reject };
+}
+
+function carouselControllerStub() {
+  return {
+    draft: null,
+    slides: [],
+    quality: null,
+    selectedSlideId: null,
+    selectedSlide: null,
+    phase: "entry",
+    findings: [],
+    canPrepare: false,
+    canGenerate: false,
+    canApprove: false,
+    isBusy: false,
+    askForPlan: vi.fn(() => Promise.resolve()),
+    answerQuestions: vi.fn(() => Promise.resolve()),
+    acceptChange: vi.fn(() => Promise.resolve()),
+    rejectChange: vi.fn(() => Promise.resolve()),
+    editSlide: vi.fn(() => Promise.resolve()),
+    addSlide: vi.fn(() => Promise.resolve()),
+    removeSlide: vi.fn(() => Promise.resolve()),
+    moveSlide: vi.fn(() => Promise.resolve()),
+    prepareCarousel: vi.fn(() => Promise.resolve()),
+    generateCarousel: vi.fn(() => Promise.resolve()),
+    reviseSlide: vi.fn(() => Promise.resolve()),
+    retrySlide: vi.fn(() => Promise.resolve()),
+    approveDeck: vi.fn(() => Promise.resolve()),
+    downloadSlide: vi.fn(),
+    exportDeck: vi.fn(() => Promise.resolve()),
+    selectSlide: vi.fn(),
+  };
 }
 
 describe("useCreativeComposer", () => {
@@ -119,6 +183,7 @@ describe("useCreativeComposer", () => {
     window.sessionStorage.clear();
     mocks.active.mockReturnValue(active());
     mocks.work.mockReturnValue({ data: undefined, isLoading: false });
+    mocks.carouselController.mockReturnValue(carouselControllerStub());
     mocks.create.mockImplementation((input: { request: string; intent: string; format: string; settings: { targetFormats: string[] } }) => Promise.resolve({
       work: {
         ...workDetail().work,
@@ -130,8 +195,8 @@ describe("useCreativeComposer", () => {
       },
       quote: { unitCount: 3, credits: 150 },
     }));
-    mocks.autosave.mockResolvedValue({ work: { id: "work-1" } });
-    mocks.prepare.mockResolvedValue({ work: workDetail().work, quote: { unitCount: 3, credits: 150 } });
+    mocks.autosave.mockResolvedValue({ work: workDetail().work });
+    mocks.prepare.mockResolvedValue({ work: workDetail().work, quote: { unitCount: 3, credits: 150 }, preparedPlan: preparedPlan() });
     mocks.generate.mockResolvedValue({ work: { status: "generating" }, outputs: [] });
     mocks.suggest.mockResolvedValue({ directions: [] });
     mocks.upload.mockResolvedValue({ assetId: "asset-1", name: "arte.png" });
@@ -142,6 +207,95 @@ describe("useCreativeComposer", () => {
     mocks.resolveBrandConflictPending.mockReturnValue(false);
     mocks.brandFonts.mockReturnValue({ data: [], isLoading: false });
     mocks.brandKnowledge.mockReturnValue({ data: { activeVersion: null }, isLoading: false });
+  });
+
+  it("keeps text-only progressive entry local until an objective is chosen", async () => {
+    const { result } = renderHook(() => useCreativeComposer({ workflowVariant: "progressive" }));
+
+    act(() => result.current.setRequest("Nova campanha de primavera"));
+    await act(() => vi.advanceTimersByTimeAsync(600));
+
+    expect(result.current.objective).toBeNull();
+    expect(result.current.hasEntry).toBe(true);
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.autosave).not.toHaveBeenCalled();
+    expect(mocks.upload).not.toHaveBeenCalled();
+    expect(window.location.search).not.toContain("workId");
+  });
+
+  it("buffers only the first progressive file until the objective is chosen", async () => {
+    const first = new File(["first"], "primeira.png", { type: "image/png" });
+    const second = new File(["second"], "segunda.png", { type: "image/png" });
+    const { result } = renderHook(() => useCreativeComposer({ workflowVariant: "progressive" }));
+
+    await act(async () => { await result.current.addFiles([first, second]); });
+
+    expect(result.current.bufferedFile).toBe(first);
+    expect(result.current.announcement).toBe("primeira.png was kept; add the other images after choosing an objective.");
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.upload).not.toHaveBeenCalled();
+    act(() => result.current.clearBufferedFile());
+    expect(result.current.bufferedFile).toBeNull();
+  });
+
+  it("uses localized campaign announcements and fallback errors", async () => {
+    mocks.work.mockReturnValue({ data: workDetail({ id: WORK_ID }), isLoading: false, refetch: mocks.refetch });
+    mocks.refetch.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: WORK_ID }));
+
+    await act(async () => { await result.current.linkCampaign(TARGET_WORK_ID); });
+    expect(result.current.announcement).toBe("Campaign linked");
+
+    mocks.linkCampaign.mockRejectedValueOnce({});
+    await act(async () => { await result.current.linkCampaign(null); });
+    expect(result.current.error).toBe("Could not update the campaign association.");
+  });
+
+  it("materializes the selected progressive objective with the buffered file exactly once", async () => {
+    const file = new File(["image"], "arte.png", { type: "image/png" });
+    const { result } = renderHook(() => useCreativeComposer({ workflowVariant: "progressive" }));
+    act(() => result.current.setRequest("Lançamento"));
+    await act(async () => { await result.current.addFiles([file]); });
+
+    await act(async () => { await result.current.selectIntent("variations"); });
+
+    expect(result.current.objective).toBe("variations");
+    expect(mocks.upload).toHaveBeenCalledWith(file);
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      request: "Lançamento",
+      intent: "variations",
+      assetId: "asset-1",
+    }));
+    expect(result.current.bufferedFile).toBeNull();
+    expect(window.location.search).toContain(`workId=${WORK_ID}`);
+  });
+
+  it("keeps a buffered progressive file after upload failure", async () => {
+    const file = new File(["image"], "arte.png", { type: "image/png" });
+    mocks.upload.mockRejectedValueOnce(new Error("upload indisponível"));
+    const { result } = renderHook(() => useCreativeComposer({ workflowVariant: "progressive" }));
+    await act(async () => { await result.current.addFiles([file]); });
+
+    await act(async () => { await result.current.selectIntent("single"); });
+
+    expect(result.current.bufferedFile).toBe(file);
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(result.current.error).toBe("upload indisponível");
+  });
+
+  it("holds a template link as progressive entry context until an explicit objective", async () => {
+    const { result } = renderHook(() => useCreativeComposer({
+      workflowVariant: "progressive",
+      initialTemplateId: TEMPLATE_ID,
+    }));
+    await act(async () => Promise.resolve());
+
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.source).not.toHaveBeenCalled();
+    await act(async () => { await result.current.selectIntent("restyle"); });
+    await act(async () => Promise.resolve());
+
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ templateId: TEMPLATE_ID }));
   });
 
   it("exposes the frozen Brand Cortex snapshot on Peça única", async () => {
@@ -205,6 +359,83 @@ describe("useCreativeComposer", () => {
     expect(result.current.intent).toBe("format_adaptation");
     expect(result.current.targetFormats).toEqual(["1:1", "9:16"]);
     expect(result.current.quote).toEqual({ unitCount: 2, credits: 100 });
+  });
+
+  it("starts a carousel composer with a zeroed deck quote and no direction pool", () => {
+    const { result } = renderHook(() => useCreativeComposer({ initialIntent: "carousel" }));
+
+    expect(result.current.intent).toBe("carousel");
+    expect(result.current.objective).toBe("carousel");
+    expect(result.current.directionPool).toBeNull();
+    expect(result.current.targetFormats).toEqual([]);
+    // The carousel quote always comes from its own deck size, never from the
+    // legacy output quoter (which throws for carousel).
+    expect(result.current.quote).toEqual({ unitCount: 0, credits: 0 });
+  });
+
+  it("materializes the carousel objective with the buffered file as one style reference", async () => {
+    const { result } = renderHook(() => useCreativeComposer({ workflowVariant: "progressive" }));
+    act(() => result.current.setRequest("Carrossel de lançamento"));
+    const file = new File(["image"], "referencia.png", { type: "image/png" });
+
+    await act(async () => { await result.current.addFiles([file]); });
+    expect(result.current.bufferedFile).toBe(file);
+
+    await act(async () => { await result.current.selectIntent("carousel"); });
+
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      intent: "carousel", usage: "style",
+    }));
+    expect(result.current.intent).toBe("carousel");
+  });
+
+  it("limits carousel uploads to one non-failed style reference", async () => {
+    const now = new Date().toISOString();
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ toolKind: "carousel", request: "" }),
+        sources: [{
+          id: "source-1", workItemId: "work-1", assetId: "asset-1", templateId: null,
+          name: "referencia.png", previewUrl: null, origin: "upload", usage: "style",
+          usageConfirmed: true, status: "ready", contentAnalysis: null, styleAnalysis: null,
+          pieceReference: null, failureCode: null, createdAt: now, updatedAt: now,
+        }],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const { result } = renderHook(() =>
+      useCreativeComposer({ initialWorkId: "work-1", initialIntent: "carousel" })
+    );
+    await act(async () => Promise.resolve());
+
+    const first = new File(["a"], "primeira.png", { type: "image/png" });
+    const second = new File(["b"], "segunda.png", { type: "image/png" });
+    await act(async () => { await result.current.addFiles([first, second]); });
+
+    expect(mocks.upload).not.toHaveBeenCalled();
+    expect(mocks.source).not.toHaveBeenCalled();
+  });
+
+  it("attaches a carousel upload with the forced style usage", async () => {
+    mocks.work.mockReturnValue({
+      data: workDetail({ toolKind: "carousel", request: "" }),
+      isLoading: false,
+      isError: false,
+    });
+    const { result } = renderHook(() =>
+      useCreativeComposer({ initialWorkId: "work-1", initialIntent: "carousel" })
+    );
+    await act(async () => Promise.resolve());
+
+    const first = new File(["a"], "primeira.png", { type: "image/png" });
+    const second = new File(["b"], "segunda.png", { type: "image/png" });
+    await act(async () => { await result.current.addFiles([first, second]); });
+
+    expect(mocks.upload).toHaveBeenCalledTimes(1);
+    expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: "work-1", action: "attachSource", usage: "style",
+    }));
   });
 
   it("offers only human-approved brand font files", () => {
@@ -490,7 +721,7 @@ describe("useCreativeComposer", () => {
 
     act(() => result.current.setRequest("Não deve salvar"));
     await act(() => vi.advanceTimersByTimeAsync(1_000));
-    await act(() => result.current.generate());
+    await act(() => result.current.generateLegacy());
 
     expect(mocks.autosave).not.toHaveBeenCalled();
     expect(mocks.prepare).not.toHaveBeenCalled();
@@ -910,12 +1141,12 @@ describe("useCreativeComposer", () => {
     await act(async () => Promise.resolve());
 
     expect(mocks.source).toHaveBeenCalledOnce();
-    expect(mocks.source).toHaveBeenCalledWith({
+    expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({
       workItemId: "work-1",
       action: "attachSource",
       templateId,
       usage: "both",
-    });
+    }));
     expect(mocks.create).not.toHaveBeenCalled();
   });
 
@@ -1066,12 +1297,12 @@ describe("useCreativeComposer", () => {
       await adding;
     });
 
-    expect(mocks.source).toHaveBeenCalledWith({
+    expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({
       workItemId: WORK_ID,
       action: "attachSource",
       assetId: "asset-1",
       usage: "both",
-    });
+    }));
   });
 
   it("surfaces a raced source attach failure and succeeds when the user retries", async () => {
@@ -1141,6 +1372,33 @@ describe("useCreativeComposer", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("refreshes the work revision between successful source mutations", async () => {
+    const initialRevision = "2026-08-30T12:00:00.000Z";
+    const nextRevision = "2026-08-30T12:00:00.001Z";
+    const finalRevision = "2026-08-30T12:00:00.002Z";
+    const initial = workDetail({ id: WORK_ID, updatedAt: initialRevision });
+    mocks.work.mockReturnValue({ data: initial, isLoading: false, isError: false, refetch: mocks.refetch });
+    mocks.refetch
+      .mockResolvedValueOnce({ data: workDetail({ id: WORK_ID, updatedAt: nextRevision }) })
+      .mockResolvedValueOnce({ data: workDetail({ id: WORK_ID, updatedAt: finalRevision }) });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: WORK_ID }));
+    await act(async () => { await result.current.updateSource("source-1", "style"); });
+    await act(async () => { await result.current.updateSource("source-1", "content"); });
+
+    expect(mocks.source).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      workItemId: WORK_ID,
+      action: "updateSource",
+      expectedUpdatedAt: initialRevision,
+    }));
+    expect(mocks.source).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      workItemId: WORK_ID,
+      action: "updateSource",
+      expectedUpdatedAt: nextRevision,
+    }));
+    expect(mocks.refetch).toHaveBeenCalledTimes(2);
+  });
+
   it("persists a corrected source reading on the same creative work", async () => {
     mocks.work.mockReturnValue({ data: workDetail({ id: WORK_ID }), isLoading: false, isError: false });
     const content = {
@@ -1156,13 +1414,13 @@ describe("useCreativeComposer", () => {
 
     await act(async () => result.current.editSource("source-1", content, null));
 
-    expect(mocks.source).toHaveBeenCalledWith({
+    expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({
       workItemId: WORK_ID,
       action: "editSourceAnalysis",
       sourceId: "source-1",
       content,
       style: null,
-    });
+    }));
   });
 
   it("delivers an upload announcement to the composer mounted after draft canonicalization", async () => {
@@ -1220,9 +1478,125 @@ describe("useCreativeComposer", () => {
       templateId: "template-1", assetId: null, suggestedIntent: "variations",
     }));
 
-    expect(mocks.source).toHaveBeenCalledWith({
+    expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({
       workItemId: "work-1", action: "attachSource", templateId: "template-1", usage: "both",
+    }));
+  });
+
+  it("attaches an inspiration only after a confirmed cross-protocol switch", async () => {
+    const saving = deferred<{ work: { id: string } }>();
+    mocks.autosave.mockReturnValueOnce(saving.promise);
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    await act(async () => Promise.resolve());
+    act(() => result.current.setRequest("Rascunho alterado"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    const attaching = result.current.addInspiration({
+      id: "template-restyle", source: "template", title: "Restyle", previewUrl: null,
+      templateId: "template-restyle", assetId: null, suggestedIntent: "restyle",
     });
+    await act(async () => Promise.resolve());
+
+    expect(result.current.pendingProtocolSwitch).toBe("restyle");
+    expect(mocks.source).not.toHaveBeenCalled();
+    act(() => result.current.confirmProtocolSwitch());
+    await act(async () => { saving.resolve({ work: { id: "work-1" } }); });
+    await act(async () => { await attaching; });
+
+    expect(result.current.intent).toBe("restyle");
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      templateId: "template-restyle", usage: "style", intent: "restyle",
+    }));
+  });
+
+  it("does not attach an inspiration when its cross-protocol switch is cancelled", async () => {
+    const saving = deferred<{ work: { id: string } }>();
+    mocks.autosave.mockReturnValueOnce(saving.promise);
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    await act(async () => Promise.resolve());
+    act(() => result.current.setRequest("Rascunho alterado"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    const attaching = result.current.addInspiration({
+      id: "template-restyle", source: "template", title: "Restyle", previewUrl: null,
+      templateId: "template-restyle", assetId: null, suggestedIntent: "restyle",
+    });
+    await act(async () => Promise.resolve());
+    act(() => result.current.cancelProtocolSwitch());
+    await act(async () => { await attaching; });
+
+    expect(result.current.intent).toBe("variations");
+    expect(mocks.source).not.toHaveBeenCalled();
+  });
+
+  it("does not materialize a curated inspiration until its cross-protocol switch is confirmed", async () => {
+    const saving = deferred<{ work: { id: string } }>();
+    mocks.autosave.mockReturnValueOnce(saving.promise);
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    await act(async () => Promise.resolve());
+    act(() => result.current.setRequest("Rascunho alterado"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    const attaching = result.current.addInspiration({
+      id: "curated-1", source: "curated", title: "Editorial", previewUrl: null,
+      templateId: null, assetId: null, curatedInspirationId: "curated-1", suggestedIntent: "restyle",
+    });
+    await act(async () => Promise.resolve());
+    expect(mocks.apiFetch).not.toHaveBeenCalled();
+    act(() => result.current.cancelProtocolSwitch());
+    await act(async () => { await attaching; });
+    expect(mocks.apiFetch).not.toHaveBeenCalled();
+    expect(mocks.source).not.toHaveBeenCalled();
+  });
+
+  it("records every explicit progressive objective switch", async () => {
+    const { result } = renderHook(() => useCreativeComposer({
+      workflowVariant: "progressive", workspaceId: "ws-1", studioSessionId: "session-1",
+    }));
+
+    await act(async () => { await result.current.selectIntent("variations"); });
+    await act(async () => { await result.current.selectIntent("restyle"); });
+    await act(async () => { await result.current.selectIntent("single"); });
+
+    expect(mocks.recordBetaEvent.mock.calls.filter(([event]) => event === "studio_goal_selected")).toEqual([
+      ["studio_goal_selected", expect.objectContaining({ protocol: "variations" })],
+      ["studio_goal_selected", expect.objectContaining({ protocol: "restyle" })],
+      ["studio_goal_selected", expect.objectContaining({ protocol: "single" })],
+    ]);
+  });
+
+  it("records the restored protocol as another explicit objective selection", async () => {
+    mocks.work.mockImplementation((id: string | null) => ({
+      data: id === WORK_ID ? workDetail({ id: WORK_ID }) : undefined,
+      isLoading: false,
+      isError: false,
+    }));
+    const { result } = renderHook(() => useCreativeComposer({
+      initialWorkId: WORK_ID, workflowVariant: "progressive", workspaceId: "ws-1", studioSessionId: "session-1",
+    }));
+    await act(async () => result.current.selectIntent("restyle"));
+    await act(async () => result.current.returnToPreviousProtocol());
+    expect(mocks.recordBetaEvent.mock.calls.filter(([event]) => event === "studio_goal_selected").map(([, payload]) => payload.protocol)).toEqual([
+      "restyle", "variations",
+    ]);
+  });
+
+  it("hydrates a resumed progressive work without inventing a goal selection", async () => {
+    mocks.work.mockImplementation((id: string | null) => ({
+      data: id === WORK_ID ? workDetail({ id: WORK_ID, toolKind: "restyle" }) : undefined,
+      isLoading: false,
+      isError: false,
+    }));
+    const { result } = renderHook(() => useCreativeComposer({
+      initialWorkId: WORK_ID, workflowVariant: "progressive", workspaceId: "ws-1", studioSessionId: "session-1",
+    }));
+    await act(async () => Promise.resolve());
+    expect(result.current.intent).toBe("restyle");
+    expect(result.current.objective).toBe("restyle");
+    expect(mocks.recordBetaEvent).not.toHaveBeenCalledWith("studio_goal_selected", expect.anything());
   });
 
   it("creates an asset-backed draft when an approved inspiration starts an empty composer", async () => {
@@ -1287,6 +1661,39 @@ describe("useCreativeComposer", () => {
       clientProfileId: profileA.id, request: "", templateId: "template-1", usage: "both",
     }));
     expect(mocks.source).not.toHaveBeenCalled();
+  });
+
+  it("mutates with the post-create revision after a template-backed draft", async () => {
+    const createdRevision = "2026-08-31T15:00:00.001Z";
+    mocks.create.mockImplementation((input: { request: string; intent: string; format: string; settings: { targetFormats: string[] } }) => Promise.resolve({
+      work: {
+        ...workDetail().work,
+        id: WORK_ID,
+        request: input.request,
+        toolKind: input.intent,
+        format: input.format,
+        settings: input.settings,
+        updatedAt: createdRevision,
+      },
+      quote: { unitCount: 3, credits: 150 },
+    }));
+    const { result } = renderHook(() => useCreativeComposer());
+
+    await act(() => result.current.addInspiration({
+      id: "template-1", source: "template", title: "Lançamento", previewUrl: null,
+      templateId: "template-1", assetId: null, suggestedIntent: "variations",
+    }));
+    await act(() => result.current.addInspiration({
+      id: "template-2", source: "template", title: "Outra", previewUrl: null,
+      templateId: "template-2", assetId: null, suggestedIntent: "variations",
+    }));
+
+    expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: WORK_ID,
+      action: "attachSource",
+      templateId: "template-2",
+      expectedUpdatedAt: createdRevision,
+    }));
   });
 
   it("does not announce an attached inspiration when draft creation fails", async () => {
@@ -1674,7 +2081,7 @@ describe("useCreativeComposer", () => {
 
     act(() => result.current.setRequest("Pedido B"));
     let generation!: Promise<void>;
-    act(() => { generation = result.current.generate(); });
+    act(() => { generation = result.current.generateLegacy(); });
     expect(mocks.prepare).not.toHaveBeenCalled();
 
     createA.resolve({
@@ -1706,7 +2113,7 @@ describe("useCreativeComposer", () => {
     lostResponse.reject(new Error("response lost after commit"));
     await act(async () => { await Promise.resolve(); });
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(mocks.create).toHaveBeenCalledTimes(2);
     expect(mocks.autosave).toHaveBeenCalledWith(expect.objectContaining({ request: "Pedido B" }));
@@ -1714,8 +2121,8 @@ describe("useCreativeComposer", () => {
   });
 
   it("serializes autosaves and never starts B before A settles", async () => {
-    const saveA = deferred<{ work: { id: string } }>();
-    const saveB = deferred<{ work: { id: string } }>();
+    const saveA = deferred<{ work: ReturnType<typeof workDetail>["work"] }>();
+    const saveB = deferred<{ work: ReturnType<typeof workDetail>["work"] }>();
     mocks.autosave.mockReturnValueOnce(saveA.promise).mockReturnValueOnce(saveB.promise);
     mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
@@ -1726,11 +2133,11 @@ describe("useCreativeComposer", () => {
     await act(() => vi.advanceTimersByTimeAsync(500));
     expect(mocks.autosave).toHaveBeenCalledTimes(1);
 
-    saveA.resolve({ work: { id: "work-1" } });
+    saveA.resolve({ work: { ...workDetail().work, updatedAt: "2026-08-30T12:00:00.001Z" } });
     await act(async () => { await Promise.resolve(); });
     expect(mocks.autosave).toHaveBeenCalledTimes(2);
     expect(mocks.autosave).toHaveBeenLastCalledWith(expect.objectContaining({ request: "Pedido B" }));
-    saveB.resolve({ work: { id: "work-1" } });
+    saveB.resolve({ work: { ...workDetail().work, updatedAt: "2026-08-30T12:00:00.002Z" } });
     await act(async () => { await Promise.resolve(); });
   });
 
@@ -1741,13 +2148,48 @@ describe("useCreativeComposer", () => {
     act(() => result.current.setRequest("Pedido mais recente"));
 
     await act(async () => {
-      await Promise.all([result.current.generate(), result.current.generate()]);
+      await Promise.all([result.current.generateLegacy(), result.current.generateLegacy()]);
     });
 
     expect(mocks.autosave).toHaveBeenCalledOnce();
     expect(mocks.prepare).toHaveBeenCalledOnce();
     expect(mocks.generate).toHaveBeenCalledOnce();
     expect(mocks.autosave.mock.invocationCallOrder[0]).toBeLessThan(mocks.generate.mock.invocationCallOrder[0]);
+  });
+
+  it("prepares a plan without confirming generation", async () => {
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    let plan!: Awaited<ReturnType<typeof result.current.preparePlan>>;
+    await act(async () => { plan = await result.current.preparePlan(); });
+
+    expect(plan).toEqual(expect.objectContaining({ preparedRevision: "2026-08-30T12:00:00.000Z" }));
+    expect(mocks.prepare).toHaveBeenCalledOnce();
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it("confirms only the supplied prepared revision", async () => {
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => { await result.current.confirmGeneration("2026-08-30T12:00:00.000Z"); });
+
+    expect(mocks.prepare).not.toHaveBeenCalled();
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: "work-1",
+      preparedRevision: "2026-08-30T12:00:00.000Z",
+    }));
+  });
+
+  it("does not confirm when the prepared plan is missing", async () => {
+    mocks.work.mockReturnValue({ data: { ...workDetail(), preparedPlan: null }, isLoading: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => { await result.current.confirmGeneration(); });
+
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(result.current.error).toBe("Revise o plano antes de gerar.");
   });
 
   it("keeps the prepared briefing available to the Home surface", async () => {
@@ -1773,6 +2215,7 @@ describe("useCreativeComposer", () => {
     mocks.prepare.mockResolvedValue({
       work: workDetail().work,
       quote: { unitCount: 3, credits: 150 },
+      preparedPlan: preparedPlan(),
       briefing,
       briefingFactPack,
       readiness: briefing.readiness,
@@ -1780,7 +2223,7 @@ describe("useCreativeComposer", () => {
     });
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(result.current.inferredBriefing).toEqual(briefing);
     expect(result.current.briefingFactPack).toEqual(briefingFactPack);
@@ -1813,7 +2256,7 @@ describe("useCreativeComposer", () => {
 
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", initialIntent: "single" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(result.current.inferredBriefing).toEqual(briefing);
     expect(result.current.canGenerate).toBe(false);
@@ -1832,7 +2275,7 @@ describe("useCreativeComposer", () => {
     mocks.generate.mockRejectedValue(Object.assign(new Error("request timed out"), { name: "TimeoutError" }));
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(refetch).toHaveBeenCalledOnce();
     expect(result.current.error).toBeNull();
@@ -1848,7 +2291,7 @@ describe("useCreativeComposer", () => {
     mocks.generate.mockRejectedValue(Object.assign(new Error("request timed out"), { name: "TimeoutError" }));
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(refetch).toHaveBeenCalledOnce();
     expect(result.current.announcement).not.toContain("Geração aceita");
@@ -1869,12 +2312,100 @@ describe("useCreativeComposer", () => {
     await act(async () => Promise.resolve());
 
     expect(result.current.canGenerate).toBe(true);
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(mocks.autosave).not.toHaveBeenCalled();
     expect(mocks.prepare).not.toHaveBeenCalled();
-    expect(mocks.generate).toHaveBeenCalledWith("work-1");
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: "work-1",
+      preparedRevision: "2026-08-30T12:00:00.000Z",
+    }));
     expect(result.current.announcement).toContain("Geração iniciada");
+  });
+
+  it("keeps a hydrated progressive ready plan visible and confirms its existing revision", async () => {
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ status: "ready" }),
+        sources: [{ id: "source-1", status: "ready" }],
+        outputs: [],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", workflowVariant: "progressive" }));
+    await act(async () => Promise.resolve());
+
+    expect(result.current.preparedPlan?.preparedRevision).toBe("2026-08-30T12:00:00.000Z");
+    expect(result.current.canConfirm).toBe(true);
+    await act(async () => { await result.current.confirmGeneration("2026-08-30T12:00:00.000Z"); });
+
+    expect(mocks.autosave).not.toHaveBeenCalled();
+    expect(mocks.prepare).not.toHaveBeenCalled();
+    expect(mocks.generate).toHaveBeenCalledOnce();
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: "work-1",
+      preparedRevision: "2026-08-30T12:00:00.000Z",
+    }));
+  });
+
+  it("does not revalidate a hydrated progressive plan after a local edit", async () => {
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ status: "ready" }),
+        sources: [{ id: "source-1", status: "ready" }],
+        outputs: [],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", workflowVariant: "progressive" }));
+    await act(async () => Promise.resolve());
+
+    act(() => result.current.setRequest("Pedido alterado após retomar"));
+
+    expect(result.current.preparedPlan).toBeNull();
+    expect(result.current.canConfirm).toBe(false);
+  });
+
+  it("reopens an edited hydrated progressive retry before preparing and confirming a new revision", async () => {
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ status: "ready" }),
+        sources: [{ id: "source-1", status: "ready" }],
+        outputs: [],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const refreshedPlan = { ...preparedPlan(), preparedRevision: "2026-08-30T12:01:00.000Z" };
+    mocks.prepare.mockResolvedValue({
+      work: { ...workDetail().work, request: "Pedido revisado", updatedAt: new Date(refreshedPlan.preparedRevision) },
+      quote: { unitCount: 3, credits: 150 },
+      preparedPlan: refreshedPlan,
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", workflowVariant: "progressive" }));
+    await act(async () => Promise.resolve());
+
+    act(() => result.current.setRequest("Pedido revisado"));
+    await act(async () => { await result.current.confirmGeneration("2026-08-30T12:00:00.000Z"); });
+
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(result.current.canConfirm).toBe(false);
+
+    let plan: Awaited<ReturnType<typeof result.current.preparePlan>>;
+    await act(async () => { plan = await result.current.preparePlan(); });
+
+    expect(mocks.autosave).toHaveBeenCalledWith(expect.objectContaining({ workItemId: "work-1", request: "Pedido revisado" }));
+    expect(mocks.prepare).toHaveBeenCalledWith({ workItemId: "work-1" });
+    expect(plan?.preparedRevision).toBe(refreshedPlan.preparedRevision);
+
+    await act(async () => { await result.current.confirmGeneration(plan?.preparedRevision); });
+
+    expect(mocks.generate).toHaveBeenCalledOnce();
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: "work-1", preparedRevision: refreshedPlan.preparedRevision,
+    }));
   });
 
   it("does not autosave a format inferred by prepare while generation starts", async () => {
@@ -1896,15 +2427,104 @@ describe("useCreativeComposer", () => {
         settings: { targetFormats: [], formatMode: "auto" },
       }).work,
       quote: { unitCount: 1, credits: 50 },
+      preparedPlan: preparedPlan("work-1", "restyle"),
     });
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
     await act(() => vi.advanceTimersByTimeAsync(500));
 
     expect(result.current.format).toBe("9:16");
     expect(mocks.autosave).not.toHaveBeenCalled();
     expect(mocks.generate).toHaveBeenCalledOnce();
+  });
+
+  it("keeps an auto-inferred progressive plan confirmable without preparing twice", async () => {
+    mocks.work.mockReturnValue({
+      data: workDetail({ format: "4:5", settings: { targetFormats: [], formatMode: "auto" } }),
+      isLoading: false,
+      isError: false,
+    });
+    mocks.prepare.mockResolvedValue({
+      work: workDetail({ format: "9:16", settings: { targetFormats: [], formatMode: "auto" } }).work,
+      quote: { unitCount: 1, credits: 50 },
+      preparedPlan: preparedPlan(),
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", workflowVariant: "progressive" }));
+
+    let plan!: Awaited<ReturnType<typeof result.current.preparePlan>>;
+    await act(async () => { plan = await result.current.preparePlan(); });
+    expect(plan?.preparedRevision).toBe("2026-08-30T12:00:00.000Z");
+    await act(async () => { await result.current.confirmGeneration(plan?.preparedRevision); });
+
+    expect(mocks.prepare).toHaveBeenCalledOnce();
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({ preparedRevision: plan?.preparedRevision }));
+  });
+
+  it("invalidates a progressive plan when its inputs change while prepare is pending", async () => {
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
+    const pending = deferred<{ work: ReturnType<typeof workDetail>["work"]; quote: { unitCount: number; credits: number }; preparedPlan: ReturnType<typeof preparedPlan> }>();
+    mocks.prepare.mockReturnValueOnce(pending.promise);
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", workflowVariant: "progressive" }));
+
+    let preparation!: Promise<unknown>;
+    act(() => { preparation = result.current.preparePlan(); });
+    act(() => result.current.setRequest("Pedido alterado durante preparo"));
+    pending.resolve({ work: workDetail().work, quote: { unitCount: 3, credits: 150 }, preparedPlan: preparedPlan() });
+    await act(async () => { await preparation; });
+
+    expect(result.current.preparedPlan).toBeNull();
+    expect(result.current.canConfirm).toBe(false);
+    await act(async () => { await result.current.confirmGeneration("2026-08-30T12:00:00.000Z"); });
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it("invalidates a progressive plan when accepted direction suggestions land during prepare", async () => {
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
+    const pending = deferred<{ work: ReturnType<typeof workDetail>["work"]; quote: { unitCount: number; credits: number }; preparedPlan: ReturnType<typeof preparedPlan> }>();
+    mocks.prepare.mockReturnValueOnce(pending.promise);
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", workflowVariant: "progressive" }));
+    const suggestions = [{
+      id: "00000000-0000-4000-8000-0000000000e1",
+      label: "Direção nova",
+      instruction: "Uma direção nova",
+      order: 1,
+      safetyBand: "safe" as const,
+      provenance: "ai-suggestion" as const,
+    }];
+
+    let preparation!: Promise<unknown>;
+    act(() => { preparation = result.current.preparePlan(); });
+    act(() => result.current.applyDirectionSuggestions(suggestions, false));
+    pending.resolve({ work: workDetail().work, quote: { unitCount: 1, credits: 50 }, preparedPlan: preparedPlan() });
+    await act(async () => { await preparation; });
+
+    expect(result.current.preparedPlan).toBeNull();
+    expect(result.current.canConfirm).toBe(false);
+    await act(async () => { await result.current.confirmGeneration("2026-08-30T12:00:00.000Z"); });
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it("invalidates a progressive plan when automatic format is restored during prepare", async () => {
+    mocks.work.mockReturnValue({
+      data: workDetail({ settings: { targetFormats: [], formatMode: "manual" } }),
+      isLoading: false,
+      isError: false,
+    });
+    const pending = deferred<{ work: ReturnType<typeof workDetail>["work"]; quote: { unitCount: number; credits: number }; preparedPlan: ReturnType<typeof preparedPlan> }>();
+    mocks.prepare.mockReturnValueOnce(pending.promise);
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", workflowVariant: "progressive" }));
+
+    let preparation!: Promise<unknown>;
+    act(() => { preparation = result.current.preparePlan(); });
+    act(() => result.current.setFormatAuto());
+    pending.resolve({ work: workDetail().work, quote: { unitCount: 3, credits: 150 }, preparedPlan: preparedPlan() });
+    await act(async () => { await preparation; });
+
+    expect(result.current.preparedPlan).toBeNull();
+    expect(result.current.canConfirm).toBe(false);
+    await act(async () => { await result.current.confirmGeneration("2026-08-30T12:00:00.000Z"); });
+    expect(mocks.generate).not.toHaveBeenCalled();
   });
 
   it("keeps the non-blocking brand training suggestion returned by generation", async () => {
@@ -1915,7 +2535,7 @@ describe("useCreativeComposer", () => {
     });
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(result.current.brandTrainingSuggestion).toBe("missing_visual_references");
   });
@@ -2024,7 +2644,7 @@ describe("useCreativeComposer", () => {
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", initialIntent: "single" }));
 
     expect(result.current.canGenerate).toBe(false);
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
     expect(mocks.prepare).not.toHaveBeenCalled();
     expect(mocks.generate).not.toHaveBeenCalled();
   });
@@ -2046,11 +2666,15 @@ describe("useCreativeComposer", () => {
     let replacing!: Promise<boolean>;
     act(() => { replacing = result.current.replacePieceReference("source-1", new File(["png"], "replacement.png", { type: "image/png" })); });
     expect(result.current.canGenerate).toBe(false);
-    await act(async () => { await result.current.generate(); });
+    await act(async () => {
+      await result.current.preparePlan();
+      await result.current.confirmGeneration("2026-08-30T12:00:00.000Z");
+      await result.current.generateLegacy();
+    });
     expect(mocks.prepare).not.toHaveBeenCalled();
     upload.resolve({ assetId: "asset-new", name: "replacement.png" });
     await act(async () => { await replacing; });
-    expect(mocks.source).toHaveBeenCalledWith({ workItemId: "work-1", action: "replacePieceReference", sourceId: "source-1", assetId: "asset-new" });
+    expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({ workItemId: "work-1", action: "replacePieceReference", sourceId: "source-1", assetId: "asset-new" }));
   });
 
   it("blocks generate() before prepare when sources are pending analysis", async () => {
@@ -2063,12 +2687,12 @@ describe("useCreativeComposer", () => {
       isLoading: false,
       isError: false,
     });
-    mocks.autosave.mockResolvedValue({ work: { id: "work-1" } });
+    mocks.autosave.mockResolvedValue({ work: workDetail().work });
 
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
     await act(async () => {
-      await result.current.generate();
+      await result.current.generateLegacy();
     });
 
     expect(mocks.prepare).not.toHaveBeenCalled();
@@ -2084,7 +2708,7 @@ describe("useCreativeComposer", () => {
     }));
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(result.current.brandConflict).toEqual({
       detectedBrand: "XTB", activeBrand: "Marca A", sourceId: "src-1", choices: ["source", "active"],
@@ -2101,14 +2725,15 @@ describe("useCreativeComposer", () => {
     }));
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
 
     expect(result.current.brandConflict).toBeNull();
     expect(result.current.error).toBe("Contexto inválido");
   });
 
   it("saves the brand choice on the same draft and resumes the interrupted submit (R-008)", async () => {
-    mocks.work.mockReturnValue({ data: workDetail({ toolKind: "restyle" }), isLoading: false });
+    const detail = workDetail({ toolKind: "restyle" });
+    mocks.work.mockReturnValue({ data: detail, isLoading: false });
     mocks.prepare
       .mockRejectedValueOnce(Object.assign(new Error("Conflito de marca"), {
         code: "brand_conflict",
@@ -2117,12 +2742,13 @@ describe("useCreativeComposer", () => {
       .mockResolvedValueOnce({
         work: { ...workDetail().work, format: "4:5" },
         quote: { unitCount: 1, credits: 50 },
+        preparedPlan: preparedPlan("work-1", "restyle"),
       });
     mocks.generate.mockResolvedValue({ work: { status: "generating" }, outputs: [], brandTrainingSuggestion: null });
-    mocks.resolveBrandConflict.mockResolvedValue({ work: workDetail().work });
+    mocks.resolveBrandConflict.mockResolvedValue({ work: { ...detail.work, updatedAt: "2026-08-31T15:00:00.001Z" } });
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
     expect(result.current.brandConflict).not.toBeNull();
     expect(mocks.generate).not.toHaveBeenCalled();
 
@@ -2130,7 +2756,11 @@ describe("useCreativeComposer", () => {
 
     // The choice persisted on the SAME draft (no create) and the interrupted
     // submit resumed: prepare ran again and generation was dispatched.
-    expect(mocks.resolveBrandConflict).toHaveBeenCalledWith({ workItemId: "work-1", choice: "source" });
+    expect(mocks.resolveBrandConflict).toHaveBeenCalledWith({
+      workItemId: "work-1",
+      choice: "source",
+      expectedUpdatedAt: new Date(detail.work.updatedAt).toISOString(),
+    });
     expect(mocks.create).not.toHaveBeenCalled();
     expect(mocks.prepare).toHaveBeenCalledTimes(2);
     expect(mocks.generate).toHaveBeenCalledOnce();
@@ -2147,7 +2777,7 @@ describe("useCreativeComposer", () => {
     mocks.resolveBrandConflictPending.mockReturnValue(true);
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
-    await act(async () => { await result.current.generate(); });
+    await act(async () => { await result.current.generateLegacy(); });
     await act(async () => { await result.current.resolveBrandConflict("active"); });
 
     // A choice already in flight (isPending) drops the repeated command.

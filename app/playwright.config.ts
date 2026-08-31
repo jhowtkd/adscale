@@ -33,7 +33,7 @@ export default defineConfig({
     },
     {
       name: "serial-flows",
-      testMatch: /(restyle|assistant|guided|template-materialize|create-post|creative-directions|frictionless-home|phase6-gate6-uat|layer-editor).*\.spec\.ts$/,
+      testMatch: /(restyle|assistant|guided|template-materialize|create-post|creative-directions|frictionless-home|phase6-gate6-uat|layer-editor|carousel).*\.spec\.ts$/,
       fullyParallel: false,
       workers: 1,
       use: { ...devices["Desktop Chrome"] },

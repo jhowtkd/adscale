@@ -34,6 +34,7 @@ import { env } from "../src/server/validation/env";
 import {
   clientProfiles,
   clientReferences,
+  creditGrants,
   creativeWorkItems,
   creativeWorkOutputs,
   user,
@@ -61,7 +62,10 @@ import {
 
 const E2E_EMAIL = "frictionless-e2e@adscale.local";
 const E2E_PASSWORD = "FrictionlessE2E123!";
+const INSUFFICIENT_E2E_EMAIL = "studio-insufficient-e2e@adscale.local";
+const INSUFFICIENT_E2E_PASSWORD = "StudioInsufficientE2E123!";
 const PRIMARY_CLIENT_NAME = "Create Post E2E Brand";
+const INSUFFICIENT_CLIENT_NAME = "Studio E2E Insufficient Brand";
 const FIXTURE_PATH = process.env.CREATE_POST_E2E_FIXTURE_PATH
   ? path.resolve(process.env.CREATE_POST_E2E_FIXTURE_PATH)
   : path.resolve(__dirname, "../tests/fixtures/create-post-e2e.json");
@@ -190,6 +194,61 @@ async function resolveDedicatedWorkspace(): Promise<{
     source: "dev_admin_seed",
     sourceId: `frictionless-e2e-${Date.now()}`,
     amount: 10_000,
+    expiresAt: null,
+  });
+  return { userId: account[0].id, workspaceId };
+}
+
+async function resolveInsufficientBalanceWorkspace(): Promise<{
+  userId: string;
+  workspaceId: string;
+}> {
+  let account = await db
+    .select()
+    .from(user)
+    .where(eq(user.email, INSUFFICIENT_E2E_EMAIL))
+    .limit(1);
+  if (!account[0]) {
+    await auth.api.signUpEmail({
+      body: {
+        email: INSUFFICIENT_E2E_EMAIL,
+        password: INSUFFICIENT_E2E_PASSWORD,
+        name: "Studio Insufficient E2E",
+      },
+    });
+    account = await db
+      .select()
+      .from(user)
+      .where(eq(user.email, INSUFFICIENT_E2E_EMAIL))
+      .limit(1);
+  }
+  if (!account[0]) {
+    throw new Error(`Could not create dedicated E2E user ${INSUFFICIENT_E2E_EMAIL}.`);
+  }
+  await db
+    .update(user)
+    .set({
+      emailVerified: true,
+      onboardingCompletedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(user.id, account[0].id));
+  const membership = await db
+    .select()
+    .from(workspaceMembers)
+    .where(eq(workspaceMembers.userId, account[0].id))
+    .limit(1);
+  if (!membership[0]) {
+    throw new Error(`User ${INSUFFICIENT_E2E_EMAIL} has no workspace.`);
+  }
+
+  const workspaceId = membership[0].workspaceId;
+  await db.delete(creditGrants).where(eq(creditGrants.workspaceId, workspaceId));
+  await createCreditGrant({
+    workspaceId,
+    source: "studio_e2e_insufficient_balance",
+    sourceId: `studio-insufficient-${workspaceId}`,
+    amount: 0,
     expiresAt: null,
   });
   return { userId: account[0].id, workspaceId };
@@ -411,9 +470,15 @@ async function seedReadyWorkFixture(input: {
 
 async function main(): Promise<void> {
   const { userId, workspaceId } = await resolveDedicatedWorkspace();
+  const insufficient = await resolveInsufficientBalanceWorkspace();
   await clearPreviousSeed(workspaceId);
+  await clearPreviousSeed(insufficient.workspaceId);
 
   const primary = await ensureClientProfile(workspaceId, PRIMARY_CLIENT_NAME);
+  const insufficientProfile = await ensureClientProfile(
+    insufficient.workspaceId,
+    INSUFFICIENT_CLIENT_NAME,
+  );
 
   await seedBrandKit(workspaceId, primary.id);
 
@@ -463,6 +528,12 @@ async function main(): Promise<void> {
     buffer: referenceBuffer,
     contentType: "image/png",
   });
+  const insufficientContentArt = await uploadFixtureAsset({
+    workspaceId: insufficient.workspaceId,
+    filename: "saldo-insuficiente.png",
+    buffer: opaqueBuffer,
+    contentType: "image/png",
+  });
 
   // Fresh provider-call evidence for every seed run (R-010).
   const evidencePath = process.env.E2E_PROVIDER_EVIDENCE_PATH
@@ -507,6 +578,15 @@ async function main(): Promise<void> {
     contentArtAssetId: contentArt.assetId,
     styleArtAssetId: styleArt.assetId,
     expectedInitialCredits: 15,
+    insufficientBalance: {
+      workspaceId: insufficient.workspaceId,
+      email: INSUFFICIENT_E2E_EMAIL,
+      password: INSUFFICIENT_E2E_PASSWORD,
+      userId: insufficient.userId,
+      clientProfileId: insufficientProfile.id,
+      contentArtAssetId: insufficientContentArt.assetId,
+      expectedCredits: 0,
+    },
     seededAt: new Date().toISOString(),
   };
 

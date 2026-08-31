@@ -30,6 +30,7 @@ const touchHeartbeatMock = vi.hoisted(() => vi.fn());
 const normalizeReferenceMock = vi.hoisted(() => vi.fn());
 const sendMock = vi.hoisted(() => vi.fn());
 const ensureLibraryMock = vi.hoisted(() => vi.fn());
+const recordBetaAnalyticsMock = vi.hoisted(() => vi.fn());
 
 const objectGetMock = vi.hoisted(() => vi.fn());
 const objectPutMock = vi.hoisted(() => vi.fn());
@@ -89,6 +90,10 @@ vi.mock("@/server/repositories/creative-work", () => ({
 
 vi.mock("@/server/repositories/usage", () => ({
   getUsageByIdempotencyKey: (...args: unknown[]) => getUsageByIdempotencyKeyMock(...args),
+}));
+
+vi.mock("@/server/beta-analytics/record", () => ({
+  recordBetaAnalyticsEvent: (...args: unknown[]) => recordBetaAnalyticsMock(...args),
 }));
 
 vi.mock("@/server/ai/normalize-image-for-ai", () => ({
@@ -415,6 +420,7 @@ describe("creativeWorkOutputJob", () => {
     settleTerminalRefundMock.mockClear();
     getUsageByIdempotencyKeyMock.mockResolvedValue(null);
     requeueOnceMock.mockResolvedValue(null);
+    recordBetaAnalyticsMock.mockResolvedValue(undefined);
     // R-006/R-007 defaults: the first provider call is claimable and the
     // lease is always held; tests exercise exhaustion/lease-loss explicitly.
     claimImageCallMock.mockImplementation(async () =>
@@ -1522,6 +1528,20 @@ describe("creativeWorkOutputJob", () => {
     expect(ensureLibraryMock).not.toHaveBeenCalled();
   });
 
+  it("records creative_work_failed after the refreshed aggregate is terminal", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    generateAndStoreImageMock.mockRejectedValue(new Error("provider down"));
+    refreshStatusMock.mockResolvedValue("failed");
+
+    await runJob();
+
+    expect(recordBetaAnalyticsMock).toHaveBeenCalledWith(expect.objectContaining({
+      eventKey: "creative_work_failed",
+      properties: expect.objectContaining({ creativeWorkId: "work-1", outputCount: 1 }),
+    }));
+  });
+
   it("keeps output completed when ensure-library fails (does not mark failed)", async () => {
     getCreativeWorkMock.mockResolvedValue({
       work: workItem,
@@ -1540,6 +1560,43 @@ describe("creativeWorkOutputJob", () => {
         outputId: "output-1",
       })
     );
+  });
+
+  it("records output_ready only after a winning completion CAS", async () => {
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+    await runJob();
+
+    expect(recordBetaAnalyticsMock).toHaveBeenCalledWith(expect.objectContaining({
+      eventKey: "output_ready",
+      workspaceId: "workspace-1",
+      userId: "user-1",
+      properties: expect.objectContaining({ creativeWorkId: "work-1", outputCount: 1 }),
+    }));
+  });
+
+  it("does not record output_ready for a discarded late completion", async () => {
+    completeMock.mockResolvedValue(null);
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+    await runJob();
+
+    expect(recordBetaAnalyticsMock).not.toHaveBeenCalledWith(expect.objectContaining({ eventKey: "output_ready" }));
+  });
+
+  it("keeps completion settled when funnel telemetry rejects", async () => {
+    recordBetaAnalyticsMock.mockRejectedValue(new Error("telemetry unavailable"));
+    getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput()] });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+    const result = await runJob();
+
+    expect(result).toMatchObject({ success: true });
+    expect(completeMock).toHaveBeenCalled();
+    expect(failMock).not.toHaveBeenCalled();
+    expect(settleTerminalRefundMock).not.toHaveBeenCalled();
   });
 
   it("loads up to four reference-mode asset buffers for image generation", async () => {

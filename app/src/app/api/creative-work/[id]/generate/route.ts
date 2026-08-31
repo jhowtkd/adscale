@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { generateCreativeWork } from "@/server/application/generate-creative-work";
+import { generateCarouselWork } from "@/server/application/generate-carousel-work";
 import { reviseCreativeWorkOutput } from "@/server/application/revise-creative-work-output";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { getCreativeWork } from "@/server/repositories/creative-work";
 
 const bodySchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("initial") }).strict(),
+  z.object({ action: z.literal("initial"), preparedRevision: z.string().min(1).optional(), studioSessionId: z.string().uuid().optional(), rolloutVariant: z.enum(["control", "progressive"]).optional() }).strict(),
   z.object({
     action: z.literal("revision"),
     revisionKey: z.string().uuid(),
@@ -44,17 +46,37 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ output: result.value.output }, { status: 202 });
     }
 
-    const result = await generateCreativeWork({ workspaceId: workspace.id, workItemId: id, userId: user.id });
+    // The preparedRevision shape depends on the work's protocol: carousel
+    // decks freeze a `prep-*` revision while every other protocol keeps the
+    // datetime-based revision. The work is loaded once to route the command.
+    const aggregate = await getCreativeWork(workspace.id, id);
+    if (aggregate?.work.toolKind === "carousel") {
+      if (!body.data.preparedRevision) {
+        return apiError("invalidInput", 400, { preparedRevision: ["preparedRevision is required for carousel generation"] });
+      }
+      const result = await generateCarouselWork({ workspaceId: workspace.id, workItemId: id, userId: user.id, preparedRevision: body.data.preparedRevision, studioSessionId: body.data.studioSessionId, rolloutVariant: body.data.rolloutVariant });
+      if (!result.ok) {
+        switch (result.error.code) {
+          case "work_not_found": return apiError("creativeWorkNotFound", 404);
+          case "work_not_carousel": return apiError("invalidInput", 400, result.error.details);
+          case "stale_input": return apiError("creativeWorkNotReady", 409, result.error.details);
+          case "credit_blocked": return apiError("insufficientCredits", 402, result.error.details);
+          case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502);
+          default: return apiError("creativeWorkNotReady", 409, result.error.details);
+        }
+      }
+      return NextResponse.json(result.value, { status: 202 });
+    }
+
+    const datetimeRevision = z.string().datetime({ offset: true }).safeParse(body.data.preparedRevision);
+    if (!datetimeRevision.success) return apiError("invalidInput", 400, datetimeRevision.error.flatten());
+
+    const result = await generateCreativeWork({ workspaceId: workspace.id, workItemId: id, userId: user.id, preparedRevision: datetimeRevision.data, studioSessionId: body.data.studioSessionId, rolloutVariant: body.data.rolloutVariant });
     if (!result.ok) {
       switch (result.error.code) {
         case "work_not_found": return apiError("creativeWorkNotFound", 404);
         case "credit_blocked": return apiError("insufficientCredits", 402, result.error.details);
         case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502);
-        // R-002: same mapping as the prepare route — 422 with details.violations.
-        case "invalid_context": return apiError("invalid_context", 422, result.error.details);
-        // R-003: brand conflict carries the two short choices in details.
-        case "brand_conflict": return apiError("brand_conflict", 422, result.error.details);
-        case "briefing_blocked": return apiError("briefing_blocked", 422, result.error.details);
         default: return apiError("creativeWorkNotReady", 409, result.error.details);
       }
     }

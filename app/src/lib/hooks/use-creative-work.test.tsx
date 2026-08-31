@@ -10,6 +10,7 @@ import {
   useCreativeWorkSourceActions,
   useLinkCreativeWorkCampaign,
   usePrepareCreativeWork,
+  useResolveBrandConflict,
   useReviseOutput,
   useSelectOutput,
   useTriggerTriplet,
@@ -52,6 +53,29 @@ describe("draft mutations", () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["creative-work"] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["creative-work", "work-1"] });
     expect(invalidateCanonicalWorks).toHaveBeenCalledWith(queryClient);
+  });
+});
+
+describe("resolveBrandConflict client contract", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("sends the required work revision with the brand choice", async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, json: async () => ({ work: { id: "work-1" } }) } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useResolveBrandConflict(), { wrapper: wrapperWith(queryClient) });
+    await act(() => result.current.mutateAsync({
+      workItemId: "work-1",
+      choice: "source",
+      expectedUpdatedAt: "2026-08-31T12:00:00.000Z",
+    }));
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/creative-work/work-1", expect.objectContaining({
+      method: "PATCH",
+      body: JSON.stringify({
+        action: "resolveBrandConflict",
+        choice: "source",
+        expectedUpdatedAt: "2026-08-31T12:00:00.000Z",
+      }),
+    }));
   });
 });
 
@@ -258,7 +282,10 @@ describe("useTriggerTriplet", () => {
     );
     const { result } = renderHook(() => useTriggerTriplet(), { wrapper });
 
-    await act(() => result.current.mutateAsync("work-1"));
+    await act(() => result.current.mutateAsync({
+      workItemId: "work-1",
+      preparedRevision: "2026-07-16T12:00:00.000Z",
+    }));
 
     expect(queryClient.getQueryData(["creative-work", "work-1"])).toEqual(
       expect.objectContaining({
@@ -270,6 +297,164 @@ describe("useTriggerTriplet", () => {
       "/api/creative-work/work-1/generate",
       expect.objectContaining({ timeoutMs: 120_000 }),
     );
+  });
+});
+
+describe("carousel detail contract", () => {
+  const now = new Date().toISOString();
+
+  function carouselSlidePayload(overrides: Record<string, unknown> = {}) {
+    return {
+      id: "slide-1",
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      lineageId: "lineage-1",
+      parentSlideId: null,
+      versionNumber: 1,
+      deckRevision: "deck-r1",
+      position: 1,
+      role: "hook",
+      primaryText: "Gancho",
+      secondaryText: null,
+      copyAuthority: "ai_proposal",
+      sourceFactIds: [],
+      layoutFamily: "impact",
+      status: "completed",
+      hasOutput: true,
+      // Server rows carry private storage keys; the GET projection strips
+      // them. A defensive client mapping must never surface them again.
+      providerBaseKey: "private/provider.png",
+      outputKey: "private/output.png",
+      previewKey: "private/preview.png",
+      anchorKey: "private/anchor.png",
+      generationOperationKey: "op-1",
+      visualContractHash: "hash-1",
+      isCurrent: true,
+      errorCode: null,
+      quality: null,
+      createdAt: now,
+      updatedAt: now,
+      ...overrides,
+    };
+  }
+
+  function carouselPayload(overrides: Record<string, unknown> = {}) {
+    return {
+      work: {
+        id: "work-1",
+        toolKind: "carousel",
+        status: "generating",
+        carouselApprovedRevision: null,
+        settings: { targetFormats: [] },
+        createdAt: now,
+        updatedAt: now,
+      },
+      outputs: [],
+      sources: [],
+      carouselSlides: [carouselSlidePayload()],
+      carouselQuality: {
+        version: 1,
+        objectivePassed: true,
+        advisoryWarnings: [],
+        reviewedAt: null,
+        hasContactSheet: false,
+      },
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it("maps carousel slide timestamps to Date and drops every private key", async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, json: async () => carouselPayload() } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useCreativeWork("work-1"), { wrapper: wrapperWith(queryClient) });
+
+    await waitFor(() => expect(result.current.data?.carouselSlides).toHaveLength(1));
+
+    const slide = result.current.data!.carouselSlides[0]!;
+    expect(slide.createdAt).toBeInstanceOf(Date);
+    expect(slide.updatedAt).toBeInstanceOf(Date);
+    expect(slide).toEqual(expect.objectContaining({
+      id: "slide-1",
+      lineageId: "lineage-1",
+      parentSlideId: null,
+      versionNumber: 1,
+      deckRevision: "deck-r1",
+      position: 1,
+      role: "hook",
+      primaryText: "Gancho",
+      secondaryText: null,
+      copyAuthority: "ai_proposal",
+      sourceFactIds: [],
+      layoutFamily: "impact",
+      status: "completed",
+      hasOutput: true,
+      errorCode: null,
+      quality: null,
+    }));
+    expect(JSON.stringify(slide)).not.toMatch(
+      /providerBaseKey|outputKey|previewKey|anchorKey|generationOperationKey|visualContractHash|isCurrent/,
+    );
+  });
+
+  it("maps legacy works without carousel state to an empty public surface", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: async () => carouselPayload({ carouselSlides: undefined, carouselQuality: undefined }),
+    } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useCreativeWork("work-1"), { wrapper: wrapperWith(queryClient) });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    expect(result.current.data!.carouselSlides).toEqual([]);
+    expect(result.current.data!.work.carouselQuality).toBeNull();
+    expect(result.current.data!.work.carouselApprovedRevision).toBeNull();
+  });
+
+  it("keeps carousel aggregate state independent of the legacy outputs list", async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, json: async () => carouselPayload() } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useCreativeWork("work-1"), { wrapper: wrapperWith(queryClient) });
+
+    await waitFor(() => expect(result.current.data?.carouselSlides).toHaveLength(1));
+
+    const detail = result.current.data!;
+    expect(detail.outputs).toEqual([]);
+    expect(detail.work.status).toBe("generating");
+    expect(detail.work.carouselQuality).toEqual({
+      version: 1,
+      objectivePassed: true,
+      advisoryWarnings: [],
+      reviewedAt: null,
+      hasContactSheet: false,
+    });
+    expect(detail.carouselSlides[0]!.status).toBe("completed");
+  });
+
+  it("keeps polling while carousel slides are queued or processing even with empty outputs", () => {
+    expect(
+      creativeWorkRefetchInterval({
+        work: { status: "draft" },
+        outputs: [],
+        carouselSlides: [{ status: "queued" }],
+      }),
+    ).toBe(2000);
+    expect(
+      creativeWorkRefetchInterval({
+        work: { status: "draft" },
+        outputs: [],
+        carouselSlides: [{ status: "processing" }],
+      }),
+    ).toBe(2000);
+    expect(
+      creativeWorkRefetchInterval({
+        work: { status: "draft" },
+        outputs: [],
+        carouselSlides: [{ status: "completed" }],
+      }),
+    ).toBe(false);
   });
 });
 

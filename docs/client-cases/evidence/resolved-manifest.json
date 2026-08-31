@@ -1,0 +1,169 @@
+{
+  "sourceManifest": "docs/client-cases/manifest.json",
+  "generatedAt": "2026-08-29T18:54:33.205Z",
+  "account": {
+    "email": "estudos@example.test",
+    "userId": "qKBbiz2iCR7bVoSNIVBIhZGv0UhyHbVr",
+    "workspaceId": "2e72445e-ba50-4de3-973c-10c4d1819313"
+  },
+  "studies": {
+    "nike": {
+      "clientProfileId": "1ee542fe-ac1c-4960-98ec-7ad2603fbcd3",
+      "creativeWorkId": "755c44bb-f759-46e3-b179-b6184a10ef80",
+      "trainingReferenceIds": [
+        "dd11b655-0d20-42b9-89aa-e9e06cc9e265",
+        "03a7c226-e325-4c0e-8e56-a58312deee7a",
+        "a0699051-7fef-49ab-be6a-631d2121cef5",
+        "ba5608b3-8a58-48ce-87a6-ce7566944c53",
+        "9e0e70a0-9400-4bc4-b85a-de4163066ab5",
+        "91d016ca-6d28-4639-bb1a-55ed614e4795",
+        "9fd635e0-a8a6-4ce6-95f6-d808c78fb005",
+        "5a6a68f7-4765-44af-afdb-462fce3a7ab6",
+        "24edc307-ec6c-4947-a0b3-6730c69023e4"
+      ],
+      "assetKeys": [
+        "client-cases/2e72445e/nike/nike-01.jpg",
+        "client-cases/2e72445e/nike/nike-02.jpg",
+        "client-cases/2e72445e/nike/nike-03.jpg",
+        "client-cases/2e72445e/nike/nike-04.jpg",
+        "client-cases/2e72445e/nike/nike-05.jpg",
+        "client-cases/2e72445e/nike/nike-06.jpg",
+        "client-cases/2e72445e/nike/nike-07.jpg",
+        "client-cases/2e72445e/nike/nike-08.jpg",
+        "client-cases/2e72445e/nike/nike-09.jpg"
+      ],
+      "selectedRealOutputIds": [
+        "bb72a763-4a7e-44cb-94ca-54a8532f4001",
+        "796d41ac-e10b-4613-9716-b57e444b4f6e"
+      ],
+      "routes": {
+        "brandTraining": "/brand-kit",
+        "creativeWork": "/creative-work/755c44bb-f759-46e3-b179-b6184a10ef80",
+        "library": "/library"
+      },
+      "controlledUi": {
+        "generating": "a91a60e8-977e-4a7b-96e3-d5efac4236f8",
+        "failed": "3cb51ac6-8953-4dba-88be-35f403094b95",
+        "empty": "dffda329-abcb-47ca-8a92-9bad790e1a55"
+      },
+      "freshWorkId": "59e15097-3436-4014-bd54-75546c4f301f"
+    },
+    "amazon": {
+      "clientProfileId": "982d8d9f-34d6-43f8-8625-33f7665c363a",
+      "creativeWorkId": "3f53303e-3e2c-433f-b134-f4589e30ba80",
+      "trainingReferenceIds": [
+        "1759dbb4-c09f-443a-a6af-4420651e2fb2",
+        "b1229e95-efb9-4814-b532-8b0b12689817",
+        "c9f106c4-fa07-4740-8a6c-ddbe5c003c93",
+        "535a15e7-2969-4751-9caf-327c1d1c6f70",
+        "2ce80e04-0ab5-4c57-9ec9-3164fd6dd93a",
+        "b3cf1f37-8ba7-4a64-be0c-5688cc681e18",
+        "d1b6ee92-7529-416c-aff3-0d85033f6b45",
+        "57ee777d-2222-4f04-8c94-52e99321cc8f",
+        "31395a24-75f6-4354-9474-185517869331",
+        "c8097869-8391-456e-ae88-8c147d65e021",
+        "80e01d97-302c-46db-9681-e6f0e4639187",
+        "ae3c5aff-8386-48e3-9480-d7e064087ce9",
+        "f53e75e1-157c-4386-ba30-86446ae72b23",
+        "d5d4ece1-0a9a-418c-9c38-5908aa21b920",
+        "ee8cf01a-9ab9-42ec-ad38-d8e864345899",
+        "a3becb28-d982-4325-a314-51362ad9bec0",
+        "f76e9af5-4537-428a-9b18-2a3390910a16",
+        "41d60a20-9fa7-4928-9922-417698fd6f6e"
+      ],
+      "assetKeys": [
+        "client-cases/2e72445e/amazon/amazon-01.jpg",
+        "client-cases/2e72445e/amazon/amazon-02.jpg",
+        "client-cases/2e72445e/amazon/amazon-03.jpg",
+        "client-cases/2e72445e/amazon/amazon-04.jpg",
+        "client-cases/2e72445e/amazon/amazon-05.jpg",
+        "client-cases/2e72445e/amazon/amazon-06.jpg",
+        "client-cases/2e72445e/amazon/amazon-07.jpg",
+        "client-cases/2e72445e/amazon/amazon-08.jpg",
+        "client-cases/2e72445e/amazon/amazon-09.jpg",
+        "client-cases/2e72445e/amazon/amazon-10.jpg",
+        "client-cases/2e72445e/amazon/amazon-11.jpg",
+        "client-cases/2e72445e/amazon/amazon-12.jpg",
+        "client-cases/2e72445e/amazon/amazon-13.jpg",
+        "client-cases/2e72445e/amazon/amazon-14.jpg",
+        "client-cases/2e72445e/amazon/amazon-15.jpg",
+        "client-cases/2e72445e/amazon/amazon-16.jpg",
+        "client-cases/2e72445e/amazon/amazon-17.jpg",
+        "client-cases/2e72445e/amazon/amazon-18.jpg"
+      ],
+      "selectedRealOutputIds": [
+        "fd4ef0a0-169b-4ff8-9faa-971a08a0968e",
+        "e48a8432-993b-43a9-8f3e-542d63fd666d"
+      ],
+      "routes": {
+        "brandTraining": "/brand-kit",
+        "creativeWork": "/creative-work/3f53303e-3e2c-433f-b134-f4589e30ba80",
+        "library": "/library"
+      },
+      "controlledUi": {
+        "generating": "820c1381-12e3-4333-b4d9-6245880a206c",
+        "failed": "13e26ebf-36a5-4caf-86df-6b7d06841e67",
+        "empty": "3ffbc9fc-bb01-43d8-8d89-045a3f6c0352"
+      },
+      "freshWorkId": "291ce08a-e887-4437-86d1-7c85ce105bd0"
+    },
+    "burger-king": {
+      "clientProfileId": "390960a1-b0af-4035-9b2d-30fc97c1ac77",
+      "creativeWorkId": "8e6d7997-3139-4294-b843-db71cb306228",
+      "trainingReferenceIds": [
+        "4ad129d4-0b75-489a-8719-3286914511c5",
+        "b287d733-e957-4115-bf21-98d9afb2a414",
+        "89799ce0-5cf9-4d70-935c-4f302e2552b0",
+        "5240439e-fffb-429f-a467-81377c0766d0",
+        "90d9255b-04a4-4ad1-b42b-2f86b63412e4",
+        "c3af9950-6bad-425d-8848-bb22b54dcba5",
+        "568d9974-d445-4d58-b91f-711d1cb40fcf",
+        "b02cea3f-d55e-423c-b54f-3f57b503fa81",
+        "2275eb24-30d6-482a-89cc-d07341698e7f",
+        "abb8d90c-c07e-41f8-b44f-cd412cb076f3",
+        "18074282-83e3-4e1b-b41b-6458674e3a98",
+        "31ef9532-e117-487c-91d7-d6da6708450a",
+        "e4dc1442-5047-4c66-9d9e-b399a9e7c5c8",
+        "525b4c20-09a3-4fa3-95bf-f9531e9982ab",
+        "c201d582-73df-42f3-bf0e-b3b4d939c351",
+        "71a1ee9a-1f6a-4f87-9a60-79de59a26fe9",
+        "95064e9f-5873-4e19-a2fd-1e7020a40dec"
+      ],
+      "assetKeys": [
+        "client-cases/2e72445e/burger-king/bk-01.jpg",
+        "client-cases/2e72445e/burger-king/bk-02.jpg",
+        "client-cases/2e72445e/burger-king/bk-03.jpg",
+        "client-cases/2e72445e/burger-king/bk-04.jpg",
+        "client-cases/2e72445e/burger-king/bk-05.jpg",
+        "client-cases/2e72445e/burger-king/bk-06.jpg",
+        "client-cases/2e72445e/burger-king/bk-07.jpg",
+        "client-cases/2e72445e/burger-king/bk-08.jpg",
+        "client-cases/2e72445e/burger-king/bk-09.jpg",
+        "client-cases/2e72445e/burger-king/bk-10.jpg",
+        "client-cases/2e72445e/burger-king/bk-11.jpg",
+        "client-cases/2e72445e/burger-king/bk-12.jpg",
+        "client-cases/2e72445e/burger-king/bk-13.jpg",
+        "client-cases/2e72445e/burger-king/bk-14.jpg",
+        "client-cases/2e72445e/burger-king/bk-15.jpg",
+        "client-cases/2e72445e/burger-king/bk-16.jpg",
+        "client-cases/2e72445e/burger-king/bk-17.jpg"
+      ],
+      "selectedRealOutputIds": [
+        "65e0c0fb-c583-4aa8-854b-6e382a46b7a7",
+        "92f88625-e010-4db1-ac8a-b78cee42c70d"
+      ],
+      "routes": {
+        "brandTraining": "/brand-kit",
+        "creativeWork": "/creative-work/8e6d7997-3139-4294-b843-db71cb306228",
+        "library": "/library"
+      },
+      "controlledUi": {
+        "generating": "9898046f-3b4f-4aed-9dd8-16e37d345753",
+        "failed": "afaff64e-3d06-4135-8bbb-c0a30f7d0d8b",
+        "empty": "66167dc9-93a3-40f5-bb71-689240c25c2f"
+      },
+      "freshWorkId": "e10767a9-e2d8-4896-bc7f-ac4c40b22348"
+    }
+  },
+  "selectedAt": "2026-08-29T20:53:17.438Z"
+}

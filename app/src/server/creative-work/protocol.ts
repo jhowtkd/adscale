@@ -42,6 +42,11 @@ export function resolveCreativeWorkProtocol(input: {
   /** True when resolving a revision output linked to a completed parent. */
   revision?: boolean;
 }): CreativeWorkProtocolResolution {
+  if (input.toolKind === "carousel") {
+    // Carousel never enters the output protocol: its slides are generated
+    // through the dedicated deck path, quoted by quoteCarouselDeck().
+    throw new Error("carousel_requires_deck_quote");
+  }
   if (input.revision) {
     return {
       mode: "creative_revision",

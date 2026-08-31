@@ -1,0 +1,325 @@
+import { createHash } from "node:crypto";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import {
+  COMMERCIAL_STUDY_DISCLAIMER,
+  ownedProfileName,
+  validateCommercialStudiesManifest,
+  assertOriginalFiles,
+  assertCommercialStudiesSeedEnvironment,
+  COMMERCIAL_STUDY_WORKSPACE,
+  selectSignupLabWorkspace,
+  loadCommercialStudiesManifest,
+  resolveCommercialCaptures,
+  assertCaptureOutputPath,
+  validateCommercialStudyArtifacts,
+} from "./commercial-studies";
+
+const realManifestPath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../../docs/commercial-studies/real-brands/manifest.json",
+);
+
+const validStudy = (slug: "nike" | "mtv" | "absolut", originals: unknown[]) => ({
+  slug,
+  brand: slug === "nike" ? "Nike" : slug === "mtv" ? "MTV" : "Absolut",
+  campaign: slug === "nike" ? "Just Do It 1988" : slug === "mtv" ? "Network IDs 1981-83" : "Absolut Perfection 1980",
+  hypothesis: "h",
+  dossier: `${slug}.md`,
+  sources: [
+    {
+      id: `${slug}-s1`,
+      title: "t",
+      publisher: "p",
+      author: "a",
+      url: "https://example.com/a",
+      accessedAt: "2026-08-28",
+      purpose: "fonte",
+    },
+    {
+      id: `${slug}-s2`,
+      title: "t2",
+      publisher: "p",
+      author: "a",
+      url: "https://example.com/b",
+      accessedAt: "2026-08-28",
+      purpose: "fonte",
+    },
+  ],
+  originals,
+  briefs: {
+    recreation: { theme: "Recriacao", objective: "Sistema", audience: "", offer: null },
+    fresh: { theme: "Peca nova", objective: "Sistema", audience: "", offer: null },
+  },
+});
+
+function capture(id: string, brand: "nike" | "mtv" | "absolut", stage: string, width: number, height: number) {
+  return {
+    id,
+    brand,
+    stage,
+    routeKey: stage === "training" || stage === "context" ? "brandTraining" : stage === "direction" ? "creativeWork" : "library",
+    viewport: { width, height },
+    waitFor: "main",
+    output: `${brand}-${stage}-${width}.png`,
+  };
+}
+
+function twentyFourCaptures() {
+  const stages = ["context", "training", "direction", "results", "decision"] as const;
+  const mobile = new Set(["training", "results", "decision"]);
+  const out = [];
+  for (const brand of ["nike", "mtv", "absolut"] as const) {
+    for (const stage of stages) {
+      out.push(capture(`${brand}-${stage}-desktop`, brand, stage, 1440, 1000));
+      if (mobile.has(stage)) out.push(capture(`${brand}-${stage}-mobile`, brand, stage, 390, 844));
+    }
+  }
+  return out;
+}
+
+describe("commercial studies contract", () => {
+  it("names isolated lab profiles", () => {
+    expect(ownedProfileName("nike")).toBe("Estudo editorial — Nike — Just Do It");
+    expect(ownedProfileName("mtv")).toBe("Estudo editorial — MTV — Network IDs");
+    expect(ownedProfileName("absolut")).toBe("Estudo editorial — Absolut — Perfection");
+  });
+
+  it("rejects training originals that are not approved", () => {
+    const manifest = {
+      version: 1,
+      environment: "development",
+      disclaimer: COMMERCIAL_STUDY_DISCLAIMER,
+      studies: [
+        validStudy("nike", [
+          { id: "n1", fileName: "n1.jpg", sha256: "a".repeat(64), role: "campaign_original", usageStatus: "review_required", entersTraining: true },
+          { id: "n2", fileName: "n2.jpg", sha256: "b".repeat(64), role: "campaign_still", usageStatus: "approved", entersTraining: true },
+        ]),
+        validStudy("mtv", [
+          { id: "m1", fileName: "m1.jpg", sha256: "c".repeat(64), role: "campaign_original", usageStatus: "approved", entersTraining: true },
+          { id: "m2", fileName: "m2.jpg", sha256: "d".repeat(64), role: "campaign_still", usageStatus: "approved", entersTraining: true },
+        ]),
+        validStudy("absolut", [
+          { id: "a1", fileName: "a1.jpg", sha256: "e".repeat(64), role: "campaign_original", usageStatus: "approved", entersTraining: true },
+        ]),
+      ],
+      captures: twentyFourCaptures(),
+    };
+    expect(() => validateCommercialStudiesManifest(manifest as never)).toThrow(/entersTraining/);
+  });
+
+  it("allows pending originals without entersTraining", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cs-orig-"));
+    const pending = {
+      id: "n1",
+      fileName: "n1.jpg",
+      sha256: "a".repeat(64),
+      role: "campaign_original" as const,
+      usageStatus: "review_required" as const,
+      entersTraining: false,
+    };
+    const manifest = {
+      version: 1,
+      environment: "development",
+      disclaimer: COMMERCIAL_STUDY_DISCLAIMER,
+      studies: [
+        validStudy("nike", [pending, { ...pending, id: "n2", fileName: "n2.jpg", role: "campaign_still" }]),
+        validStudy("mtv", [
+          { ...pending, id: "m1", fileName: "m1.jpg" },
+          { ...pending, id: "m2", fileName: "m2.jpg", role: "campaign_still" },
+        ]),
+        validStudy("absolut", [{ ...pending, id: "a1", fileName: "a1.jpg" }]),
+      ],
+      captures: twentyFourCaptures(),
+    };
+    expect(() => validateCommercialStudiesManifest(manifest as never)).not.toThrow();
+    expect(() => assertOriginalFiles(manifest as never, dir)).toThrow(/entersTraining/);
+  });
+
+  it("rejects original fileNames that escape originalsDir", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cs-orig-"));
+    writeFileSync(join(dir, "ok.jpg"), "hello");
+    const sha = createHash("sha256").update("hello").digest("hex");
+    const approved = {
+      id: "n1",
+      fileName: "ok.jpg",
+      sha256: sha,
+      role: "campaign_original" as const,
+      usageStatus: "approved" as const,
+      entersTraining: true,
+    };
+    const baseStudies = [
+      validStudy("nike", [approved, { ...approved, id: "n2", role: "campaign_still" }]),
+      validStudy("mtv", [
+        { ...approved, id: "m1" },
+        { ...approved, id: "m2", role: "campaign_still" },
+      ]),
+      validStudy("absolut", [{ ...approved, id: "a1" }]),
+    ];
+    const wrap = (fileName: string) => ({
+      version: 1,
+      environment: "development",
+      disclaimer: COMMERCIAL_STUDY_DISCLAIMER,
+      studies: [
+        validStudy("nike", [
+          { ...approved, fileName },
+          { ...approved, id: "n2", role: "campaign_still" },
+        ]),
+        baseStudies[1],
+        baseStudies[2],
+      ],
+      captures: twentyFourCaptures(),
+    });
+    expect(() => assertOriginalFiles(wrap("../x.jpg") as never, dir)).toThrow();
+    expect(() => assertOriginalFiles(wrap("/tmp/x.jpg") as never, dir)).toThrow();
+  });
+
+  it("requires original files to match sha256", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cs-orig-"));
+    writeFileSync(join(dir, "ok.jpg"), "hello");
+    const sha = createHash("sha256").update("hello").digest("hex");
+    const manifest = {
+      version: 1,
+      environment: "development",
+      disclaimer: COMMERCIAL_STUDY_DISCLAIMER,
+      studies: [
+        validStudy("nike", [
+          { id: "n1", fileName: "ok.jpg", sha256: sha, role: "campaign_original", usageStatus: "approved", entersTraining: true },
+          { id: "n2", fileName: "missing.jpg", sha256: "f".repeat(64), role: "campaign_still", usageStatus: "approved", entersTraining: true },
+        ]),
+        validStudy("mtv", [
+          { id: "m1", fileName: "ok.jpg", sha256: sha, role: "campaign_original", usageStatus: "approved", entersTraining: true },
+          { id: "m2", fileName: "ok.jpg", sha256: sha, role: "campaign_still", usageStatus: "approved", entersTraining: true },
+        ]),
+        validStudy("absolut", [
+          { id: "a1", fileName: "ok.jpg", sha256: sha, role: "campaign_original", usageStatus: "approved", entersTraining: true },
+        ]),
+      ],
+      captures: twentyFourCaptures(),
+    };
+    validateCommercialStudiesManifest(manifest as never);
+    expect(() => assertOriginalFiles(manifest as never, dir)).toThrow(/missing.jpg/);
+  });
+
+  it("rejects production, missing opt-in, and non-lab email", () => {
+    expect(() => assertCommercialStudiesSeedEnvironment({
+      NODE_ENV: "production",
+      COMMERCIAL_STUDIES_SEED: "true",
+      COMMERCIAL_STUDIES_EMAIL: "estudos@example.test",
+    })).toThrow(/development-only/);
+    expect(() => assertCommercialStudiesSeedEnvironment({
+      NODE_ENV: "development",
+      COMMERCIAL_STUDIES_EMAIL: "estudos@example.test",
+    })).toThrow(/development-only/);
+    expect(() => assertCommercialStudiesSeedEnvironment({
+      NODE_ENV: "development",
+      COMMERCIAL_STUDIES_SEED: "true",
+      COMMERCIAL_STUDIES_EMAIL: "person@gmail.com",
+    })).toThrow(/development-only/);
+  });
+
+  it("allows the locked lab email in development with opt-in", () => {
+    expect(() => assertCommercialStudiesSeedEnvironment({
+      NODE_ENV: "development",
+      COMMERCIAL_STUDIES_SEED: "true",
+      COMMERCIAL_STUDIES_EMAIL: "estudos@example.test",
+    })).not.toThrow();
+  });
+
+  it("reuses the oldest owner workspace instead of inserting a second", () => {
+    const signup = {
+      id: "ws-signup",
+      name: "ADScale Estudos's Workspace",
+      membershipCreatedAt: new Date("2026-01-01"),
+    };
+    const extra = {
+      id: "ws-lab",
+      name: COMMERCIAL_STUDY_WORKSPACE,
+      membershipCreatedAt: new Date("2026-01-02"),
+    };
+    expect(selectSignupLabWorkspace([extra, signup])).toEqual({
+      keepId: "ws-signup",
+      rename: true,
+      extraIds: ["ws-lab"],
+    });
+  });
+
+  it("does not rename when the signup workspace already has the lab name", () => {
+    expect(
+      selectSignupLabWorkspace([
+        {
+          id: "ws-1",
+          name: COMMERCIAL_STUDY_WORKSPACE,
+          membershipCreatedAt: new Date("2026-01-01"),
+        },
+      ]),
+    ).toEqual({ keepId: "ws-1", rename: false, extraIds: [] });
+  });
+
+  it("throws when signup created no workspace", () => {
+    expect(() => selectSignupLabWorkspace([])).toThrow(/no workspace/);
+  });
+
+  it("resolves 24 captures and rejects path escape", () => {
+    const runtime = {
+      sourceManifest: "manifest.json",
+      generatedAt: "2026-08-28T00:00:00.000Z",
+      account: { email: "estudos@example.test", userId: "u", workspaceId: "w" },
+      studies: {
+        nike: { clientProfileId: "p1", creativeWorkId: "w1", freshBrief: { theme: "Peca nova", objective: "Sistema", audience: "", offer: null }, trainingReferenceIds: [], originalAssetKeys: [], selectedRealOutputIds: [], routes: { brandTraining: "/brand-kit", creativeWork: "/creative-work/w1", library: "/library" } },
+        mtv: { clientProfileId: "p2", creativeWorkId: "w2", freshBrief: { theme: "Peca nova", objective: "Sistema", audience: "", offer: null }, trainingReferenceIds: [], originalAssetKeys: [], selectedRealOutputIds: [], routes: { brandTraining: "/brand-kit", creativeWork: "/creative-work/w2", library: "/library" } },
+        absolut: { clientProfileId: "p3", creativeWorkId: "w3", freshBrief: { theme: "Peca nova", objective: "Sistema", audience: "", offer: null }, trainingReferenceIds: [], originalAssetKeys: [], selectedRealOutputIds: [], routes: { brandTraining: "/brand-kit", creativeWork: "/creative-work/w3", library: "/library" } },
+      },
+    } as const;
+    const resolved = resolveCommercialCaptures(loadCommercialStudiesManifest(realManifestPath), runtime as never);
+    expect(resolved).toHaveLength(24);
+    expect(resolved.every((c) => c.output.endsWith(".png"))).toBe(true);
+  });
+
+  it("waits for each brand's first original training asset", () => {
+    const manifest = loadCommercialStudiesManifest(realManifestPath);
+    const training = manifest.captures.filter((capture) => capture.stage === "training");
+    expect(training).toHaveLength(6);
+    for (const capture of training) {
+      const study = manifest.studies.find((item) => item.slug === capture.brand);
+      expect(study).toBeDefined();
+      expect(capture.waitFor).toBe(`img[alt="${study?.originals[0]?.id}"]`);
+    }
+  });
+
+  it("rejects output paths that escape the screenshot directory", () => {
+    expect(() => assertCaptureOutputPath("../x.png")).toThrow();
+    expect(() => assertCaptureOutputPath("/tmp/x.png")).toThrow();
+  });
+
+  it("fails a real artifact without provider evidence", () => {
+    expect(() => validateCommercialStudyArtifacts([{
+      id: "n1", brand: "nike", kind: "isolated_result", path: "results/n.png",
+      sha256: "a".repeat(64), width: 1080, height: 1350, provenance: "real",
+      providerEvidencePath: null, visualReview: "pending", editorialReview: "pending",
+    }], { requireRealResults: true })).toThrow(/provider evidence/);
+  });
+
+  it("fails when a controlled output is labeled isolated_result", () => {
+    expect(() => validateCommercialStudyArtifacts([{
+      id: "n1", brand: "nike", kind: "isolated_result", path: "results/n.png",
+      sha256: "a".repeat(64), width: 1080, height: 1350, provenance: "controlled",
+      providerEvidencePath: "evidence/x.json", visualReview: "pending", editorialReview: "pending",
+    }], { requireRealResults: true })).toThrow(/controlled/);
+  });
+
+  it("fails an isolated_result whose provenance is not real", () => {
+    expect(() => validateCommercialStudyArtifacts([{
+      id: "n1", brand: "nike", kind: "isolated_result", path: "results/n.png",
+      sha256: "a".repeat(64), width: 1080, height: 1350, provenance: "synthetic",
+      providerEvidencePath: "evidence/x.json", visualReview: "pending", editorialReview: "pending",
+    } as never], { requireRealResults: true })).toThrow(/real provenance/);
+  });
+
+  it("allows validate-only with zero real results and real_results_pending", () => {
+    expect(() => validateCommercialStudyArtifacts([], { requireRealResults: false })).not.toThrow();
+  });
+});

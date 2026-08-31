@@ -46,7 +46,8 @@ export type CreativeWorkReferenceRole =
   | "style"
   | "piece_required"
   | "piece_visual"
-  | "brand_identity";
+  | "brand_identity"
+  | "anchor_board";
 
 export interface CreativeWorkReferenceSlot {
   role: CreativeWorkReferenceRole;
@@ -229,4 +230,64 @@ export function planCreativeWorkReferences(input: {
   }
   // Brand Training identity occupies only the slots left by every authority.
   return [...required, ...optional.slice(0, input.limit - required.length)];
+}
+
+/**
+ * Carousel slide reference plan (Task 6). Ordered, role-bound provider
+ * references for one slide:
+ *
+ * - anchor slides (cover / ceil-middle / closing) get brand-identity and the
+ *   temporary style reference only — never the shared anchor board;
+ * - non-anchor slides put the shared anchor board first (required) so the
+ *   visual system transfers, then the same optional authorities;
+ * - exact brand assets are NEVER provider references: they are composited
+ *   after generation from the frozen contract slots;
+ * - the total stays within the provider cap (4), evicting optional
+ *   authorities first.
+ */
+export function planCarouselSlideReferences(input: {
+  isAnchor: boolean;
+  anchorBoardKey: string | null;
+  identityReferenceAssets: readonly CreativeWorkReferencePlanAsset[];
+  temporaryReference: CreativeWorkReferencePlanAsset | null;
+  limit?: number;
+}): CreativeWorkReferenceSlot[] {
+  const limit = input.limit ?? 4;
+  const optionalAuthorities: CreativeWorkReferenceSlot[] = [
+    ...input.identityReferenceAssets.map((asset) => ({
+      role: "brand_identity" as const,
+      required: false,
+      assetKey: asset.assetKey,
+      mimeType: asset.mimeType,
+      label: asset.label,
+    })),
+    ...(input.temporaryReference
+      ? [
+          {
+            role: "style" as const,
+            required: false,
+            assetKey: input.temporaryReference.assetKey,
+            mimeType: input.temporaryReference.mimeType,
+            label: input.temporaryReference.label,
+          },
+        ]
+      : []),
+  ];
+
+  if (!input.isAnchor) {
+    if (!input.anchorBoardKey) {
+      throw new CreativeWorkReferenceError(
+        "carousel non-anchor slide is missing its shared anchor board reference",
+      );
+    }
+    const boardSlot: CreativeWorkReferenceSlot = {
+      role: "anchor_board",
+      required: true,
+      assetKey: input.anchorBoardKey,
+      mimeType: "image/png",
+      label: "Anchor board",
+    };
+    return [boardSlot, ...optionalAuthorities.slice(0, limit - 1)];
+  }
+  return optionalAuthorities.slice(0, limit);
 }

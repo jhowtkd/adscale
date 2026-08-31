@@ -1,4 +1,7 @@
 import DashboardHomeActions from "@/components/dashboard/DashboardHomeActions";
+import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { isStudioCarouselEnabled, resolveStudioRolloutVariant } from "@/server/studio-rollout";
+import { env } from "@/server/validation/env";
 import { parseDashboardSearchParams } from "./dashboard-search-params";
 
 type DashboardSearchParams = Record<string, string | string[] | undefined>;
@@ -6,5 +9,11 @@ type DashboardSearchParams = Record<string, string | string[] | undefined>;
 export default async function DashboardPage({ searchParams }: {
   searchParams: Promise<DashboardSearchParams>;
 }) {
-  return <DashboardHomeActions {...parseDashboardSearchParams(await searchParams)} />;
+  const { workspace } = await requireWorkspaceAccess();
+  return <DashboardHomeActions
+    {...parseDashboardSearchParams(await searchParams)}
+    workspaceId={workspace.id}
+    rolloutVariant={resolveStudioRolloutVariant(workspace.id, env.STUDIO_PROGRESSIVE_ROLLOUT_PERCENT)}
+    carouselCreationEnabled={isStudioCarouselEnabled(workspace.id, env.STUDIO_CAROUSEL_ROLLOUT_PERCENT)}
+  />;
 }

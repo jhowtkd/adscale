@@ -2,8 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const generate = vi.hoisted(() => vi.fn());
 const revise = vi.hoisted(() => vi.fn());
+const generateCarousel = vi.hoisted(() => vi.fn());
+const getWork = vi.hoisted(() => vi.fn());
 vi.mock("@/server/application/generate-creative-work", () => ({ generateCreativeWork: generate }));
 vi.mock("@/server/application/revise-creative-work-output", () => ({ reviseCreativeWorkOutput: revise }));
+vi.mock("@/server/application/generate-carousel-work", () => ({ generateCarouselWork: generateCarousel }));
+vi.mock("@/server/repositories/creative-work", () => ({ getCreativeWork: getWork }));
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: vi.fn(async () => ({ user: { id: "user-1" }, workspace: { id: "ws-1" } })),
 }));
@@ -11,14 +15,16 @@ vi.mock("next-intl/server", () => ({ getTranslations: vi.fn(async () => (key: st
 
 import { POST } from "./route";
 
-const request = (body: unknown = { action: "initial" }) => new Request("http://localhost/api/creative-work/work-1/generate", {
+const request = (body: unknown = { action: "initial", preparedRevision: "2026-07-16T12:00:00.000Z" }) => new Request("http://localhost/api/creative-work/work-1/generate", {
   method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
 });
 
 describe("POST /api/creative-work/[id]/generate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getWork.mockResolvedValue({ work: { id: "work-1", toolKind: "single" }, outputs: [], sources: [] });
     generate.mockResolvedValue({ ok: true, value: { work: { id: "work-1" }, outputs: [{ id: "output-1" }], billingKey: "creative-work:work-1:initial", brandTrainingSuggestion: null } });
+    generateCarousel.mockResolvedValue({ ok: true, value: { work: { id: "work-1" }, carouselSlides: [{ id: "slide-1" }], preparedRevision: "prep-1" } });
     revise.mockResolvedValue({ ok: true, value: { output: { id: "output-v2", versionNumber: 2 } } });
   });
 
@@ -61,7 +67,7 @@ describe("POST /api/creative-work/[id]/generate", () => {
   it("is a thin adapter for the initial generation command", async () => {
     const response = await POST(request(), { params: Promise.resolve({ id: "work-1" }) });
     expect(response.status).toBe(202);
-    expect(generate).toHaveBeenCalledWith({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+    expect(generate).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1", preparedRevision: "2026-07-16T12:00:00.000Z" }));
     await expect(response.json()).resolves.toMatchObject({ outputs: [{ id: "output-1" }], billingKey: "creative-work:work-1:initial" });
   });
 
@@ -73,31 +79,57 @@ describe("POST /api/creative-work/[id]/generate", () => {
 
   it.each([
     ["work_not_found", 404], ["work_not_draft", 409], ["work_not_prepared", 409],
-    ["invalid_context", 422], ["brand_conflict", 422], ["briefing_blocked", 422], ["credit_blocked", 402], ["dispatch_failed", 502],
+    ["credit_blocked", 402], ["dispatch_failed", 502],
   ])("maps %s", async (code, status) => {
     generate.mockResolvedValue({ ok: false, error: { code } });
     const response = await POST(request(), { params: Promise.resolve({ id: "work-1" }) });
     expect(response.status).toBe(status);
   });
 
-  it("maps invalid_context to 422 preserving the violations payload", async () => {
-    const violations = [{ class: "modality", value: "presencial", field: "body" }];
-    generate.mockResolvedValue({ ok: false, error: { code: "invalid_context", details: { violations } } });
-    const response = await POST(request(), { params: Promise.resolve({ id: "work-1" }) });
-    const body = await response.json();
-    expect(response.status).toBe(422);
-    expect(body.code).toBe("invalid_context");
-    expect(body.details).toEqual({ violations });
+  it("routes carousel works to generateCarouselWork and returns work, slides and revision with 202", async () => {
+    getWork.mockResolvedValue({ work: { id: "work-1", toolKind: "carousel" }, outputs: [], sources: [] });
+    const body = { action: "initial", preparedRevision: "prep-1", studioSessionId: "00000000-0000-4000-8000-000000000001", rolloutVariant: "progressive" };
+    const response = await POST(request(body), { params: Promise.resolve({ id: "work-1" }) });
+
+    expect(response.status).toBe(202);
+    expect(generateCarousel).toHaveBeenCalledWith({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      userId: "user-1",
+      preparedRevision: "prep-1",
+      studioSessionId: "00000000-0000-4000-8000-000000000001",
+      rolloutVariant: "progressive",
+    });
+    expect(generate).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toEqual({
+      work: { id: "work-1" },
+      carouselSlides: [{ id: "slide-1" }],
+      preparedRevision: "prep-1",
+    });
   });
 
-  it("maps brand_conflict to 422 preserving the two brand choices (R-003)", async () => {
-    const details = { detectedBrand: "XTB", activeBrand: "Cenbrap", sourceId: "source-1", choices: ["source", "active"] };
-    generate.mockResolvedValue({ ok: false, error: { code: "brand_conflict", details } });
-    const response = await POST(request(), { params: Promise.resolve({ id: "work-1" }) });
-    const body = await response.json();
-    expect(response.status).toBe(422);
-    expect(body.code).toBe("brand_conflict");
-    expect(body.details).toEqual(details);
-    expect(body.details.choices).toHaveLength(2);
+  it("rejects a carousel request without preparedRevision before any command runs", async () => {
+    getWork.mockResolvedValue({ work: { id: "work-1", toolKind: "carousel" }, outputs: [], sources: [] });
+    const response = await POST(request({ action: "initial" }), { params: Promise.resolve({ id: "work-1" }) });
+
+    expect(response.status).toBe(400);
+    expect(generateCarousel).not.toHaveBeenCalled();
+    expect(generate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-carousel initial request without the datetime preparedRevision", async () => {
+    const response = await POST(request({ action: "initial", preparedRevision: "prep-1" }), { params: Promise.resolve({ id: "work-1" }) });
+
+    expect(response.status).toBe(400);
+    expect(generate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["stale_input", 409], ["credit_blocked", 402], ["dispatch_failed", 502], ["work_not_found", 404],
+  ])("maps carousel %s to %i", async (code, status) => {
+    getWork.mockResolvedValue({ work: { id: "work-1", toolKind: "carousel" }, outputs: [], sources: [] });
+    generateCarousel.mockResolvedValue({ ok: false, error: { code } });
+    const response = await POST(request({ action: "initial", preparedRevision: "prep-1" }), { params: Promise.resolve({ id: "work-1" }) });
+    expect(response.status).toBe(status);
   });
 });

@@ -6,6 +6,11 @@ import { buildAnalyticsFunnelSummary } from "@/server/beta-analytics/aggregate";
 import { parseOwnerAnalyticsQuery } from "@/server/beta-analytics/query";
 import { listBetaAnalyticsEventsForOwner } from "@/server/repositories/beta-analytics";
 import { listBetaSessions } from "@/server/repositories/beta-sessions";
+import { listUsageEventsForOwner } from "@/server/repositories/usage";
+
+// listBetaAnalyticsEventsForOwner uses this cap. A full page may be truncated,
+// so rollout evidence must never treat it as a complete population.
+const OWNER_ANALYTICS_EVENT_CAP = 5_000;
 
 export async function GET(request: Request) {
   try {
@@ -16,19 +21,25 @@ export async function GET(request: Request) {
     const cachedBuild = unstable_cache(
       async (
         eventsArgs: Parameters<typeof listBetaAnalyticsEventsForOwner>[0],
-        sessionsArgs: Parameters<typeof listBetaSessions>[0]
-      ): Promise<[Awaited<ReturnType<typeof listBetaAnalyticsEventsForOwner>>, Awaited<ReturnType<typeof listBetaSessions>>]> => {
-        const [events, sessions] = await Promise.all([
+        sessionsArgs: Parameters<typeof listBetaSessions>[0],
+        usageArgs: Parameters<typeof listUsageEventsForOwner>[0],
+      ): Promise<[
+        Awaited<ReturnType<typeof listBetaAnalyticsEventsForOwner>>,
+        Awaited<ReturnType<typeof listBetaSessions>>,
+        Awaited<ReturnType<typeof listUsageEventsForOwner>>,
+      ]> => {
+        const [events, sessions, usageEvents] = await Promise.all([
           listBetaAnalyticsEventsForOwner(eventsArgs),
           listBetaSessions(sessionsArgs),
+          listUsageEventsForOwner(usageArgs),
         ]);
-        return [events, sessions];
+        return [events, sessions, usageEvents];
       },
       ["funnel-events"],
       { revalidate: 60, tags: ["feedback-funnel"] }
     );
 
-    const [events, sessions] = await cachedBuild(
+    const [events, sessions, usageEvents] = await cachedBuild(
       {
         workspaceId: filters.workspaceId,
         sessionId: filters.sessionId,
@@ -38,6 +49,11 @@ export async function GET(request: Request) {
       {
         workspaceId: filters.workspaceId,
         activeOnly: false,
+      },
+      {
+        workspaceId: filters.workspaceId,
+        from: filters.from,
+        to: filters.to,
       }
     );
 
@@ -45,7 +61,7 @@ export async function GET(request: Request) {
       ? sessions.filter((session) => session.id === filters.sessionId)
       : sessions;
 
-    const summary = buildAnalyticsFunnelSummary(events, filteredSessions);
+    const summary = buildAnalyticsFunnelSummary(events, filteredSessions, usageEvents, filters.to);
 
     return NextResponse.json({
       filters: {
@@ -54,6 +70,7 @@ export async function GET(request: Request) {
         from: filters.from?.toISOString() ?? null,
         to: filters.to?.toISOString() ?? null,
       },
+      dataComplete: events.length < OWNER_ANALYTICS_EVENT_CAP,
       ...summary,
     });
   } catch (error) {

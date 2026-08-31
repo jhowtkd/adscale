@@ -1,0 +1,294 @@
+{
+  "capturedAt": "2026-08-29T13:41:31.022Z",
+  "baseUrl": "http://localhost:3000",
+  "results": [
+    {
+      "id": "nike-context-desktop",
+      "brand": "nike",
+      "stage": "context",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/nike-context-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "nike-training-desktop",
+      "brand": "nike",
+      "stage": "training",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/nike-training-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "nike-training-mobile",
+      "brand": "nike",
+      "stage": "training",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/nike-training-390.png",
+      "status": "ok"
+    },
+    {
+      "id": "nike-direction-desktop",
+      "brand": "nike",
+      "stage": "direction",
+      "route": "/creative-work/c1123ebd-1b60-4b16-8af7-aeb2972c4481",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/nike-direction-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "nike-results-desktop",
+      "brand": "nike",
+      "stage": "results",
+      "route": "/library",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/nike-results-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "nike-results-mobile",
+      "brand": "nike",
+      "stage": "results",
+      "route": "/library",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/nike-results-390.png",
+      "status": "ok"
+    },
+    {
+      "id": "nike-decision-desktop",
+      "brand": "nike",
+      "stage": "decision",
+      "route": "/library",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/nike-decision-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "nike-decision-mobile",
+      "brand": "nike",
+      "stage": "decision",
+      "route": "/library",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/nike-decision-390.png",
+      "status": "ok"
+    },
+    {
+      "id": "mtv-context-desktop",
+      "brand": "mtv",
+      "stage": "context",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/mtv-context-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "mtv-training-desktop",
+      "brand": "mtv",
+      "stage": "training",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/mtv-training-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "mtv-training-mobile",
+      "brand": "mtv",
+      "stage": "training",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/mtv-training-390.png",
+      "status": "ok"
+    },
+    {
+      "id": "mtv-direction-desktop",
+      "brand": "mtv",
+      "stage": "direction",
+      "route": "/creative-work/9747691c-2fec-4a84-9675-24f5aee42d54",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/mtv-direction-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "mtv-results-desktop",
+      "brand": "mtv",
+      "stage": "results",
+      "route": "/library",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/mtv-results-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "mtv-results-mobile",
+      "brand": "mtv",
+      "stage": "results",
+      "route": "/library",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/mtv-results-390.png",
+      "status": "ok"
+    },
+    {
+      "id": "mtv-decision-desktop",
+      "brand": "mtv",
+      "stage": "decision",
+      "route": "/library",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/mtv-decision-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "mtv-decision-mobile",
+      "brand": "mtv",
+      "stage": "decision",
+      "route": "/library",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/mtv-decision-390.png",
+      "status": "ok"
+    },
+    {
+      "id": "absolut-context-desktop",
+      "brand": "absolut",
+      "stage": "context",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/absolut-context-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "absolut-training-desktop",
+      "brand": "absolut",
+      "stage": "training",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/absolut-training-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "absolut-training-mobile",
+      "brand": "absolut",
+      "stage": "training",
+      "route": "/brand-kit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/absolut-training-390.png",
+      "status": "ok"
+    },
+    {
+      "id": "absolut-direction-desktop",
+      "brand": "absolut",
+      "stage": "direction",
+      "route": "/creative-work/b54704a6-3996-4bc3-91fc-070ce4a2fbfc",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/absolut-direction-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "absolut-results-desktop",
+      "brand": "absolut",
+      "stage": "results",
+      "route": "/library",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/absolut-results-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "absolut-results-mobile",
+      "brand": "absolut",
+      "stage": "results",
+      "route": "/library",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/absolut-results-390.png",
+      "status": "ok"
+    },
+    {
+      "id": "absolut-decision-desktop",
+      "brand": "absolut",
+      "stage": "decision",
+      "route": "/library",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/absolut-decision-1440.png",
+      "status": "ok"
+    },
+    {
+      "id": "absolut-decision-mobile",
+      "brand": "absolut",
+      "stage": "decision",
+      "route": "/library",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "output": "docs/commercial-studies/real-brands/screenshots/absolut-decision-390.png",
+      "status": "ok"
+    }
+  ]
+}

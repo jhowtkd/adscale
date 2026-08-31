@@ -1,0 +1,34 @@
+{
+  "outputId": "bb72a763-4a7e-44cb-94ca-54a8532f4001",
+  "outputKey": "creative-work/bb72a763-4a7e-44cb-94ca-54a8532f4001/1788035220479.png",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "rawRequestId": "req_0560cb1d6c214a38b7a5e7028e0108d1",
+  "durationMs": 44088,
+  "deliveredAt": "2026-08-29T20:53:17.435Z",
+  "cost": 50,
+  "promptSha256": "f867f52a01fa9728978b50942f5441d334113f25ff37dbc7e180226bf07c9678",
+  "dimensions": null,
+  "objectiveVerdict": null,
+  "qualityScore": 90,
+  "evaluatorSummary": null,
+  "references": [
+    {
+      "role": "brand_identity",
+      "label": "nike-02",
+      "assetKey": "client-cases/2e72445e/nike/nike-02.jpg"
+    },
+    {
+      "role": "brand_identity",
+      "label": "nike-09",
+      "assetKey": "client-cases/2e72445e/nike/nike-09.jpg"
+    },
+    {
+      "role": "brand_identity",
+      "label": "nike-08",
+      "assetKey": "client-cases/2e72445e/nike/nike-08.jpg"
+    }
+  ],
+  "providerCalls": 3,
+  "imageOperation": "edit"
+}

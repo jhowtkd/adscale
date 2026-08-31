@@ -1,0 +1,40 @@
+{
+  "outputId": "796d41ac-e10b-4613-9716-b57e444b4f6e",
+  "outputKey": "creative-work/796d41ac-e10b-4613-9716-b57e444b4f6e/1788034174848.png",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "rawRequestId": "req_e4f9d1346cfe4fc28a7a62a54da673cd",
+  "durationMs": 41670,
+  "deliveredAt": "2026-08-29T20:53:17.435Z",
+  "cost": 50,
+  "promptSha256": "7b9fe6b86f651a48762c44bf76c405af5144a83b4fcb6609d63cd0763ce92428",
+  "dimensions": {
+    "ok": true,
+    "bytes": 2671026,
+    "width": 1080,
+    "format": "png",
+    "height": 1350
+  },
+  "objectiveVerdict": "inconclusive",
+  "qualityScore": null,
+  "evaluatorSummary": "A marca e os textos obrigatórios estão presentes, mas a representação visual do Pegasus 41 parece não corresponder fielmente ao produto.",
+  "references": [
+    {
+      "role": "brand_identity",
+      "label": "nike-02",
+      "assetKey": "client-cases/2e72445e/nike/nike-02.jpg"
+    },
+    {
+      "role": "brand_identity",
+      "label": "nike-09",
+      "assetKey": "client-cases/2e72445e/nike/nike-09.jpg"
+    },
+    {
+      "role": "brand_identity",
+      "label": "nike-08",
+      "assetKey": "client-cases/2e72445e/nike/nike-08.jpg"
+    }
+  ],
+  "providerCalls": 1,
+  "imageOperation": "edit"
+}

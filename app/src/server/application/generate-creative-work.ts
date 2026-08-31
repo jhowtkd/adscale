@@ -8,18 +8,18 @@ import { creativeWorkSettlementAdapter } from "@/server/generation/settlement-ad
 import { startGenerationSettlement } from "@/server/generation/settlement";
 import { getBrandKit } from "@/server/repositories/brand-kit";
 import {
-  confirmCreativeWorkSnapshotsIfUnchanged,
   getCreativeWorkSourceAssetDetails,
   getCreativeWork,
-  setCreativeWorkInputSnapshotIfMissing,
+  reserveCreativeWorkGenerationOutputs,
 } from "@/server/repositories/creative-work";
-import { prepareCreativeWork } from "./prepare-creative-work";
+import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
+import { logger } from "@/lib/logger";
 import { logCreativeWorkGenerationLifecycle } from "@/server/creative-work/job-telemetry";
 import { env } from "@/server/validation/env";
 
 export type GenerateCreativeWorkResult =
   | { ok: true; value: { work: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["work"]; outputs: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["outputs"]; billingKey: string; brandTrainingSuggestion: string | null } }
-  | { ok: false; error: { code: "work_not_found" | "work_not_draft" | "work_not_prepared" | "invalid_context" | "brand_conflict" | "briefing_blocked" | "stale_input" | "credit_blocked" | "dispatch_failed"; details?: unknown } };
+  | { ok: false; error: { code: "work_not_found" | "work_not_draft" | "work_not_prepared" | "stale_input" | "credit_blocked" | "dispatch_failed"; details?: unknown } };
 
 async function buildInputSnapshot(
   workspaceId: string,
@@ -70,40 +70,26 @@ export async function generateCreativeWork(input: {
   workspaceId: string;
   workItemId: string;
   userId: string;
+  preparedRevision: string;
+  studioSessionId?: string;
+  rolloutVariant?: "control" | "progressive";
 }): Promise<GenerateCreativeWorkResult> {
   const billingKey = `creative-work:${input.workItemId}:initial`;
   const existing = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!existing) return { ok: false, error: { code: "work_not_found" } };
 
-  let work = existing.work;
-  let readyWork = existing.work;
+  const work = existing.work;
+  const readyWork = existing.work;
   let brandTrainingSuggestion: string | null = null;
+  let reservationIdentitySnapshot: Awaited<ReturnType<typeof createIdentitySnapshot>> | undefined;
+  let legacyInputSnapshot: CreativeWorkInputSnapshot | undefined;
+  const preparedRevision = new Date(input.preparedRevision);
+  if (existing.outputs.length === 0 && (
+    Number.isNaN(preparedRevision.getTime())
+    || preparedRevision.getTime() !== work.updatedAt.getTime()
+  )) return { ok: false, error: { code: "stale_input" } };
   if (existing.outputs.length === 0 && work.status === "draft") {
-    const prepared = await prepareCreativeWork(input);
-    if (!prepared.ok) {
-      // R-002: an invalid fact pack/copy surfaces its own typed error, still
-      // before any charge or image call; everything else stays work_not_prepared.
-      if (prepared.error.code === "work_not_found") {
-        return { ok: false, error: { code: "work_not_found" as const } };
-      }
-      if (prepared.error.code === "invalid_context") {
-        // Forward the violations payload unwrapped so the HTTP edge returns
-        // details.violations exactly like the prepare route does.
-        return { ok: false, error: { code: "invalid_context" as const, details: prepared.error.details } };
-      }
-      if (prepared.error.code === "brand_conflict") {
-        // R-003: same forwarding as invalid_context — the 422 details carry
-        // the two brand choices and billing stays blocked until the user
-        // resolves the conflict.
-        return { ok: false, error: { code: "brand_conflict" as const, details: prepared.error.details } };
-      }
-      if (prepared.error.code === "briefing_blocked") {
-        return { ok: false, error: { code: "briefing_blocked" as const, details: prepared.error.details } };
-      }
-      return { ok: false, error: { code: "work_not_prepared" as const, details: prepared.error } };
-    }
-    work = prepared.value.work;
-    if (!work.brief) return { ok: false, error: { code: "work_not_prepared" } };
+    if (!work.brief || !work.copy || !work.inputSnapshot) return { ok: false, error: { code: "work_not_prepared" } };
 
     // Empty selection delegates ranking to the snapshot's single canonical
     // selector. Operator-selected IDs use the same path in confirmSocialPostWork.
@@ -116,16 +102,7 @@ export async function generateCreativeWork(input: {
       includePublishedBrandKnowledge:
         work.toolKind === "single" && env.BRAND_CORTEX_SINGLE_PIECE_ENABLED === "true",
     });
-    if (!work.inputSnapshot) return { ok: false, error: { code: "work_not_prepared" } };
-    const confirmed = await confirmCreativeWorkSnapshotsIfUnchanged(
-      input.workspaceId,
-      input.workItemId,
-      work.updatedAt,
-      work.inputSnapshot,
-      identitySnapshot,
-    );
-    if (!confirmed) return { ok: false, error: { code: "stale_input" } };
-    readyWork = confirmed;
+    reservationIdentitySnapshot = identitySnapshot;
     brandTrainingSuggestion = identitySnapshot.assets.length === 0
       ? "missing_visual_references"
       : null;
@@ -145,11 +122,7 @@ export async function generateCreativeWork(input: {
     // rebuilt only together with the entire missing snapshot, never patched
     // into an existing one.
     if (!work.inputSnapshot) {
-      const inputSnapshot = await buildInputSnapshot(input.workspaceId, existing);
-      const persisted = await setCreativeWorkInputSnapshotIfMissing(input.workspaceId, input.workItemId, inputSnapshot);
-      if (!persisted) return { ok: false, error: { code: "stale_input" } };
-      work = persisted;
-      readyWork = persisted;
+      legacyInputSnapshot = await buildInputSnapshot(input.workspaceId, existing);
     }
     brandTrainingSuggestion = hasTrainingReferences ? null : "missing_visual_references";
   }
@@ -185,20 +158,39 @@ export async function generateCreativeWork(input: {
     billingKey,
     refundPolicy: "default",
   };
-  const settled = await startGenerationSettlement(
-    creativeWorkSettlementAdapter({
+  const reserveReadyWork = existing.outputs.length === 0
+    ? () => reserveCreativeWorkGenerationOutputs({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        preparedRevision,
+        plans: quote.plans,
+        ...(reservationIdentitySnapshot ? { identitySnapshot: reservationIdentitySnapshot } : {}),
+        ...(legacyInputSnapshot ? { legacyInputSnapshot } : {}),
+      })
+    : undefined;
+  const settled = await (async () => {
+    try {
+      return await startGenerationSettlement(
+      creativeWorkSettlementAdapter({
       workspaceId: input.workspaceId,
       workItemId: input.workItemId,
       userId: input.userId,
       readyWork,
       plans: quote.plans,
       batch,
-      existing:
+        reserveReadyWork,
+        existing:
         existing.outputs.length > 0
           ? { work: existing.work, outputs: existing.outputs }
           : undefined,
-    }),
-  );
+      }),
+      );
+    } catch (cause) {
+      if (cause instanceof Error && "code" in cause && cause.code === "stale_input") return null;
+      throw cause;
+    }
+  })();
+  if (!settled) return { ok: false, error: { code: "stale_input" } };
   if (!settled.ok) {
     if (settled.error.code === "credit_blocked") {
       const spend: Extract<SpendResult, { ok: false }> = {
@@ -227,6 +219,7 @@ export async function generateCreativeWork(input: {
     unitChargeAmount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
     result: "accepted",
   });
+  void recordBetaAnalyticsEvent({ workspaceId: input.workspaceId, userId: input.userId, eventKey: "generation_confirmed", source: "server", properties: { creativeWorkId: input.workItemId, protocol: work.toolKind, outputCount: settled.value.outputs.length, ...(input.studioSessionId ? { studioSessionId: input.studioSessionId } : {}), ...(input.rolloutVariant ? { rolloutVariant: input.rolloutVariant } : {}) } }).catch((error) => logger.warn("[creative-work] generation_confirmed telemetry failed", error));
   return {
     ok: true,
     value: {

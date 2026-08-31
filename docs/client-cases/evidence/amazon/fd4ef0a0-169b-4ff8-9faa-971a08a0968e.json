@@ -1,0 +1,34 @@
+{
+  "outputId": "fd4ef0a0-169b-4ff8-9faa-971a08a0968e",
+  "outputKey": "creative-work/fd4ef0a0-169b-4ff8-9faa-971a08a0968e/1788036005099.png",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "rawRequestId": "req_2264f5942460430981f105c44a0ea947",
+  "durationMs": 38738,
+  "deliveredAt": "2026-08-29T20:53:17.435Z",
+  "cost": 50,
+  "promptSha256": "d429c47db4481ad905212ddb1525c8910727747a2d8fd3080c5649a6a41914cf",
+  "dimensions": null,
+  "objectiveVerdict": null,
+  "qualityScore": 87,
+  "evaluatorSummary": null,
+  "references": [
+    {
+      "role": "brand_identity",
+      "label": "amazon-01",
+      "assetKey": "client-cases/2e72445e/amazon/amazon-01.jpg"
+    },
+    {
+      "role": "brand_identity",
+      "label": "amazon-05",
+      "assetKey": "client-cases/2e72445e/amazon/amazon-05.jpg"
+    },
+    {
+      "role": "brand_identity",
+      "label": "amazon-09",
+      "assetKey": "client-cases/2e72445e/amazon/amazon-09.jpg"
+    }
+  ],
+  "providerCalls": 3,
+  "imageOperation": "edit"
+}

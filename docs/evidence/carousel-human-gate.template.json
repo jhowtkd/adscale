@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "status": "pending_human_review",
+  "reviewedAt": null,
+  "_instructions": [
+    "Human gate for the Studio carousel (Task 10). This template is VALIDATOR INPUT ONLY.",
+    "Generating the nine real decks requires a separate paid-generation authorization: three approved brands (nike, mtv, absolut) x short_idea | long_text | pre_split.",
+    "A human reviewer fills every verdict field and their name; artifactIds carry the provider run / creative-work ids recorded separately from automated results.",
+    "After all nine entries are filled and status is set to 'completed', run: npx tsx scripts/check-carousel-human-gate.ts <this-file.json>",
+    "Acceptance: all nine entries with inventedFacts=0 and corruptedTexts=0, at least 8 visualLanguage='single_system', at least 8 narrativeProgression='clear', zero selfContainedFailures."
+  ],
+  "entries": [
+    { "brand": "nike", "inputKind": "short_idea", "slideCount": 5, "inventedFacts": null, "corruptedTexts": null, "visualLanguage": "unreviewed", "narrativeProgression": "unreviewed", "selfContainedFailures": null, "reviewer": null, "artifactIds": [] },
+    { "brand": "nike", "inputKind": "long_text", "slideCount": 5, "inventedFacts": null, "corruptedTexts": null, "visualLanguage": "unreviewed", "narrativeProgression": "unreviewed", "selfContainedFailures": null, "reviewer": null, "artifactIds": [] },
+    { "brand": "nike", "inputKind": "pre_split", "slideCount": 5, "inventedFacts": null, "corruptedTexts": null, "visualLanguage": "unreviewed", "narrativeProgression": "unreviewed", "selfContainedFailures": null, "reviewer": null, "artifactIds": [] },
+    { "brand": "mtv", "inputKind": "short_idea", "slideCount": 5, "inventedFacts": null, "corruptedTexts": null, "visualLanguage": "unreviewed", "narrativeProgression": "unreviewed", "selfContainedFailures": null, "reviewer": null, "artifactIds": [] },
+    { "brand": "mtv", "inputKind": "long_text", "slideCount": 5, "inventedFacts": null, "corruptedTexts": null, "visualLanguage": "unreviewed", "narrativeProgression": "unreviewed", "selfContainedFailures": null, "reviewer": null, "artifactIds": [] },
+    { "brand": "mtv", "inputKind": "pre_split", "slideCount": 5, "inventedFacts": null, "corruptedTexts": null, "visualLanguage": "unreviewed", "narrativeProgression": "unreviewed", "selfContainedFailures": null, "reviewer": null, "artifactIds": [] },
+    { "brand": "absolut", "inputKind": "short_idea", "slideCount": 5, "inventedFacts": null, "corruptedTexts": null, "visualLanguage": "unreviewed", "narrativeProgression": "unreviewed", "selfContainedFailures": null, "reviewer": null, "artifactIds": [] },
+    { "brand": "absolut", "inputKind": "long_text", "slideCount": 5, "inventedFacts": null, "corruptedTexts": null, "visualLanguage": "unreviewed", "narrativeProgression": "unreviewed", "selfContainedFailures": null, "reviewer": null, "artifactIds": [] },
+    { "brand": "absolut", "inputKind": "pre_split", "slideCount": 5, "inventedFacts": null, "corruptedTexts": null, "visualLanguage": "unreviewed", "narrativeProgression": "unreviewed", "selfContainedFailures": null, "reviewer": null, "artifactIds": [] }
+  ]
+}

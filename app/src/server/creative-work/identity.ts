@@ -388,7 +388,11 @@ interface CreateIdentitySnapshotInput {
   /** Request context for the ranked fallback (#178). Absent = neutral ranking. */
   brief?: SocialPostBrief | null;
   format?: CreativeWorkFormat | null;
-  /** Rollout is intentionally restricted to newly confirmed Peça única works. */
+  /**
+   * Rollout is intentionally restricted to newly confirmed Peça única works
+   * and carousel preparation; other intents keep the legacy identity only.
+   * Carousel works carry no SocialPostBrief, so `brief` stays null there.
+   */
   includePublishedBrandKnowledge?: boolean;
 }
 

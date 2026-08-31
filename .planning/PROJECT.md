@@ -10,6 +10,8 @@ Users can go from a single base creative and a brief to multiple platform-ready 
 
 ## Current State
 
+**Studio credit policy:** Studio never displays a per-operation credit amount. Global balance, the insufficient-credit block, ledger, debit, compensation, and refund remain authoritative.
+
 ADScale has shipped the adaptive guided strategic chat. The `/assistant` starts from `Já tenho peça` and `Produzir do zero`, with progressive briefing, collaborative diagnosis, inline resources, revision-safe navigation, reviewed actions, and automated desktop/mobile coverage.
 
 **Active milestone:** v13.9 Copiloto Criativo Iterativo — started 2026-06-27.

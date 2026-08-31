@@ -2,12 +2,16 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => ({
+  useTranslations: () => (key: string, values?: Record<string, string | number>) => ({
     factoryActiveLabel: "Fábrica criativa em atividade",
     factoryQueuedTitle: "Aquecendo as máquinas",
     factoryQueuedDescription: "Sua peça entrou na linha de produção.",
     factoryProcessingTitle: "Aplicando tinta fresca",
     factoryProcessingDescription: "As engrenagens estão montando seu criativo.",
+    "proposal.level.conservative": "Conservadora", "proposal.level.balanced": "Equilibrada", "proposal.level.bold": "Ousada",
+    "proposal.status.queued": "na fila", "proposal.status.processing": "gerando", "proposal.status.completed": "pronta", "proposal.status.failed": "falhou",
+    "proposal.progress": `${values?.ready} de ${values?.total} prontas`, "proposal.thumbnailsAria": "Miniaturas das propostas", "proposal.selectAria": `Selecionar ${values?.name} em ${values?.format}`, "proposal.expandAria": `Ampliar ${values?.name} em ${values?.format}`, "proposal.previewAlt": `Proposta ${values?.name}, formato ${values?.format}`, "proposal.approvalSurfaceAria": "Superfície de aprovação", "proposal.variations": `Variações (${values?.count})`, "proposal.variation": `Variação ${values?.count}`, "proposal.variationAlt": `Variação ${values?.count}`, "proposal.originalPiece": "Peça original", "proposal.retry": "Repetir esta proposta", "proposal.compare": "Comparar", "proposal.compareTitle": "Comparar variações", "proposal.currentVariation": "Variação atual", "proposal.previousVariation": "Variação anterior", "proposal.expandedDescription": "Inspeção ampliada na proporção original, sem corte.", "proposal.expandedAlt": `Proposta ${values?.name}, formato ${values?.format}, ampliada`,
+    "status.queued": "Na fila", "status.processing": "Processando", "status.completed": "Pronto", "status.failed": "Falhou", variationShort: `v${values?.count}`, proposalAlt: `Proposta ${values?.label}`, generating: "Gerando...", retry: "Tentar novamente", retryProposal: "Repetir esta proposta", approving: "Aprovando", approved: "Aprovada", approve: "Aprovar", download: "Baixar", editLayers: "Editar camadas", viewLayers: "Visualizar camadas", refine: "Refinar", revisionInstruction: "O que você quer mudar?", optionalAttachment: "Anexo opcional", generateVariation: "Gerar nova variação",
   })[key] ?? key,
 }));
 
@@ -112,6 +116,41 @@ describe("CreativeProposalGrid", () => {
     expect(screen.getByRole("button", { name: "Repetir esta proposta" })).toBeVisible();
   });
 
+  it("keeps the last usable revision visible when a newer refinement fails", () => {
+    const original = { ...balancedCompleted, id: "out-v1", versionNumber: 1, parentOutputId: null };
+    const failedRevision = {
+      ...balancedCompleted, id: "out-v2", versionNumber: 2, parentOutputId: "out-v1",
+      status: "failed" as const, outputKey: null, failureCode: "provider_error",
+    };
+    render(
+      <CreativeProposalGrid
+        outputs={[original, failedRevision]}
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        onRevise={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("img", { name: /proposta equilibrada/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Variações (2)" }));
+    expect(screen.getByText("Variação 2")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Repetir esta proposta" })).toBeVisible();
+  });
+
+  it("compares exactly two usable revisions and excludes failed ones", () => {
+    const original = { ...balancedCompleted, id: "out-v1", versionNumber: 1, parentOutputId: null };
+    const revision = { ...balancedCompleted, id: "out-v2", versionNumber: 2, parentOutputId: "out-v1", outputKey: "key-v2" };
+    const failedRevision = { ...balancedCompleted, id: "out-v3", versionNumber: 3, parentOutputId: "out-v2", status: "failed" as const, outputKey: null, failureCode: "provider_error" };
+    render(<CreativeProposalGrid outputs={[original, revision, failedRevision]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Variações (3)" }));
+    expect(screen.getAllByRole("button", { name: "Comparar" })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Comparar" }));
+    const comparison = screen.getByRole("dialog", { name: "Comparar variações" });
+    expect(within(comparison).getAllByRole("img")).toHaveLength(2);
+  });
+
   it("exposes approve, download, and edit actions on completed cards", () => {
     render(
       <CreativeProposalGrid
@@ -125,7 +164,7 @@ describe("CreativeProposalGrid", () => {
 
     expect(screen.getByRole("button", { name: "Aprovar" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Baixar" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Editar" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Refinar" })).toBeVisible();
 
     fireEvent.click(screen.getByRole("button", { name: "Selecionar Equilibrada em 4:5" }));
     expect(screen.getByTestId("proposal-level-name")).toHaveTextContent("Equilibrada");

@@ -7,6 +7,7 @@ import { brandMemoryIngestJob } from "@/server/jobs/brand-memory";
 import { learningProposalAggregatorJob } from "@/server/jobs/learning-proposal-aggregator";
 import { brandTrainingAnalyzeJob } from "@/server/jobs/brand-training";
 import { creativeWorkOutputJob } from "@/server/jobs/creative-work";
+import { creativeWorkCarouselSlideJob } from "@/server/jobs/creative-work-carousel";
 import { creativeWorkSourceAnalyzeJob } from "@/server/jobs/creative-work-source";
 import { creativeWorkLayerizationJob } from "@/server/jobs/creative-work-layerization";
 import { creativeWorkLayerRegenerationJob } from "@/server/jobs/creative-work-layer-regeneration";
@@ -34,6 +35,7 @@ export const { GET, POST, PUT } = serve({
     learningProposalAggregatorJob,
     brandTrainingAnalyzeJob,
     creativeWorkOutputJob,
+    creativeWorkCarouselSlideJob,
     creativeWorkSourceAnalyzeJob,
     creativeWorkLayerizationJob,
     creativeWorkLayerRegenerationJob,

@@ -45,6 +45,18 @@ const BRAND_KIT_ERROR_PARITY_KEYS = [
   "unknown",
 ] as const;
 
+const STUDIO_CAMPAIGN_DIALOG_KEYS = [
+  "dashboard.home.campaignDialog.open",
+  "dashboard.home.campaignDialog.title",
+  "dashboard.home.campaignDialog.nameLabel",
+  "dashboard.home.campaignDialog.brandLabel",
+  "dashboard.home.campaignDialog.noBrand",
+  "dashboard.home.campaignDialog.cancel",
+  "dashboard.home.campaignDialog.submit",
+  "dashboard.home.campaignDialog.createFailed",
+  "dashboard.home.campaignDialog.linkFailed",
+] as const;
+
 const OLHAR_SURFACES = new Set([
   "onboarding",
   "dashboard.home",
@@ -251,6 +263,13 @@ describe("product narrative copy guard (Phase 170 / BRAND-04)", () => {
         expect(onlyEn, `keys only in en.json: ${onlyEn.join(", ")}`).toEqual([]);
         expect(onlyPt, `keys only in pt-BR.json: ${onlyPt.join(", ")}`).toEqual([]);
       });
+    }
+  });
+
+  it("keeps the Studio campaign dialog labels and failures translated in both locales", () => {
+    for (const key of STUDIO_CAMPAIGN_DIALOG_KEYS) {
+      expect(getStringAtPath(en as JsonObject, key), `missing en ${key}`).toBeTruthy();
+      expect(getStringAtPath(ptBR as JsonObject, key), `missing pt-BR ${key}`).toBeTruthy();
     }
   });
 

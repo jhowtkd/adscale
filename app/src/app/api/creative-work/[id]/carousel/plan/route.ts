@@ -1,0 +1,54 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { apiError, handleApiError } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/with-rate-limit";
+import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { planCarouselWork } from "@/server/application/plan-carousel-work";
+
+const bodySchema = z.object({
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
+  answers: z.record(z.string().min(1), z.string().trim().min(1).max(1_000)).default({}),
+}).strict();
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const [{ workspace }, { id }] = await Promise.all([
+      requireWorkspaceAccess(request),
+      params,
+    ]);
+    const rateLimitResult = await checkRateLimit(request, { category: "ai", workspaceId: workspace.id });
+    if (rateLimitResult) return rateLimitResult;
+
+    const parsed = bodySchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return apiError("invalidInput", 400, parsed.error.flatten());
+    }
+
+    const result = await planCarouselWork({
+      workspaceId: workspace.id,
+      workItemId: id,
+      expectedUpdatedAt: parsed.data.expectedUpdatedAt,
+      answers: parsed.data.answers,
+    });
+    if (!result.ok) {
+      switch (result.error.code) {
+        case "work_not_found": return apiError("creativeWorkNotFound", 404);
+        case "work_not_carousel": return apiError("creativeWorkNotCarousel", 409, result.error.details);
+        case "work_not_draft": return apiError("creativeWorkNotDraft", 409, result.error.details);
+        case "sources_not_ready": return apiError("creativeWorkSourcesNotReady", 409);
+        case "stale_input": return apiError("stale_input", 409);
+        case "editorial_plan_invalid": return apiError("editorial_plan_invalid", 422, result.error.details);
+      }
+    }
+    return NextResponse.json({
+      work: result.value.work,
+      draft: result.value.draft,
+      findings: result.value.findings,
+    });
+  } catch (error) {
+    return handleApiError(error, "creative-work.[id].carousel.plan.POST");
+  }
+}

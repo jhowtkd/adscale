@@ -5,9 +5,13 @@ import {
   recordUsage,
   type CreditAction,
 } from "@/server/billing/credits";
-import type { SpendResult } from "@/server/billing/paywall";
+import { spend, type SpendResult } from "@/server/billing/paywall";
 import type { CreativeWorkOutputPlan } from "@/server/creative-work/contracts";
 import type { CreativeWorkOrigin } from "@/server/creative-work/funnel-events";
+import {
+  carouselAnchorPositions,
+  resolveCarouselPreparedSnapshot,
+} from "@/server/creative-work/carousel-contracts";
 import {
   chargeForGeneration,
   chargeForGenerationBatch,
@@ -27,7 +31,10 @@ import {
   creativeWorkTerminalReactivationIdempotencyKey,
   creativeWorkTerminalReactivationRefundIdempotencyKey,
 } from "@/server/generation/canonical/policies";
-import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
+import {
+  CAROUSEL_SLIDE_GENERATE_EVENT,
+  heavyImageEventName,
+} from "@/server/jobs/heavy-image-events";
 import {
   logCreativeWorkGenerationAggregate,
   logCreativeWorkGenerationLifecycle,
@@ -37,7 +44,6 @@ import { inngest } from "@/server/jobs/client";
 import { updateCampaign } from "@/server/repositories/campaign";
 import {
   createCreativeWorkRevision,
-  createPlannedCreativeWorkOutputs,
   deleteQueuedCreativeWorkOutputs,
   failQueuedCreativeWorkOutput,
   getCreativeWork,
@@ -54,6 +60,11 @@ import {
   getLatestFormatAdaptationChild,
   touchQueuedDerivation,
 } from "@/server/repositories/derivation";
+import {
+  listCurrentCarouselSlides,
+  queueCarouselSlide,
+} from "@/server/repositories/creative-work-carousel";
+import type { CreativeWorkCarouselSlide } from "@/server/db/schema";
 import {
   getUsageByIdempotencyKey,
   trackUsage,
@@ -334,6 +345,8 @@ export function creativeWorkSettlementAdapter(input: {
   plans: CreativeWorkOutputPlan[];
   batch: GenerationBatchCharge;
   existing?: CreativeWorkSettlementValue;
+  /** Atomically validates a frozen retry and claims outputs under its work lock. */
+  reserveReadyWork?: () => Promise<{ work: CreativeWork; outputs: CreativeWorkOutputs; newlyCreatedIds: string[] } | null>;
 }): GenerationSettlementAdapter<
   CreativeWorkSettlementValue,
   CreativeWorkReservation
@@ -347,16 +360,16 @@ export function creativeWorkSettlementAdapter(input: {
           newlyCreatedIds: [],
         };
       }
-      const created = await createPlannedCreativeWorkOutputs(
-        input.workspaceId,
-        input.workItemId,
-        input.plans,
-      );
-      return {
-        claimed: created.newlyCreatedIds.length > 0,
-        value: { work: input.readyWork, outputs: created.outputs },
-        newlyCreatedIds: created.newlyCreatedIds,
-      };
+      if (input.reserveReadyWork) {
+        const reserved = await input.reserveReadyWork();
+        if (!reserved) throw Object.assign(new Error("creative_work_stale_reservation"), { code: "stale_input" });
+        return {
+          claimed: reserved.newlyCreatedIds.length > 0,
+          value: { work: reserved.work, outputs: reserved.outputs },
+          newlyCreatedIds: reserved.newlyCreatedIds,
+        };
+      }
+      throw Object.assign(new Error("creative_work_missing_atomic_reservation"), { code: "stale_input" });
     },
     async join() {
       let lastAggregate: Awaited<ReturnType<typeof getCreativeWork>> = null;
@@ -556,6 +569,309 @@ export function creativeWorkSettlementAdapter(input: {
           "generating",
         )) ?? input.readyWork;
       return { work, outputs: reservation.value.outputs };
+    },
+  };
+}
+
+/** Per-slide billing key: one charge, one refund and one event id per slide. */
+export function carouselSlideBillingKey(workItemId: string, slideId: string) {
+  return `creative-work:${workItemId}:carousel-slide:${slideId}:generate`;
+}
+
+function carouselSlideDispatchRefund(
+  input: { workspaceId: string; workItemId: string; userId: string },
+  slideId: string,
+) {
+  return {
+    workspaceId: input.workspaceId,
+    action: "image_derivation" as const,
+    idempotencyKey: `${carouselSlideBillingKey(input.workItemId, slideId)}:dispatch-refund`,
+    amount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+    metadata: {
+      creativeWorkId: input.workItemId,
+      slideId,
+      description: "creative_work_carousel_slide_dispatch_refund",
+    },
+    userId: input.userId,
+  };
+}
+
+export type CarouselSlideSettlementValue = {
+  slide: CreativeWorkCarouselSlide;
+};
+
+type CarouselSlideReservation =
+  GenerationSettlementReservation<CarouselSlideSettlementValue>;
+
+/**
+ * One-unit settlement for a single carousel slide. Reserve claims the row
+ * through the `draft|failed → queued` CAS (so the idempotent queue prevents
+ * duplicate sends), charge debits exactly one `image_derivation` unit under
+ * the per-slide billing key, and dispatch sends one Inngest event whose id is
+ * derived from the same key. Only the claimed slide is refunded when the
+ * dispatch fails; a queued row that no charge owns is taken over idempotently
+ * by the next replay instead of stranding the deck.
+ */
+export function carouselSlideSettlementAdapter(input: {
+  workspaceId: string;
+  workItemId: string;
+  slideId: string;
+  userId: string;
+  /** Shared anchor-board key; null is reserved for the three anchor slides. */
+  anchorKey: string | null;
+  operationKey: string;
+}): GenerationSettlementAdapter<CarouselSlideSettlementValue> {
+  const billingKeyFor = (slideId: string) =>
+    carouselSlideBillingKey(input.workItemId, slideId);
+  const ackKeyFor = (slideId: string) => dispatchAckKey(billingKeyFor(slideId));
+
+  async function currentSlide(slideId: string) {
+    const slides = await listCurrentCarouselSlides(
+      input.workspaceId,
+      input.workItemId,
+    );
+    return slides.find((row) => row.id === slideId) ?? null;
+  }
+
+  /** Queueing without a shared anchor is reserved for the anchor positions. */
+  async function assertAnchorKeyPolicy(slide: CreativeWorkCarouselSlide) {
+    if (input.anchorKey !== null) return;
+    const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);
+    const snapshot = resolveCarouselPreparedSnapshot(
+      aggregate?.work.inputSnapshot ?? null,
+    );
+    if (!snapshot) throw new Error("carousel_prepared_snapshot_missing");
+    if (!carouselAnchorPositions(snapshot.deck.slides.length).includes(slide.position)) {
+      throw new Error("carousel_slide_missing_anchor_key");
+    }
+  }
+
+  async function dispatchCarouselSlideEvent(slide: CreativeWorkCarouselSlide) {
+    await inngest.send({
+      id: `${billingKeyFor(slide.id)}:dispatch`,
+      name: heavyImageEventName(CAROUSEL_SLIDE_GENERATE_EVENT),
+      data: {
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        slideId: slide.id,
+        position: slide.position,
+        anchorKey: input.anchorKey,
+        triggeredByUserId: input.userId,
+      },
+    });
+  }
+
+  return {
+    async reserve() {
+      const existing = await currentSlide(input.slideId);
+      if (!existing) throw new Error("carousel_slide_missing_for_settlement");
+      await assertAnchorKeyPolicy(existing);
+      const queued = await queueCarouselSlide({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        slideId: input.slideId,
+        anchorKey: input.anchorKey,
+        operationKey: input.operationKey,
+      });
+      if (queued) return { claimed: true, value: { slide: queued } };
+      const slide = (await currentSlide(input.slideId)) ?? existing;
+      return { claimed: false, value: { slide } };
+    },
+    async join(reservation) {
+      const refund = carouselSlideDispatchRefund(input, input.slideId);
+      let slide = reservation.value.slide;
+      for (let attempt = 0; attempt < 80; attempt += 1) {
+        if (slide.status === "completed" || slide.status === "processing") {
+          return { status: "settled" as const, value: { slide } };
+        }
+        if (slide.status === "failed") {
+          return {
+            status: "dispatch_failed" as const,
+            failure: { value: { slide }, refunds: [refund] },
+          };
+        }
+        const chargeUsage = await getUsageByIdempotencyKey(
+          input.workspaceId,
+          billingKeyFor(slide.id),
+        );
+        const recordedRefund = await getUsageByIdempotencyKey(
+          input.workspaceId,
+          refund.idempotencyKey,
+        );
+        if (recordedRefund) {
+          return {
+            status: "dispatch_failed" as const,
+            failure: { value: { slide }, refunds: [refund] },
+          };
+        }
+        if (!chargeUsage) {
+          // No charge owns the queued row (a pre-provider failure left it
+          // behind). Take the dispatch over idempotently: the per-slide
+          // billing key and stable event id make this safe under races.
+          break;
+        }
+        const ack = settlementDispatchMetadata(chargeUsage.metadata);
+        if (ack.required) {
+          const recordedAck =
+            ack.key &&
+            (await getUsageByIdempotencyKey(input.workspaceId, ack.key));
+          if (recordedAck) {
+            return { status: "settled" as const, value: { slide } };
+          }
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        slide = (await currentSlide(input.slideId)) ?? slide;
+      }
+      // Takeover/recovery: the idempotent spend either confirms the single
+      // unit or reports the block; the send is deduplicated by Inngest.
+      slide = (await currentSlide(input.slideId)) ?? slide;
+      const spendResult = await spend({
+        workspaceId: input.workspaceId,
+        action: "image_derivation",
+        idempotencyKey: billingKeyFor(slide.id),
+        amount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+        metadata: {
+          creativeWorkId: input.workItemId,
+          slideId: slide.id,
+          chargeKind: "unit",
+          destinationKind: "creative_work_carousel_slide",
+          recovery: true,
+        },
+        userId: input.userId,
+      });
+      if (!spendResult.ok) {
+        return {
+          status: "dispatch_failed" as const,
+          failure: { value: { slide }, refunds: [] },
+        };
+      }
+      try {
+        await dispatchCarouselSlideEvent(slide);
+      } catch (error) {
+        logger.error(
+          `[generation-settlement] carousel takeover dispatch uncertain slideId=${slide.id}`,
+          error,
+        );
+        throw new Error("generation_settlement_dispatch_uncertain");
+      }
+      await recordDispatchAck(
+        input.workspaceId,
+        {
+          creativeWorkId: input.workItemId,
+          slideId: slide.id,
+          recovery: true,
+        },
+        ackKeyFor(slide.id),
+      );
+      return { status: "settled" as const, value: { slide } };
+    },
+    async charge(reservation) {
+      const slide = reservation.value.slide;
+      const spendResult = await spend({
+        workspaceId: input.workspaceId,
+        action: "image_derivation",
+        idempotencyKey: billingKeyFor(slide.id),
+        amount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+        metadata: {
+          creativeWorkId: input.workItemId,
+          slideId: slide.id,
+          position: slide.position,
+          chargeKind: "unit",
+          destinationKind: "creative_work_carousel_slide",
+          settlementDispatchAckRequired: true,
+          settlementDispatchAckKey: ackKeyFor(slide.id),
+        },
+        userId: input.userId,
+      });
+      return toSettlementCharge(spendResult);
+    },
+    async resolveReplay(reservation) {
+      const refund = carouselSlideDispatchRefund(input, input.slideId);
+      let slide = (await currentSlide(input.slideId)) ?? reservation.value.slide;
+      const chargeUsage = await getUsageByIdempotencyKey(
+        input.workspaceId,
+        billingKeyFor(slide.id),
+      );
+      const ack = settlementDispatchMetadata(chargeUsage?.metadata);
+      for (let attempt = 0; attempt < 80; attempt += 1) {
+        const recordedRefund = await getUsageByIdempotencyKey(
+          input.workspaceId,
+          refund.idempotencyKey,
+        );
+        if (recordedRefund || slide.status === "failed") {
+          return {
+            status: "dispatch_failed" as const,
+            failure: { value: { slide }, refunds: [refund] },
+          };
+        }
+        if (slide.status === "completed" || slide.status === "processing") {
+          return { status: "settled" as const, value: { slide } };
+        }
+        if (ack.required) {
+          const recordedAck =
+            ack.key &&
+            (await getUsageByIdempotencyKey(input.workspaceId, ack.key));
+          if (recordedAck) {
+            return { status: "settled" as const, value: { slide } };
+          }
+        } else if (slide.status !== "queued") {
+          return { status: "settled" as const, value: { slide } };
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        slide = (await currentSlide(input.slideId)) ?? slide;
+      }
+      // Missing ack is not proof of dispatch. Resume the idempotent send for
+      // the still-queued row, then write ack and settle.
+      if (slide.status === "queued") {
+        try {
+          await dispatchCarouselSlideEvent(slide);
+        } catch (error) {
+          logger.error(
+            `[generation-settlement] carousel recovery dispatch uncertain slideId=${slide.id}`,
+            error,
+          );
+          throw new Error("generation_settlement_dispatch_uncertain");
+        }
+      }
+      await recordDispatchAck(
+        input.workspaceId,
+        {
+          creativeWorkId: input.workItemId,
+          slideId: slide.id,
+          recovery: true,
+        },
+        ackKeyFor(slide.id),
+      );
+      return { status: "settled" as const, value: { slide } };
+    },
+    // The reservation has no row of its own to delete: the CAS already moved
+    // the slide to queued. A queued row that ends up without a charge is
+    // re-driven idempotently by the next replay (see join()).
+    release: async () => undefined,
+    async dispatch(reservation) {
+      await dispatchCarouselSlideEvent(reservation.value.slide);
+    },
+    async failDispatch(reservation, error) {
+      logger.error(
+        `[generation-settlement] carousel slide dispatch FAILED slideId=${reservation.value.slide.id}`,
+        error,
+      );
+      return {
+        value: reservation.value,
+        refunds: [carouselSlideDispatchRefund(input, reservation.value.slide.id)],
+      };
+    },
+    async completeDispatch(reservation) {
+      await recordDispatchAck(
+        input.workspaceId,
+        {
+          creativeWorkId: input.workItemId,
+          slideId: reservation.value.slide.id,
+          position: reservation.value.slide.position,
+        },
+        ackKeyFor(reservation.value.slide.id),
+      );
+      return reservation.value;
     },
   };
 }

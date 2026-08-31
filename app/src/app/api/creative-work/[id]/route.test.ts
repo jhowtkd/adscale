@@ -113,8 +113,14 @@ vi.mock("@/server/repositories/creative-work", () => ({
   updateCreativeWorkSourceIfUnchanged: (...args: unknown[]) => updateSourceCasMock(...args),
   mutateCreativeWorkPieceReference: (...args: unknown[]) => mutatePieceReferenceMock(...args),
   mutateCreativeWorkDraftSource: (...args: unknown[]) => mutateDraftSourceMock(...args),
+  isCreativeWorkRevisionConflict: (error: unknown) => error instanceof Error && (error as Error & { code?: unknown }).code === "stale_input",
   deleteCreativeWorkSource: (...args: unknown[]) => deleteSourceMock(...args),
   linkCreativeWorkCampaign: (...args: unknown[]) => linkCampaignMock(...args),
+}));
+
+const listCurrentCarouselSlidesMock = vi.hoisted(() => vi.fn());
+vi.mock("@/server/repositories/creative-work-carousel", () => ({
+  listCurrentCarouselSlides: (...args: unknown[]) => listCurrentCarouselSlidesMock(...args),
 }));
 
 vi.mock("@/server/billing/credits", () => ({
@@ -153,15 +159,36 @@ vi.mock("@/server/application/prepare-creative-work", () => ({
   detectCreativeWorkDraftBrandConflict: (...args: unknown[]) => detectDraftConflictMock(...args),
 }));
 
+const prepareCarouselMock = vi.hoisted(() => vi.fn());
+vi.mock("@/server/application/prepare-carousel-work", () => ({
+  prepareCarouselWork: (...args: unknown[]) => prepareCarouselMock(...args),
+}));
+
+const approveCarouselDeckMock = vi.hoisted(() => vi.fn());
+vi.mock("@/server/application/export-carousel-work", () => ({
+  approveCarouselDeck: (...args: unknown[]) => approveCarouselDeckMock(...args),
+}));
+
 function makeParams(id: string) {
   return Promise.resolve({ id });
 }
 
 function requestPatch(body: unknown) {
+  const action = typeof body === "object" && body !== null && "action" in body
+    ? (body as { action?: unknown }).action
+    : null;
+  const requiresRevision = new Set([
+    "autosave", "attachSource", "updateSource", "retrySource", "removeSource",
+    "updatePieceReference", "replacePieceReference", "promotePieceReference", "editSourceAnalysis",
+    "resolveBrandConflict",
+  ]).has(typeof action === "string" ? action : "");
+  const payload = requiresRevision && typeof body === "object" && body !== null
+    ? { expectedUpdatedAt: "2026-07-13T12:00:00.000Z", ...body }
+    : body;
   return PATCH(new Request("http://localhost/api/creative-work/work-1", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   }), { params: makeParams("work-1") });
 }
 
@@ -645,6 +672,80 @@ describe("GET /api/creative-work/[id]", () => {
     expect(res.status).toBe(404);
   });
 
+  it("projects carousel slides without private keys and summarizes deck quality", async () => {
+    listCurrentCarouselSlidesMock.mockResolvedValue([{
+      id: "slide-1",
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      position: 1,
+      role: "hook",
+      primaryText: "Gancho",
+      secondaryText: null,
+      copyAuthority: "ai_proposal",
+      status: "completed",
+      providerBaseKey: "private/base.png",
+      outputKey: "private/output.png",
+      previewKey: "private/preview.png",
+      anchorKey: "private/anchor.png",
+      generationOperationKey: "deck-r1:slide-1",
+      visualContractHash: "hash",
+      createdAt: new Date("2026-08-30T12:00:00.000Z"),
+      updatedAt: new Date("2026-08-30T12:00:00.000Z"),
+    }]);
+    getWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        toolKind: "carousel",
+        carouselApprovedRevision: "deck-r1",
+        carouselQuality: {
+          version: 1,
+          objectivePassed: true,
+          advisoryWarnings: ["aviso"],
+          contactSheetKey: "private/contact-sheet.png",
+          reviewedAt: "2026-08-30T13:00:00.000Z",
+        },
+      },
+      outputs: [],
+      sources: [],
+    });
+
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(listCurrentCarouselSlidesMock).toHaveBeenCalledWith("workspace-1", "work-1");
+    expect(body.carouselSlides).toHaveLength(1);
+    expect(body.carouselSlides[0]).toEqual(expect.objectContaining({
+      id: "slide-1",
+      status: "completed",
+      hasOutput: true,
+    }));
+    expect(JSON.stringify(body.carouselSlides[0])).not.toMatch(
+      /providerBaseKey|outputKey|previewKey|anchorKey|generationOperationKey|private\//,
+    );
+    expect(body.carouselQuality).toEqual({
+      version: 1,
+      objectivePassed: true,
+      advisoryWarnings: ["aviso"],
+      reviewedAt: "2026-08-30T13:00:00.000Z",
+      hasContactSheet: true,
+    });
+    expect(JSON.stringify(body.work)).not.toMatch(/contactSheetKey|carouselQuality|private\//);
+  });
+
+  it("projects an empty carousel surface for non-carousel works", async () => {
+    listCurrentCarouselSlidesMock.mockClear();
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [] });
+
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(listCurrentCarouselSlidesMock).not.toHaveBeenCalled();
+    expect(body.carouselSlides).toEqual([]);
+    expect(body.carouselQuality).toBeNull();
+  });
+
   it("turns stale generation into a terminal retryable failure", async () => {
     failStaleOutputsMock
       .mockResolvedValueOnce([{ id: "o1", status: "failed" }])
@@ -949,11 +1050,12 @@ describe("PATCH /api/creative-work/[id]", () => {
     });
     const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "autosave", request: "Novo pedido", intent: "variations", format: "1:1", settings: { targetFormats: [] } }),
+      body: JSON.stringify({ action: "autosave", expectedUpdatedAt: "2026-07-13T12:00:00.000Z", request: "Novo pedido", intent: "variations", format: "1:1", settings: { targetFormats: [] } }),
     }), { params: makeParams("work-1") });
     expect(res.status).toBe(200);
     expect(autosaveDraftMock).toHaveBeenCalledWith({
       workspaceId: "workspace-1", workItemId: "work-1",
+      expectedUpdatedAt: new Date("2026-07-13T12:00:00.000Z"),
       request: "Novo pedido", intent: "variations", format: "1:1", settings: { targetFormats: [] },
     });
     expect(autosaveDraftMock.mock.calls[0][0]).not.toHaveProperty("clientProfileId");
@@ -979,6 +1081,26 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect((await res.json()).code).toBe("creativeWorkPieceReferenceLimit");
   });
 
+  it("maps the carousel autosave reference cap to its dedicated error code", async () => {
+    autosaveDraftMock.mockResolvedValue({ work: null, error: "carousel_reference_limit", sourcesNeedingSingleAnalysis: [] });
+    const res = await requestPatch({ action: "autosave", request: "Nova peça", intent: "carousel", format: "4:5", settings: { targetFormats: [] } });
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("creativeWorkCarouselReferenceLimit");
+  });
+
+  it("maps the carousel attach cap to its dedicated error code before analysis dispatch", async () => {
+    getWorkMock.mockResolvedValue({ work: { ...workItem, toolKind: "carousel" }, outputs: [], sources: [] });
+    getAssetMock.mockResolvedValue({ id: "asset-1", workspaceId: "workspace-1", key: "trusted/ref.png", type: "image/png" });
+    createSourceMock.mockResolvedValue({ limitReached: true, reason: "carousel_reference_limit" });
+
+    const res = await requestPatch({ action: "attachSource", assetId: "asset-1", usage: "style" });
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("creativeWorkCarouselReferenceLimit");
+    expect(inngestSendMock).not.toHaveBeenCalled();
+    expect(analyzeSourceMock).not.toHaveBeenCalled();
+  });
+
   it("preserves late-autosave semantics: missing is 404 and non-draft is 409", async () => {
     autosaveDraftMock.mockResolvedValueOnce({ work: null, error: "not_found", sourcesNeedingSingleAnalysis: [] });
     const missing = await requestPatch({ action: "autosave", request: "Nova peça", intent: "single", format: "4:5", settings: { targetFormats: [] } });
@@ -987,6 +1109,20 @@ describe("PATCH /api/creative-work/[id]", () => {
     const late = await requestPatch({ action: "autosave", request: "Nova peça", intent: "single", format: "4:5", settings: { targetFormats: [] } });
     expect(late.status).toBe(409);
     expect((await late.json()).code).toBe("creativeWorkNotDraft");
+  });
+
+  it("maps a typed repository revision conflict to stale_input", async () => {
+    autosaveDraftMock.mockRejectedValueOnce(Object.assign(
+      new Error("creative_work_revision_conflict"),
+      { code: "stale_input" },
+    ));
+
+    const response = await requestPatch({
+      action: "autosave", request: "Nova peça", intent: "single", format: "4:5", settings: { targetFormats: [] },
+    });
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe("stale_input");
   });
 
   it("prepares through the existing detail patch", async () => {
@@ -1167,6 +1303,71 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(body.details).toEqual(details);
   });
 
+  it("routes the prepare action to the carousel command for carousel works", async () => {
+    getWorkMock.mockResolvedValue({ work: { ...workItem, toolKind: "carousel" }, outputs: [], sources: [] });
+    prepareCarouselMock.mockResolvedValue({
+      ok: true,
+      value: {
+        work: { ...workItem, toolKind: "carousel" },
+        preparedRevision: "prep-1",
+        deck: { version: 1, slides: [] },
+        visualContract: { version: 1, contractHash: "a".repeat(64) },
+      },
+    });
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
+    }), { params: makeParams("work-1") });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(prepareCarouselMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1" });
+    expect(prepareMock).not.toHaveBeenCalled();
+    expect(body).toEqual(expect.objectContaining({
+      preparedRevision: "prep-1",
+      deck: expect.objectContaining({ version: 1 }),
+      visualContract: expect.objectContaining({ contractHash: "a".repeat(64) }),
+    }));
+  });
+
+  it.each([
+    ["blocking_questions", 409],
+    ["work_not_draft", 409],
+    ["sources_not_ready", 409],
+    ["stale_input", 409],
+    ["temporary_reference_limit", 409],
+    ["editorial_invalid", 422],
+    ["invalid_context", 422],
+  ])("maps carousel prepare %s to %i", async (code, status) => {
+    getWorkMock.mockResolvedValue({ work: { ...workItem, toolKind: "carousel" }, outputs: [], sources: [] });
+    prepareCarouselMock.mockResolvedValue({ ok: false, error: { code, details: { findings: [] } } });
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
+    }), { params: makeParams("work-1") });
+    expect(res.status).toBe(status);
+  });
+
+  it("carries carousel editorial field findings in the 422 details", async () => {
+    getWorkMock.mockResolvedValue({ work: { ...workItem, toolKind: "carousel" }, outputs: [], sources: [] });
+    const findings = [{ code: "unsupported_claim", path: "slides.1.primaryText", message: "sem origem", blocking: true }];
+    prepareCarouselMock.mockResolvedValue({ ok: false, error: { code: "editorial_invalid", details: { findings } } });
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
+    }), { params: makeParams("work-1") });
+    const body = await res.json();
+    expect(res.status).toBe(422);
+    expect(body.code).toBe("editorial_invalid");
+    expect(body.details.findings).toEqual(findings);
+  });
+
+  it("returns 404 before choosing a prepare path when the work is missing", async () => {
+    getWorkMock.mockResolvedValue(null);
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
+    }), { params: makeParams("work-1") });
+    expect(res.status).toBe(404);
+    expect(prepareMock).not.toHaveBeenCalled();
+    expect(prepareCarouselMock).not.toHaveBeenCalled();
+  });
+
   it("persists the brand conflict choice bound to the detected brand and invalidates the prepared blocks so the same draft resumes", async () => {
     getWorkMock.mockResolvedValue({
       work: { ...workItem, toolKind: "restyle", settings: { targetFormats: [] } },
@@ -1179,15 +1380,84 @@ describe("PATCH /api/creative-work/[id]", () => {
       sourceId: "source-1",
       choices: ["source", "active"],
     });
-    updateDraftMock.mockResolvedValue({ ...workItem, toolKind: "restyle" });
+    updateDraftCasMock.mockResolvedValue({ ...workItem, toolKind: "restyle" });
     const res = await requestPatch({ action: "resolveBrandConflict", choice: "source" });
     expect(res.status).toBe(200);
-    expect(updateDraftMock).toHaveBeenCalledWith("workspace-1", "work-1", {
-      settings: { targetFormats: [], brandConflictChoice: "source", brandConflictDetectedBrand: "XTB" },
-      brief: null,
-      copy: null,
-      inputSnapshot: null,
+    expect(updateDraftCasMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      new Date("2026-07-13T12:00:00.000Z"),
+      {
+        settings: { targetFormats: [], brandConflictChoice: "source", brandConflictDetectedBrand: "XTB" },
+        brief: null,
+        copy: null,
+        inputSnapshot: null,
+      },
+    );
+    expect(updateDraftMock).not.toHaveBeenCalled();
+    expect(confirmMock).not.toHaveBeenCalled();
+    expect(inngestSendMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a stale resolveBrandConflict from R1 after a concurrent R2 autosave without overwriting settings", async () => {
+    getWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        toolKind: "restyle",
+        settings: { targetFormats: [], request: "R2" },
+        updatedAt: new Date("2026-07-13T12:00:01.000Z"),
+      },
+      outputs: [],
+      sources: [],
     });
+    detectDraftConflictMock.mockResolvedValue({
+      detectedBrand: "XTB",
+      activeBrand: "Cenbrap",
+      sourceId: "source-1",
+      choices: ["source", "active"],
+    });
+    const res = await requestPatch({
+      action: "resolveBrandConflict",
+      choice: "source",
+      expectedUpdatedAt: "2026-07-13T12:00:00.000Z",
+    });
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({ code: "stale_input" });
+    expect(updateDraftCasMock).not.toHaveBeenCalled();
+    expect(updateDraftMock).not.toHaveBeenCalled();
+    expect(detectDraftConflictMock).not.toHaveBeenCalled();
+    expect(confirmMock).not.toHaveBeenCalled();
+    expect(inngestSendMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when the CAS write loses a race after the revision pre-check", async () => {
+    getWorkMock.mockResolvedValue({
+      work: { ...workItem, toolKind: "restyle", settings: { targetFormats: [] } },
+      outputs: [],
+      sources: [],
+    });
+    detectDraftConflictMock.mockResolvedValue({
+      detectedBrand: "XTB",
+      activeBrand: "Cenbrap",
+      sourceId: "source-1",
+      choices: ["source", "active"],
+    });
+    updateDraftCasMock.mockResolvedValue(null);
+    const res = await requestPatch({ action: "resolveBrandConflict", choice: "active" });
+    expect(res.status).toBe(409);
+    expect(updateDraftCasMock).toHaveBeenCalledOnce();
+    expect(updateDraftMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects resolveBrandConflict without expectedUpdatedAt before reading the draft", async () => {
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "resolveBrandConflict", choice: "source" }),
+    }), { params: makeParams("work-1") });
+    expect(res.status).toBe(400);
+    expect(getWorkMock).not.toHaveBeenCalled();
+    expect(updateDraftCasMock).not.toHaveBeenCalled();
   });
 
   it("rejects resolveBrandConflict when no brand conflict is detectable in the current draft", async () => {
@@ -1276,12 +1546,12 @@ describe("PATCH /api/creative-work/[id]", () => {
   it("attaches a workspace asset and dispatches analysis without trusting browser metadata", async () => {
     const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "attachSource", assetId: "asset-1", usage: "both" }),
+      body: JSON.stringify({ action: "attachSource", expectedUpdatedAt: "2026-07-13T12:00:00.000Z", assetId: "asset-1", usage: "both" }),
     }), { params: makeParams("work-1") });
 
     expect(res.status).toBe(200);
     expect(getAssetMock).toHaveBeenCalledWith("asset-1", "workspace-1");
-    expect(createSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", assetId: "asset-1", usage: "both", usageConfirmed: true, status: "uploaded" });
+    expect(createSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", expectedUpdatedAt: new Date("2026-07-13T12:00:00.000Z"), assetId: "asset-1", usage: "both", usageConfirmed: true, status: "uploaded" });
     expect(inngestSendMock).toHaveBeenCalledWith({ name: "creative-work.source.analyze", data: { workspaceId: "workspace-1", workItemId: "work-1", sourceId: "source-1" } });
   });
 
@@ -1324,7 +1594,7 @@ describe("PATCH /api/creative-work/[id]", () => {
 
     expect(valid.status).toBe(200);
     expect(mutatePieceReferenceMock).toHaveBeenCalledWith({
-      workspaceId: "workspace-1", workItemId: "work-1", sourceId,
+      workspaceId: "workspace-1", workItemId: "work-1", expectedUpdatedAt: new Date("2026-07-13T12:00:00.000Z"), sourceId,
       mutation: { kind: "correct", category: "style_reference", userInstruction: "Somente a textura" },
     });
 
@@ -1359,7 +1629,7 @@ describe("PATCH /api/creative-work/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(mutatePieceReferenceMock).toHaveBeenCalledWith({
-      workspaceId: "workspace-1", workItemId: "work-1", sourceId,
+      workspaceId: "workspace-1", workItemId: "work-1", expectedUpdatedAt: new Date("2026-07-13T12:00:00.000Z"), sourceId,
       mutation: { kind: "replace", assetId: replacementAssetId },
     });
     expect(inngestSendMock).toHaveBeenCalledWith({ name: "creative-work.source.analyze", data: { workspaceId: "workspace-1", workItemId: "work-1", sourceId } });
@@ -1465,12 +1735,12 @@ describe("PATCH /api/creative-work/[id]", () => {
 
     const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "attachSource", templateId: "template-1", usage: "both" }),
+      body: JSON.stringify({ action: "attachSource", expectedUpdatedAt: "2026-07-13T12:00:00.000Z", templateId: "template-1", usage: "both" }),
     }), { params: makeParams("work-1") });
 
     expect(res.status).toBe(200);
     expect(getTemplateMock).toHaveBeenCalledWith("template-1", "workspace-1");
-    expect(createSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", templateId: "template-1", usage: "both", usageConfirmed: true, status: "uploaded" });
+    expect(createSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", expectedUpdatedAt: new Date("2026-07-13T12:00:00.000Z"), templateId: "template-1", usage: "both", usageConfirmed: true, status: "uploaded" });
     expect(analyzeSourceMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1", sourceId: "source-template" });
     expect(inngestSendMock).not.toHaveBeenCalled();
   });
@@ -1675,7 +1945,7 @@ describe("PATCH /api/creative-work/[id]", () => {
     getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [{ id: "source-1", usage: "content", status: "ready" }] });
     await requestPatch({ action: "removeSource", sourceId: "source-1" });
     expect(mutateDraftSourceMock).toHaveBeenCalledWith({
-      workspaceId: "workspace-1", workItemId: "work-1", sourceId: "source-1", mutation: { kind: "remove" },
+      workspaceId: "workspace-1", workItemId: "work-1", expectedUpdatedAt: new Date("2026-07-13T12:00:00.000Z"), sourceId: "source-1", mutation: { kind: "remove" },
     });
     expect(inngestSendMock).not.toHaveBeenCalled();
   });
@@ -1835,5 +2105,75 @@ describe("POST /api/creative-work/[id] layerization callback", () => {
       attemptId: "attempt-1",
       token: "token",
     }));
+  });
+});
+
+describe("PATCH /api/creative-work/[id] approveCarousel", () => {
+  beforeEach(() => {
+    approveCarouselDeckMock.mockReset();
+    linkCampaignMock.mockReset();
+    createSourceMock.mockReset();
+  });
+
+  it("dispatches the strict approveCarousel action to the workspace-scoped command", async () => {
+    approveCarouselDeckMock.mockResolvedValue({
+      ok: true,
+      replay: false,
+      value: { work: { id: "work-1", carouselApprovedRevision: "deck-r1" }, replay: false },
+    });
+    const response = await requestPatch({ action: "approveCarousel", revision: "deck-r1" });
+
+    expect(response.status).toBe(201);
+    expect(approveCarouselDeckMock).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      revision: "deck-r1",
+    });
+    await expect(response.json()).resolves.toMatchObject({ approvedRevision: "deck-r1", replay: false });
+  });
+
+  it("returns 200 on a replayed approval", async () => {
+    approveCarouselDeckMock.mockResolvedValue({
+      ok: true,
+      value: { work: { id: "work-1", carouselApprovedRevision: "deck-r1" }, replay: true },
+    });
+    const response = await requestPatch({ action: "approveCarousel", revision: "deck-r1" });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ replay: true });
+  });
+
+  it("rejects bodies outside the strict schema before any command runs", async () => {
+    const missingRevision = await requestPatch({ action: "approveCarousel" });
+    expect(missingRevision.status).toBe(400);
+
+    const extraField = await requestPatch({ action: "approveCarousel", revision: "deck-r1", outputId: "output-1" });
+    expect(extraField.status).toBe(400);
+
+    const blankRevision = await requestPatch({ action: "approveCarousel", revision: "" });
+    expect(blankRevision.status).toBe(400);
+
+    expect(approveCarouselDeckMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["work_not_found", 404, undefined],
+    ["work_not_carousel", 409, undefined],
+    ["stale_input", 409, undefined],
+    ["revision_conflict", 409, undefined],
+  ])("maps %s to %i", async (code, status) => {
+    approveCarouselDeckMock.mockResolvedValue({ ok: false, error: { code } });
+    const response = await requestPatch({ action: "approveCarousel", revision: "deck-r1" });
+    expect(response.status).toBe(status);
+  });
+
+  it("carries the objective findings in the 409 details and never mutates campaigns or outputs", async () => {
+    const findings = [{ path: "positions.2", code: "missing_position", message: "position 2 has no current slide" }];
+    approveCarouselDeckMock.mockResolvedValue({ ok: false, error: { code: "deck_not_ready", details: { findings } } });
+    const response = await requestPatch({ action: "approveCarousel", revision: "deck-r1" });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ details: { findings } });
+    expect(linkCampaignMock).not.toHaveBeenCalled();
+    expect(createSourceMock).not.toHaveBeenCalled();
   });
 });

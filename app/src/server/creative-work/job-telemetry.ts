@@ -41,7 +41,32 @@ export interface CreativeWorkOutputTelemetryBase {
   environment?: string;
 }
 
-export interface CreativeWorkOutputStageTelemetry extends CreativeWorkOutputTelemetryBase {
+/**
+ * Task 10 — safe carousel deck correlation fields (operational telemetry
+ * only; the funnel events themselves stay in beta-analytics). Counts, kinds
+ * and deck states ONLY: copy, prompts, answers, fact values, storage keys
+ * and reference names must never enter these fields.
+ */
+export interface CarouselDeckTelemetryFields {
+  /** Planned (or current) deck slide count. */
+  slideCount?: number;
+  /** Operator input kind: short_idea | long_text | pre_split. */
+  inputKind?: string;
+  /** Blocking questions the planner asked before the deck froze. */
+  blockingQuestionCount?: number;
+  /** Anchor-chain state: cover | middle | closing | remaining | complete. */
+  anchorState?: string;
+  /** Current failed slide count of the deck. */
+  failedSlideCount?: number;
+  /** Manual retry commands issued for this deck. */
+  manualRetryCount?: number;
+  /** Deck revisions observed (reorder/global-direction revisions). */
+  deckRevisionCount?: number;
+}
+
+export interface CreativeWorkOutputStageTelemetry
+  extends CreativeWorkOutputTelemetryBase,
+    Partial<CarouselDeckTelemetryFields> {
   stage: string;
   status: "started" | "completed" | "failed";
   result?: "success" | "failed" | "skipped";
@@ -57,7 +82,9 @@ export interface CreativeWorkOutputStageTelemetry extends CreativeWorkOutputTele
   leaseStage?: string;
 }
 
-export interface CreativeWorkOutputTerminalTelemetry extends CreativeWorkOutputTelemetryBase {
+export interface CreativeWorkOutputTerminalTelemetry
+  extends CreativeWorkOutputTelemetryBase,
+    Partial<CarouselDeckTelemetryFields> {
   outcome: "completed" | "failed" | "canceled" | "skipped" | "late_completion_discarded" | "lease_lost";
   failureCode?: string;
   verdict?: string | null;
@@ -115,7 +142,7 @@ export function logCreativeWorkGenerationLifecycle(fields: {
   dispatchDurationMs?: number;
   result?: "accepted" | "sent" | "failed" | "recovered";
   errorMessage?: string;
-}): void {
+} & Partial<CarouselDeckTelemetryFields>): void {
   const { event, ...rest } = fields;
   const safeFields = rest.errorMessage
     ? { ...rest, errorMessage: truncateTelemetryMessage(rest.errorMessage) }

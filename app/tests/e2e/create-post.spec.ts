@@ -602,6 +602,7 @@ interface V1WorkDetail {
     id: string;
     status: string;
     toolKind: string;
+    updatedAt: string;
     settings: Record<string, unknown>;
     copy: { headline: string; body: string; cta: string } | null;
     identitySnapshot?: {
@@ -736,9 +737,17 @@ async function waitForSourcesReady(request: APIRequestContext, workId: string): 
   ).toBe(true);
 }
 
-async function apiGenerateInitial(request: APIRequestContext, workId: string): Promise<void> {
+function preparedRevisionFrom(body: Record<string, unknown>): string {
+  const preparedPlan = body.preparedPlan;
+  if (!preparedPlan || typeof preparedPlan !== "object" || typeof (preparedPlan as { preparedRevision?: unknown }).preparedRevision !== "string") {
+    throw new Error("prepare must return preparedPlan.preparedRevision before initial generation");
+  }
+  return (preparedPlan as { preparedRevision: string }).preparedRevision;
+}
+
+async function apiGenerateInitial(request: APIRequestContext, workId: string, preparedRevision: string): Promise<void> {
   const res = await request.post(`/api/creative-work/${workId}/generate`, {
-    data: { action: "initial" },
+    data: { action: "initial", preparedRevision },
   });
   expect(res.status(), `generate must answer 202 (got ${res.status()})`).toBe(202);
 }
@@ -776,7 +785,7 @@ async function runV1Flow(
   if ((input.sources ?? []).length > 0) await waitForSourcesReady(request, workId);
   const prepared = await apiPrepare(request, workId);
   expect(prepared.status, `prepare must succeed (got ${prepared.status}): ${JSON.stringify(prepared.body)}`).toBe(200);
-  await apiGenerateInitial(request, workId);
+  await apiGenerateInitial(request, workId, preparedRevisionFrom(prepared.body));
   const detail = await waitForTerminalOutputs(request, workId);
   expect(detail.work.id).toBe(workId);
   return detail;
@@ -1034,7 +1043,7 @@ test.describe("Creative Work v1 quality-recovery matrix (R-010)", () => {
       });
       const prepared = await apiPrepare(page.request, workId);
       expect(prepared.status).toBe(200);
-      await apiGenerateInitial(page.request, workId);
+      await apiGenerateInitial(page.request, workId, preparedRevisionFrom(prepared.body));
       const confirmed = await apiGetWork(page.request, workId);
       expect(confirmed.work.identitySnapshot?.brandKnowledge).toMatchObject({
         mode: "published",
@@ -1233,6 +1242,7 @@ test.describe("Creative Work v1 quality-recovery matrix (R-010)", () => {
     const edit = await page.request.patch(`/api/creative-work/${workId}`, {
       data: {
         action: "editSourceAnalysis",
+        expectedUpdatedAt: new Date(current.work.updatedAt).toISOString(),
         sourceId: contentSource!.id,
         content: {
           ...(currentContent.contentAnalysis ?? {}),
@@ -1254,8 +1264,13 @@ test.describe("Creative Work v1 quality-recovery matrix (R-010)", () => {
     expect(conflictDetails.choices).toEqual(["source", "active"]);
 
     // The choice persists on the SAME draft; the resumed prepare succeeds.
+    const beforeResolve = await apiGetWork(page.request, workId);
     const resolve = await page.request.patch(`/api/creative-work/${workId}`, {
-      data: { action: "resolveBrandConflict", choice: "active" },
+      data: {
+        action: "resolveBrandConflict",
+        choice: "active",
+        expectedUpdatedAt: new Date(beforeResolve.work.updatedAt).toISOString(),
+      },
     });
     expect(resolve.ok(), `resolveBrandConflict must succeed (got ${resolve.status()})`).toBeTruthy();
     const resolvedWork = (await resolve.json()) as { work: { id: string; settings: { brandConflictChoice?: string } } };
@@ -1264,7 +1279,7 @@ test.describe("Creative Work v1 quality-recovery matrix (R-010)", () => {
 
     const prepared = await apiPrepare(page.request, workId);
     expect(prepared.status).toBe(200);
-    await apiGenerateInitial(page.request, workId);
+    await apiGenerateInitial(page.request, workId, preparedRevisionFrom(prepared.body));
     const finished = await waitForTerminalOutputs(page.request, workId);
     expect(finished.outputs).toHaveLength(1);
     expect(finished.outputs[0].status).toBe("completed");

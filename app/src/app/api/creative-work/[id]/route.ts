@@ -6,6 +6,8 @@ import {
   detectCreativeWorkDraftBrandConflict,
   prepareCreativeWork,
 } from "@/server/application/prepare-creative-work";
+import { prepareCarouselWork } from "@/server/application/prepare-carousel-work";
+import { approveCarouselDeck } from "@/server/application/export-carousel-work";
 import { analyzeCreativeWorkSource } from "@/server/application/analyze-creative-work-source";
 import { contentBriefSchema, styleBriefSchema } from "@/server/ai/image-analysis";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -29,6 +31,7 @@ import { layerEditorMutableSnapshotSchema } from "@/server/layer-editor/contract
 import { requestCreativeWorkLayerRegeneration } from "@/server/application/request-creative-work-layer-regeneration";
 import { publishCreativeWorkLayerEditor } from "@/server/application/publish-creative-work-layer-editor";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
+import { projectPreparedPlanV1 } from "@/server/creative-work/prepared-plan";
 import {
   CREATIVE_SOURCE_USAGES,
   CREATIVE_WORK_BRAND_CHOICES,
@@ -61,12 +64,13 @@ import {
   recordCreativeWorkGenerationAggregate,
   refreshCreativeWorkStatus,
   updateCreativeWorkSourceIfUnchanged,
-  updateCreativeWorkDraft,
   updateCreativeWorkDraftIfUnchanged,
   autosaveCreativeWorkDraft,
   mutateCreativeWorkPieceReference,
   mutateCreativeWorkDraftSource,
+  isCreativeWorkRevisionConflict,
 } from "@/server/repositories/creative-work";
+import { listCurrentCarouselSlides } from "@/server/repositories/creative-work-carousel";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getTemplateById } from "@/server/repositories/template";
 import { inngest } from "@/server/jobs/client";
@@ -166,6 +170,7 @@ const confirmCreativeWorkSchema = z
 
 const autosaveSchema = z.object({
   action: z.literal("autosave"),
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
   request: z.string(),
   intent: creativeWorkIntentSchema,
   format: creativeWorkFormatSchema,
@@ -175,6 +180,10 @@ const autosaveSchema = z.object({
   if (!parsed.success) parsed.error.issues.forEach((issue) => context.addIssue(issue));
 });
 const prepareSchema = z.object({ action: z.literal("prepare") }).strict();
+const approveCarouselSchema = z.object({
+  action: z.literal("approveCarousel"),
+  revision: z.string().min(1),
+}).strict();
 const editBriefingSchema = z.object({
   action: z.literal("editBriefing"),
   field: z.enum(CREATIVE_WORK_BRIEFING_FIELDS),
@@ -186,6 +195,7 @@ const editBriefingSchema = z.object({
 const resolveBrandConflictSchema = z.object({
   action: z.literal("resolveBrandConflict"),
   choice: z.enum(CREATIVE_WORK_BRAND_CHOICES),
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
 }).strict();
 const layerizeOutputSchema = z.object({
   action: z.literal("layerizeOutput"),
@@ -203,29 +213,30 @@ const publishLayerEditorSchema=z.object({action:z.literal("publishLayerEditor"),
 const linkCampaignSchema = z.object({ action: z.literal("linkCampaign"), campaignId: z.string().min(1).nullable() }).strict();
 const sourceUsageSchema = z.enum(CREATIVE_SOURCE_USAGES);
 const attachSourceSchema = z.union([
-  z.object({ action: z.literal("attachSource"), assetId: z.string().min(1), usage: sourceUsageSchema }).strict(),
-  z.object({ action: z.literal("attachSource"), templateId: z.string().min(1), usage: sourceUsageSchema }).strict(),
+  z.object({ action: z.literal("attachSource"), expectedUpdatedAt: z.string().datetime({ offset: true }), assetId: z.string().min(1), usage: sourceUsageSchema }).strict(),
+  z.object({ action: z.literal("attachSource"), expectedUpdatedAt: z.string().datetime({ offset: true }), templateId: z.string().min(1), usage: sourceUsageSchema }).strict(),
 ]);
-const updateSourceSchema = z.object({ action: z.literal("updateSource"), sourceId: z.string().min(1), usage: sourceUsageSchema }).strict();
-const retrySourceSchema = z.object({ action: z.literal("retrySource"), sourceId: z.string().min(1) }).strict();
-const removeSourceSchema = z.object({ action: z.literal("removeSource"), sourceId: z.string().min(1) }).strict();
+const updateSourceSchema = z.object({ action: z.literal("updateSource"), expectedUpdatedAt: z.string().datetime({ offset: true }), sourceId: z.string().min(1), usage: sourceUsageSchema }).strict();
+const retrySourceSchema = z.object({ action: z.literal("retrySource"), expectedUpdatedAt: z.string().datetime({ offset: true }), sourceId: z.string().min(1) }).strict();
+const removeSourceSchema = z.object({ action: z.literal("removeSource"), expectedUpdatedAt: z.string().datetime({ offset: true }), sourceId: z.string().min(1) }).strict();
 
 const updatePieceReferenceSchema = z.object({
-  action: z.literal("updatePieceReference"), sourceId: z.string().uuid(),
+  action: z.literal("updatePieceReference"), expectedUpdatedAt: z.string().datetime({ offset: true }), sourceId: z.string().uuid(),
   category: z.enum(PIECE_REFERENCE_CATEGORIES).optional(), userInstruction: z.string().trim().max(240).nullable().optional(),
 }).strict().refine((value) => value.category !== undefined || value.userInstruction !== undefined);
 const replacePieceReferenceSchema = z.object({
-  action: z.literal("replacePieceReference"), sourceId: z.string().uuid(), assetId: z.string().uuid(),
+  action: z.literal("replacePieceReference"), expectedUpdatedAt: z.string().datetime({ offset: true }), sourceId: z.string().uuid(), assetId: z.string().uuid(),
 }).strict();
-const promotePieceReferenceSchema = z.object({ action: z.literal("promotePieceReference"), sourceId: z.string().uuid() }).strict();
+const promotePieceReferenceSchema = z.object({ action: z.literal("promotePieceReference"), expectedUpdatedAt: z.string().datetime({ offset: true }), sourceId: z.string().uuid() }).strict();
 const editSourceAnalysisSchema = z.object({
   action: z.literal("editSourceAnalysis"),
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
   sourceId: z.string().min(1),
   content: contentBriefSchema.nullable(),
   style: styleBriefSchema.nullable(),
 }).strict();
 const patchCreativeWorkSchema = z.union([
-  autosaveSchema, prepareSchema, editBriefingSchema, attachSourceSchema, updateSourceSchema,
+  autosaveSchema, prepareSchema, approveCarouselSchema, editBriefingSchema, attachSourceSchema, updateSourceSchema,
   retrySourceSchema, removeSourceSchema, updatePieceReferenceSchema, replacePieceReferenceSchema, promotePieceReferenceSchema, editSourceAnalysisSchema, confirmCreativeWorkSchema,
   linkCampaignSchema, resolveBrandConflictSchema,
   layerizeOutputSchema,
@@ -499,10 +510,16 @@ export async function GET(
         }
       }
     }
-    const canonical = withoutPrivateArtifactFields(projectCreativeWorkAsCanonicalWork(
-      result.work,
-      result.outputs
-    ));
+    // Carousel works generate through creative_work_carousel_slides and never
+    // own creative_work_outputs rows: the canonical projection's output-based
+    // state machine would reject every generating/completed carousel aggregate,
+    // so the detail GET projects the deck through carouselSlides instead.
+    const canonical = result.work.toolKind === "carousel"
+      ? null
+      : withoutPrivateArtifactFields(projectCreativeWorkAsCanonicalWork(
+          result.work,
+          result.outputs
+        ));
     const sources = await Promise.all((result.sources ?? []).map((source) => projectSourceDto(workspace.id, source)));
     const inferredBriefing = result.work.toolKind === "single"
       ? resolveCreativeWorkInferredBriefing(result.work.inputSnapshot)
@@ -538,11 +555,27 @@ export async function GET(
       layerization: layerEditorAccess.enabled ? toPublicLayerizationState(recoveredLayerizations.get(output.id) ?? output.layerization) : null,
       layerEditor: toPublicLayerEditorSummary(output.layerEditor),
     }));
+    const { inputSnapshot: _inputSnapshot, carouselQuality, ...publicWork } = result.work;
+    const carouselSlideRows = result.work.toolKind === "carousel"
+      ? await listCurrentCarouselSlides(workspace.id, id)
+      : [];
+    const carouselSlides = carouselSlideRows.map((slide) => {
+      const {
+        providerBaseKey: _providerBaseKey,
+        outputKey,
+        previewKey: _previewKey,
+        anchorKey: _anchorKey,
+        generationOperationKey: _generationOperationKey,
+        ...publicSlide
+      } = slide;
+      return { ...publicSlide, hasOutput: Boolean(outputKey) };
+    });
     return NextResponse.json({
       work: {
-        ...result.work,
+        ...publicWork,
         request: displayRequestForCreativeWork(result.work),
       },
+      preparedPlan: projectPreparedPlanV1(result.work),
       outputs,
       canLayerize,
       layerEditorAccess,
@@ -550,6 +583,16 @@ export async function GET(
       inferredBriefing,
       briefingFactPack: inferredBriefing ? resolveCreativeWorkFactPack(result.work.inputSnapshot) : null,
       canonical,
+      carouselSlides,
+      carouselQuality: carouselQuality
+        ? {
+            version: carouselQuality.version,
+            objectivePassed: carouselQuality.objectivePassed,
+            advisoryWarnings: carouselQuality.advisoryWarnings,
+            reviewedAt: carouselQuality.reviewedAt,
+            hasContactSheet: Boolean(carouselQuality.contactSheetKey),
+          }
+        : null,
     });
   } catch (error) {
     return handleApiError(error, "creative-work.[id].GET");
@@ -645,11 +688,13 @@ export async function PATCH(
       const autosaved = await autosaveCreativeWorkDraft({
         workspaceId: workspace.id,
         workItemId: id,
+        expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
         request: parsed.data.request,
         intent: parsed.data.intent,
         format: parsed.data.format,
         settings: parsed.data.settings,
       });
+      if (autosaved.error === "carousel_reference_limit") return apiError("creativeWorkCarouselReferenceLimit", 409);
       if (autosaved.error === "single_piece_reference_limit") return apiError("creativeWorkPieceReferenceLimit", 409);
       if (autosaved.error === "not_draft") return apiError("creativeWorkNotDraft", 409);
       if (!autosaved.work) return apiError("creativeWorkNotFound", 404);
@@ -732,6 +777,27 @@ export async function PATCH(
     }
 
     if ("action" in parsed.data && parsed.data.action === "prepare") {
+      // One aggregate read decides the prepare path: carousel has its own
+      // frozen-snapshot command; every other intent keeps the legacy one.
+      const aggregate = await getCreativeWork(workspace.id, id);
+      if (!aggregate) return apiError("creativeWorkNotFound", 404);
+      if (aggregate.work.toolKind === "carousel") {
+        const prepared = await prepareCarouselWork({ workspaceId: workspace.id, workItemId: id });
+        if (!prepared.ok) {
+          switch (prepared.error.code) {
+            case "work_not_found": return apiError("creativeWorkNotFound", 404);
+            case "work_not_carousel": return apiError("creativeWorkNotCarousel", 409, prepared.error.details);
+            case "work_not_draft": return apiError("creativeWorkNotDraft", 409, prepared.error.details);
+            case "sources_not_ready": return apiError("creativeWorkSourcesNotReady", 409);
+            case "temporary_reference_limit": return apiError("creativeWorkCarouselReferenceLimit", 409, prepared.error.details);
+            case "stale_input": return apiError("stale_input", 409);
+            case "blocking_questions": return apiError("blocking_questions", 409, prepared.error.details);
+            case "editorial_invalid": return apiError("editorial_invalid", 422, prepared.error.details);
+            case "invalid_context": return apiError("invalid_context", 422, prepared.error.details);
+          }
+        }
+        return NextResponse.json(prepared.value);
+      }
       const prepared = await prepareCreativeWork({ workspaceId: workspace.id, workItemId: id });
       if (!prepared.ok) {
         if (prepared.error.code === "work_not_found") return apiError("creativeWorkNotFound", 404);
@@ -750,6 +816,32 @@ export async function PATCH(
       return NextResponse.json(prepared.value);
     }
 
+    if ("action" in parsed.data && parsed.data.action === "approveCarousel") {
+      // Objective-only deck approval: the command re-validates workspace,
+      // revision and every slide inside one transaction before writing.
+      const approved = await approveCarouselDeck({
+        workspaceId: workspace.id,
+        workItemId: id,
+        revision: parsed.data.revision,
+      });
+      if (!approved.ok) {
+        switch (approved.error.code) {
+          case "work_not_found": return apiError("creativeWorkNotFound", 404);
+          case "work_not_carousel": return apiError("creativeWorkNotCarousel", 409, approved.error.details);
+          case "stale_input": return apiError("stale_input", 409, approved.error.details);
+          case "revision_conflict": return apiError("carouselDeckRevisionConflict", 409, approved.error.details);
+          case "deck_not_ready": return apiError("carouselDeckNotReady", 409, approved.error.details);
+        }
+      }
+      return NextResponse.json(
+        {
+          approvedRevision: approved.value.work.carouselApprovedRevision,
+          replay: approved.value.replay,
+        },
+        { status: approved.value.replay ? 200 : 201 },
+      );
+    }
+
     if ("action" in parsed.data && parsed.data.action === "resolveBrandConflict") {
       const aggregate = await getCreativeWork(workspace.id, id);
       if (!aggregate) return apiError("creativeWorkNotFound", 404);
@@ -757,6 +849,10 @@ export async function PATCH(
       // The brand choice exists only for restyle — the single new visible
       // decision of spec 11; other protocols never grow this wizard.
       if (aggregate.work.toolKind !== "restyle") return apiError("invalidInput", 400);
+      const expectedUpdatedAt = new Date(parsed.data.expectedUpdatedAt);
+      if (aggregate.work.updatedAt.toISOString() !== parsed.data.expectedUpdatedAt) {
+        return apiError("stale_input", 409);
+      }
       // R-003: the choice is bound to the conflict it answers. It is only
       // accepted while that exact conflict is detectable in the current
       // draft — a draft without a detectable conflict has nothing to
@@ -767,7 +863,7 @@ export async function PATCH(
         sources: aggregate.sources,
       });
       if (!conflict) return apiError("invalidInput", 400);
-      const work = await updateCreativeWorkDraft(workspace.id, id, {
+      const work = await updateCreativeWorkDraftIfUnchanged(workspace.id, id, expectedUpdatedAt, {
         settings: {
           ...aggregate.work.settings,
           brandConflictChoice: parsed.data.choice,
@@ -779,7 +875,7 @@ export async function PATCH(
         copy: null,
         inputSnapshot: null,
       });
-      if (!work) return apiError("creativeWorkNotFound", 404);
+      if (!work) return apiError("stale_input", 409);
       return NextResponse.json({ work });
     }
 
@@ -794,7 +890,6 @@ export async function PATCH(
       // toolKind again after its shared lock and owns Single normalization.
       const aggregate = await getCreativeWork(workspace.id, id);
       if (!aggregate) return apiError("creativeWorkNotFound", 404);
-      if (aggregate.work.status !== "draft") return apiError("creativeWorkNotDraft", 409);
       const asset = "assetId" in parsed.data ? await getWorkspaceAssetById(parsed.data.assetId, workspace.id) : null;
       const template = "templateId" in parsed.data ? await getTemplateById(parsed.data.templateId, workspace.id) : null;
       if ("assetId" in parsed.data && (!asset || !asset.type.startsWith("image/"))) return apiError("invalidInput", 400);
@@ -804,13 +899,21 @@ export async function PATCH(
         workItemId: id,
         ...(asset ? { assetId: asset.id } : { templateId: template!.id }),
         usage: parsed.data.usage,
+        expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
         // The repository replaces this from the tool kind it reads under the
         // source lock. This legacy-compatible value is never authoritative.
         usageConfirmed: true,
         status: "uploaded",
       });
       if (!sourceClaim) return apiError("invalidInput", 400);
-      if ("limitReached" in sourceClaim) return apiError("creativeWorkPieceReferenceLimit", 409);
+      if ("limitReached" in sourceClaim) {
+        return apiError(
+          sourceClaim.reason === "carousel_reference_limit"
+            ? "creativeWorkCarouselReferenceLimit"
+            : "creativeWorkPieceReferenceLimit",
+          409,
+        );
+      }
       const source = sourceClaim.source;
       if (!sourceClaim.claimedForAnalysis) return NextResponse.json({ source });
       if (source.templateId) {
@@ -827,7 +930,6 @@ export async function PATCH(
       const sourceId = parsed.data.sourceId;
       const aggregate = await getCreativeWork(workspace.id, id);
       if (!aggregate) return apiError("creativeWorkNotFound", 404);
-      if (aggregate.work.status !== "draft") return apiError("creativeWorkNotDraft", 409);
       const source = aggregate.sources.find((candidate) => candidate.id === sourceId);
       if (!source) return apiError("invalidInput", 404);
 
@@ -836,6 +938,7 @@ export async function PATCH(
         const updated = await mutateCreativeWorkPieceReference({
           workspaceId: workspace.id,
           workItemId: id,
+          expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
           sourceId: source.id,
           mutation: {
             kind: "correct",
@@ -853,6 +956,7 @@ export async function PATCH(
         const updated = await mutateCreativeWorkPieceReference({
           workspaceId: workspace.id,
           workItemId: id,
+          expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
           sourceId: source.id,
           mutation: { kind: "replace", assetId: asset.id },
         });
@@ -862,6 +966,7 @@ export async function PATCH(
       }
       if (parsed.data.action === "promotePieceReference") {
         if (aggregate.work.toolKind !== "single" || !aggregate.work.clientProfileId || !source.assetId || source.status !== "ready" || !source.pieceReference?.category) return apiError("invalidInput", 409);
+        if (aggregate.work.updatedAt.toISOString() !== parsed.data.expectedUpdatedAt) return apiError("stale_input", 409);
         const pieceReference = source.pieceReference;
         const asset = await getWorkspaceAssetById(source.assetId, workspace.id);
         if (!asset || !asset.type.startsWith("image/")) return apiError("invalidInput", 400);
@@ -894,6 +999,7 @@ export async function PATCH(
       if (parsed.data.action === "removeSource") {
         const removed = await mutateCreativeWorkDraftSource({
           workspaceId: workspace.id, workItemId: id, sourceId: source.id,
+          expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
           mutation: { kind: "remove" },
         });
         if (!removed) return apiError("invalidInput", 409);
@@ -902,6 +1008,7 @@ export async function PATCH(
       if (parsed.data.action === "editSourceAnalysis") {
         const updated = await mutateCreativeWorkDraftSource({
           workspaceId: workspace.id, workItemId: id, sourceId: source.id,
+          expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
           mutation: {
             kind: "update",
             patch: {
@@ -924,6 +1031,7 @@ export async function PATCH(
       const updated = await mutateCreativeWorkDraftSource({
         workspaceId: workspace.id,
         workItemId: id,
+        expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
         sourceId: source.id,
         mutation: parsed.data.action === "updateSource"
           ? { kind: "update", patch: { usage: parsed.data.usage, usageConfirmed: true, status: "uploaded", failureCode: null } }
@@ -976,6 +1084,7 @@ export async function PATCH(
       canonical: result.value.canonical,
     });
   } catch (error) {
+    if (isCreativeWorkRevisionConflict(error)) return apiError("stale_input", 409);
     return handleApiError(error, "creative-work.[id].PATCH");
   }
 }

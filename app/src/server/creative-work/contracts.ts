@@ -7,6 +7,9 @@ import type {
 } from "@/server/brand-training/contracts";
 import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
 import type { TextLayout, TypographyPlan } from "./typography-plan";
+import { carouselDraftStateSchema } from "./carousel-contracts";
+import type { CarouselDraftStateV1, CarouselPreparedSnapshotV1 } from "./carousel-contracts";
+export { hasCreativeWorkProtocolSourceShape } from "@/lib/creative-work-protocol-eligibility";
 
 export const CREATIVE_LEVELS = ["conservative", "balanced", "bold"] as const;
 export const CREATIVE_WORK_INTENTS = [
@@ -15,6 +18,7 @@ export const CREATIVE_WORK_INTENTS = [
   "single",
   "format_adaptation",
   "restyle",
+  "carousel",
 ] as const;
 export const CREATIVE_SOURCE_USAGES = ["content", "style", "both"] as const;
 export const CREATIVE_SOURCE_STATUSES = ["uploaded", "analyzing", "ready", "failed"] as const;
@@ -23,6 +27,8 @@ export type CreativeWorkIntent = (typeof CREATIVE_WORK_INTENTS)[number];
 export type CreativeSourceUsage = (typeof CREATIVE_SOURCE_USAGES)[number];
 export type CreativeSourceStatus = (typeof CREATIVE_SOURCE_STATUSES)[number];
 export type CreativeWorkFormat = "1:1" | "4:5" | "9:16";
+
+/** Canonical source-shape gate shared by preparation and plan projection. */
 /**
  * Brand authority chosen by the user when a restyle content art carries an
  * explicit brand that conflicts with the active workspace brand (R-003 /
@@ -117,6 +123,8 @@ export type CreativeWorkSettings = {
   briefingOverrides?: CreativeWorkBriefingOverrides;
   /** Monotonic version for inline briefing edits. */
   briefingVersion?: number;
+  /** Versioned editable carousel draft (Criar carrossel). Absent on non-carousel works. */
+  carouselDraft?: CarouselDraftStateV1;
 };
 
 export const CREATIVE_WORK_BRIEFING_FIELDS = [
@@ -280,6 +288,12 @@ export type CreativeWorkInputSnapshot = {
     /** Frozen temporary Arte Livre reference; absent on legacy snapshots. */
     pieceReference?: import("./piece-reference").FrozenPieceReference;
   }>;
+  /**
+   * Frozen carousel deck + visual contract (Criar carrossel). Absent on
+   * legacy and non-carousel snapshots; the carousel generation path reads
+   * the deck only from this frozen block.
+   */
+  carousel?: CarouselPreparedSnapshotV1;
 };
 
 /**
@@ -398,6 +412,11 @@ export const creativeWorkSettingsSchema = z.object({
   directionPool: creativeDirectionPoolSchema.optional(),
   briefingOverrides: creativeWorkBriefingOverridesSchema.optional(),
   briefingVersion: z.number().int().nonnegative().optional(),
+  // Versioned editable carousel draft (Criar carrossel), persisted through the
+  // existing autosave envelope. z.lazy defers the schema access because the
+  // contracts ↔ carousel-contracts module cycle resolves only after both
+  // modules finish evaluating.
+  carouselDraft: z.lazy(() => carouselDraftStateSchema).optional(),
 });
 export const creativeWorkPreparationSchema = z.object({
   intent: creativeWorkIntentSchema,
@@ -466,6 +485,11 @@ export function quoteCreativeWork(input: {
   targetFormats: readonly CreativeWorkFormat[];
   directionPool?: CreativeDirectionPool;
 }): { plans: CreativeWorkOutputPlan[]; unitCount: number; credits: number } {
+  if (input.intent === "carousel") {
+    // A carousel never plans legacy outputs: its quote is the deck size via
+    // quoteCarouselDeck() (Task 5 owns the dedicated deck path).
+    throw new Error("carousel_requires_deck_quote");
+  }
   if (input.directionPool && input.directionPool.selectedIds.length > 0) {
     const byId = new Map(input.directionPool.directions.map((direction) => [direction.id, direction]));
     const plans: CreativeWorkOutputPlan[] = input.directionPool.selectedIds.map((id) => {

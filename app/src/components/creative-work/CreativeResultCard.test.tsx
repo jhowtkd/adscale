@@ -6,6 +6,7 @@ vi.mock("next-intl", () => ({
     if (key === "layerizeQuotaRemaining") return `Translate: ${values?.count ?? 0} remaining quota`;
     return ({
     failedGeneration: "Falha na geração",
+    "status.queued": "Na fila", "status.processing": "Processando", "status.completed": "Pronto", "status.failed": "Falhou", variationShort: `v${values?.count}`, proposalAlt: `Proposta ${values?.label}`, generating: "Gerando...", retry: "Tentar novamente", retryProposal: "Repetir esta proposta", approving: "Aprovando", approved: "Aprovada", approve: "Aprovar", download: "Baixar", editLayers: "Editar camadas", viewLayers: "Visualizar camadas", refine: "Refinar", revisionInstruction: "O que você quer mudar?", optionalAttachment: "Anexo opcional", generateVariation: "Gerar nova variação",
     reviewRecommended: "Revisão recomendada — a checagem automática ficou inconclusiva",
     objectiveFailed: "A checagem objetiva reprovou esta peça.",
     objectiveFailedNext: "Gere uma nova variação antes de aprovar.",
@@ -152,13 +153,13 @@ describe("CreativeResultCard", () => {
     expect(screen.getByRole("img", { name: /equilibrada/i })).toBeVisible();
     expect(screen.getByRole("button", { name: "Aprovar" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Baixar" })).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refinar" }));
     fireEvent.change(screen.getByRole("textbox", { name: "O que você quer mudar?" }), {
       target: { value: "Use mais contraste" },
     });
     const file = new File(["image"], "referencia.png", { type: "image/png" });
     fireEvent.change(screen.getByLabelText("Anexo opcional"), { target: { files: [file] } });
-    fireEvent.click(screen.getByRole("button", { name: "Gerar nova versão" }));
+    fireEvent.click(screen.getByRole("button", { name: "Gerar nova variação" }));
     expect(screen.queryByText(/crédit/i)).not.toBeInTheDocument();
 
     expect(onRevise).toHaveBeenCalledWith("output-1", "Use mais contraste", file);

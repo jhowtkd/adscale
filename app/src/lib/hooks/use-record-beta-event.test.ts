@@ -35,7 +35,6 @@ describe("useRecordBetaEvent", () => {
         body: JSON.stringify({
           eventKey: "cockpit_stage_entered",
           campaignId: "camp-1",
-          sessionId: undefined,
           properties: {
             stage: "guided_briefing",
             missionKey: "guided_briefing",
@@ -99,6 +98,25 @@ describe("useRecordBetaEvent", () => {
     expect(body.properties).toEqual({
       stage: "strategy_recipe",
       missionKey: "strategy_recipe",
+    });
+  });
+
+  it("records Studio properties without the beta-session foreign key", () => {
+    const { result } = renderHook(() => useRecordBetaEvent(undefined, { includeBetaSession: false }));
+
+    act(() => {
+      result.current.recordEvent("studio_entry_started", {
+        studioSessionId: "550e8400-e29b-41d4-a716-446655440000",
+        rolloutVariant: "control",
+      });
+    });
+
+    expect(JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)).toEqual({
+      eventKey: "studio_entry_started",
+      properties: {
+        studioSessionId: "550e8400-e29b-41d4-a716-446655440000",
+        rolloutVariant: "control",
+      },
     });
   });
 });

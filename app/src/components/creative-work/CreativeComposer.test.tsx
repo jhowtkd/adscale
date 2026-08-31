@@ -3,7 +3,18 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
   default: ({ id }: { id?: string }) => <select id={id ?? "active-brand-switcher"} aria-label="Marca ativa"><option>Escolha</option></select>,
 }));
-vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Record<string, string | number>) => ({
+const carouselComposerKeys: Record<string, string> = {
+  title: "Criar carrossel", subtitle: "Transforme uma ideia ou texto em uma sequência visual coerente.",
+  requestLabel: "Pedido do carrossel", requestPlaceholder: "Descreva a sequência que você precisa.",
+  addStyleReference: "Adicionar referência de estilo", uploadingStyle: "Enviando referência",
+  styleHint: "A referência vale só para este carrossel e nunca vira fato.",
+  sourceStatus_ready: "Referência pronta", retryStyleSource: "Tentar novamente",
+  removeStyleSource: "Remover referência de estilo", organizeContent: "Organizar conteúdo", organizing: "Organizando conteúdo",
+};
+
+vi.mock("next-intl", () => ({ useTranslations: (namespace?: string) => namespace === "dashboard.home.composer.carousel"
+  ? (key: string) => carouselComposerKeys[key] ?? key
+  : (key: string, values?: Record<string, string | number>) => ({
   requestLabel: "Pedido criativo", placeholder: "Descreva", addArt: "Adicionar arte", dropHint: "Solte aqui",
   restyleTitle: "Copiar o estilo da referência", restyleSubtitle: "Adicione a arte original e a referência de estilo.",
   variationsTitle: "Gere variações a partir de uma arte", variationsSubtitle: "Envie uma arte para a IA analisar.",
@@ -31,6 +42,8 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   factoryActiveLabel: "Fábrica criativa em atividade", factoryQueuedTitle: "Aquecendo as máquinas",
   factoryQueuedDescription: "Sua peça entrou na linha de produção.", factoryProcessingTitle: "Aplicando tinta fresca",
   factoryProcessingDescription: "As engrenagens estão montando seu criativo.",
+  "results.title": "Resultados", "results.subtitle": "Cada resultado fica salvo assim que termina.", "results.campaignLabel": "Agrupar em campanha", "results.noCampaign": "Sem campanha",
+  "proposal.level.conservative": "Conservadora", "proposal.level.balanced": "Equilibrada", "proposal.level.bold": "Ousada", "proposal.status.queued": "na fila", "proposal.status.processing": "gerando", "proposal.status.completed": "pronta", "proposal.status.failed": "falhou", "proposal.progress": `${values?.ready} de ${values?.total} prontas`, "proposal.thumbnailsAria": "Miniaturas das propostas", "proposal.selectAria": `Selecionar ${values?.name} em ${values?.format}`, "proposal.expandAria": `Ampliar ${values?.name} em ${values?.format}`, "proposal.previewAlt": `Proposta ${values?.name}, formato ${values?.format}`, "proposal.approvalSurfaceAria": "Superfície de aprovação", variationShort: `v${values?.count}`, "status.completed": "Pronto", approve: "Aprovar", download: "Baixar", refine: "Refinar", approved: "Aprovada", retry: "Tentar novamente", retryProposal: "Repetir esta proposta", reviewBeforeApprove: "Revisar e aprovar", confirmApproval: "Confirmar aprovação",
   optionalSettings: "Ajustes opcionais", format: "Formato", formatAuto: "Automático (agora: 4:5)", targetFormats: "Formatos de destino",
   textLayout: "Posição do texto", textLayout_top: "Superior", textLayout_center: "Central", textLayout_bottom: "Inferior",
   brandFont: "Fonte da marca", brandFontChoose: "Escolha uma fonte",
@@ -49,6 +62,12 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   extractedData: "Dados extraídos", retrySource: "Tentar novamente",
   brand: "Marca", noBrand: "Selecione uma marca", inspirationsSlot: "Inspirações",
   selectBrandMessage: "Selecione uma marca para começar", invalidWork: "Trabalho não encontrado", startNew: "Começar nova criação",
+  "carousel.title": "Criar carrossel", "carousel.subtitle": "Transforme uma ideia ou texto em uma sequência visual coerente.",
+  "carousel.requestLabel": "Pedido do carrossel", "carousel.requestPlaceholder": "Descreva a sequência que você precisa.",
+  "carousel.addStyleReference": "Adicionar referência de estilo", "carousel.uploadingStyle": "Enviando referência",
+  "carousel.styleHint": "A referência vale só para este carrossel e nunca vira fato.",
+  "carousel.sourceStatus_ready": "Referência pronta", "carousel.retryStyleSource": "Tentar novamente",
+  "carousel.removeStyleSource": "Remover referência de estilo", "carousel.organizeContent": "Organizar conteúdo", "carousel.organizing": "Organizando conteúdo",
   brandConflictTitle: "Qual marca vale nesta peça?",
   brandConflictDescription: `A arte de conteúdo é da marca ${values?.brand}, diferente da marca ativa.`,
   brandConflictChoiceSource: `Usar a marca da arte (${values?.brand})`,
@@ -79,7 +98,7 @@ function composer(overrides = {}) {
     composerRef: { current: null }, request: "", setRequest: vi.fn(), intent: "variations", selectIntent: vi.fn(),
     format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(),
     textLayout: "top", setTextLayout: vi.fn(), fontAssetKey: null, setFontAssetKey: vi.fn(), fontOptions: [],
-    directionPool, toggleDirection: vi.fn(), setManualDirectionInstruction: vi.fn(), directionSuggestionState: "idle", pendingDirectionSuggestions: null, applyDirectionSuggestions: vi.fn(), requestDirectionSuggestions: vi.fn(), keepCurrentDirections: vi.fn(), state: "empty", actionPhase: "idle",
+    directionPool, toggleDirection: vi.fn(), setManualDirectionInstruction: vi.fn(), directionSuggestionState: "idle", pendingDirectionSuggestions: null, applyDirectionSuggestions: vi.fn(), requestDirectionSuggestions: vi.fn(), keepCurrentDirections: vi.fn(), state: "empty", stage: "entry", objectiveSelected: true, preparedPlan: null, actionPhase: "idle",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
     inferredBriefing: null, briefingFactPack: null, briefingOverrides: {}, briefingEditState: "idle", editBriefingField: vi.fn(),
     campaignId: null, campaigns: [], linkCampaign: vi.fn(), retryOutput: vi.fn(), retryRevisionOutput: vi.fn(), approveOutput: vi.fn(),
@@ -88,7 +107,15 @@ function composer(overrides = {}) {
     brandConflict: null, resolveBrandConflict: vi.fn(), isResolvingBrandConflict: false,
     retryInitialTemplate: null,
     workError: false,
-    addFiles: vi.fn(), updateSource: vi.fn(), retrySource: vi.fn(), removeSource: vi.fn(), generate: vi.fn(),
+    addFiles: vi.fn(), updateSource: vi.fn(), retrySource: vi.fn(), removeSource: vi.fn(), preparePlan: vi.fn(), confirmGeneration: vi.fn(), generateLegacy: vi.fn(),
+    carousel: {
+      draft: null, slides: [], quality: null, selectedSlideId: null, selectedSlide: null,
+      phase: "entry", findings: [], canPrepare: false, canGenerate: false, canApprove: false, isBusy: false,
+      askForPlan: vi.fn(), answerQuestions: vi.fn(), acceptChange: vi.fn(), rejectChange: vi.fn(),
+      editSlide: vi.fn(), addSlide: vi.fn(), removeSlide: vi.fn(), moveSlide: vi.fn(),
+      prepareCarousel: vi.fn(), generateCarousel: vi.fn(), reviseSlide: vi.fn(), retrySlide: vi.fn(),
+      approveDeck: vi.fn(), downloadSlide: vi.fn(), exportDeck: vi.fn(), selectSlide: vi.fn(),
+    },
     ...overrides,
   };
 }
@@ -120,7 +147,7 @@ const readySource = {
   },
 };
 
-function renderComposer(value = composer(), props: { hideSourceUpload?: boolean; layout?: "studio" | "piece" } = {}) {
+function renderComposer(value = composer(), props: { hideSourceUpload?: boolean; layout?: "studio" | "piece"; workflowVariant?: "control" | "progressive" } = {}) {
   const { composerRef, ...viewModel } = value;
   return render(
     <CreativeComposer
@@ -257,7 +284,7 @@ describe("CreativeComposer", () => {
     fireEvent.keyDown(textarea, { key: "Enter", code: "Enter" });
 
     expect(value.setRequest).toHaveBeenCalledWith("Linha 1\nLinha 2");
-    expect(value.generate).not.toHaveBeenCalled();
+    expect(value.generateLegacy).not.toHaveBeenCalled();
   });
 
   it("shows concise analysis without the legacy free-form instructions for variations", () => {
@@ -292,6 +319,8 @@ describe("CreativeComposer", () => {
     const context = screen.getByRole("heading", { name: "Leitura da IA" }).closest("section")!;
     const optionalSettings = screen.getByTestId("creative-optional-settings");
     const action = screen.getByTestId("creative-generate-action");
+
+    expect(action.textContent?.toLowerCase()).not.toMatch(/crédito|credit/);
 
     expect(workspace).toHaveClass("items-start", "lg:grid-cols-2");
     expect(referenceAndContext).toContainElement(screen.getByRole("img", { name: "arte.png" }));
@@ -357,6 +386,8 @@ describe("CreativeComposer", () => {
     fireEvent.drop(screen.getByTestId("creative-composer-dropzone"), { dataTransfer: { files: [file] } });
     expect(value.addFiles).toHaveBeenCalledWith([file]);
     expect(screen.getByLabelText("Adicionar arte", { selector: "input" })).toHaveAttribute("tabindex", "-1");
+    expect(screen.getByTestId("creative-composer-dropzone")).toHaveAttribute("id", "creative-composer-dropzone");
+    expect(screen.getByTestId("creative-composer-dropzone")).toHaveAttribute("tabindex", "-1");
     expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
   });
 
@@ -555,10 +586,12 @@ describe("CreativeComposer", () => {
       intent: "single", sources: [pieceSource, legacySource],
       updatePieceReference: vi.fn().mockResolvedValue(true), replacePieceReference: vi.fn().mockResolvedValue(true), promotePieceReference: vi.fn().mockResolvedValue(true),
     });
-    const { rerender } = renderComposer(value);
+    const { rerender } = renderComposer(value, { workflowVariant: "progressive" });
 
     const strip = screen.getAllByLabelText("title").find((element) => element.getAttribute("aria-label") === "title")!;
     expect(within(strip).getByText("piece.png")).toBeInTheDocument();
+    expect(within(strip).getByRole("button", { name: "add" })).toBeInTheDocument();
+    expect(within(strip).getByRole("combobox", { name: "category: piece.png" })).toBeInTheDocument();
     expect(within(strip).queryByText("legacy.png")).not.toBeInTheDocument();
     expect(screen.getByRole("img", { name: "legacy.png" })).toBeInTheDocument();
 
@@ -767,11 +800,11 @@ describe("CreativeComposer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Selecionar Ousada em 4:5" }));
     expect(screen.getByText("Aplicando tinta fresca")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Selecionar Conservadora em 4:5" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "reviewBeforeApprove" })[0]);
-    fireEvent.click(screen.getAllByRole("button", { name: "confirmApproval" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Revisar e aprovar" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Confirmar aprovação" })[0]);
     expect(value.approveOutput).toHaveBeenCalledWith("output-1", true);
     expect(screen.getAllByRole("button", { name: "Baixar" })).toHaveLength(1);
-    expect(screen.getAllByRole("button", { name: "Editar" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Refinar" })).toHaveLength(1);
   });
 
   it("turns a completed piece into review plus AI reading while Studio keeps its creation flow", () => {
@@ -811,7 +844,9 @@ describe("CreativeComposer", () => {
       campaigns: [{ id: "campaign-1", name: "Matrículas" }],
     });
     renderComposer(value);
-    fireEvent.change(screen.getByRole("combobox", { name: "Agrupar em campanha" }), { target: { value: "campaign-1" } });
+    const campaign = screen.getByRole("combobox", { name: "Agrupar em campanha" });
+    expect(screen.getByTestId("creative-output-progress").compareDocumentPosition(campaign) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.change(campaign, { target: { value: "campaign-1" } });
     expect(value.linkCampaign).toHaveBeenCalledWith("campaign-1");
   });
 
@@ -891,5 +926,36 @@ describe("CreativeComposer", () => {
     );
     expect(generateButton).not.toBeDisabled();
     expect(generateButton).toHaveFocus();
+  });
+
+  it("renders the carousel wizard only for the carousel protocol instead of the proposal grid", () => {
+    const output = {
+      id: "output-1", workspaceId: "ws-1", workItemId: "work-1", creativeLevel: "conservative",
+      targetFormat: "4:5", versionNumber: 1, parentOutputId: null, revisionInstruction: null,
+      revisionAssetId: null, retryCount: 0, operationKey: "conservative:4:5:1", status: "completed",
+      outputKey: "out/1.png", cost: 5, failureCode: null, quality: null, isSelected: false,
+      createdAt: new Date(), updatedAt: new Date(),
+    };
+    renderComposer(composer({ workId: "work-1", intent: "carousel", outputs: [output] }));
+
+    expect(screen.getByTestId("carousel-composer")).toBeInTheDocument();
+    expect(screen.getByLabelText("Pedido do carrossel")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Resultados" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("creative-generate-action")).not.toBeInTheDocument();
+  });
+
+  it("keeps the current controls and results grid for the other protocols", () => {
+    const output = {
+      id: "output-1", workspaceId: "ws-1", workItemId: "work-1", creativeLevel: "conservative",
+      targetFormat: "4:5", versionNumber: 1, parentOutputId: null, revisionInstruction: null,
+      revisionAssetId: null, retryCount: 0, operationKey: "conservative:4:5:1", status: "completed",
+      outputKey: "out/1.png", cost: 5, failureCode: null, quality: null, isSelected: false,
+      createdAt: new Date(), updatedAt: new Date(),
+    };
+    renderComposer(composer({ workId: "work-1", outputs: [output] }));
+
+    expect(screen.queryByTestId("carousel-composer")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Resultados" })).toBeInTheDocument();
+    expect(screen.getByTestId("creative-generate-action")).toBeInTheDocument();
   });
 });

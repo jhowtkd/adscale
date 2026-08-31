@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useTranslations } from "next-intl";
+import { hasCreativeWorkProtocolSourceShape } from "@/lib/creative-work-protocol-eligibility";
 import { z } from "zod";
 import { collectImageFiles, uploadChatAttachment } from "@/lib/assistant/chat-attachments";
 import { apiFetch, isApiRequestUncertain } from "@/lib/api-client";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
+import { useRecordBetaEvent } from "@/lib/hooks/use-record-beta-event";
 import { useBrandFonts, useBrandKnowledge } from "@/lib/hooks/use-brand-training";
 import {
   useAutosaveCreativeWork,
@@ -33,7 +35,10 @@ import {
   type CreativeWorkOutput,
   type CreativeWorkQuote,
   type CreativeWorkSource,
+  type CreativeWorkDetail,
 } from "@/lib/hooks/use-creative-work";
+import type { PreparedPlanProjectionV1 } from "@/server/creative-work/prepared-plan";
+import type { StudioRolloutVariant } from "@/lib/beta-analytics/studio-session";
 import {
   createDefaultCreativeDirectionPool,
   quoteCreativeWork,
@@ -47,10 +52,15 @@ import {
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
 import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
 import { isPieceReferenceReady, MAX_PIECE_REFERENCES, type PieceReferenceCategory } from "@/server/creative-work/piece-reference";
+import {
+  useCarouselComposer,
+  type CarouselComposerInput,
+} from "./useCarouselComposer";
 
 export type ComposerState = "empty" | "saving" | "analyzing" | "ready" | "generating" | "results";
 export type ComposerActionPhase = "idle" | "saving" | "preparing" | "submitting" | "reconciling";
 export type ComposerIntent = Exclude<CreativeWorkItem["toolKind"], "social_post">;
+export type ComposerStage = "entry" | "configure" | "plan" | "generation" | "results";
 type Format = CreativeWorkItem["format"];
 type DraftSnapshot = {
   request: string;
@@ -73,6 +83,7 @@ const COMPOSER_INTENTS = new Set<ComposerIntent>([
   "single",
   "format_adaptation",
   "restyle",
+  "carousel",
 ]);
 const UUID_SCHEMA = z.string().uuid();
 const DRAFT_STORAGE_PREFIX = "adscale:creative-draft:v1";
@@ -103,7 +114,9 @@ function reusableSourceForProtocol(
   next: ComposerIntent,
   sources: readonly CreativeWorkSource[],
 ): DraftSource | null {
-  if (next === "single") return null;
+  // Single and Carousel never inherit another protocol's source: the first
+  // owns piece references, the second accepts at most one style-only image.
+  if (next === "single" || next === "carousel") return null;
   const original = sources.find((source) =>
     source.status === "ready"
     && source.usageConfirmed
@@ -122,6 +135,9 @@ function canonicalQuote(
   targetFormats: Format[],
   directionPool?: CreativeDirectionPool,
 ): CreativeWorkQuote {
+  // The carousel quote always comes from its own deck size; the legacy output
+  // quoter throws for carousel and must never be reached.
+  if (intent === "carousel") return { unitCount: 0, credits: 0 };
   const { unitCount, credits } = quoteCreativeWork({ intent, format, targetFormats, directionPool });
   return { unitCount, credits };
 }
@@ -167,41 +183,74 @@ function focusBrandSwitcher() {
 const CREATIVE_ANNOUNCEMENT_EVENT = "adscale:creative-announcement";
 const CREATIVE_ANNOUNCEMENT_STORAGE_KEY = "adscale_creative_announcement";
 
+export function projectComposerStage(input: {
+  objectiveSelected: boolean;
+  detail: CreativeWorkDetail | null;
+}): ComposerStage {
+  if (!input.objectiveSelected) return "entry";
+  if (!input.detail) return "configure";
+  if (input.detail.work.status === "draft") return input.detail.preparedPlan ? "plan" : "configure";
+  if (input.detail.work.status === "ready" && input.detail.outputs.length === 0) return "plan";
+  if (input.detail.work.status === "generating" || input.detail.outputs.some((output) => output.status === "queued" || output.status === "processing")) return "generation";
+  return "results";
+}
+
 export function useCreativeComposer({
   initialWorkId,
-  initialIntent = "variations",
+  initialIntent,
+  workspaceId,
+  workflowVariant = "control",
+  studioSessionId,
   focusComposer = false,
   initialTemplateId,
+  initialCampaignId,
   freshEntry = false,
 }: {
   initialWorkId?: string;
   initialIntent?: ComposerIntent;
+  workspaceId?: string;
+  workflowVariant?: StudioRolloutVariant;
+  studioSessionId?: string;
   focusComposer?: boolean;
   initialTemplateId?: string;
+  initialCampaignId?: string;
   /** A canonical Studio entry that intentionally starts without draft resume. */
   freshEntry?: boolean;
 } = {}) {
+  const tHome = useTranslations("dashboard.home");
   const tResults = useTranslations("dashboard.home.composer.results");
   const active = useActiveClientProfile();
-  const initialTargetFormats: Format[] = initialIntent === "format_adaptation"
+  // Keep the old fallback internal only. A progressive plain entry must not
+  // turn it into a selected objective or a persistence trigger.
+  const internalInitialIntent: ComposerIntent = initialIntent ?? "variations";
+  const progressivePlainEntry = workflowVariant === "progressive" && !initialWorkId && !initialIntent;
+  // A resumed progressive work hydrates its saved protocol before it exposes
+  // an objective. The fallback must not become a fake human selection.
+  const progressiveResume = workflowVariant === "progressive" && Boolean(initialWorkId) && !initialIntent;
+  const initialObjective = progressivePlainEntry || progressiveResume ? null : internalInitialIntent;
+  const initialTargetFormats: Format[] = internalInitialIntent === "format_adaptation"
     ? ["1:1", "9:16"]
     : [];
   const [workId, setWorkId] = useState<string | null>(initialWorkId ?? null);
+  const [pendingCampaignId, setPendingCampaignId] = useState<string | null>(initialCampaignId ?? null);
   const [request, setRequestState] = useState("");
-  const [intent, setIntent] = useState<ComposerIntent>(initialIntent);
+  const [invalidatedPlanRevision, setInvalidatedPlanRevision] = useState<string | null>(null);
+  const [intent, setIntent] = useState<ComposerIntent>(internalInitialIntent);
+  const [objective, setObjective] = useState<ComposerIntent | null>(initialObjective);
+  const [bufferedFile, setBufferedFile] = useState<File | null>(null);
   const [format, setFormat] = useState<Format>("4:5");
   const [formatMode, setFormatMode] = useState<"auto" | "manual">("auto");
   const [targetFormats, setTargetFormats] = useState<Format[]>(initialTargetFormats);
   const [textLayout, setTextLayout] = useState<"top" | "center" | "bottom" | "side">("top");
   const [fontAssetKey, setFontAssetKey] = useState<string | null>(null);
   const [directionPool, setDirectionPool] = useState<CreativeDirectionPool | null>(
-    initialIntent === "variations" ? createDefaultCreativeDirectionPool() : null,
+    internalInitialIntent === "variations" ? createDefaultCreativeDirectionPool() : null,
   );
   const [quote, setQuote] = useState(() => canonicalQuote(
-    initialIntent,
+    internalInitialIntent,
     "4:5",
     initialTargetFormats,
-    initialIntent === "variations" ? createDefaultCreativeDirectionPool() : undefined,
+    internalInitialIntent === "variations" ? createDefaultCreativeDirectionPool() : undefined,
   ));
   const [inferredBriefingContext, setInferredBriefingContext] = useState<{
     briefing: InferredBriefing;
@@ -225,6 +274,10 @@ export function useCreativeComposer({
   const [isUploading, setIsUploading] = useState(false);
   const uploadInFlightRef = useRef(false);
   const [actionPhase, setActionPhase] = useState<ComposerActionPhase>("idle");
+  // A successful preparation is a distinct UI cycle. Canonical preparation is
+  // allowed to return the same revision, so callers must not infer success
+  // from a revision string changing.
+  const [preparedPlanCycle, setPreparedPlanCycle] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [approvalErrorOutputId, setApprovalErrorOutputId] = useState<string | null>(null);
   // R-008: the only new visible decision — the restyle brand-authority
@@ -242,8 +295,10 @@ export function useCreativeComposer({
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const draftKeyRef = useRef(crypto.randomUUID());
   const workIdRef = useRef(workId);
+  const pendingCampaignIdRef = useRef(pendingCampaignId);
   const requestRef = useRef(request);
   const intentRef = useRef(intent);
+  const objectiveRef = useRef(objective);
   const formatRef = useRef(format);
   const targetFormatsRef = useRef(targetFormats);
   const textLayoutRef = useRef<"top" | "center" | "bottom" | "side">("top");
@@ -254,6 +309,10 @@ export function useCreativeComposer({
   const briefingVersionRef = useRef<number | undefined>(undefined);
   const hydratedWorkRef = useRef<string | null>(null);
   const lastPersistedRef = useRef<string | null>(null);
+  const workRevisionRef = useRef<string | null>(null);
+  const workRevisionWorkIdRef = useRef<string | null>(null);
+  const workRevisionRefreshRequiredRef = useRef<string | null>(null);
+  const autosaveRevisionUnavailableRef = useRef<string | null>(null);
   const createInFlightRef = useRef<Promise<string | null> | null>(null);
   const draftEpochRef = useRef(0);
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
@@ -270,6 +329,16 @@ export function useCreativeComposer({
   const lifecycleRef = useRef(0);
   const persistOnUnmountRef = useRef<() => Promise<void>>(async () => undefined);
   const revisionAttemptsRef = useRef(new Map<string, { revisionKey: string; revisionAssetId: string | null }>());
+  const pendingProtocolTransitionRef = useRef<((committed: boolean) => void) | null>(null);
+  const planInputEditEpochRef = useRef(0);
+  const preparedPlanInputRef = useRef<{ revision: string; signature: string } | null>(null);
+  const hydratingPreparedPlanRevisionRef = useRef<string | null>(null);
+  // A prepare response is usable only if no user action changed the input it
+  // was built from. Keep this as the single mutation marker so uncommon
+  // controls cannot leave a stale confirmation window during preparation.
+  const markPlanInputEdited = useCallback(() => {
+    planInputEditEpochRef.current += 1;
+  }, []);
 
   const detailQuery = useCreativeWork(workId);
   const brandFontsQuery = useBrandFonts(
@@ -300,14 +369,57 @@ export function useCreativeComposer({
   const resolveBrandConflictMutation = useResolveBrandConflict();
   const downloadOutputUrl = useDownloadOutputUrl();
   const campaignQuery = useCreativeWorkCampaigns(Boolean(detailQuery.data?.outputs.length));
+  const { recordEvent } = useRecordBetaEvent(undefined, { includeBetaSession: false });
+  const canonicalEventsRef = useRef(new Set<string>());
+  const shownPreparedRevisionRef = useRef<string | null>(null);
+
+  const recordStudioEvent = useCallback((eventKey: string, properties: Record<string, string | number | boolean> = {}) => {
+    if (!workspaceId || !studioSessionId) return;
+    recordEvent(eventKey, {
+      studioSessionId,
+      rolloutVariant: workflowVariant,
+      ...properties,
+    });
+  }, [recordEvent, studioSessionId, workflowVariant, workspaceId]);
+
+  const recordCanonicalEvent = useCallback((eventKey: string, creativeWorkId: string, properties: Record<string, string | number | boolean> = {}) => {
+    const key = `${eventKey}:${creativeWorkId}`;
+    if (canonicalEventsRef.current.has(key)) return;
+    canonicalEventsRef.current.add(key);
+    recordStudioEvent(eventKey, { creativeWorkId, ...properties });
+  }, [recordStudioEvent]);
 
   useEffect(() => { workIdRef.current = workId; }, [workId]);
+  useEffect(() => { pendingCampaignIdRef.current = pendingCampaignId; }, [pendingCampaignId]);
   useEffect(() => { requestRef.current = request; }, [request]);
   useEffect(() => { intentRef.current = intent; }, [intent]);
+  useEffect(() => { objectiveRef.current = objective; }, [objective]);
   useEffect(() => { formatRef.current = format; }, [format]);
   useEffect(() => { targetFormatsRef.current = targetFormats; }, [targetFormats]);
   useEffect(() => { textLayoutRef.current = textLayout; }, [textLayout]);
   useEffect(() => { fontAssetKeyRef.current = fontAssetKey; }, [fontAssetKey]);
+
+  useEffect(() => {
+    recordStudioEvent("studio_entry_started");
+    // Control keeps its legacy visible default. Progressive telemetry records
+    // only a deliberate selection made through selectIntent.
+    if (workflowVariant !== "progressive" && initialObjective) recordStudioEvent("studio_goal_selected", { protocol: initialObjective });
+  }, [initialObjective, recordStudioEvent, workflowVariant]);
+
+  useEffect(() => {
+    if (!initialWorkId || !detailQuery.data?.work) return;
+    recordCanonicalEvent("creative_work_reopened", detailQuery.data.work.id, {
+      protocol: detailQuery.data.work.toolKind === "social_post" ? "variations" : detailQuery.data.work.toolKind,
+    });
+  }, [detailQuery.data?.work, initialWorkId, recordCanonicalEvent]);
+
+  useEffect(() => {
+    const detail = detailQuery.data;
+    if (!detail || !detail.outputs.some((output) => ["completed", "failed"].includes(output.status))) return;
+    recordCanonicalEvent("creative_work_reviewed", detail.work.id, {
+      protocol: detail.work.toolKind === "social_post" ? "variations" : detail.work.toolKind,
+    });
+  }, [detailQuery.data, recordCanonicalEvent]);
 
   useEffect(() => {
     const work = detailQuery.data?.work;
@@ -337,7 +449,24 @@ export function useCreativeComposer({
     formatModeRef.current = hydrated.settings.formatMode;
     briefingOverridesRef.current = hydrated.settings.briefingOverrides;
     briefingVersionRef.current = hydrated.settings.briefingVersion;
-    lastPersistedRef.current = signature(hydrated);
+    const hydratedSignature = signature(hydrated);
+    lastPersistedRef.current = hydratedSignature;
+    if (work.updatedAt) {
+      workRevisionRef.current = new Date(work.updatedAt).toISOString();
+      workRevisionWorkIdRef.current = work.id;
+      workRevisionRefreshRequiredRef.current = null;
+    }
+    const hydratedPlan = detailQuery.data?.preparedPlan;
+    if (initialWorkId && hydratedPlan) {
+      preparedPlanInputRef.current = {
+        revision: hydratedPlan.preparedRevision,
+        signature: hydratedSignature,
+      };
+      // The plan effect runs after this hydration effect with the pre-hydrate
+      // render signature. Skip only that transition; later user edits still
+      // compare against the canonical hydrated snapshot normally.
+      hydratingPreparedPlanRevisionRef.current = hydratedPlan.preparedRevision;
+    }
     /* TanStack Query is the external persisted source for hydration. */
     setRequestState(work.request);
     setInferredBriefingContext(
@@ -347,6 +476,10 @@ export function useCreativeComposer({
     );
     setBriefingEditState("idle");
     setIntent(intentRef.current);
+    if (workflowVariant === "progressive" && !objectiveRef.current) {
+      objectiveRef.current = hydrated.intent;
+      setObjective(hydrated.intent);
+    }
     setFormat(work.format);
     setFormatMode(hydrated.settings.formatMode);
     setTargetFormats(work.settings.targetFormats);
@@ -366,7 +499,7 @@ export function useCreativeComposer({
       hydrated.settings.targetFormats,
       hydrated.settings.directionPool ?? hydratedDirectionPool ?? undefined,
     ));
-  }, [detailQuery.data, initialWorkId]);
+  }, [detailQuery.data, initialWorkId, workflowVariant]);
 
   const captureSnapshot = useCallback((): DraftSnapshot => ({
     request: requestRef.current,
@@ -412,16 +545,25 @@ export function useCreativeComposer({
     window.history.replaceState(window.history.state, "", `${window.location.pathname}?${params}`);
   }, []);
 
+  const exposeCampaignId = useCallback((campaignId: string | null) => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (campaignId) params.set("campaignId", campaignId);
+    else params.delete("campaignId");
+    const query = params.toString();
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+  }, []);
+
   useEffect(() => {
     const profileId = active.activeClientProfileId;
-    if (freshEntry || initialWorkId || workIdRef.current || !profileId || restoredProfileRef.current === profileId) return;
+    if (freshEntry || initialWorkId || progressivePlainEntry || workIdRef.current || !profileId || restoredProfileRef.current === profileId) return;
     restoredProfileRef.current = profileId;
     const storedWorkId = readStoredDraft(profileId, intentRef.current);
     if (!storedWorkId) return;
     workIdRef.current = storedWorkId;
     setWorkId(storedWorkId);
     exposeWorkId(storedWorkId);
-  }, [active.activeClientProfileId, exposeWorkId, freshEntry, initialWorkId]);
+  }, [active.activeClientProfileId, exposeWorkId, freshEntry, initialWorkId, progressivePlainEntry]);
 
   const consumeInitialTemplateParams = useCallback(() => {
     if (
@@ -447,7 +589,112 @@ export function useCreativeComposer({
     consumedTemplateUrlRef.current = true;
   }, [initialTemplateId]);
 
+  const linkCampaign = useCallback(async (campaignId: string | null): Promise<boolean> => {
+    if (!campaignId && !workIdRef.current) {
+      pendingCampaignIdRef.current = null;
+      setPendingCampaignId(null);
+      exposeCampaignId(null);
+      return true;
+    }
+    if (!workIdRef.current) {
+      if (!campaignId || !UUID_SCHEMA.safeParse(campaignId).success) return false;
+      pendingCampaignIdRef.current = campaignId;
+      setPendingCampaignId(campaignId);
+      exposeCampaignId(campaignId);
+      return true;
+    }
+    try {
+      await linkCampaignMutation.mutateAsync({ workItemId: workIdRef.current, campaignId });
+      await detailQuery.refetch();
+      pendingCampaignIdRef.current = null;
+      setPendingCampaignId(null);
+      exposeCampaignId(null);
+      setAnnouncement(campaignId ? tHome("composer.campaignLinked") : tHome("composer.campaignRemoved"));
+      return true;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : tHome("composer.campaignLinkFailed"));
+      return false;
+    }
+  }, [detailQuery, exposeCampaignId, linkCampaignMutation, tHome]);
+
+  const setCanonicalWorkRevision = useCallback((workItemId: string, updatedAt: Date | string | null | undefined) => {
+    if (!updatedAt) return null;
+    const parsed = new Date(updatedAt);
+    if (Number.isNaN(parsed.getTime())) return null;
+    const revision = parsed.toISOString();
+    workRevisionRef.current = revision;
+    workRevisionWorkIdRef.current = workItemId;
+    workRevisionRefreshRequiredRef.current = null;
+    if (autosaveRevisionUnavailableRef.current === workItemId) autosaveRevisionUnavailableRef.current = null;
+    return revision;
+  }, []);
+  const refreshCanonicalWorkRevision = useCallback(async (workItemId: string) => {
+    if (!detailQuery.refetch) return null;
+    const refreshed = await detailQuery.refetch();
+    const work = refreshed.data?.work;
+    if (!work || work.id !== workItemId) return null;
+    return setCanonicalWorkRevision(workItemId, work.updatedAt);
+  }, [detailQuery, setCanonicalWorkRevision]);
+  const resolveCanonicalWorkRevision = useCallback(async (workItemId: string) => {
+    if (
+      workRevisionWorkIdRef.current === workItemId
+      && workRevisionRefreshRequiredRef.current !== workItemId
+      && workRevisionRef.current
+    ) return workRevisionRef.current;
+    if (workRevisionRefreshRequiredRef.current !== workItemId) {
+      const work = detailQuery.data?.work;
+      if (work?.id === workItemId) {
+        const revision = setCanonicalWorkRevision(workItemId, work.updatedAt);
+        if (revision) return revision;
+      }
+    }
+    return refreshCanonicalWorkRevision(workItemId);
+  }, [detailQuery.data?.work, refreshCanonicalWorkRevision, setCanonicalWorkRevision]);
+
+  type SourceActionInput =
+    | { workItemId: string; action: "attachSource"; assetId: string; templateId?: never; usage: CreativeSourceUsage }
+    | { workItemId: string; action: "attachSource"; templateId: string; assetId?: never; usage: CreativeSourceUsage }
+    | { workItemId: string; action: "updateSource"; sourceId: string; usage: CreativeSourceUsage }
+    | { workItemId: string; action: "updatePieceReference"; sourceId: string; category?: PieceReferenceCategory; userInstruction?: string | null }
+    | { workItemId: string; action: "replacePieceReference"; sourceId: string; assetId: string }
+    | { workItemId: string; action: "promotePieceReference"; sourceId: string }
+    | { workItemId: string; action: "retrySource" | "removeSource"; sourceId: string }
+    | { workItemId: string; action: "editSourceAnalysis"; sourceId: string; content: ContentBrief | null; style: StyleBrief | null };
+  const mutateSource = useCallback(async (action: SourceActionInput) => {
+    const expectedUpdatedAt = await resolveCanonicalWorkRevision(action.workItemId);
+    if (!expectedUpdatedAt) throw new Error("Recarregue o trabalho antes de alterar a arte.");
+    let result: Awaited<ReturnType<typeof sourceMutation.mutateAsync>>;
+    try {
+      result = await sourceMutation.mutateAsync({ ...action, expectedUpdatedAt } as Parameters<typeof sourceMutation.mutateAsync>[0]);
+    } catch (cause) {
+      if (isCreativeWorkConflict(cause)) {
+        // Never retain R1 while a refetch races or fails.  A later mutation
+        // must either use the explicitly refreshed R2 or remain blocked.
+        workRevisionRef.current = null;
+        workRevisionWorkIdRef.current = action.workItemId;
+        workRevisionRefreshRequiredRef.current = action.workItemId;
+        try { await refreshCanonicalWorkRevision(action.workItemId); } catch { /* keep blocked */ }
+      }
+      throw cause;
+    }
+    // Source responses intentionally expose only the source. Refresh before a
+    // later mutation so its CAS token comes from the post-invalidation work.
+    try {
+      if (!await refreshCanonicalWorkRevision(action.workItemId)) {
+        workRevisionRef.current = null;
+        workRevisionWorkIdRef.current = action.workItemId;
+        workRevisionRefreshRequiredRef.current = action.workItemId;
+      }
+    } catch {
+      workRevisionRef.current = null;
+      workRevisionWorkIdRef.current = action.workItemId;
+      workRevisionRefreshRequiredRef.current = action.workItemId;
+    }
+    return result;
+  }, [refreshCanonicalWorkRevision, resolveCanonicalWorkRevision, sourceMutation]);
+
   const ensureDraft = useCallback((source?: DraftSource, silent = false) => {
+    if (workflowVariant === "progressive" && !objectiveRef.current) return Promise.resolve(null);
     if (workIdRef.current) return Promise.resolve(workIdRef.current);
     if (createInFlightRef.current) {
       const creating = createInFlightRef.current;
@@ -457,7 +704,7 @@ export function useCreativeComposer({
       // returning the source-less in-flight promise and silently dropping it.
       return creating.then(async (id) => {
         if (!id) return null;
-        await sourceMutation.mutateAsync({
+        await mutateSource({
           workItemId: id,
           action: "attachSource",
           ...source,
@@ -485,8 +732,15 @@ export function useCreativeComposer({
         throw new Error("Identificador do trabalho inválido");
       }
       if (draftEpoch !== draftEpochRef.current) return null;
+      recordCanonicalEvent("creative_work_started", result.work.id, {
+        protocol: result.work.toolKind === "social_post" ? "variations" : result.work.toolKind,
+        inputMode: snapshot.request.trim() ? (source ? "both" : "text") : "art",
+      });
       workIdRef.current = result.work.id;
       lastPersistedRef.current = signature(snapshotFromWork(result.work));
+      if (!setCanonicalWorkRevision(result.work.id, result.work.updatedAt)) {
+        await refreshCanonicalWorkRevision(result.work.id);
+      }
       writeStoredDraft(active.activeClientProfileId!, intentRef.current, result.work.id);
       if (!silent && mountedRef.current) {
         setWorkId(result.work.id);
@@ -494,6 +748,8 @@ export function useCreativeComposer({
         setAnnouncement("Rascunho salvo");
         exposeWorkId(result.work.id);
       }
+      const campaignId = pendingCampaignIdRef.current;
+      if (campaignId) await linkCampaign(campaignId);
       return result.work.id;
     }).catch((cause) => {
       if (draftEpoch === draftEpochRef.current && !silent && mountedRef.current) {
@@ -505,14 +761,45 @@ export function useCreativeComposer({
     });
     createInFlightRef.current = promise;
     return promise;
-  }, [active.activeClientProfileId, captureSnapshot, createMutation, enqueueSave, exposeWorkId, sourceMutation]);
+  }, [active.activeClientProfileId, captureSnapshot, createMutation, enqueueSave, exposeWorkId, linkCampaign, mutateSource, recordCanonicalEvent, refreshCanonicalWorkRevision, setCanonicalWorkRevision, workflowVariant]);
 
   const persistSnapshot = useCallback((id: string, snapshot: DraftSnapshot, announce = true) => enqueueSave(async () => {
     if (autosaveBlockedWorkRef.current === id) return;
     const sentSignature = signature(snapshot);
     if (sentSignature === lastPersistedRef.current) return;
     try {
-      await autosaveMutation.mutateAsync({ workItemId: id, ...snapshot });
+      const expectedUpdatedAt = await resolveCanonicalWorkRevision(id);
+      if (!expectedUpdatedAt) {
+        autosaveRevisionUnavailableRef.current = id;
+        if (mountedRef.current) setError("Recarregue o trabalho antes de continuar.");
+        return;
+      }
+      const result = await autosaveMutation.mutateAsync({
+        workItemId: id,
+        expectedUpdatedAt,
+        ...snapshot,
+        // A carousel draft lives in settings.carouselDraft and is owned by
+        // the carousel controller; the generic autosave must carry the
+        // persisted draft through instead of wiping it.
+        settings: intentRef.current === "carousel"
+          ? { ...snapshot.settings, carouselDraft: detailQuery.data?.work.settings.carouselDraft }
+          : snapshot.settings,
+      });
+      // Mocked/legacy autosave responses may omit the work row; only a real
+      // updatedAt can advance the CAS revision marker.
+      if (!setCanonicalWorkRevision(id, result.work?.updatedAt)) {
+        try {
+          if (!await refreshCanonicalWorkRevision(id)) {
+            workRevisionRef.current = null;
+            workRevisionWorkIdRef.current = id;
+            workRevisionRefreshRequiredRef.current = id;
+          }
+        } catch {
+          workRevisionRef.current = null;
+          workRevisionWorkIdRef.current = id;
+          workRevisionRefreshRequiredRef.current = id;
+        }
+      }
     } catch (cause) {
       const code = cause instanceof Error && "code" in cause
         ? (cause as Error & { code?: unknown }).code
@@ -520,11 +807,17 @@ export function useCreativeComposer({
           ? cause.message
           : null;
       if (code === "creativeWorkNotDraft") autosaveBlockedWorkRef.current = id;
+      if (isCreativeWorkConflict(cause)) {
+        workRevisionRef.current = null;
+        workRevisionWorkIdRef.current = id;
+        workRevisionRefreshRequiredRef.current = id;
+        try { await refreshCanonicalWorkRevision(id); } catch { /* keep blocked */ }
+      }
       throw cause;
     }
     lastPersistedRef.current = sentSignature;
     if (announce && mountedRef.current) setAnnouncement("Alterações salvas");
-  }), [autosaveMutation, enqueueSave]);
+  }), [autosaveMutation, detailQuery.data?.work.settings.carouselDraft, enqueueSave, refreshCanonicalWorkRevision, resolveCanonicalWorkRevision, setCanonicalWorkRevision]);
 
   const flushAutosave = useCallback(async (): Promise<string | null> => {
     if (initialWorkId && !hydratedWorkRef.current) return null;
@@ -532,17 +825,27 @@ export function useCreativeComposer({
     const id = workIdRef.current ?? await ensureDraft();
     if (!id) return null;
     if (autosaveBlockedWorkRef.current === id) return null;
+    if (autosaveRevisionUnavailableRef.current === id) return null;
     const current = detailQuery.data?.work;
-    if (current?.id === id && current.status !== "draft") return null;
+    // A prepared retry with no outputs may be deliberately reopened by the
+    // explicit Continue action. The autosave endpoint invalidates its frozen
+    // prepared fields and moves it back to draft atomically. Other terminal
+    // work stays immutable here.
+    const canReopenPreparedRetry = current?.id === id
+      && current.status === "ready"
+      && (detailQuery.data?.outputs.length ?? 0) === 0;
+    if (current?.id === id && current.status !== "draft" && !canReopenPreparedRetry) return null;
     for (;;) {
       await saveChainRef.current;
+      if (autosaveRevisionUnavailableRef.current === id) return null;
       const snapshot = captureSnapshot();
       if (signature(snapshot) === lastPersistedRef.current) return id;
       await persistSnapshot(id, snapshot);
     }
-  }, [captureSnapshot, detailQuery.data?.work, ensureDraft, initialWorkId, persistSnapshot]);
+  }, [captureSnapshot, detailQuery.data?.outputs.length, detailQuery.data?.work, ensureDraft, initialWorkId, persistSnapshot]);
 
   persistOnUnmountRef.current = async () => {
+    if (workflowVariant === "progressive" && !objectiveRef.current) return;
     if (initialWorkId && !hydratedWorkRef.current) return;
     await saveChainRef.current;
     const id = workIdRef.current ?? await ensureDraft(undefined, true);
@@ -619,6 +922,7 @@ export function useCreativeComposer({
   }, [focusComposer]);
 
   useEffect(() => {
+    if (workflowVariant === "progressive" && !objective) return;
     if (initialWorkId && !hydratedWorkRef.current) return;
     const current = detailQuery.data?.work;
     if (workIdRef.current && (!current || current.id !== workIdRef.current)) return;
@@ -636,19 +940,21 @@ export function useCreativeComposer({
       void save().catch((cause) => setError(cause instanceof Error ? cause.message : "Falha ao salvar"));
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [active.activeClientProfileId, captureSnapshot, detailQuery.data?.work, directionPool, ensureDraft, fontAssetKey, format, formatMode, initialWorkId, intent, persistSnapshot, request, targetFormats, textLayout]);
+  }, [active.activeClientProfileId, captureSnapshot, detailQuery.data?.work, directionPool, ensureDraft, fontAssetKey, format, formatMode, initialWorkId, intent, objective, persistSnapshot, request, targetFormats, textLayout, workflowVariant]);
 
   const setRequest = useCallback((value: string) => {
+    markPlanInputEdited();
     requestRef.current = value;
     setRequestState(value);
     setInferredBriefingContext(null);
     setBriefingEditState("idle");
-  }, []);
+  }, [markPlanInputEdited]);
 
   const editBriefingField = useCallback(async (field: CreativeWorkBriefingField, value: string) => {
     const id = workIdRef.current;
     const current = detailQuery.data?.work;
     if (!id || !current || current.status !== "draft" || intentRef.current !== "single" || !inferredBriefing) return;
+    markPlanInputEdited();
     setBriefingEditState("saving");
     setError(null);
     try {
@@ -667,11 +973,11 @@ export function useCreativeComposer({
       setBriefingEditState("error");
       setError(cause instanceof Error ? cause.message : "Falha ao salvar o briefing");
     }
-  }, [detailQuery.data?.work, editBriefingMutation, inferredBriefing]);
+  }, [detailQuery.data?.work, editBriefingMutation, inferredBriefing, markPlanInputEdited]);
 
   const switchToProtocol = useCallback(async (next: ComposerIntent) => {
     const previous = intentRef.current;
-    if (next === previous) return;
+    if (next === previous) return true;
 
     const currentWork = detailQuery.data?.work;
     const currentWorkId = workIdRef.current;
@@ -687,11 +993,12 @@ export function useCreativeComposer({
       } catch (cause) {
         setActionPhase("idle");
         setError(cause instanceof Error ? cause.message : "Falha ao preservar o rascunho");
-        return;
+        return false;
       }
       if (profileId && currentWorkId) writeStoredDraft(profileId, previous, currentWorkId);
     }
 
+    markPlanInputEdited();
     draftEpochRef.current += 1;
     createInFlightRef.current = null;
     autosaveBlockedWorkRef.current = null;
@@ -735,10 +1042,48 @@ export function useCreativeComposer({
     }
     setProtocolSwitchNotice(currentHasContext ? { from: previous, to: next } : null);
     if (next !== "restyle") requestAnimationFrame(() => composerRef.current?.focus());
-  }, [active.activeClientProfileId, detailQuery.data, ensureDraft, exposeIntent, exposeWorkId, flushAutosave]);
+    return true;
+  }, [active.activeClientProfileId, detailQuery.data, ensureDraft, exposeIntent, exposeWorkId, flushAutosave, markPlanInputEdited]);
 
-  const selectIntent = useCallback((next: ComposerIntent) => {
-    if (next === intentRef.current) return;
+  const selectIntent = useCallback((next: ComposerIntent, awaitTransition = false) => {
+    if (workflowVariant === "progressive" && !objectiveRef.current) {
+      // This is the first durable decision. Keep the free-entry request and
+      // buffered file intact while only applying the protocol defaults.
+      markPlanInputEdited();
+      objectiveRef.current = next;
+      setObjective(next);
+      intentRef.current = next;
+      setIntent(next);
+      const nextTargets: Format[] = next === "format_adaptation" ? ["1:1", "9:16"] : [];
+      targetFormatsRef.current = nextTargets;
+      setTargetFormats(nextTargets);
+      const nextDirectionPool = next === "variations" ? createDefaultCreativeDirectionPool() : null;
+      directionPoolRef.current = nextDirectionPool;
+      setDirectionPool(nextDirectionPool);
+      setQuote(canonicalQuote(next, formatRef.current, nextTargets, nextDirectionPool ?? undefined));
+      exposeIntent(next);
+      recordStudioEvent("studio_goal_selected", { protocol: next });
+      return (async () => {
+        if (bufferedFile) {
+        uploadInFlightRef.current = true;
+        setIsUploading(true);
+        try {
+          const uploaded = await uploadChatAttachment(bufferedFile);
+          const usage: CreativeSourceUsage = next === "restyle" ? "content" : next === "carousel" ? "style" : "both";
+          if (await ensureDraft({ assetId: uploaded.assetId, usage })) setBufferedFile(null);
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : tHome("composer.progressiveUploadFailed"));
+        } finally {
+          uploadInFlightRef.current = false;
+          setIsUploading(false);
+        }
+        } else if (requestRef.current.trim()) {
+          await ensureDraft();
+        }
+        return true;
+      })();
+    }
+    if (next === intentRef.current) return Promise.resolve(true);
     const currentSnapshot = captureSnapshot();
     const hasUnsavedChanges = lastPersistedRef.current !== null
       && signature(currentSnapshot) !== lastPersistedRef.current;
@@ -750,24 +1095,44 @@ export function useCreativeComposer({
       || hasUnsavedChanges;
     if (hasPendingWork) {
       setPendingProtocolSwitch(next);
-      return;
+      if (!awaitTransition) return;
+      pendingProtocolTransitionRef.current?.(false);
+      return new Promise<boolean>((resolve) => {
+        pendingProtocolTransitionRef.current = resolve;
+      });
     }
-    void switchToProtocol(next);
-  }, [actionPhase, captureSnapshot, createMutation.isPending, isUploading, sourceMutation.isPending, switchToProtocol]);
+    const transition = switchToProtocol(next).then((committed) => {
+      if (committed) recordStudioEvent("studio_goal_selected", { protocol: next });
+      return committed;
+    });
+    if (awaitTransition) return transition;
+    void transition;
+  }, [actionPhase, bufferedFile, captureSnapshot, createMutation.isPending, ensureDraft, exposeIntent, isUploading, markPlanInputEdited, recordStudioEvent, sourceMutation.isPending, switchToProtocol, tHome, workflowVariant]);
 
   const confirmProtocolSwitch = useCallback(() => {
     const next = pendingProtocolSwitch;
     setPendingProtocolSwitch(null);
-    if (next) void switchToProtocol(next);
-  }, [pendingProtocolSwitch, switchToProtocol]);
+    const transition = next ? switchToProtocol(next) : Promise.resolve(false);
+    void transition.then((committed) => {
+      if (committed && next) recordStudioEvent("studio_goal_selected", { protocol: next });
+      pendingProtocolTransitionRef.current?.(committed);
+      pendingProtocolTransitionRef.current = null;
+    });
+  }, [pendingProtocolSwitch, recordStudioEvent, switchToProtocol]);
 
-  const cancelProtocolSwitch = useCallback(() => setPendingProtocolSwitch(null), []);
+  const cancelProtocolSwitch = useCallback(() => {
+    setPendingProtocolSwitch(null);
+    pendingProtocolTransitionRef.current?.(false);
+    pendingProtocolTransitionRef.current = null;
+  }, []);
 
   const returnToPreviousProtocol = useCallback(() => {
     const previous = protocolSwitchNotice?.from;
     if (!previous) return;
-    void switchToProtocol(previous);
-  }, [protocolSwitchNotice, switchToProtocol]);
+    void switchToProtocol(previous).then((committed) => {
+      if (committed) recordStudioEvent("studio_goal_selected", { protocol: previous });
+    });
+  }, [protocolSwitchNotice, recordStudioEvent, switchToProtocol]);
 
   const toggleDirection = useCallback((directionId: string) => {
     if (intentRef.current !== "variations") return;
@@ -780,19 +1145,21 @@ export function useCreativeComposer({
     if (selectedIds.length === 0 || selectedIds === current.selectedIds) return;
     const next = { ...current, selectedIds };
     directionTouchedRef.current = true;
+    markPlanInputEdited();
     directionPoolRef.current = next;
     setDirectionPool(next);
     setQuote(canonicalQuote("variations", formatRef.current, targetFormatsRef.current, next));
-  }, []);
+  }, [markPlanInputEdited]);
 
   const setManualDirectionInstruction = useCallback((manualInstruction: string) => {
     if (intentRef.current !== "variations") return;
     const current = directionPoolRef.current ?? createDefaultCreativeDirectionPool();
     const next = { ...current, manualInstruction: manualInstruction || null };
     directionTouchedRef.current = true;
+    markPlanInputEdited();
     directionPoolRef.current = next;
     setDirectionPool(next);
-  }, []);
+  }, [markPlanInputEdited]);
 
   const applyDirectionSuggestions = useCallback((suggestions: CreativeDirection[], preserveSelection = true) => {
     if (suggestions.length === 0) return;
@@ -819,11 +1186,12 @@ export function useCreativeComposer({
       manualInstruction: current?.manualInstruction ?? null,
     } satisfies CreativeDirectionPool;
     directionPoolRef.current = next;
+    markPlanInputEdited();
     setDirectionPool(next);
     setQuote(canonicalQuote("variations", formatRef.current, targetFormatsRef.current, next));
     setPendingDirectionSuggestions(null);
     setDirectionSuggestionState("ready");
-  }, []);
+  }, [markPlanInputEdited]);
 
   const requestDirectionSuggestions = useCallback(() => {
     directionSuggestionRequestedRef.current = null;
@@ -867,32 +1235,44 @@ export function useCreativeComposer({
   }, [applyDirectionSuggestions, detailQuery.data?.sources, detailQuery.data?.work, directionSuggestionRetryToken, directionSuggestionState, intent, suggestDirectionMutation, workId]);
 
   const toggleTargetFormat = useCallback((value: Format) => {
+    markPlanInputEdited();
     setTargetFormats((current) => {
       const next = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
       targetFormatsRef.current = next;
       setQuote(canonicalQuote(intentRef.current, formatRef.current, next, directionPoolRef.current ?? undefined));
       return next;
     });
-  }, []);
+  }, [markPlanInputEdited]);
 
   const addFiles = useCallback(async (
     files: FileList | File[] | null,
     preferredUsage?: CreativeSourceUsage,
   ) => {
     const images = collectImageFiles(files);
-    if (images.length === 0) return;
+    if (images.length === 0) return false;
+    if (workflowVariant === "progressive" && !objectiveRef.current) {
+      setBufferedFile(images[0]!);
+      announce(images.length > 1
+        ? tHome("composer.progressiveMultipleFiles", { name: images[0]!.name })
+        : tHome("composer.progressiveBufferedFile", { name: images[0]!.name }));
+      return true;
+    }
     const accepted = intentRef.current === "single"
       ? images.slice(0, Math.max(0, MAX_PIECE_REFERENCES - (detailQuery.data?.sources.filter((source) => source.assetId).length ?? 0)))
-      : images;
+      : intentRef.current === "carousel"
+        // Carousel accepts at most one non-failed temporary visual reference.
+        ? images.slice(0, Math.max(0, 1 - (detailQuery.data?.sources.filter((source) => source.status !== "failed").length ?? 0)))
+        : images;
     const rejectedByLimit = images.length - accepted.length;
     if (accepted.length === 0) {
       announce(`Limite de 3 atingido; ${rejectedByLimit} arquivo${rejectedByLimit === 1 ? "" : "s"} não enviado${rejectedByLimit === 1 ? "" : "s"}`);
-      return;
+      return false;
     }
     if (!workIdRef.current && !active.activeClientProfileId) {
       focusBrandSwitcher();
-      return;
+      return false;
     }
+    markPlanInputEdited();
     uploadInFlightRef.current = true;
     setIsUploading(true);
     setError(null);
@@ -902,15 +1282,19 @@ export function useCreativeComposer({
       ));
       for (const file of accepted) {
         const uploaded = await uploadChatAttachment(file);
-        const usage: CreativeSourceUsage = preferredUsage ?? (intentRef.current === "restyle"
-          ? (hasRestyleContent ? "style" : "content")
-          : "both");
+        // Carousel references are visual context only: the style usage is
+        // forced, never inherited from a preferred usage.
+        const usage: CreativeSourceUsage = intentRef.current === "carousel"
+          ? "style"
+          : preferredUsage ?? (intentRef.current === "restyle"
+            ? (hasRestyleContent ? "style" : "content")
+            : "both");
         if (usage === "content") hasRestyleContent = true;
         const existingId = workIdRef.current;
         if (!existingId) {
           await ensureDraft({ assetId: uploaded.assetId, usage });
         } else {
-          await sourceMutation.mutateAsync({
+          await mutateSource({
             workItemId: existingId,
             action: "attachSource",
             assetId: uploaded.assetId,
@@ -921,13 +1305,15 @@ export function useCreativeComposer({
       setInferredBriefingContext(null);
       const addedAnnouncement = accepted.length === 1 ? "Arte adicionada" : `${accepted.length} artes adicionadas`;
       announce(rejectedByLimit > 0 ? `${addedAnnouncement}; ${rejectedByLimit} arquivo${rejectedByLimit === 1 ? "" : "s"} não enviado${rejectedByLimit === 1 ? "" : "s"} pelo limite de 3` : addedAnnouncement);
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao adicionar arte");
+      return false;
     } finally {
       uploadInFlightRef.current = false;
       setIsUploading(false);
     }
-  }, [active.activeClientProfileId, announce, detailQuery.data?.sources, ensureDraft, sourceMutation]);
+  }, [active.activeClientProfileId, announce, detailQuery.data?.sources, ensureDraft, markPlanInputEdited, mutateSource, tHome, workflowVariant]);
 
   const attachDraftSource = useCallback(async (source: DraftSource): Promise<boolean> => {
     if (!workIdRef.current && !active.activeClientProfileId) {
@@ -936,29 +1322,38 @@ export function useCreativeComposer({
     }
     const existingId = workIdRef.current;
     if (existingId) {
-      await sourceMutation.mutateAsync({
+      markPlanInputEdited();
+      await mutateSource({
         workItemId: existingId,
         action: "attachSource",
         ...source,
-        usage: source.usage ?? (intentRef.current === "restyle" ? "style" : "both"),
+        usage: source.usage ?? (intentRef.current === "restyle" || intentRef.current === "carousel" ? "style" : "both"),
       });
       setInferredBriefingContext(null);
       return true;
     }
     return Boolean(await ensureDraft(source));
-  }, [active.activeClientProfileId, ensureDraft, sourceMutation]);
+  }, [active.activeClientProfileId, ensureDraft, markPlanInputEdited, mutateSource]);
 
   const addInspiration = useCallback(async (inspiration: CreativeInspiration) => {
     if (!workIdRef.current && !active.activeClientProfileId) {
       focusBrandSwitcher();
-      return;
+      return false;
     }
     setError(null);
     if (!inspiration.templateId && !inspiration.assetId && !inspiration.curatedInspirationId) {
       setError("Inspiração indisponível");
-      return;
+      return false;
     }
     try {
+      // Never materialize a curated asset until the selected protocol has
+      // actually committed. A deferred switch can be cancelled by the user.
+      const destinationCommitted = await selectIntent(
+        inspiration.suggestedIntent === "social_post" ? "variations" : inspiration.suggestedIntent,
+        true,
+      );
+      if (!destinationCommitted) return false;
+
       let assetId = inspiration.assetId;
       if (inspiration.curatedInspirationId) {
         const response = await apiFetch(
@@ -971,15 +1366,19 @@ export function useCreativeComposer({
         }
         assetId = payload.assetId;
       }
-      selectIntent(inspiration.suggestedIntent === "social_post" ? "variations" : inspiration.suggestedIntent);
       const source: DraftSource = inspiration.templateId
         ? { templateId: inspiration.templateId, usage: inspiration.suggestedIntent === "restyle" ? "style" : "both" }
         : { assetId: assetId!, usage: inspiration.suggestedIntent === "restyle" ? "style" : "both" };
-      if (!await attachDraftSource(source)) return;
+      if (!await attachDraftSource(source)) return false;
       setAnnouncement("Inspiração adicionada");
-      requestAnimationFrame(() => composerRef.current?.focus());
+      requestAnimationFrame(() => {
+        if (inspiration.suggestedIntent === "restyle") document.getElementById("creative-composer-original-source")?.focus();
+        else composerRef.current?.focus();
+      });
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao adicionar inspiração");
+      return false;
     }
   }, [active.activeClientProfileId, attachDraftSource, selectIntent]);
 
@@ -993,6 +1392,9 @@ export function useCreativeComposer({
 
   useEffect(() => {
     if (!initialTemplateId || autoTemplateRef.current === initialTemplateId) return;
+    // A template without a protocol is entry context, not permission to
+    // materialize a default draft. It attaches after the explicit objective.
+    if (workflowVariant === "progressive" && !objective) return;
     if (active.isLoading) return;
     if (initialWorkId && !hydratedWorkRef.current) return;
     if (detailQuery.data?.sources.some((source) => source.templateId === initialTemplateId)) {
@@ -1036,19 +1438,28 @@ export function useCreativeComposer({
     failedInitialTemplateId,
     initialTemplateId,
     initialWorkId,
+    objective,
     templateRetryToken,
+    workflowVariant,
   ]);
 
-  const runSourceAction = useCallback(async (action: Parameters<typeof sourceMutation.mutateAsync>[0]): Promise<boolean> => {
+  const runSourceAction = useCallback(async (action: SourceActionInput): Promise<boolean> => {
     try {
-      await sourceMutation.mutateAsync(action);
+      markPlanInputEdited();
+      await mutateSource(action);
       setInferredBriefingContext(null);
+      if (action.action === "updateSource") {
+        recordStudioEvent("studio_source_role_selected", {
+          creativeWorkId: action.workItemId,
+          sourceRole: action.usage,
+        });
+      }
       return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao atualizar arte");
       return false;
     }
-  }, [sourceMutation]);
+  }, [markPlanInputEdited, mutateSource, recordStudioEvent]);
 
   const updateSource = useCallback((sourceId: string, usage: CreativeSourceUsage) => {
     if (!workIdRef.current) return Promise.resolve();
@@ -1067,7 +1478,8 @@ export function useCreativeComposer({
   const retrySource = useCallback((sourceId: string) => {
     if (!workIdRef.current) return Promise.resolve();
     const workItemId = workIdRef.current;
-    return sourceMutation.mutateAsync({ workItemId, action: "retrySource", sourceId })
+    markPlanInputEdited();
+    return mutateSource({ workItemId, action: "retrySource", sourceId })
       .then(() => {
         setInferredBriefingContext(null);
       })
@@ -1076,14 +1488,13 @@ export function useCreativeComposer({
         // detail read and retry. The server's 409 is a safe no-op: refresh
         // the canonical source state instead of surfacing "Entrada inválida".
         if (isCreativeWorkConflict(cause)) {
-          await detailQuery.refetch();
           setInferredBriefingContext(null);
           setError(null);
           return;
         }
         setError(cause instanceof Error ? cause.message : "Falha ao atualizar arte");
       });
-  }, [detailQuery, sourceMutation]);
+  }, [markPlanInputEdited, mutateSource]);
   const removeSource = useCallback((sourceId: string) => {
     if (!workIdRef.current) return Promise.resolve();
     return runSourceAction({ workItemId: workIdRef.current, action: "removeSource", sourceId });
@@ -1115,121 +1526,183 @@ export function useCreativeComposer({
     return runSourceAction({ workItemId: workIdRef.current, action: "promotePieceReference", sourceId });
   }, [runSourceAction]);
 
-  const generate = useCallback(async () => {
-    if (
-      submitGuardRef.current
-      || generateMutation.isPending
-      || editBriefingMutation.isPending
-      || briefingEditState === "saving"
-      || inferredBriefing?.readiness === "blocked"
-      || sourceMutation.isPending
-      || isUploading
-      || uploadInFlightRef.current
-    ) return;
+  const submissionBlocked = useCallback(() => submitGuardRef.current
+    || generateMutation.isPending
+    || editBriefingMutation.isPending
+    || briefingEditState === "saving"
+    || inferredBriefing?.readiness === "blocked"
+    || sourceMutation.isPending
+    || isUploading
+    || uploadInFlightRef.current, [editBriefingMutation.isPending, generateMutation.isPending, inferredBriefing?.readiness, isUploading, sourceMutation.isPending, briefingEditState]);
+
+  const preparePlanCommand = useCallback(async (): Promise<PreparedPlanProjectionV1 | null> => {
     const current = detailQuery.data?.work;
-    // A work left "ready" without outputs by an uncertain submit (prepare
-    // confirmed, generation unconfirmed) resumes straight at the generation
-    // call — prepare requires a draft and must not run again.
-    const resumePrepared = Boolean(
-      current
-      && current.status === "ready"
-      && (detailQuery.data?.outputs.length ?? 0) === 0,
+    const currentPlan = detailQuery.data?.preparedPlan ?? null;
+    const preparedInput = currentPlan && preparedPlanInputRef.current?.revision === currentPlan.preparedRevision
+      ? preparedPlanInputRef.current
+      : null;
+    const planIsStale = Boolean(
+      currentPlan && (
+        invalidatedPlanRevision === currentPlan.preparedRevision
+        || preparedInput?.signature.startsWith("stale:")
+        || preparedInput?.signature !== signature(captureSnapshot())
+      )
     );
-    if (current && current.status !== "draft" && !resumePrepared) return;
-    submitGuardRef.current = true;
-    setActionPhase(resumePrepared ? "submitting" : "saving");
+    const canReopenPreparedRetry = current?.status === "ready"
+      && (detailQuery.data?.outputs.length ?? 0) === 0;
+    if (current && current.status !== "draft" && !(canReopenPreparedRetry && planIsStale)) return currentPlan;
+    setActionPhase("saving");
+    const prepareEditEpoch = planInputEditEpochRef.current;
     setError(null);
-    // A new submit supersedes any stale conflict panel — a generic failure
-    // ahead must never render alongside an outdated choice.
     setBrandConflict(null);
-    let phase: ComposerActionPhase = resumePrepared ? "submitting" : "saving";
     try {
-      const id = resumePrepared && current ? current.id : await flushAutosave();
-      if (!id) return;
-      const pendingSources = (detailQuery.data?.sources ?? []).filter(
-        (source) => source.status === "uploaded" || source.status === "analyzing",
-      );
+      const id = await flushAutosave();
+      if (!id) return null;
+      const pendingSources = (detailQuery.data?.sources ?? []).filter((source) => source.status === "uploaded" || source.status === "analyzing");
       if (pendingSources.length > 0) {
         setError("Aguarde a análise da arte terminar antes de gerar.");
-        return;
+        return null;
       }
-      if (!resumePrepared) {
-        phase = "preparing";
-        setActionPhase(phase);
-        const prepared = await prepareMutation.mutateAsync({ workItemId: id });
-        if (prepared.briefing && prepared.briefingFactPack) {
-          setInferredBriefingContext({ briefing: prepared.briefing, factPack: prepared.briefingFactPack });
-        }
-        lastPersistedRef.current = signature(snapshotFromWork(prepared.work));
-        setQuote(prepared.quote);
-        formatRef.current = prepared.work.format;
-        setFormat(prepared.work.format);
-      }
-      phase = "submitting";
-      setActionPhase(phase);
-      const generated = await generateMutation.mutateAsync(id);
-      setBrandConflict(null);
-      setBrandTrainingSuggestion(generated.brandTrainingSuggestion);
-      setAnnouncement("Geração iniciada");
+      setActionPhase("preparing");
+      const prepared = await prepareMutation.mutateAsync({ workItemId: id });
+      if (prepared.briefing && prepared.briefingFactPack) setInferredBriefingContext({ briefing: prepared.briefing, factPack: prepared.briefingFactPack });
+      lastPersistedRef.current = signature(snapshotFromWork(prepared.work));
+      setCanonicalWorkRevision(prepared.work.id, prepared.work.updatedAt);
+      if (prepared.quote) setQuote(prepared.quote);
+      formatRef.current = prepared.work.format;
+      setFormat(prepared.work.format);
+      const preparedRevision = prepared.preparedPlan?.preparedRevision ?? prepared.preparedRevision;
+      if (!preparedRevision) throw new Error("Preparação sem revisão");
+      preparedPlanInputRef.current = {
+        revision: preparedRevision,
+        signature: prepareEditEpoch === planInputEditEpochRef.current
+          ? signature(captureSnapshot())
+          : `stale:${prepareEditEpoch}`,
+      };
+      recordCanonicalEvent("briefing_ready", id, { protocol: prepared.preparedPlan?.protocol ?? "carousel" });
+      // Carousel prepare answers with the frozen deck/visual envelope; the
+      // full projection re-derives from the persisted snapshot on refetch.
+      return prepared.preparedPlan
+        ?? await detailQuery.refetch().then((refetched) => refetched.data?.preparedPlan ?? null);
     } catch (cause) {
-      // R-008: an explicit brand conflict is NOT a generic error — it is the
-      // one visible decision of the flow. Surface it as a choice; everything
-      // else stays a safe, server-translated message.
       const conflict = extractCreativeWorkBrandConflict(cause);
-      if (conflict) {
-        setBrandConflict(conflict);
-      } else {
+      if (conflict) setBrandConflict(conflict);
+      else {
         const blocked = extractCreativeWorkBriefingBlocked(cause);
-        if (blocked) {
-          setInferredBriefingContext({ briefing: blocked.briefing, factPack: blocked.factPack });
-          setError(cause instanceof Error ? cause.message : "A direção do briefing precisa ser corrigida.");
-        } else if (isApiRequestUncertain(cause) && workIdRef.current) {
-          setActionPhase("reconciling");
-          try {
-            const reconciled = await detailQuery.refetch();
-            const detail = reconciled.data;
-            // Acceptance requires real evidence of generation: an in-flight
-            // status or persisted outputs. "ready" without outputs only proves
-            // the prepare step landed — the flow stays retryable, not accepted.
-            const accepted = Boolean(
-              detail
-              && (detail.work.status === "generating" || detail.outputs.length > 0),
-            );
-            if (accepted) {
-              setError(null);
-              setAnnouncement("Geração aceita; acompanhando o processamento");
-            } else {
-              setError(detail?.work.status === "ready" || phase === "submitting"
-                ? "A geração não foi confirmada. Tente gerar novamente."
-                : "A preparação não foi confirmada. Tente gerar novamente.");
-            }
-          } catch {
-            setError("Não foi possível confirmar o estado da geração. Atualize e tente novamente.");
-          }
-        } else {
-          setError(cause instanceof Error ? cause.message : "Falha ao gerar");
-        }
+        if (blocked) setInferredBriefingContext({ briefing: blocked.briefing, factPack: blocked.factPack });
+        setError(cause instanceof Error ? cause.message : "Falha ao preparar plano");
       }
+      return null;
     } finally {
-      submitGuardRef.current = false;
       setActionPhase("idle");
     }
-  }, [briefingEditState, detailQuery, editBriefingMutation.isPending, flushAutosave, generateMutation, inferredBriefing, isUploading, prepareMutation, sourceMutation.isPending]);
+  }, [captureSnapshot, detailQuery, flushAutosave, invalidatedPlanRevision, prepareMutation, recordCanonicalEvent, setCanonicalWorkRevision]);
+
+  const confirmGenerationCommand = useCallback(async (preparedRevision?: string): Promise<void> => {
+    const current = detailQuery.data?.work;
+    const id = current?.id ?? workIdRef.current;
+    const revision = preparedRevision ?? detailQuery.data?.preparedPlan?.preparedRevision;
+    if (!id || !revision) {
+      setError("Revise o plano antes de gerar.");
+      return;
+    }
+    if (preparedPlanInputRef.current?.revision === revision
+      && (
+        preparedPlanInputRef.current.signature.startsWith("stale:")
+        || preparedPlanInputRef.current.signature !== signature(captureSnapshot())
+      )) {
+      setError("Revise o plano antes de gerar.");
+      return;
+    }
+    if (current && current.status !== "draft" && !(current.status === "ready" && (detailQuery.data?.outputs.length ?? 0) === 0)) return;
+    setActionPhase("submitting");
+    setError(null);
+    try {
+      const generated = await generateMutation.mutateAsync({ workItemId: id, preparedRevision: revision, ...(studioSessionId ? { studioSessionId } : {}), rolloutVariant: workflowVariant });
+      setBrandConflict(null);
+      setBrandTrainingSuggestion(generated.brandTrainingSuggestion ?? null);
+      setAnnouncement("Geração iniciada");
+      recordStudioEvent("studio_plan_confirmed", { creativeWorkId: id });
+    } catch (cause) {
+      if (isApiRequestUncertain(cause) && workIdRef.current) {
+        setActionPhase("reconciling");
+        try {
+          const reconciled = await detailQuery.refetch();
+          const detail = reconciled.data;
+          if (detail && (detail.work.status === "generating" || detail.outputs.length > 0 || (detail.carouselSlides?.length ?? 0) > 0)) {
+            setError(null);
+            setAnnouncement("Geração aceita; acompanhando o processamento");
+          } else setError("A geração não foi confirmada. Tente gerar novamente.");
+        } catch {
+          setError("Não foi possível confirmar o estado da geração. Atualize e tente novamente.");
+        }
+      } else setError(cause instanceof Error ? cause.message : "Falha ao gerar");
+    } finally {
+      setActionPhase("idle");
+    }
+  }, [captureSnapshot, detailQuery, generateMutation, recordStudioEvent, studioSessionId, workflowVariant]);
+
+  const preparePlan = useCallback(async () => {
+    if (submissionBlocked()) return null;
+    submitGuardRef.current = true;
+    try {
+      const plan = await preparePlanCommand();
+      if (plan) setPreparedPlanCycle((cycle) => cycle + 1);
+      return plan;
+    }
+    finally { submitGuardRef.current = false; }
+  }, [preparePlanCommand, submissionBlocked]);
+
+  const confirmGeneration = useCallback(async (preparedRevision?: string) => {
+    if (submissionBlocked()) return;
+    submitGuardRef.current = true;
+    try { await confirmGenerationCommand(preparedRevision); }
+    finally { submitGuardRef.current = false; }
+  }, [confirmGenerationCommand, submissionBlocked]);
+
+  const generateLegacy = useCallback(async () => {
+    if (submissionBlocked()) return;
+    submitGuardRef.current = true;
+    try {
+      // preparePlanCommand preserves an untouched ready retry but deliberately
+      // reopens and reprovisions one whose local inputs changed.
+      const plan = await preparePlanCommand();
+      if (!plan) return;
+      await confirmGenerationCommand(plan?.preparedRevision);
+    } finally { submitGuardRef.current = false; }
+  }, [confirmGenerationCommand, preparePlanCommand, submissionBlocked]);
 
   const resolveBrandConflict = useCallback(async (choice: CreativeWorkBrandChoice) => {
     // Double-click guard: one choice in flight per conflict.
     if (!workIdRef.current || !brandConflict || resolveBrandConflictMutation.isPending) return;
+    const workItemId = workIdRef.current;
     try {
-      // The choice autosaves on the SAME draft server-side; the interrupted
-      // submit then resumes unchanged (prepare → generate).
-      await resolveBrandConflictMutation.mutateAsync({ workItemId: workIdRef.current, choice });
+      const expectedUpdatedAt = await resolveCanonicalWorkRevision(workItemId);
+      if (!expectedUpdatedAt) throw new Error("Recarregue o trabalho antes de continuar.");
+      // The corrected authority is shown through a new prepared plan; only
+      // the temporary control wrapper may subsequently confirm generation.
+      const result = await resolveBrandConflictMutation.mutateAsync({
+        workItemId,
+        choice,
+        expectedUpdatedAt,
+      });
+      if (!setCanonicalWorkRevision(workItemId, result.work.updatedAt)) {
+        await refreshCanonicalWorkRevision(workItemId);
+      }
       setBrandConflict(null);
       setAnnouncement("Escolha de marca salva");
-      await generate();
+      const plan = await preparePlan();
+      if (workflowVariant === "control" && plan) await confirmGeneration(plan.preparedRevision);
     } catch (cause) {
+      if (isCreativeWorkConflict(cause)) {
+        workRevisionRef.current = null;
+        workRevisionWorkIdRef.current = workItemId;
+        workRevisionRefreshRequiredRef.current = workItemId;
+        try { await refreshCanonicalWorkRevision(workItemId); } catch { /* keep blocked */ }
+      }
       setError(cause instanceof Error ? cause.message : "Falha ao salvar escolha de marca");
     }
-  }, [brandConflict, generate, resolveBrandConflictMutation]);
+  }, [brandConflict, confirmGeneration, preparePlan, refreshCanonicalWorkRevision, resolveBrandConflictMutation, resolveCanonicalWorkRevision, setCanonicalWorkRevision, workflowVariant]);
 
   const retryOutput = useCallback(async (outputId: string) => {
     if (!workIdRef.current) return;
@@ -1264,11 +1737,14 @@ export function useCreativeComposer({
         confirmObjective,
       });
       setAnnouncement("Proposta aprovada");
+      recordCanonicalEvent("creative_work_approved", workIdRef.current, {
+        protocol: detailQuery.data?.work.toolKind === "social_post" ? "variations" : detailQuery.data?.work.toolKind ?? "variations",
+      });
     } catch (cause) {
       setApprovalErrorOutputId(outputId);
       setError(cause instanceof Error ? cause.message : "Falha ao aprovar proposta");
     }
-  }, [selectOutputMutation]);
+  }, [detailQuery.data?.work.toolKind, recordCanonicalEvent, selectOutputMutation]);
 
   const reviseOutput = useCallback(async (outputId: string, instruction: string, attachment: File | null) => {
     if (!workIdRef.current || !instruction.trim()) return;
@@ -1288,10 +1764,11 @@ export function useCreativeComposer({
       });
       revisionAttemptsRef.current.delete(attemptKey);
       setAnnouncement("Nova versão em geração");
+      recordStudioEvent("studio_refinement_started", { creativeWorkId: workIdRef.current });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao gerar nova versão");
     }
-  }, [reviseOutputMutation]);
+  }, [recordStudioEvent, reviseOutputMutation]);
 
   const retryRevisionOutput = useCallback(async (output: CreativeWorkOutput) => {
     if (!workIdRef.current || !output.parentOutputId || !output.revisionInstruction) return;
@@ -1309,17 +1786,38 @@ export function useCreativeComposer({
     }
   }, [reviseOutputMutation]);
 
-  const linkCampaign = useCallback(async (campaignId: string | null) => {
-    if (!workIdRef.current) return;
-    try {
-      await linkCampaignMutation.mutateAsync({ workItemId: workIdRef.current, campaignId });
-      setAnnouncement(campaignId ? "Campanha vinculada" : "Campanha removida");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Falha ao agrupar em campanha");
-    }
-  }, [linkCampaignMutation]);
-
   const detail = detailQuery.data;
+  const objectiveSelected = objective !== null;
+  const preparedPlan = detail?.preparedPlan ?? null;
+  const stage = projectComposerStage({ objectiveSelected, detail: detail ?? null });
+  const planInputSignature = signature(captureSnapshot());
+  useEffect(() => {
+    if (!preparedPlan) {
+      preparedPlanInputRef.current = null;
+      hydratingPreparedPlanRevisionRef.current = null;
+      return;
+    }
+    if (hydratingPreparedPlanRevisionRef.current === preparedPlan.preparedRevision) {
+      hydratingPreparedPlanRevisionRef.current = null;
+      setInvalidatedPlanRevision(null);
+      return;
+    }
+    const previous = preparedPlanInputRef.current;
+    if (!previous || previous.revision !== preparedPlan.preparedRevision) {
+      preparedPlanInputRef.current = { revision: preparedPlan.preparedRevision, signature: planInputSignature };
+      setInvalidatedPlanRevision(null);
+      return;
+    }
+    if (previous.signature !== planInputSignature && invalidatedPlanRevision !== preparedPlan.preparedRevision) {
+      setInvalidatedPlanRevision(preparedPlan.preparedRevision);
+      recordStudioEvent("studio_plan_changed", { creativeWorkId: preparedPlan.workId });
+    }
+  }, [invalidatedPlanRevision, planInputSignature, preparedPlan, recordStudioEvent]);
+  useEffect(() => {
+    if (workflowVariant !== "progressive" || stage !== "plan" || !preparedPlan || shownPreparedRevisionRef.current === preparedPlan.preparedRevision) return;
+    shownPreparedRevisionRef.current = preparedPlan.preparedRevision;
+    recordStudioEvent("studio_plan_shown", { creativeWorkId: preparedPlan.workId });
+  }, [preparedPlan, recordStudioEvent, stage, workflowVariant]);
   const state = useMemo<ComposerState>(() => {
     if (generateMutation.isPending || detail?.work.status === "generating") return "generating";
     if (detail && (detail.outputs.length > 0 || ["partial", "completed", "failed"].includes(detail.work.status))) return "results";
@@ -1337,19 +1835,13 @@ export function useCreativeComposer({
     ?? null;
   const sources = detail?.sources ?? [];
   const readySources = sources.filter((source) => source.status === "ready");
-  const restyleOriginal = readySources.find((source) => source.usage === "content")
-    ?? readySources.find((source) => source.usage === "both")
-    ?? null;
-  const restyleStyle = readySources.find((source) => source.usage === "style") ?? null;
-  const hasMeaningfulInput = intent === "restyle"
-    ? Boolean(
-      restyleOriginal
-      && restyleStyle
-      && restyleOriginal.id !== restyleStyle.id,
-    )
-    : intent === "variations" || intent === "format_adaptation"
-      ? readySources.length > 0
-      : Boolean(request.trim() || sources.length);
+  const hasMeaningfulInput = intent === "carousel"
+    ? request.trim().length > 0
+    : hasCreativeWorkProtocolSourceShape({
+        intent,
+        request,
+        sources: readySources.map((source) => ({ sourceId: source.id, usage: source.usage })),
+      });
   const canGenerate = Boolean(clientProfileId) && hasMeaningfulInput
     && (!detail?.work || detail.work.status === "draft"
       // A "ready" work without outputs holds a confirmed prepare whose
@@ -1365,6 +1857,18 @@ export function useCreativeComposer({
     // A brand choice being applied resumes the submit itself — a manual
     // click in that window would race it with a concurrent generate.
     && !resolveBrandConflictMutation.isPending;
+  const hasEntry = Boolean(request.trim() || bufferedFile || initialTemplateId || detail?.sources.length);
+  const canContinue = objectiveSelected && canGenerate;
+  const preparedInput = preparedPlanInputRef.current;
+  const planChangedSincePreparation = Boolean(preparedInput
+    && preparedInput.revision === preparedPlan?.preparedRevision
+    && preparedInput.signature !== planInputSignature);
+  const visiblePreparedPlan = invalidatedPlanRevision === preparedPlan?.preparedRevision || planChangedSincePreparation ? null : preparedPlan;
+  const visibleStage = visiblePreparedPlan ? stage : stage === "plan" ? "configure" : stage;
+  const canConfirm = Boolean(visiblePreparedPlan)
+    && actionPhase === "idle"
+    && !generateMutation.isPending
+    && !submitGuardRef.current;
 
   const campaigns = (campaignQuery.data ?? []).filter((campaign) =>
     !campaign.clientProfileId || campaign.clientProfileId === storedProfileId,
@@ -1397,9 +1901,26 @@ export function useCreativeComposer({
         }
     : null;
 
+  // The carousel wizard rides the same progressive controller: the injected
+  // prepare/confirm commands and the shared canonical-event recorder are
+  // passed through — never duplicated.
+  const carousel = useCarouselComposer({
+    workId: workId ?? "",
+    preparedPlan: preparedPlan ?? null,
+    preparePlan,
+    confirmGeneration,
+    recordCanonicalEvent: (event, properties) => {
+      recordCanonicalEvent(event, properties.creativeWorkId, {
+        protocol: properties.protocol,
+        outputCount: properties.outputCount,
+      });
+    },
+  } satisfies CarouselComposerInput);
+
   return {
     composerRef: composerRef as RefObject<HTMLTextAreaElement | null>, request, setRequest,
     intent, selectIntent, format, formatMode, setFormat: (value: Format) => {
+      markPlanInputEdited();
       formatRef.current = value;
       formatModeRef.current = "manual";
       setFormatMode("manual");
@@ -1407,24 +1928,27 @@ export function useCreativeComposer({
       setQuote(canonicalQuote(intentRef.current, value, targetFormatsRef.current, directionPoolRef.current ?? undefined));
     },
     setFormatAuto: () => {
+      markPlanInputEdited();
       formatModeRef.current = "auto";
       setFormatMode("auto");
     },
     targetFormats, toggleTargetFormat,
     textLayout,
     setTextLayout: (value: "top" | "center" | "bottom" | "side") => {
+      markPlanInputEdited();
       textLayoutRef.current = value;
       setTextLayout(value);
     },
     fontAssetKey,
     setFontAssetKey: (value: string | null) => {
+      markPlanInputEdited();
       fontAssetKeyRef.current = value;
       setFontAssetKey(value);
     },
     fontOptions,
     directionPool, toggleDirection, setManualDirectionInstruction,
     directionSuggestionState, pendingDirectionSuggestions, applyDirectionSuggestions, requestDirectionSuggestions, keepCurrentDirections,
-    state, actionPhase, workId, clientProfileId, brandName,
+    state, stage: visibleStage, objective, objectiveSelected, bufferedFile, hasEntry, canContinue, canConfirm, preparedPlan: visiblePreparedPlan, preparedPlanCycle, actionPhase, workId, clientProfileId, brandName, workTitle: detail?.work.title ?? null,
     pendingProtocolSwitch, confirmProtocolSwitch, cancelProtocolSwitch,
     protocolSwitchNotice, returnToPreviousProtocol,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
@@ -1433,7 +1957,7 @@ export function useCreativeComposer({
     inferredBriefing, briefingFactPack, brandIdentity,
     briefingOverrides: detail?.work.settings.briefingOverrides ?? briefingOverridesRef.current ?? {},
     editBriefingField, briefingEditState,
-    campaignId: detail?.work.campaignId ?? null, campaigns,
+    campaignId: detail?.work.campaignId ?? pendingCampaignId, campaigns,
     error, announcement, approvalErrorOutputId, brandTrainingSuggestion: brandTrainingSuggestion ?? persistedBrandTrainingSuggestion,
     brandConflict, resolveBrandConflict,
     isResolvingBrandConflict: resolveBrandConflictMutation.isPending,
@@ -1443,7 +1967,7 @@ export function useCreativeComposer({
       ? retryInitialTemplate
       : null,
     workError: Boolean(workId && detailQuery.isError),
-    addFiles, addInspiration, updateSource, editSource, retrySource, removeSource, updatePieceReference, replacePieceReference, promotePieceReference, generate,
+    addFiles, clearBufferedFile: () => setBufferedFile(null), addInspiration, updateSource, editSource, retrySource, removeSource, updatePieceReference, replacePieceReference, promotePieceReference, preparePlan, confirmGeneration, generateLegacy,
     retryOutput, retryRevisionOutput, approveOutput, reviseOutput, linkCampaign,
     canLayerize: detail?.canLayerize ?? false,
     layerEditorAccess: detail?.layerEditorAccess,
@@ -1468,6 +1992,7 @@ export function useCreativeComposer({
         && current.revisionAssetId === reviseOutputMutation.variables?.revisionAssetId;
     },
     refreshOutputs: async () => { await detailQuery.refetch(); },
+    carousel,
   };
 }
 

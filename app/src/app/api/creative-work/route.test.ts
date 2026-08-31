@@ -237,6 +237,30 @@ describe("POST /api/creative-work", () => {
     expect(startMock).not.toHaveBeenCalled();
   });
 
+  it("maps the carousel visual-reference cap to its dedicated error code", async () => {
+    createDraftWithSourceMock.mockResolvedValue({ limitReached: true, reason: "carousel_reference_limit" });
+
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientProfileId: profileId,
+        draftKey: "00000000-0000-4000-8000-0000000000c1",
+        request: "",
+        assetId: "asset-1",
+        usage: "style",
+        intent: "carousel",
+        format: "4:5",
+        settings: { targetFormats: [] },
+      }),
+    }));
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(body.code).toBe("creativeWorkCarouselReferenceLimit");
+    expect(inngestSendMock).not.toHaveBeenCalled();
+    expect(analyzeSourceMock).not.toHaveBeenCalled();
+  });
+
   it("accepts an attachment-first draft only with a scoped image asset", async () => {
     const body = {
       clientProfileId: profileId,
@@ -344,6 +368,45 @@ describe("POST /api/creative-work", () => {
 
     expect(res.status).toBe(201);
     expect((await res.json()).source).toEqual(expect.objectContaining({ status: "failed", failureCode: "analysis_failed" }));
+  });
+
+  it("returns the post-analysis work revision after template-first creation", async () => {
+    const createdAt = new Date("2026-08-31T12:00:00.000Z");
+    const analyzedAt = new Date("2026-08-31T12:00:00.001Z");
+    const createdWork = {
+      id: "work-template", workspaceId: "workspace-1", clientProfileId: profileId,
+      toolKind: "variations", status: "draft", format: "4:5", settings: { targetFormats: [] },
+      brief: null, copy: null, identitySnapshot: null, createdAt, updatedAt: createdAt,
+    };
+    const analyzedSource = {
+      id: "source-template", workspaceId: "workspace-1", workItemId: "work-template",
+      assetId: null, templateId: "template-1", usage: "both", status: "ready", updatedAt: analyzedAt,
+    };
+    createDraftWithSourceMock.mockResolvedValue({
+      claimedForAnalysis: true,
+      work: createdWork,
+      source: { ...analyzedSource, status: "uploaded", updatedAt: createdAt },
+      template: { id: "template-1", name: "Lançamento" },
+    });
+    analyzeSourceMock.mockResolvedValue(analyzedSource);
+    getCreativeWorkMock.mockResolvedValue({
+      work: { ...createdWork, updatedAt: analyzedAt },
+      outputs: [],
+      sources: [analyzedSource],
+    });
+
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        clientProfileId: profileId, draftKey: "00000000-0000-4000-8000-000000000099",
+        request: "", templateId: "template-1", usage: "both", intent: "variations",
+        format: "4:5", settings: { targetFormats: [] },
+      }),
+    }));
+    const payload = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(payload.work.updatedAt).toBe(analyzedAt.toISOString());
+    expect(payload.source).toEqual(expect.objectContaining({ status: "ready", origin: "template" }));
   });
 
   it("delegates attachment-first creation to one atomic idempotent repository command", async () => {
@@ -482,6 +545,16 @@ describe("POST /api/creative-work", () => {
     });
     inngestSendMock.mockRejectedValue(new Error("down"));
     updateSourceCasMock.mockResolvedValue({ ...source, status: "failed", failureCode: "dispatch_failed" });
+    const failedAt = new Date("2026-07-16T12:00:00.001Z");
+    getCreativeWorkMock.mockResolvedValue({
+      work: {
+        id: "work-asset", workspaceId: "workspace-1", clientProfileId: profileId,
+        toolKind: "variations", status: "draft", format: "4:5", settings: { targetFormats: [] },
+        brief: null, copy: null, identitySnapshot: null, createdAt: now, updatedAt: failedAt,
+      },
+      outputs: [],
+      sources: [{ ...source, status: "failed", failureCode: "dispatch_failed", updatedAt: failedAt }],
+    });
 
     const res = await POST(new Request("http://localhost/api/creative-work", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
@@ -493,6 +566,7 @@ describe("POST /api/creative-work", () => {
 
     expect(res.status).toBe(201);
     expect(payload.source).toEqual(expect.objectContaining({ status: "failed", failureCode: "dispatch_failed" }));
+    expect(payload.work.updatedAt).toBe("2026-07-16T12:00:00.001Z");
   });
 
   it("rejects format adaptation without target formats", async () => {

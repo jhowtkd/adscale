@@ -1,0 +1,46 @@
+{
+  "outputId": "098d6f77-596a-4d7c-991a-e8dda6399133",
+  "outputKey": "creative-work/098d6f77-596a-4d7c-991a-e8dda6399133/1787956653112.png",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "rawRequestId": "req_51fb0fd9e62f496da3d1e07d9ea8c279",
+  "durationMs": 43874,
+  "deliveredAt": "2026-08-28T23:34:41.173Z",
+  "cost": 50,
+  "promptSha256": "e6df18c4aaf4230a4d7205af96a74592e0aecaf013be478798a3a6bcc46b00c7",
+  "artifactSha256": "0eeac269b32dfbb79bc29e20c7bbe6e52c89746ed69544e885656c38e5a0f10e",
+  "dimensions": {
+    "ok": true,
+    "bytes": 2854664,
+    "width": 1080,
+    "format": "png",
+    "height": 1350
+  },
+  "objectiveVerdict": "pass",
+  "qualityScore": null,
+  "evaluatorSummary": "A peça preserva os fatos, textos e elementos de marca exigidos sem defeitos objetivos visíveis.",
+  "references": [
+    {
+      "role": "brand_identity",
+      "label": "mtv-id-1981-b",
+      "sha256": "2ee2b44804749233c688abdbc603a4d51cd01161d7b2dae5b6951db4d380f44e",
+      "assetKey": "commercial-studies/2e72445e/mtv/mtv-id-1981-b.jpg",
+      "mimeType": "image/webp",
+      "position": 1,
+      "required": false,
+      "sourceMimeType": "image/jpeg"
+    },
+    {
+      "role": "brand_identity",
+      "label": "mtv-id-1981-a",
+      "sha256": "3a6fd9eb0e4fdb840781c7c06135a4d27f413045c76a75a50aa1b2edc4232690",
+      "assetKey": "commercial-studies/2e72445e/mtv/mtv-id-1981-a.jpg",
+      "mimeType": "image/webp",
+      "position": 2,
+      "required": false,
+      "sourceMimeType": "image/jpeg"
+    }
+  ],
+  "providerCalls": 1,
+  "imageOperation": "edit"
+}

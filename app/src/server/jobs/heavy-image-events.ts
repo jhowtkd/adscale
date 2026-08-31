@@ -15,3 +15,9 @@ export function heavyImageEventName(
 ): string {
   return resolveHeavyEventName(base);
 }
+
+/**
+ * Stable base name of the per-slide carousel dispatch event. It resolves
+ * through the same heavy-image runtime suffixing as the registered bases.
+ */
+export const CAROUSEL_SLIDE_GENERATE_EVENT = "creative-work.carousel-slide.generate";
