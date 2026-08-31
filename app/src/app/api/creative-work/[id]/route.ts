@@ -6,6 +6,7 @@ import {
   detectCreativeWorkDraftBrandConflict,
   prepareCreativeWork,
 } from "@/server/application/prepare-creative-work";
+import { prepareCarouselWork } from "@/server/application/prepare-carousel-work";
 import { analyzeCreativeWorkSource } from "@/server/application/analyze-creative-work-source";
 import { contentBriefSchema, styleBriefSchema } from "@/server/ai/image-analysis";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -761,6 +762,27 @@ export async function PATCH(
     }
 
     if ("action" in parsed.data && parsed.data.action === "prepare") {
+      // One aggregate read decides the prepare path: carousel has its own
+      // frozen-snapshot command; every other intent keeps the legacy one.
+      const aggregate = await getCreativeWork(workspace.id, id);
+      if (!aggregate) return apiError("creativeWorkNotFound", 404);
+      if (aggregate.work.toolKind === "carousel") {
+        const prepared = await prepareCarouselWork({ workspaceId: workspace.id, workItemId: id });
+        if (!prepared.ok) {
+          switch (prepared.error.code) {
+            case "work_not_found": return apiError("creativeWorkNotFound", 404);
+            case "work_not_carousel": return apiError("creativeWorkNotCarousel", 409, prepared.error.details);
+            case "work_not_draft": return apiError("creativeWorkNotDraft", 409, prepared.error.details);
+            case "sources_not_ready": return apiError("creativeWorkSourcesNotReady", 409);
+            case "temporary_reference_limit": return apiError("creativeWorkCarouselReferenceLimit", 409, prepared.error.details);
+            case "stale_input": return apiError("stale_input", 409);
+            case "blocking_questions": return apiError("blocking_questions", 409, prepared.error.details);
+            case "editorial_invalid": return apiError("editorial_invalid", 422, prepared.error.details);
+            case "invalid_context": return apiError("invalid_context", 422, prepared.error.details);
+          }
+        }
+        return NextResponse.json(prepared.value);
+      }
       const prepared = await prepareCreativeWork({ workspaceId: workspace.id, workItemId: id });
       if (!prepared.ok) {
         if (prepared.error.code === "work_not_found") return apiError("creativeWorkNotFound", 404);

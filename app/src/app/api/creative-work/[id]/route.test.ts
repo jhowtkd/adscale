@@ -158,6 +158,11 @@ vi.mock("@/server/application/prepare-creative-work", () => ({
   detectCreativeWorkDraftBrandConflict: (...args: unknown[]) => detectDraftConflictMock(...args),
 }));
 
+const prepareCarouselMock = vi.hoisted(() => vi.fn());
+vi.mock("@/server/application/prepare-carousel-work", () => ({
+  prepareCarouselWork: (...args: unknown[]) => prepareCarouselMock(...args),
+}));
+
 function makeParams(id: string) {
   return Promise.resolve({ id });
 }
@@ -1264,6 +1269,71 @@ describe("PATCH /api/creative-work/[id]", () => {
     expect(res.status).toBe(422);
     expect(body.code).toBe("briefing_blocked");
     expect(body.details).toEqual(details);
+  });
+
+  it("routes the prepare action to the carousel command for carousel works", async () => {
+    getWorkMock.mockResolvedValue({ work: { ...workItem, toolKind: "carousel" }, outputs: [], sources: [] });
+    prepareCarouselMock.mockResolvedValue({
+      ok: true,
+      value: {
+        work: { ...workItem, toolKind: "carousel" },
+        preparedRevision: "prep-1",
+        deck: { version: 1, slides: [] },
+        visualContract: { version: 1, contractHash: "a".repeat(64) },
+      },
+    });
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
+    }), { params: makeParams("work-1") });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(prepareCarouselMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1" });
+    expect(prepareMock).not.toHaveBeenCalled();
+    expect(body).toEqual(expect.objectContaining({
+      preparedRevision: "prep-1",
+      deck: expect.objectContaining({ version: 1 }),
+      visualContract: expect.objectContaining({ contractHash: "a".repeat(64) }),
+    }));
+  });
+
+  it.each([
+    ["blocking_questions", 409],
+    ["work_not_draft", 409],
+    ["sources_not_ready", 409],
+    ["stale_input", 409],
+    ["temporary_reference_limit", 409],
+    ["editorial_invalid", 422],
+    ["invalid_context", 422],
+  ])("maps carousel prepare %s to %i", async (code, status) => {
+    getWorkMock.mockResolvedValue({ work: { ...workItem, toolKind: "carousel" }, outputs: [], sources: [] });
+    prepareCarouselMock.mockResolvedValue({ ok: false, error: { code, details: { findings: [] } } });
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
+    }), { params: makeParams("work-1") });
+    expect(res.status).toBe(status);
+  });
+
+  it("carries carousel editorial field findings in the 422 details", async () => {
+    getWorkMock.mockResolvedValue({ work: { ...workItem, toolKind: "carousel" }, outputs: [], sources: [] });
+    const findings = [{ code: "unsupported_claim", path: "slides.1.primaryText", message: "sem origem", blocking: true }];
+    prepareCarouselMock.mockResolvedValue({ ok: false, error: { code: "editorial_invalid", details: { findings } } });
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
+    }), { params: makeParams("work-1") });
+    const body = await res.json();
+    expect(res.status).toBe(422);
+    expect(body.code).toBe("editorial_invalid");
+    expect(body.details.findings).toEqual(findings);
+  });
+
+  it("returns 404 before choosing a prepare path when the work is missing", async () => {
+    getWorkMock.mockResolvedValue(null);
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
+    }), { params: makeParams("work-1") });
+    expect(res.status).toBe(404);
+    expect(prepareMock).not.toHaveBeenCalled();
+    expect(prepareCarouselMock).not.toHaveBeenCalled();
   });
 
   it("persists the brand conflict choice bound to the detected brand and invalidates the prepared blocks so the same draft resumes", async () => {

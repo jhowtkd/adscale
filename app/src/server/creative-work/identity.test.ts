@@ -851,5 +851,62 @@ describe("creative-work identity module", () => {
         }),
       ]);
     });
+
+    it("creates a carousel snapshot with published Brand Cortex enabled and no SocialPostBrief", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([
+        approvedReference({ id: "logo", trainingCategory: "logo", usageMode: "exact" }),
+      ]);
+      mocks.selectResults.push([
+        { key: "workspaces/ws-1/assets/logo.png", type: "image/png", metadata: { hasAlpha: true } },
+      ]);
+      mocks.getBrandKitMock.mockResolvedValue({
+        id: "profile-1",
+        workspaceId: "ws-1",
+        name: "Acme",
+        brandColors: ["#112233"],
+        brandFonts: [],
+        logoAssetKey: null,
+        toneOfVoice: null,
+        prohibitedElements: null,
+        requiredElements: null,
+        description: null,
+        visualNotes: null,
+        toneNotes: null,
+        constraints: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      mocks.getActiveBrandKnowledgeVersionMock.mockResolvedValue({
+        id: "version-1",
+        versionNumber: 2,
+        hash: "b".repeat(64),
+        snapshot: {
+          compiledAt: "2026-08-20T12:00:00.000Z",
+          claims: [
+            { id: "global", claimKey: "palette.colors", value: ["#112233"], scope: { level: "global" }, evidenceRefs: [] },
+            { id: "story", claimKey: "layout.density", value: "dense", scope: { level: "global", format: "9:16" }, evidenceRefs: [] },
+          ],
+        },
+      });
+
+      const snapshot = await createIdentitySnapshot({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        selectedReferenceIds: [],
+        brief: null,
+        format: "4:5",
+        includePublishedBrandKnowledge: true,
+      });
+
+      expect(snapshot.brandKnowledge).toMatchObject({
+        mode: "published",
+        versionId: "version-1",
+        versionNumber: 2,
+      });
+      // Exact brand assets are carried for the carousel compositing contract
+      // even without an operator selection and without a SocialPostBrief.
+      expect(snapshot.assets.map((asset) => asset.referenceId)).toEqual(["logo"]);
+      expect(snapshot.brandKnowledge?.claims.map((claim) => claim.id)).toEqual(["global"]);
+    });
   });
 });
