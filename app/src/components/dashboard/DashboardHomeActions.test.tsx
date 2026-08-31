@@ -246,6 +246,7 @@ describe("DashboardHomeActions", () => {
 
     render(<DashboardHomeActions />);
     expect(screen.getByTestId("creative-composer")).toHaveTextContent("single:5");
+    expect(screen.getByTestId("creative-composer")).toHaveAttribute("data-hide-source-upload", "false");
 
     fireEvent.click(protocolButton("variations"));
     expect(screen.getByTestId("creative-composer")).toHaveTextContent("variations:5");
