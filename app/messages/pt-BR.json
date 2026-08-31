@@ -549,7 +549,7 @@
         },
         "edit": "Editar plano", "confirm": "Confirmar e gerar", "confirming": "Confirmando",
         "adjustments": { "title": "Ajustes", "action": "Edite o plano antes de confirmar e gerar." },
-        "protocol": { "variations": "Variações", "single": "Peça única", "formatAdaptation": "Adaptar formatos", "restyle": "Novo estilo" },
+        "protocol": { "variations": "Variações", "single": "Peça única", "formatAdaptation": "Adaptar formatos", "restyle": "Mudar estilo" },
         "roles": { "content": "conteúdo", "style": "estilo", "both": "conteúdo e estilo", "piece_reference": "referência da peça", "original_art": "arte original" },
         "treatment": { "identity_preservation": "preservar identidade", "recognizable_preservation": "preservar reconhecimento", "exact_application": "aplicação exata", "required_presence": "presença obrigatória", "visual_language": "linguagem visual", "style_direction": "direção de estilo" },
         "preserve": { "verified_facts": "fatos verificados", "brand_requirements": "requisitos da marca", "source_content": "conteúdo da fonte", "source_visual_identity": "identidade visual", "piece_reference_identity": "identidade da referência", "piece_reference_recognizability": "reconhecimento da referência", "piece_reference_exact_application": "aplicação exata", "piece_reference_required_presence": "presença obrigatória" },

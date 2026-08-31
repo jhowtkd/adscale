@@ -7,8 +7,8 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: { count?: number }) => {
     if (key === "pieces") return `${values?.count} pieces`;
     const labels = {
-      en: { "labels.material.reference": "Reference" },
-      "pt-BR": { "labels.material.reference": "Referência" },
+      en: { "labels.material.reference": "Reference", "protocol.restyle": "New style" },
+      "pt-BR": { "labels.material.reference": "Referência", "protocol.restyle": "Mudar estilo" },
     };
     return labels[localeState.locale][key as keyof typeof labels.en] ?? key;
   },
@@ -70,5 +70,12 @@ describe("CreativePlanReview", () => {
     render(<CreativePlanReview plan={{ ...plan, materials: [{ ...plan.materials[0], label: undefined, labelKey: "material.reference" }] }} busy={false} onEdit={vi.fn()} onConfirm={vi.fn()} />);
 
     expect(screen.getByText(`${expected} · roles.piece_reference · treatment.identity_preservation`)).toBeInTheDocument();
+  });
+
+  it("uses the approved Portuguese Restyle vocabulary in the visible plan", () => {
+    localeState.locale = "pt-BR";
+    render(<CreativePlanReview plan={{ ...plan, protocol: "restyle" }} busy={false} onEdit={vi.fn()} onConfirm={vi.fn()} />);
+
+    expect(screen.getByText("Mudar estilo")).toBeInTheDocument();
   });
 });

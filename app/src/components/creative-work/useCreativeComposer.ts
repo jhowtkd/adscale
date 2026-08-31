@@ -317,6 +317,12 @@ export function useCreativeComposer({
   const revisionAttemptsRef = useRef(new Map<string, { revisionKey: string; revisionAssetId: string | null }>());
   const pendingProtocolTransitionRef = useRef<((committed: boolean) => void) | null>(null);
   const planInputEditEpochRef = useRef(0);
+  // A prepare response is usable only if no user action changed the input it
+  // was built from. Keep this as the single mutation marker so uncommon
+  // controls cannot leave a stale confirmation window during preparation.
+  const markPlanInputEdited = useCallback(() => {
+    planInputEditEpochRef.current += 1;
+  }, []);
 
   const detailQuery = useCreativeWork(workId);
   const brandFontsQuery = useBrandFonts(
@@ -779,17 +785,18 @@ export function useCreativeComposer({
   }, [active.activeClientProfileId, captureSnapshot, detailQuery.data?.work, directionPool, ensureDraft, fontAssetKey, format, formatMode, initialWorkId, intent, objective, persistSnapshot, request, targetFormats, textLayout, workflowVariant]);
 
   const setRequest = useCallback((value: string) => {
-    planInputEditEpochRef.current += 1;
+    markPlanInputEdited();
     requestRef.current = value;
     setRequestState(value);
     setInferredBriefingContext(null);
     setBriefingEditState("idle");
-  }, []);
+  }, [markPlanInputEdited]);
 
   const editBriefingField = useCallback(async (field: CreativeWorkBriefingField, value: string) => {
     const id = workIdRef.current;
     const current = detailQuery.data?.work;
     if (!id || !current || current.status !== "draft" || intentRef.current !== "single" || !inferredBriefing) return;
+    markPlanInputEdited();
     setBriefingEditState("saving");
     setError(null);
     try {
@@ -808,7 +815,7 @@ export function useCreativeComposer({
       setBriefingEditState("error");
       setError(cause instanceof Error ? cause.message : "Falha ao salvar o briefing");
     }
-  }, [detailQuery.data?.work, editBriefingMutation, inferredBriefing]);
+  }, [detailQuery.data?.work, editBriefingMutation, inferredBriefing, markPlanInputEdited]);
 
   const switchToProtocol = useCallback(async (next: ComposerIntent) => {
     const previous = intentRef.current;
@@ -833,6 +840,7 @@ export function useCreativeComposer({
       if (profileId && currentWorkId) writeStoredDraft(profileId, previous, currentWorkId);
     }
 
+    markPlanInputEdited();
     draftEpochRef.current += 1;
     createInFlightRef.current = null;
     autosaveBlockedWorkRef.current = null;
@@ -877,12 +885,13 @@ export function useCreativeComposer({
     setProtocolSwitchNotice(currentHasContext ? { from: previous, to: next } : null);
     if (next !== "restyle") requestAnimationFrame(() => composerRef.current?.focus());
     return true;
-  }, [active.activeClientProfileId, detailQuery.data, ensureDraft, exposeIntent, exposeWorkId, flushAutosave]);
+  }, [active.activeClientProfileId, detailQuery.data, ensureDraft, exposeIntent, exposeWorkId, flushAutosave, markPlanInputEdited]);
 
   const selectIntent = useCallback((next: ComposerIntent, awaitTransition = false) => {
     if (workflowVariant === "progressive" && !objectiveRef.current) {
       // This is the first durable decision. Keep the free-entry request and
       // buffered file intact while only applying the protocol defaults.
+      markPlanInputEdited();
       objectiveRef.current = next;
       setObjective(next);
       intentRef.current = next;
@@ -940,7 +949,7 @@ export function useCreativeComposer({
     });
     if (awaitTransition) return transition;
     void transition;
-  }, [actionPhase, bufferedFile, captureSnapshot, createMutation.isPending, ensureDraft, exposeIntent, isUploading, recordStudioEvent, sourceMutation.isPending, switchToProtocol, tHome, workflowVariant]);
+  }, [actionPhase, bufferedFile, captureSnapshot, createMutation.isPending, ensureDraft, exposeIntent, isUploading, markPlanInputEdited, recordStudioEvent, sourceMutation.isPending, switchToProtocol, tHome, workflowVariant]);
 
   const confirmProtocolSwitch = useCallback(() => {
     const next = pendingProtocolSwitch;
@@ -978,21 +987,21 @@ export function useCreativeComposer({
     if (selectedIds.length === 0 || selectedIds === current.selectedIds) return;
     const next = { ...current, selectedIds };
     directionTouchedRef.current = true;
-    planInputEditEpochRef.current += 1;
+    markPlanInputEdited();
     directionPoolRef.current = next;
     setDirectionPool(next);
     setQuote(canonicalQuote("variations", formatRef.current, targetFormatsRef.current, next));
-  }, []);
+  }, [markPlanInputEdited]);
 
   const setManualDirectionInstruction = useCallback((manualInstruction: string) => {
     if (intentRef.current !== "variations") return;
     const current = directionPoolRef.current ?? createDefaultCreativeDirectionPool();
     const next = { ...current, manualInstruction: manualInstruction || null };
     directionTouchedRef.current = true;
-    planInputEditEpochRef.current += 1;
+    markPlanInputEdited();
     directionPoolRef.current = next;
     setDirectionPool(next);
-  }, []);
+  }, [markPlanInputEdited]);
 
   const applyDirectionSuggestions = useCallback((suggestions: CreativeDirection[], preserveSelection = true) => {
     if (suggestions.length === 0) return;
@@ -1019,11 +1028,12 @@ export function useCreativeComposer({
       manualInstruction: current?.manualInstruction ?? null,
     } satisfies CreativeDirectionPool;
     directionPoolRef.current = next;
+    markPlanInputEdited();
     setDirectionPool(next);
     setQuote(canonicalQuote("variations", formatRef.current, targetFormatsRef.current, next));
     setPendingDirectionSuggestions(null);
     setDirectionSuggestionState("ready");
-  }, []);
+  }, [markPlanInputEdited]);
 
   const requestDirectionSuggestions = useCallback(() => {
     directionSuggestionRequestedRef.current = null;
@@ -1067,14 +1077,14 @@ export function useCreativeComposer({
   }, [applyDirectionSuggestions, detailQuery.data?.sources, detailQuery.data?.work, directionSuggestionRetryToken, directionSuggestionState, intent, suggestDirectionMutation, workId]);
 
   const toggleTargetFormat = useCallback((value: Format) => {
-    planInputEditEpochRef.current += 1;
+    markPlanInputEdited();
     setTargetFormats((current) => {
       const next = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
       targetFormatsRef.current = next;
       setQuote(canonicalQuote(intentRef.current, formatRef.current, next, directionPoolRef.current ?? undefined));
       return next;
     });
-  }, []);
+  }, [markPlanInputEdited]);
 
   const addFiles = useCallback(async (
     files: FileList | File[] | null,
@@ -1101,6 +1111,7 @@ export function useCreativeComposer({
       focusBrandSwitcher();
       return false;
     }
+    markPlanInputEdited();
     uploadInFlightRef.current = true;
     setIsUploading(true);
     setError(null);
@@ -1137,7 +1148,7 @@ export function useCreativeComposer({
       uploadInFlightRef.current = false;
       setIsUploading(false);
     }
-  }, [active.activeClientProfileId, announce, detailQuery.data?.sources, ensureDraft, sourceMutation, tHome, workflowVariant]);
+  }, [active.activeClientProfileId, announce, detailQuery.data?.sources, ensureDraft, markPlanInputEdited, sourceMutation, tHome, workflowVariant]);
 
   const attachDraftSource = useCallback(async (source: DraftSource): Promise<boolean> => {
     if (!workIdRef.current && !active.activeClientProfileId) {
@@ -1146,6 +1157,7 @@ export function useCreativeComposer({
     }
     const existingId = workIdRef.current;
     if (existingId) {
+      markPlanInputEdited();
       await sourceMutation.mutateAsync({
         workItemId: existingId,
         action: "attachSource",
@@ -1156,7 +1168,7 @@ export function useCreativeComposer({
       return true;
     }
     return Boolean(await ensureDraft(source));
-  }, [active.activeClientProfileId, ensureDraft, sourceMutation]);
+  }, [active.activeClientProfileId, ensureDraft, markPlanInputEdited, sourceMutation]);
 
   const addInspiration = useCallback(async (inspiration: CreativeInspiration) => {
     if (!workIdRef.current && !active.activeClientProfileId) {
@@ -1268,6 +1280,7 @@ export function useCreativeComposer({
 
   const runSourceAction = useCallback(async (action: Parameters<typeof sourceMutation.mutateAsync>[0]): Promise<boolean> => {
     try {
+      markPlanInputEdited();
       await sourceMutation.mutateAsync(action);
       setInferredBriefingContext(null);
       if (action.action === "updateSource") {
@@ -1281,7 +1294,7 @@ export function useCreativeComposer({
       setError(cause instanceof Error ? cause.message : "Falha ao atualizar arte");
       return false;
     }
-  }, [recordStudioEvent, sourceMutation]);
+  }, [markPlanInputEdited, recordStudioEvent, sourceMutation]);
 
   const updateSource = useCallback((sourceId: string, usage: CreativeSourceUsage) => {
     if (!workIdRef.current) return Promise.resolve();
@@ -1300,6 +1313,7 @@ export function useCreativeComposer({
   const retrySource = useCallback((sourceId: string) => {
     if (!workIdRef.current) return Promise.resolve();
     const workItemId = workIdRef.current;
+    markPlanInputEdited();
     return sourceMutation.mutateAsync({ workItemId, action: "retrySource", sourceId })
       .then(() => {
         setInferredBriefingContext(null);
@@ -1316,7 +1330,7 @@ export function useCreativeComposer({
         }
         setError(cause instanceof Error ? cause.message : "Falha ao atualizar arte");
       });
-  }, [detailQuery, sourceMutation]);
+  }, [detailQuery, markPlanInputEdited, sourceMutation]);
   const removeSource = useCallback((sourceId: string) => {
     if (!workIdRef.current) return Promise.resolve();
     return runSourceAction({ workItemId: workIdRef.current, action: "removeSource", sourceId });
@@ -1678,7 +1692,7 @@ export function useCreativeComposer({
   return {
     composerRef: composerRef as RefObject<HTMLTextAreaElement | null>, request, setRequest,
     intent, selectIntent, format, formatMode, setFormat: (value: Format) => {
-      planInputEditEpochRef.current += 1;
+      markPlanInputEdited();
       formatRef.current = value;
       formatModeRef.current = "manual";
       setFormatMode("manual");
@@ -1686,19 +1700,20 @@ export function useCreativeComposer({
       setQuote(canonicalQuote(intentRef.current, value, targetFormatsRef.current, directionPoolRef.current ?? undefined));
     },
     setFormatAuto: () => {
+      markPlanInputEdited();
       formatModeRef.current = "auto";
       setFormatMode("auto");
     },
     targetFormats, toggleTargetFormat,
     textLayout,
     setTextLayout: (value: "top" | "center" | "bottom" | "side") => {
-      planInputEditEpochRef.current += 1;
+      markPlanInputEdited();
       textLayoutRef.current = value;
       setTextLayout(value);
     },
     fontAssetKey,
     setFontAssetKey: (value: string | null) => {
-      planInputEditEpochRef.current += 1;
+      markPlanInputEdited();
       fontAssetKeyRef.current = value;
       setFontAssetKey(value);
     },

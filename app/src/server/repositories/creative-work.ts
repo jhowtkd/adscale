@@ -857,6 +857,9 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
         : null;
     }
     await tx.update(creativeWorkItems).set({
+      brief: null,
+      copy: null,
+      inputSnapshot: null,
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
     }).where(and(
       eq(creativeWorkItems.workspaceId, input.workspaceId),
@@ -953,6 +956,9 @@ export async function updateCreativeWorkSource(workspaceId: string, workItemId: 
     )).returning();
     if (!row) return null;
     await tx.update(creativeWorkItems).set({
+      brief: null,
+      copy: null,
+      inputSnapshot: null,
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
     }).where(and(
       eq(creativeWorkItems.workspaceId, workspaceId),
@@ -988,6 +994,9 @@ export async function updateCreativeWorkSourceIfUnchanged(
     )).returning();
     if (!row) return null;
     await tx.update(creativeWorkItems).set({
+      brief: null,
+      copy: null,
+      inputSnapshot: null,
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
     }).where(and(
       eq(creativeWorkItems.workspaceId, workspaceId),
@@ -1006,6 +1015,9 @@ export async function deleteCreativeWorkSource(workspaceId: string, workItemId: 
     )).returning();
     if (!row) return null;
     await tx.update(creativeWorkItems).set({
+      brief: null,
+      copy: null,
+      inputSnapshot: null,
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
     }).where(and(
       eq(creativeWorkItems.workspaceId, workspaceId),

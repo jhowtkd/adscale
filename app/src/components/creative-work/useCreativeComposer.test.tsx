@@ -2216,6 +2216,54 @@ describe("useCreativeComposer", () => {
     expect(mocks.generate).not.toHaveBeenCalled();
   });
 
+  it("invalidates a progressive plan when accepted direction suggestions land during prepare", async () => {
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
+    const pending = deferred<{ work: ReturnType<typeof workDetail>["work"]; quote: { unitCount: number; credits: number }; preparedPlan: ReturnType<typeof preparedPlan> }>();
+    mocks.prepare.mockReturnValueOnce(pending.promise);
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", workflowVariant: "progressive" }));
+    const suggestions = [{
+      id: "00000000-0000-4000-8000-0000000000e1",
+      label: "Direção nova",
+      instruction: "Uma direção nova",
+      order: 1,
+      safetyBand: "safe" as const,
+      provenance: "ai-suggestion" as const,
+    }];
+
+    let preparation!: Promise<unknown>;
+    act(() => { preparation = result.current.preparePlan(); });
+    act(() => result.current.applyDirectionSuggestions(suggestions, false));
+    pending.resolve({ work: workDetail().work, quote: { unitCount: 1, credits: 50 }, preparedPlan: preparedPlan() });
+    await act(async () => { await preparation; });
+
+    expect(result.current.preparedPlan).toBeNull();
+    expect(result.current.canConfirm).toBe(false);
+    await act(async () => { await result.current.confirmGeneration("2026-08-30T12:00:00.000Z"); });
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it("invalidates a progressive plan when automatic format is restored during prepare", async () => {
+    mocks.work.mockReturnValue({
+      data: workDetail({ settings: { targetFormats: [], formatMode: "manual" } }),
+      isLoading: false,
+      isError: false,
+    });
+    const pending = deferred<{ work: ReturnType<typeof workDetail>["work"]; quote: { unitCount: number; credits: number }; preparedPlan: ReturnType<typeof preparedPlan> }>();
+    mocks.prepare.mockReturnValueOnce(pending.promise);
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", workflowVariant: "progressive" }));
+
+    let preparation!: Promise<unknown>;
+    act(() => { preparation = result.current.preparePlan(); });
+    act(() => result.current.setFormatAuto());
+    pending.resolve({ work: workDetail().work, quote: { unitCount: 3, credits: 150 }, preparedPlan: preparedPlan() });
+    await act(async () => { await preparation; });
+
+    expect(result.current.preparedPlan).toBeNull();
+    expect(result.current.canConfirm).toBe(false);
+    await act(async () => { await result.current.confirmGeneration("2026-08-30T12:00:00.000Z"); });
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
   it("keeps the non-blocking brand training suggestion returned by generation", async () => {
     mocks.work.mockReturnValue({ data: workDetail(), isLoading: false });
     mocks.generate.mockResolvedValue({

@@ -1343,9 +1343,14 @@ describe("creative-work repository", () => {
       })).resolves.toEqual({ source, claimedForAnalysis: true });
       expect(mocks.valuesMock).toHaveBeenCalledWith(expect.objectContaining({ assetId: "asset-1", usage: "both" }));
       expect(mocks.txUpdateMock).toHaveBeenCalledWith(expect.anything());
+      expect(mocks.txSetMock).toHaveBeenLastCalledWith(expect.objectContaining({
+        brief: null,
+        copy: null,
+        inputSnapshot: null,
+      }));
     });
 
-    it("touches the parent work after updating or deleting a source", async () => {
+    it("invalidates prepared fields after updating or deleting a source", async () => {
       const source = { id: "source-1", workspaceId: "ws-1", workItemId: "work-1", status: "ready" };
       mocks.state.txUpdateResults.push([source], [workItem()]);
       await updateCreativeWorkSource("ws-1", "work-1", "source-1", { status: "ready" });
@@ -1353,6 +1358,10 @@ describe("creative-work repository", () => {
       mocks.state.txUpdateResults.push([workItem()]);
       await deleteCreativeWorkSource("ws-1", "work-1", "source-1");
       expect(mocks.txUpdateMock).toHaveBeenCalledTimes(3);
+      expect(mocks.txSetMock.mock.calls.slice(1)).toEqual([
+        [expect.objectContaining({ brief: null, copy: null, inputSnapshot: null })],
+        [expect.objectContaining({ brief: null, copy: null, inputSnapshot: null })],
+      ]);
     });
 
     it("updates a source only for the expected attempt and advances its timestamp", async () => {
@@ -1369,6 +1378,11 @@ describe("creative-work repository", () => {
       expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({
         status: "analyzing",
         updatedAt: expect.anything(),
+      }));
+      expect(mocks.txSetMock).toHaveBeenLastCalledWith(expect.objectContaining({
+        brief: null,
+        copy: null,
+        inputSnapshot: null,
       }));
       const query = serializedCondition(mocks.whereMock.mock.calls[0][0]);
       expect(query.sql).toContain('"creative_work_sources"."status"');

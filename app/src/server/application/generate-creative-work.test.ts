@@ -327,6 +327,22 @@ describe("generateCreativeWork", () => {
     expect(charge).not.toHaveBeenCalled();
   });
 
+  it("does not accept or charge a prepared revision invalidated by a source mutation", async () => {
+    // Source writers clear all prepared fields on the draft. The old revision
+    // must therefore fail before identity confirmation or billing.
+    getWork.mockResolvedValue({
+      work: { ...preparedWork, brief: null, copy: null, inputSnapshot: null },
+      outputs: [],
+      sources: [],
+    });
+
+    const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+
+    expect(result).toMatchObject({ ok: false, error: { code: "work_not_prepared" } });
+    expect(snapshot).not.toHaveBeenCalled();
+    expect(charge).not.toHaveBeenCalled();
+  });
+
   it("keeps legacy ready work compatible by rebuilding only its missing input snapshot", async () => {
     getWork.mockResolvedValue({ work: { ...preparedWork, status: "ready", identitySnapshot, inputSnapshot: null }, outputs: [], sources: [] });
     const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
