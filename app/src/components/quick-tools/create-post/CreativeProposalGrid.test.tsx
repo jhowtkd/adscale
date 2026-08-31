@@ -125,7 +125,7 @@ describe("CreativeProposalGrid", () => {
 
     expect(screen.getByRole("button", { name: "Aprovar" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Baixar" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Editar" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Refinar" })).toBeVisible();
 
     fireEvent.click(screen.getByRole("button", { name: "Selecionar Equilibrada em 4:5" }));
     expect(screen.getByTestId("proposal-level-name")).toHaveTextContent("Equilibrada");

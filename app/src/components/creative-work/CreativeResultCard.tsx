@@ -323,7 +323,7 @@ export function CreativeResultCard({
             <button type="button" className={actionClass} onClick={() => onDownload(output.id)}>Baixar</button>
             {(layerization?.status === "completed" || output.layerEditor) && onOpenLayerEditor ? <button type="button" className={actionClass} onClick={() => onOpenLayerEditor(output.id)}>{output.isSelected ? "Editar camadas" : "Visualizar camadas"}</button> : null}
             {layerization?.status === "completed" && onDownloadLayerized ? <button type="button" className={`${actionClass} border-[var(--focus-ring)]`} onClick={() => onDownloadLayerized(output.id, "psd")}>{t("downloadPsdWithLayers", { count: layerization.layers.length })}</button> : null}
-            {onRevise ? <button type="button" className={actionClass} aria-expanded={editing} onClick={() => setEditing((value) => !value)}>Editar</button> : null}
+            {onRevise ? <button type="button" className={actionClass} aria-expanded={editing} onClick={() => setEditing((value) => !value)}>Refinar</button> : null}
           </div>
           {output.isSelected && onLayerize && !isMobile && (canLayerize || layerization) ? (
             <div ref={layerizeRegionRef} tabIndex={-1} aria-busy={layerizationBusy || isLayerizing} className="space-y-2 border-t border-[var(--border-subtle)] pt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" data-testid="layerization-actions">

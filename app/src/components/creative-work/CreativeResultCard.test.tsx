@@ -152,7 +152,7 @@ describe("CreativeResultCard", () => {
     expect(screen.getByRole("img", { name: /equilibrada/i })).toBeVisible();
     expect(screen.getByRole("button", { name: "Aprovar" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Baixar" })).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refinar" }));
     fireEvent.change(screen.getByRole("textbox", { name: "O que você quer mudar?" }), {
       target: { value: "Use mais contraste" },
     });

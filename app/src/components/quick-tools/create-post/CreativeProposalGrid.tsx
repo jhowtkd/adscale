@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { useIsMobile } from "@/lib/hooks/use-media-query";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,12 @@ const LEVEL_LABELS: Record<CreativeWorkOutput["creativeLevel"], string> = {
   balanced: "Equilibrada",
   bold: "Ousada",
 };
+const STATUS_LABELS: Record<CreativeWorkOutput["status"], string> = {
+  queued: "na fila",
+  processing: "gerando",
+  completed: "pronta",
+  failed: "falhou",
+};
 
 function outputLabel(output: CreativeWorkOutput) {
   return output.directionSnapshot?.label ?? LEVEL_LABELS[output.creativeLevel];
@@ -56,6 +63,27 @@ function outputLabel(output: CreativeWorkOutput) {
 function outputSource(output: CreativeWorkOutput) {
   if (output.status === "completed" && (output.hasOutput ?? Boolean(output.outputKey))) return `/api/creative-work/${output.workItemId}/outputs/${output.id}/download`;
   return `/api/creative-work/${output.workItemId}/outputs/${output.id}/download`;
+}
+
+function outputLineage(
+  outputs: readonly CreativeWorkOutput[],
+  current: CreativeWorkOutput,
+): CreativeWorkOutput[] {
+  const byId = new Map(outputs.map((output) => [output.id, output]));
+  const visited = new Set<string>();
+  const lineage: CreativeWorkOutput[] = [];
+  let cursor: CreativeWorkOutput | undefined = current;
+  while (cursor && !visited.has(cursor.id)) {
+    visited.add(cursor.id);
+    lineage.push(cursor);
+    cursor = cursor.parentOutputId ? byId.get(cursor.parentOutputId) : undefined;
+  }
+  return lineage;
+}
+
+function lineageRootId(outputs: readonly CreativeWorkOutput[], output: CreativeWorkOutput) {
+  const lineage = outputLineage(outputs, output);
+  return lineage.at(-1)?.id ?? output.id;
 }
 
 export default function CreativeProposalGrid({
@@ -82,9 +110,7 @@ export default function CreativeProposalGrid({
   const t = useTranslations("dashboard.home.composer");
   const latest = new Map<string, CreativeWorkOutput>();
   for (const output of outputs) {
-    const key = output.directionId
-      ? `${output.targetFormat ?? "4:5"}:direction:${output.directionId}`
-      : `${output.targetFormat ?? "4:5"}:${output.creativeLevel}`;
+    const key = lineageRootId(outputs, output);
     const current = latest.get(key);
     if (!current || (output.versionNumber ?? 1) > (current.versionNumber ?? 1)) latest.set(key, output);
   }
@@ -96,6 +122,8 @@ export default function CreativeProposalGrid({
   const approve = onApprove ?? onSave ?? (() => undefined);
   const [selectedId, setSelectedId] = useState(visible[0]?.id);
   const [expanded, setExpanded] = useState(false);
+  const [historyOutputId, setHistoryOutputId] = useState<string | null>(null);
+  const [compareAncestorId, setCompareAncestorId] = useState<string | null>(null);
   const [layerEditorOutputId, setLayerEditorOutputId] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const selected = visible.find((output) => output.id === selectedId) ?? visible[0];
@@ -113,9 +141,20 @@ export default function CreativeProposalGrid({
   const generationCopy = selected.status === "processing"
     ? [t("factoryProcessingTitle"), t("factoryProcessingDescription")]
     : [t("factoryQueuedTitle"), t("factoryQueuedDescription")];
+  const selectedLineage = outputLineage(outputs, selected);
+  const historyOutput = historyOutputId ? visible.find((output) => output.id === historyOutputId) : null;
+  const historyLineage = historyOutput ? outputLineage(outputs, historyOutput) : [];
+  const compareAncestor = compareAncestorId ? historyLineage.find((output) => output.id === compareAncestorId) : null;
+  const totalOutputs = outputs.length;
+  const readyCount = outputs.filter((output) => output.status === "completed" && (output.hasOutput ?? Boolean(output.outputKey))).length;
+  const progressText = `${readyCount} de ${totalOutputs} prontas`;
 
   return (
     <>
+      <section aria-live="polite" aria-atomic="true" className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3" data-testid="creative-output-progress">
+        <p className="text-sm font-semibold text-[var(--text-primary)]">{progressText}</p>
+        <ul className="mt-2 space-y-1 text-xs text-[var(--text-muted)]">{outputs.map((output) => <li key={output.id}>{outputLabel(output)} · {STATUS_LABELS[output.status]}</li>)}</ul>
+      </section>
       <div
         data-testid="proposal-review-surface"
         className={cn(
@@ -210,6 +249,7 @@ export default function CreativeProposalGrid({
             }}
             hidePreview
           />
+          {selectedLineage.length > 1 ? <button type="button" onClick={() => setHistoryOutputId(selected.id)} className="mt-3 text-sm font-semibold underline">Versões ({selectedLineage.length})</button> : null}
         </div>
       </div>
 
@@ -226,6 +266,22 @@ export default function CreativeProposalGrid({
             ) : null}
           </DialogBody>
         </DialogContent>
+      </Dialog>
+
+      <Sheet open={Boolean(historyOutput)} onOpenChange={(open) => { if (!open) { setHistoryOutputId(null); setCompareAncestorId(null); } }}>
+        <SheetContent side="right" size="lg"><SheetHeader><SheetTitle>Versões ({historyLineage.length})</SheetTitle></SheetHeader><SheetBody className="space-y-3">
+          {historyLineage.map((output) => <article key={output.id} className="flex items-center gap-3 rounded-[var(--radius-control)] border border-[var(--border-subtle)] p-3">
+            {output.outputKey ? <img src={outputSource(output)} alt={`Versão ${output.versionNumber ?? 1}`} className="size-14 rounded object-cover" /> : null}
+            <div className="min-w-0 flex-1"><p className="text-sm font-medium">Versão {output.versionNumber ?? 1}</p><p className="text-xs text-[var(--text-muted)]">{new Date(output.createdAt).toLocaleDateString()} · {output.revisionInstruction ?? "Peça original"}</p></div>
+            {historyOutput && output.id !== historyOutput.id ? <button type="button" onClick={() => setCompareAncestorId(output.id)} className="text-sm font-semibold underline">Comparar</button> : null}
+          </article>)}
+        </SheetBody></SheetContent>
+      </Sheet>
+      <Dialog open={Boolean(historyOutput && compareAncestor)} onOpenChange={(open) => !open && setCompareAncestorId(null)}>
+        <DialogContent size="xl"><DialogHeader><DialogTitle>Comparar versões</DialogTitle></DialogHeader><DialogBody className="grid gap-4 sm:grid-cols-2">
+          {historyOutput ? <figure><figcaption className="mb-2 text-sm font-medium">Versão atual</figcaption><img src={outputSource(historyOutput)} alt="Versão atual" className="h-auto w-full" /></figure> : null}
+          {compareAncestor ? <figure><figcaption className="mb-2 text-sm font-medium">Versão anterior</figcaption><img src={outputSource(compareAncestor)} alt="Versão anterior" className="h-auto w-full" /></figure> : null}
+        </DialogBody></DialogContent>
       </Dialog>
 
       {layerEditorOutput ? (

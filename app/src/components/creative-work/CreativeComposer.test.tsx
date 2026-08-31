@@ -773,7 +773,7 @@ describe("CreativeComposer", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "confirmApproval" })[0]);
     expect(value.approveOutput).toHaveBeenCalledWith("output-1", true);
     expect(screen.getAllByRole("button", { name: "Baixar" })).toHaveLength(1);
-    expect(screen.getAllByRole("button", { name: "Editar" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Refinar" })).toHaveLength(1);
   });
 
   it("turns a completed piece into review plus AI reading while Studio keeps its creation flow", () => {
