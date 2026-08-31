@@ -83,9 +83,12 @@ export async function generateCreativeWork(input: {
   let work = existing.work;
   let readyWork = existing.work;
   let brandTrainingSuggestion: string | null = null;
+  const preparedRevision = new Date(input.preparedRevision);
+  if (existing.outputs.length === 0 && (
+    Number.isNaN(preparedRevision.getTime())
+    || preparedRevision.getTime() !== work.updatedAt.getTime()
+  )) return { ok: false, error: { code: "stale_input" } };
   if (existing.outputs.length === 0 && work.status === "draft") {
-    const revision = new Date(input.preparedRevision);
-    if (Number.isNaN(revision.getTime()) || revision.getTime() !== work.updatedAt.getTime()) return { ok: false, error: { code: "stale_input" } };
     if (!work.brief || !work.copy || !work.inputSnapshot) return { ok: false, error: { code: "work_not_prepared" } };
 
     // Empty selection delegates ranking to the snapshot's single canonical
@@ -101,8 +104,8 @@ export async function generateCreativeWork(input: {
     });
     const confirmed = await withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (executor) => {
       const fresh = await getCreativeWork(input.workspaceId, input.workItemId, executor);
-      if (!fresh?.work.inputSnapshot || !fresh.work.brief || !fresh.work.copy || fresh.work.updatedAt.getTime() !== revision.getTime()) return null;
-      return confirmCreativeWorkSnapshotsIfUnchanged(input.workspaceId, input.workItemId, revision, fresh.work.inputSnapshot, identitySnapshot, executor);
+      if (!fresh?.work.inputSnapshot || !fresh.work.brief || !fresh.work.copy || fresh.work.updatedAt.getTime() !== preparedRevision.getTime()) return null;
+      return confirmCreativeWorkSnapshotsIfUnchanged(input.workspaceId, input.workItemId, preparedRevision, fresh.work.inputSnapshot, identitySnapshot, executor);
     });
     if (!confirmed) return { ok: false, error: { code: "stale_input" } };
     readyWork = confirmed;

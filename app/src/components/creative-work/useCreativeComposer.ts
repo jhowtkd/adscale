@@ -691,14 +691,21 @@ export function useCreativeComposer({
     if (!id) return null;
     if (autosaveBlockedWorkRef.current === id) return null;
     const current = detailQuery.data?.work;
-    if (current?.id === id && current.status !== "draft") return null;
+    // A prepared retry with no outputs may be deliberately reopened by the
+    // explicit Continue action. The autosave endpoint invalidates its frozen
+    // prepared fields and moves it back to draft atomically. Other terminal
+    // work stays immutable here.
+    const canReopenPreparedRetry = current?.id === id
+      && current.status === "ready"
+      && (detailQuery.data?.outputs.length ?? 0) === 0;
+    if (current?.id === id && current.status !== "draft" && !canReopenPreparedRetry) return null;
     for (;;) {
       await saveChainRef.current;
       const snapshot = captureSnapshot();
       if (signature(snapshot) === lastPersistedRef.current) return id;
       await persistSnapshot(id, snapshot);
     }
-  }, [captureSnapshot, detailQuery.data?.work, ensureDraft, initialWorkId, persistSnapshot]);
+  }, [captureSnapshot, detailQuery.data?.outputs.length, detailQuery.data?.work, ensureDraft, initialWorkId, persistSnapshot]);
 
   persistOnUnmountRef.current = async () => {
     if (workflowVariant === "progressive" && !objectiveRef.current) return;
@@ -1387,7 +1394,20 @@ export function useCreativeComposer({
 
   const preparePlanCommand = useCallback(async (): Promise<PreparedPlanProjectionV1 | null> => {
     const current = detailQuery.data?.work;
-    if (current && current.status !== "draft") return detailQuery.data?.preparedPlan ?? null;
+    const currentPlan = detailQuery.data?.preparedPlan ?? null;
+    const preparedInput = currentPlan && preparedPlanInputRef.current?.revision === currentPlan.preparedRevision
+      ? preparedPlanInputRef.current
+      : null;
+    const planIsStale = Boolean(
+      currentPlan && (
+        invalidatedPlanRevision === currentPlan.preparedRevision
+        || preparedInput?.signature.startsWith("stale:")
+        || preparedInput?.signature !== signature(captureSnapshot())
+      )
+    );
+    const canReopenPreparedRetry = current?.status === "ready"
+      && (detailQuery.data?.outputs.length ?? 0) === 0;
+    if (current && current.status !== "draft" && !(canReopenPreparedRetry && planIsStale)) return currentPlan;
     setActionPhase("saving");
     const prepareEditEpoch = planInputEditEpochRef.current;
     setError(null);
@@ -1427,7 +1447,7 @@ export function useCreativeComposer({
     } finally {
       setActionPhase("idle");
     }
-  }, [captureSnapshot, detailQuery.data, flushAutosave, prepareMutation, recordCanonicalEvent]);
+  }, [captureSnapshot, detailQuery.data, flushAutosave, invalidatedPlanRevision, prepareMutation, recordCanonicalEvent]);
 
   const confirmGenerationCommand = useCallback(async (preparedRevision?: string): Promise<void> => {
     const current = detailQuery.data?.work;
@@ -1438,7 +1458,10 @@ export function useCreativeComposer({
       return;
     }
     if (preparedPlanInputRef.current?.revision === revision
-      && preparedPlanInputRef.current.signature.startsWith("stale:")) {
+      && (
+        preparedPlanInputRef.current.signature.startsWith("stale:")
+        || preparedPlanInputRef.current.signature !== signature(captureSnapshot())
+      )) {
       setError("Revise o plano antes de gerar.");
       return;
     }
@@ -1468,7 +1491,7 @@ export function useCreativeComposer({
     } finally {
       setActionPhase("idle");
     }
-  }, [detailQuery, generateMutation, recordStudioEvent, studioSessionId, workflowVariant]);
+  }, [captureSnapshot, detailQuery, generateMutation, recordStudioEvent, studioSessionId, workflowVariant]);
 
   const preparePlan = useCallback(async () => {
     if (submissionBlocked()) return null;
@@ -1492,13 +1515,13 @@ export function useCreativeComposer({
     if (submissionBlocked()) return;
     submitGuardRef.current = true;
     try {
-      const current = detailQuery.data?.work;
-      const resumePrepared = Boolean(current && current.status === "ready" && (detailQuery.data?.outputs.length ?? 0) === 0);
-      const plan = resumePrepared ? detailQuery.data?.preparedPlan ?? null : await preparePlanCommand();
+      // preparePlanCommand preserves an untouched ready retry but deliberately
+      // reopens and reprovisions one whose local inputs changed.
+      const plan = await preparePlanCommand();
       if (!plan) return;
       await confirmGenerationCommand(plan?.preparedRevision);
     } finally { submitGuardRef.current = false; }
-  }, [confirmGenerationCommand, detailQuery.data, preparePlanCommand, submissionBlocked]);
+  }, [confirmGenerationCommand, preparePlanCommand, submissionBlocked]);
 
   const resolveBrandConflict = useCallback(async (choice: CreativeWorkBrandChoice) => {
     // Double-click guard: one choice in flight per conflict.

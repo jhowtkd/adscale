@@ -2190,6 +2190,46 @@ describe("useCreativeComposer", () => {
     expect(result.current.canConfirm).toBe(false);
   });
 
+  it("reopens an edited hydrated progressive retry before preparing and confirming a new revision", async () => {
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ status: "ready" }),
+        sources: [{ id: "source-1", status: "ready" }],
+        outputs: [],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const refreshedPlan = { ...preparedPlan(), preparedRevision: "2026-08-30T12:01:00.000Z" };
+    mocks.prepare.mockResolvedValue({
+      work: { ...workDetail().work, request: "Pedido revisado", updatedAt: new Date(refreshedPlan.preparedRevision) },
+      quote: { unitCount: 3, credits: 150 },
+      preparedPlan: refreshedPlan,
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", workflowVariant: "progressive" }));
+    await act(async () => Promise.resolve());
+
+    act(() => result.current.setRequest("Pedido revisado"));
+    await act(async () => { await result.current.confirmGeneration("2026-08-30T12:00:00.000Z"); });
+
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(result.current.canConfirm).toBe(false);
+
+    let plan: Awaited<ReturnType<typeof result.current.preparePlan>>;
+    await act(async () => { plan = await result.current.preparePlan(); });
+
+    expect(mocks.autosave).toHaveBeenCalledWith(expect.objectContaining({ workItemId: "work-1", request: "Pedido revisado" }));
+    expect(mocks.prepare).toHaveBeenCalledWith({ workItemId: "work-1" });
+    expect(plan?.preparedRevision).toBe(refreshedPlan.preparedRevision);
+
+    await act(async () => { await result.current.confirmGeneration(plan?.preparedRevision); });
+
+    expect(mocks.generate).toHaveBeenCalledOnce();
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: "work-1", preparedRevision: refreshedPlan.preparedRevision,
+    }));
+  });
+
   it("does not autosave a format inferred by prepare while generation starts", async () => {
     mocks.work.mockReturnValue({
       data: {

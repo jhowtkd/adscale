@@ -482,15 +482,45 @@ describe("creative-work repository", () => {
       expect(source).toContain('`${workspaceId}:${workItemId}:prepare`');
       expect(source).toContain('pg_advisory_xact_lock(hashtext(${`${workspaceId}:${workItemId}:prepare`}))');
     });
-    it("distinguishes a missing work from a persisted non-draft autosave", async () => {
+    it("distinguishes a missing work from a persisted immutable autosave", async () => {
       await expect(autosaveCreativeWorkDraft({
         workspaceId: "ws-1", workItemId: "missing", request: "Peça", intent: "single", format: "4:5", settings: { targetFormats: [] },
       })).resolves.toEqual({ work: null, error: "not_found", sourcesNeedingSingleAnalysis: [] });
 
-      mocks.state.selectResults.push([workItem({ id: "work-closed", toolKind: "single", status: "ready" })]);
+      mocks.state.selectResults.push([workItem({ id: "work-closed", toolKind: "single", status: "completed" })]);
       await expect(autosaveCreativeWorkDraft({
         workspaceId: "ws-1", workItemId: "work-closed", request: "Peça", intent: "single", format: "4:5", settings: { targetFormats: [] },
       })).resolves.toEqual({ work: null, error: "not_draft", sourcesNeedingSingleAnalysis: [] });
+      expect(mocks.txUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("reopens a prepared ready retry with no outputs and invalidates its frozen plan", async () => {
+      const ready = workItem({
+        id: "work-ready", toolKind: "single", status: "ready",
+        brief: socialBrief, copy: socialCopy, inputSnapshot: { request: "Peça", settings: { targetFormats: [] }, sources: [] },
+        identitySnapshot: { clientProfileId: "profile-1", confirmedAt: "now", assets: [], brandKit: null },
+      });
+      const reopened = workItem({ ...ready, status: "draft", brief: null, copy: null, inputSnapshot: null, identitySnapshot: null });
+      mocks.state.selectResults.push([ready], [{ outputCount: 0 }]);
+      mocks.state.txUpdateResults.push([reopened]);
+
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "work-ready", request: "Peça revisada", intent: "single", format: "4:5", settings: { targetFormats: [] },
+      })).resolves.toEqual({ work: reopened, error: null, sourcesNeedingSingleAnalysis: [] });
+
+      expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({
+        status: "draft", identitySnapshot: null, brief: null, copy: null, inputSnapshot: null,
+        request: "Peça revisada",
+      }));
+    });
+
+    it("does not reopen a ready work once it has outputs", async () => {
+      mocks.state.selectResults.push([workItem({ id: "work-with-output", status: "ready" })], [{ outputCount: 1 }]);
+
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "work-with-output", request: "Peça", intent: "single", format: "4:5", settings: { targetFormats: [] },
+      })).resolves.toEqual({ work: null, error: "not_draft", sourcesNeedingSingleAnalysis: [] });
+
       expect(mocks.txUpdateMock).not.toHaveBeenCalled();
     });
     it("rejects a Variations to Single transition with four asset sources before changing the work", async () => {

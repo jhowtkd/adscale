@@ -320,6 +320,22 @@ describe("generateCreativeWork", () => {
     expect(charge).toHaveBeenCalledOnce();
   });
 
+  it("rejects an old prepared revision for a ready retry before settlement", async () => {
+    getWork.mockResolvedValue({
+      work: { ...preparedWork, status: "ready", identitySnapshot, updatedAt: new Date("2026-07-16T12:01:00.000Z") },
+      outputs: [],
+      sources: [],
+    });
+
+    const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+
+    expect(result).toMatchObject({ ok: false, error: { code: "stale_input" } });
+    expect(snapshot).not.toHaveBeenCalled();
+    expect(charge).not.toHaveBeenCalled();
+    expect(createOutputs).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("does not freeze a stale prepared snapshot after concurrent autosave", async () => {
     confirmSnapshots.mockResolvedValue(null);
     const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });

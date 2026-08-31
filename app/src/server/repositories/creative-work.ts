@@ -1,4 +1,4 @@
-import { eq, and, asc, desc, count, inArray, isNull, isNotNull, lt, max, ne, sql } from "drizzle-orm";
+import { eq, and, asc, desc, count, inArray, isNull, isNotNull, lt, max, ne, notExists, sql } from "drizzle-orm";
 import { db } from "../db";
 import { getCreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
 import { isLayerizationSelectionLocked, layerizationStateFromDatabase } from "@/server/layerize/contracts";
@@ -461,7 +461,13 @@ export async function autosaveCreativeWorkDraft(input: {
       eq(creativeWorkItems.id, input.workItemId),
     )).limit(1);
     if (!work) return { work: null, error: "not_found", sourcesNeedingSingleAnalysis: [] };
-    if (work.status !== "draft") return { work: null, error: "not_draft", sourcesNeedingSingleAnalysis: [] };
+    const reopeningPreparedRetry = work.status === "ready" && (await tx.select({ outputCount: count() })
+      .from(creativeWorkOutputs)
+      .where(and(
+        eq(creativeWorkOutputs.workspaceId, input.workspaceId),
+        eq(creativeWorkOutputs.workItemId, input.workItemId),
+      )))[0]?.outputCount === 0;
+    if (work.status !== "draft" && !reopeningPreparedRetry) return { work: null, error: "not_draft", sourcesNeedingSingleAnalysis: [] };
 
     let sourcesNeedingSingleAnalysis: CreativeWorkSource[] = [];
 
@@ -530,6 +536,7 @@ export async function autosaveCreativeWorkDraft(input: {
     }
 
     const [updated] = await tx.update(creativeWorkItems).set({
+      ...(reopeningPreparedRetry ? { status: "draft", identitySnapshot: null } : {}),
       request: input.request,
       toolKind: input.intent,
       format: input.format,
@@ -541,7 +548,13 @@ export async function autosaveCreativeWorkDraft(input: {
     }).where(and(
       eq(creativeWorkItems.workspaceId, input.workspaceId),
       eq(creativeWorkItems.id, input.workItemId),
-      eq(creativeWorkItems.status, "draft"),
+      eq(creativeWorkItems.status, reopeningPreparedRetry ? "ready" : "draft"),
+      ...(reopeningPreparedRetry ? [notExists(
+        tx.select({ id: creativeWorkOutputs.id }).from(creativeWorkOutputs).where(and(
+          eq(creativeWorkOutputs.workspaceId, input.workspaceId),
+          eq(creativeWorkOutputs.workItemId, input.workItemId),
+        )),
+      )] : []),
     )).returning();
     return updated
       ? { work: updated, error: null, sourcesNeedingSingleAnalysis }
