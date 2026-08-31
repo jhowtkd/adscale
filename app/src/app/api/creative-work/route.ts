@@ -112,7 +112,14 @@ export async function POST(request: Request) {
           : { templateId: parsed.data.templateId! }),
       });
       if (!created) return apiError("invalidInput", 400);
-      if ("limitReached" in created) return apiError("creativeWorkPieceReferenceLimit", 409);
+      if ("limitReached" in created) {
+        return apiError(
+          created.reason === "carousel_reference_limit"
+            ? "creativeWorkCarouselReferenceLimit"
+            : "creativeWorkPieceReferenceLimit",
+          409,
+        );
+      }
       if (!("source" in created)) return apiError("invalidInput", 400);
 
       let source = created.source;

@@ -68,6 +68,7 @@ import {
   mutateCreativeWorkPieceReference,
   mutateCreativeWorkDraftSource,
 } from "@/server/repositories/creative-work";
+import { listCurrentCarouselSlides } from "@/server/repositories/creative-work-carousel";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getTemplateById } from "@/server/repositories/template";
 import { inngest } from "@/server/jobs/client";
@@ -539,7 +540,21 @@ export async function GET(
       layerization: layerEditorAccess.enabled ? toPublicLayerizationState(recoveredLayerizations.get(output.id) ?? output.layerization) : null,
       layerEditor: toPublicLayerEditorSummary(output.layerEditor),
     }));
-    const { inputSnapshot: _inputSnapshot, ...publicWork } = result.work;
+    const { inputSnapshot: _inputSnapshot, carouselQuality, ...publicWork } = result.work;
+    const carouselSlideRows = result.work.toolKind === "carousel"
+      ? await listCurrentCarouselSlides(workspace.id, id)
+      : [];
+    const carouselSlides = carouselSlideRows.map((slide) => {
+      const {
+        providerBaseKey: _providerBaseKey,
+        outputKey,
+        previewKey: _previewKey,
+        anchorKey: _anchorKey,
+        generationOperationKey: _generationOperationKey,
+        ...publicSlide
+      } = slide;
+      return { ...publicSlide, hasOutput: Boolean(outputKey) };
+    });
     return NextResponse.json({
       work: {
         ...publicWork,
@@ -553,6 +568,16 @@ export async function GET(
       inferredBriefing,
       briefingFactPack: inferredBriefing ? resolveCreativeWorkFactPack(result.work.inputSnapshot) : null,
       canonical,
+      carouselSlides,
+      carouselQuality: carouselQuality
+        ? {
+            version: carouselQuality.version,
+            objectivePassed: carouselQuality.objectivePassed,
+            advisoryWarnings: carouselQuality.advisoryWarnings,
+            reviewedAt: carouselQuality.reviewedAt,
+            hasContactSheet: Boolean(carouselQuality.contactSheetKey),
+          }
+        : null,
     });
   } catch (error) {
     return handleApiError(error, "creative-work.[id].GET");
@@ -653,6 +678,7 @@ export async function PATCH(
         format: parsed.data.format,
         settings: parsed.data.settings,
       });
+      if (autosaved.error === "carousel_reference_limit") return apiError("creativeWorkCarouselReferenceLimit", 409);
       if (autosaved.error === "single_piece_reference_limit") return apiError("creativeWorkPieceReferenceLimit", 409);
       if (autosaved.error === "not_draft") return apiError("creativeWorkNotDraft", 409);
       if (!autosaved.work) return apiError("creativeWorkNotFound", 404);
@@ -813,7 +839,14 @@ export async function PATCH(
         status: "uploaded",
       });
       if (!sourceClaim) return apiError("invalidInput", 400);
-      if ("limitReached" in sourceClaim) return apiError("creativeWorkPieceReferenceLimit", 409);
+      if ("limitReached" in sourceClaim) {
+        return apiError(
+          sourceClaim.reason === "carousel_reference_limit"
+            ? "creativeWorkCarouselReferenceLimit"
+            : "creativeWorkPieceReferenceLimit",
+          409,
+        );
+      }
       const source = sourceClaim.source;
       if (!sourceClaim.claimedForAnalysis) return NextResponse.json({ source });
       if (source.templateId) {

@@ -1,4 +1,4 @@
-import { eq, and, asc, desc, count, inArray, isNull, isNotNull, lt, max, sql } from "drizzle-orm";
+import { eq, and, asc, desc, count, inArray, isNull, isNotNull, lt, max, ne, sql } from "drizzle-orm";
 import { db } from "../db";
 import { getCreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
 import { isLayerizationSelectionLocked, layerizationStateFromDatabase } from "@/server/layerize/contracts";
@@ -330,6 +330,7 @@ export async function createCreativeWorkDraftWithSource(
     // The unique source key alone cannot enforce the three-source aggregate
     // cap when different assets arrive concurrently.
     const isSinglePieceAsset = work.toolKind === "single" && asset;
+    const isCarouselWork = work.toolKind === "carousel";
     if (work.toolKind === "single" && input.assetId) {
       const [existingSource] = await tx.select().from(creativeWorkSources).where(and(
         eq(creativeWorkSources.workspaceId, input.workspaceId),
@@ -349,12 +350,43 @@ export async function createCreativeWorkDraftWithSource(
       if (Number(sourceCount) >= MAX_PIECE_REFERENCES) return { limitReached: true as const };
     }
 
+    // Carousel accepts at most one non-failed visual reference, forced to
+    // "style". The count runs under the same lock, so two concurrent uploads
+    // cannot both pass; the replay check precedes the cap so idempotent
+    // retries of the same asset stay no-ops.
+    if (isCarouselWork) {
+      const originCondition = asset
+        ? eq(creativeWorkSources.assetId, asset.id)
+        : eq(creativeWorkSources.templateId, template!.id);
+      const [existingOrigin] = await tx.select().from(creativeWorkSources).where(and(
+        eq(creativeWorkSources.workspaceId, input.workspaceId),
+        eq(creativeWorkSources.workItemId, work.id),
+        originCondition,
+      )).limit(1);
+      if (existingOrigin) {
+        return {
+          work,
+          source: existingOrigin,
+          claimedForAnalysis: false,
+          ...(asset ? { asset } : { template: template! }),
+        };
+      }
+      const [{ sourceCount }] = await tx.select({ sourceCount: count() }).from(creativeWorkSources).where(and(
+        eq(creativeWorkSources.workspaceId, input.workspaceId),
+        eq(creativeWorkSources.workItemId, work.id),
+        ne(creativeWorkSources.status, "failed"),
+      ));
+      if (Number(sourceCount) >= 1) {
+        return { limitReached: true as const, reason: "carousel_reference_limit" as const };
+      }
+    }
+
     const [createdSource] = await tx.insert(creativeWorkSources).values({
       workspaceId: input.workspaceId,
       workItemId: work.id,
       ...(asset ? { assetId: asset.id } : { templateId: template!.id }),
-      usage: isSinglePieceAsset ? "both" : input.usage,
-      usageConfirmed: isSinglePieceAsset ? true : work.toolKind !== "single",
+      usage: isSinglePieceAsset ? "both" : isCarouselWork ? "style" : input.usage,
+      usageConfirmed: isSinglePieceAsset ? true : isCarouselWork ? true : work.toolKind !== "single",
       status: "uploaded",
       pieceReference: isSinglePieceAsset
         ? { version: 1, category: null, classificationSource: "automatic", confidence: "low", userInstruction: null, hasTransparency: false }
@@ -407,7 +439,7 @@ const pieceReferenceLockScope = (workspaceId: string, workItemId: string) =>
 
 export type CreativeWorkAutosaveResult =
   | { work: CreativeWorkItem; error: null; sourcesNeedingSingleAnalysis: CreativeWorkSource[] }
-  | { work: null; error: "not_found" | "not_draft" | "single_piece_reference_limit"; sourcesNeedingSingleAnalysis: [] };
+  | { work: null; error: "not_found" | "not_draft" | "single_piece_reference_limit" | "carousel_reference_limit"; sourcesNeedingSingleAnalysis: [] };
 
 /**
  * Serializes tool-mode changes with source claims.  The persisted tool kind is
@@ -432,6 +464,35 @@ export async function autosaveCreativeWorkDraft(input: {
     if (work.status !== "draft") return { work: null, error: "not_draft", sourcesNeedingSingleAnalysis: [] };
 
     let sourcesNeedingSingleAnalysis: CreativeWorkSource[] = [];
+
+    // Carousel targets are read under the same lock as attachment: a mode
+    // transition into carousel keeps at most one non-failed visual reference
+    // and its usage is always "style" (re-analysis re-queues with the change).
+    if (input.intent === "carousel") {
+      const nonFailedSources = await tx.select().from(creativeWorkSources).where(and(
+        eq(creativeWorkSources.workspaceId, input.workspaceId),
+        eq(creativeWorkSources.workItemId, input.workItemId),
+        ne(creativeWorkSources.status, "failed"),
+      ));
+      if (nonFailedSources.length > 1) {
+        return { work: null, error: "carousel_reference_limit", sourcesNeedingSingleAnalysis: [] };
+      }
+      const staleUsageSources = nonFailedSources.filter((source) => source.usage !== "style");
+      const renormalized = await Promise.all(staleUsageSources.map((source) => tx.update(creativeWorkSources).set({
+        usage: "style",
+        usageConfirmed: true,
+        status: "uploaded",
+        contentAnalysis: null,
+        styleAnalysis: null,
+        failureCode: null,
+        updatedAt: sql`greatest(${creativeWorkSources.updatedAt} + interval '1 millisecond', now())`,
+      }).where(and(
+        eq(creativeWorkSources.workspaceId, input.workspaceId),
+        eq(creativeWorkSources.workItemId, input.workItemId),
+        eq(creativeWorkSources.id, source.id),
+      )).returning()));
+      sourcesNeedingSingleAnalysis = renormalized.flatMap((rows) => rows);
+    }
 
     // Preserve legacy Single rows on ordinary autosaves. Normalization is a
     // one-time Variations -> Single transition, not a rewrite of historical
@@ -710,6 +771,8 @@ export interface CreativeWorkSourceClaim {
 
 export interface CreativeWorkSourceLimitReached {
   limitReached: true;
+  /** Present when the cap is the carousel one-visual-reference rule. */
+  reason?: "carousel_reference_limit";
 }
 
 export async function createCreativeWorkSource(input: CreateCreativeWorkSourceInput): Promise<CreativeWorkSourceClaim | CreativeWorkSourceLimitReached | null> {
@@ -730,10 +793,11 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
     )).limit(1);
     if (!work) return null;
     const isSinglePieceAsset = work.toolKind === "single" && Boolean(input.assetId);
+    const isCarouselWork = work.toolKind === "carousel";
     const sourceInput: CreateCreativeWorkSourceInput = {
       ...input,
-      usage: isSinglePieceAsset ? "both" : input.usage,
-      usageConfirmed: isSinglePieceAsset ? true : work.toolKind !== "single",
+      usage: isSinglePieceAsset ? "both" : isCarouselWork ? "style" : input.usage,
+      usageConfirmed: isSinglePieceAsset ? true : isCarouselWork ? true : work.toolKind !== "single",
       ...(isSinglePieceAsset ? { pieceReference: automaticPieceReference } : {}),
     };
     if (work.toolKind === "single" && input.assetId) {
@@ -753,6 +817,30 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
         isNotNull(creativeWorkSources.assetId),
       ));
       if (Number(sourceCount) >= MAX_PIECE_REFERENCES) return { limitReached: true };
+    }
+    // Carousel keeps at most one non-failed visual reference, always forced to
+    // "style", enforced under the same lock that serializes concurrent
+    // uploads. A replay of the same origin stays an idempotent no-op.
+    if (isCarouselWork) {
+      const originCondition = input.assetId
+        ? eq(creativeWorkSources.assetId, input.assetId)
+        : eq(creativeWorkSources.templateId, input.templateId!);
+      const [existingOrigin] = await tx.select().from(creativeWorkSources).where(and(
+        eq(creativeWorkSources.workspaceId, input.workspaceId),
+        eq(creativeWorkSources.workItemId, input.workItemId),
+        originCondition,
+      )).limit(1);
+      if (existingOrigin) {
+        return { source: existingOrigin, claimedForAnalysis: false };
+      }
+      const [{ sourceCount }] = await tx.select({ sourceCount: count() }).from(creativeWorkSources).where(and(
+        eq(creativeWorkSources.workspaceId, input.workspaceId),
+        eq(creativeWorkSources.workItemId, input.workItemId),
+        ne(creativeWorkSources.status, "failed"),
+      ));
+      if (Number(sourceCount) >= 1) {
+        return { limitReached: true, reason: "carousel_reference_limit" };
+      }
     }
     const [row] = await tx.insert(creativeWorkSources).values(sourceInput).onConflictDoNothing().returning();
     if (!row) {

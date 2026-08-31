@@ -7,6 +7,7 @@ import type {
 } from "@/server/brand-training/contracts";
 import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
 import type { TextLayout, TypographyPlan } from "./typography-plan";
+import { carouselDraftStateSchema } from "./carousel-contracts";
 import type { CarouselDraftStateV1, CarouselPreparedSnapshotV1 } from "./carousel-contracts";
 
 export const CREATIVE_LEVELS = ["conservative", "balanced", "bold"] as const;
@@ -408,6 +409,11 @@ export const creativeWorkSettingsSchema = z.object({
   directionPool: creativeDirectionPoolSchema.optional(),
   briefingOverrides: creativeWorkBriefingOverridesSchema.optional(),
   briefingVersion: z.number().int().nonnegative().optional(),
+  // Versioned editable carousel draft (Criar carrossel), persisted through the
+  // existing autosave envelope. z.lazy defers the schema access because the
+  // contracts ↔ carousel-contracts module cycle resolves only after both
+  // modules finish evaluating.
+  carouselDraft: z.lazy(() => carouselDraftStateSchema).optional(),
 });
 export const creativeWorkPreparationSchema = z.object({
   intent: creativeWorkIntentSchema,

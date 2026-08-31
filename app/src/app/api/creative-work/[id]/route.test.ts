@@ -117,6 +117,11 @@ vi.mock("@/server/repositories/creative-work", () => ({
   linkCreativeWorkCampaign: (...args: unknown[]) => linkCampaignMock(...args),
 }));
 
+const listCurrentCarouselSlidesMock = vi.hoisted(() => vi.fn());
+vi.mock("@/server/repositories/creative-work-carousel", () => ({
+  listCurrentCarouselSlides: (...args: unknown[]) => listCurrentCarouselSlidesMock(...args),
+}));
+
 vi.mock("@/server/billing/credits", () => ({
   refundCredits: (...args: unknown[]) => refundCreditsMock(...args),
   canSpend: vi.fn(),
@@ -645,6 +650,80 @@ describe("GET /api/creative-work/[id]", () => {
     expect(res.status).toBe(404);
   });
 
+  it("projects carousel slides without private keys and summarizes deck quality", async () => {
+    listCurrentCarouselSlidesMock.mockResolvedValue([{
+      id: "slide-1",
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      position: 1,
+      role: "hook",
+      primaryText: "Gancho",
+      secondaryText: null,
+      copyAuthority: "ai_proposal",
+      status: "completed",
+      providerBaseKey: "private/base.png",
+      outputKey: "private/output.png",
+      previewKey: "private/preview.png",
+      anchorKey: "private/anchor.png",
+      generationOperationKey: "deck-r1:slide-1",
+      visualContractHash: "hash",
+      createdAt: new Date("2026-08-30T12:00:00.000Z"),
+      updatedAt: new Date("2026-08-30T12:00:00.000Z"),
+    }]);
+    getWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        toolKind: "carousel",
+        carouselApprovedRevision: "deck-r1",
+        carouselQuality: {
+          version: 1,
+          objectivePassed: true,
+          advisoryWarnings: ["aviso"],
+          contactSheetKey: "private/contact-sheet.png",
+          reviewedAt: "2026-08-30T13:00:00.000Z",
+        },
+      },
+      outputs: [],
+      sources: [],
+    });
+
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(listCurrentCarouselSlidesMock).toHaveBeenCalledWith("workspace-1", "work-1");
+    expect(body.carouselSlides).toHaveLength(1);
+    expect(body.carouselSlides[0]).toEqual(expect.objectContaining({
+      id: "slide-1",
+      status: "completed",
+      hasOutput: true,
+    }));
+    expect(JSON.stringify(body.carouselSlides[0])).not.toMatch(
+      /providerBaseKey|outputKey|previewKey|anchorKey|generationOperationKey|private\//,
+    );
+    expect(body.carouselQuality).toEqual({
+      version: 1,
+      objectivePassed: true,
+      advisoryWarnings: ["aviso"],
+      reviewedAt: "2026-08-30T13:00:00.000Z",
+      hasContactSheet: true,
+    });
+    expect(JSON.stringify(body.work)).not.toMatch(/contactSheetKey|carouselQuality|private\//);
+  });
+
+  it("projects an empty carousel surface for non-carousel works", async () => {
+    listCurrentCarouselSlidesMock.mockClear();
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [] });
+
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(listCurrentCarouselSlidesMock).not.toHaveBeenCalled();
+    expect(body.carouselSlides).toEqual([]);
+    expect(body.carouselQuality).toBeNull();
+  });
+
   it("turns stale generation into a terminal retryable failure", async () => {
     failStaleOutputsMock
       .mockResolvedValueOnce([{ id: "o1", status: "failed" }])
@@ -977,6 +1056,26 @@ describe("PATCH /api/creative-work/[id]", () => {
     const res = await requestPatch({ action: "autosave", request: "Nova peça", intent: "single", format: "4:5", settings: { targetFormats: [] } });
     expect(res.status).toBe(409);
     expect((await res.json()).code).toBe("creativeWorkPieceReferenceLimit");
+  });
+
+  it("maps the carousel autosave reference cap to its dedicated error code", async () => {
+    autosaveDraftMock.mockResolvedValue({ work: null, error: "carousel_reference_limit", sourcesNeedingSingleAnalysis: [] });
+    const res = await requestPatch({ action: "autosave", request: "Nova peça", intent: "carousel", format: "4:5", settings: { targetFormats: [] } });
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("creativeWorkCarouselReferenceLimit");
+  });
+
+  it("maps the carousel attach cap to its dedicated error code before analysis dispatch", async () => {
+    getWorkMock.mockResolvedValue({ work: { ...workItem, toolKind: "carousel" }, outputs: [], sources: [] });
+    getAssetMock.mockResolvedValue({ id: "asset-1", workspaceId: "workspace-1", key: "trusted/ref.png", type: "image/png" });
+    createSourceMock.mockResolvedValue({ limitReached: true, reason: "carousel_reference_limit" });
+
+    const res = await requestPatch({ action: "attachSource", assetId: "asset-1", usage: "style" });
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("creativeWorkCarouselReferenceLimit");
+    expect(inngestSendMock).not.toHaveBeenCalled();
+    expect(analyzeSourceMock).not.toHaveBeenCalled();
   });
 
   it("preserves late-autosave semantics: missing is 404 and non-draft is 409", async () => {

@@ -237,6 +237,30 @@ describe("POST /api/creative-work", () => {
     expect(startMock).not.toHaveBeenCalled();
   });
 
+  it("maps the carousel visual-reference cap to its dedicated error code", async () => {
+    createDraftWithSourceMock.mockResolvedValue({ limitReached: true, reason: "carousel_reference_limit" });
+
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientProfileId: profileId,
+        draftKey: "00000000-0000-4000-8000-0000000000c1",
+        request: "",
+        assetId: "asset-1",
+        usage: "style",
+        intent: "carousel",
+        format: "4:5",
+        settings: { targetFormats: [] },
+      }),
+    }));
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(body.code).toBe("creativeWorkCarouselReferenceLimit");
+    expect(inngestSendMock).not.toHaveBeenCalled();
+    expect(analyzeSourceMock).not.toHaveBeenCalled();
+  });
+
   it("accepts an attachment-first draft only with a scoped image asset", async () => {
     const body = {
       clientProfileId: profileId,

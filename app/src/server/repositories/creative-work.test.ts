@@ -2084,4 +2084,176 @@ describe("creative-work repository", () => {
       expect(mocks.txUpdateMock).not.toHaveBeenCalled();
     });
   });
+
+  describe("carousel visual-reference cap", () => {
+    it("rejects a second non-failed carousel source before insert and analysis dispatch", async () => {
+      mocks.state.selectResults.push(
+        [{ id: "asset-2", type: "image/png" }],
+        [{ id: "work-1", toolKind: "carousel" }],
+        [],
+        [{ sourceCount: 1 }],
+      );
+
+      await expect(createCreativeWorkSource({
+        workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-2", usage: "content", status: "uploaded",
+      })).resolves.toEqual({ limitReached: true, reason: "carousel_reference_limit" });
+
+      expect(mocks.executeMock).toHaveBeenCalledOnce();
+      expect(mocks.valuesMock).not.toHaveBeenCalled();
+      const capCondition = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(capCondition.sql).toContain('"creative_work_sources"."status"');
+    });
+
+    it("allows the first carousel source by forcing its usage to style", async () => {
+      const work = workItem({ toolKind: "carousel", request: "", brief: null });
+      const source = { id: "source-1", workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", templateId: null, usage: "style", usageConfirmed: true, status: "uploaded" };
+      mocks.state.selectResults.push(
+        [{ id: "asset-1", type: "image/png" }],
+        [{ id: "work-1", toolKind: "carousel" }],
+        [],
+        [{ sourceCount: 0 }],
+      );
+      mocks.state.onConflictResults.push([source]);
+      mocks.state.txUpdateResults.push([work]);
+
+      await expect(createCreativeWorkSource({
+        workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", usage: "content", status: "uploaded",
+      })).resolves.toEqual({ source, claimedForAnalysis: true });
+
+      expect(mocks.valuesMock).toHaveBeenCalledWith(expect.objectContaining({
+        assetId: "asset-1", usage: "style", usageConfirmed: true,
+      }));
+    });
+
+    it("ignores failed carousel sources when enforcing the one-reference cap", async () => {
+      const work = workItem({ toolKind: "carousel", request: "", brief: null });
+      const source = { id: "source-2", workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-2", templateId: null, usage: "style", usageConfirmed: true, status: "uploaded" };
+      mocks.state.selectResults.push(
+        [{ id: "asset-2", type: "image/png" }],
+        [{ id: "work-1", toolKind: "carousel" }],
+        [],
+        [{ sourceCount: 0 }],
+      );
+      mocks.state.onConflictResults.push([source]);
+      mocks.state.txUpdateResults.push([work]);
+
+      await expect(createCreativeWorkSource({
+        workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-2", usage: "style", status: "uploaded",
+      })).resolves.toEqual({ source, claimedForAnalysis: true });
+    });
+
+    it("replays the same carousel source without counting it against the cap", async () => {
+      const existing = {
+        id: "source-existing", workspaceId: "ws-1", workItemId: "work-1",
+        assetId: "asset-1", templateId: null, usage: "style", status: "ready", updatedAt: new Date(),
+      };
+      mocks.state.selectResults.push(
+        [{ id: "asset-1", type: "image/png" }],
+        [{ id: "work-1", toolKind: "carousel" }],
+        [existing],
+      );
+
+      await expect(createCreativeWorkSource({
+        workspaceId: "ws-1", workItemId: "work-1", assetId: "asset-1", usage: "content", status: "uploaded",
+      })).resolves.toEqual({ source: existing, claimedForAnalysis: false });
+
+      expect(mocks.valuesMock).not.toHaveBeenCalled();
+    });
+
+    it("caps the attachment-first draft creation for carousel before the source insert", async () => {
+      const work = workItem({ toolKind: "carousel", request: "", brief: null });
+      mocks.state.selectResults.push(
+        [{ id: "profile-1" }],
+        [{ id: "asset-1", type: "image/png" }],
+        [work],
+        [work],
+        [],
+        [{ sourceCount: 1 }],
+      );
+
+      await expect(createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1", draftKey: "carousel-key",
+        intent: "carousel", title: "", request: "", format: "4:5", settings: { targetFormats: [] },
+        assetId: "asset-1", usage: "content",
+      })).resolves.toEqual({ limitReached: true, reason: "carousel_reference_limit" });
+
+      expect(mocks.executeMock).toHaveBeenCalledOnce();
+      expect(mocks.valuesMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("forces the attachment-first carousel source usage to style", async () => {
+      const work = workItem({ toolKind: "carousel", request: "", brief: null });
+      const source = { id: "source-1", workspaceId: "ws-1", workItemId: work.id, assetId: "asset-1", templateId: null, usage: "style", usageConfirmed: true, status: "uploaded" };
+      mocks.state.selectResults.push(
+        [{ id: "profile-1" }],
+        [{ id: "asset-1", type: "image/png" }],
+        [work],
+        [],
+        [{ sourceCount: 0 }],
+      );
+      mocks.state.onConflictResults.push([work], [source]);
+
+      await expect(createCreativeWorkDraftWithSource({
+        workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1", draftKey: "carousel-key",
+        intent: "carousel", title: "", request: "", format: "4:5", settings: { targetFormats: [] },
+        assetId: "asset-1", usage: "content",
+      })).resolves.toEqual({ work, source, asset: { id: "asset-1", type: "image/png" }, claimedForAnalysis: true });
+
+      expect(mocks.valuesMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        assetId: "asset-1", usage: "style", usageConfirmed: true,
+      }));
+    });
+
+    it("rejects an autosave into carousel while two non-failed sources exist", async () => {
+      mocks.state.selectResults.push(
+        [workItem({ toolKind: "variations", request: "", brief: null })],
+        [
+          { id: "source-1", usage: "content", status: "ready" },
+          { id: "source-2", usage: "style", status: "ready" },
+        ],
+      );
+
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "work-1", request: "", intent: "carousel", format: "4:5",
+        settings: { targetFormats: [] },
+      })).resolves.toEqual({ work: null, error: "carousel_reference_limit", sourcesNeedingSingleAnalysis: [] });
+
+      expect(mocks.txUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("renormalizes the single carousel source to style on autosave and re-queues its analysis", async () => {
+      const carouselWork = workItem({ toolKind: "carousel", request: "", brief: null });
+      const normalized = { id: "source-1", usage: "style", status: "uploaded", updatedAt: new Date("2026-08-30T12:00:00.001Z") };
+      mocks.state.selectResults.push(
+        [carouselWork],
+        [{ id: "source-1", usage: "content", status: "ready", updatedAt: new Date() }],
+      );
+      mocks.state.txUpdateResults.push([normalized], [carouselWork]);
+
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "work-1", request: "Novo pedido", intent: "carousel", format: "4:5",
+        settings: { targetFormats: [] },
+      })).resolves.toEqual({ work: carouselWork, error: null, sourcesNeedingSingleAnalysis: [normalized] });
+
+      expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({
+        usage: "style", usageConfirmed: true, status: "uploaded", failureCode: null,
+      }));
+    });
+
+    it("does not renormalize a carousel source that is already style", async () => {
+      const carouselWork = workItem({ toolKind: "carousel", request: "", brief: null });
+      mocks.state.selectResults.push(
+        [carouselWork],
+        [{ id: "source-1", usage: "style", status: "ready", updatedAt: new Date() }],
+      );
+      mocks.state.txUpdateResults.push([carouselWork]);
+
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "work-1", request: "Novo pedido", intent: "carousel", format: "4:5",
+        settings: { targetFormats: [] },
+      })).resolves.toEqual({ work: carouselWork, error: null, sourcesNeedingSingleAnalysis: [] });
+
+      expect(mocks.txSetMock).toHaveBeenCalledTimes(1);
+    });
+  });
 });
