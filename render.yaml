@@ -99,7 +99,7 @@ services:
       - key: BRAND_CORTEX_SINGLE_PIECE_ENABLED
         value: "false"
       - key: STUDIO_CAROUSEL_ROLLOUT_PERCENT
-        value: "0"
+        value: "100"
       - key: STUDIO_PROGRESSIVE_ROLLOUT_PERCENT
         value: "100"
       - key: PLATFORM_OWNER_EMAILS
@@ -178,7 +178,7 @@ services:
       - key: MEM0_PROJECT_ID
         sync: false
       - key: STUDIO_CAROUSEL_ROLLOUT_PERCENT
-        value: "0"
+        value: "100"
       - key: STUDIO_PROGRESSIVE_ROLLOUT_PERCENT
         value: "100"
 
