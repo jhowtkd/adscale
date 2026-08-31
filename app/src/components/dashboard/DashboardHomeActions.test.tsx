@@ -429,20 +429,21 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("creative-composer")).toHaveTextContent("completed,failed");
     expect(within(plan).queryByTestId("creative-composer")).not.toBeInTheDocument();
     expect(within(plan).getByTestId("prepared-plan")).toHaveTextContent("variations|Logo|verified_facts|composition|4:5|3");
-    expect(plan.compareDocumentPosition(results.closest("section")!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(screen.getByTestId("progressive-results-summary").compareDocumentPosition(plan)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(results.closest("div.mx-auto")).toHaveClass("max-w-6xl");
-    expect(screen.getByTestId("progressive-results-summary")).toHaveTextContent("work-1");
+    expect(screen.getByTestId("progressive-results-summary")).toHaveTextContent("Campanha de matrículas");
+    expect(screen.getByTestId("progressive-results-summary")).not.toHaveTextContent("work-1");
   });
 
-  it("returns to confirmation only after re-preparing a new revision", async () => {
+  it("returns to confirmation after a successful no-op reprepare", async () => {
     const confirmGeneration = vi.fn();
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     useComposerMock.mockImplementation(() => {
-      const [revision, setRevision] = useState("revision-1");
+      const [cycle, setCycle] = useState(0);
       return {
         request: "Campanha", hasEntry: true, objectiveSelected: true, intent: "variations", stage: "plan", actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 3, credits: 15 },
-        preparedPlan: { preparedRevision: revision, protocol: "variations", materials: [], preserve: [], explore: [], formats: ["4:5"], outputCount: 3 },
-        preparePlan: () => setRevision("revision-2"), confirmGeneration,
+        preparedPlan: { preparedRevision: "revision-1", protocol: "variations", materials: [], preserve: [], explore: [], formats: ["4:5"], outputCount: 3 },
+        preparedPlanCycle: cycle, preparePlan: () => setCycle((value) => value + 1), confirmGeneration,
       };
     });
 
@@ -450,8 +451,8 @@ describe("DashboardHomeActions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Editar plano" }));
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
 
-    await waitFor(() => expect(screen.getByTestId("prepared-plan")).toHaveTextContent("revision-2"));
+    await waitFor(() => expect(screen.getByTestId("prepared-plan")).toHaveTextContent("revision-1"));
     fireEvent.click(screen.getByRole("button", { name: "Confirmar plano" }));
-    expect(confirmGeneration).toHaveBeenCalledWith("revision-2");
+    expect(confirmGeneration).toHaveBeenCalledWith("revision-1");
   });
 });

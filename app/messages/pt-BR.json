@@ -514,6 +514,8 @@
       "continueReviewPieces": "Revisar peças",
       "resultsTitle": "Acompanhe sua criação",
       "planUsed": "Plano usado",
+      "resultStateGenerating": "Em geração",
+      "resultStateReady": "Pronta para revisar",
       "insufficientBalance": "Créditos insuficientes",
       "getCredits": "Obter créditos",
       "continueStates": {
@@ -537,6 +539,7 @@
         "eyebrow": "Plano preparado", "title": "Revise seu plano", "subtitle": "A geração só começa após sua confirmação.",
         "objective": "Objetivo", "materials": "Materiais", "preserveTitle": "Preservar", "exploreTitle": "Explorar", "format": "Formato", "quantity": "Quantidade", "pieces": "{count} peças", "none": "Sem materiais",
         "edit": "Editar plano", "confirm": "Confirmar e gerar", "confirming": "Confirmando",
+        "adjustments": { "title": "Ajustes", "action": "Edite o plano antes de confirmar e gerar." },
         "protocol": { "variations": "Variações", "single": "Peça única", "formatAdaptation": "Adaptar formatos", "restyle": "Novo estilo" },
         "roles": { "content": "conteúdo", "style": "estilo", "both": "conteúdo e estilo", "piece_reference": "referência da peça", "original_art": "arte original" },
         "treatment": { "identity_preservation": "preservar identidade", "recognizable_preservation": "preservar reconhecimento", "exact_application": "aplicação exata", "required_presence": "presença obrigatória", "visual_language": "linguagem visual", "style_direction": "direção de estilo" },

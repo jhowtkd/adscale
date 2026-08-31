@@ -259,6 +259,10 @@ export function useCreativeComposer({
   const [isUploading, setIsUploading] = useState(false);
   const uploadInFlightRef = useRef(false);
   const [actionPhase, setActionPhase] = useState<ComposerActionPhase>("idle");
+  // A successful preparation is a distinct UI cycle. Canonical preparation is
+  // allowed to return the same revision, so callers must not infer success
+  // from a revision string changing.
+  const [preparedPlanCycle, setPreparedPlanCycle] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [approvalErrorOutputId, setApprovalErrorOutputId] = useState<string | null>(null);
   // R-008: the only new visible decision — the restyle brand-authority
@@ -946,8 +950,10 @@ export function useCreativeComposer({
   const returnToPreviousProtocol = useCallback(() => {
     const previous = protocolSwitchNotice?.from;
     if (!previous) return;
-    void switchToProtocol(previous);
-  }, [protocolSwitchNotice, switchToProtocol]);
+    void switchToProtocol(previous).then((committed) => {
+      if (committed) recordStudioEvent("studio_goal_selected", { protocol: previous });
+    });
+  }, [protocolSwitchNotice, recordStudioEvent, switchToProtocol]);
 
   const toggleDirection = useCallback((directionId: string) => {
     if (intentRef.current !== "variations") return;
@@ -1138,14 +1144,22 @@ export function useCreativeComposer({
   const addInspiration = useCallback(async (inspiration: CreativeInspiration) => {
     if (!workIdRef.current && !active.activeClientProfileId) {
       focusBrandSwitcher();
-      return;
+      return false;
     }
     setError(null);
     if (!inspiration.templateId && !inspiration.assetId && !inspiration.curatedInspirationId) {
       setError("Inspiração indisponível");
-      return;
+      return false;
     }
     try {
+      // Never materialize a curated asset until the selected protocol has
+      // actually committed. A deferred switch can be cancelled by the user.
+      const destinationCommitted = await selectIntent(
+        inspiration.suggestedIntent === "social_post" ? "variations" : inspiration.suggestedIntent,
+        true,
+      );
+      if (!destinationCommitted) return false;
+
       let assetId = inspiration.assetId;
       if (inspiration.curatedInspirationId) {
         const response = await apiFetch(
@@ -1158,22 +1172,19 @@ export function useCreativeComposer({
         }
         assetId = payload.assetId;
       }
-      const destinationCommitted = await selectIntent(
-        inspiration.suggestedIntent === "social_post" ? "variations" : inspiration.suggestedIntent,
-        true,
-      );
-      if (!destinationCommitted) return;
       const source: DraftSource = inspiration.templateId
         ? { templateId: inspiration.templateId, usage: inspiration.suggestedIntent === "restyle" ? "style" : "both" }
         : { assetId: assetId!, usage: inspiration.suggestedIntent === "restyle" ? "style" : "both" };
-      if (!await attachDraftSource(source)) return;
+      if (!await attachDraftSource(source)) return false;
       setAnnouncement("Inspiração adicionada");
       requestAnimationFrame(() => {
         if (inspiration.suggestedIntent === "restyle") document.getElementById("creative-composer-original-source")?.focus();
         else composerRef.current?.focus();
       });
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao adicionar inspiração");
+      return false;
     }
   }, [active.activeClientProfileId, attachDraftSource, selectIntent]);
 
@@ -1405,7 +1416,11 @@ export function useCreativeComposer({
   const preparePlan = useCallback(async () => {
     if (submissionBlocked()) return null;
     submitGuardRef.current = true;
-    try { return await preparePlanCommand(); }
+    try {
+      const plan = await preparePlanCommand();
+      if (plan) setPreparedPlanCycle((cycle) => cycle + 1);
+      return plan;
+    }
     finally { submitGuardRef.current = false; }
   }, [preparePlanCommand, submissionBlocked]);
 
@@ -1662,7 +1677,7 @@ export function useCreativeComposer({
     fontOptions,
     directionPool, toggleDirection, setManualDirectionInstruction,
     directionSuggestionState, pendingDirectionSuggestions, applyDirectionSuggestions, requestDirectionSuggestions, keepCurrentDirections,
-    state, stage: visibleStage, objective, objectiveSelected, bufferedFile, hasEntry, canContinue, canConfirm, preparedPlan: visiblePreparedPlan, actionPhase, workId, clientProfileId, brandName,
+    state, stage: visibleStage, objective, objectiveSelected, bufferedFile, hasEntry, canContinue, canConfirm, preparedPlan: visiblePreparedPlan, preparedPlanCycle, actionPhase, workId, clientProfileId, brandName,
     pendingProtocolSwitch, confirmProtocolSwitch, cancelProtocolSwitch,
     protocolSwitchNotice, returnToPreviousProtocol,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,

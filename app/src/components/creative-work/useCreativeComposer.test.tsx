@@ -1366,6 +1366,27 @@ describe("useCreativeComposer", () => {
     expect(mocks.source).not.toHaveBeenCalled();
   });
 
+  it("does not materialize a curated inspiration until its cross-protocol switch is confirmed", async () => {
+    const saving = deferred<{ work: { id: string } }>();
+    mocks.autosave.mockReturnValueOnce(saving.promise);
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    await act(async () => Promise.resolve());
+    act(() => result.current.setRequest("Rascunho alterado"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    const attaching = result.current.addInspiration({
+      id: "curated-1", source: "curated", title: "Editorial", previewUrl: null,
+      templateId: null, assetId: null, curatedInspirationId: "curated-1", suggestedIntent: "restyle",
+    });
+    await act(async () => Promise.resolve());
+    expect(mocks.apiFetch).not.toHaveBeenCalled();
+    act(() => result.current.cancelProtocolSwitch());
+    await act(async () => { await attaching; });
+    expect(mocks.apiFetch).not.toHaveBeenCalled();
+    expect(mocks.source).not.toHaveBeenCalled();
+  });
+
   it("records every explicit progressive objective switch", async () => {
     const { result } = renderHook(() => useCreativeComposer({
       workflowVariant: "progressive", workspaceId: "ws-1", studioSessionId: "session-1",
@@ -1379,6 +1400,22 @@ describe("useCreativeComposer", () => {
       ["studio_goal_selected", expect.objectContaining({ protocol: "variations" })],
       ["studio_goal_selected", expect.objectContaining({ protocol: "restyle" })],
       ["studio_goal_selected", expect.objectContaining({ protocol: "single" })],
+    ]);
+  });
+
+  it("records the restored protocol as another explicit objective selection", async () => {
+    mocks.work.mockImplementation((id: string | null) => ({
+      data: id === WORK_ID ? workDetail({ id: WORK_ID }) : undefined,
+      isLoading: false,
+      isError: false,
+    }));
+    const { result } = renderHook(() => useCreativeComposer({
+      initialWorkId: WORK_ID, workflowVariant: "progressive", workspaceId: "ws-1", studioSessionId: "session-1",
+    }));
+    await act(async () => result.current.selectIntent("restyle"));
+    await act(async () => result.current.returnToPreviousProtocol());
+    expect(mocks.recordBetaEvent.mock.calls.filter(([event]) => event === "studio_goal_selected").map(([, payload]) => payload.protocol)).toEqual([
+      "variations", "restyle", "variations",
     ]);
   });
 

@@ -38,9 +38,15 @@ export function CreativePlanReview({ plan, busy, onEdit, onConfirm, readOnly = f
         <div><dt className="font-medium text-[var(--text-primary)]">{t("materials")}</dt><dd className="mt-1 text-[var(--text-secondary)]">{plan.materials.length ? plan.materials.map(material).join("; ") : t("none")}</dd></div>
         <div><dt className="font-medium text-[var(--text-primary)]">{t("preserveTitle")}</dt><dd className="mt-1 text-[var(--text-secondary)]">{values(plan.preserve, "preserve")}</dd></div>
         <div><dt className="font-medium text-[var(--text-primary)]">{t("exploreTitle")}</dt><dd className="mt-1 text-[var(--text-secondary)]">{values(plan.explore, "explore")}</dd></div>
-        <div><dt className="font-medium text-[var(--text-primary)]">{t("format")}</dt><dd className="mt-1 text-[var(--text-secondary)]">{plan.formats.join(" · ")}</dd></div>
-        <div><dt className="font-medium text-[var(--text-primary)]">{t("quantity")}</dt><dd className="mt-1 text-[var(--text-secondary)]">{t("pieces", { count: plan.outputCount })}</dd></div>
       </dl>
+      <details className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] px-4 py-3" data-testid="plan-review-adjustments">
+        <summary className="cursor-pointer text-sm font-medium text-[var(--text-primary)]">{t("adjustments.title")}</summary>
+        <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+          <div><dt className="font-medium text-[var(--text-primary)]">{t("format")}</dt><dd className="mt-1 text-[var(--text-secondary)]">{plan.formats.join(" · ")}</dd></div>
+          <div><dt className="font-medium text-[var(--text-primary)]">{t("quantity")}</dt><dd className="mt-1 text-[var(--text-secondary)]">{t("pieces", { count: plan.outputCount })}</dd></div>
+        </dl>
+        <p className="mt-3 text-sm text-[var(--text-secondary)]">{t("adjustments.action")}</p>
+      </details>
       {!readOnly ? <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" onClick={onEdit} disabled={busy} className="min-h-10 rounded-[var(--radius-control)] border border-[var(--border-default)] px-4 text-sm font-semibold text-[var(--text-primary)]">{t("edit")}</button>
           <button type="button" onClick={() => void onConfirm(plan.preparedRevision)} disabled={busy} className="min-h-10 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 text-sm font-semibold text-[var(--action-primary-text)] disabled:opacity-50">{busy ? t("confirming") : t("confirm")}</button>

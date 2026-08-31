@@ -514,6 +514,8 @@
       "continueReviewPieces": "Review pieces",
       "resultsTitle": "Follow your creation",
       "planUsed": "Plan used",
+      "resultStateGenerating": "Generating",
+      "resultStateReady": "Ready for review",
       "insufficientBalance": "Insufficient credits",
       "getCredits": "Get credits",
       "continueStates": {
@@ -537,6 +539,7 @@
         "eyebrow": "Prepared plan", "title": "Review your plan", "subtitle": "Generation starts only after your confirmation.",
         "objective": "Objective", "materials": "Materials", "preserveTitle": "Preserve", "exploreTitle": "Explore", "format": "Format", "quantity": "Quantity", "pieces": "{count} pieces", "none": "No materials",
         "edit": "Edit plan", "confirm": "Confirm and generate", "confirming": "Confirming",
+        "adjustments": { "title": "Adjustments", "action": "Edit the plan before you confirm and generate." },
         "protocol": { "variations": "Variations", "single": "Single piece", "formatAdaptation": "Adapt formats", "restyle": "New style" },
         "roles": { "content": "content", "style": "style", "both": "content and style", "piece_reference": "piece reference", "original_art": "original artwork" },
         "treatment": { "identity_preservation": "preserve identity", "recognizable_preservation": "preserve recognizability", "exact_application": "exact application", "required_presence": "required presence", "visual_language": "visual language", "style_direction": "style direction" },

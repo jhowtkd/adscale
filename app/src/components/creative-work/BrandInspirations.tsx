@@ -16,18 +16,24 @@ export function BrandInspirations({
   onAttach,
 }: {
   clientProfileId: string | null;
-  onAttach: (inspiration: CreativeInspiration) => void | Promise<void>;
+  onAttach: (inspiration: CreativeInspiration) => boolean | Promise<boolean>;
 }) {
   const [open, setOpen] = useState(false);
   const [preview, setPreview] = useState<CreativeInspiration | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [attachError, setAttachError] = useState<string | null>(null);
   const { data = [], isLoading, isError, refetch } = useCreativeInspirations(clientProfileId);
   const attach = async (inspiration: CreativeInspiration) => {
     setPendingId(inspiration.id);
+    setAttachError(null);
     try {
-      await onAttach({ ...inspiration, suggestedIntent: "restyle" });
-      setOpen(false);
-      window.setTimeout(() => document.getElementById("creative-composer-original-source")?.focus(), 0);
+      const attached = await onAttach({ ...inspiration, suggestedIntent: "restyle" });
+      if (attached) {
+        setOpen(false);
+        window.setTimeout(() => document.getElementById("creative-composer-original-source")?.focus(), 0);
+      } else setAttachError("Não foi possível adicionar a referência. Tente novamente.");
+    } catch {
+      setAttachError("Não foi possível adicionar a referência. Tente novamente.");
     } finally {
       setPendingId(null);
     }
@@ -41,6 +47,7 @@ export function BrandInspirations({
         <SheetBody>
           {isLoading ? <p role="status">Carregando inspirações</p> : null}
           {isError ? <div><p role="alert">Não foi possível carregar as inspirações.</p><button type="button" onClick={() => void refetch()}>Tentar novamente</button></div> : null}
+          {attachError ? <p role="alert">{attachError}</p> : null}
           {!isLoading && !isError && data.length === 0 ? <p role="status">Nenhuma inspiração disponível ainda.</p> : null}
           {!isLoading && !isError && data.length > 0 ? <div className="grid gap-3 sm:grid-cols-2">
             {data.map((inspiration) => <article key={`${inspiration.source}:${inspiration.id}`} className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-3">

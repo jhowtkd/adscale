@@ -130,7 +130,10 @@ describe("CreativeProposalGrid", () => {
 
     expect(screen.getByRole("img", { name: /proposta equilibrada/i })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Repetir esta proposta" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /versões \(1\)/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Versões (2)" }));
+    expect(screen.getByText("Versão 2")).toBeVisible();
+    expect(screen.getByText("falhou")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Repetir esta proposta" })).toBeVisible();
   });
 
   it("compares exactly two usable revisions and excludes failed ones", () => {
@@ -139,7 +142,7 @@ describe("CreativeProposalGrid", () => {
     const failedRevision = { ...balancedCompleted, id: "out-v3", versionNumber: 3, parentOutputId: "out-v2", status: "failed" as const, outputKey: null, failureCode: "provider_error" };
     render(<CreativeProposalGrid outputs={[original, revision, failedRevision]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Versões (2)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Versões (3)" }));
     expect(screen.getAllByRole("button", { name: "Comparar" })).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Comparar" }));
     const comparison = screen.getByRole("dialog", { name: "Comparar versões" });

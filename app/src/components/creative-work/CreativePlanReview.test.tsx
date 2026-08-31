@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { CreativePlanReview } from "./CreativePlanReview";
 
@@ -45,6 +45,9 @@ describe("CreativePlanReview", () => {
     expect(screen.getByText("Referência · roles.piece_reference · treatment.identity_preservation")).toBeInTheDocument();
     expect(screen.getByText("protocol.single")).toBeInTheDocument();
     expect(screen.getByText("4:5")).toBeInTheDocument();
+    const adjustments = screen.getByTestId("plan-review-adjustments");
+    expect(adjustments).not.toHaveAttribute("open");
+    expect(within(adjustments).getByText("adjustments.title")).toBeVisible();
     expect(screen.queryByRole("button", { name: "edit" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "confirm" })).not.toBeInTheDocument();
   });

@@ -186,7 +186,7 @@ export default function DashboardHomeActions({
   });
   const continueTarget = useMemo(() => resolveContinueWork(works), [works]);
   const [editingPreparedPlan, setEditingPreparedPlan] = useState(false);
-  const preparedRevisionRef = useRef<string | null>(composer.preparedPlan?.preparedRevision ?? null);
+  const preparedPlanCycleRef = useRef(composer.preparedPlanCycle ?? 0);
   // The composer owns protocol switching, including a deferred switch that is
   // later cancelled. Deriving this keeps the visual mode on the same state.
   const mode: StudioMode = composer.intent === "single" ? "briefing" : "arte";
@@ -201,12 +201,14 @@ export default function DashboardHomeActions({
     if (progressiveResultsVisible) progressiveResultsHeadingRef.current?.focus();
   }, [progressiveResultsVisible]);
   useEffect(() => {
-    const nextRevision = composer.preparedPlan?.preparedRevision ?? null;
-    if (preparedRevisionRef.current && nextRevision && nextRevision !== preparedRevisionRef.current) {
+    // Canonical preparation can legitimately reuse a revision. The explicit
+    // cycle means an edit only returns to review after a successful prepare.
+    const nextCycle = composer.preparedPlanCycle ?? 0;
+    if (nextCycle > preparedPlanCycleRef.current) {
       setEditingPreparedPlan(false);
     }
-    if (nextRevision) preparedRevisionRef.current = nextRevision;
-  }, [composer.preparedPlan?.preparedRevision]);
+    preparedPlanCycleRef.current = nextCycle;
+  }, [composer.preparedPlanCycle]);
 
   if (isError && works.length === 0) {
     return (
@@ -229,7 +231,7 @@ export default function DashboardHomeActions({
         <AccessGatePanel />
         <header className="flex items-end justify-between gap-3 border-b border-[var(--border-subtle)] pb-5">
           <div><p className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("studioLabel")}</p><h1 className="mt-1 product-page-title text-[var(--text-primary)]">{t("progressiveTitle")}</h1></div>
-          <div className="flex items-center gap-2"><CreateCampaignDialog activeProfile={activeProfile} onCreated={composer.linkCampaign} /><ActiveBrandSwitcher id="active-client-switcher-home" className="w-56" /></div>
+          <div className="flex items-center gap-2">{!resultStage ? <CreateCampaignDialog activeProfile={activeProfile} onCreated={composer.linkCampaign} /> : null}<ActiveBrandSwitcher id="active-client-switcher-home" className="w-56" /></div>
         </header>
         {isLoading && works.length === 0 ? <div className="h-16 animate-pulse rounded-[var(--radius-control)] bg-[var(--surface-raised)]" /> : continueTarget.kind === "work" ? <ContinueWorkCard target={continueTarget} brandName={continueTarget.brandName ?? t("continueBrandUnknown")} /> : null}
         {!composer.objectiveSelected ? (
@@ -242,6 +244,10 @@ export default function DashboardHomeActions({
         ) : null}
         {showObjectives ? <section aria-labelledby="progressive-objective-title" className="space-y-3"><h2 id="progressive-objective-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("chooseObjective")}</h2><CreativeToolCards selected={null} onSelect={(intent) => { void composer.selectIntent(intent); }} /></section> : null}
         {resultStage ? <>
+          <section aria-labelledby="progressive-results-title" data-testid="progressive-results-summary" className="flex flex-wrap items-end justify-between gap-2 border-b border-[var(--border-subtle)] pb-3">
+            <div><p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{composer.request.trim() || t(`planReview.protocol.${composer.preparedPlan?.protocol === "format_adaptation" ? "formatAdaptation" : composer.preparedPlan?.protocol ?? composer.intent}`)}</p><h2 ref={progressiveResultsHeadingRef} id="progressive-results-title" tabIndex={-1} className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{t("resultsTitle")}</h2></div>
+            <p className="text-sm text-[var(--text-secondary)]">{composer.brandName ?? t("continueBrandUnknown")} · {composer.stage === "generation" ? t("resultStateGenerating") : t("resultStateReady")}</p>
+          </section>
           <details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-4">
             <summary className="cursor-pointer text-sm font-medium">{t("planUsed")}</summary>
             <div className="mt-3">
@@ -249,11 +255,8 @@ export default function DashboardHomeActions({
             </div>
           </details>
           <section aria-labelledby="progressive-results-title">
-            <header data-testid="progressive-results-summary" className="flex flex-wrap items-end justify-between gap-2 border-b border-[var(--border-subtle)] pb-3">
-              <div><p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{composer.workId ?? "Studio"}</p><h2 ref={progressiveResultsHeadingRef} id="progressive-results-title" tabIndex={-1} className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{t("resultsTitle")}</h2></div>
-              <p className="text-sm text-[var(--text-secondary)]">{composer.brandName ?? t("continueBrandUnknown")} · {composer.state}</p>
-            </header>
             <div className="mt-3"><CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" hideSourceUpload={composer.intent === "single"} resultsOnly /></div>
+            <div data-testid="progressive-campaign-association" className="mt-4 flex justify-end"><CreateCampaignDialog activeProfile={activeProfile} onCreated={composer.linkCampaign} /></div>
           </section>
         </> : composer.objectiveSelected && !showPlan ? <CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" hideSourceUpload={composer.intent === "single"} /> : null}
         {showPlan && billing && !billing.access.hasSpendAccess ? <section className="rounded-[var(--radius-object)] border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4" role="alert"><p className="font-semibold text-[var(--warning-text)]">{t("insufficientBalance")}</p><Link href="/billing" className="mt-2 inline-flex text-sm font-semibold underline">{t("getCredits")}</Link></section> : null}

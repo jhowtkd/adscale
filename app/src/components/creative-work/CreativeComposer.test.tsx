@@ -813,7 +813,9 @@ describe("CreativeComposer", () => {
       campaigns: [{ id: "campaign-1", name: "Matrículas" }],
     });
     renderComposer(value);
-    fireEvent.change(screen.getByRole("combobox", { name: "Agrupar em campanha" }), { target: { value: "campaign-1" } });
+    const campaign = screen.getByRole("combobox", { name: "Agrupar em campanha" });
+    expect(screen.getByTestId("creative-output-progress").compareDocumentPosition(campaign) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.change(campaign, { target: { value: "campaign-1" } });
     expect(value.linkCampaign).toHaveBeenCalledWith("campaign-1");
   });
 

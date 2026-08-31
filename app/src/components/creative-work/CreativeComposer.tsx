@@ -245,18 +245,6 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           <h2 id="creative-results-title" className="text-lg font-semibold text-[var(--text-primary)]">Resultados</h2>
           <p className="text-sm text-[var(--text-muted)]">Cada resultado fica salvo assim que termina.</p>
         </div> : null}
-        <label className="text-sm text-[var(--text-secondary)]">
-          <span className="sr-only">Agrupar em campanha</span>
-          <select
-            aria-label="Agrupar em campanha"
-            value={composer.campaignId ?? ""}
-            onChange={(event) => void composer.linkCampaign(event.target.value || null)}
-            className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2"
-          >
-            <option value="">Sem campanha</option>
-            {composer.campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
-          </select>
-        </label>
       </div>
       <CreativeProposalGrid
         outputs={composer.outputs}
@@ -277,6 +265,20 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         isRevising={composer.isRevisingOutput}
         onLayerEditorPublished={composer.refreshOutputs}
       />
+      <div className="flex justify-end">
+        <label className="text-sm text-[var(--text-secondary)]">
+          <span className="sr-only">Agrupar em campanha</span>
+          <select
+            aria-label="Agrupar em campanha"
+            value={composer.campaignId ?? ""}
+            onChange={(event) => void composer.linkCampaign(event.target.value || null)}
+            className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2"
+          >
+            <option value="">Sem campanha</option>
+            {composer.campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
+          </select>
+        </label>
+      </div>
     </section>
   ) : null;
 
