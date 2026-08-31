@@ -486,6 +486,17 @@
       "emptyAdjustSearch": "Try adjusting your search terms",
       "emptyCreateHint": "Define your brief, run a batch of variations, then approve what ships—start with your first campaign.",
       "createCampaign": "New campaign",
+      "campaignDialog": {
+        "open": "New campaign",
+        "title": "New campaign",
+        "nameLabel": "Campaign name",
+        "brandLabel": "Brand",
+        "noBrand": "Select a brand",
+        "cancel": "Cancel",
+        "submit": "Create campaign",
+        "createFailed": "Could not create the campaign.",
+        "linkFailed": "The campaign was created, but could not be linked to this creation. Try again."
+      },
       "newWork": "New work",
       "chooseIntent": "What do you want to do?",
       "intentBack": "Back",

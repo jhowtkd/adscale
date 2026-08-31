@@ -1,6 +1,6 @@
 "use client";
 
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,6 +10,7 @@ const useComposerMock = vi.fn();
 const useCreativeWorkMock = vi.fn();
 const selectIntentMock = vi.fn();
 const addInspirationMock = vi.fn();
+const createCampaignMutationMock = vi.fn();
 const protocolButton = (intent: "variations" | "single" | "format_adaptation" | "restyle") =>
   screen.getByRole("button", { name: `dashboard.home.${intent}dashboard.home.${intent}Description`, exact: true });
 
@@ -19,6 +20,15 @@ vi.mock("next-intl", () => ({
       ? `Marca ${values.name}`
       : ({
           createCampaign: "Nova campanha",
+          "campaignDialog.open": "Nova campanha",
+          "campaignDialog.title": "Nova campanha",
+          "campaignDialog.nameLabel": "Nome da campanha",
+          "campaignDialog.brandLabel": "Marca",
+          "campaignDialog.noBrand": "Selecione uma marca",
+          "campaignDialog.cancel": "Cancelar",
+          "campaignDialog.submit": "Criar campanha",
+          "campaignDialog.createFailed": "Não foi possível criar a campanha.",
+          "campaignDialog.linkFailed": "A campanha foi criada, mas não foi possível vinculá-la a esta criação. Tente novamente.",
           continueWhereLeftOff: "Continuar de onde parei",
           continueOriginCampaign: "Campanha",
           continueOriginCreativeWork: "Criação avulsa",
@@ -48,14 +58,14 @@ vi.mock("@/lib/hooks/use-billing", () => ({
   }),
 }));
 vi.mock("@/lib/hooks/use-campaigns", () => ({
-  useCreateCampaign: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCreateCampaign: () => ({ mutateAsync: createCampaignMutationMock, isPending: false }),
 }));
 vi.mock("@/components/creative-work/useCreativeComposer", () => ({
   useCreativeComposer: (...args: unknown[]) => useComposerMock(...args),
 }));
 vi.mock("@/components/creative-work/CreativeComposer", () => ({
-  CreativeComposer: ({ composer, initialWorkId }: { composer?: { intent: string; quote: { credits: number } }; initialWorkId?: string }) => (
-    <div data-testid="creative-composer">{composer ? `${composer.intent}:${composer.quote.credits}` : initialWorkId}</div>
+  CreativeComposer: ({ composer, initialWorkId, resultsOnly }: { composer?: { intent: string; quote: { credits: number }; outputs?: Array<{ status: string }> }; initialWorkId?: string; resultsOnly?: boolean }) => (
+    <div data-testid="creative-composer" data-results-only={resultsOnly ? "true" : "false"}>{composer ? `${composer.intent}:${composer.quote.credits}:${composer.outputs?.map((output) => output.status).join(",") ?? ""}` : initialWorkId}</div>
   ),
 }));
 vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
@@ -79,6 +89,7 @@ import DashboardHomeActions from "./DashboardHomeActions";
 describe("DashboardHomeActions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    createCampaignMutationMock.mockResolvedValue({ id: "campaign-1" });
     useActiveProfileMock.mockReturnValue({ activeProfile: { id: "p1", name: "Marca A" } });
     useCreativeWorkMock.mockReturnValue({ data: undefined, isLoading: false });
     useComposerMock.mockImplementation(({ initialWorkId }: { initialWorkId?: string }) => {
@@ -94,6 +105,7 @@ describe("DashboardHomeActions", () => {
           addInspirationMock(inspiration);
           setWorkId("created-work");
         },
+        linkCampaign: vi.fn().mockResolvedValue(true),
       };
     });
   });
@@ -135,6 +147,24 @@ describe("DashboardHomeActions", () => {
     expect(dialog).toHaveTextContent("Nome da campanha");
     expect(dialog).toHaveTextContent("Marca A");
     expect(within(dialog).queryByLabelText(/público|plataforma|formato|objetivo|briefing/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps the campaign dialog open with a translated link error when linking fails", async () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    const linkCampaign = vi.fn().mockResolvedValue(false);
+    useComposerMock.mockReturnValue({
+      intent: "single", quote: { unitCount: 1, credits: 5 }, linkCampaign,
+    });
+    render(<DashboardHomeActions />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Nova campanha" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("Nome da campanha"), { target: { value: "Lançamento" } });
+    fireEvent.submit(within(dialog).getByRole("button", { name: "Criar campanha" }).closest("form")!);
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("A campanha foi criada, mas não foi possível vinculá-la a esta criação. Tente novamente."));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(linkCampaign).toHaveBeenCalledWith("campaign-1");
   });
 
   it("opens the work's own page even when continue targets the work open on Home (#126)", () => {
@@ -371,5 +401,24 @@ describe("DashboardHomeActions", () => {
     expect(screen.getAllByRole("heading", { name: "dashboard.home.progressiveTitle" })[0]?.closest("div.mx-auto")).toHaveClass("max-w-4xl");
     expect(screen.queryByRole("group", { name: "dashboard.home.studioModeLabel" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
+  });
+
+  it("keeps completed and partial results visible while the used plan is collapsed", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      request: "Campanha de matrículas", hasEntry: true, objectiveSelected: true, intent: "variations",
+      stage: "results", preparedPlan: null, actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 3, credits: 15 },
+      outputs: [{ status: "completed" }, { status: "failed" }], linkCampaign: vi.fn().mockResolvedValue(true),
+    });
+
+    render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
+
+    const results = screen.getByRole("heading", { name: "dashboard.home.resultsTitle" });
+    const plan = screen.getByText("dashboard.home.planUsed").closest("details")!;
+    expect(results).toHaveFocus();
+    expect(plan).not.toHaveAttribute("open");
+    expect(screen.getByTestId("creative-composer")).toHaveAttribute("data-results-only", "true");
+    expect(screen.getByTestId("creative-composer")).toHaveTextContent("completed,failed");
+    expect(within(plan).queryByTestId("creative-composer")).not.toBeInTheDocument();
   });
 });

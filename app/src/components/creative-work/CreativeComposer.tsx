@@ -17,13 +17,15 @@ import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCrea
 
 const FORMATS = ["1:1", "4:5", "9:16"] as const;
 
-export function CreativeComposer({ composer, composerRef, hideSourceUpload = false, layout = "studio", workflowVariant = "control" }: {
+export function CreativeComposer({ composer, composerRef, hideSourceUpload = false, layout = "studio", workflowVariant = "control", resultsOnly = false }: {
   composer: CreativeComposerViewModel;
   composerRef: CreativeComposerModel["composerRef"];
   /** Briefing-first entry keeps the canonical request but omits source upload. */
   hideSourceUpload?: boolean;
   layout?: "studio" | "piece";
   workflowVariant?: "control" | "progressive";
+  /** Progressive results stay visible while plan/configuration remains collapsed. */
+  resultsOnly?: boolean;
 }) {
   const t = useTranslations("dashboard.home.composer");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -237,12 +239,12 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
   };
 
   const results = composer.outputs.length > 0 ? (
-    <section aria-labelledby="creative-results-title" className="space-y-4">
+    <section {...(!resultsOnly ? { "aria-labelledby": "creative-results-title" } : {})} className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+        {!resultsOnly ? <div>
           <h2 id="creative-results-title" className="text-lg font-semibold text-[var(--text-primary)]">Resultados</h2>
           <p className="text-sm text-[var(--text-muted)]">Cada resultado fica salvo assim que termina.</p>
-        </div>
+        </div> : null}
         <label className="text-sm text-[var(--text-secondary)]">
           <span className="sr-only">Agrupar em campanha</span>
           <select
@@ -288,6 +290,8 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
       </section>
     );
   }
+
+  if (resultsOnly) return results;
 
   if (layout === "piece" && isVariations && results && !composer.brandConflict) {
     return (

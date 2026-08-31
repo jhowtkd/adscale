@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowRight, ImageIcon, Paperclip, Plus } from "lucide-react";
 import { AccessGatePanel } from "@/components/billing/AccessGatePanel";
@@ -96,6 +96,7 @@ function CreateCampaignDialog({
   activeProfile: { id: string; name: string } | null | undefined;
   onCreated: (campaignId: string) => Promise<boolean>;
 }) {
+  const t = useTranslations("dashboard.home");
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -113,24 +114,24 @@ function CreateCampaignDialog({
       if (await onCreated(campaign.id)) {
         setName("");
         setOpen(false);
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Não foi possível criar a campanha.");
+      } else setError(t("campaignDialog.linkFailed"));
+    } catch {
+      setError(t("campaignDialog.createFailed"));
     }
   };
   return <Dialog open={open} onOpenChange={setOpen}>
     <button type="button" onClick={() => setOpen(true)} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] px-4 text-sm font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
-      <Plus size={16} aria-hidden="true" />Nova campanha
+      <Plus size={16} aria-hidden="true" />{t("campaignDialog.open")}
     </button>
     <DialogContent size="sm" showCloseButton={!createCampaign.isPending}>
       <form onSubmit={(event) => void submit(event)}>
-        <DialogHeader><DialogTitle>Nova campanha</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{t("campaignDialog.title")}</DialogTitle></DialogHeader>
         <DialogBody className="space-y-4">
-          <label className="block text-sm font-medium text-[var(--text-primary)]">Nome da campanha<input aria-label="Nome da campanha" required value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2" /></label>
-          <p className="text-sm text-[var(--text-secondary)]"><span className="font-medium text-[var(--text-primary)]">Marca</span><br />{activeProfile?.name ?? "Selecione uma marca"}</p>
+          <label className="block text-sm font-medium text-[var(--text-primary)]">{t("campaignDialog.nameLabel")}<input aria-label={t("campaignDialog.nameLabel")} required value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2" /></label>
+          <p className="text-sm text-[var(--text-secondary)]"><span className="font-medium text-[var(--text-primary)]">{t("campaignDialog.brandLabel")}</span><br />{activeProfile?.name ?? t("campaignDialog.noBrand")}</p>
           {error ? <p role="alert" className="text-sm text-[var(--danger-text)]">{error}</p> : null}
         </DialogBody>
-        <DialogFooter><button type="button" onClick={() => setOpen(false)} disabled={createCampaign.isPending} className="rounded-[var(--radius-control)] border border-[var(--border-default)] px-3 py-2 text-sm font-medium">Cancelar</button><button type="submit" disabled={!activeProfile || !name.trim() || createCampaign.isPending} className="rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-3 py-2 text-sm font-semibold text-[var(--action-primary-text)]">Criar campanha</button></DialogFooter>
+        <DialogFooter><button type="button" onClick={() => setOpen(false)} disabled={createCampaign.isPending} className="rounded-[var(--radius-control)] border border-[var(--border-default)] px-3 py-2 text-sm font-medium">{t("campaignDialog.cancel")}</button><button type="submit" disabled={!activeProfile || !name.trim() || createCampaign.isPending} className="rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-3 py-2 text-sm font-semibold text-[var(--action-primary-text)]">{t("campaignDialog.submit")}</button></DialogFooter>
       </form>
     </DialogContent>
   </Dialog>;
@@ -161,6 +162,7 @@ export default function DashboardHomeActions({
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
   const { activeProfile } = useActiveClientProfile();
   const { data: billing } = useBillingStatus();
+  const progressiveResultsHeadingRef = useRef<HTMLHeadingElement>(null);
   // The URL mode only seeds a new composer. Once it exists, its intent is the
   // authority because protocol switches may be deferred or cancelled.
   const initialStudioIntent = initialIntent
@@ -192,6 +194,12 @@ export default function DashboardHomeActions({
     composer.selectIntent(nextMode === "briefing" ? "single" : "variations");
   };
 
+  const progressiveResultsVisible = rolloutVariant === "progressive"
+    && (composer.stage === "generation" || composer.stage === "results");
+  useEffect(() => {
+    if (progressiveResultsVisible) progressiveResultsHeadingRef.current?.focus();
+  }, [progressiveResultsVisible]);
+
   if (isError && works.length === 0) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-4 text-center">
@@ -207,7 +215,7 @@ export default function DashboardHomeActions({
   if (rolloutVariant === "progressive") {
     const showObjectives = composer.hasEntry && !composer.objectiveSelected;
     const showPlan = composer.stage === "plan" && composer.preparedPlan && !editingPreparedPlan;
-    const resultStage = composer.stage === "generation" || composer.stage === "results";
+    const resultStage = progressiveResultsVisible;
     return (
       <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6 lg:py-12">
         <AccessGatePanel />
@@ -225,7 +233,7 @@ export default function DashboardHomeActions({
           </section>
         ) : null}
         {showObjectives ? <section aria-labelledby="progressive-objective-title" className="space-y-3"><h2 id="progressive-objective-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("chooseObjective")}</h2><CreativeToolCards selected={null} onSelect={composer.selectIntent} /></section> : null}
-        {resultStage ? <section aria-labelledby="progressive-results-title"><h2 id="progressive-results-title" tabIndex={-1} className="text-lg font-semibold text-[var(--text-primary)]">{t("resultsTitle")}</h2><details className="mt-3 rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-4"><summary className="cursor-pointer text-sm font-medium">{t("planUsed")}</summary><div className="mt-4"><CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" hideSourceUpload={composer.intent === "single"} /></div></details></section> : composer.objectiveSelected && !showPlan ? <CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" hideSourceUpload={composer.intent === "single"} /> : null}
+        {resultStage ? <><section aria-labelledby="progressive-results-title"><h2 ref={progressiveResultsHeadingRef} id="progressive-results-title" tabIndex={-1} className="text-lg font-semibold text-[var(--text-primary)]">{t("resultsTitle")}</h2><div className="mt-3"><CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" hideSourceUpload={composer.intent === "single"} resultsOnly /></div></section><details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-4"><summary className="cursor-pointer text-sm font-medium">{t("planUsed")}</summary><p className="mt-3 text-sm text-[var(--text-secondary)]">{composer.request || t("progressiveSubtitle")}</p></details></> : composer.objectiveSelected && !showPlan ? <CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" hideSourceUpload={composer.intent === "single"} /> : null}
         {showPlan && billing && !billing.access.hasSpendAccess ? <section className="rounded-[var(--radius-object)] border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4" role="alert"><p className="font-semibold text-[var(--warning-text)]">{t("insufficientBalance")}</p><Link href="/billing" className="mt-2 inline-flex text-sm font-semibold underline">{t("getCredits")}</Link></section> : null}
         {showPlan ? <CreativePlanReview plan={composer.preparedPlan!} busy={composer.actionPhase !== "idle"} onEdit={() => setEditingPreparedPlan(true)} onConfirm={(revision) => composer.confirmGeneration(revision)} /> : null}
       </div>

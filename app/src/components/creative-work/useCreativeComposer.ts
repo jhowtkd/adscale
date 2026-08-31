@@ -1295,14 +1295,14 @@ export function useCreativeComposer({
     return runSourceAction({ workItemId: workIdRef.current, action: "promotePieceReference", sourceId });
   }, [runSourceAction]);
 
-  const submissionBlocked = () => submitGuardRef.current
+  const submissionBlocked = useCallback(() => submitGuardRef.current
     || generateMutation.isPending
     || editBriefingMutation.isPending
     || briefingEditState === "saving"
     || inferredBriefing?.readiness === "blocked"
     || sourceMutation.isPending
     || isUploading
-    || uploadInFlightRef.current;
+    || uploadInFlightRef.current, [editBriefingMutation.isPending, generateMutation.isPending, inferredBriefing?.readiness, isUploading, sourceMutation.isPending, briefingEditState]);
 
   const preparePlanCommand = useCallback(async (): Promise<PreparedPlanProjectionV1 | null> => {
     const current = detailQuery.data?.work;
@@ -1382,14 +1382,14 @@ export function useCreativeComposer({
     submitGuardRef.current = true;
     try { return await preparePlanCommand(); }
     finally { submitGuardRef.current = false; }
-  }, [preparePlanCommand]);
+  }, [preparePlanCommand, submissionBlocked]);
 
   const confirmGeneration = useCallback(async (preparedRevision?: string) => {
     if (submissionBlocked()) return;
     submitGuardRef.current = true;
     try { await confirmGenerationCommand(preparedRevision); }
     finally { submitGuardRef.current = false; }
-  }, [confirmGenerationCommand]);
+  }, [confirmGenerationCommand, submissionBlocked]);
 
   const generateLegacy = useCallback(async () => {
     if (submissionBlocked()) return;
@@ -1401,7 +1401,7 @@ export function useCreativeComposer({
       if (!plan) return;
       await confirmGenerationCommand(plan?.preparedRevision);
     } finally { submitGuardRef.current = false; }
-  }, [confirmGenerationCommand, detailQuery.data, preparePlanCommand]);
+  }, [confirmGenerationCommand, detailQuery.data, preparePlanCommand, submissionBlocked]);
 
   const resolveBrandConflict = useCallback(async (choice: CreativeWorkBrandChoice) => {
     // Double-click guard: one choice in flight per conflict.

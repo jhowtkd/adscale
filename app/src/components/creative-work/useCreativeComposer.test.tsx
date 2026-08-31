@@ -2175,7 +2175,11 @@ describe("useCreativeComposer", () => {
     let replacing!: Promise<boolean>;
     act(() => { replacing = result.current.replacePieceReference("source-1", new File(["png"], "replacement.png", { type: "image/png" })); });
     expect(result.current.canGenerate).toBe(false);
-    await act(async () => { await result.current.generateLegacy(); });
+    await act(async () => {
+      await result.current.preparePlan();
+      await result.current.confirmGeneration("2026-08-30T12:00:00.000Z");
+      await result.current.generateLegacy();
+    });
     expect(mocks.prepare).not.toHaveBeenCalled();
     upload.resolve({ assetId: "asset-new", name: "replacement.png" });
     await act(async () => { await replacing; });

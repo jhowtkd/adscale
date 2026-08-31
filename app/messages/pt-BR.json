@@ -486,6 +486,17 @@
       "emptyAdjustSearch": "Tente ajustar os termos de busca",
       "emptyCreateHint": "Defina seu briefing, rode um batch de variações e cure o que vai ao ar—comece pela sua primeira campanha.",
       "createCampaign": "Nova campanha",
+      "campaignDialog": {
+        "open": "Nova campanha",
+        "title": "Nova campanha",
+        "nameLabel": "Nome da campanha",
+        "brandLabel": "Marca",
+        "noBrand": "Selecione uma marca",
+        "cancel": "Cancelar",
+        "submit": "Criar campanha",
+        "createFailed": "Não foi possível criar a campanha.",
+        "linkFailed": "A campanha foi criada, mas não foi possível vinculá-la a esta criação. Tente novamente."
+      },
       "newWork": "Novo trabalho",
       "chooseIntent": "O que você quer fazer?",
       "intentBack": "Voltar",
