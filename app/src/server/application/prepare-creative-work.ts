@@ -157,15 +157,6 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     const factualEffectiveSources = effectiveSources.filter(({ source }) =>
       aggregate.work.toolKind !== "single" || !source.pieceReference,
     );
-    if (aggregate.work.toolKind === "restyle" && (
-      effectiveSources.length !== 2
-      || new Set(effectiveSources.map(({ source }) => source.id)).size !== 2
-      || !effectiveSources.some(({ usage }) => usage === "content")
-      || !effectiveSources.some(({ usage }) => usage === "style")
-      || effectiveSources.some(({ usage }) => usage === "both")
-    )) {
-      return { ok: false as const, error: { code: "missing_input" as const } };
-    }
     const brandKit = await getBrandKit(input.workspaceId, aggregate.work.clientProfileId, executor);
     // R-003 / spec 8.4: the restyle brand conflict is the only new visible
     // decision. A high-confidence explicit brand in the content art that

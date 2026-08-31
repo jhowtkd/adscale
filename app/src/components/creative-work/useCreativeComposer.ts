@@ -316,6 +316,7 @@ export function useCreativeComposer({
   const persistOnUnmountRef = useRef<() => Promise<void>>(async () => undefined);
   const revisionAttemptsRef = useRef(new Map<string, { revisionKey: string; revisionAssetId: string | null }>());
   const pendingProtocolTransitionRef = useRef<((committed: boolean) => void) | null>(null);
+  const planInputEditEpochRef = useRef(0);
 
   const detailQuery = useCreativeWork(workId);
   const brandFontsQuery = useBrandFonts(
@@ -778,6 +779,7 @@ export function useCreativeComposer({
   }, [active.activeClientProfileId, captureSnapshot, detailQuery.data?.work, directionPool, ensureDraft, fontAssetKey, format, formatMode, initialWorkId, intent, objective, persistSnapshot, request, targetFormats, textLayout, workflowVariant]);
 
   const setRequest = useCallback((value: string) => {
+    planInputEditEpochRef.current += 1;
     requestRef.current = value;
     setRequestState(value);
     setInferredBriefingContext(null);
@@ -976,6 +978,7 @@ export function useCreativeComposer({
     if (selectedIds.length === 0 || selectedIds === current.selectedIds) return;
     const next = { ...current, selectedIds };
     directionTouchedRef.current = true;
+    planInputEditEpochRef.current += 1;
     directionPoolRef.current = next;
     setDirectionPool(next);
     setQuote(canonicalQuote("variations", formatRef.current, targetFormatsRef.current, next));
@@ -986,6 +989,7 @@ export function useCreativeComposer({
     const current = directionPoolRef.current ?? createDefaultCreativeDirectionPool();
     const next = { ...current, manualInstruction: manualInstruction || null };
     directionTouchedRef.current = true;
+    planInputEditEpochRef.current += 1;
     directionPoolRef.current = next;
     setDirectionPool(next);
   }, []);
@@ -1063,6 +1067,7 @@ export function useCreativeComposer({
   }, [applyDirectionSuggestions, detailQuery.data?.sources, detailQuery.data?.work, directionSuggestionRetryToken, directionSuggestionState, intent, suggestDirectionMutation, workId]);
 
   const toggleTargetFormat = useCallback((value: Format) => {
+    planInputEditEpochRef.current += 1;
     setTargetFormats((current) => {
       const next = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
       targetFormatsRef.current = next;
@@ -1356,7 +1361,7 @@ export function useCreativeComposer({
     const current = detailQuery.data?.work;
     if (current && current.status !== "draft") return detailQuery.data?.preparedPlan ?? null;
     setActionPhase("saving");
-    const preparedInputSignature = signature(captureSnapshot());
+    const prepareEditEpoch = planInputEditEpochRef.current;
     setError(null);
     setBrandConflict(null);
     try {
@@ -1369,15 +1374,17 @@ export function useCreativeComposer({
       }
       setActionPhase("preparing");
       const prepared = await prepareMutation.mutateAsync({ workItemId: id });
-      preparedPlanInputRef.current = {
-        revision: prepared.preparedPlan.preparedRevision,
-        signature: preparedInputSignature,
-      };
       if (prepared.briefing && prepared.briefingFactPack) setInferredBriefingContext({ briefing: prepared.briefing, factPack: prepared.briefingFactPack });
       lastPersistedRef.current = signature(snapshotFromWork(prepared.work));
       setQuote(prepared.quote);
       formatRef.current = prepared.work.format;
       setFormat(prepared.work.format);
+      preparedPlanInputRef.current = {
+        revision: prepared.preparedPlan.preparedRevision,
+        signature: prepareEditEpoch === planInputEditEpochRef.current
+          ? signature(captureSnapshot())
+          : `stale:${prepareEditEpoch}`,
+      };
       recordCanonicalEvent("briefing_ready", id, { protocol: prepared.preparedPlan.protocol });
       return prepared.preparedPlan;
     } catch (cause) {
@@ -1666,6 +1673,7 @@ export function useCreativeComposer({
   return {
     composerRef: composerRef as RefObject<HTMLTextAreaElement | null>, request, setRequest,
     intent, selectIntent, format, formatMode, setFormat: (value: Format) => {
+      planInputEditEpochRef.current += 1;
       formatRef.current = value;
       formatModeRef.current = "manual";
       setFormatMode("manual");
@@ -1679,11 +1687,13 @@ export function useCreativeComposer({
     targetFormats, toggleTargetFormat,
     textLayout,
     setTextLayout: (value: "top" | "center" | "bottom" | "side") => {
+      planInputEditEpochRef.current += 1;
       textLayoutRef.current = value;
       setTextLayout(value);
     },
     fontAssetKey,
     setFontAssetKey: (value: string | null) => {
+      planInputEditEpochRef.current += 1;
       fontAssetKeyRef.current = value;
       setFontAssetKey(value);
     },
