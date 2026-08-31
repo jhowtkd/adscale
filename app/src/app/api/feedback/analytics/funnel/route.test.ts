@@ -100,6 +100,7 @@ describe("owner analytics routes", () => {
         expect.objectContaining({ variant: "progressive" }),
       ]));
       expect(body).not.toHaveProperty("usageEvents");
+      expect(body.dataComplete).toBe(true);
       expect(mockListUsage).toHaveBeenCalledWith({
         workspaceId: WORKSPACE_ID,
         from: undefined,
@@ -111,6 +112,18 @@ describe("owner analytics routes", () => {
         from: undefined,
         to: undefined,
       });
+    });
+
+    it("marks the report incomplete when the owner event cap may truncate it", async () => {
+      mockListEvents.mockResolvedValue(Array.from({ length: 5_000 }, (_, index) => ({
+        ...ANALYTICS_FIXTURE_EVENTS[0]!,
+        id: `cap-${index}`,
+      })));
+
+      const res = await getFunnel(new Request("http://localhost/api/feedback/analytics/funnel"));
+
+      expect(res.status).toBe(200);
+      expect((await res.json()).dataComplete).toBe(false);
     });
 
     it("returns 403 for non-platform-owner", async () => {

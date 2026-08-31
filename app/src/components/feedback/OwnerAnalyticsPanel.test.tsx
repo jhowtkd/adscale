@@ -105,6 +105,7 @@ describe("OwnerAnalyticsPanel", () => {
           ok: true,
           status: 200,
           json: async () => ({
+            dataComplete: false,
             missionFunnel: [
               { missionKey: "export", entered: 0, completed: 1, conversionRate: null },
             ],
@@ -117,7 +118,7 @@ describe("OwnerAnalyticsPanel", () => {
             readinessOverrides: [],
             studioFunnel: [
               {
-                variant: "control", eligibleSessions: 1, confirmedGenerations: 1,
+                variant: "control", eligibleSessions: 30, confirmedGenerations: 20,
                 completionsWithin24h: 1, completionRate: 1,
                 abandonmentsBeforeGeneration: 0, abandonmentRate: 0,
                 goalSwitches: 0, sourceRoleCorrections: 0, successfulResumesWithin30m: 0,
@@ -127,7 +128,7 @@ describe("OwnerAnalyticsPanel", () => {
                 completionByInputMode: [],
               },
               {
-                variant: "progressive", eligibleSessions: 1, confirmedGenerations: 1,
+                variant: "progressive", eligibleSessions: 30, confirmedGenerations: 20,
                 completionsWithin24h: 0, completionRate: 0,
                 abandonmentsBeforeGeneration: 1, abandonmentRate: 1,
                 goalSwitches: 0, sourceRoleCorrections: 0, successfulResumesWithin30m: 0,
@@ -192,6 +193,12 @@ describe("OwnerAnalyticsPanel", () => {
     expect(screen.getByText("Core funnels")).toBeInTheDocument();
     expect(screen.getByText("Estúdio progressivo")).toBeInTheDocument();
     expect(screen.getByText("Amostra insuficiente")).toBeInTheDocument();
+    expect(screen.getByText("Dados incompletos: a consulta atingiu o limite de eventos")).toBeInTheDocument();
+    expect(screen.getByText(/≥30 sessões e ≥20 gerações confirmadas por braço/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Estágio de rollout"), { target: { value: "50" } });
+    expect(screen.getByText(/≥60 sessões e ≥40 gerações confirmadas por braço/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Estágio de rollout"), { target: { value: "100" } });
+    expect(screen.getByText(/após 50% \+ 14 dias; ≥100 sessões e ≥75 gerações confirmadas por braço/)).toBeInTheDocument();
     expect(screen.getByText("Credits and billing")).toBeInTheDocument();
     expect(
       mockApiFetch.mock.calls.some(([url]) =>

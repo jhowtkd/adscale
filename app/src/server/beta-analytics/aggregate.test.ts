@@ -443,6 +443,41 @@ describe("beta analytics aggregate", () => {
     ]);
   });
 
+  it("excludes sessions that have not completed their 24-hour outcome window", () => {
+    const reportEnd = new Date("2026-08-10T12:00:00.000Z");
+    const boundarySession = "88888888-8888-4888-8888-888888888888";
+    const immatureSession = "99999999-9999-4999-8999-999999999999";
+    const base = STUDIO_ROLLOUT_FIXTURE_EVENTS[0]!;
+    const arms = aggregateStudioFunnel([
+      {
+        ...base,
+        id: "mature-boundary",
+        createdAt: new Date("2026-08-09T12:00:00.000Z"),
+        properties: { studioSessionId: boundarySession, rolloutVariant: "control" },
+      },
+      {
+        ...base,
+        id: "immature-after-boundary",
+        createdAt: new Date("2026-08-09T12:00:00.001Z"),
+        properties: { studioSessionId: immatureSession, rolloutVariant: "progressive" },
+      },
+    ], [], reportEnd);
+
+    expect(arms.find((arm) => arm.variant === "control")?.eligibleSessions).toBe(1);
+    expect(arms.find((arm) => arm.variant === "progressive")?.eligibleSessions).toBe(0);
+    expect(arms.find((arm) => arm.variant === "progressive")?.abandonmentsBeforeGeneration).toBe(0);
+  });
+
+  it("counts every repeated goal selection after a work starts as an objective switch", () => {
+    const repeat = STUDIO_ROLLOUT_FIXTURE_EVENTS.find((event) => event.id === "studio-control-goal-switch")!;
+    const control = aggregateStudioFunnel([
+      ...STUDIO_ROLLOUT_FIXTURE_EVENTS,
+      { ...repeat, id: "studio-control-goal-switch-again", createdAt: new Date("2026-07-01T23:57:30.000Z") },
+    ], STUDIO_ROLLOUT_FIXTURE_USAGE).find((arm) => arm.variant === "control");
+
+    expect(control?.goalSwitches).toBe(2);
+  });
+
   it("builds full funnel summary with totals", () => {
     const summary = buildAnalyticsFunnelSummary(ANALYTICS_FIXTURE_EVENTS);
 

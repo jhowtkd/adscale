@@ -1032,6 +1032,7 @@ function toStudioFunnelArm(arm: StudioArmAccumulator): StudioFunnelArm {
 export function aggregateStudioFunnel(
   events: BetaAnalyticsEvent[],
   usageEvents: StudioUsageEvent[],
+  asOf?: Date,
 ): StudioFunnelArm[] {
   const chronologicalEvents = [...events].sort(
     (left, right) => left.createdAt.getTime() - right.createdAt.getTime(),
@@ -1060,8 +1061,13 @@ export function aggregateStudioFunnel(
     ["control", createStudioArm("control")],
     ["progressive", createStudioArm("progressive")],
   ]);
+  const reportEndsAt = asOf?.getTime() ?? Date.now();
+  const maturityCutoff = reportEndsAt - STUDIO_SESSION_WINDOW_MS;
 
   for (const session of entries.values()) {
+    // Sessions younger than the measurement window have no final outcome yet.
+    // Excluding them keeps them out of both completion and abandonment rates.
+    if (session.startedAt > maturityCutoff) continue;
     const arm = arms.get(session.variant)!;
     const windowEndsAt = session.startedAt + STUDIO_SESSION_WINDOW_MS;
     const inWindow = (createdAt: Date) => {
@@ -1176,6 +1182,7 @@ export function buildAnalyticsFunnelSummary(
   events: BetaAnalyticsEvent[],
   sessions: BetaSession[] = [],
   usageEvents: StudioUsageEvent[] = [],
+  asOf?: Date,
 ): AnalyticsFunnelSummary {
   const sessionIds = new Set(
     events.map((e) => e.sessionId).filter((id): id is string => Boolean(id))
@@ -1200,7 +1207,7 @@ export function buildAnalyticsFunnelSummary(
       sessions
     ),
     derivationAutoRetryFunnel: aggregateDerivationAutoRetryFunnel(events),
-    studioFunnel: aggregateStudioFunnel(events, usageEvents),
+    studioFunnel: aggregateStudioFunnel(events, usageEvents, asOf),
     totals: {
       events: events.length,
       sessions: sessionIds.size,

@@ -8,6 +8,10 @@ import { listBetaAnalyticsEventsForOwner } from "@/server/repositories/beta-anal
 import { listBetaSessions } from "@/server/repositories/beta-sessions";
 import { listUsageEventsForOwner } from "@/server/repositories/usage";
 
+// listBetaAnalyticsEventsForOwner uses this cap. A full page may be truncated,
+// so rollout evidence must never treat it as a complete population.
+const OWNER_ANALYTICS_EVENT_CAP = 5_000;
+
 export async function GET(request: Request) {
   try {
     await requirePlatformOwner(request);
@@ -57,7 +61,7 @@ export async function GET(request: Request) {
       ? sessions.filter((session) => session.id === filters.sessionId)
       : sessions;
 
-    const summary = buildAnalyticsFunnelSummary(events, filteredSessions, usageEvents);
+    const summary = buildAnalyticsFunnelSummary(events, filteredSessions, usageEvents, filters.to);
 
     return NextResponse.json({
       filters: {
@@ -66,6 +70,7 @@ export async function GET(request: Request) {
         from: filters.from?.toISOString() ?? null,
         to: filters.to?.toISOString() ?? null,
       },
+      dataComplete: events.length < OWNER_ANALYTICS_EVENT_CAP,
       ...summary,
     });
   } catch (error) {

@@ -6,7 +6,7 @@ Este runbook autoriza somente a leitura dos indicadores e, após os gates abaixo
 
 No painel de owner, consulte `/api/feedback/analytics/funnel` com um intervalo UTC fechado (`from` e `to`, inclusivos). Registre a faixa exata e use a mesma definição para todas as comparações:
 
-- Sessões elegíveis: primeira ocorrência válida de `studio_entry_started` por `{workspaceId, studioSessionId}`; a janela da sessão é de 24 horas.
+- Sessões elegíveis: primeira ocorrência válida de `studio_entry_started` por `{workspaceId, studioSessionId}` cuja janela de 24 horas já esteja completa no fim da faixa consultada. Entradas mais recentes ficam fora do denominador e não são abandonos.
 - Gerações confirmadas: pares únicos `{sessão, creativeWorkId}` com `generation_confirmed` dentro da janela.
 - Conclusões: sessão com pelo menos um `output_ready` do trabalho confirmado na janela.
 - Abandonos: sessão sem `generation_confirmed` na janela.
@@ -30,7 +30,7 @@ Cada alteração é uma operação humana explícita no ambiente aprovado: ajust
 | 50% | 50 | 7 dias | 60 sessões elegíveis e 40 gerações confirmadas | mesmos limites do estágio de 10%; tempo sozinho nunca avança |
 | 100% | 100 | após 50% com 14 dias | 100 sessões elegíveis e 75 gerações confirmadas | compare com o baseline congelado; depois observe 100% por 14 dias completos antes da Task 13 |
 
-Para cada decisão, confirme também que o painel mostra a amostra suficiente para o estágio, a mediana entrada→briefing e a mediana entrada→plano (a última é diagnóstico exclusivo do progressivo). Não trate plano ausente no controle como zero.
+Para cada decisão, selecione no painel o estágio correspondente e confirme a amostra suficiente para aquele estágio, a mediana entrada→briefing e a mediana entrada→plano (a última é diagnóstico exclusivo do progressivo). Não trate plano ausente no controle como zero. Se o painel indicar dados incompletos por atingir o limite de eventos, nenhuma decisão de avanço é válida: reduza a faixa UTC ou aguarde uma consulta completa.
 
 ## Rollback imediato
 

@@ -209,6 +209,7 @@ type StudioFunnelArm = {
 };
 
 type FunnelResponse = {
+  dataComplete?: boolean;
   missionFunnel: MissionFunnelRow[];
   cockpitStageFunnel: CockpitStageFunnelRow[];
   recipeFunnel?: RecipeFunnelRow[];
@@ -227,6 +228,12 @@ type FunnelResponse = {
   studioFunnel?: StudioFunnelArm[];
   totals: { events: number; sessions: number };
 };
+
+const STUDIO_ROLLOUT_STAGES = {
+  10: { eligibleSessions: 30, confirmedGenerations: 20, observation: "7 dias" },
+  50: { eligibleSessions: 60, confirmedGenerations: 40, observation: "7 dias" },
+  100: { eligibleSessions: 100, confirmedGenerations: 75, observation: "após 50% + 14 dias" },
+} as const;
 
 function formatGapMs(gapMs: number | null): string {
   if (gapMs === null) return "—";
@@ -471,6 +478,7 @@ export function OwnerAnalyticsPanel({
   const [sessionId, setSessionId] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [studioRolloutStage, setStudioRolloutStage] = useState<10 | 50 | 100>(10);
 
   const filters = useMemo(
     () => ({ workspaceId, sessionId, from, to }),
@@ -512,15 +520,20 @@ export function OwnerAnalyticsPanel({
   const noDataLabel = t("noData");
   const studioControl = funnel?.studioFunnel?.find((arm) => arm.variant === "control");
   const studioProgressive = funnel?.studioFunnel?.find((arm) => arm.variant === "progressive");
+  const studioStageRequirement = STUDIO_ROLLOUT_STAGES[studioRolloutStage];
+  const studioDataComplete = funnel?.dataComplete === true;
   const studioSampleSufficient = Boolean(
+    studioDataComplete
+      &&
     studioControl
       && studioProgressive
-      && studioControl.eligibleSessions >= 30
-      && studioProgressive.eligibleSessions >= 30
-      && studioControl.confirmedGenerations >= 20
-      && studioProgressive.confirmedGenerations >= 20,
+      && studioControl.eligibleSessions >= studioStageRequirement.eligibleSessions
+      && studioProgressive.eligibleSessions >= studioStageRequirement.eligibleSessions
+      && studioControl.confirmedGenerations >= studioStageRequirement.confirmedGenerations
+      && studioProgressive.confirmedGenerations >= studioStageRequirement.confirmedGenerations,
   );
   const studioGateFailures = studioControl && studioProgressive ? [
+    !studioDataComplete ? "Dados incompletos: a consulta atingiu o limite de eventos" : null,
     studioControl.completionRate !== null
       && studioProgressive.completionRate !== null
       && studioProgressive.completionRate - studioControl.completionRate < -0.05
@@ -717,6 +730,19 @@ export function OwnerAnalyticsPanel({
                   {studioControl && studioProgressive ? (
                     <FunnelSection title="Estúdio progressivo">
                       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                        <label className="inline-flex items-center gap-2 text-[var(--text-secondary)]">
+                          Estágio
+                          <select
+                            aria-label="Estágio de rollout"
+                            value={studioRolloutStage}
+                            onChange={(event) => setStudioRolloutStage(Number(event.target.value) as 10 | 50 | 100)}
+                            className="h-8 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 text-xs"
+                          >
+                            <option value={10}>10%</option>
+                            <option value={50}>50%</option>
+                            <option value={100}>100%</option>
+                          </select>
+                        </label>
                         <span
                           className={cn(
                             "rounded-full px-2 py-1 font-medium",
@@ -728,7 +754,7 @@ export function OwnerAnalyticsPanel({
                           {studioSampleSufficient ? "Amostra suficiente" : "Amostra insuficiente"}
                         </span>
                         <span className="text-[var(--text-muted)]">
-                          ≥30 sessões e ≥20 gerações confirmadas por braço
+                          {studioStageRequirement.observation}; ≥{studioStageRequirement.eligibleSessions} sessões e ≥{studioStageRequirement.confirmedGenerations} gerações confirmadas por braço
                         </span>
                       </div>
                       {studioGateFailures.length > 0 ? (
