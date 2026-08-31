@@ -304,7 +304,8 @@ export default function DashboardHomeActions({
         </> : composer.objectiveSelected && !showPlan ? <CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" /> : null}
         {showPlan && billing && !billing.access.hasSpendAccess ? <section className="rounded-[var(--radius-object)] border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4" role="alert"><p className="font-semibold text-[var(--warning-text)]">{t("insufficientBalance")}</p><Link href="/billing" className="mt-2 inline-flex text-sm font-semibold underline">{t("getCredits")}</Link></section> : null}
         {showPlan ? <CreativePlanReview plan={composer.preparedPlan!} busy={composer.actionPhase !== "idle"} onEdit={() => setEditingPreparedPlan(true)} onConfirm={(revision) => composer.confirmGeneration(revision)} /> : null}
-        {composer.objectiveSelected && !resultStage ? <section className="space-y-4" aria-label={t("chooseObjective")}><CreativeToolCards selected={composer.intent} onSelect={(intent) => composer.selectIntent(intent, true)} carouselEnabled={carouselCreationEnabled} />{protocolSwitchControls}{inspirationsControl}</section> : null}
+        {composer.objectiveSelected && !resultStage ? <section className="space-y-4" aria-label={t("chooseObjective")}><CreativeToolCards selected={composer.intent} onSelect={(intent) => composer.selectIntent(intent, true)} carouselEnabled={carouselCreationEnabled} />{protocolSwitchControls}</section> : null}
+        {!resultStage ? <section className="space-y-4" aria-label={t("composer.inspirations.libraryTitle")}>{inspirationsControl}</section> : null}
       </div>
     );
   }
