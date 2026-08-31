@@ -1409,6 +1409,11 @@ export function useCreativeComposer({
       setError("Revise o plano antes de gerar.");
       return;
     }
+    if (preparedPlanInputRef.current?.revision === revision
+      && preparedPlanInputRef.current.signature.startsWith("stale:")) {
+      setError("Revise o plano antes de gerar.");
+      return;
+    }
     if (current && current.status !== "draft" && !(current.status === "ready" && (detailQuery.data?.outputs.length ?? 0) === 0)) return;
     setActionPhase("submitting");
     setError(null);

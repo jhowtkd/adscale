@@ -2176,6 +2176,46 @@ describe("useCreativeComposer", () => {
     expect(mocks.generate).toHaveBeenCalledOnce();
   });
 
+  it("keeps an auto-inferred progressive plan confirmable without preparing twice", async () => {
+    mocks.work.mockReturnValue({
+      data: workDetail({ format: "4:5", settings: { targetFormats: [], formatMode: "auto" } }),
+      isLoading: false,
+      isError: false,
+    });
+    mocks.prepare.mockResolvedValue({
+      work: workDetail({ format: "9:16", settings: { targetFormats: [], formatMode: "auto" } }).work,
+      quote: { unitCount: 1, credits: 50 },
+      preparedPlan: preparedPlan(),
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", workflowVariant: "progressive" }));
+
+    let plan!: Awaited<ReturnType<typeof result.current.preparePlan>>;
+    await act(async () => { plan = await result.current.preparePlan(); });
+    expect(plan?.preparedRevision).toBe("2026-08-30T12:00:00.000Z");
+    await act(async () => { await result.current.confirmGeneration(plan?.preparedRevision); });
+
+    expect(mocks.prepare).toHaveBeenCalledOnce();
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({ preparedRevision: plan?.preparedRevision }));
+  });
+
+  it("invalidates a progressive plan when its inputs change while prepare is pending", async () => {
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
+    const pending = deferred<{ work: ReturnType<typeof workDetail>["work"]; quote: { unitCount: number; credits: number }; preparedPlan: ReturnType<typeof preparedPlan> }>();
+    mocks.prepare.mockReturnValueOnce(pending.promise);
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", workflowVariant: "progressive" }));
+
+    let preparation!: Promise<unknown>;
+    act(() => { preparation = result.current.preparePlan(); });
+    act(() => result.current.setRequest("Pedido alterado durante preparo"));
+    pending.resolve({ work: workDetail().work, quote: { unitCount: 3, credits: 150 }, preparedPlan: preparedPlan() });
+    await act(async () => { await preparation; });
+
+    expect(result.current.preparedPlan).toBeNull();
+    expect(result.current.canConfirm).toBe(false);
+    await act(async () => { await result.current.confirmGeneration("2026-08-30T12:00:00.000Z"); });
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
   it("keeps the non-blocking brand training suggestion returned by generation", async () => {
     mocks.work.mockReturnValue({ data: workDetail(), isLoading: false });
     mocks.generate.mockResolvedValue({
