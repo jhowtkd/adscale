@@ -135,6 +135,8 @@ describe("CarouselSequenceBoard", () => {
 
     expect(screen.getByTestId("carousel-move-up-1")).toBeDisabled();
     expect(screen.getByTestId("carousel-move-down-5")).toBeDisabled();
+    expect(screen.getByTestId("carousel-move-up-2")).toHaveAccessibleName("Mover para cima");
+    expect(screen.getByTestId("carousel-move-down-2")).toHaveAccessibleName("Mover para baixo");
 
     fireEvent.click(screen.getByTestId("carousel-move-up-2"));
     expect(onMove).toHaveBeenCalledWith("slide-2", 1);

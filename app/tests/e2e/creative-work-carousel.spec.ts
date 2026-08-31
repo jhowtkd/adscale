@@ -124,9 +124,19 @@ function slidePrefix(workId: string, slideId: string): string {
 }
 
 async function getDetail(request: APIRequestContext, workId: string): Promise<CarouselWorkDetail> {
-  const res = await request.get(`/api/creative-work/${workId}`);
-  expect(res.ok(), `detail must succeed (got ${res.status()})`).toBeTruthy();
-  return (await res.json()) as CarouselWorkDetail;
+  let lastStatus = 0;
+  let body: CarouselWorkDetail | null = null;
+  await expect(async () => {
+    const res = await request.get(`/api/creative-work/${workId}`);
+    lastStatus = res.status();
+    if (res.status() >= 500) {
+      throw new Error(`transient detail ${res.status()}`);
+    }
+    expect(res.ok(), `detail must succeed (got ${res.status()})`).toBeTruthy();
+    body = (await res.json()) as CarouselWorkDetail;
+  }).toPass({ timeout: 15_000, intervals: [300, 600, 1_000] });
+  expect(body, `detail must succeed (got ${lastStatus})`).not.toBeNull();
+  return body!;
 }
 
 /**
@@ -262,6 +272,27 @@ test.describe("Studio Carousel controlled-provider gate", () => {
     await expect(page.getByTestId("carousel-generating")).toBeVisible({ timeout: 30_000 });
     // No intermediate button: the generate control disappears while the chain runs.
     await expect(page.getByTestId("carousel-generate")).toHaveCount(0);
+    // Fail fast when Inngest never claims a slide, instead of waiting 300s.
+    // `queued` proves nothing: the generate request writes it synchronously
+    // (settlement reserve -> queueCarouselSlide), which is also what makes the
+    // `carousel-generating` phase above appear. Only the job itself writes
+    // `processing` (markCarouselSlideProcessing), so that -- or a terminal
+    // state -- is the first evidence the worker actually picked the slide up.
+    await expect
+      .poll(
+        async () => {
+          detail = await getDetail(page.request, workId);
+          return detail.carouselSlides.some((slide) =>
+            slide.status === "processing"
+            || slide.status === "completed"
+            || slide.status === "failed",
+          )
+            ? "claimed"
+            : `unclaimed:${detail.carouselSlides.map((slide) => `${slide.position}:${slide.status}`).join(",") || "none"}`;
+        },
+        { timeout: 60_000, intervals: [1_000, 2_000] },
+      )
+      .toBe("claimed");
     await expect
       .poll(
         async () => {

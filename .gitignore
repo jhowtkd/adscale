@@ -20,6 +20,7 @@ node_modules/
 dist/
 
 # Agent/IDE artifacts
+.superdesign/tmp/
 .opencode/
 .playwright-cli/
 .zcode/

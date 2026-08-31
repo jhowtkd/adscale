@@ -157,3 +157,111 @@ jobs:
           STRIPE_SUCCESS_URL: http://localhost:3000/settings?tab=billing&checkout=success
           STRIPE_CANCEL_URL: http://localhost:3000/settings?tab=plans&checkout=cancel
           VISUAL_FOUNDATIONS_SKIP_STORAGE: "true"
+
+  studio-e2e:
+    name: Studio deterministic E2E
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: adscale_studio_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    # These are a dedicated, isolated R2-compatible bucket and public base
+    # URL. The job must fail before seeding when any one is absent; it never
+    # substitutes the unit-test storage placeholder for a Studio lifecycle.
+    env:
+      DATABASE_URL: postgres://test:test@localhost:5432/adscale_studio_e2e
+      BETTER_AUTH_SECRET: "01234567890123456789012345678901"
+      BETTER_AUTH_URL: http://localhost:3000
+      APP_URL: http://localhost:3000
+      OPENAI_API_KEY: sk-studio-e2e-controlled-provider
+      OPENAI_TEXT_MODEL: gpt-4o
+      OPENAI_IMAGE_MODEL: gpt-image-1
+      MINIMAX_API_KEY: minimax-studio-e2e-controlled-provider
+      R2_ACCOUNT_ID: ${{ secrets.STUDIO_E2E_R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.STUDIO_E2E_R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.STUDIO_E2E_R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: ${{ secrets.STUDIO_E2E_R2_BUCKET }}
+      R2_PUBLIC_BASE_URL: ${{ secrets.STUDIO_E2E_R2_PUBLIC_BASE_URL }}
+      INNGEST_EVENT_KEY: studio-e2e-event-key
+      INNGEST_SIGNING_KEY: studio-e2e-signing-key
+      RESEND_API_KEY: re_studio_e2e_placeholder
+      EMAIL_FROM: "ADScale Studio E2E <studio-e2e@example.com>"
+      STRIPE_SECRET_KEY: sk_test_studio_e2e_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_studio_e2e_placeholder
+      STRIPE_STARTER_PRICE_ID: price_starter
+      STRIPE_GROWTH_PRICE_ID: price_growth
+      STRIPE_SCALE_PRICE_ID: price_scale
+      STRIPE_SUCCESS_URL: http://localhost:3000/settings?tab=billing&checkout=success
+      STRIPE_CANCEL_URL: http://localhost:3000/settings?tab=plans&checkout=cancel
+      E2E_CONTROLLED_PROVIDER: "true"
+      E2E_DISABLE_RATE_LIMIT: "true"
+      STUDIO_PROGRESSIVE_ROLLOUT_PERCENT: "100"
+      E2E_PROVIDER_EVIDENCE_PATH: ${{ runner.temp }}/studio-provider-calls.jsonl
+      CREATE_POST_E2E_FIXTURE_PATH: ${{ runner.temp }}/create-post-e2e.json
+      NODE_ENV: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Require isolated Studio E2E storage
+        run: |
+          for secret_name in R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET R2_PUBLIC_BASE_URL; do
+            if [ -z "${!secret_name}" ]; then
+              echo "Missing required dedicated Studio E2E secret: ${secret_name}"
+              exit 1
+            fi
+          done
+
+      - name: Install dependencies
+        run: cd app && npm ci
+
+      - name: Run migrations
+        run: cd app && npx drizzle-kit migrate
+
+      - name: Build Studio E2E runtime
+        run: cd app && npm run build
+
+      - name: Install Playwright browser
+        run: cd app && npx playwright install --with-deps chromium
+
+      - name: Start built app and local Inngest
+        run: |
+          cd app
+          npm run start > "${RUNNER_TEMP}/studio-next.log" 2>&1 &
+          npm run inngest:dev > "${RUNNER_TEMP}/studio-inngest.log" 2>&1 &
+
+      - name: Wait for Next and Inngest
+        run: |
+          for endpoint in http://127.0.0.1:3000/api/health http://127.0.0.1:8288; do
+            for attempt in $(seq 1 60); do
+              if curl --fail --silent --show-error "$endpoint" > /dev/null; then
+                break
+              fi
+              sleep 2
+            done
+            curl --fail --silent --show-error "$endpoint" > /dev/null
+          done
+
+      - name: Seed isolated Studio E2E fixture
+        run: cd app && npm run seed:create-post-e2e
+
+      - name: Run deterministic Studio journey
+        run: cd app && npm run test:studio-e2e

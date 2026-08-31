@@ -135,22 +135,24 @@ export function CarouselSequenceBoard({
                     <button
                       type="button"
                       data-testid={`carousel-move-up-${slide.position}`}
+                      aria-label={t("moveUp")}
+                      title={t("moveUp")}
                       onClick={() => move(slide.id, slide.position - 1)}
                       disabled={!canEdit || slide.position === 1}
-                      className="inline-flex items-center gap-1 rounded-[var(--radius-control)] px-2 py-1 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-40"
+                      className="inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-[var(--text-secondary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      <ArrowUp size={12} aria-hidden="true" />
-                      {t("moveUp")}
+                      <ArrowUp size={14} aria-hidden="true" />
                     </button>
                     <button
                       type="button"
                       data-testid={`carousel-move-down-${slide.position}`}
+                      aria-label={t("moveDown")}
+                      title={t("moveDown")}
                       onClick={() => move(slide.id, slide.position + 1)}
                       disabled={!canEdit || slide.position === lastPosition}
-                      className="inline-flex items-center gap-1 rounded-[var(--radius-control)] px-2 py-1 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-40"
+                      className="inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-[var(--text-secondary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      <ArrowDown size={12} aria-hidden="true" />
-                      {t("moveDown")}
+                      <ArrowDown size={14} aria-hidden="true" />
                     </button>
                   </div>
               </li>
