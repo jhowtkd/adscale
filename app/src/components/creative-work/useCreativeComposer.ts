@@ -216,6 +216,7 @@ export function useCreativeComposer({
     : [];
   const [workId, setWorkId] = useState<string | null>(initialWorkId ?? null);
   const [request, setRequestState] = useState("");
+  const [invalidatedPlanRevision, setInvalidatedPlanRevision] = useState<string | null>(null);
   const [intent, setIntent] = useState<ComposerIntent>(internalInitialIntent);
   const [objective, setObjective] = useState<ComposerIntent | null>(initialObjective);
   const [bufferedFile, setBufferedFile] = useState<File | null>(null);
@@ -1467,6 +1468,21 @@ export function useCreativeComposer({
   const objectiveSelected = objective !== null;
   const preparedPlan = detail?.preparedPlan ?? null;
   const stage = projectComposerStage({ objectiveSelected, detail: detail ?? null });
+  const planInputSignature = `${intent}|${request}|${format}|${formatMode}|${targetFormats.join(",")}|${textLayout}|${directionPool?.selectedIds.join(",") ?? ""}`;
+  const preparedPlanInputRef = useRef<{ revision: string; signature: string } | null>(null);
+  useEffect(() => {
+    if (!preparedPlan) { preparedPlanInputRef.current = null; return; }
+    const previous = preparedPlanInputRef.current;
+    if (!previous || previous.revision !== preparedPlan.preparedRevision) {
+      preparedPlanInputRef.current = { revision: preparedPlan.preparedRevision, signature: planInputSignature };
+      setInvalidatedPlanRevision(null);
+      return;
+    }
+    if (previous.signature !== planInputSignature && invalidatedPlanRevision !== preparedPlan.preparedRevision) {
+      setInvalidatedPlanRevision(preparedPlan.preparedRevision);
+      recordStudioEvent("studio_plan_changed", { creativeWorkId: preparedPlan.workId });
+    }
+  }, [invalidatedPlanRevision, planInputSignature, preparedPlan, recordStudioEvent]);
   useEffect(() => {
     if (workflowVariant !== "progressive" || stage !== "plan" || !preparedPlan || shownPreparedRevisionRef.current === preparedPlan.preparedRevision) return;
     shownPreparedRevisionRef.current = preparedPlan.preparedRevision;
@@ -1519,7 +1535,9 @@ export function useCreativeComposer({
     && !resolveBrandConflictMutation.isPending;
   const hasEntry = Boolean(request.trim() || bufferedFile || initialTemplateId || detail?.sources.length);
   const canContinue = objectiveSelected && canGenerate;
-  const canConfirm = Boolean(preparedPlan)
+  const visiblePreparedPlan = invalidatedPlanRevision === preparedPlan?.preparedRevision ? null : preparedPlan;
+  const visibleStage = visiblePreparedPlan ? stage : stage === "plan" ? "configure" : stage;
+  const canConfirm = Boolean(visiblePreparedPlan)
     && actionPhase === "idle"
     && !generateMutation.isPending
     && !submitGuardRef.current;
@@ -1582,7 +1600,7 @@ export function useCreativeComposer({
     fontOptions,
     directionPool, toggleDirection, setManualDirectionInstruction,
     directionSuggestionState, pendingDirectionSuggestions, applyDirectionSuggestions, requestDirectionSuggestions, keepCurrentDirections,
-    state, stage, objective, objectiveSelected, bufferedFile, hasEntry, canContinue, canConfirm, preparedPlan, actionPhase, workId, clientProfileId, brandName,
+    state, stage: visibleStage, objective, objectiveSelected, bufferedFile, hasEntry, canContinue, canConfirm, preparedPlan: visiblePreparedPlan, actionPhase, workId, clientProfileId, brandName,
     pendingProtocolSwitch, confirmProtocolSwitch, cancelProtocolSwitch,
     protocolSwitchNotice, returnToPreviousProtocol,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,

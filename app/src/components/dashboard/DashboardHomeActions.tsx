@@ -16,6 +16,7 @@ import { resolveContinueWork, type ContinueWorkTarget } from "@/lib/dashboard/re
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useCreativeWork, type CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
+import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { cn } from "@/lib/utils";
 import type { StudioMode } from "@/app/(dashboard)/dashboard-search-params";
 import { getOrCreateStudioSession, type StudioRolloutVariant } from "@/lib/beta-analytics/studio-session";
@@ -108,6 +109,7 @@ export default function DashboardHomeActions({
   const t = useTranslations("dashboard.home");
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
   const { activeProfile } = useActiveClientProfile();
+  const { data: billing } = useBillingStatus();
   // The URL mode only seeds a new composer. Once it exists, its intent is the
   // authority because protocol switches may be deferred or cancelled.
   const initialStudioIntent = initialIntent
@@ -153,6 +155,7 @@ export default function DashboardHomeActions({
   if (rolloutVariant === "progressive") {
     const showObjectives = composer.hasEntry && !composer.objectiveSelected;
     const showPlan = composer.stage === "plan" && composer.preparedPlan && !editingPreparedPlan;
+    const resultStage = composer.stage === "generation" || composer.stage === "results";
     return (
       <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6 lg:py-12">
         <AccessGatePanel />
@@ -170,7 +173,8 @@ export default function DashboardHomeActions({
           </section>
         ) : null}
         {showObjectives ? <section aria-labelledby="progressive-objective-title" className="space-y-3"><h2 id="progressive-objective-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("chooseObjective")}</h2><CreativeToolCards selected={null} onSelect={composer.selectIntent} /></section> : null}
-        {composer.objectiveSelected && !showPlan ? <CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" hideSourceUpload={composer.intent === "single"} /> : null}
+        {resultStage ? <section aria-labelledby="progressive-results-title"><h2 id="progressive-results-title" tabIndex={-1} className="text-lg font-semibold text-[var(--text-primary)]">{t("resultsTitle")}</h2><details className="mt-3 rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-4"><summary className="cursor-pointer text-sm font-medium">{t("planUsed")}</summary><div className="mt-4"><CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" hideSourceUpload={composer.intent === "single"} /></div></details></section> : composer.objectiveSelected && !showPlan ? <CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" hideSourceUpload={composer.intent === "single"} /> : null}
+        {showPlan && billing && !billing.access.hasSpendAccess ? <section className="rounded-[var(--radius-object)] border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4" role="alert"><p className="font-semibold text-[var(--warning-text)]">{t("insufficientBalance")}</p><Link href="/billing" className="mt-2 inline-flex text-sm font-semibold underline">{t("getCredits")}</Link></section> : null}
         {showPlan ? <CreativePlanReview plan={composer.preparedPlan!} busy={composer.actionPhase !== "idle"} onEdit={() => setEditingPreparedPlan(true)} onConfirm={(revision) => composer.confirmGeneration(revision)} /> : null}
       </div>
     );

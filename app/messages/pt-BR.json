@@ -501,6 +501,10 @@
       "continueConfigure": "Continuar configuração",
       "continueTrackGeneration": "Acompanhar geração",
       "continueReviewPieces": "Revisar peças",
+      "resultsTitle": "Acompanhe sua criação",
+      "planUsed": "Plano usado",
+      "insufficientBalance": "Créditos insuficientes",
+      "getCredits": "Obter créditos",
       "continueStates": {
         "intending": "Planejamento",
         "briefing": "Briefing",
