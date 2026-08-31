@@ -310,6 +310,9 @@ export function useCreativeComposer({
   const hydratedWorkRef = useRef<string | null>(null);
   const lastPersistedRef = useRef<string | null>(null);
   const workRevisionRef = useRef<string | null>(null);
+  const workRevisionWorkIdRef = useRef<string | null>(null);
+  const workRevisionRefreshRequiredRef = useRef<string | null>(null);
+  const autosaveRevisionUnavailableRef = useRef<string | null>(null);
   const createInFlightRef = useRef<Promise<string | null> | null>(null);
   const draftEpochRef = useRef(0);
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
@@ -448,7 +451,11 @@ export function useCreativeComposer({
     briefingVersionRef.current = hydrated.settings.briefingVersion;
     const hydratedSignature = signature(hydrated);
     lastPersistedRef.current = hydratedSignature;
-    if (work.updatedAt) workRevisionRef.current = new Date(work.updatedAt).toISOString();
+    if (work.updatedAt) {
+      workRevisionRef.current = new Date(work.updatedAt).toISOString();
+      workRevisionWorkIdRef.current = work.id;
+      workRevisionRefreshRequiredRef.current = null;
+    }
     const hydratedPlan = detailQuery.data?.preparedPlan;
     if (initialWorkId && hydratedPlan) {
       preparedPlanInputRef.current = {
@@ -610,6 +617,40 @@ export function useCreativeComposer({
     }
   }, [detailQuery, exposeCampaignId, linkCampaignMutation, tHome]);
 
+  const setCanonicalWorkRevision = useCallback((workItemId: string, updatedAt: Date | string | null | undefined) => {
+    if (!updatedAt) return null;
+    const parsed = new Date(updatedAt);
+    if (Number.isNaN(parsed.getTime())) return null;
+    const revision = parsed.toISOString();
+    workRevisionRef.current = revision;
+    workRevisionWorkIdRef.current = workItemId;
+    workRevisionRefreshRequiredRef.current = null;
+    if (autosaveRevisionUnavailableRef.current === workItemId) autosaveRevisionUnavailableRef.current = null;
+    return revision;
+  }, []);
+  const refreshCanonicalWorkRevision = useCallback(async (workItemId: string) => {
+    if (!detailQuery.refetch) return null;
+    const refreshed = await detailQuery.refetch();
+    const work = refreshed.data?.work;
+    if (!work || work.id !== workItemId) return null;
+    return setCanonicalWorkRevision(workItemId, work.updatedAt);
+  }, [detailQuery, setCanonicalWorkRevision]);
+  const resolveCanonicalWorkRevision = useCallback(async (workItemId: string) => {
+    if (
+      workRevisionWorkIdRef.current === workItemId
+      && workRevisionRefreshRequiredRef.current !== workItemId
+      && workRevisionRef.current
+    ) return workRevisionRef.current;
+    if (workRevisionRefreshRequiredRef.current !== workItemId) {
+      const work = detailQuery.data?.work;
+      if (work?.id === workItemId) {
+        const revision = setCanonicalWorkRevision(workItemId, work.updatedAt);
+        if (revision) return revision;
+      }
+    }
+    return refreshCanonicalWorkRevision(workItemId);
+  }, [detailQuery.data?.work, refreshCanonicalWorkRevision, setCanonicalWorkRevision]);
+
   type SourceActionInput =
     | { workItemId: string; action: "attachSource"; assetId: string; templateId?: never; usage: CreativeSourceUsage }
     | { workItemId: string; action: "attachSource"; templateId: string; assetId?: never; usage: CreativeSourceUsage }
@@ -620,14 +661,24 @@ export function useCreativeComposer({
     | { workItemId: string; action: "retrySource" | "removeSource"; sourceId: string }
     | { workItemId: string; action: "editSourceAnalysis"; sourceId: string; content: ContentBrief | null; style: StyleBrief | null };
   const mutateSource = useCallback(async (action: SourceActionInput) => {
-    const expectedUpdatedAt = workRevisionRef.current ?? (detailQuery.data?.work.updatedAt ? new Date(detailQuery.data.work.updatedAt).toISOString() : null);
+    const expectedUpdatedAt = await resolveCanonicalWorkRevision(action.workItemId);
     if (!expectedUpdatedAt) throw new Error("Recarregue o trabalho antes de alterar a arte.");
     const result = await sourceMutation.mutateAsync({ ...action, expectedUpdatedAt } as Parameters<typeof sourceMutation.mutateAsync>[0]);
-    const refreshed = await detailQuery.refetch?.();
-    const work = refreshed?.data?.work;
-    if (work?.id === action.workItemId && work.updatedAt) workRevisionRef.current = new Date(work.updatedAt).toISOString();
+    // Source responses intentionally expose only the source. Refresh before a
+    // later mutation so its CAS token comes from the post-invalidation work.
+    try {
+      if (!await refreshCanonicalWorkRevision(action.workItemId)) {
+        workRevisionRef.current = null;
+        workRevisionWorkIdRef.current = action.workItemId;
+        workRevisionRefreshRequiredRef.current = action.workItemId;
+      }
+    } catch {
+      workRevisionRef.current = null;
+      workRevisionWorkIdRef.current = action.workItemId;
+      workRevisionRefreshRequiredRef.current = action.workItemId;
+    }
     return result;
-  }, [detailQuery, sourceMutation]);
+  }, [refreshCanonicalWorkRevision, resolveCanonicalWorkRevision, sourceMutation]);
 
   const ensureDraft = useCallback((source?: DraftSource, silent = false) => {
     if (workflowVariant === "progressive" && !objectiveRef.current) return Promise.resolve(null);
@@ -674,7 +725,9 @@ export function useCreativeComposer({
       });
       workIdRef.current = result.work.id;
       lastPersistedRef.current = signature(snapshotFromWork(result.work));
-      if (result.work.updatedAt) workRevisionRef.current = new Date(result.work.updatedAt).toISOString();
+      if (!setCanonicalWorkRevision(result.work.id, result.work.updatedAt)) {
+        await refreshCanonicalWorkRevision(result.work.id);
+      }
       writeStoredDraft(active.activeClientProfileId!, intentRef.current, result.work.id);
       if (!silent && mountedRef.current) {
         setWorkId(result.work.id);
@@ -695,16 +748,22 @@ export function useCreativeComposer({
     });
     createInFlightRef.current = promise;
     return promise;
-  }, [active.activeClientProfileId, captureSnapshot, createMutation, enqueueSave, exposeWorkId, linkCampaign, mutateSource, recordCanonicalEvent, workflowVariant]);
+  }, [active.activeClientProfileId, captureSnapshot, createMutation, enqueueSave, exposeWorkId, linkCampaign, mutateSource, recordCanonicalEvent, refreshCanonicalWorkRevision, setCanonicalWorkRevision, workflowVariant]);
 
   const persistSnapshot = useCallback((id: string, snapshot: DraftSnapshot, announce = true) => enqueueSave(async () => {
     if (autosaveBlockedWorkRef.current === id) return;
     const sentSignature = signature(snapshot);
     if (sentSignature === lastPersistedRef.current) return;
     try {
+      const expectedUpdatedAt = await resolveCanonicalWorkRevision(id);
+      if (!expectedUpdatedAt) {
+        autosaveRevisionUnavailableRef.current = id;
+        if (mountedRef.current) setError("Recarregue o trabalho antes de continuar.");
+        return;
+      }
       const result = await autosaveMutation.mutateAsync({
         workItemId: id,
-        expectedUpdatedAt: workRevisionRef.current ?? (detailQuery.data?.work.updatedAt ? new Date(detailQuery.data.work.updatedAt).toISOString() : ""),
+        expectedUpdatedAt,
         ...snapshot,
         // A carousel draft lives in settings.carouselDraft and is owned by
         // the carousel controller; the generic autosave must carry the
@@ -715,8 +774,18 @@ export function useCreativeComposer({
       });
       // Mocked/legacy autosave responses may omit the work row; only a real
       // updatedAt can advance the CAS revision marker.
-      if (result.work?.updatedAt) {
-        workRevisionRef.current = new Date(result.work.updatedAt).toISOString();
+      if (!setCanonicalWorkRevision(id, result.work?.updatedAt)) {
+        try {
+          if (!await refreshCanonicalWorkRevision(id)) {
+            workRevisionRef.current = null;
+            workRevisionWorkIdRef.current = id;
+            workRevisionRefreshRequiredRef.current = id;
+          }
+        } catch {
+          workRevisionRef.current = null;
+          workRevisionWorkIdRef.current = id;
+          workRevisionRefreshRequiredRef.current = id;
+        }
       }
     } catch (cause) {
       const code = cause instanceof Error && "code" in cause
@@ -729,7 +798,7 @@ export function useCreativeComposer({
     }
     lastPersistedRef.current = sentSignature;
     if (announce && mountedRef.current) setAnnouncement("Alterações salvas");
-  }), [autosaveMutation, detailQuery.data?.work.settings.carouselDraft, detailQuery.data?.work.updatedAt, enqueueSave]);
+  }), [autosaveMutation, detailQuery.data?.work.settings.carouselDraft, enqueueSave, refreshCanonicalWorkRevision, resolveCanonicalWorkRevision, setCanonicalWorkRevision]);
 
   const flushAutosave = useCallback(async (): Promise<string | null> => {
     if (initialWorkId && !hydratedWorkRef.current) return null;
@@ -737,6 +806,7 @@ export function useCreativeComposer({
     const id = workIdRef.current ?? await ensureDraft();
     if (!id) return null;
     if (autosaveBlockedWorkRef.current === id) return null;
+    if (autosaveRevisionUnavailableRef.current === id) return null;
     const current = detailQuery.data?.work;
     // A prepared retry with no outputs may be deliberately reopened by the
     // explicit Continue action. The autosave endpoint invalidates its frozen
@@ -748,6 +818,7 @@ export function useCreativeComposer({
     if (current?.id === id && current.status !== "draft" && !canReopenPreparedRetry) return null;
     for (;;) {
       await saveChainRef.current;
+      if (autosaveRevisionUnavailableRef.current === id) return null;
       const snapshot = captureSnapshot();
       if (signature(snapshot) === lastPersistedRef.current) return id;
       await persistSnapshot(id, snapshot);
@@ -1478,7 +1549,7 @@ export function useCreativeComposer({
       const prepared = await prepareMutation.mutateAsync({ workItemId: id });
       if (prepared.briefing && prepared.briefingFactPack) setInferredBriefingContext({ briefing: prepared.briefing, factPack: prepared.briefingFactPack });
       lastPersistedRef.current = signature(snapshotFromWork(prepared.work));
-      if (prepared.work.updatedAt) workRevisionRef.current = new Date(prepared.work.updatedAt).toISOString();
+      setCanonicalWorkRevision(prepared.work.id, prepared.work.updatedAt);
       if (prepared.quote) setQuote(prepared.quote);
       formatRef.current = prepared.work.format;
       setFormat(prepared.work.format);
@@ -1507,7 +1578,7 @@ export function useCreativeComposer({
     } finally {
       setActionPhase("idle");
     }
-  }, [captureSnapshot, detailQuery, flushAutosave, invalidatedPlanRevision, prepareMutation, recordCanonicalEvent]);
+  }, [captureSnapshot, detailQuery, flushAutosave, invalidatedPlanRevision, prepareMutation, recordCanonicalEvent, setCanonicalWorkRevision]);
 
   const confirmGenerationCommand = useCallback(async (preparedRevision?: string): Promise<void> => {
     const current = detailQuery.data?.work;

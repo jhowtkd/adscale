@@ -195,7 +195,7 @@ describe("useCreativeComposer", () => {
       },
       quote: { unitCount: 3, credits: 150 },
     }));
-    mocks.autosave.mockResolvedValue({ work: { id: "work-1" } });
+    mocks.autosave.mockResolvedValue({ work: workDetail().work });
     mocks.prepare.mockResolvedValue({ work: workDetail().work, quote: { unitCount: 3, credits: 150 }, preparedPlan: preparedPlan() });
     mocks.generate.mockResolvedValue({ work: { status: "generating" }, outputs: [] });
     mocks.suggest.mockResolvedValue({ directions: [] });
@@ -1372,6 +1372,33 @@ describe("useCreativeComposer", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("refreshes the work revision between successful source mutations", async () => {
+    const initialRevision = "2026-08-30T12:00:00.000Z";
+    const nextRevision = "2026-08-30T12:00:00.001Z";
+    const finalRevision = "2026-08-30T12:00:00.002Z";
+    const initial = workDetail({ id: WORK_ID, updatedAt: initialRevision });
+    mocks.work.mockReturnValue({ data: initial, isLoading: false, isError: false, refetch: mocks.refetch });
+    mocks.refetch
+      .mockResolvedValueOnce({ data: workDetail({ id: WORK_ID, updatedAt: nextRevision }) })
+      .mockResolvedValueOnce({ data: workDetail({ id: WORK_ID, updatedAt: finalRevision }) });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: WORK_ID }));
+    await act(async () => { await result.current.updateSource("source-1", "style"); });
+    await act(async () => { await result.current.updateSource("source-1", "content"); });
+
+    expect(mocks.source).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      workItemId: WORK_ID,
+      action: "updateSource",
+      expectedUpdatedAt: initialRevision,
+    }));
+    expect(mocks.source).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      workItemId: WORK_ID,
+      action: "updateSource",
+      expectedUpdatedAt: nextRevision,
+    }));
+    expect(mocks.refetch).toHaveBeenCalledTimes(2);
+  });
+
   it("persists a corrected source reading on the same creative work", async () => {
     mocks.work.mockReturnValue({ data: workDetail({ id: WORK_ID }), isLoading: false, isError: false });
     const content = {
@@ -2061,8 +2088,8 @@ describe("useCreativeComposer", () => {
   });
 
   it("serializes autosaves and never starts B before A settles", async () => {
-    const saveA = deferred<{ work: { id: string } }>();
-    const saveB = deferred<{ work: { id: string } }>();
+    const saveA = deferred<{ work: ReturnType<typeof workDetail>["work"] }>();
+    const saveB = deferred<{ work: ReturnType<typeof workDetail>["work"] }>();
     mocks.autosave.mockReturnValueOnce(saveA.promise).mockReturnValueOnce(saveB.promise);
     mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
@@ -2073,11 +2100,11 @@ describe("useCreativeComposer", () => {
     await act(() => vi.advanceTimersByTimeAsync(500));
     expect(mocks.autosave).toHaveBeenCalledTimes(1);
 
-    saveA.resolve({ work: { id: "work-1" } });
+    saveA.resolve({ work: { ...workDetail().work, updatedAt: "2026-08-30T12:00:00.001Z" } });
     await act(async () => { await Promise.resolve(); });
     expect(mocks.autosave).toHaveBeenCalledTimes(2);
     expect(mocks.autosave).toHaveBeenLastCalledWith(expect.objectContaining({ request: "Pedido B" }));
-    saveB.resolve({ work: { id: "work-1" } });
+    saveB.resolve({ work: { ...workDetail().work, updatedAt: "2026-08-30T12:00:00.002Z" } });
     await act(async () => { await Promise.resolve(); });
   });
 
@@ -2627,7 +2654,7 @@ describe("useCreativeComposer", () => {
       isLoading: false,
       isError: false,
     });
-    mocks.autosave.mockResolvedValue({ work: { id: "work-1" } });
+    mocks.autosave.mockResolvedValue({ work: workDetail().work });
 
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
