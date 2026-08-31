@@ -42,6 +42,7 @@ import {
 } from "@/server/creative-work/contracts";
 import type { ContentBrief } from "@/server/ai/image-analysis";
 import { isPieceReferenceReady, pieceReferenceTreatment } from "@/server/creative-work/piece-reference";
+import { projectPreparedPlanV1 } from "@/server/creative-work/prepared-plan";
 import { getBrandKit } from "@/server/repositories/brand-kit";
 import {
   getCreativeWork,
@@ -51,28 +52,14 @@ import {
 } from "@/server/repositories/creative-work";
 import { env } from "@/server/validation/env";
 
-const RESTYLE_STYLE_ASSET_SOURCES = new Set(["creative_work", "curated_inspiration_copy"]);
-
-/**
- * Effective content/style roles for the ready sources. Restyle infers roles
- * (template/curated assets are style; the first remaining source is content);
- * every other protocol keeps the confirmed usage. Shared by prepare and by
- * the draft brand-conflict detection below so both see the same sources.
- */
+/** Persisted roles are the only authority for preparation and conflict detection. */
 function resolveEffectiveSources<TSource extends { id: string; templateId: string | null; usage: CreativeSourceUsage }>(
   toolKind: string,
   readySources: readonly TSource[],
-  sourceAssets: ReadonlyMap<string, { source: string }>,
+  _sourceAssets: ReadonlyMap<string, { source: string }>,
 ): Array<{ source: TSource; usage: CreativeSourceUsage }> {
-  let hasRestyleContent = false;
-  return readySources.map((source) => {
-    if (toolKind !== "restyle") return { source, usage: source.usage };
-    const isKnownStyle = Boolean(source.templateId)
-      || RESTYLE_STYLE_ASSET_SOURCES.has(sourceAssets.get(source.id)?.source ?? "");
-    const usage = isKnownStyle || hasRestyleContent ? "style" as const : "content" as const;
-    if (usage === "content") hasRestyleContent = true;
-    return { source, usage };
-  });
+  void toolKind;
+  return readySources.map((source) => ({ source, usage: source.usage }));
 }
 
 /**
@@ -151,6 +138,12 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     if (!aggregate.work.request.trim() && readySources.length === 0) {
       return { ok: false as const, error: { code: "missing_input" as const } };
     }
+    if (aggregate.work.toolKind === "variations" && readySources.length < 1) {
+      return { ok: false as const, error: { code: "missing_input" as const } };
+    }
+    if (aggregate.work.toolKind === "format_adaptation" && readySources.length !== 1) {
+      return { ok: false as const, error: { code: "missing_input" as const } };
+    }
     const preparation = creativeWorkPreparationSchema.safeParse({
       intent: aggregate.work.toolKind,
       format: aggregate.work.format,
@@ -168,9 +161,11 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       aggregate.work.toolKind !== "single" || !source.pieceReference,
     );
     if (aggregate.work.toolKind === "restyle" && (
-      effectiveSources.length < 2
+      effectiveSources.length !== 2
+      || new Set(effectiveSources.map(({ source }) => source.id)).size !== 2
       || !effectiveSources.some(({ usage }) => usage === "content")
       || !effectiveSources.some(({ usage }) => usage === "style")
+      || effectiveSources.some(({ usage }) => usage === "both")
     )) {
       return { ok: false as const, error: { code: "missing_input" as const } };
     }
@@ -300,6 +295,8 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
         targetFormats: preparation.data.settings.targetFormats,
         directionPool: preparation.data.settings.directionPool,
       });
+      const preparedPlan = projectPreparedPlanV1(aggregate.work);
+      if (!preparedPlan) return { ok: false as const, error: { code: "invalid_preparation" as const } };
       return {
         ok: true as const,
         value: {
@@ -309,6 +306,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
           confidence: persistedBriefing.confidence,
           work: aggregate.work,
           quote,
+          preparedPlan,
         },
       };
     }
@@ -411,6 +409,8 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       socialPostBriefSchema.safeParse(aggregate.work.brief).success &&
       socialPostCopySchema.safeParse(aggregate.work.copy).success
     ) {
+      const preparedPlan = projectPreparedPlanV1(aggregate.work);
+      if (!preparedPlan) return { ok: false as const, error: { code: "invalid_preparation" as const } };
       if (briefing) {
         const persistedBriefing = resolveCreativeWorkInferredBriefing(aggregate.work.inputSnapshot) ?? briefing;
         return {
@@ -422,10 +422,11 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
             confidence: persistedBriefing.confidence,
             work: aggregate.work,
             quote,
+            preparedPlan,
           },
         };
       }
-      return { ok: true as const, value: { work: aggregate.work, quote } };
+      return { ok: true as const, value: { work: aggregate.work, quote, preparedPlan } };
     }
     // R-002: the copy is generated from the fact pack (full request + sourced
     // facts + brand) and validated for provenance. A copy that keeps claims
@@ -471,6 +472,8 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       executor,
     );
     if (!work) return { ok: false as const, error: { code: "stale_input" as const } };
+    const preparedPlan = projectPreparedPlanV1(work);
+    if (!preparedPlan) return { ok: false as const, error: { code: "invalid_preparation" as const } };
     return briefing
       ? {
           ok: true as const,
@@ -481,8 +484,9 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
             confidence: briefing.confidence,
             work,
             quote,
+            preparedPlan,
           },
         }
-      : { ok: true as const, value: { work, quote } };
+      : { ok: true as const, value: { work, quote, preparedPlan } };
   });
 }
