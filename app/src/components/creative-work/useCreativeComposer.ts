@@ -348,7 +348,6 @@ export function useCreativeComposer({
   const { recordEvent } = useRecordBetaEvent(undefined, { includeBetaSession: false });
   const canonicalEventsRef = useRef(new Set<string>());
   const shownPreparedRevisionRef = useRef<string | null>(null);
-  const planInputSignatureRef = useRef("");
 
   const recordStudioEvent = useCallback((eventKey: string, properties: Record<string, string | number | boolean> = {}) => {
     if (!workspaceId || !studioSessionId) return;
@@ -1397,11 +1396,6 @@ export function useCreativeComposer({
       setError("Revise o plano antes de gerar.");
       return;
     }
-    const preparedInput = preparedPlanInputRef.current;
-    if (preparedInput?.revision === revision && preparedInput.signature !== planInputSignatureRef.current) {
-      setError("Revise o plano antes de gerar.");
-      return;
-    }
     if (current && current.status !== "draft" && !(current.status === "ready" && (detailQuery.data?.outputs.length ?? 0) === 0)) return;
     setActionPhase("submitting");
     setError(null);
@@ -1578,7 +1572,6 @@ export function useCreativeComposer({
       manualInstruction: directionPool.manualInstruction,
     },
   });
-  planInputSignatureRef.current = planInputSignature;
   const preparedPlanInputRef = useRef<{ revision: string; signature: string } | null>(null);
   useEffect(() => {
     if (!preparedPlan) { preparedPlanInputRef.current = null; return; }
