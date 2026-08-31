@@ -37,6 +37,7 @@ vi.mock("next-intl", () => ({
           "composer.dropTarget": "Pedido criativo e área para soltar imagens",
           "composer.dropHint": "ou arraste e solte aqui",
           "composer.addArt": "Adicionar arte",
+          "composer.progressiveAddArtReference": "Adicionar arte ou referência",
           "composer.progressiveBufferedFile": values?.name ? `${values.name} está pronta para usar` : "",
         }[key] ?? `dashboard.home.${key}`),
 }));
@@ -414,7 +415,7 @@ describe("DashboardHomeActions", () => {
     const target = screen.getByRole("group", { name: "Pedido criativo e área para soltar imagens" });
     const first = new File(["first"], "primeira.png", { type: "image/png" });
     const second = new File(["second"], "segunda.png", { type: "image/png" });
-    const addArtButton = screen.getByRole("button", { name: "Adicionar arte" });
+    const addArtButton = screen.getByRole("button", { name: "Adicionar arte ou referência", exact: true });
     const fileInput = target.querySelector<HTMLInputElement>('input[type="file"]')!;
     const click = vi.spyOn(fileInput, "click");
 

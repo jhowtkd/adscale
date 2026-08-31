@@ -573,6 +573,7 @@
         "continuePlan": "Continue to plan review",
         "placeholder": "E.g. create an enrollment campaign with a warm tone...",
         "addArt": "Add image",
+        "progressiveAddArtReference": "Add art or reference",
         "pieceReferences": {
           "title": "References for this piece", "count": "{count} of 3 attachments", "add": "Add reference", "limit": "Limit of 3 reached", "uploading": "Uploading reference", "replace": "Replace", "remove": "Remove", "retry": "Retry", "promote": "Save to brand training", "promoted": "Saved to training", "promotionFailed": "Could not save to training", "category": "Type", "choose": "Choose a type", "instruction": "How should this be used?", "analyzing": "Analyzing reference", "choiceRequired": "Choose a type to continue", "exactIncompatible": "Logo or seal has no usable transparency", "ready": "Reference ready", "failed": "Analysis failed",
           "categories": { "person_or_character": "Character or person", "product_or_packaging": "Product or packaging", "additional_logo_or_seal": "Additional logo or seal", "required_object_or_scene": "Required object or scene", "graphic_or_texture": "Graphic or texture", "style_reference": "Style reference" },

@@ -602,6 +602,7 @@
         "continuePlan": "Continuar para revisar o plano",
         "placeholder": "Ex.: crie uma campanha de matrículas com tom acolhedor...",
         "addArt": "Adicionar arte",
+        "progressiveAddArtReference": "Adicionar arte ou referência",
         "pieceReferences": {
           "title": "Referências desta peça", "count": "{count} de 3 anexos", "add": "Adicionar referência", "limit": "Limite de 3 atingido", "uploading": "Enviando referência", "replace": "Substituir", "remove": "Remover", "retry": "Tentar novamente", "promote": "Salvar no treinamento da marca", "promoted": "Salvo no treinamento", "promotionFailed": "Não foi possível salvar no treinamento", "category": "Tipo", "choose": "Escolha um tipo", "instruction": "Como usar nesta arte?", "analyzing": "Analisando referência", "choiceRequired": "Escolha um tipo para continuar", "exactIncompatible": "Logo ou selo sem transparência utilizável", "ready": "Referência pronta", "failed": "Falha na análise",
           "categories": { "person_or_character": "Personagem ou pessoa", "product_or_packaging": "Produto ou embalagem", "additional_logo_or_seal": "Logo ou selo adicional", "required_object_or_scene": "Objeto ou cenário obrigatório", "graphic_or_texture": "Grafismo ou textura", "style_reference": "Referência de estilo" },
