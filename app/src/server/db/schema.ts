@@ -2610,6 +2610,10 @@ export const creativeWorkItems = adscaleSchema.table(
     identitySnapshot: jsonb("identity_snapshot").$type<
       import("../creative-work/contracts").CreativeWorkIdentitySnapshot
     >(),
+    carouselApprovedRevision: text("carousel_approved_revision"),
+    carouselQuality: jsonb("carousel_quality").$type<
+      import("../creative-work/carousel-contracts").CarouselDeckQualityV1 | null
+    >(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
@@ -2622,6 +2626,7 @@ export const creativeWorkItems = adscaleSchema.table(
     uniqueIndex("creative_work_items_draft_key_uq")
       .on(table.workspaceId, table.createdByUserId, table.draftKey)
       .where(sql`${table.draftKey} is not null`),
+    uniqueIndex("creative_work_items_id_workspace_uq").on(table.id, table.workspaceId),
     check(
       "creative_work_items_tool_kind_check",
       sql`${table.toolKind} in ('social_post','variations','single','format_adaptation','restyle')`
@@ -2778,3 +2783,110 @@ export const creativeWorkOutputs = adscaleSchema.table(
 
 export type CreativeWorkOutput = typeof creativeWorkOutputs.$inferSelect;
 export type NewCreativeWorkOutput = typeof creativeWorkOutputs.$inferInsert;
+
+export const creativeWorkCarouselSlides = adscaleSchema.table(
+  "creative_work_carousel_slides",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    workItemId: uuid("work_item_id").notNull(),
+    lineageId: uuid("lineage_id").notNull(),
+    parentSlideId: uuid("parent_slide_id"),
+    versionNumber: integer("version_number").notNull(),
+    deckRevision: text("deck_revision").notNull(),
+    position: integer("position").notNull(),
+    role: text("role")
+      .notNull()
+      .$type<import("../creative-work/carousel-contracts").CarouselNarrativeRole>(),
+    primaryText: text("primary_text").notNull(),
+    secondaryText: text("secondary_text"),
+    copyAuthority: text("copy_authority")
+      .notNull()
+      .$type<import("../creative-work/carousel-contracts").CarouselCopyAuthority>(),
+    sourceFactIds: jsonb("source_fact_ids")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    layoutFamily: text("layout_family")
+      .notNull()
+      .$type<import("../creative-work/carousel-contracts").CarouselLayoutFamily>(),
+    status: text("status")
+      .notNull()
+      .default("draft")
+      .$type<import("../creative-work/carousel-contracts").CarouselSlideStatus>(),
+    providerBaseKey: text("provider_base_key"),
+    outputKey: text("output_key"),
+    previewKey: text("preview_key"),
+    visualContractHash: text("visual_contract_hash").notNull(),
+    anchorKey: text("anchor_key"),
+    generationOperationKey: text("generation_operation_key").notNull(),
+    errorCode: text("error_code"),
+    quality: jsonb("quality"),
+    isCurrent: boolean("is_current").notNull().default(true),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    queuedAt: timestamp("queued_at", { mode: "date" }),
+    terminalAt: timestamp("terminal_at", { mode: "date" }),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("creative_work_carousel_slides_scope_idx").on(
+      table.workspaceId,
+      table.workItemId
+    ),
+    uniqueIndex("creative_work_carousel_slides_current_uq")
+      .on(table.workItemId, table.lineageId, table.position)
+      .where(sql`${table.isCurrent} = true`),
+    uniqueIndex("creative_work_carousel_slides_version_uq").on(
+      table.workItemId,
+      table.lineageId,
+      table.versionNumber
+    ),
+    uniqueIndex("creative_work_carousel_slides_operation_uq").on(
+      table.workItemId,
+      table.generationOperationKey
+    ),
+    check(
+      "creative_work_carousel_slides_status_check",
+      sql`${table.status} in ('draft','queued','processing','completed','failed')`
+    ),
+    check(
+      "creative_work_carousel_slides_role_check",
+      sql`${table.role} in ('hook','context','problem','argument','evidence','method','bridge','closing','cta')`
+    ),
+    check(
+      "creative_work_carousel_slides_copy_authority_check",
+      sql`${table.copyAuthority} in ('user_input','ai_proposal','human_edit')`
+    ),
+    check(
+      "creative_work_carousel_slides_layout_family_check",
+      sql`${table.layoutFamily} in ('impact','development','respite')`
+    ),
+    check(
+      "creative_work_carousel_slides_version_positive_check",
+      sql`${table.versionNumber} > 0`
+    ),
+    check(
+      "creative_work_carousel_slides_position_positive_check",
+      sql`${table.position} > 0`
+    ),
+    check(
+      "creative_work_carousel_slides_parent_self_check",
+      sql`${table.parentSlideId} is null or ${table.parentSlideId} <> ${table.id}`
+    ),
+    foreignKey({
+      name: "creative_work_carousel_slides_work_item_fk",
+      columns: [table.workItemId, table.workspaceId],
+      foreignColumns: [creativeWorkItems.id, creativeWorkItems.workspaceId],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "creative_work_carousel_slides_parent_fk",
+      columns: [table.parentSlideId],
+      foreignColumns: [table.id],
+    }).onDelete("cascade"),
+  ]
+);
+
+export type CreativeWorkCarouselSlide = typeof creativeWorkCarouselSlides.$inferSelect;
+export type NewCreativeWorkCarouselSlide = typeof creativeWorkCarouselSlides.$inferInsert;
