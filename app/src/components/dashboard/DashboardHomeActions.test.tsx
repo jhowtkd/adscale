@@ -401,9 +401,10 @@ describe("DashboardHomeActions", () => {
     render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
     expect(screen.getAllByRole("heading", { name: "dashboard.home.progressiveTitle" })).toHaveLength(2);
     expect(screen.queryByRole("button", { name: /dashboard.home.variations/i })).not.toBeInTheDocument();
+    expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "dashboard.home.composer.requestLabel" }), { target: { value: "Uma campanha" } });
     expect(protocolButton("variations")).toBeInTheDocument();
-    expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
+    expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
   });
 
   it("accepts dropped multiple files and announces the buffered first file", () => {
@@ -445,7 +446,7 @@ describe("DashboardHomeActions", () => {
     render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
     expect(screen.getAllByRole("heading", { name: "dashboard.home.progressiveTitle" })[0]?.closest("div.mx-auto")).toHaveClass("max-w-4xl");
     expect(screen.queryByRole("group", { name: "dashboard.home.studioModeLabel" })).not.toBeInTheDocument();
-    expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
+    expect(screen.getByTestId("brand-inspirations-slot").closest("div.mx-auto")).toHaveClass("max-w-4xl");
   });
 
   it("keeps Single piece references enabled in progressive configuration", () => {

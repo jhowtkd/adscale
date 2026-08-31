@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
 .global-error-page {
-  --canvas: oklch(0.15 0.008 145);
-  --text-primary: oklch(0.96 0.006 145);
-  --text-muted: oklch(0.7 0.008 145);
-  --text-on-accent: oklch(0.16 0.02 145);
-  --accent-primary: oklch(0.66 0.2 145);
+  --canvas: oklch(0.145 0.004 260);
+  --text-primary: oklch(0.96 0.005 260);
+  --text-muted: oklch(0.62 0.005 260);
+  --text-on-accent: oklch(0.16 0.01 260);
+  --accent-primary: oklch(0.93 0.012 90);
   margin: 0;
   min-height: 100vh;
   display: flex;
@@ -187,22 +187,22 @@
   --layer-skip-link: 100;
 
   /* Canonical light theme */
-  --canvas: oklch(0.965 0.006 145);
-  --surface-base: oklch(0.992 0.004 145);
-  --surface-raised: oklch(0.955 0.007 145);
-  --surface-inset: oklch(0.945 0.007 145);
-  --surface-overlay: oklch(0.995 0.003 145);
-  --text-primary: oklch(0.18 0.012 145);
-  --text-secondary: oklch(0.38 0.012 145);
-  --text-muted: oklch(0.46 0.01 145);
-  --text-disabled: oklch(0.63 0.008 145);
-  --text-on-accent: oklch(0.16 0.02 145);
-  --border-subtle: oklch(0.18 0.012 145 / 0.06);
-  --border-default: oklch(0.18 0.012 145 / 0.12);
-  --border-strong: oklch(0.18 0.012 145 / 0.22);
-  --focus-ring: oklch(0.52 0.012 145 / 0.45);
-  --accent-primary: oklch(0.62 0.21 145);
-  --accent-primary-hover: oklch(0.68 0.23 145);
+  --canvas: oklch(0.965 0.004 260);
+  --surface-base: oklch(0.992 0.003 260);
+  --surface-raised: oklch(0.955 0.004 260);
+  --surface-inset: oklch(0.945 0.004 260);
+  --surface-overlay: oklch(0.995 0.003 260);
+  --text-primary: oklch(0.18 0.012 260);
+  --text-secondary: oklch(0.38 0.01 260);
+  --text-muted: oklch(0.46 0.008 260);
+  --text-disabled: oklch(0.63 0.006 260);
+  --text-on-accent: oklch(0.98 0.005 260);
+  --border-subtle: oklch(0.18 0.012 260 / 0.06);
+  --border-default: oklch(0.18 0.012 260 / 0.12);
+  --border-strong: oklch(0.18 0.012 260 / 0.22);
+  --focus-ring: oklch(0.32 0.02 260 / 0.45);
+  --accent-primary: oklch(0.32 0.025 260);
+  --accent-primary-hover: oklch(0.28 0.02 260);
   --accent-primary-subtle: var(--neutral-bg);
   --accent-primary-text: var(--text-secondary);
   --action-primary-bg: var(--accent-primary);
@@ -214,10 +214,10 @@
   --active-navigation-bg: var(--neutral-bg);
   --active-navigation-text: var(--text-primary);
   --utility-icon: var(--text-muted);
-  --neutral-bg: oklch(0.58 0.01 145 / 0.12);
-  --neutral-border: oklch(0.52 0.01 145 / 0.24);
-  --neutral-text: oklch(0.34 0.01 145);
-  --neutral-dot: oklch(0.48 0.01 145);
+  --neutral-bg: oklch(0.38 0.01 260 / 0.12);
+  --neutral-border: oklch(0.32 0.01 260 / 0.24);
+  --neutral-text: oklch(0.34 0.012 260);
+  --neutral-dot: oklch(0.48 0.01 260);
   --success-bg: oklch(0.62 0.13 145 / 0.12);
   --success-border: oklch(0.54 0.12 145 / 0.28);
   --success-text: oklch(0.4 0.12 145);
@@ -280,17 +280,17 @@
   --status-failed-dot: var(--danger-dot);
   --gradient-progress: linear-gradient(
     90deg,
-    oklch(0.78 0.006 145),
-    oklch(0.66 0.008 145)
+    oklch(0.78 0.006 260),
+    oklch(0.66 0.008 260)
   );
   --gradient-hero: linear-gradient(
     180deg,
-    oklch(0.96 0.004 145),
-    oklch(0.91 0.006 145)
+    oklch(0.96 0.004 260),
+    oklch(0.91 0.006 260)
   );
   --gradient-hero-radial: radial-gradient(
     circle at 80% 20%,
-    oklch(0.88 0.006 145 / 0.55),
+    oklch(0.88 0.006 260 / 0.55),
     transparent 60%
   );
 
@@ -308,23 +308,23 @@
    ============================================ */
 
 .dark {
-  /* Canonical dark theme */
-  --canvas: oklch(0.15 0.008 145);
-  --surface-base: oklch(0.18 0.009 145);
-  --surface-raised: oklch(0.22 0.01 145);
-  --surface-inset: oklch(0.13 0.007 145);
-  --surface-overlay: oklch(0.2 0.01 145);
-  --text-primary: oklch(0.96 0.006 145);
-  --text-secondary: oklch(0.72 0.008 145);
-  --text-muted: oklch(0.66 0.01 145);
-  --text-disabled: oklch(0.48 0.009 145);
-  --text-on-accent: oklch(0.13 0.02 145);
-  --border-subtle: oklch(0.96 0.006 145 / 0.06);
-  --border-default: oklch(0.96 0.006 145 / 0.1);
-  --border-strong: oklch(0.96 0.006 145 / 0.2);
-  --focus-ring: oklch(0.72 0.01 145 / 0.45);
-  --accent-primary: oklch(0.78 0.22 145);
-  --accent-primary-hover: oklch(0.84 0.2 145);
+  /* Canonical dark theme — Neutral Cinema (hue 260, ivory accent) */
+  --canvas: oklch(0.145 0.004 260);
+  --surface-base: oklch(0.175 0.004 260);
+  --surface-raised: oklch(0.21 0.005 260);
+  --surface-inset: oklch(0.12 0.003 260);
+  --surface-overlay: oklch(0.19 0.004 260);
+  --text-primary: oklch(0.96 0.005 260);
+  --text-secondary: oklch(0.72 0.006 260);
+  --text-muted: oklch(0.62 0.005 260);
+  --text-disabled: oklch(0.48 0.006 260);
+  --text-on-accent: oklch(0.16 0.01 260);
+  --border-subtle: oklch(0.96 0.005 260 / 0.06);
+  --border-default: oklch(0.96 0.005 260 / 0.1);
+  --border-strong: oklch(0.96 0.005 260 / 0.2);
+  --focus-ring: oklch(0.78 0.01 260 / 0.45);
+  --accent-primary: oklch(0.93 0.012 90);
+  --accent-primary-hover: oklch(0.96 0.01 90);
   --accent-primary-subtle: var(--neutral-bg);
   --accent-primary-text: var(--text-secondary);
   --action-primary-bg: var(--accent-primary);
@@ -336,10 +336,10 @@
   --active-navigation-bg: var(--neutral-bg);
   --active-navigation-text: var(--text-primary);
   --utility-icon: var(--text-muted);
-  --neutral-bg: oklch(0.72 0.01 145 / 0.12);
-  --neutral-border: oklch(0.72 0.01 145 / 0.24);
-  --neutral-text: oklch(0.78 0.01 145);
-  --neutral-dot: oklch(0.64 0.01 145);
+  --neutral-bg: oklch(0.72 0.01 260 / 0.12);
+  --neutral-border: oklch(0.72 0.01 260 / 0.24);
+  --neutral-text: oklch(0.78 0.01 260);
+  --neutral-dot: oklch(0.64 0.01 260);
   --success-bg: oklch(0.7 0.14 145 / 0.14);
   --success-border: oklch(0.7 0.14 145 / 0.3);
   --success-text: oklch(0.76 0.13 145);
@@ -359,17 +359,17 @@
 
   --gradient-progress: linear-gradient(
     90deg,
-    oklch(0.38 0.008 145),
-    oklch(0.3 0.01 145)
+    oklch(0.38 0.008 260),
+    oklch(0.3 0.01 260)
   );
   --gradient-hero: linear-gradient(
     180deg,
-    oklch(0.22 0.01 145),
-    oklch(0.17 0.009 145)
+    oklch(0.22 0.01 260),
+    oklch(0.17 0.009 260)
   );
   --gradient-hero-radial: radial-gradient(
     circle at 80% 20%,
-    oklch(0.32 0.01 145 / 0.45),
+    oklch(0.32 0.01 260 / 0.45),
     transparent 60%
   );
 
