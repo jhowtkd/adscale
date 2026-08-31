@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowRight, ImageIcon, Plus } from "lucide-react";
+import { ArrowRight, ImageIcon, Paperclip, Plus } from "lucide-react";
 import { AccessGatePanel } from "@/components/billing/AccessGatePanel";
 import { CreativeComposer } from "@/components/creative-work/CreativeComposer";
 import { CreativeToolCards } from "@/components/creative-work/CreativeToolCards";
 import { BrandInspirations } from "@/components/creative-work/BrandInspirations";
+import { CreativePlanReview } from "@/components/creative-work/CreativePlanReview";
 import { useCreativeComposer, type ComposerIntent } from "@/components/creative-work/useCreativeComposer";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { resolveContinueWork, type ContinueWorkTarget } from "@/lib/dashboard/resolve-continue-work";
@@ -53,6 +54,13 @@ function ContinueWorkCard({
   const t = useTranslations("dashboard.home");
   const creativeWorkId = target.originKind === "creative_work" ? target.originId : null;
   const { data } = useCreativeWork(creativeWorkId);
+  const nextAction = data?.preparedPlan
+    ? t("continueReviewPlan")
+    : target.state === "generating"
+      ? t("continueTrackGeneration")
+      : target.state === "reviewing"
+        ? t("continueReviewPieces")
+        : t("continueConfigure");
 
   return (
     <Link
@@ -70,7 +78,7 @@ function ContinueWorkCard({
           <span aria-hidden="true">·</span>
           <span>{t("continueBrand", { name: brandName })}</span>
           <span aria-hidden="true">·</span>
-          <span>{t(`continueStates.${target.state}`)}</span>
+          <span>{nextAction}</span>
         </span>
       </span>
       <ContinueWorkThumbnail outputs={data?.outputs ?? []} />
@@ -121,6 +129,7 @@ export default function DashboardHomeActions({
     ...(freshEntry ? { freshEntry: true } : {}),
   });
   const continueTarget = useMemo(() => resolveContinueWork(works), [works]);
+  const [editingPreparedPlan, setEditingPreparedPlan] = useState(false);
   // The composer owns protocol switching, including a deferred switch that is
   // later cancelled. Deriving this keeps the visual mode on the same state.
   const mode: StudioMode = composer.intent === "single" ? "briefing" : "arte";
@@ -137,6 +146,32 @@ export default function DashboardHomeActions({
         <button type="button" onClick={() => void refetch()} className="rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-5 py-2.5 text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]">
           {t("retry")}
         </button>
+      </div>
+    );
+  }
+
+  if (rolloutVariant === "progressive") {
+    const showObjectives = composer.hasEntry && !composer.objectiveSelected;
+    const showPlan = composer.stage === "plan" && composer.preparedPlan && !editingPreparedPlan;
+    return (
+      <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6 lg:py-12">
+        <AccessGatePanel />
+        <header className="flex items-end justify-between border-b border-[var(--border-subtle)] pb-5">
+          <div><p className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("studioLabel")}</p><h1 className="mt-1 product-page-title text-[var(--text-primary)]">{t("progressiveTitle")}</h1></div>
+          <ActiveBrandSwitcher id="active-client-switcher-home" className="w-56" />
+        </header>
+        {isLoading && works.length === 0 ? <div className="h-16 animate-pulse rounded-[var(--radius-control)] bg-[var(--surface-raised)]" /> : continueTarget.kind === "work" ? <ContinueWorkCard target={continueTarget} brandName={continueTarget.brandName ?? t("continueBrandUnknown")} /> : null}
+        {!composer.objectiveSelected ? (
+          <section className="space-y-3 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-5" aria-labelledby="progressive-entry-title">
+            <h2 id="progressive-entry-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("progressiveTitle")}</h2>
+            <p className="text-sm text-[var(--text-secondary)]">{t("progressiveSubtitle")}</p>
+            <textarea id="creative-composer-request" aria-label={t("composer.requestLabel")} value={composer.request} onChange={(event) => composer.setRequest(event.target.value)} rows={4} className="w-full resize-y rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] p-3 text-sm" />
+            <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-[var(--text-secondary)]"><Paperclip size={16} aria-hidden="true" />{t("composer.addArt")}<input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void composer.addFiles(event.target.files)} /></label>
+          </section>
+        ) : null}
+        {showObjectives ? <section aria-labelledby="progressive-objective-title" className="space-y-3"><h2 id="progressive-objective-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("chooseObjective")}</h2><CreativeToolCards selected={null} onSelect={composer.selectIntent} /></section> : null}
+        {composer.objectiveSelected && !showPlan ? <CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" hideSourceUpload={composer.intent === "single"} /> : null}
+        {showPlan ? <CreativePlanReview plan={composer.preparedPlan!} busy={composer.actionPhase !== "idle"} onEdit={() => setEditingPreparedPlan(true)} onConfirm={(revision) => composer.confirmGeneration(revision)} /> : null}
       </div>
     );
   }

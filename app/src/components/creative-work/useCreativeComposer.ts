@@ -333,6 +333,7 @@ export function useCreativeComposer({
   const campaignQuery = useCreativeWorkCampaigns(Boolean(detailQuery.data?.outputs.length));
   const { recordEvent } = useRecordBetaEvent(undefined, { includeBetaSession: false });
   const canonicalEventsRef = useRef(new Set<string>());
+  const shownPreparedRevisionRef = useRef<string | null>(null);
 
   const recordStudioEvent = useCallback((eventKey: string, properties: Record<string, string | number | boolean> = {}) => {
     if (!workspaceId || !studioSessionId) return;
@@ -1466,6 +1467,11 @@ export function useCreativeComposer({
   const objectiveSelected = objective !== null;
   const preparedPlan = detail?.preparedPlan ?? null;
   const stage = projectComposerStage({ objectiveSelected, detail: detail ?? null });
+  useEffect(() => {
+    if (workflowVariant !== "progressive" || stage !== "plan" || !preparedPlan || shownPreparedRevisionRef.current === preparedPlan.preparedRevision) return;
+    shownPreparedRevisionRef.current = preparedPlan.preparedRevision;
+    recordStudioEvent("studio_plan_shown", { creativeWorkId: preparedPlan.workId });
+  }, [preparedPlan, recordStudioEvent, stage, workflowVariant]);
   const state = useMemo<ComposerState>(() => {
     if (generateMutation.isPending || detail?.work.status === "generating") return "generating";
     if (detail && (detail.outputs.length > 0 || ["partial", "completed", "failed"].includes(detail.work.status))) return "results";

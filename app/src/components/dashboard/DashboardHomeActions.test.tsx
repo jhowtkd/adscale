@@ -116,7 +116,7 @@ describe("DashboardHomeActions", () => {
     expect(continueLink).toHaveAttribute("href", "/creative-work/w1");
     expect(continueLink).toHaveTextContent("Criação avulsa");
     expect(continueLink).toHaveTextContent("Marca Marca A");
-    expect(continueLink).toHaveTextContent("Gerando");
+    expect(continueLink).toHaveTextContent("dashboard.home.continueTrackGeneration");
     expect(screen.getByRole("link", { name: "Nova campanha" })).toHaveAttribute("href", "/campaigns/new");
     expect(screen.getAllByRole("button").filter((button) => button.hasAttribute("aria-pressed"))).toHaveLength(6);
     expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
@@ -324,5 +324,24 @@ describe("DashboardHomeActions", () => {
     render(<DashboardHomeActions workId="work-from-p2" />);
 
     expect(screen.getByRole("button", { name: "Inspirações p2" })).toBeInTheDocument();
+  });
+
+  it("keeps progressive entry free and only reveals objectives after input", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockImplementation(() => {
+      const [request, setRequest] = useState("");
+      return {
+        request, setRequest, hasEntry: Boolean(request), objectiveSelected: false, intent: "variations",
+        stage: "entry", preparedPlan: null, actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 1, credits: 5 },
+        addFiles: vi.fn(), selectIntent: selectIntentMock,
+      };
+    });
+
+    render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
+    expect(screen.getAllByRole("heading", { name: "dashboard.home.progressiveTitle" })).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: /dashboard.home.variations/i })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "dashboard.home.composer.requestLabel" }), { target: { value: "Uma campanha" } });
+    expect(protocolButton("variations")).toBeInTheDocument();
+    expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
   });
 });

@@ -497,6 +497,10 @@
       "continueOriginCreativeWork": "Standalone creation",
       "continueBrand": "Brand {name}",
       "continueBrandUnknown": "unknown",
+      "continueReviewPlan": "Review plan",
+      "continueConfigure": "Continue configuration",
+      "continueTrackGeneration": "Track generation",
+      "continueReviewPieces": "Review pieces",
       "continueStates": {
         "intending": "Planning",
         "briefing": "Briefing",
@@ -511,6 +515,19 @@
       "firstCreationTitle": "First experiment",
       "firstCreationPrompt": "Put the first creative hypothesis to work for",
       "brandInspirations": "Brand inspirations",
+      "progressiveTitle": "What do you want to create?",
+      "progressiveSubtitle": "Describe it freely or attach a reference. Then choose the kind of creation.",
+      "chooseObjective": "Choose an objective to continue",
+      "planReview": {
+        "eyebrow": "Prepared plan", "title": "Review your plan", "subtitle": "Generation starts only after your confirmation.",
+        "objective": "Objective", "materials": "Materials", "preserveTitle": "Preserve", "exploreTitle": "Explore", "format": "Format", "quantity": "Quantity", "pieces": "{count} pieces", "none": "No materials",
+        "edit": "Edit plan", "confirm": "Confirm and generate", "confirming": "Confirming",
+        "protocol": { "variations": "Variations", "single": "Single piece", "formatAdaptation": "Adapt formats", "restyle": "New style" },
+        "roles": { "content": "content", "style": "style", "both": "content and style", "piece_reference": "piece reference", "original_art": "original artwork" },
+        "treatment": { "identity_preservation": "preserve identity", "recognizable_preservation": "preserve recognizability", "exact_application": "exact application", "required_presence": "required presence", "visual_language": "visual language", "style_direction": "style direction" },
+        "preserve": { "verified_facts": "verified facts", "brand_requirements": "brand requirements", "source_content": "source content", "source_visual_identity": "visual identity", "piece_reference_identity": "reference identity", "piece_reference_recognizability": "reference recognizability", "piece_reference_exact_application": "exact application", "piece_reference_required_presence": "required presence" },
+        "explore": { "composition": "composition", "hierarchy": "hierarchy", "visual_language": "visual language", "format_layout": "format layout", "new_execution": "new execution", "piece_reference_visual_language": "reference visual language", "piece_reference_style_direction": "reference style direction" }
+      },
       "composer": {
         "title": "Which creative hypothesis should we test?",
         "subtitle": "Describe the direction or add an image; the lab structures the rest.",
@@ -526,6 +543,7 @@
         "invalidWork": "Work not found or unavailable.",
         "startNew": "Start a new creation",
         "requestLabel": "Creative request",
+        "continuePlan": "Continue to plan review",
         "placeholder": "E.g. create an enrollment campaign with a warm tone...",
         "addArt": "Add image",
         "pieceReferences": {

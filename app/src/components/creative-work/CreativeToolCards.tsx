@@ -14,8 +14,8 @@ const TOOLS = [
 ] as const;
 
 export function CreativeToolCards({ selected, onSelect, headerAction }: {
-  selected: ComposerIntent;
-  onSelect: (intent: ComposerIntent) => void;
+  selected: ComposerIntent | null;
+  onSelect: (intent: ComposerIntent) => void | Promise<void>;
   headerAction?: ReactNode;
 }) {
   const t = useTranslations("dashboard.home.tools");
@@ -33,9 +33,12 @@ export function CreativeToolCards({ selected, onSelect, headerAction }: {
             key={id}
             type="button"
             aria-pressed={selected === id}
-            onClick={() => onSelect(id)}
+            onClick={() => {
+              void onSelect(id);
+              requestAnimationFrame(() => document.getElementById("creative-composer-request")?.focus());
+            }}
             className={cn(
-              "group flex min-h-32 w-full flex-col rounded-[var(--radius-object)] border p-4 text-left transition-colors",
+              "group flex min-h-28 w-full flex-col rounded-[var(--radius-object)] border p-3 text-left transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
               selected === id
                 ? "border-[var(--selection-border)] bg-[var(--selection-bg)] ring-1 ring-inset ring-[var(--selection-border)]"

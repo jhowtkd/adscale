@@ -28,4 +28,10 @@ describe("CreativeToolCards", () => {
     expect(onSelect).toHaveBeenCalledWith("single");
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
+
+  it("accepts free entry before an objective is selected", () => {
+    render(<CreativeToolCards selected={null} onSelect={vi.fn()} />);
+
+    expect(screen.getAllByRole("button", { pressed: false })).toHaveLength(4);
+  });
 });

@@ -17,12 +17,13 @@ import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCrea
 
 const FORMATS = ["1:1", "4:5", "9:16"] as const;
 
-export function CreativeComposer({ composer, composerRef, hideSourceUpload = false, layout = "studio" }: {
+export function CreativeComposer({ composer, composerRef, hideSourceUpload = false, layout = "studio", workflowVariant = "control" }: {
   composer: CreativeComposerViewModel;
   composerRef: CreativeComposerModel["composerRef"];
   /** Briefing-first entry keeps the canonical request but omits source upload. */
   hideSourceUpload?: boolean;
   layout?: "studio" | "piece";
+  workflowVariant?: "control" | "progressive";
 }) {
   const t = useTranslations("dashboard.home.composer");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -766,7 +767,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           type="button"
           aria-busy={Boolean(pendingLabel)}
           disabled={!composer.canGenerate || Boolean(pendingLabel)}
-          onClick={() => void composer.generateLegacy()}
+          onClick={() => void (workflowVariant === "progressive" ? composer.preparePlan() : composer.generateLegacy())}
           className={cn(
             "inline-flex min-h-[var(--control-touch)] w-full items-center justify-center gap-2 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] sm:w-auto",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
@@ -776,7 +777,9 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           {pendingLabel ?? (
             <AnimatedDisplayValue
               value={
-                isRestyle
+                workflowVariant === "progressive"
+                  ? t("continuePlan")
+                  : isRestyle
                   ? t("generateRestyle")
                   : t("generate", {
                       count: composer.quote.unitCount,
