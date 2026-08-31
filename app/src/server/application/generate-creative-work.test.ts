@@ -8,6 +8,7 @@ const confirmSnapshots = vi.hoisted(() => vi.fn());
 const setLegacySnapshot = vi.hoisted(() => vi.fn());
 const getSourceAssets = vi.hoisted(() => vi.fn());
 const reservePreparedOutputs = vi.hoisted(() => vi.fn());
+const reserveGenerationOutputs = vi.hoisted(() => vi.fn());
 const charge = vi.hoisted(() => vi.fn());
 const createOutputs = vi.hoisted(() => vi.fn());
 const deleteOutputs = vi.hoisted(() => vi.fn());
@@ -30,6 +31,7 @@ vi.mock("@/server/repositories/creative-work", () => ({
   setCreativeWorkInputSnapshotIfMissing: setLegacySnapshot,
   getCreativeWorkSourceAssetDetails: getSourceAssets,
   reservePreparedCreativeWorkOutputsIfCurrent: reservePreparedOutputs,
+  reserveCreativeWorkGenerationOutputs: reserveGenerationOutputs,
   withCreativeWorkPreparationLock: vi.fn(async (_ws, _id, callback) => callback({})),
   createPlannedCreativeWorkOutputs: createOutputs,
   deleteQueuedCreativeWorkOutputs: deleteOutputs,
@@ -98,6 +100,10 @@ describe("generateCreativeWork", () => {
     });
     charge.mockResolvedValue({ ok: true, creditsSpent: 15 });
     createOutputs.mockResolvedValue({ outputs: rows, newlyCreatedIds: rows.map((row) => row.id) });
+    reserveGenerationOutputs.mockImplementation(async (input) => {
+      const created = await createOutputs("ws-1", "work-1", input.plans);
+      return { work: { ...preparedWork, status: "ready", identitySnapshot }, ...created };
+    });
     send.mockResolvedValue(undefined);
     setStatus.mockResolvedValue({ ...preparedWork, status: "generating", identitySnapshot });
     failOutput.mockResolvedValue(null);
@@ -122,13 +128,15 @@ describe("generateCreativeWork", () => {
       format: preparedWork.format,
       includePublishedBrandKnowledge: false,
     });
-    expect(confirmSnapshots).toHaveBeenCalledWith("ws-1", "work-1", expect.anything(), preparedWork.inputSnapshot, identitySnapshot, expect.anything());
+    expect(reserveGenerationOutputs).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "ws-1", workItemId: "work-1", identitySnapshot,
+    }));
     expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 3, chargeAmount: 150, unitChargeAmount: 50, billingKey: "creative-work:work-1:initial" }), expect.anything());
-    expect(createOutputs).toHaveBeenCalledWith("ws-1", "work-1", [
+    expect(reserveGenerationOutputs).toHaveBeenCalledWith(expect.objectContaining({ plans: [
       { creativeLevel: "conservative", targetFormat: "4:5", versionNumber: 1 },
       { creativeLevel: "balanced", targetFormat: "4:5", versionNumber: 1 },
       { creativeLevel: "bold", targetFormat: "4:5", versionNumber: 1 },
-    ]);
+    ] }));
     expect(send).toHaveBeenCalledWith(rows.map((row) => ({
       id: `creative-work-generate:${row.id}`,
       name: "creative-work.generate",
@@ -151,6 +159,11 @@ describe("generateCreativeWork", () => {
     getWork.mockResolvedValue({ work: correlatedWork, outputs: [], sources: [] });
     confirmSnapshots.mockResolvedValue({ ...correlatedPreparedWork, status: "ready", identitySnapshot });
     createOutputs.mockResolvedValue({ outputs: correlatedRows, newlyCreatedIds: correlatedRows.map((row) => row.id) });
+    reserveGenerationOutputs.mockResolvedValue({
+      work: { ...correlatedPreparedWork, status: "ready", identitySnapshot },
+      outputs: correlatedRows,
+      newlyCreatedIds: correlatedRows.map((row) => row.id),
+    });
 
     await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
 
@@ -270,10 +283,10 @@ describe("generateCreativeWork", () => {
 
     await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
 
-    expect(createOutputs).toHaveBeenCalledWith("ws-1", "work-1", [
+    expect(reserveGenerationOutputs).toHaveBeenCalledWith(expect.objectContaining({ plans: [
       { creativeLevel: "balanced", targetFormat: "1:1", versionNumber: 1 },
       { creativeLevel: "balanced", targetFormat: "9:16", versionNumber: 1 },
-    ]);
+    ] }));
     expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 2, chargeAmount: 100 }), expect.anything());
   });
 
@@ -296,7 +309,7 @@ describe("generateCreativeWork", () => {
 
     await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
 
-    expect(createOutputs).toHaveBeenCalledWith("ws-1", "work-1", [
+    expect(reserveGenerationOutputs).toHaveBeenCalledWith(expect.objectContaining({ plans: [
       {
         creativeLevel: "balanced",
         targetFormat: "4:5",
@@ -304,7 +317,7 @@ describe("generateCreativeWork", () => {
         directionId: "00000000-0000-4000-8000-0000000000d2",
         directionSnapshot: { label: "B", instruction: "B instruction", order: 1, safetyBand: "experimental" },
       },
-    ]);
+    ] }));
     expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 1, chargeAmount: 50 }), expect.anything());
   });
 
@@ -346,7 +359,7 @@ describe("generateCreativeWork", () => {
   it("revalidates a ready retry under the reservation lock when an edit reopens it", async () => {
     const ready = { ...preparedWork, status: "ready" as const, identitySnapshot };
     getWork.mockResolvedValueOnce({ work: ready, outputs: [], sources: [] });
-    reservePreparedOutputs.mockResolvedValueOnce(null);
+    reserveGenerationOutputs.mockResolvedValueOnce(null);
 
     const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
 
@@ -357,7 +370,7 @@ describe("generateCreativeWork", () => {
   });
 
   it("does not freeze a stale prepared snapshot after concurrent autosave", async () => {
-    confirmSnapshots.mockResolvedValue(null);
+    reserveGenerationOutputs.mockResolvedValueOnce(null);
     const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
     expect(result).toMatchObject({ ok: false, error: { code: "stale_input" } });
     expect(charge).not.toHaveBeenCalled();
@@ -383,11 +396,11 @@ describe("generateCreativeWork", () => {
     getWork.mockResolvedValue({ work: { ...preparedWork, status: "ready", identitySnapshot, inputSnapshot: null }, outputs: [], sources: [] });
     const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
     expect(result.ok).toBe(true);
-    expect(setLegacySnapshot).toHaveBeenCalledWith("ws-1", "work-1", expect.objectContaining({
+    expect(reserveGenerationOutputs).toHaveBeenCalledWith(expect.objectContaining({ legacyInputSnapshot: expect.objectContaining({
       request: "latest",
       sources: [],
       factPack: expect.objectContaining({ version: 1, request: "latest" }),
-    }));
+    }) }));
     expect(confirmSnapshots).not.toHaveBeenCalled();
     // Rebuilding the missing block never duplicates the charge.
     expect(charge).toHaveBeenCalledOnce();

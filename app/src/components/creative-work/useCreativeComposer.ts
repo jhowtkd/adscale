@@ -663,7 +663,20 @@ export function useCreativeComposer({
   const mutateSource = useCallback(async (action: SourceActionInput) => {
     const expectedUpdatedAt = await resolveCanonicalWorkRevision(action.workItemId);
     if (!expectedUpdatedAt) throw new Error("Recarregue o trabalho antes de alterar a arte.");
-    const result = await sourceMutation.mutateAsync({ ...action, expectedUpdatedAt } as Parameters<typeof sourceMutation.mutateAsync>[0]);
+    let result: Awaited<ReturnType<typeof sourceMutation.mutateAsync>>;
+    try {
+      result = await sourceMutation.mutateAsync({ ...action, expectedUpdatedAt } as Parameters<typeof sourceMutation.mutateAsync>[0]);
+    } catch (cause) {
+      if (isCreativeWorkConflict(cause)) {
+        // Never retain R1 while a refetch races or fails.  A later mutation
+        // must either use the explicitly refreshed R2 or remain blocked.
+        workRevisionRef.current = null;
+        workRevisionWorkIdRef.current = action.workItemId;
+        workRevisionRefreshRequiredRef.current = action.workItemId;
+        try { await refreshCanonicalWorkRevision(action.workItemId); } catch { /* keep blocked */ }
+      }
+      throw cause;
+    }
     // Source responses intentionally expose only the source. Refresh before a
     // later mutation so its CAS token comes from the post-invalidation work.
     try {
@@ -794,6 +807,12 @@ export function useCreativeComposer({
           ? cause.message
           : null;
       if (code === "creativeWorkNotDraft") autosaveBlockedWorkRef.current = id;
+      if (isCreativeWorkConflict(cause)) {
+        workRevisionRef.current = null;
+        workRevisionWorkIdRef.current = id;
+        workRevisionRefreshRequiredRef.current = id;
+        try { await refreshCanonicalWorkRevision(id); } catch { /* keep blocked */ }
+      }
       throw cause;
     }
     lastPersistedRef.current = sentSignature;
@@ -1469,14 +1488,13 @@ export function useCreativeComposer({
         // detail read and retry. The server's 409 is a safe no-op: refresh
         // the canonical source state instead of surfacing "Entrada inválida".
         if (isCreativeWorkConflict(cause)) {
-          await detailQuery.refetch();
           setInferredBriefingContext(null);
           setError(null);
           return;
         }
         setError(cause instanceof Error ? cause.message : "Falha ao atualizar arte");
       });
-  }, [detailQuery, markPlanInputEdited, mutateSource]);
+  }, [markPlanInputEdited, mutateSource]);
   const removeSource = useCallback((sourceId: string) => {
     if (!workIdRef.current) return Promise.resolve();
     return runSourceAction({ workItemId: workIdRef.current, action: "removeSource", sourceId });

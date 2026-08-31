@@ -44,7 +44,6 @@ import { inngest } from "@/server/jobs/client";
 import { updateCampaign } from "@/server/repositories/campaign";
 import {
   createCreativeWorkRevision,
-  createPlannedCreativeWorkOutputs,
   deleteQueuedCreativeWorkOutputs,
   failQueuedCreativeWorkOutput,
   getCreativeWork,
@@ -370,16 +369,7 @@ export function creativeWorkSettlementAdapter(input: {
           newlyCreatedIds: reserved.newlyCreatedIds,
         };
       }
-      const created = await createPlannedCreativeWorkOutputs(
-        input.workspaceId,
-        input.workItemId,
-        input.plans,
-      );
-      return {
-        claimed: created.newlyCreatedIds.length > 0,
-        value: { work: input.readyWork, outputs: created.outputs },
-        newlyCreatedIds: created.newlyCreatedIds,
-      };
+      throw Object.assign(new Error("creative_work_missing_atomic_reservation"), { code: "stale_input" });
     },
     async join() {
       let lastAggregate: Awaited<ReturnType<typeof getCreativeWork>> = null;

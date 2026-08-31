@@ -69,6 +69,7 @@ import {
   autosaveCreativeWorkDraft,
   mutateCreativeWorkPieceReference,
   mutateCreativeWorkDraftSource,
+  isCreativeWorkRevisionConflict,
 } from "@/server/repositories/creative-work";
 import { listCurrentCarouselSlides } from "@/server/repositories/creative-work-carousel";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
@@ -1073,6 +1074,7 @@ export async function PATCH(
       canonical: result.value.canonical,
     });
   } catch (error) {
+    if (isCreativeWorkRevisionConflict(error)) return apiError("stale_input", 409);
     return handleApiError(error, "creative-work.[id].PATCH");
   }
 }

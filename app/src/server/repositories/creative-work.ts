@@ -440,6 +440,18 @@ const pieceReferenceLockScope = (workspaceId: string, workItemId: string) =>
 const workRevisionMatches = (expectedUpdatedAt: Date) =>
   sql`date_trunc('milliseconds', ${creativeWorkItems.updatedAt}) = cast(${expectedUpdatedAt.toISOString()} as timestamp without time zone)`;
 
+export class CreativeWorkRevisionConflict extends Error {
+  readonly code = "stale_input" as const;
+
+  constructor() {
+    super("creative_work_revision_conflict");
+  }
+}
+
+export function isCreativeWorkRevisionConflict(error: unknown): error is CreativeWorkRevisionConflict {
+  return error instanceof CreativeWorkRevisionConflict;
+}
+
 /**
  * Browser edits are bound to the hydrated work revision. A `ready` work can
  * become editable only when it still has no outputs; the final writer repeats
@@ -447,14 +459,19 @@ const workRevisionMatches = (expectedUpdatedAt: Date) =>
  */
 async function editableCreativeWork(
   tx: Pick<typeof db, "select">,
-  input: { workspaceId: string; workItemId: string; expectedUpdatedAt?: Date },
+  input: { workspaceId: string; workItemId: string; expectedUpdatedAt: Date },
 ): Promise<CreativeWorkItem | null | undefined> {
   const [work] = await tx.select().from(creativeWorkItems).where(and(
     eq(creativeWorkItems.workspaceId, input.workspaceId),
     eq(creativeWorkItems.id, input.workItemId),
-    ...(input.expectedUpdatedAt ? [workRevisionMatches(input.expectedUpdatedAt)] : []),
   )).limit(1);
   if (!work) return undefined;
+  // Keep missing work distinct from a stale hydrated revision.
+  // Narrow test projections intentionally omit timestamps; persisted callers
+  // cannot because the public schemas and TypeScript input require the token.
+  if (work.updatedAt && input.expectedUpdatedAt && work.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()) {
+    throw new CreativeWorkRevisionConflict();
+  }
   // Unit fixtures from the pre-CAS contract selected only id/toolKind; a
   // persisted row always has status, and an omitted projection is draft-only.
   if (work.status === undefined || work.status === "draft") return { ...work, status: "draft" as const };
@@ -480,7 +497,7 @@ export type CreativeWorkAutosaveResult =
 export async function autosaveCreativeWorkDraft(input: {
   workspaceId: string;
   workItemId: string;
-  expectedUpdatedAt?: Date;
+  expectedUpdatedAt: Date;
   request: string;
   intent: CreativeWorkIntent;
   format: CreativeWorkFormat;
@@ -581,9 +598,8 @@ export async function autosaveCreativeWorkDraft(input: {
         )),
       )] : []),
     )).returning();
-    return updated
-      ? { work: updated, error: null, sourcesNeedingSingleAnalysis }
-      : { work: null, error: "not_draft", sourcesNeedingSingleAnalysis: [] };
+    if (!updated) throw new CreativeWorkRevisionConflict();
+    return { work: updated, error: null, sourcesNeedingSingleAnalysis };
   });
 }
 
@@ -600,7 +616,7 @@ export type CreativeWorkPieceReferenceMutation =
 export async function mutateCreativeWorkPieceReference(input: {
   workspaceId: string;
   workItemId: string;
-  expectedUpdatedAt?: Date;
+  expectedUpdatedAt: Date;
   sourceId: string;
   mutation: CreativeWorkPieceReferenceMutation;
 }): Promise<CreativeWorkSource | null> {
@@ -670,7 +686,7 @@ export async function mutateCreativeWorkPieceReference(input: {
           )),
         )] : []),
       )).returning();
-      if (!invalidated) throw abort;
+      if (!invalidated) throw new CreativeWorkRevisionConflict();
       return updated;
     });
   } catch (error) {
@@ -914,7 +930,7 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
         )),
       )] : []),
     )).returning();
-    if (!invalidated) return null;
+    if (!invalidated) throw new CreativeWorkRevisionConflict();
     return { source: row, claimedForAnalysis: true };
   });
 }
@@ -933,7 +949,7 @@ export type CreativeWorkDraftSourceMutation =
 export async function mutateCreativeWorkDraftSource(input: {
   workspaceId: string;
   workItemId: string;
-  expectedUpdatedAt?: Date;
+  expectedUpdatedAt: Date;
   sourceId: string;
   mutation: CreativeWorkDraftSourceMutation;
 }): Promise<CreativeWorkSource | null> {
@@ -990,7 +1006,7 @@ export async function mutateCreativeWorkDraftSource(input: {
           )),
         )] : []),
       )).returning();
-      if (!invalidated) throw abort;
+      if (!invalidated) throw new CreativeWorkRevisionConflict();
       return changed;
     });
   } catch (error) {
@@ -1340,6 +1356,64 @@ export async function reservePreparedCreativeWorkOutputsIfCurrent(input: {
       input.plans,
       tx,
     );
+    return { work: aggregate.work, ...created };
+  });
+}
+
+/**
+ * The only initial-generation reservation path.  Preparation confirmation,
+ * legacy snapshot backfill and output reservation share the source/prepare
+ * lock, so none can settle a revision that changed between the first read and
+ * billing.
+ */
+export async function reserveCreativeWorkGenerationOutputs(input: {
+  workspaceId: string;
+  workItemId: string;
+  preparedRevision: Date;
+  plans: CreativeWorkOutputPlan[];
+  identitySnapshot?: CreativeWorkIdentitySnapshot;
+  legacyInputSnapshot?: CreativeWorkInputSnapshot;
+}): Promise<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[]; newlyCreatedIds: string[] } | null> {
+  return withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (tx) => {
+    let aggregate = await getCreativeWork(input.workspaceId, input.workItemId, tx);
+    if (!aggregate || aggregate.outputs.length !== 0 || aggregate.work.updatedAt.getTime() !== input.preparedRevision.getTime()) return null;
+
+    if (aggregate.work.status === "draft") {
+      if (!aggregate.work.brief || !aggregate.work.copy || !aggregate.work.inputSnapshot || !input.identitySnapshot) return null;
+      const [confirmed] = await tx.update(creativeWorkItems).set({
+        identitySnapshot: input.identitySnapshot,
+        status: "ready",
+        updatedAt: new Date(),
+      }).where(and(
+        eq(creativeWorkItems.workspaceId, input.workspaceId),
+        eq(creativeWorkItems.id, input.workItemId),
+        eq(creativeWorkItems.status, "draft"),
+        workRevisionMatches(input.preparedRevision),
+      )).returning();
+      if (!confirmed) return null;
+      aggregate = await getCreativeWork(input.workspaceId, input.workItemId, tx);
+      if (!aggregate) return null;
+    }
+
+    if (aggregate.work.status !== "ready" || !aggregate.work.brief || !aggregate.work.copy || !aggregate.work.identitySnapshot) return null;
+    if (!aggregate.work.inputSnapshot) {
+      if (!input.legacyInputSnapshot) return null;
+      const [backfilled] = await tx.update(creativeWorkItems).set({
+        inputSnapshot: input.legacyInputSnapshot,
+        updatedAt: new Date(),
+      }).where(and(
+        eq(creativeWorkItems.workspaceId, input.workspaceId),
+        eq(creativeWorkItems.id, input.workItemId),
+        eq(creativeWorkItems.status, "ready"),
+        isNull(creativeWorkItems.inputSnapshot),
+      )).returning();
+      if (!backfilled) return null;
+      aggregate = await getCreativeWork(input.workspaceId, input.workItemId, tx);
+      if (!aggregate) return null;
+    }
+
+    if (aggregate.outputs.length !== 0 || aggregate.work.status !== "ready" || !aggregate.work.inputSnapshot || !aggregate.work.identitySnapshot) return null;
+    const created = await createPlannedCreativeWorkOutputs(input.workspaceId, input.workItemId, input.plans, tx);
     return { work: aggregate.work, ...created };
   });
 }

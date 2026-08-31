@@ -520,7 +520,7 @@ describe("creative-work repository", () => {
 
       await expect(autosaveCreativeWorkDraft({
         workspaceId: "ws-1", workItemId: "work-ready", expectedUpdatedAt: new Date("2026-08-31T12:00:00.000Z"), request: "R1", intent: "single", format: "4:5", settings: { targetFormats: [] },
-      })).resolves.toEqual({ work: null, error: "not_draft", sourcesNeedingSingleAnalysis: [] });
+      })).rejects.toMatchObject({ code: "stale_input" });
 
       expect(mocks.txUpdateMock).not.toHaveBeenCalled();
     });

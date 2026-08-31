@@ -8,12 +8,9 @@ import { creativeWorkSettlementAdapter } from "@/server/generation/settlement-ad
 import { startGenerationSettlement } from "@/server/generation/settlement";
 import { getBrandKit } from "@/server/repositories/brand-kit";
 import {
-  confirmCreativeWorkSnapshotsIfUnchanged,
   getCreativeWorkSourceAssetDetails,
   getCreativeWork,
-  reservePreparedCreativeWorkOutputsIfCurrent,
-  setCreativeWorkInputSnapshotIfMissing,
-  withCreativeWorkPreparationLock,
+  reserveCreativeWorkGenerationOutputs,
 } from "@/server/repositories/creative-work";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { logger } from "@/lib/logger";
@@ -81,9 +78,11 @@ export async function generateCreativeWork(input: {
   const existing = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!existing) return { ok: false, error: { code: "work_not_found" } };
 
-  let work = existing.work;
-  let readyWork = existing.work;
+  const work = existing.work;
+  const readyWork = existing.work;
   let brandTrainingSuggestion: string | null = null;
+  let reservationIdentitySnapshot: Awaited<ReturnType<typeof createIdentitySnapshot>> | undefined;
+  let legacyInputSnapshot: CreativeWorkInputSnapshot | undefined;
   const preparedRevision = new Date(input.preparedRevision);
   if (existing.outputs.length === 0 && (
     Number.isNaN(preparedRevision.getTime())
@@ -103,13 +102,7 @@ export async function generateCreativeWork(input: {
       includePublishedBrandKnowledge:
         work.toolKind === "single" && env.BRAND_CORTEX_SINGLE_PIECE_ENABLED === "true",
     });
-    const confirmed = await withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (executor) => {
-      const fresh = await getCreativeWork(input.workspaceId, input.workItemId, executor);
-      if (!fresh?.work.inputSnapshot || !fresh.work.brief || !fresh.work.copy || fresh.work.updatedAt.getTime() !== preparedRevision.getTime()) return null;
-      return confirmCreativeWorkSnapshotsIfUnchanged(input.workspaceId, input.workItemId, preparedRevision, fresh.work.inputSnapshot, identitySnapshot, executor);
-    });
-    if (!confirmed) return { ok: false, error: { code: "stale_input" } };
-    readyWork = confirmed;
+    reservationIdentitySnapshot = identitySnapshot;
     brandTrainingSuggestion = identitySnapshot.assets.length === 0
       ? "missing_visual_references"
       : null;
@@ -129,11 +122,7 @@ export async function generateCreativeWork(input: {
     // rebuilt only together with the entire missing snapshot, never patched
     // into an existing one.
     if (!work.inputSnapshot) {
-      const inputSnapshot = await buildInputSnapshot(input.workspaceId, existing);
-      const persisted = await setCreativeWorkInputSnapshotIfMissing(input.workspaceId, input.workItemId, inputSnapshot);
-      if (!persisted) return { ok: false, error: { code: "stale_input" } };
-      work = persisted;
-      readyWork = persisted;
+      legacyInputSnapshot = await buildInputSnapshot(input.workspaceId, existing);
     }
     brandTrainingSuggestion = hasTrainingReferences ? null : "missing_visual_references";
   }
@@ -170,13 +159,13 @@ export async function generateCreativeWork(input: {
     refundPolicy: "default",
   };
   const reserveReadyWork = existing.outputs.length === 0
-    && existing.work.status === "ready"
-    && Boolean(existing.work.inputSnapshot && existing.work.identitySnapshot)
-    ? () => reservePreparedCreativeWorkOutputsIfCurrent({
+    ? () => reserveCreativeWorkGenerationOutputs({
         workspaceId: input.workspaceId,
         workItemId: input.workItemId,
         preparedRevision,
         plans: quote.plans,
+        ...(reservationIdentitySnapshot ? { identitySnapshot: reservationIdentitySnapshot } : {}),
+        ...(legacyInputSnapshot ? { legacyInputSnapshot } : {}),
       })
     : undefined;
   const settled = await (async () => {
