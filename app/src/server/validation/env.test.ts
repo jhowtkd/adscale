@@ -119,4 +119,10 @@ describe("envSchema", () => {
       BRAND_CORTEX_SINGLE_PIECE_ENABLED: "yes",
     })).toThrow();
   });
+
+  it("defaults and bounds the Studio rollout percentage", () => {
+    expect(schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy" }).STUDIO_PROGRESSIVE_ROLLOUT_PERCENT).toBe(0);
+    expect(schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", STUDIO_PROGRESSIVE_ROLLOUT_PERCENT: "100" }).STUDIO_PROGRESSIVE_ROLLOUT_PERCENT).toBe(100);
+    expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", STUDIO_PROGRESSIVE_ROLLOUT_PERCENT: "101" })).toThrow();
+  });
 });

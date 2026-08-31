@@ -17,6 +17,7 @@ import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useCreativeWork, type CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { cn } from "@/lib/utils";
 import type { StudioMode } from "@/app/(dashboard)/dashboard-search-params";
+import type { StudioRolloutVariant } from "@/lib/beta-analytics/studio-session";
 
 function toTimestamp(value: Date | string) {
   return value instanceof Date ? value.getTime() : new Date(value).getTime();
@@ -84,6 +85,8 @@ export default function DashboardHomeActions({
   templateId,
   studioMode,
   freshEntry = false,
+  workspaceId,
+  rolloutVariant = "control",
 }: {
   workId?: string;
   initialIntent?: ComposerIntent;
@@ -91,6 +94,8 @@ export default function DashboardHomeActions({
   templateId?: string;
   studioMode?: StudioMode;
   freshEntry?: boolean;
+  workspaceId?: string;
+  rolloutVariant?: StudioRolloutVariant;
 }) {
   const t = useTranslations("dashboard.home");
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();

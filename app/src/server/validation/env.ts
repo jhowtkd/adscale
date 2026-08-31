@@ -60,6 +60,7 @@ export const envSchema = z.object({
   CREATIVE_WORK_QUALITY_RECOVERY_ENABLED: z.enum(["true", "false"]).default("false"),
   /** New Peça única snapshots consume the active published Brand Cortex version. */
   BRAND_CORTEX_SINGLE_PIECE_ENABLED: z.enum(["true", "false"]).default("false"),
+  STUDIO_PROGRESSIVE_ROLLOUT_PERCENT: z.coerce.number().int().min(0).max(100).default(0),
 });
 
 const parsed = envSchema.safeParse(process.env);

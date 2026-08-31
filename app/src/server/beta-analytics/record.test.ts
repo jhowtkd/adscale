@@ -17,7 +17,8 @@ vi.mock("../feedback/validate-refs", async (importOriginal) => {
   };
 });
 
-import { PHASE_76_BETA_EVENT_KEYS, PHASE_126_BETA_EVENT_KEYS } from "./types";
+import { CREATIVE_WORK_FUNNEL_EVENTS } from "../creative-work/funnel-events";
+import { PHASE_76_BETA_EVENT_KEYS, PHASE_126_BETA_EVENT_KEYS, STUDIO_BETA_EVENT_KEYS } from "./types";
 import { recordBetaAnalyticsEvent } from "./record";
 import {
   insertBetaAnalyticsEvent,
@@ -243,6 +244,21 @@ describe("recordBetaAnalyticsEvent", () => {
         expect.objectContaining({ eventKey })
       );
     }
+  );
+
+  it.each([...STUDIO_BETA_EVENT_KEYS, ...CREATIVE_WORK_FUNNEL_EVENTS])(
+    "accepts Studio and canonical event_key %s without a beta session",
+    async (eventKey) => {
+      mockInsert.mockResolvedValue(mockInsertedEvent({ eventKey }) as never);
+      await recordBetaAnalyticsEvent({
+        workspaceId: "ws-1",
+        userId: "user-1",
+        eventKey,
+        properties: { studioSessionId: SESSION_ID },
+      });
+      expect(mockGetSession).not.toHaveBeenCalled();
+      expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ eventKey, sessionId: null }));
+    },
   );
 
   it("persists output_learning_recommendation_accepted with card payload unchanged", async () => {

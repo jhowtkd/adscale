@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CREATIVE_WORK_FUNNEL_EVENTS } from "../creative-work/funnel-events";
 
 export const ALLOWED_PROPERTY_KEYS = [
   "stage",
@@ -28,6 +29,13 @@ export const ALLOWED_PROPERTY_KEYS = [
   "evidenceEventCount",
   "blockedFieldCount",
   "creditUnitVersion",
+  "studioSessionId",
+  "creativeWorkId",
+  "inputMode",
+  "protocol",
+  "sourceRole",
+  "rolloutVariant",
+  "outputCount",
 ] as const;
 
 export type AllowedPropertyKey = (typeof ALLOWED_PROPERTY_KEYS)[number];
@@ -69,17 +77,30 @@ export const PHASE_126_BETA_EVENT_KEYS = [
   "output_learning_recommendation_edited",
 ] as const;
 
+export const STUDIO_BETA_EVENT_KEYS = [
+  "studio_entry_started",
+  "studio_goal_selected",
+  "studio_source_role_selected",
+  "studio_plan_shown",
+  "studio_plan_changed",
+  "studio_plan_confirmed",
+  "studio_refinement_started",
+] as const;
+
 export const BETA_EVENT_KEYS = [
   ...PHASE_76_BETA_EVENT_KEYS,
   ...PHASE_107_BETA_EVENT_KEYS,
   ...PHASE_121_BETA_EVENT_KEYS,
   ...PHASE_126_BETA_EVENT_KEYS,
+  ...STUDIO_BETA_EVENT_KEYS,
+  ...CREATIVE_WORK_FUNNEL_EVENTS,
 ] as const;
 
 export type Phase76BetaEventKey = (typeof PHASE_76_BETA_EVENT_KEYS)[number];
 export type Phase107BetaEventKey = (typeof PHASE_107_BETA_EVENT_KEYS)[number];
 export type Phase121BetaEventKey = (typeof PHASE_121_BETA_EVENT_KEYS)[number];
 export type Phase126BetaEventKey = (typeof PHASE_126_BETA_EVENT_KEYS)[number];
+export type StudioBetaEventKey = (typeof STUDIO_BETA_EVENT_KEYS)[number];
 export type BetaEventKey = (typeof BETA_EVENT_KEYS)[number];
 
 const EVENT_KEY_PATTERN = /^[a-z][a-z0-9_]*$/;
