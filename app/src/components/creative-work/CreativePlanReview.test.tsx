@@ -23,4 +23,19 @@ describe("CreativePlanReview", () => {
     fireEvent.click(screen.getByRole("button", { name: "edit" }));
     expect(onEdit).toHaveBeenCalledOnce();
   });
+
+  it("keeps confirmation explicit and keyboard-focusable", () => {
+    const onConfirm = vi.fn();
+    render(<CreativePlanReview plan={plan} busy={false} onEdit={vi.fn()} onConfirm={onConfirm} />);
+
+    expect(document.activeElement).toBe(screen.getByRole("heading", { name: "title" }));
+    screen.getByRole("button", { name: "edit" }).focus();
+    expect(screen.getByRole("button", { name: "edit" })).toHaveFocus();
+    const confirm = screen.getByRole("button", { name: "confirm" });
+    confirm.focus();
+    expect(confirm).toHaveFocus();
+    fireEvent.click(confirm);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onConfirm).toHaveBeenCalledWith(plan.preparedRevision);
+  });
 });

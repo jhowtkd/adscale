@@ -344,4 +344,19 @@ describe("DashboardHomeActions", () => {
     expect(protocolButton("variations")).toBeInTheDocument();
     expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
   });
+
+  it("keeps the progressive entry hierarchy compact at a narrow viewport", () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      request: "", setRequest: vi.fn(), hasEntry: false, objectiveSelected: false, intent: "variations",
+      stage: "entry", preparedPlan: null, actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 1, credits: 5 },
+      addFiles: vi.fn(), selectIntent: selectIntentMock,
+    });
+
+    render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
+    expect(screen.getAllByRole("heading", { name: "dashboard.home.progressiveTitle" })[0]?.closest("div.mx-auto")).toHaveClass("max-w-4xl");
+    expect(screen.queryByRole("group", { name: "dashboard.home.studioModeLabel" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
+  });
 });
