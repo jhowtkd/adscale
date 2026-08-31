@@ -22,7 +22,7 @@ const FOCUS_TARGETS: Record<ComposerIntent, string> = {
 
 export function CreativeToolCards({ selected, onSelect, headerAction }: {
   selected: ComposerIntent | null;
-  onSelect: (intent: ComposerIntent) => void | Promise<void>;
+  onSelect: (intent: ComposerIntent) => void | boolean | Promise<void | boolean>;
   headerAction?: ReactNode;
 }) {
   const t = useTranslations("dashboard.home.tools");
@@ -41,8 +41,10 @@ export function CreativeToolCards({ selected, onSelect, headerAction }: {
             type="button"
             aria-pressed={selected === id}
             onClick={() => {
-              void onSelect(id);
-              requestAnimationFrame(() => document.getElementById(FOCUS_TARGETS[id])?.focus());
+              void Promise.resolve(onSelect(id)).then((selectedIntent) => {
+                if (selectedIntent === false) return;
+                requestAnimationFrame(() => document.getElementById(FOCUS_TARGETS[id])?.focus());
+              });
             }}
             className={cn(
               "group flex min-h-28 w-full flex-col rounded-[var(--radius-object)] border p-3 text-left transition-colors",

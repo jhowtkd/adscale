@@ -69,8 +69,8 @@ vi.mock("@/components/creative-work/useCreativeComposer", () => ({
   useCreativeComposer: (...args: unknown[]) => useComposerMock(...args),
 }));
 vi.mock("@/components/creative-work/CreativeComposer", () => ({
-  CreativeComposer: ({ composer, initialWorkId, resultsOnly }: { composer?: { intent: string; quote: { credits: number }; outputs?: Array<{ status: string }>; preparePlan?: () => void }; initialWorkId?: string; resultsOnly?: boolean }) => (
-    <div data-testid="creative-composer" data-results-only={resultsOnly ? "true" : "false"}>{composer ? <>{`${composer.intent}:${composer.quote.credits}:${composer.outputs?.map((output) => output.status).join(",") ?? ""}`}{composer.preparePlan ? <button type="button" onClick={composer.preparePlan}>Continuar</button> : null}</> : initialWorkId}</div>
+  CreativeComposer: ({ composer, initialWorkId, resultsOnly, hideSourceUpload }: { composer?: { intent: string; quote: { credits: number }; outputs?: Array<{ status: string }>; preparePlan?: () => void }; initialWorkId?: string; resultsOnly?: boolean; hideSourceUpload?: boolean }) => (
+    <div data-testid="creative-composer" data-results-only={resultsOnly ? "true" : "false"} data-hide-source-upload={hideSourceUpload ? "true" : "false"}>{composer ? <>{`${composer.intent}:${composer.quote.credits}:${composer.outputs?.map((output) => output.status).join(",") ?? ""}`}{composer.preparePlan ? <button type="button" onClick={composer.preparePlan}>Continuar</button> : null}</> : initialWorkId}</div>
   ),
 }));
 vi.mock("@/components/creative-work/CreativePlanReview", () => ({
@@ -444,6 +444,19 @@ describe("DashboardHomeActions", () => {
     expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
   });
 
+  it("keeps Single piece references enabled in progressive configuration", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      request: "Crie uma peça", hasEntry: true, objectiveSelected: true, intent: "single",
+      stage: "entry", preparedPlan: null, actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 1, credits: 5 },
+      outputs: [], selectIntent: selectIntentMock,
+    });
+
+    render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
+
+    expect(screen.getByTestId("creative-composer")).toHaveAttribute("data-hide-source-upload", "false");
+  });
+
   it("keeps completed and partial results visible while the used plan is collapsed", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     useComposerMock.mockReturnValue({
@@ -469,7 +482,7 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("progressive-results-summary")).not.toHaveTextContent("work-1");
     expect(screen.getByRole("button", { name: "Inspirações p1" })).toBeInTheDocument();
     fireEvent.click(protocolButton("restyle"));
-    expect(selectIntentMock).toHaveBeenCalledWith("restyle");
+    expect(selectIntentMock).toHaveBeenCalledWith("restyle", true);
   });
 
   it("marks an all-failed progressive result distinctly while keeping its controls reachable", () => {

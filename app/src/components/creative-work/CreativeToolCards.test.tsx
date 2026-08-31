@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { CreativeToolCards } from "./CreativeToolCards";
 
@@ -40,7 +40,7 @@ describe("CreativeToolCards", () => {
     ["variations", "Variações", "creative-composer-dropzone"],
     ["format_adaptation", "Adaptar formatos", "creative-composer-dropzone"],
     ["restyle", "Mudar estilo", "creative-composer-original-source"],
-  ] as const)("focuses the first revealed decision for %s", (intent, label, targetId) => {
+  ] as const)("focuses the first revealed decision for %s", async (intent, label, targetId) => {
     const onSelect = vi.fn();
     const target = document.createElement("div");
     target.id = targetId;
@@ -55,7 +55,51 @@ describe("CreativeToolCards", () => {
     fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${label}`, "i") }));
 
     expect(onSelect).toHaveBeenCalledWith(intent);
-    expect(target).toHaveFocus();
+    await waitFor(() => expect(target).toHaveFocus());
+
+    frame.mockRestore();
+    target.remove();
+  });
+
+  it("waits for a confirmed selection before focusing its target", async () => {
+    let resolveSelection: (value: boolean) => void;
+    const onSelect = vi.fn(() => new Promise<boolean>((resolve) => { resolveSelection = resolve; }));
+    const target = document.createElement("div");
+    target.id = "creative-composer-dropzone";
+    target.tabIndex = -1;
+    document.body.append(target);
+    const frame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+
+    render(<CreativeToolCards selected={null} onSelect={onSelect} />);
+    fireEvent.click(screen.getByRole("button", { name: /^variações/i }));
+
+    expect(target).not.toHaveFocus();
+    resolveSelection!(true);
+    await waitFor(() => expect(target).toHaveFocus());
+
+    frame.mockRestore();
+    target.remove();
+  });
+
+  it("does not focus when protocol selection is cancelled", async () => {
+    const target = document.createElement("div");
+    target.id = "creative-composer-original-source";
+    target.tabIndex = -1;
+    document.body.append(target);
+    const frame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+
+    render(<CreativeToolCards selected={null} onSelect={vi.fn().mockResolvedValue(false)} />);
+    fireEvent.click(screen.getByRole("button", { name: /^mudar estilo/i }));
+
+    await Promise.resolve();
+    expect(target).not.toHaveFocus();
+    expect(frame).not.toHaveBeenCalled();
 
     frame.mockRestore();
     target.remove();

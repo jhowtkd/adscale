@@ -122,7 +122,7 @@ const readySource = {
   },
 };
 
-function renderComposer(value = composer(), props: { hideSourceUpload?: boolean; layout?: "studio" | "piece" } = {}) {
+function renderComposer(value = composer(), props: { hideSourceUpload?: boolean; layout?: "studio" | "piece"; workflowVariant?: "control" | "progressive" } = {}) {
   const { composerRef, ...viewModel } = value;
   return render(
     <CreativeComposer
@@ -561,10 +561,12 @@ describe("CreativeComposer", () => {
       intent: "single", sources: [pieceSource, legacySource],
       updatePieceReference: vi.fn().mockResolvedValue(true), replacePieceReference: vi.fn().mockResolvedValue(true), promotePieceReference: vi.fn().mockResolvedValue(true),
     });
-    const { rerender } = renderComposer(value);
+    const { rerender } = renderComposer(value, { workflowVariant: "progressive" });
 
     const strip = screen.getAllByLabelText("title").find((element) => element.getAttribute("aria-label") === "title")!;
     expect(within(strip).getByText("piece.png")).toBeInTheDocument();
+    expect(within(strip).getByRole("button", { name: "add" })).toBeInTheDocument();
+    expect(within(strip).getByRole("combobox", { name: "category: piece.png" })).toBeInTheDocument();
     expect(within(strip).queryByText("legacy.png")).not.toBeInTheDocument();
     expect(screen.getByRole("img", { name: "legacy.png" })).toBeInTheDocument();
 
