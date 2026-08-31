@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
+import type { PreparedPlanProjectionV1 } from "@/server/creative-work/prepared-plan";
 export {
   getCreativeWorkEvaluatorSummary,
   getCreativeWorkObjectiveVerdict,
@@ -182,6 +183,7 @@ export interface CreativeWorkDetail {
   work: CreativeWorkItem;
   outputs: CreativeWorkOutput[];
   sources: CreativeWorkSource[];
+  preparedPlan: PreparedPlanProjectionV1 | null;
   inferredBriefing?: InferredBriefing | null;
   briefingFactPack?: CreativeWorkFactPack | null;
   canLayerize?: boolean;
@@ -342,6 +344,7 @@ export function mapCreativeWorkDetail(data: {
   work: CreativeWorkItem;
   outputs: CreativeWorkOutput[];
   sources?: CreativeWorkSource[];
+  preparedPlan?: PreparedPlanProjectionV1 | null;
   inferredBriefing?: InferredBriefing | null;
   briefingFactPack?: CreativeWorkFactPack | null;
   canLayerize?: boolean;
@@ -363,6 +366,7 @@ export function mapCreativeWorkDetail(data: {
         createdAt: new Date(source.createdAt),
         updatedAt: new Date(source.updatedAt),
       })),
+      preparedPlan: data.preparedPlan ?? null,
       inferredBriefing: (data.inferredBriefing as InferredBriefing | null | undefined) ?? null,
       briefingFactPack: (data.briefingFactPack as CreativeWorkFactPack | null | undefined) ?? null,
     canLayerize: Boolean(data.canLayerize),
@@ -538,6 +542,7 @@ export function usePrepareCreativeWork() {
       patchJson<{
         work: CreativeWorkDraftItem;
         quote: CreativeWorkQuote;
+        preparedPlan: PreparedPlanProjectionV1;
         briefing?: InferredBriefing;
         briefingFactPack?: CreativeWorkFactPack;
         readiness?: BriefingReadiness;
@@ -646,6 +651,7 @@ export function useGenerateCopy() {
           sources: current?.sources ?? [],
           inferredBriefing: current?.inferredBriefing ?? null,
           briefingFactPack: current?.briefingFactPack ?? null,
+          preparedPlan: current?.preparedPlan ?? null,
         })
       );
       void queryClient.invalidateQueries({
@@ -699,6 +705,7 @@ export function useTriggerTriplet() {
             updatedAt: new Date(output.updatedAt),
           })),
           sources: current?.sources ?? [],
+          preparedPlan: current?.preparedPlan ?? null,
         })
       );
       await Promise.all([

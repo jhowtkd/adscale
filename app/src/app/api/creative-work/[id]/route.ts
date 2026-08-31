@@ -29,6 +29,7 @@ import { layerEditorMutableSnapshotSchema } from "@/server/layer-editor/contract
 import { requestCreativeWorkLayerRegeneration } from "@/server/application/request-creative-work-layer-regeneration";
 import { publishCreativeWorkLayerEditor } from "@/server/application/publish-creative-work-layer-editor";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
+import { projectPreparedPlanV1 } from "@/server/creative-work/prepared-plan";
 import {
   CREATIVE_SOURCE_USAGES,
   CREATIVE_WORK_BRAND_CHOICES,
@@ -538,11 +539,13 @@ export async function GET(
       layerization: layerEditorAccess.enabled ? toPublicLayerizationState(recoveredLayerizations.get(output.id) ?? output.layerization) : null,
       layerEditor: toPublicLayerEditorSummary(output.layerEditor),
     }));
+    const { inputSnapshot: _inputSnapshot, ...publicWork } = result.work;
     return NextResponse.json({
       work: {
-        ...result.work,
+        ...publicWork,
         request: displayRequestForCreativeWork(result.work),
       },
+      preparedPlan: projectPreparedPlanV1(result.work),
       outputs,
       canLayerize,
       layerEditorAccess,
