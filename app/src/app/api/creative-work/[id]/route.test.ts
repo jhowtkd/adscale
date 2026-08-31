@@ -163,6 +163,11 @@ vi.mock("@/server/application/prepare-carousel-work", () => ({
   prepareCarouselWork: (...args: unknown[]) => prepareCarouselMock(...args),
 }));
 
+const approveCarouselDeckMock = vi.hoisted(() => vi.fn());
+vi.mock("@/server/application/export-carousel-work", () => ({
+  approveCarouselDeck: (...args: unknown[]) => approveCarouselDeckMock(...args),
+}));
+
 function makeParams(id: string) {
   return Promise.resolve({ id });
 }
@@ -2004,5 +2009,75 @@ describe("POST /api/creative-work/[id] layerization callback", () => {
       attemptId: "attempt-1",
       token: "token",
     }));
+  });
+});
+
+describe("PATCH /api/creative-work/[id] approveCarousel", () => {
+  beforeEach(() => {
+    approveCarouselDeckMock.mockReset();
+    linkCampaignMock.mockReset();
+    createSourceMock.mockReset();
+  });
+
+  it("dispatches the strict approveCarousel action to the workspace-scoped command", async () => {
+    approveCarouselDeckMock.mockResolvedValue({
+      ok: true,
+      replay: false,
+      value: { work: { id: "work-1", carouselApprovedRevision: "deck-r1" }, replay: false },
+    });
+    const response = await requestPatch({ action: "approveCarousel", revision: "deck-r1" });
+
+    expect(response.status).toBe(201);
+    expect(approveCarouselDeckMock).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      revision: "deck-r1",
+    });
+    await expect(response.json()).resolves.toMatchObject({ approvedRevision: "deck-r1", replay: false });
+  });
+
+  it("returns 200 on a replayed approval", async () => {
+    approveCarouselDeckMock.mockResolvedValue({
+      ok: true,
+      value: { work: { id: "work-1", carouselApprovedRevision: "deck-r1" }, replay: true },
+    });
+    const response = await requestPatch({ action: "approveCarousel", revision: "deck-r1" });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ replay: true });
+  });
+
+  it("rejects bodies outside the strict schema before any command runs", async () => {
+    const missingRevision = await requestPatch({ action: "approveCarousel" });
+    expect(missingRevision.status).toBe(400);
+
+    const extraField = await requestPatch({ action: "approveCarousel", revision: "deck-r1", outputId: "output-1" });
+    expect(extraField.status).toBe(400);
+
+    const blankRevision = await requestPatch({ action: "approveCarousel", revision: "" });
+    expect(blankRevision.status).toBe(400);
+
+    expect(approveCarouselDeckMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["work_not_found", 404, undefined],
+    ["work_not_carousel", 409, undefined],
+    ["stale_input", 409, undefined],
+    ["revision_conflict", 409, undefined],
+  ])("maps %s to %i", async (code, status) => {
+    approveCarouselDeckMock.mockResolvedValue({ ok: false, error: { code } });
+    const response = await requestPatch({ action: "approveCarousel", revision: "deck-r1" });
+    expect(response.status).toBe(status);
+  });
+
+  it("carries the objective findings in the 409 details and never mutates campaigns or outputs", async () => {
+    const findings = [{ path: "positions.2", code: "missing_position", message: "position 2 has no current slide" }];
+    approveCarouselDeckMock.mockResolvedValue({ ok: false, error: { code: "deck_not_ready", details: { findings } } });
+    const response = await requestPatch({ action: "approveCarousel", revision: "deck-r1" });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ details: { findings } });
+    expect(linkCampaignMock).not.toHaveBeenCalled();
+    expect(createSourceMock).not.toHaveBeenCalled();
   });
 });

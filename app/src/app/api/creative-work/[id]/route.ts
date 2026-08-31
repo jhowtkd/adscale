@@ -7,6 +7,7 @@ import {
   prepareCreativeWork,
 } from "@/server/application/prepare-creative-work";
 import { prepareCarouselWork } from "@/server/application/prepare-carousel-work";
+import { approveCarouselDeck } from "@/server/application/export-carousel-work";
 import { analyzeCreativeWorkSource } from "@/server/application/analyze-creative-work-source";
 import { contentBriefSchema, styleBriefSchema } from "@/server/ai/image-analysis";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
@@ -178,6 +179,10 @@ const autosaveSchema = z.object({
   if (!parsed.success) parsed.error.issues.forEach((issue) => context.addIssue(issue));
 });
 const prepareSchema = z.object({ action: z.literal("prepare") }).strict();
+const approveCarouselSchema = z.object({
+  action: z.literal("approveCarousel"),
+  revision: z.string().min(1),
+}).strict();
 const editBriefingSchema = z.object({
   action: z.literal("editBriefing"),
   field: z.enum(CREATIVE_WORK_BRIEFING_FIELDS),
@@ -228,7 +233,7 @@ const editSourceAnalysisSchema = z.object({
   style: styleBriefSchema.nullable(),
 }).strict();
 const patchCreativeWorkSchema = z.union([
-  autosaveSchema, prepareSchema, editBriefingSchema, attachSourceSchema, updateSourceSchema,
+  autosaveSchema, prepareSchema, approveCarouselSchema, editBriefingSchema, attachSourceSchema, updateSourceSchema,
   retrySourceSchema, removeSourceSchema, updatePieceReferenceSchema, replacePieceReferenceSchema, promotePieceReferenceSchema, editSourceAnalysisSchema, confirmCreativeWorkSchema,
   linkCampaignSchema, resolveBrandConflictSchema,
   layerizeOutputSchema,
@@ -799,6 +804,32 @@ export async function PATCH(
         return apiError("creativeWorkNotReady", 409);
       }
       return NextResponse.json(prepared.value);
+    }
+
+    if ("action" in parsed.data && parsed.data.action === "approveCarousel") {
+      // Objective-only deck approval: the command re-validates workspace,
+      // revision and every slide inside one transaction before writing.
+      const approved = await approveCarouselDeck({
+        workspaceId: workspace.id,
+        workItemId: id,
+        revision: parsed.data.revision,
+      });
+      if (!approved.ok) {
+        switch (approved.error.code) {
+          case "work_not_found": return apiError("creativeWorkNotFound", 404);
+          case "work_not_carousel": return apiError("creativeWorkNotCarousel", 409, approved.error.details);
+          case "stale_input": return apiError("stale_input", 409, approved.error.details);
+          case "revision_conflict": return apiError("carouselDeckRevisionConflict", 409, approved.error.details);
+          case "deck_not_ready": return apiError("carouselDeckNotReady", 409, approved.error.details);
+        }
+      }
+      return NextResponse.json(
+        {
+          approvedRevision: approved.value.work.carouselApprovedRevision,
+          replay: approved.value.replay,
+        },
+        { status: approved.value.replay ? 200 : 201 },
+      );
     }
 
     if ("action" in parsed.data && parsed.data.action === "resolveBrandConflict") {
