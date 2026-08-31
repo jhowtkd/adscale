@@ -5,6 +5,9 @@ const useInspirationsMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/hooks/use-creative-inspirations", () => ({
   useCreativeInspirations: (...args: unknown[]) => useInspirationsMock(...args),
 }));
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string, values?: { title?: string }) => ({ add: "Adicionar referência", title: "Referências da marca", loading: "Carregando inspirações", loadFailed: "Não foi possível carregar as inspirações.", retry: "Tentar novamente", empty: "Nenhuma inspiração disponível ainda.", attachFailed: "Não foi possível adicionar a referência. Tente novamente.", useForStyle: "Usar para mudar estilo", "origin.approved_work": "Trabalho aprovado", previewAria: `Pré-visualizar inspiração ${values?.title}`, previewAlt: `Pré-visualização de ${values?.title}` }[key] ?? key),
+}));
 
 import { BrandInspirations } from "./BrandInspirations";
 

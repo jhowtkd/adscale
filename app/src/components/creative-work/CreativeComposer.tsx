@@ -242,8 +242,8 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
     <section {...(!resultsOnly ? { "aria-labelledby": "creative-results-title" } : {})} className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         {!resultsOnly ? <div>
-          <h2 id="creative-results-title" className="text-lg font-semibold text-[var(--text-primary)]">Resultados</h2>
-          <p className="text-sm text-[var(--text-muted)]">Cada resultado fica salvo assim que termina.</p>
+          <h2 id="creative-results-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("results.title")}</h2>
+          <p className="text-sm text-[var(--text-muted)]">{t("results.subtitle")}</p>
         </div> : null}
       </div>
       <CreativeProposalGrid
@@ -267,14 +267,14 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
       />
       <div className="flex justify-end">
         <label className="text-sm text-[var(--text-secondary)]">
-          <span className="sr-only">Agrupar em campanha</span>
+          <span className="sr-only">{t("results.campaignLabel")}</span>
           <select
-            aria-label="Agrupar em campanha"
+            aria-label={t("results.campaignLabel")}
             value={composer.campaignId ?? ""}
             onChange={(event) => void composer.linkCampaign(event.target.value || null)}
             className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2"
           >
-            <option value="">Sem campanha</option>
+            <option value="">{t("results.noCampaign")}</option>
             {composer.campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
           </select>
         </label>

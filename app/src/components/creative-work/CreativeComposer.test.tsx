@@ -31,6 +31,8 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   factoryActiveLabel: "Fábrica criativa em atividade", factoryQueuedTitle: "Aquecendo as máquinas",
   factoryQueuedDescription: "Sua peça entrou na linha de produção.", factoryProcessingTitle: "Aplicando tinta fresca",
   factoryProcessingDescription: "As engrenagens estão montando seu criativo.",
+  "results.title": "Resultados", "results.subtitle": "Cada resultado fica salvo assim que termina.", "results.campaignLabel": "Agrupar em campanha", "results.noCampaign": "Sem campanha",
+  "proposal.level.conservative": "Conservadora", "proposal.level.balanced": "Equilibrada", "proposal.level.bold": "Ousada", "proposal.status.queued": "na fila", "proposal.status.processing": "gerando", "proposal.status.completed": "pronta", "proposal.status.failed": "falhou", "proposal.progress": `${values?.ready} de ${values?.total} prontas`, "proposal.thumbnailsAria": "Miniaturas das propostas", "proposal.selectAria": `Selecionar ${values?.name} em ${values?.format}`, "proposal.expandAria": `Ampliar ${values?.name} em ${values?.format}`, "proposal.previewAlt": `Proposta ${values?.name}, formato ${values?.format}`, "proposal.approvalSurfaceAria": "Superfície de aprovação", variationShort: `v${values?.count}`, "status.completed": "Pronto", approve: "Aprovar", download: "Baixar", refine: "Refinar", approved: "Aprovada", retry: "Tentar novamente", retryProposal: "Repetir esta proposta", reviewBeforeApprove: "Revisar e aprovar", confirmApproval: "Confirmar aprovação",
   optionalSettings: "Ajustes opcionais", format: "Formato", formatAuto: "Automático (agora: 4:5)", targetFormats: "Formatos de destino",
   textLayout: "Posição do texto", textLayout_top: "Superior", textLayout_center: "Central", textLayout_bottom: "Inferior",
   brandFont: "Fonte da marca", brandFontChoose: "Escolha uma fonte",
@@ -769,8 +771,8 @@ describe("CreativeComposer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Selecionar Ousada em 4:5" }));
     expect(screen.getByText("Aplicando tinta fresca")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Selecionar Conservadora em 4:5" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "reviewBeforeApprove" })[0]);
-    fireEvent.click(screen.getAllByRole("button", { name: "confirmApproval" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Revisar e aprovar" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Confirmar aprovação" })[0]);
     expect(value.approveOutput).toHaveBeenCalledWith("output-1", true);
     expect(screen.getAllByRole("button", { name: "Baixar" })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Refinar" })).toHaveLength(1);

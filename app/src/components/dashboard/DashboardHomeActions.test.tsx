@@ -414,9 +414,9 @@ describe("DashboardHomeActions", () => {
   it("keeps completed and partial results visible while the used plan is collapsed", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     useComposerMock.mockReturnValue({
-      request: "Campanha de matrículas", hasEntry: true, objectiveSelected: true, intent: "variations",
+      request: "Campanha de matrículas", workTitle: "Volta às aulas", hasEntry: true, objectiveSelected: true, intent: "variations",
       stage: "results", preparedPlan: { preparedRevision: "revision-1", protocol: "variations", materials: [{ label: "Logo" }], preserve: ["verified_facts"], explore: ["composition"], formats: ["4:5"], outputCount: 3 }, actionPhase: "idle", clientProfileId: "p1", brandName: "Marca A", state: "results", workId: "work-1", quote: { unitCount: 3, credits: 15 },
-      outputs: [{ status: "completed" }, { status: "failed" }], linkCampaign: vi.fn().mockResolvedValue(true),
+      outputs: [{ status: "completed" }, { status: "failed" }], linkCampaign: vi.fn().mockResolvedValue(true), selectIntent: selectIntentMock,
     });
 
     render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
@@ -431,8 +431,27 @@ describe("DashboardHomeActions", () => {
     expect(within(plan).getByTestId("prepared-plan")).toHaveTextContent("variations|Logo|verified_facts|composition|4:5|3");
     expect(screen.getByTestId("progressive-results-summary").compareDocumentPosition(plan)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(results.closest("div.mx-auto")).toHaveClass("max-w-6xl");
-    expect(screen.getByTestId("progressive-results-summary")).toHaveTextContent("Campanha de matrículas");
+    expect(screen.getByTestId("progressive-results-summary")).toHaveTextContent("Volta às aulas");
+    expect(screen.getByTestId("progressive-results-summary")).not.toHaveTextContent("Campanha de matrículas");
     expect(screen.getByTestId("progressive-results-summary")).not.toHaveTextContent("work-1");
+    expect(screen.getByRole("button", { name: "Inspirações p1" })).toBeInTheDocument();
+    fireEvent.click(protocolButton("restyle"));
+    expect(selectIntentMock).toHaveBeenCalledWith("restyle");
+  });
+
+  it("marks an all-failed progressive result distinctly while keeping its controls reachable", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      request: "Campanha", workTitle: "Título salvo", hasEntry: true, objectiveSelected: true, intent: "variations",
+      stage: "results", preparedPlan: null, actionPhase: "idle", clientProfileId: "p1", brandName: "Marca A", state: "results", workId: "work-1", quote: { unitCount: 2, credits: 10 },
+      outputs: [{ status: "failed" }, { status: "failed" }], linkCampaign: vi.fn().mockResolvedValue(true), selectIntent: selectIntentMock, addInspiration: addInspirationMock,
+    });
+
+    render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
+
+    expect(screen.getByTestId("progressive-results-summary")).toHaveTextContent("dashboard.home.resultStateFailed");
+    expect(screen.getByRole("button", { name: "Inspirações p1" })).toBeInTheDocument();
+    expect(protocolButton("variations")).toBeInTheDocument();
   });
 
   it("returns to confirmation after a successful no-op reprepare", async () => {

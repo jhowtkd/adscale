@@ -212,7 +212,10 @@ export function useCreativeComposer({
   // turn it into a selected objective or a persistence trigger.
   const internalInitialIntent: ComposerIntent = initialIntent ?? "variations";
   const progressivePlainEntry = workflowVariant === "progressive" && !initialWorkId && !initialIntent;
-  const initialObjective = progressivePlainEntry ? null : internalInitialIntent;
+  // A resumed progressive work hydrates its saved protocol before it exposes
+  // an objective. The fallback must not become a fake human selection.
+  const progressiveResume = workflowVariant === "progressive" && Boolean(initialWorkId) && !initialIntent;
+  const initialObjective = progressivePlainEntry || progressiveResume ? null : internalInitialIntent;
   const initialTargetFormats: Format[] = internalInitialIntent === "format_adaptation"
     ? ["1:1", "9:16"]
     : [];
@@ -373,9 +376,10 @@ export function useCreativeComposer({
 
   useEffect(() => {
     recordStudioEvent("studio_entry_started");
-    // The control presentation still starts with its visible default protocol.
-    if (initialObjective) recordStudioEvent("studio_goal_selected", { protocol: initialObjective });
-  }, [initialObjective, recordStudioEvent]);
+    // Control keeps its legacy visible default. Progressive telemetry records
+    // only a deliberate selection made through selectIntent.
+    if (workflowVariant !== "progressive" && initialObjective) recordStudioEvent("studio_goal_selected", { protocol: initialObjective });
+  }, [initialObjective, recordStudioEvent, workflowVariant]);
 
   useEffect(() => {
     if (!initialWorkId || !detailQuery.data?.work) return;
@@ -430,6 +434,10 @@ export function useCreativeComposer({
     );
     setBriefingEditState("idle");
     setIntent(intentRef.current);
+    if (workflowVariant === "progressive" && !objectiveRef.current) {
+      objectiveRef.current = hydrated.intent;
+      setObjective(hydrated.intent);
+    }
     setFormat(work.format);
     setFormatMode(hydrated.settings.formatMode);
     setTargetFormats(work.settings.targetFormats);
@@ -449,7 +457,7 @@ export function useCreativeComposer({
       hydrated.settings.targetFormats,
       hydrated.settings.directionPool ?? hydratedDirectionPool ?? undefined,
     ));
-  }, [detailQuery.data, initialWorkId]);
+  }, [detailQuery.data, initialWorkId, workflowVariant]);
 
   const captureSnapshot = useCallback((): DraftSnapshot => ({
     request: requestRef.current,
@@ -1677,7 +1685,7 @@ export function useCreativeComposer({
     fontOptions,
     directionPool, toggleDirection, setManualDirectionInstruction,
     directionSuggestionState, pendingDirectionSuggestions, applyDirectionSuggestions, requestDirectionSuggestions, keepCurrentDirections,
-    state, stage: visibleStage, objective, objectiveSelected, bufferedFile, hasEntry, canContinue, canConfirm, preparedPlan: visiblePreparedPlan, preparedPlanCycle, actionPhase, workId, clientProfileId, brandName,
+    state, stage: visibleStage, objective, objectiveSelected, bufferedFile, hasEntry, canContinue, canConfirm, preparedPlan: visiblePreparedPlan, preparedPlanCycle, actionPhase, workId, clientProfileId, brandName, workTitle: detail?.work.title ?? null,
     pendingProtocolSwitch, confirmProtocolSwitch, cancelProtocolSwitch,
     protocolSwitchNotice, returnToPreviousProtocol,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,

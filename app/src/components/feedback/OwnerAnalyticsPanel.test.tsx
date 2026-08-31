@@ -30,6 +30,8 @@ vi.mock("next-intl", () => ({
       "metrics.sessions": "{count} sessions",
       "metrics.creditBlocks": "{count} credit blocks",
       "metrics.creditSurprises": "{count} credit surprises",
+      "studio.title": "Estúdio progressivo", "studio.stage": "Estágio", "studio.stageAria": "Estágio de rollout", "studio.sampleSufficient": "Amostra suficiente", "studio.sampleInsufficient": "Amostra insuficiente", "studio.requirement": "{observation}; ≥{sessions} sessões e ≥{generations} gerações confirmadas por braço", "studio.incompleteData": "Dados incompletos: a consulta atingiu o limite de eventos", "studio.failureCompletion": "Conclusão mais de 5 pp abaixo do controle", "studio.failureAbandonment": "Abandono mais de 5 pp acima do controle", "studio.failureGeneration": "Falha mais de 0,5 pp acima do controle", "studio.failureRefund": "Reembolso mais de 0,5 pp acima do controle", "studio.metric": "Métrica", "studio.control": "Controle", "studio.progressive": "Progressivo",
+      "studio.metrics.eligibleSessions": "Sessões elegíveis", "studio.metrics.confirmedGenerations": "Gerações confirmadas", "studio.metrics.goalSwitches": "Trocas de objetivo", "studio.metrics.sourceRoleCorrections": "Correções de papel", "studio.metrics.successfulResumes": "Retomadas bem-sucedidas", "studio.metrics.refinements": "Refinamentos iniciados", "studio.metrics.debited": "Gerações debitadas", "studio.metrics.compensated": "Gerações compensadas", "studio.metrics.completion24h": "Conclusão em 24 h", "studio.metrics.abandonment": "Abandono antes de gerar", "studio.metrics.failure": "Falha", "studio.metrics.refund": "Reembolso", "studio.metrics.entryToBriefing": "Entrada até briefing", "studio.metrics.entryToPlan": "Entrada até plano",
       "groups.coreFunnels": "Core funnels",
       "groups.credits": "Credits and billing",
       "groups.sessions": "Sessions and timing",
@@ -63,7 +65,7 @@ vi.mock("next-intl", () => ({
     const handler = (key: string, values?: Record<string, unknown>) => {
       if (namespace === "feedback.analytics") {
         const template = analytics[key] ?? key;
-        return template.replace("{count}", String(values?.count ?? ""));
+        return template.replace(/\{(count|observation|sessions|generations)\}/g, (_match, key) => String(values?.[key] ?? ""));
       }
       if (namespace === "dashboard.missions.items") {
         return missionItems[key] ?? key;

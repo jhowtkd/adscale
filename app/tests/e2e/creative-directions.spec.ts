@@ -105,6 +105,7 @@ interface DirectionalWorkDetail {
     request: string;
     settings: Record<string, unknown> & { directionPool?: DirectionPoolWire };
   };
+  preparedPlan?: { workId: string; preparedRevision: string; outputCount: number } | null;
   outputs: DirectionalOutputRow[];
   sources: Array<{ id: string; status: string }>;
 }
@@ -253,8 +254,19 @@ async function waitForSourcesReady(request: APIRequestContext, workId: string): 
 }
 
 async function apiGenerateInitial(request: APIRequestContext, workId: string): Promise<void> {
+  const preparation = await request.patch(`/api/creative-work/${workId}`, {
+    data: { action: "prepare" },
+  });
+  expect(preparation.status(), `prepare must succeed (got ${preparation.status()})`).toBe(200);
+  const detail = await apiGetWork(request, workId);
+  expect(detail.preparedPlan, "prepare must return a revision-bound plan").toMatchObject({
+    workId,
+  });
   const res = await request.post(`/api/creative-work/${workId}/generate`, {
-    data: { action: "initial" },
+    data: {
+      action: "initial",
+      preparedRevision: detail.preparedPlan!.preparedRevision,
+    },
   });
   expect(res.status(), `generate must answer 202 (got ${res.status()})`).toBe(202);
 }

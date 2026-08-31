@@ -1415,8 +1415,23 @@ describe("useCreativeComposer", () => {
     await act(async () => result.current.selectIntent("restyle"));
     await act(async () => result.current.returnToPreviousProtocol());
     expect(mocks.recordBetaEvent.mock.calls.filter(([event]) => event === "studio_goal_selected").map(([, payload]) => payload.protocol)).toEqual([
-      "variations", "restyle", "variations",
+      "restyle", "variations",
     ]);
+  });
+
+  it("hydrates a resumed progressive work without inventing a goal selection", async () => {
+    mocks.work.mockImplementation((id: string | null) => ({
+      data: id === WORK_ID ? workDetail({ id: WORK_ID, toolKind: "restyle" }) : undefined,
+      isLoading: false,
+      isError: false,
+    }));
+    const { result } = renderHook(() => useCreativeComposer({
+      initialWorkId: WORK_ID, workflowVariant: "progressive", workspaceId: "ws-1", studioSessionId: "session-1",
+    }));
+    await act(async () => Promise.resolve());
+    expect(result.current.intent).toBe("restyle");
+    expect(result.current.objective).toBe("restyle");
+    expect(mocks.recordBetaEvent).not.toHaveBeenCalledWith("studio_goal_selected", expect.anything());
   });
 
   it("creates an asset-backed draft when an approved inspiration starts an empty composer", async () => {

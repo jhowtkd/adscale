@@ -44,20 +44,8 @@ type CreativeProposalGridProps = {
 };
 
 const LEVEL_ORDER: CreativeWorkOutput["creativeLevel"][] = ["conservative", "balanced", "bold"];
-const LEVEL_LABELS: Record<CreativeWorkOutput["creativeLevel"], string> = {
-  conservative: "Conservadora",
-  balanced: "Equilibrada",
-  bold: "Ousada",
-};
-const STATUS_LABELS: Record<CreativeWorkOutput["status"], string> = {
-  queued: "na fila",
-  processing: "gerando",
-  completed: "pronta",
-  failed: "falhou",
-};
-
-function outputLabel(output: CreativeWorkOutput) {
-  return output.directionSnapshot?.label ?? LEVEL_LABELS[output.creativeLevel];
+function outputLabel(output: CreativeWorkOutput, levels: Record<CreativeWorkOutput["creativeLevel"], string>) {
+  return output.directionSnapshot?.label ?? levels[output.creativeLevel];
 }
 
 function outputSource(output: CreativeWorkOutput) {
@@ -137,6 +125,10 @@ export default function CreativeProposalGrid({
   layout = "studio",
 }: CreativeProposalGridProps) {
   const t = useTranslations("dashboard.home.composer");
+  const levelLabels: Record<CreativeWorkOutput["creativeLevel"], string> = {
+    conservative: t("proposal.level.conservative"), balanced: t("proposal.level.balanced"), bold: t("proposal.level.bold"),
+  };
+  const statusLabel = (status: CreativeWorkOutput["status"]) => t(`proposal.status.${status}`);
   const latest = new Map<string, CreativeWorkOutput>();
   for (const output of outputs) {
     const key = lineageRootId(outputs, output);
@@ -172,7 +164,7 @@ export default function CreativeProposalGrid({
 
   if (!selected) return null;
 
-  const label = outputLabel(selected);
+  const label = outputLabel(selected, levelLabels);
   const format = selected.targetFormat ?? "4:5";
   const aspectRatio = format.replace(":", " / ");
   const available = hasUsableOutput(selected);
@@ -187,13 +179,13 @@ export default function CreativeProposalGrid({
     : null;
   const totalOutputs = outputs.length;
   const readyCount = outputs.filter((output) => output.status === "completed" && (output.hasOutput ?? Boolean(output.outputKey))).length;
-  const progressText = `${readyCount} de ${totalOutputs} prontas`;
+  const progressText = t("proposal.progress", { ready: readyCount, total: totalOutputs });
 
   return (
     <>
       <section aria-live="polite" aria-atomic="true" className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3" data-testid="creative-output-progress">
         <p className="text-sm font-semibold text-[var(--text-primary)]">{progressText}</p>
-        <ul className="mt-2 space-y-1 text-xs text-[var(--text-muted)]">{outputs.map((output) => <li key={output.id}>{outputLabel(output)} · {STATUS_LABELS[output.status]}</li>)}</ul>
+        <ul className="mt-2 space-y-1 text-xs text-[var(--text-muted)]">{outputs.map((output) => <li key={output.id}>{outputLabel(output, levelLabels)} · {statusLabel(output.status)}</li>)}</ul>
       </section>
       <div
         data-testid="proposal-review-surface"
@@ -204,24 +196,24 @@ export default function CreativeProposalGrid({
             : "lg:grid-cols-[5.5rem_minmax(0,1fr)_16rem]",
         )}
       >
-        <nav aria-label="Miniaturas das propostas" className={cn("flex gap-2 overflow-x-auto", layout === "studio" && "lg:flex-col")}>
+        <nav aria-label={t("proposal.thumbnailsAria")} className={cn("flex gap-2 overflow-x-auto", layout === "studio" && "lg:flex-col")}>
           {visible.map((output) => {
             const outputFormat = output.targetFormat ?? "4:5";
-            const outputName = outputLabel(output);
+            const outputName = outputLabel(output, levelLabels);
             const completed = hasUsableOutput(output);
             return (
               <button
                 key={output.id}
                 type="button"
                 aria-pressed={output.id === selected.id}
-                aria-label={`Selecionar ${outputName} em ${outputFormat}`}
+                aria-label={t("proposal.selectAria", { name: outputName, format: outputFormat })}
                 onClick={() => setSelectedId(output.id)}
                 className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[var(--radius-control)] border-2 border-transparent bg-[var(--surface-inset)] aria-pressed:border-[var(--focus-ring)]"
               >
                 {completed ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={outputSource(output)} alt="" className="h-full w-full object-cover" />
-                ) : <span className="text-xs text-[var(--text-muted)]">{output.status === "failed" ? "Falhou" : "…"}</span>}
+                ) : <span className="text-xs text-[var(--text-muted)]">{output.status === "failed" ? statusLabel(output.status) : "…"}</span>}
           <span className="absolute inset-x-1 bottom-1 rounded bg-black/70 px-1 py-0.5 text-xs font-medium text-white">{outputFormat}</span>
               </button>
             );
@@ -234,7 +226,7 @@ export default function CreativeProposalGrid({
             data-testid="review-preview"
             disabled={!available}
             aria-busy={!available && selected.status !== "failed"}
-            aria-label={`Ampliar ${label} em ${format}`}
+            aria-label={t("proposal.expandAria", { name: label, format })}
             onClick={() => setExpanded(true)}
             className={cn(
               "group relative mx-auto flex w-full items-center justify-center overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] disabled:cursor-default",
@@ -244,11 +236,11 @@ export default function CreativeProposalGrid({
           >
             {available ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={outputSource(selected)} alt={`Proposta ${label}, formato ${format}`} className="h-full w-full object-contain" />
+              <img src={outputSource(selected)} alt={t("proposal.previewAlt", { name: label, format })} className="h-full w-full object-contain" />
             ) : (
               <span role="status" aria-live="polite" className="px-5">
                 {selected.status === "failed" ? (
-                  <p className="text-center text-sm text-[var(--text-muted)]">Falhou</p>
+                  <p className="text-center text-sm text-[var(--text-muted)]">{statusLabel(selected.status)}</p>
                 ) : (
                   <span className="flex items-center gap-5 rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-base)] px-5 py-4 text-left shadow-sm">
                     <TetrisLoader label={t("factoryActiveLabel")} />
@@ -264,7 +256,7 @@ export default function CreativeProposalGrid({
           </button>
         </div>
 
-        <div role="list" aria-label="Superfície de aprovação" className={cn("min-w-0", layout === "piece" && "border-t border-[var(--border-subtle)] pt-4")}>
+        <div role="list" aria-label={t("proposal.approvalSurfaceAria")} className={cn("min-w-0", layout === "piece" && "border-t border-[var(--border-subtle)] pt-4")}>
           <CreativeResultCard
             output={selected}
             label={label}
@@ -289,7 +281,7 @@ export default function CreativeProposalGrid({
             }}
             hidePreview
           />
-          {selectedFamily.length > 1 ? <button type="button" onClick={() => setHistoryOutputId(selected.id)} className="mt-3 text-sm font-semibold underline">Versões ({selectedFamily.length})</button> : null}
+          {selectedFamily.length > 1 ? <button type="button" onClick={() => setHistoryOutputId(selected.id)} className="mt-3 text-sm font-semibold underline">{t("proposal.variations", { count: selectedFamily.length })}</button> : null}
         </div>
       </div>
 
@@ -297,34 +289,34 @@ export default function CreativeProposalGrid({
         <DialogContent size="xl" className="h-[min(92dvh,900px)] max-h-[92dvh]">
           <DialogHeader>
             <DialogTitle>{label} · {format}</DialogTitle>
-            <DialogDescription>Inspeção ampliada na proporção original, sem corte.</DialogDescription>
+            <DialogDescription>{t("proposal.expandedDescription")}</DialogDescription>
           </DialogHeader>
           <DialogBody className="flex min-h-0 items-center justify-center bg-[var(--surface-inset)] p-2 sm:p-4">
             {available ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={outputSource(selected)} alt={`Proposta ${label}, formato ${format}, ampliada`} className="max-h-full max-w-full object-contain" />
+              <img src={outputSource(selected)} alt={t("proposal.expandedAlt", { name: label, format })} className="max-h-full max-w-full object-contain" />
             ) : null}
           </DialogBody>
         </DialogContent>
       </Dialog>
 
       <Sheet open={Boolean(historyOutput)} onOpenChange={(open) => { if (!open) { setHistoryOutputId(null); setCompareAncestorId(null); } }}>
-        <SheetContent side="right" size="lg"><SheetHeader><SheetTitle>Versões ({historyLineage.length})</SheetTitle></SheetHeader><SheetBody className="space-y-3">
+        <SheetContent side="right" size="lg"><SheetHeader><SheetTitle>{t("proposal.variations", { count: historyLineage.length })}</SheetTitle></SheetHeader><SheetBody className="space-y-3">
           {historyLineage.map((output) => <article key={output.id} className="flex items-center gap-3 rounded-[var(--radius-control)] border border-[var(--border-subtle)] p-3">
-            {hasUsableOutput(output) ? <img src={outputSource(output)} alt={`Versão ${output.versionNumber ?? 1}`} className="size-14 rounded object-cover" /> : null}
-            <div className="min-w-0 flex-1"><p className="text-sm font-medium">Versão {output.versionNumber ?? 1}</p><p className="text-xs text-[var(--text-muted)]">{new Date(output.createdAt).toLocaleDateString()} · {output.revisionInstruction ?? "Peça original"}</p><p className="text-xs text-[var(--text-muted)]">{STATUS_LABELS[output.status]}</p></div>
+            {hasUsableOutput(output) ? <img src={outputSource(output)} alt={t("proposal.variationAlt", { count: output.versionNumber ?? 1 })} className="size-14 rounded object-cover" /> : null}
+            <div className="min-w-0 flex-1"><p className="text-sm font-medium">{t("proposal.variation", { count: output.versionNumber ?? 1 })}</p><p className="text-xs text-[var(--text-muted)]">{new Date(output.createdAt).toLocaleDateString()} · {output.revisionInstruction ?? t("proposal.originalPiece")}</p><p className="text-xs text-[var(--text-muted)]">{statusLabel(output.status)}</p></div>
             {output.status === "failed" ? <button type="button" onClick={() => {
               if (output.parentOutputId && onRetryRevision) void onRetryRevision(output);
               else onRetry(output.id);
-            }} className="text-sm font-semibold underline">Repetir esta proposta</button> : null}
-            {historyOutput && output.id !== historyOutput.id && hasUsableOutput(historyOutput) && hasUsableOutput(output) ? <button type="button" onClick={() => setCompareAncestorId(output.id)} className="text-sm font-semibold underline">Comparar</button> : null}
+            }} className="text-sm font-semibold underline">{t("proposal.retry")}</button> : null}
+            {historyOutput && output.id !== historyOutput.id && hasUsableOutput(historyOutput) && hasUsableOutput(output) ? <button type="button" onClick={() => setCompareAncestorId(output.id)} className="text-sm font-semibold underline">{t("proposal.compare")}</button> : null}
           </article>)}
         </SheetBody></SheetContent>
       </Sheet>
       <Dialog open={Boolean(historyOutput && hasUsableOutput(historyOutput) && compareAncestor)} onOpenChange={(open) => !open && setCompareAncestorId(null)}>
-        <DialogContent size="xl"><DialogHeader><DialogTitle>Comparar versões</DialogTitle></DialogHeader><DialogBody className="grid gap-4 sm:grid-cols-2">
-          {historyOutput ? <figure><figcaption className="mb-2 text-sm font-medium">Versão atual</figcaption><img src={outputSource(historyOutput)} alt="Versão atual" className="h-auto w-full" /></figure> : null}
-          {compareAncestor ? <figure><figcaption className="mb-2 text-sm font-medium">Versão anterior</figcaption><img src={outputSource(compareAncestor)} alt="Versão anterior" className="h-auto w-full" /></figure> : null}
+        <DialogContent size="xl"><DialogHeader><DialogTitle>{t("proposal.compareTitle")}</DialogTitle></DialogHeader><DialogBody className="grid gap-4 sm:grid-cols-2">
+          {historyOutput ? <figure><figcaption className="mb-2 text-sm font-medium">{t("proposal.currentVariation")}</figcaption><img src={outputSource(historyOutput)} alt={t("proposal.currentVariation")} className="h-auto w-full" /></figure> : null}
+          {compareAncestor ? <figure><figcaption className="mb-2 text-sm font-medium">{t("proposal.previousVariation")}</figcaption><img src={outputSource(compareAncestor)} alt={t("proposal.previousVariation")} className="h-auto w-full" /></figure> : null}
         </DialogBody></DialogContent>
       </Dialog>
 

@@ -516,6 +516,7 @@
       "planUsed": "Plano usado",
       "resultStateGenerating": "Em geração",
       "resultStateReady": "Pronta para revisar",
+      "resultStateFailed": "Geração sem resultado disponível",
       "insufficientBalance": "Créditos insuficientes",
       "getCredits": "Obter créditos",
       "continueStates": {
@@ -610,9 +611,47 @@
         "sourceUploading": "Enviando imagem",
         "sourceReady": "Imagem pronta",
         "fullBriefing": "Briefing visual sugerido pela IA",
-        "inferredBriefingTitle": "Briefing inferido",
-        "inferredBriefingSentence": "A IA entendeu assim: {message}; objetivo {objective}; público {audience}; oferta {offer}; tom {tone}; restrições {constraints}.",
-        "briefingProvenance": "Proveniência do briefing",
+      "inferredBriefingTitle": "Briefing inferido",
+      "inferredBriefingSentence": "A IA entendeu assim: {message}; objetivo {objective}; público {audience}; oferta {offer}; tom {tone}; restrições {constraints}.",
+      "inspirations": {
+        "add": "Adicionar referência",
+        "title": "Referências da marca",
+        "loading": "Carregando inspirações",
+        "loadFailed": "Não foi possível carregar as inspirações.",
+        "retry": "Tentar novamente",
+        "empty": "Ainda não há inspirações disponíveis.",
+        "attachFailed": "Não foi possível adicionar a referência. Tente novamente.",
+        "previewAria": "Visualizar inspiração {title}",
+        "previewAlt": "Prévia de {title}",
+        "useForStyle": "Usar para mudar o estilo",
+        "origin": {
+          "curated": "Seleção ADScale",
+          "approved_work": "Trabalho aprovado",
+          "template": "Template"
+        }
+      },
+      "proposal": {
+        "level": { "conservative": "Conservadora", "balanced": "Equilibrada", "bold": "Ousada" },
+        "status": { "queued": "na fila", "processing": "gerando", "completed": "pronta", "failed": "falhou" },
+        "progress": "{ready} de {total} prontas",
+        "thumbnailsAria": "Miniaturas das propostas",
+        "selectAria": "Selecionar {name} em {format}",
+        "expandAria": "Ampliar {name} em {format}",
+        "previewAlt": "Proposta {name}, formato {format}",
+        "approvalSurfaceAria": "Superfície de aprovação",
+        "variations": "Variações ({count})",
+        "variation": "Variação {count}",
+        "variationAlt": "Variação {count}",
+        "originalPiece": "Peça original",
+        "retry": "Repetir esta proposta",
+        "compare": "Comparar",
+        "compareTitle": "Comparar variações",
+        "currentVariation": "Variação atual",
+        "previousVariation": "Variação anterior",
+        "expandedDescription": "Inspeção ampliada na proporção original, sem corte.",
+        "expandedAlt": "Proposta {name}, formato {format}, ampliada"
+      },
+      "briefingProvenance": "Proveniência do briefing",
         "briefingProvenanceRequest": "Pedido do operador",
         "briefingProvenanceBrand": "Marca: {brand}",
         "briefingProvenanceSource": "Fonte: {source}",
@@ -738,7 +777,13 @@
         "brandConflictChoiceSource": "Usar a marca da arte ({brand})",
         "brandConflictChoiceActive": "Manter a marca ativa ({brand})",
         "results": {
+          "title": "Resultados",
+          "subtitle": "Cada resultado fica salvo assim que termina.",
+          "campaignLabel": "Agrupar em campanha",
+          "noCampaign": "Sem campanha",
           "failedGeneration": "Falha na geração",
+          "status": { "queued": "Na fila", "processing": "Processando", "completed": "Pronto", "failed": "Falhou" },
+          "variationShort": "v{count}", "proposalAlt": "Proposta {label}", "generating": "Gerando...", "retry": "Tentar novamente", "retryProposal": "Repetir esta proposta", "approving": "Aprovando", "approved": "Aprovada", "approve": "Aprovar", "download": "Baixar", "editLayers": "Editar camadas", "viewLayers": "Visualizar camadas", "refine": "Refinar", "revisionInstruction": "O que você quer mudar?", "optionalAttachment": "Anexo opcional", "generateVariation": "Gerar nova variação",
           "reviewRecommended": "Revisão recomendada — a checagem automática ficou inconclusiva",
           "objectiveFailed": "A checagem objetiva reprovou esta peça.",
           "objectiveFailedNext": "Gere uma nova variação antes de aprovar.",
@@ -986,6 +1031,8 @@
           "shortLabel": "Aprendiz",
           "description": "Monte seu laboratório e faça seu primeiro experimento criativo."
         },
+        "inspirations": { "add": "Adicionar referência", "title": "Referências da marca", "loading": "Carregando inspirações", "loadFailed": "Não foi possível carregar as inspirações.", "retry": "Tentar novamente", "empty": "Nenhuma inspiração disponível ainda.", "attachFailed": "Não foi possível adicionar a referência. Tente novamente.", "previewAria": "Pré-visualizar inspiração {title}", "previewAlt": "Pré-visualização de {title}", "useForStyle": "Usar para mudar estilo", "origin": { "curated": "Seleção ADScale", "approved_work": "Trabalho aprovado", "template": "Template" } },
+        "proposal": { "level": { "conservative": "Conservadora", "balanced": "Equilibrada", "bold": "Ousada" }, "status": { "queued": "na fila", "processing": "gerando", "completed": "pronta", "failed": "falhou" }, "progress": "{ready} de {total} prontas", "thumbnailsAria": "Miniaturas das propostas", "selectAria": "Selecionar {name} em {format}", "expandAria": "Ampliar {name} em {format}", "previewAlt": "Proposta {name}, formato {format}", "approvalSurfaceAria": "Superfície de aprovação", "variations": "Variações ({count})", "variation": "Variação {count}", "variationAlt": "Variação {count}", "originalPiece": "Peça original", "retry": "Repetir esta proposta", "compare": "Comparar", "compareTitle": "Comparar variações", "currentVariation": "Variação atual", "previousVariation": "Variação anterior", "expandedDescription": "Inspeção ampliada na proporção original, sem corte.", "expandedAlt": "Proposta {name}, formato {format}, ampliada" },
         "analista_criativo": {
           "label": "Analista Criativo",
           "shortLabel": "Analista",
@@ -3612,6 +3659,10 @@
         "sessions": "{count} sessões",
         "creditBlocks": "{count} bloqueios de crédito",
         "creditSurprises": "{count} surpresas de crédito"
+      },
+      "studio": {
+        "title": "Estúdio progressivo", "stage": "Estágio", "stageAria": "Estágio de rollout", "sampleSufficient": "Amostra suficiente", "sampleInsufficient": "Amostra insuficiente", "requirement": "{observation}; ≥{sessions} sessões e ≥{generations} gerações confirmadas por braço", "incompleteData": "Dados incompletos: a consulta atingiu o limite de eventos", "failureCompletion": "Conclusão mais de 5 pp abaixo do controle", "failureAbandonment": "Abandono mais de 5 pp acima do controle", "failureGeneration": "Falha mais de 0,5 pp acima do controle", "failureRefund": "Reembolso mais de 0,5 pp acima do controle", "metric": "Métrica", "control": "Controle", "progressive": "Progressivo",
+        "metrics": { "eligibleSessions": "Sessões elegíveis", "confirmedGenerations": "Gerações confirmadas", "goalSwitches": "Trocas de objetivo", "sourceRoleCorrections": "Correções de papel", "successfulResumes": "Retomadas bem-sucedidas", "refinements": "Refinamentos iniciados", "debited": "Gerações debitadas", "compensated": "Gerações compensadas", "completion24h": "Conclusão em 24 h", "abandonment": "Abandono antes de gerar", "failure": "Falha", "refund": "Reembolso", "entryToBriefing": "Entrada até briefing", "entryToPlan": "Entrada até plano" }
       },
       "groups": {
         "coreFunnels": "Funis principais",

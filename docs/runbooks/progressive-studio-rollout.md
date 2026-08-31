@@ -34,7 +34,7 @@ Para cada decisão, selecione no painel o estágio correspondente e confirme a a
 
 ## Rollback imediato
 
-Retorne o percentual para `0` e abra investigação se ocorrer qualquer perda de rascunho, fonte, saída ou versão; geração antes de confirmação explícita; cobrança duplicada; divergência entre ledger, job e reembolso; queda de conclusão maior que 5 pp; aumento de falha ou reembolso maior que 0,5 pp; ou incidente crítico.
+Retorne o percentual para `0` e abra investigação se ocorrer qualquer perda de rascunho, fonte, saída ou variação; geração antes de confirmação explícita; cobrança duplicada; divergência entre ledger, job e reembolso; queda de conclusão maior que 5 pp; aumento de falha ou reembolso maior que 0,5 pp; ou incidente crítico.
 
 O retorno a zero é uma alteração humana de ambiente e precisa da mesma evidência registrada abaixo. Ele não substitui uma correção de código nem encerra a investigação.
 

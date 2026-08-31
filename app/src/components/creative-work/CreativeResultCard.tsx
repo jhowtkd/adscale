@@ -44,13 +44,6 @@ type CreativeResultCardProps = {
   isMobile?: boolean;
 };
 
-const STATUS_LABELS: Record<CreativeWorkOutput["status"], string> = {
-  queued: "Na fila",
-  processing: "Processando",
-  completed: "Pronto",
-  failed: "Falhou",
-};
-
 const actionClass = "inline-flex min-h-[var(--control-touch)] flex-1 items-center justify-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] disabled:cursor-not-allowed disabled:opacity-60";
 
 const LAYERIZATION_FAILURE_KEYS: Record<LayerizationFailureCode, "unsafeMedia" | "fidelity" | "invalidResponse" | "provider" | "unknown"> = {
@@ -95,6 +88,7 @@ export function CreativeResultCard({
   const [layerizeConfirmation, setLayerizeConfirmation] = useState<{ operationId: string; retry: boolean } | null>(null);
   const [submittingLayerize, setSubmittingLayerize] = useState(false);
   const t = useTranslations("dashboard.home.composer.results");
+  const statusLabel = (status: CreativeWorkOutput["status"]) => t(`status.${status}`);
   const layerizeRegionRef = useRef<HTMLDivElement>(null);
   const layerizationWasBusy = useRef(false);
   const isCompleted = output.status === "completed" && (output.hasOutput ?? Boolean(output.outputKey));
@@ -165,10 +159,10 @@ export function CreativeResultCard({
       <header className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-[var(--text-primary)]">
           <span data-testid="proposal-level-name">{label}</span>
-          <span className="ml-1 text-[var(--text-muted)]">· {output.targetFormat ?? "4:5"} · v{output.versionNumber ?? 1}</span>
+          <span className="ml-1 text-[var(--text-muted)]">· {output.targetFormat ?? "4:5"} · {t("variationShort", { count: output.versionNumber ?? 1 })}</span>
         </p>
         <span className="rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-[var(--text-caption)] uppercase tracking-wider text-[var(--text-muted)]">
-          {STATUS_LABELS[output.status]}
+          {statusLabel(output.status)}
         </span>
       </header>
 
@@ -177,7 +171,7 @@ export function CreativeResultCard({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={`/api/creative-work/${output.workItemId}/outputs/${output.id}/download`}
-            alt={`Proposta ${label}`}
+            alt={t("proposalAlt", { label })}
             className="h-full w-full object-contain"
           />
         ) : (
@@ -191,7 +185,7 @@ export function CreativeResultCard({
                   {t(`failure.${failureCategory}`)}
                 </span>
               </>
-            ) : "Gerando..."}
+            ) : t("generating")}
           </div>
         )}
       </div> : null}
@@ -278,12 +272,12 @@ export function CreativeResultCard({
         isRevision ? (
           onRetryRevision ? (
             <button type="button" className={actionClass} disabled={isRevising} onClick={() => onRetryRevision(output)}>
-              Tentar novamente
+              {t("retry")}
             </button>
           ) : null
         ) : retryEligible ? (
           <button type="button" className={actionClass} disabled={isRetrying} onClick={() => onRetry(output.id)}>
-            Repetir esta proposta
+            {t("retryProposal")}
           </button>
         ) : (
           <p className="text-xs text-[var(--text-muted)]">{t("retryUnavailable")}</p>
@@ -310,20 +304,20 @@ export function CreativeResultCard({
               >
                 <ActionStatusIcon state={isApproving ? "pending" : output.isSelected ? "success" : approvalError ? "error" : "idle"} />
                 {isApproving
-                  ? "Aprovando"
+                  ? t("approving")
                   : output.isSelected
-                    ? "Aprovada"
+                    ? t("approved")
                     : approvalError
-                      ? "Tentar novamente"
+                      ? t("retry")
                       : selectionPolicy.requiresConfirmation
                         ? confirmingSelection ? t("confirmApproval") : t("reviewBeforeApprove")
-                        : "Aprovar"}
+                        : t("approve")}
               </button>
             ) : null}
-            <button type="button" className={actionClass} onClick={() => onDownload(output.id)}>Baixar</button>
-            {(layerization?.status === "completed" || output.layerEditor) && onOpenLayerEditor ? <button type="button" className={actionClass} onClick={() => onOpenLayerEditor(output.id)}>{output.isSelected ? "Editar camadas" : "Visualizar camadas"}</button> : null}
+            <button type="button" className={actionClass} onClick={() => onDownload(output.id)}>{t("download")}</button>
+            {(layerization?.status === "completed" || output.layerEditor) && onOpenLayerEditor ? <button type="button" className={actionClass} onClick={() => onOpenLayerEditor(output.id)}>{output.isSelected ? t("editLayers") : t("viewLayers")}</button> : null}
             {layerization?.status === "completed" && onDownloadLayerized ? <button type="button" className={`${actionClass} border-[var(--focus-ring)]`} onClick={() => onDownloadLayerized(output.id, "psd")}>{t("downloadPsdWithLayers", { count: layerization.layers.length })}</button> : null}
-            {onRevise ? <button type="button" className={actionClass} aria-expanded={editing} onClick={() => setEditing((value) => !value)}>Refinar</button> : null}
+            {onRevise ? <button type="button" className={actionClass} aria-expanded={editing} onClick={() => setEditing((value) => !value)}>{t("refine")}</button> : null}
           </div>
           {output.isSelected && onLayerize && !isMobile && (canLayerize || layerization) ? (
             <div ref={layerizeRegionRef} tabIndex={-1} aria-busy={layerizationBusy || isLayerizing} className="space-y-2 border-t border-[var(--border-subtle)] pt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" data-testid="layerization-actions">
@@ -399,9 +393,9 @@ export function CreativeResultCard({
               }}
             >
               <label className="block text-sm font-medium text-[var(--text-primary)]">
-                O que você quer mudar?
+                {t("revisionInstruction")}
                 <textarea
-                  aria-label="O que você quer mudar?"
+                  aria-label={t("revisionInstruction")}
                   value={instruction}
                   onChange={(event) => setInstruction(event.target.value)}
                   rows={3}
@@ -409,9 +403,9 @@ export function CreativeResultCard({
                 />
               </label>
               <label className="block text-sm text-[var(--text-secondary)]">
-                Anexo opcional
+                {t("optionalAttachment")}
                 <input
-                  aria-label="Anexo opcional"
+                  aria-label={t("optionalAttachment")}
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
                   onChange={(event) => setAttachment(event.target.files?.[0] ?? null)}
@@ -419,7 +413,7 @@ export function CreativeResultCard({
                 />
               </label>
               <button type="submit" className={actionClass} disabled={!instruction.trim() || isRevising || submitting}>
-                Gerar nova versão
+                {t("generateVariation")}
               </button>
             </form>
           ) : null}

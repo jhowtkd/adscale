@@ -533,26 +533,26 @@ export function OwnerAnalyticsPanel({
       && studioProgressive.confirmedGenerations >= studioStageRequirement.confirmedGenerations,
   );
   const studioGateFailures = studioControl && studioProgressive ? [
-    !studioDataComplete ? "Dados incompletos: a consulta atingiu o limite de eventos" : null,
+    !studioDataComplete ? t("studio.incompleteData") : null,
     studioControl.completionRate !== null
       && studioProgressive.completionRate !== null
       && studioProgressive.completionRate - studioControl.completionRate < -0.05
-      ? "Conclusão mais de 5 pp abaixo do controle"
+      ? t("studio.failureCompletion")
       : null,
     studioControl.abandonmentRate !== null
       && studioProgressive.abandonmentRate !== null
       && studioProgressive.abandonmentRate - studioControl.abandonmentRate > 0.05
-      ? "Abandono mais de 5 pp acima do controle"
+      ? t("studio.failureAbandonment")
       : null,
     studioControl.failureRate !== null
       && studioProgressive.failureRate !== null
       && studioProgressive.failureRate - studioControl.failureRate > 0.005
-      ? "Falha mais de 0,5 pp acima do controle"
+      ? t("studio.failureGeneration")
       : null,
     studioControl.refundRate !== null
       && studioProgressive.refundRate !== null
       && studioProgressive.refundRate - studioControl.refundRate > 0.005
-      ? "Reembolso mais de 0,5 pp acima do controle"
+      ? t("studio.failureRefund")
       : null,
   ].filter((value): value is string => value !== null) : [];
 
@@ -728,12 +728,12 @@ export function OwnerAnalyticsPanel({
                   </FunnelSection>
 
                   {studioControl && studioProgressive ? (
-                    <FunnelSection title="Estúdio progressivo">
+                    <FunnelSection title={t("studio.title")}>
                       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
                         <label className="inline-flex items-center gap-2 text-[var(--text-secondary)]">
-                          Estágio
+                          {t("studio.stage")}
                           <select
-                            aria-label="Estágio de rollout"
+                            aria-label={t("studio.stageAria")}
                             value={studioRolloutStage}
                             onChange={(event) => setStudioRolloutStage(Number(event.target.value) as 10 | 50 | 100)}
                             className="h-8 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 text-xs"
@@ -751,10 +751,10 @@ export function OwnerAnalyticsPanel({
                               : "bg-[var(--danger-bg)] text-[var(--danger-text)]",
                           )}
                         >
-                          {studioSampleSufficient ? "Amostra suficiente" : "Amostra insuficiente"}
+                          {studioSampleSufficient ? t("studio.sampleSufficient") : t("studio.sampleInsufficient")}
                         </span>
                         <span className="text-[var(--text-muted)]">
-                          {studioStageRequirement.observation}; ≥{studioStageRequirement.eligibleSessions} sessões e ≥{studioStageRequirement.confirmedGenerations} gerações confirmadas por braço
+                          {t("studio.requirement", { observation: studioStageRequirement.observation, sessions: studioStageRequirement.eligibleSessions, generations: studioStageRequirement.confirmedGenerations })}
                         </span>
                       </div>
                       {studioGateFailures.length > 0 ? (
@@ -772,23 +772,8 @@ export function OwnerAnalyticsPanel({
                       <FunnelTable
                         title=""
                         noDataLabel={noDataLabel}
-                        headers={["Métrica", "Controle", "Progressivo", "Δ"]}
-                        rows={[
-                          ["Sessões elegíveis", <CountCell key="control" value={studioControl.eligibleSessions} />, <CountCell key="progressive" value={studioProgressive.eligibleSessions} />, "—"],
-                          ["Gerações confirmadas", <CountCell key="control" value={studioControl.confirmedGenerations} />, <CountCell key="progressive" value={studioProgressive.confirmedGenerations} />, "—"],
-                          ["Trocas de objetivo", <CountCell key="control" value={studioControl.goalSwitches} />, <CountCell key="progressive" value={studioProgressive.goalSwitches} />, "—"],
-                          ["Correções de papel", <CountCell key="control" value={studioControl.sourceRoleCorrections} />, <CountCell key="progressive" value={studioProgressive.sourceRoleCorrections} />, "—"],
-                          ["Retomadas bem-sucedidas", <CountCell key="control" value={studioControl.successfulResumesWithin30m} />, <CountCell key="progressive" value={studioProgressive.successfulResumesWithin30m} />, "—"],
-                          ["Refinamentos iniciados", <CountCell key="control" value={studioControl.refinementsStarted} />, <CountCell key="progressive" value={studioProgressive.refinementsStarted} />, "—"],
-                          ["Gerações debitadas", <CountCell key="control" value={studioControl.debitedGenerations} />, <CountCell key="progressive" value={studioProgressive.debitedGenerations} />, "—"],
-                          ["Gerações compensadas", <CountCell key="control" value={studioControl.compensatedGenerations} />, <CountCell key="progressive" value={studioProgressive.compensatedGenerations} />, "—"],
-                          ["Conclusão em 24 h", <RateCell key="control" rate={studioControl.completionRate} />, <RateCell key="progressive" rate={studioProgressive.completionRate} />, formatPercentagePointDelta(studioControl.completionRate, studioProgressive.completionRate)],
-                          ["Abandono antes de gerar", <RateCell key="control" rate={studioControl.abandonmentRate} />, <RateCell key="progressive" rate={studioProgressive.abandonmentRate} />, formatPercentagePointDelta(studioControl.abandonmentRate, studioProgressive.abandonmentRate)],
-                          ["Falha", <RateCell key="control" rate={studioControl.failureRate} />, <RateCell key="progressive" rate={studioProgressive.failureRate} />, formatPercentagePointDelta(studioControl.failureRate, studioProgressive.failureRate)],
-                          ["Reembolso", <RateCell key="control" rate={studioControl.refundRate} />, <RateCell key="progressive" rate={studioProgressive.refundRate} />, formatPercentagePointDelta(studioControl.refundRate, studioProgressive.refundRate)],
-                          ["Entrada até briefing", formatGapMs(studioControl.medianEntryToBriefingMs), formatGapMs(studioProgressive.medianEntryToBriefingMs), "—"],
-                          ["Entrada até plano", formatGapMs(studioControl.medianEntryToPlanMs), formatGapMs(studioProgressive.medianEntryToPlanMs), "—"],
-                        ]}
+                        headers={[t("studio.metric"), t("studio.control"), t("studio.progressive"), "Δ"]}
+                        rows={[["eligibleSessions", <CountCell key="control" value={studioControl.eligibleSessions} />, <CountCell key="progressive" value={studioProgressive.eligibleSessions} />, "—"], ["confirmedGenerations", <CountCell key="control" value={studioControl.confirmedGenerations} />, <CountCell key="progressive" value={studioProgressive.confirmedGenerations} />, "—"], ["goalSwitches", <CountCell key="control" value={studioControl.goalSwitches} />, <CountCell key="progressive" value={studioProgressive.goalSwitches} />, "—"], ["sourceRoleCorrections", <CountCell key="control" value={studioControl.sourceRoleCorrections} />, <CountCell key="progressive" value={studioProgressive.sourceRoleCorrections} />, "—"], ["successfulResumes", <CountCell key="control" value={studioControl.successfulResumesWithin30m} />, <CountCell key="progressive" value={studioProgressive.successfulResumesWithin30m} />, "—"], ["refinements", <CountCell key="control" value={studioControl.refinementsStarted} />, <CountCell key="progressive" value={studioProgressive.refinementsStarted} />, "—"], ["debited", <CountCell key="control" value={studioControl.debitedGenerations} />, <CountCell key="progressive" value={studioProgressive.debitedGenerations} />, "—"], ["compensated", <CountCell key="control" value={studioControl.compensatedGenerations} />, <CountCell key="progressive" value={studioProgressive.compensatedGenerations} />, "—"], ["completion24h", <RateCell key="control" rate={studioControl.completionRate} />, <RateCell key="progressive" rate={studioProgressive.completionRate} />, formatPercentagePointDelta(studioControl.completionRate, studioProgressive.completionRate)], ["abandonment", <RateCell key="control" rate={studioControl.abandonmentRate} />, <RateCell key="progressive" rate={studioProgressive.abandonmentRate} />, formatPercentagePointDelta(studioControl.abandonmentRate, studioProgressive.abandonmentRate)], ["failure", <RateCell key="control" rate={studioControl.failureRate} />, <RateCell key="progressive" rate={studioProgressive.failureRate} />, formatPercentagePointDelta(studioControl.failureRate, studioProgressive.failureRate)], ["refund", <RateCell key="control" rate={studioControl.refundRate} />, <RateCell key="progressive" rate={studioProgressive.refundRate} />, formatPercentagePointDelta(studioControl.refundRate, studioProgressive.refundRate)], ["entryToBriefing", formatGapMs(studioControl.medianEntryToBriefingMs), formatGapMs(studioProgressive.medianEntryToBriefingMs), "—"], ["entryToPlan", formatGapMs(studioControl.medianEntryToPlanMs), formatGapMs(studioProgressive.medianEntryToPlanMs), "—"]].map(([metric, control, progressive, delta]) => [t(`studio.metrics.${metric}`), control, progressive, delta])}
                       />
                     </FunnelSection>
                   ) : null}

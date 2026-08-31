@@ -516,6 +516,7 @@
       "planUsed": "Plan used",
       "resultStateGenerating": "Generating",
       "resultStateReady": "Ready for review",
+      "resultStateFailed": "Generation has no available result",
       "insufficientBalance": "Insufficient credits",
       "getCredits": "Get credits",
       "continueStates": {
@@ -702,7 +703,13 @@
         "brandConflictChoiceSource": "Use the artwork's brand ({brand})",
         "brandConflictChoiceActive": "Keep the active brand ({brand})",
         "results": {
+          "title": "Results",
+          "subtitle": "Each result is saved as soon as it finishes.",
+          "campaignLabel": "Group into campaign",
+          "noCampaign": "No campaign",
           "failedGeneration": "Generation failed",
+          "status": { "queued": "Queued", "processing": "Processing", "completed": "Ready", "failed": "Failed" },
+          "variationShort": "v{count}", "proposalAlt": "Proposal {label}", "generating": "Generating...", "retry": "Try again", "retryProposal": "Retry this proposal", "approving": "Approving", "approved": "Approved", "approve": "Approve", "download": "Download", "editLayers": "Edit layers", "viewLayers": "View layers", "refine": "Refine", "revisionInstruction": "What would you like to change?", "optionalAttachment": "Optional attachment", "generateVariation": "Generate new variation",
           "reviewRecommended": "Review recommended — the automated check was inconclusive",
           "objectiveFailed": "The objective check rejected this piece.",
           "objectiveFailedNext": "Generate a new variation before approving.",
@@ -810,6 +817,8 @@
             "unknown": "Generation failed with an unexpected error."
           }
         },
+        "inspirations": { "add": "Add reference", "title": "Brand references", "loading": "Loading inspirations", "loadFailed": "Could not load inspirations.", "retry": "Try again", "empty": "No inspirations available yet.", "attachFailed": "Could not add the reference. Try again.", "previewAria": "Preview inspiration {title}", "previewAlt": "Preview of {title}", "useForStyle": "Use to change style", "origin": { "curated": "ADScale selection", "approved_work": "Approved work", "template": "Template" } },
+        "proposal": { "level": { "conservative": "Conservative", "balanced": "Balanced", "bold": "Bold" }, "status": { "queued": "queued", "processing": "generating", "completed": "ready", "failed": "failed" }, "progress": "{ready} of {total} ready", "thumbnailsAria": "Proposal thumbnails", "selectAria": "Select {name} in {format}", "expandAria": "Expand {name} in {format}", "previewAlt": "Proposal {name}, format {format}", "approvalSurfaceAria": "Approval surface", "variations": "Variations ({count})", "variation": "Variation {count}", "variationAlt": "Variation {count}", "originalPiece": "Original piece", "retry": "Retry this proposal", "compare": "Compare", "compareTitle": "Compare variations", "currentVariation": "Current variation", "previousVariation": "Previous variation", "expandedDescription": "Expanded inspection in the original proportion, without cropping.", "expandedAlt": "Proposal {name}, format {format}, expanded" },
         "variationAnalysisTitle": "AI reading",
         "variationContentTitle": "Identified content",
         "variationStyleTitle": "Identified style",
@@ -3583,6 +3592,10 @@
         "sessions": "{count} sessions",
         "creditBlocks": "{count} credit blocks",
         "creditSurprises": "{count} credit surprises"
+      },
+      "studio": {
+        "title": "Progressive Studio", "stage": "Stage", "stageAria": "Rollout stage", "sampleSufficient": "Sufficient sample", "sampleInsufficient": "Insufficient sample", "requirement": "{observation}; ≥{sessions} sessions and ≥{generations} confirmed generations per arm", "incompleteData": "Incomplete data: the query reached the event limit", "failureCompletion": "Completion is more than 5 pp below control", "failureAbandonment": "Abandonment is more than 5 pp above control", "failureGeneration": "Failure is more than 0.5 pp above control", "failureRefund": "Refund is more than 0.5 pp above control", "metric": "Metric", "control": "Control", "progressive": "Progressive",
+        "metrics": { "eligibleSessions": "Eligible sessions", "confirmedGenerations": "Confirmed generations", "goalSwitches": "Objective switches", "sourceRoleCorrections": "Source role corrections", "successfulResumes": "Successful resumes", "refinements": "Refinements started", "debited": "Debited generations", "compensated": "Compensated generations", "completion24h": "Completion within 24 h", "abandonment": "Abandonment before generation", "failure": "Failure", "refund": "Refund", "entryToBriefing": "Entry to briefing", "entryToPlan": "Entry to plan" }
       },
       "groups": {
         "coreFunnels": "Core funnels",

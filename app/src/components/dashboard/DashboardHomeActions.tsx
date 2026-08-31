@@ -195,6 +195,16 @@ export default function DashboardHomeActions({
     composer.selectIntent(nextMode === "briefing" ? "single" : "variations");
   };
 
+  const protocolSwitchControls = composer.pendingProtocolSwitch ? (
+    <div role="alertdialog" aria-label={t("protocolSwitchPending")} className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-object)] border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3">
+      <p className="text-sm text-[var(--warning-text)]">{t("protocolSwitchPending")}</p>
+      <div className="flex gap-2"><button type="button" onClick={composer.confirmProtocolSwitch} className="rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-3 py-2 text-sm font-medium text-[var(--action-primary-text)]">{t("protocolSwitchConfirm")}</button><button type="button" onClick={composer.cancelProtocolSwitch} className="rounded-[var(--radius-control)] border border-[var(--border-default)] px-3 py-2 text-sm font-medium text-[var(--text-primary)]">{t("protocolSwitchCancel")}</button></div>
+    </div>
+  ) : composer.protocolSwitchNotice ? (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-object)] border border-[var(--info-border)] bg-[var(--info-bg)] px-4 py-3"><p className="text-sm text-[var(--info-text)]">{t("protocolSwitchPreserved")}</p><button type="button" onClick={composer.returnToPreviousProtocol} className="rounded-[var(--radius-control)] border border-[var(--info-border)] px-3 py-2 text-sm font-medium text-[var(--info-text)]">{t("protocolSwitchBack")}</button></div>
+  ) : null;
+  const inspirationsControl = <div data-testid="brand-inspirations-slot" className="min-h-16"><BrandInspirations clientProfileId={composer.clientProfileId} onAttach={composer.addInspiration} /></div>;
+
   const progressiveResultsVisible = rolloutVariant === "progressive"
     && (composer.stage === "generation" || composer.stage === "results");
   useEffect(() => {
@@ -245,8 +255,8 @@ export default function DashboardHomeActions({
         {showObjectives ? <section aria-labelledby="progressive-objective-title" className="space-y-3"><h2 id="progressive-objective-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("chooseObjective")}</h2><CreativeToolCards selected={null} onSelect={(intent) => { void composer.selectIntent(intent); }} /></section> : null}
         {resultStage ? <>
           <section aria-labelledby="progressive-results-title" data-testid="progressive-results-summary" className="flex flex-wrap items-end justify-between gap-2 border-b border-[var(--border-subtle)] pb-3">
-            <div><p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{composer.request.trim() || t(`planReview.protocol.${composer.preparedPlan?.protocol === "format_adaptation" ? "formatAdaptation" : composer.preparedPlan?.protocol ?? composer.intent}`)}</p><h2 ref={progressiveResultsHeadingRef} id="progressive-results-title" tabIndex={-1} className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{t("resultsTitle")}</h2></div>
-            <p className="text-sm text-[var(--text-secondary)]">{composer.brandName ?? t("continueBrandUnknown")} · {composer.stage === "generation" ? t("resultStateGenerating") : t("resultStateReady")}</p>
+            <div><p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{composer.workTitle ?? (composer.request.trim() || t(`planReview.protocol.${composer.preparedPlan?.protocol === "format_adaptation" ? "formatAdaptation" : composer.preparedPlan?.protocol ?? composer.intent}`))}</p><h2 ref={progressiveResultsHeadingRef} id="progressive-results-title" tabIndex={-1} className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{t("resultsTitle")}</h2></div>
+            <p className="text-sm text-[var(--text-secondary)]">{composer.brandName ?? t("continueBrandUnknown")} · {composer.stage === "generation" ? t("resultStateGenerating") : composer.outputs.length > 0 && composer.outputs.every((output) => output.status === "failed") ? t("resultStateFailed") : t("resultStateReady")}</p>
           </section>
           <details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-4">
             <summary className="cursor-pointer text-sm font-medium">{t("planUsed")}</summary>
@@ -261,6 +271,7 @@ export default function DashboardHomeActions({
         </> : composer.objectiveSelected && !showPlan ? <CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" hideSourceUpload={composer.intent === "single"} /> : null}
         {showPlan && billing && !billing.access.hasSpendAccess ? <section className="rounded-[var(--radius-object)] border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4" role="alert"><p className="font-semibold text-[var(--warning-text)]">{t("insufficientBalance")}</p><Link href="/billing" className="mt-2 inline-flex text-sm font-semibold underline">{t("getCredits")}</Link></section> : null}
         {showPlan ? <CreativePlanReview plan={composer.preparedPlan!} busy={composer.actionPhase !== "idle"} onEdit={() => setEditingPreparedPlan(true)} onConfirm={(revision) => composer.confirmGeneration(revision)} /> : null}
+        {composer.objectiveSelected ? <section className="space-y-4" aria-label={t("chooseObjective")}><CreativeToolCards selected={composer.intent} onSelect={(intent) => { void composer.selectIntent(intent); }} />{protocolSwitchControls}{inspirationsControl}</section> : null}
       </div>
     );
   }
@@ -302,42 +313,7 @@ export default function DashboardHomeActions({
 
       <CreativeToolCards selected={composer.intent} onSelect={(intent) => { void composer.selectIntent(intent); }} />
 
-      {composer.pendingProtocolSwitch ? (
-        <div
-          role="alertdialog"
-          aria-label={t("protocolSwitchPending")}
-          className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-object)] border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3"
-        >
-          <p className="text-sm text-[var(--warning-text)]">{t("protocolSwitchPending")}</p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={composer.confirmProtocolSwitch}
-              className="rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-3 py-2 text-sm font-medium text-[var(--action-primary-text)]"
-            >
-              {t("protocolSwitchConfirm")}
-            </button>
-            <button
-              type="button"
-              onClick={composer.cancelProtocolSwitch}
-              className="rounded-[var(--radius-control)] border border-[var(--border-default)] px-3 py-2 text-sm font-medium text-[var(--text-primary)]"
-            >
-              {t("protocolSwitchCancel")}
-            </button>
-          </div>
-        </div>
-      ) : composer.protocolSwitchNotice ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-object)] border border-[var(--info-border)] bg-[var(--info-bg)] px-4 py-3">
-          <p className="text-sm text-[var(--info-text)]">{t("protocolSwitchPreserved")}</p>
-          <button
-            type="button"
-            onClick={composer.returnToPreviousProtocol}
-            className="rounded-[var(--radius-control)] border border-[var(--info-border)] px-3 py-2 text-sm font-medium text-[var(--info-text)]"
-          >
-            {t("protocolSwitchBack")}
-          </button>
-        </div>
-      ) : null}
+      {protocolSwitchControls}
 
       <CreativeComposer composer={composer} composerRef={composerRef} hideSourceUpload={mode === "briefing" && composer.intent === "single"} />
 
@@ -352,9 +328,7 @@ export default function DashboardHomeActions({
         </section>
       ) : null}
 
-      <div data-testid="brand-inspirations-slot" className="min-h-16">
-        <BrandInspirations clientProfileId={composer.clientProfileId} onAttach={composer.addInspiration} />
-      </div>
+      {inspirationsControl}
     </div>
   );
 }
