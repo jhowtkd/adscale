@@ -2145,6 +2145,51 @@ describe("useCreativeComposer", () => {
     expect(result.current.announcement).toContain("Geração iniciada");
   });
 
+  it("keeps a hydrated progressive ready plan visible and confirms its existing revision", async () => {
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ status: "ready" }),
+        sources: [{ id: "source-1", status: "ready" }],
+        outputs: [],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", workflowVariant: "progressive" }));
+    await act(async () => Promise.resolve());
+
+    expect(result.current.preparedPlan?.preparedRevision).toBe("2026-08-30T12:00:00.000Z");
+    expect(result.current.canConfirm).toBe(true);
+    await act(async () => { await result.current.confirmGeneration("2026-08-30T12:00:00.000Z"); });
+
+    expect(mocks.autosave).not.toHaveBeenCalled();
+    expect(mocks.prepare).not.toHaveBeenCalled();
+    expect(mocks.generate).toHaveBeenCalledOnce();
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: "work-1",
+      preparedRevision: "2026-08-30T12:00:00.000Z",
+    }));
+  });
+
+  it("does not revalidate a hydrated progressive plan after a local edit", async () => {
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ status: "ready" }),
+        sources: [{ id: "source-1", status: "ready" }],
+        outputs: [],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", workflowVariant: "progressive" }));
+    await act(async () => Promise.resolve());
+
+    act(() => result.current.setRequest("Pedido alterado após retomar"));
+
+    expect(result.current.preparedPlan).toBeNull();
+    expect(result.current.canConfirm).toBe(false);
+  });
+
   it("does not autosave a format inferred by prepare while generation starts", async () => {
     mocks.work.mockReturnValue({
       data: {

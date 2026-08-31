@@ -317,6 +317,8 @@ export function useCreativeComposer({
   const revisionAttemptsRef = useRef(new Map<string, { revisionKey: string; revisionAssetId: string | null }>());
   const pendingProtocolTransitionRef = useRef<((committed: boolean) => void) | null>(null);
   const planInputEditEpochRef = useRef(0);
+  const preparedPlanInputRef = useRef<{ revision: string; signature: string } | null>(null);
+  const hydratingPreparedPlanRevisionRef = useRef<string | null>(null);
   // A prepare response is usable only if no user action changed the input it
   // was built from. Keep this as the single mutation marker so uncommon
   // controls cannot leave a stale confirmation window during preparation.
@@ -433,7 +435,19 @@ export function useCreativeComposer({
     formatModeRef.current = hydrated.settings.formatMode;
     briefingOverridesRef.current = hydrated.settings.briefingOverrides;
     briefingVersionRef.current = hydrated.settings.briefingVersion;
-    lastPersistedRef.current = signature(hydrated);
+    const hydratedSignature = signature(hydrated);
+    lastPersistedRef.current = hydratedSignature;
+    const hydratedPlan = detailQuery.data?.preparedPlan;
+    if (initialWorkId && hydratedPlan) {
+      preparedPlanInputRef.current = {
+        revision: hydratedPlan.preparedRevision,
+        signature: hydratedSignature,
+      };
+      // The plan effect runs after this hydration effect with the pre-hydrate
+      // render signature. Skip only that transition; later user edits still
+      // compare against the canonical hydrated snapshot normally.
+      hydratingPreparedPlanRevisionRef.current = hydratedPlan.preparedRevision;
+    }
     /* TanStack Query is the external persisted source for hydration. */
     setRequestState(work.request);
     setInferredBriefingContext(
@@ -1589,9 +1603,17 @@ export function useCreativeComposer({
   const preparedPlan = detail?.preparedPlan ?? null;
   const stage = projectComposerStage({ objectiveSelected, detail: detail ?? null });
   const planInputSignature = signature(captureSnapshot());
-  const preparedPlanInputRef = useRef<{ revision: string; signature: string } | null>(null);
   useEffect(() => {
-    if (!preparedPlan) { preparedPlanInputRef.current = null; return; }
+    if (!preparedPlan) {
+      preparedPlanInputRef.current = null;
+      hydratingPreparedPlanRevisionRef.current = null;
+      return;
+    }
+    if (hydratingPreparedPlanRevisionRef.current === preparedPlan.preparedRevision) {
+      hydratingPreparedPlanRevisionRef.current = null;
+      setInvalidatedPlanRevision(null);
+      return;
+    }
     const previous = preparedPlanInputRef.current;
     if (!previous || previous.revision !== preparedPlan.preparedRevision) {
       preparedPlanInputRef.current = { revision: preparedPlan.preparedRevision, signature: planInputSignature };
