@@ -186,6 +186,7 @@ export default function DashboardHomeActions({
   });
   const continueTarget = useMemo(() => resolveContinueWork(works), [works]);
   const [editingPreparedPlan, setEditingPreparedPlan] = useState(false);
+  const preparedRevisionRef = useRef<string | null>(composer.preparedPlan?.preparedRevision ?? null);
   // The composer owns protocol switching, including a deferred switch that is
   // later cancelled. Deriving this keeps the visual mode on the same state.
   const mode: StudioMode = composer.intent === "single" ? "briefing" : "arte";
@@ -199,6 +200,13 @@ export default function DashboardHomeActions({
   useEffect(() => {
     if (progressiveResultsVisible) progressiveResultsHeadingRef.current?.focus();
   }, [progressiveResultsVisible]);
+  useEffect(() => {
+    const nextRevision = composer.preparedPlan?.preparedRevision ?? null;
+    if (preparedRevisionRef.current && nextRevision && nextRevision !== preparedRevisionRef.current) {
+      setEditingPreparedPlan(false);
+    }
+    if (nextRevision) preparedRevisionRef.current = nextRevision;
+  }, [composer.preparedPlan?.preparedRevision]);
 
   if (isError && works.length === 0) {
     return (
@@ -217,7 +225,7 @@ export default function DashboardHomeActions({
     const showPlan = composer.stage === "plan" && composer.preparedPlan && !editingPreparedPlan;
     const resultStage = progressiveResultsVisible;
     return (
-      <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6 lg:py-12">
+      <div className={cn("mx-auto w-full space-y-6 px-4 py-8 sm:px-6 lg:py-12", resultStage ? "max-w-6xl" : "max-w-4xl")}>
         <AccessGatePanel />
         <header className="flex items-end justify-between gap-3 border-b border-[var(--border-subtle)] pb-5">
           <div><p className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("studioLabel")}</p><h1 className="mt-1 product-page-title text-[var(--text-primary)]">{t("progressiveTitle")}</h1></div>
@@ -232,8 +240,22 @@ export default function DashboardHomeActions({
             <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-[var(--text-secondary)]"><Paperclip size={16} aria-hidden="true" />{t("composer.addArt")}<input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void composer.addFiles(event.target.files)} /></label>
           </section>
         ) : null}
-        {showObjectives ? <section aria-labelledby="progressive-objective-title" className="space-y-3"><h2 id="progressive-objective-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("chooseObjective")}</h2><CreativeToolCards selected={null} onSelect={composer.selectIntent} /></section> : null}
-        {resultStage ? <><section aria-labelledby="progressive-results-title"><h2 ref={progressiveResultsHeadingRef} id="progressive-results-title" tabIndex={-1} className="text-lg font-semibold text-[var(--text-primary)]">{t("resultsTitle")}</h2><div className="mt-3"><CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" hideSourceUpload={composer.intent === "single"} resultsOnly /></div></section><details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-4"><summary className="cursor-pointer text-sm font-medium">{t("planUsed")}</summary><p className="mt-3 text-sm text-[var(--text-secondary)]">{composer.request || t("progressiveSubtitle")}</p></details></> : composer.objectiveSelected && !showPlan ? <CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" hideSourceUpload={composer.intent === "single"} /> : null}
+        {showObjectives ? <section aria-labelledby="progressive-objective-title" className="space-y-3"><h2 id="progressive-objective-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("chooseObjective")}</h2><CreativeToolCards selected={null} onSelect={(intent) => { void composer.selectIntent(intent); }} /></section> : null}
+        {resultStage ? <>
+          <details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-4">
+            <summary className="cursor-pointer text-sm font-medium">{t("planUsed")}</summary>
+            <div className="mt-3">
+              {composer.preparedPlan ? <CreativePlanReview plan={composer.preparedPlan} busy={false} onEdit={() => undefined} onConfirm={() => undefined} readOnly /> : <p className="text-sm text-[var(--text-secondary)]">{composer.request || t("progressiveSubtitle")}</p>}
+            </div>
+          </details>
+          <section aria-labelledby="progressive-results-title">
+            <header data-testid="progressive-results-summary" className="flex flex-wrap items-end justify-between gap-2 border-b border-[var(--border-subtle)] pb-3">
+              <div><p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{composer.workId ?? "Studio"}</p><h2 ref={progressiveResultsHeadingRef} id="progressive-results-title" tabIndex={-1} className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{t("resultsTitle")}</h2></div>
+              <p className="text-sm text-[var(--text-secondary)]">{composer.brandName ?? t("continueBrandUnknown")} · {composer.state}</p>
+            </header>
+            <div className="mt-3"><CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" hideSourceUpload={composer.intent === "single"} resultsOnly /></div>
+          </section>
+        </> : composer.objectiveSelected && !showPlan ? <CreativeComposer composer={composer} composerRef={composerRef} workflowVariant="progressive" hideSourceUpload={composer.intent === "single"} /> : null}
         {showPlan && billing && !billing.access.hasSpendAccess ? <section className="rounded-[var(--radius-object)] border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4" role="alert"><p className="font-semibold text-[var(--warning-text)]">{t("insufficientBalance")}</p><Link href="/billing" className="mt-2 inline-flex text-sm font-semibold underline">{t("getCredits")}</Link></section> : null}
         {showPlan ? <CreativePlanReview plan={composer.preparedPlan!} busy={composer.actionPhase !== "idle"} onEdit={() => setEditingPreparedPlan(true)} onConfirm={(revision) => composer.confirmGeneration(revision)} /> : null}
       </div>
@@ -275,7 +297,7 @@ export default function DashboardHomeActions({
         ))}
       </div>
 
-      <CreativeToolCards selected={composer.intent} onSelect={composer.selectIntent} />
+      <CreativeToolCards selected={composer.intent} onSelect={(intent) => { void composer.selectIntent(intent); }} />
 
       {composer.pendingProtocolSwitch ? (
         <div

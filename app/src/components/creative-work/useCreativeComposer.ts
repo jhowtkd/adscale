@@ -306,6 +306,7 @@ export function useCreativeComposer({
   const lifecycleRef = useRef(0);
   const persistOnUnmountRef = useRef<() => Promise<void>>(async () => undefined);
   const revisionAttemptsRef = useRef(new Map<string, { revisionKey: string; revisionAssetId: string | null }>());
+  const pendingProtocolTransitionRef = useRef<((committed: boolean) => void) | null>(null);
 
   const detailQuery = useCreativeWork(workId);
   const brandFontsQuery = useBrandFonts(
@@ -795,7 +796,7 @@ export function useCreativeComposer({
 
   const switchToProtocol = useCallback(async (next: ComposerIntent) => {
     const previous = intentRef.current;
-    if (next === previous) return;
+    if (next === previous) return true;
 
     const currentWork = detailQuery.data?.work;
     const currentWorkId = workIdRef.current;
@@ -811,7 +812,7 @@ export function useCreativeComposer({
       } catch (cause) {
         setActionPhase("idle");
         setError(cause instanceof Error ? cause.message : "Falha ao preservar o rascunho");
-        return;
+        return false;
       }
       if (profileId && currentWorkId) writeStoredDraft(profileId, previous, currentWorkId);
     }
@@ -859,9 +860,10 @@ export function useCreativeComposer({
     }
     setProtocolSwitchNotice(currentHasContext ? { from: previous, to: next } : null);
     if (next !== "restyle") requestAnimationFrame(() => composerRef.current?.focus());
+    return true;
   }, [active.activeClientProfileId, detailQuery.data, ensureDraft, exposeIntent, exposeWorkId, flushAutosave]);
 
-  const selectIntent = useCallback((next: ComposerIntent) => {
+  const selectIntent = useCallback((next: ComposerIntent, awaitTransition = false) => {
     if (workflowVariant === "progressive" && !objectiveRef.current) {
       // This is the first durable decision. Keep the free-entry request and
       // buffered file intact while only applying the protocol defaults.
@@ -895,9 +897,10 @@ export function useCreativeComposer({
         } else if (requestRef.current.trim()) {
           await ensureDraft();
         }
+        return true;
       })();
     }
-    if (next === intentRef.current) return;
+    if (next === intentRef.current) return Promise.resolve(true);
     const currentSnapshot = captureSnapshot();
     const hasUnsavedChanges = lastPersistedRef.current !== null
       && signature(currentSnapshot) !== lastPersistedRef.current;
@@ -909,18 +912,36 @@ export function useCreativeComposer({
       || hasUnsavedChanges;
     if (hasPendingWork) {
       setPendingProtocolSwitch(next);
-      return;
+      if (!awaitTransition) return;
+      pendingProtocolTransitionRef.current?.(false);
+      return new Promise<boolean>((resolve) => {
+        pendingProtocolTransitionRef.current = resolve;
+      });
     }
-    void switchToProtocol(next);
+    const transition = switchToProtocol(next).then((committed) => {
+      if (committed) recordStudioEvent("studio_goal_selected", { protocol: next });
+      return committed;
+    });
+    if (awaitTransition) return transition;
+    void transition;
   }, [actionPhase, bufferedFile, captureSnapshot, createMutation.isPending, ensureDraft, exposeIntent, isUploading, recordStudioEvent, sourceMutation.isPending, switchToProtocol, workflowVariant]);
 
   const confirmProtocolSwitch = useCallback(() => {
     const next = pendingProtocolSwitch;
     setPendingProtocolSwitch(null);
-    if (next) void switchToProtocol(next);
-  }, [pendingProtocolSwitch, switchToProtocol]);
+    const transition = next ? switchToProtocol(next) : Promise.resolve(false);
+    void transition.then((committed) => {
+      if (committed && next) recordStudioEvent("studio_goal_selected", { protocol: next });
+      pendingProtocolTransitionRef.current?.(committed);
+      pendingProtocolTransitionRef.current = null;
+    });
+  }, [pendingProtocolSwitch, recordStudioEvent, switchToProtocol]);
 
-  const cancelProtocolSwitch = useCallback(() => setPendingProtocolSwitch(null), []);
+  const cancelProtocolSwitch = useCallback(() => {
+    setPendingProtocolSwitch(null);
+    pendingProtocolTransitionRef.current?.(false);
+    pendingProtocolTransitionRef.current = null;
+  }, []);
 
   const returnToPreviousProtocol = useCallback(() => {
     const previous = protocolSwitchNotice?.from;
@@ -1137,7 +1158,11 @@ export function useCreativeComposer({
         }
         assetId = payload.assetId;
       }
-      await selectIntent(inspiration.suggestedIntent === "social_post" ? "variations" : inspiration.suggestedIntent);
+      const destinationCommitted = await selectIntent(
+        inspiration.suggestedIntent === "social_post" ? "variations" : inspiration.suggestedIntent,
+        true,
+      );
+      if (!destinationCommitted) return;
       const source: DraftSource = inspiration.templateId
         ? { templateId: inspiration.templateId, usage: inspiration.suggestedIntent === "restyle" ? "style" : "both" }
         : { assetId: assetId!, usage: inspiration.suggestedIntent === "restyle" ? "style" : "both" };

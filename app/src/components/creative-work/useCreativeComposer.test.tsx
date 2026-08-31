@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   apiFetch: vi.fn(),
   brandFonts: vi.fn(() => ({ data: [], isLoading: false })),
   brandKnowledge: vi.fn(() => ({ data: { activeVersion: null }, isLoading: false })),
+  recordBetaEvent: vi.fn(),
 }));
 
 vi.mock("@/lib/hooks/use-active-client-profile", () => ({
@@ -54,6 +55,9 @@ vi.mock("@/lib/hooks/use-creative-work", async (importOriginal) => ({
 vi.mock("@/lib/hooks/use-brand-training", () => ({
   useBrandFonts: (...args: unknown[]) => mocks.brandFonts(...args),
   useBrandKnowledge: (...args: unknown[]) => mocks.brandKnowledge(...args),
+}));
+vi.mock("@/lib/hooks/use-record-beta-event", () => ({
+  useRecordBetaEvent: () => ({ recordEvent: mocks.recordBetaEvent }),
 }));
 vi.mock("@/lib/assistant/chat-attachments", () => ({
   collectImageFiles: (files: File[] | FileList | null) => Array.from(files ?? []),
@@ -1312,6 +1316,70 @@ describe("useCreativeComposer", () => {
     expect(mocks.source).toHaveBeenCalledWith({
       workItemId: "work-1", action: "attachSource", templateId: "template-1", usage: "both",
     });
+  });
+
+  it("attaches an inspiration only after a confirmed cross-protocol switch", async () => {
+    const saving = deferred<{ work: { id: string } }>();
+    mocks.autosave.mockReturnValueOnce(saving.promise);
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    await act(async () => Promise.resolve());
+    act(() => result.current.setRequest("Rascunho alterado"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    const attaching = result.current.addInspiration({
+      id: "template-restyle", source: "template", title: "Restyle", previewUrl: null,
+      templateId: "template-restyle", assetId: null, suggestedIntent: "restyle",
+    });
+    await act(async () => Promise.resolve());
+
+    expect(result.current.pendingProtocolSwitch).toBe("restyle");
+    expect(mocks.source).not.toHaveBeenCalled();
+    act(() => result.current.confirmProtocolSwitch());
+    await act(async () => { saving.resolve({ work: { id: "work-1" } }); });
+    await act(async () => { await attaching; });
+
+    expect(result.current.intent).toBe("restyle");
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      templateId: "template-restyle", usage: "style", intent: "restyle",
+    }));
+  });
+
+  it("does not attach an inspiration when its cross-protocol switch is cancelled", async () => {
+    const saving = deferred<{ work: { id: string } }>();
+    mocks.autosave.mockReturnValueOnce(saving.promise);
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    await act(async () => Promise.resolve());
+    act(() => result.current.setRequest("Rascunho alterado"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    const attaching = result.current.addInspiration({
+      id: "template-restyle", source: "template", title: "Restyle", previewUrl: null,
+      templateId: "template-restyle", assetId: null, suggestedIntent: "restyle",
+    });
+    await act(async () => Promise.resolve());
+    act(() => result.current.cancelProtocolSwitch());
+    await act(async () => { await attaching; });
+
+    expect(result.current.intent).toBe("variations");
+    expect(mocks.source).not.toHaveBeenCalled();
+  });
+
+  it("records every explicit progressive objective switch", async () => {
+    const { result } = renderHook(() => useCreativeComposer({
+      workflowVariant: "progressive", workspaceId: "ws-1", studioSessionId: "session-1",
+    }));
+
+    await act(async () => { await result.current.selectIntent("variations"); });
+    await act(async () => { await result.current.selectIntent("restyle"); });
+    await act(async () => { await result.current.selectIntent("single"); });
+
+    expect(mocks.recordBetaEvent.mock.calls.filter(([event]) => event === "studio_goal_selected")).toEqual([
+      ["studio_goal_selected", expect.objectContaining({ protocol: "variations" })],
+      ["studio_goal_selected", expect.objectContaining({ protocol: "restyle" })],
+      ["studio_goal_selected", expect.objectContaining({ protocol: "single" })],
+    ]);
   });
 
   it("creates an asset-backed draft when an approved inspiration starts an empty composer", async () => {

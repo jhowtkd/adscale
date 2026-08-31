@@ -61,8 +61,11 @@ function outputLabel(output: CreativeWorkOutput) {
 }
 
 function outputSource(output: CreativeWorkOutput) {
-  if (output.status === "completed" && (output.hasOutput ?? Boolean(output.outputKey))) return `/api/creative-work/${output.workItemId}/outputs/${output.id}/download`;
   return `/api/creative-work/${output.workItemId}/outputs/${output.id}/download`;
+}
+
+function hasUsableOutput(output: CreativeWorkOutput) {
+  return output.status === "completed" && (output.hasOutput ?? Boolean(output.outputKey));
 }
 
 function outputLineage(
@@ -112,7 +115,16 @@ export default function CreativeProposalGrid({
   for (const output of outputs) {
     const key = lineageRootId(outputs, output);
     const current = latest.get(key);
-    if (!current || (output.versionNumber ?? 1) > (current.versionNumber ?? 1)) latest.set(key, output);
+    if (!current) {
+      latest.set(key, output);
+      continue;
+    }
+    const outputIsUsable = hasUsableOutput(output);
+    const currentIsUsable = hasUsableOutput(current);
+    if ((outputIsUsable && (!currentIsUsable || (output.versionNumber ?? 1) > (current.versionNumber ?? 1)))
+      || (!currentIsUsable && !outputIsUsable && (output.versionNumber ?? 1) > (current.versionNumber ?? 1))) {
+      latest.set(key, output);
+    }
   }
   const visible = [...latest.values()].sort((left, right) =>
     (left.targetFormat ?? "4:5").localeCompare(right.targetFormat ?? "4:5")
@@ -137,14 +149,16 @@ export default function CreativeProposalGrid({
   const label = outputLabel(selected);
   const format = selected.targetFormat ?? "4:5";
   const aspectRatio = format.replace(":", " / ");
-  const available = selected.status === "completed" && (selected.hasOutput ?? Boolean(selected.outputKey));
+  const available = hasUsableOutput(selected);
   const generationCopy = selected.status === "processing"
     ? [t("factoryProcessingTitle"), t("factoryProcessingDescription")]
     : [t("factoryQueuedTitle"), t("factoryQueuedDescription")];
   const selectedLineage = outputLineage(outputs, selected);
   const historyOutput = historyOutputId ? visible.find((output) => output.id === historyOutputId) : null;
   const historyLineage = historyOutput ? outputLineage(outputs, historyOutput) : [];
-  const compareAncestor = compareAncestorId ? historyLineage.find((output) => output.id === compareAncestorId) : null;
+  const compareAncestor = compareAncestorId
+    ? historyLineage.find((output) => output.id === compareAncestorId && hasUsableOutput(output))
+    : null;
   const totalOutputs = outputs.length;
   const readyCount = outputs.filter((output) => output.status === "completed" && (output.hasOutput ?? Boolean(output.outputKey))).length;
   const progressText = `${readyCount} de ${totalOutputs} prontas`;
@@ -168,7 +182,7 @@ export default function CreativeProposalGrid({
           {visible.map((output) => {
             const outputFormat = output.targetFormat ?? "4:5";
             const outputName = outputLabel(output);
-            const completed = output.status === "completed" && (output.hasOutput ?? Boolean(output.outputKey));
+            const completed = hasUsableOutput(output);
             return (
               <button
                 key={output.id}
@@ -271,13 +285,13 @@ export default function CreativeProposalGrid({
       <Sheet open={Boolean(historyOutput)} onOpenChange={(open) => { if (!open) { setHistoryOutputId(null); setCompareAncestorId(null); } }}>
         <SheetContent side="right" size="lg"><SheetHeader><SheetTitle>Versões ({historyLineage.length})</SheetTitle></SheetHeader><SheetBody className="space-y-3">
           {historyLineage.map((output) => <article key={output.id} className="flex items-center gap-3 rounded-[var(--radius-control)] border border-[var(--border-subtle)] p-3">
-            {output.outputKey ? <img src={outputSource(output)} alt={`Versão ${output.versionNumber ?? 1}`} className="size-14 rounded object-cover" /> : null}
+            {hasUsableOutput(output) ? <img src={outputSource(output)} alt={`Versão ${output.versionNumber ?? 1}`} className="size-14 rounded object-cover" /> : null}
             <div className="min-w-0 flex-1"><p className="text-sm font-medium">Versão {output.versionNumber ?? 1}</p><p className="text-xs text-[var(--text-muted)]">{new Date(output.createdAt).toLocaleDateString()} · {output.revisionInstruction ?? "Peça original"}</p></div>
-            {historyOutput && output.id !== historyOutput.id ? <button type="button" onClick={() => setCompareAncestorId(output.id)} className="text-sm font-semibold underline">Comparar</button> : null}
+            {historyOutput && output.id !== historyOutput.id && hasUsableOutput(historyOutput) && hasUsableOutput(output) ? <button type="button" onClick={() => setCompareAncestorId(output.id)} className="text-sm font-semibold underline">Comparar</button> : null}
           </article>)}
         </SheetBody></SheetContent>
       </Sheet>
-      <Dialog open={Boolean(historyOutput && compareAncestor)} onOpenChange={(open) => !open && setCompareAncestorId(null)}>
+      <Dialog open={Boolean(historyOutput && hasUsableOutput(historyOutput) && compareAncestor)} onOpenChange={(open) => !open && setCompareAncestorId(null)}>
         <DialogContent size="xl"><DialogHeader><DialogTitle>Comparar versões</DialogTitle></DialogHeader><DialogBody className="grid gap-4 sm:grid-cols-2">
           {historyOutput ? <figure><figcaption className="mb-2 text-sm font-medium">Versão atual</figcaption><img src={outputSource(historyOutput)} alt="Versão atual" className="h-auto w-full" /></figure> : null}
           {compareAncestor ? <figure><figcaption className="mb-2 text-sm font-medium">Versão anterior</figcaption><img src={outputSource(compareAncestor)} alt="Versão anterior" className="h-auto w-full" /></figure> : null}

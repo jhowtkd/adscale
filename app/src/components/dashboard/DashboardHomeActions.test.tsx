@@ -64,8 +64,16 @@ vi.mock("@/components/creative-work/useCreativeComposer", () => ({
   useCreativeComposer: (...args: unknown[]) => useComposerMock(...args),
 }));
 vi.mock("@/components/creative-work/CreativeComposer", () => ({
-  CreativeComposer: ({ composer, initialWorkId, resultsOnly }: { composer?: { intent: string; quote: { credits: number }; outputs?: Array<{ status: string }> }; initialWorkId?: string; resultsOnly?: boolean }) => (
-    <div data-testid="creative-composer" data-results-only={resultsOnly ? "true" : "false"}>{composer ? `${composer.intent}:${composer.quote.credits}:${composer.outputs?.map((output) => output.status).join(",") ?? ""}` : initialWorkId}</div>
+  CreativeComposer: ({ composer, initialWorkId, resultsOnly }: { composer?: { intent: string; quote: { credits: number }; outputs?: Array<{ status: string }>; preparePlan?: () => void }; initialWorkId?: string; resultsOnly?: boolean }) => (
+    <div data-testid="creative-composer" data-results-only={resultsOnly ? "true" : "false"}>{composer ? <>{`${composer.intent}:${composer.quote.credits}:${composer.outputs?.map((output) => output.status).join(",") ?? ""}`}{composer.preparePlan ? <button type="button" onClick={composer.preparePlan}>Continuar</button> : null}</> : initialWorkId}</div>
+  ),
+}));
+vi.mock("@/components/creative-work/CreativePlanReview", () => ({
+  CreativePlanReview: ({ plan, onEdit, onConfirm, readOnly }: { plan: { preparedRevision: string; protocol: string; materials: Array<{ label: string }>; preserve: string[]; explore: string[]; formats: string[]; outputCount: number }; onEdit: () => void; onConfirm: (revision: string) => void; readOnly?: boolean }) => (
+    <section data-testid="prepared-plan">
+      <span>{[plan.preparedRevision, plan.protocol, plan.materials.map((material) => material.label).join(","), plan.preserve.join(","), plan.explore.join(","), plan.formats.join(","), plan.outputCount].join("|")}</span>
+      {!readOnly ? <><button type="button" onClick={onEdit}>Editar plano</button><button type="button" onClick={() => onConfirm(plan.preparedRevision)}>Confirmar plano</button></> : null}
+    </section>
   ),
 }));
 vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
@@ -407,7 +415,7 @@ describe("DashboardHomeActions", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     useComposerMock.mockReturnValue({
       request: "Campanha de matrículas", hasEntry: true, objectiveSelected: true, intent: "variations",
-      stage: "results", preparedPlan: null, actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 3, credits: 15 },
+      stage: "results", preparedPlan: { preparedRevision: "revision-1", protocol: "variations", materials: [{ label: "Logo" }], preserve: ["verified_facts"], explore: ["composition"], formats: ["4:5"], outputCount: 3 }, actionPhase: "idle", clientProfileId: "p1", brandName: "Marca A", state: "results", workId: "work-1", quote: { unitCount: 3, credits: 15 },
       outputs: [{ status: "completed" }, { status: "failed" }], linkCampaign: vi.fn().mockResolvedValue(true),
     });
 
@@ -420,5 +428,30 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("creative-composer")).toHaveAttribute("data-results-only", "true");
     expect(screen.getByTestId("creative-composer")).toHaveTextContent("completed,failed");
     expect(within(plan).queryByTestId("creative-composer")).not.toBeInTheDocument();
+    expect(within(plan).getByTestId("prepared-plan")).toHaveTextContent("variations|Logo|verified_facts|composition|4:5|3");
+    expect(plan.compareDocumentPosition(results.closest("section")!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(results.closest("div.mx-auto")).toHaveClass("max-w-6xl");
+    expect(screen.getByTestId("progressive-results-summary")).toHaveTextContent("work-1");
+  });
+
+  it("returns to confirmation only after re-preparing a new revision", async () => {
+    const confirmGeneration = vi.fn();
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockImplementation(() => {
+      const [revision, setRevision] = useState("revision-1");
+      return {
+        request: "Campanha", hasEntry: true, objectiveSelected: true, intent: "variations", stage: "plan", actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 3, credits: 15 },
+        preparedPlan: { preparedRevision: revision, protocol: "variations", materials: [], preserve: [], explore: [], formats: ["4:5"], outputCount: 3 },
+        preparePlan: () => setRevision("revision-2"), confirmGeneration,
+      };
+    });
+
+    render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
+    fireEvent.click(screen.getByRole("button", { name: "Editar plano" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+
+    await waitFor(() => expect(screen.getByTestId("prepared-plan")).toHaveTextContent("revision-2"));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar plano" }));
+    expect(confirmGeneration).toHaveBeenCalledWith("revision-2");
   });
 });

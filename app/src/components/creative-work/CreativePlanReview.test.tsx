@@ -38,4 +38,14 @@ describe("CreativePlanReview", () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(onConfirm).toHaveBeenCalledWith(plan.preparedRevision);
   });
+
+  it("renders the complete configuration without actions when used as a result summary", () => {
+    render(<CreativePlanReview plan={plan} busy={false} onEdit={vi.fn()} onConfirm={vi.fn()} readOnly />);
+
+    expect(screen.getByText("Referência · roles.piece_reference · treatment.identity_preservation")).toBeInTheDocument();
+    expect(screen.getByText("protocol.single")).toBeInTheDocument();
+    expect(screen.getByText("4:5")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "edit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "confirm" })).not.toBeInTheDocument();
+  });
 });

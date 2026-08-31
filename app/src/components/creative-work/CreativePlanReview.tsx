@@ -9,6 +9,7 @@ export type CreativePlanReviewProps = {
   busy: boolean;
   onEdit: () => void;
   onConfirm: (preparedRevision: string) => void | Promise<void>;
+  readOnly?: boolean;
 };
 
 const protocolLabels = {
@@ -18,10 +19,10 @@ const protocolLabels = {
   restyle: "restyle",
 } as const;
 
-export function CreativePlanReview({ plan, busy, onEdit, onConfirm }: CreativePlanReviewProps) {
+export function CreativePlanReview({ plan, busy, onEdit, onConfirm, readOnly = false }: CreativePlanReviewProps) {
   const t = useTranslations("dashboard.home.planReview");
   const headingRef = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { headingRef.current?.focus(); }, [plan.preparedRevision]);
+  useEffect(() => { if (!readOnly) headingRef.current?.focus(); }, [plan.preparedRevision, readOnly]);
   const material = (item: PreparedPlanProjectionV1["materials"][number]) => [item.label, t(`roles.${item.role}`), item.treatment ? t(`treatment.${item.treatment}`) : null].filter(Boolean).join(" · ");
   const values = (items: string[], key: "preserve" | "explore") => items.map((item) => t(`${key}.${item}`)).join(" · ");
 
@@ -40,10 +41,10 @@ export function CreativePlanReview({ plan, busy, onEdit, onConfirm }: CreativePl
         <div><dt className="font-medium text-[var(--text-primary)]">{t("format")}</dt><dd className="mt-1 text-[var(--text-secondary)]">{plan.formats.join(" · ")}</dd></div>
         <div><dt className="font-medium text-[var(--text-primary)]">{t("quantity")}</dt><dd className="mt-1 text-[var(--text-secondary)]">{t("pieces", { count: plan.outputCount })}</dd></div>
       </dl>
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <button type="button" onClick={onEdit} disabled={busy} className="min-h-10 rounded-[var(--radius-control)] border border-[var(--border-default)] px-4 text-sm font-semibold text-[var(--text-primary)]">{t("edit")}</button>
-        <button type="button" onClick={() => void onConfirm(plan.preparedRevision)} disabled={busy} className="min-h-10 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 text-sm font-semibold text-[var(--action-primary-text)] disabled:opacity-50">{busy ? t("confirming") : t("confirm")}</button>
-      </div>
+      {!readOnly ? <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onEdit} disabled={busy} className="min-h-10 rounded-[var(--radius-control)] border border-[var(--border-default)] px-4 text-sm font-semibold text-[var(--text-primary)]">{t("edit")}</button>
+          <button type="button" onClick={() => void onConfirm(plan.preparedRevision)} disabled={busy} className="min-h-10 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 text-sm font-semibold text-[var(--action-primary-text)] disabled:opacity-50">{busy ? t("confirming") : t("confirm")}</button>
+        </div> : null}
     </section>
   );
 }

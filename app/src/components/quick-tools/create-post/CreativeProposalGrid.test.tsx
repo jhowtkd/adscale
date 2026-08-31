@@ -112,6 +112,40 @@ describe("CreativeProposalGrid", () => {
     expect(screen.getByRole("button", { name: "Repetir esta proposta" })).toBeVisible();
   });
 
+  it("keeps the last usable revision visible when a newer refinement fails", () => {
+    const original = { ...balancedCompleted, id: "out-v1", versionNumber: 1, parentOutputId: null };
+    const failedRevision = {
+      ...balancedCompleted, id: "out-v2", versionNumber: 2, parentOutputId: "out-v1",
+      status: "failed" as const, outputKey: null, failureCode: "provider_error",
+    };
+    render(
+      <CreativeProposalGrid
+        outputs={[original, failedRevision]}
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        onRevise={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("img", { name: /proposta equilibrada/i })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Repetir esta proposta" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /versões \(1\)/i })).not.toBeInTheDocument();
+  });
+
+  it("compares exactly two usable revisions and excludes failed ones", () => {
+    const original = { ...balancedCompleted, id: "out-v1", versionNumber: 1, parentOutputId: null };
+    const revision = { ...balancedCompleted, id: "out-v2", versionNumber: 2, parentOutputId: "out-v1", outputKey: "key-v2" };
+    const failedRevision = { ...balancedCompleted, id: "out-v3", versionNumber: 3, parentOutputId: "out-v2", status: "failed" as const, outputKey: null, failureCode: "provider_error" };
+    render(<CreativeProposalGrid outputs={[original, revision, failedRevision]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} onRevise={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Versões (2)" }));
+    expect(screen.getAllByRole("button", { name: "Comparar" })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Comparar" }));
+    const comparison = screen.getByRole("dialog", { name: "Comparar versões" });
+    expect(within(comparison).getAllByRole("img")).toHaveLength(2);
+  });
+
   it("exposes approve, download, and edit actions on completed cards", () => {
     render(
       <CreativeProposalGrid
