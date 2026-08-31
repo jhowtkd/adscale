@@ -7,6 +7,7 @@ import type {
 } from "@/server/brand-training/contracts";
 import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
 import type { TextLayout, TypographyPlan } from "./typography-plan";
+import type { CarouselDraftStateV1, CarouselPreparedSnapshotV1 } from "./carousel-contracts";
 
 export const CREATIVE_LEVELS = ["conservative", "balanced", "bold"] as const;
 export const CREATIVE_WORK_INTENTS = [
@@ -15,6 +16,7 @@ export const CREATIVE_WORK_INTENTS = [
   "single",
   "format_adaptation",
   "restyle",
+  "carousel",
 ] as const;
 export const CREATIVE_SOURCE_USAGES = ["content", "style", "both"] as const;
 export const CREATIVE_SOURCE_STATUSES = ["uploaded", "analyzing", "ready", "failed"] as const;
@@ -117,6 +119,8 @@ export type CreativeWorkSettings = {
   briefingOverrides?: CreativeWorkBriefingOverrides;
   /** Monotonic version for inline briefing edits. */
   briefingVersion?: number;
+  /** Versioned editable carousel draft (Criar carrossel). Absent on non-carousel works. */
+  carouselDraft?: CarouselDraftStateV1;
 };
 
 export const CREATIVE_WORK_BRIEFING_FIELDS = [
@@ -280,6 +284,12 @@ export type CreativeWorkInputSnapshot = {
     /** Frozen temporary Arte Livre reference; absent on legacy snapshots. */
     pieceReference?: import("./piece-reference").FrozenPieceReference;
   }>;
+  /**
+   * Frozen carousel deck + visual contract (Criar carrossel). Absent on
+   * legacy and non-carousel snapshots; the carousel generation path reads
+   * the deck only from this frozen block.
+   */
+  carousel?: CarouselPreparedSnapshotV1;
 };
 
 /**
@@ -466,6 +476,11 @@ export function quoteCreativeWork(input: {
   targetFormats: readonly CreativeWorkFormat[];
   directionPool?: CreativeDirectionPool;
 }): { plans: CreativeWorkOutputPlan[]; unitCount: number; credits: number } {
+  if (input.intent === "carousel") {
+    // A carousel never plans legacy outputs: its quote is the deck size via
+    // quoteCarouselDeck() (Task 5 owns the dedicated deck path).
+    throw new Error("carousel_requires_deck_quote");
+  }
   if (input.directionPool && input.directionPool.selectedIds.length > 0) {
     const byId = new Map(input.directionPool.directions.map((direction) => [direction.id, direction]));
     const plans: CreativeWorkOutputPlan[] = input.directionPool.selectedIds.map((id) => {

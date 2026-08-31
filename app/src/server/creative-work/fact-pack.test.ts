@@ -4,6 +4,7 @@ import type { CreativeWorkFactPack } from "./contracts";
 import {
   buildCreativeWorkFactPack,
   validateSocialPostCopyAgainstFactPack,
+  validateTextFieldsAgainstFactPack,
   type CreativeWorkFactPackSourceInput,
 } from "./fact-pack";
 
@@ -285,5 +286,20 @@ describe("validateSocialPostCopyAgainstFactPack", () => {
     expect(violations).toEqual([
       expect.objectContaining({ class: "price", value: "80%", field: "body" }),
     ]);
+  });
+
+  it("validates arbitrary fields with the exact same corpus as the social copy wrapper", () => {
+    const headline = "50% de desconto na Clínica Vida Plena";
+    const body = "Somente em setembro você garante 10 sessões.";
+    const cta = "Aproveite";
+    const fields = [
+      { field: "headline", text: headline },
+      { field: "body", text: body },
+      { field: "cta", text: cta },
+    ] as const;
+    expect(validateTextFieldsAgainstFactPack(fields, pack).length).toBeGreaterThan(0);
+    expect(validateTextFieldsAgainstFactPack(fields, pack)).toEqual(
+      validateSocialPostCopyAgainstFactPack({ headline, body, cta }, pack),
+    );
   });
 });

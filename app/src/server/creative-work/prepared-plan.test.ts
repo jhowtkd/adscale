@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { projectPreparedPlanV1 } from "./prepared-plan";
+import {
+  carouselLayoutFamilyForRole,
+  type CarouselLayoutPlan,
+  type CarouselNarrativeRole,
+  type CarouselPreparedSnapshotV1,
+  type CarouselSlidePlanV1,
+  type CarouselTextRegion,
+  type CarouselVisualContractV1,
+} from "./carousel-contracts";
 
 const updatedAt = new Date("2026-08-30T12:00:00.000Z");
 const factPack = {
@@ -10,7 +19,7 @@ const factPack = {
   identity: { clientProfileId: "profile-1", brandName: "Marca" },
 };
 
-function work(toolKind: "variations" | "single" | "format_adaptation" | "restyle") {
+function work(toolKind: "variations" | "single" | "format_adaptation" | "restyle" | "carousel") {
   return {
     id: "work-1", toolKind, format: "4:5" as const, updatedAt,
     inputSnapshot: {
@@ -23,6 +32,68 @@ function work(toolKind: "variations" | "single" | "format_adaptation" | "restyle
           { sourceId: "style", updatedAt: updatedAt.toISOString(), assetKey: "key", mimeType: "image/png", label: "Estilo", usage: "style" as const, content: null, style: null },
         ] : [{ sourceId: "art", updatedAt: updatedAt.toISOString(), assetKey: "key", mimeType: "image/png", label: "Arte", usage: "both" as const, content: null, style: null }],
     },
+  };
+}
+
+function carouselRegion(): CarouselTextRegion {
+  return { x: 80, y: 96, width: 864, height: 420, minFontPx: 42, maxFontPx: 82, align: "left" };
+}
+
+function carouselLayoutPlan(id: string, density: "high" | "medium" | "low"): CarouselLayoutPlan {
+  return { id, density, primaryRegion: carouselRegion(), secondaryRegion: null, exactAssetSlots: [], backgroundInstruction: "Composição sem texto." };
+}
+
+function carouselVisualContract(): CarouselVisualContractV1 {
+  return {
+    version: 1,
+    brandSnapshotHash: "brand-hash-1",
+    temporaryReferenceId: null,
+    palette: ["#101010"],
+    typography: { fontAssetKey: null, fallbackFamily: "sans", authority: "fallback" },
+    directionInstruction: null,
+    layoutFamilies: {
+      impact: carouselLayoutPlan("impact-v1", "high"),
+      development: carouselLayoutPlan("development-v1", "medium"),
+      respite: carouselLayoutPlan("respite-v1", "low"),
+    },
+    recurringMotifs: [],
+    exactAssetKeys: [],
+    prohibitedElements: [],
+    safeAreaPx: 64,
+    contractHash: "0".repeat(64),
+  };
+}
+
+function carouselSlide(position: number, role: CarouselNarrativeRole): CarouselSlidePlanV1 {
+  return {
+    slideId: `slide-${position}`,
+    position,
+    role,
+    purpose: "Propósito privado",
+    primaryText: `Texto privado ${position}`,
+    secondaryText: null,
+    authority: "ai_proposal",
+    sourceFactIds: [],
+    layoutFamily: carouselLayoutFamilyForRole(role),
+  };
+}
+
+function carouselSnapshot(preparedRevision: string): CarouselPreparedSnapshotV1 {
+  return {
+    version: 1,
+    preparedRevision,
+    deck: {
+      version: 1,
+      revision: "deck-r1",
+      workId: "work-1",
+      objective: "Objetivo privado",
+      audience: null,
+      tone: null,
+      promise: "Promessa privada",
+      format: "4:5",
+      slides: [1, 2, 3, 4, 5].map((position) => carouselSlide(position, ["hook", "context", "problem", "argument", "cta"][position - 1] as CarouselNarrativeRole)),
+    },
+    visualContract: carouselVisualContract(),
   };
 }
 
@@ -39,5 +110,46 @@ describe("projectPreparedPlanV1", () => {
     expect(plan?.materials[0]).toMatchObject({ role: "piece_reference", treatment: "recognizable_preservation" });
     expect(plan?.preserve).toContain("piece_reference_recognizability");
     expect(projectPreparedPlanV1({ ...work("single"), inputSnapshot: { ...work("single").inputSnapshot, factPack: undefined } })).toBeNull();
+  });
+
+  it("returns null for a carousel work until the deck snapshot is frozen", () => {
+    expect(projectPreparedPlanV1(work("carousel"))).toBeNull();
+  });
+
+  it("projects a frozen carousel deck as the carousel protocol", () => {
+    const preparedRevision = "prepared-2026-08-30";
+    const base = work("carousel");
+    const carouselWork = {
+      ...base,
+      inputSnapshot: {
+        ...base.inputSnapshot,
+        sources: [{ sourceId: "style-1", updatedAt: updatedAt.toISOString(), assetKey: "key", mimeType: "image/png", label: "Estilo", usage: "style" as const, content: null, style: null }],
+        carousel: carouselSnapshot(preparedRevision),
+      },
+    };
+    const plan = projectPreparedPlanV1(carouselWork);
+    expect(plan).toMatchObject({
+      version: 1,
+      workId: "work-1",
+      preparedRevision,
+      protocol: "carousel",
+      outputCount: 5,
+      formats: ["4:5"],
+      preserve: ["verified_facts", "brand_requirements"],
+      explore: ["composition", "hierarchy", "visual_language"],
+    });
+    expect(plan?.outputs).toEqual([1, 2, 3, 4, 5].map((position) => ({
+      label: `Tela ${position}`,
+      targetFormat: "4:5",
+      directionId: null,
+    })));
+    expect(plan?.materials).toEqual([
+      { sourceId: "style-1", label: "Estilo", role: "style", category: null, treatment: null },
+    ]);
+    const serialized = JSON.stringify(plan);
+    expect(serialized).not.toContain("private request");
+    expect(serialized).not.toContain("Objetivo privado");
+    expect(serialized).not.toContain("Texto privado");
+    expect(serialized).not.toContain("contractHash");
   });
 });

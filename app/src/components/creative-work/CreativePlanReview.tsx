@@ -34,7 +34,7 @@ export function CreativePlanReview({ plan, busy, onEdit, onConfirm, readOnly = f
         <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("subtitle")}</p>
       </div>
       <dl className="grid gap-4 text-sm sm:grid-cols-2">
-        <div><dt className="font-medium text-[var(--text-primary)]">{t("objective")}</dt><dd className="mt-1 text-[var(--text-secondary)]">{t(`protocol.${protocolLabels[plan.protocol]}`)}</dd></div>
+        <div><dt className="font-medium text-[var(--text-primary)]">{t("objective")}</dt><dd className="mt-1 text-[var(--text-secondary)]">{plan.protocol === "carousel" ? plan.protocol : t(`protocol.${protocolLabels[plan.protocol]}`)}</dd></div>
         <div><dt className="font-medium text-[var(--text-primary)]">{t("materials")}</dt><dd className="mt-1 text-[var(--text-secondary)]">{plan.materials.length ? plan.materials.map(material).join("; ") : t("none")}</dd></div>
         <div><dt className="font-medium text-[var(--text-primary)]">{t("preserveTitle")}</dt><dd className="mt-1 text-[var(--text-secondary)]">{values(plan.preserve, "preserve")}</dd></div>
         <div><dt className="font-medium text-[var(--text-primary)]">{t("exploreTitle")}</dt><dd className="mt-1 text-[var(--text-secondary)]">{values(plan.explore, "explore")}</dd></div>

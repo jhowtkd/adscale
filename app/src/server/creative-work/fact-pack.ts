@@ -217,6 +217,16 @@ export interface CopyClaimViolation {
   field: CopyClaimField;
 }
 
+/** A grounded text field identified by its dotted path (e.g. "slides.2.primaryText"). */
+export type GroundedTextField = { field: string; text: string };
+
+export type TextClaimViolation = {
+  class: CreativeFactClass;
+  /** The claim text as it appears in the copy. */
+  value: string;
+  field: string;
+};
+
 /** Keep only characters that carry factual identity; immune to punctuation/spacing variance. */
 function normalizeTight(value: string): string {
   return value.toLocaleLowerCase(PT_BR).replace(/[^a-zà-ÿ0-9%$]+/gi, "");
@@ -309,15 +319,15 @@ function findUnbackedEntities(maskedText: string, tightCorpus: string): string[]
 }
 
 /**
- * Structured textual validation (spec 7.3): every claim in the copy that
+ * Structured textual validation (spec 7.3): every claim in a text field that
  * belongs to a never-inferable class must trace to the request, a sourced
- * fact or the brand. Pure and deterministic — the rewrite policy (one
- * attempt, then block) lives in copy.ts.
+ * fact or the brand. Pure and deterministic. The social-post copy wrapper
+ * below and the carousel slide fields share this single contract.
  */
-export function validateSocialPostCopyAgainstFactPack(
-  copy: Pick<SocialPostCopy, "headline" | "body" | "cta">,
+export function validateTextFieldsAgainstFactPack(
+  fields: readonly GroundedTextField[],
   factPack: CreativeWorkFactPack,
-): CopyClaimViolation[] {
+): TextClaimViolation[] {
   const corpus = [
     factPack.request,
     ...factPack.facts.map((fact) => fact.value),
@@ -331,14 +341,9 @@ export function validateSocialPostCopyAgainstFactPack(
   const tightCorpus = normalizeTight(corpus);
   const numericTokens = corpusNumericTokens(corpus);
 
-  const violations: CopyClaimViolation[] = [];
-  const fields = [
-    ["headline", copy.headline],
-    ["body", copy.body],
-    ["cta", copy.cta],
-  ] as const;
+  const violations: TextClaimViolation[] = [];
 
-  for (const [field, text] of fields) {
+  for (const { field, text } of fields) {
     const masked = text.split("");
     for (const { class: factClass, pattern } of CLAIM_ATOM_DETECTORS) {
       for (const match of text.matchAll(pattern)) {
@@ -369,11 +374,26 @@ export function validateSocialPostCopyAgainstFactPack(
   for (const element of factPack.brand.prohibitedElements) {
     const needle = normalizeLoose(element);
     if (!needle) continue;
-    for (const [field, text] of fields) {
+    for (const { field, text } of fields) {
       if (normalizeLoose(text).includes(needle)) {
         violations.push({ class: "brand", value: element, field });
       }
     }
   }
   return violations;
+}
+
+/**
+ * Social-post wrapper over the generic field validator: same corpus, same
+ * violations, only bound to the headline/body/cta fields.
+ */
+export function validateSocialPostCopyAgainstFactPack(
+  copy: Pick<SocialPostCopy, "headline" | "body" | "cta">,
+  factPack: CreativeWorkFactPack,
+): CopyClaimViolation[] {
+  return validateTextFieldsAgainstFactPack([
+    { field: "headline", text: copy.headline },
+    { field: "body", text: copy.body },
+    { field: "cta", text: copy.cta },
+  ], factPack) as CopyClaimViolation[];
 }

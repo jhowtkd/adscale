@@ -9,7 +9,8 @@ export type CreativeInspiration = {
   templateId: string | null;
   assetId: string | null;
   curatedInspirationId?: string | null;
-  suggestedIntent: CreativeWorkIntent;
+  /** Inspirations never suggest carousel: it is selected explicitly (no visual reference). */
+  suggestedIntent: Exclude<CreativeWorkIntent, "carousel">;
 };
 
 type CuratedCandidate = {

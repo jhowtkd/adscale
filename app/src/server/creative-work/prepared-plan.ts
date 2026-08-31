@@ -5,16 +5,17 @@ import {
   type CreativeWorkInputSnapshot,
   type CreativeWorkIntent,
 } from "./contracts";
+import { resolveCarouselPreparedSnapshot } from "./carousel-contracts";
 
-type Protocol = Exclude<CreativeWorkIntent, "social_post">;
+type LegacyProtocol = Exclude<CreativeWorkIntent, "social_post" | "carousel">;
 type Preserve = "verified_facts" | "brand_requirements" | "source_content" | "source_visual_identity" | "piece_reference_identity" | "piece_reference_recognizability" | "piece_reference_exact_application" | "piece_reference_required_presence";
 type Explore = "composition" | "hierarchy" | "visual_language" | "format_layout" | "new_execution" | "piece_reference_visual_language" | "piece_reference_style_direction";
 
-export type PreparedPlanProjectionV1 = {
+export type LegacyPreparedPlanProjectionV1 = {
   version: 1;
   workId: string;
   preparedRevision: string;
-  protocol: Protocol;
+  protocol: LegacyProtocol;
   materials: Array<{
     sourceId: string;
     label: string;
@@ -29,6 +30,27 @@ export type PreparedPlanProjectionV1 = {
   formats: CreativeWorkFormat[];
 };
 
+export type CarouselPreparedPlanProjectionV1 = {
+  version: 1;
+  workId: string;
+  preparedRevision: string;
+  protocol: "carousel";
+  materials: LegacyPreparedPlanProjectionV1["materials"];
+  preserve: Preserve[];
+  explore: Explore[];
+  outputs: Array<{
+    label: string;
+    targetFormat: "4:5" | "1:1";
+    directionId: null;
+  }>;
+  outputCount: number;
+  formats: Array<"4:5" | "1:1">;
+};
+
+export type PreparedPlanProjectionV1 =
+  | LegacyPreparedPlanProjectionV1
+  | CarouselPreparedPlanProjectionV1;
+
 const levelLabels = { conservative: "Conservadora", balanced: "Equilibrada", bold: "Ousada" } as const;
 const treatmentKey = {
   identity_preservation: ["preserve", "piece_reference_identity"],
@@ -40,7 +62,7 @@ const treatmentKey = {
 } as const;
 
 function unique<T>(values: T[]): T[] { return [...new Set(values)]; }
-function validSources(protocol: Protocol, snapshot: CreativeWorkInputSnapshot) {
+function validSources(protocol: LegacyProtocol, snapshot: CreativeWorkInputSnapshot) {
   if (!Array.isArray(snapshot.sources) || !snapshot.settings || typeof snapshot.request !== "string") return false;
   const sources = snapshot.sources;
   if (protocol === "single") return snapshot.request.trim().length > 0 && sources.length <= 3;
@@ -60,7 +82,39 @@ export function projectPreparedPlanV1(work: {
   inputSnapshot: CreativeWorkInputSnapshot | null;
   updatedAt: Date;
 }): PreparedPlanProjectionV1 | null {
-  if (work.toolKind === "social_post" || !work.inputSnapshot || !resolveCreativeWorkFactPack(work.inputSnapshot)) return null;
+  if (work.toolKind === "social_post" || !work.inputSnapshot) return null;
+  if (work.toolKind === "carousel") {
+    // The carousel projection exists only after the deck/visual contract is
+    // frozen; it never exposes copy, answers, fact values or contract
+    // internals — the raw snapshot stays on the server.
+    const carousel = resolveCarouselPreparedSnapshot(work.inputSnapshot);
+    if (!carousel) return null;
+    const outputs = carousel.deck.slides.map((slide) => ({
+      label: `Tela ${slide.position}`,
+      targetFormat: carousel.deck.format,
+      directionId: null,
+    }));
+    const projection: CarouselPreparedPlanProjectionV1 = {
+      version: 1,
+      workId: work.id,
+      preparedRevision: carousel.preparedRevision,
+      protocol: "carousel",
+      materials: work.inputSnapshot.sources.map((source) => ({
+        sourceId: source.sourceId,
+        label: source.label?.trim() || (source.pieceReference ? "Referência" : "Arte"),
+        role: "style",
+        category: source.pieceReference?.category ?? null,
+        treatment: source.pieceReference?.treatment ?? null,
+      })),
+      preserve: ["verified_facts", "brand_requirements"],
+      explore: ["composition", "hierarchy", "visual_language"],
+      outputs,
+      outputCount: outputs.length,
+      formats: [carousel.deck.format],
+    };
+    return projection;
+  }
+  if (!resolveCreativeWorkFactPack(work.inputSnapshot)) return null;
   const protocol = work.toolKind;
   const snapshot = work.inputSnapshot;
   if (!validSources(protocol, snapshot)) return null;

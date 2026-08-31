@@ -102,4 +102,9 @@ describe("resolveCreativeWorkProtocol", () => {
     expect(resolution.execution).toBe("direct");
     expect(resolution.plans).toHaveLength(1);
   });
+
+  it("refuses to resolve a carousel toolKind because the deck quotes itself", () => {
+    expect(() => resolveCreativeWorkProtocol({ toolKind: "carousel", format: "4:5", targetFormats: [] }))
+      .toThrow("carousel_requires_deck_quote");
+  });
 });
