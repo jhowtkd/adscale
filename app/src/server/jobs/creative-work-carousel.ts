@@ -1,6 +1,5 @@
 import "server-only";
 import { logger } from "@/lib/logger";
-import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { objectStorage } from "@/server/storage";
 import { normalizeReferenceBuffers } from "@/server/ai/normalize-image-for-ai";
 import sharp from "sharp";
@@ -29,7 +28,6 @@ import {
 } from "@/server/creative-work/carousel-contracts";
 import { buildCarouselSlidePrompt } from "@/server/creative-work/prompt";
 import {
-  CreativeWorkReferenceError,
   planCarouselSlideReferences,
   type CreativeWorkReferenceSlot,
 } from "@/server/creative-work/reference-plan";
@@ -83,13 +81,6 @@ type CarouselSlideFailureCode =
 
 function shortError(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).slice(0, 200);
-}
-
-class ExactAssetError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ExactAssetError";
-  }
 }
 
 function isAnchorSlide(slide: CreativeWorkCarouselSlide, snapshot: NonNullable<ReturnType<typeof resolveCarouselPreparedSnapshot>>): boolean {

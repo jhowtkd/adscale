@@ -87,7 +87,7 @@ describe("visual foundation contract", () => {
         stylesheet.indexOf("/* Light-mode logo"),
       ),
       stylesheet.slice(
-        stylesheet.indexOf("/* Canonical dark theme */"),
+        stylesheet.indexOf("/* Canonical dark theme"),
       ),
     ];
 

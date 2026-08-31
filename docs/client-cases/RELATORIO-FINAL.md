@@ -70,9 +70,9 @@
 
 **Custos:** ~300 créditos em 6 peças entregues; falhas reembolsadas automaticamente. Zero compra de crédito.
 
-## Pendente (aguarda humano)
+## Encerrado (dispensado pelo product owner em 2026-08-31)
 
-1. **Revisão jurídica** — gate bloqueante de publicação; o kit já está organizado pra ela (autorizações + evidências no manifesto).
-2. **Publicação** — autorização específica depois do jurídico.
-3. **PR da `codex/telas-case`** — branch pronta, ~25 commits.
-4. Segunda leva de clientes quando houver — a maquinaria aceita nova marca com: assets na pasta, linha no manifesto, rodar o seed.
+1. **Revisão jurídica** — dispensada. O kit permanece local; não publicar como se tivesse parecer jurídico.
+2. **Publicação** — dispensada.
+3. **PR da `codex/telas-case`** — dispensado neste closeout.
+4. Segunda leva de clientes — só quando houver autorização nova.

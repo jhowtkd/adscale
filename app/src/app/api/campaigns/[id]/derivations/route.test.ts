@@ -51,6 +51,8 @@ vi.mock("@/server/jobs/client", () => ({
 
 vi.mock("@/server/billing/credits", () => ({
   refundCredits: vi.fn(),
+  canSpend: vi.fn(),
+  recordUsage: vi.fn(),
 }));
 
 vi.mock("@/server/generation/settlement", () => ({

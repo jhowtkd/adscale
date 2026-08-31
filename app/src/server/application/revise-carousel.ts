@@ -224,17 +224,26 @@ function textViolationDetails(error: unknown): { code: "composition_failed"; det
   };
 }
 
+const PUBLIC_SLIDE_OMIT = [
+  "providerBaseKey",
+  "previewKey",
+  "anchorKey",
+  "generationOperationKey",
+  "outputKey",
+] as const;
+
+type PublicCarouselSlide = Omit<
+  CreativeWorkCarouselSlide,
+  (typeof PUBLIC_SLIDE_OMIT)[number]
+> & { hasOutput: boolean };
+
 /** Same projection the work GET route uses: no storage or settlement keys. */
-export function toPublicCarouselSlide(slide: CreativeWorkCarouselSlide) {
-  const {
-    providerBaseKey: _providerBaseKey,
-    outputKey,
-    previewKey: _previewKey,
-    anchorKey: _anchorKey,
-    generationOperationKey: _generationOperationKey,
-    ...publicSlide
-  } = slide;
-  return { ...publicSlide, hasOutput: Boolean(outputKey) };
+export function toPublicCarouselSlide(slide: CreativeWorkCarouselSlide): PublicCarouselSlide {
+  const publicSlide: Record<string, unknown> = { ...slide };
+  for (const key of PUBLIC_SLIDE_OMIT) {
+    delete publicSlide[key];
+  }
+  return { ...publicSlide, hasOutput: Boolean(slide.outputKey) } as PublicCarouselSlide;
 }
 
 export async function reviseCarouselSlide(
@@ -543,7 +552,8 @@ export async function reviseCarouselDeck(
     // Global direction: copy the prior contract, set the trimmed instruction,
     // recompute the hash over the complete contract without its own hash, and
     // clear deck approval and quality so the deck must be re-reviewed.
-    const { contractHash: _previous, ...withoutHash } = snapshot.visualContract;
+    const withoutHash = { ...snapshot.visualContract };
+    delete (withoutHash as { contractHash?: string }).contractHash;
     // The hash covers the complete new contract — new instruction included —
     // minus its own hash, matching buildCarouselVisualContract().
     const contractWithoutHash: Omit<CarouselVisualContractV1, "contractHash"> = {

@@ -2,6 +2,9 @@
   "schemaVersion": 1,
   "status": "pending_human_review",
   "reviewedAt": null,
+  "waivedAt": "2026-08-31T19:46:00Z",
+  "waivedBy": "Jhonatan Soares",
+  "waiver": "Product owner closed the closeout without running the nine-deck paid batch or filling verdicts. Not a validator pass.",
   "_instructions": [
     "Human gate for the Studio carousel (Task 10). This template is VALIDATOR INPUT ONLY.",
     "Generating the nine real decks requires a separate paid-generation authorization: three approved brands (nike, mtv, absolut) x short_idea | long_text | pre_split.",

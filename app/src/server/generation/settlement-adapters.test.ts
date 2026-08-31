@@ -40,7 +40,11 @@ vi.mock("@/server/generation/canonical/charge", () => ({
   chargeForGeneration: chargeUnit,
   chargeForGenerationBatch: chargeBatch,
 }));
-vi.mock("@/server/billing/credits", () => ({ refundCredits: refund, recordUsage }));
+vi.mock("@/server/billing/credits", () => ({
+  refundCredits: refund,
+  recordUsage,
+  canSpend: vi.fn(),
+}));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
 vi.mock("@/server/creative-work/job-telemetry", () => ({
   logCreativeWorkGenerationAggregate: logAggregate,
@@ -153,19 +157,31 @@ function revisionAdapter() {
   });
 }
 
+const batchPlans = [
+  { creativeLevel: "conservative", targetFormat: "4:5", versionNumber: 1 },
+  { creativeLevel: "balanced", targetFormat: "4:5", versionNumber: 1 },
+  { creativeLevel: "bold", targetFormat: "4:5", versionNumber: 1 },
+] as const;
+
 function batchAdapter(existing?: { work: typeof work; outputs: typeof outputs }) {
   return creativeWorkSettlementAdapter({
     workspaceId: "workspace-1",
     workItemId: "work-1",
     userId: "user-1",
     readyWork: work as never,
-    plans: [
-      { creativeLevel: "conservative", targetFormat: "4:5", versionNumber: 1 },
-      { creativeLevel: "balanced", targetFormat: "4:5", versionNumber: 1 },
-      { creativeLevel: "bold", targetFormat: "4:5", versionNumber: 1 },
-    ],
+    plans: [...batchPlans],
     batch,
     existing: existing as never,
+    reserveReadyWork: existing
+      ? undefined
+      : async () => {
+          const created = await createOutputs("workspace-1", "work-1", [...batchPlans]);
+          return {
+            work: work as never,
+            outputs: created.outputs,
+            newlyCreatedIds: created.newlyCreatedIds,
+          };
+        },
   });
 }
 
@@ -228,6 +244,24 @@ describe("Generation Settlement production adapters", () => {
     );
     trackUsage.mockResolvedValue({ id: "usage-event" });
     updateCampaign.mockResolvedValue(undefined);
+  });
+
+  it("refuses to settle a batch without an atomic reservation", async () => {
+    await expect(
+      startGenerationSettlement(
+        creativeWorkSettlementAdapter({
+          workspaceId: "workspace-1",
+          workItemId: "work-1",
+          userId: "user-1",
+          readyWork: work as never,
+          plans: [...batchPlans],
+          batch,
+        }),
+      ),
+    ).rejects.toMatchObject({
+      message: "creative_work_missing_atomic_reservation",
+      code: "stale_input",
+    });
   });
 
   it("settles successful batch and unit claims through one contract", async () => {

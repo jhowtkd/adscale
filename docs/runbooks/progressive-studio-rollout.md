@@ -42,6 +42,6 @@ O retorno a zero é uma alteração humana de ambiente e precisa da mesma evidê
 
 | Data/hora UTC | Owner | Ambiente | Commit implantado | Faixa de consulta | Percentual | Métricas e denominadores | Incidentes | Decisão e justificativa |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | nenhum/a preencher | a preencher |
+| 2026-08-31T19:46:00Z | Jhonatan Soares | closeout | 31aefd1a | n/a | 100 (render.yaml; apply on main deploy) | Baseline Gate A, Task 12 e Human Gate B não executados | nenhum | Product owner dispensou os gates humanos e o baseline formal. Não é aprovação de compreensão 10/10. |
 
 Mantenha uma linha por baseline, entrada de estágio, avanço, retenção e rollback. A aprovação visual do product owner e a aprovação humana do Gate B são evidências separadas e devem ser vinculadas na coluna de decisão.
