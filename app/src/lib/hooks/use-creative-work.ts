@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api-client";
 import { invalidateCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
 import type { PreparedPlanProjectionV1 } from "@/server/creative-work/prepared-plan";
+import type { StudioRolloutVariant } from "@/lib/beta-analytics/studio-session";
 export {
   getCreativeWorkEvaluatorSummary,
   getCreativeWorkObjectiveVerdict,
@@ -684,13 +685,14 @@ export function useConfirmCreativeWork() {
 export function useTriggerTriplet() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (workItemId: string) =>
+    mutationFn: (input: { workItemId: string; preparedRevision: string; studioSessionId?: string; rolloutVariant?: StudioRolloutVariant }) =>
       postJson<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[]; brandTrainingSuggestion: string | null }>(
-        `/api/creative-work/${workItemId}/generate`,
-        { action: "initial" },
+        `/api/creative-work/${input.workItemId}/generate`,
+        { action: "initial", preparedRevision: input.preparedRevision, ...(input.studioSessionId ? { studioSessionId: input.studioSessionId } : {}), ...(input.rolloutVariant ? { rolloutVariant: input.rolloutVariant } : {}) },
         120_000,
       ),
-    onSuccess: async (data, workItemId) => {
+    onSuccess: async (data, input) => {
+      const workItemId = input.workItemId;
       queryClient.setQueryData<CreativeWorkDetail>(
         ["creative-work", workItemId],
         (current) => ({

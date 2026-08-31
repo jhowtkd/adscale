@@ -1037,8 +1037,9 @@ export async function confirmCreativeWorkSnapshotsIfUnchanged(
   expectedUpdatedAt: Date,
   inputSnapshot: CreativeWorkInputSnapshot,
   identitySnapshot: CreativeWorkIdentitySnapshot,
+  executor: Pick<typeof db, "update"> = db,
 ): Promise<CreativeWorkItem | null> {
-  const [row] = await db.update(creativeWorkItems).set({
+  const [row] = await executor.update(creativeWorkItems).set({
     inputSnapshot,
     identitySnapshot,
     status: "ready",

@@ -6,7 +6,7 @@ import { reviseCreativeWorkOutput } from "@/server/application/revise-creative-w
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 
 const bodySchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("initial") }).strict(),
+  z.object({ action: z.literal("initial"), preparedRevision: z.string().datetime({ offset: true }), studioSessionId: z.string().uuid().optional(), rolloutVariant: z.enum(["control", "progressive"]).optional() }).strict(),
   z.object({
     action: z.literal("revision"),
     revisionKey: z.string().uuid(),
@@ -44,7 +44,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ output: result.value.output }, { status: 202 });
     }
 
-    const result = await generateCreativeWork({ workspaceId: workspace.id, workItemId: id, userId: user.id });
+    const result = await generateCreativeWork({ workspaceId: workspace.id, workItemId: id, userId: user.id, preparedRevision: body.data.preparedRevision, studioSessionId: body.data.studioSessionId, rolloutVariant: body.data.rolloutVariant });
     if (!result.ok) {
       switch (result.error.code) {
         case "work_not_found": return apiError("creativeWorkNotFound", 404);

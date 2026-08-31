@@ -11,7 +11,7 @@ vi.mock("next-intl/server", () => ({ getTranslations: vi.fn(async () => (key: st
 
 import { POST } from "./route";
 
-const request = (body: unknown = { action: "initial" }) => new Request("http://localhost/api/creative-work/work-1/generate", {
+const request = (body: unknown = { action: "initial", preparedRevision: "2026-07-16T12:00:00.000Z" }) => new Request("http://localhost/api/creative-work/work-1/generate", {
   method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
 });
 
@@ -61,7 +61,7 @@ describe("POST /api/creative-work/[id]/generate", () => {
   it("is a thin adapter for the initial generation command", async () => {
     const response = await POST(request(), { params: Promise.resolve({ id: "work-1" }) });
     expect(response.status).toBe(202);
-    expect(generate).toHaveBeenCalledWith({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+    expect(generate).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1", preparedRevision: "2026-07-16T12:00:00.000Z" }));
     await expect(response.json()).resolves.toMatchObject({ outputs: [{ id: "output-1" }], billingKey: "creative-work:work-1:initial" });
   });
 

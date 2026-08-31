@@ -1153,6 +1153,7 @@ export function useCreativeComposer({
         setError("Aguarde a análise da arte terminar antes de gerar.");
         return;
       }
+      let preparedRevision = resumePrepared ? detailQuery.data?.preparedPlan?.preparedRevision : undefined;
       if (!resumePrepared) {
         phase = "preparing";
         setActionPhase(phase);
@@ -1164,10 +1165,15 @@ export function useCreativeComposer({
         setQuote(prepared.quote);
         formatRef.current = prepared.work.format;
         setFormat(prepared.work.format);
+        preparedRevision = prepared.preparedPlan?.preparedRevision;
+      }
+      if (!preparedRevision) {
+        setError("Revise o plano antes de gerar.");
+        return;
       }
       phase = "submitting";
       setActionPhase(phase);
-      const generated = await generateMutation.mutateAsync(id);
+      const generated = await generateMutation.mutateAsync({ workItemId: id, preparedRevision });
       setBrandConflict(null);
       setBrandTrainingSuggestion(generated.brandTrainingSuggestion);
       setAnnouncement("Geração iniciada");

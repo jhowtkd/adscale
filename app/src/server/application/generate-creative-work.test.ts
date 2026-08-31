@@ -28,6 +28,7 @@ vi.mock("@/server/repositories/creative-work", () => ({
   confirmCreativeWorkSnapshotsIfUnchanged: confirmSnapshots,
   setCreativeWorkInputSnapshotIfMissing: setLegacySnapshot,
   getCreativeWorkSourceAssetDetails: getSourceAssets,
+  withCreativeWorkPreparationLock: vi.fn(async (_ws, _id, callback) => callback({})),
   createPlannedCreativeWorkOutputs: createOutputs,
   deleteQueuedCreativeWorkOutputs: deleteOutputs,
   setCreativeWorkStatus: setStatus,
@@ -59,7 +60,7 @@ vi.mock("@/server/validation/env", () => ({
   },
 }));
 
-import { generateCreativeWork } from "./generate-creative-work";
+import { generateCreativeWork as generateCommand } from "./generate-creative-work";
 
 const work = {
   id: "work-1", workspaceId: "ws-1", clientProfileId: "profile-1", createdByUserId: "user-1",
@@ -75,12 +76,13 @@ const preparedWork = {
 };
 const identitySnapshot = { clientProfileId: "profile-1", confirmedAt: "now", assets: [], brandKit: { colors: [], fonts: [], toneOfVoice: null, requiredElements: null, prohibitedElements: null } };
 const rows = ["a", "b", "c"].map((id, index) => ({ id, creativeLevel: ["conservative", "balanced", "bold"][index], targetFormat: "4:5", status: "queued" }));
+const generateCreativeWork = (input: Omit<Parameters<typeof generateCommand>[0], "preparedRevision">) => generateCommand({ ...input, preparedRevision: "2026-07-16T12:00:00.000Z" });
 
 describe("generateCreativeWork", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     envState.brandCortexSinglePieceEnabled = "false";
-    getWork.mockResolvedValue({ work, outputs: [], sources: [] });
+    getWork.mockResolvedValue({ work: preparedWork, outputs: [], sources: [] });
     prepare.mockResolvedValue({ ok: true, value: { work: preparedWork, quote: { plans: [], unitCount: 0, credits: 0 } } });
     snapshot.mockResolvedValue(identitySnapshot);
     confirm.mockResolvedValue({ ...preparedWork, status: "ready", identitySnapshot });
@@ -113,7 +115,7 @@ describe("generateCreativeWork", () => {
       format: preparedWork.format,
       includePublishedBrandKnowledge: false,
     });
-    expect(confirmSnapshots).toHaveBeenCalledWith("ws-1", "work-1", expect.anything(), preparedWork.inputSnapshot, identitySnapshot);
+    expect(confirmSnapshots).toHaveBeenCalledWith("ws-1", "work-1", expect.anything(), preparedWork.inputSnapshot, identitySnapshot, expect.anything());
     expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 3, chargeAmount: 150, unitChargeAmount: 50, billingKey: "creative-work:work-1:initial" }), expect.anything());
     expect(createOutputs).toHaveBeenCalledWith("ws-1", "work-1", [
       { creativeLevel: "conservative", targetFormat: "4:5", versionNumber: 1 },
@@ -136,11 +138,10 @@ describe("generateCreativeWork", () => {
 
   it("carries the persisted generation correlation into every dispatch payload", async () => {
     const generationCorrelationId = "generation-correlation-1";
-    const correlatedWork = { ...work, generationCorrelationId };
+    const correlatedWork = { ...preparedWork, generationCorrelationId };
     const correlatedPreparedWork = { ...preparedWork, generationCorrelationId };
     const correlatedRows = rows.map((row) => ({ ...row, generationCorrelationId }));
     getWork.mockResolvedValue({ work: correlatedWork, outputs: [], sources: [] });
-    prepare.mockResolvedValue({ ok: true, value: { work: correlatedPreparedWork, quote: { plans: [], unitCount: 0, credits: 0 } } });
     confirmSnapshots.mockResolvedValue({ ...correlatedPreparedWork, status: "ready", identitySnapshot });
     createOutputs.mockResolvedValue({ outputs: correlatedRows, newlyCreatedIds: correlatedRows.map((row) => row.id) });
 
@@ -193,8 +194,7 @@ describe("generateCreativeWork", () => {
   });
 
   it("charges fifty credits for one single output", async () => {
-    getWork.mockResolvedValue({ work: { ...work, toolKind: "single" }, outputs: [], sources: [] });
-    prepare.mockResolvedValue({ ok: true, value: { work: { ...preparedWork, toolKind: "single" }, quote: {} } });
+    getWork.mockResolvedValue({ work: { ...preparedWork, toolKind: "single" }, outputs: [], sources: [] });
     createOutputs.mockResolvedValue({ outputs: [rows[1]], newlyCreatedIds: [rows[1].id] });
     await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
     expect(charge).toHaveBeenCalledWith(expect.objectContaining({ unitCount: 1, chargeAmount: 50 }), expect.anything());
@@ -202,8 +202,7 @@ describe("generateCreativeWork", () => {
 
   it("enables published Brand Cortex snapshots only for Peça única behind the rollout switch", async () => {
     envState.brandCortexSinglePieceEnabled = "true";
-    getWork.mockResolvedValue({ work: { ...work, toolKind: "single" }, outputs: [], sources: [] });
-    prepare.mockResolvedValue({ ok: true, value: { work: { ...preparedWork, toolKind: "single" }, quote: {} } });
+    getWork.mockResolvedValue({ work: { ...preparedWork, toolKind: "single" }, outputs: [], sources: [] });
     createOutputs.mockResolvedValue({ outputs: [rows[1]], newlyCreatedIds: [rows[1].id] });
 
     await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
@@ -252,13 +251,9 @@ describe("generateCreativeWork", () => {
   it("creates exactly one output per target format when the adaptation settings repeat a format", async () => {
     const adaptationSettings = { targetFormats: ["1:1", "9:16", "1:1"] as Array<"1:1" | "9:16"> };
     getWork.mockResolvedValue({
-      work: { ...work, toolKind: "format_adaptation", settings: adaptationSettings },
+      work: { ...preparedWork, toolKind: "format_adaptation", settings: adaptationSettings },
       outputs: [],
       sources: [],
-    });
-    prepare.mockResolvedValue({
-      ok: true,
-      value: { work: { ...preparedWork, toolKind: "format_adaptation", settings: adaptationSettings }, quote: {} },
     });
     const formatRows = [
       { id: "f1", creativeLevel: "balanced", targetFormat: "1:1", status: "queued" },
@@ -289,8 +284,7 @@ describe("generateCreativeWork", () => {
     const directionRows = [
       { id: "dir-1", creativeLevel: "balanced", targetFormat: "4:5", status: "queued", directionId: "00000000-0000-4000-8000-0000000000d2", directionSnapshot: { label: "B", instruction: "B instruction", order: 1 } },
     ];
-    getWork.mockResolvedValue({ work: { ...work, settings }, outputs: [], sources: [] });
-    prepare.mockResolvedValue({ ok: true, value: { work: { ...preparedWork, settings }, quote: {} } });
+    getWork.mockResolvedValue({ work: { ...preparedWork, settings }, outputs: [], sources: [] });
     createOutputs.mockResolvedValue({ outputs: directionRows, newlyCreatedIds: directionRows.map((row) => row.id) });
 
     await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
@@ -345,54 +339,6 @@ describe("generateCreativeWork", () => {
     expect(confirmSnapshots).not.toHaveBeenCalled();
     // Rebuilding the missing block never duplicates the charge.
     expect(charge).toHaveBeenCalledOnce();
-  });
-
-  it("returns the typed invalid_context error before any charge or image dispatch", async () => {
-    const violations = [{ class: "price", value: "50%", field: "headline" }];
-    prepare.mockResolvedValue({
-      ok: false,
-      error: { code: "invalid_context", details: { violations } },
-    });
-    const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
-    // The violations payload is forwarded unwrapped so the HTTP edge returns
-    // details.violations exactly like the prepare route does.
-    expect(result).toMatchObject({ ok: false, error: { code: "invalid_context", details: { violations } } });
-    expect(charge).not.toHaveBeenCalled();
-    expect(createOutputs).not.toHaveBeenCalled();
-    expect(send).not.toHaveBeenCalled();
-  });
-
-  it("returns the typed brand_conflict error before any charge or image dispatch (R-003)", async () => {
-    const details = { detectedBrand: "XTB", activeBrand: "Cenbrap", sourceId: "source-1", choices: ["source", "active"] };
-    prepare.mockResolvedValue({
-      ok: false,
-      error: { code: "brand_conflict", details },
-    });
-    const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
-    // Same forwarding contract as invalid_context: the HTTP edge returns the
-    // two short choices in details and billing stays blocked.
-    expect(result).toMatchObject({ ok: false, error: { code: "brand_conflict", details } });
-    expect(charge).not.toHaveBeenCalled();
-    expect(createOutputs).not.toHaveBeenCalled();
-    expect(send).not.toHaveBeenCalled();
-  });
-
-  it("forwards a blocked briefing before identity, charge, or image dispatch", async () => {
-    const details = {
-      reason: "missing_direction",
-      readiness: "blocked",
-      confidence: "high",
-      briefing: { readiness: "blocked" },
-    };
-    prepare.mockResolvedValue({ ok: false, error: { code: "briefing_blocked", details } });
-
-    const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
-
-    expect(result).toEqual({ ok: false, error: { code: "briefing_blocked", details } });
-    expect(snapshot).not.toHaveBeenCalled();
-    expect(charge).not.toHaveBeenCalled();
-    expect(createOutputs).not.toHaveBeenCalled();
-    expect(send).not.toHaveBeenCalled();
   });
 
   it("refunds the full batch after a synchronous partial dispatch failure", async () => {

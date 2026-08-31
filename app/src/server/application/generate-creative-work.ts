@@ -12,8 +12,10 @@ import {
   getCreativeWorkSourceAssetDetails,
   getCreativeWork,
   setCreativeWorkInputSnapshotIfMissing,
+  withCreativeWorkPreparationLock,
 } from "@/server/repositories/creative-work";
-import { prepareCreativeWork } from "./prepare-creative-work";
+import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
+import { logger } from "@/lib/logger";
 import { logCreativeWorkGenerationLifecycle } from "@/server/creative-work/job-telemetry";
 import { env } from "@/server/validation/env";
 
@@ -70,6 +72,9 @@ export async function generateCreativeWork(input: {
   workspaceId: string;
   workItemId: string;
   userId: string;
+  preparedRevision: string;
+  studioSessionId?: string;
+  rolloutVariant?: "control" | "progressive";
 }): Promise<GenerateCreativeWorkResult> {
   const billingKey = `creative-work:${input.workItemId}:initial`;
   const existing = await getCreativeWork(input.workspaceId, input.workItemId);
@@ -79,31 +84,9 @@ export async function generateCreativeWork(input: {
   let readyWork = existing.work;
   let brandTrainingSuggestion: string | null = null;
   if (existing.outputs.length === 0 && work.status === "draft") {
-    const prepared = await prepareCreativeWork(input);
-    if (!prepared.ok) {
-      // R-002: an invalid fact pack/copy surfaces its own typed error, still
-      // before any charge or image call; everything else stays work_not_prepared.
-      if (prepared.error.code === "work_not_found") {
-        return { ok: false, error: { code: "work_not_found" as const } };
-      }
-      if (prepared.error.code === "invalid_context") {
-        // Forward the violations payload unwrapped so the HTTP edge returns
-        // details.violations exactly like the prepare route does.
-        return { ok: false, error: { code: "invalid_context" as const, details: prepared.error.details } };
-      }
-      if (prepared.error.code === "brand_conflict") {
-        // R-003: same forwarding as invalid_context — the 422 details carry
-        // the two brand choices and billing stays blocked until the user
-        // resolves the conflict.
-        return { ok: false, error: { code: "brand_conflict" as const, details: prepared.error.details } };
-      }
-      if (prepared.error.code === "briefing_blocked") {
-        return { ok: false, error: { code: "briefing_blocked" as const, details: prepared.error.details } };
-      }
-      return { ok: false, error: { code: "work_not_prepared" as const, details: prepared.error } };
-    }
-    work = prepared.value.work;
-    if (!work.brief) return { ok: false, error: { code: "work_not_prepared" } };
+    const revision = new Date(input.preparedRevision);
+    if (Number.isNaN(revision.getTime()) || revision.getTime() !== work.updatedAt.getTime()) return { ok: false, error: { code: "stale_input" } };
+    if (!work.brief || !work.copy || !work.inputSnapshot) return { ok: false, error: { code: "work_not_prepared" } };
 
     // Empty selection delegates ranking to the snapshot's single canonical
     // selector. Operator-selected IDs use the same path in confirmSocialPostWork.
@@ -116,14 +99,11 @@ export async function generateCreativeWork(input: {
       includePublishedBrandKnowledge:
         work.toolKind === "single" && env.BRAND_CORTEX_SINGLE_PIECE_ENABLED === "true",
     });
-    if (!work.inputSnapshot) return { ok: false, error: { code: "work_not_prepared" } };
-    const confirmed = await confirmCreativeWorkSnapshotsIfUnchanged(
-      input.workspaceId,
-      input.workItemId,
-      work.updatedAt,
-      work.inputSnapshot,
-      identitySnapshot,
-    );
+    const confirmed = await withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (executor) => {
+      const fresh = await getCreativeWork(input.workspaceId, input.workItemId, executor);
+      if (!fresh?.work.inputSnapshot || !fresh.work.brief || !fresh.work.copy || fresh.work.updatedAt.getTime() !== revision.getTime()) return null;
+      return confirmCreativeWorkSnapshotsIfUnchanged(input.workspaceId, input.workItemId, revision, fresh.work.inputSnapshot, identitySnapshot, executor);
+    });
     if (!confirmed) return { ok: false, error: { code: "stale_input" } };
     readyWork = confirmed;
     brandTrainingSuggestion = identitySnapshot.assets.length === 0
@@ -227,6 +207,7 @@ export async function generateCreativeWork(input: {
     unitChargeAmount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
     result: "accepted",
   });
+  void recordBetaAnalyticsEvent({ workspaceId: input.workspaceId, userId: input.userId, eventKey: "generation_confirmed", source: "server", properties: { creativeWorkId: input.workItemId, protocol: work.toolKind, outputCount: settled.value.outputs.length, ...(input.studioSessionId ? { studioSessionId: input.studioSessionId } : {}), ...(input.rolloutVariant ? { rolloutVariant: input.rolloutVariant } : {}) } }).catch((error) => logger.warn("[creative-work] generation_confirmed telemetry failed", error));
   return {
     ok: true,
     value: {

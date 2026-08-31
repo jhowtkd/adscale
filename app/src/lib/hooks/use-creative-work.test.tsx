@@ -258,7 +258,10 @@ describe("useTriggerTriplet", () => {
     );
     const { result } = renderHook(() => useTriggerTriplet(), { wrapper });
 
-    await act(() => result.current.mutateAsync("work-1"));
+    await act(() => result.current.mutateAsync({
+      workItemId: "work-1",
+      preparedRevision: "2026-07-16T12:00:00.000Z",
+    }));
 
     expect(queryClient.getQueryData(["creative-work", "work-1"])).toEqual(
       expect.objectContaining({
