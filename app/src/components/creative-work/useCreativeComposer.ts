@@ -52,6 +52,10 @@ import {
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
 import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
 import { isPieceReferenceReady, MAX_PIECE_REFERENCES, type PieceReferenceCategory } from "@/server/creative-work/piece-reference";
+import {
+  useCarouselComposer,
+  type CarouselComposerInput,
+} from "./useCarouselComposer";
 
 export type ComposerState = "empty" | "saving" | "analyzing" | "ready" | "generating" | "results";
 export type ComposerActionPhase = "idle" | "saving" | "preparing" | "submitting" | "reconciling";
@@ -79,6 +83,7 @@ const COMPOSER_INTENTS = new Set<ComposerIntent>([
   "single",
   "format_adaptation",
   "restyle",
+  "carousel",
 ]);
 const UUID_SCHEMA = z.string().uuid();
 const DRAFT_STORAGE_PREFIX = "adscale:creative-draft:v1";
@@ -109,7 +114,9 @@ function reusableSourceForProtocol(
   next: ComposerIntent,
   sources: readonly CreativeWorkSource[],
 ): DraftSource | null {
-  if (next === "single") return null;
+  // Single and Carousel never inherit another protocol's source: the first
+  // owns piece references, the second accepts at most one style-only image.
+  if (next === "single" || next === "carousel") return null;
   const original = sources.find((source) =>
     source.status === "ready"
     && source.usageConfirmed
@@ -128,6 +135,9 @@ function canonicalQuote(
   targetFormats: Format[],
   directionPool?: CreativeDirectionPool,
 ): CreativeWorkQuote {
+  // The carousel quote always comes from its own deck size; the legacy output
+  // quoter throws for carousel and must never be reached.
+  if (intent === "carousel") return { unitCount: 0, credits: 0 };
   const { unitCount, credits } = quoteCreativeWork({ intent, format, targetFormats, directionPool });
   return { unitCount, credits };
 }
@@ -664,8 +674,8 @@ export function useCreativeComposer({
       });
       workIdRef.current = result.work.id;
       lastPersistedRef.current = signature(snapshotFromWork(result.work));
-      writeStoredDraft(active.activeClientProfileId!, intentRef.current, result.work.id);
       if (result.work.updatedAt) workRevisionRef.current = new Date(result.work.updatedAt).toISOString();
+      writeStoredDraft(active.activeClientProfileId!, intentRef.current, result.work.id);
       if (!silent && mountedRef.current) {
         setWorkId(result.work.id);
         setQuote(result.quote);
@@ -696,7 +706,15 @@ export function useCreativeComposer({
         workItemId: id,
         expectedUpdatedAt: workRevisionRef.current ?? (detailQuery.data?.work.updatedAt ? new Date(detailQuery.data.work.updatedAt).toISOString() : ""),
         ...snapshot,
+        // A carousel draft lives in settings.carouselDraft and is owned by
+        // the carousel controller; the generic autosave must carry the
+        // persisted draft through instead of wiping it.
+        settings: intentRef.current === "carousel"
+          ? { ...snapshot.settings, carouselDraft: detailQuery.data?.work.settings.carouselDraft }
+          : snapshot.settings,
       });
+      // Mocked/legacy autosave responses may omit the work row; only a real
+      // updatedAt can advance the CAS revision marker.
       if (result.work?.updatedAt) {
         workRevisionRef.current = new Date(result.work.updatedAt).toISOString();
       }
@@ -711,7 +729,7 @@ export function useCreativeComposer({
     }
     lastPersistedRef.current = sentSignature;
     if (announce && mountedRef.current) setAnnouncement("Alterações salvas");
-  }), [autosaveMutation, detailQuery.data?.work.updatedAt, enqueueSave]);
+  }), [autosaveMutation, detailQuery.data?.work.settings.carouselDraft, detailQuery.data?.work.updatedAt, enqueueSave]);
 
   const flushAutosave = useCallback(async (): Promise<string | null> => {
     if (initialWorkId && !hydratedWorkRef.current) return null;
@@ -961,7 +979,7 @@ export function useCreativeComposer({
         setIsUploading(true);
         try {
           const uploaded = await uploadChatAttachment(bufferedFile);
-          const usage: CreativeSourceUsage = next === "restyle" ? "content" : "both";
+          const usage: CreativeSourceUsage = next === "restyle" ? "content" : next === "carousel" ? "style" : "both";
           if (await ensureDraft({ assetId: uploaded.assetId, usage })) setBufferedFile(null);
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : tHome("composer.progressiveUploadFailed"));
@@ -1151,7 +1169,10 @@ export function useCreativeComposer({
     }
     const accepted = intentRef.current === "single"
       ? images.slice(0, Math.max(0, MAX_PIECE_REFERENCES - (detailQuery.data?.sources.filter((source) => source.assetId).length ?? 0)))
-      : images;
+      : intentRef.current === "carousel"
+        // Carousel accepts at most one non-failed temporary visual reference.
+        ? images.slice(0, Math.max(0, 1 - (detailQuery.data?.sources.filter((source) => source.status !== "failed").length ?? 0)))
+        : images;
     const rejectedByLimit = images.length - accepted.length;
     if (accepted.length === 0) {
       announce(`Limite de 3 atingido; ${rejectedByLimit} arquivo${rejectedByLimit === 1 ? "" : "s"} não enviado${rejectedByLimit === 1 ? "" : "s"}`);
@@ -1171,9 +1192,13 @@ export function useCreativeComposer({
       ));
       for (const file of accepted) {
         const uploaded = await uploadChatAttachment(file);
-        const usage: CreativeSourceUsage = preferredUsage ?? (intentRef.current === "restyle"
-          ? (hasRestyleContent ? "style" : "content")
-          : "both");
+        // Carousel references are visual context only: the style usage is
+        // forced, never inherited from a preferred usage.
+        const usage: CreativeSourceUsage = intentRef.current === "carousel"
+          ? "style"
+          : preferredUsage ?? (intentRef.current === "restyle"
+            ? (hasRestyleContent ? "style" : "content")
+            : "both");
         if (usage === "content") hasRestyleContent = true;
         const existingId = workIdRef.current;
         if (!existingId) {
@@ -1212,7 +1237,7 @@ export function useCreativeComposer({
         workItemId: existingId,
         action: "attachSource",
         ...source,
-        usage: source.usage ?? (intentRef.current === "restyle" ? "style" : "both"),
+        usage: source.usage ?? (intentRef.current === "restyle" || intentRef.current === "carousel" ? "style" : "both"),
       });
       setInferredBriefingContext(null);
       return true;
@@ -1453,18 +1478,23 @@ export function useCreativeComposer({
       const prepared = await prepareMutation.mutateAsync({ workItemId: id });
       if (prepared.briefing && prepared.briefingFactPack) setInferredBriefingContext({ briefing: prepared.briefing, factPack: prepared.briefingFactPack });
       lastPersistedRef.current = signature(snapshotFromWork(prepared.work));
-      setQuote(prepared.quote);
-      formatRef.current = prepared.work.format;
       if (prepared.work.updatedAt) workRevisionRef.current = new Date(prepared.work.updatedAt).toISOString();
+      if (prepared.quote) setQuote(prepared.quote);
+      formatRef.current = prepared.work.format;
       setFormat(prepared.work.format);
+      const preparedRevision = prepared.preparedPlan?.preparedRevision ?? prepared.preparedRevision;
+      if (!preparedRevision) throw new Error("Preparação sem revisão");
       preparedPlanInputRef.current = {
-        revision: prepared.preparedPlan.preparedRevision,
+        revision: preparedRevision,
         signature: prepareEditEpoch === planInputEditEpochRef.current
           ? signature(captureSnapshot())
           : `stale:${prepareEditEpoch}`,
       };
-      recordCanonicalEvent("briefing_ready", id, { protocol: prepared.preparedPlan.protocol });
-      return prepared.preparedPlan;
+      recordCanonicalEvent("briefing_ready", id, { protocol: prepared.preparedPlan?.protocol ?? "carousel" });
+      // Carousel prepare answers with the frozen deck/visual envelope; the
+      // full projection re-derives from the persisted snapshot on refetch.
+      return prepared.preparedPlan
+        ?? await detailQuery.refetch().then((refetched) => refetched.data?.preparedPlan ?? null);
     } catch (cause) {
       const conflict = extractCreativeWorkBrandConflict(cause);
       if (conflict) setBrandConflict(conflict);
@@ -1477,7 +1507,7 @@ export function useCreativeComposer({
     } finally {
       setActionPhase("idle");
     }
-  }, [captureSnapshot, detailQuery.data, flushAutosave, invalidatedPlanRevision, prepareMutation, recordCanonicalEvent]);
+  }, [captureSnapshot, detailQuery, flushAutosave, invalidatedPlanRevision, prepareMutation, recordCanonicalEvent]);
 
   const confirmGenerationCommand = useCallback(async (preparedRevision?: string): Promise<void> => {
     const current = detailQuery.data?.work;
@@ -1501,7 +1531,7 @@ export function useCreativeComposer({
     try {
       const generated = await generateMutation.mutateAsync({ workItemId: id, preparedRevision: revision, ...(studioSessionId ? { studioSessionId } : {}), rolloutVariant: workflowVariant });
       setBrandConflict(null);
-      setBrandTrainingSuggestion(generated.brandTrainingSuggestion);
+      setBrandTrainingSuggestion(generated.brandTrainingSuggestion ?? null);
       setAnnouncement("Geração iniciada");
       recordStudioEvent("studio_plan_confirmed", { creativeWorkId: id });
     } catch (cause) {
@@ -1510,7 +1540,7 @@ export function useCreativeComposer({
         try {
           const reconciled = await detailQuery.refetch();
           const detail = reconciled.data;
-          if (detail && (detail.work.status === "generating" || detail.outputs.length > 0)) {
+          if (detail && (detail.work.status === "generating" || detail.outputs.length > 0 || (detail.carouselSlides?.length ?? 0) > 0)) {
             setError(null);
             setAnnouncement("Geração aceita; acompanhando o processamento");
           } else setError("A geração não foi confirmada. Tente gerar novamente.");
@@ -1700,11 +1730,13 @@ export function useCreativeComposer({
     ?? null;
   const sources = detail?.sources ?? [];
   const readySources = sources.filter((source) => source.status === "ready");
-  const hasMeaningfulInput = hasCreativeWorkProtocolSourceShape({
-    intent,
-    request,
-    sources: readySources.map((source) => ({ sourceId: source.id, usage: source.usage })),
-  });
+  const hasMeaningfulInput = intent === "carousel"
+    ? request.trim().length > 0
+    : hasCreativeWorkProtocolSourceShape({
+        intent,
+        request,
+        sources: readySources.map((source) => ({ sourceId: source.id, usage: source.usage })),
+      });
   const canGenerate = Boolean(clientProfileId) && hasMeaningfulInput
     && (!detail?.work || detail.work.status === "draft"
       // A "ready" work without outputs holds a confirmed prepare whose
@@ -1763,6 +1795,22 @@ export function useCreativeComposer({
           assets: [],
         }
     : null;
+
+  // The carousel wizard rides the same progressive controller: the injected
+  // prepare/confirm commands and the shared canonical-event recorder are
+  // passed through — never duplicated.
+  const carousel = useCarouselComposer({
+    workId: workId ?? "",
+    preparedPlan: preparedPlan ?? null,
+    preparePlan,
+    confirmGeneration,
+    recordCanonicalEvent: (event, properties) => {
+      recordCanonicalEvent(event, properties.creativeWorkId, {
+        protocol: properties.protocol,
+        outputCount: properties.outputCount,
+      });
+    },
+  } satisfies CarouselComposerInput);
 
   return {
     composerRef: composerRef as RefObject<HTMLTextAreaElement | null>, request, setRequest,
@@ -1839,6 +1887,7 @@ export function useCreativeComposer({
         && current.revisionAssetId === reviseOutputMutation.variables?.revisionAssetId;
     },
     refreshOutputs: async () => { await detailQuery.refetch(); },
+    carousel,
   };
 }
 

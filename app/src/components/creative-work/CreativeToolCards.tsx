@@ -18,6 +18,7 @@ const FOCUS_TARGETS: Record<ComposerIntent, string> = {
   variations: "creative-composer-dropzone",
   format_adaptation: "creative-composer-dropzone",
   restyle: "creative-composer-original-source",
+  carousel: "creative-composer-request",
 };
 
 export function CreativeToolCards({ selected, onSelect, headerAction }: {

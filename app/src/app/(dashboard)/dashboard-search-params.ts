@@ -10,6 +10,7 @@ const COMPOSER_INTENTS = new Set<ComposerIntent>([
   "single",
   "format_adaptation",
   "restyle",
+  "carousel",
 ]);
 const STUDIO_MODES = new Set<StudioMode>(["arte", "briefing"]);
 

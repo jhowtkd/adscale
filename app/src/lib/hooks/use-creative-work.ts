@@ -19,8 +19,19 @@ import type {
   CreativeWorkFactPack,
   CreativeWorkBriefingField,
   CreativeWorkBriefingOverrides,
+  CreativeWorkIntent,
   InferredBriefing,
 } from "@/server/creative-work/contracts";
+import type {
+  CarouselCopyAuthority,
+  CarouselDeckQualityV1,
+  CarouselDeckPlanV1,
+  CarouselDraftStateV1,
+  CarouselLayoutFamily,
+  CarouselNarrativeRole,
+  CarouselSlideStatus,
+  CarouselVisualContractV1,
+} from "@/server/creative-work/carousel-contracts";
 import {
   creativeWorkFactPackSchema,
   inferredBriefingSchema,
@@ -113,7 +124,7 @@ export interface CreativeWorkItem {
   campaignId: string | null;
   title: string;
   request: string;
-  toolKind: "social_post" | "variations" | "single" | "format_adaptation" | "restyle";
+  toolKind: CreativeWorkIntent;
   status: CreativeWorkStatus;
   brief: SocialPostBrief;
   format: "1:1" | "4:5" | "9:16";
@@ -125,12 +136,46 @@ export interface CreativeWorkItem {
     directionPool?: CreativeDirectionPool;
     briefingOverrides?: CreativeWorkBriefingOverrides;
     briefingVersion?: number;
+    carouselDraft?: CarouselDraftStateV1;
   };
   copy: SocialPostCopy | null;
   identitySnapshot: CreativeWorkIdentitySnapshot | null;
+  carouselApprovedRevision: string | null;
+  carouselQuality: PublicCarouselQualityV1 | null;
   createdAt: Date | string;
   updatedAt: Date | string;
 }
+
+/** Public carousel deck quality — the private contact-sheet key becomes a boolean. */
+export type PublicCarouselQualityV1 = Omit<CarouselDeckQualityV1, "contactSheetKey"> & {
+  hasContactSheet: boolean;
+};
+
+/**
+ * Client projection of one current carousel slide. Storage keys, prompts and
+ * provider metadata never leave the server; outputs are reached through the
+ * download endpoints.
+ */
+export type PublicCarouselSlide = {
+  id: string;
+  lineageId: string;
+  parentSlideId: string | null;
+  versionNumber: number;
+  deckRevision: string;
+  position: number;
+  role: CarouselNarrativeRole;
+  primaryText: string;
+  secondaryText: string | null;
+  copyAuthority: CarouselCopyAuthority;
+  sourceFactIds: string[];
+  layoutFamily: CarouselLayoutFamily;
+  status: CarouselSlideStatus;
+  hasOutput: boolean;
+  errorCode: string | null;
+  quality: Record<string, unknown> | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+};
 
 export interface CreativeWorkOutput {
   id: string;
@@ -185,6 +230,7 @@ export interface CreativeWorkDetail {
   outputs: CreativeWorkOutput[];
   sources: CreativeWorkSource[];
   preparedPlan: PreparedPlanProjectionV1 | null;
+  carouselSlides: PublicCarouselSlide[];
   inferredBriefing?: InferredBriefing | null;
   briefingFactPack?: CreativeWorkFactPack | null;
   canLayerize?: boolean;
@@ -202,12 +248,16 @@ export function creativeWorkRefetchInterval(
     | {
         work: Pick<CreativeWorkItem, "status">;
         outputs: Array<Pick<CreativeWorkOutput, "status"> & { layerization?: PublicLayerizationState | null }>;
+        carouselSlides?: Array<Pick<PublicCarouselSlide, "status">>;
       }
     | undefined,
 ) {
   const shouldPoll =
     data?.work.status === "generating" ||
     data?.outputs.some((output) => output.status === "queued" || output.status === "processing" || ["queued", "processing", "reconciling", "finalizing"].includes(output.layerization?.status ?? "")) ||
+    // Carousel decks never enter creative_work_outputs: active slides alone
+    // keep the polling alive even when the legacy outputs list is empty.
+    data?.carouselSlides?.some((slide) => slide.status === "queued" || slide.status === "processing") ||
     ("sources" in (data ?? {}) &&
       (data as CreativeWorkDetail).sources.some(
         (source) => source.status === "uploaded" || source.status === "analyzing",
@@ -341,11 +391,43 @@ export function extractCreativeWorkBriefingBlocked(cause: unknown): {
   return { reason: "missing_direction", briefing: briefing.data, factPack: factPack.data };
 }
 
+/** Canonical detail cache key for one creative work. */
+export function creativeWorkKey(workItemId: string) {
+  return ["creative-work", workItemId] as const;
+}
+
+function mapCarouselSlide(raw: Record<string, unknown>): PublicCarouselSlide {
+  // Pick only the public projection fields: storage keys, prompts, contract
+  // hashes and provider metadata stay on the server by construction.
+  return {
+    id: String(raw.id),
+    lineageId: String(raw.lineageId),
+    parentSlideId: (raw.parentSlideId as string | null) ?? null,
+    versionNumber: Number(raw.versionNumber),
+    deckRevision: String(raw.deckRevision),
+    position: Number(raw.position),
+    role: raw.role as CarouselNarrativeRole,
+    primaryText: String(raw.primaryText ?? ""),
+    secondaryText: (raw.secondaryText as string | null) ?? null,
+    copyAuthority: raw.copyAuthority as CarouselCopyAuthority,
+    sourceFactIds: Array.isArray(raw.sourceFactIds) ? (raw.sourceFactIds as string[]) : [],
+    layoutFamily: raw.layoutFamily as CarouselLayoutFamily,
+    status: raw.status as CarouselSlideStatus,
+    hasOutput: Boolean(raw.hasOutput),
+    errorCode: (raw.errorCode as string | null) ?? null,
+    quality: (raw.quality as Record<string, unknown> | null) ?? null,
+    createdAt: new Date(raw.createdAt as string),
+    updatedAt: new Date(raw.updatedAt as string),
+  };
+}
+
 export function mapCreativeWorkDetail(data: {
   work: CreativeWorkItem;
   outputs: CreativeWorkOutput[];
   sources?: CreativeWorkSource[];
   preparedPlan?: PreparedPlanProjectionV1 | null;
+  carouselSlides?: unknown;
+  carouselQuality?: PublicCarouselQualityV1 | null;
   inferredBriefing?: InferredBriefing | null;
   briefingFactPack?: CreativeWorkFactPack | null;
   canLayerize?: boolean;
@@ -354,6 +436,10 @@ export function mapCreativeWorkDetail(data: {
   return {
       work: {
         ...data.work,
+        // The detail GET projects deck quality at the payload root; the client
+        // aggregate keeps it on the work item.
+        carouselApprovedRevision: data.work.carouselApprovedRevision ?? null,
+        carouselQuality: data.carouselQuality ?? null,
         createdAt: new Date(data.work.createdAt),
         updatedAt: new Date(data.work.updatedAt),
       },
@@ -368,6 +454,9 @@ export function mapCreativeWorkDetail(data: {
         updatedAt: new Date(source.updatedAt),
       })),
       preparedPlan: data.preparedPlan ?? null,
+      carouselSlides: Array.isArray(data.carouselSlides)
+        ? (data.carouselSlides as Record<string, unknown>[]).map(mapCarouselSlide)
+        : [],
       inferredBriefing: (data.inferredBriefing as InferredBriefing | null | undefined) ?? null,
       briefingFactPack: (data.briefingFactPack as CreativeWorkFactPack | null | undefined) ?? null,
     canLayerize: Boolean(data.canLayerize),
@@ -543,8 +632,13 @@ export function usePrepareCreativeWork() {
     mutationFn: (input: { workItemId: string }) =>
       patchJson<{
         work: CreativeWorkDraftItem;
-        quote: CreativeWorkQuote;
-        preparedPlan: PreparedPlanProjectionV1;
+        quote?: CreativeWorkQuote;
+        preparedPlan?: PreparedPlanProjectionV1;
+        // Carousel prepare answers with the frozen deck/visual envelope
+        // instead of the legacy projection (see prepare-carousel-work).
+        preparedRevision?: string;
+        deck?: CarouselDeckPlanV1;
+        visualContract?: CarouselVisualContractV1;
         briefing?: InferredBriefing;
         briefingFactPack?: CreativeWorkFactPack;
         readiness?: BriefingReadiness;
@@ -655,6 +749,7 @@ export function useGenerateCopy() {
           inferredBriefing: current?.inferredBriefing ?? null,
           briefingFactPack: current?.briefingFactPack ?? null,
           preparedPlan: current?.preparedPlan ?? null,
+          carouselSlides: current?.carouselSlides ?? [],
         })
       );
       void queryClient.invalidateQueries({
@@ -688,7 +783,13 @@ export function useTriggerTriplet() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: { workItemId: string; preparedRevision: string; studioSessionId?: string; rolloutVariant?: StudioRolloutVariant }) =>
-      postJson<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[]; brandTrainingSuggestion: string | null }>(
+      postJson<{
+        work: CreativeWorkItem;
+        outputs?: CreativeWorkOutput[];
+        carouselSlides?: PublicCarouselSlide[];
+        preparedRevision?: string;
+        brandTrainingSuggestion?: string | null;
+      }>(
         `/api/creative-work/${input.workItemId}/generate`,
         { action: "initial", preparedRevision: input.preparedRevision, ...(input.studioSessionId ? { studioSessionId: input.studioSessionId } : {}), ...(input.rolloutVariant ? { rolloutVariant: input.rolloutVariant } : {}) },
         120_000,
@@ -703,11 +804,16 @@ export function useTriggerTriplet() {
             createdAt: new Date(data.work.createdAt),
             updatedAt: new Date(data.work.updatedAt),
           },
-          outputs: data.outputs.map((output) => ({
+          outputs: (data.outputs ?? []).map((output) => ({
             ...output,
             createdAt: new Date(output.createdAt),
             updatedAt: new Date(output.updatedAt),
           })),
+          // Carousel generation answers with slides, never with legacy
+          // outputs; seed them so polling starts without a round-trip.
+          carouselSlides: Array.isArray(data.carouselSlides)
+            ? (data.carouselSlides as unknown as Record<string, unknown>[]).map(mapCarouselSlide)
+            : current?.carouselSlides ?? [],
           sources: current?.sources ?? [],
           preparedPlan: current?.preparedPlan ?? null,
         })
@@ -836,4 +942,93 @@ export function useSelectOutput() {
 export function useDownloadOutputUrl() {
   return (workItemId: string, outputId: string, format: "original" | "psd" | "zip" = "original") =>
     `/api/creative-work/${workItemId}/outputs/${outputId}/download${format === "original" ? "" : `?format=${format}`}`;
+}
+
+// ---------------------------------------------------------------------------
+// Carousel wizard (Criar carrossel) — one mutations family over the same
+// creative-work detail cache. Carousel decks never enter
+// creative_work_outputs, so these never touch output keys or the legacy
+// generate/plan surface.
+// ---------------------------------------------------------------------------
+
+export function usePlanCarouselWork() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workItemId, expectedUpdatedAt, answers }: {
+      workItemId: string;
+      expectedUpdatedAt: string;
+      answers: Record<string, string>;
+    }) =>
+      postJson<{ work: CreativeWorkItem; draft: CarouselDraftStateV1 }>(
+        `/api/creative-work/${workItemId}/carousel/plan`,
+        { expectedUpdatedAt, answers },
+        120_000,
+      ),
+    onSuccess: (_data, input) => queryClient.invalidateQueries({ queryKey: creativeWorkKey(input.workItemId) }),
+  });
+}
+
+export type CarouselSlideRevisionCommand =
+  | { kind: "copy"; expectedVersion: number; primaryText: string; secondaryText: string | null }
+  | { kind: "visual"; expectedVersion: number; instruction: string }
+  | { kind: "retry"; expectedVersion: number };
+
+export function useReviseCarouselSlide() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workItemId, slideId, revisionKey, ...command }: CarouselSlideRevisionCommand & {
+      workItemId: string;
+      slideId: string;
+      revisionKey: string;
+    }) =>
+      postJson<{ slide: PublicCarouselSlide; slides: PublicCarouselSlide[]; replay: boolean }>(
+        `/api/creative-work/${workItemId}/carousel/slides/${slideId}/revise`,
+        { ...command, revisionKey },
+        120_000,
+      ),
+    onSuccess: (_data, input) => queryClient.invalidateQueries({ queryKey: creativeWorkKey(input.workItemId) }),
+  });
+}
+
+export function useReviseCarouselDeck() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workItemId, expectedRevision, revisionKey, plan, globalVisualInstruction }: {
+      workItemId: string;
+      expectedRevision: string;
+      revisionKey: string;
+      plan: CarouselDeckPlanV1;
+      globalVisualInstruction: string | null;
+    }) =>
+      postJson<{ work: CreativeWorkItem; slides: PublicCarouselSlide[]; deckRevision: string; replay: boolean }>(
+        `/api/creative-work/${workItemId}/carousel/revise`,
+        { expectedRevision, revisionKey, plan, globalVisualInstruction },
+        120_000,
+      ),
+    onSuccess: (_data, input) => queryClient.invalidateQueries({ queryKey: creativeWorkKey(input.workItemId) }),
+  });
+}
+
+export function useApproveCarouselDeck() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workItemId, revision }: { workItemId: string; revision: string }) =>
+      patchJson<{ approvedRevision: string | null; replay: boolean }>(
+        `/api/creative-work/${workItemId}`,
+        { action: "approveCarousel", revision },
+      ),
+    onSuccess: (_data, input) => queryClient.invalidateQueries({ queryKey: creativeWorkKey(input.workItemId) }),
+  });
+}
+
+export function useExportCarouselDeck() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workItemId }: { workItemId: string }) =>
+      apiFetch(`/api/creative-work/${workItemId}/carousel/export`).then(async (res) => {
+        if (!res.ok) throw await readError(res);
+        return res.blob();
+      }),
+    onSuccess: (_data, input) => queryClient.invalidateQueries({ queryKey: creativeWorkKey(input.workItemId) }),
+  });
 }

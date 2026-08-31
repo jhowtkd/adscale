@@ -26,6 +26,13 @@ const mocks = vi.hoisted(() => ({
   brandFonts: vi.fn(() => ({ data: [], isLoading: false })),
   brandKnowledge: vi.fn(() => ({ data: { activeVersion: null }, isLoading: false })),
   recordBetaEvent: vi.fn(),
+  carouselController: vi.fn(),
+}));
+
+// The carousel wizard controller has its own dedicated test file; the generic
+// controller tests only observe that it is wired through as-is.
+vi.mock("./useCarouselComposer", () => ({
+  useCarouselComposer: (...args: unknown[]) => mocks.carouselController(...args),
 }));
 
 vi.mock("@/lib/hooks/use-active-client-profile", () => ({
@@ -110,9 +117,10 @@ function preparedPlan(workId = "work-1", protocol = "variations") {
 }
 
 function workDetail(overrides = {}) {
+  const now = new Date().toISOString();
   const work = {
       id: "work-1", clientProfileId: profileA.id, request: "Pedido salvo", toolKind: "variations",
-      status: "draft", format: "4:5", settings: { targetFormats: [] }, ...overrides,
+      status: "draft", format: "4:5", settings: { targetFormats: [] }, createdAt: now, updatedAt: now, ...overrides,
   };
   return { work, outputs: [], sources: [], preparedPlan: preparedPlan(work.id, work.toolKind) };
 }
@@ -122,6 +130,38 @@ function deferred<T>() {
   let reject!: (error: unknown) => void;
   const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
   return { promise, resolve, reject };
+}
+
+function carouselControllerStub() {
+  return {
+    draft: null,
+    slides: [],
+    quality: null,
+    selectedSlideId: null,
+    selectedSlide: null,
+    phase: "entry",
+    findings: [],
+    canPrepare: false,
+    canGenerate: false,
+    canApprove: false,
+    isBusy: false,
+    askForPlan: vi.fn(() => Promise.resolve()),
+    answerQuestions: vi.fn(() => Promise.resolve()),
+    acceptChange: vi.fn(() => Promise.resolve()),
+    rejectChange: vi.fn(() => Promise.resolve()),
+    editSlide: vi.fn(() => Promise.resolve()),
+    addSlide: vi.fn(() => Promise.resolve()),
+    removeSlide: vi.fn(() => Promise.resolve()),
+    moveSlide: vi.fn(() => Promise.resolve()),
+    prepareCarousel: vi.fn(() => Promise.resolve()),
+    generateCarousel: vi.fn(() => Promise.resolve()),
+    reviseSlide: vi.fn(() => Promise.resolve()),
+    retrySlide: vi.fn(() => Promise.resolve()),
+    approveDeck: vi.fn(() => Promise.resolve()),
+    downloadSlide: vi.fn(),
+    exportDeck: vi.fn(() => Promise.resolve()),
+    selectSlide: vi.fn(),
+  };
 }
 
 describe("useCreativeComposer", () => {
@@ -143,6 +183,7 @@ describe("useCreativeComposer", () => {
     window.sessionStorage.clear();
     mocks.active.mockReturnValue(active());
     mocks.work.mockReturnValue({ data: undefined, isLoading: false });
+    mocks.carouselController.mockReturnValue(carouselControllerStub());
     mocks.create.mockImplementation((input: { request: string; intent: string; format: string; settings: { targetFormats: string[] } }) => Promise.resolve({
       work: {
         ...workDetail().work,
@@ -318,6 +359,83 @@ describe("useCreativeComposer", () => {
     expect(result.current.intent).toBe("format_adaptation");
     expect(result.current.targetFormats).toEqual(["1:1", "9:16"]);
     expect(result.current.quote).toEqual({ unitCount: 2, credits: 100 });
+  });
+
+  it("starts a carousel composer with a zeroed deck quote and no direction pool", () => {
+    const { result } = renderHook(() => useCreativeComposer({ initialIntent: "carousel" }));
+
+    expect(result.current.intent).toBe("carousel");
+    expect(result.current.objective).toBe("carousel");
+    expect(result.current.directionPool).toBeNull();
+    expect(result.current.targetFormats).toEqual([]);
+    // The carousel quote always comes from its own deck size, never from the
+    // legacy output quoter (which throws for carousel).
+    expect(result.current.quote).toEqual({ unitCount: 0, credits: 0 });
+  });
+
+  it("materializes the carousel objective with the buffered file as one style reference", async () => {
+    const { result } = renderHook(() => useCreativeComposer({ workflowVariant: "progressive" }));
+    act(() => result.current.setRequest("Carrossel de lançamento"));
+    const file = new File(["image"], "referencia.png", { type: "image/png" });
+
+    await act(async () => { await result.current.addFiles([file]); });
+    expect(result.current.bufferedFile).toBe(file);
+
+    await act(async () => { await result.current.selectIntent("carousel"); });
+
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      intent: "carousel", usage: "style",
+    }));
+    expect(result.current.intent).toBe("carousel");
+  });
+
+  it("limits carousel uploads to one non-failed style reference", async () => {
+    const now = new Date().toISOString();
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ toolKind: "carousel", request: "" }),
+        sources: [{
+          id: "source-1", workItemId: "work-1", assetId: "asset-1", templateId: null,
+          name: "referencia.png", previewUrl: null, origin: "upload", usage: "style",
+          usageConfirmed: true, status: "ready", contentAnalysis: null, styleAnalysis: null,
+          pieceReference: null, failureCode: null, createdAt: now, updatedAt: now,
+        }],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const { result } = renderHook(() =>
+      useCreativeComposer({ initialWorkId: "work-1", initialIntent: "carousel" })
+    );
+    await act(async () => Promise.resolve());
+
+    const first = new File(["a"], "primeira.png", { type: "image/png" });
+    const second = new File(["b"], "segunda.png", { type: "image/png" });
+    await act(async () => { await result.current.addFiles([first, second]); });
+
+    expect(mocks.upload).not.toHaveBeenCalled();
+    expect(mocks.source).not.toHaveBeenCalled();
+  });
+
+  it("attaches a carousel upload with the forced style usage", async () => {
+    mocks.work.mockReturnValue({
+      data: workDetail({ toolKind: "carousel", request: "" }),
+      isLoading: false,
+      isError: false,
+    });
+    const { result } = renderHook(() =>
+      useCreativeComposer({ initialWorkId: "work-1", initialIntent: "carousel" })
+    );
+    await act(async () => Promise.resolve());
+
+    const first = new File(["a"], "primeira.png", { type: "image/png" });
+    const second = new File(["b"], "segunda.png", { type: "image/png" });
+    await act(async () => { await result.current.addFiles([first, second]); });
+
+    expect(mocks.upload).toHaveBeenCalledTimes(1);
+    expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: "work-1", action: "attachSource", usage: "style",
+    }));
   });
 
   it("offers only human-approved brand font files", () => {
@@ -1023,12 +1141,12 @@ describe("useCreativeComposer", () => {
     await act(async () => Promise.resolve());
 
     expect(mocks.source).toHaveBeenCalledOnce();
-    expect(mocks.source).toHaveBeenCalledWith({
+    expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({
       workItemId: "work-1",
       action: "attachSource",
       templateId,
       usage: "both",
-    });
+    }));
     expect(mocks.create).not.toHaveBeenCalled();
   });
 
@@ -1179,12 +1297,12 @@ describe("useCreativeComposer", () => {
       await adding;
     });
 
-    expect(mocks.source).toHaveBeenCalledWith({
+    expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({
       workItemId: WORK_ID,
       action: "attachSource",
       assetId: "asset-1",
       usage: "both",
-    });
+    }));
   });
 
   it("surfaces a raced source attach failure and succeeds when the user retries", async () => {
@@ -1269,13 +1387,13 @@ describe("useCreativeComposer", () => {
 
     await act(async () => result.current.editSource("source-1", content, null));
 
-    expect(mocks.source).toHaveBeenCalledWith({
+    expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({
       workItemId: WORK_ID,
       action: "editSourceAnalysis",
       sourceId: "source-1",
       content,
       style: null,
-    });
+    }));
   });
 
   it("delivers an upload announcement to the composer mounted after draft canonicalization", async () => {
@@ -1333,9 +1451,9 @@ describe("useCreativeComposer", () => {
       templateId: "template-1", assetId: null, suggestedIntent: "variations",
     }));
 
-    expect(mocks.source).toHaveBeenCalledWith({
+    expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({
       workItemId: "work-1", action: "attachSource", templateId: "template-1", usage: "both",
-    });
+    }));
   });
 
   it("attaches an inspiration only after a confirmed cross-protocol switch", async () => {
@@ -2496,7 +2614,7 @@ describe("useCreativeComposer", () => {
     expect(mocks.prepare).not.toHaveBeenCalled();
     upload.resolve({ assetId: "asset-new", name: "replacement.png" });
     await act(async () => { await replacing; });
-    expect(mocks.source).toHaveBeenCalledWith({ workItemId: "work-1", action: "replacePieceReference", sourceId: "source-1", assetId: "asset-new" });
+    expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({ workItemId: "work-1", action: "replacePieceReference", sourceId: "source-1", assetId: "asset-new" }));
   });
 
   it("blocks generate() before prepare when sources are pending analysis", async () => {
