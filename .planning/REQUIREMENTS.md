@@ -22,7 +22,7 @@
 ### Creative Iteration
 
 - [x] **CREV-01**: User feedback on a selected creative creates an inspectable revision proposal tied to the source creative.
-- [x] **CREV-02**: User sees intended visual change, format, references, credit impact, and writes before confirming generation.
+- [x] **CREV-02**: User sees intended visual change, format, references, preserve/explore, and output count before confirming initial Studio generation; operation credit impact remains internal. Existing non-Studio version-proposal disclosure remains unchanged.
 - [x] **CREV-03**: User confirmation generates a new creative version linked to the source creative and exact plan version.
 - [x] **CREV-04**: Failed or canceled generation leaves the source version current and supports idempotent retry.
 

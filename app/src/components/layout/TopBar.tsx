@@ -267,7 +267,7 @@ export default function TopBar({
             "flex min-w-0 shrink items-center rounded-md py-0.5",
             isInline ? "sm:shrink-0" : "sm:shrink-0 sm:px-2"
           )}
-          aria-label="ADScale — Início"
+          aria-label={`ADScale — ${tNav("home")}`}
         >
           <Image
             src="/images/logo.svg"

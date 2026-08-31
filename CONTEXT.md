@@ -54,13 +54,13 @@ _Evitar_: output, asset gerado, derivação.
 Peça criada como alternativa relacionada a uma base, direção ou Peça anterior.
 _Evitar_: versão, derivação.
 
-**Início**:
-Superfície operacional para começar um Trabalho ou retomar o mais relevante.
-_Evitar_: Dashboard.
+**Estúdio**:
+Superfície operacional para começar ou retomar um Trabalho.
+_Evitar_: Início, Dashboard como nome visível.
 
 **Visão geral**:
 Superfície gerencial secundária para acompanhar indicadores, atividade e itens que exigem atenção.
-_Evitar_: Início, Dashboard como nome visível.
+_Evitar_: Dashboard como nome visível.
 
 ---
 
