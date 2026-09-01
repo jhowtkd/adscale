@@ -381,6 +381,29 @@ export async function getCampaigns(workspaceId: string, limit = 50) {
   return rows.map((row) => mergeCampaignMetrics(row, metricsByCampaignId.get(row.id)));
 }
 
+export async function listCampaignsForEntryContext(
+  workspaceId: string,
+  clientProfileId: string,
+  limit = 8,
+) {
+  return db
+    .select({
+      id: campaigns.id,
+      updatedAt: campaigns.updatedAt,
+      product: campaigns.product,
+      offer: campaigns.offer,
+      audience: campaigns.audience,
+      tone: campaigns.tone,
+    })
+    .from(campaigns)
+    .where(and(
+      eq(campaigns.workspaceId, workspaceId),
+      eq(campaigns.clientProfileId, clientProfileId),
+    ))
+    .orderBy(desc(campaigns.updatedAt))
+    .limit(limit);
+}
+
 export async function getCampaignsPage(
   workspaceId: string,
   query: CampaignListQuery = {}
