@@ -61,11 +61,18 @@ Marca sem Trabalhos: fallback fixo `protocol` + `offer` + `audience`, com catál
 
 O tipo nunca é escolhido em silêncio.
 
-- Histórico com protocolo único → sem chip de tipo. O passo **Escolha o tipo** aparece com essa opção já marcada; a pessoa confirma ou troca.
-- Chip de tipo respondido nesta tela → o passo seguinte não pergunta de novo; `selectIntent` já foi chamado.
+- Histórico com protocolo único → sem chip de tipo. O passo **Escolha o tipo** aparece com essa opção já sugerida; a pessoa confirma ou troca.
+- Chip de tipo respondido nesta tela → o chip guarda a resposta **sem** chamar `selectIntent`. A chamada acontece quando a pessoa avança, e o passo seguinte não pergunta de novo.
 - Protocolos mistos ou nenhum Trabalho → chip de tipo na primeira tela, opções só as que existem no histórico (ou o catálogo completo no fallback).
 
-Carrossel entra nas opções do chip somente quando a criação de carrossel está habilitada no workspace, a mesma regra das tool cards.
+Duas restrições vêm da entrada progressiva atual, onde o bloco de texto só existe enquanto `objectiveSelected` é falso e as tool cards aparecem assim que `hasEntry` fica verdadeiro:
+
+- `selectIntent` desmonta o textarea. Chamá-lo no clique do chip encerra a entrevista antes de a frase existir — daí o chip de tipo apenas registrar a resposta.
+- Escrever o pedido torna `hasEntry` verdadeiro e revela as tool cards. Enquanto houver chip de tipo pendente, o bloco de objetivos fica oculto; a escolha de tipo não aparece duas vezes na mesma tela.
+
+“Sugerida” é estado próprio, não pressionado: a card diz que a sugestão vem do histórico e mantém `aria-pressed="false"` até o acionamento. `composer.intent` continua nulo antes de `selectIntent`.
+
+Carrossel entra nas opções do chip somente quando a criação de carrossel está habilitada no workspace, a mesma regra das tool cards. Com o gate desligado, `carousel` também não sai como `facts.protocol` nem como candidato: o histórico é lido, mas esse valor vira lacuna em vez de sugerir uma card desabilitada. `social_post` existe em `tool_kind` e não é `ComposerIntent`; sai da leitura.
 
 ## 6. Arquitetura
 
@@ -99,6 +106,25 @@ Resposta:
 
 `protocol` usa os mesmos ids de `ComposerIntent`. `null` em um fato significa “sem consenso”, não “pergunte sempre”. A lista canônica da home **não** ganha briefing; esse GET é o único lugar que projeta esses campos para a entrada.
 
+### 6.1.1 Origem de cada fato
+
+As duas origens não guardam briefing do mesmo jeito, e a diferença muda o rendimento real da janela:
+
+| Fato | `campaign` | `creative_work` |
+| --- | --- | --- |
+| `protocol` | não se aplica | `toolKind` |
+| `offer` | coluna `offer`, com `product` como candidato secundário | `inferredBriefing.offer` ou `brief.offer` |
+| `audience` | coluna `audience` | `inferredBriefing.audience` |
+| `tone` | coluna `tone` | `inferredBriefing.tone` |
+
+Campanha tem colunas de briefing; Trabalho só tem `inferredBriefing` depois que um prepare rodou. Marca cujos Trabalhos nunca chegaram ao plano cai no catálogo genérico mesmo com `workCount` alto — comportamento correto, não bug.
+
+Campo de `inferredBriefing` só vale como fato quando `state === "sourced"`, ou quando é `inferred` com `confidence === "high"`. `unknown`, `low` e `medium` viram candidato de chip, nunca fato. Sem essa regra a entrada infere sobre inferência: uma oferta que o prepare adivinhou num Trabalho antigo voltaria como fato sustentado da marca, exatamente o que o objetivo 4 proíbe. `briefingOverrides` — edição explícita do operador — tem precedência sobre o valor inferido.
+
+### 6.1.2 Consulta
+
+Nenhum repositório filtra por marca hoje: `listCreativeWorks(workspaceId, limit)` e `CampaignListQuery` recortam só o workspace. Este GET exige filtro por `clientProfileId` com limite nas duas origens; ler a lista do workspace inteiro para filtrar em memória contradiz o teto de 8 desta seção. A projeção canônica de summary não carrega briefing (só o detalhe carrega), então a leitura é de repositório, não de `listCanonicalWorks`.
+
 ### 6.2 Detector de lacunas (função pura)
 
 Entrada: fatos + candidatos do GET, texto atual do campo, presença de anexo, `carouselEnabled`.
@@ -118,7 +144,11 @@ Regras:
 
 Corpo: fatos sustentados, respostas dos chips, locale. Só isso. Sem histórico bruto, sem anexo como fato, sem memória de workspace.
 
+Esse corpo vem do cliente e não é evidência de marca: as strings têm teto de tamanho, `locale` é validado contra os locales suportados e nada disso é persistido como fato. A frase volta para o textarea do próprio operador — é pedido, não conhecimento da marca.
+
 Escreve **uma frase** no idioma do locale, pronta para o textarea. Proibido inventar oferta, preço, benefício, público ou tom ausentes. Slot desconhecido é omitido, não preenchido com genérico de campanha.
+
+Cada mudança de chip dispara uma chamada de modelo na primeira tela, antes de existir Trabalho. Por isso: debounce, uma chamada em voo por vez (a nova cancela a anterior), teto por workspace e sem retry automático. A redação não debita créditos nem entra na cotação; é custo de plataforma na entrada, limitado por esse teto.
 
 Timeout ou erro: o cliente aplica o template da seção 9 na hora. Se a frase chegar depois e o usuário **não** tiver editado o campo desde esse POST, substitui o template. Se tiver editado, descarta a frase.
 
@@ -193,12 +223,19 @@ O texto que permanece no textarea, depois de gerado ou editado, **é** o pedido 
 
 Reusa `studioSessionId` e a lista permitida do Estúdio progressivo. Eventos UI-only novos:
 
-- `studio_entry_chips_shown` — propriedades: `workCount`, slots visíveis, `usedFallback`
+- `studio_entry_chips_shown` — propriedades: `workCount`, `slots`, `usedFallback`
 - `studio_entry_chip_selected` — `slot`
-- `studio_entry_request_written` — `source`: `template` \| `model`
+- `studio_entry_request_written` — `requestSource`: `template` \| `model`
 - `studio_entry_request_preserved` — redação descartada porque a pessoa editou
 
-Não entram no funil canônico. Métrica de sucesso: taxa de primeiro Trabalho que chega a prepare confirmado / geração iniciada, comparada ao baseline progressivo sem entrevista.
+“Reusa a lista permitida” não basta. A validação de propriedades é `z.strictObject` sobre `ALLOWED_PROPERTY_KEYS`: chave fora da lista faz o evento **inteiro** falhar como `validation_error`, não é descartada em silêncio. Esta entrega estende as duas listas em `app/src/server/beta-analytics/types.ts`:
+
+- `STUDIO_BETA_EVENT_KEYS` com os quatro eventos acima;
+- `ALLOWED_PROPERTY_KEYS` com `workCount`, `slots`, `usedFallback`, `slot` e `requestSource`.
+
+`slots` é uma string curta e determinística (os slots visíveis unidos por vírgula), porque o payload aceita só escalares. `requestSource` evita ambiguidade com `sourceRole`, que já significa papel de material. `studio_entry_started` continua carregando `inputMode`; a entrevista acrescenta o valor `interview` quando o pedido nasceu de chips.
+
+Não entram no funil canônico. Métrica de sucesso: taxa de primeiro Trabalho que chega a prepare confirmado / geração iniciada, comparada ao controle da seção 18.
 
 ## 13. Tratamento de erro
 
@@ -221,6 +258,9 @@ Não entram no funil canônico. Métrica de sucesso: taxa de primeiro Trabalho q
 - Anexo sozinho → não fecha `offer`.
 - Máximo 3 chips; `tone` só se houver vaga.
 - Troca de marca não reutiliza fatos anteriores (teste do hook/orquestração).
+- `social_post` no histórico não vira opção de tipo.
+- Gate de carrossel desligado → `carousel` não aparece como fato nem como opção.
+- `inferredBriefing` com `state === "inferred"` e `confidence` média ou baixa → candidato de chip, não fato.
 
 **Redator**
 
@@ -232,9 +272,11 @@ Não entram no funil canônico. Métrica de sucesso: taxa de primeiro Trabalho q
 
 - Chips visíveis sem esperar o POST.
 - GET falho → fallback + campo editável.
-- Chip `protocol` → passo de tipo não pergunta de novo.
-- Protocolo conhecido → tool card correspondente `aria-pressed` / selecionada.
+- Chip `protocol` pendente → bloco de objetivos não renderiza.
+- Chip `protocol` respondido → não chama `selectIntent` antes de a pessoa avançar, e o passo de tipo não pergunta de novo.
+- Protocolo conhecido → tool card correspondente aparece como sugerida, com `aria-pressed="false"` até o acionamento.
 - Digitar durante o POST preserva o texto e cancela a substituição.
+- Os quatro eventos novos atravessam `sanitizeBetaEventProperties` sem `validation_error`.
 
 Fora desta malha: E2E de geração, composer clássico, assistente.
 
@@ -257,3 +299,29 @@ Não substitui prepare, plano, resultados, retomada, campanha nem o mural/gaveta
 | UI no `DashboardHomeActions` progressivo | pinta chips, chama `setRequest` / `selectIntent` | os três acima, composer atual | novo aggregate |
 
 Arquivos prováveis (orientação, não checklist de implementação): `app/src/server/creative-work/entry-context.ts`, `app/src/lib/studio/detect-entry-gaps.ts`, rota irmã de `/api/creative-work`, trecho progressivo de `DashboardHomeActions.tsx`.
+
+## 17. Acessibilidade
+
+- Chips são botões reais, com `aria-pressed` refletindo a resposta e rótulo que nomeia o slot.
+- Reescrita programática do textarea é anunciada pelo `aria-live` que o bloco de entrada já tem. Sem anúncio, quem usa leitor de tela não percebe que o campo mudou sozinho.
+- A reescrita nunca rouba foco nem move o cursor: campo com foco descarta a substituição, a mesma regra da seção 10.
+- Chips e textarea são operáveis por teclado na ordem visual; nenhum chip depende de hover.
+- Em mobile os até 3 chips quebram em linha, sem scroll horizontal como única saída.
+
+## 18. Rollout e medição
+
+O Estúdio progressivo já está em 100% em produção, então não existe braço de controle sobrando. Duas saídas:
+
+1. novo percentual determinístico por workspace, reusando o mesmo bucket do Estúdio;
+2. antes/depois com baseline congelado.
+
+Esta entrega propõe a primeira, começando em zero, para haver controle concorrente dentro do progressivo. O baseline congelado fica como referência secundária. Denominador mínimo por braço antes de avançar: 30 sessões elegíveis e 20 gerações confirmadas — os mesmos números do estágio de 10% do Estúdio progressivo.
+
+Rollback imediato se a entrevista derrubar conclusão em mais de cinco pontos percentuais, aumentar abandono antes da geração em mais de cinco pontos, ou se a redação virar erro visível na entrada.
+
+## 19. Riscos aceitos
+
+- **Campo escrito sem ação humana.** Assim que o GET traz fatos, o template preenche o textarea e `hasEntry` revela os objetivos. A pessoa pode avançar sobre um pedido que não leu. Mitigação: frase curta e editável, tipo sempre confirmado, e `studio_entry_request_written` para separar conclusão com pedido escrito à mão de conclusão com pedido herdado.
+- **Categoria confundida com fato.** As opções genéricas da seção 8 são categorias, entram no texto do pedido e o prepare pode promovê-las a briefing. Risco aceito: o texto é editável e o prepare continua sendo a única autoridade de briefing.
+- **Custo antes de existir Trabalho.** Redigir na entrada gasta modelo em sessões que nunca geram. Contido por debounce, chamada única em voo e teto por workspace.
+- **Janela de 8 Trabalhos.** Marca com histórico heterogêneo cai em “sem consenso” com frequência e a entrevista fica parecida com o fallback. Aceito: perguntar é melhor que afirmar.
