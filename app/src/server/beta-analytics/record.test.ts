@@ -261,6 +261,29 @@ describe("recordBetaAnalyticsEvent", () => {
     },
   );
 
+  it("records studio_entry_request_written with requestSource model", async () => {
+    mockInsert.mockResolvedValue(
+      mockInsertedEvent({
+        eventKey: "studio_entry_request_written",
+        properties: { requestSource: "model" },
+      }) as never
+    );
+
+    await recordBetaAnalyticsEvent({
+      workspaceId: "ws-1",
+      userId: "user-1",
+      eventKey: "studio_entry_request_written",
+      properties: { requestSource: "model" },
+    });
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "studio_entry_request_written",
+        properties: { requestSource: "model" },
+      })
+    );
+  });
+
   it("persists output_learning_recommendation_accepted with card payload unchanged", async () => {
     const properties = {
       recommendationId: "rec-1",

@@ -36,6 +36,11 @@ export const ALLOWED_PROPERTY_KEYS = [
   "sourceRole",
   "rolloutVariant",
   "outputCount",
+  "workCount",
+  "slots",
+  "usedFallback",
+  "slot",
+  "requestSource",
 ] as const;
 
 export type AllowedPropertyKey = (typeof ALLOWED_PROPERTY_KEYS)[number];
@@ -85,6 +90,10 @@ export const STUDIO_BETA_EVENT_KEYS = [
   "studio_plan_changed",
   "studio_plan_confirmed",
   "studio_refinement_started",
+  "studio_entry_chips_shown",
+  "studio_entry_chip_selected",
+  "studio_entry_request_written",
+  "studio_entry_request_preserved",
 ] as const;
 
 export const BETA_EVENT_KEYS = [

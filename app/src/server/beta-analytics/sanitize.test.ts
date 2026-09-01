@@ -151,6 +151,19 @@ describe("sanitizeBetaEventProperties", () => {
       BetaEventPropertiesValidationError
     );
   });
+
+  it("accepts Studio entry interview scalars and rejects arrays for slots", () => {
+    expect(sanitizeBetaEventProperties({
+      workCount: 3,
+      slots: "protocol,offer",
+      usedFallback: true,
+      slot: "offer",
+      requestSource: "template",
+    })).toMatchObject({ slots: "protocol,offer", requestSource: "template" });
+    expect(() => sanitizeBetaEventProperties({
+      slots: ["protocol"] as unknown as string,
+    })).toThrow(BetaEventPropertiesValidationError);
+  });
 });
 
 describe("createBetaEventBodySchema", () => {
