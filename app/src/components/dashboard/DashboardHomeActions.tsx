@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { ArrowRight, ImageIcon, Paperclip, Plus } from "lucide-react";
 import { AccessGatePanel } from "@/components/billing/AccessGatePanel";
 import { CreativeComposer } from "@/components/creative-work/CreativeComposer";
 import { CreativeToolCards } from "@/components/creative-work/CreativeToolCards";
+import { StudioEntryInterview } from "@/components/creative-work/StudioEntryInterview";
 import { BrandInspirations } from "@/components/creative-work/BrandInspirations";
 import { CreativePlanReview } from "@/components/creative-work/CreativePlanReview";
 import { useCreativeComposer, type ComposerIntent } from "@/components/creative-work/useCreativeComposer";
@@ -17,6 +18,8 @@ import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useCreativeWork, type CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
+import { useStudioEntryInterview } from "@/lib/hooks/use-studio-entry-interview";
+import type { EntryLocale } from "@/lib/studio/entry-types";
 import { useCreateCampaign } from "@/lib/hooks/use-campaigns";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -170,6 +173,8 @@ export default function DashboardHomeActions({
   entryInterviewEnabled?: boolean;
 }) {
   const t = useTranslations("dashboard.home");
+  const locale = useLocale();
+  const entryLocale: EntryLocale = locale === "en" ? "en" : "pt-BR";
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
   const { activeProfile } = useActiveClientProfile();
   const { data: billing } = useBillingStatus();
@@ -202,6 +207,25 @@ export default function DashboardHomeActions({
   // The composer owns protocol switching, including a deferred switch that is
   // later cancelled. Deriving this keeps the visual mode on the same state.
   const mode: StudioMode = composer.intent === "single" ? "briefing" : "arte";
+
+  const interviewEnabled = rolloutVariant === "progressive" && entryInterviewEnabled && Boolean(composer.clientProfileId);
+  const [requestFocused, setRequestFocused] = useState(false);
+  const [requestWriteToken, setRequestWriteToken] = useState(0);
+  const setInterviewRequest = useCallback((value: string) => {
+    composer.setRequest(value);
+    setRequestWriteToken((token) => token + 1);
+  }, [composer.setRequest]);
+  const interview = useStudioEntryInterview({
+    enabled: interviewEnabled,
+    clientProfileId: composer.clientProfileId,
+    request: composer.request,
+    hasAttachment: Boolean(composer.bufferedFile),
+    carouselEnabled: carouselCreationEnabled,
+    locale: entryLocale,
+    setRequest: setInterviewRequest,
+    recordStudioEvent: composer.recordStudioEvent,
+    requestFocused,
+  });
 
   const selectStudioMode = (nextMode: StudioMode) => {
     composer.selectIntent(nextMode === "briefing" ? "single" : "variations");
@@ -251,7 +275,10 @@ export default function DashboardHomeActions({
   }
 
   if (rolloutVariant === "progressive") {
-    const showObjectives = composer.hasEntry && !composer.objectiveSelected;
+    const showObjectives = composer.hasEntry
+      && !composer.objectiveSelected
+      && !interview.pendingProtocol
+      && !interview.answeredProtocol;
     const showPlan = composer.stage === "plan" && composer.preparedPlan && !editingPreparedPlan && !isCarouselWorkflow;
     const resultStage = progressiveResultsVisible;
     return (
@@ -276,7 +303,35 @@ export default function DashboardHomeActions({
               }}
               className="space-y-3 rounded-[var(--radius-control)] border border-dashed border-[var(--border-default)] p-3"
             >
-              <textarea id="creative-composer-request" aria-label={t("composer.requestLabel")} value={composer.request} onChange={(event) => composer.setRequest(event.target.value)} rows={4} className="w-full resize-y rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] p-3 text-sm" />
+              <textarea
+                id="creative-composer-request"
+                aria-label={t("composer.requestLabel")}
+                value={composer.request}
+                onChange={(event) => composer.setRequest(event.target.value)}
+                onFocus={() => setRequestFocused(true)}
+                onBlur={() => setRequestFocused(false)}
+                rows={4}
+                className="w-full resize-y rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] p-3 text-sm"
+              />
+              {interviewEnabled && interview.chips.length > 0 ? (
+                <StudioEntryInterview
+                  chips={interview.chips}
+                  answers={interview.answers}
+                  onSelect={interview.selectChip}
+                  locale={entryLocale}
+                  writtenToken={requestWriteToken}
+                />
+              ) : null}
+              {interviewEnabled && interview.answeredProtocol ? (
+                <button
+                  type="button"
+                  data-testid="entry-interview-continue"
+                  disabled={!composer.hasEntry}
+                  onClick={() => void composer.selectIntent(interview.answeredProtocol!, true)}
+                >
+                  {t("entryInterview.continue")}
+                </button>
+              ) : null}
               <button type="button" onClick={() => progressiveFileInputRef.current?.click()} className="inline-flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)]"><Paperclip size={16} aria-hidden="true" />{t("composer.progressiveAddArtReference")}</button>
               <input ref={progressiveFileInputRef} className="sr-only" type="file" multiple accept="image/png,image/jpeg,image/webp" tabIndex={-1} aria-hidden="true" onChange={(event) => void composer.addFiles(event.target.files)} />
               <p aria-live="polite" className="text-xs text-[var(--text-muted)]">{composer.announcement || (composer.bufferedFile ? t("composer.progressiveBufferedFile", { name: composer.bufferedFile.name }) : t("composer.dropHint"))}</p>

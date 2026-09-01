@@ -536,6 +536,15 @@
       "progressiveTitle": "O que você quer criar?",
       "progressiveSubtitle": "Conte livremente ou anexe uma referência. Depois, escolha o tipo de criação.",
       "chooseObjective": "Escolha um objetivo para continuar",
+      "entryInterview": {
+        "continue": "Continuar",
+        "continueWithType": "Continuar com {type}",
+        "slotProtocol": "Tipo de criação",
+        "slotOffer": "Oferta",
+        "slotAudience": "Público",
+        "slotTone": "Tom",
+        "requestUpdated": "Pedido atualizado"
+      },
       "planReview": {
         "eyebrow": "Plano preparado", "title": "Revise seu plano", "subtitle": "A geração só começa após sua confirmação.",
         "objective": "Objetivo", "materials": "Materiais", "preserveTitle": "Preservar", "exploreTitle": "Explorar", "format": "Formato", "quantity": "Quantidade", "pieces": "{count} peças", "none": "Sem materiais",
@@ -642,6 +651,7 @@
         "previewAria": "Visualizar inspiração {title}",
         "previewAlt": "Prévia de {title}",
         "useForStyle": "Usar para mudar o estilo",
+        "untitled": "Referência",
         "origin": {
           "curated": "Seleção ADScale",
           "approved_work": "Trabalho aprovado",

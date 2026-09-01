@@ -8,6 +8,7 @@ const useCanonicalWorksMock = vi.fn();
 const useActiveProfileMock = vi.fn();
 const useComposerMock = vi.fn();
 const useCreativeWorkMock = vi.fn();
+const useStudioEntryInterviewMock = vi.fn();
 const selectIntentMock = vi.fn();
 const addInspirationMock = vi.fn();
 const createCampaignMutationMock = vi.fn();
@@ -15,6 +16,7 @@ const protocolButton = (intent: "variations" | "single" | "format_adaptation" | 
   screen.getByRole("button", { name: `dashboard.home.${intent}dashboard.home.${intent}Description`, exact: true });
 
 vi.mock("next-intl", () => ({
+  useLocale: () => "pt-BR",
   useTranslations: () => (key: string, values?: Record<string, string>) =>
     key === "continueBrand" && values?.name
       ? `Marca ${values.name}`
@@ -65,6 +67,9 @@ vi.mock("@/lib/hooks/use-billing", () => ({
 vi.mock("@/lib/hooks/use-campaigns", () => ({
   useCreateCampaign: () => ({ mutateAsync: createCampaignMutationMock, isPending: false }),
 }));
+vi.mock("@/lib/hooks/use-studio-entry-interview", () => ({
+  useStudioEntryInterview: (...args: unknown[]) => useStudioEntryInterviewMock(...args),
+}));
 vi.mock("@/components/creative-work/useCreativeComposer", () => ({
   useCreativeComposer: (...args: unknown[]) => useComposerMock(...args),
 }));
@@ -105,6 +110,15 @@ describe("DashboardHomeActions", () => {
     createCampaignMutationMock.mockResolvedValue({ id: "campaign-1" });
     useActiveProfileMock.mockReturnValue({ activeProfile: { id: "p1", name: "Marca A" } });
     useCreativeWorkMock.mockReturnValue({ data: undefined, isLoading: false });
+    useStudioEntryInterviewMock.mockReturnValue({
+      chips: [],
+      answers: {},
+      pendingProtocol: false,
+      answeredProtocol: null,
+      suggestedProtocol: null,
+      selectChip: vi.fn(),
+      usedFallback: false,
+    });
     useComposerMock.mockImplementation(({ initialWorkId }: { initialWorkId?: string }) => {
       const [intent, setIntent] = useState<"variations" | "single" | "format_adaptation" | "restyle" | "carousel">("single");
       const [workId, setWorkId] = useState<string | null>(initialWorkId ?? null);
@@ -112,8 +126,15 @@ describe("DashboardHomeActions", () => {
         intent,
         workId,
         clientProfileId: "p1",
+        request: "",
+        setRequest: vi.fn(),
+        hasEntry: false,
+        objectiveSelected: false,
+        bufferedFile: null,
+        announcement: null,
+        recordStudioEvent: vi.fn(),
         quote: intent === "format_adaptation" ? { unitCount: 2, credits: 10 } : intent === "carousel" ? { unitCount: 0, credits: 0 } : { unitCount: 1, credits: 5 },
-        selectIntent: (next: typeof intent) => { selectIntentMock(next); setIntent(next); },
+        selectIntent: (next: typeof intent, immediate?: boolean) => { selectIntentMock(next, immediate); setIntent(next); },
         addInspiration: (inspiration: { id: string }) => {
           addInspirationMock(inspiration);
           setWorkId("created-work");
@@ -236,7 +257,7 @@ describe("DashboardHomeActions", () => {
 
     fireEvent.click(protocolButton("restyle"));
 
-    expect(selectIntentMock).toHaveBeenCalledWith("restyle");
+    expect(selectIntentMock).toHaveBeenCalledWith("restyle", true);
     expect(protocolButton("restyle")).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("creative-composer")).toBeInTheDocument();
   });
@@ -628,5 +649,80 @@ describe("DashboardHomeActions", () => {
     // The generic results grid never replaces the deck review either.
     expect(screen.queryByTestId("progressive-results-summary")).not.toBeInTheDocument();
     expect(screen.getByTestId("creative-composer")).toBeInTheDocument();
+  });
+
+  it("hides objective cards while a protocol chip is pending in the entry interview", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useStudioEntryInterviewMock.mockReturnValue({
+      chips: [{ slot: "protocol", options: ["single"] }],
+      answers: {},
+      pendingProtocol: true,
+      answeredProtocol: null,
+      suggestedProtocol: null,
+      selectChip: vi.fn(),
+      usedFallback: false,
+    });
+    useComposerMock.mockReturnValue({
+      request: "Pedido", setRequest: vi.fn(), hasEntry: true, objectiveSelected: false, intent: "variations",
+      stage: "entry", preparedPlan: null, actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 1, credits: 5 },
+      addFiles: vi.fn(), selectIntent: selectIntentMock, recordStudioEvent: vi.fn(),
+    });
+
+    render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" entryInterviewEnabled />);
+
+    expect(screen.getByRole("textbox", { name: "dashboard.home.composer.requestLabel" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "dashboard.home.chooseObjective" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /dashboard.home.variations/i })).not.toBeInTheDocument();
+  });
+
+  it("continues through the entry interview without duplicate objective cards", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useStudioEntryInterviewMock.mockReturnValue({
+      chips: [],
+      answers: { protocol: "single" },
+      pendingProtocol: false,
+      answeredProtocol: "single",
+      suggestedProtocol: null,
+      selectChip: vi.fn(),
+      usedFallback: false,
+    });
+    useComposerMock.mockReturnValue({
+      request: "Pedido", setRequest: vi.fn(), hasEntry: true, objectiveSelected: false, intent: "variations",
+      stage: "entry", preparedPlan: null, actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 1, credits: 5 },
+      addFiles: vi.fn(), selectIntent: selectIntentMock, recordStudioEvent: vi.fn(),
+    });
+
+    render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" entryInterviewEnabled />);
+
+    expect(screen.queryByRole("button", { name: /dashboard.home.variations/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("entry-interview-continue"));
+    expect(selectIntentMock).toHaveBeenCalledTimes(1);
+    expect(selectIntentMock).toHaveBeenCalledWith("single", true);
+  });
+
+  it("still accepts handwritten request text when the entry interview is enabled", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    const setRequest = vi.fn();
+    useComposerMock.mockReturnValue({
+      request: "", setRequest, hasEntry: false, objectiveSelected: false, intent: "variations",
+      stage: "entry", preparedPlan: null, actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 1, credits: 5 },
+      addFiles: vi.fn(), selectIntent: selectIntentMock, recordStudioEvent: vi.fn(),
+    });
+
+    render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" entryInterviewEnabled />);
+    fireEvent.change(screen.getByRole("textbox", { name: "dashboard.home.composer.requestLabel" }), { target: { value: "Texto livre" } });
+    expect(setRequest).toHaveBeenCalledWith("Texto livre");
+  });
+
+  it("does not render entry interview chips when rollout disables the interview", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      request: "", setRequest: vi.fn(), hasEntry: false, objectiveSelected: false, intent: "variations",
+      stage: "entry", preparedPlan: null, actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 1, credits: 5 },
+      addFiles: vi.fn(), selectIntent: selectIntentMock, recordStudioEvent: vi.fn(),
+    });
+
+    render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
+    expect(screen.queryByTestId("studio-entry-interview")).not.toBeInTheDocument();
   });
 });
