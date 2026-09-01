@@ -21,7 +21,7 @@ vi.mock("@/server/application/synthesize-studio-entry-request", async (importOri
   };
 });
 
-import { POST } from "../route";
+import { POST } from "./route";
 
 const validBody = {
   facts: {
@@ -47,19 +47,19 @@ describe("POST /api/creative-work/entry-request", () => {
     vi.clearAllMocks();
     checkRateLimitMock.mockResolvedValue(null);
     synthesizeMock.mockResolvedValue({
-      request: "Peça única de imersão NR-1, tom institucional.",
-      usedFallback: true,
+      sentence: "Peça única de imersão NR-1, tom institucional.",
+      requestSource: "template",
     });
   });
 
-  it("returns 200 with request and usedFallback on success", async () => {
+  it("returns 200 with sentence and requestSource on success", async () => {
     const response = await postEntryRequest(validBody);
     const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(body).toEqual({
-      request: "Peça única de imersão NR-1, tom institucional.",
-      usedFallback: true,
+      sentence: "Peça única de imersão NR-1, tom institucional.",
+      requestSource: "template",
     });
     expect(synthesizeMock).toHaveBeenCalledWith({
       workspaceId: "workspace-1",

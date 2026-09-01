@@ -31,8 +31,8 @@ describe("synthesizeStudioEntryRequest", () => {
       chips: {},
       locale: "pt-BR",
     });
-    expect(result.usedFallback).toBe(true);
-    expect(result.request).toBe("Peça única de imersão NR-1, tom institucional.");
+    expect(result.requestSource).toBe("template");
+    expect(result.sentence).toBe("Peça única de imersão NR-1, tom institucional.");
     expect(createMock).not.toHaveBeenCalled();
   });
 
@@ -47,8 +47,8 @@ describe("synthesizeStudioEntryRequest", () => {
       chips: {},
       locale: "pt-BR",
     });
-    expect(result.usedFallback).toBe(true);
-    expect(result.request).not.toMatch(/R\$/);
+    expect(result.requestSource).toBe("template");
+    expect(result.sentence).not.toMatch(/R\$/);
   });
 
   it("uses the model sentence when it only restates provided slots", async () => {
@@ -63,8 +63,8 @@ describe("synthesizeStudioEntryRequest", () => {
       locale: "pt-BR",
     });
     expect(result).toEqual({
-      request: "Peça única de imersão NR-1.",
-      usedFallback: false,
+      sentence: "Peça única de imersão NR-1.",
+      requestSource: "model",
     });
   });
 
@@ -76,10 +76,10 @@ describe("synthesizeStudioEntryRequest", () => {
       chips: { offer: "imersão NR-1" },
       locale: "pt-BR",
     });
-    expect(result.request).toBe("Peça única de imersão NR-1.");
+    expect(result.sentence).toBe("Peça única de imersão NR-1.");
   });
 
-  it("truncates the request to 240 characters", async () => {
+  it("truncates the sentence to 240 characters", async () => {
     isE2EControlledProviderEnabledMock.mockReturnValue(false);
     const longSentence = "A".repeat(300);
     createMock.mockResolvedValue({
@@ -91,7 +91,7 @@ describe("synthesizeStudioEntryRequest", () => {
       chips: {},
       locale: "pt-BR",
     });
-    expect(result.request).toHaveLength(240);
-    expect(result.usedFallback).toBe(false);
+    expect(result.sentence).toHaveLength(240);
+    expect(result.requestSource).toBe("model");
   });
 });

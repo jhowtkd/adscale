@@ -52,8 +52,8 @@ function buildPromptFields(facts: EntryFacts): string {
 
 function templateResult(facts: EntryFacts, locale: EntryLocale) {
   return {
-    request: truncateRequest(formatEntryRequestTemplate(facts, locale)),
-    usedFallback: true,
+    sentence: truncateRequest(formatEntryRequestTemplate(facts, locale)),
+    requestSource: "template" as const,
   };
 }
 
@@ -66,7 +66,7 @@ export async function synthesizeStudioEntryRequest(input: {
   facts: EntryFacts;
   chips: Partial<EntryFacts>;
   locale: EntryLocale;
-}): Promise<{ request: string; usedFallback: boolean }> {
+}): Promise<{ sentence: string; requestSource: "template" | "model" }> {
   void input.workspaceId;
   const merged = mergeEntryFacts(input.facts, input.chips);
 
@@ -95,8 +95,8 @@ export async function synthesizeStudioEntryRequest(input: {
     }
 
     return {
-      request: truncateRequest(sentence),
-      usedFallback: false,
+      sentence: truncateRequest(sentence),
+      requestSource: "model" as const,
     };
   } catch {
     return templateResult(merged, input.locale);
