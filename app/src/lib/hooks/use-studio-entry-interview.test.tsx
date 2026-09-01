@@ -194,6 +194,92 @@ describe("useStudioEntryInterview", () => {
     expect(firstSignal?.aborted).toBe(true);
   });
 
+  it("ignores a late-resolving POST for a superseded chip selection", async () => {
+    let resolveFirstPost: ((value: Response) => void) | undefined;
+    const firstPostPromise = new Promise<Response>((resolve) => {
+      resolveFirstPost = resolve;
+    });
+    let postCallCount = 0;
+
+    mockApiFetch.mockImplementation(async (url) => {
+      if (String(url).includes("/entry-context")) {
+        return { ok: true, json: async () => richContext } as Response;
+      }
+      if (String(url).includes("/entry-request")) {
+        postCallCount += 1;
+        if (postCallCount === 1) {
+          return firstPostPromise;
+        }
+        return {
+          ok: true,
+          json: async () => ({ sentence: "Model sentence from chip B.", requestSource: "model" }),
+        } as Response;
+      }
+      throw new Error(`Unexpected apiFetch url: ${url}`);
+    });
+
+    const queryClient = createQueryClient();
+    const { result, setRequest, recordStudioEvent } = renderInterview(queryClient);
+    await waitFor(() => expect(result.current.usedFallback).toBe(false));
+    setRequest.mockClear();
+    recordStudioEvent.mockClear();
+
+    act(() => {
+      result.current.selectChip("audience", "dentistas");
+    });
+    expect(recordStudioEvent).toHaveBeenCalledTimes(1);
+    expect(recordStudioEvent).toHaveBeenCalledWith("studio_entry_chip_selected", { slot: "audience" });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 450));
+    });
+
+    const audienceTemplate = formatEntryRequestTemplate(
+      {
+        protocol: "single",
+        offer: "imersão NR-1",
+        audience: "dentistas",
+        tone: "institucional",
+      },
+      "pt-BR",
+    );
+    expect(setRequest).toHaveBeenLastCalledWith(audienceTemplate);
+
+    act(() => {
+      result.current.selectChip("offer", "launch");
+    });
+    expect(recordStudioEvent).toHaveBeenCalledTimes(2);
+    expect(recordStudioEvent).toHaveBeenLastCalledWith("studio_entry_chip_selected", { slot: "offer" });
+
+    const offerTemplate = formatEntryRequestTemplate(
+      {
+        protocol: "single",
+        offer: "launch",
+        audience: "dentistas",
+        tone: "institucional",
+      },
+      "pt-BR",
+    );
+    expect(setRequest).toHaveBeenLastCalledWith(offerTemplate);
+    const callsAfterChipB = setRequest.mock.calls.length;
+
+    await act(async () => {
+      resolveFirstPost?.({
+        ok: true,
+        json: async () => ({ sentence: "Model sentence from chip A.", requestSource: "model" }),
+      } as Response);
+      await new Promise((resolve) => setTimeout(resolve, 450));
+    });
+
+    expect(setRequest).not.toHaveBeenCalledWith("Model sentence from chip A.");
+    expect(setRequest.mock.calls.length).toBeGreaterThanOrEqual(callsAfterChipB);
+    if (setRequest.mock.calls.length > callsAfterChipB) {
+      expect(setRequest).toHaveBeenLastCalledWith("Model sentence from chip B.");
+    } else {
+      expect(setRequest).toHaveBeenLastCalledWith(offerTemplate);
+    }
+  });
+
   it("preserves the request when focused and a late POST completes", async () => {
     mockApiFetch.mockImplementation(async (url) => {
       if (String(url).includes("/entry-context")) {

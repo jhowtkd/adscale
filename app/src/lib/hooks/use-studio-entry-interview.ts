@@ -83,13 +83,16 @@ export function useStudioEntryInterview(input: {
   const context = contextData ?? FALLBACK_CONTEXT;
 
   const [answers, setAnswers] = useState<Partial<Record<EntrySlot, string>>>({});
+  const answersRef = useRef(answers);
   const requestRef = useRef(request);
   const requestFocusedRef = useRef(requestFocused);
   const lastWrittenRef = useRef("");
   const postAbortRef = useRef<AbortController | null>(null);
   const postDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const postGenerationRef = useRef(0);
   const chipsShownSignatureRef = useRef<string | null>(null);
 
+  answersRef.current = answers;
   requestRef.current = request;
   requestFocusedRef.current = requestFocused;
 
@@ -156,13 +159,18 @@ export function useStudioEntryInterview(input: {
     recordStudioEvent,
   ]);
 
-  const schedulePost = useCallback((nextAnswers: Partial<Record<EntrySlot, string>>) => {
+  const schedulePost = useCallback((
+    nextAnswers: Partial<Record<EntrySlot, string>>,
+    generation: number,
+  ) => {
     if (!enabled || !clientProfileId || !contextData) return;
 
     if (postDebounceRef.current) clearTimeout(postDebounceRef.current);
     if (postAbortRef.current) postAbortRef.current.abort();
 
     postDebounceRef.current = setTimeout(() => {
+      if (postGenerationRef.current !== generation) return;
+
       const controller = new AbortController();
       postAbortRef.current = controller;
 
@@ -178,8 +186,10 @@ export function useStudioEntryInterview(input: {
         signal: controller.signal,
       })
         .then(async (res) => {
+          if (postGenerationRef.current !== generation) return;
           if (!res.ok) return;
           const payload = await res.json() as { sentence: string; requestSource: "template" | "model" };
+          if (postGenerationRef.current !== generation) return;
           if (requestFocusedRef.current) {
             recordStudioEvent("studio_entry_request_preserved");
             return;
@@ -193,7 +203,7 @@ export function useStudioEntryInterview(input: {
           if (error instanceof Error && error.name === "AbortError") return;
         });
     }, POST_DEBOUNCE_MS);
-  }, [enabled, clientProfileId, contextData, locale, requestFocused, setRequest, recordStudioEvent]);
+  }, [enabled, clientProfileId, contextData, locale, setRequest, recordStudioEvent]);
 
   useEffect(() => () => {
     if (postDebounceRef.current) clearTimeout(postDebounceRef.current);
@@ -201,15 +211,17 @@ export function useStudioEntryInterview(input: {
   }, []);
 
   const selectChip = useCallback((slot: EntrySlot, value: string) => {
-    setAnswers((previous) => {
-      const next = { ...previous, [slot]: value };
-      const template = formatEntryRequestTemplate(mergeFacts(context, next), locale);
-      lastWrittenRef.current = template;
-      setRequest(template);
-      recordStudioEvent("studio_entry_chip_selected", { slot });
-      schedulePost(next);
-      return next;
-    });
+    const next = { ...answersRef.current, [slot]: value };
+    postGenerationRef.current += 1;
+    const generation = postGenerationRef.current;
+
+    setAnswers(next);
+
+    const template = formatEntryRequestTemplate(mergeFacts(context, next), locale);
+    lastWrittenRef.current = template;
+    setRequest(template);
+    recordStudioEvent("studio_entry_chip_selected", { slot });
+    schedulePost(next, generation);
   }, [context, locale, setRequest, recordStudioEvent, schedulePost]);
 
   return {
