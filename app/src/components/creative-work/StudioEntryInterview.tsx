@@ -27,7 +27,13 @@ export function StudioEntryInterview({
 }) {
   const t = useTranslations("dashboard.home.entryInterview");
 
-  if (chips.length === 0) return null;
+  const statusRegion = writtenToken > 0 ? (
+    <p role="status" aria-live="polite" className="sr-only">
+      {t("requestUpdated")} {writtenToken}
+    </p>
+  ) : null;
+
+  if (chips.length === 0) return statusRegion;
 
   return (
     <div data-testid="studio-entry-interview" className="space-y-3">
@@ -60,11 +66,7 @@ export function StudioEntryInterview({
           </div>
         </div>
       ))}
-      {writtenToken > 0 ? (
-        <p role="status" aria-live="polite" className="sr-only">
-          {t("requestUpdated")}
-        </p>
-      ) : null}
+      {statusRegion}
     </div>
   );
 }

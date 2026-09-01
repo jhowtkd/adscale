@@ -82,6 +82,54 @@ describe("projectStudioEntryContext", () => {
     expect(context.offer).toBe("Override do operador");
   });
 
+  it("suppresses high inferred offer when offerOverride key is present but empty", () => {
+    const context = projectStudioEntryContext({
+      rows: [
+        work({
+          id: "a",
+          updatedAt: new Date("2026-09-01"),
+          inferredOffer: inferred("Oferta inferida", "inferred", "high"),
+          offerOverride: "",
+        }),
+      ],
+      kit: { toneOfVoice: null, toneNotes: null, description: null },
+      carouselEnabled: false,
+    });
+    expect(context.offer).toBeNull();
+    expect(context.offerCandidates).not.toContain("Oferta inferida");
+  });
+
+  it("suppresses high inferred offer when offerOverride key is present but null", () => {
+    const context = projectStudioEntryContext({
+      rows: [
+        work({
+          id: "a",
+          updatedAt: new Date("2026-09-01"),
+          inferredOffer: inferred("Oferta inferida", "inferred", "high"),
+          offerOverride: null,
+        }),
+      ],
+      kit: { toneOfVoice: null, toneNotes: null, description: null },
+      carouselEnabled: false,
+    });
+    expect(context.offer).toBeNull();
+  });
+
+  it("uses brief.offer as a fact when no inferred offer exists", () => {
+    const context = projectStudioEntryContext({
+      rows: [
+        work({
+          id: "a",
+          updatedAt: new Date("2026-09-01"),
+          offer: "Oferta do brief",
+        }),
+      ],
+      kit: { toneOfVoice: null, toneNotes: null, description: null },
+      carouselEnabled: false,
+    });
+    expect(context.offer).toBe("Oferta do brief");
+  });
+
   it("reads campaign columns as sourced facts and ignores campaign protocol", () => {
     const context = projectStudioEntryContext({
       rows: [

@@ -313,7 +313,7 @@ export default function DashboardHomeActions({
                 rows={4}
                 className="w-full resize-y rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] p-3 text-sm"
               />
-              {interviewEnabled && interview.chips.length > 0 ? (
+              {interviewEnabled ? (
                 <StudioEntryInterview
                   chips={interview.chips}
                   answers={interview.answers}

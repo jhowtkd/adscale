@@ -84,17 +84,24 @@ export function useStudioEntryInterview(input: {
 
   const [answers, setAnswers] = useState<Partial<Record<EntrySlot, string>>>({});
   const answersRef = useRef(answers);
-  const requestRef = useRef(request);
   const requestFocusedRef = useRef(requestFocused);
   const lastWrittenRef = useRef("");
+  const prevClientProfileIdRef = useRef(clientProfileId);
+  const prevRequestRef = useRef(request);
+  const userEditedSinceWriteRef = useRef(false);
   const postAbortRef = useRef<AbortController | null>(null);
   const postDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const postGenerationRef = useRef(0);
   const chipsShownSignatureRef = useRef<string | null>(null);
 
   answersRef.current = answers;
-  requestRef.current = request;
   requestFocusedRef.current = requestFocused;
+
+  const writeRequest = useCallback((value: string) => {
+    lastWrittenRef.current = value;
+    userEditedSinceWriteRef.current = false;
+    setRequest(value);
+  }, [setRequest]);
 
   const chips = useMemo<EntryChip[]>(() => {
     if (!enabled || !clientProfileId) return [];
@@ -114,14 +121,47 @@ export function useStudioEntryInterview(input: {
   const suggestedProtocol = !hasProtocolChip ? context.protocol : null;
 
   useEffect(() => {
+    if (prevClientProfileIdRef.current === clientProfileId) return;
+    prevClientProfileIdRef.current = clientProfileId;
+
     setAnswers({});
     chipsShownSignatureRef.current = null;
+    lastWrittenRef.current = "";
+    userEditedSinceWriteRef.current = false;
+    prevRequestRef.current = "";
+    setRequest("");
     postGenerationRef.current += 1;
     if (postDebounceRef.current) clearTimeout(postDebounceRef.current);
     postDebounceRef.current = null;
     postAbortRef.current?.abort();
     postAbortRef.current = null;
-  }, [clientProfileId]);
+  }, [clientProfileId, setRequest]);
+
+  useEffect(() => {
+    if (!enabled || !clientProfileId) return;
+
+    const previousRequest = prevRequestRef.current;
+    prevRequestRef.current = request;
+    if (request === previousRequest) return;
+
+    if (request === lastWrittenRef.current) {
+      userEditedSinceWriteRef.current = false;
+      return;
+    }
+
+    userEditedSinceWriteRef.current = true;
+    if (!postDebounceRef.current && !postAbortRef.current) return;
+
+    const hadInFlightPost = Boolean(postAbortRef.current);
+    postGenerationRef.current += 1;
+    if (postDebounceRef.current) clearTimeout(postDebounceRef.current);
+    postDebounceRef.current = null;
+    postAbortRef.current?.abort();
+    postAbortRef.current = null;
+    if (hadInFlightPost) {
+      recordStudioEvent("studio_entry_request_preserved");
+    }
+  }, [request, enabled, clientProfileId, recordStudioEvent]);
 
   useEffect(() => {
     if (!enabled || !clientProfileId || chips.length === 0) return;
@@ -147,8 +187,7 @@ export function useStudioEntryInterview(input: {
     const template = formatEntryRequestTemplate(mergeFacts(context, answers), locale);
     if (!template || template === lastWrittenRef.current) return;
 
-    lastWrittenRef.current = template;
-    setRequest(template);
+    writeRequest(template);
     recordStudioEvent("studio_entry_request_written", { requestSource: "template" });
   }, [
     enabled,
@@ -160,7 +199,7 @@ export function useStudioEntryInterview(input: {
     context,
     answers,
     locale,
-    setRequest,
+    writeRequest,
     recordStudioEvent,
   ]);
 
@@ -195,14 +234,14 @@ export function useStudioEntryInterview(input: {
           if (!res.ok) return;
           const payload = await res.json() as { sentence: string; requestSource: "template" | "model" };
           if (postGenerationRef.current !== generation) return;
-          if (requestFocusedRef.current) {
+          if (requestFocusedRef.current || userEditedSinceWriteRef.current) {
             recordStudioEvent("studio_entry_request_preserved");
             return;
           }
-          if (requestRef.current !== lastWrittenRef.current) return;
           lastWrittenRef.current = payload.sentence;
+          userEditedSinceWriteRef.current = false;
           setRequest(payload.sentence);
-          recordStudioEvent("studio_entry_request_written", { requestSource: "model" });
+          recordStudioEvent("studio_entry_request_written", { requestSource: payload.requestSource });
         })
         .catch((error: unknown) => {
           if (error instanceof Error && error.name === "AbortError") return;
@@ -223,11 +262,10 @@ export function useStudioEntryInterview(input: {
     setAnswers(next);
 
     const template = formatEntryRequestTemplate(mergeFacts(context, next), locale);
-    lastWrittenRef.current = template;
-    setRequest(template);
+    writeRequest(template);
     recordStudioEvent("studio_entry_chip_selected", { slot });
     schedulePost(next, generation);
-  }, [context, locale, setRequest, recordStudioEvent, schedulePost]);
+  }, [context, locale, writeRequest, recordStudioEvent, schedulePost]);
 
   return {
     chips,

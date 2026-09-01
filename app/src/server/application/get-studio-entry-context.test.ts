@@ -70,4 +70,25 @@ describe("getStudioEntryContext", () => {
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.context.workCount).toBe(8);
   });
+
+  it("maps brief.offer onto the entry context when no inferred offer exists", async () => {
+    getClientProfileMock.mockResolvedValue({ id: "brand" });
+    listWorksMock.mockResolvedValue([
+      {
+        id: "w1",
+        updatedAt: new Date("2026-09-01"),
+        toolKind: "single",
+        brief: { offer: "Oferta do brief" },
+        inputSnapshot: null,
+        settings: {},
+      },
+    ]);
+    const result = await getStudioEntryContext({
+      workspaceId: "ws",
+      clientProfileId: "brand",
+      carouselEnabled: false,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.context.offer).toBe("Oferta do brief");
+  });
 });

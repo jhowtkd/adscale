@@ -61,12 +61,23 @@ function overrideField(row: StudioEntryHistoryRow, slot: SlotName): string | nul
   return row.toneOverride;
 }
 
+function hasOverride(row: StudioEntryHistoryRow, slot: SlotName): boolean {
+  return overrideField(row, slot) !== undefined;
+}
+
 function extractCreativeWorkSlot(
   row: StudioEntryHistoryRow,
   slot: SlotName,
 ): { fact?: string; candidate?: string } {
-  const override = nonEmpty(overrideField(row, slot));
-  if (override) return { fact: override };
+  if (hasOverride(row, slot)) {
+    const override = nonEmpty(overrideField(row, slot));
+    return override ? { fact: override } : {};
+  }
+
+  if (slot === "offer") {
+    const briefOffer = nonEmpty(row.offer);
+    if (briefOffer) return { fact: briefOffer };
+  }
 
   const inferred = inferredField(row, slot);
   if (isFactEligible(inferred)) return { fact: inferred.value };

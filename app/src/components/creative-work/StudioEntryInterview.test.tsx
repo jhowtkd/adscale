@@ -61,6 +61,33 @@ describe("StudioEntryInterview", () => {
 
     const status = screen.getByRole("status");
     expect(status).toHaveAttribute("aria-live", "polite");
-    expect(status).toHaveTextContent("entryInterview.requestUpdated");
+    expect(status).toHaveTextContent("entryInterview.requestUpdated 1");
+  });
+
+  it("announces request updates when chips are empty but writtenToken increments", () => {
+    const { rerender } = render(
+      <StudioEntryInterview
+        chips={[]}
+        answers={{}}
+        onSelect={vi.fn()}
+        locale="en"
+        writtenToken={0}
+      />,
+    );
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+
+    rerender(
+      <StudioEntryInterview
+        chips={[]}
+        answers={{}}
+        onSelect={vi.fn()}
+        locale="en"
+        writtenToken={2}
+      />,
+    );
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("entryInterview.requestUpdated 2");
   });
 });

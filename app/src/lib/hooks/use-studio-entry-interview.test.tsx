@@ -433,4 +433,139 @@ describe("useStudioEntryInterview", () => {
     expect(result.current.answeredProtocol).toBe("variations");
     expect(result.current.pendingProtocol).toBe(false);
   });
+
+  it("clears the request when clientProfileId changes after a template write", async () => {
+    mockEntryContext(richContext);
+    const queryClient = createQueryClient();
+    const { result, setRequest, rerender, input } = renderInterview(queryClient);
+
+    await waitFor(() => {
+      expect(setRequest).toHaveBeenCalled();
+    });
+    setRequest.mockClear();
+
+    rerender({ ...input, clientProfileId: PROFILE_B });
+    mockEntryContext(richContext);
+
+    await waitFor(() => {
+      expect(setRequest).toHaveBeenCalledWith("");
+    });
+    expect(result.current.answers).toEqual({});
+  });
+
+  it("records requestSource from the POST payload", async () => {
+    mockApiFetch.mockImplementation(async (url) => {
+      if (String(url).includes("/entry-context")) {
+        return { ok: true, json: async () => richContext } as Response;
+      }
+      if (String(url).includes("/entry-request")) {
+        return {
+          ok: true,
+          json: async () => ({ sentence: "Template sentence from server.", requestSource: "template" }),
+        } as Response;
+      }
+      throw new Error(`Unexpected apiFetch url: ${url}`);
+    });
+
+    const queryClient = createQueryClient();
+    const { result, recordStudioEvent } = renderInterview(queryClient);
+    await waitFor(() => expect(result.current.usedFallback).toBe(false));
+    recordStudioEvent.mockClear();
+
+    act(() => {
+      result.current.selectChip("audience", "dentistas");
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 450));
+    });
+
+    await waitFor(() => {
+      expect(recordStudioEvent).toHaveBeenCalledWith("studio_entry_request_written", {
+        requestSource: "template",
+      });
+    });
+  });
+
+  it("preserves the request when the user types during a hanging POST", async () => {
+    let resolvePost: ((value: Response) => void) | undefined;
+    const postPromise = new Promise<Response>((resolve) => {
+      resolvePost = resolve;
+    });
+
+    mockApiFetch.mockImplementation(async (url) => {
+      if (String(url).includes("/entry-context")) {
+        return { ok: true, json: async () => richContext } as Response;
+      }
+      if (String(url).includes("/entry-request")) {
+        return postPromise;
+      }
+      throw new Error(`Unexpected apiFetch url: ${url}`);
+    });
+
+    const queryClient = createQueryClient();
+    let request = "";
+    const setRequest = vi.fn((value: string) => {
+      request = value;
+    });
+    const recordStudioEvent = vi.fn();
+    const { result, rerender } = renderHook(
+      (props: Parameters<typeof useStudioEntryInterview>[0]) => useStudioEntryInterview(props),
+      {
+        wrapper: wrapperWith(queryClient),
+        initialProps: {
+          enabled: true,
+          clientProfileId: PROFILE_A,
+          request,
+          hasAttachment: false,
+          carouselEnabled: false,
+          locale: "pt-BR" as const,
+          setRequest,
+          recordStudioEvent,
+          requestFocused: false,
+        },
+      },
+    );
+
+    await waitFor(() => expect(result.current.usedFallback).toBe(false));
+    setRequest.mockClear();
+    recordStudioEvent.mockClear();
+
+    act(() => {
+      result.current.selectChip("audience", "dentistas");
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 450));
+    });
+
+    const postCall = mockApiFetch.mock.calls.find(([url]) => String(url).includes("/entry-request"));
+    const signal = postCall?.[1]?.signal as AbortSignal | undefined;
+    expect(signal).toBeDefined();
+
+    const userEdit = "Minha edição manual";
+    rerender({
+      enabled: true,
+      clientProfileId: PROFILE_A,
+      request: userEdit,
+      hasAttachment: false,
+      carouselEnabled: false,
+      locale: "pt-BR" as const,
+      setRequest,
+      recordStudioEvent,
+      requestFocused: false,
+    });
+
+    await act(async () => {
+      resolvePost?.({
+        ok: true,
+        json: async () => ({ sentence: "Model sentence from server.", requestSource: "model" }),
+      } as Response);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(signal?.aborted).toBe(true);
+    expect(setRequest).not.toHaveBeenCalledWith("Model sentence from server.");
+    expect(recordStudioEvent).toHaveBeenCalledWith("studio_entry_request_preserved");
+  });
 });

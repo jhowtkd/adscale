@@ -29,17 +29,26 @@ function mapCreativeWorkToHistoryRow(work: CreativeWorkItem): StudioEntryHistory
   const inferredBriefing = resolveCreativeWorkInferredBriefing(work.inputSnapshot);
   const overrides = briefingOverridesForWork(work);
 
+  const briefOffer = typeof work.brief?.offer === "string" ? work.brief.offer : null;
+
   return {
     origin: "creative_work",
     id: work.id,
     updatedAt: work.updatedAt,
     toolKind: work.toolKind,
+    offer: briefOffer,
     inferredOffer: inferredBriefing?.offer,
     inferredAudience: inferredBriefing?.audience,
     inferredTone: inferredBriefing?.tone,
-    offerOverride: overrides?.offer,
-    audienceOverride: overrides?.audience,
-    toneOverride: overrides?.tone,
+    offerOverride: overrides && Object.prototype.hasOwnProperty.call(overrides, "offer")
+      ? overrides.offer ?? null
+      : undefined,
+    audienceOverride: overrides && Object.prototype.hasOwnProperty.call(overrides, "audience")
+      ? overrides.audience ?? null
+      : undefined,
+    toneOverride: overrides && Object.prototype.hasOwnProperty.call(overrides, "tone")
+      ? overrides.tone ?? null
+      : undefined,
   };
 }
 
