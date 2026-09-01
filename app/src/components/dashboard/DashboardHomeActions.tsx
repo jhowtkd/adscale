@@ -153,6 +153,7 @@ export default function DashboardHomeActions({
   workspaceId,
   rolloutVariant = "control",
   carouselCreationEnabled = false,
+  entryInterviewEnabled = false,
 }: {
   workId?: string;
   initialIntent?: ComposerIntent;
@@ -165,6 +166,8 @@ export default function DashboardHomeActions({
   rolloutVariant?: StudioRolloutVariant;
   /** Task 10 wires the carousel rollout percentage to this gate. */
   carouselCreationEnabled?: boolean;
+  /** Task 9 wires the entry interview rollout percentage to this gate. */
+  entryInterviewEnabled?: boolean;
 }) {
   const t = useTranslations("dashboard.home");
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
@@ -254,9 +257,9 @@ export default function DashboardHomeActions({
     return (
       <div className={cn("mx-auto w-full space-y-6 px-4 py-8 sm:px-6 lg:py-12", resultStage ? "max-w-6xl" : "max-w-4xl")}>
         <AccessGatePanel />
-        <header className="flex items-end justify-between gap-3 border-b border-[var(--border-subtle)] pb-5">
+        <header className="flex flex-col gap-3 border-b border-[var(--border-subtle)] pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div><p className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("studioLabel")}</p><h1 className="mt-1 product-page-title text-[var(--text-primary)]">{t("progressiveTitle")}</h1></div>
-          <div className="flex items-center gap-2">{!resultStage ? <CreateCampaignDialog activeProfile={activeProfile} onCreated={composer.linkCampaign} /> : null}<ActiveBrandSwitcher id="active-client-switcher-home" className="w-56" /></div>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">{!resultStage ? <CreateCampaignDialog activeProfile={activeProfile} onCreated={composer.linkCampaign} /> : null}<ActiveBrandSwitcher id="active-client-switcher-home" className="w-full sm:w-56" /></div>
         </header>
         {isLoading && works.length === 0 ? <div className="h-16 animate-pulse rounded-[var(--radius-control)] bg-[var(--surface-raised)]" /> : continueTarget.kind === "work" ? <ContinueWorkCard target={continueTarget} brandName={continueTarget.brandName ?? t("continueBrandUnknown")} /> : null}
         {!composer.objectiveSelected ? (

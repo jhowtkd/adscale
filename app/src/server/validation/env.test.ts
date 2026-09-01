@@ -126,6 +126,12 @@ describe("envSchema", () => {
     expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", STUDIO_PROGRESSIVE_ROLLOUT_PERCENT: "101" })).toThrow();
   });
 
+  it("defaults the Studio entry interview rollout to zero and bounds it like the progressive one", () => {
+    expect(schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy" }).STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT).toBe(0);
+    expect(schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT: "100" }).STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT).toBe(100);
+    expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT: "101" })).toThrow();
+  });
+
   it("defaults the Studio carousel rollout to zero and bounds it like the progressive one", () => {
     expect(schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy" }).STUDIO_CAROUSEL_ROLLOUT_PERCENT).toBe(0);
     expect(schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", STUDIO_CAROUSEL_ROLLOUT_PERCENT: "25" }).STUDIO_CAROUSEL_ROLLOUT_PERCENT).toBe(25);

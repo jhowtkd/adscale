@@ -47,6 +47,7 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `MARKETING_ALLOWED_ORIGINS` | No (prod: Yes) | — | Comma-separated CORS origins for `POST /api/waitlist` from the marketing site (`app/src/lib/cors-marketing.ts`). Example: `http://localhost:5173,https://adscale.jhonatansoares.com`. Not in `envSchema`. |
 | `E2E_DISABLE_RATE_LIMIT` | No | — | Set to `true`, `1`, or `yes` to skip API rate limits during E2E/TestSprite runs. Not in `envSchema`. |
 | `STUDIO_PROGRESSIVE_ROLLOUT_PERCENT` | No | `0` | Temporary server-only percentage used for deterministic Studio presentation rollout. Keep at 0 until the rollout gates approve a change. |
+| `STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT` | No | `0` | Temporary server-only percentage for the Studio entry interview gate. Uses the same deterministic workspace bucket as progressive Studio rollout. Keep at 0 until the rollout gates approve a change. The value never reaches the browser — the dashboard page derives a boolean from it. |
 | `STRIPE_SECRET_KEY` | Yes | — | Stripe secret key; must start with `sk_` or `rk_`. Use `sk_live_` / `rk_live_` in production. |
 | `STRIPE_WEBHOOK_SECRET` | Yes | — | Stripe webhook signing secret; must start with `whsec_`. Must match the endpoint registered in the Stripe Dashboard. |
 | `STRIPE_STARTER_PRICE_ID` | Yes | — | Stripe Price ID for Starter; must start with `price_`. Maps to 30 credits/month (`app/src/server/billing/plans.ts`). |
