@@ -23,11 +23,11 @@ No painel de owner, consulte `/api/feedback/analytics/funnel` com um intervalo U
 - Abandonos antes da geração: sessão sem `generation_confirmed` na janela.
 - Falhas, débitos, compensações e reembolsos: gerações confirmadas correlacionadas pelo `creativeWorkId`; nenhuma linha ou valor financeiro é exposto no painel.
 
-Antes de qualquer tráfego da entrevista, mantenha `STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT=0`, obtenha 14 dias completos e pelo menos 30 sessões elegíveis **por braço** (entrevista ligada e desligada). Congele os valores abaixo no momento da decisão.
+Antes de qualquer tráfego da entrevista, mantenha `STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT=0`, obtenha 14 dias completos e pelo menos 30 sessões elegíveis no braço **entrevista desligada** (progressivo, sem entrevista). Congele os valores abaixo no momento da decisão. O baseline do braço entrevista ligada só é coletado após o primeiro estágio com percentual diferente de zero.
 
 | Faixa UTC | Braço | Conclusão | Abandono antes da geração | Falha | Reembolso | Erros de redação visíveis na entrada | Chips mostrados | Chip selecionado | Pedido escrito (`requestSource`) | Pedido preservado | Mediana entrada→briefing | Owner | Decisão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| a preencher | entrevista ligada | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | baseline congelado |
+| a preencher | entrevista ligada | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | baseline congelado após primeiro estágio ≠ 0 |
 | a preencher | entrevista desligada | a preencher | a preencher | a preencher | a preencher | a preencher | n/a | n/a | n/a | n/a | a preencher | a preencher | baseline congelado |
 
 O baseline só permite medição: nenhuma alteração percentual é válida enquanto o percentual permanecer em zero por decisão de engenharia.
