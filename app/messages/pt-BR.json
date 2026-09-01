@@ -1030,7 +1030,8 @@
         "restyleHelpLabel": "Ajuda sobre Mudar estilo",
         "restyleHelp": "Mantém a arte original como conteúdo e usa outra referência como linguagem visual. Use quando a mensagem deve permanecer, mas o visual precisa mudar; requer as duas imagens.",
         "carousel": "Criar carrossel",
-        "carouselDescription": "Transforme uma ideia ou texto em uma sequência visual coerente."
+        "carouselDescription": "Transforme uma ideia ou texto em uma sequência visual coerente.",
+        "suggestedFromHistory": "Sugestão a partir do histórico"
       },
       "errorTitle": "Erro ao carregar",
       "errorDescription": "Erro ao carregar dashboard",

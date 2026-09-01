@@ -700,6 +700,30 @@ describe("DashboardHomeActions", () => {
     expect(selectIntentMock).toHaveBeenCalledWith("single", true);
   });
 
+  it("passes history-suggested protocol to objective cards without selecting it", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useStudioEntryInterviewMock.mockReturnValue({
+      chips: [],
+      answers: {},
+      pendingProtocol: false,
+      answeredProtocol: null,
+      suggestedProtocol: "single",
+      selectChip: vi.fn(),
+      usedFallback: false,
+    });
+    useComposerMock.mockReturnValue({
+      request: "Pedido", setRequest: vi.fn(), hasEntry: true, objectiveSelected: false, intent: "variations",
+      stage: "entry", preparedPlan: null, actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 1, credits: 5 },
+      addFiles: vi.fn(), selectIntent: selectIntentMock, recordStudioEvent: vi.fn(),
+    });
+
+    render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" entryInterviewEnabled />);
+
+    expect(screen.getByRole("button", { name: /dashboard\.home\.single/i })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByText("dashboard.home.suggestedFromHistory")).toBeInTheDocument();
+    expect(selectIntentMock).not.toHaveBeenCalled();
+  });
+
   it("still accepts handwritten request text when the entry interview is enabled", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     const setRequest = vi.fn();

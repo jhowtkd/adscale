@@ -23,8 +23,9 @@ const FOCUS_TARGETS: Record<ComposerIntent, string> = {
   carousel: "creative-composer-request",
 };
 
-export function CreativeToolCards({ selected, onSelect, headerAction, carouselEnabled = false }: {
+export function CreativeToolCards({ selected, suggested = null, onSelect, headerAction, carouselEnabled = false }: {
   selected: ComposerIntent | null;
+  suggested?: ComposerIntent | null;
   onSelect: (intent: ComposerIntent) => void | boolean | Promise<void | boolean>;
   headerAction?: ReactNode;
   /** Task 10 wires the carousel rollout percentage; false hides new creation. */
@@ -43,6 +44,7 @@ export function CreativeToolCards({ selected, onSelect, headerAction, carouselEn
       <div className={cn("grid grid-cols-1 gap-2 sm:grid-cols-2", carouselEnabled ? "lg:grid-cols-3 xl:grid-cols-5" : "lg:grid-cols-4")}>
         {tools.map(({ id, icon: Icon }) => {
           const creationDisabled = id === "carousel" && !carouselEnabled;
+          const isSuggested = suggested === id && selected !== id;
           return (
             <button
               key={id}
@@ -83,6 +85,9 @@ export function CreativeToolCards({ selected, onSelect, headerAction, carouselEn
               </span>
               <span className="mt-4 block text-sm font-semibold text-[var(--text-primary)]">{t(id)}</span>
               <span className="mt-1 block text-xs leading-5 text-[var(--text-muted)]">{t(`${id}Description`)}</span>
+              {isSuggested ? (
+                <span className="mt-2 block text-xs leading-5 text-[var(--text-muted)]">{t("suggestedFromHistory")}</span>
+              ) : null}
             </button>
           );
         })}

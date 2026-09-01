@@ -985,7 +985,8 @@
         "restyleHelpLabel": "Help with Change style",
         "restyleHelp": "Keeps the original artwork as content and uses another reference as the visual language. Use it when the message should remain but the look must change; it requires both images.",
         "carousel": "Create carousel",
-        "carouselDescription": "Turn an idea or text into a coherent visual sequence."
+        "carouselDescription": "Turn an idea or text into a coherent visual sequence.",
+        "suggestedFromHistory": "Suggested from history"
       },
       "errorTitle": "Failed to load",
       "errorDescription": "Could not load dashboard",

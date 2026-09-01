@@ -338,7 +338,7 @@ export default function DashboardHomeActions({
             </div>
           </section>
         ) : null}
-        {showObjectives ? <section aria-labelledby="progressive-objective-title" className="space-y-3"><h2 id="progressive-objective-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("chooseObjective")}</h2><CreativeToolCards selected={null} onSelect={(intent) => composer.selectIntent(intent, true)} carouselEnabled={carouselCreationEnabled} /></section> : null}
+        {showObjectives ? <section aria-labelledby="progressive-objective-title" className="space-y-3"><h2 id="progressive-objective-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("chooseObjective")}</h2><CreativeToolCards selected={null} suggested={showObjectives ? interview.suggestedProtocol : null} onSelect={(intent) => composer.selectIntent(intent, true)} carouselEnabled={carouselCreationEnabled} /></section> : null}
         {resultStage ? <>
           <section aria-labelledby="progressive-results-title" data-testid="progressive-results-summary" className="flex flex-wrap items-end justify-between gap-2 border-b border-[var(--border-subtle)] pb-3">
             <div><p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{composer.workTitle ?? (composer.request.trim() || t(`planReview.protocol.${composer.preparedPlan?.protocol === "format_adaptation" ? "formatAdaptation" : composer.preparedPlan?.protocol ?? composer.intent}`))}</p><h2 ref={progressiveResultsHeadingRef} id="progressive-results-title" tabIndex={-1} className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{t("resultsTitle")}</h2></div>
