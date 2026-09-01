@@ -319,6 +319,76 @@ describe("useStudioEntryInterview", () => {
     expect(setRequest).not.toHaveBeenCalledWith("Model sentence from server.");
   });
 
+  it("ignores a late-resolving POST after clientProfileId changes", async () => {
+    let resolveProfileAPost: ((value: Response) => void) | undefined;
+    const profileAPostPromise = new Promise<Response>((resolve) => {
+      resolveProfileAPost = resolve;
+    });
+    let postCallCount = 0;
+
+    mockApiFetch.mockImplementation(async (url) => {
+      if (String(url).includes("/entry-context")) {
+        return { ok: true, json: async () => richContext } as Response;
+      }
+      if (String(url).includes("/entry-request")) {
+        postCallCount += 1;
+        if (postCallCount === 1) {
+          return profileAPostPromise;
+        }
+        return {
+          ok: true,
+          json: async () => ({ sentence: "Model sentence from profile B.", requestSource: "model" }),
+        } as Response;
+      }
+      throw new Error(`Unexpected apiFetch url: ${url}`);
+    });
+
+    const queryClient = createQueryClient();
+    const { result, setRequest, recordStudioEvent, rerender, input } = renderInterview(queryClient);
+    await waitFor(() => expect(result.current.usedFallback).toBe(false));
+    setRequest.mockClear();
+    recordStudioEvent.mockClear();
+
+    act(() => {
+      result.current.selectChip("audience", "dentistas");
+    });
+    expect(recordStudioEvent).toHaveBeenCalledWith("studio_entry_chip_selected", { slot: "audience" });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 450));
+    });
+
+    const audienceTemplate = formatEntryRequestTemplate(
+      {
+        protocol: "single",
+        offer: "imersão NR-1",
+        audience: "dentistas",
+        tone: "institucional",
+      },
+      "pt-BR",
+    );
+    expect(setRequest).toHaveBeenLastCalledWith(audienceTemplate);
+    const callsBeforeSwitch = setRequest.mock.calls.length;
+
+    rerender({ ...input, clientProfileId: PROFILE_B });
+    mockEntryContext(richContext);
+
+    await waitFor(() => {
+      expect(result.current.answers).toEqual({});
+    });
+
+    await act(async () => {
+      resolveProfileAPost?.({
+        ok: true,
+        json: async () => ({ sentence: "Model sentence from profile A.", requestSource: "model" }),
+      } as Response);
+      await new Promise((resolve) => setTimeout(resolve, 450));
+    });
+
+    expect(setRequest).not.toHaveBeenCalledWith("Model sentence from profile A.");
+    expect(setRequest.mock.calls.length).toBeGreaterThanOrEqual(callsBeforeSwitch);
+  });
+
   it("clears answers when clientProfileId changes", async () => {
     mockEntryContext(richContext);
     const queryClient = createQueryClient();

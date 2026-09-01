@@ -116,6 +116,11 @@ export function useStudioEntryInterview(input: {
   useEffect(() => {
     setAnswers({});
     chipsShownSignatureRef.current = null;
+    postGenerationRef.current += 1;
+    if (postDebounceRef.current) clearTimeout(postDebounceRef.current);
+    postDebounceRef.current = null;
+    postAbortRef.current?.abort();
+    postAbortRef.current = null;
   }, [clientProfileId]);
 
   useEffect(() => {
