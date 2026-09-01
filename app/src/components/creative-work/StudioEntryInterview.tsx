@@ -27,11 +27,11 @@ export function StudioEntryInterview({
 }) {
   const t = useTranslations("dashboard.home.entryInterview");
 
-  const statusRegion = writtenToken > 0 ? (
+  const statusRegion = (
     <p role="status" aria-live="polite" className="sr-only">
-      {t("requestUpdated")} {writtenToken}
+      {writtenToken > 0 ? `${t("requestUpdated")} ${writtenToken}` : null}
     </p>
-  ) : null;
+  );
 
   if (chips.length === 0) return statusRegion;
 

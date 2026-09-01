@@ -245,6 +245,11 @@ export function useStudioEntryInterview(input: {
         })
         .catch((error: unknown) => {
           if (error instanceof Error && error.name === "AbortError") return;
+        })
+        .finally(() => {
+          if (postAbortRef.current === controller) {
+            postAbortRef.current = null;
+          }
         });
     }, POST_DEBOUNCE_MS);
   }, [enabled, clientProfileId, contextData, locale, setRequest, recordStudioEvent]);

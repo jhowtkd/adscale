@@ -487,6 +487,76 @@ describe("useStudioEntryInterview", () => {
     });
   });
 
+  it("does not emit request_preserved when user edits after POST settles", async () => {
+    mockApiFetch.mockImplementation(async (url) => {
+      if (String(url).includes("/entry-context")) {
+        return { ok: true, json: async () => richContext } as Response;
+      }
+      if (String(url).includes("/entry-request")) {
+        return {
+          ok: true,
+          json: async () => ({ sentence: "Model sentence from server.", requestSource: "model" }),
+        } as Response;
+      }
+      throw new Error(`Unexpected apiFetch url: ${url}`);
+    });
+
+    const queryClient = createQueryClient();
+    let request = "";
+    const setRequest = vi.fn((value: string) => {
+      request = value;
+    });
+    const recordStudioEvent = vi.fn();
+    const { result, rerender } = renderHook(
+      (props: Parameters<typeof useStudioEntryInterview>[0]) => useStudioEntryInterview(props),
+      {
+        wrapper: wrapperWith(queryClient),
+        initialProps: {
+          enabled: true,
+          clientProfileId: PROFILE_A,
+          request,
+          hasAttachment: false,
+          carouselEnabled: false,
+          locale: "pt-BR" as const,
+          setRequest,
+          recordStudioEvent,
+          requestFocused: false,
+        },
+      },
+    );
+
+    await waitFor(() => expect(result.current.usedFallback).toBe(false));
+    setRequest.mockClear();
+    recordStudioEvent.mockClear();
+
+    act(() => {
+      result.current.selectChip("audience", "dentistas");
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 450));
+    });
+
+    await waitFor(() => {
+      expect(setRequest).toHaveBeenCalledWith("Model sentence from server.");
+    });
+    recordStudioEvent.mockClear();
+
+    rerender({
+      enabled: true,
+      clientProfileId: PROFILE_A,
+      request: "Minha edição manual",
+      hasAttachment: false,
+      carouselEnabled: false,
+      locale: "pt-BR" as const,
+      setRequest,
+      recordStudioEvent,
+      requestFocused: false,
+    });
+
+    expect(recordStudioEvent).not.toHaveBeenCalledWith("studio_entry_request_preserved");
+  });
+
   it("preserves the request when the user types during a hanging POST", async () => {
     let resolvePost: ((value: Response) => void) | undefined;
     const postPromise = new Promise<Response>((resolve) => {

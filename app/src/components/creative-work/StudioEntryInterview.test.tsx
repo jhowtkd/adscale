@@ -47,7 +47,9 @@ describe("StudioEntryInterview", () => {
       />,
     );
 
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    const statusAtZero = screen.getByRole("status");
+    expect(statusAtZero).toHaveAttribute("aria-live", "polite");
+    expect(statusAtZero).toHaveTextContent("");
 
     rerender(
       <StudioEntryInterview
@@ -75,7 +77,9 @@ describe("StudioEntryInterview", () => {
       />,
     );
 
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    const statusAtZero = screen.getByRole("status");
+    expect(statusAtZero).toHaveAttribute("aria-live", "polite");
+    expect(statusAtZero).toHaveTextContent("");
 
     rerender(
       <StudioEntryInterview
