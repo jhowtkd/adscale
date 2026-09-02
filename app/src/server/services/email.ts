@@ -196,7 +196,7 @@ export async function sendInviteEmail(input: {
     html: renderTransactionalEmail({
       preview: t("invite.preview", { workspaceName: input.workspaceName }),
       title: t("invite.title"),
-      bodyHtml: `${paragraphsToHtml([t("invite.bodyPrefix")])}<p style="margin:0 0 16px"><strong style="color:#0a0a0a">${safeWorkspace}</strong> ${escapeHtml(t("invite.bodySuffix"))}</p>`,
+      bodyHtml: `<p style="margin:0 0 16px">${escapeHtml(t("invite.bodyPrefix"))} <strong style="color:#0a0a0a">${safeWorkspace}</strong> ${escapeHtml(t("invite.bodySuffix"))}</p>`,
       cta: { label: t("invite.cta"), url },
       signoff: signoffFrom(t),
       footerFallback: t("footerFallback"),
