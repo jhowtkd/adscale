@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  EMAIL_CTA_MARK,
+  emailLogoUrl,
   escapeHtml,
   firstNameFromDisplayName,
   paragraphsToHtml,
@@ -22,13 +24,25 @@ describe("email-template", () => {
 
   it("renders escaped paragraphs and numbered steps", () => {
     expect(paragraphsToHtml(["Hello <b>x</b>", "Second"])).toContain("Hello &lt;b&gt;x&lt;/b&gt;");
-    expect(stepsToHtml(["Open Estúdio", "Generate"])).toContain("<ol");
-    expect(stepsToHtml(["Open Estúdio"])).toContain("Open Estúdio");
+    const steps = stepsToHtml(["Open Estúdio", "Generate"]);
+    expect(steps).toContain("01");
+    expect(steps).toContain("02");
+    expect(steps).toContain("Open Estúdio");
+    expect(steps).not.toContain("<ol");
+    expect(steps).toContain("#00b34a");
   });
 
-  it("renders branded layout with cta, greeting, preview, and founder signoff", () => {
+  it("builds the hosted wordmark url from APP_URL", () => {
+    expect(emailLogoUrl("https://app.example.com/")).toBe(
+      "https://app.example.com/images/logo-email.png"
+    );
+  });
+
+  it("renders branded layout with ink cta, wordmark, eyebrow, and founder signoff", () => {
     const html = renderTransactionalEmail({
       preview: "Preview line",
+      eyebrow: "ESTÚDIO",
+      logoUrl: "https://app.example.com/images/logo-email.png",
       title: "Hello",
       greeting: "Oi Ana,",
       bodyHtml: "Body copy",
@@ -41,7 +55,15 @@ describe("email-template", () => {
     });
 
     expect(html).toContain("ADScale");
+    expect(html).toContain("/images/logo-email.png");
+    expect(html).toContain("ESTÚDIO");
+    expect(html).toContain("Space Mono");
+    expect(html).toContain("#fafafa");
     expect(html).toContain("#00b34a");
+    expect(html).toContain("background:#0a0a0a");
+    expect(html).toContain("color:#ffffff");
+    expect(html).toContain("border-radius:4px");
+    expect(html).toContain(EMAIL_CTA_MARK);
     expect(html).toContain("Preview line");
     expect(html).toContain("https://example.com/action");
     expect(html).toContain("Oi Ana,");
@@ -49,5 +71,18 @@ describe("email-template", () => {
     expect(html).toContain("Founder, ADScale");
     expect(html).toContain("Você recebeu este e-mail porque criou uma conta.");
     expect(html).toContain('lang="pt-BR"');
+  });
+
+  it("omits the primary cta mark when there is no button", () => {
+    const html = renderTransactionalEmail({
+      title: "No button",
+      bodyHtml: "Body",
+      footerFallback: "Fallback",
+      footerIgnore: "Ignore",
+      footerSignature: "ADScale",
+    });
+
+    expect(html).not.toContain(EMAIL_CTA_MARK);
+    expect(html).toContain("#00b34a");
   });
 });

@@ -543,7 +543,7 @@ Business-logic services that don't belong to a single domain: email, notificatio
 |--------|------|------|
 | `sendEmail(input)` (`email.ts`) | async fn | Generic transactional email send (Resend) |
 | `sendVerificationEmail` / `sendPasswordResetEmail` / `sendMagicLinkEmail` / `sendWaitlistConfirmationEmail` / `sendInviteEmail` / `sendWelcomeEmail` | async fn | Transactional variants |
-| `renderTransactionalEmail(layout)` (`email-template.ts`) | fn | HTML email layout renderer (`escapeHtml`) |
+| `renderTransactionalEmail(layout)` (`email-template.ts`) | fn | HTML email layout (official wordmark, ink CTA, Space Mono eyebrow, `escapeHtml`) |
 | `resolveEmailLocale(locale)` / `getTransactionalEmailTranslations(locale)` (`email-i18n.ts`) | fn | Locale resolution + i18n strings |
 | `exportIndividual(...)` / `exportAllApproved(...)` (`export.ts`) | async fn | Delivery-package export |
 | `renderLandingPageHtml(input)` (`landing-page-renderer.ts`) | fn | Renders landing-page HTML |

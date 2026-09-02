@@ -58,13 +58,13 @@ T-7 / T-1 / T0 com calendário, live e desconto vitalício **não** entram no pr
 
 Implementado em `sendWelcomeEmail`. Copy viva em `transactionalEmails.welcome`.
 
-**Assunto:** Bem-vindo. 3 passos pra ver valor agora
-**Pré-header:** 500 créditos no Estúdio. Sem cartão e sem prazo.
+**Assunto:** Entrou. Agora gera.
+**Pré-header:** 500 créditos. Sem cartão. Sem prazo.
 **CTA:** Abrir o Estúdio → app.
 
-1. Briefing no Estúdio (objetivo, público, oferta). A IA não inventa fato que o pedido não deu.
-2. Referência opcional.
-3. Gerar, revisar, aprovar. Humano decide; IA executa o operacional.
+1. Briefing de verdade (objetivo, público, oferta). Pedido vago vira retrabalho.
+2. Referência opcional — sem ela a IA preenche o vazio, e quase nunca no tom da marca.
+3. Gerar em lote, depois decidir o que sobe. Humano escolhe; IA faz o operacional.
 
 ### 3.2 E-mail #8 — Case real (D+2) — não enviar
 

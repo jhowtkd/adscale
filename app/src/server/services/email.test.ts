@@ -15,8 +15,16 @@ const ptCopy = {
   signoffClose: "Abraço,",
   signoffName: "Jhonatan",
   signoffRole: "Founder, ADScale",
+  openApp: "Abrir o Estúdio",
+  eyebrows: {
+    account: "CONTA",
+    studio: "ESTÚDIO",
+    team: "TIME",
+    access: "ACESSO",
+    credits: "CRÉDITOS",
+  },
   verification: {
-    subject: "Confirme seu e-mail no ADScale",
+    subject: "Falta um clique",
     preview: "preview-pt",
     title: "Quase lá",
     body: "body-pt",
@@ -42,9 +50,9 @@ const ptCopy = {
     text: "texto waitlist pt",
   },
   welcome: {
-    subject: "Bem-vindo. 3 passos pra ver valor agora",
+    subject: "Entrou. Agora gera.",
     preview: "{credits} créditos no Estúdio",
-    title: "Bem-vindo ao ADScale",
+    title: "O Estúdio tá aberto",
     greeting: "Oi {firstName},",
     greetingAnonymous: "Oi,",
     intro: "Você tem {credits} créditos",
@@ -65,6 +73,13 @@ const enCopy = {
   signoffClose: "Best,",
   signoffName: "Jhonatan",
   signoffRole: "Founder, ADScale",
+  eyebrows: {
+    account: "ACCOUNT",
+    studio: "STUDIO",
+    team: "TEAM",
+    access: "ACCESS",
+    credits: "CREDITS",
+  },
   verification: {
     subject: "Verify your ADScale email",
     preview: "preview-en",
@@ -155,10 +170,14 @@ describe("email service", () => {
     expect(body).toMatchObject({
       from: "ADScale <onboarding@example.com>",
       to: ["user@example.com"],
-      subject: "Confirme seu e-mail no ADScale",
+      subject: "Falta um clique",
     });
     expect(body.html).toContain("https://app.example.com/api/auth/verify-email?token=abc");
+    expect(body.html).toContain("https://app.example.com/images/logo-email.png");
+    expect(body.html).toContain("CONTA");
     expect(body.html).toContain("#00b34a");
+    expect(body.html).toContain("background:#0a0a0a");
+    expect(body.html).toContain('data-cta="primary"');
     expect(body.html).toContain("Jhonatan");
     expect(body.html).not.toContain("re_test");
     expect(body.html).not.toContain("cockpit");
@@ -195,7 +214,8 @@ describe("email service", () => {
     expect(body.html).toContain("body-waitlist-pt");
     expect(body.html).toContain("Oi Ana,");
     expect(body.html).toContain("reason-waitlist-pt");
-    expect(body.html).not.toContain("background:#00b34a");
+    expect(body.html).not.toContain('data-cta="primary"');
+    expect(body.html).toContain("#00b34a");
   });
 
   it("sends welcome email with Studio CTA, credits, and founder signoff", async () => {
@@ -212,7 +232,7 @@ describe("email service", () => {
     expect(body).toMatchObject({
       from: "ADScale <onboarding@example.com>",
       to: ["owner@example.com"],
-      subject: "Bem-vindo. 3 passos pra ver valor agora",
+      subject: "Entrou. Agora gera.",
     });
     expect(body.text).toContain("500");
     expect(body.text).toContain("https://app.example.com");
@@ -221,9 +241,12 @@ describe("email service", () => {
     expect(body.html).toContain("Abre o Estúdio");
     expect(body.html).toContain("https://app.example.com");
     expect(body.html).toContain("Abrir o Estúdio");
+    expect(body.html).toContain("ESTÚDIO");
     expect(body.html).toContain("Jhonatan");
     expect(body.html).toContain("reason-welcome-pt");
-    expect(body.html).toContain("background:#00b34a");
+    expect(body.html).toContain('data-cta="primary"');
+    expect(body.html).toContain("background:#0a0a0a");
+    expect(body.html).toContain("#00b34a");
     expect(body.html).not.toContain("14 dias");
     expect(body.html).not.toContain("cockpit");
   });

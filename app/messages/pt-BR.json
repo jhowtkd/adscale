@@ -3587,84 +3587,91 @@
     "noData": "Sem dados disponíveis"
   },
   "transactionalEmails": {
-    "footerFallback": "Se o botão não abrir, copie e cole este link no navegador:",
-    "footerIgnore": "Se você não pediu este e-mail, pode ignorá-lo — nada muda na sua conta.",
+    "footerFallback": "Se o botão não abrir, copia e cola este link no navegador:",
+    "footerIgnore": "Se você não pediu este e-mail, ignora — nada muda na sua conta.",
     "footerSignature": "ADScale · o humano decide, a IA executa o operacional",
     "signoffClose": "Abraço,",
     "signoffName": "Jhonatan",
     "signoffRole": "Founder, ADScale",
     "openApp": "Abrir o Estúdio",
+    "eyebrows": {
+      "account": "CONTA",
+      "studio": "ESTÚDIO",
+      "team": "TIME",
+      "access": "ACESSO",
+      "credits": "CRÉDITOS"
+    },
     "verification": {
-      "subject": "Confirme seu e-mail no ADScale",
-      "preview": "Um clique pra entrar no Estúdio e gerar a primeira Peça.",
-      "title": "Confirme este e-mail",
-      "body": "Sem isso a conta não libera. Um clique e você entra no Estúdio — pede o que quer, gera, e decide o que sobe.",
-      "cta": "Confirmar e-mail",
-      "text": "Confirme seu e-mail no ADScale abrindo este link: {url}"
+      "subject": "Falta um clique",
+      "preview": "Sem isso a conta não abre. É rápido.",
+      "title": "É você?",
+      "body": "Alguém acabou de criar uma conta com este e-mail. Se foi você, libera. Se não foi, ignora — a conta não sai do lugar.",
+      "cta": "Sou eu. Liberar",
+      "text": "Confirme seu e-mail no ADScale: {url}"
     },
     "reset": {
-      "subject": "Redefinir senha do ADScale",
-      "preview": "Link limitado no tempo. Se não foi você, ignore.",
-      "title": "Redefinir senha",
-      "body": "Pediram pra trocar a senha desta conta. O link vale por pouco tempo. Se não foi você, ignore este e-mail — a senha continua igual.",
-      "cta": "Criar nova senha",
-      "text": "Redefina sua senha do ADScale abrindo este link: {url}"
+      "subject": "Trocar a senha",
+      "preview": "Link curto. Se não foi você, fecha e ignora.",
+      "title": "Nova senha",
+      "body": "Pediu pra trocar a senha desta conta. O link não espera. Se não foi você, ignora — nada muda.",
+      "cta": "Definir senha",
+      "text": "Redefina sua senha do ADScale: {url}"
     },
     "magicLink": {
-      "subject": "Seu acesso ao ADScale",
-      "preview": "Entre sem senha. O link vale 5 minutos.",
-      "title": "Seu link de acesso",
-      "body": "Clique pra entrar no Estúdio. Por segurança, este link expira em 5 minutos.",
-      "cta": "Entrar no Estúdio",
-      "text": "Entre no ADScale abrindo este link (válido por 5 minutos): {url}"
+      "subject": "Entrar sem senha",
+      "preview": "Cinco minutos. Depois o link vira papel.",
+      "title": "Seu acesso",
+      "body": "Um clique e você entra no Estúdio. Por segurança, o link expira em 5 minutos.",
+      "cta": "Entrar agora",
+      "text": "Entre no ADScale por este link (válido por 5 minutos): {url}"
     },
     "invite": {
-      "subject": "Convite para {workspaceName} no ADScale",
-      "preview": "Te chamaram pra gerar e aprovar Peças neste workspace.",
-      "title": "Você foi convidado para um time",
-      "bodyPrefix": "Alguém te chamou para colaborar em",
-      "bodySuffix": "no ADScale. Aceite pra gerar Peças, revisar e decidir o que sobe — junto com o time.",
-      "cta": "Aceitar convite",
-      "text": "Você foi convidado para {workspaceName} no ADScale. Aceite em: {url}"
+      "subject": "Convite: {workspaceName}",
+      "preview": "Te chamaram pra gerar e decidir Peças neste time.",
+      "title": "Tem um time te esperando",
+      "bodyPrefix": "Te chamaram pra",
+      "bodySuffix": "no ADScale. Aceita e você gera, revisa e decide o que sobe — com o resto do time.",
+      "cta": "Entrar no time",
+      "text": "Convite para {workspaceName} no ADScale. Aceite em: {url}"
     },
     "waitlist": {
       "subject": "Você está na lista",
-      "preview": "Confirmação rápida. Sem fila de recados.",
-      "title": "Você está na lista",
+      "preview": "Confirmado. Sem fila de recados.",
+      "title": "Anotado",
       "greeting": "Oi {firstName},",
       "greetingAnonymous": "Oi,",
-      "body": "Confirmação rápida: recebemos seu e-mail. Quando houver algo concreto pra você — acesso, update de bastidor, abertura — este é o canal. Sem e-mail de 'só pra lembrar'.",
+      "body": "Recebemos. Quando houver algo concreto — acesso, update, abertura — este é o canal. Sem e-mail de 'só pra lembrar'.",
       "reason": "Você recebeu este e-mail porque pediu pra entrar na lista do ADScale.",
       "text": "Você está na lista do ADScale. Quando houver algo concreto pra você, avisamos neste e-mail."
     },
     "welcome": {
-      "subject": "Bem-vindo. 3 passos pra ver valor agora",
-      "preview": "{credits} créditos no Estúdio. Sem cartão e sem prazo.",
-      "title": "Bem-vindo ao ADScale",
+      "subject": "Entrou. Agora gera.",
+      "preview": "{credits} créditos. Sem cartão. Sem prazo.",
+      "title": "O Estúdio tá aberto",
       "greeting": "Oi {firstName},",
       "greetingAnonymous": "Oi,",
-      "intro": "Conta confirmada. Você tem {credits} créditos pra usar no Estúdio — sem cartão e sem data de validade. O caminho mais curto até a primeira Peça:",
-      "step1": "Abre o Estúdio e diz o que você quer: objetivo, público, oferta. Isso é o briefing. A IA não inventa fato que você não deu.",
-      "step2": "Anexa uma referência se tiver — marca, produto, peça que já funciona. Se não tiver, segue só com o pedido.",
-      "step3": "Gera. Revisa. Aprova o que sobe. Você decide; a IA cuida do operacional.",
-      "close": "Se travar em qualquer ponto, responde este e-mail. Eu leio.",
+      "intro": "Conta confirmada. {credits} créditos pra gastar no Estúdio — sem cartão e sem data de validade. Três coisas que evitam retrabalho:",
+      "step1": "Escreve o briefing de verdade. Objetivo, público, oferta. Pedido vago vira retrabalho.",
+      "step2": "Se tiver referência — marca, produto, peça que já funciona — anexa. Sem isso a IA preenche o vazio, e quase nunca no tom da marca.",
+      "step3": "Gera em lote. Depois decide o que sobe. Você escolhe; a IA faz o operacional.",
+      "close": "Se travar, responde este e-mail. Eu leio.",
       "cta": "Abrir o Estúdio",
       "reason": "Você recebeu este e-mail porque criou uma conta no ADScale.",
-      "text": "Oi {firstName},\n\nConta confirmada. Você tem {credits} créditos pra usar no Estúdio — sem cartão e sem data de validade.\n\n1. Abre o Estúdio e diz o que você quer: objetivo, público, oferta.\n2. Anexa uma referência se tiver.\n3. Gera, revisa e aprova o que sobe.\n\nEstúdio: {url}\n\nSe travar, responde este e-mail.\n\nAbraço,\nJhonatan\nFounder, ADScale"
+      "text": "Oi {firstName},\n\nConta confirmada. {credits} créditos no Estúdio — sem cartão e sem validade.\n\n1. Escreve o briefing de verdade: objetivo, público, oferta.\n2. Anexa uma referência se tiver.\n3. Gera em lote e decide o que sobe.\n\nEstúdio: {url}\n\nSe travar, responde este e-mail.\n\nAbraço,\nJhonatan\nFounder, ADScale"
     }
   },
   "waitlist": {
     "duplicateEmail": "Este e-mail já está na nossa lista de espera."
   },
   "notifications": {
-    "derivationCompleteSubject": "Suas peças estão prontas",
-    "derivationCompleteBody": "\"{campaignName}\" tem {derivationCount} peça(s) pronta(s) pra você revisar e decidir o que sobe.",
-    "planReadySubject": "Briefing pronto pra gerar",
-    "planReadyBody": "O plano criativo de \"{campaignName}\" está pronto. Revisa ângulos, ganchos e CTAs — e decide o que gerar.",
-    "lowCreditsSubject": "Créditos baixos",
-    "lowCreditsBody": "Restam {creditBalance} créditos neste workspace. Sem créditos, a geração para. Recarrega quando quiser continuar.",
-    "trialExpiringSubject": "Seu período de teste está acabando",
-    "trialExpiringBody": "Faltam {daysLeft} dia(s). Se estiver valendo, escolhe um plano. Se ainda tiver dúvida, responde este e-mail."
+    "derivationCompleteSubject": "Hora de decidir",
+    "derivationCompleteBody": "\"{campaignName}\" tem {derivationCount} peça(s) pronta(s). Revisa e escolhe o que sobe.",
+    "planReadySubject": "Briefing no ponto",
+    "planReadyBody": "O plano criativo de \"{campaignName}\" está pronto. Ângulos, ganchos, CTAs — você decide o que gerar.",
+    "lowCreditsSubject": "Crédito no osso",
+    "lowCreditsBody": "Restam {creditBalance} créditos neste workspace. Sem crédito, a geração para. Recarrega quando quiser continuar.",
+    "trialExpiringSubject": "O teste tá no fim",
+    "trialExpiringBody": "Faltam {daysLeft} dia(s). Se tá valendo, escolhe um plano. Se ainda tem dúvida, responde este e-mail."
   },
   "feedback": {
     "trigger": "Enviar feedback",
