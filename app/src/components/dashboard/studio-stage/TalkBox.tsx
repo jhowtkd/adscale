@@ -1,0 +1,246 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { Paperclip, Sparkles } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { ShineBorder, SHINE_COLORS } from "@/components/ui/shine-border";
+import { StudioEntryInterview } from "@/components/creative-work/StudioEntryInterview";
+import type { ComposerIntent } from "@/components/creative-work/useCreativeComposer";
+import type { EntryChip, EntryLocale, EntrySlot } from "@/lib/studio/entry-types";
+import { cn } from "@/lib/utils";
+import { ProtocolRadios } from "./ProtocolRadios";
+
+const focus = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]";
+const MAX_ATTACHMENTS = 3;
+
+export type TalkBoxSource = {
+  id: string;
+  name: string;
+  previewUrl: string | null;
+};
+
+export function TalkBox({
+  placement,
+  request,
+  onRequestChange,
+  onRequestFocusChange,
+  intent,
+  onSelectIntent,
+  suggestedProtocol = null,
+  carouselEnabled = false,
+  sources,
+  bufferedFile = null,
+  onAddFiles,
+  error,
+  announcement = null,
+  retryInitialTemplate = null,
+  onGenerate,
+  queued = false,
+  generateLabel,
+  interview = null,
+}: {
+  placement: "center" | "dock";
+  request: string;
+  onRequestChange: (value: string) => void;
+  onRequestFocusChange?: (focused: boolean) => void;
+  intent: ComposerIntent;
+  onSelectIntent: (intent: ComposerIntent, immediate?: boolean) => void;
+  suggestedProtocol?: ComposerIntent | null;
+  carouselEnabled?: boolean;
+  sources: TalkBoxSource[];
+  bufferedFile?: File | null;
+  onAddFiles: (files: FileList | File[] | null) => void;
+  error: string | null;
+  announcement?: string | null;
+  retryInitialTemplate?: (() => void) | null;
+  onGenerate: () => void;
+  queued?: boolean;
+  generateLabel: string;
+  interview?: {
+    enabled: boolean;
+    chips: EntryChip[];
+    answers: Partial<Record<EntrySlot, string>>;
+    locale: EntryLocale;
+    writtenToken: number;
+    onSelect: (slot: EntrySlot, value: string) => void;
+    continueLabel?: string;
+    onContinue?: () => void;
+    showContinue?: boolean;
+  } | null;
+}) {
+  const t = useTranslations("dashboard.home");
+  const tComposer = useTranslations("dashboard.home.composer");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fidelityError, setFidelityError] = useState<string | null>(null);
+  const centered = placement === "center";
+  const attachCount = sources.length + (bufferedFile && sources.length === 0 ? 1 : 0);
+  const needsReference = intent === "variations" || intent === "format_adaptation";
+  const attachLabel = attachCount > 0
+    ? t("talkAttachCount", { count: attachCount })
+    : needsReference
+      ? t("talkAttachReference")
+      : t("talkAttach");
+  const visibleError = fidelityError ?? error;
+
+  const generate = () => {
+    if (!request.trim() && intent !== "variations" && intent !== "format_adaptation" && intent !== "restyle") {
+      setFidelityError(t("emptyRequestError"));
+      return;
+    }
+    if (needsReference && attachCount === 0) {
+      setFidelityError(t("variationsReferenceError"));
+      return;
+    }
+    setFidelityError(null);
+    onGenerate();
+  };
+
+  return (
+    <ShineBorder
+      borderRadius={28}
+      borderWidth={1}
+      duration={28}
+      color={[...SHINE_COLORS]}
+      className="w-full min-w-0"
+    >
+      <div
+        data-testid="studio-talk-box"
+        data-placement={placement}
+        className={cn(
+          "relative glass-backdrop rounded-[1.75rem] border border-white/10 p-5 sm:p-6",
+          centered && "shadow-[var(--shadow-overlay)]",
+        )}
+      >
+        <ProtocolRadios
+          selected={intent}
+          suggested={suggestedProtocol}
+          carouselEnabled={carouselEnabled}
+          onSelect={(next) => onSelectIntent(next, true)}
+        />
+
+        <label htmlFor="creative-composer-request" className="sr-only">{tComposer("requestLabel")}</label>
+        <textarea
+          id="creative-composer-request"
+          aria-label={tComposer("requestLabel")}
+          value={request}
+          onChange={(event) => {
+            setFidelityError(null);
+            onRequestChange(event.target.value);
+          }}
+          onFocus={() => onRequestFocusChange?.(true)}
+          onBlur={() => onRequestFocusChange?.(false)}
+          rows={centered ? 4 : 3}
+          className={cn(
+            "mt-4 w-full resize-none bg-transparent text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
+            centered ? "min-h-28 text-lg leading-relaxed" : "min-h-20 text-base leading-relaxed",
+            focus,
+          )}
+          placeholder={centered ? t("talkPlaceholderEmpty") : t("talkPlaceholderWork")}
+        />
+
+        {interview?.enabled ? (
+          <div className="mt-4">
+            <StudioEntryInterview
+              chips={interview.chips}
+              answers={interview.answers}
+              onSelect={interview.onSelect}
+              locale={interview.locale}
+              writtenToken={interview.writtenToken}
+            />
+            {interview.showContinue ? (
+              <button
+                type="button"
+                data-testid="entry-interview-continue"
+                onClick={interview.onContinue}
+                className={cn("mt-3 text-sm font-semibold text-[var(--text-primary)] underline-offset-4 hover:underline", focus)}
+              >
+                {interview.continueLabel}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            {sources.length > 0 ? (
+              <ul aria-label={t("talkAttachments")} className="flex gap-2">
+                {sources.slice(0, MAX_ATTACHMENTS).map((source) => (
+                  <li key={source.id} className="size-11 overflow-hidden rounded-2xl border border-white/15">
+                    {source.previewUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={source.previewUrl} alt="" className="size-full object-cover" />
+                    ) : (
+                      <span className="grid size-full place-items-center text-[10px] text-[var(--text-muted)]">
+                        {source.name.slice(0, 3)}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <input
+              ref={fileInputRef}
+              className="sr-only"
+              type="file"
+              multiple
+              accept="image/png,image/jpeg,image/webp"
+              tabIndex={-1}
+              aria-hidden="true"
+              onChange={(event) => {
+                void onAddFiles(event.target.files);
+                event.currentTarget.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={attachCount >= MAX_ATTACHMENTS}
+              aria-label={attachLabel}
+              className={cn(
+                "inline-flex min-h-10 items-center gap-2 rounded-full border border-white/15 bg-white/8 px-4 text-sm font-medium text-[var(--text-secondary)] hover:bg-white/12 hover:text-[var(--text-primary)]",
+                "disabled:opacity-50",
+                focus,
+              )}
+            >
+              <Paperclip size={16} aria-hidden="true" />
+              <span>{attachLabel}</span>
+              {needsReference && attachCount === 0 ? (
+                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--danger-text)]">
+                  {t("talkRequired")}
+                </span>
+              ) : null}
+            </button>
+          </div>
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            <button
+              type="button"
+              onClick={generate}
+              className={cn(
+                "talk-generate inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold",
+                focus,
+              )}
+            >
+              <Sparkles size={15} aria-hidden="true" />
+              {queued ? t("talkQueued") : generateLabel}
+            </button>
+            {visibleError ? (
+              <div className="flex flex-wrap items-center gap-2" role="alert">
+                <p className="text-sm text-[var(--danger-text)]">{visibleError}</p>
+                {retryInitialTemplate ? (
+                  <button
+                    type="button"
+                    onClick={retryInitialTemplate}
+                    className={cn("text-sm font-semibold text-[var(--danger-text)] underline-offset-2 hover:underline", focus)}
+                  >
+                    {tComposer("retryTemplate")}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <p aria-live="polite" className="sr-only">{announcement}</p>
+      </div>
+    </ShineBorder>
+  );
+}
