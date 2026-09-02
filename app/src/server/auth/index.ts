@@ -5,10 +5,12 @@ import { magicLink } from "better-auth/plugins/magic-link";
 import { db } from "../db";
 import * as schema from "../db/schema";
 import { env } from "../validation/env";
+import { logger } from "@/lib/logger";
 import {
   sendPasswordResetEmail as sendPasswordResetMessage,
   sendVerificationEmail as sendVerificationMessage,
   sendMagicLinkEmail as sendMagicLinkMessage,
+  sendWelcomeEmail,
 } from "../services/email";
 import { getLocaleByEmail, getUserLocale } from "../repositories/user";
 import { buildTrustedOrigins } from "./config";
@@ -83,7 +85,21 @@ export const auth = betterAuth({
       await sendVerificationMessage({ to: user.email, url, locale });
     },
     afterEmailVerification: async (user) => {
-      await activateSignupTrialForOwner(user.id);
+      const result = await activateSignupTrialForOwner(user.id);
+      if (result.status !== "activated") return;
+      try {
+        const locale = await getUserLocale(user.id);
+        await sendWelcomeEmail({
+          to: user.email,
+          firstName: "name" in user && typeof user.name === "string" ? user.name : undefined,
+          locale,
+        });
+      } catch (error) {
+        logger.warn("[email] welcome send failed after trial activation", {
+          userId: user.id,
+          error,
+        });
+      }
     },
   },
   plugins: [

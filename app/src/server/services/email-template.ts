@@ -7,14 +7,52 @@ export function escapeHtml(value: string) {
     .replace(/'/g, "&#39;");
 }
 
+export function firstNameFromDisplayName(name?: string | null): string | undefined {
+  const token = name?.trim().split(/\s+/)[0];
+  return token || undefined;
+}
+
+export function paragraphsToHtml(paragraphs: string[]): string {
+  return paragraphs
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map(
+      (paragraph) =>
+        `<p style="margin:0 0 16px">${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`
+    )
+    .join("");
+}
+
+export function stepsToHtml(steps: string[]): string {
+  if (steps.length === 0) return "";
+  const items = steps
+    .map((step) => step.trim())
+    .filter(Boolean)
+    .map(
+      (step) =>
+        `<li style="margin:0 0 10px;padding:0">${escapeHtml(step).replace(/\n/g, "<br>")}</li>`
+    )
+    .join("");
+  return `<ol style="margin:0 0 16px;padding-left:20px">${items}</ol>`;
+}
+
+export type EmailSignoff = {
+  close: string;
+  name: string;
+  role: string;
+};
+
 export type TransactionalEmailLayout = {
   preview?: string;
   title: string;
+  greeting?: string;
   bodyHtml: string;
   cta?: { label: string; url: string };
+  signoff?: EmailSignoff;
   footerFallback: string;
   footerIgnore: string;
   footerSignature: string;
+  footerReason?: string;
 };
 
 const BRAND = {
@@ -36,11 +74,22 @@ export function renderTransactionalEmail(layout: TransactionalEmailLayout): stri
   const safeFallback = escapeHtml(layout.footerFallback);
   const safeIgnore = escapeHtml(layout.footerIgnore);
   const safeSignature = escapeHtml(layout.footerSignature);
+  const safeReason = layout.footerReason ? escapeHtml(layout.footerReason) : "";
+  const safeGreeting = layout.greeting ? escapeHtml(layout.greeting) : "";
+
+  const greetingBlock = layout.greeting
+    ? `
+                <tr>
+                  <td style="padding:0 0 16px;font-size:16px;line-height:1.6;color:${BRAND.muted}">
+                    ${safeGreeting}
+                  </td>
+                </tr>`
+    : "";
 
   const ctaBlock = layout.cta
     ? `
       <tr>
-        <td style="padding:0 0 28px">
+        <td style="padding:8px 0 28px">
           <a href="${safeCtaUrl}" style="display:inline-block;background:${BRAND.green};color:${BRAND.ink};font-size:15px;font-weight:600;line-height:1;padding:14px 24px;text-decoration:none;border-radius:8px">
             ${safeCtaLabel}
           </a>
@@ -56,10 +105,30 @@ export function renderTransactionalEmail(layout: TransactionalEmailLayout): stri
           <a href="${safeCtaUrl}" style="color:${BRAND.muted};text-decoration:underline">${safeCtaUrl}</a>
         </td>
       </tr>`
-  : "";
+    : "";
+
+  const signoffBlock = layout.signoff
+    ? `
+                <tr>
+                  <td style="padding:8px 0 24px;font-size:16px;line-height:1.6;color:${BRAND.muted}">
+                    ${escapeHtml(layout.signoff.close)}<br />
+                    ${escapeHtml(layout.signoff.name)}<br />
+                    <span style="color:${BRAND.faint}">${escapeHtml(layout.signoff.role)}</span>
+                  </td>
+                </tr>`
+    : "";
+
+  const reasonBlock = layout.footerReason
+    ? `
+          <tr>
+            <td style="padding:8px 8px 0;text-align:center;font-size:12px;line-height:1.5;color:${BRAND.faint}">
+              ${safeReason}
+            </td>
+          </tr>`
+    : "";
 
   return `<!DOCTYPE html>
-<html lang="und">
+<html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -85,12 +154,14 @@ export function renderTransactionalEmail(layout: TransactionalEmailLayout): stri
                     ${safeTitle}
                   </td>
                 </tr>
+                ${greetingBlock}
                 <tr>
-                  <td style="padding:0 0 24px;font-size:16px;line-height:1.6;color:${BRAND.muted}">
+                  <td style="padding:0;font-size:16px;line-height:1.6;color:${BRAND.muted}">
                     ${layout.bodyHtml}
                   </td>
                 </tr>
                 ${ctaBlock}
+                ${signoffBlock}
                 <tr>
                   <td style="padding:0;font-size:13px;line-height:1.5;color:${BRAND.faint};border-top:1px solid ${BRAND.border};padding-top:20px">
                     ${safeIgnore}
@@ -99,6 +170,7 @@ export function renderTransactionalEmail(layout: TransactionalEmailLayout): stri
               </table>
             </td>
           </tr>
+          ${reasonBlock}
           <tr>
             <td style="padding:20px 8px 0;text-align:center;font-size:12px;line-height:1.5;color:${BRAND.faint}">
               ${safeSignature}

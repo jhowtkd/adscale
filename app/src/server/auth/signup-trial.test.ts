@@ -11,6 +11,8 @@ const mockCreatePendingTrialEntitlement = vi.fn();
 const mockActivateSignupTrialForOwner = vi.fn();
 const mockIsDevAdminEmail = vi.fn();
 const mockEnsureDevAdminEmailVerified = vi.fn();
+const mockSendWelcomeEmail = vi.fn();
+const mockLoggerWarn = vi.fn();
 
 interface CapturedAuthConfig {
   databaseHooks?: {
@@ -21,7 +23,11 @@ interface CapturedAuthConfig {
     };
   };
   emailVerification?: {
-    afterEmailVerification?: (user: { id: string; email: string }) => Promise<unknown>;
+    afterEmailVerification?: (user: {
+      id: string;
+      email: string;
+      name?: string | null;
+    }) => Promise<unknown>;
   };
 }
 
@@ -69,6 +75,16 @@ vi.mock("../services/email", () => ({
   sendPasswordResetEmail: vi.fn(),
   sendVerificationEmail: vi.fn(),
   sendMagicLinkEmail: vi.fn(),
+  sendWelcomeEmail: (...args: unknown[]) => mockSendWelcomeEmail(...args),
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    warn: (...args: unknown[]) => mockLoggerWarn(...args),
+    info: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
 }));
 
 vi.mock("../repositories/user", () => ({
@@ -220,7 +236,7 @@ describe("signup trial and email verification wiring in auth", () => {
   });
 
   describe("emailVerification.afterEmailVerification", () => {
-    it("calls activateSignupTrialForOwner once with the verified user id", async () => {
+    it("activates trial and sends welcome email once for a newly verified owner", async () => {
       mockActivateSignupTrialForOwner.mockResolvedValue({
         status: "activated",
         entitlement: { id: "ent-1", status: "active" },
@@ -229,6 +245,7 @@ describe("signup trial and email verification wiring in auth", () => {
 
       const user = {
         id: "verified-user-123",
+        name: "Ana Silva",
         email: "verified@example.com",
       };
 
@@ -239,6 +256,66 @@ describe("signup trial and email verification wiring in auth", () => {
 
       expect(mockActivateSignupTrialForOwner).toHaveBeenCalledTimes(1);
       expect(mockActivateSignupTrialForOwner).toHaveBeenCalledWith("verified-user-123");
+      expect(mockSendWelcomeEmail).toHaveBeenCalledTimes(1);
+      expect(mockSendWelcomeEmail).toHaveBeenCalledWith({
+        to: "verified@example.com",
+        firstName: "Ana Silva",
+        locale: "pt-BR",
+      });
+    });
+
+    it("does not send welcome email when trial was already active", async () => {
+      mockActivateSignupTrialForOwner.mockResolvedValue({
+        status: "already_active",
+        entitlement: { id: "ent-1", status: "active" },
+        grant: { id: "grant-1", amount: 500 },
+      });
+
+      const afterEmailVerification = capturedConfig.emailVerification.afterEmailVerification;
+      await afterEmailVerification({
+        id: "verified-user-123",
+        name: "Ana Silva",
+        email: "verified@example.com",
+      });
+
+      expect(mockSendWelcomeEmail).not.toHaveBeenCalled();
+    });
+
+    it("does not send welcome email when the user is not eligible for trial", async () => {
+      mockActivateSignupTrialForOwner.mockResolvedValue({
+        status: "not_eligible",
+        entitlement: null,
+        grant: null,
+      });
+
+      const afterEmailVerification = capturedConfig.emailVerification.afterEmailVerification;
+      await afterEmailVerification({
+        id: "member-user-123",
+        email: "member@example.com",
+      });
+
+      expect(mockSendWelcomeEmail).not.toHaveBeenCalled();
+    });
+
+    it("keeps trial activation even if welcome email delivery fails", async () => {
+      mockActivateSignupTrialForOwner.mockResolvedValue({
+        status: "activated",
+        entitlement: { id: "ent-1", status: "active" },
+        grant: { id: "grant-1", amount: 500 },
+      });
+      mockSendWelcomeEmail.mockRejectedValueOnce(new Error("Resend timeout"));
+
+      const afterEmailVerification = capturedConfig.emailVerification.afterEmailVerification;
+      await expect(
+        afterEmailVerification({
+          id: "verified-user-123",
+          name: "Ana",
+          email: "verified@example.com",
+        })
+      ).resolves.toBeUndefined();
+
+      expect(mockActivateSignupTrialForOwner).toHaveBeenCalledTimes(1);
+      expect(mockLoggerWarn).toHaveBeenCalled();
     });
 
     it("propagates failures from activateSignupTrialForOwner so auth boundary logs them", async () => {
@@ -255,6 +332,7 @@ describe("signup trial and email verification wiring in auth", () => {
       await expect(afterEmailVerification(user)).rejects.toThrow(
         "Activation database deadlock"
       );
+      expect(mockSendWelcomeEmail).not.toHaveBeenCalled();
     });
   });
 });

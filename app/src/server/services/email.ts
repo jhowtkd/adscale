@@ -1,6 +1,14 @@
 import { env } from "@/server/validation/env";
+import { TRIAL_CREDIT_GRANT } from "@/lib/billing/credit-units";
 import { getTransactionalEmailTranslations } from "./email-i18n";
-import { escapeHtml, renderTransactionalEmail } from "./email-template";
+import {
+  escapeHtml,
+  firstNameFromDisplayName,
+  paragraphsToHtml,
+  renderTransactionalEmail,
+  stepsToHtml,
+  type EmailSignoff,
+} from "./email-template";
 
 type SendEmailInput = {
   to: string;
@@ -36,6 +44,14 @@ export async function sendEmail(input: SendEmailInput) {
   }
 }
 
+function signoffFrom(t: (key: string) => string): EmailSignoff {
+  return {
+    close: t("signoffClose"),
+    name: t("signoffName"),
+    role: t("signoffRole"),
+  };
+}
+
 async function sendActionEmail(input: {
   to: string;
   url: string;
@@ -58,8 +74,9 @@ async function sendActionEmail(input: {
     html: renderTransactionalEmail({
       preview: input.copy.preview,
       title: input.copy.title,
-      bodyHtml: escapeHtml(input.copy.body),
+      bodyHtml: paragraphsToHtml([input.copy.body]),
       cta: { label: input.copy.cta, url: input.url },
+      signoff: signoffFrom(t),
       footerFallback: t("footerFallback"),
       footerIgnore: t("footerIgnore"),
       footerSignature: t("footerSignature"),
@@ -136,20 +153,28 @@ export async function sendMagicLinkEmail(input: {
 export async function sendWaitlistConfirmationEmail(input: {
   to: string;
   locale?: string | null;
+  firstName?: string | null;
 }) {
   const { t } = await getTransactionalEmailTranslations(input.locale);
+  const firstName = firstNameFromDisplayName(input.firstName);
+  const greeting = firstName
+    ? t("waitlist.greeting", { firstName })
+    : t("waitlist.greetingAnonymous");
 
   await sendEmail({
     to: input.to,
     subject: t("waitlist.subject"),
-    text: t("waitlist.text"),
+    text: t("waitlist.text", { firstName: firstName ?? "" }),
     html: renderTransactionalEmail({
       preview: t("waitlist.preview"),
       title: t("waitlist.title"),
-      bodyHtml: escapeHtml(t("waitlist.body")),
+      greeting,
+      bodyHtml: paragraphsToHtml([t("waitlist.body")]),
+      signoff: signoffFrom(t),
       footerFallback: t("footerFallback"),
       footerIgnore: t("footerIgnore"),
       footerSignature: t("footerSignature"),
+      footerReason: t("waitlist.reason"),
     }),
   });
 }
@@ -171,11 +196,48 @@ export async function sendInviteEmail(input: {
     html: renderTransactionalEmail({
       preview: t("invite.preview", { workspaceName: input.workspaceName }),
       title: t("invite.title"),
-      bodyHtml: `${escapeHtml(t("invite.bodyPrefix"))} <strong style="color:#0a0a0a">${safeWorkspace}</strong> ${escapeHtml(t("invite.bodySuffix"))}`,
+      bodyHtml: `${paragraphsToHtml([t("invite.bodyPrefix")])}<p style="margin:0 0 16px"><strong style="color:#0a0a0a">${safeWorkspace}</strong> ${escapeHtml(t("invite.bodySuffix"))}</p>`,
       cta: { label: t("invite.cta"), url },
+      signoff: signoffFrom(t),
       footerFallback: t("footerFallback"),
       footerIgnore: t("footerIgnore"),
       footerSignature: t("footerSignature"),
+    }),
+  });
+}
+
+export async function sendWelcomeEmail(input: {
+  to: string;
+  locale?: string | null;
+  firstName?: string | null;
+}) {
+  const { t } = await getTransactionalEmailTranslations(input.locale);
+  const firstName = firstNameFromDisplayName(input.firstName);
+  const greeting = firstName
+    ? t("welcome.greeting", { firstName })
+    : t("welcome.greetingAnonymous");
+  const credits = String(TRIAL_CREDIT_GRANT);
+  const url = env.APP_URL;
+
+  await sendEmail({
+    to: input.to,
+    subject: t("welcome.subject"),
+    text: t("welcome.text", { firstName: firstName ?? "", credits, url }),
+    html: renderTransactionalEmail({
+      preview: t("welcome.preview", { credits }),
+      title: t("welcome.title"),
+      greeting,
+      bodyHtml: [
+        paragraphsToHtml([t("welcome.intro", { credits })]),
+        stepsToHtml([t("welcome.step1"), t("welcome.step2"), t("welcome.step3")]),
+        paragraphsToHtml([t("welcome.close")]),
+      ].join(""),
+      cta: { label: t("welcome.cta"), url },
+      signoff: signoffFrom(t),
+      footerFallback: t("footerFallback"),
+      footerIgnore: t("footerIgnore"),
+      footerSignature: t("footerSignature"),
+      footerReason: t("welcome.reason"),
     }),
   });
 }

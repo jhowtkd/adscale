@@ -8,70 +8,97 @@ const env = {
 
 vi.mock("@/server/validation/env", () => ({ env }));
 
+const ptCopy = {
+  footerFallback: "fallback-pt",
+  footerIgnore: "ignore-pt",
+  footerSignature: "signature-pt",
+  signoffClose: "Abraço,",
+  signoffName: "Jhonatan",
+  signoffRole: "Founder, ADScale",
+  verification: {
+    subject: "Confirme seu e-mail no ADScale",
+    preview: "preview-pt",
+    title: "Quase lá",
+    body: "body-pt",
+    cta: "Confirmar",
+    text: "texto {url}",
+  },
+  reset: {
+    subject: "Redefinir senha",
+    preview: "preview-reset",
+    title: "Reset",
+    body: "body-reset",
+    cta: "Nova senha",
+    text: "reset {url}",
+  },
+  waitlist: {
+    subject: "Você está na lista",
+    preview: "preview-waitlist-pt",
+    title: "Você está na lista",
+    greeting: "Oi {firstName},",
+    greetingAnonymous: "Oi,",
+    body: "body-waitlist-pt",
+    reason: "reason-waitlist-pt",
+    text: "texto waitlist pt",
+  },
+  welcome: {
+    subject: "Bem-vindo. 3 passos pra ver valor agora",
+    preview: "{credits} créditos no Estúdio",
+    title: "Bem-vindo ao ADScale",
+    greeting: "Oi {firstName},",
+    greetingAnonymous: "Oi,",
+    intro: "Você tem {credits} créditos",
+    step1: "Abre o Estúdio",
+    step2: "Anexa uma referência",
+    step3: "Gera. Revisa. Aprova.",
+    close: "Responde este e-mail",
+    cta: "Abrir o Estúdio",
+    reason: "reason-welcome-pt",
+    text: "texto welcome {firstName} {credits} {url}",
+  },
+};
+
+const enCopy = {
+  footerFallback: "fallback-en",
+  footerIgnore: "ignore-en",
+  footerSignature: "signature-en",
+  signoffClose: "Best,",
+  signoffName: "Jhonatan",
+  signoffRole: "Founder, ADScale",
+  verification: {
+    subject: "Verify your ADScale email",
+    preview: "preview-en",
+    title: "Almost there",
+    body: "body-en",
+    cta: "Verify",
+    text: "verify {url}",
+  },
+  reset: {
+    subject: "Reset password",
+    preview: "preview-reset-en",
+    title: "Reset",
+    body: "body-reset-en",
+    cta: "Reset",
+    text: "reset {url}",
+  },
+  waitlist: {
+    subject: "You're on the list",
+    preview: "preview-waitlist-en",
+    title: "You're on the list",
+    greeting: "Hi {firstName},",
+    greetingAnonymous: "Hi,",
+    body: "body-waitlist-en",
+    reason: "reason-waitlist-en",
+    text: "waitlist text en",
+  },
+};
+
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(async ({ locale, namespace }: { locale: string; namespace: string }) => {
     const messages =
       locale === "pt-BR"
-        ? {
-            transactionalEmails: {
-              footerFallback: "fallback-pt",
-              footerIgnore: "ignore-pt",
-              footerSignature: "signature-pt",
-              verification: {
-                subject: "Confirme seu e-mail no ADScale",
-                preview: "preview-pt",
-                title: "Quase lá",
-                body: "body-pt",
-                cta: "Confirmar",
-                text: "texto {url}",
-              },
-              reset: {
-                subject: "Redefinir senha",
-                preview: "preview-reset",
-                title: "Reset",
-                body: "body-reset",
-                cta: "Nova senha",
-                text: "reset {url}",
-              },
-              waitlist: {
-                subject: "Você está na lista de espera do ADScale",
-                preview: "preview-waitlist-pt",
-                title: "Você entrou na lista de espera",
-                body: "body-waitlist-pt",
-                text: "texto waitlist pt",
-              },
-            },
-          }
-        : {
-            transactionalEmails: {
-              footerFallback: "fallback-en",
-              footerIgnore: "ignore-en",
-              footerSignature: "signature-en",
-              verification: {
-                subject: "Verify your ADScale email",
-                preview: "preview-en",
-                title: "Almost there",
-                body: "body-en",
-                cta: "Verify",
-                text: "verify {url}",
-              },
-              reset: {
-                subject: "Reset password",
-                preview: "preview-reset-en",
-                title: "Reset",
-                body: "body-reset-en",
-                cta: "Reset",
-                text: "reset {url}",
-              },
-              waitlist: {
-                subject: "You're on the ADScale waitlist",
-                preview: "preview-waitlist-en",
-                title: "You're on the waitlist",
-                body: "body-waitlist-en",
-                text: "waitlist text en",
-              },
-            },
-          };
+        ? { transactionalEmails: ptCopy }
+        : { transactionalEmails: enCopy };
 
     const data = messages[namespace as keyof typeof messages] as Record<string, unknown>;
 
@@ -132,7 +159,9 @@ describe("email service", () => {
     });
     expect(body.html).toContain("https://app.example.com/api/auth/verify-email?token=abc");
     expect(body.html).toContain("#00b34a");
+    expect(body.html).toContain("Jhonatan");
     expect(body.html).not.toContain("re_test");
+    expect(body.html).not.toContain("cockpit");
   });
 
   it("sends localized waitlist confirmation email without a CTA button", async () => {
@@ -141,6 +170,7 @@ describe("email service", () => {
     await sendWaitlistConfirmationEmail({
       to: "waitlist@example.com",
       locale: "pt-BR",
+      firstName: "Ana Silva",
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -159,11 +189,43 @@ describe("email service", () => {
     expect(body).toMatchObject({
       from: "ADScale <onboarding@example.com>",
       to: ["waitlist@example.com"],
-      subject: "Você está na lista de espera do ADScale",
+      subject: "Você está na lista",
       text: "texto waitlist pt",
     });
     expect(body.html).toContain("body-waitlist-pt");
+    expect(body.html).toContain("Oi Ana,");
+    expect(body.html).toContain("reason-waitlist-pt");
     expect(body.html).not.toContain("background:#00b34a");
+  });
+
+  it("sends welcome email with Studio CTA, credits, and founder signoff", async () => {
+    const { sendWelcomeEmail } = await import("./email");
+
+    await sendWelcomeEmail({
+      to: "owner@example.com",
+      locale: "pt-BR",
+      firstName: "Ana Silva",
+    });
+
+    const [, request] = fetchMock.mock.calls[0];
+    const body = JSON.parse(request.body);
+    expect(body).toMatchObject({
+      from: "ADScale <onboarding@example.com>",
+      to: ["owner@example.com"],
+      subject: "Bem-vindo. 3 passos pra ver valor agora",
+    });
+    expect(body.text).toContain("500");
+    expect(body.text).toContain("https://app.example.com");
+    expect(body.html).toContain("Oi Ana,");
+    expect(body.html).toContain("500");
+    expect(body.html).toContain("Abre o Estúdio");
+    expect(body.html).toContain("https://app.example.com");
+    expect(body.html).toContain("Abrir o Estúdio");
+    expect(body.html).toContain("Jhonatan");
+    expect(body.html).toContain("reason-welcome-pt");
+    expect(body.html).toContain("background:#00b34a");
+    expect(body.html).not.toContain("14 dias");
+    expect(body.html).not.toContain("cockpit");
   });
 
   it("raises a useful error when Resend rejects the email", async () => {

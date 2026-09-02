@@ -3,7 +3,10 @@ import { db } from "@/server/db";
 import { user, workspaceMembers } from "@/server/db/schema";
 import { sendEmail } from "@/server/services/email";
 import { getTransactionalEmailTranslations } from "@/server/services/email-i18n";
-import { escapeHtml, renderTransactionalEmail } from "@/server/services/email-template";
+import {
+  paragraphsToHtml,
+  renderTransactionalEmail,
+} from "@/server/services/email-template";
 import { getTranslations } from "next-intl/server";
 import { env } from "@/server/validation/env";
 
@@ -72,8 +75,13 @@ async function sendNotificationEmail(input: {
     html: renderTransactionalEmail({
       preview: input.subject,
       title: input.title,
-      bodyHtml: escapeHtml(input.body),
+      bodyHtml: paragraphsToHtml([input.body]),
       cta: { label: t("openApp"), url: env.APP_URL },
+      signoff: {
+        close: t("signoffClose"),
+        name: t("signoffName"),
+        role: t("signoffRole"),
+      },
       footerFallback: t("footerFallback"),
       footerIgnore: t("footerIgnore"),
       footerSignature: t("footerSignature"),

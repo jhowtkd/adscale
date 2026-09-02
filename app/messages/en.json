@@ -3513,61 +3513,82 @@
   "transactionalEmails": {
     "footerFallback": "If the button doesn't open, copy and paste this link into your browser:",
     "footerIgnore": "If you didn't request this email, you can safely ignore it — your account stays unchanged.",
-    "footerSignature": "Built for teams scaling creative with AI · ADScale",
-    "openApp": "Open ADScale",
+    "footerSignature": "ADScale · the human decides, AI runs the operational work",
+    "signoffClose": "Best,",
+    "signoffName": "Jhonatan",
+    "signoffRole": "Founder, ADScale",
+    "openApp": "Open Studio",
     "verification": {
       "subject": "Confirm your ADScale email",
-      "preview": "One click to unlock your account.",
-      "title": "Almost there — confirm your email",
-      "body": "You're one step away from the cockpit. Confirm this address to secure your account and start generating creative variants.",
+      "preview": "One click to enter Studio and generate your first Piece.",
+      "title": "Confirm this email",
+      "body": "The account stays locked until you confirm. One click and you enter Studio — state the request, generate, and decide what ships.",
       "cta": "Confirm email",
       "text": "Confirm your ADScale email by opening this link: {url}"
     },
     "reset": {
       "subject": "Reset your ADScale password",
-      "preview": "Your secure link to set a new password.",
-      "title": "Let's reset your password",
-      "body": "We received a request to change your account password. The link below is time-limited — use it now and get back to the cockpit.",
+      "preview": "Time-limited link. If this wasn't you, ignore it.",
+      "title": "Reset password",
+      "body": "Someone asked to change this account's password. The link is time-limited. If this wasn't you, ignore the email — nothing changes.",
       "cta": "Set new password",
       "text": "Reset your ADScale password by opening this link: {url}"
     },
     "magicLink": {
-      "subject": "Your quick ADScale sign-in",
-      "preview": "Sign in without a password — link valid for 5 minutes.",
-      "title": "Your sign-in link is here",
-      "body": "Click below to access your account. For security, this link expires in 5 minutes.",
-      "cta": "Sign in to ADScale",
+      "subject": "Your ADScale sign-in",
+      "preview": "Sign in without a password. The link lasts 5 minutes.",
+      "title": "Your sign-in link",
+      "body": "Click to enter Studio. For security, this link expires in 5 minutes.",
+      "cta": "Enter Studio",
       "text": "Sign in to ADScale by opening this link (valid for 5 minutes): {url}"
     },
     "invite": {
       "subject": "Invitation to {workspaceName} on ADScale",
-      "preview": "You've been invited to an ADScale workspace.",
+      "preview": "You've been asked to generate and approve Pieces in this workspace.",
       "title": "You've been invited to a team",
       "bodyPrefix": "Someone invited you to collaborate on",
-      "bodySuffix": "on ADScale. Accept to review campaigns, approve creatives, and generate variants with the team.",
+      "bodySuffix": "on ADScale. Accept to generate Pieces, review them, and decide what ships — with the team.",
       "cta": "Accept invite",
       "text": "You've been invited to {workspaceName} on ADScale. Accept at: {url}"
     },
     "waitlist": {
-      "subject": "You're on the ADScale waitlist",
-      "preview": "Thanks for your interest — we'll let you know when we open.",
-      "title": "You're on the waitlist",
-      "body": "We received your signup. When ADScale opens for new users, you'll be among the first to know.",
-      "text": "You're on the ADScale waitlist. We'll email you when access opens."
+      "subject": "You're on the list",
+      "preview": "Quick confirmation. No reminder drip.",
+      "title": "You're on the list",
+      "greeting": "Hi {firstName},",
+      "greetingAnonymous": "Hi,",
+      "body": "Quick confirmation: we have your email. When there's something concrete for you — access, a build note, an opening — this is the channel. No 'just checking in' mail.",
+      "reason": "You received this email because you asked to join the ADScale list.",
+      "text": "You're on the ADScale list. When there's something concrete for you, we'll use this email."
+    },
+    "welcome": {
+      "subject": "Welcome. 3 steps to see value now",
+      "preview": "{credits} Studio credits. No card. No expiry.",
+      "title": "Welcome to ADScale",
+      "greeting": "Hi {firstName},",
+      "greetingAnonymous": "Hi,",
+      "intro": "Account confirmed. You have {credits} credits in Studio — no card, no expiry date. Shortest path to the first Piece:",
+      "step1": "Open Studio and say what you want: objective, audience, offer. That's the brief. The model does not invent facts you did not give.",
+      "step2": "Attach a reference if you have one — brand, product, a Piece that already works. If you don't, continue with the request alone.",
+      "step3": "Generate. Review. Approve what ships. You decide; AI handles the operational work.",
+      "close": "If you get stuck, reply to this email. I read it.",
+      "cta": "Open Studio",
+      "reason": "You received this email because you created an ADScale account.",
+      "text": "Hi {firstName},\n\nAccount confirmed. You have {credits} credits in Studio — no card, no expiry.\n\n1. Open Studio and say what you want: objective, audience, offer.\n2. Attach a reference if you have one.\n3. Generate, review, and approve what ships.\n\nStudio: {url}\n\nIf you get stuck, reply to this email.\n\nBest,\nJhonatan\nFounder, ADScale"
     }
   },
   "waitlist": {
     "duplicateEmail": "This email is already on our waitlist."
   },
   "notifications": {
-    "derivationCompleteSubject": "Your creative variants are ready",
-    "derivationCompleteBody": "Your campaign \"{campaignName}\" has {derivationCount} new creative variant(s) ready for review.",
-    "planReadySubject": "Creative plan ready",
-    "planReadyBody": "The creative plan for \"{campaignName}\" is ready. Open the campaign to review angles, hooks, and CTAs.",
-    "lowCreditsSubject": "Low credit balance",
-    "lowCreditsBody": "Your workspace has {creditBalance} credits remaining. Add credits to keep generating creatives.",
-    "trialExpiringSubject": "Trial expiring soon",
-    "trialExpiringBody": "Your ADScale trial expires in {daysLeft} day(s). Upgrade to a paid plan to continue using all features."
+    "derivationCompleteSubject": "Your pieces are ready",
+    "derivationCompleteBody": "\"{campaignName}\" has {derivationCount} piece(s) ready for you to review and decide what ships.",
+    "planReadySubject": "Brief ready to generate",
+    "planReadyBody": "The creative plan for \"{campaignName}\" is ready. Review angles, hooks, and CTAs — then decide what to generate.",
+    "lowCreditsSubject": "Low credits",
+    "lowCreditsBody": "{creditBalance} credits left in this workspace. Generation stops without credits. Top up when you want to continue.",
+    "trialExpiringSubject": "Your test period is ending",
+    "trialExpiringBody": "{daysLeft} day(s) left. If it's working, pick a plan. If you're still unsure, reply to this email."
   },
   "feedback": {
     "trigger": "Send feedback",
