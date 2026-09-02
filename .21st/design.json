@@ -1,0 +1,165 @@
+{
+  "version": 1,
+  "project": {
+    "name": "ADScale_2",
+    "productType": "AI static-ad creative studio",
+    "stack": ["Next.js", "React", "Tailwind", "next-intl"]
+  },
+  "sources": {
+    "tokens": [],
+    "components": ["app/src/components/ui"],
+    "assets": ["app/src/components/dashboard/studio-stage"],
+    "instructions": ["DESIGN.md", "PRODUCT.md", "AGENTS.md"]
+  },
+  "design": {
+    "colorMode": "dark-default-with-light",
+    "colors": {
+      "canvas": "oklch(0.145 0.004 260)",
+      "surfaceRaised": "oklch ~ charcoal",
+      "accent": "electric green #00e85e, max 10% of screen",
+      "danger": "rose for fidelity errors"
+    },
+    "typography": {
+      "ui": "Inter",
+      "labels": "Space Mono uppercase wide tracking",
+      "display": "Press Start 2P only sparingly, never in studio chrome"
+    },
+    "spacing": {
+      "rhythm": "8px grid; large gaps between major blocks only"
+    },
+    "radius": {
+      "control": "0.5rem",
+      "object": "0.75rem"
+    },
+    "shadows": {
+      "product": "flat tonal layers, 1px borders, no nested cards"
+    },
+    "motion": {
+      "easing": "ease-out-expo / out-quint; respect prefers-reduced-motion"
+    },
+    "density": "expert-dense"
+  },
+  "components": {
+    "installed": ["image-cursor-trail", "shine-border"],
+    "preferredPrimitives": [],
+    "patterns": []
+  },
+  "constraints": {
+    "must": [
+      "Keep brand switcher, continue-work, request field, attachments (max 3), interview chips, protocol selection, fidelity error, primary CTA, inspirations",
+      "Portuguese product copy; expert trafficker under deadline",
+      "Visible focus ring on accent green; error next to the action it blocks",
+      "Green accent at most 10% of the studio surface"
+    ],
+    "avoid": [
+      "Nested cards, duplicate page titles, protocol cards after the primary CTA",
+      "Purple/indigo accents, gradient text, glassmorphism wallpaper, pixel font in chrome",
+      "Generic SaaS metric-hero templates"
+    ]
+  },
+  "decisions": [
+    {
+      "id": "home-palco-selected",
+      "surface": "studio home",
+      "choice": "Promote Palco da Marca as the production home shell. Reject Mesa de Disparo and Sessão. Delete /explore/home.",
+      "reason": "The stacked form is complete but visually a briefing. Palco keeps one composer, two occupancies, and the glass chrome already in the v6 shell."
+    },
+    {
+      "id": "home-palco-no-cursor-trail",
+      "surface": "studio home / Palco da Marca",
+      "choice": "Keep the overlapping mosaic on the work occupancy; restore the image-cursor-trail only on the empty occupancy, as edge reveals behind the headline",
+      "reason": "The trail was too much on top of a full mosaic, but the empty studio needs the edge reveal instead of a cut-off arc of tiny rounded cards"
+    },
+    {
+      "id": "home-palco-empty-and-talkbox",
+      "surface": "studio home / Palco da Marca",
+      "choice": "Empty studio centers the talk box inside a quieter inspiration mosaic; work studio docks the same talk box. Talk box is one composer (request, chips, attach, protocol, generate) instead of stacked form chrome.",
+      "reason": "A dark mosaic with a leftover dock is worse than the current home when there is no piece yet. The previous dock felt unresolved because chips, protocols and CTA competed as equal rows."
+    },
+    {
+      "id": "home-palco-glass-talkbox-and-empty-arc",
+      "surface": "studio home / Palco da Marca",
+      "choice": "Empty studio uses edge-peeking pieces plus the cursor trail, with a radial veil so the headline stays readable. Talk box uses glass-backdrop (88% dark) not glass-card. Protocol sits at the top as the same discreet radios, not a segmented track.",
+      "reason": "The arc looked cut off and over-rounded. Protocol was too hidden next to attach. Light glass made the composer unreadable over the mosaic."
+    },
+    {
+      "id": "home-palco-shell-glass",
+      "surface": "studio chrome / sidebar and topbar",
+      "choice": "Sidebar uses the same dark glass as the talk box: 88% black, 16px blur, 1.75rem radius, white/10 border. Desktop chrome is the bell only — no glass island, no explore strip.",
+      "reason": "The floating shell still looked like an opaque raised card while the composer had already moved to dark glass."
+    },
+    {
+      "id": "home-palco-talkbox-rainbow-glow",
+      "surface": "studio home / Palco talk box",
+      "choice": "Rejected full rainbow GlowEffect. Talk box keeps dark glass; edge uses ShineBorder (#A07CFE, #FE8FB5, #FFBE7B), paused under prefers-reduced-motion.",
+      "reason": "The rotating glow halo was too much around the composer. A thin traveling shine on the border is enough."
+    },
+    {
+      "id": "home-palco-shine-1px-28s",
+      "surface": "studio home / Palco talk box",
+      "choice": "ShineBorder overlay is 1px, 28s, colors #A07CFE / #FE8FB5 / #FFBE7B. Never wrap glass-backdrop in overflow-hidden. Purple on this instrument edge is an accepted exception to DESIGN.md.",
+      "reason": "A thicker or faster ring read as decoration. Overflow hidden killed backdrop-filter and made the box opaque."
+    },
+    {
+      "id": "home-palco-generate-hover",
+      "surface": "studio home / Palco talk box",
+      "choice": "Gerar is white at rest. Hover fills the button with the animated shine gradient via .talk-generate. No shine outline on the CTA.",
+      "reason": "A second shine ring on the button competed with the talk box border. White rest keeps the instrument quiet until the trafficker commits."
+    },
+    {
+      "id": "home-palco-attach-discreet",
+      "surface": "studio home / Palco talk box",
+      "choice": "Attach is a gray pill, max 3. Variations with zero files show only the word obrigatório in danger text. Generate blocks with the reference-required fidelity error next to the CTA.",
+      "reason": "A full red fill on the attach pill was too loud. The error belongs beside the action it blocks."
+    }
+  ],
+  "explorations": [
+    {
+      "id": "home-ui-explore-2026-09-01",
+      "surface": "studio home",
+      "status": "selected",
+      "route": "/",
+      "directions": [
+        {
+          "id": "stage",
+          "name": "Palco da Marca",
+          "status": "selected",
+          "refs": [
+            "21st Portfolio Gallery #7517",
+            "21st Elastic Gallery #9859",
+            "21st Input Bar #12400",
+            "21st Arc Gallery Hero #5509"
+          ],
+          "rejected": []
+        },
+        {
+          "id": "desk",
+          "name": "Mesa de Disparo",
+          "status": "rejected",
+          "refs": [
+            "21st Omni Command Palette #5530",
+            "21st Forge AI Command Bar #20072",
+            "21st Dashboard Sidebar #14941"
+          ]
+        },
+        {
+          "id": "session",
+          "name": "Sessão",
+          "status": "rejected",
+          "refs": [
+            "21st AI Assistant Interface #2126",
+            "21st Multimodal AI Chat Input #1912",
+            "21st Onboarding Dialog #10480"
+          ]
+        }
+      ],
+      "note": "Palco is the production home. Mesa and Sessão were exploration-only and must not ship."
+    }
+  ],
+  "evidence": [
+    { "fact": "project.instructions", "source": "AGENTS.md" },
+    { "fact": "project.instructions", "source": "DESIGN.md" },
+    { "fact": "project.instructions", "source": "PRODUCT.md" }
+  ],
+  "generatedAt": "2026-09-02T07:40:00.000Z"
+}
