@@ -3,8 +3,12 @@
 import Image from "next/image";
 import { useReducer, useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { m, useReducedMotion } from "@/components/animations/MotionBoundary";
-import { Check, Upload, X, Wand2, Trash2 } from "lucide-react";
+import { Upload, X, Wand2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  studioChipClass,
+  studioQuietActionClass,
+} from "@/components/dashboard/studio-stage/StudioInstrument";
 import { useAppStore } from "@/lib/store";
 import { useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,6 +29,19 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 const FOCUS_RING =
   "focus:outline-none focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)]";
+
+const kitFieldClass =
+  "w-full rounded-[var(--radius-control)] border-0 bg-white/6 px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]";
+
+export type BrandKitStage = "identity" | "voice" | "fonts";
+
+const HEX_COLOR = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
+
+function normalizeHex(tag: string) {
+  const hex = tag.replace("#", "");
+  if (hex.length === 3) return `#${hex.split("").map((c) => c + c).join("")}`;
+  return tag.startsWith("#") ? tag : `#${tag}`;
+}
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -117,16 +134,14 @@ function TagInput({
   return (
     <div
       className={cn(
-        "w-full min-h-[40px] rounded-md border px-2 py-1.5 flex flex-wrap gap-1.5",
-        "bg-[var(--surface-base)] border-[var(--border-dim)]",
-        "focus-within:border-[var(--focus-ring)] focus-within:ring-[3px] focus-within:ring-[var(--focus-ring)]",
-        "transition-all duration-200"
+        "flex min-h-10 w-full flex-wrap gap-1.5 rounded-[var(--radius-control)] bg-white/6 px-2 py-1.5",
+        "focus-within:ring-2 focus-within:ring-[var(--focus-ring)]",
       )}
     >
       {tags.map((tag) => (
         <span
           key={tag}
-          className="inline-flex items-center gap-1 rounded-md bg-[var(--selection-bg)] px-2 py-0.5 text-xs font-medium text-[var(--selection-text)]"
+          className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/8 px-2.5 py-0.5 text-xs font-medium text-[var(--text-secondary)]"
         >
           {tag}
           <button
@@ -146,13 +161,122 @@ function TagInput({
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={tags.length === 0 ? placeholder : ""}
-        className="flex-1 min-w-[80px] bg-transparent text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none"
+        className="min-w-[80px] flex-1 bg-transparent text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
       />
     </div>
   );
 }
 
-export default function BrandKitTab() {
+function ColorOccupancy({
+  colors,
+  onChange,
+  label,
+  placeholder,
+  removeLabel,
+}: {
+  colors: string[];
+  onChange: (colors: string[]) => void;
+  label: string;
+  placeholder: string;
+  removeLabel: string;
+}) {
+  const [input, setInput] = useState("");
+
+  const commit = () => {
+    const next = normalizeHex(input.trim());
+    if (!HEX_COLOR.test(next) || colors.includes(next)) return;
+    onChange([...colors, next]);
+    setInput("");
+  };
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-medium tracking-wide text-[var(--text-secondary)]">{label}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        {colors.map((color) => (
+          <span key={color} className="group relative size-9">
+            <span
+              className="block size-9 rounded-full border border-white/15"
+              style={{ backgroundColor: color }}
+              title={color}
+            />
+            <button
+              type="button"
+              aria-label={`${removeLabel} ${color}`}
+              onClick={() => onChange(colors.filter((item) => item !== color))}
+              className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-black/70 text-[10px] text-white opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            >
+              <X size={10} />
+            </button>
+          </span>
+        ))}
+        <input
+          type="text"
+          aria-label={label}
+          value={input}
+          placeholder={placeholder}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === ",") {
+              e.preventDefault();
+              commit();
+            }
+          }}
+          className="h-9 min-w-[6.5rem] flex-1 rounded-full border-0 bg-transparent px-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+        />
+      </div>
+    </div>
+  );
+}
+
+function KitField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  rows = 2,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  rows?: number;
+  type?: "text" | "textarea";
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
+        {label}
+      </label>
+      {type === "textarea" ? (
+        <textarea
+          aria-label={label}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          rows={rows}
+          className={cn(kitFieldClass, "resize-none")}
+        />
+      ) : (
+        <input
+          type="text"
+          aria-label={label}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={cn(kitFieldClass, "h-9 py-0")}
+        />
+      )}
+    </div>
+  );
+}
+
+export default function BrandKitTab({
+  stage = "identity",
+}: {
+  stage?: BrandKitStage;
+} = {}) {
   const addToast = useAppStore((s) => s.addToast);
   const t = useTranslations("settings");
   const tc = useTranslations("common");
@@ -413,47 +537,61 @@ export default function BrandKitTab() {
       variants={containerVariants}
       initial={reducedMotion ? false : "hidden"}
       animate="show"
-      className="max-w-[720px] space-y-8"
+      className="max-w-3xl space-y-8"
     >
-      {/* Header */}
-      <m.div
-        variants={itemVariants}
-        className="flex items-center justify-between"
-      >
-        <div>
-          <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">
-            {t("brandKit.title")}
-          </h2>
-          <p className="text-xs text-[var(--text-muted)] mt-0.5">
-            {t("brandKit.subtitle")}
-          </p>
-        </div>
-        <Button
-          type="button"
-          size="sm"
-          onClick={handleExtract}
-          disabled={extractBrandKit.isPending}
-        >
-          {extractBrandKit.isPending ? (
-            <m.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              className="size-4 border-2 border-current/30 border-t-current rounded-full"
-            />
-          ) : (
-            <Wand2 size={16} aria-hidden="true" />
-          )}
-          <span>{t("brandKit.extract")}</span>
-        </Button>
-        <input
-          ref={extractInputRef}
-          type="file"
-          aria-label={t("brandKit.extract")}
-          accept="image/png,image/jpeg,image/webp"
-          onChange={handleExtractFile}
-          className="hidden"
-        />
-      </m.div>
+      {!isLoading && !needsClientProfileSetup && !isError ? (
+        <m.div variants={itemVariants} className="flex flex-wrap items-center justify-end gap-1">
+          {stage === "identity" ? (
+            <button
+              type="button"
+              onClick={handleExtract}
+              disabled={extractBrandKit.isPending}
+              className={studioChipClass}
+            >
+              {extractBrandKit.isPending ? (
+                <m.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  className="size-3.5 rounded-full border-2 border-current/30 border-t-current"
+                />
+              ) : (
+                <Wand2 size={14} aria-hidden="true" />
+              )}
+              <span>{t("brandKit.extract")}</span>
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!hasChanges || saveState !== "idle" || updateBrandKit.isPending}
+            className={studioQuietActionClass}
+          >
+            {saveState === "saving"
+              ? t("saving")
+              : saveState === "saved"
+                ? t("saved")
+                : t("saveChanges")}
+          </button>
+          {stage === "identity" ? (
+            <button
+              type="button"
+              onClick={() => updateState({ showClearDialog: true })}
+              disabled={clearBrandKit.isPending || !brandKit}
+              className={studioQuietActionClass}
+            >
+              {clearBrandKit.isPending ? tc("loading") : t("brandKit.clearButton")}
+            </button>
+          ) : null}
+          <input
+            ref={extractInputRef}
+            type="file"
+            aria-label={t("brandKit.extract")}
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handleExtractFile}
+            className="hidden"
+          />
+        </m.div>
+      ) : null}
 
       {/* Loading State */}
       {isLoading && (
@@ -581,82 +719,33 @@ export default function BrandKitTab() {
         </m.div>
       )}
 
-      {/* Form */}
-      {!isLoading && !needsClientProfileSetup && !isError && (
-        <div className="space-y-6">
-          {/* Name */}
-          <m.div variants={itemVariants} className="space-y-2">
-            <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-              {t("brandKit.name")}
-            </label>
-            <input
-              type="text"
-              aria-label={t("brandKit.name")}
-              value={name}
-              onChange={(e) => updateState({ name: e.target.value })}
-              placeholder={t("brandKit.namePlaceholder")}
-              className={cn(
-                "w-full h-10 rounded-md border px-3 text-sm",
-                "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                "placeholder:text-[var(--text-muted)]",
-                "focus:outline-none focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)]",
-                "transition-all duration-200 border-[var(--border-dim)]"
-              )}
-            />
-          </m.div>
-
-          {/* Description */}
-          <m.div variants={itemVariants} className="space-y-2">
-            <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-              {t("brandKit.description")}
-            </label>
-            <textarea
-              aria-label={t("brandKit.description")}
-              value={description}
-              onChange={(e) => updateState({ description: e.target.value })}
-              placeholder={t("brandKit.descriptionPlaceholder")}
-              rows={2}
-              className={cn(
-                "w-full rounded-md border px-3 py-2 text-sm resize-none",
-                "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                "placeholder:text-[var(--text-muted)]",
-                FOCUS_RING,
-                "transition-all duration-200 border-[var(--border-dim)]"
-              )}
-            />
-          </m.div>
-
-          {/* Logo Upload */}
-          <m.div variants={itemVariants} className="space-y-2">
-            <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
+      {!isLoading && !needsClientProfileSetup && !isError && stage === "identity" ? (
+        <m.div
+          variants={itemVariants}
+          data-testid="brand-kit-identity"
+          className="grid gap-6 sm:grid-cols-[11rem_minmax(0,1fr)] sm:items-start"
+        >
+          <div className="space-y-2">
+            <p className="text-xs font-medium tracking-wide text-[var(--text-secondary)]">
               {t("brandKit.logo")}
-            </label>
+            </p>
             {brandKit?.logoUrl ? (
-              <div className="flex items-center gap-4 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-3">
+              <div className="group relative">
                 <Image
                   src={brandKit.logoUrl}
                   alt={name ? `${name} logo` : t("brandKit.logo")}
-                  className="size-16 object-contain rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)]"
-                
-        width={800}
-        height={800}
-        unoptimized
-      />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[var(--text-primary)] truncate">
-                    {t("brandKit.logoUploaded")}
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)] truncate">
-                    {logoAssetKey}
-                  </p>
-                </div>
+                  width={800}
+                  height={800}
+                  unoptimized
+                  className="h-auto w-full rounded-2xl bg-white/6 object-contain"
+                />
                 <button
                   type="button"
                   onClick={() => updateState({ logoAssetKey: null })}
                   aria-label={tc("remove")}
-                  className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--danger-text)] hover:bg-[var(--surface-raised)] transition-all"
+                  className="absolute right-2 top-2 grid size-6 place-items-center rounded-full bg-black/70 text-white opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={12} />
                 </button>
               </div>
             ) : (
@@ -671,23 +760,16 @@ export default function BrandKitTab() {
                 onClick={() => !uploadLogo.isPending && fileInputRef.current?.click()}
                 disabled={uploadLogo.isPending}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-8 cursor-pointer transition-all",
-                  isDragging
-                    ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
-                    : "border-[var(--border-dim)] bg-[var(--surface-base)] hover:border-[var(--border-medium)] hover:bg-[var(--surface-raised)]"
+                  "flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-2xl bg-white/6 text-xs text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+                  isDragging && "bg-[var(--selection-bg)] ring-2 ring-[var(--focus-ring)]",
                 )}
               >
                 {uploadLogo.isPending ? (
-                  <div className="size-6 border-2 border-[var(--text-muted)] border-t-transparent rounded-full animate-spin" />
+                  <div className="size-5 animate-spin rounded-full border-2 border-[var(--text-muted)] border-t-transparent" />
                 ) : (
-                  <Upload size={24} className="text-[var(--text-muted)]" />
+                  <Upload size={16} aria-hidden="true" />
                 )}
-                <p className="text-sm text-[var(--text-secondary)]">
-                  {t("brandKit.logoDropzone")}
-                </p>
-                <p className="text-xs text-[var(--text-muted)]">
-                  PNG, JPEG, WebP
-                </p>
+                <span>{t("brandKit.logoEmpty")}</span>
               </button>
             )}
             <input
@@ -702,232 +784,89 @@ export default function BrandKitTab() {
               }}
               className="hidden"
             />
-          </m.div>
-
-          {/* Brand Colors */}
-          <m.div variants={itemVariants} className="space-y-2">
-            <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-              {t("brandKit.colors")}
-            </label>
-            <TagInput
-              tags={brandColors}
+          </div>
+          <div className="space-y-5">
+            <ColorOccupancy
+              colors={brandColors}
               onChange={(colors) => updateState({ brandColors: colors })}
+              label={t("brandKit.colors")}
               placeholder={t("brandKit.colorsPlaceholder")}
-              validator={(tag) => /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(tag)}
-              normalizer={(tag) => {
-                const hex = tag.replace("#", "");
-                if (hex.length === 3) {
-                  return "#" + hex.split("").map((c) => c + c).join("");
-                }
-                return tag;
-              }}
+              removeLabel={tc("remove")}
             />
-            <p className="text-[10px] text-[var(--text-muted)]">
-              {t("brandKit.colorsHelp")}
-            </p>
-          </m.div>
-
-          {/* Brand Fonts */}
-          <m.div variants={itemVariants} className="space-y-2">
-            <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-              {t("brandKit.fonts")}
-            </label>
-            <TagInput
-              tags={brandFonts}
-              onChange={(fonts) => updateState({ brandFonts: fonts })}
-              placeholder={t("brandKit.fontsPlaceholder")}
+            <KitField
+              label={t("brandKit.name")}
+              value={name}
+              onChange={(value) => updateState({ name: value })}
+              placeholder={t("brandKit.namePlaceholder")}
             />
-          </m.div>
-
-          {/* Visual Notes */}
-          <m.div variants={itemVariants} className="space-y-2">
-            <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-              {t("brandKit.visualNotes")}
-            </label>
-            <textarea
-              aria-label={t("brandKit.visualNotes")}
+            <KitField
+              label={t("brandKit.description")}
+              value={description}
+              onChange={(value) => updateState({ description: value })}
+              placeholder={t("brandKit.descriptionPlaceholder")}
+              type="textarea"
+            />
+            <KitField
+              label={t("brandKit.visualNotes")}
               value={visualNotes}
-              onChange={(e) => updateState({ visualNotes: e.target.value })}
+              onChange={(value) => updateState({ visualNotes: value })}
               placeholder={t("brandKit.visualNotesPlaceholder")}
-              rows={2}
-              className={cn(
-                "w-full rounded-md border px-3 py-2 text-sm resize-none",
-                "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                "placeholder:text-[var(--text-muted)]",
-                FOCUS_RING,
-                "transition-all duration-200 border-[var(--border-dim)]"
-              )}
+              type="textarea"
             />
-          </m.div>
+          </div>
+        </m.div>
+      ) : null}
 
-          {/* Tone Notes */}
-          <m.div variants={itemVariants} className="space-y-2">
-            <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-              {t("brandKit.toneNotes")}
-            </label>
-            <textarea
-              aria-label={t("brandKit.toneNotes")}
-              value={toneNotes}
-              onChange={(e) => updateState({ toneNotes: e.target.value })}
-              placeholder={t("brandKit.toneNotesPlaceholder")}
-              rows={2}
-              className={cn(
-                "w-full rounded-md border px-3 py-2 text-sm resize-none",
-                "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                "placeholder:text-[var(--text-muted)]",
-                FOCUS_RING,
-                "transition-all duration-200 border-[var(--border-dim)]"
-              )}
-            />
-          </m.div>
+      {!isLoading && !needsClientProfileSetup && !isError && stage === "voice" ? (
+        <m.div variants={itemVariants} data-testid="brand-kit-voice" className="space-y-5">
+          <KitField
+            label={t("brandKit.toneOfVoice")}
+            value={toneOfVoice}
+            onChange={(value) => updateState({ toneOfVoice: value })}
+            placeholder={t("brandKit.toneOfVoicePlaceholder")}
+            type="textarea"
+          />
+          <KitField
+            label={t("brandKit.toneNotes")}
+            value={toneNotes}
+            onChange={(value) => updateState({ toneNotes: value })}
+            placeholder={t("brandKit.toneNotesPlaceholder")}
+            type="textarea"
+          />
+          <KitField
+            label={t("brandKit.prohibitedElements")}
+            value={prohibitedElements}
+            onChange={(value) => updateState({ prohibitedElements: value })}
+            placeholder={t("brandKit.prohibitedElementsPlaceholder")}
+            type="textarea"
+          />
+          <KitField
+            label={t("brandKit.requiredElements")}
+            value={requiredElements}
+            onChange={(value) => updateState({ requiredElements: value })}
+            placeholder={t("brandKit.requiredElementsPlaceholder")}
+            type="textarea"
+          />
+          <KitField
+            label={t("brandKit.constraints")}
+            value={constraints}
+            onChange={(value) => updateState({ constraints: value })}
+            placeholder={t("brandKit.constraintsPlaceholder")}
+            type="textarea"
+          />
+        </m.div>
+      ) : null}
 
-          {/* Tone of Voice */}
-          <m.div variants={itemVariants} className="space-y-2">
-            <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-              {t("brandKit.toneOfVoice")}
-            </label>
-            <textarea
-              aria-label={t("brandKit.toneOfVoice")}
-              value={toneOfVoice}
-              onChange={(e) => updateState({ toneOfVoice: e.target.value })}
-              placeholder={t("brandKit.toneOfVoicePlaceholder")}
-              rows={2}
-              className={cn(
-                "w-full rounded-md border px-3 py-2 text-sm resize-none",
-                "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                "placeholder:text-[var(--text-muted)]",
-                FOCUS_RING,
-                "transition-all duration-200 border-[var(--border-dim)]"
-              )}
-            />
-          </m.div>
+      {!isLoading && !needsClientProfileSetup && !isError && stage === "fonts" ? (
+        <m.div variants={itemVariants} data-testid="brand-kit-fonts" className="space-y-2">
+          <TagInput
+            tags={brandFonts}
+            onChange={(fonts) => updateState({ brandFonts: fonts })}
+            placeholder={t("brandKit.fontsPlaceholder")}
+          />
+        </m.div>
+      ) : null}
 
-          {/* Prohibited Elements */}
-          <m.div variants={itemVariants} className="space-y-2">
-            <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-              {t("brandKit.prohibitedElements")}
-            </label>
-            <textarea
-              aria-label={t("brandKit.prohibitedElements")}
-              value={prohibitedElements}
-              onChange={(e) => updateState({ prohibitedElements: e.target.value })}
-              placeholder={t("brandKit.prohibitedElementsPlaceholder")}
-              rows={2}
-              className={cn(
-                "w-full rounded-md border px-3 py-2 text-sm resize-none",
-                "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                "placeholder:text-[var(--text-muted)]",
-                FOCUS_RING,
-                "transition-all duration-200 border-[var(--border-dim)]"
-              )}
-            />
-          </m.div>
-
-          {/* Required Elements */}
-          <m.div variants={itemVariants} className="space-y-2">
-            <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-              {t("brandKit.requiredElements")}
-            </label>
-            <textarea
-              aria-label={t("brandKit.requiredElements")}
-              value={requiredElements}
-              onChange={(e) => updateState({ requiredElements: e.target.value })}
-              placeholder={t("brandKit.requiredElementsPlaceholder")}
-              rows={2}
-              className={cn(
-                "w-full rounded-md border px-3 py-2 text-sm resize-none",
-                "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                "placeholder:text-[var(--text-muted)]",
-                FOCUS_RING,
-                "transition-all duration-200 border-[var(--border-dim)]"
-              )}
-            />
-          </m.div>
-
-          {/* Constraints */}
-          <m.div variants={itemVariants} className="space-y-2">
-            <label className="block text-xs font-medium tracking-wide text-[var(--text-secondary)]">
-              {t("brandKit.constraints")}
-            </label>
-            <textarea
-              aria-label={t("brandKit.constraints")}
-              value={constraints}
-              onChange={(e) => updateState({ constraints: e.target.value })}
-              placeholder={t("brandKit.constraintsPlaceholder")}
-              rows={2}
-              className={cn(
-                "w-full rounded-md border px-3 py-2 text-sm resize-none",
-                "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                "placeholder:text-[var(--text-muted)]",
-                FOCUS_RING,
-                "transition-all duration-200 border-[var(--border-dim)]"
-              )}
-            />
-          </m.div>
-
-          {/* Save Button */}
-          <m.div variants={itemVariants} className="flex justify-end">
-            <button type="button"
-              onClick={handleSave}
-              disabled={
-                !hasChanges || saveState !== "idle" || updateBrandKit.isPending
-              }
-              className={cn(
-                "h-10 px-5 rounded-md text-sm font-medium text-[var(--action-primary-text)] flex items-center gap-2",
-                "bg-[var(--action-primary-bg)] hover:bg-[var(--action-primary-hover)]",
-                "active:scale-[0.98] active:brightness-90",
-                "transition-all duration-200",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
-            >
-              {saveState === "saving" && (
-                <m.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  className="size-4 border-2 border-white/30 border-t-white rounded-full"
-                />
-              )}
-              {saveState === "saved" && <Check size={16} />}
-              <span>
-                {saveState === "saving"
-                  ? t("saving")
-                  : saveState === "saved"
-                    ? t("saved")
-                    : t("saveChanges")}
-              </span>
-            </button>
-          </m.div>
-
-          {/* Danger Zone */}
-          <m.div
-            variants={itemVariants}
-            className="rounded-xl border border-[var(--danger-border)] p-5 space-y-4"
-          >
-            <div className="flex items-center gap-2">
-              <Trash2 size={16} className="text-[var(--danger-text)]" />
-              <h3 className="text-sm font-semibold text-[var(--danger-text)]">
-                {t("brandKit.clearTitle")}
-              </h3>
-            </div>
-            <p className="text-sm text-[var(--text-secondary)]">
-              {t("brandKit.clearWarning")}
-            </p>
-            <button type="button"
-              onClick={() => updateState({ showClearDialog: true })}
-              disabled={clearBrandKit.isPending || !brandKit}
-              className={cn(
-                "h-9 px-4 rounded-md text-sm font-medium text-[var(--text-on-accent)]",
-                "bg-[var(--danger-text)] hover:brightness-110",
-                "active:scale-[0.98]",
-                "transition-all duration-200",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
-            >
-              {clearBrandKit.isPending ? tc("loading") : t("brandKit.clearButton")}
-            </button>
-          </m.div>
-        </div>
-      )}
       <ConfirmDialog
         open={showClearDialog}
         onOpenChange={(open) => updateState({ showClearDialog: open })}

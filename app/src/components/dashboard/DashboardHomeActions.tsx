@@ -11,6 +11,7 @@ import { BrandInspirations } from "@/components/creative-work/BrandInspirations"
 import { CreativePlanReview } from "@/components/creative-work/CreativePlanReview";
 import { useCreativeComposer, type ComposerIntent } from "@/components/creative-work/useCreativeComposer";
 import { BrandStageHome } from "@/components/dashboard/studio-stage/BrandStageHome";
+import { studioChipClass } from "@/components/dashboard/studio-stage/StudioInstrument";
 import { TalkBox } from "@/components/dashboard/studio-stage/TalkBox";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { resolveContinueWork, type ContinueWorkTarget } from "@/lib/dashboard/resolve-continue-work";
@@ -86,16 +87,16 @@ function ContinueWorkCard({
     return (
       <Link
         href={target.href}
-        className="group relative block overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+        className="group inline-flex max-w-xs items-center gap-2 rounded-full border border-white/15 bg-transparent py-0.5 pl-1 pr-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] hover:bg-white/6"
       >
-        <ContinueWorkThumbnail outputs={data?.outputs ?? []} className="aspect-[4/5] size-auto w-full rounded-none border-0" />
-        <span className="absolute inset-x-0 bottom-0 bg-[var(--canvas)]/80 p-3">
-          <span id="continue-work-title" className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t("continueWhereLeftOff")}</span>
-          <span className="mt-1 flex min-w-0 items-center gap-2">
-            <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{target.name}</span>
-            <ArrowRight size={14} className="shrink-0 text-[var(--text-secondary)] transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+        <ContinueWorkThumbnail outputs={data?.outputs ?? []} className="size-6 rounded-md border-0 bg-transparent" />
+        <span className="min-w-0">
+          <span id="continue-work-title" className="block font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--text-muted)]">{t("continueWhereLeftOff")}</span>
+          <span className="mt-0.5 flex min-w-0 items-center gap-1">
+            <span className="truncate text-[11px] font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">{target.name}</span>
+            <ArrowRight size={11} className="shrink-0 text-[var(--text-muted)] transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
           </span>
-          <span className="mt-1 flex flex-wrap gap-x-2 text-xs text-[var(--text-muted)]">{meta}</span>
+          <span className="sr-only">{meta}</span>
         </span>
       </Link>
     );
@@ -122,9 +123,11 @@ function ContinueWorkCard({
 function CreateCampaignDialog({
   activeProfile,
   onCreated,
+  triggerClassName,
 }: {
   activeProfile: { id: string; name: string } | null | undefined;
   onCreated: (campaignId: string) => Promise<boolean>;
+  triggerClassName?: string;
 }) {
   const t = useTranslations("dashboard.home");
   const [open, setOpen] = useState(false);
@@ -153,7 +156,7 @@ function CreateCampaignDialog({
     }
   };
   return <Dialog open={open} onOpenChange={(nextOpen) => { setOpen(nextOpen); if (!nextOpen) setCreatedCampaignId(null); }}>
-    <button type="button" onClick={() => setOpen(true)} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] px-4 text-sm font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+    <button type="button" onClick={() => setOpen(true)} className={cn("inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] px-3 text-xs font-medium text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]", triggerClassName)}>
       <Plus size={16} aria-hidden="true" />{t("campaignDialog.open")}
     </button>
     <DialogContent size="sm" showCloseButton={!createCampaign.isPending}>
@@ -434,7 +437,7 @@ export default function DashboardHomeActions({
           if (inspiration) void composer.addInspiration?.(inspiration);
         }}
         continueWork={isLoading && works.length === 0 ? (
-          <div className="h-[74px] animate-pulse rounded-[var(--radius-control)] bg-[var(--surface-raised)]" aria-hidden="true" />
+          <div className="mx-auto h-6 w-48 max-w-full animate-pulse rounded-full bg-white/6" aria-hidden="true" />
         ) : continueTarget.kind === "work" ? (
           <ContinueWorkCard
             target={continueTarget}
@@ -443,9 +446,22 @@ export default function DashboardHomeActions({
           />
         ) : null}
         topBar={(
-          <div className="flex items-center gap-2">
-            {!resultStage ? <CreateCampaignDialog activeProfile={activeProfile} onCreated={composer.linkCampaign} /> : null}
-            <ActiveBrandSwitcher id="active-client-switcher-home" className="w-56" />
+          <div
+            data-testid="stage-brand-bar"
+            className="flex max-w-full items-center gap-2"
+          >
+            {!resultStage ? (
+              <CreateCampaignDialog
+                activeProfile={activeProfile}
+                onCreated={composer.linkCampaign}
+                triggerClassName={studioChipClass}
+              />
+            ) : null}
+            <ActiveBrandSwitcher
+              id="active-client-switcher-home"
+              variant="grouped"
+              className="max-w-[16rem]"
+            />
           </div>
         )}
         talkBox={talkBox}

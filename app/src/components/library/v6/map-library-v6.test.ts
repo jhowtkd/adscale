@@ -33,5 +33,7 @@ describe("mapWorkspaceAssetToV6", () => {
     expect(result.sizeLabel).toBe("2048 B");
     expect(result.dimensionsLabel).toBe("1080×1350");
     expect(result.aspectRatioLabel).toBe("0.80:1");
+    expect(result.width).toBe(1080);
+    expect(result.height).toBe(1350);
   });
 });

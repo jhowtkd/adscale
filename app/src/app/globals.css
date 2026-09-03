@@ -192,8 +192,10 @@
   --shell-sticky-gap: 0.5rem;
   --shell-v6-gap: 1rem;
   --shell-v6-sidebar-width: 17.5rem;
+  --shell-v6-bell-size: 2.25rem;
   --shell-v6-topbar-offset: calc(var(--shell-v6-gap) * 2 + var(--shell-topbar-desktop));
   --shell-v6-main-offset-left: calc(var(--shell-v6-gap) * 2 + var(--shell-v6-sidebar-width));
+  --shell-v6-main-offset-right: calc(var(--shell-v6-gap) * 2 + var(--shell-v6-bell-size));
   --shell-safe-bottom: calc(var(--shell-bottom-nav) + env(safe-area-inset-bottom, 0px));
   --page-gutter-mobile: 1rem;
   --page-gutter-tablet: 1.5rem;
@@ -852,6 +854,7 @@
   @media (min-width: 768px) {
     .v6-shell-main {
       padding-top: calc(var(--shell-v6-gap) * 2);
+      padding-right: var(--shell-v6-main-offset-right);
     }
 
     .v6-shell-main.assistant-shell-host {

@@ -29,11 +29,9 @@ const EMPTY_EDGES = [
 function WorkMosaic({
   items,
   onSelect,
-  continueWork,
 }: {
   items: StageMosaicItem[];
   onSelect?: (item: StageMosaicItem) => void;
-  continueWork?: ReactNode;
 }) {
   return (
     <div data-testid="studio-mosaic" className="absolute inset-0">
@@ -58,11 +56,6 @@ function WorkMosaic({
           </button>
         );
       })}
-      {continueWork ? (
-        <div className="absolute left-[8%] top-[38%] z-[5] w-[28%] max-w-xs">
-          {continueWork}
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -146,7 +139,7 @@ export function BrandStageHome({
       }}
       className="relative min-h-[calc(100vh-8rem)] px-4 pb-8 sm:px-6"
     >
-      <div className="relative z-20 flex items-center justify-between gap-3">
+      <div className="relative z-20 flex items-center justify-between gap-3 md:-mt-4">
         <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">{eyebrow}</p>
         {topBar}
       </div>
@@ -179,8 +172,13 @@ export function BrandStageHome({
         </div>
       ) : (
         <>
+          {continueWork ? (
+            <div data-testid="continue-work-suggestion" className="relative z-20 mt-6 flex justify-center">
+              {continueWork}
+            </div>
+          ) : null}
           <div className="relative mt-4 min-h-[32rem] md:min-h-[40rem]">
-            <WorkMosaic items={mosaicItems} onSelect={onSelectMosaic} continueWork={continueWork} />
+            <WorkMosaic items={mosaicItems} onSelect={onSelectMosaic} />
             {children ? <div className="relative z-[6] mx-auto max-w-5xl px-2 pt-6">{children}</div> : null}
           </div>
           <h1 className="sr-only">{brandName ? headline : eyebrow}</h1>

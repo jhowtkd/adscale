@@ -382,6 +382,7 @@ function CampaignsV6ViewSkeleton() {
     subtitle: "",
     sortPrefix: "Ordenar",
     newCampaign: "Novo trabalho",
+    newWork: "Novo trabalho",
     searchPlaceholder: "",
     searchAriaLabel: "",
     filtersAria: "",
@@ -421,6 +422,7 @@ function CampaignsV6ViewSkeleton() {
       sortLabel="Atualização"
       sortOptions={[]}
       viewMode="list"
+      showCampaignFilters={false}
     />
   );
 }

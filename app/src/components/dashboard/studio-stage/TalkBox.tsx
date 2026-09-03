@@ -107,8 +107,8 @@ export function TalkBox({
         data-testid="studio-talk-box"
         data-placement={placement}
         className={cn(
-          "relative glass-backdrop rounded-[1.75rem] border border-white/10 p-5 sm:p-6",
-          centered && "shadow-[var(--shadow-overlay)]",
+          "relative glass-backdrop rounded-[1.75rem] border border-white/10",
+          centered ? "p-5 sm:p-6 shadow-[var(--shadow-overlay)]" : "px-4 py-3 sm:px-5 sm:py-3.5",
         )}
       >
         <ProtocolRadios
@@ -129,17 +129,19 @@ export function TalkBox({
           }}
           onFocus={() => onRequestFocusChange?.(true)}
           onBlur={() => onRequestFocusChange?.(false)}
-          rows={centered ? 4 : 3}
+          rows={centered ? 4 : 2}
           className={cn(
-            "mt-4 w-full resize-none bg-transparent text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-            centered ? "min-h-28 text-lg leading-relaxed" : "min-h-20 text-base leading-relaxed",
+            "w-full resize-none bg-transparent text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
+            centered
+              ? "mt-4 min-h-28 text-lg leading-relaxed"
+              : "mt-2 min-h-10 field-sizing-content max-h-28 text-sm leading-snug",
             focus,
           )}
           placeholder={centered ? t("talkPlaceholderEmpty") : t("talkPlaceholderWork")}
         />
 
         {interview?.enabled ? (
-          <div className="mt-4">
+          <div className={centered ? "mt-4" : "mt-2"}>
             <StudioEntryInterview
               chips={interview.chips}
               answers={interview.answers}
@@ -160,7 +162,7 @@ export function TalkBox({
           </div>
         ) : null}
 
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className={cn("flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between", centered ? "mt-5" : "mt-3")}>
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             {sources.length > 0 ? (
               <ul aria-label={t("talkAttachments")} className="flex gap-2">

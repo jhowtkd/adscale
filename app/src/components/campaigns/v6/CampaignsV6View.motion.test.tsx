@@ -57,6 +57,7 @@ function view(
   selectedIds = new Set<string>(),
   onToggleSelect = vi.fn(),
   rows: CampaignV6Row[] = [row],
+  onOriginChange?: (value: "all" | "campaign" | "creative_work") => void,
 ) {
   return (
     <CampaignsV6View
@@ -65,6 +66,8 @@ function view(
       totalCount={1}
       searchQuery=""
       showCampaignFilters={false}
+      originFilter="all"
+      onOriginChange={onOriginChange}
       statusFilter="all"
       statusFilterLabel="Todos"
       statusOptions={[]}
@@ -178,5 +181,43 @@ describe("CampaignsV6View motion selection contract", () => {
     expect(checkbox.closest("li")).toHaveAttribute("data-motion-highlight", "selected");
     expect(checkbox.closest("li")).toHaveAttribute("data-selection-marker", "selected");
     expect(checkbox).toHaveClass("accent-[var(--selection-text)]");
+  });
+
+  it("keeps a single Palco chip to create work", () => {
+    const onNewCampaign = vi.fn();
+    render(
+      <CampaignsV6View
+        labels={{ ...labels, newWork: "Novo trabalho" }}
+        rows={[row]}
+        totalCount={1}
+        searchQuery=""
+        showCampaignFilters={false}
+        statusFilter="all"
+        statusFilterLabel="Todos"
+        statusOptions={[]}
+        platformFilter="all"
+        platformFilterLabel="Todas"
+        platformOptions={[]}
+        sortOption="updated"
+        sortLabel="Recentes"
+        sortOptions={[]}
+        viewMode="list"
+        onNewCampaign={onNewCampaign}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Novo trabalho" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Nova campanha" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Novo trabalho" }));
+    expect(onNewCampaign).toHaveBeenCalled();
+  });
+
+  it("filters origin with discreet radios instead of chips", () => {
+    const onOriginChange = vi.fn();
+    render(view(new Set(), vi.fn(), [row], onOriginChange));
+
+    expect(screen.getByRole("radio", { name: "Todos" })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("radio", { name: "Campanhas" }));
+    expect(onOriginChange).toHaveBeenCalledWith("campaign");
   });
 });

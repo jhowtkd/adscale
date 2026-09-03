@@ -47,8 +47,27 @@ describe("ActiveBrandSwitcher", () => {
 
     render(<ActiveBrandSwitcher />);
 
-    expect(screen.getByRole("combobox", { name: "activeBrand" })).toHaveValue("one");
-    expect(screen.getByRole("option", { name: "Brand One" })).toBeInTheDocument();
+    const trigger = screen.getByRole("button", { name: "activeBrand" });
+    expect(trigger).toHaveTextContent("Brand One");
+    expect(trigger.parentElement).not.toHaveClass("mt-3");
+
+    fireEvent.click(trigger);
+    expect(screen.getByRole("menuitem", { name: "Brand One" })).toBeInTheDocument();
+  });
+
+  it("hides deletion in the Palco grouped control", () => {
+    mockUseActiveClientProfile.mockReturnValue({
+      profiles: [profiles[0]],
+      activeProfile: profiles[0],
+      activeClientProfileId: "one",
+      requiresSelection: false,
+      isLoading: false,
+      selectProfile: vi.fn(),
+    } as ReturnType<typeof useActiveClientProfile>);
+
+    render(<ActiveBrandSwitcher variant="grouped" />);
+
+    expect(screen.queryByRole("button", { name: "deleteBrand" })).not.toBeInTheDocument();
   });
 
   it("confirms deletion of the active brand", () => {
@@ -69,7 +88,7 @@ describe("ActiveBrandSwitcher", () => {
     expect(mocks.deleteProfile).toHaveBeenCalledWith("one", expect.any(Object));
   });
 
-  it("renders an accessible combobox and selects a profile", () => {
+  it("renders an accessible brand menu and selects a profile", () => {
     const selectProfile = vi.fn();
     mockUseActiveClientProfile.mockReturnValue({
       profiles,
@@ -82,9 +101,8 @@ describe("ActiveBrandSwitcher", () => {
 
     render(<ActiveBrandSwitcher />);
 
-    fireEvent.change(screen.getByRole("combobox", { name: "activeBrand" }), {
-      target: { value: "two" },
-    });
+    fireEvent.click(screen.getByRole("button", { name: "activeBrand" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Brand Two" }));
     expect(selectProfile).toHaveBeenCalledWith("two");
   });
 
@@ -101,9 +119,8 @@ describe("ActiveBrandSwitcher", () => {
 
     render(<ActiveBrandSwitcher />);
 
-    fireEvent.change(screen.getByRole("combobox", { name: "activeBrand" }), {
-      target: { value: "__new_brand__" },
-    });
+    fireEvent.click(screen.getByRole("button", { name: "activeBrand" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "newBrand" }));
     expect(selectProfile).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByRole("textbox", { name: "brandName" }), {
@@ -130,7 +147,7 @@ describe("ActiveBrandSwitcher", () => {
 
     render(<ActiveBrandSwitcher />);
 
-    expect(screen.getByRole("combobox", { name: "activeBrand" })).toBeVisible();
-    expect(screen.getByRole("option", { name: "newBrand" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "activeBrand" }));
+    expect(screen.getByRole("menuitem", { name: "newBrand" })).toBeInTheDocument();
   });
 });

@@ -357,7 +357,7 @@ async function captureCommercialStudies(mode: CaptureMode) {
       if (capture.route === "/library") {
         await page
           .waitForFunction(
-            () => document.body.innerText.includes("Resultado gerado"),
+            () => document.body.innerText.includes("Gerado"),
             { timeout: 60_000, polling: 500 },
           )
           .catch(() => undefined);

@@ -252,7 +252,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
 
   const results = composer.outputs.length > 0 ? (
     <section {...(!resultsOnly ? { "aria-labelledby": "creative-results-title" } : {})} className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className={cn("flex flex-wrap items-center justify-between gap-3", layout === "piece" && "sr-only")}>
         {!resultsOnly ? <div>
           <h2 id="creative-results-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("results.title")}</h2>
           <p className="text-sm text-[var(--text-muted)]">{t("results.subtitle")}</p>
@@ -277,14 +277,19 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         isRevising={composer.isRevisingOutput}
         onLayerEditorPublished={composer.refreshOutputs}
       />
-      <div className="flex justify-end">
+      <div className={cn("flex", layout === "piece" ? "justify-start" : "justify-end")}>
         <label className="text-sm text-[var(--text-secondary)]">
           <span className="sr-only">{t("results.campaignLabel")}</span>
           <select
             aria-label={t("results.campaignLabel")}
             value={composer.campaignId ?? ""}
             onChange={(event) => void composer.linkCampaign(event.target.value || null)}
-            className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2"
+            className={cn(
+              "text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+              layout === "piece"
+                ? "border-0 bg-transparent py-1 text-xs text-[var(--text-muted)]"
+                : "rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2",
+            )}
           >
             <option value="">{t("results.noCampaign")}</option>
             {composer.campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
@@ -309,17 +314,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
 
   if (layout === "piece" && isVariations && results && !composer.brandConflict) {
     return (
-      <section id="creative-composer" aria-labelledby="creative-composer-title" className="mx-auto flex max-w-5xl scroll-mt-24 flex-col gap-5">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 id="creative-composer-title" className="text-2xl font-semibold text-[var(--text-primary)]">{title}</h1>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</p>
-          </div>
-          <span className="rounded-full bg-[var(--surface-inset)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
-            {t("brand")}: {composer.brandName ?? t("noBrand")}
-          </span>
-        </div>
-
+      <section id="creative-composer" aria-label={title} className="flex scroll-mt-24 flex-col gap-5">
         {results}
 
         {readyVariationSource ? (
@@ -342,9 +337,14 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
   }
 
   return (
-    <section id="creative-composer" aria-labelledby={stageChrome ? undefined : "creative-composer-title"} className={cn("space-y-4 scroll-mt-24", layout === "piece" && "mx-auto flex max-w-5xl flex-col")}>
-      {stageChrome ? <h2 id="creative-composer-title" className="sr-only">{title}</h2> : (
-      <div className={cn("flex items-center justify-between gap-3", layout === "piece" && "order-[-2]")}>
+    <section
+      id="creative-composer"
+      aria-labelledby={stageChrome || layout === "piece" ? undefined : "creative-composer-title"}
+      aria-label={layout === "piece" ? title : undefined}
+      className={cn("space-y-4 scroll-mt-24", layout === "piece" && "flex flex-col")}
+    >
+      {stageChrome ? <h2 id="creative-composer-title" className="sr-only">{title}</h2> : layout === "piece" ? null : (
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 id="creative-composer-title" className="text-2xl font-semibold text-[var(--text-primary)]">{title}</h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</p>

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const useActiveClientProfileMock = vi.fn();
@@ -17,7 +17,7 @@ vi.mock("@/lib/hooks/use-brand-training", () => ({
 }));
 
 vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
-  default: () => <select aria-label="active-brand" />,
+  default: () => <button type="button" aria-label="active-brand" />,
 }));
 
 vi.mock("@/components/settings/BrandKitTab", () => ({
@@ -59,17 +59,22 @@ describe("BrandKitPage", () => {
     });
   });
 
-  it("renders foundation, training assets, and voice in one window without tabs", () => {
+  it("keeps Palco chrome and switches one kit panel at a time", () => {
     render(<BrandKitPage />);
 
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByTestId("brand-kit-strip").className).toContain("rounded-full");
+    expect(screen.getByRole("radiogroup", { name: "brandTraining.kitNavAria" }).className).toContain(
+      "flex-nowrap",
+    );
     expect(screen.getByTestId("brand-foundation")).toBeInTheDocument();
-    expect(screen.getByTestId("brand-assets-profile-a")).toBeInTheDocument();
-    expect(screen.getByTestId("brand-fonts-profile-a")).toBeInTheDocument();
-    expect(screen.getByTestId("brand-knowledge-profile-a")).toBeInTheDocument();
-    expect(screen.getByTestId("brand-voice-profile-a")).toBeInTheDocument();
+    expect(screen.queryByTestId("brand-assets-profile-a")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("brandTraining.trainedBadge");
     expect(useBrandTrainingStatusMock).toHaveBeenCalledWith("profile-a");
+
+    fireEvent.click(screen.getByRole("radio", { name: "brandTraining.kitSections.assets" }));
+    expect(screen.getByTestId("brand-foundation")).not.toBeVisible();
+    expect(screen.getByTestId("brand-assets-profile-a")).toBeVisible();
   });
 });

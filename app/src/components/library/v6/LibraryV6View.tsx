@@ -4,6 +4,18 @@ import Image from "next/image";
 import { useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 import { Search, Upload, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { DiscreetRadios } from "@/components/dashboard/studio-stage/DiscreetRadios";
+import {
+  studioBentoClass,
+  studioBentoItemClass,
+  studioChipClass,
+  studioChromeBarClass,
+  studioFilterStripClass,
+  studioInstrumentClass,
+  studioQuietActionClass,
+  studioSearchClass,
+} from "@/components/dashboard/studio-stage/StudioInstrument";
 import type { LibraryV6Asset, LibraryV6Labels } from "./library-v6-types";
 
 type LibraryV6Filter = "all" | LibraryV6Asset["kind"];
@@ -90,62 +102,46 @@ export default function LibraryV6View({
   onLoadMore,
   isLoadingMore = false,
 }: LibraryV6ViewProps) {
+  const showOccupancy = !isLoading && assets.length === 0 && !emptyState;
+
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <p className="font-mono text-[var(--text-caption)] uppercase tracking-wider text-[var(--text-muted)]">
-            {labels.sectionLabel}
-          </p>
-          <h1 className="product-page-title text-[var(--text-primary)]">{labels.title}</h1>
-          <p className="text-sm text-[var(--text-secondary)]">{labels.subtitle}</p>
-        </div>
+    <div className={cn(studioInstrumentClass, "py-0 pb-6")} aria-busy={isLoading}>
+      <div className={studioChromeBarClass}>
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
+          {labels.sectionLabel}
+        </p>
         <button
           type="button"
           onClick={interactive ? onUploadClick : undefined}
           disabled={isUploading}
-          className="inline-flex shrink-0 items-center gap-2 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-medium text-[var(--action-primary-text)] transition-colors hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60"
+          className={studioChipClass}
         >
-          <Upload size={16} aria-hidden="true" />
+          <Upload size={14} aria-hidden="true" />
           {isUploading ? `${uploadProgress}%` : labels.upload}
         </button>
+      </div>
+
+      <header className="space-y-2">
+        <h1 className="product-page-title text-[var(--text-primary)]">{labels.title}</h1>
+        {labels.subtitle ? (
+          <p className="text-sm text-[var(--text-secondary)]">{labels.subtitle}</p>
+        ) : null}
       </header>
 
-      <section className="overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)]">
-        <div
-          className={`flex flex-col items-center justify-center gap-2 border-b border-dashed px-6 py-10 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
-            dragOver
-              ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
-              : "border-[var(--border-default)] bg-[var(--surface-raised)]"
-          }`}
-          role="button"
-          tabIndex={interactive ? 0 : undefined}
-          aria-label={labels.dropzoneAria}
-          onClick={interactive ? onDropzoneClick : undefined}
-          onKeyDown={
-            interactive
-              ? (e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onDropzoneClick?.();
-                  }
-                }
-              : undefined
-          }
-          onDragOver={interactive ? onDragOver : undefined}
-          onDragLeave={interactive ? onDragLeave : undefined}
-          onDrop={interactive ? onDrop : undefined}
-        >
-          <Upload size={24} className="text-[var(--utility-icon)]" aria-hidden="true" />
-          <p className="text-sm font-medium text-[var(--text-primary)]">{labels.dropzoneTitle}</p>
-          <p className="text-xs text-[var(--text-muted)]">{labels.dropzoneHint}</p>
-        </div>
-
-        <div className="flex flex-col gap-3 border-b border-[var(--border-subtle)] p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full max-w-md">
+      <section
+        onDragOver={interactive ? onDragOver : undefined}
+        onDragLeave={interactive ? onDragLeave : undefined}
+        onDrop={interactive ? onDrop : undefined}
+        className={cn(
+          "rounded-[var(--radius-object)] transition-colors",
+          dragOver && "bg-[var(--selection-bg)] ring-2 ring-[var(--focus-ring)]",
+        )}
+      >
+        <div data-testid="library-filter-strip" className={studioFilterStripClass}>
+          <div className="relative w-[7.25rem] shrink-0 transition-[width] duration-200 ease-out focus-within:w-52 sm:w-36">
             <Search
-              size={16}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--utility-icon)]"
+              size={14}
+              className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-[var(--utility-icon)]"
               aria-hidden="true"
             />
             <input
@@ -155,51 +151,50 @@ export default function LibraryV6View({
               value={searchQuery}
               onChange={interactive && onSearchChange ? (e) => onSearchChange(e.target.value) : undefined}
               readOnly={!interactive || !onSearchChange}
-              className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] py-2 pl-9 pr-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              className={cn(
+                studioSearchClass,
+                "h-9 min-w-0 rounded-full bg-transparent py-0 pl-6 pr-2 text-xs",
+              )}
             />
           </div>
-          <div className="flex max-w-full gap-1 overflow-x-auto pb-1" role="group" aria-label={labels.filtersAria}>
-            {([
-              ["all", labels.filterAll],
-              ["reference", labels.filterReference],
-              ["logo", labels.filterLogo],
-              ["photo", labels.filterPhoto],
-              ["generated", labels.filterGenerated],
-            ] as const).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={activeFilter === value}
-                onClick={() => onFilterChange?.(value)}
-                className={`shrink-0 rounded-full border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
-                  activeFilter === value
-                    ? "border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--text-primary)]"
-                    : "border-[var(--border-default)] text-[var(--text-muted)] hover:bg-[var(--surface-inset)]"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <p className="shrink-0 font-mono text-xs text-[var(--text-muted)]">
-            {labels.countSummary
+          <span className="hidden h-3.5 w-px shrink-0 bg-white/12 sm:block" aria-hidden="true" />
+          <DiscreetRadios
+            label={labels.filtersAria}
+            value={activeFilter}
+            onChange={onFilterChange}
+            className="min-w-0 flex-1 justify-center"
+            options={[
+              { value: "all", label: labels.filterAll },
+              { value: "reference", label: labels.filterReference },
+              { value: "logo", label: labels.filterLogo },
+              { value: "photo", label: labels.filterPhoto },
+              { value: "generated", label: labels.filterGenerated },
+            ]}
+          />
+          <p
+            className="shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]"
+            aria-label={labels.countSummary
               .replace("{shown}", String(shownCount))
               .replace("{total}", String(totalCount))}
+          >
+            {shownCount}/{totalCount}
           </p>
         </div>
 
         {isLoading ? (
-          <ul className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <li key={i} className="h-48 animate-pulse rounded-[var(--radius-panel)] bg-[var(--surface-raised)]" />
+          <ul className={studioBentoClass} aria-hidden="true">
+            {["h-52", "h-40", "h-64", "h-48", "h-56", "h-36", "h-60", "h-44"].map((height, i) => (
+              <li key={i} className={studioBentoItemClass}>
+                <div className={cn("animate-pulse rounded-2xl bg-white/6", height)} />
+              </li>
             ))}
           </ul>
         ) : emptyState ? (
-          <div className="p-6">{emptyState}</div>
+          <div className="pt-10">{emptyState}</div>
         ) : assets.length > 0 ? (
-          <ul className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <ul className={studioBentoClass} data-testid="library-bento">
             {assets.map((asset) => (
-              <li key={asset.id}>
+              <li key={asset.id} className={studioBentoItemClass}>
                 <AssetCard
                   asset={asset}
                   labels={labels}
@@ -211,17 +206,25 @@ export default function LibraryV6View({
               </li>
             ))}
           </ul>
-        ) : (
-          <div className="p-6">{emptyState}</div>
-        )}
+        ) : showOccupancy ? (
+          <button
+            type="button"
+            aria-label={labels.dropzoneAria}
+            onClick={interactive ? onDropzoneClick : undefined}
+            className="mt-10 flex w-full flex-col items-center justify-center gap-1 py-16 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          >
+            <p className="text-sm text-[var(--text-secondary)]">{labels.dropzoneTitle}</p>
+            <p className="text-xs text-[var(--text-muted)]">{labels.dropzoneHint}</p>
+          </button>
+        ) : null}
 
         {!isLoading && interactive && shownCount < totalCount ? (
-          <div className="flex justify-center border-t border-[var(--border-subtle)] p-4">
+          <div className="flex justify-center pt-6">
             <button
               type="button"
               onClick={onLoadMore}
               disabled={isLoadingMore}
-              className="rounded-[var(--radius-control)] border border-[var(--selection-border)] bg-[var(--active-navigation-bg)] px-4 py-2 text-sm font-medium text-[var(--active-navigation-text)] transition-colors hover:bg-[var(--selection-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60"
+              className={studioQuietActionClass}
             >
               {isLoadingMore ? labels.loadingMore : labels.loadMore}
             </button>
@@ -251,6 +254,7 @@ function AssetCard({
     useImagePreview && asset.imageUrl ? "loading" : "no-preview",
   );
   const [retryKey, setRetryKey] = useState(0);
+  const [measuredSize, setMeasuredSize] = useState<string | null>(null);
   const kindLabel = {
     reference: labels.filterReference,
     logo: labels.filterLogo,
@@ -265,34 +269,43 @@ function AssetCard({
   };
 
   const handlePreviewLoad = (event: SyntheticEvent<HTMLImageElement>) => {
-    const luminance = averageImageLuminance(event.currentTarget);
+    const image = event.currentTarget;
+    if (image.naturalWidth && image.naturalHeight) {
+      setMeasuredSize(`${image.naturalWidth}×${image.naturalHeight}`);
+    }
+    const luminance = averageImageLuminance(image);
     setPreviewState(luminance !== null && luminance < 0.18 ? "dark" : "ready");
   };
+
+  const width = asset.width || 1080;
+  const height = asset.height || 1080;
+  const dimensionsLabel = asset.dimensionsLabel !== "—" ? asset.dimensionsLabel : measuredSize;
+  const roverMeta = [asset.sizeLabel, dimensionsLabel, kindLabel].filter(Boolean).join(" · ");
 
   return (
     <article
       data-motion-highlight="focus"
-      className="group overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] transition-[border-color,background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-product)] focus-within:border-[var(--selection-border)] focus-within:bg-[var(--selection-bg)] focus-within:shadow-[0_0_0_2px_var(--focus-ring)]"
+      className="group relative overflow-hidden rounded-2xl bg-white/[0.04] transition-[box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-product)] focus-within:shadow-[0_0_0_2px_var(--focus-ring)]"
     >
-      <div className={`relative flex h-32 items-center justify-center ${asset.gradient}`} data-preview-state={previewState}>
+      <div
+        className={cn("relative", !asset.imageUrl && asset.gradient)}
+        data-preview-state={previewState}
+      >
         {(previewState === "loading" || previewState === "ready" || previewState === "dark") && asset.imageUrl ? (
           <Image
             key={`${asset.id}-${retryKey}`}
             src={asset.imageUrl}
             alt={previewState === "dark" ? `${asset.name} — ${labels.previewDark}` : asset.name}
-            fill
-            className="object-cover"
+            width={width}
+            height={height}
+            className="block h-auto w-full"
             sizes="(max-width: 768px) 50vw, 25vw"
             unoptimized
             onLoad={handlePreviewLoad}
             onError={() => setPreviewState("error")}
           />
-        ) : previewState === "loading" ? (
-          <span role="status" aria-label={labels.previewLoading} className="text-xs text-[var(--text-muted)]">
-            {labels.previewLoading}
-          </span>
         ) : previewState === "error" ? (
-          <div className="flex flex-col items-center gap-2 px-3 text-center text-xs text-[var(--text-muted)]">
+          <div className="flex aspect-[4/5] flex-col items-center justify-center gap-2 px-3 text-center text-xs text-[var(--text-muted)]">
             <span role="img" aria-label={labels.previewError}>{labels.previewError}</span>
             <div className="flex flex-wrap justify-center gap-2">
               <button
@@ -314,56 +327,59 @@ function AssetCard({
             </div>
           </div>
         ) : (
-          <span role="img" aria-label={labels.previewNoPreview} className="font-mono text-sm font-bold tracking-widest text-[var(--text-muted)]">
-            {asset.glyph}
-          </span>
+          <div className="flex aspect-[4/5] items-center justify-center">
+            {previewState === "loading" ? (
+              <span role="status" aria-label={labels.previewLoading} className="text-xs text-[var(--text-muted)]">
+                {labels.previewLoading}
+              </span>
+            ) : (
+              <span role="img" aria-label={labels.previewNoPreview} className="font-mono text-sm font-bold tracking-widest text-[var(--text-muted)]">
+                {asset.glyph}
+              </span>
+            )}
+          </div>
         )}
+
         {previewState === "loading" && asset.imageUrl ? (
-          <span role="status" aria-label={labels.previewLoading} className="absolute inset-x-0 bottom-2 mx-auto w-fit rounded bg-black/60 px-2 py-1 text-[var(--text-caption)] text-white">
+          <span role="status" aria-label={labels.previewLoading} className="sr-only">
             {labels.previewLoading}
           </span>
         ) : null}
-        {previewState === "dark" ? (
-          <span role="status" aria-label={labels.previewDark} className="absolute inset-x-0 bottom-2 mx-auto w-fit rounded bg-black/75 px-2 py-1 text-[var(--text-caption)] text-white">
-            {labels.previewDark}
-          </span>
+
+        {previewState !== "error" ? (
+          <div
+            data-testid="library-asset-rover"
+            className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-2.5 pb-2.5 pt-10 opacity-0 transition-opacity duration-[var(--duration-fast)] group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
+          >
+            <p className="truncate text-xs font-medium text-white">{asset.name}</p>
+            {roverMeta ? (
+              <p className="mt-0.5 truncate font-mono text-[10px] text-white/70">{roverMeta}</p>
+            ) : null}
+            {previewState === "dark" ? (
+              <span role="status" aria-label={labels.previewDark} className="mt-1 block text-[10px] text-white/80">
+                {labels.previewDark}
+              </span>
+            ) : null}
+          </div>
         ) : null}
+
         {interactive && onDelete ? (
           <button
             type="button"
             aria-label={labels.deleteAsset}
             onClick={() => onDelete(asset.id, asset.name)}
-            className="absolute right-2 top-2 flex size-9 items-center justify-center rounded-[var(--radius-control)] border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger-text)] opacity-100 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+            className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-black/55 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-[var(--danger-bg)] hover:text-[var(--danger-text)] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] [@media(hover:none)]:opacity-100"
           >
-            <X size={14} aria-hidden="true" />
+            <X size={11} aria-hidden="true" />
           </button>
         ) : null}
       </div>
-      <div className="space-y-2 p-3">
-        <p className="truncate text-sm font-medium text-[var(--text-primary)]">{asset.name}</p>
-        {asset.tags.length > 0 ? (
-          <div className="flex flex-wrap gap-1">
-            {asset.tags.slice(0, 3).map((tag) => (
-              <span
-                key={tag}
-                className="rounded border border-[var(--border-subtle)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        ) : null}
-        <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
-          <span className="font-mono">{asset.sizeLabel}</span>
-          <span>{asset.dimensionsLabel}</span>
-        </div>
-              <dl className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-[var(--text-muted)]">
-          <div><dt className="inline">{labels.originLabel}: </dt><dd className="inline">{asset.source}</dd></div>
-          <div><dt className="inline">{labels.functionLabel}: </dt><dd className="inline">{kindLabel}</dd></div>
-          <div><dt className="inline">{labels.createdLabel}: </dt><dd className="inline">{asset.createdAtLabel}</dd></div>
-          <div><dt className="inline">Ratio: </dt><dd className="inline">{asset.aspectRatioLabel}</dd></div>
-        </dl>
-      </div>
+
+      <dl className="sr-only">
+        <div><dt>{labels.originLabel}</dt><dd>{asset.source}</dd></div>
+        <div><dt>{labels.functionLabel}</dt><dd>{kindLabel}</dd></div>
+        <div><dt>{labels.createdLabel}</dt><dd>{asset.createdAtLabel}</dd></div>
+      </dl>
     </article>
   );
 }

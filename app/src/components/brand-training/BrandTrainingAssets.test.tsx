@@ -226,13 +226,33 @@ describe("BrandTrainingAssets", () => {
   it("renders the empty state when no assets exist", () => {
     useBrandTrainingAssetsMock.mockReturnValue({ data: [], isLoading: false });
 
-    render(<BrandTrainingAssets clientProfileId="profile-1" />, {
+    const { container } = render(<BrandTrainingAssets clientProfileId="profile-1" />, {
       wrapper: createWrapper(),
     });
 
     expect(
       screen.getByText("brandTraining.assets.emptyTitle"),
     ).toBeInTheDocument();
+    expect(container.querySelector("[class*='border-dashed']")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "brandTraining.assets.uploadChip" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a Palco bento occupancy instead of nested dashed cards", async () => {
+    useBrandTrainingAssetsMock.mockReturnValue({
+      data: [asset({ id: "approved-1", reviewStatus: "approved", reviewedAt: new Date(), reviewedByUserId: "r1" })],
+      isLoading: false,
+    });
+
+    const { container } = render(<BrandTrainingAssets clientProfileId="profile-1" />, {
+      wrapper: createWrapper(),
+    });
+
+    expect(await screen.findByTestId("brand-assets-bento")).toBeInTheDocument();
+    expect(container.querySelector("[class*='border-dashed']")).toBeNull();
+    expect(screen.getByRole("radiogroup", { name: "brandTraining.assets.filterAria" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "brandTraining.assets.uploadChip" })).toBeInTheDocument();
   });
 
   it("shows a blocking validation message for exact mode when hasAlpha is false", async () => {

@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { brlCurrency, calculateForecast, planTiers } from "./pricing-model";
 import { useStartCheckout } from "@/lib/hooks/use-billing";
+import { settingsButtonClass } from "@/components/settings/settings-chrome";
 
 const forecast = calculateForecast();
 
@@ -27,13 +28,8 @@ export default function PlansTab() {
       initial={reducedMotion ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: reducedMotion ? 0 : 0.25 }}
-      className="space-y-6"
+      className="space-y-8"
     >
-      <div>
-        <h3 className="product-section-title text-[var(--text-primary)]">{t("title")}</h3>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("subtitle")}</p>
-      </div>
-
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
         {planTiers.map((tier) => {
           const tierKey = tier.key;
@@ -102,10 +98,7 @@ export default function PlansTab() {
                 type="button"
                 onClick={() => startPlanCheckout(tier.key)}
                 disabled={tier.trial || checkout.isPending}
-                className={cn(
-                  "mt-5 min-h-[var(--control-touch)] rounded-md text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-60",
-                  "bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
-                )}
+                className={cn("mt-5 w-full", settingsButtonClass)}
               >
                 {checkout.isPending ? t("opening") : tier.trial ? t("trialIncluded") : t("selectPlan")}
               </button>
@@ -114,8 +107,8 @@ export default function PlansTab() {
         })}
       </div>
 
-      <section className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
-        <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("compareTitle")}</h3>
+      <section className="space-y-3 border-t border-[var(--border-dim)] pt-8">
+        <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("compareTitle")}</h3>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <thead>

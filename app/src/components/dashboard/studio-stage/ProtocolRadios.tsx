@@ -1,8 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { cn } from "@/lib/utils";
 import type { ComposerIntent } from "@/components/creative-work/useCreativeComposer";
+import { discreetRadioClass } from "./DiscreetRadios";
 
 const PROTOCOLS: ComposerIntent[] = [
   "variations",
@@ -12,7 +12,6 @@ const PROTOCOLS: ComposerIntent[] = [
 ];
 
 const CAROUSEL: ComposerIntent = "carousel";
-const focus = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]";
 
 export function ProtocolRadios({
   selected,
@@ -46,14 +45,7 @@ export function ProtocolRadios({
               aria-checked={checked}
               disabled={creationDisabled}
               onClick={() => onSelect(id)}
-              className={cn(
-                "min-h-8 rounded-full px-3 text-xs font-medium",
-                checked
-                  ? "bg-white/14 text-[var(--text-primary)]"
-                  : "text-[var(--text-muted)] hover:bg-white/6 hover:text-[var(--text-primary)]",
-                "disabled:cursor-not-allowed disabled:opacity-50",
-                focus,
-              )}
+              className={discreetRadioClass(checked)}
             >
               <span>{t(id)}</span>
               {isSuggested ? (

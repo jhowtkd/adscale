@@ -14,6 +14,11 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   confidence: "Confiança",
   evidence: "Evidência",
   conflictsTitle: "Conflitos pendentes",
+  filterAria: "Filtrar conhecimento",
+  filterAll: "Todos",
+  filterReview: "Aprovar",
+  filterApproved: "Aceitos",
+  filterArchive: "Arquivo",
   publish: "Publicar versão",
   activeVersion: `Versão ativa ${values?.number ?? ""}`,
   historyTitle: "Histórico",
@@ -58,6 +63,8 @@ describe("BrandKnowledgeReview", () => {
 
   it("shows source, authority, confidence and conflicts side by side", () => {
     render(<BrandKnowledgeReview clientProfileId="profile-1" />);
+    expect(screen.getByTestId("brand-kit-knowledge").className).not.toMatch(/border/);
+    expect(screen.getByRole("radiogroup", { name: "Filtrar conhecimento" })).toBeInTheDocument();
     expect(screen.getByText("Conflitos pendentes")).toBeVisible();
     expect(screen.getAllByText("palette.colors")).toHaveLength(3);
     expect(screen.getAllByText(/brand_guide · extraction.colors/)[0]).toBeVisible();

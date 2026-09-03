@@ -822,10 +822,12 @@ describe("CreativeComposer", () => {
       createdAt: new Date(), updatedAt: new Date(),
     };
     const piece = renderComposer(composer({ workId: "work-1", outputs: [output], sources: [readySource] }), { layout: "piece" });
-    const pieceResults = screen.getByRole("heading", { name: "Resultados" }).closest("section")!;
+    const pieceResults = screen.getByTestId("proposal-review-surface");
     const pieceReading = screen.getByRole("heading", { name: "Leitura da IA" }).closest("section")!;
 
     expect(pieceResults.compareDocumentPosition(pieceReading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Gere variações a partir de uma arte" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("creative-output-progress")).not.toBeInTheDocument();
     expect(screen.queryByTestId("creative-composer-dropzone")).not.toBeInTheDocument();
     expect(screen.queryByTestId("creative-generate-action")).not.toBeInTheDocument();
 

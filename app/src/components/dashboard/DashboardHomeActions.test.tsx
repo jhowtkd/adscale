@@ -188,7 +188,9 @@ describe("DashboardHomeActions", () => {
     expect(continueLink).toHaveTextContent("Marca Marca A");
     expect(continueLink).toHaveTextContent("Gerando");
     expect(continueLink).toHaveTextContent("dashboard.home.continueTrackGeneration");
-    expect(screen.getByRole("button", { name: "Nova campanha" })).toHaveClass("border");
+    expect(screen.getByTestId("stage-brand-bar")).toHaveClass("gap-2");
+    expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByRole("button", { name: "Nova campanha" }));
+    expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByTestId("active-client-switcher"));
     expect(screen.getAllByRole("radio")).toHaveLength(4);
     expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
     expect(screen.queryByText("dashboard.home.chooseIntent")).not.toBeInTheDocument();
@@ -814,6 +816,9 @@ describe("DashboardHomeActions", () => {
       isLoading: false, isError: false, refetch: vi.fn(),
     });
     render(<DashboardHomeActions />);
-    expect(screen.getByTestId("studio-talk-box")).toHaveAttribute("data-placement", "dock");
+    const talkBox = screen.getByTestId("studio-talk-box");
+    expect(talkBox).toHaveAttribute("data-placement", "dock");
+    expect(talkBox.className).not.toMatch(/\bp-5\b/);
+    expect(screen.getByRole("textbox").className).not.toMatch(/min-h-20/);
   });
 });

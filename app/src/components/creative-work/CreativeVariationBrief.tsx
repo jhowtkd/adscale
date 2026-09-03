@@ -106,17 +106,19 @@ export function CreativeVariationBrief({
   ] as const : [];
 
   return (
-    <section aria-labelledby="variation-analysis-title" className="space-y-4 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="variation-analysis-title" className="text-sm font-semibold text-[var(--text-primary)]">
+    <section aria-labelledby="variation-analysis-title">
+      <details className="group">
+      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-full py-1.5 text-[var(--text-muted)] marker:content-none hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] [&::-webkit-details-marker]:hidden">
+        <h2 id="variation-analysis-title" className="text-xs font-medium uppercase tracking-[0.14em]">
           {t("variationAnalysisTitle")}
         </h2>
-        {onSave && !editing ? (
-          <button type="button" onClick={() => { setEditing(true); setSaveState("idle"); }} className="rounded-[var(--radius-control)] border border-[var(--border-default)] px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
-            {t("editAnalysis")}
-          </button>
-        ) : null}
-      </div>
+      </summary>
+      <div className="mt-4 space-y-4">
+      {onSave && !editing ? (
+        <button type="button" onClick={() => { setEditing(true); setSaveState("idle"); }} className="rounded-full px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:bg-white/6 hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+          {t("editAnalysis")}
+        </button>
+      ) : null}
 
       <div>
         <h3 className="text-xs font-semibold text-[var(--text-secondary)]">{t("provenanceTitle")}</h3>
@@ -210,6 +212,8 @@ export function CreativeVariationBrief({
         </div>
       ) : null}
       <div aria-live="polite">{saveState === "error" ? <p role="alert" className="text-sm text-[var(--danger-text)]">{t("saveAnalysisError")}</p> : saveState === "saved" ? <p className="text-sm text-[var(--success-text)]">{t("savedAnalysis")}</p> : null}</div>
+      </div>
+      </details>
     </section>
   );
 }
