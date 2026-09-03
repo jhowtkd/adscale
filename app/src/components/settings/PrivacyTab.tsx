@@ -3,8 +3,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Download, Trash2, AlertTriangle, Shield, FileText, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
+import {
+  settingsButtonClass,
+  settingsDangerButtonClass,
+  settingsFieldClass,
+  settingsHintClass,
+  settingsSectionTitleClass,
+} from "@/components/settings/settings-chrome";
 
 export default function PrivacyTab() {
   const t = useTranslations("settings.privacy");
@@ -58,72 +65,60 @@ export default function PrivacyTab() {
   }
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <Download size={18} className="text-[var(--utility-icon)]" />
-          <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("exportTitle")}</h3>
-        </div>
+    <div className="divide-y divide-[var(--border-dim)]">
+      <section className="space-y-3 pb-8">
+        <h3 className={settingsSectionTitleClass}>{t("exportTitle")}</h3>
         <p className="text-sm text-[var(--text-secondary)]">{t("exportDescription")}</p>
         <button
           type="button"
           onClick={handleExport}
           disabled={exporting}
-          className="mt-4 inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 text-sm font-medium text-[var(--text-primary)] transition-all hover:bg-[var(--surface-inset)] disabled:opacity-60"
+          className={settingsButtonClass}
         >
-          {exporting ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}
+          {exporting ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : null}
           {exporting ? t("exporting") : t("exportButton")}
         </button>
-      </div>
+      </section>
 
-      <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <FileText size={18} className="text-[var(--utility-icon)]" />
-          <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("legalTitle")}</h3>
-        </div>
-        <div className="flex flex-wrap gap-3">
+      <section className="space-y-3 py-8">
+        <h3 className={settingsSectionTitleClass}>{t("legalTitle")}</h3>
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
           <Link
             href="/privacy"
             target="_blank"
-            className="inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 py-2 text-sm text-[var(--text-primary)] transition-all hover:bg-[var(--surface-inset)]"
+            className="text-sm text-[var(--text-primary)] underline-offset-4 hover:underline"
           >
-            <Shield size={16} aria-hidden="true" />
             {t("privacyPolicy")}
           </Link>
           <Link
             href="/terms"
             target="_blank"
-            className="inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 py-2 text-sm text-[var(--text-primary)] transition-all hover:bg-[var(--surface-inset)]"
+            className="text-sm text-[var(--text-primary)] underline-offset-4 hover:underline"
           >
-            <FileText size={16} aria-hidden="true" />
             {t("termsOfUse")}
           </Link>
         </div>
-      </div>
+      </section>
 
-      <div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <Trash2 size={18} className="text-[var(--danger-text)]" />
-          <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("deleteTitle")}</h3>
-        </div>
+      <section className="space-y-3 pt-8">
+        <h3 className={settingsSectionTitleClass}>{t("deleteTitle")}</h3>
         <p className="text-sm text-[var(--text-secondary)]">{t("deleteDescription")}</p>
         {!showDeleteDialog ? (
           <button
             type="button"
             onClick={() => setShowDeleteDialog(true)}
-            className="mt-4 inline-flex min-h-[var(--control-touch)] items-center gap-2 rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 text-sm font-medium text-[var(--danger-text)] transition-all hover:bg-[var(--danger-bg)]"
+            className={settingsDangerButtonClass}
           >
-            <AlertTriangle size={16} aria-hidden="true" />
             {t("deleteButton")}
           </button>
         ) : (
-          <div className="mt-4 space-y-3">
+          <div className="space-y-3">
             {error ? (
-              <div className="rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-text)]" role="alert">
+              <p className="text-sm text-[var(--danger-text)]" role="alert">
                 {error}
-              </div>
+              </p>
             ) : null}
-            <p className="text-xs text-[var(--text-secondary)]">
+            <p className={settingsHintClass}>
               {t("deleteConfirmHint", { keyword: t("deleteConfirmKeyword") })}
             </p>
             <input
@@ -132,7 +127,7 @@ export default function PrivacyTab() {
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder={t("deleteConfirmPlaceholder")}
-              className="h-11 w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-primary)] outline-none focus-visible:border-[var(--danger-border)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              className={settingsFieldClass}
             />
             <div className="flex gap-2">
               <button
@@ -142,7 +137,7 @@ export default function PrivacyTab() {
                   setConfirmText("");
                   setError("");
                 }}
-                className="min-h-[var(--control-touch)] flex-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] text-sm font-medium text-[var(--text-primary)] transition-all hover:bg-[var(--surface-inset)]"
+                className={settingsButtonClass}
               >
                 {tCommon("cancel")}
               </button>
@@ -150,14 +145,14 @@ export default function PrivacyTab() {
                 type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="min-h-[var(--control-touch)] flex-1 rounded-md bg-[var(--danger-text)] text-sm font-medium text-[var(--text-on-accent)] transition-all hover:opacity-90 disabled:opacity-60"
+                className={settingsDangerButtonClass}
               >
                 {deleting ? t("deleting") : t("deleteConfirmButton")}
               </button>
             </div>
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

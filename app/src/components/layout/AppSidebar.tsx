@@ -124,18 +124,31 @@ export default function AppSidebar() {
       </div>
 
       <div className="mt-auto shrink-0 border-t border-[var(--border-subtle)] pt-3">
-        <TextNavItem
-          href="/docs"
-          active={isDocs}
-          label={tNav("docs")}
-          icon={BookOpen}
-        />
-        <TextNavItem
-          href="/settings"
-          active={isConfig}
-          label={tNav("config")}
-          icon={Settings}
-        />
+        <div className="flex items-center gap-1">
+          <div className="min-w-0 flex-1">
+            <TextNavItem
+              href="/docs"
+              active={isDocs}
+              label={tNav("docs")}
+              icon={BookOpen}
+            />
+          </div>
+          <Link
+            href="/settings"
+            aria-label={tNav("config")}
+            title={tNav("config")}
+            aria-current={isConfig ? "page" : undefined}
+            className={cn(
+              "grid size-9 shrink-0 place-items-center rounded-[var(--radius-control)] transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+              isConfig
+                ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]"
+                : "text-[var(--utility-icon)] hover:bg-[var(--surface-base)] hover:text-[var(--text-primary)]",
+            )}
+          >
+            <Settings size={16} aria-hidden="true" />
+          </Link>
+        </div>
         {isPlatformOwner ? <TextNavItem href="/feedback" active={pathname.startsWith("/feedback")} label={tNav("feedback")} /> : null}
         <Link
           href="/dashboard"

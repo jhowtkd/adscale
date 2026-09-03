@@ -124,6 +124,8 @@ describe("AppSidebar role-aware navigation", () => {
       "href",
       "/settings"
     );
+    expect(configLink).toHaveAttribute("title", "navigation.config");
+    expect(configLink).not.toHaveTextContent("navigation.config");
     expect(
       screen.getByRole("link", { name: "library.title" }).compareDocumentPosition(
         screen.getByTestId("sidebar-brand-kit-feature")

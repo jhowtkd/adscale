@@ -42,5 +42,7 @@ export function mapWorkspaceAssetToV6(
     imageUrl: asset.url,
     glyph: assetGlyph(asset.name),
     gradient: pickSurfaceGradient(index),
+    width: asset.width,
+    height: asset.height,
   };
 }

@@ -13,6 +13,8 @@ export type LibraryV6Asset = {
   imageUrl: string;
   glyph: string;
   gradient: string;
+  width?: number | null;
+  height?: number | null;
 };
 
 export type LibraryV6Labels = {

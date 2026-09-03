@@ -21,6 +21,7 @@ vi.mock("next-intl", () => ({
         "brandKit.title": "Brand Kit",
         "brandKit.subtitle": "Manage brand kit",
         "brandKit.extract": "Extract",
+        "brandKit.logoEmpty": "Click or drop the logo",
       };
       return labels[key] ?? key;
     }
@@ -30,6 +31,7 @@ vi.mock("next-intl", () => ({
         save: "Save",
         success: "Success",
         loading: "Loading",
+        remove: "remove",
       };
       return labels[key] ?? key;
     }
@@ -261,5 +263,57 @@ describe("BrandKitTab — workspace selector", () => {
 
     expect(screen.queryByText("Select a client profile")).not.toBeInTheDocument();
     expect(screen.getByText("Network failure")).toBeInTheDocument();
+  });
+});
+
+describe("BrandKitTab — identity occupancy", () => {
+  beforeEach(() => {
+    useActiveClientProfileMock.mockReturnValue({
+      profiles: [{ id: "profile-only", name: "Solo" }],
+      activeClientProfileId: "profile-only",
+      isLoading: false,
+      selectProfile: selectProfileMock,
+    });
+    useBrandKitMock.mockReturnValue({
+      data: {
+        name: "Acme",
+        description: "Seed",
+        logoUrl: "/logo.png",
+        logoAssetKey: "logo-1",
+        brandColors: ["#00C853"],
+        brandFonts: ["Inter"],
+        visualNotes: "",
+        toneNotes: "warm",
+        toneOfVoice: "direct",
+        prohibitedElements: "none",
+        requiredElements: "logo",
+        constraints: "",
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+  });
+
+  it("keeps logo and colors on identity and moves voice fields off the stage", async () => {
+    const { container, rerender } = render(<BrandKitTab />, { wrapper: createWrapper() });
+
+    expect(screen.getByTestId("brand-kit-identity")).toBeVisible();
+    expect(screen.getByRole("button", { name: "remove" })).toBeInTheDocument();
+    expect(container.querySelector("[class*='border-dashed']")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Brand Kit" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("brandKit.toneOfVoice")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("brandKit.fonts")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "remove #00C853" })).toBeInTheDocument());
+
+    rerender(<BrandKitTab stage="voice" />);
+    expect(screen.getByTestId("brand-kit-voice")).toBeVisible();
+    expect(screen.getByLabelText("brandKit.toneOfVoice")).toBeVisible();
+    expect(screen.queryByTestId("brand-kit-identity")).not.toBeInTheDocument();
+
+    rerender(<BrandKitTab stage="fonts" />);
+    expect(screen.getByTestId("brand-kit-fonts")).toBeVisible();
+    expect(screen.queryByLabelText("brandKit.toneOfVoice")).not.toBeInTheDocument();
+    expect(screen.queryByText("brandKit.fonts")).not.toBeInTheDocument();
   });
 });

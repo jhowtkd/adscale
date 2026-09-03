@@ -26,6 +26,10 @@ vi.mock("@/lib/store", () => ({
   useAppStore: () => vi.fn(),
 }));
 
+vi.mock("@/lib/hooks/use-canonical-works", () => ({
+  useCanonicalWorks: () => ({ data: [], isLoading: false }),
+}));
+
 vi.mock("@/lib/hooks/use-campaign-workspace", () => ({
   useCampaignWorkspace: () => ({
     campaign: {
@@ -114,7 +118,11 @@ vi.mock("@/lib/hooks/use-derivation-flow", () => ({
 
 vi.mock("@/lib/hooks/use-assets", () => ({
   useUploadAsset: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useCampaignAssets: () => ({ data: [] }),
+  useCampaignAssets: () => ({ data: [], isLoading: false }),
+}));
+
+vi.mock("@/lib/hooks/use-creative-inspirations", () => ({
+  useCreativeInspirations: () => ({ data: [], isLoading: false }),
 }));
 
 vi.mock("@/lib/hooks/use-client-profiles", () => ({
@@ -257,29 +265,22 @@ describe("CampaignWorkspacePage", () => {
 
     await waitFor(() => expect(mockMutateAsync).toHaveBeenCalled());
 
-    const gridTab = screen.getByRole("tab", { name: "campaign.workspace.gridTab" });
-    const chatTab = screen.getByRole("tab", { name: "campaign.workspace.chatTab" });
-    expect(gridTab).toHaveAttribute("aria-selected", "true");
-    expect(gridTab).toHaveClass("bg-[var(--selection-bg)]");
+    const gridTab = screen.getByRole("radio", { name: "campaign.workspace.gridTab" });
+    const chatTab = screen.getByRole("radio", { name: "campaign.workspace.chatTab" });
+    expect(gridTab).toHaveAttribute("aria-checked", "true");
 
     fireEvent.click(chatTab);
-    expect(chatTab).toHaveAttribute("aria-selected", "true");
+    expect(chatTab).toHaveAttribute("aria-checked", "true");
   });
 
-  it("continues a campaign created from scratch after completing its briefing", async () => {
+  it("continues a campaign grouping by creating a piece on Palco", () => {
     renderPage();
 
-    fireEvent.click(screen.getByRole("button", { name: "Complete briefing" }));
-
-    await waitFor(() => {
-      expect(mockUpdateCampaign).toHaveBeenCalledWith(
-        expect.objectContaining({
-          product: "Coffee combo",
-          ctaVariants: ["Order now"],
-          platforms: ["Instagram", "Facebook"],
-        })
-      );
-      expect(mockGoToTrabalho).toHaveBeenCalledTimes(1);
-    });
+    expect(screen.getByRole("link", { name: "campaign.v6.newPiece" })).toHaveAttribute(
+      "href",
+      "/?mode=arte&compose=1&campaignId=camp-1",
+    );
+    expect(screen.getByTestId("campaign-pieces-empty")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Complete briefing" })).not.toBeInTheDocument();
   });
 });

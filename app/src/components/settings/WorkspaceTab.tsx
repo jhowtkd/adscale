@@ -2,7 +2,7 @@
 
 import { useReducer, useEffect, useRef, useMemo } from "react";
 import { m, useReducedMotion } from "@/components/animations/MotionBoundary";
-import { Check, AlertTriangle } from "lucide-react";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import { useTranslations } from "next-intl";
@@ -11,9 +11,14 @@ import {
   useWorkspaceSettings,
   useUpdateWorkspaceSettings,
 } from "@/lib/hooks/use-workspace-settings";
-
-const FOCUS_RING =
-  "focus:outline-none focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)]";
+import {
+  settingsButtonClass,
+  settingsDangerButtonClass,
+  settingsFieldClass,
+  settingsHintClass,
+  settingsSectionTitleClass,
+  settingsTextareaClass,
+} from "@/components/settings/settings-chrome";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -154,32 +159,19 @@ export default function WorkspaceTab() {
       )}
 
       {isError && !isLoading && (
-        <m.div
-          variants={itemVariants}
-          className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger-text)]"
-        >
+        <p className="text-sm text-[var(--danger-text)]">
           {error?.message || tc("error")}
-        </m.div>
+        </p>
       )}
 
       {!isLoading && !isError && (
         <>
           {/* Workspace Info Section */}
           <div className="space-y-5">
-            <m.h3
-              variants={itemVariants}
-              className="text-[15px] font-semibold text-[var(--text-primary)] pb-3 border-b border-[var(--border-dim)]"
-            >
-              {t("workspaceInformation")}
-            </m.h3>
-
             {!canEdit && (
-              <m.div
-                variants={itemVariants}
-                className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--text-secondary)]"
-              >
+              <p className="text-sm text-[var(--text-secondary)]">
                 {t("workspace.readOnlyNotice")}
-              </m.div>
+              </p>
             )}
 
             <m.div variants={itemVariants} className="space-y-2">
@@ -193,14 +185,7 @@ export default function WorkspaceTab() {
                 onChange={(e) => updateForm({ name: e.target.value })}
                 placeholder={t("workspace.namePlaceholder")}
                 disabled={!canEdit}
-                className={cn(
-                  "w-full h-10 rounded-md border px-3 text-sm",
-                  "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                  "placeholder:text-[var(--text-muted)]",
-                  "focus:outline-none focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)]",
-                  "transition-all duration-200 border-[var(--border-dim)]",
-                  "disabled:opacity-60 disabled:cursor-not-allowed"
-                )}
+                className={settingsFieldClass}
               />
             </m.div>
 
@@ -242,14 +227,7 @@ export default function WorkspaceTab() {
                 placeholder={t("workspace.descriptionPlaceholder")}
                 rows={3}
                 disabled={!canEdit}
-                className={cn(
-                  "w-full rounded-md border px-3 py-2 text-sm resize-none",
-                  "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                  "placeholder:text-[var(--text-muted)]",
-                  FOCUS_RING,
-                  "transition-all duration-200 border-[var(--border-dim)]",
-                  "disabled:opacity-60 disabled:cursor-not-allowed"
-                )}
+                className={cn(settingsTextareaClass, "resize-none")}
               />
             </m.div>
 
@@ -262,14 +240,7 @@ export default function WorkspaceTab() {
                 value={industry}
                 onChange={(e) => updateForm({ industry: e.target.value })}
                 disabled={!canEdit}
-                className={cn(
-                  "w-full h-10 rounded-md border px-3 text-sm",
-                  "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                  FOCUS_RING,
-                  "transition-all duration-200 border-[var(--border-dim)]",
-                  "appearance-none cursor-pointer",
-                  "disabled:opacity-60 disabled:cursor-not-allowed"
-                )}
+                className={cn(settingsFieldClass, "appearance-none cursor-pointer")}
               >
                 <option>Marketing & Advertising</option>
                 <option>E-commerce</option>
@@ -295,14 +266,7 @@ export default function WorkspaceTab() {
                 onChange={(e) => updateForm({ website: e.target.value })}
                 placeholder={t("workspace.urlPlaceholder")}
                 disabled={!canEdit}
-                className={cn(
-                  "w-full h-10 rounded-md border px-3 text-sm",
-                  "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                  "placeholder:text-[var(--text-muted)]",
-                  FOCUS_RING,
-                  "transition-all duration-200 border-[var(--border-dim)]",
-                  "disabled:opacity-60 disabled:cursor-not-allowed"
-                )}
+                className={settingsFieldClass}
               />
             </m.div>
 
@@ -315,14 +279,7 @@ export default function WorkspaceTab() {
                 value={timezone}
                 onChange={(e) => updateForm({ timezone: e.target.value })}
                 disabled={!canEdit}
-                className={cn(
-                  "w-full h-10 rounded-md border px-3 text-sm",
-                  "bg-[var(--surface-base)] text-[var(--text-primary)]",
-                  FOCUS_RING,
-                  "transition-all duration-200 border-[var(--border-dim)]",
-                  "appearance-none cursor-pointer",
-                  "disabled:opacity-60 disabled:cursor-not-allowed"
-                )}
+                className={cn(settingsFieldClass, "appearance-none cursor-pointer")}
               >
                 <option value="America/New_York">Eastern Time (ET)</option>
                 <option value="America/Chicago">Central Time (CT)</option>
@@ -338,7 +295,7 @@ export default function WorkspaceTab() {
           </div>
 
           {/* Save Button */}
-          <m.div variants={itemVariants} className="flex justify-end">
+          <m.div variants={itemVariants} className="flex justify-end border-t border-[var(--border-dim)] pt-6">
             <button
               type="button"
               onClick={handleSave}
@@ -348,19 +305,13 @@ export default function WorkspaceTab() {
                 saveState !== "idle" ||
                 updateSettings.isPending
               }
-              className={cn(
-                "h-10 px-5 rounded-md text-sm font-medium text-[var(--action-primary-text)] flex items-center gap-2",
-                "bg-[var(--action-primary-bg)] hover:bg-[var(--action-primary-hover)]",
-                "active:scale-[0.98] active:brightness-90",
-                "transition-all duration-200",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
+              className={settingsButtonClass}
             >
               {saveState === "saving" && (
                 <m.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  className="size-4 border-2 border-[var(--text-on-accent)]/30 border-t-[var(--text-on-accent)] rounded-full"
+                  className="size-4 rounded-full border-2 border-current/30 border-t-current"
                 />
               )}
               {saveState === "saved" && <Check size={16} />}
@@ -374,31 +325,17 @@ export default function WorkspaceTab() {
             </button>
           </m.div>
 
-          {/* Danger Zone */}
           <m.div
             variants={itemVariants}
-            className="rounded-xl border border-[var(--danger-border)] p-5 space-y-4"
+            className="space-y-3 border-t border-[var(--border-dim)] pt-8"
           >
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={16} className="text-[var(--danger-text)]" />
-              <h3 className="text-sm font-semibold text-[var(--danger-text)]">
-                {t("dangerZone")}
-              </h3>
-            </div>
-            <p className="text-sm text-[var(--text-secondary)]">
-              {t("deleteWorkspaceWarning")}
-            </p>
+            <h3 className={settingsSectionTitleClass}>{t("dangerZone")}</h3>
+            <p className={settingsHintClass}>{t("deleteWorkspaceWarning")}</p>
             <button
               type="button"
               onClick={() => addToast("error", tc("comingSoon"))}
               disabled={!canEdit}
-              className={cn(
-                "h-9 px-4 rounded-md text-sm font-medium text-[var(--text-on-accent)]",
-                "bg-[var(--danger-text)] hover:brightness-110",
-                "active:scale-[0.98]",
-                "transition-all duration-200",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
+              className={settingsDangerButtonClass}
             >
               {t("deleteWorkspace")}
             </button>

@@ -24,12 +24,14 @@ export type CampaignWorkspaceV6ViewModel = {
 };
 
 export type CampaignWorkspaceV6Labels = {
+  sectionLabel: string;
   backToCampaigns: string;
   deleteCampaign: string;
   stagesAria: string;
   briefingTitle: string;
   briefingVersion: string;
   rulesTitle: string;
+  newPiece: string;
 };
 
 export type WorkspaceV6StageContext = {

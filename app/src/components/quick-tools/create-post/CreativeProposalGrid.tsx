@@ -155,20 +155,29 @@ export default function CreativeProposalGrid({
 
   return (
     <>
+      {layout === "piece" ? null : (
       <section aria-live="polite" aria-atomic="true" className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3" data-testid="creative-output-progress">
         <p className="text-sm font-semibold text-[var(--text-primary)]">{progressText}</p>
         <ul className="mt-2 space-y-1 text-xs text-[var(--text-muted)]">{outputs.map((output) => <li key={output.id}>{outputLabel(output, levelLabels)} · {statusLabel(output.status)}</li>)}</ul>
       </section>
+      )}
       <div
         data-testid="proposal-review-surface"
         className={cn(
-          "grid gap-4 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-3 lg:p-5",
+          "grid gap-4",
           layout === "piece"
-            ? "mx-auto w-full max-w-4xl grid-cols-1"
-            : "lg:grid-cols-[5.5rem_minmax(0,1fr)_16rem]",
+            ? "w-full grid-cols-1"
+            : "rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-3 lg:grid-cols-[5.5rem_minmax(0,1fr)_16rem] lg:p-5",
         )}
       >
-        <nav aria-label={t("proposal.thumbnailsAria")} className={cn("flex gap-2 overflow-x-auto", layout === "studio" && "lg:flex-col")}>
+        <nav
+          aria-label={t("proposal.thumbnailsAria")}
+          className={cn(
+            "flex gap-2 overflow-x-auto",
+            layout === "studio" && "lg:flex-col",
+            layout === "piece" && visible.length < 2 && "hidden",
+          )}
+        >
           {visible.map((output) => {
             const outputFormat = output.targetFormat ?? "4:5";
             const outputName = outputLabel(output, levelLabels);
@@ -192,7 +201,7 @@ export default function CreativeProposalGrid({
           })}
         </nav>
 
-        <div className={cn("min-w-0", layout === "piece" && "flex justify-center rounded-[var(--radius-object)] bg-[var(--surface-inset)] p-4 sm:p-6")}>
+        <div className={cn("min-w-0", layout === "piece" && "flex justify-center")}>
           <button
             type="button"
             data-testid="review-preview"
@@ -201,20 +210,25 @@ export default function CreativeProposalGrid({
             aria-label={t("proposal.expandAria", { name: label, format })}
             onClick={() => setExpanded(true)}
             className={cn(
-              "group relative mx-auto flex w-full items-center justify-center overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] disabled:cursor-default",
-              layout === "piece" && "h-[min(72vh,680px)]",
+              "group relative flex items-center justify-center overflow-hidden rounded-[var(--radius-object)] disabled:cursor-default",
+              layout === "piece"
+                ? "max-h-[min(48vh,520px)] w-auto border-0 bg-transparent"
+                : "mx-auto w-full border border-[var(--border-subtle)] bg-[var(--surface-inset)]",
             )}
             style={layout === "studio" ? { aspectRatio } : undefined}
           >
             {available ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={outputSource(selected)} alt={t("proposal.previewAlt", { name: label, format })} className="h-full w-full object-contain" />
+              <img src={outputSource(selected)} alt={t("proposal.previewAlt", { name: label, format })} className={cn("object-contain", layout === "piece" ? "max-h-[min(48vh,520px)] w-auto" : "h-full w-full")} />
             ) : (
               <span role="status" aria-live="polite" className="px-5">
                 {selected.status === "failed" ? (
                   <p className="text-center text-sm text-[var(--text-muted)]">{statusLabel(selected.status)}</p>
                 ) : (
-                  <span className="flex items-center gap-5 rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-base)] px-5 py-4 text-left shadow-sm">
+                  <span className={cn(
+                    "flex items-center gap-5 px-5 py-4 text-left",
+                    layout !== "piece" && "rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-base)] shadow-sm",
+                  )}>
                     <TetrisLoader label={t("factoryActiveLabel")} />
                     <span>
                       <span className="block text-sm font-semibold text-[var(--text-primary)]">{generationCopy[0]}</span>

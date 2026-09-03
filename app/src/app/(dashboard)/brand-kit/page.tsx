@@ -1,6 +1,6 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { useState } from "react";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import BrandKitTab from "@/components/settings/BrandKitTab";
 import { BrandTrainingAssets } from "@/components/brand-training/BrandTrainingAssets";
@@ -9,9 +9,20 @@ import {
   BrandVoiceSection,
 } from "@/components/brand-training/BrandTrainingWizard";
 import { BrandKnowledgeReview } from "@/components/brand-training/BrandKnowledgeReview";
+import { DiscreetRadios } from "@/components/dashboard/studio-stage/DiscreetRadios";
+import {
+  studioChromeBarClass,
+  studioFilterStripClass,
+  studioInstrumentClass,
+} from "@/components/dashboard/studio-stage/StudioInstrument";
+import { cn } from "@/lib/utils";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useBrandTrainingStatus } from "@/lib/hooks/use-brand-training";
 import { useTranslations } from "next-intl";
+
+type KitSection = "identity" | "assets" | "fonts" | "knowledge" | "voice";
+
+const KIT_SECTIONS: KitSection[] = ["identity", "assets", "fonts", "knowledge", "voice"];
 
 export default function BrandKitPage() {
   const t = useTranslations("navigation");
@@ -19,62 +30,87 @@ export default function BrandKitPage() {
   const { activeClientProfileId, profiles } = useActiveClientProfile();
   const status = useBrandTrainingStatus(activeClientProfileId);
   const showBrandKit = profiles.length === 0 || activeClientProfileId !== null;
+  const [section, setSection] = useState<KitSection>("identity");
+  const activeSection = activeClientProfileId ? section : "identity";
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
-      <header className="max-w-[760px] space-y-4">
-        <div className="space-y-1">
-          <h1 className="product-page-title text-[var(--text-primary)]">{t("brands")}</h1>
-          <p className="text-sm text-[var(--text-secondary)]">{t("brandKitHint")}</p>
-        </div>
+    <div className={cn(studioInstrumentClass, "py-0 pb-6")}>
+      <div className={studioChromeBarClass}>
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
+          {t("brandKit")}
+        </p>
+        {status.data ? (
+          <p
+            role="status"
+            className="shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]"
+          >
+            {status.data.trained ? tTraining("trainedBadge") : tTraining("incompleteBadge")}
+          </p>
+        ) : null}
+      </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <ActiveBrandSwitcher
-            id="brand-kit-active-brand"
-            className="mt-0 w-full sm:max-w-xs"
-          />
-          {status.data ? (
-            <span
-              role="status"
-              className={
-                status.data.trained
-                  ? "inline-flex w-fit items-center gap-1 rounded-full bg-[var(--success-bg)] px-2.5 py-1 text-xs font-medium text-[var(--success-text)]"
-                  : "inline-flex w-fit rounded-full border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2.5 py-1 text-xs font-medium text-[var(--text-muted)]"
-              }
-            >
-              {status.data.trained ? <Check size={12} aria-hidden="true" /> : null}
-              {status.data.trained
-                ? tTraining("trainedBadge")
-                : tTraining("incompleteBadge")}
-            </span>
-          ) : null}
-        </div>
+      <header className="space-y-2">
+        <h1 className="product-page-title text-[var(--text-primary)]">{t("brands")}</h1>
+        <p className="text-sm text-[var(--text-secondary)]">{t("brandKitHint")}</p>
       </header>
 
-      <section className="mt-6 max-w-[760px] rounded-xl border border-[var(--border-dim)] bg-[var(--surface-base)] p-5 sm:p-6">
+      <div data-testid="brand-kit-strip" className={studioFilterStripClass}>
+        <ActiveBrandSwitcher
+          id="brand-kit-active-brand"
+          variant="grouped"
+          className="h-9 max-w-[12rem] shrink-0 border-0 bg-transparent px-2 hover:bg-white/6"
+        />
+        {activeClientProfileId ? (
+          <>
+            <span className="hidden h-3.5 w-px shrink-0 bg-white/12 sm:block" aria-hidden="true" />
+            <DiscreetRadios
+              label={tTraining("kitNavAria")}
+              value={activeSection}
+              onChange={setSection}
+              className="min-w-0 flex-1 justify-center"
+              options={KIT_SECTIONS.map((value) => ({
+                value,
+                label: tTraining(`kitSections.${value}`),
+              }))}
+            />
+          </>
+        ) : null}
+      </div>
+
+      <section className="space-y-8">
         {showBrandKit ? (
-          <BrandKitTab />
+          <div
+            className={
+              activeSection === "assets" || activeSection === "knowledge" ? "hidden" : undefined
+            }
+            hidden={activeSection === "assets" || activeSection === "knowledge"}
+          >
+            <BrandKitTab
+              stage={
+                activeSection === "voice"
+                  ? "voice"
+                  : activeSection === "fonts"
+                    ? "fonts"
+                    : "identity"
+              }
+            />
+          </div>
         ) : (
-          <p className="text-sm text-[var(--text-secondary)]">
+          <p className="pt-6 text-sm text-[var(--text-secondary)]">
             {tTraining("selectBrandPrompt")}
           </p>
         )}
-
-        {activeClientProfileId ? (
-          <>
-            <div className="mt-8 border-t border-[var(--border-dim)] pt-8">
-              <BrandTrainingAssets clientProfileId={activeClientProfileId} />
-            </div>
-            <div className="mt-8 border-t border-[var(--border-dim)] pt-8">
-              <BrandFontFiles clientProfileId={activeClientProfileId} />
-            </div>
-            <div className="mt-8 border-t border-[var(--border-dim)] pt-8">
-              <BrandKnowledgeReview clientProfileId={activeClientProfileId} />
-            </div>
-            <div className="mt-8 border-t border-[var(--border-dim)] pt-8">
-              <BrandVoiceSection clientProfileId={activeClientProfileId} />
-            </div>
-          </>
+        {activeClientProfileId && activeSection === "assets" ? (
+          <BrandTrainingAssets clientProfileId={activeClientProfileId} />
+        ) : null}
+        {activeClientProfileId && activeSection === "fonts" ? (
+          <BrandFontFiles clientProfileId={activeClientProfileId} />
+        ) : null}
+        {activeClientProfileId && activeSection === "knowledge" ? (
+          <BrandKnowledgeReview clientProfileId={activeClientProfileId} />
+        ) : null}
+        {activeClientProfileId && activeSection === "voice" ? (
+          <BrandVoiceSection clientProfileId={activeClientProfileId} />
         ) : null}
       </section>
     </div>

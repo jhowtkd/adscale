@@ -19,12 +19,14 @@ vi.mock("@/components/feedback/ContextualFeedbackButton", () => ({
 }));
 
 const labels: CampaignWorkspaceV6Labels = {
+  sectionLabel: "Campaign",
   backToCampaigns: "Back to campaigns",
   deleteCampaign: "Delete campaign",
   stagesAria: "Stages",
   briefingTitle: "Briefing",
   briefingVersion: "v1",
   rulesTitle: "Rules",
+  newPiece: "New piece",
 };
 
 const view: CampaignWorkspaceV6ViewModel = {
@@ -40,14 +42,15 @@ const view: CampaignWorkspaceV6ViewModel = {
 };
 
 describe("CampaignWorkspaceV6Chrome", () => {
-  it("renders failed status as danger and generating status as warning", () => {
+  it("renders status as occupancy, not a colored badge", () => {
     const { rerender } = render(
       <CampaignWorkspaceV6Chrome
         view={{ ...view, status: "Failed", statusVariant: "danger" }}
         labels={labels}
       />,
     );
-    expect(screen.getByText("Failed")).toHaveClass("bg-[var(--danger-bg)]");
+    expect(screen.getByRole("status")).toHaveTextContent("Failed");
+    expect(screen.getByRole("status")).not.toHaveClass("bg-[var(--danger-bg)]");
 
     rerender(
       <CampaignWorkspaceV6Chrome
@@ -55,16 +58,46 @@ describe("CampaignWorkspaceV6Chrome", () => {
         labels={labels}
       />,
     );
-    expect(screen.getByText("Generating")).toHaveClass("bg-[var(--warning-bg)]");
+    expect(screen.getByRole("status")).toHaveTextContent("Generating");
+    expect(screen.getByRole("status")).not.toHaveClass("bg-[var(--warning-bg)]");
   });
 
-  it("marks the current stage with neutral navigation roles and semantic status", () => {
+  it("marks the current stage with discreet radios", () => {
     render(<CampaignWorkspaceV6Chrome view={view} labels={labels} />);
 
-    const currentStage = screen.getByText("Produce").closest("[aria-current]");
-    expect(currentStage).toHaveAttribute("aria-current", "step");
-    expect(currentStage).toHaveClass("bg-[var(--active-navigation-bg)]");
-    expect(screen.getByText("Active")).toHaveClass("bg-[var(--success-bg)]");
+    expect(screen.getByText("Campaign")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Holiday Sale" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Produce" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Briefing" })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("status")).toHaveTextContent("Active");
+    expect(screen.getByRole("status")).not.toHaveClass("bg-[var(--success-bg)]");
+  });
+
+  it("creates a new piece on Palco from the campaign grouping", () => {
+    render(<CampaignWorkspaceV6Chrome view={view} labels={labels} campaignId="camp-1" />);
+
+    expect(screen.getByRole("link", { name: "New piece" })).toHaveAttribute(
+      "href",
+      "/?mode=arte&compose=1&campaignId=camp-1",
+    );
+  });
+
+  it("keeps draft delete quiet instead of a danger fill", () => {
+    const onDelete = vi.fn();
+    render(
+      <CampaignWorkspaceV6Chrome
+        view={view}
+        labels={labels}
+        isDraft
+        onDelete={onDelete}
+      />,
+    );
+
+    const remove = screen.getByRole("button", { name: "Delete campaign" });
+    expect(remove.className).toContain("rounded-full");
+    expect(remove).not.toHaveClass("bg-[var(--danger-bg)]");
+    fireEvent.click(remove);
+    expect(onDelete).toHaveBeenCalledOnce();
   });
 
   it("calls onStageSelect when a phase is clicked", () => {
@@ -77,13 +110,13 @@ describe("CampaignWorkspaceV6Chrome", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Briefing/i }));
+    fireEvent.click(screen.getByRole("radio", { name: "Briefing" }));
     expect(onStageSelect).toHaveBeenCalledWith("briefing");
 
-    fireEvent.click(screen.getByRole("button", { name: /Review/i }));
+    fireEvent.click(screen.getByRole("radio", { name: "Review" }));
     expect(onStageSelect).toHaveBeenCalledWith("review");
 
-    fireEvent.click(screen.getByRole("button", { name: /Deliver/i }));
+    fireEvent.click(screen.getByRole("radio", { name: "Deliver" }));
     expect(onStageSelect).toHaveBeenCalledWith("share");
   });
 });

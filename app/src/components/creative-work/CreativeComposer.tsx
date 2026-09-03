@@ -18,7 +18,7 @@ import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCrea
 
 const FORMATS = ["1:1", "4:5", "9:16"] as const;
 
-export function CreativeComposer({ composer, composerRef, hideSourceUpload = false, layout = "studio", workflowVariant = "control", resultsOnly = false }: {
+export function CreativeComposer({ composer, composerRef, hideSourceUpload = false, layout = "studio", workflowVariant = "control", resultsOnly = false, chrome = "full" }: {
   composer: CreativeComposerViewModel;
   composerRef: CreativeComposerModel["composerRef"];
   /** Briefing-first entry keeps the canonical request but omits source upload. */
@@ -27,6 +27,8 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
   workflowVariant?: "control" | "progressive";
   /** Progressive results stay visible while plan/configuration remains collapsed. */
   resultsOnly?: boolean;
+  /** Palco owns request, attach and generate; stage chrome keeps configure/results only. */
+  chrome?: "full" | "stage";
 }) {
   const t = useTranslations("dashboard.home.composer");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -49,6 +51,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
       generateButtonRef.current?.focus();
     }
   }, [composer.brandConflict, composer.actionPhase]);
+  const stageChrome = chrome === "stage";
   const isRestyle = composer.intent === "restyle";
   const isVariations = composer.intent === "variations";
   const isSingle = composer.intent === "single";
@@ -249,7 +252,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
 
   const results = composer.outputs.length > 0 ? (
     <section {...(!resultsOnly ? { "aria-labelledby": "creative-results-title" } : {})} className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className={cn("flex flex-wrap items-center justify-between gap-3", layout === "piece" && "sr-only")}>
         {!resultsOnly ? <div>
           <h2 id="creative-results-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("results.title")}</h2>
           <p className="text-sm text-[var(--text-muted)]">{t("results.subtitle")}</p>
@@ -274,14 +277,19 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         isRevising={composer.isRevisingOutput}
         onLayerEditorPublished={composer.refreshOutputs}
       />
-      <div className="flex justify-end">
+      <div className={cn("flex", layout === "piece" ? "justify-start" : "justify-end")}>
         <label className="text-sm text-[var(--text-secondary)]">
           <span className="sr-only">{t("results.campaignLabel")}</span>
           <select
             aria-label={t("results.campaignLabel")}
             value={composer.campaignId ?? ""}
             onChange={(event) => void composer.linkCampaign(event.target.value || null)}
-            className="rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2"
+            className={cn(
+              "text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+              layout === "piece"
+                ? "border-0 bg-transparent py-1 text-xs text-[var(--text-muted)]"
+                : "rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2",
+            )}
           >
             <option value="">{t("results.noCampaign")}</option>
             {composer.campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
@@ -306,17 +314,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
 
   if (layout === "piece" && isVariations && results && !composer.brandConflict) {
     return (
-      <section id="creative-composer" aria-labelledby="creative-composer-title" className="mx-auto flex max-w-5xl scroll-mt-24 flex-col gap-5">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 id="creative-composer-title" className="text-2xl font-semibold text-[var(--text-primary)]">{title}</h1>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</p>
-          </div>
-          <span className="rounded-full bg-[var(--surface-inset)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
-            {t("brand")}: {composer.brandName ?? t("noBrand")}
-          </span>
-        </div>
-
+      <section id="creative-composer" aria-label={title} className="flex scroll-mt-24 flex-col gap-5">
         {results}
 
         {readyVariationSource ? (
@@ -339,8 +337,14 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
   }
 
   return (
-    <section id="creative-composer" aria-labelledby="creative-composer-title" className={cn("space-y-4 scroll-mt-24", layout === "piece" && "mx-auto flex max-w-5xl flex-col")}>
-      <div className={cn("flex items-center justify-between gap-3", layout === "piece" && "order-[-2]")}>
+    <section
+      id="creative-composer"
+      aria-labelledby={stageChrome || layout === "piece" ? undefined : "creative-composer-title"}
+      aria-label={layout === "piece" ? title : undefined}
+      className={cn("space-y-4 scroll-mt-24", layout === "piece" && "flex flex-col")}
+    >
+      {stageChrome ? <h2 id="creative-composer-title" className="sr-only">{title}</h2> : layout === "piece" ? null : (
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 id="creative-composer-title" className="text-2xl font-semibold text-[var(--text-primary)]">{title}</h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</p>
@@ -349,6 +353,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           {t("brand")}: {composer.brandName ?? t("noBrand")}
         </span>
       </div>
+      )}
 
       {layout === "piece" && !isCarousel ? results : null}
 
@@ -457,7 +462,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
             />
           </div>
         </>
-      ) : (
+      ) : stageChrome && !(isSingle && !hideSourceUpload && pieceReferenceSources.length > 0) ? null : (
         <div
           id="creative-composer-dropzone"
           data-testid="creative-composer-dropzone"
@@ -466,7 +471,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           onDrop={handleDrop}
           className="rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-raised)] p-4 focus-within:ring-2 focus-within:ring-[var(--focus-ring)]"
         >
-          {isSingle ? <>
+          {isSingle && !stageChrome ? <>
             <label htmlFor="creative-composer-request" className="sr-only">{t("requestLabel")}</label>
             <textarea
               ref={composerRef}
@@ -491,7 +496,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
             onRemove={composer.removeSource}
             onPromote={composer.promotePieceReference}
           /> : null}
-          {!hideSourceUpload && !isSingle ? <div className={cn("flex flex-wrap items-center gap-3", isSingle && "mt-3 border-t border-[var(--border-subtle)] pt-3")}>
+          {!stageChrome && !hideSourceUpload && !isSingle ? <div className={cn("flex flex-wrap items-center gap-3", isSingle && "mt-3 border-t border-[var(--border-subtle)] pt-3")}>
             <input
               ref={fileInputRef}
               id="creative-composer-file"
@@ -791,7 +796,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         </div>
       </details> : null}
 
-      <div
+      {stageChrome ? null : <div
         className="flex justify-end"
         data-testid="creative-generate-action"
       >
@@ -821,13 +826,13 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
             />
           )}
         </button>
-      </div>
+      </div>}
 
       </>)}
 
       {layout === "studio" && !isCarousel ? results : null}
 
-      {composer.error ? (
+      {stageChrome ? null : composer.error ? (
         <div className="flex flex-wrap items-center gap-3" role="alert">
           <p className="text-sm text-[var(--danger-text)]">{composer.error}</p>
           {composer.retryInitialTemplate ? (

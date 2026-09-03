@@ -1,0 +1,375 @@
+{
+  "version": 1,
+  "project": {
+    "name": "ADScale_2",
+    "productType": "AI static-ad creative studio",
+    "stack": [
+      "Next.js",
+      "React",
+      "Tailwind",
+      "next-intl"
+    ]
+  },
+  "sources": {
+    "tokens": [],
+    "components": [
+      "app/src/components/ui"
+    ],
+    "assets": [
+      "app/src/components/dashboard/studio-stage"
+    ],
+    "instructions": [
+      "DESIGN.md",
+      "PRODUCT.md",
+      "AGENTS.md"
+    ]
+  },
+  "design": {
+    "colorMode": "dark-default-with-light",
+    "colors": {
+      "canvas": "oklch(0.145 0.004 260)",
+      "surfaceRaised": "oklch ~ charcoal",
+      "accent": "electric green #00e85e, max 10% of screen",
+      "danger": "rose for fidelity errors"
+    },
+    "typography": {
+      "ui": "Inter",
+      "labels": "Space Mono uppercase wide tracking",
+      "display": "Press Start 2P only sparingly, never in studio chrome"
+    },
+    "spacing": {
+      "rhythm": "8px grid; large gaps between major blocks only"
+    },
+    "radius": {
+      "control": "0.5rem",
+      "object": "0.75rem"
+    },
+    "shadows": {
+      "product": "flat tonal layers, 1px borders, no nested cards"
+    },
+    "motion": {
+      "easing": "ease-out-expo / out-quint; respect prefers-reduced-motion"
+    },
+    "density": "expert-dense"
+  },
+  "components": {
+    "installed": [
+      "image-cursor-trail",
+      "shine-border"
+    ],
+    "preferredPrimitives": [],
+    "patterns": []
+  },
+  "constraints": {
+    "must": [
+      "Keep brand switcher, continue-work, request field, attachments (max 3), interview chips, protocol selection, fidelity error, primary CTA, inspirations",
+      "Portuguese product copy; expert trafficker under deadline",
+      "Visible focus ring on accent green; error next to the action it blocks",
+      "Green accent at most 10% of the studio surface"
+    ],
+    "avoid": [
+      "Nested cards, duplicate page titles, protocol cards after the primary CTA",
+      "Purple/indigo accents, gradient text, glassmorphism wallpaper, pixel font in chrome",
+      "Generic SaaS metric-hero templates"
+    ]
+  },
+  "decisions": [
+    {
+      "id": "home-palco-selected",
+      "surface": "studio home",
+      "choice": "Promote Palco da Marca as the production home shell. Reject Mesa de Disparo and Sessão. Delete /explore/home.",
+      "reason": "The stacked form is complete but visually a briefing. Palco keeps one composer, two occupancies, and the glass chrome already in the v6 shell."
+    },
+    {
+      "id": "home-palco-no-cursor-trail",
+      "surface": "studio home / Palco da Marca",
+      "choice": "Keep the overlapping mosaic on the work occupancy; restore the image-cursor-trail only on the empty occupancy, as edge reveals behind the headline",
+      "reason": "The trail was too much on top of a full mosaic, but the empty studio needs the edge reveal instead of a cut-off arc of tiny rounded cards"
+    },
+    {
+      "id": "home-palco-empty-and-talkbox",
+      "surface": "studio home / Palco da Marca",
+      "choice": "Empty studio centers the talk box inside a quieter inspiration mosaic; work studio docks the same talk box. Talk box is one composer (request, chips, attach, protocol, generate) instead of stacked form chrome.",
+      "reason": "A dark mosaic with a leftover dock is worse than the current home when there is no piece yet. The previous dock felt unresolved because chips, protocols and CTA competed as equal rows."
+    },
+    {
+      "id": "home-palco-glass-talkbox-and-empty-arc",
+      "surface": "studio home / Palco da Marca",
+      "choice": "Empty studio uses edge-peeking pieces plus the cursor trail, with a radial veil so the headline stays readable. Talk box uses glass-backdrop (88% dark) not glass-card. Protocol sits at the top as the same discreet radios, not a segmented track.",
+      "reason": "The arc looked cut off and over-rounded. Protocol was too hidden next to attach. Light glass made the composer unreadable over the mosaic."
+    },
+    {
+      "id": "home-palco-shell-glass",
+      "surface": "studio chrome / sidebar and topbar",
+      "choice": "Sidebar uses the same dark glass as the talk box: 88% black, 16px blur, 1.75rem radius, white/10 border. Desktop chrome is the bell only — no glass island, no explore strip.",
+      "reason": "The floating shell still looked like an opaque raised card while the composer had already moved to dark glass."
+    },
+    {
+      "id": "home-palco-talkbox-rainbow-glow",
+      "surface": "studio home / Palco talk box",
+      "choice": "Rejected full rainbow GlowEffect. Talk box keeps dark glass; edge uses ShineBorder (#A07CFE, #FE8FB5, #FFBE7B), paused under prefers-reduced-motion.",
+      "reason": "The rotating glow halo was too much around the composer. A thin traveling shine on the border is enough."
+    },
+    {
+      "id": "home-palco-shine-1px-28s",
+      "surface": "studio home / Palco talk box",
+      "choice": "ShineBorder overlay is 1px, 28s, colors #A07CFE / #FE8FB5 / #FFBE7B. Never wrap glass-backdrop in overflow-hidden. Purple on this instrument edge is an accepted exception to DESIGN.md.",
+      "reason": "A thicker or faster ring read as decoration. Overflow hidden killed backdrop-filter and made the box opaque."
+    },
+    {
+      "id": "home-palco-generate-hover",
+      "surface": "studio home / Palco talk box",
+      "choice": "Gerar is white at rest. Hover fills the button with the animated shine gradient via .talk-generate. No shine outline on the CTA.",
+      "reason": "A second shine ring on the button competed with the talk box border. White rest keeps the instrument quiet until the trafficker commits."
+    },
+    {
+      "id": "home-palco-attach-discreet",
+      "surface": "studio home / Palco talk box",
+      "choice": "Attach is a gray pill, max 3. Variations with zero files show only the word obrigatório in danger text. Generate blocks with the reference-required fidelity error next to the CTA.",
+      "reason": "A full red fill on the attach pill was too loud. The error belongs beside the action it blocks."
+    },
+    {
+      "id": "studio-instrument-per-surface",
+      "surface": "Trabalhos, Biblioteca, Marca, Peça, Campanha, Config",
+      "choice": "Roll Palco identity as Instrumento por superfície on studio pages. Reject Estúdio contínuo and Arquivo de peças. Shared studio chrome is glass shell, tokens, discreet radios, occupancy language, Palco chips, no nested cards. TalkBox and ShineBorder stay on home only. Trabalhos stays an expert list, Biblioteca a mosaic, Marca a kit stage, Peça a review surface, Campanha a grouping occupancy of pieces. Config is market-standard settings (left nav + panel), not Palco mode radios. /campaigns/new and /quick-tools/create-post redirect into Palco instead of growing parallel composers.",
+      "reason": "Palco won because it is one composer, not a layout to clone. A persistent dock on lists fakes generate-from-anywhere. An archive-everywhere layout hides status, bulk, and kit fields the trafficker still needs."
+    },
+    {
+      "id": "home-palco-closed-2026-09-02",
+      "surface": "studio home / Palco da Marca",
+      "choice": "Close Palco. Top-right is two TalkBox chips (Nova campanha, brand menu) aligned with the bell — not one mega-pill, no delete. Continue-work is a centered outline-only suggestion under the top row, not a 4:5 mosaic tile. Sidebar Configurações is an icon-only gear beside Docs.",
+      "reason": "A segmented island next to the bell was a second chrome. The large continue card was lost in the mosaic. Settings as a full text row competed with Docs and the account card."
+    },
+    {
+      "id": "trabalhos-closed-2026-09-02",
+      "surface": "Trabalhos /campaigns",
+      "choice": "Close Trabalhos to the Palco bar. One create chip (Novo trabalho + Plus) aligned with the bell via studioChromeBarClass. Remove the duplicate /campaigns/new quiet link and the tall white primary. Keep the expert list, origin radios, and search. TalkBox/ShineBorder stay off this page.",
+      "reason": "Two create actions fought the bell and leaked a missing common.newCampaign label. A white rectangle next to Palco chips was a second chrome language."
+    },
+    {
+      "id": "biblioteca-closed-2026-09-03",
+      "surface": "Biblioteca /library",
+      "status": "closed",
+      "choice": "Close Biblioteca. Palco bar: one Upload chip. Mosaic is CSS-column bento; tile is image+box; specs in hover/focus rover; delete is size-6 X. Occupancy strip (studioFilterStripClass): compact search that grows on focus, centered nowrap origin radios (Todos / Referência / Logo / Foto / Gerado), count as shown/total. No dashed dropzone card, no catalog footer, no wrapping toolbar. TalkBox/ShineBorder stay off this page.",
+      "reason": "Search, radios, and count as three columns wrapped Gerado under Todos and read as a generic catalog toolbar. Equal cards with always-on metadata were a grid, not an image instrument."
+    },
+    {
+      "id": "marca-identidade-closed-2026-09-03",
+      "surface": "Marca /brand-kit Identidade",
+      "status": "closed",
+      "choice": "Close Identidade. Object is logo + colors: solid occupancy box (empty = Clique ou solte o logo), no dashed card. Name and visual notes stay. Tone/constraints move to Voz; font family tags move to Fontes. Extract stays a Palco chip; Save and Clear are quiet actions plus ConfirmDialog.",
+      "reason": "The kit form competed with the page title. A dashed logo zone was the same language Biblioteca already rejected. Voice and font fields duplicated the other radios."
+    },
+    {
+      "id": "marca-referencias-closed-2026-09-03",
+      "surface": "Marca /brand-kit Referências",
+      "status": "closed",
+      "choice": "Close Referências. Same instrument as Biblioteca: Enviar chip, CSS-column bento, hover rover, occupancy strip Todos / Aprovar / Aprovadas / Arquivo with shown/total. Review (approve/archive/reject) is occupancy under the selected tile, not nested cards. No dashed dropzone or empty card. TalkBox/ShineBorder stay off this page.",
+      "reason": "A dashed upload plus equal status cards was a training inbox, not an image instrument. The trafficker already learned this occupancy on Biblioteca."
+    },
+    {
+      "id": "marca-fontes-closed-2026-09-03",
+      "surface": "Marca /brand-kit Fontes",
+      "status": "closed",
+      "choice": "Close Fontes. Family names are occupancy chips (TagInput without a bordered field). Real files are a divide list, not nested rows. File pick and send-for-review are Palco chips; approve/archive are quiet actions. Duplicate Arquivos reais de fonte heading removed — the radio already names the surface. TalkBox/ShineBorder stay off this page.",
+      "reason": "A bordered file list plus a native file input and a white Send button was a settings form sitting under the kit tags. Fontes is occupancy of type, not another card stack."
+    },
+    {
+      "id": "marca-conhecimento-closed-2026-09-03",
+      "surface": "Marca /brand-kit Conhecimento",
+      "status": "closed",
+      "choice": "Close Conhecimento. No outer card or duplicate Conhecimento da marca heading. Publish is a Palco chip; claims are a divide list with quiet Aceitar / Salvar / Rejeitar. Conflicts are occupancy alert text, not a nested danger card. Occupancy strip Todos / Aprovar / Aceitos / Arquivo with shown/total. TalkBox/ShineBorder stay off this page.",
+      "reason": "A raised bordered section with nested claim cards and a white Publish button was a settings inbox. Knowledge is a review occupancy, the same language as Fontes and Referências."
+    },
+    {
+      "id": "marca-voz-closed-2026-09-03",
+      "surface": "Marca /brand-kit Voz",
+      "status": "closed",
+      "choice": "Close Voz. Kit tone/constraints stay occupancy fields. Generate proposed voice is a Palco chip, not a white Button. Proposal fields use occupancy textareas; review status is mono occupancy; Approve is a chip; Cancel is quiet. Duplicate Voz da marca heading removed on /brand-kit — the radio already names the surface. TalkBox/ShineBorder stay off this page.",
+      "reason": "A white Generate button under a second heading made Voz a settings wizard. Voice is occupancy of tone, the same chip language as Extrair and Enviar."
+    },
+    {
+      "id": "marca-closed-2026-09-03",
+      "surface": "Marca /brand-kit",
+      "status": "closed",
+      "choice": "Close Marca. Palco bar: eyebrow Marca + occupancy Perfil treinado/incompleto. One strip: active brand + discreet radios Identidade / Referências / Fontes / Conhecimento / Voz. One panel at a time. Shared instrument is occupancy, Palco chips, quiet actions, no nested cards, no dashed dropzones, no duplicate page titles. TalkBox/ShineBorder stay off this page.",
+      "reason": "The kit was still a five-section settings stack after the chrome pass. Closing each radio to the Palco occupancy language makes /brand-kit a kit stage, not a form catalog."
+    },
+    {
+      "id": "peca-closed-2026-09-03",
+      "surface": "Peça /creative-work/[id]",
+      "status": "closed",
+      "choice": "Close Peça. Palco bar: eyebrow Peça + occupancy (Gerando / N de N prontas) + Nova variação chip. No creation briefing title on a completed review. The piece image is the object (no 72vh frame, no nested card). Thumbs hide when there is one proposal. AI reading is a collapsed details occupancy. TalkBox/ShineBorder stay off this page.",
+      "reason": "The resume surface still spoke like the Palco composer. A generate headline and a 72vh framed preview pushed approve/download off-screen and duplicated the TalkBox job."
+    },
+    {
+      "id": "campanha-closed-2026-09-03",
+      "surface": "Campanha /campaigns/[id]",
+      "status": "closed",
+      "choice": "Close Campanha. Palco bar: eyebrow Campanha + occupancy status + Nova peça chip to Palco (?mode=arte&compose=1&campaignId). Object is a grouping occupancy of pieces (bento mosaic), not a second composer. Empty grouping falls back to brand/studio art so the layout is readable. Piece tiles open /creative-work/[id]. TalkBox/ShineBorder stay off this page.",
+      "reason": "If Palco is where you create and edit, an empty briefing page says nothing. Campanha only groups Trabalhos; the trafficker needs art on the page to judge the grouping layout."
+    },
+    {
+      "id": "config-closed-2026-09-03",
+      "surface": "Config /settings",
+      "status": "closed",
+      "choice": "Close Config. Market-standard settings: page title Configurações, left vertical nav to ?tab=, right panel. No Palco mode radios, no occupancy status, no studio chrome bar. Integrações stays disabled with Em breve. TalkBox/ShineBorder stay off this page.",
+      "reason": "Settings is account and workspace administration, not a studio instrument. Mode radios were a Palco invention that did not belong here."
+    },
+    {
+      "id": "palco-talkbox-dock-compact-2026-09-03",
+      "surface": "studio home / Palco TalkBox dock",
+      "status": "closed",
+      "choice": "When the TalkBox is docked over occupancy, keep protocols visible but hug content: tighter padding, two-line field-sizing textarea, compact attach/generate row. Empty Palco center placement keeps more air.",
+      "reason": "Protocol chips plus a reserved three-line textarea made the dock look oversized for a single-line request."
+    }
+  ],
+  "explorations": [
+    {
+      "id": "home-ui-explore-2026-09-01",
+      "surface": "studio home",
+      "status": "selected",
+      "route": "/",
+      "directions": [
+        {
+          "id": "stage",
+          "name": "Palco da Marca",
+          "status": "selected",
+          "refs": [
+            "21st Portfolio Gallery #7517",
+            "21st Elastic Gallery #9859",
+            "21st Input Bar #12400",
+            "21st Arc Gallery Hero #5509"
+          ],
+          "rejected": []
+        },
+        {
+          "id": "desk",
+          "name": "Mesa de Disparo",
+          "status": "rejected",
+          "refs": [
+            "21st Omni Command Palette #5530",
+            "21st Forge AI Command Bar #20072",
+            "21st Dashboard Sidebar #14941"
+          ]
+        },
+        {
+          "id": "session",
+          "name": "Sessão",
+          "status": "rejected",
+          "refs": [
+            "21st AI Assistant Interface #2126",
+            "21st Multimodal AI Chat Input #1912",
+            "21st Onboarding Dialog #10480"
+          ]
+        }
+      ],
+      "note": "Palco is the production home. Mesa and Sessão were exploration-only and must not ship. Chrome polish closed 2026-09-02: TalkBox chips beside the bell, outline-only continue suggestion, settings gear."
+    },
+    {
+      "id": "studio-identity-rollout-2026-09-02",
+      "surface": "studio pages after Palco",
+      "status": "closed",
+      "route": "/campaigns /library /brand-kit /creative-work/[id] /campaigns/[id] /campaigns/new /settings /quick-tools/create-post",
+      "inventory": {
+        "done": [
+          "/",
+          "v6-shell-sidebar + desktop bell",
+          "/campaigns",
+          "/library",
+          "/brand-kit",
+          "/creative-work/[id]",
+          "/campaigns/[id]",
+          "/campaigns/new (redirects to Palco composer)",
+          "/settings",
+          "/quick-tools/create-post (redirects to Palco composer)"
+        ],
+        "primary": [
+          {
+            "route": "/campaigns",
+            "role": "Trabalhos — expert list / filters / bulk"
+          },
+          {
+            "route": "/library",
+            "role": "Biblioteca — asset mosaic / upload"
+          },
+          {
+            "route": "/brand-kit",
+            "role": "Marca — kit, voice, training"
+          },
+          {
+            "route": "/creative-work/[id]",
+            "role": "Peça — resume / review"
+          },
+          {
+            "route": "/campaigns/[id]",
+            "role": "Campanha — grouping occupancy of pieces, Nova peça on Palco"
+          },
+          {
+            "route": "/settings",
+            "role": "Config — standard settings nav + panel, not Palco mode radios"
+          }
+        ],
+        "later": [],
+        "outOfScope": [
+          "/docs",
+          "/assistant",
+          "/feedback",
+          "/templates",
+          "/dashboard",
+          "/admin"
+        ]
+      },
+      "directions": [
+        {
+          "id": "continuous-studio",
+          "name": "Estúdio contínuo",
+          "status": "rejected",
+          "refs": [
+            "21st Input Bar #12400",
+            "21st Portfolio Gallery #7517",
+            "21st Elastic Gallery #9859"
+          ]
+        },
+        {
+          "id": "instrument-per-surface",
+          "name": "Instrumento por superfície",
+          "status": "selected",
+          "refs": [
+            "21st Animated Project Cards #2505",
+            "21st Elastic Gallery #9859",
+            "21st Color Palette #7806",
+            "21st Condition Grid #25300"
+          ]
+        },
+        {
+          "id": "piece-archive",
+          "name": "Arquivo de peças",
+          "status": "rejected",
+          "refs": [
+            "21st Shared Element Gallery #11979",
+            "21st Portfolio Gallery #7517",
+            "21st Music Portfolio #6540"
+          ]
+        }
+      ],
+      "recommendation": "instrument-per-surface",
+      "note": "Selected Instrumento por superfície. Shared identity is chrome, tokens, discreet radios, occupancy language, and Palco chips — not a TalkBox dock. Trabalhos closed 2026-09-02. Biblioteca closed 2026-09-03. Marca closed 2026-09-03. Peça closed 2026-09-03. Campanha closed 2026-09-03. Config closed 2026-09-03 as market-standard settings (left nav + panel), not Palco mode radios. In-scope studio rollout is complete. Out of scope: /docs /assistant /feedback /templates /dashboard /admin."
+    }
+  ],
+  "evidence": [
+    {
+      "fact": "project.instructions",
+      "source": "AGENTS.md"
+    },
+    {
+      "fact": "project.instructions",
+      "source": "DESIGN.md"
+    },
+    {
+      "fact": "project.instructions",
+      "source": "PRODUCT.md"
+    }
+  ],
+  "generatedAt": "2026-09-02T20:11:00.000Z"
+}

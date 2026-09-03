@@ -8,15 +8,17 @@ import {
   MessageSquare,
   Webhook,
   Key,
-  ExternalLink,
-  Settings,
-  Unlink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Button } from "@/components/ui/button";
+import {
+  settingsButtonClass,
+  settingsDangerButtonClass,
+  settingsHintClass,
+  settingsRowClass,
+} from "@/components/settings/settings-chrome";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -172,7 +174,7 @@ export default function IntegrationsTab() {
       animate="show"
       className="max-w-[720px]"
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
         {integrations.map((integration) => {
           const status = integrationStates[integration.id];
           const config = statusConfig[status];
@@ -182,82 +184,57 @@ export default function IntegrationsTab() {
             <m.div
               key={integration.id}
               variants={itemVariants}
-              className={cn(
-                "rounded-xl p-5 space-y-4",
-                "bg-[var(--surface-base)] border transition-all duration-200",
-                isConnected
-                  ? "border-[var(--success-border)]"
-                  : "border-[var(--border-dim)] hover:border-[var(--border-medium)]"
-              )}
+              className={settingsRowClass}
             >
-              <div className="flex items-start gap-3">
-                {/* Icon */}
-                <div
-                  className="size-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{
-                    backgroundColor: integration.iconBg,
-                    color: integration.iconColor,
-                  }}
-                >
-                  {integration.icon}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-[15px] font-semibold text-[var(--text-primary)]">
-                      {t(nameKeyMap[integration.id])}
-                    </h4>
-                    <span
-                      className="text-xs font-medium"
-                      style={{ color: config.color }}
-                    >
-                      {t(`integrations.${statusKeyMap[status]}`)}
-                    </span>
-                  </div>
-                  <p className="text-sm text-[var(--text-secondary)] mt-1 leading-relaxed">
-                    {t(descKeyMap[integration.id])}
-                  </p>
-                </div>
+              <div
+                className="flex size-9 shrink-0 items-center justify-center rounded-md"
+                style={{
+                  backgroundColor: integration.iconBg,
+                  color: integration.iconColor,
+                }}
+              >
+                {integration.icon}
               </div>
 
-              {/* Action Button */}
-              <div className="pt-1">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <h4 className="text-sm font-medium text-[var(--text-primary)]">
+                    {t(nameKeyMap[integration.id])}
+                  </h4>
+                  <span className={settingsHintClass} style={{ color: config.color }}>
+                    {t(`integrations.${statusKeyMap[status]}`)}
+                  </span>
+                </div>
+                <p className={cn(settingsHintClass, "mt-0.5")}>
+                  {t(descKeyMap[integration.id])}
+                </p>
+              </div>
+
+              <div className="shrink-0">
                 {integration.id === "api" ? (
-                  <button type="button"
+                  <button
+                    type="button"
                     onClick={() => addToast("info", tc("apiKeyManagementComingSoon"))}
-                    className={cn(
-                      "h-8 px-3 rounded-md text-xs font-medium flex items-center gap-1.5",
-                      "bg-[var(--surface-raised)] text-[var(--text-primary)]",
-                      "border border-[var(--border-dim)]",
-                      "hover:bg-[var(--surface-base)] hover:border-[var(--border-medium)]",
-                      "active:scale-[0.98]",
-                      "transition-all duration-200"
-                    )}
+                    className={settingsButtonClass}
                   >
-                    <Settings size={14} />
                     {t("config")}
                   </button>
                 ) : isConnected ? (
-                  <Button
+                  <button
                     type="button"
-                    size="sm"
-                    variant="ghost"
                     onClick={() => handleConnect(integration.id)}
-                    className="text-[var(--danger-text)] hover:bg-[var(--danger-bg)]"
+                    className={settingsDangerButtonClass}
                   >
-                    <Unlink size={14} aria-hidden="true" />
                     {t("disconnect")}
-                  </Button>
+                  </button>
                 ) : (
-                  <Button
+                  <button
                     type="button"
-                    size="sm"
                     onClick={() => handleConnect(integration.id)}
+                    className={settingsButtonClass}
                   >
-                    <ExternalLink size={14} aria-hidden="true" />
                     {t("connect")}
-                  </Button>
+                  </button>
                 )}
               </div>
             </m.div>

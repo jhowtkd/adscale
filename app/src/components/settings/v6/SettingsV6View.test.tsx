@@ -1,7 +1,25 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import SettingsV6View from "./SettingsV6View";
 import type { SettingsV6Card } from "./settings-v6-types";
+
+vi.mock("next/link", () => ({
+  __esModule: true,
+  default: ({
+    children,
+    href,
+    onClick,
+    ...props
+  }: {
+    children: React.ReactNode;
+    href: string;
+    onClick?: () => void;
+  }) => (
+    <a href={href} onClick={onClick} {...props}>
+      {children}
+    </a>
+  ),
+}));
 
 const cards: SettingsV6Card[] = [
   {
@@ -27,25 +45,24 @@ const cards: SettingsV6Card[] = [
 ];
 
 describe("SettingsV6View", () => {
-  it("renders the Open Design card grid and preserves card selection", () => {
-    const onSelectCard = vi.fn();
-
+  it("uses a standard settings nav instead of Palco mode radios", () => {
     render(
       <SettingsV6View
-        labels={{ sectionLabel: "Configurações", title: "Configurações do workspace", subtitle: "Gerencie tudo.", openCard: "Abrir", unavailable: "Indisponível" }}
+        labels={{ sectionLabel: "Configurações", title: "Configurações do workspace", subtitle: "Gerencie tudo.", openCard: "Abrir", unavailable: "Em breve" }}
         cards={cards}
         activeCardId="profile"
-        onSelectCard={onSelectCard}
       />,
     );
 
-    expect(screen.getByTestId("settings-card-grid")).toHaveClass("grid", "md:grid-cols-2", "xl:grid-cols-3");
-    const profile = screen.getByRole("button", { name: /Perfil/ });
-    expect(profile).toHaveAttribute("aria-current", "page");
-    expect(profile).toContainElement(screen.getByText("Abrir configurações"));
-    expect(screen.queryByRole("button", { name: /Integrações/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Configurações" })).toBeVisible();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
 
-    fireEvent.click(profile);
-    expect(onSelectCard).toHaveBeenCalledWith("profile");
+    const profile = screen.getByRole("link", { name: "Perfil" });
+    expect(profile).toHaveAttribute("aria-current", "page");
+    expect(profile).toHaveAttribute("href", "/settings?tab=profile");
+    expect(screen.getByRole("heading", { name: "Perfil" })).toBeVisible();
+    expect(screen.getByText("Seus dados pessoais.")).toBeVisible();
+    expect(screen.getByText("Integrações")).not.toHaveAttribute("href");
   });
 });

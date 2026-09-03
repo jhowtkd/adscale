@@ -64,11 +64,38 @@ describe("LibraryV6View visual role contract", () => {
 
     expect(action).toHaveFocus();
     expect(action.closest("article")).toHaveAttribute("data-motion-highlight", "focus");
-    expect(action.closest("article")?.className).toContain("border-[var(--selection-border)]");
-    expect(action.className).toContain("bg-[var(--danger-bg)]");
-    expect(screen.getByRole("button", { name: "Enviar" }).className).toContain("bg-[var(--action-primary-bg)]");
-    expect(screen.getByRole("button", { name: "Carregar mais" }).className).toContain("bg-[var(--active-navigation-bg)]");
+    expect(action.closest("article")?.className).toContain("focus-within:shadow-[0_0_0_2px_var(--focus-ring)]");
+    expect(action.className).toContain("size-6");
+    expect(screen.getByTestId("library-bento").className).toContain("columns-2");
+    expect(screen.getByTestId("library-asset-rover").className).toContain("opacity-0");
+    expect(screen.getByTestId("library-asset-rover").className).toContain("group-hover:opacity-100");
+    expect(screen.getByRole("button", { name: "Enviar" }).className).toContain("h-9");
+    expect(screen.getByRole("button", { name: "Enviar" }).className).toContain("rounded-full");
+    expect(screen.queryByRole("button", { name: "Enviar arquivo" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Carregar mais" }).className).toContain("text-[var(--text-muted)]");
     expect(container.querySelector('input[type="search"]')?.previousElementSibling?.getAttribute("class")).toContain("text-[var(--utility-icon)]");
+    const strip = screen.getByTestId("library-filter-strip");
+    expect(strip.className).toContain("rounded-full");
+    expect(screen.getByRole("radiogroup", { name: "Filtrar" }).className).toContain("flex-nowrap");
+    expect(screen.getByRole("radiogroup", { name: "Filtrar" }).className).toContain("justify-center");
+    expect(screen.getByText("1/2")).toBeVisible();
+  });
+
+  it("selects an origin filter from the occupancy strip", () => {
+    const onFilterChange = vi.fn();
+    render(
+      <LibraryV6View
+        labels={labels}
+        assets={[]}
+        shownCount={0}
+        totalCount={2}
+        searchQuery=""
+        onFilterChange={onFilterChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("radio", { name: "Gerado" }));
+    expect(onFilterChange).toHaveBeenCalledWith("generated");
   });
 
   it("keeps loading, ready, error, retry, and no-preview states distinct", async () => {
@@ -177,5 +204,30 @@ describe("LibraryV6View visual role contract", () => {
     );
 
     expect(screen.getByRole("img", { name: "Preview indisponível" })).toBeInTheDocument();
+  });
+
+  it("keeps a Palco upload chip and occupancy instead of a dropzone card", () => {
+    const onUploadClick = vi.fn();
+    const onDropzoneClick = vi.fn();
+    render(
+      <LibraryV6View
+        labels={labels}
+        assets={[]}
+        shownCount={0}
+        totalCount={0}
+        searchQuery=""
+        onUploadClick={onUploadClick}
+        onDropzoneClick={onDropzoneClick}
+      />,
+    );
+
+    const chip = screen.getByRole("button", { name: "Enviar" });
+    expect(chip.className).toContain("h-9");
+    fireEvent.click(chip);
+    expect(onUploadClick).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole("button", { name: "Enviar arquivo" }));
+    expect(onDropzoneClick).toHaveBeenCalledOnce();
+    expect(screen.getByText("Solte aqui").closest("[class*='border-dashed']")).toBeNull();
   });
 });

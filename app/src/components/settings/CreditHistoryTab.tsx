@@ -26,6 +26,7 @@ const YAxis = dynamic(() => import("recharts").then(m => ({ default: m.YAxis }))
 const Tooltip = dynamic(() => import("recharts").then(m => ({ default: m.Tooltip })));
 const ResponsiveContainer = dynamic(() => import("recharts").then(m => ({ default: m.ResponsiveContainer })));
 const Cell = dynamic(() => import("recharts").then(m => ({ default: m.Cell })));
+import { settingsSectionTitleClass } from "@/components/settings/settings-chrome";
 
 const TYPE_COLORS: Record<string, string> = {
   usage: "var(--danger-text)",
@@ -96,7 +97,7 @@ export default function CreditHistoryTab() {
   return (
     <div className="space-y-6">
       {/* Summary */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] px-4 py-3 text-sm">
+      <dl className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
         <SummaryInline
           label={t("totalSpent")}
           value={summary ? summary.totalSpent.toString() : "—"}
@@ -111,9 +112,7 @@ export default function CreditHistoryTab() {
           label={t("averagePerCampaign")}
           value={summary ? summary.averagePerCampaign.toString() : "—"}
         />
-      </div>
-
-      {/* Filters */}
+      </dl>
       <div className="flex flex-wrap gap-3">
         <div className="space-y-1">
           <span className="block text-xs font-medium text-[var(--text-secondary)]">
@@ -154,8 +153,8 @@ export default function CreditHistoryTab() {
 
       {/* Chart */}
       {chartData.length > 0 && (
-        <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-4">
-          <h3 className="mb-4 text-sm font-semibold text-[var(--text-primary)]">
+        <div>
+          <h3 className={`${settingsSectionTitleClass} mb-4`}>
             {t("usageOverTime")}
           </h3>
           <div className="h-48">
@@ -191,7 +190,7 @@ export default function CreditHistoryTab() {
       )}
 
       {/* Table */}
-      <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)]">
+      <div>
         <Table>
           <TableHeader>
             <TableRow>

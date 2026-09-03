@@ -92,12 +92,11 @@ function SettingsContent() {
   );
 
   return (
-    <div className="pb-10">
+    <div>
       <SettingsV6View
         labels={labels}
         cards={cards}
         activeCardId={activeTab}
-        onSelectCard={(id) => router.replace(`/settings?tab=${id}`, { scroll: false })}
         panel={panel}
       />
     </div>

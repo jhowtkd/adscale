@@ -304,9 +304,12 @@ describe("CreativeProposalGrid", () => {
       />,
     );
 
-    expect(screen.getByTestId("proposal-review-surface")).toHaveClass("max-w-4xl", "grid-cols-1");
+    expect(screen.getByTestId("proposal-review-surface")).toHaveClass("grid-cols-1");
+    expect(screen.getByTestId("proposal-review-surface")).not.toHaveClass("max-w-4xl");
+    expect(screen.queryByTestId("creative-output-progress")).not.toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Miniaturas das propostas" })).not.toHaveClass("lg:flex-col");
-    expect(screen.getByTestId("review-preview")).toHaveClass("h-[min(72vh,680px)]");
+    expect(screen.getByTestId("review-preview")).toHaveClass("max-h-[min(48vh,520px)]");
+    expect(screen.getByTestId("review-preview")).not.toHaveClass("h-[min(72vh,680px)]");
   });
 
   it("opens the selected proposal in a faithful enlarged inspector", () => {
