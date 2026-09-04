@@ -31,6 +31,7 @@ type InferredSlot = {
 };
 
 type SlotName = "offer" | "audience" | "tone";
+type ExtractedSlot = { fact?: string; candidate?: string };
 
 function nonEmpty(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
@@ -68,7 +69,7 @@ function hasOverride(row: StudioEntryHistoryRow, slot: SlotName): boolean {
 function extractCreativeWorkSlot(
   row: StudioEntryHistoryRow,
   slot: SlotName,
-): { fact?: string; candidate?: string } {
+): ExtractedSlot {
   if (hasOverride(row, slot)) {
     const override = nonEmpty(overrideField(row, slot));
     return override ? { fact: override } : {};
@@ -91,7 +92,7 @@ function extractCreativeWorkSlot(
 function extractCampaignSlot(
   row: StudioEntryHistoryRow,
   slot: SlotName,
-): { fact?: string } {
+): ExtractedSlot {
   if (slot === "offer") {
     const value = nonEmpty(row.offer ?? row.product);
     return value ? { fact: value } : {};
@@ -155,9 +156,7 @@ function resolveTextSlot(
       : extractCreativeWorkSlot(row, slot);
 
     if (extracted.fact) factValues.push(extracted.fact);
-    if ("candidate" in extracted && extracted.candidate) {
-      candidateValues.push(extracted.candidate);
-    }
+    if (extracted.candidate) candidateValues.push(extracted.candidate);
   }
 
   const { fact, unique } = resolveMajority(factValues);
@@ -188,7 +187,7 @@ export function projectStudioEntryContext(input: {
           : extractCreativeWorkSlot(row, "offer");
         const values: string[] = [];
         if (extracted.fact) values.push(extracted.fact);
-        if ("candidate" in extracted && extracted.candidate) values.push(extracted.candidate);
+        if (extracted.candidate) values.push(extracted.candidate);
         return values;
       }),
     ];

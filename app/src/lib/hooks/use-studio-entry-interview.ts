@@ -45,12 +45,13 @@ function mergeFacts(context: EntryContext, answers: Partial<Record<EntrySlot, st
   };
 }
 
-function answersToChips(answers: Partial<Record<EntrySlot, string>>) {
+function answersToChips(answers: Partial<Record<EntrySlot, string>>): Partial<EntryFacts> {
   const chips: Partial<EntryFacts> = {};
-  for (const slot of ["protocol", "offer", "audience", "tone"] as const) {
-    const value = answers[slot];
-    if (value) chips[slot] = slot === "protocol" ? (value as EntryProtocol) : value;
-  }
+  const protocol = answers.protocol;
+  if (protocol && isEntryProtocol(protocol)) chips.protocol = protocol;
+  if (answers.offer) chips.offer = answers.offer;
+  if (answers.audience) chips.audience = answers.audience;
+  if (answers.tone) chips.tone = answers.tone;
   return chips;
 }
 
