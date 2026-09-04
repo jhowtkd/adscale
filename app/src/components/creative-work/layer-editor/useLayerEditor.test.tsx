@@ -12,7 +12,7 @@ const editorDocument: PublicLayerEditorDocumentV1 = {
   schemaVersion: 1, revision: 1, canvas: { width: 100, height: 100 },
   lease: { mode: "edit", leaseId: "00000000-0000-4000-8000-000000000001", heldByName: null, expiresAt: null }, regeneration: null,
   updatedAt: "2026-01-01T00:00:00.000Z",
-  layers: [0, 1].map((index) => ({ id: `00000000-0000-4000-8000-00000000000${index + 1}`, order: index, name: "Layer", visible: true, x: 0, y: 0, width: 10, height: 10, currentKind: "source" as const, imageUrl: "x", source: { order: index, name: "Layer", visible: true, x: 0, y: 0, width: 10, height: 10, imageUrl: "source" } })),
+  layers: [0, 1].map((index) => ({ id: `00000000-0000-4000-8000-00000000000${index + 1}`, order: index, name: "Layer", description: null, visible: true, x: 0, y: 0, width: 10, height: 10, currentKind: "source" as const, imageUrl: "x", source: { order: index, name: "Layer", visible: true, x: 0, y: 0, width: 10, height: 10, imageUrl: "source" } })),
 };
 
 const response = (document = editorDocument) => ({ document, access });

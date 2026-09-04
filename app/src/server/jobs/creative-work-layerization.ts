@@ -11,7 +11,7 @@ import {
   failCreativeWorkLayerizationBeforeProvider,
   failCreativeWorkLayerization,
   getCreativeWorkLayerizationOutput,
-  isCreativeWorkOutputStillSelectedForLayerization,
+  isCreativeWorkOutputStillLayerizable,
   markCreativeWorkLayerizationReconciling,
   markCreativeWorkLayerizationSubmissionUnknown,
   recordCreativeWorkLayerizationProviderRequest,
@@ -232,7 +232,7 @@ export async function runCreativeWorkLayerization(input: {
 
     const eligibilityCheckStartedAt = Date.now();
     try {
-      if (!await isCreativeWorkOutputStillSelectedForLayerization(event)) {
+      if (!await isCreativeWorkOutputStillLayerizable(event)) {
         await failBeforeProvider(event, "no_longer_eligible");
         return { status: "failed" };
       }

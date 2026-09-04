@@ -41,7 +41,9 @@ import {
   recoverStaleReservedLayerRegeneration,
   refreshReservedLayerRegenerationDispatch,
   saveCreativeWorkLayerEditorSnapshot,
+  seedLayerEditorState,
 } from "./creative-work-layer-editor";
+import type { LayerizationState } from "@/server/layerize/contracts";
 import { creativeWorkVersionLockScope } from "./creative-work";
 
 const scope = { workspaceId: "workspace-1", workItemId: "work-1", outputId: "output-1" };
@@ -336,5 +338,51 @@ describe("creative work layer editor publication repository", () => {
 
     await expect(publishCreativeWorkLayerEditorVersion({ ...publication, expectedRevision: 3 })).resolves.toBeNull();
     await expect(publishCreativeWorkLayerEditorVersion(publication)).resolves.toBeNull();
+  });
+});
+
+describe("seedLayerEditorState", () => {
+  it("propagates Seedream layer descriptions into the editor document", () => {
+    const layerization: LayerizationState = {
+      status: "completed",
+      attemptId: "attempt-1",
+      callbackTokenHash: "a".repeat(64),
+      callbackConsumedAt: "2026-08-22T00:00:00.000Z",
+      requestedByUserId: "user-1",
+      createdAt: "2026-08-22T00:00:00.000Z",
+      updatedAt: "2026-08-22T00:00:00.000Z",
+      callbackDeadlineAt: "2026-08-22T02:00:00.000Z",
+      latencyMs: 10,
+      providerRequestId: "req",
+      providerModel: "model",
+      providerEndpoint: "https://example.test",
+      estimatedCostUsd: 0.1,
+      baseWidth: 100,
+      baseHeight: 100,
+      layers: [
+        {
+          order: 0, isBase: true, name: "Base", description: "Base layer",
+          x: 0, y: 0, width: 100, height: 100,
+          normalizedBoundingBox: { x: 0, y: 0, width: 1, height: 1 },
+          storageKey: "private/base.png", sourceBytes: 12,
+        },
+        {
+          order: 1, isBase: false, name: "Woman", description: "Woman facing camera",
+          x: 10, y: 10, width: 20, height: 20,
+          normalizedBoundingBox: { x: 0.1, y: 0.1, width: 0.2, height: 0.2 },
+          storageKey: "private/woman.png", sourceBytes: 8,
+        },
+      ],
+      psdKey: null,
+      diagnosticZipKey: null,
+      fidelity: { normalizedMae: 0, rmse: 0, psnrDb: 99, gate: "passed" },
+      failureCode: null,
+    };
+
+    const seeded = seedLayerEditorState(layerization, null, now);
+    expect(Object.fromEntries(seeded.layers.map((layer) => [layer.name, layer.description]))).toEqual({
+      Base: "Base layer",
+      Woman: "Woman facing camera",
+    });
   });
 });

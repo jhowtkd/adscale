@@ -4,12 +4,12 @@ import type { PublicLayerEditorDocumentV1 } from "@/server/layer-editor/contract
 import { LayerCanvas } from "./LayerCanvas";
 import { LayerPanel } from "./LayerPanel";
 
-vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: { name?: string }) => key === "editorHide" ? `Ocultar ${values?.name}` : key === "editorShow" ? `Mostrar ${values?.name}` : key === "editorLayers" ? "Camadas" : key === "editorLayerName" ? "Nome da camada" : key }));
+vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: { name?: string }) => key === "editorHide" ? `Ocultar ${values?.name}` : key === "editorShow" ? `Mostrar ${values?.name}` : key === "editorLayers" ? "Camadas" : key === "editorLayerName" ? "Nome da camada" : key === "editorCanvas" ? "Canvas de camadas" : key === "elementPrompt" ? "Prompt do elemento" : key === "editWithAi" ? "Editar com IA" : key }));
 
 const document: PublicLayerEditorDocumentV1 = {
   schemaVersion: 1, revision: 1, canvas: { width: 20, height: 20 }, updatedAt: "2026-08-22T00:00:00.000Z", regeneration: null,
   lease: { mode: "read", leaseId: null, heldByName: null, expiresAt: null },
-  layers: ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"].map((id, order) => ({ id, order, name: `Layer ${order}`, visible: true, x: 0, y: 0, width: 20, height: 20, currentKind: "source" as const, imageUrl: `current-${order}`, source: { order, name: `Layer ${order}`, visible: true, x: 0, y: 0, width: 20, height: 20, imageUrl: `source-${order}` } })),
+  layers: ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"].map((id, order) => ({ id, order, name: `Layer ${order}`, description: order === 0 ? "Woman facing camera" : "Base layer", visible: true, x: 0, y: 0, width: 20, height: 20, currentKind: "source" as const, imageUrl: `current-${order}`, source: { order, name: `Layer ${order}`, visible: true, x: 0, y: 0, width: 20, height: 20, imageUrl: `source-${order}` } })),
 };
 
 describe("LayerPanel inspect visibility", () => {
@@ -52,6 +52,53 @@ describe("LayerPanel inspect visibility", () => {
     fireEvent.pointerUp(handle, { pointerId: 7, pointerType: "touch", clientY: 100 });
     expect(dispatch).toHaveBeenCalledOnce();
     expect(dispatch).toHaveBeenCalledWith({ type: "reorder", id: document.layers[0]!.id, order: 1 });
+  });
+
+  it("syncs hover from the list to the canvas outline", () => {
+    const onHover = vi.fn();
+    render(
+      <>
+        <LayerPanel document={document} selectedLayerId={null} hoveredLayerId={document.layers[0]!.id} onSelect={vi.fn()} onHover={onHover} mode="inspect" />
+        <LayerCanvas document={document} selectedLayerId={null} hoveredLayerId={document.layers[0]!.id} onSelect={vi.fn()} onHover={onHover} mode="read" />
+      </>,
+    );
+    expect(screen.getByTestId("layer-hover-outline")).toHaveTextContent("Layer 0");
+    fireEvent.pointerEnter(screen.getByRole("button", { name: /^Layer 1$/ }));
+    expect(onHover).toHaveBeenCalledWith(document.layers[1]!.id);
+  });
+
+  it("shows the inspector prompt for a selected layer", () => {
+    render(<LayerCanvas document={document} selectedLayerId={document.layers[0]!.id} onSelect={vi.fn()} mode="edit" dispatch={vi.fn()} />);
+    expect(screen.getByTestId("layer-inspector")).toHaveTextContent("Woman facing camera");
+  });
+
+  it("hides a Base layer description in the inspector", () => {
+    render(<LayerCanvas document={document} selectedLayerId={document.layers[1]!.id} onSelect={vi.fn()} mode="edit" dispatch={vi.fn()} />);
+    expect(screen.getByTestId("layer-inspector")).toHaveTextContent("Layer 1");
+    expect(screen.getByTestId("layer-inspector")).not.toHaveTextContent("Base layer");
+  });
+
+  it("staggers canvas layers with the reveal utility", () => {
+    render(<LayerCanvas document={document} selectedLayerId={null} onSelect={vi.fn()} mode="read" />);
+    expect(screen.getByAltText("Layer 0")).toHaveClass("animate-layer-reveal");
+    expect(screen.getByAltText("Layer 1")).toHaveClass("animate-layer-reveal");
+  });
+
+  it("hovers the smaller overlapping layer under the pointer", () => {
+    const onHover = vi.fn();
+    const overlapping = {
+      ...document,
+      layers: [
+        { ...document.layers[0]!, x: 0, y: 0, width: 20, height: 20 },
+        { ...document.layers[1]!, x: 5, y: 5, width: 4, height: 4 },
+      ],
+    };
+    const { container } = render(<LayerCanvas document={overlapping} selectedLayerId={null} onSelect={vi.fn()} onHover={onHover} mode="read" />);
+    const canvas = container.querySelector<HTMLDivElement>(".origin-top-left");
+    expect(canvas).toBeTruthy();
+    canvas!.getBoundingClientRect = () => ({ top: 0, bottom: 20, left: 0, right: 20, width: 20, height: 20, x: 0, y: 0, toJSON: vi.fn() });
+    fireEvent.pointerMove(canvas!, { clientX: 7, clientY: 7 });
+    expect(onHover).toHaveBeenCalledWith(overlapping.layers[1]!.id);
   });
 
   it("projects temporary mobile visibility into the canvas without dispatching a mutation", () => {

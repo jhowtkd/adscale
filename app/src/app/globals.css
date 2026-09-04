@@ -917,6 +917,11 @@
     animation: fade-in 250ms var(--ease-out-expo) forwards;
   }
 
+  .animate-layer-reveal {
+    animation: fade-in 280ms var(--ease-out-expo) both;
+    animation-delay: calc(var(--layer-reveal-index, 0) * 55ms);
+  }
+
   .animate-suggest-emphasis {
     animation: suggest-emphasis 650ms var(--ease-out-expo) 1;
   }

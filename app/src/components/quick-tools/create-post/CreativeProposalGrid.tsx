@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Expand } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { CreativeResultCard } from "@/components/creative-work/CreativeResultCard";
@@ -131,7 +131,16 @@ export default function CreativeProposalGrid({
   const layerEditorOutput = layerEditorOutputId
     ? outputs.find((output) => output.id === layerEditorOutputId)
     : null;
-  const layerEditorMode = isMobile || !layerEditorOutput?.isSelected ? "inspect" : "edit";
+  const layerEditorMode = isMobile ? "inspect" : "edit";
+  const layerizeStartedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!layerEditorOutput || isMobile || !onLayerize || !canLayerize) return;
+    const ready = layerEditorOutput.layerization?.status === "completed" || Boolean(layerEditorOutput.layerEditor);
+    if (ready || layerizeStartedFor.current === layerEditorOutput.id) return;
+    layerizeStartedFor.current = layerEditorOutput.id;
+    void onLayerize(layerEditorOutput.id);
+  }, [canLayerize, isMobile, layerEditorOutput, onLayerize]);
 
   if (!selected) return null;
 
@@ -313,8 +322,22 @@ export default function CreativeProposalGrid({
           workItemId={layerEditorOutput.workItemId}
           outputId={layerEditorOutput.id}
           mode={layerEditorMode}
+          layerization={layerEditorOutput.layerization ?? null}
+          sourceImageUrl={outputSource(layerEditorOutput)}
+          hasLayerEditor={Boolean(layerEditorOutput.layerEditor)}
+          layerizeRemaining={layerEditorAccess?.layerize?.remaining ?? null}
+          onRetryLayerize={() => {
+            const state = layerEditorOutput.layerization;
+            if (!onLayerize) return;
+            const retry = state?.status === "failed";
+            const operationId = state?.status === "queued" ? state.operationId : crypto.randomUUID();
+            void onLayerize(layerEditorOutput.id, retry, operationId);
+          }}
           onOpenChange={(open) => {
-            if (!open) setLayerEditorOutputId(null);
+            if (!open) {
+              setLayerEditorOutputId(null);
+              layerizeStartedFor.current = null;
+            }
           }}
           onPublished={onLayerEditorPublished}
         />

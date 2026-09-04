@@ -4,19 +4,22 @@ import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { BringToFront, Eye, EyeOff, GripVertical, SendToBack } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { PublicLayerEditorDocumentV1 } from "@/server/layer-editor/contracts";
 import type { LayerEditorCommand } from "./state";
 
 type LayerPanelProps = {
   document: PublicLayerEditorDocumentV1;
   selectedLayerId: string | null;
+  hoveredLayerId?: string | null;
   onSelect: (id: string) => void;
+  onHover?: (id: string | null) => void;
   mode?: "edit" | "inspect" | "read";
   dispatch?: (command: LayerEditorCommand) => void;
   onInspectVisibilityChange?: (id: string, visible: boolean) => void;
 };
 
-export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspect", dispatch, onInspectVisibilityChange }: LayerPanelProps) {
+export function LayerPanel({ document, selectedLayerId, hoveredLayerId = null, onSelect, onHover, mode = "inspect", dispatch, onInspectVisibilityChange }: LayerPanelProps) {
   const t = useTranslations("dashboard.home.composer.results");
   const [inspectVisibility, setInspectVisibility] = useState<Record<string, boolean>>({});
   const [reorderTarget, setReorderTarget] = useState<number | null>(null);
@@ -74,37 +77,52 @@ export function LayerPanel({ document, selectedLayerId, onSelect, mode = "inspec
   };
 
   return (
-    <section ref={panel} aria-label={t("editorLayers")} className="overflow-y-auto">
+    <section ref={panel} aria-label={t("editorLayers")} className="overflow-y-auto px-2 py-3">
+      <p className="px-2 pb-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">{t("editorLayers")}</p>
       {[...document.layers].sort((left, right) => left.order - right.order).map((layer) => {
         const isSelected = layer.id === selectedLayerId;
+        const isHovered = layer.id === hoveredLayerId;
         const isVisible = visible(layer);
+        const prompt = layer.description && layer.description !== "Base layer" ? layer.description : null;
         return (
-          <div key={layer.id} data-layer-order={layer.order} data-layer-drop-target={reorderTarget === layer.order || undefined} className={`${isSelected ? "border-l-2 border-[var(--selection-border)] bg-muted" : ""} ${reorderTarget === layer.order ? "ring-2 ring-[var(--selection-border)]" : ""} p-2`}>
-            <button
-              type="button"
-              onClick={() => onSelect(layer.id)}
-              aria-pressed={isSelected}
-              className="flex min-h-11 w-full gap-2"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={layer.imageUrl} alt="" className="h-10 w-10 object-contain" />
-              <span className="text-left">
-                {mode === "edit" && isSelected ? null : <b>{layer.name}</b>}
-                <small className="block">{layer.width} × {layer.height} · {t("editorVisibility")}: {isVisible ? "✓" : "—"}</small>
-              </span>
-            </button>
+          <div
+            key={layer.id}
+            data-layer-order={layer.order}
+            data-layer-drop-target={reorderTarget === layer.order || undefined}
+            data-hovered={isHovered || undefined}
+            onPointerEnter={() => onHover?.(layer.id)}
+            onPointerLeave={() => onHover?.(null)}
+            className={cn(
+              "rounded-[var(--radius-control)] px-2 py-1",
+              isSelected ? "bg-[var(--surface-inset)]" : isHovered ? "bg-[var(--surface-inset)]/60" : "",
+              reorderTarget === layer.order ? "ring-1 ring-[var(--selection-border)]" : "",
+            )}
+          >
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onSelect(layer.id)}
+                aria-pressed={isSelected}
+                className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={layer.imageUrl} alt="" className="size-9 shrink-0 rounded object-contain" />
+                <span className="min-w-0">
+                  {mode === "edit" && isSelected ? null : <b className="block truncate text-sm">{layer.name}</b>}
+                  {prompt ? <small className="block truncate text-[var(--text-muted)]">{prompt}</small> : null}
+                </span>
+              </button>
+              <Button type="button" variant="ghost" size="icon" className="min-h-11 min-w-11" aria-label={isVisible ? t("editorHide", { name: layer.name }) : t("editorShow", { name: layer.name })} title={isVisible ? t("editorHide", { name: layer.name }) : t("editorShow", { name: layer.name })} onClick={() => toggleVisibility(layer)}>{isVisible ? <Eye /> : <EyeOff />}</Button>
+            </div>
             {mode === "edit" && isSelected && dispatch ? (
               <>
                 <LayerNameEditor key={`${layer.id}:${layer.name}`} layer={layer} dispatch={dispatch} />
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" size="icon" className="min-h-11 min-w-11 touch-none cursor-grab" aria-label={t("editorReorder", { name: layer.name })} title={t("editorReorder", { name: layer.name })} onPointerDown={(event) => beginReorder(event, layer.id)} onPointerMove={moveReorder} onPointerUp={finishReorder} onPointerCancel={cancelReorder}><GripVertical /></Button>
-                  <Button type="button" variant="outline" size="icon" className="min-h-11 min-w-11" aria-label={isVisible ? t("editorHide", { name: layer.name }) : t("editorShow", { name: layer.name })} title={isVisible ? t("editorHide", { name: layer.name }) : t("editorShow", { name: layer.name })} onClick={() => toggleVisibility(layer)}>{isVisible ? <EyeOff /> : <Eye />}</Button>
-                  <Button type="button" variant="outline" size="icon" className="min-h-11 min-w-11" aria-label={t("editorBringForward")} title={t("editorBringForward")} onClick={() => dispatch?.({ type: "reorder", id: layer.id, order: 0 })}><BringToFront /></Button>
-                  <Button type="button" variant="outline" size="icon" className="min-h-11 min-w-11" aria-label={t("editorSendBack")} title={t("editorSendBack")} onClick={() => dispatch?.({ type: "reorder", id: layer.id, order: document.layers.length - 1 })}><SendToBack /></Button>
+                <div className="mt-1 flex gap-1 pb-1">
+                  <Button type="button" variant="ghost" size="icon" className="min-h-11 min-w-11 touch-none cursor-grab" aria-label={t("editorReorder", { name: layer.name })} title={t("editorReorder", { name: layer.name })} onPointerDown={(event) => beginReorder(event, layer.id)} onPointerMove={moveReorder} onPointerUp={finishReorder} onPointerCancel={cancelReorder}><GripVertical /></Button>
+                  <Button type="button" variant="ghost" size="icon" className="min-h-11 min-w-11" aria-label={t("editorBringForward")} title={t("editorBringForward")} onClick={() => dispatch?.({ type: "reorder", id: layer.id, order: 0 })}><BringToFront /></Button>
+                  <Button type="button" variant="ghost" size="icon" className="min-h-11 min-w-11" aria-label={t("editorSendBack")} title={t("editorSendBack")} onClick={() => dispatch?.({ type: "reorder", id: layer.id, order: document.layers.length - 1 })}><SendToBack /></Button>
                 </div>
               </>
-            ) : mode !== "edit" && isSelected ? (
-              <Button type="button" variant="outline" size="icon" className="mt-2 min-h-11 min-w-11" aria-label={isVisible ? t("editorHide", { name: layer.name }) : t("editorShow", { name: layer.name })} title={isVisible ? t("editorHide", { name: layer.name }) : t("editorShow", { name: layer.name })} onClick={() => toggleVisibility(layer)}>{isVisible ? <EyeOff /> : <Eye />}</Button>
             ) : null}
           </div>
         );
@@ -152,7 +170,7 @@ function LayerNameEditor({
           event.currentTarget.blur();
         }
       }}
-      className="mt-2 min-h-11 w-full"
+      className="mt-1 min-h-11 w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 text-sm"
     />
   );
 }

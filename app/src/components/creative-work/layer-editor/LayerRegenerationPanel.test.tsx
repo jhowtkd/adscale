@@ -8,7 +8,7 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
 const base = {
   schemaVersion: 1 as const, revision: 1, canvas: { width: 20, height: 20 }, updatedAt: "2026-08-22T00:00:00.000Z",
   lease: { mode: "edit" as const, leaseId: "lease", heldByName: null, expiresAt: null },
-  layers: [{ id: "layer", order: 0, name: "Layer", visible: true, x: 0, y: 0, width: 20, height: 20, currentKind: "source" as const, imageUrl: "current", source: { order: 0, name: "Layer", visible: true, x: 0, y: 0, width: 20, height: 20, imageUrl: "source" } }],
+  layers: [{ id: "layer", order: 0, name: "Layer", description: "Woman facing camera", visible: true, x: 0, y: 0, width: 20, height: 20, currentKind: "source" as const, imageUrl: "current", source: { order: 0, name: "Layer", visible: true, x: 0, y: 0, width: 20, height: 20, imageUrl: "source" } }],
 };
 const access = { enabled: true, period: null, layerize: null, regeneration: { limit: 5, used: 5, remaining: 0 } };
 const renderPanel = (status: "reserved" | "processing" | "ready" | null, mode: "edit" | "read" = "edit", retry = vi.fn()) => {
@@ -48,6 +48,21 @@ describe("LayerRegenerationPanel retry dispatch", () => {
     rerender(<LayerRegenerationPanel document={terminal} selectedLayerId="layer" access={access} mode="edit" />);
     expect(window.document.activeElement).toBe(elsewhere);
     elsewhere.remove();
+  });
+
+  it("sends an instruction with Enter when a layer is selected", () => {
+    const onRegenerate = vi.fn();
+    const available = { ...access, regeneration: { limit: 5, used: 1, remaining: 4 } };
+    render(<LayerRegenerationPanel document={{ ...base, regeneration: null }} selectedLayerId="layer" access={available} mode="edit" onRegenerate={onRegenerate} />);
+    fireEvent.change(screen.getByPlaceholderText("askAiPlaceholder"), { target: { value: "deixa ela séria" } });
+    fireEvent.keyDown(screen.getByPlaceholderText("askAiPlaceholder"), { key: "Enter" });
+    expect(onRegenerate).toHaveBeenCalledWith("layer", "deixa ela séria");
+  });
+
+  it("keeps the input disabled until a layer is selected", () => {
+    render(<LayerRegenerationPanel document={{ ...base, regeneration: null }} selectedLayerId={null} access={{ ...access, regeneration: { limit: 5, used: 0, remaining: 5 } }} mode="edit" />);
+    expect(screen.getByPlaceholderText("askAiPlaceholder")).toBeDisabled();
+    expect(screen.getByText("editorSelectLayer")).toBeVisible();
   });
 
   it("does not steal focus for an initially terminal regeneration", () => {

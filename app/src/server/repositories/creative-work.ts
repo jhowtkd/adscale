@@ -1,7 +1,6 @@
 import { eq, and, asc, desc, count, inArray, isNull, isNotNull, lt, max, ne, notExists, sql } from "drizzle-orm";
 import { db } from "../db";
 import { getCreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
-import { isLayerizationSelectionLocked, layerizationStateFromDatabase } from "@/server/layerize/contracts";
 import {
   creativeWorkItems,
   creativeWorkOutputs,
@@ -2147,13 +2146,6 @@ export async function selectCreativeWorkOutput(
       candidate.status !== "completed" ||
       !candidate.outputKey
     ) {
-      return null;
-    }
-
-    if (outputs.some((output) => (
-      output.id !== outputId
-      && isLayerizationSelectionLocked(layerizationStateFromDatabase(output.layerization))
-    ))) {
       return null;
     }
 

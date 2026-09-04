@@ -11,7 +11,7 @@ vi.mock("next-intl", () => ({
     "proposal.level.conservative": "Conservadora", "proposal.level.balanced": "Equilibrada", "proposal.level.bold": "Ousada",
     "proposal.status.queued": "na fila", "proposal.status.processing": "gerando", "proposal.status.completed": "pronta", "proposal.status.failed": "falhou",
     "proposal.progress": `${values?.ready} de ${values?.total} prontas`, "proposal.thumbnailsAria": "Miniaturas das propostas", "proposal.selectAria": `Selecionar ${values?.name} em ${values?.format}`, "proposal.expandAria": `Ampliar ${values?.name} em ${values?.format}`, "proposal.previewAlt": `Proposta ${values?.name}, formato ${values?.format}`, "proposal.approvalSurfaceAria": "Superfície de aprovação", "proposal.variations": `Variações (${values?.count})`, "proposal.variation": `Variação ${values?.count}`, "proposal.variationAlt": `Variação ${values?.count}`, "proposal.originalPiece": "Peça original", "proposal.retry": "Repetir esta proposta", "proposal.compare": "Comparar", "proposal.compareTitle": "Comparar variações", "proposal.currentVariation": "Variação atual", "proposal.previousVariation": "Variação anterior", "proposal.expandedDescription": "Inspeção ampliada na proporção original, sem corte.", "proposal.expandedAlt": `Proposta ${values?.name}, formato ${values?.format}, ampliada`,
-    "status.queued": "Na fila", "status.processing": "Processando", "status.completed": "Pronto", "status.failed": "Falhou", variationShort: `v${values?.count}`, proposalAlt: `Proposta ${values?.label}`, generating: "Gerando...", retry: "Tentar novamente", retryProposal: "Repetir esta proposta", approving: "Aprovando", approved: "Aprovada", approve: "Aprovar", download: "Baixar", editLayers: "Editar camadas", viewLayers: "Visualizar camadas", refine: "Refinar", revisionInstruction: "O que você quer mudar?", optionalAttachment: "Anexo opcional", generateVariation: "Gerar nova variação",
+    "status.queued": "Na fila", "status.processing": "Processando", "status.completed": "Pronto", "status.failed": "Falhou", variationShort: `v${values?.count}`, proposalAlt: `Proposta ${values?.label}`, generating: "Gerando...", retry: "Tentar novamente", retryProposal: "Repetir esta proposta", approving: "Aprovando", approved: "Aprovada", approve: "Aprovar", download: "Baixar", editImage: "Editar imagem", refine: "Refinar", revisionInstruction: "O que você quer mudar?", optionalAttachment: "Anexo opcional", generateVariation: "Gerar nova variação",
   })[key] ?? key,
 }));
 
@@ -344,34 +344,44 @@ describe("CreativeProposalGrid", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Editar camadas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Editar imagem" }));
     expect(screen.getByTestId("layer-editor-dialog")).toHaveAttribute("data-output-id", "out-balanced");
     expect(screen.getByTestId("layer-editor-dialog")).toHaveAttribute("data-mode", "edit");
   });
 
-  it("uses inspect mode for unselected and mobile layerized outputs", () => {
-    const inspectable = {
-      ...balancedCompleted,
-      layerization: { status: "completed" as const },
-      layerEditor: { revision: 2, layerCount: 3, regenerationStatus: null, updatedAt: "2026-08-22T00:00:00.000Z" },
-    };
-    const { unmount } = render(
-      <CreativeProposalGrid outputs={[inspectable]} onRetry={vi.fn()} onApprove={vi.fn()} onDownload={vi.fn()} />,
+  it("opens edit mode for an unselected completed output and starts layerization once", () => {
+    const onLayerize = vi.fn();
+    render(
+      <CreativeProposalGrid
+        outputs={[{ ...balancedCompleted, isSelected: false }]}
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+        canLayerize
+        onLayerize={onLayerize}
+      />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Visualizar camadas" }));
-    expect(screen.getByTestId("layer-editor-dialog")).toHaveAttribute("data-mode", "inspect");
-    unmount();
+    fireEvent.click(screen.getByRole("button", { name: "Editar imagem" }));
+    expect(screen.getByTestId("layer-editor-dialog")).toHaveAttribute("data-mode", "edit");
+    expect(onLayerize).toHaveBeenCalledTimes(1);
+    expect(onLayerize).toHaveBeenCalledWith("out-balanced");
+  });
 
+  it("hides image editing on mobile", () => {
     layerEditorMocks.isMobile.mockReturnValue(true);
     render(
       <CreativeProposalGrid
-        outputs={[{ ...inspectable, isSelected: true }]}
+        outputs={[{
+          ...balancedCompleted,
+          isSelected: true,
+          layerization: { status: "completed" },
+          layerEditor: { revision: 2, layerCount: 3, regenerationStatus: null, updatedAt: "2026-08-22T00:00:00.000Z" },
+        }]}
         onRetry={vi.fn()}
         onApprove={vi.fn()}
         onDownload={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Editar camadas" }));
-    expect(screen.getByTestId("layer-editor-dialog")).toHaveAttribute("data-mode", "inspect");
+    expect(screen.queryByRole("button", { name: "Editar imagem" })).not.toBeInTheDocument();
   });
 });

@@ -291,7 +291,7 @@ describe("selectCreativeWorkOutputCommand", () => {
     expect(mockSelect).not.toHaveBeenCalled();
   });
 
-  it("blocks selecting another Piece while layerization is still pre-submit", async () => {
+  it("selects another Piece while layerization is still pre-submit", async () => {
     mockGet.mockResolvedValue({
       work: workItem,
       outputs: [
@@ -325,6 +325,7 @@ describe("selectCreativeWorkOutputCommand", () => {
         { ...completedOutput, id: "output-2" },
       ],
     } as never);
+    mockSelect.mockResolvedValue({ ...completedOutput, id: "output-2", isSelected: true } as never);
 
     const result = await selectCreativeWorkOutputCommand({
       workspaceId: "ws-1",
@@ -333,7 +334,7 @@ describe("selectCreativeWorkOutputCommand", () => {
       confirmObjective: true,
     });
 
-    expect(result).toEqual({ ok: false, error: { code: "layerization_selection_locked" } });
-    expect(mockSelect).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: true, value: { output: { id: "output-2", isSelected: true } } });
+    expect(mockSelect).toHaveBeenCalledWith("ws-1", "work-1", "output-2", { confirmObjective: true });
   });
 });

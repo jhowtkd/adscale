@@ -9,7 +9,6 @@ import {
 } from "@/server/repositories/creative-work";
 import type { CreativeWorkOutput } from "@/server/db/schema";
 import { getCreativeWorkSelectionPolicy, type CreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
-import { isLayerizationSelectionLocked, layerizationStateFromDatabase } from "@/server/layerize/contracts";
 
 export type SelectCreativeWorkOutputInput = {
   workspaceId: string;
@@ -28,8 +27,7 @@ export type SelectCreativeWorkOutputError =
   | { code: "output_not_selectable"; status: string }
   | { code: "output_missing_key" }
   | { code: "objective_selection_blocked"; policy: CreativeWorkSelectionPolicy }
-  | { code: "objective_confirmation_required"; policy: CreativeWorkSelectionPolicy }
-  | { code: "layerization_selection_locked" };
+  | { code: "objective_confirmation_required"; policy: CreativeWorkSelectionPolicy };
 
 
 export type SelectCreativeWorkOutputSuccess = {
@@ -77,14 +75,6 @@ export async function selectCreativeWorkOutputCommand(
     return { ok: false, error: { code: "objective_confirmation_required", policy } };
   }
 
-  const locked = existing.outputs.find((candidate) => (
-    candidate.id !== input.outputId
-    && isLayerizationSelectionLocked(layerizationStateFromDatabase(candidate.layerization))
-  ));
-  if (locked) {
-    return { ok: false, error: { code: "layerization_selection_locked" } };
-  }
-
   const selected = await selectCreativeWorkOutput(
     input.workspaceId,
     input.workItemId,
@@ -108,12 +98,6 @@ export async function selectCreativeWorkOutputCommand(
     }
     if (!currentOutput.outputKey) {
       return { ok: false, error: { code: "output_missing_key" } };
-    }
-    if (current.outputs.some((candidate) => (
-      candidate.id !== input.outputId
-      && isLayerizationSelectionLocked(layerizationStateFromDatabase(candidate.layerization))
-    ))) {
-      return { ok: false, error: { code: "layerization_selection_locked" } };
     }
     const currentPolicy = getCreativeWorkSelectionPolicy(currentOutput.quality);
     if (!currentPolicy.selectable) {
