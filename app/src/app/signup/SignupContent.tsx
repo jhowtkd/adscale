@@ -5,8 +5,12 @@ import AuthCard from "@/components/auth/AuthCard";
 import AuthPageShell from "@/components/auth/AuthPageShell";
 import { AuthV6ErrorAlert, AuthV6SuccessAlert } from "@/components/auth/v6/AuthV6Alert";
 import AuthV6Header from "@/components/auth/v6/AuthV6Header";
+import {
+  authFieldClass,
+  authPrimaryButtonClass,
+  authTextLinkClass,
+} from "@/components/auth/auth-chrome";
 import PasswordInput from "@/components/auth/PasswordInput";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
@@ -42,15 +46,6 @@ const initialSignupState: SignupState = {
 function signupReducer(state: SignupState, payload: Partial<SignupState>): SignupState {
   return { ...state, ...payload };
 }
-
-const authFieldClass =
-  "rounded-[var(--radius-control)] border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:border-[var(--neutral-border)] focus-visible:ring-[var(--focus-ring)]";
-
-const authPrimaryButtonClass =
-  "w-full rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]";
-
-const authTextLinkClass =
-  "font-medium text-[var(--neutral-text)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]";
 
 export default function SignupContent() {
   const t = useTranslations("auth");
@@ -144,27 +139,26 @@ export default function SignupContent() {
                 <AuthV6ErrorAlert>{resendError}</AuthV6ErrorAlert>
               ) : null}
 
-              <div className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 text-center space-y-2">
+              <div className="space-y-2">
                 <p className="text-xs text-[var(--text-muted)]">
                   {t("confirmEmailSentTo")}
                 </p>
-                <p className="font-semibold text-[var(--text-primary)] break-all">
+                <p className="break-all text-sm font-medium text-[var(--text-primary)]">
                   {submittedEmail}
                 </p>
-                <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
+                <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
                   {t("confirmEmailTrialNotice")}
                 </p>
               </div>
 
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                className="w-full rounded-[var(--radius-control)] border-[var(--border-default)] hover:bg-[var(--surface-raised)]"
+                className={authPrimaryButtonClass}
                 onClick={handleResend}
                 disabled={resending}
               >
                 {resending ? t("resendingVerificationEmail") : t("resendVerificationEmail")}
-              </Button>
+              </button>
             </div>
 
             <p className="text-center text-sm text-[var(--text-secondary)]">
@@ -252,9 +246,9 @@ export default function SignupContent() {
                 .
               </span>
             </label>
-            <Button type="submit" className={authPrimaryButtonClass} disabled={loading}>
+            <button type="submit" className={authPrimaryButtonClass} disabled={loading}>
               {loading ? t("creatingAccount") : t("signUp")}
-            </Button>
+            </button>
           </form>
 
           <p className="text-center text-sm text-[var(--text-secondary)]">

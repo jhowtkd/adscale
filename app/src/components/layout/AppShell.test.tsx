@@ -100,7 +100,7 @@ describe("AppShell", () => {
     );
 
     expect(screen.getAllByTestId("notification-menu")).toHaveLength(1);
-    expect(screen.getByRole("banner")).toHaveClass("md:left-auto", "md:right-[var(--shell-v6-gap)]");
+    expect(screen.getByRole("banner")).toHaveClass("md:right-[var(--shell-v6-gap)]", "md:bg-transparent");
   });
 
   it("marks More active for Docs, which lives in that mobile sheet", () => {

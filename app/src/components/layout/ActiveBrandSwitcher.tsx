@@ -2,11 +2,19 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Trash2 } from "lucide-react";
+import { ChevronDown, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import AssistantCreateClientDialog from "@/components/assistant/AssistantCreateClientDialog";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
+import { studioChipClass } from "@/components/dashboard/studio-stage/StudioInstrument";
 import { useDeleteClientProfile } from "@/lib/hooks/use-client-profiles";
 import { cn } from "@/lib/utils";
 
@@ -15,9 +23,12 @@ const NEW_BRAND_VALUE = "__new_brand__";
 export default function ActiveBrandSwitcher({
   id = "active-brand-switcher",
   className,
+  variant = "field",
 }: {
   id?: string;
   className?: string;
+  /** `grouped` is a TalkBox chip on the Palco top row. */
+  variant?: "field" | "grouped";
 } = {}) {
   const t = useTranslations("navigation");
   const {
@@ -41,42 +52,73 @@ export default function ActiveBrandSwitcher({
     selectProfile(value);
   };
 
+  const grouped = variant === "grouped";
+
+  const menu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        type="button"
+        id={id}
+        aria-label={t("activeBrand")}
+        className={cn(
+          grouped
+            ? cn(studioChipClass, "max-w-full", className)
+            : "flex h-full min-w-0 w-full appearance-none items-center gap-2 bg-transparent px-3 text-left text-xs font-medium text-[var(--text-primary)] hover:bg-white/6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]",
+        )}
+      >
+        <span className="min-w-0 flex-1 truncate">
+          {activeProfile?.name ?? t("selectBrand")}
+        </span>
+        <ChevronDown size={14} aria-hidden="true" className="shrink-0 text-[var(--text-muted)]" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="min-w-[12rem] border-[var(--border-subtle)] bg-[var(--surface-raised)]"
+      >
+        {profiles.map((profile) => (
+          <DropdownMenuItem
+            key={profile.id}
+            onClick={() => handleChange(profile.id)}
+            className={cn(profile.id === activeClientProfileId && "bg-white/6")}
+          >
+            {profile.name}
+          </DropdownMenuItem>
+        ))}
+        {profiles.length > 0 ? <DropdownMenuSeparator /> : null}
+        <DropdownMenuItem onClick={() => handleChange(NEW_BRAND_VALUE)}>
+          {t("newBrand")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
     <>
-      <div className={cn("mt-3 flex items-center gap-1", className)}>
-        <label className="sr-only" htmlFor={id}>
-          {t("activeBrand")}
-        </label>
-        <select
-          id={id}
-          value={activeClientProfileId ?? ""}
-          onChange={(event) => handleChange(event.target.value)}
-          className="block min-w-0 flex-1 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-2 py-2 text-xs font-medium text-[var(--text-primary)] focus-visible:border-[var(--focus-ring)] focus-visible:outline-none"
+      {grouped ? menu : (
+        <div
+          className={cn(
+            "flex h-10 min-w-0 items-stretch overflow-hidden rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)]",
+            className,
+          )}
         >
-          {!activeClientProfileId ? (
-            <option value="" disabled>
-              {t("selectBrand")}
-            </option>
+          <div className="flex min-w-0 flex-1">{menu}</div>
+          {activeProfile ? (
+            <button
+              type="button"
+              aria-label={t("deleteBrand")}
+              title={t("deleteBrand")}
+              onClick={() => setDeleteDialogOpen(true)}
+              className={cn(
+                "grid w-10 shrink-0 place-items-center border-l border-[var(--border-default)] text-[var(--text-muted)]",
+                "hover:bg-[var(--danger-bg)] hover:text-[var(--danger-text)]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]",
+              )}
+            >
+              <Trash2 size={15} aria-hidden="true" />
+            </button>
           ) : null}
-          {profiles.map((profile) => (
-            <option key={profile.id} value={profile.id}>
-              {profile.name}
-            </option>
-          ))}
-          <option value={NEW_BRAND_VALUE}>{t("newBrand")}</option>
-        </select>
-        {activeProfile ? (
-          <button
-            type="button"
-            aria-label={t("deleteBrand")}
-            title={t("deleteBrand")}
-            onClick={() => setDeleteDialogOpen(true)}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-control)] text-[var(--text-muted)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-          >
-            <Trash2 size={15} aria-hidden="true" />
-          </button>
-        ) : null}
-      </div>
+        </div>
+      )}
 
       <AssistantCreateClientDialog
         open={createDialogOpen}

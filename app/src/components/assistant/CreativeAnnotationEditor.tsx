@@ -9,6 +9,7 @@ import {
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { AssistantGoalPresentation } from "@/lib/assistant/goal";
+import { assistantQuietCommitClass } from "./assistant-chrome";
 
 export interface CreativeAnnotationEditorProps {
   imageUrl: string;
@@ -212,8 +213,8 @@ export default function CreativeAnnotationEditor({
               className={cn(
                 "rounded-md px-3 py-1 text-xs font-medium",
                 comment.trim()
-                  ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-text)]"
-                  : "cursor-not-allowed bg-[var(--surface-inset)] text-[var(--text-muted)]"
+                  ? assistantQuietCommitClass
+                  : "cursor-not-allowed rounded-md bg-[var(--surface-inset)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]"
               )}
             >
               {t("save")}

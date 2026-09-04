@@ -1993,6 +1993,7 @@ export function useCreativeComposer({
     },
     refreshOutputs: async () => { await detailQuery.refetch(); },
     carousel,
+    recordStudioEvent,
   };
 }
 

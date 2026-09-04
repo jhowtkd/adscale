@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { DiscreetRadios } from "@/components/dashboard/studio-stage/DiscreetRadios";
+import {
+  studioChipClass,
+  studioChromeBarClass,
+  studioInstrumentClass,
+  studioQuietActionClass,
+  studioSearchClass,
+} from "@/components/dashboard/studio-stage/StudioInstrument";
 import type { PlatformFilter, SortOption, StatusFilter, ViewMode } from "@/components/campaigns/types";
 import type {
   CampaignsV6Labels,
@@ -52,7 +60,6 @@ type CampaignsV6ViewProps = {
   onDuplicate?: (id: string) => void;
   onArchive?: (id: string) => void;
   onDelete?: (id: string) => void;
-  onSaveAsTemplate?: (campaign: CampaignV6Row["campaign"]) => void;
   alternateView?: ReactNode;
   emptyState?: ReactNode;
 };
@@ -69,11 +76,9 @@ export default function CampaignsV6View({
   onOriginChange,
   showCampaignFilters = true,
   statusFilter,
-  statusFilterLabel,
   onStatusChange,
   statusOptions,
   platformFilter,
-  platformFilterLabel,
   onPlatformChange,
   platformOptions,
   sortOption,
@@ -88,39 +93,22 @@ export default function CampaignsV6View({
   onDuplicate,
   onArchive,
   onDelete,
-  onSaveAsTemplate,
   alternateView,
   emptyState,
 }: CampaignsV6ViewProps) {
   const title = isLoading ? "" : labels.formatTitle(totalCount);
 
   return (
-    <div className="space-y-6" aria-busy={isLoading}>
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="rounded border border-[var(--border-default)] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-              {labels.versionBadge}
-            </span>
-            <span className="text-xs uppercase tracking-wider text-[var(--text-muted)]">{labels.sectionLabel}</span>
-          </div>
-          <h1 className="product-page-title text-[var(--text-primary)]">
-            {isLoading ? (
-              <span className="inline-block h-8 w-48 animate-pulse rounded bg-[var(--surface-raised)]" />
-            ) : (
-              title
-            )}
-          </h1>
-          <p className="text-sm text-[var(--text-secondary)]">{labels.subtitle}</p>
-        </div>
+    <div className={cn(studioInstrumentClass, "py-0 pb-6")} aria-busy={isLoading}>
+      <div className={studioChromeBarClass}>
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
+          {labels.sectionLabel}
+        </p>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {showCampaignFilters ? (
             interactive && onSortChange ? (
               <DropdownMenu>
-                <DropdownMenuTrigger
-                  type="button"
-                  className="inline-flex items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2 text-[13px] font-medium text-[var(--text-secondary)]"
-                >
+                <DropdownMenuTrigger type="button" className={studioQuietActionClass}>
                   {labels.sortPrefix}: {sortLabel}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="border-[var(--border-subtle)] bg-[var(--surface-raised)]">
@@ -136,10 +124,7 @@ export default function CampaignsV6View({
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2 text-[13px] font-medium text-[var(--text-secondary)]"
-              >
+              <button type="button" className={studioQuietActionClass}>
                 {labels.sortPrefix}: {sortLabel}
               </button>
             )
@@ -147,17 +132,30 @@ export default function CampaignsV6View({
           <button
             type="button"
             onClick={interactive ? onNewCampaign : undefined}
-            className="inline-flex items-center gap-2 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            className={studioChipClass}
           >
+            <Plus size={14} aria-hidden="true" />
             {labels.newWork ?? labels.newCampaign}
           </button>
-          {interactive ? <Link href="/campaigns/new" className="inline-flex min-h-[var(--control-touch)] items-center rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{labels.newCampaign}</Link> : null}
         </div>
+      </div>
+
+      <header className="space-y-2">
+        <h1 className="product-page-title text-[var(--text-primary)]">
+          {isLoading ? (
+            <span className="inline-block h-8 w-48 animate-pulse rounded bg-white/6" />
+          ) : (
+            title
+          )}
+        </h1>
+        {labels.subtitle ? (
+          <p className="text-sm text-[var(--text-secondary)]">{labels.subtitle}</p>
+        ) : null}
       </header>
 
-      <section className="overflow-hidden rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)]">
+      <section>
         <div
-          className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] p-3"
+          className="flex flex-wrap items-center gap-3"
           role="toolbar"
           aria-label={labels.filtersAria}
         >
@@ -174,70 +172,51 @@ export default function CampaignsV6View({
               value={searchQuery}
               onChange={interactive && onSearchChange ? (e) => onSearchChange(e.target.value) : undefined}
               readOnly={!interactive || !onSearchChange}
-              className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] py-2 pl-9 pr-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+              className={cn(studioSearchClass, "rounded-full")}
             />
           </div>
 
           {onOriginChange ? (
-            <FilterChip
-              interactive={interactive}
-              label={
-                originFilter === "campaign"
-                  ? labels.originCampaigns
-                  : originFilter === "creative_work"
-                    ? labels.originPosts
-                    : labels.originAll
-              }
-              count={String(totalCount)}
-              options={[
-                { value: "all" as const, label: labels.originAll },
-                { value: "campaign" as const, label: labels.originCampaigns },
-                { value: "creative_work" as const, label: labels.originPosts },
-              ]}
+            <DiscreetRadios
+              label={labels.originAll}
               value={originFilter}
-              onChange={onOriginChange}
+              onChange={interactive ? onOriginChange : undefined}
+              options={[
+                { value: "all", label: labels.originAll },
+                { value: "campaign", label: labels.originCampaigns },
+                { value: "creative_work", label: labels.originPosts },
+              ]}
             />
           ) : null}
           {showCampaignFilters ? (
             <>
-              <FilterChip
-                interactive={interactive}
-                label={`${labels.statusChipPrefix}: ${statusFilterLabel}`}
-                count={statusFilter === "all" ? String(totalCount) : undefined}
-                options={statusOptions}
+              <DiscreetRadios
+                label={labels.statusChipPrefix}
                 value={statusFilter}
-                onChange={onStatusChange}
+                onChange={interactive ? onStatusChange : undefined}
+                options={statusOptions}
               />
-              <FilterChip
-                interactive={interactive}
-                label={`${labels.platformChipPrefix}: ${platformFilterLabel}`}
-                options={platformOptions}
+              <DiscreetRadios
+                label={labels.platformChipPrefix}
                 value={platformFilter}
-                onChange={onPlatformChange}
+                onChange={interactive ? onPlatformChange : undefined}
+                options={platformOptions}
               />
             </>
           ) : null}
 
-          {showCampaignFilters ? (
-            <div className="ml-auto inline-flex rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] p-0.5">
-              <ViewToggle
-                pressed={viewMode === "list"}
+          {showCampaignFilters && onViewModeChange ? (
+            <div className="ml-auto">
+              <DiscreetRadios
                 label={labels.viewList}
-                onClick={interactive && onViewModeChange ? () => onViewModeChange("list") : undefined}
+                value={viewMode}
+                onChange={interactive ? onViewModeChange : undefined}
+                options={[
+                  { value: "list", label: labels.viewList },
+                  { value: "grid", label: labels.viewGrid },
+                  { value: "board", label: labels.viewBoard },
+                ]}
               />
-              <ViewToggle
-                pressed={viewMode === "grid"}
-                label={labels.viewGrid}
-                onClick={interactive && onViewModeChange ? () => onViewModeChange("grid") : undefined}
-              />
-              {interactive && onViewModeChange ? (
-                <ViewToggle
-                  pressed={viewMode === "board"}
-                  label={labels.viewBoard}
-                  onClick={() => onViewModeChange("board")}
-                  className="hidden lg:inline-flex"
-                />
-              ) : null}
             </div>
           ) : null}
         </div>
@@ -245,7 +224,7 @@ export default function CampaignsV6View({
         {isLoading ? (
           <ListSkeleton />
         ) : emptyState ? (
-          <div className="p-6">{emptyState}</div>
+          <div className="pt-10">{emptyState}</div>
         ) : viewMode === "list" ? (
           <ul className="divide-y divide-[var(--border-subtle)]">
             {rows.map((row) => (
@@ -259,7 +238,6 @@ export default function CampaignsV6View({
                 onDuplicate={onDuplicate}
                 onArchive={onArchive}
                 onDelete={onDelete}
-                onSaveAsTemplate={onSaveAsTemplate}
               />
             ))}
           </ul>
@@ -296,7 +274,7 @@ function CampaignGrid({
           <Link
             href={interactive ? row.href : "#"}
             aria-label={`${labels.openCampaign}: ${row.name}`}
-            className="flex min-h-36 min-w-0 flex-col justify-between rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 pr-14 transition-colors hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            className="flex min-h-36 min-w-0 flex-col justify-between rounded-[var(--radius-object)] bg-white/[0.04] p-4 pr-14 transition-colors hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             onClick={interactive ? undefined : (event) => event.preventDefault()}
           >
             <div className="flex items-start justify-between gap-3">
@@ -352,7 +330,6 @@ function CampaignRow({
   onDuplicate,
   onArchive,
   onDelete,
-  onSaveAsTemplate,
 }: {
   row: CampaignV6Row;
   labels: CampaignsV6Labels;
@@ -362,7 +339,6 @@ function CampaignRow({
   onDuplicate?: (id: string) => void;
   onArchive?: (id: string) => void;
   onDelete?: (id: string) => void;
-  onSaveAsTemplate?: (campaign: CampaignV6Row["campaign"]) => void;
 }) {
   const router = useRouter();
 
@@ -382,7 +358,7 @@ function CampaignRow({
         "transition-[background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-product)]",
         selected
           ? "bg-[var(--selection-bg)] shadow-[inset_3px_0_0_var(--selection-border)]"
-          : "hover:bg-[var(--surface-raised)]",
+          : "hover:bg-white/[0.04]",
       )}
       onClick={handleRowClick}
     >
@@ -432,10 +408,10 @@ function CampaignRow({
             href={row.href}
             aria-label={`${row.nextAction ?? labels.openCampaign}: ${row.name}`}
             className={cn(
-              "ml-auto inline-flex min-h-8 items-center rounded-[var(--radius-control)] px-3 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+              "ml-auto inline-flex min-h-8 items-center rounded-full px-3 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
               row.statusVariant === "danger"
                 ? "bg-[var(--danger-bg)] text-[var(--danger-text)]"
-                : "bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]",
+                : "text-[var(--text-muted)] hover:bg-white/6 hover:text-[var(--text-primary)]",
             )}
             onClick={(event) => event.stopPropagation()}
           >
@@ -458,9 +434,6 @@ function CampaignRow({
             {isCampaign ? (
               <>
                 <DropdownMenuItem onClick={() => onDuplicate?.(row.id)}>{labels.duplicate}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSaveAsTemplate?.(row.campaign)}>
-                  {labels.saveAsTemplate}
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => onArchive?.(row.id)}>{labels.archive}</DropdownMenuItem>
                 <DropdownMenuItem className="text-[var(--danger-text)]" onClick={() => onDelete?.(row.id)}>
@@ -520,86 +493,6 @@ function WorkPreview({ row, labels }: { row: CampaignV6Row; labels: CampaignsV6L
         onError={() => setStatus("failed")}
       />
     </span>
-  );
-}
-
-function FilterChip<T extends string>({
-  label,
-  count,
-  interactive,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  count?: string;
-  interactive: boolean;
-  options: Array<{ value: T; label: string }>;
-  value: T;
-  onChange?: (value: T) => void;
-}) {
-  const chip = (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)]">
-      {label}
-      {count ? (
-        <span className="rounded border border-[var(--border-subtle)] px-1.5 py-px font-mono text-[10px] text-[var(--text-muted)]">
-          {count}
-        </span>
-      ) : null}
-    </span>
-  );
-
-  if (!interactive || !onChange) {
-    return (
-      <button type="button" className="cursor-default">
-        {chip}
-      </button>
-    );
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger type="button">{chip}</DropdownMenuTrigger>
-      <DropdownMenuContent className="border-[var(--border-subtle)] bg-[var(--surface-raised)]">
-        {options.map((option) => (
-          <DropdownMenuItem
-            key={option.value}
-            onClick={() => onChange(option.value)}
-            className={value === option.value ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]" : undefined}
-          >
-            {option.label}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function ViewToggle({
-  pressed,
-  label,
-  onClick,
-  className,
-}: {
-  pressed: boolean;
-  label: string;
-  onClick?: () => void;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={pressed}
-      aria-label={label}
-      onClick={onClick}
-      className={`rounded px-2 py-1.5 text-xs font-medium ${className ?? ""} ${
-        pressed
-          ? "bg-[var(--active-navigation-bg)] text-[var(--active-navigation-text)]"
-          : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-      }`}
-    >
-      {label}
-    </button>
   );
 }
 

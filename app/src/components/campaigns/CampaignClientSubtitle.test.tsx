@@ -26,6 +26,7 @@ describe("CampaignClientSubtitle", () => {
     render(<CampaignClientSubtitle onAddPlatform={vi.fn()} />);
 
     expect(screen.getByRole("button", { name: "addPlatform" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "addPlatform" }).className).toContain("rounded-full");
     expect(screen.queryByText("noPlatformsSet")).not.toBeInTheDocument();
   });
 

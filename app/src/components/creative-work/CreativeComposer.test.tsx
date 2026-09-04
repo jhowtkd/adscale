@@ -147,7 +147,7 @@ const readySource = {
   },
 };
 
-function renderComposer(value = composer(), props: { hideSourceUpload?: boolean; layout?: "studio" | "piece"; workflowVariant?: "control" | "progressive" } = {}) {
+function renderComposer(value = composer(), props: { hideSourceUpload?: boolean; layout?: "studio" | "piece"; workflowVariant?: "control" | "progressive"; chrome?: "full" | "stage" } = {}) {
   const { composerRef, ...viewModel } = value;
   return render(
     <CreativeComposer
@@ -389,6 +389,12 @@ describe("CreativeComposer", () => {
     expect(screen.getByTestId("creative-composer-dropzone")).toHaveAttribute("id", "creative-composer-dropzone");
     expect(screen.getByTestId("creative-composer-dropzone")).toHaveAttribute("tabindex", "-1");
     expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
+  });
+
+  it("hides entry chrome when Palco owns the talk box", () => {
+    renderComposer(composer({ intent: "single", request: "Pedido" }), { chrome: "stage" });
+    expect(screen.queryByTestId("creative-generate-action")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Pedido criativo" })).not.toBeInTheDocument();
   });
 
   it("turns restyle into a direct two-image action without extra choices", () => {
@@ -816,10 +822,12 @@ describe("CreativeComposer", () => {
       createdAt: new Date(), updatedAt: new Date(),
     };
     const piece = renderComposer(composer({ workId: "work-1", outputs: [output], sources: [readySource] }), { layout: "piece" });
-    const pieceResults = screen.getByRole("heading", { name: "Resultados" }).closest("section")!;
+    const pieceResults = screen.getByTestId("proposal-review-surface");
     const pieceReading = screen.getByRole("heading", { name: "Leitura da IA" }).closest("section")!;
 
     expect(pieceResults.compareDocumentPosition(pieceReading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Gere variações a partir de uma arte" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("creative-output-progress")).not.toBeInTheDocument();
     expect(screen.queryByTestId("creative-composer-dropzone")).not.toBeInTheDocument();
     expect(screen.queryByTestId("creative-generate-action")).not.toBeInTheDocument();
 

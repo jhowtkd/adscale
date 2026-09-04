@@ -3,7 +3,7 @@
 import { useReducer, useRef, useCallback, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Upload, ImageIcon, AlertCircle } from "lucide-react";
+import { AlertCircle, ImageIcon } from "lucide-react";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import EmptyState from "@/components/ui/EmptyState";
 import {
@@ -192,23 +192,18 @@ export default function LibraryPage() {
         onClick: () => queryClient.invalidateQueries({ queryKey: ["workspace-assets"] }),
       }}
     />
-  ) : !isLoading && visibleAssets.length === 0 ? (
+  ) : !isLoading && visibleAssets.length === 0 && (debouncedSearch || filter !== "all") ? (
     <EmptyState
       icon={ImageIcon}
       title={t("emptyTitle")}
       description={t("emptyDescription")}
-      action={
-        debouncedSearch
-          ? {
-              label: tCommon("clearFilters"),
-              onClick: () => handleSearch(""),
-            }
-          : {
-              label: t("upload"),
-              onClick: () => fileInputRef.current?.click(),
-              icon: Upload,
-            }
-      }
+      action={{
+        label: tCommon("clear"),
+        onClick: () => {
+          handleSearch("");
+          updateState({ filter: "all", limit: PAGE_SIZE });
+        },
+      }}
     />
   ) : undefined;
 

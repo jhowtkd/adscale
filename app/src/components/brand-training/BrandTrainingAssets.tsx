@@ -1,37 +1,53 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Archive, Check, CircleX, Loader2, Upload } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
 import { useAppStore } from "@/lib/store";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { DiscreetRadios } from "@/components/dashboard/studio-stage/DiscreetRadios";
+import {
+  studioBentoClass,
+  studioBentoItemClass,
+  studioChipClass,
+  studioFilterStripClass,
+} from "@/components/dashboard/studio-stage/StudioInstrument";
 import {
   useBrandTrainingAssets,
   useReviewBrandTrainingAsset,
   useUploadBrandTrainingAsset,
   type BrandTrainingAssetRecord,
 } from "@/lib/hooks/use-brand-training";
+import {
+  AssetReviewOccupancy,
+  isLegacyApproved,
+  type AssetDraft,
+  type RejectionReason,
+} from "./BrandTrainingAssetReview";
 
-const CATEGORIES = ["logo", "graphic", "character", "visual_reference"] as const;
-type Category = (typeof CATEGORIES)[number];
+type Category = "logo" | "graphic" | "character" | "visual_reference";
+type UsageMode = "exact" | "reference" | "rule";
+type ReferenceFilter = "all" | "review" | "approved" | "archive";
 
-const USAGE_MODES = ["exact", "reference", "rule"] as const;
-type UsageMode = (typeof USAGE_MODES)[number];
-type RejectionReason = NonNullable<BrandTrainingAssetRecord["rejectionReason"]>;
-
-interface AssetDraft {
-  trainingCategory: Category;
-  usageMode: UsageMode;
-  analysis: NonNullable<BrandTrainingAssetRecord["trainingAnalysis"]>;
+function referenceBucket(asset: BrandTrainingAssetRecord): Exclude<ReferenceFilter, "all"> {
+  if (
+    asset.reviewStatus === "pending_analysis" ||
+    asset.reviewStatus === "pending_approval" ||
+    isLegacyApproved(asset)
+  ) {
+    return "review";
+  }
+  if (asset.reviewStatus === "approved") return "approved";
+  return "archive";
 }
 
-function formatReviewedAt(value: string | Date | null): string | null {
-  if (!value) return null;
-  const date = typeof value === "string" ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleString();
+function fallbackCategory(asset: BrandTrainingAssetRecord): Category {
+  return (asset.trainingCategory as Category | null) ?? "visual_reference";
+}
+
+function fallbackUsage(asset: BrandTrainingAssetRecord): UsageMode {
+  return (asset.usageMode as UsageMode | null) ?? "reference";
 }
 
 export function BrandTrainingAssets({
@@ -42,6 +58,7 @@ export function BrandTrainingAssets({
   const t = useTranslations("brandTraining");
   const tc = useTranslations("common");
   const addToast = useAppStore((s) => s.addToast);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const assetsQuery = useBrandTrainingAssets(clientProfileId);
   const upload = useUploadBrandTrainingAsset(clientProfileId);
@@ -51,35 +68,24 @@ export function BrandTrainingAssets({
     () => assetsQuery.data ?? [],
     [assetsQuery.data],
   );
+  const [filter, setFilter] = useState<ReferenceFilter>("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
-  const pendingAnalysis = useMemo(
-    () => assets.filter((a) => a.reviewStatus === "pending_analysis"),
-    [assets],
+  const visible = useMemo(
+    () => (filter === "all" ? assets : assets.filter((asset) => referenceBucket(asset) === filter)),
+    [assets, filter],
   );
-  const pendingApproval = useMemo(
-    () => assets.filter((a) => a.reviewStatus === "pending_approval"),
-    [assets],
-  );
-  const legacyApproved = useMemo(
-    () => assets.filter((a) =>
-      a.reviewStatus === "approved" && (!a.reviewedAt || !a.reviewedByUserId)
-    ),
-    [assets],
-  );
-  const approved = useMemo(
-    () => assets.filter((a) =>
-      a.reviewStatus === "approved" && Boolean(a.reviewedAt && a.reviewedByUserId)
-    ),
-    [assets],
-  );
-  const archived = useMemo(
-    () => assets.filter((a) => a.reviewStatus === "archived"),
-    [assets],
-  );
-  const rejected = useMemo(
-    () => assets.filter((a) => a.reviewStatus === "rejected"),
-    [assets],
-  );
+  const selected = visible.find((asset) => asset.id === selectedId) ?? visible[0] ?? null;
+
+  useEffect(() => {
+    if (!selected) {
+      setSelectedId(null);
+      return;
+    }
+    if (selected.id !== selectedId) setSelectedId(selected.id);
+  }, [selected, selectedId]);
 
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -89,284 +95,22 @@ export function BrandTrainingAssets({
       upload.mutate(file, {
         onSuccess: () => {
           remaining -= 1;
-          if (remaining === 0) {
-            addToast("success", tc("saved"));
-          }
+          if (remaining === 0) addToast("success", tc("saved"));
         },
         onError: (err) => addToast("error", err.message),
       });
     });
   };
 
-  return (
-    <section className="space-y-5" aria-label={t("assets.title")}>
-      <header className="space-y-1">
-        <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-          {t("assets.title")}
-        </h2>
-        <p className="text-xs text-[var(--text-muted)]">
-          {t("assets.description")}
-        </p>
-      </header>
-
-      <UploadField
-        disabled={upload.isPending}
-        onFiles={handleFiles}
-        onError={(msg) => addToast("error", msg)}
-      />
-
-      {assetsQuery.isLoading ? (
-        <p
-          className="text-xs text-[var(--text-muted)]"
-          role="status"
-        >
-          {tc("loading")}
-        </p>
-      ) : null}
-
-      {assets.length === 0 && !assetsQuery.isLoading ? (
-        <EmptyState />
-      ) : null}
-
-      <Group
-        title={t("assets.statusPendingAnalysis")}
-        items={pendingAnalysis}
-        renderItem={(asset) => (
-          <PendingAnalysisCard key={asset.id} asset={asset} />
-        )}
-      />
-
-      <Group
-        title={t("assets.statusPendingApproval")}
-        items={pendingApproval}
-        renderItem={(asset) => (
-          <PendingApprovalCard
-            key={asset.id}
-            asset={asset}
-            onApprove={(input) =>
-              review.mutate(
-                { referenceId: asset.id, ...input, reviewStatus: "approved" },
-                {
-                  onSuccess: () => addToast("success", tc("saved")),
-                  onError: (err) => addToast("error", err.message),
-                },
-              )
-            }
-            onArchive={() =>
-              review.mutate(
-                {
-                  referenceId: asset.id,
-                  trainingCategory:
-                    (asset.trainingCategory as Category | null) ?? "visual_reference",
-                  usageMode: (asset.usageMode as UsageMode | null) ?? "reference",
-                  analysis: null,
-                  reviewStatus: "archived",
-                },
-                {
-                  onSuccess: () => addToast("success", tc("saved")),
-                  onError: (err) => addToast("error", err.message),
-                },
-              )
-            }
-            onReject={(rejectionReason) =>
-              review.mutate(
-                {
-                  referenceId: asset.id,
-                  trainingCategory:
-                    (asset.trainingCategory as Category | null) ?? "visual_reference",
-                  usageMode: (asset.usageMode as UsageMode | null) ?? "reference",
-                  analysis: asset.trainingAnalysis ?? null,
-                  reviewStatus: "rejected",
-                  rejectionReason,
-                },
-                {
-                  onSuccess: () => addToast("success", tc("saved")),
-                  onError: (err) => addToast("error", err.message),
-                },
-              )
-            }
-            submitting={review.isPending}
-          />
-        )}
-      />
-
-      <Group
-        title={t("assets.statusLegacyUnreviewed")}
-        items={legacyApproved}
-        renderItem={(asset) => (
-          <ApprovedCard
-            key={asset.id}
-            asset={asset}
-            onConfirm={() =>
-              review.mutate(
-                {
-                  referenceId: asset.id,
-                  trainingCategory:
-                    (asset.trainingCategory as Category | null) ?? "visual_reference",
-                  usageMode: (asset.usageMode as UsageMode | null) ?? "reference",
-                  analysis: asset.trainingAnalysis ?? null,
-                  reviewStatus: "approved",
-                },
-                {
-                  onSuccess: () => addToast("success", tc("saved")),
-                  onError: (err) => addToast("error", err.message),
-                },
-              )
-            }
-            onArchive={() =>
-              review.mutate(
-                {
-                  referenceId: asset.id,
-                  trainingCategory:
-                    (asset.trainingCategory as Category | null) ?? "visual_reference",
-                  usageMode: (asset.usageMode as UsageMode | null) ?? "reference",
-                  analysis: null,
-                  reviewStatus: "archived",
-                },
-                {
-                  onSuccess: () => addToast("success", tc("saved")),
-                  onError: (err) => addToast("error", err.message),
-                },
-              )
-            }
-            onReject={(rejectionReason) =>
-              review.mutate(
-                {
-                  referenceId: asset.id,
-                  trainingCategory:
-                    (asset.trainingCategory as Category | null) ?? "visual_reference",
-                  usageMode: (asset.usageMode as UsageMode | null) ?? "reference",
-                  analysis: asset.trainingAnalysis ?? null,
-                  reviewStatus: "rejected",
-                  rejectionReason,
-                },
-                {
-                  onSuccess: () => addToast("success", tc("saved")),
-                  onError: (err) => addToast("error", err.message),
-                },
-              )
-            }
-            submitting={review.isPending}
-          />
-        )}
-      />
-
-      <Group
-        title={t("assets.statusApproved")}
-        items={approved}
-        renderItem={(asset) => (
-          <ApprovedCard
-            key={asset.id}
-            asset={asset}
-            onArchive={() =>
-              review.mutate(
-                {
-                  referenceId: asset.id,
-                  trainingCategory:
-                    (asset.trainingCategory as Category | null) ?? "visual_reference",
-                  usageMode: (asset.usageMode as UsageMode | null) ?? "reference",
-                  analysis: null,
-                  reviewStatus: "archived",
-                },
-                {
-                  onSuccess: () => addToast("success", tc("saved")),
-                  onError: (err) => addToast("error", err.message),
-                },
-              )
-            }
-            onReject={(rejectionReason) =>
-              review.mutate(
-                {
-                  referenceId: asset.id,
-                  trainingCategory:
-                    (asset.trainingCategory as Category | null) ?? "visual_reference",
-                  usageMode: (asset.usageMode as UsageMode | null) ?? "reference",
-                  analysis: asset.trainingAnalysis ?? null,
-                  reviewStatus: "rejected",
-                  rejectionReason,
-                },
-                {
-                  onSuccess: () => addToast("success", tc("saved")),
-                  onError: (err) => addToast("error", err.message),
-                },
-              )
-            }
-            submitting={review.isPending}
-          />
-        )}
-      />
-
-      <Group
-        title={t("assets.statusArchived")}
-        items={archived}
-        renderItem={(asset) => (
-          <ArchivedCard
-            key={asset.id}
-            asset={asset}
-            onReject={(rejectionReason) =>
-              review.mutate(
-                {
-                  referenceId: asset.id,
-                  trainingCategory:
-                    (asset.trainingCategory as Category | null) ?? "visual_reference",
-                  usageMode: (asset.usageMode as UsageMode | null) ?? "reference",
-                  analysis: asset.trainingAnalysis ?? null,
-                  reviewStatus: "rejected",
-                  rejectionReason,
-                },
-                {
-                  onSuccess: () => addToast("success", tc("saved")),
-                  onError: (err) => addToast("error", err.message),
-                },
-              )
-            }
-            submitting={review.isPending}
-          />
-        )}
-      />
-
-      <Group
-        title={t("assets.statusRejected")}
-        items={rejected}
-        renderItem={(asset) => <RejectedCard key={asset.id} asset={asset} />}
-      />
-    </section>
-  );
-}
-
-/* ------------------------------ Sub-components ------------------------------ */
-
-function UploadField({
-  disabled,
-  onFiles,
-  onError,
-}: {
-  disabled: boolean;
-  onFiles: (files: FileList | null) => void;
-  onError: (msg: string) => void;
-}) {
-  const t = useTranslations("brandTraining");
-  const [validationError, setValidationError] = useState<string | null>(null);
-
   const validate = (files: FileList | null): File[] => {
     if (!files || files.length === 0) return [];
-    const accepted = new Set([
-      "image/png",
-      "image/jpeg",
-      "image/webp",
-      "image/svg+xml",
-    ]);
+    const accepted = new Set(["image/png", "image/jpeg", "image/webp", "image/svg+xml"]);
     const MAX_BYTES = 10 * 1024 * 1024;
     const valid: File[] = [];
     Array.from(files).forEach((file) => {
-      if (!accepted.has(file.type)) {
+      if (!accepted.has(file.type) || file.size <= 0 || file.size > MAX_BYTES) {
         setValidationError(t("assets.uploadFailed"));
-        onError(t("assets.uploadFailed"));
-        return;
-      }
-      if (file.size <= 0 || file.size > MAX_BYTES) {
-        setValidationError(t("assets.uploadFailed"));
-        onError(t("assets.uploadFailed"));
+        addToast("error", t("assets.uploadFailed"));
         return;
       }
       valid.push(file);
@@ -375,438 +119,239 @@ function UploadField({
     return valid;
   };
 
+  const openFilePicker = () => {
+    if (!upload.isPending) fileInputRef.current?.click();
+  };
+
+  const mutateReview = (
+    asset: BrandTrainingAssetRecord,
+    patch: {
+      reviewStatus: "approved" | "archived" | "rejected";
+      analysis?: BrandTrainingAssetRecord["trainingAnalysis"] | null;
+      rejectionReason?: RejectionReason;
+      trainingCategory?: Category;
+      usageMode?: UsageMode;
+    },
+  ) => {
+    review.mutate(
+      {
+        referenceId: asset.id,
+        trainingCategory: patch.trainingCategory ?? fallbackCategory(asset),
+        usageMode: patch.usageMode ?? fallbackUsage(asset),
+        analysis: patch.analysis === undefined ? asset.trainingAnalysis ?? null : patch.analysis,
+        reviewStatus: patch.reviewStatus,
+        ...(patch.rejectionReason ? { rejectionReason: patch.rejectionReason } : {}),
+      },
+      {
+        onSuccess: () => addToast("success", tc("saved")),
+        onError: (err) => addToast("error", err.message),
+      },
+    );
+  };
+
   return (
-    <div className="space-y-2">
-      <label
-        htmlFor="brand-training-files"
-        className={cn(
-          "flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-4 text-xs text-[var(--text-muted)] transition-colors hover:border-[var(--selection-border)]",
-          disabled && "cursor-not-allowed opacity-60",
-        )}
-      >
-        {disabled ? (
-          <Loader2 size={14} className="animate-spin" />
-        ) : (
-          <Upload size={14} />
-        )}
-        <span>{t("assets.uploadLabel")}</span>
+    <section
+      data-testid="brand-kit-assets"
+      aria-label={t("assets.title")}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const valid = validate(e.dataTransfer.files);
+        if (valid.length > 0) handleFiles(e.dataTransfer.files);
+      }}
+      className={cn("space-y-4", isDragging && "rounded-[var(--radius-object)] bg-[var(--selection-bg)] ring-2 ring-[var(--focus-ring)]")}
+    >
+      <div className="flex flex-wrap items-center justify-end gap-1">
+        <button
+          type="button"
+          onClick={openFilePicker}
+          disabled={upload.isPending}
+          className={studioChipClass}
+        >
+          {upload.isPending ? (
+            <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+          ) : (
+            <Upload size={14} aria-hidden="true" />
+          )}
+          <span>{t("assets.uploadChip")}</span>
+        </button>
         <input
+          ref={fileInputRef}
           id="brand-training-files"
           type="file"
+          aria-label={t("assets.uploadLabel")}
           accept="image/png,image/jpeg,image/webp,image/svg+xml"
           multiple
-          disabled={disabled}
+          disabled={upload.isPending}
           onChange={(event) => {
             const valid = validate(event.target.files);
-            if (valid.length > 0) {
-              onFiles(event.target.files);
-            }
+            if (valid.length > 0) handleFiles(event.target.files);
             event.target.value = "";
           }}
           className="sr-only"
         />
-      </label>
-      <p className="text-[var(--text-caption)] text-[var(--text-muted)]">
-        {t("assets.uploadHint")}
-      </p>
+      </div>
+
+      <div data-testid="brand-assets-strip" className={studioFilterStripClass}>
+        <DiscreetRadios
+          label={t("assets.filterAria")}
+          value={filter}
+          onChange={setFilter}
+          className="min-w-0 flex-1 justify-center"
+          options={[
+            { value: "all", label: t("assets.filterAll") },
+            { value: "review", label: t("assets.filterReview") },
+            { value: "approved", label: t("assets.filterApproved") },
+            { value: "archive", label: t("assets.filterArchive") },
+          ]}
+        />
+        <p className="shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
+          {visible.length}/{assets.length}
+        </p>
+      </div>
+
+      {assetsQuery.isLoading ? (
+        <p className="text-xs text-[var(--text-muted)]" role="status">
+          {tc("loading")}
+        </p>
+      ) : null}
+
+      {assets.length === 0 && !assetsQuery.isLoading ? (
+        <button
+          type="button"
+          onClick={openFilePicker}
+          className="flex w-full flex-col items-center justify-center gap-1 py-16 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+        >
+          <p className="text-sm text-[var(--text-secondary)]">{t("assets.emptyTitle")}</p>
+          <p className="text-xs text-[var(--text-muted)]">{t("assets.emptyDescription")}</p>
+        </button>
+      ) : null}
+
+      {visible.length > 0 ? (
+        <ul className={studioBentoClass} data-testid="brand-assets-bento">
+          {visible.map((asset) => (
+            <li key={asset.id} className={studioBentoItemClass}>
+              <ReferenceTile
+                asset={asset}
+                selected={selected?.id === asset.id}
+                onSelect={() => setSelectedId(asset.id)}
+              />
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
       {validationError ? (
-        <p role="alert" className="text-[var(--text-caption)] text-[var(--danger-text)]">
+        <p role="alert" className="text-xs text-[var(--danger-text)]">
           {validationError}
         </p>
       ) : null}
-    </div>
-  );
-}
 
-function EmptyState() {
-  const t = useTranslations("brandTraining");
-  return (
-    <div
-      className="rounded-lg border border-dashed border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 py-4 text-center"
-      role="status"
-    >
-      <p className="text-xs font-medium text-[var(--text-primary)]">
-        {t("assets.emptyTitle")}
-      </p>
-      <p className="mt-1 text-[var(--text-caption)] text-[var(--text-muted)]">
-        {t("assets.emptyDescription")}
-      </p>
-    </div>
-  );
-}
-
-function Group<T>({
-  title,
-  items,
-  renderItem,
-}: {
-  title: string;
-  items: T[];
-  renderItem: (item: T) => React.ReactNode;
-}) {
-  if (items.length === 0) return null;
-  return (
-    <section className="space-y-2">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-        {title}
-      </h3>
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {items.map((item) => renderItem(item))}
-      </ul>
+      {selected &&
+      selected.reviewStatus !== "pending_analysis" &&
+      selected.reviewStatus !== "rejected" ? (
+        <AssetReviewOccupancy
+          key={selected.id}
+          asset={selected}
+          submitting={review.isPending}
+          onApprove={
+            selected.reviewStatus === "pending_approval"
+              ? (draft: AssetDraft) =>
+                  mutateReview(selected, {
+                    reviewStatus: "approved",
+                    trainingCategory: draft.trainingCategory,
+                    usageMode: draft.usageMode,
+                    analysis: draft.analysis,
+                  })
+              : undefined
+          }
+          onConfirm={
+            isLegacyApproved(selected)
+              ? () =>
+                  mutateReview(selected, {
+                    reviewStatus: "approved",
+                    analysis: selected.trainingAnalysis ?? null,
+                  })
+              : undefined
+          }
+          onArchive={
+            selected.reviewStatus !== "archived"
+              ? () => mutateReview(selected, { reviewStatus: "archived", analysis: null })
+              : undefined
+          }
+          onReject={(reason) =>
+            mutateReview(selected, {
+              reviewStatus: "rejected",
+              analysis: selected.trainingAnalysis ?? null,
+              rejectionReason: reason,
+            })
+          }
+        />
+      ) : null}
     </section>
   );
 }
 
-function AssetThumb({ url, label }: { url: string; label: string }) {
-  return (
-    <div className="relative aspect-square w-full overflow-hidden rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)]">
-      <Image
-        src={url}
-        alt={label}
-        fill
-        unoptimized
-        className="object-cover"
-        sizes="(max-width: 640px) 100vw, 240px"
-      />
-    </div>
-  );
-}
-
-function PendingAnalysisCard({ asset }: { asset: BrandTrainingAssetRecord }) {
-  const t = useTranslations("brandTraining");
-  return (
-    <li
-      role="status"
-      aria-live="polite"
-      className="space-y-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-3"
-    >
-      <AssetThumb url={asset.url} label={asset.label} />
-      <div>
-        <p className="text-sm font-medium text-[var(--text-primary)]">
-          {asset.label}
-        </p>
-        <p className="mt-0.5 text-[var(--text-caption)] text-[var(--text-muted)]">
-          {t("assets.statusPendingAnalysis")}
-        </p>
-      </div>
-    </li>
-  );
-}
-
-function PendingApprovalCard({
+function ReferenceTile({
   asset,
-  onApprove,
-  onArchive,
-  onReject,
-  submitting,
+  selected,
+  onSelect,
 }: {
   asset: BrandTrainingAssetRecord;
-  onApprove: (input: Omit<AssetDraft, "analysis"> & {
-    analysis: AssetDraft["analysis"];
-  }) => void;
-  onArchive: () => void;
-  onReject: (reason: RejectionReason) => void;
-  submitting: boolean;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   const t = useTranslations("brandTraining");
-  const initialCategory = (asset.trainingCategory ?? "graphic") as Category;
-  const initialMode = (asset.usageMode ?? "reference") as UsageMode;
-  const initialAnalysis = asset.trainingAnalysis ?? {
-    description: "",
-    visualAttributes: [],
-    rules: [],
-    constraints: [],
-    confidence: 0,
-  };
-
-  const [category, setCategory] = useState<Category>(initialCategory);
-  const [usageMode, setUsageMode] = useState<UsageMode>(initialMode);
-  const [analysis, setAnalysis] = useState<AssetDraft["analysis"]>(initialAnalysis);
-
-  const metadataHasAlpha = asset.asset?.metadata?.hasAlpha === true;
-  const blocksExact = usageMode === "exact" && !metadataHasAlpha;
-
-  const buildInput = () => ({
-    referenceId: asset.id,
-    trainingCategory: category,
-    usageMode,
-    analysis,
-  });
+  const statusKey =
+    asset.reviewStatus === "pending_analysis"
+      ? "assets.statusPendingAnalysis"
+      : asset.reviewStatus === "pending_approval"
+        ? "assets.statusPendingApproval"
+        : isLegacyApproved(asset)
+          ? "assets.statusLegacyUnreviewed"
+          : asset.reviewStatus === "approved"
+            ? "assets.statusApproved"
+            : asset.reviewStatus === "archived"
+              ? "assets.statusArchived"
+              : "assets.statusRejected";
 
   return (
-    <li
-      role="status"
-      aria-live="polite"
-      className="space-y-3 rounded-lg border border-[var(--selection-border)] bg-[var(--surface-raised)] p-3"
+    <article
+      role={asset.reviewStatus === "pending_analysis" ? "status" : undefined}
+      className={cn(
+        "group relative overflow-hidden rounded-2xl bg-white/[0.04]",
+        selected && "ring-2 ring-[var(--focus-ring)]",
+        asset.reviewStatus === "pending_analysis" && "opacity-80",
+      )}
     >
-      <AssetThumb url={asset.url} label={asset.label} />
-      <div>
-        <p className="text-sm font-medium text-[var(--text-primary)]">
-          {asset.label}
-        </p>
-        <p className="mt-0.5 text-[var(--text-caption)] text-[var(--text-muted)]">
-          {t("assets.statusPendingApproval")}
-        </p>
-      </div>
-
-      <p className="text-[var(--text-caption)] text-[var(--text-muted)]">
-        {t("assets.analysisExplanation")}
-      </p>
-
-      <div className="grid gap-2 sm:grid-cols-2">
-        <label className="space-y-1 text-[var(--text-caption)] text-[var(--text-muted)]">
-          <span>{t("assets.category")}</span>
-          <select
-            aria-label={t("assets.category")}
-            value={category}
-            onChange={(e) => setCategory(e.target.value as Category)}
-            className="block w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-[3px] focus:ring-[var(--focus-ring)]"
-          >
-            {CATEGORIES.map((value) => (
-              <option key={value} value={value}>
-                {t(`assets.categories.${value}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1 text-[var(--text-caption)] text-[var(--text-muted)]">
-          <span>{t("assets.usageMode")}</span>
-          <select
-            aria-label={t("assets.usageMode")}
-            value={usageMode}
-            onChange={(e) => setUsageMode(e.target.value as UsageMode)}
-            className="block w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-[3px] focus:ring-[var(--focus-ring)]"
-          >
-            {USAGE_MODES.map((value) => (
-              <option key={value} value={value}>
-                {t(`assets.usageModes.${value}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <label className="block space-y-1 text-[var(--text-caption)] text-[var(--text-muted)]">
-        <span>{t("assets.descriptionField")}</span>
-        <textarea
-          value={analysis.description}
-          onChange={(e) =>
-            setAnalysis({ ...analysis, description: e.target.value })
-          }
-          rows={2}
-          className="block w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-[3px] focus:ring-[var(--focus-ring)]"
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={selected}
+        aria-label={`${asset.label} · ${t(statusKey)}`}
+        className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+      >
+        <Image
+          src={asset.url}
+          alt=""
+          width={800}
+          height={800}
+          unoptimized
+          className="block h-auto w-full"
         />
-      </label>
-
-      {blocksExact ? (
-        <p
-          role="alert"
-          className="rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-2 py-1.5 text-[var(--text-caption)] text-[var(--danger-text)]"
+        <div
+          data-testid="brand-assets-rover"
+          className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-2.5 pb-2.5 pt-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
         >
-          {t("assets.transparentRequired")}
-        </p>
-      ) : null}
-
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={submitting}
-          onClick={onArchive}
-        >
-          <Archive size={14} className="mr-1" />
-          {t("assets.archive")}
-        </Button>
-        <Button
-          type="button"
-          disabled={submitting || blocksExact}
-          onClick={() => onApprove(buildInput())}
-        >
-          {submitting ? (
-            <Loader2 size={14} className="mr-1 animate-spin" />
-          ) : (
-            <Check size={14} className="mr-1" />
-          )}
-          {t("assets.approve")}
-        </Button>
-      </div>
-      <RejectControl submitting={submitting} onReject={onReject} />
-    </li>
-  );
-}
-
-function ApprovedCard({
-  asset,
-  onConfirm,
-  onArchive,
-  onReject,
-  submitting,
-}: {
-  asset: BrandTrainingAssetRecord;
-  onConfirm?: () => void;
-  onArchive: () => void;
-  onReject: (reason: RejectionReason) => void;
-  submitting: boolean;
-}) {
-  const t = useTranslations("brandTraining");
-  const reviewedAt = formatReviewedAt(asset.reviewedAt);
-  const category = (asset.trainingCategory ?? "graphic") as Category;
-  const usageMode = (asset.usageMode ?? "reference") as UsageMode;
-  return (
-    <li className="space-y-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-3">
-      <AssetThumb url={asset.url} label={asset.label} />
-      <div>
-        <p className="text-sm font-medium text-[var(--text-primary)]">
-          {asset.label}
-        </p>
-        <p className="mt-0.5 text-[var(--text-caption)] text-[var(--text-muted)]">
-          {t(`assets.categories.${category}`)} · {t(`assets.usageModes.${usageMode}`)}
-        </p>
-        {reviewedAt ? (
-          <p className="mt-0.5 text-[var(--text-caption)] text-[var(--text-muted)]">
-            {t("assets.reviewedAt", { when: reviewedAt })}
-          </p>
-        ) : null}
-        {onConfirm ? (
-          <p className="mt-0.5 text-[var(--text-caption)] text-[var(--text-muted)]">
-            {t("assets.statusLegacyUnreviewed")}
-          </p>
-        ) : null}
-      </div>
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={submitting}
-          onClick={onArchive}
-        >
-          <Archive size={14} className="mr-1" />
-          {t("assets.archive")}
-        </Button>
-        {onConfirm ? (
-          <Button type="button" disabled={submitting} onClick={onConfirm}>
-            <Check size={14} className="mr-1" />
-            {t("assets.confirmLegacy")}
-          </Button>
-        ) : null}
-      </div>
-      <RejectControl submitting={submitting} onReject={onReject} />
-    </li>
-  );
-}
-
-function ArchivedCard({
-  asset,
-  onReject,
-  submitting,
-}: {
-  asset: BrandTrainingAssetRecord;
-  onReject: (reason: RejectionReason) => void;
-  submitting: boolean;
-}) {
-  const t = useTranslations("brandTraining");
-  return (
-    <li
-      role="status"
-      className="space-y-2 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-3 opacity-70"
-    >
-      <AssetThumb url={asset.url} label={asset.label} />
-      <div>
-        <p className="text-sm font-medium text-[var(--text-primary)]">
-          {asset.label}
-        </p>
-        <p className="mt-0.5 text-[var(--text-caption)] text-[var(--text-muted)]">
-          {t("assets.statusArchived")}
-        </p>
-      </div>
-      <RejectControl submitting={submitting} onReject={onReject} />
-    </li>
-  );
-}
-
-function RejectedCard({ asset }: { asset: BrandTrainingAssetRecord }) {
-  const t = useTranslations("brandTraining");
-  const reason = asset.rejectionReason;
-  return (
-    <li
-      role="status"
-      className="space-y-2 rounded-lg border border-[var(--danger-border)] bg-[var(--surface-base)] p-3 opacity-80"
-    >
-      <AssetThumb url={asset.url} label={asset.label} />
-      <div>
-        <p className="text-sm font-medium text-[var(--text-primary)]">{asset.label}</p>
-        <p className="mt-0.5 text-[var(--text-caption)] text-[var(--danger-text)]">
-          {t("assets.statusRejected")}
-          {reason ? ` · ${t(`assets.rejectionReasons.${reason.code}`)}` : ""}
-        </p>
-        {reason?.note ? (
-          <p className="mt-1 text-[var(--text-caption)] text-[var(--text-muted)]">{reason.note}</p>
-        ) : null}
-      </div>
-    </li>
-  );
-}
-
-function RejectControl({
-  submitting,
-  onReject,
-}: {
-  submitting: boolean;
-  onReject: (reason: RejectionReason) => void;
-}) {
-  const t = useTranslations("brandTraining");
-  const [code, setCode] = useState<RejectionReason["code"]>("brand_drift");
-  const [note, setNote] = useState("");
-  const reasonCodes: RejectionReason["code"][] = [
-    "brand_drift",
-    "excessive_accent_color",
-    "generic_stock_photo",
-    "decorative_3d",
-    "text_density",
-    "weak_hierarchy",
-    "literal_reference_copy",
-    "prohibited_element",
-    "other",
-  ];
-
-  return (
-    <div className="space-y-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] p-2">
-      <label className="block space-y-1 text-[var(--text-caption)] text-[var(--text-muted)]">
-        <span>{t("assets.rejectionReason")}</span>
-        <select
-          aria-label={t("assets.rejectionReason")}
-          value={code}
-          onChange={(event) => setCode(event.target.value as RejectionReason["code"])}
-          className="block w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-[3px] focus:ring-[var(--focus-ring)]"
-        >
-          {reasonCodes.map((value) => (
-            <option key={value} value={value}>
-              {t(`assets.rejectionReasons.${value}`)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="block space-y-1 text-[var(--text-caption)] text-[var(--text-muted)]">
-        <span>{t("assets.rejectionNote")}</span>
-        <input
-          aria-label={t("assets.rejectionNote")}
-          value={note}
-          maxLength={240}
-          onChange={(event) => setNote(event.target.value)}
-          className="block w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-[3px] focus:ring-[var(--focus-ring)]"
-        />
-      </label>
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={submitting}
-          onClick={() => onReject({ code, ...(note.trim() ? { note: note.trim() } : {}) })}
-        >
-          <CircleX size={14} className="mr-1" />
-          {t("assets.reject")}
-        </Button>
-      </div>
-    </div>
+          <p className="truncate text-xs font-medium text-white">{asset.label}</p>
+          <p className="mt-0.5 truncate font-mono text-[10px] text-white/70">{t(statusKey)}</p>
+        </div>
+      </button>
+    </article>
   );
 }

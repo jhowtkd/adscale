@@ -4,7 +4,6 @@ import { useParams, useRouter } from "next/navigation";
 import { OwnerCalibrationPanel } from "@/components/admin/OwnerCalibrationPanel";
 import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
-import Panel from "@/components/layout/Panel";
 
 export default function BrandCalibrationPage() {
   const params = useParams<{ clientProfileId: string }>();
@@ -17,12 +16,10 @@ export default function BrandCalibrationPage() {
         title="Calibração da marca"
         description="Governança de gosto por marca: perfil de evidência, voz editorial e regras aprovadas."
       />
-      <Panel padding="md">
-        <OwnerCalibrationPanel
+      <OwnerCalibrationPanel
           clientProfileId={clientProfileId}
           onBrandChange={(id) => router.push(`/admin/quality/brands/${id}`)}
         />
-      </Panel>
     </PageFrame>
   );
 }

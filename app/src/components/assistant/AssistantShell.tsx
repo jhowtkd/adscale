@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/lib/hooks/use-media-query";
 import AssistantMobileTabs, { type AssistantMobileTab } from "./AssistantMobileTabs";
 import { useAssistantSurface } from "./AssistantSurfaceContext";
+import { assistantShellClass } from "./assistant-chrome";
 
 export default function AssistantShell({
   sidebar,
@@ -65,7 +66,7 @@ export default function AssistantShell({
   const mainPanel = (
     <div
       data-testid={isMobile ? "assistant-mobile-chat" : "assistant-desktop-main"}
-      className="relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--surface-base)]"
+      className="relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--canvas)]"
     >
       {main}
       {!isMobile && !isWorkspace && hasContext && !contextOpen ? (
@@ -83,7 +84,7 @@ export default function AssistantShell({
 
   if (isMobile) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col bg-[var(--surface-base)]">
+      <div className={assistantShellClass}>
         <div
           data-testid="assistant-mobile-layout"
           className="shell-offset-bottom-mobile flex min-h-0 flex-1 flex-col"
@@ -110,7 +111,7 @@ export default function AssistantShell({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-[var(--surface-base)]">
+    <div className={assistantShellClass}>
         <div
           data-testid="assistant-desktop-layout"
           className={cn(
@@ -131,7 +132,7 @@ export default function AssistantShell({
           {!hideDesktopSidebar ? (
             <aside
               data-testid="assistant-desktop-sidebar"
-              className="border-r border-[var(--border-subtle)] bg-[var(--surface-base)]"
+              className="border-r border-[var(--border-subtle)] bg-[var(--canvas)]"
             >
               {sidebar}
             </aside>
@@ -142,14 +143,14 @@ export default function AssistantShell({
           {isWorkspace ? (
             <aside
               data-testid="assistant-desktop-workspace"
-              className="relative min-w-[640px] border-l border-[var(--border-subtle)] bg-[var(--surface-base)]"
+              className="relative min-w-[640px] border-l border-[var(--border-subtle)] bg-[var(--canvas)]"
             >
               {contextPanel}
             </aside>
           ) : hasContext && contextOpen ? (
             <aside
               data-testid="assistant-desktop-context"
-              className="relative min-h-0 overflow-hidden border-l border-[var(--border-subtle)] bg-[var(--surface-base)]"
+              className="relative min-h-0 overflow-hidden border-l border-[var(--border-subtle)] bg-[var(--canvas)]"
             >
               <button
                 type="button"

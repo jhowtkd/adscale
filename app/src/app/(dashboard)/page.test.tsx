@@ -13,6 +13,7 @@ vi.mock("@/server/validation/env", () => ({
     get(_target, key: string) {
       if (key === "STUDIO_PROGRESSIVE_ROLLOUT_PERCENT") return Number(process.env.STUDIO_PROGRESSIVE_ROLLOUT_PERCENT ?? 0);
       if (key === "STUDIO_CAROUSEL_ROLLOUT_PERCENT") return Number(process.env.STUDIO_CAROUSEL_ROLLOUT_PERCENT ?? 0);
+      if (key === "STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT") return Number(process.env.STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT ?? 0);
       return undefined;
     },
   }),
@@ -27,6 +28,18 @@ async function renderDashboardPage(): Promise<PageElement> {
   const { default: DashboardPage } = await import("./page");
   return (await DashboardPage({ searchParams: Promise.resolve({}) })) as unknown as PageElement;
 }
+
+describe("DashboardPage entry interview rollout gate", () => {
+  it("hides the entry interview at percent zero and enables it at one hundred", async () => {
+    process.env.STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT = "0";
+    const zero = await renderDashboardPage();
+    expect(zero.props).toMatchObject({ entryInterviewEnabled: false });
+
+    process.env.STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT = "100";
+    const full = await renderDashboardPage();
+    expect(full.props).toMatchObject({ entryInterviewEnabled: true });
+  });
+});
 
 describe("DashboardPage carousel rollout gate", () => {
   it("hides new carousel creation at percent zero and enables it at one hundred", async () => {

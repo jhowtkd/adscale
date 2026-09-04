@@ -14,6 +14,10 @@ import {
   useUploadProfileAvatar,
 } from "@/lib/hooks/use-user-profile";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
+import {
+  settingsButtonClass,
+  settingsFieldClass,
+} from "@/components/settings/settings-chrome";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -28,16 +32,8 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
 };
 
-const fieldClass = cn(
-  "w-full h-10 rounded-md border px-3 text-sm",
-  "bg-[var(--surface-base)] text-[var(--text-primary)]",
-  "placeholder:text-[var(--text-muted)]",
-  "focus:outline-none focus:border-[var(--focus-ring)] focus:ring-[3px] focus:ring-[var(--focus-ring)]",
-  "transition-all duration-200 border-[var(--border-dim)]"
-);
-
 const readOnlyFieldClass = cn(
-  fieldClass,
+  settingsFieldClass,
   "cursor-not-allowed bg-[var(--surface-raised)] text-[var(--text-muted)]"
 );
 
@@ -202,9 +198,9 @@ export default function ProfileTab() {
 
   if (isError) {
     return (
-      <div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger-text)]">
+      <p className="text-sm text-[var(--danger-text)]">
         {error?.message || tc("error")}
-      </div>
+      </p>
     );
   }
 
@@ -256,13 +252,7 @@ export default function ProfileTab() {
             updateProfile.isPending ||
             uploadAvatar.isPending
           }
-          className={cn(
-            "flex h-10 items-center gap-2 rounded-md px-5 text-sm font-medium text-[var(--action-primary-text)]",
-            "bg-[var(--action-primary-bg)] hover:bg-[var(--action-primary-hover)]",
-            "active:scale-[0.98] active:brightness-90",
-            "transition-all duration-200",
-            "disabled:cursor-not-allowed disabled:opacity-50"
-          )}
+          className={settingsButtonClass}
         >
           <ActionStatusIcon
             state={saveState === "saving" ? "pending" : saveState === "saved" ? "success" : saveState === "error" ? "error" : "idle"}
@@ -405,10 +395,6 @@ function ProfileFieldsSection({
   return (
     <m.div variants={itemVariants} className="space-y-5">
       <div>
-        <h3 className="mb-4 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-          {t("profile.accountDetails")}
-        </h3>
-
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <label
@@ -423,7 +409,7 @@ function ProfileFieldsSection({
               value={firstName}
               onChange={(e) => updateForm({ firstName: e.target.value })}
               placeholder={t("profile.namePlaceholder")}
-              className={fieldClass}
+              className={settingsFieldClass}
             />
           </div>
           <div className="space-y-2">
@@ -438,7 +424,7 @@ function ProfileFieldsSection({
               type="text"
               value={lastName}
               onChange={(e) => updateForm({ lastName: e.target.value })}
-              className={fieldClass}
+              className={settingsFieldClass}
             />
           </div>
         </div>
@@ -475,7 +461,7 @@ function ProfileFieldsSection({
             id="profile-timezone"
             value={timezone}
             onChange={(e) => updateForm({ timezone: e.target.value })}
-            className={cn(fieldClass, "cursor-pointer appearance-none")}
+            className={cn(settingsFieldClass, "cursor-pointer appearance-none")}
           >
             <option value="America/New_York">Eastern Time (ET)</option>
             <option value="America/Chicago">Central Time (CT)</option>
@@ -503,10 +489,7 @@ function ProfileFieldsSection({
           onChange={(e) => updateForm({ bio: e.target.value })}
           placeholder={t("profile.bioPlaceholder")}
           rows={3}
-          className={cn(
-            fieldClass,
-            "h-auto min-h-[5.5rem] resize-y py-2"
-          )}
+          className={cn(settingsFieldClass, "h-auto min-h-[5.5rem] resize-y py-2")}
         />
       </div>
     </m.div>

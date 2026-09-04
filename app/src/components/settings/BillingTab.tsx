@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useReducer } from "react";
-import { AlertTriangle, CreditCard, TrendingUp, Check, Zap, Crown, Sparkles, XCircle } from "lucide-react";
+import { AlertTriangle, TrendingUp, Check, Zap, Crown, Sparkles, XCircle } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   brlCurrency,
@@ -21,6 +22,12 @@ import {
   type BillingStatus,
 } from "@/lib/hooks/use-billing";
 import { LOW_CREDIT_THRESHOLD } from "@/lib/billing/credit-units";
+import {
+  settingsButtonClass,
+  settingsFieldClass,
+  settingsHintClass,
+  settingsSectionTitleClass,
+} from "@/components/settings/settings-chrome";
 
 const paidPlanTiers = planTiers.filter((tier) => !tier.trial);
 
@@ -165,17 +172,13 @@ export default function BillingTab() {
 
   if (isLoading) {
     return (
-      <div className="animate-fade-in rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-6 text-sm text-[var(--text-secondary)]">
-        {t("loading")}
-      </div>
+      <p className="text-sm text-[var(--text-secondary)]">{t("loading")}</p>
     );
   }
 
   if (isError) {
     return (
-      <div className="animate-fade-in rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] p-6 text-sm text-[var(--danger-text)]">
-        {t("error")}
-      </div>
+      <p className="text-sm text-[var(--danger-text)]">{t("error")}</p>
     );
   }
 
@@ -194,7 +197,7 @@ export default function BillingTab() {
             type="button"
             onClick={() => portal.mutate()}
             disabled={portal.isPending || !billingStatus?.hasCustomer}
-            className="mt-4 h-10 rounded-md bg-[var(--action-primary-bg)] px-4 text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+            className={`mt-4 ${settingsButtonClass}`}
           >
             {portal.isPending ? t("pastDue.opening") : t("pastDue.action")}
           </button>
@@ -212,7 +215,7 @@ export default function BillingTab() {
             type="button"
             onClick={() => checkout.mutate({ planKey: subscription?.planKey as "starter" | "growth" | "scale" | undefined ?? "starter" })}
             disabled={checkout.isPending}
-            className="mt-4 h-10 rounded-md bg-[var(--action-primary-bg)] px-4 text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+            className={`mt-4 ${settingsButtonClass}`}
           >
             {checkout.isPending ? t("canceled.redirecting") : t("canceled.action")}
           </button>
@@ -287,7 +290,7 @@ export default function BillingTab() {
                     type="button"
                     onClick={() => checkout.mutate({ planKey: tier.key as "starter" | "growth" | "scale" })}
                     disabled={checkout.isPending}
-                    className="mt-5 h-10 w-full rounded-md bg-[var(--action-primary-bg)] text-sm font-medium text-[var(--action-primary-text)] transition-colors hover:bg-[var(--action-primary-hover)] disabled:opacity-60"
+                    className={`mt-5 w-full ${settingsButtonClass}`}
                   >
                     {checkout.isPending ? t("plans.redirecting") : t("plans.startTrial")}
                   </button>
@@ -298,14 +301,14 @@ export default function BillingTab() {
         </section>
       )}
 
-      <section className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
-          <div className="mb-5 flex items-start justify-between gap-4">
+      <div className="divide-y divide-[var(--border-dim)]">
+        <section className="space-y-4 pb-8">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("forecast.title")}</h3>
+              <h3 className={settingsSectionTitleClass}>{t("forecast.title")}</h3>
               <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("forecast.subtitle")}</p>
             </div>
-            <span className="rounded-full bg-[var(--neutral-bg)] px-2.5 py-1 text-xs font-medium text-[var(--neutral-text)]">
+            <span className={settingsHintClass}>
               R$ {USD_BRL_PLANNING_RATE.toFixed(2)}/US$
             </span>
           </div>
@@ -320,7 +323,7 @@ export default function BillingTab() {
             <NumberField label={t("forecast.generatedImage")} value={generatedImageTokens} onChange={(value) => updateForecastInputs({ generatedImageTokens: value })} />
           </div>
 
-          <dl className="mt-5 space-y-2 border-t border-[var(--border-dim)] pt-4 text-sm">
+          <dl className="space-y-2 pt-2 text-sm">
             <ForecastRow
               label={t("forecast.campaignCost")}
               value={brlCurrency.format(forecast.campaignCostBrl)}
@@ -342,144 +345,124 @@ export default function BillingTab() {
               caption={`${usdCurrency.format(forecast.imageCost)} USD`}
             />
           </dl>
-        </div>
+        </section>
 
-        <div className="space-y-4">
-          <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
-            <div className="mb-4 flex items-center gap-2">
-              <CreditCard size={18} className="text-[var(--utility-icon)]" />
-              <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("financial.title")}</h3>
-              {isTrialing && (
-                <span className="ml-auto rounded-full bg-[var(--warning-bg)] px-2 py-0.5 text-xs font-medium text-[var(--warning-text)]">
-                  {t("financial.trialBadge")}
-                </span>
-              )}
-            </div>
-            <p className="mb-3 text-xs text-[var(--text-muted)]">
-              {access?.kind === "paid"
-                ? t("accessKinds.paid")
-                : access?.kind === "beta"
-                  ? t("accessKinds.beta")
-                  : t("accessKinds.none")}
-            </p>
-            <div className="space-y-3 text-sm">
-              <Line label={t("financial.access")} value={resolveAccessLabel(billingStatus, t)} />
-              <Line label={t("financial.status")} value={resolveStatusLabel(billingStatus, t)} />
+        <section className="space-y-4 py-8">
+          <div className="flex items-baseline gap-2">
+            <h3 className={settingsSectionTitleClass}>{t("financial.title")}</h3>
+            {isTrialing && (
+              <span className={settingsHintClass}>{t("financial.trialBadge")}</span>
+            )}
+          </div>
+          <p className={settingsHintClass}>
+            {access?.kind === "paid"
+              ? t("accessKinds.paid")
+              : access?.kind === "beta"
+                ? t("accessKinds.beta")
+                : t("accessKinds.none")}
+          </p>
+          <div className="space-y-3 text-sm">
+            <Line label={t("financial.access")} value={resolveAccessLabel(billingStatus, t)} />
+            <Line label={t("financial.status")} value={resolveStatusLabel(billingStatus, t)} />
+            <Line
+              label={isBeta ? t("financial.adsRemaining") : t("financial.generationBalance")}
+              value={
+                isBeta
+                  ? `${access?.remainingAds ?? 0}`
+                  : `${billingStatus?.creditBalance ?? 0}`
+              }
+            />
+            {(hasPaidPlan || isPastDue || isCanceled) && (
               <Line
-                label={isBeta ? t("financial.adsRemaining") : t("financial.generationBalance")}
-                value={
-                  isBeta
-                    ? `${access?.remainingAds ?? 0}`
-                    : `${billingStatus?.creditBalance ?? 0}`
-                }
+                label={resolveRenewalLabel(billingStatus, t)}
+                value={renewalDate}
               />
-              {(hasPaidPlan || isPastDue || isCanceled) && (
-                <Line
-                  label={resolveRenewalLabel(billingStatus, t)}
-                  value={renewalDate}
-                />
-              )}
-            </div>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
             {hasPaidPlan || isPastDue ? (
               <>
-                <div className="mt-5 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => portal.mutate()}
-                    disabled={portal.isPending}
-                    className="h-10 flex-1 rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] text-sm font-medium text-[var(--text-primary)] transition-all hover:border-[var(--border-medium)] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {portal.isPending ? t("financial.opening") : t("financial.manageBilling")}
-                  </button>
-                  {!isPastDue ? (
-                    <button
-                      type="button"
-                      onClick={() => checkout.mutate({ planKey: "growth" })}
-                      disabled={checkout.isPending}
-                      className="h-10 flex-1 rounded-md bg-[var(--action-primary-bg)] text-sm font-medium text-[var(--action-primary-text)] transition-all hover:bg-[var(--action-primary-hover)] disabled:opacity-60"
-                    >
-                      {checkout.isPending ? t("plans.redirecting") : t("financial.upgrade")}
-                    </button>
-                  ) : null}
-                </div>
                 <button
                   type="button"
-                  onClick={() => router.replace("/settings?tab=creditHistory", { scroll: false })}
-                  className="mt-3 h-10 w-full rounded-md border border-[var(--border-dim)] bg-transparent text-sm font-medium text-[var(--text-secondary)] transition-all hover:text-[var(--text-primary)]"
+                  onClick={() => portal.mutate()}
+                  disabled={portal.isPending}
+                  className={settingsButtonClass}
                 >
-                  {t("financial.viewUsageHistory")}
+                  {portal.isPending ? t("financial.opening") : t("financial.manageBilling")}
                 </button>
-              </>
-            ) : (
-              <>
-                {!isBeta && !isCanceled ? (
+                {!isPastDue ? (
                   <button
                     type="button"
-                    onClick={() => checkout.mutate({ planKey: "starter" })}
+                    onClick={() => checkout.mutate({ planKey: "growth" })}
                     disabled={checkout.isPending}
-                    className="mt-5 h-10 w-full rounded-md bg-[var(--action-primary-bg)] text-sm font-medium text-[var(--action-primary-text)] transition-all hover:bg-[var(--action-primary-hover)] disabled:opacity-60"
+                    className={settingsButtonClass}
                   >
-                    {checkout.isPending ? t("plans.redirecting") : t("financial.startTrial")}
+                    {checkout.isPending ? t("plans.redirecting") : t("financial.upgrade")}
                   </button>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={() => router.replace("/settings?tab=creditHistory", { scroll: false })}
-                  className="mt-3 h-10 w-full rounded-md border border-[var(--border-dim)] bg-transparent text-sm font-medium text-[var(--text-secondary)] transition-all hover:text-[var(--text-primary)]"
-                >
-                  {t("financial.viewUsageHistory")}
-                </button>
               </>
-            )}
+            ) : !isBeta && !isCanceled ? (
+              <button
+                type="button"
+                onClick={() => checkout.mutate({ planKey: "starter" })}
+                disabled={checkout.isPending}
+                className={settingsButtonClass}
+              >
+                {checkout.isPending ? t("plans.redirecting") : t("financial.startTrial")}
+              </button>
+            ) : null}
+            <Link href="/settings?tab=creditHistory" className={settingsButtonClass}>
+              {t("financial.viewUsageHistory")}
+            </Link>
           </div>
+        </section>
 
-          <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
-            <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("grants.title")}</h3>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("grants.subtitle")}</p>
-            {grantsLoading ? (
-              <p className="mt-4 text-sm text-[var(--text-muted)]">{t("loading")}</p>
-            ) : grants.length === 0 ? (
-              <p className="mt-4 text-sm text-[var(--text-muted)]">{t("grants.empty")}</p>
-            ) : (
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-[var(--border-dim)] text-xs text-[var(--text-muted)]">
-                      <th className="pb-2 pr-3 font-medium">{t("grants.source")}</th>
-                      <th className="pb-2 pr-3 font-medium">{t("grants.amount")}</th>
-                      <th className="pb-2 font-medium">{t("grants.date")}</th>
+        <section className="space-y-3 py-8">
+          <h3 className={settingsSectionTitleClass}>{t("grants.title")}</h3>
+          <p className="text-sm text-[var(--text-secondary)]">{t("grants.subtitle")}</p>
+          {grantsLoading ? (
+            <p className={settingsHintClass}>{t("loading")}</p>
+          ) : grants.length === 0 ? (
+            <p className={settingsHintClass}>{t("grants.empty")}</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--border-dim)] text-xs text-[var(--text-muted)]">
+                    <th className="pb-2 pr-3 font-medium">{t("grants.source")}</th>
+                    <th className="pb-2 pr-3 font-medium">{t("grants.amount")}</th>
+                    <th className="pb-2 font-medium">{t("grants.date")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {grants.map((grant) => (
+                    <tr key={grant.id} className="border-b border-[var(--border-dim)] last:border-b-0">
+                      <td className="py-2 pr-3 text-[var(--text-primary)]">
+                        {t.has(`grants.sources.${grant.source}`)
+                          ? t(`grants.sources.${grant.source}` as "grants.sources.stripe_invoice")
+                          : grant.source}
+                      </td>
+                      <td className="py-2 pr-3 text-[var(--text-primary)]">{grant.amount}</td>
+                      <td className="py-2 text-[var(--text-secondary)]">
+                        {formatBillingDate(grant.createdAt, locale)}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {grants.map((grant) => (
-                      <tr key={grant.id} className="border-b border-[var(--border-dim)] last:border-b-0">
-                        <td className="py-2 pr-3 text-[var(--text-primary)]">
-                          {t.has(`grants.sources.${grant.source}`)
-                            ? t(`grants.sources.${grant.source}` as "grants.sources.stripe_invoice")
-                            : grant.source}
-                        </td>
-                        <td className="py-2 pr-3 text-[var(--text-primary)]">{grant.amount}</td>
-                        <td className="py-2 text-[var(--text-secondary)]">
-                          {formatBillingDate(grant.createdAt, locale)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--surface-base)] p-5">
-            <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">{t("blockingRules.title")}</h3>
-            <div className="mt-4 grid gap-3">
-              <Spec title="80%" text={t("blockingRules.eighty")} />
-              <Spec title="100%" text={t("blockingRules.hundred")} />
-              <Spec title="+20%" text={t("blockingRules.overrun")} />
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
-        </div>
-      </section>
+          )}
+        </section>
+
+        <section className="space-y-3 pt-8">
+          <h3 className={settingsSectionTitleClass}>{t("blockingRules.title")}</h3>
+          <dl className="space-y-3 text-sm">
+            <Spec title="80%" text={t("blockingRules.eighty")} />
+            <Spec title="100%" text={t("blockingRules.hundred")} />
+            <Spec title="+20%" text={t("blockingRules.overrun")} />
+          </dl>
+        </section>
+      </div>
     </div>
   );
 }
@@ -521,7 +504,7 @@ function NumberField({
         min={0}
         value={value}
         onChange={(event) => onChange(Number(event.target.value) || 0)}
-        className="h-9 w-full rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--focus-ring)] focus:ring-2 focus:ring-[var(--focus-ring)]"
+        className={settingsFieldClass}
       />
     </label>
   );
@@ -538,9 +521,9 @@ function Line({ label, value }: { label: string; value: string }) {
 
 function Spec({ title, text }: { title: string; text: string }) {
   return (
-    <div className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-raised)] p-3">
-      <p className="text-sm font-semibold text-[var(--text-primary)]">{title}</p>
-      <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">{text}</p>
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="text-[var(--text-secondary)]">{title}</dt>
+      <dd className="max-w-[70%] text-right text-xs leading-relaxed text-[var(--text-secondary)]">{text}</dd>
     </div>
   );
 }

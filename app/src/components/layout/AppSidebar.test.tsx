@@ -110,7 +110,7 @@ describe("AppSidebar role-aware navigation", () => {
       "/campaigns"
     );
     expect(screen.queryByRole("link", { name: "navigation.dashboard" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Test User/i })).toHaveAttribute("href", "/dashboard");
+    expect(screen.getByRole("link", { name: /Test User/i })).toHaveAttribute("href", "/settings");
     expect(screen.getByRole("link", { name: "library.title" })).toHaveAttribute(
       "href",
       "/library"
@@ -124,6 +124,8 @@ describe("AppSidebar role-aware navigation", () => {
       "href",
       "/settings"
     );
+    expect(configLink).toHaveAttribute("title", "navigation.config");
+    expect(configLink).not.toHaveTextContent("navigation.config");
     expect(
       screen.getByRole("link", { name: "library.title" }).compareDocumentPosition(
         screen.getByTestId("sidebar-brand-kit-feature")

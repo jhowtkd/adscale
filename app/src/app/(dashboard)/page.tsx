@@ -1,6 +1,6 @@
 import DashboardHomeActions from "@/components/dashboard/DashboardHomeActions";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { isStudioCarouselEnabled, resolveStudioRolloutVariant } from "@/server/studio-rollout";
+import { isStudioCarouselEnabled, isStudioEntryInterviewEnabled, resolveStudioRolloutVariant } from "@/server/studio-rollout";
 import { env } from "@/server/validation/env";
 import { parseDashboardSearchParams } from "./dashboard-search-params";
 
@@ -15,5 +15,6 @@ export default async function DashboardPage({ searchParams }: {
     workspaceId={workspace.id}
     rolloutVariant={resolveStudioRolloutVariant(workspace.id, env.STUDIO_PROGRESSIVE_ROLLOUT_PERCENT)}
     carouselCreationEnabled={isStudioCarouselEnabled(workspace.id, env.STUDIO_CAROUSEL_ROLLOUT_PERCENT)}
+    entryInterviewEnabled={isStudioEntryInterviewEnabled(workspace.id, env.STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT)}
   />;
 }

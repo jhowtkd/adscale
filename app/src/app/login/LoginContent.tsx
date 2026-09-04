@@ -5,8 +5,12 @@ import AuthCard from "@/components/auth/AuthCard";
 import AuthPageShell from "@/components/auth/AuthPageShell";
 import { AuthV6ErrorAlert, AuthV6SuccessAlert } from "@/components/auth/v6/AuthV6Alert";
 import AuthV6Header from "@/components/auth/v6/AuthV6Header";
+import {
+  authFieldClass,
+  authPrimaryButtonClass,
+  authTextLinkClass,
+} from "@/components/auth/auth-chrome";
 import PasswordInput from "@/components/auth/PasswordInput";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -46,15 +50,6 @@ function loginReducer(state: LoginState, action: LoginAction): LoginState {
   }
   return { ...state, ...action.payload };
 }
-
-const authFieldClass =
-  "min-h-11 rounded-[var(--radius-control)] border-[var(--border-default)] bg-[var(--surface-raised)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:border-[var(--neutral-border)] focus-visible:ring-[var(--focus-ring)]";
-
-const authPrimaryButtonClass =
-  "min-h-11 w-full rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]";
-
-const authTextLinkClass =
-  "font-medium text-[var(--text-primary)] underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]";
 
 export default function LoginContent() {
   const router = useRouter();
@@ -144,9 +139,9 @@ export default function LoginContent() {
                       className={authFieldClass}
                     />
                   </div>
-                  <Button type="submit" className={authPrimaryButtonClass} disabled={magicLinkLoading}>
+                  <button type="submit" className={authPrimaryButtonClass} disabled={magicLinkLoading}>
                     {magicLinkLoading ? t("sendingMagicLink") : t("sendMagicLink")}
-                  </Button>
+                  </button>
                 </>
               )}
               <p className="text-center text-sm text-[var(--text-secondary)]">
@@ -196,9 +191,9 @@ export default function LoginContent() {
                     autoComplete="current-password"
                   />
                 </div>
-                <Button type="submit" className={authPrimaryButtonClass} disabled={loading}>
+                <button type="submit" className={authPrimaryButtonClass} disabled={loading}>
                   {loading ? t("signingIn") : t("signIn")}
-                </Button>
+                </button>
               </form>
 
               <div className="text-center">

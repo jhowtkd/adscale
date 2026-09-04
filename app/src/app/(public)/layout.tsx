@@ -1,4 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
+import { LegalNav } from "@/components/legal/LegalNav";
 
 export default function PublicLayout({
   children,
@@ -7,26 +9,28 @@ export default function PublicLayout({
 }) {
   return (
     <div className="min-h-screen bg-[var(--canvas)]">
-      <header className="border-b border-[var(--border-subtle)] bg-[var(--surface-base)]">
-        <div className="mx-auto flex h-14 max-w-7xl items-center px-6">
-          <Link href="/" className="text-lg font-bold text-[var(--neutral-text)]">
-            ADScale
+      <header className="px-6 pt-8 sm:px-10">
+        <div className="mx-auto max-w-3xl">
+          <Link href="/" className="inline-flex rounded-md py-0.5" aria-label="ADScale">
+            <Image
+              src="/images/logo.svg"
+              alt=""
+              aria-hidden="true"
+              className="v6-sidebar-logo block h-[22px] w-auto max-w-[130px]"
+              width={813}
+              height={142}
+              priority
+              unoptimized
+            />
           </Link>
+          <LegalNav />
         </div>
       </header>
       {children}
-      <footer className="border-t border-[var(--border-subtle)] bg-[var(--surface-base)] py-8">
-        <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 px-6 text-xs text-[var(--text-secondary)] sm:flex-row sm:justify-between">
-          <span>© 2026 ADScale. Todos os direitos reservados.</span>
-          <div className="flex gap-4">
-            <Link href="/privacy" className="hover:text-[var(--text-primary)] hover:underline">
-              Privacidade
-            </Link>
-            <Link href="/terms" className="hover:text-[var(--text-primary)] hover:underline">
-              Termos
-            </Link>
-          </div>
-        </div>
+      <footer className="mx-auto max-w-3xl px-6 pb-10 sm:px-10">
+        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+          ADScale © 2026
+        </p>
       </footer>
     </div>
   );

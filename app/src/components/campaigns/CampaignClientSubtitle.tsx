@@ -3,7 +3,7 @@
 import { m } from "@/components/animations/MotionBoundary";
 import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Button } from "@/components/ui/button";
+import { studioQuietActionClass } from "@/components/dashboard/studio-stage/StudioInstrument";
 
 interface CampaignClientSubtitleProps {
   platformsText?: string;
@@ -21,21 +21,15 @@ export default function CampaignClientSubtitle({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.1 }}
-      className="mb-4 md:ml-[120px]"
+      className="mb-4"
     >
       {platformsText ? (
         <p className="text-sm text-[var(--text-muted)]">{platformsText}</p>
       ) : onAddPlatform ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onAddPlatform}
-          className="h-8 gap-1.5 text-xs"
-        >
+        <button type="button" onClick={onAddPlatform} className={studioQuietActionClass}>
           <Plus size={14} aria-hidden="true" />
           {tc("addPlatform")}
-        </Button>
+        </button>
       ) : (
         <p className="text-sm text-[var(--text-muted)]">{tc("noPlatformsSet")}</p>
       )}

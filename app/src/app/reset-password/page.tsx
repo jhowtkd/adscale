@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import AuthCard from "@/components/auth/AuthCard";
+import AuthPageShell from "@/components/auth/AuthPageShell";
 import ResetPasswordContent from "./ResetPasswordContent";
 
 export const metadata: Metadata = {
@@ -12,13 +12,9 @@ export default function ResetPasswordPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[var(--canvas)] px-4">
-          <AuthCard>
-            <div className="space-y-2 text-center">
-              <h1 className="text-2xl font-semibold tracking-tight">Carregando…</h1>
-            </div>
-          </AuthCard>
-        </div>
+        <AuthPageShell>
+          <p className="text-sm text-[var(--text-secondary)]">Carregando…</p>
+        </AuthPageShell>
       }
     >
       <ResetPasswordContent />

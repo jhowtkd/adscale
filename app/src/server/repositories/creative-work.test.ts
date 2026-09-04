@@ -2345,4 +2345,15 @@ describe("creative-work repository", () => {
       expect(mocks.txSetMock).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe("Studio entry history", () => {
+    it("lists creative works for entry context by workspace and brand with a limit", async () => {
+      mocks.state.selectResults.push([{ id: "work-1", clientProfileId: "brand" }]);
+      const { listCreativeWorksForEntryContext } = await import("./creative-work");
+      const rows = await listCreativeWorksForEntryContext("ws-1", "brand", 8);
+      expect(rows).toHaveLength(1);
+      expect(mocks.limitMock).toHaveBeenCalled();
+      expect(mocks.whereMock).toHaveBeenCalled();
+    });
+  });
 });

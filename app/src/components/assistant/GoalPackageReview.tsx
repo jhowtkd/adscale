@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { AssistantGoalPresentation } from "@/lib/assistant/goal";
+import { assistantQuietCommitClass } from "./assistant-chrome";
 
 export interface GoalPackageReviewProps {
   packageItems: AssistantGoalPresentation["packageItems"];
@@ -113,7 +114,7 @@ export default function GoalPackageReview({
                     approved
                       ? "bg-[var(--success-bg)] text-[var(--success-text)]"
                       : canApprove
-                        ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-text)]"
+                        ? assistantQuietCommitClass
                         : "cursor-not-allowed bg-[var(--surface-inset)] text-[var(--text-muted)]"
                   )}
                 >

@@ -106,6 +106,44 @@
   --radius-xl: 12px;
   --radius-full: 9999px;
   --radius: 0.25rem;
+
+  --animate-shine: shine var(--duration, 14s) infinite linear;
+}
+
+@keyframes shine {
+  0% {
+    background-position: 0% 0%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  100% {
+    background-position: 0% 0%;
+  }
+}
+
+.talk-generate {
+  background-color: #fff;
+  background-image: none;
+  color: #0a0a0a;
+}
+
+.talk-generate:hover {
+  background-image: linear-gradient(
+    120deg,
+    #a07cfe,
+    #fe8fb5,
+    #ffbe7b,
+    #a07cfe
+  );
+  background-size: 300% 300%;
+  color: #0a0a0a;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .talk-generate:hover {
+    animation: shine 1.4s infinite linear;
+  }
 }
 
 /* ============================================
@@ -154,8 +192,10 @@
   --shell-sticky-gap: 0.5rem;
   --shell-v6-gap: 1rem;
   --shell-v6-sidebar-width: 17.5rem;
+  --shell-v6-bell-size: 2.25rem;
   --shell-v6-topbar-offset: calc(var(--shell-v6-gap) * 2 + var(--shell-topbar-desktop));
   --shell-v6-main-offset-left: calc(var(--shell-v6-gap) * 2 + var(--shell-v6-sidebar-width));
+  --shell-v6-main-offset-right: calc(var(--shell-v6-gap) * 2 + var(--shell-v6-bell-size));
   --shell-safe-bottom: calc(var(--shell-bottom-nav) + env(safe-area-inset-bottom, 0px));
   --page-gutter-mobile: 1rem;
   --page-gutter-tablet: 1.5rem;
@@ -720,7 +760,7 @@
   .layer-shell { z-index: var(--layer-shell); }
   .layer-shell-floating { z-index: var(--layer-shell-floating); }
 
-  /* Redesign v6 — BYQ-style floating shell (see shell.css in mockup ref) */
+  /* Redesign v6 — floating shell, same dark glass as the Palco talk box */
   .v6-shell-sidebar {
     position: fixed;
     top: var(--shell-v6-gap);
@@ -732,15 +772,12 @@
     flex-direction: column;
     gap: 0.25rem;
     overflow: hidden;
-    border-radius: 1rem;
-    border: 1px solid var(--border-default);
-    background: var(--surface-raised);
+    border-radius: 1.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(10, 10, 10, 0.88);
     padding: 0.875rem 0.75rem;
-    box-shadow:
-      0 16px 40px rgb(0 0 0 / 0.65),
-      0 4px 12px rgb(0 0 0 / 0.4),
-      inset 0 1px 0 rgb(255 255 255 / 0.06);
-    backdrop-filter: blur(24px) saturate(140%);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
 
   .v6-sidebar-logo {
@@ -782,16 +819,20 @@
     display: flex;
     height: var(--shell-topbar-desktop);
     align-items: center;
+    justify-content: flex-end;
     gap: 1rem;
-    border-radius: 1rem;
-    border: 1px solid var(--border-default);
-    background: var(--surface-raised);
+    border-radius: 1.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(10, 10, 10, 0.88);
     padding-inline: 1rem;
-    box-shadow:
-      0 16px 40px rgb(0 0 0 / 0.6),
-      0 4px 12px rgb(0 0 0 / 0.35),
-      inset 0 1px 0 rgb(255 255 255 / 0.05);
-    backdrop-filter: blur(24px) saturate(140%);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  html:not(.dark) .v6-shell-sidebar,
+  html:not(.dark) .v6-shell-topbar {
+    border-color: var(--border-default);
+    background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
   }
 
   .v6-shell-main {
@@ -813,6 +854,7 @@
   @media (min-width: 768px) {
     .v6-shell-main {
       padding-top: calc(var(--shell-v6-gap) * 2);
+      padding-right: var(--shell-v6-main-offset-right);
     }
 
     .v6-shell-main.assistant-shell-host {
@@ -827,7 +869,15 @@
     }
 
     .v6-shell-topbar {
-      left: var(--shell-v6-gap);
+      top: 0;
+      right: 0;
+      left: 0;
+      height: var(--shell-topbar-mobile);
+      justify-content: space-between;
+      border-radius: 0;
+      border-left: 0;
+      border-right: 0;
+      border-top: 0;
     }
 
     .v6-shell-main {

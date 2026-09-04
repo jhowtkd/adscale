@@ -54,6 +54,8 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
+      { source: "/manual", destination: "/manual/index.html" },
+      { source: "/manual/", destination: "/manual/index.html" },
       { source: "/hi", destination: `${marketingUpstream}/` },
       { source: "/hi/", destination: `${marketingUpstream}/` },
       { source: "/hi/assets/:path*", destination: `${marketingUpstream}/assets/:path*` },

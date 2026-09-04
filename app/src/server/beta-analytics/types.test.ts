@@ -14,4 +14,16 @@ describe("beta analytics types", () => {
     ]));
     expect(BETA_EVENT_KEYS).toEqual(expect.arrayContaining([...STUDIO_BETA_EVENT_KEYS, "generation_confirmed"]));
   });
+
+  it("allows Studio entry interview events and properties", () => {
+    expect(STUDIO_BETA_EVENT_KEYS).toEqual(expect.arrayContaining([
+      "studio_entry_chips_shown",
+      "studio_entry_chip_selected",
+      "studio_entry_request_written",
+      "studio_entry_request_preserved",
+    ]));
+    expect(ALLOWED_PROPERTY_KEYS).toEqual(expect.arrayContaining([
+      "workCount", "slots", "usedFallback", "slot", "requestSource",
+    ]));
+  });
 });

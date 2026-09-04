@@ -15,16 +15,20 @@ vi.mock("next/link", () => ({
 
 vi.mock("@/components/feedback/ContextualFeedbackButton", () => ({
   __esModule: true,
-  default: () => <div data-testid="contextual-feedback" />,
+  default: ({ quiet }: { quiet?: boolean }) => (
+    <button type="button" aria-label="Report" data-quiet={quiet ? "true" : "false"} />
+  ),
 }));
 
 const labels: CampaignWorkspaceV6Labels = {
+  sectionLabel: "Campaign",
   backToCampaigns: "Back to campaigns",
   deleteCampaign: "Delete campaign",
   stagesAria: "Stages",
   briefingTitle: "Briefing",
   briefingVersion: "v1",
   rulesTitle: "Rules",
+  newPiece: "New piece",
 };
 
 const view: CampaignWorkspaceV6ViewModel = {
@@ -40,14 +44,15 @@ const view: CampaignWorkspaceV6ViewModel = {
 };
 
 describe("CampaignWorkspaceV6Chrome", () => {
-  it("renders failed status as danger and generating status as warning", () => {
+  it("renders status as occupancy, not a colored badge", () => {
     const { rerender } = render(
       <CampaignWorkspaceV6Chrome
         view={{ ...view, status: "Failed", statusVariant: "danger" }}
         labels={labels}
       />,
     );
-    expect(screen.getByText("Failed")).toHaveClass("bg-[var(--danger-bg)]");
+    expect(screen.getByRole("status")).toHaveTextContent("Failed");
+    expect(screen.getByRole("status")).not.toHaveClass("bg-[var(--danger-bg)]");
 
     rerender(
       <CampaignWorkspaceV6Chrome
@@ -55,35 +60,45 @@ describe("CampaignWorkspaceV6Chrome", () => {
         labels={labels}
       />,
     );
-    expect(screen.getByText("Generating")).toHaveClass("bg-[var(--warning-bg)]");
+    expect(screen.getByRole("status")).toHaveTextContent("Generating");
+    expect(screen.getByRole("status")).not.toHaveClass("bg-[var(--warning-bg)]");
   });
 
-  it("marks the current stage with neutral navigation roles and semantic status", () => {
+  it("does not render briefing/produce/review/deliver stage radios", () => {
     render(<CampaignWorkspaceV6Chrome view={view} labels={labels} />);
 
-    const currentStage = screen.getByText("Produce").closest("[aria-current]");
-    expect(currentStage).toHaveAttribute("aria-current", "step");
-    expect(currentStage).toHaveClass("bg-[var(--active-navigation-bg)]");
-    expect(screen.getByText("Active")).toHaveClass("bg-[var(--success-bg)]");
+    expect(screen.getByText("Campaign")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Holiday Sale" })).toBeInTheDocument();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(screen.queryByText("Briefing")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Active");
   });
 
-  it("calls onStageSelect when a phase is clicked", () => {
-    const onStageSelect = vi.fn();
+  it("creates a new piece on Palco from the campaign grouping", () => {
+    render(<CampaignWorkspaceV6Chrome view={view} labels={labels} campaignId="camp-1" />);
+
+    expect(screen.getByRole("link", { name: "New piece" })).toHaveAttribute(
+      "href",
+      "/?mode=arte&compose=1&campaignId=camp-1",
+    );
+    expect(screen.getByRole("button", { name: "Report" })).toHaveAttribute("data-quiet", "true");
+  });
+
+  it("keeps draft delete quiet instead of a danger fill", () => {
+    const onDelete = vi.fn();
     render(
       <CampaignWorkspaceV6Chrome
         view={view}
         labels={labels}
-        onStageSelect={onStageSelect}
+        isDraft
+        onDelete={onDelete}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Briefing/i }));
-    expect(onStageSelect).toHaveBeenCalledWith("briefing");
-
-    fireEvent.click(screen.getByRole("button", { name: /Review/i }));
-    expect(onStageSelect).toHaveBeenCalledWith("review");
-
-    fireEvent.click(screen.getByRole("button", { name: /Deliver/i }));
-    expect(onStageSelect).toHaveBeenCalledWith("share");
+    const remove = screen.getByRole("button", { name: "Delete campaign" });
+    expect(remove.className).toContain("rounded-full");
+    expect(remove).not.toHaveClass("bg-[var(--danger-bg)]");
+    fireEvent.click(remove);
+    expect(onDelete).toHaveBeenCalledOnce();
   });
 });

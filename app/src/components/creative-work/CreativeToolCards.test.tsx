@@ -7,6 +7,7 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => ({
   carousel: "Criar carrossel",
   variationsDescription: "desc", singleDescription: "desc", format_adaptationDescription: "desc", restyleDescription: "desc",
   carouselDescription: "Transforme uma ideia ou texto em uma sequência visual coerente.",
+  suggestedFromHistory: "Sugestão a partir do histórico",
   variationsHelpLabel: "Ajuda sobre Variações", singleHelpLabel: "Ajuda sobre Peça única", format_adaptationHelpLabel: "Ajuda sobre Adaptar formatos", restyleHelpLabel: "Ajuda sobre Mudar estilo",
   variationsHelp: "Compara abordagens", singleHelp: "Uma direção clara", format_adaptationHelp: "Outros canais", restyleHelp: "Muda o visual",
 }[key] ?? key) }));
@@ -122,6 +123,13 @@ describe("CreativeToolCards", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^criar carrossel/i }));
     expect(onSelect).toHaveBeenCalledWith("carousel");
+  });
+
+  it("marks a history suggestion without pressing the card", () => {
+    render(<CreativeToolCards selected={null} suggested="single" onSelect={vi.fn()} />);
+    const card = screen.getByRole("button", { name: /^peça única/i });
+    expect(card).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByText("Sugestão a partir do histórico")).toBeInTheDocument();
   });
 
   it("keeps a resumed carousel deep link readable while new creation stays disabled", () => {

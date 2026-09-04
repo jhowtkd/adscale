@@ -68,6 +68,13 @@ export const envSchema = z.object({
    * Existing carousel works stay readable when the value returns to zero.
    */
   STUDIO_CAROUSEL_ROLLOUT_PERCENT: z.coerce.number().int().min(0).max(100).default(0),
+  /**
+   * Task 7: percentage of workspaces with the Studio entry interview exposed.
+   * Both web and worker read the value, but only the authenticated dashboard
+   * page uses it (a derived boolean — never the raw percentage). Uses the same
+   * deterministic bucket as progressive Studio rollout.
+   */
+  STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT: z.coerce.number().int().min(0).max(100).default(0),
 });
 
 const parsed = envSchema.safeParse(process.env);

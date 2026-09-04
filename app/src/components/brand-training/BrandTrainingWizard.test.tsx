@@ -282,8 +282,9 @@ describe("BrandTrainingWizard", () => {
     fireEvent.click(screen.getByText("common.next"));
     fireEvent.click(screen.getByText("common.next"));
 
-    expect(screen.getByText("brandTraining.fonts.title")).toBeInTheDocument();
     expect(screen.getByText("brandTraining.fonts.generativeNotice")).toBeInTheDocument();
+    expect(screen.queryByText("brandTraining.fonts.title")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "brandTraining.fonts.uploadChip" })).toBeInTheDocument();
     expect(document.querySelector<HTMLInputElement>("#brand-font-file")?.accept).toBe(
       ".ttf,.otf,font/ttf,font/otf",
     );
@@ -315,6 +316,7 @@ describe("BrandTrainingWizard", () => {
     fireEvent.click(screen.getByText("common.next"));
 
     expect(screen.getByText("brandTraining.fonts.statusPending")).toBeInTheDocument();
+    expect(screen.getByTestId("brand-kit-font-files").querySelector("li[class*='border']")).toBeNull();
     fireEvent.click(screen.getByText("brandTraining.fonts.approveReview"));
     expect(mutate).toHaveBeenCalledWith(
       { assetKey: "fonts/pending.ttf", reviewStatus: "approved" },

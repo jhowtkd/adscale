@@ -1111,6 +1111,24 @@ export async function listCreativeWorks(
   return typeof limit === "number" ? query.limit(limit) : query;
 }
 
+export const STUDIO_ENTRY_HISTORY_LIMIT = 8;
+
+export async function listCreativeWorksForEntryContext(
+  workspaceId: string,
+  clientProfileId: string,
+  limit = STUDIO_ENTRY_HISTORY_LIMIT,
+): Promise<CreativeWorkItem[]> {
+  return db
+    .select()
+    .from(creativeWorkItems)
+    .where(and(
+      eq(creativeWorkItems.workspaceId, workspaceId),
+      eq(creativeWorkItems.clientProfileId, clientProfileId),
+    ))
+    .orderBy(desc(creativeWorkItems.updatedAt))
+    .limit(limit);
+}
+
 /**
  * Same as listCreativeWorks, but attaches real outputs so list/open share
  * identical projection rules (no synthetic rows).

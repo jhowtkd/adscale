@@ -3,27 +3,28 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#161c18" />
+  <meta name="theme-color" content="#121214" />
   <title>ADScale — Manual do usuário</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" />
   <style>
     :root {
-      --bg: #161c18;
-      --surface: #1e2622;
-      --raised: #252e29;
-      --inset: #101614;
-      --fg: #eef2ee;
-      --sec: #b3bbb3;
-      --muted: #8d968d;
-      --line: rgba(238, 242, 238, 0.16);
-      --line-soft: rgba(238, 242, 238, 0.08);
-      --accent: #5dff6a;
-      --on-accent: #0c140e;
-      --warn: #eab444;
-      --bad: #ff6976;
+      --bg: oklch(0.145 0.004 260);
+      --surface: oklch(0.175 0.004 260);
+      --raised: oklch(0.21 0.005 260);
+      --inset: oklch(0.12 0.003 260);
+      --fg: oklch(0.96 0.005 260);
+      --sec: oklch(0.72 0.006 260);
+      --muted: oklch(0.62 0.005 260);
+      --line: oklch(0.96 0.005 260 / 0.12);
+      --line-soft: oklch(0.96 0.005 260 / 0.08);
+      --accent: oklch(0.54 0.14 145);
+      --on-accent: oklch(0.16 0.01 260);
+      --warn: oklch(0.56 0.13 82);
+      --bad: oklch(0.52 0.19 18);
       --font-display: "Space Mono", ui-monospace, Menlo, monospace;
       --font-body: Inter, ui-sans-serif, system-ui, sans-serif;
+      --focus: oklch(0.96 0.005 260 / 0.45);
     }
     *, *::before, *::after { box-sizing: border-box; }
     html { color-scheme: dark; background: var(--bg); }
@@ -39,11 +40,12 @@
     }
     a { color: inherit; }
     img { display: block; max-width: 100%; }
-    :focus-visible { outline: 2px solid #8ee698; outline-offset: 3px; }
+    :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
     .skip {
       position: absolute; left: 12px; top: 8px; z-index: 200;
-      background: var(--accent); color: var(--on-accent);
-      padding: 10px 14px; border-radius: 6px; font-weight: 600;
+      background: var(--raised); color: var(--fg);
+      border: 1px solid var(--line);
+      padding: 10px 14px; border-radius: 8px; font-weight: 600;
       transform: translateY(-160%);
     }
     .skip:focus { transform: none; }
@@ -60,9 +62,15 @@
       display: flex; flex-direction: column; gap: 28px;
     }
     .mark {
-      font-family: var(--font-display);
-      font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
-      color: var(--muted);
+      display: inline-flex;
+      text-decoration: none;
+    }
+    .mark img {
+      display: block;
+      height: 22px;
+      width: auto;
+      max-width: 130px;
+      filter: brightness(0) invert(1);
     }
     .rail nav { display: flex; flex-direction: column; gap: 6px; }
     .rail a {
@@ -71,12 +79,13 @@
       color: var(--muted); text-decoration: none; padding: 3px 0;
     }
     .rail a:hover { color: var(--fg); }
+    .rail .kicker { margin: 8px 0 0; }
     .score-rail {
       margin-top: auto;
       font-family: var(--font-display);
       font-size: 22px; color: var(--fg); line-height: 1.15;
     }
-    .score-rail em { font-style: normal; color: var(--accent); }
+    .score-rail em { font-style: normal; color: var(--fg); }
     .score-rail span {
       display: block; font-size: 10px; letter-spacing: 0.12em;
       color: var(--muted); margin-top: 8px; text-transform: uppercase;
@@ -88,9 +97,10 @@
       font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
       color: var(--muted); margin: 0 0 16px;
     }
-    h1, h2, h3 { font-family: var(--font-display); font-weight: 400; }
+    h1, h3 { font-family: var(--font-body); font-weight: 600; }
+    h2 { font-family: var(--font-display); font-weight: 400; }
     h1 {
-      font-size: clamp(28px, 4vw, 40px); line-height: 1.2;
+      font-size: clamp(1.75rem, 4vw, 2.25rem); line-height: 1.2;
       letter-spacing: -0.02em; margin: 0 0 20px; max-width: 22ch;
     }
     h2 {
@@ -113,7 +123,7 @@
       font-variant-numeric: tabular-nums;
     }
     .nowthen strong.from { color: var(--muted); }
-    .nowthen strong.to { color: var(--accent); }
+    .nowthen strong.to { color: var(--fg); }
     .nowthen .arrow {
       font-family: var(--font-display); color: var(--muted); font-size: 24px;
     }
@@ -132,7 +142,7 @@
       font-size: 18px; font-weight: 400; line-height: 1.15;
       font-variant-numeric: tabular-nums;
     }
-    .pillar b em { font-style: normal; color: var(--accent); }
+    .pillar b em { font-style: normal; color: var(--fg); }
     .pillar span {
       display: block; margin-top: 10px;
       font-family: var(--font-display);
@@ -142,7 +152,7 @@
 
     .spine {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 0;
       margin: 40px 0 8px;
       border-top: 1px solid var(--line);
@@ -180,7 +190,7 @@
     }
     .laws .n {
       font-family: var(--font-display);
-      font-size: 11px; letter-spacing: 0.14em; color: var(--accent);
+      font-size: 11px; letter-spacing: 0.14em; color: var(--muted);
       margin-bottom: 12px;
     }
     .laws p { font-size: 14px; margin: 0; }
@@ -236,7 +246,7 @@
     .pass .idx {
       font-family: var(--font-display);
       font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-      color: var(--accent);
+      color: var(--muted);
     }
     .pass .idx b {
       display: block; font-size: 22px; letter-spacing: 0; font-weight: 400;
@@ -259,7 +269,7 @@
     .dod li::before {
       content: "";
       position: absolute; left: 0; top: 0.85em;
-      width: 8px; height: 1px; background: var(--accent);
+      width: 8px; height: 1px; background: var(--line);
     }
 
     .trio {
@@ -306,7 +316,7 @@
       counter-increment: sess;
       content: counter(sess, decimal-leading-zero);
       font-family: var(--font-display);
-      font-size: 12px; color: var(--accent); letter-spacing: 0.08em;
+      font-size: 12px; color: var(--muted); letter-spacing: 0.08em;
       padding-top: 3px;
     }
     .session li > div { min-width: 0; }
@@ -321,7 +331,7 @@
     }
     .gate .n {
       font-family: var(--font-display);
-      font-size: 12px; letter-spacing: 0.12em; color: var(--accent);
+      font-size: 12px; letter-spacing: 0.12em; color: var(--muted);
       padding-top: 3px;
     }
     .gate h3 { font-size: 16px; margin-bottom: 6px; }
@@ -359,12 +369,17 @@
   <a class="skip" href="#conteudo">Pular para o conteúdo</a>
   <div class="shell">
     <aside class="rail">
-      <p class="mark">ADScale<br>Manual</p>
+      <div>
+        <a class="mark" href="/" aria-label="ADScale">
+          <img src="/images/logo.svg" alt="" width="130" height="22" />
+        </a>
+        <p class="kicker">Manual</p>
+      </div>
       <nav aria-label="Seções">
         <a href="#comecar">Começar</a>
         <a href="#mapa">Mapa</a>
         <a href="#palavras">Palavras</a>
-        <a href="#inicio">Início</a>
+        <a href="#inicio">Estúdio</a>
         <a href="#protocolos">Protocolos</a>
         <a href="#peca">Peça</a>
         <a href="#trabalhos">Trabalhos</a>
@@ -378,7 +393,7 @@
 
     <main id="conteudo">
       <header>
-        <p class="kicker">Manual do usuário · 25 ago 2026 · ofício, não inventário</p>
+        <p class="kicker">Manual do usuário · 4 set 2026 · ofício, não inventário</p>
         <h1>Você define a intenção. A ferramenta produz. Você aprova o que vai ao ar.</h1>
         <p class="lead">ADScale é o estúdio para gerar criativos de performance em volume. Não é um gerador solto. É um ciclo: pedido, marca, geração, revisão, entrega. Este manual cobre cada superfície e o que fazer nela.</p>
       </header>
@@ -398,12 +413,12 @@
             <li>
               <div>
                 <b>Crie a marca do cliente.</b>
-                Na barra: Nova marca. Nome humano. Sem marca ativa, o Início não gera.
+                Na barra: Nova marca. Nome humano. Sem marca ativa, o Estúdio não gera.
               </div>
             </li>
             <li>
               <div>
-                <b>Escolha um protocolo no Início.</b>
+                <b>Escolha um protocolo no Estúdio.</b>
                 Quatro modos, um canvas. Peça única se a direção já existe. Variações se você quer comparar caminhos. Adaptar formatos se a arte já está pronta. Mudar estilo se a mensagem fica e o visual muda.
               </div>
             </li>
@@ -432,25 +447,25 @@
       <section id="mapa">
         <hr class="rule" />
         <h2>Mapa · onde cada coisa vive</h2>
-        <p class="lead">A barra principal tem quatro destinos. Marca e Configurações ficam abaixo. Assistente, Templates e Documentação existem, mas não são a porta.</p>
+        <p class="lead">A barra principal tem quatro destinos. Configurações fica abaixo. Assistente e este manual existem, mas não são a porta.</p>
         <div class="pillars">
-          <div class="pillar"><b>Início</b><span>Único começo</span></div>
+          <div class="pillar"><b>Estúdio</b><span>Único começo</span></div>
           <div class="pillar"><b>Trabalhos</b><span>Fila e estado</span></div>
-          <div class="pillar"><b>Visão geral</b><span>Indicadores</span></div>
           <div class="pillar"><b>Biblioteca</b><span>Assets</span></div>
+          <div class="pillar"><b>Marca</b><span>Autoridade</span></div>
         </div>
         <table>
           <thead>
             <tr>
               <th>Onde</th>
               <th>Para quê</th>
-              <th>Ação lima</th>
+              <th>Ação</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td>Início</td>
+              <td>Estúdio</td>
               <td>Escolher protocolo, escrever o pedido, gerar.</td>
               <td>Gerar</td>
               <td class="tag keep">Começo</td>
@@ -460,12 +475,6 @@
               <td>Lista de Trabalhos e Campanhas. Retomar, revisar, filtrar.</td>
               <td>Novo trabalho</td>
               <td class="tag keep">Fila</td>
-            </tr>
-            <tr>
-              <td>Visão geral</td>
-              <td>Atividade, créditos, o que pede atenção.</td>
-              <td>—</td>
-              <td class="tag merge">Apoio</td>
             </tr>
             <tr>
               <td>Biblioteca</td>
@@ -487,8 +496,8 @@
             </tr>
             <tr>
               <td>Campanha</td>
-              <td>Wizard longo: briefing → produzir → revisar → entregar.</td>
-              <td>Gerar variações</td>
+              <td>Agrupamento de peças. Nova peça no Estúdio.</td>
+              <td>Nova peça</td>
               <td class="tag merge">Objeto</td>
             </tr>
             <tr>
@@ -496,12 +505,6 @@
               <td>Conversar, organizar briefing, jornadas guiadas.</td>
               <td>Enviar briefing</td>
               <td class="tag merge">Modo</td>
-            </tr>
-            <tr>
-              <td>Templates</td>
-              <td>Reusar um briefing aprovado em outro Trabalho.</td>
-              <td>Usar template</td>
-              <td class="tag merge">Atalho</td>
             </tr>
             <tr>
               <td>Configurações</td>
@@ -517,18 +520,18 @@
             </tr>
           </tbody>
         </table>
-        <p>Nav do produto: <b style="color:var(--fg);font-weight:600">Início · Trabalhos · Visão geral · Biblioteca</b>. Marca e Configurações atrás do usuário. Feedback só para dono da plataforma.</p>
+        <p>Nav do produto: <b style="color:var(--fg);font-weight:600">Estúdio · Trabalhos · Biblioteca · Marca</b>. Configurações atrás do usuário. Feedback só para dono da plataforma.</p>
         <div class="trio">
           <figure>
-            <img src="screenshots/app/dashboard.png" alt="Início com protocolos e composer" />
-            <p>Início</p>
+            <img src="/manual/screenshots/app/dashboard.png" alt="Estúdio com protocolos e composer" />
+            <p>Estúdio</p>
           </figure>
           <figure>
-            <img src="screenshots/app/campaigns-list.png" alt="Lista de trabalhos" />
+            <img src="/manual/screenshots/app/campaigns-list.png" alt="Lista de trabalhos" />
             <p>Trabalhos</p>
           </figure>
           <figure>
-            <img src="screenshots/app/library.png" alt="Biblioteca de assets" />
+            <img src="/manual/screenshots/app/library.png" alt="Biblioteca de assets" />
             <p>Biblioteca</p>
           </figure>
         </div>
@@ -576,8 +579,8 @@
 
       <section id="inicio">
         <hr class="rule" />
-        <h2>Início — o único começo</h2>
-        <p class="lead">É aqui que se cria. Protocolo no topo, pedido no centro, gerar no lima. Continuar de onde parou sobe se houver Trabalho aberto.</p>
+        <h2>Estúdio — o único começo</h2>
+        <p class="lead">É aqui que se cria. Protocolo no topo, pedido no centro, Gerar na ação. Continuar de onde parou sobe se houver Trabalho aberto.</p>
 
         <article class="pass">
           <div class="idx">Passo<b>01</b></div>
@@ -596,7 +599,7 @@
           <div class="idx">Passo<b>02</b></div>
           <div>
             <h3>Protocolo</h3>
-            <p class="meta">Quatro cartões · um selecionado</p>
+            <p class="meta">Quatro modos · um selecionado</p>
             <p>Clique no modo. O composer muda o que pede (uma arte, duas artes, formatos). Há alterações em andamento? O produto pergunta se preserva o rascunho antes de trocar. Preserve. Não tente “converter” um protocolo no outro.</p>
           </div>
         </article>
@@ -632,13 +635,13 @@
           <div class="idx">Passo<b>05</b></div>
           <div>
             <h3>Ajustes e gerar</h3>
-            <p class="meta">Formato · texto · direções · um lima</p>
-            <p>Formato automático mantém a proporção da arte. Ou fixe. Em Variações, escolha de 1 a 5 direcionamentos — cada um vira uma Peça. A IA sugere caminhos; você aplica ou escreve os seus. O lima é Gerar. Enquanto gera: salvando → preparando → enviando → confirmando → gerando.</p>
+            <p class="meta">Formato · texto · direções · Gerar</p>
+            <p>Formato automático mantém a proporção da arte. Ou fixe. Em Variações, escolha de 1 a 5 direcionamentos — cada um vira uma Peça. A IA sugere caminhos; você aplica ou escreve os seus. A ação é Gerar. Enquanto gera: salvando → preparando → enviando → confirmando → gerando.</p>
           </div>
         </article>
 
         <div class="next">
-          <p>Continuar de onde parei retoma o Trabalho mais relevante. Recentes ficam no Início. Não abra três wizards: volte aqui.</p>
+          <p>Continuar de onde parei retoma o Trabalho mais relevante. Recentes ficam no Estúdio. Não abra três wizards: volte aqui.</p>
         </div>
       </section>
 
@@ -772,10 +775,10 @@
       <section id="trabalhos">
         <hr class="rule" />
         <h2>Trabalhos e campanha</h2>
-        <p class="lead">Trabalhos é a fila. Campanha é o objeto longo, com stepper. Os dois aparecem na mesma lista — filtre por tipo se precisar.</p>
+        <p class="lead">Trabalhos é a fila. Campanha é o agrupamento opcional de peças. Os dois aparecem na mesma lista — filtre por tipo se precisar.</p>
 
         <h3 style="margin-top:28px">Lista de Trabalhos</h3>
-        <p>Busca por trabalho, peça ou cliente. Vista em lista, grade ou quadro. Filtro: todos, campanhas, posts. Ações de linha: retomar, revisar, tentar novamente, abrir. Um lima na página: Novo trabalho — que te devolve ao Início.</p>
+        <p>Busca por trabalho, peça ou cliente. Vista em lista, grade ou quadro. Filtro: todos, campanhas, posts. Ações de linha: retomar, revisar, tentar novamente, abrir. Um chip na página: Novo trabalho — que te devolve ao Estúdio.</p>
         <table>
           <thead>
             <tr>
@@ -818,64 +821,54 @@
           </tbody>
         </table>
 
-        <h3 style="margin-top:36px">Campanha — o wizard de quatro tempos</h3>
-        <p>Ainda existe como superfície própria. Use quando o lote precisa de briefing estruturado, piloto, derivações e pacote de entrega. Não é o começo do dia — o Início é.</p>
+        <h3 style="margin-top:36px">Campanha — agrupamento de peças</h3>
+        <p>A campanha junta Trabalhos e peças da mesma iniciativa. Nova peça abre o Estúdio já vinculada. Não é o começo do dia — o Estúdio é. Não há wizard de briefing, produzir, revisar e entregar: o objeto é o mosaico das peças.</p>
         <div class="spine">
           <div class="node now">
             <div class="n">1</div>
-            <b>Briefing</b>
-            <span>Peça-chave, cliente, objetivo</span>
+            <b>Agrupar</b>
+            <span>Peças da mesma iniciativa</span>
           </div>
           <div class="node">
             <div class="n">2</div>
-            <b>Produzir</b>
-            <span>Plano e gerações</span>
+            <b>Olhar</b>
+            <span>Mosaico das peças</span>
           </div>
           <div class="node">
             <div class="n">3</div>
-            <b>Revisar</b>
-            <span>Derivações e veredito</span>
+            <b>Nova peça</b>
+            <span>Volta ao Estúdio</span>
           </div>
           <div class="node">
             <div class="n">4</div>
             <b>Entregar</b>
             <span>Pacote, ZIP, galeria</span>
           </div>
-          <div class="node">
-            <div class="n">+</div>
-            <b>Piloto</b>
-            <span>Upload da peça-chave</span>
-          </div>
-          <div class="node">
-            <div class="n">+</div>
-            <b>Receita</b>
-            <span>Template de briefing</span>
-          </div>
         </div>
         <div class="pair">
           <figure>
-            <img src="screenshots/app/campaigns-list.png" alt="Lista de trabalhos com thumbs e estados" />
+            <img src="/manual/screenshots/app/campaigns-list.png" alt="Lista de trabalhos com thumbs e estados" />
             <p>Fila</p>
           </figure>
           <figure>
-            <img src="screenshots/app/campaign-workspace.png" alt="Workspace de campanha com stepper" />
-            <p>Workspace da campanha</p>
+            <img src="/manual/screenshots/app/campaign-workspace.png" alt="Agrupamento de peças da campanha" />
+            <p>Agrupamento da campanha</p>
           </figure>
         </div>
         <ul class="dod">
           <li>Vincule um cliente. Sem perfil, brand kit e aprendizados não entram.</li>
-          <li>A IA pode deduzir campos da peça-chave. Revise antes de salvar. Análise falhou: preencha na mão.</li>
-          <li>Modos clássicos no wizard: variar arte, variar formato, restilização — o mesmo ofício dos protocolos, com stepper.</li>
-          <li>Hipóteses criativas (controle vs. variação, métrica, justificativa) só depois de pelo menos duas derivações com resultado importado.</li>
+          <li>Nova peça vai ao Estúdio com a campanha já ligada. Não gere da página vazia.</li>
+          <li>Clique na peça para abrir o trabalho criativo. Não há overlay duplicando a Peça.</li>
+          <li>Entrega, derivar e revisão de derivação ficam em folhas. Chat é coluna de conversa.</li>
         </ul>
       </section>
 
       <section id="marca">
         <hr class="rule" />
         <h2>Marca — a autoridade da peça</h2>
-        <p class="lead">Sem marca, o Início não começa. Com marca mal treinada, a geração chuta. Trate isto como o contrato com o cliente, não como um formulário de settings.</p>
+        <p class="lead">Sem marca, o Estúdio não começa. Com marca mal treinada, a geração chuta. Trate isto como o contrato com o cliente, não como um formulário de settings.</p>
         <div class="shot">
-          <img src="screenshots/app/settings-brand-kit.png" alt="Tela de treinamento visual da marca" />
+          <img src="/manual/screenshots/app/settings-brand-kit.png" alt="Tela de treinamento visual da marca" />
           <figcaption>Treinamento visual · logo, paleta, voz</figcaption>
         </div>
         <div class="contract">
@@ -903,8 +896,8 @@
 
       <section id="apoio">
         <hr class="rule" />
-        <h2>Apoio — biblioteca, assistente, templates, visão geral, entrega</h2>
-        <p class="lead">Não começam o ofício. Alimentam ou acompanham. Se a dúvida for “por onde eu crio?”, a resposta continua sendo o Início.</p>
+        <h2>Apoio — biblioteca, assistente, entrega</h2>
+        <p class="lead">Não começam o ofício. Alimentam ou acompanham. Se a dúvida for “por onde eu crio?”, a resposta continua sendo o Estúdio.</p>
 
         <article class="pass">
           <div class="idx">01<b>Lib</b></div>
@@ -920,30 +913,12 @@
           <div>
             <h3>Assistente</h3>
             <p class="meta">Conversas por projeto · não é a porta</p>
-            <p>Use para organizar um briefing em prosa, anexar imagem, ou seguir uma jornada: “já tenho peça” (diagnóstico) ou “produzir do zero”. O pedido se organiza antes de qualquer geração. Há atalho de volta ao composer do Início — use-o quando a conversa já virou intenção. Agente de objetivo só aparece para tester ou dono da plataforma.</p>
+            <p>Use para organizar um briefing em prosa, anexar imagem, ou seguir uma jornada: “já tenho peça” (diagnóstico) ou “produzir do zero”. O pedido se organiza antes de qualquer geração. Há atalho de volta ao composer do Estúdio — use-o quando a conversa já virou intenção. Agente de objetivo só aparece para tester ou dono da plataforma.</p>
           </div>
         </article>
 
         <article class="pass">
-          <div class="idx">03<b>Tpl</b></div>
-          <div>
-            <h3>Templates</h3>
-            <p class="meta">Briefing reutilizável · não é a peça</p>
-            <p>Salve o briefing de um Trabalho que funcionou. Na próxima, use o template para pré-preencher — ainda revise fatos. Template vazio: o produto mostra o empty e aponta para concluir um briefing primeiro. Não invente receita no vácuo.</p>
-          </div>
-        </article>
-
-        <article class="pass">
-          <div class="idx">04<b>VG</b></div>
-          <div>
-            <h3>Visão geral</h3>
-            <p class="meta">Indicadores · atividade · receitas</p>
-            <p>Saudação, o que está em revisão, o que está pronto para aprovar, créditos da semana, templates salvos. Não é o começo. Se a fila estiver vazia, o empty aponta para criar um Trabalho — e te manda ao lugar certo.</p>
-          </div>
-        </article>
-
-        <article class="pass">
-          <div class="idx">05<b>Out</b></div>
+          <div class="idx">03<b>Out</b></div>
           <div>
             <h3>Entrega e galeria</h3>
             <p class="meta">ZIP · pacote do cliente · link público</p>
@@ -951,15 +926,9 @@
           </div>
         </article>
 
-        <div class="pair">
-          <figure>
-            <img src="screenshots/app/templates.png" alt="Lista de templates de briefing" />
-            <p>Templates</p>
-          </figure>
-          <figure>
-            <img src="screenshots/app/share-gallery.png" alt="Galeria pública de criativos" />
-            <p>Galeria compartilhada</p>
-          </figure>
+        <div class="shot">
+          <img src="/manual/screenshots/app/share-gallery.png" alt="Galeria pública de criativos" />
+          <figcaption>Galeria compartilhada</figcaption>
         </div>
       </section>
 
@@ -1053,11 +1022,11 @@
         </div>
         <div class="pair">
           <figure>
-            <img src="screenshots/app/login.png" alt="Tela de acesso" />
+            <img src="/manual/screenshots/app/login.png" alt="Tela de acesso" />
             <p>Acesso</p>
           </figure>
           <figure>
-            <img src="screenshots/app/settings-plans.png" alt="Comparativo de planos" />
+            <img src="/manual/screenshots/app/settings-plans.png" alt="Comparativo de planos" />
             <p>Planos</p>
           </figure>
         </div>
@@ -1124,7 +1093,7 @@
             <div class="n">01</div>
             <div>
               <h3>Você sabe onde está</h3>
-              <p>Início gera. Trabalhos lista. Peça decide. Marca autoriza. Se hesitar três segundos, volte ao mapa.</p>
+              <p>Estúdio gera. Trabalhos lista. Peça decide. Marca autoriza. Se hesitar três segundos, volte ao mapa.</p>
             </div>
           </article>
           <article>
@@ -1151,8 +1120,8 @@
           <article>
             <div class="n">05</div>
             <div>
-              <h3>Um lima por viewport</h3>
-              <p>Gerar, Novo, Aprovar: um de cada vez. O resto é texto. Se a tela gritar verde em três botões, ignore dois.</p>
+              <h3>Uma ação por viewport</h3>
+              <p>Gerar, Novo, Aprovar: um de cada vez. O resto é texto. Se a tela gritar em três botões, ignore dois.</p>
             </div>
           </article>
         </div>

@@ -14,7 +14,7 @@ describe("DocsPage", () => {
   it("opens the current user manual", () => {
     DocsPage();
 
-    expect(redirectMock).toHaveBeenCalledWith("/manual/");
+    expect(redirectMock).toHaveBeenCalledWith("/manual");
     expect(existsSync(resolve(process.cwd(), "public/manual/index.html"))).toBe(true);
   });
 });

@@ -239,4 +239,26 @@ describe("campaign repository", () => {
       expect.objectContaining({ creativeLevel: "conservative" })
     );
   });
+
+  it("listCampaignsForEntryContext filters by workspace and clientProfileId with limit", async () => {
+    const updatedAt = new Date("2026-08-01T12:00:00.000Z");
+    const mockLimit = vi.fn().mockResolvedValue([
+      { id: "camp-1", updatedAt, product: "Product", offer: "Offer", audience: "Audience", tone: "Tone" },
+    ]);
+    const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+    const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+
+    (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+
+    const { listCampaignsForEntryContext } = await import("@/server/repositories/campaign");
+    const result = await listCampaignsForEntryContext("ws-123", "brand-1", 8);
+
+    expect(mockWhere).toHaveBeenCalledWith(expect.anything());
+    expect(mockOrderBy).toHaveBeenCalledWith(expect.anything());
+    expect(mockLimit).toHaveBeenCalledWith(8);
+    expect(result).toEqual([
+      { id: "camp-1", updatedAt, product: "Product", offer: "Offer", audience: "Audience", tone: "Tone" },
+    ]);
+  });
 });

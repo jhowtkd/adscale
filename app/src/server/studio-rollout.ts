@@ -25,3 +25,13 @@ export function isStudioCarouselEnabled(workspaceId: string, percent: number): b
   const bounded = Math.max(0, Math.min(100, Math.trunc(percent)));
   return studioRolloutBucket(workspaceId) < bounded;
 }
+
+/**
+ * Entry-interview gate for Studio (Task 7). Reads the SAME deterministic
+ * workspace bucket as the progressive Studio rollout so both percentages
+ * move workspaces together. Task 9 wires the dashboard UI to this gate.
+ */
+export function isStudioEntryInterviewEnabled(workspaceId: string, percent: number): boolean {
+  const bounded = Math.max(0, Math.min(100, Math.trunc(percent)));
+  return studioRolloutBucket(workspaceId) < bounded;
+}

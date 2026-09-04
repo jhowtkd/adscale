@@ -1,9 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { DiscreetRadios } from "@/components/dashboard/studio-stage/DiscreetRadios";
+import {
+  studioChipClass,
+  studioFilterStripClass,
+  studioQuietActionClass,
+} from "@/components/dashboard/studio-stage/StudioInstrument";
 import {
   useBrandKnowledge,
   usePublishBrandKnowledge,
@@ -11,33 +16,92 @@ import {
   type BrandKnowledgeClaimRecord,
 } from "@/lib/hooks/use-brand-training";
 
+type KnowledgeFilter = "all" | "review" | "approved" | "archive";
+
+const occupancyFieldClass =
+  "w-full resize-none rounded-[var(--radius-control)] border-0 bg-white/6 px-3 py-2 font-mono text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]";
+
+function knowledgeBucket(claim: BrandKnowledgeClaimRecord): Exclude<KnowledgeFilter, "all"> {
+  if (claim.status === "candidate") return "review";
+  if (claim.status === "approved") return "approved";
+  return "archive";
+}
+
 export function BrandKnowledgeReview({ clientProfileId }: { clientProfileId: string }) {
   const t = useTranslations("brandTraining.knowledge");
   const knowledge = useBrandKnowledge(clientProfileId);
   const review = useReviewBrandKnowledgeClaim(clientProfileId);
   const publish = usePublishBrandKnowledge(clientProfileId);
+  const [filter, setFilter] = useState<KnowledgeFilter>("all");
   const data = knowledge.data;
-  if (knowledge.isLoading) return <div role="status" className="h-24 animate-pulse rounded-lg bg-[var(--surface-raised)]" />;
+
+  const visible = useMemo(
+    () =>
+      !data
+        ? []
+        : filter === "all"
+          ? data.claims
+          : data.claims.filter((claim) => knowledgeBucket(claim) === filter),
+    [data, filter],
+  );
+
+  if (knowledge.isLoading) {
+    return <div role="status" className="h-24 animate-pulse rounded-2xl bg-white/6" />;
+  }
   if (!data) return null;
-  const alternatives = (claim: BrandKnowledgeClaimRecord) => data.claims
-    .filter((item) => item.claimKey === claim.claimKey && item.id !== claim.id)
-    .map((item) => ({ claimId: item.id, value: item.value }));
+
+  const alternatives = (claim: BrandKnowledgeClaimRecord) =>
+    data.claims
+      .filter((item) => item.claimKey === claim.claimKey && item.id !== claim.id)
+      .map((item) => ({ claimId: item.id, value: item.value }));
   const publishable = data.claims.some((claim) => claim.status === "approved") && data.conflicts.length === 0;
 
   return (
-    <section className="space-y-3 rounded-lg border border-[var(--border-dim)] bg-[var(--surface-raised)] p-3">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("title")}</h3>
-        {data.activeVersion ? <span className="text-xs text-[var(--success-text)]">{t("activeVersion", { number: data.activeVersion.versionNumber })}</span> : null}
+    <section data-testid="brand-kit-knowledge" className="space-y-5" aria-label={t("title")}>
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        {data.activeVersion ? (
+          <p
+            role="status"
+            className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]"
+          >
+            {t("activeVersion", { number: data.activeVersion.versionNumber })}
+          </p>
+        ) : null}
+        <button
+          type="button"
+          disabled={!publishable || publish.isPending}
+          onClick={() => publish.mutate()}
+          className={studioChipClass}
+        >
+          {t("publish")}
+        </button>
+      </div>
+
+      <div data-testid="brand-knowledge-strip" className={studioFilterStripClass}>
+        <DiscreetRadios
+          label={t("filterAria")}
+          value={filter}
+          onChange={setFilter}
+          className="min-w-0 flex-1 justify-center"
+          options={[
+            { value: "all", label: t("filterAll") },
+            { value: "review", label: t("filterReview") },
+            { value: "approved", label: t("filterApproved") },
+            { value: "archive", label: t("filterArchive") },
+          ]}
+        />
+        <p className="shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
+          {visible.length}/{data.claims.length}
+        </p>
       </div>
 
       {data.conflicts.length > 0 ? (
-        <div role="alert" className="space-y-2 rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] p-2">
+        <div role="alert" className="space-y-3">
           <p className="text-xs font-medium text-[var(--danger-text)]">{t("conflictsTitle")}</p>
           {data.conflicts.map((conflict) => (
-            <div key={`${conflict.claimKey}:${conflict.comparison}`}>
-              <p className="text-xs font-medium text-[var(--text-primary)]">{conflict.claimKey}</p>
-              <div className="mt-1 grid gap-2 sm:grid-cols-2">
+            <div key={`${conflict.claimKey}:${conflict.comparison}`} className="space-y-2">
+              <p className="font-mono text-xs text-[var(--text-primary)]">{conflict.claimKey}</p>
+              <div className="grid gap-3 sm:grid-cols-2">
                 {conflict.claims.map((summary) => {
                   const claim = data.claims.find((item) => item.id === summary.id) ?? summary;
                   return <ClaimSummary key={claim.id} claim={claim as BrandKnowledgeClaimRecord} />;
@@ -48,10 +112,12 @@ export function BrandKnowledgeReview({ clientProfileId }: { clientProfileId: str
         </div>
       ) : null}
 
-      {data.claims.length === 0 ? <p className="text-xs text-[var(--text-muted)]">{t("empty")}</p> : (
-        <ul className="space-y-2">
-          {data.claims.map((claim) => (
-            <li key={claim.id}>
+      {data.claims.length === 0 ? (
+        <p className="py-10 text-center text-sm text-[var(--text-secondary)]">{t("empty")}</p>
+      ) : (
+        <ul className="divide-y divide-white/8">
+          {visible.map((claim) => (
+            <li key={claim.id} className="py-4">
               <ClaimEditor
                 claim={claim}
                 pending={review.isPending}
@@ -62,24 +128,31 @@ export function BrandKnowledgeReview({ clientProfileId }: { clientProfileId: str
         </ul>
       )}
 
-      <div className="flex items-center justify-between gap-2 border-t border-[var(--border-dim)] pt-3">
-        <div>
-          <p className="text-xs font-medium text-[var(--text-secondary)]">{t("historyTitle")}</p>
-          <div className="text-[var(--text-caption)] text-[var(--text-muted)]">
+      {data.versions.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-xs font-medium tracking-wide text-[var(--text-secondary)]">
+            {t("historyTitle")}
+          </p>
+          <div className="space-y-1 text-xs text-[var(--text-muted)]">
             {data.versions.map((version) => (
               <details key={version.id}>
-                <summary>v{version.versionNumber} · {version.hash.slice(0, 12)} · {version.publishedByUserId} · {new Date(version.publishedAt).toLocaleDateString()}</summary>
-                <ul className="pl-3">
+                <summary className="cursor-pointer text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+                  v{version.versionNumber} · {version.hash.slice(0, 12)} · {version.publishedByUserId} ·{" "}
+                  {new Date(version.publishedAt).toLocaleDateString()}
+                </summary>
+                <ul className="mt-1 space-y-1 pl-3">
                   {version.snapshot?.claims.map((claim) => (
-                    <li key={claim.id}>{claim.claimKey}: {JSON.stringify(claim.value)} · {claim.evidenceRefs.map((evidence) => evidence.path).join(", ")}</li>
+                    <li key={claim.id}>
+                      {claim.claimKey}: {JSON.stringify(claim.value)} ·{" "}
+                      {claim.evidenceRefs.map((evidence) => evidence.path).join(", ")}
+                    </li>
                   ))}
                 </ul>
               </details>
             ))}
           </div>
         </div>
-        <Button type="button" disabled={!publishable || publish.isPending} onClick={() => publish.mutate()}>{t("publish")}</Button>
-      </div>
+      ) : null}
     </section>
   );
 }
@@ -87,9 +160,11 @@ export function BrandKnowledgeReview({ clientProfileId }: { clientProfileId: str
 function ClaimSummary({ claim }: { claim: BrandKnowledgeClaimRecord }) {
   const t = useTranslations("brandTraining.knowledge");
   return (
-    <div className="rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] p-2 text-[var(--text-caption)] text-[var(--text-muted)]">
+    <div className="space-y-1 text-xs text-[var(--text-muted)]">
       <p className="font-mono text-[var(--text-primary)]">{JSON.stringify(claim.value)}</p>
-      <p>{t("authority")}: {claim.authority} · {t("confidence")}: {claim.confidence}</p>
+      <p>
+        {t("authority")}: {claim.authority} · {t("confidence")}: {claim.confidence}
+      </p>
       <p>{claim.evidenceRefs.map((evidence) => `${evidence.type} · ${evidence.path}`).join("; ")}</p>
     </div>
   );
@@ -115,20 +190,55 @@ function ClaimEditor({
       setInvalid(true);
     }
   };
+
   return (
-    <article className="space-y-2 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] p-2">
-      <div className="flex items-center justify-between gap-2 text-xs">
-        <span className="font-medium text-[var(--text-primary)]">{claim.claimKey}</span>
-        <span className="text-[var(--text-muted)]">{t(claim.status)}</span>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium text-[var(--text-primary)]">{claim.claimKey}</span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
+          {t(claim.status)}
+        </span>
       </div>
-      <textarea aria-label={`${claim.claimKey} value`} aria-invalid={invalid} value={draft} onChange={(event) => setDraft(event.target.value)} rows={2} className="w-full rounded border border-[var(--border-dim)] bg-[var(--surface-raised)] px-2 py-1 font-mono text-xs text-[var(--text-primary)]" />
-      <p className="text-[var(--text-caption)] text-[var(--text-muted)]">{t("authority")}: {claim.authority} · {t("confidence")}: {claim.confidence}</p>
-      <p className="text-[var(--text-caption)] text-[var(--text-muted)]">{t("evidence")}: {claim.evidenceRefs.map((evidence) => `${evidence.type} · ${evidence.path}`).join("; ")}</p>
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" disabled={pending} onClick={() => onReview({ claimId: claim.id, status: "approved" })}>{t("approve")}</Button>
-        <Button type="button" variant="outline" disabled={pending} onClick={save}>{t("saveEdit")}</Button>
-        <Button type="button" variant="ghost" disabled={pending} onClick={() => onReview({ claimId: claim.id, status: "rejected" })}>{t("reject")}</Button>
+      <textarea
+        aria-label={`${claim.claimKey} value`}
+        aria-invalid={invalid}
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        rows={2}
+        className={cn(occupancyFieldClass, invalid && "ring-2 ring-[var(--danger-text)]")}
+      />
+      <p className="text-xs text-[var(--text-muted)]">
+        {t("authority")}: {claim.authority} · {t("confidence")}: {claim.confidence}
+      </p>
+      <p className="text-xs text-[var(--text-muted)]">
+        {t("evidence")}: {claim.evidenceRefs.map((evidence) => `${evidence.type} · ${evidence.path}`).join("; ")}
+      </p>
+      <div className="flex flex-wrap gap-1">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => onReview({ claimId: claim.id, status: "approved" })}
+          className={studioQuietActionClass}
+        >
+          {t("approve")}
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={save}
+          className={studioQuietActionClass}
+        >
+          {t("saveEdit")}
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => onReview({ claimId: claim.id, status: "rejected" })}
+          className={studioQuietActionClass}
+        >
+          {t("reject")}
+        </button>
       </div>
-    </article>
+    </div>
   );
 }

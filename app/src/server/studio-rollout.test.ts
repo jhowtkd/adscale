@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isStudioCarouselEnabled,
+  isStudioEntryInterviewEnabled,
   resolveStudioRolloutVariant,
   studioRolloutBucket,
 } from "./studio-rollout";
@@ -53,6 +54,39 @@ describe("isStudioCarouselEnabled", () => {
     const first = isStudioCarouselEnabled(workspaces[1]!, 50);
     for (let call = 0; call < 3; call += 1) {
       expect(isStudioCarouselEnabled(workspaces[1]!, 50)).toBe(first);
+    }
+  });
+});
+
+describe("isStudioEntryInterviewEnabled", () => {
+  it("hides the entry interview at zero and shows it at one hundred", () => {
+    for (const workspaceId of workspaces) {
+      expect(isStudioEntryInterviewEnabled(workspaceId, 0)).toBe(false);
+      expect(isStudioEntryInterviewEnabled(workspaceId, 100)).toBe(true);
+    }
+  });
+
+  it("clamps out-of-range percentages to the same 0/100 boundaries", () => {
+    expect(isStudioEntryInterviewEnabled(workspaces[0]!, -10)).toBe(false);
+    expect(isStudioEntryInterviewEnabled(workspaces[0]!, 150)).toBe(true);
+    expect(isStudioEntryInterviewEnabled(workspaces[0]!, 3.7)).toBe(
+      isStudioEntryInterviewEnabled(workspaces[0]!, 3),
+    );
+  });
+
+  it("uses the same workspace bucket as the progressive Studio rollout", () => {
+    for (const workspaceId of workspaces) {
+      const bucket = studioRolloutBucket(workspaceId);
+      expect(isStudioEntryInterviewEnabled(workspaceId, bucket)).toBe(false);
+      expect(isStudioEntryInterviewEnabled(workspaceId, bucket + 1)).toBe(true);
+      expect(resolveStudioRolloutVariant(workspaceId, bucket + 1)).toBe("progressive");
+    }
+  });
+
+  it("is deterministic per workspace", () => {
+    const first = isStudioEntryInterviewEnabled(workspaces[1]!, 50);
+    for (let call = 0; call < 3; call += 1) {
+      expect(isStudioEntryInterviewEnabled(workspaces[1]!, 50)).toBe(first);
     }
   });
 });
