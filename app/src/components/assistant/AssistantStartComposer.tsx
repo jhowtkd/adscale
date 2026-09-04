@@ -13,6 +13,10 @@ import { useUpsertGuidedFlow, type GuidedFlowPath } from "@/lib/hooks/use-guided
 import { useChatComposerAttachments } from "@/lib/assistant/use-chat-composer-attachments";
 import { useAssistantSurface } from "./AssistantSurfaceContext";
 import AssistantJourneyCards from "./AssistantJourneyCards";
+import {
+  assistantComposerClass,
+  assistantQuietCommitClass,
+} from "./assistant-chrome";
 
 export interface AssistantStartComposerProps {
   onSelectThread: (threadId: string) => void;
@@ -159,7 +163,7 @@ export default function AssistantStartComposer({
           </p>
         </div>
         {onCreateClient ? (
-          <Button type="button" onClick={onCreateClient}>
+          <Button type="button" onClick={onCreateClient} className={assistantQuietCommitClass}>
             {t("createFirstClient")}
           </Button>
         ) : null}
@@ -265,7 +269,7 @@ export default function AssistantStartComposer({
       >
         <div
           className={cn(
-            "overflow-hidden rounded-2xl border border-[var(--border-dim)] bg-[var(--surface-raised)] shadow-lg shadow-black/20 focus-within:ring-2 focus-within:ring-[var(--focus-ring)]",
+            assistantComposerClass,
             dragOver && "border-[var(--selection-border)] ring-2 ring-inset ring-[var(--selection-border)]"
           )}
           data-testid="assistant-start-dropzone"
@@ -338,15 +342,11 @@ export default function AssistantStartComposer({
             </div>
             <Button
               type="submit"
+              variant="outline"
               size="default"
               disabled={!canSend}
               aria-label={createThread.isPending ? t("submitting") : t("sendBriefing")}
-              className={cn(
-                "min-h-11 rounded-[var(--radius-control)] px-4",
-                canSend
-                  ? "bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
-                  : "bg-[var(--surface-inset)] text-[var(--text-muted)]"
-              )}
+              className={assistantQuietCommitClass}
             >
               {createThread.isPending ? (
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />

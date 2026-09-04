@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { useAssistantThreads } from "@/lib/hooks/use-assistant-threads";
 import { useClientProfiles } from "@/lib/hooks/use-client-profiles";
 import { formatRelativeTime, type RelativeTimeLabels } from "@/lib/relative-time";
+import { assistantQuietCommitClass } from "./assistant-chrome";
 
 export interface AssistantTreeSidebarProps {
   selectedThreadId?: string;
@@ -108,9 +109,9 @@ export default function AssistantTreeSidebar({
         </p>
         <Button
           type="button"
-          variant="default"
+          variant="outline"
           size="sm"
-          className="mt-2 w-full rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] text-xs font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
+          className={`mt-2 w-full ${assistantQuietCommitClass}`}
           aria-label={t("newClient")}
           onClick={onNewClient}
         >

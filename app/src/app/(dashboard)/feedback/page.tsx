@@ -17,7 +17,14 @@ import { AdminInspirationsPanel } from "@/components/admin/AdminInspirationsPane
 import { cn } from "@/lib/utils";
 import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
-import Panel from "@/components/layout/Panel";
+import {
+  ownerButtonClass,
+  ownerFieldClass,
+  ownerListItemClass,
+  ownerNavClass,
+  ownerNavItemClass,
+  ownerShellClass,
+} from "@/components/feedback/owner-chrome";
 
 type FeedbackReport = {
   id: string;
@@ -219,22 +226,15 @@ export default function FeedbackTriagePage() {
     <PageFrame width="operational" className="min-w-0 space-y-6 py-8">
       <PageHeader title={t("title")} description={t("description")} />
 
-      <nav aria-label={t("consoleTabsAria")} className="flex flex-wrap gap-2" role="tablist">
+      <div className={ownerShellClass}>
+      <nav aria-label={t("consoleTabsAria")} className={ownerNavClass}>
         {(["metrics", "quality", "feedback", "inspirations"] as const).map((tab) => (
           <button
             key={tab}
             type="button"
-            role="tab"
-            id={`owner-console-tab-${tab}`}
-            aria-selected={consoleTab === tab}
-            aria-controls={`owner-console-panel-${tab}`}
+            aria-current={consoleTab === tab ? "page" : undefined}
             onClick={() => setConsoleTab(tab)}
-            className={cn(
-              "rounded-[var(--radius-control)] border px-3 py-2 text-sm font-medium",
-              consoleTab === tab
-                ? "border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--selection-text)]"
-                : "border-[var(--border-default)] text-[var(--text-secondary)]",
-            )}
+            className={ownerNavItemClass(consoleTab === tab)}
           >
             {t(`consoleTabs.${tab}`)}
           </button>
@@ -243,9 +243,6 @@ export default function FeedbackTriagePage() {
 
       <div
         id={`owner-console-panel-${consoleTab}`}
-        role="tabpanel"
-        aria-labelledby={`owner-console-tab-${consoleTab}`}
-        tabIndex={0}
         className="min-w-0 space-y-6"
       >
       {consoleTab === "metrics" ? <OwnerAnalyticsPanel sessionOptions={sessionOptions} /> : null}
@@ -258,14 +255,14 @@ export default function FeedbackTriagePage() {
           <BetaSessionsPanel />
         </>
       ) : null}
-      {consoleTab === "feedback" ? <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <Panel padding="md" className="space-y-4">
+      {consoleTab === "feedback" ? <div className="grid gap-8 lg:grid-cols-[320px_minmax(0,1fr)]">
+        <div className="space-y-4">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
             aria-label={t("filterStatus")}
-            className="h-10 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 text-sm"
+            className={ownerFieldClass}
           >
             <option value="">{t("allStatuses")}</option>
             <option value="new">{t("statusNew")}</option>
@@ -277,7 +274,7 @@ export default function FeedbackTriagePage() {
             value={severity}
             onChange={(e) => setSeverity(e.target.value)}
             aria-label={t("filterSeverity")}
-            className="h-10 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 text-sm"
+            className={ownerFieldClass}
           >
             <option value="">{t("allSeverities")}</option>
             <option value="low">{tFeedback("severities.low")}</option>
@@ -289,7 +286,7 @@ export default function FeedbackTriagePage() {
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             aria-label={t("filterCategory")}
-            className="col-span-2 h-10 rounded-md border border-[var(--border-dim)] bg-[var(--surface-base)] px-2 text-sm sm:col-span-1"
+            className={`col-span-2 sm:col-span-1 ${ownerFieldClass}`}
           >
             <option value="">{t("allCategories")}</option>
             <option value="mission">{tFeedback("categories.mission")}</option>
@@ -343,7 +340,7 @@ export default function FeedbackTriagePage() {
             className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] p-3 text-sm text-[var(--danger-text)]"
           >
             <span>{t("loadError")}</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
+            <Button type="button" variant="outline" size="sm" onClick={() => void refetch()} className={ownerButtonClass}>
               {t("retry")}
             </Button>
           </div>
@@ -370,12 +367,7 @@ export default function FeedbackTriagePage() {
                   setNotes(report.internalNotes ?? "");
                   setResolution(report.resolutionSummary ?? "");
                 }}
-                className={cn(
-                  "w-full rounded-lg border px-3 py-3 text-left transition-colors",
-                  selected?.id === report.id
-                    ? "border-[var(--selection-border)] bg-[var(--selection-bg)]"
-                    : "border-[var(--border-dim)] hover:bg-[var(--surface-raised)]"
-                )}
+                className={ownerListItemClass(selected?.id === report.id)}
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-medium text-[var(--text-primary)]">
@@ -395,9 +387,9 @@ export default function FeedbackTriagePage() {
             ))
           )}
         </div>
-        </Panel>
+        </div>
 
-      <Panel padding="md" className="max-h-[70vh] overflow-y-auto">
+      <div className="max-h-[70vh] space-y-5 overflow-y-auto">
         {!selected ? (
           <p className="text-sm text-[var(--text-muted)]">Select a report to inspect details.</p>
         ) : detailError ? (
@@ -406,7 +398,7 @@ export default function FeedbackTriagePage() {
             className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] p-3 text-sm text-[var(--danger-text)]"
           >
             <span>{t("loadError")}</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => void detailQuery.refetch()}>
+            <Button type="button" variant="outline" size="sm" onClick={() => void detailQuery.refetch()} className={ownerButtonClass}>
               {t("retry")}
             </Button>
           </div>
@@ -520,8 +512,8 @@ export default function FeedbackTriagePage() {
                 <Button
                   key={nextStatus}
                   type="button"
-                  variant="outline"
                   disabled={updateMutation.isPending}
+                  className={ownerButtonClass}
                   onClick={() =>
                     updateMutation.mutate({
                       id: selected.id,
@@ -545,8 +537,9 @@ export default function FeedbackTriagePage() {
             {t("lastUpdated", { time: new Date(detailQuery.dataUpdatedAt).toLocaleTimeString() })}
           </p>
         ) : null}
-      </Panel>
+        </div>
       </div> : null}
+      </div>
       </div>
     </PageFrame>
   );

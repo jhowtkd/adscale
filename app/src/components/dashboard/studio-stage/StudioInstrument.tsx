@@ -7,6 +7,21 @@ export const studioPrimaryActionClass =
 export const studioQuietActionClass =
   "inline-flex min-h-8 items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:bg-white/6 hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]";
 
+/** Quiet TalkBox interview slots: nowrap text, not occupancy pills. */
+export const studioQuietChoiceRowClass =
+  "flex min-w-0 flex-nowrap items-baseline gap-x-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
+export function studioQuietChoiceClass(checked: boolean) {
+  return cn(
+    "shrink-0 py-0.5 text-[11px] font-medium leading-none",
+    checked
+      ? "text-[var(--text-primary)]"
+      : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]",
+    "disabled:cursor-not-allowed disabled:opacity-50",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+  );
+}
+
 /** Compact TalkBox attach language for Palco chrome next to the bell. */
 export const studioChipClass =
   "inline-flex h-9 items-center gap-2 rounded-full border border-white/15 bg-white/8 px-4 text-xs font-medium text-[var(--text-secondary)] hover:bg-white/12 hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]";
@@ -24,6 +39,10 @@ export const studioSearchClass =
 /** One Palco occupancy strip: search, radios, and count share a single chip. */
 export const studioFilterStripClass =
   "flex h-9 min-w-0 items-center gap-1 overflow-x-auto rounded-full border border-white/15 bg-white/[0.04] pl-3 pr-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
+/** TalkBox protocol switcher: hug content, selected pill only — no outer stroke. */
+export const studioSwitcherClass =
+  "-ml-3 inline-flex max-w-full flex-nowrap items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 /** Image-led bento: columns hug each asset box instead of equal cards. */
 export const studioBentoClass =

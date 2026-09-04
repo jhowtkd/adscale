@@ -1,114 +1,134 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
-import { X, ZoomIn } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import { X } from "lucide-react";
+import {
+  studioBentoClass,
+  studioBentoItemClass,
+  studioQuietActionClass,
+} from "@/components/dashboard/studio-stage/StudioInstrument";
 
-interface GalleryItem {
+export interface ShareGalleryItem {
   id: string;
   imageUrl: string;
   format?: string;
   generationMode?: string;
   variantIndex?: number;
   ctaText?: string;
-  createdAt?: string;
 }
+
+type ShareGalleryLabels = {
+  closePreview: string;
+  variation: string;
+};
 
 interface GalleryGridProps {
-  items: GalleryItem[];
+  items: ShareGalleryItem[];
+  labels: ShareGalleryLabels;
 }
 
-export default function GalleryGrid({ items }: GalleryGridProps) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+function roverMeta(item: ShareGalleryItem, variationLabel: string) {
+  const parts = [
+    item.format?.toUpperCase(),
+    item.generationMode?.replaceAll("_", " "),
+    item.variantIndex !== undefined
+      ? variationLabel.replace("{index}", String(item.variantIndex + 1))
+      : null,
+    item.ctaText,
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
 
-  const selected = items.find((i) => i.id === selectedId);
+export default function GalleryGrid({ items, labels }: GalleryGridProps) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = items.find((item) => item.id === selectedId) ?? null;
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedId(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedId]);
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {items.map((item) => (
-          <button type="button"
-            key={item.id}
-            onClick={() => setSelectedId(item.id)}
-            className={cn(
-              "group relative aspect-square overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--surface-raised)] shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition hover:border-[var(--selection-border)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
-            )}
-          >
-            <Image
-              src={item.imageUrl}
-              alt={item.ctaText ?? `Criativo ${item.id}`}
-              className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
-              loading="lazy"
-            
-        width={800}
-        height={800}
-        unoptimized
-      />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover:bg-black/20">
-              <ZoomIn className="opacity-0 transition group-hover:opacity-100 text-white drop-shadow" size={24} />
-            </div>
-            {item.format && (
-              <span className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                {item.format.toUpperCase()}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      <ul className={studioBentoClass} data-testid="share-bento">
+        {items.map((item) => {
+          const meta = roverMeta(item, labels.variation);
+          const alt = item.ctaText ?? item.format ?? item.id;
+          return (
+            <li key={item.id} className={studioBentoItemClass}>
+              <button
+                type="button"
+                onClick={() => setSelectedId(item.id)}
+                aria-label={alt}
+                className="group relative block w-full overflow-hidden rounded-2xl bg-white/[0.04] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              >
+                <Image
+                  src={item.imageUrl}
+                  alt={alt}
+                  width={1080}
+                  height={1350}
+                  unoptimized
+                  className="block h-auto w-full"
+                />
+                <div
+                  data-testid="share-asset-rover"
+                  className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-2.5 pb-2.5 pt-10 opacity-0 transition-opacity duration-[var(--duration-fast)] group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
+                >
+                  <p className="truncate text-xs font-medium text-white">{alt}</p>
+                  {meta ? (
+                    <p className="mt-0.5 truncate font-mono text-[10px] text-white/70">{meta}</p>
+                  ) : null}
+                </div>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
 
-      {selected && (
+      {selected ? (
         <dialog
           open
-          className="fixed inset-0 z-[var(--layer-popover)] m-0 flex size-full max-h-none max-w-none items-center justify-center border-0 bg-black/80 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[var(--layer-popover)] m-0 flex size-full max-h-none max-w-none flex-col items-center justify-center border-0 bg-[var(--canvas)]/92 p-4"
           aria-modal="true"
+          aria-label={selected.ctaText ?? selected.format ?? selected.id}
         >
-          <button
-            type="button"
-            className="absolute inset-0 cursor-default"
-            onClick={() => setSelectedId(null)}
-            aria-label="Fechar visualizacao"
-          />
-          <div
-            className="relative z-[var(--layer-raised)] max-h-[90vh] max-w-4xl overflow-hidden rounded-xl bg-[var(--surface-base)] shadow-2xl ring-1 ring-[var(--border-default)]"
-          >
-            <button type="button"
+            <button
+              type="button"
+              className="absolute inset-0 cursor-default"
               onClick={() => setSelectedId(null)}
-              className="absolute right-3 top-3 z-10 rounded-full bg-black/50 p-1.5 text-white transition hover:bg-black/70"
-              aria-label="Fechar"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+          <div className="relative z-[var(--layer-raised)] flex max-h-[90vh] max-w-4xl flex-col items-center">
+            <button
+              type="button"
+              onClick={() => setSelectedId(null)}
+              className={`${studioQuietActionClass} absolute right-0 top-0 z-10`}
+              aria-label={labels.closePreview}
             >
-              <X size={18} />
+              <X size={14} aria-hidden="true" />
             </button>
             <Image
               src={selected.imageUrl}
-              alt={selected.ctaText ?? `Criativo ${selected.id}`}
+              alt={selected.ctaText ?? selected.format ?? selected.id}
+              width={1080}
+              height={1350}
+              unoptimized
               className="max-h-[80vh] w-auto object-contain"
-            
-        width={800}
-        height={800}
-        unoptimized
-      />
-            <div className="flex items-center gap-3 border-t border-[var(--border-subtle)] bg-[var(--canvas)] px-4 py-3 text-xs text-[var(--text-secondary)]">
-              {selected.format && (
-                <span className="rounded bg-[var(--border-default)] px-2 py-0.5 font-medium">
-                  {selected.format.toUpperCase()}
-                </span>
-              )}
-              {selected.generationMode && (
-                <span className="capitalize">
-                  {selected.generationMode.replace("_", " ")}
-                </span>
-              )}
-              {selected.variantIndex !== undefined && (
-                <span>Variação {selected.variantIndex + 1}</span>
-              )}
-              {selected.ctaText && (
-                <span className="truncate max-w-[200px]">{selected.ctaText}</span>
-              )}
-            </div>
+            />
+            {roverMeta(selected, labels.variation) ? (
+              <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                {roverMeta(selected, labels.variation)}
+              </p>
+            ) : null}
           </div>
         </dialog>
-      )}
+      ) : null}
     </>
   );
 }

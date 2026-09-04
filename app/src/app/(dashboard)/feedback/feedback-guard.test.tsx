@@ -88,7 +88,7 @@ describe("feedback route guard", () => {
     await flushPromises();
     expect(replaceMock).not.toHaveBeenCalled();
     expect(screen.getByTestId("beta-sessions")).toBeTruthy();
-    fireEvent.click(screen.getByRole("tab", { name: "feedback.triage.consoleTabs.metrics" }));
+    fireEvent.click(screen.getByRole("button", { name: "feedback.triage.consoleTabs.metrics" }));
     expect(screen.getByTestId("owner-analytics")).toBeTruthy();
   });
 

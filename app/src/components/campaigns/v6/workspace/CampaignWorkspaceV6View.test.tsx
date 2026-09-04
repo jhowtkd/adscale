@@ -15,7 +15,9 @@ vi.mock("next/link", () => ({
 
 vi.mock("@/components/feedback/ContextualFeedbackButton", () => ({
   __esModule: true,
-  default: () => <div data-testid="contextual-feedback" />,
+  default: ({ quiet }: { quiet?: boolean }) => (
+    <button type="button" aria-label="Report" data-quiet={quiet ? "true" : "false"} />
+  ),
 }));
 
 const labels: CampaignWorkspaceV6Labels = {
@@ -62,15 +64,14 @@ describe("CampaignWorkspaceV6Chrome", () => {
     expect(screen.getByRole("status")).not.toHaveClass("bg-[var(--warning-bg)]");
   });
 
-  it("marks the current stage with discreet radios", () => {
+  it("does not render briefing/produce/review/deliver stage radios", () => {
     render(<CampaignWorkspaceV6Chrome view={view} labels={labels} />);
 
     expect(screen.getByText("Campaign")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Holiday Sale" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Produce" })).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByRole("radio", { name: "Briefing" })).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(screen.queryByText("Briefing")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Active");
-    expect(screen.getByRole("status")).not.toHaveClass("bg-[var(--success-bg)]");
   });
 
   it("creates a new piece on Palco from the campaign grouping", () => {
@@ -80,6 +81,7 @@ describe("CampaignWorkspaceV6Chrome", () => {
       "href",
       "/?mode=arte&compose=1&campaignId=camp-1",
     );
+    expect(screen.getByRole("button", { name: "Report" })).toHaveAttribute("data-quiet", "true");
   });
 
   it("keeps draft delete quiet instead of a danger fill", () => {
@@ -98,25 +100,5 @@ describe("CampaignWorkspaceV6Chrome", () => {
     expect(remove).not.toHaveClass("bg-[var(--danger-bg)]");
     fireEvent.click(remove);
     expect(onDelete).toHaveBeenCalledOnce();
-  });
-
-  it("calls onStageSelect when a phase is clicked", () => {
-    const onStageSelect = vi.fn();
-    render(
-      <CampaignWorkspaceV6Chrome
-        view={view}
-        labels={labels}
-        onStageSelect={onStageSelect}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("radio", { name: "Briefing" }));
-    expect(onStageSelect).toHaveBeenCalledWith("briefing");
-
-    fireEvent.click(screen.getByRole("radio", { name: "Review" }));
-    expect(onStageSelect).toHaveBeenCalledWith("review");
-
-    fireEvent.click(screen.getByRole("radio", { name: "Deliver" }));
-    expect(onStageSelect).toHaveBeenCalledWith("share");
   });
 });

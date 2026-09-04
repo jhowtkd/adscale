@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-client";
+import { ownerButtonClass } from "./owner-chrome";
 
 const DIAGNOSIS_RATINGS = ["useful", "incomplete", "misleading"] as const;
 const PLAN_RATINGS = ["generation_ready", "partially_useful", "unusable"] as const;
@@ -117,7 +118,7 @@ export function GuidedFlowFeedbackPanel() {
           <button
             type="submit"
             disabled={status === "saving"}
-            className="inline-flex h-9 items-center rounded-md bg-[var(--action-primary-bg)] px-4 text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] disabled:opacity-60"
+            className={ownerButtonClass}
           >
             {t("submit")}
           </button>

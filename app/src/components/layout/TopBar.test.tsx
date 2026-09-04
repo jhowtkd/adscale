@@ -259,7 +259,7 @@ describe("TopBar navigation quick-links", () => {
     expect(screen.queryByRole("link", { name: /restyling/i })).not.toBeInTheDocument();
   });
 
-  it("still renders the core overview, works and settings nav links", () => {
+  it("still renders the core works and settings nav links", () => {
     render(<TopBar />, { wrapper: createWrapper() });
 
     const worksLink = screen.getByRole("link", { name: "works" });
@@ -271,6 +271,7 @@ describe("TopBar navigation quick-links", () => {
       "text-[var(--active-navigation-text)]"
     );
     expect(screen.getByRole("link", { name: "settings" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "dashboard" })).not.toBeInTheDocument();
   });
 });
 

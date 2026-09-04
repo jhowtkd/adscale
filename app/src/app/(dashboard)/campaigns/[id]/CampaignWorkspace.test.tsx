@@ -5,6 +5,8 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 const mockMutateAsync = vi.fn();
 const mockUpdateCampaign = vi.fn();
 const mockGoToTrabalho = vi.fn();
+const mockReplace = vi.fn();
+let searchParamsQuery = "";
 
 vi.mock("next-intl", () => ({
   useTranslations: (namespace?: string) => (key: string, values?: Record<string, string>) => {
@@ -19,7 +21,8 @@ vi.mock("next-intl", () => ({
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ id: "camp-1" }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(searchParamsQuery),
+  useRouter: () => ({ replace: mockReplace, push: vi.fn() }),
 }));
 
 vi.mock("@/lib/store", () => ({
@@ -229,6 +232,7 @@ function renderPage() {
 describe("CampaignWorkspacePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    searchParamsQuery = "";
     mockMutateAsync.mockResolvedValue({ id: "thread-default-1" });
     mockUpdateCampaign.mockResolvedValue(undefined);
   });
@@ -282,5 +286,16 @@ describe("CampaignWorkspacePage", () => {
     );
     expect(screen.getByTestId("campaign-pieces-empty")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Complete briefing" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "campaign.v6.stageBriefing" })).not.toBeInTheDocument();
+  });
+
+  it("sends a piece overlay to the Peça route instead of nesting resume on Campanha", async () => {
+    searchParamsQuery = "creativeWork=work-9";
+    renderPage();
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith("/creative-work/work-9");
+    });
+    expect(screen.queryByTestId("campaign-pieces-empty")).not.toBeInTheDocument();
   });
 });

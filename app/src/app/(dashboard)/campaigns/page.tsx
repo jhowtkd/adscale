@@ -28,11 +28,6 @@ const KanbanBoard = dynamic(() => import("@/components/campaigns/KanbanBoard"), 
   loading: () => <div className="flex h-64 items-center justify-center"><div className="size-8 animate-spin rounded-full border-2 border-[var(--border-subtle)] border-b-[var(--utility-icon)]" /></div>,
 });
 
-const SaveTemplateModal = dynamic(() => import("@/components/templates/SaveTemplateModal"), {
-  ssr: false,
-  loading: () => null,
-});
-
 function formatUpdated(date: Date): string {
   return formatDistanceToNow(date, { addSuffix: false })
     .replace("about ", "")
@@ -94,8 +89,6 @@ function CampaignsProductContent() {
     handleSearchChange,
     deleteTarget,
     setDeleteTarget,
-    saveTemplateCampaign,
-    setSaveTemplateCampaign,
     updateStatusFilter,
     updatePlatformFilter,
     updateSortOption,
@@ -329,9 +322,6 @@ function CampaignsProductContent() {
         onDuplicate={handleDuplicate}
         onArchive={handleArchive}
         onDelete={setDeleteTarget}
-        onSaveAsTemplate={(campaign) => {
-          if (campaign) setSaveTemplateCampaign(campaign as never);
-        }}
         alternateView={alternateView}
         emptyState={emptyState}
       />
@@ -349,13 +339,6 @@ function CampaignsProductContent() {
           onItemsPerPageChange={updateItemsPerPage}
         />
       ) : null}
-
-      <SaveTemplateModal
-        open={!!saveTemplateCampaign}
-        onOpenChange={(open) => !open && setSaveTemplateCampaign(null)}
-        campaignId={saveTemplateCampaign?.id ?? ""}
-        campaignName={saveTemplateCampaign?.name ?? ""}
-      />
 
       <ConfirmDialog
         open={!!deleteTarget}

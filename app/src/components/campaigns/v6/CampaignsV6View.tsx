@@ -60,7 +60,6 @@ type CampaignsV6ViewProps = {
   onDuplicate?: (id: string) => void;
   onArchive?: (id: string) => void;
   onDelete?: (id: string) => void;
-  onSaveAsTemplate?: (campaign: CampaignV6Row["campaign"]) => void;
   alternateView?: ReactNode;
   emptyState?: ReactNode;
 };
@@ -94,7 +93,6 @@ export default function CampaignsV6View({
   onDuplicate,
   onArchive,
   onDelete,
-  onSaveAsTemplate,
   alternateView,
   emptyState,
 }: CampaignsV6ViewProps) {
@@ -240,7 +238,6 @@ export default function CampaignsV6View({
                 onDuplicate={onDuplicate}
                 onArchive={onArchive}
                 onDelete={onDelete}
-                onSaveAsTemplate={onSaveAsTemplate}
               />
             ))}
           </ul>
@@ -333,7 +330,6 @@ function CampaignRow({
   onDuplicate,
   onArchive,
   onDelete,
-  onSaveAsTemplate,
 }: {
   row: CampaignV6Row;
   labels: CampaignsV6Labels;
@@ -343,7 +339,6 @@ function CampaignRow({
   onDuplicate?: (id: string) => void;
   onArchive?: (id: string) => void;
   onDelete?: (id: string) => void;
-  onSaveAsTemplate?: (campaign: CampaignV6Row["campaign"]) => void;
 }) {
   const router = useRouter();
 
@@ -439,9 +434,6 @@ function CampaignRow({
             {isCampaign ? (
               <>
                 <DropdownMenuItem onClick={() => onDuplicate?.(row.id)}>{labels.duplicate}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSaveAsTemplate?.(row.campaign)}>
-                  {labels.saveAsTemplate}
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => onArchive?.(row.id)}>{labels.archive}</DropdownMenuItem>
                 <DropdownMenuItem className="text-[var(--danger-text)]" onClick={() => onDelete?.(row.id)}>

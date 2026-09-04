@@ -17,8 +17,8 @@ decisions:
 
   - id: B-templates-use
     evidence: app/src/app/(dashboard)/templates/page.tsx
-    decision: manter
-    rationale: "Usar template loads modal then POST /api/templates/[id]/materialize (server-side canonical materialize)."
+    decision: apagar
+    rationale: "Template catalog is not in the trafficker flow. /templates redirects into Palco; API may remain unused."
 
   - id: B-landing-api
     evidence: app/src/app/api/derivations/[id]/landing-page

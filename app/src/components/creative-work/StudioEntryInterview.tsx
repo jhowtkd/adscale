@@ -1,9 +1,13 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import {
+  studioQuietChoiceClass,
+  studioQuietChoiceRowClass,
+} from "@/components/dashboard/studio-stage/StudioInstrument";
+import { SHINE_COLORS } from "@/components/ui/shine-border";
 import { labelEntryValue } from "@/lib/studio/entry-catalog";
 import type { EntryChip, EntryLocale, EntrySlot } from "@/lib/studio/entry-types";
-import { cn } from "@/lib/utils";
 
 const SLOT_LABEL_KEYS: Record<EntrySlot, "slotProtocol" | "slotOffer" | "slotAudience" | "slotTone"> = {
   protocol: "slotProtocol",
@@ -36,36 +40,44 @@ export function StudioEntryInterview({
   if (chips.length === 0) return statusRegion;
 
   return (
-    <div data-testid="studio-entry-interview" className="space-y-3">
-      {chips.map((chip) => (
-        <div key={chip.slot} className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-            {t(SLOT_LABEL_KEYS[chip.slot])}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {chip.options.map((option) => {
-              const selected = answers[chip.slot] === option;
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  role="button"
-                  aria-pressed={selected}
-                  onClick={() => onSelect(chip.slot, option)}
-                  className={cn(
-                    "rounded-[var(--radius-control)] border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
-                    selected
-                      ? "border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--selection-text)]"
-                      : "border-[var(--border-default)] bg-[var(--surface-base)] text-[var(--text-primary)] hover:bg-[var(--surface-inset)]",
-                  )}
-                >
-                  {labelEntryValue(chip.slot, option, locale)}
-                </button>
-              );
-            })}
+    <div data-testid="studio-entry-interview" className="space-y-2">
+      <p
+        className="bg-clip-text font-mono text-[10px] uppercase tracking-[0.14em] text-transparent"
+        style={{ backgroundImage: `linear-gradient(90deg, ${SHINE_COLORS.join(", ")})` }}
+      >
+        {t("suggestionsEyebrow")}
+      </p>
+      {chips.map((chip) => {
+        const slotLabel = t(SLOT_LABEL_KEYS[chip.slot]);
+        return (
+          <div key={chip.slot} className="flex min-w-0 items-baseline gap-3">
+            <p className="shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
+              {slotLabel}
+            </p>
+            <div
+              role="radiogroup"
+              aria-label={t("suggestionsGroup", { slot: slotLabel })}
+              className={studioQuietChoiceRowClass}
+            >
+              {chip.options.map((option) => {
+                const selected = answers[chip.slot] === option;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => onSelect(chip.slot, option)}
+                    className={studioQuietChoiceClass(selected)}
+                  >
+                    {labelEntryValue(chip.slot, option, locale)}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
       {statusRegion}
     </div>
   );

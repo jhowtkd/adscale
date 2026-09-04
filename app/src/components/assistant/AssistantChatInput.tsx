@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ChatAttachment } from "@/lib/assistant/chat-attachments";
 import { useChatComposerAttachments } from "@/lib/assistant/use-chat-composer-attachments";
+import { assistantIconSendClass } from "./assistant-chrome";
 
 export interface AssistantChatInputProps {
   disabled: boolean;
@@ -187,9 +188,10 @@ export default function AssistantChatInput({
         <Button
           type="submit"
           size="icon"
+          variant="outline"
           disabled={!canSend}
           aria-label={t("send")}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
+          className={assistantIconSendClass}
         >
           <Send className="size-4" aria-hidden="true" />
         </Button>

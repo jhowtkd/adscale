@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import type { Campaign } from "@/lib/mock-data";
 import { toast } from "sonner";
 
 import {
@@ -115,7 +114,6 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const { campaigns, totalCount, isLoading, isError, error } = useCampaigns(campaignQuery);
 
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [saveTemplateCampaign, setSaveTemplateCampaign] = useState<Campaign | null>(null);
 
   const applySearchQueryToUrl = useCallback((value: string) => {
     pendingUrlApplyRef.current = value;
@@ -371,8 +369,6 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     handleSearchChange,
     deleteTarget,
     setDeleteTarget,
-    saveTemplateCampaign,
-    setSaveTemplateCampaign,
     clearSearchQuery,
     updateStatusFilter,
     updatePlatformFilter,

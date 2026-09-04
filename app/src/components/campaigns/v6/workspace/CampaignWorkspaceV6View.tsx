@@ -3,17 +3,14 @@
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import ContextualFeedbackButton from "@/components/feedback/ContextualFeedbackButton";
-import { DiscreetRadios } from "@/components/dashboard/studio-stage/DiscreetRadios";
 import {
   studioChipClass,
   studioChromeBarClass,
-  studioFilterStripClass,
   studioQuietActionClass,
 } from "@/components/dashboard/studio-stage/StudioInstrument";
 import type {
   CampaignWorkspaceV6Labels,
   CampaignWorkspaceV6ViewModel,
-  WorkspaceStageNavTab,
   WorkspaceV6BadgeVariant,
 } from "./campaign-workspace-v6-types";
 
@@ -23,7 +20,6 @@ type CampaignWorkspaceV6ViewProps = {
   campaignId?: string;
   isDraft?: boolean;
   onDelete?: () => void;
-  onStageSelect?: (tab: WorkspaceStageNavTab) => void;
 };
 
 export function CampaignWorkspaceV6Chrome({
@@ -32,7 +28,6 @@ export function CampaignWorkspaceV6Chrome({
   campaignId,
   isDraft = false,
   onDelete,
-  onStageSelect,
 }: CampaignWorkspaceV6ViewProps) {
   return (
     <div className="space-y-6">
@@ -59,7 +54,7 @@ export function CampaignWorkspaceV6Chrome({
             </Link>
           ) : null}
           {campaignId ? (
-            <ContextualFeedbackButton contextKind="campaign" campaignId={campaignId} />
+            <ContextualFeedbackButton quiet contextKind="campaign" campaignId={campaignId} />
           ) : null}
           {isDraft && onDelete ? (
             <button
@@ -85,112 +80,7 @@ export function CampaignWorkspaceV6Chrome({
           <p className="text-sm text-[var(--text-secondary)]">{view.meta}</p>
         ) : null}
       </header>
-
-      <div className={studioFilterStripClass}>
-        <WorkspaceStageList
-          view={view}
-          labels={labels}
-          onStageSelect={onStageSelect}
-        />
-      </div>
     </div>
-  );
-}
-
-export function CampaignWorkspaceBriefingV6Panel({
-  view,
-  labels,
-}: {
-  view: CampaignWorkspaceV6ViewModel;
-  labels: CampaignWorkspaceV6Labels;
-}) {
-  return <BriefingPanel view={view} labels={labels} />;
-}
-
-const DEFAULT_STAGE_TABS: WorkspaceStageNavTab[] = [
-  "briefing",
-  "generate",
-  "review",
-  "share",
-];
-
-function WorkspaceStageList({
-  view,
-  labels,
-  onStageSelect,
-}: {
-  view: CampaignWorkspaceV6ViewModel;
-  labels: CampaignWorkspaceV6Labels;
-  onStageSelect?: (tab: WorkspaceStageNavTab) => void;
-}) {
-  const stageTabs = view.stageTabs ?? DEFAULT_STAGE_TABS;
-  const options = view.stages.flatMap((stage, index) => {
-    const value = stageTabs[index];
-    return value ? [{ value, label: stage }] : [];
-  });
-  const currentTab =
-    stageTabs[Math.max(0, view.currentStage - 1)] ?? options[0]?.value;
-
-  if (!currentTab || options.length === 0) return null;
-
-  return (
-    <DiscreetRadios
-      label={labels.stagesAria}
-      value={currentTab}
-      onChange={onStageSelect}
-      className="min-w-0 flex-1 justify-center"
-      options={options}
-    />
-  );
-}
-
-function BriefingPanel({
-  view,
-  labels,
-}: {
-  view: CampaignWorkspaceV6ViewModel;
-  labels: CampaignWorkspaceV6Labels;
-}) {
-  return (
-    <>
-      <h2 className="product-section-title text-[var(--text-primary)]">{labels.briefingTitle}</h2>
-
-      <div className="space-y-4">
-        {view.briefingSliders.map((slider) => (
-          <div key={slider.label}>
-            <div className="mb-1.5 flex items-center justify-between text-sm">
-              <span className="text-[var(--text-secondary)]">{slider.label}</span>
-              <span className="font-mono text-[var(--text-primary)]">{slider.value}</span>
-            </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-white/6">
-              <div
-                className="gradient-progress h-full rounded-full"
-                style={{ width: `${slider.value}%` }}
-                role="progressbar"
-                aria-valuenow={slider.value}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={slider.label}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {view.briefingRules.length > 0 ? (
-        <div className="space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">{labels.rulesTitle}</p>
-          <ul className="space-y-2 text-sm text-[var(--text-secondary)]">
-            {view.briefingRules.map((rule) => (
-              <li key={rule} className="flex gap-2">
-                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[var(--neutral-dot)]" aria-hidden="true" />
-                {rule}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-    </>
   );
 }
 

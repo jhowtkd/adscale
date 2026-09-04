@@ -1,3 +1,6 @@
+import Image from "next/image";
+import Link from "next/link";
+import type { ReactNode } from "react";
 import { resolveShareToken } from "@/lib/share-token";
 import { recordShareLinkOpened } from "@/server/beta-analytics/share-analytics";
 import { logger } from "@/lib/logger";
@@ -8,7 +11,6 @@ import GalleryGrid from "./GalleryGrid";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function generateMetadata({ params }: SharePageProps): Promise<Metadata> {
   const locale = await getLocale();
   const t = await getTranslations({ locale, namespace: "share" });
@@ -22,14 +24,49 @@ interface SharePageProps {
   params: Promise<{ token: string }>;
 }
 
-function ShareStatus({ title, body }: { title: string; body: string }) {
+function ShareShell({ children }: { children: ReactNode }) {
   return (
-    <main id="main" className="flex min-h-screen items-center justify-center bg-[var(--canvas)] px-4">
-      <div className="max-w-md rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-8 text-center">
-        <h1 className="text-2xl font-semibold text-[var(--text-primary)]">{title}</h1>
-        <p className="mt-3 text-sm text-[var(--text-secondary)]">{body}</p>
+    <main id="main" className="min-h-screen bg-[var(--canvas)]">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+        <div className="mb-8">
+          <Link href="/" className="inline-flex rounded-md py-0.5" aria-label="ADScale">
+            <Image
+              src="/images/logo.svg"
+              alt=""
+              aria-hidden="true"
+              className="v6-sidebar-logo block h-[22px] w-auto max-w-[130px]"
+              width={813}
+              height={142}
+              priority
+              unoptimized
+            />
+          </Link>
+        </div>
+        {children}
       </div>
     </main>
+  );
+}
+
+function ShareStatus({
+  sectionLabel,
+  title,
+  body,
+}: {
+  sectionLabel: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <ShareShell>
+      <header className="space-y-2">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
+          {sectionLabel}
+        </p>
+        <h1 className="product-page-title text-[var(--text-primary)]">{title}</h1>
+        <p className="max-w-xl text-sm text-[var(--text-secondary)]">{body}</p>
+      </header>
+    </ShareShell>
   );
 }
 
@@ -47,7 +84,7 @@ export default async function SharePage({ params }: SharePageProps) {
       expired: { title: t("expiredTitle"), body: t("expiredBody") },
       removed: { title: t("removedTitle"), body: t("removedBody") },
     }[resolution.status];
-    return <ShareStatus {...copy} />;
+    return <ShareStatus sectionLabel={t("sectionLabel")} {...copy} />;
   }
 
   const { link } = resolution;
@@ -82,7 +119,6 @@ export default async function SharePage({ params }: SharePageProps) {
               generationMode: derivations.generationMode,
               variantIndex: derivations.variantIndex,
               ctaText: derivations.ctaText,
-              createdAt: derivations.createdAt,
             })
             .from(derivations)
             .where(inArray(derivations.id, link.derivationIds))
@@ -90,15 +126,33 @@ export default async function SharePage({ params }: SharePageProps) {
     ]);
   } catch (error) {
     logger.warn("[share page] package unavailable", error);
-    return <ShareStatus title={t("unavailableTitle")} body={t("unavailableBody")} />;
+    return (
+      <ShareStatus
+        sectionLabel={t("sectionLabel")}
+        title={t("unavailableTitle")}
+        body={t("unavailableBody")}
+      />
+    );
   }
 
   if (!campaign) {
-    return <ShareStatus title={t("removedTitle")} body={t("removedBody")} />;
+    return (
+      <ShareStatus
+        sectionLabel={t("sectionLabel")}
+        title={t("removedTitle")}
+        body={t("removedBody")}
+      />
+    );
   }
 
   if (link.derivationIds.length > 0 && items.length === 0) {
-    return <ShareStatus title={t("unavailableTitle")} body={t("unavailableBody")} />;
+    return (
+      <ShareStatus
+        sectionLabel={t("sectionLabel")}
+        title={t("unavailableTitle")}
+        body={t("unavailableBody")}
+      />
+    );
   }
 
   const galleryItems = items.flatMap((d) =>
@@ -111,59 +165,48 @@ export default async function SharePage({ params }: SharePageProps) {
             generationMode: d.generationMode ?? undefined,
             variantIndex: d.variantIndex ?? undefined,
             ctaText: d.ctaText ?? undefined,
-            createdAt: d.createdAt?.toISOString() ?? undefined,
           },
         ]
-      : []
+      : [],
   );
 
   return (
-    <main id="main" className="min-h-screen bg-[var(--canvas)]">
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-[var(--text-primary)] sm:text-3xl">
-            {campaign.name ?? t("fallbackTitle")}
-          </h1>
-          {campaign.client && (
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
-              {campaign.client}
-            </p>
-          )}
-          <p className="mt-2 text-xs text-[var(--text-muted)]">
-            {t("sharedVia")}
+    <ShareShell>
+      <header className="space-y-2">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
+          {t("sectionLabel")}
+        </p>
+        <h1 className="product-page-title text-[var(--text-primary)]">
+          {campaign.name ?? t("fallbackTitle")}
+        </h1>
+        {campaign.client ? (
+          <p className="text-sm text-[var(--text-secondary)]">{campaign.client}</p>
+        ) : null}
+        <p className="max-w-xl text-sm text-[var(--text-muted)]">{t("recipientGuideBody")}</p>
+        {campaign.notes ? (
+          <p className="max-w-xl text-sm text-[var(--text-secondary)]">{campaign.notes}</p>
+        ) : null}
+      </header>
+
+      {galleryItems.length === 0 ? (
+        <p className="pt-10 text-sm text-[var(--text-muted)]">{t("noImages")}</p>
+      ) : (
+        <section className="space-y-3 pt-6">
+          <p
+            role="status"
+            className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]"
+          >
+            {t("occupancy")} · {galleryItems.length}
           </p>
-          <div className="mx-auto mt-6 max-w-2xl rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-4 py-3 text-left text-sm text-[var(--text-secondary)]">
-            <p className="font-medium text-[var(--text-primary)]">
-              {t("recipientGuideTitle")}
-            </p>
-            <p className="mt-1">{t("recipientGuideBody")}</p>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
-              <li>{t("recipientGuideStepReview")}</li>
-              <li>{t("recipientGuideStepFeedback")}</li>
-              <li>{t("recipientGuideStepDownload")}</li>
-            </ul>
-          </div>
-          {campaign.notes && (
-            <p className="mx-auto mt-4 max-w-2xl rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-              {campaign.notes}
-            </p>
-          )}
-        </div>
-
-        {galleryItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-[var(--text-muted)]">
-            <p className="text-sm">{t("noImages")}</p>
-          </div>
-        ) : (
-          <GalleryGrid items={galleryItems} />
-        )}
-
-        <div className="mt-12 flex items-center justify-center gap-2 text-xs text-[var(--text-muted)] opacity-60">
-          <span className="font-semibold text-[var(--neutral-text)]">ADScale</span>
-          <span>·</span>
-          <span>{t("publicGallery")}</span>
-        </div>
-      </div>
-    </main>
+          <GalleryGrid
+            items={galleryItems}
+            labels={{
+              closePreview: t("closePreview"),
+              variation: t("variation"),
+            }}
+          />
+        </section>
+      )}
+    </ShareShell>
   );
 }

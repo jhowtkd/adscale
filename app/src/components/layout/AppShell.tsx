@@ -24,7 +24,6 @@ export default function AppShell({ children }: AppShellProps) {
   // Phase 6 / item 45: Home · Trabalhos · Biblioteca · Marca · Mais (Config in More)
   const moreActive =
     pathname.startsWith("/docs") ||
-    pathname.startsWith("/templates") ||
     pathname.startsWith("/assistant") ||
     pathname.startsWith("/settings") ||
     pathname.startsWith("/feedback");

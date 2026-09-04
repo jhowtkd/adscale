@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -54,7 +54,6 @@ import CampaignErrorState from "@/components/campaigns/CampaignErrorState";
 import CampaignNotFoundState from "@/components/campaigns/CampaignNotFoundState";
 
 import { CampaignAssistantPanel } from "@/components/assistant/CampaignAssistantDrawer";
-import { CreativeWorkResumeSurface } from "@/components/creative-work/CreativeWorkResumeSurface";
 import { DiscreetRadios } from "@/components/dashboard/studio-stage/DiscreetRadios";
 import { studioInstrumentClass } from "@/components/dashboard/studio-stage/StudioInstrument";
 import { useCampaignWorkspace } from "@/lib/hooks/use-campaign-workspace";
@@ -71,20 +70,24 @@ import { useTranslations } from "next-intl";
 import {
   applyCampaignDeepLink,
   parseCampaignTabParam,
-  scrollToCampaignDeepLink,
-  type CampaignTabDeepLink,
 } from "@/lib/campaign/deep-link-tab";
-import type { WorkspaceStageNavTab } from "@/components/campaigns/v6/workspace/campaign-workspace-v6-types";
 
 type WorkspaceHookResult = ReturnType<typeof useCampaignWorkspace>;
 
 export default function CampaignWorkspacePage() {
   const params = useParams();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const campaignId = params.id as string;
   const linkedCreativeWorkId = searchParams.get("creativeWork");
   const isNew = campaignId === "new";
   const appliedDeepLinkRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (linkedCreativeWorkId) {
+      router.replace(`/creative-work/${linkedCreativeWorkId}`);
+    }
+  }, [linkedCreativeWorkId, router]);
 
   useEffect(() => {
     if (isNew) {
@@ -245,18 +248,6 @@ export default function CampaignWorkspacePage() {
     searchParams,
   ]);
 
-  const handleStageSelect = (tab: WorkspaceStageNavTab) => {
-    // share is a valid CampaignTabDeepLink (mission-share / deliver)
-    const deepTab = tab as CampaignTabDeepLink;
-    if (tab === "briefing") {
-      goToSetup();
-    } else {
-      goToTrabalho();
-    }
-    // Stage strip navigates to sections; does not open the strategy modal.
-    scrollToCampaignDeepLink(deepTab);
-  };
-
   const handleCloseDerivationFlow = () => {
     closeFlow();
     goToTrabalho();
@@ -291,7 +282,7 @@ export default function CampaignWorkspacePage() {
     await configureAndGenerate(patch, { preview: true });
   };
 
-  if (isLoading) return <AdscaleLoaderStage label={tc("loading")} />;
+  if (isLoading || linkedCreativeWorkId) return <AdscaleLoaderStage label={tc("loading")} />;
   if (isError) {
     return (
       <CampaignErrorState
@@ -327,9 +318,6 @@ export default function CampaignWorkspacePage() {
 
   return (
     <div className={`${studioInstrumentClass} py-0 pb-6 min-w-0 workspace-scroll-padding shell-offset-bottom-mobile`}>
-      {linkedCreativeWorkId ? (
-        <CreativeWorkResumeSurface workId={linkedCreativeWorkId} campaignId={campaignId} />
-      ) : null}
       <div className="workspace-split lg:grid lg:grid-cols-[1fr_380px] lg:items-start">
         {/* Main workspace column. Always visible on desktop; toggled on mobile. */}
         <div
@@ -344,7 +332,6 @@ export default function CampaignWorkspacePage() {
             campaignId={campaignId}
             isDraft={isDraft}
             onDelete={handleDeleteClick}
-            onStageSelect={handleStageSelect}
           />
 
           {campaign && (

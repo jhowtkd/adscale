@@ -9,9 +9,9 @@ vi.mock("next-intl", () => ({
 }));
 
 describe("StudioEntryInterview", () => {
-  it("renders chips as toggle buttons with wrap layout", () => {
+  it("renders slot choices as a quiet nowrap kicker instead of wrapping pills", () => {
     const onSelect = vi.fn();
-    const { container } = render(
+    render(
       <StudioEntryInterview
         chips={[
           { slot: "protocol", options: ["single", "variations"] },
@@ -23,16 +23,21 @@ describe("StudioEntryInterview", () => {
       />,
     );
 
-    const chipButtons = screen.getAllByRole("button");
-    expect(chipButtons).toHaveLength(4);
-    expect(chipButtons[0]).toHaveAttribute("aria-pressed", "true");
-    expect(chipButtons[1]).toHaveAttribute("aria-pressed", "false");
+    const eyebrow = screen.getByText("entryInterview.suggestionsEyebrow");
+    expect(eyebrow).toBeVisible();
+    expect(eyebrow.className).toContain("bg-clip-text");
+    expect(eyebrow.className).not.toContain("text-[var(--text-muted)]");
+    const protocolGroup = screen.getAllByRole("radiogroup")[0];
+    expect(protocolGroup).toHaveAttribute("aria-label", "entryInterview.suggestionsGroup");
+    expect(protocolGroup.className).toContain("flex-nowrap");
+    expect(protocolGroup.className).not.toContain("flex-wrap");
 
-    const wrapRow = container.querySelector(".flex-wrap");
-    expect(wrapRow).toBeInTheDocument();
-    expect(wrapRow).not.toHaveClass("overflow-x-auto");
+    const selected = screen.getByRole("radio", { name: "Peça única" });
+    expect(selected).toHaveAttribute("aria-checked", "true");
+    expect(selected.className).not.toMatch(/border-/);
+    expect(screen.getByRole("radio", { name: "Variações" })).toHaveAttribute("aria-checked", "false");
 
-    fireEvent.click(chipButtons[2]);
+    fireEvent.click(screen.getByRole("radio", { name: "Lançamento" }));
     expect(onSelect).toHaveBeenCalledWith("offer", "launch");
   });
 

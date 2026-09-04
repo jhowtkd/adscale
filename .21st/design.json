@@ -222,6 +222,97 @@
       "status": "closed",
       "choice": "When the TalkBox is docked over occupancy, keep protocols visible but hug content: tighter padding, two-line field-sizing textarea, compact attach/generate row. Empty Palco center placement keeps more air.",
       "reason": "Protocol chips plus a reserved three-line textarea made the dock look oversized for a single-line request."
+    },
+    {
+      "id": "templates-killed-2026-09-04",
+      "surface": "Templates /templates",
+      "status": "closed",
+      "choice": "Remove the template catalog from the product. /templates redirects to Palco. Trabalhos no longer offers Salvar modelo. Template APIs may remain unused.",
+      "reason": "Templates were not in the trafficker flow. A catalog with white CTA and ?mode=briefing fought Palco as the only composer."
+    },
+    {
+      "id": "dashboard-folded-2026-09-04",
+      "surface": "Visão geral /dashboard",
+      "status": "closed",
+      "choice": "Fold Visão geral into Trabalhos. /dashboard redirects to /campaigns. Account card and mobile More go to /settings. Credits stay in Config.",
+      "reason": "Trabalhos is already the expert list. A second metrics home competed with Palco and leaked Templates."
+    },
+    {
+      "id": "campanha-leftovers-closed-2026-09-04",
+      "surface": "Campanha /campaigns/[id]",
+      "status": "closed",
+      "choice": "Finish Campanha leftovers. Drop briefing/produce/review/deliver radios and the nested piece overlay (?creativeWork= redirects to /creative-work/[id]). Feedback is a quiet flag. Delivery, derive, and derivation review stay as sheets; chat stays a chat column; mobile grid/chat radios stay as view occupancy.",
+      "reason": "Stage radios were a second composer. A piece overlay duplicated Peça. Campanha is grouping occupancy of pieces; create still goes to Palco."
+    },
+    {
+      "id": "auth-closed-2026-09-04",
+      "surface": "Auth /login /signup /invite /forgot-password /reset-password",
+      "status": "closed",
+      "choice": "Align auth to the studio canvas: centered logo, quiet form, no nested card, no dotted grid. Entrar/Criar conta is the page commit in Config language (outlined raised), not Palco ivory fill. TalkBox stays off auth.",
+      "reason": "Auth is a credential form, not a studio instrument. White primary is Palco-home language."
+    },
+    {
+      "id": "share-closed-2026-09-04",
+      "surface": "Share /share/[token]",
+      "status": "closed",
+      "choice": "Close public share as Biblioteca mosaic occupancy: canvas, logo, campaign occupancy, CSS-column bento, hover rover. No sidebar, no equal-card grid, no nested guide/notes cards, no TalkBox. Inspecting a piece is canvas occupancy, not a raised lightbox.",
+      "reason": "A public package is occupancy of pieces for a recipient, not a catalog gallery with cards and a how-to box."
+    },
+    {
+      "id": "docs-closed-2026-09-04",
+      "surface": "Docs /docs → /manual/",
+      "status": "closed",
+      "choice": "Close Docs as a docs-native manual: TOC rail + article, studio dark tokens, Inter for titles, Space Mono for kickers/rail. No TalkBox, no Palco ivory, no forest-green theme. Product map is Estúdio / Trabalhos / Biblioteca / Marca. Templates and Visão geral stay killed. Static /manual stays outside AppShell via rewrite to /manual/index.html.",
+      "reason": "Help is a document, not a studio instrument. The market standard is a manual with a rail, not Palco mode radios or a TalkBox dock."
+    },
+    {
+      "id": "talkbox-protocol-kicker-2026-09-04",
+      "surface": "studio home / Palco TalkBox",
+      "status": "closed",
+      "choice": "Protocol radios in TalkBox are a chrome-less occupancy switcher: the group hugs its labels (inline-flex, no outer stroke, no track fill). Selected is the ShineBorder gradient fill (#A07CFE / #FE8FB5 / #FFBE7B) with dark text — same Palco exception as Gerar hover and the interview eyebrow, not a gray pill. Not a kicker row, not a full-width capsule, and not a segmented iOS track. Interview slots stay quiet text. Attach and Gerar remain the pill language of the composer commit.",
+      "reason": "A gray occupancy pill did not read as the active instrument. The trafficker still needs to see which mode is on, using the TalkBox shine language."
+    },
+    {
+      "id": "talkbox-interview-kicker-2026-09-04",
+      "surface": "studio home / Palco TalkBox interview",
+      "status": "closed",
+      "choice": "Studio entry interview slots (OFERTA and the rest) stay a quiet nowrap kicker: slot label as mono occupancy, options as text, selected brighter, no bordered wrapping pills. Protocol modes are a separate occupancy switcher. The block names itself Sugestões inteligentes. That eyebrow uses the TalkBox ShineBorder gradient (#A07CFE / #FE8FB5 / #FFBE7B) as clipped text — an accepted Palco exception so inference reads as instrument, not a filter.",
+      "reason": "Five offer pills wrapping under the request competed with Anexar and Gerar and read as a tag cloud, not occupancy. After the quiet pass, OFERTA alone still looked like a catalog filter."
+    },
+    {
+      "id": "talkbox-placeholder-2026-09-04",
+      "surface": "studio home / Palco TalkBox request",
+      "status": "closed",
+      "choice": "TalkBox request placeholder is a provocative typing prompt (O que você quer gerar? / What do you want to generate?), the same in empty Palco and docked work. Not operational chrome like continue this piece or start another, and not a format/offer/CTA checklist.",
+      "reason": "Continue-or-start does not make the trafficker type. The composer is the ask."
+    },
+    {
+      "id": "talkbox-closed-2026-09-04",
+      "surface": "studio home / Palco TalkBox",
+      "status": "closed",
+      "choice": "Close TalkBox polish. Protocol is a chrome-less occupancy switcher: hug-content radios, no outer stroke, selected ShineBorder gradient fill with dark text. Interview stays a quiet kicker under Sugestões inteligentes (gradient clipped text). Request placeholder is O que você quer gerar? Attach and Gerar stay the pill language of the commit. ShineBorder on the TalkBox edge stays. Not a segmented iOS track.",
+      "reason": "The composer is closed as one instrument: mode, ask, inference, attach, generate. Further Palco work is other surfaces, not TalkBox chrome."
+    },
+    {
+      "id": "legal-closed-2026-09-04",
+      "surface": "Legal /privacy /terms",
+      "status": "closed",
+      "choice": "Close public legal as document chrome: studio canvas, product mark, Space Mono occupancy nav (Privacidade / Termos), Inter title, measured article. No raised header/footer bars, no TalkBox, no Palco ivory. Copy stays; chrome matches Docs, not Config and not Palco.",
+      "reason": "Privacy and terms are documents a recipient reads, not a studio instrument and not a settings panel."
+    },
+    {
+      "id": "assistant-closed-2026-09-04",
+      "surface": "Assistente /assistant",
+      "status": "closed",
+      "choice": "Close Assistant as chat-native: studio canvas, quiet Config commit on send/new/actions, no Palco ivory, no TalkBox, no ShineBorder. The composer on / remains the only Palco instrument. Assistant organizes briefing and iterates; it does not dock TalkBox.",
+      "reason": "A second ivory composer would compete with Palco. Chat is a conversation, not occupancy of a piece."
+    },
+    {
+      "id": "owner-closed-2026-09-04",
+      "surface": "Feedback /feedback and Admin /admin",
+      "status": "closed",
+      "choice": "Close owner tools as Config: left occupancy nav (metrics / quality / feedback / inspirations), quiet commit, no Palco selection pills, no nested Panel cards on the console shell, no ivory fill. Calibration and inspirations stay operational panels without Palco chrome.",
+      "reason": "Owner triage is a settings console, not a studio instrument and not a Palco mode switcher."
     }
   ],
   "explorations": [
@@ -354,7 +445,31 @@
         }
       ],
       "recommendation": "instrument-per-surface",
-      "note": "Selected Instrumento por superfície. Shared identity is chrome, tokens, discreet radios, occupancy language, and Palco chips — not a TalkBox dock. Trabalhos closed 2026-09-02. Biblioteca closed 2026-09-03. Marca closed 2026-09-03. Peça closed 2026-09-03. Campanha closed 2026-09-03. Config closed 2026-09-03 as market-standard settings (left nav + panel), not Palco mode radios. In-scope studio rollout is complete. Out of scope: /docs /assistant /feedback /templates /dashboard /admin."
+      "note": "Selected Instrumento por superfície. Shared identity is chrome, tokens, discreet radios, occupancy language, and Palco chips — not a TalkBox dock. Trabalhos closed 2026-09-02. Biblioteca closed 2026-09-03. Marca closed 2026-09-03. Peça closed 2026-09-03. Campanha closed 2026-09-03. Config closed 2026-09-03 as market-standard settings (left nav + panel), not Palco mode radios. In-scope studio rollout is complete. Remaining product surfaces continue in studio-remaining-surfaces-2026-09-04."
+    },
+    {
+      "id": "studio-remaining-surfaces-2026-09-04",
+      "surface": "remaining product surfaces after Palco studio",
+      "status": "closed",
+      "route": "/templates /dashboard /docs /assistant /feedback /admin /login /signup /share /privacy /terms",
+      "inventory": {
+        "done": [
+          "/templates (redirects to Palco)",
+          "/dashboard (redirects to /campaigns; account card → /settings)",
+          "/campaigns/[id] leftovers (no stage radios, piece overlay redirects to Peça)",
+          "/login /signup /invite /forgot-password /reset-password (studio canvas, quiet commit, no TalkBox)",
+          "/share/[token] (Biblioteca mosaic occupancy, no sidebar)",
+          "/docs → /manual/ (docs-native manual, studio tokens, no TalkBox)",
+          "/privacy /terms (legal document chrome, studio canvas, no TalkBox)",
+          "/assistant (chat-native, Config quiet commit, no Palco ivory, no TalkBox)",
+          "/feedback /admin (Config left nav + panel, no nested owner cards, no Palco ivory)"
+        ],
+        "primary": [],
+        "later": [],
+        "outOfScope": []
+      },
+      "directions": [],
+      "note": "Apply existing Palco/Config contract. No new 3-direction explores. Phase 1 closed: kill Templates, fold Visão geral. Phase 2 closed: Campanha leftovers. Phase 3 closed: Auth. Phase 4 closed: Share. Phase 5 closed: Docs. Phase 6 closed: Legal. Phase 7 closed: Assistant. Phase 8 closed: Feedback/Admin. Remaining product surfaces inventory is complete."
     }
   ],
   "evidence": [

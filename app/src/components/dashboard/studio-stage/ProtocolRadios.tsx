@@ -2,7 +2,10 @@
 
 import { useTranslations } from "next-intl";
 import type { ComposerIntent } from "@/components/creative-work/useCreativeComposer";
+import { SHINE_COLORS } from "@/components/ui/shine-border";
+import { cn } from "@/lib/utils";
 import { discreetRadioClass } from "./DiscreetRadios";
+import { studioSwitcherClass } from "./StudioInstrument";
 
 const PROTOCOLS: ComposerIntent[] = [
   "variations",
@@ -12,6 +15,18 @@ const PROTOCOLS: ComposerIntent[] = [
 ];
 
 const CAROUSEL: ComposerIntent = "carousel";
+
+export const protocolShineFill = {
+  backgroundImage: `linear-gradient(90deg, ${SHINE_COLORS.join(", ")})`,
+} as const;
+
+export function protocolRadioClass(checked: boolean) {
+  return cn(
+    discreetRadioClass(false),
+    "shrink-0 whitespace-nowrap",
+    checked && "text-[#0a0a0a] hover:bg-transparent hover:text-[#0a0a0a]",
+  );
+}
 
 export function ProtocolRadios({
   selected,
@@ -32,7 +47,11 @@ export function ProtocolRadios({
   return (
     <section aria-labelledby="creative-tools-title">
       <h2 id="creative-tools-title" className="sr-only">{t("title")}</h2>
-      <div role="radiogroup" aria-labelledby="creative-tools-title" className="flex flex-wrap gap-1">
+      <div
+        role="radiogroup"
+        aria-labelledby="creative-tools-title"
+        className={studioSwitcherClass}
+      >
         {protocols.map((id) => {
           const checked = selected === id;
           const creationDisabled = id === CAROUSEL && !carouselEnabled;
@@ -45,11 +64,12 @@ export function ProtocolRadios({
               aria-checked={checked}
               disabled={creationDisabled}
               onClick={() => onSelect(id)}
-              className={discreetRadioClass(checked)}
+              className={protocolRadioClass(checked)}
+              style={checked ? protocolShineFill : undefined}
             >
               <span>{t(id)}</span>
               {isSuggested ? (
-                <span className="ml-1 text-[10px] text-[var(--text-muted)]">{t("suggestedFromHistory")}</span>
+                <span className="ml-1 text-[10px] font-normal text-[var(--text-muted)]">{t("suggestedFromHistory")}</span>
               ) : null}
             </button>
           );

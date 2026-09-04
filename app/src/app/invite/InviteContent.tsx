@@ -5,12 +5,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import AuthCard from "@/components/auth/AuthCard";
 import AuthPageShell from "@/components/auth/AuthPageShell";
+import {
+  authPrimaryButtonClass,
+  authQuietButtonClass,
+  authRowClass,
+} from "@/components/auth/auth-chrome";
 import { AuthV6ErrorAlert, AuthV6SuccessAlert } from "@/components/auth/v6/AuthV6Alert";
 import AuthV6Header from "@/components/auth/v6/AuthV6Header";
-import { Button } from "@/components/ui/button";
 import { useTranslations } from "next-intl";
 import { authClient } from "@/lib/auth-client";
 import { relativeCallbackPath } from "@/lib/auth-callback";
+import { cn } from "@/lib/utils";
 
 class InviteRequestError extends Error {
   code?: string;
@@ -98,7 +103,7 @@ function InviteLoading() {
   return (
     <AuthPageShell showBranding={false}>
       <AuthCard>
-        <AuthV6Header sectionLabel={t("v6.accessLabel")} title={t("loading")} subtitle="" showLogo />
+        <AuthV6Header sectionLabel={t("v6.accessLabel")} title={t("loading")} subtitle="" />
       </AuthCard>
     </AuthPageShell>
   );
@@ -165,7 +170,6 @@ function InviteContentInner() {
             sectionLabel={t("v6.accessLabel")}
             title={t("inviteTitle")}
             subtitle={t("inviteSubtitle")}
-            showLogo
           />
 
           {status === "loading" && (
@@ -184,14 +188,25 @@ function InviteContentInner() {
 
           {status === "ready" && previewQuery.data ? (
             <div className="space-y-5" aria-live="polite">
-              <section className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4" aria-labelledby="invite-context-title">
-                <h2 id="invite-context-title" className="text-sm font-semibold text-[var(--text-primary)]">
+              <section aria-labelledby="invite-context-title">
+                <h2 id="invite-context-title" className="text-sm font-medium text-[var(--text-primary)]">
                   {t("inviteWorkspaceLabel")}: {previewQuery.data.invite.workspaceName}
                 </h2>
-                <dl className="mt-3 space-y-2 text-sm text-[var(--text-secondary)]">
-                  <div className="flex justify-between gap-4"><dt>{t("inviteRoleLabel")}</dt><dd>{previewQuery.data.invite.role}</dd></div>
-                  <div className="flex justify-between gap-4"><dt>{t("inviteRecipientLabel")}</dt><dd className="text-right">{previewQuery.data.invite.recipientEmail}</dd></div>
-                  {previewQuery.data.invite.senderName ? <div className="flex justify-between gap-4"><dt>{t("inviteSenderLabel")}</dt><dd className="text-right">{previewQuery.data.invite.senderName}</dd></div> : null}
+                <dl className="text-sm text-[var(--text-secondary)]">
+                  <div className={authRowClass}>
+                    <dt>{t("inviteRoleLabel")}</dt>
+                    <dd>{previewQuery.data.invite.role}</dd>
+                  </div>
+                  <div className={authRowClass}>
+                    <dt>{t("inviteRecipientLabel")}</dt>
+                    <dd className="text-right">{previewQuery.data.invite.recipientEmail}</dd>
+                  </div>
+                  {previewQuery.data.invite.senderName ? (
+                    <div className={authRowClass}>
+                      <dt>{t("inviteSenderLabel")}</dt>
+                      <dd className="text-right">{previewQuery.data.invite.senderName}</dd>
+                    </div>
+                  ) : null}
                 </dl>
               </section>
               {session ? (
@@ -202,13 +217,16 @@ function InviteContentInner() {
                 <p className="text-sm text-[var(--text-secondary)]">{t("inviteSignInToContinue")}</p>
               )}
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                <Button variant="outline" onClick={goBack}>{t("backToAdscale")}</Button>
-                <Button
-                  className="rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]"
+                <button type="button" className={cn(authQuietButtonClass, "w-full sm:w-auto")} onClick={goBack}>
+                  {t("backToAdscale")}
+                </button>
+                <button
+                  type="button"
+                  className={cn(authPrimaryButtonClass, "sm:w-auto")}
                   onClick={() => (accountMatchesInvite ? acceptInviteMutation.mutate(token!) : goToLogin())}
                 >
                   {accountMatchesInvite ? t("acceptInvite") : session ? t("switchAccount") : t("signInToAccept")}
-                </Button>
+                </button>
               </div>
             </div>
           ) : null}
@@ -217,23 +235,48 @@ function InviteContentInner() {
             <div className="space-y-4" aria-live="assertive">
               <AuthV6ErrorAlert>{error}</AuthV6ErrorAlert>
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
-                <Button variant="outline" onClick={goBack}>{t("backToAdscale")}</Button>
+                <button type="button" className={cn(authQuietButtonClass, "w-full sm:w-auto")} onClick={goBack}>
+                  {t("backToAdscale")}
+                </button>
                 {canSwitchAccount ? (
-                  <Button onClick={goToLogin}>{t("switchAccount")}</Button>
+                  <button type="button" className={cn(authPrimaryButtonClass, "sm:w-auto")} onClick={goToLogin}>
+                    {t("switchAccount")}
+                  </button>
                 ) : null}
                 {isTimeout ? (
-                  <Button onClick={() => {
-                    if (previewQuery.isError) {
-                      void previewQuery.refetch();
-                    } else {
+                  <button
+                    type="button"
+                    className={cn(authPrimaryButtonClass, "sm:w-auto")}
+                    onClick={() => {
+                      if (previewQuery.isError) {
+                        void previewQuery.refetch();
+                      } else {
+                        acceptInviteMutation.reset();
+                        acceptInviteMutation.mutate(token!);
+                      }
+                    }}
+                  >
+                    {t("retry")}
+                  </button>
+                ) : !canSwitchAccount && previewQuery.isError ? (
+                  <button
+                    type="button"
+                    className={cn(authPrimaryButtonClass, "sm:w-auto")}
+                    onClick={() => previewQuery.refetch()}
+                  >
+                    {t("retry")}
+                  </button>
+                ) : !canSwitchAccount && acceptInviteMutation.isError ? (
+                  <button
+                    type="button"
+                    className={cn(authPrimaryButtonClass, "sm:w-auto")}
+                    onClick={() => {
                       acceptInviteMutation.reset();
                       acceptInviteMutation.mutate(token!);
-                    }
-                  }}>{t("retry")}</Button>
-                ) : !canSwitchAccount && previewQuery.isError ? (
-                  <Button onClick={() => previewQuery.refetch()}>{t("retry")}</Button>
-                ) : !canSwitchAccount && acceptInviteMutation.isError ? (
-                  <Button onClick={() => { acceptInviteMutation.reset(); acceptInviteMutation.mutate(token!); }}>{t("retry")}</Button>
+                    }}
+                  >
+                    {t("retry")}
+                  </button>
                 ) : null}
               </div>
             </div>

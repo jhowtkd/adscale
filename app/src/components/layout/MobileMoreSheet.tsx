@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { BookOpen, LayoutDashboard, LogOut, Settings, type LucideIcon } from "lucide-react";
+import { BookOpen, LogOut, Settings, type LucideIcon } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import {
@@ -35,12 +35,6 @@ export default function MobileMoreSheet({ open, onOpenChange }: MobileMoreSheetP
 
   // Config lives in More (item 45); primary tabs are Home · Trabalhos · Biblioteca · Marcas
   const items: MobileMoreItem[] = [
-    {
-      href: "/dashboard",
-      label: tNav("dashboard"),
-      icon: LayoutDashboard,
-      active: pathname.startsWith("/dashboard"),
-    },
     {
       href: "/settings",
       label: tNav("config"),

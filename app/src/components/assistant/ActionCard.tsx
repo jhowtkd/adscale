@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { ActionContract } from "@/server/assistant/action-contracts/types";
 import { buildRiskCopyLines } from "@/server/assistant/action-contracts/risk-copy";
+import { assistantQuietCommitClass } from "./assistant-chrome";
 
 export type ActionCardStatus = "pending" | "executing" | "completed" | "error";
 
@@ -130,7 +131,7 @@ export function ActionCard({
           <button
             type="button"
             onClick={handleSubmitEdit}
-            className="rounded bg-[var(--action-primary-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--action-primary-text)]"
+            className={`${assistantQuietCommitClass} rounded px-3 py-1.5 text-xs font-medium`}
           >
             {t("confirm")}
           </button>
@@ -156,7 +157,7 @@ export function ActionCard({
           <button
             type="button"
             onClick={onConfirm}
-            className="rounded bg-[var(--action-primary-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--action-primary-text)]"
+            className={`${assistantQuietCommitClass} rounded px-3 py-1.5 text-xs font-medium`}
           >
             {t("confirm")}
           </button>

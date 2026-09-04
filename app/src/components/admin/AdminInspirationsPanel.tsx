@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImagePlus, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-import Panel from "@/components/layout/Panel";
+import { ownerButtonClass } from "@/components/feedback/owner-chrome";
 
 type AdminInspiration = {
   id: string;
@@ -79,7 +79,7 @@ export function AdminInspirationsPanel() {
   const inspirations = query.data ?? [];
 
   return (
-    <Panel padding="md" className="space-y-4">
+    <div className="space-y-4">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
         <div>
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">Inspirações globais</h2>
@@ -87,7 +87,7 @@ export function AdminInspirationsPanel() {
             As imagens aparecem na área de inspirações para qualquer usuário usar como referência de reestyling.
           </p>
         </div>
-        <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-medium text-[var(--action-primary-text)] focus-within:ring-2 focus-within:ring-[var(--focus-ring)] focus-within:ring-offset-2">
+        <label className={`${ownerButtonClass} cursor-pointer`}>
           <ImagePlus size={16} aria-hidden="true" />
           {upload.isPending ? "Enviando..." : "Adicionar imagens"}
           <input
@@ -160,6 +160,6 @@ export function AdminInspirationsPanel() {
           Atualizado às {new Date(query.dataUpdatedAt).toLocaleTimeString()}
         </p>
       ) : null}
-    </Panel>
+    </div>
   );
 }
