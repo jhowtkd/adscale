@@ -13,10 +13,12 @@ const isoDate = z.string().datetime({ offset: true });
 const canvasSchema = z.object({ width: z.number().int().positive(), height: z.number().int().positive() }).strict();
 const sourceSchema = z.object({
   order: z.number().int().min(0).max(16), name: z.string().trim().min(1).max(128), visible: z.boolean(),
+  description: z.string().trim().max(1000).nullable().optional(),
   x: z.number().int().min(0), y: z.number().int().min(0), width: z.number().int().positive(), height: z.number().int().positive(), key: z.string().min(1),
 }).strict();
 const layerSchema = z.object({
   id: z.string().uuid(), source: sourceSchema, order: z.number().int().min(0).max(16), name: z.string().trim().min(1).max(128), visible: z.boolean(),
+  description: z.string().trim().max(1000).nullable().optional(),
   x: z.number().int().min(0), y: z.number().int().min(0), width: z.number().int().positive(), height: z.number().int().positive(),
   currentKey: z.string().min(1), currentKind: z.enum(["source", "regenerated"]), restorableKey: z.string().min(1).nullable(),
 }).strict();
@@ -60,7 +62,7 @@ export type PublicLayerEditorDocumentV1 = {
     id: string;
     source: Omit<LayerEditorStateV1["layers"][number]["source"], "key"> & { imageUrl: string };
     order: number; name: string; visible: boolean; x: number; y: number; width: number; height: number;
-    currentKind: "source" | "regenerated"; imageUrl: string;
+    currentKind: "source" | "regenerated"; imageUrl: string; description: string | null;
   }>;
   lease: { mode: "edit" | "read"; leaseId: string | null; heldByName: string | null; expiresAt: string | null };
   regeneration: null | { id: string; status: LayerRegenerationStatus; layerId: string; instruction: string; candidateUrl: string | null; failureCode: string | null };
@@ -72,6 +74,7 @@ export type PublicLayerEditorSummaryV1 = { revision: number; layerCount: number;
 export const layerEditorMutableSnapshotSchema = z.object({
   layers: z.array(z.object({
     id: z.string().uuid(), order: z.number().int(), name: z.string().trim().min(1).max(128), visible: z.boolean(),
+    description: z.string().trim().max(1000).nullable().optional(),
     x: z.number().int(), y: z.number().int(), width: z.number().int().positive(), height: z.number().int().positive(), useSource: z.boolean(),
   }).strict()).min(2).max(17),
 }).strict();

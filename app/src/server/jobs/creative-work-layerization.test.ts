@@ -44,7 +44,7 @@ vi.mock("@/server/repositories/creative-work-layerization", () => ({
   failCreativeWorkLayerization: (...args: unknown[]) => failMock(...args),
   failCreativeWorkLayerizationBeforeProvider: (...args: unknown[]) => failBeforeProviderMock(...args),
   markCreativeWorkLayerizationSubmissionUnknown: (...args: unknown[]) => markUnknownMock(...args),
-  isCreativeWorkOutputStillSelectedForLayerization: (...args: unknown[]) => stillSelectedMock(...args),
+  isCreativeWorkOutputStillLayerizable: (...args: unknown[]) => stillSelectedMock(...args),
 }));
 vi.mock("@/server/storage", () => ({
   objectStorage: {
@@ -422,11 +422,11 @@ describe("creative work layerization job", () => {
     expect(provider.submit).toHaveBeenCalledOnce();
   });
 
-  it("does not submit a queued attempt after another Piece is selected", async () => {
+  it("does not submit a queued attempt when the output is no longer completed", async () => {
     getOutputMock.mockResolvedValueOnce(row(state("queued")));
     claimProcessingMock.mockResolvedValueOnce(row(state("processing")));
     getCreativeWorkMock.mockResolvedValue({
-      outputs: [{ id: event.outputId, status: "completed", isSelected: false, outputKey: "creative-work/original.png" }],
+      outputs: [{ id: event.outputId, status: "failed", isSelected: false, outputKey: "creative-work/original.png" }],
     });
     failBeforeProviderMock.mockResolvedValue(row({ ...state("failed"), failureCode: "no_longer_eligible", providerRequestId: null }));
 
@@ -436,7 +436,7 @@ describe("creative work layerization job", () => {
     expect(quotaReleaseMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "layerize_v1", operationId: event.attemptId }), expect.any(Date), expect.anything());
   });
 
-  it("does not submit if selection changes after the signed URL is issued", async () => {
+  it("does not submit if the output is no longer layerizable after the signed URL is issued", async () => {
     getOutputMock.mockResolvedValueOnce(row(state("queued")));
     claimProcessingMock.mockResolvedValueOnce(row(state("processing")));
     getCreativeWorkMock.mockResolvedValue({

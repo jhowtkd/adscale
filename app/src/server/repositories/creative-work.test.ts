@@ -2150,7 +2150,12 @@ describe("creative-work repository", () => {
       expect(mocks.txUpdateMock).not.toHaveBeenCalled();
     });
 
-    it("checks Layerize locks while holding the work outputs transaction lock", async () => {
+    it("selects another Piece while a queued Layerize remains on the previous winner", async () => {
+      const newlySelected = workOutput({
+        id: "output-1",
+        isSelected: true,
+        quality: { schemaVersion: 1, objectiveVerdict: "pass" },
+      });
       mocks.state.selectResults.push([
         workOutput({
           id: "output-1",
@@ -2166,11 +2171,12 @@ describe("creative-work repository", () => {
           layerization: queuedLayerization(),
         }),
       ]);
+      mocks.state.txUpdateResults.push([newlySelected]);
 
       await expect(
         selectCreativeWorkOutput("ws-1", "work-1", "output-1", { confirmObjective: true })
-      ).resolves.toBeNull();
-      expect(mocks.txUpdateMock).not.toHaveBeenCalled();
+      ).resolves.toMatchObject({ id: "output-1", isSelected: true });
+      expect(mocks.txUpdateMock).toHaveBeenCalledTimes(2);
     });
   });
 

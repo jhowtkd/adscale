@@ -13,7 +13,8 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => ({
     editorTitle: "Editor de camadas", editorReadOnly: "Somente leitura", editorSaveError: "Não foi possível salvar as alterações",
     editorSaving: "Salvando alterações", editorSaved: "Alterações salvas", editorPending: "Alterações não salvas", editorLayers: "Camadas", editorClose: "Fechar editor", editorLoading: "Carregando", editorLayerCount: "{count} camadas", editorCloseSaveFailed: "Não foi possível salvar antes de fechar", editorRegenerate: "Regenerar camada", editorInstruction: "Instrução", editorQuotaRemaining: "Cota restante: {count}", editorNoActiveRegeneration: "Sem regeneração ativa", editorSelectLayer: "Selecione uma camada", editorConfirmRegeneration: "Confirmar regeneração", editorRestoreLayer: "Restaurar camada",
-    editorRestoreAll: "Restaurar tudo", editorExportPng: "Exportar PNG", editorExportPsd: "Exportar PSD", editorPublish: "Criar nova versão", editorUndo: "Desfazer", editorRedo: "Refazer", editorLayerName: "Nome da camada", editorPublished: "Nova versão criada", editorCanvas: "Canvas de camadas", editorSelectedLayer: "Camada selecionada", editorResizeHandle: "Redimensionar {handle}", editorTools: "Ferramentas do editor", editorConflict: "As camadas foram alteradas por outra pessoa", editorDiscardLocal: "Descartar alterações locais e recarregar", editorDiscardAndClose: "Descartar e fechar",
+    editorRestoreAll: "Restaurar tudo", editorExportPng: "Exportar PNG", editorExportPsd: "Exportar PSD", editorPublish: "Criar nova variação", editorMoreActions: "Mais ações", editorFitCanvas: "Ajustar", editorUndo: "Desfazer", editorRedo: "Refazer", editorLayerName: "Nome da camada", editorPublished: "Nova variação criada", editorCanvas: "Canvas de camadas", editorSelectedLayer: "Camada selecionada", editorResizeHandle: "Redimensionar {handle}", editorTools: "Ferramentas do editor", editorConflict: "As camadas foram alteradas por outra pessoa", editorDiscardLocal: "Descartar alterações locais e recarregar", editorDiscardAndClose: "Descartar e fechar",
+    scanningLayers: "Identificando elementos, pessoas e textos da imagem...", layerizeQueued: "Separação na fila", layerizeProcessing: "Separando camadas", layerizeRetry: "Tentar separar novamente", layerizeFailed: "A separação em camadas falhou.", "layerizeFailure.provider": "Falha do provedor",
   }[key] ?? key),
 }));
 
@@ -37,6 +38,7 @@ const document: PublicLayerEditorDocumentV1 = {
     height: 1080,
     currentKind: "source",
     imageUrl: "https://example.test/layer.png",
+    description: "Product pack shot",
     source: { order: 0, name: "Produto", visible: true, x: 0, y: 0, width: 1080, height: 1080, imageUrl: "https://example.test/layer.png" },
   }],
 };
@@ -78,8 +80,7 @@ describe("LayerEditorDialog", () => {
     expect(screen.getByRole("dialog", { name: "Editor de camadas" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Canvas de camadas" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Camadas" })).toBeInTheDocument();
-    expect(screen.getByRole("complementary", { name: "Ferramentas do editor" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Criar nova versão" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Criar nova variação" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Produto/ }));
     expect(screen.getByLabelText("Camada selecionada")).toHaveClass("z-[var(--layer-skip-link)]");
     expect(mocks.useLayerEditor).toHaveBeenCalledWith({ workItemId: "work-1", outputId: "output-1", mode: "edit" });
@@ -93,7 +94,7 @@ describe("LayerEditorDialog", () => {
     expect(screen.getByRole("dialog", { name: "Editor de camadas" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Canvas de camadas" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Camadas" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Criar nova versão" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Criar nova variação" })).not.toBeInTheDocument();
     expect(mocks.useLayerEditor).toHaveBeenCalledWith({ workItemId: "work-2", outputId: "output-2", mode: "inspect" });
   });
 
@@ -104,8 +105,8 @@ describe("LayerEditorDialog", () => {
     mocks.useLayerEditor.mockReturnValue(value);
     render(<LayerEditorDialog open workItemId="work-3" outputId="output-3" onOpenChange={vi.fn()} />);
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Desfazer" })[0]!);
-    fireEvent.click(screen.getAllByRole("button", { name: "Refazer" })[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Desfazer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refazer" }));
     expect(value.undo).toHaveBeenCalledTimes(1);
     expect(value.redo).toHaveBeenCalledTimes(1);
 
@@ -123,16 +124,20 @@ describe("LayerEditorDialog", () => {
     expect(value.undo).toHaveBeenCalledTimes(2);
   });
 
-  it("restores a selected layer or all layers only after confirmation", () => {
+  it("restores a selected layer or all layers only after confirmation", async () => {
     const value = editor("edit");
     mocks.useLayerEditor.mockReturnValue(value);
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<LayerEditorDialog open workItemId="work-4" outputId="output-4" onOpenChange={vi.fn()} />);
 
-    expect(screen.getByRole("button", { name: "Restaurar camada" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Mais ações" }));
+    expect(await screen.findByRole("menuitem", { name: "Restaurar camada" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Mais ações" }));
     fireEvent.click(screen.getByRole("button", { name: /Produto/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Restaurar camada" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Restaurar tudo" })[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Mais ações" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Restaurar camada" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mais ações" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Restaurar tudo" }));
 
     expect(confirm).toHaveBeenCalledTimes(2);
     expect(value.dispatch).toHaveBeenNthCalledWith(1, { type: "restore", id: document.layers[0].id });
@@ -140,15 +145,17 @@ describe("LayerEditorDialog", () => {
     expect(screen.getAllByRole("status").at(-1)).toHaveTextContent("Salvando alterações");
   });
 
-  it("does not restore when confirmation is cancelled", () => {
+  it("does not restore when confirmation is cancelled", async () => {
     const value = editor("edit");
     mocks.useLayerEditor.mockReturnValue(value);
     vi.spyOn(window, "confirm").mockReturnValue(false);
     render(<LayerEditorDialog open workItemId="work-5" outputId="output-5" onOpenChange={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: /Produto/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Restaurar camada" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Restaurar tudo" })[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Mais ações" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Restaurar camada" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mais ações" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Restaurar tudo" }));
 
     expect(value.dispatch).not.toHaveBeenCalled();
   });
@@ -161,7 +168,7 @@ describe("LayerEditorDialog", () => {
     mocks.useLayerEditor.mockReturnValue(value);
     render(<LayerEditorDialog open workItemId="work-6" outputId="output-6" onOpenChange={onOpenChange} onPublished={onPublished} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Criar nova versão" }));
+    fireEvent.click(screen.getByRole("button", { name: "Criar nova variação" }));
 
     await waitFor(() => expect(onPublished).toHaveBeenCalledTimes(1));
     expect(onOpenChange).toHaveBeenCalledWith(false);
@@ -174,7 +181,7 @@ describe("LayerEditorDialog", () => {
     mocks.useLayerEditor.mockReturnValue(value);
     render(<LayerEditorDialog open workItemId="work-7" outputId="output-7" onOpenChange={onOpenChange} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Criar nova versão" }));
+    fireEvent.click(screen.getByRole("button", { name: "Criar nova variação" }));
 
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Não foi possível salvar as alterações"));
     expect(onOpenChange).not.toHaveBeenCalled();
@@ -185,7 +192,7 @@ describe("LayerEditorDialog", () => {
     mocks.useLayerEditor.mockReturnValue(value);
     render(<LayerEditorDialog open workItemId="work-8" outputId="output-8" onOpenChange={vi.fn()} />);
 
-    expect(screen.queryByRole("button", { name: "Criar nova versão" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Criar nova variação" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Descartar alterações locais e recarregar" })).toBeInTheDocument();
     expect(screen.getAllByRole("alert")[0]).toHaveTextContent("As camadas foram alteradas por outra pessoa");
     await waitFor(() => expect(window.document.activeElement).toHaveAttribute("role", "alert"));
@@ -200,11 +207,63 @@ describe("LayerEditorDialog", () => {
     render(<LayerEditorDialog open workItemId="work-heartbeat" outputId="output-heartbeat" onOpenChange={onOpenChange} />);
 
     const recover = screen.getByRole("button", { name: "Descartar alterações locais e recarregar" });
-    await waitFor(() => expect(window.document.activeElement).toHaveAttribute("role", "alert"));
+    await waitFor(() => expect(window.document.activeElement).toHaveAttribute("role", "alert"), { timeout: 3000 });
     fireEvent.click(recover);
     await waitFor(() => expect(value.discardLocalEdits).toHaveBeenCalledOnce());
     fireEvent.click(screen.getByRole("button", { name: "Fechar editor" }));
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+  });
+
+  it("shows the scanner without mounting the editor until layerization completes", () => {
+    const { rerender } = render(
+      <LayerEditorDialog
+        open
+        workItemId="work-scan"
+        outputId="output-scan"
+        sourceImageUrl="https://example.test/source.png"
+        layerization={{ status: "processing" } as never}
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Identificando elementos, pessoas e textos da imagem...")).toBeVisible();
+    expect(screen.getByText("Separando camadas")).toBeVisible();
+    expect(mocks.useLayerEditor).not.toHaveBeenCalled();
+
+    mocks.useLayerEditor.mockReturnValue(editor("edit"));
+    rerender(
+      <LayerEditorDialog
+        open
+        workItemId="work-scan"
+        outputId="output-scan"
+        sourceImageUrl="https://example.test/source.png"
+        layerization={{ status: "completed" } as never}
+        onOpenChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("region", { name: "Canvas de camadas" })).toBeInTheDocument();
+    expect(screen.getByAltText("Produto")).toHaveClass("animate-layer-reveal");
+    expect(mocks.useLayerEditor).toHaveBeenCalled();
+  });
+
+  it("offers retry after a failed layerization", () => {
+    const onRetryLayerize = vi.fn();
+    mocks.useLayerEditor.mockReturnValue(editor("edit"));
+    render(
+      <LayerEditorDialog
+        open
+        workItemId="work-fail"
+        outputId="output-fail"
+        sourceImageUrl="https://example.test/source.png"
+        layerization={{ status: "failed", failureCode: "provider_error" } as never}
+        layerizeRemaining={2}
+        onRetryLayerize={onRetryLayerize}
+        onOpenChange={vi.fn()}
+      />,
+    );
+    expect(mocks.useLayerEditor).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Tentar separar novamente" }));
+    expect(onRetryLayerize).toHaveBeenCalledOnce();
   });
 
   it("keeps close and history header controls at 44px", () => {
@@ -214,11 +273,9 @@ describe("LayerEditorDialog", () => {
     mocks.useLayerEditor.mockReturnValue(value);
     render(<LayerEditorDialog open workItemId="work-9" outputId="output-9" onOpenChange={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: /Produto/ }));
-    for (const name of ["Fechar editor", "Desfazer", "Refazer"]) {
+    for (const name of ["Fechar editor", "Desfazer", "Refazer", "Exportar PNG", "Mais ações"]) {
       expect(within(screen.getByRole("banner")).getByRole("button", { name })).toHaveClass("min-h-11", "min-w-11");
     }
-    for (const name of ["Restaurar camada", "Restaurar tudo", "Exportar PNG", "Exportar PSD", "Criar nova versão"]) {
-      expect(within(screen.getByRole("banner")).getByRole("button", { name })).toHaveClass("min-h-11");
-    }
+    expect(within(screen.getByRole("banner")).getByRole("button", { name: "Criar nova variação" })).toHaveClass("min-h-11");
   });
 });

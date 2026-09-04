@@ -1,9 +1,11 @@
 /**
- * Real-PostgreSQL regression for the selected-Peça Layerize lock.
+ * Real-PostgreSQL regression for Layerize claim racing a new selection.
  *
  * A test transaction holds the currently selected output with FOR UPDATE
  * before both repository calls start. PostgreSQL must show both public
  * queries waiting on that real lock before the transaction is released.
+ * After the lock is released both operations may succeed: Layerize stays
+ * attached to its source output and the other Piece may become selected.
  *
  * Requires:
  *   DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
@@ -264,7 +266,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)(
       await db.delete(user).where(eq(user.id, userId));
     }, 30_000);
 
-    it("allows exactly one winner when Layerize claim races a new selection", async () => {
+    it("lets Layerize claim and a new selection both complete after the row lock is released", async () => {
       for (let index = 0; index < 12; index += 1) {
         const race = await createRace(index);
         const existingPids = await captureExistingCreativeWorkLockWaiterPids();
@@ -302,7 +304,8 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)(
           const [claimed, newlySelected] = await Promise.all([claimPromise, selectionPromise]);
           await lock.transaction;
 
-          expect([claimed, newlySelected].filter(Boolean)).toHaveLength(1);
+          expect(claimed).toBeTruthy();
+          expect(newlySelected?.id).toBe(race.candidate.id);
 
           const rows = await db.select().from(creativeWorkOutputs)
             .where(eq(creativeWorkOutputs.workItemId, race.work.id));
@@ -310,18 +313,9 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)(
           const candidate = rows.find((row) => row.id === race.candidate.id);
           expect(original).toBeDefined();
           expect(candidate).toBeDefined();
-
-          if (claimed) {
-            expect(newlySelected).toBeNull();
-            expect(original?.isSelected).toBe(true);
-            expect(candidate?.isSelected).toBe(false);
-            expect(layerizationStateFromDatabase(original?.layerization)?.status).toBe("queued");
-          } else {
-            expect(newlySelected?.id).toBe(race.candidate.id);
-            expect(original?.isSelected).toBe(false);
-            expect(candidate?.isSelected).toBe(true);
-            expect(original?.layerization).toBeNull();
-          }
+          expect(original?.isSelected).toBe(false);
+          expect(candidate?.isSelected).toBe(true);
+          expect(layerizationStateFromDatabase(original?.layerization)?.status).toBe("queued");
         } finally {
           lock.release();
           await Promise.allSettled([lock.transaction, ...pending]);

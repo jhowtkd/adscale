@@ -59,8 +59,8 @@ export function seedLayerEditorState(layerization: LayerizationState, lease: Lay
     schemaVersion: 1, revision: 1, sourceLayerizationAttemptId: layerization.attemptId,
     canvas: { width: layerization.baseWidth, height: layerization.baseHeight },
     layers: ordered.map((layer, index) => ({
-      id: crypto.randomUUID(), source: { order: ordered.length - 1 - index, name: layer.name, visible: true, x: layer.x, y: layer.y, width: layer.width, height: layer.height, key: layer.storageKey },
-      order: ordered.length - 1 - index, name: layer.name, visible: true, x: layer.x, y: layer.y, width: layer.width, height: layer.height,
+      id: crypto.randomUUID(), source: { order: ordered.length - 1 - index, name: layer.name, description: layer.description ?? null, visible: true, x: layer.x, y: layer.y, width: layer.width, height: layer.height, key: layer.storageKey },
+      order: ordered.length - 1 - index, name: layer.name, description: layer.description ?? null, visible: true, x: layer.x, y: layer.y, width: layer.width, height: layer.height,
       currentKey: layer.storageKey, currentKind: "source" as const, restorableKey: null,
     })),
     lease, regeneration: null, publishedPsdKey: null, updatedAt: now.toISOString(),

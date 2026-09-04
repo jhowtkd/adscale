@@ -139,17 +139,9 @@ export function isLayerizationRetryableFailure(
 
 export function isLayerizationSubmitEligible(output: {
   status?: string | null;
-  isSelected?: boolean | null;
   outputKey?: string | null;
 }): boolean {
-  return output.status === "completed" && output.isSelected === true && Boolean(output.outputKey);
-}
-
-export function isLayerizationSelectionLocked(
-  state: Pick<LayerizationState, "status" | "providerRequestId"> | null | undefined,
-): boolean {
-  if (!state) return false;
-  return state.status === "queued" || (state.status === "processing" && !state.providerRequestId);
+  return output.status === "completed" && Boolean(output.outputKey);
 }
 
 export function layerizationStateFromDatabase(value: unknown): LayerizationState | null {

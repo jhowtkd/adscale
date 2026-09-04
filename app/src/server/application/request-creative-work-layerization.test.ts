@@ -117,6 +117,12 @@ describe("requestCreativeWorkLayerization", () => {
     expect(sendMock).not.toHaveBeenCalled();
   });
 
+  it("accepts a completed output that is not selected", async () => {
+    output.isSelected = false;
+    await expect(requestCreativeWorkLayerization(input)).resolves.toMatchObject({ ok: true, accepted: true });
+    expect(sendMock).toHaveBeenCalledOnce();
+  });
+
   it("claims one attempt and redelivers the stable event for a queued replay despite zero remaining quota", async () => {
     const first = await requestCreativeWorkLayerization(input);
     expect(first.ok).toBe(true);

@@ -46,7 +46,7 @@ async function login(page: Page) {
 
 async function openEditor(page: Page, workItemId = fixture().workItemId) {
   await page.goto(`/?workId=${workItemId}`);
-  await page.getByRole("button", { name: /^(Editar|Visualizar) camadas$|^(Edit|View) layers$/ }).click();
+  await page.getByRole("button", { name: /^(Editar imagem|Edit image)$/ }).click();
   const dialog = page.getByRole("dialog", { name: "Editor de camadas" });
   await expect(dialog).toBeVisible();
   return dialog;
@@ -75,16 +75,16 @@ test.describe("native layer editor", () => {
     await selected.focus();
     await selected.press("ArrowRight");
     await selected.press("Shift+Alt+ArrowRight");
-    await dialog.getByRole("button", { name: "Desfazer" }).first().click();
-    await dialog.getByRole("button", { name: "Refazer" }).first().click();
+    await dialog.getByRole("button", { name: "Desfazer" }).click();
+    await dialog.getByRole("button", { name: "Refazer" }).click();
     await page.waitForTimeout(800); // autosave debounce
     const persistedGeometry = await selected.boundingBox();
     if (!persistedGeometry) throw new Error("Edited layer geometry must be measurable");
 
     await expect(dialog).toHaveScreenshot("layer-editor-desktop.png", { animations: "disabled" });
     await page.reload();
-    await expect(page.getByRole("button", { name: "Editar camadas" })).toBeVisible();
-    await page.getByRole("button", { name: "Editar camadas" }).click();
+    await expect(page.getByRole("button", { name: "Editar imagem" })).toBeVisible();
+    await page.getByRole("button", { name: "Editar imagem" }).click();
     await page.getByRole("button", { name: "Produto sintético" }).click();
     await expect(page.getByRole("textbox", { name: "Nome da camada" })).toHaveValue("Produto sintético");
     const reloadedGeometry = await page.getByLabel("Camada selecionada").boundingBox();
@@ -100,13 +100,11 @@ test.describe("native layer editor", () => {
     const dialog = await openEditor(page);
     await page.getByRole("button", { name: /Product|Produto sintético/ }).click();
     const controls = [
-      dialog.getByRole("button", { name: "Desfazer" }).first(),
-      dialog.getByRole("button", { name: "Refazer" }).first(),
-      dialog.getByRole("button", { name: "Restaurar camada" }),
-      dialog.getByRole("button", { name: "Restaurar tudo" }).first(),
-      dialog.getByRole("button", { name: "Exportar PNG" }).first(),
-      dialog.getByRole("button", { name: "Exportar PSD" }),
-      dialog.getByRole("button", { name: "Criar nova versão" }),
+      dialog.getByRole("button", { name: "Desfazer" }),
+      dialog.getByRole("button", { name: "Refazer" }),
+      dialog.getByRole("button", { name: "Exportar PNG" }),
+      dialog.getByRole("button", { name: "Mais ações" }),
+      dialog.getByRole("button", { name: "Criar nova variação" }),
       dialog.getByRole("button", { name: /Ocultar Product|Ocultar Produto sintético/ }),
       dialog.locator("[data-layer-order='0']").getByRole("button").first(),
     ];
@@ -154,7 +152,7 @@ test.describe("native layer editor", () => {
       if (/saveLayerEditor|heartbeatLayerEditor|regenerateLayer|acceptLayerCandidate|discardLayerCandidate|publishLayerEditor/.test(body)) mutations.push(body);
     });
     const dialog = await openEditor(page);
-    await expect(page.getByRole("button", { name: "Criar nova versão" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Criar nova variação" })).toHaveCount(0);
     await expect(page.getByRole("textbox", { name: "Nome da camada" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Exportar PNG" })).toBeEnabled();
     await page.getByRole("button", { name: /Product|Produto sintético/ }).click();
@@ -181,7 +179,7 @@ test.describe("native layer editor", () => {
     expect(lockAttempt.status()).toBe(409);
     await expect(lockAttempt.json()).resolves.toMatchObject({ code: "layer_editor_locked" });
     const dialog = await openEditor(page, seeded.foreignLeaseWorkItemId);
-    await expect(page.getByRole("button", { name: "Criar nova versão" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Criar nova variação" })).toHaveCount(0);
     await expect(page.getByRole("textbox", { name: "Nome da camada" })).toHaveCount(0);
     await expect(dialog).toHaveScreenshot("layer-editor-read-only.png", { animations: "disabled" });
   });
@@ -190,7 +188,7 @@ test.describe("native layer editor", () => {
     const dialog = await openEditor(page);
     await page.getByRole("button", { name: /Product|Produto sintético/ }).click();
     await expect(page.getByRole("button", { name: "Regenerar camada" })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Criar nova versão" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Criar nova variação" })).toBeEnabled();
     await expect(dialog).toHaveScreenshot("layer-editor-exhausted-quota.png", { animations: "disabled" });
   });
 
@@ -209,7 +207,7 @@ test.describe("native layer editor", () => {
     const beforeCount = ((await before.json()) as { outputs: unknown[] }).outputs.length;
     const dialog = await openEditor(page);
 
-    await page.getByRole("button", { name: "Criar nova versão" }).click();
+    await page.getByRole("button", { name: "Criar nova variação" }).click();
 
     await expect(dialog).toBeHidden();
     await expect(page.getByRole("button", { name: /^(Editar|Visualizar) camadas$|^(Edit|View) layers$/ })).toBeVisible();

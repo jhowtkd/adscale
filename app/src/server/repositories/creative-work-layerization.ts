@@ -96,7 +96,7 @@ export async function clearFailedCreativeWorkLayerizationForRetry(input: {
   return result.length > 0;
 }
 
-export async function isCreativeWorkOutputStillSelectedForLayerization(input: {
+export async function isCreativeWorkOutputStillLayerizable(input: {
   workspaceId: string;
   workItemId: string;
   outputId: string;
@@ -104,7 +104,6 @@ export async function isCreativeWorkOutputStillSelectedForLayerization(input: {
   const [row] = await db.select({ id: creativeWorkOutputs.id }).from(creativeWorkOutputs).where(and(
     scope(input.workspaceId, input.workItemId, input.outputId),
     eq(creativeWorkOutputs.status, "completed"),
-    eq(creativeWorkOutputs.isSelected, true),
     isNotNull(creativeWorkOutputs.outputKey),
   )).limit(1);
   return Boolean(row);

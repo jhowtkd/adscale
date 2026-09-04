@@ -35,6 +35,7 @@ async function project(state: LayerEditorStateV1, input: { workspaceId: string; 
       source: { order: layer.source.order, name: layer.source.name, visible: layer.source.visible, x: layer.source.x, y: layer.source.y, width: layer.source.width, height: layer.source.height, imageUrl: await objectStorage.signedDownloadUrl(layer.source.key, LAYER_EDITOR_SIGNED_URL_TTL_SECONDS) },
       order: layer.order, name: layer.name, visible: layer.visible, x: layer.x, y: layer.y, width: layer.width, height: layer.height, currentKind: layer.currentKind,
       imageUrl: await objectStorage.signedDownloadUrl(layer.currentKey, LAYER_EDITOR_SIGNED_URL_TTL_SECONDS),
+      description: layer.description ?? null,
     }))),
     state.regeneration?.candidateKey ? objectStorage.signedDownloadUrl(state.regeneration.candidateKey, LAYER_EDITOR_SIGNED_URL_TTL_SECONDS) : Promise.resolve(null),
   ]);
@@ -73,7 +74,7 @@ export async function openCreativeWorkLayerEditor(input: OpenLayerEditorInput): 
   if (!access) return { ok: false, status: 403, code: "layer_editor_not_available" };
   let output = await getCreativeWorkLayerEditorOutput(input);
   if (!output) return { ok: false, status: 404, code: "layer_editor_not_available" };
-  if (input.mode === "edit" && (output.status !== "completed" || !output.isSelected)) return { ok: false, status: 409, code: "layer_editor_not_available" };
+  if (input.mode === "edit" && output.status !== "completed") return { ok: false, status: 409, code: "layer_editor_not_available" };
   let state = layerEditorStateFromDatabase(output.layerEditor);
   if (!state) {
     const source = layerizationFromOutput(output);

@@ -136,7 +136,7 @@ async function requestCreativeWorkLayerizationLocked(input: {
   if (!aggregate) return result({ ok: false, error: { code: "work_not_found" } });
   const output = aggregate.outputs.find((candidate) => candidate.id === input.outputId);
   if (!output) return result({ ok: false, error: { code: "output_not_found" } });
-  if (output.status !== "completed" || !output.outputKey || !output.isSelected) {
+  if (output.status !== "completed" || !output.outputKey) {
     return result({ ok: false, error: { code: "output_not_eligible" } });
   }
 
