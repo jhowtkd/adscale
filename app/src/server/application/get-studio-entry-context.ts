@@ -7,7 +7,6 @@ import {
 import {
   resolveCreativeWorkInferredBriefing,
   type CreativeWorkBriefingOverrides,
-  type CreativeWorkItem,
 } from "@/server/creative-work/contracts";
 import { listCampaignsForEntryContext } from "@/server/repositories/campaign";
 import { getBrandKit } from "@/server/repositories/brand-kit";
@@ -21,11 +20,13 @@ export type GetStudioEntryContextResult =
   | { ok: true; context: EntryContext }
   | { ok: false; error: "profile_not_found" };
 
-function briefingOverridesForWork(work: CreativeWorkItem): CreativeWorkBriefingOverrides | undefined {
+type StudioEntryWork = Awaited<ReturnType<typeof listCreativeWorksForEntryContext>>[number];
+
+function briefingOverridesForWork(work: StudioEntryWork): CreativeWorkBriefingOverrides | undefined {
   return work.settings?.briefingOverrides ?? work.inputSnapshot?.briefingOverrides;
 }
 
-function mapCreativeWorkToHistoryRow(work: CreativeWorkItem): StudioEntryHistoryRow {
+function mapCreativeWorkToHistoryRow(work: StudioEntryWork): StudioEntryHistoryRow {
   const inferredBriefing = resolveCreativeWorkInferredBriefing(work.inputSnapshot);
   const overrides = briefingOverridesForWork(work);
 
