@@ -50,6 +50,7 @@ vi.mock("next-intl", () => ({
           talkRequired: "Obrigatório",
           emptyRequestError: "Escreva o pedido antes de gerar.",
           variationsReferenceError: "Anexe a peça de referência para gerar variações.",
+          restylePairError: "Adicione a arte original e a referência de estilo.",
           requestLabel: "dashboard.home.composer.requestLabel",
         }[key] ?? `dashboard.home.${key}`),
 }));
@@ -784,6 +785,35 @@ describe("DashboardHomeActions", () => {
     fireEvent.click(protocolButton("variations"));
     fireEvent.click(screen.getByRole("button", { name: "Começar" }));
     expect(screen.getByRole("alert")).toHaveTextContent("Anexe a peça de referência para gerar variações.");
+  });
+
+  it("requires original art and a style reference before restyling", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    render(<DashboardHomeActions />);
+    fireEvent.click(protocolButton("restyle"));
+    fireEvent.click(screen.getByRole("button", { name: "Começar" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Adicione a arte original e a referência de estilo.");
+  });
+
+  it("still blocks restyle generate when only the style reference is attached", () => {
+    const preparePlan = vi.fn();
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      intent: "restyle",
+      request: "",
+      setRequest: vi.fn(),
+      clientProfileId: "p1",
+      quote: { unitCount: 1, credits: 5 },
+      sources: [{ id: "style-1", name: "style.png", previewUrl: "/style.png", usage: "style" }],
+      addFiles: vi.fn(),
+      selectIntent: selectIntentMock,
+      preparePlan,
+      generateLegacy: vi.fn(),
+    });
+    render(<DashboardHomeActions />);
+    fireEvent.click(screen.getByRole("button", { name: "Gerar" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Adicione a arte original e a referência de estilo.");
+    expect(preparePlan).not.toHaveBeenCalled();
   });
 
   it("caps attachments at three", () => {

@@ -1551,6 +1551,17 @@ export function useCreativeComposer({
     const canReopenPreparedRetry = current?.status === "ready"
       && (detailQuery.data?.outputs.length ?? 0) === 0;
     if (current && current.status !== "draft" && !(canReopenPreparedRetry && planIsStale)) return currentPlan;
+    if (intentRef.current === "restyle") {
+      const readySources = (detailQuery.data?.sources ?? []).filter((source) => source.status === "ready");
+      if (!hasCreativeWorkProtocolSourceShape({
+        intent: "restyle",
+        request: requestRef.current,
+        sources: readySources.map((source) => ({ sourceId: source.id, usage: source.usage })),
+      })) {
+        setError(tHome("restylePairError"));
+        return null;
+      }
+    }
     setActionPhase("saving");
     const prepareEditEpoch = planInputEditEpochRef.current;
     setError(null);
@@ -1596,7 +1607,7 @@ export function useCreativeComposer({
     } finally {
       setActionPhase("idle");
     }
-  }, [captureSnapshot, detailQuery, flushAutosave, invalidatedPlanRevision, prepareMutation, recordCanonicalEvent, setCanonicalWorkRevision]);
+  }, [captureSnapshot, detailQuery, flushAutosave, invalidatedPlanRevision, prepareMutation, recordCanonicalEvent, setCanonicalWorkRevision, tHome]);
 
   const confirmGenerationCommand = useCallback(async (preparedRevision?: string): Promise<void> => {
     const current = detailQuery.data?.work;

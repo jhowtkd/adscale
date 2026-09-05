@@ -82,6 +82,7 @@ vi.mock("next-intl", () => ({
     "composer.progressiveBufferedFile": `${values?.name} is ready to use after you choose an objective.`,
     "composer.progressiveMultipleFiles": `${values?.name} was kept; add the other images after choosing an objective.`,
     "composer.progressiveUploadFailed": "Could not add the image.",
+    restylePairError: "Adicione a arte original e a referência de estilo.",
   }[key] ?? key),
 }));
 
@@ -99,6 +100,13 @@ function active(overrides = {}) {
     profiles: [profileA], activeProfile: profileA, activeClientProfileId: profileA.id,
     requiresSelection: false, isLoading: false, selectProfile: vi.fn(), ...overrides,
   };
+}
+
+function restyleSources() {
+  return [
+    { id: "src-1", usage: "content" as const, status: "ready" as const },
+    { id: "src-2", usage: "style" as const, status: "ready" as const },
+  ];
 }
 
 function preparedPlan(workId = "work-1", protocol = "variations") {
@@ -1839,6 +1847,27 @@ describe("useCreativeComposer", () => {
     expect(result.current.canGenerate).toBe(false);
   });
 
+  it("does not prepare restyle without original art and a style reference", async () => {
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ toolKind: "restyle", request: "" }),
+        sources: [
+          { id: "source-1", usage: "style", usageConfirmed: false, status: "ready" },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", initialIntent: "restyle" }));
+
+    await act(async () => { await result.current.preparePlan(); });
+
+    expect(mocks.prepare).not.toHaveBeenCalled();
+    expect(mocks.autosave).not.toHaveBeenCalled();
+    expect(result.current.error).toBe("Adicione a arte original e a referência de estilo.");
+  });
+
   it("persists variation instructions without trimming outer whitespace", async () => {
     mocks.work.mockReturnValue({ data: workDetail({ toolKind: "variations" }), isLoading: false, isError: false });
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
@@ -2701,7 +2730,10 @@ describe("useCreativeComposer", () => {
   });
 
   it("surfaces a prepare 422 brand_conflict as a choice, never as a generic error (R-008)", async () => {
-    mocks.work.mockReturnValue({ data: workDetail({ toolKind: "restyle" }), isLoading: false });
+    mocks.work.mockReturnValue({
+      data: { ...workDetail({ toolKind: "restyle" }), sources: restyleSources() },
+      isLoading: false,
+    });
     mocks.prepare.mockRejectedValue(Object.assign(new Error("Conflito de marca"), {
       code: "brand_conflict",
       details: { detectedBrand: "XTB", activeBrand: "Marca A", sourceId: "src-1", choices: ["source", "active"] },
@@ -2732,7 +2764,7 @@ describe("useCreativeComposer", () => {
   });
 
   it("saves the brand choice on the same draft and resumes the interrupted submit (R-008)", async () => {
-    const detail = workDetail({ toolKind: "restyle" });
+    const detail = { ...workDetail({ toolKind: "restyle" }), sources: restyleSources() };
     mocks.work.mockReturnValue({ data: detail, isLoading: false });
     mocks.prepare
       .mockRejectedValueOnce(Object.assign(new Error("Conflito de marca"), {
@@ -2769,7 +2801,7 @@ describe("useCreativeComposer", () => {
   });
 
   it("ignores a second brand choice while the first is still applying (double-click guard)", async () => {
-    mocks.work.mockReturnValue({ data: workDetail({ toolKind: "restyle" }), isLoading: false });
+    mocks.work.mockReturnValue({ data: { ...workDetail({ toolKind: "restyle" }), sources: restyleSources() }, isLoading: false });
     mocks.prepare.mockRejectedValue(Object.assign(new Error("Conflito de marca"), {
       code: "brand_conflict",
       details: { detectedBrand: "XTB", activeBrand: "Marca A", sourceId: "src-1", choices: ["source", "active"] },
