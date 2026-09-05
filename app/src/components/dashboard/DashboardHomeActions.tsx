@@ -338,7 +338,7 @@ export default function DashboardHomeActions({
       onSelectIntent={(intent, immediate) => composer.selectIntent?.(intent, immediate)}
       suggestedProtocol={interviewEnabled && !composer.objectiveSelected ? interview.suggestedProtocol : null}
       carouselEnabled={carouselCreationEnabled}
-      sources={sources.map((source) => ({ id: source.id, name: source.name, previewUrl: source.previewUrl }))}
+      sources={sources.map((source) => ({ id: source.id, name: source.name, previewUrl: source.previewUrl, usage: source.usage }))}
       bufferedFile={composer.bufferedFile ?? null}
       onAddFiles={(files) => void composer.addFiles?.(files)}
       error={composer.error ?? null}

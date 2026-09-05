@@ -6,6 +6,8 @@ import { useTranslations } from "next-intl";
 import { ShineBorder, SHINE_COLORS } from "@/components/ui/shine-border";
 import { StudioEntryInterview } from "@/components/creative-work/StudioEntryInterview";
 import type { ComposerIntent } from "@/components/creative-work/useCreativeComposer";
+import type { CreativeSourceUsage } from "@/lib/hooks/use-creative-work";
+import { hasCreativeWorkProtocolSourceShape } from "@/lib/creative-work-protocol-eligibility";
 import type { EntryChip, EntryLocale, EntrySlot } from "@/lib/studio/entry-types";
 import { cn } from "@/lib/utils";
 import { ProtocolRadios } from "./ProtocolRadios";
@@ -17,6 +19,7 @@ export type TalkBoxSource = {
   id: string;
   name: string;
   previewUrl: string | null;
+  usage?: CreativeSourceUsage;
 };
 
 export function TalkBox({
@@ -75,9 +78,18 @@ export function TalkBox({
   const centered = placement === "center";
   const attachCount = sources.length + (bufferedFile && sources.length === 0 ? 1 : 0);
   const needsReference = intent === "variations" || intent === "format_adaptation";
+  const restylePairReady = hasCreativeWorkProtocolSourceShape({
+    intent: "restyle",
+    request,
+    sources: sources.flatMap((source) => source.usage
+      ? [{ sourceId: source.id, usage: source.usage }]
+      : []),
+  });
+  const needsRestylePair = intent === "restyle" && !restylePairReady;
+  const attachRequired = (needsReference && attachCount === 0) || needsRestylePair;
   const attachLabel = attachCount > 0
     ? t("talkAttachCount", { count: attachCount })
-    : needsReference
+    : needsReference || intent === "restyle"
       ? t("talkAttachReference")
       : t("talkAttach");
   const visibleError = fidelityError ?? error;
@@ -89,6 +101,10 @@ export function TalkBox({
     }
     if (needsReference && attachCount === 0) {
       setFidelityError(t("variationsReferenceError"));
+      return;
+    }
+    if (needsRestylePair) {
+      setFidelityError(t("restylePairError"));
       return;
     }
     setFidelityError(null);
@@ -206,7 +222,7 @@ export function TalkBox({
             >
               <Paperclip size={16} aria-hidden="true" />
               <span>{attachLabel}</span>
-              {needsReference && attachCount === 0 ? (
+              {attachRequired ? (
                 <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--danger-text)]">
                   {t("talkRequired")}
                 </span>
