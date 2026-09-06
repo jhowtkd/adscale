@@ -1,9 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Inngest } from "inngest";
-import {
-  createCreativeWorkCarouselSlideJobV2,
-  creativeWorkCarouselSlideJob,
-} from "./creative-work-carousel";
 
 type JobOpts = {
   id?: string;
@@ -15,28 +11,58 @@ function jobOpts(job: unknown): JobOpts {
 }
 
 describe("carousel slide job triggers", () => {
-  it("keeps the web job on the unsuffixed event", () => {
+  const previousOpenAiKey = process.env.OPENAI_API_KEY;
+  const previousImageJobTarget = process.env.IMAGE_JOB_TARGET;
+
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "test-key";
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    if (previousOpenAiKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousOpenAiKey;
+    if (previousImageJobTarget === undefined) delete process.env.IMAGE_JOB_TARGET;
+    else process.env.IMAGE_JOB_TARGET = previousImageJobTarget;
+    vi.resetModules();
+  });
+
+  it("pins web and worker triggers when IMAGE_JOB_TARGET=worker at module load", async () => {
+    process.env.IMAGE_JOB_TARGET = "worker";
+
+    const {
+      creativeWorkCarouselSlideJob,
+      createCreativeWorkCarouselSlideJobV2,
+    } = await import("./creative-work-carousel");
+
     expect(jobOpts(creativeWorkCarouselSlideJob).triggers).toEqual([
       { event: "creative-work.carousel-slide.generate" },
     ]);
+
+    const createFunction = vi.fn((opts: JobOpts) => ({ opts }));
+    createCreativeWorkCarouselSlideJobV2({ createFunction } as unknown as Inngest);
+    expect(createFunction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "generate-creative-work-carousel-slide-v2",
+        triggers: [{ event: "creative-work.carousel-slide.generate.v2" }],
+      }),
+      expect.anything(),
+    );
   });
 
-  it("keeps the worker job on the v2 event even if IMAGE_JOB_TARGET is worker", () => {
-    const previous = process.env.IMAGE_JOB_TARGET;
+  it("keeps the worker job on the v2 event via factory", async () => {
     process.env.IMAGE_JOB_TARGET = "worker";
-    try {
-      const createFunction = vi.fn((opts: JobOpts) => ({ opts }));
-      createCreativeWorkCarouselSlideJobV2({ createFunction } as unknown as Inngest);
-      expect(createFunction).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: "generate-creative-work-carousel-slide-v2",
-          triggers: [{ event: "creative-work.carousel-slide.generate.v2" }],
-        }),
-        expect.anything(),
-      );
-    } finally {
-      if (previous === undefined) delete process.env.IMAGE_JOB_TARGET;
-      else process.env.IMAGE_JOB_TARGET = previous;
-    }
+
+    const { createCreativeWorkCarouselSlideJobV2 } = await import("./creative-work-carousel");
+
+    const createFunction = vi.fn((opts: JobOpts) => ({ opts }));
+    createCreativeWorkCarouselSlideJobV2({ createFunction } as unknown as Inngest);
+    expect(createFunction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "generate-creative-work-carousel-slide-v2",
+        triggers: [{ event: "creative-work.carousel-slide.generate.v2" }],
+      }),
+      expect.anything(),
+    );
   });
 });
