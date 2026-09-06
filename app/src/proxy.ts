@@ -4,6 +4,7 @@ import { getMutationRateLimitCategory } from "@/lib/api-rate-limit-category";
 import { rateLimit } from "@/lib/rate-limit";
 import { isValidLocale, defaultLocale } from "@/i18n/config";
 import { logger } from "@/lib/logger";
+import { hasStudioResumeQuery } from "@/lib/studio-resume-query";
 
 const PROTECTED_PREFIXES = ["/campaigns", "/settings"];
 const PROTECTED_EXACT = ["/"];
@@ -60,14 +61,16 @@ function getMarketingUrl(): string | null {
 }
 
 function redirectUnauthenticated(request: NextRequest, pathname: string) {
+  const resumePath = `${pathname}${request.nextUrl.search}`;
+  const studioResume = pathname === "/" && hasStudioResumeQuery(request.nextUrl.searchParams);
   const marketingUrl = getMarketingUrl();
-  if (pathname === "/" && marketingUrl) {
+  if (pathname === "/" && marketingUrl && !studioResume) {
     return NextResponse.redirect(marketingUrl);
   }
 
   const loginUrl = new URL("/login", request.url);
-  if (pathname !== "/") {
-    loginUrl.searchParams.set("callbackUrl", `${pathname}${request.nextUrl.search}`);
+  if (resumePath !== "/") {
+    loginUrl.searchParams.set("callbackUrl", resumePath);
   }
   return NextResponse.redirect(loginUrl);
 }
