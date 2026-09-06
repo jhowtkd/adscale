@@ -28,7 +28,7 @@
 | [`kanban/02-briefs.md`](./kanban/02-briefs.md) | 📝 **3 briefs prontos pra semana 1.** |
 | [`kanban/03-prontos.md`](./kanban/03-prontos.md) | ✅ Posts finalizados, prontos pra agendar. |
 | [`kanban/04-publicados.md`](./kanban/04-publicados.md) | 📚 Log de publicações + métricas. |
-| [`sequencia-emails.md`](./sequencia-emails.md) | 3 sequências escritas, validadas, **sem envio nesta fase**. |
+| [`sequencia-emails.md`](./sequencia-emails.md) | Estado das sequências: waitlist/lançamento arquivados; welcome D+0 no produto. |
 | [`calendario/30-dias.md`](./calendario/30-dias.md) | Calendário executivo dia-a-dia (produção pura). |
 | [`_futuro/`](./_futuro/) | Versões anteriores (lançamento) + material de ads — **não usar agora**. |
 

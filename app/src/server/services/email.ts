@@ -1,6 +1,15 @@
 import { env } from "@/server/validation/env";
+import { TRIAL_CREDIT_GRANT } from "@/lib/billing/credit-units";
 import { getTransactionalEmailTranslations } from "./email-i18n";
-import { escapeHtml, renderTransactionalEmail } from "./email-template";
+import {
+  emailLogoUrl,
+  escapeHtml,
+  firstNameFromDisplayName,
+  paragraphsToHtml,
+  renderTransactionalEmail,
+  stepsToHtml,
+  type EmailSignoff,
+} from "./email-template";
 
 type SendEmailInput = {
   to: string;
@@ -36,10 +45,31 @@ export async function sendEmail(input: SendEmailInput) {
   }
 }
 
+function signoffFrom(t: (key: string) => string): EmailSignoff {
+  return {
+    close: t("signoffClose"),
+    name: t("signoffName"),
+    role: t("signoffRole"),
+  };
+}
+
+function emailChrome(t: (key: string) => string, locale: string, eyebrow: string) {
+  return {
+    lang: locale,
+    logoUrl: emailLogoUrl(env.APP_URL),
+    eyebrow,
+    signoff: signoffFrom(t),
+    footerFallback: t("footerFallback"),
+    footerIgnore: t("footerIgnore"),
+    footerSignature: t("footerSignature"),
+  };
+}
+
 async function sendActionEmail(input: {
   to: string;
   url: string;
   locale?: string | null;
+  eyebrow: string;
   copy: {
     subject: string;
     preview: string;
@@ -49,20 +79,18 @@ async function sendActionEmail(input: {
     text: string;
   };
 }) {
-  const { t } = await getTransactionalEmailTranslations(input.locale);
+  const { t, locale } = await getTransactionalEmailTranslations(input.locale);
 
   await sendEmail({
     to: input.to,
     subject: input.copy.subject,
     text: input.copy.text,
     html: renderTransactionalEmail({
+      ...emailChrome(t, locale, input.eyebrow),
       preview: input.copy.preview,
       title: input.copy.title,
-      bodyHtml: escapeHtml(input.copy.body),
+      bodyHtml: paragraphsToHtml([input.copy.body]),
       cta: { label: input.copy.cta, url: input.url },
-      footerFallback: t("footerFallback"),
-      footerIgnore: t("footerIgnore"),
-      footerSignature: t("footerSignature"),
     }),
   });
 }
@@ -78,6 +106,7 @@ export async function sendVerificationEmail(input: {
     to: input.to,
     url: input.url,
     locale: input.locale,
+    eyebrow: t("eyebrows.account"),
     copy: {
       subject: t("verification.subject"),
       preview: t("verification.preview"),
@@ -100,6 +129,7 @@ export async function sendPasswordResetEmail(input: {
     to: input.to,
     url: input.url,
     locale: input.locale,
+    eyebrow: t("eyebrows.access"),
     copy: {
       subject: t("reset.subject"),
       preview: t("reset.preview"),
@@ -122,6 +152,7 @@ export async function sendMagicLinkEmail(input: {
     to: input.to,
     url: input.url,
     locale: input.locale,
+    eyebrow: t("eyebrows.access"),
     copy: {
       subject: t("magicLink.subject"),
       preview: t("magicLink.preview"),
@@ -136,20 +167,25 @@ export async function sendMagicLinkEmail(input: {
 export async function sendWaitlistConfirmationEmail(input: {
   to: string;
   locale?: string | null;
+  firstName?: string | null;
 }) {
-  const { t } = await getTransactionalEmailTranslations(input.locale);
+  const { t, locale } = await getTransactionalEmailTranslations(input.locale);
+  const firstName = firstNameFromDisplayName(input.firstName);
+  const greeting = firstName
+    ? t("waitlist.greeting", { firstName })
+    : t("waitlist.greetingAnonymous");
 
   await sendEmail({
     to: input.to,
     subject: t("waitlist.subject"),
-    text: t("waitlist.text"),
+    text: t("waitlist.text", { firstName: firstName ?? "" }),
     html: renderTransactionalEmail({
+      ...emailChrome(t, locale, t("eyebrows.account")),
       preview: t("waitlist.preview"),
       title: t("waitlist.title"),
-      bodyHtml: escapeHtml(t("waitlist.body")),
-      footerFallback: t("footerFallback"),
-      footerIgnore: t("footerIgnore"),
-      footerSignature: t("footerSignature"),
+      greeting,
+      bodyHtml: paragraphsToHtml([t("waitlist.body")]),
+      footerReason: t("waitlist.reason"),
     }),
   });
 }
@@ -161,7 +197,7 @@ export async function sendInviteEmail(input: {
   locale?: string | null;
 }) {
   const url = `${env.APP_URL}/invite?token=${input.token}`;
-  const { t } = await getTransactionalEmailTranslations(input.locale);
+  const { t, locale } = await getTransactionalEmailTranslations(input.locale);
   const safeWorkspace = escapeHtml(input.workspaceName);
 
   await sendEmail({
@@ -169,13 +205,44 @@ export async function sendInviteEmail(input: {
     subject: t("invite.subject", { workspaceName: input.workspaceName }),
     text: t("invite.text", { workspaceName: input.workspaceName, url }),
     html: renderTransactionalEmail({
+      ...emailChrome(t, locale, t("eyebrows.team")),
       preview: t("invite.preview", { workspaceName: input.workspaceName }),
       title: t("invite.title"),
-      bodyHtml: `${escapeHtml(t("invite.bodyPrefix"))} <strong style="color:#0a0a0a">${safeWorkspace}</strong> ${escapeHtml(t("invite.bodySuffix"))}`,
+      bodyHtml: `<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#444444">${escapeHtml(t("invite.bodyPrefix"))} <strong style="color:#0a0a0a">${safeWorkspace}</strong> ${escapeHtml(t("invite.bodySuffix"))}</p>`,
       cta: { label: t("invite.cta"), url },
-      footerFallback: t("footerFallback"),
-      footerIgnore: t("footerIgnore"),
-      footerSignature: t("footerSignature"),
+    }),
+  });
+}
+
+export async function sendWelcomeEmail(input: {
+  to: string;
+  locale?: string | null;
+  firstName?: string | null;
+}) {
+  const { t, locale } = await getTransactionalEmailTranslations(input.locale);
+  const firstName = firstNameFromDisplayName(input.firstName);
+  const greeting = firstName
+    ? t("welcome.greeting", { firstName })
+    : t("welcome.greetingAnonymous");
+  const credits = String(TRIAL_CREDIT_GRANT);
+  const url = env.APP_URL;
+
+  await sendEmail({
+    to: input.to,
+    subject: t("welcome.subject"),
+    text: t("welcome.text", { firstName: firstName ?? "", credits, url }),
+    html: renderTransactionalEmail({
+      ...emailChrome(t, locale, t("eyebrows.studio")),
+      preview: t("welcome.preview", { credits }),
+      title: t("welcome.title"),
+      greeting,
+      bodyHtml: [
+        paragraphsToHtml([t("welcome.intro", { credits })]),
+        stepsToHtml([t("welcome.step1"), t("welcome.step2"), t("welcome.step3")]),
+        paragraphsToHtml([t("welcome.close")]),
+      ].join(""),
+      cta: { label: t("welcome.cta"), url },
+      footerReason: t("welcome.reason"),
     }),
   });
 }

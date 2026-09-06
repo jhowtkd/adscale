@@ -201,24 +201,21 @@ Detalhes: [`ritual-semanal.md`](../2026-Q3/ritual-semanal.md) + ADR [`0003-ritua
 
 ---
 
-## 6. E-mail marketing (preparação, sem envio)
+## 6. E-mail (produto ativo + marketing arquivado)
 
-> Não enviar e-mails no Q3. **Escrever, validar, deixar pronto.**
+> Welcome de trial e transacionais **enviam**. Sequências de waitlist e lançamento **não**.
 
-### 6.1 O que fazer
+### 6.1 O que está no ar
 
-- ✅ Manter as 3 sequências escritas em [`sequencia-emails.md`](../2026-Q3/sequencia-emails.md).
-- ✅ Revisar a copy domingo à noite (1 vez por mês, no ritual).
-- ✅ Testar envio manual pra si mesmo, abrir e clicar. Garantir que nada vai pro spam.
-- ✅ **Configurar a infraestrutura no Resend** (domínio, SPF/DKIM/DMARC) mas **não ativar triggers**.
-- ❌ **Não** criar landing page de waitlist agora.
-- ❌ **Não** ativar sequência de welcome.
+- Copy canônica em [`../copy/emails.md`](../copy/emails.md) e `app/messages/pt-BR.json`.
+- Confirmação de e-mail, reset, magic link, convite, welcome D+0, peças prontas, briefing pronto, créditos baixos.
+- Waitlist fechada. Sem drip de lançamento.
 
-### 6.2 Por que preparar e não enviar
+### 6.2 O que não fazer
 
-- Sem base, enviar é desperdício.
-- E-mails precisam de **gatilho** (sign-up, lançamento, etc.). Sem base, não tem gatilho.
-- O esforço de preparar agora = **5 minutos de ativação** depois. Vale a pena.
+- ❌ Não reativar sequência de waitlist.
+- ❌ Não inventar case de agência no D+2.
+- ❌ Não falar em trial de 14 dias no welcome.
 
 ---
 

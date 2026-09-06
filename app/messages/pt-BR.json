@@ -3648,63 +3648,91 @@
     "noData": "Sem dados disponíveis"
   },
   "transactionalEmails": {
-    "footerFallback": "Se o botão não abrir, copie e cole este link no navegador:",
-    "footerIgnore": "Se você não pediu este e-mail, pode ignorá-lo — nada muda na sua conta.",
-    "footerSignature": "Feito para quem escala criativo com IA · ADScale",
-    "openApp": "Abrir ADScale",
+    "footerFallback": "Se o botão não abrir, copia e cola este link no navegador:",
+    "footerIgnore": "Se você não pediu este e-mail, ignora — nada muda na sua conta.",
+    "footerSignature": "ADScale · o humano decide, a IA executa o operacional",
+    "signoffClose": "Abraço,",
+    "signoffName": "Jhonatan",
+    "signoffRole": "Founder, ADScale",
+    "openApp": "Abrir o Estúdio",
+    "eyebrows": {
+      "account": "CONTA",
+      "studio": "ESTÚDIO",
+      "team": "TIME",
+      "access": "ACESSO",
+      "credits": "CRÉDITOS"
+    },
     "verification": {
-      "subject": "Confirme seu e-mail no ADScale",
-      "preview": "Falta só um clique para liberar sua conta.",
-      "title": "Quase lá — confirme seu e-mail",
-      "body": "Você está a um passo de entrar no cockpit. Confirme este endereço para proteger sua conta e começar a gerar variações criativas.",
-      "cta": "Confirmar e-mail",
-      "text": "Confirme seu e-mail no ADScale abrindo este link: {url}"
+      "subject": "Falta um clique",
+      "preview": "Sem isso a conta não abre. É rápido.",
+      "title": "É você?",
+      "body": "Alguém acabou de criar uma conta com este e-mail. Se foi você, libera. Se não foi, ignora — a conta não sai do lugar.",
+      "cta": "Sou eu. Liberar",
+      "text": "Confirme seu e-mail no ADScale: {url}"
     },
     "reset": {
-      "subject": "Redefinir senha do ADScale",
-      "preview": "Seu link seguro para criar uma nova senha.",
-      "title": "Vamos redefinir sua senha",
-      "body": "Recebemos um pedido para trocar a senha da sua conta. O link abaixo é válido por tempo limitado — use-o agora e volte pro cockpit.",
-      "cta": "Criar nova senha",
-      "text": "Redefina sua senha do ADScale abrindo este link: {url}"
+      "subject": "Trocar a senha",
+      "preview": "Link curto. Se não foi você, fecha e ignora.",
+      "title": "Nova senha",
+      "body": "Pediu pra trocar a senha desta conta. O link não espera. Se não foi você, ignora — nada muda.",
+      "cta": "Definir senha",
+      "text": "Redefina sua senha do ADScale: {url}"
     },
     "magicLink": {
-      "subject": "Seu acesso rápido ao ADScale",
-      "preview": "Entre sem senha — link válido por 5 minutos.",
-      "title": "Seu link de acesso chegou",
-      "body": "Clique abaixo para entrar na sua conta. Por segurança, este link expira em 5 minutos.",
-      "cta": "Entrar no ADScale",
-      "text": "Entre no ADScale abrindo este link (válido por 5 minutos): {url}"
+      "subject": "Entrar sem senha",
+      "preview": "Cinco minutos. Depois o link vira papel.",
+      "title": "Seu acesso",
+      "body": "Um clique e você entra no Estúdio. Por segurança, o link expira em 5 minutos.",
+      "cta": "Entrar agora",
+      "text": "Entre no ADScale por este link (válido por 5 minutos): {url}"
     },
     "invite": {
-      "subject": "Convite para {workspaceName} no ADScale",
-      "preview": "Você foi convidado para um workspace no ADScale.",
-      "title": "Você foi convidado para um time",
-      "bodyPrefix": "Alguém te chamou para colaborar em",
-      "bodySuffix": "no ADScale. Aceite o convite para ver campanhas, aprovar peças e gerar variações junto com o time.",
-      "cta": "Aceitar convite",
-      "text": "Você foi convidado para {workspaceName} no ADScale. Aceite em: {url}"
+      "subject": "Convite: {workspaceName}",
+      "preview": "Te chamaram pra gerar e decidir Peças neste time.",
+      "title": "Tem um time te esperando",
+      "bodyPrefix": "Te chamaram pra",
+      "bodySuffix": "no ADScale. Aceita e você gera, revisa e decide o que sobe — com o resto do time.",
+      "cta": "Entrar no time",
+      "text": "Convite para {workspaceName} no ADScale. Aceite em: {url}"
     },
     "waitlist": {
-      "subject": "Você está na lista de espera do ADScale",
-      "preview": "Obrigado pelo interesse — avisaremos quando abrirmos.",
-      "title": "Você entrou na lista de espera",
-      "body": "Recebemos seu cadastro. Quando o ADScale abrir para novos usuários, você será um dos primeiros a saber.",
-      "text": "Você está na lista de espera do ADScale. Avisaremos por e-mail quando abrirmos o acesso."
+      "subject": "Você está na lista",
+      "preview": "Confirmado. Sem fila de recados.",
+      "title": "Anotado",
+      "greeting": "Oi {firstName},",
+      "greetingAnonymous": "Oi,",
+      "body": "Recebemos. Quando houver algo concreto — acesso, update, abertura — este é o canal. Sem e-mail de 'só pra lembrar'.",
+      "reason": "Você recebeu este e-mail porque pediu pra entrar na lista do ADScale.",
+      "text": "Você está na lista do ADScale. Quando houver algo concreto pra você, avisamos neste e-mail."
+    },
+    "welcome": {
+      "subject": "Entrou. Agora gera.",
+      "preview": "{credits} créditos. Sem cartão. Sem prazo.",
+      "title": "O Estúdio tá aberto",
+      "greeting": "Oi {firstName},",
+      "greetingAnonymous": "Oi,",
+      "intro": "Conta confirmada. {credits} créditos pra gastar no Estúdio — sem cartão e sem data de validade. Três coisas que evitam retrabalho:",
+      "step1": "Escreve o briefing de verdade. Objetivo, público, oferta. Pedido vago vira retrabalho.",
+      "step2": "Se tiver referência — marca, produto, peça que já funciona — anexa. Sem isso a IA preenche o vazio, e quase nunca no tom da marca.",
+      "step3": "Gera em lote. Depois decide o que sobe. Você escolhe; a IA faz o operacional.",
+      "close": "Se travar, responde este e-mail. Eu leio.",
+      "cta": "Abrir o Estúdio",
+      "reason": "Você recebeu este e-mail porque criou uma conta no ADScale.",
+      "text": "Oi {firstName},\n\nConta confirmada. {credits} créditos no Estúdio — sem cartão e sem validade.\n\n1. Escreve o briefing de verdade: objetivo, público, oferta.\n2. Anexa uma referência se tiver.\n3. Gera em lote e decide o que sobe.\n\nEstúdio: {url}\n\nSe travar, responde este e-mail.\n\nAbraço,\nJhonatan\nFounder, ADScale"
     }
   },
   "waitlist": {
     "duplicateEmail": "Este e-mail já está na nossa lista de espera."
   },
   "notifications": {
-    "derivationCompleteSubject": "Suas variações criativas estão prontas",
-    "derivationCompleteBody": "Sua campanha \"{campaignName}\" tem {derivationCount} nova(s) variação(ões) pronta(s) para revisão.",
-    "planReadySubject": "Plano criativo pronto",
-    "planReadyBody": "O plano criativo para \"{campaignName}\" está pronto. Abra a campanha para revisar ângulos, ganchos e CTAs.",
-    "lowCreditsSubject": "Saldo de créditos baixo",
-    "lowCreditsBody": "Seu workspace tem {creditBalance} créditos restantes. Adicione créditos para continuar gerando peças.",
-    "trialExpiringSubject": "Teste expirando em breve",
-    "trialExpiringBody": "Seu teste do ADScale expira em {daysLeft} dia(s). Faça upgrade para um plano pago para continuar usando todos os recursos."
+    "derivationCompleteSubject": "Hora de decidir",
+    "derivationCompleteBody": "\"{campaignName}\" tem {derivationCount} peça(s) pronta(s). Revisa e escolhe o que sobe.",
+    "planReadySubject": "Briefing no ponto",
+    "planReadyBody": "O plano criativo de \"{campaignName}\" está pronto. Ângulos, ganchos, CTAs — você decide o que gerar.",
+    "lowCreditsSubject": "Crédito no osso",
+    "lowCreditsBody": "Restam {creditBalance} créditos neste workspace. Sem crédito, a geração para. Recarrega quando quiser continuar.",
+    "trialExpiringSubject": "O teste tá no fim",
+    "trialExpiringBody": "Faltam {daysLeft} dia(s). Se tá valendo, escolhe um plano. Se ainda tem dúvida, responde este e-mail."
   },
   "feedback": {
     "trigger": "Enviar feedback",

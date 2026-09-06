@@ -1,10 +1,21 @@
-# Sequência de E-mails — ADScale (versão light)
+# Sequência de E-mails — ADScale
 
-> 3 sequências, 10 e-mails totais. Resend já está no stack.
-> Detalhe operacional em [`../plano-marketing-completo.md`](../plano-marketing-completo.md).
->
-> **Princípio:** menos e-mail, melhor e-mail. Cada e-mail tem
-> 1 objetivo. Sem "só pra lembrar" ou "última chance" de 7 emails.
+> Copy de execução no app: [`../copy/emails.md`](../copy/emails.md) + `app/messages/pt-BR.json`.
+> Resend já está no stack. Waitlist fechada. Trial público = **500 créditos**, sem cartão e sem validade.
+
+**Princípio:** menos e-mail, melhor e-mail. 1 objetivo por e-mail. Sem "só pra lembrar".
+
+---
+
+## Estado atual (2026-09-02)
+
+| Sequência | Estado | Por quê |
+|-----------|--------|---------|
+| 1 — Welcome waitlist | Arquivada | `POST /api/waitlist` retorna 410. Cadastro é público em `/signup`. |
+| 2 — Anúncio de lançamento | Arquivada | Produto aberto. Sem T-7 / T-1 / T0. |
+| 3 — Onboarding trial | **D+0 no produto** | Welcome dispara na primeira ativação do trial (depois da verificação de e-mail). D+2/D+5/D+10 **não** entram: D+2 era case de cliente sem prova; D+10 assumia trial de 14 dias. |
+
+O equivalente operacional do "trial acabando" no produto atual é o e-mail de **créditos baixos**.
 
 ---
 
@@ -13,344 +24,59 @@
 - **Assunto:** ≤ 50 caracteres, sem caps lock, sem emoji de exclamação.
 - **Pré-header:** ≤ 90 caracteres, complementa o assunto (não repete).
 - **Corpo:** 1 ideia por e-mail, 1 CTA principal.
-- **Tom:** consistente com `brand/tom-de-voz.md` — direto, técnico, sem corporate.
-- **Rodapé:** assinatura pessoal (Jhonatan) + link de descadastro + razão social.
+- **Tom:** founder-cientista — direto, técnico, sem corporate. Tese: inteligência criativa em escala.
+- **Vocabulário:** Estúdio, Trabalho, Peça, briefing. Evitar cockpit, "IA mágica", claims de velocidade sem dado.
+- **Rodapé:** assinatura pessoal (Jhonatan) + razão do envio quando não for auth puro.
 
-**Variáveis de personalização usadas:**
-
-- `{{first_name}}` — primeiro nome do destinatário
-- `{{trial_end_date}}` — data de fim do trial (sequência 3)
+**Variáveis:** `{{first_name}}`, `{{credits}}` (500), `{{url}}`.
 
 ---
 
-## 1. Sequência 1 — Welcome waitlist (3 e-mails)
+## 1. Sequência 1 — Welcome waitlist (arquivada)
 
-**Trigger:** signup na página de waitlist.
-**Objetivo:** confirmar inscrição, entregar valor, manter lead quente.
-**Janela:** 7 dias.
+**Trigger antigo:** signup na waitlist. **Não dispara.**
 
-### 1.1 E-mail #1 — Confirmação imediata (D+0)
+A função `sendWaitlistConfirmationEmail` ainda existe. O endpoint de waitlist não a chama.
 
-**Assunto:** Você está na lista
-**Pré-header:** E o que vem por aí nos próximos 7 dias.
-
-```
-Oi {{first_name}},
-
-Confirmação rápida: você está na lista do ADScale.
-
-O que isso significa na prática:
-- Você vai receber um e-mail por semana com bastidor do que estou construindo.
-- Quando lançar (em algumas semanas), você entra com condição especial.
-- Antes de todo mundo.
-
-Nos próximos dias vou te mandar 2 e-mails:
-1. Um sobre por que decidi construir o ADScale do zero.
-2. Um com 3 erros que vejo toda agência cometendo em produção de criativos.
-
-Se tiver alguma pergunta, responde esse e-mail. Eu leio tudo.
-
-Abraço,
-Jhonatan
-Founder, ADScale
-```
-
-**CTA:** botão "Responde esse e-mail" (mailto).
-
-### 1.2 E-mail #2 — Por que criei o ADScale (D+3)
-
-**Assunto:** Por que parei tudo pra construir isso
-**Pré-header:** 18 meses olhando o mesmo problema. Achei a saída.
-
-```
-Oi {{first_name}},
-
-Em 2024 eu olhei pro mercado de produção de criativos pra ads e vi uma coisa:
-as ferramentas existentes te obrigam a escolher entre velocidade e qualidade.
-
-- Velocidade: gera 50 criativos em 5 minutos. 80% não serve.
-- Qualidade: designer leva 3 dias pra entregar 5 criativos. Você não testa.
-
-O ADScale existe porque isso é uma falsa dicotomia.
-
-A ideia: a IA cuida da parte operacional (variação, adaptação de formato,
-restyling). O humano cuida do que importa (estratégia, briefing, aprovação).
-
-Subi um criativo teste na semana passada, gerei 24 variações em 11 minutos,
-aprovei 9. Antes eu esperava 2 dias pelo designer.
-
-Quando você tá na lista, esse tipo de update é o que você vai receber.
-Bastidor real. Sem filtro.
-
-Abraço,
-Jhonatan
-```
-
-**CTA:** botão "Ver demo de 60s" → link pro Reel.
-
-### 1.3 E-mail #3 — Erro recorrente + educação (D+7)
-
-**Assunto:** 3 erros que travam a produção de criativos
-**Pré-header:** Erro #1 afeta 80% das agências que vejo.
-
-```
-Oi {{first_name}},
-
-Tô rodando o ADScale com 5 agências beta. Em 2 meses, vi 3 erros que se repetem em todas:
-
-1. Tratar variação como projeto.
-   Variação é batch. 1 criativo base gera 20 derivações, não 20 projetos individuais.
-   O erro: cobrar por unidade. O certo: cobrar por campanha.
-
-2. Briefing vago.
-   "Quero algo moderno e clean" não é briefing. É desperdício de designer.
-   O certo: objetivo, público, tom de voz, oferta, plataformas. 5 campos. 2 minutos.
-
-3. Adaptar formato manualmente.
-   1:1, 4:5, 9:16, 16:9 — 4 formatos pra Meta, TikTok e Google. Fazer um por um é
-   o motivo de a maioria das agências não testar mais de 2-3 criativos por campanha.
-
-O ADScale resolve os 3. Mas mesmo sem o produto, dá pra eliminar 80% do retrabalho
-só corrigindo o briefing.
-
-Próximo e-mail: vou te avisar quando o ADScale abrir.
-
-Abraço,
-Jhonatan
-```
-
-**CTA:** botão "Responde: qual desses 3 é seu maior vilão?" (mailto).
+E-mails #2 e #3 (D+3 / D+7) não entram no app. Copy antiga falava em "quando lançar" e em números de bastidor não revalidados.
 
 ---
 
-## 2. Sequência 2 — Anúncio de lançamento (3 e-mails)
+## 2. Sequência 2 — Anúncio de lançamento (arquivada)
 
-**Trigger:** agendada por data (T-7, T-1, T0).
-**Objetivo:** converter lead da waitlist em trial no dia do lançamento.
-**Janela:** 7 dias.
-
-### 2.1 E-mail #4 — Aviso prévio (T-7)
-
-**Assunto:** Falta 1 semana
-**Pré-header:** ADScale abre pra todo mundo no dia [DATA].
-
-```
-Oi {{first_name}},
-
-Falta 1 semana pro ADScale abrir.
-
-O que vai ter no dia 0:
-- Acesso imediato (sem fila) pra quem tá na waitlist.
-- 14 dias grátis (sem cartão).
-- 30% de desconto vitalício pros 100 primeiros que ativarem.
-
-Não vou te mandar mais e-mail "contagem regressiva".
-Te vejo no dia 0 com o link de acesso.
-
-Abraço,
-Jhonatan
-```
-
-**CTA:** botão "Adiciona ao calendário" (arquivo .ics com a data).
-
-### 2.2 E-mail #5 — Acesso liberado (T-1)
-
-**Assunto:** Amanhã, 9h
-**Pré-header:** Teu link de acesso tá aqui. Bora?
-
-```
-Oi {{first_name}},
-
-Amanhã, 9h (horário de Brasília), o ADScale abre pra waitlist.
-
-Teu link de acesso: [LINK-PESSOAL-DA-WAITLIST]
-
-Algumas coisas que vão acontecer amanhã:
-- 9h00: e-mail "ADScale está no ar" com link direto de login.
-- 12h00: live de 30 min mostrando o fluxo completo.
-- 20h00: e-mail com números do dia 1.
-
-E o que importa pra você:
-- 14 dias grátis. Sem cartão.
-- Se você for um dos 100 primeiros a ativar, ganha 30% vitalício.
-
-Te vejo amanhã.
-
-Abraço,
-Jhonatan
-```
-
-**CTA:** botão "Quero entrar amanhã" → link de login (placeholder).
-
-### 2.3 E-mail #6 — Lançamento T0 (T0, 9h)
-
-**Assunto:** ADScale está no ar
-**Pré-header:** Teu link de acesso, tua condição especial, e 1 vídeo de 60s.
-
-```
-Oi {{first_name}},
-
-ADScale está no ar.
-
-Teu link de acesso (válido por 24h): [LINK-WAITLIST]
-
-Aqui o que muda pra você a partir de agora:
-- 14 dias grátis pra testar o fluxo completo.
-- 30% de desconto vitalício se for um dos 100 primeiros a ativar.
-- Acesso prioritário a features beta.
-
-Como começar em 3 minutos:
-1. Clica no link, cria tua conta (ou loga).
-2. Sobe 1 criativo base.
-3. Clica em "Gerar derivações".
-
-Demora menos de 3 min. Sem cartão. Sem compromisso.
-
-Bora.
-
-Abraço,
-Jhonatan
-
-PS: Responde esse e-mail dizendo "ativei" — eu mesmo vou responder com 1 dica
-pra tirar o máximo da plataforma no primeiro dia.
-```
-
-**CTA:** botão "Entrar no ADScale" → link principal.
+T-7 / T-1 / T0 com calendário, live e desconto vitalício **não** entram no produto. Ofertas e datas precisariam de decisão nova do founder antes de qualquer disparo.
 
 ---
 
-## 3. Sequência 3 — Onboarding trial (4 e-mails)
+## 3. Sequência 3 — Onboarding trial (D+0 no produto)
 
-**Trigger:** signup no produto (trial iniciado).
-**Objetivo:** levar o trial até a 1ª derivação aprovada.
-**Janela:** 14 dias (trial inteiro).
+**Trigger:** verificação de e-mail + `activateSignupTrialForOwner` retorna `activated`.
+**Objetivo:** levar o trial até a 1ª Peça revisada no Estúdio.
+**Janela:** créditos, não calendário.
 
-### 3.1 E-mail #7 — Boas-vindas no produto (D+0, 5 min após signup)
+### 3.1 E-mail #7 — Boas-vindas no produto (D+0)
 
-**Assunto:** Bem-vindo. 3 passos pra ver valor agora.
-**Pré-header:** 5 minutos de leitura = 1 hora de tentativa evitada.
+Implementado em `sendWelcomeEmail`. Copy viva em `transactionalEmails.welcome`.
 
-```
-Oi {{first_name}},
+**Assunto:** Entrou. Agora gera.
+**Pré-header:** 500 créditos. Sem cartão. Sem prazo.
+**CTA:** Abrir o Estúdio → app.
 
-Bem-vindo ao ADScale.
+1. Briefing de verdade (objetivo, público, oferta). Pedido vago vira retrabalho.
+2. Referência opcional — sem ela a IA preenche o vazio, e quase nunca no tom da marca.
+3. Gerar em lote, depois decidir o que sobe. Humano escolhe; IA faz o operacional.
 
-Você tem 14 dias pra testar. Pra usar bem esse tempo, segue o caminho mais rápido
-até o "uau" do produto:
+### 3.2 E-mail #8 — Case real (D+2) — não enviar
 
-Passo 1 (2 min): Cria uma campanha.
-   - Objetivo: o que você quer otimizar (conversão, leads, awareness).
-   - Plataformas: Meta, Google, TikTok. Pode escolher mais de uma.
+Bloqueado pelo gate de claims: sem prova de cliente real, sem números de agência. Reavaliar só com case autorizado e evidência.
 
-Passo 2 (1 min): Sobe 1 criativo base.
-   - PNG ou JPEG. Quanto mais simples, melhor pra começar.
+### 3.3 E-mail #9 — Recursos avançados (D+5) — não enviar nesta rodada
 
-Passo 3 (3 min): Clica em "Gerar plano criativo".
-   - A IA vai sugerir ângulos, ganchos e CTAs. Aprova ou edita.
+Restyling, landing e biblioteca existem em graus diferentes. Sem drip até o D+0 estar estável e a copy citar só o que o workspace realmente tem.
 
-Pronto. Em 5 minutos você tá com 10+ derivações prontas pra revisar.
+### 3.4 E-mail #10 — Lembrete final (D+10) — substituído
 
-Se travar em qualquer ponto, responde esse e-mail. Eu leio e respondo pessoalmente.
-
-Abraço,
-Jhonatan
-```
-
-**CTA:** botão "Criar minha 1ª campanha" → deep link no app.
-
-### 3.2 E-mail #8 — Case real (D+2)
-
-**Assunto:** Como a agência X fez 200 criativos em 1 semana
-**Pré-header:** Sem contratar ninguém. Só reorganizando o workflow.
-
-```
-Oi {{first_name}},
-
-Compartilho aqui um case real (com permissão) de uma agência beta
-que tá rodando o ADScale há 6 semanas.
-
-Antes do ADScale:
-- 2 designers em tempo integral.
-- 8-10 criativos por semana.
-- 3-4 dias de prazo médio.
-
-Depois do ADScale:
-- Mesma equipe. Zero contratação.
-- 200+ criativos por semana.
-- Workflow de 2h: briefing → aprovação → export.
-
-O que mudou (palavras do dono da agência):
-"A IA cuidou das variações e adaptação de formato. A gente focou no que
-importa: estratégia de campanha e aprovação final."
-
-Quer aplicar isso no teu workflow? Tô disponível pra 15 min de call
-essa semana. Calendly no link.
-
-Abraço,
-Jhonatan
-```
-
-**CTA:** botão "Quero 15 min com o Jhonatan" → link do Calendly.
-
-### 3.3 E-mail #9 — Recursos avançados (D+5)
-
-**Assunto:** 3 features que 70% dos usuários não usam (e deviam)
-**Pré-header:** Restyling, landing pages, biblioteca de cliente.
-
-```
-Oi {{first_name}},
-
-Você tá na metade do trial. Esse e-mail é sobre 3 features que pouca gente
-usa, mas que fazem diferença grande no resultado final:
-
-1. Restyling (intensidade: soft / medium / strong)
-   Pega um criativo aprovado e aplica o estilo visual de outro. Útil pra
-   padronizar visual entre campanhas.
-
-2. Landing pages automáticas
-   Quando você aprova um criativo, o ADScale gera uma landing page HTML no
-   mesmo estilo. Sem mexer em código.
-
-3. Biblioteca de referências de cliente
-   Salva logo, paleta, estilo, produtos, "negativos". Toda derivação nova
-   consulta essa biblioteca. Fidelidade de marca de verdade.
-
-Abre o app, testa 1 dessas 3 hoje, e me conta o que achou.
-
-Abraço,
-Jhonatan
-```
-
-**CTA:** botão "Testar feature avançada" → deep link na feature.
-
-### 3.4 E-mail #10 — Lembrete final (D+10, 4 dias antes do fim)
-
-**Assunto:** Faltam 4 dias pro trial acabar
-**Pré-header:** 3 caminhos pra escolher.
-
-```
-Oi {{first_name}},
-
-Seu trial acaba em 4 dias ({{trial_end_date}}).
-
-Não vou te encher o saco. 3 caminhos possíveis:
-
-1. **Você tá usando e tá valendo.**
-   Escolhe um plano e segue. Starter é o mais comum pra começar.
-
-2. **Você usou mas ainda tá na dúvida.**
-   Me conta o que tá faltando. Eu respondo em 24h.
-
-3. **Você não usou.**
-   Tudo bem. Cancela ou deixa expirar. Quando quiser voltar, é só logar.
-
-Se for caminho 1 ou 2, clica aqui: [LINK DE CONVERSÃO]
-
-Abraço,
-Jhonatan
-```
-
-**CTA:** botão "Ver planos" → página de pricing.
+Trial não tem data de fim. Usar **créditos baixos** (`sendLowCreditsEmail`) quando o saldo passa do limiar.
 
 ---
 
@@ -358,45 +84,41 @@ Jhonatan
 
 Todo e-mail DEVE ter:
 
-- **Link de descadastro funcional** (uma única click).
-- **Identificação do remetente** (nome + razão social + endereço físico).
-- **Honestidade no assunto** (sem clickbait enganoso).
-- **Consentimento explícito** (só envia pra quem optou — waitlist, trial, ou signup).
+- Identificação do remetente (nome + ADScale).
+- Honestidade no assunto.
+- Consentimento: auth e welcome só pra quem criou conta; waitlist só pra quem optou (histórico).
 
-**Template de rodapé padrão:**
+**Rodapé padrão (welcome):**
 
 ```
---
-Jhonatan Soares
+Abraço,
+Jhonatan
 Founder, ADScale
-[Endereço físico da empresa]
-Você recebeu esse e-mail porque [motivo do envio].
-[Descadastrar]
+Você recebeu este e-mail porque criou uma conta no ADScale.
 ```
 
 ---
 
-## 5. Métricas por sequência
+## 5. Métricas (quando houver volume)
 
-| Sequência | Abertura esperada | Clique (CTOR) | Conversão objetivo |
-|-----------|-------------------|---------------|---------------------|
-| 1 — Welcome waitlist | ≥ 40% | ≥ 8% | Aguardar lançamento |
-| 2 — Anúncio lançamento | ≥ 35% | ≥ 12% | ≥ 20% waitlist → trial |
-| 3 — Onboarding trial | ≥ 30% | ≥ 6% | ≥ 60% gera 1ª derivação |
+| Sequência | Abertura | Clique (CTOR) | Conversão objetivo |
+|-----------|----------|---------------|---------------------|
+| Welcome D+0 | ≥ 40% | ≥ 8% | 1ª Peça gerada no Estúdio |
+| Créditos baixos | ≥ 30% | ≥ 6% | recarga ou plano |
 
 ---
 
-## 6. O que FOI cortado (vs versão anterior)
+## 6. O que continua de fora
 
 | Cortado | Por quê |
 |---------|---------|
-| Sequência 4 (recuperação de trial inativo) | Meta de 50 não justifica 3 e-mails extras de re-engajamento. Adicionar quando base for > 200. |
-| Sequência 5 (conversão trial → pago, 3 e-mails) | Substituída por 1 e-mail único (D+10) na sequência 3. Suficiente pra meta de 50. |
-| Sequência 6 (reativação de trials antigos) | Só faz sentido com base > 500. |
-| Lógica condicional #9a/#9b no onboarding | Simplificado — manda sempre o case (D+2). Menos complexidade, mesmo resultado. |
+| Sequência waitlist D+3/D+7 | Waitlist fechada; copy de pré-lançamento. |
+| Sequência lançamento T-7/T0 | Produto já aberto. |
+| Recuperação de trial inativo | Sem relógio de 14 dias. |
+| Lógica condicional de case | Sem prova de cliente. |
 
-**Quando trazer de volta:** quando a base ativa for > 200 e o trial → pago ficar < 15%.
+**Quando trazer de volta:** waitlist só se reabrir captura. Case só com autorização e evidência. Drip D+5 só depois do welcome D+0 estável.
 
 ---
 
-*Mantido em `marketing/2026-Q3/` · PT-BR · Última atualização: 2026-06-23*
+*Mantido em `marketing/2026-Q3/` · PT-BR · Última atualização: 2026-09-02*

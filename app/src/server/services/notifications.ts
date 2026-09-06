@@ -3,7 +3,11 @@ import { db } from "@/server/db";
 import { user, workspaceMembers } from "@/server/db/schema";
 import { sendEmail } from "@/server/services/email";
 import { getTransactionalEmailTranslations } from "@/server/services/email-i18n";
-import { escapeHtml, renderTransactionalEmail } from "@/server/services/email-template";
+import {
+  emailLogoUrl,
+  paragraphsToHtml,
+  renderTransactionalEmail,
+} from "@/server/services/email-template";
 import { getTranslations } from "next-intl/server";
 import { env } from "@/server/validation/env";
 
@@ -62,18 +66,27 @@ async function sendNotificationEmail(input: {
   title: string;
   body: string;
   locale?: string;
+  eyebrowKey: "eyebrows.studio" | "eyebrows.credits" | "eyebrows.account";
 }) {
-  const { t } = await getTransactionalEmailTranslations(input.locale);
+  const { t, locale } = await getTransactionalEmailTranslations(input.locale);
 
   await sendEmail({
     to: input.to,
     subject: input.subject,
     text: input.body,
     html: renderTransactionalEmail({
+      lang: locale,
+      logoUrl: emailLogoUrl(env.APP_URL),
+      eyebrow: t(input.eyebrowKey),
       preview: input.subject,
       title: input.title,
-      bodyHtml: escapeHtml(input.body),
+      bodyHtml: paragraphsToHtml([input.body]),
       cta: { label: t("openApp"), url: env.APP_URL },
+      signoff: {
+        close: t("signoffClose"),
+        name: t("signoffName"),
+        role: t("signoffRole"),
+      },
       footerFallback: t("footerFallback"),
       footerIgnore: t("footerIgnore"),
       footerSignature: t("footerSignature"),
@@ -96,7 +109,14 @@ export async function sendDerivationCompleteEmail({
   const subject = t("derivationCompleteSubject");
   const body = t("derivationCompleteBody", { campaignName, derivationCount });
 
-  await sendNotificationEmail({ to, subject, title: subject, body, locale });
+  await sendNotificationEmail({
+    to,
+    subject,
+    title: subject,
+    body,
+    locale,
+    eyebrowKey: "eyebrows.studio",
+  });
 }
 
 export async function sendPlanReadyEmail({
@@ -112,7 +132,14 @@ export async function sendPlanReadyEmail({
   const subject = t("planReadySubject");
   const body = t("planReadyBody", { campaignName });
 
-  await sendNotificationEmail({ to, subject, title: subject, body, locale });
+  await sendNotificationEmail({
+    to,
+    subject,
+    title: subject,
+    body,
+    locale,
+    eyebrowKey: "eyebrows.studio",
+  });
 }
 
 export async function sendLowCreditsEmail({
@@ -128,7 +155,14 @@ export async function sendLowCreditsEmail({
   const subject = t("lowCreditsSubject");
   const body = t("lowCreditsBody", { creditBalance });
 
-  await sendNotificationEmail({ to, subject, title: subject, body, locale });
+  await sendNotificationEmail({
+    to,
+    subject,
+    title: subject,
+    body,
+    locale,
+    eyebrowKey: "eyebrows.credits",
+  });
 }
 
 export async function sendTrialExpiringEmail({
@@ -144,5 +178,12 @@ export async function sendTrialExpiringEmail({
   const subject = t("trialExpiringSubject");
   const body = t("trialExpiringBody", { daysLeft });
 
-  await sendNotificationEmail({ to, subject, title: subject, body, locale });
+  await sendNotificationEmail({
+    to,
+    subject,
+    title: subject,
+    body,
+    locale,
+    eyebrowKey: "eyebrows.account",
+  });
 }

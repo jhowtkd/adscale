@@ -7,9 +7,9 @@
 | Arquivo | Status | Uso |
 |---------|--------|-----|
 | [`sales-page.md`](./sales-page.md) | ✅ v1 | Página de vendas principal (`/sales` ou equivalente) |
+| [`emails.md`](./emails.md) | ✅ v1 | Transacionais, welcome de trial e notificações (waitlist/lançamento arquivados) |
 | `home-hero.md` *(em breve)* | | Headline + subheadline da home |
 | `ads-pagos.md` *(em breve)* | | Copy para campanhas pagas (Meta, Google, LinkedIn) |
-| `emails.md` *(em breve)* | | Sequência de onboarding / trial / recuperação |
 | `posts-sociais.md` *(em breve)* | | Banco de posts prontos para redes sociais |
 
 ## Convenção
