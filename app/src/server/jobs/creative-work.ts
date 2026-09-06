@@ -303,8 +303,9 @@ const creativeWorkOutputJobConfig: {
     id: "generate-creative-work-output",
     retries: 0 as const,
     concurrency: [
-      // ponytail: the production web instance has 512 MB; keep every OpenAI
-      // image job account-wide serial until generation has a dedicated worker.
+      // v1 drain only: serial on the 512 MB web serve for unsuffixed
+      // creative-work.generate. New work uses generate-creative-work-output-v2
+      // (limit 2, key "openai") on adscale-image-worker.
       { limit: 1, scope: "account" as const, key: `"creative-work-image"` },
     ],
     onFailure: async ({ event, error, step }) => {
