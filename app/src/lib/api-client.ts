@@ -1,3 +1,5 @@
+import { unauthorizedLoginHref } from "@/lib/auth-callback";
+
 export async function apiFetch(
   input: RequestInfo | URL,
   init?: RequestInit & { timeoutMs?: number }
@@ -10,7 +12,11 @@ export async function apiFetch(
   });
 
   if (res.status === 401) {
-    window.location.href = "/login";
+    if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+      window.location.href = unauthorizedLoginHref(
+        `${window.location.pathname}${window.location.search}`,
+      );
+    }
     throw new Error("Unauthorized");
   }
 
