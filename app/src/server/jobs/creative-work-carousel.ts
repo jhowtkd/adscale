@@ -574,7 +574,7 @@ const carouselSlideJobConfig: {
 } = {
     id: "generate-creative-work-carousel-slide",
     retries: 0 as const,
-    // Same account-wide image concurrency key protecting Creative Work.
+    // Carousel-specific account image key; v2 Creative Work uses key `"openai"` (limit 2).
     concurrency: [{ limit: 1, scope: "account" as const, key: `"creative-work-image"` }],
     onFailure: async ({ event, error, step }) => {
     const data = event.data as CarouselSlideGenerateEvent;
