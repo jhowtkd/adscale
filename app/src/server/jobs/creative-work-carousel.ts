@@ -41,7 +41,6 @@ import type {
   CreativeWorkItem,
 } from "@/server/db/schema";
 import { inngest } from "./client";
-import { CAROUSEL_SLIDE_GENERATE_EVENT, heavyImageEventName } from "./heavy-image-events";
 import type { Inngest } from "inngest";
 
 /**
@@ -575,7 +574,7 @@ const carouselSlideJobConfig: {
 } = {
     id: "generate-creative-work-carousel-slide",
     retries: 0 as const,
-    // Same account-wide image concurrency key protecting Creative Work.
+    // Carousel-specific account image key; v2 Creative Work uses key `"openai"` (limit 2).
     concurrency: [{ limit: 1, scope: "account" as const, key: `"creative-work-image"` }],
     onFailure: async ({ event, error, step }) => {
     const data = event.data as CarouselSlideGenerateEvent;
@@ -591,7 +590,7 @@ const carouselSlideJobConfig: {
 export const creativeWorkCarouselSlideJob = inngest.createFunction(
   {
     ...carouselSlideJobConfig,
-    triggers: [{ event: heavyImageEventName(CAROUSEL_SLIDE_GENERATE_EVENT) }],
+    triggers: [{ event: "creative-work.carousel-slide.generate" }],
   },
   async ({ event, step }: { event: { data: unknown }; step: CarouselSlideJobStep }) =>
     step.run("generate-carousel-slide", () =>
@@ -604,7 +603,7 @@ export function createCreativeWorkCarouselSlideJobV2(client: Inngest) {
     {
       ...carouselSlideJobConfig,
       id: "generate-creative-work-carousel-slide-v2",
-      triggers: [{ event: heavyImageEventName(CAROUSEL_SLIDE_GENERATE_EVENT) }],
+      triggers: [{ event: "creative-work.carousel-slide.generate.v2" }],
     },
     async ({ event, step }: { event: { data: unknown }; step: CarouselSlideJobStep }) =>
       step.run("generate-carousel-slide", () =>

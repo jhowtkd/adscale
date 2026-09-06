@@ -28,8 +28,10 @@ services:
         value: production
       - key: NEXT_TELEMETRY_DISABLED
         value: "1"
+      # Controls the event suffix emitted by API inngest.send (heavyImageEventName).
+      # Jobs matching *.v2 run on adscale-image-worker, not this 512 MB web dyno.
       - key: IMAGE_JOB_TARGET
-        value: web
+        value: worker
       - key: IMAGE_ROUTE_CONCURRENCY
         value: "1"
       - key: DATABASE_URL

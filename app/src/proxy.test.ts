@@ -63,4 +63,39 @@ describe("proxy auth routing", () => {
     const res = await proxy(requestFor("/"));
     expect(res.headers.get("location")).toBe("http://localhost:3000/login");
   });
+
+  it("sends unauthenticated Studio resume on / to login instead of MARKETING_URL", async () => {
+    const res = await proxy(requestFor(`/?workId=${"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}`));
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe(
+      "http://localhost:3000/login?callbackUrl=%2F%3FworkId%3Daaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    );
+  });
+
+  it("sends unauthenticated /?compose=1 to login with callbackUrl", async () => {
+    const res = await proxy(requestFor("/?compose=1"));
+    expect(res.headers.get("location")).toBe(
+      "http://localhost:3000/login?callbackUrl=%2F%3Fcompose%3D1",
+    );
+  });
+
+  it("still sends bare unauthenticated / to MARKETING_URL", async () => {
+    const res = await proxy(requestFor("/"));
+    expect(new URL(res.headers.get("location")!).origin).toBe("https://www.example.com");
+  });
+
+  it("preserves query on /campaigns callbackUrl", async () => {
+    const res = await proxy(requestFor("/campaigns?tab=review"));
+    expect(res.headers.get("location")).toBe(
+      "http://localhost:3000/login?callbackUrl=%2Fcampaigns%3Ftab%3Dreview",
+    );
+  });
+
+  it("sets callbackUrl for / when MARKETING_URL is unset and Studio query is present", async () => {
+    delete process.env.MARKETING_URL;
+    const res = await proxy(requestFor("/?compose=1"));
+    expect(res.headers.get("location")).toBe(
+      "http://localhost:3000/login?callbackUrl=%2F%3Fcompose%3D1",
+    );
+  });
 });
