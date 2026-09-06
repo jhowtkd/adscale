@@ -1,0 +1,15 @@
+{
+  "name": "ADScale",
+  "install": "bash .cursor/setup/install.sh",
+  "start": "bash .cursor/setup/start.sh",
+  "terminals": [
+    {
+      "name": "app-dev",
+      "command": "cd app && npm run dev"
+    }
+  ],
+  "ports": [
+    { "name": "Next.js app", "port": 3000 },
+    { "name": "Inngest dev", "port": 8288 }
+  ]
+}
