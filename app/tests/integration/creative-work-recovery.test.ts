@@ -64,6 +64,7 @@ import {
   GENERATION_CREDIT_COSTS,
   creativeWorkUnitBillingKey,
 } from "@/server/generation/canonical/types";
+import { creativeWorkTerminalReactivationIdempotencyKey } from "@/server/generation/canonical/policies";
 import { inngest } from "@/server/jobs/client";
 
 const RUN_ID = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -531,7 +532,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work recovery (Postgre
       const output = await createOutput(scope, "conservative");
       const billingKey = creativeWorkUnitBillingKey(scope.workItemId, output.id);
       const refundKey = terminalRefundKey(scope, output.id);
-      const reactivateKey = `creative-work:${scope.workItemId}:output:${output.id}:reactivate-terminal`;
+      const reactivateKey = creativeWorkTerminalReactivationIdempotencyKey(scope.workItemId, output.id, 1);
       const sendMock = vi.mocked(inngest.send);
       sendMock.mockClear();
 
@@ -589,7 +590,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work recovery (Postgre
       expect(reactivationRow?.amount).toBe(CHARGE);
       expect(await countUsageEventsWithKey(scope.workspaceId, reactivateKey)).toBe(1);
       let ledger = await ledgerSnapshot(scope.workspaceId);
-      expect(ledger.events).toHaveLength(3); // generate + terminal-refund + reactivate-terminal
+      expect(ledger.events).toHaveLength(3); // generate + terminal-refund + reactivate-terminal:1
       expect(ledger.txs).toHaveLength(3);
       expect(ledger.usageSum).toBe(CHARGE); // +5 -5 +5
       expect(ledger.txSum).toBe(-CHARGE); // -5 +5 -5: no máximo um débito líquido
