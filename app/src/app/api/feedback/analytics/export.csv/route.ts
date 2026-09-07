@@ -8,6 +8,7 @@ import {
 import { parseOwnerAnalyticsQuery } from "@/server/beta-analytics/query";
 import { listBetaAnalyticsEventsForOwner } from "@/server/repositories/beta-analytics";
 import { listBetaSessions } from "@/server/repositories/beta-sessions";
+import { listSelectedCreativeWorkPieceVersions } from "@/server/repositories/selected-piece-versions";
 
 export async function GET(request: Request) {
   try {
@@ -30,13 +31,54 @@ export async function GET(request: Request) {
       ? sessions.filter((session) => session.id === filters.sessionId)
       : sessions;
 
-    const summary = buildAnalyticsFunnelSummary(events, filteredSessions);
+    const selectedFromDatabase = filters.workspaceId
+      ? await listSelectedCreativeWorkPieceVersions(filters.workspaceId)
+      : undefined;
+
+    const summary = buildAnalyticsFunnelSummary(
+      events,
+      filteredSessions,
+      [],
+      filters.to,
+      { selectedFromDatabase },
+    );
     const eventCsv = eventsToCsvRows(events);
+    const reconcile = summary.valueDelivered.reconcile;
 
     const summaryLines = [
       "# funnel_summary",
       `events,${summary.totals.events}`,
       `sessions,${summary.totals.sessions}`,
+      "",
+      "# value_delivered",
+      `selected_pieces,${summary.valueDelivered.selectedPieces}`,
+      `delivered_pieces,${summary.valueDelivered.deliveredPieces}`,
+      ...(reconcile
+        ? [
+            `reconcile_database,${reconcile.selectedFromDatabase}`,
+            `reconcile_events,${reconcile.selectedFromEvents}`,
+            `reconcile_missing_from_events,${reconcile.missingFromEvents}`,
+            `reconcile_orphaned_from_events,${reconcile.orphanedFromEvents}`,
+          ]
+        : ["reconcile,workspace_filter_required"]),
+      "",
+      "# value_delivered_by_origin",
+      "origin,selected_pieces,delivered_pieces",
+      ...summary.valueDelivered.byOrigin.map(
+        (row) => `${row.origin},${row.selectedPieces},${row.deliveredPieces}`
+      ),
+      "",
+      "# value_delivered_by_protocol",
+      "protocol,selected_pieces,delivered_pieces",
+      ...summary.valueDelivered.byProtocol.map(
+        (row) => `${row.protocol},${row.selectedPieces},${row.deliveredPieces}`
+      ),
+      "",
+      "# value_delivered_weeks",
+      "workspace_id,week_start,selected_pieces,delivered_pieces",
+      ...summary.valueDelivered.weeks.map(
+        (row) => `${row.workspaceId},${row.weekStart},${row.selectedPieces},${row.deliveredPieces}`
+      ),
       "",
       "# mission_funnel",
       "mission_key,entered,completed,conversion_rate",

@@ -7,6 +7,7 @@ import { parseOwnerAnalyticsQuery } from "@/server/beta-analytics/query";
 import { listBetaAnalyticsEventsForOwner } from "@/server/repositories/beta-analytics";
 import { listBetaSessions } from "@/server/repositories/beta-sessions";
 import { listUsageEventsForOwner } from "@/server/repositories/usage";
+import { listSelectedCreativeWorkPieceVersions } from "@/server/repositories/selected-piece-versions";
 
 // listBetaAnalyticsEventsForOwner uses this cap. A full page may be truncated,
 // so rollout evidence must never treat it as a complete population.
@@ -61,7 +62,17 @@ export async function GET(request: Request) {
       ? sessions.filter((session) => session.id === filters.sessionId)
       : sessions;
 
-    const summary = buildAnalyticsFunnelSummary(events, filteredSessions, usageEvents, filters.to);
+    const selectedFromDatabase = filters.workspaceId
+      ? await listSelectedCreativeWorkPieceVersions(filters.workspaceId)
+      : undefined;
+
+    const summary = buildAnalyticsFunnelSummary(
+      events,
+      filteredSessions,
+      usageEvents,
+      filters.to,
+      { selectedFromDatabase },
+    );
 
     return NextResponse.json({
       filters: {

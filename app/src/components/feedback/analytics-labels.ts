@@ -67,6 +67,11 @@ export function useAnalyticsLabels() {
     return formatFallbackKey(key);
   };
 
+  const originLabel = (key: string) => {
+    if (t.has(`valueDelivered.origins.${key}`)) return t(`valueDelivered.origins.${key}`);
+    return formatFallbackKey(key);
+  };
+
   return {
     t,
     missionLabel,
@@ -79,5 +84,6 @@ export function useAnalyticsLabels() {
     assistanceLabel,
     guidedPathLabel,
     blockerLabel,
+    originLabel,
   };
 }

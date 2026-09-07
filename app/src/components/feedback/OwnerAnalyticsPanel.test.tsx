@@ -28,6 +28,8 @@ vi.mock("next-intl", () => ({
       "filters.active": "Filters active",
       "metrics.events": "{count} events",
       "metrics.sessions": "{count} sessions",
+      "metrics.selectedPieces": "{count} selected pieces",
+      "metrics.deliveredPieces": "{count} delivered pieces",
       "metrics.creditBlocks": "{count} credit blocks",
       "metrics.creditSurprises": "{count} credit surprises",
       "studio.title": "Estúdio progressivo", "studio.stage": "Estágio", "studio.stageAria": "Estágio de rollout", "studio.sampleSufficient": "Amostra suficiente", "studio.sampleInsufficient": "Amostra insuficiente", "studio.requirement": "{observation}; ≥{sessions} sessões e ≥{generations} gerações confirmadas por braço", "studio.incompleteData": "Dados incompletos: a consulta atingiu o limite de eventos", "studio.observation7Days": "7 dias completos", "studio.observationAfter50": "após 50% + 14 dias completos", "studio.observationWindowMissing": "Os filtros selecionados cobrem menos de {days} dias completos", "studio.priorStageConfirmation": "Confirmo que o estágio de rollout de 50% atingiu seu gate antes desta revisão", "studio.priorStageMissing": "Confirme a evidência do rollout anterior de 50% antes de avaliar o estágio de 100%", "studio.failureCompletion": "Conclusão mais de 5 pp abaixo do controle", "studio.failureAbandonment": "Abandono mais de 5 pp acima do controle", "studio.failureGeneration": "Falha mais de 0,5 pp acima do controle", "studio.failureRefund": "Reembolso mais de 0,5 pp acima do controle", "studio.metric": "Métrica", "studio.control": "Controle", "studio.progressive": "Progressivo",
@@ -36,6 +38,7 @@ vi.mock("next-intl", () => ({
       "groups.credits": "Credits and billing",
       "groups.sessions": "Sessions and timing",
       "groups.shareReadiness": "Share and readiness",
+      "sections.valueDelivered": "Delivered value",
       "sections.missionConversion": "Mission conversion",
       "sections.cockpitStage": "Cockpit stage funnel",
       "sections.creditSurprisesByOperation": "Credit surprises by operation",
@@ -52,6 +55,20 @@ vi.mock("next-intl", () => ({
       "columns.estimate": "Estimate",
       "columns.actual": "Actual",
       "columns.delta": "Delta",
+      "columns.origin": "Origin",
+      "columns.protocol": "Protocol",
+      "columns.selectedPieces": "Selected",
+      "columns.deliveredPieces": "Delivered",
+      "columns.week": "Week",
+      "columns.workspaceId": "Workspace",
+      "valueDelivered.byOrigin": "By origin",
+      "valueDelivered.byProtocol": "By protocol",
+      "valueDelivered.byWeek": "By week",
+      "valueDelivered.reconcile": "Database {database} · events {events} · missing from events {missing}",
+      "valueDelivered.reconcileNeedsWorkspace": "Filter one workspace to reconcile with real selected pieces.",
+      "valueDelivered.origins.studio": "Studio",
+      "valueDelivered.origins.campaign": "Campaign",
+      "valueDelivered.origins.assistant": "Assistant",
       "stages.preview": "Preview gate",
       "operations.preview": "Preview",
       "outcomes.proceed": "Proceeded",
@@ -65,7 +82,7 @@ vi.mock("next-intl", () => ({
     const handler = (key: string, values?: Record<string, unknown>) => {
       if (namespace === "feedback.analytics") {
         const template = analytics[key] ?? key;
-        return template.replace(/\{(count|observation|sessions|generations|days)\}/g, (_match, key) => String(values?.[key] ?? ""));
+        return template.replace(/\{(count|observation|sessions|generations|days|database|events|missing)\}/g, (_match, key) => String(values?.[key] ?? ""));
       }
       if (namespace === "dashboard.missions.items") {
         return missionItems[key] ?? key;
@@ -141,6 +158,24 @@ describe("OwnerAnalyticsPanel", () => {
               },
             ],
             totals: { events: 1, sessions: 1 },
+            valueDelivered: {
+              selectedPieces: 2,
+              deliveredPieces: 1,
+              byOrigin: [{ origin: "studio", selectedPieces: 2, deliveredPieces: 1 }],
+              byProtocol: [{ protocol: "single", selectedPieces: 2, deliveredPieces: 1 }],
+              weeks: [{
+                workspaceId: "ws-studio",
+                weekStart: "2026-08-31",
+                selectedPieces: 2,
+                deliveredPieces: 1,
+              }],
+              reconcile: {
+                selectedFromDatabase: 2,
+                selectedFromEvents: 2,
+                missingFromEvents: 0,
+                orphanedFromEvents: 0,
+              },
+            },
           }),
         } as Response;
       }
@@ -188,6 +223,11 @@ describe("OwnerAnalyticsPanel", () => {
     renderPanel();
 
     expect(await screen.findByText("Beta analytics")).toBeInTheDocument();
+    expect(await screen.findByText("2 selected pieces")).toBeInTheDocument();
+    expect(screen.getByText("1 delivered pieces")).toBeInTheDocument();
+    expect(screen.getByText("Delivered value")).toBeInTheDocument();
+    expect(screen.getByText("Studio")).toBeInTheDocument();
+    expect(screen.getByText("Database 2 · events 2 · missing from events 0")).toBeInTheDocument();
     expect(await screen.findByText("Mission conversion")).toBeInTheDocument();
     expect(await screen.findByText("Export for platforms")).toBeInTheDocument();
     expect(await screen.findByText("Preview gate")).toBeInTheDocument();

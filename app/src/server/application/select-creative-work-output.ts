@@ -9,6 +9,7 @@ import {
 } from "@/server/repositories/creative-work";
 import type { CreativeWorkOutput } from "@/server/db/schema";
 import { getCreativeWorkSelectionPolicy, type CreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
+import { recordCreativeWorkValueEvent, valueEventFromCreativeWork } from "@/server/creative-work/record-value-event";
 
 export type SelectCreativeWorkOutputInput = {
   workspaceId: string;
@@ -115,6 +116,16 @@ export async function selectCreativeWorkOutputCommand(
       outputKey: output.outputKey,
       theme: existing.work.brief.theme,
       creativeLevel: output.creativeLevel,
+    });
+  }
+
+  if (existing.work.createdByUserId && selected.outputKey) {
+    const context = valueEventFromCreativeWork(existing.work);
+    await recordCreativeWorkValueEvent({
+      ...context,
+      kind: "approved",
+      outputId: selected.id,
+      outputKey: selected.outputKey,
     });
   }
 

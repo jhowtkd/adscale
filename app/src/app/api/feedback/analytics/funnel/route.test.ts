@@ -23,6 +23,10 @@ vi.mock("@/server/repositories/usage", () => ({
   listUsageEventsForOwner: vi.fn(),
 }));
 
+vi.mock("@/server/repositories/selected-piece-versions", () => ({
+  listSelectedCreativeWorkPieceVersions: vi.fn(),
+}));
+
 vi.mock("@/server/feedback/mission-credit-signals", () => ({
   summarizeMissionCreditSignals: vi.fn(),
 }));
@@ -35,6 +39,7 @@ import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { listBetaAnalyticsEventsForOwner } from "@/server/repositories/beta-analytics";
 import { listBetaSessions } from "@/server/repositories/beta-sessions";
 import { listUsageEventsForOwner } from "@/server/repositories/usage";
+import { listSelectedCreativeWorkPieceVersions } from "@/server/repositories/selected-piece-versions";
 import { summarizeMissionCreditSignals } from "@/server/feedback/mission-credit-signals";
 import { ANALYTICS_FIXTURE_EVENTS } from "@/server/beta-analytics/aggregate.fixture";
 import { EXAMPLE_BETA_SESSION_FIXTURE } from "@/server/repositories/beta-sessions.fixture";
@@ -44,6 +49,7 @@ const mockRequireOwner = vi.mocked(requirePlatformOwner);
 const mockListEvents = vi.mocked(listBetaAnalyticsEventsForOwner);
 const mockListSessions = vi.mocked(listBetaSessions);
 const mockListUsage = vi.mocked(listUsageEventsForOwner);
+const mockListSelected = vi.mocked(listSelectedCreativeWorkPieceVersions);
 const mockCreditSummary = vi.mocked(summarizeMissionCreditSignals);
 
 const WORKSPACE_ID = EXAMPLE_BETA_SESSION_FIXTURE.workspaceId;
@@ -72,6 +78,7 @@ describe("owner analytics routes", () => {
     mockListEvents.mockResolvedValue(ANALYTICS_FIXTURE_EVENTS);
     mockListSessions.mockResolvedValue([sessionRow()]);
     mockListUsage.mockResolvedValue([]);
+    mockListSelected.mockResolvedValue([]);
     mockCreditSummary.mockResolvedValue({
       healthyCount: 2,
       frustrationCount: 1,
@@ -101,6 +108,13 @@ describe("owner analytics routes", () => {
       ]));
       expect(body).not.toHaveProperty("usageEvents");
       expect(body.dataComplete).toBe(true);
+      expect(body.valueDelivered.reconcile).toEqual({
+        selectedFromDatabase: 0,
+        selectedFromEvents: 0,
+        missingFromEvents: 0,
+        orphanedFromEvents: 0,
+      });
+      expect(mockListSelected).toHaveBeenCalledWith(WORKSPACE_ID);
       expect(mockListUsage).toHaveBeenCalledWith({
         workspaceId: WORKSPACE_ID,
         from: undefined,
@@ -179,7 +193,10 @@ describe("owner analytics routes", () => {
       expect(res.headers.get("content-type")).toContain("text/csv");
       const body = await res.text();
       expect(body).toContain("# mission_funnel");
+      expect(body).toContain("# value_delivered");
+      expect(body).toContain("selected_pieces,");
       expect(body).toContain("cockpit_stage_entered");
+      expect(mockListSelected).toHaveBeenCalledWith(WORKSPACE_ID);
     });
 
     it("returns 403 for non-platform-owner", async () => {

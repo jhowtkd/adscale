@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api-client";
 import { detectEntryGaps } from "@/lib/studio/detect-entry-gaps";
 import { isEntryProtocol } from "@/lib/studio/entry-catalog";
@@ -95,8 +95,10 @@ export function useStudioEntryInterview(input: {
   const postGenerationRef = useRef(0);
   const chipsShownSignatureRef = useRef<string | null>(null);
 
-  answersRef.current = answers;
-  requestFocusedRef.current = requestFocused;
+  useLayoutEffect(() => {
+    answersRef.current = answers;
+    requestFocusedRef.current = requestFocused;
+  });
 
   const writeRequest = useCallback((value: string) => {
     lastWrittenRef.current = value;

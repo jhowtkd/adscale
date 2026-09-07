@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
+import { CATALOG_PAGE_DEFAULT_LIMIT } from "@/lib/catalog-page";
 import { STALE_TIME } from "@/lib/query-config";
 import { invalidateWorkListProjections } from "@/lib/hooks/use-canonical-works";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -37,7 +38,7 @@ export class TemplateLoadError extends Error {
 }
 
 async function fetchTemplates(): Promise<CampaignTemplate[]> {
-  const res = await apiFetch("/api/templates");
+  const res = await apiFetch(`/api/templates?limit=${CATALOG_PAGE_DEFAULT_LIMIT}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Erro ao carregar templates");

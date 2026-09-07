@@ -5,6 +5,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
+import { rejectEmptyVisualSuccess } from "./lib/evidence-honesty.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const phaseDir = resolve(repoRoot, ".planning/phases/109-visual-foundations-and-baseline");
@@ -126,15 +127,10 @@ function writeVerification(evidence) {
   );
 }
 
-function ensureFinalRequirements(evidence) {
+function ensureFinalRequirements(evidence, errors) {
   if (!evidence.requirements?.length) {
-    evidence.requirements = requiredRequirements.map((id) => ({
-      id,
-      result: "pass",
-      automated: `check-visual-contract + visual-foundations/overlays tests`,
-      browser: `paired matrix ${evidence.captures.length}/${required.length}`,
-      manual: "compact professional tonal review",
-    }));
+    errors.push("missing requirements must not be auto-passed");
+    return;
   }
 }
 
@@ -148,6 +144,7 @@ try {
   const evidence = JSON.parse(readFileSync(evidencePath, "utf8"));
   const errors = [];
   const cssHash = currentCssHash();
+  rejectEmptyVisualSuccess(evidence, errors, "109-EVIDENCE");
 
   if (evidence.schemaVersion !== 1) errors.push("schemaVersion must be 1");
   if (evidence.identity !== "visual-foundations@example.test") {
@@ -215,7 +212,7 @@ try {
     }
     validateCaptureSet(evidence.captures, "before", errors);
     validateCaptureSet(evidence.afterCaptures ?? [], "after", errors);
-    ensureFinalRequirements(evidence);
+    ensureFinalRequirements(evidence, errors);
     const ids = evidence.requirements.map((row) => row.id);
     if (new Set(ids).size !== requiredRequirements.length) errors.push("requirements must include FOUND-01..05 and QA-14 once");
     for (const row of evidence.requirements) {

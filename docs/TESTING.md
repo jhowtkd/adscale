@@ -282,14 +282,17 @@ No minimum coverage thresholds are defined in `app/config/vitest.config.ts` or e
 | Typecheck | `cd app && npm run typecheck` (runs `tsc --noEmit`) |
 | Migrations | `cd app && npx drizzle-kit migrate` with `DATABASE_URL=postgres://test:test@localhost:5432/adscale_test` |
 | **Tests** | `cd app && npm test -- --run` with `DATABASE_URL` and `NODE_ENV=test` |
+| Visual evidence honesty | `cd app && node scripts/check-release-gate.mjs --preflight` (empty or partial `114-EVIDENCE.json` fails) |
 | Build | `cd app && npm run build` (with test env vars for auth, OpenAI, R2, Inngest, Stripe) |
 | Start app for e2e | `cd app && npm run start &` (production build, port `3000`) |
 | Install Playwright browsers | `cd app && npx playwright install --with-deps chromium` |
-| E2E a11y gate | `cd app && npx playwright test --grep "v6 preview a11y gate"` (`continue-on-error: true`, non-blocking) with `E2E_BASE_URL=http://localhost:3000` |
+| E2E a11y gate | `cd app && npx playwright test tests/e2e/visual-a11y-gate.spec.ts` (blocking) with `E2E_BASE_URL=http://localhost:3000` |
+| E2E visual layout (carousel + edit) | `cd app && npx playwright test tests/e2e/visual-release-gate.spec.ts --config playwright.release.config.ts --grep "SCN-STUDIO-CAROUSEL\|SCN-STUDIO-EDIT"` |
+| E2E first Studio piece + critical journey | After Inngest CLI + `npm run seed:create-post-e2e`, `npx playwright test tests/e2e/first-studio-piece.spec.ts tests/e2e/critical-studio-journey.spec.ts --project=serial-flows` with `E2E_CONTROLLED_PROVIDER=true` and `IMAGE_JOB_TARGET=web` |
 
 CI does not run `test:db:setup`; it relies on the GitHub Actions Postgres service and `DATABASE_URL` on port **5432**, while local Docker setup from `test:db:setup` defaults to port **5433**.
 
-CI runs a single Playwright E2E step — the **v6 preview a11y gate** (`v6-preview-a11y-gate.spec.ts`), which is non-blocking (`continue-on-error: true`). The full E2E suite (`test:e2e`), the visual release gate (`test:visual-release`), and the guided flows (`test:guided-e2e`) are **not** run in CI; they are manual/local verification (or run via `npm run release-gate` before a release).
+CI Playwright is **blocking**: the visual a11y gate, the studio carousel/edit layout checks, the first Studio piece, and the critical studio journey (create, reload, complete, edit, export, partial failure, brand isolation). The full E2E suite (`test:e2e`), the remaining visual-release viewports, and the guided flows (`test:guided-e2e`) remain local/release-gate verification. Render production publish waits on this `CI` / `test` check (`autoDeployTrigger: checksPass`).
 
 ---
 

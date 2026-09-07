@@ -17,6 +17,7 @@ import {
   recomposeStoredLayers,
   writeLayerizationDiagnosticZipFile,
 } from "@/server/layerize/artifacts";
+import { recordCreativeWorkValueEvent, valueEventFromCreativeWork } from "@/server/creative-work/record-value-event";
 
 export type CreativeWorkOutputDownloadFormat = "original" | "psd" | "zip" | "layer" | "layer-candidate" | "draft-png" | "draft-psd";
 
@@ -27,6 +28,7 @@ export type ResolveCreativeWorkOutputDownloadInput = {
   format?: CreativeWorkOutputDownloadFormat;
   layerId?: string;
   revision?: number;
+  actorUserId?: string;
 };
 
 export type ResolveCreativeWorkOutputDownloadError =
@@ -150,6 +152,17 @@ export async function resolveCreativeWorkOutputDownload(
   }
 
   const url = await objectStorage.signedDownloadUrl(output.outputKey);
+  const userId = input.actorUserId ?? existing.work.createdByUserId;
+  if (userId && existing.work.createdByUserId) {
+    const context = valueEventFromCreativeWork(existing.work);
+    await recordCreativeWorkValueEvent({
+      ...context,
+      userId,
+      kind: "delivered",
+      outputId: output.id,
+      outputKey: output.outputKey,
+    });
+  }
   return {
     ok: true,
     value: { url, outputKey: output.outputKey },

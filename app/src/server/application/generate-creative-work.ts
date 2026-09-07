@@ -2,6 +2,7 @@ import { quoteCreativeWork, type CreativeWorkInputSnapshot } from "@/server/crea
 import type { SpendResult } from "@/server/billing/paywall";
 import { buildCreativeWorkFactPack, creativeWorkFactPackBrandFromKit } from "@/server/creative-work/fact-pack";
 import { createIdentitySnapshot } from "@/server/creative-work/identity";
+import { shouldIncludePublishedBrandKnowledge } from "@/server/creative-work/identity-policy";
 import { resolveCreativeWorkProtocol } from "@/server/creative-work/protocol";
 import { GENERATION_CREDIT_COSTS, type GenerationBatchCharge } from "@/server/generation/canonical/types";
 import { creativeWorkSettlementAdapter } from "@/server/generation/settlement-adapters";
@@ -99,8 +100,9 @@ export async function generateCreativeWork(input: {
       selectedReferenceIds: [],
       brief: work.brief,
       format: work.format,
-      includePublishedBrandKnowledge:
-        work.toolKind === "single" && env.BRAND_CORTEX_SINGLE_PIECE_ENABLED === "true",
+      includePublishedBrandKnowledge: shouldIncludePublishedBrandKnowledge(work.toolKind, {
+        brandCortexSinglePieceEnabled: env.BRAND_CORTEX_SINGLE_PIECE_ENABLED,
+      }),
     });
     reservationIdentitySnapshot = identitySnapshot;
     brandTrainingSuggestion = identitySnapshot.assets.length === 0

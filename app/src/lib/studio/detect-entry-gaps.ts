@@ -3,20 +3,12 @@ import {
   GENERIC_AUDIENCE_IDS,
   GENERIC_OFFER_IDS,
   genericProtocolIds,
+  requestMentionsEntryValue,
 } from "./entry-catalog";
 import type { EntryChip, EntryContext, EntryProtocol, EntrySlot } from "./entry-types";
 
-function normalize(value: string) {
-  return value.trim().toLocaleLowerCase("pt-BR");
-}
-
-function requestCovers(request: string, values: Array<string | null | undefined>) {
-  const haystack = normalize(request);
-  if (!haystack) return false;
-  return values.some((value) => {
-    if (!value?.trim()) return false;
-    return haystack.includes(normalize(value));
-  });
+function requestCovers(request: string, slot: EntrySlot, values: Array<string | null | undefined>) {
+  return values.some((value) => Boolean(value?.trim()) && requestMentionsEntryValue(request, slot, value!));
 }
 
 export function detectEntryGaps(input: {
@@ -26,10 +18,6 @@ export function detectEntryGaps(input: {
   carouselEnabled: boolean;
 }): EntryChip[] {
   void input.hasAttachment;
-  const protocolCandidates = filterProtocols(
-    input.context.protocol ? [input.context.protocol, ...input.context.protocolCandidates] : input.context.protocolCandidates,
-    input.carouselEnabled,
-  );
   const protocolFact: EntryProtocol | null = input.carouselEnabled
     ? input.context.protocol
     : input.context.protocol === "carousel"
@@ -48,27 +36,76 @@ export function detectEntryGaps(input: {
     chips.push({ slot, options });
   };
 
-  if (!protocolFact) {
+  const protocolCoveredByRequest = requestCovers(
+    input.request,
+    "protocol",
+    protocolFact
+      ? [protocolFact]
+      : [...uniqueProtocolOptions, ...genericProtocolIds(input.carouselEnabled)],
+  );
+  if (!protocolFact && !protocolCoveredByRequest) {
     const options = uniqueProtocolOptions.length > 0
       ? uniqueProtocolOptions
       : genericProtocolIds(input.carouselEnabled);
     push("protocol", options);
   }
 
-  const offerKnown = Boolean(input.context.offer) || requestCovers(input.request, [input.context.offer, ...input.context.offerCandidates]);
-  if (!offerKnown) {
-    push("offer", input.context.offerCandidates.length > 0 ? input.context.offerCandidates : [...GENERIC_OFFER_IDS]);
+  const offerKnown = Boolean(input.context.offer)
+    || requestCovers(input.request, "offer", [input.context.offer, ...input.context.offerCandidates, ...GENERIC_OFFER_IDS]);
+  // Absence of an offer must not invent one. Generic catalog labels
+  // (launch/promo) only close a gap the operator already wrote.
+  if (!offerKnown && input.context.offerCandidates.length > 0) {
+    push("offer", input.context.offerCandidates);
   }
 
-  const audienceKnown = Boolean(input.context.audience) || requestCovers(input.request, [input.context.audience, ...input.context.audienceCandidates]);
+  const audienceKnown = Boolean(input.context.audience)
+    || requestCovers(input.request, "audience", [input.context.audience, ...input.context.audienceCandidates, ...GENERIC_AUDIENCE_IDS]);
   if (!audienceKnown) {
     push("audience", input.context.audienceCandidates.length > 0 ? input.context.audienceCandidates : [...GENERIC_AUDIENCE_IDS]);
   }
 
-  const toneKnown = Boolean(input.context.tone) || requestCovers(input.request, [input.context.tone, ...input.context.toneCandidates]);
+  const toneKnown = Boolean(input.context.tone) || requestCovers(input.request, "tone", [input.context.tone, ...input.context.toneCandidates]);
   if (!toneKnown && input.context.toneCandidates.length > 0) {
     push("tone", input.context.toneCandidates);
   }
 
   return chips;
+}
+
+export function shouldHideProtocolSwitcher(
+  interview: {
+    enabled?: boolean;
+    showContinue?: boolean;
+    chips: Array<{ slot: string }>;
+    answers: Partial<Record<string, string>>;
+  } | null | undefined,
+  options: {
+    placement?: "center" | "dock";
+    suggestedProtocol?: string | null;
+    intent?: string | null;
+  } = {},
+): boolean {
+  if (interview?.enabled) {
+    return Boolean(
+      interview.showContinue
+      || (interview.chips.some((chip) => chip.slot === "protocol") && !interview.answers.protocol),
+    );
+  }
+  // First visit: one request + Começar on a single piece. Other protocols keep
+  // the radios so advanced settings stay reachable.
+  return options.placement === "center"
+    && !options.suggestedProtocol
+    && (options.intent == null || options.intent === "single");
+}
+
+/** First visit Começar is a single piece. Open work hydrates; Arte keeps variations. */
+export function firstVisitComposerIntent(input: {
+  initialIntent?: "variations" | "single" | "format_adaptation" | "restyle" | "carousel";
+  studioMode?: "arte" | "briefing";
+  workId?: string;
+}): "variations" | "single" | "format_adaptation" | "restyle" | "carousel" | undefined {
+  if (input.initialIntent) return input.initialIntent;
+  if (input.workId) return undefined;
+  if (input.studioMode === "arte") return "variations";
+  return "single";
 }

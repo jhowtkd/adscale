@@ -6,6 +6,19 @@ vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: vi.fn(),
 }));
 
+vi.mock("@/server/creative-work/record-value-event", () => ({
+  recordCreativeWorkValueEvent: vi.fn(),
+  valueEventFromCreativeWork: vi.fn((work: { id: string; workspaceId: string; createdByUserId: string; clientProfileId: string; campaignId?: string | null; toolKind: string }) => ({
+    userId: work.createdByUserId,
+    workspaceId: work.workspaceId,
+    creativeWorkId: work.id,
+    protocol: work.toolKind,
+    origin: work.campaignId ? "campaign" : "studio",
+    campaignId: work.campaignId ?? null,
+    clientProfileId: work.clientProfileId,
+  })),
+}));
+
 vi.mock("@/server/storage", () => ({
   objectStorage: {
     signedDownloadUrl: vi.fn(),
@@ -18,9 +31,11 @@ vi.mock("@/server/storage", () => ({
 
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import { objectStorage } from "@/server/storage";
+import { recordCreativeWorkValueEvent } from "@/server/creative-work/record-value-event";
 import { resolveCreativeWorkOutputDownload } from "./resolve-creative-work-output-download";
 
 const mockGet = vi.mocked(getCreativeWork);
+const mockRecordValue = vi.mocked(recordCreativeWorkValueEvent);
 const mockSigned = vi.mocked(objectStorage.signedDownloadUrl);
 const mockHead = vi.mocked(objectStorage.head);
 const mockGetObject = vi.mocked(objectStorage.get);
@@ -30,6 +45,10 @@ const mockPutStream = vi.mocked(objectStorage.putStream);
 const workItem = {
   id: "work-1",
   workspaceId: "ws-1",
+  createdByUserId: "user-1",
+  clientProfileId: "profile-1",
+  campaignId: null,
+  toolKind: "social_post",
   brief: { theme: "Tema", objective: "O", audience: "A", offer: "Of" },
 };
 
@@ -67,6 +86,12 @@ describe("resolveCreativeWorkOutputDownload", () => {
     expect(result.value.url).toBe("https://signed.example.com/asset.png");
     expect(result.value.outputKey).toBe(completedOutput.outputKey);
     expect(mockSigned).toHaveBeenCalledWith(completedOutput.outputKey);
+    expect(mockRecordValue).toHaveBeenCalledWith(expect.objectContaining({
+      kind: "delivered",
+      outputId: "output-1",
+      outputKey: completedOutput.outputKey,
+      origin: "studio",
+    }));
   });
 
   it("rejects missing work", async () => {
@@ -130,6 +155,7 @@ describe("resolveCreativeWorkOutputDownload", () => {
 
     await expect(resolveCreativeWorkOutputDownload({ workspaceId: "ws-1", workItemId: "work-1", outputId: "output-1", format: "psd" })).resolves.toMatchObject({ ok: true, value: { outputKey: "creative-work/output-1/editor/published.psd" } });
     expect(mockSigned).toHaveBeenCalledWith("creative-work/output-1/editor/published.psd");
+    expect(mockRecordValue).not.toHaveBeenCalled();
   });
 
   it("materializes the diagnostic ZIP only when it is requested", async () => {
@@ -192,6 +218,7 @@ describe("resolveCreativeWorkOutputDownload", () => {
       value: { outputKey: "creative-work/work-1/layerize/attempt-1/piece.zip" },
     });
     expect(mockPutStream).toHaveBeenCalledOnce();
+    expect(mockRecordValue).not.toHaveBeenCalled();
     expect(mockPutObject).not.toHaveBeenCalled();
     const zip = await JSZip.loadAsync(Buffer.concat(storedChunks));
     expect(Object.keys(zip.files)).toContain("manifest.json");

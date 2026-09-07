@@ -14,6 +14,7 @@ vi.mock("next-intl", () => ({
     filterTemplates: "Templates", filterCurated: "Seleção ADScale",
     loading: "Carregando inspirações", loadFailed: "Não foi possível carregar as inspirações.",
     retry: "Tentar novamente", empty: "Nenhuma inspiração disponível ainda.",
+    loadMore: "Carregar mais", loadingMore: "Carregando mais",
     attachFailed: "Não foi possível adicionar a referência. Tente novamente.",
     useForStyle: "Usar para mudar estilo",
     "origin.curated": "Seleção ADScale", "origin.approved_work": "Trabalho aprovado", "origin.template": "Template",
@@ -98,5 +99,21 @@ describe("BrandInspirations", () => {
     expect(within(screen.getByTestId("brand-inspirations-strip")).getByText("Editorial")).toBeInTheDocument();
     expect(within(screen.getByTestId("brand-inspirations-mosaic")).getByText("Matrículas")).toBeInTheDocument();
     expect(within(screen.getByTestId("brand-inspirations-mosaic")).queryByText("Editorial")).not.toBeInTheDocument();
+  });
+
+  it("loads the next catalog page from the mosaic", () => {
+    const fetchNextPage = vi.fn();
+    useInspirationsMock.mockReturnValue({
+      data: [inspiration],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      hasNextPage: true,
+      fetchNextPage,
+      isFetchingNextPage: false,
+    });
+    render(<BrandInspirations clientProfileId="brand-1" onAttach={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Carregar mais" }));
+    expect(fetchNextPage).toHaveBeenCalledOnce();
   });
 });

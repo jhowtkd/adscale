@@ -1,5 +1,11 @@
 import type { CreativeWorkIntent } from "@/server/creative-work/contracts";
 import { getCuratedInspirations } from "@/server/repositories/workspace-asset";
+import {
+  type CatalogPageInput,
+  type CatalogPageResult,
+  type CatalogQuery,
+  resolveCatalogPage,
+} from "@/lib/catalog-page";
 
 export type CreativeInspiration = {
   id: string;
@@ -20,36 +26,50 @@ type CuratedCandidate = {
 };
 
 type Dependencies = {
-  listCurated: () => Promise<CuratedCandidate[]>;
+  listCurated: (page?: CatalogQuery) => Promise<CatalogPageResult<CuratedCandidate>>;
 };
 
 const dependencies: Dependencies = {
-  listCurated: getCuratedInspirations,
+  listCurated: async (page) => {
+    const result = await getCuratedInspirations(page);
+    return {
+      items: result.items.map((asset) => ({
+        id: asset.id,
+        name: asset.name,
+        updatedAt: asset.updatedAt ?? asset.createdAt,
+      })),
+      nextCursor: result.nextCursor,
+    };
+  },
 };
 
+function toInspiration(asset: CuratedCandidate): CreativeInspiration {
+  return {
+    id: asset.id,
+    source: "curated",
+    title: asset.name.replace(/\.[^.]+$/, ""),
+    previewUrl: `/api/creative-work/inspirations/${asset.id}/file`,
+    templateId: null,
+    assetId: null,
+    curatedInspirationId: asset.id,
+    suggestedIntent: "restyle",
+  };
+}
+
 export async function listCreativeInspirations(
-  _input: {
+  input: {
     workspaceId: string;
     clientProfileId: string | null;
-  },
+  } & CatalogPageInput,
   deps: Dependencies = dependencies,
-): Promise<CreativeInspiration[]> {
-  const curated = await deps.listCurated();
-
-  return curated
-    .map((asset) => ({
-      updatedAt: asset.updatedAt,
-      inspiration: {
-        id: asset.id,
-        source: "curated" as const,
-        title: asset.name.replace(/\.[^.]+$/, ""),
-        previewUrl: `/api/creative-work/inspirations/${asset.id}/file`,
-        templateId: null,
-        assetId: null,
-        curatedInspirationId: asset.id,
-        suggestedIntent: "restyle" as const,
-      },
-    }))
-    .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime() || left.inspiration.id.localeCompare(right.inspiration.id))
-    .map(({ inspiration }) => inspiration);
+): Promise<CatalogPageResult<CreativeInspiration>> {
+  const page = resolveCatalogPage(input);
+  if (page.error) {
+    return { items: [], nextCursor: null };
+  }
+  const curated = await deps.listCurated({ limit: page.limit, cursor: page.cursor });
+  return {
+    items: curated.items.map(toInspiration),
+    nextCursor: curated.nextCursor,
+  };
 }

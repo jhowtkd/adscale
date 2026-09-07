@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lte } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   betaAnalyticsEvents,
@@ -105,4 +105,23 @@ export async function getBetaSessionById(
     .limit(1);
 
   return session ?? null;
+}
+
+export async function findBetaAnalyticsEventByPiece(input: {
+  workspaceId: string;
+  eventKey: string;
+  outputId: string;
+  outputKey: string;
+}): Promise<BetaAnalyticsEvent | null> {
+  const [row] = await db
+    .select()
+    .from(betaAnalyticsEvents)
+    .where(and(
+      eq(betaAnalyticsEvents.workspaceId, input.workspaceId),
+      eq(betaAnalyticsEvents.eventKey, input.eventKey),
+      sql`${betaAnalyticsEvents.properties}->>'outputId' = ${input.outputId}`,
+      sql`${betaAnalyticsEvents.properties}->>'outputKey' = ${input.outputKey}`,
+    ))
+    .limit(1);
+  return row ?? null;
 }

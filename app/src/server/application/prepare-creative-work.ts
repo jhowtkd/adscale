@@ -22,6 +22,7 @@ import {
   buildTypographyPlan,
   TypographyPlanError,
 } from "@/server/creative-work/typography-plan";
+import { shouldBuildTypographyPlan } from "@/server/creative-work/identity-policy";
 import {
   checkInferredBriefing,
   reviewInferredBriefingOnce,
@@ -197,7 +198,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       : preparation.data.format;
     let typographyPlan;
     try {
-      typographyPlan = preparation.data.intent === "single"
+      typographyPlan = shouldBuildTypographyPlan(preparation.data.intent)
         ? buildTypographyPlan({
             format: effectiveFormat,
             requestedLayout: preparation.data.settings.textLayout,

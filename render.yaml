@@ -6,7 +6,7 @@ services:
     region: oregon
     rootDir: app
     branch: main
-    autoDeployTrigger: commit
+    autoDeployTrigger: checksPass
     # PR previews off: July bill was ~81% idle preview services (~$79 of ~$97).
     # Re-enable only with a short TTL / manual generation if needed.
     previews:
@@ -114,7 +114,7 @@ services:
     region: oregon
     rootDir: app
     branch: main
-    autoDeployTrigger: commit
+    autoDeployTrigger: checksPass
     maxShutdownDelaySeconds: 300
     buildCommand: npm ci
     startCommand: node --conditions=react-server --import=tsx src/server/jobs/image-worker.ts

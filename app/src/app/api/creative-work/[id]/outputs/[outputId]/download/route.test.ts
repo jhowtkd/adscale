@@ -63,6 +63,7 @@ describe("GET /api/creative-work/[id]/outputs/[outputId]/download", () => {
       workspaceId: "workspace-1",
       workItemId: "work-1",
       outputId: "output-1",
+      actorUserId: "user-1",
     });
   });
 
@@ -77,6 +78,13 @@ describe("GET /api/creative-work/[id]/outputs/[outputId]/download", () => {
 
     expect(res.status).toBe(200);
     expect(body.url).toBe("https://signed.example.com/asset.png");
+    expect(resolveMock).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      actorUserId: "user-1",
+    });
+    expect(resolveMock.mock.calls[0]?.[0]).not.toHaveProperty("format");
   });
 
   it("returns JSON when Accept: application/json", async () => {
@@ -122,6 +130,7 @@ describe("GET /api/creative-work/[id]/outputs/[outputId]/download", () => {
       workspaceId: "workspace-1",
       workItemId: "work-1",
       outputId: "output-1",
+      actorUserId: "user-1",
       format,
     });
   });

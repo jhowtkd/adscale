@@ -100,15 +100,24 @@ describe("GET /api/creative-work", () => {
   });
 
   it("returns active-brand inspirations instead of the work list", async () => {
-    listInspirationsMock.mockResolvedValue([{ id: "template-1", source: "template" }]);
+    listInspirationsMock.mockResolvedValue({
+      items: [{ id: "template-1", source: "template" }],
+      nextCursor: null,
+    });
 
     const res = await GET(new Request(`http://localhost/api/creative-work?view=inspirations&clientProfileId=${profileId}`));
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(listInspirationsMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", clientProfileId: profileId });
+    expect(listInspirationsMock).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      clientProfileId: profileId,
+      limit: 24,
+      cursor: null,
+    });
     expect(listMock).not.toHaveBeenCalled();
     expect(body.inspirations).toEqual([{ id: "template-1", source: "template" }]);
+    expect(body.nextCursor).toBeNull();
   });
 
   it("rejects an invalid inspiration brand id", async () => {
@@ -120,9 +129,10 @@ describe("GET /api/creative-work", () => {
   });
 
   it("returns global inspirations when clientProfileId is omitted", async () => {
-    listInspirationsMock.mockResolvedValue([
-      { id: "curated-1", source: "curated" },
-    ]);
+    listInspirationsMock.mockResolvedValue({
+      items: [{ id: "curated-1", source: "curated" }],
+      nextCursor: null,
+    });
 
     const response = await GET(
       new Request("http://localhost/api/creative-work?view=inspirations"),
@@ -132,6 +142,8 @@ describe("GET /api/creative-work", () => {
     expect(listInspirationsMock).toHaveBeenCalledWith({
       workspaceId: "workspace-1",
       clientProfileId: null,
+      limit: 24,
+      cursor: null,
     });
   });
 });

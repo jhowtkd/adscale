@@ -1,22 +1,36 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
+import { CATALOG_PAGE_DEFAULT_LIMIT } from "@/lib/catalog-page";
 import type { CreativeInspiration } from "@/server/application/list-creative-inspirations";
 
 export function useCreativeInspirations(clientProfileId: string | null) {
-  return useQuery({
+  const query = useInfiniteQuery({
     queryKey: ["creative-work", "inspirations", clientProfileId],
-    // Never fire the request without an active brand.
     enabled: Boolean(clientProfileId),
     staleTime: 30_000,
-    queryFn: () => {
-      return apiFetch(`/api/creative-work?view=inspirations&clientProfileId=${encodeURIComponent(clientProfileId ?? "")}`)
-        .then(async (response) => {
-          if (!response.ok) throw new Error("Falha ao carregar inspirações");
-          const payload = await response.json() as { inspirations?: CreativeInspiration[] };
-          return payload.inspirations ?? [];
-        });
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
+      const cursor = pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : "";
+      const response = await apiFetch(
+        `/api/creative-work?view=inspirations&clientProfileId=${encodeURIComponent(clientProfileId ?? "")}&limit=${CATALOG_PAGE_DEFAULT_LIMIT}${cursor}`,
+      );
+      if (!response.ok) throw new Error("Falha ao carregar inspirações");
+      const payload = await response.json() as {
+        inspirations?: CreativeInspiration[];
+        nextCursor?: string | null;
+      };
+      return {
+        inspirations: payload.inspirations ?? [],
+        nextCursor: payload.nextCursor ?? null,
+      };
     },
+    getNextPageParam: (last) => last.nextCursor,
   });
+
+  return {
+    ...query,
+    data: query.data?.pages.flatMap((page) => page.inspirations),
+  };
 }

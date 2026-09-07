@@ -48,6 +48,17 @@ export function isFixtureOnlySourceComposition(composition) {
 
 const VALID_EVIDENCE_SOURCES = new Set(Object.values(EVIDENCE_SOURCE));
 
+export function rejectEmptyVisualSuccess(evidence, errors, label = "visual") {
+  const captures = Array.isArray(evidence?.captures) ? evidence.captures : [];
+  const after = Array.isArray(evidence?.afterCaptures) ? evidence.afterCaptures : [];
+  if (captures.length === 0 && after.length === 0) {
+    errors.push(`${label}: empty visual evidence must not count as success`);
+  }
+  if (!Array.isArray(evidence?.requirements) || evidence.requirements.length === 0) {
+    errors.push(`${label}: missing requirements must not be auto-passed`);
+  }
+}
+
 export function isPlainObject(value) {
   return value != null && typeof value === "object" && !Array.isArray(value);
 }

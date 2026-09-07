@@ -858,7 +858,7 @@
             "unknown": "Generation failed with an unexpected error."
           }
         },
-        "inspirations": { "add": "Add reference", "title": "Brand references", "stripEyebrow": "Featured references", "stripTitle": "Start from an inspiration", "libraryEyebrow": "Brand library", "libraryTitle": "Inspirations", "filtersAria": "Origin filters", "filterAll": "All", "filterApproved": "Approved", "filterTemplates": "Templates", "filterCurated": "ADScale selection", "loading": "Loading inspirations", "loadFailed": "Could not load inspirations.", "retry": "Try again", "empty": "No inspirations available yet.", "attachFailed": "Could not add the reference. Try again.", "previewAria": "Preview inspiration {title}", "previewAlt": "Preview of {title}", "useForStyle": "Use to change style", "origin": { "curated": "ADScale selection", "approved_work": "Approved work", "template": "Template" } },
+        "inspirations": { "add": "Add reference", "title": "Brand references", "stripEyebrow": "Featured references", "stripTitle": "Start from an inspiration", "libraryEyebrow": "Brand library", "libraryTitle": "Inspirations", "filtersAria": "Origin filters", "filterAll": "All", "filterApproved": "Approved", "filterTemplates": "Templates", "filterCurated": "ADScale selection", "loading": "Loading inspirations", "loadFailed": "Could not load inspirations.", "retry": "Try again", "empty": "No inspirations available yet.", "loadMore": "Load more", "loadingMore": "Loading more", "attachFailed": "Could not add the reference. Try again.", "previewAria": "Preview inspiration {title}", "previewAlt": "Preview of {title}", "useForStyle": "Use to change style", "origin": { "curated": "ADScale selection", "approved_work": "Approved work", "template": "Template" } },
         "proposal": { "level": { "conservative": "Conservative", "balanced": "Balanced", "bold": "Bold" }, "status": { "queued": "queued", "processing": "generating", "completed": "ready", "failed": "failed" }, "progress": "{ready} of {total} ready", "thumbnailsAria": "Proposal thumbnails", "selectAria": "Select {name} in {format}", "expandAria": "Expand {name} in {format}", "previewAlt": "Proposal {name}, format {format}", "approvalSurfaceAria": "Approval surface", "variations": "Variations ({count})", "variation": "Variation {count}", "variationAlt": "Variation {count}", "originalPiece": "Original piece", "retry": "Retry this proposal", "compare": "Compare", "compareTitle": "Compare variations", "currentVariation": "Current variation", "previousVariation": "Previous variation", "expandedDescription": "Expanded inspection in the original proportion, without cropping.", "expandedAlt": "Proposal {name}, format {format}, expanded" },
         "variationAnalysisTitle": "AI reading",
         "variationContentTitle": "Identified content",
@@ -3782,6 +3782,8 @@
       "metrics": {
         "events": "{count} events",
         "sessions": "{count} sessions",
+        "selectedPieces": "{count} selected pieces",
+        "deliveredPieces": "{count} delivered pieces",
         "creditBlocks": "{count} credit blocks",
         "creditSurprises": "{count} credit surprises"
       },
@@ -3796,6 +3798,7 @@
         "shareReadiness": "Share and readiness"
       },
       "sections": {
+        "valueDelivered": "Delivered value",
         "missionConversion": "Mission conversion",
         "cockpitStage": "Cockpit stage funnel",
         "recipeSelection": "Recipe selection funnel",
@@ -3865,7 +3868,25 @@
         "created": "Created",
         "opened": "Opened",
         "stall": "Stall",
-        "outcome": "Outcome"
+        "outcome": "Outcome",
+        "origin": "Origin",
+        "protocol": "Protocol",
+        "selectedPieces": "Selected",
+        "deliveredPieces": "Delivered",
+        "week": "Week",
+        "workspaceId": "Workspace"
+      },
+      "valueDelivered": {
+        "byOrigin": "By origin",
+        "byProtocol": "By protocol",
+        "byWeek": "By week",
+        "reconcile": "Database {database} · events {events} · missing from events {missing}",
+        "reconcileNeedsWorkspace": "Filter one workspace to reconcile with real selected pieces.",
+        "origins": {
+          "studio": "Studio",
+          "campaign": "Campaign",
+          "assistant": "Assistant"
+        }
       },
       "stall": {
         "median": "Median stall",

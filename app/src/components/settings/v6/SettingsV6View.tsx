@@ -47,7 +47,7 @@ export default function SettingsV6View({
                 ? "bg-white/8 font-medium text-[var(--text-primary)]"
                 : "text-[var(--text-muted)] hover:bg-white/6 hover:text-[var(--text-primary)]",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
-              !card.enabled && "pointer-events-none opacity-50",
+              !card.enabled && "cursor-default text-[var(--text-secondary)]",
             );
 
             if (interactive && card.enabled) {
@@ -64,10 +64,10 @@ export default function SettingsV6View({
             }
 
             return (
-              <span key={card.id} className={className}>
+              <span key={card.id} className={className} aria-disabled="true">
                 {card.title}
                 {!card.enabled ? (
-                  <span className="ml-auto text-xs font-normal text-[var(--text-muted)]">
+                  <span className="ml-auto text-xs font-normal text-[var(--text-secondary)]">
                     {card.badge}
                   </span>
                 ) : null}

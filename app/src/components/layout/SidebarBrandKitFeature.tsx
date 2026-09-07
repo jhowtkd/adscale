@@ -18,12 +18,20 @@ export default function SidebarBrandKitFeature() {
     isLoading: profilesLoading,
     isError: profilesError,
   } = useActiveClientProfile();
-  const { data: training, isLoading, isError: trainingError } = useBrandTrainingStatus(activeClientProfileId);
+  const { data: training, isError: trainingError } = useBrandTrainingStatus(activeClientProfileId);
   const settingsTab = searchParams.get("tab");
   const isActive =
     pathname.startsWith("/brand-kit") ||
     (pathname.startsWith("/settings") &&
       (settingsTab === "brandKit" || settingsTab === "brandTraining"));
+  const status = brandKitSidebarStatus({
+    profilesLoading,
+    profilesError,
+    trainingError,
+    activeClientProfileId,
+    training,
+    requiresSelection,
+  });
 
   return (
     <Link
@@ -48,11 +56,11 @@ export default function SidebarBrandKitFeature() {
           </span>
         </span>
         <span className="text-[11px] text-[var(--text-muted)]">
-          {isLoading || profilesLoading
+          {status === "loading"
             ? tNav("brandKitStatusLoading")
-            : trainingError || profilesError
+            : status === "unavailable"
               ? tNav("brandKitStatusUnavailable")
-              : tNav(brandStatusKey(activeClientProfileId, training, requiresSelection))}
+              : tNav(status)}
         </span>
       </span>
     </Link>
@@ -68,4 +76,21 @@ export function brandStatusKey(
   if (!activeClientProfileId) return "brandKitStatusSelect";
   if (training?.needsReview) return "brandKitStatusReview";
   return training?.trained ? "brandKitStatusReady" : "brandKitStatusSetup";
+}
+
+export function brandKitSidebarStatus(input: {
+  profilesLoading: boolean;
+  profilesError: boolean;
+  trainingError: boolean;
+  activeClientProfileId: string | null;
+  training?: BrandTrainingStatus;
+  requiresSelection?: boolean;
+}): "loading" | "unavailable" | ReturnType<typeof brandStatusKey> {
+  if (input.profilesLoading) return "loading";
+  if (input.profilesError || input.trainingError) return "unavailable";
+  return brandStatusKey(
+    input.activeClientProfileId,
+    input.training,
+    input.requiresSelection,
+  );
 }

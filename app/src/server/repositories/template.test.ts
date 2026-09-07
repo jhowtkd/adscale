@@ -88,15 +88,36 @@ describe("template repository", () => {
   });
 
   it("lists templates for workspace", async () => {
-    const mockOrderBy = vi.fn().mockResolvedValue([
+    const mockLimit = vi.fn().mockResolvedValue([
       { id: "template-1", workspaceId: TEST_WORKSPACE_ID },
     ]);
+    const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
     const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
     const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
     (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
 
     const templates = await getTemplates(TEST_WORKSPACE_ID);
-    expect(templates.length).toBeGreaterThanOrEqual(1);
+    expect(templates.items.length).toBeGreaterThanOrEqual(1);
+    expect(templates.nextCursor).toBeNull();
+    expect(mockLimit).toHaveBeenCalledWith(25);
+  });
+
+  it("caps the first page at 24 when the workspace has more templates", async () => {
+    const rows = Array.from({ length: 25 }, (_, index) => ({
+      id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+      workspaceId: TEST_WORKSPACE_ID,
+      updatedAt: new Date(`2026-01-01T00:00:${String(index).padStart(2, "0")}.000Z`),
+    }));
+    const mockLimit = vi.fn().mockResolvedValue(rows);
+    const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+    const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+    (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+
+    const templates = await getTemplates(TEST_WORKSPACE_ID);
+    expect(templates.items).toHaveLength(24);
+    expect(templates.nextCursor).toBeTruthy();
+    expect(mockLimit).toHaveBeenCalledWith(25);
   });
 
   it("gets template by id", async () => {

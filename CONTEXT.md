@@ -2,7 +2,7 @@
 
 > **Fonte canônica do "o que é o ADScale, em que acredita, e como opera."**
 > Tudo passa pelo crivo da tese central **inteligência criativa em escala** (antes chamada "Curator > operator", reformulada em 2026-06-27).
-> Última atualização: 2026-08-10.
+> Última atualização: 2026-09-06.
 
 ---
 

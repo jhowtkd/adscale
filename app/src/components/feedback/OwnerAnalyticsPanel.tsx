@@ -226,6 +226,24 @@ type FunnelResponse = {
   shareEngagementByAssistance?: ShareEngagementByAssistanceRow[];
   derivationAutoRetryFunnel?: DerivationAutoRetryFunnelSummary;
   studioFunnel?: StudioFunnelArm[];
+  valueDelivered?: {
+    selectedPieces: number;
+    deliveredPieces: number;
+    byOrigin: Array<{ origin: string; selectedPieces: number; deliveredPieces: number }>;
+    byProtocol: Array<{ protocol: string; selectedPieces: number; deliveredPieces: number }>;
+    weeks: Array<{
+      workspaceId: string;
+      weekStart: string;
+      selectedPieces: number;
+      deliveredPieces: number;
+    }>;
+    reconcile: {
+      selectedFromDatabase: number;
+      selectedFromEvents: number;
+      missingFromEvents: number;
+      orphanedFromEvents: number;
+    } | null;
+  };
   totals: { events: number; sessions: number };
 };
 
@@ -481,6 +499,7 @@ export function OwnerAnalyticsPanel({
     assistanceLabel,
     guidedPathLabel,
     blockerLabel,
+    originLabel,
   } = useAnalyticsLabels();
 
   const [workspaceId, setWorkspaceId] = useState("");
@@ -685,6 +704,14 @@ export function OwnerAnalyticsPanel({
                 label={t("metrics.sessions", { count: funnel.totals.sessions })}
                 value={funnel.totals.sessions}
               />
+              <MetricChip
+                label={t("metrics.selectedPieces", { count: funnel.valueDelivered?.selectedPieces ?? 0 })}
+                value={funnel.valueDelivered?.selectedPieces ?? 0}
+              />
+              <MetricChip
+                label={t("metrics.deliveredPieces", { count: funnel.valueDelivered?.deliveredPieces ?? 0 })}
+                value={funnel.valueDelivered?.deliveredPieces ?? 0}
+              />
               {credit ? (
                 <>
                   <MetricChip
@@ -702,6 +729,66 @@ export function OwnerAnalyticsPanel({
             <div className="space-y-3">
               <AnalyticsGroup title={t("groups.coreFunnels")} defaultOpen>
                 <div className="space-y-3">
+                  <FunnelSection title={t("sections.valueDelivered")} defaultOpen>
+                    <FunnelTable
+                      title={t("valueDelivered.byOrigin")}
+                      noDataLabel={noDataLabel}
+                      headers={[
+                        t("columns.origin"),
+                        t("columns.selectedPieces"),
+                        t("columns.deliveredPieces"),
+                      ]}
+                      rows={(funnel.valueDelivered?.byOrigin ?? []).map((row) => [
+                        <span key="label" className="font-medium text-[var(--text-primary)]">
+                          {originLabel(row.origin)}
+                        </span>,
+                        <CountCell key="selected" value={row.selectedPieces} highlight="positive" />,
+                        <CountCell key="delivered" value={row.deliveredPieces} highlight="positive" />,
+                      ])}
+                    />
+                    <FunnelTable
+                      title={t("valueDelivered.byProtocol")}
+                      noDataLabel={noDataLabel}
+                      headers={[
+                        t("columns.protocol"),
+                        t("columns.selectedPieces"),
+                        t("columns.deliveredPieces"),
+                      ]}
+                      rows={(funnel.valueDelivered?.byProtocol ?? []).map((row) => [
+                        <span key="label" className="font-medium text-[var(--text-primary)]">{row.protocol}</span>,
+                        <CountCell key="selected" value={row.selectedPieces} highlight="positive" />,
+                        <CountCell key="delivered" value={row.deliveredPieces} highlight="positive" />,
+                      ])}
+                    />
+                    <FunnelTable
+                      title={t("valueDelivered.byWeek")}
+                      noDataLabel={noDataLabel}
+                      headers={[
+                        t("columns.week"),
+                        t("columns.workspaceId"),
+                        t("columns.selectedPieces"),
+                        t("columns.deliveredPieces"),
+                      ]}
+                      rows={(funnel.valueDelivered?.weeks ?? []).map((row) => [
+                        <span key="week" className="font-medium text-[var(--text-primary)]">{row.weekStart}</span>,
+                        <span key="workspace">{row.workspaceId}</span>,
+                        <CountCell key="selected" value={row.selectedPieces} highlight="positive" />,
+                        <CountCell key="delivered" value={row.deliveredPieces} highlight="positive" />,
+                      ])}
+                    />
+                    {funnel.valueDelivered?.reconcile ? (
+                      <p className="text-xs text-[var(--text-muted)]">
+                        {t("valueDelivered.reconcile", {
+                          database: funnel.valueDelivered.reconcile.selectedFromDatabase,
+                          events: funnel.valueDelivered.reconcile.selectedFromEvents,
+                          missing: funnel.valueDelivered.reconcile.missingFromEvents,
+                        })}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-[var(--text-muted)]">{t("valueDelivered.reconcileNeedsWorkspace")}</p>
+                    )}
+                  </FunnelSection>
+
                   <FunnelSection title={t("sections.missionConversion")} defaultOpen>
                     <FunnelTable
                       title=""

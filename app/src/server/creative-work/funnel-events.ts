@@ -22,10 +22,34 @@
 export const CREATIVE_WORK_ORIGINS = [
   "campaign",
   "assistant",
+  "studio",
   "quick_tool",
 ] as const;
 
 export type CreativeWorkOrigin = (typeof CREATIVE_WORK_ORIGINS)[number];
+
+/** Product-facing origin used in value metrics. `quick_tool` is a historical alias of Studio. */
+export const CANONICAL_CREATIVE_WORK_ORIGINS = [
+  "campaign",
+  "assistant",
+  "studio",
+] as const;
+
+export type CanonicalCreativeWorkOrigin =
+  (typeof CANONICAL_CREATIVE_WORK_ORIGINS)[number];
+
+export function canonicalCreativeWorkOrigin(
+  value: string | null | undefined,
+): CanonicalCreativeWorkOrigin {
+  if (value === "campaign" || value === "assistant") return value;
+  return "studio";
+}
+
+export function originFromCreativeWork(work: {
+  campaignId?: string | null;
+}): CanonicalCreativeWorkOrigin {
+  return work.campaignId ? "campaign" : "studio";
+}
 
 /**
  * Eventos canônicos do funil de trabalho criativo.

@@ -24,7 +24,7 @@ There is **no separate Render worker service** in this repository. Background jo
 | `branch` | `main` |
 | `plan` | `starter` |
 | `region` | `oregon` |
-| `autoDeployTrigger` | `commit` |
+| `autoDeployTrigger` | `checksPass` (web and `adscale-image-worker`) |
 | `buildCommand` | `npm ci --include=dev && npm run build && npm prune --omit=dev` |
 | `preDeployCommand` | none |
 | `startCommand` | `npm run db:migrate && npm run start:prod` |
@@ -72,14 +72,19 @@ Workflow: `.github/workflows/ci.yml` (`name: CI`).
 3. `cd app && npm ci`
 4. `npm run lint`
 5. `npm run typecheck`
-6. `npx drizzle-kit migrate`
-7. `npm test -- --run`
-8. `npm run build` (mock env vars for Zod/build — see workflow file)
-9. Start app for e2e (`npm run start &` against the CI Postgres, `NODE_ENV=production`)
-10. `npx playwright install --with-deps chromium`
-11. `npx playwright test --grep "v6 preview a11y gate"` (a11y gate; `continue-on-error: true`, `E2E_BASE_URL=http://localhost:3000`)
+6. `npm run convergence:test && npm run convergence:gate` (freeze manifest on main; no `PRIMARY_DESTINATIONS_ALLOW_BOOTSTRAP`)
+7. `npx drizzle-kit migrate`
+8. `npm test -- --run`
+9. `npm run build` (mock env vars for Zod/build — see workflow file)
+10. Start app for e2e (`npm run start &` against the CI Postgres, `NODE_ENV=production`, `E2E_CONTROLLED_PROVIDER=true`, shared `E2E_STORAGE_DIR`)
+11. `npx playwright install --with-deps chromium`
+12. `npx playwright test tests/e2e/visual-a11y-gate.spec.ts` (blocking)
+13. Start Inngest CLI (`inngest-cli dev` targeting `/api/inngest`) and `npm run seed:create-post-e2e`
+14. `npx playwright test tests/e2e/critical-studio-journey.spec.ts --project=serial-flows` (create → reload → complete → edit → export, plus partial failure and brand isolation, with deterministic doubles)
 
-There is **no deploy or release job** in CI. Render deploys when commits land on `main` (`autoDeployTrigger: commit`). <!-- VERIFY: CI does not deploy — all production deploys happen via Render on push to main -->
+There is **no deploy or release job** in CI. Render publishes `adscale-app` and `adscale-image-worker` only when GitHub checks on that SHA pass (`autoDeployTrigger: checksPass`). The evidence is the `test` job on workflow `CI`.
+
+**Investigação do run 33414925896 (31/08, SHA `72abf3bb`):** o job `test` concluiu `failure` em ~2s, `steps: []`, `runner_name` vazio. A anotação do check é: *The job was not started because recent account payments have failed or your spending limit needs to be increased.* O workflow `.github/workflows/ci.yml` está `disabled_manually` no repositório privado. Isso não é falha de lint/teste. Enquanto o workflow estiver desligado ou o limite de gastos bloquear runners, nenhum SHA recebe check verde e `checksPass` congela publicação — comportamento desejado. Não volte o Blueprint para `commit` para furar o gate. Reativar o workflow (`Actions` → `CI` → Enable) e corrigir billing em GitHub *Billing & plans* são pré-requisitos de dono para o primeiro release com evidência.
 
 ### Render deploy sequence
 

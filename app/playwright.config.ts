@@ -13,7 +13,7 @@ export default defineConfig({
   testMatch: /.*\.spec\.ts$/,
   // OpenAI gpt-image generation runs async via Inngest (~70s), so give each
   // test a generous budget.
-  timeout: 240_000,
+  timeout: 360_000,
   expect: { timeout: 15_000 },
   retries: 0,
   reporter: [["list"]],
@@ -33,7 +33,7 @@ export default defineConfig({
     },
     {
       name: "serial-flows",
-      testMatch: /(restyle|assistant|guided|template-materialize|create-post|creative-directions|frictionless-home|phase6-gate6-uat|layer-editor|carousel).*\.spec\.ts$/,
+      testMatch: /(restyle|assistant|guided|template-materialize|create-post|creative-directions|frictionless-home|phase6-gate6-uat|layer-editor|carousel|critical-studio-journey|first-studio-piece).*\.spec\.ts$/,
       fullyParallel: false,
       workers: 1,
       use: { ...devices["Desktop Chrome"] },

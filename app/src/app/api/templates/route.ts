@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { createTemplate, getTemplates } from "@/server/repositories/template";
+import { parseCatalogPageSearchParams } from "@/lib/catalog-page";
 
 const createTemplateSchema = z.object({
   campaignId: z.string().uuid(),
@@ -13,8 +14,18 @@ const createTemplateSchema = z.object({
 export async function GET(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
-    const templates = await getTemplates(workspace.id);
-    return NextResponse.json({ templates });
+    const page = parseCatalogPageSearchParams(new URL(request.url).searchParams);
+    if (page.error) {
+      return apiError("invalidInput", 400, { page: page.error });
+    }
+    const templates = await getTemplates(workspace.id, {
+      limit: page.limit,
+      cursor: page.cursor,
+    });
+    return NextResponse.json({
+      templates: templates.items,
+      nextCursor: templates.nextCursor,
+    });
   } catch (error) {
     return handleApiError(error, "templates.GET");
   }

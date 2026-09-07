@@ -43,7 +43,8 @@ vi.mock("./creative-work-layerization", () => ({
     client.createFunction({ id: "layerize-creative-work-output-v2" }, vi.fn()),
 }));
 
-import { assertImageWorkerEnv, buildImageWorkerConnectOptions } from "./image-worker";
+import { assertImageWorkerEnv, buildImageWorkerConnectOptions, imageWorkerConnectedPayload } from "./image-worker";
+import { REQUIRED_V2_FUNCTION_COUNT } from "./heavy-image-isolation";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -57,7 +58,7 @@ describe("image-worker", () => {
     const options = buildImageWorkerConnectOptions();
     expect(options.appId).toBe("adscale-image-worker");
     expect(options.maxWorkerConcurrency).toBe(2);
-    expect(options.functionCount).toBe(8);
+    expect(options.functionCount).toBe(REQUIRED_V2_FUNCTION_COUNT);
     expect(options.functionIds).toEqual([
       "generate-creative-work-output-v2",
       "generate-creative-work-carousel-slide-v2",
@@ -81,5 +82,15 @@ describe("image-worker", () => {
     );
     expect(source).not.toMatch(/next\/navigation/);
     expect(source).not.toMatch(/auth\/session/);
+  });
+
+  it("identifies the executor process on the connected event", () => {
+    expect(imageWorkerConnectedPayload("conn-1")).toEqual(expect.objectContaining({
+      event: "image_worker_connected",
+      connectionId: "conn-1",
+      executorPid: process.pid,
+      executorAppId: expect.any(String),
+      executorInstance: expect.any(String),
+    }));
   });
 });

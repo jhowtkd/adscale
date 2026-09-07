@@ -1,4 +1,4 @@
-import { eq, and, asc, desc, count, inArray, isNull, isNotNull, lt, max, ne, notExists, sql } from "drizzle-orm";
+import { eq, and, asc, desc, count, inArray, isNull, isNotNull, lt, max, ne, notExists, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import { getCreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
 import {
@@ -32,6 +32,12 @@ import {
 import { getClientProfile, resolveCampaignClientProfileId } from "./client-reference";
 import { getCampaignById } from "./campaign";
 import { MAX_PIECE_REFERENCES, type PieceReferenceCategory } from "../creative-work/piece-reference";
+import {
+  boundCatalogLimit,
+  takeCatalogPage,
+  type CatalogQuery,
+  type CatalogPageResult,
+} from "@/lib/catalog-page";
 
 export type { CreativeWorkFormat } from "../creative-work/contracts";
 
@@ -144,8 +150,16 @@ export type CreativeWorkInspirationCandidate = {
 export async function listCreativeWorkInspirationCandidates(
   workspaceId: string,
   clientProfileId: string,
-): Promise<CreativeWorkInspirationCandidate[]> {
-  return db
+  page: CatalogQuery = {},
+): Promise<CatalogPageResult<CreativeWorkInspirationCandidate>> {
+  const limit = boundCatalogLimit(page.limit);
+  const cursorWhere = page.cursor
+    ? or(
+        lt(creativeWorkOutputs.updatedAt, page.cursor.at),
+        and(eq(creativeWorkOutputs.updatedAt, page.cursor.at), lt(creativeWorkOutputs.id, page.cursor.id)),
+      )
+    : undefined;
+  const rows = await db
     .select({
       id: creativeWorkOutputs.id,
       workspaceId: creativeWorkOutputs.workspaceId,
@@ -171,8 +185,11 @@ export async function listCreativeWorkInspirationCandidates(
       eq(creativeWorkItems.clientProfileId, clientProfileId),
       eq(creativeWorkOutputs.status, "completed"),
       eq(creativeWorkOutputs.isSelected, true),
+      ...(cursorWhere ? [cursorWhere] : []),
     ))
-    .orderBy(desc(creativeWorkOutputs.updatedAt));
+    .orderBy(desc(creativeWorkOutputs.updatedAt), desc(creativeWorkOutputs.id))
+    .limit(limit + 1);
+  return takeCatalogPage(rows, limit, (row) => ({ at: row.updatedAt, id: row.id }));
 }
 
 export interface CreateCreativeWorkInput {
