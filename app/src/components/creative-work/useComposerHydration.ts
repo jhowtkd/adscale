@@ -48,6 +48,7 @@ export function useComposerHydration({
   briefingVersionRef,
   lastPersistedRef,
   preparedPlanInputRef,
+  setPreparedPlanInput,
   hydratingPreparedPlanRevisionRef,
   setCanonicalWorkRevision,
   setWorkId,
@@ -83,6 +84,7 @@ export function useComposerHydration({
   briefingVersionRef: MutableRefObject<number | undefined>;
   lastPersistedRef: MutableRefObject<string | null>;
   preparedPlanInputRef: MutableRefObject<{ revision: string; signature: string } | null>;
+  setPreparedPlanInput: (value: { revision: string; signature: string } | null) => void;
   hydratingPreparedPlanRevisionRef: MutableRefObject<string | null>;
   setCanonicalWorkRevision: ComposerRevisionWriter;
   setWorkId: (value: string | null) => void;
@@ -145,10 +147,10 @@ export function useComposerHydration({
     }
     const hydratedPlan = detail?.preparedPlan;
     if (initialWorkId && hydratedPlan) {
-      preparedPlanInputRef.current = {
+      setPreparedPlanInput({
         revision: hydratedPlan.preparedRevision,
         signature: hydratedSignature,
-      };
+      });
       // The plan effect runs after this hydration effect with the pre-hydrate
       // render signature. Skip only that transition; later user edits still
       // compare against the canonical hydrated snapshot normally.
@@ -201,6 +203,7 @@ export function useComposerHydration({
     lastPersistedRef,
     objectiveRef,
     preparedPlanInputRef,
+    setPreparedPlanInput,
     requestRef,
     setBriefingEditState,
     setCanonicalWorkRevision,

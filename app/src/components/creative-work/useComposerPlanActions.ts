@@ -49,6 +49,7 @@ export function useComposerPlanActions({
   requestRef,
   submitGuardRef,
   preparedPlanInputRef,
+  setPreparedPlanInput,
   planInputEditEpochRef,
   lastPersistedRef,
   detailQuery,
@@ -80,6 +81,7 @@ export function useComposerPlanActions({
   requestRef: MutableRefObject<string>;
   submitGuardRef: MutableRefObject<boolean>;
   preparedPlanInputRef: MutableRefObject<PreparedPlanInput | null>;
+  setPreparedPlanInput: (value: PreparedPlanInput | null) => void;
   planInputEditEpochRef: MutableRefObject<number>;
   lastPersistedRef: MutableRefObject<string | null>;
   detailQuery: {
@@ -172,12 +174,12 @@ export function useComposerPlanActions({
       setFormat(prepared.work.format);
       const preparedRevision = prepared.preparedPlan?.preparedRevision ?? prepared.preparedRevision;
       if (!preparedRevision) throw new Error("Preparação sem revisão");
-      preparedPlanInputRef.current = {
+      setPreparedPlanInput({
         revision: preparedRevision,
         signature: prepareEditEpoch === planInputEditEpochRef.current
           ? signature(captureSnapshot())
           : `stale:${prepareEditEpoch}`,
-      };
+      });
       recordCanonicalEvent("briefing_ready", id, { protocol: prepared.preparedPlan?.protocol ?? "carousel" });
       return prepared.preparedPlan
         ?? await detailQuery.refetch().then((refetched) => refetched.data?.preparedPlan ?? null);
@@ -204,6 +206,7 @@ export function useComposerPlanActions({
     planInputEditEpochRef,
     prepareMutation,
     preparedPlanInputRef,
+    setPreparedPlanInput,
     recordCanonicalEvent,
     requestRef,
     setActionPhase,

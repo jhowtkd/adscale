@@ -108,6 +108,11 @@ export function useComposerSessionState(input: {
   const pendingProtocolTransitionRef = useRef<((committed: boolean) => void) | null>(null);
   const planInputEditEpochRef = useRef(0);
   const preparedPlanInputRef = useRef<{ revision: string; signature: string } | null>(null);
+  const [preparedPlanInput, setPreparedPlanInputState] = useState<{ revision: string; signature: string } | null>(null);
+  const setPreparedPlanInput = useCallback((value: { revision: string; signature: string } | null) => {
+    preparedPlanInputRef.current = value;
+    setPreparedPlanInputState(value);
+  }, []);
   const hydratingPreparedPlanRevisionRef = useRef<string | null>(null);
   const shownPreparedRevisionRef = useRef<string | null>(null);
   const markPlanInputEdited = useCallback(() => {
@@ -146,8 +151,8 @@ export function useComposerSessionState(input: {
     draftEpochRef, saveChainRef, submitGuardRef, directionSuggestionRequestedRef, directionTouchedRef,
     autosaveBlockedWorkRef, didFocusComposerRef, focusFrameRef, autoTemplateRef, mountedRef,
     restoredProfileRef, lifecycleRef, persistOnUnmountRef, revisionAttemptsRef,
-    pendingProtocolTransitionRef, planInputEditEpochRef, preparedPlanInputRef,
-    hydratingPreparedPlanRevisionRef, shownPreparedRevisionRef,
+    pendingProtocolTransitionRef, planInputEditEpochRef, preparedPlanInputRef, preparedPlanInput,
+    setPreparedPlanInput, hydratingPreparedPlanRevisionRef, shownPreparedRevisionRef,
     markPlanInputEdited, captureSnapshot,
   };
 }
