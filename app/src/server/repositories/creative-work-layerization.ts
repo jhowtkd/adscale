@@ -74,7 +74,6 @@ export async function claimCreativeWorkLayerization(input: {
   }).where(and(
     scope(input.workspaceId, input.workItemId, input.outputId),
     eq(creativeWorkOutputs.status, "completed"),
-    eq(creativeWorkOutputs.isSelected, true),
     isNotNull(creativeWorkOutputs.outputKey),
     isNull(creativeWorkOutputs.layerization),
   )).returning();
