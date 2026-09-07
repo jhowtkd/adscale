@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import { listCurrentCarouselSlides } from "@/server/repositories/creative-work-carousel";
 import { objectStorage } from "@/server/storage";
+import { objectDownloadResponse } from "@/server/storage/download-response";
 
 /**
  * Resolves a short-lived signed URL for one current completed carousel slide
@@ -31,7 +31,7 @@ export async function GET(
       return apiError("carouselSlideNotCompleted", 409, { status: slide.status });
     }
     const url = await objectStorage.signedDownloadUrl(slide.outputKey);
-    return NextResponse.redirect(url, 302);
+    return objectDownloadResponse(url, slide.outputKey);
   } catch (error) {
     return handleApiError(error, "creative-work.carousel.slide-download.GET");
   }

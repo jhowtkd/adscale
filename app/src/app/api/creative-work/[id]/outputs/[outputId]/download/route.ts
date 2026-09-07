@@ -4,6 +4,7 @@ import { resolveCreativeWorkOutputDownload, type CreativeWorkOutputDownloadForma
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { getLayerEditorAccess } from "@/server/layer-editor/quota";
+import { objectDownloadResponse } from "@/server/storage/download-response";
 
 /**
  * Signed download URL for a completed output — HTTP adapter only (Phase 5 / item 38).
@@ -71,7 +72,7 @@ export async function GET(
     if (wantsJson) {
       return NextResponse.json({ url });
     }
-    return NextResponse.redirect(url, { status: 302 });
+    return objectDownloadResponse(url, result.value.outputKey);
   } catch (error) {
     return handleApiError(error, "creative-work.[id].outputs.[outputId].download.GET");
   }

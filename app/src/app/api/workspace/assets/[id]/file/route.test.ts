@@ -19,6 +19,8 @@ vi.mock("@/server/storage", () => ({
     signedDownloadUrl: vi.fn(() =>
       Promise.resolve("https://signed.example/creative-work/out.png")
     ),
+    get: vi.fn(),
+    head: vi.fn(),
   },
 }));
 
@@ -31,6 +33,8 @@ import { objectStorage } from "@/server/storage";
 
 const mockGet = vi.mocked(getWorkspaceAssetById);
 const mockSigned = vi.mocked(objectStorage.signedDownloadUrl);
+const mockStorageGet = vi.mocked(objectStorage.get);
+const mockStorageHead = vi.mocked(objectStorage.head);
 
 describe("GET /api/workspace/assets/[id]/file", () => {
   beforeEach(() => {
@@ -85,5 +89,26 @@ describe("GET /api/workspace/assets/[id]/file", () => {
     expect(res.headers.get("content-type")).toContain("image/svg+xml");
     expect(await res.text()).toContain('width="240" height="240"');
     expect(mockSigned).not.toHaveBeenCalled();
+  });
+
+  it("streams e2e-storage objects instead of 302ing to a blocked scheme", async () => {
+    mockSigned.mockResolvedValue("e2e-storage://download/e2e/visual-foundations/vf.svg");
+    mockStorageGet.mockResolvedValue(Buffer.from("svg-bytes"));
+    mockStorageHead.mockResolvedValue({ contentType: "image/svg+xml", contentLength: 9 });
+    mockGet.mockResolvedValue({
+      id: "asset-1",
+      workspaceId: "workspace-1",
+      key: "e2e/visual-foundations/vf.svg",
+    } as never);
+
+    const res = await GET(
+      new Request("http://localhost/api/workspace/assets/asset-1/file"),
+      { params: Promise.resolve({ id: "asset-1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/svg+xml");
+    expect(await res.text()).toBe("svg-bytes");
+    expect(mockStorageGet).toHaveBeenCalledWith("e2e/visual-foundations/vf.svg");
   });
 });

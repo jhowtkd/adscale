@@ -96,6 +96,7 @@ jobs:
           STRIPE_SCALE_PRICE_ID: price_scale
           STRIPE_SUCCESS_URL: http://localhost:3000/settings?tab=billing&checkout=success
           STRIPE_CANCEL_URL: http://localhost:3000/settings?tab=plans&checkout=cancel
+          E2E_STORAGE_DIR: /tmp/adscale-e2e-storage
 
       - name: Start app for e2e
         run: |

@@ -43,21 +43,14 @@ describe("CI workflow publish evidence", () => {
     expect(yaml).toMatch(/SCN-STUDIO-CAROUSEL\|SCN-STUDIO-EDIT/);
   });
 
-  it("serves e2e object bytes on the same origin so CSP img-src self can load them", () => {
+  it("streams e2e object bytes on existing download routes and allows the scheme in the CI-built CSP", () => {
     const nextConfig = readFileSync(
       path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../next.config.ts"),
       "utf8",
     );
-    const storage = readFileSync(
-      path.resolve(
-        path.dirname(fileURLToPath(import.meta.url)),
-        "../storage/local-directory-object-storage.ts",
-      ),
-      "utf8",
-    );
-    expect(nextConfig).toMatch(/img-src 'self' blob: data: https:/);
-    expect(nextConfig).not.toMatch(/e2e-storage:/);
-    expect(storage).toMatch(/\/api\/e2e-storage\/\$\{kind\}\//);
+    expect(yaml).toMatch(/name: Run build[\s\S]*?E2E_STORAGE_DIR: \/tmp\/adscale-e2e-storage/);
+    expect(nextConfig).toMatch(/E2E_STORAGE_DIR \? " e2e-storage:"/);
+    expect(nextConfig).toMatch(/img-src 'self' blob: data: https:\$\{e2eStorageImages\}/);
   });
 
   it("keeps the deploy manifesto on checksPass with intelligence flags off until an evidence SHA exists", () => {

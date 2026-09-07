@@ -3,6 +3,7 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
+import { objectDownloadResponse } from "@/server/storage/download-response";
 
 function syntheticVisualFixture(asset: { key: string; width: number | null; height: number | null }) {
   if (
@@ -54,7 +55,7 @@ export async function GET(
     if (wantsJson) {
       return NextResponse.json({ url });
     }
-    return NextResponse.redirect(url, { status: 302 });
+    return objectDownloadResponse(url, asset.key);
   } catch (error) {
     return handleApiError(error, "workspace.assets.[id].file.GET");
   }
