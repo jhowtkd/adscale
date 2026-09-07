@@ -29,9 +29,9 @@ export const studioChipClass =
 export const studioInstrumentClass =
   "w-full space-y-6 py-6";
 
-/** Palco-aligned chrome row: eyebrow left, chips right, next to the bell. */
+/** Palco chrome: stack on small screens so chips stay inside the viewport; row from sm. */
 export const studioChromeBarClass =
-  "relative z-20 flex items-center justify-between gap-3 md:-mt-4";
+  "relative z-20 flex min-w-0 flex-col gap-2 md:-mt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3";
 
 export const studioSearchClass =
   "w-full rounded-[var(--radius-control)] border-0 bg-white/6 py-2 pl-9 pr-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]";

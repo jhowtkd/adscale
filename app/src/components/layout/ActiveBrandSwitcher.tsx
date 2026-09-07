@@ -62,7 +62,7 @@ export default function ActiveBrandSwitcher({
         aria-label={t("activeBrand")}
         className={cn(
           grouped
-            ? cn(studioChipClass, "max-w-full", className)
+            ? cn(studioChipClass, "flex min-w-0 max-w-full overflow-hidden", className)
             : "flex h-full min-w-0 w-full appearance-none items-center gap-2 bg-transparent px-3 text-left text-xs font-medium text-[var(--text-primary)] hover:bg-white/6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]",
         )}
       >
