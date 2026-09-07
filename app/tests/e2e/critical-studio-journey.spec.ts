@@ -165,7 +165,7 @@ test.describe("Critical studio journey (M01)", () => {
 
     const selected = await page.request.post(
       `/api/creative-work/${workId}/outputs/${outputId}/select`,
-      { data: { saveToLibrary: false } },
+      { data: { saveToLibrary: false, confirmObjective: true } },
     );
     expect(selected.ok(), await selected.text()).toBe(true);
     const afterSelect = await getWork(page.request, workId);

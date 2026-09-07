@@ -27,6 +27,14 @@ describe("CI workflow publish evidence", () => {
   it("runs the critical studio journey with deterministic doubles before merge", () => {
     expect(yaml).toMatch(/critical-studio-journey\.spec\.ts/);
     expect(yaml).toMatch(/first-studio-piece\.spec\.ts/);
+    const journey = readFileSync(
+      path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)),
+        "../../../tests/e2e/critical-studio-journey.spec.ts",
+      ),
+      "utf8",
+    );
+    expect(journey).toMatch(/confirmObjective:\s*true/);
     expect(yaml).toMatch(/E2E_CONTROLLED_PROVIDER:\s+"true"/);
     expect(yaml).toMatch(/IMAGE_JOB_TARGET:\s+web/);
     expect(yaml).toMatch(/INNGEST_BASE_URL:\s+http:\/\/127\.0\.0\.1:8288/);
