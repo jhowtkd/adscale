@@ -140,7 +140,7 @@ jobs:
           NODE_ENV: production
 
       - name: Install Playwright browsers
-        run: cd app && npx playwright install --with-deps chromium
+        run: cd app && npx playwright install --with-deps chromium webkit
 
       - name: Run visual a11y gate
         run: cd app && npx playwright test tests/e2e/visual-a11y-gate.spec.ts

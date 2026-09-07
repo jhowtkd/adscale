@@ -37,7 +37,7 @@ describe("CI workflow publish evidence", () => {
 
   it("rejects empty visual evidence and checks studio carousel and edit layout before merge", () => {
     expect(yaml).toMatch(/check-release-gate\.mjs --preflight/);
-    expect(yaml).toMatch(/visual-release-gate\.spec\.ts/);
+    expect(yaml).toMatch(/playwright install --with-deps chromium webkit/);
     expect(yaml).toMatch(/playwright\.release\.config\.ts/);
     expect(yaml).toMatch(/SCN-STUDIO-CAROUSEL\|SCN-STUDIO-EDIT/);
   });
