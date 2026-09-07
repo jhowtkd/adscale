@@ -73,8 +73,13 @@ test.describe("First studio piece (M02)", () => {
     await expect(talkBox).toHaveAttribute("data-placement", "center");
     const request = page.locator("#creative-composer-request");
     await expect(request).toBeVisible({ timeout: 60_000 });
-    await request.fill("Peça de lançamento para o produto de teste.");
-    await expect(request).toHaveValue("Peça de lançamento para o produto de teste.");
+    const brief = "Peça de lançamento para o produto de teste.";
+    // Workspace/composer hydration can remount the controlled textarea after
+    // the first paint; keep writing until the value sticks.
+    await expect.poll(async () => {
+      await request.fill(brief);
+      return request.inputValue();
+    }, { timeout: 30_000 }).toBe(brief);
     await page.getByRole("button", { name: /começar|gerar|start|generate/i }).click();
     await expect(page.getByText(/anexe a peça de referência/i)).toHaveCount(0);
     await expect(talkBox).toHaveAttribute("data-placement", "dock", { timeout: 120_000 });
