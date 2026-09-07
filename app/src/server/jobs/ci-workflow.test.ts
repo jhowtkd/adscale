@@ -29,6 +29,7 @@ describe("CI workflow publish evidence", () => {
     expect(yaml).toMatch(/first-studio-piece\.spec\.ts/);
     expect(yaml).toMatch(/E2E_CONTROLLED_PROVIDER:\s+"true"/);
     expect(yaml).toMatch(/IMAGE_JOB_TARGET:\s+web/);
+    expect(yaml).toMatch(/INNGEST_BASE_URL:\s+http:\/\/127\.0\.0\.1:8288/);
     expect(yaml).toMatch(/inngest-cli dev/);
     expect(yaml).toMatch(/seed:create-post-e2e/);
     expect(yaml).toMatch(/STUDIO_PROGRESSIVE_ROLLOUT_PERCENT:\s+"100"/);
@@ -48,5 +49,6 @@ describe("CI workflow publish evidence", () => {
     expect(manifest).toMatch(/name:\s+adscale-image-worker[\s\S]*?autoDeployTrigger:\s+checksPass/);
     expect(manifest).toMatch(/CREATIVE_WORK_QUALITY_RECOVERY_ENABLED\s*\n\s*value:\s+"false"/);
     expect(manifest).toMatch(/BRAND_CORTEX_SINGLE_PIECE_ENABLED\s*\n\s*value:\s+"false"/);
+    expect(manifest).not.toMatch(/E2E_CONTROLLED_PROVIDER/);
   });
 });
