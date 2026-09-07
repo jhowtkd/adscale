@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { e2eStorageRoot, LocalDirectoryObjectStorage } from "./local-directory-object-storage";
+import { e2eStorageObjectUrl, e2eStorageRoot, LocalDirectoryObjectStorage } from "./local-directory-object-storage";
 
 describe("LocalDirectoryObjectStorage", () => {
   let dir = "";
@@ -10,6 +10,7 @@ describe("LocalDirectoryObjectStorage", () => {
   afterEach(async () => {
     if (dir) await rm(dir, { recursive: true, force: true });
     delete process.env.E2E_STORAGE_DIR;
+    delete process.env.APP_URL;
   });
 
   it("shares objects across instances via E2E_STORAGE_DIR", async () => {
@@ -27,6 +28,13 @@ describe("LocalDirectoryObjectStorage", () => {
       contentType: "image/png",
       contentLength: payload.length,
     });
+    process.env.APP_URL = "http://localhost:3000";
+    await expect(reader.signedDownloadUrl("works/a.png")).resolves.toBe(
+      "http://localhost:3000/api/e2e-storage/download/works/a.png",
+    );
+    expect(e2eStorageObjectUrl("public", "works/a.png")).toBe(
+      "http://localhost:3000/api/e2e-storage/public/works/a.png",
+    );
   });
 
   it("rejects path traversal in object keys", async () => {

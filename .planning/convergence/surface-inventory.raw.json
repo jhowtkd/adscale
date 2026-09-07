@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-07T18:53:57.402Z",
+  "generatedAt": "2026-09-07T21:55:18.725Z",
   "schemaVersion": 2,
-  "fingerprint": "93c847b0e6692766afe2271a265922dd7ad3d60551430bcbbb7495de8bb6549a",
+  "fingerprint": "d73afebda325ec730e09314dfbbcdb40a8d6f6cee77ef5db77826939b55a6701",
   "counts": {
     "dashboardPages": 15,
-    "apiRoutes": 179,
+    "apiRoutes": 180,
     "ctas": 71,
     "requiringDecision": 1
   },
@@ -940,6 +940,13 @@
       "kind": "api_route",
       "route": "/api/dev/reset-token",
       "file": "app/src/app/api/dev/reset-token/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/e2e-storage/[kind]/[...key]",
+      "kind": "api_route",
+      "route": "/api/e2e-storage/[kind]/[...key]",
+      "file": "app/src/app/api/e2e-storage/[kind]/[...key]/route.ts",
       "requiresDecision": false
     },
     {

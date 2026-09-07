@@ -6,6 +6,8 @@ import { pipeline } from "node:stream/promises";
 import type { Readable } from "stream";
 import type { ObjectStorage, StorageMetadata } from "./object-storage";
 
+export type E2EStorageUrlKind = "upload" | "download" | "public";
+
 export function e2eStorageRoot(): string {
   const configured = process.env.E2E_STORAGE_DIR?.trim();
   return configured && configured.length > 0
@@ -13,12 +15,26 @@ export function e2eStorageRoot(): string {
     : path.join(os.tmpdir(), "adscale-e2e-storage");
 }
 
-function fileFor(key: string): string {
+export function normalizeE2EStorageObjectKey(key: string): string[] {
   const normalized = key.replace(/\\/g, "/").split("/").filter((part) => part && part !== "." && part !== "..");
   if (normalized.length === 0) {
     throw new Error("Object key is empty");
   }
-  return path.join(e2eStorageRoot(), ...normalized);
+  return normalized;
+}
+
+/**
+ * Same-origin HTTP URL so Playwright <img> loads stay inside CSP `img-src 'self'`.
+ * The custom `e2e-storage://` scheme is blocked in production `next start`.
+ */
+export function e2eStorageObjectUrl(kind: E2EStorageUrlKind, key: string): string {
+  const base = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const segments = normalizeE2EStorageObjectKey(key).map(encodeURIComponent);
+  return `${base}/api/e2e-storage/${kind}/${segments.join("/")}`;
+}
+
+function fileFor(key: string): string {
+  return path.join(e2eStorageRoot(), ...normalizeE2EStorageObjectKey(key));
 }
 
 /**
@@ -81,14 +97,14 @@ export class LocalDirectoryObjectStorage implements ObjectStorage {
   ): Promise<string> {
     void contentType;
     void contentLength;
-    return `e2e-storage://upload/${key}`;
+    return e2eStorageObjectUrl("upload", key);
   }
 
   async signedDownloadUrl(key: string): Promise<string> {
-    return `e2e-storage://download/${key}`;
+    return e2eStorageObjectUrl("download", key);
   }
 
   publicUrl(key: string): string {
-    return `e2e-storage://public/${key}`;
+    return e2eStorageObjectUrl("public", key);
   }
 }
