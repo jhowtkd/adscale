@@ -15,7 +15,7 @@ const tsxBin = resolve("node_modules/.bin/tsx");
 const scriptPath = resolve("scripts/check-creative-work-quality-recovery-gate.ts");
 const templatePath = resolve("../.planning/validation/creative-work-quality-recovery-gate.json");
 
-const PLANNED_OUTPUTS = [1, 1, 3, 3, 3, 3, 3, 1, 1, 1];
+const PLANNED_OUTPUTS = [1, 1, 3, 3, 3, 3, 1, 1, 1, 1];
 const TOTAL_OUTPUTS = PLANNED_OUTPUTS.reduce((total, count) => total + count, 0);
 const PROTOCOLS = [
   "single",
@@ -24,10 +24,10 @@ const PROTOCOLS = [
   "variations",
   "format_adaptation",
   "format_adaptation",
-  "format_adaptation",
   "restyle",
   "restyle",
-  "restyle",
+  "carousel",
+  "carousel",
 ];
 const BRANDS = [
   "Psicologia",
@@ -46,19 +46,31 @@ function journey(index: number) {
   const mandatoryCase =
     index === 0
       ? "psicologia_fact_preservation"
-      : index === 4
-        ? "nr1_three_format_adaptation"
-        : index === 7
-          ? "xtb_content_style_identity_separation"
-          : null;
+      : index === 1
+        ? "studio_edit_preserves_copy"
+        : index === 4
+          ? "nr1_three_format_adaptation"
+          : index === 7
+            ? "xtb_content_style_identity_separation"
+            : index === 8
+              ? "carousel_slide_sequence"
+              : index === 6
+                ? "safe_margins"
+                : null;
   const mandatoryAssertions =
     mandatoryCase === "psicologia_fact_preservation"
       ? { requiredFacts: ["agosto", "vagas limitadas"], preservedFacts: ["agosto", "vagas limitadas"] }
-      : mandatoryCase === "nr1_three_format_adaptation"
-        ? { adaptedFromSamePiece: true, deliveredFormats: ["1:1", "4:5", "9:16"] }
-        : mandatoryCase === "xtb_content_style_identity_separation"
-          ? { separatedDimensions: ["content", "style", "identity"] }
-          : null;
+      : mandatoryCase === "studio_edit_preserves_copy"
+        ? { editPreservedCopy: true, editPreservedExactAssets: true }
+        : mandatoryCase === "nr1_three_format_adaptation"
+          ? { adaptedFromSamePiece: true, deliveredFormats: ["1:1", "4:5", "9:16"] }
+          : mandatoryCase === "xtb_content_style_identity_separation"
+            ? { separatedDimensions: ["content", "style", "identity"] }
+            : mandatoryCase === "carousel_slide_sequence"
+              ? { slideSequencePreserved: true, slideOrder: ["cover", "proof"] }
+              : mandatoryCase === "safe_margins"
+                ? { safeMarginsPreserved: true, safeAreaVerified: true }
+                : null;
   return {
     id: `journey-${String(index + 1).padStart(2, "0")}`,
     protocol: PROTOCOLS[index],
@@ -81,7 +93,7 @@ function journey(index: number) {
         C: "creative_work_v1",
       },
       preferenceVsProduction: index <= 8 ? "v1" : "tie",
-      preferenceVsDirect: index <= 7 ? "v1" : index === 8 ? "tie" : "baseline",
+      preferenceVsDirect: index <= 8 ? "v1" : "tie",
     },
     mandatoryAssertions,
   };
@@ -104,7 +116,7 @@ function validEvidence() {
     journeys: Array.from({ length: 10 }, (_, index) => journey(index)),
     technicalMetrics: {
       outputDurationsMs: Array.from({ length: TOTAL_OUTPUTS }, (_, index) => 120_000 + index * 5_000),
-      batchDurationsMs: [300_000, 330_000, 360_000, 390_000, 420_000],
+      batchDurationsMs: [300_000, 330_000, 360_000, 390_000],
       rssPeakMb: [280, 310, 340],
       rssMeasurement: {
         process: "web",
@@ -232,7 +244,7 @@ describe("evaluateGate sample counters", () => {
     const { failures, summary } = evaluateGate(validEvidence());
     expect(failures).toEqual([]);
     expect(summary.v1PreferenceVsProduction).toBe(9);
-    expect(summary.v1PreferenceVsDirect).toBe(8);
+    expect(summary.v1PreferenceVsDirect).toBe(9);
   });
 
   it("requires exactly 10 journeys", () => {
@@ -243,9 +255,13 @@ describe("evaluateGate sample counters", () => {
 
   it("requires at least 2 cases per protocol", () => {
     expectFailure((evidence) => {
+      evidence.journeys[6].protocol = "single";
+      evidence.journeys[7].protocol = "single";
+    }, 'protocol "restyle"');
+    expectFailure((evidence) => {
       evidence.journeys[8].protocol = "single";
       evidence.journeys[9].protocol = "single";
-    }, 'protocol "restyle"');
+    }, 'protocol "carousel"');
   });
 
   it("requires at least 3 brands", () => {
@@ -298,6 +314,60 @@ describe("evaluateGate sample counters", () => {
       };
     }, "three distinct formats");
   });
+
+  it("requires a carousel journey that preserves slide sequence", () => {
+    expectFailure((evidence) => {
+      evidence.journeys[8].mandatoryCase = null;
+    }, "carousel_slide_sequence");
+    expectFailure((evidence) => {
+      evidence.journeys[8].mandatoryAssertions = {
+        slideSequencePreserved: false,
+        slideOrder: ["cover", "proof"],
+      };
+    }, "preserve slide sequence");
+    expectFailure((evidence) => {
+      evidence.journeys[8].mandatoryAssertions = {
+        slideSequencePreserved: true,
+        slideOrder: ["cover"],
+      };
+    }, "two ordered slides");
+  });
+
+  it("requires an edit journey that keeps copy and exact assets", () => {
+    expectFailure((evidence) => {
+      evidence.journeys[1].mandatoryCase = null;
+    }, "studio_edit_preserves_copy");
+    expectFailure((evidence) => {
+      evidence.journeys[1].mandatoryAssertions = {
+        editPreservedCopy: false,
+        editPreservedExactAssets: true,
+      };
+    }, "preserve approved copy");
+    expectFailure((evidence) => {
+      evidence.journeys[1].mandatoryAssertions = {
+        editPreservedCopy: true,
+        editPreservedExactAssets: false,
+      };
+    }, "exact brand assets");
+  });
+
+  it("requires a journey that verifies safe margins", () => {
+    expectFailure((evidence) => {
+      evidence.journeys[6].mandatoryCase = null;
+    }, "safe_margins");
+    expectFailure((evidence) => {
+      evidence.journeys[6].mandatoryAssertions = {
+        safeMarginsPreserved: false,
+        safeAreaVerified: true,
+      };
+    }, "preserve safe margins");
+    expectFailure((evidence) => {
+      evidence.journeys[6].mandatoryAssertions = {
+        safeMarginsPreserved: true,
+        safeAreaVerified: false,
+      };
+    }, "verify the text safe area");
+  });
 });
 
 describe("evaluateGate blind comparison and preference", () => {
@@ -344,7 +414,7 @@ describe("evaluateGate blind comparison and preference", () => {
 
   it("blocks any protocol below 50% v1 preference", () => {
     expectFailure((evidence) => {
-      for (const index of [7, 8, 9]) {
+      for (const index of [6, 7]) {
         evidence.journeys[index].blindComparison.preferenceVsProduction = "baseline";
         evidence.journeys[index].blindComparison.preferenceVsDirect = "baseline";
       }

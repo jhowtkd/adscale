@@ -2,22 +2,39 @@
 
 # ADScale
 
-AI-powered creative derivation platform for marketing teams. Upload a base creative, define a campaign brief, receive a structured creative plan, and generate platform-ready ad variations—with quality gates, review workflows, and production Stripe billing (v12.0).
+AI-powered creative production for performance ads. Operators work in the **Estúdio**: one **Trabalho** under an active brand, a **Protocolo** (variations, single piece, format adaptation, restyle, carousel), review, and delivery.
+
+Campaign / briefing / creative-plan / cockpit copy below is **historical**. The canonical glossary is [`CONTEXT.md`](CONTEXT.md). Agents: [`docs/agents/source-of-truth.md`](docs/agents/source-of-truth.md). Frozen: Landing Page generator and Persona Simulation ([ADR 0013](docs/adr/0013-trabalho-criativo-first.md)).
 
 ## Features
 
-### Creative workflow
+The live operator surface is the **Estúdio**. Campaign is optional grouping, not a required destination. Prefer [`CONTEXT.md`](CONTEXT.md) when this list disagrees.
+
+### Estúdio (canonical)
+
+- **Trabalho** — One resumable creative work under an active brand: request, references, protocol, review, select, and export.
+- **Protocolos** — Variations, Peça única, format adaptation, restyle, and carousel. Switching protocol keeps the previous draft instead of converting it.
+- **Optional campaign** — A Trabalho may be linked to a campaign; generating does not require one.
+- **Creative contract and quality gate** — Shared contract across prompts, scoring, and QA. Automatic verdicts can block approval of failing pieces.
+- **Export & delivery** — Download selected pieces; assets stored on Cloudflare R2.
+- **Workspaces & i18n** — Multi-tenant workspace isolation; English and Brazilian Portuguese (`next-intl`).
+- **Owner analytics** — Funnel of selected and delivered unique pieces, origin/protocol segments, human-quality corpus, and CSV export.
+- **Beta operator sessions** — Session-scoped grouping for operator runbooks and analytics correlation.
+- **Persona simulation** — Frozen (ADR 0013). Do not unfreeze without a new ADR.
+
+### Historical campaign cockpit (legacy adapter)
+
+Do not add new primary destinations here.
 
 - **Campaign management** — Organize campaigns with structured briefs (audience, platforms, tone, constraints).
 - **AI creative planning** — Generate strategy, angles, hooks, and CTAs from briefs via OpenAI text models.
-- **Image derivations** — Produce art variations, native format adaptations (Meta/Google aspect ratios), and **restyling** from style-reference assets with adjustable intensity (`soft` / `medium` / `strong`). Restyle requests enqueue Inngest `derivation.generate` jobs via `POST /api/campaigns/[id]/restyle`.
-- **Creative contract** — Shared contract across prompts, scoring, and QA so generation modes stay consistent end-to-end.
-- **Hard quality gate** — Automatic `invalid` / `improvable` / `acceptable` verdicts block approval of failing derivations.
-- **Review UI** — Verdict badges on derivation cards, review modal, and **regenerate with fixes** flow for improvable outputs.
-- **Persona simulation** — Preview how target personas might react to a creative before committing to a full derivation batch.
+- **Image derivations** — Produce art variations, native format adaptations, and restyling from style-reference assets (`POST /api/campaigns/[id]/restyle`).
+- **Review UI** — Verdict badges on derivation cards, review modal, and regenerate-with-fixes for improvable outputs.
 - **Campaign load errors** — Typed error taxonomy (`session`, `workspace`, `not_found`, `timeout`, `server`) with dedicated UI states.
-- **Export & delivery** — Download approved sets as ZIP archives; assets stored on Cloudflare R2.
-- **Workspaces & i18n** — Multi-tenant workspace isolation; English and Brazilian Portuguese (`next-intl`).
+- **Cockpit instrumentation** — Beta analytics across the historical cockpit (preview funnel, guided briefing, stage enter/complete/abandon).
+- **Readiness override** — Operators can override false-positive readiness blocks in the cockpit.
+- **Credit estimate transparency** — Batch and preview credit estimates before approving generation.
+- **Mission resume UX** — Dashboard mission path with deep links into blocked or in-progress cockpit stages.
 
 ### Monetization & billing (v12.0)
 
@@ -27,15 +44,6 @@ AI-powered creative derivation platform for marketing teams. Upload a base creat
 - **In-product conversion gates** — Blocked paid actions return HTTP **402** with contextual CTAs (checkout, Stripe Customer Portal, or billing settings) via `ConversionCta`.
 - **Billing account UI** — Settings tabs for plans, subscription status, credit balance, grant history, and usage forecast (EN + PT-BR).
 - **Production preflight** — `npm run preflight:stripe` validates Stripe env vars, price IDs, and webhook events before go-live.
-
-### Cockpit & analytics
-
-- **Cockpit instrumentation** — Beta analytics events across the creative cockpit: preview funnel, strategy recipe/tradeoff selection, guided briefing abandon, and stage enter/complete/abandon signals.
-- **Readiness override** — Operators can override false-positive readiness blocks and continue to derivation when preflight is overly strict.
-- **Credit estimate transparency** — Batch and preview credit estimates with upfront breakdown before approving generation.
-- **Mission resume UX** — Dashboard mission path with deep links back into blocked or in-progress cockpit stages.
-- **Owner analytics** — Feedback dashboard with cockpit funnel, credit surprise signals, briefing abandon by step, human-quality corpus (calibration, coverage, trends, learning impact), and CSV export.
-- **Beta operator sessions** — Session-scoped grouping for operator runbooks and analytics correlation.
 
 ## Tech stack
 
@@ -81,21 +89,22 @@ npm run db:migrate
 1. Install dependencies and copy env (see [Installation](#installation)).
 2. Run migrations: `npm run db:migrate` (from `app/`).
 3. Start dev (Next.js + Inngest wiring): `npm run dev`.
-4. Open **http://localhost:3000**, sign up, create a workspace and campaign.
+4. Open **http://localhost:3000**, sign up, create a workspace, pick a brand, and start a Trabalho in the Estúdio.
 
 For Stripe webhooks, Docker, billing smoke tests, and production preflight, see [`app/README.md`](app/README.md).
 
 ## Usage examples
 
-### Typical campaign workflow
+### Typical Estúdio workflow
 
-1. **Create a campaign** — Set client, product, objective, audience, platforms, and tone in the dashboard.
-2. **Upload a base creative** — Attach the source image asset to the campaign.
-3. **Run readiness preflight** — Review readiness score; override if a false positive blocks progress.
-4. **Generate a creative plan** — AI proposes strategy, angles, hooks, and CTAs from the brief.
-5. **Choose a strategy recipe** — Pick a recipe, review credit estimates, and generate a preview batch.
-6. **Run derivations** — Choose a mode (`art_variation`, `format_adaptation`, or `restyling`), enqueue jobs via Inngest, then review verdicts and approve or regenerate with fixes. For restyling, upload a style-reference asset and call `POST /api/campaigns/{id}/restyle` with optional `styleIntensity`.
-7. **Export** — Download approved derivations individually or as a ZIP.
+1. **Pick a brand** — Active client profile is required before a Trabalho starts.
+2. **State the request** — Protocol, offer, and audience come from the request and brand; do not re-ask facts already present.
+3. **Prepare and generate** — The composer prepares a plan, then dispatches image jobs (heavy work on `adscale-image-worker` when cut over).
+4. **Select and export** — Approving a Peça and downloading the original version is delivered value; regenerations are a new version.
+
+### Historical campaign workflow (legacy adapter)
+
+The campaign cockpit (brief → plan → derivation batch → ZIP) still exists in the codebase. Do not add new primary destinations there. Persona simulation stays frozen.
 
 ### Subscribe and manage billing
 

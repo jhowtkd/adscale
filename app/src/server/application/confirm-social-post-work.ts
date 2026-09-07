@@ -18,6 +18,7 @@ import {
   IdentitySnapshotMissingAlphaError,
   IdentitySnapshotMissingReferenceError,
 } from "@/server/creative-work/identity";
+import { shouldIncludePublishedBrandKnowledge } from "@/server/creative-work/identity-policy";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import type { CreativeWorkItem } from "@/server/db/schema";
 import {
@@ -146,8 +147,9 @@ export async function confirmSocialPostWork(
       selectedReferenceIds: input.selectedReferenceIds,
       brief: existing.work.brief,
       format: existing.work.format,
-      includePublishedBrandKnowledge:
-        existing.work.toolKind === "single" && env.BRAND_CORTEX_SINGLE_PIECE_ENABLED === "true",
+      includePublishedBrandKnowledge: shouldIncludePublishedBrandKnowledge(existing.work.toolKind, {
+        brandCortexSinglePieceEnabled: env.BRAND_CORTEX_SINGLE_PIECE_ENABLED,
+      }),
     });
   } catch (error) {
     if (error instanceof IdentitySnapshotMissingReferenceError) {

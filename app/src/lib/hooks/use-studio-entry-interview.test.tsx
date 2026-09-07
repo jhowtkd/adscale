@@ -90,19 +90,20 @@ describe("useStudioEntryInterview", () => {
     expect(result.current.chips).toEqual([]);
   });
 
-  it("shows generic chips on GET 500 without writing request until a chip is selected", async () => {
+  it("shows protocol and audience on GET 500 without inventing an offer", async () => {
     mockEntryContext("error");
     const queryClient = createQueryClient();
     const { result, setRequest } = renderInterview(queryClient);
 
     await waitFor(() => {
-      expect(result.current.chips.map((chip) => chip.slot)).toEqual(["protocol", "offer", "audience"]);
+      expect(result.current.chips.map((chip) => chip.slot)).toEqual(["protocol", "audience"]);
     });
     expect(result.current.usedFallback).toBe(true);
     expect(setRequest).not.toHaveBeenCalled();
+    expect(result.current.chips.some((chip) => chip.slot === "offer")).toBe(false);
 
     act(() => {
-      result.current.selectChip("offer", "launch");
+      result.current.selectChip("audience", "new");
     });
     expect(setRequest).toHaveBeenCalled();
   });

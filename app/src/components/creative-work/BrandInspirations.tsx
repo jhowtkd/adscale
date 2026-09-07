@@ -33,7 +33,15 @@ export function BrandInspirations({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [originFilter, setOriginFilter] = useState<OriginFilter>("all");
-  const { data = [], isLoading, isError, refetch } = useCreativeInspirations(clientProfileId);
+  const {
+    data = [],
+    isLoading,
+    isError,
+    refetch,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useCreativeInspirations(clientProfileId);
   const featured = data.slice(0, 4);
   const mosaic = useMemo(
     () => originFilter === "all" ? data : data.filter((inspiration) => inspiration.source === originFilter),
@@ -139,6 +147,16 @@ export function BrandInspirations({
               ))}
             </div>
           )}
+          {hasNextPage ? (
+            <button
+              type="button"
+              onClick={() => void fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="text-sm font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            >
+              {isFetchingNextPage ? t("loadingMore") : t("loadMore")}
+            </button>
+          ) : null}
         </section>
       ) : null}
 

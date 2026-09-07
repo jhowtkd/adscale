@@ -34,6 +34,10 @@ const marketingUpstream =
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Playwright and some local clients hit 127.0.0.1 while `next dev` serves
+  // localhost. Without this, Next 16 blocks /_next resources and the Studio
+  // shell never hydrates — Começar is inert HTML.
+  allowedDevOrigins: ["127.0.0.1"],
   output: 'standalone',
   outputFileTracingRoot: process.cwd(),
   // Brand-kit multi-upload allows up to 12 × 10MB images. Next.js buffers

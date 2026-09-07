@@ -4,6 +4,7 @@ import { startSocialPostWork } from "@/server/application/start-social-post-work
 import { analyzeCreativeWorkSource } from "@/server/application/analyze-creative-work-source";
 import { listCreativeInspirations } from "@/server/application/list-creative-inspirations";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { parseCatalogPageSearchParams } from "@/lib/catalog-page";
 import { listCanonicalWorks } from "@/server/creative-work/canonical/queries";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import {
@@ -69,11 +70,21 @@ export async function GET(request: Request) {
         );
       }
 
+      const page = parseCatalogPageSearchParams(searchParams);
+      if (page.error) {
+        return apiError("invalidInput", 400, { page: page.error });
+      }
+
       const inspirations = await listCreativeInspirations({
         workspaceId: workspace.id,
         clientProfileId: parsedClientProfileId?.data ?? null,
+        limit: page.limit,
+        cursor: page.cursor ? searchParams.get("cursor") : null,
       });
-      return NextResponse.json({ inspirations });
+      return NextResponse.json({
+        inspirations: inspirations.items,
+        nextCursor: inspirations.nextCursor,
+      });
     }
     const works = await listCanonicalWorks(workspace.id);
     return NextResponse.json({ works });

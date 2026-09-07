@@ -667,6 +667,8 @@
         "loadFailed": "Não foi possível carregar as inspirações.",
         "retry": "Tentar novamente",
         "empty": "Ainda não há inspirações disponíveis.",
+        "loadMore": "Carregar mais",
+        "loadingMore": "Carregando mais",
         "attachFailed": "Não foi possível adicionar a referência. Tente novamente.",
         "previewAria": "Visualizar inspiração {title}",
         "previewAlt": "Prévia de {title}",
@@ -3858,6 +3860,8 @@
       "metrics": {
         "events": "{count} eventos",
         "sessions": "{count} sessões",
+        "selectedPieces": "{count} peças selecionadas",
+        "deliveredPieces": "{count} peças entregues",
         "creditBlocks": "{count} bloqueios de crédito",
         "creditSurprises": "{count} surpresas de crédito"
       },
@@ -3872,6 +3876,7 @@
         "shareReadiness": "Compartilhamento e prontidão"
       },
       "sections": {
+        "valueDelivered": "Valor entregue",
         "missionConversion": "Conversão por missão",
         "cockpitStage": "Funil de etapas do cockpit",
         "recipeSelection": "Funil de seleção de receita",
@@ -3941,7 +3946,25 @@
         "created": "Criadas",
         "opened": "Abertas",
         "stall": "Parada",
-        "outcome": "Resultado"
+        "outcome": "Resultado",
+        "origin": "Origem",
+        "protocol": "Protocolo",
+        "selectedPieces": "Selecionadas",
+        "deliveredPieces": "Entregues",
+        "week": "Semana",
+        "workspaceId": "Workspace"
+      },
+      "valueDelivered": {
+        "byOrigin": "Por origem",
+        "byProtocol": "Por protocolo",
+        "byWeek": "Por semana",
+        "reconcile": "Banco {database} · eventos {events} · faltando nos eventos {missing}",
+        "reconcileNeedsWorkspace": "Filtre um workspace para reconciliar com peças reais.",
+        "origins": {
+          "studio": "Estúdio",
+          "campaign": "Campanha",
+          "assistant": "Assistente"
+        }
       },
       "stall": {
         "median": "Mediana de parada",

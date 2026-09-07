@@ -88,7 +88,7 @@ export default function PasswordInput({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           className={cn(
-            "w-full min-h-11 h-10 rounded-[var(--radius-control)] border px-3 pr-10 text-sm",
+            "w-full min-h-11 rounded-[var(--radius-control)] border px-3 pr-10 text-sm",
             "bg-[var(--surface-raised)] text-[var(--text-primary)]",
             "placeholder:text-[var(--text-secondary)]",
             "focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] focus:border-[var(--neutral-border)]",

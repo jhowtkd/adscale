@@ -12,9 +12,10 @@ import {
   createWorkspaceAsset,
   getCuratedInspirations,
 } from "@/server/repositories/workspace-asset";
+import { parseCatalogPageSearchParams } from "@/lib/catalog-page";
 import { objectStorage } from "@/server/storage";
 
-function present(asset: Awaited<ReturnType<typeof getCuratedInspirations>>[number]) {
+function present(asset: Awaited<ReturnType<typeof getCuratedInspirations>>["items"][number]) {
   return {
     id: asset.id,
     title: asset.name.replace(/\.[^.]+$/, ""),
@@ -27,8 +28,17 @@ function present(asset: Awaited<ReturnType<typeof getCuratedInspirations>>[numbe
 export async function GET(request: Request) {
   try {
     await requirePlatformOwner(request);
+    const page = parseCatalogPageSearchParams(new URL(request.url).searchParams);
+    if (page.error) {
+      return apiError("invalidInput", 400, { page: page.error });
+    }
+    const inspirations = await getCuratedInspirations({
+      limit: page.limit,
+      cursor: page.cursor,
+    });
     return NextResponse.json({
-      inspirations: (await getCuratedInspirations()).map(present),
+      inspirations: inspirations.items.map(present),
+      nextCursor: inspirations.nextCursor,
     });
   } catch (error) {
     return handleApiError(error, "admin.inspirations.GET");

@@ -242,6 +242,38 @@ describe("generateCreativeWork", () => {
     }));
   });
 
+  it("does not grant Brand Cortex to restyle and snapshots the work brand", async () => {
+    envState.brandCortexSinglePieceEnabled = "true";
+    getWork.mockResolvedValue({
+      work: { ...preparedWork, toolKind: "restyle" },
+      outputs: [],
+      sources: [],
+    });
+    createOutputs.mockResolvedValue({ outputs: [rows[1]], newlyCreatedIds: [rows[1].id] });
+
+    await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+
+    expect(snapshot).toHaveBeenCalledWith(expect.objectContaining({
+      clientProfileId: "profile-1",
+      includePublishedBrandKnowledge: false,
+    }));
+  });
+
+  it("never replaces a frozen restyle snapshot after a later Brand Cortex flip", async () => {
+    envState.brandCortexSinglePieceEnabled = "true";
+    getWork.mockResolvedValue({
+      work: { ...preparedWork, toolKind: "restyle", status: "ready", identitySnapshot },
+      outputs: [],
+      sources: [],
+    });
+    createOutputs.mockResolvedValue({ outputs: [rows[1]], newlyCreatedIds: [rows[1].id] });
+
+    await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+
+    expect(snapshot).not.toHaveBeenCalled();
+    expect(confirmSnapshots).not.toHaveBeenCalled();
+  });
+
   it("never replaces a frozen snapshot on an already confirmed Peça única", async () => {
     envState.brandCortexSinglePieceEnabled = "true";
     const frozen = {

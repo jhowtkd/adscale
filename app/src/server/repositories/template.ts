@@ -1,6 +1,12 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, or, lt } from "drizzle-orm";
 import { db } from "../db";
 import { campaignTemplates, campaigns } from "../db/schema";
+import {
+  boundCatalogLimit,
+  takeCatalogPage,
+  type CatalogQuery,
+  type CatalogPageResult,
+} from "@/lib/catalog-page";
 
 export interface CreateTemplateInput {
   workspaceId: string;
@@ -56,12 +62,26 @@ export async function createTemplate(input: CreateTemplateInput) {
   return result[0];
 }
 
-export async function getTemplates(workspaceId: string) {
-  return db
+export async function getTemplates(
+  workspaceId: string,
+  page: CatalogQuery = {},
+): Promise<CatalogPageResult<typeof campaignTemplates.$inferSelect>> {
+  const limit = boundCatalogLimit(page.limit);
+  const cursorWhere = page.cursor
+    ? or(
+        lt(campaignTemplates.updatedAt, page.cursor.at),
+        and(eq(campaignTemplates.updatedAt, page.cursor.at), lt(campaignTemplates.id, page.cursor.id)),
+      )
+    : undefined;
+  const rows = await db
     .select()
     .from(campaignTemplates)
-    .where(eq(campaignTemplates.workspaceId, workspaceId))
-    .orderBy(desc(campaignTemplates.updatedAt));
+    .where(cursorWhere
+      ? and(eq(campaignTemplates.workspaceId, workspaceId), cursorWhere)
+      : eq(campaignTemplates.workspaceId, workspaceId))
+    .orderBy(desc(campaignTemplates.updatedAt), desc(campaignTemplates.id))
+    .limit(limit + 1);
+  return takeCatalogPage(rows, limit, (row) => ({ at: row.updatedAt, id: row.id }));
 }
 
 export async function getTemplateById(id: string, workspaceId: string) {

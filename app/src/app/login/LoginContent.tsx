@@ -174,14 +174,9 @@ export default function LoginContent() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <Label htmlFor="login-password" className="text-[var(--text-primary)]">
-                      {t("password")}
-                    </Label>
-                    <Link href="/forgot-password" className={cn("text-xs", authTextLinkClass)}>
-                      {t("forgotPassword")}
-                    </Link>
-                  </div>
+                  <Label htmlFor="login-password" className="text-[var(--text-primary)]">
+                    {t("password")}
+                  </Label>
                   <PasswordInput
                     id="login-password"
                     label={null}
@@ -190,6 +185,11 @@ export default function LoginContent() {
                     onChange={(value) => dispatch({ type: "patch", payload: { password: value } })}
                     autoComplete="current-password"
                   />
+                  <p className="text-right">
+                    <Link href="/forgot-password" className={cn("text-xs", authTextLinkClass)}>
+                      {t("forgotPassword")}
+                    </Link>
+                  </p>
                 </div>
                 <button type="submit" className={authPrimaryButtonClass} disabled={loading}>
                   {loading ? t("signingIn") : t("signIn")}

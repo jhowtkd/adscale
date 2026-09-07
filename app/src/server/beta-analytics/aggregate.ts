@@ -5,6 +5,7 @@ import {
   type BetaOperatorNotes,
   type BetaRunbookStage,
 } from "../beta-sessions/types";
+import { aggregateValueDelivered, type SelectedPieceRow, type ValueDeliveredSummary } from "../creative-work/value-delivered";
 
 export interface MissionFunnelRow {
   missionKey: string;
@@ -182,6 +183,7 @@ export interface AnalyticsFunnelSummary {
   shareEngagementByAssistance: ShareEngagementByAssistanceRow[];
   derivationAutoRetryFunnel: DerivationAutoRetryFunnelSummary;
   studioFunnel: StudioFunnelArm[];
+  valueDelivered: ValueDeliveredSummary;
   totals: {
     events: number;
     sessions: number;
@@ -1191,6 +1193,7 @@ export function buildAnalyticsFunnelSummary(
   sessions: BetaSession[] = [],
   usageEvents: StudioUsageEvent[] = [],
   asOf?: Date,
+  options?: { selectedFromDatabase?: SelectedPieceRow[] },
 ): AnalyticsFunnelSummary {
   const sessionIds = new Set(
     events.map((e) => e.sessionId).filter((id): id is string => Boolean(id))
@@ -1216,6 +1219,7 @@ export function buildAnalyticsFunnelSummary(
     ),
     derivationAutoRetryFunnel: aggregateDerivationAutoRetryFunnel(events),
     studioFunnel: aggregateStudioFunnel(events, usageEvents, asOf),
+    valueDelivered: aggregateValueDelivered(events, options?.selectedFromDatabase),
     totals: {
       events: events.length,
       sessions: sessionIds.size,

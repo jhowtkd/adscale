@@ -51,6 +51,20 @@ describe("synthesizeStudioEntryRequest", () => {
     expect(result.sentence).not.toMatch(/R\$/);
   });
 
+  it("falls back to the template when the model invents a discount with no offer", async () => {
+    createMock.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify({ sentence: "Peça única com 50% de desconto" }) } }],
+    });
+    const result = await synthesizeStudioEntryRequest({
+      workspaceId: "ws-1",
+      facts: { protocol: "single", offer: null, audience: null, tone: null },
+      chips: {},
+      locale: "pt-BR",
+    });
+    expect(result.requestSource).toBe("template");
+    expect(result.sentence).not.toMatch(/desconto|50%/i);
+  });
+
   it("uses the model sentence when it only restates provided slots", async () => {
     isE2EControlledProviderEnabledMock.mockReturnValue(false);
     createMock.mockResolvedValue({

@@ -9,6 +9,7 @@ import { createWorkspaceAssetAnalyzeJobV2 } from "./workspace-asset";
 import { createBrandTrainingAnalyzeJobV2 } from "./brand-training";
 import { createCreativeWorkLayerizationJobV2 } from "./creative-work-layerization";
 import { createCreativeWorkLayerRegenerationJobV2 } from "./creative-work-layer-regeneration";
+import { heavyImageExecutorIdentity, WORKER_CONNECTED_EVENT } from "./heavy-image-isolation";
 
 const REQUIRED_ENV = [
   "DATABASE_URL",
@@ -49,6 +50,14 @@ export function buildImageWorkerConnectOptions() {
   };
 }
 
+export function imageWorkerConnectedPayload(connectionId: string) {
+  return {
+    event: WORKER_CONNECTED_EVENT,
+    connectionId,
+    ...heavyImageExecutorIdentity(),
+  };
+}
+
 export async function startImageWorker(): Promise<void> {
   assertImageWorkerEnv();
 
@@ -81,10 +90,7 @@ export async function startImageWorker(): Promise<void> {
   });
 
   console.info(
-    JSON.stringify({
-      event: "image_worker_connected",
-      connectionId: connection.connectionId,
-    })
+    JSON.stringify(imageWorkerConnectedPayload(connection.connectionId))
   );
 
   await connection.closed;

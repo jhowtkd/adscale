@@ -18,6 +18,7 @@ import {
   creativeWorkFactPackBrandFromKit,
 } from "../creative-work/fact-pack";
 import { createIdentitySnapshot } from "../creative-work/identity";
+import { shouldIncludePublishedBrandKnowledge } from "../creative-work/identity-policy";
 import {
   getCreativeWork,
   getCreativeWorkSourceAssetDetails,
@@ -182,7 +183,7 @@ export async function prepareCarouselWork(input: {
       selectedReferenceIds: [],
       brief: work.brief,
       format: deck.format,
-      includePublishedBrandKnowledge: true,
+      includePublishedBrandKnowledge: shouldIncludePublishedBrandKnowledge("carousel"),
     });
 
     const visualContract = buildCarouselVisualContract({

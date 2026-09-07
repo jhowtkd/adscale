@@ -52,7 +52,19 @@ function completeEvidence() {
   };
 }
 
-test("accepts only the current 56 layout, 65 Axe and 5 interaction checks", () => {
+test("requires studio carousel and edit in the unified layout set", () => {
+  assert.ok(EXPECTED_LAYOUT_KEYS.some((key) => key.startsWith("SCN-STUDIO-CAROUSEL@")));
+  assert.ok(EXPECTED_LAYOUT_KEYS.some((key) => key.startsWith("SCN-STUDIO-EDIT@")));
+  assert.equal(EXPECTED_LAYOUT_KEYS.length, 70);
+});
+
+test("rejects empty visual evidence instead of auto-passing", () => {
+  const errors = validateReleaseEvidence({ layoutChecks: [] }, { preflight: true });
+  assert.ok(errors.some((error) => error.includes("empty visual evidence")));
+  assert.ok(errors.some((error) => error.includes("SCN-STUDIO-CAROUSEL")));
+});
+
+test("accepts only the current 70 layout, 65 Axe and 5 interaction checks", () => {
   assert.deepEqual(validateReleaseEvidence(completeEvidence()), []);
 });
 

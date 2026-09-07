@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "gate": "creative_work_quality_recovery",
   "status": "pending_human_review",
-  "_instructions": "Gate 8 humano (R-011 / spec secoes 13 e 15). Preencher SOMENTE apos aprovacao explicita de orcamento: executar as 10 jornadas cegas (producao congelada, geracao direta e Creative Work v1 anonimos), revelar os assignments, registrar vereditos objetivos, preferencias (empate = 'tie' e conta como nao preferencia pelo v1) e as metricas tecnicas/financeiras do rollout. Trocar status para 'completed' e rodar: npx tsx scripts/check-creative-work-quality-recovery-gate.ts ../.planning/validation/creative-work-quality-recovery-gate.json",
+  "_instructions": "Gate 8 humano (R-011 / spec secoes 13 e 15). Preencher SOMENTE apos aprovacao explicita de orcamento: executar as 10 jornadas cegas (producao congelada, geracao direta e Creative Work v1 anonimos) cobrindo single, variations, format_adaptation, restyle e carousel (2 cada), mais os casos obrigatorios de edicao, sequencia de slides e margens seguras. Revelar os assignments, registrar vereditos objetivos, preferencias (empate = 'tie' e conta como nao preferencia pelo v1) e as metricas tecnicas/financeiras do rollout. Integridade tecnica fica em technicalMetrics; qualidade visual em regressoes brand/dimension e preferencia cega. Trocar status para 'completed' e rodar: npx tsx scripts/check-creative-work-quality-recovery-gate.ts ../.planning/validation/creative-work-quality-recovery-gate.json",
   "budgetApproval": {
     "approvedBy": null,
     "approvedAt": null,
@@ -43,7 +43,7 @@
       "protocol": "single",
       "brand": "<preencher: marca>",
       "segment": "<preencher: segmento>",
-      "mandatoryCase": null,
+      "mandatoryCase": "studio_edit_preserves_copy",
       "reviewerId": null,
       "reviewedAt": null,
       "plannedOutputs": 1,
@@ -58,7 +58,10 @@
         "preferenceVsProduction": null,
         "preferenceVsDirect": null
       },
-      "mandatoryAssertions": null
+      "mandatoryAssertions": {
+        "editPreservedCopy": false,
+        "editPreservedExactAssets": false
+      }
     },
     {
       "id": "journey-03",
@@ -153,13 +156,13 @@
     },
     {
       "id": "journey-07",
-      "protocol": "format_adaptation",
+      "protocol": "restyle",
       "brand": "<preencher: marca>",
       "segment": "<preencher: segmento>",
-      "mandatoryCase": null,
+      "mandatoryCase": "safe_margins",
       "reviewerId": null,
       "reviewedAt": null,
-      "plannedOutputs": 3,
+      "plannedOutputs": 1,
       "terminalCoherentOutputs": null,
       "regressions": { "factual": 0, "brand": 0, "dimension": 0 },
       "objectiveVerdict": null,
@@ -171,7 +174,10 @@
         "preferenceVsProduction": null,
         "preferenceVsDirect": null
       },
-      "mandatoryAssertions": null
+      "mandatoryAssertions": {
+        "safeMarginsPreserved": false,
+        "safeAreaVerified": false
+      }
     },
     {
       "id": "journey-08",
@@ -199,10 +205,10 @@
     },
     {
       "id": "journey-09",
-      "protocol": "restyle",
+      "protocol": "carousel",
       "brand": "<preencher: marca>",
       "segment": "<preencher: segmento>",
-      "mandatoryCase": null,
+      "mandatoryCase": "carousel_slide_sequence",
       "reviewerId": null,
       "reviewedAt": null,
       "plannedOutputs": 1,
@@ -217,11 +223,14 @@
         "preferenceVsProduction": null,
         "preferenceVsDirect": null
       },
-      "mandatoryAssertions": null
+      "mandatoryAssertions": {
+        "slideSequencePreserved": false,
+        "slideOrder": []
+      }
     },
     {
       "id": "journey-10",
-      "protocol": "restyle",
+      "protocol": "carousel",
       "brand": "<preencher: marca>",
       "segment": "<preencher: segmento>",
       "mandatoryCase": null,

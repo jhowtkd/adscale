@@ -543,7 +543,10 @@ export const campaignTemplates = adscaleSchema.table(
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
-  (table) => [index("campaign_templates_workspace_id_idx").on(table.workspaceId)]
+  (table) => [
+    index("campaign_templates_workspace_id_idx").on(table.workspaceId),
+    index("campaign_templates_catalog_cursor_idx").on(table.workspaceId, table.updatedAt, table.id),
+  ]
 );
 
 export const campaignAssets = adscaleSchema.table(
@@ -628,6 +631,7 @@ export const workspaceAssets = adscaleSchema.table(
   (table) => [
     index("workspace_assets_workspace_id_idx").on(table.workspaceId),
     index("workspace_assets_source_idx").on(table.source),
+    index("workspace_assets_catalog_cursor_idx").on(table.source, table.createdAt, table.id),
   ]
 );
 

@@ -22,6 +22,8 @@ import { useCreativeInspirations } from "@/lib/hooks/use-creative-inspirations";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { useStudioEntryInterview } from "@/lib/hooks/use-studio-entry-interview";
 import type { EntryLocale } from "@/lib/studio/entry-types";
+import { firstVisitComposerIntent } from "@/lib/studio/detect-entry-gaps";
+import { studioStageOccupancy } from "@/lib/studio/stage-occupancy";
 import { useCreateCampaign } from "@/lib/hooks/use-campaigns";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -209,8 +211,11 @@ export default function DashboardHomeActions({
   const progressiveResultsHeadingRef = useRef<HTMLHeadingElement>(null);
   // The URL mode only seeds a new composer. Once it exists, its intent is the
   // authority because protocol switches may be deferred or cancelled.
-  const initialStudioIntent = initialIntent
-    ?? (studioMode === "briefing" ? "single" : studioMode === "arte" ? "variations" : undefined);
+  const initialStudioIntent = firstVisitComposerIntent({
+    initialIntent,
+    studioMode,
+    workId,
+  });
   const studioSession = useMemo(
     () => workspaceId ? getOrCreateStudioSession(workspaceId, undefined, undefined, rolloutVariant) : null,
     [rolloutVariant, workspaceId],
@@ -289,39 +294,24 @@ export default function DashboardHomeActions({
     preparedPlanCycleRef.current = nextCycle;
   }, [composer.preparedPlanCycle]);
 
-  const laterState = resultStage || showPlan || Boolean(rolloutVariant === "progressive" && composer.objectiveSelected);
-  const occupancy: "empty" | "work" = (
-    continueTarget.kind === "work"
-    || outputs.length > 0
-    || sources.length > 0
-    || inspirations.length > 0
-    || laterState
-  ) ? "work" : "empty";
-  const mosaicItems = useMemo(() => {
-    const fromLibrary = inspirations
+  const occupancy: "empty" | "work" = studioStageOccupancy({
+    hasContinueWork: continueTarget.kind === "work",
+    hasOpenWork: Boolean(composer.workId),
+    outputCount: outputs.length,
+    sourceCount: sources.length,
+  });
+  const mosaicItems = [
+    ...inspirations
       .filter((item) => item.previewUrl)
-      .map((item) => ({ id: item.id, title: item.title, src: item.previewUrl! }));
-    const fromOutputs = outputs
+      .map((item) => ({ id: item.id, title: item.title, src: item.previewUrl! })),
+    ...outputs
       .filter((output) => output.status === "completed")
       .map((output) => ({
         id: output.id,
         title: composer.workTitle ?? output.id,
         src: `/api/creative-work/${output.workItemId}/outputs/${output.id}/download`,
-      }));
-    return [...fromLibrary, ...fromOutputs];
-  }, [composer.workTitle, inspirations, outputs]);
-
-  if (isError && works.length === 0) {
-    return (
-      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-4 text-center">
-        <h1 className="text-lg font-semibold text-[var(--text-primary)]">{t("errorTitle")}</h1>
-        <p className="text-sm text-[var(--text-muted)]">{t("errorDescription")}</p>
-        <button type="button" onClick={() => void refetch()} className="rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-5 py-2.5 text-sm font-medium text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)]">
-          {t("retry")}
-        </button>
-      </div>
-    );
-  }
+      })),
+  ];
 
   const brandName = composer.brandName ?? activeProfile?.name ?? null;
   const showComposer = isCarouselWorkflow
@@ -344,7 +334,11 @@ export default function DashboardHomeActions({
       error={composer.error ?? null}
       announcement={composer.announcement ?? (composer.bufferedFile ? t("composer.progressiveBufferedFile", { name: composer.bufferedFile.name }) : null)}
       retryInitialTemplate={composer.retryInitialTemplate ?? null}
-      onGenerate={() => void (rolloutVariant === "progressive" ? composer.preparePlan?.() : composer.generateLegacy?.())}
+      onGenerate={() => void (
+        occupancy === "empty" || rolloutVariant !== "progressive"
+          ? composer.generateLegacy?.()
+          : composer.preparePlan?.()
+      )}
       queued={Boolean(composer.actionPhase && composer.actionPhase !== "idle") || composer.state === "generating"}
       generateLabel={occupancy === "empty" ? t("talkStart") : t("talkGenerate")}
       interview={interviewEnabled ? {
@@ -444,6 +438,14 @@ export default function DashboardHomeActions({
             brandName={continueTarget.brandName ?? t("continueBrandUnknown")}
             density="tile"
           />
+        ) : isError ? (
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className={studioChipClass}
+          >
+            {t("retry")}
+          </button>
         ) : null}
         topBar={(
           <div

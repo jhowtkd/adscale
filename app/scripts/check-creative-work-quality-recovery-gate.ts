@@ -27,13 +27,16 @@ export const MAX_BATCH_P95_MS = 8 * 60 * 1000;
 export const MAX_RSS_MB = 358;
 export const MAX_IMAGE_CALLS_PER_OUTPUT = 2;
 
-const PROTOCOLS = ["single", "variations", "format_adaptation", "restyle"] as const;
+const PROTOCOLS = ["single", "variations", "format_adaptation", "restyle", "carousel"] as const;
 const SOURCES = ["production_snapshot", "direct_generation", "creative_work_v1"] as const;
 const PREFERENCES = ["v1", "baseline", "tie"] as const;
 const MANDATORY_CASES = [
   "psicologia_fact_preservation",
   "xtb_content_style_identity_separation",
   "nr1_three_format_adaptation",
+  "carousel_slide_sequence",
+  "studio_edit_preserves_copy",
+  "safe_margins",
 ] as const;
 const STATUSES = ["pending_human_review", "completed"] as const;
 
@@ -73,6 +76,12 @@ export interface GateJourney {
     separatedDimensions?: string[];
     adaptedFromSamePiece?: boolean;
     deliveredFormats?: string[];
+    slideSequencePreserved?: boolean;
+    slideOrder?: string[];
+    editPreservedCopy?: boolean;
+    editPreservedExactAssets?: boolean;
+    safeMarginsPreserved?: boolean;
+    safeAreaVerified?: boolean;
   } | null;
 }
 
@@ -255,6 +264,34 @@ function checkMandatoryAssertions(journey: GateJourney, label: string, failures:
       }
       break;
     }
+    case "carousel_slide_sequence": {
+      const order = asStringArray(assertions.slideOrder);
+      if (assertions.slideSequencePreserved !== true) {
+        failures.push(`${label} (carousel) must preserve slide sequence`);
+      }
+      if (order.length < 2) {
+        failures.push(`${label} (carousel) must record at least two ordered slides`);
+      }
+      break;
+    }
+    case "studio_edit_preserves_copy": {
+      if (assertions.editPreservedCopy !== true) {
+        failures.push(`${label} (edit) must preserve approved copy`);
+      }
+      if (assertions.editPreservedExactAssets !== true) {
+        failures.push(`${label} (edit) must preserve exact brand assets`);
+      }
+      break;
+    }
+    case "safe_margins": {
+      if (assertions.safeMarginsPreserved !== true) {
+        failures.push(`${label} (margins) must preserve safe margins`);
+      }
+      if (assertions.safeAreaVerified !== true) {
+        failures.push(`${label} (margins) must verify the text safe area`);
+      }
+      break;
+    }
     default:
       break;
   }
@@ -263,6 +300,10 @@ function checkMandatoryAssertions(journey: GateJourney, label: string, failures:
 /**
  * Full gate evaluation over `completed` evidence. Every acceptance counter
  * of R-011 is checked; a single failure blocks the release.
+ *
+ * Technical integrity (durations, RSS, image calls, ledger) is scored from
+ * `technicalMetrics`. Visual quality is scored from brand/dimension
+ * regressions and the blind preference. Empty arrays never count as success.
  */
 export function evaluateGate(evidence: unknown): { failures: string[]; summary: GateSummary } {
   const failures: string[] = [];

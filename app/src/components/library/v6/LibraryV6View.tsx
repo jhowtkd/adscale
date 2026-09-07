@@ -107,7 +107,7 @@ export default function LibraryV6View({
   return (
     <div className={cn(studioInstrumentClass, "py-0 pb-6")} aria-busy={isLoading}>
       <div className={studioChromeBarClass}>
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
           {labels.sectionLabel}
         </p>
         <button
@@ -172,12 +172,15 @@ export default function LibraryV6View({
             ]}
           />
           <p
-            className="shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]"
-            aria-label={labels.countSummary
-              .replace("{shown}", String(shownCount))
-              .replace("{total}", String(totalCount))}
+            role="status"
+            className="shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]"
           >
-            {shownCount}/{totalCount}
+            <span className="sr-only">
+              {labels.countSummary
+                .replace("{shown}", String(shownCount))
+                .replace("{total}", String(totalCount))}
+            </span>
+            <span aria-hidden="true">{shownCount}/{totalCount}</span>
           </p>
         </div>
 
@@ -349,14 +352,14 @@ function AssetCard({
         {previewState !== "error" ? (
           <div
             data-testid="library-asset-rover"
-            className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-2.5 pb-2.5 pt-10 opacity-0 transition-opacity duration-[var(--duration-fast)] group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
+            className="pointer-events-none absolute inset-x-0 bottom-0 bg-[oklch(0.12_0.003_260)] px-2.5 py-2 opacity-0 transition-opacity duration-[var(--duration-fast)] group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
           >
-            <p className="truncate text-xs font-medium text-white">{asset.name}</p>
+            <p className="truncate text-xs font-medium text-[var(--text-primary)]">{asset.name}</p>
             {roverMeta ? (
-              <p className="mt-0.5 truncate font-mono text-[10px] text-white/70">{roverMeta}</p>
+              <p className="mt-0.5 truncate font-mono text-[10px] text-[var(--text-secondary)]">{roverMeta}</p>
             ) : null}
             {previewState === "dark" ? (
-              <span role="status" aria-label={labels.previewDark} className="mt-1 block text-[10px] text-white/80">
+              <span role="status" aria-label={labels.previewDark} className="mt-1 block text-[10px] text-[var(--text-secondary)]">
                 {labels.previewDark}
               </span>
             ) : null}

@@ -49,8 +49,8 @@ const mocks = vi.hoisted(() => {
       orderByMock();
       return chain;
     });
-    chain.limit = vi.fn(() => {
-      limitMock();
+    chain.limit = vi.fn((value: unknown) => {
+      limitMock(value);
       return chain;
     });
     chain.for = vi.fn(() => chain);
@@ -815,7 +815,11 @@ describe("creative-work repository", () => {
       };
       mocks.state.selectResults.push([candidate]);
 
-      await expect(listCreativeWorkInspirationCandidates("ws-1", "profile-1")).resolves.toEqual([candidate]);
+      await expect(listCreativeWorkInspirationCandidates("ws-1", "profile-1")).resolves.toEqual({
+        items: [candidate],
+        nextCursor: null,
+      });
+      expect(mocks.limitMock).toHaveBeenCalledWith(25);
 
       const where = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
       expect(where.sql).toContain('"creative_work_outputs"."workspace_id"');

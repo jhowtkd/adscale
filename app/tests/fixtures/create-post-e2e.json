@@ -1,22 +1,36 @@
 {
-  "workspaceId": "1fd5b699-9914-4149-a138-a265b4aefb95",
+  "workspaceId": "9809106c-a0e9-4ade-86b4-5b1b974b3982",
   "workspaceName": "Frictionless E2E's Workspace",
   "email": "frictionless-e2e@adscale.local",
   "password": "FrictionlessE2E123!",
-  "userId": "wFvVpF5v1FP5T5HYTvI4xrAYDJiPqZjI",
-  "primaryClientProfileId": "205b906f-fc29-442e-9700-00e8e57ee286",
-  "approvedLogoReferenceId": "13cb3e2c-1c1f-4c8d-982f-b273633a0852",
-  "approvedLogoAssetKey": "e2e/create-post/1fd5b699/1786556819140-logo-principal.png",
+  "userId": "mUUgl3G1lWyx14dICWDWZhnMCahaLhwQ",
+  "primaryClientProfileId": "b481ad0b-6d4d-4374-833e-45027fc5d306",
+  "approvedLogoReferenceId": "62dfc9c3-cb8f-4cd8-b089-d3dfcf599aba",
+  "approvedLogoAssetKey": "e2e/create-post/9809106c/1788787440557-logo-principal.png",
   "approvedLogoBufferBase64": "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAACXBIWXMAAAPoAAAD6AG1e1JrAAABDElEQVR4nO3RMREDARDDQMMQpPCvwuafQVKqOO2MCVhbkiRJkiRJkiTJH3y+z+XNZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN0tSZIkSZIkSZJkv71Tz3IOyNgAgQAAAABJRU5ErkJggg==",
   "attachmentBufferBase64": "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAACXBIWXMAAAPoAAAD6AG1e1JrAAABDElEQVR4nO3RMREDARDDQMMQpPCvwuafQVKqOO2MCVhbkiRJkiRJkiTJH3y+z+XNZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN3NZh9AAfwTKMDdzWYfQAH8EyjA3c1mH0AB/BMowN0tSZIkSZIkSZJkv71Tz3IOyNgAgQAAAABJRU5ErkJggg==",
   "approvedLogoWidth": 96,
   "approvedLogoHeight": 96,
-  "approvedVisualReferenceId": "6c52a9f9-8a9d-4c1c-a753-84150201e568",
-  "approvedVisualReferenceAssetKey": "e2e/create-post/1fd5b699/1786556819834-referencia-visual.png",
+  "approvedVisualReferenceId": "11d4ee76-81c4-4190-8bf3-95cd249fbd82",
+  "approvedVisualReferenceAssetKey": "e2e/create-post/9809106c/1788787440566-referencia-visual.png",
   "pendingReferenceLabel": "Logo Pendente",
-  "readyWorkId": "d62d08bb-de57-47a5-abca-5702243010fc",
-  "contentArtAssetId": "6c5d4e49-7739-4c63-b0a9-2048ba2ced78",
-  "styleArtAssetId": "adf3197f-c3a8-4702-83ea-cbe4649ea653",
+  "readyWorkId": "5ce6d1fa-56d7-4fab-b1b2-e7a56ef5505d",
+  "contentArtAssetId": "bf9e0198-d0f2-437d-86b4-bdc84ef40e12",
+  "styleArtAssetId": "94cb3e36-65a6-49ed-8d5a-8ecc82e6ebbf",
   "expectedInitialCredits": 15,
-  "seededAt": "2026-08-12T17:47:04.079Z"
+  "insufficientBalance": {
+    "workspaceId": "b1d67f7b-df96-49b4-8700-8402cf9660c0",
+    "email": "studio-insufficient-e2e@adscale.local",
+    "password": "StudioInsufficientE2E123!",
+    "userId": "lvdMMxdsE45wR41G6lzq1phhNFVKJ9Mr",
+    "clientProfileId": "8f3246ca-e2fa-4dd3-ad60-0c2b372eb5b9",
+    "contentArtAssetId": "a5996cf3-8c54-4688-87a3-f2d9a15eb414",
+    "expectedCredits": 0
+  },
+  "firstVisit": {
+    "email": "first-visit-e2e@adscale.local",
+    "password": "FirstVisitE2E123!",
+    "clientProfileId": "9aaa062f-0833-48b6-9775-0e9af9caccb7"
+  },
+  "seededAt": "2026-09-07T13:24:00.648Z"
 }

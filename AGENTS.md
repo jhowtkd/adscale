@@ -23,4 +23,4 @@ Use `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `won
 
 ### Domain docs
 
-Single context: `CONTEXT.md` and `docs/adr/` at the repository root. See `docs/agents/domain.md`.
+Single context: `CONTEXT.md`, `docs/adr/`, and `docs/agents/source-of-truth.md` at the repository root. Plans and old README campaign copy are not the live product. See `docs/agents/domain.md`.

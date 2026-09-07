@@ -3,21 +3,18 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  VISUAL_RELEASE_LAYOUT_SCENARIOS,
+  VISUAL_RELEASE_LAYOUT_VARIANTS,
+  VISUAL_RELEASE_REQUIREMENT_IDS,
+  rejectEmptyOrPartialVisualRelease,
+} from "./lib/visual-release-criteria.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const phaseDir = resolve(repoRoot, ".planning/phases/114-visual-regression-and-release-gate");
 const evidencePath = resolve(phaseDir, "114-EVIDENCE.json");
-const scenarios = [
-  "SCN-DASHBOARD",
-  "SCN-CAMPAIGN-LIST",
-  "SCN-CAMPAIGN-WORKSPACE",
-  "SCN-VARIATIONS-WORKSPACE",
-  "SCN-LIBRARY",
-  "SCN-TEMPLATES",
-  "SCN-FEEDBACK",
-  "SCN-SETTINGS",
-];
-const layoutVariants = ["390x844", "768x844", "1024x900", "1280x900", "1440x900", "1920x900", "1280x480"];
+const scenarios = VISUAL_RELEASE_LAYOUT_SCENARIOS;
+const layoutVariants = VISUAL_RELEASE_LAYOUT_VARIANTS;
 const a11yRoutes = [
   "login",
   "home",
@@ -65,6 +62,7 @@ function validateUniqueChecks(errors, checks, expectedKeys, label, validate) {
 
 export function validateReleaseEvidence(evidence, { preflight = false } = {}) {
   const errors = [];
+  rejectEmptyOrPartialVisualRelease(evidence, errors);
   const layoutChecks = evidence.layoutChecks ?? [];
   const a11yChecks = evidence.a11yChecks ?? [];
   const interactionChecks = evidence.interactionChecks ?? [];
@@ -94,7 +92,7 @@ export function validateReleaseEvidence(evidence, { preflight = false } = {}) {
     if (!valid) errors.push(`interaction ${key} failed`);
   });
 
-  for (const id of ["RESP-07", "QA-15", "QA-16"]) {
+  for (const id of VISUAL_RELEASE_REQUIREMENT_IDS) {
     if (evidence.requirements?.[id]?.result !== "pass") errors.push(`requirement ${id} not marked pass`);
   }
 

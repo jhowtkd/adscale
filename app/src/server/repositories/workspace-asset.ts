@@ -1,6 +1,12 @@
-import { eq, and, desc, sql, count, notInArray } from "drizzle-orm";
+import { eq, and, desc, sql, count, notInArray, or, lt } from "drizzle-orm";
 import { db } from "../db";
 import { workspaceAssets } from "../db/schema";
+import {
+  boundCatalogLimit,
+  takeCatalogPage,
+  type CatalogQuery,
+  type CatalogPageResult,
+} from "@/lib/catalog-page";
 
 export interface CreateWorkspaceAssetInput {
   workspaceId: string;
@@ -136,12 +142,25 @@ export async function getWorkspaceAssetByKey(
   return row ?? null;
 }
 
-export async function getCuratedInspirations() {
-  return db
+export async function getCuratedInspirations(
+  page: CatalogQuery = {},
+): Promise<CatalogPageResult<typeof workspaceAssets.$inferSelect>> {
+  const limit = boundCatalogLimit(page.limit);
+  const cursorWhere = page.cursor
+    ? or(
+        lt(workspaceAssets.createdAt, page.cursor.at),
+        and(eq(workspaceAssets.createdAt, page.cursor.at), lt(workspaceAssets.id, page.cursor.id)),
+      )
+    : undefined;
+  const rows = await db
     .select()
     .from(workspaceAssets)
-    .where(eq(workspaceAssets.source, "curated_inspiration"))
-    .orderBy(desc(workspaceAssets.createdAt));
+    .where(cursorWhere
+      ? and(eq(workspaceAssets.source, "curated_inspiration"), cursorWhere)
+      : eq(workspaceAssets.source, "curated_inspiration"))
+    .orderBy(desc(workspaceAssets.createdAt), desc(workspaceAssets.id))
+    .limit(limit + 1);
+  return takeCatalogPage(rows, limit, (row) => ({ at: row.createdAt, id: row.id }));
 }
 
 export async function getCuratedInspirationById(id: string) {

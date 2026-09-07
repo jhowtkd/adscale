@@ -57,8 +57,9 @@ function templateResult(facts: EntryFacts, locale: EntryLocale) {
   };
 }
 
-function inventedPriceWithoutOffer(sentence: string, facts: EntryFacts): boolean {
-  return !facts.offer && /R\$\s*\d/i.test(sentence);
+function inventedOfferWithoutFacts(sentence: string, facts: EntryFacts): boolean {
+  if (facts.offer) return false;
+  return /R\$\s*\d|\b\d+\s*%|\bgrátis\b|\bfree\b|\bdesconto\b|\bpor apenas\b|\bonly \$?\d/i.test(sentence);
 }
 
 export async function synthesizeStudioEntryRequest(input: {
@@ -90,7 +91,7 @@ export async function synthesizeStudioEntryRequest(input: {
 
     const parsed = JSON.parse(content) as { sentence?: unknown };
     const sentence = typeof parsed.sentence === "string" ? parsed.sentence.trim() : "";
-    if (!sentence || inventedPriceWithoutOffer(sentence, merged)) {
+    if (!sentence || inventedOfferWithoutFacts(sentence, merged)) {
       return templateResult(merged, input.locale);
     }
 

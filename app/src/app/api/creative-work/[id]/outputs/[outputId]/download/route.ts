@@ -17,7 +17,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string; outputId: string }> }
 ) {
   try {
-    const [{ workspace }, { id, outputId }] = await Promise.all([
+    const [{ user, workspace }, { id, outputId }] = await Promise.all([
       requireWorkspaceAccess(request),
       params,
     ]);
@@ -42,6 +42,7 @@ export async function GET(
       workspaceId: workspace.id,
       workItemId: id,
       outputId,
+      actorUserId: user.id,
       ...(format !== "original" ? { format } : {}),
       ...(layerId ? { layerId } : {}),
       ...(revision ? { revision } : {}),

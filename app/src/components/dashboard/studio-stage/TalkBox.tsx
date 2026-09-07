@@ -9,6 +9,7 @@ import type { ComposerIntent } from "@/components/creative-work/useCreativeCompo
 import type { CreativeSourceUsage } from "@/lib/hooks/use-creative-work";
 import { hasCreativeWorkProtocolSourceShape } from "@/lib/creative-work-protocol-eligibility";
 import type { EntryChip, EntryLocale, EntrySlot } from "@/lib/studio/entry-types";
+import { shouldHideProtocolSwitcher } from "@/lib/studio/detect-entry-gaps";
 import { cn } from "@/lib/utils";
 import { ProtocolRadios } from "./ProtocolRadios";
 
@@ -111,6 +112,13 @@ export function TalkBox({
     onGenerate();
   };
 
+  const hideProtocolSwitcher = shouldHideProtocolSwitcher(interview, {
+    placement,
+    suggestedProtocol,
+    intent,
+  });
+  const hideGenerateWhileInterviewOwnsEntry = shouldHideProtocolSwitcher(interview);
+
   return (
     <ShineBorder
       borderRadius={28}
@@ -127,12 +135,14 @@ export function TalkBox({
           centered ? "p-5 sm:p-6 shadow-[var(--shadow-overlay)]" : "px-4 py-3 sm:px-5 sm:py-3.5",
         )}
       >
-        <ProtocolRadios
-          selected={intent}
-          suggested={suggestedProtocol}
-          carouselEnabled={carouselEnabled}
-          onSelect={(next) => onSelectIntent(next, true)}
-        />
+        {hideProtocolSwitcher ? null : (
+          <ProtocolRadios
+            selected={intent}
+            suggested={suggestedProtocol}
+            carouselEnabled={carouselEnabled}
+            onSelect={(next) => onSelectIntent(next, true)}
+          />
+        )}
 
         <label htmlFor="creative-composer-request" className="sr-only">{tComposer("requestLabel")}</label>
         <textarea
@@ -230,6 +240,7 @@ export function TalkBox({
             </button>
           </div>
           <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            {hideGenerateWhileInterviewOwnsEntry ? null : (
             <button
               type="button"
               onClick={generate}
@@ -241,6 +252,7 @@ export function TalkBox({
               <Sparkles size={15} aria-hidden="true" />
               {queued ? t("talkQueued") : generateLabel}
             </button>
+            )}
             {visibleError ? (
               <div className="flex flex-wrap items-center gap-2" role="alert">
                 <p className="text-sm text-[var(--danger-text)]">{visibleError}</p>

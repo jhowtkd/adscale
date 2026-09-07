@@ -8,6 +8,7 @@ import {
   seedVisualManifest,
   type VisualManifest,
 } from "./support/visual-auth";
+import { VISUAL_RELEASE_LAYOUT_SCENARIOS } from "../../scripts/lib/visual-release-criteria.mjs";
 
 const EVIDENCE_PATH = path.resolve(process.cwd(), "../.planning/phases/114-visual-regression-and-release-gate/114-EVIDENCE.json");
 
@@ -151,16 +152,23 @@ test.describe("visual release gate", () => {
     expect(RELEASE_VIEWPORTS).toEqual(expect.arrayContaining([390, 768, 1024, 1280, 1440, 1920]));
   });
 
-  const scenarioEntries = [
-    ["SCN-DASHBOARD", (m: VisualManifest) => m.routes.dashboard],
-    ["SCN-CAMPAIGN-LIST", (m: VisualManifest) => m.routes.campaignList],
-    ["SCN-CAMPAIGN-WORKSPACE", (m: VisualManifest) => m.routes.workspace],
-    ["SCN-VARIATIONS-WORKSPACE", (m: VisualManifest) => m.routes.variationWorkspace],
-    ["SCN-LIBRARY", () => "/library"],
-    ["SCN-TEMPLATES", () => "/templates"],
-    ["SCN-FEEDBACK", () => "/feedback"],
-    ["SCN-SETTINGS", (m: VisualManifest) => m.routes.settingsProfile],
-  ] as const;
+  const scenarioRoutes: Record<(typeof VISUAL_RELEASE_LAYOUT_SCENARIOS)[number], (m: VisualManifest) => string> = {
+    "SCN-DASHBOARD": (m) => m.routes.dashboard,
+    "SCN-CAMPAIGN-LIST": (m) => m.routes.campaignList,
+    "SCN-CAMPAIGN-WORKSPACE": (m) => m.routes.workspace,
+    "SCN-VARIATIONS-WORKSPACE": (m) => m.routes.variationWorkspace,
+    "SCN-LIBRARY": () => "/library",
+    "SCN-TEMPLATES": () => "/templates",
+    "SCN-FEEDBACK": () => "/feedback",
+    "SCN-SETTINGS": (m) => m.routes.settingsProfile,
+    "SCN-STUDIO-CAROUSEL": (m) => `${m.routes.creativeWork}?intent=carousel`,
+    "SCN-STUDIO-EDIT": (m) => `${m.routes.creativeWork}?intent=single`,
+  };
+
+  const scenarioEntries = VISUAL_RELEASE_LAYOUT_SCENARIOS.map((scenario) => {
+    const resolveRoute = scenarioRoutes[scenario];
+    return [scenario, resolveRoute] as const;
+  });
 
   for (const [scenario, resolveRoute] of scenarioEntries) {
     test(`responsive layout ${scenario}`, async ({ page }, testInfo) => {

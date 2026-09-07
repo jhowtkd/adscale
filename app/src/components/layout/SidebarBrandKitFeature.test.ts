@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BrandTrainingStatus } from "@/lib/hooks/use-brand-training";
 import ptBR from "../../../messages/pt-BR.json";
 import en from "../../../messages/en.json";
-import { brandStatusKey } from "./SidebarBrandKitFeature";
+import { brandStatusKey, brandKitSidebarStatus } from "./SidebarBrandKitFeature";
 
 const training = (overrides: Partial<BrandTrainingStatus>): BrandTrainingStatus => ({
   profile: { id: "brand-1", name: "Acme" },
@@ -20,6 +20,22 @@ describe("brandStatusKey", () => {
     expect(brandStatusKey("brand-1", training({}))).toBe("brandKitStatusSetup");
     expect(brandStatusKey("brand-1", training({ trained: true }))).toBe("brandKitStatusReady");
     expect(brandStatusKey("brand-1", training({ needsReview: true }))).toBe("brandKitStatusReview");
+  });
+
+  it("does not keep Consultando while brand training is still fetching", () => {
+    expect(brandKitSidebarStatus({
+      profilesLoading: false,
+      profilesError: false,
+      trainingError: false,
+      activeClientProfileId: "brand-1",
+      training: undefined,
+    })).toBe("brandKitStatusSetup");
+    expect(brandKitSidebarStatus({
+      profilesLoading: true,
+      profilesError: false,
+      trainingError: false,
+      activeClientProfileId: null,
+    })).toBe("loading");
   });
 
   it("keeps canonical navigation and Brand states aligned in PT and EN", () => {

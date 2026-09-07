@@ -9,20 +9,39 @@ vi.mock("@/server/application/ensure-creative-work-output-library", () => ({
   ensureCreativeWorkOutputInLibrary: vi.fn(),
 }));
 
+vi.mock("@/server/creative-work/record-value-event", () => ({
+  recordCreativeWorkValueEvent: vi.fn(),
+  valueEventFromCreativeWork: vi.fn((work: { id: string; workspaceId: string; createdByUserId: string; clientProfileId: string; campaignId?: string | null; toolKind: string }) => ({
+    userId: work.createdByUserId,
+    workspaceId: work.workspaceId,
+    creativeWorkId: work.id,
+    protocol: work.toolKind,
+    origin: work.campaignId ? "campaign" : "studio",
+    campaignId: work.campaignId ?? null,
+    clientProfileId: work.clientProfileId,
+  })),
+}));
+
 import {
   getCreativeWork,
   selectCreativeWorkOutput,
 } from "@/server/repositories/creative-work";
 import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-creative-work-output-library";
 import { selectCreativeWorkOutputCommand } from "./select-creative-work-output";
+import { recordCreativeWorkValueEvent } from "@/server/creative-work/record-value-event";
 
 const mockGet = vi.mocked(getCreativeWork);
 const mockSelect = vi.mocked(selectCreativeWorkOutput);
 const mockEnsure = vi.mocked(ensureCreativeWorkOutputInLibrary);
+const mockRecordValue = vi.mocked(recordCreativeWorkValueEvent);
 
 const workItem = {
   id: "work-1",
   workspaceId: "ws-1",
+  createdByUserId: "user-1",
+  clientProfileId: "profile-1",
+  campaignId: null,
+  toolKind: "social_post",
   brief: { theme: "Tema do Post", objective: "O", audience: "A", offer: "Of" },
 };
 
@@ -74,6 +93,13 @@ describe("selectCreativeWorkOutputCommand", () => {
       theme: "Tema do Post",
       creativeLevel: "balanced",
     });
+    expect(mockRecordValue).toHaveBeenCalledWith(expect.objectContaining({
+      kind: "approved",
+      outputId: "output-1",
+      outputKey: completedOutput.outputKey,
+      protocol: "social_post",
+      origin: "studio",
+    }));
   });
 
   it("skips library ensure when saveToLibrary=false", async () => {

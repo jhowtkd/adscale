@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EVIDENCE_SOURCE } from "../../../../scripts/lib/evidence-honesty.mjs";
+import { EVIDENCE_SOURCE, rejectEmptyVisualSuccess } from "../../../../scripts/lib/evidence-honesty.mjs";
 import { validateEvidenceShape as validateCalibrationEvidence } from "../../../../scripts/check-score-calibration-evidence.mjs";
 import { validateEvidenceShape as validateImpactEvidence } from "../../../../scripts/check-learning-impact-evidence.mjs";
 import { validateEvidenceShape as validateQualityEvidence } from "../../../../scripts/check-quality-improvement-evidence.mjs";
@@ -311,5 +311,14 @@ describe("aggregate evidence honesty", () => {
     const errors: string[] = [];
     validateMetricSeparation(evidence, errors);
     expect(errors).toEqual([]);
+  });
+
+  it("does not treat empty visual captures as success", () => {
+    const errors: string[] = [];
+    rejectEmptyVisualSuccess({ captures: [], afterCaptures: [], requirements: [] }, errors);
+    expect(errors).toEqual(expect.arrayContaining([
+      expect.stringMatching(/empty visual evidence/),
+      expect.stringMatching(/must not be auto-passed/),
+    ]));
   });
 });

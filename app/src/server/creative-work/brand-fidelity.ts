@@ -12,7 +12,7 @@ import type {
 import { canonicalJsonStringify } from "./canonical-json";
 
 export type BrandFidelityState = "proven" | "nonconforming" | "not_applicable";
-export type BrandFidelityCheckId = "copy" | "font" | "exact_assets" | "composition";
+export type BrandFidelityCheckId = "copy" | "font" | "exact_assets" | "composition" | "safe_area";
 
 export interface BrandFidelityEvidence {
   source: "identity_snapshot" | "text_composition" | "exact_composition" | "output_artifact";
@@ -232,7 +232,28 @@ export function buildDeterministicBrandFidelity(
     ],
   );
 
-  const checks = [copyCheck, fontCheck, exactCheck, compositionCheck];
+  const safe = text?.safeArea ?? null;
+  const layersInsideSafeArea = Boolean(text && safe?.verified)
+    && (text?.layers.every((layer) =>
+      layer.box.left >= safe!.left
+      && layer.box.top >= safe!.top
+      && layer.box.left + layer.box.width <= text.dimensions.width - safe!.right
+      && layer.box.top + layer.box.height <= text.dimensions.height - safe!.bottom
+    ) ?? false);
+  const safeAreaCheck = check(
+    "safe_area",
+    !text ? "not_applicable" : layersInsideSafeArea ? "proven" : "nonconforming",
+    [{
+      source: "text_composition",
+      path: "quality.textComposition.safeArea",
+      expected: text ? { verified: true, layersInside: true } : null,
+      observed: text
+        ? { verified: safe?.verified ?? false, layersInside: layersInsideSafeArea }
+        : null,
+    }],
+  );
+
+  const checks = [copyCheck, fontCheck, exactCheck, compositionCheck, safeAreaCheck];
   const overall = checks.some((item) => item.state === "nonconforming")
     ? "nonconforming"
     : checks.some((item) => item.state === "proven")

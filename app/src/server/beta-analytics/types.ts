@@ -41,6 +41,10 @@ export const ALLOWED_PROPERTY_KEYS = [
   "usedFallback",
   "slot",
   "requestSource",
+  "outputId",
+  "outputKey",
+  "origin",
+  "clientProfileId",
 ] as const;
 
 export type AllowedPropertyKey = (typeof ALLOWED_PROPERTY_KEYS)[number];

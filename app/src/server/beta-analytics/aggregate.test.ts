@@ -524,6 +524,26 @@ describe("beta analytics aggregate", () => {
       byFailureCode: [],
     });
     expect(summary.studioFunnel).toHaveLength(2);
+    expect(summary.valueDelivered).toEqual({
+      selectedPieces: 0,
+      deliveredPieces: 0,
+      weeks: [],
+      byOrigin: [],
+      byProtocol: [],
+      reconcile: null,
+    });
+  });
+
+  it("reconciles selected pieces from the database when the owner filters a workspace", () => {
+    const summary = buildAnalyticsFunnelSummary([], [], [], undefined, {
+      selectedFromDatabase: [{ workspaceId: "ws-1", outputId: "out-1", outputKey: "k1" }],
+    });
+    expect(summary.valueDelivered.reconcile).toEqual({
+      selectedFromDatabase: 1,
+      selectedFromEvents: 0,
+      missingFromEvents: 1,
+      orphanedFromEvents: 0,
+    });
   });
 
   it("exports events as CSV rows", () => {

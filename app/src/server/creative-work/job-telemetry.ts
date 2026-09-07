@@ -1,5 +1,6 @@
 import "server-only";
 import { logger } from "@/lib/logger";
+import { heavyImageExecutorIdentity } from "@/server/jobs/heavy-image-isolation";
 import type { BriefingReadiness } from "./contracts";
 
 function truncateTelemetryMessage(value: unknown, max = 500): string {
@@ -148,7 +149,7 @@ export function logCreativeWorkGenerationLifecycle(fields: {
     ? { ...rest, errorMessage: truncateTelemetryMessage(rest.errorMessage) }
     : rest;
   try {
-    logger.info({ event, jobType: "creative_work", ...safeFields });
+    logger.info({ event, jobType: "creative_work", ...heavyImageExecutorIdentity(), ...safeFields });
   } catch (error) {
     try {
       logger.warn({
@@ -180,7 +181,7 @@ export function logCreativeWorkGenerationAggregate(fields: {
   totalDurationMs?: number;
 }): void {
   try {
-    logger.info({ event: "creative_work_generation_aggregate", jobType: "creative_work", ...fields });
+    logger.info({ event: "creative_work_generation_aggregate", jobType: "creative_work", ...heavyImageExecutorIdentity(), ...fields });
   } catch (error) {
     try {
       logger.warn({
@@ -226,6 +227,7 @@ export function logCreativeWorkOutputStage(fields: CreativeWorkOutputStageTeleme
   try {
     logger.info({
       event: "creative_work_output_stage",
+      ...heavyImageExecutorIdentity(),
       ...fields,
       ...(fields.detail ? { detail: truncateTelemetryMessage(fields.detail) } : {}),
       ...creativeWorkMemorySnapshotMb(),
@@ -279,6 +281,7 @@ export function logCreativeWorkOutputTerminal(fields: CreativeWorkOutputTerminal
   try {
     const payload = {
       event: "creative_work_output_terminal",
+      ...heavyImageExecutorIdentity(),
       ...fields,
       ...creativeWorkMemorySnapshotMb(),
     };

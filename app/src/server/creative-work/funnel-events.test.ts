@@ -44,13 +44,16 @@ describe("creative-work funnel events", () => {
     );
   });
 
-  it("classifies the three competing origins without changing business rules", () => {
+  it("classifies origins including studio and the historical quick_tool alias", () => {
     expect(CREATIVE_WORK_ORIGINS).toEqual([
       "campaign",
       "assistant",
+      "studio",
       "quick_tool",
     ]);
     expect(isCreativeWorkOrigin("campaign")).toBe(true);
+    expect(isCreativeWorkOrigin("studio")).toBe(true);
+    expect(isCreativeWorkOrigin("quick_tool")).toBe(true);
     expect(isCreativeWorkOrigin("newsletter")).toBe(false);
   });
 

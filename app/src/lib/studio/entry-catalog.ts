@@ -78,3 +78,22 @@ export function labelEntryValue(slot: "protocol" | "offer" | "audience" | "tone"
   }
   return value;
 }
+
+function normalizeNeedle(value: string) {
+  return value.trim().toLocaleLowerCase("pt-BR");
+}
+
+/** True when the handwritten request already states this catalog value. */
+export function requestMentionsEntryValue(
+  request: string,
+  slot: "protocol" | "offer" | "audience" | "tone",
+  value: string,
+): boolean {
+  const haystack = normalizeNeedle(request);
+  if (!haystack) return false;
+  const needles = [value, labelEntryValue(slot, value, "pt-BR"), labelEntryValue(slot, value, "en")];
+  return needles.some((needle) => {
+    const normalized = normalizeNeedle(needle);
+    return normalized.length > 0 && haystack.includes(normalized);
+  });
+}

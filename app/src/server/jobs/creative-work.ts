@@ -71,6 +71,7 @@ import {
   type TextCompositionProvenance,
 } from "@/server/creative-work/text-composite";
 import { buildTypographyPlan, isBrandFontAllowed } from "@/server/creative-work/typography-plan";
+import { shouldBuildTypographyPlan } from "@/server/creative-work/identity-policy";
 import {
   policyForExactAsset,
   preflightExactComposition,
@@ -847,7 +848,7 @@ const creativeWorkOutputJobHandler = async ({
         }
         executionIdentitySnapshot = { ...identitySnapshot, assets: executionIdentityAssets };
       }
-      const typographyPlan = work.toolKind === "single"
+      const typographyPlan = shouldBuildTypographyPlan(work.toolKind)
         ? work.inputSnapshot?.typographyPlan ?? buildTypographyPlan({
             format: targetFormat,
             requestedLayout: work.settings?.textLayout,

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2, Upload } from "lucide-react";
 import { useAppStore } from "@/lib/store";
@@ -78,14 +78,6 @@ export function BrandTrainingAssets({
     [assets, filter],
   );
   const selected = visible.find((asset) => asset.id === selectedId) ?? visible[0] ?? null;
-
-  useEffect(() => {
-    if (!selected) {
-      setSelectedId(null);
-      return;
-    }
-    if (selected.id !== selectedId) setSelectedId(selected.id);
-  }, [selected, selectedId]);
 
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;

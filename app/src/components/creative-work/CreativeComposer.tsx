@@ -189,7 +189,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
                   </span>
                 ) : null}
               </span>
-              <span className="mt-2 block text-xs leading-5 text-[var(--text-muted)]">{direction.instruction}</span>
+              <span className="mt-2 block text-xs leading-5 text-[var(--text-secondary)]">{direction.instruction}</span>
             </button>
           );
         })}

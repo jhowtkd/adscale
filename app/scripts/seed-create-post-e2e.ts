@@ -64,8 +64,11 @@ const E2E_EMAIL = "frictionless-e2e@adscale.local";
 const E2E_PASSWORD = "FrictionlessE2E123!";
 const INSUFFICIENT_E2E_EMAIL = "studio-insufficient-e2e@adscale.local";
 const INSUFFICIENT_E2E_PASSWORD = "StudioInsufficientE2E123!";
+const FIRST_VISIT_E2E_EMAIL = "first-visit-e2e@adscale.local";
+const FIRST_VISIT_E2E_PASSWORD = "FirstVisitE2E123!";
 const PRIMARY_CLIENT_NAME = "Create Post E2E Brand";
 const INSUFFICIENT_CLIENT_NAME = "Studio E2E Insufficient Brand";
+const FIRST_VISIT_CLIENT_NAME = "First Visit E2E Brand";
 const FIXTURE_PATH = process.env.CREATE_POST_E2E_FIXTURE_PATH
   ? path.resolve(process.env.CREATE_POST_E2E_FIXTURE_PATH)
   : path.resolve(__dirname, "../tests/fixtures/create-post-e2e.json");
@@ -130,49 +133,27 @@ const SAMPLE_ANALYSIS: BrandTrainingAnalysis = {
   confidence: 1,
 };
 
-async function resolveDedicatedWorkspace(): Promise<{
+async function resolveE2eAccount(email: string, password: string, name: string): Promise<{
   userId: string;
   workspaceId: string;
 }> {
-  let account = await db
-    .select()
-    .from(user)
-    .where(eq(user.email, E2E_EMAIL))
-    .limit(1);
+  let account = await db.select().from(user).where(eq(user.email, email)).limit(1);
   if (!account[0]) {
-    await auth.api.signUpEmail({
-      body: {
-        email: E2E_EMAIL,
-        password: E2E_PASSWORD,
-        name: "Frictionless E2E",
-      },
-    });
-    account = await db
-      .select()
-      .from(user)
-      .where(eq(user.email, E2E_EMAIL))
-      .limit(1);
+    await auth.api.signUpEmail({ body: { email, password, name } });
+    account = await db.select().from(user).where(eq(user.email, email)).limit(1);
   }
-  if (!account[0]) {
-    throw new Error(`Could not create dedicated E2E user ${E2E_EMAIL}.`);
-  }
-  await db
-    .update(user)
-    .set({
-      emailVerified: true,
-      onboardingCompletedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(user.id, account[0].id));
-  const membership = await db
-    .select()
-    .from(workspaceMembers)
-    .where(eq(workspaceMembers.userId, account[0].id))
-    .limit(1);
-  if (!membership[0]) {
-    throw new Error(`User ${E2E_EMAIL} has no workspace.`);
-  }
-  const workspaceId = membership[0].workspaceId;
+  if (!account[0]) throw new Error(`Could not create dedicated E2E user ${email}.`);
+  await db.update(user).set({
+    emailVerified: true,
+    onboardingCompletedAt: new Date(),
+    updatedAt: new Date(),
+  }).where(eq(user.id, account[0].id));
+  const membership = await db.select().from(workspaceMembers).where(eq(workspaceMembers.userId, account[0].id)).limit(1);
+  if (!membership[0]) throw new Error(`User ${email} has no workspace.`);
+  return { userId: account[0].id, workspaceId: membership[0].workspaceId };
+}
+
+async function grantScaleCredits(workspaceId: string, sourceId: string, amount: number): Promise<void> {
   const compactId = workspaceId.replace(/-/g, "").slice(0, 24);
   const stripeCustomerId = `cus_e2e_${compactId}`;
   await saveBillingCustomer({ workspaceId, stripeCustomerId });
@@ -192,66 +173,35 @@ async function resolveDedicatedWorkspace(): Promise<{
   await createCreditGrant({
     workspaceId,
     source: "dev_admin_seed",
-    sourceId: `frictionless-e2e-${Date.now()}`,
-    amount: 10_000,
+    sourceId,
+    amount,
     expiresAt: null,
   });
-  return { userId: account[0].id, workspaceId };
 }
 
-async function resolveInsufficientBalanceWorkspace(): Promise<{
-  userId: string;
-  workspaceId: string;
-}> {
-  let account = await db
-    .select()
-    .from(user)
-    .where(eq(user.email, INSUFFICIENT_E2E_EMAIL))
-    .limit(1);
-  if (!account[0]) {
-    await auth.api.signUpEmail({
-      body: {
-        email: INSUFFICIENT_E2E_EMAIL,
-        password: INSUFFICIENT_E2E_PASSWORD,
-        name: "Studio Insufficient E2E",
-      },
-    });
-    account = await db
-      .select()
-      .from(user)
-      .where(eq(user.email, INSUFFICIENT_E2E_EMAIL))
-      .limit(1);
-  }
-  if (!account[0]) {
-    throw new Error(`Could not create dedicated E2E user ${INSUFFICIENT_E2E_EMAIL}.`);
-  }
-  await db
-    .update(user)
-    .set({
-      emailVerified: true,
-      onboardingCompletedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(user.id, account[0].id));
-  const membership = await db
-    .select()
-    .from(workspaceMembers)
-    .where(eq(workspaceMembers.userId, account[0].id))
-    .limit(1);
-  if (!membership[0]) {
-    throw new Error(`User ${INSUFFICIENT_E2E_EMAIL} has no workspace.`);
-  }
+async function resolveDedicatedWorkspace(): Promise<{ userId: string; workspaceId: string }> {
+  const account = await resolveE2eAccount(E2E_EMAIL, E2E_PASSWORD, "Frictionless E2E");
+  await grantScaleCredits(account.workspaceId, `frictionless-e2e-${Date.now()}`, 10_000);
+  return account;
+}
 
-  const workspaceId = membership[0].workspaceId;
-  await db.delete(creditGrants).where(eq(creditGrants.workspaceId, workspaceId));
+async function resolveFirstVisitWorkspace(): Promise<{ userId: string; workspaceId: string }> {
+  const account = await resolveE2eAccount(FIRST_VISIT_E2E_EMAIL, FIRST_VISIT_E2E_PASSWORD, "First Visit E2E");
+  await grantScaleCredits(account.workspaceId, `first-visit-e2e-${Date.now()}`, 10_000);
+  return account;
+}
+
+async function resolveInsufficientBalanceWorkspace(): Promise<{ userId: string; workspaceId: string }> {
+  const account = await resolveE2eAccount(INSUFFICIENT_E2E_EMAIL, INSUFFICIENT_E2E_PASSWORD, "Studio Insufficient E2E");
+  await db.delete(creditGrants).where(eq(creditGrants.workspaceId, account.workspaceId));
   await createCreditGrant({
-    workspaceId,
+    workspaceId: account.workspaceId,
     source: "studio_e2e_insufficient_balance",
-    sourceId: `studio-insufficient-${workspaceId}`,
+    sourceId: `studio-insufficient-${account.workspaceId}`,
     amount: 0,
     expiresAt: null,
   });
-  return { userId: account[0].id, workspaceId };
+  return account;
 }
 
 async function clearPreviousSeed(workspaceId: string): Promise<void> {
@@ -335,11 +285,11 @@ async function uploadFixtureAsset(input: {
   return { key, assetId: asset.id };
 }
 
-async function seedBrandKit(workspaceId: string, profileId: string): Promise<void> {
+async function seedBrandKit(workspaceId: string, profileId: string, name = PRIMARY_CLIENT_NAME): Promise<void> {
   await upsertBrandKit(
     workspaceId,
     {
-      name: PRIMARY_CLIENT_NAME,
+      name,
       description: "Seed profile used by Create Post acceptance gate",
       brandColors: ["#FF0080", "#20C060"],
       brandFonts: ["Inter", "Roboto"],
@@ -471,16 +421,23 @@ async function seedReadyWorkFixture(input: {
 async function main(): Promise<void> {
   const { userId, workspaceId } = await resolveDedicatedWorkspace();
   const insufficient = await resolveInsufficientBalanceWorkspace();
+  const firstVisit = await resolveFirstVisitWorkspace();
   await clearPreviousSeed(workspaceId);
   await clearPreviousSeed(insufficient.workspaceId);
+  await clearPreviousSeed(firstVisit.workspaceId);
 
   const primary = await ensureClientProfile(workspaceId, PRIMARY_CLIENT_NAME);
   const insufficientProfile = await ensureClientProfile(
     insufficient.workspaceId,
     INSUFFICIENT_CLIENT_NAME,
   );
+  const firstVisitProfile = await ensureClientProfile(
+    firstVisit.workspaceId,
+    FIRST_VISIT_CLIENT_NAME,
+  );
 
   await seedBrandKit(workspaceId, primary.id);
+  await seedBrandKit(firstVisit.workspaceId, firstVisitProfile.id, FIRST_VISIT_CLIENT_NAME);
 
   const logoBuffer = await buildTransparentPng();
   const referenceBuffer = await buildVisualReferencePng();
@@ -586,6 +543,11 @@ async function main(): Promise<void> {
       clientProfileId: insufficientProfile.id,
       contentArtAssetId: insufficientContentArt.assetId,
       expectedCredits: 0,
+    },
+    firstVisit: {
+      email: FIRST_VISIT_E2E_EMAIL,
+      password: FIRST_VISIT_E2E_PASSWORD,
+      clientProfileId: firstVisitProfile.id,
     },
     seededAt: new Date().toISOString(),
   };

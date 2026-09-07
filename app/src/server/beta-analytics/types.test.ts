@@ -11,6 +11,7 @@ describe("beta analytics types", () => {
   it("allows Studio-safe properties and canonical funnel events", () => {
     expect(ALLOWED_PROPERTY_KEYS).toEqual(expect.arrayContaining([
       "studioSessionId", "creativeWorkId", "inputMode", "protocol", "sourceRole", "rolloutVariant", "outputCount",
+      "outputId", "outputKey", "origin", "clientProfileId",
     ]));
     expect(BETA_EVENT_KEYS).toEqual(expect.arrayContaining([...STUDIO_BETA_EVENT_KEYS, "generation_confirmed"]));
   });

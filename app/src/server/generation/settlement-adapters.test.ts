@@ -355,6 +355,16 @@ describe("Generation Settlement production adapters", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it("a process restart replaying the same batch does not charge or dispatch again", async () => {
+    createOutputs.mockResolvedValue({ outputs, newlyCreatedIds: [] });
+    const first = await startGenerationSettlement(batchAdapter());
+    const second = await startGenerationSettlement(batchAdapter());
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    expect(chargeBatch).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("settles an existing failed batch replay through the shared contract", async () => {
     const failedOutputs = outputs.map((output) => ({
       ...output,

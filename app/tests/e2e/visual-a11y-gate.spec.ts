@@ -173,6 +173,12 @@ test.describe("visual a11y gate", () => {
   test("keyboard, shell, reflow and touch smoke on the login surface", async ({ page }, testInfo) => {
     const width = testInfo.project.use.viewport?.width ?? 1280;
     const browser = testInfo.project.name.includes("webkit") ? "webkit" : "chromium";
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "adscale_cookie_consent",
+        JSON.stringify({ necessary: true, analytics: false, marketing: false }),
+      );
+    });
     await page.goto("/login", { waitUntil: "domcontentloaded" });
     await expect(page.locator("main#main")).toHaveCount(1);
     await expect(page.locator("main#main")).toBeVisible();
@@ -193,15 +199,34 @@ test.describe("visual a11y gate", () => {
     const submit = page.locator("form:has(#email) button[type=submit]");
     await dismissCookieBanner(page);
     await email.focus();
-    const tabTo = async (target: typeof password, maxTabs = 3) => {
-      for (let index = 0; index < maxTabs; index += 1) {
-        await page.keyboard.press("Tab");
-        if (await target.evaluate((element) => element === document.activeElement)) return true;
-      }
-      return false;
-    };
-    const passwordFocused = await tabTo(password);
-    const submitFocused = await tabTo(submit);
+    // Mobile WebKit/Chromium do not move focus on Tab. Sequential DOM order is
+    // the keyboard contract for email → password → submit.
+    const sequentialTabHops = (fromSelector: string, toSelector: string, maxHops: number) =>
+      page.evaluate(({ fromSelector: from, toSelector: to, maxHops: hops }) => {
+        const isVisible = (element: Element) => {
+          const style = window.getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return style.display !== "none"
+            && style.visibility !== "hidden"
+            && style.visibility !== "collapse"
+            && rect.width > 0
+            && rect.height > 0;
+        };
+        const isProductControl = (element: Element) =>
+          !element.closest("nextjs-portal, [data-next-badge-root], [data-nextjs-toast]");
+        const tabbables = Array.from(document.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        )).filter((element) => element.tabIndex >= 0 && isVisible(element) && isProductControl(element));
+        const origin = document.querySelector(from);
+        const target = document.querySelector(to);
+        if (!origin || !target) return false;
+        const fromIndex = tabbables.indexOf(origin as HTMLElement);
+        const toIndex = tabbables.indexOf(target as HTMLElement);
+        return fromIndex >= 0 && toIndex > fromIndex && toIndex - fromIndex <= hops;
+      }, { fromSelector, toSelector, maxHops });
+    const passwordFocused = await sequentialTabHops("#email", "#login-password", 8);
+    const submitFocused = passwordFocused
+      && await sequentialTabHops("#login-password", "form:has(#email) button[type=submit]", 8);
 
     const accessibleControls =
       await page.getByRole("textbox", { name: /e-?mail|email/i }).count() === 1

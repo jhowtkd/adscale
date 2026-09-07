@@ -45,6 +45,7 @@ describe("creative work generation lifecycle telemetry", () => {
       unitCount: 3,
       credits: 15,
       result: "accepted",
+      executorPid: process.pid,
     });
   });
 
@@ -110,7 +111,7 @@ describe("creative work generation lifecycle telemetry", () => {
     )).rejects.toBe(failure);
 
     expect(info.mock.calls.map(([line]) => JSON.parse(String(line)))).toEqual(expect.arrayContaining([
-      expect.objectContaining({ stage: "generate_base", status: "failed", result: "failed", detail: "provider unavailable" }),
+      expect.objectContaining({ stage: "generate_base", status: "failed", result: "failed", detail: "provider unavailable", executorPid: process.pid }),
     ]));
   });
 
@@ -306,7 +307,7 @@ describe("carousel funnel chain completeness (Task 10)", () => {
   });
 
   it("emits briefing_ready from the generic progressive preparePlan for carousel", () => {
-    expect(source("../../components/creative-work/useCreativeComposer.ts"))
+    expect(source("../../components/creative-work/useComposerPlanActions.ts"))
       .toContain('recordCanonicalEvent("briefing_ready"');
   });
 

@@ -132,6 +132,7 @@ describe("deterministic Brand Fidelity", () => {
       ["font", "proven"],
       ["exact_assets", "proven"],
       ["composition", "proven"],
+      ["safe_area", "proven"],
     ]);
     expect(report.checks.every((check) => check.evidence.length > 0)).toBe(true);
   });
@@ -148,6 +149,20 @@ describe("deterministic Brand Fidelity", () => {
     expect(report.checks.find((check) => check.id === "copy")?.state).toBe("nonconforming");
     expect(report.checks.find((check) => check.id === "exact_assets")?.state).toBe("nonconforming");
     expect(report.checks.find((check) => check.id === "composition")?.state).toBe("nonconforming");
+  });
+
+  it("marks a text layer outside the safe margins as nonconforming", () => {
+    const input = conformingInput();
+    input.textComposition.layers = input.textComposition.layers.map((layer, index) =>
+      index === 0
+        ? { ...layer, box: { left: 0, top: 0, width: 40, height: 40 } }
+        : layer,
+    );
+
+    const report = buildDeterministicBrandFidelity(input);
+
+    expect(report.overall).toBe("nonconforming");
+    expect(report.checks.find((check) => check.id === "safe_area")?.state).toBe("nonconforming");
   });
 
   it("never calls an unverifiable property proven", () => {
