@@ -42,7 +42,7 @@ export async function GET(
 
   try {
     const [data, meta] = await Promise.all([objectStorage.get(key), objectStorage.head(key)]);
-    return new NextResponse(data, {
+    return new NextResponse(new Uint8Array(data), {
       headers: {
         "Cache-Control": "no-store",
         "Content-Type": meta?.contentType ?? "application/octet-stream",
