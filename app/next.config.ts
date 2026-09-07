@@ -86,6 +86,10 @@ const nextConfig: NextConfig = {
     const scriptSrc = isProd
       ? "'self' 'unsafe-inline'"
       : "'self' 'unsafe-inline' 'unsafe-eval'";
+    // Baked at `next build`. CI sets E2E_STORAGE_DIR so axe can inject after
+    // remaining e2e-storage:// <img> URLs (dashboard thumbnails). Never set
+    // that env on Render.
+    const e2eStorageImages = process.env.E2E_STORAGE_DIR ? " e2e-storage:" : "";
     return [
       {
         source: "/:path*",
@@ -96,7 +100,7 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               `script-src ${scriptSrc}`,
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "img-src 'self' blob: data: https:",
+              `img-src 'self' blob: data: https:${e2eStorageImages}`,
               "font-src 'self' https://fonts.gstatic.com",
               "connect-src 'self' https://*.sentry.io https://api.stripe.com https://fonts.googleapis.com",
               "frame-ancestors 'none'",

@@ -102,11 +102,11 @@ export function useCreativeComposer({
     composerRef, draftKeyRef, workIdRef, pendingCampaignIdRef, requestRef, intentRef, objectiveRef,
     formatRef, targetFormatsRef, textLayoutRef, fontAssetKeyRef, directionPoolRef, formatModeRef,
     briefingOverridesRef, briefingVersionRef, hydratedWorkRef, lastPersistedRef, createInFlightRef,
-    draftEpochRef, saveChainRef, submitGuardRef, directionSuggestionRequestedRef, directionTouchedRef,
+    draftEpochRef, saveChainRef, directionSuggestionRequestedRef, directionTouchedRef,
     autosaveBlockedWorkRef, didFocusComposerRef, focusFrameRef, autoTemplateRef, mountedRef,
     restoredProfileRef, lifecycleRef, persistOnUnmountRef, revisionAttemptsRef,
-    pendingProtocolTransitionRef, planInputEditEpochRef, preparedPlanInputRef,
-    hydratingPreparedPlanRevisionRef, shownPreparedRevisionRef,
+    pendingProtocolTransitionRef, planInputEditEpochRef, preparedPlanInputRef, preparedPlanInput,
+    setPreparedPlanInput, hydratingPreparedPlanRevisionRef, shownPreparedRevisionRef,
     markPlanInputEdited, captureSnapshot,
   } = session;
 
@@ -212,6 +212,7 @@ export function useCreativeComposer({
     briefingVersionRef,
     lastPersistedRef,
     preparedPlanInputRef,
+    setPreparedPlanInput,
     hydratingPreparedPlanRevisionRef,
     setCanonicalWorkRevision,
     setWorkId,
@@ -302,6 +303,7 @@ export function useCreativeComposer({
     preparedPlan,
     hydratingPreparedPlanRevisionRef,
     preparedPlanInputRef,
+    setPreparedPlanInput,
     planInputSignature,
     invalidatedPlanRevision,
     setInvalidatedPlanRevision,
@@ -355,15 +357,14 @@ export function useCreativeComposer({
   const canContinue = objectiveSelected && canGenerate;
   const { visiblePreparedPlan } = projectVisiblePreparedPlan({
     preparedPlan,
-    preparedInput: preparedPlanInputRef.current,
+    preparedInput: preparedPlanInput,
     planInputSignature,
     invalidatedPlanRevision,
   });
   const visibleStage = projectVisibleComposerStage(stage, Boolean(visiblePreparedPlan));
   const canConfirm = Boolean(visiblePreparedPlan)
     && actionPhase === "idle"
-    && !generateMutation.isPending
-    && !submitGuardRef.current;
+    && !generateMutation.isPending;
   const campaigns = (campaignQuery.data ?? []).filter((campaign) =>
     !campaign.clientProfileId || campaign.clientProfileId === storedProfileId,
   );
@@ -411,7 +412,7 @@ export function useCreativeComposer({
     sourceMutationPending: sourceMutation.isPending,
     settingsLocked: Boolean(detail?.work && detail.work.status !== "draft"),
     inferredBriefing, briefingFactPack, brandIdentity,
-    briefingOverrides: detail?.work.settings.briefingOverrides ?? briefingOverridesRef.current ?? {},
+    briefingOverrides: detail?.work.settings.briefingOverrides ?? {},
     editBriefingField, briefingEditState,
     campaignId: detail?.work.campaignId ?? pendingCampaignId, campaigns,
     error, announcement, approvalErrorOutputId, brandTrainingSuggestion: brandTrainingSuggestion ?? persistedBrandTrainingSuggestion,

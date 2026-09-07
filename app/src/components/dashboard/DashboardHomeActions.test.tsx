@@ -192,7 +192,9 @@ describe("DashboardHomeActions", () => {
     expect(continueLink).toHaveTextContent("Marca Marca A");
     expect(continueLink).toHaveTextContent("Gerando");
     expect(continueLink).toHaveTextContent("dashboard.home.continueTrackGeneration");
-    expect(screen.getByTestId("stage-brand-bar")).toHaveClass("gap-2");
+    expect(screen.getByTestId("stage-brand-bar")).toHaveClass("min-w-0", "max-w-full", "gap-2");
+    expect(screen.getByTestId("studio-chrome-bar")).toHaveClass("flex-col", "min-w-0");
+    expect(screen.getByTestId("studio-chrome-bar")).toContainElement(screen.getByTestId("stage-brand-bar"));
     expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByRole("button", { name: "Nova campanha" }));
     expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByTestId("active-client-switcher"));
     expect(screen.getAllByRole("radio")).toHaveLength(4);

@@ -8,6 +8,7 @@ export function useComposerPlanSync(input: {
   preparedPlan: { preparedRevision: string; workId: string } | null;
   hydratingPreparedPlanRevisionRef: MutableRefObject<string | null>;
   preparedPlanInputRef: MutableRefObject<{ revision: string; signature: string } | null>;
+  setPreparedPlanInput: (value: { revision: string; signature: string } | null) => void;
   planInputSignature: string;
   invalidatedPlanRevision: string | null;
   setInvalidatedPlanRevision: (revision: string | null) => void;
@@ -20,6 +21,7 @@ export function useComposerPlanSync(input: {
     preparedPlan,
     hydratingPreparedPlanRevisionRef,
     preparedPlanInputRef,
+    setPreparedPlanInput,
     planInputSignature,
     invalidatedPlanRevision,
     setInvalidatedPlanRevision,
@@ -38,7 +40,7 @@ export function useComposerPlanSync(input: {
       invalidatedPlanRevision,
     });
     hydratingPreparedPlanRevisionRef.current = next.hydratingRevision;
-    preparedPlanInputRef.current = next.preparedInput;
+    setPreparedPlanInput(next.preparedInput);
     if (next.invalidatedPlanRevision !== invalidatedPlanRevision) {
       setInvalidatedPlanRevision(next.invalidatedPlanRevision);
     }
@@ -51,6 +53,7 @@ export function useComposerPlanSync(input: {
     planInputSignature,
     preparedPlan,
     preparedPlanInputRef,
+    setPreparedPlanInput,
     recordStudioEvent,
     setInvalidatedPlanRevision,
   ]);

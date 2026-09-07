@@ -1,5 +1,6 @@
 import { Inngest } from "inngest";
 import { env } from "../validation/env";
+import { inngestLocalDispatchOptions } from "./inngest-runtime";
 import { SentryMiddleware } from "./sentry-middleware";
 
 /**
@@ -15,5 +16,6 @@ if (process.env.NODE_ENV === "production" && process.env.INNGEST_DEV) {
 export const imageWorkerInngest = new Inngest({
   id: "adscale-image-worker",
   eventKey: env.INNGEST_EVENT_KEY,
+  ...inngestLocalDispatchOptions(),
   middleware: [SentryMiddleware],
 });

@@ -37,6 +37,7 @@ vi.mock("@/server/db", () => ({
 import {
   acceptCreativeWorkLayerizationCallback,
   claimExpiredCreativeWorkLayerizationRecovery,
+  claimCreativeWorkLayerization,
   claimCreativeWorkLayerizationFinalization,
   claimCreativeWorkLayerizationProcessing,
   failCreativeWorkLayerizationBeforeProvider,
@@ -86,6 +87,21 @@ describe("creative work layerization state transitions", () => {
     vi.clearAllMocks();
     mocks.selectResults.length = 0;
     mocks.updateResults.length = 0;
+  });
+
+  it("claims a completed output even if another Piece is now selected", async () => {
+    mocks.updateResults.push([{ id: "output-1" }]);
+    await expect(claimCreativeWorkLayerization({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      state: state({ status: "queued" }),
+    })).resolves.toMatchObject({ id: "output-1" });
+    const where = serialized(mocks.where.mock.calls.at(-1)?.[0]);
+    expect(where.sql).toContain("status");
+    expect(where.sql).toContain("output_key");
+    expect(where.sql).not.toMatch(/is_selected/);
+    expect(where.params).toContain("completed");
   });
 
   it("recovers a submission_unknown attempt from a valid callback", async () => {

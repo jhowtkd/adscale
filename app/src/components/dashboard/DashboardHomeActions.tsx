@@ -450,19 +450,19 @@ export default function DashboardHomeActions({
         topBar={(
           <div
             data-testid="stage-brand-bar"
-            className="flex max-w-full items-center gap-2"
+            className="flex min-w-0 w-full max-w-full items-center justify-end gap-2"
           >
             {!resultStage ? (
               <CreateCampaignDialog
                 activeProfile={activeProfile}
                 onCreated={composer.linkCampaign}
-                triggerClassName={studioChipClass}
+                triggerClassName={cn(studioChipClass, "shrink-0")}
               />
             ) : null}
             <ActiveBrandSwitcher
               id="active-client-switcher-home"
               variant="grouped"
-              className="max-w-[16rem]"
+              className="min-w-0 flex-1 max-w-[16rem]"
             />
           </div>
         )}

@@ -65,9 +65,11 @@ describe("ActiveBrandSwitcher", () => {
       selectProfile: vi.fn(),
     } as ReturnType<typeof useActiveClientProfile>);
 
-    render(<ActiveBrandSwitcher variant="grouped" />);
+    render(<ActiveBrandSwitcher variant="grouped" className="min-w-0 flex-1 max-w-[16rem]" />);
 
+    const trigger = screen.getByRole("button", { name: "activeBrand" });
     expect(screen.queryByRole("button", { name: "deleteBrand" })).not.toBeInTheDocument();
+    expect(trigger).toHaveClass("flex", "min-w-0", "overflow-hidden");
   });
 
   it("confirms deletion of the active brand", () => {

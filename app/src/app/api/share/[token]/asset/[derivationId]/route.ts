@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { checkRateLimit } from "@/lib/with-rate-limit";
 import { validateShareToken } from "@/lib/share-token";
 import { getDerivationById } from "@/server/repositories/derivation";
 import { objectStorage } from "@/server/storage";
+import { objectDownloadResponse } from "@/server/storage/download-response";
 
 export async function GET(
   _request: Request,
@@ -36,7 +36,7 @@ export async function GET(
       derivation.outputKey
     );
 
-    return NextResponse.redirect(signedUrl, { status: 302 });
+    return objectDownloadResponse(signedUrl, derivation.outputKey);
   } catch (error) {
     return handleApiError(error, "share.[token].asset.[derivationId].GET");
   }

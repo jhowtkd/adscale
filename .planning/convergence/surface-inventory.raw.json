@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-06T19:56:40.870Z",
+  "generatedAt": "2026-09-07T22:08:41.709Z",
   "schemaVersion": 2,
-  "fingerprint": "56f3d7a15ad5a57a935fdf842091a4f50c6e3147197d421c321cc574973a84eb",
+  "fingerprint": "93c847b0e6692766afe2271a265922dd7ad3d60551430bcbbb7495de8bb6549a",
   "counts": {
     "dashboardPages": 15,
     "apiRoutes": 179,
@@ -1615,12 +1615,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:370",
+      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:364",
       "kind": "cta_navigation",
       "destination": "/billing",
       "file": "app/src/components/dashboard/DashboardHomeActions.tsx",
-      "line": 370,
-      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:370",
+      "line": 364,
+      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:364",
       "requiresDecision": false
     },
     {
@@ -1849,12 +1849,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/SidebarBrandKitFeature.tsx:30",
+      "id": "nav:app/src/components/layout/SidebarBrandKitFeature.tsx:38",
       "kind": "cta_navigation",
       "destination": "/brand-kit",
       "file": "app/src/components/layout/SidebarBrandKitFeature.tsx",
-      "line": 30,
-      "evidence": "app/src/components/layout/SidebarBrandKitFeature.tsx:30",
+      "line": 38,
+      "evidence": "app/src/components/layout/SidebarBrandKitFeature.tsx:38",
       "requiresDecision": false
     },
     {

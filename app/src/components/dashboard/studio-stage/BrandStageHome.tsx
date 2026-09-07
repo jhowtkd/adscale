@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import ImageCursorTrail from "@/components/ui/image-cursor-trail";
+import { studioChromeBarClass } from "@/components/dashboard/studio-stage/StudioInstrument";
 import { cn } from "@/lib/utils";
 
 export type StageMosaicItem = {
@@ -139,9 +140,9 @@ export function BrandStageHome({
       }}
       className="relative min-h-[calc(100vh-8rem)] px-4 pb-8 sm:px-6"
     >
-      <div className="relative z-20 flex items-center justify-between gap-3 md:-mt-4">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">{eyebrow}</p>
-        {topBar}
+      <div data-testid="studio-chrome-bar" className={studioChromeBarClass}>
+        <p className="min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">{eyebrow}</p>
+        <div className="min-w-0 max-w-full">{topBar}</div>
       </div>
 
       {empty ? (

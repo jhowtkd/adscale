@@ -96,6 +96,7 @@ jobs:
           STRIPE_SCALE_PRICE_ID: price_scale
           STRIPE_SUCCESS_URL: http://localhost:3000/settings?tab=billing&checkout=success
           STRIPE_CANCEL_URL: http://localhost:3000/settings?tab=plans&checkout=cancel
+          E2E_STORAGE_DIR: /tmp/adscale-e2e-storage
 
       - name: Start app for e2e
         run: |
@@ -137,10 +138,23 @@ jobs:
           IMAGE_JOB_TARGET: web
           STUDIO_PROGRESSIVE_ROLLOUT_PERCENT: "100"
           STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT: "0"
+          INNGEST_BASE_URL: http://127.0.0.1:8288
           NODE_ENV: production
 
+      - name: Start Inngest dev for critical journey
+        run: |
+          cd app && npx inngest-cli dev -u http://localhost:3000/api/inngest > /tmp/inngest-dev.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8288 >/dev/null && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8288 >/dev/null
+        env:
+          INNGEST_EVENT_KEY: test
+          INNGEST_SIGNING_KEY: test
+
       - name: Install Playwright browsers
-        run: cd app && npx playwright install --with-deps chromium
+        run: cd app && npx playwright install --with-deps chromium webkit
 
       - name: Run visual a11y gate
         run: cd app && npx playwright test tests/e2e/visual-a11y-gate.spec.ts
@@ -201,18 +215,6 @@ jobs:
           STRIPE_SUCCESS_URL: http://localhost:3000/settings?tab=billing&checkout=success
           STRIPE_CANCEL_URL: http://localhost:3000/settings?tab=plans&checkout=cancel
           VISUAL_FOUNDATIONS_SKIP_STORAGE: "true"
-
-      - name: Start Inngest dev for critical journey
-        run: |
-          cd app && npx inngest-cli dev -u http://localhost:3000/api/inngest > /tmp/inngest-dev.log 2>&1 &
-          for i in $(seq 1 30); do
-            curl -sf http://127.0.0.1:8288 >/dev/null && break
-            sleep 1
-          done
-          curl -sf http://127.0.0.1:8288 >/dev/null
-        env:
-          INNGEST_EVENT_KEY: test
-          INNGEST_SIGNING_KEY: test
 
       - name: Seed critical studio journey
         run: cd app && npm run seed:create-post-e2e
