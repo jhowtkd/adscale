@@ -1,0 +1,75 @@
+.workspace {
+  position: relative;
+  min-height: calc(100dvh - 11rem);
+}
+
+.desk {
+  position: absolute;
+  inset: 0;
+  transition: filter 320ms ease, opacity 320ms ease;
+}
+
+.workspace[data-expanded="true"] .desk {
+  filter: blur(8px);
+  opacity: 0.34;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  background: rgb(0 0 0 / 0.16);
+}
+
+.dock {
+  position: absolute;
+  inset-inline: 0;
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+  z-index: 10;
+}
+
+.workspace[data-empty="true"][data-expanded="false"] .dock {
+  max-width: 42rem;
+  margin-inline: auto;
+  bottom: 22%;
+}
+
+.controls {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 320ms ease;
+}
+
+.controls[data-expanded="true"] {
+  grid-template-rows: 1fr;
+}
+
+.controlsInner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.controls[data-expanded="true"] .controlsInner {
+  max-height: max(8rem, calc(100dvh - 23rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.talkBox {
+  max-height: calc(100dvh - 6rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.footer {
+  position: sticky;
+  bottom: 0;
+  background: var(--surface-base);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desk,
+  .controls {
+    transition: none;
+  }
+}

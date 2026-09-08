@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import ImageCursorTrail from "@/components/ui/image-cursor-trail";
 import { studioChromeBarClass } from "@/components/dashboard/studio-stage/StudioInstrument";
 import { cn } from "@/lib/utils";
+import styles from "./StudioStage.module.css";
 
 export type StageMosaicItem = {
   id: string;
@@ -110,6 +111,10 @@ export function BrandStageHome({
   children,
   onDropFiles,
   dropLabel,
+  expanded = false,
+  onCollapse,
+  results,
+  deskControls,
 }: {
   occupancy: "empty" | "work";
   brandName: string | null;
@@ -124,6 +129,10 @@ export function BrandStageHome({
   children?: ReactNode;
   onDropFiles: (files: FileList | File[] | null) => void;
   dropLabel: string;
+  expanded?: boolean;
+  onCollapse?: () => void;
+  results?: ReactNode;
+  deskControls?: ReactNode;
 }) {
   const empty = occupancy === "empty";
   const trailItems = mosaicItems.map((item) => item.src).filter(Boolean);
@@ -145,49 +154,61 @@ export function BrandStageHome({
         <div className="min-w-0 max-w-full">{topBar}</div>
       </div>
 
-      {empty ? (
-        <div className="relative mt-2 min-h-[calc(100vh-11rem)]">
-          {trailItems.length > 0 ? (
-            <ImageCursorTrail
-              items={trailItems}
-              className="absolute inset-0"
-              imgClassName="h-48 w-36 rounded-2xl"
-              maxNumberOfImages={4}
-              fadeAnimation
-              distance={14}
-            />
-          ) : null}
-          <EdgeField items={mosaicItems} onSelect={onSelectMosaic} />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--canvas)_18%,oklch(0.145_0.004_260_/_0.72)_48%,transparent_78%)]"
-          />
-          <div className="relative z-10 mx-auto flex min-h-[calc(100vh-11rem)] max-w-2xl flex-col items-center justify-center py-10">
-            <h1 className="max-w-lg text-center text-3xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-4xl">
-              {headline}
-            </h1>
-            <p className="mt-3 max-w-md text-center text-sm text-[var(--text-secondary)]">{subtitle}</p>
-            <div className="mt-8 w-full">{talkBox}</div>
-            {children}
-          </div>
-        </div>
-      ) : (
-        <>
+      <div
+        className={styles.workspace}
+        data-empty={empty ? "true" : "false"}
+        data-expanded={expanded ? "true" : "false"}
+      >
+        <div data-testid="studio-desk" className={styles.desk} inert={expanded}>
+          {deskControls}
           {continueWork ? (
             <div data-testid="continue-work-suggestion" className="relative z-20 mt-6 flex justify-center">
               {continueWork}
             </div>
           ) : null}
-          <div className="relative mt-4 min-h-[32rem] md:min-h-[40rem]">
-            <WorkMosaic items={mosaicItems} onSelect={onSelectMosaic} />
-            {children ? <div className="relative z-[6] mx-auto max-w-5xl px-2 pt-6">{children}</div> : null}
-          </div>
-          <h1 className="sr-only">{brandName ? headline : eyebrow}</h1>
-          <div data-testid="studio-dock" className="sticky bottom-3 z-10 mt-6">
-            {talkBox}
-          </div>
-        </>
-      )}
+          {empty ? (
+            <>
+              {trailItems.length > 0 ? (
+                <ImageCursorTrail
+                  items={trailItems}
+                  className="absolute inset-0"
+                  imgClassName="h-48 w-36 rounded-2xl"
+                  maxNumberOfImages={4}
+                  fadeAnimation
+                  distance={14}
+                />
+              ) : null}
+              <EdgeField items={mosaicItems} onSelect={onSelectMosaic} />
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--canvas)_18%,oklch(0.145_0.004_260_/_0.72)_48%,transparent_78%)]"
+              />
+              <div className="relative z-10 mx-auto flex min-h-[calc(100vh-11rem)] max-w-2xl flex-col items-center justify-center py-10">
+                <h1 className="max-w-lg text-center text-3xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-4xl">
+                  {headline}
+                </h1>
+                <p className="mt-3 max-w-md text-center text-sm text-[var(--text-secondary)]">{subtitle}</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <WorkMosaic items={mosaicItems} onSelect={onSelectMosaic} />
+              <h1 className="sr-only">{brandName ? headline : eyebrow}</h1>
+            </>
+          )}
+        </div>
+        {expanded ? (
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-hidden="true"
+            className={styles.backdrop}
+            onClick={onCollapse}
+          />
+        ) : null}
+        <div data-testid={empty ? undefined : "studio-dock"} className={styles.dock}>{talkBox}</div>
+      </div>
+      <div data-testid="studio-results-surface">{results}{children}</div>
     </div>
   );
 }
