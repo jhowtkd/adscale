@@ -140,6 +140,7 @@ export function TalkBox({
     placement,
     suggestedProtocol,
     intent,
+    hasStartedRequest: expanded || Boolean(bufferedFile) || sources.length > 0,
   });
   const hideGenerateWhileInterviewOwnsEntry = shouldHideProtocolSwitcher(interview);
   const collapse = () => {
@@ -158,7 +159,7 @@ export function TalkBox({
       node.focus({ preventScroll: true });
     }
     if (window.scrollY !== top) window.scrollTo({ left: 0, top, behavior: "instant" });
-  }, [expanded]);
+  }, [expanded, toggleRef]);
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Escape" || event.defaultPrevented || !expanded) return;
     if (!event.currentTarget.contains(event.target as Node)) return;

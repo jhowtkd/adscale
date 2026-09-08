@@ -666,6 +666,7 @@ export default function DashboardHomeActions({
         }}
         dropLabel={t("composer.dropTarget")}
         expanded={boxExpanded}
+        resultsActive={resultStage}
         onCollapse={() => {
           expansionButtonRef.current?.focus();
           setBoxExpanded(false);

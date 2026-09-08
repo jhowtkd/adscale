@@ -19,9 +19,11 @@
 }
 
 .workspace[data-expanded="true"] .desk,
-.workspace[data-expanded="true"] .intro {
+.workspace[data-expanded="true"] .intro,
+.workspace[data-results="true"] .desk {
   filter: blur(8px);
   opacity: 0.34;
+  pointer-events: none;
 }
 
 .backdrop {

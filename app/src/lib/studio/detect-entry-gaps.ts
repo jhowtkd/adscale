@@ -83,6 +83,7 @@ export function shouldHideProtocolSwitcher(
     placement?: "center" | "dock";
     suggestedProtocol?: string | null;
     intent?: string | null;
+    hasStartedRequest?: boolean;
   } = {},
 ): boolean {
   if (interview?.enabled) {
@@ -91,11 +92,12 @@ export function shouldHideProtocolSwitcher(
       || (interview.chips.some((chip) => chip.slot === "protocol") && !interview.answers.protocol),
     );
   }
-  // First visit: one request + Começar on a single piece. Other protocols keep
-  // the radios so advanced settings stay reachable.
+  // First visit: one request + Começar on a single piece. Focusing or attaching
+  // reveals the radios so the operator can pick a protocol before typing.
   return options.placement === "center"
     && !options.suggestedProtocol
-    && (options.intent == null || options.intent === "single");
+    && (options.intent == null || options.intent === "single")
+    && !options.hasStartedRequest;
 }
 
 /** First visit Começar is a single piece. Open work hydrates; Arte keeps variations. */

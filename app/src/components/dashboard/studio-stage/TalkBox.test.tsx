@@ -102,6 +102,30 @@ it("não mostra o botão de expansão sem onExpandedChange", () => {
   expect(screen.getByRole("button", { name: "Gerar" })).toBeInTheDocument();
 });
 
+it("revela os rádios de protocolo ao expandir a caixa na primeira visita", () => {
+  function Harness() {
+    const [expanded, setExpanded] = useState(false);
+    return (
+      <TalkBox
+        {...required}
+        placement="center"
+        request=""
+        intent="single"
+        onGenerate={vi.fn()}
+        expanded={expanded}
+        onExpandedChange={setExpanded}
+        carouselEnabled
+      />
+    );
+  }
+  render(<Harness />);
+  expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+  fireEvent.focus(document.querySelector("#creative-composer-request")!);
+  expect(screen.getByRole("radiogroup")).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: "variations" })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: "carousel" })).toBeInTheDocument();
+});
+
 it("recolhe com Escape e restaura o foco no botão", () => {
   function Harness() {
     const [expanded, setExpanded] = useState(false);

@@ -3,8 +3,8 @@
 import { useCallback, useRef } from "react";
 import {
   applyCanonicalWorkRevision,
-  cachedCanonicalWorkRevision,
   markRevisionRefreshRequired,
+  resolveObservedCanonicalRevision,
   type ComposerRevisionState,
 } from "./composer-revision";
 
@@ -53,17 +53,16 @@ export function useComposerRevision(detailQuery: WorkRevisionQuery) {
   }, [detailQuery, setCanonicalWorkRevision]);
 
   const resolveCanonicalWorkRevision = useCallback(async (workItemId: string) => {
-    const cached = cachedCanonicalWorkRevision(readRevisionState(), workItemId);
-    if (cached) return cached;
-    if (workRevisionRefreshRequiredRef.current !== workItemId) {
-      const work = detailQuery.data?.work;
-      if (work?.id === workItemId) {
-        const revision = setCanonicalWorkRevision(workItemId, work.updatedAt);
-        if (revision) return revision;
-      }
-    }
+    const work = detailQuery.data?.work;
+    const resolved = resolveObservedCanonicalRevision(
+      readRevisionState(),
+      workItemId,
+      work?.id === workItemId ? work.updatedAt : undefined,
+    );
+    writeRevisionState(resolved.state);
+    if (resolved.revision) return resolved.revision;
     return refreshCanonicalWorkRevision(workItemId);
-  }, [detailQuery.data?.work, readRevisionState, refreshCanonicalWorkRevision, setCanonicalWorkRevision]);
+  }, [detailQuery.data?.work, readRevisionState, refreshCanonicalWorkRevision, writeRevisionState]);
 
   const blockStaleRevision = useCallback((workItemId: string) => {
     writeRevisionState(markRevisionRefreshRequired(readRevisionState(), workItemId));

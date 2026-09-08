@@ -639,6 +639,7 @@ describe("DashboardHomeActions", () => {
     expect(within(plan).getByTestId("prepared-plan")).toHaveTextContent("variations|Logo|verified_facts|composition|4:5|3");
     expect(screen.getByTestId("progressive-results-summary").compareDocumentPosition(plan)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.getByTestId("studio-stage")).toBeInTheDocument();
+    expect(screen.getByTestId("studio-desk")).toHaveAttribute("inert");
     expect(screen.getByTestId("progressive-results-summary")).toHaveTextContent("Volta às aulas");
     expect(screen.getByTestId("progressive-results-summary")).not.toHaveTextContent("Campanha de matrículas");
     expect(screen.getByTestId("progressive-results-summary")).not.toHaveTextContent("work-1");

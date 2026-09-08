@@ -1,63 +1,48 @@
 # Studio caixa unificada — evidência Task 6
 
 Data: 2026-09-08. Branch: `codex/studio-caixa-unificada`.
-Base verificada: `e6a775c8 feat(studio): switch between inspirations and scoped production`.
-O commit desta task é o que inclui este arquivo.
+Base verificada: `9b594c2d test(studio): verify unified composer and production desk` (preservado).
+O commit desta continuação é o que inclui este arquivo.
 
 ## Ambiente
 
 - Runner sanitizado: `python3 /private/tmp/adscale-studio-e2e-run.py` (cwd `app/`).
 - Fake keys; `OPENAI_BASE_URL=http://127.0.0.1:9/v1` (bloqueio local do SDK; não removido).
 - `APP_URL=http://localhost:3106`, `E2E_CONTROLLED_PROVIDER=true`, `E2E_DISABLE_RATE_LIMIT=true`, `TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test`.
-- Next: build otimizado local (`npm run build`) e `npx next start --hostname 127.0.0.1 --port 3106`. Inngest existente em `127.0.0.1:8291` (não reiniciado).
+- Next: build otimizado local (`npm run build`) e `npx next start --hostname 127.0.0.1 --port 3106`. Inngest existente em `127.0.0.1:8291` (não reiniciado; PID inngest preservado).
 - `GET /api/health` → `{"ok":true}` após o start.
-- Aviso do Next: `next start` com `output: standalone`; o processo ficou Ready e atendeu health. Sem deploy.
-- Seed local: `npm run seed:create-post-e2e` via o mesmo runner (pré-condição de saldo, não billing de produto).
-- CUA/capturas Codex: `docs/screenshots/studio-caixa-unificada/` (`mesa-desktop.png`, `caixa-variacoes.png`, `caixa-restyle.png`, `caixa-carrossel.png`, `producao.png`, `caixa-mobile.png`, `producao-vazia.png`). Graphify fica com o Codex no fechamento.
+- Sem reseed; sem publicar; sem provider pago.
 
-## Correções desta task (além do acabamento visual já no WIP)
+## Correções desta continuação
 
-- Produção: botão **Próximas peças** desativado na última página sem cursor (`hasBufferedNextPage` / `hasRemoteNextPage`).
-- Seed insufficient: o grant `signup_trial` deixou de ser apagado (o login recriava `TRIAL_CREDIT_GRANT` = 500). `activateSignupTrial` + `remaining = 0`.
-- Guards canônicos 409 preservados: cache de revisão; em conflito, `blockStaleRevision` + refresh + throw; sem replay cego.
+- `resolveObservedCanonicalRevision` absorve GET/poll mais novo **somente** quando não há `refreshRequiredWorkId === workItemId`. Bloqueio 409 devolve `revision: null` e state intacto; o hook obrigatoriamente chama `refreshCanonicalWorkRevision`. Após refetch, `applyCanonicalWorkRevision` limpa o bloqueio.
+- Primeira visita: focar/expandir a caixa revela os rádios de protocolo (`hasStartedRequest`).
+- Mesa `inert` + `pointer-events: none` enquanto os resultados estão visíveis, para não interceptar Conservadora/Aprovar.
+- E2E: protocolo antes do pedido no carrossel; pedido pelo teclado no accessible; variações no insufficient; seletores `Refinar` / `Análise concluída`.
 
-## Checks que passaram
+## Checks
 
 | Check | Resultado |
 | --- | --- |
-| `npm run build` (webpack) | PASS (~55s) |
-| Vitest combinado Tasks 1–6 + composers + ResumeSurface | **12 files / 307 tests PASS** |
-| `npm run typecheck` | PASS |
-| ESLint nos TS/TSX alterados | 0 errors (3 warnings preexistentes de hooks) |
-| `git diff --check` | limpo |
-| E2E `mesa alterna e caixa recolhe sem gerar ou perder o pedido` | **PASS** (3.1s, build otimizado) |
-| Sidebar insufficient após seed | **0 créditos** (achado 17 corrigido no seed) |
-| E2E insufficient: POST `/generate` | **402**; alerta de crédito visível; `outputs.length === 0` |
+| Vitest afetado (revision, gaps, TalkBox, BrandStageHome, DashboardHomeActions, composer-state) | **6 files / 115 PASS** |
+| `npm run build` (webpack) | PASS |
+| Typecheck (no build) | PASS |
+| ESLint nos TS/TSX alterados | 0 errors (1 warning preexistente: `composer` em `DashboardHomeActions.tsx:258`) |
+| E2E carousel gate | **PASS** 8.8s |
+| E2E confirmação explícita | **PASS** 4.2s |
+| E2E source failures | **PASS** 5.1s |
+| E2E insufficient (variações, rádio checked, `toolKind=variations`, 402) | **PASS** 3.0s |
+| E2E accessible desktop | **PASS** 6.8s |
+| E2E accessible mobile | **PASS** 6.5s |
+| E2E mesa/caixa | **PASS** 2.5s |
+| Suite Task 6 (7 casos) | **7 passed (37.6s)** |
 
-## Falhas remanescentes (preexistentes / ambiente; não mascaradas)
+## Limitação provada (não mascarada)
 
-### 409 de revisão (achado 16) — sem retry cego
+`generateCreativeWork` grava `identitySnapshot`, `status: ready` e um `preparedRevision` novo **antes** de `credit_blocked`. No cenário de variações: 402, `outputs.length === 0`, `sources` iguais, `id`/`request`/`toolKind` iguais. Billing de produto não foi alterado. A asserção profunda de `work`/`preparedPlan` ignora só esses campos de bookkeeping do generate.
 
-Trace desktop otimizado (`postData._sha1`, sem cookies): análise principal **Análise concluída**; `PATCH` autosave **409** `stale_input` com `expectedUpdatedAt=2026-09-08T20:48:21.256Z`; autosave seguinte **200** com revisão `20:48:21.634Z`. A UI mostra “Algo deu errado. Tente novamente.” Prepare/plano não abre. O job auxiliar `workspace-asset.ts` (OpenAI direto, base `:9`) é distinto da análise principal (seam `e2e-controlled`).
+## Fora
 
-Trace source (ronda anterior): `attachSource` 200 → autosave 409; segundo attach 200; `retrySource` 200; `removeSource` 409 `stale_input` com `expectedUpdatedAt=20:22:54.105Z` após refetch da fonte pronta. Análise em background muda `updatedAt`; o cache canônico não é tratado como permissão de replay.
-
-Geometria `assertStableTalkBox` (top ≥ 0, base ≤ 2px, teclado, mobile CTA vs nav) correu até Gerar nos casos accessible; o bloqueio seguinte é o 409 acima, não o painel vazio original.
-
-### Insufficient: igualdade profunda do work após 402
-
-402 e zero outputs passam. `afterBlock.work` difere: `identitySnapshot` nulo → preenchido, `status` draft → ready, `updatedAt` sobe. Isso ocorre em `generateCreativeWork` **antes** do `credit_blocked` (rascunho single/primeira visita). Fora do escopo de UI/cobrança desta task; asserção de negócio mantida.
-
-### Carousel E2E
-
-`creates, generates, repairs, approves and exports the deck` **FAIL**: rádio “Criar carrossel” fica checked e o compositor monta, mas não há `POST /api/creative-work`; `workId` permanece null; “Organizar conteúdo” disabled. Sem replay. Codex CUA anterior (achado 7) gerou 5/5 no provider controlado; o Playwright desta ronda não prova o gate.
-
-### Accessible desktop/mobile
-
-Mesmo padrão 409 após análise concluída; plano não visível. Não reexecutado em loop de compile.
-
-## Não executado / fora
-
-- Graphify (Codex no fechamento).
+- Graphify: Codex já rodou e atualiza depois deste diff.
 - Push/PR, produção, providers pagos, `.env` real.
-- Fixture `create-post-e2e.json` e planos em `docs/plans` / `docs/superpowers/plans` ficam fora do staging (WIP de seed/coordenação).
+- Fixture `create-post-e2e.json` e planos em `docs/plans` / `docs/superpowers/plans` ficam fora do staging.

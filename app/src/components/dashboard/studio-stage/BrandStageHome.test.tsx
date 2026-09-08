@@ -32,3 +32,12 @@ it("não inventa seis cópias de uma peça produzida", () => {
     mosaicItems={[{ id: "output:1", title: "Peça única", src: "/piece.png" }]} />);
   expect(screen.getAllByRole("button", { name: "Peça única" })).toHaveLength(1);
 });
+
+it("bloqueia a mesa enquanto os resultados estão visíveis", () => {
+  render(<BrandStageHome occupancy="work" brandName="Marca" headline="Criar"
+    subtitle="Pedido" eyebrow="Estúdio" topBar={null} talkBox={null}
+    onDropFiles={vi.fn()} dropLabel="Soltar" resultsActive
+    mosaicItems={[{ id: "output:1", title: "Peça única", src: "/piece.png" }]} />);
+  expect(screen.getByTestId("studio-desk")).toHaveAttribute("inert");
+  expect(screen.getByTestId("studio-stage").querySelector("[data-results='true']")).toBeTruthy();
+});

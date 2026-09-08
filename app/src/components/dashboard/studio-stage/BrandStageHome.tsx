@@ -136,6 +136,7 @@ export function BrandStageHome({
   results,
   deskControls,
   repeatItems = true,
+  resultsActive = false,
 }: {
   occupancy: "empty" | "work";
   brandName: string | null;
@@ -155,6 +156,7 @@ export function BrandStageHome({
   results?: ReactNode;
   deskControls?: ReactNode;
   repeatItems?: boolean;
+  resultsActive?: boolean;
 }) {
   const empty = occupancy === "empty";
   const showInspirationField = empty && repeatItems;
@@ -181,8 +183,9 @@ export function BrandStageHome({
         className={styles.workspace}
         data-empty={empty ? "true" : "false"}
         data-expanded={expanded ? "true" : "false"}
+        data-results={resultsActive ? "true" : "false"}
       >
-        <div data-testid="studio-desk" className={styles.desk} inert={expanded}>
+        <div data-testid="studio-desk" className={styles.desk} inert={expanded || resultsActive}>
           {deskControls}
           {continueWork ? (
             <div data-testid="continue-work-suggestion" className="relative z-20 mt-6 flex justify-center">
