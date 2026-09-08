@@ -14,6 +14,7 @@ import {
 } from "@/lib/creative-work-selection-policy";
 import { isVisualRecipeCandidate } from "@/server/creative-work/visual-recipe";
 import { ActionStatusIcon } from "@/components/animations/ActionStatusIcon";
+import { useSharePieceReview } from "@/lib/hooks/use-piece-review-share";
 import type {
   DeterministicBrandFidelityReport,
   ResidualBrandFidelityReview,
@@ -68,6 +69,8 @@ export function CreativeResultCard({
   const [attachment, setAttachment] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmingSelection, setConfirmingSelection] = useState(false);
+  const [sharedForReview, setSharedForReview] = useState(false);
+  const shareReview = useSharePieceReview();
   const [saveAsRecipe, setSaveAsRecipe] = useState(false);
   const t = useTranslations("dashboard.home.composer.results");
   const statusLabel = (status: CreativeWorkOutput["status"]) => t(`status.${status}`);
@@ -276,6 +279,19 @@ export function CreativeResultCard({
               </button>
             ) : null}
             <button type="button" className={actionClass} onClick={() => onDownload(output.id)}>{t("download")}</button>
+            <button
+              type="button"
+              className={actionClass}
+              data-testid="share-for-review"
+              disabled={shareReview.isPending}
+              onClick={() => {
+                void shareReview.mutateAsync({ workId: output.workItemId, outputId: output.id })
+                  .then(() => setSharedForReview(true))
+                  .catch(() => setSharedForReview(false));
+              }}
+            >
+              {shareReview.isPending ? t("sharingForReview") : sharedForReview ? t("sharedForReview") : t("shareForReview")}
+            </button>
             {canOpenEditor ? (
               <button type="button" className={actionClass} disabled={editDisabled} onClick={() => onOpenLayerEditor?.(output.id)}>
                 <Layers className="size-4" aria-hidden="true" />

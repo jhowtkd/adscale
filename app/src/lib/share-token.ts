@@ -2,6 +2,7 @@ import {
   createShareLink,
   getShareLinkByToken,
   revokeShareLinkForCampaign,
+  revokeShareLinkForOutput,
 } from "@/server/repositories/share-link";
 
 const SHARE_LINK_TTL_DAYS = 7;
@@ -38,9 +39,13 @@ export async function createShareToken(
 }
 
 export interface ValidatedShareToken {
-  campaignId: string;
+  id: string;
+  campaignId: string | null;
   workspaceId: string;
   derivationIds: string[];
+  creativeWorkId: string | null;
+  outputId: string | null;
+  outputVersion: number | null;
   expiresAt: Date;
 }
 
@@ -57,9 +62,13 @@ export async function resolveShareToken(token: string): Promise<ShareTokenResolu
   return {
     status: "valid",
     link: {
+      id: link.id,
       campaignId: link.campaignId,
       workspaceId: link.workspaceId,
       derivationIds: link.derivationIds,
+      creativeWorkId: link.creativeWorkId,
+      outputId: link.outputId,
+      outputVersion: link.outputVersion,
       expiresAt: link.expiresAt,
     },
   };
@@ -82,4 +91,11 @@ export async function revokeShareToken(
   workspaceId: string
 ): Promise<number> {
   return revokeShareLinkForCampaign(campaignId, workspaceId);
+}
+
+export async function revokePieceReviewShareToken(
+  workspaceId: string,
+  outputId: string,
+): Promise<number> {
+  return revokeShareLinkForOutput(workspaceId, outputId);
 }

@@ -1,21 +1,27 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../db";
-import { shareLinks } from "../db/schema";
+import { shareLinks, type ShareLink } from "../db/schema";
 
 export async function createShareLink(data: {
   token: string;
-  campaignId: string;
+  campaignId?: string | null;
   workspaceId: string;
   derivationIds: string[];
+  creativeWorkId?: string | null;
+  outputId?: string | null;
+  outputVersion?: number | null;
   expiresAt: Date;
 }) {
   const result = await db
     .insert(shareLinks)
     .values({
       token: data.token,
-      campaignId: data.campaignId,
+      campaignId: data.campaignId ?? null,
       workspaceId: data.workspaceId,
       derivationIds: data.derivationIds,
+      creativeWorkId: data.creativeWorkId ?? null,
+      outputId: data.outputId ?? null,
+      outputVersion: data.outputVersion ?? null,
       expiresAt: data.expiresAt,
     })
     .returning();
@@ -54,6 +60,24 @@ export async function revokeShareLinkForCampaign(
   return result.length;
 }
 
+export async function revokeShareLinkForOutput(
+  workspaceId: string,
+  outputId: string,
+): Promise<number> {
+  const result = await db
+    .update(shareLinks)
+    .set({ revokedAt: new Date() })
+    .where(
+      and(
+        eq(shareLinks.workspaceId, workspaceId),
+        eq(shareLinks.outputId, outputId),
+        sql`${shareLinks.revokedAt} IS NULL`
+      )
+    )
+    .returning();
+  return result.length;
+}
+
 export async function getLatestShareLinkForCampaign(
   campaignId: string,
   workspaceId: string
@@ -65,6 +89,24 @@ export async function getLatestShareLinkForCampaign(
       and(
         eq(shareLinks.campaignId, campaignId),
         eq(shareLinks.workspaceId, workspaceId)
+      )
+    )
+    .orderBy(desc(shareLinks.createdAt))
+    .limit(1);
+  return result[0] ?? null;
+}
+
+export async function getLatestShareLinkForOutput(
+  workspaceId: string,
+  outputId: string,
+): Promise<ShareLink | null> {
+  const result = await db
+    .select()
+    .from(shareLinks)
+    .where(
+      and(
+        eq(shareLinks.workspaceId, workspaceId),
+        eq(shareLinks.outputId, outputId),
       )
     )
     .orderBy(desc(shareLinks.createdAt))
@@ -108,4 +150,44 @@ export async function upsertShareLinkForCampaign(data: {
     })
     .returning();
   return result[0]!;
+}
+
+export async function upsertShareLinkForOutput(data: {
+  workspaceId: string;
+  creativeWorkId: string;
+  outputId: string;
+  outputVersion: number;
+  expiresAt: Date;
+}): Promise<ShareLink> {
+  const existing = await getLatestShareLinkForOutput(data.workspaceId, data.outputId);
+  if (existing) {
+    const [updated] = await db
+      .update(shareLinks)
+      .set({
+        creativeWorkId: data.creativeWorkId,
+        outputVersion: data.outputVersion,
+        expiresAt: data.expiresAt,
+        revokedAt: null,
+        derivationIds: [],
+        campaignId: null,
+      })
+      .where(eq(shareLinks.id, existing.id))
+      .returning();
+    return updated!;
+  }
+
+  const [created] = await db
+    .insert(shareLinks)
+    .values({
+      token: crypto.randomUUID(),
+      campaignId: null,
+      workspaceId: data.workspaceId,
+      derivationIds: [],
+      creativeWorkId: data.creativeWorkId,
+      outputId: data.outputId,
+      outputVersion: data.outputVersion,
+      expiresAt: data.expiresAt,
+    })
+    .returning();
+  return created!;
 }

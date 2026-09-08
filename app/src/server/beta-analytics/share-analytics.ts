@@ -4,7 +4,7 @@ import { recordBetaAnalyticsEvent } from "./record";
 
 export async function recordShareLinkOpened(input: {
   workspaceId: string;
-  campaignId: string;
+  campaignId: string | null;
   token: string;
 }): Promise<void> {
   const userId = await getWorkspaceActorUserId(input.workspaceId);

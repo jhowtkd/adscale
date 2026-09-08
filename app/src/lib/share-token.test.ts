@@ -4,6 +4,7 @@ vi.mock("@/server/repositories/share-link", () => ({
   createShareLink: vi.fn(),
   getShareLinkByToken: vi.fn(),
   revokeShareLinkForCampaign: vi.fn(),
+  revokeShareLinkForOutput: vi.fn(),
 }));
 
 import { resolveShareToken } from "./share-token";
@@ -11,9 +12,13 @@ import { getShareLinkByToken } from "@/server/repositories/share-link";
 
 const getShareLink = vi.mocked(getShareLinkByToken);
 const activeLink = {
+  id: "link-1",
   campaignId: "campaign-1",
   workspaceId: "workspace-1",
   derivationIds: ["derivation-1"],
+  creativeWorkId: null,
+  outputId: null,
+  outputVersion: null,
   expiresAt: new Date("2026-08-17T12:00:00.000Z"),
   revokedAt: null,
 };

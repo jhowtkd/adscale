@@ -1,5 +1,8 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+vi.mock("@/lib/hooks/use-piece-review-share", () => ({
+  useSharePieceReview: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
 vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
   default: ({ id }: { id?: string }) => <select id={id ?? "active-brand-switcher"} aria-label="Marca ativa"><option>Escolha</option></select>,
 }));
