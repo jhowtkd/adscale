@@ -6,6 +6,7 @@ import { studioBentoClass } from "@/components/dashboard/studio-stage/StudioInst
 const shareFiles = [
   "src/app/share/[token]/page.tsx",
   "src/app/share/[token]/GalleryGrid.tsx",
+  "src/app/share/[token]/PieceReview.tsx",
 ];
 
 describe("share chrome", () => {

@@ -30,6 +30,11 @@ vi.mock("@/lib/share-token", () => ({
     })
   ),
   revokeShareToken: vi.fn(() => Promise.resolve(1)),
+  revokePieceReviewShareToken: vi.fn(() => Promise.resolve(1)),
+}));
+
+vi.mock("@/server/application/create-piece-review-share", () => ({
+  createPieceReviewShare: vi.fn(),
 }));
 
 vi.mock("@/server/beta-analytics/record", () => ({
@@ -37,8 +42,10 @@ vi.mock("@/server/beta-analytics/record", () => ({
 }));
 
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
+import { createPieceReviewShare } from "@/server/application/create-piece-review-share";
 
 const mockRecordBetaAnalyticsEvent = vi.mocked(recordBetaAnalyticsEvent);
+const mockCreatePieceReviewShare = vi.mocked(createPieceReviewShare);
 
 async function flushAnalytics() {
   await new Promise((resolve) => setImmediate(resolve));
@@ -130,5 +137,33 @@ describe("DELETE /api/share", () => {
 
     const res = await DELETE(req);
     expect(res.status).toBe(400);
+  });
+});
+
+describe("POST /api/share piece review", () => {
+  const WORK_ID = "550e8400-e29b-41d4-a716-446655440011";
+  const OUTPUT_ID = "550e8400-e29b-41d4-a716-446655440012";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("creates a versioned review link for a Studio piece", async () => {
+    mockCreatePieceReviewShare.mockResolvedValue({
+      ok: true,
+      value: {
+        shareUrl: "https://example.com/share/review",
+        expiresAt: new Date("2026-12-31T00:00:00.000Z"),
+        outputVersion: 2,
+      },
+    });
+
+    const res = await POST(postRequest({ workId: WORK_ID, outputId: OUTPUT_ID }));
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      shareUrl: "https://example.com/share/review",
+      expiresAt: "2026-12-31T00:00:00.000Z",
+      outputVersion: 2,
+    });
   });
 });

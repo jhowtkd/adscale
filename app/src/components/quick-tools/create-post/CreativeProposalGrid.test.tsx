@@ -1,6 +1,10 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/hooks/use-piece-review-share", () => ({
+  useSharePieceReview: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: Record<string, string | number>) => ({
     factoryActiveLabel: "Fábrica criativa em atividade",

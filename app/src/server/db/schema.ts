@@ -885,13 +885,14 @@ export const shareLinks = adscaleSchema.table(
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     token: text("token").notNull().unique(),
-    campaignId: uuid("campaign_id")
-      .notNull()
-      .references(() => campaigns.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "cascade" }),
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     derivationIds: text("derivation_ids").array().notNull(),
+    creativeWorkId: uuid("creative_work_id"),
+    outputId: uuid("output_id"),
+    outputVersion: integer("output_version"),
     expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     revokedAt: timestamp("revoked_at", { mode: "date" }),
@@ -900,8 +901,22 @@ export const shareLinks = adscaleSchema.table(
     index("share_links_token_idx").on(table.token),
     index("share_links_campaign_id_idx").on(table.campaignId),
     index("share_links_workspace_id_idx").on(table.workspaceId),
+    uniqueIndex("share_links_active_output_uq")
+      .on(table.outputId)
+      .where(sql`${table.revokedAt} is null and ${table.outputId} is not null`),
+    check(
+      "share_links_package_check",
+      sql`(
+        (${table.campaignId} is not null and ${table.creativeWorkId} is null and ${table.outputId} is null)
+        or
+        (${table.campaignId} is null and ${table.creativeWorkId} is not null and ${table.outputId} is not null and ${table.outputVersion} is not null)
+      )`,
+    ),
   ]
 );
+
+export type ShareLink = typeof shareLinks.$inferSelect;
+export type NewShareLink = typeof shareLinks.$inferInsert;
 
 export const personaSimulations = adscaleSchema.table(
   "persona_simulations",
@@ -2931,3 +2946,37 @@ export const visualRecipes = adscaleSchema.table(
 
 export type VisualRecipe = typeof visualRecipes.$inferSelect;
 export type NewVisualRecipe = typeof visualRecipes.$inferInsert;
+
+export const pieceReviewComments = adscaleSchema.table(
+  "piece_review_comments",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    shareLinkId: uuid("share_link_id")
+      .notNull()
+      .references(() => shareLinks.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    outputId: uuid("output_id")
+      .notNull()
+      .references(() => creativeWorkOutputs.id, { onDelete: "restrict" }),
+    outputVersion: integer("output_version").notNull(),
+    authorLabel: text("author_label").notNull(),
+    decision: text("decision")
+      .notNull()
+      .$type<import("../creative-work/external-piece-review").PieceReviewDecision>(),
+    body: text("body"),
+    area: jsonb("area").$type<import("../creative-work/external-piece-review").PieceReviewArea | null>(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("piece_review_comments_share_idx").on(table.shareLinkId, table.createdAt, table.id),
+    check(
+      "piece_review_comments_decision_check",
+      sql`${table.decision} in ('comment','approve','request_changes')`,
+    ),
+  ],
+);
+
+export type PieceReviewComment = typeof pieceReviewComments.$inferSelect;
+export type NewPieceReviewComment = typeof pieceReviewComments.$inferInsert;

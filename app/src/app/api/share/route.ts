@@ -5,17 +5,30 @@ import { logger } from "@/lib/logger";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { getBetaSessionIdFromRequest } from "@/server/beta-analytics/session";
-import { createShareToken, revokeShareToken } from "@/lib/share-token";
+import {
+  createShareToken,
+  revokePieceReviewShareToken,
+  revokeShareToken,
+} from "@/lib/share-token";
+import { createPieceReviewShare } from "@/server/application/create-piece-review-share";
 import { rateLimit } from "@/lib/rate-limit";
 
-const bodySchema = z.object({
+const campaignShareSchema = z.object({
   campaignId: z.string().uuid(),
   derivationIds: z.array(z.string().uuid()).min(1).max(50),
-});
+}).strict();
 
-const revokeSchema = z.object({
-  campaignId: z.string().uuid(),
-});
+const pieceReviewShareSchema = z.object({
+  workId: z.string().uuid(),
+  outputId: z.string().uuid(),
+}).strict();
+
+const bodySchema = z.union([pieceReviewShareSchema, campaignShareSchema]);
+
+const revokeSchema = z.union([
+  z.object({ campaignId: z.string().uuid() }).strict(),
+  z.object({ workId: z.string().uuid(), outputId: z.string().uuid() }).strict(),
+]);
 
 export async function POST(request: Request) {
   try {
@@ -26,14 +39,30 @@ export async function POST(request: Request) {
 
     const { user, workspace } = await requireWorkspaceAccess(request);
     const sessionId = getBetaSessionIdFromRequest(request);
-    const body = await request.json();
-    const parsed = bodySchema.safeParse(body);
+    const parsed = bodySchema.safeParse(await request.json());
     if (!parsed.success) {
       return apiError("invalidRequestBody", 400);
     }
 
-    const { campaignId, derivationIds } = parsed.data;
+    if ("workId" in parsed.data) {
+      const created = await createPieceReviewShare({
+        workspaceId: workspace.id,
+        workItemId: parsed.data.workId,
+        outputId: parsed.data.outputId,
+      });
+      if (!created.ok) {
+        if (created.error.code === "work_not_found") return apiError("creativeWorkNotFound", 404);
+        if (created.error.code === "output_not_found") return apiError("creativeWorkOutputNotFound", 404);
+        return apiError("pieceReviewNotShareable", 409);
+      }
+      return NextResponse.json({
+        shareUrl: created.value.shareUrl,
+        expiresAt: created.value.expiresAt.toISOString(),
+        outputVersion: created.value.outputVersion,
+      });
+    }
 
+    const { campaignId, derivationIds } = parsed.data;
     const { shareUrl, expiresAt } = await createShareToken(
       campaignId,
       workspace.id,
@@ -62,17 +91,20 @@ export async function POST(request: Request) {
 }
 
 /**
- * Revoke the active share link for a campaign. The token immediately stops
- * validating (before its expiry). Workspace-scoped: a user can only revoke
- * share links for campaigns in their own workspace.
+ * Revoke the active share link for a campaign or piece review. The token
+ * immediately stops validating (before its expiry). Workspace-scoped.
  */
 export async function DELETE(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
-    const body = await request.json();
-    const parsed = revokeSchema.safeParse(body);
+    const parsed = revokeSchema.safeParse(await request.json());
     if (!parsed.success) {
       return apiError("invalidRequestBody", 400);
+    }
+
+    if ("outputId" in parsed.data) {
+      const revoked = await revokePieceReviewShareToken(workspace.id, parsed.data.outputId);
+      return NextResponse.json({ revoked });
     }
 
     const revoked = await revokeShareToken(parsed.data.campaignId, workspace.id);

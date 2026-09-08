@@ -1,12 +1,18 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+
+const shareMutate = vi.fn();
+
+vi.mock("@/lib/hooks/use-piece-review-share", () => ({
+  useSharePieceReview: () => ({ mutateAsync: shareMutate, isPending: false }),
+}));
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: { count?: number }) => {
     if (key === "layerizeQuotaRemaining") return `Translate: ${values?.count ?? 0} remaining quota`;
     return ({
     failedGeneration: "Falha na geração",
-    "status.queued": "Na fila", "status.processing": "Processando", "status.completed": "Pronto", "status.failed": "Falhou", variationShort: `v${values?.count}`, proposalAlt: `Proposta ${values?.label}`, generating: "Gerando...", retry: "Tentar novamente", retryProposal: "Repetir esta proposta", approving: "Aprovando", approved: "Aprovada", approve: "Aprovar", saveAsRecipe: "Salvar como receita visual", download: "Baixar", editImage: "Editar imagem", refine: "Refinar", revisionInstruction: "O que você quer mudar?", optionalAttachment: "Anexo opcional", generateVariation: "Gerar nova variação",
+    "status.queued": "Na fila", "status.processing": "Processando", "status.completed": "Pronto", "status.failed": "Falhou", variationShort: `v${values?.count}`, proposalAlt: `Proposta ${values?.label}`, generating: "Gerando...", retry: "Tentar novamente", retryProposal: "Repetir esta proposta", approving: "Aprovando", approved: "Aprovada", approve: "Aprovar", saveAsRecipe: "Salvar como receita visual", shareForReview: "Compartilhar para revisão", sharingForReview: "Criando link", sharedForReview: "Link de revisão copiado", download: "Baixar", editImage: "Editar imagem", refine: "Refinar", revisionInstruction: "O que você quer mudar?", optionalAttachment: "Anexo opcional", generateVariation: "Gerar nova variação",
     reviewRecommended: "Revisão recomendada — a checagem automática ficou inconclusiva",
     objectiveFailed: "A checagem objetiva reprovou esta peça.",
     objectiveFailedNext: "Gere uma nova variação antes de aprovar.",
@@ -157,6 +163,24 @@ describe("CreativeResultCard", () => {
     expect(screen.queryByText(/crédit/i)).not.toBeInTheDocument();
 
     expect(onRevise).toHaveBeenCalledWith("output-1", "Use mais contraste", file);
+  });
+
+  it("shares the completed piece for external review", async () => {
+    shareMutate.mockResolvedValue("https://app.example.com/share/tok");
+    render(
+      <CreativeResultCard
+        output={output()}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Compartilhar para revisão" }));
+    await waitFor(() => {
+      expect(shareMutate).toHaveBeenCalledWith({ workId: "work-1", outputId: "output-1" });
+    });
+    expect(await screen.findByRole("button", { name: "Link de revisão copiado" })).toBeVisible();
   });
 
   it("saves a structured piece as a visual recipe on approve", () => {
