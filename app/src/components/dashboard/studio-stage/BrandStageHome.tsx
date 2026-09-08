@@ -4,11 +4,14 @@ import type { ReactNode } from "react";
 import ImageCursorTrail from "@/components/ui/image-cursor-trail";
 import { studioChromeBarClass } from "@/components/dashboard/studio-stage/StudioInstrument";
 import { cn } from "@/lib/utils";
+import styles from "./StudioStage.module.css";
 
 export type StageMosaicItem = {
   id: string;
   title: string;
   src: string;
+  format?: string | null;
+  detail?: string;
 };
 
 const WORK_MOSAIC = [
@@ -27,18 +30,26 @@ const EMPTY_EDGES = [
   { className: "right-[-18%] bottom-[-8%] w-[44%] max-w-md rotate-[-5deg]", srcIndex: 3 },
 ];
 
+function mosaicAspect(format?: string | null) {
+  if (format === "1:1" || format === "4:5" || format === "9:16") return format.replace(":", " / ");
+  return null;
+}
+
 function WorkMosaic({
   items,
   onSelect,
+  repeatItems = true,
 }: {
   items: StageMosaicItem[];
   onSelect?: (item: StageMosaicItem) => void;
+  repeatItems?: boolean;
 }) {
   return (
-    <div data-testid="studio-mosaic" className="absolute inset-0">
+    <div data-testid="studio-mosaic" className="absolute inset-0 overflow-hidden">
       {WORK_MOSAIC.map((tile) => {
-        const image = items[tile.srcIndex % Math.max(items.length, 1)];
+        const image = repeatItems ? items[tile.srcIndex % Math.max(items.length, 1)] : items[tile.srcIndex];
         if (!image) return null;
+        const aspect = mosaicAspect(image.format);
         return (
           <button
             key={tile.className}
@@ -53,7 +64,17 @@ function WorkMosaic({
             )}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={image.src} alt="" className="aspect-[4/5] w-full object-cover" />
+            <img
+              src={image.src}
+              alt=""
+              className={cn("w-full", repeatItems || !aspect ? "aspect-[4/5] object-cover" : "object-contain")}
+              style={repeatItems || !aspect ? undefined : { aspectRatio: aspect }}
+            />
+            {image.detail ? (
+              <span aria-hidden="true" className="absolute inset-x-0 bottom-0 bg-black/50 px-2 py-1 text-[10px] font-medium text-white">
+                {image.detail}
+              </span>
+            ) : null}
           </button>
         );
       })}
@@ -110,6 +131,12 @@ export function BrandStageHome({
   children,
   onDropFiles,
   dropLabel,
+  expanded = false,
+  onCollapse,
+  results,
+  deskControls,
+  repeatItems = true,
+  resultsActive = false,
 }: {
   occupancy: "empty" | "work";
   brandName: string | null;
@@ -124,8 +151,15 @@ export function BrandStageHome({
   children?: ReactNode;
   onDropFiles: (files: FileList | File[] | null) => void;
   dropLabel: string;
+  expanded?: boolean;
+  onCollapse?: () => void;
+  results?: ReactNode;
+  deskControls?: ReactNode;
+  repeatItems?: boolean;
+  resultsActive?: boolean;
 }) {
   const empty = occupancy === "empty";
+  const showInspirationField = empty && repeatItems;
   const trailItems = mosaicItems.map((item) => item.src).filter(Boolean);
 
   return (
@@ -138,56 +172,71 @@ export function BrandStageHome({
         event.preventDefault();
         void onDropFiles(event.dataTransfer.files);
       }}
-      className="relative min-h-[calc(100vh-8rem)] px-4 pb-8 sm:px-6"
+      className={cn("relative px-4 pb-8 sm:px-6", styles.stage)}
     >
       <div data-testid="studio-chrome-bar" className={studioChromeBarClass}>
         <p className="min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">{eyebrow}</p>
         <div className="min-w-0 max-w-full">{topBar}</div>
       </div>
 
-      {empty ? (
-        <div className="relative mt-2 min-h-[calc(100vh-11rem)]">
-          {trailItems.length > 0 ? (
-            <ImageCursorTrail
-              items={trailItems}
-              className="absolute inset-0"
-              imgClassName="h-48 w-36 rounded-2xl"
-              maxNumberOfImages={4}
-              fadeAnimation
-              distance={14}
-            />
-          ) : null}
-          <EdgeField items={mosaicItems} onSelect={onSelectMosaic} />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--canvas)_18%,oklch(0.145_0.004_260_/_0.72)_48%,transparent_78%)]"
-          />
-          <div className="relative z-10 mx-auto flex min-h-[calc(100vh-11rem)] max-w-2xl flex-col items-center justify-center py-10">
-            <h1 className="max-w-lg text-center text-3xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-4xl">
-              {headline}
-            </h1>
-            <p className="mt-3 max-w-md text-center text-sm text-[var(--text-secondary)]">{subtitle}</p>
-            <div className="mt-8 w-full">{talkBox}</div>
-            {children}
-          </div>
-        </div>
-      ) : (
-        <>
+      <div
+        className={styles.workspace}
+        data-empty={empty ? "true" : "false"}
+        data-expanded={expanded ? "true" : "false"}
+        data-results={resultsActive ? "true" : "false"}
+      >
+        <div data-testid="studio-desk" className={styles.desk} inert={expanded}>
+          {deskControls}
           {continueWork ? (
             <div data-testid="continue-work-suggestion" className="relative z-20 mt-6 flex justify-center">
               {continueWork}
             </div>
           ) : null}
-          <div className="relative mt-4 min-h-[32rem] md:min-h-[40rem]">
-            <WorkMosaic items={mosaicItems} onSelect={onSelectMosaic} />
-            {children ? <div className="relative z-[6] mx-auto max-w-5xl px-2 pt-6">{children}</div> : null}
+          {showInspirationField ? (
+            <>
+              {trailItems.length > 0 ? (
+                <ImageCursorTrail
+                  items={trailItems}
+                  className="absolute inset-0"
+                  imgClassName="h-48 w-36 rounded-2xl"
+                  maxNumberOfImages={4}
+                  fadeAnimation
+                  distance={14}
+                />
+              ) : null}
+              <EdgeField items={mosaicItems} onSelect={onSelectMosaic} />
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--canvas)_18%,oklch(0.145_0.004_260_/_0.72)_48%,transparent_78%)]"
+              />
+            </>
+          ) : (
+            <>
+              <WorkMosaic items={mosaicItems} onSelect={onSelectMosaic} repeatItems={repeatItems} />
+              {empty ? null : <h1 className="sr-only">{brandName ? headline : eyebrow}</h1>}
+            </>
+          )}
+        </div>
+        {empty ? (
+          <div className={styles.intro} inert={expanded}>
+            <h1 className="max-w-lg text-center text-3xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-4xl">
+              {headline}
+            </h1>
+            <p className="mt-3 max-w-md text-center text-sm text-[var(--text-secondary)]">{subtitle}</p>
           </div>
-          <h1 className="sr-only">{brandName ? headline : eyebrow}</h1>
-          <div data-testid="studio-dock" className="sticky bottom-3 z-10 mt-6">
-            {talkBox}
-          </div>
-        </>
-      )}
+        ) : null}
+        {expanded ? (
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-hidden="true"
+            className={styles.backdrop}
+            onClick={onCollapse}
+          />
+        ) : null}
+        <div data-testid="studio-dock" className={styles.dock}>{talkBox}</div>
+      </div>
+      <div data-testid="studio-results-surface">{results}{children}</div>
     </div>
   );
 }

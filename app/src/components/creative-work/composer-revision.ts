@@ -45,6 +45,28 @@ export function applyCanonicalWorkRevision(
   };
 }
 
+export function isNewerWorkRevision(candidate: string, current: string | null): boolean {
+  if (!current) return true;
+  return Date.parse(candidate) > Date.parse(current);
+}
+
+/** Prefer a GET/poll timestamp that advanced past the local CAS cache. */
+export function resolveObservedCanonicalRevision(
+  state: ComposerRevisionState,
+  workItemId: string,
+  observedUpdatedAt: Date | string | null | undefined,
+): { revision: string | null; state: ComposerRevisionState } {
+  if (state.refreshRequiredWorkId === workItemId) {
+    return { revision: null, state };
+  }
+  const observed = parseWorkRevision(observedUpdatedAt);
+  const cached = cachedCanonicalWorkRevision(state, workItemId);
+  if (observed && isNewerWorkRevision(observed, cached)) {
+    return applyCanonicalWorkRevision(state, workItemId, observedUpdatedAt);
+  }
+  return { revision: cached, state };
+}
+
 export function cachedCanonicalWorkRevision(
   state: ComposerRevisionState,
   workItemId: string,
