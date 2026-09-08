@@ -198,7 +198,8 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByRole("button", { name: "Nova campanha" }));
     expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByTestId("active-client-switcher"));
     expect(screen.getAllByRole("radio")).toHaveLength(4);
-    expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
+    expect(within(screen.getByTestId("studio-talk-box")).getByTestId("creative-composer")).toBeInTheDocument();
+    expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
     expect(screen.queryByText("dashboard.home.chooseIntent")).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -440,11 +441,17 @@ describe("DashboardHomeActions", () => {
 
   it("attaches brand inspirations through the same composer model", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useCreativeInspirationsMock.mockReturnValue({
+      data: [{ id: "inspiration-1", title: "Ref da marca", previewUrl: "/insp.png" }],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
 
     render(<DashboardHomeActions />);
-    fireEvent.click(screen.getByRole("button", { name: "Inspirações p1" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Ref da marca" })[0]);
 
-    expect(addInspirationMock).toHaveBeenCalledWith({ id: "inspiration-1" });
+    expect(addInspirationMock).toHaveBeenCalledWith(expect.objectContaining({ id: "inspiration-1" }));
     expect(screen.getByTestId("creative-composer")).toBeInTheDocument();
   });
 
@@ -489,7 +496,7 @@ describe("DashboardHomeActions", () => {
 
     render(<DashboardHomeActions workId="work-from-p2" />);
 
-    expect(screen.getByRole("button", { name: "Inspirações p2" })).toBeInTheDocument();
+    expect(useCreativeInspirationsMock).toHaveBeenCalledWith("p2");
   });
 
   it("keeps progressive entry free and only reveals objectives after input", () => {
@@ -507,10 +514,10 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("studio-stage")).toBeInTheDocument();
     expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "dashboard.home.chooseObjective" })).not.toBeInTheDocument();
-    expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
+    expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "dashboard.home.composer.requestLabel" }), { target: { value: "Uma campanha" } });
     expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
-    expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
+    expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
   });
 
   it("accepts dropped multiple files and announces the buffered first file", () => {
@@ -552,7 +559,7 @@ describe("DashboardHomeActions", () => {
     render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
     expect(screen.getByTestId("studio-stage")).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "dashboard.home.studioModeLabel" })).not.toBeInTheDocument();
-    expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
+    expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
   });
 
   it("keeps Single piece references enabled in progressive configuration", () => {

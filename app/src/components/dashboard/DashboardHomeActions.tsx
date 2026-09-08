@@ -7,7 +7,6 @@ import { useLocale, useTranslations } from "next-intl";
 import { ArrowRight, ImageIcon, Plus } from "lucide-react";
 import { AccessGatePanel } from "@/components/billing/AccessGatePanel";
 import { CreativeComposer } from "@/components/creative-work/CreativeComposer";
-import { BrandInspirations } from "@/components/creative-work/BrandInspirations";
 import { CreativePlanReview } from "@/components/creative-work/CreativePlanReview";
 import { useCreativeComposer, type ComposerIntent } from "@/components/creative-work/useCreativeComposer";
 import { BrandStageHome } from "@/components/dashboard/studio-stage/BrandStageHome";
@@ -233,6 +232,10 @@ export default function DashboardHomeActions({
     } : {}),
     ...(freshEntry ? { freshEntry: true } : {}),
   });
+  const [boxExpanded, setBoxExpanded] = useState(false);
+  const [resultsContainer, setResultsContainer] = useState<HTMLDivElement | null>(null);
+  const primaryActionRef = useRef<HTMLButtonElement>(null);
+  const expansionButtonRef = useRef<HTMLButtonElement>(null);
   const continueTarget = useMemo(() => resolveContinueWork(works), [works]);
   const [editingPreparedPlan, setEditingPreparedPlan] = useState(false);
   const preparedPlanCycleRef = useRef(composer.preparedPlanCycle ?? 0);
@@ -273,6 +276,7 @@ export default function DashboardHomeActions({
   // plan-review/results surfaces never replace it — their proposals grid has
   // no carousel outputs and would unmount the deck mid-flow.
   const isCarouselWorkflow = composer.intent === "carousel";
+  const carouselPhase = composer.carousel?.phase;
   const resultStage = rolloutVariant === "progressive"
     && !isCarouselWorkflow
     && (composer.stage === "generation" || composer.stage === "results");
@@ -281,9 +285,28 @@ export default function DashboardHomeActions({
     && Boolean(composer.preparedPlan)
     && !editingPreparedPlan
     && !isCarouselWorkflow;
+  const carouselTalkBoxProps = {
+    showRequest: !isCarouselWorkflow || carouselPhase === "entry" || carouselPhase == null,
+    showAttachments: !isCarouselWorkflow && composer.intent !== "restyle",
+    showGenerate: !isCarouselWorkflow && !showPlan && !resultStage,
+  };
   useEffect(() => {
     if (resultStage) progressiveResultsHeadingRef.current?.focus();
   }, [resultStage]);
+  useEffect(() => {
+    if (composer.pendingProtocolSwitch || composer.brandConflict || showPlan) setBoxExpanded(true);
+  }, [composer.pendingProtocolSwitch, composer.brandConflict, showPlan]);
+  useEffect(() => {
+    if (resultStage) setBoxExpanded(false);
+  }, [resultStage]);
+  useEffect(() => {
+    if (!isCarouselWorkflow) return;
+    if (carouselPhase === "questions" || carouselPhase === "sequence" || carouselPhase === "ready_to_generate") {
+      setBoxExpanded(true);
+    } else if (carouselPhase === "generating" || carouselPhase === "review") {
+      setBoxExpanded(false);
+    }
+  }, [isCarouselWorkflow, carouselPhase]);
   useEffect(() => {
     // Canonical preparation can legitimately reuse a revision. The explicit
     // cycle means an edit only returns to review after a successful prepare.
@@ -317,7 +340,7 @@ export default function DashboardHomeActions({
   const showComposer = isCarouselWorkflow
     || resultStage
     || rolloutVariant === "control"
-    || (rolloutVariant === "progressive" && composer.objectiveSelected && !showPlan);
+    || (rolloutVariant === "progressive" && composer.objectiveSelected);
   const talkBox = (
     <TalkBox
       placement={occupancy === "empty" ? "center" : "dock"}
@@ -325,12 +348,18 @@ export default function DashboardHomeActions({
       onRequestChange={(value) => composer.setRequest?.(value)}
       onRequestFocusChange={setRequestFocused}
       intent={composer.intent}
-      onSelectIntent={(intent, immediate) => composer.selectIntent?.(intent, immediate)}
+      onSelectIntent={(intent, immediate) => {
+        setBoxExpanded(true);
+        composer.selectIntent?.(intent, immediate);
+      }}
       suggestedProtocol={interviewEnabled && !composer.objectiveSelected ? interview.suggestedProtocol : null}
       carouselEnabled={carouselCreationEnabled}
       sources={sources.map((source) => ({ id: source.id, name: source.name, previewUrl: source.previewUrl, usage: source.usage }))}
       bufferedFile={composer.bufferedFile ?? null}
-      onAddFiles={(files) => void composer.addFiles?.(files)}
+      onAddFiles={(files) => {
+        setBoxExpanded(true);
+        void composer.addFiles?.(files);
+      }}
       error={composer.error ?? null}
       announcement={composer.announcement ?? (composer.bufferedFile ? t("composer.progressiveBufferedFile", { name: composer.bufferedFile.name }) : null)}
       retryInitialTemplate={composer.retryInitialTemplate ?? null}
@@ -350,13 +379,22 @@ export default function DashboardHomeActions({
         onSelect: interview.selectChip,
         continueLabel: t("entryInterview.continue"),
         showContinue: Boolean(interview.answeredProtocol && !composer.objectiveSelected),
-        onContinue: () => void composer.selectIntent?.(interview.answeredProtocol!, true),
+        onContinue: () => {
+          setBoxExpanded(true);
+          void composer.selectIntent?.(interview.answeredProtocol!, true);
+        },
       } : null}
-    />
-  );
-
-  const stageBody = (
-    <div className="space-y-4">
+      requestRef={composerRef}
+      primaryActionRef={primaryActionRef}
+      expansionButtonRef={expansionButtonRef}
+      expanded={boxExpanded}
+      onExpandedChange={setBoxExpanded}
+      {...carouselTalkBoxProps}
+      summary={<span className="text-xs text-[var(--text-secondary)]">
+        {[composer.brandName, composer.format, sources.length ? `${sources.length}/3` : null]
+          .filter(Boolean).join(" · ")}
+      </span>}
+    >
       {protocolSwitchControls}
       {showPlan && billing && !billing.access.hasSpendAccess ? (
         <section className="rounded-[var(--radius-object)] border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4" role="alert">
@@ -372,49 +410,48 @@ export default function DashboardHomeActions({
           onConfirm={(revision) => composer.confirmGeneration(revision)}
         />
       ) : null}
-      {resultStage ? (
-        <>
-          <section aria-labelledby="progressive-results-title" data-testid="progressive-results-summary" className="flex flex-wrap items-end justify-between gap-2 border-b border-[var(--border-subtle)] pb-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{composer.workTitle ?? (composer.request?.trim() || t(`planReview.protocol.${composer.preparedPlan?.protocol === "format_adaptation" ? "formatAdaptation" : composer.preparedPlan?.protocol ?? composer.intent}`))}</p>
-              <h2 ref={progressiveResultsHeadingRef} id="progressive-results-title" tabIndex={-1} className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{t("resultsTitle")}</h2>
-            </div>
-            <p className="text-sm text-[var(--text-secondary)]">{composer.brandName ?? t("continueBrandUnknown")} · {composer.stage === "generation" ? t("resultStateGenerating") : outputs.length > 0 && outputs.every((output) => output.status === "failed") ? t("resultStateFailed") : t("resultStateReady")}</p>
-          </section>
-          <details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-4">
-            <summary className="cursor-pointer text-sm font-medium">{t("planUsed")}</summary>
-            <div className="mt-3">
-              <dl data-testid="progressive-readonly-configuration" className="grid gap-2 text-sm text-[var(--text-secondary)]">
-                <div><dt className="font-medium text-[var(--text-primary)]">{t("composer.requestLabel")}</dt><dd>{composer.request}</dd></div>
-                <div><dt className="font-medium text-[var(--text-primary)]">{t("chooseObjective")}</dt><dd>{t(`planReview.protocol.${composer.intent === "format_adaptation" ? "formatAdaptation" : composer.intent}`)}</dd></div>
-                <div><dt className="font-medium text-[var(--text-primary)]">{t("composer.targetFormats")}</dt><dd>{composer.targetFormats?.join(", ")}</dd></div>
-              </dl>
-              {composer.preparedPlan ? <CreativePlanReview plan={composer.preparedPlan} busy={false} onEdit={() => undefined} onConfirm={() => undefined} readOnly /> : <p className="text-sm text-[var(--text-secondary)]">{composer.request || t("progressiveSubtitle")}</p>}
-            </div>
-          </details>
-        </>
-      ) : null}
       {showComposer ? (
-        <CreativeComposer
-          composer={composer}
-          composerRef={composerRef}
-          workflowVariant={rolloutVariant === "progressive" ? "progressive" : "control"}
-          resultsOnly={resultStage}
-          chrome="stage"
-        />
-      ) : null}
-      {resultStage ? (
-        <div data-testid="progressive-campaign-association" className="flex justify-end">
-          <CreateCampaignDialog activeProfile={activeProfile} onCreated={composer.linkCampaign} />
+        <div hidden={showPlan}>
+          <CreativeComposer
+            composer={composer}
+            composerRef={composerRef}
+            workflowVariant={rolloutVariant === "progressive" ? "progressive" : "control"}
+            resultsOnly={resultStage}
+            chrome="stage"
+            resultsContainer={resultsContainer}
+            primaryActionRef={primaryActionRef}
+            controlsActive={boxExpanded}
+          />
         </div>
       ) : null}
-      {!resultStage ? (
-        <div data-testid="brand-inspirations-slot" className="sr-only">
-          <BrandInspirations clientProfileId={composer.clientProfileId} onAttach={composer.addInspiration} />
-        </div>
-      ) : null}
-    </div>
+    </TalkBox>
   );
+
+  const resultStageContent = resultStage ? (
+    <>
+      <section aria-labelledby="progressive-results-title" data-testid="progressive-results-summary" className="flex flex-wrap items-end justify-between gap-2 border-b border-[var(--border-subtle)] pb-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{composer.workTitle ?? (composer.request?.trim() || t(`planReview.protocol.${composer.preparedPlan?.protocol === "format_adaptation" ? "formatAdaptation" : composer.preparedPlan?.protocol ?? composer.intent}`))}</p>
+          <h2 ref={progressiveResultsHeadingRef} id="progressive-results-title" tabIndex={-1} className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{t("resultsTitle")}</h2>
+        </div>
+        <p className="text-sm text-[var(--text-secondary)]">{composer.brandName ?? t("continueBrandUnknown")} · {composer.stage === "generation" ? t("resultStateGenerating") : outputs.length > 0 && outputs.every((output) => output.status === "failed") ? t("resultStateFailed") : t("resultStateReady")}</p>
+      </section>
+      <details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-4">
+        <summary className="cursor-pointer text-sm font-medium">{t("planUsed")}</summary>
+        <div className="mt-3">
+          <dl data-testid="progressive-readonly-configuration" className="grid gap-2 text-sm text-[var(--text-secondary)]">
+            <div><dt className="font-medium text-[var(--text-primary)]">{t("composer.requestLabel")}</dt><dd>{composer.request}</dd></div>
+            <div><dt className="font-medium text-[var(--text-primary)]">{t("chooseObjective")}</dt><dd>{t(`planReview.protocol.${composer.intent === "format_adaptation" ? "formatAdaptation" : composer.intent}`)}</dd></div>
+            <div><dt className="font-medium text-[var(--text-primary)]">{t("composer.targetFormats")}</dt><dd>{composer.targetFormats?.join(", ")}</dd></div>
+          </dl>
+          {composer.preparedPlan ? <CreativePlanReview plan={composer.preparedPlan} busy={false} onEdit={() => undefined} onConfirm={() => undefined} readOnly /> : <p className="text-sm text-[var(--text-secondary)]">{composer.request || t("progressiveSubtitle")}</p>}
+        </div>
+      </details>
+      <div data-testid="progressive-campaign-association" className="flex justify-end">
+        <CreateCampaignDialog activeProfile={activeProfile} onCreated={composer.linkCampaign} />
+      </div>
+    </>
+  ) : null;
 
   return (
     <div>
@@ -428,7 +465,10 @@ export default function DashboardHomeActions({
         mosaicItems={mosaicItems}
         onSelectMosaic={(item) => {
           const inspiration = inspirations.find((entry) => entry.id === item.id);
-          if (inspiration) void composer.addInspiration?.(inspiration);
+          if (inspiration) {
+            setBoxExpanded(true);
+            void composer.addInspiration?.(inspiration);
+          }
         }}
         continueWork={isLoading && works.length === 0 ? (
           <div className="mx-auto h-6 w-48 max-w-full animate-pulse rounded-full bg-white/6" aria-hidden="true" />
@@ -467,11 +507,23 @@ export default function DashboardHomeActions({
           </div>
         )}
         talkBox={talkBox}
-        onDropFiles={(files) => void composer.addFiles?.(files)}
+        onDropFiles={(files) => {
+          setBoxExpanded(true);
+          void composer.addFiles?.(files);
+        }}
         dropLabel={t("composer.dropTarget")}
-      >
-        {stageBody}
-      </BrandStageHome>
+        expanded={boxExpanded}
+        onCollapse={() => {
+          expansionButtonRef.current?.focus();
+          setBoxExpanded(false);
+        }}
+        results={(
+          <>
+            <div ref={setResultsContainer} />
+            {resultStageContent}
+          </>
+        )}
+      />
     </div>
   );
 }
