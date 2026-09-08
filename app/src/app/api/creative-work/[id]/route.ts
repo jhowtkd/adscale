@@ -16,6 +16,7 @@ import {
   handleCreativeWorkLayerizationCallback,
 } from "@/server/application/handle-creative-work-layerization-callback";
 import { recoverExpiredCreativeWorkLayerizations } from "@/server/application/recover-expired-creative-work-layerizations";
+import { saveCommercialOfferFromWork } from "@/server/application/save-commercial-offer";
 import { toPublicLayerizationState } from "@/server/layerize/contracts";
 import { toPublicLayerEditorSummary } from "@/server/layer-editor/contracts";
 import { getLayerEditorAccess } from "@/server/layer-editor/quota";
@@ -210,6 +211,11 @@ const saveLayerEditorSchema = z.object({ action: z.literal("saveLayerEditor"), o
 const regenerateLayerSchema=z.object({action:z.literal("regenerateLayer"),outputId:z.string().uuid(),leaseId:z.string().uuid(),expectedRevision:z.number().int().positive(),operationId:z.string().uuid(),layerId:z.string().uuid(),instruction:z.string().trim().min(1).max(2000)}).strict();
 const candidateActionSchema=z.object({action:z.enum(["acceptLayerCandidate","discardLayerCandidate"]),outputId:z.string().uuid(),leaseId:z.string().uuid(),expectedRevision:z.number().int().positive(),operationId:z.string().uuid()}).strict();
 const publishLayerEditorSchema=z.object({action:z.literal("publishLayerEditor"),outputId:z.string().uuid(),leaseId:z.string().uuid(),expectedRevision:z.number().int().positive(),operationId:z.string().uuid()}).strict();
+const saveAsOfferSchema = z.object({
+  action: z.literal("saveAsOffer"),
+  validFrom: z.string().datetime({ offset: true }).optional(),
+  validUntil: z.string().datetime({ offset: true }),
+}).strict();
 const linkCampaignSchema = z.object({ action: z.literal("linkCampaign"), campaignId: z.string().min(1).nullable() }).strict();
 const sourceUsageSchema = z.enum(CREATIVE_SOURCE_USAGES);
 const attachSourceSchema = z.union([
@@ -243,6 +249,7 @@ const patchCreativeWorkSchema = z.union([
   openLayerEditorSchema, heartbeatLayerEditorSchema, releaseLayerEditorSchema, saveLayerEditorSchema,
   regenerateLayerSchema,candidateActionSchema,
   publishLayerEditorSchema,
+  saveAsOfferSchema,
 ]);
 
 function briefingFieldValue(value: string | null) {
@@ -776,6 +783,32 @@ export async function PATCH(
       });
     }
 
+    if ("action" in parsed.data && parsed.data.action === "saveAsOffer") {
+      const saved = await saveCommercialOfferFromWork({
+        workspaceId: workspace.id,
+        workItemId: id,
+        validFrom: parsed.data.validFrom,
+        validUntil: parsed.data.validUntil,
+      });
+      if (!saved.ok) {
+        if (saved.error.code === "work_not_found") return apiError("creativeWorkNotFound", 404);
+        if (saved.error.code === "brand_required") return apiError("commercialOfferBrandRequired", 409);
+        if (saved.error.code === "missing_product") return apiError("commercialOfferMissingProduct", 422);
+        if (saved.error.code === "missing_offer") return apiError("commercialOfferMissingOffer", 422);
+        if (saved.error.code === "missing_validity" || saved.error.code === "invalid_window") {
+          return apiError("commercialOfferInvalidWindow", 422);
+        }
+        return apiError("creativeWorkNotReady", 409);
+      }
+      return NextResponse.json({
+        offer: {
+          id: saved.value.offer.id,
+          version: saved.value.offer.version,
+          document: saved.value.offer.document,
+        },
+      }, { status: 201 });
+    }
+
     if ("action" in parsed.data && parsed.data.action === "prepare") {
       // One aggregate read decides the prepare path: carousel has its own
       // frozen-snapshot command; every other intent keeps the legacy one.
@@ -811,6 +844,7 @@ export async function PATCH(
         // two short choices (source/active) — billing stays blocked.
         if (prepared.error.code === "brand_conflict") return apiError("brand_conflict", 422, prepared.error.details);
         if (prepared.error.code === "briefing_blocked") return apiError("briefing_blocked", 422, prepared.error.details);
+        if (prepared.error.code === "offer_expired") return apiError("commercialOfferExpired", 409);
         return apiError("creativeWorkNotReady", 409);
       }
       return NextResponse.json(prepared.value);

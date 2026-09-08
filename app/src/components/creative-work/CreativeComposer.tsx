@@ -649,6 +649,37 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
                   : t("briefingEditError")}
             </p>
           ) : null}
+          {composer.workId && briefingFactPack?.facts.some((fact) => fact.class === "product" && fact.value.trim()) && briefingFactPack.facts.some((fact) => fact.class === "offer" && fact.value.trim()) ? (
+            <form
+              className="mt-4 flex flex-wrap items-end gap-3"
+              data-testid="save-commercial-offer"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const raw = String(new FormData(event.currentTarget).get("validUntil") ?? "");
+                const parsed = Date.parse(raw);
+                if (!Number.isFinite(parsed)) return;
+                void composer.saveCommercialOffer(new Date(parsed).toISOString());
+              }}
+            >
+              <label className="min-w-0 flex-1 text-xs text-[var(--text-muted)]">
+                {t("offers.validUntil")}
+                <input
+                  name="validUntil"
+                  type="datetime-local"
+                  required
+                  disabled={composer.settingsLocked}
+                  className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2 py-1 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-60"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={composer.settingsLocked}
+                className="shrink-0 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-1.5 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {t("offers.save")}
+              </button>
+            </form>
+          ) : null}
         </section>
       ) : null}
 
@@ -786,8 +817,10 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           {isSingle ? (
             <BrandVisualRecipes
               recipes={composer.visualRecipes ?? []}
+              offers={composer.commercialOffers ?? []}
               disabled={composer.settingsLocked}
               onUse={(recipeId) => void composer.instantiateRecipe(recipeId)}
+              onUseOffer={(offerId) => void composer.instantiateOffer(offerId)}
             />
           ) : null}
           <fieldset>

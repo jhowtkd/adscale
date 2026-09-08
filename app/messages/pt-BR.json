@@ -701,6 +701,12 @@
         "title": "Receitas visuais",
         "use": "Usar receita"
       },
+      "offers": {
+        "title": "Ofertas da marca",
+        "use": "Usar oferta",
+        "save": "Salvar oferta",
+        "validUntil": "Válida até"
+      },
       "proposal": {
         "level": { "conservative": "Conservadora", "balanced": "Equilibrada", "bold": "Ousada" },
         "status": { "queued": "na fila", "processing": "gerando", "completed": "pronta", "failed": "falhou" },
@@ -2714,6 +2720,13 @@
     "visualRecipeNotStructured": "Esta peça não tem layout estruturado para salvar como receita. Aprove uma peça com geometria de logotipo e tipografia da marca.",
     "visualRecipeNotFound": "Receita visual não encontrada para esta marca.",
     "visualRecipeBrandMismatch": "Esta receita pertence a outra marca e não pode ser usada aqui.",
+    "commercialOfferNotFound": "Oferta comercial não encontrada para esta marca.",
+    "commercialOfferBrandMismatch": "Esta oferta pertence a outra marca e não pode ser usada aqui.",
+    "commercialOfferExpired": "Esta oferta expirou e não entra em uma geração nova.",
+    "commercialOfferBrandRequired": "Selecione uma marca para salvar a oferta.",
+    "commercialOfferMissingProduct": "Não há produto autorizado no briefing para salvar como oferta.",
+    "commercialOfferMissingOffer": "Não há oferta autorizada no briefing para salvar no catálogo.",
+    "commercialOfferInvalidWindow": "Informe uma validade futura maior que o início da oferta.",
     "pieceReviewNotShareable": "Só uma Peça concluída pode ser compartilhada para revisão.",
     "pieceReviewObjectiveRejected": "A aprovação externa não substitui uma reprovação objetiva. Peça ajuste ou gere uma nova variação.",
     "creativeWorkNotFound": "Trabalho criativo não encontrado.",

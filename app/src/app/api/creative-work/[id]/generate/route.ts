@@ -77,6 +77,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         case "work_not_found": return apiError("creativeWorkNotFound", 404);
         case "credit_blocked": return apiError("insufficientCredits", 402, result.error.details);
         case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502);
+        case "offer_expired": return apiError("commercialOfferExpired", 409);
         default: return apiError("creativeWorkNotReady", 409, result.error.details);
       }
     }

@@ -4,7 +4,9 @@ import { startSocialPostWork } from "@/server/application/start-social-post-work
 import { analyzeCreativeWorkSource } from "@/server/application/analyze-creative-work-source";
 import { listCreativeInspirations } from "@/server/application/list-creative-inspirations";
 import { instantiateVisualRecipe } from "@/server/application/instantiate-visual-recipe";
+import { instantiateCommercialOffer } from "@/server/application/instantiate-commercial-offer";
 import { listVisualRecipes } from "@/server/repositories/visual-recipe";
+import { listActiveCommercialOffers } from "@/server/repositories/commercial-offer";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { parseCatalogPageSearchParams } from "@/lib/catalog-page";
 import { listCanonicalWorks } from "@/server/creative-work/canonical/queries";
@@ -39,6 +41,12 @@ const instantiateRecipeSchema = z.object({
   fields: socialPostCopySchema.partial().optional(),
 }).strict();
 
+const instantiateOfferSchema = z.object({
+  clientProfileId: z.string().uuid(),
+  draftKey: z.string().uuid(),
+  offerId: z.string().uuid(),
+}).strict();
+
 const createDraftSchema = z.object({
   clientProfileId: z.string().uuid(),
   draftKey: z.string().uuid(),
@@ -61,7 +69,7 @@ const createDraftSchema = z.object({
   if (!parsed.success) parsed.error.issues.forEach((issue) => context.addIssue(issue));
 });
 
-const createBodySchema = z.union([instantiateRecipeSchema, createDraftSchema, createCreativeWorkSchema]);
+const createBodySchema = z.union([instantiateRecipeSchema, instantiateOfferSchema, createDraftSchema, createCreativeWorkSchema]);
 
 /**
  * List workspace canonical works (Phase 5 / item 37 — history on complete).
@@ -131,6 +139,24 @@ export async function GET(request: Request) {
         nextCursor: recipes.nextCursor,
       });
     }
+    if (searchParams.get("view") === "offers") {
+      const parsedClientProfileId = z.string().uuid().safeParse(searchParams.get("clientProfileId"));
+      if (!parsedClientProfileId.success) {
+        return apiError("invalidInput", 400, parsedClientProfileId.error.flatten());
+      }
+      const page = parseCatalogPageSearchParams(searchParams);
+      if (page.error) {
+        return apiError("invalidInput", 400, { page: page.error });
+      }
+      const offers = await listActiveCommercialOffers(workspace.id, parsedClientProfileId.data, new Date(), {
+        limit: page.limit,
+        cursor: page.cursor,
+      });
+      return NextResponse.json({
+        offers: offers.items,
+        nextCursor: offers.nextCursor,
+      });
+    }
     const works = await listCanonicalWorks(workspace.id);
     return NextResponse.json({ works });
   } catch (error) {
@@ -149,6 +175,29 @@ export async function POST(request: Request) {
     const parsed = createBodySchema.safeParse(await request.json());
     if (!parsed.success) {
       return apiError("invalidInput", 400, parsed.error.flatten());
+    }
+
+    if ("offerId" in parsed.data) {
+      const instantiated = await instantiateCommercialOffer({
+        workspaceId: workspace.id,
+        userId: user.id,
+        clientProfileId: parsed.data.clientProfileId,
+        draftKey: parsed.data.draftKey,
+        offerId: parsed.data.offerId,
+      });
+      if (!instantiated.ok) {
+        if (instantiated.error.code === "offer_not_found") return apiError("commercialOfferNotFound", 404);
+        if (instantiated.error.code === "brand_mismatch") return apiError("commercialOfferBrandMismatch", 409);
+        if (instantiated.error.code === "expired" || instantiated.error.code === "not_yet_valid") {
+          return apiError("commercialOfferExpired", 409);
+        }
+        return apiError("clientProfileNotFound", 404);
+      }
+      return NextResponse.json({
+        work: instantiated.value.work,
+        canonical: projectCreativeWorkAsCanonicalWork(instantiated.value.work, []),
+        offerVersion: instantiated.value.offerVersion,
+      }, { status: 201 });
     }
 
     if ("recipeId" in parsed.data) {

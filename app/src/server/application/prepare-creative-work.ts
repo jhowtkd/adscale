@@ -10,6 +10,7 @@ import {
   creativeWorkFactPackBrandFromKit,
   type CreativeWorkBrandAuthority,
 } from "@/server/creative-work/fact-pack";
+import { assertOfferActive, mergeCatalogFacts } from "@/server/creative-work/commercial-offer";
 import {
   deriveCreativeWorkTitle,
   inferCreativeWorkFormat,
@@ -114,6 +115,11 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     if (!aggregate) return { ok: false as const, error: { code: "work_not_found" as const } };
     if (aggregate.work.status !== "draft") {
       return { ok: false as const, error: { code: "work_not_draft" as const } };
+    }
+    const commercialOffer = aggregate.work.inputSnapshot?.commercialOffer;
+    if (commercialOffer) {
+      const active = assertOfferActive(commercialOffer, new Date());
+      if (!active.ok) return { ok: false as const, error: { code: "offer_expired" as const } };
     }
     if (aggregate.sources.some((source) => source.status === "uploaded" || source.status === "analyzing")) {
       return { ok: false as const, error: { code: "sources_not_ready" as const } };
@@ -223,7 +229,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     // R-002: the fact pack freezes the full request, every effective
     // content|both source fact with provenance, brand constraints and the
     // resolved identity. Style-only sources never contribute factual truth.
-    const factPack = buildCreativeWorkFactPack({
+    const factPack = mergeCatalogFacts(buildCreativeWorkFactPack({
       request: aggregate.work.request,
       mode: protocol.mode,
       sources: factualEffectiveSources.map(({ source, usage }) => ({
@@ -238,7 +244,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       // required identity; otherwise the active brand is registered (and no
       // question ever appears without a confident conflict).
       brandAuthority,
-    });
+    }), commercialOffer);
     const snapshotBase: CreativeWorkInputSnapshot = {
       generationPolicyVersion: generationPolicyVersionFromSwitch(env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED),
       factPack,
@@ -246,6 +252,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       request: aggregate.work.request,
       settings: preparation.data.settings,
       ...(preparation.data.settings.briefingOverrides ? { briefingOverrides: preparation.data.settings.briefingOverrides } : {}),
+      ...(commercialOffer ? { commercialOffer } : {}),
       sources: effectiveSources.map(({ source, usage }) => ({
         sourceId: source.id,
         updatedAt: source.updatedAt.toISOString(),
