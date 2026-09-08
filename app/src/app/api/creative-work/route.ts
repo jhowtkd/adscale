@@ -9,6 +9,10 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { parseCatalogPageSearchParams } from "@/lib/catalog-page";
 import { listCanonicalWorks } from "@/server/creative-work/canonical/queries";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
+import { listCreativeProduction } from "@/server/application/list-creative-production";
+import { parseProductionSearchParams } from "@/server/repositories/creative-production";
+import { getClientProfile } from "@/server/repositories/client-reference";
+import { getCampaignById } from "@/server/repositories/campaign";
 import {
   createCreativeWorkDraftWithSource,
   getCreativeWork,
@@ -66,6 +70,19 @@ export async function GET(request: Request) {
   try {
     const { workspace } = await requireWorkspaceAccess(request);
     const { searchParams } = new URL(request.url);
+    if (searchParams.get("view") === "production") {
+      const query = parseProductionSearchParams(searchParams);
+      if (!query) return apiError("invalidInput", 400);
+      const profile = await getClientProfile(workspace.id, query.clientProfileId);
+      if (!profile) return apiError("clientProfileNotFound", 404);
+      if (query.campaignId) {
+        const campaign = await getCampaignById(query.campaignId, workspace.id);
+        if (!campaign || campaign.clientProfileId !== query.clientProfileId) {
+          return apiError("campaignNotFound", 404);
+        }
+      }
+      return NextResponse.json(await listCreativeProduction({ ...query, workspaceId: workspace.id }));
+    }
     if (searchParams.get("view") === "inspirations") {
       const rawClientProfileId = searchParams.get("clientProfileId");
       const parsedClientProfileId = rawClientProfileId

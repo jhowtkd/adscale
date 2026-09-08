@@ -16,6 +16,9 @@ vi.mock("@/server/auth/workspace", () => ({
 
 const startMock = vi.hoisted(() => vi.fn());
 const listMock = vi.hoisted(() => vi.fn());
+const listProductionMock = vi.hoisted(() => vi.fn());
+const getClientProfileMock = vi.hoisted(() => vi.fn());
+const getCampaignByIdMock = vi.hoisted(() => vi.fn());
 const listInspirationsMock = vi.hoisted(() => vi.fn());
 const updateSourceCasMock = vi.hoisted(() => vi.fn());
 const createDraftWithSourceMock = vi.hoisted(() => vi.fn());
@@ -29,6 +32,18 @@ vi.mock("@/server/application/start-social-post-work", () => ({
 
 vi.mock("@/server/creative-work/canonical/queries", () => ({
   listCanonicalWorks: (...args: unknown[]) => listMock(...args),
+}));
+
+vi.mock("@/server/application/list-creative-production", () => ({
+  listCreativeProduction: (...args: unknown[]) => listProductionMock(...args),
+}));
+
+vi.mock("@/server/repositories/client-reference", () => ({
+  getClientProfile: (...args: unknown[]) => getClientProfileMock(...args),
+}));
+
+vi.mock("@/server/repositories/campaign", () => ({
+  getCampaignById: (...args: unknown[]) => getCampaignByIdMock(...args),
 }));
 
 vi.mock("@/server/application/list-creative-inspirations", () => ({
@@ -76,6 +91,13 @@ describe("GET /api/creative-work", () => {
     vi.clearAllMocks();
     inngestSendMock.mockResolvedValue(undefined);
     analyzeSourceMock.mockResolvedValue(null);
+    listProductionMock.mockResolvedValue({ production: [], nextCursor: null });
+    getClientProfileMock.mockResolvedValue({ id: profileId, workspaceId: "workspace-1" });
+    getCampaignByIdMock.mockResolvedValue({
+      id: "00000000-0000-4000-8000-000000000002",
+      workspaceId: "workspace-1",
+      clientProfileId: profileId,
+    });
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -141,6 +163,67 @@ describe("GET /api/creative-work", () => {
     expect(res.status).toBe(200);
     expect(listVisualRecipes).toHaveBeenCalledWith("workspace-1", profileId, expect.objectContaining({ limit: 24 }));
     expect(body.recipes).toEqual([{ id: "recipe-1", clientProfileId: profileId }]);
+  });
+
+  it("separa produção da listagem canônica e não despacha geração", async () => {
+    const response = await GET(new Request(
+      `http://localhost/api/creative-work?view=production&clientProfileId=${profileId}`,
+    ));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ production: [], nextCursor: null });
+    expect(listProductionMock).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "workspace-1", clientProfileId: profileId, campaignId: null, limit: 24,
+    }));
+    expect(listMock).not.toHaveBeenCalled();
+    expect(inngestSendMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    `view=production&clientProfileId=abc`,
+    `view=production&clientProfileId=${profileId}&limit=0`,
+    `view=production&clientProfileId=${profileId}&limit=49`,
+    `view=production&clientProfileId=${profileId}&cursor=invalido`,
+    `view=production&clientProfileId=${profileId}&campaignId=abc`,
+  ])("rejects an invalid production query %s", async (query) => {
+    const response = await GET(new Request(`http://localhost/api/creative-work?${query}`));
+    expect(response.status).toBe(400);
+    expect(listProductionMock).not.toHaveBeenCalled();
+  });
+
+  it("does not list production for a missing brand", async () => {
+    getClientProfileMock.mockResolvedValue(null);
+    const response = await GET(new Request(
+      `http://localhost/api/creative-work?view=production&clientProfileId=${profileId}`,
+    ));
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ code: "clientProfileNotFound" });
+    expect(listProductionMock).not.toHaveBeenCalled();
+  });
+
+  it("does not list production for a missing campaign", async () => {
+    const campaignId = "00000000-0000-4000-8000-000000000002";
+    getCampaignByIdMock.mockResolvedValue(null);
+    const response = await GET(new Request(
+      `http://localhost/api/creative-work?view=production&clientProfileId=${profileId}&campaignId=${campaignId}`,
+    ));
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ code: "campaignNotFound" });
+    expect(listProductionMock).not.toHaveBeenCalled();
+  });
+
+  it("does not list production for a campaign of another brand", async () => {
+    const campaignId = "00000000-0000-4000-8000-000000000002";
+    getCampaignByIdMock.mockResolvedValue({
+      id: campaignId,
+      workspaceId: "workspace-1",
+      clientProfileId: "00000000-0000-4000-8000-000000000099",
+    });
+    const response = await GET(new Request(
+      `http://localhost/api/creative-work?view=production&clientProfileId=${profileId}&campaignId=${campaignId}`,
+    ));
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ code: "campaignNotFound" });
+    expect(listProductionMock).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid inspiration brand id", async () => {
