@@ -14,6 +14,7 @@ import { useComposerProtocolActions } from "./useComposerProtocolActions";
 import { useComposerSourceActions } from "./useComposerSourceActions";
 import { useComposerTemplateAttach } from "./useComposerTemplateAttach";
 import { useComposerWorkMutations } from "./useComposerWorkMutations";
+import { focusBrandSwitcher } from "./composer-state";
 import type { useComposerQueries } from "./useComposerQueries";
 import type { useComposerSessionState } from "./useComposerSessionState";
 
@@ -328,6 +329,48 @@ export function useComposerActions({
     recordStudioEvent,
   });
 
+  const instantiateRecipe = useCallback(async (recipeId: string) => {
+    if (!activeClientProfileId) {
+      focusBrandSwitcher();
+      return false;
+    }
+    try {
+      draftKeyRef.current = crypto.randomUUID();
+      const created = await queries.instantiateRecipeMutation.mutateAsync({
+        clientProfileId: activeClientProfileId,
+        draftKey: draftKeyRef.current,
+        recipeId,
+      });
+      workIdRef.current = created.work.id;
+      setWorkId(created.work.id);
+      exposeWorkId(created.work.id);
+      setIntent("single");
+      intentRef.current = "single";
+      setObjective("single");
+      objectiveRef.current = "single";
+      exposeIntent("single");
+      setAnnouncement("Receita aplicada");
+      return true;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Falha ao usar a receita visual");
+      return false;
+    }
+  }, [
+    activeClientProfileId,
+    draftKeyRef,
+    exposeIntent,
+    exposeWorkId,
+    intentRef,
+    objectiveRef,
+    queries.instantiateRecipeMutation,
+    setAnnouncement,
+    setError,
+    setIntent,
+    setObjective,
+    setWorkId,
+    workIdRef,
+  ]);
+
   const { retryInitialTemplate } = useComposerTemplateAttach({
     workflowVariant,
     objective: objective,
@@ -450,6 +493,7 @@ export function useComposerActions({
     keepCurrentDirections,
     addFiles,
     addInspiration,
+    instantiateRecipe,
     updateSource,
     editSource,
     retrySource,

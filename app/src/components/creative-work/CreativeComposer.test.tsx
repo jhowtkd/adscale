@@ -43,7 +43,7 @@ vi.mock("next-intl", () => ({ useTranslations: (namespace?: string) => namespace
   factoryQueuedDescription: "Sua peça entrou na linha de produção.", factoryProcessingTitle: "Aplicando tinta fresca",
   factoryProcessingDescription: "As engrenagens estão montando seu criativo.",
   "results.title": "Resultados", "results.subtitle": "Cada resultado fica salvo assim que termina.", "results.campaignLabel": "Agrupar em campanha", "results.noCampaign": "Sem campanha",
-  "proposal.level.conservative": "Conservadora", "proposal.level.balanced": "Equilibrada", "proposal.level.bold": "Ousada", "proposal.status.queued": "na fila", "proposal.status.processing": "gerando", "proposal.status.completed": "pronta", "proposal.status.failed": "falhou", "proposal.progress": `${values?.ready} de ${values?.total} prontas`, "proposal.thumbnailsAria": "Miniaturas das propostas", "proposal.selectAria": `Selecionar ${values?.name} em ${values?.format}`, "proposal.expandAria": `Ampliar ${values?.name} em ${values?.format}`, "proposal.previewAlt": `Proposta ${values?.name}, formato ${values?.format}`, "proposal.approvalSurfaceAria": "Superfície de aprovação", variationShort: `v${values?.count}`, "status.completed": "Pronto", approve: "Aprovar", download: "Baixar", refine: "Refinar", approved: "Aprovada", retry: "Tentar novamente", retryProposal: "Repetir esta proposta", reviewBeforeApprove: "Revisar e aprovar", confirmApproval: "Confirmar aprovação",
+  "proposal.level.conservative": "Conservadora", "proposal.level.balanced": "Equilibrada", "proposal.level.bold": "Ousada", "proposal.status.queued": "na fila", "proposal.status.processing": "gerando", "proposal.status.completed": "pronta", "proposal.status.failed": "falhou", "proposal.progress": `${values?.ready} de ${values?.total} prontas`, "proposal.thumbnailsAria": "Miniaturas das propostas", "proposal.selectAria": `Selecionar ${values?.name} em ${values?.format}`, "proposal.expandAria": `Ampliar ${values?.name} em ${values?.format}`, "proposal.previewAlt": `Proposta ${values?.name}, formato ${values?.format}`, "proposal.approvalSurfaceAria": "Superfície de aprovação", variationShort: `v${values?.count}`, "status.completed": "Pronto", approve: "Aprovar", download: "Baixar", refine: "Refinar", approved: "Aprovada", retry: "Tentar novamente", retryProposal: "Repetir esta proposta", reviewBeforeApprove: "Revisar e aprovar", confirmApproval: "Confirmar aprovação", "recipes.title": "Receitas visuais", "recipes.use": "Usar receita",
   optionalSettings: "Ajustes opcionais", format: "Formato", formatAuto: "Automático (agora: 4:5)", targetFormats: "Formatos de destino",
   textLayout: "Posição do texto", textLayout_top: "Superior", textLayout_center: "Central", textLayout_bottom: "Inferior",
   brandFont: "Fonte da marca", brandFontChoose: "Escolha uma fonte",
@@ -98,6 +98,7 @@ function composer(overrides = {}) {
     composerRef: { current: null }, request: "", setRequest: vi.fn(), intent: "variations", selectIntent: vi.fn(),
     format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(),
     textLayout: "top", setTextLayout: vi.fn(), fontAssetKey: null, setFontAssetKey: vi.fn(), fontOptions: [],
+    visualRecipes: [], instantiateRecipe: vi.fn(),
     directionPool, toggleDirection: vi.fn(), setManualDirectionInstruction: vi.fn(), directionSuggestionState: "idle", pendingDirectionSuggestions: null, applyDirectionSuggestions: vi.fn(), requestDirectionSuggestions: vi.fn(), keepCurrentDirections: vi.fn(), state: "empty", stage: "entry", objectiveSelected: true, preparedPlan: null, actionPhase: "idle",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
     inferredBriefing: null, briefingFactPack: null, briefingOverrides: {}, briefingEditState: "idle", editBriefingField: vi.fn(),
@@ -713,6 +714,39 @@ describe("CreativeComposer", () => {
     expect(value.setFontAssetKey).toHaveBeenCalledWith("fonts/body.ttf");
   });
 
+  it("lets Peça única start from a brand visual recipe", () => {
+    const instantiateRecipe = vi.fn();
+    const value = composer({
+      intent: "single",
+      instantiateRecipe,
+      visualRecipes: [{
+        id: "recipe-1",
+        version: 2,
+        clientProfileId: "brand-a",
+        originWorkId: "work-1",
+        originOutputId: "out-1",
+        document: {
+          version: 1,
+          format: "4:5",
+          layout: "top",
+          dimensions: { width: 1080, height: 1350 },
+          fontAssetKey: "font-1",
+          logo: { referenceId: "logo", assetKey: "logo.png", category: "logo", box: { left: 0, top: 0, width: 10, height: 10 } },
+          fixedAssets: [],
+          textBoxes: [],
+          fields: { headline: "Turma de setembro", body: "Vagas", cta: "Inscreva-se" },
+          originWorkId: "work-1",
+          originOutputId: "out-1",
+        },
+      }],
+      quote: { unitCount: 1, credits: 5 },
+    });
+    renderComposer(value);
+    fireEvent.click(screen.getByTestId("creative-optional-settings").querySelector("summary")!);
+    fireEvent.click(screen.getByRole("button", { name: "Usar receita" }));
+    expect(instantiateRecipe).toHaveBeenCalledWith("recipe-1");
+  });
+
   it("locks frozen typography controls after preparation", () => {
     renderComposer(composer({
       intent: "single",
@@ -808,7 +842,7 @@ describe("CreativeComposer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Selecionar Conservadora em 4:5" }));
     fireEvent.click(screen.getAllByRole("button", { name: "Revisar e aprovar" })[0]);
     fireEvent.click(screen.getAllByRole("button", { name: "Confirmar aprovação" })[0]);
-    expect(value.approveOutput).toHaveBeenCalledWith("output-1", true);
+    expect(value.approveOutput).toHaveBeenCalledWith("output-1", true, false);
     expect(screen.getAllByRole("button", { name: "Baixar" })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Refinar" })).toHaveLength(1);
   });

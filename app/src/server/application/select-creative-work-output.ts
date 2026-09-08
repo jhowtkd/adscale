@@ -7,9 +7,11 @@ import {
   getCreativeWork,
   selectCreativeWorkOutput,
 } from "@/server/repositories/creative-work";
-import type { CreativeWorkOutput } from "@/server/db/schema";
+import type { CreativeWorkOutput, VisualRecipe } from "@/server/db/schema";
 import { getCreativeWorkSelectionPolicy, type CreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
 import { recordCreativeWorkValueEvent, valueEventFromCreativeWork } from "@/server/creative-work/record-value-event";
+import { saveVisualRecipeFromOutput } from "@/server/application/save-visual-recipe";
+import { extractVisualRecipe } from "@/server/creative-work/visual-recipe";
 
 export type SelectCreativeWorkOutputInput = {
   workspaceId: string;
@@ -19,6 +21,8 @@ export type SelectCreativeWorkOutputInput = {
   saveToLibrary?: boolean;
   /** Required for legacy/inconclusive objective checks; never bypasses a fail. */
   confirmObjective?: boolean;
+  /** Persist a brand-scoped visual recipe from this structured piece. */
+  saveAsRecipe?: boolean;
 };
 
 export type SelectCreativeWorkOutputError =
@@ -28,11 +32,13 @@ export type SelectCreativeWorkOutputError =
   | { code: "output_not_selectable"; status: string }
   | { code: "output_missing_key" }
   | { code: "objective_selection_blocked"; policy: CreativeWorkSelectionPolicy }
-  | { code: "objective_confirmation_required"; policy: CreativeWorkSelectionPolicy };
+  | { code: "objective_confirmation_required"; policy: CreativeWorkSelectionPolicy }
+  | { code: "visual_recipe_not_structured"; reason: string };
 
 
 export type SelectCreativeWorkOutputSuccess = {
   output: CreativeWorkOutput;
+  recipe?: VisualRecipe;
 };
 
 export type SelectCreativeWorkOutputResult =
@@ -74,6 +80,20 @@ export async function selectCreativeWorkOutputCommand(
   }
   if (policy.requiresConfirmation && !input.confirmObjective) {
     return { ok: false, error: { code: "objective_confirmation_required", policy } };
+  }
+
+  if (input.saveAsRecipe) {
+    const structured = extractVisualRecipe({
+      workId: existing.work.id,
+      outputId: output.id,
+      clientProfileId: existing.work.clientProfileId,
+      isSelected: true,
+      format: output.targetFormat,
+      quality: output.quality,
+    });
+    if (!structured.ok) {
+      return { ok: false, error: { code: "visual_recipe_not_structured", reason: structured.error } };
+    }
   }
 
   const selected = await selectCreativeWorkOutput(
@@ -129,5 +149,18 @@ export async function selectCreativeWorkOutputCommand(
     });
   }
 
-  return { ok: true, value: { output: selected } };
+  let recipe: VisualRecipe | undefined;
+  if (input.saveAsRecipe) {
+    const saved = await saveVisualRecipeFromOutput({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      outputId: input.outputId,
+    });
+    if (!saved.ok) {
+      return { ok: false, error: { code: "visual_recipe_not_structured", reason: saved.error.code } };
+    }
+    recipe = saved.value.recipe;
+  }
+
+  return { ok: true, value: { output: selected, recipe } };
 }

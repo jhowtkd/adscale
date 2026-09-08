@@ -19,6 +19,7 @@ import {
   useTriggerTriplet,
   useSuggestCreativeDirections,
 } from "@/lib/hooks/use-creative-work";
+import { useInstantiateVisualRecipe, useVisualRecipes } from "@/lib/hooks/use-visual-recipes";
 import type { ComposerIntent } from "./composer-state";
 import { useComposerRevision } from "./useComposerRevision";
 
@@ -55,6 +56,8 @@ export function useComposerQueries(input: {
   const resolveBrandConflictMutation = useResolveBrandConflict();
   const downloadOutputUrl = useDownloadOutputUrl();
   const campaignQuery = useCreativeWorkCampaigns(Boolean(detailQuery.data?.outputs.length));
+  const visualRecipesQuery = useVisualRecipes(profileId);
+  const instantiateRecipeMutation = useInstantiateVisualRecipe();
 
   return {
     detailQuery,
@@ -76,5 +79,7 @@ export function useComposerQueries(input: {
     resolveBrandConflictMutation,
     downloadOutputUrl,
     campaignQuery,
+    visualRecipesQuery,
+    instantiateRecipeMutation,
   };
 }

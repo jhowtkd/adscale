@@ -6,7 +6,7 @@ vi.mock("next-intl", () => ({
     if (key === "layerizeQuotaRemaining") return `Translate: ${values?.count ?? 0} remaining quota`;
     return ({
     failedGeneration: "Falha na geração",
-    "status.queued": "Na fila", "status.processing": "Processando", "status.completed": "Pronto", "status.failed": "Falhou", variationShort: `v${values?.count}`, proposalAlt: `Proposta ${values?.label}`, generating: "Gerando...", retry: "Tentar novamente", retryProposal: "Repetir esta proposta", approving: "Aprovando", approved: "Aprovada", approve: "Aprovar", download: "Baixar", editImage: "Editar imagem", refine: "Refinar", revisionInstruction: "O que você quer mudar?", optionalAttachment: "Anexo opcional", generateVariation: "Gerar nova variação",
+    "status.queued": "Na fila", "status.processing": "Processando", "status.completed": "Pronto", "status.failed": "Falhou", variationShort: `v${values?.count}`, proposalAlt: `Proposta ${values?.label}`, generating: "Gerando...", retry: "Tentar novamente", retryProposal: "Repetir esta proposta", approving: "Aprovando", approved: "Aprovada", approve: "Aprovar", saveAsRecipe: "Salvar como receita visual", download: "Baixar", editImage: "Editar imagem", refine: "Refinar", revisionInstruction: "O que você quer mudar?", optionalAttachment: "Anexo opcional", generateVariation: "Gerar nova variação",
     reviewRecommended: "Revisão recomendada — a checagem automática ficou inconclusiva",
     objectiveFailed: "A checagem objetiva reprovou esta peça.",
     objectiveFailedNext: "Gere uma nova variação antes de aprovar.",
@@ -157,6 +157,44 @@ describe("CreativeResultCard", () => {
     expect(screen.queryByText(/crédit/i)).not.toBeInTheDocument();
 
     expect(onRevise).toHaveBeenCalledWith("output-1", "Use mais contraste", file);
+  });
+
+  it("saves a structured piece as a visual recipe on approve", () => {
+    const onApprove = vi.fn();
+    render(
+      <CreativeResultCard
+        output={output({
+          quality: {
+            schemaVersion: 1,
+            objectiveVerdict: "pass",
+            exactComposition: {
+              composed: [{
+                referenceId: "ref-logo",
+                assetKey: "logo.png",
+                category: "logo",
+                box: { left: 48, top: 1180, width: 216, height: 72 },
+              }],
+            },
+            textComposition: {
+              execution: "deterministic",
+              appliedLayout: "top",
+              typographyPlan: { fontAssetKey: "font-1" },
+              copy: { headline: "Turma", body: "Vagas", cta: "Inscreva-se" },
+              dimensions: { width: 1080, height: 1350 },
+              layers: [{ role: "headline", box: { left: 64, top: 80, width: 952, height: 140 } }],
+            },
+          },
+        })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={onApprove}
+        onDownload={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("save-as-recipe"));
+    fireEvent.click(screen.getByRole("button", { name: "Aprovar" }));
+    expect(onApprove).toHaveBeenCalledWith("output-1", false, true);
   });
 
   it("keeps approval pending and success states coherent", () => {

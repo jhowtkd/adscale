@@ -35,6 +35,14 @@ vi.mock("@/server/application/list-creative-inspirations", () => ({
   listCreativeInspirations: (...args: unknown[]) => listInspirationsMock(...args),
 }));
 
+vi.mock("@/server/application/instantiate-visual-recipe", () => ({
+  instantiateVisualRecipe: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/visual-recipe", () => ({
+  listVisualRecipes: vi.fn(),
+}));
+
 vi.mock("@/server/repositories/creative-work", () => ({
   createCreativeWorkDraftWithSource: (...args: unknown[]) => createDraftWithSourceMock(...args),
   getCreativeWork: (...args: unknown[]) => getCreativeWorkMock(...args),
@@ -118,6 +126,21 @@ describe("GET /api/creative-work", () => {
     expect(listMock).not.toHaveBeenCalled();
     expect(body.inspirations).toEqual([{ id: "template-1", source: "template" }]);
     expect(body.nextCursor).toBeNull();
+  });
+
+  it("lists recipes for the active brand only", async () => {
+    const { listVisualRecipes } = await import("@/server/repositories/visual-recipe");
+    vi.mocked(listVisualRecipes).mockResolvedValue({
+      items: [{ id: "recipe-1", clientProfileId: profileId }],
+      nextCursor: null,
+    } as never);
+
+    const res = await GET(new Request(`http://localhost/api/creative-work?view=recipes&clientProfileId=${profileId}`));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(listVisualRecipes).toHaveBeenCalledWith("workspace-1", profileId, expect.objectContaining({ limit: 24 }));
+    expect(body.recipes).toEqual([{ id: "recipe-1", clientProfileId: profileId }]);
   });
 
   it("rejects an invalid inspiration brand id", async () => {

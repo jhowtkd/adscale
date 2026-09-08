@@ -294,6 +294,11 @@ export type CreativeWorkInputSnapshot = {
    * the deck only from this frozen block.
    */
   carousel?: CarouselPreparedSnapshotV1;
+  /**
+   * Frozen visual recipe applied to this work (F01). Absent on works that
+   * were not instantiated from a structured recipe.
+   */
+  visualRecipe?: import("./visual-recipe").VisualRecipeSnapshot;
 };
 
 /**

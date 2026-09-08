@@ -14,6 +14,7 @@ import { CreativeSourcePreviewCard } from "./CreativeSourcePreviewCard";
 import { CreativeVariationBrief } from "./CreativeVariationBrief";
 import CreativeProposalGrid from "@/components/quick-tools/create-post/CreativeProposalGrid";
 import { CarouselComposer } from "./CarouselComposer";
+import { BrandVisualRecipes } from "./BrandVisualRecipes";
 import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
 
 const FORMATS = ["1:1", "4:5", "9:16"] as const;
@@ -770,6 +771,13 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
                 ))}
               </select>
             </div>
+          ) : null}
+          {isSingle ? (
+            <BrandVisualRecipes
+              recipes={composer.visualRecipes ?? []}
+              disabled={composer.settingsLocked}
+              onUse={(recipeId) => void composer.instantiateRecipe(recipeId)}
+            />
           ) : null}
           <fieldset>
             <legend className="mb-1 text-sm text-[var(--text-secondary)]">

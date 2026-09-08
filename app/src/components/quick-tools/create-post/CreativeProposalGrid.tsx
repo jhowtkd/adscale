@@ -24,7 +24,7 @@ type CreativeProposalGridProps = {
   outputs: CreativeWorkOutput[];
   onRetry: (outputId: string) => void;
   onRetryRevision?: (output: CreativeWorkOutput) => void | Promise<void>;
-  onApprove?: (outputId: string, confirmObjective?: boolean) => void;
+  onApprove?: (outputId: string, confirmObjective?: boolean, saveAsRecipe?: boolean) => void;
   /** Legacy wizard alias; remove with the wizard redirect. */
   onSave?: (outputId: string) => void;
   onDownload: (outputId: string) => void;
