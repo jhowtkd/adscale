@@ -166,7 +166,7 @@ export function extractVisualRecipe(input: {
   };
 
   const textBoxes = (text.layers ?? [])
-    .flatMap((layer) => {
+    .flatMap((layer): Array<{ role: VisualRecipeAuthorizedField; box: VisualRecipeBox }> => {
       if (
         (layer.role === "headline" || layer.role === "body" || layer.role === "cta")
         && isBox(layer.box)

@@ -220,19 +220,20 @@ export async function composeExactBrandAssets(
   const occupiedBoxes: PlacementBox[] = [];
 
   for (const layer of layers) {
-    if (layer.box) {
+    const frozenBox = layer.box;
+    if (frozenBox) {
       const resized = await sharp(layer.buffer)
-        .resize(Math.max(1, layer.box.width), Math.max(1, layer.box.height), { fit: "inside" })
+        .resize(Math.max(1, frozenBox.width), Math.max(1, frozenBox.height), { fit: "inside" })
         .png()
         .toBuffer();
-      if (occupiedBoxes.some((occupied) => boxesOverlap(layer.box, occupied))) {
+      if (occupiedBoxes.some((occupied) => boxesOverlap(frozenBox, occupied))) {
         throw new Error("exact_asset_placement_collision");
       }
-      occupiedBoxes.push(layer.box);
+      occupiedBoxes.push(frozenBox);
       composites.push({
         input: resized,
-        left: layer.box.left,
-        top: layer.box.top,
+        left: frozenBox.left,
+        top: frozenBox.top,
       });
       continue;
     }
