@@ -144,7 +144,7 @@ export const CREATIVE_WORK_GENERATION_POLICY_VERSIONS = ["legacy", "quality_reco
 export type CreativeWorkGenerationPolicyVersion = (typeof CREATIVE_WORK_GENERATION_POLICY_VERSIONS)[number];
 
 /** Auditable origin of a normalized fact (R-002 / spec 7.1). */
-export const CREATIVE_FACT_ORIGINS = ["request", "source", "brand"] as const;
+export const CREATIVE_FACT_ORIGINS = ["request", "source", "brand", "catalog"] as const;
 export type CreativeFactOrigin = (typeof CREATIVE_FACT_ORIGINS)[number];
 
 /**
@@ -299,6 +299,11 @@ export type CreativeWorkInputSnapshot = {
    * were not instantiated from a structured recipe.
    */
   visualRecipe?: import("./visual-recipe").VisualRecipeSnapshot;
+  /**
+   * Frozen brand catalog offer applied to this work (F03). Absent on works
+   * that were not instantiated from an authorized commercial offer.
+   */
+  commercialOffer?: import("./commercial-offer").CommercialOfferSnapshot;
 };
 
 /**

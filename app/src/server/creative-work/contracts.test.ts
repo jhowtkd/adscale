@@ -121,7 +121,7 @@ describe("creative work contracts", () => {
   });
 
   it("publishes the fact classes and origins the IA may never invent", () => {
-    expect(CREATIVE_FACT_ORIGINS).toEqual(["request", "source", "brand"]);
+    expect(CREATIVE_FACT_ORIGINS).toEqual(["request", "source", "brand", "catalog"]);
     expect(CREATIVE_FACT_CLASSES).toEqual(expect.arrayContaining([
       "price", "date", "benefit", "proof", "condition", "credential", "brand", "product", "service",
     ]));

@@ -2980,3 +2980,46 @@ export const pieceReviewComments = adscaleSchema.table(
 
 export type PieceReviewComment = typeof pieceReviewComments.$inferSelect;
 export type NewPieceReviewComment = typeof pieceReviewComments.$inferInsert;
+
+export const brandCommercialOffers = adscaleSchema.table(
+  "brand_commercial_offers",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    version: integer("version").notNull().default(1),
+    slug: text("slug").notNull(),
+    document: jsonb("document")
+      .notNull()
+      .$type<import("../creative-work/commercial-offer").CommercialOfferDocument>(),
+    originWorkId: uuid("origin_work_id")
+      .notNull()
+      .references(() => creativeWorkItems.id, { onDelete: "restrict" }),
+    validFrom: timestamp("valid_from", { mode: "date" }).notNull(),
+    validUntil: timestamp("valid_until", { mode: "date" }).notNull(),
+    supersededAt: timestamp("superseded_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("brand_commercial_offers_brand_cursor_idx").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.updatedAt,
+      table.id,
+    ),
+    uniqueIndex("brand_commercial_offers_slug_version_uq").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.slug,
+      table.version,
+    ),
+  ],
+);
+
+export type BrandCommercialOffer = typeof brandCommercialOffers.$inferSelect;
+export type NewBrandCommercialOffer = typeof brandCommercialOffers.$inferInsert;

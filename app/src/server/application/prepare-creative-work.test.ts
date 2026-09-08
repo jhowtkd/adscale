@@ -468,6 +468,34 @@ describe("prepareCreativeWork", () => {
     expect(generateCopy).not.toHaveBeenCalled();
   });
 
+  it("rejects an expired pinned commercial offer before inference or copy", async () => {
+    getWork.mockResolvedValue({
+      work: {
+        ...work,
+        inputSnapshot: {
+          request: work.request,
+          settings: work.settings,
+          sources: [],
+          commercialOffer: {
+            offerId: "offer-1",
+            version: 1,
+            product: "Pós",
+            offer: "turma",
+            price: "R$ 497",
+            validFrom: "2026-01-01T00:00:00.000Z",
+            validUntil: "2026-02-01T00:00:00.000Z",
+          },
+        },
+      },
+      outputs: [],
+      sources: [],
+    } as never);
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" }))
+      .resolves.toEqual({ ok: false, error: { code: "offer_expired" } });
+    expect(inferBrief).not.toHaveBeenCalled();
+    expect(generateCopy).not.toHaveBeenCalled();
+  });
+
   it("rejects malformed inferred briefs before copy or persistence", async () => {
     getWork.mockResolvedValue({ work, outputs: [], sources: [readyVariationSource] } as never);
     inferBrief.mockReturnValue({ theme: "", objective: "", audience: "", offer: "" });
