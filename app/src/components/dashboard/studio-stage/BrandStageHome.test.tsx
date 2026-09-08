@@ -24,3 +24,11 @@ it("não remonta o dock ao trocar a ocupação da mesa", () => {
   expect(input).toHaveValue("não remontar");
   expect(dock).toContainElement(input);
 });
+
+it("não inventa seis cópias de uma peça produzida", () => {
+  render(<BrandStageHome occupancy="work" brandName="Marca" headline="Criar"
+    subtitle="Pedido" eyebrow="Estúdio" topBar={null} talkBox={null}
+    onDropFiles={vi.fn()} dropLabel="Soltar" repeatItems={false}
+    mosaicItems={[{ id: "output:1", title: "Peça única", src: "/piece.png" }]} />);
+  expect(screen.getAllByRole("button", { name: "Peça única" })).toHaveLength(1);
+});

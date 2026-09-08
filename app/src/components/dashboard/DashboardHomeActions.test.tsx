@@ -12,17 +12,25 @@ const useStudioEntryInterviewMock = vi.fn();
 const selectIntentMock = vi.fn();
 const addInspirationMock = vi.fn();
 const useCreativeInspirationsMock = vi.fn();
+const useCreativeProductionMock = vi.fn();
 const createCampaignMutationMock = vi.fn();
+const pushMock = vi.fn();
 const protocolButton = (intent: "variations" | "single" | "format_adaptation" | "restyle" | "carousel") =>
   screen.getByRole("radio", { name: new RegExp(`dashboard\\.home\\.${intent}`) });
 
 vi.mock("next-intl", () => ({
   useLocale: () => "pt-BR",
-  useTranslations: () => (key: string, values?: Record<string, string>) =>
+  useTranslations: () => (key: string, values?: Record<string, string | number>) =>
     key === "continueBrand" && values?.name
       ? `Marca ${values.name}`
       : key === "stageHeadline" && values?.name
         ? `O que a ${values.name} precisa sair hoje?`
+        : key === "studioDesk.campaignScope" && values?.name
+          ? `Campanha: ${values.name}`
+          : key === "studioDesk.brandScope" && values?.name
+            ? `Produção de ${values.name}`
+            : key === "studioDesk.slide" && values?.position
+              ? `Tela ${values.position}`
       : ({
           createCampaign: "Nova campanha",
           "campaignDialog.open": "Nova campanha",
@@ -53,6 +61,17 @@ vi.mock("next-intl", () => ({
           variationsReferenceError: "Anexe a peça de referência para gerar variações.",
           restylePairError: "Adicione a arte original e a referência de estilo.",
           requestLabel: "dashboard.home.composer.requestLabel",
+          "studioDesk.views": "Conteúdo da mesa",
+          "studioDesk.inspirations": "Inspirações",
+          "studioDesk.production": "Produção",
+          "studioDesk.loading": "Carregando produção…",
+          "studioDesk.empty": "Nenhuma peça produzida neste contexto.",
+          "studioDesk.error": "Não foi possível carregar a produção.",
+          "studioDesk.retry": "Tentar novamente",
+          "studioDesk.create": "Criar uma peça",
+          "studioDesk.next": "Próximas peças",
+          "studioDesk.previous": "Peças anteriores",
+          "studioDesk.unnamedCampaign": "Campanha selecionada",
         }[key] ?? `dashboard.home.${key}`),
 }));
 vi.mock("@/lib/hooks/use-canonical-works", () => ({
@@ -84,6 +103,12 @@ vi.mock("@/lib/hooks/use-studio-entry-interview", () => ({
 }));
 vi.mock("@/lib/hooks/use-creative-inspirations", () => ({
   useCreativeInspirations: (...args: unknown[]) => useCreativeInspirationsMock(...args),
+}));
+vi.mock("@/lib/hooks/use-creative-production", () => ({
+  useCreativeProduction: (...args: unknown[]) => useCreativeProductionMock(...args),
+}));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: pushMock }),
 }));
 vi.mock("@/components/creative-work/useCreativeComposer", () => ({
   useCreativeComposer: (...args: unknown[]) => useComposerMock(...args),
@@ -134,7 +159,26 @@ describe("DashboardHomeActions", () => {
       selectChip: vi.fn(),
       usedFallback: false,
     });
-    useCreativeInspirationsMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useCreativeInspirationsMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+    });
+    useCreativeProductionMock.mockReturnValue({
+      items: [],
+      isPending: false,
+      isSuccess: true,
+      isError: false,
+      isFetchNextPageError: false,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+      refetch: vi.fn(),
+    });
     useComposerMock.mockImplementation(({ initialWorkId }: { initialWorkId?: string }) => {
       const [intent, setIntent] = useState<"variations" | "single" | "format_adaptation" | "restyle" | "carousel">("single");
       const [workId, setWorkId] = useState<string | null>(initialWorkId ?? null);
@@ -1047,5 +1091,84 @@ describe("DashboardHomeActions", () => {
     render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" entryInterviewEnabled />);
     expect(screen.queryByRole("button", { name: "Começar" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Gerar" })).not.toBeInTheDocument();
+  });
+
+  it("alterna para produção sem mutar o compositor", () => {
+    const generateLegacy = vi.fn();
+    const preparePlan = vi.fn();
+    const linkCampaign = vi.fn();
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      intent: "single",
+      clientProfileId: "p1",
+      campaignId: "campaign-a",
+      campaigns: [{ id: "campaign-a", name: "Mesa A" }],
+      quote: { unitCount: 1, credits: 5 },
+      generateLegacy,
+      preparePlan,
+      selectIntent: selectIntentMock,
+      linkCampaign,
+      addInspiration: addInspirationMock,
+    });
+
+    render(<DashboardHomeActions workspaceId="ws" />);
+    fireEvent.click(screen.getByRole("button", { name: "Produção", exact: true }));
+
+    expect(generateLegacy).not.toHaveBeenCalled();
+    expect(preparePlan).not.toHaveBeenCalled();
+    expect(selectIntentMock).not.toHaveBeenCalled();
+    expect(linkCampaign).not.toHaveBeenCalled();
+    expect(useCreativeProductionMock).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "ws",
+      clientProfileId: "p1",
+      campaignId: "campaign-a",
+      enabled: true,
+    }));
+  });
+
+  it("abre a peça produzida na revisão canônica", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      intent: "single",
+      clientProfileId: "p1",
+      campaignId: "campaign-a",
+      campaigns: [{ id: "campaign-a", name: "Mesa A" }],
+      quote: { unitCount: 1, credits: 5 },
+      generateLegacy: vi.fn(),
+      preparePlan: vi.fn(),
+      selectIntent: selectIntentMock,
+      linkCampaign: vi.fn(),
+      addInspiration: addInspirationMock,
+    });
+    useCreativeProductionMock.mockReturnValue({
+      items: [{
+        id: "output:1",
+        kind: "output",
+        workId: "w1",
+        campaignId: "campaign-a",
+        title: "Peça produzida",
+        format: "4:5",
+        previewUrl: "/piece.png",
+        reviewHref: "/campaigns/campaign-a?creativeWork=w1",
+        createdAt: "2026-09-08T12:00:00.000Z",
+        deckId: null,
+        position: null,
+      }],
+      isPending: false,
+      isSuccess: true,
+      isError: false,
+      isFetchNextPageError: false,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+      refetch: vi.fn(),
+    });
+
+    render(<DashboardHomeActions workspaceId="ws" />);
+    fireEvent.click(screen.getByRole("button", { name: "Produção", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Peça produzida" }));
+
+    expect(pushMock).toHaveBeenCalledWith("/campaigns/campaign-a?creativeWork=w1");
+    expect(addInspirationMock).not.toHaveBeenCalled();
   });
 });

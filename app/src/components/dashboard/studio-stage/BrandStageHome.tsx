@@ -10,6 +10,8 @@ export type StageMosaicItem = {
   id: string;
   title: string;
   src: string;
+  format?: string | null;
+  detail?: string;
 };
 
 const WORK_MOSAIC = [
@@ -28,18 +30,26 @@ const EMPTY_EDGES = [
   { className: "right-[-18%] bottom-[-8%] w-[44%] max-w-md rotate-[-5deg]", srcIndex: 3 },
 ];
 
+function mosaicAspect(format?: string | null) {
+  if (format === "1:1" || format === "4:5" || format === "9:16") return format.replace(":", " / ");
+  return null;
+}
+
 function WorkMosaic({
   items,
   onSelect,
+  repeatItems = true,
 }: {
   items: StageMosaicItem[];
   onSelect?: (item: StageMosaicItem) => void;
+  repeatItems?: boolean;
 }) {
   return (
     <div data-testid="studio-mosaic" className="absolute inset-0">
       {WORK_MOSAIC.map((tile) => {
-        const image = items[tile.srcIndex % Math.max(items.length, 1)];
+        const image = repeatItems ? items[tile.srcIndex % Math.max(items.length, 1)] : items[tile.srcIndex];
         if (!image) return null;
+        const aspect = mosaicAspect(image.format);
         return (
           <button
             key={tile.className}
@@ -54,7 +64,17 @@ function WorkMosaic({
             )}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={image.src} alt="" className="aspect-[4/5] w-full object-cover" />
+            <img
+              src={image.src}
+              alt=""
+              className={cn("w-full", repeatItems || !aspect ? "aspect-[4/5] object-cover" : "object-contain")}
+              style={repeatItems || !aspect ? undefined : { aspectRatio: aspect }}
+            />
+            {image.detail ? (
+              <span aria-hidden="true" className="absolute inset-x-0 bottom-0 bg-black/50 px-2 py-1 text-[10px] font-medium text-white">
+                {image.detail}
+              </span>
+            ) : null}
           </button>
         );
       })}
@@ -115,6 +135,7 @@ export function BrandStageHome({
   onCollapse,
   results,
   deskControls,
+  repeatItems = true,
 }: {
   occupancy: "empty" | "work";
   brandName: string | null;
@@ -133,8 +154,10 @@ export function BrandStageHome({
   onCollapse?: () => void;
   results?: ReactNode;
   deskControls?: ReactNode;
+  repeatItems?: boolean;
 }) {
   const empty = occupancy === "empty";
+  const showInspirationField = empty && repeatItems;
   const trailItems = mosaicItems.map((item) => item.src).filter(Boolean);
 
   return (
@@ -166,7 +189,7 @@ export function BrandStageHome({
               {continueWork}
             </div>
           ) : null}
-          {empty ? (
+          {showInspirationField ? (
             <>
               {trailItems.length > 0 ? (
                 <ImageCursorTrail
@@ -186,8 +209,8 @@ export function BrandStageHome({
             </>
           ) : (
             <>
-              <WorkMosaic items={mosaicItems} onSelect={onSelectMosaic} />
-              <h1 className="sr-only">{brandName ? headline : eyebrow}</h1>
+              <WorkMosaic items={mosaicItems} onSelect={onSelectMosaic} repeatItems={repeatItems} />
+              {empty ? null : <h1 className="sr-only">{brandName ? headline : eyebrow}</h1>}
             </>
           )}
         </div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { ArrowRight, ImageIcon, Plus } from "lucide-react";
 import { AccessGatePanel } from "@/components/billing/AccessGatePanel";
 import { CreativeComposer } from "@/components/creative-work/CreativeComposer";
@@ -18,6 +19,7 @@ import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useCreativeWork, type CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { useCreativeInspirations } from "@/lib/hooks/use-creative-inspirations";
+import { useCreativeProduction } from "@/lib/hooks/use-creative-production";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { useStudioEntryInterview } from "@/lib/hooks/use-studio-entry-interview";
 import type { EntryLocale } from "@/lib/studio/entry-types";
@@ -203,6 +205,7 @@ export default function DashboardHomeActions({
 }) {
   const t = useTranslations("dashboard.home");
   const locale = useLocale();
+  const router = useRouter();
   const entryLocale: EntryLocale = locale === "en" ? "en" : "pt-BR";
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
   const { activeProfile } = useActiveClientProfile();
@@ -234,6 +237,9 @@ export default function DashboardHomeActions({
   });
   const [boxExpanded, setBoxExpanded] = useState(false);
   const [resultsContainer, setResultsContainer] = useState<HTMLDivElement | null>(null);
+  const [deskView, setDeskView] = useState<"inspirations" | "production">("inspirations");
+  const [deskPage, setDeskPage] = useState(0);
+  const [deskScope, setDeskScope] = useState("");
   const primaryActionRef = useRef<HTMLButtonElement>(null);
   const expansionButtonRef = useRef<HTMLButtonElement>(null);
   const continueTarget = useMemo(() => resolveContinueWork(works), [works]);
@@ -241,7 +247,8 @@ export default function DashboardHomeActions({
   const preparedPlanCycleRef = useRef(composer.preparedPlanCycle ?? 0);
   const sources = composer.sources ?? [];
   const outputs = composer.outputs ?? [];
-  const { data: inspirations = [] } = useCreativeInspirations(composer.clientProfileId ?? null);
+  const inspirationsQuery = useCreativeInspirations(composer.clientProfileId ?? null);
+  const inspirations = inspirationsQuery.data ?? [];
 
   const interviewEnabled = rolloutVariant === "progressive" && entryInterviewEnabled && Boolean(composer.clientProfileId);
   const [requestFocused, setRequestFocused] = useState(false);
@@ -294,15 +301,16 @@ export default function DashboardHomeActions({
     if (resultStage) progressiveResultsHeadingRef.current?.focus();
   }, [resultStage]);
   useEffect(() => {
-    if (composer.pendingProtocolSwitch || composer.brandConflict || showPlan) setBoxExpanded(true);
+    // Presentation follows an already-mounted composer; do not remount the box.
+    if (composer.pendingProtocolSwitch || composer.brandConflict || showPlan) setBoxExpanded(true); // eslint-disable-line react-hooks/set-state-in-effect -- Task 2/3 phase chrome
   }, [composer.pendingProtocolSwitch, composer.brandConflict, showPlan]);
   useEffect(() => {
-    if (resultStage) setBoxExpanded(false);
+    if (resultStage) setBoxExpanded(false); // eslint-disable-line react-hooks/set-state-in-effect -- Task 2/3 phase chrome
   }, [resultStage]);
   useEffect(() => {
     if (!isCarouselWorkflow) return;
     if (carouselPhase === "questions" || carouselPhase === "sequence" || carouselPhase === "ready_to_generate") {
-      setBoxExpanded(true);
+      setBoxExpanded(true); // eslint-disable-line react-hooks/set-state-in-effect -- Task 3 carousel chrome
     } else if (carouselPhase === "generating" || carouselPhase === "review") {
       setBoxExpanded(false);
     }
@@ -323,20 +331,143 @@ export default function DashboardHomeActions({
     outputCount: outputs.length,
     sourceCount: sources.length,
   });
-  const mosaicItems = [
-    ...inspirations
+  const productionCampaignId = composer.campaignId ?? null;
+  const isProducing = composer.stage === "generation"
+    || composer.carousel?.phase === "generating"
+    || works.some((work) => work.state === "generating");
+  const production = useCreativeProduction({
+    workspaceId: workspaceId ?? null,
+    clientProfileId: composer.clientProfileId ?? null,
+    campaignId: productionCampaignId,
+    enabled: deskView === "production",
+    isProducing,
+  });
+  const catalogItems = production.items;
+  const productionItems = useMemo(() => {
+    const groups = new Map<string, typeof catalogItems>();
+    for (const item of catalogItems) {
+      const group = item.deckId ? `deck:${item.deckId}` : item.id;
+      const values = groups.get(group) ?? [];
+      if (!values.some((value) => value.id === item.id)) values.push(item);
+      groups.set(group, values);
+    }
+    return [...groups.values()].flatMap((values) => values.sort((a, b) => (a.position ?? 0) - (b.position ?? 0)));
+  }, [catalogItems]);
+  const productionFirstId = catalogItems[0]?.id ?? "";
+  const nextDeskScope = `${workspaceId ?? ""}:${composer.clientProfileId ?? ""}:${productionCampaignId ?? ""}:${deskView}:${productionFirstId}`;
+  const deskScopeChanged = deskScope !== nextDeskScope;
+  if (deskScopeChanged) {
+    setDeskScope(nextDeskScope);
+    if (deskPage !== 0) setDeskPage(0);
+  }
+  const allMosaicItems = deskView === "inspirations"
+    ? inspirations
       .filter((item) => item.previewUrl)
-      .map((item) => ({ id: item.id, title: item.title, src: item.previewUrl! })),
-    ...outputs
-      .filter((output) => output.status === "completed")
-      .map((output) => ({
-        id: output.id,
-        title: composer.workTitle ?? output.id,
-        src: `/api/creative-work/${output.workItemId}/outputs/${output.id}/download`,
-      })),
-  ];
-
+      .map((item) => ({ id: item.id, title: item.title, src: item.previewUrl! }))
+    : productionItems.map((item) => ({
+      id: item.id,
+      title: item.title,
+      src: item.previewUrl,
+      format: item.format,
+      detail: item.position ? t("studioDesk.slide", { position: item.position }) : undefined,
+    }));
+  const maxDeskPage = Math.max(0, Math.ceil(allMosaicItems.length / 6) - 1);
+  const currentDeskPage = Math.min(deskScopeChanged ? 0 : deskPage, maxDeskPage);
+  if (!deskScopeChanged && deskPage !== currentDeskPage) setDeskPage(currentDeskPage);
+  const mosaicItems = allMosaicItems.slice(currentDeskPage * 6, currentDeskPage * 6 + 6);
+  const nextDeskPage = async () => {
+    const nextStart = (currentDeskPage + 1) * 6;
+    if (nextStart < allMosaicItems.length) {
+      setDeskPage((page) => page + 1);
+      return;
+    }
+    try {
+      if (deskView === "production") {
+        if (!production.hasNextPage || production.isFetchingNextPage) return;
+        const result = await production.fetchNextPage();
+        const total = result.data?.pages.reduce((n, page) => n + page.production.length, 0) ?? 0;
+        if (!result.isError && total > nextStart) setDeskPage((page) => page + 1);
+      } else {
+        if (!inspirationsQuery.hasNextPage || inspirationsQuery.isFetchingNextPage) return;
+        const result = await inspirationsQuery.fetchNextPage();
+        const total = result.data?.pages.reduce((n, page) => n + page.inspirations.filter((item) => item.previewUrl).length, 0) ?? 0;
+        if (!result.isError && total > nextStart) setDeskPage((page) => page + 1);
+      }
+    } catch {
+      return;
+    }
+  };
   const brandName = composer.brandName ?? activeProfile?.name ?? null;
+  const productionCampaignName = composer.campaigns?.find((campaign) => campaign.id === productionCampaignId)?.name
+    ?? t("studioDesk.unnamedCampaign");
+  const deskControls = (
+    <div className="relative z-20 flex flex-col items-center gap-2">
+      <div role="group" aria-label={t("studioDesk.views")} className="flex gap-2">
+        {(["inspirations", "production"] as const).map((view) => (
+          <button
+            key={view}
+            type="button"
+            aria-pressed={deskView === view}
+            onClick={() => setDeskView(view)}
+            className={studioChipClass}
+          >
+            {t(`studioDesk.${view}`)}
+          </button>
+        ))}
+      </div>
+      {deskView === "production" ? (
+        <p className="text-xs text-[var(--text-secondary)]">
+          {productionCampaignId
+            ? t("studioDesk.campaignScope", { name: productionCampaignName })
+            : brandName
+              ? t("studioDesk.brandScope", { name: brandName })
+              : null}
+        </p>
+      ) : null}
+      {deskView === "production" && composer.clientProfileId ? (
+        production.isPending ? (
+          <p role="status">{t("studioDesk.loading")}</p>
+        ) : production.isError && production.items.length === 0 ? (
+          <div className="flex flex-col items-center gap-2">
+            <p role="alert">{t("studioDesk.error")}</p>
+            <button type="button" onClick={() => void production.refetch()} className={studioChipClass}>{t("studioDesk.retry")}</button>
+          </div>
+        ) : production.isSuccess && production.items.length === 0 ? (
+          <div className="flex flex-col items-center gap-2">
+            <p>{t("studioDesk.empty")}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setBoxExpanded(true);
+                composerRef.current?.focus();
+              }}
+              className={studioChipClass}
+            >
+              {t("studioDesk.create")}
+            </button>
+          </div>
+        ) : production.isFetchNextPageError ? (
+          <button type="button" onClick={() => void production.fetchNextPage()} className={studioChipClass}>{t("studioDesk.retry")}</button>
+        ) : null
+      ) : null}
+      {allMosaicItems.length > 6 || (deskView === "production" ? production.hasNextPage : inspirationsQuery.hasNextPage) ? (
+        <div className="flex gap-2">
+          <button type="button" disabled={currentDeskPage === 0} onClick={() => setDeskPage((page) => Math.max(0, page - 1))} className={studioChipClass}>
+            {t("studioDesk.previous")}
+          </button>
+          <button
+            type="button"
+            disabled={deskView === "production" ? production.isFetchingNextPage : inspirationsQuery.isFetchingNextPage}
+            onClick={() => void nextDeskPage()}
+            className={studioChipClass}
+          >
+            {t("studioDesk.next")}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+
   const showComposer = isCarouselWorkflow
     || resultStage
     || rolloutVariant === "control"
@@ -463,7 +594,14 @@ export default function DashboardHomeActions({
         subtitle={t("stageEmptySubtitle")}
         eyebrow={t("stageEyebrow")}
         mosaicItems={mosaicItems}
+        repeatItems={deskView !== "production"}
+        deskControls={deskControls}
         onSelectMosaic={(item) => {
+          if (deskView === "production") {
+            const piece = productionItems.find((value) => value.id === item.id);
+            if (piece) router.push(piece.reviewHref);
+            return;
+          }
           const inspiration = inspirations.find((entry) => entry.id === item.id);
           if (inspiration) {
             setBoxExpanded(true);
@@ -519,8 +657,8 @@ export default function DashboardHomeActions({
         }}
         results={(
           <>
-            <div ref={setResultsContainer} />
             {resultStageContent}
+            <div ref={setResultsContainer} />
           </>
         )}
       />
