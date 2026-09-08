@@ -20,6 +20,43 @@ const required = {
   generateLabel: "Gerar",
 };
 
+it("separa o botão de expansão do resumo recolhido", () => {
+  render(
+    <TalkBox
+      {...required}
+      onGenerate={vi.fn()}
+      expanded={false}
+      onExpandedChange={vi.fn()}
+      summary={<span>Create Post E2E Brand · 4:5</span>}
+    />,
+  );
+  const expand = screen.getByRole("button", { name: "studioDesk.expand" });
+  const header = expand.parentElement!;
+  expect(header.className).toMatch(/gap-3/);
+  expect(header).toHaveTextContent("Create Post E2E Brand · 4:5");
+  expect(header.querySelector(".truncate")).toHaveTextContent("Create Post E2E Brand · 4:5");
+});
+
+it("mantém o foco no botão ao expandir", () => {
+  function Harness() {
+    const [expanded, setExpanded] = useState(false);
+    return (
+      <TalkBox
+        {...required}
+        onGenerate={vi.fn()}
+        expanded={expanded}
+        onExpandedChange={setExpanded}
+      />
+    );
+  }
+  render(<Harness />);
+  const expand = screen.getByRole("button", { name: "studioDesk.expand" });
+  expand.focus();
+  fireEvent.click(expand);
+  expect(screen.getByTestId("studio-talk-box")).toHaveAttribute("data-expanded", "true");
+  expect(screen.getByRole("button", { name: "studioDesk.collapse" })).toHaveFocus();
+});
+
 it("recolhe sem perder o pedido e o controle contextual", () => {
   const generate = vi.fn();
   function Harness() {

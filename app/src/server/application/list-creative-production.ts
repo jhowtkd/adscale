@@ -6,6 +6,10 @@ import {
 } from "@/server/repositories/creative-production";
 import { objectStorage } from "@/server/storage";
 
+function createdAtIso(value: Date | string): string {
+  return (value instanceof Date ? value : new Date(value)).toISOString();
+}
+
 export async function productionItem(row: ProductionRow): Promise<CreativeProductionItem> {
   const reviewHref = row.workId
     ? row.campaignId ? `/campaigns/${row.campaignId}?creativeWork=${row.workId}` : `/creative-work/${row.workId}`
@@ -24,7 +28,7 @@ export async function productionItem(row: ProductionRow): Promise<CreativeProduc
     format: row.format,
     previewUrl,
     reviewHref,
-    createdAt: row.createdAt.toISOString(),
+    createdAt: createdAtIso(row.createdAt),
     deckId: row.kind === "slide" ? row.workId : null,
     position: row.position,
   };

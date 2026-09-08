@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { Paperclip, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { ShineBorder, SHINE_COLORS } from "@/components/ui/shine-border";
@@ -143,9 +143,22 @@ export function TalkBox({
   });
   const hideGenerateWhileInterviewOwnsEntry = shouldHideProtocolSwitcher(interview);
   const collapse = () => {
-    toggleRef.current?.focus();
+    toggleRef.current?.focus({ preventScroll: true });
     onExpandedChange?.(false);
   };
+  useLayoutEffect(() => {
+    if (!expanded) return;
+    const top = window.scrollY;
+    const node = toggleRef.current;
+    const active = document.activeElement;
+    if (
+      node
+      && (active === node || active === document.body || active === document.documentElement)
+    ) {
+      node.focus({ preventScroll: true });
+    }
+    if (window.scrollY !== top) window.scrollTo({ left: 0, top, behavior: "instant" });
+  }, [expanded]);
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Escape" || event.defaultPrevented || !expanded) return;
     if (!event.currentTarget.contains(event.target as Node)) return;
@@ -161,7 +174,7 @@ export function TalkBox({
       borderWidth={1}
       duration={28}
       color={[...SHINE_COLORS]}
-      className="w-full min-w-0"
+      className={cn("h-auto w-full min-w-0", !centered && "flex min-h-0 flex-[0_1_auto] flex-col")}
     >
       <div
         data-testid="studio-talk-box"
@@ -175,23 +188,30 @@ export function TalkBox({
           centered ? "p-5 sm:p-6 shadow-[var(--shadow-overlay)]" : "px-4 py-3 sm:px-5 sm:py-3.5",
         )}
       >
-        {onExpandedChange ? (
-          <button
-            ref={toggleRef}
-            type="button"
-            aria-expanded={expanded}
-            aria-controls={controlsId}
-            onClick={() => expanded ? collapse() : onExpandedChange(true)}
-            className={cn(
-              "text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
-              focus,
-            )}
-          >
-            {t(expanded ? "studioDesk.collapse" : "studioDesk.expand")}
-          </button>
+        {onExpandedChange || (!expanded && summary) ? (
+          <div className="flex min-w-0 items-center gap-3">
+            {onExpandedChange ? (
+              <button
+                ref={toggleRef}
+                type="button"
+                aria-expanded={expanded}
+                aria-controls={controlsId}
+                onClick={() => expanded ? collapse() : onExpandedChange(true)}
+                className={cn(
+                  "shrink-0 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
+                  focus,
+                )}
+              >
+                {t(expanded ? "studioDesk.collapse" : "studioDesk.expand")}
+              </button>
+            ) : null}
+            {!expanded && summary ? (
+              <div className="min-w-0 flex-1 truncate">{summary}</div>
+            ) : null}
+          </div>
         ) : null}
-        {!expanded ? summary : null}
 
+        <div className={styles.body}>
         {hideProtocolSwitcher ? null : (
           <ProtocolRadios
             selected={intent}
@@ -261,6 +281,7 @@ export function TalkBox({
           aria-hidden={!expanded}
         >
           <div className={styles.controlsInner}>{children}</div>
+        </div>
         </div>
 
         <div className={cn(styles.footer, "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between", centered ? "mt-5" : "mt-3")}>
@@ -351,7 +372,7 @@ export function TalkBox({
             ) : null}
           </div>
         </div>
-        <p aria-live="polite" className="sr-only">{announcement}</p>
+        <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
       </div>
     </ShineBorder>
   );

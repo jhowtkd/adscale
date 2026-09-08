@@ -32,10 +32,14 @@ export type ProductionRow = {
   title: string;
   format: string | null;
   outputKey: string;
-  createdAt: Date;
+  createdAt: Date | string;
   sortAt: string;
   position: number | null;
 };
+
+export function productionCreatedAt(value: Date | string): Date {
+  return value instanceof Date ? value : new Date(value);
+}
 
 export function parseProductionSearchParams(params: URLSearchParams) {
   let cursor: unknown = null;
@@ -106,7 +110,10 @@ export function productionPageSql(input: ProductionQuery): SQL {
 
 export async function readCreativeProductionPage(input: ProductionQuery) {
   const result = await db.execute<ProductionRow>(productionPageSql(input));
-  const production = result.rows.slice(0, input.limit);
+  const production = result.rows.slice(0, input.limit).map((row) => ({
+    ...row,
+    createdAt: productionCreatedAt(row.createdAt),
+  }));
   const last = production.at(-1);
   return {
     rows: production,

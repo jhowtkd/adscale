@@ -238,8 +238,7 @@ export default function DashboardHomeActions({
   const [boxExpanded, setBoxExpanded] = useState(false);
   const [resultsContainer, setResultsContainer] = useState<HTMLDivElement | null>(null);
   const [deskView, setDeskView] = useState<"inspirations" | "production">("inspirations");
-  const [deskPage, setDeskPage] = useState(0);
-  const [deskScope, setDeskScope] = useState("");
+  const [deskPaging, setDeskPaging] = useState({ scope: "", page: 0 });
   const primaryActionRef = useRef<HTMLButtonElement>(null);
   const expansionButtonRef = useRef<HTMLButtonElement>(null);
   const continueTarget = useMemo(() => resolveContinueWork(works), [works]);
@@ -307,6 +306,14 @@ export default function DashboardHomeActions({
   useEffect(() => {
     if (resultStage) setBoxExpanded(false); // eslint-disable-line react-hooks/set-state-in-effect -- Task 2/3 phase chrome
   }, [resultStage]);
+  const seenWorkIdRef = useRef<string | null>(composer.workId ?? null);
+  useEffect(() => {
+    const nextId = composer.workId ?? null;
+    if (nextId && nextId !== seenWorkIdRef.current && !resultStage) {
+      setBoxExpanded(true);
+    }
+    seenWorkIdRef.current = nextId;
+  }, [composer.workId, resultStage]);
   useEffect(() => {
     if (!isCarouselWorkflow) return;
     if (carouselPhase === "questions" || carouselPhase === "sequence" || carouselPhase === "ready_to_generate") {
@@ -353,13 +360,7 @@ export default function DashboardHomeActions({
     }
     return [...groups.values()].flatMap((values) => values.sort((a, b) => (a.position ?? 0) - (b.position ?? 0)));
   }, [catalogItems]);
-  const productionFirstId = catalogItems[0]?.id ?? "";
-  const nextDeskScope = `${workspaceId ?? ""}:${composer.clientProfileId ?? ""}:${productionCampaignId ?? ""}:${deskView}:${productionFirstId}`;
-  const deskScopeChanged = deskScope !== nextDeskScope;
-  if (deskScopeChanged) {
-    setDeskScope(nextDeskScope);
-    if (deskPage !== 0) setDeskPage(0);
-  }
+  const deskScopeKey = `${workspaceId ?? ""}:${composer.clientProfileId ?? ""}:${productionCampaignId ?? ""}:${deskView}`;
   const allMosaicItems = deskView === "inspirations"
     ? inspirations
       .filter((item) => item.previewUrl)
@@ -372,13 +373,21 @@ export default function DashboardHomeActions({
       detail: item.position ? t("studioDesk.slide", { position: item.position }) : undefined,
     }));
   const maxDeskPage = Math.max(0, Math.ceil(allMosaicItems.length / 6) - 1);
-  const currentDeskPage = Math.min(deskScopeChanged ? 0 : deskPage, maxDeskPage);
-  if (!deskScopeChanged && deskPage !== currentDeskPage) setDeskPage(currentDeskPage);
+  const currentDeskPage = Math.min(deskPaging.scope === deskScopeKey ? deskPaging.page : 0, maxDeskPage);
+  if (deskPaging.scope !== deskScopeKey || deskPaging.page !== currentDeskPage) {
+    setDeskPaging({ scope: deskScopeKey, page: currentDeskPage });
+  }
   const mosaicItems = allMosaicItems.slice(currentDeskPage * 6, currentDeskPage * 6 + 6);
+  const hasBufferedNextPage = (currentDeskPage + 1) * 6 < allMosaicItems.length;
+  const hasRemoteNextPage = deskView === "production" ? production.hasNextPage : inspirationsQuery.hasNextPage;
+  const fetchingNextPage = deskView === "production" ? production.isFetchingNextPage : inspirationsQuery.isFetchingNextPage;
   const nextDeskPage = async () => {
+    const requestedScope = deskScopeKey;
     const nextStart = (currentDeskPage + 1) * 6;
     if (nextStart < allMosaicItems.length) {
-      setDeskPage((page) => page + 1);
+      setDeskPaging((current) => current.scope === requestedScope
+        ? { ...current, page: current.page + 1 }
+        : current);
       return;
     }
     try {
@@ -386,12 +395,18 @@ export default function DashboardHomeActions({
         if (!production.hasNextPage || production.isFetchingNextPage) return;
         const result = await production.fetchNextPage();
         const total = result.data?.pages.reduce((n, page) => n + page.production.length, 0) ?? 0;
-        if (!result.isError && total > nextStart) setDeskPage((page) => page + 1);
+        if (result.isError || total <= nextStart) return;
+        setDeskPaging((current) => current.scope === requestedScope
+          ? { ...current, page: current.page + 1 }
+          : current);
       } else {
         if (!inspirationsQuery.hasNextPage || inspirationsQuery.isFetchingNextPage) return;
         const result = await inspirationsQuery.fetchNextPage();
         const total = result.data?.pages.reduce((n, page) => n + page.inspirations.filter((item) => item.previewUrl).length, 0) ?? 0;
-        if (!result.isError && total > nextStart) setDeskPage((page) => page + 1);
+        if (result.isError || total <= nextStart) return;
+        setDeskPaging((current) => current.scope === requestedScope
+          ? { ...current, page: current.page + 1 }
+          : current);
       }
     } catch {
       return;
@@ -452,12 +467,12 @@ export default function DashboardHomeActions({
       ) : null}
       {allMosaicItems.length > 6 || (deskView === "production" ? production.hasNextPage : inspirationsQuery.hasNextPage) ? (
         <div className="flex gap-2">
-          <button type="button" disabled={currentDeskPage === 0} onClick={() => setDeskPage((page) => Math.max(0, page - 1))} className={studioChipClass}>
+          <button type="button" disabled={currentDeskPage === 0} onClick={() => setDeskPaging((current) => ({ ...current, page: Math.max(0, current.page - 1) }))} className={studioChipClass}>
             {t("studioDesk.previous")}
           </button>
           <button
             type="button"
-            disabled={deskView === "production" ? production.isFetchingNextPage : inspirationsQuery.isFetchingNextPage}
+            disabled={fetchingNextPage || (!hasBufferedNextPage && !hasRemoteNextPage)}
             onClick={() => void nextDeskPage()}
             className={studioChipClass}
           >

@@ -1,6 +1,16 @@
+.stage {
+  display: flex;
+  flex-direction: column;
+  overflow-anchor: none;
+  /* Main already pads --shell-v6-gap * 2 at md; do not stack another 100vh guess. */
+  min-height: calc(100dvh - (var(--shell-v6-gap) * 2));
+}
+
 .workspace {
   position: relative;
-  min-height: calc(100dvh - 11rem);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-anchor: none;
 }
 
 .desk,
@@ -23,6 +33,7 @@
 
 .dock {
   z-index: 10;
+  overflow-anchor: none;
 }
 
 .workspace[data-empty="true"] {
@@ -63,12 +74,27 @@
 .workspace[data-empty="false"] .dock {
   position: absolute;
   inset-inline: 0;
+  top: auto;
+  height: auto;
   bottom: max(0.75rem, env(safe-area-inset-bottom));
+  max-height: calc(100% - max(0.75rem, env(safe-area-inset-bottom)));
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+}
+
+.workspace[data-empty="false"] .dock > * {
+  flex: 0 1 auto;
+  height: auto;
+  max-height: 100%;
+  min-height: 0;
 }
 
 .controls {
   display: grid;
   grid-template-rows: 0fr;
+  min-height: 0;
   transition: grid-template-rows 320ms ease;
 }
 
@@ -81,22 +107,39 @@
   min-height: 0;
 }
 
-.controls[data-expanded="true"] .controlsInner {
-  max-height: max(8rem, calc(100dvh - 23rem));
+.body {
+  min-height: 0;
+  flex: 0 1 auto;
+  overflow-x: auto;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
 .talkBox {
-  max-height: calc(100dvh - 6rem);
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  max-height: 100%;
+  min-height: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  overflow-anchor: none;
 }
 
 .footer {
-  position: sticky;
-  bottom: 0;
+  flex-shrink: 0;
   background: var(--surface-base);
+}
+
+@media (max-width: 47.99rem) {
+  .stage {
+    min-height: calc(100dvh - var(--shell-v6-topbar-offset) - var(--shell-safe-bottom));
+  }
+
+  .workspace[data-empty="false"] .dock {
+    bottom: max(0.75rem, var(--shell-safe-bottom));
+    max-height: calc(100% - max(0.75rem, var(--shell-safe-bottom)));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

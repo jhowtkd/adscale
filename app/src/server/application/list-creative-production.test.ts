@@ -62,6 +62,16 @@ describe("listCreativeProduction", () => {
     expect(signedMock).not.toHaveBeenCalled();
   });
 
+  it("projeta createdAt bruto em string sem chamar toISOString no valor cru", async () => {
+    const item = await productionItem({
+      ...row,
+      createdAt: "2026-09-08 12:00:00.123456+00",
+      sortAt: "2026-09-08T12:00:00.123456Z",
+    });
+    expect(item.createdAt).toBe("2026-09-08T12:00:00.123Z");
+    expect(item).not.toHaveProperty("sortAt");
+  });
+
   it("assina derivation só depois da leitura autorizada", async () => {
     readMock.mockResolvedValue({
       rows: [{

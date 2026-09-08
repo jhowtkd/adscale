@@ -160,8 +160,10 @@ async function login(page: Page, fixture: CreatePostFixture): Promise<void> {
       /* ignore */
     }
   });
+  const origin = process.env.E2E_BASE_URL ?? "http://localhost:3106";
   const response = await page.request.post("/api/auth/sign-in/email", {
     data: { email: fixture.email, password: fixture.password },
+    headers: { Origin: origin },
   });
   expect(response.ok(), `E2E login must succeed (got ${response.status()})`).toBeTruthy();
 }
@@ -185,7 +187,8 @@ test.describe("Studio Carousel controlled-provider gate", () => {
     await page.goto("/", { waitUntil: "commit" });
     const requestBox = page.locator("#creative-composer-request");
     await expect(requestBox).toBeVisible({ timeout: 30_000 });
-    const carouselCard = page.getByRole("button", { name: /criar carrossel/i }).first();
+    await expect(requestBox).toHaveCount(1);
+    const carouselCard = page.getByRole("radio", { name: /criar carrossel/i });
     // The free-entry fill can race hydration; retry until the objective cards
     // confirm the composer state.
     await expect(async () => {
@@ -213,6 +216,7 @@ test.describe("Studio Carousel controlled-provider gate", () => {
     await page.goto(`/?workId=${workId}`, { waitUntil: "commit" });
     // The carousel entry keeps the same free-entry text.
     await expect(page.locator("#creative-composer-request")).toHaveValue(`${RAW_LONG_TEXT} [e2e:ask-once]`);
+    await expect(page.locator("#creative-composer-request")).toHaveCount(1);
 
     // -- Step 3: answer one controlled blocking question --------------------
     await page.getByTestId("carousel-organize").click();
@@ -221,6 +225,11 @@ test.describe("Studio Carousel controlled-provider gate", () => {
     await expect(questions.locator("input")).toHaveCount(1);
     const questionInput = questions.locator("input").first();
     await questionInput.fill("Lista de espera pelo direct do ateliê");
+    const box = page.getByTestId("studio-talk-box");
+    await box.getByRole("button", { name: "Recolher controles" }).click();
+    await expect(box).toHaveAttribute("data-expanded", "false");
+    await box.getByRole("button", { name: "Abrir controles" }).click();
+    await expect(questionInput).toHaveValue("Lista de espera pelo direct do ateliê");
     await page.getByTestId("carousel-answer-submit").click();
 
     // -- Step 4: receive five slides ----------------------------------------
@@ -270,6 +279,9 @@ test.describe("Studio Carousel controlled-provider gate", () => {
     // -- Steps 8 + 9: cover → middle → closing → remaining; only the marked
     // slide fails -------------------------------------------------------------
     await expect(page.getByTestId("carousel-generating")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("carousel-composer")).toHaveCount(1);
+    await expect(page.getByTestId("studio-results-surface").getByTestId("carousel-progress")).toBeVisible();
+    await expect(page.getByTestId("studio-talk-box")).toHaveAttribute("data-expanded", "false");
     // No intermediate button: the generate control disappears while the chain runs.
     await expect(page.getByTestId("carousel-generate")).toHaveCount(0);
     // Fail fast when Inngest never claims a slide, instead of waiting 300s.

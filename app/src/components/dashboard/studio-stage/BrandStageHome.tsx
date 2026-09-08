@@ -170,7 +170,7 @@ export function BrandStageHome({
         event.preventDefault();
         void onDropFiles(event.dataTransfer.files);
       }}
-      className="relative min-h-[calc(100vh-8rem)] px-4 pb-8 sm:px-6"
+      className={cn("relative px-4 pb-8 sm:px-6", styles.stage)}
     >
       <div data-testid="studio-chrome-bar" className={studioChromeBarClass}>
         <p className="min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">{eyebrow}</p>

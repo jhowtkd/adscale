@@ -10,12 +10,20 @@ vi.mock("@/server/db", () => ({
 
 import {
   parseProductionSearchParams,
+  productionCreatedAt,
   productionPageSql,
   type ProductionQuery,
   type ProductionRow,
 } from "./creative-production";
 
 describe("creative production catalog", () => {
+  it("normaliza timestamp cru de string sem alterar sortAt de 6 dígitos", () => {
+    expect(productionCreatedAt("2026-09-08 12:00:00.123456+00").toISOString())
+      .toBe("2026-09-08T12:00:00.123Z");
+    expect(productionCreatedAt(new Date("2026-09-08T12:00:00.123456Z")).toISOString())
+      .toBe("2026-09-08T12:00:00.123Z");
+  });
+
   it("recusa filtros e cursor inválidos", () => {
     expect(parseProductionSearchParams(new URLSearchParams("clientProfileId=abc"))).toBeNull();
     const id = "00000000-0000-4000-8000-000000000001";
@@ -110,6 +118,8 @@ describe("creative production catalog", () => {
       };
       const first = await run(input);
       expect(first).toHaveLength(3);
+      expect(first[0]!.sortAt).toMatch(/\.\d{6}Z$/);
+      expect(first[0]!.createdAt instanceof Date ? true : typeof first[0]!.createdAt === "string").toBe(true);
       const cursor = { at: first[1]!.sortAt, id: first[1]!.id };
       const second = await run({ ...input, cursor });
       expect(second).toHaveLength(1);

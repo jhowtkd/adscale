@@ -59,8 +59,10 @@ async function login(page: Page, credentials = fixture()) {
       JSON.stringify({ necessary: true, analytics: false, marketing: false }),
     );
   });
+  const origin = process.env.E2E_BASE_URL ?? "http://localhost:3106";
   const response = await page.request.post("/api/auth/sign-in/email", {
     data: { email: credentials.email, password: credentials.password },
+    headers: { Origin: origin },
   });
   expect(response.ok(), await response.text()).toBe(true);
 }
@@ -106,7 +108,8 @@ async function assertSingleActiveBrand(page: Page) {
     expect.objectContaining({ id: fixture().primaryClientProfileId, name: "Create Post E2E Brand" }),
   ]);
   const activeBrand = page.locator("#active-client-switcher-home");
-  await expect(activeBrand).toHaveValue(fixture().primaryClientProfileId, { timeout: 60_000 });
+  await expect(activeBrand).toBeVisible({ timeout: 60_000 });
+  await expect(activeBrand).toContainText("Create Post E2E Brand", { timeout: 60_000 });
   await expect.poll(async () => page.evaluate(() => {
     const persisted = localStorage.getItem("adscale-storage");
     return persisted ? JSON.parse(persisted).state?.activeClientProfileId ?? null : null;
@@ -114,9 +117,10 @@ async function assertSingleActiveBrand(page: Page) {
 }
 
 async function fillRequestAndAttach(page: Page, request: string, name = "arte-e2e.png") {
-  const requestField = page.getByRole("textbox", { name: /pedido criativo|creative request/i });
-  if (await requestField.count() > 0) await requestField.fill(request);
-  await page.locator('section[aria-labelledby="progressive-entry-title"] input[type="file"]').setInputFiles({
+  const requestField = page.locator("#creative-composer-request");
+  await expect(requestField).toHaveCount(1);
+  await requestField.fill(request);
+  await page.locator('[data-testid="studio-talk-box"] input[type="file"]').setInputFiles({
     name,
     mimeType: "image/png",
     buffer: Buffer.from(fixture().attachmentBufferBase64, "base64"),
@@ -124,7 +128,79 @@ async function fillRequestAndAttach(page: Page, request: string, name = "arte-e2
 }
 
 async function chooseVariations(page: Page) {
-  await page.getByRole("button", { name: /variações|variations/i }).first().click();
+  const box = page.getByTestId("studio-talk-box");
+  await expect(box).toBeVisible();
+  const radio = box.getByRole("radio", { name: /^(variações|variations)$/i }).first();
+  if (!(await radio.isVisible().catch(() => false))) {
+    const expand = box.getByRole("button", { name: /abrir controles|open controls/i });
+    if (await expand.count()) await expand.click();
+  }
+  await expect(radio).toBeVisible({ timeout: 15_000 });
+  await radio.click();
+  await expect(radio).toHaveAttribute("aria-checked", "true");
+}
+
+function talkGenerate(page: Page) {
+  return page.locator('[data-testid="studio-talk-box"] .talk-generate');
+}
+
+async function talkBoxFrame(page: Page) {
+  return page.getByTestId("studio-talk-box").evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    return { top: box.top, bottom: box.bottom, scrollY: window.scrollY };
+  });
+}
+
+async function waitForTalkBoxFrame(page: Page) {
+  let previous = await talkBoxFrame(page);
+  await expect.poll(async () => {
+    const next = await talkBoxFrame(page);
+    const settled = Math.abs(next.top - previous.top) <= 0.5
+      && Math.abs(next.bottom - previous.bottom) <= 0.5
+      && next.scrollY === previous.scrollY;
+    previous = next;
+    return settled;
+  }, { timeout: 2_000 }).toBe(true);
+  return previous;
+}
+
+async function assertStableTalkBox(page: Page, viewport: "desktop" | "mobile") {
+  const box = page.getByTestId("studio-talk-box");
+  if (await box.getAttribute("data-expanded") === "true") {
+    await box.getByRole("button", { name: /recolher controles|collapse controls/i }).click();
+  }
+  await expect(box).toHaveAttribute("data-expanded", "false");
+  const collapsed = await waitForTalkBoxFrame(page);
+  const expand = box.getByRole("button", { name: /abrir controles|open controls/i });
+  await expand.click();
+  await expect(box).toHaveAttribute("data-expanded", "true");
+  const expanded = await waitForTalkBoxFrame(page);
+  expect(Math.abs(collapsed.bottom - expanded.bottom)).toBeLessThanOrEqual(2);
+  expect(expanded.scrollY).toBe(collapsed.scrollY);
+  expect(expanded.top).toBeGreaterThanOrEqual(0);
+  if (viewport === "mobile") {
+    const headerBox = await page.locator("header").first().boundingBox();
+    const chromeBox = await page.getByTestId("studio-chrome-bar").boundingBox();
+    expect(headerBox && chromeBox, "mobile header and chrome must be measurable").toBeTruthy();
+    expect(expanded.top).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height - 1);
+    expect(expanded.top).toBeGreaterThanOrEqual(chromeBox!.y + chromeBox!.height - 1);
+    const generateBox = await talkGenerate(page).boundingBox();
+    const navBox = await page.getByRole("navigation", { name: /primary mobile navigation/i }).boundingBox();
+    expect(generateBox && navBox, "generate and mobile nav must be measurable").toBeTruthy();
+    expect(generateBox!.y + generateBox!.height).toBeLessThanOrEqual(navBox!.y + 1);
+  }
+  await box.getByRole("button", { name: /recolher controles|collapse controls/i }).click();
+  await expect(box).toHaveAttribute("data-expanded", "false");
+  await expand.focus();
+  await expand.press("Enter");
+  await expect(box).toHaveAttribute("data-expanded", "true");
+  await expect(box.getByRole("button", { name: /recolher controles|collapse controls/i })).toBeFocused();
+  expect(await page.evaluate(() => document.activeElement === document.body)).toBe(false);
+  const keyed = await waitForTalkBoxFrame(page);
+  expect(Math.abs(collapsed.bottom - keyed.bottom)).toBeLessThanOrEqual(2);
+  expect(keyed.scrollY).toBe(collapsed.scrollY);
+  expect(keyed.top).toBeGreaterThanOrEqual(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 }
 
 async function expectNoStudioPrice(page: Page) {
@@ -132,7 +208,7 @@ async function expectNoStudioPrice(page: Page) {
 }
 
 async function prepareAndConfirm(page: Page, workId: string) {
-  const continueToPlan = page.getByTestId("creative-generate-action").getByRole("button");
+  const continueToPlan = talkGenerate(page);
   await expect(continueToPlan).toBeEnabled();
   await continueToPlan.click();
   await expect(page.getByRole("heading", { name: /revise seu plano|review your plan/i })).toBeVisible();
@@ -185,12 +261,13 @@ test.describe("Frictionless operational Home", () => {
     const usageBefore = await usageIds(page);
     await page.goto("/");
     await assertSingleActiveBrand(page);
-    await expect(page.getByRole("heading", { name: /gere variações a partir de uma arte|generate variations from an artwork/i })).toBeVisible();
+    await expect(page.getByTestId("studio-talk-box")).toBeVisible();
+    await expect(page.locator("#creative-composer-request")).toHaveCount(1);
 
     const request = "Promoção de matrículas para julho";
-    await fillRequestAndAttach(page, request);
     await expect.poll(() => new URL(page.url()).searchParams.get("workId")).toBeNull();
     await chooseVariations(page);
+    await fillRequestAndAttach(page, request);
     const source = page.locator("article").filter({ hasText: "arte-e2e.png" });
     await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
     await expect.poll(() => new URL(page.url()).searchParams.get("workId"), { timeout: 30_000 }).toBeTruthy();
@@ -264,11 +341,11 @@ test.describe("Frictionless operational Home", () => {
     await page.goto("/");
     await assertSingleActiveBrand(page);
     const request = "Variações de campanha [e2e:retry-twice-bold]";
-    await fillRequestAndAttach(page, request, "fonte-pronta.png");
     await chooseVariations(page);
+    await fillRequestAndAttach(page, request, "fonte-pronta.png");
     await expect(page.locator("article").filter({ hasText: "fonte-pronta.png" }).getByRole("status"))
       .toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
-    await page.locator("#creative-composer-file").setInputFiles({
+    await page.locator('[data-testid="studio-talk-box"] input[type="file"]').setInputFiles({
       name: "e2e-source-fail-once.png",
       mimeType: "image/png",
       buffer: Buffer.from(fixture().attachmentBufferBase64, "base64"),
@@ -301,23 +378,26 @@ test.describe("Frictionless operational Home", () => {
 
   test("insufficient balance keeps the prepared Studio work intact", async ({ page }) => {
     const insufficient = fixture().insufficientBalance;
+    await page.context().clearCookies();
     await login(page, insufficient);
     await page.goto("/");
-    await expect(page.locator("aside").getByText(/^0 (créditos|credits)$/i)).toBeVisible();
+    await expect(page.locator("aside").getByText(
+      new RegExp(`^${insufficient.expectedCredits}\\s*(créditos|credits)$`, "i"),
+    )).toBeVisible({ timeout: 30_000 });
 
     await fillRequestAndAttach(page, "Criação Studio sem saldo", "saldo-zero.png");
-    await chooseVariations(page);
-    const source = page.locator("article").filter({ hasText: "saldo-zero.png" });
-    await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
+    await expect(page.getByText("saldo-zero.png")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/referência pronta|reference ready/i)).toBeVisible({ timeout: 60_000 });
     await expect.poll(() => new URL(page.url()).searchParams.get("workId")).toBeTruthy();
     const workId = new URL(page.url()).searchParams.get("workId")!;
 
-    await page.getByTestId("creative-generate-action").getByRole("button").click();
+    await talkGenerate(page).click();
     const plan = page.locator("section").filter({
       has: page.getByRole("heading", { name: /revise seu plano|review your plan/i }),
     }).first();
     await expect(plan).toBeVisible();
     await expect(plan).not.toContainText(/\b\d+\s*(créditos|credits)\b/i);
+    await expect.poll(async () => Boolean((await workDetail(page, workId)).preparedPlan), { timeout: 30_000 }).toBe(true);
     const beforeBlock = await workDetail(page, workId);
 
     const blocked = page.waitForResponse((response) =>
@@ -341,6 +421,9 @@ test.describe("Frictionless operational Home", () => {
   ]) {
     test(`home and results remain accessible at ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize(viewport);
+      if (viewport.name === "desktop") {
+        await page.emulateMedia({ reducedMotion: "reduce" });
+      }
       await page.goto("/");
       await assertSingleActiveBrand(page);
 
@@ -357,9 +440,10 @@ test.describe("Frictionless operational Home", () => {
           .__frictionlessAnnouncements = messages;
       });
 
-      const attach = page.locator('section[aria-labelledby="progressive-entry-title"] input[type="file"]');
+      const attach = page.getByRole("button", { name: /anexar|attach/i });
+      await chooseVariations(page);
       await tabTo(page, attach);
-      await attach.setInputFiles({
+      await page.locator('[data-testid="studio-talk-box"] input[type="file"]').setInputFiles({
         name: `teclado-${viewport.name}.png`,
         mimeType: "image/png",
         buffer: Buffer.from(fixture().attachmentBufferBase64, "base64"),
@@ -370,10 +454,10 @@ test.describe("Frictionless operational Home", () => {
           .__frictionlessAnnouncements ?? []
       )).toContain("Arte adicionada");
       const source = page.locator("article").filter({ hasText: `teclado-${viewport.name}.png` });
-      await chooseVariations(page);
       await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
+      await assertStableTalkBox(page, viewport.name as "desktop" | "mobile");
 
-      const generate = page.getByTestId("creative-generate-action").getByRole("button");
+      const generate = talkGenerate(page);
       await expect(generate).toBeEnabled();
       await tabTo(page, generate);
       await page.keyboard.press("Space");
@@ -421,4 +505,33 @@ test.describe("Frictionless operational Home", () => {
         .toEqual([]);
     });
   }
+
+  test("mesa alterna e caixa recolhe sem gerar ou perder o pedido", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const generation: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() === "POST" && /\/(generate|prepare|plan)$/.test(new URL(request.url()).pathname)) {
+        generation.push(request.url());
+      }
+    });
+    await page.goto("/");
+    await assertSingleActiveBrand(page);
+    const request = page.locator("#creative-composer-request");
+    await expect(request).toHaveCount(1);
+    await request.fill("Campanha de setembro, manter identidade da marca");
+    const box = page.getByTestId("studio-talk-box");
+    await expect(box).toHaveAttribute("data-expanded", "true");
+    await box.getByRole("button", { name: "Recolher controles" }).click();
+    await expect(box).toHaveAttribute("data-expanded", "false");
+    await page.getByRole("button", { name: "Produção", exact: true }).click();
+    await page.getByRole("button", { name: "Inspirações", exact: true }).click();
+    await box.getByRole("button", { name: "Abrir controles" }).click();
+    await expect(request).toHaveValue("Campanha de setembro, manter identidade da marca");
+    await expect(page.getByTestId("studio-desk")).toHaveAttribute("inert", "");
+    await request.press("Escape");
+    await expect(box).toHaveAttribute("data-expanded", "false");
+    expect(generation).toEqual([]);
+    await assertStableTalkBox(page, "desktop");
+    expect(generation).toEqual([]);
+  });
 });
