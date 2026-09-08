@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { BrandStageHome } from "./BrandStageHome";
 
@@ -33,11 +33,17 @@ it("não inventa seis cópias de uma peça produzida", () => {
   expect(screen.getAllByRole("button", { name: "Peça única" })).toHaveLength(1);
 });
 
-it("bloqueia a mesa enquanto os resultados estão visíveis", () => {
+it("mantém o mosaic visível e o switcher da mesa usável quando os resultados ocupam o palco", () => {
   render(<BrandStageHome occupancy="work" brandName="Marca" headline="Criar"
     subtitle="Pedido" eyebrow="Estúdio" topBar={null} talkBox={null}
     onDropFiles={vi.fn()} dropLabel="Soltar" resultsActive
+    deskControls={<button type="button">Produção</button>}
+    results={<p>Revisão</p>}
     mosaicItems={[{ id: "output:1", title: "Peça única", src: "/piece.png" }]} />);
-  expect(screen.getByTestId("studio-desk")).toHaveAttribute("inert");
+  expect(screen.getByTestId("studio-desk")).not.toHaveAttribute("inert");
+  expect(screen.getByRole("button", { name: "Produção" })).toBeEnabled();
+  expect(screen.getByTestId("studio-mosaic")).toBeVisible();
+  expect(within(screen.getByTestId("studio-mosaic")).getAllByRole("button", { name: "Peça única" }).length).toBeGreaterThan(0);
+  expect(screen.getByTestId("studio-results-surface")).toHaveTextContent("Revisão");
   expect(screen.getByTestId("studio-stage").querySelector("[data-results='true']")).toBeTruthy();
 });

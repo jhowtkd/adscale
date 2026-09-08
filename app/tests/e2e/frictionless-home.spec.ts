@@ -3,9 +3,20 @@ import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+import { quoteCreativeWork } from "../../src/server/creative-work/contracts";
+
 const FIXTURE_PATH = process.env.CREATE_POST_E2E_FIXTURE_PATH
   ? path.resolve(process.env.CREATE_POST_E2E_FIXTURE_PATH)
   : path.resolve(__dirname, "../fixtures/create-post-e2e.json");
+const RESULT_HOME_SCREENSHOT = path.resolve(
+  __dirname,
+  "../../../docs/screenshots/studio-caixa-unificada/resultado-home.png",
+);
+const VARIATIONS_QUOTE = quoteCreativeWork({
+  intent: "variations",
+  format: "4:5",
+  targetFormats: [],
+});
 
 type Fixture = {
   email: string;
@@ -23,9 +34,23 @@ type Fixture = {
   };
 };
 
+type JsonRecord = Record<string, unknown>;
+
 type WorkDetail = {
-  work: { id: string; campaignId: string | null; request: string; toolKind?: string };
-  preparedPlan?: { preparedRevision: string; outputCount: number } | null;
+  work: JsonRecord & {
+    id: string;
+    campaignId: string | null;
+    request: string;
+    toolKind?: string;
+    status?: string;
+    updatedAt?: string;
+    identitySnapshot?: {
+      clientProfileId?: string;
+      confirmedAt?: string;
+      assets?: unknown[];
+    } | null;
+  };
+  preparedPlan?: (JsonRecord & { preparedRevision: string; outputCount: number }) | null;
   inferredBriefing?: {
     version: number;
     offer: { value: string | null; state: string };
@@ -44,6 +69,33 @@ type WorkDetail = {
   }>;
   sources: Array<{ id: string; name: string; status: string; usage: string; usageConfirmed: boolean }>;
 };
+
+function omitKeys(value: JsonRecord, keys: readonly string[]): JsonRecord {
+  const next = { ...value };
+  for (const key of keys) delete next[key];
+  return next;
+}
+
+async function billingSnapshot(page: Page) {
+  const [statusResponse, historyResponse] = await Promise.all([
+    page.request.get("/api/billing/status"),
+    page.request.get("/api/billing/history?limit=100"),
+  ]);
+  expect(statusResponse.ok(), await statusResponse.text()).toBe(true);
+  expect(historyResponse.ok(), await historyResponse.text()).toBe(true);
+  const status = (await statusResponse.json()) as { billing: { creditBalance: number } };
+  const history = (await historyResponse.json()) as {
+    grants?: Array<{ id: string; remaining: number; amount: number; source: string }>;
+    summary?: { remainingCredits: number };
+    transactions?: Array<{ id: string; type: string }>;
+  };
+  return {
+    creditBalance: status.billing.creditBalance,
+    grants: history.grants ?? [],
+    remainingCredits: history.summary?.remainingCredits ?? status.billing.creditBalance,
+    usageIds: new Set((history.transactions ?? []).filter((item) => item.type === "usage").map((item) => item.id)),
+  };
+}
 
 function fixture(): Fixture {
   if (!fs.existsSync(FIXTURE_PATH)) {
@@ -311,7 +363,7 @@ test.describe("Frictionless operational Home", () => {
     expect(settled.outputs.map((output) => output.id).sort()).toEqual(initialIds);
     const usage = await newUsage(page, usageBefore);
     expect(usage, "one confirmation must debit once").toHaveLength(1);
-    expect(usage.reduce((sum, item) => sum + Math.abs(item.amount), 0)).toBeGreaterThan(0);
+    expect(usage.reduce((sum, item) => sum + Math.abs(item.amount), 0)).toBe(VARIATIONS_QUOTE.credits);
     expect(campaignMutations).toEqual([]);
     expect(await campaignsCount(page)).toBe(campaignCountBefore);
 
@@ -320,10 +372,37 @@ test.describe("Frictionless operational Home", () => {
     await assertSingleActiveBrand(page);
     await expect(page.getByTestId("proposal-level")).toHaveCount(1, { timeout: 60_000 });
     expect((await workDetail(page, workId)).outputs.map((output) => output.id).sort()).toEqual(initialIds);
+    await expect(page.getByTestId("studio-talk-box")).toHaveAttribute("data-expanded", "false");
+    await expect(page.getByTestId("studio-desk")).not.toHaveAttribute("inert");
+    await expect(page.getByTestId("studio-mosaic")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Produção", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "Produção", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Produção", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("studio-mosaic")).toBeVisible();
+    await expect(page.getByTestId("studio-mosaic").getByRole("button").first()).toBeVisible();
 
     const original = settled.outputs.find((output) => output.directionSnapshot?.label === "Conservadora")
       ?? [...settled.outputs].sort((a, b) => (a.directionSnapshot?.order ?? 0) - (b.directionSnapshot?.order ?? 0))[0]!;
-    await page.getByRole("button", { name: /Selecionar Conservadora em 4:5|Select Conservadora in 4:5/i }).click();
+    const selectConservadora = page.getByRole("button", { name: /Selecionar Conservadora em 4:5|Select Conservadora in 4:5/i });
+    await selectConservadora.scrollIntoViewIfNeeded();
+    await page.getByTestId("proposal-level").scrollIntoViewIfNeeded();
+    const resultsBox = await page.getByTestId("studio-results-surface").boundingBox();
+    expect(resultsBox).toBeTruthy();
+    const mosaicButtons = page.getByTestId("studio-mosaic").getByRole("button");
+    const mosaicCount = await mosaicButtons.count();
+    expect(mosaicCount).toBeGreaterThan(0);
+    for (let index = 0; index < mosaicCount; index += 1) {
+      const posterBox = await mosaicButtons.nth(index).boundingBox();
+      if (!posterBox || !resultsBox) continue;
+      const overlaps = posterBox.x < resultsBox.x + resultsBox.width
+        && posterBox.x + posterBox.width > resultsBox.x
+        && posterBox.y < resultsBox.y + resultsBox.height
+        && posterBox.y + posterBox.height > resultsBox.y;
+      expect(overlaps, `poster ${index} must not cover results`).toBe(false);
+    }
+    fs.mkdirSync(path.dirname(RESULT_HOME_SCREENSHOT), { recursive: true });
+    await page.screenshot({ path: RESULT_HOME_SCREENSHOT, animations: "disabled" });
+    await selectConservadora.click();
     const originalCard = page.getByTestId("proposal-level");
     const selectedResponsePromise = page.waitForResponse((response) =>
       response.url().endsWith(`/api/creative-work/${workId}/outputs/${original.id}/select`)
@@ -394,7 +473,7 @@ test.describe("Frictionless operational Home", () => {
     expect(terminal.outputs.every((output) => output.status === "completed")).toBe(true);
     const usage = await newUsage(page, usageBefore);
     expect(usage, "retrying an isolated source must not debit twice").toHaveLength(1);
-    expect(usage.reduce((sum, item) => sum + Math.abs(item.amount), 0)).toBeGreaterThan(0);
+    expect(usage.reduce((sum, item) => sum + Math.abs(item.amount), 0)).toBe(VARIATIONS_QUOTE.credits);
   });
 
   test("insufficient balance keeps the prepared Studio work intact", async ({ page }) => {
@@ -424,6 +503,7 @@ test.describe("Frictionless operational Home", () => {
     await expect(plan).not.toContainText(/\b\d+\s*(créditos|credits)\b/i);
     await expect.poll(async () => Boolean((await workDetail(page, workId)).preparedPlan), { timeout: 30_000 }).toBe(true);
     const beforeBlock = await workDetail(page, workId);
+    const billingBefore = await billingSnapshot(page);
 
     const blocked = page.waitForResponse((response) =>
       response.url().includes(`/api/creative-work/${workId}/generate`)
@@ -434,27 +514,32 @@ test.describe("Frictionless operational Home", () => {
     await expect(page.getByRole("alert").filter({ hasText: /limite|limit|crédito|credit/i })).toBeVisible();
 
     const afterBlock = await workDetail(page, workId);
+    const billingAfter = await billingSnapshot(page);
     expect(afterBlock.outputs).toHaveLength(0);
     expect(afterBlock.work.toolKind).toBe("variations");
-    expect(afterBlock.work.request).toBe(beforeBlock.work.request);
-    expect(afterBlock.work.id).toBe(beforeBlock.work.id);
-    expect(afterBlock.preparedPlan).toMatchObject({
-      outputCount: beforeBlock.preparedPlan?.outputCount,
-    });
-    if (beforeBlock.preparedPlan && afterBlock.preparedPlan) {
-      const { preparedRevision: _beforeRev, ...beforePlan } = beforeBlock.preparedPlan;
-      const { preparedRevision: _afterRev, ...afterPlan } = afterBlock.preparedPlan;
-      expect(afterPlan).toEqual(beforePlan);
-    }
+    expect(afterBlock.preparedPlan).toBeTruthy();
+    expect(beforeBlock.preparedPlan).toBeTruthy();
+    const { preparedRevision: beforeRevision, ...beforePlan } = beforeBlock.preparedPlan!;
+    const { preparedRevision: afterRevision, ...afterPlan } = afterBlock.preparedPlan!;
+    expect(afterPlan).toEqual(beforePlan);
+    expect(afterRevision).not.toBe(beforeRevision);
     expect(afterBlock.sources).toEqual(beforeBlock.sources);
-    // generateCreativeWork writes identitySnapshot/status/updatedAt before
-    // credit_blocked; billing is unchanged. The creative payload above stays.
-    expect(afterBlock.work).toMatchObject({
-      id: beforeBlock.work.id,
-      request: beforeBlock.work.request,
-      toolKind: "variations",
-      campaignId: beforeBlock.work.campaignId,
-    });
+    expect(omitKeys(afterBlock.work, ["identitySnapshot", "status", "updatedAt"]))
+      .toEqual(omitKeys(beforeBlock.work, ["identitySnapshot", "status", "updatedAt"]));
+    expect(afterBlock.work.status).toBe("ready");
+    expect(afterBlock.work.identitySnapshot).toEqual(expect.objectContaining({
+      clientProfileId: insufficient.clientProfileId,
+      confirmedAt: expect.any(String),
+      assets: expect.any(Array),
+    }));
+    expect(Date.parse(String(afterBlock.work.updatedAt))).toBeGreaterThan(Date.parse(String(beforeBlock.work.updatedAt)));
+    expect(await newUsage(page, billingBefore.usageIds)).toEqual([]);
+    expect(billingAfter.creditBalance).toBe(billingBefore.creditBalance);
+    expect(billingAfter.remainingCredits).toBe(billingBefore.remainingCredits);
+    expect(billingAfter.grants).toEqual(billingBefore.grants);
+    await expect(page.locator("aside").getByText(
+      new RegExp(`^${insufficient.expectedCredits}\\s*(créditos|credits)$`, "i"),
+    )).toBeVisible();
   });
 
   for (const viewport of [

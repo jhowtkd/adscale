@@ -621,6 +621,38 @@ describe("DashboardHomeActions", () => {
 
   it("keeps completed and partial results visible while the used plan is collapsed", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useCreativeInspirationsMock.mockReturnValue({
+      data: [{ id: "insp-1", title: "Inspiração visível", previewUrl: "/insp.png" }],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+    });
+    useCreativeProductionMock.mockReturnValue({
+      items: [{
+        id: "output:1",
+        kind: "output",
+        workId: "work-1",
+        campaignId: null,
+        title: "Peça produzida",
+        format: "4:5",
+        previewUrl: "/piece.png",
+        reviewHref: "/campaigns/campaign-a?creativeWork=work-1",
+        createdAt: "2026-09-08T12:00:00.000Z",
+        deckId: null,
+        position: null,
+      }],
+      isPending: false,
+      isSuccess: true,
+      isError: false,
+      isFetchNextPageError: false,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+      refetch: vi.fn(),
+    });
     useComposerMock.mockReturnValue({
       request: "Campanha de matrículas", workTitle: "Volta às aulas", hasEntry: true, objectiveSelected: true, intent: "variations",
       stage: "results", preparedPlan: { preparedRevision: "revision-1", protocol: "variations", materials: [{ label: "Logo" }], preserve: ["verified_facts"], explore: ["composition"], formats: ["4:5"], outputCount: 3 }, actionPhase: "idle", clientProfileId: "p1", brandName: "Marca A", state: "results", workId: "work-1", quote: { unitCount: 3, credits: 15 },
@@ -639,7 +671,14 @@ describe("DashboardHomeActions", () => {
     expect(within(plan).getByTestId("prepared-plan")).toHaveTextContent("variations|Logo|verified_facts|composition|4:5|3");
     expect(screen.getByTestId("progressive-results-summary").compareDocumentPosition(plan)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.getByTestId("studio-stage")).toBeInTheDocument();
-    expect(screen.getByTestId("studio-desk")).toHaveAttribute("inert");
+    expect(screen.getByTestId("studio-desk")).not.toHaveAttribute("inert");
+    expect(screen.getByTestId("studio-mosaic")).toBeVisible();
+    expect(within(screen.getByTestId("studio-mosaic")).getAllByRole("button", { name: "Inspiração visível" }).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Produção", exact: true }));
+    expect(screen.getByRole("button", { name: "Produção", exact: true })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("studio-mosaic")).toBeVisible();
+    expect(within(screen.getByTestId("studio-mosaic")).getByRole("button", { name: "Peça produzida" })).toBeVisible();
+    expect(within(screen.getByTestId("studio-mosaic")).queryByRole("button", { name: "Inspiração visível" })).not.toBeInTheDocument();
     expect(screen.getByTestId("progressive-results-summary")).toHaveTextContent("Volta às aulas");
     expect(screen.getByTestId("progressive-results-summary")).not.toHaveTextContent("Campanha de matrículas");
     expect(screen.getByTestId("progressive-results-summary")).not.toHaveTextContent("work-1");

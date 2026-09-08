@@ -53,6 +53,7 @@ import {
   createCreativeWorkOutputs,
   setCreativeWorkCopy,
 } from "../src/server/repositories/creative-work";
+import { quoteCreativeWork } from "../src/server/creative-work/contracts";
 import type { BrandTrainingAnalysis } from "../src/server/brand-training/contracts";
 import { activateSignupTrial } from "../src/server/billing/trial";
 import {
@@ -538,7 +539,11 @@ async function main(): Promise<void> {
     readyWorkId,
     contentArtAssetId: contentArt.assetId,
     styleArtAssetId: styleArt.assetId,
-    expectedInitialCredits: 15,
+    expectedInitialCredits: quoteCreativeWork({
+      intent: "variations",
+      format: "4:5",
+      targetFormats: [],
+    }).credits,
     insufficientBalance: {
       workspaceId: insufficient.workspaceId,
       email: INSUFFICIENT_E2E_EMAIL,

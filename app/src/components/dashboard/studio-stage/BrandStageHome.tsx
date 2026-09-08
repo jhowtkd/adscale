@@ -45,7 +45,7 @@ function WorkMosaic({
   repeatItems?: boolean;
 }) {
   return (
-    <div data-testid="studio-mosaic" className="absolute inset-0">
+    <div data-testid="studio-mosaic" className="absolute inset-0 overflow-hidden">
       {WORK_MOSAIC.map((tile) => {
         const image = repeatItems ? items[tile.srcIndex % Math.max(items.length, 1)] : items[tile.srcIndex];
         if (!image) return null;
@@ -185,7 +185,7 @@ export function BrandStageHome({
         data-expanded={expanded ? "true" : "false"}
         data-results={resultsActive ? "true" : "false"}
       >
-        <div data-testid="studio-desk" className={styles.desk} inert={expanded || resultsActive}>
+        <div data-testid="studio-desk" className={styles.desk} inert={expanded}>
           {deskControls}
           {continueWork ? (
             <div data-testid="continue-work-suggestion" className="relative z-20 mt-6 flex justify-center">

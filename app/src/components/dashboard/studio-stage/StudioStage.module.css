@@ -11,6 +11,7 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-anchor: none;
+  isolation: isolate;
 }
 
 .desk,
@@ -19,8 +20,7 @@
 }
 
 .workspace[data-expanded="true"] .desk,
-.workspace[data-expanded="true"] .intro,
-.workspace[data-results="true"] .desk {
+.workspace[data-expanded="true"] .intro {
   filter: blur(8px);
   opacity: 0.34;
   pointer-events: none;
@@ -68,9 +68,16 @@
   max-width: 42rem;
 }
 
+.workspace[data-empty="false"] {
+  overflow: clip;
+  min-height: min(42rem, calc(100dvh - (var(--shell-v6-gap) * 2)));
+}
+
 .workspace[data-empty="false"] .desk {
   position: absolute;
   inset: 0;
+  overflow: clip;
+  isolation: isolate;
 }
 
 .workspace[data-empty="false"] .dock {
