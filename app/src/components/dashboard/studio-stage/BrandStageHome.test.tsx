@@ -15,9 +15,12 @@ it("não remonta o dock ao trocar a ocupação da mesa", () => {
     talkBox: <input aria-label="Rascunho" />,
   };
   const view = render(<BrandStageHome {...props} occupancy="empty" />);
+  const dock = screen.getByTestId("studio-dock");
   const input = screen.getByLabelText("Rascunho");
   fireEvent.change(input, { target: { value: "não remontar" } });
   view.rerender(<BrandStageHome {...props} occupancy="work" />);
+  expect(screen.getByTestId("studio-dock")).toBe(dock);
   expect(screen.getByLabelText("Rascunho")).toBe(input);
   expect(input).toHaveValue("não remontar");
+  expect(dock).toContainElement(input);
 });

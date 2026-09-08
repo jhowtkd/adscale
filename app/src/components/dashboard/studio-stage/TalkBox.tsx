@@ -175,19 +175,21 @@ export function TalkBox({
           centered ? "p-5 sm:p-6 shadow-[var(--shadow-overlay)]" : "px-4 py-3 sm:px-5 sm:py-3.5",
         )}
       >
-        <button
-          ref={toggleRef}
-          type="button"
-          aria-expanded={expanded}
-          aria-controls={controlsId}
-          onClick={() => expanded ? collapse() : onExpandedChange?.(true)}
-          className={cn(
-            "text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
-            focus,
-          )}
-        >
-          {t(expanded ? "studioDesk.collapse" : "studioDesk.expand")}
-        </button>
+        {onExpandedChange ? (
+          <button
+            ref={toggleRef}
+            type="button"
+            aria-expanded={expanded}
+            aria-controls={controlsId}
+            onClick={() => expanded ? collapse() : onExpandedChange(true)}
+            className={cn(
+              "text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
+              focus,
+            )}
+          >
+            {t(expanded ? "studioDesk.collapse" : "studioDesk.expand")}
+          </button>
+        ) : null}
         {!expanded ? summary : null}
 
         {hideProtocolSwitcher ? null : (

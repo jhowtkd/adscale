@@ -183,12 +183,6 @@ export function BrandStageHome({
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--canvas)_18%,oklch(0.145_0.004_260_/_0.72)_48%,transparent_78%)]"
               />
-              <div className="relative z-10 mx-auto flex min-h-[calc(100vh-11rem)] max-w-2xl flex-col items-center justify-center py-10">
-                <h1 className="max-w-lg text-center text-3xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-4xl">
-                  {headline}
-                </h1>
-                <p className="mt-3 max-w-md text-center text-sm text-[var(--text-secondary)]">{subtitle}</p>
-              </div>
             </>
           ) : (
             <>
@@ -197,6 +191,14 @@ export function BrandStageHome({
             </>
           )}
         </div>
+        {empty ? (
+          <div className={styles.intro} inert={expanded}>
+            <h1 className="max-w-lg text-center text-3xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-4xl">
+              {headline}
+            </h1>
+            <p className="mt-3 max-w-md text-center text-sm text-[var(--text-secondary)]">{subtitle}</p>
+          </div>
+        ) : null}
         {expanded ? (
           <button
             type="button"
@@ -206,7 +208,7 @@ export function BrandStageHome({
             onClick={onCollapse}
           />
         ) : null}
-        <div data-testid={empty ? undefined : "studio-dock"} className={styles.dock}>{talkBox}</div>
+        <div data-testid="studio-dock" className={styles.dock}>{talkBox}</div>
       </div>
       <div data-testid="studio-results-surface">{results}{children}</div>
     </div>

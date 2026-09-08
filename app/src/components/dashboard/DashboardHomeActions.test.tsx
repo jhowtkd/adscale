@@ -944,9 +944,10 @@ describe("DashboardHomeActions", () => {
       refetch: vi.fn(),
     });
     render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
-    expect(screen.getByTestId("studio-talk-box")).toHaveAttribute("data-placement", "center");
+    const talkBox = screen.getByTestId("studio-talk-box");
+    expect(talkBox).toHaveAttribute("data-placement", "center");
     expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("studio-dock")).not.toBeInTheDocument();
+    expect(screen.getByTestId("studio-dock")).toContainElement(talkBox);
   });
 
   it("keeps Começar centered when progressive already has a default protocol", () => {
