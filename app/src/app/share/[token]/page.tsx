@@ -14,6 +14,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { isPieceReviewLink } from "@/server/creative-work/external-piece-review";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import { listPieceReviewComments } from "@/server/repositories/piece-review";
+import type { PieceReviewComment } from "@/server/db/schema";
 import { getCreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
 
 export async function generateMetadata({ params }: SharePageProps): Promise<Metadata> {
@@ -103,54 +104,21 @@ export default async function SharePage({ params }: SharePageProps) {
   });
 
   if (isPieceReviewLink(link) && link.creativeWorkId && link.outputId) {
+    let work: Awaited<ReturnType<typeof getCreativeWork>> = null;
+    let comments: PieceReviewComment[] = [];
+    let loadFailed = false;
     try {
-      const [work, comments] = await Promise.all([
+      [work, comments] = await Promise.all([
         getCreativeWork(link.workspaceId, link.creativeWorkId),
         listPieceReviewComments(link.id),
       ]);
-      const output = work?.outputs.find((row) => row.id === link.outputId);
-      if (!work || !output?.outputKey) {
-        return (
-          <ShareStatus
-            sectionLabel={t("sectionLabel")}
-            title={t("unavailableTitle")}
-            body={t("unavailableBody")}
-          />
-        );
-      }
-      const canApprove = getCreativeWorkSelectionPolicy(output.quality).selectable;
-      return (
-        <ShareShell>
-          <header className="space-y-2">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
-              {t("sectionLabel")}
-            </p>
-            <h1 className="product-page-title text-[var(--text-primary)]">
-              {work.work.title || t("reviewTitle")}
-            </h1>
-            <p className="max-w-xl text-sm text-[var(--text-muted)]">{t("recipientGuideBody")}</p>
-          </header>
-          <PieceReview
-            token={token}
-            outputId={output.id}
-            outputVersion={link.outputVersion ?? output.versionNumber}
-            imageUrl={`/api/share/${token}/asset/${output.id}`}
-            title={work.work.title || t("reviewTitle")}
-            canApprove={canApprove}
-            history={comments.map((comment) => ({
-              id: comment.id,
-              outputVersion: comment.outputVersion,
-              authorLabel: comment.authorLabel,
-              decision: comment.decision,
-              body: comment.body,
-              area: comment.area,
-              createdAt: comment.createdAt.toISOString(),
-            }))}
-          />
-        </ShareShell>
-      );
     } catch (error) {
       logger.warn("[share page] piece review unavailable", error);
+      loadFailed = true;
+    }
+
+    const output = work?.outputs.find((row) => row.id === link.outputId);
+    if (loadFailed || !work || !output?.outputKey) {
       return (
         <ShareStatus
           sectionLabel={t("sectionLabel")}
@@ -159,6 +127,38 @@ export default async function SharePage({ params }: SharePageProps) {
         />
       );
     }
+
+    const canApprove = getCreativeWorkSelectionPolicy(output.quality).selectable;
+    return (
+      <ShareShell>
+        <header className="space-y-2">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
+            {t("sectionLabel")}
+          </p>
+          <h1 className="product-page-title text-[var(--text-primary)]">
+            {work.work.title || t("reviewTitle")}
+          </h1>
+          <p className="max-w-xl text-sm text-[var(--text-muted)]">{t("recipientGuideBody")}</p>
+        </header>
+        <PieceReview
+          token={token}
+          outputId={output.id}
+          outputVersion={link.outputVersion ?? output.versionNumber}
+          imageUrl={`/api/share/${token}/asset/${output.id}`}
+          title={work.work.title || t("reviewTitle")}
+          canApprove={canApprove}
+          history={comments.map((comment) => ({
+            id: comment.id,
+            outputVersion: comment.outputVersion,
+            authorLabel: comment.authorLabel,
+            decision: comment.decision,
+            body: comment.body,
+            area: comment.area,
+            createdAt: comment.createdAt.toISOString(),
+          }))}
+        />
+      </ShareShell>
+    );
   }
 
   if (!link.campaignId) {
