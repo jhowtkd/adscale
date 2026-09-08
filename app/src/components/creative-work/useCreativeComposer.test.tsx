@@ -28,6 +28,8 @@ const mocks = vi.hoisted(() => ({
   recordBetaEvent: vi.fn(),
   carouselController: vi.fn(),
   instantiateRecipe: vi.fn(),
+  instantiateOffer: vi.fn(),
+  saveCommercialOffer: vi.fn(),
 }));
 
 // The carousel wizard controller has its own dedicated test file; the generic
@@ -63,6 +65,11 @@ vi.mock("@/lib/hooks/use-creative-work", async (importOriginal) => ({
 vi.mock("@/lib/hooks/use-visual-recipes", () => ({
   useVisualRecipes: () => ({ data: [], isLoading: false }),
   useInstantiateVisualRecipe: () => ({ mutateAsync: mocks.instantiateRecipe, isPending: false }),
+}));
+vi.mock("@/lib/hooks/use-commercial-offers", () => ({
+  useCommercialOffers: () => ({ data: [], isLoading: false }),
+  useInstantiateCommercialOffer: () => ({ mutateAsync: mocks.instantiateOffer, isPending: false }),
+  useSaveCommercialOffer: () => ({ mutateAsync: mocks.saveCommercialOffer, isPending: false }),
 }));
 vi.mock("@/lib/hooks/use-brand-training", () => ({
   useBrandFonts: (...args: unknown[]) => mocks.brandFonts(...args),
@@ -217,6 +224,8 @@ describe("useCreativeComposer", () => {
     mocks.sourcePending.mockReturnValue(false);
     mocks.selectOutput.mockResolvedValue({});
     mocks.instantiateRecipe.mockResolvedValue({ work: { id: TARGET_WORK_ID } });
+    mocks.instantiateOffer.mockResolvedValue({ work: { id: TARGET_WORK_ID } });
+    mocks.saveCommercialOffer.mockResolvedValue({ offer: { id: "offer-1", version: 1 } });
     // clearAllMocks keeps mockReturnValue implementations — reset explicitly.
     mocks.resolveBrandConflictPending.mockReturnValue(false);
     mocks.brandFonts.mockReturnValue({ data: [], isLoading: false });
@@ -373,6 +382,19 @@ describe("useCreativeComposer", () => {
     expect(mocks.instantiateRecipe).toHaveBeenCalledWith(expect.objectContaining({
       clientProfileId: profileA.id,
       recipeId: "recipe-1",
+    }));
+    expect(result.current.workId).toBe(TARGET_WORK_ID);
+    expect(result.current.intent).toBe("single");
+  });
+
+  it("instantiates a commercial offer as a new single piece", async () => {
+    const { result } = renderHook(() => useCreativeComposer({ initialIntent: "variations" }));
+
+    await act(() => result.current.instantiateOffer("offer-1"));
+
+    expect(mocks.instantiateOffer).toHaveBeenCalledWith(expect.objectContaining({
+      clientProfileId: profileA.id,
+      offerId: "offer-1",
     }));
     expect(result.current.workId).toBe(TARGET_WORK_ID);
     expect(result.current.intent).toBe("single");

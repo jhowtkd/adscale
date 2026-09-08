@@ -46,7 +46,7 @@ vi.mock("next-intl", () => ({ useTranslations: (namespace?: string) => namespace
   factoryQueuedDescription: "Sua peça entrou na linha de produção.", factoryProcessingTitle: "Aplicando tinta fresca",
   factoryProcessingDescription: "As engrenagens estão montando seu criativo.",
   "results.title": "Resultados", "results.subtitle": "Cada resultado fica salvo assim que termina.", "results.campaignLabel": "Agrupar em campanha", "results.noCampaign": "Sem campanha",
-  "proposal.level.conservative": "Conservadora", "proposal.level.balanced": "Equilibrada", "proposal.level.bold": "Ousada", "proposal.status.queued": "na fila", "proposal.status.processing": "gerando", "proposal.status.completed": "pronta", "proposal.status.failed": "falhou", "proposal.progress": `${values?.ready} de ${values?.total} prontas`, "proposal.thumbnailsAria": "Miniaturas das propostas", "proposal.selectAria": `Selecionar ${values?.name} em ${values?.format}`, "proposal.expandAria": `Ampliar ${values?.name} em ${values?.format}`, "proposal.previewAlt": `Proposta ${values?.name}, formato ${values?.format}`, "proposal.approvalSurfaceAria": "Superfície de aprovação", variationShort: `v${values?.count}`, "status.completed": "Pronto", approve: "Aprovar", download: "Baixar", refine: "Refinar", approved: "Aprovada", retry: "Tentar novamente", retryProposal: "Repetir esta proposta", reviewBeforeApprove: "Revisar e aprovar", confirmApproval: "Confirmar aprovação", "recipes.title": "Receitas visuais", "recipes.use": "Usar receita",
+  "proposal.level.conservative": "Conservadora", "proposal.level.balanced": "Equilibrada", "proposal.level.bold": "Ousada", "proposal.status.queued": "na fila", "proposal.status.processing": "gerando", "proposal.status.completed": "pronta", "proposal.status.failed": "falhou", "proposal.progress": `${values?.ready} de ${values?.total} prontas`, "proposal.thumbnailsAria": "Miniaturas das propostas", "proposal.selectAria": `Selecionar ${values?.name} em ${values?.format}`, "proposal.expandAria": `Ampliar ${values?.name} em ${values?.format}`, "proposal.previewAlt": `Proposta ${values?.name}, formato ${values?.format}`, "proposal.approvalSurfaceAria": "Superfície de aprovação", variationShort: `v${values?.count}`, "status.completed": "Pronto", approve: "Aprovar", download: "Baixar", refine: "Refinar", approved: "Aprovada", retry: "Tentar novamente", retryProposal: "Repetir esta proposta", reviewBeforeApprove: "Revisar e aprovar", confirmApproval: "Confirmar aprovação", "recipes.title": "Receitas visuais", "recipes.use": "Usar receita", "offers.title": "Ofertas da marca", "offers.use": "Usar oferta", "offers.save": "Salvar oferta", "offers.validUntil": "Válida até",
   optionalSettings: "Ajustes opcionais", format: "Formato", formatAuto: "Automático (agora: 4:5)", targetFormats: "Formatos de destino",
   textLayout: "Posição do texto", textLayout_top: "Superior", textLayout_center: "Central", textLayout_bottom: "Inferior",
   brandFont: "Fonte da marca", brandFontChoose: "Escolha uma fonte",
@@ -102,6 +102,7 @@ function composer(overrides = {}) {
     format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(),
     textLayout: "top", setTextLayout: vi.fn(), fontAssetKey: null, setFontAssetKey: vi.fn(), fontOptions: [],
     visualRecipes: [], instantiateRecipe: vi.fn(),
+    commercialOffers: [], instantiateOffer: vi.fn(), saveCommercialOffer: vi.fn(),
     directionPool, toggleDirection: vi.fn(), setManualDirectionInstruction: vi.fn(), directionSuggestionState: "idle", pendingDirectionSuggestions: null, applyDirectionSuggestions: vi.fn(), requestDirectionSuggestions: vi.fn(), keepCurrentDirections: vi.fn(), state: "empty", stage: "entry", objectiveSelected: true, preparedPlan: null, actionPhase: "idle",
     workId: null, brandName: "Marca A", sources: [], outputs: [], quote: { unitCount: 3, credits: 15 },
     inferredBriefing: null, briefingFactPack: null, briefingOverrides: {}, briefingEditState: "idle", editBriefingField: vi.fn(),
@@ -748,6 +749,70 @@ describe("CreativeComposer", () => {
     fireEvent.click(screen.getByTestId("creative-optional-settings").querySelector("summary")!);
     fireEvent.click(screen.getByRole("button", { name: "Usar receita" }));
     expect(instantiateRecipe).toHaveBeenCalledWith("recipe-1");
+  });
+
+  it("lets Peça única start from a brand commercial offer", () => {
+    const instantiateOffer = vi.fn();
+    const value = composer({
+      intent: "single",
+      instantiateOffer,
+      commercialOffers: [{
+        id: "offer-1",
+        version: 2,
+        clientProfileId: "brand-a",
+        originWorkId: "work-1",
+        validFrom: "2026-09-01T00:00:00.000Z",
+        validUntil: "2026-10-01T00:00:00.000Z",
+        document: {
+          version: 1,
+          product: "Pós em Psicologia",
+          offer: "turma de setembro",
+          price: "R$ 497",
+          validFrom: "2026-09-01T00:00:00.000Z",
+          validUntil: "2026-10-01T00:00:00.000Z",
+          originWorkId: "work-1",
+          slug: "pos|turma",
+        },
+      }],
+      quote: { unitCount: 1, credits: 5 },
+    });
+    renderComposer(value);
+    fireEvent.click(screen.getByTestId("creative-optional-settings").querySelector("summary")!);
+    fireEvent.click(screen.getByRole("button", { name: "Usar oferta" }));
+    expect(instantiateOffer).toHaveBeenCalledWith("offer-1");
+  });
+
+  it("saves authorized briefing facts as a brand offer with validity", () => {
+    const saveCommercialOffer = vi.fn();
+    renderComposer(composer({
+      intent: "single",
+      workId: "work-1",
+      saveCommercialOffer,
+      inferredBriefing: {
+        version: 1,
+        message: { value: "Pós em Psicologia", state: "sourced" },
+        objective: { value: "Matrícula", state: "sourced" },
+        audience: { value: null, state: "unknown" },
+        offer: { value: "turma de setembro", state: "sourced" },
+        tone: { value: null, state: "unknown" },
+        constraints: { value: null, state: "unknown" },
+        readiness: "ready",
+        confidence: "high",
+      },
+      briefingFactPack: {
+        version: 1,
+        request: "Pós em Psicologia — turma de setembro",
+        facts: [
+          { value: "Pós em Psicologia", class: "product", required: true, origin: "request" },
+          { value: "turma de setembro", class: "offer", required: true, origin: "request" },
+        ],
+        brand: { requiredElements: [], prohibitedElements: [] },
+        identity: { clientProfileId: "profile-1", brandName: "Marca A", brandAuthority: "active" },
+      },
+    }));
+    fireEvent.change(screen.getByLabelText("Válida até"), { target: { value: "2026-10-01T12:00" } });
+    fireEvent.submit(screen.getByTestId("save-commercial-offer"));
+    expect(saveCommercialOffer).toHaveBeenCalledWith(expect.stringMatching(/^2026-10-01T/));
   });
 
   it("locks frozen typography controls after preparation", () => {

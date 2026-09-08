@@ -371,6 +371,68 @@ export function useComposerActions({
     workIdRef,
   ]);
 
+  const instantiateOffer = useCallback(async (offerId: string) => {
+    if (!activeClientProfileId) {
+      focusBrandSwitcher();
+      return false;
+    }
+    try {
+      draftKeyRef.current = crypto.randomUUID();
+      const created = await queries.instantiateOfferMutation.mutateAsync({
+        clientProfileId: activeClientProfileId,
+        draftKey: draftKeyRef.current,
+        offerId,
+      });
+      workIdRef.current = created.work.id;
+      setWorkId(created.work.id);
+      exposeWorkId(created.work.id);
+      setIntent("single");
+      intentRef.current = "single";
+      setObjective("single");
+      objectiveRef.current = "single";
+      exposeIntent("single");
+      setAnnouncement("Oferta aplicada");
+      return true;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Falha ao usar a oferta comercial");
+      return false;
+    }
+  }, [
+    activeClientProfileId,
+    draftKeyRef,
+    exposeIntent,
+    exposeWorkId,
+    intentRef,
+    objectiveRef,
+    queries.instantiateOfferMutation,
+    setAnnouncement,
+    setError,
+    setIntent,
+    setObjective,
+    setWorkId,
+    workIdRef,
+  ]);
+
+  const saveCommercialOffer = useCallback(async (validUntil: string) => {
+    if (!workIdRef.current) return false;
+    try {
+      await queries.saveCommercialOfferMutation.mutateAsync({
+        workItemId: workIdRef.current,
+        validUntil,
+      });
+      setAnnouncement("Oferta salva");
+      return true;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Falha ao salvar a oferta comercial");
+      return false;
+    }
+  }, [
+    queries.saveCommercialOfferMutation,
+    setAnnouncement,
+    setError,
+    workIdRef,
+  ]);
+
   const { retryInitialTemplate } = useComposerTemplateAttach({
     workflowVariant,
     objective: objective,
@@ -494,6 +556,8 @@ export function useComposerActions({
     addFiles,
     addInspiration,
     instantiateRecipe,
+    instantiateOffer,
+    saveCommercialOffer,
     updateSource,
     editSource,
     retrySource,

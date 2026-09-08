@@ -388,6 +388,35 @@ describe("generateCreativeWork", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it("rejects an expired pinned commercial offer before settlement", async () => {
+    getWork.mockResolvedValue({
+      work: {
+        ...preparedWork,
+        inputSnapshot: {
+          ...preparedWork.inputSnapshot,
+          commercialOffer: {
+            offerId: "offer-1",
+            version: 1,
+            product: "Pós",
+            offer: "turma",
+            price: "R$ 497",
+            validFrom: "2026-01-01T00:00:00.000Z",
+            validUntil: "2026-02-01T00:00:00.000Z",
+          },
+        },
+      },
+      outputs: [],
+      sources: [],
+    });
+
+    const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+
+    expect(result).toMatchObject({ ok: false, error: { code: "offer_expired" } });
+    expect(charge).not.toHaveBeenCalled();
+    expect(createOutputs).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("revalidates a ready retry under the reservation lock when an edit reopens it", async () => {
     const ready = { ...preparedWork, status: "ready" as const, identitySnapshot };
     getWork.mockResolvedValueOnce({ work: ready, outputs: [], sources: [] });

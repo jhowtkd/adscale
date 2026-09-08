@@ -39,8 +39,16 @@ vi.mock("@/server/application/instantiate-visual-recipe", () => ({
   instantiateVisualRecipe: vi.fn(),
 }));
 
+vi.mock("@/server/application/instantiate-commercial-offer", () => ({
+  instantiateCommercialOffer: vi.fn(),
+}));
+
 vi.mock("@/server/repositories/visual-recipe", () => ({
   listVisualRecipes: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/commercial-offer", () => ({
+  listActiveCommercialOffers: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/creative-work", () => ({
@@ -141,6 +149,26 @@ describe("GET /api/creative-work", () => {
     expect(res.status).toBe(200);
     expect(listVisualRecipes).toHaveBeenCalledWith("workspace-1", profileId, expect.objectContaining({ limit: 24 }));
     expect(body.recipes).toEqual([{ id: "recipe-1", clientProfileId: profileId }]);
+  });
+
+  it("lists active brand offers only", async () => {
+    const { listActiveCommercialOffers } = await import("@/server/repositories/commercial-offer");
+    vi.mocked(listActiveCommercialOffers).mockResolvedValue({
+      items: [{ id: "offer-1", clientProfileId: profileId }],
+      nextCursor: null,
+    } as never);
+
+    const res = await GET(new Request(`http://localhost/api/creative-work?view=offers&clientProfileId=${profileId}`));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(listActiveCommercialOffers).toHaveBeenCalledWith(
+      "workspace-1",
+      profileId,
+      expect.any(Date),
+      expect.objectContaining({ limit: 24 }),
+    );
+    expect(body.offers).toEqual([{ id: "offer-1", clientProfileId: profileId }]);
   });
 
   it("rejects an invalid inspiration brand id", async () => {
@@ -685,6 +713,68 @@ describe("POST /api/creative-work", () => {
     );
 
     expect(res.status).toBe(400);
+    expect(startMock).not.toHaveBeenCalled();
+  });
+
+  it("instantiates an active brand offer as a new work", async () => {
+    const { instantiateCommercialOffer } = await import("@/server/application/instantiate-commercial-offer");
+    vi.mocked(instantiateCommercialOffer).mockResolvedValue({
+      ok: true,
+      value: {
+        work: {
+          id: "work-offer",
+          workspaceId: "workspace-1",
+          clientProfileId: profileId,
+          toolKind: "single",
+          status: "draft",
+          format: "4:5",
+          brief: null,
+          copy: null,
+          identitySnapshot: null,
+          createdAt: new Date("2026-09-08T00:00:00.000Z"),
+          updatedAt: new Date("2026-09-08T00:00:00.000Z"),
+        },
+        offerVersion: 2,
+      },
+    } as never);
+
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientProfileId: profileId,
+        draftKey: "00000000-0000-4000-8000-000000000099",
+        offerId: "00000000-0000-4000-8000-000000000088",
+      }),
+    }));
+    const body = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(body.offerVersion).toBe(2);
+    expect(body.work.id).toBe("work-offer");
+    expect(startMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an expired offer before creating a work", async () => {
+    const { instantiateCommercialOffer } = await import("@/server/application/instantiate-commercial-offer");
+    vi.mocked(instantiateCommercialOffer).mockResolvedValue({
+      ok: false,
+      error: { code: "expired" },
+    });
+
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientProfileId: profileId,
+        draftKey: "00000000-0000-4000-8000-000000000099",
+        offerId: "00000000-0000-4000-8000-000000000088",
+      }),
+    }));
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(body.code).toBe("commercialOfferExpired");
     expect(startMock).not.toHaveBeenCalled();
   });
 });

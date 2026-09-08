@@ -1,6 +1,7 @@
 import { quoteCreativeWork, type CreativeWorkInputSnapshot } from "@/server/creative-work/contracts";
 import type { SpendResult } from "@/server/billing/paywall";
 import { buildCreativeWorkFactPack, creativeWorkFactPackBrandFromKit } from "@/server/creative-work/fact-pack";
+import { assertOfferActive } from "@/server/creative-work/commercial-offer";
 import { createIdentitySnapshot } from "@/server/creative-work/identity";
 import { shouldIncludePublishedBrandKnowledge } from "@/server/creative-work/identity-policy";
 import { resolveCreativeWorkProtocol } from "@/server/creative-work/protocol";
@@ -20,7 +21,7 @@ import { env } from "@/server/validation/env";
 
 export type GenerateCreativeWorkResult =
   | { ok: true; value: { work: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["work"]; outputs: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["outputs"]; billingKey: string; brandTrainingSuggestion: string | null } }
-  | { ok: false; error: { code: "work_not_found" | "work_not_draft" | "work_not_prepared" | "stale_input" | "credit_blocked" | "dispatch_failed"; details?: unknown } };
+  | { ok: false; error: { code: "work_not_found" | "work_not_draft" | "work_not_prepared" | "stale_input" | "credit_blocked" | "dispatch_failed" | "offer_expired"; details?: unknown } };
 
 async function buildInputSnapshot(
   workspaceId: string,
@@ -78,6 +79,11 @@ export async function generateCreativeWork(input: {
   const billingKey = `creative-work:${input.workItemId}:initial`;
   const existing = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!existing) return { ok: false, error: { code: "work_not_found" } };
+  const pinnedOffer = existing.work.inputSnapshot?.commercialOffer;
+  if (pinnedOffer) {
+    const active = assertOfferActive(pinnedOffer, new Date());
+    if (!active.ok) return { ok: false, error: { code: "offer_expired" } };
+  }
 
   const work = existing.work;
   const readyWork = existing.work;

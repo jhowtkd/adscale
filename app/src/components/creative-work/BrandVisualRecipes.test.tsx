@@ -4,7 +4,12 @@ import { BrandVisualRecipes } from "./BrandVisualRecipes";
 import type { VisualRecipeListItem } from "@/lib/hooks/use-visual-recipes";
 
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => ({ "recipes.title": "Receitas visuais", "recipes.use": "Usar receita" }[key] ?? key),
+  useTranslations: () => (key: string) => ({
+    "recipes.title": "Receitas visuais",
+    "recipes.use": "Usar receita",
+    "offers.title": "Ofertas da marca",
+    "offers.use": "Usar oferta",
+  }[key] ?? key),
 }));
 
 const recipe = {
@@ -28,6 +33,25 @@ const recipe = {
   },
 } as VisualRecipeListItem;
 
+const offer = {
+  id: "offer-1",
+  version: 2,
+  clientProfileId: "brand-a",
+  originWorkId: "work-1",
+  validFrom: "2026-09-01T00:00:00.000Z",
+  validUntil: "2026-10-01T00:00:00.000Z",
+  document: {
+    version: 1 as const,
+    product: "Pós em Psicologia",
+    offer: "turma de setembro",
+    price: "R$ 497",
+    validFrom: "2026-09-01T00:00:00.000Z",
+    validUntil: "2026-10-01T00:00:00.000Z",
+    originWorkId: "work-1",
+    slug: "pos|turma",
+  },
+};
+
 describe("BrandVisualRecipes", () => {
   it("renders nothing without recipes", () => {
     const { container } = render(<BrandVisualRecipes recipes={[]} onUse={vi.fn()} />);
@@ -40,5 +64,13 @@ describe("BrandVisualRecipes", () => {
     expect(screen.getByText("Turma de setembro")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Usar receita" }));
     expect(onUse).toHaveBeenCalledWith("recipe-1");
+  });
+
+  it("uses a brand offer without mixing another catalog", () => {
+    const onUseOffer = vi.fn();
+    render(<BrandVisualRecipes recipes={[]} onUse={vi.fn()} offers={[offer]} onUseOffer={onUseOffer} />);
+    expect(screen.getByText("Pós em Psicologia")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Usar oferta" }));
+    expect(onUseOffer).toHaveBeenCalledWith("offer-1");
   });
 });

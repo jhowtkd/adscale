@@ -159,6 +159,11 @@ vi.mock("@/server/application/prepare-creative-work", () => ({
   detectCreativeWorkDraftBrandConflict: (...args: unknown[]) => detectDraftConflictMock(...args),
 }));
 
+const saveOfferMock = vi.hoisted(() => vi.fn());
+vi.mock("@/server/application/save-commercial-offer", () => ({
+  saveCommercialOfferFromWork: (...args: unknown[]) => saveOfferMock(...args),
+}));
+
 const prepareCarouselMock = vi.hoisted(() => vi.fn());
 vi.mock("@/server/application/prepare-carousel-work", () => ({
   prepareCarouselWork: (...args: unknown[]) => prepareCarouselMock(...args),
@@ -1264,6 +1269,47 @@ describe("PATCH /api/creative-work/[id]", () => {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
     }), { params: makeParams("work-1") });
     expect(res.status).toBe(status);
+  });
+
+  it("maps an expired pinned offer on prepare to 409", async () => {
+    prepareMock.mockResolvedValue({ ok: false, error: { code: "offer_expired" } });
+    const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare" }),
+    }), { params: makeParams("work-1") });
+    const body = await res.json();
+    expect(res.status).toBe(409);
+    expect(body.code).toBe("commercialOfferExpired");
+  });
+
+  it("saves authorized briefing facts as a brand offer", async () => {
+    saveOfferMock.mockResolvedValue({
+      ok: true,
+      value: { offer: { id: "offer-1", version: 1, document: { product: "Pós", offer: "turma" } } },
+    });
+    const res = await requestPatch({
+      action: "saveAsOffer",
+      validUntil: "2026-10-01T00:00:00.000Z",
+    });
+    const body = await res.json();
+    expect(res.status).toBe(201);
+    expect(body.offer.id).toBe("offer-1");
+    expect(saveOfferMock).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      validFrom: undefined,
+      validUntil: "2026-10-01T00:00:00.000Z",
+    });
+  });
+
+  it("does not invent an offer when the fact pack has no authorized claims", async () => {
+    saveOfferMock.mockResolvedValue({ ok: false, error: { code: "missing_offer" } });
+    const res = await requestPatch({
+      action: "saveAsOffer",
+      validUntil: "2026-10-01T00:00:00.000Z",
+    });
+    const body = await res.json();
+    expect(res.status).toBe(422);
+    expect(body.code).toBe("commercialOfferMissingOffer");
   });
 
   it("maps prepare invalid_context to 422 preserving the violations payload", async () => {

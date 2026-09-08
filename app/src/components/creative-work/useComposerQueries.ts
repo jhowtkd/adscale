@@ -20,6 +20,11 @@ import {
   useSuggestCreativeDirections,
 } from "@/lib/hooks/use-creative-work";
 import { useInstantiateVisualRecipe, useVisualRecipes } from "@/lib/hooks/use-visual-recipes";
+import {
+  useCommercialOffers,
+  useInstantiateCommercialOffer,
+  useSaveCommercialOffer,
+} from "@/lib/hooks/use-commercial-offers";
 import type { ComposerIntent } from "./composer-state";
 import { useComposerRevision } from "./useComposerRevision";
 
@@ -58,6 +63,9 @@ export function useComposerQueries(input: {
   const campaignQuery = useCreativeWorkCampaigns(Boolean(detailQuery.data?.outputs.length));
   const visualRecipesQuery = useVisualRecipes(profileId);
   const instantiateRecipeMutation = useInstantiateVisualRecipe();
+  const commercialOffersQuery = useCommercialOffers(profileId);
+  const instantiateOfferMutation = useInstantiateCommercialOffer();
+  const saveCommercialOfferMutation = useSaveCommercialOffer();
 
   return {
     detailQuery,
@@ -81,5 +89,8 @@ export function useComposerQueries(input: {
     campaignQuery,
     visualRecipesQuery,
     instantiateRecipeMutation,
+    commercialOffersQuery,
+    instantiateOfferMutation,
+    saveCommercialOfferMutation,
   };
 }
