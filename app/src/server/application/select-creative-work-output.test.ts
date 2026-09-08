@@ -9,6 +9,10 @@ vi.mock("@/server/application/ensure-creative-work-output-library", () => ({
   ensureCreativeWorkOutputInLibrary: vi.fn(),
 }));
 
+vi.mock("@/server/application/save-visual-recipe", () => ({
+  saveVisualRecipeFromOutput: vi.fn(),
+}));
+
 vi.mock("@/server/creative-work/record-value-event", () => ({
   recordCreativeWorkValueEvent: vi.fn(),
   valueEventFromCreativeWork: vi.fn((work: { id: string; workspaceId: string; createdByUserId: string; clientProfileId: string; campaignId?: string | null; toolKind: string }) => ({
@@ -27,12 +31,14 @@ import {
   selectCreativeWorkOutput,
 } from "@/server/repositories/creative-work";
 import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-creative-work-output-library";
+import { saveVisualRecipeFromOutput } from "@/server/application/save-visual-recipe";
 import { selectCreativeWorkOutputCommand } from "./select-creative-work-output";
 import { recordCreativeWorkValueEvent } from "@/server/creative-work/record-value-event";
 
 const mockGet = vi.mocked(getCreativeWork);
 const mockSelect = vi.mocked(selectCreativeWorkOutput);
 const mockEnsure = vi.mocked(ensureCreativeWorkOutputInLibrary);
+const mockSaveRecipe = vi.mocked(saveVisualRecipeFromOutput);
 const mockRecordValue = vi.mocked(recordCreativeWorkValueEvent);
 
 const workItem = {
@@ -362,5 +368,27 @@ describe("selectCreativeWorkOutputCommand", () => {
 
     expect(result).toMatchObject({ ok: true, value: { output: { id: "output-2", isSelected: true } } });
     expect(mockSelect).toHaveBeenCalledWith("ws-1", "work-1", "output-2", { confirmObjective: true });
+  });
+
+  it("rejects saveAsRecipe when the piece is raster-only", async () => {
+    mockGet.mockResolvedValue({
+      work: workItem,
+      outputs: [completedOutput],
+    } as never);
+
+    const result = await selectCreativeWorkOutputCommand({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      confirmObjective: true,
+      saveAsRecipe: true,
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "visual_recipe_not_structured", reason: "raster_only" },
+    });
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(mockSaveRecipe).not.toHaveBeenCalled();
   });
 });

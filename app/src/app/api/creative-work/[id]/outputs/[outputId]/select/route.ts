@@ -8,8 +8,9 @@ const selectOutputSchema = z
   .object({
     saveToLibrary: z.boolean().default(true),
     confirmObjective: z.boolean().default(false),
+    saveAsRecipe: z.boolean().default(false),
   })
-  .default({ saveToLibrary: true, confirmObjective: false });
+  .default({ saveToLibrary: true, confirmObjective: false, saveAsRecipe: false });
 
 /**
  * Select a completed output as the winner — HTTP adapter only (Phase 5 / item 38).
@@ -38,6 +39,7 @@ export async function POST(
       outputId,
       saveToLibrary: parsed.data.saveToLibrary,
       confirmObjective: parsed.data.confirmObjective,
+      saveAsRecipe: parsed.data.saveAsRecipe,
     });
 
     if (!result.ok) {
@@ -56,12 +58,14 @@ export async function POST(
           return apiError("creativeWorkOutputObjectiveFailed", 409, result.error.policy);
         case "objective_confirmation_required":
           return apiError("creativeWorkOutputConfirmationRequired", 409, result.error.policy);
+        case "visual_recipe_not_structured":
+          return apiError("visualRecipeNotStructured", 409, { reason: result.error.reason });
         default:
           return apiError("invalidRequest", 400);
       }
     }
 
-    return NextResponse.json({ output: result.value.output });
+    return NextResponse.json({ output: result.value.output, recipe: result.value.recipe ?? null });
   } catch (error) {
     return handleApiError(error, "creative-work.[id].outputs.[outputId].select.POST");
   }

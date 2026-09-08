@@ -2894,3 +2894,40 @@ export const creativeWorkCarouselSlides = adscaleSchema.table(
 
 export type CreativeWorkCarouselSlide = typeof creativeWorkCarouselSlides.$inferSelect;
 export type NewCreativeWorkCarouselSlide = typeof creativeWorkCarouselSlides.$inferInsert;
+
+export const visualRecipes = adscaleSchema.table(
+  "visual_recipes",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id")
+      .notNull()
+      .references(() => clientProfiles.id, { onDelete: "cascade" }),
+    version: integer("version").notNull().default(1),
+    document: jsonb("document")
+      .notNull()
+      .$type<import("../creative-work/visual-recipe").VisualRecipeDocument>(),
+    originWorkId: uuid("origin_work_id")
+      .notNull()
+      .references(() => creativeWorkItems.id, { onDelete: "restrict" }),
+    originOutputId: uuid("origin_output_id")
+      .notNull()
+      .references(() => creativeWorkOutputs.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("visual_recipes_brand_cursor_idx").on(
+      table.workspaceId,
+      table.clientProfileId,
+      table.updatedAt,
+      table.id,
+    ),
+    uniqueIndex("visual_recipes_origin_output_uq").on(table.originOutputId),
+  ],
+);
+
+export type VisualRecipe = typeof visualRecipes.$inferSelect;
+export type NewVisualRecipe = typeof visualRecipes.$inferInsert;

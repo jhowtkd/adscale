@@ -12,6 +12,7 @@ import {
   getCreativeWorkEvaluatorSummary,
   getCreativeWorkSelectionPolicy,
 } from "@/lib/creative-work-selection-policy";
+import { isVisualRecipeCandidate } from "@/server/creative-work/visual-recipe";
 import { ActionStatusIcon } from "@/components/animations/ActionStatusIcon";
 import type {
   DeterministicBrandFidelityReport,
@@ -24,7 +25,7 @@ type CreativeResultCardProps = {
   label: string;
   onRetry: (outputId: string) => void;
   onRetryRevision?: (output: CreativeWorkOutput) => void | Promise<void>;
-  onApprove: (outputId: string, confirmObjective?: boolean) => void;
+  onApprove: (outputId: string, confirmObjective?: boolean, saveAsRecipe?: boolean) => void;
   onDownload: (outputId: string) => void;
   onRevise?: (outputId: string, instruction: string, attachment: File | null) => void | Promise<void>;
   isRetrying?: boolean;
@@ -67,6 +68,7 @@ export function CreativeResultCard({
   const [attachment, setAttachment] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmingSelection, setConfirmingSelection] = useState(false);
+  const [saveAsRecipe, setSaveAsRecipe] = useState(false);
   const t = useTranslations("dashboard.home.composer.results");
   const statusLabel = (status: CreativeWorkOutput["status"]) => t(`status.${status}`);
   const isCompleted = output.status === "completed" && (output.hasOutput ?? Boolean(output.outputKey));
@@ -90,6 +92,10 @@ export function CreativeResultCard({
   const canOpenEditor = Boolean(onOpenLayerEditor) && !isMobile && isCompleted && (hasReadyLayers || canLayerize);
   const needsLayerizeQuota = canOpenEditor && !hasReadyLayers;
   const editDisabled = needsLayerizeQuota && layerizeRemaining === 0;
+  const canSaveAsRecipe = isCompleted && isVisualRecipeCandidate({
+    format: output.targetFormat,
+    quality: output.quality,
+  });
   const storedBrandFidelity = output.quality?.brandFidelity as {
     deterministic?: DeterministicBrandFidelityReport;
     residual?: ResidualBrandFidelityReview;
@@ -253,8 +259,8 @@ export function CreativeResultCard({
                     setConfirmingSelection(true);
                     return;
                   }
-                  if (selectionPolicy.requiresConfirmation) onApprove(output.id, true);
-                  else onApprove(output.id);
+                  if (selectionPolicy.requiresConfirmation) onApprove(output.id, true, saveAsRecipe);
+                  else onApprove(output.id, false, saveAsRecipe);
                 }}
               >
                 <ActionStatusIcon state={isApproving ? "pending" : output.isSelected ? "success" : approvalError ? "error" : "idle"} />
@@ -279,6 +285,17 @@ export function CreativeResultCard({
             {layerization?.status === "completed" && onDownloadLayerized ? <button type="button" className={`${actionClass} border-[var(--focus-ring)]`} onClick={() => onDownloadLayerized(output.id, "psd")}>{t("downloadPsdWithLayers", { count: layerization.layers.length })}</button> : null}
             {onRevise ? <button type="button" className={actionClass} aria-expanded={editing} onClick={() => setEditing((value) => !value)}>{t("refine")}</button> : null}
           </div>
+          {canSaveAsRecipe && selectionPolicy?.selectable && !output.isSelected ? (
+            <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+              <input
+                type="checkbox"
+                data-testid="save-as-recipe"
+                checked={saveAsRecipe}
+                onChange={(event) => setSaveAsRecipe(event.target.checked)}
+              />
+              {t("saveAsRecipe")}
+            </label>
+          ) : null}
           {needsLayerizeQuota && layerizeRemaining !== null ? <p className="text-xs text-[var(--text-secondary)]">{t("layerizeQuotaRemaining", { count: layerizeRemaining })}</p> : null}
           {editing && onRevise ? (
             <form

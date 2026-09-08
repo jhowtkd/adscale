@@ -917,15 +917,21 @@ export function useSelectOutput() {
       outputId,
       saveToLibrary,
       confirmObjective,
+      saveAsRecipe,
     }: {
       workItemId: string;
       outputId: string;
       saveToLibrary: boolean;
       confirmObjective?: boolean;
+      saveAsRecipe?: boolean;
     }) =>
-      postJson<{ output: CreativeWorkOutput }>(
+      postJson<{ output: CreativeWorkOutput; recipe: unknown }>(
         `/api/creative-work/${workItemId}/outputs/${outputId}/select`,
-        { saveToLibrary, confirmObjective: confirmObjective ?? false },
+        {
+          saveToLibrary,
+          confirmObjective: confirmObjective ?? false,
+          saveAsRecipe: saveAsRecipe ?? false,
+        },
       ),
     onSuccess: async (_data, variables) => {
       // Saving the selected output materialises a new workspace asset. The
@@ -935,6 +941,7 @@ export function useSelectOutput() {
           queryKey: ["creative-work", variables.workItemId],
         }),
         queryClient.invalidateQueries({ queryKey: ["workspace-assets"] }),
+        queryClient.invalidateQueries({ queryKey: ["creative-work", "recipes"] }),
         invalidateCanonicalWorks(queryClient),
       ]);
     },

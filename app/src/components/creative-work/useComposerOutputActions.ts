@@ -25,6 +25,7 @@ export function useComposerOutputActions(input: {
       outputId: string;
       saveToLibrary: boolean;
       confirmObjective: boolean;
+      saveAsRecipe?: boolean;
     }) => Promise<unknown>;
   };
   reviseOutputMutation: {
@@ -94,7 +95,7 @@ export function useComposerOutputActions(input: {
     }
   }, [layerizeOutputMutation, setAnnouncement, setError, tResults, workIdRef]);
 
-  const approveOutput = useCallback(async (outputId: string, confirmObjective = false) => {
+  const approveOutput = useCallback(async (outputId: string, confirmObjective = false, saveAsRecipe = false) => {
     if (!workIdRef.current) return;
     setApprovalErrorOutputId(null);
     try {
@@ -103,8 +104,9 @@ export function useComposerOutputActions(input: {
         outputId,
         saveToLibrary: false,
         confirmObjective,
+        saveAsRecipe,
       });
-      setAnnouncement("Proposta aprovada");
+      setAnnouncement(saveAsRecipe ? tResults("savedAsRecipe") : "Proposta aprovada");
       recordCanonicalEvent("creative_work_approved", workIdRef.current, {
         protocol: toolKind === "social_post" ? "variations" : toolKind ?? "variations",
       });
@@ -118,7 +120,7 @@ export function useComposerOutputActions(input: {
     setAnnouncement,
     setApprovalErrorOutputId,
     setError,
-    toolKind,
+    tResults,
     workIdRef,
   ]);
 

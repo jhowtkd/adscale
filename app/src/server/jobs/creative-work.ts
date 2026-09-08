@@ -62,6 +62,7 @@ import {
   observeCreativeWorkStage,
 } from "@/server/creative-work/job-telemetry";
 import { runExactComposition } from "@/server/creative-work/composite";
+import { frozenExactBoxes } from "@/server/creative-work/visual-recipe";
 import {
   buildDeterministicBrandFidelity,
   buildResidualBrandFidelityReview,
@@ -1333,6 +1334,7 @@ const creativeWorkOutputJobHandler = async ({
           }
         : null;
       let textCompositionProvenance: TextCompositionProvenance | null = null;
+      const recipeFrozenBoxes = frozenExactBoxes(work.inputSnapshot?.visualRecipe);
 
       const composeApprovedText = async (
         outputKey: string,
@@ -1370,6 +1372,7 @@ const creativeWorkOutputJobHandler = async ({
             dimensions,
             assets: executionIdentityAssets,
             loadAsset: async (assetKey) => exactAssetBuffers.get(assetKey) ?? Promise.reject(new Error(`exact_asset_not_preflighted:${assetKey}`)),
+            ...(recipeFrozenBoxes ? { frozenBoxes: recipeFrozenBoxes } : {}),
           });
           await objectStorage.put(generatedOutputKey, result.buffer, "image/png");
           return {
@@ -1673,6 +1676,7 @@ const creativeWorkOutputJobHandler = async ({
                 dimensions,
                 assets: executionIdentityAssets,
                 loadAsset: async (assetKey) => exactAssetBuffers.get(assetKey) ?? Promise.reject(new Error(`exact_asset_not_preflighted:${assetKey}`)),
+                ...(recipeFrozenBoxes ? { frozenBoxes: recipeFrozenBoxes } : {}),
               });
               await objectStorage.put(
                 correctionOutputKey,

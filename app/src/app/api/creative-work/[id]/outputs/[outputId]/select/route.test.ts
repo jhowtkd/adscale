@@ -65,6 +65,7 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/select", () => {
       outputId: "output-1",
       saveToLibrary: true,
       confirmObjective: false,
+      saveAsRecipe: false,
     });
   });
 

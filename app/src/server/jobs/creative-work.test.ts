@@ -1839,6 +1839,56 @@ describe("creativeWorkOutputJob", () => {
     );
   });
 
+  it("reuses frozen recipe geometry instead of re-placing the logo", async () => {
+    const logoBox = { left: 40, top: 900, width: 200, height: 80 };
+    const logoAsset = identitySnapshot.assets[0]!;
+    getCreativeWorkMock.mockResolvedValue({
+      work: {
+        ...workItem,
+        toolKind: "single",
+        inputSnapshot: {
+          request: "H",
+          settings: { targetFormats: ["1:1"] },
+          sources: [],
+          visualRecipe: {
+            recipeId: "recipe-1",
+            version: 2,
+            originWorkId: "work-origin",
+            originOutputId: "out-origin",
+            format: "1:1",
+            layout: "top",
+            fontAssetKey: "font-1",
+            geometryFingerprint: "fp",
+            dimensions: { width: 1080, height: 1080 },
+            logo: {
+              referenceId: logoAsset.referenceId,
+              assetKey: logoAsset.assetKey,
+              category: "logo",
+              box: logoBox,
+            },
+            fixedAssets: [{
+              referenceId: logoAsset.referenceId,
+              assetKey: logoAsset.assetKey,
+              category: "logo",
+              box: logoBox,
+            }],
+            textBoxes: [],
+          },
+        },
+      },
+      outputs: [makeQueuedOutput()],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+    await runJob();
+
+    expect(runExactCompositionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        frozenBoxes: { [logoAsset.assetKey]: logoBox },
+      }),
+    );
+  });
+
   it("passes brief fields to analyzeDerivationCreative using the R5 mapping", async () => {
     getCreativeWorkMock.mockResolvedValue({
       work: workItem,

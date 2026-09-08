@@ -28,6 +28,8 @@ export interface ComposeExactBrandAssetLayer {
   clearspacePx?: number;
   /** Semi-transparent plate behind the asset when underlay contrast is weak. */
   backdrop?: { rgba: { r: number; g: number; b: number; alpha: number } };
+  /** Frozen recipe box; skips gravity/contrast placement. */
+  box?: PlacementBox;
 }
 
 const MIN_WIDTH_RATIO = 0.1;
@@ -218,6 +220,22 @@ export async function composeExactBrandAssets(
   const occupiedBoxes: PlacementBox[] = [];
 
   for (const layer of layers) {
+    if (layer.box) {
+      const resized = await sharp(layer.buffer)
+        .resize(Math.max(1, layer.box.width), Math.max(1, layer.box.height), { fit: "inside" })
+        .png()
+        .toBuffer();
+      if (occupiedBoxes.some((occupied) => boxesOverlap(layer.box, occupied))) {
+        throw new Error("exact_asset_placement_collision");
+      }
+      occupiedBoxes.push(layer.box);
+      composites.push({
+        input: resized,
+        left: layer.box.left,
+        top: layer.box.top,
+      });
+      continue;
+    }
     const resized = await buildResizedLayer(layer, dimensions);
     const pad = layer.clearspacePx ?? 0;
     const box = layerBox({
@@ -281,6 +299,8 @@ export async function runExactComposition(input: {
   dimensions: { width: number; height: number };
   assets: readonly CreativeWorkIdentityAssetSnapshot[];
   loadAsset: (assetKey: string) => Promise<Buffer>;
+  /** Frozen logo/asset boxes from a visual recipe; skips contrast re-placement. */
+  frozenBoxes?: Record<string, PlacementBox>;
 }): Promise<RunExactCompositionResult> {
   const staticPlan = buildStaticComposePlan({
     format: input.format,
@@ -338,6 +358,28 @@ export async function runExactComposition(input: {
         continue;
       }
       throw error;
+    }
+
+    const frozen = input.frozenBoxes?.[plan.assetKey] ?? input.frozenBoxes?.[plan.referenceId];
+    if (frozen) {
+      const layerPlan: CompositionLayerPlan = {
+        ...plan,
+        contrast: 0,
+        usedBackdrop: false,
+        status: "compose",
+        reason: "composed_from_recipe",
+        sourceSha256: sha256(buffer),
+        box: frozen,
+      };
+      occupiedBoxes.push(frozen);
+      finalLayers.push(layerPlan);
+      composeLayers.push({
+        buffer,
+        gravity: plan.gravity,
+        widthRatio: plan.widthRatio,
+        box: frozen,
+      });
+      continue;
     }
 
     const picked = await pickContrastSafePlacement({

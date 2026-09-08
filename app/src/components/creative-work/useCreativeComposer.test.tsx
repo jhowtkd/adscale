@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   brandKnowledge: vi.fn(() => ({ data: { activeVersion: null }, isLoading: false })),
   recordBetaEvent: vi.fn(),
   carouselController: vi.fn(),
+  instantiateRecipe: vi.fn(),
 }));
 
 // The carousel wizard controller has its own dedicated test file; the generic
@@ -58,6 +59,10 @@ vi.mock("@/lib/hooks/use-creative-work", async (importOriginal) => ({
   useResolveBrandConflict: () => ({ mutateAsync: mocks.resolveBrandConflict, isPending: mocks.resolveBrandConflictPending() }),
   useDownloadOutputUrl: () => (workItemId: string, outputId: string) => `/api/creative-work/${workItemId}/outputs/${outputId}/download`,
   useCreativeWorkCampaigns: () => ({ data: [] }),
+}));
+vi.mock("@/lib/hooks/use-visual-recipes", () => ({
+  useVisualRecipes: () => ({ data: [], isLoading: false }),
+  useInstantiateVisualRecipe: () => ({ mutateAsync: mocks.instantiateRecipe, isPending: false }),
 }));
 vi.mock("@/lib/hooks/use-brand-training", () => ({
   useBrandFonts: (...args: unknown[]) => mocks.brandFonts(...args),
@@ -211,6 +216,7 @@ describe("useCreativeComposer", () => {
     mocks.source.mockResolvedValue({ source: { id: "source-1" } });
     mocks.sourcePending.mockReturnValue(false);
     mocks.selectOutput.mockResolvedValue({});
+    mocks.instantiateRecipe.mockResolvedValue({ work: { id: TARGET_WORK_ID } });
     // clearAllMocks keeps mockReturnValue implementations — reset explicitly.
     mocks.resolveBrandConflictPending.mockReturnValue(false);
     mocks.brandFonts.mockReturnValue({ data: [], isLoading: false });
@@ -357,6 +363,19 @@ describe("useCreativeComposer", () => {
     await act(() => result.current.approveOutput("output-1"));
 
     expect(result.current.approvalErrorOutputId).toBeNull();
+  });
+
+  it("instantiates a visual recipe as a new single piece", async () => {
+    const { result } = renderHook(() => useCreativeComposer({ initialIntent: "variations" }));
+
+    await act(() => result.current.instantiateRecipe("recipe-1"));
+
+    expect(mocks.instantiateRecipe).toHaveBeenCalledWith(expect.objectContaining({
+      clientProfileId: profileA.id,
+      recipeId: "recipe-1",
+    }));
+    expect(result.current.workId).toBe(TARGET_WORK_ID);
+    expect(result.current.intent).toBe("single");
   });
 
   it("starts a new composer from the whitelisted intent and canonical quote", () => {

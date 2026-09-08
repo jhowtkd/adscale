@@ -193,7 +193,7 @@ describe("CreativeProposalGrid", () => {
     fireEvent.click(screen.getByRole("button", { name: "Baixar" }));
 
     expect(onRetry).toHaveBeenCalledWith(boldFailed.id);
-    expect(onApprove).toHaveBeenCalledWith(conservativeCompleted.id);
+    expect(onApprove).toHaveBeenCalledWith(conservativeCompleted.id, false, false);
     expect(onDownload).toHaveBeenCalledWith(conservativeCompleted.id);
   });
 

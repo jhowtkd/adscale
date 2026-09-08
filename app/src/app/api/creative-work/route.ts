@@ -3,6 +3,8 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { startSocialPostWork } from "@/server/application/start-social-post-work";
 import { analyzeCreativeWorkSource } from "@/server/application/analyze-creative-work-source";
 import { listCreativeInspirations } from "@/server/application/list-creative-inspirations";
+import { instantiateVisualRecipe } from "@/server/application/instantiate-visual-recipe";
+import { listVisualRecipes } from "@/server/repositories/visual-recipe";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { parseCatalogPageSearchParams } from "@/lib/catalog-page";
 import { listCanonicalWorks } from "@/server/creative-work/canonical/queries";
@@ -21,9 +23,17 @@ import {
   creativeWorkPreparationSchema,
   creativeWorkSettingsSchema,
   quoteCreativeWork,
+  socialPostCopySchema,
 } from "@/server/creative-work/contracts";
 import { deriveCreativeWorkTitle } from "@/server/creative-work/prepare";
 import { z } from "zod";
+
+const instantiateRecipeSchema = z.object({
+  clientProfileId: z.string().uuid(),
+  draftKey: z.string().uuid(),
+  recipeId: z.string().uuid(),
+  fields: socialPostCopySchema.partial().optional(),
+}).strict();
 
 const createDraftSchema = z.object({
   clientProfileId: z.string().uuid(),
@@ -47,7 +57,7 @@ const createDraftSchema = z.object({
   if (!parsed.success) parsed.error.issues.forEach((issue) => context.addIssue(issue));
 });
 
-const createBodySchema = z.union([createDraftSchema, createCreativeWorkSchema]);
+const createBodySchema = z.union([instantiateRecipeSchema, createDraftSchema, createCreativeWorkSchema]);
 
 /**
  * List workspace canonical works (Phase 5 / item 37 — history on complete).
@@ -86,6 +96,24 @@ export async function GET(request: Request) {
         nextCursor: inspirations.nextCursor,
       });
     }
+    if (searchParams.get("view") === "recipes") {
+      const parsedClientProfileId = z.string().uuid().safeParse(searchParams.get("clientProfileId"));
+      if (!parsedClientProfileId.success) {
+        return apiError("invalidInput", 400, parsedClientProfileId.error.flatten());
+      }
+      const page = parseCatalogPageSearchParams(searchParams);
+      if (page.error) {
+        return apiError("invalidInput", 400, { page: page.error });
+      }
+      const recipes = await listVisualRecipes(workspace.id, parsedClientProfileId.data, {
+        limit: page.limit,
+        cursor: page.cursor,
+      });
+      return NextResponse.json({
+        recipes: recipes.items,
+        nextCursor: recipes.nextCursor,
+      });
+    }
     const works = await listCanonicalWorks(workspace.id);
     return NextResponse.json({ works });
   } catch (error) {
@@ -104,6 +132,27 @@ export async function POST(request: Request) {
     const parsed = createBodySchema.safeParse(await request.json());
     if (!parsed.success) {
       return apiError("invalidInput", 400, parsed.error.flatten());
+    }
+
+    if ("recipeId" in parsed.data) {
+      const instantiated = await instantiateVisualRecipe({
+        workspaceId: workspace.id,
+        userId: user.id,
+        clientProfileId: parsed.data.clientProfileId,
+        draftKey: parsed.data.draftKey,
+        recipeId: parsed.data.recipeId,
+        fields: parsed.data.fields,
+      });
+      if (!instantiated.ok) {
+        if (instantiated.error.code === "recipe_not_found") return apiError("visualRecipeNotFound", 404);
+        if (instantiated.error.code === "brand_mismatch") return apiError("visualRecipeBrandMismatch", 409);
+        return apiError("clientProfileNotFound", 404);
+      }
+      return NextResponse.json({
+        work: instantiated.value.work,
+        canonical: projectCreativeWorkAsCanonicalWork(instantiated.value.work, []),
+        recipeVersion: instantiated.value.recipeVersion,
+      }, { status: 201 });
     }
 
     if ("draftKey" in parsed.data && (parsed.data.assetId || parsed.data.templateId)) {

@@ -512,4 +512,42 @@ describe("pickContrastSafePlacement + runExactComposition", () => {
     if (!a || !b) throw new Error("expected exact placement boxes");
     expect(a.left + a.width <= b.left || b.left + b.width <= a.left || a.top + a.height <= b.top || b.top + b.height <= a.top).toBe(true);
   });
+
+  it("keeps frozen recipe boxes instead of contrast gravity", async () => {
+    const navy = await sharp({
+      create: {
+        width: 108,
+        height: 135,
+        channels: 3,
+        background: { r: 7, g: 21, b: 34 },
+      },
+    })
+      .png()
+      .toBuffer();
+    const logo = await makeTransparentLayer(40, 16, { r: 255, g: 201, b: 20 });
+    const frozen = { left: 8, top: 90, width: 32, height: 16 };
+    const result = await runExactComposition({
+      base: navy,
+      format: "4:5",
+      dimensions: { width: 108, height: 135 },
+      frozenBoxes: { "ws/logo.png": frozen },
+      assets: [
+        {
+          referenceId: "logo-1",
+          assetKey: "ws/logo.png",
+          label: "Logo oficial",
+          category: "logo",
+          usageMode: "exact",
+          analysis: null,
+          mimeType: "image/png",
+          hasAlpha: true,
+          placement: { gravity: "southwest", widthRatio: 0.2 },
+        },
+      ],
+      loadAsset: async () => logo,
+    });
+    expect(result.provenance.composed[0]?.box).toEqual(frozen);
+    expect(result.provenance.composed[0]?.reason).toBeUndefined();
+    expect(result.provenance.composed[0]?.usedBackdrop).toBe(false);
+  });
 });

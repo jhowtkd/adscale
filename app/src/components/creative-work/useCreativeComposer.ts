@@ -161,6 +161,7 @@ export function useCreativeComposer({
     resolveBrandConflictMutation,
     downloadOutputUrl,
     campaignQuery,
+    visualRecipesQuery,
   } = queries;
 
   useComposerFieldRefs({
@@ -257,6 +258,7 @@ export function useCreativeComposer({
     keepCurrentDirections,
     addFiles,
     addInspiration,
+    instantiateRecipe,
     updateSource,
     editSource,
     retrySource,
@@ -424,7 +426,7 @@ export function useCreativeComposer({
       ? retryInitialTemplate
       : null,
     workError: Boolean(workId && detailQuery.isError),
-    addFiles, clearBufferedFile: () => setBufferedFile(null), addInspiration, updateSource, editSource, retrySource, removeSource, updatePieceReference, replacePieceReference, promotePieceReference, preparePlan, confirmGeneration, generateLegacy,
+    addFiles, clearBufferedFile: () => setBufferedFile(null), addInspiration, instantiateRecipe, visualRecipes: visualRecipesQuery.data, updateSource, editSource, retrySource, removeSource, updatePieceReference, replacePieceReference, promotePieceReference, preparePlan, confirmGeneration, generateLegacy,
     retryOutput, retryRevisionOutput, approveOutput, reviseOutput, linkCampaign,
     canLayerize: detail?.canLayerize ?? false,
     layerEditorAccess: detail?.layerEditorAccess,
