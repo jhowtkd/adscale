@@ -456,6 +456,7 @@ export async function executePlannedCalls(input: {
         billing: "unknown",
       });
       stopReason = "provider_error";
+      console.log(`SUNBURST-BATCH: ${input.batch} error ${call.callKey ?? call.caseId}: ${error instanceof Error ? error.message : String(error)}`);
       break;
     }
 
@@ -484,6 +485,9 @@ export async function executePlannedCalls(input: {
       requestedSize: result.providerMeta.observation?.requestedSize ?? null,
       returnedSize: result.providerMeta.observation?.returnedSize ?? null,
     });
+    console.log(
+      `SUNBURST-BATCH: ${input.batch} ${calls.length}/${input.planned.length} ${call.callKey ?? call.caseId} ${call.policy.quality} usd=${batchUsd.toFixed(4)} ${result.providerMeta.durationMs}ms`,
+    );
   }
 
   if (!stopReason) {
