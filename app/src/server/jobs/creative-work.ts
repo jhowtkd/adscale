@@ -170,6 +170,9 @@ function generationEvidence(
       rawRequestId: winner.rawRequestId ?? null,
     },
     excludedCalls: result.excludedCalls ?? [],
+    observations: (result.candidates ?? []).flatMap((candidate) =>
+      candidate.observation ? [candidate.observation] : [],
+    ),
   };
 }
 
@@ -191,6 +194,9 @@ function mergeGenerationEvidence(
       ...previous.excludedCalls.filter((call) => call.requestId === "requestIdMissing" || !seen.has(call.requestId)),
       ...next.excludedCalls,
     ],
+    observations: [...new Map(
+      [...(previous.observations ?? []), ...(next.observations ?? [])].map((item) => [item.callId, item]),
+    ).values()],
   };
 }
 

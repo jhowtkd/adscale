@@ -478,7 +478,18 @@ export async function runCreativeWorkCarouselSlide(input: {
       providerBaseKey,
       outputKey,
       previewKey,
-      quality: assessment.quality as unknown as Record<string, unknown>,
+      quality: {
+        ...assessment.quality,
+        generationEvidence: {
+          version: 1,
+          observations: (generated.candidates ?? []).flatMap((candidate) =>
+            candidate.observation ? [candidate.observation] : [],
+          ),
+          providerCalls: generated.providerCalls ?? null,
+          providerRetries: generated.providerRetries ?? null,
+          excludedCalls: generated.excludedCalls ?? [],
+        },
+      } as unknown as Record<string, unknown>,
     });
     if (!completed) {
       // Lost lease after a concurrent terminal transition: never double-settle.
