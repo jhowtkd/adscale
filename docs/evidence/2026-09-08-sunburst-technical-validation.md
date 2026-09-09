@@ -52,7 +52,7 @@ Os mocks de OpenAI/`generateAndStoreImage`/`executeCanonicalGeneration` não dis
 
 - Política validada (`gpt-image-2` legado, snapshot Image 2, snapshot Sunburst; `xhigh`/`max` só no Sunburst).
 - Coorte estável por workspace; percentual 0 = sempre legado.
-- Observador registra `image_api_call` antes de decode/upload; `usage` ausente é `null`; logs isolados do resultado cobrado.
+- Observador registra `image_api_call` antes do decode/upload; `usage` ausente é `null`; logs `started`/`response`/`error` isolados do resultado cobrado (falha de logger não aborta a API).
 - `GenerationRequest.renderPolicy` atravessa o executor canônico antes de `toProviderMode`.
 - Prepare congela a política no snapshot; jobs só resolvem o snapshot.
 - Evidência de correção une `observations` por `callId`.
@@ -61,8 +61,8 @@ Os mocks de OpenAI/`generateAndStoreImage`/`executeCanonicalGeneration` não dis
 
 ## Handoff
 
-Planos visual e de camadas: invariantes de revisão, testes de referência e código de regeneração já no mesmo branch. Protocolo de comparação, lotes pagos (incluindo I6) e qualidade vencedora continuam pendentes de corpus/orçamento aprovados. I5 (coerência de âncora após revisão visual) **não comprovado**. Publicação exige evidência visual e autorização explícita. Rollout interno previsto 10% → 50% → 100% de workspaces; rollback para 0 afeta trabalhos novos. Trabalhos Sunburst já congelados não devem ter a política reescrita em silêncio.
+Planos visual e de camadas: invariantes de revisão (incluindo o builder determinístico) e código de regeneração já no mesmo branch. Protocolo de comparação, lotes pagos (incluindo I6) e qualidade vencedora continuam pendentes de corpus/orçamento aprovados. I5 é **dívida funcional**: revisão de âncora não invalida dependentes; correção delimitada obrigatória antes de ativar carrossel. Publicação exige evidência visual e autorização explícita. Rollout interno previsto 10% → 50% → 100% de workspaces; rollback para 0 afeta trabalhos novos. Trabalhos Sunburst já congelados não devem ter a política reescrita em silêncio.
 
 ## Pendência de merge
 
-Novos arquivos em `app/src/server/ai/` disparam o gate anti-expansion (`check-primary-destinations.mjs`), que lê o snapshot da **base**, não deste PR. Antes do merge em `main` é necessária uma exceção aprovada atualizando `docs/decisions/allowed-primary-destinations.json` na base.
+Novos arquivos em `app/src/server/ai/` disparam o gate anti-expansion (`check-primary-destinations.mjs`), que lê o snapshot da **base**, não deste PR. A exceção está no PR #327; mergear essa exceção em `main` e rebasear este branch antes do CI completo. I5 permanece bloqueada.

@@ -390,6 +390,30 @@ describe("reviseCarouselSlide", () => {
     expect(slides.find((row) => row.id === "slide-1")?.isCurrent).toBe(false);
   });
 
+  it("does not invalidate dependent slides when an anchor is visually revised (I5 blocked)", async () => {
+    slides = slides.map((row) => (
+      row.position === 1 || row.position === 3
+        ? { ...row, anchorKey: "creative-work/work-1/anchor-board.png" }
+        : row
+    ));
+
+    const result = await reviseCarouselSlide({
+      ...slideInput,
+      kind: "visual",
+      instruction: "Troque o fundo da capa",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(carouselRepo.createCarouselSlideDescendant).toHaveBeenCalledOnce();
+    expect(settlement.startGenerationSettlement).toHaveBeenCalledTimes(1);
+    expect(adapters.carouselSlideSettlementAdapter).toHaveBeenCalledWith(
+      expect.objectContaining({ anchorKey: "creative-work/work-1/anchor-board.png" }),
+    );
+    expect(chainDispatch.dispatchNextCarouselStage).not.toHaveBeenCalled();
+    expect(slides.find((row) => row.id === "slide-3")?.isCurrent).toBe(true);
+    expect(slides.filter((row) => row.isCurrent)).toHaveLength(5);
+  });
+
   it("retry is accepted only from a failed current slide, creates one child with the same copy and settles one provider call without requeueing the parent", async () => {
     resetDeck({ 2: "failed" });
     const result = await reviseCarouselSlide({

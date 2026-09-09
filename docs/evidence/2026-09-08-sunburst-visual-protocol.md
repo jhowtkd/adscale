@@ -49,13 +49,17 @@ Principal + sequências + calibração: 141 ou 150 chamadas; teto adicional prop
 
 ## Código local já preparado (não substitui o ensaio)
 
-- Invariantes de revisão: `AUTHORIZED CHANGE` / `PRESERVE UNLESS EXPLICITLY CHANGED` no builder.
+- Invariantes de revisão: `AUTHORIZED CHANGE` / `PRESERVE UNLESS EXPLICITLY CHANGED` no builder **generativo e determinístico**. Pedido visual de revisão chega ao fundo sem copy gerada.
 - Referências: peça-base `revision` obrigatória em primeiro; âncora do carrossel primeiro nos slides não-âncora; limite de quatro.
 - Percentual Sunburst permanece 0.
 
+## I3 — revisão com tipografia determinística
+
+**Corrigido neste PR.** Com fonte aprovada (`textExecution: "deterministic"`), `buildProviderOnlyPrompt` agora recebe `mode` e `revisionInstruction`. A instrução e os invariantes entram no prompt do provedor; o contrato determinístico continua proibindo texto visível e a composição tipográfica permanece na aplicação.
+
 ## I5 — coerência de âncora após revisão visual
 
-**Não comprovado.** O fluxo existente gera o painel de âncoras na criação inicial e uma revisão visual de um slide cria um filho com o mesmo `anchorKey`, sem invalidar dependentes nem reconstruir o board. Não declarar I5 apenas porque o painel é gerado. Bloquear a promessa de coerência de deck sob revisão de âncora até uma correção delimitada.
+**Dívida funcional, não só QA visual.** O fluxo existente gera o painel de âncoras na criação inicial. Uma revisão visual de um slide âncora cria um filho com o mesmo `anchorKey` e **não** invalida slides dependentes nem reconstrói o board. Caracterizado em `revise-carousel.test.ts`. Bloquear ativação de carrossel Sunburst até uma correção delimitada de invalidação/reavaliação. Uma avaliação visual, sozinha, não implementa essa atualização.
 
 ## Visual Task 4 — lote pago
 
