@@ -88,12 +88,25 @@ function buildOperatorVisualDirection(
   return direction || "(none provided)";
 }
 
+function buildRevisionPolicyBlock(revisionInstruction?: string | null): string {
+  return [
+    "MODE POLICY — REVISION:",
+    "Use the revision reference as the accepted base piece. Apply only the authorized change while honoring the original factual contract.",
+    `AUTHORIZED CHANGE: ${revisionInstruction?.trim() || "No change authorized; preserve the base piece."}`,
+    "PRESERVE UNLESS EXPLICITLY CHANGED: product geometry and labels, subject identity, brand assets, framing, composition, colors, and all approved copy outside the requested edit.",
+    "Style references guide visual language only; they never authorize new facts, offers, prices, identities, or copy.",
+    "Preservation describes visual intent, not a guarantee of identical pixels. Exact assets remain governed by the composition contract.",
+  ].join("\n");
+}
+
 function buildProviderOnlyPrompt(input: {
   format: SocialPostFormat;
   copy: SocialPostCopy;
   inputSnapshot: CreativeWorkInputSnapshot;
   identitySnapshot: CreativeWorkIdentitySnapshot;
   creativeLevel: CreativeLevel;
+  mode?: GenerationMode;
+  revisionInstruction?: string | null;
   correction?: CreativeWorkObjectiveCorrection | null;
   references?: readonly CreativeWorkReferenceSlot[];
 }): string {
@@ -126,7 +139,13 @@ function buildProviderOnlyPrompt(input: {
         ]
       : []),
     "OPERATOR VISUAL DIRECTION (use for visual motifs and composition only; do not reproduce its wording):",
-    buildOperatorVisualDirection(input.inputSnapshot.request, input.copy),
+    buildOperatorVisualDirection(
+      input.mode === "creative_revision"
+        ? input.revisionInstruction?.trim() || input.inputSnapshot.request
+        : input.inputSnapshot.request,
+      input.copy,
+    ),
+    ...(input.mode === "creative_revision" ? ["", buildRevisionPolicyBlock(input.revisionInstruction)] : []),
     "Do not infer or reproduce any brand identity from text; the application owns all semantic content and exact assets.",
     "",
     buildReferenceRolesBlock(input.references ?? []),
@@ -555,14 +574,7 @@ function buildModePolicyBlock(input: BuildCreativeWorkPromptInput): string {
       ].join("\n");
     }
     case "creative_revision":
-      return [
-        "MODE POLICY — REVISION:",
-        "Use the revision reference as the accepted base piece. Apply only the authorized change while honoring the original factual contract.",
-        `AUTHORIZED CHANGE: ${input.revisionInstruction?.trim() || "No change authorized; preserve the base piece."}`,
-        "PRESERVE UNLESS EXPLICITLY CHANGED: product geometry and labels, subject identity, brand assets, framing, composition, colors, and all approved copy outside the requested edit.",
-        "Style references guide visual language only; they never authorize new facts, offers, prices, identities, or copy.",
-        "Preservation describes visual intent, not a guarantee of identical pixels. Exact assets remain governed by the composition contract.",
-      ].join("\n");
+      return buildRevisionPolicyBlock(input.revisionInstruction);
     case "social_post":
       // Peça única: one direct high-quality call from request + active brand.
       return [

@@ -577,6 +577,45 @@ describe("buildCreativeWorkPrompt", () => {
     expect(factPackSection(prompt)).toEqual(factPackSection(buildCreativeWorkPrompt(creativeWorkPromptInput())));
   });
 
+  it("carries a visual revision instruction through deterministic typography without drawing copy", () => {
+    const revision = "Troque somente o fundo por formas triangulares azul-marinho";
+    const prompt = buildCreativeWorkPrompt(creativeWorkPromptInput({
+      mode: "creative_revision",
+      revisionInstruction: revision,
+      textExecution: "deterministic",
+      copy: { headline: "HEADLINE_LITERAL_42", body: "BODY_LITERAL_42", cta: "CTA_LITERAL_42" },
+      references: [slot("revision", "peca-aprovada.png")],
+      inputSnapshot: {
+        request: LONG_REQUEST,
+        settings: { targetFormats: [] },
+        sources: [],
+        typographyPlan: {
+          version: 1,
+          execution: "deterministic",
+          format: "4:5",
+          requestedLayout: "top",
+          fontAssetKey: "fonts/geist.ttf",
+          fontSelection: "operator_selected",
+          overflowPolicy: { strategy: "autofit_then_fail", minimumDpi: { headline: 96, body: 72, cta: 72 } },
+          collisionPolicy: "relocate_layout_then_fail",
+          contrastPolicy: "brand_plate_wcag_aa",
+          safeAreaPolicy: "format_default",
+        },
+      },
+    }));
+
+    expect(prompt).toContain(`AUTHORIZED CHANGE: ${revision}`);
+    expect(prompt).toContain("PRESERVE UNLESS EXPLICITLY CHANGED:");
+    expect(prompt).toContain("product geometry and labels");
+    expect(prompt).toContain('- #1 [revision] "peca-aprovada.png" (required)');
+    expect(prompt).toContain("DETERMINISTIC TEXT CONTRACT:");
+    expect(prompt).toContain("Do not render any visible text, letters, words, labels or CTA");
+    expect(prompt).toContain("PROVIDER-ONLY LAYER OVERRIDE — HIGHEST PRIORITY:");
+    expect(prompt).not.toContain("HEADLINE_LITERAL_42");
+    expect(prompt).not.toContain("BODY_LITERAL_42");
+    expect(prompt).not.toContain("CTA_LITERAL_42");
+  });
+
   it("single piece transforms request and brand into one piece without the legacy brief block", () => {
     const prompt = buildCreativeWorkPrompt(
       creativeWorkPromptInput({ mode: "social_post", references: [] }),
