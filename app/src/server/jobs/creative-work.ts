@@ -6,6 +6,7 @@ import { objectStorage } from "@/server/storage";
 import { isRetryableProviderError } from "@/server/ai/image-generation";
 import { normalizeReferenceBuffers } from "@/server/ai/normalize-image-for-ai";
 import { executeCanonicalGeneration } from "@/server/generation/pipeline/execute";
+import { resolveImageRenderPolicy } from "@/server/ai/image-render-policy";
 import {
   runCreativeWorkPostGeneration,
   runCreativeWorkQualityAssessment,
@@ -1209,6 +1210,7 @@ const creativeWorkOutputJobHandler = async ({
         },
         executionPolicy: protocol?.execution,
         attempt: output.retryCount,
+        renderPolicy: resolveImageRenderPolicy(work.inputSnapshot?.renderPolicy),
       };
 
       // R-007: lease re-check between steps — abort BEFORE the provider call

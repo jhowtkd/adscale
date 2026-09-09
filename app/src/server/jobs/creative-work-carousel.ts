@@ -4,6 +4,7 @@ import { objectStorage } from "@/server/storage";
 import { normalizeReferenceBuffers } from "@/server/ai/normalize-image-for-ai";
 import sharp from "sharp";
 import { executeCanonicalGeneration } from "@/server/generation/pipeline/execute";
+import { resolveImageRenderPolicy } from "@/server/ai/image-render-policy";
 import {
   runCreativeWorkQualityAssessment,
 } from "@/server/generation/pipeline/post-generation";
@@ -266,6 +267,7 @@ export async function runCreativeWorkCarouselSlide(input: {
       },
       executionPolicy: "direct",
       attempt: claimed.versionNumber - 1,
+      renderPolicy: resolveImageRenderPolicy(work.inputSnapshot?.renderPolicy),
     };
 
     let generated;

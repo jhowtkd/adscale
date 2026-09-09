@@ -320,6 +320,32 @@ describe("runCreativeWorkCarouselSlide", () => {
       attempt: 0,
     });
     expect(request.identity.referenceImages).toHaveLength(1);
+    expect(request.renderPolicy).toEqual({
+      version: 1,
+      model: "gpt-image-2-2026-04-21",
+      quality: "medium",
+    });
+  });
+
+  it("forwards the frozen sunburst policy from the prepared carousel snapshot", async () => {
+    repo.getCreativeWork.mockResolvedValue({
+      ...workFixture(slide),
+      work: {
+        ...workFixture(slide).work,
+        inputSnapshot: {
+          ...workFixture(slide).work.inputSnapshot,
+          renderPolicy: { version: 1, model: "gpt-image-2.5-sunburst-2026-09-08", quality: "max" },
+        },
+      },
+    });
+
+    await runCreativeWorkCarouselSlide(input);
+
+    expect(executor.executeCanonicalGeneration.mock.calls[0]?.[0].renderPolicy).toEqual({
+      version: 1,
+      model: "gpt-image-2.5-sunburst-2026-09-08",
+      quality: "max",
+    });
   });
 
   it("persists the untouched provider base separately from the composed final output", async () => {

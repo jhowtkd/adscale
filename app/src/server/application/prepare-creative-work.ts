@@ -54,6 +54,7 @@ import {
   withCreativeWorkPreparationLock,
 } from "@/server/repositories/creative-work";
 import { env } from "@/server/validation/env";
+import { resolveImageRenderPolicy, selectImageRenderPolicy } from "@/server/ai/image-render-policy";
 
 /** Persisted roles are the only authority for preparation and conflict detection. */
 function resolveEffectiveSources<TSource extends { id: string; templateId: string | null; usage: CreativeSourceUsage }>(
@@ -98,7 +99,7 @@ export async function detectCreativeWorkDraftBrandConflict(input: {
 
 /** Compare snapshots ignoring the policy version, which is checked separately. */
 function withoutPolicyVersion(snapshot: CreativeWorkInputSnapshot | null) {
-  const rest = { ...snapshot };
+  const rest = { ...snapshot, renderPolicy: resolveImageRenderPolicy(snapshot?.renderPolicy) };
   delete rest.generationPolicyVersion;
   return rest;
 }
@@ -245,8 +246,12 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       // question ever appears without a confident conflict).
       brandAuthority,
     }), commercialOffer);
+    const renderPolicy = aggregate.work.inputSnapshot
+      ? resolveImageRenderPolicy(aggregate.work.inputSnapshot.renderPolicy)
+      : selectImageRenderPolicy(input.workspaceId, env.OPENAI_IMAGE_SUNBURST_PERCENT, env.OPENAI_IMAGE_SUNBURST_QUALITY);
     const snapshotBase: CreativeWorkInputSnapshot = {
       generationPolicyVersion: generationPolicyVersionFromSwitch(env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED),
+      renderPolicy,
       factPack,
       ...(typographyPlan ? { typographyPlan } : {}),
       request: aggregate.work.request,

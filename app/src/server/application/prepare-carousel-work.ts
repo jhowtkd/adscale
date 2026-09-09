@@ -26,6 +26,8 @@ import {
   withCreativeWorkPreparationLock,
 } from "../repositories/creative-work";
 import { getBrandKit } from "../repositories/brand-kit";
+import { resolveImageRenderPolicy, selectImageRenderPolicy } from "../ai/image-render-policy";
+import { env } from "../validation/env";
 
 export type PrepareCarouselWorkErrorCode =
   | "work_not_found"
@@ -52,9 +54,12 @@ export type PrepareCarouselWorkResult =
 
 /** Compare snapshots ignoring the policy version, which is checked separately. */
 function withoutPolicyVersion(snapshot: CreativeWorkInputSnapshot | null) {
-  const rest = { ...snapshot };
+  const rest = { ...snapshot, renderPolicy: resolveImageRenderPolicy(snapshot?.renderPolicy) };
   delete rest.generationPolicyVersion;
-  return rest;
+  return {
+    ...rest,
+    carousel: rest.carousel ? { ...rest.carousel, preparedRevision: undefined } : undefined,
+  };
 }
 
 /**
@@ -213,6 +218,10 @@ export async function prepareCarouselWork(input: {
         style: source.styleAnalysis,
       }));
 
+    const renderPolicy = work.inputSnapshot
+      ? resolveImageRenderPolicy(work.inputSnapshot.renderPolicy)
+      : selectImageRenderPolicy(input.workspaceId, env.OPENAI_IMAGE_SUNBURST_PERCENT, env.OPENAI_IMAGE_SUNBURST_QUALITY);
+
     const preparedRevision = `prep-${createHash("sha256")
       .update(canonicalJsonStringify({
         workId: work.id,
@@ -220,12 +229,14 @@ export async function prepareCarouselWork(input: {
         contractHash: visualContract.contractHash,
         factPack,
         sources: frozenSources,
+        renderPolicy,
       }))
       .digest("hex")
       .slice(0, 24)}`;
 
     const snapshot: CreativeWorkInputSnapshot = {
       generationPolicyVersion: "quality_recovery_v1",
+      renderPolicy,
       factPack,
       request: work.request,
       settings: work.settings,
