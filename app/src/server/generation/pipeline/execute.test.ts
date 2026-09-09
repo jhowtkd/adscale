@@ -264,6 +264,18 @@ describe("executeCanonicalGeneration parity", () => {
     );
     expect(mockSelectCandidate).not.toHaveBeenCalled();
   });
+
+  it("preserves render settings before provider mode conversion", async () => {
+    const renderPolicy = { version: 1 as const, model: "gpt-image-2.5-sunburst-2026-09-08" as const, quality: "max" as const };
+    const request = baseRequest({
+      surface: "quick_tool",
+      destination: { kind: "creative_work_output", id: "output-1", storagePrefix: "creative-work/output-1" },
+      intent: { mode: "creative_revision", objective: "change headline" },
+      executionPolicy: "direct", renderPolicy,
+    });
+    await executeCanonicalGeneration(request);
+    expect(mockGenerate).toHaveBeenCalledWith(expect.objectContaining({ renderPolicy, generationMode: "art_variation" }));
+  });
 });
 
 describe("executeCanonicalGeneration quality_recovery_v1 direct execution", () => {

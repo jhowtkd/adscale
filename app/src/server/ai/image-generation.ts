@@ -14,6 +14,8 @@ import type {
   ImageReference,
   ProviderGenerateInput,
 } from "./providers/image-provider";
+import type { ImageCallObservation } from "./image-call-observation";
+import type { ImageRenderPolicy } from "./image-render-policy";
 import { getImageRouteConcurrency } from "./image-runtime-config";
 import {
   createPipelineTimer,
@@ -37,6 +39,7 @@ export type GenerationCandidateMeta = {
   rawRequestId?: string;
   revisedPrompt?: string;
   selectionReason?: string;
+  observation?: ImageCallObservation;
 };
 
 export type ImagePipelineTelemetryContext = {
@@ -61,6 +64,7 @@ export interface GenerateAndStoreImageInput {
   attempt?: number;
   generationMode?: GenerationMode;
   quality?: "medium" | "high";
+  renderPolicy?: ImageRenderPolicy;
   routes?: Array<{ id: string; prompt: string }>;
   /** Direct quality-recovery outputs bypass candidate tournaments/refinement. */
   executionPolicy?: "direct" | "legacy_tournament";
@@ -212,6 +216,7 @@ async function generateUploadRoutesRound(
     quality: "medium" | "high";
     useMediumForRoutes: boolean;
     outputSuffix: string;
+    renderPolicy?: ImageRenderPolicy;
     onStageHeartbeat?: (stage: string) => Promise<void>;
     telemetry?: ImagePipelineTelemetryContext;
     maxCalls: number;
@@ -264,6 +269,7 @@ async function generateUploadRoutesRound(
             outputPrefix: base.outputPrefix,
             attempt: base.attempt,
             quality: base.useMediumForRoutes ? "medium" : base.quality,
+            renderPolicy: base.renderPolicy,
           };
           try {
             assertNotAborted();
@@ -436,6 +442,7 @@ export async function generateAndStoreImage(
     telemetry,
     onStageHeartbeat,
     callBudget,
+    renderPolicy,
   } = input;
 
   const budget = callBudget ?? { remaining: DEFAULT_IMAGE_PROVIDER_CALL_BUDGET };
@@ -478,6 +485,7 @@ export async function generateAndStoreImage(
     useMediumForRoutes: tournamentEnabled && Boolean(routes?.length),
     outputSuffix,
     onStageHeartbeat,
+    renderPolicy,
   };
 
   const firstRound = await generateUploadRoutesRound(provider, requestedRoutes, {
@@ -607,6 +615,7 @@ export async function generateAndStoreImage(
       revisedPrompt: c.providerMeta.revisedPrompt,
       selectionReason: idx === winnerIndex ? selectionReason : undefined,
       winner: idx === winnerIndex,
+      observation: c.providerMeta.observation,
     }));
 
   logger.info(

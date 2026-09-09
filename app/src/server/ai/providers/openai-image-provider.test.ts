@@ -134,4 +134,39 @@ describe("OpenAIImageProvider", () => {
       expect.objectContaining({ size }),
     );
   });
+
+  it.each(["high", "xhigh", "max"] as const)("sends explicit Sunburst %s with one call", async quality => {
+    mockGenerate.mockResolvedValue({ data: [{ b64_json: Buffer.from("png").toString("base64") }], usage: { output_tokens: 12 } });
+    const result = await new OpenAIImageProvider().generate({
+      prompt: "hero", dimensions: { width: 1080, height: 1350 }, referenceImages: [],
+      generationMode: "art_variation", outputPrefix: "test/sunburst",
+      renderPolicy: { version: 1, model: "gpt-image-2.5-sunburst-2026-09-08", quality },
+    });
+    expect(mockGenerate).toHaveBeenCalledOnce();
+    expect(mockGenerate).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-image-2.5-sunburst-2026-09-08", quality }), TRANSPORT);
+    expect(mockGenerate.mock.calls[0]?.[0]).not.toHaveProperty("input_fidelity");
+    expect(result.providerMeta.observation?.usage).toEqual({ output_tokens: 12 });
+  });
+
+  it("sends explicit Sunburst edit with one call", async () => {
+    mockEdit.mockResolvedValue({ data: [{ b64_json: Buffer.from("png").toString("base64") }], usage: { output_tokens: 12 } });
+    const result = await new OpenAIImageProvider().generate({
+      prompt: "hero",
+      dimensions: { width: 1080, height: 1350 },
+      referenceImages: [
+        { buffer: Buffer.from("ref"), mimeType: "image/png", name: "r.png" },
+      ],
+      generationMode: "art_variation",
+      outputPrefix: "test/sunburst",
+      renderPolicy: { version: 1, model: "gpt-image-2.5-sunburst-2026-09-08", quality: "max" },
+    });
+    expect(mockEdit).toHaveBeenCalledOnce();
+    expect(mockEdit).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "gpt-image-2.5-sunburst-2026-09-08", quality: "max" }),
+      TRANSPORT,
+    );
+    expect(mockEdit.mock.calls[0]?.[0]).not.toHaveProperty("input_fidelity");
+    expect(mockGenerate).not.toHaveBeenCalled();
+    expect(result.providerMeta.observation?.usage).toEqual({ output_tokens: 12 });
+  });
 });
