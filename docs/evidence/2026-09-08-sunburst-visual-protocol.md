@@ -1,6 +1,6 @@
 # Sunburst — protocolo visual e orçamento
 
-Data: 2026-09-09. Status: **corpus selecionado; smoke executado (12/12, ~US$0,51); demais lotes não autorizados**.
+Data: 2026-09-09. Status: **smoke executado (12/12, ~US$0,51); principal/sequências/calibração não fechados neste ciclo**. Calibração `high`/`xhigh`/`max` fica para execução manual posterior.
 
 Sunburst permanece o padrão proposto. A qualidade de produção será escolhida pela comparação visual entre `high` / `xhigh` / `max`. Não há redução automática para economizar. Flare está fora da migração inicial. Este documento não autoriza gasto nem deploy. Percentual Sunburst permanece **0**.
 
@@ -97,7 +97,11 @@ cd app && npm run sunburst:visual-smoke -- --confirm-paid --binaries-root /Users
 
 Parar se `usage` vier ausente (desconhecido, nunca zero) ou se o estimado Standard atingir US$10. Percentual Sunburst permanece 0. Flare fora. `maxRetries: 0`. Sem `input_fidelity`.
 
-Principal + sequências + calibração: teto adicional proposto US$50 **ainda não aprovado**.
+Principal + sequências + calibração: teto adicional proposto US$50. **Não executar neste ciclo.** Calibração será feita manualmente depois.
+
+### Encerrado em 2026-09-09
+
+O lote principal foi interrompido a pedido: sem novas chamadas pagas, sem sequências e sem calibração automática. Qualidade vencedora por operação permanece **desconhecida**. Percentual Sunburst permanece **0**. Diff de liberação não deve ser publicado a partir deste documento.
 
 
 ## Critérios de decisão (quando houver lote autorizado)
@@ -144,9 +148,9 @@ Revisão humana: abrir `docs/evidence/sunburst-visual-runs/smoke/review.html` **
 
 Generate sem referências **não** entrou neste 12: os seis casos do catálogo têm fontes, então o path de produto foi edit.
 
-### Ainda não autorizado
+### Fora deste ciclo
 
-Principal, sequências, calibração high/xhigh/max, Gate 8 e I6 visual. Qualidade vencedora por operação: **desconhecida**. Diff de liberação (percentual > 0) não deve ser publicado a partir deste documento.
+Principal completo, sequências, calibração high/xhigh/max (manual depois), Gate 8 e I6 visual. Qualidade vencedora por operação: **desconhecida**. Diff de liberação (percentual > 0) não deve ser publicado a partir deste documento.
 
 ## I6 — regeneração de camadas (lote à parte)
 
