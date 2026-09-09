@@ -36,7 +36,11 @@ export async function observeImageCall<T extends ImageResponseMetadata>(
     requested: policy,
     requestedSize: context.size,
   };
-  logger.info({ event: "image_api_call", ...base, status: "started" });
+  try {
+    logger.info({ event: "image_api_call", ...base, status: "started" });
+  } catch {
+    // Observability must never change provider or generation behavior.
+  }
   try {
     const response = await call();
     const observation: ImageCallObservation = {

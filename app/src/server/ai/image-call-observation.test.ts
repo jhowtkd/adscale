@@ -29,6 +29,22 @@ describe("observeImageCall", () => {
     expect(call).toHaveBeenCalledOnce();
     expect(logger.info).toHaveBeenCalledWith(expect.objectContaining({ event: "image_api_call", status: "error", usage: null, billing: "unknown" }));
   });
+  it("still invokes the provider when started logging fails", async () => {
+    vi.mocked(logger.info).mockClear();
+    const response = { data: [{ b64_json: "img" }], usage: { output_tokens: 1 }, _request_id: "req-start" };
+    const call = vi.fn().mockResolvedValue(response);
+    vi.mocked(logger.info).mockImplementation((payload: { status?: string }) => {
+      if (payload.status === "started") throw new Error("logger unavailable");
+    });
+    const result = await observeImageCall(
+      LEGACY_IMAGE_POLICY,
+      { key: "output-4", operation: "edit", size: "1088x1088" },
+      call,
+    );
+    expect(call).toHaveBeenCalledOnce();
+    expect(result.response).toBe(response);
+    expect(result.observation.usage).toEqual({ output_tokens: 1 });
+  });
   it("returns a billed success even if response logging fails", async () => {
     vi.mocked(logger.info).mockClear();
     const usage = { input_tokens: 4, output_tokens: 8 };
