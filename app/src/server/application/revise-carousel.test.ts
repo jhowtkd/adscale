@@ -354,9 +354,10 @@ describe("reviseCarouselSlide", () => {
     expect(textComposite.runCarouselTextComposition).not.toHaveBeenCalled();
   });
 
-  it("visual revision creates a draft child with the same contract and anchor, settles exactly one provider call and keeps the parent", async () => {
+  it("visual revision of a non-anchor creates one draft child, settles exactly one provider call and keeps the parent", async () => {
     const result = await reviseCarouselSlide({
       ...slideInput,
+      slideId: "slide-2",
       kind: "visual",
       instruction: "  Fundo mais claro  ",
     });
@@ -365,15 +366,16 @@ describe("reviseCarouselSlide", () => {
     if (!result.ok) return;
     expect(result.value.slide.status).toBe("draft");
 
+    expect(carouselRepo.createCarouselSlideDescendant).toHaveBeenCalledOnce();
     expect(carouselRepo.createCarouselSlideDescendant).toHaveBeenCalledWith(
       expect.objectContaining({
-        parentSlideId: "slide-1",
+        parentSlideId: "slide-2",
         status: "draft",
         providerBaseKey: null,
         outputKey: null,
         visualContractHash: CONTRACT_HASH,
         copyAuthority: "ai_proposal",
-        primaryText: "Texto primário 1 do grupo de terapia",
+        primaryText: "Texto primário 2 do grupo de terapia",
         generationOperationKey: REVISION_KEY,
       }),
     );
@@ -387,13 +389,31 @@ describe("reviseCarouselSlide", () => {
       operationKey: REVISION_KEY,
     });
     expect(settlement.startGenerationSettlement).toHaveBeenCalledTimes(1);
-    expect(slides.find((row) => row.id === "slide-1")?.isCurrent).toBe(false);
+    expect(chainDispatch.dispatchNextCarouselStage).not.toHaveBeenCalled();
+    expect(slides.find((row) => row.id === "slide-2")?.isCurrent).toBe(false);
+    expect(slides.find((row) => row.id === "slide-1")?.isCurrent).toBe(true);
+    expect(slides.find((row) => row.id === "slide-4")?.isCurrent).toBe(true);
   });
 
-  it("does not invalidate dependent slides when an anchor is visually revised (I5 blocked)", async () => {
+  it("visual revision of an anchor drafts dependents, clears set review and keeps other anchors", async () => {
+    repo.getCreativeWork.mockResolvedValue(
+      workFixture({
+        work: {
+          ...(workFixture().work as CreativeWorkItem),
+          carouselApprovedRevision: "deck-r1",
+          carouselQuality: {
+            version: 1,
+            objectivePassed: true,
+            advisoryWarnings: [],
+            contactSheetKey: "sheet",
+            reviewedAt: "2026-08-30T10:00:00.000Z",
+          },
+        },
+      } as { work: CreativeWorkItem; outputs: unknown[]; sources: unknown[] }),
+    );
     slides = slides.map((row) => (
-      row.position === 1 || row.position === 3
-        ? { ...row, anchorKey: "creative-work/work-1/anchor-board.png" }
+      row.position === 2 || row.position === 4
+        ? { ...row, anchorKey: "creative-work/work-1/carousel/prep-1/anchor-board.png" }
         : row
     ));
 
@@ -404,14 +424,56 @@ describe("reviseCarouselSlide", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(carouselRepo.createCarouselSlideDescendant).toHaveBeenCalledOnce();
+    const calls = carouselRepo.createCarouselSlideDescendant.mock.calls.map(
+      (call) => call[0] as Record<string, unknown>,
+    );
+    expect(calls.map((call) => call.parentSlideId)).toEqual(["slide-1", "slide-2", "slide-4"]);
+    expect(calls.slice(1)).toEqual([
+      expect.objectContaining({
+        parentSlideId: "slide-2",
+        status: "draft",
+        providerBaseKey: null,
+        outputKey: null,
+        generationOperationKey: `${REVISION_KEY}::dependent::slide-2`,
+      }),
+      expect.objectContaining({
+        parentSlideId: "slide-4",
+        status: "draft",
+        providerBaseKey: null,
+        outputKey: null,
+        generationOperationKey: `${REVISION_KEY}::dependent::slide-4`,
+      }),
+    ]);
     expect(settlement.startGenerationSettlement).toHaveBeenCalledTimes(1);
     expect(adapters.carouselSlideSettlementAdapter).toHaveBeenCalledWith(
-      expect.objectContaining({ anchorKey: "creative-work/work-1/anchor-board.png" }),
+      expect.objectContaining({ slideId: "child-slide-1", anchorKey: null }),
     );
     expect(chainDispatch.dispatchNextCarouselStage).not.toHaveBeenCalled();
+    expect(slides.find((row) => row.id === "slide-2")?.isCurrent).toBe(false);
     expect(slides.find((row) => row.id === "slide-3")?.isCurrent).toBe(true);
+    expect(slides.find((row) => row.id === "slide-4")?.isCurrent).toBe(false);
     expect(slides.filter((row) => row.isCurrent)).toHaveLength(5);
+
+    const setArg = dbMock.set.mock.calls[0][0] as {
+      carouselApprovedRevision: string | null;
+      carouselQuality: unknown;
+    };
+    expect(setArg.carouselApprovedRevision).toBeNull();
+    expect(setArg.carouselQuality).toBeNull();
+  });
+
+  it("rejects an anchor visual revision while a dependent is still generating", async () => {
+    resetDeck({ 2: "processing" });
+    const result = await reviseCarouselSlide({
+      ...slideInput,
+      kind: "visual",
+      instruction: "Troque o fundo da capa",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe("generation_in_flight");
+    expect(carouselRepo.createCarouselSlideDescendant).not.toHaveBeenCalled();
+    expect(settlement.startGenerationSettlement).not.toHaveBeenCalled();
   });
 
   it("retry is accepted only from a failed current slide, creates one child with the same copy and settles one provider call without requeueing the parent", async () => {
@@ -493,6 +555,47 @@ describe("reviseCarouselSlide", () => {
     expect(carouselRepo.createCarouselSlideDescendant).not.toHaveBeenCalled();
     expect(settlement.startGenerationSettlement).not.toHaveBeenCalled();
     expect(storage.objectStorage.put).not.toHaveBeenCalled();
+  });
+
+  it("replays an anchor visual revision by drafting remaining dependents without a second provider call", async () => {
+    const existing = carouselSlideRow({
+      id: "child-slide-1",
+      lineageId: "lineage-1",
+      parentSlideId: "slide-1",
+      versionNumber: 2,
+      position: 1,
+      role: "hook",
+      layoutFamily: "impact",
+      primaryText: "Texto primário 1 do grupo de terapia",
+      status: "draft",
+      generationOperationKey: REVISION_KEY,
+    });
+    dbState.selectRows.push([existing]);
+    slides = slides.map((row) => {
+      if (row.id === "slide-1") return { ...row, isCurrent: false };
+      if (row.position === 2 || row.position === 4) {
+        return { ...row, anchorKey: "creative-work/work-1/carousel/prep-1/anchor-board.png" };
+      }
+      return row;
+    });
+    slides = [...slides, existing];
+
+    const result = await reviseCarouselSlide({
+      ...slideInput,
+      kind: "visual",
+      instruction: "Troque o fundo da capa",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.replay).toBe(true);
+    expect(result.value.slide.id).toBe("child-slide-1");
+    expect(carouselRepo.createCarouselSlideDescendant.mock.calls.map(
+      (call) => (call[0] as { parentSlideId: string }).parentSlideId,
+    )).toEqual(["slide-2", "slide-4"]);
+    expect(settlement.startGenerationSettlement).not.toHaveBeenCalled();
+    expect(slides.find((row) => row.id === "slide-2")?.isCurrent).toBe(false);
+    expect(slides.find((row) => row.id === "slide-3")?.isCurrent).toBe(true);
   });
 });
 

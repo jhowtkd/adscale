@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import sharp from "sharp";
 import { and, eq } from "drizzle-orm";
 import {
+  carouselAnchorPositions,
   carouselLayoutFamilyForRole,
   resolveCarouselPreparedSnapshot,
   validateCarouselDeckStructure,
@@ -40,8 +41,9 @@ import { objectStorage } from "@/server/storage";
  * retry revisions create draft descendants that settle exactly one new
  * provider call through the one-slide settlement adapter, and deck revisions
  * reorder or redirect the whole deck without ever overwriting an older slide
- * version. New copy is validated against the frozen fact pack before any
- * descendant is written.
+ * version. Visual or retry of an anchor also drafts non-anchor dependents so
+ * the shared board is rebuilt after the new anchor completes. New copy is
+ * validated against the frozen fact pack before any descendant is written.
  */
 
 const CAROUSEL_CANVAS: Record<"4:5" | "1:1", { width: number; height: number }> = {
@@ -85,6 +87,7 @@ export type ReviseCarouselSlideErrorCode =
   | "provider_base_missing"
   | "invalid_context"
   | "composition_failed"
+  | "generation_in_flight"
   | "dispatch_failed";
 
 export type ReviseCarouselSlideResult =
@@ -272,9 +275,23 @@ export async function reviseCarouselSlide(
     )
     .limit(1);
   if (replayed) {
+    if (input.kind !== "copy") {
+      const propagated = await propagateAnchorRevisionToDependents({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        revisionKey: input.revisionKey,
+        deckRevision: snapshot.deck.revision,
+        visualContractHash: snapshot.visualContract.contractHash,
+        slideCount: snapshot.deck.slides.length,
+        revisedPosition: replayed.position,
+        currentSlides: slides,
+      });
+      if (!propagated.ok) return { ok: false, error: { code: propagated.code } };
+    }
+    const current = await listCurrentCarouselSlides(input.workspaceId, input.workItemId);
     return {
       ok: true,
-      value: { work, slide: replayed, slides, replay: true },
+      value: { work, slide: replayed, slides: current, replay: true },
     };
   }
 
@@ -293,6 +310,17 @@ export async function reviseCarouselSlide(
   }
   if (input.kind !== "retry" && slide.status !== "completed") {
     return { ok: false, error: { code: "slide_not_completed", details: { status: slide.status } } };
+  }
+
+  const anchorPositionSet = new Set(carouselAnchorPositions(snapshot.deck.slides.length));
+  const revisingAnchor = input.kind !== "copy" && anchorPositionSet.has(slide.position);
+  if (revisingAnchor) {
+    const inFlight = slides.some(
+      (row) =>
+        !anchorPositionSet.has(row.position) &&
+        (row.status === "queued" || row.status === "processing"),
+    );
+    if (inFlight) return { ok: false, error: { code: "generation_in_flight" } };
   }
 
   if (input.kind === "copy") {
@@ -372,8 +400,10 @@ export async function reviseCarouselSlide(
     };
   }
 
-  // visual | retry: one draft descendant, same contract and anchor, then the
-  // normal job flow generates it through its own one-slide settlement.
+  // visual | retry: one draft descendant, same contract, then the normal job
+  // flow generates it through its own one-slide settlement. Anchors never take
+  // the shared board as a reference; revising one also drafts dependents so
+  // the board is rebuilt after the new anchor completes.
   const child = await createCarouselSlideDescendant({
     workspaceId: input.workspaceId,
     workItemId: input.workItemId,
@@ -399,13 +429,27 @@ export async function reviseCarouselSlide(
       error: { code: "slide_version_conflict", details: { reason: "parent_no_longer_current" } },
     };
   }
+  if (revisingAnchor) {
+    const currentAfterChild = await listCurrentCarouselSlides(input.workspaceId, input.workItemId);
+    const propagated = await propagateAnchorRevisionToDependents({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      revisionKey: input.revisionKey,
+      deckRevision: snapshot.deck.revision,
+      visualContractHash: snapshot.visualContract.contractHash,
+      slideCount: snapshot.deck.slides.length,
+      revisedPosition: child.position,
+      currentSlides: currentAfterChild,
+    });
+    if (!propagated.ok) return { ok: false, error: { code: propagated.code } };
+  }
   const settled = await startGenerationSettlement(
     carouselSlideSettlementAdapter({
       workspaceId: input.workspaceId,
       workItemId: input.workItemId,
       slideId: child.id,
       userId: input.userId,
-      anchorKey: slide.anchorKey ?? null,
+      anchorKey: revisingAnchor ? null : (slide.anchorKey ?? null),
       operationKey: input.revisionKey,
     }),
   );
@@ -421,6 +465,82 @@ export async function reviseCarouselSlide(
     ok: true,
     value: { work: refreshed ?? work, slide: child, slides: current, replay: false },
   };
+}
+
+function dependentRevisionKey(revisionKey: string, parentSlideId: string): string {
+  return `${revisionKey}::dependent::${parentSlideId}`;
+}
+
+async function clearCarouselSetReview(workspaceId: string, workItemId: string): Promise<void> {
+  await db
+    .update(creativeWorkItems)
+    .set({
+      carouselApprovedRevision: null,
+      carouselQuality: null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(creativeWorkItems.workspaceId, workspaceId),
+        eq(creativeWorkItems.id, workItemId),
+      ),
+    );
+}
+
+async function propagateAnchorRevisionToDependents(input: {
+  workspaceId: string;
+  workItemId: string;
+  revisionKey: string;
+  deckRevision: string;
+  visualContractHash: string;
+  slideCount: number;
+  revisedPosition: number;
+  currentSlides: CreativeWorkCarouselSlide[];
+}): Promise<{ ok: true } | { ok: false; code: "generation_in_flight" | "slide_version_conflict" }> {
+  const anchorPositions = new Set(carouselAnchorPositions(input.slideCount));
+  if (!anchorPositions.has(input.revisedPosition)) return { ok: true };
+
+  const dependents = input.currentSlides.filter((slide) => !anchorPositions.has(slide.position));
+  if (dependents.some((slide) => slide.status === "queued" || slide.status === "processing")) {
+    return { ok: false, code: "generation_in_flight" };
+  }
+
+  for (const dependent of dependents) {
+    if (dependent.generationOperationKey.startsWith(`${input.revisionKey}::dependent::`)) {
+      continue;
+    }
+    const waitingForRebuiltBoard =
+      dependent.status === "draft" &&
+      dependent.anchorKey == null &&
+      dependent.outputKey == null &&
+      dependent.providerBaseKey == null;
+    if (waitingForRebuiltBoard) continue;
+
+    const child = await createCarouselSlideDescendant({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      parentSlideId: dependent.id,
+      deckRevision: input.deckRevision,
+      position: dependent.position,
+      role: dependent.role,
+      primaryText: dependent.primaryText,
+      secondaryText: dependent.secondaryText,
+      copyAuthority: dependent.copyAuthority,
+      sourceFactIds: dependent.sourceFactIds,
+      layoutFamily: dependent.layoutFamily,
+      visualContractHash: input.visualContractHash,
+      generationOperationKey: dependentRevisionKey(input.revisionKey, dependent.id),
+      status: "draft",
+      providerBaseKey: null,
+      outputKey: null,
+      previewKey: null,
+    });
+    if (!child) {
+      return { ok: false, code: "slide_version_conflict" };
+    }
+  }
+  await clearCarouselSetReview(input.workspaceId, input.workItemId);
+  return { ok: true };
 }
 
 function slideChanges(input: {
