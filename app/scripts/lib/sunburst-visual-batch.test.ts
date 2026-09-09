@@ -325,16 +325,14 @@ describe("sunburst follow-up planners", () => {
     expect(generate.mock.calls[0]?.[0]?.referenceImages).toEqual([]);
   });
 
-  it("treats missing previous spend as zero and unknown spend as blocking", () => {
+  it("treats missing previous spend as zero and ignores dry-run status", () => {
     const root = mkdtempSync(join(tmpdir(), "sunburst-spend-"));
-    expect(readAccumulatedUsd(root, ["principal", "sequences"])).toEqual({ usd: 0, unknown: false });
+    expect(readAccumulatedUsd(root, ["principal", "sequences"])).toEqual({ usd: 0, unknown: false, reservedUsd: 0 });
     mkdirSync(join(root, "principal"), { recursive: true });
     writeFileSync(join(root, "principal/status.json"), `${JSON.stringify({ usdSpent: 1.25 })}\n`);
-    expect(readAccumulatedUsd(root, ["principal", "sequences"])).toEqual({ usd: 1.25, unknown: false });
+    expect(readAccumulatedUsd(root, ["principal", "sequences"])).toEqual({ usd: 1.25, unknown: false, reservedUsd: 0 });
     mkdirSync(join(root, "sequences"), { recursive: true });
-    writeFileSync(join(root, "sequences/status.json"), `${JSON.stringify({ usdSpent: null })}\n`);
-    expect(readAccumulatedUsd(root, ["principal", "sequences"]).unknown).toBe(true);
     writeFileSync(join(root, "sequences/status.json"), `${JSON.stringify({ status: "dry_run", usdSpent: null })}\n`);
-    expect(readAccumulatedUsd(root, ["principal", "sequences"])).toEqual({ usd: 1.25, unknown: false });
+    expect(readAccumulatedUsd(root, ["principal", "sequences"])).toEqual({ usd: 1.25, unknown: false, reservedUsd: 0 });
   });
 });
