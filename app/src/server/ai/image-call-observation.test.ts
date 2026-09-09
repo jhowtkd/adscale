@@ -29,4 +29,26 @@ describe("observeImageCall", () => {
     expect(call).toHaveBeenCalledOnce();
     expect(logger.info).toHaveBeenCalledWith(expect.objectContaining({ event: "image_api_call", status: "error", usage: null, billing: "unknown" }));
   });
+  it("returns a billed success even if response logging fails", async () => {
+    vi.mocked(logger.info).mockClear();
+    const usage = { input_tokens: 4, output_tokens: 8 };
+    const response = { data: [{ b64_json: "img" }], usage, _request_id: "req-ok" };
+    const call = vi.fn().mockResolvedValue(response);
+    vi.mocked(logger.info)
+      .mockImplementationOnce(() => undefined)
+      .mockImplementationOnce(() => {
+        throw new Error("circular usage");
+      });
+    const result = await observeImageCall(
+      LEGACY_IMAGE_POLICY,
+      { key: "output-3", operation: "generate", size: "1088x1088" },
+      call,
+    );
+    expect(result.response).toBe(response);
+    expect(result.observation.usage).toEqual(usage);
+    expect(call).toHaveBeenCalledOnce();
+    expect(logger.info).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: "image_api_call", status: "error", billing: "unknown" }),
+    );
+  });
 });

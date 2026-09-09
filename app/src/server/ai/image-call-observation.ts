@@ -47,17 +47,25 @@ export async function observeImageCall<T extends ImageResponseMetadata>(
       durationMs: Date.now() - start,
       usage: response.usage ?? null,
     };
-    logger.info({ event: "image_api_call", ...observation, status: "response" });
+    try {
+      logger.info({ event: "image_api_call", ...observation, status: "response" });
+    } catch {
+      // Observability must never change provider or generation behavior.
+    }
     return { response, observation };
   } catch (error) {
-    logger.info({
-      event: "image_api_call",
-      ...base,
-      status: "error",
-      durationMs: Date.now() - start,
-      usage: null,
-      billing: "unknown",
-    });
+    try {
+      logger.info({
+        event: "image_api_call",
+        ...base,
+        status: "error",
+        durationMs: Date.now() - start,
+        usage: null,
+        billing: "unknown",
+      });
+    } catch {
+      // Observability must never change provider or generation behavior.
+    }
     throw error;
   }
 }
