@@ -1,6 +1,6 @@
 # Sunburst — protocolo visual e orçamento
 
-Data: 2026-09-09. Status: **corpus selecionado; orçamento não aprovado; lotes pagos não executados**.
+Data: 2026-09-09. Status: **smoke executado (12/12, ~US$0,51); principal/sequências/calibração não fechados neste ciclo**. Calibração `high`/`xhigh`/`max` fica para execução manual posterior.
 
 Sunburst permanece o padrão proposto. A qualidade de produção será escolhida pela comparação visual entre `high` / `xhigh` / `max`. Não há redução automática para economizar. Flare está fora da migração inicial. Este documento não autoriza gasto nem deploy. Percentual Sunburst permanece **0**.
 
@@ -77,16 +77,32 @@ Inspecionado em 2026-09-09 com `normalizeCreativeWorkReferenceImage` (long edge 
 - Absolut 2000×1500 conserva dimensão; o risco é banding do holofote e texto legal miúdo após WebP, não corte dimensional.
 - Quatro referências mantidas. Não aumentar limites globais por uma imagem problemática.
 
-## Lotes e tetos revisáveis (não executados)
+## Lotes e tetos
 
-| Lote | Chamadas propostas | Executável agora | Finalidade |
-|---|---:|---:|---|
-| Smoke | 6 casos × 2 modelos = 12 | 12 | Compatibilidade; teto proposto US$10 |
-| Comparação principal | 24 × 2 × 2 = 96 | 80 | Isolar modelo, generate+edit, mesma qualidade; 4 carrosséis fora |
-| Revisões sucessivas | 3 sequências × 3 alterações = 9 Sunburst | 9 | Acúmulo de deriva; +9 baseline se não houver controle equivalente |
-| Calibração | 6 × 3 qualidades × 2 = 36 | 36 | high/xhigh/max |
+| Lote | Chamadas | Autorização 2026-09-09 | Finalidade |
+|---|---:|---|---|
+| Smoke | 6 casos × 2 modelos = 12 | **aprovado**, teto US$10 | Compatibilidade no path de produto; qualidade `medium` nos dois modelos |
+| Comparação principal | 24 × 2 × 2 = 96 (80 executáveis) | não | Isolar modelo |
+| Revisões sucessivas | 9 Sunburst (+9 baseline) | não | Acúmulo de deriva |
+| Calibração | 36 | não | high/xhigh/max |
 
-Principal + sequências + calibração: 141 ou 150 no desenho original; **125 ou 134** enquanto o carrossel permanecer bloqueado. Teto adicional proposto US$50 **não muda**. Decks completos / Gate 8 / QA pago / I6 **não** estão nessa conta: levantar quantidade exata e acrescentar ao orçamento antes de executar. Não iniciar lote cujo máximo estimado exceda saldo aprovado.
+Smoke usa `OpenAIImageProvider` (edit, porque todos os 6 casos têm referências). Não usa o harness legado nem o provedor E2E controlado. Generate sem referências fica para um lote seguinte, se o teto restante e uma autorização extra permitirem — não entra nestas 12.
+
+**Execução 2026-09-09:** 12/12 ok, estimado Standard US$ 0,511, arquivos 1088×1360. Evidência: `docs/evidence/sunburst-visual-runs/smoke/`.
+
+```bash
+cd app && npm run sunburst:visual-smoke -- --dry-run --binaries-root /Users/jhonatan/Repos/ADScale_2
+cd app && npm run sunburst:visual-smoke -- --confirm-paid --binaries-root /Users/jhonatan/Repos/ADScale_2
+```
+
+Parar se `usage` vier ausente (desconhecido, nunca zero) ou se o estimado Standard atingir US$10. Percentual Sunburst permanece 0. Flare fora. `maxRetries: 0`. Sem `input_fidelity`.
+
+Principal + sequências + calibração: teto adicional proposto US$50. **Não executar neste ciclo.** Calibração será feita manualmente depois.
+
+### Encerrado em 2026-09-09
+
+O lote principal foi interrompido a pedido: sem novas chamadas pagas, sem sequências e sem calibração automática. Qualidade vencedora por operação permanece **desconhecida**. Percentual Sunburst permanece **0**. Diff de liberação não deve ser publicado a partir deste documento.
+
 
 ## Critérios de decisão (quando houver lote autorizado)
 
@@ -116,7 +132,25 @@ Principal + sequências + calibração: 141 ou 150 no desenho original; **125 ou
 
 ## Visual Task 4 — lote pago
 
-**Não executado.** Corpus selecionado; orçamento pendente de aprovação humana. Qualidade vencedora por operação: desconhecida. Diff de liberação (percentual > 0) não deve ser publicado a partir deste documento.
+### Smoke — executado 2026-09-09
+
+12/12 chamadas `images.edit` no `OpenAIImageProvider`. Qualidade pedida e devolvida: `medium`. Tamanho pedido e arquivo: **1088×1360** PNG. `usage` presente em todas (base `detailed`). Percentual Sunburst **0**. Flare fora. `maxRetries: 0`.
+
+| | Chamadas | Estimativa Standard | Duração média |
+|---|---:|---:|---:|
+| Image 2 (`gpt-image-2-2026-04-21`) | 6 | US$ 0,362 | 40,4 s |
+| Sunburst (`gpt-image-2.5-sunburst-2026-09-08`) | 6 | US$ 0,149 | 25,4 s |
+| Total | 12 | **US$ 0,511** / teto 10 | |
+
+Isso **não** é faturamento reconciliado nem veredito de qualidade. Sunburst devolveu 397 tokens de imagem de saída vs 1587 no Image 2, no mesmo `medium`; custo/latência menores não escolhem o modelo. `max` só vence se a imagem vencer, na calibração ainda não autorizada.
+
+Revisão humana: abrir `docs/evidence/sunburst-visual-runs/smoke/review.html` **antes** de `manifest.json` (lá está a chave A/B). PNGs gitignored, ficam no mesmo diretório `images/`.
+
+Generate sem referências **não** entrou neste 12: os seis casos do catálogo têm fontes, então o path de produto foi edit.
+
+### Fora deste ciclo
+
+Principal completo, sequências, calibração high/xhigh/max (manual depois), Gate 8 e I6 visual. Qualidade vencedora por operação: **desconhecida**. Diff de liberação (percentual > 0) não deve ser publicado a partir deste documento.
 
 ## I6 — regeneração de camadas (lote à parte)
 

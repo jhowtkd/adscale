@@ -1,0 +1,469 @@
+{
+  "status": "completed",
+  "batch": "smoke",
+  "sunburstPercent": 0,
+  "callCap": 12,
+  "usdCap": 10,
+  "usdSpent": 0.511018,
+  "stopReason": "call_cap",
+  "calls": [
+    {
+      "caseId": "piece-nike-just-do-it-4x5",
+      "slot": "control",
+      "model": "gpt-image-2-2026-04-21",
+      "quality": "medium",
+      "operation": "edit",
+      "blindLabel": "B",
+      "requestId": "req_059c5fb91a624c9493aa739bb4bfa6bc",
+      "durationMs": 33072,
+      "usage": {
+        "input_tokens": 1241,
+        "input_tokens_details": {
+          "image_tokens": 1152,
+          "text_tokens": 89
+        },
+        "output_tokens": 1587,
+        "output_tokens_details": {
+          "image_tokens": 1587,
+          "text_tokens": 0
+        },
+        "total_tokens": 2828
+      },
+      "usageEstimate": {
+        "usd": 0.057271,
+        "basis": "detailed"
+      },
+      "sha256": "efb9a0c46973504bc1020478c050925ff985059e5d64584048fe145a8da096c9",
+      "bytes": 1037829,
+      "image": "images/piece-nike-just-do-it-4x5-B.png",
+      "requestedSize": "1088x1360",
+      "returnedSize": "1088x1360"
+    },
+    {
+      "caseId": "piece-nike-just-do-it-4x5",
+      "slot": "candidate",
+      "model": "gpt-image-2.5-sunburst-2026-09-08",
+      "quality": "medium",
+      "operation": "edit",
+      "blindLabel": "A",
+      "requestId": "req_a3e15db2b2e845ca91f6d85278d9a125",
+      "durationMs": 14490,
+      "usage": {
+        "input_tokens": 1261,
+        "input_tokens_details": {
+          "image_tokens": 1152,
+          "text_tokens": 109
+        },
+        "output_tokens": 397,
+        "output_tokens_details": {
+          "image_tokens": 397,
+          "text_tokens": 0
+        },
+        "total_tokens": 1658
+      },
+      "usageEstimate": {
+        "usd": 0.021671,
+        "basis": "detailed"
+      },
+      "sha256": "a5bfe14c0e5754556c5bc3b2e7bef3edf621c49695df31e19ed30997f0b74e13",
+      "bytes": 498260,
+      "image": "images/piece-nike-just-do-it-4x5-A.png",
+      "requestedSize": "1088x1360",
+      "returnedSize": "1088x1360"
+    },
+    {
+      "caseId": "piece-mtv-network-id-4x5",
+      "slot": "control",
+      "model": "gpt-image-2-2026-04-21",
+      "quality": "medium",
+      "operation": "edit",
+      "blindLabel": "A",
+      "requestId": "req_84665e2e2fa5464cad68b9e96d46e823",
+      "durationMs": 48085,
+      "usage": {
+        "input_tokens": 939,
+        "input_tokens_details": {
+          "image_tokens": 856,
+          "text_tokens": 83
+        },
+        "output_tokens": 1587,
+        "output_tokens_details": {
+          "image_tokens": 1587,
+          "text_tokens": 0
+        },
+        "total_tokens": 2526
+      },
+      "usageEstimate": {
+        "usd": 0.054873,
+        "basis": "detailed"
+      },
+      "sha256": "6b49b49a81ddf7c87242fdda3d31ff28034067efe373ace628fe030c56e9d903",
+      "bytes": 2627687,
+      "image": "images/piece-mtv-network-id-4x5-A.png",
+      "requestedSize": "1088x1360",
+      "returnedSize": "1088x1360"
+    },
+    {
+      "caseId": "piece-mtv-network-id-4x5",
+      "slot": "candidate",
+      "model": "gpt-image-2.5-sunburst-2026-09-08",
+      "quality": "medium",
+      "operation": "edit",
+      "blindLabel": "B",
+      "requestId": "req_6d051e42e0fc48339dc5120443e6bc7b",
+      "durationMs": 22868,
+      "usage": {
+        "input_tokens": 959,
+        "input_tokens_details": {
+          "image_tokens": 856,
+          "text_tokens": 103
+        },
+        "output_tokens": 397,
+        "output_tokens_details": {
+          "image_tokens": 397,
+          "text_tokens": 0
+        },
+        "total_tokens": 1356
+      },
+      "usageEstimate": {
+        "usd": 0.019273,
+        "basis": "detailed"
+      },
+      "sha256": "fcb2ec33f96e7be0e9a6b645fdf3377a153c309586b6b8efdc09d1ffb9232ce7",
+      "bytes": 2504376,
+      "image": "images/piece-mtv-network-id-4x5-B.png",
+      "requestedSize": "1088x1360",
+      "returnedSize": "1088x1360"
+    },
+    {
+      "caseId": "piece-absolut-perfection-4x5",
+      "slot": "control",
+      "model": "gpt-image-2-2026-04-21",
+      "quality": "medium",
+      "operation": "edit",
+      "blindLabel": "B",
+      "requestId": "req_ea6fe0eb599f4f4db69d58c09b586fa8",
+      "durationMs": 39800,
+      "usage": {
+        "input_tokens": 1536,
+        "input_tokens_details": {
+          "image_tokens": 1452,
+          "text_tokens": 84
+        },
+        "output_tokens": 1587,
+        "output_tokens_details": {
+          "image_tokens": 1587,
+          "text_tokens": 0
+        },
+        "total_tokens": 3123
+      },
+      "usageEstimate": {
+        "usd": 0.059646,
+        "basis": "detailed"
+      },
+      "sha256": "e68da08bfe8a93a62077f597332ceac89088247bd8328eaa4a174072500c46f9",
+      "bytes": 1872230,
+      "image": "images/piece-absolut-perfection-4x5-B.png",
+      "requestedSize": "1088x1360",
+      "returnedSize": "1088x1360"
+    },
+    {
+      "caseId": "piece-absolut-perfection-4x5",
+      "slot": "candidate",
+      "model": "gpt-image-2.5-sunburst-2026-09-08",
+      "quality": "medium",
+      "operation": "edit",
+      "blindLabel": "A",
+      "requestId": "req_2c6c515256a54bb5b5e5ec26e3a74b91",
+      "durationMs": 35008,
+      "usage": {
+        "input_tokens": 1546,
+        "input_tokens_details": {
+          "image_tokens": 1452,
+          "text_tokens": 94
+        },
+        "output_tokens": 397,
+        "output_tokens_details": {
+          "image_tokens": 397,
+          "text_tokens": 0
+        },
+        "total_tokens": 1943
+      },
+      "usageEstimate": {
+        "usd": 0.023996,
+        "basis": "detailed"
+      },
+      "sha256": "7fdbeba7ffae08f05dd839b26bd55b325672e02534dfae0366228509db13ba93",
+      "bytes": 1776808,
+      "image": "images/piece-absolut-perfection-4x5-A.png",
+      "requestedSize": "1088x1360",
+      "returnedSize": "1088x1360"
+    },
+    {
+      "caseId": "variation-mtv-skin-change",
+      "slot": "control",
+      "model": "gpt-image-2-2026-04-21",
+      "quality": "medium",
+      "operation": "edit",
+      "blindLabel": "A",
+      "requestId": "req_1cde631837cf40ddb50fe20d9610740b",
+      "durationMs": 36134,
+      "usage": {
+        "input_tokens": 917,
+        "input_tokens_details": {
+          "image_tokens": 856,
+          "text_tokens": 61
+        },
+        "output_tokens": 1587,
+        "output_tokens_details": {
+          "image_tokens": 1587,
+          "text_tokens": 0
+        },
+        "total_tokens": 2504
+      },
+      "usageEstimate": {
+        "usd": 0.054763,
+        "basis": "detailed"
+      },
+      "sha256": "4b82e8bb1562fee0fa2f75a95e3c07943aa02650dd9a158666a4e950adc893a1",
+      "bytes": 2202244,
+      "image": "images/variation-mtv-skin-change-A.png",
+      "requestedSize": "1088x1360",
+      "returnedSize": "1088x1360"
+    },
+    {
+      "caseId": "variation-mtv-skin-change",
+      "slot": "candidate",
+      "model": "gpt-image-2.5-sunburst-2026-09-08",
+      "quality": "medium",
+      "operation": "edit",
+      "blindLabel": "B",
+      "requestId": "req_b1a6420bb62c40bba71b5246b574cafa",
+      "durationMs": 19601,
+      "usage": {
+        "input_tokens": 937,
+        "input_tokens_details": {
+          "image_tokens": 856,
+          "text_tokens": 81
+        },
+        "output_tokens": 397,
+        "output_tokens_details": {
+          "image_tokens": 397,
+          "text_tokens": 0
+        },
+        "total_tokens": 1334
+      },
+      "usageEstimate": {
+        "usd": 0.019163,
+        "basis": "detailed"
+      },
+      "sha256": "26d0a40d7cf15d1a2291acaba026fa63ca808781328e2e0240dbb1760c24e1bd",
+      "bytes": 2275142,
+      "image": "images/variation-mtv-skin-change-B.png",
+      "requestedSize": "1088x1360",
+      "returnedSize": "1088x1360"
+    },
+    {
+      "caseId": "restyle-absolut-keep-bottle",
+      "slot": "control",
+      "model": "gpt-image-2-2026-04-21",
+      "quality": "medium",
+      "operation": "edit",
+      "blindLabel": "B",
+      "requestId": "req_d139623761184100a6280064d3001c9f",
+      "durationMs": 42101,
+      "usage": {
+        "input_tokens": 2963,
+        "input_tokens_details": {
+          "image_tokens": 2914,
+          "text_tokens": 49
+        },
+        "output_tokens": 1587,
+        "output_tokens_details": {
+          "image_tokens": 1587,
+          "text_tokens": 0
+        },
+        "total_tokens": 4550
+      },
+      "usageEstimate": {
+        "usd": 0.071167,
+        "basis": "detailed"
+      },
+      "sha256": "476d0b492668a4361b15f8c3ee7116794c374f640a5ec0ff5271dfc4a380d774",
+      "bytes": 2609572,
+      "image": "images/restyle-absolut-keep-bottle-B.png",
+      "requestedSize": "1088x1360",
+      "returnedSize": "1088x1360"
+    },
+    {
+      "caseId": "restyle-absolut-keep-bottle",
+      "slot": "candidate",
+      "model": "gpt-image-2.5-sunburst-2026-09-08",
+      "quality": "medium",
+      "operation": "edit",
+      "blindLabel": "A",
+      "requestId": "req_c4488bdb841a4fcd90968ca495bdd766",
+      "durationMs": 36540,
+      "usage": {
+        "input_tokens": 2983,
+        "input_tokens_details": {
+          "image_tokens": 2914,
+          "text_tokens": 69
+        },
+        "output_tokens": 397,
+        "output_tokens_details": {
+          "image_tokens": 397,
+          "text_tokens": 0
+        },
+        "total_tokens": 3380
+      },
+      "usageEstimate": {
+        "usd": 0.035567,
+        "basis": "detailed"
+      },
+      "sha256": "09d7d2880f686f67437707514229d53ceb2d63c5dd3fe0e7266869e24576cdfe",
+      "bytes": 2019713,
+      "image": "images/restyle-absolut-keep-bottle-A.png",
+      "requestedSize": "1088x1360",
+      "returnedSize": "1088x1360"
+    },
+    {
+      "caseId": "review-nike-copy-only",
+      "slot": "control",
+      "model": "gpt-image-2-2026-04-21",
+      "quality": "medium",
+      "operation": "edit",
+      "blindLabel": "A",
+      "requestId": "req_d0e55810eec34d87954ca7228b556b60",
+      "durationMs": 43321,
+      "usage": {
+        "input_tokens": 2178,
+        "input_tokens_details": {
+          "image_tokens": 2038,
+          "text_tokens": 140
+        },
+        "output_tokens": 1587,
+        "output_tokens_details": {
+          "image_tokens": 1587,
+          "text_tokens": 0
+        },
+        "total_tokens": 3765
+      },
+      "usageEstimate": {
+        "usd": 0.064614,
+        "basis": "detailed"
+      },
+      "sha256": "d84f7d42d9ad3f6c09b78fd5039119f71521250dce330569f5357dccfb4eb767",
+      "bytes": 1690460,
+      "image": "images/review-nike-copy-only-A.png",
+      "requestedSize": "1088x1360",
+      "returnedSize": "1088x1360"
+    },
+    {
+      "caseId": "review-nike-copy-only",
+      "slot": "candidate",
+      "model": "gpt-image-2.5-sunburst-2026-09-08",
+      "quality": "medium",
+      "operation": "edit",
+      "blindLabel": "B",
+      "requestId": "req_a6143fde17dc4a0e827e7a2a615653f6",
+      "durationMs": 23761,
+      "usage": {
+        "input_tokens": 2198,
+        "input_tokens_details": {
+          "image_tokens": 2038,
+          "text_tokens": 160
+        },
+        "output_tokens": 397,
+        "output_tokens_details": {
+          "image_tokens": 397,
+          "text_tokens": 0
+        },
+        "total_tokens": 2595
+      },
+      "usageEstimate": {
+        "usd": 0.029014,
+        "basis": "detailed"
+      },
+      "sha256": "7e9a8155095b843cd351a389f8df2be05f3b19348d63c8ef22e50373fe1a8e07",
+      "bytes": 1477128,
+      "image": "images/review-nike-copy-only-B.png",
+      "requestedSize": "1088x1360",
+      "returnedSize": "1088x1360"
+    }
+  ],
+  "blindKey": [
+    {
+      "caseId": "piece-nike-just-do-it-4x5",
+      "slot": "control",
+      "model": "gpt-image-2-2026-04-21",
+      "blindLabel": "B"
+    },
+    {
+      "caseId": "piece-nike-just-do-it-4x5",
+      "slot": "candidate",
+      "model": "gpt-image-2.5-sunburst-2026-09-08",
+      "blindLabel": "A"
+    },
+    {
+      "caseId": "piece-mtv-network-id-4x5",
+      "slot": "control",
+      "model": "gpt-image-2-2026-04-21",
+      "blindLabel": "A"
+    },
+    {
+      "caseId": "piece-mtv-network-id-4x5",
+      "slot": "candidate",
+      "model": "gpt-image-2.5-sunburst-2026-09-08",
+      "blindLabel": "B"
+    },
+    {
+      "caseId": "piece-absolut-perfection-4x5",
+      "slot": "control",
+      "model": "gpt-image-2-2026-04-21",
+      "blindLabel": "B"
+    },
+    {
+      "caseId": "piece-absolut-perfection-4x5",
+      "slot": "candidate",
+      "model": "gpt-image-2.5-sunburst-2026-09-08",
+      "blindLabel": "A"
+    },
+    {
+      "caseId": "variation-mtv-skin-change",
+      "slot": "control",
+      "model": "gpt-image-2-2026-04-21",
+      "blindLabel": "A"
+    },
+    {
+      "caseId": "variation-mtv-skin-change",
+      "slot": "candidate",
+      "model": "gpt-image-2.5-sunburst-2026-09-08",
+      "blindLabel": "B"
+    },
+    {
+      "caseId": "restyle-absolut-keep-bottle",
+      "slot": "control",
+      "model": "gpt-image-2-2026-04-21",
+      "blindLabel": "B"
+    },
+    {
+      "caseId": "restyle-absolut-keep-bottle",
+      "slot": "candidate",
+      "model": "gpt-image-2.5-sunburst-2026-09-08",
+      "blindLabel": "A"
+    },
+    {
+      "caseId": "review-nike-copy-only",
+      "slot": "control",
+      "model": "gpt-image-2-2026-04-21",
+      "blindLabel": "A"
+    },
+    {
+      "caseId": "review-nike-copy-only",
+      "slot": "candidate",
+      "model": "gpt-image-2.5-sunburst-2026-09-08",
+      "blindLabel": "B"
+    }
+  ]
+}
