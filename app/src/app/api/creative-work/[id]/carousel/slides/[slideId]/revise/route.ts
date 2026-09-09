@@ -60,6 +60,7 @@ export async function POST(
         case "provider_base_missing": return apiError("carouselProviderBaseMissing", 409, result.error.details);
         case "invalid_context": return apiError("invalid_context", 422, result.error.details);
         case "composition_failed": return apiError("carouselCompositionFailed", 422, result.error.details);
+        case "generation_in_flight": return apiError("carouselDeckGenerationInFlight", 409);
         case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502, result.error.details);
       }
     }
