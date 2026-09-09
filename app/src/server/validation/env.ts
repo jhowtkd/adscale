@@ -22,6 +22,8 @@ export const envSchema = z.object({
   OPENAI_API_KEY: z.string().startsWith("sk-"),
   OPENAI_TEXT_MODEL: z.string().default("gpt-5.6-sol"),
   OPENAI_IMAGE_MODEL: z.string().default("gpt-image-2-2026-04-21"),
+  OPENAI_IMAGE_SUNBURST_PERCENT: z.coerce.number().int().min(0).max(100).default(0),
+  OPENAI_IMAGE_SUNBURST_QUALITY: z.enum(["medium", "high", "xhigh", "max"]).default("max"),
   ATLASCLOUD_API_KEY: z.string().min(1).optional(),
   R2_ACCOUNT_ID: z.string(),
   R2_ACCESS_KEY_ID: z.string(),

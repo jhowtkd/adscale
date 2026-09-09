@@ -6,6 +6,7 @@ import { objectStorage } from "@/server/storage";
 import { isRetryableProviderError } from "@/server/ai/image-generation";
 import { normalizeReferenceBuffers } from "@/server/ai/normalize-image-for-ai";
 import { executeCanonicalGeneration } from "@/server/generation/pipeline/execute";
+import { resolveImageRenderPolicy } from "@/server/ai/image-render-policy";
 import {
   runCreativeWorkPostGeneration,
   runCreativeWorkQualityAssessment,
@@ -169,6 +170,9 @@ function generationEvidence(
       rawRequestId: winner.rawRequestId ?? null,
     },
     excludedCalls: result.excludedCalls ?? [],
+    observations: (result.candidates ?? []).flatMap((candidate) =>
+      candidate.observation ? [candidate.observation] : [],
+    ),
   };
 }
 
@@ -190,6 +194,9 @@ function mergeGenerationEvidence(
       ...previous.excludedCalls.filter((call) => call.requestId === "requestIdMissing" || !seen.has(call.requestId)),
       ...next.excludedCalls,
     ],
+    observations: [...new Map(
+      [...(previous.observations ?? []), ...(next.observations ?? [])].map((item) => [item.callId, item]),
+    ).values()],
   };
 }
 
@@ -1209,6 +1216,7 @@ const creativeWorkOutputJobHandler = async ({
         },
         executionPolicy: protocol?.execution,
         attempt: output.retryCount,
+        renderPolicy: resolveImageRenderPolicy(work.inputSnapshot?.renderPolicy),
       };
 
       // R-007: lease re-check between steps — abort BEFORE the provider call

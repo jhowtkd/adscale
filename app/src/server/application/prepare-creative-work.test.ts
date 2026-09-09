@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const inferBrief = vi.hoisted(() => vi.fn());
 const reviewBrief = vi.hoisted(() => vi.fn());
-const envState = vi.hoisted(() => ({ qualityRecoveryEnabled: "false" }));
+const envState = vi.hoisted(() => ({
+  qualityRecoveryEnabled: "false",
+  sunburstPercent: 100,
+  sunburstQuality: "max" as const,
+}));
 const transactionExecutor = { scope: "preparation-tx" } as never;
 
 vi.mock("@/server/repositories/creative-work", () => ({
@@ -21,6 +25,12 @@ vi.mock("@/server/validation/env", () => ({
   env: {
     get CREATIVE_WORK_QUALITY_RECOVERY_ENABLED() {
       return envState.qualityRecoveryEnabled;
+    },
+    get OPENAI_IMAGE_SUNBURST_PERCENT() {
+      return envState.sunburstPercent;
+    },
+    get OPENAI_IMAGE_SUNBURST_QUALITY() {
+      return envState.sunburstQuality;
     },
   },
 }));
@@ -67,6 +77,8 @@ describe("prepareCreativeWork", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     envState.qualityRecoveryEnabled = "false";
+    envState.sunburstPercent = 100;
+    envState.sunburstQuality = "max";
     withLock.mockImplementation(async (_workspaceId, _workItemId, callback) => callback(transactionExecutor) as never);
     getKit.mockResolvedValue({ name: "Cenbrap", toneOfVoice: "Direto", requiredElements: null, prohibitedElements: null } as never);
     generateCopy.mockResolvedValue({ headline: "Julho", body: "Matricule-se", cta: "Saiba mais" });
@@ -532,11 +544,17 @@ describe("prepareCreativeWork", () => {
       return current as never;
     });
     const first = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    envState.sunburstPercent = 0;
     const second = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);
     expect(generateCopy).toHaveBeenCalledOnce();
     expect(updateDraft).toHaveBeenCalledOnce();
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+      inputSnapshot: expect.objectContaining({
+        renderPolicy: { version: 1, model: "gpt-image-2.5-sunburst-2026-09-08", quality: "max" },
+      }),
+    }), transactionExecutor);
   });
 
   it("reuses preparation when the persisted snapshot only differs in jsonb key order", async () => {
@@ -588,8 +606,49 @@ describe("prepareCreativeWork", () => {
         request: work.request,
         sources: [expect.objectContaining({ sourceId: "source-base" })],
         factPack: expect.objectContaining({ version: 1, request: work.request }),
+        renderPolicy: { version: 1, model: "gpt-image-2-2026-04-21", quality: "medium" },
       }),
     }), transactionExecutor);
+  });
+
+  it("freezes the candidate image policy in the preparation transaction", async () => {
+    getWork.mockResolvedValue({ work, outputs: [], sources: [readyVariationSource] } as never);
+    await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now,
+      expect.objectContaining({ inputSnapshot: expect.objectContaining({
+        renderPolicy: { version: 1, model: "gpt-image-2.5-sunburst-2026-09-08", quality: "max" },
+      }) }), transactionExecutor);
+  });
+
+  it("assigns a sunburst cohort on first prepare of a pinned commercial-offer draft", async () => {
+    getWork.mockResolvedValue({
+      work: {
+        ...work,
+        brief: null,
+        copy: null,
+        inputSnapshot: {
+          request: work.request,
+          settings: work.settings,
+          sources: [],
+          commercialOffer: {
+            offerId: "offer-1",
+            version: 1,
+            product: "Pós",
+            offer: "turma",
+            price: "R$ 497",
+            validFrom: "2026-01-01T00:00:00.000Z",
+            validUntil: "2027-12-01T00:00:00.000Z",
+          },
+        },
+      },
+      outputs: [],
+      sources: [readyVariationSource],
+    } as never);
+    await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now,
+      expect.objectContaining({ inputSnapshot: expect.objectContaining({
+        renderPolicy: { version: 1, model: "gpt-image-2.5-sunburst-2026-09-08", quality: "max" },
+      }) }), transactionExecutor);
   });
 
   it("freezes the policy version as legacy into the snapshot while the switch is disabled", async () => {

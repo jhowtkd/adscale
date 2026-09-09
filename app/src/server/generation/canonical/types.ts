@@ -6,6 +6,7 @@
 import type { CreativeWorkOrigin } from "@/server/creative-work/funnel-events";
 import type { ImageReference } from "@/server/ai/providers/image-provider";
 import type { ExcludedProviderCall, GenerationCandidateMeta } from "@/server/ai/image-generation";
+import type { ImageRenderPolicy } from "@/server/ai/image-render-policy";
 
 export type GenerationSurface = "campaign" | "assistant" | "quick_tool";
 
@@ -125,6 +126,8 @@ export interface GenerationRequest {
   attempt?: number;
   /** Assistant creative_revision only — enables job-level refund. */
   assistantActionId?: string | null;
+  /** Frozen image model and quality for the provider call. */
+  renderPolicy?: ImageRenderPolicy;
 }
 
 export interface GenerationResult {

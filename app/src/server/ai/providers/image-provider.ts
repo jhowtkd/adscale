@@ -13,6 +13,9 @@
  *    for log correlation
  */
 
+import type { ImageCallObservation } from "@/server/ai/image-call-observation";
+import type { ImageRenderPolicy } from "@/server/ai/image-render-policy";
+
 export type GenerationMode = "art_variation" | "format_adaptation" | "restyling";
 
 export type ImageReference = {
@@ -31,6 +34,7 @@ export type ProviderGenerateInput = {
   attempt?: number;
   quality?: "medium" | "high";
   seed?: number;
+  renderPolicy?: ImageRenderPolicy;
 };
 
 export type ImageCandidate = {
@@ -47,6 +51,7 @@ export type ImageCandidate = {
      * downstream callers.
      */
     revisedPrompt?: string;
+    observation?: ImageCallObservation;
   };
 };
 
