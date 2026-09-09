@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-08T10:08:18.091Z",
+  "generatedAt": "2026-09-09T11:01:39.813Z",
   "schemaVersion": 2,
-  "fingerprint": "9d880cd0f354fa006da4b661ef356aaa02b2e7a5a2ae301575996708f91f8f22",
+  "fingerprint": "23dad9a3c9cc022c10ae85dae20ba711c6395db663486139f1095c021ffd0067",
   "counts": {
     "dashboardPages": 15,
     "apiRoutes": 179,
@@ -1579,12 +1579,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/creative-work/CreativeComposer.tsx:307",
+      "id": "nav:app/src/components/creative-work/CreativeComposer.tsx:315",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/creative-work/CreativeComposer.tsx",
-      "line": 307,
-      "evidence": "app/src/components/creative-work/CreativeComposer.tsx:307",
+      "line": 315,
+      "evidence": "app/src/components/creative-work/CreativeComposer.tsx:315",
       "requiresDecision": false
     },
     {
@@ -1615,12 +1615,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:364",
+      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:548",
       "kind": "cta_navigation",
       "destination": "/billing",
       "file": "app/src/components/dashboard/DashboardHomeActions.tsx",
-      "line": 364,
-      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:364",
+      "line": 548,
+      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:548",
       "requiresDecision": false
     },
     {
