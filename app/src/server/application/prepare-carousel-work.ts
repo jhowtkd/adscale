@@ -62,6 +62,28 @@ function withoutPolicyVersion(snapshot: CreativeWorkInputSnapshot | null) {
   };
 }
 
+function freezeImageRenderPolicy(input: {
+  workspaceId: string;
+  snapshot: CreativeWorkInputSnapshot | null | undefined;
+  brief: unknown;
+  copy: unknown;
+}) {
+  if (input.snapshot?.renderPolicy) {
+    return resolveImageRenderPolicy(input.snapshot.renderPolicy);
+  }
+  const alreadyPrepared = Boolean(
+    input.snapshot?.generationPolicyVersion ||
+    (input.brief && input.copy) ||
+    input.snapshot?.carousel,
+  );
+  if (alreadyPrepared) return resolveImageRenderPolicy(undefined);
+  return selectImageRenderPolicy(
+    input.workspaceId,
+    env.OPENAI_IMAGE_SUNBURST_PERCENT,
+    env.OPENAI_IMAGE_SUNBURST_QUALITY,
+  );
+}
+
 /**
  * Freezes the carousel rhythm system: validates the approved deck, rebuilds
  * the fact pack from request + content authorities (style-only facts are
@@ -218,9 +240,12 @@ export async function prepareCarouselWork(input: {
         style: source.styleAnalysis,
       }));
 
-    const renderPolicy = work.inputSnapshot
-      ? resolveImageRenderPolicy(work.inputSnapshot.renderPolicy)
-      : selectImageRenderPolicy(input.workspaceId, env.OPENAI_IMAGE_SUNBURST_PERCENT, env.OPENAI_IMAGE_SUNBURST_QUALITY);
+    const renderPolicy = freezeImageRenderPolicy({
+      workspaceId: input.workspaceId,
+      snapshot: work.inputSnapshot,
+      brief: work.brief,
+      copy: work.copy,
+    });
 
     const preparedRevision = `prep-${createHash("sha256")
       .update(canonicalJsonStringify({

@@ -620,6 +620,37 @@ describe("prepareCreativeWork", () => {
       }) }), transactionExecutor);
   });
 
+  it("assigns a sunburst cohort on first prepare of a pinned commercial-offer draft", async () => {
+    getWork.mockResolvedValue({
+      work: {
+        ...work,
+        brief: null,
+        copy: null,
+        inputSnapshot: {
+          request: work.request,
+          settings: work.settings,
+          sources: [],
+          commercialOffer: {
+            offerId: "offer-1",
+            version: 1,
+            product: "Pós",
+            offer: "turma",
+            price: "R$ 497",
+            validFrom: "2026-01-01T00:00:00.000Z",
+            validUntil: "2027-12-01T00:00:00.000Z",
+          },
+        },
+      },
+      outputs: [],
+      sources: [readyVariationSource],
+    } as never);
+    await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now,
+      expect.objectContaining({ inputSnapshot: expect.objectContaining({
+        renderPolicy: { version: 1, model: "gpt-image-2.5-sunburst-2026-09-08", quality: "max" },
+      }) }), transactionExecutor);
+  });
+
   it("freezes the policy version as legacy into the snapshot while the switch is disabled", async () => {
     getWork.mockResolvedValue({ work, outputs: [], sources: [readyVariationSource] } as never);
     await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });

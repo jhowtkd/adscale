@@ -110,6 +110,28 @@ function withoutBriefing(snapshot: CreativeWorkInputSnapshot | null) {
   return rest;
 }
 
+function freezeImageRenderPolicy(input: {
+  workspaceId: string;
+  snapshot: CreativeWorkInputSnapshot | null | undefined;
+  brief: unknown;
+  copy: unknown;
+}) {
+  if (input.snapshot?.renderPolicy) {
+    return resolveImageRenderPolicy(input.snapshot.renderPolicy);
+  }
+  const alreadyPrepared = Boolean(
+    input.snapshot?.generationPolicyVersion ||
+    (input.brief && input.copy) ||
+    input.snapshot?.carousel,
+  );
+  if (alreadyPrepared) return resolveImageRenderPolicy(undefined);
+  return selectImageRenderPolicy(
+    input.workspaceId,
+    env.OPENAI_IMAGE_SUNBURST_PERCENT,
+    env.OPENAI_IMAGE_SUNBURST_QUALITY,
+  );
+}
+
 export async function prepareCreativeWork(input: { workspaceId: string; workItemId: string }) {
   return withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (executor) => {
     const aggregate = await getCreativeWork(input.workspaceId, input.workItemId, executor);
@@ -246,9 +268,12 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       // question ever appears without a confident conflict).
       brandAuthority,
     }), commercialOffer);
-    const renderPolicy = aggregate.work.inputSnapshot
-      ? resolveImageRenderPolicy(aggregate.work.inputSnapshot.renderPolicy)
-      : selectImageRenderPolicy(input.workspaceId, env.OPENAI_IMAGE_SUNBURST_PERCENT, env.OPENAI_IMAGE_SUNBURST_QUALITY);
+    const renderPolicy = freezeImageRenderPolicy({
+      workspaceId: input.workspaceId,
+      snapshot: aggregate.work.inputSnapshot,
+      brief: aggregate.work.brief,
+      copy: aggregate.work.copy,
+    });
     const snapshotBase: CreativeWorkInputSnapshot = {
       generationPolicyVersion: generationPolicyVersionFromSwitch(env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED),
       renderPolicy,
