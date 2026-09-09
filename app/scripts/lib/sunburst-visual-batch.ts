@@ -250,7 +250,8 @@ export function readAccumulatedUsd(runsRoot: string, batches: readonly string[])
   for (const batch of batches) {
     const statusPath = resolve(runsRoot, batch, "status.json");
     if (!existsSync(statusPath)) continue;
-    const parsed = JSON.parse(readFileSync(statusPath, "utf8")) as { usdSpent?: unknown };
+    const parsed = JSON.parse(readFileSync(statusPath, "utf8")) as { usdSpent?: unknown; status?: unknown };
+    if (parsed.status === "dry_run") continue;
     if (parsed.usdSpent == null) return { usd: 0, unknown: true };
     const value = asFiniteNumber(parsed.usdSpent);
     if (value == null) return { usd: 0, unknown: true };

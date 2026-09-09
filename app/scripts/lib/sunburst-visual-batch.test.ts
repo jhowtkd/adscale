@@ -334,5 +334,7 @@ describe("sunburst follow-up planners", () => {
     mkdirSync(join(root, "sequences"), { recursive: true });
     writeFileSync(join(root, "sequences/status.json"), `${JSON.stringify({ usdSpent: null })}\n`);
     expect(readAccumulatedUsd(root, ["principal", "sequences"]).unknown).toBe(true);
+    writeFileSync(join(root, "sequences/status.json"), `${JSON.stringify({ status: "dry_run", usdSpent: null })}\n`);
+    expect(readAccumulatedUsd(root, ["principal", "sequences"])).toEqual({ usd: 1.25, unknown: false });
   });
 });
