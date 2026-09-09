@@ -144,4 +144,21 @@ describe("sunburst visual smoke planner", () => {
     expect(result.stopReason).toBe("usage_unknown");
     expect(result.usdSpent).toBeNull();
   });
+
+  it("records a provider error as unknown billing and stops", async () => {
+    const generate = vi.fn().mockRejectedValue(new Error("model_not_found"));
+    const result = await runSmokeBatch({
+      catalog: catalog(),
+      binariesRoot: binariesRoot(),
+      outDir: mkdtempSync(join(tmpdir(), "sunburst-smoke-out-")),
+      confirmPaid: true,
+      dryRun: false,
+      generate,
+      coin: () => true,
+    });
+    expect(generate).toHaveBeenCalledOnce();
+    expect(result.stopReason).toBe("provider_error");
+    expect(result.usdSpent).toBeNull();
+    expect(result.calls[0]).toMatchObject({ billing: "unknown", usage: null });
+  });
 });

@@ -286,14 +286,35 @@ export async function runSmokeBatch(input: {
       });
     }
 
-    const result = await input.generate!({
-      prompt: call.prompt,
-      dimensions: call.dimensions,
-      referenceImages,
-      generationMode: generationModeFor(call.family),
-      outputPrefix: `sunburst-smoke/${call.caseId}/${call.slot}`,
-      renderPolicy: call.policy,
-    });
+    let result;
+    try {
+      result = await input.generate!({
+        prompt: call.prompt,
+        dimensions: call.dimensions,
+        referenceImages,
+        generationMode: generationModeFor(call.family),
+        outputPrefix: `sunburst-smoke/${call.caseId}/${call.slot}`,
+        renderPolicy: call.policy,
+      });
+    } catch (error) {
+      lastUsageUnknown = true;
+      calls.push({
+        caseId: call.caseId,
+        slot: call.slot,
+        model: call.policy.model,
+        quality: call.policy.quality,
+        operation: call.operation,
+        blindLabel: call.blindLabel,
+        requestId: null,
+        durationMs: null,
+        usage: null,
+        usageEstimate: { usd: null, basis: "unknown" },
+        error: error instanceof Error ? error.message : String(error),
+        billing: "unknown",
+      });
+      stopReason = "provider_error";
+      break;
+    }
 
     const usage = result.providerMeta.observation?.usage ?? null;
     const estimate = estimateStandardUsd(usage);
