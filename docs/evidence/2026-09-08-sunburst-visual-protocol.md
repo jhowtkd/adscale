@@ -1,6 +1,6 @@
 # Sunburst — protocolo visual e orçamento
 
-Data: 2026-09-09. Status: **corpus selecionado; smoke autorizado (12 chamadas / US$10); demais lotes não autorizados; smoke ainda não executado**.
+Data: 2026-09-09. Status: **corpus selecionado; smoke executado (12/12, ~US$0,51); demais lotes não autorizados**.
 
 Sunburst permanece o padrão proposto. A qualidade de produção será escolhida pela comparação visual entre `high` / `xhigh` / `max`. Não há redução automática para economizar. Flare está fora da migração inicial. Este documento não autoriza gasto nem deploy. Percentual Sunburst permanece **0**.
 
@@ -88,6 +88,8 @@ Inspecionado em 2026-09-09 com `normalizeCreativeWorkReferenceImage` (long edge 
 
 Smoke usa `OpenAIImageProvider` (edit, porque todos os 6 casos têm referências). Não usa o harness legado nem o provedor E2E controlado. Generate sem referências fica para um lote seguinte, se o teto restante e uma autorização extra permitirem — não entra nestas 12.
 
+**Execução 2026-09-09:** 12/12 ok, estimado Standard US$ 0,511, arquivos 1088×1360. Evidência: `docs/evidence/sunburst-visual-runs/smoke/`.
+
 ```bash
 cd app && npm run sunburst:visual-smoke -- --dry-run --binaries-root /Users/jhonatan/Repos/ADScale_2
 cd app && npm run sunburst:visual-smoke -- --confirm-paid --binaries-root /Users/jhonatan/Repos/ADScale_2
@@ -126,7 +128,25 @@ Principal + sequências + calibração: teto adicional proposto US$50 **ainda n�
 
 ## Visual Task 4 — lote pago
 
-Smoke **autorizado** em 2026-09-09 (12 chamadas, teto US$10). **Ainda não executado.** Principal, sequências, calibração, Gate 8 e I6 visual continuam sem autorização. Qualidade vencedora por operação: desconhecida. Diff de liberação (percentual > 0) não deve ser publicado a partir deste documento.
+### Smoke — executado 2026-09-09
+
+12/12 chamadas `images.edit` no `OpenAIImageProvider`. Qualidade pedida e devolvida: `medium`. Tamanho pedido e arquivo: **1088×1360** PNG. `usage` presente em todas (base `detailed`). Percentual Sunburst **0**. Flare fora. `maxRetries: 0`.
+
+| | Chamadas | Estimativa Standard | Duração média |
+|---|---:|---:|---:|
+| Image 2 (`gpt-image-2-2026-04-21`) | 6 | US$ 0,362 | 40,4 s |
+| Sunburst (`gpt-image-2.5-sunburst-2026-09-08`) | 6 | US$ 0,149 | 25,4 s |
+| Total | 12 | **US$ 0,511** / teto 10 | |
+
+Isso **não** é faturamento reconciliado nem veredito de qualidade. Sunburst devolveu 397 tokens de imagem de saída vs 1587 no Image 2, no mesmo `medium`; custo/latência menores não escolhem o modelo. `max` só vence se a imagem vencer, na calibração ainda não autorizada.
+
+Revisão humana: abrir `docs/evidence/sunburst-visual-runs/smoke/review.html` **antes** de `manifest.json` (lá está a chave A/B). PNGs gitignored, ficam no mesmo diretório `images/`.
+
+Generate sem referências **não** entrou neste 12: os seis casos do catálogo têm fontes, então o path de produto foi edit.
+
+### Ainda não autorizado
+
+Principal, sequências, calibração high/xhigh/max, Gate 8 e I6 visual. Qualidade vencedora por operação: **desconhecida**. Diff de liberação (percentual > 0) não deve ser publicado a partir deste documento.
 
 ## I6 — regeneração de camadas (lote à parte)
 
