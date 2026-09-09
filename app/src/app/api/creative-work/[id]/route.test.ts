@@ -315,6 +315,37 @@ describe("GET /api/creative-work/[id]", () => {
     vi.restoreAllMocks();
   });
 
+  it("catches up generating work status once outputs are terminal", async () => {
+    refreshStatusMock.mockResolvedValue("partial");
+    const terminalOutputs = [
+      { ...outputs[0], id: "o1", creativeLevel: "conservative", status: "completed" },
+      { ...outputs[0], id: "o2", creativeLevel: "balanced", status: "completed" },
+      { ...outputs[0], id: "o3", creativeLevel: "bold", status: "failed" },
+    ];
+    getWorkMock
+      .mockResolvedValueOnce({
+        work: { ...workItem, status: "generating" },
+        outputs: terminalOutputs,
+        sources: [],
+      })
+      .mockResolvedValueOnce({
+        work: { ...workItem, status: "partial" },
+        outputs: terminalOutputs,
+        sources: [],
+      });
+
+    const res = await GET(
+      new Request("http://localhost/api/creative-work/work-1"),
+      { params: makeParams("work-1") },
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(refreshStatusMock).toHaveBeenCalledWith("workspace-1", "work-1");
+    expect(getWorkMock).toHaveBeenCalledTimes(2);
+    expect(body.work.status).toBe("partial");
+  });
+
   it("returns work, outputs, and canonical projection", async () => {
     const inferredBriefing = {
       version: 1,
