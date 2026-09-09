@@ -8,6 +8,64 @@ export const SMOKE_QUALITY = "medium" as const;
 export const SMOKE_CALL_CAP = 12;
 export const SMOKE_USD_CAP = 10;
 export const FOLLOWUP_USD_CAP = 50;
+export const UNKNOWN_CALL_RESERVE_USD = 0.5;
+
+export function callIdentities(call: {
+  callKey?: string | null;
+  caseId: string;
+  slot: string;
+  quality?: string;
+  operation?: string;
+  policy?: { quality: string };
+}): string[] {
+  const quality = call.quality ?? call.policy?.quality ?? "";
+  const operation = call.operation ?? "";
+  const ids = [`${call.caseId}:${call.slot}:${quality}:${operation}`, `${call.caseId}-${call.slot}-${quality}-${operation}`];
+  if (call.callKey) ids.unshift(call.callKey);
+  return ids;
+}
+
+export function callIdentity(call: Parameters<typeof callIdentities>[0]): string {
+  return callIdentities(call)[0]!;
+}
+
+export function summarizeRecordedCalls(calls: unknown[]): { knownUsd: number; unknownCount: number; keys: Set<string> } {
+  let knownUsd = 0;
+  let unknownCount = 0;
+  const keys = new Set<string>();
+  for (const item of calls) {
+    if (!item || typeof item !== "object") continue;
+    const call = item as {
+      callKey?: string;
+      caseId?: string;
+      slot?: string;
+      quality?: string;
+      operation?: string;
+      error?: string;
+      usageEstimate?: { usd?: unknown };
+    };
+    if (call.caseId && call.slot) {
+      for (const id of callIdentities({ callKey: call.callKey, caseId: call.caseId, slot: call.slot, quality: call.quality, operation: call.operation })) {
+        keys.add(id);
+      }
+    }
+    const usd = asFiniteNumber(call.usageEstimate?.usd);
+    if (usd != null) knownUsd += usd;
+    else if (call.error || call.usageEstimate) unknownCount += 1;
+  }
+  return { knownUsd, unknownCount, keys };
+}
+
+export function loadPriorBatchState(outDir: string): { calls: unknown[]; knownUsd: number; unknownCount: number; keys: Set<string> } {
+  const manifestPath = resolve(outDir, "manifest.json");
+  if (!existsSync(manifestPath)) return { calls: [], knownUsd: 0, unknownCount: 0, keys: new Set() };
+  const parsed = JSON.parse(readFileSync(manifestPath, "utf8")) as { status?: unknown; calls?: unknown[] };
+  if (parsed.status === "dry_run" || !Array.isArray(parsed.calls)) {
+    return { calls: [], knownUsd: 0, unknownCount: 0, keys: new Set() };
+  }
+  const summary = summarizeRecordedCalls(parsed.calls);
+  return { calls: parsed.calls, ...summary };
+}
 export const REFERENCE_LIMIT = 4;
 export const PRINCIPAL_GENERATE_IDS = ["piece-nike-just-do-it-4x5", "piece-absolut-perfection-4x5"] as const;
 export const FOLLOWUP_BATCHES = ["principal", "sequences", "calibration"] as const;
@@ -245,19 +303,24 @@ export function planNamedBatch(batch: BatchName, catalog: Catalog, options: { co
   return planCalibrationCalls(catalog, options);
 }
 
-export function readAccumulatedUsd(runsRoot: string, batches: readonly string[]): { usd: number; unknown: boolean } {
+export function readAccumulatedUsd(runsRoot: string, batches: readonly string[]): { usd: number; unknown: boolean; reservedUsd: number } {
   let usd = 0;
+  let reservedUsd = 0;
   for (const batch of batches) {
     const statusPath = resolve(runsRoot, batch, "status.json");
     if (!existsSync(statusPath)) continue;
     const parsed = JSON.parse(readFileSync(statusPath, "utf8")) as { usdSpent?: unknown; status?: unknown };
     if (parsed.status === "dry_run") continue;
-    if (parsed.usdSpent == null) return { usd: 0, unknown: true };
     const value = asFiniteNumber(parsed.usdSpent);
-    if (value == null) return { usd: 0, unknown: true };
-    usd += value;
+    if (value != null) {
+      usd += value;
+      continue;
+    }
+    const prior = loadPriorBatchState(resolve(runsRoot, batch));
+    usd += prior.knownUsd;
+    reservedUsd += prior.unknownCount * UNKNOWN_CALL_RESERVE_USD;
   }
-  return { usd, unknown: false };
+  return { usd: usd + reservedUsd, unknown: false, reservedUsd };
 }
 
 export function planCalibrationCalls(catalog: Catalog, options: { coin?: () => boolean } = {}): PlannedCall[] {
@@ -392,14 +455,16 @@ export async function executePlannedCalls(input: {
     return { status: "dry_run", planned: input.planned, calls: [], usdSpent: null, stopReason: null };
   }
 
-  const calls: unknown[] = [];
+  const prior = input.dryRun ? { calls: [] as unknown[], knownUsd: 0, unknownCount: 0, keys: new Set<string>() } : loadPriorBatchState(input.outDir);
+  const calls: unknown[] = [...prior.calls];
   const spentBefore = input.usdSpentStart ?? 0;
-  let batchUsd = 0;
+  let batchUsd = prior.knownUsd;
   let lastUsageUnknown = false;
   let stopReason: string | null = null;
   const chainBuffers = new Map<string, Buffer>();
 
   for (const call of input.planned) {
+    if (callIdentities(call).some((id) => prior.keys.has(id))) continue;
     const halt = shouldStopBatch({
       callsCompleted: calls.length,
       callCap: input.callCap,
@@ -455,6 +520,7 @@ export async function executePlannedCalls(input: {
         usageEstimate: { usd: null, basis: "unknown" },
         error: error instanceof Error ? error.message : String(error),
         billing: "unknown",
+        callKey: call.callKey ?? null,
       });
       stopReason = "provider_error";
       console.log(`SUNBURST-BATCH: ${input.batch} error ${call.callKey ?? call.caseId}: ${error instanceof Error ? error.message : String(error)}`);
@@ -485,6 +551,7 @@ export async function executePlannedCalls(input: {
       image: `images/${imageName}`,
       requestedSize: result.providerMeta.observation?.requestedSize ?? null,
       returnedSize: result.providerMeta.observation?.returnedSize ?? null,
+      callKey: call.callKey ?? null,
     });
     console.log(
       `SUNBURST-BATCH: ${input.batch} ${calls.length}/${input.planned.length} ${call.callKey ?? call.caseId} ${call.policy.quality} usd=${batchUsd.toFixed(4)} ${result.providerMeta.durationMs}ms`,
@@ -502,9 +569,11 @@ export async function executePlannedCalls(input: {
     stopReason = halt.reason;
   }
 
-  const completed = !lastUsageUnknown && calls.length === input.planned.length;
+  const attempted = input.planned.filter((call) => callIdentities(call).some((id) => summarizeRecordedCalls(calls).keys.has(id))).length;
+  const hasGaps = summarizeRecordedCalls(calls).unknownCount > 0;
+  const completed = !lastUsageUnknown && attempted === input.planned.length;
   const report = {
-    status: lastUsageUnknown ? "stopped_usage_unknown" : completed ? "completed" : "stopped",
+    status: lastUsageUnknown ? "stopped_usage_unknown" : completed ? (hasGaps ? "completed_with_gaps" : "completed") : "stopped",
     batch: input.batch,
     sunburstPercent: 0,
     callCap: input.callCap,

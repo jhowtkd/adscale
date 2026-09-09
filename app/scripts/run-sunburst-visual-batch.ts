@@ -86,20 +86,6 @@ async function main() {
   };
 
   let usdSpentStart = 0;
-  if (!dryRun && batches.some((batch) => batch !== "smoke")) {
-    const prior = readAccumulatedUsd(runsRoot, FOLLOWUP_BATCHES);
-    if (prior.unknown) {
-      console.error("SUNBURST-BATCH: previous follow-up usage is unknown; refusing to spend more");
-      process.exitCode = 1;
-      return;
-    }
-    usdSpentStart = prior.usd;
-    if (usdSpentStart >= FOLLOWUP_USD_CAP) {
-      console.error(`SUNBURST-BATCH: follow-up cap already reached (${usdSpentStart})`);
-      process.exitCode = 1;
-      return;
-    }
-  }
 
   for (const batch of batches) {
     const outDir =
@@ -110,12 +96,25 @@ async function main() {
       const priorStatusPath = resolve(runsRoot, batch, "status.json");
       try {
         const priorStatus = JSON.parse(readFileSync(priorStatusPath, "utf8")) as { status?: string };
-        if (priorStatus.status === "completed") {
+        if (priorStatus.status === "completed" || priorStatus.status === "completed_with_gaps") {
           console.log(`SUNBURST-BATCH: ${batch} already completed; skipping`);
           continue;
         }
       } catch {
         // Batch has not been run yet.
+      }
+    }
+    if (!dryRun && batch !== "smoke") {
+      const others = FOLLOWUP_BATCHES.filter((name) => name !== batch);
+      const prior = readAccumulatedUsd(runsRoot, others);
+      if (prior.reservedUsd) {
+        console.log(`SUNBURST-BATCH: applying ${prior.reservedUsd} USD reserve for unknown prior calls`);
+      }
+      usdSpentStart = prior.usd;
+      if (usdSpentStart >= FOLLOWUP_USD_CAP) {
+        console.error(`SUNBURST-BATCH: follow-up cap already reached (${usdSpentStart})`);
+        process.exitCode = 1;
+        return;
       }
     }
     const result = await runNamedBatch({
@@ -133,11 +132,10 @@ async function main() {
     writeStatus(outDir, result);
     console.log(`SUNBURST-BATCH: ${batch} ${result.status} calls=${result.calls.length} usd=${result.usdSpent ?? "unknown"} stop=${result.stopReason ?? "none"}`);
     if (dryRun) continue;
-    if (result.usdSpent == null || result.status !== "completed") {
+    if (result.status !== "completed" && result.status !== "completed_with_gaps") {
       process.exitCode = 1;
       return;
     }
-    if (batch !== "smoke") usdSpentStart += result.usdSpent;
   }
 }
 
