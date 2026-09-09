@@ -65,4 +65,4 @@ Planos visual e de camadas: invariantes de revisão (incluindo o builder determi
 
 ## Pendência de merge
 
-Novos arquivos em `app/src/server/ai/` disparam o gate anti-expansion (`check-primary-destinations.mjs`), que lê o snapshot da **base**, não deste PR. A exceção está no PR #327; mergear essa exceção em `main` e rebasear este branch antes do CI completo. I5 permanece bloqueada.
+A exceção de destinos (#327) já está em `main`. Este branch foi rebaseado. I5 permanece bloqueada.

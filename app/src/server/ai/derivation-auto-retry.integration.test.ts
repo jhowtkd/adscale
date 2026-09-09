@@ -60,7 +60,7 @@ vi.mock("@/server/ai/normalize-image-for-ai", () => ({
 vi.mock("../validation/env", () => ({
   env: {
     OPENAI_API_KEY: "test-key",
-    OPENAI_IMAGE_MODEL: "gpt-image-1",
+    OPENAI_IMAGE_MODEL: "gpt-image-2-2026-04-21",
   },
 }));
 

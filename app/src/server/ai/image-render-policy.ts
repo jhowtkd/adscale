@@ -32,18 +32,20 @@ export function resolveImageRenderPolicy(value: unknown): ImageRenderPolicy {
 
 export function selectImageRenderPolicy(
   workspaceId: string,
-  percentage: number,
-  quality: ImageRenderPolicy["quality"],
+  percentage: number | undefined,
+  quality: ImageRenderPolicy["quality"] | undefined,
 ): ImageRenderPolicy {
-  z.number().int().min(0).max(100).parse(percentage);
+  // Missing env (including the test Proxy fallback) is percent 0, not an activation.
+  const percent = z.number().int().min(0).max(100).parse(percentage ?? 0);
+  const resolvedQuality = quality ?? "max";
   let hash = 2166136261;
   for (const character of `sunburst-v1:${workspaceId}`) {
     hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
   }
   const bucket = (hash >>> 0) % 100;
   return imageRenderPolicySchema.parse(
-    bucket < percentage
-      ? { version: 1, model: "gpt-image-2.5-sunburst-2026-09-08", quality }
+    bucket < percent
+      ? { version: 1, model: "gpt-image-2.5-sunburst-2026-09-08", quality: resolvedQuality }
       : LEGACY_IMAGE_POLICY,
   );
 }

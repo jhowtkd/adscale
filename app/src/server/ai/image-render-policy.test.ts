@@ -21,4 +21,8 @@ describe("image render policy", () => {
     }
     expect(() => selectImageRenderPolicy("ws", 101, "high")).toThrow();
   });
+  it("treats a missing percent as 0 and keeps the inactive quality candidate", () => {
+    expect(selectImageRenderPolicy("workspace-env-gap", undefined, undefined)).toEqual(LEGACY_IMAGE_POLICY);
+    expect(selectImageRenderPolicy("workspace-env-gap", undefined, "max")).toEqual(LEGACY_IMAGE_POLICY);
+  });
 });
