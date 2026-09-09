@@ -557,8 +557,11 @@ function buildModePolicyBlock(input: BuildCreativeWorkPromptInput): string {
     case "creative_revision":
       return [
         "MODE POLICY — REVISION:",
-        "Apply the REVISION INSTRUCTION to the parent piece (the revision reference) while honoring the original contract in this prompt — every element the instruction does not name stays unchanged.",
-        `REVISION INSTRUCTION: ${input.revisionInstruction?.trim() || "(none)"}`,
+        "Use the revision reference as the accepted base piece. Apply only the authorized change while honoring the original factual contract.",
+        `AUTHORIZED CHANGE: ${input.revisionInstruction?.trim() || "No change authorized; preserve the base piece."}`,
+        "PRESERVE UNLESS EXPLICITLY CHANGED: product geometry and labels, subject identity, brand assets, framing, composition, colors, and all approved copy outside the requested edit.",
+        "Style references guide visual language only; they never authorize new facts, offers, prices, identities, or copy.",
+        "Preservation describes visual intent, not a guarantee of identical pixels. Exact assets remain governed by the composition contract.",
       ].join("\n");
     case "social_post":
       // Peça única: one direct high-quality call from request + active brand.

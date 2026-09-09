@@ -554,14 +554,27 @@ describe("buildCreativeWorkPrompt", () => {
     );
 
     expect(prompt).toContain("MODE POLICY — REVISION:");
-    expect(prompt).toContain("REVISION INSTRUCTION: Troque o fundo por azul");
+    expect(prompt).toContain("AUTHORIZED CHANGE: Troque o fundo por azul");
     expect(prompt).toContain('- #1 [revision] "Versão 1" (required)');
     // Original contract preserved alongside the instruction — byte-identical
     // to the fact-pack section of a non-revision output of the same work.
     const single = buildCreativeWorkPrompt(creativeWorkPromptInput({ mode: "social_post" }));
     expect(factPackSection(prompt)).toBe(factPackSection(single));
     expect(prompt).toContain('HEADLINE: "Comece agora"');
-    expect(prompt).toContain("every element the instruction does not name stays unchanged");
+    expect(prompt).toContain("PRESERVE UNLESS EXPLICITLY CHANGED:");
+  });
+
+  it("makes revision invariants explicit without borrowing facts from style", () => {
+    const prompt = buildCreativeWorkPrompt(creativeWorkPromptInput({
+      mode: "creative_revision",
+      revisionInstruction: "Troque somente a chamada por Oferta de setembro",
+      references: [slot("revision", "peca-aprovada.png"), slot("style", "estilo.png", false)],
+    }));
+    expect(prompt).toContain("AUTHORIZED CHANGE:");
+    expect(prompt).toContain("Troque somente a chamada por Oferta de setembro");
+    expect(prompt).toContain("PRESERVE UNLESS EXPLICITLY CHANGED:");
+    expect(prompt).toContain("product geometry and labels");
+    expect(factPackSection(prompt)).toEqual(factPackSection(buildCreativeWorkPrompt(creativeWorkPromptInput())));
   });
 
   it("single piece transforms request and brand into one piece without the legacy brief block", () => {
@@ -781,7 +794,7 @@ describe("buildCreativeWorkPrompt", () => {
     );
 
     expect(prompt).toContain("MODE POLICY — REVISION:");
-    expect(prompt).toContain("REVISION INSTRUCTION: (none)");
+    expect(prompt).toContain("AUTHORIZED CHANGE: No change authorized; preserve the base piece.");
   });
 
   it("prints (none stated) lines when the fact pack carries zero facts", () => {
