@@ -32,9 +32,28 @@ const state = {
   updatedAt: "2026-08-21T12:00:00.000Z",
 };
 
+const regeneration = {
+  id: "00000000-0000-4000-8000-000000000010",
+  status: "reserved" as const,
+  layerId: "00000000-0000-4000-8000-000000000001",
+  instruction: "New color",
+  requestedByUserId: "user-1",
+  usageKey: "usage-1",
+  candidateKey: null,
+  providerRequestId: null,
+  failureCode: null,
+  createdAt: "2026-08-21T12:00:00.000Z",
+  updatedAt: "2026-08-21T12:00:00.000Z",
+};
+
 describe("layerEditorStateSchema", () => {
   it("rejects a document with duplicate order or a box outside the canvas", () => {
     expect(layerEditorStateSchema.safeParse({ ...state, layers: [state.layers[0], { ...state.layers[1], order: 0 }] }).success).toBe(false);
     expect(layerEditorStateSchema.safeParse({ ...state, layers: [{ ...state.layers[0], width: 101 }, state.layers[1]] }).success).toBe(false);
+  });
+
+  it("accepts a persisted regeneration without renderPolicy and rejects version 2", () => {
+    expect(layerEditorStateSchema.safeParse({ ...state, regeneration }).success).toBe(true);
+    expect(layerEditorStateSchema.safeParse({ ...state, regeneration: { ...regeneration, renderPolicy: { version: 2 } } }).success).toBe(false);
   });
 });

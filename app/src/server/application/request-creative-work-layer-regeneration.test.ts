@@ -18,6 +18,9 @@ const dispatchLock = vi.hoisted(() => vi.fn(async (_input: unknown, run: (execut
 vi.mock("@/server/layer-editor/quota", () => ({ claimLayerEditorQuota: claim, isLayerEditorQuotaReleased: quotaReleased, isLayerEditorQuotaReservationCommitted: quotaCommitted, markLayerEditorQuotaReservationCommitted: markCommitted, isLayerEditorQuotaDispatchCommitted: dispatchCommitted, markLayerEditorQuotaDispatchCommitted: markDispatchCommitted, releaseLayerEditorQuota: release, withLayerEditorOperationLock: operationLock, withLayerEditorPostDispatchLock: dispatchLock }));
 vi.mock("@/server/repositories/creative-work-layer-editor", () => ({ clearTerminalLayerRegenerationForRetry: clearTerminal, reserveLayerRegeneration: reserve, rollbackReservedLayerRegeneration: rollback, refreshReservedLayerRegenerationDispatch: refreshDispatch, getCreativeWorkLayerEditorOutput: getOutput, layerEditorFromOutput: stateFromOutput }));
 vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
+vi.mock("@/server/validation/env", () => ({ env: {
+  OPENAI_IMAGE_SUNBURST_PERCENT: 100, OPENAI_IMAGE_SUNBURST_QUALITY: "max",
+} }));
 import { requestCreativeWorkLayerRegeneration } from "./request-creative-work-layer-regeneration";
 const input = { workspaceId: "w", workItemId: "i", outputId: "o", userId: "u", leaseId: "00000000-0000-4000-8000-000000000001", expectedRevision: 1, operationId: "00000000-0000-4000-8000-000000000002", layerId: "00000000-0000-4000-8000-000000000003", instruction: "x" };
 
@@ -108,6 +111,9 @@ describe("requestCreativeWorkLayerRegeneration", () => {
 
     await expect(requestCreativeWorkLayerRegeneration(input)).resolves.toEqual({ ok: true, accepted: true, replay: false });
     expect(reserve).toHaveBeenCalledOnce();
+    expect(reserve).toHaveBeenCalledWith(expect.objectContaining({
+      renderPolicy: { version: 1, model: "gpt-image-2.5-sunburst-2026-09-08", quality: "max" },
+    }), expect.anything());
     expect(send).toHaveBeenCalledOnce();
   });
 

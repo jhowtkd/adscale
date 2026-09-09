@@ -1,9 +1,11 @@
 import "server-only";
 import { createHash } from "node:crypto";
+import { selectImageRenderPolicy } from "@/server/ai/image-render-policy";
 import { claimLayerEditorQuota, isLayerEditorQuotaDispatchCommitted, isLayerEditorQuotaReleased, isLayerEditorQuotaReservationCommitted, markLayerEditorQuotaDispatchCommitted, markLayerEditorQuotaReservationCommitted, releaseLayerEditorQuota, withLayerEditorOperationLock, withLayerEditorPostDispatchLock, type LayerEditorOperationExecutor } from "@/server/layer-editor/quota";
 import { clearTerminalLayerRegenerationForRetry, getCreativeWorkLayerEditorOutput, layerEditorFromOutput, refreshReservedLayerRegenerationDispatch, reserveLayerRegeneration } from "@/server/repositories/creative-work-layer-editor";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
+import { env } from "@/server/validation/env";
 
 export async function requestCreativeWorkLayerRegeneration(input: { workspaceId:string; workItemId:string; outputId:string; userId:string; leaseId:string; expectedRevision:number; operationId:string; layerId:string; instruction:string }) {
   const decision = await withLayerEditorOperationLock({ workspaceId: input.workspaceId, kind: "layer_regeneration_v1", operationId: input.operationId }, (executor) => requestCreativeWorkLayerRegenerationLocked(input, executor));
@@ -60,7 +62,7 @@ async function requestCreativeWorkLayerRegenerationLocked(input: { workspaceId:s
     }
     expectedRevision = clearedState.revision;
   }
-  const reserved=await reserveLayerRegeneration({...input,expectedRevision,instruction,usageKey:`layer-editor:${input.workspaceId}:regeneration:${input.operationId}`,now:new Date()}, executor);
+  const reserved=await reserveLayerRegeneration({...input,expectedRevision,instruction,usageKey:`layer-editor:${input.workspaceId}:regeneration:${input.operationId}`,now:new Date(),renderPolicy:selectImageRenderPolicy(input.workspaceId,env.OPENAI_IMAGE_SUNBURST_PERCENT,env.OPENAI_IMAGE_SUNBURST_QUALITY)}, executor);
   if(!reserved){
     const state=layerEditorFromOutput(await getCreativeWorkLayerEditorOutput(input, executor));
     if(state?.regeneration?.id===input.operationId) {
