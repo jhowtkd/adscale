@@ -7,7 +7,12 @@ export const CANDIDATE_MODEL = "gpt-image-2.5-sunburst-2026-09-08" as const;
 export const SMOKE_QUALITY = "medium" as const;
 export const SMOKE_CALL_CAP = 12;
 export const SMOKE_USD_CAP = 10;
+export const FOLLOWUP_USD_CAP = 50;
 export const REFERENCE_LIMIT = 4;
+export const PRINCIPAL_GENERATE_IDS = ["piece-nike-just-do-it-4x5", "piece-absolut-perfection-4x5"] as const;
+export const FOLLOWUP_BATCHES = ["principal", "sequences", "calibration"] as const;
+export type FollowupBatchName = (typeof FOLLOWUP_BATCHES)[number];
+export type BatchName = "smoke" | FollowupBatchName;
 
 export const STANDARD_RATES_PER_MILLION = {
   textInput: 5,
@@ -30,10 +35,12 @@ export type PlannedCall = {
   slot: "control" | "candidate";
   policy: ImageRenderPolicy;
   prompt: string;
-  operation: "edit";
+  operation: "edit" | "generate";
   dimensions: { width: number; height: number };
   sourcePaths: string[];
   blindLabel: "A" | "B";
+  callKey?: string;
+  chainId?: string;
 };
 
 export type UsageEstimate = {
@@ -41,7 +48,7 @@ export type UsageEstimate = {
   basis: "detailed" | "conservative_all_input_as_image" | "unknown";
 };
 
-type CatalogCase = {
+export type CatalogCase = {
   id: string;
   family: string;
   status: string;
@@ -52,7 +59,18 @@ type CatalogCase = {
   sources?: Array<{ assetId: string; role: string; order: number }>;
 };
 
-type CatalogAsset = { id: string; path: string; sha256: string };
+export type CatalogAsset = { id: string; path: string; sha256: string };
+
+export type Catalog = {
+  cases: CatalogCase[];
+  assets: CatalogAsset[];
+  sunburstPercent?: number;
+  batches?: {
+    smokeCaseIds?: string[];
+    calibrationCaseIds?: string[];
+    sequenceStarts?: Array<{ id: string; baseAssetId: string; edits: string[] }>;
+  };
+};
 
 export function asFiniteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -64,20 +82,17 @@ export function estimateStandardUsd(usage: unknown): UsageEstimate {
   const output = asFiniteNumber(record.output_tokens);
   const input = asFiniteNumber(record.input_tokens);
   if (output == null && input == null) return { usd: null, basis: "unknown" };
-
   const details = record.input_tokens_details;
   const detailRecord = details && typeof details === "object" ? (details as Record<string, unknown>) : null;
   const text = asFiniteNumber(detailRecord?.text_tokens);
   const image = asFiniteNumber(detailRecord?.image_tokens);
   const rates = STANDARD_RATES_PER_MILLION;
-
   if (text != null && image != null) {
     return {
       usd: (text * rates.textInput + image * rates.imageInput + (output ?? 0) * rates.imageOutput) / 1_000_000,
       basis: "detailed",
     };
   }
-
   return {
     usd: ((input ?? 0) * rates.imageInput + (output ?? 0) * rates.imageOutput) / 1_000_000,
     basis: "conservative_all_input_as_image",
@@ -108,7 +123,7 @@ export function generationModeFor(family: string): "art_variation" | "format_ada
   return "art_variation";
 }
 
-function resolveSafe(root: string, relativePath: string): string {
+export function resolveSafe(root: string, relativePath: string): string {
   if (isAbsolute(relativePath) || relativePath.includes("\\")) {
     throw new Error(`unsafe path: ${relativePath}`);
   }
@@ -118,50 +133,174 @@ function resolveSafe(root: string, relativePath: string): string {
   return resolved;
 }
 
-export function planSmokeCalls(catalog: {
-  cases: CatalogCase[];
-  assets: CatalogAsset[];
-  batches?: { smokeCaseIds?: string[] };
-}, options: { coin?: () => boolean } = {}): PlannedCall[] {
+export function sourcePathsFor(entry: CatalogCase, assets: Map<string, CatalogAsset>): string[] {
+  return [...(entry.sources ?? [])]
+    .sort((left, right) => left.order - right.order)
+    .slice(0, REFERENCE_LIMIT)
+    .map((source) => {
+      const asset = assets.get(source.assetId);
+      if (!asset) throw new Error(`${entry.id} missing asset ${source.assetId}`);
+      return asset.path;
+    });
+}
+
+function pairLabels(coin: () => boolean): { control: "A" | "B"; candidate: "A" | "B" } {
+  const controlFirst = coin();
+  return { control: controlFirst ? "A" : "B", candidate: controlFirst ? "B" : "A" };
+}
+
+export function planSmokeCalls(catalog: Catalog, options: { coin?: () => boolean } = {}): PlannedCall[] {
   const ids = catalog.batches?.smokeCaseIds;
   if (!Array.isArray(ids) || ids.length !== 6) throw new Error("smoke requires 6 catalog case ids");
   const assets = new Map(catalog.assets.map((asset) => [asset.id, asset]));
   const coin = options.coin ?? (() => randomBytes(1)[0] % 2 === 0);
   const planned: PlannedCall[] = [];
-
   for (const id of ids) {
     const entry = catalog.cases.find((item) => item.id === id);
     if (!entry || entry.status !== "ready") throw new Error(`smoke case is not ready: ${id}`);
-    const controlFirst = coin();
-    const controlLabel: "A" | "B" = controlFirst ? "A" : "B";
-    const candidateLabel: "A" | "B" = controlFirst ? "B" : "A";
-    const sources = [...(entry.sources ?? [])]
-      .sort((left, right) => left.order - right.order)
-      .slice(0, REFERENCE_LIMIT)
-      .map((source) => {
-        const asset = assets.get(source.assetId);
-        if (!asset) throw new Error(`${id} missing asset ${source.assetId}`);
-        return asset.path;
-      });
+    const labels = pairLabels(coin);
+    const sources = sourcePathsFor(entry, assets);
     if (sources.length === 0) throw new Error(`${id} has no references; smoke uses the product edit path`);
     const dimensions = entry.outputSize ?? { width: 1080, height: 1350 };
     const prompt = buildCasePrompt(entry);
     const base = { caseId: id, family: entry.family, brand: entry.brand, prompt, operation: "edit" as const, dimensions, sourcePaths: sources };
-    planned.push({
-      ...base,
-      slot: "control",
-      policy: { version: 1, model: CONTROL_MODEL, quality: SMOKE_QUALITY },
-      blindLabel: controlLabel,
-    });
-    planned.push({
-      ...base,
-      slot: "candidate",
-      policy: { version: 1, model: CANDIDATE_MODEL, quality: SMOKE_QUALITY },
-      blindLabel: candidateLabel,
-    });
+    planned.push({ ...base, slot: "control", policy: { version: 1, model: CONTROL_MODEL, quality: SMOKE_QUALITY }, blindLabel: labels.control });
+    planned.push({ ...base, slot: "candidate", policy: { version: 1, model: CANDIDATE_MODEL, quality: SMOKE_QUALITY }, blindLabel: labels.candidate });
   }
-
   if (planned.length !== SMOKE_CALL_CAP) throw new Error(`smoke must plan ${SMOKE_CALL_CAP} calls`);
+  return planned;
+}
+
+export function planPrincipalCalls(catalog: Catalog, options: { coin?: () => boolean } = {}): PlannedCall[] {
+  const smoke = new Set(catalog.batches?.smokeCaseIds ?? []);
+  const assets = new Map(catalog.assets.map((asset) => [asset.id, asset]));
+  const coin = options.coin ?? (() => randomBytes(1)[0] % 2 === 0);
+  const ready = catalog.cases.filter(
+    (entry) => entry.status === "ready" && !smoke.has(entry.id) && entry.family !== "carousel",
+  );
+  const planned: PlannedCall[] = [];
+  for (const entry of ready) {
+    const labels = pairLabels(coin);
+    const sources = sourcePathsFor(entry, assets);
+    if (sources.length === 0) throw new Error(`${entry.id} ready case has no sources`);
+    const dimensions = entry.outputSize ?? { width: 1080, height: 1350 };
+    const prompt = buildCasePrompt(entry);
+    const base = { caseId: entry.id, family: entry.family, brand: entry.brand, prompt, operation: "edit" as const, dimensions, sourcePaths: sources };
+    planned.push({ ...base, slot: "control", policy: { version: 1, model: CONTROL_MODEL, quality: SMOKE_QUALITY }, blindLabel: labels.control, callKey: `${entry.id}-control-medium-edit` });
+    planned.push({ ...base, slot: "candidate", policy: { version: 1, model: CANDIDATE_MODEL, quality: SMOKE_QUALITY }, blindLabel: labels.candidate, callKey: `${entry.id}-candidate-medium-edit` });
+  }
+  for (const id of PRINCIPAL_GENERATE_IDS) {
+    const entry = catalog.cases.find((item) => item.id === id);
+    if (!entry) throw new Error(`generate case missing: ${id}`);
+    const labels = pairLabels(coin);
+    const dimensions = entry.outputSize ?? { width: 1080, height: 1350 };
+    const prompt = buildCasePrompt(entry);
+    const base = { caseId: `${id}::generate`, family: entry.family, brand: entry.brand, prompt, operation: "generate" as const, dimensions, sourcePaths: [] };
+    planned.push({ ...base, slot: "control", policy: { version: 1, model: CONTROL_MODEL, quality: SMOKE_QUALITY }, blindLabel: labels.control, callKey: `${id}-control-medium-generate` });
+    planned.push({ ...base, slot: "candidate", policy: { version: 1, model: CANDIDATE_MODEL, quality: SMOKE_QUALITY }, blindLabel: labels.candidate, callKey: `${id}-candidate-medium-generate` });
+  }
+  return planned;
+}
+
+export function planSequenceCalls(catalog: Catalog, options: { coin?: () => boolean } = {}): PlannedCall[] {
+  const sequences = catalog.batches?.sequenceStarts;
+  if (!Array.isArray(sequences) || sequences.length !== 3) throw new Error("sequences require 3 starts");
+  const assets = new Map(catalog.assets.map((asset) => [asset.id, asset]));
+  const coin = options.coin ?? (() => randomBytes(1)[0] % 2 === 0);
+  const planned: PlannedCall[] = [];
+  for (const sequence of sequences) {
+    const base = assets.get(sequence.baseAssetId);
+    if (!base) throw new Error(`sequence ${sequence.id} missing base asset`);
+    if (!Array.isArray(sequence.edits) || sequence.edits.length !== 3) throw new Error(`sequence ${sequence.id} needs 3 edits`);
+    const brand = sequence.id.replace("sequence-", "");
+    const labels = pairLabels(coin);
+    for (const slot of ["control", "candidate"] as const) {
+      const model = slot === "control" ? CONTROL_MODEL : CANDIDATE_MODEL;
+      const chainId = `${sequence.id}:${slot}`;
+      sequence.edits.forEach((edit, index) => {
+        planned.push({
+          caseId: `${sequence.id}-step-${index + 1}`,
+          family: "review",
+          brand,
+          slot,
+          policy: { version: 1, model, quality: SMOKE_QUALITY },
+          prompt: `${buildRevisionPolicyBlock(edit)}\nUse the revision reference as the accepted base piece.`,
+          operation: "edit",
+          dimensions: { width: 1080, height: 1350 },
+          sourcePaths: [base.path],
+          blindLabel: labels[slot],
+          callKey: `${sequence.id}-${slot}-step-${index + 1}`,
+          chainId,
+        });
+      });
+    }
+  }
+  return planned;
+}
+
+export function planNamedBatch(batch: BatchName, catalog: Catalog, options: { coin?: () => boolean } = {}): PlannedCall[] {
+  if (batch === "smoke") return planSmokeCalls(catalog, options);
+  if (batch === "principal") return planPrincipalCalls(catalog, options);
+  if (batch === "sequences") return planSequenceCalls(catalog, options);
+  return planCalibrationCalls(catalog, options);
+}
+
+export function readAccumulatedUsd(runsRoot: string, batches: readonly string[]): { usd: number; unknown: boolean } {
+  let usd = 0;
+  for (const batch of batches) {
+    const statusPath = resolve(runsRoot, batch, "status.json");
+    if (!existsSync(statusPath)) continue;
+    const parsed = JSON.parse(readFileSync(statusPath, "utf8")) as { usdSpent?: unknown };
+    if (parsed.usdSpent == null) return { usd: 0, unknown: true };
+    const value = asFiniteNumber(parsed.usdSpent);
+    if (value == null) return { usd: 0, unknown: true };
+    usd += value;
+  }
+  return { usd, unknown: false };
+}
+
+export function planCalibrationCalls(catalog: Catalog, options: { coin?: () => boolean } = {}): PlannedCall[] {
+  const ids = catalog.batches?.calibrationCaseIds;
+  if (!Array.isArray(ids) || ids.length !== 6) throw new Error("calibration requires 6 cases");
+  const assets = new Map(catalog.assets.map((asset) => [asset.id, asset]));
+  const coin = options.coin ?? (() => randomBytes(1)[0] % 2 === 0);
+  const planned: PlannedCall[] = [];
+  for (const id of ids) {
+    const entry = catalog.cases.find((item) => item.id === id);
+    if (!entry || entry.status !== "ready") throw new Error(`calibration case is not ready: ${id}`);
+    const sources = sourcePathsFor(entry, assets);
+    const dimensions = entry.outputSize ?? { width: 1080, height: 1350 };
+    const prompt = buildCasePrompt(entry);
+    const labels = pairLabels(coin);
+    planned.push({
+      caseId: id,
+      family: entry.family,
+      brand: entry.brand,
+      slot: "control",
+      policy: { version: 1, model: CONTROL_MODEL, quality: "high" },
+      prompt,
+      operation: "edit",
+      dimensions,
+      sourcePaths: sources,
+      blindLabel: labels.control,
+      callKey: `${id}-control-high-edit`,
+    });
+    for (const quality of ["high", "xhigh", "max"] as const) {
+      planned.push({
+        caseId: id,
+        family: entry.family,
+        brand: entry.brand,
+        slot: "candidate",
+        policy: { version: 1, model: CANDIDATE_MODEL, quality },
+        prompt,
+        operation: "edit",
+        dimensions,
+        sourcePaths: sources,
+        blindLabel: quality === "high" ? labels.candidate : "B",
+        callKey: `${id}-candidate-${quality}-edit`,
+      });
+    }
+  }
   return planned;
 }
 
@@ -207,37 +346,34 @@ export type BatchGenerateFn = (input: {
   };
 }>;
 
-export async function runSmokeBatch(input: {
-  catalog: { cases: CatalogCase[]; assets: CatalogAsset[]; batches?: { smokeCaseIds?: string[] }; sunburstPercent?: number };
+export type BatchResult = { status: string; planned: PlannedCall[]; calls: unknown[]; usdSpent: number | null; stopReason: string | null };
+
+export async function executePlannedCalls(input: {
+  batch: string;
+  planned: PlannedCall[];
   binariesRoot: string;
   outDir: string;
   confirmPaid: boolean;
   dryRun: boolean;
+  callCap: number;
+  usdCap: number;
+  usdSpentStart?: number;
   generate?: BatchGenerateFn;
   normalize?: (buffer: Buffer) => Promise<{ buffer: Buffer; mimeType: string }>;
-  coin?: () => boolean;
-}): Promise<{ status: string; planned: PlannedCall[]; calls: unknown[]; usdSpent: number | null; stopReason: string | null }> {
-  if (input.catalog.sunburstPercent != null && input.catalog.sunburstPercent !== 0) {
-    throw new Error("sunburst percent must remain 0");
-  }
+}): Promise<BatchResult> {
   if (!input.dryRun && !input.confirmPaid) throw new Error("refusing paid calls without --confirm-paid");
   if (!input.dryRun && !input.generate) throw new Error("paid run requires a product generate function");
-
-  const planned = planSmokeCalls(input.catalog, { coin: input.coin });
-  for (const call of planned) assertBinaries(input.binariesRoot, call.sourcePaths);
-
+  for (const call of input.planned) assertBinaries(input.binariesRoot, call.sourcePaths);
   mkdirSync(input.outDir, { recursive: true });
   mkdirSync(resolve(input.outDir, "images"), { recursive: true });
-
   if (input.dryRun) {
     const report = {
       status: "dry_run",
-      batch: "smoke",
-      paidCallsAuthorized: false,
+      batch: input.batch,
       sunburstPercent: 0,
-      callCap: SMOKE_CALL_CAP,
-      usdCap: SMOKE_USD_CAP,
-      planned: planned.map((call) => ({
+      callCap: input.callCap,
+      usdCap: input.usdCap,
+      planned: input.planned.map((call) => ({
         caseId: call.caseId,
         slot: call.slot,
         model: call.policy.model,
@@ -245,26 +381,29 @@ export async function runSmokeBatch(input: {
         operation: call.operation,
         blindLabel: call.blindLabel,
         sourceCount: call.sourcePaths.length,
+        callKey: call.callKey ?? null,
       })),
       calls: [],
       usdSpent: null,
       stopReason: null,
     };
     writeFileSync(resolve(input.outDir, "manifest.json"), `${JSON.stringify(report, null, 2)}\n`);
-    return { status: "dry_run", planned, calls: [], usdSpent: null, stopReason: null };
+    return { status: "dry_run", planned: input.planned, calls: [], usdSpent: null, stopReason: null };
   }
 
   const calls: unknown[] = [];
-  let usdSpent = 0;
+  const spentBefore = input.usdSpentStart ?? 0;
+  let batchUsd = 0;
   let lastUsageUnknown = false;
   let stopReason: string | null = null;
+  const chainBuffers = new Map<string, Buffer>();
 
-  for (const call of planned) {
+  for (const call of input.planned) {
     const halt = shouldStopBatch({
       callsCompleted: calls.length,
-      callCap: SMOKE_CALL_CAP,
-      usdSpent,
-      usdCap: SMOKE_USD_CAP,
+      callCap: input.callCap,
+      usdSpent: spentBefore + batchUsd,
+      usdCap: input.usdCap,
       lastUsageUnknown,
     });
     if (halt.stop) {
@@ -272,18 +411,22 @@ export async function runSmokeBatch(input: {
       break;
     }
 
-    const referenceImages = [];
-    for (const sourcePath of call.sourcePaths) {
-      const absolute = resolveSafe(input.binariesRoot, sourcePath);
-      const original = readFileSync(absolute);
+    const referenceImages: Array<{ buffer: Buffer; mimeType: string; name: string }> = [];
+    const chained = Boolean(call.chainId && chainBuffers.has(call.chainId));
+    if (chained) {
+      referenceImages.push({ buffer: chainBuffers.get(call.chainId!)!, mimeType: "image/png", name: "previous.png" });
+    }
+    const sourcePaths = call.operation === "generate" ? [] : chained ? call.sourcePaths.slice(1) : call.sourcePaths;
+    for (const sourcePath of sourcePaths) {
+      if (referenceImages.length >= REFERENCE_LIMIT) break;
+      const original = readFileSync(resolveSafe(input.binariesRoot, sourcePath));
       const normalized = input.normalize
         ? await input.normalize(original)
         : { buffer: original, mimeType: sourcePath.endsWith(".png") ? "image/png" : "image/jpeg" };
-      referenceImages.push({
-        buffer: normalized.buffer,
-        mimeType: normalized.mimeType,
-        name: basename(sourcePath),
-      });
+      referenceImages.push({ buffer: normalized.buffer, mimeType: normalized.mimeType, name: basename(sourcePath) });
+    }
+    if (call.operation === "edit" && referenceImages.length === 0) {
+      throw new Error(`${call.caseId} edit call has no references`);
     }
 
     let result;
@@ -293,7 +436,7 @@ export async function runSmokeBatch(input: {
         dimensions: call.dimensions,
         referenceImages,
         generationMode: generationModeFor(call.family),
-        outputPrefix: `sunburst-smoke/${call.caseId}/${call.slot}`,
+        outputPrefix: `sunburst-${input.batch}/${call.callKey ?? `${call.caseId}/${call.slot}`}`,
         renderPolicy: call.policy,
       });
     } catch (error) {
@@ -319,11 +462,11 @@ export async function runSmokeBatch(input: {
     const usage = result.providerMeta.observation?.usage ?? null;
     const estimate = estimateStandardUsd(usage);
     if (estimate.usd == null) lastUsageUnknown = true;
-    else usdSpent += estimate.usd;
+    else batchUsd += estimate.usd;
+    if (call.chainId) chainBuffers.set(call.chainId, result.buffer);
 
-    const imageName = `${call.caseId}-${call.blindLabel}.png`;
+    const imageName = `${call.callKey ?? `${call.caseId}-${call.blindLabel}`}.png`;
     writeFileSync(resolve(input.outDir, "images", imageName), result.buffer);
-
     calls.push({
       caseId: call.caseId,
       slot: call.slot,
@@ -346,39 +489,95 @@ export async function runSmokeBatch(input: {
   if (!stopReason) {
     const halt = shouldStopBatch({
       callsCompleted: calls.length,
-      callCap: SMOKE_CALL_CAP,
-      usdSpent: lastUsageUnknown ? null : usdSpent,
-      usdCap: SMOKE_USD_CAP,
+      callCap: input.callCap,
+      usdSpent: lastUsageUnknown ? null : spentBefore + batchUsd,
+      usdCap: input.usdCap,
       lastUsageUnknown,
     });
     stopReason = halt.reason;
   }
 
+  const completed = !lastUsageUnknown && calls.length === input.planned.length;
   const report = {
-    status: lastUsageUnknown ? "stopped_usage_unknown" : calls.length === SMOKE_CALL_CAP ? "completed" : "stopped",
-    batch: "smoke",
+    status: lastUsageUnknown ? "stopped_usage_unknown" : completed ? "completed" : "stopped",
+    batch: input.batch,
     sunburstPercent: 0,
-    callCap: SMOKE_CALL_CAP,
-    usdCap: SMOKE_USD_CAP,
-    usdSpent: lastUsageUnknown ? null : usdSpent,
-    stopReason,
+    callCap: input.callCap,
+    usdCap: input.usdCap,
+    usdSpent: lastUsageUnknown ? null : batchUsd,
+    usdSpentBefore: spentBefore,
+    stopReason: completed ? null : stopReason,
     calls,
-    blindKey: planned.map((call) => ({ caseId: call.caseId, slot: call.slot, model: call.policy.model, blindLabel: call.blindLabel })),
+    blindKey: input.planned.map((call) => ({ caseId: call.caseId, slot: call.slot, model: call.policy.model, quality: call.policy.quality, blindLabel: call.blindLabel, callKey: call.callKey ?? null })),
   };
   writeFileSync(resolve(input.outDir, "manifest.json"), `${JSON.stringify(report, null, 2)}\n`);
-  writeReviewHtml(input.outDir, planned, calls as Array<{ caseId: string; blindLabel: string; image: string }>);
-  return { status: report.status, planned, calls, usdSpent: report.usdSpent, stopReason };
+  writeReviewHtml(input.outDir, input.batch, input.planned, calls as Array<{ caseId: string; blindLabel: string; image: string; quality?: string }>);
+  return { status: report.status, planned: input.planned, calls, usdSpent: report.usdSpent, stopReason: report.stopReason };
 }
 
-function writeReviewHtml(outDir: string, planned: PlannedCall[], calls: Array<{ caseId: string; blindLabel: string; image: string }>) {
+export async function runNamedBatch(input: {
+  batch: BatchName;
+  catalog: Catalog;
+  binariesRoot: string;
+  outDir: string;
+  confirmPaid: boolean;
+  dryRun: boolean;
+  usdSpentStart?: number;
+  usdCap?: number;
+  generate?: BatchGenerateFn;
+  normalize?: (buffer: Buffer) => Promise<{ buffer: Buffer; mimeType: string }>;
+  coin?: () => boolean;
+}): Promise<BatchResult> {
+  if (input.catalog.sunburstPercent != null && input.catalog.sunburstPercent !== 0) {
+    throw new Error("sunburst percent must remain 0");
+  }
+  const planned = planNamedBatch(input.batch, input.catalog, { coin: input.coin });
+  return executePlannedCalls({
+    batch: input.batch,
+    planned,
+    binariesRoot: input.binariesRoot,
+    outDir: input.outDir,
+    confirmPaid: input.confirmPaid,
+    dryRun: input.dryRun,
+    callCap: planned.length,
+    usdCap: input.usdCap ?? (input.batch === "smoke" ? SMOKE_USD_CAP : FOLLOWUP_USD_CAP),
+    usdSpentStart: input.usdSpentStart,
+    generate: input.generate,
+    normalize: input.normalize,
+  });
+}
+
+export async function runSmokeBatch(input: {
+  catalog: Catalog;
+  binariesRoot: string;
+  outDir: string;
+  confirmPaid: boolean;
+  dryRun: boolean;
+  generate?: BatchGenerateFn;
+  normalize?: (buffer: Buffer) => Promise<{ buffer: Buffer; mimeType: string }>;
+  coin?: () => boolean;
+}): Promise<BatchResult> {
+  return runNamedBatch({ ...input, batch: "smoke" });
+}
+
+function writeReviewHtml(
+  outDir: string,
+  batch: string,
+  planned: PlannedCall[],
+  calls: Array<{ caseId: string; blindLabel: string; image: string; quality?: string }>,
+) {
   const caseIds = [...new Set(planned.map((call) => call.caseId))];
   const rows = caseIds.map((caseId) => {
     const a = calls.find((call) => call.caseId === caseId && call.blindLabel === "A");
     const b = calls.find((call) => call.caseId === caseId && call.blindLabel === "B");
-    return `<section><h2>${caseId}</h2><div class="pair"><figure><img src="${a?.image ?? ""}" alt="A"><figcaption>A</figcaption></figure><figure><img src="${b?.image ?? ""}" alt="B"><figcaption>B</figcaption></figure></div></section>`;
+    const extras = calls.filter((call) => call.caseId === caseId && call !== a && call !== b);
+    const extraHtml = extras
+      .map((call) => `<figure><img src="${call.image}" alt="${call.quality ?? call.blindLabel}"><figcaption>${call.quality ?? call.blindLabel}</figcaption></figure>`)
+      .join("");
+    return `<section><h2>${caseId}</h2><div class="pair"><figure><img src="${a?.image ?? ""}" alt="A"><figcaption>A</figcaption></figure><figure><img src="${b?.image ?? ""}" alt="B"><figcaption>B</figcaption></figure>${extraHtml}</div></section>`;
   });
   writeFileSync(
     resolve(outDir, "review.html"),
-    `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Sunburst smoke — revisão cega</title><style>body{font-family:sans-serif;max-width:1100px;margin:2rem auto}img{max-width:100%;height:auto}.pair{display:grid;grid-template-columns:1fr 1fr;gap:1rem}</style></head><body><p>Modelos ocultos. Julgue A/B a 100% do tamanho de entrega.</p>${rows.join("")}</body></html>\n`,
+    `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Sunburst ${batch} — revisão cega</title><style>body{font-family:sans-serif;max-width:1100px;margin:2rem auto}img{max-width:100%;height:auto}.pair{display:grid;grid-template-columns:1fr 1fr;gap:1rem}</style></head><body><p>Modelos ocultos. Julgue a 100% do tamanho de entrega.</p>${rows.join("")}</body></html>\n`,
   );
 }
