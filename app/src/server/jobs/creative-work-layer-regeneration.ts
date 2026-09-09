@@ -32,9 +32,9 @@ export async function runCreativeWorkLayerRegeneration(input:{workspaceId:string
    await failBeforeRegenerationProvider(input, new Date());
    return {status:"failed" as const};
  }
- let result: { buffer: Buffer; requestId: string | null };
+ let result: Awaited<ReturnType<LayerRegenerationProvider["regenerate"]>>;
  try {
-   result=await provider.regenerate({instruction:regen.instruction,selectedLayer,composite,bounds:{width:layer.source.width,height:layer.source.height}});
+   result=await provider.regenerate({instruction:regen.instruction,selectedLayer,composite,bounds:{width:layer.source.width,height:layer.source.height},renderPolicy:regen.renderPolicy,operationKey:`${input.workspaceId}/${input.outputId}/${input.operationId}`});
  } catch (error) {
    const unknown = isAmbiguousProviderFailure(error);
    await failLayerRegeneration({...input,status:unknown ? "submission_unknown" : "failed",failureCode:unknown ? "layer_regeneration_submission_unknown" : "layer_regeneration_provider_failed",now:new Date()});
@@ -58,7 +58,7 @@ export async function runCreativeWorkLayerRegeneration(input:{workspaceId:string
  // provider submission. Retry only the idempotent processing -> ready CAS.
  let completed = null;
  for (let attempt = 0; attempt < 3 && !completed; attempt += 1) {
-   completed = await completeLayerRegenerationCandidate({...input,candidateKey:key,providerRequestId:result.requestId,now:new Date()});
+   completed = await completeLayerRegenerationCandidate({...input,candidateKey:key,providerRequestId:result.requestId,observation:result.observation,now:new Date()});
  }
  if (!completed) {
    return {status:"skipped" as const};
