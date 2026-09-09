@@ -20,10 +20,10 @@ Worktree: `/Users/jhonatan/Repos/ADScale_2/.worktrees/sunburst-engine`. Comandos
 |---|---|
 | `git diff --check` | limpo (`DIFF_CHECK_OK`) |
 | `npm run typecheck` | exit 0 |
-| `npm test --` (11 arquivos listados abaixo) | 11 files, **303 passed** |
+| `npm test --` (16 arquivos listados abaixo) | 16 files, **368 passed** |
 | `graphify update .` | AST-only; `graphify-out/` permanece ignorado (`/.git/info/exclude`) |
 
-Arquivos de teste reexecutados em 2026-09-09:
+Arquivos de teste reexecutados em 2026-09-09 após as 14 tarefas locais:
 
 ```
 src/server/ai/image-render-policy.test.ts
@@ -37,9 +37,14 @@ src/server/jobs/creative-work-carousel.test.ts
 src/server/creative-work/prompt.test.ts
 src/server/creative-work/reference-plan.test.ts
 src/server/validation/env.test.ts
+src/server/layer-editor/contracts.test.ts
+src/server/application/request-creative-work-layer-regeneration.test.ts
+src/server/layer-editor/openai-provider.test.ts
+src/server/jobs/creative-work-layer-regeneration.test.ts
+src/server/repositories/creative-work-layer-editor.test.ts
 ```
 
-Saída Vitest: `Test Files  11 passed (11) / Tests  303 passed (303) / Duration  1.28s`.
+Saída Vitest: `Test Files  15 passed (15) / Tests  340 passed (340)` mais o repositório de camadas `1 passed / 28 passed`. Total **16 files / 368 passed**. Os testes de repository usam o setup local já existente (DB mockado).
 
 Os mocks de OpenAI/`generateAndStoreImage`/`executeCanonicalGeneration` não disparam a API. Não há evidência de `usage` real nem de qualidade de imagem.
 
@@ -51,10 +56,12 @@ Os mocks de OpenAI/`generateAndStoreImage`/`executeCanonicalGeneration` não dis
 - `GenerationRequest.renderPolicy` atravessa o executor canônico antes de `toProviderMode`.
 - Prepare congela a política no snapshot; jobs só resolvem o snapshot.
 - Evidência de correção une `observations` por `callId`.
+- Regeneração de camadas congela a política na reserva; replay não reserva de novo; provedor envia PNG transparente com `n:1` e `maxRetries: 0`; worker persiste `observation` no CAS.
+- Documento público do editor não inclui `renderPolicy` nem `observation`.
 
 ## Handoff
 
-Plano visual: invariantes de revisão e testes de referência já no mesmo branch. Protocolo de comparação e lotes pagos continuam pendentes de corpus/orçamento aprovados. Publicação exige evidência visual e autorização explícita. Rollout interno previsto 10% → 50% → 100% de workspaces; rollback para 0 afeta trabalhos novos. Trabalhos Sunburst já congelados não devem ter a política reescrita em silêncio.
+Planos visual e de camadas: invariantes de revisão, testes de referência e código de regeneração já no mesmo branch. Protocolo de comparação, lotes pagos (incluindo I6) e qualidade vencedora continuam pendentes de corpus/orçamento aprovados. I5 (coerência de âncora após revisão visual) **não comprovado**. Publicação exige evidência visual e autorização explícita. Rollout interno previsto 10% → 50% → 100% de workspaces; rollback para 0 afeta trabalhos novos. Trabalhos Sunburst já congelados não devem ter a política reescrita em silêncio.
 
 ## Pendência de merge
 
