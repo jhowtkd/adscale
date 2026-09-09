@@ -41,6 +41,7 @@
     "seed:commercial-brand-studies": "NODE_OPTIONS='--conditions=react-server' tsx scripts/seed-commercial-brand-studies.ts",
     "validate:commercial-brand-studies": "NODE_OPTIONS='--conditions=react-server' tsx scripts/package-commercial-brand-studies.ts --validate-only",
     "check:sunburst-visual-corpus": "node scripts/check-sunburst-visual-corpus.mjs",
+    "sunburst:visual-smoke": "NODE_OPTIONS='--conditions=react-server' tsx scripts/run-sunburst-visual-batch.ts --batch smoke",
     "capture:commercial-brand-studies": "tsx scripts/capture-ui-screenshots.ts --commercial-studies",
     "seed:layer-editor-e2e": "NODE_OPTIONS='--conditions=react-server' tsx scripts/seed-layer-editor-e2e.ts",
     "seed:phase6-uat": "NODE_OPTIONS='--conditions=react-server' tsx scripts/seed-phase6-uat.ts",

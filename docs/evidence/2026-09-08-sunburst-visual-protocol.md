@@ -1,6 +1,6 @@
 # Sunburst — protocolo visual e orçamento
 
-Data: 2026-09-09. Status: **corpus selecionado; orçamento não aprovado; lotes pagos não executados**.
+Data: 2026-09-09. Status: **corpus selecionado; smoke autorizado (12 chamadas / US$10); demais lotes não autorizados; smoke ainda não executado**.
 
 Sunburst permanece o padrão proposto. A qualidade de produção será escolhida pela comparação visual entre `high` / `xhigh` / `max`. Não há redução automática para economizar. Flare está fora da migração inicial. Este documento não autoriza gasto nem deploy. Percentual Sunburst permanece **0**.
 
@@ -77,16 +77,26 @@ Inspecionado em 2026-09-09 com `normalizeCreativeWorkReferenceImage` (long edge 
 - Absolut 2000×1500 conserva dimensão; o risco é banding do holofote e texto legal miúdo após WebP, não corte dimensional.
 - Quatro referências mantidas. Não aumentar limites globais por uma imagem problemática.
 
-## Lotes e tetos revisáveis (não executados)
+## Lotes e tetos
 
-| Lote | Chamadas propostas | Executável agora | Finalidade |
-|---|---:|---:|---|
-| Smoke | 6 casos × 2 modelos = 12 | 12 | Compatibilidade; teto proposto US$10 |
-| Comparação principal | 24 × 2 × 2 = 96 | 80 | Isolar modelo, generate+edit, mesma qualidade; 4 carrosséis fora |
-| Revisões sucessivas | 3 sequências × 3 alterações = 9 Sunburst | 9 | Acúmulo de deriva; +9 baseline se não houver controle equivalente |
-| Calibração | 6 × 3 qualidades × 2 = 36 | 36 | high/xhigh/max |
+| Lote | Chamadas | Autorização 2026-09-09 | Finalidade |
+|---|---:|---|---|
+| Smoke | 6 casos × 2 modelos = 12 | **aprovado**, teto US$10 | Compatibilidade no path de produto; qualidade `medium` nos dois modelos |
+| Comparação principal | 24 × 2 × 2 = 96 (80 executáveis) | não | Isolar modelo |
+| Revisões sucessivas | 9 Sunburst (+9 baseline) | não | Acúmulo de deriva |
+| Calibração | 36 | não | high/xhigh/max |
 
-Principal + sequências + calibração: 141 ou 150 no desenho original; **125 ou 134** enquanto o carrossel permanecer bloqueado. Teto adicional proposto US$50 **não muda**. Decks completos / Gate 8 / QA pago / I6 **não** estão nessa conta: levantar quantidade exata e acrescentar ao orçamento antes de executar. Não iniciar lote cujo máximo estimado exceda saldo aprovado.
+Smoke usa `OpenAIImageProvider` (edit, porque todos os 6 casos têm referências). Não usa o harness legado nem o provedor E2E controlado. Generate sem referências fica para um lote seguinte, se o teto restante e uma autorização extra permitirem — não entra nestas 12.
+
+```bash
+cd app && npm run sunburst:visual-smoke -- --dry-run --binaries-root /Users/jhonatan/Repos/ADScale_2
+cd app && npm run sunburst:visual-smoke -- --confirm-paid --binaries-root /Users/jhonatan/Repos/ADScale_2
+```
+
+Parar se `usage` vier ausente (desconhecido, nunca zero) ou se o estimado Standard atingir US$10. Percentual Sunburst permanece 0. Flare fora. `maxRetries: 0`. Sem `input_fidelity`.
+
+Principal + sequências + calibração: teto adicional proposto US$50 **ainda não aprovado**.
+
 
 ## Critérios de decisão (quando houver lote autorizado)
 
@@ -116,7 +126,7 @@ Principal + sequências + calibração: 141 ou 150 no desenho original; **125 ou
 
 ## Visual Task 4 — lote pago
 
-**Não executado.** Corpus selecionado; orçamento pendente de aprovação humana. Qualidade vencedora por operação: desconhecida. Diff de liberação (percentual > 0) não deve ser publicado a partir deste documento.
+Smoke **autorizado** em 2026-09-09 (12 chamadas, teto US$10). **Ainda não executado.** Principal, sequências, calibração, Gate 8 e I6 visual continuam sem autorização. Qualidade vencedora por operação: desconhecida. Diff de liberação (percentual > 0) não deve ser publicado a partir deste documento.
 
 ## I6 — regeneração de camadas (lote à parte)
 
