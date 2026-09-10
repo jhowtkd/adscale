@@ -17,7 +17,6 @@ import { db } from "@/server/db";
 import { user } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { logger } from "@/lib/logger";
-import { captureException } from "@/lib/sentry";
 import { resolveCreditOperationKey } from "./credit-operation-key";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { createCreditTransaction } from "@/server/repositories/credit-transactions";
@@ -251,7 +250,7 @@ export async function recordUsage(input: {
         );
       }
 
-      return trackUsage(
+      const recorded = await trackUsage(
         input.workspaceId,
         input.action,
         unlimitedBillingBypass ? 0 : check.amount,
@@ -263,6 +262,32 @@ export async function recordUsage(input: {
         input.idempotencyKey,
         tx
       );
+
+      // The ledger entry commits in the same transaction as the grant debit
+      // and the usage reservation: a ledger failure rejects and rolls the
+      // whole operation back instead of disappearing in a catch after commit.
+      if (input.userId && !unlimitedBillingBypass) {
+        const meta = input.metadata ?? {};
+        await createCreditTransaction(
+          {
+            userId: input.userId,
+            workspaceId: input.workspaceId,
+            campaignId: typeof meta.campaignId === "string" ? meta.campaignId : null,
+            derivationId:
+              typeof meta.sourceDerivationId === "string"
+                ? meta.sourceDerivationId
+                : typeof meta.derivationId === "string"
+                  ? meta.derivationId
+                  : null,
+            amount: -check.amount,
+            type: "usage",
+            description: input.action,
+          },
+          tx
+        );
+      }
+
+      return recorded;
     });
   } catch (err) {
     if (err instanceof Error && err.message === "duplicate_usage") {
@@ -289,30 +314,6 @@ export async function recordUsage(input: {
       };
     }
     throw err;
-  }
-
-  if (input.userId && !unlimitedBillingBypass) {
-    try {
-      const meta = input.metadata ?? {};
-      await createCreditTransaction({
-        userId: input.userId,
-        workspaceId: input.workspaceId,
-        campaignId: typeof meta.campaignId === "string" ? meta.campaignId : null,
-        derivationId: typeof meta.sourceDerivationId === "string"
-          ? meta.sourceDerivationId
-          : typeof meta.derivationId === "string"
-            ? meta.derivationId
-            : null,
-        amount: -check.amount,
-        type: "usage",
-        description: input.action,
-      });
-    } catch (txErr) {
-      logger.error("[recordUsage] failed to create credit transaction", { error: txErr, workspaceId: input.workspaceId, amount: -check.amount });
-      captureException(txErr, {
-        tags: { component: "billing-ledger", workspaceId: input.workspaceId, action: input.action },
-      });
-    }
   }
 
   const newBalance = unlimitedBillingBypass
@@ -458,6 +459,29 @@ export async function refundCredits(input: {
         input.idempotencyKey,
         tx
       );
+
+      // The refund ledger entry commits in the same transaction: a ledger
+      // failure rejects and rolls the grant credit back. Unlimited bypass
+      // settles without any financial movement, so it writes no ledger line.
+      if (input.userId && !unlimitedBillingBypass) {
+        await createCreditTransaction(
+          {
+            userId: input.userId,
+            workspaceId: input.workspaceId,
+            campaignId: typeof meta.campaignId === "string" ? meta.campaignId : null,
+            derivationId:
+              typeof meta.sourceDerivationId === "string"
+                ? meta.sourceDerivationId
+                : typeof meta.derivationId === "string"
+                  ? meta.derivationId
+                  : null,
+            amount: refundAmount,
+            type: "refund",
+            description: `${input.action}_refund`,
+          },
+          tx
+        );
+      }
     });
   } catch (err) {
     if (err instanceof DuplicateRefundError) {
@@ -469,9 +493,13 @@ export async function refundCredits(input: {
       "code" in err &&
       (err as { code?: string }).code === "23505"
     ) {
-      // Concurrent refund won the idempotency-key race inside the
-      // transaction — the credit landed exactly once.
-      return { status: "duplicate" as const };
+      // A unique violation inside the transaction only proves a replay when
+      // the expected usage for this workspace+key is visible outside the
+      // aborted tx. Any other 23505 is a genuine conflict: rethrow.
+      const raced = await getUsageByIdempotencyKey(input.workspaceId, input.idempotencyKey);
+      if (raced) {
+        return { status: "duplicate" as const };
+      }
     }
     logger.error("[refundCredits] failed to credit grant atomically", {
       error: err,
@@ -479,38 +507,6 @@ export async function refundCredits(input: {
       amount: refundAmount,
     });
     throw err;
-  }
-
-  if (input.userId) {
-    try {
-      await createCreditTransaction({
-        userId: input.userId,
-        workspaceId: input.workspaceId,
-        campaignId: typeof meta.campaignId === "string" ? meta.campaignId : null,
-        derivationId:
-          typeof meta.sourceDerivationId === "string"
-            ? meta.sourceDerivationId
-            : typeof meta.derivationId === "string"
-              ? meta.derivationId
-              : null,
-        amount: refundAmount,
-        type: "refund",
-        description: `${input.action}_refund`,
-      });
-    } catch (txErr) {
-      logger.error("[refundCredits] failed to create refund transaction", {
-        error: txErr,
-        workspaceId: input.workspaceId,
-        amount: refundAmount,
-      });
-      captureException(txErr, {
-        tags: {
-          component: "billing-ledger",
-          workspaceId: input.workspaceId,
-          action: input.action,
-        },
-      });
-    }
   }
 
   return { status: "refunded" as const };

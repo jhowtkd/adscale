@@ -223,11 +223,13 @@ describe("credit entitlement service", () => {
       workspaceId: "workspace-1",
       action: "image_derivation",
       idempotencyKey: "derivation:123",
+      userId: "user-1",
     });
 
     expect(result).toEqual({ status: "duplicate", usage: existingUsage });
     expect(mockUpdateCreditGrantRemaining).not.toHaveBeenCalled();
     expect(mockTrackUsage).not.toHaveBeenCalled();
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
   });
 
   it("debits grants and records usage with metadata", async () => {
@@ -263,6 +265,72 @@ describe("credit entitlement service", () => {
       expect.anything()
     );
     expect(result.status).toBe("recorded");
+  });
+
+  it("propagates ledger failure inside the financial transaction", async () => {
+    mockTrackUsage.mockResolvedValue({
+      id: "usage-1",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: 50,
+      idempotencyKey: "ledger-failure",
+      metadata: null,
+      createdAt: new Date(),
+    });
+    mockCreateCreditTransaction.mockRejectedValueOnce(new Error("ledger unavailable"));
+
+    await expect(
+      recordUsage({
+        workspaceId: "workspace-1",
+        userId: "user-1",
+        action: "image_derivation",
+        idempotencyKey: "ledger-failure",
+      })
+    ).rejects.toThrow("ledger unavailable");
+
+    const transactionExecutor = mockTrackUsage.mock.calls[0][5];
+    expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: "workspace-1", type: "usage" }),
+      transactionExecutor
+    );
+  });
+
+  it("shares one transaction executor across grant debit, usage, and ledger", async () => {
+    mockTrackUsage.mockResolvedValue({
+      id: "usage-1",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: 50,
+      idempotencyKey: "derivation:123",
+      metadata: null,
+      createdAt: new Date(),
+    });
+    mockCreateCreditTransaction.mockResolvedValue({ id: "tx-1" });
+
+    const result = await recordUsage({
+      workspaceId: "workspace-1",
+      userId: "user-1",
+      action: "image_derivation",
+      idempotencyKey: "derivation:123",
+    });
+
+    expect(result.status).toBe("recorded");
+    const transactionExecutor = mockTrackUsage.mock.calls[0][5];
+    expect(transactionExecutor).toBeDefined();
+    expect(mockUpdateCreditGrantRemaining).toHaveBeenCalledWith(
+      "grant-1",
+      expect.any(Number),
+      transactionExecutor
+    );
+    expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        workspaceId: "workspace-1",
+        amount: -50,
+        type: "usage",
+      }),
+      transactionExecutor
+    );
   });
 
   it("emits credit_spend on successful recordUsage when userId is provided", async () => {
@@ -469,7 +537,8 @@ describe("refundCredits", () => {
         type: "refund",
         description: "image_derivation_refund",
         derivationId: "derivation-1",
-      })
+      }),
+      expect.anything()
     );
   });
 
@@ -497,8 +566,26 @@ describe("refundCredits", () => {
     expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
   });
 
-  it("treats in-transaction unique conflicts as duplicate without querying the aborted tx", async () => {
+  it("treats in-transaction unique conflicts as duplicate only when the usage exists", async () => {
     mockTrackUsage.mockRejectedValueOnce(Object.assign(new Error("duplicate key"), { code: "23505" }));
+    const racedUsage = {
+      id: "usage-r1",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: -50,
+      idempotencyKey: "assistant-action:action-race:refund",
+      metadata: { refund: true, creditAmount: 50 },
+      createdAt: new Date(),
+    };
+    // Hermetic queue: the pre-check plus the two in-transaction duplicate
+    // checks see nothing; only the post-23505 verification outside the
+    // aborted tx observes the raced commit.
+    mockGetUsageByIdempotencyKey.mockReset();
+    mockGetUsageByIdempotencyKey
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValue(racedUsage as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>);
 
     const result = await refundCredits({
       workspaceId: "workspace-1",
@@ -507,6 +594,23 @@ describe("refundCredits", () => {
     });
 
     expect(result.status).toBe("duplicate");
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
+
+  it("rethrows unique violations that have no matching usage for the workspace key", async () => {
+    mockTrackUsage.mockRejectedValueOnce(Object.assign(new Error("duplicate key"), { code: "23505" }));
+    mockGetUsageByIdempotencyKey.mockReset();
+    mockGetUsageByIdempotencyKey.mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>
+    );
+
+    await expect(
+      refundCredits({
+        workspaceId: "workspace-1",
+        action: "image_derivation",
+        idempotencyKey: "assistant-action:action-race:refund",
+      })
+    ).rejects.toMatchObject({ code: "23505" });
     expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
   });
 
@@ -564,7 +668,7 @@ describe("refundCredits", () => {
     expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
   });
 
-  it("does not modify grants for unlimited billing workspaces but still records transaction", async () => {
+  it("records unlimited bypass refunds as zero-amount events without financial movement", async () => {
     mockWorkspaceHasUnlimitedBillingAccess.mockResolvedValue(true);
 
     const result = await refundCredits({
@@ -589,13 +693,7 @@ describe("refundCredits", () => {
       "assistant-action:action-dev:refund",
       expect.anything()
     );
-    expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        amount: 50,
-        type: "refund",
-        userId: "user-1",
-      })
-    );
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
   });
 
   it("fails closed when no refundable grant exists", async () => {
@@ -630,7 +728,8 @@ describe("refundCredits", () => {
       expect.anything()
     );
     expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: 100, type: "refund" })
+      expect.objectContaining({ amount: 100, type: "refund" }),
+      expect.anything()
     );
   });
 });
