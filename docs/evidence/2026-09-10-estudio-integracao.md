@@ -72,3 +72,36 @@ A entregou `931f6578` e `9b635b9a`: política/qualidade/formato, direção/promp
 No worktree de integração, o coordenador confirmou **11 arquivos / 348 testes passando**, `npm run typecheck` com exit0 e ESLint dos15 arquivos tocados com exit0. A suíte foi exatamente a lista do prompt A. Avisos não bloqueantes: Node DEP0205 e Fontconfig sem configuração padrão; não constituem prova de renderização visual. Não houve chamada paga nem migration nesse teste. Esses checks verificam a entrega parcial combinada com a base, não as quatro frentes completas.
 
 A identificou também que reference-plan exige upload original na adaptação mesmo com pai de revisão. A recebeu propriedade explícita de reference-plan.ts/teste para aceitar o pai como original válido e primeira referência, preservando a exigência de original na adaptação autônoma. Detalhe registrado no plano coordenador; sem source fictício no job.
+
+## Segunda revisão de A — 16adbd18
+
+`ff6aa457` e `13843113` aprovados em revisão estática parcial: snapshot integrated, idempotência de prepare, autoridade do pai na adaptação e projeção explícita de QA. O coordenador executou no worktree A em HEAD `16adbd18`: **12 arquivos/372 testes, typecheck, lint dos7 arquivos novos neste delta e diff check passaram**. A entrega permanece na branch A até fechar job/B1/R1; o snapshot já declara a nova política mas o job ainda não a aplica. Não publicar ou tratar como A1 completo.
+
+## Devolutiva B2 — be4451bc
+
+Além da correção B1 acima, B deve corrigir os seguintes achados por novos commits, preservando os SHAs entregues:
+
+1. **P1, replay sem recuperação:** `app/src/server/application/revise-creative-work-output.ts:122–135` retorna sucesso ao encontrar operationKey, pulando o join canônico. Crash pós-débito/pré-dispatch ou ack deixa o envio sem retomada; dispatch_failed também pula compensação pendente. Retomar settlement com revisionContext congelado, sem reinterpretar draft editado. Testar replay pós-débito, dispatch/ack e refund pendente, sem cobrança duplicada.
+2. **P2, recuperação após402:** reserva mantém filho failed/credit_blocked. Repetir após recarga devolve esse filho sem gerar/cobrar. Só remover o retorno antecipado não basta: join sem chargeUsage também retorna settled. Retomar idempotentemente com mesma chave, uma cobrança e uma geração após recarga; testar concorrência/replay.
+3. **P2, DTO da revisão:** `app/src/app/api/creative-work/[id]/generate/route.ts:78` serializa a linha interna inteira no reviewed_revision. Replay de completed expõe outputKey e estados internos de camadas. Aplicar projeção pública compatível com GET e testar sentinelas privadas nessa resposta.
+
+Revisão estática, sem banco real ou E2E. B1/B2 não liberados até correções e testes. B também é dono de CAS/marker/list/limpeza/GET de R1; D entrega o helper, A job e C polling. Não criar stubs ou editar arquivo de outro dono.
+
+## Sessões localizadas
+
+O usuário informou OpenCode Desktop e Z Code Desktop. OpenCode: B em `ses_f73a02338ffe3uD6yfKwgZVHn8` (“Contratos, persistência e reserva outputs”) e D em `ses_f739be295ffeiIXxpSX0Aa6QaC` (“Créditos auditáveis e QA integração”). D recebeu e iniciou R1 pela UI. B recebeu a devolutiva correta e iniciou as correções. C foi localizado no ZCode, tarefa “Agente C: interface estudio e estados silenciosos”, e recebeu a orientação via Steer; iniciou a nova mensagem. Uma mensagem incorreta de clipboard chegou a B e foi imediatamente corrigida; o recebimento do texto correto foi confirmado na UI.
+
+
+## Segunda devolutiva B e revisão D
+
+B entregou `3470fee9`, com BASE_COMUM na ancestry. Coordenador confirmou **8 arquivos/397 testes passando**. DTO privado, save e replay pós-débito foram corrigidos. Ainda pendente no SHA:
+
+- B/P2: revise-creative-work-output.ts:128–164 converte revisionContext inválido em null e cai no caminho legado. Comando reviewed deve exigir contexto válido. Testar com revisionInstruction válida e contexto version2/campo extra; o teste atual com instruction null rejeita pelo motivo errado.
+- B/P2: repositories/creative-work.ts:1565–1568, retomada credit_blocked precisa renovar updatedAt e limpar terminalAt além de queuedAt, para GET não vencer imediatamente a lease antiga após uma recarga tardia. Preservar chave e contador.
+- GET deve consumir o helper real de D e remover a função local duplicada. Completion/list/limpeza R1 estão coerentes na revisão.
+
+D entregou `22879a5b`, `0f6d53bc`, `3cceb8c1`, `167ab700`. Coordenador confirmou **9 arquivos/95 testes passando**, com avisos de navegação não implementada em jsdom. Helper R1 de `167ab700` aprovado separadamente para A/B; preserva already_refunded, userId, chave e confirmação. Fechamento financeiro integral ainda pendente:
+
+- D/P2: revalidar usage idempotente após adquirir locks dos grants e tratar23505 de recordUsage consultando workspace/chave fora da transação abortada. Corrida preexistente coberta pelo critério de idempotência desta entrega. Testar saldo exato para uma operação e23505 sem usage correspondente.
+- D/P2: history/route aceita data impossível com horário, como2026-02-31T12:00:00Z. Exigir ISO com timezone e calendário válido, estendendo o teste existente.
+- Rollback/concorrência reais e traduções financeiras continuam dependentes da integração/QA.
