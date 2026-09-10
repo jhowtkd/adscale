@@ -121,7 +121,7 @@ export function PieceFormatPopover({
           closePanel();
         }}
         style={{ position: "fixed", margin: 0, display: nativePopover ? undefined : open ? "flex" : "none" }}
-        className="z-[var(--layer-popover)] flex w-44 flex-col gap-1 overflow-y-auto rounded-[var(--radius-overlay)] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] p-1 shadow-[var(--shadow-floating)]"
+        className="z-[var(--layer-popover)] w-44 flex-col gap-1 overflow-y-auto rounded-[var(--radius-overlay)] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] p-1 shadow-[var(--shadow-floating)] [&:popover-open]:flex"
       >
         {FORMATS.map((format) => (
           <button

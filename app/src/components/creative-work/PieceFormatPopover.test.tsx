@@ -58,6 +58,20 @@ describe("PieceFormatPopover", () => {
     expect(onChoose).not.toHaveBeenCalled();
   });
 
+  it("keeps the closed panel hidden in both popover and fallback environments", () => {
+    const { unmount } = render(<PieceFormatPopover value={null} onChoose={vi.fn()} onCancel={vi.fn()} />);
+    // Closed panels are hidden, so role queries cannot see them — probe the DOM.
+    const dialog = document.querySelector("div[popover]");
+    expect(dialog).not.toBeNull();
+    // Native popovers hide through the UA [popover] closed style; the class
+    // must only restore flex on :popover-open, never unconditionally.
+    expect(dialog!.className).toContain("[&:popover-open]:flex");
+    expect(dialog!.className).not.toMatch(/(?:^|\s)flex(?:\s|$)/);
+    // jsdom has no popover API: the inline fallback must hide the closed panel.
+    expect(dialog).toHaveStyle({ display: "none" });
+    unmount();
+  });
+
   it("closes through Escape without choosing or cancelling", () => {
     const { onChoose, onCancel } = openPanel(null);
     fireEvent.keyDown(screen.getByRole("dialog", { name: "Proporções disponíveis" }), { key: "Escape" });
