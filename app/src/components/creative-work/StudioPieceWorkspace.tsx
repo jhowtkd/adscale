@@ -62,6 +62,19 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
     revisionCreditCost: composer.revisionCreditCost ?? null,
   });
 
+  // A failed revision retries through the reviewed flow on its base: switch
+  // there, then force a FRESH draft/key — the parent's old revision was
+  // already consumed by the failed child and must never be replayed.
+  const pendingFreshAttemptRef = useRef(false);
+  const freshAttemptTargetRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (selected && pendingFreshAttemptRef.current && selected.id === freshAttemptTargetRef.current) {
+      pendingFreshAttemptRef.current = false;
+      freshAttemptTargetRef.current = null;
+      review.beginFreshDraftAttempt();
+    }
+  }, [review, selected]);
+
   // Fix the default selection on first sight of each work, before any render
   // depends on it; afterwards only explicit actions move it.
   useEffect(() => {
@@ -154,9 +167,10 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
               aria-pressed={compareOpen}
               onClick={() => {
                 if (layersOpen) {
-                  // Exiting the editor must flush first; compare only opens
-                  // once the editor actually released.
-                  requestLayersExit();
+                  // The scanner panel has no editor session to flush — close
+                  // it directly. Only a mounted editor needs the flush path.
+                  if (readyLayers) requestLayersExit();
+                  else setLayersOpen(false);
                   setPendingCompare(true);
                   return;
                 }
@@ -185,7 +199,9 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
             title={composer.canLayerize ? undefined : t("layersUnavailable")}
             onClick={() => {
               if (layersOpen) {
-                requestLayersExit();
+                // Scanner panels close directly; a mounted editor flushes.
+                if (readyLayers) requestLayersExit();
+                else setLayersOpen(false);
                 return;
               }
               setCompareOpen(false);
@@ -209,10 +225,13 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
                 aria-label={`${t("versionLabel", { count: visualVersionNumber(outputs, output) })} · ${output.targetFormat}`}
                 onClick={() => {
                   if (output.id === selected.id) return;
-                  // Switching away from an open editor flushes first; the
+                  // Switching away from a mounted editor flushes first; the
                   // selection is applied only after the editor released.
-                  if (layersOpen) requestLayersExit(output.id);
-                  else setSelectedId(output.id);
+                  if (layersOpen && readyLayers) requestLayersExit(output.id);
+                  else if (layersOpen) {
+                    setLayersOpen(false);
+                    setSelectedId(output.id);
+                  } else setSelectedId(output.id);
                 }}
                 className={`${styles.thumb} rounded-[var(--radius-control)] border border-transparent bg-[var(--surface-inset)] aria-pressed:border-[var(--focus-ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]`}
               >
@@ -308,8 +327,14 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
           onRetryThroughReview={(failed) => {
             const parentId = failed.parentOutputId;
             if (!parentId) return;
-            if (layersOpen) requestLayersExit(parentId);
-            else setSelectedId(parentId);
+            pendingFreshAttemptRef.current = true;
+            freshAttemptTargetRef.current = parentId;
+            if (layersOpen && readyLayers) {
+              requestLayersExit(parentId);
+            } else {
+              if (layersOpen) setLayersOpen(false);
+              setSelectedId(parentId);
+            }
           }}
           onApprove={composer.approveOutput}
           onDownload={composer.downloadOutput}

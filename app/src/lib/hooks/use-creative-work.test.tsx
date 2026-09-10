@@ -93,6 +93,26 @@ describe("creativeWorkRefetchInterval", () => {
   });
 });
 
+describe("R1 refund-pending polling", () => {
+  it("keeps polling while a completed output awaits compensation", () => {
+    expect(
+      creativeWorkRefetchInterval({
+        work: { status: "partial" },
+        outputs: [{ status: "completed", failureCode: "objective_quality_failed_refund_pending" }],
+      }),
+    ).toBe(2000);
+  });
+
+  it("stops polling once the refund-pending marker is cleared", () => {
+    expect(
+      creativeWorkRefetchInterval({
+        work: { status: "partial" },
+        outputs: [{ status: "completed", failureCode: null }],
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("creative source client contract", () => {
   beforeEach(() => vi.clearAllMocks());
 

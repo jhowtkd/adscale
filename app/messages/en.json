@@ -834,6 +834,7 @@
           "reviewRecommended": "Review recommended — the automated check was inconclusive",
           "objectiveFailed": "The objective check rejected this piece.",
           "objectiveFailedNext": "Generate a new variation before approving.",
+          "refundPending": "Credit compensation pending for this piece.",
           "legacyReviewRequired": "This piece has no objective verdict. Review it before confirming approval.",
           "reviewBeforeApprove": "Review and approve",
           "confirmApproval": "Confirm approval",

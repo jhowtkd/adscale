@@ -6,6 +6,7 @@ import { Layers, Star } from "lucide-react";
 import {
   categorizeCreativeWorkFailure,
   isCreativeWorkRetryEligible,
+  CREATIVE_WORK_REFUND_PENDING_FAILURE_CODE,
   type CreativeWorkOutput,
 } from "@/lib/hooks/use-creative-work";
 import {
@@ -128,6 +129,10 @@ export function CreativeResultCard({
     ? getCreativeWorkEvaluatorSummary(output.quality)
     : null;
   const layerization = output.layerization;
+  // R1: completed with QA fail keeps its preview; choice stays blocked and the
+  // compensation is shown as pending only — never as an executed refund.
+  const refundPending = output.status === "completed"
+    && output.failureCode === CREATIVE_WORK_REFUND_PENDING_FAILURE_CODE;
   const layerizeRemaining = layerEditorAccess?.layerize?.remaining ?? null;
   const hasReadyLayers = layerization?.status === "completed" || Boolean(output.layerEditor);
   const canOpenEditor = Boolean(onOpenLayerEditor) && !isMobile && isCompleted && (hasReadyLayers || canLayerize);
@@ -360,6 +365,16 @@ export function CreativeResultCard({
             <p role="alert" className="mt-2 text-xs text-[var(--danger-text)]">{t("personFidelityReviewFailed")}</p>
           ) : null}
         </section>
+      ) : null}
+
+      {refundPending ? (
+        <div
+          role="note"
+          data-testid="refund-pending"
+          className="rounded-[var(--radius-control)] border border-[var(--info-border)] bg-[var(--info-bg)] px-3 py-2 text-xs text-[var(--info-text)]"
+        >
+          {t("refundPending")}
+        </div>
       ) : null}
 
       {selectionPolicy?.verdict === "legacy" && selectionPolicy.selectable ? (

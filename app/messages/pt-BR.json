@@ -929,6 +929,7 @@
           "reviewRecommended": "Revisão recomendada — a checagem automática ficou inconclusiva",
           "objectiveFailed": "A checagem objetiva reprovou esta peça.",
           "objectiveFailedNext": "Gere uma nova variação antes de aprovar.",
+          "refundPending": "Reposição de créditos pendente para esta peça.",
           "legacyReviewRequired": "Esta peça não tem veredito objetivo. Revise-a antes de confirmar a aprovação.",
           "reviewBeforeApprove": "Revisar e aprovar",
           "confirmApproval": "Confirmar aprovação",

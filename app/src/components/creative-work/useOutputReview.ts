@@ -74,6 +74,14 @@ type ChainResult = { op: SaveOperation; draft: OutputReviewDraftV1 | null };
  * the persisted reviewDraft the output resumed from. */
 type SavedState = { input: OutputReviewInput; draft: OutputReviewDraftV1 };
 
+/** A scheduled-but-not-fired debounce carries its own session: it must
+ * still land on the output it was typed for, even after a switch. */
+type PendingSession = {
+  workItemId: string;
+  outputId: string;
+  baselineRevision: number;
+};
+
 /**
  * One output's review controller: debounced server-saved draft, a frozen
  * review/confirm step, and idempotent resubmission after uncertain network
@@ -109,6 +117,7 @@ export function useOutputReview({
   draftRef.current = draft;
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingTimerSessionRef = useRef<PendingSession | null>(null);
   const saveChainRef = useRef<Promise<ChainResult | null>>(Promise.resolve(null));
   const inFlightTailRef = useRef<SaveOperation | null>(null);
   const chainTailRef = useRef<SaveOperation | null>(null);
@@ -129,15 +138,15 @@ export function useOutputReview({
     setPhase(next);
   }, []);
 
-  const enqueueSave = useCallback((input: OutputReviewInput): Promise<OutputReviewDraftV1 | null> => {
+  const enqueueSave = useCallback((input: OutputReviewInput, session?: PendingSession): Promise<OutputReviewDraftV1 | null> => {
     // Session captured here: identity, the draft snapshot AND the CAS
     // baseline. Execution never reads global state, so a queued save keeps
     // its own output and revision chain across output switches.
     const op: SaveOperation = {
-      workItemId,
-      outputId: outputIdRef.current,
+      workItemId: session?.workItemId ?? workItemId,
+      outputId: session?.outputId ?? outputIdRef.current,
       input: { ...input },
-      baselineRevision: lastSavedRef.current?.draft.revision ?? 0,
+      baselineRevision: session?.baselineRevision ?? lastSavedRef.current?.draft.revision ?? 0,
       previous: chainTailRef.current,
       resolvedRevision: null,
     };
@@ -201,9 +210,12 @@ export function useOutputReview({
    * persisted — never a stale revision of older text.
    */
   const flush = useCallback(async (): Promise<OutputReviewDraftV1 | null> => {
-    if (saveTimerRef.current) {
+    // Only the current session's pending debounce is flushed now; a timer
+    // captured for a previous output still fires and saves its own edit.
+    if (saveTimerRef.current && pendingTimerSessionRef.current?.outputId === outputIdRef.current) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
+      pendingTimerSessionRef.current = null;
     }
     if (inFlightTailRef.current && sameInput(inFlightTailRef.current.input, draftRef.current)) {
       await saveChainRef.current;
@@ -226,16 +238,22 @@ export function useOutputReview({
       setPhaseSync("editing");
     }
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    // Capture the session at scheduling: the debounce saves THIS snapshot for
-    // THIS output, even if the user switches pieces before it fires.
-    const scheduledOutputId = outputIdRef.current;
+    // Capture the whole session at scheduling: identity AND CAS baseline. The
+    // debounce lands the edit on its own output even if the user switches
+    // pieces before it fires.
+    const scheduledSession: PendingSession = {
+      workItemId,
+      outputId: outputIdRef.current,
+      baselineRevision: lastSavedRef.current?.draft.revision ?? 0,
+    };
     const scheduledInput = next;
+    pendingTimerSessionRef.current = scheduledSession;
     saveTimerRef.current = setTimeout(() => {
       saveTimerRef.current = null;
-      if (scheduledOutputId !== outputIdRef.current) return;
-      void enqueueSave(scheduledInput);
+      pendingTimerSessionRef.current = null;
+      void enqueueSave(scheduledInput, scheduledSession);
     }, autosaveDelayMs);
-  }, [autosaveDelayMs, enqueueSave, setPhaseSync]);
+  }, [autosaveDelayMs, enqueueSave, setPhaseSync, workItemId]);
 
   const review = useCallback(async () => {
     if (referencePendingRef.current || confirmingRef.current) return;
@@ -337,17 +355,23 @@ export function useOutputReview({
     setPhaseSync("editing");
   }, [setPhaseSync]);
 
+  /** Marks the currently hydrated draft as spent: the next review mints a
+   * fresh server draft (new revision/key) instead of replaying a consumed
+   * revision — e.g. retrying a failed child on its base. Never overwrites a
+   * newer server draft silently: the resave goes through the normal CAS. */
+  const beginFreshDraftAttempt = useCallback(() => {
+    resaveAfterFailureRef.current = true;
+  }, []);
+
   /** Ends the current save session and rehydrates the canonical refs from the
-   * given output; callers decide which UI state to reset on top. */
+   * given output; callers decide which UI state to reset on top. A pending
+   * debounce survives: it belongs to its own captured session. */
   const hydrateRefsFrom = useCallback((source: CreativeWorkOutput) => {
-    // The previous save session ends here: a pending debounce for the old
-    // session must never fire against the new output.
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = null;
-    }
     chainTailRef.current = null;
     dirtyRef.current = false;
+    // The new output starts with a clean save indicator; late responses from
+    // the previous output are guarded and never touch its state.
+    setSaveState(null);
     const next = draftFromOutput(source);
     draftRef.current = next;
     lastSavedRef.current = source.reviewDraft
@@ -401,6 +425,7 @@ export function useOutputReview({
 
   useEffect(() => () => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    pendingTimerSessionRef.current = null;
   }, []);
 
   const isBusy = useMemo(() => phase === "submitting" || phase === "reconciling", [phase]);
@@ -419,6 +444,7 @@ export function useOutputReview({
     flush,
     review,
     edit,
+    beginFreshDraftAttempt,
     confirm,
     reloadDraft,
   };
