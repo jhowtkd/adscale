@@ -373,7 +373,7 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
           </>
         ) : null}
 
-        {review.phase === "reviewing" ? (
+        {reviewed ? (
           <section
             aria-label={t("reviewAction")}
             className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] p-3"
