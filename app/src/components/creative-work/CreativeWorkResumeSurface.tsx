@@ -63,7 +63,9 @@ export function CreativeWorkResumeSurface({
             </p>
           ) : null}
           <Link
-            href="/?mode=arte&compose=1&intent=variations&fresh=1"
+            href={composer.intent === "single"
+              ? `/?workId=${encodeURIComponent(workId)}&compose=1`
+              : "/?mode=arte&compose=1&intent=variations&fresh=1"}
             className={studioChipClass}
           >
             <Plus size={14} aria-hidden="true" />

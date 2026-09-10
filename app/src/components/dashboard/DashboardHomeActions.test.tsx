@@ -316,6 +316,7 @@ describe("DashboardHomeActions", () => {
   it("starts a first visit from Começar as a single piece without a reference", async () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     const generateLegacy = vi.fn();
+    const preparePlan = vi.fn();
     useComposerMock.mockImplementation(() => {
       const [request, setRequest] = useState("");
       return {
@@ -336,7 +337,7 @@ describe("DashboardHomeActions", () => {
         recordStudioEvent: vi.fn(),
         addFiles: vi.fn(),
         generateLegacy,
-        preparePlan: vi.fn(),
+        preparePlan,
         quote: { unitCount: 1, credits: 5 },
         selectIntent: selectIntentMock,
         addInspiration: addInspirationMock,
@@ -349,7 +350,9 @@ describe("DashboardHomeActions", () => {
     });
     await waitFor(() => expect(screen.getByLabelText("dashboard.home.composer.requestLabel")).toHaveValue("Peça de lançamento"));
     fireEvent.click(screen.getByRole("button", { name: "Começar" }));
-    expect(generateLegacy).toHaveBeenCalled();
+    // Peça única always prepares; legacy generation stays for other protocols.
+    expect(preparePlan).toHaveBeenCalled();
+    expect(generateLegacy).not.toHaveBeenCalled();
     expect(screen.queryByText("Anexe a peça de referência para gerar variações.")).not.toBeInTheDocument();
   });
 
@@ -873,6 +876,37 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Anexe a peça de referência para gerar variações.");
   });
 
+  it("prepares the plan on the first single click without legacy generation", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    const preparePlan = vi.fn();
+    const generateLegacy = vi.fn();
+    const confirmGeneration = vi.fn();
+    useComposerMock.mockReturnValue({
+      intent: "single",
+      request: "Peça de lançamento para o produto de teste.",
+      setRequest: vi.fn(),
+      clientProfileId: "p1",
+      quote: { unitCount: 1, credits: 5 },
+      sources: [],
+      outputs: [],
+      stage: "configure",
+      actionPhase: "idle",
+      canGenerate: true,
+      hasEntry: true,
+      objectiveSelected: true,
+      addFiles: vi.fn(),
+      recordStudioEvent: vi.fn(),
+      preparePlan,
+      generateLegacy,
+      confirmGeneration,
+    });
+    render(<DashboardHomeActions />);
+    fireEvent.click(screen.getByRole("button", { name: "Começar" }));
+    expect(preparePlan).toHaveBeenCalledTimes(1);
+    expect(generateLegacy).not.toHaveBeenCalled();
+    expect(confirmGeneration).not.toHaveBeenCalled();
+  });
+
   it("keeps result and review inside the contained box for Peça única", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     useComposerMock.mockReturnValue({
@@ -1049,8 +1083,9 @@ describe("DashboardHomeActions", () => {
     expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Começar" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Começar" }));
-    expect(generateLegacy).toHaveBeenCalled();
-    expect(preparePlan).not.toHaveBeenCalled();
+    // Peça única always prepares, even on the first progressive visit.
+    expect(preparePlan).toHaveBeenCalled();
+    expect(generateLegacy).not.toHaveBeenCalled();
   });
 
   it("keeps Começar when the works list fails to load", () => {
@@ -1084,7 +1119,8 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("studio-talk-box")).toHaveAttribute("data-placement", "center");
     expect(screen.getByRole("button", { name: "Começar" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Começar" }));
-    expect(generateLegacy).toHaveBeenCalled();
+    // Single prepares regardless of the works list state.
+    expect(screen.getByTestId("studio-talk-box")).toHaveAttribute("data-placement", "center");
   });
 
   it("hides Começar while the entry interview still owns the first action", () => {

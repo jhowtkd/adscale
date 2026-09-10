@@ -43,6 +43,8 @@ export function TalkBox({
   queued = false,
   canGenerate = true,
   bordered = true,
+  /** The canonical reference strip owns attaching for single with sources. */
+  hideAttach = false,
   onRetrySource,
   generateLabel,
   interview = null,
@@ -68,6 +70,7 @@ export function TalkBox({
   canGenerate?: boolean;
   /** The contained piece box embeds a borderless TalkBox (single ShineBorder). */
   bordered?: boolean;
+  hideAttach?: boolean;
   onRetrySource?: (sourceId: string) => void;
   generateLabel: string;
   interview?: {
@@ -106,8 +109,11 @@ export function TalkBox({
   const restyleContentSource = intent === "restyle"
     ? sources.find((source) => source.usage === "content" || source.usage === "both") ?? null
     : null;
-  const restyleHint = intent === "restyle" && !restylePairReady
-    ? !restyleContentSource
+  // Hints follow the REAL source states even when the canonical pair shape
+  // already exists: an analyzing or failed style reference must be visible.
+  const restyleHint = intent !== "restyle" || (restylePairReady && (!restyleStyleSource || restyleStyleSource.status === "ready"))
+    ? null
+    : !restyleContentSource
       ? { message: t("talkRestyleOriginalMissing"), retrySourceId: null }
       : !restyleStyleSource
         ? { message: t("talkRestyleStyleMissing"), retrySourceId: null }
@@ -115,8 +121,7 @@ export function TalkBox({
           ? { message: t("talkRestyleFailed"), retrySourceId: restyleStyleSource.id }
           : restyleStyleSource.status && restyleStyleSource.status !== "ready"
             ? { message: t("talkRestyleAnalyzing"), retrySourceId: null }
-            : { message: t("talkRestyleStyleMissing"), retrySourceId: null }
-    : null;
+            : null;
   const attachRequired = (needsReference && attachCount === 0) || (needsRestylePair && restyleStyleSource?.status === "ready");
   const attachLabel = attachCount > 0
     ? t("talkAttachCount", { count: attachCount })
@@ -245,11 +250,12 @@ export function TalkBox({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={attachCount >= MAX_ATTACHMENTS}
+              disabled={hideAttach || attachCount >= MAX_ATTACHMENTS}
               aria-label={attachLabel}
               className={cn(
                 "inline-flex min-h-10 items-center gap-2 rounded-full border border-white/15 bg-white/8 px-4 text-sm font-medium text-[var(--text-secondary)] hover:bg-white/12 hover:text-[var(--text-primary)]",
                 "disabled:opacity-50",
+                hideAttach && "hidden",
                 focus,
               )}
             >

@@ -27,6 +27,7 @@ import type { EntryLocale } from "@/lib/studio/entry-types";
 import { firstVisitComposerIntent } from "@/lib/studio/detect-entry-gaps";
 import { studioStageOccupancy } from "@/lib/studio/stage-occupancy";
 import { useCreateCampaign } from "@/lib/hooks/use-campaigns";
+import { ShineBorder, SHINE_COLORS } from "@/components/ui/shine-border";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { StudioMode } from "@/app/(dashboard)/dashboard-search-params";
@@ -241,6 +242,7 @@ export default function DashboardHomeActions({
   const preparedPlanCycleRef = useRef(composer.preparedPlanCycle ?? 0);
   const sources = composer.sources ?? [];
   const outputs = composer.outputs ?? [];
+
   const { data: inspirations = [] } = useCreativeInspirations(composer.clientProfileId ?? null);
 
   const interviewEnabled = rolloutVariant === "progressive" && entryInterviewEnabled && Boolean(composer.clientProfileId);
@@ -279,6 +281,11 @@ export default function DashboardHomeActions({
   // Peça única lives in the approved contained box: configure, plan, results
   // and review all share the container below instead of the stage surfaces.
   const isSingleWorkflow = composer.intent === "single";
+  // Single keeps its canonical reference strip; the TalkBox attach would
+  // duplicate it once references exist.
+  const pieceReferenceSources = isSingleWorkflow
+    ? sources.filter((source) => source.assetId && source.pieceReference)
+    : [];
   const resultStage = rolloutVariant === "progressive"
     && !isCarouselWorkflow
     && !isSingleWorkflow
@@ -344,14 +351,22 @@ export default function DashboardHomeActions({
       error={composer.error ?? null}
       announcement={composer.announcement ?? (composer.bufferedFile ? t("composer.progressiveBufferedFile", { name: composer.bufferedFile.name }) : null)}
       retryInitialTemplate={composer.retryInitialTemplate ?? null}
-      onGenerate={() => void (
-        occupancy === "empty" || (rolloutVariant !== "progressive" && !isSingleWorkflow)
+      onGenerate={() => {
+        // Peça única ALWAYS prepares (plan + canonical cost before anything
+        // is generated) — including the very first visit. Other protocols
+        // keep their legacy entries.
+        if (isSingleWorkflow) {
+          void composer.preparePlan?.();
+          return;
+        }
+        void (occupancy === "empty" || rolloutVariant !== "progressive"
           ? composer.generateLegacy?.()
-          : composer.preparePlan?.()
-      )}
+          : composer.preparePlan?.());
+      }}
       queued={composer.state === "generating"}
       canGenerate={composer.canGenerate ?? true}
       bordered={!singleContainerActive}
+      hideAttach={singleContainerActive && pieceReferenceSources.length > 0}
       onRetrySource={composer.retrySource ? (sourceId) => void composer.retrySource?.(sourceId) : undefined}
       generateLabel={occupancy === "empty" ? t("talkStart") : t("talkGenerate")}
       interview={interviewEnabled ? {
@@ -379,6 +394,13 @@ export default function DashboardHomeActions({
 
   const pieceWorkspace = singleContainerActive ? (
     <section data-testid="studio-piece-container" className={styles.workspace}>
+      <ShineBorder
+        borderRadius={20}
+        borderWidth={1}
+        duration={28}
+        color={[...SHINE_COLORS]}
+        className="w-full min-w-0"
+      >
       {outputs.length > 0 ? (
         <StudioPieceWorkspace composer={composer} />
       ) : (
@@ -411,6 +433,7 @@ export default function DashboardHomeActions({
           </div>
         </div>
       )}
+      </ShineBorder>
     </section>
   ) : undefined;
 
