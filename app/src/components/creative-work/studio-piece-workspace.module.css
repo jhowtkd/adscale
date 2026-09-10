@@ -1,0 +1,104 @@
+.workspace {
+  width: 100%;
+  max-width: 1250px;
+  margin-inline: auto;
+  border-radius: 20px;
+}
+
+.inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 580px;
+  height: min(690px, calc(100dvh - 136px));
+  overflow: hidden;
+}
+
+.visual {
+  flex: 1;
+  min-height: 200px;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.artGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.versions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.thumb {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.thumb img {
+  width: 34px;
+  height: 34px;
+  border-radius: 5px;
+  object-fit: cover;
+}
+
+.art {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.dock {
+  flex: none;
+  border-top: 1px solid var(--border-subtle);
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 42%;
+  overflow-y: auto;
+}
+
+.compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: center;
+  justify-items: center;
+  height: 100%;
+  width: 100%;
+}
+
+@media (max-width: 700px) {
+  .inner {
+    height: auto;
+    min-height: 0;
+  }
+
+  .visual {
+    height: 48dvh;
+    min-height: 310px;
+    flex: none;
+  }
+
+  .compare {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-height: 650px) and (min-width: 701px) {
+  .inner {
+    height: auto;
+    min-height: 580px;
+  }
+}
