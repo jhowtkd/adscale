@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations, useLocale } from "next-intl";
-import { useCreditHistory } from "@/lib/hooks/use-billing";
+import { useCreditHistory, useBillingStatus } from "@/lib/hooks/use-billing";
 import {
   Table,
   TableBody,
@@ -38,26 +38,28 @@ const TYPE_COLORS: Record<string, string> = {
 const EMPTY_TRANSACTIONS: NonNullable<ReturnType<typeof useCreditHistory>["data"]>["transactions"] = [];
 const EMPTY_CAMPAIGNS: NonNullable<ReturnType<typeof useCreditHistory>["data"]>["campaigns"] = [];
 
-function getDateRange(range: string) {
+function getDateRange(range: string): { from?: string; to?: string } {
+  if (range === "allTime") {
+    return {};
+  }
   const now = new Date();
-  const to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+  const to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
   let from: Date;
 
   switch (range) {
-    case "thisMonth":
-      from = new Date(now.getFullYear(), now.getMonth(), 1);
-      break;
     case "last3Months":
-      from = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+      from = new Date(now.getFullYear(), now.getMonth() - 2, 1);
       break;
     case "thisYear":
       from = new Date(now.getFullYear(), 0, 1);
       break;
+    case "thisMonth":
     default:
-      from = new Date(2020, 0, 1);
+      from = new Date(now.getFullYear(), now.getMonth(), 1);
+      break;
   }
 
-  return { from: from.toISOString().split("T")[0], to: to.toISOString().split("T")[0] };
+  return { from: from.toISOString(), to: to.toISOString() };
 }
 
 export default function CreditHistoryTab() {
@@ -78,10 +80,16 @@ export default function CreditHistoryTab() {
   );
 
   const { data, isLoading, isError } = useCreditHistory(queryParams);
+  const { data: billingStatus } = useBillingStatus();
 
   const transactions = data?.transactions ?? EMPTY_TRANSACTIONS;
   const summary = data?.summary;
   const campaigns = data?.campaigns ?? EMPTY_CAMPAIGNS;
+  const unlimited = billingStatus?.access?.unlimited === true;
+  const selectedCampaignName =
+    campaignFilter === "all"
+      ? t("allCampaigns")
+      : (campaigns.find((c) => c.id === campaignFilter)?.name ?? "—");
 
   const chartData = useMemo(() => {
     const grouped = new Map<string, number>();
@@ -105,7 +113,7 @@ export default function CreditHistoryTab() {
         <span className="hidden h-4 w-px bg-[var(--border-dim)] sm:block" aria-hidden />
         <SummaryInline
           label={t("remainingCredits")}
-          value={summary ? summary.remainingCredits.toString() : "—"}
+          value={unlimited ? t("unlimited") : (summary ? summary.remainingCredits.toString() : "—")}
         />
         <span className="hidden h-4 w-px bg-[var(--border-dim)] sm:block" aria-hidden />
         <SummaryInline
@@ -113,6 +121,9 @@ export default function CreditHistoryTab() {
           value={summary ? summary.averagePerCampaign.toString() : "—"}
         />
       </dl>
+      {unlimited ? (
+        <p className="text-sm text-[var(--text-secondary)]">{t("unlimitedHint")}</p>
+      ) : null}
       <div className="flex flex-wrap gap-3">
         <div className="space-y-1">
           <span className="block text-xs font-medium text-[var(--text-secondary)]">
@@ -120,7 +131,9 @@ export default function CreditHistoryTab() {
           </span>
           <Select value={dateRange} onValueChange={(v) => setDateRange(v ?? "thisMonth")}>
             <SelectTrigger className="w-44" size="sm">
-              <SelectValue />
+              <SelectValue>
+                {t(dateRange as "thisMonth" | "last3Months" | "thisYear" | "allTime")}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="thisMonth">{t("thisMonth")}</SelectItem>
@@ -137,7 +150,7 @@ export default function CreditHistoryTab() {
           </span>
           <Select value={campaignFilter} onValueChange={(v) => setCampaignFilter(v ?? "all")}>
             <SelectTrigger className="w-52" size="sm">
-              <SelectValue />
+              <SelectValue>{selectedCampaignName}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t("allCampaigns")}</SelectItem>
@@ -191,6 +204,7 @@ export default function CreditHistoryTab() {
 
       {/* Table */}
       <div>
+        <p className="mb-2 text-xs text-[var(--text-muted)]">{t("movementsNote")}</p>
         <Table>
           <TableHeader>
             <TableRow>

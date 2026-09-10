@@ -35,6 +35,12 @@ export interface BillingStatus {
     label: string;
     remainingAds: number | null;
     hasSpendAccess: boolean;
+    /**
+     * True when the workspace settles usage without debiting credits, per the
+     * canonical `workspaceHasUnlimitedBillingAccess` policy. Absent in legacy
+     * payloads, which must be treated as limited access.
+     */
+    unlimited?: boolean;
     beta: {
       totalAds: number;
       remainingAds: number;
