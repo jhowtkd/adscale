@@ -114,7 +114,10 @@ export function PieceReviewCanvas({
           src={src}
           alt={alt}
           onLoad={measure}
-          className="max-h-full max-w-full object-contain"
+          // The img box always fills the measured container and object-contain
+          // letterboxes inside it — exactly the rect containedImageBounds
+          // computes, so pins and hit-testing stay on the rendered artwork.
+          className="h-full w-full object-contain"
         />
         <div
           style={bounds

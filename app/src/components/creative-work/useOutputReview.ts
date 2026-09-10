@@ -41,6 +41,10 @@ function draftFromOutput(output: CreativeWorkOutput): OutputReviewInput {
   };
 }
 
+function sameInput(a: OutputReviewInput | null | undefined, b: OutputReviewInput | null | undefined) {
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
 function isConflict(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   return (error as Error & { status?: unknown }).status === 409;
@@ -52,11 +56,26 @@ function statusOf(error: unknown): number | null {
   return typeof status === "number" ? status : null;
 }
 
+/** One queued save operation — identity is captured at enqueue time so a
+ * delayed save always lands on the work/output it was written for. */
+type SaveOperation = {
+  workItemId: string;
+  outputId: string;
+  input: OutputReviewInput;
+};
+
+type ChainResult = { op: SaveOperation; draft: OutputReviewDraftV1 | null };
+
+/** Canonical server state for the current draft: the last accepted save, or
+ * the persisted reviewDraft the output resumed from. */
+type SavedState = { input: OutputReviewInput; draft: OutputReviewDraftV1 };
+
 /**
  * One output's review controller: debounced server-saved draft, a frozen
  * review/confirm step, and idempotent resubmission after uncertain network
- * results. Nothing here generates without an explicit confirm, and resending
- * always reuses the server-issued revisionKey.
+ * results. Nothing here generates without an explicit confirm, resending
+ * always reuses the server-issued revisionKey, and flush() only reports a
+ * revision that corresponds exactly to the current visible draft.
  */
 export function useOutputReview({
   workItemId,
@@ -86,10 +105,13 @@ export function useOutputReview({
   draftRef.current = draft;
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const saveChainRef = useRef<Promise<OutputReviewDraftV1 | null>>(Promise.resolve(null));
+  const saveChainRef = useRef<Promise<ChainResult | null>>(Promise.resolve(null));
+  const inFlightTailRef = useRef<SaveOperation | null>(null);
+  const lastSavedRef = useRef<SavedState | null>(
+    output.reviewDraft ? { input: draftFromOutput(output), draft: output.reviewDraft } : null,
+  );
   const savesQueuedRef = useRef(0);
   const saveGenerationRef = useRef(0);
-  const lastRevisionRef = useRef<OutputReviewDraftV1 | null>(null);
   const confirmingRef = useRef(false);
   const referencePendingRef = useRef(false);
   referencePendingRef.current = referencePending;
@@ -102,44 +124,64 @@ export function useOutputReview({
     setPhase(next);
   }, []);
 
-  const runSave = useCallback((input: OutputReviewInput, expectedReviewRevision: number) =>
-    saveMutation.mutateAsync({ workItemId, outputId: outputIdRef.current, expectedReviewRevision, draft: input })
-      .then((result) => {
-        lastRevisionRef.current = result.draft;
-        return result.draft;
-      }), [saveMutation, workItemId]);
-
-  const enqueueSave = useCallback((input: OutputReviewInput) => {
+  const enqueueSave = useCallback((input: OutputReviewInput): Promise<OutputReviewDraftV1 | null> => {
+    // Identity is frozen here: a save delayed by the chain still targets the
+    // work/output the draft belonged to, never whatever is selected later.
+    const op: SaveOperation = { workItemId, outputId: outputIdRef.current, input: { ...input } };
     savesQueuedRef.current += 1;
     saveGenerationRef.current += 1;
+    inFlightTailRef.current = op;
     if (phaseRef.current === "editing") setPhaseSync("saving");
     setSaveState("saving");
     saveChainRef.current = saveChainRef.current
-      .then(() => runSave(input, lastRevisionRef.current?.revision ?? 0))
-      .then((savedDraft) => {
-        setSaveState("saved");
-        return savedDraft;
-      })
+      .then(() => saveMutation.mutateAsync({
+          workItemId: op.workItemId,
+          outputId: op.outputId,
+          expectedReviewRevision: lastSavedRef.current?.draft.revision ?? 0,
+          draft: op.input,
+        })
+        .then((result) => {
+          // A save that outlived an output switch must not corrupt the new
+          // output's canonical state; its result lives server-side only.
+          if (op.outputId === outputIdRef.current) {
+            lastSavedRef.current = { input: op.input, draft: result.draft };
+          }
+          setSaveState("saved");
+          return { op, draft: result.draft };
+        }))
       .catch((cause) => {
         setError(t("commentSaveError"));
         setSaveState("error");
         if (isConflict(cause)) setError(t("reviewConflict"));
-        return null;
+        return { op, draft: null };
       })
       .finally(() => {
+        if (inFlightTailRef.current === op) inFlightTailRef.current = null;
         savesQueuedRef.current = Math.max(savesQueuedRef.current - 1, 0);
         if (savesQueuedRef.current === 0 && phaseRef.current === "saving") setPhaseSync("editing");
       });
-    return saveChainRef.current;
-  }, [runSave, setPhaseSync, t]);
+    return saveChainRef.current.then((result) => result?.draft ?? null);
+  }, [saveMutation, setPhaseSync, t, workItemId]);
 
+  /**
+   * Waits until the server state corresponds exactly to the current visible
+   * draft. Returns that revision, or null when the current draft could not be
+   * persisted — never a stale revision of older text.
+   */
   const flush = useCallback(async (): Promise<OutputReviewDraftV1 | null> => {
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
-      enqueueSave(draftRef.current);
     }
-    return saveChainRef.current;
+    if (inFlightTailRef.current && sameInput(inFlightTailRef.current.input, draftRef.current)) {
+      await saveChainRef.current;
+    }
+    if (!lastSavedRef.current || !sameInput(lastSavedRef.current.input, draftRef.current)) {
+      if (dirtyRef.current) await enqueueSave(draftRef.current);
+    }
+    return lastSavedRef.current && sameInput(lastSavedRef.current.input, draftRef.current)
+      ? lastSavedRef.current.draft
+      : null;
   }, [enqueueSave]);
 
   const update = useCallback((patch: Partial<OutputReviewInput>) => {
@@ -154,7 +196,7 @@ export function useOutputReview({
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       saveTimerRef.current = null;
-      enqueueSave(draftRef.current);
+      void enqueueSave(draftRef.current);
     }, autosaveDelayMs);
   }, [autosaveDelayMs, enqueueSave, setPhaseSync]);
 
@@ -166,29 +208,21 @@ export function useOutputReview({
     }
     const startedSaving = phaseRef.current === "editing" || phaseRef.current === "saving";
     if (startedSaving) setPhaseSync("saving");
-    const generationBefore = saveGenerationRef.current;
-    const saved = await flush();
-    const freshSave = saveGenerationRef.current !== generationBefore;
-    if (startedSaving && phaseRef.current === "saving") setPhaseSync("editing");
     // A terminal submission failure spends its revision/key: retrying means
-    // minting a fresh server draft first.
-    const candidate = freshSave
-      ? saved
-      : resaveAfterFailureRef.current
-        ? await enqueueSave(draftRef.current)
-        : lastRevisionRef.current;
+    // minting a fresh server draft first, even for unchanged text.
+    const saved = resaveAfterFailureRef.current ? null : await flush();
+    const candidate = saved
+      ?? (resaveAfterFailureRef.current ? await enqueueSave(draftRef.current) : null);
     resaveAfterFailureRef.current = false;
-    const input = candidate
-      ? {
-          action: candidate.action,
-          targetFormat: candidate.targetFormat,
-          instruction: candidate.instruction,
-          revisionAssetId: candidate.revisionAssetId,
-          annotations: candidate.annotations,
-        }
-      : draftRef.current;
-    const canReview = input.action !== "refine" || Boolean(input.instruction.trim()) || input.annotations.length > 0;
-    if (!canReview || !candidate) {
+    if (startedSaving && phaseRef.current === "saving") setPhaseSync("editing");
+    if (!candidate) {
+      setError(t("reviewNeedsContent"));
+      return;
+    }
+    const canReview = candidate.action !== "refine"
+      || Boolean(candidate.instruction.trim())
+      || candidate.annotations.length > 0;
+    if (!canReview) {
       setError(t("reviewNeedsContent"));
       return;
     }
@@ -264,17 +298,24 @@ export function useOutputReview({
   const edit = useCallback(() => {
     setReviewed(null);
     setPhaseSync("editing");
-  }, []);
+  }, [setPhaseSync]);
 
-  const reloadDraft = useCallback(() => {
+  const hydrateFromOutput = useCallback((source: CreativeWorkOutput) => {
     dirtyRef.current = false;
-    const next = draftFromOutput(output);
+    const next = draftFromOutput(source);
     draftRef.current = next;
+    lastSavedRef.current = source.reviewDraft
+      ? { input: next, draft: source.reviewDraft }
+      : null;
     setDraft(next);
     setReviewed(null);
     setPhaseSync("editing");
     setError(null);
-  }, [output, setPhaseSync]);
+  }, [setPhaseSync]);
+
+  const reloadDraft = useCallback(() => {
+    hydrateFromOutput(output);
+  }, [hydrateFromOutput, output]);
 
   const attachReference = useCallback(async (file: File) => {
     setReferencePending(true);
@@ -291,19 +332,12 @@ export function useOutputReview({
   }, [flush, t, update]);
 
   // A refetched server draft never overwrites local edits or an in-flight
-  // submission; switching outputs hydrates from the new output only cleanly.
+  // submission; switching outputs rehydrates from the new output only cleanly.
   useEffect(() => {
     if (output.id !== outputIdRef.current) {
       outputIdRef.current = output.id;
-      lastRevisionRef.current = null;
       setPendingOutputId(null);
-      setReviewed(null);
-      setError(null);
-      dirtyRef.current = false;
-      const next = draftFromOutput(output);
-      draftRef.current = next;
-      setDraft(next);
-      setPhaseSync("editing");
+      hydrateFromOutput(output);
       return;
     }
     if (!dirtyRef.current && phaseRef.current === "editing") {
@@ -311,7 +345,7 @@ export function useOutputReview({
       draftRef.current = next;
       setDraft(next);
     }
-  }, [output, setPhaseSync]);
+  }, [hydrateFromOutput, output]);
 
   useEffect(() => () => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);

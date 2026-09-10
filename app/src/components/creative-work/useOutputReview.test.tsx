@@ -344,4 +344,74 @@ describe("useOutputReview", () => {
     await act(async () => result.current.reloadDraft());
     expect(result.current.draft.instruction).toBe("servidor");
   });
+
+  it("reviews a hydrated saved draft on fresh mount without resaving", async () => {
+    const savedDraft = { ...emptyDraft(), instruction: "já salvo", version: 1, revision: 2, revisionKey: REVISION_KEY };
+    const { result } = renderReview({ output: outputFixture({ reviewDraft: savedDraft }) });
+    await act(async () => result.current.review());
+    expect(result.current.phase).toBe("reviewing");
+    expect(mocks.save).not.toHaveBeenCalled();
+    await act(async () => result.current.confirm());
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({
+      outputId: "output-1",
+      reviewRevision: 2,
+      revisionKey: REVISION_KEY,
+    }));
+  });
+
+  it("saves an edit on top of the hydrated revision with the expected CAS", async () => {
+    const savedDraft = { ...emptyDraft(), instruction: "já salvo", version: 1, revision: 2, revisionKey: REVISION_KEY };
+    mocks.save.mockResolvedValue({
+      draft: { ...emptyDraft(), instruction: "editado", version: 1, revision: 3, revisionKey: "00000000-0000-4000-8000-00000000000c" },
+      revisionCreditCost: 10,
+    });
+    const { result } = renderReview({ output: outputFixture({ reviewDraft: savedDraft }) });
+    await act(async () => result.current.update({ instruction: "editado" }));
+    await act(async () => result.current.review());
+    expect(mocks.save).toHaveBeenCalledTimes(1);
+    expect(mocks.save.mock.calls[0][0]).toMatchObject({ expectedReviewRevision: 2 });
+    await act(async () => result.current.confirm());
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({
+      reviewRevision: 3,
+      revisionKey: "00000000-0000-4000-8000-00000000000c",
+    }));
+  });
+
+  it("lands a deferred save on the output it was written for after a switch", async () => {
+    let resolveSave: ((value: unknown) => void) | undefined;
+    mocks.save.mockImplementation(() => new Promise((resolve) => { resolveSave = resolve; }));
+    const { result, rerender } = renderReview({ output: outputFixture({ id: "output-a" }) });
+    await act(async () => result.current.update({ instruction: "texto da peça A" }));
+    let flushPromise!: Promise<unknown>;
+    await act(async () => { flushPromise = result.current.flush(); });
+    // Switch to piece B while A's save is still in flight.
+    rerender({ output: outputFixture({ id: "output-b" }), revisionCreditCost: 10 });
+    await act(async () => { resolveSave?.({ draft: { ...emptyDraft(), version: 1, revision: 1, revisionKey: REVISION_KEY }, revisionCreditCost: 10 }); });
+    await act(async () => { await flushPromise; });
+    expect(mocks.save).toHaveBeenCalledTimes(1);
+    expect(mocks.save.mock.calls[0][0].outputId).toBe("output-a");
+    expect(mocks.save.mock.calls[0][0].draft.instruction).toBe("texto da peça A");
+  });
+
+  it("never reviews a stale revision after a failed autosave of newer text", async () => {
+    // X saves fine; every later autosave fails persistently.
+    mocks.save.mockResolvedValueOnce({
+      draft: { ...emptyDraft(), instruction: "texto X", version: 1, revision: 1, revisionKey: REVISION_KEY },
+      revisionCreditCost: 10,
+    });
+    const { result } = renderReview();
+    await act(async () => result.current.update({ instruction: "texto X" }));
+    await act(async () => result.current.flush());
+    expect(mocks.save).toHaveBeenCalledTimes(1);
+
+    mocks.save.mockRejectedValue(httpError(500));
+    await act(async () => result.current.update({ instruction: "texto Y" }));
+    await act(async () => result.current.flush());
+    await act(async () => result.current.review());
+    expect(result.current.phase).toBe("editing");
+    expect(result.current.error).toBeTruthy();
+    expect(result.current.draft.instruction).toBe("texto Y");
+    await act(async () => result.current.confirm());
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
 });
