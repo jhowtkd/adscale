@@ -900,20 +900,29 @@ export async function getCreativeWork(
   return { work: workRows[0], outputs, sources };
 }
 
+export type SourceAssetDetails = {
+  assetKey: string;
+  mimeType: string;
+  source: string;
+  name: string;
+  width: number | null;
+  height: number | null;
+};
+
 export async function getCreativeWorkSourceAssetDetails(
   workspaceId: string,
   sources: Pick<CreativeWorkSource, "id" | "assetId">[],
   executor: Pick<typeof db, "select"> = db,
-): Promise<Map<string, { assetKey: string; mimeType: string; source: string; name: string }>> {
+): Promise<Map<string, SourceAssetDetails>> {
   const assetIds = sources.flatMap((source) => source.assetId ? [source.assetId] : []);
   if (assetIds.length === 0) return new Map();
-  const assets = await executor.select({ id: workspaceAssets.id, key: workspaceAssets.key, type: workspaceAssets.type, source: workspaceAssets.source, name: workspaceAssets.name })
+  const assets = await executor.select({ id: workspaceAssets.id, key: workspaceAssets.key, type: workspaceAssets.type, source: workspaceAssets.source, name: workspaceAssets.name, width: workspaceAssets.width, height: workspaceAssets.height })
     .from(workspaceAssets)
     .where(and(eq(workspaceAssets.workspaceId, workspaceId), inArray(workspaceAssets.id, assetIds)));
   const byId = new Map(assets.map((asset) => [asset.id, asset]));
   return new Map(sources.flatMap((source) => {
     const asset = source.assetId ? byId.get(source.assetId) : null;
-    return asset ? [[source.id, { assetKey: asset.key, mimeType: asset.type, source: asset.source, name: asset.name }] as const] : [];
+    return asset ? [[source.id, { assetKey: asset.key, mimeType: asset.type, source: asset.source, name: asset.name, width: asset.width ?? null, height: asset.height ?? null }] as const] : [];
   }));
 }
 
@@ -1721,7 +1730,7 @@ export const CREATIVE_WORK_MAX_IMAGE_CALLS = 2;
 
 /**
  * Atomically claims one provider image call for the output. The guarded
- * UPDATE only matches while `image_call_count < CREATIVE_WORK_MAX_IMAGE_CALLS`,
+ * UPDATE only matches while `image_call_count < maxCalls`,
  * so once the counter reaches the ceiling the claim fails here — before the
  * provider is reached — returning null without side effects.
  * Intentionally status-agnostic: the transport-retry second call must be
@@ -1731,6 +1740,7 @@ export async function claimCreativeWorkOutputImageCall(
   workspaceId: string,
   workItemId: string,
   outputId: string,
+  maxCalls: 1 | 2 = CREATIVE_WORK_MAX_IMAGE_CALLS,
 ): Promise<CreativeWorkOutput | null> {
   const [row] = await db.update(creativeWorkOutputs).set({
     imageCallCount: sql`${creativeWorkOutputs.imageCallCount} + 1`,
@@ -1739,7 +1749,7 @@ export async function claimCreativeWorkOutputImageCall(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
     eq(creativeWorkOutputs.workItemId, workItemId),
     eq(creativeWorkOutputs.id, outputId),
-    lt(creativeWorkOutputs.imageCallCount, CREATIVE_WORK_MAX_IMAGE_CALLS),
+    lt(creativeWorkOutputs.imageCallCount, maxCalls),
   )).returning();
   return row ?? null;
 }

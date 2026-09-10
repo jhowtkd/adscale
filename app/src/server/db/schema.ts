@@ -2787,6 +2787,8 @@ export const creativeWorkOutputs = adscaleSchema.table(
     parentOutputId: uuid("parent_output_id"),
     revisionInstruction: text("revision_instruction"),
     revisionAssetId: uuid("revision_asset_id").references(() => workspaceAssets.id, { onDelete: "set null" }),
+    reviewDraft: jsonb("review_draft").$type<import("../creative-work/output-review").OutputReviewDraftV1 | null>(),
+    revisionContext: jsonb("revision_context").$type<import("../creative-work/output-review").OutputRevisionContextV1 | null>(),
     // Financial/manual retry ordinal.  retryCount remains the technical job
     // retry counter and must not be used as a billing attempt identifier.
     manualRetryAttempt: integer("manual_retry_attempt"),

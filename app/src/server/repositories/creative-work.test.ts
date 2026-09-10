@@ -158,6 +158,7 @@ vi.mock("./client-reference", () => ({
 vi.mock("./campaign", () => ({ getCampaignById: scopeMocks.getCampaignById }));
 
 import { creativeWorkOutputs } from "../db/schema";
+import { saveOutputReviewDraft } from "./creative-work-output-review";
 import {
   claimCreativeWorkOutputImageCall,
   claimCreativeWorkOutputManualRetryAttempt,
@@ -205,6 +206,7 @@ import {
   updateCreativeWorkDraftIfUnchanged,
   updateCreativeWorkIfUnchanged,
   withCreativeWorkPreparationLock,
+  getCreativeWorkSourceAssetDetails,
 } from "./creative-work";
 import type {
   SocialPostBrief,
@@ -2625,6 +2627,109 @@ describe("creative-work repository", () => {
       expect(rows).toHaveLength(1);
       expect(mocks.limitMock).toHaveBeenCalled();
       expect(mocks.whereMock).toHaveBeenCalled();
+    });
+  });
+
+  describe("output review drafts", () => {
+    it("saves only a scoped review draft and rejects a stale writer", async () => {
+      const before = workOutput({
+        status: "completed",
+        outputKey: "pieces/base.png",
+        reviewDraft: null,
+      });
+      const draft = {
+        action: "refine" as const,
+        targetFormat: "9:16" as const,
+        instruction: "Aumente o título",
+        annotations: [],
+        revisionAssetId: null,
+      };
+      mocks.state.selectResults.push([before]);
+      const saved = await saveOutputReviewDraft({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: before.id,
+        expectedReviewRevision: 0,
+        draft,
+      });
+      expect(saved.ok).toBe(true);
+      if (!saved.ok) throw new Error(saved.code);
+      expect(saved.draft).toMatchObject({
+        version: 1,
+        revision: 1,
+        targetFormat: "4:5",
+      });
+      expect(mocks.txSetMock).toHaveBeenCalledWith({
+        reviewDraft: saved.draft,
+      });
+      mocks.state.selectResults.push([{ ...before, reviewDraft: saved.draft }]);
+      const stale = await saveOutputReviewDraft({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: before.id,
+        expectedReviewRevision: 0,
+        draft,
+      });
+      expect(stale).toEqual({ ok: false, code: "review_conflict" });
+      expect(mocks.txSetMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects a draft outside the workspace scope without writing", async () => {
+      mocks.state.selectResults.push([]);
+      const draft = {
+        action: "refine" as const,
+        targetFormat: "4:5" as const,
+        instruction: "Aumente o título",
+        annotations: [],
+        revisionAssetId: null,
+      };
+      await expect(
+        saveOutputReviewDraft({
+          workspaceId: "ws-other",
+          workItemId: "work-1",
+          outputId: "output-1",
+          expectedReviewRevision: 0,
+          draft,
+        }),
+      ).resolves.toEqual({ ok: false, code: "not_found" });
+      expect(mocks.txSetMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("output review compatibility", () => {
+    it("claims with an explicit ceiling of one call for integrated policy", async () => {
+      const claimed = workOutput({ imageCallCount: 1, status: "processing" });
+      mocks.state.updateResults.push([claimed]);
+      await expect(
+        claimCreativeWorkOutputImageCall("ws-1", "work-1", "output-1", 1),
+      ).resolves.toEqual(claimed);
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.params).toEqual(["ws-1", "work-1", "output-1", 1]);
+    });
+
+    it("projects existing source dimensions without changing identity fields", async () => {
+      mocks.state.selectResults.push([
+        {
+          id: "asset-1",
+          key: "uploads/base.png",
+          type: "image/png",
+          source: "upload",
+          name: "base.png",
+          width: 1080,
+          height: 1350,
+        },
+      ]);
+      const details = await getCreativeWorkSourceAssetDetails("ws-1", [
+        { id: "source-1", assetId: "asset-1" },
+      ]);
+      expect(details.get("source-1")).toEqual({
+        assetKey: "uploads/base.png",
+        mimeType: "image/png",
+        source: "upload",
+        name: "base.png",
+        width: 1080,
+        height: 1350,
+      });
     });
   });
 });

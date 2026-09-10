@@ -18,6 +18,9 @@ import {
 } from "@/server/application/handle-creative-work-layerization-callback";
 import { recoverExpiredCreativeWorkLayerizations } from "@/server/application/recover-expired-creative-work-layerizations";
 import { saveCommercialOfferFromWork } from "@/server/application/save-commercial-offer";
+import { saveCreativeWorkOutputReview } from "@/server/application/save-creative-work-output-review";
+import { outputReviewInputSchema } from "@/server/creative-work/output-review";
+import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import { toPublicLayerizationState } from "@/server/layerize/contracts";
 import { toPublicLayerEditorSummary } from "@/server/layer-editor/contracts";
 import { getLayerEditorAccess } from "@/server/layer-editor/quota";
@@ -224,6 +227,12 @@ const saveAsOfferSchema = z.object({
   validFrom: z.string().datetime({ offset: true }).optional(),
   validUntil: z.string().datetime({ offset: true }),
 }).strict();
+const saveOutputReviewSchema = z.object({
+  action: z.literal("saveOutputReview"),
+  outputId: z.string().uuid(),
+  expectedReviewRevision: z.number().int().min(0),
+  draft: outputReviewInputSchema,
+}).strict();
 const linkCampaignSchema = z.object({ action: z.literal("linkCampaign"), campaignId: z.string().min(1).nullable() }).strict();
 const sourceUsageSchema = z.enum(CREATIVE_SOURCE_USAGES);
 const attachSourceSchema = z.union([
@@ -253,6 +262,7 @@ const patchCreativeWorkSchema = z.union([
   autosaveSchema, prepareSchema, approveCarouselSchema, editBriefingSchema, attachSourceSchema, updateSourceSchema,
   retrySourceSchema, removeSourceSchema, updatePieceReferenceSchema, replacePieceReferenceSchema, promotePieceReferenceSchema, editSourceAnalysisSchema, confirmCreativeWorkSchema,
   linkCampaignSchema, resolveBrandConflictSchema,
+  saveOutputReviewSchema,
   layerizeOutputSchema,
   openLayerEditorSchema, heartbeatLayerEditorSchema, releaseLayerEditorSchema, saveLayerEditorSchema,
   regenerateLayerSchema,candidateActionSchema,
@@ -568,6 +578,8 @@ export async function GET(
       parentOutputId: output.parentOutputId,
       revisionInstruction: output.revisionInstruction,
       revisionAssetId: output.revisionAssetId,
+      reviewDraft: output.reviewDraft ?? null,
+      revisionContext: output.revisionContext ?? null,
       retryCount: output.retryCount,
       imageCallCount: output.imageCallCount,
       status: output.status,
@@ -628,6 +640,7 @@ export async function GET(
       },
       preparedPlan: projectPreparedPlanV1(result.work),
       outputs,
+      revisionCreditCost: GENERATION_CREDIT_COSTS.creativeWorkOutput,
       canLayerize,
       layerEditorAccess,
       sources,
@@ -996,6 +1009,35 @@ export async function PATCH(
       const work = await linkCreativeWorkCampaign(workspace.id, id, parsed.data.campaignId);
       if (!work) return apiError("creativeWorkCampaignMismatch", 409);
       return NextResponse.json({ work });
+    }
+
+    if ("action" in parsed.data && parsed.data.action === "saveOutputReview") {
+      const saved = await saveCreativeWorkOutputReview({
+        workspaceId: workspace.id,
+        workItemId: id,
+        outputId: parsed.data.outputId,
+        expectedReviewRevision: parsed.data.expectedReviewRevision,
+        draft: parsed.data.draft,
+      });
+      if (!saved.ok) {
+        switch (saved.error.code) {
+          case "invalid_input":
+          case "invalid_reference":
+            return apiError("invalidInput", 400);
+          case "not_found":
+            return apiError("creativeWorkNotFound", 404);
+          case "review_conflict":
+            return apiError("stale_input", 409);
+          case "not_ready":
+            return apiError("creativeWorkNotReady", 409);
+          default:
+            return apiError("invalidInput", 400);
+        }
+      }
+      return NextResponse.json({
+        draft: saved.value.draft,
+        revisionCreditCost: saved.value.revisionCreditCost,
+      });
     }
 
     if ("action" in parsed.data && parsed.data.action === "attachSource") {

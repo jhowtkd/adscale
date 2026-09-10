@@ -179,6 +179,12 @@ vi.mock("@/server/application/export-carousel-work", () => ({
   approveCarouselDeck: (...args: unknown[]) => approveCarouselDeckMock(...args),
 }));
 
+const saveOutputReviewMock = vi.hoisted(() => vi.fn());
+vi.mock("@/server/application/save-creative-work-output-review", () => ({
+  saveCreativeWorkOutputReview: (...args: unknown[]) =>
+    saveOutputReviewMock(...args),
+}));
+
 function makeParams(id: string) {
   return Promise.resolve({ id });
 }
@@ -2289,5 +2295,114 @@ describe("PATCH /api/creative-work/[id] approveCarousel", () => {
     await expect(response.json()).resolves.toMatchObject({ details: { findings } });
     expect(linkCampaignMock).not.toHaveBeenCalled();
     expect(createSourceMock).not.toHaveBeenCalled();
+  });
+
+  it("saves a review draft and returns the canonical cost without dispatch", async () => {
+    const draft = {
+      version: 1,
+      revision: 1,
+      revisionKey: "00000000-0000-4000-8000-000000000001",
+      action: "refine",
+      targetFormat: "4:5",
+      instruction: "Aumente o título",
+      annotations: [],
+      revisionAssetId: null,
+    };
+    saveOutputReviewMock.mockResolvedValue({
+      ok: true,
+      value: { draft, revisionCreditCost: 50 },
+    });
+    const response = await requestPatch({
+      action: "saveOutputReview",
+      outputId: "00000000-0000-4000-8000-000000000002",
+      expectedReviewRevision: 0,
+      draft: {
+        action: "refine",
+        targetFormat: "4:5",
+        instruction: "Aumente o título",
+        annotations: [],
+        revisionAssetId: null,
+      },
+    });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      draft,
+      revisionCreditCost: 50,
+    });
+  });
+
+  it("maps a stale review writer to 409 without overwriting", async () => {
+    saveOutputReviewMock.mockResolvedValue({
+      ok: false,
+      error: { code: "review_conflict" },
+    });
+    const response = await requestPatch({
+      action: "saveOutputReview",
+      outputId: "00000000-0000-4000-8000-000000000002",
+      expectedReviewRevision: 0,
+      draft: {
+        action: "refine",
+        targetFormat: "4:5",
+        instruction: "Aumente o título",
+        annotations: [],
+        revisionAssetId: null,
+      },
+    });
+    expect(response.status).toBe(409);
+  });
+});
+
+describe("GET review projection", () => {
+  it("projects saved drafts without private storage keys and exposes canonical cost", async () => {
+    const { GET } = await import("./route");
+    getWorkMock.mockResolvedValue({
+      work: { ...workItem, toolKind: "single", inputSnapshot: null },
+      outputs: [
+        {
+          id: "output-1",
+          workItemId: "work-1",
+          creativeLevel: "balanced",
+          targetFormat: "4:5",
+          versionNumber: 1,
+          parentOutputId: null,
+          revisionInstruction: null,
+          revisionAssetId: null,
+          reviewDraft: {
+            version: 1,
+            revision: 1,
+            revisionKey: "00000000-0000-4000-8000-000000000001",
+            action: "refine",
+            targetFormat: "4:5",
+            instruction: "Aumente o título",
+            annotations: [],
+            revisionAssetId: null,
+          },
+          revisionContext: null,
+          retryCount: 0,
+          imageCallCount: 1,
+          status: "completed",
+          outputKey: "pieces/base.png",
+          failureCode: null,
+          quality: null,
+          isSelected: false,
+          directionId: null,
+          directionSnapshot: null,
+          createdAt: new Date("2026-07-13T12:00:00.000Z"),
+          updatedAt: new Date("2026-07-13T12:00:00.000Z"),
+          layerization: null,
+          layerEditor: null,
+        },
+      ],
+      sources: [],
+    });
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), {
+      params: makeParams("work-1"),
+    });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.outputs[0].reviewDraft).toMatchObject({ revision: 1 });
+    expect(body.outputs[0].revisionContext).toBeNull();
+    expect(body.revisionCreditCost).toBe(50);
+    expect(JSON.stringify(body)).not.toContain("pieces/base.png");
   });
 });
