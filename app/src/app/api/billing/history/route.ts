@@ -12,6 +12,22 @@ import { getCreditGrantHistoryForWorkspace } from "@/server/repositories/billing
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+const DATETIME_PATTERN =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?(Z|[+-]\d{2}:?\d{2})$/;
+
+function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+function isValidCalendarDate(year: number, month: number, day: number): boolean {
+  return (
+    Number.isInteger(year) &&
+    month >= 1 &&
+    month <= 12 &&
+    day >= 1 &&
+    day <= daysInMonth(year, month)
+  );
+}
 
 function parseDateOnly(value: string): { year: number; month: number; day: number } | null {
   const match = DATE_ONLY_PATTERN.exec(value);
@@ -20,14 +36,7 @@ function parseDateOnly(value: string): { year: number; month: number; day: numbe
   const month = Number(match[2]);
   const day = Number(match[3]);
   // Reject non-existent calendar dates instead of silently normalizing them.
-  const roundTrip = new Date(Date.UTC(year, month - 1, day));
-  if (
-    roundTrip.getUTCFullYear() !== year ||
-    roundTrip.getUTCMonth() !== month - 1 ||
-    roundTrip.getUTCDate() !== day
-  ) {
-    return null;
-  }
+  if (!isValidCalendarDate(year, month, day)) return null;
   return { year, month, day };
 }
 
@@ -40,6 +49,25 @@ function parseInstantParam(value: string, isEnd: boolean): Date | null {
     return isEnd
       ? new Date(Date.UTC(dateOnly.year, dateOnly.month - 1, dateOnly.day, 23, 59, 59, 999))
       : new Date(Date.UTC(dateOnly.year, dateOnly.month - 1, dateOnly.day, 0, 0, 0, 0));
+  }
+  // Full datetimes must be ISO with an explicit timezone and a valid
+  // calendar: the Date constructor normalizes impossible inputs (Feb 31 →
+  // Mar 3), so every field is range-checked before trusting the instant.
+  const match = DATETIME_PATTERN.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = match[6] === undefined ? 0 : Number(match[6]);
+  const zone = match[8];
+  if (!isValidCalendarDate(year, month, day)) return null;
+  if (hour > 23 || minute > 59 || second > 59) return null;
+  if (zone !== "Z") {
+    const zoneMatch = /^([+-])(\d{2}):?(\d{2})$/.exec(zone);
+    if (!zoneMatch) return null;
+    if (Number(zoneMatch[2]) > 23 || Number(zoneMatch[3]) > 59) return null;
   }
   const parsed = new Date(value);
   return Number.isFinite(parsed.getTime()) ? parsed : null;

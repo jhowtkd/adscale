@@ -197,6 +197,8 @@ describe("billing history route", () => {
     for (const url of [
       "http://localhost/api/billing/history?from=not-a-date",
       "http://localhost/api/billing/history?to=2026-02-31",
+      "http://localhost/api/billing/history?from=2026-02-31T12:00:00Z",
+      "http://localhost/api/billing/history?to=2026-09-10T23:59:59.999",
       "http://localhost/api/billing/history?from=2026-09-10T00:00:00.000Z&to=2026-09-01T00:00:00.000Z",
       "http://localhost/api/billing/history?campaignId=not-a-uuid",
     ]) {
