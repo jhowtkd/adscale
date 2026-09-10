@@ -2083,7 +2083,7 @@ test.describe("integrated UI estados persistidos", () => {
       await expect(page.getByText("thisMonth",{exact:true})).toHaveCount(0);
       await expect(page.getByText("all",{exact:true})).toHaveCount(0);
       await page.goto("/settings?tab=billing");
-      await expect(page.getByText("Ilimitado",{exact:true})).toBeVisible();
+      await expect(page.getByRole("main").getByText("Ilimitado",{exact:true})).toBeVisible();
     } finally {
       await page.goto("about:blank");
       await withDb(client=>client.query("delete from adscale_app.workspace_entitlements where id=$1 and workspace_id=$2",[entitlementId,fixture.workspaceId]));
