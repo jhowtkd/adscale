@@ -228,6 +228,18 @@ export async function recordUsage(input: {
       if (!unlimitedBillingBypass) {
         let remainingToDebit = check.amount;
         const grants = await getAvailableCreditGrants(input.workspaceId, tx, true);
+        // The grant locks serialize concurrent spenders. Revalidate idempotency
+        // now that the locks are held: a concurrent operation may have settled
+        // between the first checks and this point, and debiting again would
+        // surface as insufficient credits for an already-charged operation.
+        const raced = await getUsageByIdempotencyKey(
+          input.workspaceId,
+          input.idempotencyKey,
+          tx
+        );
+        if (raced) {
+          throw new Error("duplicate_usage");
+        }
         const balance = totalRemaining(grants);
         if (balance < check.amount) {
           throw new Error("insufficient_credits");
@@ -312,6 +324,23 @@ export async function recordUsage(input: {
         status: "blocked" as const,
         check: blockedCheck,
       };
+    }
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as { code?: string }).code === "23505"
+    ) {
+      // A unique violation inside the transaction only proves a replay when
+      // the charged operation for this workspace+key is visible outside the
+      // aborted tx. Any other 23505 is a genuine conflict: rethrow.
+      const confirmed = await getUsageByIdempotencyKey(
+        input.workspaceId,
+        input.idempotencyKey
+      );
+      if (confirmed) {
+        return { status: "duplicate" as const, usage: confirmed };
+      }
     }
     throw err;
   }
