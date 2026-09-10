@@ -31,6 +31,9 @@ import { resolveCreativeWorkOutputReactivation } from "@/server/generation/settl
 import {
   CREATIVE_WORK_MAX_IMAGE_CALLS,
   CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING,
+  CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING as INTEGRATED_TERMINAL_REFUND_PENDING,
+  CREATIVE_WORK_GENERATION_FAILED,
+  clearCreativeWorkOutputGenerationFailedRefundPending,
   clearCreativeWorkOutputObjectiveQualityRefundPending,
   claimCreativeWorkOutputImageCall,
   countCreativeWorkProcessingOutputs,
@@ -141,7 +144,6 @@ interface CreativeWorkFailureEvent {
 
 const OUTPUT_COST = GENERATION_CREDIT_COSTS.creativeWorkOutput;
 const MAX_REFERENCE_IMAGES = 4;
-const INTEGRATED_TERMINAL_REFUND_PENDING = "generation_failed_terminal_refund_pending";
 const CREATIVE_WORK_RUNTIME_ENVIRONMENT =
   process.env.RENDER_SERVICE_NAME ?? process.env.RENDER_SERVICE_ID ?? process.env.NODE_ENV ?? "unknown";
 
@@ -267,13 +269,15 @@ async function recoverPendingCreativeWorkRefund(input: {
     liquidated = await refundCreativeWorkOutputCompensatory({
       workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: output.id,
       manualRetryAttempt: output.manualRetryAttempt, userId: input.userId,
-      failurePhase: "terminal", reason: qualityFailure ? "objective_quality_failed" : "generation_failed",
+      failurePhase: "terminal", reason: qualityFailure ? "objective_quality_failed" : CREATIVE_WORK_GENERATION_FAILED,
     });
     if (liquidated) {
       if (qualityFailure && output.outputKey) await clearCreativeWorkOutputObjectiveQualityRefundPending(
         input.workspaceId, input.workItemId, output.id, output.outputKey,
       );
-      else await markCreativeWorkOutputFailureCode(input.workspaceId, input.workItemId, output.id, "generation_failed");
+      else await clearCreativeWorkOutputGenerationFailedRefundPending(
+        input.workspaceId, input.workItemId, output.id, output.manualRetryAttempt, output.retryCount,
+      );
     }
   } catch (error) {
     logger.warn(`[creativeWorkOutputJob] refund recovery pending outputId=${output.id}: ${error instanceof Error ? error.message : String(error)}`);
@@ -426,7 +430,7 @@ const creativeWorkOutputJobConfig: {
         await recoverPendingCreativeWorkRefund({ workspaceId, workItemId, output: interruptedOutput, userId: interruptedScope?.work.createdByUserId ?? undefined });
         return;
       }
-      if (interruptedOutput?.failureCode === "generation_failed"
+      if (interruptedOutput?.failureCode === CREATIVE_WORK_GENERATION_FAILED
         && interruptedIntegrated) return;
       const integratedTerminalFailure = interruptedOutput?.failureCode === INTEGRATED_TERMINAL_REFUND_PENDING;
       const refunded = integratedTerminalFailure
@@ -651,7 +655,7 @@ const creativeWorkOutputJobHandler = async ({
 
       if (output.status === "failed" && output.failureCode === INTEGRATED_TERMINAL_REFUND_PENDING) {
         const refunded = await recoverPendingCreativeWorkRefund({ workspaceId, workItemId, output, userId: work.createdByUserId ?? undefined });
-        return { success: false, skipped: true, outputId, failureCode: refunded ? "generation_failed" : INTEGRATED_TERMINAL_REFUND_PENDING };
+        return { success: false, skipped: true, outputId, failureCode: refunded ? CREATIVE_WORK_GENERATION_FAILED : INTEGRATED_TERMINAL_REFUND_PENDING };
       }
 
       // Idempotency: if a duplicate event arrives after the row already

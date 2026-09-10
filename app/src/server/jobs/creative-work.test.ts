@@ -34,6 +34,7 @@ const claimImageCallMock = vi.hoisted(() => vi.fn());
 const touchHeartbeatMock = vi.hoisted(() => vi.fn());
 const clearObjectiveRefundPendingMock = vi.hoisted(() => vi.fn());
 const markFailureCodeMock = vi.hoisted(() => vi.fn());
+const clearTerminalRefundPendingMock = vi.hoisted(() => vi.fn());
 const normalizeReferenceMock = vi.hoisted(() => vi.fn());
 const sendMock = vi.hoisted(() => vi.fn());
 const ensureLibraryMock = vi.hoisted(() => vi.fn());
@@ -80,6 +81,9 @@ vi.mock("@/server/generation/settlement", () => ({
 vi.mock("@/server/repositories/creative-work", () => ({
   CREATIVE_WORK_MAX_IMAGE_CALLS: 2,
   CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING: "objective_quality_failed_refund_pending",
+  CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING: "generation_failed_terminal_refund_pending",
+  CREATIVE_WORK_GENERATION_FAILED: "generation_failed",
+  clearCreativeWorkOutputGenerationFailedRefundPending: (...args: unknown[]) => clearTerminalRefundPendingMock(...args),
   clearCreativeWorkOutputObjectiveQualityRefundPending: (...args: unknown[]) => clearObjectiveRefundPendingMock(...args),
   getCreativeWork: (...args: unknown[]) => getCreativeWorkMock(...args),
   markCreativeWorkOutputProcessing: (...args: unknown[]) =>
@@ -3343,6 +3347,7 @@ describe("creativeWorkOutputJob", () => {
       const failed = await failMock.mock.results[0].value;
       expect(failed.failureCode).toBe("generation_failed_terminal_refund_pending");
       expect(markFailureCodeMock).not.toHaveBeenCalled();
+      expect(clearTerminalRefundPendingMock).not.toHaveBeenCalled();
       [generateAndStoreImageMock, claimImageCallMock, failMock].forEach((mock) => mock.mockClear());
 
       await expect(runJob(baseEvent, undefined, cached)).resolves.toMatchObject({ success: false });
@@ -3352,7 +3357,8 @@ describe("creativeWorkOutputJob", () => {
       expect(settleTerminalRefundMock.mock.calls.map(([call]) => call.decision.idempotencyKey)).toEqual([
         "creative-work:work-1:output:output-1:terminal-refund", "creative-work:work-1:output:output-1:terminal-refund",
       ]);
-      expect(markFailureCodeMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "generation_failed");
+      expect(clearTerminalRefundPendingMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", null, failed.retryCount);
+      expect(markFailureCodeMock).not.toHaveBeenCalled();
     });
 
     it("never refunds a technical failure when the failed CAS loses", async () => {
@@ -3385,8 +3391,9 @@ describe("creativeWorkOutputJob", () => {
         current = { ...current, status: "failed", failureCode };
         return current;
       });
-      markFailureCodeMock.mockImplementation(async (_ws, _work, _id, failureCode) => {
-        current = { ...current, failureCode };
+      clearTerminalRefundPendingMock.mockImplementation(async (_ws, _work, _id, manualRetryAttempt, retryCount) => {
+        if (current.manualRetryAttempt !== manualRetryAttempt || current.retryCount !== retryCount) return null;
+        current = { ...current, failureCode: "generation_failed" };
         return current;
       });
       settleTerminalRefundMock.mockResolvedValueOnce({ refunded: true, applied: false, error: "ledger unavailable" } as never);
@@ -3403,6 +3410,7 @@ describe("creativeWorkOutputJob", () => {
       expect(current.failureCode).toBe("generation_failed_terminal_refund_pending");
       expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "user-1" }));
       expect(markFailureCodeMock).not.toHaveBeenCalled();
+      expect(clearTerminalRefundPendingMock).not.toHaveBeenCalled();
 
       await onFailure(input);
       expect(current.failureCode).toBe("generation_failed");
@@ -3411,6 +3419,22 @@ describe("creativeWorkOutputJob", () => {
       expect(settleTerminalRefundMock).toHaveBeenCalledTimes(2);
       expect(new Set(settleTerminalRefundMock.mock.calls.map(([call]) => call.decision.idempotencyKey))).toEqual(new Set(["creative-work:work-1:output:output-1:terminal-refund"]));
       expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+    });
+
+    it("clears only the failed CAS attempt even if another attempt appears during settlement", async () => {
+      generateAndStoreImageMock.mockRejectedValue(new Error("provider failed"));
+      const failed = makeQueuedOutput({ status: "failed", failureCode: "generation_failed_terminal_refund_pending", manualRetryAttempt: 1, retryCount: 3 });
+      failMock.mockResolvedValue(failed);
+      settleTerminalRefundMock.mockImplementationOnce(async () => {
+        getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [{ ...failed, manualRetryAttempt: 2, retryCount: 4 }] });
+        return { refunded: true, applied: true, reason: "settled", status: "refunded" };
+      });
+      clearTerminalRefundPendingMock.mockResolvedValue(null);
+
+      await expect(runJob()).resolves.toMatchObject({ success: false });
+
+      expect(clearTerminalRefundPendingMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", 1, 3);
+      expect(markFailureCodeMock).not.toHaveBeenCalled();
     });
   });
 
