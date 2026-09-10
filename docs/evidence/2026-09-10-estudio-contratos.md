@@ -52,6 +52,14 @@ npm run typecheck
 # PASS, sem erros.
 ```
 
+## Terceira rodada — seam de falha técnica integrated (só GET + teste)
+
+- A grava no CAS failed vencedor o código exato `generation_failed_terminal_refund_pending` antes do estorno (job de A, intocado aqui); snapshot legado intacto.
+- GET: esse código recupera com `failurePhase: "terminal"` (reutiliza a MESMA chave `terminal-refund`, nunca `compensatory-refund`), passa `userId` autenticado e, após helper `true`, normaliza o settled para `generation_failed` (coerente com A). Demais códigos mantêm mapeamentos históricos byte-idênticos (genérico segue sem `userId`).
+- Listagem `failed LIKE '%_refund_pending'` já encontra o código; nenhum schema/helper novo.
+- Testes: `true` (terminal + userId + settled `generation_failed`), `false` (sem mark), replay (sem segunda tentativa após limpeza), histórico (`generation_timeout_refund_pending` segue `job_failure`, sem `userId`, settle `generation_timeout`).
+- 9 arquivos, 407 testes PASS; typecheck PASS; lint 0 erros.
+
 Cobertura exigida:
 
 - CAS409 sem escrita/charge/dispatch: `review_conflict`/`stale_review` com `txSet` único e `settle` zerado.
@@ -74,10 +82,12 @@ Cobertura exigida:
 
 ## Segunda rodada (revisão de `3470fee9`)
 
+Posterior: `157a6986` + merge `787b3e03` (helper D `a822f2f3`) — ver abaixo.
+
 - **P2 replay:** `reviseReviewedOutput` exige contexto congelado válido (schema estrito + mesma `reviewRevision` + instrução presente); inválido rejeita como `invalid_revision`, sem fallback legado. Teste com instrução válida e contexto `version:2`/campo extra.
 - **P2 retomada 402:** re-queue renova `updatedAt`, limpa `terminalAt` e reemite `queuedAt` (lease não vence no GET seguinte); chave e contadores preservados; perdedor do CAS faz join.
 - **GET + helper D:** merge `a822f2f3` por merge (só docs de coordenação, parcial A já revisada e os 2 arquivos do helper); rota importa o helper real; suíte da rota convertida para asserir roteamento (helper chamado com fase terminal + `userId` no caso R1, limpeza só após `true`).
-- Lint: `npx --no-install eslint` nos arquivos tocados — 0 erros (5 warnings pré-existentes em destructures `_` do carrossel).
+- Lint (`npx --no-install eslint` dentro de `app/`, sem pacote novo): 0 erros nos arquivos tocados; 5 warnings pré-existentes em destructures `_` do carrossel.
 
 ## Contratos consumidos/produzidos
 
