@@ -122,4 +122,56 @@ describe("PieceReviewCanvas", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remover comentário" }));
     expect(onChange).toHaveBeenCalledWith([]);
   });
+
+  it("pins and hit-testing follow the letterboxed artwork once its size is known", async () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(rect as DOMRect);
+    const existing = [{ id: "a-1", x: 0.25, y: 0.5, text: "Pino dentro da arte" }];
+    const { onChange } = renderCanvas(existing);
+    const img = screen.getByRole("img", { name: "Peça 1" });
+    Object.defineProperty(img, "naturalWidth", { value: 400 });
+    Object.defineProperty(img, "naturalHeight", { value: 500 });
+    fireEvent.load(img);
+    await waitFor(() => {
+      const overlay = img.parentElement!.querySelector("div[style]") as HTMLElement;
+      expect(overlay.style.left).toBe("140px");
+      expect(overlay.style.width).toBe("320px");
+    });
+    // The pin sits inside the artwork rect (140 + 0.25 * 320 = 220px).
+    const pin = screen.getByRole("button", { name: "Comentário 1" });
+    expect(pin.parentElement!.style.left).toBe("140px");
+
+    enterCommentMode();
+    // Letterbox area (x < 140) is ignored…
+    fireEvent.mouseDown(img, { clientX: 100, clientY: 200 });
+    expect(screen.queryByRole("textbox", { name: "Comentário" })).not.toBeInTheDocument();
+    // …and a point on the artwork normalizes against the artwork rect.
+    fireEvent.mouseDown(img, { clientX: 300, clientY: 200 });
+    const x = screen.getByRole("spinbutton", { name: "X (%)" }) as HTMLInputElement;
+    const y = screen.getByRole("spinbutton", { name: "Y (%)" }) as HTMLInputElement;
+    expect(x.value).toBe("50");
+    expect(y.value).toBe("50");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("repositions pins after a container resize", async () => {
+    const rectSpy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(rect as DOMRect);
+    const existing = [{ id: "a-1", x: 0.5, y: 0.5, text: "Centro" }];
+    renderCanvas(existing);
+    const img = screen.getByRole("img", { name: "Peça 1" });
+    Object.defineProperty(img, "naturalWidth", { value: 400 });
+    Object.defineProperty(img, "naturalHeight", { value: 500 });
+    fireEvent.load(img);
+    await waitFor(() => {
+      const overlay = img.parentElement!.querySelector("div[style]") as HTMLElement;
+      expect(overlay.style.left).toBe("140px");
+    });
+
+    rectSpy.mockReturnValue({ ...rect, width: 800, height: 400, right: 800 } as DOMRect);
+    fireEvent.resize(window);
+    await waitFor(() => {
+      const overlay = img.parentElement!.querySelector("div[style]") as HTMLElement;
+      expect(overlay.style.left).toBe("240px");
+      expect(overlay.style.width).toBe("320px");
+    });
+  });
 });
