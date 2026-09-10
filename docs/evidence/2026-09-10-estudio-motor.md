@@ -1,6 +1,6 @@
 # Agente A — Motor, qualidade e formato
 
-Data: 2026-09-10. **Entrega parcial local: integração do job pendente de B1 e R1 revisados.** Os testes verdes desta entrega não significam que a política integrada já percorre o job inteiro ou que o produto esteja pronto para publicação.
+Data: 2026-09-10. Implementação de A concluída para revisão local. **Integração/publicação bloqueada pela corrida entre retry e estorno pendente atribuída a B**, descrita abaixo. Este relatório substitui o estado das entregas parciais anteriores.
 
 ## Base e commits
 
@@ -8,79 +8,70 @@ Data: 2026-09-10. **Entrega parcial local: integração do job pendente de B1 e 
 - Branch: `codex/estudio-motor`.
 - BASE_COMUM: `3063ff4a8c8bad1091d2876a070314e7653c922a`, pai `ac38a30e4611ee62d534b34a2b80579dbfe893d3`.
 - `931f6578`: política pura, qualidade interna no executor, protocolo de revisão e helpers de formato.
-- `9b635b9a`: direção de arte, prompt integrado, contexto de QA e regressão da fidelidade.
-- `ff6aa457`: congelamento de `renderPolicy` em novas preparações single.
-- `13843113`: pai como autoridade original na adaptação e projeção explícita do brand kit para QA.
-- Adendos documentais do coordenador recebidos por merge: `1bbe1093` via `bdaaf225`; `52cb1485` via `3e44feaf`. Nenhum documento de coordenação foi editado por A.
-- Helper compensatório R1 de D aprovado em `a822f2f3`, recebido por merge `5298d7c1c4d768e9eeef946312d943d1ce42df73`. Arquivos de D preservados sem edição.
+- `9b635b9a`: direção de arte, prompt integrado, contexto de QA e regressão de fidelidade.
+- `ff6aa457`: congelamento de renderPolicy nas novas preparações single.
+- `13843113`: pai como autoridade original na adaptação e projeção explícita da marca no QA.
+- `49bc0c82`: ligação interna de high/prompt/brief/fallback e evidência de replay no job.
+- `ccd91817bf348ce8c86b63744f7f016e14ea24b4`: limite de tentativas, formato real, QA sem autocorreção, preview preservada, recuperação de estorno e formato automático por geometria.
+- Adendos do coordenador: `1bbe1093` via `bdaaf225`; `52cb1485` via `3e44feaf` (ownership adicional de reference-plan).
+- Helper D aprovado `a822f2f3` recebido via `5298d7c1`; contratos B aprovados `61720be860234617dda998a9fb0476bac1c42698` recebidos por merge fixo; recuperação terminal/financeiro aprovados `f42aeb87650c623c3c8c55e63f6c1606f2c145cb` recebidos via `ad073673`.
 
-O coordenador revisou e integrou os dois primeiros commits na integração pelo merge `ba84e7ca4786708578281e1162119d5ef51a712c`. Também revisou `ff6aa457`/`13843113` sem achados, confirmando os 372 testes, typecheck e lint; sua integração aguarda o job completo. A não mergeou a própria branch na integração.
+A não editou arquivos de B/D nem mergeou a própria branch na integração. Os commits recebidos por merge têm ownership e validação separados; sua presença não significa que A executou seus testes de banco ou E2E.
 
-## Implementado
+## Comportamento entregue
 
-- `render-policy.ts` interpreta o marker congelado: integrated usa high, teto inicial 1 e nenhuma correção automática; ausência/valor desconhecido conserva a interpretação histórica.
-- O executor canônico repassa `quality` opcional ao caminho de imagem, sem trocar defaults, modelo, rotas ou preço dos demais callers. Teste usa o mock de imagem existente e prova ausência de planner/selector sob execução direta.
-- Preparação single congela `renderPolicy: integrated_v1` e `generationPolicyVersion: quality_recovery_v1`, sem `typographyPlan`. A igualdade de snapshots inclui o marker; segunda preparação idêntica reaproveita a copy, enquanto plano sem marker é invalidado. Outros protocolos conservam a decisão existente.
-- Direção de arte: uma chamada de texto com timeout de 30 segundos e sem retry; limite de 120 palavras e 1600 caracteres só no brief. Resposta inválida/indisponibilidade devolve fallback explícito. Provider controlado não acessa o SDK. O contexto enviado é uma projeção de fatos, copy, marca e referências; não serializa snapshots/font assets/storage keys.
-- Prompt integrado reutiliza helpers de contrato de copy, fatos, regras publicadas, assets, referências e política por modo. Mantém a proibição explícita de parafrasear/traduzir/omitir copy e a exclusão de assets exatos dos pixels gerados.
-- QA recebe marca/revisão opcionais e projeta somente cores, fontes declaradas e elementos exigidos/proibidos. Não transforma aproximação tipográfica/paleta em prova exata nem acrescenta categoria subjetiva bloqueante.
-- `brand-fidelity.ts` já satisfazia o caso sem tipografia determinística; não foi alterado. A nova regressão prova que assets exatos podem estar comprovados enquanto copy/font/safe_area continuam `not_applicable`.
-- `formatFromDimensions` reconhece 1:1, 4:5 e 9:16 com tolerância de 1%, rejeita valores inválidos e proporções não suportadas. O helper de inferência aceita formato da fonte antes de palavras genéricas; um único alvo numérico explícito vence; duas proporções no pedido não escolhem alvo arbitrário.
-- Protocolo mapeia `revisionAction: format` para `format_adaptation`. Com ownership adicional autorizado, o planner aceita o pai como primeira referência original obrigatória, sem exigir upload; a referência adicional fica opcional. Adaptação autônoma continua exigindo original.
-- Integração interna parcial do job: snapshot integrated seleciona high e budget do executor de uma chamada, ignora tipografia determinística, executa direção de arte em step próprio, usa prompt integrado/fallback e envia marca/revisão ao QA. O step de geração devolve contador, providerInvoked e evidência serializável; completion persiste direção/renderPolicy/quality. Replay JSON recupera tentativa 2 sem repetir claim/provider/brief; payload histórico sem os campos novos usa fallback compatível.
+- Novos snapshots single congelam integrated_v1 e quality_recovery_v1. Histórico sem marker mantém o caminho anterior. Reuso de preparação compara o marker; mudanças invalidam o snapshot antigo.
+- O job envia qualidade high e budget de uma chamada ao executor, sem mudar modelo, preço ou defaults globais. Não aplica tipografia determinística em integrated; mantém composição dos assets exatos e sua exclusão dos pixels gerados.
+- Direção de arte em step próprio: uma chamada textual, timeout de 30 segundos, sem retry; até 120 palavras e 1600 caracteres somente no brief. Copy, fatos e referências permanecem completos. O contexto é projetado, sem snapshots/storage keys. Provider controlado não acessa o SDK. Indisponibilidade/resposta inválida usa fallback generativo explícito.
+- Prompt integrado reutiliza contrato de copy, fatos, marca, referências e regras por modo. Marca/revisão chegam ao QA sem tratar aproximação tipográfica como prova exata.
+- Claim atômico recebe teto 1 inicialmente e 2 apenas quando manualRetryAttempt está reservado. Nenhuma terceira chamada, autocorreção QA ou requeue técnico automático em integrated.
+- Arquivo inutilizável falha e é removido. QA fail com imagem utilizável conclui com preview, mantém verdict fail e continua não selecionável. QA indisponível conclui inconclusive, exigindo confirmação pela política existente, sem estorno/correção automática.
+- Completion vencedor registra o marker objetivo no mesmo CAS da imagem/qualidade. Só depois preserva a chave e tenta o helper compensatório real. Perder o CAS não estorna; a imagem órfã é removida.
+- O helper privado do job recupera pendências por completion, evento duplicado e onFailure, fora de steps que poderiam cachear um resultado false. O marker só é removido após liquidação confirmada. Refund confirmado com falha no clear continua confirmado e recuperável. Reativação já compensada não gera outro crédito.
+- Falhas técnicas integrated publicam generation_failed_terminal_refund_pending no CAS failed vencedor antes do estorno; após confirmação usam generation_failed. Losing CAS não estorna. GET de B recebeu o mesmo mapeamento de chave terminal. O gate de retry ainda requer a correção concorrente de B abaixo.
+- Contador, providerInvoked e evidência de renderização cruzam o step de geração como JSON. Replay recupera tentativa 2 sem repetir claim/provider/brief. Payloads históricos sem campos novos permanecem aceitos. onFailure com CAS cacheado não troca a chave de refund após o marker já ter sido limpo.
+- Revisão usa revisionContext.action, formato da filha e pai como primeira referência obrigatória. Adaptação 9:16 não exige upload adicional nem altera pai/formato do trabalho. Adaptação autônoma continua exigindo original.
+- Formato automático usa geometria da única fonte de conteúdo antes de palavras genéricas; 1080×1350 resulta em 4:5. Alvo numérico explícito e escolha manual prevalecem. Múltiplas fontes/geometria inválida usam fallback; referências temporárias de estilo de single não redimensionam a peça.
 
 ## Arquivos de aplicação de A
 
 ```text
 app/src/server/creative-work/contracts.ts
-app/src/server/creative-work/render-policy.ts
-app/src/server/creative-work/render-policy.test.ts
-app/src/server/creative-work/art-direction.ts
-app/src/server/creative-work/art-direction.test.ts
-app/src/server/creative-work/prepare.ts
-app/src/server/creative-work/prepare.test.ts
-app/src/server/creative-work/prompt.ts
-app/src/server/creative-work/prompt.test.ts
-app/src/server/creative-work/protocol.ts
-app/src/server/creative-work/protocol.test.ts
-app/src/server/creative-work/reference-plan.ts
-app/src/server/creative-work/reference-plan.test.ts
+app/src/server/creative-work/render-policy.ts e render-policy.test.ts
+app/src/server/creative-work/art-direction.ts e art-direction.test.ts
+app/src/server/creative-work/prepare.ts e prepare.test.ts
+app/src/server/creative-work/prompt.ts e prompt.test.ts
+app/src/server/creative-work/protocol.ts e protocol.test.ts
+app/src/server/creative-work/reference-plan.ts e reference-plan.test.ts
 app/src/server/creative-work/brand-fidelity.test.ts
-app/src/server/application/prepare-creative-work.ts
-app/src/server/application/prepare-creative-work.test.ts
-app/src/server/generation/pipeline/execute.ts
-app/src/server/generation/pipeline/execute.test.ts
-app/src/server/ai/creative-qa.ts
-app/src/server/ai/creative-qa.test.ts
-app/src/server/jobs/creative-work.ts
-app/src/server/jobs/creative-work.test.ts
+app/src/server/application/prepare-creative-work.ts e prepare-creative-work.test.ts
+app/src/server/generation/pipeline/execute.ts e execute.test.ts
+app/src/server/ai/creative-qa.ts e creative-qa.test.ts
+app/src/server/jobs/creative-work.ts e creative-work.test.ts
 ```
 
-## Verificação
+brand-fidelity.ts já satisfazia o contrato e foi preservado; apenas a regressão foi acrescentada. Nenhuma dependência, configuração de produção, schema, migration, rota ou arquivo de UI foi editado por A.
 
-Executados em `app/`, usando dependências instaladas pelo symlink preparado pelo coordenador e mocks existentes. Nenhum `.env` foi copiado e nenhum banco, provider pago, migration ou seed foi acionado.
+## Verificação local
+
+Executados em app/, com dependências instaladas pelo symlink preparado pelo coordenador e mocks existentes. Nenhum .env foi copiado, banco acessado, provider pago chamado, migration ou seed executado por A.
 
 ```bash
-npm test -- src/server/creative-work/render-policy.test.ts src/server/creative-work/art-direction.test.ts src/server/creative-work/contracts.test.ts src/server/creative-work/prompt.test.ts src/server/creative-work/protocol.test.ts src/server/creative-work/prepare.test.ts src/server/creative-work/brand-fidelity.test.ts src/server/application/prepare-creative-work.test.ts src/server/generation/pipeline/execute.test.ts src/server/jobs/creative-work.test.ts src/server/ai/creative-qa.test.ts src/server/creative-work/reference-plan.test.ts
+npm test -- src/server/creative-work/render-policy.test.ts src/server/creative-work/art-direction.test.ts src/server/creative-work/contracts.test.ts src/server/creative-work/prompt.test.ts src/server/creative-work/protocol.test.ts src/server/creative-work/prepare.test.ts src/server/creative-work/brand-fidelity.test.ts src/server/application/prepare-creative-work.test.ts src/server/generation/pipeline/execute.test.ts src/server/jobs/creative-work.test.ts src/server/ai/creative-qa.test.ts src/server/creative-work/reference-plan.test.ts src/server/application/refund-creative-work-output.test.ts
 npm run typecheck
-npx eslint src/server/creative-work/render-policy.ts src/server/creative-work/render-policy.test.ts src/server/creative-work/art-direction.ts src/server/creative-work/art-direction.test.ts src/server/creative-work/prepare.ts src/server/creative-work/prepare.test.ts src/server/creative-work/prompt.ts src/server/creative-work/prompt.test.ts src/server/creative-work/protocol.ts src/server/creative-work/protocol.test.ts src/server/creative-work/brand-fidelity.test.ts src/server/creative-work/contracts.ts src/server/creative-work/reference-plan.ts src/server/creative-work/reference-plan.test.ts src/server/application/prepare-creative-work.ts src/server/application/prepare-creative-work.test.ts src/server/generation/pipeline/execute.ts src/server/generation/pipeline/execute.test.ts src/server/ai/creative-qa.ts src/server/ai/creative-qa.test.ts
+npx eslint src/server/jobs/creative-work.ts src/server/jobs/creative-work.test.ts src/server/application/prepare-creative-work.ts src/server/application/prepare-creative-work.test.ts
 ```
 
-Resultados: **12 arquivos, 372 testes passaram**; typecheck passou; ESLint passou (executado em dois grupos cobrindo todos os arquivos tocados e repetido nos arquivos corrigidos). Os logs de teste incluem aviso DEP0205 e diagnóstico Fontconfig; nenhum caso falhou. Logs locais em `/tmp/estudio-motor-final-tests.log`, `/tmp/estudio-motor-a2-typecheck.log`, `/tmp/estudio-motor-a1-lint.log`, `/tmp/estudio-motor-a2-lint.log`.
+**Resultado final: 13 arquivos / 409 testes passaram**, incluindo 130 do job e 54 da preparação. Typecheck passou; ESLint final dos quatro arquivos alterados passou. Os demais arquivos de A tiveram lint aprovado nas entregas anteriores e não mudaram depois. DEP0205 e diagnóstico Fontconfig apareceram nos testes, sem falhas.
 
-Na raiz: `git diff --check` passou. `graphify query` foi usado na descoberta; `graphify update .` foi executado em modo AST, sem chamadas de API, com saída ignorada pelo Git.
+Na raiz: git diff --check passou. graphify query usado na descoberta e graphify update . executado após alterações, em modo AST sem chamadas de API; resultado final 28648 nós / 54021 relações, arquivos de grafo ignorados pelo Git.
 
-Ciclo vermelho → verde observado para política/quality/formato/protocolo, brief/prompt, QA, snapshot e pai na adaptação. Revisão independente identificou a ausência da regra explícita de preservar copy no primeiro builder; correção reutilizou `buildFixedContract` e o teste passou após falhar. Segunda revisão dos sete arquivos de snapshot/referência/QA não encontrou achado acionável.
+Logs: `/tmp/estudio-motor-complete-tests.log`, `/tmp/estudio-motor-complete-graphify.log`, `/tmp/estudio-motor-b1-typecheck.log`, `/tmp/estudio-motor-b1-lint.log`. O último comando combinado typecheck/ESLint também concluiu com código 0 no terminal desta sessão.
 
-Após receber o helper D: `npm test -- src/server/application/refund-creative-work-output.test.ts src/server/jobs/creative-work.test.ts` passou com 109 testes. Após integrar o caminho interno do job: 108 testes do job passaram; typecheck e ESLint dos dois arquivos passaram. Os dois novos casos de prompt/high/fallback falharam antes da implementação e passaram depois. Revisão independente apontou compatibilidade com cache histórico; corrigida com fallback dos novos campos e regressão dedicada. Logs: `/tmp/estudio-motor-integrated-red.log`, `/tmp/estudio-motor-integrated-green.log`, `/tmp/estudio-motor-job-intermediate.log`, `/tmp/estudio-motor-job-typecheck.log`, `/tmp/estudio-motor-job-lint.log`. Graphify atualizado novamente em modo AST.
+Ciclos vermelho → verde registrados para política, high, prompt/brief/fallback, QA, snapshot, parent reference, geometria, QA-fail/limites, marker técnico e replay de onFailure. Revisões independentes encontraram e levaram à correção do contrato explícito de copy e compatibilidade com cache histórico. Revisão final de A: nenhum bloqueador adicional ao P1 de B abaixo.
 
-## Dependências para concluir A
+## Pendência externa e limites
 
-1. **B1 corrigido e revisado, distribuído pelo coordenador por merge.** O candidato inicial `e38b530` não foi liberado por lacuna de validação/projeção JSON. O candidato posterior `3470fee9` ainda tinha dois P2 (contexto inválido no replay e lease após 402), segundo o coordenador. A não incorporou esses candidatos nem criou interfaces falsas. Depois do SHA aprovado, consumir `revisionContext`, `maxCalls` e dimensões reais do repositório.
-2. **R1 de B.** Completion deve registrar `objective_quality_failed_refund_pending` no mesmo CAS que preserva preview válida/fail. O helper real `refundCreativeWorkOutputCompensatory` de D já foi recebido/testado, com tratamento de reactivation/already_refunded. A só compensa depois de vencer o CAS e deve recuperar replay/onFailure sem nova imagem. O marcador permanece enquanto a liquidação não estiver confirmada.
-3. **Job parcialmente conectado.** Falta teto atômico inicial 1/retry humano até 2, ausência de autocorreção/requeue, formato/contexto real, tri-state e recuperação de preview/estorno. O replay de sucesso já está coberto; falta replay de erro com compensação e sem requeue, vinculado ao restante da política.
-4. **Serviço de formato ainda sem dimensões.** O helper puro já está pronto; a projeção width/height de B1 será usada apenas para a única fonte de conteúdo, com manual prevalecendo e fonte de estilo incapaz de redimensionar single. Ainda falta esse teste de serviço.
+**P1 — retry durante estorno técnico pendente (B):** o novo CAS failed torna a linha visível antes da liquidação. Sem gate no serviço e no CAS de reserva/requeue, um retry humano pode começar com o débito anterior ainda ativo; a recuperação o estorna enquanto a nova tentativa gera. O clear genérico também pode apagar o marker de uma tentativa posterior. Coordenador recebeu o interleaving e atribuiu a correção a B. Teste exigido: refund suspenso bloqueia retry sem reserva/débito/dispatch; depois de liquidação e limpeza para generation_failed, retry volta a ser elegível. A aguarda SHA fixo revisado para incorporar essa correção; nenhum stub ou alteração nos arquivos de B foi criado.
 
-O ajuste `reference-plan` foi pedido ao coordenador com símbolo/comportamento/teste e atribuído formalmente a A em `52cb1485`. A lacuna de refund também foi comunicada e originou R1 em `1bbe1093`; nenhum arquivo de B/D foi editado para contorná-la.
-
-**Não publicar esta entrega parcial como motor completo.** O job já aplica high/prompt integrado, mas ainda mantém as rotas antigas de correção/requeue/compensação enquanto aguarda B. O aceite ponta a ponta continua pendente. Pai intacto/9:16 real/uma chamada por tentativa/refund confirmado ainda precisam da prova do job e E2E de D. Não houve produção, geração real, comparação com ChatGPT ou aceite visual; provider controlado não comprova qualidade humana.
+O coordenador autorizou fechar a parte A com essa dependência explícita. **Não publicar antes de resolver o P1 e concluir a integração/E2E.** Validação de banco, E2E controlado e validação visual pertencem ao coordenador/D. A não verificou produção, qualidade humana de imagens reais, comparação com ChatGPT ou aceite visual; mocks/provider controlado não comprovam esses resultados.
