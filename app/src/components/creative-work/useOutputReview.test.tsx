@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CreativeWorkDetail, CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { creativeWorkKey } from "@/lib/hooks/use-creative-work";
@@ -409,6 +409,28 @@ describe("useOutputReview", () => {
     expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({
       reviewRevision: 2,
       revisionKey: "00000000-0000-4000-8000-000000000010",
+    }));
+  });
+
+  it("consumes the pending debounce on the fresh-key path before freezing the plan", async () => {
+    const consumed = { ...emptyDraft(), instruction: "pedido antigo", version: 1, revision: 1, revisionKey: REVISION_KEY };
+    mocks.save.mockResolvedValue({
+      draft: { ...emptyDraft(), instruction: "pedido antigo editado", version: 1, revision: 2, revisionKey: "00000000-0000-4000-8000-000000000011" },
+      revisionCreditCost: 10,
+    });
+    const { result } = renderReview({ output: outputFixture({ reviewDraft: consumed }) });
+    await act(async () => result.current.beginFreshDraftAttempt());
+    await act(async () => result.current.update({ instruction: "pedido antigo editado" }));
+    // Revisar BEFORE the debounce: it must cancel the timer, save exactly once.
+    await act(async () => result.current.review());
+    expect(mocks.save).toHaveBeenCalledTimes(1);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 650)); });
+    // Advancing past the debounce window must NOT save a second revision.
+    expect(mocks.save).toHaveBeenCalledTimes(1);
+    await act(async () => result.current.confirm());
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({
+      reviewRevision: 2,
+      revisionKey: "00000000-0000-4000-8000-000000000011",
     }));
   });
 

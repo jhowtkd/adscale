@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Columns2, Maximize2, Sparkles, X } from "lucide-react";
 import { CreativeResultCard } from "./CreativeResultCard";
@@ -16,6 +16,7 @@ import {
   visualVersionNumber,
 } from "./composer-outputs";
 import type { CreativeComposerViewModel } from "./useCreativeComposer";
+import type { OutputReviewInput } from "./useOutputReview";
 import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { useIsMobile } from "@/lib/hooks/use-media-query";
 import styles from "./studio-piece-workspace.module.css";
@@ -41,19 +42,31 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
   const isMobile = useIsMobile();
   const outputs = useMemo(() => [...composer.outputs].sort(byCreationOrder), [composer.outputs]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // The default selection is fixed once per work: later polling arrivals
-  // never steal it — only an explicit click or an own confirmation does.
-  const selectionWorkRef = useRef<string | null>(null);
+  // The default selection is captured once per work: later polling arrivals
+  // never steal it — only an explicit action or an own confirmation moves it.
+  const [defaultSelection, setDefaultSelection] = useState<{ workId: string; outputId: string | null }>({ workId: "", outputId: null });
   const [layersOpen, setLayersOpen] = useState(false);
   const [layersExitToken, setLayersExitToken] = useState(0);
   const [pendingSelection, setPendingSelection] = useState<string | null>(null);
   const [pendingCompare, setPendingCompare] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  // Frozen context of a failed revision awaiting its explicit resume on the
+  // base (only offered when the base already carries a newer draft).
+  const [resumeContext, setResumeContext] = useState<{ parentId: string; from: OutputReviewInput } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const workId = composer.workId ?? outputs[0]?.workItemId ?? "";
-  const selected = (selectedId ? outputs.find((output) => output.id === selectedId) : undefined)
+  const activeDefault = defaultSelection.workId === workId ? defaultSelection.outputId : null;
+  // The default selection is FIXED on first sight (guarded render-time
+  // adjustment — React re-renders before committing), so polling arrivals
+  // never steal it; afterwards only explicit actions change selectedId.
+  const effectiveSelectionId = selectedId ?? activeDefault;
+  const selected = (effectiveSelectionId ? outputs.find((output) => output.id === effectiveSelectionId) : undefined)
     ?? outputs[outputs.length - 1];
+  if (outputs.length > 0 && activeDefault === null) {
+    const firstDefault = [...outputs].reverse().find(hasUsableOutput) ?? outputs[outputs.length - 1];
+    if (firstDefault) setDefaultSelection({ workId, outputId: firstDefault.id });
+  }
 
   const workItemId = composer.workId ?? selected?.workItemId ?? "";
   const review = useOutputReview({
@@ -62,70 +75,24 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
     revisionCreditCost: composer.revisionCreditCost ?? null,
   });
 
-  // A failed revision retries through the reviewed flow on its base: switch
-  // there, then force a FRESH draft/key — the parent's old revision was
-  // already consumed by the failed child and must never be replayed.
-  const pendingFreshAttemptRef = useRef(false);
-  const freshAttemptTargetRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (selected && pendingFreshAttemptRef.current && selected.id === freshAttemptTargetRef.current) {
-      pendingFreshAttemptRef.current = false;
-      freshAttemptTargetRef.current = null;
-      review.beginFreshDraftAttempt();
-    }
-  }, [review, selected]);
-
-  // Fix the default selection on first sight of each work, before any render
-  // depends on it; afterwards only explicit actions move it.
-  useEffect(() => {
-    if (selectionWorkRef.current === workId || outputs.length === 0) return;
-    selectionWorkRef.current = workId;
-    if (!selectedId) {
-      const defaultSelection = [...outputs].reverse().find(hasUsableOutput) ?? outputs[outputs.length - 1];
-      if (defaultSelection) setSelectedId(defaultSelection.id);
-    }
-  }, [outputs, selectedId, workId]);
-
   // Only an own confirmation moves the selection; polling never steals it.
-  useEffect(() => {
-    if (review.pendingOutputId) setSelectedId(review.pendingOutputId);
-  }, [review.pendingOutputId]);
+  if (review.pendingOutputId && review.pendingOutputId !== selectedId) {
+    setSelectedId(review.pendingOutputId);
+  }
 
-  // A guarded layer exit finished: drop the editor and apply whatever was
-  // requested while the editor held the artwork (selection and/or compare).
-  useEffect(() => {
-    if (layersOpen) return;
-    if (pendingSelection) {
-      setSelectedId(pendingSelection);
-      setPendingSelection(null);
-    }
-    if (pendingCompare) {
-      setCompareOpen(true);
-      setPendingCompare(false);
-    }
-  }, [layersOpen, pendingCompare, pendingSelection]);
-
-  const ancestor = useMemo(
-    () => (selected ? outputLineage(outputs, selected).slice(1).find(hasUsableOutput) ?? null : null),
-    [outputs, selected],
-  );
-  const selectedCompleted = Boolean(selected && hasUsableOutput(selected));
-  const displayOutput = selected && selectedCompleted ? selected : ancestor ?? selected;
-  // While the selected child has no art yet, the shown base is read-only: its
-  // draft belongs to another output and saving against the child is not_ready.
-  const viewingBaseOnly = !selectedCompleted && displayOutput !== selected;
-  const displaySrc = displayOutput ? outputSource(displayOutput) : "";
+  // A guarded layer exit finished: apply whatever was requested while the
+  // editor held the artwork (selection and/or compare).
+  if (!layersOpen && pendingSelection) {
+    setSelectedId(pendingSelection);
+    setPendingSelection(null);
+  }
+  if (!layersOpen && pendingCompare) {
+    setCompareOpen(true);
+    setPendingCompare(false);
+  }
 
   const readyLayers = Boolean(selected && (selected.layerization?.status === "completed" || selected.layerEditor));
   const layerizeRemaining = composer.layerEditorAccess?.layerize?.remaining ?? null;
-
-  const startLayerize = useCallback(() => {
-    if (!composer.layerizeOutput || !selected) return;
-    const state = selected.layerization;
-    const retry = state?.status === "failed";
-    const operationId = state?.status === "queued" ? state.operationId : crypto.randomUUID();
-    void Promise.resolve(composer.layerizeOutput(selected.id, retry, operationId)).catch(() => undefined);
-  }, [composer, selected]);
 
   /** Exits the layer editor through its flush path; the editor stays mounted
    * until flushAndRelease succeeds, so recent edits are never dropped. */
@@ -137,6 +104,71 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
   const closeLayers = useCallback((open: boolean) => {
     if (!open) setLayersOpen(false);
   }, []);
+
+  /** Manual piece switch: flush the review draft FIRST and only select the
+   * target after success; on failure stay on the current piece with its text
+   * and the visible error. Editor-held exits keep the flush-path contract. */
+  const switchTo = useCallback(async (outputId: string) => {
+    if (!selected || outputId === selected.id) return;
+    if (layersOpen && readyLayers) {
+      requestLayersExit(outputId);
+      return;
+    }
+    if (layersOpen) {
+      setLayersOpen(false);
+      setSelectedId(outputId);
+      return;
+    }
+    if (!review.hasUnsavedChanges()) {
+      setSelectedId(outputId);
+      return;
+    }
+    const saved = await review.flush();
+    if (!saved) return; // autosave failed: keep the current piece and error
+    setSelectedId(outputId);
+  }, [layersOpen, readyLayers, requestLayersExit, review, selected]);
+
+  /** A failed revision retries through the reviewed flow on its base: switch
+   * there, then force a FRESH draft/key — the parent's old revision was
+   * already consumed by the failed child and must never be replayed. The
+   * child's frozen context seeds the attempt when the base has no draft of
+   * its own; otherwise it is offered back as an explicit resume. */
+  const retryThroughReview = useCallback((failed: CreativeWorkOutput) => {
+    const parentId = failed.parentOutputId;
+    if (!parentId) return;
+    const parent = outputs.find((output) => output.id === parentId);
+    const from: OutputReviewInput | undefined = failed.revisionContext
+      ? {
+          action: failed.revisionContext.action,
+          targetFormat: failed.revisionContext.targetFormat,
+          instruction: failed.revisionContext.instruction,
+          revisionAssetId: failed.revisionContext.revisionAssetId,
+          annotations: failed.revisionContext.annotations,
+        }
+      : undefined;
+    setResumeContext(parent?.reviewDraft && from ? { parentId, from } : null);
+    review.beginFreshDraftAttempt({ targetOutputId: parentId, from: parent?.reviewDraft ? undefined : from });
+    void switchTo(parentId);
+  }, [outputs, review, switchTo]);
+
+    const ancestor = useMemo(
+    () => (selected ? outputLineage(outputs, selected).slice(1).find(hasUsableOutput) ?? null : null),
+    [outputs, selected],
+  );
+  const selectedCompleted = Boolean(selected && hasUsableOutput(selected));
+  const displayOutput = selected && selectedCompleted ? selected : ancestor ?? selected;
+  // While the selected child has no art yet, the shown base is read-only: its
+  // draft belongs to another output and saving against the child is not_ready.
+  const viewingBaseOnly = !selectedCompleted && displayOutput !== selected;
+  const displaySrc = displayOutput ? outputSource(displayOutput) : "";
+
+  const startLayerize = useCallback(() => {
+    if (!composer.layerizeOutput || !selected) return;
+    const state = selected.layerization;
+    const retry = state?.status === "failed";
+    const operationId = state?.status === "queued" ? state.operationId : crypto.randomUUID();
+    void Promise.resolve(composer.layerizeOutput(selected.id, retry, operationId)).catch(() => undefined);
+  }, [composer, selected]);
 
   if (outputs.length === 0 || !selected) return null;
 
@@ -224,14 +256,8 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
                 aria-pressed={output.id === selected.id}
                 aria-label={`${t("versionLabel", { count: visualVersionNumber(outputs, output) })} · ${output.targetFormat}`}
                 onClick={() => {
-                  if (output.id === selected.id) return;
-                  // Switching away from a mounted editor flushes first; the
-                  // selection is applied only after the editor released.
-                  if (layersOpen && readyLayers) requestLayersExit(output.id);
-                  else if (layersOpen) {
-                    setLayersOpen(false);
-                    setSelectedId(output.id);
-                  } else setSelectedId(output.id);
+                  // Flush first; the selection only lands after success.
+                  void switchTo(output.id);
                 }}
                 className={`${styles.thumb} rounded-[var(--radius-control)] border border-transparent bg-[var(--surface-inset)] aria-pressed:border-[var(--focus-ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]`}
               >
@@ -324,18 +350,7 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
           hidePreview
           retryCreditCost={composer.revisionCreditCost}
           onRetry={composer.retryOutput}
-          onRetryThroughReview={(failed) => {
-            const parentId = failed.parentOutputId;
-            if (!parentId) return;
-            pendingFreshAttemptRef.current = true;
-            freshAttemptTargetRef.current = parentId;
-            if (layersOpen && readyLayers) {
-              requestLayersExit(parentId);
-            } else {
-              if (layersOpen) setLayersOpen(false);
-              setSelectedId(parentId);
-            }
-          }}
+          onRetryThroughReview={retryThroughReview}
           onApprove={composer.approveOutput}
           onDownload={composer.downloadOutput}
           isRetrying={composer.isRetryingOutput?.(selected.id)}
@@ -343,6 +358,24 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
           approvalError={composer.approvalErrorOutputId === selected.id}
         />
 
+        {resumeContext && resumeContext.parentId === selected.id ? (
+          <button
+            type="button"
+            onClick={() => {
+              review.update({
+                action: resumeContext.from.action,
+                targetFormat: resumeContext.from.targetFormat,
+                instruction: resumeContext.from.instruction,
+                revisionAssetId: resumeContext.from.revisionAssetId,
+                annotations: resumeContext.from.annotations,
+              });
+              setResumeContext(null);
+            }}
+            className="inline-flex min-h-[var(--control-touch)] items-center rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          >
+            {t("resumePreviousInstructions")}
+          </button>
+        ) : null}
         {review.error ? <p role="alert" className="text-sm text-[var(--danger-text)]">{review.error}</p> : null}
         {composer.error ? <p role="alert" className="text-sm text-[var(--danger-text)]">{composer.error}</p> : null}
 

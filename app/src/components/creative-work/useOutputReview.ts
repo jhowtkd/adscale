@@ -109,12 +109,11 @@ export function useOutputReview({
   const [phase, setPhase] = useState<OutputReviewPhase>("editing");
   const [error, setError] = useState<string | null>(null);
   const [pendingOutputId, setPendingOutputId] = useState<string | null>(null);
-  const [referencePending, setReferencePending] = useState(false);
+  const [referencePending, setReferencePendingState] = useState(false);
   const [reviewed, setReviewed] = useState<{ draft: OutputReviewDraftV1; credits: number } | null>(null);
   const [saveState, setSaveState] = useState<"saving" | "saved" | "error" | null>(null);
 
   const draftRef = useRef(draft);
-  draftRef.current = draft;
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingTimerSessionRef = useRef<PendingSession | null>(null);
@@ -128,10 +127,16 @@ export function useOutputReview({
   const saveGenerationRef = useRef(0);
   const confirmingRef = useRef(false);
   const referencePendingRef = useRef(false);
-  referencePendingRef.current = referencePending;
   const outputIdRef = useRef(output.id);
   const phaseRef = useRef<OutputReviewPhase>("editing");
   const resaveAfterFailureRef = useRef(false);
+  const freshSeedRef = useRef<{ targetOutputId: string; from: OutputReviewInput } | null>(null);
+
+  /** Ref mirror updates happen only inside callbacks, never during render. */
+  const setReferencePending = useCallback((value: boolean) => {
+    referencePendingRef.current = value;
+    setReferencePendingState(value);
+  }, []);
 
   const setPhaseSync = useCallback((next: OutputReviewPhase) => {
     phaseRef.current = next;
@@ -255,12 +260,25 @@ export function useOutputReview({
     }, autosaveDelayMs);
   }, [autosaveDelayMs, enqueueSave, setPhaseSync, workItemId]);
 
+  /** Cancels the current session's pending debounce so it can never fire
+   * after the plan froze (a later timer must not save a newer revision). */
+  const cancelPendingDebounce = useCallback(() => {
+    if (saveTimerRef.current && pendingTimerSessionRef.current?.outputId === outputIdRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+      pendingTimerSessionRef.current = null;
+    }
+  }, []);
+
   const review = useCallback(async () => {
     if (referencePendingRef.current || confirmingRef.current) return;
     if (revisionCreditCost === null) {
       setError(t("reviewUnavailable"));
       return;
     }
+    // The fresh-key path also consumes the debounce HERE, before freezing:
+    // otherwise confirm could use revision N while the timer still saves N+1.
+    cancelPendingDebounce();
     const startedSaving = phaseRef.current === "editing" || phaseRef.current === "saving";
     if (startedSaving) setPhaseSync("saving");
     // A terminal submission failure spends its revision/key: retrying means
@@ -284,7 +302,7 @@ export function useOutputReview({
     setError(null);
     setReviewed({ draft: candidate, credits: revisionCreditCost });
     setPhaseSync("reviewing");
-  }, [enqueueSave, flush, revisionCreditCost, setPhaseSync, t]);
+  }, [cancelPendingDebounce, enqueueSave, flush, revisionCreditCost, setPhaseSync, t]);
 
   const reconcile = useCallback(async (frozen: { draft: OutputReviewDraftV1 }) => {
     setPhaseSync("reconciling");
@@ -357,11 +375,36 @@ export function useOutputReview({
 
   /** Marks the currently hydrated draft as spent: the next review mints a
    * fresh server draft (new revision/key) instead of replaying a consumed
-   * revision — e.g. retrying a failed child on its base. Never overwrites a
-   * newer server draft silently: the resave goes through the normal CAS. */
-  const beginFreshDraftAttempt = useCallback(() => {
+   * revision — e.g. retrying a failed child on its base.
+   * `from` (the failed child's frozen revisionContext) seeds the new attempt
+   * only when the base has no draft of its own; a newer base draft is never
+   * overwritten silently. */
+  const beginFreshDraftAttempt = useCallback((options?: {
+    targetOutputId?: string;
+    from?: OutputReviewInput;
+  }) => {
     resaveAfterFailureRef.current = true;
+    const targetOutputId = options?.targetOutputId ?? outputIdRef.current;
+    if (options?.from && targetOutputId === outputIdRef.current && !lastSavedRef.current) {
+      const seeded: OutputReviewInput = {
+        action: options.from.action,
+        targetFormat: options.from.targetFormat,
+        instruction: options.from.instruction,
+        revisionAssetId: options.from.revisionAssetId,
+        annotations: options.from.annotations.map((annotation) => ({ ...annotation })),
+      };
+      draftRef.current = seeded;
+      dirtyRef.current = true;
+      setDraft(seeded);
+    }
+    if (options?.from && targetOutputId !== outputIdRef.current) {
+      freshSeedRef.current = { targetOutputId, from: options.from };
+    }
   }, []);
+
+  /** True while local edits may not be persisted yet — callers gate piece
+   * switching on this plus a successful flush. */
+  const hasUnsavedChanges = useCallback(() => dirtyRef.current, []);
 
   /** Ends the current save session and rehydrates the canonical refs from the
    * given output; callers decide which UI state to reset on top. A pending
@@ -404,7 +447,7 @@ export function useOutputReview({
     } finally {
       setReferencePending(false);
     }
-  }, [flush, t, update]);
+  }, [flush, setReferencePending, t, update]);
 
   // A refetched server draft never overwrites local edits or an in-flight
   // submission; when clean, it rehydrates BOTH the text and the canonical
@@ -414,6 +457,24 @@ export function useOutputReview({
       outputIdRef.current = output.id;
       setPendingOutputId(null);
       hydrateFromOutput(output);
+      // A retry-through-review seeding aimed at this output lands right after
+      // its hydration: the frozen context becomes the visible (dirty) draft.
+      const seed = freshSeedRef.current;
+      if (seed && seed.targetOutputId === output.id) {
+        freshSeedRef.current = null;
+        if (!lastSavedRef.current) {
+          const seeded: OutputReviewInput = {
+            action: seed.from.action,
+            targetFormat: seed.from.targetFormat,
+            instruction: seed.from.instruction,
+            revisionAssetId: seed.from.revisionAssetId,
+            annotations: seed.from.annotations.map((annotation) => ({ ...annotation })),
+          };
+          draftRef.current = seeded;
+          dirtyRef.current = true;
+          setDraft(seeded);
+        }
+      }
       return;
     }
     if (!dirtyRef.current && phaseRef.current === "editing") {
@@ -442,6 +503,7 @@ export function useOutputReview({
     update,
     attachReference,
     flush,
+    hasUnsavedChanges,
     review,
     edit,
     beginFreshDraftAttempt,
