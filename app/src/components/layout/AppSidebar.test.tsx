@@ -238,6 +238,7 @@ describe("AppSidebar role-aware navigation", () => {
     const account = screen.getByRole("link", { name: /Test User/ });
     expect(account).toHaveTextContent("testerMode.badge");
     expect(account).toHaveTextContent("navigation.unlimited");
+    expect(account).not.toHaveTextContent("navigation.credits");
     expect(account).not.toHaveTextContent("999999");
   });
 
