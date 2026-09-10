@@ -165,7 +165,7 @@ export default function AppSidebar() {
             </div>
             {!isTesterAccount || unlimited ? (
               <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                {unlimited ? tNav("unlimited") : `${billingStatus?.creditBalance ?? planLabel}`} {tNav("credits")}
+                {unlimited ? tNav("unlimited") : `${billingStatus?.creditBalance ?? planLabel} ${tNav("credits")}`}
               </p>
             ) : null}
           </div>
