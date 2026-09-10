@@ -962,6 +962,52 @@ describe("DashboardHomeActions", () => {
     expect(screen.queryByTestId("studio-talk-box")).not.toBeInTheDocument();
   });
 
+  it.each([
+    ["ready", "ready", null, null],
+    ["analyzing", "ready", "Analisando referência", null],
+    ["uploaded", "ready", "Analisando referência", null],
+    ["ready", "analyzing", "Analisando referência", null],
+    ["failed", "ready", "Não foi possível analisar a referência", "orig-1"],
+    ["ready", "failed", "Não foi possível analisar a referência", "style-1"],
+  ])(
+    "restyle hint follows each source state (%s/%s)",
+    (originalStatus: string, styleStatus: string, hint: string | null, retryId: string | null) => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    const retrySource = vi.fn();
+    useComposerMock.mockReturnValue({
+      intent: "restyle",
+      request: "Deixe no estilo da referência",
+      setRequest: vi.fn(),
+      clientProfileId: "p1",
+      quote: { unitCount: 1, credits: 5 },
+      sources: [
+        { id: "orig-1", name: "arte.png", previewUrl: null, usage: "content", status: originalStatus },
+        { id: "style-1", name: "estilo.png", previewUrl: null, usage: "style", status: styleStatus },
+      ],
+      addFiles: vi.fn(),
+      selectIntent: selectIntentMock,
+      retrySource,
+      generateLegacy: vi.fn(),
+      preparePlan: vi.fn(),
+    });
+    render(<DashboardHomeActions />);
+
+    if (!hint) {
+      expect(screen.queryByText("Analisando referência")).not.toBeInTheDocument();
+      expect(screen.queryByText("Não foi possível analisar a referência")).not.toBeInTheDocument();
+      return;
+    }
+    expect(screen.getByRole("status")).toHaveTextContent(hint);
+    const retryButton = screen.queryByRole("button", { name: "Tentar analisar novamente" });
+    if (!retryId) {
+      expect(retryButton).not.toBeInTheDocument();
+      return;
+    }
+    expect(retryButton).toBeInTheDocument();
+    fireEvent.click(retryButton!);
+    expect(retrySource).toHaveBeenCalledWith(retryId);
+  });
+
   it("requires original art and a style reference before restyling", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     useComposerMock.mockReturnValue({
