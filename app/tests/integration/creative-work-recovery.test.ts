@@ -1,6 +1,6 @@
 /**
  * T8 — R-006/R-007: reconciliação da máquina de estados do job creative-work
- * contra Postgres REAL (adscale_test). Primeiro teste do repo sem mocks de
+ * contra Postgres REAL (adscale_estudio_qa). Primeiro teste do repo sem mocks de
  * repositório/db: importa os módulos de produção e prova, consultando outputs
  * E ledger (usage_events + credit_transactions + credit_grants) no banco:
  *
@@ -16,8 +16,9 @@
  * externo; tudo que o teste prova é transacional. Storage/provider pago não
  * são exercitados por essas funções (confirmado lendo o código).
  *
- * Requer o container adscale-test-postgres migrado:
- *   DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-recovery.test.ts
+ * Requer o banco sintético adscale_estudio_qa, em localhost:5434, migrado.
+ * Defina NODE_ENV=test, DATABASE_URL e TEST_DATABASE_URL explicitamente.
+ * Nunca executa setup/teardown de banco; limpa somente IDs deste RUN_ID.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { and, eq, inArray, sql } from "drizzle-orm";
@@ -52,6 +53,10 @@ import {
 } from "@/server/db/schema";
 import {
   CREATIVE_WORK_MAX_IMAGE_CALLS,
+  CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING,
+  claimCreativeWorkOutputManualRetryAttempt,
+  clearCreativeWorkOutputGenerationFailedRefundPending,
+  requeueFailedCreativeWorkOutput,
   claimCreativeWorkOutputImageCall,
   completeCreativeWorkOutput,
   failCreativeWorkOutput,
@@ -226,13 +231,20 @@ async function flushFireAndForget() {
 }
 
 beforeAll(async () => {
+  if (!TEST_DB_EXPLICITLY_CONFIGURED) return;
+  expect(process.env.NODE_ENV).toBe("test");
+  for (const value of [process.env.DATABASE_URL, process.env.TEST_DATABASE_URL]) {
+    expect(value, "As duas URLs de teste devem ser explícitas").toBeTruthy();
+    const target = new URL(value!);
+    expect(["localhost", "127.0.0.1", "[::1]"]).toContain(target.hostname);
+    expect(target.port).toBe("5434");
+    expect(target.pathname).toBe("/adscale_estudio_qa");
+  }
   try {
     await db.execute(sql`select 1`);
   } catch (err) {
     throw new Error(
-      `[creative-work-recovery] Postgres de teste INACESSÍVEL (DATABASE_URL=${
-        process.env.DATABASE_URL ?? "(não definida)"
-      }). Suba o container adscale-test-postgres migrado antes de rodar este teste. ` +
+      "[creative-work-recovery] Postgres sintético INACESSÍVEL em localhost:5434/adscale_estudio_qa. " +
         `Causa: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
@@ -798,4 +810,67 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work recovery (Postgre
     },
     30_000,
   );
+  it("9) refund técnico pendente bloqueia serviço, claim e requeue sem débito nem dispatch", async () => {
+    const scope = await createScope();
+    const output = await createOutput(scope, "balanced");
+    await recordUsage({ workspaceId: scope.workspaceId, action: "image_derivation", idempotencyKey: creativeWorkUnitBillingKey(scope.workItemId, output.id), amount: CHARGE, userId: scope.userId });
+    await markCreativeWorkOutputProcessing(scope.workspaceId, scope.workItemId, output.id);
+    await claimCreativeWorkOutputImageCall(scope.workspaceId, scope.workItemId, output.id, 1);
+    await failCreativeWorkOutput(scope.workspaceId, scope.workItemId, output.id, CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING);
+    const before = await ledgerSnapshot(scope.workspaceId);
+    const rowBefore = await getOutput(output.id);
+    vi.mocked(inngest.send).mockClear();
+    const retry = await retryCreativeWorkOutput({ workspaceId: scope.workspaceId, workItemId: scope.workItemId, outputId: output.id, userId: scope.userId });
+    expect(retry).toEqual({ ok: false, error: { code: "output_not_retriable", status: "terminal_refund_pending" } });
+    const blocked = await Promise.all([
+      claimCreativeWorkOutputManualRetryAttempt(scope.workspaceId, scope.workItemId, output.id, 0, null, 1),
+      requeueFailedCreativeWorkOutput(scope.workspaceId, scope.workItemId, output.id, 0, null),
+      requeueFailedCreativeWorkOutput(scope.workspaceId, scope.workItemId, output.id, 0),
+    ]);
+    expect(blocked).toEqual([null, null, null]);
+    expect(await ledgerSnapshot(scope.workspaceId)).toEqual(before);
+    expect(await getOutput(output.id)).toEqual(rowBefore);
+    expect(inngest.send).not.toHaveBeenCalled();
+  });
+
+  it("10) clear técnico exige ordinal null-safe e retryCount exatos; recovery antigo não apaga nova tentativa", async () => {
+    const scope = await createScope();
+    const output = await createOutput(scope, "balanced");
+    await recordUsage({ workspaceId: scope.workspaceId, action: "image_derivation", idempotencyKey: creativeWorkUnitBillingKey(scope.workItemId, output.id), amount: CHARGE, userId: scope.userId });
+    await markCreativeWorkOutputProcessing(scope.workspaceId, scope.workItemId, output.id);
+    await claimCreativeWorkOutputImageCall(scope.workspaceId, scope.workItemId, output.id, 1);
+    await failCreativeWorkOutput(scope.workspaceId, scope.workItemId, output.id, CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING);
+    const clear = (ordinal: number | null, count: number) => clearCreativeWorkOutputGenerationFailedRefundPending(scope.workspaceId, scope.workItemId, output.id, ordinal, count);
+    expect(await clear(1, 0)).toBeNull();
+    expect(await clear(null, 1)).toBeNull();
+    const refunded = await refundCredits({ workspaceId: scope.workspaceId, action: "image_derivation", idempotencyKey: terminalRefundKey(scope, output.id), amount: CHARGE, userId: scope.userId });
+    expect(refunded.status).toBe("refunded");
+    const pending = await getOutput(output.id);
+    const settled = await clear(null, 0);
+    expect(settled).toMatchObject({ status: "failed", failureCode: "generation_failed", imageCallCount: 1, manualRetryAttempt: null, retryCount: 0 });
+    expect(settled?.terminalAt).toEqual(pending.terminalAt);
+    vi.mocked(inngest.send).mockClear();
+    const retry = await retryCreativeWorkOutput({ workspaceId: scope.workspaceId, workItemId: scope.workItemId, outputId: output.id, userId: scope.userId });
+    expect(retry.ok).toBe(true);
+    expect(inngest.send).toHaveBeenCalledTimes(1);
+    const retried = await getOutput(output.id);
+    expect(retried.manualRetryAttempt).toBe(1);
+    expect(retried.retryCount).toBe(1);
+    await markCreativeWorkOutputProcessing(scope.workspaceId, scope.workItemId, output.id);
+    await failCreativeWorkOutput(scope.workspaceId, scope.workItemId, output.id, CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING);
+    const newer = await getOutput(output.id);
+    const before = await ledgerSnapshot(scope.workspaceId);
+    expect(await clear(null, 0)).toBeNull();
+    expect(await clear(null, 1)).toBeNull();
+    expect(await clear(1, 0)).toBeNull();
+    expect(await getOutput(output.id)).toEqual(newer);
+    // Pure repository CAS proof: no financial effect is attributed to clear.
+    // The service is only allowed to call it after confirmed settlement.
+    const matched = await clear(1, 1);
+    expect(matched).toMatchObject({ failureCode: "generation_failed", manualRetryAttempt: 1, retryCount: 1 });
+    expect(matched?.terminalAt).toEqual(newer.terminalAt);
+    expect(await clear(1, 1)).toBeNull();
+    expect(await ledgerSnapshot(scope.workspaceId)).toEqual(before);
+  });
+
 });

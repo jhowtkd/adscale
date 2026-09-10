@@ -4,6 +4,8 @@ import path from "node:path";
 import sharp from "sharp";
 import { Client } from "pg";
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
+import { GENERATION_CREDIT_COSTS } from "../../src/server/generation/canonical/types";
+import type { TypographyPlan } from "../../src/server/creative-work/typography-plan";
 import { composeExactBrandAssets } from "../../src/server/creative-work/composite";
 
 /**
@@ -537,6 +539,7 @@ interface ProviderCallEvidence {
   outputPrefix: string;
   attempt: number;
   generationMode: string;
+  quality?: string | null;
   dimensions: { width: number; height: number };
   referenceNames: string[];
   promptMarkers: string[];
@@ -555,6 +558,23 @@ interface V1OutputRow {
   targetFormat: string;
   versionNumber: number;
   parentOutputId: string | null;
+  isSelected?: boolean;
+  reviewDraft?: {
+    version: number;
+    revision: number;
+    revisionKey: string;
+    action: string;
+    targetFormat: string;
+    instruction: string;
+  } | null;
+  revisionContext?: {
+    version: number;
+    reviewRevision: number;
+    sourceOutputId: string;
+    sourceOutputVersion: number;
+    action: string;
+    targetFormat: string;
+  } | null;
   quality: {
     schemaVersion?: number;
     objectiveVerdict?: string;
@@ -633,7 +653,16 @@ function evidenceForOutput(evidence: ProviderCallEvidence[], outputId: string): 
   return evidence.filter((row) => row.outputPrefix === `creative-work/${outputId}`);
 }
 
+function assertIsolatedDatabase() {
+  const target = new URL(E2E_DB_URL);
+  expect(["localhost", "127.0.0.1", "[::1]"]).toContain(target.hostname);
+  expect(target.port).toBe("5434");
+  expect(target.pathname).toBe("/adscale_estudio_qa");
+  expect(process.env.E2E_CONTROLLED_PROVIDER).toBe("true");
+}
+
 async function withDb<T>(run: (client: Client) => Promise<T>): Promise<T> {
+  assertIsolatedDatabase();
   const client = new Client({ connectionString: E2E_DB_URL });
   await client.connect();
   try {
@@ -646,7 +675,8 @@ async function withDb<T>(run: (client: Client) => Promise<T>): Promise<T> {
 async function dbOutputRow(outputId: string) {
   return withDb(async (client) => {
     const result = await client.query(
-      `select status, failure_code, image_call_count, retry_count
+      `select status, failure_code, image_call_count, retry_count,
+              target_format, parent_output_id, (output_key is not null) as has_output_key
        from adscale_app.creative_work_outputs where id = $1`,
       [outputId],
     );
@@ -655,6 +685,9 @@ async function dbOutputRow(outputId: string) {
       failure_code: string | null;
       image_call_count: number;
       retry_count: number;
+      target_format: string;
+      parent_output_id: string | null;
+      has_output_key: boolean;
     } | undefined;
   });
 }
@@ -678,6 +711,7 @@ async function apiCreateV1Draft(
     request: string;
     targetFormats?: string[];
     format?: string;
+    formatMode?: "manual" | "auto";
     fontAssetKey?: string;
     textLayout?: "top" | "center" | "bottom";
   },
@@ -691,7 +725,7 @@ async function apiCreateV1Draft(
       format: input.format ?? "4:5",
       settings: {
         targetFormats: input.targetFormats ?? [],
-        formatMode: "manual",
+        formatMode: input.formatMode ?? "manual",
         ...(input.fontAssetKey ? { fontAssetKey: input.fontAssetKey } : {}),
         ...(input.textLayout ? { textLayout: input.textLayout } : {}),
       },
@@ -709,7 +743,7 @@ async function apiAttachSource(
   usage: "content" | "style" | "both",
 ): Promise<void> {
   const res = await request.patch(`/api/creative-work/${workId}`, {
-    data: { action: "attachSource", assetId, usage },
+    data: { action: "attachSource", assetId, usage, expectedUpdatedAt: new Date((await apiGetWork(request, workId)).work.updatedAt).toISOString() },
   });
   expect(res.ok(), `attachSource must succeed (got ${res.status()})`).toBeTruthy();
 }
@@ -773,9 +807,11 @@ async function runV1Flow(
     request: string;
     targetFormats?: string[];
     format?: string;
+    formatMode?: "manual" | "auto";
     fontAssetKey?: string;
     textLayout?: "top" | "center" | "bottom";
     sources?: Array<{ assetId: string; usage: "content" | "style" | "both" }>;
+    historical?: boolean;
   },
 ): Promise<V1WorkDetail> {
   const workId = await apiCreateV1Draft(request, fixture, input);
@@ -785,6 +821,35 @@ async function runV1Flow(
   if ((input.sources ?? []).length > 0) await waitForSourcesReady(request, workId);
   const prepared = await apiPrepare(request, workId);
   expect(prepared.status, `prepare must succeed (got ${prepared.status}): ${JSON.stringify(prepared.body)}`).toBe(200);
+  // A persisted, pre-integrated fixture is required for the old R-010 matrix.
+  // Freeze it BEFORE dispatch; never change a running output or relax old asserts.
+  if (input.historical !== false && input.intent === "single") {
+    const typographyPlan: TypographyPlan = {
+      version: 1,
+      format: (input.format ?? "4:5") as TypographyPlan["format"],
+      requestedLayout: input.textLayout ?? "top",
+      overflowPolicy: { strategy: "autofit_then_fail", minimumDpi: { headline: 96, body: 72, cta: 72 } },
+      collisionPolicy: "relocate_layout_then_fail",
+      contrastPolicy: "brand_plate_wcag_aa",
+      safeAreaPolicy: "format_default",
+      ...(input.fontAssetKey
+        ? { execution: "deterministic" as const, fontAssetKey: input.fontAssetKey, fontSelection: "operator_selected" as const }
+        : { execution: "generative" as const, fontAssetKey: null, reason: "approved_font_missing" as const }),
+    };
+    await withDb(async (client) => {
+      const frozen = await client.query(
+        `update adscale_app.creative_work_items set input_snapshot =
+           (input_snapshot - 'renderPolicy') || jsonb_build_object('typographyPlan', $4::jsonb)
+         where id = $1 and workspace_id = $2 and updated_at = $3::timestamp
+           and not exists (select 1 from adscale_app.creative_work_outputs where work_item_id = $1)
+         returning input_snapshot`,
+        [workId, fixture.workspaceId, preparedRevisionFrom(prepared.body), JSON.stringify(typographyPlan)],
+      );
+      expect(frozen.rowCount).toBe(1);
+      expect(frozen.rows[0].input_snapshot.renderPolicy).toBeUndefined();
+      expect(frozen.rows[0].input_snapshot.generationPolicyVersion).toBe("quality_recovery_v1");
+    });
+  }
   await apiGenerateInitial(request, workId, preparedRevisionFrom(prepared.body));
   const detail = await waitForTerminalOutputs(request, workId);
   expect(detail.work.id).toBe(workId);
@@ -1483,6 +1548,264 @@ test.describe("Creative Work v1 quality-recovery matrix (R-010)", () => {
     expect(debits.length).toBeLessThanOrEqual(2); // generate + reactivation
     expect(credits).toHaveLength(1); // terminal refund, exactly once
     const net = ledger.reduce((sum, row) => sum + row.amount, 0);
-    expect(net).toBe(5);
+    expect(net).toBe(GENERATION_CREDIT_COSTS.creativeWorkOutput);
+  });
+});
+
+type ReviewDraft = {
+  action: "refine" | "variation" | "format";
+  targetFormat: "1:1" | "4:5" | "9:16";
+  instruction: string;
+  annotations: Array<{ id: string; x: number; y: number; text: string }>;
+  revisionAssetId: string | null;
+};
+const REVIEW_DRAFT_BASE: ReviewDraft = {
+  action: "refine", targetFormat: "4:5", instruction: "Aumente o CTA sem mudar os fatos.",
+  annotations: [], revisionAssetId: null,
+};
+async function apiSaveReview(request: APIRequestContext, workId: string, outputId: string, expectedReviewRevision: number, draft = REVIEW_DRAFT_BASE) {
+  const res = await request.patch(`/api/creative-work/${workId}`, {
+    data: { action: "saveOutputReview", outputId, expectedReviewRevision, draft },
+  });
+  const body = await res.json() as { draft: { revision: number; revisionKey: string }; revisionCreditCost: number };
+  return { status: res.status(), body };
+}
+async function apiReviewedRevision(request: APIRequestContext, workId: string, command: {
+  outputId: string; reviewRevision: number; revisionKey: string; expectedCredits: number;
+}) {
+  const res = await request.post(`/api/creative-work/${workId}/generate`, { data: { action: "reviewed_revision", ...command } });
+  return { status: res.status(), body: await res.json() as { output: { id: string } } };
+}
+async function financeSnapshot(workspaceId: string) {
+  return withDb(async (client) => {
+    const grants = await client.query(`select coalesce(sum(remaining),0)::int as balance from adscale_app.credit_grants where workspace_id=$1`, [workspaceId]);
+    const usage = await client.query(`select id, idempotency_key, amount from adscale_app.usage_events where workspace_id=$1 order by id`, [workspaceId]);
+    const ledger = await client.query(`select id, amount, type from adscale_app.credit_transactions where workspace_id=$1 order by id`, [workspaceId]);
+    return { balance: grants.rows[0].balance as number, usage: usage.rows as Array<{id: string; idempotency_key: string; amount: number}>, ledger: ledger.rows as Array<{id: string; amount: number; type: string}> };
+  });
+}
+async function storedPiece(outputId: string) {
+  return withDb(async (client) => {
+    const result = await client.query(`select output_key, target_format, parent_output_id, revision_context, review_draft, quality, terminal_at from adscale_app.creative_work_outputs where id=$1`, [outputId]);
+    return result.rows[0];
+  });
+}
+async function downloadedPiece(request: APIRequestContext, workId: string, outputId: string) {
+  const download = await request.get(`/api/creative-work/${workId}/outputs/${outputId}/download?format=json`);
+  expect(download.ok(), await download.text()).toBe(true);
+  const { url } = await download.json() as { url: string };
+  expect(["localhost", "127.0.0.1", "[::1]"]).toContain(new URL(url).hostname);
+  const image = await request.get(url);
+  expect(image.ok()).toBe(true);
+  const png = await image.body();
+  return { hash: createHash("sha256").update(png).digest("hex"), metadata: await sharp(png).metadata() };
+}
+async function waitForChild(request: APIRequestContext, workId: string, outputId: string) {
+  await expect.poll(async () => (await apiGetWork(request, workId)).outputs.find(row => row.id === outputId)?.status,
+    { timeout: 180_000, intervals: [1_000, 2_000] }).toBe("completed");
+}
+const runIntegratedFlow = (request: APIRequestContext, fixture: CreatePostFixture, input: Parameters<typeof runV1Flow>[2]) =>
+  runV1Flow(request, fixture, { ...input, historical: false });
+
+test.describe("integrated API", () => {
+  test.beforeEach(async ({ page, baseURL }) => {
+    assertIsolatedDatabase();
+    expect(["localhost", "127.0.0.1", "[::1]"]).toContain(new URL(baseURL!).hostname);
+    await login(page);
+    const billing = await page.request.get("/api/billing/status");
+    expect(billing.ok()).toBe(true);
+    expect((await billing.json()).billing.access.unlimited, "financial assertions require a paid synthetic workspace").toBe(false);
+  });
+
+  test("CAS simultâneo e primeira confirmação concorrente reservam um único filho", async ({ page }) => {
+    const fixture = loadFixture();
+    const detail = await runIntegratedFlow(page.request, fixture, { intent: "single", request: "Peça institucional para revisão concorrente." });
+    const parent = detail.outputs[0];
+    const base = await storedPiece(parent.id);
+    const baseImage = await downloadedPiece(page.request, detail.work.id, parent.id);
+    const before = await financeSnapshot(fixture.workspaceId);
+    const writes = await Promise.all([
+      apiSaveReview(page.request, detail.work.id, parent.id, 0, { ...REVIEW_DRAFT_BASE, instruction: "Pedido da aba A" }),
+      apiSaveReview(page.request, detail.work.id, parent.id, 0, { ...REVIEW_DRAFT_BASE, instruction: "Pedido da aba B" }),
+    ]);
+    expect(writes.map(row => row.status).sort()).toEqual([200, 409]);
+    const saved = writes.find(row => row.status === 200)!.body;
+    expect(saved.draft.revision).toBe(1);
+    expect(saved.revisionCreditCost).toBe(GENERATION_CREDIT_COSTS.creativeWorkOutput);
+    expect(await financeSnapshot(fixture.workspaceId)).toEqual(before);
+    const command = { outputId: parent.id, reviewRevision: saved.draft.revision, revisionKey: saved.draft.revisionKey, expectedCredits: saved.revisionCreditCost };
+    // These are the FIRST valid dispatches, not replays after a serial winner.
+    const generated = await Promise.all([
+      apiReviewedRevision(page.request, detail.work.id, command),
+      apiReviewedRevision(page.request, detail.work.id, command),
+    ]);
+    expect(generated.map(row => row.status)).toEqual([202, 202]);
+    const childId = generated[0].body.output.id;
+    expect(generated[1].body.output.id).toBe(childId);
+    await waitForChild(page.request, detail.work.id, childId);
+    const after = await financeSnapshot(fixture.workspaceId);
+    expect(after.balance).toBe(before.balance - saved.revisionCreditCost);
+    expect(after.usage.filter(row => !before.usage.some(old => old.id === row.id))).toEqual([expect.objectContaining({ amount: saved.revisionCreditCost })]);
+    expect(after.ledger.filter(row => !before.ledger.some(old => old.id === row.id))).toEqual([expect.objectContaining({ type: "usage", amount: -saved.revisionCreditCost })]);
+    expect(evidenceForOutput(readProviderEvidence(), childId)).toHaveLength(1);
+    expect((await apiGetWork(page.request, detail.work.id)).outputs).toHaveLength(2);
+    const parentAfter = await storedPiece(parent.id);
+    expect({ key: parentAfter.output_key, format: parentAfter.target_format, quality: parentAfter.quality, terminal: parentAfter.terminal_at }).toEqual({ key: base.output_key, format: base.target_format, quality: base.quality, terminal: base.terminal_at });
+    expect((await downloadedPiece(page.request, detail.work.id, parent.id)).hash).toBe(baseImage.hash);
+    expect((await storedPiece(childId)).revision_context).toMatchObject({ sourceOutputId: parent.id, reviewRevision: 1, action: "refine" });
+    expect((await apiSaveReview(page.request, detail.work.id, parent.id, 1, { ...REVIEW_DRAFT_BASE, instruction: "Novo pedido depois da geração" })).status).toBe(200);
+    const replay = await apiReviewedRevision(page.request, detail.work.id, command);
+    expect(replay.status).toBe(202);
+    expect(replay.body.output.id).toBe(childId);
+    expect((await apiReviewedRevision(page.request, detail.work.id, { ...command, outputId: childId })).status).toBe(409);
+    expect(await financeSnapshot(fixture.workspaceId)).toEqual(after);
+  });
+
+  test("high chega à imagem com uma chamada e nenhuma autocorreção", async ({ page }) => {
+    const detail = await runIntegratedFlow(page.request, loadFixture(), { intent: "single", request: "Peça institucional da mentoria sob política integrada." });
+    expect(detail.outputs).toHaveLength(1);
+    const output = detail.outputs[0];
+    expect(output.status).toBe("completed");
+    expect(evidenceForOutput(readProviderEvidence(), output.id)).toEqual([expect.objectContaining({ quality: "high", outcome: "success", dimensions: { width: 1080, height: 1350 }, promptHasDeterministicText: false, promptHasObjectiveCorrection: false })]);
+    expect(await dbOutputRow(output.id)).toMatchObject({ image_call_count: 1, target_format: "4:5" });
+  });
+
+  test("QA preview e refund permanecem únicos depois de reabrir", async ({ page }) => {
+    const fixture = loadFixture();
+    const before = await financeSnapshot(fixture.workspaceId);
+    const detail = await runIntegratedFlow(page.request, fixture, { intent: "single", request: "Peça [e2e:qa-fail-always] com falha objetiva." });
+    const output = detail.outputs[0];
+    expect(output.status).toBe("completed");
+    expect(output.quality).toMatchObject({ objectiveVerdict: "fail" });
+    // GET is an actual recovery caller, so keep exercising it while pending.
+    await expect.poll(async () => {
+      await apiGetWork(page.request, detail.work.id);
+      return (await dbOutputRow(output.id))?.failure_code;
+    }, { timeout: 120_000, intervals: [1_000, 2_000] }).toBeNull();
+    const after = await financeSnapshot(fixture.workspaceId);
+    expect(after.balance).toBe(before.balance);
+    const movements = after.ledger.filter(row => !before.ledger.some(old => old.id === row.id));
+    expect(movements.map(row => row.amount).sort((a,b) => a-b)).toEqual([-GENERATION_CREDIT_COSTS.creativeWorkOutput, GENERATION_CREDIT_COSTS.creativeWorkOutput]);
+    const usage = after.usage.filter(row => !before.usage.some(old => old.id === row.id));
+    expect(usage).toHaveLength(2);
+    expect(usage.reduce((sum,row) => sum + row.amount, 0)).toBe(0);
+    const imageBefore = await downloadedPiece(page.request, detail.work.id, output.id);
+    const select = await page.request.post(`/api/creative-work/${detail.work.id}/outputs/${output.id}/select`, { data: { saveToLibrary: false, confirmObjective: true } });
+    expect(select.ok()).toBe(false);
+    await Promise.all([apiGetWork(page.request, detail.work.id), apiGetWork(page.request, detail.work.id)]);
+    expect(await financeSnapshot(fixture.workspaceId)).toEqual(after);
+    expect((await downloadedPiece(page.request, detail.work.id, output.id)).hash).toBe(imageBefore.hash);
+    expect(await dbOutputRow(output.id)).toMatchObject({ status: "completed", image_call_count: 1, has_output_key: true });
+    expect(evidenceForOutput(readProviderEvidence(), output.id)).toHaveLength(1);
+  });
+
+  test("QA indisponível é inconclusivo e exige confirmação para escolher", async ({ page }) => {
+    const detail = await runIntegratedFlow(page.request, loadFixture(), { intent: "single", request: "Peça [e2e:qa-error] para verificação indisponível." });
+    const output = detail.outputs[0];
+    expect(output.quality).toMatchObject({ objectiveVerdict: "inconclusive" });
+    expect(evidenceForOutput(readProviderEvidence(), output.id)).toHaveLength(1);
+    const endpoint = `/api/creative-work/${detail.work.id}/outputs/${output.id}/select`;
+    expect((await page.request.post(endpoint, { data: { saveToLibrary: false } })).ok()).toBe(false);
+    expect((await page.request.post(endpoint, { data: { saveToLibrary: false, confirmObjective: true } })).ok()).toBe(true);
+  });
+
+  test("adaptação sem upload usa o pai como primeira referência e produz PNG 9:16", async ({ page }) => {
+    const detail = await runIntegratedFlow(page.request, loadFixture(), { intent: "single", request: "Peça sem upload para adaptar ao story." });
+    const parent = detail.outputs[0];
+    const original = await downloadedPiece(page.request, detail.work.id, parent.id);
+    const saved = await apiSaveReview(page.request, detail.work.id, parent.id, 0, { ...REVIEW_DRAFT_BASE, action: "format", targetFormat: "9:16", annotations: [{ id: crypto.randomUUID(), x: 0.5, y: 0.8, text: "CTA maior" }] });
+    expect(saved.status).toBe(200);
+    const generated = await apiReviewedRevision(page.request, detail.work.id, { outputId: parent.id, reviewRevision: saved.body.draft.revision, revisionKey: saved.body.draft.revisionKey, expectedCredits: saved.body.revisionCreditCost });
+    expect(generated.status).toBe(202);
+    const childId = generated.body.output.id;
+    await waitForChild(page.request, detail.work.id, childId);
+    const calls = evidenceForOutput(readProviderEvidence(), childId);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ generationMode: "format_adaptation", quality: "high", dimensions: { width: 1080, height: 1920 } });
+    expect(calls[0].referenceNames[0]).toContain("Versão 1");
+    expect((await downloadedPiece(page.request, detail.work.id, childId)).metadata).toMatchObject({ width: 1080, height: 1920 });
+    expect((await downloadedPiece(page.request, detail.work.id, parent.id)).hash).toBe(original.hash);
+    expect((await storedPiece(childId)).revision_context).toMatchObject({ sourceOutputId: parent.id, action: "format", annotations: [{ text: "CTA maior", x: 0.5, y: 0.8 }] });
+  });
+
+  test("restyle diferencia fontes ausentes, analyzing e ready pela API real", async ({ page }) => {
+    const fixture = loadFixture();
+    const workId = await apiCreateV1Draft(page.request, fixture, { intent: "restyle", request: "Aplicar o estilo da referência à arte original." });
+    const missing = await apiPrepare(page.request, workId);
+    expect(missing.status).not.toBe(200);
+    expect(missing.body.code).not.toBe("sources_not_ready");
+    await apiAttachSource(page.request, workId, fixture.contentArtAssetId, "content");
+    await apiAttachSource(page.request, workId, fixture.styleArtAssetId, "style");
+    await waitForSourcesReady(page.request, workId);
+    // Freeze one source in pending AFTER the real analyzer finished: no race
+    // with its worker and no fabricated successful API response.
+    const source = (await apiGetWork(page.request, workId)).sources.find(row => row.usage === "style")!;
+    await withDb(client => client.query(`update adscale_app.creative_work_sources set status='analyzing' where id=$1 and workspace_id=$2`, [source.id, fixture.workspaceId]));
+    try {
+      const pending = await apiPrepare(page.request, workId);
+      expect(pending.status).toBe(409);
+      expect(pending.body.code).toBe("sources_not_ready");
+      expect((await apiGetWork(page.request, workId)).sources.find(row => row.id === source.id)?.status).toBe("analyzing");
+    } finally {
+      await withDb(client => client.query(`update adscale_app.creative_work_sources set status='ready' where id=$1 and workspace_id=$2`, [source.id, fixture.workspaceId]));
+    }
+    expect((await apiPrepare(page.request, workId)).status).toBe(200);
+  });
+
+  test("histórico concilia filtro, fim do dia, campanhas e allTime", async ({ page }) => {
+    const fixture = loadFixture();
+    const campaignIds = [crypto.randomUUID(), crypto.randomUUID()];
+    const transactionIds = Array.from({ length: 4 }, () => crypto.randomUUID());
+    const rows = [
+      { campaign: campaignIds[0], date: "2019-12-31T12:00:00Z", amount: -7 },
+      { campaign: campaignIds[0], date: "2026-01-01T02:59:59.999Z", amount: -11 },
+      { campaign: campaignIds[1], date: "2026-01-01T03:00:00Z", amount: -13 },
+      { campaign: campaignIds[0], date: "2026-01-01T02:59:59.999Z", amount: 11 },
+    ];
+    try {
+      await withDb(async client => {
+        for (const id of campaignIds) await client.query(`insert into adscale_app.campaigns(id,workspace_id,name) values($1,$2,$3)`, [id, fixture.workspaceId, `E2E histórico ${id}`]);
+        for (const [index,row] of rows.entries()) await client.query(`insert into adscale_app.credit_transactions(id,user_id,workspace_id,campaign_id,amount,type,created_at) values($1,$2,$3,$4,$5,$6,$7::timestamptz at time zone 'UTC')`, [transactionIds[index], fixture.userId, fixture.workspaceId, row.campaign, row.amount, row.amount < 0 ? "usage" : "refund", row.date]);
+      });
+      const history = async (params: Record<string,string>) => {
+        const response = await page.request.get(`/api/billing/history?${new URLSearchParams(params)}`);
+        expect(response.ok(), await response.text()).toBe(true);
+        return await response.json() as { transactions: Array<{id:string; amount:number}>; summary: {totalSpent:number; transactionCount:number; averagePerCampaign:number} };
+      };
+      const filtered = await history({ campaignId: campaignIds[0], from: "2025-12-31T00:00:00-03:00", to: "2025-12-31T23:59:59.999-03:00" });
+      expect(filtered.transactions.map(row => row.id).sort()).toEqual([transactionIds[1],transactionIds[3]].sort());
+      expect(filtered.summary).toMatchObject({ totalSpent:11, transactionCount:2, averagePerCampaign:11 });
+      const all = await history({ campaignId: campaignIds[0] });
+      expect(all.transactions.map(row => row.id).sort()).toEqual([transactionIds[0],transactionIds[1],transactionIds[3]].sort());
+      expect(all.summary.totalSpent).toBe(all.transactions.filter(row => row.amount < 0).reduce((sum,row) => sum-row.amount,0));
+      for (const value of ["2026-02-31", "2026-02-31T12:00:00Z"]) expect((await page.request.get(`/api/billing/history?from=${value}`)).status()).toBe(400);
+    } finally {
+      await withDb(async client => {
+        await client.query(`delete from adscale_app.credit_transactions where id=any($1::uuid[]) and workspace_id=$2`, [transactionIds,fixture.workspaceId]);
+        await client.query(`delete from adscale_app.campaigns where id=any($1::uuid[]) and workspace_id=$2`, [campaignIds,fixture.workspaceId]);
+      });
+    }
+  });
+});
+
+test.describe("integrated UI retry", () => {
+  test("retry técnico exige nova confirmação e conserva a mesma linha", async ({ page }) => {
+    assertIsolatedDatabase();
+    await login(page);
+    const detail = await runIntegratedFlow(page.request, loadFixture(), { intent: "single", request: "Peça [e2e:hard-fail-once] para retry humano." });
+    const output = detail.outputs[0];
+    expect(output.status).toBe("failed");
+    expect((await dbOutputRow(output.id))?.image_call_count).toBe(1);
+    await page.goto(`/?workId=${detail.work.id}`);
+    await page.getByRole("button", { name: "Repetir esta proposta", exact:true }).click();
+    expect((await dbOutputRow(output.id))?.image_call_count).toBe(1);
+    await page.getByRole("button", { name: "Confirmar novo retry", exact:true }).click();
+    await waitForChild(page.request, detail.work.id, output.id);
+    expect((await apiGetWork(page.request,detail.work.id)).outputs).toHaveLength(1);
+    expect(evidenceForOutput(readProviderEvidence(),output.id)).toHaveLength(2);
+    expect((await dbOutputRow(output.id))?.image_call_count).toBe(2);
+    const duplicate = await page.request.post(`/api/creative-work/${detail.work.id}/generate`, {data:{action:"retry",outputId:output.id}});
+    expect(duplicate.ok()).toBe(false);
+    expect(evidenceForOutput(readProviderEvidence(),output.id)).toHaveLength(2);
   });
 });
