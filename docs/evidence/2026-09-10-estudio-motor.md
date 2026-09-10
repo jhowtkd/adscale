@@ -12,8 +12,9 @@ Data: 2026-09-10. **Entrega parcial local: integração do job pendente de B1 e 
 - `ff6aa457`: congelamento de `renderPolicy` em novas preparações single.
 - `13843113`: pai como autoridade original na adaptação e projeção explícita do brand kit para QA.
 - Adendos documentais do coordenador recebidos por merge: `1bbe1093` via `bdaaf225`; `52cb1485` via `3e44feaf`. Nenhum documento de coordenação foi editado por A.
+- Helper compensatório R1 de D aprovado em `a822f2f3`, recebido por merge `5298d7c1c4d768e9eeef946312d943d1ce42df73`. Arquivos de D preservados sem edição.
 
-O coordenador revisou e integrou apenas os dois primeiros commits na integração pelo merge `ba84e7ca4786708578281e1162119d5ef51a712c`. Os demais commits aguardam sua revisão. A não mergeou a própria branch na integração.
+O coordenador revisou e integrou os dois primeiros commits na integração pelo merge `ba84e7ca4786708578281e1162119d5ef51a712c`. Também revisou `ff6aa457`/`13843113` sem achados, confirmando os 372 testes, typecheck e lint; sua integração aguarda o job completo. A não mergeou a própria branch na integração.
 
 ## Implementado
 
@@ -26,6 +27,7 @@ O coordenador revisou e integrou apenas os dois primeiros commits na integraçã
 - `brand-fidelity.ts` já satisfazia o caso sem tipografia determinística; não foi alterado. A nova regressão prova que assets exatos podem estar comprovados enquanto copy/font/safe_area continuam `not_applicable`.
 - `formatFromDimensions` reconhece 1:1, 4:5 e 9:16 com tolerância de 1%, rejeita valores inválidos e proporções não suportadas. O helper de inferência aceita formato da fonte antes de palavras genéricas; um único alvo numérico explícito vence; duas proporções no pedido não escolhem alvo arbitrário.
 - Protocolo mapeia `revisionAction: format` para `format_adaptation`. Com ownership adicional autorizado, o planner aceita o pai como primeira referência original obrigatória, sem exigir upload; a referência adicional fica opcional. Adaptação autônoma continua exigindo original.
+- Integração interna parcial do job: snapshot integrated seleciona high e budget do executor de uma chamada, ignora tipografia determinística, executa direção de arte em step próprio, usa prompt integrado/fallback e envia marca/revisão ao QA. O step de geração devolve contador, providerInvoked e evidência serializável; completion persiste direção/renderPolicy/quality. Replay JSON recupera tentativa 2 sem repetir claim/provider/brief; payload histórico sem os campos novos usa fallback compatível.
 
 ## Arquivos de aplicação de A
 
@@ -50,6 +52,8 @@ app/src/server/generation/pipeline/execute.ts
 app/src/server/generation/pipeline/execute.test.ts
 app/src/server/ai/creative-qa.ts
 app/src/server/ai/creative-qa.test.ts
+app/src/server/jobs/creative-work.ts
+app/src/server/jobs/creative-work.test.ts
 ```
 
 ## Verificação
@@ -68,13 +72,15 @@ Na raiz: `git diff --check` passou. `graphify query` foi usado na descoberta; `g
 
 Ciclo vermelho → verde observado para política/quality/formato/protocolo, brief/prompt, QA, snapshot e pai na adaptação. Revisão independente identificou a ausência da regra explícita de preservar copy no primeiro builder; correção reutilizou `buildFixedContract` e o teste passou após falhar. Segunda revisão dos sete arquivos de snapshot/referência/QA não encontrou achado acionável.
 
+Após receber o helper D: `npm test -- src/server/application/refund-creative-work-output.test.ts src/server/jobs/creative-work.test.ts` passou com 109 testes. Após integrar o caminho interno do job: 108 testes do job passaram; typecheck e ESLint dos dois arquivos passaram. Os dois novos casos de prompt/high/fallback falharam antes da implementação e passaram depois. Revisão independente apontou compatibilidade com cache histórico; corrigida com fallback dos novos campos e regressão dedicada. Logs: `/tmp/estudio-motor-integrated-red.log`, `/tmp/estudio-motor-integrated-green.log`, `/tmp/estudio-motor-job-intermediate.log`, `/tmp/estudio-motor-job-typecheck.log`, `/tmp/estudio-motor-job-lint.log`. Graphify atualizado novamente em modo AST.
+
 ## Dependências para concluir A
 
-1. **B1 corrigido e revisado, distribuído pelo coordenador por merge.** O candidato `e38b530` não foi liberado: revisão apontou validação/projeção ausente dos dados JSON persistidos. A não incorporou esse candidato nem criou interfaces falsas. Depois do SHA aprovado, consumir `revisionContext`, `maxCalls` e dimensões reais do repositório.
-2. **R1 de B/D.** Completion deve registrar `objective_quality_failed_refund_pending` no mesmo CAS que preserva preview válida/fail; D entrega `refundCreativeWorkOutputCompensatory` real, com tratamento de reactivation/already_refunded. A só compensa depois de vencer o CAS e deve recuperar replay/onFailure sem nova imagem. O marcador permanece enquanto a liquidação não estiver confirmada.
-3. **Job e respectivos testes ainda não alterados.** Falta conectar política, artDirection serializável/evidência, qualidade, teto inicial 1/retry humano até 2, ausência de autocorreção/requeue, formato/contexto real, tri-state e recuperação de preview/estorno. O contador e providerInvoked devem ser reidratados fora de step.run para sobreviver a callbacks cacheados; testar esse replay explicitamente.
+1. **B1 corrigido e revisado, distribuído pelo coordenador por merge.** O candidato inicial `e38b530` não foi liberado por lacuna de validação/projeção JSON. O candidato posterior `3470fee9` ainda tinha dois P2 (contexto inválido no replay e lease após 402), segundo o coordenador. A não incorporou esses candidatos nem criou interfaces falsas. Depois do SHA aprovado, consumir `revisionContext`, `maxCalls` e dimensões reais do repositório.
+2. **R1 de B.** Completion deve registrar `objective_quality_failed_refund_pending` no mesmo CAS que preserva preview válida/fail. O helper real `refundCreativeWorkOutputCompensatory` de D já foi recebido/testado, com tratamento de reactivation/already_refunded. A só compensa depois de vencer o CAS e deve recuperar replay/onFailure sem nova imagem. O marcador permanece enquanto a liquidação não estiver confirmada.
+3. **Job parcialmente conectado.** Falta teto atômico inicial 1/retry humano até 2, ausência de autocorreção/requeue, formato/contexto real, tri-state e recuperação de preview/estorno. O replay de sucesso já está coberto; falta replay de erro com compensação e sem requeue, vinculado ao restante da política.
 4. **Serviço de formato ainda sem dimensões.** O helper puro já está pronto; a projeção width/height de B1 será usada apenas para a única fonte de conteúdo, com manual prevalecendo e fonte de estilo incapaz de redimensionar single. Ainda falta esse teste de serviço.
 
 O ajuste `reference-plan` foi pedido ao coordenador com símbolo/comportamento/teste e atribuído formalmente a A em `52cb1485`. A lacuna de refund também foi comunicada e originou R1 em `1bbe1093`; nenhum arquivo de B/D foi editado para contorná-la.
 
-**Não publicar esta entrega parcial como motor completo.** O snapshot novo já declara integrated, mas o job desta branch ainda não o aplica. O aceite ponta a ponta continua pendente. Pai intacto/9:16 real/uma chamada por tentativa/refund confirmado ainda precisam da prova do job e E2E de D. Não houve produção, geração real, comparação com ChatGPT ou aceite visual; provider controlado não comprova qualidade humana.
+**Não publicar esta entrega parcial como motor completo.** O job já aplica high/prompt integrado, mas ainda mantém as rotas antigas de correção/requeue/compensação enquanto aguarda B. O aceite ponta a ponta continua pendente. Pai intacto/9:16 real/uma chamada por tentativa/refund confirmado ainda precisam da prova do job e E2E de D. Não houve produção, geração real, comparação com ChatGPT ou aceite visual; provider controlado não comprova qualidade humana.

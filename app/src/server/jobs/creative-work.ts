@@ -43,6 +43,7 @@ import {
 } from "@/server/repositories/creative-work";
 import {
   buildCreativeWorkPrompt,
+  buildIntegratedSinglePrompt,
   buildSocialPostPrompt,
   type BuildCreativeWorkPromptInput,
   type SocialPostFormat,
@@ -85,6 +86,8 @@ import {
   resolveGenerationPolicyVersion,
 } from "@/server/creative-work/contracts";
 import { resolveCreativeWorkProtocol } from "@/server/creative-work/protocol";
+import { resolveCreativeWorkRenderPolicy } from "@/server/creative-work/render-policy";
+import { createSinglePieceArtDirection, type ArtDirectionResult } from "@/server/creative-work/art-direction";
 import { exactPieceReferenceAssets } from "@/server/creative-work/piece-reference";
 import {
   CreativeWorkReferenceError,
@@ -140,6 +143,12 @@ type GenerationReferenceEvidence = {
   sourceMimeType: string;
   mimeType: string;
   sha256: string;
+};
+
+type IntegratedRenderEvidence = {
+  artDirection: ArtDirectionResult;
+  renderPolicy: "integrated_v1";
+  quality: "high";
 };
 
 function generationEvidence(
@@ -628,6 +637,7 @@ const creativeWorkOutputJobHandler = async ({
       // through the single pure translation; legacy-frozen works (and the
       // explicit legacy social_post toolKind) keep the current adapter.
       const generationPolicyVersion = resolveGenerationPolicyVersion(work.inputSnapshot);
+      const renderPolicy = resolveCreativeWorkRenderPolicy(work.inputSnapshot);
       isV1Policy = generationPolicyVersion === "quality_recovery_v1";
       imageCallCount = output.imageCallCount ?? 0;
       // A frozen temporary Single reference needs its ordered provider plan
@@ -849,7 +859,7 @@ const creativeWorkOutputJobHandler = async ({
         }
         executionIdentitySnapshot = { ...identitySnapshot, assets: executionIdentityAssets };
       }
-      const typographyPlan = shouldBuildTypographyPlan(work.toolKind)
+      const typographyPlan = !renderPolicy.integrated && shouldBuildTypographyPlan(work.toolKind)
         ? work.inputSnapshot?.typographyPlan ?? buildTypographyPlan({
             format: targetFormat,
             requestedLayout: work.settings?.textLayout,
@@ -883,6 +893,7 @@ const creativeWorkOutputJobHandler = async ({
       // only appends the failure codes (R-004 criterion 5).
       let v1PromptInputs: Omit<BuildCreativeWorkPromptInput, "correction"> | null = null;
       let generationReferences: GenerationReferenceEvidence[] = [];
+      let renderEvidence: IntegratedRenderEvidence | null = null;
       try {
         if (typographyPlan && typographyPlan.format !== targetFormat) {
           throw new Error("brand_typography_format_mismatch");
@@ -1141,14 +1152,24 @@ const creativeWorkOutputJobHandler = async ({
           referenceImages = await normalizeReferenceBuffers(referenceImages);
         }
 
-        if (output.directionSnapshot?.instruction) {
+        const directionInstruction = output.directionSnapshot?.instruction
+          ? [output.directionSnapshot.instruction, inputSnapshot.settings?.directionPool?.manualInstruction?.trim()]
+              .filter(Boolean).join("\n")
+          : null;
+        if (renderPolicy.integrated && v1PromptInputs) {
+          const promptInput = v1PromptInputs;
+          const artDirection = await step.run("single-piece-art-direction", () =>
+            createSinglePieceArtDirection({ ...promptInput, directionInstruction })
+          );
+          prompt = artDirection.text
+            ? buildIntegratedSinglePrompt(promptInput, artDirection.text)
+            : buildCreativeWorkPrompt({ ...promptInput, textExecution: "generative" });
+          renderEvidence = { artDirection, renderPolicy: "integrated_v1", quality: "high" };
+        }
+        if (directionInstruction) {
           // The pool's global manual instruction constrains every directional
           // output; rows generated before the pool have neither and keep the
           // legacy prompt untouched.
-          const manualInstruction = inputSnapshot.settings?.directionPool?.manualInstruction?.trim();
-          const directionInstruction = [output.directionSnapshot.instruction, manualInstruction]
-            .filter(Boolean)
-            .join("\n");
           prompt += `\n\nDIRECTION INSTRUCTION:\n${directionInstruction}`;
         }
       } catch (error) {
@@ -1228,7 +1249,7 @@ const creativeWorkOutputJobHandler = async ({
               workItemId,
               outputId,
             );
-            if (!claimedCall) return { outputKey: null as string | null };
+            if (!claimedCall) return { outputKey: null as string | null, imageCallCount, providerInvoked: false };
             imageCallCount = claimedCall.imageCallCount;
             logCreativeWorkOutputStage({
               ...telemetryBase(),
@@ -1241,6 +1262,7 @@ const creativeWorkOutputJobHandler = async ({
           // Same canonical executor as campaign/assistant (Gate 3 / item 25).
           try {
             const result = await executeCanonicalGeneration(generationRequest, {
+              ...(renderPolicy.integrated ? { quality: renderPolicy.quality, callBudget: { remaining: 1 } } : {}),
               telemetry: {
                 workId: workItemId,
                 outputId,
@@ -1258,6 +1280,9 @@ const creativeWorkOutputJobHandler = async ({
             const generation = generationEvidence(result, prompt, generationReferences, output.directionSnapshot ?? null);
             return {
               outputKey: result.outputKey as string | null,
+              imageCallCount,
+              providerInvoked,
+              ...(renderEvidence ? { renderEvidence } : {}),
               ...(generation ? { generation } : {}),
               ...(result.providerCalls === undefined
                 ? {}
@@ -1269,10 +1294,15 @@ const creativeWorkOutputJobHandler = async ({
           } catch (error) {
             return {
               outputKey: null as string | null,
+              imageCallCount,
+              providerInvoked,
+              ...(renderEvidence ? { renderEvidence } : {}),
               generationError: serializeCreativeWorkProviderError(error),
             };
           }
         });
+        imageCallCount = result.imageCallCount ?? imageCallCount;
+        providerInvoked = result.providerInvoked ?? (Boolean(result.outputKey) || "generationError" in result);
         if ("generationError" in result && result.generationError) {
           throw restoreCreativeWorkProviderError(result.generationError);
         }
@@ -1283,6 +1313,7 @@ const creativeWorkOutputJobHandler = async ({
         generation?: ReturnType<typeof generationEvidence>;
         providerCalls?: number;
         providerRetries?: number;
+        renderEvidence?: IntegratedRenderEvidence;
       };
       providerCalls = generatedResult.providerCalls ?? providerCalls;
       providerRetries = generatedResult.providerRetries ?? providerRetries;
@@ -1421,6 +1452,7 @@ const creativeWorkOutputJobHandler = async ({
             copy,
             factPack: v1FactPack,
             brandName: v1FactPack?.identity.brandName ?? clientProfile?.name ?? null,
+            ...(renderPolicy.integrated ? { brandKit: identitySnapshot.brandKit, revisionInstruction: output.revisionInstruction } : {}),
             references: v1QaReferences,
             locale: "pt-BR",
           },
@@ -1748,8 +1780,11 @@ const creativeWorkOutputJobHandler = async ({
           exactComposition: compositionProvenance,
         };
       }
-      if (finalGenerationEvidence) {
-        completedQuality = { ...(completedQuality ?? {}), generation: finalGenerationEvidence };
+      if (finalGenerationEvidence || generatedResult.renderEvidence) {
+        completedQuality = {
+          ...(completedQuality ?? {}),
+          generation: { ...finalGenerationEvidence, ...generatedResult.renderEvidence },
+        };
       }
       if (work.toolKind === "single" && typographyPlan) {
         completedQuality = {
