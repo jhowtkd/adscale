@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   CreativeWorkRequestError,
@@ -39,6 +39,11 @@ export type CarouselSlideRevisionInput =
 
 export type CarouselComposerInput = {
   workId: string;
+  workIdRef: RefObject<string | null>;
+  draftEpochRef: RefObject<number>;
+  flushAutosave: () => Promise<string | null>;
+  resolveCanonicalWorkRevision: (workId: string) => Promise<string | null>;
+  setError: (error: string | null) => void;
   preparedPlan: PreparedPlanProjectionV1 | null;
   preparePlan: () => Promise<PreparedPlanProjectionV1 | null>;
   confirmGeneration: (preparedRevision?: string) => Promise<void>;
@@ -65,6 +70,11 @@ function renumbered(slides: CarouselSlidePlanV1[]): CarouselSlidePlanV1[] {
  */
 export function useCarouselComposer({
   workId,
+  workIdRef,
+  draftEpochRef,
+  flushAutosave,
+  resolveCanonicalWorkRevision,
+  setError,
   preparedPlan,
   preparePlan,
   confirmGeneration,
@@ -78,15 +88,17 @@ export function useCarouselComposer({
   const exportMutation = useExportCarouselDeck();
   const draftSaveMutation = useAutosaveCreativeWork();
 
-  // The only React state: which slide is open, whether a generation
+  // The only React state: which slide is open, whether a plan or generation
   // confirmation is in flight, and which works already fired their one-shot
   // canonical events. Everything else is derived from persisted data.
   const [selectedSlideId, setSelectedSlideId] = useState<string | null>(null);
   const [generationPending, setGenerationPending] = useState(false);
+  const [planningPending, setPlanningPending] = useState(false);
   const [approvedRecordedFor, setApprovedRecordedFor] = useState<string | null>(null);
   const [editorialError, setEditorialError] = useState<string | null>(null);
   const reviewRecordedRef = useRef<string | null>(null);
   const reviseInFlightRef = useRef(false);
+  const planInFlightRef = useRef(false);
 
   const detail = detailQuery.data ?? null;
   const work = detail?.work ?? null;
@@ -124,7 +136,8 @@ export function useCarouselComposer({
   );
 
   const isBusy =
-    planMutation.isPending
+    planningPending
+    || planMutation.isPending
     || reviseSlideMutation.isPending
     || approveMutation.isPending
     || exportMutation.isPending
@@ -168,31 +181,57 @@ export function useCarouselComposer({
     answers: Record<string, string> = {},
     command?: CarouselEditorialCommand,
   ) => {
-    if (!workId || planMutation.isPending) return null;
+    if (planInFlightRef.current || planMutation.isPending) return null;
+    planInFlightRef.current = true;
+    setPlanningPending(true);
+    setError(null);
+    const epoch = draftEpochRef.current;
+    let planningWorkId = workIdRef.current;
+    const isCurrent = () => draftEpochRef.current === epoch
+      && (planningWorkId === null || workIdRef.current === planningWorkId);
     try {
-      // Flush the generic draft first: the plan command CAS-checks
-      // `work.updatedAt`, so a pending generic autosave must land before the
-      // editorial planner reads the work.
-      const reconciled = await detailQuery.refetch();
-      const current = reconciled.data?.work;
-      if (!current) return null;
+      const id = await flushAutosave();
+      if (draftEpochRef.current !== epoch) return null;
+      if (!id) {
+        if (isCurrent()) {
+          const message = "Não foi possível salvar o pedido. Tente organizar o conteúdo novamente.";
+          setEditorialError(message);
+          setError(message);
+        }
+        return null;
+      }
+      planningWorkId = id;
+      if (!isCurrent()) return null;
+      const expectedUpdatedAt = await resolveCanonicalWorkRevision(id);
+      if (!isCurrent()) return null;
+      if (!expectedUpdatedAt) {
+        const message = "Não foi possível atualizar o rascunho. Tente organizar o conteúdo novamente.";
+        setEditorialError(message);
+        setError(message);
+        return null;
+      }
       setEditorialError(null);
       const result = await planMutation.mutateAsync({
-        workItemId: workId,
-        expectedUpdatedAt: new Date(current.updatedAt).toISOString(),
+        workItemId: id,
+        expectedUpdatedAt,
         answers,
         ...(command ? { command } : {}),
       });
       return result;
-    } catch (error) {
-      setEditorialError(
-        error instanceof CreativeWorkRequestError || error instanceof Error
-          ? error.message
-          : null,
-      );
+    } catch (cause) {
+      if (isCurrent()) {
+        const message = cause instanceof CreativeWorkRequestError || cause instanceof Error
+          ? cause.message
+          : "Não foi possível organizar o conteúdo. Tente novamente.";
+        setEditorialError(message);
+        setError(message);
+      }
       return null;
+    } finally {
+      planInFlightRef.current = false;
+      setPlanningPending(false);
     }
-  }, [detailQuery, planMutation, workId]);
+  }, [draftEpochRef, flushAutosave, planMutation, resolveCanonicalWorkRevision, setError, workIdRef]);
 
   const askForPlan = useCallback(
     (answers: Record<string, string> = {}) => postPlan(answers),
