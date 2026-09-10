@@ -38,6 +38,8 @@ import {
   type CatalogQuery,
   type CatalogPageResult,
 } from "@/lib/catalog-page";
+import { canonicalJsonStringify } from "../creative-work/canonical-json";
+import type { OutputRevisionContextV1 } from "../creative-work/output-review";
 
 export type { CreativeWorkFormat } from "../creative-work/contracts";
 
@@ -806,20 +808,29 @@ export async function getCreativeWork(
   return { work: workRows[0], outputs, sources };
 }
 
+export type SourceAssetDetails = {
+  assetKey: string;
+  mimeType: string;
+  source: string;
+  name: string;
+  width: number | null;
+  height: number | null;
+};
+
 export async function getCreativeWorkSourceAssetDetails(
   workspaceId: string,
   sources: Pick<CreativeWorkSource, "id" | "assetId">[],
   executor: Pick<typeof db, "select"> = db,
-): Promise<Map<string, { assetKey: string; mimeType: string; source: string; name: string }>> {
+): Promise<Map<string, SourceAssetDetails>> {
   const assetIds = sources.flatMap((source) => source.assetId ? [source.assetId] : []);
   if (assetIds.length === 0) return new Map();
-  const assets = await executor.select({ id: workspaceAssets.id, key: workspaceAssets.key, type: workspaceAssets.type, source: workspaceAssets.source, name: workspaceAssets.name })
+  const assets = await executor.select({ id: workspaceAssets.id, key: workspaceAssets.key, type: workspaceAssets.type, source: workspaceAssets.source, name: workspaceAssets.name, width: workspaceAssets.width, height: workspaceAssets.height })
     .from(workspaceAssets)
     .where(and(eq(workspaceAssets.workspaceId, workspaceId), inArray(workspaceAssets.id, assetIds)));
   const byId = new Map(assets.map((asset) => [asset.id, asset]));
   return new Map(sources.flatMap((source) => {
     const asset = source.assetId ? byId.get(source.assetId) : null;
-    return asset ? [[source.id, { assetKey: asset.key, mimeType: asset.type, source: asset.source, name: asset.name }] as const] : [];
+    return asset ? [[source.id, { assetKey: asset.key, mimeType: asset.type, source: asset.source, name: asset.name, width: asset.width ?? null, height: asset.height ?? null }] as const] : [];
   }));
 }
 
@@ -1466,6 +1477,11 @@ export async function deleteQueuedCreativeWorkOutputs(
   ));
 }
 
+export type CreateCreativeWorkRevisionOptions = {
+  context?: OutputRevisionContextV1 | null;
+  expectedReviewRevision?: number;
+};
+
 export async function createCreativeWorkRevision(
   workspaceId: string,
   workItemId: string,
@@ -1473,11 +1489,20 @@ export async function createCreativeWorkRevision(
   parentOutputId: string,
   instruction: string,
   revisionAssetId: string | null,
+  options?: CreateCreativeWorkRevisionOptions,
 ): Promise<{ output: CreativeWorkOutput; claimedForDispatch: boolean } | null> {
-  const matchesCommand = (output: CreativeWorkOutput) =>
-    output.parentOutputId === parentOutputId
-    && output.revisionInstruction === instruction
-    && output.revisionAssetId === revisionAssetId;
+  const context = options?.context ?? null;
+  const matchesCommand = (output: CreativeWorkOutput) => {
+    if (output.parentOutputId !== parentOutputId) return false;
+    if (output.revisionInstruction !== instruction) return false;
+    if (output.revisionAssetId !== revisionAssetId) return false;
+    if (!context) return true;
+    if (output.targetFormat !== context.targetFormat) return false;
+    return (
+      canonicalJsonStringify(output.revisionContext ?? null) ===
+      canonicalJsonStringify(context)
+    );
+  };
 
   const [parent] = await db.select().from(creativeWorkOutputs).where(and(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
@@ -1485,6 +1510,7 @@ export async function createCreativeWorkRevision(
     eq(creativeWorkOutputs.id, parentOutputId),
   )).limit(1);
   if (!parent) return null;
+  const targetFormat = context?.targetFormat ?? parent.targetFormat;
 
   // Revisions keep the parent direction for identity and versioning, while
   // the operation key remains global so a revision key cannot be replayed
@@ -1505,7 +1531,7 @@ export async function createCreativeWorkRevision(
     if (!asset?.type.startsWith("image/")) return null;
   }
   return db.transaction(async (tx) => {
-    const versionScope = creativeWorkVersionLockScope({ workspaceId, workItemId, creativeLevel: parent.creativeLevel, targetFormat: parent.targetFormat, directionId: parent.directionId });
+    const versionScope = creativeWorkVersionLockScope({ workspaceId, workItemId, creativeLevel: parent.creativeLevel, targetFormat, directionId: parent.directionId });
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${versionScope}))`);
 
     const [retry] = await tx.select().from(creativeWorkOutputs).where(and(
@@ -1515,13 +1541,34 @@ export async function createCreativeWorkRevision(
     )).limit(1);
     if (retry) return matchesCommand(retry) ? { output: retry, claimedForDispatch: false } : null;
 
+    if (context) {
+      const [lockedParent] = await tx
+        .select()
+        .from(creativeWorkOutputs)
+        .where(and(
+          eq(creativeWorkOutputs.workspaceId, workspaceId),
+          eq(creativeWorkOutputs.workItemId, workItemId),
+          eq(creativeWorkOutputs.id, parentOutputId),
+        ))
+        .for("update")
+        .limit(1);
+      if (!lockedParent) return null;
+      const expectedRevision = options?.expectedReviewRevision ?? context.reviewRevision;
+      if (
+        (lockedParent.reviewDraft?.revision ?? 0) !== expectedRevision ||
+        (lockedParent.reviewDraft?.revisionKey ?? null) !== revisionKey
+      ) {
+        return null;
+      }
+    }
+
     const [latest] = await tx.select({ maxVersion: max(creativeWorkOutputs.versionNumber) })
       .from(creativeWorkOutputs)
       .where(and(
         eq(creativeWorkOutputs.workspaceId, workspaceId),
         eq(creativeWorkOutputs.workItemId, workItemId),
         eq(creativeWorkOutputs.creativeLevel, parent.creativeLevel),
-        eq(creativeWorkOutputs.targetFormat, parent.targetFormat),
+        eq(creativeWorkOutputs.targetFormat, targetFormat),
         ...(parent.directionId ? [eq(creativeWorkOutputs.directionId, parent.directionId)] : []),
       ));
     const versionNumber = (latest?.maxVersion ?? 0) + 1;
@@ -1529,11 +1576,12 @@ export async function createCreativeWorkRevision(
       workspaceId,
       workItemId,
       creativeLevel: parent.creativeLevel,
-      targetFormat: parent.targetFormat,
+      targetFormat,
       versionNumber,
       parentOutputId,
       revisionInstruction: instruction,
       revisionAssetId,
+      revisionContext: context,
       operationKey,
       status: "queued",
       isSelected: false,
@@ -1591,7 +1639,7 @@ export const CREATIVE_WORK_MAX_IMAGE_CALLS = 2;
 
 /**
  * Atomically claims one provider image call for the output. The guarded
- * UPDATE only matches while `image_call_count < CREATIVE_WORK_MAX_IMAGE_CALLS`,
+ * UPDATE only matches while `image_call_count < maxCalls`,
  * so once the counter reaches the ceiling the claim fails here — before the
  * provider is reached — returning null without side effects.
  * Intentionally status-agnostic: the transport-retry second call must be
@@ -1601,6 +1649,7 @@ export async function claimCreativeWorkOutputImageCall(
   workspaceId: string,
   workItemId: string,
   outputId: string,
+  maxCalls: 1 | 2 = CREATIVE_WORK_MAX_IMAGE_CALLS,
 ): Promise<CreativeWorkOutput | null> {
   const [row] = await db.update(creativeWorkOutputs).set({
     imageCallCount: sql`${creativeWorkOutputs.imageCallCount} + 1`,
@@ -1609,7 +1658,7 @@ export async function claimCreativeWorkOutputImageCall(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
     eq(creativeWorkOutputs.workItemId, workItemId),
     eq(creativeWorkOutputs.id, outputId),
-    lt(creativeWorkOutputs.imageCallCount, CREATIVE_WORK_MAX_IMAGE_CALLS),
+    lt(creativeWorkOutputs.imageCallCount, maxCalls),
   )).returning();
   return row ?? null;
 }
