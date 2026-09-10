@@ -1691,7 +1691,9 @@ test.describe("integrated API", () => {
     expect(usage.reduce((sum,row) => sum + row.amount, 0)).toBe(0);
     const imageBefore = await downloadedPiece(page.request, detail.work.id, output.id);
     const select = await page.request.post(`/api/creative-work/${detail.work.id}/outputs/${output.id}/select`, { data: { saveToLibrary: false, confirmObjective: true } });
-    expect(select.ok()).toBe(false);
+    expect(select.status()).toBe(409);
+    expect(await select.json()).toMatchObject({ code: "creativeWorkOutputObjectiveFailed" });
+    expect((await apiGetWork(page.request, detail.work.id)).outputs.find(row => row.id === output.id)?.isSelected).toBe(false);
     await Promise.all([apiGetWork(page.request, detail.work.id), apiGetWork(page.request, detail.work.id)]);
     expect(await financeSnapshot(fixture.workspaceId)).toEqual(after);
     expect((await downloadedPiece(page.request, detail.work.id, output.id)).hash).toBe(imageBefore.hash);
@@ -1755,12 +1757,13 @@ test.describe("integrated API", () => {
   test("histórico concilia filtro, fim do dia, campanhas e allTime", async ({ page }) => {
     const fixture = loadFixture();
     const campaignIds = [crypto.randomUUID(), crypto.randomUUID()];
-    const transactionIds = Array.from({ length: 4 }, () => crypto.randomUUID());
+    const transactionIds = Array.from({ length: 5 }, () => crypto.randomUUID());
     const rows = [
       { campaign: campaignIds[0], date: "2019-12-31T12:00:00Z", amount: -7 },
       { campaign: campaignIds[0], date: "2026-01-01T02:59:59.999Z", amount: -11 },
       { campaign: campaignIds[1], date: "2026-01-01T03:00:00Z", amount: -13 },
       { campaign: campaignIds[0], date: "2026-01-01T02:59:59.999Z", amount: 11 },
+      { campaign: campaignIds[0], date: "2026-01-01T03:00:00Z", amount: -17 },
     ];
     try {
       await withDb(async client => {
@@ -1776,7 +1779,7 @@ test.describe("integrated API", () => {
       expect(filtered.transactions.map(row => row.id).sort()).toEqual([transactionIds[1],transactionIds[3]].sort());
       expect(filtered.summary).toMatchObject({ totalSpent:11, transactionCount:2, averagePerCampaign:11 });
       const all = await history({ campaignId: campaignIds[0] });
-      expect(all.transactions.map(row => row.id).sort()).toEqual([transactionIds[0],transactionIds[1],transactionIds[3]].sort());
+      expect(all.transactions.map(row => row.id).sort()).toEqual([transactionIds[0],transactionIds[1],transactionIds[3],transactionIds[4]].sort());
       expect(all.summary.totalSpent).toBe(all.transactions.filter(row => row.amount < 0).reduce((sum,row) => sum-row.amount,0));
       for (const value of ["2026-02-31", "2026-02-31T12:00:00Z"]) expect((await page.request.get(`/api/billing/history?from=${value}`)).status()).toBe(400);
     } finally {
