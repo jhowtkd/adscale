@@ -83,6 +83,7 @@ Coordenador: `codex/estudio-integracao`, `.worktrees/estudio-integracao`. Esses 
 | --- | --- |
 | `app/src/server/jobs/creative-work.ts` e teste | A, incluindo consumo de revisionContext do plano de experiência |
 | `app/src/server/creative-work/contracts.ts`, `protocol.ts` e testes | A |
+| `app/src/server/creative-work/reference-plan.ts` e teste | A, apenas original de adaptação a partir do pai de revisão |
 | `app/src/server/application/prepare-creative-work.ts`, `creative-work/prepare.ts` e testes | A, incluindo formato automático |
 | `app/src/server/repositories/creative-work.ts` e teste | B, incluindo limite maxCalls do plano de qualidade e dimensões das fontes |
 | `app/src/server/db/schema.ts`, `app/drizzle/*` | B; sem migração financeira |
@@ -143,6 +144,10 @@ Se o refund falhar, o marcador permanece. Se aplicar e a limpeza falhar, nova te
 Testes nas suítes dos donos: CAS perdedor→zero refund; crash entre completion/refund; falha de refund preserva preview; replay após ledger antes da limpeza; reactivation already_refunded não compensa a reserva original; onFailure não rebaixa completed; consulta de pendentes/limpeza só aceita o caso exato; polling termina após liquidação. D cobre concorrência/idempotência financeira na infraestrutura de teste existente.
 
 R1 é marco adicional antes da integração do job; não atrasar política/prompt/componentes independentes. B1 continua sendo a entrega inicial de contratos definida acima. Distribuir os SHAs reais de R1 depois de revisados, sem interfaces falsas ou segundo escritor nos arquivos compartilhados.
+
+### Pai como original de adaptação
+
+`planCreativeWorkReferences` deve aceitar o pai válido em revisionReferences[0] como original obrigatório e primeira referência de format_adaptation, inclusive se a Peça única inicial não tinha upload em sources. A é dono de reference-plan.ts/teste para essa correção necessária ao contrato já aprovado de filha9:16. Referências adicionais ficam depois; adaptação autônoma sem pai continua exigindo original. Não fabricar source/cast no job. Testar planejamento com sources vazio e pai presente, ausência de ambos rejeitada e job filha9:16 com pai intacto.
 
 ## Task 1: Preparar a base e distribuir as quatro frentes
 

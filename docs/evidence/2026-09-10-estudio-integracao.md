@@ -64,3 +64,9 @@ Revisão estática do SHA fixo `e38b53077d1d02021d688996eea1e3ad87c8f8a1`; não 
 - CAS transacional, isolamento de workspace, compiler de entrada, maxCalls e width/height não tiveram outro achado acionável nesta revisão estática. Isso não substitui testes do commit corrigido.
 
 B entrega um novo commit com a correção e os checks; preservar o commit original na ancestry. Coordenador revisa o delta antes de integrar e distribuir B1.
+
+## Entrega parcial A e atribuição complementar
+
+A entregou `931f6578` e `9b635b9a`: política/qualidade/formato, direção/prompt e QA. Reportou 348 testes, typecheck e lint passando. Revisão independente iniciada; não é A1 completo e ainda não ativa integrated no produto.
+
+A identificou também que reference-plan exige upload original na adaptação mesmo com pai de revisão. A recebeu propriedade explícita de reference-plan.ts/teste para aceitar o pai como original válido e primeira referência, preservando a exigência de original na adaptação autônoma. Detalhe registrado no plano coordenador; sem source fictício no job.
