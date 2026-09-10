@@ -20,6 +20,7 @@ vi.mock("next-intl", () => ({
     reviewBeforeApprove: "Revisar e aprovar",
     confirmApproval: "Confirmar aprovação",
     retryThroughReview: "Revisar nova tentativa",
+    refundPending: "Reposição de créditos pendente para esta peça.",
     retryUnavailable: "Esta proposta já usou todas as tentativas automáticas. Crie um novo pedido para gerar uma nova variação.",
     "failure.timeout": "A geração demorou demais e foi interrompida.",
     "failure.invalid_context": "O pedido ou as fontes não tinham informação suficiente para gerar com fidelidade.",
@@ -138,6 +139,25 @@ function layerization(status: PublicLayerizationState["status"], failureCode: Pu
 }
 
 describe("CreativeResultCard", () => {
+  it("shows compensation as pending while keeping the QA-fail preview blocked", () => {
+    render(
+      <CreativeResultCard
+        output={output({
+          status: "completed",
+          failureCode: "objective_quality_failed_refund_pending",
+          quality: { schemaVersion: 1, objectiveVerdict: "fail" },
+        })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("img")).toBeInTheDocument();
+    expect(screen.getByTestId("refund-pending")).toHaveTextContent("Reposição de créditos pendente para esta peça.");
+    expect(screen.getByTestId("objective-selection-blocked")).toBeInTheDocument();
+  });
+
   it("in workspace mode sends a failed revision to the reviewed flow, never a legacy retry", () => {
     const onRetryRevision = vi.fn();
     const onRetryThroughReview = vi.fn();

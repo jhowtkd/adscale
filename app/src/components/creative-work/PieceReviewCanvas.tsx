@@ -75,6 +75,14 @@ export function PieceReviewCanvas({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [draft]);
 
+  // Entering read-only (pending child showing its base) must close or mute
+  // any open comment editor: nothing here may mutate or save in that state.
+  useEffect(() => {
+    if (!readOnly) return;
+    setDraft(null);
+    setCommentMode(false);
+  }, [readOnly]);
+
   const hasNaturalSize = Boolean(imgRef.current?.naturalWidth && imgRef.current.naturalHeight);
 
   const startDraftFromClick = (event: React.MouseEvent) => {

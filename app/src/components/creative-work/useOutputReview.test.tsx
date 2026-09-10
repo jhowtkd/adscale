@@ -360,10 +360,13 @@ describe("useOutputReview", () => {
       output: outputFixture({ id: "output-b", reviewDraft: { ...emptyDraft(), instruction: "de B", version: 1, revision: 7, revisionKey: "00000000-0000-4000-8000-00000000000e" } }),
       revisionCreditCost: 10,
     });
+    // B starts clean; late responses from A must never touch its status.
+    expect(result.current.saveState).toBeNull();
     await act(async () => { deferredSaves[0]!.resolve({ draft: { ...emptyDraft(), version: 1, revision: 1, revisionKey: REVISION_KEY }, revisionCreditCost: 10 }); });
     await act(async () => { deferredSaves[1]!.resolve({ draft: { ...emptyDraft(), instruction: "A2", version: 1, revision: 2, revisionKey: "00000000-0000-4000-8000-00000000000f" }, revisionCreditCost: 10 }); });
     await act(async () => { await flushA1; await flushA2; });
 
+    expect(result.current.saveState).toBeNull();
     expect(mocks.save).toHaveBeenCalledTimes(2);
     expect(mocks.save.mock.calls[0][0]).toMatchObject({ outputId: "output-a", expectedReviewRevision: 0 });
     // A2 must chain on A1's returned revision, never on B's revision 7.
@@ -371,18 +374,42 @@ describe("useOutputReview", () => {
     expect(mocks.save.mock.calls[1][0].draft.instruction).toBe("A2");
   });
 
-  it("drops the pending debounce of the old session when switching before it fires", async () => {
+  it("carries the pending edit to its own output when switching before the debounce", async () => {
     mocks.save.mockResolvedValue({
       draft: { ...emptyDraft(), version: 1, revision: 1, revisionKey: REVISION_KEY },
       revisionCreditCost: 10,
     });
     const { result, rerender } = renderReview({ output: outputFixture({ id: "output-a" }) });
     await act(async () => result.current.update({ instruction: "só da peça A" }));
-    // Switch BEFORE the debounce fires.
+    // Switch BEFORE the debounce fires: the captured session must still save
+    // A's edit to A — content is never dropped.
     rerender({ output: outputFixture({ id: "output-b" }), revisionCreditCost: 10 });
-    await act(async () => { await result.current.flush(); });
-    expect(mocks.save).not.toHaveBeenCalled();
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 650)); });
+    expect(mocks.save).toHaveBeenCalledTimes(1);
+    expect(mocks.save.mock.calls[0][0].outputId).toBe("output-a");
+    expect(mocks.save.mock.calls[0][0].draft.instruction).toBe("só da peça A");
+    // B stays clean: empty draft, no inherited save indicator.
     expect(result.current.draft.instruction).toBe("");
+    expect(result.current.saveState).toBeNull();
+  });
+
+  it("marks a hydrated draft as spent so retrying a failed child mints a fresh key", async () => {
+    const consumed = { ...emptyDraft(), instruction: "pedido antigo", version: 1, revision: 1, revisionKey: REVISION_KEY };
+    mocks.save.mockResolvedValue({
+      draft: { ...emptyDraft(), instruction: "pedido antigo", version: 1, revision: 2, revisionKey: "00000000-0000-4000-8000-000000000010" },
+      revisionCreditCost: 10,
+    });
+    const { result } = renderReview({ output: outputFixture({ reviewDraft: consumed }) });
+    await act(async () => result.current.beginFreshDraftAttempt());
+    await act(async () => result.current.review());
+    // A fresh draft is saved (new key) instead of replaying the consumed one.
+    expect(mocks.save).toHaveBeenCalledTimes(1);
+    expect(mocks.save.mock.calls[0][0]).toMatchObject({ expectedReviewRevision: 1 });
+    await act(async () => result.current.confirm());
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({
+      reviewRevision: 2,
+      revisionKey: "00000000-0000-4000-8000-000000000010",
+    }));
   });
 
   it("rehydrates text and revision together on a clean same-output refetch", async () => {

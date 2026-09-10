@@ -251,11 +251,18 @@ export interface CreativeWorkCampaignOption {
   clientProfileId: string | null;
 }
 
+/**
+ * R1: a completed output carrying the refund-pending quality marker keeps
+ * polling alive until the canonical settlement clears it. The preview stays,
+ * choice stays blocked, and the UI shows compensation as pending only.
+ */
+export const CREATIVE_WORK_REFUND_PENDING_FAILURE_CODE = "objective_quality_failed_refund_pending";
+
 export function creativeWorkRefetchInterval(
   data:
     | {
         work: Pick<CreativeWorkItem, "status">;
-        outputs: Array<Pick<CreativeWorkOutput, "status"> & { layerization?: PublicLayerizationState | null }>;
+        outputs: Array<Pick<CreativeWorkOutput, "status" | "failureCode"> & { layerization?: PublicLayerizationState | null }>;
         carouselSlides?: Array<Pick<PublicCarouselSlide, "status">>;
       }
     | undefined,
@@ -263,6 +270,8 @@ export function creativeWorkRefetchInterval(
   const shouldPoll =
     data?.work.status === "generating" ||
     data?.outputs.some((output) => output.status === "queued" || output.status === "processing" || ["queued", "processing", "reconciling", "finalizing"].includes(output.layerization?.status ?? "")) ||
+    data?.outputs.some((output) =>
+      output.status === "completed" && output.failureCode === CREATIVE_WORK_REFUND_PENDING_FAILURE_CODE) ||
     // Carousel decks never enter creative_work_outputs: active slides alone
     // keep the polling alive even when the legacy outputs list is empty.
     data?.carouselSlides?.some((slide) => slide.status === "queued" || slide.status === "processing") ||

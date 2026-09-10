@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
     flush: vi.fn(),
     review: vi.fn(),
     edit: vi.fn(),
+    beginFreshDraftAttempt: vi.fn(),
     confirm: vi.fn(),
     reloadDraft: vi.fn(),
   },
@@ -149,6 +150,8 @@ beforeEach(() => {
   mocks.review.error = null;
   mocks.review.pendingOutputId = null;
   mocks.review.saveState = null;
+  mocks.review.beginFreshDraftAttempt.mockClear();
+  mocks.editorProps = null;
 });
 
 describe("StudioPieceWorkspace", () => {
@@ -385,5 +388,22 @@ describe("StudioPieceWorkspace", () => {
     // Selection moved to the base, whose review dock has the cost + confirm.
     expect(screen.getByTestId("result-card-stub")).toHaveAttribute("data-output", "base");
     expect(screen.getByRole("textbox", { name: "O que você quer mudar?" })).toBeInTheDocument();
+    // The parent's consumed revision is spent: a fresh draft/key is required.
+    expect(mocks.review.beginFreshDraftAttempt).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes a scanner panel directly without waiting for an editor flush", () => {
+    const base = output({ id: "base" });
+    const composer = composerMock([base], {
+      canLayerize: true,
+      layerEditorAccess: { enabled: true, period: null, layerize: { remaining: 2, limit: 2 }, regeneration: null },
+    });
+    render(<StudioPieceWorkspace composer={composer} />);
+    fireEvent.click(screen.getByRole("button", { name: "Camadas" }));
+    expect(screen.getByTestId("layer-scanner-stub")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Camadas" }));
+    // No editor session exists to flush: the panel closes immediately.
+    expect(screen.queryByTestId("layer-scanner-stub")).not.toBeInTheDocument();
+    expect(mocks.editorProps).toBeNull();
   });
 });
