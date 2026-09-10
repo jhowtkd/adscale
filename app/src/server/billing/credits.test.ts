@@ -466,6 +466,86 @@ describe("credit entitlement service", () => {
 
     expect(result.status).toBe("recorded");
   });
+
+  it("returns duplicate when a concurrent operation settles on an exact balance", async () => {
+    // Exact balance for a single operation: a concurrent commit between the
+    // first checks and the grant locks must not surface as insufficient
+    // credits for an already-charged operation.
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 50)]);
+    const racedUsage = {
+      id: "usage-raced",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: 50,
+      idempotencyKey: "derivation:race",
+      metadata: null,
+      createdAt: new Date(),
+    };
+    mockGetUsageByIdempotencyKey.mockReset();
+    mockGetUsageByIdempotencyKey
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValue(racedUsage as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>);
+
+    const result = await recordUsage({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "derivation:race",
+      userId: "user-1",
+    });
+
+    expect(result).toEqual({ status: "duplicate", usage: racedUsage });
+    expect(mockUpdateCreditGrantRemaining).not.toHaveBeenCalled();
+    expect(mockTrackUsage).not.toHaveBeenCalled();
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
+
+  it("returns duplicate when a concurrent insert wins the idempotency race", async () => {
+    mockTrackUsage.mockRejectedValueOnce(Object.assign(new Error("duplicate key"), { code: "23505" }));
+    const racedUsage = {
+      id: "usage-raced",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: 50,
+      idempotencyKey: "derivation:race-insert",
+      metadata: null,
+      createdAt: new Date(),
+    };
+    mockGetUsageByIdempotencyKey.mockReset();
+    mockGetUsageByIdempotencyKey
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValue(racedUsage as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>);
+
+    const result = await recordUsage({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "derivation:race-insert",
+      userId: "user-1",
+    });
+
+    expect(result).toEqual({ status: "duplicate", usage: racedUsage });
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
+
+  it("rethrows transaction conflicts that have no matching usage for the workspace key", async () => {
+    mockTrackUsage.mockRejectedValueOnce(Object.assign(new Error("duplicate key"), { code: "23505" }));
+    mockGetUsageByIdempotencyKey.mockReset();
+    mockGetUsageByIdempotencyKey.mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>
+    );
+
+    await expect(
+      recordUsage({
+        workspaceId: "workspace-1",
+        action: "image_derivation",
+        idempotencyKey: "derivation:race-unknown",
+        userId: "user-1",
+      })
+    ).rejects.toMatchObject({ code: "23505" });
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
 });
 
 describe("refundCredits", () => {
