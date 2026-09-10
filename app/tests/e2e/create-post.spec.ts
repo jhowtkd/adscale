@@ -1591,15 +1591,14 @@ async function storedPiece(outputId: string) {
   });
 }
 async function downloadedPiece(request: APIRequestContext, workId: string, outputId: string) {
-  const download = await request.get(`/api/creative-work/${workId}/outputs/${outputId}/download?format=json`);
-  expect(download.ok(), await download.text()).toBe(true);
-  const { url } = await download.json() as { url: string };
-  expect(["localhost", "127.0.0.1", "[::1]"]).toContain(new URL(url).hostname);
-  const image = await request.get(url);
+  const image = await request.get(`/api/creative-work/${workId}/outputs/${outputId}/download`, { headers: { Accept: "*/*" } });
   expect(image.ok()).toBe(true);
+  expect(["localhost", "127.0.0.1", "[::1]"]).toContain(new URL(image.url()).hostname);
+  expect(image.headers()["content-type"]).toContain("image/png");
   const png = await image.body();
   return { hash: createHash("sha256").update(png).digest("hex"), metadata: await sharp(png).metadata() };
 }
+
 async function waitForChild(request: APIRequestContext, workId: string, outputId: string) {
   await expect.poll(async () => (await apiGetWork(request, workId)).outputs.find(row => row.id === outputId)?.status,
     { timeout: 180_000, intervals: [1_000, 2_000] }).toBe("completed");
@@ -1645,7 +1644,12 @@ test.describe("integrated API", () => {
     await waitForChild(page.request, detail.work.id, childId);
     const after = await financeSnapshot(fixture.workspaceId);
     expect(after.balance).toBe(before.balance - saved.revisionCreditCost);
-    expect(after.usage.filter(row => !before.usage.some(old => old.id === row.id))).toEqual([expect.objectContaining({ amount: saved.revisionCreditCost })]);
+    const revisionUsage = after.usage.filter(row => !before.usage.some(old => old.id === row.id));
+    expect(revisionUsage).toHaveLength(2);
+    expect(revisionUsage).toEqual(expect.arrayContaining([
+      expect.objectContaining({ idempotency_key: `creative-work:${detail.work.id}:revision:${childId}`, amount: saved.revisionCreditCost }),
+      expect.objectContaining({ idempotency_key: `creative-work:${detail.work.id}:revision:${childId}:dispatch-ack`, amount: 0 }),
+    ]));
     expect(after.ledger.filter(row => !before.ledger.some(old => old.id === row.id))).toEqual([expect.objectContaining({ type: "usage", amount: -saved.revisionCreditCost })]);
     expect(evidenceForOutput(readProviderEvidence(), childId)).toHaveLength(1);
     expect((await apiGetWork(page.request, detail.work.id)).outputs).toHaveLength(2);
@@ -1687,7 +1691,12 @@ test.describe("integrated API", () => {
     const movements = after.ledger.filter(row => !before.ledger.some(old => old.id === row.id));
     expect(movements.map(row => row.amount).sort((a,b) => a-b)).toEqual([-GENERATION_CREDIT_COSTS.creativeWorkOutput, GENERATION_CREDIT_COSTS.creativeWorkOutput]);
     const usage = after.usage.filter(row => !before.usage.some(old => old.id === row.id));
-    expect(usage).toHaveLength(2);
+    expect(usage).toHaveLength(3);
+    expect(usage).toEqual(expect.arrayContaining([
+      expect.objectContaining({ idempotency_key: `creative-work:${detail.work.id}:initial`, amount: GENERATION_CREDIT_COSTS.creativeWorkOutput }),
+      expect.objectContaining({ idempotency_key: `creative-work:${detail.work.id}:initial:dispatch-ack`, amount: 0 }),
+      expect.objectContaining({ idempotency_key: `creative-work:${detail.work.id}:output:${output.id}:terminal-refund`, amount: -GENERATION_CREDIT_COSTS.creativeWorkOutput }),
+    ]));
     expect(usage.reduce((sum,row) => sum + row.amount, 0)).toBe(0);
     const imageBefore = await downloadedPiece(page.request, detail.work.id, output.id);
     const select = await page.request.post(`/api/creative-work/${detail.work.id}/outputs/${output.id}/select`, { data: { saveToLibrary: false, confirmObjective: true } });
