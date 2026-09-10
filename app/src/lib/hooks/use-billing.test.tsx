@@ -302,6 +302,71 @@ describe("billing hooks", () => {
     expect(result.current.data?.creditBalance).toBe(500);
   });
 
+  it("parses the unlimited access flag from billing status", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          billing: {
+            hasCustomer: false,
+            subscriptionStatus: "active",
+            access: {
+              kind: "tester",
+              label: "Tester",
+              remainingAds: null,
+              hasSpendAccess: true,
+              beta: null,
+              unlimited: true,
+            },
+            pastDue: null,
+            canceled: null,
+            subscription: null,
+            creditBalance: 999999,
+          },
+        }),
+    } as unknown as Response);
+
+    const { result } = renderHook(() => useBillingStatus(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(result.current.data?.access.unlimited).toBe(true);
+  });
+
+  it("treats a missing unlimited flag as limited access", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          billing: {
+            hasCustomer: true,
+            subscriptionStatus: "active",
+            access: {
+              kind: "paid",
+              label: "Assinatura ativa",
+              remainingAds: 24,
+              hasSpendAccess: true,
+              beta: null,
+            },
+            pastDue: null,
+            canceled: null,
+            subscription: null,
+            creditBalance: 120,
+          },
+        }),
+    } as unknown as Response);
+
+    const { result } = renderHook(() => useBillingStatus(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(result.current.data?.access.unlimited ?? false).toBe(false);
+  });
+
   it("when trial activation fails, surfaces as a temporary billing query error rather than none access", async () => {
     mockApiFetch
       .mockResolvedValueOnce({
