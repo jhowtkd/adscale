@@ -1661,7 +1661,14 @@ test.describe("integrated API", () => {
     const replay = await apiReviewedRevision(page.request, detail.work.id, command);
     expect(replay.status).toBe(202);
     expect(replay.body.output.id).toBe(childId);
-    expect((await apiReviewedRevision(page.request, detail.work.id, { ...command, outputId: childId })).status).toBe(409);
+    // Both output IDs are owned, completed and schema-valid. Reusing the
+    // consumed key with a different base reaches invalid_revision (the route
+    // maps that domain refusal to 400/invalidInput, not stale_review/409).
+    const alteredBase = await apiReviewedRevision(page.request, detail.work.id, { ...command, outputId: childId });
+    expect(alteredBase.status).toBe(400);
+    expect(alteredBase.body).toMatchObject({ code: "invalidInput" });
+    expect((await apiGetWork(page.request, detail.work.id)).outputs.map(row => row.id).sort()).toEqual([parent.id, childId].sort());
+    expect(evidenceForOutput(readProviderEvidence(), childId)).toHaveLength(1);
     expect(await financeSnapshot(fixture.workspaceId)).toEqual(after);
   });
 
