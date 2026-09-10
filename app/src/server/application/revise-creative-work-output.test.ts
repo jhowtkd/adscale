@@ -400,32 +400,49 @@ describe("reviseCreativeWorkOutput", () => {
     expect(settle).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects a replay whose stored context fails validation", async () => {
-    const existing = {
-      ...revision,
-      operationKey: `revision:${REVISION_KEY}`,
-      parentOutputId: parent.id,
-      revisionInstruction: null,
-      revisionAssetId: null,
-      revisionContext: { version: 2, bogus: true },
-    };
-    getWork.mockResolvedValue({
-      work,
-      outputs: [{ ...parent, reviewDraft: null }, existing],
-      sources: [],
-    });
-    await expect(
-      reviseCreativeWorkOutput({
-        workspaceId: "ws-1",
-        workItemId: "work-1",
-        userId: "user-1",
-        outputId: parent.id,
-        revisionKey: REVISION_KEY,
-        reviewRevision: 2,
-        expectedCredits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
-      }),
-    ).resolves.toEqual({ ok: false, error: { code: "invalid_revision" } });
-    expect(settle).not.toHaveBeenCalled();
-    expect(buildAdapter).not.toHaveBeenCalled();
-  });
+  it.each([
+    ["unknown version", { version: 2 }],
+    ["extra private field", { storageKey: "private/extra.png" }],
+  ])(
+    "rejects a replay whose stored context is invalid (%s) despite a valid instruction",
+    async (_case, override) => {
+      const existing = {
+        ...revision,
+        operationKey: `revision:${REVISION_KEY}`,
+        parentOutputId: parent.id,
+        revisionInstruction: "Use mais contraste",
+        revisionAssetId: null,
+        revisionContext: {
+          version: 1,
+          reviewRevision: 2,
+          sourceOutputId: PARENT_ID,
+          sourceOutputVersion: 1,
+          action: "refine",
+          targetFormat: "4:5",
+          instruction: "Use mais contraste",
+          annotations: [],
+          revisionAssetId: null,
+          ...override,
+        },
+      };
+      getWork.mockResolvedValue({
+        work,
+        outputs: [{ ...parent, reviewDraft: null }, existing],
+        sources: [],
+      });
+      await expect(
+        reviseCreativeWorkOutput({
+          workspaceId: "ws-1",
+          workItemId: "work-1",
+          userId: "user-1",
+          outputId: parent.id,
+          revisionKey: REVISION_KEY,
+          reviewRevision: 2,
+          expectedCredits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+        }),
+      ).resolves.toEqual({ ok: false, error: { code: "invalid_revision" } });
+      expect(settle).not.toHaveBeenCalled();
+      expect(buildAdapter).not.toHaveBeenCalled();
+    },
+  );
 });

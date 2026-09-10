@@ -7,6 +7,7 @@
 - B1: `e38b53077d1d02021d688996eea1e3ad87c8f8a1` — `feat: persist output review drafts with revision checks` (preservado).
 - B2: `be4451bcbce050ec894f99102496636cfcd83b65` — `feat: generate reviewed revisions in the same creative work` (preservado).
 - Correções desta entrega: novo commit `fix: validate persisted review payloads, resume replayed revisions, recover R1 marker` (ver `git log`).
+- Revisão `3470fee9` (coordenador): novo commit abaixo com os dois P2 restantes + adoção do helper aprovado de D.
 
 ## Tarefas concluídas
 
@@ -44,8 +45,8 @@ Não editados: `contracts.ts`, `protocol.ts`, `jobs/creative-work.ts`, `prepare`
 ## Comandos + resultados
 
 ```bash
-npm test -- src/server/creative-work/output-review.test.ts src/server/repositories/creative-work.test.ts src/server/application/save-creative-work-output-review.test.ts src/server/application/revise-creative-work-output.test.ts src/server/application/retry-creative-work-output.test.ts src/server/generation/settlement-adapters.test.ts 'src/app/api/creative-work/[id]/route.test.ts' 'src/app/api/creative-work/[id]/generate/route.test.ts'
-# 8 arquivos, 397 testes, todos PASS.
+npm test -- src/server/creative-work/output-review.test.ts src/server/repositories/creative-work.test.ts src/server/application/save-creative-work-output-review.test.ts src/server/application/revise-creative-work-output.test.ts src/server/application/retry-creative-work-output.test.ts src/server/application/refund-creative-work-output.test.ts src/server/generation/settlement-adapters.test.ts 'src/app/api/creative-work/[id]/route.test.ts' 'src/app/api/creative-work/[id]/generate/route.test.ts'
+# 9 arquivos, 403 testes, todos PASS (inclui suíte do helper de D, só leitura).
 
 npm run typecheck
 # PASS, sem erros.
@@ -69,7 +70,14 @@ Cobertura exigida:
 - **B2 após 402 (P2):** reserva re-enfileira (failed→queued, mesmo `operationKey`) somente filhos `failed/credit_blocked` coincidentes e reclama dispatch: mesma chave, uma cobrança (chave de billing por output), uma geração; concorrentes perdem o CAS e fazem join no vencedor; comando divergente conflita sem insert.
 - **B2 DTO (P2):** `reviewed_revision` responde o projetor público compartilhado com o GET (`output-projection.ts`); sentinelas `outputKey/operationKey/storageKey/camadas` ausentes; drafts validados.
 - **R1 (B):** `completeCreativeWorkOutput` aceita opção interna que marca `objective_quality_failed_refund_pending` no mesmo CAS (perdedor retorna null, sem refund); `listCreativeWorkOutputsNeedingRefund` preserva a regra failed e soma OR exato (completed + marcador + verdict fail + imagem); `clearCreativeWorkOutputObjectiveQualityRefundPending` limpa só o marcador com CAS exato preservando imagem/quality/terminal; GET recupera o caso novo com fase terminal + ator autenticado e limpa após liquidação confirmada; falha mantém o marcador para job/onFailure/GET retomarem.
-- **Pendente D:** GET consome o helper compartilhado `refund-creative-work-output.ts` assim que o SHA real for distribuído (troca mecânica de uma chamada local de mesma assinatura; nenhum stub criado neste branch).
+- **Pendente D:** ~~GET consome o helper compartilhado `refund-creative-work-output.ts` assim que o SHA real for distribuído (troca mecânica de uma chamada local de mesma assinatura; nenhum stub criado neste branch).~~ RESOLVIDO: helper aprovado e isolado em `a822f2f3` (cherry-pick -x de `167ab700`), incorporado por merge; GET importa `refundCreativeWorkOutputCompensatory` e a duplicação local foi removida.
+
+## Segunda rodada (revisão de `3470fee9`)
+
+- **P2 replay:** `reviseReviewedOutput` exige contexto congelado válido (schema estrito + mesma `reviewRevision` + instrução presente); inválido rejeita como `invalid_revision`, sem fallback legado. Teste com instrução válida e contexto `version:2`/campo extra.
+- **P2 retomada 402:** re-queue renova `updatedAt`, limpa `terminalAt` e reemite `queuedAt` (lease não vence no GET seguinte); chave e contadores preservados; perdedor do CAS faz join.
+- **GET + helper D:** merge `a822f2f3` por merge (só docs de coordenação, parcial A já revisada e os 2 arquivos do helper); rota importa o helper real; suíte da rota convertida para asserir roteamento (helper chamado com fase terminal + `userId` no caso R1, limpeza só após `true`).
+- Lint: `npx --no-install eslint` nos arquivos tocados — 0 erros (5 warnings pré-existentes em destructures `_` do carrossel).
 
 ## Contratos consumidos/produzidos
 
@@ -86,5 +94,5 @@ Cobertura exigida:
 
 - Unitários com mocks; sem rede/pagos. Prova transacional real e E2E ficam para D após integrar (tarefa 7 do plano).
 - Migração não aplicada em banco não isolado; `db:push` não executado. Nenhuma migration nova nesta entrega (marcador R1 usa `failureCode` existente).
-- ESLint não executável neste worktree (crash ambiental do `eslint-plugin-react` por `node_modules` symlinkado; reproduz em arquivos intocados). Typecheck + 397 testes + `git diff --check` verdes.
+- Lint (`npx --no-install eslint` dentro de `app/`, sem pacote novo): 0 erros nos arquivos tocados; 5 warnings pré-existentes em destructures `_` do carrossel. Typecheck + 403 testes + `git diff --check` verdes.
 - Produção/chamadas pagas: não executadas.
