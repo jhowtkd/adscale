@@ -29,18 +29,30 @@ function byCreationOrder(left: CreativeWorkOutput, right: CreativeWorkOutput) {
  * The approved contained box for one Peça única: the artwork dominates,
  * thumbnails sit beside it, comments pin onto the rendered image and every
  * review goes through the frozen confirm step before anything is generated.
+ * Empty works render nothing and never mount the review session.
  */
 export function StudioPieceWorkspace({ composer }: { composer: CreativeComposerViewModel }) {
+  if (composer.outputs.length === 0) return null;
+  return <StudioPieceWorkspaceSession composer={composer} />;
+}
+
+function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerViewModel }) {
   const t = useTranslations("dashboard.home.composer.results");
   const isMobile = useIsMobile();
   const outputs = useMemo(() => [...composer.outputs].sort(byCreationOrder), [composer.outputs]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The default selection is fixed once per work: later polling arrivals
+  // never steal it — only an explicit click or an own confirmation does.
+  const selectionWorkRef = useRef<string | null>(null);
   const [layersOpen, setLayersOpen] = useState(false);
+  const [layersExitToken, setLayersExitToken] = useState(0);
+  const [pendingSelection, setPendingSelection] = useState<string | null>(null);
+  const [pendingCompare, setPendingCompare] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const workId = composer.workId ?? outputs[0]?.workItemId ?? "";
   const selected = (selectedId ? outputs.find((output) => output.id === selectedId) : undefined)
-    ?? [...outputs].reverse().find(hasUsableOutput)
     ?? outputs[outputs.length - 1];
 
   const workItemId = composer.workId ?? selected?.workItemId ?? "";
@@ -50,20 +62,46 @@ export function StudioPieceWorkspace({ composer }: { composer: CreativeComposerV
     revisionCreditCost: composer.revisionCreditCost ?? null,
   });
 
+  // Fix the default selection on first sight of each work, before any render
+  // depends on it; afterwards only explicit actions move it.
+  useEffect(() => {
+    if (selectionWorkRef.current === workId || outputs.length === 0) return;
+    selectionWorkRef.current = workId;
+    if (!selectedId) {
+      const defaultSelection = [...outputs].reverse().find(hasUsableOutput) ?? outputs[outputs.length - 1];
+      if (defaultSelection) setSelectedId(defaultSelection.id);
+    }
+  }, [outputs, selectedId, workId]);
+
   // Only an own confirmation moves the selection; polling never steals it.
   useEffect(() => {
     if (review.pendingOutputId) setSelectedId(review.pendingOutputId);
   }, [review.pendingOutputId]);
 
+  // A guarded layer exit finished: drop the editor and apply whatever was
+  // requested while the editor held the artwork (selection and/or compare).
+  useEffect(() => {
+    if (layersOpen) return;
+    if (pendingSelection) {
+      setSelectedId(pendingSelection);
+      setPendingSelection(null);
+    }
+    if (pendingCompare) {
+      setCompareOpen(true);
+      setPendingCompare(false);
+    }
+  }, [layersOpen, pendingCompare, pendingSelection]);
+
   const ancestor = useMemo(
     () => (selected ? outputLineage(outputs, selected).slice(1).find(hasUsableOutput) ?? null : null),
     [outputs, selected],
   );
-  const displayOutput = selected && hasUsableOutput(selected)
-    ? selected
-    : ancestor ?? selected;
-  const displaySrc = displayOutput ? outputSource(displayOutput) : "";
   const selectedCompleted = Boolean(selected && hasUsableOutput(selected));
+  const displayOutput = selected && selectedCompleted ? selected : ancestor ?? selected;
+  // While the selected child has no art yet, the shown base is read-only: its
+  // draft belongs to another output and saving against the child is not_ready.
+  const viewingBaseOnly = !selectedCompleted && displayOutput !== selected;
+  const displaySrc = displayOutput ? outputSource(displayOutput) : "";
 
   const readyLayers = Boolean(selected && (selected.layerization?.status === "completed" || selected.layerEditor));
   const layerizeRemaining = composer.layerEditorAccess?.layerize?.remaining ?? null;
@@ -76,6 +114,17 @@ export function StudioPieceWorkspace({ composer }: { composer: CreativeComposerV
     void Promise.resolve(composer.layerizeOutput(selected.id, retry, operationId)).catch(() => undefined);
   }, [composer, selected]);
 
+  /** Exits the layer editor through its flush path; the editor stays mounted
+   * until flushAndRelease succeeds, so recent edits are never dropped. */
+  const requestLayersExit = useCallback((thenSelect?: string) => {
+    setPendingSelection(thenSelect ?? null);
+    setLayersExitToken((token) => token + 1);
+  }, []);
+
+  const closeLayers = useCallback((open: boolean) => {
+    if (!open) setLayersOpen(false);
+  }, []);
+
   if (outputs.length === 0 || !selected) return null;
 
   const versionLabel = t("versionLabel", { count: visualVersionNumber(outputs, selected) });
@@ -84,12 +133,6 @@ export function StudioPieceWorkspace({ composer }: { composer: CreativeComposerV
   const expand = () => {
     const request = containerRef.current?.requestFullscreen?.();
     if (request) request.catch(() => undefined);
-  };
-  const collapse = () => {
-    if (document.fullscreenElement) {
-      const exit = document.exitFullscreen?.();
-      if (exit) exit.catch(() => undefined);
-    }
   };
 
   return (
@@ -109,7 +152,16 @@ export function StudioPieceWorkspace({ composer }: { composer: CreativeComposerV
             <button
               type="button"
               aria-pressed={compareOpen}
-              onClick={() => setCompareOpen((value) => !value)}
+              onClick={() => {
+                if (layersOpen) {
+                  // Exiting the editor must flush first; compare only opens
+                  // once the editor actually released.
+                  requestLayersExit();
+                  setPendingCompare(true);
+                  return;
+                }
+                setCompareOpen((value) => !value);
+              }}
               className="inline-flex min-h-[var(--control-touch)] items-center gap-1.5 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               {compareOpen ? <X size={14} aria-hidden="true" /> : <Columns2 size={14} aria-hidden="true" />}
@@ -131,7 +183,14 @@ export function StudioPieceWorkspace({ composer }: { composer: CreativeComposerV
             aria-pressed={layersOpen}
             disabled={!composer.canLayerize}
             title={composer.canLayerize ? undefined : t("layersUnavailable")}
-            onClick={() => { setCompareOpen(false); setLayersOpen((value) => !value); }}
+            onClick={() => {
+              if (layersOpen) {
+                requestLayersExit();
+                return;
+              }
+              setCompareOpen(false);
+              setLayersOpen(true);
+            }}
             className="inline-flex min-h-[var(--control-touch)] items-center gap-1.5 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             {t("layersPanel")}
@@ -148,7 +207,13 @@ export function StudioPieceWorkspace({ composer }: { composer: CreativeComposerV
                 type="button"
                 aria-pressed={output.id === selected.id}
                 aria-label={`${t("versionLabel", { count: visualVersionNumber(outputs, output) })} · ${output.targetFormat}`}
-                onClick={() => setSelectedId(output.id)}
+                onClick={() => {
+                  if (output.id === selected.id) return;
+                  // Switching away from an open editor flushes first; the
+                  // selection is applied only after the editor released.
+                  if (layersOpen) requestLayersExit(output.id);
+                  else setSelectedId(output.id);
+                }}
                 className={`${styles.thumb} rounded-[var(--radius-control)] border border-transparent bg-[var(--surface-inset)] aria-pressed:border-[var(--focus-ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]`}
               >
                 {hasUsableOutput(output) ? (
@@ -184,7 +249,8 @@ export function StudioPieceWorkspace({ composer }: { composer: CreativeComposerV
                 outputId={selected.id}
                 mode={isMobile ? "inspect" : "edit"}
                 presentation="inline"
-                onOpenChange={(open) => { if (!open) setLayersOpen(false); }}
+                exitRequestToken={layersExitToken}
+                onOpenChange={closeLayers}
                 onPublished={composer.refreshOutputs}
               />
             ) : (
@@ -212,12 +278,15 @@ export function StudioPieceWorkspace({ composer }: { composer: CreativeComposerV
                 {layerizeRemaining !== null ? <p className="text-xs text-[var(--text-secondary)]">{t("layerizeQuotaRemaining", { count: layerizeRemaining })}</p> : null}
               </div>
             )
-          ) : selectedCompleted || displaySrc ? (
+          ) : displaySrc ? (
             <PieceReviewCanvas
               src={displaySrc}
               alt={t("pieceAlt", { label: `${versionLabel} · ${selected.targetFormat}` })}
-              annotations={review.draft.annotations}
+              annotations={viewingBaseOnly
+                ? displayOutput?.reviewDraft?.annotations ?? []
+                : review.draft.annotations}
               onChange={(annotations) => review.update({ annotations })}
+              readOnly={viewingBaseOnly}
             />
           ) : (
             <div role="status" className="flex flex-col items-center justify-center gap-2 p-6 text-sm text-[var(--text-muted)]">
@@ -236,7 +305,12 @@ export function StudioPieceWorkspace({ composer }: { composer: CreativeComposerV
           hidePreview
           retryCreditCost={composer.revisionCreditCost}
           onRetry={composer.retryOutput}
-          onRetryRevision={composer.retryRevisionOutput}
+          onRetryThroughReview={(failed) => {
+            const parentId = failed.parentOutputId;
+            if (!parentId) return;
+            if (layersOpen) requestLayersExit(parentId);
+            else setSelectedId(parentId);
+          }}
           onApprove={composer.approveOutput}
           onDownload={composer.downloadOutput}
           isRetrying={composer.isRetryingOutput?.(selected.id)}

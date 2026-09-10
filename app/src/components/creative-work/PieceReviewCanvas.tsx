@@ -19,11 +19,14 @@ export function PieceReviewCanvas({
   alt,
   annotations,
   onChange,
+  readOnly = false,
 }: {
   src: string;
   alt: string;
   annotations: PieceReviewAnnotation[];
   onChange: (annotations: PieceReviewAnnotation[]) => void;
+  /** Display-only: shows persisted pins, never edits or saves anything. */
+  readOnly?: boolean;
 }) {
   const t = useTranslations("dashboard.home.composer.results");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -75,7 +78,7 @@ export function PieceReviewCanvas({
   const hasNaturalSize = Boolean(imgRef.current?.naturalWidth && imgRef.current.naturalHeight);
 
   const startDraftFromClick = (event: React.MouseEvent) => {
-    if (!commentMode || draft) return;
+    if (readOnly || !commentMode || draft) return;
     const container = containerRef.current;
     if (!container) return;
     const rect = container.getBoundingClientRect();
@@ -132,49 +135,69 @@ export function PieceReviewCanvas({
             : { position: "absolute", inset: 0, pointerEvents: "none" }}
         >
           {annotations.map((annotation, index) => (
-            <button
-              key={annotation.id}
-              type="button"
-              aria-label={t("commentPinName", { count: index + 1 })}
-              title={annotation.text}
-              onClick={(event) => {
-                event.stopPropagation();
-                setDraft({ ...annotation, isNew: false });
-              }}
-              style={{
-                position: "absolute",
-                left: `${annotation.x * 100}%`,
-                top: `${annotation.y * 100}%`,
-                transform: "translate(-50%, -50%)",
-                pointerEvents: "auto",
-              }}
-              className="grid size-7 place-items-center rounded-full border border-[var(--border-default)] bg-[var(--surface-overlay)] text-xs font-semibold text-[var(--text-primary)] shadow-[var(--shadow-floating)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-            >
-              {index + 1}
-            </button>
+            readOnly ? (
+              <span
+                key={annotation.id}
+                aria-label={t("commentPinName", { count: index + 1 })}
+                title={annotation.text}
+                style={{
+                  position: "absolute",
+                  left: `${annotation.x * 100}%`,
+                  top: `${annotation.y * 100}%`,
+                  transform: "translate(-50%, -50%)",
+                  pointerEvents: "none",
+                }}
+                className="grid size-7 place-items-center rounded-full border border-[var(--border-default)] bg-[var(--surface-overlay)] text-xs font-semibold text-[var(--text-primary)] shadow-[var(--shadow-floating)]"
+              >
+                {index + 1}
+              </span>
+            ) : (
+              <button
+                key={annotation.id}
+                type="button"
+                aria-label={t("commentPinName", { count: index + 1 })}
+                title={annotation.text}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setDraft({ ...annotation, isNew: false });
+                }}
+                style={{
+                  position: "absolute",
+                  left: `${annotation.x * 100}%`,
+                  top: `${annotation.y * 100}%`,
+                  transform: "translate(-50%, -50%)",
+                  pointerEvents: "auto",
+                }}
+                className="grid size-7 place-items-center rounded-full border border-[var(--border-default)] bg-[var(--surface-overlay)] text-xs font-semibold text-[var(--text-primary)] shadow-[var(--shadow-floating)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              >
+                {index + 1}
+              </button>
+            )
           ))}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          ref={commentToggleRef}
-          type="button"
-          aria-pressed={commentMode}
-          onClick={() => setCommentMode((value) => !value)}
-          className="inline-flex min-h-[var(--control-touch)] items-center justify-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-        >
-          {t("commentMode")}
-        </button>
-        <button
-          type="button"
-          disabled={!commentMode}
-          onClick={() => setDraft({ id: crypto.randomUUID(), x: 0.5, y: 0.5, text: "", isNew: true })}
-          className="inline-flex min-h-[var(--control-touch)] items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-        >
-          {t("commentAdd")}
-        </button>
-      </div>
+      {readOnly ? null : (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            ref={commentToggleRef}
+            type="button"
+            aria-pressed={commentMode}
+            onClick={() => setCommentMode((value) => !value)}
+            className="inline-flex min-h-[var(--control-touch)] items-center justify-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          >
+            {t("commentMode")}
+          </button>
+          <button
+            type="button"
+            disabled={!commentMode}
+            onClick={() => setDraft({ id: crypto.randomUUID(), x: 0.5, y: 0.5, text: "", isNew: true })}
+            className="inline-flex min-h-[var(--control-touch)] items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          >
+            {t("commentAdd")}
+          </button>
+        </div>
+      )}
 
       {draft ? (
         <form

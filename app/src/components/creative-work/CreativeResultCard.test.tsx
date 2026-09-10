@@ -19,6 +19,7 @@ vi.mock("next-intl", () => ({
     legacyReviewRequired: "Esta peça não tem veredito objetivo. Revise-a antes de confirmar a aprovação.",
     reviewBeforeApprove: "Revisar e aprovar",
     confirmApproval: "Confirmar aprovação",
+    retryThroughReview: "Revisar nova tentativa",
     retryUnavailable: "Esta proposta já usou todas as tentativas automáticas. Crie um novo pedido para gerar uma nova variação.",
     "failure.timeout": "A geração demorou demais e foi interrompida.",
     "failure.invalid_context": "O pedido ou as fontes não tinham informação suficiente para gerar com fidelidade.",
@@ -137,6 +138,48 @@ function layerization(status: PublicLayerizationState["status"], failureCode: Pu
 }
 
 describe("CreativeResultCard", () => {
+  it("in workspace mode sends a failed revision to the reviewed flow, never a legacy retry", () => {
+    const onRetryRevision = vi.fn();
+    const onRetryThroughReview = vi.fn();
+    const onRetry = vi.fn();
+    render(
+      <CreativeResultCard
+        presentation="workspace"
+        hidePreview
+        output={output({ id: "failed-rev", parentOutputId: "base", status: "failed", hasOutput: false })}
+        label="Versão 2"
+        onRetry={onRetry}
+        onRetryRevision={onRetryRevision}
+        onRetryThroughReview={onRetryThroughReview}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Revisar nova tentativa" }));
+    expect(onRetryThroughReview).toHaveBeenCalledTimes(1);
+    expect(onRetryThroughReview.mock.calls[0][0]).toMatchObject({ id: "failed-rev", parentOutputId: "base" });
+    // Repeated clicks still never dispatch a legacy paid retry.
+    fireEvent.click(screen.getByRole("button", { name: "Revisar nova tentativa" }));
+    expect(onRetryRevision).not.toHaveBeenCalled();
+    expect(onRetry).not.toHaveBeenCalled();
+  });
+
+  it("keeps the legacy revision retry in card mode", () => {
+    const onRetryRevision = vi.fn();
+    render(
+      <CreativeResultCard
+        output={output({ id: "failed-rev", parentOutputId: "base", status: "failed", hasOutput: false })}
+        label="Versão 2"
+        onRetry={vi.fn()}
+        onRetryRevision={onRetryRevision}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    expect(onRetryRevision).toHaveBeenCalledTimes(1);
+  });
+
   it("shows completed imagery and approve, download, and inline edit actions", () => {
     const onRevise = vi.fn();
     render(
