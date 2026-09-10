@@ -182,7 +182,9 @@ export function BrandStageHome({
             </div>
           ) : null}
           <div className="relative mt-4 min-h-[32rem] md:min-h-[40rem]">
-            <WorkMosaic items={mosaicItems} onSelect={onSelectMosaic} />
+            {/* The floating cards are entry ambience only: with the contained
+                workspace active they would overlap the box and the editor. */}
+            {!workspace ? <WorkMosaic items={mosaicItems} onSelect={onSelectMosaic} /> : null}
             {workspace ? (
               <div data-testid="studio-workspace-slot" className="relative z-[6] pt-6">
                 {workspace}

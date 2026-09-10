@@ -46,6 +46,8 @@ describe("PieceFormatPopover", () => {
     expect(onChoose).toHaveBeenCalledTimes(1);
     expect(onChoose).toHaveBeenCalledWith("9:16");
     expect(onCancel).not.toHaveBeenCalled();
+    // Closed state is guaranteed after choosing: no interception of clicks below.
+    expect(document.querySelector("div[popover]")).toHaveStyle({ display: "none" });
   });
 
   it("offers cancel only when an adaptation is applied", () => {
@@ -78,5 +80,6 @@ describe("PieceFormatPopover", () => {
     expect(onChoose).not.toHaveBeenCalled();
     expect(onCancel).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Adaptar formato" })).toHaveAttribute("aria-expanded", "false");
+    expect(document.querySelector("div[popover]")).toHaveStyle({ display: "none" });
   });
 });

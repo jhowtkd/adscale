@@ -931,6 +931,8 @@ describe("DashboardHomeActions", () => {
     expect(within(container).getByTestId("studio-piece-workspace")).toHaveTextContent("completed");
     // The workspace replaces the docked TalkBox entirely when results exist.
     expect(screen.queryByTestId("studio-talk-box")).not.toBeInTheDocument();
+    // Decorative floating cards are entry-only ambience: none over the box.
+    expect(screen.queryAllByTestId("studio-mosaic")).toHaveLength(0);
     // One composer instance: the mock hook must be called exactly once.
     expect(useComposerMock).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/^Versões$/)).not.toBeInTheDocument();
