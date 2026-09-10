@@ -148,3 +148,23 @@ C entregou b149b5eb para os quatro achados anteriores. Corrigidos first mount/re
 ## Ambiente de QA local
 
 Docker iniciado localmente. O container antigo adscale-test-postgres estava parado e foi preservado. Criado container exclusivo adscale-estudio-qa-20260910 (label desta tarefa), imagem postgres:16-alpine já instalada, bind127.0.0.1:5434, banco adscale_estudio_qa com credenciais sintéticas test/test. pg_isready confirmou pronto. Ainda não constitui prova de migration, concorrência, browser ou qualidade visual.
+
+## Financeiro e banco — verificação independente concluída
+
+D corrigiu os resíduos em baf04c15, aprovado em revisão independente. Coordenador confirmou103 testes em9 arquivos, typecheck e lint. Integrado em e1369a71. O conjunto B+D passou501 testes em17 arquivos e typecheck; avisos jsdom de navegação permanecem restritos aos testes de UI.
+
+As migrations do SHA61720be8 foram aplicadas somente ao banco novo5434; confirmadas as colunas review_draft/revision_context. D adicionou3 ensaios na suíte real existente em562d2dc6, revisada e integrada em02c3955f. Coordenador executou independentemente **8/8 testes Postgres**, incluindo rollback de débito/refund por FK23503, repetição com mesma chave após rollback e3 cobranças concorrentes com saldo exato resultando em1 recorded+2 duplicate e1 débito. Isso comprova transação local; não execução em produção.
+
+## Recuperação de falha técnica integrada
+
+A identificou que erro técnico com estorno terminal podia perder recuperação após falha do settlement. Correção estreita atribuída: A persiste generation_failed_terminal_refund_pending no CAS failed vencedor do fluxo integrado e usa helper canônico; B recupera pelo GET com failurePhase terminal, userId e mesma chave. Somente após confirmação o código vira generation_failed. Legado preservado; sem novo schema ou scheduler.
+
+B entregou a61c7d55, aprovado em revisão e134 testes do coordenador (rota+helper), typecheck e lint0erros/5warnings existentes. Merge f42aeb87650c623c3c8c55e63f6c1606f2c145cb enviado a A. A ainda termina job/contagem/R1; sua49bc0c82 foi aprovada apenas no recorte interno de prompt/high/replay.
+
+## Preparação do navegador e limites
+
+Configuração sintética de39 valores extraída do CI em /tmp/estudio-integrado-e2e/local-env.sh, sem .env de produção. Seed create-post executado no banco novo e storage local; fixture em /tmp/estudio-integrado-e2e/create-post.json. Seed terminou exit0, mas registrou falha de tarefa de email por next-intl fora do Next; nenhuma prova de fluxo de email é reivindicada. Chave re_test_ci impede envio externo.
+
+Next está em127.0.0.1:3000, Inngest local em127.0.0.1:8288 com --no-discovery e somente o endpoint desta aplicação. Health retornou ok e sync Inngest200. Logs em next.log/inngest.log no mesmo diretório temporário. Isso ainda não prova jornada nova; C não integrado e D prepara os E2E.
+
+Revisão da cobertura identificou ausência de E2E explícito dos novos contratos. D recebeu extensão dos arquivos existentes para jornada UI/reload, CAS/replay, integrated high/1call/QA/refund e fluxos críticos. Camadas seedadas permitem validar painel/edição/publicação; E2E_CONTROLLED_PROVIDER não intercepta a separação Seedream/AtlasCloud. Não disparar separação paga nem declarar cobertura real dessa operação. Comparação visual Cenbrap continua not_run até autorização de geração real.
