@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import dynamic from "next/dynamic";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { useTranslations, useLocale } from "next-intl";
 import { useCreditHistory, useBillingStatus } from "@/lib/hooks/use-billing";
 import {
@@ -19,13 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-const BarChart = dynamic(() => import("recharts").then(m => ({ default: m.BarChart })));
-const Bar = dynamic(() => import("recharts").then(m => ({ default: m.Bar })));
-const XAxis = dynamic(() => import("recharts").then(m => ({ default: m.XAxis })));
-const YAxis = dynamic(() => import("recharts").then(m => ({ default: m.YAxis })));
-const Tooltip = dynamic(() => import("recharts").then(m => ({ default: m.Tooltip })));
-const ResponsiveContainer = dynamic(() => import("recharts").then(m => ({ default: m.ResponsiveContainer })));
-const Cell = dynamic(() => import("recharts").then(m => ({ default: m.Cell })));
 import { settingsSectionTitleClass } from "@/components/settings/settings-chrome";
 
 const TYPE_COLORS: Record<string, string> = {

@@ -1,8 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { Suspense } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import CreditHistoryTab from "./CreditHistoryTab";
 import ptMessages from "../../../messages/pt-BR.json";
+
+const chartChunkGate = vi.hoisted(() => ({ promise: Promise.resolve() }));
+
+// Force a cold nested next/dynamic import; the tab itself already owns the
+// loading boundary, so chart primitives must not suspend mounted controls.
+vi.mock("next/dynamic", async () => {
+  const { lazy } = await import("react");
+  return { default: (loader: Parameters<typeof lazy>[0]) => lazy(async () => {
+    await chartChunkGate.promise;
+    return loader();
+  }) };
+});
 
 vi.mock("@/lib/hooks/use-billing", () => ({
   useCreditHistory: vi.fn(),
@@ -147,5 +160,68 @@ describe("CreditHistoryTab", () => {
       </NextIntlClientProvider>
     );
     expect(screen.getByText("Erro")).toBeInTheDocument();
+  });
+
+  it("keeps billing controls usable when transaction data mounts the real chart", async () => {
+    let releaseChart!: () => void;
+    chartChunkGate.promise = new Promise<void>((resolve) => { releaseChart = resolve; });
+    const bounds = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 640, height: 192, x: 0, y: 0, top: 0, left: 0, right: 640, bottom: 192,
+      toJSON: () => ({}),
+    });
+    vi.stubGlobal("ResizeObserver", class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+    mockUseBillingStatus.mockReturnValue({
+      data: { access: { kind: "tester", unlimited: true }, creditBalance: 999999 },
+    } as ReturnType<typeof useBillingStatus>);
+    const tab = () => (
+      <NextIntlClientProvider locale="pt-BR" messages={messages}>
+        <Suspense fallback={<p>Carregando a aba inteira</p>}>
+          <CreditHistoryTab />
+        </Suspense>
+      </NextIntlClientProvider>
+    );
+    const view = render(tab());
+    try {
+      mockUseCreditHistory.mockReturnValue({
+        data: {
+          ...historyData(),
+          transactions: [{
+            id: "chart-usage", type: "usage", amount: -50,
+            createdAt: "2026-09-10T12:00:00.000Z", campaignName: null,
+            derivationId: null, description: "Uso controlado do gráfico",
+          }],
+        },
+        isLoading: false, isError: false,
+      } as ReturnType<typeof useCreditHistory>);
+      view.rerender(tab());
+
+      expect(screen.getByText(/uso é registrado sem débito/i)).toBeVisible();
+      expect(screen.getByText("Uso controlado do gráfico")).toBeVisible();
+      const dateRange = screen.getByText("Este mês").closest("button")!;
+      expect(dateRange).toBeVisible();
+      fireEvent.click(dateRange);
+      const allTime = await screen.findByRole("option", { name: "Todo o período" });
+      fireEvent.mouseMove(allTime);
+      fireEvent.click(allTime);
+      await waitFor(() => expect(mockUseCreditHistory).toHaveBeenLastCalledWith({
+        from: undefined, to: undefined, campaignId: undefined,
+      }));
+      expect(screen.queryByText("Carregando a aba inteira")).not.toBeInTheDocument();
+
+      await waitFor(() => expect(view.container.querySelector("svg.recharts-surface")).not.toBeNull());
+      expect(screen.getByText(/uso é registrado sem débito/i)).toBeVisible();
+      expect(dateRange).toBeVisible();
+      expect(dateRange).toHaveTextContent("Todo o período");
+      expect(screen.getByText("Uso controlado do gráfico")).toBeVisible();
+    } finally {
+      view.unmount();
+      releaseChart();
+      bounds.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 });
