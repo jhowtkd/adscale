@@ -81,6 +81,13 @@ function uncertainError() {
   return new TypeError("network failed");
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
+
 function renderReview({
   output = outputFixture(),
   revisionCreditCost = 10 as number | null,
@@ -334,15 +341,75 @@ describe("useOutputReview", () => {
     expect(mocks.generate).not.toHaveBeenCalled();
   });
 
-  it("reloads the server draft over a clean local state", async () => {
-    const { result, rerender } = renderReview();
-    await act(async () => result.current.update({ instruction: "rascunho" }));
+  it("keeps each queued save's own CAS when a switch interleaves two operations", async () => {
+    const deferredSaves = [deferred<unknown>(), deferred<unknown>()];
+    let call = 0;
+    mocks.save.mockImplementation(() => deferredSaves[call++]!.promise);
+    const { result, rerender } = renderReview({ output: outputFixture({ id: "output-a" }) });
+
+    await act(async () => result.current.update({ instruction: "A1" }));
+    let flushA1!: Promise<unknown>;
+    await act(async () => { flushA1 = result.current.flush(); });
+    // A2 is ENQUEUED while A1 is still in flight (queued behind it).
+    await act(async () => result.current.update({ instruction: "A2" }));
+    let flushA2!: Promise<unknown>;
+    await act(async () => { flushA2 = result.current.flush(); });
+
+    // Switch to B, whose hydrated draft carries revision 7 — a poisoned CAS.
     rerender({
-      output: outputFixture({ reviewDraft: { ...emptyDraft(), instruction: "servidor", version: 1, revision: 3, revisionKey: REVISION_KEY } }),
+      output: outputFixture({ id: "output-b", reviewDraft: { ...emptyDraft(), instruction: "de B", version: 1, revision: 7, revisionKey: "00000000-0000-4000-8000-00000000000e" } }),
       revisionCreditCost: 10,
     });
-    await act(async () => result.current.reloadDraft());
-    expect(result.current.draft.instruction).toBe("servidor");
+    await act(async () => { deferredSaves[0]!.resolve({ draft: { ...emptyDraft(), version: 1, revision: 1, revisionKey: REVISION_KEY }, revisionCreditCost: 10 }); });
+    await act(async () => { deferredSaves[1]!.resolve({ draft: { ...emptyDraft(), instruction: "A2", version: 1, revision: 2, revisionKey: "00000000-0000-4000-8000-00000000000f" }, revisionCreditCost: 10 }); });
+    await act(async () => { await flushA1; await flushA2; });
+
+    expect(mocks.save).toHaveBeenCalledTimes(2);
+    expect(mocks.save.mock.calls[0][0]).toMatchObject({ outputId: "output-a", expectedReviewRevision: 0 });
+    // A2 must chain on A1's returned revision, never on B's revision 7.
+    expect(mocks.save.mock.calls[1][0]).toMatchObject({ outputId: "output-a", expectedReviewRevision: 1 });
+    expect(mocks.save.mock.calls[1][0].draft.instruction).toBe("A2");
+  });
+
+  it("drops the pending debounce of the old session when switching before it fires", async () => {
+    mocks.save.mockResolvedValue({
+      draft: { ...emptyDraft(), version: 1, revision: 1, revisionKey: REVISION_KEY },
+      revisionCreditCost: 10,
+    });
+    const { result, rerender } = renderReview({ output: outputFixture({ id: "output-a" }) });
+    await act(async () => result.current.update({ instruction: "só da peça A" }));
+    // Switch BEFORE the debounce fires.
+    rerender({ output: outputFixture({ id: "output-b" }), revisionCreditCost: 10 });
+    await act(async () => { await result.current.flush(); });
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(result.current.draft.instruction).toBe("");
+  });
+
+  it("rehydrates text and revision together on a clean same-output refetch", async () => {
+    const { result, rerender } = renderReview();
+    await act(async () => result.current.update({ instruction: "texto local" }));
+    await act(async () => result.current.flush());
+    // Same id, clean local state: the server now holds revision 3 from elsewhere.
+    const newer = outputFixture({
+      reviewDraft: { ...emptyDraft(), instruction: "servidor revision 3", version: 1, revision: 3, revisionKey: "00000000-0000-4000-8000-0000000000d1" },
+    });
+    rerender({ output: newer, revisionCreditCost: 10 });
+    expect(result.current.draft.instruction).toBe("servidor revision 3");
+
+    await act(async () => result.current.review());
+    expect(mocks.save).toHaveBeenCalledTimes(1); // only the earlier local save
+    await act(async () => result.current.confirm());
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({ reviewRevision: 3, revisionKey: "00000000-0000-4000-8000-0000000000d1" }));
+
+    // Next edit saves on top of revision 3.
+    mocks.save.mockResolvedValue({
+      draft: { ...emptyDraft(), instruction: "editado", version: 1, revision: 4, revisionKey: "00000000-0000-4000-8000-0000000000d2" },
+      revisionCreditCost: 10,
+    });
+    await act(async () => result.current.update({ instruction: "editado" }));
+    await act(async () => result.current.review());
+    expect(mocks.save).toHaveBeenCalledTimes(2);
+    expect(mocks.save.mock.calls[1][0]).toMatchObject({ expectedReviewRevision: 3 });
   });
 
   it("reviews a hydrated saved draft on fresh mount without resaving", async () => {
