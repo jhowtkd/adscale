@@ -13,7 +13,7 @@ import type {
   SocialPostCopy,
 } from "./contracts";
 
-import { buildCreativeWorkPrompt, buildSocialPostPrompt, type BuildCreativeWorkPromptInput } from "./prompt";
+import { buildCreativeWorkPrompt, buildIntegratedSinglePrompt, buildSocialPostPrompt, type BuildCreativeWorkPromptInput } from "./prompt";
 import { CREATIVE_LEVEL_DIRECTIONS } from "../ai/creative-level-direction";
 import type { CreativeWorkFactPack } from "./contracts";
 import type { CreativeWorkReferenceSlot } from "./reference-plan";
@@ -120,6 +120,33 @@ const promptInput = {
   }),
   creativeLevel: "balanced" as CreativeLevel,
 };
+
+describe("buildIntegratedSinglePrompt", () => {
+  const input: BuildCreativeWorkPromptInput = {
+    mode: "social_post", format: "4:5", copy,
+    inputSnapshot: { request: "Peça institucional", settings: { targetFormats: [] }, sources: [] },
+    factPack: null, identitySnapshot: snapshot({ assets: promptInput.identitySnapshot.assets }),
+    creativeLevel: "balanced", references: [], textExecution: "generative",
+  };
+
+  it("separates a short visual brief from untruncated copy, brand rules and exact-asset exclusions", () => {
+    const body = Array(140).fill("conteúdo").join(" ");
+    const text = buildIntegratedSinglePrompt({ ...input, copy: { ...copy, body } }, "Retrato humano, contraste claro e título em duas linhas.");
+    for (const value of [copy.headline, body, copy.cta, "4:5", "Retrato humano", "Use sparingly", "Calm dusk", "Sem clipart", "Do not draw, trace, imitate, preserve, or repeat"]) {
+      expect(text).toContain(value);
+    }
+    expect(text).not.toContain("PROVIDER-ONLY ABSTRACT BACKGROUND");
+    expect(text).not.toContain("Do not render any visible text");
+    expect(text).toContain("Do not paraphrase, translate, omit, or add visible copy.");
+  });
+
+  it("retains the parent-preservation policy when adapting the integrated piece", () => {
+    const text = buildIntegratedSinglePrompt({ ...input, mode: "format_adaptation", format: "9:16", revisionInstruction: "Reposicione o título" }, "Composição vertical.");
+    expect(text).toContain("Preserve the SAME piece");
+    expect(text).toContain("9:16");
+    expect(text).toContain("Reposicione o título");
+  });
+});
 
 describe("buildSocialPostPrompt", () => {
   it("keeps copy and assets fixed while changing only creative level", () => {

@@ -134,10 +134,11 @@ export function planCreativeWorkReferences(input: {
   /** Only persisted Single Piece work may interpret frozen Piece metadata. */
   allowPieceReferences?: boolean;
 }): CreativeWorkReferenceSlot[] {
+  const adaptingParent = input.mode === "format_adaptation" && Boolean(input.revisionReferences?.[0]);
   const revisionSlots: CreativeWorkReferenceSlot[] = (input.revisionReferences ?? []).map(
-    (reference) => ({
-      role: "revision",
-      required: true,
+    (reference, index) => ({
+      role: adaptingParent && index === 0 ? "original" : "revision",
+      required: !adaptingParent || index === 0,
       assetKey: reference.assetKey,
       mimeType: reference.mimeType,
       label: reference.label,
@@ -178,7 +179,7 @@ export function planCreativeWorkReferences(input: {
   });
 
   let sourceSlots: CreativeWorkReferenceSlot[] = [];
-  if (input.mode === "format_adaptation") {
+  if (input.mode === "format_adaptation" && !adaptingParent) {
     const original = visualSources.filter((source) => source.usage !== "style");
     if (original.length === 0) {
       throw new CreativeWorkReferenceError(
@@ -221,8 +222,8 @@ export function planCreativeWorkReferences(input: {
     }),
   );
 
-  const required = [...revisionSlots, ...requiredPieceSlots, ...sourceSlots.filter((slot) => slot.required)];
-  const optional = [...visualPieceSlots, ...sourceSlots.filter((slot) => !slot.required), ...identitySlots];
+  const required = [...revisionSlots.filter((slot) => slot.required), ...requiredPieceSlots, ...sourceSlots.filter((slot) => slot.required)];
+  const optional = [...revisionSlots.filter((slot) => !slot.required), ...visualPieceSlots, ...sourceSlots.filter((slot) => !slot.required), ...identitySlots];
   if (required.length > input.limit) {
     throw new CreativeWorkReferenceError(
       `mandatory references (${required.length}) exceed the provider reference limit (${input.limit})`,

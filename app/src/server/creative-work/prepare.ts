@@ -9,11 +9,29 @@ import type {
   CreativeWorkBriefingOverrides,
 } from "./contracts";
 
+export function formatFromDimensions(width: number | null, height: number | null): CreativeWorkFormat | null {
+  if (width == null || height == null || !Number.isFinite(width) || !Number.isFinite(height)
+    || width <= 0 || height <= 0) return null;
+  const ratio = width / height;
+  for (const [format, target] of [["1:1", 1], ["4:5", 4 / 5], ["9:16", 9 / 16]] as const) {
+    if (Math.abs(ratio / target - 1) <= 0.01) return format;
+  }
+  return null;
+}
+
 export function inferCreativeWorkFormat(
   analyses: readonly Pick<ContentBrief, "format">[],
   request = "",
+  sourceFormat: CreativeWorkFormat | null = null,
 ): CreativeWorkFormat | null {
-  const candidates = [request, ...analyses.map((analysis) => analysis.format)];
+  const explicitFormats = [...new Set((request.match(/\b(?:1\s*:\s*1|4\s*:\s*5|9\s*:\s*16)\b/g) ?? [])
+    .map((format) => format.replace(/\s/g, "")))];
+  if (explicitFormats.length === 1) return explicitFormats[0] as CreativeWorkFormat;
+  if (sourceFormat) return sourceFormat;
+  const candidates = [
+    ...(explicitFormats.length > 1 ? [] : [request]),
+    ...analyses.map((analysis) => analysis.format),
+  ];
   for (const candidate of candidates) {
     const value = candidate.toLocaleLowerCase("pt-BR");
     if (/\b1\s*:\s*1\b/.test(value)) return "1:1";

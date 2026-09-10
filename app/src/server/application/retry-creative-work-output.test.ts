@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/repositories/creative-work", () => ({
   CREATIVE_WORK_MAX_IMAGE_CALLS: 2,
+  CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING:
+    "generation_failed_terminal_refund_pending",
   getCreativeWork: vi.fn(),
   claimCreativeWorkOutputManualRetryAttempt: vi.fn(),
   failQueuedCreativeWorkOutput: vi.fn(),
@@ -249,6 +251,55 @@ describe("retryCreativeWorkOutput", () => {
     expect(mockRequeue).not.toHaveBeenCalled();
     expect(mockSend).not.toHaveBeenCalled();
     expect(mockRecordUsage).not.toHaveBeenCalled();
+  });
+
+  it("rejects an exact pending terminal-refund marker without reserve, charge or dispatch", async () => {
+    mockGet.mockResolvedValue({
+      work: workItem,
+      outputs: [{
+        ...failedOutput,
+        failureCode: "generation_failed_terminal_refund_pending",
+        imageCallCount: 1,
+      }],
+    } as never);
+
+    const result = await retryCreativeWorkOutput({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "output_not_retriable", status: "terminal_refund_pending" },
+    });
+    expect(mockClaimManualRetry).not.toHaveBeenCalled();
+    expect(mockRecordUsage).not.toHaveBeenCalled();
+    expect(mockRequeue).not.toHaveBeenCalled();
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(mockGetUsage).not.toHaveBeenCalled();
+  });
+
+  it("retries after the marker settles to generation_failed", async () => {
+    mockGet.mockResolvedValue({
+      work: workItem,
+      outputs: [{
+        ...failedOutput,
+        failureCode: "generation_failed",
+        imageCallCount: 1,
+      }],
+    } as never);
+
+    const result = await retryCreativeWorkOutput({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mockClaimManualRetry).toHaveBeenCalled();
+    expect(mockRequeue).toHaveBeenCalled();
+    expect(mockSend).toHaveBeenCalled();
   });
 
   it("reactivates a refunded charge idempotently BEFORE the requeue, keeping one net debit", async () => {
