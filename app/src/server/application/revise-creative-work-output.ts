@@ -8,13 +8,21 @@ import {
 } from "@/server/creative-work/art-refinement";
 import { startGenerationSettlement } from "@/server/generation/settlement";
 import { getCreativeWork } from "@/server/repositories/creative-work";
+import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
+import {
+  compileOutputReview,
+  outputReviewInputSchema,
+  type OutputRevisionContextV1,
+} from "@/server/creative-work/output-review";
 import { logCreativeWorkGenerationLifecycle } from "@/server/creative-work/job-telemetry";
 
 type RevisionErrorCode =
   | "work_not_found"
   | "output_not_ready"
   | "invalid_revision"
+  | "stale_review"
+  | "quote_changed"
   | "credit_blocked"
   | "dispatch_failed";
 
@@ -29,7 +37,7 @@ export type ReviseCreativeWorkOutputResult =
     }
   | { ok: false; error: { code: RevisionErrorCode; details?: unknown } };
 
-export async function reviseCreativeWorkOutput(input: {
+type LegacyCommand = {
   workspaceId: string;
   workItemId: string;
   userId: string;
@@ -46,7 +54,21 @@ export async function reviseCreativeWorkOutput(input: {
   compositionMode?: "edit" | "recompose";
   /** Resolved protocol mode of the work, for the preservation constraint. */
   protocolMode?: string | null;
-}): Promise<ReviseCreativeWorkOutputResult> {
+};
+
+type ReviewedCommand = {
+  workspaceId: string;
+  workItemId: string;
+  userId: string;
+  outputId: string;
+  revisionKey: string;
+  reviewRevision: number;
+  expectedCredits: number;
+};
+
+export async function reviseCreativeWorkOutput(
+  input: LegacyCommand | ReviewedCommand,
+): Promise<ReviseCreativeWorkOutputResult> {
   const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!aggregate) return { ok: false, error: { code: "work_not_found" } };
 
@@ -55,6 +77,9 @@ export async function reviseCreativeWorkOutput(input: {
     return { ok: false, error: { code: "output_not_ready" } };
   }
 
+  if ("reviewRevision" in input) {
+    return reviseReviewedOutput(aggregate, parent, input);
+  }
   const effectiveMode = resolveRevisionCompositionMode(input.compositionMode ?? "edit", input.protocolMode);
   const instruction = effectiveMode === "recompose"
     ? `${RECOMPOSE_INSTRUCTION_PREFIX}${input.instruction}`
@@ -97,6 +122,128 @@ export async function reviseCreativeWorkOutput(input: {
   } catch (error) {
     if (error instanceof InvalidCreativeWorkRevisionError) {
       return { ok: false, error: { code: "invalid_revision" } };
+    }
+    throw error;
+  }
+}
+
+async function reviseReviewedOutput(
+  aggregate: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>,
+  parent: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["outputs"][number],
+  input: ReviewedCommand,
+): Promise<ReviseCreativeWorkOutputResult> {
+  const operationKey = `revision:${input.revisionKey}`;
+  const existing = aggregate.outputs.find(
+    (output) => output.operationKey === operationKey,
+  );
+  if (existing) {
+    if (existing.parentOutputId !== parent.id) {
+      return { ok: false, error: { code: "invalid_revision" } };
+    }
+    const existingRevision =
+      (existing.revisionContext as OutputRevisionContextV1 | null)?.reviewRevision ??
+      null;
+    if (
+      existingRevision !== null &&
+      existingRevision !== input.reviewRevision
+    ) {
+      return { ok: false, error: { code: "invalid_revision" } };
+    }
+    return { ok: true, value: { output: existing } };
+  }
+
+  const draft = parent.reviewDraft;
+  if (
+    !draft ||
+    draft.revision !== input.reviewRevision ||
+    draft.revisionKey !== input.revisionKey
+  ) {
+    return { ok: false, error: { code: "stale_review" } };
+  }
+  if (input.expectedCredits !== GENERATION_CREDIT_COSTS.creativeWorkOutput) {
+    return { ok: false, error: { code: "quote_changed" } };
+  }
+
+  const parsed = outputReviewInputSchema.safeParse({
+    action: draft.action,
+    targetFormat: draft.targetFormat,
+    instruction: draft.instruction,
+    revisionAssetId: draft.revisionAssetId,
+    annotations: draft.annotations,
+  });
+  if (!parsed.success) {
+    return { ok: false, error: { code: "invalid_revision" } };
+  }
+  if (
+    parsed.data.action === "refine" &&
+    !parsed.data.instruction.trim() &&
+    parsed.data.annotations.length === 0
+  ) {
+    return { ok: false, error: { code: "invalid_revision" } };
+  }
+
+  if (parsed.data.revisionAssetId) {
+    const asset = await getWorkspaceAssetById(
+      parsed.data.revisionAssetId,
+      input.workspaceId,
+    );
+    if (!asset || !asset.type.startsWith("image/")) {
+      return { ok: false, error: { code: "invalid_revision" } };
+    }
+  }
+
+  const context: OutputRevisionContextV1 = {
+    version: 1,
+    sourceOutputId: parent.id,
+    sourceOutputVersion: parent.versionNumber,
+    reviewRevision: draft.revision,
+    action: parsed.data.action,
+    targetFormat: parsed.data.targetFormat,
+    instruction: parsed.data.instruction,
+    annotations: parsed.data.annotations,
+    revisionAssetId: parsed.data.revisionAssetId,
+  };
+  const instruction = compileOutputReview(parsed.data);
+
+  try {
+    const settled = await startGenerationSettlement(
+      creativeWorkRevisionSettlementAdapter({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        userId: input.userId,
+        parentOutputId: parent.id,
+        revisionKey: input.revisionKey,
+        instruction,
+        revisionAssetId: parsed.data.revisionAssetId,
+        objective: aggregate.work.brief?.objective ?? null,
+        context,
+        expectedReviewRevision: input.reviewRevision,
+      }),
+    );
+    if (!settled.ok) {
+      if (settled.error.code === "credit_blocked") {
+        return {
+          ok: false,
+          error: { code: "credit_blocked", details: settled.error.details },
+        };
+      }
+      return { ok: false, error: { code: "dispatch_failed" } };
+    }
+    logCreativeWorkGenerationLifecycle({
+      event: "creative_work_generation_accepted",
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      generationCorrelationId: settled.value.output.generationCorrelationId,
+      unitCount: 1,
+      outputIds: [settled.value.output.id],
+      credits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+      unitChargeAmount: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+      result: "accepted",
+    });
+    return { ok: true, value: { output: settled.value.output } };
+  } catch (error) {
+    if (error instanceof InvalidCreativeWorkRevisionError) {
+      return { ok: false, error: { code: "stale_review" } };
     }
     throw error;
   }

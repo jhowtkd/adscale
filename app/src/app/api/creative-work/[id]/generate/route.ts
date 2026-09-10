@@ -16,6 +16,13 @@ const bodySchema = z.discriminatedUnion("action", [
     instruction: z.string().trim().min(1).max(2_000),
     revisionAssetId: z.string().min(1).nullable(),
   }).strict(),
+  z.object({
+    action: z.literal("reviewed_revision"),
+    outputId: z.string().uuid(),
+    reviewRevision: z.number().int().positive(),
+    revisionKey: z.string().uuid(),
+    expectedCredits: z.number().int().nonnegative(),
+  }).strict(),
 ]);
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -40,6 +47,31 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           case "credit_blocked": return apiError("insufficientCredits", 402, result.error.details);
           case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502);
           case "output_not_ready": return apiError("creativeWorkOutputNotReady", 409);
+          default: return apiError("invalidInput", 400);
+        }
+      }
+      return NextResponse.json({ output: result.value.output }, { status: 202 });
+    }
+
+    if (body.data.action === "reviewed_revision") {
+      const result = await reviseCreativeWorkOutput({
+        workspaceId: workspace.id,
+        workItemId: id,
+        userId: user.id,
+        outputId: body.data.outputId,
+        reviewRevision: body.data.reviewRevision,
+        revisionKey: body.data.revisionKey,
+        expectedCredits: body.data.expectedCredits,
+      });
+      if (!result.ok) {
+        switch (result.error.code) {
+          case "work_not_found": return apiError("creativeWorkNotFound", 404);
+          case "credit_blocked": return apiError("insufficientCredits", 402, result.error.details);
+          case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502);
+          case "output_not_ready":
+          case "stale_review":
+          case "quote_changed":
+            return apiError("creativeWorkNotReady", 409);
           default: return apiError("invalidInput", 400);
         }
       }

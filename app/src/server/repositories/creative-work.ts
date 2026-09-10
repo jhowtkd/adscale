@@ -56,6 +56,8 @@ import {
   type CatalogQuery,
   type CatalogPageResult,
 } from "@/lib/catalog-page";
+import { canonicalJsonStringify } from "../creative-work/canonical-json";
+import type { OutputRevisionContextV1 } from "../creative-work/output-review";
 
 export type { CreativeWorkFormat } from "../creative-work/contracts";
 
@@ -1605,6 +1607,11 @@ export async function deleteQueuedCreativeWorkOutputs(
   ));
 }
 
+export type CreateCreativeWorkRevisionOptions = {
+  context?: OutputRevisionContextV1 | null;
+  expectedReviewRevision?: number;
+};
+
 export async function createCreativeWorkRevision(
   workspaceId: string,
   workItemId: string,
@@ -1612,11 +1619,20 @@ export async function createCreativeWorkRevision(
   parentOutputId: string,
   instruction: string,
   revisionAssetId: string | null,
+  options?: CreateCreativeWorkRevisionOptions,
 ): Promise<{ output: CreativeWorkOutput; claimedForDispatch: boolean } | null> {
-  const matchesCommand = (output: CreativeWorkOutput) =>
-    output.parentOutputId === parentOutputId
-    && output.revisionInstruction === instruction
-    && output.revisionAssetId === revisionAssetId;
+  const context = options?.context ?? null;
+  const matchesCommand = (output: CreativeWorkOutput) => {
+    if (output.parentOutputId !== parentOutputId) return false;
+    if (output.revisionInstruction !== instruction) return false;
+    if (output.revisionAssetId !== revisionAssetId) return false;
+    if (!context) return true;
+    if (output.targetFormat !== context.targetFormat) return false;
+    return (
+      canonicalJsonStringify(output.revisionContext ?? null) ===
+      canonicalJsonStringify(context)
+    );
+  };
 
   const [parent] = await db.select().from(creativeWorkOutputs).where(and(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
@@ -1624,6 +1640,7 @@ export async function createCreativeWorkRevision(
     eq(creativeWorkOutputs.id, parentOutputId),
   )).limit(1);
   if (!parent) return null;
+  const targetFormat = context?.targetFormat ?? parent.targetFormat;
 
   // Revisions keep the parent direction for identity and versioning, while
   // the operation key remains global so a revision key cannot be replayed
@@ -1644,7 +1661,7 @@ export async function createCreativeWorkRevision(
     if (!asset?.type.startsWith("image/")) return null;
   }
   return db.transaction(async (tx) => {
-    const versionScope = creativeWorkVersionLockScope({ workspaceId, workItemId, creativeLevel: parent.creativeLevel, targetFormat: parent.targetFormat, directionId: parent.directionId });
+    const versionScope = creativeWorkVersionLockScope({ workspaceId, workItemId, creativeLevel: parent.creativeLevel, targetFormat, directionId: parent.directionId });
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${versionScope}))`);
 
     const [retry] = await tx.select().from(creativeWorkOutputs).where(and(
@@ -1654,13 +1671,34 @@ export async function createCreativeWorkRevision(
     )).limit(1);
     if (retry) return matchesCommand(retry) ? { output: retry, claimedForDispatch: false } : null;
 
+    if (context) {
+      const [lockedParent] = await tx
+        .select()
+        .from(creativeWorkOutputs)
+        .where(and(
+          eq(creativeWorkOutputs.workspaceId, workspaceId),
+          eq(creativeWorkOutputs.workItemId, workItemId),
+          eq(creativeWorkOutputs.id, parentOutputId),
+        ))
+        .for("update")
+        .limit(1);
+      if (!lockedParent) return null;
+      const expectedRevision = options?.expectedReviewRevision ?? context.reviewRevision;
+      if (
+        (lockedParent.reviewDraft?.revision ?? 0) !== expectedRevision ||
+        (lockedParent.reviewDraft?.revisionKey ?? null) !== revisionKey
+      ) {
+        return null;
+      }
+    }
+
     const [latest] = await tx.select({ maxVersion: max(creativeWorkOutputs.versionNumber) })
       .from(creativeWorkOutputs)
       .where(and(
         eq(creativeWorkOutputs.workspaceId, workspaceId),
         eq(creativeWorkOutputs.workItemId, workItemId),
         eq(creativeWorkOutputs.creativeLevel, parent.creativeLevel),
-        eq(creativeWorkOutputs.targetFormat, parent.targetFormat),
+        eq(creativeWorkOutputs.targetFormat, targetFormat),
         ...(parent.directionId ? [eq(creativeWorkOutputs.directionId, parent.directionId)] : []),
       ));
     const versionNumber = (latest?.maxVersion ?? 0) + 1;
@@ -1668,11 +1706,12 @@ export async function createCreativeWorkRevision(
       workspaceId,
       workItemId,
       creativeLevel: parent.creativeLevel,
-      targetFormat: parent.targetFormat,
+      targetFormat,
       versionNumber,
       parentOutputId,
       revisionInstruction: instruction,
       revisionAssetId,
+      revisionContext: context,
       operationKey,
       status: "queued",
       isSelected: false,

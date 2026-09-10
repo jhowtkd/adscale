@@ -21,8 +21,12 @@ vi.mock("@/server/generation/settlement-adapters", async (importOriginal) => {
     creativeWorkRevisionSettlementAdapter: buildAdapter,
   };
 });
+vi.mock("@/server/repositories/workspace-asset", () => ({
+  getWorkspaceAssetById: vi.fn(async () => null),
+}));
 
 import { InvalidCreativeWorkRevisionError } from "@/server/generation/settlement-adapters";
+import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import { reviseCreativeWorkOutput } from "./revise-creative-work-output";
 
 const REVISION_KEY = "00000000-0000-4000-8000-000000000101";
@@ -189,6 +193,145 @@ describe("reviseCreativeWorkOutput", () => {
       }),
     ).resolves.toEqual({ ok: false, error: { code: "work_not_found" } });
     expect(settle).not.toHaveBeenCalled();
+  });
+
+  it("freezes a reviewed format change before canonical settlement", async () => {
+    const draft = {
+      version: 1,
+      revision: 2,
+      revisionKey: REVISION_KEY,
+      action: "format",
+      targetFormat: "9:16",
+      instruction: "Preserve a pessoa.",
+      annotations: [],
+      revisionAssetId: null,
+    };
+    getWork.mockResolvedValue({
+      work,
+      outputs: [
+        {
+          ...parent,
+          targetFormat: "4:5",
+          versionNumber: 1,
+          reviewDraft: draft,
+        },
+      ],
+      sources: [],
+    });
+    const result = await reviseCreativeWorkOutput({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      userId: "user-1",
+      outputId: parent.id,
+      revisionKey: REVISION_KEY,
+      reviewRevision: 2,
+      expectedCredits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+    });
+    expect(result.ok).toBe(true);
+    expect(buildAdapter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parentOutputId: parent.id,
+        context: expect.objectContaining({
+          sourceOutputId: parent.id,
+          targetFormat: "9:16",
+          action: "format",
+        }),
+      }),
+    );
+    expect(settle).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a stale reviewed revision and a changed quote without settlement", async () => {
+    const draft = {
+      version: 1,
+      revision: 2,
+      revisionKey: REVISION_KEY,
+      action: "refine",
+      targetFormat: "4:5",
+      instruction: "Ajuste fino",
+      annotations: [],
+      revisionAssetId: null,
+    };
+    getWork.mockResolvedValue({
+      work,
+      outputs: [{ ...parent, targetFormat: "4:5", versionNumber: 1, reviewDraft: draft }],
+      sources: [],
+    });
+    await expect(
+      reviseCreativeWorkOutput({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        userId: "user-1",
+        outputId: parent.id,
+        revisionKey: REVISION_KEY,
+        reviewRevision: 1,
+        expectedCredits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+      }),
+    ).resolves.toMatchObject({ ok: false, error: { code: "stale_review" } });
+    await expect(
+      reviseCreativeWorkOutput({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        userId: "user-1",
+        outputId: parent.id,
+        revisionKey: REVISION_KEY,
+        reviewRevision: 2,
+        expectedCredits: GENERATION_CREDIT_COSTS.creativeWorkOutput + 1,
+      }),
+    ).resolves.toMatchObject({ ok: false, error: { code: "quote_changed" } });
+    expect(settle).not.toHaveBeenCalled();
+  });
+
+  it("replays an existing operation without charging after the draft was edited", async () => {
+    const existing = {
+      ...revision,
+      operationKey: `revision:${REVISION_KEY}`,
+      parentOutputId: parent.id,
+      revisionContext: {
+        version: 1,
+        reviewRevision: 2,
+        sourceOutputId: parent.id,
+        sourceOutputVersion: 1,
+        action: "refine",
+        targetFormat: "4:5",
+        instruction: "Use mais contraste",
+        annotations: [],
+        revisionAssetId: null,
+      },
+    };
+    getWork.mockResolvedValue({
+      work,
+      outputs: [
+        {
+          ...parent,
+          reviewDraft: {
+            version: 1,
+            revision: 3,
+            revisionKey: "00000000-0000-4000-8000-000000000099",
+            action: "refine",
+            targetFormat: "4:5",
+            instruction: "Texto novo",
+            annotations: [],
+            revisionAssetId: null,
+          },
+        },
+        existing,
+      ],
+      sources: [],
+    });
+    await expect(
+      reviseCreativeWorkOutput({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        userId: "user-1",
+        outputId: parent.id,
+        revisionKey: REVISION_KEY,
+        reviewRevision: 2,
+        expectedCredits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+      }),
+    ).resolves.toEqual({ ok: true, value: { output: existing } });
+    expect(settle).not.toHaveBeenCalled();
+    expect(buildAdapter).not.toHaveBeenCalled();
   });
 
   it("directs recompose from the originals but constrains adaptation/restyle to edit (plan 04, T2)", async () => {

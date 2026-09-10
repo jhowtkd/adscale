@@ -1503,6 +1503,44 @@ describe("Generation Settlement production adapters", () => {
     expect(chargeBatch).toHaveBeenCalledOnce();
     expect(send).toHaveBeenCalledOnce();
   });
+
+  it("forwards frozen review context with a single canonical charge", async () => {
+    const context = {
+      version: 1,
+      sourceOutputId: "output-v1",
+      sourceOutputVersion: 1,
+      reviewRevision: 2,
+      action: "format",
+      targetFormat: "9:16",
+      instruction: "Preserve a pessoa.",
+      annotations: [],
+      revisionAssetId: null,
+    };
+    const adapter = creativeWorkRevisionSettlementAdapter({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      userId: "user-1",
+      parentOutputId: "output-v1",
+      revisionKey: REVISION_KEY,
+      instruction: "Adapte a mesma peça para 9:16. Preserve os fatos e a identidade visual.\nPreserve a pessoa.",
+      revisionAssetId: null,
+      objective: "Sell",
+      context: context as never,
+      expectedReviewRevision: 2,
+    });
+    const result = await startGenerationSettlement(adapter);
+    expect(result).toEqual({ ok: true, value: { output: revisionOutput } });
+    expect(createRevision).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      REVISION_KEY,
+      "output-v1",
+      "Adapte a mesma peça para 9:16. Preserve os fatos e a identidade visual.\nPreserve a pessoa.",
+      null,
+      { context, expectedReviewRevision: 2 },
+    );
+    expect(chargeBatch).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("creative-work manual retry settlement", () => {

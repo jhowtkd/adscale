@@ -146,4 +146,41 @@ describe("POST /api/creative-work/[id]/generate", () => {
     const response = await POST(request({ action: "initial", preparedRevision: "prep-1" }), { params: Promise.resolve({ id: "work-1" }) });
     expect(response.status).toBe(status);
   });
+
+  it("delegates a reviewed revision with only ids, revision, key and credits", async () => {
+    const body = {
+      action: "reviewed_revision",
+      outputId: "00000000-0000-4000-8000-000000000002",
+      reviewRevision: 2,
+      revisionKey: "00000000-0000-4000-8000-000000000101",
+      expectedCredits: 50,
+    };
+    const response = await POST(request(body), { params: Promise.resolve({ id: "work-1" }) });
+    expect(response.status).toBe(202);
+    expect(revise).toHaveBeenCalledWith({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      userId: "user-1",
+      outputId: "00000000-0000-4000-8000-000000000002",
+      reviewRevision: 2,
+      revisionKey: "00000000-0000-4000-8000-000000000101",
+      expectedCredits: 50,
+    });
+    await expect(response.json()).resolves.toEqual({
+      output: { id: "output-v2", versionNumber: 2 },
+    });
+  });
+
+  it("maps stale reviewed revisions to 409 without a second charge", async () => {
+    revise.mockResolvedValueOnce({ ok: false, error: { code: "stale_review" } });
+    const body = {
+      action: "reviewed_revision",
+      outputId: "00000000-0000-4000-8000-000000000002",
+      reviewRevision: 1,
+      revisionKey: "00000000-0000-4000-8000-000000000101",
+      expectedCredits: 50,
+    };
+    const response = await POST(request(body), { params: Promise.resolve({ id: "work-1" }) });
+    expect(response.status).toBe(409);
+  });
 });

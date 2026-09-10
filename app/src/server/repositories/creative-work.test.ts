@@ -2732,6 +2732,154 @@ describe("creative-work repository", () => {
       });
     });
   });
+
+  describe("reviewed revisions", () => {
+    const reviewContext = {
+      version: 1 as const,
+      sourceOutputId: "output-1",
+      sourceOutputVersion: 1,
+      reviewRevision: 2,
+      action: "format" as const,
+      targetFormat: "9:16" as const,
+      instruction: "Preserve a pessoa.",
+      annotations: [],
+      revisionAssetId: null,
+    };
+    const reviewKey = "00000000-0000-4000-8000-000000000201";
+
+    it("creates a format child with frozen context without touching the parent", async () => {
+      const parent = workOutput({
+        id: "output-1",
+        targetFormat: "4:5",
+        versionNumber: 1,
+        outputKey: "pieces/base.png",
+        status: "completed",
+        reviewDraft: {
+          version: 1,
+          revision: 2,
+          revisionKey: reviewKey,
+          action: "format",
+          targetFormat: "9:16",
+          instruction: "Preserve a pessoa.",
+          annotations: [],
+          revisionAssetId: null,
+        },
+      });
+      const child = workOutput({
+        id: "output-2",
+        parentOutputId: "output-1",
+        targetFormat: "9:16",
+        versionNumber: 1,
+        operationKey: `revision:${reviewKey}`,
+        revisionInstruction: "Adapte a mesma peça para 9:16. Preserve os fatos e a identidade visual.\nPreserve a pessoa.",
+        revisionContext: reviewContext,
+      });
+      mocks.state.selectResults.push(
+        [parent],
+        [],
+        [],
+        [parent],
+        [{ maxVersion: 0 }],
+      );
+      mocks.state.onConflictResults.push([child]);
+      const result = await createCreativeWorkRevision(
+        "ws-1",
+        "work-1",
+        reviewKey,
+        "output-1",
+        "Adapte a mesma peça para 9:16. Preserve os fatos e a identidade visual.\nPreserve a pessoa.",
+        null,
+        { context: reviewContext, expectedReviewRevision: 2 },
+      );
+      expect(result).toEqual({ output: child, claimedForDispatch: true });
+      expect(mocks.valuesMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          targetFormat: "9:16",
+          parentOutputId: "output-1",
+          revisionContext: reviewContext,
+        }),
+      );
+    });
+
+    it("replays the same key with the same context without a second charge", async () => {
+      const parent = workOutput({ id: "output-1", targetFormat: "4:5" });
+      const existing = workOutput({
+        id: "output-2",
+        parentOutputId: "output-1",
+        targetFormat: "9:16",
+        operationKey: `revision:${reviewKey}`,
+        revisionInstruction: "Adapte",
+        revisionContext: reviewContext,
+      });
+      mocks.state.selectResults.push([parent], [existing]);
+      await expect(
+        createCreativeWorkRevision("ws-1", "work-1", reviewKey, "output-1", "Adapte", null, {
+          context: reviewContext,
+          expectedReviewRevision: 2,
+        }),
+      ).resolves.toEqual({ output: existing, claimedForDispatch: false });
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it("conflicts when the same key carries another target without charging", async () => {
+      const parent = workOutput({ id: "output-1", targetFormat: "4:5" });
+      const existing = workOutput({
+        id: "output-2",
+        parentOutputId: "output-1",
+        targetFormat: "9:16",
+        operationKey: `revision:${reviewKey}`,
+        revisionInstruction: "Adapte",
+        revisionContext: reviewContext,
+      });
+      const otherContext = { ...reviewContext, targetFormat: "1:1" as const };
+      mocks.state.selectResults.push([parent], [existing]);
+      await expect(
+        createCreativeWorkRevision("ws-1", "work-1", reviewKey, "output-1", "Adapte", null, {
+          context: otherContext,
+          expectedReviewRevision: 2,
+        }),
+      ).resolves.toBeNull();
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects a reservation whose draft changed under lock without dispatch", async () => {
+      const parent = workOutput({
+        id: "output-1",
+        targetFormat: "4:5",
+        reviewDraft: {
+          version: 1,
+          revision: 2,
+          revisionKey: reviewKey,
+          action: "format",
+          targetFormat: "9:16",
+          instruction: "Preserve a pessoa.",
+          annotations: [],
+          revisionAssetId: null,
+        },
+      });
+      const edited = {
+        ...parent,
+        reviewDraft: {
+          version: 1,
+          revision: 3,
+          revisionKey: "00000000-0000-4000-8000-000000000099",
+          action: "format",
+          targetFormat: "9:16",
+          instruction: "Texto novo",
+          annotations: [],
+          revisionAssetId: null,
+        },
+      };
+      mocks.state.selectResults.push([parent], [], [], [edited]);
+      await expect(
+        createCreativeWorkRevision("ws-1", "work-1", reviewKey, "output-1", "Adapte", null, {
+          context: reviewContext,
+          expectedReviewRevision: 2,
+        }),
+      ).resolves.toBeNull();
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+  });
 });
 
 
