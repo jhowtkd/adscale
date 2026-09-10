@@ -641,7 +641,12 @@ function factPackSection(input: CreativeWorkQaPromptInput): string {
 
 export function buildCreativeWorkQaPrompt(input: CreativeWorkQaPromptInput): string {
   const visualIdentity = input.brandKit
-    ? `IDENTIDADE VISUAL DECLARADA: ${JSON.stringify(input.brandKit)}\nCores e nomes de fontes orientam a leitura. Não declare verificação exata de arquivo de fonte por visão; gosto e pequenas variações de estilo não são falha factual.`
+    ? `IDENTIDADE VISUAL DECLARADA: ${JSON.stringify({
+        colors: input.brandKit.colors,
+        fonts: input.brandKit.fonts,
+        requiredElements: input.brandKit.requiredElements,
+        prohibitedElements: input.brandKit.prohibitedElements,
+      })}\nCores e nomes de fontes orientam a leitura. Não declare verificação exata de arquivo de fonte por visão; gosto e pequenas variações de estilo não são falha factual.`
     : "";
   const requestedRevision = input.revisionInstruction
     ? `ALTERAÇÃO SOLICITADA SOBRE A BASE: ${input.revisionInstruction}`

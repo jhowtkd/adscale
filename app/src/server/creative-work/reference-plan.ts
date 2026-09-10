@@ -140,10 +140,11 @@ export function planCreativeWorkReferences(input: {
   /** Only persisted Single Piece work may interpret frozen Piece metadata. */
   allowPieceReferences?: boolean;
 }): CreativeWorkReferenceSlot[] {
+  const adaptingParent = input.mode === "format_adaptation" && Boolean(input.revisionReferences?.[0]);
   const revisionSlots: CreativeWorkReferenceSlot[] = (input.revisionReferences ?? []).map(
-    (reference) => ({
-      role: "revision",
-      required: true,
+    (reference, index) => ({
+      role: adaptingParent && index === 0 ? "original" : "revision",
+      required: !adaptingParent || index === 0,
       assetKey: reference.assetKey,
       mimeType: reference.mimeType,
       label: reference.label,
@@ -184,7 +185,7 @@ export function planCreativeWorkReferences(input: {
   });
 
   let sourceSlots: CreativeWorkReferenceSlot[] = [];
-  if (input.mode === "format_adaptation") {
+  if (input.mode === "format_adaptation" && !adaptingParent) {
     const original = visualSources.filter((source) => source.usage !== "style");
     if (original.length === 0) {
       throw new CreativeWorkReferenceError(
@@ -230,8 +231,18 @@ export function planCreativeWorkReferences(input: {
   // Person presence first, then every other mandatory authority. Person
   // slots are kept verbatim (no silent drop): the catalog already forbids one
   // photo for two people, so each slot keeps its person's association.
-  const required = [...(input.personSlots ?? []), ...revisionSlots, ...requiredPieceSlots, ...sourceSlots.filter((slot) => slot.required)];
-  const optional = [...visualPieceSlots, ...sourceSlots.filter((slot) => !slot.required), ...identitySlots];
+  const required = [
+    ...(input.personSlots ?? []),
+    ...revisionSlots.filter((slot) => slot.required),
+    ...requiredPieceSlots,
+    ...sourceSlots.filter((slot) => slot.required),
+  ];
+  const optional = [
+    ...revisionSlots.filter((slot) => !slot.required),
+    ...visualPieceSlots,
+    ...sourceSlots.filter((slot) => !slot.required),
+    ...identitySlots,
+  ];
   if (required.length > input.limit) {
     throw new CreativeWorkReferenceError(
       `mandatory references (${required.length}) exceed the provider reference limit (${input.limit})`,
