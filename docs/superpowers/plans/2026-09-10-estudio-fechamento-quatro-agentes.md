@@ -21,7 +21,7 @@
 - PT-BR na superfície; mensagens novas têm tradução em `app/messages/pt-BR.json` e `app/messages/en.json`.
 - Reusar dependências, hooks, autenticação, armazenamento, settlement e editor existentes; nenhuma dependência nova.
 - Não alterar preços, entitlements ou provedores; custo exibido vem da constante/quote canônica do servidor.
-- Migrações, contratos HTTP e formatos persistidos propostos exigem autorização explícita antes da execução; este pedido autoriza escrever o plano.
+- A elaboração inicial autorizou este plano. Para executar migrações, contratos HTTP e formatos persistidos, registrar o pedido de implementação que cobre as mudanças nomeadas; a aprovação visual sozinha não basta. Uma atribuição explícita de execução que já inclui esses contratos não exige nova confirmação dos mesmos itens. Aplicação em banco real, chamadas pagas e publicação continuam separadas.
 - Testes locais com mocks ou provider controlado; chamadas pagas e publicação dependem de autorização específica.
 - Um dono por arquivo em todas as branches. Worktrees não são licença para escrever quatro versões do mesmo módulo.
 
@@ -122,6 +122,27 @@ type SourceAssetDetails = {
 **D1 — apresentação financeira:** extensão aditiva `billing.access.unlimited: boolean` em `/api/billing/status`, calculada por `workspaceHasUnlimitedBillingAccess`. C só consome se precisar mostrar acesso; não recalcula a política. D entrega o conjunto exato de traduções financeiras para C incorporar antes do aceite visual.
 
 Enquanto B1 não chega: A desenvolve política/prompt/QA e testes puros; C desenvolve geometria, popover e componentes com fixtures de teste; D corrige billing. Nenhum deles cria um stub de produção para substituir B1. A/C recebem o commit B1 por merge, preservando o mesmo SHA na ancestry.
+
+### R1 — Preview reprovado e compensação recuperável
+
+A pré-revisão do motor confirmou uma lacuna da tarefa3 de qualidade: completion limpa failureCode; a recuperação consulta somente failed; replay e onFailure não compensam completed. Esta seção corrige aquela instrução, sem nova coluna, enum de status, scheduler ou regra de preço.
+
+| Dono | Entrega e limite de propriedade |
+| --- | --- |
+| B | Em repositories/creative-work e teste: opção interna estreita de completion para marcar `objective_quality_failed_refund_pending` no mesmo CAS que outputKey/quality/completed. Seleção e limpeza de pendentes com predicados exatos abaixo. Na GET e teste: consumir o helper de D e recuperar o caso novo. |
+| D | Extrair a função privada `refundCreativeWorkOutputCompensatory` da GET para `app/src/server/application/refund-creative-work-output.ts`, com teste junto. Exportar o mesmo nome e Promise<boolean>; preservar input atual, acrescentando userId opcional quando disponível. Não editar a GET de B nem o job de A. Entregar cedo o SHA do helper real. |
+| A | Job e teste: completion vencedora antes do refund; replay de completed e onFailure recuperam a pendência sem geração adicional ou rebaixamento para failed. Usar o helper real de D; manter preview apenas após vencer CAS. |
+| C | `use-creative-work.ts` e teste mantêm polling para completed com esse marcador. UI distingue reprovação objetiva e compensação pendente, mantém preview e bloqueia escolha. Sem afirmar estorno financeiro em bypass. |
+
+O helper compartilhado conserva `resolveCreativeWorkOutputReactivationOutcome`, inclusive already_refunded, e `settleTerminalRefund`; no caso novo todos os callers usam failurePhase terminal. Não colapsar already_refunded para null nem cair depois na chave original. Passar work.createdByUserId quando disponível para a movimentação autenticada. Somente resultado confirmado permite limpar a pendência; nenhuma inferência por tentativa ou timeout. O boolean confirma liquidação da operação, não implica que houve débito financeiro em bypass.
+
+`listCreativeWorkOutputsNeedingRefund` preserva a regra antiga failed + código pending e acrescenta um OR restrito a **completed + código exato + objectiveVerdict fail + outputKey presente**. O marcador novo só nasce em completion integrated com imagem válida e QA objetiva fail. A limpeza condiciona workspaceId, workItemId, outputId, completed, marcador, QA fail e outputKey esperado; altera somente failureCode/updatedAt. Nunca apagar quality/outputKey/terminalAt nem compensar todos os completed históricos.
+
+Se o refund falhar, o marcador permanece. Se aplicar e a limpeza falhar, nova tentativa reconhece a mesma chave liquidada e limpa o marcador. Recuperação acontece no job, onFailure e GET; a consulta continua enquanto a tela estiver aberta e retoma ao reabrir. Não foi adicionado reconciliador autônomo em background.
+
+Testes nas suítes dos donos: CAS perdedor→zero refund; crash entre completion/refund; falha de refund preserva preview; replay após ledger antes da limpeza; reactivation already_refunded não compensa a reserva original; onFailure não rebaixa completed; consulta de pendentes/limpeza só aceita o caso exato; polling termina após liquidação. D cobre concorrência/idempotência financeira na infraestrutura de teste existente.
+
+R1 é marco adicional antes da integração do job; não atrasar política/prompt/componentes independentes. B1 continua sendo a entrega inicial de contratos definida acima. Distribuir os SHAs reais de R1 depois de revisados, sem interfaces falsas ou segundo escritor nos arquivos compartilhados.
 
 ## Task 1: Preparar a base e distribuir as quatro frentes
 
