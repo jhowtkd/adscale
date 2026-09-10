@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { resolveCreativeWorkProtocol } from "./protocol";
 
 describe("resolveCreativeWorkProtocol", () => {
+  it.each(["refine", "variation", "format"] as const)("resolves a reviewed %s without changing the work protocol", (revisionAction) => {
+    expect(resolveCreativeWorkProtocol({
+      toolKind: "single", format: "9:16", targetFormats: [], revision: true, revisionAction,
+    })).toEqual({
+      mode: revisionAction === "format" ? "format_adaptation" : "creative_revision",
+      execution: "direct",
+      plans: [{ creativeLevel: "balanced", targetFormat: "9:16", versionNumber: 1 }],
+    });
+  });
+
   it("resolves Peça única (single) as one direct high-quality social_post output", () => {
     expect(
       resolveCreativeWorkProtocol({

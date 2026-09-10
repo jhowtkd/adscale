@@ -165,6 +165,18 @@ describe("deterministic Brand Fidelity", () => {
     expect(report.checks.find((check) => check.id === "safe_area")?.state).toBe("nonconforming");
   });
 
+  it("proves exact assets without claiming generative copy, font or safe-area verification", () => {
+    const input = conformingInput();
+    const report = buildDeterministicBrandFidelity({
+      ...input, typographyPlan: null, approvedFont: null, textComposition: null,
+      exactComposition: { ...input.exactComposition, outputHash: hash(input.finalArtifact) },
+    });
+    expect(report.checks.map(({ id, state }) => [id, state])).toEqual([
+      ["copy", "not_applicable"], ["font", "not_applicable"],
+      ["exact_assets", "proven"], ["composition", "proven"], ["safe_area", "not_applicable"],
+    ]);
+  });
+
   it("never calls an unverifiable property proven", () => {
     const report = buildDeterministicBrandFidelity({
       ...conformingInput(),
