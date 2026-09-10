@@ -37,6 +37,7 @@
 
 .versions {
   display: flex;
+  flex: none;
   flex-direction: column;
   gap: 2px;
   max-height: 100%;
