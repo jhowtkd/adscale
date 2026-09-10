@@ -393,7 +393,7 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
                   className="w-full resize-y rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] p-2 text-sm font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 />
               </label>
-              <div className="flex flex-none flex-wrap items-center gap-2">
+              <div className="flex min-w-0 max-w-full flex-none flex-wrap items-center gap-2">
                 <PieceFormatPopover
                   value={review.draft.action === "format" ? review.draft.targetFormat : null}
                   onChoose={(format) => review.update({ action: "format", targetFormat: format })}
