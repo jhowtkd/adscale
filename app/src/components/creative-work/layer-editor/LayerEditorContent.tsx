@@ -165,7 +165,7 @@ export function LayerEditorContent({
           : t("editorPending");
 
   return (
-    <div className={cn("flex min-h-0 flex-1 flex-col", inline && "min-h-72 rounded-[var(--radius-control)]")}>
+    <div className={cn("flex min-h-0 flex-1 flex-col", inline && "h-full min-h-72 rounded-[var(--radius-control)]")}>
       <header className={cn("flex min-h-14 flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] px-3 py-2", inline && "min-h-12 px-2 py-1.5")}>
         <Button variant="ghost" size="icon" className="min-h-11 min-w-11" onClick={() => void close()} aria-label={t("editorClose")}><X /></Button>
         <div className="mr-auto min-w-0">
@@ -202,7 +202,7 @@ export function LayerEditorContent({
         </div>
         {canMutate && editor.document ? <Button size="sm" className="min-h-11" disabled={exporting} onClick={() => void publish()}><Upload />{t("editorPublish")}</Button> : null}
       </header>
-      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_17rem]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(200px,1fr)_minmax(0,auto)] md:grid-cols-[minmax(0,1fr)_17rem] md:grid-rows-[minmax(0,1fr)]">
         {editor.document ? <LayerCanvas document={editor.document} selectedLayerId={selected} hoveredLayerId={hovered} onSelect={setSelected} onHover={setHovered} onEditWithAi={focusAskBar} mode={canMutate ? "edit" : "read"} dispatch={editor.dispatch} visibilityOverrides={canMutate ? undefined : inspectVisibility} /> : <div role={editor.openError ? "alert" : undefined} className="grid place-items-center p-6">{editor.openError ?? t("editorLoading")}</div>}
         {editor.document ? (
           <aside className="min-h-0 overflow-y-auto border-[var(--border-subtle)] max-md:border-t md:border-l animate-layer-reveal" style={{ ["--layer-reveal-index" as string]: Math.min(editor.document.layers.length, 4) }}>
@@ -210,7 +210,7 @@ export function LayerEditorContent({
           </aside>
         ) : null}
       </div>
-      {editor.document ? (
+      {editor.document && (!inline || editor.mode === "edit" || Boolean(editor.document?.regeneration)) ? (
         <div ref={regenerationPanelRef} tabIndex={-1}>
           <LayerRegenerationPanel
             document={editor.document}
