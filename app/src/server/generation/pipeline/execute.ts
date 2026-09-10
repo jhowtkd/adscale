@@ -23,6 +23,7 @@ import {
 } from "@/server/generation/canonical/types";
 
 export type ExecuteCanonicalGenerationOptions = {
+  quality?: "medium" | "high";
   telemetry?: ImagePipelineTelemetryContext;
   onStageHeartbeat?: (stage: string) => Promise<void>;
   /** Shared across edit + generate-fallback so total provider calls stay ≤ 6. */
@@ -128,6 +129,7 @@ export async function executeCanonicalGeneration(
     telemetry: destinationTelemetry,
     onStageHeartbeat: options?.onStageHeartbeat,
     callBudget: options?.callBudget,
+    ...(options?.quality ? { quality: options.quality } : {}),
     selectCandidate: routes
       ? async (candidates) => {
           const selection = await observeImagePipelineExternalCall({
