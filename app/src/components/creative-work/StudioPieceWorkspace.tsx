@@ -46,7 +46,7 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
   // never steal it — only an explicit action or an own confirmation moves it.
   const [defaultSelection, setDefaultSelection] = useState<{ workId: string; outputId: string | null }>({ workId: "", outputId: null });
   const [layersOpen, setLayersOpen] = useState(false);
-  const [layersExitToken, setLayersExitToken] = useState(0);
+  const layersExitRef = useRef<(() => void) | null>(null);
   const [pendingSelection, setPendingSelection] = useState<string | null>(null);
   const [pendingCompare, setPendingCompare] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -98,7 +98,7 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
    * until flushAndRelease succeeds, so recent edits are never dropped. */
   const requestLayersExit = useCallback((thenSelect?: string) => {
     setPendingSelection(thenSelect ?? null);
-    setLayersExitToken((token) => token + 1);
+    layersExitRef.current?.();
   }, []);
 
   const closeLayers = useCallback((open: boolean) => {
@@ -303,7 +303,7 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
                 outputId={selected.id}
                 mode={isMobile ? "inspect" : "edit"}
                 presentation="inline"
-                exitRequestToken={layersExitToken}
+                exitRef={layersExitRef}
                 onOpenChange={closeLayers}
                 onPublished={composer.refreshOutputs}
               />

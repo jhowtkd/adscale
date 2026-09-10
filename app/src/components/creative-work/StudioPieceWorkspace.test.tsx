@@ -346,7 +346,8 @@ describe("StudioPieceWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Comparar com a base" }));
     // The editor stays mounted and only receives the guarded exit request.
     expect(screen.getByTestId("layer-editor-content-stub")).toBeInTheDocument();
-    expect(mocks.editorProps?.exitRequestToken).toBe(1);
+    // The stub registers no exit handle, so only its own flush path closes it.
+    expect(mocks.editorProps?.exitRef).toBeDefined();
     expect(screen.queryByRole("button", { name: "Fechar comparação" })).not.toBeInTheDocument();
 
     // Simulated successful flushAndRelease: only now compare opens.

@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { createRef } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicLayerEditorDocumentV1 } from "@/server/layer-editor/contracts";
 
@@ -304,29 +305,21 @@ describe("LayerEditorDialog", () => {
   it("routes external exit requests through the flushed close", async () => {
     const value = editor("edit");
     const onOpenChange = vi.fn();
+    const exitRef = createRef<(() => void) | null>();
     mocks.useLayerEditor.mockReturnValue(value);
-    const view = render(
+    render(
       <LayerEditorContent
         open
         workItemId="work-exit"
         outputId="output-exit"
         presentation="inline"
         onOpenChange={onOpenChange}
-        exitRequestToken={0}
+        exitRef={exitRef}
       />,
     );
 
     expect(value.flushAndRelease).not.toHaveBeenCalled();
-    view.rerender(
-      <LayerEditorContent
-        open
-        workItemId="work-exit"
-        outputId="output-exit"
-        presentation="inline"
-        onOpenChange={onOpenChange}
-        exitRequestToken={1}
-      />,
-    );
+    act(() => { exitRef.current?.(); });
 
     await waitFor(() => expect(value.flushAndRelease).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
@@ -335,29 +328,21 @@ describe("LayerEditorDialog", () => {
   it("keeps the editor mounted when the external exit flush fails", async () => {
     const value = editor("edit");
     const onOpenChange = vi.fn();
+    const exitRef = createRef<(() => void) | null>();
     value.flushAndRelease = vi.fn().mockResolvedValue(false);
     mocks.useLayerEditor.mockReturnValue(value);
-    const view = render(
+    render(
       <LayerEditorContent
         open
         workItemId="work-exit-fail"
         outputId="output-exit-fail"
         presentation="inline"
         onOpenChange={onOpenChange}
-        exitRequestToken={0}
+        exitRef={exitRef}
       />,
     );
 
-    view.rerender(
-      <LayerEditorContent
-        open
-        workItemId="work-exit-fail"
-        outputId="output-exit-fail"
-        presentation="inline"
-        onOpenChange={onOpenChange}
-        exitRequestToken={2}
-      />,
-    );
+    act(() => { exitRef.current?.(); });
 
     await waitFor(() => expect(value.flushAndRelease).toHaveBeenCalledTimes(1));
     expect(onOpenChange).not.toHaveBeenCalled();

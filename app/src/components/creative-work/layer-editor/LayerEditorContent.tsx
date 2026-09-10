@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type MutableRefObject } from "react";
 import { useTranslations } from "next-intl";
 import { Download, MoreHorizontal, Redo2, Undo2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,10 @@ type LayerEditorContentProps = {
   onPublished?: () => void | Promise<void>;
   /** "inline" renders the same single session embedded in the piece box. */
   presentation?: "dialog" | "inline";
-  /** Increment to request the guarded close (flushAndRelease) from outside;
-   * the editor only unmounts through onOpenChange(false) after the flush. */
-  exitRequestToken?: number;
+  /** Assigned the guarded close (flushAndRelease) so hosts can request an
+   * exit from event handlers; the editor only unmounts through
+   * onOpenChange(false) after the flush succeeds. */
+  exitRef?: MutableRefObject<(() => void) | null>;
 };
 
 function isEditableTarget(target: EventTarget | null) {
@@ -42,7 +43,7 @@ export function LayerEditorContent({
   onOpenChange,
   onPublished,
   presentation = "dialog",
-  exitRequestToken = 0,
+  exitRef,
 }: LayerEditorContentProps) {
   const editor = useLayerEditor({ workItemId, outputId, mode });
   const { canRedo, canUndo, mode: editorMode, redo, undo } = editor;
@@ -92,15 +93,11 @@ export function LayerEditorContent({
 
   // External exits (piece switch, compare, panel toggle) must take the same
   // flushed path as the header close button; a failed flush keeps the editor.
-  const lastExitTokenRef = useRef(exitRequestToken);
-  useEffect(() => {
-    if (exitRequestToken === lastExitTokenRef.current) return;
-    lastExitTokenRef.current = exitRequestToken;
-    if (!open || !exitRequestToken) return;
+  // Hosts invoke the handle from their own event handlers.
+  useImperativeHandle(exitRef, () => () => {
+    if (!open) return;
     void close();
-    // close() captures the current editor state; calling it once per token.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exitRequestToken]);
+  });
   const act = (fn: () => Promise<unknown>) => void fn().catch((reason) => setError(reason instanceof Error ? reason.message : t("editorSaveError")));
   const runExport = async (format: "draft-png" | "draft-psd") => {
     setExporting(true);
