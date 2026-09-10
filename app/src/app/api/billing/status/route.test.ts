@@ -22,16 +22,22 @@ vi.mock("@/server/repositories/workspace", () => ({
   getMemberRole: vi.fn(),
 }));
 
+vi.mock("@/server/billing/unlimited-access", () => ({
+  workspaceHasUnlimitedBillingAccess: vi.fn(() => Promise.resolve(false)),
+}));
+
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getWorkspaceBillingAccess } from "@/server/billing/access";
 import { getBillingCustomerByWorkspace } from "@/server/repositories/billing";
 import { getMemberRole } from "@/server/repositories/workspace";
+import { workspaceHasUnlimitedBillingAccess } from "@/server/billing/unlimited-access";
 import { GET } from "./route";
 
 const mockRequireWorkspaceAccess = vi.mocked(requireWorkspaceAccess);
 const mockGetWorkspaceBillingAccess = vi.mocked(getWorkspaceBillingAccess);
 const mockGetBillingCustomer = vi.mocked(getBillingCustomerByWorkspace);
 const mockGetMemberRole = vi.mocked(getMemberRole);
+const mockHasUnlimitedAccess = vi.mocked(workspaceHasUnlimitedBillingAccess);
 
 describe("billing status route", () => {
   beforeEach(() => {
@@ -357,5 +363,48 @@ describe("billing status route", () => {
 
     expect(response.status).toBe(200);
     expect(body.billing.access.trial).toBeNull();
+  });
+
+  it("exposes unlimited access from the canonical policy, never from labels or roles", async () => {
+    mockGetWorkspaceBillingAccess.mockResolvedValue({
+      kind: "tester",
+      label: "Tester",
+      creditBalance: 999999,
+      remainingAds: null,
+      hasSpendAccess: true,
+      subscriptionStatus: "active",
+      subscription: null,
+      latestSubscription: null,
+      betaEntitlement: null,
+    } as Awaited<ReturnType<typeof getWorkspaceBillingAccess>>);
+    mockHasUnlimitedAccess.mockResolvedValue(true);
+
+    const response = await GET(new Request("http://localhost/api/billing/status"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockHasUnlimitedAccess).toHaveBeenCalledWith("workspace-1");
+    expect(body.billing.access.unlimited).toBe(true);
+  });
+
+  it("reports unlimited false for regular paid workspaces", async () => {
+    mockGetWorkspaceBillingAccess.mockResolvedValue({
+      kind: "paid",
+      label: "Assinatura ativa",
+      creditBalance: 120,
+      remainingAds: 24,
+      hasSpendAccess: true,
+      subscriptionStatus: "active",
+      subscription: null,
+      latestSubscription: null,
+      betaEntitlement: null,
+    } as Awaited<ReturnType<typeof getWorkspaceBillingAccess>>);
+    mockHasUnlimitedAccess.mockResolvedValue(false);
+
+    const response = await GET(new Request("http://localhost/api/billing/status"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.billing.access.unlimited).toBe(false);
   });
 });
