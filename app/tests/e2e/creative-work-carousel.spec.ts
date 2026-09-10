@@ -477,21 +477,18 @@ test.describe("Studio Carousel controlled-provider gate", () => {
     const fixture = loadFixture();
     await login(page, fixture);
 
-    await page.goto("/", { waitUntil: "commit" });
+    await page.goto("/");
+    const carouselProtocol = page.getByRole("radio", { name:"Criar carrossel", exact:true });
+    await expect(carouselProtocol).toBeVisible({ timeout:30_000 });
+    await carouselProtocol.click();
+    // A changed, checked protocol is the hydration signal; do not repeatedly
+    // refill a controlled textarea while its initial state is still loading.
+    await expect(carouselProtocol).toBeChecked();
     const requestBox = page.locator("#creative-composer-request");
-    await expect(requestBox).toBeVisible({ timeout: 30_000 });
+    await expect(requestBox).toBeVisible({ timeout:30_000 });
     const objective = "Lançamento da turma de cerâmica de setembro com lista de espera.";
-    // Sem esperar o debounce do autosave: o clique imediato deve salvar o
-    // texto novo e planejar sobre a revisão canônica posterior.
-    await expect.poll(async () => {
-      await requestBox.fill(objective);
-      return requestBox.inputValue();
-    }, { timeout: 30_000 }).toBe(objective);
-    const carouselCard = page.getByRole("button", { name: /criar carrossel/i }).first();
-    await expect(carouselCard).toBeVisible({ timeout: 30_000 });
-    await carouselCard.click();
-    await expect.poll(async () => new URL(page.url()).searchParams.get("workId"), { timeout: 60_000 }).not.toBeNull();
-    const carouselWorkId = new URL(page.url()).searchParams.get("workId") as string;
+    await requestBox.fill(objective);
+    await expect(requestBox).toHaveValue(objective);
 
     // Falha controlada uma única vez: o erro fica visível e o pedido é conservado.
     await page.route("**/api/creative-work/*/carousel/plan", async (route) => {
@@ -502,8 +499,11 @@ test.describe("Studio Carousel controlled-provider gate", () => {
       });
     }, { times: 1 });
     await page.getByTestId("carousel-organize").click();
-    await expect(page.getByRole("alert")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole("alert").filter({ hasText:"Pedido inválido" })).toBeVisible({ timeout:60_000 });
     await expect(requestBox).toHaveValue(objective);
+    // Organize creates/flushes the real draft before the single injected 422.
+    await expect.poll(() => new URL(page.url()).searchParams.get("workId"), { timeout:60_000 }).not.toBeNull();
+    const carouselWorkId = new URL(page.url()).searchParams.get("workId")!;
     await page.unroute("**/api/creative-work/*/carousel/plan");
 
     // Edit AFTER the canonical work exists, then immediately organize. No
