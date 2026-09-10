@@ -60,6 +60,15 @@ npm run typecheck
 - Testes: `true` (terminal + userId + settled `generation_failed`), `false` (sem mark), replay (sem segunda tentativa após limpeza), histórico (`generation_timeout_refund_pending` segue `job_failure`, sem `userId`, settle `generation_timeout`).
 - 9 arquivos, 407 testes PASS; typecheck PASS; lint 0 erros.
 
+## Quarta rodada — P1 retry vs estorno suspenso
+
+- Marker canônico: `CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING` / settled `CREATIVE_WORK_GENERATION_FAILED`.
+- `retryCreativeWorkOutput` rejeita o marker EXATO (`terminal_refund_pending`) antes de ledger/reserva/dispatch; após liquidar para `generation_failed` volta elegível. Semântica histórica intacta.
+- CAS `claimCreativeWorkOutputManualRetryAttempt` e `requeueFailedCreativeWorkOutput`: gate null-safe (`failureCode IS NULL OR <> marker`).
+- Clear dedicada `clearCreativeWorkOutputGenerationFailedRefundPending(workspaceId, workItemId, outputId, expectedManualRetryAttempt, expectedRetryCount)` — equivalente ao clear R1: só `failed` + marker EXATO + ordinal (null incluso) + `retryCount`; SET `failureCode=generation_failed` + `updatedAt`. GET passa a tentativa/contador lidos. Recuperação antiga não apaga pendência nova; completed QA-fail nunca casa.
+- Job A intocado. Sem schema novo.
+- 9 arquivos, 414 testes PASS; typecheck PASS; lint 0 erros (5 warnings pré-existentes).
+
 Cobertura exigida:
 
 - CAS409 sem escrita/charge/dispatch: `review_conflict`/`stale_review` com `txSet` único e `settle` zerado.

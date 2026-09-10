@@ -95,6 +95,7 @@ const recordAggregateMock = vi.hoisted(() => vi.fn());
 const listPendingRefundsMock = vi.hoisted(() => vi.fn());
 const markOutputFailureCodeMock = vi.hoisted(() => vi.fn());
 const clearObjectiveQualityMarkerMock = vi.hoisted(() => vi.fn());
+const clearGenerationFailedMarkerMock = vi.hoisted(() => vi.fn());
 const refundCreditsMock = vi.hoisted(() => vi.fn());
 const resolveReactivationMock = vi.hoisted(() => vi.fn());
 const getUsageByIdempotencyKeyMock = vi.hoisted(() => vi.fn());
@@ -109,7 +110,11 @@ vi.mock("@/server/repositories/creative-work", () => ({
   markCreativeWorkOutputFailureCode: (...args: unknown[]) => markOutputFailureCodeMock(...args),
   clearCreativeWorkOutputObjectiveQualityRefundPending: (...args: unknown[]) =>
     clearObjectiveQualityMarkerMock(...args),
+  clearCreativeWorkOutputGenerationFailedRefundPending: (...args: unknown[]) =>
+    clearGenerationFailedMarkerMock(...args),
   CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING: "objective_quality_failed_refund_pending",
+  CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING:
+    "generation_failed_terminal_refund_pending",
   recordCreativeWorkGenerationAggregate: (...args: unknown[]) => recordAggregateMock(...args),
   refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
   updateCreativeWorkDraft: (...args: unknown[]) => updateDraftMock(...args),
@@ -2576,6 +2581,7 @@ describe("GET integrated technical-failure refund recovery", () => {
     listPendingRefundsMock.mockResolvedValue([]);
     markOutputFailureCodeMock.mockResolvedValue(null);
     clearObjectiveQualityMarkerMock.mockResolvedValue(null);
+    clearGenerationFailedMarkerMock.mockResolvedValue(null);
     refundHelperMock.mockResolvedValue(true);
     getUsageByIdempotencyKeyMock.mockResolvedValue(null);
     resolveReactivationMock.mockResolvedValue({ state: "none" });
@@ -2588,6 +2594,7 @@ describe("GET integrated technical-failure refund recovery", () => {
     status: "failed",
     failureCode: "generation_failed_terminal_refund_pending",
     manualRetryAttempt: null,
+    retryCount: 0,
   };
 
   async function getDetail() {
@@ -2612,12 +2619,14 @@ describe("GET integrated technical-failure refund recovery", () => {
       failurePhase: "terminal",
       userId: "user-1",
     });
-    expect(markOutputFailureCodeMock).toHaveBeenCalledWith(
+    expect(clearGenerationFailedMarkerMock).toHaveBeenCalledWith(
       "workspace-1",
       "work-1",
       "output-1",
-      "generation_failed",
+      null,
+      0,
     );
+    expect(markOutputFailureCodeMock).not.toHaveBeenCalled();
   });
 
   it("keeps the marker when the terminal refund fails so recovery can resume", async () => {
@@ -2629,6 +2638,7 @@ describe("GET integrated technical-failure refund recovery", () => {
 
     expect(res.status).toBe(200);
     expect(refundHelperMock).toHaveBeenCalledTimes(1);
+    expect(clearGenerationFailedMarkerMock).not.toHaveBeenCalled();
     expect(markOutputFailureCodeMock).not.toHaveBeenCalled();
   });
 
@@ -2638,17 +2648,20 @@ describe("GET integrated technical-failure refund recovery", () => {
 
     await expect(getDetail()).resolves.toHaveProperty("status", 200);
     expect(refundHelperMock).toHaveBeenCalledTimes(1);
-    expect(markOutputFailureCodeMock).toHaveBeenCalledWith(
+    expect(clearGenerationFailedMarkerMock).toHaveBeenCalledWith(
       "workspace-1",
       "work-1",
       "output-1",
-      "generation_failed",
+      null,
+      0,
     );
+    expect(markOutputFailureCodeMock).not.toHaveBeenCalled();
 
     listPendingRefundsMock.mockResolvedValue([]);
     await expect(getDetail()).resolves.toHaveProperty("status", 200);
     expect(refundHelperMock).toHaveBeenCalledTimes(1);
-    expect(markOutputFailureCodeMock).toHaveBeenCalledTimes(1);
+    expect(clearGenerationFailedMarkerMock).toHaveBeenCalledTimes(1);
+    expect(markOutputFailureCodeMock).not.toHaveBeenCalled();
   });
 
   it("keeps historic pending codes on their existing mappings", async () => {
@@ -2665,6 +2678,7 @@ describe("GET integrated technical-failure refund recovery", () => {
       failurePhase: "job_failure",
     }));
     expect(refundHelperMock.mock.calls[0][0]).not.toHaveProperty("userId");
+    expect(clearGenerationFailedMarkerMock).not.toHaveBeenCalled();
     expect(markOutputFailureCodeMock).toHaveBeenCalledWith(
       "workspace-1",
       "work-1",

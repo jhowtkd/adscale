@@ -161,6 +161,8 @@ import { creativeWorkOutputs } from "../db/schema";
 import { saveOutputReviewDraft } from "./creative-work-output-review";
 import {
   CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING,
+  CREATIVE_WORK_GENERATION_FAILED,
+  CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING,
   claimCreativeWorkOutputImageCall,
   claimCreativeWorkOutputManualRetryAttempt,
   releaseCreativeWorkOutputManualRetryAttempt,
@@ -209,6 +211,7 @@ import {
   withCreativeWorkPreparationLock,
   getCreativeWorkSourceAssetDetails,
   clearCreativeWorkOutputObjectiveQualityRefundPending,
+  clearCreativeWorkOutputGenerationFailedRefundPending,
   listCreativeWorkOutputsNeedingRefund,
 } from "./creative-work";
 import type {
@@ -1745,6 +1748,40 @@ describe("creative-work repository", () => {
       expect(query.params).toContain(1);
     });
 
+    it("refuses to requeue while the exact terminal refund marker is pending", async () => {
+      mocks.state.updateResults.push([]);
+      await expect(requeueFailedCreativeWorkOutput(
+        "ws-1", "work-1", "output-1", 0, null,
+      )).resolves.toBeNull();
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql.toLowerCase()).toContain("is null");
+      expect(query.params).toEqual(expect.arrayContaining([
+        "ws-1",
+        "work-1",
+        "output-1",
+        "failed",
+        0,
+        CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING,
+      ]));
+    });
+
+    it("refuses to reserve a manual ordinal while the exact terminal refund marker is pending", async () => {
+      mocks.state.updateResults.push([]);
+      await expect(claimCreativeWorkOutputManualRetryAttempt(
+        "ws-1", "work-1", "output-1", 0, null, 1,
+      )).resolves.toBeNull();
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql.toLowerCase()).toContain("is null");
+      expect(query.params).toEqual(expect.arrayContaining([
+        "ws-1",
+        "work-1",
+        "output-1",
+        "failed",
+        0,
+        CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING,
+      ]));
+    });
+
     it("links only a same-workspace campaign with a compatible client profile", async () => {
       const work = workItem();
       const linked = workItem({ campaignId: "campaign-1" });
@@ -3104,6 +3141,78 @@ describe("creative-work repository", () => {
         "pieces/other.png",
       );
       expect(result).toBeNull();
+    });
+  });
+
+  describe("clearCreativeWorkOutputGenerationFailedRefundPending", () => {
+    it("normalizes the matching pending identity to generation_failed", async () => {
+      const cleared = workOutput({
+        status: "failed",
+        failureCode: CREATIVE_WORK_GENERATION_FAILED,
+        retryCount: 1,
+        manualRetryAttempt: 2,
+      });
+      mocks.state.updateResults.push([cleared]);
+      const result = await clearCreativeWorkOutputGenerationFailedRefundPending(
+        "ws-1",
+        "work-1",
+        "output-1",
+        2,
+        1,
+      );
+      expect(result?.failureCode).toBe(CREATIVE_WORK_GENERATION_FAILED);
+      expect(mocks.setMock).toHaveBeenCalledWith(
+        expect.objectContaining({ failureCode: CREATIVE_WORK_GENERATION_FAILED }),
+      );
+      const patch = mocks.setMock.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+      expect(Object.keys(patch).sort()).toEqual(["failureCode", "updatedAt"]);
+      expect(serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]).params).toEqual(
+        expect.arrayContaining([
+          "ws-1",
+          "work-1",
+          "output-1",
+          "failed",
+          CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING,
+          2,
+          1,
+        ]),
+      );
+    });
+
+    it("does not let a stale recovery erase a newer pending identity", async () => {
+      mocks.state.updateResults.push([]);
+      await expect(clearCreativeWorkOutputGenerationFailedRefundPending(
+        "ws-1",
+        "work-1",
+        "output-1",
+        null,
+        0,
+      )).resolves.toBeNull();
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql.toLowerCase()).toContain("is null");
+      expect(query.params).toEqual(expect.arrayContaining([
+        "ws-1",
+        "work-1",
+        "output-1",
+        "failed",
+        CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING,
+        0,
+      ]));
+    });
+
+    it("never matches a completed QA-fail row", async () => {
+      mocks.state.updateResults.push([]);
+      await expect(clearCreativeWorkOutputGenerationFailedRefundPending(
+        "ws-1",
+        "work-1",
+        "output-1",
+        null,
+        0,
+      )).resolves.toBeNull();
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.params).toContain("failed");
+      expect(query.params).not.toContain("completed");
+      expect(query.params).not.toContain(CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING);
     });
   });
 });

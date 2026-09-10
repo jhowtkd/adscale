@@ -59,6 +59,7 @@ import {
   socialPostCopySchema,
 } from "@/server/creative-work/contracts";
 import {
+  CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING,
   CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING,
   failStaleQueuedCreativeWorkOutputs,
   failStaleProcessingCreativeWorkOutputs,
@@ -69,6 +70,7 @@ import {
   linkCreativeWorkCampaign,
   listCreativeWorkOutputsNeedingRefund,
   markCreativeWorkOutputFailureCode,
+  clearCreativeWorkOutputGenerationFailedRefundPending,
   clearCreativeWorkOutputObjectiveQualityRefundPending,
   recordCreativeWorkGenerationAggregate,
   refreshCreativeWorkStatus,
@@ -403,10 +405,11 @@ export async function GET(
           // winning failed CAS before refunding): terminal phase reuses the
           // SAME terminal-refund ledger key as the job, never a second
           // compensatory-refund key. The authenticated actor keeps the ledger
-          // auditable; the marker clears only after a confirmed refund, with
-          // the settled code coherent with the job.
+          // auditable; the dedicated clear below only normalizes the exact
+          // observed state (marker + ordinal + counter) after a confirmed
+          // refund, so a stale recovery never erases a newer pending state.
           const isGenerationFailedTerminalPending =
-            output.failureCode === "generation_failed_terminal_refund_pending";
+            output.failureCode === CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING;
           const refunded = await refundCreativeWorkOutputCompensatory({
             workspaceId: workspace.id,
             workItemId: id,
@@ -423,14 +426,22 @@ export async function GET(
             ...(isGenerationFailedTerminalPending ? { userId: user.id } : {}),
           });
           if (refunded) {
-            const settledCode = isGenerationFailedTerminalPending
-              ? "generation_failed"
-              : (output.failureCode === "exact_asset_preflight_failed_reactivation_refund_pending"
-                ? "exact_asset_preflight_failed"
-                : output.failureCode ?? "generation_timeout").replace(
-                /_refund_pending$/,
-                "",
+            if (isGenerationFailedTerminalPending) {
+              await clearCreativeWorkOutputGenerationFailedRefundPending(
+                workspace.id,
+                id,
+                output.id,
+                output.manualRetryAttempt,
+                output.retryCount,
               );
+              return;
+            }
+            const settledCode = (output.failureCode === "exact_asset_preflight_failed_reactivation_refund_pending"
+              ? "exact_asset_preflight_failed"
+              : output.failureCode ?? "generation_timeout").replace(
+              /_refund_pending$/,
+              "",
+            );
             await markCreativeWorkOutputFailureCode(
               workspace.id,
               id,
