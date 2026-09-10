@@ -41,6 +41,7 @@ export function resolveCreativeWorkProtocol(input: {
   targetFormats: readonly CreativeWorkFormat[];
   /** True when resolving a revision output linked to a completed parent. */
   revision?: boolean;
+  revisionAction?: "refine" | "variation" | "format";
 }): CreativeWorkProtocolResolution {
   if (input.toolKind === "carousel") {
     // Carousel never enters the output protocol: its slides are generated
@@ -49,7 +50,7 @@ export function resolveCreativeWorkProtocol(input: {
   }
   if (input.revision) {
     return {
-      mode: "creative_revision",
+      mode: input.revisionAction === "format" ? "format_adaptation" : "creative_revision",
       execution: "direct",
       plans: [{ creativeLevel: "balanced", targetFormat: input.format, versionNumber: 1 }],
     };

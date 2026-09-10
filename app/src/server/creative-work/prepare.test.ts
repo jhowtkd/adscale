@@ -2,10 +2,23 @@ import { describe, expect, it } from "vitest";
 import {
   deriveCreativeWorkTitle,
   inferCreativeWorkFormat,
+  formatFromDimensions,
   buildInferredBriefing,
   inferSocialPostBrief,
 } from "./prepare";
 import { quoteCreativeWork } from "./contracts";
+
+describe("formatFromDimensions", () => {
+  it.each([
+    [1080, 1080, "1:1"], [1080, 1350, "4:5"], [1080, 1920, "9:16"],
+    [1024, 1280, "4:5"], [1079, 1350, "4:5"],
+    [0, 1350, null], [-1, 1350, null], [1080, 0, null],
+    [null, 1350, null], [1080, null, null], [NaN, 1350, null],
+    [1080, Infinity, null], [1920, 1080, null], [1000, 1350, null],
+  ])("maps %s by %s to %s without guessing unsupported ratios", (width, height, expected) => {
+    expect(formatFromDimensions(width, height)).toBe(expected);
+  });
+});
 
 describe("deriveCreativeWorkTitle", () => {
   it("uses the first meaningful sentence without terminal punctuation", () => {
@@ -23,6 +36,19 @@ describe("deriveCreativeWorkTitle", () => {
 });
 
 describe("inferCreativeWorkFormat", () => {
+  it("prefers the content geometry over generic request and analysis words", () => {
+    expect(inferCreativeWorkFormat([{ format: "vertical" }], "Peça vertical", "4:5")).toBe("4:5");
+  });
+
+  it("lets one explicit numeric target override the content geometry", () => {
+    expect(inferCreativeWorkFormat([{ format: "vertical" }], "Quero 9 : 16, formato 9:16", "4:5")).toBe("9:16");
+  });
+
+  it("does not choose arbitrarily between two requested ratios", () => {
+    expect(inferCreativeWorkFormat([{ format: "vertical" }], "Base 4:5 ou 9:16", "4:5")).toBe("4:5");
+    expect(inferCreativeWorkFormat([], "4:5 ou 9:16")).toBeNull();
+  });
+
   it.each([
     ["quadrado 1:1", "1:1"],
     ["story vertical 9:16", "9:16"],

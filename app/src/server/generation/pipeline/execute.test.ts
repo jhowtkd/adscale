@@ -129,6 +129,20 @@ describe("executeCanonicalGeneration parity", () => {
     });
   });
 
+  it("passes explicit high without enabling candidate planning", async () => {
+    const request = baseRequest({
+      surface: "quick_tool", executionPolicy: "direct",
+      intent: { mode: "social_post", objective: "Leads" },
+      destination: { kind: "creative_work_output", id: "output-1", storagePrefix: "creative-work/output-1", workItemId: "work-1" },
+    });
+    await executeCanonicalGeneration(request, { quality: "high", callBudget: { remaining: 1 } });
+    expect(mockGenerate).toHaveBeenCalledWith(expect.objectContaining({
+      quality: "high", executionPolicy: "direct", callBudget: { remaining: 1 },
+    }));
+    expect(mockPlanRoutes).not.toHaveBeenCalled();
+    expect(mockSelectCandidate).not.toHaveBeenCalled();
+  });
+
   it("campaign and Criar Post share the same provider path", async () => {
     const campaignReq = baseRequest({
       surface: "campaign",
