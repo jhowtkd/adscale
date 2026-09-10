@@ -157,6 +157,7 @@ export default function BillingTab() {
   const isCanceled = subscriptionStatus === "canceled";
   const hasPaidPlan = isActive || isPaidSubscriptionTrial;
   const isBeta = access?.kind === "beta";
+  const unlimited = access?.unlimited === true;
   const hasSpendAccess = access?.hasSpendAccess ?? (hasPaidPlan || isBeta);
   const grants = creditHistory?.grants ?? [];
   const renewalDate = formatBillingDate(subscription?.currentPeriodEnd, locale);
@@ -367,9 +368,11 @@ export default function BillingTab() {
             <Line
               label={isBeta ? t("financial.adsRemaining") : t("financial.generationBalance")}
               value={
-                isBeta
-                  ? `${access?.remainingAds ?? 0}`
-                  : `${billingStatus?.creditBalance ?? 0}`
+                unlimited
+                  ? t("financial.unlimited")
+                  : isBeta
+                    ? `${access?.remainingAds ?? 0}`
+                    : `${billingStatus?.creditBalance ?? 0}`
               }
             />
             {(hasPaidPlan || isPastDue || isCanceled) && (

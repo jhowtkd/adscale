@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   createE2EControlledScore,
   E2EControlledImageProvider,
@@ -91,6 +94,27 @@ describe("E2E controlled provider", () => {
     expect(candidate.buffer.subarray(1, 4).toString()).toBe("PNG");
     expect(candidate.providerMeta.model).toBe("e2e-controlled-image");
     expect(candidate.providerMeta.rawRequestId).toBe("e2e:uat/work/output:attempt-0");
+  });
+
+  it("records the requested quality in isolated evidence", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "adscale-quality-"));
+    const path = join(dir, "calls.jsonl");
+    vi.stubEnv("E2E_PROVIDER_EVIDENCE_PATH", path);
+    try {
+      await E2EControlledImageProvider.forUnitTests().generate({
+        prompt: "UAT",
+        dimensions: { width: 1024, height: 1024 },
+        referenceImages: [],
+        generationMode: "art_variation",
+        outputPrefix: "uat/quality/output",
+        quality: "high",
+      });
+      const entry = JSON.parse(readFileSync(path, "utf8").trim().split("\n").at(-1)!);
+      expect(entry).toMatchObject({ quality: "high", generationMode: "art_variation" });
+    } finally {
+      vi.unstubAllEnvs();
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("rejects the dedicated unit fixture outside NODE_ENV=test", () => {

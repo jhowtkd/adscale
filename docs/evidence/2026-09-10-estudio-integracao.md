@@ -48,10 +48,9 @@ npm test -- src/server/creative-work/contracts.test.ts src/server/creative-work/
 
 Resultado: **3 arquivos, 64 testes passaram**. Aviso Node DEP0205, sem falhas. `git diff --cached --check` passou para o bundle. Esses checks são de baseline local, não testam o conjunto em desenvolvimento, browser autenticado, migrations, providers pagos ou produção.
 
-## Pendências objetivas
+## Pendências objetivas (atualizadas após integração de B)
 
-- B/C incorporar BASE_COMUM preservando o trabalho atual.
-- Revisar candidato B1 e suas evidências; retornar achados ao autor; distribuir somente SHA aceito.
+- BASE_COMUM incorporada por A/B/C/D; B1/B2/R1 revisados e integrados em61720be8, liberados a A/C.
 - Entregar e revisar R1 entre B/D/A/C antes de fechar o caso QA fail.
 - Receber as quatro entregas, integrar SHAs fixos, verificar seams e executar QA controlado com D.
 - Comparação Cenbrap real, aceite visual da aplicação e publicação permanecem posteriores e separados.
@@ -119,3 +118,33 @@ Revisão estática dos SHAs fixos a986aa8a,1b5be14d,3f88c3c0; não avalia WIP po
 Extração LayerEditorContent de1b5be14d aprovada parcialmente; não inicia geração paga no mount. Popover sem achado bloqueante em leitura, mas browserQA ainda pendente. C deve preservar o layout contido e continuar sua tarefa original após corrigir esses pontos.
 
 Helper R1 aprovado foi isolado pelo coordenador em `a822f2f3` via cherry-pick -x de167ab700 (dois arquivos de D, autoria/origem preservadas), para A/B receberem o mesmo SHA real sem antecipar as correções financeiras pendentes.
+
+## Contratos B liberados — 61720be8
+
+B corrigiu os resíduos em157a698667ea4d95158f9a70c465b5c1efecd6ca. Revisão independente sem bloqueadores; coordenador confirmou398 testes em8 arquivos, typecheck e diff check. ESLint:0 erros/7 warnings (destructures do carrossel e tipos não usados em settlement). Merge preservando ancestry em61720be860234617dda998a9fb0476bac1c42698. Esse SHA fixo foi enviado a A/C, sem financeiro D ainda em revisão. Inclui0095_output_review; migration só será executada no banco sintético isolado.
+
+## Segunda devolutiva financeira D
+
+690d2512/922489e7: coordenador confirmou37 testes em3 arquivos, typecheck e lint. Datas inválidas/timezone corrigidos; restam dois caminhos de idempotência, enviados ao autor via OpenCode:
+
+- credits.ts:206–211: commit concorrente antes de canSpend pode devolver blocked antes dos locks. Reconsultar workspace/chave antes desse retorno e testar intercalação com saldo exato.
+- recordUsage:328–332 e refundCredits:490–494: DrizzleQueryError expõe SQLSTATE em cause.code. Usar extração mínima compartilhada, confirmar a operação fora da transação abortada, relançar23505 sem a usage esperada. Teste com wrapper real, não somente code na raiz.
+
+## Segunda devolutiva C — workspace e revisão persistida
+
+Revisão independente de bfd0db72, enviada a C via ZCode:
+
+1. P1: fechar Camadas/abrir Comparar desmonta o editor sem flushAndRelease e perde edição em debounce. Toda saída deve salvar antes; falha preserva editor aberto.
+2. P1: retry legado chama geração sem plano/custo e cria UUID por clique, sem proteção isRevising. Retomar fluxo confirmado com identidade estável.
+3. P2: seleção null segue cada novo output via polling. Fixar seleção inicial por trabalho e testar rerender.
+4. P2: filho queued exibe ancestral mas canvas grava pinos no filho não concluído. Exibir base somente leitura enquanto pendente.
+5. P2: outputs=[] chama hook com selected indefinido antes do guard. Proteger sessão e testar vazio sem mock que oculte crash.
+
+C entregou b149b5eb para os quatro achados anteriores. Corrigidos first mount/reload, flush que rejeita X quandoY não salvo e geometria. Ainda corrigir:
+
+- P1 useOutputReview.ts:140: a operação captura outputId mas lê expectedReviewRevision do lastSavedRef global quando executa. A1 em voo+A2 enfileirada+troca paraB faz A2 usar CAS deB. Debounce197–199 também lê draft deB na troca antes de disparar. Capturar sessão desde agendamento, conservar CAS por sessão e impedir callbacks antigos de alterar erro/status atual. Testar duas operações enfileiradas e troca antes do debounce.
+- P2 useOutputReview.ts:343: refetch limpo do mesmo output hidrata texto mas não lastSavedRef/revisão. Hidratar ambos; testar rerender com reviewDraft mais recente, depois review e próxima edição.
+
+## Ambiente de QA local
+
+Docker iniciado localmente. O container antigo adscale-test-postgres estava parado e foi preservado. Criado container exclusivo adscale-estudio-qa-20260910 (label desta tarefa), imagem postgres:16-alpine já instalada, bind127.0.0.1:5434, banco adscale_estudio_qa com credenciais sintéticas test/test. pg_isready confirmou pronto. Ainda não constitui prova de migration, concorrência, browser ou qualidade visual.
