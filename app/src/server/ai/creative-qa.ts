@@ -8,6 +8,7 @@ import { isE2EControlledProviderEnabled } from "./providers/e2e-controlled-provi
 import type { GenerationMode } from "@/server/generation/canonical/types";
 import type {
   CreativeWorkFactPack,
+  CreativeWorkIdentitySnapshot,
   SocialPostCopy,
 } from "@/server/creative-work/contracts";
 import type { CreativeWorkReferenceRole } from "@/server/creative-work/reference-plan";
@@ -553,6 +554,8 @@ export interface AnalyzeCreativeWorkQaInput {
   /** Fact pack frozen at prepare time (R-002); null only on anomalous snapshots. */
   factPack: CreativeWorkFactPack | null;
   brandName: string | null;
+  brandKit?: Pick<CreativeWorkIdentitySnapshot["brandKit"], "colors" | "fonts" | "requiredElements" | "prohibitedElements">;
+  revisionInstruction?: string | null;
   /** References actually attached to the generation call, in provider order. */
   references: readonly AnalyzeCreativeWorkQaReference[];
   locale: string;
@@ -637,6 +640,12 @@ function factPackSection(input: CreativeWorkQaPromptInput): string {
 }
 
 export function buildCreativeWorkQaPrompt(input: CreativeWorkQaPromptInput): string {
+  const visualIdentity = input.brandKit
+    ? `IDENTIDADE VISUAL DECLARADA: ${JSON.stringify(input.brandKit)}\nCores e nomes de fontes orientam a leitura. Não declare verificação exata de arquivo de fonte por visão; gosto e pequenas variações de estilo não são falha factual.`
+    : "";
+  const requestedRevision = input.revisionInstruction
+    ? `ALTERAÇÃO SOLICITADA SOBRE A BASE: ${input.revisionInstruction}`
+    : "";
   const referenceLines =
     input.references.length > 0
       ? input.references.map(
@@ -676,7 +685,7 @@ ${factPackSection(input)}
 - A reference marked optional is guidance only. In social_post, optional style and brand_identity references are never mandatory. Optional piece_visual references are also never mandatory; they may transfer visual language only and must never supply facts, copy, brands or logos.
 - Use ignored_mandatory_reference only when a reference explicitly marked required is visibly omitted, or when the mode policy says a required original/content/style authority was not preserved.
 
-${creativeWorkQaModePolicy(input.mode)}
+${creativeWorkQaModePolicy(input.mode)}${visualIdentity ? `\n\n${visualIdentity}` : ""}${requestedRevision ? `\n\n${requestedRevision}` : ""}
 
 ## REFERENCES ATTACHED TO THE GENERATION CALL
 ${referenceLines.join("\n")}
