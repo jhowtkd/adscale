@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   creativeWorkKey,
@@ -13,6 +13,8 @@ import {
   type CreativeWorkDetail,
 } from "@/lib/hooks/use-creative-work";
 import type { PreparedPlanProjectionV1 } from "@/server/creative-work/prepared-plan";
+import type { ComposerRevisionWriter } from "./composer-revision";
+import { isCreativeWorkConflict } from "./composer-state";
 import {
   carouselLayoutFamilyForRole,
   validateCarouselDeckStructure,
@@ -36,6 +38,13 @@ export type CarouselSlideRevisionInput =
 
 export type CarouselComposerInput = {
   workId: string;
+  workIdRef: RefObject<string | null>;
+  draftEpochRef: RefObject<number>;
+  flushAutosave: () => Promise<string | null>;
+  resolveCanonicalWorkRevision: (workId: string) => Promise<string | null>;
+  setCanonicalWorkRevision: ComposerRevisionWriter;
+  blockStaleRevision: (workId: string) => void;
+  setError: (error: string | null) => void;
   preparedPlan: PreparedPlanProjectionV1 | null;
   preparePlan: () => Promise<PreparedPlanProjectionV1 | null>;
   confirmGeneration: (preparedRevision?: string) => Promise<void>;
@@ -62,6 +71,13 @@ function renumbered(slides: CarouselSlidePlanV1[]): CarouselSlidePlanV1[] {
  */
 export function useCarouselComposer({
   workId,
+  workIdRef,
+  draftEpochRef,
+  flushAutosave,
+  resolveCanonicalWorkRevision,
+  setCanonicalWorkRevision,
+  blockStaleRevision,
+  setError,
   preparedPlan,
   preparePlan,
   confirmGeneration,
@@ -75,14 +91,16 @@ export function useCarouselComposer({
   const exportMutation = useExportCarouselDeck();
   const draftSaveMutation = useAutosaveCreativeWork();
 
-  // The only React state: which slide is open, whether a generation
+  // The only React state: which slide is open, whether a plan or generation
   // confirmation is in flight, and which works already fired their one-shot
   // canonical events. Everything else is derived from persisted data.
   const [selectedSlideId, setSelectedSlideId] = useState<string | null>(null);
   const [generationPending, setGenerationPending] = useState(false);
+  const [planningPending, setPlanningPending] = useState(false);
   const [approvedRecordedFor, setApprovedRecordedFor] = useState<string | null>(null);
   const reviewRecordedRef = useRef<string | null>(null);
   const reviseInFlightRef = useRef(false);
+  const planInFlightRef = useRef(false);
 
   const detail = detailQuery.data ?? null;
   const work = detail?.work ?? null;
@@ -114,7 +132,8 @@ export function useCarouselComposer({
   );
 
   const isBusy =
-    planMutation.isPending
+    planningPending
+    || planMutation.isPending
     || reviseSlideMutation.isPending
     || approveMutation.isPending
     || exportMutation.isPending
@@ -140,23 +159,53 @@ export function useCarouselComposer({
   }, []);
 
   const postPlan = useCallback(async (answers: Record<string, string>) => {
-    if (!workId || planMutation.isPending) return;
+    if (planInFlightRef.current || planMutation.isPending) return;
+    planInFlightRef.current = true;
+    setPlanningPending(true);
+    setError(null);
+    const epoch = draftEpochRef.current;
+    let planningWorkId = workIdRef.current;
+    const isCurrent = () => draftEpochRef.current === epoch
+      && (planningWorkId === null || workIdRef.current === planningWorkId);
     try {
-      // Flush the generic draft first: the plan command CAS-checks
-      // `work.updatedAt`, so a pending generic autosave must land before the
-      // editorial planner reads the work.
-      const reconciled = await detailQuery.refetch();
-      const current = reconciled.data?.work;
-      if (!current) return;
-      await planMutation.mutateAsync({
-        workItemId: workId,
-        expectedUpdatedAt: new Date(current.updatedAt).toISOString(),
+      // The flush creates a missing draft and persists the latest request,
+      // even when Organizar conteúdo is clicked before the debounce fires.
+      const id = await flushAutosave();
+      if (draftEpochRef.current !== epoch) return;
+      if (!id) {
+        if (isCurrent()) setError("Não foi possível salvar o pedido. Tente organizar o conteúdo novamente.");
+        return;
+      }
+      planningWorkId = id;
+      if (!isCurrent()) return;
+      const expectedUpdatedAt = await resolveCanonicalWorkRevision(id);
+      if (!isCurrent()) return;
+      if (!expectedUpdatedAt) {
+        setError("Não foi possível atualizar o rascunho. Tente organizar o conteúdo novamente.");
+        return;
+      }
+      const result = await planMutation.mutateAsync({
+        workItemId: id,
+        expectedUpdatedAt,
         answers,
       });
-    } catch {
-      // Cache invalidation already reconciled; the wizard re-derives.
+      if (isCurrent()) setCanonicalWorkRevision(id, result.work.updatedAt);
+    } catch (cause) {
+      if (isCurrent() && planningWorkId && isCreativeWorkConflict(cause)) {
+        blockStaleRevision(planningWorkId);
+        try {
+          const refreshed = await detailQuery.refetch();
+          if (isCurrent() && refreshed.data?.work.id === planningWorkId) {
+            setCanonicalWorkRevision(planningWorkId, refreshed.data.work.updatedAt);
+          }
+        } catch { /* The next explicit attempt must refresh the blocked revision. */ }
+      }
+      if (isCurrent()) setError(cause instanceof Error ? cause.message : "Não foi possível organizar o conteúdo. Tente novamente.");
+    } finally {
+      planInFlightRef.current = false;
+      setPlanningPending(false);
     }
-  }, [detailQuery, planMutation, workId]);
+  }, [blockStaleRevision, detailQuery, draftEpochRef, flushAutosave, planMutation, resolveCanonicalWorkRevision, setCanonicalWorkRevision, setError, workIdRef]);
 
   const askForPlan = useCallback(
     (answers: Record<string, string> = {}) => postPlan(answers),

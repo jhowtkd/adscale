@@ -258,6 +258,8 @@ export type CreativeWorkInputSnapshot = {
    * switch existed; those behave as "legacy".
    */
   generationPolicyVersion?: CreativeWorkGenerationPolicyVersion;
+  /** New Single Piece rendering, inherited by children; absent means historical policy. */
+  renderPolicy?: "integrated_v1";
   /**
    * Fact pack frozen at prepare time (R-002). Absent on snapshots written
    * before the fact pack existed; those stay readable and are rebuilt.

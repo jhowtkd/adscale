@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DrizzleQueryError } from "drizzle-orm/errors";
 
 vi.mock("@/server/billing/access", () => ({
   getWorkspaceBillingAccess: vi.fn(),
@@ -223,11 +224,13 @@ describe("credit entitlement service", () => {
       workspaceId: "workspace-1",
       action: "image_derivation",
       idempotencyKey: "derivation:123",
+      userId: "user-1",
     });
 
     expect(result).toEqual({ status: "duplicate", usage: existingUsage });
     expect(mockUpdateCreditGrantRemaining).not.toHaveBeenCalled();
     expect(mockTrackUsage).not.toHaveBeenCalled();
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
   });
 
   it("debits grants and records usage with metadata", async () => {
@@ -263,6 +266,72 @@ describe("credit entitlement service", () => {
       expect.anything()
     );
     expect(result.status).toBe("recorded");
+  });
+
+  it("propagates ledger failure inside the financial transaction", async () => {
+    mockTrackUsage.mockResolvedValue({
+      id: "usage-1",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: 50,
+      idempotencyKey: "ledger-failure",
+      metadata: null,
+      createdAt: new Date(),
+    });
+    mockCreateCreditTransaction.mockRejectedValueOnce(new Error("ledger unavailable"));
+
+    await expect(
+      recordUsage({
+        workspaceId: "workspace-1",
+        userId: "user-1",
+        action: "image_derivation",
+        idempotencyKey: "ledger-failure",
+      })
+    ).rejects.toThrow("ledger unavailable");
+
+    const transactionExecutor = mockTrackUsage.mock.calls[0][5];
+    expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: "workspace-1", type: "usage" }),
+      transactionExecutor
+    );
+  });
+
+  it("shares one transaction executor across grant debit, usage, and ledger", async () => {
+    mockTrackUsage.mockResolvedValue({
+      id: "usage-1",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: 50,
+      idempotencyKey: "derivation:123",
+      metadata: null,
+      createdAt: new Date(),
+    });
+    mockCreateCreditTransaction.mockResolvedValue({ id: "tx-1" });
+
+    const result = await recordUsage({
+      workspaceId: "workspace-1",
+      userId: "user-1",
+      action: "image_derivation",
+      idempotencyKey: "derivation:123",
+    });
+
+    expect(result.status).toBe("recorded");
+    const transactionExecutor = mockTrackUsage.mock.calls[0][5];
+    expect(transactionExecutor).toBeDefined();
+    expect(mockUpdateCreditGrantRemaining).toHaveBeenCalledWith(
+      "grant-1",
+      expect.any(Number),
+      transactionExecutor
+    );
+    expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        workspaceId: "workspace-1",
+        amount: -50,
+        type: "usage",
+      }),
+      transactionExecutor
+    );
   });
 
   it("emits credit_spend on successful recordUsage when userId is provided", async () => {
@@ -398,6 +467,175 @@ describe("credit entitlement service", () => {
 
     expect(result.status).toBe("recorded");
   });
+
+  it("returns duplicate when a concurrent operation settles on an exact balance", async () => {
+    // Exact balance for a single operation: a concurrent commit between the
+    // first checks and the grant locks must not surface as insufficient
+    // credits for an already-charged operation.
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 50)]);
+    const racedUsage = {
+      id: "usage-raced",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: 50,
+      idempotencyKey: "derivation:race",
+      metadata: null,
+      createdAt: new Date(),
+    };
+    mockGetUsageByIdempotencyKey.mockReset();
+    mockGetUsageByIdempotencyKey
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValue(racedUsage as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>);
+
+    const result = await recordUsage({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "derivation:race",
+      userId: "user-1",
+    });
+
+    expect(result).toEqual({ status: "duplicate", usage: racedUsage });
+    expect(mockUpdateCreditGrantRemaining).not.toHaveBeenCalled();
+    expect(mockTrackUsage).not.toHaveBeenCalled();
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
+
+  it("returns duplicate when a concurrent insert wins the idempotency race", async () => {
+    mockTrackUsage.mockRejectedValueOnce(Object.assign(new Error("duplicate key"), { code: "23505" }));
+    const racedUsage = {
+      id: "usage-raced",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: 50,
+      idempotencyKey: "derivation:race-insert",
+      metadata: null,
+      createdAt: new Date(),
+    };
+    mockGetUsageByIdempotencyKey.mockReset();
+    mockGetUsageByIdempotencyKey
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValue(racedUsage as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>);
+
+    const result = await recordUsage({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "derivation:race-insert",
+      userId: "user-1",
+    });
+
+    expect(result).toEqual({ status: "duplicate", usage: racedUsage });
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
+
+  it("rethrows transaction conflicts that have no matching usage for the workspace key", async () => {
+    mockTrackUsage.mockRejectedValueOnce(Object.assign(new Error("duplicate key"), { code: "23505" }));
+    mockGetUsageByIdempotencyKey.mockReset();
+    mockGetUsageByIdempotencyKey.mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>
+    );
+
+    await expect(
+      recordUsage({
+        workspaceId: "workspace-1",
+        action: "image_derivation",
+        idempotencyKey: "derivation:race-unknown",
+        userId: "user-1",
+      })
+    ).rejects.toMatchObject({ code: "23505" });
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
+
+  it("returns duplicate when the winner charges before a blocked spend check", async () => {
+    // Interleaving: pre-check sees nothing, the concurrent winner charges the
+    // exact balance, then canSpend reads zero. The blocked return must not
+    // hide the already-charged operation.
+    mockGetAvailableCreditGrants.mockResolvedValue([grant("grant-1", 0)]);
+    const racedUsage = {
+      id: "usage-raced",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: 50,
+      idempotencyKey: "derivation:race-blocked",
+      metadata: null,
+      createdAt: new Date(),
+    };
+    mockGetUsageByIdempotencyKey.mockReset();
+    mockGetUsageByIdempotencyKey
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValue(racedUsage as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>);
+
+    const result = await recordUsage({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "derivation:race-blocked",
+      userId: "user-1",
+    });
+
+    expect(result).toEqual({ status: "duplicate", usage: racedUsage });
+    expect(mockTrackUsage).not.toHaveBeenCalled();
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
+
+  it("confirms replays through the real DrizzleQueryError cause chain", async () => {
+    mockTrackUsage.mockRejectedValueOnce(
+      new DrizzleQueryError(
+        'insert into "adscale_app"."usage_events"',
+        [],
+        Object.assign(new Error('duplicate key value violates unique constraint'), { code: "23505" })
+      )
+    );
+    const racedUsage = {
+      id: "usage-raced",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: 50,
+      idempotencyKey: "derivation:race-driver",
+      metadata: null,
+      createdAt: new Date(),
+    };
+    mockGetUsageByIdempotencyKey.mockReset();
+    mockGetUsageByIdempotencyKey
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValue(racedUsage as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>);
+
+    const result = await recordUsage({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "derivation:race-driver",
+      userId: "user-1",
+    });
+
+    expect(result).toEqual({ status: "duplicate", usage: racedUsage });
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
+
+  it("rethrows driver-level conflicts with no matching workspace operation", async () => {
+    const driverError = new DrizzleQueryError(
+      'insert into "adscale_app"."usage_events"',
+      [],
+      Object.assign(new Error('duplicate key value violates unique constraint'), { code: "23505" })
+    );
+    mockTrackUsage.mockRejectedValueOnce(driverError);
+    mockGetUsageByIdempotencyKey.mockReset();
+    mockGetUsageByIdempotencyKey.mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>
+    );
+
+    await expect(
+      recordUsage({
+        workspaceId: "workspace-1",
+        action: "image_derivation",
+        idempotencyKey: "derivation:race-driver-unknown",
+        userId: "user-1",
+      })
+    ).rejects.toBe(driverError);
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
 });
 
 describe("refundCredits", () => {
@@ -469,7 +707,8 @@ describe("refundCredits", () => {
         type: "refund",
         description: "image_derivation_refund",
         derivationId: "derivation-1",
-      })
+      }),
+      expect.anything()
     );
   });
 
@@ -497,8 +736,26 @@ describe("refundCredits", () => {
     expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
   });
 
-  it("treats in-transaction unique conflicts as duplicate without querying the aborted tx", async () => {
+  it("treats in-transaction unique conflicts as duplicate only when the usage exists", async () => {
     mockTrackUsage.mockRejectedValueOnce(Object.assign(new Error("duplicate key"), { code: "23505" }));
+    const racedUsage = {
+      id: "usage-r1",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: -50,
+      idempotencyKey: "assistant-action:action-race:refund",
+      metadata: { refund: true, creditAmount: 50 },
+      createdAt: new Date(),
+    };
+    // Hermetic queue: the pre-check plus the two in-transaction duplicate
+    // checks see nothing; only the post-23505 verification outside the
+    // aborted tx observes the raced commit.
+    mockGetUsageByIdempotencyKey.mockReset();
+    mockGetUsageByIdempotencyKey
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValue(racedUsage as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>);
 
     const result = await refundCredits({
       workspaceId: "workspace-1",
@@ -507,6 +764,79 @@ describe("refundCredits", () => {
     });
 
     expect(result.status).toBe("duplicate");
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
+
+  it("rethrows unique violations that have no matching usage for the workspace key", async () => {
+    mockTrackUsage.mockRejectedValueOnce(Object.assign(new Error("duplicate key"), { code: "23505" }));
+    mockGetUsageByIdempotencyKey.mockReset();
+    mockGetUsageByIdempotencyKey.mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>
+    );
+
+    await expect(
+      refundCredits({
+        workspaceId: "workspace-1",
+        action: "image_derivation",
+        idempotencyKey: "assistant-action:action-race:refund",
+      })
+    ).rejects.toMatchObject({ code: "23505" });
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
+
+  it("confirms refund replays through the real DrizzleQueryError cause chain", async () => {
+    mockTrackUsage.mockRejectedValueOnce(
+      new DrizzleQueryError(
+        'insert into "adscale_app"."usage_events"',
+        [],
+        Object.assign(new Error('duplicate key value violates unique constraint'), { code: "23505" })
+      )
+    );
+    const racedUsage = {
+      id: "usage-r1",
+      workspaceId: "workspace-1",
+      type: "image_derivation",
+      amount: -50,
+      idempotencyKey: "assistant-action:action-driver:refund",
+      metadata: { refund: true, creditAmount: 50 },
+      createdAt: new Date(),
+    };
+    mockGetUsageByIdempotencyKey.mockReset();
+    mockGetUsageByIdempotencyKey
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>)
+      .mockResolvedValue(racedUsage as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>);
+
+    const result = await refundCredits({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "assistant-action:action-driver:refund",
+    });
+
+    expect(result.status).toBe("duplicate");
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
+  });
+
+  it("rethrows driver-level refund conflicts with no matching workspace operation", async () => {
+    const driverError = new DrizzleQueryError(
+      'insert into "adscale_app"."usage_events"',
+      [],
+      Object.assign(new Error('duplicate key value violates unique constraint'), { code: "23505" })
+    );
+    mockTrackUsage.mockRejectedValueOnce(driverError);
+    mockGetUsageByIdempotencyKey.mockReset();
+    mockGetUsageByIdempotencyKey.mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof getUsageByIdempotencyKey>>
+    );
+
+    await expect(
+      refundCredits({
+        workspaceId: "workspace-1",
+        action: "image_derivation",
+        idempotencyKey: "assistant-action:action-driver-unknown:refund",
+      })
+    ).rejects.toBe(driverError);
     expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
   });
 
@@ -564,7 +894,7 @@ describe("refundCredits", () => {
     expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
   });
 
-  it("does not modify grants for unlimited billing workspaces but still records transaction", async () => {
+  it("records unlimited bypass refunds as zero-amount events without financial movement", async () => {
     mockWorkspaceHasUnlimitedBillingAccess.mockResolvedValue(true);
 
     const result = await refundCredits({
@@ -589,13 +919,7 @@ describe("refundCredits", () => {
       "assistant-action:action-dev:refund",
       expect.anything()
     );
-    expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        amount: 50,
-        type: "refund",
-        userId: "user-1",
-      })
-    );
+    expect(mockCreateCreditTransaction).not.toHaveBeenCalled();
   });
 
   it("fails closed when no refundable grant exists", async () => {
@@ -630,7 +954,8 @@ describe("refundCredits", () => {
       expect.anything()
     );
     expect(mockCreateCreditTransaction).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: 100, type: "refund" })
+      expect.objectContaining({ amount: 100, type: "refund" }),
+      expect.anything()
     );
   });
 });

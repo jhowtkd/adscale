@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, type MutableRefObject } from "react";
+import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
 import type { CreativeWorkItem, CreativeWorkQuote, CreativeWorkSource } from "@/lib/hooks/use-creative-work";
 import type { CreativeDirection, CreativeDirectionPool } from "@/server/creative-work/contracts";
 import {
@@ -17,6 +17,8 @@ type Format = CreativeWorkItem["format"];
 export function useComposerDirectionSuggestions({
   intent,
   workId,
+  workIdRef,
+  draftEpochRef,
   workStatus,
   sources,
   hasPersistedAiSuggestions,
@@ -37,6 +39,8 @@ export function useComposerDirectionSuggestions({
 }: {
   intent: ComposerIntent;
   workId: string | null;
+  workIdRef: MutableRefObject<string | null>;
+  draftEpochRef: MutableRefObject<number>;
   workStatus: string | undefined;
   sources: readonly Pick<CreativeWorkSource, "status">[];
   hasPersistedAiSuggestions: boolean;
@@ -58,6 +62,8 @@ export function useComposerDirectionSuggestions({
   setDirectionSuggestionState: (value: "idle" | "loading" | "ready" | "error") => void;
   setDirectionSuggestionRetryToken: (updater: (value: number) => number) => void;
 }) {
+  const requestSequenceRef = useRef(0);
+
   const toggleDirection = useCallback((directionId: string) => {
     if (intentRef.current !== "variations") return;
     const next = toggleDirectionSelection(currentDirectionPool(directionPoolRef.current), directionId);
@@ -93,6 +99,7 @@ export function useComposerDirectionSuggestions({
   }, [directionPoolRef, formatRef, markPlanInputEdited, setDirectionPool, setPendingDirectionSuggestions, setDirectionSuggestionState, setQuote, targetFormatsRef]);
 
   const requestDirectionSuggestions = useCallback(() => {
+    requestSequenceRef.current += 1;
     directionSuggestionRequestedRef.current = null;
     setDirectionSuggestionState("idle");
     setDirectionSuggestionRetryToken((value) => value + 1);
@@ -117,28 +124,40 @@ export function useComposerDirectionSuggestions({
     if (!workId) return;
 
     directionSuggestionRequestedRef.current = workId;
+    const requestSequence = ++requestSequenceRef.current;
+    const draftEpoch = draftEpochRef.current;
+    const isCurrentRequest = () => requestSequenceRef.current === requestSequence
+      && workIdRef.current === workId
+      && draftEpochRef.current === draftEpoch
+      && intentRef.current === "variations";
     setDirectionSuggestionState("loading");
     const preserveSelection = directionSuggestionRetryToken > 0;
     void suggestDirections(workId).then((result) => {
+      if (!isCurrentRequest()) return;
       if (directionTouchedRef.current) {
         setPendingDirectionSuggestions({ directions: result.directions, preserveSelection });
         setDirectionSuggestionState("ready");
       } else {
         applyDirectionSuggestions(result.directions, preserveSelection);
       }
-    }).catch(() => setDirectionSuggestionState("error"));
+    }).catch(() => {
+      if (isCurrentRequest()) setDirectionSuggestionState("error");
+    });
   }, [
     applyDirectionSuggestions,
     directionSuggestionRequestedRef,
     directionSuggestionRetryToken,
     directionTouchedRef,
+    draftEpochRef,
     hasPersistedAiSuggestions,
     intent,
+    intentRef,
     setDirectionSuggestionState,
     setPendingDirectionSuggestions,
     sources,
     suggestDirections,
     workId,
+    workIdRef,
     workStatus,
   ]);
 

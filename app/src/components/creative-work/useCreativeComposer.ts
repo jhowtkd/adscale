@@ -209,6 +209,7 @@ export function useCreativeComposer({
     textLayoutRef,
     fontAssetKeyRef,
     directionPoolRef,
+    directionTouchedRef,
     formatModeRef,
     briefingOverridesRef,
     briefingVersionRef,
@@ -245,6 +246,8 @@ export function useCreativeComposer({
   }, [active.activeClientProfileId, exposeWorkId, freshEntry, initialWorkId, intentRef, progressivePlainEntry, restoredProfileRef, setWorkId, workIdRef]);
 
   const {
+    flushAutosave,
+    resolveCanonicalWorkRevision,
     linkCampaign,
     setRequest,
     editBriefingField,
@@ -387,6 +390,13 @@ export function useCreativeComposer({
   });
   const carousel = useCarouselComposer({
     workId: workId ?? "",
+    workIdRef,
+    draftEpochRef,
+    flushAutosave,
+    resolveCanonicalWorkRevision,
+    setCanonicalWorkRevision,
+    blockStaleRevision: queries.blockStaleRevision,
+    setError,
     preparedPlan: preparedPlan ?? null,
     preparePlan,
     confirmGeneration,

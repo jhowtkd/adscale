@@ -272,6 +272,8 @@ export function useComposerActions({
   } = useComposerDirectionSuggestions({
     intent: intent,
     workId: workId,
+    workIdRef,
+    draftEpochRef,
     workStatus: queries.detailQuery.data?.work.status,
     sources: queries.detailQuery.data?.sources ?? [],
     hasPersistedAiSuggestions: Boolean(
@@ -541,6 +543,8 @@ export function useComposerActions({
   });
 
   return {
+    flushAutosave,
+    resolveCanonicalWorkRevision: queries.resolveCanonicalWorkRevision,
     linkCampaign,
     setRequest,
     editBriefingField,

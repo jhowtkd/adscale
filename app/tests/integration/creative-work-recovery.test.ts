@@ -651,4 +651,151 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work recovery (Postgre
     },
     30_000,
   );
+
+  it(
+    "6) recordUsage com userId inexistente falha na FK23503 e reverte grants+usage+ledger; repetir a chave com usuário válido funciona",
+    async () => {
+      const scope = await createScope();
+      const billingKey = creativeWorkUnitBillingKey(scope.workItemId, "ghost-user-output");
+      const ghostUserId = `ghost-${scope.tag}`;
+
+      const failure = await recordUsage({
+        workspaceId: scope.workspaceId,
+        action: "image_derivation",
+        idempotencyKey: billingKey,
+        amount: CHARGE,
+        metadata: { creativeWorkId: scope.workItemId },
+        userId: ghostUserId,
+      }).then(
+        () => null,
+        (err: unknown) => err,
+      );
+      expect(failure).toBeInstanceOf(Error);
+      // 23503 viaja no erro do driver em cause.code (DrizzleQueryError).
+      expect((failure as { cause?: { code?: string } }).cause?.code).toBe("23503");
+
+      // Rollback integral: nenhum débito, usage ou linha financeira.
+      expect(await getUsageByIdempotencyKey(scope.workspaceId, billingKey)).toBeNull();
+      const rolledBack = await ledgerSnapshot(scope.workspaceId);
+      expect(rolledBack.events).toHaveLength(0);
+      expect(rolledBack.txs).toHaveLength(0);
+      expect(rolledBack.grantRemaining).toBe(GRANT_START);
+
+      // Repetir a MESMA chave com usuário válido funciona normalmente.
+      const retry = await recordUsage({
+        workspaceId: scope.workspaceId,
+        action: "image_derivation",
+        idempotencyKey: billingKey,
+        amount: CHARGE,
+        metadata: { creativeWorkId: scope.workItemId },
+        userId: scope.userId,
+      });
+      expect(retry.status).toBe("recorded");
+      const ledger = await ledgerSnapshot(scope.workspaceId);
+      expect(ledger.events).toHaveLength(1);
+      expect(ledger.txs).toHaveLength(1);
+      expect(ledger.txs[0]).toMatchObject({ amount: -CHARGE, type: "usage" });
+      expect(ledger.grantRemaining).toBe(GRANT_START - CHARGE);
+    },
+    30_000,
+  );
+
+  it(
+    "7) refund com userId inexistente reverte integralmente; repetir com usuário válido restitui exatamente uma vez",
+    async () => {
+      const scope = await createScope();
+      const output = await createOutput(scope, "conservative");
+      const billingKey = creativeWorkUnitBillingKey(scope.workItemId, output.id);
+      const refundKey = terminalRefundKey(scope, output.id);
+      const ghostUserId = `ghost-${scope.tag}`;
+
+      const charge = await recordUsage({
+        workspaceId: scope.workspaceId,
+        action: "image_derivation",
+        idempotencyKey: billingKey,
+        amount: CHARGE,
+        userId: scope.userId,
+      });
+      expect(charge.status).toBe("recorded");
+
+      const failure = await refundCredits({
+        workspaceId: scope.workspaceId,
+        action: "image_derivation",
+        idempotencyKey: refundKey,
+        amount: CHARGE,
+        userId: ghostUserId,
+      }).then(
+        () => null,
+        (err: unknown) => err,
+      );
+      expect(failure).toBeInstanceOf(Error);
+      expect((failure as { cause?: { code?: string } }).cause?.code).toBe("23503");
+
+      // Reversão integral: grant segue debitado, sem usage de refund nem linha.
+      expect(await getUsageByIdempotencyKey(scope.workspaceId, refundKey)).toBeNull();
+      const rolledBack = await ledgerSnapshot(scope.workspaceId);
+      expect(rolledBack.events).toHaveLength(1);
+      expect(rolledBack.txs).toHaveLength(1);
+      expect(rolledBack.grantRemaining).toBe(GRANT_START - CHARGE);
+
+      // Repetir com usuário válido restitui exatamente uma vez.
+      const refund = await refundCredits({
+        workspaceId: scope.workspaceId,
+        action: "image_derivation",
+        idempotencyKey: refundKey,
+        amount: CHARGE,
+        userId: scope.userId,
+      });
+      expect(refund.status).toBe("refunded");
+      expect(await countUsageEventsWithKey(scope.workspaceId, refundKey)).toBe(1);
+      const ledger = await ledgerSnapshot(scope.workspaceId);
+      expect(ledger.events).toHaveLength(2);
+      expect(ledger.txs).toHaveLength(2);
+      expect(ledger.txs.filter((tx) => tx.type === "refund")).toHaveLength(1);
+      expect(ledger.usageSum).toBe(0);
+      expect(ledger.txSum).toBe(0);
+      expect(ledger.grantRemaining).toBe(GRANT_START);
+    },
+    30_000,
+  );
+
+  it(
+    "8) saldo exatamente CHARGE, três recordUsage concorrentes com a MESMA chave: um recorded, dois duplicate, nunca blocked",
+    async () => {
+      const scope = await createScope();
+      const billingKey = creativeWorkUnitBillingKey(scope.workItemId, "exact-balance-output");
+      await db
+        .update(creditGrants)
+        .set({ remaining: CHARGE })
+        .where(eq(creditGrants.id, scope.grantId));
+
+      const input = {
+        workspaceId: scope.workspaceId,
+        action: "image_derivation" as const,
+        idempotencyKey: billingKey,
+        amount: CHARGE,
+        userId: scope.userId,
+      };
+      const results = await Promise.all([
+        recordUsage(input),
+        recordUsage({ ...input }),
+        recordUsage({ ...input }),
+      ]);
+      expect(results.map((result) => result.status).sort()).toEqual([
+        "duplicate",
+        "duplicate",
+        "recorded",
+      ]);
+
+      expect(await countUsageEventsWithKey(scope.workspaceId, billingKey)).toBe(1);
+      const ledger = await ledgerSnapshot(scope.workspaceId);
+      expect(ledger.events).toHaveLength(1);
+      expect(ledger.txs).toHaveLength(1);
+      expect(ledger.txs[0]).toMatchObject({ amount: -CHARGE, type: "usage" });
+      expect(ledger.usageSum).toBe(CHARGE);
+      expect(ledger.txSum).toBe(-CHARGE);
+      expect(ledger.grantRemaining).toBe(0);
+    },
+    30_000,
+  );
 });

@@ -43,6 +43,7 @@ export function useComposerHydration({
   textLayoutRef,
   fontAssetKeyRef,
   directionPoolRef,
+  directionTouchedRef,
   formatModeRef,
   briefingOverridesRef,
   briefingVersionRef,
@@ -79,6 +80,7 @@ export function useComposerHydration({
   textLayoutRef: MutableRefObject<"top" | "center" | "bottom" | "side">;
   fontAssetKeyRef: MutableRefObject<string | null>;
   directionPoolRef: MutableRefObject<CreativeDirectionPool | null>;
+  directionTouchedRef: MutableRefObject<boolean>;
   formatModeRef: MutableRefObject<"auto" | "manual">;
   briefingOverridesRef: MutableRefObject<CreativeWorkBriefingOverrides | undefined>;
   briefingVersionRef: MutableRefObject<number | undefined>;
@@ -137,6 +139,10 @@ export function useComposerHydration({
     // Keep legacy drafts on the three-level contract until the user changes a
     // direction; the visible default pool is only materialized on interaction.
     directionPoolRef.current = hydrated.settings.directionPool ?? null;
+    // A persisted manual selection is a user choice, not a fresh default that
+    // an initial suggestion response may replace on resume.
+    directionTouchedRef.current = Boolean(hydrated.settings.directionPool
+      && !hydrated.settings.directionPool.directions.some((direction) => direction.provenance === "ai-suggestion"));
     formatModeRef.current = hydrated.settings.formatMode;
     briefingOverridesRef.current = hydrated.settings.briefingOverrides;
     briefingVersionRef.current = hydrated.settings.briefingVersion;
@@ -193,6 +199,7 @@ export function useComposerHydration({
     briefingVersionRef,
     detail,
     directionPoolRef,
+    directionTouchedRef,
     fontAssetKeyRef,
     formatModeRef,
     formatRef,
