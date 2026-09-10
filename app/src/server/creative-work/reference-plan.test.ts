@@ -21,6 +21,34 @@ const LIMIT = 4;
 
 describe("planCreativeWorkReferences", () => {
   describe("format_adaptation", () => {
+    it("uses the completed parent as the mandatory original without requiring a source upload", () => {
+      const plan = planCreativeWorkReferences({
+        mode: "format_adaptation", sources: [], identityReferenceAssets: [identity("mood")],
+        revisionReferences: [
+          { assetKey: "creative-work/parent.png", mimeType: "image/png", label: "Versão 1" },
+          { assetKey: "extra.png", mimeType: "image/png", label: "Referência extra" },
+        ],
+        limit: LIMIT,
+      });
+      expect(plan.map(({ role, required, assetKey }) => ({ role, required, assetKey }))).toEqual([
+        { role: "original", required: true, assetKey: "creative-work/parent.png" },
+        { role: "revision", required: false, assetKey: "extra.png" },
+        { role: "brand_identity", required: false, assetKey: "brand-training/mood.png" },
+      ]);
+    });
+
+    it("preserves the parent instead of promoting an older source to original authority", () => {
+      const plan = planCreativeWorkReferences({
+        mode: "format_adaptation", sources: [source("older", "both")], identityReferenceAssets: [],
+        revisionReferences: [
+          { assetKey: "parent.png", mimeType: "image/png", label: "Versão 2" },
+          { assetKey: "extra.png", mimeType: "image/png", label: "Extra" },
+        ],
+        limit: 1,
+      });
+      expect(plan).toEqual([{ role: "original", required: true, assetKey: "parent.png", mimeType: "image/png", label: "Versão 2" }]);
+    });
+
     it("puts the original art first and fills the rest with brand identity", () => {
       const plan = planCreativeWorkReferences({
         mode: "format_adaptation",
