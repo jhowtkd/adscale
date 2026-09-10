@@ -369,6 +369,25 @@ describe("useCreativeComposer", () => {
     expect(mocks.brandKnowledge).toHaveBeenCalledWith(null);
   });
 
+  it("projects the canonical revision credit cost for the review gate", async () => {
+    mocks.work.mockReturnValue({
+      data: { ...workDetail({ toolKind: "single", status: "partial" }), revisionCreditCost: 10 },
+      isLoading: false,
+      isError: false,
+    });
+    const withCost = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", initialIntent: "single" }));
+    expect(withCost.result.current.revisionCreditCost).toBe(10);
+    withCost.unmount();
+
+    mocks.work.mockReturnValue({
+      data: workDetail({ toolKind: "single", status: "partial" }),
+      isLoading: false,
+      isError: false,
+    });
+    const withoutCost = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", initialIntent: "single" }));
+    expect(withoutCost.result.current.revisionCreditCost).toBeNull();
+  });
+
   it("keeps an approval failure on the affected output until retry", async () => {
     mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
     mocks.selectOutput.mockRejectedValueOnce(new Error("Falha na aprovação"));

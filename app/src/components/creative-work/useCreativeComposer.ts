@@ -418,6 +418,7 @@ export function useCreativeComposer({
     protocolSwitchNotice, returnToPreviousProtocol,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
     artRefinement: detail?.work.artRefinementState ?? null,
+    revisionCreditCost: detail?.revisionCreditCost ?? null,
     sourceMutationPending: sourceMutation.isPending,
     settingsLocked: Boolean(detail?.work && detail.work.status !== "draft"),
     inferredBriefing, briefingFactPack, brandIdentity,

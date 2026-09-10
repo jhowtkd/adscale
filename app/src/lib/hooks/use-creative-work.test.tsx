@@ -6,6 +6,7 @@ import {
   useAutosaveCreativeWork,
   useCreateCreativeWorkDraft,
   useGenerateCopy,
+  useGenerateReviewedRevision,
   useCreativeWork,
   useCreativeWorkSourceActions,
   useLinkCreativeWorkCampaign,
@@ -13,6 +14,7 @@ import {
   usePlanCarouselWork,
   useResolveBrandConflict,
   useReviseOutput,
+  useSaveOutputReview,
   useSelectOutput,
   useTriggerTriplet,
   useSuggestCreativeDirections,
@@ -473,6 +475,95 @@ describe("useSuggestCreativeDirections", () => {
       "/api/creative-work/work-1/suggest",
       expect.objectContaining({ timeoutMs: 60_000 }),
     );
+  });
+});
+
+describe("output review client contract", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("saveOutputReview patches the work detail and never touches the canonical list", async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, json: async () => ({ draft: {}, revisionCreditCost: 10 }) } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+    const { result } = renderHook(() => useSaveOutputReview(), { wrapper: wrapperWith(queryClient) });
+    const draft = { action: "refine", targetFormat: "4:5", instruction: "Aumente o título", revisionAssetId: null, annotations: [] };
+    await act(() => result.current.mutateAsync({
+      workItemId: "work-1",
+      outputId: "output-1",
+      expectedReviewRevision: 0,
+      draft,
+    }));
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/creative-work/work-1", expect.objectContaining({
+      method: "PATCH",
+      body: JSON.stringify({ action: "saveOutputReview", outputId: "output-1", expectedReviewRevision: 0, draft }),
+    }));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["creative-work", "work-1"] });
+    expect(invalidateCanonicalWorks).not.toHaveBeenCalled();
+  });
+
+  it("reviewed_revision posts the frozen command and invalidates work and canonical list", async () => {
+    mockApiFetch.mockResolvedValue({ ok: true, json: async () => ({ output: { id: "output-v2" } }) } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+    const { result } = renderHook(() => useGenerateReviewedRevision(), { wrapper: wrapperWith(queryClient) });
+    await act(() => result.current.mutateAsync({
+      workItemId: "work-1",
+      outputId: "output-1",
+      reviewRevision: 1,
+      revisionKey: "00000000-0000-4000-8000-000000000101",
+      expectedCredits: 10,
+    }));
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/creative-work/work-1/generate", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({
+        action: "reviewed_revision",
+        outputId: "output-1",
+        reviewRevision: 1,
+        revisionKey: "00000000-0000-4000-8000-000000000101",
+        expectedCredits: 10,
+      }),
+    }));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["creative-work", "work-1"] });
+    expect(invalidateCanonicalWorks).toHaveBeenCalledWith(queryClient);
+  });
+
+  it("re-reads the work after a failed reviewed submission", async () => {
+    mockApiFetch.mockResolvedValue({ ok: false, status: 502, json: async () => ({ error: "dispatch failed" }) } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+    const { result } = renderHook(() => useGenerateReviewedRevision(), { wrapper: wrapperWith(queryClient) });
+    await expect(act(() => result.current.mutateAsync({
+      workItemId: "work-1",
+      outputId: "output-1",
+      reviewRevision: 1,
+      revisionKey: "00000000-0000-4000-8000-000000000101",
+      expectedCredits: 10,
+    }))).rejects.toThrow("dispatch failed");
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["creative-work", "work-1"] });
+  });
+
+  it("projects the canonical revision cost and per-output review state from the detail GET", async () => {
+    const now = new Date().toISOString();
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        work: { id: "work-1", status: "partial", settings: { targetFormats: [] }, createdAt: now, updatedAt: now },
+        outputs: [{
+          id: "output-1",
+          status: "completed",
+          createdAt: now,
+          updatedAt: now,
+          reviewDraft: { version: 1, revision: 2, revisionKey: "00000000-0000-4000-8000-000000000201", action: "refine", targetFormat: "4:5", instruction: "oi", revisionAssetId: null, annotations: [] },
+          revisionContext: null,
+        }],
+        revisionCreditCost: 10,
+      }),
+    } as Response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useCreativeWork("work-1"), { wrapper: wrapperWith(queryClient) });
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    expect(result.current.data!.revisionCreditCost).toBe(10);
+    expect(result.current.data!.outputs[0]!.reviewDraft).toMatchObject({ revision: 2 });
   });
 });
 
