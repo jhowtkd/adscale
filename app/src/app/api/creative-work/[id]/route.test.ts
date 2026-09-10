@@ -2567,3 +2567,109 @@ describe("GET objective-quality refund recovery (R1)", () => {
     expect(body.outputs[0].hasOutput).toBe(true);
   });
 });
+
+describe("GET integrated technical-failure refund recovery", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    failStaleOutputsMock.mockResolvedValue([]);
+    failStaleSourcesMock.mockResolvedValue([]);
+    listPendingRefundsMock.mockResolvedValue([]);
+    markOutputFailureCodeMock.mockResolvedValue(null);
+    clearObjectiveQualityMarkerMock.mockResolvedValue(null);
+    refundHelperMock.mockResolvedValue(true);
+    getUsageByIdempotencyKeyMock.mockResolvedValue(null);
+    resolveReactivationMock.mockResolvedValue({ state: "none" });
+    recordAggregateMock.mockResolvedValue(null);
+    layerEditorAccessMock.mockResolvedValue({ enabled: false, period: null, layerize: null, regeneration: null });
+  });
+
+  const failedTechnicalRow = {
+    id: "output-1",
+    status: "failed",
+    failureCode: "generation_failed_terminal_refund_pending",
+    manualRetryAttempt: null,
+  };
+
+  async function getDetail() {
+    return GET(new Request("http://localhost/api/creative-work/work-1"), {
+      params: makeParams("work-1"),
+    });
+  }
+
+  it("recovers with terminal phase and the authenticated actor, settling as generation_failed", async () => {
+    listPendingRefundsMock.mockResolvedValue([failedTechnicalRow]);
+    getWorkMock.mockResolvedValue({ work: workItem, outputs, sources: [] });
+
+    const res = await getDetail();
+
+    expect(res.status).toBe(200);
+    expect(refundHelperMock).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      reason: "retry_pending_compensatory_refund",
+      manualRetryAttempt: null,
+      failurePhase: "terminal",
+      userId: "user-1",
+    });
+    expect(markOutputFailureCodeMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      "generation_failed",
+    );
+  });
+
+  it("keeps the marker when the terminal refund fails so recovery can resume", async () => {
+    refundHelperMock.mockResolvedValueOnce(false);
+    listPendingRefundsMock.mockResolvedValue([failedTechnicalRow]);
+    getWorkMock.mockResolvedValue({ work: workItem, outputs, sources: [] });
+
+    const res = await getDetail();
+
+    expect(res.status).toBe(200);
+    expect(refundHelperMock).toHaveBeenCalledTimes(1);
+    expect(markOutputFailureCodeMock).not.toHaveBeenCalled();
+  });
+
+  it("does not refund twice on replay after the marker cleared", async () => {
+    listPendingRefundsMock.mockResolvedValueOnce([failedTechnicalRow]);
+    getWorkMock.mockResolvedValue({ work: workItem, outputs, sources: [] });
+
+    await expect(getDetail()).resolves.toHaveProperty("status", 200);
+    expect(refundHelperMock).toHaveBeenCalledTimes(1);
+    expect(markOutputFailureCodeMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      "generation_failed",
+    );
+
+    listPendingRefundsMock.mockResolvedValue([]);
+    await expect(getDetail()).resolves.toHaveProperty("status", 200);
+    expect(refundHelperMock).toHaveBeenCalledTimes(1);
+    expect(markOutputFailureCodeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps historic pending codes on their existing mappings", async () => {
+    listPendingRefundsMock.mockResolvedValue([
+      { id: "output-9", failureCode: "generation_timeout_refund_pending" },
+    ]);
+    getWorkMock.mockResolvedValue({ work: workItem, outputs, sources: [] });
+
+    const res = await getDetail();
+
+    expect(res.status).toBe(200);
+    expect(refundHelperMock).toHaveBeenCalledWith(expect.objectContaining({
+      outputId: "output-9",
+      failurePhase: "job_failure",
+    }));
+    expect(refundHelperMock.mock.calls[0][0]).not.toHaveProperty("userId");
+    expect(markOutputFailureCodeMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-9",
+      "generation_timeout",
+    );
+  });
+});

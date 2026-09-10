@@ -399,6 +399,14 @@ export async function GET(
             }
             return;
           }
+          // Integrated technical failure (A writes this exact code in the
+          // winning failed CAS before refunding): terminal phase reuses the
+          // SAME terminal-refund ledger key as the job, never a second
+          // compensatory-refund key. The authenticated actor keeps the ledger
+          // auditable; the marker clears only after a confirmed refund, with
+          // the settled code coherent with the job.
+          const isGenerationFailedTerminalPending =
+            output.failureCode === "generation_failed_terminal_refund_pending";
           const refunded = await refundCreativeWorkOutputCompensatory({
             workspaceId: workspace.id,
             workItemId: id,
@@ -409,16 +417,20 @@ export async function GET(
             // resolver finds an outstanding modern/legacy reactivation debit.
             failurePhase: output.failureCode === "generation_canceled_refund_pending"
               || output.failureCode === "exact_asset_preflight_failed_refund_pending"
+              || isGenerationFailedTerminalPending
               ? "terminal"
               : "job_failure",
+            ...(isGenerationFailedTerminalPending ? { userId: user.id } : {}),
           });
           if (refunded) {
-            const settledCode = (output.failureCode === "exact_asset_preflight_failed_reactivation_refund_pending"
-              ? "exact_asset_preflight_failed"
-              : output.failureCode ?? "generation_timeout").replace(
-              /_refund_pending$/,
-              "",
-            );
+            const settledCode = isGenerationFailedTerminalPending
+              ? "generation_failed"
+              : (output.failureCode === "exact_asset_preflight_failed_reactivation_refund_pending"
+                ? "exact_asset_preflight_failed"
+                : output.failureCode ?? "generation_timeout").replace(
+                /_refund_pending$/,
+                "",
+              );
             await markCreativeWorkOutputFailureCode(
               workspace.id,
               id,
