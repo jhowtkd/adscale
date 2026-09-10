@@ -45,6 +45,9 @@ export function TalkBox({
   bordered = true,
   /** The canonical reference strip owns attaching for single with sources. */
   hideAttach = false,
+  /** Only while the canonical works list is still loading: the field is about
+   * to be remounted (empty→work), so keystrokes would land on the old node. */
+  requestDisabled = false,
   onRetrySource,
   generateLabel,
   interview = null,
@@ -71,6 +74,7 @@ export function TalkBox({
   /** The contained piece box embeds a borderless TalkBox (single ShineBorder). */
   bordered?: boolean;
   hideAttach?: boolean;
+  requestDisabled?: boolean;
   onRetrySource?: (sourceId: string) => void;
   generateLabel: string;
   interview?: {
@@ -180,6 +184,7 @@ export function TalkBox({
           id="creative-composer-request"
           aria-label={tComposer("requestLabel")}
           value={request}
+          disabled={requestDisabled}
           onChange={(event) => {
             setFidelityError(null);
             onRequestChange(event.target.value);

@@ -1010,6 +1010,64 @@ describe("DashboardHomeActions", () => {
     expect(retrySource).toHaveBeenCalledWith(retryId);
   });
 
+  it("disables the request only during the initial works load and preserves text after", async () => {
+    // Phase 1: initial load in flight — the field is about to be remounted
+    // when the works arrive, so it must not accept keystrokes yet.
+    let works: unknown[] = [];
+    let loading = true;
+    useCanonicalWorksMock.mockImplementation(() => ({ data: works, isLoading: loading, isError: false, refetch: vi.fn() }));
+    useComposerMock.mockImplementation(() => {
+      const [request, setRequest] = useState("Peça de lançamento preservada");
+      return {
+        intent: "single",
+        workId: null,
+        clientProfileId: "p1",
+        request,
+        setRequest,
+        hasEntry: Boolean(request),
+        objectiveSelected: true,
+        bufferedFile: null,
+        announcement: null,
+        error: null,
+        sources: [],
+        outputs: [],
+        stage: "entry",
+        actionPhase: "idle",
+        canGenerate: true,
+        recordStudioEvent: vi.fn(),
+        addFiles: vi.fn(),
+        generateLegacy: vi.fn(),
+        preparePlan: vi.fn(),
+        quote: { unitCount: 1, credits: 5 },
+        selectIntent: selectIntentMock,
+        addInspiration: addInspirationMock,
+        linkCampaign: vi.fn().mockResolvedValue(true),
+      };
+    });
+    const view = render(<DashboardHomeActions />);
+
+    const field = screen.getByLabelText("dashboard.home.composer.requestLabel");
+    expect(field).toBeDisabled();
+
+    // Phase 2: works arrive (empty→work transition, TalkBox remounts) — the
+    // field must come back enabled with the composer text preserved.
+    works = [{
+      id: "creative_work:w1", originKind: "creative_work", originId: "w1", origin: "quick_tool",
+      workspaceId: "ws", name: "Post social", state: "reviewing", updatedAt: "2026-09-10T12:00:00.000Z",
+      resumable: true, resumeHref: "/creative-work/w1", brandName: "Marca A",
+    }];
+    loading = false;
+    useCanonicalWorksMock.mockImplementation(() => ({ data: works, isLoading: false, isError: false, refetch: vi.fn() }));
+    view.rerender(<DashboardHomeActions />);
+
+    const moved = screen.getByLabelText("dashboard.home.composer.requestLabel");
+    expect(moved).toBeEnabled();
+    expect(moved).toHaveValue("Peça de lançamento preservada");
+    // Typing lands on the live element and is not lost.
+    fireEvent.change(moved, { target: { value: "Peça de lançamento preservada e editada" } });
+    expect(screen.getByLabelText("dashboard.home.composer.requestLabel")).toHaveValue("Peça de lançamento preservada e editada");
+  });
+
   it("requires original art and a style reference before restyling", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     useComposerMock.mockReturnValue({
