@@ -15,6 +15,11 @@ const preflightExactCompositionMock = vi.hoisted(() => vi.fn());
 const analyzeDerivationCreativeMock = vi.hoisted(() => vi.fn());
 const planCreativeRoutesMock = vi.hoisted(() => vi.fn());
 const selectCreativeCandidateMock = vi.hoisted(() => vi.fn());
+const createArtDirectionMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/server/creative-work/art-direction", () => ({
+  createSinglePieceArtDirection: (...args: unknown[]) => createArtDirectionMock(...args),
+}));
 
 const getCreativeWorkMock = vi.hoisted(() => vi.fn());
 const markProcessingMock = vi.hoisted(() => vi.fn());
@@ -326,11 +331,15 @@ function makeQueuedOutput(overrides: Partial<{
 async function runJob(
   eventData: GenerateEvent = baseEvent,
   onStepResult?: (name: string, result: unknown) => void,
+  cachedSteps?: ReadonlyMap<string, string | undefined>,
 ) {
   const event = { data: eventData };
   const step = {
     run: vi.fn(async (name: string, fn: () => Promise<unknown>) => {
-      const result = await fn();
+      const cached = cachedSteps?.get(name);
+      const result = cachedSteps?.has(name)
+        ? cached === undefined ? undefined : JSON.parse(cached)
+        : await fn();
       onStepResult?.(name, result);
       return result;
     }),
@@ -347,6 +356,7 @@ describe("creativeWorkOutputJob", () => {
     // and make unrelated provider/lease assertions order-dependent.
     vi.resetAllMocks();
     vi.unstubAllEnvs();
+    createArtDirectionMock.mockResolvedValue({ text: "Hierarquia editorial com destaque para a oferta.", source: "model" });
     objectGetMock.mockImplementation(async (key: string) =>
       key.startsWith("creative-work/output-1/")
         ? Buffer.from("generated-png")
@@ -1501,6 +1511,8 @@ describe("creativeWorkOutputJob", () => {
 
     expect(stepResults.get("generate-base")).toEqual({
       outputKey: "creative-work/output-1/1700000000000.png",
+      imageCallCount: 0,
+      providerInvoked: true,
     });
   });
 
@@ -1526,6 +1538,25 @@ describe("creativeWorkOutputJob", () => {
     for (const [name, result] of stepResults) {
       expect(containsBuffer(result), `${name} returned binary data`).toBe(false);
     }
+  });
+
+  it("accepts historical cached generation payloads without the new runtime fields", async () => {
+    getCreativeWorkMock.mockResolvedValue({
+      work: {
+        ...workItem, toolKind: "single",
+        inputSnapshot: { generationPolicyVersion: "quality_recovery_v1", request: "Pedido", settings: {}, sources: [] },
+      },
+      outputs: [makeQueuedOutput({ imageCallCount: 1 })],
+    });
+    markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing", imageCallCount: 1 }));
+    const cached = new Map([["generate-base", JSON.stringify({ outputKey: "creative-work/output-1/1700000000000.png" })]]);
+
+    await expect(runJob(baseEvent, undefined, cached)).resolves.toMatchObject({ success: true });
+
+    expect(claimImageCallMock).not.toHaveBeenCalled();
+    expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+    expect(createArtDirectionMock).not.toHaveBeenCalled();
+    expect(completeMock.mock.calls[0][3].quality).toMatchObject({ attempt: 1 });
   });
 
   it("does not ensure library when generation fails", async () => {
@@ -2997,6 +3028,105 @@ describe("creativeWorkOutputJob", () => {
         }),
       }),
     }));
+  });
+
+  describe("integrated single rendering", () => {
+    beforeEach(() => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: {
+          ...workItem,
+          toolKind: "single",
+          inputSnapshot: {
+            generationPolicyVersion: "quality_recovery_v1",
+            renderPolicy: "integrated_v1",
+            request: "Promoção com vagas limitadas",
+            settings: { targetFormats: [], directionPool: { manualInstruction: "Preserve o azul" } },
+            sources: [],
+            typographyPlan: { execution: "deterministic", fontAssetKey: "unused-font.ttf" },
+          },
+        },
+        outputs: [makeQueuedOutput({ directionSnapshot: { label: "Editorial", instruction: "Dê destaque à oferta", order: 0 } })],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+    });
+
+    it("renders the whole piece in high quality with serializable art direction and QA context", async () => {
+      const steps = new Map<string, unknown>();
+      await expect(runJob(baseEvent, (name, result) => steps.set(name, result))).resolves.toMatchObject({ success: true });
+
+      expect(createArtDirectionMock).toHaveBeenCalledOnce();
+      expect(createArtDirectionMock).toHaveBeenCalledWith(expect.objectContaining({
+        directionInstruction: "Dê destaque à oferta\nPreserve o azul",
+        copy: workItem.copy,
+        revisionInstruction: "Use mais contraste",
+      }));
+      expect(generateAndStoreImageMock).toHaveBeenCalledOnce();
+      const request = generateAndStoreImageMock.mock.calls[0][0];
+      expect(request.quality).toBe("high");
+      expect(request.prompt).toContain("Hierarquia editorial com destaque para a oferta.");
+      expect(request.prompt).toContain('HEADLINE: "H"');
+      expect(request.prompt).toContain("Dê destaque à oferta\nPreserve o azul");
+      expect(request.prompt).not.toContain("PROVIDER-ONLY ABSTRACT BACKGROUND");
+      expect(request.prompt).not.toContain("DETERMINISTIC TEXT CONTRACT");
+      expect(objectGetMock).not.toHaveBeenCalledWith("unused-font.ttf");
+      expect(analyzeCreativeWorkQaMock).toHaveBeenCalledWith(expect.objectContaining({
+        brandKit: identitySnapshot.brandKit,
+        revisionInstruction: "Use mais contraste",
+      }));
+      const evidence = {
+        artDirection: { text: "Hierarquia editorial com destaque para a oferta.", source: "model" },
+        renderPolicy: "integrated_v1",
+        quality: "high",
+      };
+      expect(JSON.parse(JSON.stringify(steps.get("generate-base")))).toMatchObject({
+        imageCallCount: 1, providerInvoked: true, renderEvidence: evidence,
+      });
+      expect(completeMock.mock.calls[0][3].quality).toMatchObject({ generation: evidence });
+      expect(completeMock.mock.calls[0][3].quality).not.toHaveProperty("textComposition");
+    });
+
+    it("records the textual fallback and keeps visible copy when art direction is unavailable", async () => {
+      createArtDirectionMock.mockResolvedValue({ text: null, source: "fallback", reason: "unavailable" });
+      await expect(runJob()).resolves.toMatchObject({ success: true });
+      expect(createArtDirectionMock).toHaveBeenCalledOnce();
+      const request = generateAndStoreImageMock.mock.calls[0][0];
+      expect(request.quality).toBe("high");
+      expect(request.prompt).toContain('HEADLINE: "H"');
+      expect(request.prompt).not.toContain("DETERMINISTIC TEXT CONTRACT");
+      expect(completeMock.mock.calls[0][3].quality).toMatchObject({
+        generation: { artDirection: { text: null, source: "fallback", reason: "unavailable" } },
+      });
+    });
+
+    it("rehydrates attempt and render evidence when generation steps replay from JSON", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: {
+          ...workItem, toolKind: "single",
+          inputSnapshot: { generationPolicyVersion: "quality_recovery_v1", renderPolicy: "integrated_v1", request: "Pedido", settings: {}, sources: [] },
+        },
+        outputs: [makeQueuedOutput({ imageCallCount: 1, manualRetryAttempt: 1 })],
+      });
+      claimImageCallMock.mockResolvedValue(makeQueuedOutput({ status: "processing", imageCallCount: 2, manualRetryAttempt: 1 }));
+      const cached = new Map<string, string | undefined>();
+      let generated = false;
+      await expect(runJob(baseEvent, (name, result) => {
+        if (!generated) cached.set(name, JSON.stringify(result));
+        if (name === "generate-base") generated = true;
+      })).resolves.toMatchObject({ success: true });
+      const firstQuality = JSON.parse(JSON.stringify(completeMock.mock.calls[0][3].quality));
+      [completeMock, claimImageCallMock, generateAndStoreImageMock, createArtDirectionMock, analyzeCreativeWorkQaMock].forEach((mock) => mock.mockClear());
+
+      await expect(runJob(baseEvent, undefined, cached)).resolves.toMatchObject({ success: true });
+
+      expect(claimImageCallMock).not.toHaveBeenCalled();
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(createArtDirectionMock).not.toHaveBeenCalled();
+      expect(analyzeCreativeWorkQaMock).toHaveBeenCalledOnce();
+      expect(completeMock.mock.calls[0][3].quality).toMatchObject({
+        attempt: 2,
+        generation: firstQuality.generation,
+      });
+    });
   });
 
   describe("R-005 objective QA tri-state persistence (v1 direct)", () => {
