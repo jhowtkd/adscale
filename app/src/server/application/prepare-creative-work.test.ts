@@ -1109,6 +1109,46 @@ describe("prepareCreativeWork", () => {
     if (result.ok) expect(result.value.quote.plans).toEqual(expect.arrayContaining([expect.objectContaining({ targetFormat: "9:16" })]));
   });
 
+  it.each([
+    { label: "content geometry beats generic vertical", mode: "auto", request: "Criar vertical", width: 1080, height: 1350, count: 1, expected: "4:5" },
+    { label: "explicit numeric target beats content geometry", mode: "auto", request: "Criar 9:16", width: 1080, height: 1350, count: 1, expected: "9:16" },
+    { label: "manual format wins", mode: "manual", request: "Criar vertical", width: 1080, height: 1350, count: 1, expected: "9:16" },
+    { label: "multiple content sources use semantic fallback", mode: "auto", request: "Criar vertical", width: 1080, height: 1350, count: 2, expected: "9:16" },
+    { label: "invalid dimensions use semantic fallback", mode: "auto", request: "Criar vertical", width: 0, height: 1350, count: 1, expected: "9:16" },
+  ])("chooses automatic format: $label", async ({ mode, request, width, height, count, expected }) => {
+    const sources = Array.from({ length: count }, (_, index) => ({
+      ...readyVariationSource, id: `content-${index}`, usage: "content",
+      contentAnalysis: { format: "vertical", product: "Curso" },
+    }));
+    getWork.mockResolvedValue({
+      work: { ...work, format: "9:16", request, settings: { targetFormats: [], formatMode: mode } },
+      outputs: [], sources,
+    } as never);
+    getSourceAssets.mockResolvedValue(new Map(sources.map((source) => [source.id, {
+      assetKey: `${source.id}.png`, mimeType: "image/png", width, height,
+    }])));
+
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).resolves.toMatchObject({ ok: true });
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({ format: expected }), transactionExecutor);
+  });
+
+  it("does not resize a single from a temporary style reference's geometry", async () => {
+    getWork.mockResolvedValue({
+      work: { ...work, toolKind: "single", format: "1:1", settings: { targetFormats: [], formatMode: "auto" } },
+      outputs: [], sources: [{
+        ...readyVariationSource,
+        pieceReference: { version: 1, category: "style_reference", classificationSource: "user", confidence: "high", userInstruction: "Só textura", hasTransparency: false },
+        contentAnalysis: { format: "vertical" },
+      }],
+    } as never);
+    getSourceAssets.mockResolvedValue(new Map([[readyVariationSource.id, {
+      assetKey: "style.png", mimeType: "image/png", width: 1080, height: 1350,
+    }]]));
+
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).resolves.toMatchObject({ ok: true });
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({ format: "1:1" }), transactionExecutor);
+  });
+
   it("freezes ready source asset keys and analyses in the input snapshot", async () => {
     getWork.mockResolvedValue({ work, outputs: [], sources: [{
       id: "source-1", assetId: "asset-1", status: "ready", updatedAt: now,

@@ -32,6 +32,8 @@ const countProcessingOutputsMock = vi.hoisted(() => vi.fn());
 const requeueOnceMock = vi.hoisted(() => vi.fn());
 const claimImageCallMock = vi.hoisted(() => vi.fn());
 const touchHeartbeatMock = vi.hoisted(() => vi.fn());
+const clearObjectiveRefundPendingMock = vi.hoisted(() => vi.fn());
+const markFailureCodeMock = vi.hoisted(() => vi.fn());
 const normalizeReferenceMock = vi.hoisted(() => vi.fn());
 const sendMock = vi.hoisted(() => vi.fn());
 const ensureLibraryMock = vi.hoisted(() => vi.fn());
@@ -77,6 +79,8 @@ vi.mock("@/server/generation/settlement", () => ({
 
 vi.mock("@/server/repositories/creative-work", () => ({
   CREATIVE_WORK_MAX_IMAGE_CALLS: 2,
+  CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING: "objective_quality_failed_refund_pending",
+  clearCreativeWorkOutputObjectiveQualityRefundPending: (...args: unknown[]) => clearObjectiveRefundPendingMock(...args),
   getCreativeWork: (...args: unknown[]) => getCreativeWorkMock(...args),
   markCreativeWorkOutputProcessing: (...args: unknown[]) =>
     markProcessingMock(...args),
@@ -91,7 +95,7 @@ vi.mock("@/server/repositories/creative-work", () => ({
   requeueCreativeWorkOutputOnce: (...args: unknown[]) => requeueOnceMock(...args),
   claimCreativeWorkOutputImageCall: (...args: unknown[]) => claimImageCallMock(...args),
   touchCreativeWorkOutputHeartbeat: (...args: unknown[]) => touchHeartbeatMock(...args),
-  markCreativeWorkOutputFailureCode: vi.fn(),
+  markCreativeWorkOutputFailureCode: (...args: unknown[]) => markFailureCodeMock(...args),
 }));
 
 vi.mock("@/server/repositories/usage", () => ({
@@ -202,6 +206,8 @@ import { observeImagePipelineExternalCall } from "@/server/ai/image-pipeline-tel
 import { E2EControlledImageProvider } from "@/server/ai/providers/e2e-controlled-provider";
 import { creativeWorkOutputJob } from "./creative-work";
 import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
+import { getCreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
+import type { OutputRevisionContextV1 } from "@/server/creative-work/output-review";
 
 interface GenerateEvent {
   workspaceId: string;
@@ -300,6 +306,9 @@ function makeQueuedOutput(overrides: Partial<{
   directionId: string | null;
   directionSnapshot: { label: string; instruction: string; order: number } | null;
   targetFormat: "1:1" | "4:5" | "9:16";
+  quality: Record<string, unknown> | null;
+  failureCode: string | null;
+  revisionContext: OutputRevisionContextV1 | null;
 }> = {}) {
   return {
     id: overrides.id ?? "output-1",
@@ -312,6 +321,7 @@ function makeQueuedOutput(overrides: Partial<{
     parentOutputId: overrides.parentOutputId ?? null,
     revisionInstruction: overrides.revisionInstruction ?? "Use mais contraste",
     revisionAssetId: null,
+    revisionContext: overrides.revisionContext ?? null,
     manualRetryAttempt: overrides.manualRetryAttempt ?? null,
     retryCount: overrides.retryCount ?? 0,
     imageCallCount: overrides.imageCallCount ?? 0,
@@ -320,8 +330,8 @@ function makeQueuedOutput(overrides: Partial<{
     directionId: overrides.directionId ?? null,
     directionSnapshot: overrides.directionSnapshot ?? null,
     cost: null,
-    failureCode: null,
-    quality: null,
+    failureCode: overrides.failureCode ?? null,
+    quality: overrides.quality ?? null,
     isSelected: false,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -3036,18 +3046,34 @@ describe("creativeWorkOutputJob", () => {
         work: {
           ...workItem,
           toolKind: "single",
+          identitySnapshot: {
+            ...identitySnapshot,
+            brandKit: {
+              ...identitySnapshot.brandKit, fonts: ["Geist"],
+              fontAssets: [{ assetKey: "unused-font.ttf", family: "Geist", source: "Licença do projeto", weight: 400, style: "normal", sha256: "a".repeat(64), approvedAt: "2026-09-10T12:00:00.000Z", approvedByUserId: "user-1" }],
+            },
+          },
           inputSnapshot: {
             generationPolicyVersion: "quality_recovery_v1",
             creativeRenderPolicy: "integrated_v1",
             request: "Promoção com vagas limitadas",
             settings: { targetFormats: [], directionPool: { manualInstruction: "Preserve o azul" } },
             sources: [],
-            typographyPlan: { execution: "deterministic", fontAssetKey: "unused-font.ttf" },
+            typographyPlan: {
+              version: 1, execution: "deterministic", format: "1:1", requestedLayout: "bottom", fontAssetKey: "unused-font.ttf", fontSelection: "operator_selected",
+              overflowPolicy: { strategy: "autofit_then_fail", minimumDpi: { headline: 96, body: 72, cta: 72 } },
+              collisionPolicy: "relocate_layout_then_fail", contrastPolicy: "brand_plate_wcag_aa", safeAreaPolicy: "format_default",
+            },
           },
         },
         outputs: [makeQueuedOutput({ directionSnapshot: { label: "Editorial", instruction: "Dê destaque à oferta", order: 0 } })],
       });
       markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+      completeMock.mockImplementation(async (_ws, _work, _id, data, options) => makeQueuedOutput({
+        ...data, status: "completed",
+        failureCode: options?.markObjectiveQualityFailedRefundPending ? "objective_quality_failed_refund_pending" : null,
+      }));
+      failMock.mockImplementation(async (_ws, _work, _id, failureCode) => makeQueuedOutput({ status: "failed", failureCode }));
     });
 
     it("renders the whole piece in high quality with serializable art direction and QA context", async () => {
@@ -3061,6 +3087,7 @@ describe("creativeWorkOutputJob", () => {
         revisionInstruction: "Use mais contraste",
       }));
       expect(generateAndStoreImageMock).toHaveBeenCalledOnce();
+      expect(claimImageCallMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", 1);
       const request = generateAndStoreImageMock.mock.calls[0][0];
       expect(request.quality).toBe("high");
       expect(request.prompt).toContain("Hierarquia editorial com destaque para a oferta.");
@@ -3070,7 +3097,7 @@ describe("creativeWorkOutputJob", () => {
       expect(request.prompt).not.toContain("DETERMINISTIC TEXT CONTRACT");
       expect(objectGetMock).not.toHaveBeenCalledWith("unused-font.ttf");
       expect(analyzeCreativeWorkQaMock).toHaveBeenCalledWith(expect.objectContaining({
-        brandKit: identitySnapshot.brandKit,
+        brandKit: expect.objectContaining({ fonts: ["Geist"] }),
         revisionInstruction: "Use mais contraste",
       }));
       const evidence = {
@@ -3114,6 +3141,7 @@ describe("creativeWorkOutputJob", () => {
         if (name === "generate-base") generated = true;
       })).resolves.toMatchObject({ success: true });
       const firstQuality = JSON.parse(JSON.stringify(completeMock.mock.calls[0][3].quality));
+      expect(claimImageCallMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", 2);
       [completeMock, claimImageCallMock, generateAndStoreImageMock, createArtDirectionMock, analyzeCreativeWorkQaMock].forEach((mock) => mock.mockClear());
 
       await expect(runJob(baseEvent, undefined, cached)).resolves.toMatchObject({ success: true });
@@ -3126,6 +3154,260 @@ describe("creativeWorkOutputJob", () => {
         attempt: 2,
         generation: firstQuality.generation,
       });
+    });
+
+    it("preserves a usable QA-fail preview, prevents selection and refunds only after winning completion", async () => {
+      analyzeCreativeWorkQaMock.mockResolvedValue({ findings: [{ code: "unsupported_claim", status: "confirmed", note: "Oferta inventada" }], summary: "Falha objetiva" });
+      await expect(runJob()).resolves.toMatchObject({ success: true });
+
+      expect(generateAndStoreImageMock).toHaveBeenCalledOnce();
+      expect(completeMock.mock.calls[0][4]).toEqual({ markObjectiveQualityFailedRefundPending: true });
+      expect(getCreativeWorkSelectionPolicy(completeMock.mock.calls[0][3].quality)).toMatchObject({ verdict: "fail", selectable: false });
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({ decision: expect.objectContaining({ idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund" }) }));
+      expect(completeMock.mock.invocationCallOrder[0]).toBeLessThan(settleTerminalRefundMock.mock.invocationCallOrder[0]);
+      expect(clearObjectiveRefundPendingMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "creative-work/output-1/1700000000000.png");
+      expect(failMock).not.toHaveBeenCalled();
+      expect(objectDeleteMock).not.toHaveBeenCalled();
+    });
+
+    it("retries pending compensation on duplicate delivery without generating again", async () => {
+      analyzeCreativeWorkQaMock.mockResolvedValue({ findings: [{ code: "unsupported_claim", status: "confirmed", note: "Oferta inventada" }], summary: "Falha" });
+      settleTerminalRefundMock.mockResolvedValueOnce({ refunded: true, applied: false, error: "ledger unavailable" } as never);
+      await expect(runJob()).resolves.toMatchObject({ success: true });
+      const completed = await completeMock.mock.results[0].value;
+      expect(completed).toMatchObject({ status: "completed", failureCode: "objective_quality_failed_refund_pending", quality: { objectiveVerdict: "fail" } });
+      expect(clearObjectiveRefundPendingMock).not.toHaveBeenCalled();
+      expect(failMock).not.toHaveBeenCalled();
+      expect(objectDeleteMock).not.toHaveBeenCalled();
+      getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [completed] });
+      generateAndStoreImageMock.mockClear();
+
+      await expect(runJob()).resolves.toMatchObject({ success: true, skipped: true });
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock.mock.calls.map(([call]) => call.decision.idempotencyKey)).toEqual([
+        "creative-work:work-1:output:output-1:terminal-refund", "creative-work:work-1:output:output-1:terminal-refund",
+      ]);
+      expect(clearObjectiveRefundPendingMock).toHaveBeenCalledOnce();
+    });
+
+    it.each(["ledger", "clear", "resolver"])("recovers %s failure after a cached completed step without another image", async (failure) => {
+      analyzeCreativeWorkQaMock.mockResolvedValue({ findings: [{ code: "unsupported_claim", status: "confirmed", note: "Oferta inventada" }], summary: "Falha" });
+      if (failure === "ledger") settleTerminalRefundMock.mockResolvedValueOnce({ refunded: true, applied: false, error: "ledger unavailable" } as never);
+      if (failure === "clear") clearObjectiveRefundPendingMock.mockRejectedValueOnce(new Error("clear unavailable"));
+      if (failure === "resolver") getUsageByIdempotencyKeyMock.mockRejectedValueOnce(new Error("resolver unavailable"));
+      const cached = new Map<string, string | undefined>();
+      await expect(runJob(baseEvent, (name, result) => cached.set(name, JSON.stringify(result)))).resolves.toMatchObject({ success: true });
+      [generateAndStoreImageMock, claimImageCallMock, createArtDirectionMock, completeMock, settleTerminalRefundMock, clearObjectiveRefundPendingMock].forEach((mock) => mock.mockClear());
+
+      await expect(runJob(baseEvent, undefined, cached)).resolves.toMatchObject({ success: true });
+
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(claimImageCallMock).not.toHaveBeenCalled();
+      expect(createArtDirectionMock).not.toHaveBeenCalled();
+      expect(completeMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).toHaveBeenCalledOnce();
+      expect(clearObjectiveRefundPendingMock).toHaveBeenCalledOnce();
+      expect(failMock).not.toHaveBeenCalled();
+      expect(objectDeleteMock).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { marker: "objective_quality_failed_refund_pending", verdict: "fail", key: "preview.png", recover: true },
+      { marker: null, verdict: "fail", key: "preview.png", recover: false },
+      { marker: "objective_quality_failed_refund_pending", verdict: "pass", key: "preview.png", recover: false },
+      { marker: "objective_quality_failed_refund_pending", verdict: "inconclusive", key: "preview.png", recover: false },
+      { marker: "objective_quality_failed_refund_pending", verdict: "fail", key: null, recover: false },
+    ])("onFailure recovers only exact marked completed previews: $marker/$verdict/$key", async ({ marker, verdict, key, recover }) => {
+      const completed = makeQueuedOutput({ status: "completed", failureCode: marker, outputKey: key, quality: { schemaVersion: 1, objectiveVerdict: verdict } });
+      getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [completed] });
+      failMock.mockResolvedValue(null);
+      failQueuedMock.mockResolvedValue(null);
+      const onFailure = (creativeWorkOutputJob as unknown as { opts: { onFailure: (args: unknown) => Promise<unknown> } }).opts.onFailure;
+      await onFailure({ event: { data: { event: { data: baseEvent } } }, error: new Error("worker lost"), step: { run: async (_name: string, fn: () => Promise<unknown>) => fn() } });
+
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).toHaveBeenCalledTimes(recover ? 1 : 0);
+      expect(clearObjectiveRefundPendingMock).toHaveBeenCalledTimes(recover ? 1 : 0);
+      if (recover) expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({ decision: expect.objectContaining({ idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund" }) }));
+      expect(completed).toMatchObject({ status: "completed", outputKey: key, quality: { objectiveVerdict: verdict } });
+    });
+
+    it("clears the completed marker after an already-refunded human retry without another credit", async () => {
+      getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput({
+        status: "completed", failureCode: "objective_quality_failed_refund_pending", outputKey: "preview.png",
+        quality: { schemaVersion: 1, objectiveVerdict: "fail" }, manualRetryAttempt: 1,
+      })] });
+      getUsageByIdempotencyKeyMock.mockImplementation(async (_workspaceId: string, key: string) =>
+        key === "creative-work:work-1:output:output-1:reactivate-terminal:1" || key === "creative-work:work-1:output:output-1:reactivate-terminal:1-refund"
+          ? { id: key, idempotencyKey: key } : null,
+      );
+      await expect(runJob()).resolves.toMatchObject({ success: true, skipped: true });
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
+      expect(clearObjectiveRefundPendingMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "preview.png");
+    });
+
+    it("adapts the frozen parent to a real 9:16 child without changing the work or parent", async () => {
+      const parent = makeQueuedOutput({ id: "00000000-0000-4000-8000-000000000001", status: "completed", targetFormat: "1:1", outputKey: "parent.png" });
+      const child = makeQueuedOutput({ parentOutputId: parent.id, targetFormat: "9:16", versionNumber: 2, revisionContext: {
+        version: 1, reviewRevision: 1, sourceOutputId: parent.id, sourceOutputVersion: 1,
+        action: "format", targetFormat: "9:16", instruction: "Preserve a oferta", revisionAssetId: null, annotations: [],
+      } });
+      const frozenWork = { ...workItem, toolKind: "single", format: "1:1", inputSnapshot: { renderPolicy: "integrated_v1", generationPolicyVersion: "quality_recovery_v1", request: "Pedido", settings: {}, sources: [] } };
+      const before = JSON.stringify({ parent, frozenWork });
+      getCreativeWorkMock.mockResolvedValue({ work: frozenWork, outputs: [parent, child] });
+      objectGetMock.mockImplementation(async (key: string) => key === "parent.png" ? Buffer.from("parent-pixels") : VALID_PNG);
+      inspectCreativeWorkImageFileMock.mockResolvedValue({ ok: true, width: 1080, height: 1920, format: "png", bytes: 4096, error: null });
+
+      await expect(runJob()).resolves.toMatchObject({ success: true });
+
+      expect(analyzeCreativeWorkQaMock).toHaveBeenCalledWith(expect.objectContaining({ mode: "format_adaptation", format: "9:16" }));
+      const request = generateAndStoreImageMock.mock.calls[0][0];
+      expect(request.dimensions).toEqual({ width: 1080, height: 1920 });
+      expect(request.referenceImages[0].buffer).toEqual(Buffer.from("parent-pixels"));
+      expect(request.prompt).toContain("SAME piece");
+      expect(completeMock.mock.calls[0][3].quality.checks.dimensions).toMatchObject({ ok: true, expected: { width: 1080, height: 1920 } });
+      expect(JSON.stringify({ parent, frozenWork })).toBe(before);
+    });
+
+    it("does not refund a QA-fail preview when the completion CAS loses", async () => {
+      analyzeCreativeWorkQaMock.mockResolvedValue({ findings: [{ code: "unsupported_claim", status: "confirmed", note: "Oferta inventada" }], summary: "Falha" });
+      completeMock.mockResolvedValue(null);
+      await expect(runJob()).resolves.toMatchObject({ success: true, skipped: true });
+      expect(generateAndStoreImageMock).toHaveBeenCalledOnce();
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
+      expect(clearObjectiveRefundPendingMock).not.toHaveBeenCalled();
+      expect(objectDeleteMock).toHaveBeenCalledWith("creative-work/output-1/1700000000000.png");
+    });
+
+    it("keeps unavailable QA inconclusive without correction or refund", async () => {
+      analyzeCreativeWorkQaMock.mockRejectedValue(new Error("QA unavailable"));
+      await expect(runJob()).resolves.toMatchObject({ success: true });
+      expect(generateAndStoreImageMock).toHaveBeenCalledOnce();
+      expect(getCreativeWorkSelectionPolicy(completeMock.mock.calls[0][3].quality)).toMatchObject({ verdict: "inconclusive", requiresConfirmation: true });
+      expect(completeMock.mock.calls[0][4]).toBeUndefined();
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
+    });
+
+    it("fails unusable bytes without preserving a preview or invoking a correction", async () => {
+      inspectCreativeWorkImageFileMock.mockResolvedValue({ ok: false, width: null, height: null, format: null, bytes: 10, error: "bad image" });
+      await expect(runJob()).resolves.toMatchObject({ success: false, failureCode: "unusable_file" });
+      expect(generateAndStoreImageMock).toHaveBeenCalledOnce();
+      expect(completeMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).toHaveBeenCalledOnce();
+      expect(objectDeleteMock).toHaveBeenCalledWith("creative-work/output-1/1700000000000.png");
+    });
+
+    it("does not auto-requeue a transport failure, including a cached error replay", async () => {
+      generateAndStoreImageMock.mockRejectedValue(Object.assign(new Error("provider timeout"), { name: "TimeoutError" }));
+      requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
+      const cached = new Map<string, string | undefined>();
+      let generated = false;
+      await expect(runJob(baseEvent, (name, result) => {
+        if (!generated) cached.set(name, JSON.stringify(result));
+        if (name === "generate-base") generated = true;
+      })).resolves.toMatchObject({ success: false, failureCode: "provider_timeout" });
+      expect(requeueOnceMock).not.toHaveBeenCalled();
+      expect(sendMock).not.toHaveBeenCalled();
+      [generateAndStoreImageMock, claimImageCallMock, createArtDirectionMock].forEach((mock) => mock.mockClear());
+
+      await expect(runJob(baseEvent, undefined, cached)).resolves.toMatchObject({ success: false, failureCode: "provider_timeout" });
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(claimImageCallMock).not.toHaveBeenCalled();
+      expect(createArtDirectionMock).not.toHaveBeenCalled();
+      expect(requeueOnceMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock.mock.calls.map(([call]) => call.decision.idempotencyKey)).toEqual([
+        "creative-work:work-1:output:output-1:terminal-refund", "creative-work:work-1:output:output-1:terminal-refund",
+      ]);
+    });
+
+    it("never allows a third call on a reserved human retry", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...workItem, toolKind: "single", inputSnapshot: { renderPolicy: "integrated_v1", generationPolicyVersion: "quality_recovery_v1", request: "Pedido", settings: {}, sources: [] } },
+        outputs: [makeQueuedOutput({ imageCallCount: 2, manualRetryAttempt: 1 })],
+      });
+      claimImageCallMock.mockResolvedValue(null);
+      await expect(runJob()).resolves.toMatchObject({ success: false, failureCode: "image_call_budget_exhausted" });
+      expect(claimImageCallMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", 2);
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(requeueOnceMock).not.toHaveBeenCalled();
+    });
+
+    it("persists a failed terminal marker before refund and recovers it after cached failure", async () => {
+      generateAndStoreImageMock.mockRejectedValue(Object.assign(new Error("provider timeout"), { name: "TimeoutError" }));
+      settleTerminalRefundMock.mockResolvedValueOnce({ refunded: true, applied: false, error: "ledger unavailable" } as never);
+      const cached = new Map<string, string | undefined>();
+      await expect(runJob(baseEvent, (name, result) => cached.set(name, JSON.stringify(result)))).resolves.toMatchObject({ success: false });
+      expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "generation_failed_terminal_refund_pending");
+      expect(failMock.mock.invocationCallOrder[0]).toBeLessThan(settleTerminalRefundMock.mock.invocationCallOrder[0]);
+      const failed = await failMock.mock.results[0].value;
+      expect(failed.failureCode).toBe("generation_failed_terminal_refund_pending");
+      expect(markFailureCodeMock).not.toHaveBeenCalled();
+      [generateAndStoreImageMock, claimImageCallMock, failMock].forEach((mock) => mock.mockClear());
+
+      await expect(runJob(baseEvent, undefined, cached)).resolves.toMatchObject({ success: false });
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(claimImageCallMock).not.toHaveBeenCalled();
+      expect(failMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock.mock.calls.map(([call]) => call.decision.idempotencyKey)).toEqual([
+        "creative-work:work-1:output:output-1:terminal-refund", "creative-work:work-1:output:output-1:terminal-refund",
+      ]);
+      expect(markFailureCodeMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "generation_failed");
+    });
+
+    it("never refunds a technical failure when the failed CAS loses", async () => {
+      generateAndStoreImageMock.mockRejectedValue(new Error("provider failed"));
+      failMock.mockResolvedValue(null);
+      await expect(runJob()).resolves.toMatchObject({ success: false });
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
+    });
+
+    it.each(["duplicate", "onFailure"])("recovers a failed terminal marker via %s with no provider", async (entry) => {
+      getCreativeWorkMock.mockResolvedValue({ work: workItem, outputs: [makeQueuedOutput({ status: "failed", failureCode: "generation_failed_terminal_refund_pending" })] });
+      failMock.mockResolvedValue(null);
+      failQueuedMock.mockResolvedValue(null);
+      if (entry === "duplicate") await runJob();
+      else {
+        const onFailure = (creativeWorkOutputJob as unknown as { opts: { onFailure: (args: unknown) => Promise<unknown> } }).opts.onFailure;
+        await onFailure({ event: { data: { event: { data: baseEvent } } }, error: new Error("worker lost"), step: { run: async (_name: string, fn: () => Promise<unknown>) => fn() } });
+      }
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({ decision: expect.objectContaining({ idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund" }) }));
+    });
+
+    it("recovers a crashed integrated worker and never changes refund keys after a cached recovery", async () => {
+      let current = makeQueuedOutput({ status: "processing", imageCallCount: 1 });
+      getCreativeWorkMock.mockImplementation(async () => ({
+        work: { ...workItem, inputSnapshot: { renderPolicy: "integrated_v1" } }, outputs: [current],
+      }));
+      failMock.mockImplementation(async (_ws, _work, _id, failureCode) => {
+        current = { ...current, status: "failed", failureCode };
+        return current;
+      });
+      markFailureCodeMock.mockImplementation(async (_ws, _work, _id, failureCode) => {
+        current = { ...current, failureCode };
+        return current;
+      });
+      settleTerminalRefundMock.mockResolvedValueOnce({ refunded: true, applied: false, error: "ledger unavailable" } as never);
+      const cached = new Map<string, string>();
+      const step = { run: async (name: string, fn: () => Promise<unknown>) => {
+        if (cached.has(name)) return JSON.parse(cached.get(name)!);
+        const result = await fn();
+        if (result !== undefined) cached.set(name, JSON.stringify(result));
+        return result;
+      } };
+      const onFailure = (creativeWorkOutputJob as unknown as { opts: { onFailure: (args: unknown) => Promise<unknown> } }).opts.onFailure;
+      const input = { event: { data: { event: { data: baseEvent } } }, error: new Error("worker lost"), step };
+      await onFailure(input);
+      expect(current.failureCode).toBe("generation_failed_terminal_refund_pending");
+      expect(markFailureCodeMock).not.toHaveBeenCalled();
+
+      await onFailure(input);
+      expect(current.failureCode).toBe("generation_failed");
+      expect(settleTerminalRefundMock).toHaveBeenCalledTimes(2);
+      await onFailure(input);
+      expect(settleTerminalRefundMock).toHaveBeenCalledTimes(2);
+      expect(new Set(settleTerminalRefundMock.mock.calls.map(([call]) => call.decision.idempotencyKey))).toEqual(new Set(["creative-work:work-1:output:output-1:terminal-refund"]));
+      expect(generateAndStoreImageMock).not.toHaveBeenCalled();
     });
   });
 

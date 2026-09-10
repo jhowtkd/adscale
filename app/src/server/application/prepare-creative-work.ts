@@ -42,6 +42,7 @@ import { assertOfferActive, mergeCatalogFacts } from "@/server/creative-work/com
 import {
   deriveCreativeWorkTitle,
   inferCreativeWorkFormat,
+  formatFromDimensions,
   inferSocialPostBrief,
   applyCreativeWorkBriefingOverrides,
   buildInferredBriefing,
@@ -369,11 +370,12 @@ export async function prepareCreativeWork(input: {
     const visualDirection = repertoire
       ? composeVisualDirection({ repertoire, language: workLanguage.language })
       : null;
-    const contentAnalyses = factualEffectiveSources.flatMap(({ source, usage }) =>
-      usage !== "style" && source.contentAnalysis ? [source.contentAnalysis] : []
-    );
+    const contentSources = factualEffectiveSources.filter(({ usage }) => usage !== "style");
+    const contentAnalyses = contentSources.flatMap(({ source }) => source.contentAnalysis ? [source.contentAnalysis] : []);
+    const contentAsset = contentSources.length === 1 ? sourceAssets.get(contentSources[0].source.id) : null;
+    const sourceFormat = contentAsset ? formatFromDimensions(contentAsset.width, contentAsset.height) : null;
     const effectiveFormat = preparation.data.settings.formatMode === "auto"
-      ? inferCreativeWorkFormat(contentAnalyses, aggregate.work.request) ?? preparation.data.format
+      ? inferCreativeWorkFormat(contentAnalyses, aggregate.work.request, sourceFormat) ?? preparation.data.format
       : preparation.data.format;
     const integrated = preparation.data.intent === "single";
     let typographyPlan;
