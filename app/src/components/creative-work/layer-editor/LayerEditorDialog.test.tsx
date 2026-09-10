@@ -19,6 +19,7 @@ vi.mock("next-intl", () => ({
 }));
 
 import { LayerEditorDialog } from "./LayerEditorDialog";
+import { LayerEditorContent } from "./LayerEditorContent";
 
 const document: PublicLayerEditorDocumentV1 = {
   schemaVersion: 1,
@@ -277,5 +278,26 @@ describe("LayerEditorDialog", () => {
       expect(within(screen.getByRole("banner")).getByRole("button", { name })).toHaveClass("min-h-11", "min-w-11");
     }
     expect(within(screen.getByRole("banner")).getByRole("button", { name: "Criar nova variação" })).toHaveClass("min-h-11");
+  });
+
+  it("hosts the same single session inline without a dialog wrapper", () => {
+    mocks.useLayerEditor.mockReturnValue(editor("edit"));
+    const onOpenChange = vi.fn();
+    render(
+      <LayerEditorContent
+        open
+        workItemId="work-inline"
+        outputId="output-inline"
+        mode="edit"
+        presentation="inline"
+        onOpenChange={onOpenChange}
+      />,
+    );
+
+    expect(screen.queryByRole("dialog", { name: "Editor de camadas" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Canvas de camadas" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Camadas" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Criar nova variação" })).toBeInTheDocument();
+    expect(mocks.useLayerEditor).toHaveBeenCalledWith({ workItemId: "work-inline", outputId: "output-inline", mode: "edit" });
   });
 });
