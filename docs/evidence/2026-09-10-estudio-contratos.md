@@ -3,9 +3,10 @@
 ## Base e branches
 
 - Agente / branch / worktree: B / `codex/estudio-contratos` / `.worktrees/estudio-contratos`
-- BASE_COMUM: `ac38a30e4611ee62d534b34a2b80579dbfe893d3` (`feat/f03-commercial-offer-catalog`)
-- B1: `e38b53077d1d02021d688996eea1e3ad87c8f8a1` — `feat: persist output review drafts with revision checks`
-- B2: HEAD desta branch (`feat: generate reviewed revisions in the same creative work`; ver `git log` para SHA final após amend de evidência).
+- BASE_COMUM oficial: `3063ff4a8c8bad1091d2876a070314e7653c922a` (incorporada por merge `e1d1276e`, sem rebase; base anterior `ac38a30e` preservada na ancestry).
+- B1: `e38b53077d1d02021d688996eea1e3ad87c8f8a1` — `feat: persist output review drafts with revision checks` (preservado).
+- B2: `be4451bcbce050ec894f99102496636cfcd83b65` — `feat: generate reviewed revisions in the same creative work` (preservado).
+- Correções desta entrega: novo commit `fix: validate persisted review payloads, resume replayed revisions, recover R1 marker` (ver `git log`).
 
 ## Tarefas concluídas
 
@@ -29,7 +30,8 @@
 
 ## Arquivos alterados (somente ownership B)
 
-- Novo: `app/src/server/creative-work/output-review.ts` + teste.
+- Novo: `app/src/server/creative-work/output-review.ts` + teste; novo `output-projection.ts` (DTO público compartilhado GET/POST, sem teste próprio — coberto nos testes de rota).
+- `app/src/server/db/schema.ts`, `app/drizzle/0095_output_review.sql`, `app/drizzle/meta/_journal.json`.
 - `app/src/server/db/schema.ts`, `app/drizzle/0095_output_review.sql`, `app/drizzle/meta/_journal.json`.
 - Novo: `app/src/server/repositories/creative-work-output-review.ts`; `app/src/server/repositories/creative-work.ts` + teste.
 - Novo: `app/src/server/application/save-creative-work-output-review.ts` + teste; `revise-creative-work-output.ts` + teste; `retry-creative-work-output.test.ts` (verificado, sem mudança).
@@ -43,7 +45,7 @@ Não editados: `contracts.ts`, `protocol.ts`, `jobs/creative-work.ts`, `prepare`
 
 ```bash
 npm test -- src/server/creative-work/output-review.test.ts src/server/repositories/creative-work.test.ts src/server/application/save-creative-work-output-review.test.ts src/server/application/revise-creative-work-output.test.ts src/server/application/retry-creative-work-output.test.ts src/server/generation/settlement-adapters.test.ts 'src/app/api/creative-work/[id]/route.test.ts' 'src/app/api/creative-work/[id]/generate/route.test.ts'
-# 8 arquivos, 380 testes, todos PASS.
+# 8 arquivos, 397 testes, todos PASS.
 
 npm run typecheck
 # PASS, sem erros.
@@ -54,11 +56,20 @@ Cobertura exigida:
 - CAS409 sem escrita/charge/dispatch: `review_conflict`/`stale_review` com `txSet` único e `settle` zerado.
 - Isolamento workspace: `not_found` com zero updates.
 - Retomar draft: save revisão 1 + GET projeta `reviewDraft`.
-- Replay depois de editar draft: operação existente retorna mesmo output sem `settle`.
+- Replay depois de editar draft: operação existente retoma o settlement com contexto congelado (adapter recebe contexto/instrução da linha, nunca relê o draft); `dispatch_failed` compensa sem segunda cobrança.
 - Output único por chave: mesma chave + mesmo contexto → mesmo id; outra base/contexto → conflito sem insert.
 - Formato correto: filha `9:16`, pai `4:5` intacto; `targetFormat` no lock/maxVersion/insert.
 - Crédito único: `chargeBatch` uma vez; replay sem charge.
 - Claim atômico 1/2: `lt(image_call_count, maxCalls)` com params `[..., 1]` e `[..., 2]`.
+
+## Correções pós-revisão (coordenador, sem amend/rebase)
+
+- **B1 parser (P2):** GET e reserva validam `reviewDraft`/`revisionContext` persistidos com os schemas estritos; nulo histórico preservado, inválido rejeitado (GET projeta null, save/reserva retornam conflito) sem reset/overwrite; extras privados nunca atravessam. Regressões de campo extra e versão/revision inválida.
+- **B2 replay (P1):** replay por `operationKey` retoma o settlement canônico com o contexto/instrução CONGELADOS da linha existente (validados), sem reler draft editado; `dispatch_failed` propaga compensação pendente; sem segunda cobrança (kernel faz join, não charge, em reserva não reclamada).
+- **B2 após 402 (P2):** reserva re-enfileira (failed→queued, mesmo `operationKey`) somente filhos `failed/credit_blocked` coincidentes e reclama dispatch: mesma chave, uma cobrança (chave de billing por output), uma geração; concorrentes perdem o CAS e fazem join no vencedor; comando divergente conflita sem insert.
+- **B2 DTO (P2):** `reviewed_revision` responde o projetor público compartilhado com o GET (`output-projection.ts`); sentinelas `outputKey/operationKey/storageKey/camadas` ausentes; drafts validados.
+- **R1 (B):** `completeCreativeWorkOutput` aceita opção interna que marca `objective_quality_failed_refund_pending` no mesmo CAS (perdedor retorna null, sem refund); `listCreativeWorkOutputsNeedingRefund` preserva a regra failed e soma OR exato (completed + marcador + verdict fail + imagem); `clearCreativeWorkOutputObjectiveQualityRefundPending` limpa só o marcador com CAS exato preservando imagem/quality/terminal; GET recupera o caso novo com fase terminal + ator autenticado e limpa após liquidação confirmada; falha mantém o marcador para job/onFailure/GET retomarem.
+- **Pendente D:** GET consome o helper compartilhado `refund-creative-work-output.ts` assim que o SHA real for distribuído (troca mecânica de uma chamada local de mesma assinatura; nenhum stub criado neste branch).
 
 ## Contratos consumidos/produzidos
 
@@ -74,5 +85,6 @@ Cobertura exigida:
 ## Evidência local e limitações
 
 - Unitários com mocks; sem rede/pagos. Prova transacional real e E2E ficam para D após integrar (tarefa 7 do plano).
-- Migração não aplicada em banco não isolado; `db:push` não executado.
+- Migração não aplicada em banco não isolado; `db:push` não executado. Nenhuma migration nova nesta entrega (marcador R1 usa `failureCode` existente).
+- ESLint não executável neste worktree (crash ambiental do `eslint-plugin-react` por `node_modules` symlinkado; reproduz em arquivos intocados). Typecheck + 397 testes + `git diff --check` verdes.
 - Produção/chamadas pagas: não executadas.

@@ -4,6 +4,7 @@ import {
   creativeWorkOutputs,
   workspaceAssets,
 } from "../db/schema";
+import { parsePersistedOutputReviewDraft } from "../creative-work/output-review";
 import type {
   OutputReviewDraftV1,
   OutputReviewInput,
@@ -66,7 +67,15 @@ export async function saveOutputReviewDraft(
       }
     }
 
-    const currentRevision = parent.reviewDraft?.revision ?? 0;
+    const currentRevision = parent.reviewDraft == null
+      ? 0
+      : parsePersistedOutputReviewDraft(parent.reviewDraft)?.revision;
+    // A persisted but schema-invalid draft is never trusted as CAS authority
+    // and never silently overwritten as a fresh draft: reject the writer so
+    // the conflict surfaces instead of clobbering unknown state.
+    if (currentRevision === undefined) {
+      return { ok: false as const, code: "review_conflict" as const };
+    }
     if (currentRevision !== input.expectedReviewRevision) {
       return { ok: false as const, code: "review_conflict" as const };
     }
