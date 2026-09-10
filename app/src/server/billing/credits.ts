@@ -34,6 +34,23 @@ import {
 
 export { CREDIT_COSTS, type CreditAction };
 
+/**
+ * Unique-violation probe shared by the recordUsage and refundCredits
+ * recovery paths. The installed Drizzle surfaces SQLSTATE on the driver
+ * error at `error.cause.code` (DrizzleQueryError itself carries no `code`),
+ * while some drivers/tests surface it at the root — accept both, and only
+ * the 23505 unique-violation state.
+ */
+function isUniqueViolation(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const record = error as { code?: unknown; cause?: unknown };
+  if (record.code === "23505") return true;
+  if (typeof record.cause === "object" && record.cause !== null) {
+    return (record.cause as { code?: unknown }).code === "23505";
+  }
+  return false;
+}
+
 export type SpendCheck =
   | { allowed: true; amount: number; balance: number }
   | {
@@ -205,6 +222,16 @@ export async function recordUsage(input: {
 
   const check = await canSpend(input.workspaceId, input.action, input.amount);
   if (!check.allowed) {
+    // A concurrent winner may have charged between the first idempotency
+    // read and this spend check. Re-query by workspace/key before reporting
+    // blocked so an already-charged operation returns duplicate.
+    const raced = await getUsageByIdempotencyKey(
+      input.workspaceId,
+      input.idempotencyKey
+    );
+    if (raced) {
+      return { status: "duplicate" as const, usage: raced };
+    }
     if (input.userId) {
       emitCreditBlockedAnalytics({ ...input, userId: input.userId }, check);
     }
@@ -325,12 +352,7 @@ export async function recordUsage(input: {
         check: blockedCheck,
       };
     }
-    if (
-      typeof err === "object" &&
-      err !== null &&
-      "code" in err &&
-      (err as { code?: string }).code === "23505"
-    ) {
+    if (isUniqueViolation(err)) {
       // A unique violation inside the transaction only proves a replay when
       // the charged operation for this workspace+key is visible outside the
       // aborted tx. Any other 23505 is a genuine conflict: rethrow.
@@ -516,12 +538,7 @@ export async function refundCredits(input: {
     if (err instanceof DuplicateRefundError) {
       return { status: "duplicate" as const };
     }
-    if (
-      typeof err === "object" &&
-      err !== null &&
-      "code" in err &&
-      (err as { code?: string }).code === "23505"
-    ) {
+    if (isUniqueViolation(err)) {
       // A unique violation inside the transaction only proves a replay when
       // the expected usage for this workspace+key is visible outside the
       // aborted tx. Any other 23505 is a genuine conflict: rethrow.
