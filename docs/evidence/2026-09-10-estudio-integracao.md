@@ -148,3 +148,53 @@ C entregou b149b5eb para os quatro achados anteriores. Corrigidos first mount/re
 ## Ambiente de QA local
 
 Docker iniciado localmente. O container antigo adscale-test-postgres estava parado e foi preservado. Criado container exclusivo adscale-estudio-qa-20260910 (label desta tarefa), imagem postgres:16-alpine já instalada, bind127.0.0.1:5434, banco adscale_estudio_qa com credenciais sintéticas test/test. pg_isready confirmou pronto. Ainda não constitui prova de migration, concorrência, browser ou qualidade visual.
+
+## Financeiro e banco — verificação independente concluída
+
+D corrigiu os resíduos em baf04c15, aprovado em revisão independente. Coordenador confirmou103 testes em9 arquivos, typecheck e lint. Integrado em e1369a71. O conjunto B+D passou501 testes em17 arquivos e typecheck; avisos jsdom de navegação permanecem restritos aos testes de UI.
+
+As migrations do SHA61720be8 foram aplicadas somente ao banco novo5434; confirmadas as colunas review_draft/revision_context. D adicionou3 ensaios na suíte real existente em562d2dc6, revisada e integrada em02c3955f. Coordenador executou independentemente **8/8 testes Postgres**, incluindo rollback de débito/refund por FK23503, repetição com mesma chave após rollback e3 cobranças concorrentes com saldo exato resultando em1 recorded+2 duplicate e1 débito. Isso comprova transação local; não execução em produção.
+
+## Recuperação de falha técnica integrada
+
+A identificou que erro técnico com estorno terminal podia perder recuperação após falha do settlement. Correção estreita atribuída: A persiste generation_failed_terminal_refund_pending no CAS failed vencedor do fluxo integrado e usa helper canônico; B recupera pelo GET com failurePhase terminal, userId e mesma chave. Somente após confirmação o código vira generation_failed. Legado preservado; sem novo schema ou scheduler.
+
+B entregou a61c7d55, aprovado em revisão e134 testes do coordenador (rota+helper), typecheck e lint0erros/5warnings existentes. Merge f42aeb87650c623c3c8c55e63f6c1606f2c145cb enviado a A. A ainda termina job/contagem/R1; sua49bc0c82 foi aprovada apenas no recorte interno de prompt/high/replay.
+
+## Preparação do navegador e limites
+
+Configuração sintética de39 valores extraída do CI em /tmp/estudio-integrado-e2e/local-env.sh, sem .env de produção. Seed create-post executado no banco novo e storage local; fixture em /tmp/estudio-integrado-e2e/create-post.json. Seed terminou exit0, mas registrou falha de tarefa de email por next-intl fora do Next; nenhuma prova de fluxo de email é reivindicada. Chave re_test_ci impede envio externo.
+
+Next está em127.0.0.1:3000, Inngest local em127.0.0.1:8288 com --no-discovery e somente o endpoint desta aplicação. Health retornou ok e sync Inngest200. Logs em next.log/inngest.log no mesmo diretório temporário. Isso ainda não prova jornada nova; C não integrado e D prepara os E2E.
+
+Revisão da cobertura identificou ausência de E2E explícito dos novos contratos. D recebeu extensão dos arquivos existentes para jornada UI/reload, CAS/replay, integrated high/1call/QA/refund e fluxos críticos. Camadas seedadas permitem validar painel/edição/publicação; E2E_CONTROLLED_PROVIDER não intercepta a separação Seedream/AtlasCloud. Não disparar separação paga nem declarar cobertura real dessa operação. Comparação visual Cenbrap continua not_run até autorização de geração real.
+
+## Revisão do fechamento A e recuperação concorrente
+
+A entregou ccd91817/360fe53d; coordenador confirmou 409 testes em 13 arquivos, typecheck e lint. Revisão encontrou ausência de userId no estorno técnico após load-scope em cache e no onFailure. A corrigiu em 1f45dbc8; revisão independente aprovada e coordenador confirmou 130 testes do job, typecheck e ESLint. Ainda não integrado: depende da correção concorrente abaixo.
+
+B recebeu dois resíduos P1 do marcador técnico: bloquear retry enquanto generation_failed_terminal_refund_pending antes de consultar/cobrar ledger e nas duas operações CAS; limpar marcador somente por CAS que confira status failed, código exato, manualRetryAttempt null-safe e retryCount da tentativa estornada. Um recovery antigo não pode apagar a pendência de uma tentativa nova. GET e job A devem usar o mesmo helper específico, somente após confirmação do refund. Correção em andamento, sem nova API pública ou schema.
+
+## Terceira devolutiva C — 66a0d53d e b14faea6
+
+Coordenador confirmou 62 testes em quatro arquivos de workspace/canvas/card/editor e 22 testes do hook. Revisão aprovou CAS de A1/A2 por sessão, refetch limpo e flush quando o editor de camadas está montado. Restam:
+
+- P1: fechar painel de scanner sem editor não deve esperar um flush que nenhum componente consome.
+- P1: revisar filho falho deve persistir nova chave de operação e passar pelo plano/confirmar; apenas selecionar pai reutiliza a chave já consumida. Não sobrescrever silenciosamente draft mais recente do pai.
+- P2: formulário de comentário já aberto deve fechar ou ficar inerte ao entrar readOnly; proteger todos os mutadores.
+- P1: trocar A por B antes do debounce descarta edição de A. Salvar antes de trocar e manter A se falhar, ou persistir a sessão capturada. O teste que exige zero saves confirma a perda e deve exigir conservação do conteúdo.
+- P2: hidratar B deve resetar seu saveState, sem herdar Salvando de A. Respostas tardias de A não alteram texto/revisão/erro/status de B.
+
+Devolutivas encaminhadas ao autor C; Dashboard/rotas e fluxos críticos permanecem no escopo original. A aplicação local já está autenticada com a conta sintética; isso ainda não verifica a Interface nova, que não foi integrada.
+
+## Continuação após limite do executor D
+
+OpenCode exibiu para a sessão D `monthly usage limit reached`, com reinício em 17 dias. Os três E2E modificados foram preservados em /tmp/estudio-integrado-e2e/d-e2e-preserved.patch. Criado worktree independente estudio-qa-continuacao, branch codex/estudio-qa-continuacao, a partir de 562d2dc6, com esse WIP aplicado e dependências existentes por symlink. O agente Codex billing_findings recebeu explicitamente a autoria dos quatro E2E e dos dois relatórios D nessa cópia. A sessão antiga pode ser retomada sem disputar o novo checkout; nada foi descartado.
+
+C apresentou fault.subscription.runtimeRestarted; reconexão na mesma tarefa recuperou WIP. Envio do texto consolidado com referência à terceira devolutiva foi confirmado no histórico e C iniciou as cinco correções, mantendo GLM-5.3-Flash Max.
+
+A até 1f45dbc8 foi integrado em 2f063b19 para liberar os ensaios locais de motor/CAS/QA já revisados. Esse merge é intermediário: o gate concorrente e a limpeza técnica específica de B continuam pendentes, seguidos da conexão do helper por A. Nenhuma entrega final ou publicação é reivindicada.
+
+## Guardas técnicos B aprovados — 3a818116
+
+Revisão independente confirmou os seis arquivos de código/testes idênticos ao delta pré-revisado. Coordenador executou as suítes de repositório, retry e GET: 290 testes em três arquivos, typecheck e lint passaram (zero erros, cinco warnings existentes). Gate no serviço antes do ledger e nos CAS de claim/requeue; clear específico compara status/marcador/manualRetryAttempt/retryCount. Testes de repositório inspecionam SQL e mocks; prova dos guardas em Postgres real ainda deve ser acrescentada à suíte existente pela continuação D. A conectará esse helper no job após receber o SHA integrado.

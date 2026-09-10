@@ -1789,6 +1789,19 @@ export async function countCreativeWorkProcessingOutputs(
 export const CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING =
   "objective_quality_failed_refund_pending";
 
+/**
+ * Exact marker an integrated technical failure carries while its terminal
+ * refund is suspended. Written ONLY by the winning failed CAS (A, job side);
+ * cleared ONLY by
+ * {@link clearCreativeWorkOutputGenerationFailedRefundPending} after a
+ * confirmed terminal settlement. Legacy snapshots never carry it.
+ */
+export const CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING =
+  "generation_failed_terminal_refund_pending";
+
+/** Settled failure code shared by the job and GET recoveries above. */
+export const CREATIVE_WORK_GENERATION_FAILED = "generation_failed";
+
 export async function completeCreativeWorkOutput(
   workspaceId: string,
   workItemId: string,
@@ -2006,6 +2019,40 @@ export async function markCreativeWorkOutputFailureCode(
       ),
     )
     .returning();
+  return row ?? null;
+}
+
+/**
+ * Clears an integrated technical-failure refund marker after a CONFIRMED
+ * terminal settlement (narrow seam shared with the job recovery, R1
+ * follow-up). The CAS requires the full observed identity — failed status,
+ * the EXACT marker, expected manual ordinal (null included) and expected
+ * technical counter — so a stale recovery never erases a newer pending state
+ * on the same output. Updates failureCode/updatedAt alone; image, quality,
+ * counters and terminal stay intact. Completed rows (including R1 QA-fail)
+ * never match.
+ */
+export async function clearCreativeWorkOutputGenerationFailedRefundPending(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string,
+  expectedManualRetryAttempt: number | null,
+  expectedRetryCount: number,
+): Promise<CreativeWorkOutput | null> {
+  const [row] = await db.update(creativeWorkOutputs).set({
+    failureCode: CREATIVE_WORK_GENERATION_FAILED,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.id, outputId),
+    eq(creativeWorkOutputs.status, "failed"),
+    eq(creativeWorkOutputs.failureCode, CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING),
+    expectedManualRetryAttempt === null
+      ? isNull(creativeWorkOutputs.manualRetryAttempt)
+      : eq(creativeWorkOutputs.manualRetryAttempt, expectedManualRetryAttempt),
+    eq(creativeWorkOutputs.retryCount, expectedRetryCount),
+  )).returning();
   return row ?? null;
 }
 
@@ -2400,6 +2447,13 @@ export async function requeueFailedCreativeWorkOutput(
           : expectedManualRetryAttempt === null
             ? isNull(creativeWorkOutputs.manualRetryAttempt)
             : eq(creativeWorkOutputs.manualRetryAttempt, expectedManualRetryAttempt),
+        // A suspended integrated technical refund must never be requeued by a
+        // manual retry: the later refund would land on top of a new
+        // generation. NULL-safe so historic rows without a code keep working.
+        or(
+          isNull(creativeWorkOutputs.failureCode),
+          ne(creativeWorkOutputs.failureCode, CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING),
+        ),
         lt(creativeWorkOutputs.imageCallCount, CREATIVE_WORK_MAX_IMAGE_CALLS)
       )
     )
@@ -2435,6 +2489,12 @@ export async function claimCreativeWorkOutputManualRetryAttempt(
     expectedManualRetryAttempt === null
       ? isNull(creativeWorkOutputs.manualRetryAttempt)
       : eq(creativeWorkOutputs.manualRetryAttempt, expectedManualRetryAttempt),
+    // Same suspended-refund gate as the requeue CAS: a stale service read
+    // must not reserve an ordinal on a marker row. NULL-safe for history.
+    or(
+      isNull(creativeWorkOutputs.failureCode),
+      ne(creativeWorkOutputs.failureCode, CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING),
+    ),
     lt(creativeWorkOutputs.imageCallCount, CREATIVE_WORK_MAX_IMAGE_CALLS),
   )).returning();
   return claimed ?? null;
