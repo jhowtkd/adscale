@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
     reloadDraft: vi.fn(),
   },
   layerize: vi.fn(),
+  editorProps: null as { exitRequestToken?: number; onOpenChange: (open: boolean) => void } | null,
 }));
 
 vi.mock("./useOutputReview", () => ({
@@ -29,7 +30,14 @@ vi.mock("./useOutputReview", () => ({
 }));
 
 vi.mock("./layer-editor/LayerEditorContent", () => ({
-  LayerEditorContent: () => <div data-testid="layer-editor-content-stub" />,
+  LayerEditorContent: (props: { exitRequestToken?: number; onOpenChange: (open: boolean) => void }) => {
+    mocks.editorProps = props;
+    return (
+      <div data-testid="layer-editor-content-stub">
+        <button onClick={() => props.onOpenChange(false)}>editor-fechar-ok</button>
+      </div>
+    );
+  },
 }));
 
 vi.mock("./layer-editor/LayerScanner", () => ({
@@ -37,10 +45,20 @@ vi.mock("./layer-editor/LayerScanner", () => ({
 }));
 
 vi.mock("./CreativeResultCard", () => ({
-  CreativeResultCard: (props: { output: { id: string }; onApprove: (id: string) => void; onDownload: (id: string) => void }) => (
+  CreativeResultCard: (props: {
+    output: { id: string; parentOutputId?: string | null };
+    onApprove: (id: string) => void;
+    onDownload: (id: string) => void;
+    onRetryThroughReview?: (output: { id: string; parentOutputId?: string | null }) => void;
+  }) => (
     <div data-testid="result-card-stub" data-output={props.output.id}>
       <button onClick={() => props.onApprove(props.output.id, false)}>Escolher</button>
       <button onClick={() => props.onDownload(props.output.id)}>Baixar</button>
+      <button
+        onClick={() => props.onRetryThroughReview?.({ id: props.output.id, parentOutputId: props.output.parentOutputId })}
+      >
+        revisar-nova-tentativa
+      </button>
     </div>
   ),
 }));
@@ -51,6 +69,7 @@ vi.mock("next-intl", () => ({
     if (key === "reviewAnnotations") return `${values?.count ?? 0} comentário(s)`;
     if (key === "reviewCostLine") return `Custo: ${values?.count ?? 0} créditos`;
     if (key === "pieceAlt") return `Peça ${values?.label ?? ""}`;
+    if (key === "commentPinName") return `Comentário ${values?.count ?? 0}`;
     if (key === "layerizeQuotaRemaining") return `Cota: ${values?.count ?? 0}`;
     return ({
       title: "Resultados",
@@ -259,5 +278,112 @@ describe("StudioPieceWorkspace", () => {
     // Polling-like re-render with a new sibling must not change selection.
     // pendingOutputId only arrives through the review hook.
     expect(mocks.review.pendingOutputId).toBeNull();
+  });
+
+  it("renders nothing without crashing when the work has no outputs yet", () => {
+    render(<StudioPieceWorkspace composer={composerMock([])} />);
+    expect(screen.queryByTestId("studio-piece-workspace")).not.toBeInTheDocument();
+  });
+
+  it("fixes the initial selection per work so polling arrivals never steal it", () => {
+    const base = output({ id: "base" });
+    const composer = composerMock([base]);
+    const view = render(<StudioPieceWorkspace composer={composer} />);
+    expect(screen.getByTestId("result-card-stub")).toHaveAttribute("data-output", "base");
+
+    const newer = output({ id: "newer", parentOutputId: "base", versionNumber: 2 });
+    view.rerender(<StudioPieceWorkspace composer={composerMock([base, newer])} />);
+    expect(screen.getByTestId("result-card-stub")).toHaveAttribute("data-output", "base");
+  });
+
+  it("shows the base read-only while the selected child has no art", () => {
+    const base = output({
+      id: "base",
+      reviewDraft: {
+        version: 1, revision: 1, revisionKey: "00000000-0000-4000-8000-00000000000a",
+        action: "refine", targetFormat: "4:5", instruction: "base",
+        revisionAssetId: null,
+        annotations: [{ id: "a-1", x: 0.5, y: 0.5, text: "nota da base" }],
+      },
+    });
+    const queued = output({ id: "queued", parentOutputId: "base", status: "queued", hasOutput: false });
+    render(<StudioPieceWorkspace composer={composerMock([base, queued])} />);
+    fireEvent.click(screen.getByRole("button", { name: "Versão 2 · 4:5" }));
+    // Base image stays visible; its persisted pin is display-only.
+    expect(screen.getByRole("img", { name: /peça/i })).toHaveAttribute("src", "/api/creative-work/work-1/outputs/base/download");
+    expect(screen.getByLabelText("Comentário 1")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Comentário 1" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Comentar" })).not.toBeInTheDocument();
+    expect(mocks.review.update).not.toHaveBeenCalled();
+  });
+
+  it("exits the layer editor through its flush path before comparing", () => {
+    const base = output({ id: "base" });
+    const child = output({
+      id: "child",
+      parentOutputId: "base",
+      versionNumber: 2,
+      layerization: { status: "completed", operationId: "op-1" } as CreativeWorkOutput["layerization"],
+    });
+    const composer = composerMock([base, child], {
+      canLayerize: true,
+      layerEditorAccess: { enabled: true, period: null, layerize: { remaining: 1, limit: 2 }, regeneration: null },
+    });
+    render(<StudioPieceWorkspace composer={composer} />);
+    // Default selection is the newest completed child, whose layers are ready.
+    fireEvent.click(screen.getByRole("button", { name: "Camadas" }));
+    expect(screen.getByTestId("layer-editor-content-stub")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Comparar com a base" }));
+    // The editor stays mounted and only receives the guarded exit request.
+    expect(screen.getByTestId("layer-editor-content-stub")).toBeInTheDocument();
+    expect(mocks.editorProps?.exitRequestToken).toBe(1);
+    expect(screen.queryByRole("button", { name: "Fechar comparação" })).not.toBeInTheDocument();
+
+    // Simulated successful flushAndRelease: only now compare opens.
+    fireEvent.click(screen.getByRole("button", { name: "editor-fechar-ok" }));
+    expect(screen.queryByTestId("layer-editor-content-stub")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fechar comparação" })).toBeInTheDocument();
+  });
+
+  it("flushes the editor before switching pieces through a thumbnail", () => {
+    const base = output({ id: "base" });
+    const child = output({
+      id: "child",
+      parentOutputId: "base",
+      versionNumber: 2,
+      layerization: { status: "completed", operationId: "op-1" } as CreativeWorkOutput["layerization"],
+    });
+    const composer = composerMock([base, child], {
+      canLayerize: true,
+      layerEditorAccess: { enabled: true, period: null, layerize: { remaining: 1, limit: 2 }, regeneration: null },
+    });
+    render(<StudioPieceWorkspace composer={composer} />);
+    fireEvent.click(screen.getByRole("button", { name: "Camadas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Versão 1 · 4:5" }));
+    // Editor holds the artwork until its flush path completes…
+    expect(screen.getByTestId("layer-editor-content-stub")).toBeInTheDocument();
+    expect(screen.getByTestId("result-card-stub")).toHaveAttribute("data-output", "child");
+    // …then the deferred selection lands.
+    fireEvent.click(screen.getByRole("button", { name: "editor-fechar-ok" }));
+    expect(screen.queryByTestId("layer-editor-content-stub")).not.toBeInTheDocument();
+    expect(screen.getByTestId("result-card-stub")).toHaveAttribute("data-output", "base");
+  });
+
+  it("routes a failed revision back to the reviewed flow on its base", () => {
+    const base = output({ id: "base" });
+    const failedRevision = output({
+      id: "failed-child",
+      parentOutputId: "base",
+      versionNumber: 2,
+      status: "failed",
+      hasOutput: false,
+    });
+    render(<StudioPieceWorkspace composer={composerMock([base, failedRevision])} />);
+    fireEvent.click(screen.getByRole("button", { name: "Versão 2 · 4:5" }));
+    fireEvent.click(screen.getByRole("button", { name: "revisar-nova-tentativa" }));
+    // Selection moved to the base, whose review dock has the cost + confirm.
+    expect(screen.getByTestId("result-card-stub")).toHaveAttribute("data-output", "base");
+    expect(screen.getByRole("textbox", { name: "O que você quer mudar?" })).toBeInTheDocument();
   });
 });

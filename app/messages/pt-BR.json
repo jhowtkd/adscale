@@ -889,6 +889,7 @@
           "reviewCostLine": "Custo desta revisão: {count, plural, one {# crédito} other {# créditos}}.",
           "reviewAnnotations": "{count, plural, one {# comentário} other {# comentários}}",
           "layersUnavailable": "Separação em camadas indisponível para este trabalho.",
+          "retryThroughReview": "Revisar nova tentativa",
           "expandPiece": "Ampliar peça",
           "pieceAlt": "Peça {label}",
           "formatTrigger": "Adaptar formato",

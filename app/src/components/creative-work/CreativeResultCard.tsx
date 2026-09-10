@@ -52,6 +52,9 @@ type CreativeResultCardProps = {
   retryCreditCost?: number | null;
   onRetry: (outputId: string) => void;
   onRetryRevision?: (output: CreativeWorkOutput) => void | Promise<void>;
+  /** Workspace-only: sends a failed revision back to the reviewed flow on its
+   * base instead of firing a legacy paid retry with a fresh UUID per click. */
+  onRetryThroughReview?: (output: CreativeWorkOutput) => void;
   onApprove: (outputId: string, confirmObjective?: boolean, saveAsRecipe?: boolean) => void;
   onDownload: (outputId: string) => void;
   onRevise?: (outputId: string, instruction: string, attachment: File | null) => void | Promise<void>;
@@ -80,6 +83,7 @@ export function CreativeResultCard({
   retryCreditCost = null,
   onRetry,
   onRetryRevision,
+  onRetryThroughReview,
   onApprove,
   onDownload,
   onRevise,
@@ -461,8 +465,16 @@ export function CreativeResultCard({
 
       {output.status === "failed" ? (
         isRevision ? (
-          onRetryRevision ? (
-            <button type="button" className={secondaryActionClass} disabled={isRevising} onClick={() => onRetryRevision(output)}>
+          workspace && onRetryThroughReview ? (
+            <button
+              type="button"
+              className={actionClass}
+              onClick={() => onRetryThroughReview(output)}
+            >
+              {t("retryThroughReview")}
+            </button>
+          ) : onRetryRevision ? (
+            <button type="button" className={actionClass} disabled={isRevising} onClick={() => onRetryRevision(output)}>
               {t("retry")}
             </button>
           ) : null

@@ -60,6 +60,7 @@ vi.mock("next-intl", () => ({
     unfavorite: "Remover dos favoritos",
     favoriteHint: "Guarda esta peça nos seus favoritos.",
     unfavoriteHint: "Remove esta peça dos seus favoritos.",
+    retryThroughReview: "Revisar nova tentativa",
     retryUnavailable: "Esta proposta já usou todas as tentativas automáticas. Crie um novo pedido para gerar uma nova variação.",
     "failure.timeout": "A geração demorou demais e foi interrompida.",
     "failure.invalid_context": "O pedido ou as fontes não tinham informação suficiente para gerar com fidelidade.",
@@ -191,6 +192,48 @@ describe("CreativeResultCard", () => {
   beforeEach(() => {
     shareMutate.mockReset();
     toggleFavorite.mockReset();
+  });
+
+  it("in workspace mode sends a failed revision to the reviewed flow, never a legacy retry", () => {
+    const onRetryRevision = vi.fn();
+    const onRetryThroughReview = vi.fn();
+    const onRetry = vi.fn();
+    render(
+      <CreativeResultCard
+        presentation="workspace"
+        hidePreview
+        output={output({ id: "failed-rev", parentOutputId: "base", status: "failed", hasOutput: false })}
+        label="Versão 2"
+        onRetry={onRetry}
+        onRetryRevision={onRetryRevision}
+        onRetryThroughReview={onRetryThroughReview}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Revisar nova tentativa" }));
+    expect(onRetryThroughReview).toHaveBeenCalledTimes(1);
+    expect(onRetryThroughReview.mock.calls[0][0]).toMatchObject({ id: "failed-rev", parentOutputId: "base" });
+    // Repeated clicks still never dispatch a legacy paid retry.
+    fireEvent.click(screen.getByRole("button", { name: "Revisar nova tentativa" }));
+    expect(onRetryRevision).not.toHaveBeenCalled();
+    expect(onRetry).not.toHaveBeenCalled();
+  });
+
+  it("keeps the legacy revision retry in card mode", () => {
+    const onRetryRevision = vi.fn();
+    render(
+      <CreativeResultCard
+        output={output({ id: "failed-rev", parentOutputId: "base", status: "failed", hasOutput: false })}
+        label="Versão 2"
+        onRetry={vi.fn()}
+        onRetryRevision={onRetryRevision}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    expect(onRetryRevision).toHaveBeenCalledTimes(1);
   });
 
   it("shows completed imagery and approve, download, and inline edit actions", () => {
