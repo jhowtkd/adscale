@@ -39,6 +39,7 @@ function recordProviderCall(input: ProviderGenerateInput, outcome: "success" | "
       outputPrefix: input.outputPrefix,
       attempt: input.attempt ?? 0,
       generationMode: input.generationMode,
+      quality: input.quality ?? null,
       dimensions: input.dimensions,
       referenceNames: input.referenceImages.map((reference) => reference.name),
       referenceMimeTypes: input.referenceImages.map((reference) => reference.mimeType),
