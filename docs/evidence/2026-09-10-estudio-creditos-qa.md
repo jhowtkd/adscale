@@ -6,7 +6,7 @@ BASE_COMUM: `3063ff4a` (`codex/estudio-integracao` no momento da criação deste
 Escopo deste documento: tarefas 4–6 do plano de confiabilidade e créditos,
 fatia da tarefa 4 do plano de qualidade (quality na evidência do provider
 controlado + protocolo humano) e preparação da tarefa 7 do plano de
-experiência. E2E real aguarda o SHA integrado do coordenador.
+experiência. Backend A/B/D integrado em `9f653226`; execução browser depende do SHA final da interface e da liberação do coordenador.
 
 ## 1. Primeiro marco: créditos (Tasks 4–5) — ENTREGUE para merge
 
@@ -106,13 +106,11 @@ in-tx); resolvido com fila hermética por teste, sem mudar produção.
   nenhuma geração real executada, nenhum PNG determinístico declarado
   como prova de qualidade.
 
-## 3. Segundo marco: QA após base combinada (Tasks 6–7) — BLOQUEADO
+## 3. Segundo marco: QA após base combinada (Tasks 6–7) — EM VERIFICAÇÃO
 
 - Fixtures/casos E2E e extensão `quality` da evidência: preparados (este
   doc + protocolo acima).
-- **E2E real não executado**: aguarda SHA integrado do coordenador e
-  incorporação desse commit nesta branch. Não rodado contra branch
-  parcial; nenhuma geração de produção usada como fallback.
+- Estado no primeiro marco D: E2E ainda não executado. Na continuação, o coordenador executou o primeiro subconjunto API no backend integrado; resultados e correções estão no §7. Interface completa ainda aguarda integração C. Nenhum provider de produção é fallback.
 - Matriz a executar pós-integração (serial-flows):
   peça→plano→fila→pronta→nota→revisão→variação→adaptação→reload no mesmo
   work; pai intacto; replay e duas abas; sem cobrança ao abrir camadas;
@@ -123,8 +121,7 @@ in-tx); resolvido com fila hermética por teste, sem mudar produção.
   confirmado no máximo 2). Screenshots nos 3 viewports (390×844,
   1045×586, 1440×900). Casos financeiros em `create-post.spec.ts` com
   `withDb`, constraint temporária por UUID de fixture e rollback real.
-- Rollback real de banco será provado na tarefa 6; unitários provam
-  propagação/tx compartilhado.
+- Rollback e concorrência reais já foram provados na suíte Postgres: ver marco da continuação abaixo. Unitários também verificam propagação/tx compartilhado.
 
 ## 4. Pedido concreto para outro dono (C, via coordenador)
 
@@ -165,12 +162,161 @@ da chave — comportamento interim conhecido, não defeito.
 - `docs/evidence/2026-09-10-peca-unica-qualidade.md` (protocolo, not_run)
 
 Não editados: motor/revisão/hooks criativos/caixa, schema/migrações,
-messages JSON, E2E specs (pós-integração).
+messages JSON. Os quatro E2E specs e a suíte SQL foram estendidos na continuação descrita abaixo.
 
 ## 6. Limitações e produção
 
 - Produção/chamadas pagas: não executadas. Comparação humana de 6
   gerações aguarda autorização concreta de orçamento/calls.
-- E2E: bloqueado por integração (ver §3). "Comando verde" parcial acima
+- E2E: subconjunto API executado pelo coordenador; restante pendente (ver §7). "Comando verde" parcial acima
   refere-se a unitários/rota/hook/componentes — 90 testes efetivos,
   0 skips, 0 bloqueios nesse recorte.
+
+
+## 7. Continuação de D em worktree isolado — 2026-09-10
+
+A sessão original de D ficou indisponível por quota. A continuação autorizada
+ocorre exclusivamente em `.worktrees/estudio-qa-continuacao`, branch
+`codex/estudio-qa-continuacao`, preservando o WIP e o worktree original.
+Base herdada: `562d2dc6`; contratos/motor finais consumidos: `9f653226`.
+
+Commits iniciais entregues para revisão:
+
+- `5f869bd9`: API integrada + dois guardas SQL adicionais.
+- `7ce633d7`: QA exige 409/código canônico/isSelected=false; filtro de fim do dia
+  inclui sentinela na mesma campanha para não confundir filtros de data/campanha.
+- `8a524ced`: download autenticado entrega PNG local; contabilização distingue
+  charge/refund dos registros `dispatch-ack` de valor zero.
+- `5824da72`: colisão de key com outra base válida exige resposta canônica
+  400/invalidInput e mantém outputs, chamada e saldo intactos.
+
+### Prova real de banco concluída
+
+Comando em `app/`:
+
+```bash
+NODE_ENV=test \
+DATABASE_URL=postgres://test:test@127.0.0.1:5434/adscale_estudio_qa \
+TEST_DATABASE_URL=postgres://test:test@127.0.0.1:5434/adscale_estudio_qa \
+npm test -- tests/integration/creative-work-recovery.test.ts \
+  --project=node --maxWorkers=1 --no-file-parallelism
+```
+
+Resultado: **10 passed, 0 failed, 0 skipped**. Apenas fixtures próprias,
+identificadas pelo RUN_ID e removidas ao final. Não executa seed, migrations,
+setup/teardown de banco ou provider. As duas URLs são verificadas antes da
+primeira consulta: localhost, porta 5434, banco `adscale_estudio_qa`, NODE_ENV=test.
+
+A primeira tentativa no sandbox não alcançou `select 1` e ficou com 10 casos
+não executados; ela não é evidência verde. A repetição do mesmo comando com
+acesso local autorizado ao banco passou 10/10. O coordenador também confirmou 10/10.
+
+Além dos oito casos herdados (CAS, replay, liquidação, rollback débito/refund
+quando ledger falha), os dois novos comprovam:
+
+1. `failed + generation_failed_terminal_refund_pending` rejeita retry no serviço,
+   claim e requeue, sem alterar output/ledger nem despachar Inngest.
+2. Clear usa `manualRetryAttempt` null-safe **e** retryCount. Um recovery antigo
+   não apaga o marker de tentativa nova. Clear correspondente após refund
+   aplicado habilita retry elegível; replay do clear é no-op. O segundo ciclo
+   desse teste isola o predicado SQL, não finge uma segunda liquidação financeira.
+
+### Ensaios iniciais API executados pelo coordenador
+
+No backend integrado `446f021b`, a primeira rodada teve **2 passed/2 failed**
+(`/tmp/estudio-integrado-e2e/api-first.log`). High e histórico passaram. Os dois
+outros casos pararam no helper de download que tentava consumir `e2e-storage://`
+como URL HTTP e na contagem que ignorava o ack zero do dispatch. Corrigidos os
+helpers/asserts pelo contrato existente, sem alterar produto.
+
+A segunda rodada teve **3 passed/1 failed**
+(`/tmp/estudio-integrado-e2e/api-second.log`): high, histórico e QA preview/refund
+passaram. CAS provou a corrida, reserva/cobrança/chamada únicas e replay, mas
+parou na última negativa: colisão de base retorna 400/invalidInput no contrato
+canônico, enquanto o teste exigia 409. `5824da72` corrige apenas essa expectativa
+com prova de ausência de efeitos; rerun desse caso fica com o coordenador.
+Não contar um caso com falha final como passed.
+
+Com `IMAGE_JOB_TARGET=worker`, o coordenador repetiu CAS + high no integrado
+`f30eb34d`: **2 passed, 0 failed** em 22,2s. Evidências lidas:
+`/tmp/estudio-integrado-e2e/api-worker.log` e
+`/tmp/estudio-integrado-e2e/worker-smoke-evidence.json`. O último registra conexão
+`adscale-image-worker`, PID 71891 e eventos terminais de peça inicial/revisão com
+uma chamada cada. Next estava no PID 71874. A UI Inngest, conforme registro do
+coordenador, listou 8 funções e 5 handlers de falha. Isto não é 4/4 no mesmo alvo:
+QA/refund e histórico acima foram provados na rodada anterior.
+
+### Matriz Playwright preparada, execução visual ainda pendente
+
+`--list --grep integrated --project=serial-flows` encontra **17 casos em 4 arquivos**:
+
+| Arquivo | Casos preparados | O que a evidência permite afirmar |
+|---|---:|---|
+| create-post.spec.ts | 13 | 9 API: primeira corridaCAS, primeira reserva concorrente, high, QA fail/refund, inconclusivo, retry técnico com refund/reativação, base/adaptaçãoPNG, auto 4:5/manual 9:16, fontes pending/ready, histórico; 4 UI: retry confirmado, direção manual 1→1, fila persistida, ilimitado/filtros |
+| first-studio-piece.spec.ts | 2 | jornada completa no mesmo work, notas por teclado e ponto real, editar/remover/reload, 3 ações, pai intacto, 3 viewports; QA fail com preview e Escolher bloqueado |
+| creative-work-carousel.spec.ts | 1 | erro 422 de apresentação uma vez; sucesso real após texto novo e clique antes do debounce |
+| layer-editor.spec.ts | 1 | seed ready, abrir/reabrir inline,3 viewports, uso sem débito ao abrir, publicar filho no mesmo work |
+
+Casos anteriores permanecem no arquivo. Para R-010/Córtex, o snapshot legado
+é persistido **antes** do dispatch com typographyPlan V1 real; mantém os asserts
+históricos de fonte/composição/autocorreção. As gerações novas usam integrated_v1.
+
+A fila usa um output queued sintético persistido sem evento, exclusivamente
+para provar hidratação e reload. Isso não comprova dispatch: o caso real de
+concorrência exige 202, um filho, uma chamada, um débito e PNG persistido. O
+restyle modifica temporariamente o status de uma fonte **depois** da análise
+real, restaurando-o em finally; não simula uma resposta de sucesso do servidor.
+
+A UI financeira insere entitlement tester com UUID próprio apenas no workspace
+sintético, verifica unlimited real pela API, uso amount 0/ledger intacto e o remove
+em finally. Executar serialmente; nunca concorrer com os snapshots financeiros.
+
+Comandos preparados em `app/`, após source do ambiente sintético fornecido
+pelo coordenador (sem ler/copiar .env de produção):
+
+```bash
+source /tmp/estudio-integrado-e2e/local-env.sh
+# Primeiro ensaio entregue: 4 casos API; o coordenador executa e registra o resultado.
+./node_modules/.bin/playwright test tests/e2e/create-post.spec.ts \
+  --project=serial-flows --workers=1 \
+  --grep 'integrated API.*(CAS simultâneo|high chega|QA preview|histórico)'
+
+# Demais jornadas: somente após integração de C/liberação; não omitir casos pelo filtro.
+./node_modules/.bin/playwright test tests/e2e/create-post.spec.ts \
+  tests/e2e/first-studio-piece.spec.ts tests/e2e/creative-work-carousel.spec.ts \
+  --project=serial-flows --workers=1 --grep integrated
+```
+
+Camadas devem rodar **depois** da primeira jornada: `seed:layer-editor-e2e`
+adiciona perfil no workspace comum e afeta suites que esperam um perfil único.
+Coordenador escolhe o momento. Comando proposto, ainda não executado nesta
+continuação:
+
+```bash
+LAYER_EDITOR_E2E_FIXTURE_PATH=/tmp/estudio-integrado-e2e/layer-editor.json \
+  npm run seed:layer-editor-e2e
+LAYER_EDITOR_E2E_FIXTURE_PATH=/tmp/estudio-integrado-e2e/layer-editor.json \
+  ./node_modules/.bin/playwright test tests/e2e/layer-editor.spec.ts \
+  --project=serial-flows --workers=1 --grep 'integrated layers ready fixture'
+```
+
+O seed usa apenas PNGs Sharp e dados sintéticos, mas remove suas fixtures anteriores
+`Layer Editor E2E%`/usage keys próprias; não pode ser executado sem coordenação.
+Não altera create-post.json. O novo teste converte temporariamente apenas o
+work da fixture de social_post para single e restaura em finally para testar a caixa.
+Abertura/publish não invocam separação: qualquer PATCH layerizeOutput ou
+regenerateLayer é bloqueado no browser e faz o teste falhar. Seedream/AtlasCloud
+real não é controlado por E2E_CONTROLLED_PROVIDER; separação/regeneração paga
+não foi executada nem considerada testada.
+
+Screenshots têm viewport definido **antes** da captura e ficam em test-results
+via `testInfo.outputPath`; são artefatos para inspeção, não aprovação visual.
+Nenhum snapshot visual é atualizado automaticamente para fazer o teste passar.
+
+### Checagens estáticas desta preparação
+
+`npm run typecheck`, eslint dos cinco arquivos de teste, `git diff --check` e
+Playwright `--list` passaram. A enumeração não conta como execução E2E. O
+coordenador executa os subconjuntos no SHA integrado; a continuação não
+executa simultaneamente browser ou seed. Qualidade humana: todos os pares
+`not_run`; texto de evento/anexos originais faltantes explicitados no protocolo.

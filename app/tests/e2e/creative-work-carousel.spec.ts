@@ -471,4 +471,54 @@ test.describe("Studio Carousel controlled-provider gate", () => {
     expect(reloadedDetail.work.carouselApprovedRevision).toBe(deckRevision);
     expect(reloadedDetail.work.carouselApprovedRevision).toBe(approvedDetail.work.carouselApprovedRevision);
   });
+
+  test("integrated organiza imediatamente com o texto fresco e mostra erro 422 preservando o pedido", async ({ page }) => {
+    test.setTimeout(300_000);
+    const fixture = loadFixture();
+    await login(page, fixture);
+
+    await page.goto("/", { waitUntil: "commit" });
+    const requestBox = page.locator("#creative-composer-request");
+    await expect(requestBox).toBeVisible({ timeout: 30_000 });
+    const objective = "Lançamento da turma de cerâmica de setembro com lista de espera.";
+    // Sem esperar o debounce do autosave: o clique imediato deve salvar o
+    // texto novo e planejar sobre a revisão canônica posterior.
+    await expect.poll(async () => {
+      await requestBox.fill(objective);
+      return requestBox.inputValue();
+    }, { timeout: 30_000 }).toBe(objective);
+    const carouselCard = page.getByRole("button", { name: /criar carrossel/i }).first();
+    await expect(carouselCard).toBeVisible({ timeout: 30_000 });
+    await carouselCard.click();
+    await expect.poll(async () => new URL(page.url()).searchParams.get("workId"), { timeout: 60_000 }).not.toBeNull();
+    const carouselWorkId = new URL(page.url()).searchParams.get("workId") as string;
+
+    // Falha controlada uma única vez: o erro fica visível e o pedido é conservado.
+    await page.route("**/api/creative-work/*/carousel/plan", async (route) => {
+      await route.fulfill({
+        status: 422,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Pedido inválido", code: "invalid_plan" }),
+      });
+    }, { times: 1 });
+    await page.getByTestId("carousel-organize").click();
+    await expect(page.getByRole("alert")).toBeVisible({ timeout: 60_000 });
+    await expect(requestBox).toHaveValue(objective);
+    await page.unroute("**/api/creative-work/*/carousel/plan");
+
+    // Edit AFTER the canonical work exists, then immediately organize. No
+    // persisted-value poll or debounce wait may hide the stale autosave bug.
+    const freshObjective = `${objective} Conteúdo atualizado: quatro aulas práticas.`;
+    await requestBox.fill(freshObjective);
+    await page.getByTestId("carousel-organize").click();
+    await expect(async () => {
+      const detail = await getDetail(page.request, carouselWorkId);
+      const persistedRequest = (detail.work as { request?: unknown }).request;
+      expect(persistedRequest).toBe(freshObjective);
+    }).toPass({ timeout: 120_000 });
+    // O plano nasce da revisão salva após o flush — perguntas ou mesa.
+    await expect(
+      page.getByTestId("carousel-questions").or(page.getByText("Mesa de sequência")),
+    ).toBeVisible({ timeout: 120_000 });
+  });
 });

@@ -5,6 +5,7 @@ import sharp from "sharp";
 import { Client } from "pg";
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
 import { GENERATION_CREDIT_COSTS } from "../../src/server/generation/canonical/types";
+import { createDefaultCreativeDirectionPool, type CreativeDirectionPool } from "../../src/server/creative-work/contracts";
 import type { TypographyPlan } from "../../src/server/creative-work/typography-plan";
 import { composeExactBrandAssets } from "../../src/server/creative-work/composite";
 
@@ -712,6 +713,7 @@ async function apiCreateV1Draft(
     targetFormats?: string[];
     format?: string;
     formatMode?: "manual" | "auto";
+    directionPool?: CreativeDirectionPool;
     fontAssetKey?: string;
     textLayout?: "top" | "center" | "bottom";
   },
@@ -726,6 +728,7 @@ async function apiCreateV1Draft(
       settings: {
         targetFormats: input.targetFormats ?? [],
         formatMode: input.formatMode ?? "manual",
+        ...(input.directionPool ? { directionPool: input.directionPool } : {}),
         ...(input.fontAssetKey ? { fontAssetKey: input.fontAssetKey } : {}),
         ...(input.textLayout ? { textLayout: input.textLayout } : {}),
       },
@@ -799,6 +802,39 @@ async function waitForTerminalOutputs(request: APIRequestContext, workId: string
   return detail;
 }
 
+async function freezeHistoricalSnapshot(
+  fixture: CreatePostFixture,
+  workId: string,
+  preparedRevision: string,
+  input: { format?: string; fontAssetKey?: string; textLayout?: "top" | "center" | "bottom" },
+): Promise<void> {
+  const typographyPlan: TypographyPlan = {
+    version: 1,
+    format: (input.format ?? "4:5") as TypographyPlan["format"],
+    requestedLayout: input.textLayout ?? "top",
+    overflowPolicy: { strategy: "autofit_then_fail", minimumDpi: { headline: 96, body: 72, cta: 72 } },
+    collisionPolicy: "relocate_layout_then_fail",
+    contrastPolicy: "brand_plate_wcag_aa",
+    safeAreaPolicy: "format_default",
+    ...(input.fontAssetKey
+      ? { execution: "deterministic" as const, fontAssetKey: input.fontAssetKey, fontSelection: "operator_selected" as const }
+      : { execution: "generative" as const, fontAssetKey: null, reason: "approved_font_missing" as const }),
+  };
+  await withDb(async (client) => {
+    const frozen = await client.query(
+      `update adscale_app.creative_work_items set input_snapshot =
+         (input_snapshot - 'renderPolicy') || jsonb_build_object('typographyPlan', $4::jsonb)
+       where id = $1 and workspace_id = $2 and updated_at = $3::timestamp
+         and not exists (select 1 from adscale_app.creative_work_outputs where work_item_id = $1)
+       returning input_snapshot`,
+      [workId, fixture.workspaceId, preparedRevision, JSON.stringify(typographyPlan)],
+    );
+    expect(frozen.rowCount).toBe(1);
+    expect(frozen.rows[0].input_snapshot.renderPolicy).toBeUndefined();
+    expect(frozen.rows[0].input_snapshot.generationPolicyVersion).toBe("quality_recovery_v1");
+  });
+}
+
 async function runV1Flow(
   request: APIRequestContext,
   fixture: CreatePostFixture,
@@ -808,6 +844,7 @@ async function runV1Flow(
     targetFormats?: string[];
     format?: string;
     formatMode?: "manual" | "auto";
+    directionPool?: CreativeDirectionPool;
     fontAssetKey?: string;
     textLayout?: "top" | "center" | "bottom";
     sources?: Array<{ assetId: string; usage: "content" | "style" | "both" }>;
@@ -824,31 +861,7 @@ async function runV1Flow(
   // A persisted, pre-integrated fixture is required for the old R-010 matrix.
   // Freeze it BEFORE dispatch; never change a running output or relax old asserts.
   if (input.historical !== false && input.intent === "single") {
-    const typographyPlan: TypographyPlan = {
-      version: 1,
-      format: (input.format ?? "4:5") as TypographyPlan["format"],
-      requestedLayout: input.textLayout ?? "top",
-      overflowPolicy: { strategy: "autofit_then_fail", minimumDpi: { headline: 96, body: 72, cta: 72 } },
-      collisionPolicy: "relocate_layout_then_fail",
-      contrastPolicy: "brand_plate_wcag_aa",
-      safeAreaPolicy: "format_default",
-      ...(input.fontAssetKey
-        ? { execution: "deterministic" as const, fontAssetKey: input.fontAssetKey, fontSelection: "operator_selected" as const }
-        : { execution: "generative" as const, fontAssetKey: null, reason: "approved_font_missing" as const }),
-    };
-    await withDb(async (client) => {
-      const frozen = await client.query(
-        `update adscale_app.creative_work_items set input_snapshot =
-           (input_snapshot - 'renderPolicy') || jsonb_build_object('typographyPlan', $4::jsonb)
-         where id = $1 and workspace_id = $2 and updated_at = $3::timestamp
-           and not exists (select 1 from adscale_app.creative_work_outputs where work_item_id = $1)
-         returning input_snapshot`,
-        [workId, fixture.workspaceId, preparedRevisionFrom(prepared.body), JSON.stringify(typographyPlan)],
-      );
-      expect(frozen.rowCount).toBe(1);
-      expect(frozen.rows[0].input_snapshot.renderPolicy).toBeUndefined();
-      expect(frozen.rows[0].input_snapshot.generationPolicyVersion).toBe("quality_recovery_v1");
-    });
+    await freezeHistoricalSnapshot(fixture, workId, preparedRevisionFrom(prepared.body), input);
   }
   await apiGenerateInitial(request, workId, preparedRevisionFrom(prepared.body));
   const detail = await waitForTerminalOutputs(request, workId);
@@ -1108,6 +1121,11 @@ test.describe("Creative Work v1 quality-recovery matrix (R-010)", () => {
       });
       const prepared = await apiPrepare(page.request, workId);
       expect(prepared.status).toBe(200);
+      // This existing Cortex gate asserts legacy deterministic font provenance.
+      // Keep its frozen contract historical, as with the R-010 fixture above.
+      await freezeHistoricalSnapshot(scopedFixture, workId, preparedRevisionFrom(prepared.body), {
+        format: "4:5", fontAssetKey: font.assetKey, textLayout: "top",
+      });
       await apiGenerateInitial(page.request, workId, preparedRevisionFrom(prepared.body));
       const confirmed = await apiGetWork(page.request, workId);
       expect(confirmed.work.identitySnapshot?.brandKnowledge).toMatchObject({
@@ -1723,8 +1741,53 @@ test.describe("integrated API", () => {
     expect(output.quality).toMatchObject({ objectiveVerdict: "inconclusive" });
     expect(evidenceForOutput(readProviderEvidence(), output.id)).toHaveLength(1);
     const endpoint = `/api/creative-work/${detail.work.id}/outputs/${output.id}/select`;
-    expect((await page.request.post(endpoint, { data: { saveToLibrary: false } })).ok()).toBe(false);
+    const unconfirmed = await page.request.post(endpoint, { data: { saveToLibrary: false } });
+    expect(unconfirmed.status()).toBe(409);
+    expect(await unconfirmed.json()).toMatchObject({ code: "creativeWorkOutputConfirmationRequired" });
     expect((await page.request.post(endpoint, { data: { saveToLibrary: false, confirmObjective: true } })).ok()).toBe(true);
+  });
+
+  test("falha técnica liquida antes do retry manual e conserva uma cobrança líquida", async ({ page }) => {
+    const fixture = loadFixture();
+    const before = await financeSnapshot(fixture.workspaceId);
+    const detail = await runIntegratedFlow(page.request, fixture, { intent: "single", request: "Peça [e2e:hard-fail-once] para retry técnico confirmado pela API." });
+    const output = detail.outputs[0];
+    expect(output.status).toBe("failed");
+    await expect.poll(async () => {
+      await apiGetWork(page.request, detail.work.id);
+      return (await dbOutputRow(output.id))?.failure_code;
+    }, { timeout: 120_000 }).toBe("generation_failed");
+    expect(await dbOutputRow(output.id)).toMatchObject({ status: "failed", image_call_count: 1, retry_count: 0 });
+    expect(evidenceForOutput(readProviderEvidence(), output.id)).toHaveLength(1);
+    expect((await financeSnapshot(fixture.workspaceId)).balance).toBe(before.balance);
+    const endpoint = `/api/creative-work/${detail.work.id}/outputs/${output.id}/retry`;
+    const confirmation = await page.request.post(endpoint);
+    expect(confirmation.status()).toBe(200);
+    expect((await confirmation.json()).output.id).toBe(output.id);
+    await waitForChild(page.request, detail.work.id, output.id);
+    expect(await dbOutputRow(output.id)).toMatchObject({ status: "completed", image_call_count: 2, retry_count: 1 });
+    expect((await apiGetWork(page.request, detail.work.id)).outputs.map(row => row.id)).toEqual([output.id]);
+    const calls = evidenceForOutput(readProviderEvidence(), output.id);
+    expect(calls).toHaveLength(2);
+    expect(calls.map(call => call.outcome)).toEqual(["failure", "success"]);
+    expect(calls.every(call => call.quality === "high" && !call.promptHasObjectiveCorrection)).toBe(true);
+    const after = await financeSnapshot(fixture.workspaceId);
+    expect(after.balance).toBe(before.balance - GENERATION_CREDIT_COSTS.creativeWorkOutput);
+    const movements = after.ledger.filter(row => !before.ledger.some(old => old.id === row.id));
+    expect(movements.map(row => row.amount).sort((a,b) => a-b)).toEqual([-GENERATION_CREDIT_COSTS.creativeWorkOutput,-GENERATION_CREDIT_COSTS.creativeWorkOutput,GENERATION_CREDIT_COSTS.creativeWorkOutput]);
+    const usages = after.usage.filter(row => !before.usage.some(old => old.id === row.id));
+    expect(usages).toHaveLength(4);
+    expect(usages).toEqual(expect.arrayContaining([
+      expect.objectContaining({ idempotency_key:`creative-work:${detail.work.id}:initial`, amount:GENERATION_CREDIT_COSTS.creativeWorkOutput }),
+      expect.objectContaining({ idempotency_key:`creative-work:${detail.work.id}:initial:dispatch-ack`, amount:0 }),
+      expect.objectContaining({ idempotency_key:`creative-work:${detail.work.id}:output:${output.id}:terminal-refund`, amount:-GENERATION_CREDIT_COSTS.creativeWorkOutput }),
+      expect.objectContaining({ idempotency_key:`creative-work:${detail.work.id}:output:${output.id}:reactivate-terminal:1`, amount:GENERATION_CREDIT_COSTS.creativeWorkOutput }),
+    ]));
+    const repeat = await page.request.post(endpoint);
+    expect(repeat.status()).toBe(409);
+    expect(await repeat.json()).toMatchObject({ code:"creativeWorkOutputNotRetriable" });
+    expect(await financeSnapshot(fixture.workspaceId)).toEqual(after);
+    expect(evidenceForOutput(readProviderEvidence(), output.id)).toHaveLength(2);
   });
 
   test("adaptação sem upload usa o pai como primeira referência e produz PNG 9:16", async ({ page }) => {
@@ -1744,6 +1807,34 @@ test.describe("integrated API", () => {
     expect((await downloadedPiece(page.request, detail.work.id, childId)).metadata).toMatchObject({ width: 1080, height: 1920 });
     expect((await downloadedPiece(page.request, detail.work.id, parent.id)).hash).toBe(original.hash);
     expect((await storedPiece(childId)).revision_context).toMatchObject({ sourceOutputId: parent.id, action: "format", annotations: [{ text: "CTA maior", x: 0.5, y: 0.8 }] });
+  });
+
+  test("formato automático herda fonte 4:5 e respeita a escolha manual 9:16", async ({ page }) => {
+    const fixture = loadFixture();
+    const png = await sharp({ create: { width: 80, height: 100, channels: 3, background: "#135784" } }).png().toBuffer();
+    const upload = await page.request.post("/api/workspace/assets", { multipart: {
+      file: { name: `auto-format-${crypto.randomUUID()}.png`, mimeType: "image/png", buffer: png },
+      width: "80", height: "100",
+    } });
+    expect(upload.status()).toBe(201);
+    const assetId = (await upload.json()).asset.id as string;
+    const directionPool = createDefaultCreativeDirectionPool();
+    directionPool.selectedIds = [directionPool.directions[1].id];
+    for (const formatMode of ["auto", "manual"] as const) {
+      const detail = await runIntegratedFlow(page.request, fixture, {
+        intent: "variations", request: "Variação com hierarquia mais clara, preservando o conteúdo da arte.",
+        format: "9:16", formatMode, directionPool,
+        sources: [{ assetId, usage: "content" }],
+      });
+      const expectedFormat = formatMode === "auto" ? "4:5" : "9:16";
+      const expectedHeight = formatMode === "auto" ? 1350 : 1920;
+      expect(detail.outputs).toHaveLength(1);
+      expect(detail.outputs[0]).toMatchObject({ status: "completed", targetFormat: expectedFormat });
+      expect(evidenceForOutput(readProviderEvidence(), detail.outputs[0].id)).toEqual([
+        expect.objectContaining({ dimensions: { width: 1080, height: expectedHeight } }),
+      ]);
+      expect((await downloadedPiece(page.request, detail.work.id, detail.outputs[0].id)).metadata).toMatchObject({ width: 1080, height: expectedHeight });
+    }
   });
 
   test("restyle diferencia fontes ausentes, analyzing e ready pela API real", async ({ page }) => {
@@ -1823,8 +1914,147 @@ test.describe("integrated UI retry", () => {
     expect((await apiGetWork(page.request,detail.work.id)).outputs).toHaveLength(1);
     expect(evidenceForOutput(readProviderEvidence(),output.id)).toHaveLength(2);
     expect((await dbOutputRow(output.id))?.image_call_count).toBe(2);
-    const duplicate = await page.request.post(`/api/creative-work/${detail.work.id}/generate`, {data:{action:"retry",outputId:output.id}});
-    expect(duplicate.ok()).toBe(false);
+    const duplicate = await page.request.post(`/api/creative-work/${detail.work.id}/outputs/${output.id}/retry`);
+    expect(duplicate.status()).toBe(409);
+    expect(await duplicate.json()).toMatchObject({ code: "creativeWorkOutputNotRetriable" });
     expect(evidenceForOutput(readProviderEvidence(),output.id)).toHaveLength(2);
+  });
+});
+
+
+test.describe("integrated UI direções", () => {
+  test("pool manual persiste uma escolha depois do reload e gera exatamente uma proposta", async ({ page, baseURL }) => {
+    assertIsolatedDatabase();
+    expect(["localhost", "127.0.0.1"]).toContain(new URL(baseURL!).hostname);
+    await login(page);
+    const fixture = loadFixture();
+    const directionPool = createDefaultCreativeDirectionPool();
+    directionPool.selectedIds = [directionPool.directions[1].id];
+    directionPool.manualInstruction = "Mantenha somente a direção Equilibrada e preserve a marca.";
+    directionPool.directions = directionPool.directions.map(direction => ({ ...direction, provenance: "manual" }));
+    const workId = await apiCreateV1Draft(page.request, fixture, {
+      intent: "variations", request: "Variação da arte com somente uma direção escolhida.", directionPool,
+    });
+    await apiAttachSource(page.request, workId, fixture.contentArtAssetId, "both");
+    await waitForSourcesReady(page.request, workId);
+    const suggestions: string[] = [];
+    page.on("request", request => {
+      if (request.method() === "POST" && request.url().includes(`/api/creative-work/${workId}/suggest`)) suggestions.push(request.url());
+    });
+    await page.goto(`/?workId=${workId}&intent=variations`);
+    const chips = page.locator('div[role="group"][aria-label="Direcionamentos"], div[role="group"][aria-label="Directions"]').locator('button[aria-pressed]');
+    await expect(chips).toHaveCount(3);
+    await expect(chips.filter({ hasText: "Equilibrada" })).toHaveAttribute("aria-pressed", "true");
+    expect(await chips.evaluateAll(elements => elements.filter(element => element.getAttribute("aria-pressed") === "true").length)).toBe(1);
+    await page.reload();
+    await expect(chips).toHaveCount(3);
+    await expect(chips.filter({ hasText: "Equilibrada" })).toHaveAttribute("aria-pressed", "true");
+    await page.waitForTimeout(1_500); // exceed the actual composer suggestion/autosave debounce
+    expect(suggestions).toEqual([]);
+    expect((await apiGetWork(page.request, workId)).work.settings.directionPool).toEqual(directionPool);
+    const prepared = await apiPrepare(page.request, workId);
+    expect(prepared.status).toBe(200);
+    expect((prepared.body as { preparedPlan: { outputCount: number } }).preparedPlan.outputCount).toBe(1);
+    await apiGenerateInitial(page.request, workId, preparedRevisionFrom(prepared.body));
+    const detail = await waitForTerminalOutputs(page.request, workId);
+    expect(detail.outputs).toHaveLength(1);
+    expect(detail.outputs[0]).toMatchObject({ status: "completed", directionId: directionPool.selectedIds[0] });
+    await page.reload();
+    expect((await apiGetWork(page.request, workId)).outputs.map(output => output.id)).toEqual(detail.outputs.map(output => output.id));
+    expect((await apiGetWork(page.request, workId)).work.settings.directionPool).toEqual(directionPool);
+  });
+});
+
+test.describe("integrated UI estados persistidos", () => {
+  test.beforeEach(async ({ page, baseURL }) => {
+    assertIsolatedDatabase();
+    expect(["localhost", "127.0.0.1"]).toContain(new URL(baseURL!).hostname);
+    await login(page);
+  });
+
+  test("fila persistida reabre dentro da caixa sem inventar resultado nem novo despacho", async ({ page }, info) => {
+    const fixture = loadFixture();
+    const workId = await apiCreateV1Draft(page.request, fixture, { intent: "single", request: "Fixture persistida em fila para testar reabertura da caixa." });
+    const outputId = crypto.randomUUID();
+    const before = await financeSnapshot(fixture.workspaceId);
+    const dispatched: string[] = [];
+    page.on("request", request => {
+      if (request.method() === "POST" && request.url().includes(`/api/creative-work/${workId}/generate`)) dispatched.push(request.url());
+    });
+    try {
+      // Deliberately seed a durable queued row without a worker event. This
+      // proves hydration/reload only; dispatch acceptance is tested by the real
+      // 202/CAS journey above and must not be inferred from this UI fixture.
+      await withDb(async client => {
+        await client.query("insert into adscale_app.creative_work_outputs(id,workspace_id,work_item_id,creative_level,target_format,operation_key,status) values($1,$2,$3,'balanced','4:5',$4,'queued')", [outputId, fixture.workspaceId, workId, `queued-fixture:${outputId}`]);
+        await client.query("update adscale_app.creative_work_items set status='generating' where id=$1 and workspace_id=$2", [workId,fixture.workspaceId]);
+      });
+      await page.goto(`/?workId=${workId}`);
+      const box = page.getByTestId("studio-piece-workspace");
+      await expect(box).toBeVisible({ timeout:60_000 });
+      await expect(box.getByRole("status").filter({ hasText:/na fila/i }).first()).toBeVisible();
+      await page.reload();
+      await expect(box.getByRole("status").filter({ hasText:/na fila/i }).first()).toBeVisible();
+      for (const viewport of [{width:390,height:844},{width:1045,height:586},{width:1440,height:900}]) {
+        await page.setViewportSize(viewport);
+        await expect(box).toBeVisible();
+        await page.screenshot({ path:info.outputPath(`caixa-fila-${viewport.width}.png`), fullPage:true, animations:"disabled" });
+      }
+      expect((await apiGetWork(page.request,workId)).outputs).toEqual([expect.objectContaining({ id:outputId,status:"queued",imageCallCount:0 })]);
+      expect(dispatched).toEqual([]);
+      expect(evidenceForOutput(readProviderEvidence(),outputId)).toEqual([]);
+      expect(await financeSnapshot(fixture.workspaceId)).toEqual(before);
+    } finally {
+      await page.goto("about:blank");
+      await withDb(async client => {
+        await client.query("delete from adscale_app.creative_work_outputs where id=$1 and workspace_id=$2",[outputId,fixture.workspaceId]);
+        await client.query("delete from adscale_app.creative_work_items where id=$1 and workspace_id=$2",[workId,fixture.workspaceId]);
+      });
+    }
+  });
+
+  test("ilimitado usa autoridade real, registra uso zero e apresenta filtros humanos", async ({ page }) => {
+    const fixture=loadFixture();
+    const entitlementId=crypto.randomUUID();
+    const before=await financeSnapshot(fixture.workspaceId);
+    const initial=await page.request.get("/api/billing/status");
+    expect(initial.ok()).toBe(true);
+    expect((await initial.json()).billing.access.unlimited).toBe(false);
+    try {
+      await withDb(client=>client.query("insert into adscale_app.workspace_entitlements(id,workspace_id,kind,status,source_code) values($1,$2,'tester','active',$3)",[entitlementId,fixture.workspaceId,`e2e:${entitlementId}`]));
+      const status=await page.request.get("/api/billing/status");
+      expect(status.ok()).toBe(true);
+      expect((await status.json()).billing.access.unlimited).toBe(true);
+      const detail=await runIntegratedFlow(page.request,fixture,{intent:"single",request:"Peça controlada para comprovar uso sem débito no acesso ilimitado."});
+      expect(detail.outputs[0].status).toBe("completed");
+      const after=await financeSnapshot(fixture.workspaceId);
+      expect(after.balance).toBe(before.balance);
+      expect(after.ledger).toEqual(before.ledger);
+      const zeroUses=after.usage.filter(row=>!before.usage.some(old=>old.id===row.id));
+      expect(zeroUses).toHaveLength(2);
+      expect(zeroUses).toEqual(expect.arrayContaining([
+        expect.objectContaining({idempotency_key:`creative-work:${detail.work.id}:initial`,amount:0}),
+        expect.objectContaining({idempotency_key:`creative-work:${detail.work.id}:initial:dispatch-ack`,amount:0}),
+      ]));
+      await page.goto("/settings?tab=creditHistory");
+      await expect(page.getByRole("complementary",{name:"Navegação principal"})).toContainText("Ilimitado");
+      await expect(page.getByText("Seu acesso é ilimitado. O uso é registrado sem débito de créditos.", {exact:true})).toBeVisible();
+      await expect(page.getByRole("combobox").filter({hasText:"Este mês"})).toBeVisible();
+      await expect(page.getByRole("combobox").filter({hasText:"Todas as campanhas"})).toBeVisible();
+      const range=page.getByRole("combobox").filter({hasText:"Este mês"});
+      await range.click();
+      const responsePromise=page.waitForResponse(response=>new URL(response.url()).pathname==="/api/billing/history" && !new URL(response.url()).searchParams.has("from"));
+      await page.getByRole("option",{name:"Todo o período",exact:true}).click();
+      const response=await responsePromise;
+      expect(response.ok()).toBe(true);
+      expect(new URL(response.url()).searchParams.has("to")).toBe(false);
+      await expect(page.getByText("thisMonth",{exact:true})).toHaveCount(0);
+      await expect(page.getByText("all",{exact:true})).toHaveCount(0);
+      await page.goto("/settings?tab=billing");
+      await expect(page.getByText("Ilimitado",{exact:true})).toBeVisible();
+    } finally {
+      await page.goto("about:blank");
+      await withDb(client=>client.query("delete from adscale_app.workspace_entitlements where id=$1 and workspace_id=$2",[entitlementId,fixture.workspaceId]));
+    }
   });
 });

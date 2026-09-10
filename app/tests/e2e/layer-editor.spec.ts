@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { Client } from "pg";
 import { expect, test, type Page } from "@playwright/test";
 
 /**
@@ -215,5 +216,98 @@ test.describe("native layer editor", () => {
       const response = await page.request.get(`/api/creative-work/${seeded.workItemId}`);
       return ((await response.json()) as { outputs: unknown[] }).outputs.length;
     }).toBe(beforeCount + 1);
+  });
+});
+
+
+// Ready layers only: this provider seam does not cover Seedream/AtlasCloud.
+// Block separation/regeneration at the browser boundary before any paid action.
+test.describe("integrated layers ready fixture", () => {
+  test("abre camadas inline sem débito, reabre e publica um filho no mesmo trabalho", async ({ page, baseURL }, testInfo) => {
+    testInfo.setTimeout(120_000);
+    expect(process.env.E2E_CONTROLLED_PROVIDER).toBe("true");
+    expect(["localhost", "127.0.0.1"]).toContain(new URL(baseURL!).hostname);
+    const databaseUrl = process.env.DATABASE_URL;
+    expect(databaseUrl).toBeTruthy();
+    const target = new URL(databaseUrl!);
+    expect(["localhost", "127.0.0.1", "[::1]"]).toContain(target.hostname);
+    expect(target.port).toBe("5434");
+    expect(target.pathname).toBe("/adscale_estudio_qa");
+    const seeded = fixture();
+    const client = new Client({ connectionString: databaseUrl });
+    await client.connect();
+    let originalToolKind: string | undefined;
+    const blockedPaidActions: string[] = [];
+    await page.route("**/api/creative-work/*", async (route) => {
+      const request = route.request();
+      if (request.method() === "PATCH" && /"action"\s*:\s*"(?:layerizeOutput|regenerateLayer)"/.test(request.postData() ?? "")) {
+        blockedPaidActions.push(request.postData()!);
+        await route.abort();
+        return;
+      }
+      await route.continue();
+    });
+    try {
+      const original = await client.query<{ tool_kind: string }>(
+        "select tool_kind from adscale_app.creative_work_items where id=$1 and workspace_id=$2",
+        [seeded.workItemId, seeded.workspaceId],
+      );
+      expect(original.rows).toHaveLength(1);
+      originalToolKind = original.rows[0].tool_kind;
+      // Existing seed is historical social_post. Reuse its synthetic ready PNG
+      // and layer document to exercise the new single-piece surface, restoring
+      // only this fixture's tool kind in finally. No real provider is invoked.
+      await client.query("update adscale_app.creative_work_items set tool_kind='single' where id=$1 and workspace_id=$2", [seeded.workItemId, seeded.workspaceId]);
+      const financialState = async () => {
+        const [uses, grants, ledger] = await Promise.all([
+          client.query("select id,amount from adscale_app.usage_events where workspace_id=$1 order by id", [seeded.workspaceId]),
+          client.query("select id,remaining from adscale_app.credit_grants where workspace_id=$1 order by id", [seeded.workspaceId]),
+          client.query("select id,amount from adscale_app.credit_transactions where workspace_id=$1 order by id", [seeded.workspaceId]),
+        ]);
+        return {uses:uses.rows, grants:grants.rows, ledger:ledger.rows};
+      };
+      const financialBefore = await financialState();
+      await login(page);
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto(`/?workId=${seeded.workItemId}`);
+      const box = page.getByTestId("studio-piece-workspace");
+      await expect(box).toBeVisible({ timeout: 60_000 });
+      await box.getByRole("button", { name: "Versão 1 · 4:5", exact: true }).click();
+      const layers = box.getByRole("button", { name: "Camadas", exact: true });
+      await layers.click();
+      await expect(box.getByRole("button", { name: "Exportar PNG", exact: true })).toBeVisible();
+      await expect(page.getByRole("dialog", { name: "Editor de camadas" })).toHaveCount(0);
+      for (const viewport of [{ width: 390, height: 844 }, { width: 1045, height: 586 }, { width: 1440, height: 900 }]) {
+        await page.setViewportSize(viewport);
+        await expect(box.getByRole("button", { name: "Exportar PNG", exact: true })).toBeVisible();
+        await page.screenshot({ path: testInfo.outputPath(`camadas-inline-${viewport.width}.png`), fullPage: true, animations: "disabled" });
+      }
+      await layers.click();
+      await expect(box.getByRole("button", { name: "Exportar PNG", exact: true })).toHaveCount(0);
+      await layers.click();
+      await expect(box.getByRole("button", { name: "Exportar PNG", exact: true })).toBeVisible();
+      await page.reload();
+      await layers.click();
+      await expect(box.getByRole("button", { name: "Exportar PNG", exact: true })).toBeVisible();
+      expect(blockedPaidActions).toEqual([]);
+      expect(await financialState()).toEqual(financialBefore);
+      const before = await page.request.get(`/api/creative-work/${seeded.workItemId}`);
+      expect(before.ok()).toBe(true);
+      const oldIds = new Set((await before.json()).outputs.map((output: { id: string }) => output.id));
+      await box.getByRole("button", { name: "Criar nova variação", exact: true }).click();
+      await expect.poll(async () => {
+        const detail = await page.request.get(`/api/creative-work/${seeded.workItemId}`);
+        expect(detail.ok()).toBe(true);
+        const outputs = (await detail.json()).outputs as Array<{ id: string; parentOutputId: string | null }>;
+        return outputs.filter((output) => !oldIds.has(output.id) && output.parentOutputId === seeded.outputId).length;
+      }).toBe(1);
+      expect(new URL(page.url()).searchParams.get("workId")).toBe(seeded.workItemId);
+      expect(blockedPaidActions).toEqual([]);
+      expect(await financialState()).toEqual(financialBefore);
+    } finally {
+      if (originalToolKind) await client.query("update adscale_app.creative_work_items set tool_kind=$3 where id=$1 and workspace_id=$2", [seeded.workItemId, seeded.workspaceId, originalToolKind]);
+      await client.end();
+    }
   });
 });
