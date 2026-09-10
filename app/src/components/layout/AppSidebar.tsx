@@ -163,7 +163,7 @@ export default function AppSidebar() {
               <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{displayName}</p>
               {isTesterAccount ? <AccountStatusBadge variant="tester" /> : null}
             </div>
-            {!isTesterAccount ? (
+            {!isTesterAccount || unlimited ? (
               <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-muted)]">
                 {unlimited ? tNav("unlimited") : `${billingStatus?.creditBalance ?? planLabel}`} {tNav("credits")}
               </p>
