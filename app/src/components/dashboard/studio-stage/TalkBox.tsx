@@ -21,6 +21,7 @@ export type TalkBoxSource = {
   name: string;
   previewUrl: string | null;
   usage?: CreativeSourceUsage;
+  status?: "uploaded" | "analyzing" | "ready" | "failed";
 };
 
 export function TalkBox({
@@ -40,6 +41,9 @@ export function TalkBox({
   retryInitialTemplate = null,
   onGenerate,
   queued = false,
+  canGenerate = true,
+  bordered = true,
+  onRetrySource,
   generateLabel,
   interview = null,
 }: {
@@ -58,7 +62,13 @@ export function TalkBox({
   announcement?: string | null;
   retryInitialTemplate?: (() => void) | null;
   onGenerate: () => void;
+  /** Server truth only: a persisted output/slide queued or processing. */
   queued?: boolean;
+  /** Canonical generate gate from the composer; preparation phases disable. */
+  canGenerate?: boolean;
+  /** The contained piece box embeds a borderless TalkBox (single ShineBorder). */
+  bordered?: boolean;
+  onRetrySource?: (sourceId: string) => void;
   generateLabel: string;
   interview?: {
     enabled: boolean;
@@ -87,7 +97,27 @@ export function TalkBox({
       : []),
   });
   const needsRestylePair = intent === "restyle" && !restylePairReady;
-  const attachRequired = (needsReference && attachCount === 0) || needsRestylePair;
+  // Reliability: separate a missing original, a missing style reference, a
+  // pending analysis and a failed analysis — an empty input file proves
+  // nothing about the attached source.
+  const restyleStyleSource = intent === "restyle"
+    ? sources.find((source) => source.usage === "style") ?? null
+    : null;
+  const restyleContentSource = intent === "restyle"
+    ? sources.find((source) => source.usage === "content" || source.usage === "both") ?? null
+    : null;
+  const restyleHint = intent === "restyle" && !restylePairReady
+    ? !restyleContentSource
+      ? { message: t("talkRestyleOriginalMissing"), retrySourceId: null }
+      : !restyleStyleSource
+        ? { message: t("talkRestyleStyleMissing"), retrySourceId: null }
+        : restyleStyleSource.status === "failed"
+          ? { message: t("talkRestyleFailed"), retrySourceId: restyleStyleSource.id }
+          : restyleStyleSource.status && restyleStyleSource.status !== "ready"
+            ? { message: t("talkRestyleAnalyzing"), retrySourceId: null }
+            : { message: t("talkRestyleStyleMissing"), retrySourceId: null }
+    : null;
+  const attachRequired = (needsReference && attachCount === 0) || (needsRestylePair && restyleStyleSource?.status === "ready");
   const attachLabel = attachCount > 0
     ? t("talkAttachCount", { count: attachCount })
     : needsReference || intent === "restyle"
@@ -104,8 +134,8 @@ export function TalkBox({
       setFidelityError(t("variationsReferenceError"));
       return;
     }
-    if (needsRestylePair) {
-      setFidelityError(t("restylePairError"));
+    if (restyleHint) {
+      setFidelityError(restyleHint.message);
       return;
     }
     setFidelityError(null);
@@ -119,22 +149,15 @@ export function TalkBox({
   });
   const hideGenerateWhileInterviewOwnsEntry = shouldHideProtocolSwitcher(interview);
 
-  return (
-    <ShineBorder
-      borderRadius={28}
-      borderWidth={1}
-      duration={28}
-      color={[...SHINE_COLORS]}
-      className="w-full min-w-0"
+  const box = (
+    <div
+      data-testid="studio-talk-box"
+      data-placement={placement}
+      className={cn(
+        "relative glass-backdrop rounded-[1.75rem] border border-white/10",
+        centered ? "p-5 sm:p-6 shadow-[var(--shadow-overlay)]" : "px-4 py-3 sm:px-5 sm:py-3.5",
+      )}
     >
-      <div
-        data-testid="studio-talk-box"
-        data-placement={placement}
-        className={cn(
-          "relative glass-backdrop rounded-[1.75rem] border border-white/10",
-          centered ? "p-5 sm:p-6 shadow-[var(--shadow-overlay)]" : "px-4 py-3 sm:px-5 sm:py-3.5",
-        )}
-      >
         {hideProtocolSwitcher ? null : (
           <ProtocolRadios
             selected={intent}
@@ -244,8 +267,10 @@ export function TalkBox({
             <button
               type="button"
               onClick={generate}
+              disabled={!canGenerate || queued}
               className={cn(
                 "talk-generate inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold",
+                "disabled:cursor-not-allowed disabled:opacity-60",
                 focus,
               )}
             >
@@ -253,6 +278,20 @@ export function TalkBox({
               {queued ? t("talkQueued") : generateLabel}
             </button>
             )}
+            {restyleHint ? (
+              <div className="flex flex-wrap items-center gap-2" role="status">
+                <p className="text-sm text-[var(--text-secondary)]">{restyleHint.message}</p>
+                {restyleHint.retrySourceId && onRetrySource ? (
+                  <button
+                    type="button"
+                    onClick={() => onRetrySource(restyleHint.retrySourceId!)}
+                    className={cn("text-sm font-semibold text-[var(--text-secondary)] underline-offset-2 hover:underline", focus)}
+                  >
+                    {t("talkRetryAnalysis")}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             {visibleError ? (
               <div className="flex flex-wrap items-center gap-2" role="alert">
                 <p className="text-sm text-[var(--danger-text)]">{visibleError}</p>
@@ -271,6 +310,19 @@ export function TalkBox({
         </div>
         <p aria-live="polite" className="sr-only">{announcement}</p>
       </div>
+  );
+
+  if (!bordered) return box;
+
+  return (
+    <ShineBorder
+      borderRadius={28}
+      borderWidth={1}
+      duration={28}
+      color={[...SHINE_COLORS]}
+      className="w-full min-w-0"
+    >
+      {box}
     </ShineBorder>
   );
 }

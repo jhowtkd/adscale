@@ -9,10 +9,12 @@ import { AccessGatePanel } from "@/components/billing/AccessGatePanel";
 import { CreativeComposer } from "@/components/creative-work/CreativeComposer";
 import { BrandInspirations } from "@/components/creative-work/BrandInspirations";
 import { CreativePlanReview } from "@/components/creative-work/CreativePlanReview";
+import { StudioPieceWorkspace } from "@/components/creative-work/StudioPieceWorkspace";
 import { useCreativeComposer, type ComposerIntent } from "@/components/creative-work/useCreativeComposer";
 import { BrandStageHome } from "@/components/dashboard/studio-stage/BrandStageHome";
 import { studioChipClass } from "@/components/dashboard/studio-stage/StudioInstrument";
 import { TalkBox } from "@/components/dashboard/studio-stage/TalkBox";
+import styles from "@/components/creative-work/studio-piece-workspace.module.css";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { resolveContinueWork, type ContinueWorkTarget } from "@/lib/dashboard/resolve-continue-work";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
@@ -203,6 +205,7 @@ export default function DashboardHomeActions({
   entryInterviewEnabled?: boolean;
 }) {
   const t = useTranslations("dashboard.home");
+  const tResults = useTranslations("dashboard.home.composer.results");
   const locale = useLocale();
   const entryLocale: EntryLocale = locale === "en" ? "en" : "pt-BR";
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
@@ -273,10 +276,14 @@ export default function DashboardHomeActions({
   // plan-review/results surfaces never replace it — their proposals grid has
   // no carousel outputs and would unmount the deck mid-flow.
   const isCarouselWorkflow = composer.intent === "carousel";
+  // Peça única lives in the approved contained box: configure, plan, results
+  // and review all share the container below instead of the stage surfaces.
+  const isSingleWorkflow = composer.intent === "single";
   const resultStage = rolloutVariant === "progressive"
     && !isCarouselWorkflow
+    && !isSingleWorkflow
     && (composer.stage === "generation" || composer.stage === "results");
-  const showPlan = rolloutVariant === "progressive"
+  const showPlan = (isSingleWorkflow || rolloutVariant === "progressive")
     && composer.stage === "plan"
     && Boolean(composer.preparedPlan)
     && !editingPreparedPlan
@@ -300,6 +307,7 @@ export default function DashboardHomeActions({
     outputCount: outputs.length,
     sourceCount: sources.length,
   });
+  const singleContainerActive = isSingleWorkflow && occupancy === "work";
   const mosaicItems = [
     ...inspirations
       .filter((item) => item.previewUrl)
@@ -314,10 +322,12 @@ export default function DashboardHomeActions({
   ];
 
   const brandName = composer.brandName ?? activeProfile?.name ?? null;
-  const showComposer = isCarouselWorkflow
+  const showComposerBase = isCarouselWorkflow
     || resultStage
     || rolloutVariant === "control"
     || (rolloutVariant === "progressive" && composer.objectiveSelected && !showPlan);
+  const showComposer = !singleContainerActive && showComposerBase;
+  const showComposerForContainer = singleContainerActive && showComposerBase;
   const talkBox = (
     <TalkBox
       placement={occupancy === "empty" ? "center" : "dock"}
@@ -328,18 +338,21 @@ export default function DashboardHomeActions({
       onSelectIntent={(intent, immediate) => composer.selectIntent?.(intent, immediate)}
       suggestedProtocol={interviewEnabled && !composer.objectiveSelected ? interview.suggestedProtocol : null}
       carouselEnabled={carouselCreationEnabled}
-      sources={sources.map((source) => ({ id: source.id, name: source.name, previewUrl: source.previewUrl, usage: source.usage }))}
+      sources={sources.map((source) => ({ id: source.id, name: source.name, previewUrl: source.previewUrl, usage: source.usage, status: source.status }))}
       bufferedFile={composer.bufferedFile ?? null}
       onAddFiles={(files) => void composer.addFiles?.(files)}
       error={composer.error ?? null}
       announcement={composer.announcement ?? (composer.bufferedFile ? t("composer.progressiveBufferedFile", { name: composer.bufferedFile.name }) : null)}
       retryInitialTemplate={composer.retryInitialTemplate ?? null}
       onGenerate={() => void (
-        occupancy === "empty" || rolloutVariant !== "progressive"
+        occupancy === "empty" || (rolloutVariant !== "progressive" && !isSingleWorkflow)
           ? composer.generateLegacy?.()
           : composer.preparePlan?.()
       )}
-      queued={Boolean(composer.actionPhase && composer.actionPhase !== "idle") || composer.state === "generating"}
+      queued={composer.state === "generating"}
+      canGenerate={composer.canGenerate ?? true}
+      bordered={!singleContainerActive}
+      onRetrySource={composer.retrySource ? (sourceId) => void composer.retrySource?.(sourceId) : undefined}
       generateLabel={occupancy === "empty" ? t("talkStart") : t("talkGenerate")}
       interview={interviewEnabled ? {
         enabled: true,
@@ -355,6 +368,52 @@ export default function DashboardHomeActions({
     />
   );
 
+  const planReview = showPlan && composer.preparedPlan ? (
+    <CreativePlanReview
+      plan={composer.preparedPlan}
+      busy={composer.actionPhase !== "idle"}
+      onEdit={() => setEditingPreparedPlan(true)}
+      onConfirm={(revision) => composer.confirmGeneration(revision)}
+    />
+  ) : null;
+
+  const pieceWorkspace = singleContainerActive ? (
+    <section data-testid="studio-piece-container" className={styles.workspace}>
+      {outputs.length > 0 ? (
+        <StudioPieceWorkspace composer={composer} />
+      ) : (
+        <div className={styles.inner}>
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
+            {protocolSwitchControls}
+            {showPlan && billing && !billing.access.hasSpendAccess ? (
+              <section className="rounded-[var(--radius-object)] border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4" role="alert">
+                <p className="font-semibold text-[var(--warning-text)]">{t("insufficientBalance")}</p>
+                <Link href="/billing" className="mt-2 inline-flex text-sm font-semibold underline">{t("getCredits")}</Link>
+              </section>
+            ) : null}
+            {planReview}
+            {showPlan && composer.quote ? (
+              <p className="text-sm text-[var(--text-secondary)]">{tResults("planCredits", { count: composer.quote.credits })}</p>
+            ) : null}
+            {!showPlan && showComposerForContainer ? (
+              <CreativeComposer
+                composer={composer}
+                composerRef={composerRef}
+                workflowVariant={rolloutVariant === "progressive" ? "progressive" : "control"}
+                chrome="stage"
+                controlsOnly
+              />
+            ) : null}
+            {!showPlan ? talkBox : null}
+            <div data-testid="brand-inspirations-slot" className="sr-only">
+              <BrandInspirations clientProfileId={composer.clientProfileId} onAttach={composer.addInspiration} />
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  ) : undefined;
+
   const stageBody = (
     <div className="space-y-4">
       {protocolSwitchControls}
@@ -364,7 +423,7 @@ export default function DashboardHomeActions({
           <Link href="/billing" className="mt-2 inline-flex text-sm font-semibold underline">{t("getCredits")}</Link>
         </section>
       ) : null}
-      {showPlan ? (
+      {!singleContainerActive && showPlan ? (
         <CreativePlanReview
           plan={composer.preparedPlan!}
           busy={composer.actionPhase !== "idle"}
@@ -408,7 +467,7 @@ export default function DashboardHomeActions({
           <CreateCampaignDialog activeProfile={activeProfile} onCreated={composer.linkCampaign} />
         </div>
       ) : null}
-      {!resultStage ? (
+      {!resultStage && !singleContainerActive ? (
         <div data-testid="brand-inspirations-slot" className="sr-only">
           <BrandInspirations clientProfileId={composer.clientProfileId} onAttach={composer.addInspiration} />
         </div>
@@ -467,6 +526,7 @@ export default function DashboardHomeActions({
           </div>
         )}
         talkBox={talkBox}
+        workspace={pieceWorkspace}
         onDropFiles={(files) => void composer.addFiles?.(files)}
         dropLabel={t("composer.dropTarget")}
       >

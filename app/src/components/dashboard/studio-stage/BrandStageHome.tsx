@@ -107,6 +107,7 @@ export function BrandStageHome({
   continueWork,
   topBar,
   talkBox,
+  workspace,
   children,
   onDropFiles,
   dropLabel,
@@ -121,6 +122,8 @@ export function BrandStageHome({
   continueWork?: ReactNode;
   topBar: ReactNode;
   talkBox: ReactNode;
+  /** When defined, the contained workspace replaces children + dock. */
+  workspace?: ReactNode;
   children?: ReactNode;
   onDropFiles: (files: FileList | File[] | null) => void;
   dropLabel: string;
@@ -180,12 +183,18 @@ export function BrandStageHome({
           ) : null}
           <div className="relative mt-4 min-h-[32rem] md:min-h-[40rem]">
             <WorkMosaic items={mosaicItems} onSelect={onSelectMosaic} />
-            {children ? <div className="relative z-[6] mx-auto max-w-5xl px-2 pt-6">{children}</div> : null}
+            {workspace ? (
+              <div data-testid="studio-workspace-slot" className="relative z-[6] pt-6">
+                {workspace}
+              </div>
+            ) : children ? <div className="relative z-[6] mx-auto max-w-5xl px-2 pt-6">{children}</div> : null}
           </div>
           <h1 className="sr-only">{brandName ? headline : eyebrow}</h1>
-          <div data-testid="studio-dock" className="sticky bottom-3 z-10 mt-6">
-            {talkBox}
-          </div>
+          {workspace ? null : (
+            <div data-testid="studio-dock" className="sticky bottom-3 z-10 mt-6">
+              {talkBox}
+            </div>
+          )}
         </>
       )}
     </div>

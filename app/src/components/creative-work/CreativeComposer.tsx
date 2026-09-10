@@ -19,7 +19,7 @@ import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCrea
 
 const FORMATS = ["1:1", "4:5", "9:16"] as const;
 
-export function CreativeComposer({ composer, composerRef, hideSourceUpload = false, layout = "studio", workflowVariant = "control", resultsOnly = false, chrome = "full" }: {
+export function CreativeComposer({ composer, composerRef, hideSourceUpload = false, layout = "studio", workflowVariant = "control", resultsOnly = false, chrome = "full", controlsOnly = false }: {
   composer: CreativeComposerViewModel;
   composerRef: CreativeComposerModel["composerRef"];
   /** Briefing-first entry keeps the canonical request but omits source upload. */
@@ -30,6 +30,8 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
   resultsOnly?: boolean;
   /** Palco owns request, attach and generate; stage chrome keeps configure/results only. */
   chrome?: "full" | "stage";
+  /** Contained piece box: settings only — request and generate live elsewhere. */
+  controlsOnly?: boolean;
 }) {
   const t = useTranslations("dashboard.home.composer");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -472,7 +474,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           onDrop={handleDrop}
           className="rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-raised)] p-4 focus-within:ring-2 focus-within:ring-[var(--focus-ring)]"
         >
-          {isSingle && !stageChrome ? <>
+          {isSingle && !stageChrome && !controlsOnly ? <>
             <label htmlFor="creative-composer-request" className="sr-only">{t("requestLabel")}</label>
             <textarea
               ref={composerRef}
@@ -837,7 +839,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         </div>
       </details> : null}
 
-      {stageChrome ? null : <div
+      {stageChrome || controlsOnly ? null : <div
         className="flex justify-end"
         data-testid="creative-generate-action"
       >

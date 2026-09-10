@@ -52,6 +52,11 @@ vi.mock("next-intl", () => ({
           emptyRequestError: "Escreva o pedido antes de gerar.",
           variationsReferenceError: "Anexe a peça de referência para gerar variações.",
           restylePairError: "Adicione a arte original e a referência de estilo.",
+          talkRestyleOriginalMissing: "Adicione a arte original",
+          talkRestyleStyleMissing: "Adicione a referência de estilo",
+          talkRestyleAnalyzing: "Analisando referência",
+          talkRestyleFailed: "Não foi possível analisar a referência",
+          talkRetryAnalysis: "Tentar analisar novamente",
           requestLabel: "dashboard.home.composer.requestLabel",
         }[key] ?? `dashboard.home.${key}`),
 }));
@@ -91,6 +96,13 @@ vi.mock("@/components/creative-work/useCreativeComposer", () => ({
 vi.mock("@/components/creative-work/CreativeComposer", () => ({
   CreativeComposer: ({ composer, initialWorkId, resultsOnly, hideSourceUpload }: { composer?: { intent: string; quote: { credits: number }; outputs?: Array<{ status: string }>; preparePlan?: () => void }; initialWorkId?: string; resultsOnly?: boolean; hideSourceUpload?: boolean }) => (
     <div data-testid="creative-composer" data-results-only={resultsOnly ? "true" : "false"} data-hide-source-upload={hideSourceUpload ? "true" : "false"}>{composer ? <>{`${composer.intent}:${composer.quote.credits}:${composer.outputs?.map((output) => output.status).join(",") ?? ""}`}{composer.preparePlan ? <button type="button" onClick={composer.preparePlan}>Continuar</button> : null}</> : initialWorkId}</div>
+  ),
+}));
+vi.mock("@/components/creative-work/StudioPieceWorkspace", () => ({
+  StudioPieceWorkspace: ({ composer }: { composer: { workTitle?: string; outputs: Array<{ id: string; status: string }> } }) => (
+    <section data-testid="studio-piece-workspace">
+      peça {composer.workTitle ?? "—"} · {composer.outputs.map((output) => output.status).join(",")}
+    </section>
   ),
 }));
 vi.mock("@/components/creative-work/CreativePlanReview", () => ({
@@ -861,6 +873,61 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Anexe a peça de referência para gerar variações.");
   });
 
+  it("keeps result and review inside the contained box for Peça única", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      intent: "single",
+      workId: "work-1",
+      request: "Institucional da marca",
+      setRequest: vi.fn(),
+      clientProfileId: "p1",
+      quote: { unitCount: 1, credits: 5 },
+      sources: [],
+      outputs: [{ id: "output-1", status: "completed" }],
+      workTitle: "Peça institucional",
+      stage: "results",
+      actionPhase: "idle",
+      canGenerate: false,
+      addFiles: vi.fn(),
+      recordStudioEvent: vi.fn(),
+    });
+    render(<DashboardHomeActions />);
+
+    const container = screen.getByTestId("studio-piece-container");
+    expect(within(container).getByTestId("studio-piece-workspace")).toHaveTextContent("completed");
+    // The workspace replaces the docked TalkBox entirely when results exist.
+    expect(screen.queryByTestId("studio-talk-box")).not.toBeInTheDocument();
+    // One composer instance: the mock hook must be called exactly once.
+    expect(useComposerMock).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/^Versões$/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the queued state and composer error visible inside the box", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      intent: "single",
+      workId: "work-1",
+      request: "Institucional",
+      setRequest: vi.fn(),
+      clientProfileId: "p1",
+      quote: { unitCount: 1, credits: 5 },
+      sources: [],
+      outputs: [{ id: "output-1", status: "queued" }],
+      workTitle: "Peça institucional",
+      stage: "generation",
+      actionPhase: "idle",
+      canGenerate: false,
+      error: "Falha ao gerar",
+      addFiles: vi.fn(),
+      recordStudioEvent: vi.fn(),
+    });
+    render(<DashboardHomeActions />);
+    const container = screen.getByTestId("studio-piece-container");
+    expect(within(container).getByTestId("studio-piece-workspace")).toHaveTextContent("queued");
+    // No TalkBox queue label: queued comes exclusively from server outputs.
+    expect(screen.queryByTestId("studio-talk-box")).not.toBeInTheDocument();
+  });
+
   it("requires original art and a style reference before restyling", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     useComposerMock.mockReturnValue({
@@ -875,7 +942,7 @@ describe("DashboardHomeActions", () => {
     });
     render(<DashboardHomeActions />);
     fireEvent.click(screen.getByRole("button", { name: "Começar" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Adicione a arte original e a referência de estilo.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Adicione a arte original");
   });
 
   it("still blocks restyle generate when only the style reference is attached", () => {
@@ -895,7 +962,7 @@ describe("DashboardHomeActions", () => {
     });
     render(<DashboardHomeActions />);
     fireEvent.click(screen.getByRole("button", { name: "Gerar" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Adicione a arte original e a referência de estilo.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Adicione a arte original");
     expect(preparePlan).not.toHaveBeenCalled();
   });
 
