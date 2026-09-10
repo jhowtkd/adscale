@@ -67,6 +67,8 @@ B entrega um novo commit com a correção e os checks; preservar o commit origin
 
 ## Entrega parcial A e atribuição complementar
 
-A entregou `931f6578` e `9b635b9a`: política/qualidade/formato, direção/prompt e QA. Reportou 348 testes, typecheck e lint passando. Revisão independente iniciada; não é A1 completo e ainda não ativa integrated no produto.
+A entregou `931f6578` e `9b635b9a`: política/qualidade/formato, direção/prompt e QA. Revisão independente dos SHAs sem achado bloqueante nessa entrega parcial. Integrados preservando ancestry no merge `ba84e7ca4786708578281e1162119d5ef51a712c`; não é A1 completo e ainda não ativa integrated no produto. Como são unidades independentes de B1, sua verificação pôde acontecer antes da entrega de Contratos, sem introduzir stub.
+
+No worktree de integração, o coordenador confirmou **11 arquivos / 348 testes passando**, `npm run typecheck` com exit0 e ESLint dos15 arquivos tocados com exit0. A suíte foi exatamente a lista do prompt A. Avisos não bloqueantes: Node DEP0205 e Fontconfig sem configuração padrão; não constituem prova de renderização visual. Não houve chamada paga nem migration nesse teste. Esses checks verificam a entrega parcial combinada com a base, não as quatro frentes completas.
 
 A identificou também que reference-plan exige upload original na adaptação mesmo com pai de revisão. A recebeu propriedade explícita de reference-plan.ts/teste para aceitar o pai como original válido e primeira referência, preservando a exigência de original na adaptação autônoma. Detalhe registrado no plano coordenador; sem source fictício no job.
