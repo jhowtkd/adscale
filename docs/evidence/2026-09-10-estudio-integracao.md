@@ -186,3 +186,15 @@ Coordenador confirmou 62 testes em quatro arquivos de workspace/canvas/card/edit
 - P2: hidratar B deve resetar seu saveState, sem herdar Salvando de A. Respostas tardias de A não alteram texto/revisão/erro/status de B.
 
 Devolutivas encaminhadas ao autor C; Dashboard/rotas e fluxos críticos permanecem no escopo original. A aplicação local já está autenticada com a conta sintética; isso ainda não verifica a Interface nova, que não foi integrada.
+
+## Continuação após limite do executor D
+
+OpenCode exibiu para a sessão D `monthly usage limit reached`, com reinício em 17 dias. Os três E2E modificados foram preservados em /tmp/estudio-integrado-e2e/d-e2e-preserved.patch. Criado worktree independente estudio-qa-continuacao, branch codex/estudio-qa-continuacao, a partir de 562d2dc6, com esse WIP aplicado e dependências existentes por symlink. O agente Codex billing_findings recebeu explicitamente a autoria dos quatro E2E e dos dois relatórios D nessa cópia. A sessão antiga pode ser retomada sem disputar o novo checkout; nada foi descartado.
+
+C apresentou fault.subscription.runtimeRestarted; reconexão na mesma tarefa recuperou WIP. Envio do texto consolidado com referência à terceira devolutiva foi confirmado no histórico e C iniciou as cinco correções, mantendo GLM-5.3-Flash Max.
+
+A até 1f45dbc8 foi integrado em 2f063b19 para liberar os ensaios locais de motor/CAS/QA já revisados. Esse merge é intermediário: o gate concorrente e a limpeza técnica específica de B continuam pendentes, seguidos da conexão do helper por A. Nenhuma entrega final ou publicação é reivindicada.
+
+## Guardas técnicos B aprovados — 3a818116
+
+Revisão independente confirmou os seis arquivos de código/testes idênticos ao delta pré-revisado. Coordenador executou as suítes de repositório, retry e GET: 290 testes em três arquivos, typecheck e lint passaram (zero erros, cinco warnings existentes). Gate no serviço antes do ledger e nos CAS de claim/requeue; clear específico compara status/marcador/manualRetryAttempt/retryCount. Testes de repositório inspecionam SQL e mocks; prova dos guardas em Postgres real ainda deve ser acrescentada à suíte existente pela continuação D. A conectará esse helper no job após receber o SHA integrado.
