@@ -34,6 +34,7 @@ export function PieceReviewCanvas({
   const commentToggleRef = useRef<HTMLButtonElement>(null);
   const [commentMode, setCommentMode] = useState(false);
   const [bounds, setBounds] = useState<PieceImageBounds | null>(null);
+  const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
   const [draft, setDraft] = useState<AnnotationDraft | null>(null);
 
   const measure = useCallback(() => {
@@ -42,6 +43,11 @@ export function PieceReviewCanvas({
     if (!container || !img) return;
     const rect = container.getBoundingClientRect();
     const box: PieceImageBounds = { left: 0, top: 0, width: rect.width, height: rect.height };
+    setNaturalSize(
+      img.naturalWidth > 0 && img.naturalHeight > 0
+        ? { width: img.naturalWidth, height: img.naturalHeight }
+        : null,
+    );
     setBounds(
       img.naturalWidth > 0 && img.naturalHeight > 0
         ? containedImageBounds(box, img.naturalWidth, img.naturalHeight)
@@ -75,39 +81,34 @@ export function PieceReviewCanvas({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [draft]);
 
-  // Entering read-only (pending child showing its base) must close or mute
-  // any open comment editor: nothing here may mutate or save in that state.
-  useEffect(() => {
-    if (!readOnly) return;
-    setDraft(null);
-    setCommentMode(false);
-  }, [readOnly]);
-
-  const hasNaturalSize = Boolean(imgRef.current?.naturalWidth && imgRef.current.naturalHeight);
+  // Read-only (pending child showing its base) is DERIVED, not a state
+  // transition: any open editor simply renders inert and every mutator bails.
+  const activeDraft = readOnly ? null : draft;
+  const activeCommentMode = readOnly ? false : commentMode;
 
   const startDraftFromClick = (event: React.MouseEvent) => {
     if (readOnly || !commentMode || draft) return;
     const container = containerRef.current;
     if (!container) return;
     const rect = container.getBoundingClientRect();
-    const box = hasNaturalSize && bounds ? bounds : { left: 0, top: 0, width: rect.width, height: rect.height };
+    const box = naturalSize && bounds ? bounds : { left: 0, top: 0, width: rect.width, height: rect.height };
     const point = imagePoint(box, event.clientX - rect.left, event.clientY - rect.top);
     if (!point) return;
     setDraft({ id: crypto.randomUUID(), x: point.x, y: point.y, text: "", isNew: true });
   };
 
   const saveDraft = () => {
-    if (!draft || !draft.text.trim()) return;
+    if (!activeDraft || !activeDraft.text.trim()) return;
     const saved: PieceReviewAnnotation = {
-      id: draft.id,
-      x: draft.x,
-      y: draft.y,
-      text: draft.text.trim(),
+      id: activeDraft.id,
+      x: activeDraft.x,
+      y: activeDraft.y,
+      text: activeDraft.text.trim(),
     };
     onChange(
-      draft.isNew
+      activeDraft.isNew
         ? [...annotations, saved]
-        : annotations.map((annotation) => (annotation.id === draft.id ? saved : annotation)),
+        : annotations.map((annotation) => (annotation.id === activeDraft.id ? saved : annotation)),
     );
     setDraft(null);
   };
@@ -190,7 +191,7 @@ export function PieceReviewCanvas({
           <button
             ref={commentToggleRef}
             type="button"
-            aria-pressed={commentMode}
+            aria-pressed={activeCommentMode}
             onClick={() => setCommentMode((value) => !value)}
             className="inline-flex min-h-[var(--control-touch)] items-center justify-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
@@ -198,7 +199,7 @@ export function PieceReviewCanvas({
           </button>
           <button
             type="button"
-            disabled={!commentMode}
+            disabled={!activeCommentMode}
             onClick={() => setDraft({ id: crypto.randomUUID(), x: 0.5, y: 0.5, text: "", isNew: true })}
             className="inline-flex min-h-[var(--control-touch)] items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
@@ -207,7 +208,7 @@ export function PieceReviewCanvas({
         </div>
       )}
 
-      {draft ? (
+      {activeDraft ? (
         <form
           className="w-full max-w-md space-y-2 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3"
           onSubmit={(event) => {
@@ -219,8 +220,8 @@ export function PieceReviewCanvas({
             {t("commentText")}
             <textarea
               aria-label={t("commentText")}
-              value={draft.text}
-              onChange={(event) => setDraft({ ...draft, text: event.target.value })}
+              value={activeDraft.text}
+              onChange={(event) => setDraft({ ...activeDraft, text: event.target.value })}
               rows={2}
               className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] p-2 font-normal"
             />
@@ -234,11 +235,11 @@ export function PieceReviewCanvas({
                 min={0}
                 max={100}
                 step={1}
-                value={Math.round(draft.x * 100)}
+                value={Math.round(activeDraft.x * 100)}
                 onChange={(event) => {
                   const next = Number(event.target.value);
                   if (!Number.isFinite(next)) return;
-                  setDraft({ ...draft, x: Math.min(Math.max(next, 0), 100) / 100 });
+                  setDraft({ ...activeDraft, x: Math.min(Math.max(next, 0), 100) / 100 });
                 }}
                 className="ml-1 w-20 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-2 py-1"
               />
@@ -251,11 +252,11 @@ export function PieceReviewCanvas({
                 min={0}
                 max={100}
                 step={1}
-                value={Math.round(draft.y * 100)}
+                value={Math.round(activeDraft.y * 100)}
                 onChange={(event) => {
                   const next = Number(event.target.value);
                   if (!Number.isFinite(next)) return;
-                  setDraft({ ...draft, y: Math.min(Math.max(next, 0), 100) / 100 });
+                  setDraft({ ...activeDraft, y: Math.min(Math.max(next, 0), 100) / 100 });
                 }}
                 className="ml-1 w-20 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-2 py-1"
               />
@@ -264,16 +265,16 @@ export function PieceReviewCanvas({
           <div className="flex gap-2">
             <button
               type="submit"
-              disabled={!draft.text.trim()}
+              disabled={!activeDraft.text.trim()}
               className="inline-flex min-h-[var(--control-touch)] items-center justify-center rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-3 py-2 text-sm font-semibold text-[var(--action-primary-text)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               {t("commentSave")}
             </button>
-            {!draft.isNew ? (
+            {!activeDraft.isNew ? (
               <button
                 type="button"
                 onClick={() => {
-                  onChange(annotations.filter((annotation) => annotation.id !== draft.id));
+                  onChange(annotations.filter((annotation) => annotation.id !== activeDraft.id));
                   setDraft(null);
                 }}
                 className="inline-flex min-h-[var(--control-touch)] items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-default)] px-3 py-2 text-sm font-medium text-[var(--danger-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"

@@ -15,7 +15,8 @@ const mocks = vi.hoisted(() => ({
     saveState: null as string | null,
     update: vi.fn(),
     attachReference: vi.fn(),
-    flush: vi.fn(),
+    flush: vi.fn(async () => null),
+    hasUnsavedChanges: vi.fn(() => false),
     review: vi.fn(),
     edit: vi.fn(),
     beginFreshDraftAttempt: vi.fn(),
@@ -55,9 +56,7 @@ vi.mock("./CreativeResultCard", () => ({
     <div data-testid="result-card-stub" data-output={props.output.id}>
       <button onClick={() => props.onApprove(props.output.id, false)}>Escolher</button>
       <button onClick={() => props.onDownload(props.output.id)}>Baixar</button>
-      <button
-        onClick={() => props.onRetryThroughReview?.({ id: props.output.id, parentOutputId: props.output.parentOutputId })}
-      >
+      <button onClick={() => props.onRetryThroughReview?.(props.output)}>
         revisar-nova-tentativa
       </button>
     </div>
@@ -71,6 +70,7 @@ vi.mock("next-intl", () => ({
     if (key === "reviewCostLine") return `Custo: ${values?.count ?? 0} créditos`;
     if (key === "pieceAlt") return `Peça ${values?.label ?? ""}`;
     if (key === "commentPinName") return `Comentário ${values?.count ?? 0}`;
+    if (key === "resumePreviousInstructions") return "Retomar instruções anteriores";
     if (key === "layerizeQuotaRemaining") return `Cota: ${values?.count ?? 0}`;
     return ({
       title: "Resultados",
@@ -150,7 +150,13 @@ beforeEach(() => {
   mocks.review.error = null;
   mocks.review.pendingOutputId = null;
   mocks.review.saveState = null;
+  mocks.review.error = null;
   mocks.review.beginFreshDraftAttempt.mockClear();
+  mocks.review.update.mockClear();
+  // Fresh per-test implementations: leaked reassigns from a previous test
+  // would otherwise poison the navigation guard.
+  mocks.review.flush = vi.fn(async () => null);
+  mocks.review.hasUnsavedChanges = vi.fn(() => false);
   mocks.editorProps = null;
 });
 
@@ -390,6 +396,78 @@ describe("StudioPieceWorkspace", () => {
     expect(screen.getByRole("textbox", { name: "O que você quer mudar?" })).toBeInTheDocument();
     // The parent's consumed revision is spent: a fresh draft/key is required.
     expect(mocks.review.beginFreshDraftAttempt).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays on the current piece with its error when the pre-switch autosave fails", async () => {
+    const base = output({ id: "base" });
+    const child = output({ id: "child", parentOutputId: "base", versionNumber: 2 });
+    // The newest completed child starts selected; switching to the base first
+    // flushes the pending draft.
+    mocks.review.hasUnsavedChanges = vi.fn(() => true);
+    mocks.review.flush = vi.fn(async () => null);
+    mocks.review.error = "Erro ao salvar";
+    render(<StudioPieceWorkspace composer={composerMock([base, child])} />);
+    fireEvent.click(screen.getByRole("button", { name: "Versão 1 · 4:5" }));
+    await waitFor(() => expect(mocks.review.flush).toHaveBeenCalledTimes(1));
+    // Flush failed: the selection stays on the child, text and error preserved.
+    expect(screen.getByTestId("result-card-stub")).toHaveAttribute("data-output", "child");
+    expect(screen.getByRole("alert")).toHaveTextContent("Erro ao salvar");
+  });
+
+  it("seeds a fresh attempt from the failed child context when the base has no draft", () => {
+    const base = output({ id: "base", reviewDraft: null });
+    const failedRevision = output({
+      id: "failed-child",
+      parentOutputId: "base",
+      versionNumber: 2,
+      status: "failed",
+      hasOutput: false,
+      revisionContext: {
+        version: 1, reviewRevision: 1, sourceOutputId: "base", sourceOutputVersion: 1,
+        action: "refine", targetFormat: "4:5", instruction: "tentativa 1",
+        revisionAssetId: null, annotations: [],
+      },
+    });
+    render(<StudioPieceWorkspace composer={composerMock([base, failedRevision])} />);
+    fireEvent.click(screen.getByRole("button", { name: "Versão 2 · 4:5" }));
+    fireEvent.click(screen.getByRole("button", { name: "revisar-nova-tentativa" }));
+    expect(mocks.review.beginFreshDraftAttempt).toHaveBeenCalledWith({
+      targetOutputId: "base",
+      from: { action: "refine", targetFormat: "4:5", instruction: "tentativa 1", revisionAssetId: null, annotations: [] },
+    });
+    expect(mocks.review.update).not.toHaveBeenCalled();
+  });
+
+  it("offers an explicit resume instead of overwriting a newer base draft", () => {
+    const base = output({
+      id: "base",
+      reviewDraft: {
+        version: 1, revision: 2, revisionKey: "00000000-0000-4000-8000-0000000000b1",
+        action: "refine", targetFormat: "4:5", instruction: "rascunho mais novo do pai",
+        revisionAssetId: null, annotations: [],
+      },
+    });
+    const failedRevision = output({
+      id: "failed-child",
+      parentOutputId: "base",
+      versionNumber: 2,
+      status: "failed",
+      hasOutput: false,
+      revisionContext: {
+        version: 1, reviewRevision: 2, sourceOutputId: "base", sourceOutputVersion: 1,
+        action: "format", targetFormat: "9:16", instruction: "tentativa 1",
+        revisionAssetId: null, annotations: [],
+      },
+    });
+    render(<StudioPieceWorkspace composer={composerMock([base, failedRevision])} />);
+    fireEvent.click(screen.getByRole("button", { name: "Versão 2 · 4:5" }));
+    fireEvent.click(screen.getByRole("button", { name: "revisar-nova-tentativa" }));
+    // The base draft is preserved; the old instructions come back explicitly.
+    expect(mocks.review.update).not.toHaveBeenCalledWith(expect.objectContaining({ instruction: "tentativa 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retomar instruções anteriores" }));
+    expect(mocks.review.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      instruction: "tentativa 1", targetFormat: "9:16", action: "format",
+    }));
   });
 
   it("closes a scanner panel directly without waiting for an editor flush", () => {
