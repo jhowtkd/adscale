@@ -72,6 +72,8 @@ Ciclos vermelho → verde registrados para política, high, prompt/brief/fallbac
 
 ## Pendência externa e limites
 
+Revisão posterior do coordenador identificou userId ausente no catch técnico e nas recuperações novas de onFailure. Corrigido passando createdByUserId do trabalho carregado pelo repositório, inclusive após replay; nenhum ator vem do evento externo. Os testes de catch técnico, worker interrompido e recuperação de marker exigem o ator no settlement. Ciclo vermelho (2 falhas) → verde (130 testes do job); logs `/tmp/estudio-motor-refund-actor-red.log` e `/tmp/estudio-motor-refund-actor-green.log`. Nenhum arquivo financeiro de D foi alterado.
+
 **P1 — retry durante estorno técnico pendente (B):** o novo CAS failed torna a linha visível antes da liquidação. Sem gate no serviço e no CAS de reserva/requeue, um retry humano pode começar com o débito anterior ainda ativo; a recuperação o estorna enquanto a nova tentativa gera. O clear genérico também pode apagar o marker de uma tentativa posterior. Coordenador recebeu o interleaving e atribuiu a correção a B. Teste exigido: refund suspenso bloqueia retry sem reserva/débito/dispatch; depois de liquidação e limpeza para generation_failed, retry volta a ser elegível. A aguarda SHA fixo revisado para incorporar essa correção; nenhum stub ou alteração nos arquivos de B foi criado.
 
 O coordenador autorizou fechar a parte A com essa dependência explícita. **Não publicar antes de resolver o P1 e concluir a integração/E2E.** Validação de banco, E2E controlado e validação visual pertencem ao coordenador/D. A não verificou produção, qualidade humana de imagens reais, comparação com ChatGPT ou aceite visual; mocks/provider controlado não comprovam esses resultados.

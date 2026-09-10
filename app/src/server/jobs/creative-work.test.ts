@@ -3296,6 +3296,7 @@ describe("creativeWorkOutputJob", () => {
       await expect(runJob(baseEvent, (name, result) => cached.set(name, JSON.stringify(result)))).resolves.toMatchObject({ success: false });
       expect(failMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "generation_failed_terminal_refund_pending");
       expect(failMock.mock.invocationCallOrder[0]).toBeLessThan(settleTerminalRefundMock.mock.invocationCallOrder[0]);
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "user-1" }));
       const failed = await failMock.mock.results[0].value;
       expect(failed.failureCode).toBe("generation_failed_terminal_refund_pending");
       expect(markFailureCodeMock).not.toHaveBeenCalled();
@@ -3328,6 +3329,7 @@ describe("creativeWorkOutputJob", () => {
         await onFailure({ event: { data: { event: { data: baseEvent } } }, error: new Error("worker lost"), step: { run: async (_name: string, fn: () => Promise<unknown>) => fn() } });
       }
       expect(generateAndStoreImageMock).not.toHaveBeenCalled();
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "user-1" }));
       expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({ decision: expect.objectContaining({ idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund" }) }));
     });
 
@@ -3356,6 +3358,7 @@ describe("creativeWorkOutputJob", () => {
       const input = { event: { data: { event: { data: baseEvent } } }, error: new Error("worker lost"), step };
       await onFailure(input);
       expect(current.failureCode).toBe("generation_failed_terminal_refund_pending");
+      expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "user-1" }));
       expect(markFailureCodeMock).not.toHaveBeenCalled();
 
       await onFailure(input);

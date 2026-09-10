@@ -400,8 +400,9 @@ const creativeWorkOutputJobConfig: {
         return Boolean(failed);
       });
       if (!recovered) {
-        const current = (await getCreativeWork(workspaceId, workItemId))?.outputs.find((candidate) => candidate.id === outputId);
-        await recoverPendingCreativeWorkRefund({ workspaceId, workItemId, output: current });
+        const currentScope = await getCreativeWork(workspaceId, workItemId);
+        const current = currentScope?.outputs.find((candidate) => candidate.id === outputId);
+        await recoverPendingCreativeWorkRefund({ workspaceId, workItemId, output: current, userId: currentScope?.work.createdByUserId ?? undefined });
         return;
       }
 
@@ -411,14 +412,14 @@ const creativeWorkOutputJobConfig: {
       // A cached winning failure CAS does not authorize refunding a later
       // completed/retried row or falling back to a different settled key.
       if (interruptedOutput?.status === "completed" || (interruptedIntegrated && interruptedOutput && interruptedOutput.status !== "failed")) {
-        await recoverPendingCreativeWorkRefund({ workspaceId, workItemId, output: interruptedOutput });
+        await recoverPendingCreativeWorkRefund({ workspaceId, workItemId, output: interruptedOutput, userId: interruptedScope?.work.createdByUserId ?? undefined });
         return;
       }
       if (interruptedOutput?.failureCode === "generation_failed"
         && interruptedIntegrated) return;
       const integratedTerminalFailure = interruptedOutput?.failureCode === INTEGRATED_TERMINAL_REFUND_PENDING;
       const refunded = integratedTerminalFailure
-        ? await recoverPendingCreativeWorkRefund({ workspaceId, workItemId, output: interruptedOutput })
+        ? await recoverPendingCreativeWorkRefund({ workspaceId, workItemId, output: interruptedOutput, userId: interruptedScope?.work.createdByUserId ?? undefined })
         : await step.run("refund-interrupted-output", async () => {
         const current = (await getCreativeWork(workspaceId, workItemId))?.outputs.find((candidate) => candidate.id === outputId);
         const reactivation = await resolveCreativeWorkOutputReactivation({
@@ -555,6 +556,7 @@ const creativeWorkOutputJobHandler = async ({
     let activeUnitCount = 1;
     let terminalTelemetryEmitted = false;
     let outputManualRetryAttempt: number | null = null;
+    let workCreatedByUserId: string | undefined;
     const incompleteOutputKeys = new Set<string>();
     let retainedOutputKey: string | null = null;
     const logCreativeWorkOutputTerminal = (
@@ -623,6 +625,7 @@ const creativeWorkOutputJobHandler = async ({
       }
 
       const work = scopeRaw.work;
+      workCreatedByUserId = work.createdByUserId ?? undefined;
       const brief = work.brief;
       if (!brief) return { success: false, skipped: true, outputId };
       const output = scopeRaw.output;
@@ -1998,7 +2001,7 @@ const creativeWorkOutputJobHandler = async ({
         const failed = await step.run("mark-failed", () =>
           failCreativeWorkOutput(workspaceId, workItemId, outputId, INTEGRATED_TERMINAL_REFUND_PENDING)
         );
-        terminalRefunded = await recoverPendingCreativeWorkRefund({ workspaceId, workItemId, output: failed });
+        terminalRefunded = await recoverPendingCreativeWorkRefund({ workspaceId, workItemId, output: failed, userId: workCreatedByUserId });
         if (failed) logCreativeWorkOutputTerminal({
           workspaceId, workItemId, outputId, generationCorrelationId,
           protocol: "v1", imageCallCount, providerCalls, providerRetries,
