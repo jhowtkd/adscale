@@ -286,6 +286,10 @@ export default function DashboardHomeActions({
   const pieceReferenceSources = isSingleWorkflow
     ? sources.filter((source) => source.assetId && source.pieceReference)
     : [];
+  // Mirrors the CreativeComposer stage-chrome gate: the reference strip (with
+  // its own Adicionar) is mounted exactly when references exist, so the
+  // TalkBox attach must yield to it in those states.
+  const stripMounted = isSingleWorkflow && pieceReferenceSources.length > 0;
   const resultStage = rolloutVariant === "progressive"
     && !isCarouselWorkflow
     && !isSingleWorkflow
@@ -366,7 +370,7 @@ export default function DashboardHomeActions({
       queued={composer.state === "generating"}
       canGenerate={composer.canGenerate ?? true}
       bordered={!singleContainerActive}
-      hideAttach={singleContainerActive && pieceReferenceSources.length > 0}
+      hideAttach={stripMounted}
       onRetrySource={composer.retrySource ? (sourceId) => void composer.retrySource?.(sourceId) : undefined}
       generateLabel={occupancy === "empty" ? t("talkStart") : t("talkGenerate")}
       interview={interviewEnabled ? {

@@ -24,7 +24,8 @@ const mocks = vi.hoisted(() => ({
     reloadDraft: vi.fn(),
   },
   layerize: vi.fn(),
-  editorProps: null as { exitRequestToken?: number; onOpenChange: (open: boolean) => void } | null,
+  editorExitHandle: vi.fn(),
+  editorProps: null as { exitRef?: { current: (() => void) | null }; onOpenChange: (open: boolean) => void } | null,
 }));
 
 vi.mock("./useOutputReview", () => ({
@@ -32,8 +33,16 @@ vi.mock("./useOutputReview", () => ({
 }));
 
 vi.mock("./layer-editor/LayerEditorContent", () => ({
-  LayerEditorContent: (props: { exitRequestToken?: number; onOpenChange: (open: boolean) => void }) => {
+  LayerEditorContent: (props: {
+    exitRef?: { current: (() => void) | null };
+    onOpenChange: (open: boolean) => void;
+  }) => {
     mocks.editorProps = props;
+    // Registering the guarded close mirrors the real useImperativeHandle; the
+    // spy proves the host actually invokes it on exit requests.
+    if (props.exitRef) {
+      props.exitRef.current = mocks.editorExitHandle;
+    }
     return (
       <div data-testid="layer-editor-content-stub">
         <button onClick={() => props.onOpenChange(false)}>editor-fechar-ok</button>
@@ -157,6 +166,8 @@ beforeEach(() => {
   // would otherwise poison the navigation guard.
   mocks.review.flush = vi.fn(async () => null);
   mocks.review.hasUnsavedChanges = vi.fn(() => false);
+  // Records the request only; the explicit flush completion stays in the test.
+  mocks.editorExitHandle = vi.fn();
   mocks.editorProps = null;
 });
 
@@ -346,8 +357,8 @@ describe("StudioPieceWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Comparar com a base" }));
     // The editor stays mounted and only receives the guarded exit request.
     expect(screen.getByTestId("layer-editor-content-stub")).toBeInTheDocument();
-    // The stub registers no exit handle, so only its own flush path closes it.
-    expect(mocks.editorProps?.exitRef).toBeDefined();
+    // Exiting through Camadas must invoke the editor's guarded close handle.
+    expect(mocks.editorExitHandle).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("button", { name: "Fechar comparação" })).not.toBeInTheDocument();
 
     // Simulated successful flushAndRelease: only now compare opens.
@@ -370,8 +381,11 @@ describe("StudioPieceWorkspace", () => {
     });
     render(<StudioPieceWorkspace composer={composer} />);
     fireEvent.click(screen.getByRole("button", { name: "Camadas" }));
+    mocks.review.hasUnsavedChanges = vi.fn(() => false);
     fireEvent.click(screen.getByRole("button", { name: "Versão 1 · 4:5" }));
-    // Editor holds the artwork until its flush path completes…
+    // The switch must invoke the guarded close handle…
+    expect(mocks.editorExitHandle).toHaveBeenCalledTimes(1);
+    // …and the editor holds the artwork until its flush path completes…
     expect(screen.getByTestId("layer-editor-content-stub")).toBeInTheDocument();
     expect(screen.getByTestId("result-card-stub")).toHaveAttribute("data-output", "child");
     // …then the deferred selection lands.
@@ -521,6 +535,19 @@ describe("StudioPieceWorkspace", () => {
         annotations: [],
       },
     });
+  });
+
+  it("shows the queue fallback without canvas or comments when nothing is usable", () => {
+    const queuedRoot = output({ id: "queued-root", status: "queued", hasOutput: false });
+    const composer = composerMock([queuedRoot]);
+    render(<StudioPieceWorkspace composer={composer} />);
+    // No usable ancestor: no canvas, no comment affordances, explicit status.
+    expect(screen.queryByRole("img", { name: /peça/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Comentar" })).not.toBeInTheDocument();
+    // Header status chip and the visual-area fallback both say it: "Na fila".
+    expect(screen.getAllByText("Na fila").length).toBeGreaterThanOrEqual(2);
+    // No download GET is attempted from the queued output.
+    expect(document.querySelector("img[src*='download']")).toBeNull();
   });
 
   it("drops an open comment editor when the artwork context changes", () => {

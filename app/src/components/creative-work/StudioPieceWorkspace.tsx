@@ -169,7 +169,11 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
   // While the selected child has no art yet, the shown base is read-only: its
   // draft belongs to another output and saving against the child is not_ready.
   const viewingBaseOnly = !selectedCompleted && displayOutput !== selected;
-  const displaySrc = displayOutput ? outputSource(displayOutput) : "";
+  // Only completed art has a usable download URL: a queued/failed output
+  // would 409 the GET, so the existing queue fallback renders instead.
+  const displaySrc = displayOutput && hasUsableOutput(displayOutput)
+    ? outputSource(displayOutput)
+    : "";
 
   const startLayerize = useCallback(() => {
     if (!composer.layerizeOutput || !selected) return;

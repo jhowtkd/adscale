@@ -109,19 +109,22 @@ export function TalkBox({
   const restyleContentSource = intent === "restyle"
     ? sources.find((source) => source.usage === "content" || source.usage === "both") ?? null
     : null;
-  // Hints follow the REAL source states even when the canonical pair shape
-  // already exists: an analyzing or failed style reference must be visible.
-  const restyleHint = intent !== "restyle" || (restylePairReady && (!restyleStyleSource || restyleStyleSource.status === "ready"))
+  // Hints follow the REAL state of BOTH sources, even when the canonical pair
+  // shape already exists: original AND style can each be pending or failed.
+  const sourceIssue = (source: TalkBoxSource | null) =>
+    !source || source.status === "ready" || !source.status
+      ? null
+      : source.status === "failed"
+        ? { message: t("talkRestyleFailed"), retrySourceId: source.id }
+        : { message: t("talkRestyleAnalyzing"), retrySourceId: null };
+  const restyleHint = intent !== "restyle"
     ? null
     : !restyleContentSource
       ? { message: t("talkRestyleOriginalMissing"), retrySourceId: null }
       : !restyleStyleSource
         ? { message: t("talkRestyleStyleMissing"), retrySourceId: null }
-        : restyleStyleSource.status === "failed"
-          ? { message: t("talkRestyleFailed"), retrySourceId: restyleStyleSource.id }
-          : restyleStyleSource.status && restyleStyleSource.status !== "ready"
-            ? { message: t("talkRestyleAnalyzing"), retrySourceId: null }
-            : null;
+        : sourceIssue(restyleContentSource)
+          ?? sourceIssue(restyleStyleSource);
   const attachRequired = (needsReference && attachCount === 0) || (needsRestylePair && restyleStyleSource?.status === "ready");
   const attachLabel = attachCount > 0
     ? t("talkAttachCount", { count: attachCount })
