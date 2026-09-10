@@ -198,3 +198,12 @@ A até 1f45dbc8 foi integrado em 2f063b19 para liberar os ensaios locais de moto
 ## Guardas técnicos B aprovados — 3a818116
 
 Revisão independente confirmou os seis arquivos de código/testes idênticos ao delta pré-revisado. Coordenador executou as suítes de repositório, retry e GET: 290 testes em três arquivos, typecheck e lint passaram (zero erros, cinco warnings existentes). Gate no serviço antes do ledger e nos CAS de claim/requeue; clear específico compara status/marcador/manualRetryAttempt/retryCount. Testes de repositório inspecionam SQL e mocks; prova dos guardas em Postgres real ainda deve ser acrescentada à suíte existente pela continuação D. A conectará esse helper no job após receber o SHA integrado.
+
+## Mapa mínimo para concluir a integração C
+
+Investigação independente somente leitura, após os cinco resíduos, para reaproveitar caminhos existentes:
+
+- Carrossel: useCarouselComposer.ts/postPlan hoje só refetch e catch vazio. Expor por useComposerActions e injetar via useCreativeComposer os helpers existentes flushAutosave() de useComposerPersistence e resolveCanonicalWorkRevision(id) de useComposerRevision. Usar o ID devolvido pelo flush, inclusive antes de criar o draft, e comunicar ausência de ID/revisão/falha por setError existente. Guardar toda a duração flush+plan, não somente isPending da mutation. Estender testes existentes com edição imediatamente anterior ao clique e falha de flush/plano.
+- Restyle: em useComposerPlanActions, checar pendingAnalysisBlocksPrepare antes de restylePairMissing, pois a dupla filtra somente fontes ready. TalkBox deve receber o gate canônico e distinguir preparação de fila; DashboardHomeActions não pode chamar toda actionPhase de Na fila.
+- Direções: reaproveitar directionTouchedRef/pendingDirectionSuggestions em useComposerDirectionSuggestions. Hidratação precisa preservar escolha já persistida; applySuggestedDirections(..., true) já existe. Capturar trabalho/protocolo/época antes da sugestão e ignorar sucesso/erro tardio de outra sessão; workIdRef/intentRef/draftEpochRef já existem.
+- Caixa: CreativeComposer ainda monta CreativeProposalGrid no ponto compartilhado entre Dashboard resultsOnly e CreativeWorkResumeSurface layout=piece. Convergir os resultados elegíveis para StudioPieceWorkspace ali, mantendo carrossel. Remover duplicação de título/configuração/editor dos wrappers do Dashboard e substituir fresh=1 da retomada pela variação da peça no mesmo trabalho. Testes existentes: CreativeComposer, DashboardHomeActions e CreativeWorkResumeSurface.
