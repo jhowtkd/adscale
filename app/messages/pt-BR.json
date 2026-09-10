@@ -6,6 +6,7 @@
   "navigation": {
     "dashboard": "Visão geral",
     "home": "Estúdio",
+    "unlimited": "Ilimitado",
     "campaigns": "Campanhas",
     "templates": "Briefings salvos",
     "settings": "Configurações",
@@ -3497,6 +3498,9 @@
   "creditHistory": {
     "title": "Histórico de Uso de Créditos",
     "subtitle": "Acompanhe onde seus créditos foram utilizados",
+    "unlimited": "Ilimitado",
+    "unlimitedHint": "Seu acesso é ilimitado. O uso é registrado sem débito de créditos.",
+    "movementsNote": "Esta tabela lista movimentações de créditos, não todos os eventos de uso.",
     "date": "Data",
     "campaign": "Campanha",
     "derivation": "Variação criativa",
@@ -4383,6 +4387,7 @@
       "financial": {
         "title": "Conta",
         "access": "Acesso",
+        "unlimited": "Ilimitado",
         "status": "Status",
         "generationBalance": "Saldo de geração",
         "adsRemaining": "Anúncios restantes",

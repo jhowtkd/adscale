@@ -6,6 +6,7 @@
   "navigation": {
     "dashboard": "Overview",
     "home": "Studio",
+    "unlimited": "Unlimited",
     "campaigns": "Campaigns",
     "templates": "Saved briefings",
     "settings": "Settings",
@@ -3439,6 +3440,9 @@
   "creditHistory": {
     "title": "Credit Usage History",
     "subtitle": "Track where your credits were used",
+    "unlimited": "Unlimited",
+    "unlimitedHint": "Your access is unlimited. Usage is recorded without debiting credits.",
+    "movementsNote": "This table lists credit movements, not every usage event.",
     "date": "Date",
     "campaign": "Campaign",
     "derivation": "Creative variant",
@@ -4297,6 +4301,7 @@
       "financial": {
         "title": "Account",
         "access": "Access",
+        "unlimited": "Unlimited",
         "status": "Status",
         "generationBalance": "Generation balance",
         "adsRemaining": "Ads remaining",
