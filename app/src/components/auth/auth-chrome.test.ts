@@ -28,4 +28,14 @@ describe("auth chrome", () => {
       expect(source, file).not.toContain("action-primary-bg");
     }
   });
+
+  it("stages auth on studio occupancy without TalkBox chrome", () => {
+    const source = readFileSync(path.join(process.cwd(), "src/components/auth/AuthPageShell.tsx"), "utf8");
+    expect(source).toContain("ImageCursorTrail");
+    expect(source).toContain("auth-occupancy");
+    expect(source).toContain("/images/auth/");
+    expect(source).not.toContain("/manual/screenshots/");
+    expect(source).not.toContain("TalkBox");
+    expect(source).not.toContain("ShineBorder");
+  });
 });
