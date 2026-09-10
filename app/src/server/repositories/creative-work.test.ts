@@ -2927,6 +2927,10 @@ describe("creative-work repository", () => {
         revisionInstruction: "Shorter",
         status: "failed",
         failureCode: "credit_blocked",
+        terminalAt: new Date("2026-09-10T10:00:00.000Z"),
+        updatedAt: new Date("2026-09-10T10:00:00.000Z"),
+        imageCallCount: 0,
+        retryCount: 0,
       });
       const requeued = { ...blocked, status: "queued", failureCode: null };
       mocks.state.selectResults.push(
@@ -2938,9 +2942,17 @@ describe("creative-work repository", () => {
       await expect(
         createCreativeWorkRevision("ws-1", "work-1", key, "output-1", "Shorter", null),
       ).resolves.toEqual({ output: requeued, claimedForDispatch: true });
-      expect(mocks.txSetMock).toHaveBeenCalledWith(
-        expect.objectContaining({ status: "queued", failureCode: null }),
-      );
+      // The lease restarts and the terminal marker clears; key and counters
+      // are preserved so the same billing key charges exactly once.
+      const patch = mocks.txSetMock.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+      expect(patch.status).toBe("queued");
+      expect(patch.failureCode).toBeNull();
+      expect(patch.terminalAt).toBeNull();
+      expect(patch.queuedAt).toBeInstanceOf(Date);
+      expect(patch.updatedAt).toBeInstanceOf(Date);
+      expect(patch).not.toHaveProperty("operationKey");
+      expect(patch).not.toHaveProperty("imageCallCount");
+      expect(patch).not.toHaveProperty("retryCount");
       expect(mocks.insertMock).not.toHaveBeenCalled();
     });
 

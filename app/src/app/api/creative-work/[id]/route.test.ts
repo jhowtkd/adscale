@@ -183,6 +183,12 @@ vi.mock("@/server/application/export-carousel-work", () => ({
   approveCarouselDeck: (...args: unknown[]) => approveCarouselDeckMock(...args),
 }));
 
+const refundHelperMock = vi.hoisted(() => vi.fn());
+vi.mock("@/server/application/refund-creative-work-output", () => ({
+  refundCreativeWorkOutputCompensatory: (...args: unknown[]) =>
+    refundHelperMock(...args),
+}));
+
 const saveOutputReviewMock = vi.hoisted(() => vi.fn());
 vi.mock("@/server/application/save-creative-work-output-review", () => ({
   saveCreativeWorkOutputReview: (...args: unknown[]) =>
@@ -321,6 +327,7 @@ describe("GET /api/creative-work/[id]", () => {
     listPendingRefundsMock.mockResolvedValue([]);
     markOutputFailureCodeMock.mockResolvedValue(null);
     refundCreditsMock.mockResolvedValue({ status: "refunded" });
+    refundHelperMock.mockResolvedValue(true);
     getUsageByIdempotencyKeyMock.mockResolvedValue(null);
     resolveReactivationMock.mockResolvedValue({ state: "none" });
     recordAggregateMock.mockResolvedValue(null);
@@ -423,11 +430,13 @@ describe("GET /api/creative-work/[id]", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
+    // Routing only: the shared helper owns keys/ledger (covered in its suite).
+    expect(refundHelperMock).toHaveBeenCalledWith(expect.objectContaining({
       workspaceId: "workspace-1",
-      action: "image_derivation",
-      amount: 50,
-      idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+      workItemId: "work-1",
+      outputId: "output-1",
+      reason: "retry_pending_compensatory_refund",
+      failurePhase: "terminal",
     }));
     expect(markOutputFailureCodeMock).toHaveBeenCalledWith(
       "workspace-1",
@@ -438,13 +447,6 @@ describe("GET /api/creative-work/[id]", () => {
   });
 
   it("reconciles an unsettled reactivation exact preflight refund with its distinct charge key", async () => {
-    resolveReactivationMock.mockResolvedValue({
-      state: "outstanding",
-      kind: "manual",
-      retryAttempt: 2,
-      chargeKey: "creative-work:work-1:output:output-1:reactivate-terminal:2",
-      refundKey: "creative-work:work-1:output:output-1:reactivate-terminal:2-refund",
-    });
     listPendingRefundsMock.mockResolvedValue([
       {
         id: "output-1",
@@ -461,9 +463,12 @@ describe("GET /api/creative-work/[id]", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
-      amount: 50,
-      idempotencyKey: "creative-work:work-1:output:output-1:reactivate-terminal:2-refund",
+    expect(refundHelperMock).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      manualRetryAttempt: 2,
+      reason: "retry_pending_compensatory_refund",
     }));
     expect(markOutputFailureCodeMock).toHaveBeenCalledWith(
       "workspace-1",
@@ -474,19 +479,6 @@ describe("GET /api/creative-work/[id]", () => {
   });
 
   it("clears a pending manual reactivation refund already settled in the real ledger resolver without a fallback refund", async () => {
-    const actual = await vi.importActual<typeof import("@/server/generation/settlement-adapters")>(
-      "@/server/generation/settlement-adapters",
-    );
-    resolveReactivationMock.mockImplementation(actual.resolveCreativeWorkOutputReactivationOutcome);
-    getUsageByIdempotencyKeyMock.mockImplementation(async (_workspaceId: string, key: string) => {
-      if (
-        key === "creative-work:work-1:output:output-1:reactivate-terminal:2" ||
-        key === "creative-work:work-1:output:output-1:reactivate-terminal:2-refund"
-      ) {
-        return { id: key, idempotencyKey: key };
-      }
-      return null;
-    });
     listPendingRefundsMock.mockResolvedValue([{
       id: "output-1",
       manualRetryAttempt: 2,
@@ -500,7 +492,12 @@ describe("GET /api/creative-work/[id]", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(refundCreditsMock).not.toHaveBeenCalled();
+    expect(refundHelperMock).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      manualRetryAttempt: 2,
+    }));
     expect(markOutputFailureCodeMock).toHaveBeenCalledWith(
       "workspace-1",
       "work-1",
@@ -514,22 +511,17 @@ describe("GET /api/creative-work/[id]", () => {
       .mockResolvedValueOnce([{ id: "output-1", manualRetryAttempt: 3 }])
       .mockResolvedValueOnce([]);
     listPendingRefundsMock.mockResolvedValue([{ id: "output-2", manualRetryAttempt: 1, failureCode: "generation_canceled_refund_pending" }]);
-    resolveReactivationMock.mockImplementation(async (_input: { outputId: string; manualRetryAttempt?: number }) => ({
-      state: "outstanding" as const,
-      kind: "manual",
-      retryAttempt: _input.manualRetryAttempt ?? 1,
-      chargeKey: `creative-work:work-1:output:${_input.outputId}:reactivate-terminal:${_input.manualRetryAttempt ?? 1}`,
-      refundKey: `creative-work:work-1:output:${_input.outputId}:reactivate-terminal:${_input.manualRetryAttempt ?? 1}-refund`,
-    }));
     getWorkMock.mockResolvedValue({ work: workItem, outputs, sources: [] });
 
     await expect(GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") }))
       .resolves.toHaveProperty("status", 200);
-    expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
-      idempotencyKey: "creative-work:work-1:output:output-1:reactivate-terminal:3-refund",
+    expect(refundHelperMock).toHaveBeenCalledWith(expect.objectContaining({
+      outputId: "output-1",
+      manualRetryAttempt: 3,
     }));
-    expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
-      idempotencyKey: "creative-work:work-1:output:output-2:reactivate-terminal:1-refund",
+    expect(refundHelperMock).toHaveBeenCalledWith(expect.objectContaining({
+      outputId: "output-2",
+      manualRetryAttempt: 1,
     }));
   });
 
@@ -2485,7 +2477,7 @@ describe("GET objective-quality refund recovery (R1)", () => {
     listPendingRefundsMock.mockResolvedValue([]);
     markOutputFailureCodeMock.mockResolvedValue(null);
     clearObjectiveQualityMarkerMock.mockResolvedValue(null);
-    refundCreditsMock.mockResolvedValue({ status: "refunded" });
+    refundHelperMock.mockResolvedValue(true);
     getUsageByIdempotencyKeyMock.mockResolvedValue(null);
     resolveReactivationMock.mockResolvedValue({ state: "none" });
     recordAggregateMock.mockResolvedValue(null);
@@ -2532,11 +2524,15 @@ describe("GET objective-quality refund recovery (R1)", () => {
     });
 
     expect(res.status).toBe(200);
-    expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
+    expect(refundHelperMock).toHaveBeenCalledWith({
       workspaceId: "workspace-1",
-      action: "image_derivation",
-      idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
-    }));
+      workItemId: "work-1",
+      outputId: "output-1",
+      reason: "objective_quality_failed",
+      manualRetryAttempt: null,
+      failurePhase: "terminal",
+      userId: "user-1",
+    });
     expect(clearObjectiveQualityMarkerMock).toHaveBeenCalledWith(
       "workspace-1",
       "work-1",
@@ -2551,7 +2547,7 @@ describe("GET objective-quality refund recovery (R1)", () => {
   });
 
   it("keeps the marker when the refund fails so recovery can resume", async () => {
-    refundCreditsMock.mockRejectedValueOnce(new Error("ledger unavailable"));
+    refundHelperMock.mockResolvedValueOnce(false);
     listPendingRefundsMock.mockResolvedValue([markedOutput]);
     getWorkMock.mockResolvedValue({
       work: workItem,
@@ -2564,6 +2560,7 @@ describe("GET objective-quality refund recovery (R1)", () => {
     });
 
     expect(res.status).toBe(200);
+    expect(refundHelperMock).toHaveBeenCalledTimes(1);
     expect(clearObjectiveQualityMarkerMock).not.toHaveBeenCalled();
     expect(markOutputFailureCodeMock).not.toHaveBeenCalled();
     const body = await res.json();

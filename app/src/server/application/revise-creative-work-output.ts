@@ -142,26 +142,25 @@ async function reviseReviewedOutput(
     if (existing.parentOutputId !== parent.id) {
       return { ok: false, error: { code: "invalid_revision" } };
     }
+    // A reviewed command replays only with its frozen, schema-valid context.
+    // Never degrade to the legacy path here: an invalid stored context must
+    // reject the command instead of reinterpreting the row.
     const frozenContext = parsePersistedOutputRevisionContext(
       existing.revisionContext,
     );
+    const replayInstruction = existing.revisionInstruction ?? "";
     if (
-      frozenContext !== null &&
-      frozenContext.reviewRevision !== input.reviewRevision
+      !frozenContext ||
+      frozenContext.reviewRevision !== input.reviewRevision ||
+      !replayInstruction
     ) {
       return { ok: false, error: { code: "invalid_revision" } };
     }
-    // Replay resumes the canonical settlement with the FROZEN context stored
-    // on the existing row — never by re-reading a possibly edited draft. The
-    // kernel replays without a second charge: reserve finds the same row
-    // (claimed=false) and join waits for ack / compensates a pending refund.
-    // A failed/credit_blocked row is re-queued and charged exactly once by
-    // the same billing key inside reserve.
-    const replayInstruction = existing.revisionInstruction ?? "";
     const replayAssetId = existing.revisionAssetId ?? null;
-    if (!replayInstruction) {
-      return { ok: false, error: { code: "invalid_revision" } };
-    }
+    // Replay resumes the canonical settlement with the frozen row above —
+    // never by re-reading a possibly edited draft. The kernel replays without
+    // a second charge (unclaimed reserve + join); a failed/credit_blocked row
+    // is re-queued and charged exactly once by the same billing key.
     try {
       const settled = await startGenerationSettlement(
         creativeWorkRevisionSettlementAdapter({
@@ -173,12 +172,8 @@ async function reviseReviewedOutput(
           instruction: replayInstruction,
           revisionAssetId: replayAssetId,
           objective: aggregate.work.brief?.objective ?? null,
-          ...(frozenContext
-            ? {
-                context: frozenContext,
-                expectedReviewRevision: frozenContext.reviewRevision,
-              }
-            : {}),
+          context: frozenContext,
+          expectedReviewRevision: frozenContext.reviewRevision,
         }),
       );
       if (!settled.ok) {

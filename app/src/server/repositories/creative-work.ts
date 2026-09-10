@@ -1691,11 +1691,16 @@ export async function createCreativeWorkRevision(
       // SAME row under the same operation key: the kernel then charges once
       // (idempotent billing key) and dispatches once. Concurrent replays race
       // on this CAS; the loser observes the queued row and joins the winner.
+      // updatedAt restarts the queued lease (a stale updatedAt would be reaped
+      // as a timeout on the next GET) and terminalAt is cleared because the
+      // row is live again; the operation key and call counters are preserved.
       if (isCreditBlockedRevision(retry)) {
         const [requeued] = await tx.update(creativeWorkOutputs).set({
           status: "queued",
           failureCode: null,
+          terminalAt: null,
           queuedAt: new Date(),
+          updatedAt: new Date(),
         }).where(and(
           eq(creativeWorkOutputs.workspaceId, workspaceId),
           eq(creativeWorkOutputs.workItemId, workItemId),
