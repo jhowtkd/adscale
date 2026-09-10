@@ -168,3 +168,21 @@ Configuração sintética de39 valores extraída do CI em /tmp/estudio-integrado
 Next está em127.0.0.1:3000, Inngest local em127.0.0.1:8288 com --no-discovery e somente o endpoint desta aplicação. Health retornou ok e sync Inngest200. Logs em next.log/inngest.log no mesmo diretório temporário. Isso ainda não prova jornada nova; C não integrado e D prepara os E2E.
 
 Revisão da cobertura identificou ausência de E2E explícito dos novos contratos. D recebeu extensão dos arquivos existentes para jornada UI/reload, CAS/replay, integrated high/1call/QA/refund e fluxos críticos. Camadas seedadas permitem validar painel/edição/publicação; E2E_CONTROLLED_PROVIDER não intercepta a separação Seedream/AtlasCloud. Não disparar separação paga nem declarar cobertura real dessa operação. Comparação visual Cenbrap continua not_run até autorização de geração real.
+
+## Revisão do fechamento A e recuperação concorrente
+
+A entregou ccd91817/360fe53d; coordenador confirmou 409 testes em 13 arquivos, typecheck e lint. Revisão encontrou ausência de userId no estorno técnico após load-scope em cache e no onFailure. A corrigiu em 1f45dbc8; revisão independente aprovada e coordenador confirmou 130 testes do job, typecheck e ESLint. Ainda não integrado: depende da correção concorrente abaixo.
+
+B recebeu dois resíduos P1 do marcador técnico: bloquear retry enquanto generation_failed_terminal_refund_pending antes de consultar/cobrar ledger e nas duas operações CAS; limpar marcador somente por CAS que confira status failed, código exato, manualRetryAttempt null-safe e retryCount da tentativa estornada. Um recovery antigo não pode apagar a pendência de uma tentativa nova. GET e job A devem usar o mesmo helper específico, somente após confirmação do refund. Correção em andamento, sem nova API pública ou schema.
+
+## Terceira devolutiva C — 66a0d53d e b14faea6
+
+Coordenador confirmou 62 testes em quatro arquivos de workspace/canvas/card/editor e 22 testes do hook. Revisão aprovou CAS de A1/A2 por sessão, refetch limpo e flush quando o editor de camadas está montado. Restam:
+
+- P1: fechar painel de scanner sem editor não deve esperar um flush que nenhum componente consome.
+- P1: revisar filho falho deve persistir nova chave de operação e passar pelo plano/confirmar; apenas selecionar pai reutiliza a chave já consumida. Não sobrescrever silenciosamente draft mais recente do pai.
+- P2: formulário de comentário já aberto deve fechar ou ficar inerte ao entrar readOnly; proteger todos os mutadores.
+- P1: trocar A por B antes do debounce descarta edição de A. Salvar antes de trocar e manter A se falhar, ou persistir a sessão capturada. O teste que exige zero saves confirma a perda e deve exigir conservação do conteúdo.
+- P2: hidratar B deve resetar seu saveState, sem herdar Salvando de A. Respostas tardias de A não alteram texto/revisão/erro/status de B.
+
+Devolutivas encaminhadas ao autor C; Dashboard/rotas e fluxos críticos permanecem no escopo original. A aplicação local já está autenticada com a conta sintética; isso ainda não verifica a Interface nova, que não foi integrada.
