@@ -47,6 +47,9 @@ type CreativeResultCardProps = {
    * a recommendation badge, never selection. Absent on legacy works.
    */
   artRefinement?: CreativeResultCardArtRefinement;
+  /** "workspace" strips technical chrome and the legacy inline refine form. */
+  presentation?: "card" | "workspace";
+  retryCreditCost?: number | null;
   onRetry: (outputId: string) => void;
   onRetryRevision?: (output: CreativeWorkOutput) => void | Promise<void>;
   onApprove: (outputId: string, confirmObjective?: boolean, saveAsRecipe?: boolean) => void;
@@ -67,11 +70,14 @@ type CreativeResultCardProps = {
 };
 
 const secondaryActionClass = `${studioQuietActionClass} min-h-[var(--control-touch)] rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm`;
+const actionClass = `${secondaryActionClass} inline-flex flex-1 items-center justify-center gap-2 font-medium`;
 
 export function CreativeResultCard({
   output,
   label,
   artRefinement = null,
+  presentation = "card",
+  retryCreditCost = null,
   onRetry,
   onRetryRevision,
   onApprove,
@@ -94,7 +100,9 @@ export function CreativeResultCard({
   const [submitting, setSubmitting] = useState(false);
   const [confirmingSelection, setConfirmingSelection] = useState(false);
   const [reviewShare, setReviewShare] = useState<{ url: string; copied: boolean } | null>(null);
+  const [confirmingRetry, setConfirmingRetry] = useState(false);
   const [saveAsRecipe, setSaveAsRecipe] = useState(false);
+  const workspace = presentation === "workspace";
   const t = useTranslations("dashboard.home.composer.results");
   const tCommon = useTranslations("common");
   const statusLabel = (status: CreativeWorkOutput["status"]) => t(`status.${status}`);
@@ -172,7 +180,7 @@ export function CreativeResultCard({
       role="listitem"
       className="flex flex-col gap-3 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4"
     >
-      <header className="flex items-center justify-between gap-2">
+      {!workspace ? <header className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-[var(--text-primary)]">
           <span data-testid="proposal-level-name">{label}</span>
           <span className="ml-1 text-[var(--text-muted)]">· {output.targetFormat ?? "4:5"} · {t("variationShort", { count: output.versionNumber ?? 1 })}</span>
@@ -196,7 +204,7 @@ export function CreativeResultCard({
             {statusLabel(output.status)}
           </span>
         </span>
-      </header>
+      </header> : null}
 
       {!hidePreview ? <div className="w-full overflow-hidden rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)]" style={{ aspectRatio: (output.targetFormat ?? "4:5").replace(":", " / ") }}>
         {isCompleted ? (
@@ -356,7 +364,54 @@ export function CreativeResultCard({
         </div>
       ) : null}
 
-      {deterministicBrandFidelity ? (
+      {workspace && (deterministicBrandFidelity || (residualBrandFidelity && residualBrandFidelity.status !== "clear")) ? (
+        <details className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-2">
+          <summary className="cursor-pointer text-xs font-medium text-[var(--text-secondary)]">{t("technicalDetails")}</summary>
+          <div className="mt-2 space-y-2">
+            {deterministicBrandFidelity ? (
+              <section data-testid="brand-fidelity-deterministic" className="text-xs">
+                <h3 className="font-medium text-[var(--text-secondary)]">{t("brandFidelityTitle")}</h3>
+                <ul className="mt-1 space-y-1">
+                  {deterministicBrandFidelity.checks.map((brandCheck) => (
+                    <li key={brandCheck.id}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[var(--text-secondary)]">{t(`brandFidelityCheck.${brandCheck.id}`)}</span>
+                        <span className={brandCheck.state === "nonconforming" ? "text-[var(--danger-text)]" : "text-[var(--text-muted)]"}>
+                          {t(`brandFidelityState.${brandCheck.state}`)}
+                        </span>
+                      </div>
+                      {brandCheck.evidence.length > 0 ? (
+                        <p className="break-all text-[var(--text-caption)] text-[var(--text-muted)]">
+                          {brandCheck.evidence.map((item) => item.path).join(" · ")}
+                        </p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+            {residualBrandFidelity && residualBrandFidelity.status !== "clear" ? (
+              <section role="note" data-testid="brand-fidelity-residual" className="text-xs text-[var(--text-muted)]">
+                <h3 className="font-medium text-[var(--text-secondary)]">
+                  {t(residualBrandFidelity.status === "suspected" ? "visualSuspicionTitle" : "visualInconclusiveTitle")}
+                </h3>
+                <ul className="mt-1 space-y-1">
+                  {residualBrandFidelity.signals.map((signal) => (
+                    <li key={`${signal.classification}:${signal.code}`}>
+                      <p>{signal.note}</p>
+                      <p>{signal.confidence === null
+                        ? t("visualNoConfidence")
+                        : t("visualConfidence", { value: Math.round(signal.confidence * 100) })}</p>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+          </div>
+        </details>
+      ) : null}
+
+      {!workspace && deterministicBrandFidelity ? (
         <section
           data-testid="brand-fidelity-deterministic"
           className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-2"
@@ -382,7 +437,7 @@ export function CreativeResultCard({
         </section>
       ) : null}
 
-      {residualBrandFidelity && residualBrandFidelity.status !== "clear" ? (
+      {residualBrandFidelity && residualBrandFidelity.status !== "clear" && !workspace ? (
         <section
           role="note"
           data-testid="brand-fidelity-residual"
@@ -412,9 +467,30 @@ export function CreativeResultCard({
             </button>
           ) : null
         ) : retryEligible ? (
-          <button type="button" className={secondaryActionClass} disabled={isRetrying} onClick={() => onRetry(output.id)}>
-            {t("retryProposal")}
-          </button>
+          workspace && confirmingRetry ? (
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-[var(--text-secondary)]">{t("retryConfirmCost", { count: retryCreditCost ?? 0 })}</span>
+              <button type="button" className={actionClass} disabled={isRetrying} onClick={() => { setConfirmingRetry(false); onRetry(output.id); }}>
+                {t("retryConfirm")}
+              </button>
+              <button type="button" className={actionClass} onClick={() => setConfirmingRetry(false)}>{t("cancel")}</button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              className={workspace ? actionClass : secondaryActionClass}
+              disabled={isRetrying}
+              onClick={() => {
+                if (workspace && !confirmingRetry) {
+                  setConfirmingRetry(true);
+                  return;
+                }
+                onRetry(output.id);
+              }}
+            >
+              {t("retryProposal")}
+            </button>
+          )
         ) : (
           <p className="text-xs text-[var(--text-muted)]">{t("retryUnavailable")}</p>
         )
@@ -448,7 +524,7 @@ export function CreativeResultCard({
                       ? t("retry")
                       : selectionPolicy.requiresConfirmation
                         ? confirmingSelection ? t("confirmApproval") : t("reviewBeforeApprove")
-                        : t("approve")}
+                        : workspace ? t("choosePiece") : t("approve")}
               </button>
             ) : null}
             <div className="flex flex-wrap gap-2">
@@ -485,8 +561,8 @@ export function CreativeResultCard({
                 {t("editImage")}
               </button>
             ) : null}
-            {layerization?.status === "completed" && onDownloadLayerized ? <button type="button" className={`${secondaryActionClass} border-[var(--focus-ring)]`} onClick={() => onDownloadLayerized(output.id, "psd")}>{t("downloadPsdWithLayers", { count: layerization.layers.length })}</button> : null}
-            {onRevise ? <button type="button" className={secondaryActionClass} title={t("refineHint")} aria-expanded={editing} onClick={() => setEditing((value) => !value)}>{t("refine")}</button> : null}
+            {layerization?.status === "completed" && onDownloadLayerized ? <button type="button" className={`${workspace ? actionClass : secondaryActionClass} border-[var(--focus-ring)]`} onClick={() => onDownloadLayerized(output.id, "psd")}>{t("downloadPsdWithLayers", { count: layerization.layers.length })}</button> : null}
+            {onRevise && !workspace ? <button type="button" className={secondaryActionClass} title={t("refineHint")} aria-expanded={editing} onClick={() => setEditing((value) => !value)}>{t("refine")}</button> : null}
             </div>
           </div>
           {reviewShare ? (
@@ -506,7 +582,7 @@ export function CreativeResultCard({
               </label>
             </div>
           ) : null}
-          {canSaveAsRecipe && selectionPolicy?.selectable && !output.isSelected ? (
+          {canSaveAsRecipe && selectionPolicy?.selectable && !output.isSelected && !workspace ? (
             <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
               <input
                 type="checkbox"
@@ -518,7 +594,7 @@ export function CreativeResultCard({
             </label>
           ) : null}
           {needsLayerizeQuota && layerizeRemaining !== null ? <p className="text-xs text-[var(--text-secondary)]">{t("layerizeQuotaRemaining", { count: layerizeRemaining })}</p> : null}
-          {editing && onRevise ? (
+          {editing && onRevise && !workspace ? (
             <form
               className="space-y-3 rounded-[var(--radius-control)] bg-[var(--surface-raised)] p-3"
               onSubmit={async (event) => {

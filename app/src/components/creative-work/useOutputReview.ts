@@ -80,6 +80,7 @@ export function useOutputReview({
   const [pendingOutputId, setPendingOutputId] = useState<string | null>(null);
   const [referencePending, setReferencePending] = useState(false);
   const [reviewed, setReviewed] = useState<{ draft: OutputReviewDraftV1; credits: number } | null>(null);
+  const [saveState, setSaveState] = useState<"saving" | "saved" | "error" | null>(null);
 
   const draftRef = useRef(draft);
   draftRef.current = draft;
@@ -112,10 +113,16 @@ export function useOutputReview({
     savesQueuedRef.current += 1;
     saveGenerationRef.current += 1;
     if (phaseRef.current === "editing") setPhaseSync("saving");
+    setSaveState("saving");
     saveChainRef.current = saveChainRef.current
       .then(() => runSave(input, lastRevisionRef.current?.revision ?? 0))
+      .then((savedDraft) => {
+        setSaveState("saved");
+        return savedDraft;
+      })
       .catch((cause) => {
         setError(t("commentSaveError"));
+        setSaveState("error");
         if (isConflict(cause)) setError(t("reviewConflict"));
         return null;
       })
@@ -320,6 +327,7 @@ export function useOutputReview({
     referencePending,
     isBusy,
     saving: saveMutation.isPending || phase === "saving",
+    saveState,
     update,
     attachReference,
     flush,
