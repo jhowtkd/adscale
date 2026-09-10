@@ -484,7 +484,7 @@ test.describe("Studio Carousel controlled-provider gate", () => {
     // A changed, checked protocol is the hydration signal; do not repeatedly
     // refill a controlled textarea while its initial state is still loading.
     await expect(carouselProtocol).toBeChecked();
-    const requestBox = page.locator("#creative-composer-request");
+    const requestBox = page.getByRole("textbox", { name: "Pedido do carrossel", exact: true });
     await expect(requestBox).toBeVisible({ timeout:30_000 });
     const objective = "Lançamento da turma de cerâmica de setembro com lista de espera.";
     await requestBox.fill(objective);

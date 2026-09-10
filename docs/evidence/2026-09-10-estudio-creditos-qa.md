@@ -346,3 +346,27 @@ scanner em uma fixture ready. O interceptor confere a action de primeiro nível
 do PATCH (`layerizeOutput`/`regenerateLayer`) contra a rota vigente; qualquer
 chamada dessas é bloqueada e reprova o teste. Os três registros financeiros
 permanecem iguais ao abrir também em modo inspect.
+
+### Retestes seletivos e limitações visuais observadas
+
+Após `42356994`, restyle passou **1/1** em 6,1s no worker local
+(`/tmp/estudio-integrado-e2e/restyle-r2.log`, lido). Os nove casos API preparados
+têm execução bem-sucedida por lotes; QA fail/refund e histórico foram provados
+no alvo web, CAS/high e os demais no worker. Não são uma única execução 9/9.
+
+O carrossel ainda não tem aceite de fluxo. A primeira rodada parou no seletor
+button, corrigido para o radio real em `6e2cada7`; a segunda parou porque dois
+campos compartilhavam `#creative-composer-request`. O DOM registrado em
+`/tmp/estudio-integrado-e2e/carousel-ui-r2-results/` mostra os nomes distintos
+“Pedido do carrossel” e “Pedido criativo”. O teste passa a usar o primeiro nome
+acessível exato, sem `.first()` ou preenchimentos repetidos. A duplicação de
+superfície/ID continua como limitação do produto; esta correção do teste não a
+resolve. O clique após texto novo continua sem espera pelo debounce.
+
+A rodada financeira UI provou uso zero e saldo intacto antes de falhar na
+sidebar, que ocultava Ilimitado para Tester. `fb9376ce` corrige o guard mantendo
+o badge; o teste de regressão falhou antes e os 14 unitários passam após o fix,
+com ESLint/typecheck verdes. Esse resultado local ainda exige repetição E2E.
+Na mesma rodada havia mensagens financeiras ainda não integradas de C e
+Maximum update depth no Select; a causa do loop não foi estabelecida. Não
+atribuir o loop às traduções sem nova evidência, nem aprovar a UI nessa condição.
