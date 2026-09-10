@@ -9,6 +9,8 @@ import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import {
   compileOutputReview,
   outputReviewInputSchema,
+  parsePersistedOutputReviewDraft,
+  parsePersistedOutputRevisionContext,
   type OutputRevisionContextV1,
 } from "@/server/creative-work/output-review";
 import { logCreativeWorkGenerationLifecycle } from "@/server/creative-work/job-telemetry";
@@ -123,19 +125,61 @@ async function reviseReviewedOutput(
     if (existing.parentOutputId !== parent.id) {
       return { ok: false, error: { code: "invalid_revision" } };
     }
-    const existingRevision =
-      (existing.revisionContext as OutputRevisionContextV1 | null)?.reviewRevision ??
-      null;
+    // A reviewed command replays only with its frozen, schema-valid context.
+    // Never degrade to the legacy path here: an invalid stored context must
+    // reject the command instead of reinterpreting the row.
+    const frozenContext = parsePersistedOutputRevisionContext(
+      existing.revisionContext,
+    );
+    const replayInstruction = existing.revisionInstruction ?? "";
     if (
-      existingRevision !== null &&
-      existingRevision !== input.reviewRevision
+      !frozenContext ||
+      frozenContext.reviewRevision !== input.reviewRevision ||
+      !replayInstruction
     ) {
       return { ok: false, error: { code: "invalid_revision" } };
     }
-    return { ok: true, value: { output: existing } };
+    const replayAssetId = existing.revisionAssetId ?? null;
+    // Replay resumes the canonical settlement with the frozen row above —
+    // never by re-reading a possibly edited draft. The kernel replays without
+    // a second charge (unclaimed reserve + join); a failed/credit_blocked row
+    // is re-queued and charged exactly once by the same billing key.
+    try {
+      const settled = await startGenerationSettlement(
+        creativeWorkRevisionSettlementAdapter({
+          workspaceId: input.workspaceId,
+          workItemId: input.workItemId,
+          userId: input.userId,
+          parentOutputId: parent.id,
+          revisionKey: input.revisionKey,
+          instruction: replayInstruction,
+          revisionAssetId: replayAssetId,
+          objective: aggregate.work.brief?.objective ?? null,
+          context: frozenContext,
+          expectedReviewRevision: frozenContext.reviewRevision,
+        }),
+      );
+      if (!settled.ok) {
+        if (settled.error.code === "credit_blocked") {
+          return {
+            ok: false,
+            error: { code: "credit_blocked", details: settled.error.details },
+          };
+        }
+        return { ok: false, error: { code: "dispatch_failed" } };
+      }
+      return { ok: true, value: { output: settled.value.output } };
+    } catch (error) {
+      if (error instanceof InvalidCreativeWorkRevisionError) {
+        return { ok: false, error: { code: "stale_review" } };
+      }
+      throw error;
+    }
   }
 
-  const draft = parent.reviewDraft;
+  // A persisted but schema-invalid draft is never trusted: reject the command
+  // instead of confirming a revision against unknown state.
+  const draft = parsePersistedOutputReviewDraft(parent.reviewDraft);
   if (
     !draft ||
     draft.revision !== input.reviewRevision ||

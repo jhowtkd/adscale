@@ -5,6 +5,7 @@ import { generateCreativeWork } from "@/server/application/generate-creative-wor
 import { generateCarouselWork } from "@/server/application/generate-carousel-work";
 import { reviseCreativeWorkOutput } from "@/server/application/revise-creative-work-output";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { projectPublicCreativeWorkOutput } from "@/server/creative-work/output-projection";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 
 const bodySchema = z.discriminatedUnion("action", [
@@ -75,7 +76,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           default: return apiError("invalidInput", 400);
         }
       }
-      return NextResponse.json({ output: result.value.output }, { status: 202 });
+      return NextResponse.json(
+        { output: projectPublicCreativeWorkOutput(result.value.output) },
+        { status: 202 },
+      );
     }
 
     // The preparedRevision shape depends on the work's protocol: carousel

@@ -160,6 +160,7 @@ vi.mock("./campaign", () => ({ getCampaignById: scopeMocks.getCampaignById }));
 import { creativeWorkOutputs } from "../db/schema";
 import { saveOutputReviewDraft } from "./creative-work-output-review";
 import {
+  CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING,
   claimCreativeWorkOutputImageCall,
   claimCreativeWorkOutputManualRetryAttempt,
   releaseCreativeWorkOutputManualRetryAttempt,
@@ -203,6 +204,8 @@ import {
   updateCreativeWorkDraftIfUnchanged,
   withCreativeWorkPreparationLock,
   getCreativeWorkSourceAssetDetails,
+  clearCreativeWorkOutputObjectiveQualityRefundPending,
+  listCreativeWorkOutputsNeedingRefund,
 } from "./creative-work";
 import type {
   SocialPostBrief,
@@ -2433,6 +2436,41 @@ describe("creative-work repository", () => {
       ).resolves.toEqual({ ok: false, code: "not_found" });
       expect(mocks.txSetMock).not.toHaveBeenCalled();
     });
+
+    it("refuses to overwrite a schema-invalid persisted draft as a fresh one", async () => {
+      const before = workOutput({
+        status: "completed",
+        outputKey: "pieces/base.png",
+        reviewDraft: {
+          version: 2,
+          revision: 1,
+          revisionKey: "00000000-0000-4000-8000-000000000001",
+          action: "refine",
+          targetFormat: "4:5",
+          instruction: "Ajuste",
+          annotations: [],
+          revisionAssetId: null,
+        },
+      });
+      const draft = {
+        action: "refine" as const,
+        targetFormat: "4:5" as const,
+        instruction: "Texto novo",
+        annotations: [],
+        revisionAssetId: null,
+      };
+      mocks.state.selectResults.push([before]);
+      await expect(
+        saveOutputReviewDraft({
+          workspaceId: "ws-1",
+          workItemId: "work-1",
+          outputId: before.id,
+          expectedReviewRevision: 0,
+          draft,
+        }),
+      ).resolves.toEqual({ ok: false, code: "review_conflict" });
+      expect(mocks.txSetMock).not.toHaveBeenCalled();
+    });
   });
 
   describe("output review compatibility", () => {
@@ -2617,6 +2655,194 @@ describe("creative-work repository", () => {
         }),
       ).resolves.toBeNull();
       expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it("re-queues a funded credit_blocked replay under the same key and claims dispatch", async () => {
+      const key = "00000000-0000-4000-8000-000000000202";
+      const blocked = workOutput({
+        id: "output-2",
+        parentOutputId: "output-1",
+        operationKey: `revision:${key}`,
+        revisionInstruction: "Shorter",
+        status: "failed",
+        failureCode: "credit_blocked",
+        terminalAt: new Date("2026-09-10T10:00:00.000Z"),
+        updatedAt: new Date("2026-09-10T10:00:00.000Z"),
+        imageCallCount: 0,
+        retryCount: 0,
+      });
+      const requeued = { ...blocked, status: "queued", failureCode: null };
+      mocks.state.selectResults.push(
+        [workOutput({ id: "output-1" })],
+        [blocked],
+        [blocked],
+      );
+      mocks.state.txUpdateResults.push([requeued]);
+      await expect(
+        createCreativeWorkRevision("ws-1", "work-1", key, "output-1", "Shorter", null),
+      ).resolves.toEqual({ output: requeued, claimedForDispatch: true });
+      // The lease restarts and the terminal marker clears; key and counters
+      // are preserved so the same billing key charges exactly once.
+      const patch = mocks.txSetMock.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+      expect(patch.status).toBe("queued");
+      expect(patch.failureCode).toBeNull();
+      expect(patch.terminalAt).toBeNull();
+      expect(patch.queuedAt).toBeInstanceOf(Date);
+      expect(patch.updatedAt).toBeInstanceOf(Date);
+      expect(patch).not.toHaveProperty("operationKey");
+      expect(patch).not.toHaveProperty("imageCallCount");
+      expect(patch).not.toHaveProperty("retryCount");
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it("lets a concurrent credit_blocked replay loser join the winner without a second claim", async () => {
+      const key = "00000000-0000-4000-8000-000000000203";
+      const blocked = workOutput({
+        id: "output-2",
+        parentOutputId: "output-1",
+        operationKey: `revision:${key}`,
+        revisionInstruction: "Shorter",
+        status: "failed",
+        failureCode: "credit_blocked",
+      });
+      const winner = { ...blocked, status: "queued", failureCode: null };
+      mocks.state.selectResults.push(
+        [workOutput({ id: "output-1" })],
+        [blocked],
+        [blocked],
+        [winner],
+      );
+      mocks.state.txUpdateResults.push([]);
+      await expect(
+        createCreativeWorkRevision("ws-1", "work-1", key, "output-1", "Shorter", null),
+      ).resolves.toEqual({ output: winner, claimedForDispatch: false });
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it("conflicts a credit_blocked row when the same key carries another command", async () => {      const key = "00000000-0000-4000-8000-000000000204";
+      const blocked = workOutput({
+        id: "output-2",
+        parentOutputId: "output-1",
+        operationKey: `revision:${key}`,
+        revisionInstruction: "Shorter",
+        status: "failed",
+        failureCode: "credit_blocked",
+      });
+      mocks.state.selectResults.push([workOutput({ id: "output-1" })], [blocked]);
+      await expect(
+        createCreativeWorkRevision("ws-1", "work-1", key, "output-1", "Different", null),
+      ).resolves.toBeNull();
+      expect(mocks.txSetMock).not.toHaveBeenCalled();
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("objective-quality refund marker (R1)", () => {
+    const qaFailQuality = { schemaVersion: 1, objectiveVerdict: "fail" };
+
+    it("marks the winning QA-fail completion in the same CAS without touching history", async () => {
+      const updated = workOutput({
+        status: "completed",
+        outputKey: "pieces/final.png",
+        quality: qaFailQuality,
+        failureCode: CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING,
+      });
+      mocks.state.updateResults.push([updated]);
+      const result = await completeCreativeWorkOutput(
+        "ws-1",
+        "work-1",
+        "output-1",
+        { outputKey: "pieces/final.png", cost: 50, quality: qaFailQuality },
+        { markObjectiveQualityFailedRefundPending: true },
+      );
+      expect(result?.failureCode).toBe(
+        "objective_quality_failed_refund_pending",
+      );
+      expect(mocks.setMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "completed",
+          outputKey: "pieces/final.png",
+          failureCode: CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING,
+        }),
+      );
+      expect(serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]).params).toContain(
+        "processing",
+      );
+    });
+
+    it("leaves the CAS loser without a row so no refund is authorized", async () => {
+      mocks.state.updateResults.push([]);
+      const result = await completeCreativeWorkOutput(
+        "ws-1",
+        "work-1",
+        "output-1",
+        { outputKey: "pieces/final.png", cost: 50, quality: qaFailQuality },
+        { markObjectiveQualityFailedRefundPending: true },
+      );
+      expect(result).toBeNull();
+    });
+
+    it("lists failed pending rows plus exactly the completed QA-fail marked case", async () => {
+      mocks.state.selectResults.push([]);
+      await listCreativeWorkOutputsNeedingRefund("ws-1", "work-1");
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql).toContain("creative_work_outputs");
+      expect(query.sql).toContain("objectiveVerdict");
+      expect(query.sql).toContain("output_key");
+      expect(query.params).toEqual(
+        expect.arrayContaining([
+          "ws-1",
+          "work-1",
+          "failed",
+          "completed",
+          CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING,
+        ]),
+      );
+    });
+
+    it("clears only the exact pending marker preserving image, quality and terminal", async () => {
+      const cleared = workOutput({
+        status: "completed",
+        outputKey: "pieces/final.png",
+        quality: qaFailQuality,
+        failureCode: null,
+      });
+      mocks.state.updateResults.push([cleared]);
+      const result = await clearCreativeWorkOutputObjectiveQualityRefundPending(
+        "ws-1",
+        "work-1",
+        "output-1",
+        "pieces/final.png",
+      );
+      expect(result?.failureCode).toBeNull();
+      // Only the marker and the timestamp move; image/quality stay intact.
+      expect(mocks.setMock).toHaveBeenCalledWith(
+        expect.objectContaining({ failureCode: null }),
+      );
+      const patch = mocks.setMock.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+      expect(Object.keys(patch).sort()).toEqual(["failureCode", "updatedAt"]);
+      const params = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]).params;
+      expect(params).toEqual(
+        expect.arrayContaining([
+          "ws-1",
+          "work-1",
+          "output-1",
+          "completed",
+          CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING,
+          "pieces/final.png",
+        ]),
+      );
+    });
+
+    it("refuses cleanup when the image, verdict or marker differs", async () => {
+      mocks.state.updateResults.push([]);
+      const result = await clearCreativeWorkOutputObjectiveQualityRefundPending(
+        "ws-1",
+        "work-1",
+        "output-1",
+        "pieces/other.png",
+      );
+      expect(result).toBeNull();
     });
   });
 });
