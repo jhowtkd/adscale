@@ -14,6 +14,8 @@ import {
   type CreativeWorkDetail,
 } from "@/lib/hooks/use-creative-work";
 import type { PreparedPlanProjectionV1 } from "@/server/creative-work/prepared-plan";
+import type { ComposerRevisionWriter } from "./composer-revision";
+import { isCreativeWorkConflict } from "./composer-state";
 import {
   carouselLayoutFamilyForRole,
   validateCarouselDeckStructure,
@@ -43,6 +45,8 @@ export type CarouselComposerInput = {
   draftEpochRef: RefObject<number>;
   flushAutosave: () => Promise<string | null>;
   resolveCanonicalWorkRevision: (workId: string) => Promise<string | null>;
+  setCanonicalWorkRevision: ComposerRevisionWriter;
+  blockStaleRevision: (workId: string) => void;
   setError: (error: string | null) => void;
   preparedPlan: PreparedPlanProjectionV1 | null;
   preparePlan: () => Promise<PreparedPlanProjectionV1 | null>;
@@ -74,6 +78,8 @@ export function useCarouselComposer({
   draftEpochRef,
   flushAutosave,
   resolveCanonicalWorkRevision,
+  setCanonicalWorkRevision,
+  blockStaleRevision,
   setError,
   preparedPlan,
   preparePlan,
@@ -217,8 +223,18 @@ export function useCarouselComposer({
         answers,
         ...(command ? { command } : {}),
       });
+      if (isCurrent()) setCanonicalWorkRevision(id, result.work.updatedAt);
       return result;
     } catch (cause) {
+      if (isCurrent() && planningWorkId && isCreativeWorkConflict(cause)) {
+        blockStaleRevision(planningWorkId);
+        try {
+          const refreshed = await detailQuery.refetch();
+          if (isCurrent() && refreshed.data?.work.id === planningWorkId) {
+            setCanonicalWorkRevision(planningWorkId, refreshed.data.work.updatedAt);
+          }
+        } catch { /* The next explicit attempt must refresh the blocked revision. */ }
+      }
       if (isCurrent()) {
         const message = cause instanceof CreativeWorkRequestError || cause instanceof Error
           ? cause.message
@@ -231,7 +247,7 @@ export function useCarouselComposer({
       planInFlightRef.current = false;
       setPlanningPending(false);
     }
-  }, [draftEpochRef, flushAutosave, planMutation, resolveCanonicalWorkRevision, setError, workIdRef]);
+  }, [blockStaleRevision, detailQuery, draftEpochRef, flushAutosave, planMutation, resolveCanonicalWorkRevision, setCanonicalWorkRevision, setError, workIdRef]);
 
   const askForPlan = useCallback(
     (answers: Record<string, string> = {}) => postPlan(answers),

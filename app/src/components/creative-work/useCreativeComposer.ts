@@ -397,6 +397,8 @@ export function useCreativeComposer({
     draftEpochRef,
     flushAutosave,
     resolveCanonicalWorkRevision,
+    setCanonicalWorkRevision,
+    blockStaleRevision: queries.blockStaleRevision,
     setError,
     preparedPlan: preparedPlan ?? null,
     preparePlan,
