@@ -13,6 +13,8 @@ import {
   type CreativeWorkDetail,
 } from "@/lib/hooks/use-creative-work";
 import type { PreparedPlanProjectionV1 } from "@/server/creative-work/prepared-plan";
+import type { ComposerRevisionWriter } from "./composer-revision";
+import { isCreativeWorkConflict } from "./composer-state";
 import {
   carouselLayoutFamilyForRole,
   validateCarouselDeckStructure,
@@ -40,6 +42,8 @@ export type CarouselComposerInput = {
   draftEpochRef: RefObject<number>;
   flushAutosave: () => Promise<string | null>;
   resolveCanonicalWorkRevision: (workId: string) => Promise<string | null>;
+  setCanonicalWorkRevision: ComposerRevisionWriter;
+  blockStaleRevision: (workId: string) => void;
   setError: (error: string | null) => void;
   preparedPlan: PreparedPlanProjectionV1 | null;
   preparePlan: () => Promise<PreparedPlanProjectionV1 | null>;
@@ -71,6 +75,8 @@ export function useCarouselComposer({
   draftEpochRef,
   flushAutosave,
   resolveCanonicalWorkRevision,
+  setCanonicalWorkRevision,
+  blockStaleRevision,
   setError,
   preparedPlan,
   preparePlan,
@@ -178,18 +184,28 @@ export function useCarouselComposer({
         setError("Não foi possível atualizar o rascunho. Tente organizar o conteúdo novamente.");
         return;
       }
-      await planMutation.mutateAsync({
+      const result = await planMutation.mutateAsync({
         workItemId: id,
         expectedUpdatedAt,
         answers,
       });
+      if (isCurrent()) setCanonicalWorkRevision(id, result.work.updatedAt);
     } catch (cause) {
+      if (isCurrent() && planningWorkId && isCreativeWorkConflict(cause)) {
+        blockStaleRevision(planningWorkId);
+        try {
+          const refreshed = await detailQuery.refetch();
+          if (isCurrent() && refreshed.data?.work.id === planningWorkId) {
+            setCanonicalWorkRevision(planningWorkId, refreshed.data.work.updatedAt);
+          }
+        } catch { /* The next explicit attempt must refresh the blocked revision. */ }
+      }
       if (isCurrent()) setError(cause instanceof Error ? cause.message : "Não foi possível organizar o conteúdo. Tente novamente.");
     } finally {
       planInFlightRef.current = false;
       setPlanningPending(false);
     }
-  }, [draftEpochRef, flushAutosave, planMutation, resolveCanonicalWorkRevision, setError, workIdRef]);
+  }, [blockStaleRevision, detailQuery, draftEpochRef, flushAutosave, planMutation, resolveCanonicalWorkRevision, setCanonicalWorkRevision, setError, workIdRef]);
 
   const askForPlan = useCallback(
     (answers: Record<string, string> = {}) => postPlan(answers),
