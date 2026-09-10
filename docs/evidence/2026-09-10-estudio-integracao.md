@@ -105,3 +105,17 @@ D entregou `22879a5b`, `0f6d53bc`, `3cceb8c1`, `167ab700`. Coordenador confirmou
 - D/P2: revalidar usage idempotente após adquirir locks dos grants e tratar23505 de recordUsage consultando workspace/chave fora da transação abortada. Corrida preexistente coberta pelo critério de idempotência desta entrega. Testar saldo exato para uma operação e23505 sem usage correspondente.
 - D/P2: history/route aceita data impossível com horário, como2026-02-31T12:00:00Z. Exigir ISO com timezone e calendário válido, estendendo o teste existente.
 - Rollback/concorrência reais e traduções financeiras continuam dependentes da integração/QA.
+
+
+## Devolutiva C — hooks e geometria
+
+Revisão estática dos SHAs fixos a986aa8a,1b5be14d,3f88c3c0; não avalia WIP posterior de workspace/dock. Corrigir por C antes de integrar:
+
+1. **P1, revisão persistida perdida:** useOutputReview.ts:91,262–269,288–306 nunca hidrata lastRevisionRef com output.reviewDraft. Reabrir revisão2 mostra texto mas bloqueia Revisar; próxima edição envia expectedReviewRevision0 e recebe409. Hidratar revisão canônica junto ao conteúdo, inclusive reloadDraft. Estender teste de fresh mount para revisar/confirmar e editar a partir da revisão2.
+2. **P1, gravação cruzada de peças:** useOutputReview.ts:104–125 lê outputIdRef.current quando a fila executa. Save A em voo + segunda edição A enfileirada + troca para B pode enviar a edição de A para B; respostas antigas alteram lastRevisionRef de B. Capturar identidade work/output/epoch por operação; proteger saves, uploads e confirmações, conservando a edição no output de origem e ignorando respostas antigas na peça visível. Testar duas peças, save e upload adiados.
+3. **P1, confirmar conteúdo antigo após falha:** useOutputReview.ts:162–172 ignora flush null quando freshSave=false e usa último sucesso. SalvarX, editarY, autosaveY falhar e clicar Revisar pode gerarX comY visível. Exigir save bem-sucedido do conteúdo/epoch atual; erro ou edição durante await não aceita último sucesso. Testar zero confirmações após falha.
+4. **P2, geometria de imagem pequena:** PieceReviewCanvas.tsx:36/117 calcula upscaling mas CSS max-h/max-w não amplia imagem100x100 dentro de600x400. Pins e hit-test divergem do retângulo real. Alinhar dimensionamento da imagem à geometria ou medir rect real do img relativo ao container; teste com rects diferentes e resize.
+
+Extração LayerEditorContent de1b5be14d aprovada parcialmente; não inicia geração paga no mount. Popover sem achado bloqueante em leitura, mas browserQA ainda pendente. C deve preservar o layout contido e continuar sua tarefa original após corrigir esses pontos.
+
+Helper R1 aprovado foi isolado pelo coordenador em `a822f2f3` via cherry-pick -x de167ab700 (dois arquivos de D, autoria/origem preservadas), para A/B receberem o mesmo SHA real sem antecipar as correções financeiras pendentes.
