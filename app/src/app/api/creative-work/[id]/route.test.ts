@@ -94,6 +94,7 @@ const aggregateTelemetryMock = vi.hoisted(() => vi.fn());
 const recordAggregateMock = vi.hoisted(() => vi.fn());
 const listPendingRefundsMock = vi.hoisted(() => vi.fn());
 const markOutputFailureCodeMock = vi.hoisted(() => vi.fn());
+const clearObjectiveQualityMarkerMock = vi.hoisted(() => vi.fn());
 const refundCreditsMock = vi.hoisted(() => vi.fn());
 const resolveReactivationMock = vi.hoisted(() => vi.fn());
 const getUsageByIdempotencyKeyMock = vi.hoisted(() => vi.fn());
@@ -106,6 +107,9 @@ vi.mock("@/server/repositories/creative-work", () => ({
   failStaleCreativeWorkSources: (...args: unknown[]) => failStaleSourcesMock(...args),
   listCreativeWorkOutputsNeedingRefund: (...args: unknown[]) => listPendingRefundsMock(...args),
   markCreativeWorkOutputFailureCode: (...args: unknown[]) => markOutputFailureCodeMock(...args),
+  clearCreativeWorkOutputObjectiveQualityRefundPending: (...args: unknown[]) =>
+    clearObjectiveQualityMarkerMock(...args),
+  CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING: "objective_quality_failed_refund_pending",
   recordCreativeWorkGenerationAggregate: (...args: unknown[]) => recordAggregateMock(...args),
   refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
   updateCreativeWorkDraft: (...args: unknown[]) => updateDraftMock(...args),
@@ -2404,5 +2408,165 @@ describe("GET review projection", () => {
     expect(body.outputs[0].revisionContext).toBeNull();
     expect(body.revisionCreditCost).toBe(50);
     expect(JSON.stringify(body)).not.toContain("pieces/base.png");
+  });
+
+  it("rejects persisted drafts with extra private keys or invalid versions without reset", async () => {    const { GET } = await import("./route");
+    const base = {
+      id: "output-1",
+      workItemId: "work-1",
+      creativeLevel: "balanced",
+      targetFormat: "4:5",
+      versionNumber: 1,
+      parentOutputId: null,
+      revisionInstruction: null,
+      revisionAssetId: null,
+      retryCount: 0,
+      imageCallCount: 1,
+      status: "completed",
+      outputKey: "pieces/base.png",
+      failureCode: null,
+      quality: null,
+      isSelected: false,
+      directionId: null,
+      directionSnapshot: null,
+      createdAt: new Date("2026-07-13T12:00:00.000Z"),
+      updatedAt: new Date("2026-07-13T12:00:00.000Z"),
+      layerization: null,
+      layerEditor: null,
+    };
+    getWorkMock.mockResolvedValue({
+      work: { ...workItem, toolKind: "single", inputSnapshot: null },
+      outputs: [
+        {
+          ...base,
+          id: "output-extra",
+          reviewDraft: {
+            version: 1,
+            revision: 1,
+            revisionKey: "00000000-0000-4000-8000-000000000001",
+            action: "refine",
+            targetFormat: "4:5",
+            instruction: "Ajuste",
+            annotations: [],
+            revisionAssetId: null,
+            storageKey: "private/extra.png",
+          },
+          revisionContext: {
+            version: 2,
+            reviewRevision: 1,
+            sourceOutputId: "00000000-0000-4000-8000-000000000002",
+            sourceOutputVersion: 1,
+            action: "refine",
+            targetFormat: "4:5",
+            instruction: "Ajuste",
+            annotations: [],
+            revisionAssetId: null,
+          },
+        },
+      ],
+      sources: [],
+    });
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), {
+      params: makeParams("work-1"),
+    });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.outputs[0].reviewDraft).toBeNull();
+    expect(body.outputs[0].revisionContext).toBeNull();
+    expect(JSON.stringify(body)).not.toContain("private/extra.png");
+  });
+});
+
+describe("GET objective-quality refund recovery (R1)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    failStaleOutputsMock.mockResolvedValue([]);
+    failStaleSourcesMock.mockResolvedValue([]);
+    listPendingRefundsMock.mockResolvedValue([]);
+    markOutputFailureCodeMock.mockResolvedValue(null);
+    clearObjectiveQualityMarkerMock.mockResolvedValue(null);
+    refundCreditsMock.mockResolvedValue({ status: "refunded" });
+    getUsageByIdempotencyKeyMock.mockResolvedValue(null);
+    resolveReactivationMock.mockResolvedValue({ state: "none" });
+    recordAggregateMock.mockResolvedValue(null);
+    layerEditorAccessMock.mockResolvedValue({ enabled: false, period: null, layerize: null, regeneration: null });
+  });
+
+  const markedOutput = {
+    id: "output-1",
+    workItemId: "work-1",
+    creativeLevel: "balanced",
+    targetFormat: "4:5",
+    versionNumber: 1,
+    parentOutputId: null,
+    revisionInstruction: null,
+    revisionAssetId: null,
+    reviewDraft: null,
+    revisionContext: null,
+    retryCount: 0,
+    imageCallCount: 1,
+    manualRetryAttempt: null,
+    status: "completed",
+    outputKey: "pieces/final.png",
+    failureCode: "objective_quality_failed_refund_pending",
+    quality: { schemaVersion: 1, objectiveVerdict: "fail" },
+    isSelected: false,
+    directionId: null,
+    directionSnapshot: null,
+    createdAt: new Date("2026-07-13T12:00:00.000Z"),
+    updatedAt: new Date("2026-07-13T12:00:00.000Z"),
+    layerization: null,
+    layerEditor: null,
+  };
+
+  it("refunds a preserved QA-fail preview with the terminal key and clears only the marker", async () => {
+    listPendingRefundsMock.mockResolvedValue([markedOutput]);
+    getWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [markedOutput],
+      sources: [],
+    });
+
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), {
+      params: makeParams("work-1"),
+    });
+
+    expect(res.status).toBe(200);
+    expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+    }));
+    expect(clearObjectiveQualityMarkerMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      "pieces/final.png",
+    );
+    // The generic failed-row code rewrite never touches a completed preview.
+    expect(markOutputFailureCodeMock).not.toHaveBeenCalled();
+    const body = await res.json();
+    expect(body.outputs[0].hasOutput).toBe(true);
+    expect(body.outputs[0].quality).toMatchObject({ objectiveVerdict: "fail" });
+  });
+
+  it("keeps the marker when the refund fails so recovery can resume", async () => {
+    refundCreditsMock.mockRejectedValueOnce(new Error("ledger unavailable"));
+    listPendingRefundsMock.mockResolvedValue([markedOutput]);
+    getWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [markedOutput],
+      sources: [],
+    });
+
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), {
+      params: makeParams("work-1"),
+    });
+
+    expect(res.status).toBe(200);
+    expect(clearObjectiveQualityMarkerMock).not.toHaveBeenCalled();
+    expect(markOutputFailureCodeMock).not.toHaveBeenCalled();
+    const body = await res.json();
+    expect(body.outputs[0].hasOutput).toBe(true);
   });
 });

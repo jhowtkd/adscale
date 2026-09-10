@@ -20,6 +20,7 @@ import { recoverExpiredCreativeWorkLayerizations } from "@/server/application/re
 import { saveCommercialOfferFromWork } from "@/server/application/save-commercial-offer";
 import { saveCreativeWorkOutputReview } from "@/server/application/save-creative-work-output-review";
 import { outputReviewInputSchema } from "@/server/creative-work/output-review";
+import { projectPublicCreativeWorkOutput } from "@/server/creative-work/output-projection";
 import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import { toPublicLayerizationState } from "@/server/layerize/contracts";
 import { toPublicLayerEditorSummary } from "@/server/layer-editor/contracts";
@@ -58,6 +59,7 @@ import {
   socialPostCopySchema,
 } from "@/server/creative-work/contracts";
 import {
+  CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING,
   failStaleQueuedCreativeWorkOutputs,
   failStaleProcessingCreativeWorkOutputs,
   failStaleCreativeWorkSources,
@@ -67,6 +69,7 @@ import {
   linkCreativeWorkCampaign,
   listCreativeWorkOutputsNeedingRefund,
   markCreativeWorkOutputFailureCode,
+  clearCreativeWorkOutputObjectiveQualityRefundPending,
   recordCreativeWorkGenerationAggregate,
   refreshCreativeWorkStatus,
   updateCreativeWorkSourceIfUnchanged,
@@ -109,6 +112,11 @@ function withoutPrivateArtifactFields(value: unknown): unknown {
     .map(([key, child]) => [key, withoutPrivateArtifactFields(child)]));
 }
 
+// Local compensatory refund used by the detail GET until D's shared helper
+// (`app/src/server/application/refund-creative-work-output.ts`, R1) is
+// distributed: same canonical decision/key flow, terminal failurePhase for
+// preserved QA-fail, same applied boolean. Swapping the call below for D's
+// import is mechanical (identical input plus optional userId).
 async function refundCreativeWorkOutputCompensatory(input: {
   workspaceId: string;
   workItemId: string;
@@ -116,6 +124,8 @@ async function refundCreativeWorkOutputCompensatory(input: {
   reason: string;
   manualRetryAttempt?: number | null;
   failurePhase?: "job_failure" | "terminal";
+  /** Authenticated actor for the ledger movement, when available. */
+  userId?: string;
 }): Promise<boolean> {
   const outcome = await resolveCreativeWorkOutputReactivationOutcome({
     workspaceId: input.workspaceId,
@@ -152,6 +162,7 @@ async function refundCreativeWorkOutputCompensatory(input: {
       reason: input.reason,
       description: "creative_work_compensatory_refund",
     },
+    userId: input.userId,
   });
   if (!settled.applied) {
     logger.warn({
@@ -374,7 +385,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const [{ workspace }, { id }] = await Promise.all([
+    const [{ workspace, user }, { id }] = await Promise.all([
       requireWorkspaceAccess(request),
       params,
     ]);
@@ -429,6 +440,34 @@ export async function GET(
     if (pendingRefunds.length > 0) {
       await Promise.all(
         pendingRefunds.map(async (output) => {
+          // R1 preserved QA-fail completion: terminal compensatory refund with
+          // the authenticated actor, then clear ONLY the marker (image, QA
+          // verdict and terminal stay intact). A failed refund keeps the
+          // marker so job/onFailure/GET can resume with the same ledger key.
+          if (
+            output.status === "completed" &&
+            output.failureCode === CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING &&
+            output.outputKey
+          ) {
+            const refunded = await refundCreativeWorkOutputCompensatory({
+              workspaceId: workspace.id,
+              workItemId: id,
+              outputId: output.id,
+              reason: "objective_quality_failed",
+              manualRetryAttempt: output.manualRetryAttempt,
+              failurePhase: "terminal",
+              userId: user.id,
+            });
+            if (refunded) {
+              await clearCreativeWorkOutputObjectiveQualityRefundPending(
+                workspace.id,
+                id,
+                output.id,
+                output.outputKey,
+              );
+            }
+            return;
+          }
           const refunded = await refundCreativeWorkOutputCompensatory({
             workspaceId: workspace.id,
             workItemId: id,
@@ -570,27 +609,7 @@ export async function GET(
       ...(!layerEditorAccess.enabled ? { cleanupOnly: true } : {}),
     });
     const outputs = result.outputs.map((output) => ({
-      id: output.id,
-      workItemId: output.workItemId,
-      creativeLevel: output.creativeLevel,
-      targetFormat: output.targetFormat,
-      versionNumber: output.versionNumber,
-      parentOutputId: output.parentOutputId,
-      revisionInstruction: output.revisionInstruction,
-      revisionAssetId: output.revisionAssetId,
-      reviewDraft: output.reviewDraft ?? null,
-      revisionContext: output.revisionContext ?? null,
-      retryCount: output.retryCount,
-      imageCallCount: output.imageCallCount,
-      status: output.status,
-      hasOutput: Boolean(output.outputKey),
-      failureCode: output.failureCode,
-      quality: output.quality,
-      isSelected: output.isSelected,
-      directionId: output.directionId,
-      directionSnapshot: output.directionSnapshot,
-      createdAt: output.createdAt,
-      updatedAt: output.updatedAt,
+      ...projectPublicCreativeWorkOutput(output),
       layerization: layerEditorAccess.enabled ? toPublicLayerizationState(recoveredLayerizations.get(output.id) ?? output.layerization) : null,
       layerEditor: toPublicLayerEditorSummary(output.layerEditor),
     }));

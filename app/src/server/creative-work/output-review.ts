@@ -109,3 +109,29 @@ export function canReviewOutputDraft(draft: OutputReviewInput): boolean {
     draft.annotations.length > 0
   );
 }
+
+/**
+ * Validates a persisted review draft. Historic null stays null; unknown or
+ * schema-invalid JSON is rejected as null so private/extra keys never cross
+ * the public projection and an invalid row is never trusted as CAS authority.
+ * Callers that need absent-vs-invalid distinguished must check null first.
+ */
+export function parsePersistedOutputReviewDraft(
+  value: unknown,
+): OutputReviewDraftV1 | null {
+  if (value == null) return null;
+  const parsed = outputReviewDraftSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+/**
+ * Validates a persisted revision context with the same null-preserving,
+ * reject-invalid contract as the draft parser.
+ */
+export function parsePersistedOutputRevisionContext(
+  value: unknown,
+): OutputRevisionContextV1 | null {
+  if (value == null) return null;
+  const parsed = outputRevisionContextSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}

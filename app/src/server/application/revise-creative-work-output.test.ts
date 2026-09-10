@@ -30,18 +30,20 @@ import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import { reviseCreativeWorkOutput } from "./revise-creative-work-output";
 
 const REVISION_KEY = "00000000-0000-4000-8000-000000000101";
+const PARENT_ID = "00000000-0000-4000-8000-000000000001";
+const REVISION_ID = "00000000-0000-4000-8000-000000000002";
 
 const parent = {
-  id: "output-v1",
+  id: PARENT_ID,
   status: "completed",
   outputKey: "creative-work/output-v1/original.png",
 };
 
 const revision = {
-  id: "output-v2",
+  id: REVISION_ID,
   status: "queued",
   generationCorrelationId: "generation-revision-1",
-  parentOutputId: parent.id,
+  parentOutputId: PARENT_ID,
   revisionInstruction: "Use mais contraste",
 };
 
@@ -87,7 +89,7 @@ describe("reviseCreativeWorkOutput", () => {
       event: "creative_work_generation_accepted",
       generationCorrelationId: "generation-revision-1",
       unitCount: 1,
-      outputIds: ["output-v2"],
+      outputIds: [REVISION_ID],
       result: "accepted",
     }));
   });
@@ -282,22 +284,25 @@ describe("reviseCreativeWorkOutput", () => {
     expect(settle).not.toHaveBeenCalled();
   });
 
-  it("replays an existing operation without charging after the draft was edited", async () => {
+  it("replays an existing operation through settlement with frozen context after the draft was edited", async () => {
+    const frozenContext = {
+      version: 1,
+      reviewRevision: 2,
+      sourceOutputId: parent.id,
+      sourceOutputVersion: 1,
+      action: "refine",
+      targetFormat: "4:5",
+      instruction: "Use mais contraste",
+      annotations: [],
+      revisionAssetId: null,
+    };
     const existing = {
       ...revision,
       operationKey: `revision:${REVISION_KEY}`,
       parentOutputId: parent.id,
-      revisionContext: {
-        version: 1,
-        reviewRevision: 2,
-        sourceOutputId: parent.id,
-        sourceOutputVersion: 1,
-        action: "refine",
-        targetFormat: "4:5",
-        instruction: "Use mais contraste",
-        annotations: [],
-        revisionAssetId: null,
-      },
+      revisionInstruction: "Use mais contraste",
+      revisionAssetId: null,
+      revisionContext: frozenContext,
     };
     getWork.mockResolvedValue({
       work,
@@ -319,6 +324,7 @@ describe("reviseCreativeWorkOutput", () => {
       ],
       sources: [],
     });
+    settle.mockResolvedValue({ ok: true, value: { output: existing } });
     await expect(
       reviseCreativeWorkOutput({
         workspaceId: "ws-1",
@@ -330,6 +336,95 @@ describe("reviseCreativeWorkOutput", () => {
         expectedCredits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
       }),
     ).resolves.toEqual({ ok: true, value: { output: existing } });
+    // The edited draft is never reinterpreted: the adapter carries the frozen
+    // instruction and context stored on the existing row.
+    expect(buildAdapter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parentOutputId: parent.id,
+        revisionKey: REVISION_KEY,
+        instruction: "Use mais contraste",
+        revisionAssetId: null,
+        context: expect.objectContaining({
+          reviewRevision: 2,
+          instruction: "Use mais contraste",
+        }),
+      }),
+    );
+    expect(settle).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces a pending dispatch failure on replay without a second charge", async () => {
+    const frozenContext = {
+      version: 1,
+      reviewRevision: 2,
+      sourceOutputId: parent.id,
+      sourceOutputVersion: 1,
+      action: "refine",
+      targetFormat: "4:5",
+      instruction: "Use mais contraste",
+      annotations: [],
+      revisionAssetId: null,
+    };
+    const existing = {
+      ...revision,
+      operationKey: `revision:${REVISION_KEY}`,
+      parentOutputId: parent.id,
+      revisionInstruction: "Use mais contraste",
+      revisionAssetId: null,
+      revisionContext: frozenContext,
+    };
+    getWork.mockResolvedValue({
+      work,
+      outputs: [{ ...parent, reviewDraft: null }, existing],
+      sources: [],
+    });
+    settle.mockResolvedValue({
+      ok: false,
+      error: {
+        code: "dispatch_failed",
+        value: { output: existing },
+        compensated: true,
+      },
+    });
+    await expect(
+      reviseCreativeWorkOutput({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        userId: "user-1",
+        outputId: parent.id,
+        revisionKey: REVISION_KEY,
+        reviewRevision: 2,
+        expectedCredits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "dispatch_failed" } });
+    expect(settle).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a replay whose stored context fails validation", async () => {
+    const existing = {
+      ...revision,
+      operationKey: `revision:${REVISION_KEY}`,
+      parentOutputId: parent.id,
+      revisionInstruction: null,
+      revisionAssetId: null,
+      revisionContext: { version: 2, bogus: true },
+    };
+    getWork.mockResolvedValue({
+      work,
+      outputs: [{ ...parent, reviewDraft: null }, existing],
+      sources: [],
+    });
+    await expect(
+      reviseCreativeWorkOutput({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        userId: "user-1",
+        outputId: parent.id,
+        revisionKey: REVISION_KEY,
+        reviewRevision: 2,
+        expectedCredits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "invalid_revision" } });
     expect(settle).not.toHaveBeenCalled();
     expect(buildAdapter).not.toHaveBeenCalled();
   });

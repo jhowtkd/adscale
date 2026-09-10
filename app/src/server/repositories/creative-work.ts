@@ -57,6 +57,7 @@ import {
   type CatalogPageResult,
 } from "@/lib/catalog-page";
 import { canonicalJsonStringify } from "../creative-work/canonical-json";
+import { parsePersistedOutputReviewDraft } from "../creative-work/output-review";
 import type { OutputRevisionContextV1 } from "../creative-work/output-review";
 
 export type { CreativeWorkFormat } from "../creative-work/contracts";
@@ -1612,6 +1613,16 @@ export type CreateCreativeWorkRevisionOptions = {
   expectedReviewRevision?: number;
 };
 
+/**
+ * A credit_blocked revision child never held a charge (the settlement release
+ * marks queued rows failed/credit_blocked when charging is refused). Only
+ * these rows may be re-queued by a funded replay under the same operation
+ * key; every other failed row keeps its terminal state and compensation.
+ */
+function isCreditBlockedRevision(output: CreativeWorkOutput): boolean {
+  return output.status === "failed" && output.failureCode === "credit_blocked";
+}
+
 export async function createCreativeWorkRevision(
   workspaceId: string,
   workItemId: string,
@@ -1651,7 +1662,13 @@ export async function createCreativeWorkRevision(
     eq(creativeWorkOutputs.workItemId, workItemId),
     eq(creativeWorkOutputs.operationKey, operationKey),
   )).limit(1);
-  if (existing) return matchesCommand(existing) ? { output: existing, claimedForDispatch: false } : null;
+  // A failed/credit_blocked row never held a charge: it must fall through to
+  // the transaction so a funded replay can re-queue the SAME row (same key)
+  // instead of returning a dead child without generating.
+  if (existing && !isCreditBlockedRevision(existing)) {
+    return matchesCommand(existing) ? { output: existing, claimedForDispatch: false } : null;
+  }
+  if (existing && !matchesCommand(existing)) return null;
 
   if (revisionAssetId) {
     const [asset] = await db.select({ id: workspaceAssets.id, type: workspaceAssets.type }).from(workspaceAssets).where(and(
@@ -1669,7 +1686,37 @@ export async function createCreativeWorkRevision(
       eq(creativeWorkOutputs.workItemId, workItemId),
       eq(creativeWorkOutputs.operationKey, operationKey),
     )).limit(1);
-    if (retry) return matchesCommand(retry) ? { output: retry, claimedForDispatch: false } : null;
+    if (retry && matchesCommand(retry)) {
+      // A funded replay of a never-charged credit_blocked row re-queues the
+      // SAME row under the same operation key: the kernel then charges once
+      // (idempotent billing key) and dispatches once. Concurrent replays race
+      // on this CAS; the loser observes the queued row and joins the winner.
+      if (isCreditBlockedRevision(retry)) {
+        const [requeued] = await tx.update(creativeWorkOutputs).set({
+          status: "queued",
+          failureCode: null,
+          queuedAt: new Date(),
+        }).where(and(
+          eq(creativeWorkOutputs.workspaceId, workspaceId),
+          eq(creativeWorkOutputs.workItemId, workItemId),
+          eq(creativeWorkOutputs.id, retry.id),
+          eq(creativeWorkOutputs.operationKey, operationKey),
+          eq(creativeWorkOutputs.status, "failed"),
+          eq(creativeWorkOutputs.failureCode, "credit_blocked"),
+        )).returning();
+        if (requeued) return { output: requeued, claimedForDispatch: true };
+        const [fresh] = await tx.select().from(creativeWorkOutputs).where(and(
+          eq(creativeWorkOutputs.workspaceId, workspaceId),
+          eq(creativeWorkOutputs.workItemId, workItemId),
+          eq(creativeWorkOutputs.operationKey, operationKey),
+        )).limit(1);
+        return fresh && matchesCommand(fresh)
+          ? { output: fresh, claimedForDispatch: false }
+          : null;
+      }
+      return { output: retry, claimedForDispatch: false };
+    }
+    if (retry) return null;
 
     if (context) {
       const [lockedParent] = await tx
@@ -1684,9 +1731,15 @@ export async function createCreativeWorkRevision(
         .limit(1);
       if (!lockedParent) return null;
       const expectedRevision = options?.expectedReviewRevision ?? context.reviewRevision;
+      // The persisted draft is revalidated under lock: absent means revision
+      // 0, schema-invalid is rejected (never trusted, never overwritten here).
+      const persisted = lockedParent.reviewDraft == null
+        ? { revision: 0, revisionKey: null as string | null }
+        : parsePersistedOutputReviewDraft(lockedParent.reviewDraft);
       if (
-        (lockedParent.reviewDraft?.revision ?? 0) !== expectedRevision ||
-        (lockedParent.reviewDraft?.revisionKey ?? null) !== revisionKey
+        !persisted ||
+        persisted.revision !== expectedRevision ||
+        persisted.revisionKey !== revisionKey
       ) {
         return null;
       }
@@ -1851,11 +1904,22 @@ export async function countCreativeWorkProcessingOutputs(
   return Number(row?.count ?? 0);
 }
 
+/**
+ * Durable marker for an integrated QA-fail completion whose compensatory
+ * refund is still pending (R1). Born ONLY in the winning completion CAS with
+ * a valid image and objectiveVerdict fail; cleared ONLY by
+ * {@link clearCreativeWorkOutputObjectiveQualityRefundPending} after a
+ * confirmed settlement. Never set on historical rows.
+ */
+export const CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING =
+  "objective_quality_failed_refund_pending";
+
 export async function completeCreativeWorkOutput(
   workspaceId: string,
   workItemId: string,
   outputId: string,
-  data: CompleteCreativeWorkOutputData
+  data: CompleteCreativeWorkOutputData,
+  options?: { markObjectiveQualityFailedRefundPending?: boolean },
 ): Promise<CreativeWorkOutput | null> {
   const [row] = await db
     .update(creativeWorkOutputs)
@@ -1864,7 +1928,9 @@ export async function completeCreativeWorkOutput(
       outputKey: data.outputKey,
       cost: data.cost,
       quality: data.quality,
-      failureCode: null,
+      failureCode: options?.markObjectiveQualityFailedRefundPending
+        ? CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING
+        : null,
       terminalAt: new Date(),
       updatedAt: new Date(),
     })
@@ -2091,7 +2157,11 @@ export async function markCreativeWorkSelectionEffectDone(
   ));
 }
 
-/** Failed outputs whose compensatory refund still needs a retry. */
+/** Outputs whose compensatory refund still needs a retry: failed rows with a
+ * pending code (historical rule, preserved), plus completed rows carrying the
+ * exact R1 objective-quality marker with a QA-fail verdict and a valid image.
+ * Historical completed rows never match: the marker is only born in the new
+ * winning completion CAS. */
 export async function listCreativeWorkOutputsNeedingRefund(
   workspaceId: string,
   workItemId: string,
@@ -2103,10 +2173,48 @@ export async function listCreativeWorkOutputsNeedingRefund(
       and(
         eq(creativeWorkOutputs.workspaceId, workspaceId),
         eq(creativeWorkOutputs.workItemId, workItemId),
-        eq(creativeWorkOutputs.status, "failed"),
-        sql`${creativeWorkOutputs.failureCode} like '%_refund_pending'`,
+        or(
+          and(
+            eq(creativeWorkOutputs.status, "failed"),
+            sql`${creativeWorkOutputs.failureCode} like '%_refund_pending'`,
+          ),
+          and(
+            eq(creativeWorkOutputs.status, "completed"),
+            eq(creativeWorkOutputs.failureCode, CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING),
+            isNotNull(creativeWorkOutputs.outputKey),
+            sql`${creativeWorkOutputs.quality}->>'objectiveVerdict' = 'fail'`,
+          ),
+        ),
       ),
     );
+}
+
+/**
+ * Clears the R1 objective-quality refund marker after a CONFIRMED settlement.
+ * The CAS accepts only the exact pending case (completed + marker + QA-fail
+ * verdict + expected image); it touches failureCode/updatedAt alone and never
+ * rewrites quality, outputKey or terminalAt. A replay after an applied refund
+ * recognizes the same liquidated ledger key and clears the marker again.
+ */
+export async function clearCreativeWorkOutputObjectiveQualityRefundPending(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string,
+  expectedOutputKey: string,
+): Promise<CreativeWorkOutput | null> {
+  const [row] = await db.update(creativeWorkOutputs).set({
+    failureCode: null,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.id, outputId),
+    eq(creativeWorkOutputs.status, "completed"),
+    eq(creativeWorkOutputs.failureCode, CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING),
+    eq(creativeWorkOutputs.outputKey, expectedOutputKey),
+    sql`${creativeWorkOutputs.quality}->>'objectiveVerdict' = 'fail'`,
+  )).returning();
+  return row ?? null;
 }
 
 /** Releases source analyses whose worker event disappeared after dispatch. */

@@ -166,9 +166,79 @@ describe("POST /api/creative-work/[id]/generate", () => {
       revisionKey: "00000000-0000-4000-8000-000000000101",
       expectedCredits: 50,
     });
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
       output: { id: "output-v2", versionNumber: 2 },
     });
+  });
+
+  it("projects reviewed revisions without private storage or layer internals", async () => {
+    revise.mockResolvedValue({
+      ok: true,
+      value: {
+        output: {
+          id: "00000000-0000-4000-8000-000000000003",
+          workItemId: "work-1",
+          creativeLevel: "balanced",
+          targetFormat: "9:16",
+          versionNumber: 1,
+          parentOutputId: "00000000-0000-4000-8000-000000000002",
+          revisionInstruction: "Adapte",
+          revisionAssetId: null,
+          reviewDraft: null,
+          revisionContext: {
+            version: 1,
+            reviewRevision: 2,
+            sourceOutputId: "00000000-0000-4000-8000-000000000002",
+            sourceOutputVersion: 1,
+            action: "format",
+            targetFormat: "9:16",
+            instruction: "Preserve a pessoa.",
+            annotations: [],
+            revisionAssetId: null,
+          },
+          retryCount: 0,
+          imageCallCount: 0,
+          status: "queued",
+          outputKey: "private/pieces/child.png",
+          operationKey: "revision:00000000-0000-4000-8000-000000000101",
+          storageKey: "private/storage.png",
+          cost: 50,
+          failureCode: null,
+          quality: null,
+          isSelected: false,
+          directionId: null,
+          directionSnapshot: null,
+          layerization: { status: "queued", callbackTokenHash: "secret" },
+          layerEditor: { revision: 1, publishedPsdKey: "private/published.psd" },
+          createdAt: new Date("2026-09-10T12:00:00.000Z"),
+          updatedAt: new Date("2026-09-10T12:00:00.000Z"),
+        },
+      },
+    });
+    const response = await POST(
+      request({
+        action: "reviewed_revision",
+        outputId: "00000000-0000-4000-8000-000000000002",
+        reviewRevision: 2,
+        revisionKey: "00000000-0000-4000-8000-000000000101",
+        expectedCredits: 50,
+      }),
+      { params: Promise.resolve({ id: "work-1" }) },
+    );
+    expect(response.status).toBe(202);
+    const body = await response.json();
+    expect(body.output.revisionContext).toMatchObject({ reviewRevision: 2 });
+    expect(body.output.hasOutput).toBe(true);
+    const serialized = JSON.stringify(body);
+    for (const sentinel of [
+      "private/pieces/child.png",
+      "revision:00000000-0000-4000-8000-000000000101",
+      "private/storage.png",
+      "callbackTokenHash",
+      "publishedPsdKey",
+    ]) {
+      expect(serialized).not.toContain(sentinel);
+    }
   });
 
   it("maps stale reviewed revisions to 409 without a second charge", async () => {
