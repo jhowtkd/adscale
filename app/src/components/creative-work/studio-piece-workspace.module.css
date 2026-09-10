@@ -9,9 +9,11 @@
   display: flex;
   flex-direction: column;
   /* Always bounded: a content-driven height lets the unbounded canvas drive
-     the page height and breaks containment in short desktop windows. */
+     the page height and breaks containment in short desktop windows. The
+     580px floor keeps the review dock usable at 1045×586 (QA banner +
+     actions + request) with mild page scroll instead of clipping. */
   height: min(690px, calc(100dvh - 136px));
-  min-height: 420px;
+  min-height: 580px;
   overflow: hidden;
 }
 
@@ -69,7 +71,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 42%;
+  max-height: 50%;
   overflow-y: auto;
 }
 
