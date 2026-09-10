@@ -1841,8 +1841,9 @@ test.describe("integrated API", () => {
     const fixture = loadFixture();
     const workId = await apiCreateV1Draft(page.request, fixture, { intent: "restyle", request: "Aplicar o estilo da referência à arte original." });
     const missing = await apiPrepare(page.request, workId);
-    expect(missing.status).not.toBe(200);
-    expect(missing.body.code).not.toBe("sources_not_ready");
+    expect(missing.status).toBe(422);
+    expect(missing.body.code).toBe("creativeWorkInputRequired");
+    expect((await apiGetWork(page.request, workId)).sources).toHaveLength(0);
     await apiAttachSource(page.request, workId, fixture.contentArtAssetId, "content");
     await apiAttachSource(page.request, workId, fixture.styleArtAssetId, "style");
     await waitForSourcesReady(page.request, workId);
@@ -1853,8 +1854,15 @@ test.describe("integrated API", () => {
     try {
       const pending = await apiPrepare(page.request, workId);
       expect(pending.status).toBe(409);
-      expect(pending.body.code).toBe("sources_not_ready");
-      expect((await apiGetWork(page.request, workId)).sources.find(row => row.id === source.id)?.status).toBe("analyzing");
+      expect(pending.body.code).toBe("creativeWorkNotReady");
+      // The adapter does not expose sources_not_ready in details. The public
+      // aggregate is the canonical evidence for why prepare is blocked.
+      const pendingSources = (await apiGetWork(page.request, workId)).sources;
+      expect(pendingSources).toHaveLength(2);
+      expect(pendingSources).toEqual(expect.arrayContaining([
+        expect.objectContaining({ usage:"content", assetId:fixture.contentArtAssetId, status:"ready" }),
+        expect.objectContaining({ id:source.id, usage:"style", assetId:fixture.styleArtAssetId, status:"analyzing" }),
+      ]));
     } finally {
       await withDb(client => client.query(`update adscale_app.creative_work_sources set status='ready' where id=$1 and workspace_id=$2`, [source.id, fixture.workspaceId]));
     }
@@ -1937,28 +1945,52 @@ test.describe("integrated UI direções", () => {
     });
     await apiAttachSource(page.request, workId, fixture.contentArtAssetId, "both");
     await waitForSourcesReady(page.request, workId);
-    const suggestions: string[] = [];
-    page.on("request", request => {
-      if (request.method() === "POST" && request.url().includes(`/api/creative-work/${workId}/suggest`)) suggestions.push(request.url());
-    });
+    const before = await financeSnapshot(fixture.workspaceId);
+    const waitForSuggestion = () => page.waitForResponse(response =>
+      response.request().method() === "POST"
+      && new URL(response.url()).pathname === `/api/creative-work/${workId}/suggest`,
+    );
+    const initialSuggestion = waitForSuggestion();
     await page.goto(`/?workId=${workId}&intent=variations`);
+    const firstResponse = await initialSuggestion;
+    expect(firstResponse.status()).toBe(200);
+    expect((await firstResponse.json()).directions.length).toBeGreaterThan(0);
+    // Suggestions are allowed; only an explicit decision may replace a manual
+    // pool. The pending choice proves the response was consumed by the UI.
+    await expect(page.getByRole("button", { name:"Manter seleção", exact:true })).toBeVisible();
     const chips = page.locator('div[role="group"][aria-label="Direcionamentos"], div[role="group"][aria-label="Directions"]').locator('button[aria-pressed]');
-    await expect(chips).toHaveCount(3);
-    await expect(chips.filter({ hasText: "Equilibrada" })).toHaveAttribute("aria-pressed", "true");
-    expect(await chips.evaluateAll(elements => elements.filter(element => element.getAttribute("aria-pressed") === "true").length)).toBe(1);
+    const assertSelection = async () => {
+      await expect(chips).toHaveCount(3);
+      await expect(chips.filter({ hasText:"Equilibrada" })).toHaveAttribute("aria-pressed", "true");
+      expect(await chips.evaluateAll(elements => elements.filter(element => element.getAttribute("aria-pressed") === "true").length)).toBe(1);
+      expect((await apiGetWork(page.request, workId)).work.settings.directionPool).toEqual(directionPool);
+    };
+    await assertSelection();
+    const reloadedSuggestion = waitForSuggestion();
     await page.reload();
-    await expect(chips).toHaveCount(3);
-    await expect(chips.filter({ hasText: "Equilibrada" })).toHaveAttribute("aria-pressed", "true");
-    await page.waitForTimeout(1_500); // exceed the actual composer suggestion/autosave debounce
-    expect(suggestions).toEqual([]);
-    expect((await apiGetWork(page.request, workId)).work.settings.directionPool).toEqual(directionPool);
+    const secondResponse = await reloadedSuggestion;
+    expect(secondResponse.status()).toBe(200);
+    expect((await secondResponse.json()).directions.length).toBeGreaterThan(0);
+    await expect(page.getByRole("button", { name:"Manter seleção", exact:true })).toBeVisible();
+    await assertSelection();
     const prepared = await apiPrepare(page.request, workId);
     expect(prepared.status).toBe(200);
-    expect((prepared.body as { preparedPlan: { outputCount: number } }).preparedPlan.outputCount).toBe(1);
+    expect(prepared.body).toMatchObject({
+      preparedPlan: { outputCount:1 },
+      quote: { unitCount:1, credits:GENERATION_CREDIT_COSTS.creativeWorkOutput },
+    });
+    const afterSuggestions = await financeSnapshot(fixture.workspaceId);
+    expect(afterSuggestions.balance).toBe(before.balance);
+    expect(afterSuggestions.ledger).toEqual(before.ledger);
     await apiGenerateInitial(page.request, workId, preparedRevisionFrom(prepared.body));
     const detail = await waitForTerminalOutputs(page.request, workId);
     expect(detail.outputs).toHaveLength(1);
     expect(detail.outputs[0]).toMatchObject({ status: "completed", directionId: directionPool.selectedIds[0] });
+    const afterGeneration = await financeSnapshot(fixture.workspaceId);
+    expect(afterGeneration.balance).toBe(before.balance - GENERATION_CREDIT_COSTS.creativeWorkOutput);
+    expect(afterGeneration.ledger.filter(row => !before.ledger.some(old => old.id === row.id))).toEqual([
+      expect.objectContaining({ type:"usage", amount:-GENERATION_CREDIT_COSTS.creativeWorkOutput }),
+    ]);
     await page.reload();
     expect((await apiGetWork(page.request, workId)).outputs.map(output => output.id)).toEqual(detail.outputs.map(output => output.id));
     expect((await apiGetWork(page.request, workId)).work.settings.directionPool).toEqual(directionPool);

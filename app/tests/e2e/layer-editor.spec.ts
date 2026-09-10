@@ -240,10 +240,15 @@ test.describe("integrated layers ready fixture", () => {
     const blockedPaidActions: string[] = [];
     await page.route("**/api/creative-work/*", async (route) => {
       const request = route.request();
-      if (request.method() === "PATCH" && /"action"\s*:\s*"(?:layerizeOutput|regenerateLayer)"/.test(request.postData() ?? "")) {
-        blockedPaidActions.push(request.postData()!);
-        await route.abort();
-        return;
+      if (request.method() === "PATCH") {
+        // These are the current discriminated actions in PATCH/[id]. Inspect
+        // the actual top-level action, not incidental text in a nested field.
+        const payload = request.postDataJSON() as { action?: string } | null;
+        if (payload?.action === "layerizeOutput" || payload?.action === "regenerateLayer") {
+          blockedPaidActions.push(payload.action);
+          await route.abort();
+          return;
+        }
       }
       await route.continue();
     });
@@ -281,6 +286,13 @@ test.describe("integrated layers ready fixture", () => {
       for (const viewport of [{ width: 390, height: 844 }, { width: 1045, height: 586 }, { width: 1440, height: 900 }]) {
         await page.setViewportSize(viewport);
         await expect(box.getByRole("button", { name: "Exportar PNG", exact: true })).toBeVisible();
+        await expect(box.getByRole("region", { name:"Identificando elementos, pessoas e textos da imagem...", exact:true })).toHaveCount(0);
+        if (viewport.width === 390) {
+          await expect(box.getByRole("button", { name:"Criar nova variação", exact:true })).toHaveCount(0);
+          await expect(box.getByRole("textbox", { name:"Nome da camada", exact:true })).toHaveCount(0);
+          expect(blockedPaidActions).toEqual([]);
+          expect(await financialState()).toEqual(financialBefore);
+        }
         await page.screenshot({ path: testInfo.outputPath(`camadas-inline-${viewport.width}.png`), fullPage: true, animations: "disabled" });
       }
       await layers.click();

@@ -320,3 +320,29 @@ Playwright `--list` passaram. A enumeração não conta como execução E2E. O
 coordenador executa os subconjuntos no SHA integrado; a continuação não
 executa simultaneamente browser ou seed. Qualidade humana: todos os pares
 `not_run`; texto de evento/anexos originais faltantes explicitados no protocolo.
+
+
+### Ajustes de contrato após revisão dos testes preparados
+
+O caso de direção manual espera respostas reais de `/suggest` antes e depois do
+reload e verifica a decisão pendente "Manter seleção". Solicitar sugestões é
+permitido; o aceite exige pool idêntico, uma escolha, quote de uma unidade,
+nenhum débito ao sugerir e uma cobrança efetiva ao gerar. Não há expectativa de
+silenciar requests nem alteração no hook para fazê-lo.
+
+O restyle diferencia 422/creativeWorkInputRequired com zero fontes de
+409/creativeWorkNotReady com content ready + style analyzing. O adapter não
+expõe o código interno sources_not_ready em details/reason; o GET canônico
+comprova o motivo. Em seguida a fonte é restaurada e prepare deve responder 200.
+
+Na rodada de cinco APIs restantes, o coordenador observou 4 passed/1 failed em
+`/tmp/estudio-integrado-e2e/api-remaining.log`: passaram inconclusivo, retry
+financeiro/técnico, adaptação sem upload e auto 4:5/manual 9:16; restyle parou no
+assert do código interno, corrigido pela semântica pública acima. A repetição
+seletiva fica com o coordenador. Nenhuma falha do teste conta como passed.
+
+O teste de camadas verifica no viewport móvel ausência de edição, publish e
+scanner em uma fixture ready. O interceptor confere a action de primeiro nível
+do PATCH (`layerizeOutput`/`regenerateLayer`) contra a rota vigente; qualquer
+chamada dessas é bloqueada e reprova o teste. Os três registros financeiros
+permanecem iguais ao abrir também em modo inspect.
