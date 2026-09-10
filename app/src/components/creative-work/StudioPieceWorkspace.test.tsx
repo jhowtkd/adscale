@@ -470,6 +470,77 @@ describe("StudioPieceWorkspace", () => {
     }));
   });
 
+  it("flushes the review draft even when leaving through the open editor", async () => {
+    const base = output({ id: "base" });
+    const child = output({
+      id: "child",
+      parentOutputId: "base",
+      versionNumber: 2,
+      layerization: { status: "completed", operationId: "op-1" } as CreativeWorkOutput["layerization"],
+    });
+    const composer = composerMock([base, child], {
+      canLayerize: true,
+      layerEditorAccess: { enabled: true, period: null, layerize: { remaining: 1, limit: 2 }, regeneration: null },
+    });
+    render(<StudioPieceWorkspace composer={composer} />);
+    // Default selection is the ready child; open its editor.
+    fireEvent.click(screen.getByRole("button", { name: "Camadas" }));
+    expect(screen.getByTestId("layer-editor-content-stub")).toBeInTheDocument();
+    // Editing A here means the review flush must gate the exit too.
+    mocks.review.hasUnsavedChanges = vi.fn(() => true);
+    mocks.review.flush = vi.fn(async () => null);
+    fireEvent.click(screen.getByRole("button", { name: "Versão 1 · 4:5" }));
+    await waitFor(() => expect(mocks.review.flush).toHaveBeenCalledTimes(1));
+    // Failed flush: the editor stays holding the artwork, selection unchanged.
+    expect(screen.getByTestId("layer-editor-content-stub")).toBeInTheDocument();
+    expect(screen.getByTestId("result-card-stub")).toHaveAttribute("data-output", "child");
+  });
+
+  it("recovers the legacy child instruction when the base has no draft", () => {
+    const base = output({ id: "base", targetFormat: "4:5", reviewDraft: null });
+    const legacyFailed = output({
+      id: "legacy-failed",
+      parentOutputId: "base",
+      versionNumber: 2,
+      status: "failed",
+      hasOutput: false,
+      revisionInstruction: "Aumente o título",
+      revisionAssetId: "asset-7",
+    });
+    render(<StudioPieceWorkspace composer={composerMock([base, legacyFailed])} />);
+    fireEvent.click(screen.getByRole("button", { name: "Versão 2 · 4:5" }));
+    fireEvent.click(screen.getByRole("button", { name: "revisar-nova-tentativa" }));
+    expect(mocks.review.beginFreshDraftAttempt).toHaveBeenCalledWith({
+      targetOutputId: "base",
+      from: {
+        action: "refine",
+        targetFormat: "4:5",
+        instruction: "Aumente o título",
+        revisionAssetId: "asset-7",
+        annotations: [],
+      },
+    });
+  });
+
+  it("drops an open comment editor when the artwork context changes", () => {
+    const base = output({ id: "base" });
+    const queued = output({ id: "queued", parentOutputId: "base", status: "queued", hasOutput: false });
+    const composer = composerMock([base, queued]);
+    const view = render(<StudioPieceWorkspace composer={composer} />);
+    // A starts a comment on the base.
+    fireEvent.click(screen.getByRole("button", { name: "Comentar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar comentário" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Comentário" }), { target: { value: "rascunho de A" } });
+    // Switching to the pending child shows the base read-only: no editor.
+    fireEvent.click(screen.getByRole("button", { name: "Versão 2 · 4:5" }));
+    expect(screen.queryByRole("textbox", { name: "Comentário" })).not.toBeInTheDocument();
+    // The child completes: A's draft must NOT reopen on the child's artwork.
+    const completed = output({ id: "queued", parentOutputId: "base", status: "completed", hasOutput: true, versionNumber: 2 });
+    view.rerender(<StudioPieceWorkspace composer={composerMock([base, completed])} />);
+    expect(screen.queryByRole("textbox", { name: "Comentário" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Comentar" })).toBeInTheDocument();
+  });
+
   it("closes a scanner panel directly without waiting for an editor flush", () => {
     const base = output({ id: "base" });
     const composer = composerMock([base], {

@@ -110,21 +110,20 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
    * and the visible error. Editor-held exits keep the flush-path contract. */
   const switchTo = useCallback(async (outputId: string) => {
     if (!selected || outputId === selected.id) return;
+    // The review flush gates EVERY exit — editor-held, scanner and plain
+    // thumbnail switches included. Only a successful flush selects the
+    // target; on failure the current piece keeps its text and error.
+    if (review.hasUnsavedChanges()) {
+      const saved = await review.flush();
+      if (!saved) return;
+    }
     if (layersOpen && readyLayers) {
       requestLayersExit(outputId);
       return;
     }
     if (layersOpen) {
       setLayersOpen(false);
-      setSelectedId(outputId);
-      return;
     }
-    if (!review.hasUnsavedChanges()) {
-      setSelectedId(outputId);
-      return;
-    }
-    const saved = await review.flush();
-    if (!saved) return; // autosave failed: keep the current piece and error
     setSelectedId(outputId);
   }, [layersOpen, readyLayers, requestLayersExit, review, selected]);
 
@@ -145,7 +144,17 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
           revisionAssetId: failed.revisionContext.revisionAssetId,
           annotations: failed.revisionContext.annotations,
         }
-      : undefined;
+      // Legacy children have no frozen context: recover at least the
+      // instruction and the optional attachment so nothing is lost.
+      : failed.revisionInstruction || failed.revisionAssetId
+        ? {
+            action: "refine" as const,
+            targetFormat: parent?.targetFormat ?? failed.targetFormat,
+            instruction: failed.revisionInstruction ?? "",
+            revisionAssetId: failed.revisionAssetId ?? null,
+            annotations: [],
+          }
+        : undefined;
     setResumeContext(parent?.reviewDraft && from ? { parentId, from } : null);
     review.beginFreshDraftAttempt({ targetOutputId: parentId, from: parent?.reviewDraft ? undefined : from });
     void switchTo(parentId);
@@ -325,6 +334,7 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
             )
           ) : displaySrc ? (
             <PieceReviewCanvas
+              key={displaySrc}
               src={displaySrc}
               alt={t("pieceAlt", { label: `${versionLabel} · ${selected.targetFormat}` })}
               annotations={viewingBaseOnly
