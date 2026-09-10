@@ -198,3 +198,24 @@ A até 1f45dbc8 foi integrado em 2f063b19 para liberar os ensaios locais de moto
 ## Guardas técnicos B aprovados — 3a818116
 
 Revisão independente confirmou os seis arquivos de código/testes idênticos ao delta pré-revisado. Coordenador executou as suítes de repositório, retry e GET: 290 testes em três arquivos, typecheck e lint passaram (zero erros, cinco warnings existentes). Gate no serviço antes do ledger e nos CAS de claim/requeue; clear específico compara status/marcador/manualRetryAttempt/retryCount. Testes de repositório inspecionam SQL e mocks; prova dos guardas em Postgres real ainda deve ser acrescentada à suíte existente pela continuação D. A conectará esse helper no job após receber o SHA integrado.
+
+## Mapa mínimo para concluir a integração C
+
+Investigação independente somente leitura, após os cinco resíduos, para reaproveitar caminhos existentes:
+
+- Carrossel: useCarouselComposer.ts/postPlan hoje só refetch e catch vazio. Expor por useComposerActions e injetar via useCreativeComposer os helpers existentes flushAutosave() de useComposerPersistence e resolveCanonicalWorkRevision(id) de useComposerRevision. Usar o ID devolvido pelo flush, inclusive antes de criar o draft, e comunicar ausência de ID/revisão/falha por setError existente. Guardar toda a duração flush+plan, não somente isPending da mutation. Estender testes existentes com edição imediatamente anterior ao clique e falha de flush/plano.
+- Restyle: em useComposerPlanActions, checar pendingAnalysisBlocksPrepare antes de restylePairMissing, pois a dupla filtra somente fontes ready. TalkBox deve receber o gate canônico e distinguir preparação de fila; DashboardHomeActions não pode chamar toda actionPhase de Na fila.
+- Direções: reaproveitar directionTouchedRef/pendingDirectionSuggestions em useComposerDirectionSuggestions. Hidratação precisa preservar escolha já persistida; applySuggestedDirections(..., true) já existe. Capturar trabalho/protocolo/época antes da sugestão e ignorar sucesso/erro tardio de outra sessão; workIdRef/intentRef/draftEpochRef já existem.
+- Caixa: CreativeComposer ainda monta CreativeProposalGrid no ponto compartilhado entre Dashboard resultsOnly e CreativeWorkResumeSurface layout=piece. Convergir os resultados elegíveis para StudioPieceWorkspace ali, mantendo carrossel. Remover duplicação de título/configuração/editor dos wrappers do Dashboard e substituir fresh=1 da retomada pela variação da peça no mesmo trabalho. Testes existentes: CreativeComposer, DashboardHomeActions e CreativeWorkResumeSurface.
+
+## Quarta devolutiva C — 8395e4fa
+
+Coordenador confirmou 114 testes em seis arquivos e typecheck. ESLint não passou: nove erros nos novos componentes/hook, mais um import waitFor não usado. Corrigir no próprio código, sem desabilitar regras: PieceReviewCanvas:82 setState síncrono no effect e :86 leitura de imgRef no render; StudioPieceWorkspace:85/:91/:99 setState síncrono nos effects; useOutputReview:117/:131 atribuições em refs durante render. Usar eventos, estado inicial/derivado e callbacks existentes, sem adiar em timers artificiais só para silenciar lint.
+
+Revisão independente confirmou que ainda há perda do rascunho: o timer é global, então editar A, trocar para B e editar B antes de 500 ms cancela o timer de A. Se A chegou a disparar mas o save falha após a troca, o erro é ignorado e o conteúdo não é conservado. Mínimo solicitado: TODA troca manual de peça aguarda review.flush; só seleciona B após sucesso e permanece em A com texto e erro em caso de falha. Testar também falha, não somente sucesso do autosave. Evitar uma segunda arquitetura de cache por output para resolver o que cabe nesse guard de navegação.
+
+Retry ganhou chave nova, mas StudioPieceWorkspace:327–338 ainda ignora revisionContext/revisionInstruction do filho falho. Recuperar ação/formato/instruções/notas da tentativa quando pai não possui rascunho. Se o pai possui rascunho posterior, preservá-lo e oferecer retomada explícita das instruções anteriores, sem sobrescrever silenciosamente. O fluxo continua passando por revisão e confirmação de custo.
+
+## Motor concluído em revisão — 673a1e65
+
+A conectou o clear específico de B nos três caminhos técnicos usando a identidade do mesmo output que originou o refund, sem refetch posterior. Revisor independente aprovou; coordenador confirmou 131 testes do job, typecheck, ESLint e diff check. O teste da tentativa nova surgindo durante settlement conserva a identidade antiga no CAS. Prova SQL real e fluxo completo no navegador continuam com D/coordenação.
