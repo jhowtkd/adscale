@@ -607,7 +607,7 @@ describe("prepareCreativeWork", () => {
     expect(updateDraft).toHaveBeenCalledOnce();
   });
 
-  it("freezes the selected font and layout into the Peça única input snapshot", async () => {
+  it("freezes integrated rendering instead of deterministic typography for new single snapshots", async () => {
     const single = {
       ...work,
       toolKind: "single",
@@ -635,19 +635,14 @@ describe("prepareCreativeWork", () => {
 
     expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
       inputSnapshot: expect.objectContaining({
-        typographyPlan: expect.objectContaining({
-          version: 1,
-          execution: "deterministic",
-          format: "4:5",
-          requestedLayout: "bottom",
-          fontAssetKey: "fonts/body.ttf",
-          fontSelection: "operator_selected",
-        }),
+        creativeRenderPolicy: "integrated_v1",
+        generationPolicyVersion: "quality_recovery_v1",
       }),
-    }));
+    }), transactionExecutor);
+    expect(updateDraft.mock.calls[0][3].inputSnapshot).not.toHaveProperty("typographyPlan");
   });
 
-  it("rejects a pending font selected from a stale draft", async () => {
+  it("does not compose a pending font selected on a stale single draft", async () => {
     getWork.mockResolvedValue({
       work: {
         ...work,
@@ -679,8 +674,8 @@ describe("prepareCreativeWork", () => {
     } as never);
 
     await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" }))
-      .resolves.toEqual({ ok: false, error: { code: "invalid_preparation" } });
-    expect(updateDraft).not.toHaveBeenCalled();
+      .resolves.toMatchObject({ ok: true });
+    expect(updateDraft.mock.calls[0][3].inputSnapshot).not.toHaveProperty("typographyPlan");
   });
 
   it("does not persist the Peça Única envelope for other protocols", async () => {
@@ -692,6 +687,27 @@ describe("prepareCreativeWork", () => {
     if (result.ok) expect(result.value).not.toHaveProperty("briefing");
     const patch = updateDraft.mock.calls[0]?.[3] as { inputSnapshot: Record<string, unknown> };
     expect(patch.inputSnapshot).not.toHaveProperty("inferredBriefing");
+    expect(patch.inputSnapshot).not.toHaveProperty("renderPolicy");
+  });
+
+  it("reuses the frozen single policy but invalidates a prepared snapshot missing its marker", async () => {
+    let current: Record<string, unknown> = { ...work, toolKind: "single" };
+    getWork.mockImplementation(async () => ({ work: current, outputs: [], sources: [] } as never));
+    updateDraft.mockImplementation(async (_ws, _id, _updatedAt, patch) => {
+      current = { ...current, ...patch };
+      return current as never;
+    });
+    expect((await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).ok).toBe(true);
+    envState.qualityRecoveryEnabled = "true";
+    expect((await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).ok).toBe(true);
+    expect(generateCopy).toHaveBeenCalledOnce();
+    expect(updateDraft).toHaveBeenCalledOnce();
+    const snapshot = current.inputSnapshot as Record<string, unknown>;
+    expect(snapshot.creativeRenderPolicy).toBe("integrated_v1");
+    delete snapshot.creativeRenderPolicy;
+    expect((await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).ok).toBe(true);
+    expect(generateCopy).toHaveBeenCalledTimes(2);
+    expect(updateDraft).toHaveBeenCalledTimes(2);
   });
 
   it("freezes the refinement budget only on explicit opt-in, never for calibration (plan 04, T1)", async () => {

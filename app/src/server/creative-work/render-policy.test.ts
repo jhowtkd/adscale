@@ -8,7 +8,7 @@ it.each([undefined, null, {}, { renderPolicy: "future" }])("preserves historical
 });
 
 it("pins high quality and one image call without automatic correction", () => {
-  expect(resolveCreativeWorkRenderPolicy({ renderPolicy: "integrated_v1" })).toEqual({
+  expect(resolveCreativeWorkRenderPolicy({ creativeRenderPolicy: "integrated_v1" })).toEqual({
     integrated: true, quality: "high", maxImageCalls: 1, automaticCorrection: false,
   });
 });

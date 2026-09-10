@@ -375,9 +375,10 @@ export async function prepareCreativeWork(input: {
     const effectiveFormat = preparation.data.settings.formatMode === "auto"
       ? inferCreativeWorkFormat(contentAnalyses, aggregate.work.request) ?? preparation.data.format
       : preparation.data.format;
+    const integrated = preparation.data.intent === "single";
     let typographyPlan;
     try {
-      typographyPlan = shouldBuildTypographyPlan(preparation.data.intent)
+      typographyPlan = !integrated && shouldBuildTypographyPlan(preparation.data.intent)
         ? buildTypographyPlan({
             format: effectiveFormat,
             requestedLayout: preparation.data.settings.textLayout,
@@ -425,7 +426,8 @@ export async function prepareCreativeWork(input: {
       copy: aggregate.work.copy,
     });
     const snapshotBase: CreativeWorkInputSnapshot = {
-      generationPolicyVersion: generationPolicyVersionFromSwitch(env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED),
+      generationPolicyVersion: integrated ? "quality_recovery_v1" : generationPolicyVersionFromSwitch(env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED),
+      ...(integrated ? { creativeRenderPolicy: "integrated_v1" as const } : {}),
       renderPolicy,
       factPack,
       ...(briefingPeople.people.length > 0

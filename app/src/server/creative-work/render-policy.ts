@@ -1,6 +1,6 @@
 /** Frozen policy only: opening a historical piece never upgrades its rendering. */
-export function resolveCreativeWorkRenderPolicy(snapshot: { renderPolicy?: string } | null | undefined) {
-  const integrated = snapshot?.renderPolicy === "integrated_v1";
+export function resolveCreativeWorkRenderPolicy(snapshot: { creativeRenderPolicy?: string } | null | undefined) {
+  const integrated = snapshot?.creativeRenderPolicy === "integrated_v1";
   return {
     integrated,
     quality: integrated ? "high" as const : undefined,

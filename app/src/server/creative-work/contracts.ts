@@ -316,6 +316,8 @@ export type CreativeWorkInputSnapshot = {
    * switch existed; those behave as "legacy".
    */
   generationPolicyVersion?: CreativeWorkGenerationPolicyVersion;
+  /** New Single Piece rendering, inherited by children; absent means historical policy. */
+  creativeRenderPolicy?: "integrated_v1";
   /**
    * Image render policy frozen at prepare time. Jobs read this snapshot and
    * never re-select from env. Absent on snapshots written before the field
