@@ -383,7 +383,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           active={controlsActive}
         />
       ) : (<>
-      {composer.intent === "single" && composer.brandIdentity ? (
+      {composer.intent === "single" && composer.brandIdentity && (composer.clientProfileId || composer.brandIdentity.source === "snapshot") ? (
         <section
           data-testid="brand-identity"
           className="rounded-[var(--radius-object)] border border-[var(--border-default)] bg-[var(--surface-base)] p-4"

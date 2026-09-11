@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-11T13:13:14.197Z",
+  "generatedAt": "2026-09-11T18:28:34.466Z",
   "schemaVersion": 2,
-  "fingerprint": "b12cd10c8bb6c1d31dca3341e97087de0cdc23c9d73f7066111e530efa043105",
+  "fingerprint": "880a486e65f83464d9e6c221111ff94de523471dd9659ab8bf14276932244ef9",
   "counts": {
     "dashboardPages": 15,
     "apiRoutes": 179,
@@ -1615,12 +1615,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:548",
+      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:550",
       "kind": "cta_navigation",
       "destination": "/billing",
       "file": "app/src/components/dashboard/DashboardHomeActions.tsx",
-      "line": 548,
-      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:548",
+      "line": 550,
+      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:550",
       "requiresDecision": false
     },
     {

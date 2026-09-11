@@ -143,9 +143,17 @@ export function TalkBox({
     hasStartedRequest: expanded || Boolean(bufferedFile) || sources.length > 0,
   });
   const hideGenerateWhileInterviewOwnsEntry = shouldHideProtocolSwitcher(interview);
+  const revealToggleWhenCollapsed =
+    !centered
+    || Boolean(request.trim())
+    || sources.length > 0
+    || Boolean(bufferedFile)
+    || Boolean(summary);
+  const showToggle = Boolean(onExpandedChange) && (expanded || revealToggleWhenCollapsed);
   const collapse = () => {
-    toggleRef.current?.focus({ preventScroll: true });
     onExpandedChange?.(false);
+    const restore = revealToggleWhenCollapsed ? toggleRef.current : requestRef?.current;
+    restore?.focus({ preventScroll: true });
   };
   useLayoutEffect(() => {
     if (!expanded) return;
@@ -189,15 +197,15 @@ export function TalkBox({
           centered ? "p-5 sm:p-6 shadow-[var(--shadow-overlay)]" : "px-4 py-3 sm:px-5 sm:py-3.5",
         )}
       >
-        {onExpandedChange || (!expanded && summary) ? (
+        {showToggle || (!expanded && summary) ? (
           <div className="flex min-w-0 items-center gap-3">
-            {onExpandedChange ? (
+            {showToggle ? (
               <button
                 ref={toggleRef}
                 type="button"
                 aria-expanded={expanded}
                 aria-controls={controlsId}
-                onClick={() => expanded ? collapse() : onExpandedChange(true)}
+                onClick={() => expanded ? collapse() : onExpandedChange?.(true)}
                 className={cn(
                   "shrink-0 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
                   focus,
