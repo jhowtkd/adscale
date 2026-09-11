@@ -218,7 +218,7 @@ describe("planCarouselWork", () => {
       outputs: [],
       sources: [source(), styleSource],
     });
-    proposeMock.mockResolvedValue(questionsDraft());
+    proposeMock.mockResolvedValue({ draft: questionsDraft(), storyboard: [], caption: null });
 
     await planCarouselWork({ ...baseInput, answers: { publico: "Adultos" } });
 
@@ -237,7 +237,7 @@ describe("planCarouselWork", () => {
 
   it("persists blocking questions with a null plan through the draft CAS", async () => {
     repo.getCreativeWork.mockResolvedValue({ work: work(), outputs: [], sources: [source()] });
-    proposeMock.mockResolvedValue(questionsDraft());
+    proposeMock.mockResolvedValue({ draft: questionsDraft(), storyboard: [], caption: null });
     const persisted = { ...work(), updatedAt: new Date("2026-08-30T12:00:01.000Z") };
     repo.updateCreativeWorkDraftIfUnchanged.mockResolvedValue(persisted);
 
@@ -267,7 +267,7 @@ describe("planCarouselWork", () => {
       plan: planOfFive(),
       changes: [],
     };
-    proposeMock.mockResolvedValue(draft);
+    proposeMock.mockResolvedValue({ draft, storyboard: [], caption: null });
 
     const result = await planCarouselWork(baseInput);
 
@@ -299,7 +299,7 @@ describe("planCarouselWork", () => {
 
   it("returns stale_input when the draft CAS loses the race", async () => {
     repo.getCreativeWork.mockResolvedValue({ work: work(), outputs: [], sources: [source()] });
-    proposeMock.mockResolvedValue(questionsDraft());
+    proposeMock.mockResolvedValue({ draft: questionsDraft(), storyboard: [], caption: null });
     repo.updateCreativeWorkDraftIfUnchanged.mockResolvedValue(null);
 
     const result = await planCarouselWork(baseInput);
@@ -317,7 +317,7 @@ describe("planCarouselWork", () => {
       plan: planOfFive(),
       changes: [],
     };
-    proposeMock.mockResolvedValue(draft);
+    proposeMock.mockResolvedValue({ draft, storyboard: [], caption: null });
 
     await planCarouselWork(baseInput);
 

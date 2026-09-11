@@ -98,7 +98,7 @@ export async function planCarouselWork(input: {
 
     let draft: CarouselDraftStateV1;
     try {
-      draft = await proposeCarouselDraft({
+      const proposal = await proposeCarouselDraft({
         workId: work.id,
         request: requestContext,
         answers: mergedAnswers,
@@ -106,6 +106,7 @@ export async function planCarouselWork(input: {
         factPack,
         toneOfVoice: brandKit?.toneOfVoice ?? null,
       });
+      draft = proposal.draft;
     } catch (error) {
       if (error instanceof CarouselEditorialPlanInvalidError) {
         // Keep the last persisted draft: an untrustworthy plan never writes.
