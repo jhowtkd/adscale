@@ -415,6 +415,70 @@ describe("exportCarouselWork", () => {
     expect(storage.objectStorage.get).toHaveBeenCalledWith("final-1");
   });
 
+  it("includes caption and references without changing PNG names, order or duplicating the manifest", async () => {
+    const approved = approvedWorkFixture();
+    const snapshot = (approved.work.inputSnapshot as { carousel: Record<string, unknown> }).carousel;
+    repo.getCreativeWork.mockResolvedValue({
+      ...approved,
+      work: {
+        ...approved.work,
+        settings: {
+          carouselEditorial: {
+            version: 1,
+            revision: "script-1",
+            contextHash: "ctx-1",
+            research: {
+              status: "ready",
+              question: "O grupo começa em agosto?",
+              thesis: "Grupo de terapia começa em agosto",
+              sources: [{
+                id: "S1",
+                url: "https://example.org/agenda",
+                sourceId: null,
+                title: "Agenda oficial",
+                checkedOn: "2026-09-10",
+                publicationDate: null,
+                evidence: "Turmas em setembro",
+                limitations: [],
+                access: "opened",
+              }],
+              claims: [],
+              gaps: [],
+            },
+            hooks: [],
+            recommendedHookId: null,
+            recommendation: null,
+            selectedHookId: null,
+            storyboard: [],
+            caption: "Inscreva-se pelo direct",
+            approvedScriptRevision: "script-1",
+            approvedCover: null,
+            confirmedInteriorsRevision: null,
+          },
+        },
+        inputSnapshot: {
+          ...approved.work.inputSnapshot,
+          carousel: { ...snapshot, caption: "Inscreva-se pelo direct" },
+        },
+      },
+    });
+
+    const result = await exportCarouselWork({ workspaceId: WORKSPACE, workItemId: WORK });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const zipBuffer = await collectStream(result.value.stream);
+    const zip = await JSZip.loadAsync(zipBuffer);
+    expect(Object.keys(zip.files)).toEqual([
+      "01.png", "02.png", "03.png", "04.png", "05.png", "manifest.json",
+    ]);
+    const manifest = JSON.parse(await zip.files["manifest.json"].async("string"));
+    expect(manifest.version).toBe(1);
+    expect(manifest.caption).toBe("Inscreva-se pelo direct");
+    expect(manifest.references).toEqual([{ title: "Agenda oficial", url: "https://example.org/agenda" }]);
+    expect(Object.keys(zip.files).filter((name) => name.endsWith(".json"))).toEqual(["manifest.json"]);
+  });
+
   it("rebuilds the same manifest on replay", async () => {
     const first = await exportCarouselWork({ workspaceId: WORKSPACE, workItemId: WORK });
     const second = await exportCarouselWork({ workspaceId: WORKSPACE, workItemId: WORK });

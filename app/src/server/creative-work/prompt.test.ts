@@ -866,7 +866,7 @@ function carouselContractFixture(): CarouselVisualContractV1 {
 }
 
 describe("buildCarouselSlidePrompt", () => {
-  const slide = { position: 1, role: "hook" as const, purpose: "Prender a atenção", layoutFamily: "impact" as const };
+  const slide = { slideId: "slide-1", position: 1, role: "hook" as const, purpose: "Prender a atenção", layoutFamily: "impact" as const };
   const baseInput = {
     slide,
     deck: carouselDeckFixture(),
@@ -939,5 +939,37 @@ describe("buildCarouselSlidePrompt", () => {
 
     expect(prompt).toContain('- #1 [anchor_board] "Anchor board" (required)');
     expect(prompt).toContain('- #2 [brand_identity] "Logo" (optional)');
+  });
+
+  it("includes the storyboard direction for that slide by id and omits internal notes", () => {
+    const prompt = buildCarouselSlidePrompt({
+      ...baseInput,
+      slide: { slideId: "slide-2", position: 2, role: "context", purpose: "Contextualizar", layoutFamily: "development" },
+      request: "Rotinas de sono no consultório. notas de bastidor: drafts/angles-hooks.md score=9",
+      generationScope: "interiors",
+      storyboard: [
+        {
+          slideId: "slide-1",
+          learning: "A capa ancora a identidade",
+          representation: "Retrato com a paleta aprovada",
+          hierarchy: "Marca e título",
+          transition: "Abre a comparação",
+          claimIds: [],
+        },
+        {
+          slideId: "slide-2",
+          learning: "O leitor compara duas rotinas",
+          representation: "Comparar duas rotinas com o mesmo critério",
+          hierarchy: "Dois blocos iguais, um critério",
+          transition: "Fecha no critério compartilhado",
+          claimIds: [],
+        },
+      ],
+    });
+
+    expect(prompt).toContain("Comparar duas rotinas com o mesmo critério");
+    expect(prompt).not.toContain("drafts/angles-hooks.md");
+    expect(prompt).toContain("Do not copy the cover");
+    expect(prompt).toContain("DETERMINISTIC TEXT CONTRACT:");
   });
 });

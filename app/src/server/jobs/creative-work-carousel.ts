@@ -230,6 +230,7 @@ export async function runCreativeWorkCarouselSlide(input: {
 
     const prompt = buildCarouselSlidePrompt({
       slide: {
+        slideId: deckSlideId(snapshot, claimed),
         position: claimed.position,
         role: claimed.role,
         purpose: deckSlidePurpose(snapshot, claimed),
@@ -240,6 +241,8 @@ export async function runCreativeWorkCarouselSlide(input: {
       factPack: work.inputSnapshot?.factPack ?? null,
       request: work.inputSnapshot?.request ?? work.request,
       references: referenceSlots,
+      storyboard: snapshot.storyboard,
+      generationScope: snapshot.generationScope,
     });
 
     const request: GenerationRequest = {
@@ -508,6 +511,13 @@ function deckSlidePurpose(
   slide: CreativeWorkCarouselSlide,
 ): string {
   return snapshot.deck.slides.find((plan) => plan.position === slide.position)?.purpose ?? slide.role;
+}
+
+function deckSlideId(
+  snapshot: NonNullable<ReturnType<typeof resolveCarouselPreparedSnapshot>>,
+  slide: CreativeWorkCarouselSlide,
+): string {
+  return snapshot.deck.slides.find((plan) => plan.position === slide.position)?.slideId ?? slide.id;
 }
 
 /**

@@ -13,6 +13,7 @@ import { lintCarouselDeck } from "../creative-work/carousel-editorial";
 import {
   hasCurrentApprovedCarouselCover,
   readCarouselEditorial,
+  storyboardCoversDeck,
 } from "../creative-work/carousel-editorial-state";
 import { buildCarouselVisualContract } from "../creative-work/carousel-visual";
 import { canonicalJsonStringify } from "../creative-work/canonical-json";
@@ -169,6 +170,28 @@ export async function prepareCarouselWork(input: {
       };
     }
 
+    if (editorial.storyboard.length > 0) {
+      if (!storyboardCoversDeck(editorial.storyboard, deck.slides.map((slide) => slide.slideId))) {
+        return {
+          ok: false as const,
+          error: { code: "editorial_invalid" as const, details: { reason: "storyboard_incomplete" } },
+        };
+      }
+      const knownClaimIds = new Set(editorial.research.claims.map((claim) => claim.id));
+      const missingClaimIds = [...new Set(
+        editorial.storyboard.flatMap((item) => item.claimIds.filter((claimId) => !knownClaimIds.has(claimId))),
+      )];
+      if (missingClaimIds.length > 0) {
+        return {
+          ok: false as const,
+          error: {
+            code: "editorial_invalid" as const,
+            details: { reason: "missing_claim_reference", claimIds: missingClaimIds },
+          },
+        };
+      }
+    }
+
     if (generationScope === "interiors" && currentSnapshot && work.inputSnapshot) {
       if (
         currentSnapshot.generationScope === "interiors"
@@ -298,6 +321,8 @@ export async function prepareCarouselWork(input: {
         factPack,
         sources: frozenSources,
         scriptRevision: approvedScriptRevision,
+        storyboard: editorial.storyboard,
+        caption: editorial.caption,
       }))
       .digest("hex")
       .slice(0, 24)}`;
@@ -315,6 +340,8 @@ export async function prepareCarouselWork(input: {
         visualContract,
         generationScope,
         scriptRevision: approvedScriptRevision,
+        storyboard: editorial.storyboard,
+        caption: editorial.caption,
       },
     };
 

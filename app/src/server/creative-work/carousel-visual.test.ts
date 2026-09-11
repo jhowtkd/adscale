@@ -22,7 +22,9 @@ vi.mock("@/server/validation/env", () => ({
 import {
   buildCarouselAnchorBoard,
   buildCarouselContactSheet,
+  buildCarouselSlideVisualOrientation,
   buildCarouselVisualContract,
+  resolveCarouselSlideDirection,
   reviewCarouselSet,
 } from "./carousel-visual";
 
@@ -470,6 +472,49 @@ describe("buildCarouselContactSheet", () => {
     expect(await pixelAt(sheet, 128, 128)).toEqual(RED);
     expect(await pixelAt(sheet, 384, 128)).toEqual(GREEN);
     expect(await pixelAt(sheet, 128, 384)).toEqual(BLUE);
+  });
+});
+
+describe("carousel slide visual orientation", () => {
+  const coverDirection = {
+    slideId: "slide-1",
+    learning: "A capa ancora a tese",
+    representation: "Retrato com paleta aprovada",
+    hierarchy: "Título e marca",
+    transition: "Abre a comparação",
+    claimIds: ["C1"],
+  };
+  const interiorDirection = {
+    slideId: "slide-2",
+    learning: "O leitor compara duas rotinas",
+    representation: "Comparar duas rotinas com o mesmo critério",
+    hierarchy: "Dois blocos iguais",
+    transition: "Fecha no critério",
+    claimIds: [],
+  };
+
+  it("resolves the storyboard direction by slide id", () => {
+    expect(resolveCarouselSlideDirection([coverDirection, interiorDirection], "slide-2")).toEqual(interiorDirection);
+    expect(resolveCarouselSlideDirection([coverDirection], "slide-9")).toBeNull();
+  });
+
+  it("orients the cover by identity and interiors by storyboard scene/density", () => {
+    const cover = buildCarouselSlideVisualOrientation({
+      position: 1,
+      generationScope: "cover",
+      direction: coverDirection,
+    });
+    const interior = buildCarouselSlideVisualOrientation({
+      position: 2,
+      generationScope: "interiors",
+      direction: interiorDirection,
+    });
+
+    expect(cover).toContain("COVER IDENTITY ORIENTATION");
+    expect(cover).toContain("Retrato com paleta aprovada");
+    expect(interior).toContain("Comparar duas rotinas com o mesmo critério");
+    expect(interior).toContain("Do not copy the cover silhouette");
+    expect(interior).not.toContain("COVER IDENTITY ORIENTATION");
   });
 });
 

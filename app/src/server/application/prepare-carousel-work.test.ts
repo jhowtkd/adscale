@@ -464,6 +464,8 @@ describe("prepareCarouselWork", () => {
       visualContract: expect.objectContaining({ contractHash: expect.stringMatching(/^[a-f0-9]{64}$/) }),
       generationScope: "cover",
       scriptRevision: "script-1",
+      storyboard: [],
+      caption: null,
     });
     expect(result.value.work.inputSnapshot?.carousel).toEqual({
       version: 1,
@@ -472,6 +474,8 @@ describe("prepareCarouselWork", () => {
       visualContract: expect.objectContaining({ contractHash: expect.stringMatching(/^[a-f0-9]{64}$/) }),
       generationScope: "cover",
       scriptRevision: "script-1",
+      storyboard: [],
+      caption: null,
     });
     expect(result.value.work.status).toBe("draft");
   });
@@ -597,6 +601,50 @@ describe("prepareCarouselWork", () => {
     expect(billing.refundCredits).not.toHaveBeenCalled();
     expect(inngestSendMock).not.toHaveBeenCalled();
     expect(getOpenAIMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks prepare when the storyboard references a missing claim", async () => {
+    repo.getCreativeWork.mockResolvedValue(aggregate({
+      settings: {
+        targetFormats: [],
+        carouselDraft: draftWithPlan(),
+        carouselEditorial: approvedEditorial({
+          research: {
+            status: "ready",
+            question: "O grupo começa em agosto?",
+            thesis: "Grupo de terapia começa em agosto",
+            sources: [],
+            claims: [{
+              id: "C1",
+              text: "Grupo de terapia começa em agosto",
+              sourceIds: [],
+              kind: "fact",
+              volatile: false,
+            }],
+            gaps: [],
+          },
+          storyboard: planOfFive().slides.map((slide) => ({
+            slideId: slide.slideId,
+            learning: "Avança o argumento",
+            representation: "Tipografia com o fato",
+            hierarchy: "Título e apoio",
+            transition: "Próximo slide",
+            claimIds: slide.slideId === "s2" ? ["missing-claim"] : ["C1"],
+          })),
+        }),
+      },
+    }));
+
+    const result = await prepareCarouselWork(baseInput);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe("editorial_invalid");
+    expect(result.error.details).toMatchObject({
+      reason: "missing_claim_reference",
+      claimIds: ["missing-claim"],
+    });
+    expect(repo.updateCreativeWorkDraftIfUnchanged).not.toHaveBeenCalled();
   });
 
   it("refuses cover prepare until the current script is approved", async () => {

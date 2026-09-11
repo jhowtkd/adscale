@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
 import { extractOutputText, getOpenAI } from "@/server/ai/utils";
 import { env } from "@/server/validation/env";
 import {
@@ -67,6 +68,24 @@ type ToolAction = {
 
 export async function researchCarousel(input: ResearchCarouselInput): Promise<CarouselResearch> {
   const question = clip(input.request, 1000) || "Qual decisão este carrossel deve sustentar?";
+  if (isE2EControlledProviderEnabled()) {
+    const match = input.request.match(/notas de bastidor\s*:/i);
+    const publicRequest = match && match.index !== undefined
+      ? input.request.slice(0, match.index).trim()
+      : input.request;
+    const thesis = clip(publicRequest, 1000);
+    if (input.needsExternalEvidence) {
+      return unavailableResearch(question, "Pesquisa externa indisponível no provedor controlado. Restrinja a tese ou envie o material.");
+    }
+    return {
+      status: "not_needed",
+      question: thesis || question,
+      thesis: thesis || "Tese controlada do carrossel",
+      sources: [],
+      claims: [],
+      gaps: [],
+    };
+  }
   const authorizedSourceIds = new Set(input.factualSources.map((source) => source.sourceId));
   const facts = collectVerifiableFacts(input);
   const researchPrompt = buildCarouselResearchPrompt(input, question, facts);

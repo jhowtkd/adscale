@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { GENERATION_CREDIT_COSTS } from "@/lib/billing/credit-units";
 import type { CreativeWorkInputSnapshot } from "./contracts";
+import { slideDirectionSchema } from "./carousel-editorial-state";
 
 export {
   validateTextFieldsAgainstFactPack,
@@ -151,6 +152,8 @@ export const carouselPreparedSnapshotSchema = z.object({
   visualContract: carouselVisualContractSchema,
   generationScope: z.enum(CAROUSEL_GENERATION_SCOPES).optional(),
   scriptRevision: z.string().trim().min(1).optional(),
+  storyboard: z.array(slideDirectionSchema).max(8).optional(),
+  caption: z.string().trim().max(400).nullable().optional(),
 }).strict();
 export type CarouselPreparedSnapshotV1 = z.infer<typeof carouselPreparedSnapshotSchema>;
 

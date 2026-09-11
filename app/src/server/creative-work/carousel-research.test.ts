@@ -96,6 +96,7 @@ describe("researchCarousel", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
   });
 
   it("keeps search-only sources discovered and marks evidence insufficient", async () => {
@@ -410,5 +411,21 @@ describe("researchCarousel", () => {
     expect(result.status).toBe("insufficient");
     expect(result.gaps).toHaveLength(32);
     expect(result.gaps.at(-1)).toMatch(/descobertas|abertura verificada|evidência suficiente/i);
+  });
+
+  it("returns not_needed research under the controlled provider without a model call", async () => {
+    vi.stubEnv("E2E_CONTROLLED_PROVIDER", "true");
+    vi.stubEnv("APP_URL", "http://localhost:3000");
+
+    const result = await researchCarousel({
+      request: `${REQUEST} notas de bastidor: drafts/angles-hooks.md`,
+      factualSources: [],
+      needsExternalEvidence: false,
+    });
+
+    expect(result.status).toBe("not_needed");
+    expect(result.thesis).toContain("grupo de terapia");
+    expect(result.thesis).not.toContain("drafts/angles-hooks.md");
+    expect(responsesCreate).not.toHaveBeenCalled();
   });
 });

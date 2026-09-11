@@ -10,11 +10,13 @@ import { approvedBrandFontAssets } from "@/server/brand-training/font-assets";
 import { canonicalJsonStringify } from "./canonical-json";
 import type {
   CarouselDeckPlanV1,
+  CarouselGenerationScope,
   CarouselLayoutFamily,
   CarouselLayoutPlan,
   CarouselTextRegion,
   CarouselVisualContractV1,
 } from "./carousel-contracts";
+import type { SlideDirection } from "./carousel-editorial-state";
 import type {
   CreativeWorkIdentityAssetSnapshot,
   CreativeWorkIdentitySnapshot,
@@ -38,6 +40,50 @@ function splitElements(value: string | null | undefined): string[] {
     .split(/[\n;]+/)
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
+}
+
+export function resolveCarouselSlideDirection(
+  storyboard: readonly SlideDirection[] | undefined,
+  slideId: string | undefined,
+): SlideDirection | null {
+  if (!storyboard || !slideId) return null;
+  return storyboard.find((item) => item.slideId === slideId) ?? null;
+}
+
+/**
+ * Cover orients identity (palette, type atmosphere, exact-asset reserves).
+ * Storyboard orients scene and density for that slide. Interiors must not
+ * copy the cover silhouette, characters or density.
+ */
+export function buildCarouselSlideVisualOrientation(input: {
+  position: number;
+  generationScope?: CarouselGenerationScope;
+  direction: SlideDirection | null;
+}): string {
+  const isCover = input.position === 1 || input.generationScope === "cover";
+  const scene = input.direction
+    ? [
+        "STORYBOARD SCENE ORIENTATION:",
+        `- Scene: ${input.direction.representation}`,
+        `- Density: ${input.direction.hierarchy}`,
+        `- Learning: ${input.direction.learning}`,
+        `- Transition: ${input.direction.transition}`,
+      ]
+    : [];
+  if (isCover && input.position === 1) {
+    return [
+      "COVER IDENTITY ORIENTATION:",
+      "The cover orients brand identity: palette, typography atmosphere, exact-asset reserves and finishing.",
+      "Do not invent brand marks, lettering, products or claims.",
+      ...scene,
+    ].join("\n");
+  }
+  return [
+    "INTERIOR SCENE ORIENTATION:",
+    "Interiors inherit identity from the approved cover (palette, type atmosphere, finishing).",
+    "The storyboard orients scene and density for this slide. Do not copy the cover silhouette, characters or density.",
+    ...scene,
+  ].join("\n");
 }
 
 /**

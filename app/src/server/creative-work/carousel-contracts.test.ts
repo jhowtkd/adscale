@@ -239,6 +239,15 @@ describe("carousel contracts", () => {
       ...legacy,
       generationScope: "cover",
       scriptRevision: "script-1",
+      storyboard: [{
+        slideId: "slide-1",
+        learning: "A capa ancora a tese",
+        representation: "Retrato com paleta aprovada",
+        hierarchy: "Título e marca",
+        transition: "Abre o argumento",
+        claimIds: [],
+      }],
+      caption: "Inscreva-se pelo WhatsApp",
     };
     expect(resolveCarouselPreparedSnapshot({
       request: "Carrossel",

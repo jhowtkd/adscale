@@ -178,6 +178,17 @@ function workFixture(slide: CreativeWorkCarouselSlide) {
           preparedRevision: "prep-1",
           deck: deckFixture(),
           visualContract: visualContractFixture(),
+          generationScope: "cover",
+          scriptRevision: "script-1",
+          storyboard: [{
+            slideId: "slide-1",
+            learning: "A capa ancora a tese",
+            representation: "Retrato com paleta aprovada",
+            hierarchy: "Título e marca",
+            transition: "Abre o argumento",
+            claimIds: [],
+          }],
+          caption: "Inscreva-se pelo direct",
         },
       },
     } as unknown as CreativeWorkItem,
@@ -320,6 +331,11 @@ describe("runCreativeWorkCarouselSlide", () => {
       attempt: 0,
     });
     expect(request.identity.referenceImages).toHaveLength(1);
+    expect(promptBuilder.buildCarouselSlidePrompt).toHaveBeenCalledWith(expect.objectContaining({
+      slide: expect.objectContaining({ slideId: "slide-2", position: 2 }),
+      generationScope: "cover",
+      storyboard: [expect.objectContaining({ slideId: "slide-1" })],
+    }));
   });
 
   it("persists the untouched provider base separately from the composed final output", async () => {
