@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { z } from "zod";
 import { canonicalJsonStringify } from "./canonical-json";
 
@@ -182,28 +181,10 @@ export type CarouselEditorialRevisionPayload = {
   caption: string | null;
 };
 
-function sha256(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
-}
-
 export function sourceSustainsClaim(source: ResearchSource): boolean {
   if (source.access === "discovered") return false;
   if (source.access === "opened") return Boolean(source.url && source.checkedOn);
   return Boolean(source.sourceId);
-}
-
-export function hashCarouselEditorialContext(context: unknown): string {
-  return sha256(canonicalJsonStringify(context));
-}
-
-export function hashCarouselEditorialRevision(payload: CarouselEditorialRevisionPayload): string {
-  return sha256(canonicalJsonStringify({
-    context: payload.context,
-    selectedHook: payload.selectedHook,
-    deck: payload.deck,
-    storyboard: payload.storyboard,
-    caption: payload.caption,
-  }));
 }
 
 export function invalidateCarouselApprovals(state: CarouselEditorialState): CarouselEditorialState {

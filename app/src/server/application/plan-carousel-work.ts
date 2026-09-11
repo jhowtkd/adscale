@@ -17,7 +17,7 @@ import {
   withCreativeWorkPreparationLock,
 } from "../repositories/creative-work";
 import { getBrandKit } from "../repositories/brand-kit";
-import { withInvalidatedCarouselApprovals } from "../creative-work/carousel-editorial-state";
+import { withInvalidatedAndRecomputedCarouselEditorial } from "../creative-work/carousel-editorial-hash";
 
 export type PlanCarouselWorkErrorCode =
   | "work_not_found"
@@ -126,7 +126,10 @@ export async function planCarouselWork(input: {
       input.workspaceId,
       input.workItemId,
       work.updatedAt,
-      { settings: { ...withInvalidatedCarouselApprovals(work.settings), carouselDraft: draft } },
+      { settings: withInvalidatedAndRecomputedCarouselEditorial(
+        { ...work.settings, carouselDraft: draft },
+        work.request,
+      ) },
       executor,
     );
     if (!updated) return { ok: false as const, error: { code: "stale_input" as const } };

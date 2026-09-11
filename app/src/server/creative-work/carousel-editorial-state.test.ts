@@ -2,11 +2,14 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { canonicalJsonStringify } from "./canonical-json";
 import {
+  hashCarouselEditorialContext,
+  hashCarouselEditorialRevision,
+  mergeCarouselEditorialForClientSettingsWrite as mergeAndRecomputeCarouselEditorial,
+} from "./carousel-editorial-hash";
+import {
   canDispatchCarouselInteriors,
   carouselEditorialCommandSchema,
   carouselEditorialStateSchema,
-  hashCarouselEditorialContext,
-  hashCarouselEditorialRevision,
   invalidateCarouselApprovals,
   isMaterialCarouselEditorialMutation,
   mergeCarouselEditorialForClientSettingsWrite,
@@ -308,6 +311,27 @@ describe("carousel editorial state", () => {
     expect(merged.carouselEditorial?.approvedCover).toBeNull();
     expect(merged.carouselEditorial?.confirmedInteriorsRevision).toBeNull();
     expect(merged.carouselEditorial?.research).toEqual(state.research);
+  });
+
+  it("recomputes revision and contextHash after a material autosave without hashing approvals", () => {
+    const state = approvedState();
+    const merged = mergeAndRecomputeCarouselEditorial({
+      persistedRequest: "Tema",
+      incomingRequest: "Tema revisado",
+      persistedSettings: { targetFormats: [], carouselDraft: { revision: "script-1" }, carouselEditorial: state },
+      incomingSettings: { targetFormats: [], carouselDraft: { revision: "script-2" }, carouselEditorial: state },
+    });
+    const expectedContext = { request: "Tema revisado" };
+    expect(merged.carouselEditorial?.approvedScriptRevision).toBeNull();
+    expect(merged.carouselEditorial?.revision).not.toBe(state.revision);
+    expect(merged.carouselEditorial?.contextHash).toBe(hashCarouselEditorialContext(expectedContext));
+    expect(merged.carouselEditorial?.revision).toBe(hashCarouselEditorialRevision({
+      context: expectedContext,
+      selectedHook: state.hooks[0],
+      deck: { revision: "script-2" },
+      storyboard: state.storyboard,
+      caption: state.caption,
+    }));
   });
 
   it("limits revise instructions and evidence, and parses known commands", () => {

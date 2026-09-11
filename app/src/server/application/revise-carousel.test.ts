@@ -208,8 +208,11 @@ function workFixture(overrides: Partial<CreativeWorkItem> = {}): { work: Creativ
       status: "completed",
       clientProfileId: "profile-1",
       createdByUserId: USER,
+      request: "Grupo de terapia em agosto",
+      settings: { targetFormats: [] },
       carouselApprovedRevision: null,
       carouselQuality: null,
+      updatedAt: new Date("2026-08-30T10:00:00.000Z"),
       inputSnapshot: {
         factPack: { facts: [] },
         carousel: {
@@ -248,6 +251,7 @@ beforeEach(() => {
   resetDeck();
   dbState.selectRows.length = 0;
   dbState.updateRows.length = 0;
+  dbState.updateRows.push([workFixture().work]);
   repo.getCreativeWork.mockResolvedValue(workFixture());
   carouselRepo.listCurrentCarouselSlides.mockImplementation(async () => [...slides]);
   carouselRepo.refreshCarouselWorkStatus.mockImplementation(async () => workFixture().work);
@@ -442,6 +446,46 @@ describe("reviseCarouselSlide", () => {
     expect(settlement.startGenerationSettlement).not.toHaveBeenCalled();
   });
 
+  it("refuses to overwrite a newer work revision when invalidating editorial approvals", async () => {
+    dbState.updateRows.length = 0;
+    repo.getCreativeWork.mockResolvedValue(workFixture({
+      work: {
+        ...workFixture().work,
+        settings: {
+          targetFormats: [],
+          carouselEditorial: {
+            version: 1,
+            revision: "rev-1",
+            contextHash: "ctx-1",
+            research: { status: "not_needed", question: "", thesis: "", sources: [], claims: [], gaps: [] },
+            hooks: [],
+            recommendedHookId: null,
+            recommendation: null,
+            selectedHookId: null,
+            storyboard: [],
+            caption: null,
+            approvedScriptRevision: "script-1",
+            approvedCover: { slideId: "cover-1", scriptRevision: "script-1", preparedRevision: "prep-1" },
+            confirmedInteriorsRevision: "prep-1",
+          },
+        },
+      },
+    } as never));
+
+    const result = await reviseCarouselSlide({
+      ...slideInput,
+      kind: "copy",
+      primaryText: "Novo texto primário do gancho",
+      secondaryText: null,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe("stale_input");
+    expect(dbMock.returning).toHaveBeenCalled();
+    expect(carouselRepo.createCarouselSlideDescendant).not.toHaveBeenCalled();
+  });
+
   it("an idempotent revisionKey returns the same descendant without new writes", async () => {
     const existing = completedSlideRow(1, {
       id: "child-slide-1",
@@ -520,6 +564,7 @@ describe("reviseCarouselDeck", () => {
     expect(dbMock.update).toHaveBeenCalledTimes(1);
     const setArg = dbMock.set.mock.calls[0][0] as { inputSnapshot: { carousel: { deck: { revision: string } } } };
     expect(setArg.inputSnapshot.carousel.deck.revision).toBe(`deck-${REVISION_KEY}`);
+    expect(dbMock.returning).toHaveBeenCalled();
   });
 
   it("global visual instruction creates a new deck revision, invalidates every current slide, clears approval and quality and restarts the anchor trio first", async () => {
@@ -597,6 +642,20 @@ describe("reviseCarouselDeck", () => {
     expect(carouselRepo.createCarouselSlideDescendant).not.toHaveBeenCalled();
     expect(dbMock.update).not.toHaveBeenCalled();
     expect(chainDispatch.dispatchNextCarouselStage).not.toHaveBeenCalled();
+  });
+
+  it("does not clobber a newer settings revision on a deck write", async () => {
+    dbState.updateRows.length = 0;
+    const result = await reviseCarouselDeck({
+      ...deckInput,
+      plan: deckFixture(5),
+      globalVisualInstruction: null,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe("stale_input");
+    expect(dbMock.returning).toHaveBeenCalled();
+    expect(carouselRepo.createCarouselSlideDescendant).not.toHaveBeenCalled();
   });
 
   it("an idempotent deck revisionKey returns the same current slides without writing", async () => {

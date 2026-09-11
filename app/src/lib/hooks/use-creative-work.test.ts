@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   categorizeCreativeWorkFailure,
   creativeWorkRefetchInterval,
@@ -54,6 +55,18 @@ describe("creativeWorkRefetchInterval (R-008: 202 + polling contract)", () => {
 });
 
 describe("creative-work detail projection", () => {
+  it("keeps the client mapper graph free of Node crypto for the editorial envelope", () => {
+    const hookSource = readFileSync("src/lib/hooks/use-creative-work.ts", "utf8");
+    const stateSource = readFileSync("src/server/creative-work/carousel-editorial-state.ts", "utf8");
+    const contractsSource = readFileSync("src/server/creative-work/contracts.ts", "utf8");
+    const hashSource = readFileSync("src/server/creative-work/carousel-editorial-hash.ts", "utf8");
+    expect(hookSource).not.toMatch(/carousel-editorial-hash|node:crypto|createHash/);
+    expect(stateSource).not.toMatch(/node:crypto|createHash/);
+    expect(contractsSource).not.toMatch(/carousel-editorial-hash/);
+    expect(contractsSource).toMatch(/carousel-editorial-state/);
+    expect(hashSource).toMatch(/from "node:crypto"/);
+    expect(hashSource).toMatch(/import "server-only"/);
+  });
   it("retains the allowlisted Layer Editor quota access for Results before confirmation", () => {
     const detail = mapCreativeWorkDetail({
       work: { id: "work-1", createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" } as never,

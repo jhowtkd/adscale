@@ -32,10 +32,8 @@ import {
 import { getClientProfile, resolveCampaignClientProfileId } from "./client-reference";
 import { getCampaignById } from "./campaign";
 import { MAX_PIECE_REFERENCES, type PieceReferenceCategory } from "../creative-work/piece-reference";
-import {
-  mergeCarouselEditorialForClientSettingsWrite,
-  withInvalidatedCarouselApprovals,
-} from "../creative-work/carousel-editorial-state";
+import { withInvalidatedCarouselApprovals } from "../creative-work/carousel-editorial-state";
+import { mergeCarouselEditorialForClientSettingsWrite } from "../creative-work/carousel-editorial-hash";
 import {
   boundCatalogLimit,
   takeCatalogPage,
@@ -459,6 +457,18 @@ function sanitizeClientCarouselSettingsPatch(
     ...patch,
     settings: withInvalidatedCarouselApprovals(patch.settings),
   };
+}
+
+async function workPatchInvalidatingCarouselEditorial(
+  tx: Pick<typeof db, "select">,
+  workspaceId: string,
+  workItemId: string,
+): Promise<{ settings?: CreativeWorkSettings }> {
+  const [work] = await tx.select().from(creativeWorkItems).where(and(
+    eq(creativeWorkItems.workspaceId, workspaceId),
+    eq(creativeWorkItems.id, workItemId),
+  )).limit(1);
+  return settingsAfterMaterialCarouselEdit(work?.settings);
 }
 
 const automaticPieceReference = {
@@ -1076,10 +1086,12 @@ export async function updateCreativeWorkSource(workspaceId: string, workItemId: 
       eq(creativeWorkSources.id, sourceId),
     )).returning();
     if (!row) return null;
+    const editorialPatch = await workPatchInvalidatingCarouselEditorial(tx, workspaceId, workItemId);
     await tx.update(creativeWorkItems).set({
       brief: null,
       copy: null,
       inputSnapshot: null,
+      ...editorialPatch,
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
     }).where(and(
       eq(creativeWorkItems.workspaceId, workspaceId),
@@ -1114,10 +1126,12 @@ export async function updateCreativeWorkSourceIfUnchanged(
       sql`date_trunc('milliseconds', ${creativeWorkSources.updatedAt}) = cast(${expected.updatedAt.toISOString()} as timestamp without time zone)`,
     )).returning();
     if (!row) return null;
+    const editorialPatch = await workPatchInvalidatingCarouselEditorial(tx, workspaceId, workItemId);
     await tx.update(creativeWorkItems).set({
       brief: null,
       copy: null,
       inputSnapshot: null,
+      ...editorialPatch,
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
     }).where(and(
       eq(creativeWorkItems.workspaceId, workspaceId),
@@ -1135,10 +1149,12 @@ export async function deleteCreativeWorkSource(workspaceId: string, workItemId: 
       eq(creativeWorkSources.id, sourceId),
     )).returning();
     if (!row) return null;
+    const editorialPatch = await workPatchInvalidatingCarouselEditorial(tx, workspaceId, workItemId);
     await tx.update(creativeWorkItems).set({
       brief: null,
       copy: null,
       inputSnapshot: null,
+      ...editorialPatch,
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
     }).where(and(
       eq(creativeWorkItems.workspaceId, workspaceId),

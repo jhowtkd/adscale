@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import {
   carouselLayoutFamilyForRole,
   resolveCarouselPreparedSnapshot,
@@ -12,7 +12,7 @@ import {
   type CarouselVisualContractV1,
 } from "@/server/creative-work/carousel-contracts";
 import { canonicalJsonStringify } from "@/server/creative-work/canonical-json";
-import { withInvalidatedCarouselApprovals } from "@/server/creative-work/carousel-editorial-state";
+import { withInvalidatedAndRecomputedCarouselEditorial } from "@/server/creative-work/carousel-editorial-hash";
 import {
   runCarouselTextComposition,
   TextCompositionError,
@@ -240,7 +240,33 @@ type PublicCarouselSlide = Omit<
 
 function settingsAfterMaterialCarouselEdit(work: CreativeWorkItem) {
   if (!work.settings?.carouselEditorial) return {};
-  return { settings: withInvalidatedCarouselApprovals(work.settings) };
+  return { settings: withInvalidatedAndRecomputedCarouselEditorial(work.settings, work.request) };
+}
+
+function workRevisionMatches(expectedUpdatedAt: Date) {
+  return sql`date_trunc('milliseconds', ${creativeWorkItems.updatedAt}) = cast(${expectedUpdatedAt.toISOString()} as timestamp without time zone)`;
+}
+
+async function persistCarouselWorkIfUnchanged(
+  work: CreativeWorkItem,
+  patch: Record<string, unknown>,
+): Promise<CreativeWorkItem | null> {
+  if (!work.updatedAt) return null;
+  const [row] = await db
+    .update(creativeWorkItems)
+    .set({
+      ...patch,
+      updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
+    })
+    .where(
+      and(
+        eq(creativeWorkItems.workspaceId, work.workspaceId),
+        eq(creativeWorkItems.id, work.id),
+        workRevisionMatches(work.updatedAt),
+      ),
+    )
+    .returning();
+  return row ?? null;
 }
 
 /** Same projection the work GET route uses: no storage or settlement keys. */
@@ -342,6 +368,12 @@ export async function reviseCarouselSlide(
     const outputKey = `creative-work/${input.workItemId}/carousel/revise/${input.revisionKey}/final.png`;
     await objectStorage.put(outputKey, finalBuffer, "image/png");
 
+    const editorialSettings = settingsAfterMaterialCarouselEdit(work);
+    if (editorialSettings.settings) {
+      const persisted = await persistCarouselWorkIfUnchanged(work, editorialSettings);
+      if (!persisted) return { ok: false, error: { code: "stale_input" } };
+    }
+
     const child = await createCarouselSlideDescendant({
       workspaceId: input.workspaceId,
       workItemId: input.workItemId,
@@ -367,21 +399,6 @@ export async function reviseCarouselSlide(
         error: { code: "slide_version_conflict", details: { reason: "parent_no_longer_current" } },
       };
     }
-    const editorialSettings = settingsAfterMaterialCarouselEdit(work);
-    if (editorialSettings.settings) {
-      await db
-        .update(creativeWorkItems)
-        .set({
-          ...editorialSettings,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(creativeWorkItems.workspaceId, input.workspaceId),
-            eq(creativeWorkItems.id, input.workItemId),
-          ),
-        );
-    }
     const refreshed = await refreshCarouselWorkStatus({
       workspaceId: input.workspaceId,
       workItemId: input.workItemId,
@@ -395,6 +412,13 @@ export async function reviseCarouselSlide(
 
   // visual | retry: one draft descendant, same contract and anchor, then the
   // normal job flow generates it through its own one-slide settlement.
+  if (input.kind === "visual") {
+    const editorialSettings = settingsAfterMaterialCarouselEdit(work);
+    if (editorialSettings.settings) {
+      const persisted = await persistCarouselWorkIfUnchanged(work, editorialSettings);
+      if (!persisted) return { ok: false, error: { code: "stale_input" } };
+    }
+  }
   const child = await createCarouselSlideDescendant({
     workspaceId: input.workspaceId,
     workItemId: input.workItemId,
@@ -414,28 +438,11 @@ export async function reviseCarouselSlide(
     outputKey: null,
     previewKey: null,
   });
-  if (!child) {
+    if (!child) {
     return {
       ok: false,
       error: { code: "slide_version_conflict", details: { reason: "parent_no_longer_current" } },
     };
-  }
-  if (input.kind === "visual") {
-    const editorialSettings = settingsAfterMaterialCarouselEdit(work);
-    if (editorialSettings.settings) {
-      await db
-        .update(creativeWorkItems)
-        .set({
-          ...editorialSettings,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(creativeWorkItems.workspaceId, input.workspaceId),
-            eq(creativeWorkItems.id, input.workItemId),
-          ),
-        );
-    }
   }
   const settled = await startGenerationSettlement(
     carouselSlideSettlementAdapter({
@@ -606,29 +613,21 @@ export async function reviseCarouselDeck(
     };
     const currentSnapshot = work.inputSnapshot;
     if (!currentSnapshot) return { ok: false, error: { code: "stale_input" } };
-    await db
-      .update(creativeWorkItems)
-      .set({
-        inputSnapshot: {
-          ...currentSnapshot,
-          carousel: {
-            version: 1 as const,
-            preparedRevision: snapshot.preparedRevision,
-            deck: { ...input.plan, revision: deckRevision },
-            visualContract: newContract,
-          },
+    const persisted = await persistCarouselWorkIfUnchanged(work, {
+      inputSnapshot: {
+        ...currentSnapshot,
+        carousel: {
+          version: 1 as const,
+          preparedRevision: snapshot.preparedRevision,
+          deck: { ...input.plan, revision: deckRevision },
+          visualContract: newContract,
         },
-        carouselApprovedRevision: null,
-        carouselQuality: null,
-        ...settingsAfterMaterialCarouselEdit(work),
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(creativeWorkItems.workspaceId, input.workspaceId),
-          eq(creativeWorkItems.id, input.workItemId),
-        ),
-      );
+      },
+      carouselApprovedRevision: null,
+      carouselQuality: null,
+      ...settingsAfterMaterialCarouselEdit(work),
+    });
+    if (!persisted) return { ok: false, error: { code: "stale_input" } };
 
     // Descendants every position: every slide is regenerated under the new
     // direction while its lineage and prior versions are preserved.
@@ -679,6 +678,22 @@ export async function reviseCarouselDeck(
       value: { work: refreshed ?? work, slides: current, deckRevision, replay: false },
     };
   }
+
+  const currentSnapshot = work.inputSnapshot;
+  if (!currentSnapshot) return { ok: false, error: { code: "stale_input" } };
+  const persisted = await persistCarouselWorkIfUnchanged(work, {
+    inputSnapshot: {
+      ...currentSnapshot,
+      carousel: {
+        version: 1 as const,
+        preparedRevision: snapshot.preparedRevision,
+        deck: { ...input.plan, revision: deckRevision },
+        visualContract: snapshot.visualContract,
+      },
+    },
+    ...settingsAfterMaterialCarouselEdit(work),
+  });
+  if (!persisted) return { ok: false, error: { code: "stale_input" } };
 
   // Reorder/edit revision: the frozen contract, approval and quality stay.
   for (const planSlide of input.plan.slides) {
@@ -766,30 +781,6 @@ export async function reviseCarouselDeck(
     });
     if (!child) return { ok: false, error: { code: "stale_input" } };
   }
-
-  const currentSnapshot = work.inputSnapshot;
-  if (!currentSnapshot) return { ok: false, error: { code: "stale_input" } };
-  await db
-    .update(creativeWorkItems)
-    .set({
-      inputSnapshot: {
-        ...currentSnapshot,
-        carousel: {
-          version: 1 as const,
-          preparedRevision: snapshot.preparedRevision,
-          deck: { ...input.plan, revision: deckRevision },
-          visualContract: snapshot.visualContract,
-        },
-      },
-      ...settingsAfterMaterialCarouselEdit(work),
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(creativeWorkItems.workspaceId, input.workspaceId),
-        eq(creativeWorkItems.id, input.workItemId),
-      ),
-    );
 
   const refreshed = await refreshCarouselWorkStatus({
     workspaceId: input.workspaceId,

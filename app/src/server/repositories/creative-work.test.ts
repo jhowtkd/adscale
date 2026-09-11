@@ -1498,6 +1498,44 @@ describe("creative-work repository", () => {
       ]);
     });
 
+    it.each([
+      ["updateCreativeWorkSource", async () => {
+        mocks.state.txUpdateResults.push([{ id: "source-1" }], [workItem()]);
+        await updateCreativeWorkSource("ws-1", "work-1", "source-1", { status: "ready" });
+      }],
+      ["updateCreativeWorkSourceIfUnchanged", async () => {
+        mocks.state.txUpdateResults.push([{ id: "source-1" }], [workItem()]);
+        await updateCreativeWorkSourceIfUnchanged(
+          "ws-1", "work-1", "source-1",
+          { status: "analyzing", usage: "style", updatedAt: new Date("2026-07-16T12:00:00.000Z") },
+          { status: "ready" },
+        );
+      }],
+      ["deleteCreativeWorkSource", async () => {
+        mocks.state.deleteResults.push([{ id: "source-1" }]);
+        mocks.state.txUpdateResults.push([workItem()]);
+        await deleteCreativeWorkSource("ws-1", "work-1", "source-1");
+      }],
+    ] as const)("clears carousel editorial approvals when source evidence changes via %s", async (_name, run) => {
+      const editorial = carouselEditorialFixture();
+      mocks.state.selectResults.push([workItem({
+        settings: { targetFormats: [], carouselEditorial: editorial },
+      })]);
+      await run();
+      expect(mocks.txSetMock).toHaveBeenLastCalledWith(expect.objectContaining({
+        brief: null,
+        copy: null,
+        inputSnapshot: null,
+        settings: expect.objectContaining({
+          carouselEditorial: expect.objectContaining({
+            approvedScriptRevision: null,
+            approvedCover: null,
+            confirmedInteriorsRevision: null,
+          }),
+        }),
+      }));
+    });
+
     it("updates a source only for the expected attempt and advances its timestamp", async () => {
       const expectedAt = new Date("2026-07-16T12:00:00.000Z");
       const source = { id: "source-1", workspaceId: "ws-1", workItemId: "work-1", status: "analyzing", usage: "style" };
@@ -2449,6 +2487,44 @@ describe("creative-work repository", () => {
           }),
         }),
       }));
+    });
+
+    it("recomputes editorial revision after a material autosave without hashing approvals", async () => {
+      const editorial = carouselEditorialFixture();
+      const carouselWork = workItem({
+        toolKind: "carousel",
+        request: "Tema",
+        brief: null,
+        settings: { targetFormats: [], carouselEditorial: editorial },
+      });
+      mocks.state.selectResults.push([carouselWork], []);
+      mocks.state.txUpdateResults.push([carouselWork]);
+
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        expectedUpdatedAt: carouselWork.updatedAt,
+        request: "Tema revisado",
+        intent: "carousel",
+        format: "4:5",
+        settings: { targetFormats: [], carouselEditorial: editorial },
+      })).resolves.toEqual({ work: carouselWork, error: null, sourcesNeedingSingleAnalysis: [] });
+
+      expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({
+        request: "Tema revisado",
+        settings: expect.objectContaining({
+          carouselEditorial: expect.objectContaining({
+            approvedScriptRevision: null,
+            approvedCover: null,
+            confirmedInteriorsRevision: null,
+          }),
+        }),
+      }));
+      const settings = mocks.txSetMock.mock.calls[0][0].settings as {
+        carouselEditorial: { revision: string; contextHash: string };
+      };
+      expect(settings.carouselEditorial.revision).not.toBe(editorial.revision);
+      expect(settings.carouselEditorial.contextHash).not.toBe(editorial.contextHash);
     });
   });
 
