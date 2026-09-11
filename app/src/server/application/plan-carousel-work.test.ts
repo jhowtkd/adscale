@@ -532,7 +532,7 @@ describe("planCarouselWork", () => {
 
     expect(result).toEqual({
       ok: false,
-      error: { code: "editorial_plan_invalid", details: { message: "bad response" } },
+      error: { code: "editorial_plan_invalid" },
     });
     expect(store.work.settings.carouselEditorial?.selectedHookId).toBe("hook-2");
     expect(store.work.settings.carouselEditorial?.hooks.find((hook) => hook.id === "hook-2")?.headline).toBe("Vagas agora no grupo");
@@ -590,7 +590,7 @@ describe("planCarouselWork", () => {
 
     expect(result).toEqual({
       ok: false,
-      error: { code: "editorial_plan_invalid", details: { message: "bad response" } },
+      error: { code: "editorial_plan_invalid" },
     });
     expect(repo.updateCreativeWorkDraftIfUnchanged).not.toHaveBeenCalled();
   });
@@ -634,6 +634,70 @@ describe("planCarouselWork", () => {
     expect(store.work.settings.carouselDraft?.plan).toEqual(lastDraft.plan);
     expect(store.work.settings.carouselEditorial?.selectedHookId).toBe("hook-2");
     expect(hooksMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps still-valid approvals when research is unavailable", async () => {
+    const lastDraft = deckDraft();
+    const approved = editorialState({
+      selectedHookId: "hook-1",
+      storyboard: storyboardFor(planOfFive()),
+      caption: "Inscreva-se",
+      approvedScriptRevision: "script-keep",
+      approvedCover: { slideId: "cover-1", scriptRevision: "script-keep", preparedRevision: "prep-1" },
+      confirmedInteriorsRevision: "prep-1",
+    }, lastDraft);
+    const store = {
+      work: work({ settings: { targetFormats: [], carouselDraft: lastDraft, carouselEditorial: approved } }),
+      outputs: [] as unknown[],
+      sources: [source()],
+    };
+    repo.getCreativeWork.mockImplementation(async () => ({ ...store }));
+    repo.updateCreativeWorkDraftIfUnchanged.mockImplementation(async (
+      _ws: string,
+      _id: string,
+      expectedUpdatedAt: Date,
+      patch: { settings?: CreativeWorkItem["settings"] },
+    ) => {
+      if (store.work.updatedAt.toISOString() !== expectedUpdatedAt.toISOString()) return null;
+      store.work = {
+        ...store.work,
+        settings: { ...store.work.settings, ...patch.settings },
+        updatedAt: new Date("2026-08-30T12:00:01.000Z"),
+      };
+      return store.work;
+    });
+    researchMock.mockResolvedValue(readyResearch({
+      status: "unavailable",
+      gaps: ["A pesquisa externa não devolveu um resultado utilizável. Restrinja a tese ou envie o material."],
+    }));
+
+    const result = await planCarouselWork(baseInput);
+
+    expect(result).toMatchObject({ ok: false, error: { code: "research_unavailable" } });
+    expect(store.work.settings.carouselDraft?.plan).toEqual(lastDraft.plan);
+    expect(store.work.settings.carouselEditorial?.approvedScriptRevision).toBe("script-keep");
+    expect(store.work.settings.carouselEditorial?.approvedCover).toEqual({
+      slideId: "cover-1",
+      scriptRevision: "script-keep",
+      preparedRevision: "prep-1",
+    });
+    expect(store.work.settings.carouselEditorial?.confirmedInteriorsRevision).toBe("prep-1");
+    expect(repo.updateCreativeWorkDraftIfUnchanged).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      new Date(UPDATED_AT),
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          carouselDraft: lastDraft,
+          carouselEditorial: expect.objectContaining({
+            approvedScriptRevision: "script-keep",
+            research: expect.objectContaining({ status: "unavailable" }),
+          }),
+        }),
+      }),
+      undefined,
+      { persistCarouselApprovals: true },
+    );
   });
 
   it("returns research_insufficient without replacing the last script", async () => {

@@ -176,10 +176,13 @@ describe("POST /api/creative-work/[id]/carousel/plan", () => {
     expect(res.status).toBe(status);
   });
 
-  it("maps editorial_plan_invalid to 422 without a silent fallback", async () => {
+  it("maps editorial_plan_invalid to 422 without forwarding provider text", async () => {
     planMock.mockResolvedValue({
       ok: false,
-      error: { code: "editorial_plan_invalid", details: { message: "bad response" } },
+      error: {
+        code: "editorial_plan_invalid",
+        details: { message: "carousel hooks call failed: openai timeout dump" },
+      },
     });
 
     const res = await requestPlan(validBody);
@@ -187,6 +190,7 @@ describe("POST /api/creative-work/[id]/carousel/plan", () => {
 
     expect(res.status).toBe(422);
     expect(body.code).toBe("editorial_plan_invalid");
-    expect(body.details).toEqual({ message: "bad response" });
+    expect(JSON.stringify(body)).not.toMatch(/openai|timeout dump|carousel hooks call failed/i);
+    expect(body.details).toBeUndefined();
   });
 });

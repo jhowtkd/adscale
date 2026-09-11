@@ -43,7 +43,7 @@ export async function POST(
         case "work_not_draft": return apiError("creativeWorkNotDraft", 409, result.error.details);
         case "sources_not_ready": return apiError("creativeWorkSourcesNotReady", 409);
         case "stale_input": return apiError("stale_input", 409);
-        case "editorial_plan_invalid": return apiError("editorial_plan_invalid", 422, result.error.details);
+        case "editorial_plan_invalid": return apiError("editorial_plan_invalid", 422);
         case "research_unavailable": return apiError("research_unavailable", 422, result.error.details);
         case "research_insufficient": return apiError("research_insufficient", 422, result.error.details);
         case "invalid_editorial_transition": return apiError("invalid_editorial_transition", 409, result.error.details);

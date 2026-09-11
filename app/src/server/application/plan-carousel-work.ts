@@ -192,8 +192,9 @@ async function proposeHooks(
 
   if (research.status === "unavailable" || research.status === "insufficient") {
     const persisted = await persistEditorial(input, snapshot, {
-      editorial: withEditorialPatch(snapshot, { research }),
+      editorial: withEditorialPatch(snapshot, { research }, snapshot.previous, { invalidateApprovals: false }),
       draft: snapshot.previous,
+      persistApprovals: true,
     });
     if (!persisted.ok) return persisted;
     return {
@@ -385,7 +386,7 @@ async function approveCover(
 async function persistEditorial(
   input: { workspaceId: string; workItemId: string },
   snapshot: AuthorizedSnapshot,
-  next: { editorial: CarouselEditorialState; draft: CarouselDraftStateV1 | null },
+  next: { editorial: CarouselEditorialState; draft: CarouselDraftStateV1 | null; persistApprovals?: boolean },
 ): Promise<PlanCarouselWorkResult> {
   const current = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!current) return { ok: false, error: { code: "work_not_found" } };
@@ -397,7 +398,7 @@ async function persistEditorial(
   const updated = await writeSettings(input, snapshot.work, {
     carouselDraft: next.draft === undefined ? snapshot.previous : next.draft,
     carouselEditorial: next.editorial,
-  });
+  }, undefined, next.persistApprovals === true);
   if (!updated) return { ok: false, error: { code: "stale_input" } };
   return success(updated, next.draft ?? snapshot.previous ?? emptyDraft(), findings, next.editorial);
 }
@@ -443,7 +444,7 @@ function success(
 
 function invalidPlan(error: unknown): PlanCarouselWorkResult {
   if (error instanceof CarouselEditorialPlanInvalidError) {
-    return { ok: false, error: { code: "editorial_plan_invalid", details: { message: error.message } } };
+    return { ok: false, error: { code: "editorial_plan_invalid" } };
   }
   throw error;
 }
@@ -472,11 +473,14 @@ function withEditorialPatch(
   snapshot: AuthorizedSnapshot,
   patch: Partial<CarouselEditorialState>,
   deck: CarouselDraftStateV1 | null = snapshot.previous,
+  options?: { invalidateApprovals?: boolean },
 ): CarouselEditorialState {
-  return recomputeCarouselEditorialHashes(
-    invalidateCarouselApprovals({ ...snapshot.editorial, ...patch }),
-    { request: snapshot.work.request, deck },
-  );
+  const merged = { ...snapshot.editorial, ...patch };
+  const next = options?.invalidateApprovals === false ? merged : invalidateCarouselApprovals(merged);
+  return recomputeCarouselEditorialHashes(next, {
+    request: snapshot.work.request,
+    deck,
+  });
 }
 
 function requestNeedsExternalEvidence(request: string, factPack: CreativeWorkFactPack): boolean {
