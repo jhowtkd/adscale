@@ -63,6 +63,41 @@ describe("creative-work detail projection", () => {
 
     expect(detail.layerEditorAccess).toMatchObject({ enabled: true, layerize: { remaining: 4 }, regeneration: { remaining: 3 } });
   });
+
+  it("keeps the public carousel editorial envelope on settings", () => {
+    const detail = mapCreativeWorkDetail({
+      work: {
+        id: "work-1",
+        createdAt: "2026-08-22T00:00:00.000Z",
+        updatedAt: "2026-08-22T00:00:00.000Z",
+        settings: {
+          targetFormats: [],
+          carouselEditorial: {
+            version: 1,
+            revision: "rev-1",
+            contextHash: "ctx-1",
+            research: { status: "not_needed", question: "", thesis: "", sources: [], claims: [], gaps: [] },
+            hooks: [],
+            recommendedHookId: null,
+            recommendation: null,
+            selectedHookId: null,
+            storyboard: [],
+            caption: null,
+            approvedScriptRevision: "script-1",
+            approvedCover: { slideId: "cover-1", scriptRevision: "script-1", preparedRevision: "prep-1" },
+            confirmedInteriorsRevision: "prep-1",
+          },
+        },
+      } as never,
+      outputs: [],
+    });
+
+    expect(detail.work.settings.carouselEditorial).toMatchObject({
+      version: 1,
+      approvedScriptRevision: "script-1",
+      approvedCover: { slideId: "cover-1" },
+    });
+  });
 });
 
 describe("categorizeCreativeWorkFailure (R-008: stable typed categories)", () => {

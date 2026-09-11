@@ -72,6 +72,7 @@ import {
   isCreativeWorkRevisionConflict,
 } from "@/server/repositories/creative-work";
 import { listCurrentCarouselSlides } from "@/server/repositories/creative-work-carousel";
+import { readCarouselEditorial, toPublicCarouselEditorial } from "@/server/creative-work/carousel-editorial-state";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getTemplateById } from "@/server/repositories/template";
 import { inngest } from "@/server/jobs/client";
@@ -563,6 +564,15 @@ export async function GET(
       layerEditor: toPublicLayerEditorSummary(output.layerEditor),
     }));
     const { inputSnapshot: _inputSnapshot, carouselQuality, ...publicWork } = result.work;
+    const editorial = readCarouselEditorial(publicWork.settings);
+    const publicSettings = publicWork.settings
+      ? (() => {
+          const { carouselEditorial: _ignored, ...restSettings } = publicWork.settings;
+          return editorial
+            ? { ...restSettings, carouselEditorial: toPublicCarouselEditorial(editorial) }
+            : restSettings;
+        })()
+      : publicWork.settings;
     const carouselSlideRows = result.work.toolKind === "carousel"
       ? await listCurrentCarouselSlides(workspace.id, id)
       : [];
@@ -580,6 +590,7 @@ export async function GET(
     return NextResponse.json({
       work: {
         ...publicWork,
+        settings: publicSettings,
         request: displayRequestForCreativeWork(result.work),
       },
       preparedPlan: projectPreparedPlanV1(result.work),

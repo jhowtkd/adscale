@@ -239,6 +239,37 @@ describe("creative work contracts", () => {
     expect(restored.carouselDraft).toEqual(draft);
   });
 
+  it("carries the optional carousel editorial envelope beside the textual deck", () => {
+    const settings: CreativeWorkSettings = {
+      targetFormats: [],
+      carouselEditorial: {
+        version: 1,
+        revision: "rev-1",
+        contextHash: "ctx-1",
+        research: {
+          status: "not_needed",
+          question: "",
+          thesis: "",
+          sources: [],
+          claims: [],
+          gaps: [],
+        },
+        hooks: [],
+        recommendedHookId: null,
+        recommendation: null,
+        selectedHookId: null,
+        storyboard: [],
+        caption: null,
+        approvedScriptRevision: null,
+        approvedCover: null,
+        confirmedInteriorsRevision: null,
+      },
+    };
+    const restored = JSON.parse(JSON.stringify(settings)) as CreativeWorkSettings;
+    expect(restored.carouselEditorial?.version).toBe(1);
+    expect(restored.carouselDraft).toBeUndefined();
+  });
+
   it.each([
     [{ intent: "variations" as const, format: "4:5" as const, targetFormats: [] }, { unitCount: 3, credits: 150 }],
     [{ intent: "single" as const, format: "4:5" as const, targetFormats: [] }, { unitCount: 1, credits: 50 }],

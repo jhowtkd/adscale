@@ -32,6 +32,7 @@ import type {
   CarouselSlideStatus,
   CarouselVisualContractV1,
 } from "@/server/creative-work/carousel-contracts";
+import type { CarouselEditorialState } from "@/server/creative-work/carousel-editorial-state";
 import {
   creativeWorkFactPackSchema,
   inferredBriefingSchema,
@@ -137,6 +138,7 @@ export interface CreativeWorkItem {
     briefingOverrides?: CreativeWorkBriefingOverrides;
     briefingVersion?: number;
     carouselDraft?: CarouselDraftStateV1;
+    carouselEditorial?: CarouselEditorialState;
   };
   copy: SocialPostCopy | null;
   identitySnapshot: CreativeWorkIdentitySnapshot | null;

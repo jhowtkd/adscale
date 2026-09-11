@@ -206,6 +206,7 @@ import type {
   SocialPostBrief,
   SocialPostCopy,
 } from "../creative-work/contracts";
+import type { CarouselEditorialState } from "../creative-work/carousel-editorial-state";
 
 const dialect = new PgDialect();
 
@@ -242,6 +243,38 @@ function workItem(overrides: Partial<CreativeWorkItem> = {}): CreativeWorkItem {
     updatedAt: new Date(),
     ...overrides,
   } as CreativeWorkItem;
+}
+
+function carouselEditorialFixture(
+  overrides: Partial<CarouselEditorialState> = {},
+): CarouselEditorialState {
+  return {
+    version: 1,
+    revision: "rev-1",
+    contextHash: "ctx-1",
+    research: {
+      status: "not_needed",
+      question: "",
+      thesis: "",
+      sources: [],
+      claims: [],
+      gaps: [],
+    },
+    hooks: [],
+    recommendedHookId: null,
+    recommendation: null,
+    selectedHookId: null,
+    storyboard: [],
+    caption: null,
+    approvedScriptRevision: "script-1",
+    approvedCover: {
+      slideId: "cover-1",
+      scriptRevision: "script-1",
+      preparedRevision: "prepared-1",
+    },
+    confirmedInteriorsRevision: "prepared-1",
+    ...overrides,
+  };
 }
 
 function workOutput(overrides: Partial<CreativeWorkOutput> = {}): CreativeWorkOutput {
@@ -1400,6 +1433,28 @@ describe("creative-work repository", () => {
       expect(query.params.at(-1)).toBe(r1.toISOString());
     });
 
+    it("strips client-forged carousel editorial approvals from generic settings patches", async () => {
+      const capturedAt = new Date("2026-07-16T12:00:00.000Z");
+      const editorial = carouselEditorialFixture({
+        approvedScriptRevision: "forged-script",
+        approvedCover: { slideId: "cover-forged", scriptRevision: "forged", preparedRevision: "forged" },
+        confirmedInteriorsRevision: "forged-interiors",
+      });
+      mocks.state.updateResults.push([workItem({ id: "work-1" })]);
+      await expect(updateCreativeWorkDraftIfUnchanged("ws-1", "work-1", capturedAt, {
+        settings: { targetFormats: [], carouselEditorial: editorial },
+      })).resolves.toMatchObject({ id: "work-1" });
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({
+        settings: expect.objectContaining({
+          carouselEditorial: expect.objectContaining({
+            approvedScriptRevision: null,
+            approvedCover: null,
+            confirmedInteriorsRevision: null,
+          }),
+        }),
+      }));
+    });
+
     it("holds the preparation callback under a work-scoped advisory transaction lock", async () => {
       const callback = vi.fn(async (executor) => {
         expect(executor).toMatchObject({ execute: mocks.executeMock });
@@ -2353,6 +2408,47 @@ describe("creative-work repository", () => {
       })).resolves.toEqual({ work: carouselWork, error: null, sourcesNeedingSingleAnalysis: [] });
 
       expect(mocks.txSetMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects client-forged carousel editorial approvals on a no-op autosave", async () => {
+      const editorial = carouselEditorialFixture();
+      const carouselWork = workItem({
+        toolKind: "carousel",
+        request: "Tema",
+        brief: null,
+        settings: { targetFormats: [], carouselEditorial: editorial },
+      });
+      mocks.state.selectResults.push([carouselWork], []);
+      mocks.state.txUpdateResults.push([carouselWork]);
+
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        expectedUpdatedAt: carouselWork.updatedAt,
+        request: "Tema",
+        intent: "carousel",
+        format: "4:5",
+        settings: {
+          targetFormats: [],
+          carouselEditorial: {
+            ...editorial,
+            approvedScriptRevision: "forged-script",
+            approvedCover: { slideId: "cover-forged", scriptRevision: "forged", preparedRevision: "forged" },
+            confirmedInteriorsRevision: "forged-interiors",
+          },
+        },
+      })).resolves.toEqual({ work: carouselWork, error: null, sourcesNeedingSingleAnalysis: [] });
+
+      expect(mocks.txSetMock).toHaveBeenCalledWith(expect.objectContaining({
+        request: "Tema",
+        settings: expect.objectContaining({
+          carouselEditorial: expect.objectContaining({
+            approvedScriptRevision: "script-1",
+            approvedCover: editorial.approvedCover,
+            confirmedInteriorsRevision: "prepared-1",
+          }),
+        }),
+      }));
     });
   });
 

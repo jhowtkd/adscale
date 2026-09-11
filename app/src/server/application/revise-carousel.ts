@@ -12,6 +12,7 @@ import {
   type CarouselVisualContractV1,
 } from "@/server/creative-work/carousel-contracts";
 import { canonicalJsonStringify } from "@/server/creative-work/canonical-json";
+import { withInvalidatedCarouselApprovals } from "@/server/creative-work/carousel-editorial-state";
 import {
   runCarouselTextComposition,
   TextCompositionError,
@@ -237,6 +238,11 @@ type PublicCarouselSlide = Omit<
   (typeof PUBLIC_SLIDE_OMIT)[number]
 > & { hasOutput: boolean };
 
+function settingsAfterMaterialCarouselEdit(work: CreativeWorkItem) {
+  if (!work.settings?.carouselEditorial) return {};
+  return { settings: withInvalidatedCarouselApprovals(work.settings) };
+}
+
 /** Same projection the work GET route uses: no storage or settlement keys. */
 export function toPublicCarouselSlide(slide: CreativeWorkCarouselSlide): PublicCarouselSlide {
   const publicSlide: Record<string, unknown> = { ...slide };
@@ -361,6 +367,21 @@ export async function reviseCarouselSlide(
         error: { code: "slide_version_conflict", details: { reason: "parent_no_longer_current" } },
       };
     }
+    const editorialSettings = settingsAfterMaterialCarouselEdit(work);
+    if (editorialSettings.settings) {
+      await db
+        .update(creativeWorkItems)
+        .set({
+          ...editorialSettings,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(creativeWorkItems.workspaceId, input.workspaceId),
+            eq(creativeWorkItems.id, input.workItemId),
+          ),
+        );
+    }
     const refreshed = await refreshCarouselWorkStatus({
       workspaceId: input.workspaceId,
       workItemId: input.workItemId,
@@ -398,6 +419,23 @@ export async function reviseCarouselSlide(
       ok: false,
       error: { code: "slide_version_conflict", details: { reason: "parent_no_longer_current" } },
     };
+  }
+  if (input.kind === "visual") {
+    const editorialSettings = settingsAfterMaterialCarouselEdit(work);
+    if (editorialSettings.settings) {
+      await db
+        .update(creativeWorkItems)
+        .set({
+          ...editorialSettings,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(creativeWorkItems.workspaceId, input.workspaceId),
+            eq(creativeWorkItems.id, input.workItemId),
+          ),
+        );
+    }
   }
   const settled = await startGenerationSettlement(
     carouselSlideSettlementAdapter({
@@ -582,6 +620,7 @@ export async function reviseCarouselDeck(
         },
         carouselApprovedRevision: null,
         carouselQuality: null,
+        ...settingsAfterMaterialCarouselEdit(work),
         updatedAt: new Date(),
       })
       .where(
@@ -742,6 +781,7 @@ export async function reviseCarouselDeck(
           visualContract: snapshot.visualContract,
         },
       },
+      ...settingsAfterMaterialCarouselEdit(work),
       updatedAt: new Date(),
     })
     .where(
