@@ -216,10 +216,11 @@ export function useCarouselComposer({
     await postPlan({}, { kind: "propose_hooks" });
   }, [postPlan]);
 
+  const scriptRevision = editorial?.revision;
   const approveScript = useCallback(async () => {
-    if (!canApproveScript || !editorial?.revision) return;
-    await postPlan({}, { kind: "approve_script", scriptRevision: editorial.revision });
-  }, [canApproveScript, editorial?.revision, postPlan]);
+    if (!canApproveScript || !scriptRevision) return;
+    await postPlan({}, { kind: "approve_script", scriptRevision });
+  }, [canApproveScript, scriptRevision, postPlan]);
 
   const approveCoverAndGenerate = useCallback(async () => {
     if (!canApproveCover || generationPending || !workId || !coverSlide || !preparedRevision) return;
