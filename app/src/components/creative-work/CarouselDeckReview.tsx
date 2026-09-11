@@ -25,6 +25,7 @@ export function CarouselDeckReview({
   onRetrySlide,
   coverReview = false,
   canApproveCover = false,
+  interiorsQuote = null,
   onApproveCoverAndGenerate,
 }: {
   slides: PublicCarouselSlide[];
@@ -42,6 +43,7 @@ export function CarouselDeckReview({
   onRetrySlide: (slideId: string) => void;
   coverReview?: boolean;
   canApproveCover?: boolean;
+  interiorsQuote?: { unitCount: number; credits: number } | null;
   onApproveCoverAndGenerate?: () => void;
 }) {
   const t = useTranslations("dashboard.home.composer.carousel");
@@ -123,15 +125,22 @@ export function CarouselDeckReview({
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-4">
         {coverReview && onApproveCoverAndGenerate ? (
-          <button
-            type="button"
-            data-testid="carousel-approve-cover"
-            onClick={onApproveCoverAndGenerate}
-            disabled={!canApproveCover || isBusy}
-            className="inline-flex min-h-[var(--control-touch)] items-center rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {t("approveCoverAndGenerate")}
-          </button>
+          <div className="flex flex-col items-start gap-1">
+            <button
+              type="button"
+              data-testid="carousel-approve-cover"
+              onClick={onApproveCoverAndGenerate}
+              disabled={!canApproveCover || isBusy}
+              className="inline-flex min-h-[var(--control-touch)] items-center rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {t("approveCoverAndGenerate")}
+            </button>
+            {interiorsQuote ? (
+              <p data-testid="carousel-interiors-budget" className="text-xs text-[var(--text-muted)]">
+                {t("interiorsBudget", { count: interiorsQuote.unitCount, credits: interiorsQuote.credits })}
+              </p>
+            ) : null}
+          </div>
         ) : (
           <button
             type="button"

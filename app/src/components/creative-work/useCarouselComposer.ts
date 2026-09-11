@@ -25,6 +25,7 @@ import {
   CAROUSEL_COVER_QUOTE,
   deriveCarouselComposerPhase,
   isCurrentCoverApproval,
+  quoteCarouselInteriorsLote,
   type CarouselComposerPhase,
 } from "./carousel-composer-phase";
 
@@ -551,6 +552,11 @@ export function useCarouselComposer({
     findings,
     editorialError,
     coverQuote: CAROUSEL_COVER_QUOTE,
+    interiorsQuote: quoteCarouselInteriorsLote({
+      slides,
+      planSlideCount: draft?.plan?.slides.length ?? 0,
+      preparedOutputCount: preparedPlan?.outputCount,
+    }),
     /** Approved deck revision from the work DTO — hosts pass it to the review/export gate. */
     approvedRevision,
     canPrepare,

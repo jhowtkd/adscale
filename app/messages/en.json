@@ -950,6 +950,7 @@
           "generatingTitle": "Generating the carousel",
           "coverReviewTitle": "Review the pilot cover",
           "approveCoverAndGenerate": "Approve cover and generate remaining slides",
+          "interiorsBudget": "Budget for this step: {count} images ({credits} credits).",
           "reviewTitle": "Review the carousel",
           "progressAnnouncement": "{completed} of {total} slides ready; {failed} failed.",
           "boardAria": "Carousel slides in order",

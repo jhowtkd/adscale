@@ -1005,6 +1005,7 @@
           "generatingTitle": "Gerando o carrossel",
           "coverReviewTitle": "Revise a capa piloto",
           "approveCoverAndGenerate": "Aprovar capa e gerar demais slides",
+          "interiorsBudget": "Orçamento desta etapa: {count} imagens ({credits} créditos).",
           "reviewTitle": "Revise o carrossel",
           "progressAnnouncement": "{completed} de {total} telas prontas; {failed} com falha.",
           "boardAria": "Telas do carrossel em ordem",

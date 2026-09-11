@@ -278,6 +278,7 @@ export function CarouselComposer({
           hooks={editorial.hooks}
           recommendedHookId={editorial.recommendedHookId}
           recommendation={editorial.recommendation}
+          revision={editorial.revision}
           busy={isBusy}
           headingRef={hooksHeadingRef}
           onSelect={(hookId, headline) => void carousel.selectHook(hookId, headline)}
@@ -495,6 +496,7 @@ export function CarouselComposer({
               isBusy={isBusy}
               coverReview={phase === "cover_review"}
               canApproveCover={carousel.canApproveCover}
+              interiorsQuote={phase === "cover_review" ? carousel.interiorsQuote : undefined}
               onApproveCoverAndGenerate={() => void carousel.approveCoverAndGenerate()}
               onApprove={() => void carousel.approveDeck()}
               onDownloadSlide={(slideId) => carousel.downloadSlide(slideId)}

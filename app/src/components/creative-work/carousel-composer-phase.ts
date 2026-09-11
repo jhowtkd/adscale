@@ -14,6 +14,27 @@ export type CarouselComposerPhase =
 
 export const CAROUSEL_COVER_QUOTE = quoteCarouselUnits(1);
 
+export function eligibleInteriorDraftCount(
+  slides: Array<{ position: number; status: string }>,
+): number {
+  return slides.filter((slide) => slide.position !== 1 && (slide.status === "draft" || slide.status === "failed")).length;
+}
+
+export function quoteCarouselInteriorsLote(input: {
+  slides: Array<{ position: number; status: string }>;
+  planSlideCount: number;
+  preparedOutputCount: number | null | undefined;
+}): { unitCount: number; credits: number } {
+  const remaining = eligibleInteriorDraftCount(input.slides);
+  if (remaining > 0) {
+    return quoteCarouselUnits(remaining);
+  }
+  if (typeof input.preparedOutputCount === "number" && input.preparedOutputCount > 1) {
+    return quoteCarouselUnits(input.preparedOutputCount);
+  }
+  return quoteCarouselUnits(Math.max(input.planSlideCount - 1, 0));
+}
+
 export function deriveCarouselComposerPhase(input: {
   blockingQuestionCount: number;
   hasPlan: boolean;

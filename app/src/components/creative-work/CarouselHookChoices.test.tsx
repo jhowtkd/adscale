@@ -110,4 +110,79 @@ describe("CarouselHookChoices", () => {
     expect(screen.getAllByRole("button", { name: /Escolher gancho/ })[0]).toBeDisabled();
     expect(screen.getByRole("button", { name: "Novas opções" })).toBeDisabled();
   });
+
+  it("resets headline edits when hook ids or persisted headlines change", () => {
+    const onSelect = vi.fn();
+    const { rerender } = render(
+      <CarouselHookChoices
+        hooks={hooks}
+        recommendedHookId="hook-1"
+        recommendation={null}
+        revision="rev-1"
+        busy={false}
+        onSelect={onSelect}
+        onRegenerate={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Texto de capa — Grupo em agosto"), {
+      target: { value: "Vagas agora no grupo" },
+    });
+    expect(screen.getByLabelText("Texto de capa — Grupo em agosto")).toHaveValue("Vagas agora no grupo");
+
+    const nextHooks: CarouselHook[] = [
+      { id: "hook-1", headline: "Turma de setembro", promise: "Vagas limitadas", narrative: "Fato, prova, inscrição" },
+      { id: "hook-2", headline: "Novo cuidado", promise: "Rotina em grupo", narrative: "Dor, método, convite" },
+      { id: "hook-3", headline: "Setembro abre vagas", promise: "Turma pequena", narrative: "Novidade, critério, CTA" },
+    ];
+    rerender(
+      <CarouselHookChoices
+        hooks={nextHooks}
+        recommendedHookId="hook-1"
+        recommendation={null}
+        revision="rev-1"
+        busy={false}
+        onSelect={onSelect}
+        onRegenerate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Texto de capa — Turma de setembro")).toHaveValue("Turma de setembro");
+    fireEvent.click(screen.getAllByRole("button", { name: /Escolher gancho/ })[0]!);
+    expect(onSelect).toHaveBeenCalledWith("hook-1", undefined);
+  });
+
+  it("keeps in-progress headline edits when the same hook list re-renders", () => {
+    const onSelect = vi.fn();
+    const { rerender } = render(
+      <CarouselHookChoices
+        hooks={hooks}
+        recommendedHookId="hook-1"
+        recommendation={null}
+        revision="rev-1"
+        busy={false}
+        onSelect={onSelect}
+        onRegenerate={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Texto de capa — Grupo em agosto"), {
+      target: { value: "WIP local" },
+    });
+    rerender(
+      <CarouselHookChoices
+        hooks={hooks}
+        recommendedHookId="hook-1"
+        recommendation={null}
+        revision="rev-1"
+        busy={false}
+        onSelect={onSelect}
+        onRegenerate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Texto de capa — Grupo em agosto")).toHaveValue("WIP local");
+    fireEvent.click(screen.getAllByRole("button", { name: /Escolher gancho/ })[0]!);
+    expect(onSelect).toHaveBeenCalledWith("hook-1", "WIP local");
+  });
 });

@@ -53,6 +53,7 @@ vi.mock("next-intl", () => ({
       generateAction: "Gerar carrossel",
       generateCoverAction: "Gerar capa",
       coverBudget: `Orçamento desta etapa: ${values?.count ?? 1} imagem (${values?.credits ?? 50} créditos).`,
+      interiorsBudget: `Orçamento desta etapa: ${values?.count ?? 4} imagens (${values?.credits ?? 200} créditos).`,
       generatingTitle: "Gerando o carrossel",
       coverReviewTitle: "Revise a capa piloto",
       approveCoverAndGenerate: "Aprovar capa e gerar demais slides",
@@ -263,6 +264,7 @@ function controller(overrides: Partial<CarouselComposerController> = {}): Carous
     findings: [],
     editorialError: null,
     coverQuote: { unitCount: 1, credits: 50 },
+    interiorsQuote: { unitCount: 4, credits: 200 },
     canPrepare: false,
     canGenerate: false,
     canApprove: false,
@@ -615,12 +617,16 @@ describe("CarouselComposer", () => {
         publicSlide(5, { status: "draft", hasOutput: false }),
       ],
       canApproveCover: true,
+      interiorsQuote: { unitCount: 4, credits: 200 },
       generateCarousel: confirmGeneration,
       approveCoverAndGenerate,
     }));
 
     const coverButton = screen.getByRole("button", { name: "Aprovar capa e gerar demais slides" });
     expect(coverButton).toBeEnabled();
+    expect(screen.getByTestId("carousel-interiors-budget")).toHaveTextContent(
+      "Orçamento desta etapa: 4 imagens (200 créditos).",
+    );
     expect(confirmGeneration).not.toHaveBeenCalled();
     expect(approveCoverAndGenerate).not.toHaveBeenCalled();
     fireEvent.click(coverButton);

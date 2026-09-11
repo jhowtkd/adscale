@@ -403,6 +403,7 @@ describe("useCarouselComposer phase derivation", () => {
     expect(cover.result.current.phase).toBe("cover_review");
     expect(cover.result.current.canApproveCover).toBe(true);
     expect(cover.result.current.canGenerate).toBe(false);
+    expect(cover.result.current.interiorsQuote).toEqual({ unitCount: 4, credits: 200 });
   });
 });
 

@@ -115,7 +115,7 @@ function composer(overrides = {}) {
     addFiles: vi.fn(), updateSource: vi.fn(), retrySource: vi.fn(), removeSource: vi.fn(), preparePlan: vi.fn(), confirmGeneration: vi.fn(), generateLegacy: vi.fn(),
     carousel: {
       draft: null, editorial: null, slides: [], quality: null, selectedSlideId: null, selectedSlide: null,
-      phase: "entry", findings: [], editorialError: null, coverQuote: { unitCount: 1, credits: 50 },
+      phase: "entry", findings: [], editorialError: null, coverQuote: { unitCount: 1, credits: 50 }, interiorsQuote: { unitCount: 4, credits: 200 },
       canPrepare: false, canGenerate: false, canApprove: false, canApproveScript: false, canApproveCover: false, isBusy: false,
       askForPlan: vi.fn(), answerQuestions: vi.fn(), selectHook: vi.fn(), regenerateHooks: vi.fn(),
       approveScript: vi.fn(), approveCoverAndGenerate: vi.fn(), acceptChange: vi.fn(), rejectChange: vi.fn(),

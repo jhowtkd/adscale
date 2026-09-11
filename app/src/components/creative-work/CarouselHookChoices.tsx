@@ -5,10 +5,15 @@ import { useTranslations } from "next-intl";
 import { Loader2, RefreshCw } from "lucide-react";
 import type { CarouselHook } from "@/server/creative-work/carousel-editorial-state";
 
+function hookListSyncKey(hooks: CarouselHook[], revision?: string | null): string {
+  return `${revision ?? ""}\n${hooks.map((hook) => `${hook.id}\0${hook.headline}`).join("\n")}`;
+}
+
 export function CarouselHookChoices({
   hooks,
   recommendedHookId,
   recommendation,
+  revision = null,
   busy,
   headingRef,
   onSelect,
@@ -17,15 +22,22 @@ export function CarouselHookChoices({
   hooks: CarouselHook[];
   recommendedHookId: string | null;
   recommendation: string | null;
+  revision?: string | null;
   busy: boolean;
   headingRef?: Ref<HTMLHeadingElement>;
   onSelect: (hookId: string, headline?: string) => void;
   onRegenerate: () => void;
 }) {
   const t = useTranslations("dashboard.home.composer.carousel");
+  const listKey = hookListSyncKey(hooks, revision);
+  const [syncedKey, setSyncedKey] = useState(listKey);
   const [headlines, setHeadlines] = useState<Record<string, string>>(() =>
     Object.fromEntries(hooks.map((hook) => [hook.id, hook.headline])),
   );
+  if (syncedKey !== listKey) {
+    setSyncedKey(listKey);
+    setHeadlines(Object.fromEntries(hooks.map((hook) => [hook.id, hook.headline])));
+  }
 
   return (
     <section

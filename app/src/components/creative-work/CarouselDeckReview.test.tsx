@@ -21,6 +21,7 @@ vi.mock("next-intl", () => ({
       exportRequiresApproval: "Aprove o carrossel para baixar o arquivo .zip.",
       coverReviewTitle: "Revise a capa piloto",
       approveCoverAndGenerate: "Aprovar capa e gerar demais slides",
+      interiorsBudget: `Orçamento desta etapa: ${values?.count ?? 4} imagens (${values?.credits ?? 200} créditos).`,
     }[key] ?? key);
   },
 }));

@@ -164,6 +164,7 @@ function carouselControllerStub() {
     findings: [],
     editorialError: null,
     coverQuote: { unitCount: 1, credits: 50 },
+    interiorsQuote: { unitCount: 4, credits: 200 },
     canPrepare: false,
     canGenerate: false,
     canApprove: false,
