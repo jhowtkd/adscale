@@ -386,7 +386,7 @@ export async function reviseCarouselSlide(
     const outputKey = `creative-work/${input.workItemId}/carousel/revise/${input.revisionKey}/final.png`;
     await objectStorage.put(outputKey, finalBuffer, "image/png");
 
-    const editorialSettings = settingsAfterMaterialCarouselEdit(work);
+    const editorialSettings = settingsAfterVisualCarouselEdit(work);
     if (editorialSettings.settings) {
       const persisted = await persistCarouselWorkIfUnchanged(work, editorialSettings);
       if (!persisted) return { ok: false, error: { code: "stale_input" } };

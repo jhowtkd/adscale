@@ -122,7 +122,7 @@ export async function planCarouselWork(input: {
   return proposeHooks(input, snapshot.value);
 }
 
-const COVER_APPROVAL_WORK_STATUSES = new Set(["draft", "generating", "partial"]);
+const EDITORIAL_APPROVAL_WORK_STATUSES = new Set(["draft", "generating", "partial"]);
 
 async function authorizeSnapshot(
   input: {
@@ -140,8 +140,8 @@ async function authorizeSnapshot(
   if (work.toolKind !== "carousel") {
     return { ok: false, error: { code: "work_not_carousel", details: { toolKind: work.toolKind } } };
   }
-  const statusAllowed = command?.kind === "approve_cover"
-    ? COVER_APPROVAL_WORK_STATUSES.has(work.status)
+  const statusAllowed = command?.kind === "approve_cover" || command?.kind === "approve_script"
+    ? EDITORIAL_APPROVAL_WORK_STATUSES.has(work.status)
     : work.status === "draft";
   if (!statusAllowed) {
     return { ok: false, error: { code: "work_not_draft", details: { status: work.status } } };
@@ -338,6 +338,7 @@ async function approveScript(
     { carouselDraft: draft, carouselEditorial: approved },
     executor,
     true,
+    "any",
   );
   if (!updated) return { ok: false, error: { code: "stale_input" } };
   return success(updated, draft, [], approved);

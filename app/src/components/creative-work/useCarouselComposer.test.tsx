@@ -423,10 +423,10 @@ describe("useCarouselComposer phase derivation", () => {
         ],
       }),
     );
-    const afterCopy = renderComposer(null, carouselPreparedPlan());
-    expect(afterCopy.result.current.phase).toBe("sequence");
-    expect(afterCopy.result.current.canApproveScript).toBe(true);
-    expect(afterCopy.result.current.canApproveCover).toBe(false);
+    const afterScriptInvalidated = renderComposer(null, carouselPreparedPlan());
+    expect(afterScriptInvalidated.result.current.phase).toBe("sequence");
+    expect(afterScriptInvalidated.result.current.canApproveScript).toBe(true);
+    expect(afterScriptInvalidated.result.current.canApproveCover).toBe(false);
   });
 });
 

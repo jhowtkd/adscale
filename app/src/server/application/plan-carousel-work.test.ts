@@ -764,7 +764,7 @@ describe("planCarouselWork", () => {
         carouselEditorial: { ...hashed, approvedScriptRevision: hashed.revision },
       },
     });
-    repo.updateCreativeWorkDraftIfUnchanged.mockResolvedValue(persisted);
+    repo.updateCreativeWorkIfUnchanged.mockResolvedValue(persisted);
 
     const result = await planCarouselWork({
       ...baseInput,
@@ -776,7 +776,7 @@ describe("planCarouselWork", () => {
     expect(result.value.editorial.approvedScriptRevision).toBe(hashed.revision);
     expect(researchMock).not.toHaveBeenCalled();
     expect(proposeMock).not.toHaveBeenCalled();
-    expect(repo.updateCreativeWorkDraftIfUnchanged).toHaveBeenCalledWith(
+    expect(repo.updateCreativeWorkIfUnchanged).toHaveBeenCalledWith(
       "workspace-1",
       "work-1",
       new Date(UPDATED_AT),
@@ -789,6 +789,50 @@ describe("planCarouselWork", () => {
       { persistCarouselApprovals: true },
     );
   });
+
+  it.each(["partial", "generating"] as const)(
+    "re-approves the current script of a %s work after cover rejection",
+    async (status) => {
+      const draft = deckDraft();
+      const hashed = recomputeCarouselEditorialHashes(editorialState({
+        selectedHookId: "hook-1",
+        storyboard: storyboardFor(planOfFive()),
+        caption: "Inscreva-se",
+      }), {
+        request: "Grupo de terapia começa em agosto, vagas limitadas",
+        deck: draft,
+      });
+      repo.getCreativeWork.mockResolvedValue({
+        work: work({
+          status,
+          settings: { targetFormats: [], carouselDraft: draft, carouselEditorial: hashed },
+        }),
+        outputs: [],
+        sources: [source()],
+      });
+      const persisted = work({
+        status,
+        updatedAt: new Date("2026-08-30T12:00:01.000Z"),
+        settings: {
+          targetFormats: [],
+          carouselDraft: draft,
+          carouselEditorial: { ...hashed, approvedScriptRevision: hashed.revision },
+        },
+      });
+      repo.updateCreativeWorkIfUnchanged.mockResolvedValue(persisted);
+
+      const result = await planCarouselWork({
+        ...baseInput,
+        command: { kind: "approve_script", scriptRevision: hashed.revision },
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.editorial.approvedScriptRevision).toBe(hashed.revision);
+      expect(repo.updateCreativeWorkDraftIfUnchanged).not.toHaveBeenCalled();
+      expect(repo.updateCreativeWorkIfUnchanged).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it("rejects approve_script when the revision does not match or lint blocks", async () => {
     const draft = deckDraft();
