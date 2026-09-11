@@ -143,10 +143,16 @@ export function TalkBox({
     hasStartedRequest: expanded || Boolean(bufferedFile) || sources.length > 0,
   });
   const hideGenerateWhileInterviewOwnsEntry = shouldHideProtocolSwitcher(interview);
-  const showToggle = Boolean(onExpandedChange) && (expanded || !centered);
+  const revealToggleWhenCollapsed =
+    !centered
+    || Boolean(request.trim())
+    || sources.length > 0
+    || Boolean(bufferedFile)
+    || Boolean(summary);
+  const showToggle = Boolean(onExpandedChange) && (expanded || revealToggleWhenCollapsed);
   const collapse = () => {
     onExpandedChange?.(false);
-    const restore = centered ? requestRef?.current : toggleRef.current;
+    const restore = revealToggleWhenCollapsed ? toggleRef.current : requestRef?.current;
     restore?.focus({ preventScroll: true });
   };
   useLayoutEffect(() => {

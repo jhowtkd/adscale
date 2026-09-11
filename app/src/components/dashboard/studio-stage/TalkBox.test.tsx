@@ -131,6 +131,46 @@ it("não mostra Abrir controles no Palco vazio até o pedido receber foco", () =
   expect(screen.getByRole("button", { name: "studioDesk.collapse" })).toBeInTheDocument();
 });
 
+it("mostra Abrir controles no Palco centrado depois de um pedido", () => {
+  function Harness() {
+    const [expanded, setExpanded] = useState(false);
+    const [request, setRequest] = useState("Campanha de setembro");
+    return (
+      <TalkBox
+        {...required}
+        placement="center"
+        request={request}
+        onRequestChange={setRequest}
+        intent="single"
+        onGenerate={vi.fn()}
+        expanded={expanded}
+        onExpandedChange={setExpanded}
+      />
+    );
+  }
+  render(<Harness />);
+  expect(screen.getByRole("button", { name: "studioDesk.expand" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "studioDesk.expand" }));
+  fireEvent.click(screen.getByRole("button", { name: "studioDesk.collapse" }));
+  expect(screen.getByRole("button", { name: "studioDesk.expand" })).toHaveFocus();
+});
+
+it("mostra Abrir controles no Palco centrado quando há resumo da marca", () => {
+  render(
+    <TalkBox
+      {...required}
+      placement="center"
+      request=""
+      onGenerate={vi.fn()}
+      expanded={false}
+      onExpandedChange={vi.fn()}
+      summary={<span>Marca A · 4:5</span>}
+    />,
+  );
+  expect(screen.getByRole("button", { name: "studioDesk.expand" })).toBeInTheDocument();
+  expect(screen.getByTestId("studio-talk-box")).toHaveTextContent("Marca A · 4:5");
+});
+
 it("revela os rádios de protocolo ao expandir a caixa na primeira visita", () => {
   function Harness() {
     const [expanded, setExpanded] = useState(false);
