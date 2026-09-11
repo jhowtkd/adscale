@@ -717,7 +717,7 @@ function draftFromDeck(
 ): CarouselDraftStateV1 {
   const previousSlides = input.previous?.plan?.slides ?? [];
   const previousById = new Map(previousSlides.map((slide) => [slide.slideId, slide]));
-  const usedIds = new Set<string>();
+  const usedIds = new Set(previousSlides.map((slide) => slide.slideId));
   const claimedIds = new Set<string>();
   const slides: CarouselSlidePlanV1[] = proposal.slides.map((proposalSlide, index) => {
     const position = index + 1;

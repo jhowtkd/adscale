@@ -23,6 +23,7 @@ import {
   lintCarouselDeck,
   proposeCarouselDraft,
   proposeCarouselHooks,
+  stableSlideId,
 } from "./carousel-editorial";
 
 const REQUEST =
@@ -647,5 +648,44 @@ describe("proposeCarouselDraft script and identity", () => {
     ].join(" ");
     expect(published).not.toContain("score-8.2");
     expect(published).not.toContain("/tmp/");
+  });
+
+  it("does not attach a dropped human edit to a new occupant of the same position when slideId is omitted", async () => {
+    const previousIds = [1, 2, 3, 4, 5].map((position) => stableSlideId("work-1", position));
+    const previous = draftWithHumanSlide("slide-2", "Texto humano aprovado");
+    previous.plan!.slides = previous.plan!.slides.map((item, index) => ({
+      ...item,
+      slideId: previousIds[index]!,
+      ...(index === 1
+        ? { primaryText: "Texto humano aprovado", authority: "human_edit" as const }
+        : {}),
+    }));
+    mockPlannerJson(scriptDeckPayload({
+      slides: [
+        { slideId: previousIds[0], role: "hook", purpose: "Abrir", primaryText: "Grupo de terapia começa em agosto", secondaryText: null, sourceFactIds: [] },
+        { role: "argument", purpose: "Novo assunto na posição 2", primaryText: "As vagas são limitadas", secondaryText: "Grupos pequenos", sourceFactIds: [] },
+        { slideId: previousIds[2], role: "context", purpose: "Contexto", primaryText: "O grupo acontece no consultório", secondaryText: null, sourceFactIds: [] },
+        { slideId: previousIds[3], role: "evidence", purpose: "Evidência", primaryText: "O consultório organiza o grupo de terapia", secondaryText: null, sourceFactIds: [] },
+        { slideId: previousIds[4], role: "closing", purpose: "Fechamento", primaryText: "Comece em agosto", secondaryText: null, sourceFactIds: [] },
+      ],
+    }));
+
+    const { draft } = await proposeCarouselDraft({
+      ...proposeInput,
+      selectedHook: selectedHookFixture,
+      research: researchFixture,
+      previous,
+    });
+
+    const positionTwo = draft.plan?.slides[1];
+    expect(positionTwo?.slideId).not.toBe(previousIds[1]);
+    expect(previousIds).not.toContain(positionTwo?.slideId);
+    expect(positionTwo).toMatchObject({
+      primaryText: "As vagas são limitadas",
+      authority: "ai_proposal",
+      position: 2,
+    });
+    expect(draft.plan?.slides.some((item) => item.slideId === previousIds[1])).toBe(false);
+    expect(draft.plan?.slides.some((item) => item.primaryText === "Texto humano aprovado")).toBe(false);
   });
 });
