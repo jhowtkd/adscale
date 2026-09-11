@@ -199,9 +199,6 @@ export async function queueAuthorizedCarouselSlide(input: {
       )
       .limit(1);
     if (!work || !slide) return { outcome: "missing" as const };
-    if (slide.status !== "draft" && slide.status !== "failed") {
-      return { outcome: "already_claimed" as const, slide };
-    }
     const snapshot = resolveCarouselPreparedSnapshot(work.inputSnapshot);
     const editorial = readCarouselEditorial(work.settings);
     const current = await listCurrentCarouselSlides(input.workspaceId, input.workItemId, tx);
@@ -217,6 +214,9 @@ export async function queueAuthorizedCarouselSlide(input: {
       coverSlideId,
     })) {
       return { outcome: "unauthorized" as const };
+    }
+    if (slide.status !== "draft" && slide.status !== "failed") {
+      return { outcome: "already_claimed" as const, slide };
     }
     const [queued] = await tx
       .update(creativeWorkCarouselSlides)

@@ -117,6 +117,7 @@ describe("POST /api/creative-work/[id]/carousel/slides/[slideId]/revise", () => 
     ["slide_not_failed", 409],
     ["provider_base_missing", 409],
     ["stale_input", 409],
+    ["invalid_generation_gate", 409],
     ["invalid_context", 422],
     ["composition_failed", 422],
     ["dispatch_failed", 502],

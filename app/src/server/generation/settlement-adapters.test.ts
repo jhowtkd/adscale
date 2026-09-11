@@ -2735,4 +2735,20 @@ describe("carouselSlideSettlementAdapter", () => {
     expect(spendPaywall).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
   });
+
+  it("does not take over a queued row after the generation gate is invalidated", async () => {
+    const queued = carouselSlideFixture({ status: "queued" });
+    queueAuthorized
+      .mockResolvedValueOnce({ outcome: "already_claimed", slide: queued })
+      .mockResolvedValueOnce({ outcome: "unauthorized" });
+    listSlides.mockResolvedValue([queued]);
+    getUsage.mockResolvedValue(null);
+
+    await expect(startGenerationSettlement(adapter())).rejects.toMatchObject({
+      name: "CarouselGenerationGateError",
+      code: "invalid_generation_gate",
+    });
+    expect(spendPaywall).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
 });

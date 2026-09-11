@@ -25,6 +25,7 @@ import type {
 import { creativeWorkCarouselSlides, creativeWorkItems } from "@/server/db/schema";
 import { db } from "@/server/db";
 import { dispatchNextCarouselStage } from "@/server/application/advance-carousel-generation";
+import { CarouselGenerationGateError } from "@/server/creative-work/carousel-editorial-state";
 import { carouselSlideSettlementAdapter } from "@/server/generation/settlement-adapters";
 import { startGenerationSettlement } from "@/server/generation/settlement";
 import { getCreativeWork } from "@/server/repositories/creative-work";
@@ -86,7 +87,8 @@ export type ReviseCarouselSlideErrorCode =
   | "provider_base_missing"
   | "invalid_context"
   | "composition_failed"
-  | "dispatch_failed";
+  | "dispatch_failed"
+  | "invalid_generation_gate";
 
 export type ReviseCarouselSlideResult =
   | {
@@ -444,16 +446,24 @@ export async function reviseCarouselSlide(
       error: { code: "slide_version_conflict", details: { reason: "parent_no_longer_current" } },
     };
   }
-  const settled = await startGenerationSettlement(
-    carouselSlideSettlementAdapter({
-      workspaceId: input.workspaceId,
-      workItemId: input.workItemId,
-      slideId: child.id,
-      userId: input.userId,
-      anchorKey: slide.anchorKey ?? null,
-      operationKey: input.revisionKey,
-    }),
-  );
+  let settled: Awaited<ReturnType<typeof startGenerationSettlement>>;
+  try {
+    settled = await startGenerationSettlement(
+      carouselSlideSettlementAdapter({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        slideId: child.id,
+        userId: input.userId,
+        anchorKey: slide.anchorKey ?? null,
+        operationKey: input.revisionKey,
+      }),
+    );
+  } catch (error) {
+    if (error instanceof CarouselGenerationGateError) {
+      return { ok: false, error: { code: "invalid_generation_gate", details: error.details } };
+    }
+    throw error;
+  }
   if (!settled.ok) {
     return { ok: false, error: { code: "dispatch_failed", details: settled.error } };
   }

@@ -85,6 +85,7 @@ vi.mock("@/server/storage", () => storage);
 vi.mock("@/server/db", () => ({ db: dbMock }));
 
 import { reviseCarouselDeck, reviseCarouselSlide } from "./revise-carousel";
+import { CarouselGenerationGateError } from "@/server/creative-work/carousel-editorial-state";
 
 const WORKSPACE = "workspace-1";
 const WORK = "work-1";
@@ -513,6 +514,22 @@ describe("reviseCarouselSlide", () => {
     expect(carouselRepo.createCarouselSlideDescendant).not.toHaveBeenCalled();
     expect(settlement.startGenerationSettlement).not.toHaveBeenCalled();
     expect(storage.objectStorage.put).not.toHaveBeenCalled();
+  });
+
+  it("returns invalid_generation_gate when retrying an interior after the lote is invalidated", async () => {
+    resetDeck({ 2: "failed" });
+    settlement.startGenerationSettlement.mockRejectedValue(
+      new CarouselGenerationGateError({ reason: "carousel_generation_gate" }),
+    );
+
+    const result = await reviseCarouselSlide({
+      ...slideInput,
+      slideId: "slide-2",
+      kind: "retry",
+    });
+
+    expect(result).toMatchObject({ ok: false, error: { code: "invalid_generation_gate" } });
+    expect(carouselRepo.createCarouselSlideDescendant).toHaveBeenCalledTimes(1);
   });
 });
 

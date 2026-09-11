@@ -731,9 +731,22 @@ export function carouselSlideSettlementAdapter(input: {
         await new Promise((resolve) => setTimeout(resolve, 25));
         slide = (await currentSlide(input.slideId)) ?? slide;
       }
-      // Takeover/recovery: the idempotent spend either confirms the single
-      // unit or reports the block; the send is deduplicated by Inngest.
-      slide = (await currentSlide(input.slideId)) ?? slide;
+      // Takeover/recovery: re-authorize the current revision before spend or
+      // send. Invalidation after the original claim must not dispatch.
+      const reauthorized = await queueAuthorizedCarouselSlide({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        slideId: input.slideId,
+        anchorKey: input.anchorKey,
+        operationKey: input.operationKey,
+      });
+      if (reauthorized.outcome !== "already_claimed" && reauthorized.outcome !== "claimed") {
+        throw new CarouselGenerationGateError({
+          slideId: input.slideId,
+          reason: "carousel_generation_gate",
+        });
+      }
+      slide = reauthorized.slide;
       const spendResult = await spend({
         workspaceId: input.workspaceId,
         action: "image_derivation",

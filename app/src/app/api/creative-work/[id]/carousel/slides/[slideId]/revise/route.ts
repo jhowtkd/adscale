@@ -61,6 +61,7 @@ export async function POST(
         case "invalid_context": return apiError("invalid_context", 422, result.error.details);
         case "composition_failed": return apiError("carouselCompositionFailed", 422, result.error.details);
         case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502, result.error.details);
+        case "invalid_generation_gate": return apiError("creativeWorkNotReady", 409, result.error.details);
       }
     }
     return NextResponse.json(
