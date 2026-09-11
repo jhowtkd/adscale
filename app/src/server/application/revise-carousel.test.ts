@@ -395,6 +395,49 @@ describe("reviseCarouselSlide", () => {
     expect(slides.find((row) => row.id === "slide-1")?.isCurrent).toBe(false);
   });
 
+  it("visual revision of the cover keeps script approval and only clears cover and lote releases", async () => {
+    const editorial = {
+      version: 1 as const,
+      revision: "script-1",
+      contextHash: "ctx-1",
+      research: { status: "not_needed" as const, question: "", thesis: "", sources: [], claims: [], gaps: [] },
+      hooks: [],
+      recommendedHookId: null,
+      recommendation: null,
+      selectedHookId: null,
+      storyboard: [],
+      caption: null,
+      approvedScriptRevision: "script-1",
+      approvedCover: { slideId: "cover-1", scriptRevision: "script-1", preparedRevision: "prep-1" },
+      confirmedInteriorsRevision: "prep-1",
+    };
+    const work = {
+      ...workFixture().work,
+      settings: { targetFormats: [], carouselEditorial: editorial },
+    };
+    repo.getCreativeWork.mockResolvedValue({ work, outputs: [], sources: [] });
+    dbState.updateRows.length = 0;
+    dbState.updateRows.push([work]);
+
+    const result = await reviseCarouselSlide({
+      ...slideInput,
+      kind: "visual",
+      instruction: "Fundo mais claro",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(dbMock.set).toHaveBeenCalledWith(expect.objectContaining({
+      settings: expect.objectContaining({
+        carouselEditorial: expect.objectContaining({
+          approvedScriptRevision: "script-1",
+          approvedCover: null,
+          confirmedInteriorsRevision: null,
+        }),
+      }),
+    }));
+    expect(settlement.startGenerationSettlement).toHaveBeenCalledTimes(1);
+  });
+
   it("retry is accepted only from a failed current slide, creates one child with the same copy and settles one provider call without requeueing the parent", async () => {
     resetDeck({ 2: "failed" });
     const result = await reviseCarouselSlide({

@@ -196,6 +196,17 @@ export function invalidateCarouselApprovals(state: CarouselEditorialState): Caro
   };
 }
 
+/** Visual remakes keep the approved script; only cover and lote releases are stale. */
+export function invalidateCarouselProductionApprovals(
+  state: CarouselEditorialState,
+): CarouselEditorialState {
+  return {
+    ...state,
+    approvedCover: null,
+    confirmedInteriorsRevision: null,
+  };
+}
+
 export function hasCurrentApprovedCarouselCover(
   state: CarouselEditorialState,
   scriptRevision: string,
@@ -241,10 +252,10 @@ export function authorizeCarouselSlideClaim(input: {
 }): boolean {
   const { editorial, generationScope, scriptRevision, preparedRevision, slidePosition, coverSlideId } = input;
   if (!editorial || !generationScope || !scriptRevision) return false;
-  if (generationScope === "cover") {
-    return slidePosition === 1 && editorial.approvedScriptRevision === scriptRevision;
+  if (slidePosition === 1) {
+    return editorial.approvedScriptRevision === scriptRevision;
   }
-  if (slidePosition === 1) return false;
+  if (generationScope === "cover") return false;
   if (!coverSlideId) return false;
   return canDispatchCarouselInteriors(editorial, scriptRevision, preparedRevision, coverSlideId);
 }

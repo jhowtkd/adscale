@@ -14,6 +14,7 @@ import {
   carouselEditorialCommandSchema,
   carouselEditorialStateSchema,
   invalidateCarouselApprovals,
+  invalidateCarouselProductionApprovals,
   isMaterialCarouselEditorialMutation,
   mergeCarouselEditorialForClientSettingsWrite,
   readCarouselEditorial,
@@ -104,6 +105,11 @@ describe("carousel editorial state", () => {
     expect(changed.confirmedInteriorsRevision).toBeNull();
     expect(changed.research).toEqual(state.research);
     expect(canDispatchCarouselInteriors(changed, "script-2", "prepared-2", "cover-1")).toBe(false);
+
+    const visualOnly = invalidateCarouselProductionApprovals(state);
+    expect(visualOnly.approvedScriptRevision).toBe("script-1");
+    expect(visualOnly.approvedCover).toBeNull();
+    expect(visualOnly.confirmedInteriorsRevision).toBeNull();
   });
 
   it("allows interiors dispatch only when every identity and revision matches", () => {
@@ -143,7 +149,7 @@ describe("carousel editorial state", () => {
     )).toBe(false);
   });
 
-  it("authorizes cover claims from the frozen cover scope and interiors only after lote confirmation", () => {
+  it("authorizes cover claims whenever the script is approved, and interiors only after lote confirmation", () => {
     const state = approvedState();
     expect(authorizeCarouselSlideClaim({
       editorial: state,
@@ -179,6 +185,14 @@ describe("carousel editorial state", () => {
     })).toBe(true);
     expect(authorizeCarouselSlideClaim({
       editorial: state,
+      generationScope: "interiors",
+      scriptRevision: "script-1",
+      preparedRevision: "prepared-1",
+      slidePosition: 1,
+      coverSlideId: "cover-1",
+    })).toBe(true);
+    expect(authorizeCarouselSlideClaim({
+      editorial: { ...state, approvedScriptRevision: null },
       generationScope: "interiors",
       scriptRevision: "script-1",
       preparedRevision: "prepared-1",

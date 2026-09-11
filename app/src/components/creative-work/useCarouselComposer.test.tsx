@@ -405,6 +405,28 @@ describe("useCarouselComposer phase derivation", () => {
     expect(cover.result.current.canApproveCover).toBe(true);
     expect(cover.result.current.canGenerate).toBe(false);
     expect(cover.result.current.interiorsQuote).toEqual({ unitCount: 4, credits: 200 });
+
+    queryClient.setQueryData(
+      creativeWorkKey(WORK_ID),
+      carouselDetail({
+        editorial: editorialState({
+          selectedHookId: "hook-1",
+          approvedScriptRevision: null,
+        }),
+        preparedPlan: carouselPreparedPlan(),
+        slides: [
+          publicSlide(planSlide(1, "hook"), { status: "completed" }),
+          publicSlide(planSlide(2, "context"), { status: "draft", hasOutput: false }),
+          publicSlide(planSlide(3, "problem"), { status: "draft", hasOutput: false }),
+          publicSlide(planSlide(4, "argument"), { status: "draft", hasOutput: false }),
+          publicSlide(planSlide(5, "cta"), { status: "draft", hasOutput: false }),
+        ],
+      }),
+    );
+    const afterCopy = renderComposer(null, carouselPreparedPlan());
+    expect(afterCopy.result.current.phase).toBe("sequence");
+    expect(afterCopy.result.current.canApproveScript).toBe(true);
+    expect(afterCopy.result.current.canApproveCover).toBe(false);
   });
 });
 

@@ -48,6 +48,7 @@ export function deriveCarouselComposerPhase(input: {
   hooks: Array<{ id: string }>;
   selectedHookId: string | null;
   researching: boolean;
+  scriptApproved?: boolean;
 }): CarouselComposerPhase {
   if (input.blockingQuestionCount > 0) return "questions";
   const hasHooks = input.hooks.length === 3;
@@ -60,6 +61,7 @@ export function deriveCarouselComposerPhase(input: {
   const cover = input.slides.find((slide) => slide.position === 1);
   const interiors = input.slides.filter((slide) => slide.position !== 1);
   if (cover?.status === "completed" && interiors.every((slide) => slide.status === "draft")) {
+    if (input.scriptApproved === false) return "sequence";
     return "cover_review";
   }
 

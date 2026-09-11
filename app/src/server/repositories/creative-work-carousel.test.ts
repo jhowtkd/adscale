@@ -424,10 +424,34 @@ describe("carousel slide repository (CAS transitions)", () => {
       expect(mocks.updateMock).not.toHaveBeenCalled();
     });
 
-    it("does not claim the cover under an interiors snapshot after lote confirmation", async () => {
+    it("retries a failed cover under an interiors snapshot when the script is still approved", async () => {
       const cover = slide({ id: "slide-1", position: 1, status: "failed" });
+      const queued = { ...cover, status: "queued" as const };
       mocks.state.selectResults.push(
         [interiorsWork()],
+        [cover],
+        [cover, slide({ id: "slide-2", position: 2 })],
+      );
+      mocks.state.updateResults.push([queued]);
+
+      const result = await queueAuthorizedCarouselSlide({
+        ...queueInput,
+        slideId: "slide-1",
+        operationKey: "op-cover-retry",
+      });
+
+      expect(result).toEqual({ outcome: "claimed", slide: queued });
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ status: "queued" }));
+    });
+
+    it("does not retry the cover under an interiors snapshot after the script is invalidated", async () => {
+      const cover = slide({ id: "slide-1", position: 1, status: "failed" });
+      mocks.state.selectResults.push(
+        [interiorsWork(interiorsEditorial({
+          approvedScriptRevision: null,
+          approvedCover: null,
+          confirmedInteriorsRevision: null,
+        }))],
         [cover],
         [cover, slide({ id: "slide-2", position: 2 })],
       );

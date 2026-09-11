@@ -13,7 +13,10 @@ import {
   type CarouselVisualContractV1,
 } from "@/server/creative-work/carousel-contracts";
 import { canonicalJsonStringify } from "@/server/creative-work/canonical-json";
-import { withInvalidatedAndRecomputedCarouselEditorial } from "@/server/creative-work/carousel-editorial-hash";
+import {
+  withInvalidatedAndRecomputedCarouselEditorial,
+  withInvalidatedProductionAndRecomputedCarouselEditorial,
+} from "@/server/creative-work/carousel-editorial-hash";
 import {
   runCarouselTextComposition,
   TextCompositionError,
@@ -246,6 +249,11 @@ function settingsAfterMaterialCarouselEdit(work: CreativeWorkItem) {
   return { settings: withInvalidatedAndRecomputedCarouselEditorial(work.settings, work.request) };
 }
 
+function settingsAfterVisualCarouselEdit(work: CreativeWorkItem) {
+  if (!work.settings?.carouselEditorial) return {};
+  return { settings: withInvalidatedProductionAndRecomputedCarouselEditorial(work.settings, work.request) };
+}
+
 function workRevisionMatches(expectedUpdatedAt: Date) {
   return sql`date_trunc('milliseconds', ${creativeWorkItems.updatedAt}) = cast(${expectedUpdatedAt.toISOString()} as timestamp without time zone)`;
 }
@@ -423,7 +431,7 @@ export async function reviseCarouselSlide(
   // visual | retry: one draft descendant, same contract and anchor, then the
   // normal job flow generates it through its own one-slide settlement.
   if (input.kind === "visual") {
-    const editorialSettings = settingsAfterMaterialCarouselEdit(work);
+    const editorialSettings = settingsAfterVisualCarouselEdit(work);
     if (editorialSettings.settings) {
       const persisted = await persistCarouselWorkIfUnchanged(work, editorialSettings);
       if (!persisted) return { ok: false, error: { code: "stale_input" } };

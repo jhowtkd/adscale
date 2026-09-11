@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { canonicalJsonStringify } from "./canonical-json";
 import {
   invalidateCarouselApprovals,
+  invalidateCarouselProductionApprovals,
   isMaterialCarouselEditorialMutation,
   mergeCarouselEditorialForClientSettingsWrite as mergeCarouselEditorialApprovalsForClientWrite,
   type CarouselEditorialRevisionPayload,
@@ -63,6 +64,19 @@ export function withInvalidatedAndRecomputedCarouselEditorial<
     ...settings,
     carouselEditorial: recomputeCarouselEditorialHashes(
       invalidateCarouselApprovals(settings.carouselEditorial),
+      { request, deck: settings.carouselDraft ?? null },
+    ),
+  };
+}
+
+export function withInvalidatedProductionAndRecomputedCarouselEditorial<
+  T extends { carouselEditorial?: CarouselEditorialState; carouselDraft?: unknown },
+>(settings: T, request: string): T {
+  if (!settings.carouselEditorial) return settings;
+  return {
+    ...settings,
+    carouselEditorial: recomputeCarouselEditorialHashes(
+      invalidateCarouselProductionApprovals(settings.carouselEditorial),
       { request, deck: settings.carouselDraft ?? null },
     ),
   };

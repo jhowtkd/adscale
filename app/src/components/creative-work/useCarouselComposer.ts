@@ -101,6 +101,11 @@ export function useCarouselComposer({
   const questions = draft?.blockingQuestions ?? [];
   const findings = draft?.plan ? validateCarouselDeckStructure(draft.plan) : [];
   const researching = planMutation.isPending && (editorial?.hooks.length !== 3);
+  const scriptApproved = Boolean(
+    editorial?.approvedScriptRevision
+    && editorial.approvedScriptRevision === editorial.revision
+    && draft?.plan,
+  );
 
   const phase: CarouselComposerPhase = deriveCarouselComposerPhase({
     blockingQuestionCount: questions.length,
@@ -110,6 +115,7 @@ export function useCarouselComposer({
     hooks: editorial?.hooks ?? [],
     selectedHookId: editorial?.selectedHookId ?? null,
     researching,
+    scriptApproved,
   });
 
   const selectedSlide = useMemo(
@@ -128,11 +134,6 @@ export function useCarouselComposer({
   const deckRevision = draft?.plan?.revision ?? slides[0]?.deckRevision ?? null;
   const approvedRevision = work?.carouselApprovedRevision ?? null;
 
-  const scriptApproved = Boolean(
-    editorial?.approvedScriptRevision
-    && editorial.approvedScriptRevision === editorial.revision
-    && draft?.plan,
-  );
   const coverSlide = slides.find((slide) => slide.position === 1) ?? null;
   const canPrepare = Boolean(draft?.plan)
     && (phase === "sequence" || phase === "ready_to_generate")
