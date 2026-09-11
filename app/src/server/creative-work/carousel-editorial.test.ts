@@ -207,6 +207,50 @@ describe("proposeCarouselDraft", () => {
     chatCreateMock.mockReset();
   });
 
+  it("does not enable the controlled provider on a production domain even with test flags", async () => {
+    const { isE2EControlledProviderEnabled } = await vi.importActual<
+      typeof import("@/server/ai/providers/e2e-controlled-provider")
+    >("@/server/ai/providers/e2e-controlled-provider");
+
+    expect(isE2EControlledProviderEnabled({
+      E2E_CONTROLLED_PROVIDER: 'true', NODE_ENV: 'production',
+      APP_URL: 'https://app.example.com', E2E_DISABLE_RATE_LIMIT: 'true',
+      E2E_CONTROLLED_PROVIDER_PREVIEW: 'true',
+    })).toBe(false);
+  });
+
+  it("skips the mocked planner chat under the simulator and uses it for a mocked real call", async () => {
+    chatCreateMock.mockResolvedValue({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            kind: "deck",
+            objective: "Divulgar o grupo",
+            audience: null,
+            tone: "Acolhedor",
+            promise: "Grupo de terapia em agosto",
+            slides: [
+              { role: "hook", purpose: "Abrir", primaryText: "Grupo de terapia começa em agosto", secondaryText: null, sourceFactIds: [] },
+              { role: "context", purpose: "Contexto", primaryText: "O grupo acontece no consultório", secondaryText: null, sourceFactIds: [] },
+              { role: "argument", purpose: "Argumento", primaryText: "As vagas são limitadas", secondaryText: "Grupos pequenos", sourceFactIds: [] },
+              { role: "evidence", purpose: "Evidência", primaryText: "O consultório organiza o grupo de terapia", secondaryText: null, sourceFactIds: [] },
+              { role: "closing", purpose: "Fechamento", primaryText: "Comece em agosto", secondaryText: null, sourceFactIds: [] },
+            ],
+            changes: [],
+          }),
+        },
+      }],
+    });
+
+    controlledProvider.enabled = true;
+    await proposeCarouselDraft(proposeInput);
+    expect(chatCreateMock).not.toHaveBeenCalled();
+
+    controlledProvider.enabled = false;
+    await proposeCarouselDraft(proposeInput);
+    expect(chatCreateMock).toHaveBeenCalledTimes(1);
+  });
+
   it("derives a deterministic five-slide plan from the request and facts under the controlled provider", async () => {
     controlledProvider.enabled = true;
 
