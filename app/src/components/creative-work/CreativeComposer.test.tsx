@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { useState, type RefObject } from "react";
 import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/hooks/use-piece-review-share", () => ({
   useSharePieceReview: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -81,6 +82,7 @@ vi.mock("next-intl", () => ({ useTranslations: (namespace?: string) => namespace
 
 import { CreativeComposer } from "./CreativeComposer";
 import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
+import { TalkBox } from "@/components/dashboard/studio-stage/TalkBox";
 
 function composer(overrides = {}) {
   const directionPool = {
@@ -154,7 +156,15 @@ const readySource = {
   },
 };
 
-function renderComposer(value = composer(), props: { hideSourceUpload?: boolean; layout?: "studio" | "piece"; workflowVariant?: "control" | "progressive"; chrome?: "full" | "stage" } = {}) {
+function renderComposer(value = composer(), props: {
+  hideSourceUpload?: boolean;
+  layout?: "studio" | "piece";
+  workflowVariant?: "control" | "progressive";
+  chrome?: "full" | "stage";
+  resultsContainer?: HTMLElement | null;
+  primaryActionRef?: RefObject<HTMLButtonElement | null>;
+  controlsActive?: boolean;
+} = {}) {
   const { composerRef, ...viewModel } = value;
   return render(
     <CreativeComposer
@@ -1069,5 +1079,92 @@ describe("CreativeComposer", () => {
     expect(screen.queryByTestId("carousel-composer")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Resultados" })).toBeInTheDocument();
     expect(screen.getByTestId("creative-generate-action")).toBeInTheDocument();
+  });
+
+  it("coloca configurações na caixa sem duplicar o pedido", () => {
+    const model = composer({ intent: "single" });
+    function Harness() {
+      const [expanded, setExpanded] = useState(true);
+      return (
+        <TalkBox
+          placement="dock"
+          request={model.request}
+          onRequestChange={model.setRequest}
+          intent="single"
+          onSelectIntent={model.selectIntent}
+          sources={[]}
+          onAddFiles={model.addFiles}
+          error={null}
+          onGenerate={model.preparePlan}
+          generateLabel="Gerar"
+          expanded={expanded}
+          onExpandedChange={setExpanded}
+        >
+          <CreativeComposer
+            composer={model as CreativeComposerViewModel}
+            composerRef={model.composerRef}
+            chrome="stage"
+          />
+        </TalkBox>
+      );
+    }
+    render(<Harness />);
+    const box = screen.getByTestId("studio-talk-box");
+    expect(document.querySelectorAll("#creative-composer-request")).toHaveLength(1);
+    expect(box).toContainElement(screen.getByTestId("creative-optional-settings"));
+    expect(screen.getAllByRole("button", { name: "Gerar", exact: true })).toHaveLength(1);
+  });
+
+  it("coloca o carrossel na caixa com um pedido e Organizar conteúdo", () => {
+    const model = composer({ intent: "carousel", request: "Campanha" });
+    function Harness() {
+      const [expanded, setExpanded] = useState(true);
+      return (
+        <TalkBox
+          placement="dock"
+          request={model.request}
+          onRequestChange={model.setRequest}
+          intent="carousel"
+          onSelectIntent={model.selectIntent}
+          sources={[]}
+          onAddFiles={model.addFiles}
+          error={null}
+          onGenerate={model.preparePlan}
+          generateLabel="Gerar"
+          expanded={expanded}
+          onExpandedChange={setExpanded}
+          showAttachments={false}
+          showGenerate={false}
+        >
+          <CreativeComposer
+            composer={model as CreativeComposerViewModel}
+            composerRef={model.composerRef}
+            chrome="stage"
+          />
+        </TalkBox>
+      );
+    }
+    render(<Harness />);
+    expect(document.querySelectorAll("#creative-composer-request")).toHaveLength(1);
+    expect(screen.getByTestId("carousel-organize")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Gerar", exact: true })).not.toBeInTheDocument();
+  });
+
+  it("envia resultados ao destino externo no palco", () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const output = {
+      id: "output-1", workspaceId: "ws-1", workItemId: "work-1", creativeLevel: "conservative",
+      targetFormat: "4:5", versionNumber: 1, parentOutputId: null, revisionInstruction: null,
+      revisionAssetId: null, retryCount: 0, operationKey: "conservative:4:5:1", status: "completed",
+      outputKey: "out/1.png", cost: 5, failureCode: null, quality: null, isSelected: false,
+      createdAt: new Date(), updatedAt: new Date(),
+    };
+    renderComposer(composer({ workId: "work-1", outputs: [output] }), {
+      chrome: "stage",
+      resultsContainer: target,
+    });
+    expect(target).toContainElement(screen.getByRole("heading", { name: "Resultados" }));
+    target.remove();
   });
 });

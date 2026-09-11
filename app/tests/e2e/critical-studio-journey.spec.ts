@@ -59,8 +59,12 @@ async function waitForTerminalOutputs(
   let detail!: WorkDetail;
   await expect.poll(async () => {
     detail = await getWork(request, workId);
-    return detail.outputs.length > 0
+    const outputsTerminal = detail.outputs.length > 0
       && detail.outputs.every((output) => output.status === "completed" || output.status === "failed");
+    const workTerminal = detail.work.status === "completed"
+      || detail.work.status === "partial"
+      || detail.work.status === "failed";
+    return outputsTerminal && workTerminal;
   }, { timeout: 240_000, intervals: [1_500, 2_500, 4_000] }).toBe(true);
   return detail;
 }

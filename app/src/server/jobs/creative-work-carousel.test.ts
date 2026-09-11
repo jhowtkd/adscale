@@ -229,7 +229,25 @@ describe("runCreativeWorkCarouselSlide", () => {
       revisedPrompt: "",
       buffer: await realPng(),
       imageOperation: "generate",
-      candidates: [],
+      candidates: [{
+        provider: "openai",
+        model: "gpt-image-2.5-sunburst-2026-09-08",
+        outputKey: `creative-work/${WORK_ID}/carousel/slides/${SLIDE_ID}/123.png`,
+        durationMs: 8000,
+        winner: true,
+        observation: {
+          callId: "call-carousel",
+          key: SLIDE_ID,
+          operation: "generate",
+          requested: { version: 1, model: "gpt-image-2.5-sunburst-2026-09-08", quality: "max" },
+          requestedSize: "1024x1280",
+          returnedSize: "1024x1280",
+          returnedQuality: "max",
+          requestId: "req-carousel",
+          durationMs: 8000,
+          usage: null,
+        },
+      }],
       destination: { kind: "creative_work_carousel_slide", id: SLIDE_ID },
       surface: "quick_tool",
     });
@@ -336,6 +354,32 @@ describe("runCreativeWorkCarouselSlide", () => {
       generationScope: "cover",
       storyboard: [expect.objectContaining({ slideId: "slide-1" })],
     }));
+    expect(request.renderPolicy).toEqual({
+      version: 1,
+      model: "gpt-image-2-2026-04-21",
+      quality: "medium",
+    });
+  });
+
+  it("forwards the frozen sunburst policy from the prepared carousel snapshot", async () => {
+    repo.getCreativeWork.mockResolvedValue({
+      ...workFixture(slide),
+      work: {
+        ...workFixture(slide).work,
+        inputSnapshot: {
+          ...workFixture(slide).work.inputSnapshot,
+          renderPolicy: { version: 1, model: "gpt-image-2.5-sunburst-2026-09-08", quality: "max" },
+        },
+      },
+    });
+
+    await runCreativeWorkCarouselSlide(input);
+
+    expect(executor.executeCanonicalGeneration.mock.calls[0]?.[0].renderPolicy).toEqual({
+      version: 1,
+      model: "gpt-image-2.5-sunburst-2026-09-08",
+      quality: "max",
+    });
   });
 
   it("persists the untouched provider base separately from the composed final output", async () => {
@@ -360,7 +404,13 @@ describe("runCreativeWorkCarouselSlide", () => {
       providerBaseKey: `creative-work/${WORK_ID}/carousel/slides/${SLIDE_ID}/123.png`,
       outputKey: `creative-work/${WORK_ID}/carousel/slides/${SLIDE_ID}/final.png`,
       previewKey: `creative-work/${WORK_ID}/carousel/slides/${SLIDE_ID}/final.png`,
-      quality: expect.objectContaining({ version: 1, objectiveVerdict: "pass" }),
+      quality: expect.objectContaining({
+        version: 1,
+        objectiveVerdict: "pass",
+        generationEvidence: expect.objectContaining({
+          observations: [expect.objectContaining({ callId: "call-carousel" })],
+        }),
+      }),
     }));
   });
 

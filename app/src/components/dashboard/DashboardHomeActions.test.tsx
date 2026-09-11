@@ -1,6 +1,6 @@
 "use client";
 
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,17 +12,25 @@ const useStudioEntryInterviewMock = vi.fn();
 const selectIntentMock = vi.fn();
 const addInspirationMock = vi.fn();
 const useCreativeInspirationsMock = vi.fn();
+const useCreativeProductionMock = vi.fn();
 const createCampaignMutationMock = vi.fn();
+const pushMock = vi.fn();
 const protocolButton = (intent: "variations" | "single" | "format_adaptation" | "restyle" | "carousel") =>
   screen.getByRole("radio", { name: new RegExp(`dashboard\\.home\\.${intent}`) });
 
 vi.mock("next-intl", () => ({
   useLocale: () => "pt-BR",
-  useTranslations: () => (key: string, values?: Record<string, string>) =>
+  useTranslations: () => (key: string, values?: Record<string, string | number>) =>
     key === "continueBrand" && values?.name
       ? `Marca ${values.name}`
       : key === "stageHeadline" && values?.name
         ? `O que a ${values.name} precisa sair hoje?`
+        : key === "studioDesk.campaignScope" && values?.name
+          ? `Campanha: ${values.name}`
+          : key === "studioDesk.brandScope" && values?.name
+            ? `Produção de ${values.name}`
+            : key === "studioDesk.slide" && values?.position
+              ? `Tela ${values.position}`
       : ({
           createCampaign: "Nova campanha",
           "campaignDialog.open": "Nova campanha",
@@ -53,6 +61,17 @@ vi.mock("next-intl", () => ({
           variationsReferenceError: "Anexe a peça de referência para gerar variações.",
           restylePairError: "Adicione a arte original e a referência de estilo.",
           requestLabel: "dashboard.home.composer.requestLabel",
+          "studioDesk.views": "Conteúdo da mesa",
+          "studioDesk.inspirations": "Inspirações",
+          "studioDesk.production": "Produção",
+          "studioDesk.loading": "Carregando produção…",
+          "studioDesk.empty": "Nenhuma peça produzida neste contexto.",
+          "studioDesk.error": "Não foi possível carregar a produção.",
+          "studioDesk.retry": "Tentar novamente",
+          "studioDesk.create": "Criar uma peça",
+          "studioDesk.next": "Próximas peças",
+          "studioDesk.previous": "Peças anteriores",
+          "studioDesk.unnamedCampaign": "Campanha selecionada",
         }[key] ?? `dashboard.home.${key}`),
 }));
 vi.mock("@/lib/hooks/use-canonical-works", () => ({
@@ -84,6 +103,12 @@ vi.mock("@/lib/hooks/use-studio-entry-interview", () => ({
 }));
 vi.mock("@/lib/hooks/use-creative-inspirations", () => ({
   useCreativeInspirations: (...args: unknown[]) => useCreativeInspirationsMock(...args),
+}));
+vi.mock("@/lib/hooks/use-creative-production", () => ({
+  useCreativeProduction: (...args: unknown[]) => useCreativeProductionMock(...args),
+}));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: pushMock }),
 }));
 vi.mock("@/components/creative-work/useCreativeComposer", () => ({
   useCreativeComposer: (...args: unknown[]) => useComposerMock(...args),
@@ -134,7 +159,26 @@ describe("DashboardHomeActions", () => {
       selectChip: vi.fn(),
       usedFallback: false,
     });
-    useCreativeInspirationsMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useCreativeInspirationsMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+    });
+    useCreativeProductionMock.mockReturnValue({
+      items: [],
+      isPending: false,
+      isSuccess: true,
+      isError: false,
+      isFetchNextPageError: false,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+      refetch: vi.fn(),
+    });
     useComposerMock.mockImplementation(({ initialWorkId }: { initialWorkId?: string }) => {
       const [intent, setIntent] = useState<"variations" | "single" | "format_adaptation" | "restyle" | "carousel">("single");
       const [workId, setWorkId] = useState<string | null>(initialWorkId ?? null);
@@ -198,7 +242,8 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByRole("button", { name: "Nova campanha" }));
     expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByTestId("active-client-switcher"));
     expect(screen.getAllByRole("radio")).toHaveLength(4);
-    expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
+    expect(within(screen.getByTestId("studio-talk-box")).getByTestId("creative-composer")).toBeInTheDocument();
+    expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
     expect(screen.queryByText("dashboard.home.chooseIntent")).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -440,11 +485,17 @@ describe("DashboardHomeActions", () => {
 
   it("attaches brand inspirations through the same composer model", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useCreativeInspirationsMock.mockReturnValue({
+      data: [{ id: "inspiration-1", title: "Ref da marca", previewUrl: "/insp.png" }],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
 
     render(<DashboardHomeActions />);
-    fireEvent.click(screen.getByRole("button", { name: "Inspirações p1" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Ref da marca" })[0]);
 
-    expect(addInspirationMock).toHaveBeenCalledWith({ id: "inspiration-1" });
+    expect(addInspirationMock).toHaveBeenCalledWith(expect.objectContaining({ id: "inspiration-1" }));
     expect(screen.getByTestId("creative-composer")).toBeInTheDocument();
   });
 
@@ -489,7 +540,7 @@ describe("DashboardHomeActions", () => {
 
     render(<DashboardHomeActions workId="work-from-p2" />);
 
-    expect(screen.getByRole("button", { name: "Inspirações p2" })).toBeInTheDocument();
+    expect(useCreativeInspirationsMock).toHaveBeenCalledWith("p2");
   });
 
   it("keeps progressive entry free and only reveals objectives after input", () => {
@@ -507,10 +558,10 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("studio-stage")).toBeInTheDocument();
     expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "dashboard.home.chooseObjective" })).not.toBeInTheDocument();
-    expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
+    expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "dashboard.home.composer.requestLabel" }), { target: { value: "Uma campanha" } });
     expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
-    expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
+    expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
   });
 
   it("accepts dropped multiple files and announces the buffered first file", () => {
@@ -552,7 +603,7 @@ describe("DashboardHomeActions", () => {
     render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
     expect(screen.getByTestId("studio-stage")).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "dashboard.home.studioModeLabel" })).not.toBeInTheDocument();
-    expect(screen.getByTestId("brand-inspirations-slot")).toBeInTheDocument();
+    expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
   });
 
   it("keeps Single piece references enabled in progressive configuration", () => {
@@ -570,6 +621,38 @@ describe("DashboardHomeActions", () => {
 
   it("keeps completed and partial results visible while the used plan is collapsed", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useCreativeInspirationsMock.mockReturnValue({
+      data: [{ id: "insp-1", title: "Inspiração visível", previewUrl: "/insp.png" }],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+    });
+    useCreativeProductionMock.mockReturnValue({
+      items: [{
+        id: "output:1",
+        kind: "output",
+        workId: "work-1",
+        campaignId: null,
+        title: "Peça produzida",
+        format: "4:5",
+        previewUrl: "/piece.png",
+        reviewHref: "/campaigns/campaign-a?creativeWork=work-1",
+        createdAt: "2026-09-08T12:00:00.000Z",
+        deckId: null,
+        position: null,
+      }],
+      isPending: false,
+      isSuccess: true,
+      isError: false,
+      isFetchNextPageError: false,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+      refetch: vi.fn(),
+    });
     useComposerMock.mockReturnValue({
       request: "Campanha de matrículas", workTitle: "Volta às aulas", hasEntry: true, objectiveSelected: true, intent: "variations",
       stage: "results", preparedPlan: { preparedRevision: "revision-1", protocol: "variations", materials: [{ label: "Logo" }], preserve: ["verified_facts"], explore: ["composition"], formats: ["4:5"], outputCount: 3 }, actionPhase: "idle", clientProfileId: "p1", brandName: "Marca A", state: "results", workId: "work-1", quote: { unitCount: 3, credits: 15 },
@@ -588,6 +671,14 @@ describe("DashboardHomeActions", () => {
     expect(within(plan).getByTestId("prepared-plan")).toHaveTextContent("variations|Logo|verified_facts|composition|4:5|3");
     expect(screen.getByTestId("progressive-results-summary").compareDocumentPosition(plan)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.getByTestId("studio-stage")).toBeInTheDocument();
+    expect(screen.getByTestId("studio-desk")).not.toHaveAttribute("inert");
+    expect(screen.getByTestId("studio-mosaic")).toBeVisible();
+    expect(within(screen.getByTestId("studio-mosaic")).getAllByRole("button", { name: "Inspiração visível" }).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Produção", exact: true }));
+    expect(screen.getByRole("button", { name: "Produção", exact: true })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("studio-mosaic")).toBeVisible();
+    expect(within(screen.getByTestId("studio-mosaic")).getByRole("button", { name: "Peça produzida" })).toBeVisible();
+    expect(within(screen.getByTestId("studio-mosaic")).queryByRole("button", { name: "Inspiração visível" })).not.toBeInTheDocument();
     expect(screen.getByTestId("progressive-results-summary")).toHaveTextContent("Volta às aulas");
     expect(screen.getByTestId("progressive-results-summary")).not.toHaveTextContent("Campanha de matrículas");
     expect(screen.getByTestId("progressive-results-summary")).not.toHaveTextContent("work-1");
@@ -919,6 +1010,38 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByRole("button", { name: "dashboard.home.talkAttachCount" })).toBeDisabled();
   });
 
+  it("expands the talk box when a new work appears so source status stays reachable", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    let workId: string | null = null;
+    useComposerMock.mockImplementation(() => ({
+      intent: "variations",
+      workId,
+      clientProfileId: "p1",
+      request: "",
+      setRequest: vi.fn(),
+      hasEntry: false,
+      objectiveSelected: true,
+      bufferedFile: null,
+      announcement: workId ? "Arte adicionada" : null,
+      error: null,
+      sources: workId
+        ? [{ id: "s1", name: "teclado-desktop.png", status: "analyzing", usage: "both", usageConfirmed: true }]
+        : [],
+      outputs: [],
+      stage: "configure",
+      actionPhase: "idle",
+      quote: { unitCount: 1, credits: 5 },
+      addFiles: vi.fn(),
+      selectIntent: selectIntentMock,
+    }));
+    const view = render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
+    expect(screen.getByTestId("studio-talk-box")).toHaveAttribute("data-expanded", "false");
+    workId = "work-attached";
+    view.rerender(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
+    expect(screen.getByTestId("studio-talk-box")).toHaveAttribute("data-expanded", "true");
+    expect(screen.getByRole("button", { name: "dashboard.home.studioDesk.collapse" })).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("docks the talk box when the stage already has work", () => {
     useCanonicalWorksMock.mockReturnValue({
       data: [{
@@ -944,9 +1067,10 @@ describe("DashboardHomeActions", () => {
       refetch: vi.fn(),
     });
     render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
-    expect(screen.getByTestId("studio-talk-box")).toHaveAttribute("data-placement", "center");
+    const talkBox = screen.getByTestId("studio-talk-box");
+    expect(talkBox).toHaveAttribute("data-placement", "center");
     expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("studio-dock")).not.toBeInTheDocument();
+    expect(screen.getByTestId("studio-dock")).toContainElement(talkBox);
   });
 
   it("keeps Começar centered when progressive already has a default protocol", () => {
@@ -1039,5 +1163,215 @@ describe("DashboardHomeActions", () => {
     render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" entryInterviewEnabled />);
     expect(screen.queryByRole("button", { name: "Começar" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Gerar" })).not.toBeInTheDocument();
+  });
+
+  it("alterna para produção sem mutar o compositor", () => {
+    const generateLegacy = vi.fn();
+    const preparePlan = vi.fn();
+    const linkCampaign = vi.fn();
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      intent: "single",
+      clientProfileId: "p1",
+      campaignId: "campaign-a",
+      campaigns: [{ id: "campaign-a", name: "Mesa A" }],
+      quote: { unitCount: 1, credits: 5 },
+      generateLegacy,
+      preparePlan,
+      selectIntent: selectIntentMock,
+      linkCampaign,
+      addInspiration: addInspirationMock,
+    });
+
+    render(<DashboardHomeActions workspaceId="ws" />);
+    fireEvent.click(screen.getByRole("button", { name: "Produção", exact: true }));
+
+    expect(generateLegacy).not.toHaveBeenCalled();
+    expect(preparePlan).not.toHaveBeenCalled();
+    expect(selectIntentMock).not.toHaveBeenCalled();
+    expect(linkCampaign).not.toHaveBeenCalled();
+    expect(useCreativeProductionMock).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "ws",
+      clientProfileId: "p1",
+      campaignId: "campaign-a",
+      enabled: true,
+    }));
+  });
+
+  it("abre a peça produzida na revisão canônica", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      intent: "single",
+      clientProfileId: "p1",
+      campaignId: "campaign-a",
+      campaigns: [{ id: "campaign-a", name: "Mesa A" }],
+      quote: { unitCount: 1, credits: 5 },
+      generateLegacy: vi.fn(),
+      preparePlan: vi.fn(),
+      selectIntent: selectIntentMock,
+      linkCampaign: vi.fn(),
+      addInspiration: addInspirationMock,
+    });
+    useCreativeProductionMock.mockReturnValue({
+      items: [{
+        id: "output:1",
+        kind: "output",
+        workId: "w1",
+        campaignId: "campaign-a",
+        title: "Peça produzida",
+        format: "4:5",
+        previewUrl: "/piece.png",
+        reviewHref: "/campaigns/campaign-a?creativeWork=w1",
+        createdAt: "2026-09-08T12:00:00.000Z",
+        deckId: null,
+        position: null,
+      }],
+      isPending: false,
+      isSuccess: true,
+      isError: false,
+      isFetchNextPageError: false,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+      refetch: vi.fn(),
+    });
+
+    render(<DashboardHomeActions workspaceId="ws" />);
+    fireEvent.click(screen.getByRole("button", { name: "Produção", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Peça produzida" }));
+
+    expect(pushMock).toHaveBeenCalledWith("/campaigns/campaign-a?creativeWork=w1");
+    expect(addInspirationMock).not.toHaveBeenCalled();
+  });
+
+  it("não avança a mesa nova quando a próxima página do escopo anterior resolve atrasada", async () => {
+    const piece = (campaignId: string, index: number) => ({
+      id: `output:${campaignId}-${index}`,
+      kind: "output" as const,
+      workId: `w-${campaignId}-${index}`,
+      campaignId,
+      title: `Peça ${campaignId} ${index}`,
+      format: "4:5",
+      previewUrl: `/${campaignId}-${index}.png`,
+      reviewHref: `/campaigns/${campaignId}`,
+      createdAt: "2026-09-08T12:00:00.000Z",
+      deckId: null,
+      position: null,
+    });
+    const itemsA = Array.from({ length: 6 }, (_, index) => piece("A", index + 1));
+    const itemsB = Array.from({ length: 8 }, (_, index) => piece("B", index + 1));
+    let finishNext!: (value: {
+      isError: boolean;
+      data: { pages: Array<{ production: typeof itemsA }> };
+    }) => void;
+    const fetchNextPage = vi.fn(() => new Promise<Parameters<typeof finishNext>[0]>((resolve) => {
+      finishNext = resolve;
+    }));
+    const composerState = {
+      intent: "single" as const,
+      clientProfileId: "p1",
+      campaignId: "campaign-a",
+      campaigns: [
+        { id: "campaign-a", name: "Mesa A" },
+        { id: "campaign-b", name: "Mesa B" },
+      ],
+      quote: { unitCount: 1, credits: 5 },
+      generateLegacy: vi.fn(),
+      preparePlan: vi.fn(),
+      selectIntent: selectIntentMock,
+      linkCampaign: vi.fn(),
+      addInspiration: addInspirationMock,
+    };
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue(composerState);
+    useCreativeProductionMock.mockReturnValue({
+      items: itemsA,
+      isPending: false,
+      isSuccess: true,
+      isError: false,
+      isFetchNextPageError: false,
+      hasNextPage: true,
+      isFetchingNextPage: false,
+      fetchNextPage,
+      refetch: vi.fn(),
+    });
+
+    const view = render(<DashboardHomeActions workspaceId="ws" />);
+    fireEvent.click(screen.getByRole("button", { name: "Produção", exact: true }));
+    expect(screen.getByRole("button", { name: "Peça A 1" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Próximas peças" }));
+    expect(fetchNextPage).toHaveBeenCalledTimes(1);
+
+    useComposerMock.mockReturnValue({ ...composerState, campaignId: "campaign-b" });
+    useCreativeProductionMock.mockReturnValue({
+      items: itemsB,
+      isPending: false,
+      isSuccess: true,
+      isError: false,
+      isFetchNextPageError: false,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage,
+      refetch: vi.fn(),
+    });
+    view.rerender(<DashboardHomeActions workspaceId="ws" />);
+    expect(screen.getByRole("button", { name: "Peça B 1" })).toBeInTheDocument();
+
+    await act(async () => {
+      finishNext({
+        isError: false,
+        data: { pages: [{ production: [...itemsA, piece("A", 7)] }] },
+      });
+    });
+
+    expect(screen.getByRole("button", { name: "Peça B 1" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Peça B 7" })).not.toBeInTheDocument();
+  });
+
+  it("desativa próximas peças na última página de produção sem cursor", () => {
+    const items = Array.from({ length: 7 }, (_, index) => ({
+      id: `output:${index + 1}`,
+      kind: "output" as const,
+      workId: `w-${index + 1}`,
+      campaignId: null,
+      title: `Peça ${index + 1}`,
+      format: "4:5",
+      previewUrl: `/${index + 1}.png`,
+      reviewHref: `/w-${index + 1}`,
+      createdAt: "2026-09-08T12:00:00.000Z",
+      deckId: null,
+      position: null,
+    }));
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      intent: "single",
+      clientProfileId: "p1",
+      campaignId: null,
+      quote: { unitCount: 1, credits: 5 },
+      generateLegacy: vi.fn(),
+      preparePlan: vi.fn(),
+      selectIntent: selectIntentMock,
+      linkCampaign: vi.fn(),
+      addInspiration: addInspirationMock,
+    });
+    useCreativeProductionMock.mockReturnValue({
+      items,
+      isPending: false,
+      isSuccess: true,
+      isError: false,
+      isFetchNextPageError: false,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+      refetch: vi.fn(),
+    });
+
+    render(<DashboardHomeActions workspaceId="ws" />);
+    fireEvent.click(screen.getByRole("button", { name: "Produção", exact: true }));
+    const next = screen.getByRole("button", { name: "Próximas peças" });
+    expect(next).toBeEnabled();
+    fireEvent.click(next);
+    expect(screen.getByRole("button", { name: "Peça 7" })).toBeInTheDocument();
+    expect(next).toBeDisabled();
   });
 });

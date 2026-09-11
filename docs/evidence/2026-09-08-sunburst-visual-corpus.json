@@ -1,0 +1,635 @@
+{
+  "version": 1,
+  "id": "sunburst-visual-corpus-2026-09-08",
+  "frozenAt": "2026-09-09",
+  "baseCommit": "6530cef9",
+  "status": "corpus_selected_budget_unapproved",
+  "paidCallsAuthorized": false,
+  "sunburstPercent": 0,
+  "disclaimer": "Estudo independente produzido no ADScale. Sem afiliação, patrocínio ou aprovação da marca analisada.",
+  "sourceKit": "docs/commercial-studies/real-brands",
+  "builder": {
+    "module": "app/src/server/creative-work/prompt.ts",
+    "invariants": [
+      "AUTHORIZED CHANGE",
+      "PRESERVE UNLESS EXPLICITLY CHANGED"
+    ],
+    "referenceLimit": 4
+  },
+  "policies": {
+    "control": {
+      "model": "gpt-image-2-2026-04-21",
+      "quality": "product_flow"
+    },
+    "candidate": {
+      "model": "gpt-image-2.5-sunburst-2026-09-08",
+      "quality": "explicit"
+    }
+  },
+  "normalization": {
+    "maxDimension": 2048,
+    "opaqueCodec": "webp",
+    "quality": 85,
+    "inspectedAt": "2026-09-09",
+    "downscaleOccurred": false,
+    "note": "None of the five authorized originals exceeds 2048 on the long edge. Current normalizeCreativeWorkReferenceImage WebP q85 output matches the commercial-study evidence hashes exactly. Remaining risk is JPEG→WebP recompression and tiny sources (especially mtv-id-1981-b at 167×125), not dimensional downscale. Judge softness against the original at 100% delivery size before attributing it to the model. Do not raise global limits for one awkward image."
+  },
+  "budget": {
+    "proposed": {
+      "smokeUsd": 10,
+      "principalSequencesCalibrationUsd": 50,
+      "smokeCalls": 12,
+      "principalCallsIfAll24Ready": 96,
+      "sequenceCallsSunburst": 9,
+      "sequenceCallsBaselineOptional": 9,
+      "calibrationCalls": 36,
+      "principalPlusSequencesPlusCalibration": "141 or 150"
+    },
+    "executableNow": {
+      "readyCases": 20,
+      "blockedCases": 4,
+      "smokeCalls": 12,
+      "principalCalls": 80,
+      "note": "Carousel slots stay in the 24-case matrix but are not callable. 20 ready × 2 models × 2 product-path operations (generate and edit) = 80. Do not invent a deck to fill the remaining 16. Gate 8 / full decks / I6 are outside this ceiling."
+    }
+  },
+  "batches": {
+    "smokeCaseIds": [
+      "piece-nike-just-do-it-4x5",
+      "piece-mtv-network-id-4x5",
+      "piece-absolut-perfection-4x5",
+      "variation-mtv-skin-change",
+      "restyle-absolut-keep-bottle",
+      "review-nike-copy-only"
+    ],
+    "sequenceStarts": [
+      {
+        "id": "sequence-nike",
+        "baseAssetId": "result-nike-161259b6",
+        "edits": [
+          "Troque somente a chamada visível para JUST DO IT.",
+          "Troque somente o fundo por um céu nublado sobre a ponte; preserve atleta, produto e copy.",
+          "Troque somente a iluminação para fim de tarde; preserve composição, identidade e texto."
+        ]
+      },
+      {
+        "id": "sequence-mtv",
+        "baseAssetId": "result-mtv-098d6f77",
+        "edits": [
+          "Mude somente a pele/textura do M; preserve o esqueleto M/TV.",
+          "Mude somente a cor de fundo; preserve o esqueleto e a palavra TV.",
+          "Mude somente o ruído da pele para graffiti; preserve a forma M/TV."
+        ]
+      },
+      {
+        "id": "sequence-absolut",
+        "baseAssetId": "result-absolut-6e80546d",
+        "edits": [
+          "Mude somente o fundo para preto absoluto; preserve a garrafa e as duas palavras.",
+          "Mude somente o conceito depois de Absolut para Absolut Night; preserve a garrafa.",
+          "Mude somente o recorte para um detalhe do ombro da garrafa; preserve o objeto e a regra de duas palavras."
+        ]
+      }
+    ],
+    "calibrationCaseIds": [
+      "piece-nike-just-do-it-4x5",
+      "piece-mtv-network-id-4x5",
+      "piece-absolut-perfection-4x5",
+      "variation-mtv-skin-change",
+      "restyle-absolut-keep-bottle",
+      "review-nike-copy-only"
+    ]
+  },
+  "assets": [
+    {
+      "id": "original-nike-just-do-it",
+      "kind": "campaign_original",
+      "brand": "nike",
+      "gitignored": true,
+      "path": "docs/commercial-studies/real-brands/originals/nike-just-do-it-1988-card.jpg",
+      "sha256": "76953e7c80dd3b59ab24229adb698fa4e08f7973bfeb99a3ffbe6b23e7eb578e",
+      "width": 880,
+      "height": 495,
+      "normalized": {
+        "codec": "webp",
+        "quality": 85,
+        "width": 880,
+        "height": 495,
+        "sha256": "79f6a7c479d3de0e84347e0e36c380eed4534d9349659222fae1e3fd7a83a94f"
+      }
+    },
+    {
+      "id": "original-nike-walt-stack",
+      "kind": "campaign_still",
+      "brand": "nike",
+      "gitignored": true,
+      "path": "docs/commercial-studies/real-brands/originals/nike-walt-stack-1988-card.jpg",
+      "sha256": "f05c5540636bf082d41be226f7fa38d7b048322ff120358d6332ece4d236c0a0",
+      "width": 880,
+      "height": 495,
+      "normalized": {
+        "codec": "webp",
+        "quality": 85,
+        "width": 880,
+        "height": 495,
+        "sha256": "390053aa4f31e35f734d26fc6481552156ecc51aa7bc6422c4fffcdfcb20d6f9"
+      }
+    },
+    {
+      "id": "original-mtv-id-a",
+      "kind": "campaign_original",
+      "brand": "mtv",
+      "gitignored": true,
+      "path": "docs/commercial-studies/real-brands/originals/mtv-id-1981-a.jpg",
+      "sha256": "a61b7dc3a323279007d1fb18026b2f32c946b44b010c6125009df4d015bb2515",
+      "width": 500,
+      "height": 377,
+      "normalized": {
+        "codec": "webp",
+        "quality": 85,
+        "width": 500,
+        "height": 377,
+        "sha256": "3a6fd9eb0e4fdb840781c7c06135a4d27f413045c76a75a50aa1b2edc4232690"
+      }
+    },
+    {
+      "id": "original-mtv-id-b",
+      "kind": "campaign_still",
+      "brand": "mtv",
+      "gitignored": true,
+      "path": "docs/commercial-studies/real-brands/originals/mtv-id-1981-b.jpg",
+      "sha256": "a663b32d9aea9018c571271e96c70a47adf793f3208a8bb09f8a3b27d03da0ee",
+      "width": 167,
+      "height": 125,
+      "normalized": {
+        "codec": "webp",
+        "quality": 85,
+        "width": 167,
+        "height": 125,
+        "sha256": "2ee2b44804749233c688abdbc603a4d51cd01161d7b2dae5b6951db4d380f44e"
+      }
+    },
+    {
+      "id": "original-absolut-perfection",
+      "kind": "campaign_original",
+      "brand": "absolut",
+      "gitignored": true,
+      "path": "docs/commercial-studies/real-brands/originals/absolut-perfection-1980.jpg",
+      "sha256": "a71cd7ab0e986e7d86d882576e70db6a94ffb0f6219fa1889aba922e7cc84f46",
+      "width": 2000,
+      "height": 1500,
+      "normalized": {
+        "codec": "webp",
+        "quality": 85,
+        "width": 2000,
+        "height": 1500,
+        "sha256": "b8bddf0079e70e01323d987a586e7cb2d2d849784448b13076576bb72fcca3c8"
+      }
+    },
+    {
+      "id": "result-nike-161259b6",
+      "kind": "isolated_result",
+      "brand": "nike",
+      "gitignored": true,
+      "path": "docs/commercial-studies/real-brands/results/nike-161259b6-042b-42fd-a5df-9dff2b2f7dcf.png",
+      "sha256": "ac2e53d8caf5d9070698ccaaa34451d9188e641228397672094a40f82b928650",
+      "width": 1080,
+      "height": 1350,
+      "historicalPromptSha256": "ea3786e59d911eaed9c13bee59c4e3d71f6363b3ad6be29762b62a0982d436e8",
+      "visualReview": "approved"
+    },
+    {
+      "id": "result-nike-9c25bdef",
+      "kind": "isolated_result",
+      "brand": "nike",
+      "gitignored": true,
+      "path": "docs/commercial-studies/real-brands/results/nike-9c25bdef-6d1c-4e9a-98db-93141c20c28f.png",
+      "sha256": "c658153df3a10ec6e0c5d1c414717bb1bd34df3d50a06a170551e1f112d40ab3",
+      "width": 1080,
+      "height": 1350,
+      "historicalPromptSha256": "dff9108e1341ea609dd34e1aa7ca3e12ddbdaeaaa0c2772e3e254efedf0c50bb",
+      "visualReview": "approved"
+    },
+    {
+      "id": "result-mtv-098d6f77",
+      "kind": "isolated_result",
+      "brand": "mtv",
+      "gitignored": true,
+      "path": "docs/commercial-studies/real-brands/results/mtv-098d6f77-596a-4d7c-991a-e8dda6399133.png",
+      "sha256": "0eeac269b32dfbb79bc29e20c7bbe6e52c89746ed69544e885656c38e5a0f10e",
+      "width": 1080,
+      "height": 1350,
+      "historicalPromptSha256": "e6df18c4aaf4230a4d7205af96a74592e0aecaf013be478798a3a6bcc46b00c7",
+      "visualReview": "approved"
+    },
+    {
+      "id": "result-mtv-c7eacdf2",
+      "kind": "isolated_result",
+      "brand": "mtv",
+      "gitignored": true,
+      "path": "docs/commercial-studies/real-brands/results/mtv-c7eacdf2-dd90-4614-a7b4-fe9c84d0ccc7.png",
+      "sha256": "95317601a49d43f89503c5c99ed0a9bf0241f45de9d3923be32105d2e4c56f28",
+      "width": 1080,
+      "height": 1350,
+      "historicalPromptSha256": "7fa0a3785a15ba925aeac65241f31efdd925442dd45b6236297229298c85a49c",
+      "visualReview": "approved"
+    },
+    {
+      "id": "result-absolut-6e80546d",
+      "kind": "isolated_result",
+      "brand": "absolut",
+      "gitignored": true,
+      "path": "docs/commercial-studies/real-brands/results/absolut-6e80546d-e16a-4ca0-abe1-26f69e017aae.png",
+      "sha256": "20d67da55dc3db60c5b2495556bd77dac09364a279f6493e67989d1c7e98db3c",
+      "width": 1080,
+      "height": 1350,
+      "historicalPromptSha256": "3ddcd0288fa2f295493e166e5638ae72349b59f3007ce5a3962ab690c66016ac",
+      "visualReview": "approved"
+    },
+    {
+      "id": "result-absolut-7da609cd",
+      "kind": "isolated_result",
+      "brand": "absolut",
+      "gitignored": true,
+      "path": "docs/commercial-studies/real-brands/results/absolut-7da609cd-9de4-492a-94c7-de7b6e813145.png",
+      "sha256": "44ea5c78a815f9215974bbfbaef84491136813aea053c6dc8365f4281faf8a42",
+      "width": 1080,
+      "height": 1350,
+      "historicalPromptSha256": "768c543c5d68c07f10dd668266e44f2c189fd4efb9d527775916eebec619174e",
+      "visualReview": "approved"
+    }
+  ],
+  "cases": [
+    {
+      "id": "piece-nike-just-do-it-4x5",
+      "family": "piece",
+      "status": "ready",
+      "brand": "nike",
+      "segment": "sport",
+      "protocol": "recreation",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Recriar o sistema verbal e a composição, sem o rosto de Walt Stack. Headline: Just Do It. Body: Ação como argumento: o feito vale mais do que o retrato. Corte seco, poucas palavras, sem explicação institucional. CTA: Just Do It. Formato 4:5 (1080×1350). Estudo interno. Sem afiliação com a marca.",
+      "sources": [
+        { "assetId": "original-nike-just-do-it", "role": "brand_identity", "order": 1 },
+        { "assetId": "original-nike-walt-stack", "role": "brand_identity", "order": 2 }
+      ],
+      "result": null
+    },
+    {
+      "id": "piece-nike-walt-stack-system",
+      "family": "piece",
+      "status": "ready",
+      "brand": "nike",
+      "segment": "sport",
+      "protocol": "fresh",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Nova peça com a mesma voz curta. Headline: Just Do It. Sem retratar Walt Stack. Sem Swoosh colada como logo exato. Formato 4:5 (1080×1350). Estudo interno. Sem afiliação com a marca.",
+      "sources": [
+        { "assetId": "original-nike-walt-stack", "role": "brand_identity", "order": 1 },
+        { "assetId": "original-nike-just-do-it", "role": "brand_identity", "order": 2 }
+      ],
+      "result": null
+    },
+    {
+      "id": "piece-mtv-network-id-4x5",
+      "family": "piece",
+      "status": "ready",
+      "brand": "mtv",
+      "segment": "media",
+      "protocol": "recreation",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Recriar um ID, não um logo estático. Headline: Network ID. Body: Esqueleto M com TV pichado. A forma fica, a pele muda. ID, não logo estático. CTA: ID, não logo. Formato 4:5 (1080×1350). Estudo interno. Sem afiliação com a marca.",
+      "sources": [
+        { "assetId": "original-mtv-id-a", "role": "brand_identity", "order": 1 },
+        { "assetId": "original-mtv-id-b", "role": "brand_identity", "order": 2 }
+      ],
+      "result": null
+    },
+    {
+      "id": "piece-absolut-perfection-4x5",
+      "family": "piece",
+      "status": "ready",
+      "brand": "absolut",
+      "segment": "spirits",
+      "protocol": "recreation",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Recriar garrafa, holofote e duas palavras. Headline: Absolut Perfection. Body: Garrafa como âncora. O objeto manda; o fundo serve. Duas palavras: Absolut + conceito. CTA: Absolut ______. Formato 4:5 (1080×1350). Estudo interno. Sem afiliação com a marca.",
+      "sources": [
+        { "assetId": "original-absolut-perfection", "role": "brand_identity", "order": 1 }
+      ],
+      "result": null
+    },
+    {
+      "id": "variation-mtv-skin-change",
+      "family": "variation",
+      "status": "ready",
+      "brand": "mtv",
+      "segment": "media",
+      "protocol": "fresh",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Mesmo esqueleto M/TV, outra pele. Preserve a forma; troque somente textura, material, cor e ruído. Sem clipe, sem trilha, sem logo estático colado. Formato 4:5 (1080×1350).",
+      "sources": [
+        { "assetId": "original-mtv-id-a", "role": "style", "order": 1 },
+        { "assetId": "original-mtv-id-b", "role": "brand_identity", "order": 2 }
+      ],
+      "result": null
+    },
+    {
+      "id": "variation-nike-copy-only",
+      "family": "variation",
+      "status": "ready",
+      "brand": "nike",
+      "segment": "sport",
+      "protocol": "fresh",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Varie somente a copy visível para JUST DO IT. Preserve composição de ação, ponte e corte seco. Sem retratar Walt Stack. Formato 4:5 (1080×1350).",
+      "sources": [
+        { "assetId": "original-nike-just-do-it", "role": "brand_identity", "order": 1 }
+      ],
+      "result": null
+    },
+    {
+      "id": "variation-absolut-concept",
+      "family": "variation",
+      "status": "ready",
+      "brand": "absolut",
+      "segment": "spirits",
+      "protocol": "fresh",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Peça nova no sistema Absolut ______. Copia a regra, não o halo. Headline: Absolut Night. Preserve a garrafa como âncora. Sem parágrafo de produto. Formato 4:5 (1080×1350).",
+      "sources": [
+        { "assetId": "original-absolut-perfection", "role": "brand_identity", "order": 1 }
+      ],
+      "result": null
+    },
+    {
+      "id": "variation-nike-approved-sibling",
+      "family": "variation",
+      "status": "ready",
+      "brand": "nike",
+      "segment": "sport",
+      "protocol": "fresh",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Gere uma variação da peça aprovada no mesmo formato 4:5. Preserve identidade, produto e a frase Just Do It. Troque somente o motivo da ação. Sem semelhança de Walt Stack.",
+      "sources": [
+        { "assetId": "result-nike-161259b6", "role": "revision", "order": 1 },
+        { "assetId": "original-nike-just-do-it", "role": "brand_identity", "order": 2 }
+      ],
+      "result": null
+    },
+    {
+      "id": "adaptation-mtv-landscape-to-4x5",
+      "family": "adaptation",
+      "status": "ready",
+      "brand": "mtv",
+      "segment": "media",
+      "protocol": "recreation",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Adaptar o ID de origem paisagem/grade para o formato 4:5 (1080×1350) sem transformar o ID em logo estático. Preserve o esqueleto M/TV.",
+      "sources": [
+        { "assetId": "original-mtv-id-a", "role": "brand_identity", "order": 1 }
+      ],
+      "result": null
+    },
+    {
+      "id": "adaptation-absolut-print-to-4x5",
+      "family": "adaptation",
+      "status": "ready",
+      "brand": "absolut",
+      "segment": "spirits",
+      "protocol": "recreation",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Adaptar o anúncio de 1980 (2000×1500) para 4:5 (1080×1350). Preserve garrafa, holofote e as duas palavras Absolut Perfection. Não copiar o halo como atalho.",
+      "sources": [
+        { "assetId": "original-absolut-perfection", "role": "brand_identity", "order": 1 }
+      ],
+      "result": null
+    },
+    {
+      "id": "adaptation-nike-approved-to-9x16",
+      "family": "adaptation",
+      "status": "ready",
+      "brand": "nike",
+      "segment": "sport",
+      "protocol": "fresh",
+      "format": "9:16",
+      "outputSize": { "width": 1080, "height": 1920 },
+      "instruction": "Adaptar a peça aprovada 4:5 para 9:16 (1080×1920). Preserve identidade, ação e a frase Just Do It. Não retratar Walt Stack. Não colar Swoosh como logo exato.",
+      "sources": [
+        { "assetId": "result-nike-9c25bdef", "role": "revision", "order": 1 },
+        { "assetId": "original-nike-just-do-it", "role": "brand_identity", "order": 2 }
+      ],
+      "result": null
+    },
+    {
+      "id": "adaptation-mtv-approved-to-1x1",
+      "family": "adaptation",
+      "status": "ready",
+      "brand": "mtv",
+      "segment": "media",
+      "protocol": "fresh",
+      "format": "1:1",
+      "outputSize": { "width": 1080, "height": 1080 },
+      "instruction": "Adaptar a peça aprovada 4:5 para 1:1 (1080×1080). Preserve o esqueleto M/TV. Não colar logotipo protegido como marca parada.",
+      "sources": [
+        { "assetId": "result-mtv-c7eacdf2", "role": "revision", "order": 1 },
+        { "assetId": "original-mtv-id-a", "role": "brand_identity", "order": 2 }
+      ],
+      "result": null
+    },
+    {
+      "id": "restyle-mtv-keep-skeleton",
+      "family": "restyle",
+      "status": "ready",
+      "brand": "mtv",
+      "segment": "media",
+      "protocol": "fresh",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Restyle: preserve o esqueleto M/TV e a composição do ID. Troque a pele para atitude punk/TV. Sem música.",
+      "sources": [
+        { "assetId": "result-mtv-098d6f77", "role": "revision", "order": 1 },
+        { "assetId": "original-mtv-id-b", "role": "style", "order": 2 }
+      ],
+      "result": null
+    },
+    {
+      "id": "restyle-nike-keep-action",
+      "family": "restyle",
+      "status": "ready",
+      "brand": "nike",
+      "segment": "sport",
+      "protocol": "fresh",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Restyle: preserve a ação como argumento e a frase Just Do It. Troque atleta, cenário e década. Sem semelhança de Walt Stack.",
+      "sources": [
+        { "assetId": "result-nike-161259b6", "role": "revision", "order": 1 },
+        { "assetId": "original-nike-walt-stack", "role": "style", "order": 2 }
+      ],
+      "result": null
+    },
+    {
+      "id": "restyle-absolut-keep-bottle",
+      "family": "restyle",
+      "status": "ready",
+      "brand": "absolut",
+      "segment": "spirits",
+      "protocol": "fresh",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Restyle: preserve a garrafa como âncora e a regra Absolut + conceito. Troque cenário, material e gag visual. Não copiar o halo de 1980 como atalho de perfeição.",
+      "sources": [
+        { "assetId": "result-absolut-6e80546d", "role": "revision", "order": 1 },
+        { "assetId": "original-absolut-perfection", "role": "brand_identity", "order": 2 }
+      ],
+      "result": null
+    },
+    {
+      "id": "restyle-mtv-keep-composition",
+      "family": "restyle",
+      "status": "ready",
+      "brand": "mtv",
+      "segment": "media",
+      "protocol": "fresh",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Restyle: preserve a composição do ID aprovado. Troque somente paleta e ruído da pele. A forma fica, a pele muda.",
+      "sources": [
+        { "assetId": "result-mtv-c7eacdf2", "role": "revision", "order": 1 },
+        { "assetId": "original-mtv-id-a", "role": "style", "order": 2 }
+      ],
+      "result": null
+    },
+    {
+      "id": "review-nike-copy-only",
+      "family": "review",
+      "status": "ready",
+      "brand": "nike",
+      "segment": "sport",
+      "protocol": "revision",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Use the revision reference as the accepted base piece.",
+      "revisionInstruction": "Troque somente a chamada visível para JUST DO IT.",
+      "sources": [
+        { "assetId": "result-nike-161259b6", "role": "revision", "order": 1 },
+        { "assetId": "original-nike-just-do-it", "role": "brand_identity", "order": 2 }
+      ],
+      "result": null
+    },
+    {
+      "id": "review-mtv-element-only",
+      "family": "review",
+      "status": "ready",
+      "brand": "mtv",
+      "segment": "media",
+      "protocol": "revision",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Use the revision reference as the accepted base piece.",
+      "revisionInstruction": "Mude somente a pele/textura do M; preserve o esqueleto M/TV.",
+      "sources": [
+        { "assetId": "result-mtv-098d6f77", "role": "revision", "order": 1 },
+        { "assetId": "original-mtv-id-a", "role": "brand_identity", "order": 2 }
+      ],
+      "result": null
+    },
+    {
+      "id": "review-absolut-color-only",
+      "family": "review",
+      "status": "ready",
+      "brand": "absolut",
+      "segment": "spirits",
+      "protocol": "revision",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Use the revision reference as the accepted base piece.",
+      "revisionInstruction": "Mude somente o fundo para preto absoluto; preserve a garrafa e as duas palavras.",
+      "sources": [
+        { "assetId": "result-absolut-6e80546d", "role": "revision", "order": 1 },
+        { "assetId": "original-absolut-perfection", "role": "brand_identity", "order": 2 }
+      ],
+      "result": null
+    },
+    {
+      "id": "review-nike-preserve-rest",
+      "family": "review",
+      "status": "ready",
+      "brand": "nike",
+      "segment": "sport",
+      "protocol": "revision",
+      "format": "4:5",
+      "outputSize": { "width": 1080, "height": 1350 },
+      "instruction": "Use the revision reference as the accepted base piece.",
+      "revisionInstruction": "Não altere composição, atleta, produto nem copy; preserve a peça-base.",
+      "sources": [
+        { "assetId": "result-nike-9c25bdef", "role": "revision", "order": 1 },
+        { "assetId": "original-nike-walt-stack", "role": "brand_identity", "order": 2 }
+      ],
+      "result": null
+    },
+    {
+      "id": "carousel-cover",
+      "family": "carousel",
+      "status": "blocked",
+      "brand": null,
+      "segment": null,
+      "protocol": "carousel",
+      "format": "4:5",
+      "executionAllowed": false,
+      "blockedReason": "No authorized carousel deck exists in the commercial-studies kit. Isolated 4:5 pieces cannot prove cover/middle/close or dependent coherence. I5 invalidation shipped in #328; visual Gate 8 still requires a real deck and a separate call budget.",
+      "sources": [],
+      "result": null
+    },
+    {
+      "id": "carousel-middle",
+      "family": "carousel",
+      "status": "blocked",
+      "brand": null,
+      "segment": null,
+      "protocol": "carousel",
+      "format": "4:5",
+      "executionAllowed": false,
+      "blockedReason": "No authorized carousel deck exists in the commercial-studies kit. Isolated 4:5 pieces cannot prove cover/middle/close or dependent coherence. I5 invalidation shipped in #328; visual Gate 8 still requires a real deck and a separate call budget.",
+      "sources": [],
+      "result": null
+    },
+    {
+      "id": "carousel-close",
+      "family": "carousel",
+      "status": "blocked",
+      "brand": null,
+      "segment": null,
+      "protocol": "carousel",
+      "format": "4:5",
+      "executionAllowed": false,
+      "blockedReason": "No authorized carousel deck exists in the commercial-studies kit. Isolated 4:5 pieces cannot prove cover/middle/close or dependent coherence. I5 invalidation shipped in #328; visual Gate 8 still requires a real deck and a separate call budget.",
+      "sources": [],
+      "result": null
+    },
+    {
+      "id": "carousel-dependent-invalidation",
+      "family": "carousel",
+      "status": "blocked",
+      "brand": null,
+      "segment": null,
+      "protocol": "carousel",
+      "format": "4:5",
+      "executionAllowed": false,
+      "blockedReason": "Code for dependent invalidation is in main (#328). Visual proof still needs an authorized deck; do not substitute a single-piece revision.",
+      "sources": [],
+      "result": null
+    }
+  ]
+}

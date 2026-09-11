@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { imageRenderPolicySchema } from "@/server/ai/image-render-policy";
+
 export const LAYER_EDITOR_LEASE_MS = 90_000;
 export const LAYER_EDITOR_HEARTBEAT_MS = 30_000;
 export const LAYER_EDITOR_AUTOSAVE_MS = 750;
@@ -27,6 +29,8 @@ const regenerationSchema = z.object({
   id: z.string().uuid(), status: z.enum(LAYER_REGENERATION_STATUSES), layerId: z.string().uuid(), instruction: z.string().trim().min(1).max(2000),
   requestedByUserId: z.string().min(1), usageKey: z.string().min(1), candidateKey: z.string().min(1).nullable(), providerRequestId: z.string().min(1).max(256).nullable(),
   failureCode: z.string().min(1).max(128).nullable(), createdAt: isoDate, updatedAt: isoDate,
+  renderPolicy: imageRenderPolicySchema.optional(),
+  observation: z.unknown().optional(),
 }).strict();
 
 export const layerEditorStateSchema = z.object({

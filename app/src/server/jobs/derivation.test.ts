@@ -269,7 +269,7 @@ vi.mock("@/server/ai/creative-diagnosis", () => ({
 vi.mock("../validation/env", () => ({
   env: {
     OPENAI_API_KEY: "test-key",
-    OPENAI_IMAGE_MODEL: "gpt-image-1",
+    OPENAI_IMAGE_MODEL: "gpt-image-2-2026-04-21",
     DATABASE_URL: "postgres://test",
     BETTER_AUTH_SECRET: "secret",
     BETTER_AUTH_URL: "http://localhost",
@@ -730,7 +730,7 @@ describe("derivationJob", () => {
           }),
           generationMode: "art_variation",
           targetFormat: "1:1",
-          model: "gpt-image-1",
+          model: "gpt-image-2-2026-04-21",
           imageOperation: "edit",
           revisedPrompt: "revised",
           outputKey: expect.stringContaining("derivations/derivation-id/"),
@@ -1710,7 +1710,7 @@ describe("derivationJob — format adaptation generation sizes (gpt-image-2)", (
   });
 
   afterEach(() => {
-    (env as unknown as Record<string, string>).OPENAI_IMAGE_MODEL = "gpt-image-1";
+    (env as unknown as Record<string, string>).OPENAI_IMAGE_MODEL = "gpt-image-2-2026-04-21";
   });
 
   it("4:5 format adaptation edit request receives target-aspect size 1088x1360", async () => {

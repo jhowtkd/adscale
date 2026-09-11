@@ -291,6 +291,18 @@ describe("planCarouselSlideReferences", () => {
     expect(plan.slice(1).map((slot) => slot.role)).toEqual(["brand_identity", "brand_identity", "style"]);
   });
 
+  it("keeps the approved anchor board first for non-anchor slides", () => {
+    const slots = planCarouselSlideReferences({
+      isAnchor: false,
+      anchorBoardKey: "creative-work/work-1/anchor-board.png",
+      identityReferenceAssets: [],
+      temporaryReference: null,
+      limit: 4,
+    });
+    expect(slots[0]).toMatchObject({ role: "anchor_board", required: true, assetKey: "creative-work/work-1/anchor-board.png" });
+    expect(slots).toHaveLength(1);
+  });
+
   it("fails as reference_failure when a non-anchor slide has no anchor board key", () => {
     expect(() => planCarouselSlideReferences({
       isAnchor: false,

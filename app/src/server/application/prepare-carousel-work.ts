@@ -33,6 +33,8 @@ import {
   withCreativeWorkPreparationLock,
 } from "../repositories/creative-work";
 import { getBrandKit } from "../repositories/brand-kit";
+import { resolveImageRenderPolicy, selectImageRenderPolicy } from "../ai/image-render-policy";
+import { env } from "../validation/env";
 
 export type PrepareCarouselWorkErrorCode =
   | "work_not_found"
@@ -60,9 +62,34 @@ export type PrepareCarouselWorkResult =
 
 /** Compare snapshots ignoring the policy version, which is checked separately. */
 function withoutPolicyVersion(snapshot: CreativeWorkInputSnapshot | null) {
-  const rest = { ...snapshot };
+  const rest = { ...snapshot, renderPolicy: resolveImageRenderPolicy(snapshot?.renderPolicy) };
   delete rest.generationPolicyVersion;
-  return rest;
+  return {
+    ...rest,
+    carousel: rest.carousel ? { ...rest.carousel, preparedRevision: undefined } : undefined,
+  };
+}
+
+function freezeImageRenderPolicy(input: {
+  workspaceId: string;
+  snapshot: CreativeWorkInputSnapshot | null | undefined;
+  brief: unknown;
+  copy: unknown;
+}) {
+  if (input.snapshot?.renderPolicy) {
+    return resolveImageRenderPolicy(input.snapshot.renderPolicy);
+  }
+  const alreadyPrepared = Boolean(
+    input.snapshot?.generationPolicyVersion ||
+    (input.brief && input.copy) ||
+    input.snapshot?.carousel,
+  );
+  if (alreadyPrepared) return resolveImageRenderPolicy(undefined);
+  return selectImageRenderPolicy(
+    input.workspaceId,
+    env.OPENAI_IMAGE_SUNBURST_PERCENT,
+    env.OPENAI_IMAGE_SUNBURST_QUALITY,
+  );
 }
 
 /**
@@ -313,6 +340,13 @@ export async function prepareCarouselWork(input: {
         style: source.styleAnalysis,
       }));
 
+    const renderPolicy = freezeImageRenderPolicy({
+      workspaceId: input.workspaceId,
+      snapshot: work.inputSnapshot,
+      brief: work.brief,
+      copy: work.copy,
+    });
+
     const preparedRevision = `prep-${createHash("sha256")
       .update(canonicalJsonStringify({
         workId: work.id,
@@ -323,12 +357,14 @@ export async function prepareCarouselWork(input: {
         scriptRevision: approvedScriptRevision,
         storyboard: editorial.storyboard,
         caption: editorial.caption,
+        renderPolicy,
       }))
       .digest("hex")
       .slice(0, 24)}`;
 
     const snapshot: CreativeWorkInputSnapshot = {
       generationPolicyVersion: "quality_recovery_v1",
+      renderPolicy,
       factPack,
       request: work.request,
       settings: work.settings,

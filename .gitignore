@@ -64,3 +64,5 @@ docs/client-cases/originals/*
 !docs/client-cases/originals/README.md
 docs/client-cases/screenshots/*.png
 docs/client-cases/results/*.png
+docs/evidence/sunburst-visual-runs/**/*.png
+docs/evidence/sunburst-visual-runs/**/*.webp

@@ -29,7 +29,7 @@ beforeEach(() => {
   requireWorkspaceAccess.mockResolvedValue({ user: { id: "user-1" }, workspace: { id: "ws-1" } });
   reviseCarouselSlide.mockResolvedValue({
     ok: true,
-    value: { slide: publicSlide, slides: [publicSlide], replay: false },
+    value: { work: { inputSnapshot: null }, slide: publicSlide, slides: [publicSlide], replay: false },
   });
 });
 
@@ -117,6 +117,7 @@ describe("POST /api/creative-work/[id]/carousel/slides/[slideId]/revise", () => 
     ["slide_not_failed", 409],
     ["provider_base_missing", 409],
     ["stale_input", 409],
+    ["generation_in_flight", 409],
     ["invalid_generation_gate", 409],
     ["invalid_context", 422],
     ["composition_failed", 422],

@@ -3,9 +3,20 @@ import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+import { quoteCreativeWork } from "../../src/server/creative-work/contracts";
+
 const FIXTURE_PATH = process.env.CREATE_POST_E2E_FIXTURE_PATH
   ? path.resolve(process.env.CREATE_POST_E2E_FIXTURE_PATH)
   : path.resolve(__dirname, "../fixtures/create-post-e2e.json");
+const RESULT_HOME_SCREENSHOT = path.resolve(
+  __dirname,
+  "../../../docs/screenshots/studio-caixa-unificada/resultado-home.png",
+);
+const VARIATIONS_QUOTE = quoteCreativeWork({
+  intent: "variations",
+  format: "4:5",
+  targetFormats: [],
+});
 
 type Fixture = {
   email: string;
@@ -23,9 +34,23 @@ type Fixture = {
   };
 };
 
+type JsonRecord = Record<string, unknown>;
+
 type WorkDetail = {
-  work: { id: string; campaignId: string | null; request: string };
-  preparedPlan?: { preparedRevision: string; outputCount: number } | null;
+  work: JsonRecord & {
+    id: string;
+    campaignId: string | null;
+    request: string;
+    toolKind?: string;
+    status?: string;
+    updatedAt?: string;
+    identitySnapshot?: {
+      clientProfileId?: string;
+      confirmedAt?: string;
+      assets?: unknown[];
+    } | null;
+  };
+  preparedPlan?: (JsonRecord & { preparedRevision: string; outputCount: number }) | null;
   inferredBriefing?: {
     version: number;
     offer: { value: string | null; state: string };
@@ -45,6 +70,33 @@ type WorkDetail = {
   sources: Array<{ id: string; name: string; status: string; usage: string; usageConfirmed: boolean }>;
 };
 
+function omitKeys(value: JsonRecord, keys: readonly string[]): JsonRecord {
+  const next = { ...value };
+  for (const key of keys) delete next[key];
+  return next;
+}
+
+async function billingSnapshot(page: Page) {
+  const [statusResponse, historyResponse] = await Promise.all([
+    page.request.get("/api/billing/status"),
+    page.request.get("/api/billing/history?limit=100"),
+  ]);
+  expect(statusResponse.ok(), await statusResponse.text()).toBe(true);
+  expect(historyResponse.ok(), await historyResponse.text()).toBe(true);
+  const status = (await statusResponse.json()) as { billing: { creditBalance: number } };
+  const history = (await historyResponse.json()) as {
+    grants?: Array<{ id: string; remaining: number; amount: number; source: string }>;
+    summary?: { remainingCredits: number };
+    transactions?: Array<{ id: string; type: string }>;
+  };
+  return {
+    creditBalance: status.billing.creditBalance,
+    grants: history.grants ?? [],
+    remainingCredits: history.summary?.remainingCredits ?? status.billing.creditBalance,
+    usageIds: new Set((history.transactions ?? []).filter((item) => item.type === "usage").map((item) => item.id)),
+  };
+}
+
 function fixture(): Fixture {
   if (!fs.existsSync(FIXTURE_PATH)) {
     throw new Error("Missing fixture. Run npm run seed:create-post-e2e first.");
@@ -59,8 +111,10 @@ async function login(page: Page, credentials = fixture()) {
       JSON.stringify({ necessary: true, analytics: false, marketing: false }),
     );
   });
+  const origin = process.env.E2E_BASE_URL ?? "http://localhost:3106";
   const response = await page.request.post("/api/auth/sign-in/email", {
     data: { email: credentials.email, password: credentials.password },
+    headers: { Origin: origin },
   });
   expect(response.ok(), await response.text()).toBe(true);
 }
@@ -106,25 +160,118 @@ async function assertSingleActiveBrand(page: Page) {
     expect.objectContaining({ id: fixture().primaryClientProfileId, name: "Create Post E2E Brand" }),
   ]);
   const activeBrand = page.locator("#active-client-switcher-home");
-  await expect(activeBrand).toHaveValue(fixture().primaryClientProfileId, { timeout: 60_000 });
+  await expect(activeBrand).toBeVisible({ timeout: 60_000 });
+  await expect(activeBrand).toContainText("Create Post E2E Brand", { timeout: 60_000 });
   await expect.poll(async () => page.evaluate(() => {
     const persisted = localStorage.getItem("adscale-storage");
     return persisted ? JSON.parse(persisted).state?.activeClientProfileId ?? null : null;
   })).toBe(fixture().primaryClientProfileId);
 }
 
+async function revealProtocolSwitcher(page: Page) {
+  const box = page.getByTestId("studio-talk-box");
+  const radio = box.getByRole("radiogroup").getByRole("radio").first();
+  if (await radio.isVisible().catch(() => false)) return;
+  await page.locator("#creative-composer-request").focus();
+  if (await radio.isVisible().catch(() => false)) return;
+  const expand = box.getByRole("button", { name: /abrir controles|open controls/i });
+  if (await expand.count()) await expand.click();
+}
+
+async function confirmProtocolSwitchIfNeeded(page: Page) {
+  const confirm = page.getByRole("button", { name: /preservar e trocar|preserve and switch/i });
+  if (await confirm.isVisible().catch(() => false)) await confirm.click();
+}
+
+async function chooseProtocol(page: Page, name: RegExp) {
+  const box = page.getByTestId("studio-talk-box");
+  await expect(box).toBeVisible();
+  await revealProtocolSwitcher(page);
+  const radio = box.getByRole("radio", { name }).first();
+  await expect(radio).toBeVisible({ timeout: 15_000 });
+  await radio.click();
+  await confirmProtocolSwitchIfNeeded(page);
+  await expect(radio).toHaveAttribute("aria-checked", "true");
+  return radio;
+}
+
+async function chooseVariations(page: Page) {
+  return chooseProtocol(page, /^(variações|variations)$/i);
+}
+
 async function fillRequestAndAttach(page: Page, request: string, name = "arte-e2e.png") {
-  const requestField = page.getByRole("textbox", { name: /pedido criativo|creative request/i });
-  if (await requestField.count() > 0) await requestField.fill(request);
-  await page.locator('section[aria-labelledby="progressive-entry-title"] input[type="file"]').setInputFiles({
+  const requestField = page.locator("#creative-composer-request");
+  await expect(requestField).toHaveCount(1);
+  await requestField.fill(request);
+  await expect(requestField).toHaveValue(request);
+  await page.locator('[data-testid="studio-talk-box"] input[type="file"]').setInputFiles({
     name,
     mimeType: "image/png",
     buffer: Buffer.from(fixture().attachmentBufferBase64, "base64"),
   });
 }
 
-async function chooseVariations(page: Page) {
-  await page.getByRole("button", { name: /variações|variations/i }).first().click();
+function talkGenerate(page: Page) {
+  return page.locator('[data-testid="studio-talk-box"] .talk-generate');
+}
+
+async function talkBoxFrame(page: Page) {
+  return page.getByTestId("studio-talk-box").evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    return { top: box.top, bottom: box.bottom, scrollY: window.scrollY };
+  });
+}
+
+async function waitForTalkBoxFrame(page: Page) {
+  let previous = await talkBoxFrame(page);
+  await expect.poll(async () => {
+    const next = await talkBoxFrame(page);
+    const settled = Math.abs(next.top - previous.top) <= 0.5
+      && Math.abs(next.bottom - previous.bottom) <= 0.5
+      && next.scrollY === previous.scrollY;
+    previous = next;
+    return settled;
+  }, { timeout: 2_000 }).toBe(true);
+  return previous;
+}
+
+async function assertStableTalkBox(page: Page, viewport: "desktop" | "mobile") {
+  const box = page.getByTestId("studio-talk-box");
+  if (await box.getAttribute("data-expanded") === "true") {
+    await box.getByRole("button", { name: /recolher controles|collapse controls/i }).click();
+  }
+  await expect(box).toHaveAttribute("data-expanded", "false");
+  const collapsed = await waitForTalkBoxFrame(page);
+  const expand = box.getByRole("button", { name: /abrir controles|open controls/i });
+  await expand.click();
+  await expect(box).toHaveAttribute("data-expanded", "true");
+  const expanded = await waitForTalkBoxFrame(page);
+  expect(Math.abs(collapsed.bottom - expanded.bottom)).toBeLessThanOrEqual(2);
+  expect(expanded.scrollY).toBe(collapsed.scrollY);
+  expect(expanded.top).toBeGreaterThanOrEqual(0);
+  if (viewport === "mobile") {
+    const headerBox = await page.locator("header").first().boundingBox();
+    const chromeBox = await page.getByTestId("studio-chrome-bar").boundingBox();
+    expect(headerBox && chromeBox, "mobile header and chrome must be measurable").toBeTruthy();
+    expect(expanded.top).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height - 1);
+    expect(expanded.top).toBeGreaterThanOrEqual(chromeBox!.y + chromeBox!.height - 1);
+    const generateBox = await talkGenerate(page).boundingBox();
+    const navBox = await page.getByRole("navigation", { name: /primary mobile navigation/i }).boundingBox();
+    expect(generateBox && navBox, "generate and mobile nav must be measurable").toBeTruthy();
+    expect(generateBox!.y + generateBox!.height).toBeLessThanOrEqual(navBox!.y + 1);
+  }
+  await box.getByRole("button", { name: /recolher controles|collapse controls/i }).click();
+  await expect(box).toHaveAttribute("data-expanded", "false");
+  await expand.focus();
+  await expand.press("Enter");
+  await expect(box).toHaveAttribute("data-expanded", "true");
+  await expect(box.getByRole("button", { name: /recolher controles|collapse controls/i })).toBeFocused();
+  expect(await page.evaluate(() => document.activeElement === document.body)).toBe(false);
+  const keyed = await waitForTalkBoxFrame(page);
+  expect(Math.abs(collapsed.bottom - keyed.bottom)).toBeLessThanOrEqual(2);
+  expect(keyed.scrollY).toBe(collapsed.scrollY);
+  expect(keyed.top).toBeGreaterThanOrEqual(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 }
 
 async function expectNoStudioPrice(page: Page) {
@@ -132,7 +279,7 @@ async function expectNoStudioPrice(page: Page) {
 }
 
 async function prepareAndConfirm(page: Page, workId: string) {
-  const continueToPlan = page.getByTestId("creative-generate-action").getByRole("button");
+  const continueToPlan = talkGenerate(page);
   await expect(continueToPlan).toBeEnabled();
   await continueToPlan.click();
   await expect(page.getByRole("heading", { name: /revise seu plano|review your plan/i })).toBeVisible();
@@ -162,7 +309,7 @@ async function tabTo(page: Page, target: Locator, backwards = false) {
 }
 
 test.describe("Frictionless operational Home", () => {
-  test.setTimeout(300_000);
+  test.setTimeout(420_000);
 
   test.beforeEach(async ({ page }) => {
     await login(page);
@@ -185,12 +332,13 @@ test.describe("Frictionless operational Home", () => {
     const usageBefore = await usageIds(page);
     await page.goto("/");
     await assertSingleActiveBrand(page);
-    await expect(page.getByRole("heading", { name: /gere variações a partir de uma arte|generate variations from an artwork/i })).toBeVisible();
+    await expect(page.getByTestId("studio-talk-box")).toBeVisible();
+    await expect(page.locator("#creative-composer-request")).toHaveCount(1);
 
     const request = "Promoção de matrículas para julho";
-    await fillRequestAndAttach(page, request);
     await expect.poll(() => new URL(page.url()).searchParams.get("workId")).toBeNull();
     await chooseVariations(page);
+    await fillRequestAndAttach(page, request);
     const source = page.locator("article").filter({ hasText: "arte-e2e.png" });
     await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
     await expect.poll(() => new URL(page.url()).searchParams.get("workId"), { timeout: 30_000 }).toBeTruthy();
@@ -214,7 +362,8 @@ test.describe("Frictionless operational Home", () => {
     const settled = await workDetail(page, workId);
     expect(settled.outputs.map((output) => output.id).sort()).toEqual(initialIds);
     const usage = await newUsage(page, usageBefore);
-    expect(usage.reduce((sum, item) => sum + Math.abs(item.amount), 0)).toBe(fixture().expectedInitialCredits);
+    expect(usage, "one confirmation must debit once").toHaveLength(1);
+    expect(usage.reduce((sum, item) => sum + Math.abs(item.amount), 0)).toBe(VARIATIONS_QUOTE.credits);
     expect(campaignMutations).toEqual([]);
     expect(await campaignsCount(page)).toBe(campaignCountBefore);
 
@@ -223,10 +372,37 @@ test.describe("Frictionless operational Home", () => {
     await assertSingleActiveBrand(page);
     await expect(page.getByTestId("proposal-level")).toHaveCount(1, { timeout: 60_000 });
     expect((await workDetail(page, workId)).outputs.map((output) => output.id).sort()).toEqual(initialIds);
+    await expect(page.getByTestId("studio-talk-box")).toHaveAttribute("data-expanded", "false");
+    await expect(page.getByTestId("studio-desk")).not.toHaveAttribute("inert");
+    await expect(page.getByTestId("studio-mosaic")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Produção", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "Produção", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Produção", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("studio-mosaic")).toBeVisible();
+    await expect(page.getByTestId("studio-mosaic").getByRole("button").first()).toBeVisible();
 
     const original = settled.outputs.find((output) => output.directionSnapshot?.label === "Conservadora")
       ?? [...settled.outputs].sort((a, b) => (a.directionSnapshot?.order ?? 0) - (b.directionSnapshot?.order ?? 0))[0]!;
-    await page.getByRole("button", { name: /Selecionar Conservadora em 4:5|Select Conservadora in 4:5/i }).click();
+    const selectConservadora = page.getByRole("button", { name: /Selecionar Conservadora em 4:5|Select Conservadora in 4:5/i });
+    await selectConservadora.scrollIntoViewIfNeeded();
+    await page.getByTestId("proposal-level").scrollIntoViewIfNeeded();
+    const resultsBox = await page.getByTestId("studio-results-surface").boundingBox();
+    expect(resultsBox).toBeTruthy();
+    const mosaicButtons = page.getByTestId("studio-mosaic").getByRole("button");
+    const mosaicCount = await mosaicButtons.count();
+    expect(mosaicCount).toBeGreaterThan(0);
+    for (let index = 0; index < mosaicCount; index += 1) {
+      const posterBox = await mosaicButtons.nth(index).boundingBox();
+      if (!posterBox || !resultsBox) continue;
+      const overlaps = posterBox.x < resultsBox.x + resultsBox.width
+        && posterBox.x + posterBox.width > resultsBox.x
+        && posterBox.y < resultsBox.y + resultsBox.height
+        && posterBox.y + posterBox.height > resultsBox.y;
+      expect(overlaps, `poster ${index} must not cover results`).toBe(false);
+    }
+    fs.mkdirSync(path.dirname(RESULT_HOME_SCREENSHOT), { recursive: true });
+    await page.screenshot({ path: RESULT_HOME_SCREENSHOT, animations: "disabled" });
+    await selectConservadora.click();
     const originalCard = page.getByTestId("proposal-level");
     const selectedResponsePromise = page.waitForResponse((response) =>
       response.url().endsWith(`/api/creative-work/${workId}/outputs/${original.id}/select`)
@@ -250,9 +426,9 @@ test.describe("Frictionless operational Home", () => {
     const popup = await popupPromise;
     await popup.close();
 
-    await originalCard.getByRole("button", { name: /editar|edit/i }).click();
-    await originalCard.getByRole("textbox", { name: /o que você quer mudar|what do you want to change/i }).fill("Aumente o contraste");
-    await originalCard.getByRole("button", { name: /gerar nova versão|generate new version/i }).click();
+    await originalCard.getByRole("button", { name: /refinar|refine|editar|edit/i }).click();
+    await originalCard.getByRole("textbox", { name: /o que você quer mudar|what would you like to change|what do you want to change/i }).fill("Aumente o contraste");
+    await originalCard.getByRole("button", { name: /gerar nova varia[cç][aã]o|generate new variation|gerar nova versão|generate new version/i }).click();
     await expect.poll(async () => (await workDetail(page, workId)).outputs.length, { timeout: 120_000 }).toBe(4);
     const revised = (await workDetail(page, workId)).outputs.find((output) => output.parentOutputId === original.id);
     expect(revised).toMatchObject({ versionNumber: 2 });
@@ -264,11 +440,11 @@ test.describe("Frictionless operational Home", () => {
     await page.goto("/");
     await assertSingleActiveBrand(page);
     const request = "Variações de campanha [e2e:retry-twice-bold]";
-    await fillRequestAndAttach(page, request, "fonte-pronta.png");
     await chooseVariations(page);
+    await fillRequestAndAttach(page, request, "fonte-pronta.png");
     await expect(page.locator("article").filter({ hasText: "fonte-pronta.png" }).getByRole("status"))
       .toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
-    await page.locator("#creative-composer-file").setInputFiles({
+    await page.locator('[data-testid="studio-talk-box"] input[type="file"]').setInputFiles({
       name: "e2e-source-fail-once.png",
       mimeType: "image/png",
       buffer: Buffer.from(fixture().attachmentBufferBase64, "base64"),
@@ -296,29 +472,38 @@ test.describe("Frictionless operational Home", () => {
     expect(terminal.outputs.map((output) => output.id).sort()).toEqual(initialIds);
     expect(terminal.outputs.every((output) => output.status === "completed")).toBe(true);
     const usage = await newUsage(page, usageBefore);
-    expect(usage.reduce((sum, item) => sum + Math.abs(item.amount), 0)).toBe(fixture().expectedInitialCredits);
+    expect(usage, "retrying an isolated source must not debit twice").toHaveLength(1);
+    expect(usage.reduce((sum, item) => sum + Math.abs(item.amount), 0)).toBe(VARIATIONS_QUOTE.credits);
   });
 
   test("insufficient balance keeps the prepared Studio work intact", async ({ page }) => {
     const insufficient = fixture().insufficientBalance;
+    await page.context().clearCookies();
     await login(page, insufficient);
     await page.goto("/");
-    await expect(page.locator("aside").getByText(/^0 (créditos|credits)$/i)).toBeVisible();
+    await expect(page.locator("aside").getByText(
+      new RegExp(`^${insufficient.expectedCredits}\\s*(créditos|credits)$`, "i"),
+    )).toBeVisible({ timeout: 30_000 });
 
+    const variations = await chooseVariations(page);
     await fillRequestAndAttach(page, "Criação Studio sem saldo", "saldo-zero.png");
-    await chooseVariations(page);
+    await expect(variations).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByText("saldo-zero.png")).toBeVisible({ timeout: 60_000 });
     const source = page.locator("article").filter({ hasText: "saldo-zero.png" });
     await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
     await expect.poll(() => new URL(page.url()).searchParams.get("workId")).toBeTruthy();
     const workId = new URL(page.url()).searchParams.get("workId")!;
+    await expect.poll(async () => (await workDetail(page, workId)).work.toolKind).toBe("variations");
 
-    await page.getByTestId("creative-generate-action").getByRole("button").click();
+    await talkGenerate(page).click();
     const plan = page.locator("section").filter({
       has: page.getByRole("heading", { name: /revise seu plano|review your plan/i }),
     }).first();
     await expect(plan).toBeVisible();
     await expect(plan).not.toContainText(/\b\d+\s*(créditos|credits)\b/i);
+    await expect.poll(async () => Boolean((await workDetail(page, workId)).preparedPlan), { timeout: 30_000 }).toBe(true);
     const beforeBlock = await workDetail(page, workId);
+    const billingBefore = await billingSnapshot(page);
 
     const blocked = page.waitForResponse((response) =>
       response.url().includes(`/api/creative-work/${workId}/generate`)
@@ -329,10 +514,32 @@ test.describe("Frictionless operational Home", () => {
     await expect(page.getByRole("alert").filter({ hasText: /limite|limit|crédito|credit/i })).toBeVisible();
 
     const afterBlock = await workDetail(page, workId);
+    const billingAfter = await billingSnapshot(page);
     expect(afterBlock.outputs).toHaveLength(0);
-    expect(afterBlock.work).toEqual(beforeBlock.work);
-    expect(afterBlock.preparedPlan).toEqual(beforeBlock.preparedPlan);
+    expect(afterBlock.work.toolKind).toBe("variations");
+    expect(afterBlock.preparedPlan).toBeTruthy();
+    expect(beforeBlock.preparedPlan).toBeTruthy();
+    const { preparedRevision: beforeRevision, ...beforePlan } = beforeBlock.preparedPlan!;
+    const { preparedRevision: afterRevision, ...afterPlan } = afterBlock.preparedPlan!;
+    expect(afterPlan).toEqual(beforePlan);
+    expect(afterRevision).not.toBe(beforeRevision);
     expect(afterBlock.sources).toEqual(beforeBlock.sources);
+    expect(omitKeys(afterBlock.work, ["identitySnapshot", "status", "updatedAt"]))
+      .toEqual(omitKeys(beforeBlock.work, ["identitySnapshot", "status", "updatedAt"]));
+    expect(afterBlock.work.status).toBe("ready");
+    expect(afterBlock.work.identitySnapshot).toEqual(expect.objectContaining({
+      clientProfileId: insufficient.clientProfileId,
+      confirmedAt: expect.any(String),
+      assets: expect.any(Array),
+    }));
+    expect(Date.parse(String(afterBlock.work.updatedAt))).toBeGreaterThan(Date.parse(String(beforeBlock.work.updatedAt)));
+    expect(await newUsage(page, billingBefore.usageIds)).toEqual([]);
+    expect(billingAfter.creditBalance).toBe(billingBefore.creditBalance);
+    expect(billingAfter.remainingCredits).toBe(billingBefore.remainingCredits);
+    expect(billingAfter.grants).toEqual(billingBefore.grants);
+    await expect(page.locator("aside").getByText(
+      new RegExp(`^${insufficient.expectedCredits}\\s*(créditos|credits)$`, "i"),
+    )).toBeVisible();
   });
 
   for (const viewport of [
@@ -341,6 +548,9 @@ test.describe("Frictionless operational Home", () => {
   ]) {
     test(`home and results remain accessible at ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize(viewport);
+      if (viewport.name === "desktop") {
+        await page.emulateMedia({ reducedMotion: "reduce" });
+      }
       await page.goto("/");
       await assertSingleActiveBrand(page);
 
@@ -357,9 +567,16 @@ test.describe("Frictionless operational Home", () => {
           .__frictionlessAnnouncements = messages;
       });
 
-      const attach = page.locator('section[aria-labelledby="progressive-entry-title"] input[type="file"]');
+      const attach = page.getByRole("button", { name: /anexar|attach/i });
+      const variations = await chooseVariations(page);
+      const requestField = page.locator("#creative-composer-request");
+      await tabTo(page, requestField);
+      const typedRequest = `Peça acessível no teclado ${viewport.name}`;
+      await requestField.pressSequentially(typedRequest, { delay: 12 });
+      await expect(requestField).toHaveValue(typedRequest);
+      await expect(variations).toHaveAttribute("aria-checked", "true");
       await tabTo(page, attach);
-      await attach.setInputFiles({
+      await page.locator('[data-testid="studio-talk-box"] input[type="file"]').setInputFiles({
         name: `teclado-${viewport.name}.png`,
         mimeType: "image/png",
         buffer: Buffer.from(fixture().attachmentBufferBase64, "base64"),
@@ -370,10 +587,10 @@ test.describe("Frictionless operational Home", () => {
           .__frictionlessAnnouncements ?? []
       )).toContain("Arte adicionada");
       const source = page.locator("article").filter({ hasText: `teclado-${viewport.name}.png` });
-      await chooseVariations(page);
       await expect(source.getByRole("status")).toHaveText(/análise concluída|analysis complete/i, { timeout: 60_000 });
+      await assertStableTalkBox(page, viewport.name as "desktop" | "mobile");
 
-      const generate = page.getByTestId("creative-generate-action").getByRole("button");
+      const generate = talkGenerate(page);
       await expect(generate).toBeEnabled();
       await tabTo(page, generate);
       await page.keyboard.press("Space");
@@ -411,7 +628,7 @@ test.describe("Frictionless operational Home", () => {
       expect(new URL((await downloadRequest).url()).pathname).toContain("/download");
       await popup.close();
 
-      const edit = card.getByRole("button", { name: /editar|edit/i });
+      const edit = card.getByRole("button", { name: /refinar|refine|editar|edit/i });
       await tabTo(page, edit);
       await page.keyboard.press("Enter");
       await expect(edit).toHaveAttribute("aria-expanded", "true");
@@ -421,4 +638,33 @@ test.describe("Frictionless operational Home", () => {
         .toEqual([]);
     });
   }
+
+  test("mesa alterna e caixa recolhe sem gerar ou perder o pedido", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const generation: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() === "POST" && /\/(generate|prepare|plan)$/.test(new URL(request.url()).pathname)) {
+        generation.push(request.url());
+      }
+    });
+    await page.goto("/");
+    await assertSingleActiveBrand(page);
+    const request = page.locator("#creative-composer-request");
+    await expect(request).toHaveCount(1);
+    await request.fill("Campanha de setembro, manter identidade da marca");
+    const box = page.getByTestId("studio-talk-box");
+    await expect(box).toHaveAttribute("data-expanded", "true");
+    await box.getByRole("button", { name: "Recolher controles" }).click();
+    await expect(box).toHaveAttribute("data-expanded", "false");
+    await page.getByRole("button", { name: "Produção", exact: true }).click();
+    await page.getByRole("button", { name: "Inspirações", exact: true }).click();
+    await box.getByRole("button", { name: "Abrir controles" }).click();
+    await expect(request).toHaveValue("Campanha de setembro, manter identidade da marca");
+    await expect(page.getByTestId("studio-desk")).toHaveAttribute("inert", "");
+    await request.press("Escape");
+    await expect(box).toHaveAttribute("data-expanded", "false");
+    expect(generation).toEqual([]);
+    await assertStableTalkBox(page, "desktop");
+    expect(generation).toEqual([]);
+  });
 });

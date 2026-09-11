@@ -4,10 +4,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { ArrowRight, ImageIcon, Plus } from "lucide-react";
 import { AccessGatePanel } from "@/components/billing/AccessGatePanel";
 import { CreativeComposer } from "@/components/creative-work/CreativeComposer";
-import { BrandInspirations } from "@/components/creative-work/BrandInspirations";
 import { CreativePlanReview } from "@/components/creative-work/CreativePlanReview";
 import { useCreativeComposer, type ComposerIntent } from "@/components/creative-work/useCreativeComposer";
 import { BrandStageHome } from "@/components/dashboard/studio-stage/BrandStageHome";
@@ -19,6 +19,7 @@ import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { useCreativeWork, type CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { useCreativeInspirations } from "@/lib/hooks/use-creative-inspirations";
+import { useCreativeProduction } from "@/lib/hooks/use-creative-production";
 import { useBillingStatus } from "@/lib/hooks/use-billing";
 import { useStudioEntryInterview } from "@/lib/hooks/use-studio-entry-interview";
 import type { EntryLocale } from "@/lib/studio/entry-types";
@@ -204,6 +205,7 @@ export default function DashboardHomeActions({
 }) {
   const t = useTranslations("dashboard.home");
   const locale = useLocale();
+  const router = useRouter();
   const entryLocale: EntryLocale = locale === "en" ? "en" : "pt-BR";
   const { data: works = [], isLoading, isError, refetch } = useCanonicalWorks();
   const { activeProfile } = useActiveClientProfile();
@@ -233,12 +235,19 @@ export default function DashboardHomeActions({
     } : {}),
     ...(freshEntry ? { freshEntry: true } : {}),
   });
+  const [boxExpanded, setBoxExpanded] = useState(false);
+  const [resultsContainer, setResultsContainer] = useState<HTMLDivElement | null>(null);
+  const [deskView, setDeskView] = useState<"inspirations" | "production">("inspirations");
+  const [deskPaging, setDeskPaging] = useState({ scope: "", page: 0 });
+  const primaryActionRef = useRef<HTMLButtonElement>(null);
+  const expansionButtonRef = useRef<HTMLButtonElement>(null);
   const continueTarget = useMemo(() => resolveContinueWork(works), [works]);
   const [editingPreparedPlan, setEditingPreparedPlan] = useState(false);
   const preparedPlanCycleRef = useRef(composer.preparedPlanCycle ?? 0);
   const sources = composer.sources ?? [];
   const outputs = composer.outputs ?? [];
-  const { data: inspirations = [] } = useCreativeInspirations(composer.clientProfileId ?? null);
+  const inspirationsQuery = useCreativeInspirations(composer.clientProfileId ?? null);
+  const inspirations = inspirationsQuery.data ?? [];
 
   const interviewEnabled = rolloutVariant === "progressive" && entryInterviewEnabled && Boolean(composer.clientProfileId);
   const [requestFocused, setRequestFocused] = useState(false);
@@ -273,6 +282,7 @@ export default function DashboardHomeActions({
   // plan-review/results surfaces never replace it — their proposals grid has
   // no carousel outputs and would unmount the deck mid-flow.
   const isCarouselWorkflow = composer.intent === "carousel";
+  const carouselPhase = composer.carousel?.phase;
   const resultStage = rolloutVariant === "progressive"
     && !isCarouselWorkflow
     && (composer.stage === "generation" || composer.stage === "results");
@@ -281,9 +291,37 @@ export default function DashboardHomeActions({
     && Boolean(composer.preparedPlan)
     && !editingPreparedPlan
     && !isCarouselWorkflow;
+  const carouselTalkBoxProps = {
+    showRequest: !isCarouselWorkflow || carouselPhase === "entry" || carouselPhase == null,
+    showAttachments: !isCarouselWorkflow && composer.intent !== "restyle",
+    showGenerate: !isCarouselWorkflow && !showPlan && !resultStage,
+  };
   useEffect(() => {
     if (resultStage) progressiveResultsHeadingRef.current?.focus();
   }, [resultStage]);
+  useEffect(() => {
+    // Presentation follows an already-mounted composer; do not remount the box.
+    if (composer.pendingProtocolSwitch || composer.brandConflict || showPlan) setBoxExpanded(true); // eslint-disable-line react-hooks/set-state-in-effect -- Task 2/3 phase chrome
+  }, [composer.pendingProtocolSwitch, composer.brandConflict, showPlan]);
+  useEffect(() => {
+    if (resultStage) setBoxExpanded(false); // eslint-disable-line react-hooks/set-state-in-effect -- Task 2/3 phase chrome
+  }, [resultStage]);
+  const seenWorkIdRef = useRef<string | null>(composer.workId ?? null);
+  useEffect(() => {
+    const nextId = composer.workId ?? null;
+    if (nextId && nextId !== seenWorkIdRef.current && !resultStage) {
+      setBoxExpanded(true);
+    }
+    seenWorkIdRef.current = nextId;
+  }, [composer.workId, resultStage]);
+  useEffect(() => {
+    if (!isCarouselWorkflow) return;
+    if (carouselPhase === "questions" || carouselPhase === "sequence" || carouselPhase === "ready_to_generate") {
+      setBoxExpanded(true); // eslint-disable-line react-hooks/set-state-in-effect -- Task 3 carousel chrome
+    } else if (carouselPhase === "generating" || carouselPhase === "review") {
+      setBoxExpanded(false);
+    }
+  }, [isCarouselWorkflow, carouselPhase]);
   useEffect(() => {
     // Canonical preparation can legitimately reuse a revision. The explicit
     // cycle means an edit only returns to review after a successful prepare.
@@ -300,24 +338,155 @@ export default function DashboardHomeActions({
     outputCount: outputs.length,
     sourceCount: sources.length,
   });
-  const mosaicItems = [
-    ...inspirations
+  const productionCampaignId = composer.campaignId ?? null;
+  const isProducing = composer.stage === "generation"
+    || composer.carousel?.phase === "generating"
+    || works.some((work) => work.state === "generating");
+  const production = useCreativeProduction({
+    workspaceId: workspaceId ?? null,
+    clientProfileId: composer.clientProfileId ?? null,
+    campaignId: productionCampaignId,
+    enabled: deskView === "production",
+    isProducing,
+  });
+  const catalogItems = production.items;
+  const productionItems = useMemo(() => {
+    const groups = new Map<string, typeof catalogItems>();
+    for (const item of catalogItems) {
+      const group = item.deckId ? `deck:${item.deckId}` : item.id;
+      const values = groups.get(group) ?? [];
+      if (!values.some((value) => value.id === item.id)) values.push(item);
+      groups.set(group, values);
+    }
+    return [...groups.values()].flatMap((values) => values.sort((a, b) => (a.position ?? 0) - (b.position ?? 0)));
+  }, [catalogItems]);
+  const deskScopeKey = `${workspaceId ?? ""}:${composer.clientProfileId ?? ""}:${productionCampaignId ?? ""}:${deskView}`;
+  const allMosaicItems = deskView === "inspirations"
+    ? inspirations
       .filter((item) => item.previewUrl)
-      .map((item) => ({ id: item.id, title: item.title, src: item.previewUrl! })),
-    ...outputs
-      .filter((output) => output.status === "completed")
-      .map((output) => ({
-        id: output.id,
-        title: composer.workTitle ?? output.id,
-        src: `/api/creative-work/${output.workItemId}/outputs/${output.id}/download`,
-      })),
-  ];
-
+      .map((item) => ({ id: item.id, title: item.title, src: item.previewUrl! }))
+    : productionItems.map((item) => ({
+      id: item.id,
+      title: item.title,
+      src: item.previewUrl,
+      format: item.format,
+      detail: item.position ? t("studioDesk.slide", { position: item.position }) : undefined,
+    }));
+  const maxDeskPage = Math.max(0, Math.ceil(allMosaicItems.length / 6) - 1);
+  const currentDeskPage = Math.min(deskPaging.scope === deskScopeKey ? deskPaging.page : 0, maxDeskPage);
+  if (deskPaging.scope !== deskScopeKey || deskPaging.page !== currentDeskPage) {
+    setDeskPaging({ scope: deskScopeKey, page: currentDeskPage });
+  }
+  const mosaicItems = allMosaicItems.slice(currentDeskPage * 6, currentDeskPage * 6 + 6);
+  const hasBufferedNextPage = (currentDeskPage + 1) * 6 < allMosaicItems.length;
+  const hasRemoteNextPage = deskView === "production" ? production.hasNextPage : inspirationsQuery.hasNextPage;
+  const fetchingNextPage = deskView === "production" ? production.isFetchingNextPage : inspirationsQuery.isFetchingNextPage;
+  const nextDeskPage = async () => {
+    const requestedScope = deskScopeKey;
+    const nextStart = (currentDeskPage + 1) * 6;
+    if (nextStart < allMosaicItems.length) {
+      setDeskPaging((current) => current.scope === requestedScope
+        ? { ...current, page: current.page + 1 }
+        : current);
+      return;
+    }
+    try {
+      if (deskView === "production") {
+        if (!production.hasNextPage || production.isFetchingNextPage) return;
+        const result = await production.fetchNextPage();
+        const total = result.data?.pages.reduce((n, page) => n + page.production.length, 0) ?? 0;
+        if (result.isError || total <= nextStart) return;
+        setDeskPaging((current) => current.scope === requestedScope
+          ? { ...current, page: current.page + 1 }
+          : current);
+      } else {
+        if (!inspirationsQuery.hasNextPage || inspirationsQuery.isFetchingNextPage) return;
+        const result = await inspirationsQuery.fetchNextPage();
+        const total = result.data?.pages.reduce((n, page) => n + page.inspirations.filter((item) => item.previewUrl).length, 0) ?? 0;
+        if (result.isError || total <= nextStart) return;
+        setDeskPaging((current) => current.scope === requestedScope
+          ? { ...current, page: current.page + 1 }
+          : current);
+      }
+    } catch {
+      return;
+    }
+  };
   const brandName = composer.brandName ?? activeProfile?.name ?? null;
+  const productionCampaignName = composer.campaigns?.find((campaign) => campaign.id === productionCampaignId)?.name
+    ?? t("studioDesk.unnamedCampaign");
+  const deskControls = (
+    <div className="relative z-20 flex flex-col items-center gap-2">
+      <div role="group" aria-label={t("studioDesk.views")} className="flex gap-2">
+        {(["inspirations", "production"] as const).map((view) => (
+          <button
+            key={view}
+            type="button"
+            aria-pressed={deskView === view}
+            onClick={() => setDeskView(view)}
+            className={studioChipClass}
+          >
+            {t(`studioDesk.${view}`)}
+          </button>
+        ))}
+      </div>
+      {deskView === "production" ? (
+        <p className="text-xs text-[var(--text-secondary)]">
+          {productionCampaignId
+            ? t("studioDesk.campaignScope", { name: productionCampaignName })
+            : brandName
+              ? t("studioDesk.brandScope", { name: brandName })
+              : null}
+        </p>
+      ) : null}
+      {deskView === "production" && composer.clientProfileId ? (
+        production.isPending ? (
+          <p role="status">{t("studioDesk.loading")}</p>
+        ) : production.isError && production.items.length === 0 ? (
+          <div className="flex flex-col items-center gap-2">
+            <p role="alert">{t("studioDesk.error")}</p>
+            <button type="button" onClick={() => void production.refetch()} className={studioChipClass}>{t("studioDesk.retry")}</button>
+          </div>
+        ) : production.isSuccess && production.items.length === 0 ? (
+          <div className="flex flex-col items-center gap-2">
+            <p>{t("studioDesk.empty")}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setBoxExpanded(true);
+                composerRef.current?.focus();
+              }}
+              className={studioChipClass}
+            >
+              {t("studioDesk.create")}
+            </button>
+          </div>
+        ) : production.isFetchNextPageError ? (
+          <button type="button" onClick={() => void production.fetchNextPage()} className={studioChipClass}>{t("studioDesk.retry")}</button>
+        ) : null
+      ) : null}
+      {allMosaicItems.length > 6 || (deskView === "production" ? production.hasNextPage : inspirationsQuery.hasNextPage) ? (
+        <div className="flex gap-2">
+          <button type="button" disabled={currentDeskPage === 0} onClick={() => setDeskPaging((current) => ({ ...current, page: Math.max(0, current.page - 1) }))} className={studioChipClass}>
+            {t("studioDesk.previous")}
+          </button>
+          <button
+            type="button"
+            disabled={fetchingNextPage || (!hasBufferedNextPage && !hasRemoteNextPage)}
+            onClick={() => void nextDeskPage()}
+            className={studioChipClass}
+          >
+            {t("studioDesk.next")}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+
   const showComposer = isCarouselWorkflow
     || resultStage
     || rolloutVariant === "control"
-    || (rolloutVariant === "progressive" && composer.objectiveSelected && !showPlan);
+    || (rolloutVariant === "progressive" && composer.objectiveSelected);
   const talkBox = (
     <TalkBox
       placement={occupancy === "empty" ? "center" : "dock"}
@@ -325,12 +494,18 @@ export default function DashboardHomeActions({
       onRequestChange={(value) => composer.setRequest?.(value)}
       onRequestFocusChange={setRequestFocused}
       intent={composer.intent}
-      onSelectIntent={(intent, immediate) => composer.selectIntent?.(intent, immediate)}
+      onSelectIntent={(intent, immediate) => {
+        setBoxExpanded(true);
+        composer.selectIntent?.(intent, immediate);
+      }}
       suggestedProtocol={interviewEnabled && !composer.objectiveSelected ? interview.suggestedProtocol : null}
       carouselEnabled={carouselCreationEnabled}
       sources={sources.map((source) => ({ id: source.id, name: source.name, previewUrl: source.previewUrl, usage: source.usage }))}
       bufferedFile={composer.bufferedFile ?? null}
-      onAddFiles={(files) => void composer.addFiles?.(files)}
+      onAddFiles={(files) => {
+        setBoxExpanded(true);
+        void composer.addFiles?.(files);
+      }}
       error={composer.error ?? null}
       announcement={composer.announcement ?? (composer.bufferedFile ? t("composer.progressiveBufferedFile", { name: composer.bufferedFile.name }) : null)}
       retryInitialTemplate={composer.retryInitialTemplate ?? null}
@@ -350,13 +525,22 @@ export default function DashboardHomeActions({
         onSelect: interview.selectChip,
         continueLabel: t("entryInterview.continue"),
         showContinue: Boolean(interview.answeredProtocol && !composer.objectiveSelected),
-        onContinue: () => void composer.selectIntent?.(interview.answeredProtocol!, true),
+        onContinue: () => {
+          setBoxExpanded(true);
+          void composer.selectIntent?.(interview.answeredProtocol!, true);
+        },
       } : null}
-    />
-  );
-
-  const stageBody = (
-    <div className="space-y-4">
+      requestRef={composerRef}
+      primaryActionRef={primaryActionRef}
+      expansionButtonRef={expansionButtonRef}
+      expanded={boxExpanded}
+      onExpandedChange={setBoxExpanded}
+      {...carouselTalkBoxProps}
+      summary={<span className="text-xs text-[var(--text-secondary)]">
+        {[composer.brandName, composer.format, sources.length ? `${sources.length}/3` : null]
+          .filter(Boolean).join(" · ")}
+      </span>}
+    >
       {protocolSwitchControls}
       {showPlan && billing && !billing.access.hasSpendAccess ? (
         <section className="rounded-[var(--radius-object)] border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4" role="alert">
@@ -372,49 +556,48 @@ export default function DashboardHomeActions({
           onConfirm={(revision) => composer.confirmGeneration(revision)}
         />
       ) : null}
-      {resultStage ? (
-        <>
-          <section aria-labelledby="progressive-results-title" data-testid="progressive-results-summary" className="flex flex-wrap items-end justify-between gap-2 border-b border-[var(--border-subtle)] pb-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{composer.workTitle ?? (composer.request?.trim() || t(`planReview.protocol.${composer.preparedPlan?.protocol === "format_adaptation" ? "formatAdaptation" : composer.preparedPlan?.protocol ?? composer.intent}`))}</p>
-              <h2 ref={progressiveResultsHeadingRef} id="progressive-results-title" tabIndex={-1} className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{t("resultsTitle")}</h2>
-            </div>
-            <p className="text-sm text-[var(--text-secondary)]">{composer.brandName ?? t("continueBrandUnknown")} · {composer.stage === "generation" ? t("resultStateGenerating") : outputs.length > 0 && outputs.every((output) => output.status === "failed") ? t("resultStateFailed") : t("resultStateReady")}</p>
-          </section>
-          <details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-4">
-            <summary className="cursor-pointer text-sm font-medium">{t("planUsed")}</summary>
-            <div className="mt-3">
-              <dl data-testid="progressive-readonly-configuration" className="grid gap-2 text-sm text-[var(--text-secondary)]">
-                <div><dt className="font-medium text-[var(--text-primary)]">{t("composer.requestLabel")}</dt><dd>{composer.request}</dd></div>
-                <div><dt className="font-medium text-[var(--text-primary)]">{t("chooseObjective")}</dt><dd>{t(`planReview.protocol.${composer.intent === "format_adaptation" ? "formatAdaptation" : composer.intent}`)}</dd></div>
-                <div><dt className="font-medium text-[var(--text-primary)]">{t("composer.targetFormats")}</dt><dd>{composer.targetFormats?.join(", ")}</dd></div>
-              </dl>
-              {composer.preparedPlan ? <CreativePlanReview plan={composer.preparedPlan} busy={false} onEdit={() => undefined} onConfirm={() => undefined} readOnly /> : <p className="text-sm text-[var(--text-secondary)]">{composer.request || t("progressiveSubtitle")}</p>}
-            </div>
-          </details>
-        </>
-      ) : null}
       {showComposer ? (
-        <CreativeComposer
-          composer={composer}
-          composerRef={composerRef}
-          workflowVariant={rolloutVariant === "progressive" ? "progressive" : "control"}
-          resultsOnly={resultStage}
-          chrome="stage"
-        />
-      ) : null}
-      {resultStage ? (
-        <div data-testid="progressive-campaign-association" className="flex justify-end">
-          <CreateCampaignDialog activeProfile={activeProfile} onCreated={composer.linkCampaign} />
+        <div hidden={showPlan}>
+          <CreativeComposer
+            composer={composer}
+            composerRef={composerRef}
+            workflowVariant={rolloutVariant === "progressive" ? "progressive" : "control"}
+            resultsOnly={resultStage}
+            chrome="stage"
+            resultsContainer={resultsContainer}
+            primaryActionRef={primaryActionRef}
+            controlsActive={boxExpanded}
+          />
         </div>
       ) : null}
-      {!resultStage ? (
-        <div data-testid="brand-inspirations-slot" className="sr-only">
-          <BrandInspirations clientProfileId={composer.clientProfileId} onAttach={composer.addInspiration} />
-        </div>
-      ) : null}
-    </div>
+    </TalkBox>
   );
+
+  const resultStageContent = resultStage ? (
+    <>
+      <section aria-labelledby="progressive-results-title" data-testid="progressive-results-summary" className="flex flex-wrap items-end justify-between gap-2 border-b border-[var(--border-subtle)] pb-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{composer.workTitle ?? (composer.request?.trim() || t(`planReview.protocol.${composer.preparedPlan?.protocol === "format_adaptation" ? "formatAdaptation" : composer.preparedPlan?.protocol ?? composer.intent}`))}</p>
+          <h2 ref={progressiveResultsHeadingRef} id="progressive-results-title" tabIndex={-1} className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{t("resultsTitle")}</h2>
+        </div>
+        <p className="text-sm text-[var(--text-secondary)]">{composer.brandName ?? t("continueBrandUnknown")} · {composer.stage === "generation" ? t("resultStateGenerating") : outputs.length > 0 && outputs.every((output) => output.status === "failed") ? t("resultStateFailed") : t("resultStateReady")}</p>
+      </section>
+      <details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-4">
+        <summary className="cursor-pointer text-sm font-medium">{t("planUsed")}</summary>
+        <div className="mt-3">
+          <dl data-testid="progressive-readonly-configuration" className="grid gap-2 text-sm text-[var(--text-secondary)]">
+            <div><dt className="font-medium text-[var(--text-primary)]">{t("composer.requestLabel")}</dt><dd>{composer.request}</dd></div>
+            <div><dt className="font-medium text-[var(--text-primary)]">{t("chooseObjective")}</dt><dd>{t(`planReview.protocol.${composer.intent === "format_adaptation" ? "formatAdaptation" : composer.intent}`)}</dd></div>
+            <div><dt className="font-medium text-[var(--text-primary)]">{t("composer.targetFormats")}</dt><dd>{composer.targetFormats?.join(", ")}</dd></div>
+          </dl>
+          {composer.preparedPlan ? <CreativePlanReview plan={composer.preparedPlan} busy={false} onEdit={() => undefined} onConfirm={() => undefined} readOnly /> : <p className="text-sm text-[var(--text-secondary)]">{composer.request || t("progressiveSubtitle")}</p>}
+        </div>
+      </details>
+      <div data-testid="progressive-campaign-association" className="flex justify-end">
+        <CreateCampaignDialog activeProfile={activeProfile} onCreated={composer.linkCampaign} />
+      </div>
+    </>
+  ) : null;
 
   return (
     <div>
@@ -426,9 +609,19 @@ export default function DashboardHomeActions({
         subtitle={t("stageEmptySubtitle")}
         eyebrow={t("stageEyebrow")}
         mosaicItems={mosaicItems}
+        repeatItems={deskView !== "production"}
+        deskControls={deskControls}
         onSelectMosaic={(item) => {
+          if (deskView === "production") {
+            const piece = productionItems.find((value) => value.id === item.id);
+            if (piece) router.push(piece.reviewHref);
+            return;
+          }
           const inspiration = inspirations.find((entry) => entry.id === item.id);
-          if (inspiration) void composer.addInspiration?.(inspiration);
+          if (inspiration) {
+            setBoxExpanded(true);
+            void composer.addInspiration?.(inspiration);
+          }
         }}
         continueWork={isLoading && works.length === 0 ? (
           <div className="mx-auto h-6 w-48 max-w-full animate-pulse rounded-full bg-white/6" aria-hidden="true" />
@@ -467,11 +660,24 @@ export default function DashboardHomeActions({
           </div>
         )}
         talkBox={talkBox}
-        onDropFiles={(files) => void composer.addFiles?.(files)}
+        onDropFiles={(files) => {
+          setBoxExpanded(true);
+          void composer.addFiles?.(files);
+        }}
         dropLabel={t("composer.dropTarget")}
-      >
-        {stageBody}
-      </BrandStageHome>
+        expanded={boxExpanded}
+        resultsActive={resultStage}
+        onCollapse={() => {
+          expansionButtonRef.current?.focus();
+          setBoxExpanded(false);
+        }}
+        results={(
+          <>
+            {resultStageContent}
+            <div ref={setResultsContainer} />
+          </>
+        )}
+      />
     </div>
   );
 }

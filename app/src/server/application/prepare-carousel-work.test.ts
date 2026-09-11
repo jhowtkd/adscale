@@ -20,6 +20,10 @@ const billing = vi.hoisted(() => ({
   canSpend: vi.fn(),
   recordUsage: vi.fn(),
 }));
+const envState = vi.hoisted(() => ({
+  sunburstPercent: 100,
+  sunburstQuality: "max" as const,
+}));
 const inngestSendMock = vi.hoisted(() => vi.fn());
 const getOpenAIMock = vi.hoisted(() => vi.fn());
 const transactionExecutor = { scope: "preparation-tx" } as never;
@@ -50,6 +54,16 @@ vi.mock("@/server/jobs/client", () => ({
 }));
 vi.mock("@/server/ai/utils", () => ({
   getOpenAI: (...args: unknown[]) => getOpenAIMock(...args),
+}));
+vi.mock("@/server/validation/env", () => ({
+  env: {
+    get OPENAI_IMAGE_SUNBURST_PERCENT() {
+      return envState.sunburstPercent;
+    },
+    get OPENAI_IMAGE_SUNBURST_QUALITY() {
+      return envState.sunburstQuality;
+    },
+  },
 }));
 
 import { prepareCarouselWork } from "./prepare-carousel-work";
@@ -188,6 +202,8 @@ const baseInput = { workspaceId: "workspace-1", workItemId: "work-1" };
 describe("prepareCarouselWork", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    envState.sunburstPercent = 100;
+    envState.sunburstQuality = "max";
     identityMock.mockResolvedValue(identityResult());
     brandKitMock.mockResolvedValue({
       name: "Cenbrap",
@@ -480,6 +496,22 @@ describe("prepareCarouselWork", () => {
     expect(result.value.work.status).toBe("draft");
   });
 
+  it("freezes the candidate image policy in the preparation transaction", async () => {
+    repo.getCreativeWork.mockResolvedValue(aggregate());
+    await prepareCarouselWork(baseInput);
+    expect(repo.updateCreativeWorkDraftIfUnchanged).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      new Date(UPDATED_AT),
+      expect.objectContaining({
+        inputSnapshot: expect.objectContaining({
+          renderPolicy: { version: 1, model: "gpt-image-2.5-sunburst-2026-09-08", quality: "max" },
+        }),
+      }),
+      transactionExecutor,
+    );
+  });
+
   it("reuses the prepared revision when an identical prepare runs again", async () => {
     repo.getCreativeWork.mockResolvedValue(aggregate());
 
@@ -499,6 +531,7 @@ describe("prepareCarouselWork", () => {
     };
     repo.getCreativeWork.mockResolvedValue({ work: persisted, outputs: [], sources: [styleSource()] });
     repo.updateCreativeWorkDraftIfUnchanged.mockClear();
+    envState.sunburstPercent = 0;
 
     const second = await prepareCarouselWork(baseInput);
 

@@ -45,6 +45,7 @@ import {
   displayRequestForCreativeWork,
   resolveCreativeWorkFactPack,
   resolveCreativeWorkInferredBriefing,
+  resolveCreativeWorkStatus,
   socialPostBriefSchema,
   type CreativeWorkBriefingField,
   type CreativeWorkBriefingOverrides,
@@ -443,9 +444,21 @@ export async function GET(
         }),
       );
     }
-    const result = await getCreativeWork(workspace.id, id);
+    let result = await getCreativeWork(workspace.id, id);
     if (!result) {
       return apiError("creativeWorkNotFound", 404);
+    }
+    // Output jobs persist terminal rows before the aggregate status step.
+    // A GET poll can therefore observe completed/failed outputs while the
+    // work is still "generating". Catch up here so clients do not wait on
+    // Inngest finally to learn partial/completed/failed.
+    if (
+      result.work.toolKind !== "carousel"
+      && result.work.status === "generating"
+      && resolveCreativeWorkStatus(result.outputs.map((output) => output.status)) !== "generating"
+    ) {
+      await refreshCreativeWorkStatus(workspace.id, id);
+      result = await getCreativeWork(workspace.id, id) ?? result;
     }
     if (staleOutputs.length > 0) {
       const generationUnits = new Map<string, typeof result.outputs>();

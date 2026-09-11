@@ -54,6 +54,7 @@ import {
   withCreativeWorkPreparationLock,
 } from "@/server/repositories/creative-work";
 import { env } from "@/server/validation/env";
+import { resolveImageRenderPolicy, selectImageRenderPolicy } from "@/server/ai/image-render-policy";
 
 /** Persisted roles are the only authority for preparation and conflict detection. */
 function resolveEffectiveSources<TSource extends { id: string; templateId: string | null; usage: CreativeSourceUsage }>(
@@ -98,7 +99,7 @@ export async function detectCreativeWorkDraftBrandConflict(input: {
 
 /** Compare snapshots ignoring the policy version, which is checked separately. */
 function withoutPolicyVersion(snapshot: CreativeWorkInputSnapshot | null) {
-  const rest = { ...snapshot };
+  const rest = { ...snapshot, renderPolicy: resolveImageRenderPolicy(snapshot?.renderPolicy) };
   delete rest.generationPolicyVersion;
   return rest;
 }
@@ -107,6 +108,28 @@ function withoutBriefing(snapshot: CreativeWorkInputSnapshot | null) {
   const rest = withoutPolicyVersion(snapshot);
   delete rest.inferredBriefing;
   return rest;
+}
+
+function freezeImageRenderPolicy(input: {
+  workspaceId: string;
+  snapshot: CreativeWorkInputSnapshot | null | undefined;
+  brief: unknown;
+  copy: unknown;
+}) {
+  if (input.snapshot?.renderPolicy) {
+    return resolveImageRenderPolicy(input.snapshot.renderPolicy);
+  }
+  const alreadyPrepared = Boolean(
+    input.snapshot?.generationPolicyVersion ||
+    (input.brief && input.copy) ||
+    input.snapshot?.carousel,
+  );
+  if (alreadyPrepared) return resolveImageRenderPolicy(undefined);
+  return selectImageRenderPolicy(
+    input.workspaceId,
+    env.OPENAI_IMAGE_SUNBURST_PERCENT,
+    env.OPENAI_IMAGE_SUNBURST_QUALITY,
+  );
 }
 
 export async function prepareCreativeWork(input: { workspaceId: string; workItemId: string }) {
@@ -245,8 +268,15 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       // question ever appears without a confident conflict).
       brandAuthority,
     }), commercialOffer);
+    const renderPolicy = freezeImageRenderPolicy({
+      workspaceId: input.workspaceId,
+      snapshot: aggregate.work.inputSnapshot,
+      brief: aggregate.work.brief,
+      copy: aggregate.work.copy,
+    });
     const snapshotBase: CreativeWorkInputSnapshot = {
       generationPolicyVersion: generationPolicyVersionFromSwitch(env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED),
+      renderPolicy,
       factPack,
       ...(typographyPlan ? { typographyPlan } : {}),
       request: aggregate.work.request,

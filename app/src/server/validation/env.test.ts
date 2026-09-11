@@ -141,4 +141,13 @@ describe("envSchema", () => {
     expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", STUDIO_CAROUSEL_ROLLOUT_PERCENT: "abc" })).toThrow();
     expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", STUDIO_CAROUSEL_ROLLOUT_PERCENT: "2.5" })).toThrow();
   });
+
+  it("defaults the sunburst image rollout to zero with max quality and bounds the percent", () => {
+    expect(schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy" }).OPENAI_IMAGE_SUNBURST_PERCENT).toBe(0);
+    expect(schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy" }).OPENAI_IMAGE_SUNBURST_QUALITY).toBe("max");
+    expect(schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", OPENAI_IMAGE_SUNBURST_PERCENT: "100" }).OPENAI_IMAGE_SUNBURST_PERCENT).toBe(100);
+    expect(schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", OPENAI_IMAGE_SUNBURST_QUALITY: "high" }).OPENAI_IMAGE_SUNBURST_QUALITY).toBe("high");
+    expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", OPENAI_IMAGE_SUNBURST_PERCENT: "101" })).toThrow();
+    expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", OPENAI_IMAGE_SUNBURST_QUALITY: "ultra" })).toThrow();
+  });
 });

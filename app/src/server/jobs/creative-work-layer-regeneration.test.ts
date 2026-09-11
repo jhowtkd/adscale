@@ -89,6 +89,31 @@ describe("creativeWorkLayerRegenerationJob", () => {
     expect(provider.regenerate).toHaveBeenCalledOnce();
   });
 
+  it("uses the reserved policy and does not regenerate on duplicate delivery", async () => {
+    const renderPolicy = { version: 1 as const, model: "gpt-image-2.5-sunburst-2026-09-08" as const, quality: "max" as const };
+    const frozen = { ...state, regeneration: { ...state.regeneration!, renderPolicy } };
+    stateFromOutput.mockImplementation(row => row ? frozen : null);
+    markProcessing.mockResolvedValueOnce({ id: input.outputId }).mockResolvedValueOnce(null);
+    const observation = {
+      callId: "call-1",
+      key: `${input.workspaceId}/${input.outputId}/${input.operationId}`,
+      operation: "edit" as const,
+      requested: renderPolicy,
+      requestedSize: "1024x1024",
+      returnedSize: null,
+      returnedQuality: null,
+      requestId: "req-1",
+      durationMs: 10,
+      usage: { output_tokens: 30 },
+    };
+    const provider = { regenerate: vi.fn().mockResolvedValue({ buffer: Buffer.from("candidate"), requestId: "req-1", observation }) };
+    await runCreativeWorkLayerRegeneration(input, provider);
+    await runCreativeWorkLayerRegeneration(input, provider);
+    expect(provider.regenerate).toHaveBeenCalledOnce();
+    expect(provider.regenerate).toHaveBeenCalledWith(expect.objectContaining({ renderPolicy }));
+    expect(completeCandidate).toHaveBeenCalledWith(expect.objectContaining({ observation }));
+  });
+
   it("conservatively recovers a stale processing operation without invoking the provider again", async () => {
     markProcessing.mockResolvedValue(null);
     stateFromOutput.mockReturnValue(null);

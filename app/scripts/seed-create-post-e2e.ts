@@ -53,10 +53,13 @@ import {
   createCreativeWorkOutputs,
   setCreativeWorkCopy,
 } from "../src/server/repositories/creative-work";
+import { quoteCreativeWork } from "../src/server/creative-work/contracts";
 import type { BrandTrainingAnalysis } from "../src/server/brand-training/contracts";
+import { activateSignupTrial } from "../src/server/billing/trial";
 import {
   createCreditGrant,
   saveBillingCustomer,
+  updateCreditGrantRemaining,
   upsertSubscription,
 } from "../src/server/repositories/billing";
 
@@ -193,14 +196,16 @@ async function resolveFirstVisitWorkspace(): Promise<{ userId: string; workspace
 
 async function resolveInsufficientBalanceWorkspace(): Promise<{ userId: string; workspaceId: string }> {
   const account = await resolveE2eAccount(INSUFFICIENT_E2E_EMAIL, INSUFFICIENT_E2E_PASSWORD, "Studio Insufficient E2E");
-  await db.delete(creditGrants).where(eq(creditGrants.workspaceId, account.workspaceId));
-  await createCreditGrant({
-    workspaceId: account.workspaceId,
-    source: "studio_e2e_insufficient_balance",
-    sourceId: `studio-insufficient-${account.workspaceId}`,
-    amount: 0,
-    expiresAt: null,
-  });
+  // Deleting the signup_trial grant leaves the entitlement active, so the next
+  // login recreates TRIAL_CREDIT_GRANT (500). Drain remaining instead.
+  await activateSignupTrial({ workspaceId: account.workspaceId, userId: account.userId });
+  const grants = await db
+    .select({ id: creditGrants.id, remaining: creditGrants.remaining })
+    .from(creditGrants)
+    .where(eq(creditGrants.workspaceId, account.workspaceId));
+  for (const grant of grants) {
+    if (grant.remaining !== 0) await updateCreditGrantRemaining(grant.id, 0);
+  }
   return account;
 }
 
@@ -534,7 +539,11 @@ async function main(): Promise<void> {
     readyWorkId,
     contentArtAssetId: contentArt.assetId,
     styleArtAssetId: styleArt.assetId,
-    expectedInitialCredits: 15,
+    expectedInitialCredits: quoteCreativeWork({
+      intent: "variations",
+      format: "4:5",
+      targetFormats: [],
+    }).credits,
     insufficientBalance: {
       workspaceId: insufficient.workspaceId,
       email: INSUFFICIENT_E2E_EMAIL,

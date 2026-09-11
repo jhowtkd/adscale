@@ -7,6 +7,11 @@ import {
   type OpenAIImageSize,
 } from "@/lib/formats";
 import { fetchProviderUrlSafe } from "@/server/ai/safe-fetch";
+import {
+  observeImageCall,
+  type ImageCallObservation,
+} from "@/server/ai/image-call-observation";
+import { resolveImageRenderPolicy } from "@/server/ai/image-render-policy";
 import type {
   ImageCandidate,
   ImageGenerationProvider,
@@ -25,8 +30,8 @@ import type {
  */
 const REQUEST_OPTIONS = { timeout: 180_000, maxRetries: 0 } as const;
 
-function resolveOpenAISize(input: ProviderGenerateInput): OpenAIImageSize {
-  const isGptImage2 = env.OPENAI_IMAGE_MODEL.startsWith("gpt-image-2");
+function resolveOpenAISize(input: ProviderGenerateInput, model: string): OpenAIImageSize {
+  const isGptImage2 = model.startsWith("gpt-image-2");
   if (isGptImage2) {
     return dimensionsToGptImage2Size(input.dimensions);
   }
@@ -48,9 +53,13 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
 
   async generate(input: ProviderGenerateInput): Promise<ImageCandidate> {
     const start = Date.now();
-    const openaiSize = toOpenAISdkImageSize(resolveOpenAISize(input));
+    const policy = input.renderPolicy !== undefined
+      ? resolveImageRenderPolicy(input.renderPolicy)
+      : resolveImageRenderPolicy({ version: 1, model: env.OPENAI_IMAGE_MODEL, quality: input.quality ?? "medium" });
+    const openaiSize = toOpenAISdkImageSize(resolveOpenAISize(input, policy.model));
     let result: OpenAI.Images.Image;
     let requestId: string | undefined;
+    let observation: ImageCallObservation;
 
     if (input.referenceImages.length > 0) {
       const files = await Promise.all(
@@ -58,17 +67,18 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
           toFile(ref.buffer, ref.name, { type: ref.mimeType })
         )
       );
-      const response = await openai.images.edit(
-        {
-          model: env.OPENAI_IMAGE_MODEL,
+      const observed = await observeImageCall(policy, { key: input.outputPrefix, operation: "edit", size: openaiSize }, () =>
+        openai.images.edit({
+          model: policy.model,
           image: files,
           prompt: input.prompt,
           n: 1,
           size: openaiSize,
-          quality: input.quality ?? "medium",
-        },
-        REQUEST_OPTIONS
+          quality: policy.quality as OpenAI.Images.ImageEditParams["quality"],
+        }, REQUEST_OPTIONS),
       );
+      const response = observed.response;
+      observation = observed.observation;
       const first = response.data?.[0];
       if (!first) throw new Error("No image data returned from OpenAI");
       requestId = response._request_id ?? undefined;
@@ -77,16 +87,17 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
       );
       result = first;
     } else {
-      const response = await openai.images.generate(
-        {
-          model: env.OPENAI_IMAGE_MODEL,
+      const observed = await observeImageCall(policy, { key: input.outputPrefix, operation: "generate", size: openaiSize }, () =>
+        openai.images.generate({
+          model: policy.model,
           prompt: input.prompt,
           n: 1,
           size: openaiSize,
-          quality: input.quality ?? "medium",
-        },
-        REQUEST_OPTIONS
+          quality: policy.quality as OpenAI.Images.ImageGenerateParams["quality"],
+        }, REQUEST_OPTIONS),
       );
+      const response = observed.response;
+      observation = observed.observation;
       const first = response.data?.[0];
       if (!first) throw new Error("No image data returned from OpenAI");
       requestId = response._request_id ?? undefined;
@@ -108,10 +119,11 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
       mimeType: "image/png",
       providerMeta: {
         provider: "openai",
-        model: env.OPENAI_IMAGE_MODEL,
+        model: policy.model,
         durationMs: Date.now() - start,
         rawRequestId: requestId,
         revisedPrompt: result.revised_prompt || undefined,
+        observation,
       },
     };
   }

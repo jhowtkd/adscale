@@ -6,6 +6,7 @@ import type {
   BrandTrainingUsageMode,
 } from "@/server/brand-training/contracts";
 import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
+import type { ImageRenderPolicy } from "@/server/ai/image-render-policy";
 import type { TextLayout, TypographyPlan } from "./typography-plan";
 import { carouselDraftStateSchema } from "./carousel-contracts";
 import type { CarouselDraftStateV1, CarouselPreparedSnapshotV1 } from "./carousel-contracts";
@@ -265,6 +266,12 @@ export type CreativeWorkInputSnapshot = {
    * switch existed; those behave as "legacy".
    */
   generationPolicyVersion?: CreativeWorkGenerationPolicyVersion;
+  /**
+   * Image render policy frozen at prepare time. Jobs read this snapshot and
+   * never re-select from env. Absent on snapshots written before the field
+   * existed; those resolve to the LEGACY baseline.
+   */
+  renderPolicy?: ImageRenderPolicy;
   /**
    * Fact pack frozen at prepare time (R-002). Absent on snapshots written
    * before the fact pack existed; those stay readable and are rebuilt.

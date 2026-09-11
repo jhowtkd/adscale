@@ -63,6 +63,7 @@ interface CarouselSlideRow {
 interface CarouselWorkDetail {
   work: {
     id: string;
+    request: string;
     toolKind: string;
     carouselApprovedRevision: string | null;
     settings: {
@@ -150,8 +151,10 @@ async function login(page: Page, fixture: CreatePostFixture): Promise<void> {
       /* ignore */
     }
   });
+  const origin = process.env.E2E_BASE_URL ?? "http://localhost:3106";
   const response = await page.request.post("/api/auth/sign-in/email", {
     data: { email: fixture.email, password: fixture.password },
+    headers: { Origin: origin },
   });
   expect(response.ok(), `E2E login must succeed (got ${response.status()})`).toBeTruthy();
 }
@@ -171,31 +174,57 @@ test.describe("Studio Carousel editorial controlled-provider gate", () => {
       }));
     }, fixture.primaryClientProfileId);
 
+    // -- Steps 1 + 2: choose `Criar carrossel` first, then enter the request.
+    // Filling beforehand dirties the first-visit single composer and opens the
+    // protocol-switch confirmation instead of creating the carousel draft.
     await page.goto("/", { waitUntil: "commit" });
     const requestBox = page.locator("#creative-composer-request");
     await expect(requestBox).toBeVisible({ timeout: 30_000 });
-    const carouselCard = page.getByRole("button", { name: /criar carrossel/i }).first();
-    await expect(async () => {
-      await requestBox.fill(OPERATOR_REQUEST);
-      await expect(requestBox).toHaveValue(OPERATOR_REQUEST, { timeout: 5_000 });
-      await expect(carouselCard).toBeVisible({ timeout: 5_000 });
-    }).toPass({ timeout: 90_000 });
+    await expect(requestBox).toHaveCount(1);
+    const box = page.getByTestId("studio-talk-box");
+    await requestBox.focus();
+    const carouselCard = box.getByRole("radio", { name: /criar carrossel/i });
+    if (!(await carouselCard.isVisible().catch(() => false))) {
+      const expand = box.getByRole("button", { name: /abrir controles|open controls/i });
+      if (await expand.count()) await expand.click();
+    }
+    await expect(carouselCard).toBeVisible({ timeout: 15_000 });
     await carouselCard.click();
-
+    const preserveSwitch = page.getByRole("button", { name: /preservar e trocar|preserve and switch/i });
+    if (await preserveSwitch.isVisible().catch(() => false)) await preserveSwitch.click();
+    await expect(carouselCard).toHaveAttribute("aria-checked", "true");
+    const carouselRequest = OPERATOR_REQUEST;
+    await requestBox.fill(carouselRequest);
+    await expect(requestBox).toHaveValue(carouselRequest);
+    // Draft create follows the selected protocol + filled request (autosave /
+    // ensureDraft), not the radio click itself. Do not fall back to a stale
+    // carousel draft key before this request is persisted on the live work.
     let resolvedWorkId: string | null = null;
-    await expect(async () => {
-      resolvedWorkId = new URL(page.url()).searchParams.get("workId")
-        ?? await page.evaluate((profileId) =>
-          window.localStorage.getItem(`adscale:creative-draft:v1:${profileId}:carousel`),
-          fixture.primaryClientProfileId);
-      expect(resolvedWorkId, "created carousel draft must be resolvable").toBeTruthy();
-    }).toPass({ timeout: 60_000 });
+    await expect.poll(async () => {
+      const fromUrl = new URL(page.url()).searchParams.get("workId");
+      if (!fromUrl) return false;
+      resolvedWorkId = fromUrl;
+      return (await getDetail(page.request, fromUrl)).work.request === carouselRequest;
+    }, { timeout: 60_000 }).toBe(true);
     workId = resolvedWorkId!;
-    await page.goto(`/?workId=${workId}`, { waitUntil: "commit" });
-    await expect(page.locator("#creative-composer-request")).toHaveValue(OPERATOR_REQUEST);
+    if (new URL(page.url()).searchParams.get("workId") !== workId) {
+      await page.goto(`/?workId=${workId}`, { waitUntil: "commit" });
+    }
+    await expect(page.locator("#creative-composer-request")).toHaveValue(carouselRequest);
+    await expect(page.locator("#creative-composer-request")).toHaveCount(1);
 
+    await expect(page.getByTestId("carousel-organize")).toBeEnabled({ timeout: 60_000 });
     await page.getByTestId("carousel-organize").click();
-    await expect(page.getByTestId("carousel-hook-choices")).toBeVisible({ timeout: 120_000 });
+    const questions = page.getByTestId("carousel-questions");
+    const hooks = page.getByTestId("carousel-hook-choices");
+    await expect(questions.or(hooks)).toBeVisible({ timeout: 120_000 });
+    if (await questions.isVisible().catch(() => false)) {
+      await expect(questions.locator("input")).toHaveCount(1);
+      const questionInput = questions.locator("input").first();
+      await questionInput.fill("Lista de espera pelo direct do ateliê");
+      await page.getByTestId("carousel-answer-submit").click();
+    }
+    await expect(hooks).toBeVisible({ timeout: 120_000 });
     const chooseButtons = page.getByRole("button", { name: /escolher gancho/i });
     await expect(chooseButtons).toHaveCount(3);
 
@@ -228,6 +257,8 @@ test.describe("Studio Carousel editorial controlled-provider gate", () => {
     await page.getByTestId("carousel-generate").click();
 
     await expect(page.getByTestId("carousel-generating")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("carousel-composer")).toHaveCount(1);
+    await expect(page.getByTestId("carousel-generate")).toHaveCount(0);
     await expect
       .poll(
         async () => {

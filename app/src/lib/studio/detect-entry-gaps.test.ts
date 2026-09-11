@@ -177,6 +177,7 @@ describe("detectEntryGaps", () => {
     })).toBe(false);
     expect(shouldHideProtocolSwitcher(null, { placement: "center" })).toBe(true);
     expect(shouldHideProtocolSwitcher(null, { placement: "center", intent: "single" })).toBe(true);
+    expect(shouldHideProtocolSwitcher(null, { placement: "center", intent: "single", hasStartedRequest: true })).toBe(false);
     expect(shouldHideProtocolSwitcher(null, { placement: "center", intent: "variations" })).toBe(false);
     expect(shouldHideProtocolSwitcher(null, { placement: "center", suggestedProtocol: "single" })).toBe(false);
     expect(shouldHideProtocolSwitcher(null, { placement: "dock" })).toBe(false);

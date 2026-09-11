@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Check, Paperclip, Sparkles } from "lucide-react";
@@ -19,7 +20,7 @@ import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCrea
 
 const FORMATS = ["1:1", "4:5", "9:16"] as const;
 
-export function CreativeComposer({ composer, composerRef, hideSourceUpload = false, layout = "studio", workflowVariant = "control", resultsOnly = false, chrome = "full" }: {
+export function CreativeComposer({ composer, composerRef, hideSourceUpload = false, layout = "studio", workflowVariant = "control", resultsOnly = false, chrome = "full", resultsContainer = null, primaryActionRef, controlsActive = true }: {
   composer: CreativeComposerViewModel;
   composerRef: CreativeComposerModel["composerRef"];
   /** Briefing-first entry keeps the canonical request but omits source upload. */
@@ -30,6 +31,10 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
   resultsOnly?: boolean;
   /** Palco owns request, attach and generate; stage chrome keeps configure/results only. */
   chrome?: "full" | "stage";
+  resultsContainer?: HTMLElement | null;
+  primaryActionRef?: RefObject<HTMLButtonElement | null>;
+  /** When false, carousel auto-focus skips hidden/inert controls. Never gates data. */
+  controlsActive?: boolean;
 }) {
   const t = useTranslations("dashboard.home.composer");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -49,9 +54,9 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
     // while it runs, the generate button is disabled and unfocusable.
     if (hadBrandConflictRef.current && composer.actionPhase === "idle") {
       hadBrandConflictRef.current = false;
-      generateButtonRef.current?.focus();
+      (primaryActionRef?.current ?? generateButtonRef.current)?.focus();
     }
-  }, [composer.brandConflict, composer.actionPhase]);
+  }, [composer.brandConflict, composer.actionPhase, primaryActionRef]);
   const stageChrome = chrome === "stage";
   const isRestyle = composer.intent === "restyle";
   const isVariations = composer.intent === "variations";
@@ -251,7 +256,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
     void composer.addFiles(Array.from(event.dataTransfer.files));
   };
 
-  const results = composer.outputs.length > 0 ? (
+  const resultsContent = composer.outputs.length > 0 ? (
     <section {...(!resultsOnly ? { "aria-labelledby": "creative-results-title" } : {})} className="space-y-4">
       <div className={cn("flex flex-wrap items-center justify-between gap-3", layout === "piece" && "sr-only")}>
         {!resultsOnly ? <div>
@@ -299,6 +304,9 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
       </div>
     </section>
   ) : null;
+  const results = resultsContainer && stageChrome && resultsContent
+    ? createPortal(resultsContent, resultsContainer)
+    : resultsContent;
 
   if (composer.workError) {
     return (
@@ -370,6 +378,9 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           onRetryStyleSource={carouselStyleSource ? () => void composer.retrySource(carouselStyleSource.id) : undefined}
           onRemoveStyleSource={carouselStyleSource ? () => void composer.removeSource(carouselStyleSource.id) : undefined}
           approvedRevision={composer.carousel.approvedRevision}
+          requestOwner={stageChrome ? "host" : "self"}
+          resultsContainer={resultsContainer}
+          active={controlsActive}
         />
       ) : (<>
       {composer.intent === "single" && composer.brandIdentity ? (

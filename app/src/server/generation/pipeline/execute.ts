@@ -128,6 +128,7 @@ export async function executeCanonicalGeneration(
     telemetry: destinationTelemetry,
     onStageHeartbeat: options?.onStageHeartbeat,
     callBudget: options?.callBudget,
+    renderPolicy: request.renderPolicy,
     selectCandidate: routes
       ? async (candidates) => {
           const selection = await observeImagePipelineExternalCall({

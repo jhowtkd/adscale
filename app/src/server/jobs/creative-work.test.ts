@@ -956,6 +956,11 @@ describe("creativeWorkOutputJob", () => {
     });
     expect(ensureLibraryMock).toHaveBeenCalledAfter(completeMock);
     expect(refreshStatusMock).toHaveBeenCalledWith("workspace-1", "work-1");
+    expect(generateAndStoreImageMock.mock.calls[0]?.[0].renderPolicy).toEqual({
+      version: 1,
+      model: "gpt-image-2-2026-04-21",
+      quality: "medium",
+    });
     // No refund should fire on a happy path.
     expect(settleTerminalRefundMock).not.toHaveBeenCalled();
   });
@@ -1026,6 +1031,7 @@ describe("creativeWorkOutputJob", () => {
               rawRequestId: "req-image-1",
             },
             excludedCalls: [],
+            observations: [],
           },
         }),
       }),
@@ -2009,7 +2015,36 @@ describe("creativeWorkOutputJob", () => {
           selectCandidate: undefined,
         }),
       );
+      expect(generateAndStoreImageMock.mock.calls[0]?.[0].renderPolicy).toEqual({
+        version: 1,
+        model: "gpt-image-2-2026-04-21",
+        quality: "medium",
+      });
       expect(executorModes()).toEqual(["social_post"]);
+    });
+
+    it("forwards the frozen sunburst policy and ignores a later env percent change", async () => {
+      vi.stubEnv("OPENAI_IMAGE_SUNBURST_PERCENT", "0");
+      vi.stubEnv("OPENAI_IMAGE_SUNBURST_QUALITY", "medium");
+      getCreativeWorkMock.mockResolvedValue({
+        work: {
+          ...v1Work("single"),
+          inputSnapshot: {
+            ...v1Snapshot,
+            renderPolicy: { version: 1, model: "gpt-image-2.5-sunburst-2026-09-08", quality: "max" },
+          },
+        },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      await runJob();
+
+      expect(generateAndStoreImageMock.mock.calls[0]?.[0].renderPolicy).toEqual({
+        version: 1,
+        model: "gpt-image-2.5-sunburst-2026-09-08",
+        quality: "max",
+      });
     });
 
     it("Variações: each output runs one direct art_variation call on the same snapshot with its persisted level", async () => {
@@ -3049,6 +3084,14 @@ describe("creativeWorkOutputJob", () => {
       expect(correctionRequest.prompt).toContain("- unsupported_claim");
       expect(correctionRequest.prompt).toContain("SURGICAL INSTRUCTIONS: Renderiza R$ 99 sem origem.");
       expect(correctionRequest.attempt).toBe(1);
+      expect(generateAndStoreImageMock.mock.calls[0]?.[0].renderPolicy).toEqual({
+        version: 1,
+        model: "gpt-image-2-2026-04-21",
+        quality: "medium",
+      });
+      expect(generateAndStoreImageMock.mock.calls[1]?.[0].renderPolicy).toEqual(
+        generateAndStoreImageMock.mock.calls[0]?.[0].renderPolicy,
+      );
       // The persisted payload is the correction's pass with attempt 2 — the
       // scorer was skipped on the failed base attempt (95 could not soften
       // the fail) and ran only for the passing correction.
@@ -3099,6 +3142,18 @@ describe("creativeWorkOutputJob", () => {
             durationMs: 8_000,
             rawRequestId: "req-base",
             winner: true,
+            observation: {
+              callId: "call-original",
+              key: "output-1",
+              operation: "generate",
+              requested: { version: 1, model: "gpt-image-2-2026-04-21", quality: "medium" },
+              requestedSize: "1088x1088",
+              returnedSize: "1088x1088",
+              returnedQuality: "medium",
+              requestId: "req-base",
+              durationMs: 8000,
+              usage: null,
+            },
           }],
           excludedCalls: [{
             requestId: "req-timeout",
@@ -3122,6 +3177,18 @@ describe("creativeWorkOutputJob", () => {
             durationMs: 9_000,
             rawRequestId: "req-correction",
             winner: true,
+            observation: {
+              callId: "call-correction",
+              key: "output-1",
+              operation: "generate",
+              requested: { version: 1, model: "gpt-image-2-2026-04-21", quality: "medium" },
+              requestedSize: "1088x1088",
+              returnedSize: "1088x1088",
+              returnedQuality: "medium",
+              requestId: "req-correction",
+              durationMs: 9000,
+              usage: null,
+            },
           }],
           excludedCalls: [],
           providerCalls: 1,
@@ -3145,6 +3212,10 @@ describe("creativeWorkOutputJob", () => {
             outputId: "output-1",
             error: "ETIMEDOUT",
           }],
+          observations: [
+            expect.objectContaining({ callId: "call-original" }),
+            expect.objectContaining({ callId: "call-correction" }),
+          ],
         },
       });
     });

@@ -413,6 +413,7 @@ describe("CarouselComposer", () => {
 
     const generate = screen.getByTestId("carousel-generate");
     expect(generate).toBeEnabled();
+    expect(screen.queryByTestId("carousel-prepare")).not.toBeInTheDocument();
     fireEvent.click(generate);
     expect(generateCarousel).toHaveBeenCalledTimes(1);
 
@@ -425,6 +426,8 @@ describe("CarouselComposer", () => {
     renderCarousel(controller({ phase: "sequence", draft: carouselDraft(), generateCarousel }));
 
     fireEvent.keyDown(screen.getByLabelText("Texto principal"), { key: "Enter" });
+    expect(screen.queryByTestId("carousel-generate")).not.toBeInTheDocument();
+    expect(screen.getByTestId("carousel-prepare")).toBeInTheDocument();
     expect(generateCarousel).not.toHaveBeenCalled();
     expect(screen.queryByTestId("carousel-generate")).not.toBeInTheDocument();
   });
@@ -715,6 +718,61 @@ describe("CarouselComposer", () => {
 
     expect(screen.getByRole("button", { name: "Aprovar capa e gerar demais slides" })).toBeInTheDocument();
     expect(confirmGeneration).not.toHaveBeenCalled();
+  });
+
+  it("usa pedido externo e mantém a ação de organizar", () => {
+    const state = controller();
+    renderCarousel(state, { requestOwner: "host" });
+    expect(document.querySelector("#creative-composer-request")).toBeNull();
+    fireEvent.click(screen.getByTestId("carousel-organize"));
+    expect(state.askForPlan).toHaveBeenCalledTimes(1);
+    expect(state.generateCarousel).not.toHaveBeenCalled();
+  });
+
+  it("preserva respostas ao ocultar e reabrir o conteúdo", () => {
+    const state = controller({
+      phase: "questions",
+      draft: carouselDraft({ blockingQuestions }),
+    });
+    const content = (
+      <CarouselComposer
+        carousel={state}
+        request="Campanha"
+        onRequestChange={vi.fn()}
+        onAddStyleFiles={vi.fn()}
+        requestOwner="host"
+      />
+    );
+    const view = render(<div hidden={false}>{content}</div>);
+    const input = screen.getByRole("textbox", { name: "Qual é a oferta?" });
+    fireEvent.change(input, { target: { value: "Inscrição antecipada" } });
+    view.rerender(<div hidden>{content}</div>);
+    view.rerender(<div hidden={false}>{content}</div>);
+    fireEvent.click(screen.getByTestId("carousel-answer-submit"));
+    expect(state.answerQuestions).toHaveBeenCalledWith({ "q-1": "Inscrição antecipada" });
+  });
+
+  it("renders review outside the composer when a results container is provided", () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const slides = [1, 2, 3, 4, 5].map((position) => publicSlide(position));
+    const approveDeck = vi.fn();
+    renderCarousel(controller({
+      phase: "review",
+      draft: carouselDraft(),
+      slides,
+      quality: { version: 1, objectivePassed: true, advisoryWarnings: [], reviewedAt: NOW, hasContactSheet: true },
+      canApprove: true,
+      approveDeck,
+    }), { resultsContainer: target });
+
+    expect(target).toContainElement(screen.getByTestId("carousel-progress"));
+    expect(target).toContainElement(screen.getByTestId("carousel-deck-review"));
+    expect(screen.getByTestId("carousel-composer")).toBeInTheDocument();
+    expect(screen.getByTestId("carousel-composer")).not.toContainElement(screen.getByTestId("carousel-deck-review"));
+    fireEvent.click(screen.getByTestId("carousel-approve"));
+    expect(approveDeck).toHaveBeenCalledTimes(1);
+    target.remove();
   });
 });
 
