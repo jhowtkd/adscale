@@ -309,6 +309,7 @@ const CAROUSEL_EDITORIAL_CLIENT_ERRORS: Record<string, string> = {
   invalid_editorial_transition: "Esta etapa editorial ainda não pode ser confirmada. Revise o gancho, o roteiro ou a capa.",
   editorial_plan_invalid: "Não foi possível montar uma proposta editorial segura. Tente novamente.",
   stale_input: "Este trabalho foi alterado. Recarregue e tente novamente.",
+  invalid_generation_gate: "Aprove o roteiro e a capa vigentes, depois prepare de novo para gerar.",
 };
 
 /** Safe client copy for carousel editorial failures — never raw provider text. */

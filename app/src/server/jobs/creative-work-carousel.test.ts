@@ -378,6 +378,26 @@ describe("runCreativeWorkCarouselSlide", () => {
     });
   });
 
+  it("still asks dispatchNextCarouselStage after the cover completes so the gate can pause interiors", async () => {
+    const cover = slideRow({
+      id: "slide-1",
+      position: 1,
+      role: "hook",
+      layoutFamily: "impact",
+      generationOperationKey: "deck-r1:slide-1",
+      anchorKey: null,
+    });
+    carouselRepo.listCurrentCarouselSlides.mockResolvedValue([cover]);
+    carouselRepo.markCarouselSlideProcessing.mockResolvedValue({ ...cover, status: "processing" });
+
+    await runCreativeWorkCarouselSlide({
+      event: { workspaceId: "workspace-1", workItemId: WORK_ID, slideId: "slide-1" },
+    });
+
+    expect(carouselRepo.completeCarouselSlide).toHaveBeenCalledTimes(1);
+    expect(continuation.dispatchNextCarouselStage).toHaveBeenCalledTimes(1);
+  });
+
   it("fails only that slide with refund on objective fail — no second correction call", async () => {
     qa.runCreativeWorkQualityAssessment.mockResolvedValue({
       objectiveVerdict: "fail",

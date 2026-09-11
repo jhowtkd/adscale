@@ -838,6 +838,7 @@ export async function PATCH(
             case "blocking_questions": return apiError("blocking_questions", 409, prepared.error.details);
             case "editorial_invalid": return apiError("editorial_invalid", 422, prepared.error.details);
             case "invalid_context": return apiError("invalid_context", 422, prepared.error.details);
+            case "invalid_generation_gate": return apiError("creativeWorkNotReady", 409, prepared.error.details);
           }
         }
         return NextResponse.json(prepared.value);

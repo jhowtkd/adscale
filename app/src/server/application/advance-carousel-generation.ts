@@ -26,6 +26,11 @@ import {
   refreshCarouselWorkStatus,
   setRemainingCarouselAnchorKey,
 } from "@/server/repositories/creative-work-carousel";
+import {
+  authorizeCarouselSlideClaim,
+  CarouselGenerationGateError,
+  readCarouselEditorial,
+} from "@/server/creative-work/carousel-editorial-state";
 import { objectStorage } from "@/server/storage";
 
 export type DispatchNextCarouselStageResult =
@@ -75,6 +80,18 @@ export async function dispatchNextCarouselStage(input: {
   if (!snapshot) return { ok: false, error: { code: "stale_input" } };
 
   const slides = await listCurrentCarouselSlides(input.workspaceId, input.workItemId);
+  const editorial = readCarouselEditorial(work.settings);
+  const coverSlideId = editorial?.approvedCover?.slideId
+    ?? slides.find((slide) => slide.position === 1)?.id
+    ?? null;
+  const nextInteriorAuthorized = authorizeCarouselSlideClaim({
+    editorial,
+    generationScope: snapshot.generationScope,
+    scriptRevision: snapshot.scriptRevision,
+    preparedRevision: snapshot.preparedRevision,
+    slidePosition: 2,
+    coverSlideId,
+  });
   const anchorPositions = carouselAnchorPositions(snapshot.deck.slides.length);
   const anchorSlides = anchorPositions
     .map((position) => slides.find((slide) => slide.position === position))
@@ -105,16 +122,31 @@ export async function dispatchNextCarouselStage(input: {
       };
     }
     if (anchor.status === "draft") {
-      const settled = await startGenerationSettlement(
-        carouselSlideSettlementAdapter({
+      if (anchor.position !== 1 && !nextInteriorAuthorized) {
+        const refreshed = await refreshCarouselWorkStatus({
           workspaceId: input.workspaceId,
           workItemId: input.workItemId,
-          slideId: anchor.id,
-          userId: input.userId,
-          anchorKey: null,
-          operationKey: carouselSlideBillingKey(input.workItemId, anchor.id),
-        }),
-      );
+        }).catch(() => null);
+        return { ok: true, value: { dispatched: 0, work: refreshed ?? work, setReviewRecorded: false } };
+      }
+      let settled: Awaited<ReturnType<typeof startGenerationSettlement>>;
+      try {
+        settled = await startGenerationSettlement(
+          carouselSlideSettlementAdapter({
+            workspaceId: input.workspaceId,
+            workItemId: input.workItemId,
+            slideId: anchor.id,
+            userId: input.userId,
+            anchorKey: null,
+            operationKey: carouselSlideBillingKey(input.workItemId, anchor.id),
+          }),
+        );
+      } catch (error) {
+        if (error instanceof CarouselGenerationGateError) {
+          return { ok: true, value: { dispatched: 0, work, setReviewRecorded: false } };
+        }
+        throw error;
+      }
       if (!settled.ok) {
         return {
           ok: false,
@@ -132,6 +164,13 @@ export async function dispatchNextCarouselStage(input: {
   // key are deterministic; the queue CAS keeps duplicate sends impossible.
   const anchorBoardKey = `creative-work/${input.workItemId}/carousel/${snapshot.preparedRevision}/anchor-board.png`;
   const remainingDrafts = nonAnchorSlides.filter((slide) => slide.status === "draft");
+  if (remainingDrafts.length > 0 && !nextInteriorAuthorized) {
+    const refreshed = await refreshCarouselWorkStatus({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+    }).catch(() => null);
+    return { ok: true, value: { dispatched: 0, work: refreshed ?? work, setReviewRecorded: false } };
+  }
   if (remainingDrafts.length > 0) {
     const anchorsWithBuffers = await Promise.all(
       anchorSlides.map(async (anchor) => ({
@@ -149,18 +188,25 @@ export async function dispatchNextCarouselStage(input: {
     });
   }
   const results = await Promise.allSettled(
-    remainingDrafts.map((slide) =>
-      startGenerationSettlement(
-        carouselSlideSettlementAdapter({
-          workspaceId: input.workspaceId,
-          workItemId: input.workItemId,
-          slideId: slide.id,
-          userId: input.userId,
-          anchorKey: anchorBoardKey,
-          operationKey: carouselSlideBillingKey(input.workItemId, slide.id),
-        }),
-      ),
-    ),
+    remainingDrafts.map(async (slide) => {
+      try {
+        return await startGenerationSettlement(
+          carouselSlideSettlementAdapter({
+            workspaceId: input.workspaceId,
+            workItemId: input.workItemId,
+            slideId: slide.id,
+            userId: input.userId,
+            anchorKey: anchorBoardKey,
+            operationKey: carouselSlideBillingKey(input.workItemId, slide.id),
+          }),
+        );
+      } catch (error) {
+        if (error instanceof CarouselGenerationGateError) {
+          return { ok: false as const, error: { code: "invalid_generation_gate" as const } };
+        }
+        throw error;
+      }
+    }),
   );
   const dispatched = results.filter(
     (result) => result.status === "fulfilled" && result.value.ok,

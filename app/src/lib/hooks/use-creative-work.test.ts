@@ -219,6 +219,7 @@ describe("translateCreativeWorkClientError", () => {
     expect(translateCreativeWorkClientError("invalid_editorial_transition")).toMatch(/editorial/i);
     expect(translateCreativeWorkClientError("editorial_plan_invalid")).not.toMatch(/openai|gpt|web_search/i);
     expect(translateCreativeWorkClientError("stale_input")).toMatch(/alterad|reload/i);
+    expect(translateCreativeWorkClientError("invalid_generation_gate")).toMatch(/capa|roteiro|prepare/i);
     expect(translateCreativeWorkClientError("brand_conflict")).toBeNull();
   });
 });

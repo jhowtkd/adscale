@@ -57,9 +57,18 @@ vi.mock("@/server/repositories/creative-work", () => ({
 vi.mock("@/server/repositories/creative-work-carousel", () => ({
   listCurrentCarouselSlides: carouselRepo.listCurrentCarouselSlides,
   queueCarouselSlide: carouselRepo.queueCarouselSlide,
+  queueAuthorizedCarouselSlide: async (input: { slideId: string; anchorKey: string | null; operationKey: string }) => {
+    const queued = await carouselRepo.queueCarouselSlide(input);
+    if (queued) return { outcome: "claimed", slide: queued };
+    const current = (await carouselRepo.listCurrentCarouselSlides()).find((row: { id: string }) => row.id === input.slideId);
+    if (!current) return { outcome: "missing" };
+    if (current.status === "draft" || current.status === "failed") return { outcome: "unauthorized" };
+    return { outcome: "already_claimed", slide: current };
+  },
   setRemainingCarouselAnchorKey: carouselRepo.setRemainingCarouselAnchorKey,
   materializeCarouselSlides: repo.materializeCarouselSlides,
   refreshCarouselWorkStatus: repo.refreshCarouselWorkStatus,
+  confirmCarouselInteriorsRevision: vi.fn(),
 }));
 vi.mock("@/server/billing/paywall", () => ({
   checkSpend: paywall.checkSpend,
@@ -75,6 +84,7 @@ vi.mock("@/server/db", () => ({ db: dbMock }));
 
 import { dispatchNextCarouselStage } from "./advance-carousel-generation";
 import { generateCarouselWork } from "./generate-carousel-work";
+import * as settlement from "@/server/generation/settlement";
 
 const UNIT = 50;
 const PREPARED_REVISION = "prep-1";
@@ -180,7 +190,25 @@ function slideRow(position: number, status: CarouselSlideStatus): CreativeWorkCa
   });
 }
 
-function workFixture() {
+function interiorsEditorial() {
+  return {
+    version: 1 as const,
+    revision: "script-1",
+    contextHash: "ctx-1",
+    research: { status: "not_needed" as const, question: "", thesis: "", sources: [], claims: [], gaps: [] },
+    hooks: [],
+    recommendedHookId: null,
+    recommendation: null,
+    selectedHookId: null,
+    storyboard: [],
+    caption: null,
+    approvedScriptRevision: "script-1",
+    approvedCover: { slideId: "slide-1", scriptRevision: "script-1", preparedRevision: PREPARED_REVISION },
+    confirmedInteriorsRevision: PREPARED_REVISION,
+  };
+}
+
+function workFixture(overrides: Record<string, unknown> = {}) {
   return {
     work: {
       id: "work-1",
@@ -189,15 +217,20 @@ function workFixture() {
       status: "generating",
       clientProfileId: "profile-1",
       createdByUserId: "user-1",
+      updatedAt: new Date("2026-08-30T10:00:00.000Z"),
       carouselQuality: workQuality,
+      settings: { targetFormats: [], carouselEditorial: interiorsEditorial() },
       inputSnapshot: {
         carousel: {
           version: 1,
           preparedRevision: PREPARED_REVISION,
           deck: deckFixture(5),
           visualContract: visualContractFixture(),
+          generationScope: "interiors",
+          scriptRevision: "script-1",
         },
       },
+      ...overrides,
     } as CreativeWorkItem,
     outputs: [],
     sources: [],
@@ -241,7 +274,7 @@ describe("dispatchNextCarouselStage", () => {
     vi.clearAllMocks();
     resetDeck();
     dbState.updateRows.length = 0;
-    paywall.checkSpend.mockResolvedValue({ allowed: true, amount: 5 * UNIT, balance: 10_000 });
+    paywall.checkSpend.mockResolvedValue({ allowed: true, amount: UNIT, balance: 10_000 });
     paywall.spend.mockResolvedValue({ ok: true, creditsSpent: UNIT });
     credits.refundCredits.mockResolvedValue({ status: "refunded" });
     usageRepo.trackUsage.mockResolvedValue({ id: "usage-ack" });
@@ -303,15 +336,98 @@ describe("dispatchNextCarouselStage", () => {
     );
   });
 
-  it("dispatches cover first, nothing while it is in flight, then only the ceil-middle after cover completes", async () => {
+  it("pauses after the cover completes when interiors are not approved or confirmed", async () => {
+    repo.getCreativeWork.mockImplementation(async () => workFixture({
+      settings: {
+        targetFormats: [],
+        carouselEditorial: {
+          ...interiorsEditorial(),
+          approvedCover: null,
+          confirmedInteriorsRevision: null,
+        },
+      },
+      inputSnapshot: {
+        carousel: {
+          version: 1,
+          preparedRevision: PREPARED_REVISION,
+          deck: deckFixture(5),
+          visualContract: visualContractFixture(),
+          generationScope: "cover",
+          scriptRevision: "script-1",
+        },
+      },
+    }));
+    const startGenerationSettlement = vi.spyOn(settlement, "startGenerationSettlement");
+    resetDeck({ 1: "completed" });
+
+    const result = await dispatchNextCarouselStage(stageInput);
+
+    expect(result).toMatchObject({ ok: true, value: { dispatched: 0 } });
+    expect(startGenerationSettlement).not.toHaveBeenCalled();
+    startGenerationSettlement.mockRestore();
+  });
+
+  it("does not settle interiors after the cover fails", async () => {
+    repo.getCreativeWork.mockImplementation(async () => workFixture({
+      settings: {
+        targetFormats: [],
+        carouselEditorial: {
+          ...interiorsEditorial(),
+          approvedCover: null,
+          confirmedInteriorsRevision: null,
+        },
+      },
+      inputSnapshot: {
+        carousel: {
+          version: 1,
+          preparedRevision: PREPARED_REVISION,
+          deck: deckFixture(5),
+          visualContract: visualContractFixture(),
+          generationScope: "cover",
+          scriptRevision: "script-1",
+        },
+      },
+    }));
+    const startGenerationSettlement = vi.spyOn(settlement, "startGenerationSettlement");
+    resetDeck({ 1: "failed" });
+
+    const result = await dispatchNextCarouselStage(stageInput);
+
+    expect(result).toMatchObject({ ok: false, error: { code: "anchor_failed" } });
+    expect(startGenerationSettlement).not.toHaveBeenCalled();
+    startGenerationSettlement.mockRestore();
+  });
+
+  it("dispatches cover first, nothing while it is in flight, then only the ceil-middle after lote confirmation", async () => {
+    repo.getCreativeWork.mockImplementation(async () => workFixture({
+      status: "draft",
+      settings: {
+        targetFormats: [],
+        carouselEditorial: {
+          ...interiorsEditorial(),
+          approvedCover: null,
+          confirmedInteriorsRevision: null,
+        },
+      },
+      inputSnapshot: {
+        carousel: {
+          version: 1,
+          preparedRevision: PREPARED_REVISION,
+          deck: deckFixture(5),
+          visualContract: visualContractFixture(),
+          generationScope: "cover",
+          scriptRevision: "script-1",
+        },
+      },
+    }));
     await generateCarouselWork(generateInput);
     expect(dispatches.map((event) => event.data.position)).toEqual([1]);
 
-    // Cover still queued: the chain waits.
     await dispatchNextCarouselStage(stageInput);
     expect(dispatches.map((event) => event.data.position)).toEqual([1]);
 
     completeSlide(1);
+    repo.getCreativeWork.mockImplementation(async () => workFixture());
     await dispatchNextCarouselStage(stageInput);
     expect(dispatches.map((event) => event.data.position)).toEqual([1, 3]);
   });

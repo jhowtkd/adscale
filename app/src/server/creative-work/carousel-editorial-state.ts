@@ -196,19 +196,56 @@ export function invalidateCarouselApprovals(state: CarouselEditorialState): Caro
   };
 }
 
-export function canDispatchCarouselInteriors(
+export function hasCurrentApprovedCarouselCover(
   state: CarouselEditorialState,
   scriptRevision: string,
   preparedRevision: string,
   coverSlideId: string,
 ): boolean {
   if (!scriptRevision || !preparedRevision || !coverSlideId) return false;
-  if (!state.approvedScriptRevision || !state.approvedCover || !state.confirmedInteriorsRevision) return false;
+  if (!state.approvedScriptRevision || !state.approvedCover) return false;
   return state.approvedScriptRevision === scriptRevision
     && state.approvedCover.slideId === coverSlideId
     && state.approvedCover.scriptRevision === scriptRevision
-    && state.approvedCover.preparedRevision === preparedRevision
-    && state.confirmedInteriorsRevision === preparedRevision;
+    && state.approvedCover.preparedRevision === preparedRevision;
+}
+
+export function canDispatchCarouselInteriors(
+  state: CarouselEditorialState,
+  scriptRevision: string,
+  preparedRevision: string,
+  coverSlideId: string,
+): boolean {
+  if (!state.confirmedInteriorsRevision || state.confirmedInteriorsRevision !== preparedRevision) return false;
+  return hasCurrentApprovedCarouselCover(state, scriptRevision, preparedRevision, coverSlideId);
+}
+
+export class CarouselGenerationGateError extends Error {
+  readonly code = "invalid_generation_gate" as const;
+  readonly details?: unknown;
+
+  constructor(details?: unknown) {
+    super("invalid_generation_gate");
+    this.name = "CarouselGenerationGateError";
+    this.details = details;
+  }
+}
+
+export function authorizeCarouselSlideClaim(input: {
+  editorial: CarouselEditorialState | null;
+  generationScope: "cover" | "interiors" | undefined;
+  scriptRevision: string | undefined;
+  preparedRevision: string;
+  slidePosition: number;
+  coverSlideId: string | null;
+}): boolean {
+  const { editorial, generationScope, scriptRevision, preparedRevision, slidePosition, coverSlideId } = input;
+  if (!editorial || !generationScope || !scriptRevision) return false;
+  if (generationScope === "cover") {
+    return slidePosition === 1 && editorial.approvedScriptRevision === scriptRevision;
+  }
+  if (!coverSlideId) return false;
+  return canDispatchCarouselInteriors(editorial, scriptRevision, preparedRevision, coverSlideId);
 }
 
 export function storyboardCoversDeck(storyboard: SlideDirection[], deckSlideIds: string[]): boolean {

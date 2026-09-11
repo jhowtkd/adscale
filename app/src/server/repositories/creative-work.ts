@@ -784,6 +784,27 @@ export async function updateCreativeWorkDraftIfUnchanged(
   return row ?? null;
 }
 
+/** CAS write that is not limited to draft — interiors prepare/confirm run after the cover has left draft. */
+export async function updateCreativeWorkIfUnchanged(
+  workspaceId: string,
+  workItemId: string,
+  expectedUpdatedAt: Date,
+  patch: CreativeWorkDraftPatch,
+  executor: Pick<typeof db, "update"> = db,
+  options?: { persistCarouselApprovals?: boolean },
+): Promise<CreativeWorkItem | null> {
+  const nextPatch = sanitizeClientCarouselSettingsPatch(patch, options?.persistCarouselApprovals);
+  const [row] = await executor.update(creativeWorkItems).set({
+    ...nextPatch,
+    updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
+  }).where(and(
+    eq(creativeWorkItems.workspaceId, workspaceId),
+    eq(creativeWorkItems.id, workItemId),
+    workRevisionMatches(expectedUpdatedAt),
+  )).returning();
+  return row ?? null;
+}
+
 export function withCreativeWorkPreparationLock<T>(
   workspaceId: string,
   workItemId: string,

@@ -7,7 +7,10 @@ import {
   mergeCarouselEditorialForClientSettingsWrite as mergeAndRecomputeCarouselEditorial,
 } from "./carousel-editorial-hash";
 import {
+  authorizeCarouselSlideClaim,
   canDispatchCarouselInteriors,
+  CarouselGenerationGateError,
+  hasCurrentApprovedCarouselCover,
   carouselEditorialCommandSchema,
   carouselEditorialStateSchema,
   invalidateCarouselApprovals,
@@ -121,6 +124,68 @@ describe("carousel editorial state", () => {
       "prepared-1",
       "cover-1",
     )).toBe(false);
+  });
+
+  it("treats cover approval as current without lote confirmation", () => {
+    const state = approvedState();
+    expect(hasCurrentApprovedCarouselCover(state, "script-1", "prepared-1", "cover-1")).toBe(true);
+    expect(hasCurrentApprovedCarouselCover(
+      { ...state, confirmedInteriorsRevision: null },
+      "script-1",
+      "prepared-1",
+      "cover-1",
+    )).toBe(true);
+    expect(canDispatchCarouselInteriors(
+      { ...state, confirmedInteriorsRevision: null },
+      "script-1",
+      "prepared-1",
+      "cover-1",
+    )).toBe(false);
+  });
+
+  it("authorizes cover claims from the frozen cover scope and interiors only after lote confirmation", () => {
+    const state = approvedState();
+    expect(authorizeCarouselSlideClaim({
+      editorial: state,
+      generationScope: "cover",
+      scriptRevision: "script-1",
+      preparedRevision: "prepared-1",
+      slidePosition: 1,
+      coverSlideId: "cover-1",
+    })).toBe(true);
+    expect(authorizeCarouselSlideClaim({
+      editorial: { ...state, confirmedInteriorsRevision: null },
+      generationScope: "cover",
+      scriptRevision: "script-1",
+      preparedRevision: "prepared-1",
+      slidePosition: 3,
+      coverSlideId: "cover-1",
+    })).toBe(false);
+    expect(authorizeCarouselSlideClaim({
+      editorial: { ...state, confirmedInteriorsRevision: null },
+      generationScope: "interiors",
+      scriptRevision: "script-1",
+      preparedRevision: "prepared-1",
+      slidePosition: 3,
+      coverSlideId: "cover-1",
+    })).toBe(false);
+    expect(authorizeCarouselSlideClaim({
+      editorial: state,
+      generationScope: "interiors",
+      scriptRevision: "script-1",
+      preparedRevision: "prepared-1",
+      slidePosition: 3,
+      coverSlideId: "cover-1",
+    })).toBe(true);
+    expect(authorizeCarouselSlideClaim({
+      editorial: state,
+      generationScope: undefined,
+      scriptRevision: "script-1",
+      preparedRevision: "prepared-1",
+      slidePosition: 1,
+      coverSlideId: "cover-1",
+    })).toBe(false);
+    expect(new CarouselGenerationGateError({ reason: "missing_scope" }).code).toBe("invalid_generation_gate");
   });
 
   it("hashes revision over context, hook, deck, storyboard and caption, never approvals", () => {

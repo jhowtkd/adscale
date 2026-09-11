@@ -8,6 +8,7 @@ import type {
 const repo = vi.hoisted(() => ({
   getCreativeWork: vi.fn(),
   updateCreativeWorkDraftIfUnchanged: vi.fn(),
+  updateCreativeWorkIfUnchanged: vi.fn(),
   getCreativeWorkSourceAssetDetails: vi.fn(),
 }));
 const identityMock = vi.hoisted(() => vi.fn());
@@ -27,6 +28,8 @@ vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => repo.getCreativeWork(...args),
   updateCreativeWorkDraftIfUnchanged: (...args: unknown[]) =>
     repo.updateCreativeWorkDraftIfUnchanged(...args),
+  updateCreativeWorkIfUnchanged: (...args: unknown[]) =>
+    repo.updateCreativeWorkIfUnchanged(...args),
   getCreativeWorkSourceAssetDetails: (...args: unknown[]) =>
     repo.getCreativeWorkSourceAssetDetails(...args),
   withCreativeWorkPreparationLock: (
@@ -69,6 +72,25 @@ function identityResult() {
   };
 }
 
+function approvedEditorial(overrides: Record<string, unknown> = {}) {
+  return {
+    version: 1 as const,
+    revision: "script-1",
+    contextHash: "ctx-1",
+    research: { status: "not_needed" as const, question: "", thesis: "", sources: [], claims: [], gaps: [] },
+    hooks: [],
+    recommendedHookId: null,
+    recommendation: null,
+    selectedHookId: null,
+    storyboard: [],
+    caption: null,
+    approvedScriptRevision: "script-1",
+    approvedCover: null,
+    confirmedInteriorsRevision: null,
+    ...overrides,
+  };
+}
+
 function work(overrides: Partial<CreativeWorkItem> = {}): CreativeWorkItem {
   return {
     id: "work-1",
@@ -81,7 +103,7 @@ function work(overrides: Partial<CreativeWorkItem> = {}): CreativeWorkItem {
     format: "4:5",
     copy: null,
     request: "Grupo de terapia começa em agosto, vagas limitadas",
-    settings: { targetFormats: [], carouselDraft: draftWithPlan() },
+    settings: { targetFormats: [], carouselDraft: draftWithPlan(), carouselEditorial: approvedEditorial() },
     inputSnapshot: null,
     identitySnapshot: null,
     createdAt: new Date("2026-08-30T11:00:00.000Z"),
@@ -182,6 +204,10 @@ describe("prepareCarouselWork", () => {
       async (_ws: string, _id: string, _updatedAt: Date, patch: Record<string, unknown>) =>
         ({ ...work(), ...patch }) as CreativeWorkItem
     );
+    repo.updateCreativeWorkIfUnchanged.mockImplementation(
+      async (_ws: string, _id: string, _updatedAt: Date, patch: Record<string, unknown>) =>
+        ({ ...work(), ...patch }) as CreativeWorkItem
+    );
   });
 
   it("returns work_not_found for a work outside the workspace", async () => {
@@ -231,6 +257,7 @@ describe("prepareCarouselWork", () => {
       aggregate({
         settings: {
           targetFormats: [],
+          carouselEditorial: approvedEditorial(),
           carouselDraft: draftWithPlan({
             plan: null,
             blockingQuestions: [{
@@ -256,7 +283,7 @@ describe("prepareCarouselWork", () => {
 
   it("returns editorial_invalid when no carousel draft was planned yet", async () => {
     repo.getCreativeWork.mockResolvedValue(
-      aggregate({ settings: { targetFormats: [] } })
+      aggregate({ settings: { targetFormats: [], carouselEditorial: approvedEditorial() } })
     );
 
     const result = await prepareCarouselWork(baseInput);
@@ -273,6 +300,7 @@ describe("prepareCarouselWork", () => {
       aggregate({
         settings: {
           targetFormats: [],
+          carouselEditorial: approvedEditorial(),
           carouselDraft: draftWithPlan({
             plan: { ...planOfFive(), slides: fourSlides } as unknown as CarouselDeckPlanV1,
           }),
@@ -294,6 +322,7 @@ describe("prepareCarouselWork", () => {
       aggregate({
         settings: {
           targetFormats: [],
+          carouselEditorial: approvedEditorial(),
           carouselDraft: draftWithPlan({
             plan: { ...planOfFive(), format: "9:16" } as unknown as CarouselDeckPlanV1,
           }),
@@ -314,6 +343,7 @@ describe("prepareCarouselWork", () => {
       aggregate({
         settings: {
           targetFormats: [],
+          carouselEditorial: approvedEditorial(),
           carouselDraft: draftWithPlan({
             plan: {
               ...planOfFive(),
@@ -432,12 +462,16 @@ describe("prepareCarouselWork", () => {
       preparedRevision: expect.any(String),
       deck: expect.objectContaining({ slides: expect.arrayContaining([]) }),
       visualContract: expect.objectContaining({ contractHash: expect.stringMatching(/^[a-f0-9]{64}$/) }),
+      generationScope: "cover",
+      scriptRevision: "script-1",
     });
     expect(result.value.work.inputSnapshot?.carousel).toEqual({
       version: 1,
       preparedRevision: expect.any(String),
       deck: expect.objectContaining({ slides: expect.arrayContaining([]) }),
       visualContract: expect.objectContaining({ contractHash: expect.stringMatching(/^[a-f0-9]{64}$/) }),
+      generationScope: "cover",
+      scriptRevision: "script-1",
     });
     expect(result.value.work.status).toBe("draft");
   });
@@ -488,6 +522,7 @@ describe("prepareCarouselWork", () => {
       ...work(),
       settings: {
         targetFormats: [],
+        carouselEditorial: approvedEditorial(),
         carouselDraft: {
           ...draft,
           plan: {
@@ -563,4 +598,76 @@ describe("prepareCarouselWork", () => {
     expect(inngestSendMock).not.toHaveBeenCalled();
     expect(getOpenAIMock).not.toHaveBeenCalled();
   });
+
+  it("refuses cover prepare until the current script is approved", async () => {
+    repo.getCreativeWork.mockResolvedValue(aggregate({
+      settings: {
+        targetFormats: [],
+        carouselDraft: draftWithPlan(),
+        carouselEditorial: approvedEditorial({ approvedScriptRevision: null }),
+      },
+    }));
+
+    const result = await prepareCarouselWork(baseInput);
+
+    expect(result).toMatchObject({ ok: false, error: { code: "invalid_generation_gate" } });
+    expect(repo.updateCreativeWorkDraftIfUnchanged).not.toHaveBeenCalled();
+  });
+
+  it("prepares interiors from an approved cover without changing the billed settlement keys", async () => {
+    const coverRevision = "prep-cover-1";
+    repo.getCreativeWork.mockResolvedValue(aggregate({
+      status: "partial",
+      settings: {
+        targetFormats: [],
+        carouselDraft: draftWithPlan(),
+        carouselEditorial: approvedEditorial({
+          approvedCover: { slideId: "slide-1", scriptRevision: "script-1", preparedRevision: coverRevision },
+        }),
+      },
+      inputSnapshot: {
+        generationPolicyVersion: "quality_recovery_v1",
+        request: "Grupo de terapia começa em agosto, vagas limitadas",
+        settings: { targetFormats: [] },
+        sources: [],
+        carousel: {
+          version: 1,
+          preparedRevision: coverRevision,
+          deck: planOfFive(),
+          visualContract: {
+            version: 1,
+            brandSnapshotHash: "brand",
+            temporaryReferenceId: null,
+            palette: ["#112233"],
+            typography: { fontAssetKey: null, fallbackFamily: "sans", authority: "fallback" },
+            directionInstruction: null,
+            layoutFamilies: {
+              impact: { id: "impact-v1", density: "high", primaryRegion: { x: 1, y: 1, width: 2, height: 2, minFontPx: 1, maxFontPx: 2, align: "left" }, secondaryRegion: null, exactAssetSlots: [], backgroundInstruction: "impact" },
+              development: { id: "development-v1", density: "medium", primaryRegion: { x: 1, y: 1, width: 2, height: 2, minFontPx: 1, maxFontPx: 2, align: "left" }, secondaryRegion: null, exactAssetSlots: [], backgroundInstruction: "development" },
+              respite: { id: "respite-v1", density: "low", primaryRegion: { x: 1, y: 1, width: 2, height: 2, minFontPx: 1, maxFontPx: 2, align: "left" }, secondaryRegion: null, exactAssetSlots: [], backgroundInstruction: "respite" },
+            },
+            recurringMotifs: [],
+            exactAssetKeys: [],
+            prohibitedElements: [],
+            safeAreaPx: 64,
+            contractHash: "a".repeat(64),
+          },
+          generationScope: "cover",
+          scriptRevision: "script-1",
+        },
+      },
+    }));
+
+    const result = await prepareCarouselWork(baseInput);
+
+    expect(result.ok).toBe(true);
+    expect(identityMock).not.toHaveBeenCalled();
+    expect(repo.updateCreativeWorkDraftIfUnchanged).not.toHaveBeenCalled();
+    expect(repo.updateCreativeWorkIfUnchanged).toHaveBeenCalledOnce();
+    const patch = repo.updateCreativeWorkIfUnchanged.mock.calls[0][3] as {
+      inputSnapshot: { carousel: { generationScope: string } };
+    };
+    expect(patch.inputSnapshot.carousel.generationScope).toBe("interiors");
+  });
 });
+

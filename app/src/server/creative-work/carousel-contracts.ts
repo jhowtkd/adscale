@@ -141,11 +141,16 @@ export const carouselDeckQualitySchema = z.object({
 }).strict();
 export type CarouselDeckQualityV1 = z.infer<typeof carouselDeckQualitySchema>;
 
+export const CAROUSEL_GENERATION_SCOPES = ["cover", "interiors"] as const;
+export type CarouselGenerationScope = (typeof CAROUSEL_GENERATION_SCOPES)[number];
+
 export const carouselPreparedSnapshotSchema = z.object({
   version: z.literal(1),
   preparedRevision: z.string().trim().min(1),
   deck: carouselDeckPlanSchema,
   visualContract: carouselVisualContractSchema,
+  generationScope: z.enum(CAROUSEL_GENERATION_SCOPES).optional(),
+  scriptRevision: z.string().trim().min(1).optional(),
 }).strict();
 export type CarouselPreparedSnapshotV1 = z.infer<typeof carouselPreparedSnapshotSchema>;
 
@@ -170,12 +175,20 @@ export function carouselAnchorPositions(slideCount: number): [number, number, nu
   return [1, Math.ceil(slideCount / 2), slideCount];
 }
 
+/** One credit unit per billed image, settled only on dispatch. */
+export function quoteCarouselUnits(unitCount: number): { unitCount: number; credits: number } {
+  if (!Number.isInteger(unitCount) || unitCount < 0) {
+    throw new Error("carousel_quote_unit_count_out_of_range");
+  }
+  return {
+    unitCount,
+    credits: unitCount * GENERATION_CREDIT_COSTS.creativeWorkOutput,
+  };
+}
+
 /** Deck-size quote: one credit unit per slide, settled only on dispatch. */
 export function quoteCarouselDeck(slideCount: number): { unitCount: number; credits: number } {
-  return {
-    unitCount: slideCount,
-    credits: slideCount * GENERATION_CREDIT_COSTS.creativeWorkOutput,
-  };
+  return quoteCarouselUnits(slideCount);
 }
 
 export type CarouselStructureFindingCode =

@@ -108,6 +108,20 @@ describe("POST /api/creative-work/[id]/generate", () => {
     });
   });
 
+  it("ignores a client-supplied generationScope and authorizes from the frozen snapshot", async () => {
+    getWork.mockResolvedValue({ work: { id: "work-1", toolKind: "carousel" }, outputs: [], sources: [] });
+    const body = { action: "initial", preparedRevision: "prep-1", generationScope: "interiors" };
+    const response = await POST(request(body), { params: Promise.resolve({ id: "work-1" }) });
+
+    expect(response.status).toBe(202);
+    expect(generateCarousel).toHaveBeenCalledWith({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      userId: "user-1",
+      preparedRevision: "prep-1",
+    });
+  });
+
   it("rejects a carousel request without preparedRevision before any command runs", async () => {
     getWork.mockResolvedValue({ work: { id: "work-1", toolKind: "carousel" }, outputs: [], sources: [] });
     const response = await POST(request({ action: "initial" }), { params: Promise.resolve({ id: "work-1" }) });

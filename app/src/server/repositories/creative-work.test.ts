@@ -200,6 +200,7 @@ import {
   updateCreativeWorkSourceIfUnchanged,
   updateCreativeWorkDraft,
   updateCreativeWorkDraftIfUnchanged,
+  updateCreativeWorkIfUnchanged,
   withCreativeWorkPreparationLock,
 } from "./creative-work";
 import type {
@@ -1401,6 +1402,16 @@ describe("creative-work repository", () => {
       expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ title: "New title" }));
     });
 
+    it("updates a non-draft work when updatedAt still matches", async () => {
+      const capturedAt = new Date("2026-07-16T12:00:00.000Z");
+      mocks.state.updateResults.push([workItem({ id: "work-1", status: "partial" })]);
+      await expect(updateCreativeWorkIfUnchanged("ws-1", "work-1", capturedAt, { inputSnapshot: null }))
+        .resolves.toMatchObject({ id: "work-1" });
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql).toContain('"creative_work_items"."updated_at"');
+      expect(query.sql).not.toContain('"status"');
+    });
+
     it("updates preparation only when updatedAt still matches", async () => {
       const capturedAt = new Date("2026-07-16T12:00:00.000Z");
       mocks.state.updateResults.push([]);
@@ -1450,6 +1461,33 @@ describe("creative-work repository", () => {
             approvedScriptRevision: null,
             approvedCover: null,
             confirmedInteriorsRevision: null,
+          }),
+        }),
+      }));
+    });
+
+    it("persists carousel approvals when the CAS option is set", async () => {
+      const capturedAt = new Date("2026-07-16T12:00:00.000Z");
+      const editorial = carouselEditorialFixture({
+        approvedScriptRevision: "script-1",
+        approvedCover: { slideId: "cover-1", scriptRevision: "script-1", preparedRevision: "prep-1" },
+        confirmedInteriorsRevision: "prep-1",
+      });
+      mocks.state.updateResults.push([workItem({ id: "work-1" })]);
+      await expect(updateCreativeWorkIfUnchanged(
+        "ws-1",
+        "work-1",
+        capturedAt,
+        { settings: { targetFormats: [], carouselEditorial: editorial } },
+        { update: mocks.updateMock },
+        { persistCarouselApprovals: true },
+      )).resolves.toMatchObject({ id: "work-1" });
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({
+        settings: expect.objectContaining({
+          carouselEditorial: expect.objectContaining({
+            approvedScriptRevision: "script-1",
+            approvedCover: expect.objectContaining({ slideId: "cover-1" }),
+            confirmedInteriorsRevision: "prep-1",
           }),
         }),
       }));
