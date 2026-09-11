@@ -132,11 +132,11 @@ function buildCarouselResearchPrompt(
     "Do not send the full private briefing or brand materials as a public search query.",
     "Do not paste UNTRUSTED_DATA into web search queries. Search only the editorial question and material claims.",
     "Prefer primary sources, seek a relevant counterpoint, and stop after the tool-call limit.",
-    "Search snippets and discovered URLs are not evidence. Only an opened page (server-verified) or an authorized provided sourceId can sustain a claim.",
+    "Search snippets and discovered URLs are not evidence. An opened page (server-verified) sustains external facts. Authorized provided sourceIds bind product facts but do not satisfy external evidence.",
     "Do not invent proof. Do not self-report access=opened; the server overwrites access and checkedOn from completed tool actions.",
     "Classify verifiable product/date/price/condition claims as kind=fact. Give each claim its own id; never treat the raw research text as one proof.",
     input.needsExternalEvidence
-      ? "External evidence is required. Use web_search, open pages that must sustain facts, and set status insufficient when evidence is missing."
+      ? "External evidence is required. Use web_search, open pages that must sustain facts, and set status ready only when an opened source sustains a fact. Provided sources alone are insufficient."
       : "Do not use web search. Classify only from authorized provided sources. status must be not_needed.",
     "",
     "EDITORIAL QUESTION:",
@@ -167,6 +167,11 @@ function finalizeResearch(args: {
   const now = new Date().toISOString();
   const sources = sanitizeSources(args.model.sources ?? [], args.authorizedSourceIds, args.toolActions, now);
   const sustainingIds = new Set(sources.filter((source) => sourceSustainsClaim(source)).map((source) => source.id));
+  const openedSustainingIds = new Set(
+    sources
+      .filter((source) => source.access === "opened" && sourceSustainsClaim(source))
+      .map((source) => source.id),
+  );
   const claims = bindClaims({
     modelClaims: args.model.claims ?? [],
     sources,
@@ -174,21 +179,23 @@ function finalizeResearch(args: {
     facts: args.facts,
   });
 
-  const evidencedFact = claims.some((item) => (
-    item.kind === "fact" && item.sourceIds.some((id) => sustainingIds.has(id))
+  const openedFact = claims.some((item) => (
+    item.kind === "fact" && item.sourceIds.some((id) => openedSustainingIds.has(id))
   ));
-  const gaps = clipList(args.model.gaps ?? [], 32, 400);
+  let gaps = clipList(args.model.gaps ?? [], 32, 400);
   let status: CarouselResearch["status"];
   if (!args.input.needsExternalEvidence) {
     status = "not_needed";
-  } else if (!evidencedFact) {
+  } else if (args.model.status === "unavailable") {
+    status = "unavailable";
+  } else if (!openedFact) {
     status = "insufficient";
     const gap = sources.some((source) => source.access === "opened")
       ? "Há fonte aberta, mas a alegação não aponta evidência sustentável."
       : "As fontes foram apenas descobertas, sem abertura verificada. Não há evidência suficiente.";
-    if (!gaps.some((item) => item === gap)) gaps.push(gap);
-  } else if (args.model.status === "unavailable" || args.model.status === "insufficient") {
-    status = args.model.status;
+    gaps = appendGap(gaps, gap);
+  } else if (args.model.status === "insufficient") {
+    status = "insufficient";
   } else {
     status = "ready";
   }
@@ -226,19 +233,16 @@ function sanitizeSources(
     let access: ResearchSource["access"];
     let nextSourceId: string | null = null;
     let nextCheckedOn: string | null = null;
-    let nextUrl = url;
-    if (authorized) {
-      access = "provided";
-      nextSourceId = sourceId;
-      nextCheckedOn = null;
-    } else if (sourceId && !authorized) {
-      continue;
-    } else if (opened && nextUrl) {
+    const nextUrl = url;
+    if (opened && nextUrl) {
       access = "opened";
       nextCheckedOn = checkedOn;
     } else if (canonical || url) {
       access = "discovered";
       nextCheckedOn = null;
+    } else if (authorized) {
+      access = "provided";
+      nextSourceId = sourceId;
     } else {
       continue;
     }
@@ -268,14 +272,15 @@ function bindClaims(args: {
   for (const raw of args.modelClaims) {
     const text = clip(raw.text, 1000);
     if (!text) continue;
-    const sourceIds = (raw.sourceIds ?? []).filter((id) => args.sustainingIds.has(id));
+    const sourceIds = (raw.sourceIds ?? []).filter((id) => args.sustainingIds.has(id)).slice(0, 12);
     const kind = isVerifiableClaim(text, args.facts) ? "fact" : (raw.kind ?? "interpretation");
+    const volatileAtom = isVolatileFact(kind, text, args.facts);
     claims.push({
       id: uniqueId(usedIds, raw.id),
       text,
       sourceIds,
       kind,
-      volatile: raw.volatile ?? isVolatileFact(kind, text, args.facts),
+      volatile: volatileAtom ? true : (raw.volatile ?? false),
     });
   }
   for (const fact of args.facts.fromSources) {
@@ -458,6 +463,18 @@ function clipList(values: string[], maxItems: number, maxChars: number): string[
     if (items.length >= maxItems) break;
   }
   return items;
+}
+
+function appendGap(gaps: string[], gap: string): string[] {
+  const next = clipList(gaps, 32, 400);
+  const trimmed = clip(gap, 400);
+  if (!trimmed || next.includes(trimmed)) return next;
+  if (next.length < 32) {
+    next.push(trimmed);
+    return next;
+  }
+  next[next.length - 1] = trimmed;
+  return next;
 }
 
 function neutralizeUntrusted(value: string): string {

@@ -236,7 +236,12 @@ describe("researchCarousel", () => {
       access: "provided",
       checkedOn: null,
     })]);
-    expect(result.claims.some((item) => item.kind === "fact" && item.sourceIds.includes("S1"))).toBe(true);
+    expect(result.claims).toEqual(expect.arrayContaining([expect.objectContaining({
+      id: "C1",
+      kind: "fact",
+      volatile: true,
+      sourceIds: ["S1"],
+    })]));
     expect(new Set(result.claims.map((item) => item.id)).size).toBe(result.claims.length);
   });
 
@@ -276,5 +281,134 @@ describe("researchCarousel", () => {
     expect(result.status).toBe("unavailable");
     expect(result.gaps.some((gap) => /busca|web search|disponív/i.test(gap))).toBe(true);
     expect(responsesCreate.mock.calls[0]?.[0].model).toBe("gpt-5.6");
+  });
+
+  it("keeps external research insufficient when only an authorized provided source sustains facts", async () => {
+    mockResponse(
+      researchJson({
+        sources: [
+          source({
+            id: "S1",
+            url: null,
+            sourceId: "source-this-work",
+            title: "Material do Trabalho",
+            checkedOn: null,
+            publicationDate: null,
+            evidence: "Grupo de terapia começa em agosto. Vagas limitadas.",
+            limitations: [],
+            access: "provided",
+          }),
+          source({
+            id: "S2",
+            url: DISCOVERED_URL,
+            sourceId: null,
+            title: "Resultado de busca",
+            access: "opened",
+            checkedOn: "2020-01-01",
+          }),
+        ],
+        claims: [
+          claim({ id: "C1", sourceIds: ["S1"] }),
+          claim({ id: "C2", text: "Há um relatório oficial.", sourceIds: ["S2"] }),
+        ],
+      }),
+      [searchCall(DISCOVERED_URL)],
+    );
+
+    const result = await researchCarousel({
+      request: REQUEST,
+      factualSources: [AUTHORIZED_SOURCE],
+      needsExternalEvidence: true,
+    });
+
+    expect(result.sources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "S1", sourceId: "source-this-work", access: "provided" }),
+      expect.objectContaining({ id: "S2", url: DISCOVERED_URL, access: "discovered", checkedOn: null }),
+    ]));
+    expect(result.claims.find((item) => item.id === "C1")?.sourceIds).toEqual(["S1"]);
+    expect(result.status).toBe("insufficient");
+  });
+
+  it("does not stamp a search URL as provided when the model echoes an authorized sourceId", async () => {
+    mockResponse(
+      researchJson({
+        sources: [source({
+          id: "S1",
+          url: DISCOVERED_URL,
+          sourceId: "source-this-work",
+          access: "provided",
+          checkedOn: null,
+        })],
+      }),
+      [searchCall(DISCOVERED_URL)],
+    );
+
+    const result = await researchCarousel({
+      request: REQUEST,
+      factualSources: [AUTHORIZED_SOURCE],
+      needsExternalEvidence: true,
+    });
+
+    expect(result.sources).toEqual([expect.objectContaining({
+      id: "S1",
+      url: DISCOVERED_URL,
+      sourceId: null,
+      access: "discovered",
+      checkedOn: null,
+    })]);
+    expect(result.claims[0]?.sourceIds).toEqual([]);
+    expect(result.status).toBe("insufficient");
+  });
+
+  it("marks external research ready when an opened URL sustains a fact claim", async () => {
+    mockResponse(
+      researchJson({
+        sources: [source({
+          id: "S1",
+          url: OPENED_URL,
+          sourceId: "source-this-work",
+          access: "provided",
+          checkedOn: "model-should-not-win",
+          evidence: "Texto da lei aberta.",
+          limitations: [],
+        })],
+        claims: [claim({ sourceIds: ["S1"] })],
+      }),
+      [searchCall(OPENED_URL), openPageCall(OPENED_URL)],
+    );
+
+    const result = await researchCarousel({
+      request: REQUEST,
+      factualSources: [AUTHORIZED_SOURCE],
+      needsExternalEvidence: true,
+    });
+
+    expect(result.status).toBe("ready");
+    expect(result.sources).toEqual([expect.objectContaining({
+      id: "S1",
+      url: OPENED_URL,
+      sourceId: null,
+      access: "opened",
+      checkedOn: "2026-09-10T18:00:00.000Z",
+    })]);
+    expect(result.claims).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "C1", kind: "fact", sourceIds: ["S1"] }),
+    ]));
+  });
+
+  it("keeps an insufficient gap within the schema limit instead of becoming unavailable", async () => {
+    mockResponse(researchJson({
+      gaps: Array.from({ length: 32 }, (_, index) => `Lacuna preenchida ${index + 1}`),
+    }));
+
+    const result = await researchCarousel({
+      request: REQUEST,
+      factualSources: [AUTHORIZED_SOURCE],
+      needsExternalEvidence: true,
+    });
+
+    expect(result.status).toBe("insufficient");
+    expect(result.gaps).toHaveLength(32);
+    expect(result.gaps.at(-1)).toMatch(/descobertas|abertura verificada|evidência suficiente/i);
   });
 });
