@@ -243,7 +243,7 @@ async function confirmInteriorsGeneration(
         coverSlideId,
       )
     ) {
-      return finishInteriorsDispatch(input, latest.work, snapshot, slides, false);
+      return finishInteriorsDispatch(input, latest.work, snapshot);
     }
     return {
       ok: false,
@@ -251,15 +251,13 @@ async function confirmInteriorsGeneration(
     };
   }
 
-  return finishInteriorsDispatch(input, confirmed, snapshot, slides, true);
+  return finishInteriorsDispatch(input, confirmed, snapshot);
 }
 
 async function finishInteriorsDispatch(
   input: GenerateCarouselWorkInput,
   work: CreativeWorkItem,
   snapshot: NonNullable<ReturnType<typeof resolveCarouselPreparedSnapshot>>,
-  slides: CreativeWorkCarouselSlide[],
-  recordConfirmation: boolean,
 ): Promise<GenerateCarouselWorkResult> {
   let dispatched: Awaited<ReturnType<typeof dispatchNextCarouselStage>>;
   try {
@@ -282,25 +280,6 @@ async function finishInteriorsDispatch(
       return { ok: false, error: { code: "stale_input" } };
     }
     return { ok: false, error: { code: "dispatch_failed", details: dispatched.error } };
-  }
-
-  const remaining = eligibleInteriorDraftCount(slides);
-  if (recordConfirmation && remaining > 0) {
-    void recordBetaAnalyticsEvent({
-      workspaceId: input.workspaceId,
-      userId: input.userId,
-      eventKey: "generation_confirmed",
-      source: "server",
-      properties: {
-        creativeWorkId: input.workItemId,
-        protocol: "carousel",
-        outputCount: remaining,
-        ...(input.studioSessionId ? { studioSessionId: input.studioSessionId } : {}),
-        ...(input.rolloutVariant ? { rolloutVariant: input.rolloutVariant } : {}),
-      },
-    }).catch((error) =>
-      logger.warn("[carousel] generation_confirmed telemetry failed", error),
-    );
   }
 
   const refreshed = await refreshCarouselWorkStatus({

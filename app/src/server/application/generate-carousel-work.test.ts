@@ -492,6 +492,7 @@ describe("generateCarouselWork", () => {
     }));
     expect(continuation.dispatchNextCarouselStage).toHaveBeenCalledTimes(1);
     expect(send).not.toHaveBeenCalled();
+    expect(analytics.recordBetaAnalyticsEvent).not.toHaveBeenCalled();
   });
 
   it("treats two concurrent interiors confirms as one lote confirmation", async () => {
