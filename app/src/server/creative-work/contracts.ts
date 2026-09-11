@@ -10,6 +10,8 @@ import type { ImageRenderPolicy } from "@/server/ai/image-render-policy";
 import type { TextLayout, TypographyPlan } from "./typography-plan";
 import { carouselDraftStateSchema } from "./carousel-contracts";
 import type { CarouselDraftStateV1, CarouselPreparedSnapshotV1 } from "./carousel-contracts";
+import { carouselEditorialStateSchema } from "./carousel-editorial-state";
+import type { CarouselEditorialState } from "./carousel-editorial-state";
 export { hasCreativeWorkProtocolSourceShape } from "@/lib/creative-work-protocol-eligibility";
 
 export const CREATIVE_LEVELS = ["conservative", "balanced", "bold"] as const;
@@ -126,6 +128,11 @@ export type CreativeWorkSettings = {
   briefingVersion?: number;
   /** Versioned editable carousel draft (Criar carrossel). Absent on non-carousel works. */
   carouselDraft?: CarouselDraftStateV1;
+  /**
+   * Versioned editorial envelope (research, hooks, storyboard, approvals).
+   * Absent on legacy carousel drafts; missing is a valid read.
+   */
+  carouselEditorial?: CarouselEditorialState;
 };
 
 export const CREATIVE_WORK_BRIEFING_FIELDS = [
@@ -434,6 +441,7 @@ export const creativeWorkSettingsSchema = z.object({
   // contracts ↔ carousel-contracts module cycle resolves only after both
   // modules finish evaluating.
   carouselDraft: z.lazy(() => carouselDraftStateSchema).optional(),
+  carouselEditorial: carouselEditorialStateSchema.optional(),
 });
 export const creativeWorkPreparationSchema = z.object({
   intent: creativeWorkIntentSchema,

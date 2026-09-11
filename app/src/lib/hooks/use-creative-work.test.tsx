@@ -321,6 +321,7 @@ describe("carousel detail contract", () => {
       layoutFamily: "impact",
       status: "completed",
       hasOutput: true,
+      planSlideId: "slide-1",
       // Server rows carry private storage keys; the GET projection strips
       // them. A defensive client mapping must never surface them again.
       providerBaseKey: "private/provider.png",
@@ -390,6 +391,7 @@ describe("carousel detail contract", () => {
       layoutFamily: "impact",
       status: "completed",
       hasOutput: true,
+      planSlideId: "slide-1",
       errorCode: null,
       quality: null,
     }));

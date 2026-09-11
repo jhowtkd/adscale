@@ -9,6 +9,10 @@ import {
   type CarouselCopyAuthority,
   type CarouselNarrativeRole,
 } from "@/server/creative-work/carousel-contracts";
+import {
+  readCarouselEditorial,
+  sourceSustainsClaim,
+} from "@/server/creative-work/carousel-editorial-state";
 import type {
   CreativeWorkCarouselSlide,
   CreativeWorkItem,
@@ -43,6 +47,11 @@ export type CarouselManifestSlideV1 = {
   outputHash: string;
 };
 
+export type CarouselManifestReferenceV1 = {
+  title: string;
+  url: string | null;
+};
+
 export type CarouselManifestV1 = {
   version: 1;
   workId: string;
@@ -50,6 +59,8 @@ export type CarouselManifestV1 = {
   format: "4:5" | "1:1";
   visualContractHash: string;
   approvedAt: string;
+  caption: string | null;
+  references: CarouselManifestReferenceV1[];
   slides: CarouselManifestSlideV1[];
 };
 
@@ -71,13 +82,14 @@ export type CarouselManifestSlideInput = Pick<
  * provider metadata ever enter the manifest.
  */
 export function buildCarouselManifest(input: {
-  work: Pick<CreativeWorkItem, "id" | "inputSnapshot">;
+  work: Pick<CreativeWorkItem, "id" | "inputSnapshot" | "settings">;
   deckRevision: string;
   approvedAt: string;
   slides: CarouselManifestSlideInput[];
 }): CarouselManifestV1 {
   const snapshot = resolveCarouselPreparedSnapshot(input.work.inputSnapshot);
   if (!snapshot) throw new Error("carousel_prepared_snapshot_missing");
+  const editorial = readCarouselEditorial(input.work.settings);
   const ordered = [...input.slides].sort((left, right) => left.position - right.position);
   return {
     version: 1,
@@ -86,6 +98,13 @@ export function buildCarouselManifest(input: {
     format: snapshot.deck.format,
     visualContractHash: snapshot.visualContract.contractHash,
     approvedAt: input.approvedAt,
+    caption: snapshot.caption !== undefined ? snapshot.caption : editorial?.caption ?? null,
+    references: (editorial?.research.sources ?? [])
+      .filter(sourceSustainsClaim)
+      .map((source) => ({
+        title: source.title,
+        url: source.url,
+      })),
     slides: ordered.map((slide) => ({
       position: slide.position,
       fileName: `${String(slide.position).padStart(2, "0")}.png`,

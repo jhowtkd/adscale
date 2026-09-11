@@ -189,4 +189,30 @@ describe("projectPreparedPlanV1", () => {
     expect(serialized).not.toContain("Texto privado");
     expect(serialized).not.toContain("contractHash");
   });
+
+  it("projects cover as one billed slide and interiors as the remaining deck", () => {
+    const preparedRevision = "prepared-2026-08-30";
+    const base = work("carousel");
+    const coverPlan = projectPreparedPlanV1({
+      ...base,
+      inputSnapshot: {
+        ...base.inputSnapshot,
+        sources: [],
+        carousel: { ...carouselSnapshot(preparedRevision), generationScope: "cover", scriptRevision: "script-1" },
+      },
+    });
+    expect(coverPlan).toMatchObject({ protocol: "carousel", outputCount: 1 });
+    expect(coverPlan?.outputs).toEqual([{ label: "Tela 1", targetFormat: "4:5", directionId: null }]);
+
+    const interiorsPlan = projectPreparedPlanV1({
+      ...base,
+      inputSnapshot: {
+        ...base.inputSnapshot,
+        sources: [],
+        carousel: { ...carouselSnapshot(preparedRevision), generationScope: "interiors", scriptRevision: "script-1" },
+      },
+    });
+    expect(interiorsPlan).toMatchObject({ protocol: "carousel", outputCount: 4 });
+    expect(interiorsPlan?.outputs.map((output) => output.label)).toEqual(["Tela 2", "Tela 3", "Tela 4", "Tela 5"]);
+  });
 });

@@ -681,13 +681,20 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
 
 import type {
   CarouselDeckPlanV1,
+  CarouselGenerationScope,
   CarouselLayoutFamily,
   CarouselNarrativeRole,
   CarouselVisualContractV1,
 } from "./carousel-contracts";
+import type { SlideDirection } from "./carousel-editorial-state";
+import {
+  buildCarouselSlideVisualOrientation,
+  resolveCarouselSlideDirection,
+} from "./carousel-visual";
 
 export interface BuildCarouselSlidePromptInput {
   slide: {
+    slideId: string;
     position: number;
     role: CarouselNarrativeRole;
     purpose: string;
@@ -698,6 +705,14 @@ export interface BuildCarouselSlidePromptInput {
   factPack: CreativeWorkFactPack | null;
   request: string;
   references: readonly CreativeWorkReferenceSlot[];
+  storyboard?: readonly SlideDirection[];
+  generationScope?: CarouselGenerationScope;
+}
+
+function publicCarouselRequest(request: string): string {
+  const match = request.match(/notas de bastidor\s*:/i);
+  if (!match || match.index === undefined) return request;
+  return request.slice(0, match.index).trim();
 }
 
 function buildCarouselReservedRegionsBlock(
@@ -734,10 +749,15 @@ function buildCarouselReservedRegionsBlock(
 export function buildCarouselSlidePrompt(input: BuildCarouselSlidePromptInput): string {
   const { contract, deck } = input;
   const layoutPlan = contract.layoutFamilies[input.slide.layoutFamily];
+  const publicRequest = publicCarouselRequest(input.request);
+  const factPack = input.factPack
+    ? { ...input.factPack, request: publicCarouselRequest(input.factPack.request) }
+    : null;
+  const direction = resolveCarouselSlideDirection(input.storyboard, input.slide.slideId);
 
   const factPackBlock = buildFactPackBlock({
-    factPack: input.factPack,
-    inputSnapshot: { request: input.request } as CreativeWorkInputSnapshot,
+    factPack,
+    inputSnapshot: { request: publicRequest } as CreativeWorkInputSnapshot,
   });
 
   const palette = contract.palette.length > 0 ? contract.palette.join(", ") : "(none declared)";
@@ -762,6 +782,12 @@ export function buildCarouselSlidePrompt(input: BuildCarouselSlidePromptInput): 
     contract.directionInstruction
       ? `- Direction instruction: ${contract.directionInstruction}`
       : "- Direction instruction: (none)",
+    "",
+    buildCarouselSlideVisualOrientation({
+      position: input.slide.position,
+      generationScope: input.generationScope,
+      direction,
+    }),
     "",
     buildReferenceRolesBlock(input.references),
     "",

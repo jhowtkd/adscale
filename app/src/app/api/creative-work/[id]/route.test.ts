@@ -724,6 +724,7 @@ describe("GET /api/creative-work/[id]", () => {
       previewKey: "private/preview.png",
       anchorKey: "private/anchor.png",
       generationOperationKey: "deck-r1:slide-1",
+      deckRevision: "deck-r1",
       visualContractHash: "hash",
       createdAt: new Date("2026-08-30T12:00:00.000Z"),
       updatedAt: new Date("2026-08-30T12:00:00.000Z"),
@@ -755,6 +756,7 @@ describe("GET /api/creative-work/[id]", () => {
       id: "slide-1",
       status: "completed",
       hasOutput: true,
+      planSlideId: "slide-1",
     }));
     expect(JSON.stringify(body.carouselSlides[0])).not.toMatch(
       /providerBaseKey|outputKey|previewKey|anchorKey|generationOperationKey|private\//,

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  CreativeWorkRequestError,
   creativeWorkKey,
   useApproveCarouselDeck,
   useAutosaveCreativeWork,
@@ -19,14 +20,16 @@ import {
   type CarouselDraftStateV1,
   type CarouselSlidePlanV1,
 } from "@/server/creative-work/carousel-contracts";
+import type { CarouselEditorialCommand, CarouselEditorialState } from "@/server/creative-work/carousel-editorial-state";
+import {
+  CAROUSEL_COVER_QUOTE,
+  deriveCarouselComposerPhase,
+  isCurrentCoverApproval,
+  quoteCarouselInteriorsLote,
+  type CarouselComposerPhase,
+} from "./carousel-composer-phase";
 
-export type CarouselComposerPhase =
-  | "questions"
-  | "entry"
-  | "sequence"
-  | "ready_to_generate"
-  | "generating"
-  | "review";
+export type { CarouselComposerPhase };
 
 export type CarouselEditableField = "role" | "purpose" | "primaryText" | "secondaryText";
 
@@ -81,12 +84,14 @@ export function useCarouselComposer({
   const [selectedSlideId, setSelectedSlideId] = useState<string | null>(null);
   const [generationPending, setGenerationPending] = useState(false);
   const [approvedRecordedFor, setApprovedRecordedFor] = useState<string | null>(null);
+  const [editorialError, setEditorialError] = useState<string | null>(null);
   const reviewRecordedRef = useRef<string | null>(null);
   const reviseInFlightRef = useRef(false);
 
   const detail = detailQuery.data ?? null;
   const work = detail?.work ?? null;
   const draft = work?.settings.carouselDraft ?? null;
+  const editorial: CarouselEditorialState | null = work?.settings.carouselEditorial ?? null;
   const slides = useMemo(
     () => [...(detail?.carouselSlides ?? [])].sort((left, right) => left.position - right.position),
     [detail?.carouselSlides],
@@ -95,18 +100,23 @@ export function useCarouselComposer({
   const preparedRevision = preparedPlan?.preparedRevision ?? null;
   const questions = draft?.blockingQuestions ?? [];
   const findings = draft?.plan ? validateCarouselDeckStructure(draft.plan) : [];
+  const researching = planMutation.isPending && (editorial?.hooks.length !== 3);
+  const scriptApproved = Boolean(
+    editorial?.approvedScriptRevision
+    && editorial.approvedScriptRevision === editorial.revision
+    && draft?.plan,
+  );
 
-  const phase: CarouselComposerPhase = questions.length > 0
-    ? "questions"
-    : !draft?.plan
-      ? "entry"
-      : !preparedRevision
-        ? "sequence"
-        : slides.length === 0
-          ? "ready_to_generate"
-          : slides.some((slide) => slide.status === "queued" || slide.status === "processing")
-            ? "generating"
-            : "review";
+  const phase: CarouselComposerPhase = deriveCarouselComposerPhase({
+    blockingQuestionCount: questions.length,
+    hasPlan: Boolean(draft?.plan),
+    preparedRevision,
+    slides,
+    hooks: editorial?.hooks ?? [],
+    selectedHookId: editorial?.selectedHookId ?? null,
+    researching,
+    scriptApproved,
+  });
 
   const selectedSlide = useMemo(
     () => slides.find((slide) => slide.id === selectedSlideId) ?? slides[0] ?? null,
@@ -124,8 +134,23 @@ export function useCarouselComposer({
   const deckRevision = draft?.plan?.revision ?? slides[0]?.deckRevision ?? null;
   const approvedRevision = work?.carouselApprovedRevision ?? null;
 
-  const canPrepare = phase === "sequence" && findings.length === 0 && !isBusy;
+  const coverSlide = slides.find((slide) => slide.position === 1) ?? null;
+  const canPrepare = Boolean(draft?.plan)
+    && (phase === "sequence" || phase === "ready_to_generate")
+    && scriptApproved
+    && findings.length === 0
+    && !preparedRevision
+    && !isBusy;
   const canGenerate = phase === "ready_to_generate" && !isBusy;
+  const canApproveScript = phase === "sequence"
+    && Boolean(draft?.plan && editorial)
+    && !scriptApproved
+    && findings.length === 0
+    && !isBusy;
+  const canApproveCover = phase === "cover_review"
+    && Boolean(coverSlide && preparedRevision && editorial?.approvedScriptRevision)
+    && coverSlide?.status === "completed"
+    && !isBusy;
   const canApprove =
     phase === "review"
     && slides.length > 0
@@ -133,28 +158,39 @@ export function useCarouselComposer({
     && !isBusy
     && approvedRevision !== deckRevision;
 
-  const canEditDraft = Boolean(draft?.plan) && !preparedRevision && !isBusy;
+  const canEditDraft = Boolean(draft?.plan) && !preparedRevision && !isBusy && phase === "sequence";
 
   const selectSlide = useCallback((slideId: string) => {
     setSelectedSlideId(slideId);
   }, []);
 
-  const postPlan = useCallback(async (answers: Record<string, string>) => {
-    if (!workId || planMutation.isPending) return;
+  const postPlan = useCallback(async (
+    answers: Record<string, string> = {},
+    command?: CarouselEditorialCommand,
+  ) => {
+    if (!workId || planMutation.isPending) return null;
     try {
       // Flush the generic draft first: the plan command CAS-checks
       // `work.updatedAt`, so a pending generic autosave must land before the
       // editorial planner reads the work.
       const reconciled = await detailQuery.refetch();
       const current = reconciled.data?.work;
-      if (!current) return;
-      await planMutation.mutateAsync({
+      if (!current) return null;
+      setEditorialError(null);
+      const result = await planMutation.mutateAsync({
         workItemId: workId,
         expectedUpdatedAt: new Date(current.updatedAt).toISOString(),
         answers,
+        ...(command ? { command } : {}),
       });
-    } catch {
-      // Cache invalidation already reconciled; the wizard re-derives.
+      return result;
+    } catch (error) {
+      setEditorialError(
+        error instanceof CreativeWorkRequestError || error instanceof Error
+          ? error.message
+          : null,
+      );
+      return null;
     }
   }, [detailQuery, planMutation, workId]);
 
@@ -167,6 +203,64 @@ export function useCarouselComposer({
     (answers: Record<string, string>) => postPlan(answers),
     [postPlan],
   );
+
+  const selectHook = useCallback(async (hookId: string, headline?: string) => {
+    await postPlan({}, {
+      kind: "select_hook",
+      hookId,
+      ...(headline ? { headline } : {}),
+    });
+  }, [postPlan]);
+
+  const regenerateHooks = useCallback(async () => {
+    await postPlan({}, { kind: "propose_hooks" });
+  }, [postPlan]);
+
+  const scriptRevision = editorial?.revision;
+  const approveScript = useCallback(async () => {
+    if (!canApproveScript || !scriptRevision) return;
+    await postPlan({}, { kind: "approve_script", scriptRevision });
+  }, [canApproveScript, scriptRevision, postPlan]);
+
+  const approveCoverAndGenerate = useCallback(async () => {
+    if (!canApproveCover || generationPending || !workId || !coverSlide || !preparedRevision) return;
+    const expectedPreparedRevision = preparedRevision;
+    const expectedSlideId = coverSlide.id;
+    setGenerationPending(true);
+    try {
+      const approved = await postPlan({}, {
+        kind: "approve_cover",
+        slideId: expectedSlideId,
+        preparedRevision: expectedPreparedRevision,
+      });
+      if (
+        !approved
+        || !isCurrentCoverApproval({
+          editorial: approved.editorial,
+          slideId: expectedSlideId,
+          preparedRevision: expectedPreparedRevision,
+        })
+      ) {
+        return;
+      }
+
+      const prepared = await preparePlan();
+      if (!prepared || prepared.preparedRevision !== expectedPreparedRevision) return;
+
+      await confirmGeneration(prepared.preparedRevision);
+    } finally {
+      setGenerationPending(false);
+    }
+  }, [
+    canApproveCover,
+    confirmGeneration,
+    coverSlide,
+    generationPending,
+    postPlan,
+    preparePlan,
+    preparedRevision,
+    workId,
+  ]);
 
   const persistDraft = useCallback(async (
     // Transforms receive the CURRENT cached draft, so sequential actions can
@@ -451,20 +545,34 @@ export function useCarouselComposer({
 
   return {
     draft,
+    editorial,
     slides,
     quality,
     selectedSlideId,
     selectedSlide,
     phase,
     findings,
+    editorialError,
+    coverQuote: CAROUSEL_COVER_QUOTE,
+    interiorsQuote: quoteCarouselInteriorsLote({
+      slides,
+      planSlideCount: draft?.plan?.slides.length ?? 0,
+      preparedOutputCount: preparedPlan?.outputCount,
+    }),
     /** Approved deck revision from the work DTO — hosts pass it to the review/export gate. */
     approvedRevision,
     canPrepare,
     canGenerate,
     canApprove,
+    canApproveScript,
+    canApproveCover,
     isBusy,
     askForPlan,
     answerQuestions,
+    selectHook,
+    regenerateHooks,
+    approveScript,
+    approveCoverAndGenerate,
     acceptChange,
     rejectChange,
     editSlide,

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { GENERATION_CREDIT_COSTS } from "@/lib/billing/credit-units";
 import type { CreativeWorkInputSnapshot } from "./contracts";
+import { slideDirectionSchema } from "./carousel-editorial-state";
 
 export {
   validateTextFieldsAgainstFactPack,
@@ -141,11 +142,18 @@ export const carouselDeckQualitySchema = z.object({
 }).strict();
 export type CarouselDeckQualityV1 = z.infer<typeof carouselDeckQualitySchema>;
 
+export const CAROUSEL_GENERATION_SCOPES = ["cover", "interiors"] as const;
+export type CarouselGenerationScope = (typeof CAROUSEL_GENERATION_SCOPES)[number];
+
 export const carouselPreparedSnapshotSchema = z.object({
   version: z.literal(1),
   preparedRevision: z.string().trim().min(1),
   deck: carouselDeckPlanSchema,
   visualContract: carouselVisualContractSchema,
+  generationScope: z.enum(CAROUSEL_GENERATION_SCOPES).optional(),
+  scriptRevision: z.string().trim().min(1).optional(),
+  storyboard: z.array(slideDirectionSchema).max(8).optional(),
+  caption: z.string().trim().max(400).nullable().optional(),
 }).strict();
 export type CarouselPreparedSnapshotV1 = z.infer<typeof carouselPreparedSnapshotSchema>;
 
@@ -170,12 +178,20 @@ export function carouselAnchorPositions(slideCount: number): [number, number, nu
   return [1, Math.ceil(slideCount / 2), slideCount];
 }
 
+/** One credit unit per billed image, settled only on dispatch. */
+export function quoteCarouselUnits(unitCount: number): { unitCount: number; credits: number } {
+  if (!Number.isInteger(unitCount) || unitCount < 0) {
+    throw new Error("carousel_quote_unit_count_out_of_range");
+  }
+  return {
+    unitCount,
+    credits: unitCount * GENERATION_CREDIT_COSTS.creativeWorkOutput,
+  };
+}
+
 /** Deck-size quote: one credit unit per slide, settled only on dispatch. */
 export function quoteCarouselDeck(slideCount: number): { unitCount: number; credits: number } {
-  return {
-    unitCount: slideCount,
-    credits: slideCount * GENERATION_CREDIT_COSTS.creativeWorkOutput,
-  };
+  return quoteCarouselUnits(slideCount);
 }
 
 export type CarouselStructureFindingCode =
@@ -235,4 +251,29 @@ export function validateCarouselDeckStructure(deck: CarouselDeckPlanV1): Carouse
     }
   });
   return findings;
+}
+
+/**
+ * Public plan identity for a materialized slide. Storyboard keys are plan
+ * `slideId` values stored on insert as `${deckRevision}:${slideId}`; the DB
+ * row id is a different UUID after materialize, and queue overwrites the
+ * operation key with a billing id.
+ */
+export function resolveCarouselPlanSlideId(
+  slide: {
+    position: number;
+    deckRevision?: string | null;
+    generationOperationKey?: string | null;
+  },
+  deck?: { slides: Array<{ position: number; slideId: string }> } | null,
+): string | null {
+  const fromDeck = deck?.slides.find((plan) => plan.position === slide.position)?.slideId;
+  if (fromDeck) return fromDeck;
+  const revision = slide.deckRevision?.trim();
+  const key = slide.generationOperationKey?.trim();
+  if (!revision || !key) return null;
+  const prefix = `${revision}:`;
+  if (!key.startsWith(prefix) || key.includes("::")) return null;
+  const planSlideId = key.slice(prefix.length);
+  return planSlideId.length > 0 ? planSlideId : null;
 }

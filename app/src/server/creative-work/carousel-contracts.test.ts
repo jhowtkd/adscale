@@ -9,6 +9,8 @@ import {
   carouselDeckPlanSchema,
   carouselLayoutFamilyForRole,
   quoteCarouselDeck,
+  quoteCarouselUnits,
+  resolveCarouselPlanSlideId,
   resolveCarouselPreparedSnapshot,
   validateCarouselDeckStructure,
   validateTextFieldsAgainstFactPack,
@@ -131,6 +133,12 @@ describe("carousel contracts", () => {
     expect(quoteCarouselDeck(8)).toEqual({ unitCount: 8, credits: 400 });
   });
 
+  it("quotes an explicit billed unit count for cover and remaining interiors", () => {
+    expect(quoteCarouselUnits(1)).toEqual({ unitCount: 1, credits: 50 });
+    expect(quoteCarouselUnits(4)).toEqual({ unitCount: 4, credits: 200 });
+    expect(quoteCarouselUnits(0)).toEqual({ unitCount: 0, credits: 0 });
+  });
+
   it("accepts a valid five-slide deck", () => {
     const deck = deckOf(5, FIVE_ROLES);
     expect(carouselDeckPlanSchema.parse(deck)).toEqual(deck);
@@ -218,6 +226,55 @@ describe("carousel contracts", () => {
     };
     const restored = JSON.parse(JSON.stringify(snapshot)) as CreativeWorkInputSnapshot;
     expect(resolveCarouselPreparedSnapshot(restored)).toEqual(snapshot.carousel);
+  });
+
+  it("keeps legacy snapshots readable without generationScope and round-trips a scoped freeze", () => {
+    const legacy = preparedSnapshot("prepared-1", deckOf(5, FIVE_ROLES));
+    expect(resolveCarouselPreparedSnapshot({
+      request: "Carrossel",
+      settings: { targetFormats: [] },
+      sources: [],
+      carousel: legacy,
+    })).toEqual(legacy);
+    const scoped: CarouselPreparedSnapshotV1 = {
+      ...legacy,
+      generationScope: "cover",
+      scriptRevision: "script-1",
+      storyboard: [{
+        slideId: "slide-1",
+        learning: "A capa ancora a tese",
+        representation: "Retrato com paleta aprovada",
+        hierarchy: "Título e marca",
+        transition: "Abre o argumento",
+        claimIds: [],
+      }],
+      caption: "Inscreva-se pelo WhatsApp",
+    };
+    expect(resolveCarouselPreparedSnapshot({
+      request: "Carrossel",
+      settings: { targetFormats: [] },
+      sources: [],
+      carousel: scoped,
+    })).toEqual(scoped);
+  });
+
+  it("resolves the public plan slide id from the deck, then from the stored operation key", () => {
+    const deck = deckOf(5, FIVE_ROLES);
+    expect(resolveCarouselPlanSlideId({
+      position: 2,
+      deckRevision: "deck-r1",
+      generationOperationKey: "creative-work:work-1:carousel-slide:db-2:generate",
+    }, deck)).toBe("slide-2");
+    expect(resolveCarouselPlanSlideId({
+      position: 1,
+      deckRevision: "deck-r1",
+      generationOperationKey: "deck-r1:slide-1",
+    })).toBe("slide-1");
+    expect(resolveCarouselPlanSlideId({
+      position: 1,
+      deckRevision: "deck-r1",
+      generationOperationKey: "creative-work:work-1:carousel-slide:db-cover:generate",
+    })).toBeNull();
   });
 });
 

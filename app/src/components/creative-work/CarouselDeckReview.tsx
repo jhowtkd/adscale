@@ -23,6 +23,10 @@ export function CarouselDeckReview({
   onDownloadSlide,
   onExport,
   onRetrySlide,
+  coverReview = false,
+  canApproveCover = false,
+  interiorsQuote = null,
+  onApproveCoverAndGenerate,
 }: {
   slides: PublicCarouselSlide[];
   quality: PublicCarouselQualityV1 | null;
@@ -37,6 +41,10 @@ export function CarouselDeckReview({
   onDownloadSlide: (slideId: string) => void;
   onExport: () => void;
   onRetrySlide: (slideId: string) => void;
+  coverReview?: boolean;
+  canApproveCover?: boolean;
+  interiorsQuote?: { unitCount: number; credits: number } | null;
+  onApproveCoverAndGenerate?: () => void;
 }) {
   const t = useTranslations("dashboard.home.composer.carousel");
   const approved = Boolean(deckRevision && approvedRevision === deckRevision);
@@ -48,7 +56,7 @@ export function CarouselDeckReview({
       className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4"
     >
       <h2 ref={headingRef} id="carousel-review-title" tabIndex={-1} className="text-base font-semibold text-[var(--text-primary)] focus-visible:outline-none">
-        {t("reviewTitle")}
+        {coverReview ? t("coverReviewTitle") : t("reviewTitle")}
       </h2>
 
       {quality ? (
@@ -116,15 +124,34 @@ export function CarouselDeckReview({
       </ul>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-4">
-        <button
-          type="button"
-          data-testid="carousel-approve"
-          onClick={onApprove}
-          disabled={!canApprove || isBusy}
-          className="inline-flex min-h-[var(--control-touch)] items-center rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {t("approveAction")}
-        </button>
+        {coverReview && onApproveCoverAndGenerate ? (
+          <div className="flex flex-col items-start gap-1">
+            <button
+              type="button"
+              data-testid="carousel-approve-cover"
+              onClick={onApproveCoverAndGenerate}
+              disabled={!canApproveCover || isBusy}
+              className="inline-flex min-h-[var(--control-touch)] items-center rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {t("approveCoverAndGenerate")}
+            </button>
+            {interiorsQuote ? (
+              <p data-testid="carousel-interiors-budget" className="text-xs text-[var(--text-muted)]">
+                {t("interiorsBudget", { count: interiorsQuote.unitCount, credits: interiorsQuote.credits })}
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <button
+            type="button"
+            data-testid="carousel-approve"
+            onClick={onApprove}
+            disabled={!canApprove || isBusy}
+            className="inline-flex min-h-[var(--control-touch)] items-center rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {t("approveAction")}
+          </button>
+        )}
         <div className="flex flex-wrap items-center gap-3">
           {approved ? <span className="text-xs font-medium text-[var(--text-secondary)]">{t("approved")}</span> : <span className="text-xs text-[var(--text-muted)]">{t("exportRequiresApproval")}</span>}
           <button

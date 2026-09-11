@@ -86,24 +86,32 @@ vi.mock("../db", () => ({
 }));
 
 const getCreativeWorkMock = vi.hoisted(() => ({ getCreativeWork: vi.fn() }));
-vi.mock("./creative-work", () => ({
-  getCreativeWork: getCreativeWorkMock.getCreativeWork,
-}));
+vi.mock("./creative-work", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./creative-work")>();
+  return {
+    ...actual,
+    getCreativeWork: (...args: unknown[]) => getCreativeWorkMock.getCreativeWork(...args),
+  };
+});
 
 import {
   approveCarouselDeckRevision,
   completeCarouselSlide,
+  confirmCarouselInteriorsRevision,
   createCarouselSlideDescendant,
   failCarouselSlide,
   getCreativeWorkCarouselAggregate,
   listCurrentCarouselSlides,
   markCarouselSlideProcessing,
   materializeCarouselSlides,
+  queueAuthorizedCarouselSlide,
   queueCarouselSlide,
   refreshCarouselWorkStatus,
   setRemainingCarouselAnchorKey,
 } from "./creative-work-carousel";
+import { updateCreativeWorkIfUnchanged } from "./creative-work";
 import type { CarouselDeckQualityV1 } from "../creative-work/carousel-contracts";
+import type { CarouselEditorialState } from "../creative-work/carousel-editorial-state";
 
 const dialect = new PgDialect();
 
@@ -196,6 +204,82 @@ const deck: CarouselDeckPlanV1 = {
       layoutFamily: "development",
     },
   ],
+};
+
+const fiveSlideDeck: CarouselDeckPlanV1 = {
+  ...deck,
+  slides: [
+    ...deck.slides,
+    { slideId: "slide-3", position: 3, role: "problem", purpose: "Problema", primaryText: "O plano atual trava a venda", secondaryText: null, authority: "ai_proposal", sourceFactIds: [], layoutFamily: "development" },
+    { slideId: "slide-4", position: 4, role: "argument", purpose: "Argumento", primaryText: "O novo plano abre a loja", secondaryText: null, authority: "ai_proposal", sourceFactIds: [], layoutFamily: "development" },
+    { slideId: "slide-5", position: 5, role: "closing", purpose: "Fechar", primaryText: "Comece em sete dias", secondaryText: null, authority: "ai_proposal", sourceFactIds: [], layoutFamily: "respite" },
+  ],
+};
+
+function visualContractFixture() {
+  const region = { x: 80, y: 96, width: 864, height: 420, minFontPx: 42, maxFontPx: 82, align: "left" as const };
+  return {
+    version: 1 as const,
+    brandSnapshotHash: "brand-hash-1",
+    temporaryReferenceId: null,
+    palette: ["#112233"],
+    typography: { fontAssetKey: null, fallbackFamily: "sans" as const, authority: "fallback" as const },
+    directionInstruction: null,
+    layoutFamilies: {
+      impact: { id: "impact-v1", density: "high" as const, primaryRegion: region, secondaryRegion: null, exactAssetSlots: [], backgroundInstruction: "impact" },
+      development: { id: "development-v1", density: "medium" as const, primaryRegion: region, secondaryRegion: null, exactAssetSlots: [], backgroundInstruction: "development" },
+      respite: { id: "respite-v1", density: "low" as const, primaryRegion: region, secondaryRegion: null, exactAssetSlots: [], backgroundInstruction: "respite" },
+    },
+    recurringMotifs: [],
+    exactAssetKeys: [],
+    prohibitedElements: [],
+    safeAreaPx: 64,
+    contractHash: "contract-hash-1",
+  };
+}
+
+function interiorsEditorial(overrides: Partial<CarouselEditorialState> = {}): CarouselEditorialState {
+  return {
+    version: 1,
+    revision: "script-1",
+    contextHash: "ctx-1",
+    research: { status: "not_needed", question: "", thesis: "", sources: [], claims: [], gaps: [] },
+    hooks: [],
+    recommendedHookId: null,
+    recommendation: null,
+    selectedHookId: null,
+    storyboard: [],
+    caption: null,
+    approvedScriptRevision: "script-1",
+    approvedCover: { slideId: "slide-1", scriptRevision: "script-1", preparedRevision: "prep-1" },
+    confirmedInteriorsRevision: "prep-1",
+    ...overrides,
+  };
+}
+
+function interiorsWork(editorial: CarouselEditorialState = interiorsEditorial()) {
+  return workItem({
+    updatedAt: new Date("2026-08-30T12:00:00.000Z"),
+    settings: { targetFormats: [], carouselEditorial: editorial },
+    inputSnapshot: {
+      carousel: {
+        version: 1,
+        preparedRevision: "prep-1",
+        deck: fiveSlideDeck,
+        visualContract: visualContractFixture(),
+        generationScope: "interiors",
+        scriptRevision: "script-1",
+      },
+    },
+  } as Partial<CreativeWorkItem>);
+}
+
+const queueInput = {
+  workspaceId: "ws-1",
+  workItemId: "work-1",
+  slideId: "slide-2",
+  anchorKey: null,
+  operationKey: "op-interior",
 };
 
 describe("carousel slide repository (CAS transitions)", () => {
@@ -322,6 +406,167 @@ describe("carousel slide repository (CAS transitions)", () => {
       });
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe("queueAuthorizedCarouselSlide", () => {
+    it("does not queue an interior when lote confirmation is missing", async () => {
+      const interior = slide({ id: "slide-2", position: 2, status: "draft" });
+      mocks.state.selectResults.push(
+        [interiorsWork(interiorsEditorial({ confirmedInteriorsRevision: null }))],
+        [interior],
+        [slide({ position: 1 }), interior],
+      );
+
+      const result = await queueAuthorizedCarouselSlide(queueInput);
+
+      expect(result).toEqual({ outcome: "unauthorized" });
+      expect(mocks.updateMock).not.toHaveBeenCalled();
+    });
+
+    it("retries a failed cover under an interiors snapshot when the script is still approved", async () => {
+      const cover = slide({ id: "slide-1", position: 1, status: "failed" });
+      const queued = { ...cover, status: "queued" as const };
+      mocks.state.selectResults.push(
+        [interiorsWork()],
+        [cover],
+        [cover, slide({ id: "slide-2", position: 2 })],
+      );
+      mocks.state.updateResults.push([queued]);
+
+      const result = await queueAuthorizedCarouselSlide({
+        ...queueInput,
+        slideId: "slide-1",
+        operationKey: "op-cover-retry",
+      });
+
+      expect(result).toEqual({ outcome: "claimed", slide: queued });
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ status: "queued" }));
+    });
+
+    it("does not retry the cover under an interiors snapshot after the script is invalidated", async () => {
+      const cover = slide({ id: "slide-1", position: 1, status: "failed" });
+      mocks.state.selectResults.push(
+        [interiorsWork(interiorsEditorial({
+          approvedScriptRevision: null,
+          approvedCover: null,
+          confirmedInteriorsRevision: null,
+        }))],
+        [cover],
+        [cover, slide({ id: "slide-2", position: 2 })],
+      );
+
+      const result = await queueAuthorizedCarouselSlide({
+        ...queueInput,
+        slideId: "slide-1",
+        operationKey: "op-cover-retry",
+      });
+
+      expect(result).toEqual({ outcome: "unauthorized" });
+      expect(mocks.updateMock).not.toHaveBeenCalled();
+    });
+
+    it("queues an interior only when the current lote confirmation matches", async () => {
+      const interior = slide({ id: "slide-2", position: 2, status: "draft" });
+      const queued = { ...interior, status: "queued" as const };
+      mocks.state.selectResults.push(
+        [interiorsWork()],
+        [interior],
+        [slide({ position: 1 }), interior],
+      );
+      mocks.state.updateResults.push([queued]);
+
+      const result = await queueAuthorizedCarouselSlide(queueInput);
+
+      expect(result).toEqual({ outcome: "claimed", slide: queued });
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({ status: "queued" }));
+    });
+
+    it("refuses an already-queued interior after the script is invalidated", async () => {
+      const queued = slide({ id: "slide-2", position: 2, status: "queued" });
+      mocks.state.selectResults.push(
+        [interiorsWork(interiorsEditorial({
+          approvedScriptRevision: null,
+          approvedCover: null,
+          confirmedInteriorsRevision: null,
+        }))],
+        [queued],
+        [slide({ position: 1 }), queued],
+      );
+
+      const result = await queueAuthorizedCarouselSlide(queueInput);
+
+      expect(result).toEqual({ outcome: "unauthorized" });
+      expect(mocks.updateMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("confirmCarouselInteriorsRevision", () => {
+    const confirmInput = {
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      expectedUpdatedAt: new Date("2026-08-30T12:00:00.000Z"),
+      preparedRevision: "prep-1",
+      scriptRevision: "script-1",
+      coverSlideId: "slide-1",
+    };
+
+    it("persists confirmedInteriorsRevision only with persistCarouselApprovals", async () => {
+      const editorial = interiorsEditorial({ confirmedInteriorsRevision: "prep-1" });
+      mocks.state.updateResults.push([workItem()]);
+      await updateCreativeWorkIfUnchanged("ws-1", "work-1", confirmInput.expectedUpdatedAt, {
+        settings: { targetFormats: [], carouselEditorial: editorial },
+      });
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({
+        settings: expect.objectContaining({
+          carouselEditorial: expect.objectContaining({ confirmedInteriorsRevision: null }),
+        }),
+      }));
+
+      mocks.setMock.mockClear();
+      const pending = interiorsWork(interiorsEditorial({ confirmedInteriorsRevision: null }));
+      const persisted = interiorsWork();
+      mocks.state.selectResults.push([pending]);
+      mocks.state.updateResults.push([persisted]);
+
+      const result = await confirmCarouselInteriorsRevision(confirmInput);
+
+      expect(result).toEqual(persisted);
+      expect(mocks.setMock).toHaveBeenCalledWith(expect.objectContaining({
+        settings: expect.objectContaining({
+          carouselEditorial: expect.objectContaining({ confirmedInteriorsRevision: "prep-1" }),
+        }),
+      }));
+    });
+
+    it("treats two confirms of the same revision as one lote write", async () => {
+      const pending = interiorsWork(interiorsEditorial({ confirmedInteriorsRevision: null }));
+      const persisted = interiorsWork();
+      mocks.state.selectResults.push([pending]);
+      mocks.state.updateResults.push([persisted]);
+      const first = await confirmCarouselInteriorsRevision(confirmInput);
+      expect(first).toEqual(persisted);
+      expect(mocks.updateMock).toHaveBeenCalledTimes(1);
+
+      mocks.state.selectResults.push([persisted]);
+      const second = await confirmCarouselInteriorsRevision(confirmInput);
+      expect(second).toEqual(persisted);
+      expect(mocks.updateMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("fails closed when the script is invalidated between read and claim", async () => {
+      mocks.state.selectResults.push([
+        interiorsWork(interiorsEditorial({
+          approvedScriptRevision: null,
+          approvedCover: null,
+          confirmedInteriorsRevision: null,
+        })),
+      ]);
+
+      const result = await confirmCarouselInteriorsRevision(confirmInput);
+
+      expect(result).toBeNull();
+      expect(mocks.updateMock).not.toHaveBeenCalled();
     });
   });
 

@@ -9,6 +9,7 @@ import {
   type CarouselNarrativeRole,
 } from "@/server/creative-work/carousel-contracts";
 import type { CarouselVisualContractV1 } from "@/server/creative-work/carousel-contracts";
+import type { CarouselEditorialState } from "@/server/creative-work/carousel-editorial-state";
 import { CarouselComposer } from "./CarouselComposer";
 import type { CarouselComposerController, CarouselComposerPhase } from "./useCarouselComposer";
 
@@ -28,10 +29,34 @@ vi.mock("next-intl", () => ({
       organizeContent: "Organizar conteúdo",
       questionsTitle: "Responda para organizar a sequência",
       answerSubmit: "Enviar respostas",
+      researchingTitle: "Pesquisando o argumento",
+      researchingHint: "Consultando fontes e preparando três ganchos. Isso não gera imagem.",
+      hooksTitle: "Escolha um gancho",
+      hooksHint: "Três caminhos distintos; a escolha não gera imagem.",
+      chooseHook: "Escolher gancho",
+      regenerateHooks: "Novas opções",
+      hookRecommendation: "Recomendação",
+      recommendedBadge: "Recomendado",
+      hookHeadlineLabel: "Texto de capa",
+      hookPromise: "Promessa",
+      hookNarrative: "Percurso",
       sequenceTitle: "Mesa de sequência",
+      captionLabel: "Legenda",
+      sourcesTitle: "Fontes consultadas",
+      sourceCheckedOn: `Consultada em ${values?.date ?? ""}`,
+      visualLearning: "Aprendizado",
+      visualRepresentation: "Direção visual",
+      visualHierarchy: "Hierarquia",
+      visualTransition: "Transição",
+      approveScript: "Aprovar roteiro",
       prepareAction: "Preparar carrossel",
       generateAction: "Gerar carrossel",
+      generateCoverAction: "Gerar capa",
+      coverBudget: `Orçamento desta etapa: ${values?.count ?? 1} imagem (${values?.credits ?? 50} créditos).`,
+      interiorsBudget: `Orçamento desta etapa: ${values?.count ?? 4} imagens (${values?.credits ?? 200} créditos).`,
       generatingTitle: "Gerando o carrossel",
+      coverReviewTitle: "Revise a capa piloto",
+      approveCoverAndGenerate: "Aprovar capa e gerar demais slides",
       reviewTitle: "Revise o carrossel",
       visualTitle: "Sistema visual",
       moveUp: "Mover para cima",
@@ -133,6 +158,7 @@ function publicSlide(position: number, overrides: Partial<PublicCarouselSlide> =
     layoutFamily: "development",
     status: "completed",
     hasOutput: true,
+    planSlideId: `slide-${position}`,
     errorCode: null,
     quality: null,
     createdAt: NOW,
@@ -179,21 +205,79 @@ function visualContract(): CarouselVisualContractV1 {
   };
 }
 
+function editorialState(overrides: Partial<CarouselEditorialState> = {}): CarouselEditorialState {
+  return {
+    version: 1,
+    revision: "script-1",
+    contextHash: "ctx-1",
+    research: {
+      status: "not_needed",
+      question: "O grupo começa em agosto?",
+      thesis: "O consultório abre grupo em agosto.",
+      sources: [
+        {
+          id: "src-1",
+          url: "https://example.com/estudo",
+          sourceId: null,
+          title: "Estudo clínico",
+          checkedOn: "2026-08-01",
+          publicationDate: null,
+          evidence: "Turma abre em agosto.",
+          limitations: [],
+          access: "opened",
+        },
+      ],
+      claims: [],
+      gaps: [],
+    },
+    hooks: [
+      { id: "hook-1", headline: "Grupo em agosto", promise: "Vagas limitadas", narrative: "Fato, prova, inscrição" },
+      { id: "hook-2", headline: "Comece o cuidado", promise: "Rotina em grupo", narrative: "Dor, método, convite" },
+      { id: "hook-3", headline: "Agosto abre vagas", promise: "Turma pequena", narrative: "Novidade, critério, CTA" },
+    ],
+    recommendedHookId: "hook-1",
+    recommendation: "Abre com o fato datado.",
+    selectedHookId: null,
+    storyboard: [
+      { slideId: "slide-1", learning: "O leitor vê a data", representation: "Tipografia com o fato principal", hierarchy: "Título, apoio, marca", transition: "Segue para a prova", claimIds: [] },
+      { slideId: "slide-2", learning: "Entende a oferta", representation: "Comparar duas rotinas com o mesmo critério", hierarchy: "Dois blocos", transition: "Fecha o contraste", claimIds: [] },
+      { slideId: "slide-3", learning: "Confia no método", representation: "Diagrama simples", hierarchy: "Passos", transition: "Prepara o convite", claimIds: [] },
+      { slideId: "slide-4", learning: "Vê a prova", representation: "Detalhe da turma", hierarchy: "Citação", transition: "Leva à ação", claimIds: [] },
+      { slideId: "slide-5", learning: "Sabe o próximo passo", representation: "CTA tipográfico", hierarchy: "Ação", transition: "Encerra", claimIds: [] },
+    ],
+    caption: "Inscreva-se pelo WhatsApp",
+    approvedScriptRevision: null,
+    approvedCover: null,
+    confirmedInteriorsRevision: null,
+    ...overrides,
+  };
+}
+
 function controller(overrides: Partial<CarouselComposerController> = {}): CarouselComposerController {
   return {
     draft: null,
+    editorial: null,
     slides: [],
     quality: null,
     selectedSlideId: null,
     selectedSlide: null,
     phase: "entry" as CarouselComposerPhase,
     findings: [],
+    editorialError: null,
+    coverQuote: { unitCount: 1, credits: 50 },
+    interiorsQuote: { unitCount: 4, credits: 200 },
     canPrepare: false,
     canGenerate: false,
     canApprove: false,
+    canApproveScript: false,
+    canApproveCover: false,
     isBusy: false,
     askForPlan: vi.fn(),
     answerQuestions: vi.fn(),
+    selectHook: vi.fn(),
+    regenerateHooks: vi.fn(),
+    approveScript: vi.fn(),
+    approveCoverAndGenerate: vi.fn(),
     acceptChange: vi.fn(),
     rejectChange: vi.fn(),
     editSlide: vi.fn(),
@@ -250,7 +334,7 @@ describe("CarouselComposer", () => {
     expect(askForPlan).toHaveBeenCalledTimes(1);
   });
 
-  it("moves focus to the first blocking question and answers only once", () => {
+  it("moves focus to the first blocking question and answers only once", async () => {
     const answerQuestions = vi.fn();
     const first = renderCarousel(controller({ phase: "entry" }));
     first.rerender(
@@ -264,7 +348,7 @@ describe("CarouselComposer", () => {
     );
 
     expect(screen.getByTestId("carousel-questions")).toBeInTheDocument();
-    awaitWaitForFocus(screen.getByLabelText("Qual é a oferta?"));
+    await awaitWaitForFocus(screen.getByTestId("carousel-question-0"));
 
     fireEvent.change(screen.getByLabelText("Qual é a oferta?"), { target: { value: "30% na primeira compra" } });
     fireEvent.change(screen.getByLabelText("Qual é a ação final?"), { target: { value: "Comprar agora" } });
@@ -273,7 +357,7 @@ describe("CarouselComposer", () => {
     expect(answerQuestions).toHaveBeenCalledWith({ "q-1": "30% na primeira compra", "q-2": "Comprar agora" });
   });
 
-  it("focuses the sequence heading and renders the board, editor and visual system", () => {
+  it("focuses the sequence heading and renders the board, editor and visual system", async () => {
     const prepareCarousel = vi.fn();
     const first = renderCarousel(controller({ phase: "questions" }));
     first.rerender(
@@ -292,7 +376,7 @@ describe("CarouselComposer", () => {
       />,
     );
 
-    awaitWaitForFocus(screen.getByRole("heading", { name: "Mesa de sequência" }));
+    await awaitWaitForFocus(screen.getByRole("heading", { name: "Mesa de sequência" }));
     expect(screen.getByTestId("carousel-board-scroll")).toBeInTheDocument();
     expect(screen.getByTestId("carousel-slide-editor")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Sistema visual" })).toBeInTheDocument();
@@ -337,13 +421,15 @@ describe("CarouselComposer", () => {
     expect(generateCarousel).toHaveBeenCalledTimes(1);
   });
 
-  it("does nothing on Enter before the prepared revision exists", () => {
+  it("does nothing on Enter in the sequence textarea before the prepared revision exists", () => {
     const generateCarousel = vi.fn();
     renderCarousel(controller({ phase: "sequence", draft: carouselDraft(), generateCarousel }));
 
+    fireEvent.keyDown(screen.getByLabelText("Texto principal"), { key: "Enter" });
     expect(screen.queryByTestId("carousel-generate")).not.toBeInTheDocument();
     expect(screen.getByTestId("carousel-prepare")).toBeInTheDocument();
     expect(generateCarousel).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("carousel-generate")).not.toBeInTheDocument();
   });
 
   it("announces completed and failed counts while generating", () => {
@@ -365,7 +451,7 @@ describe("CarouselComposer", () => {
     expect(screen.getByRole("heading", { name: "Gerando o carrossel" })).toBeInTheDocument();
   });
 
-  it("moves focus to the review heading, renders the deck review and keeps the live region", () => {
+  it("moves focus to the review heading, renders the deck review and keeps the live region", async () => {
     const slides = [1, 2, 3, 4, 5].map((position) => publicSlide(position));
     const approveDeck = vi.fn();
     const exportDeck = vi.fn();
@@ -396,7 +482,7 @@ describe("CarouselComposer", () => {
       />,
     );
 
-    awaitWaitForFocus(screen.getByRole("heading", { name: "Revise o carrossel" }));
+    await awaitWaitForFocus(screen.getByRole("heading", { name: "Revise o carrossel" }));
     expect(screen.getByTestId("carousel-deck-review")).toBeInTheDocument();
     expect(screen.getByTestId("carousel-progress")).toHaveTextContent("5 de 5 telas prontas; 0 com falha.");
 
@@ -437,6 +523,201 @@ describe("CarouselComposer", () => {
 
     fireEvent.change(screen.getByLabelText("Texto principal"), { target: { value: "Texto do gancho revisado" } });
     expect(editSlide).toHaveBeenCalledWith("slide-1", "primaryText", "Texto do gancho revisado");
+  });
+
+  it("presents three hooks and selecting one does not confirm image generation", () => {
+    const selectHook = vi.fn();
+    const confirmGeneration = vi.fn();
+    renderCarousel(controller({
+      phase: "hooks",
+      editorial: editorialState(),
+      selectHook,
+      generateCarousel: confirmGeneration,
+    }));
+
+    expect(screen.getAllByRole("button", { name: /Escolher gancho/ })).toHaveLength(3);
+    expect(screen.getByTestId("carousel-hook-recommendation")).toHaveTextContent("Abre com o fato datado.");
+    fireEvent.click(screen.getAllByRole("button", { name: /Escolher gancho/ })[0]!);
+    expect(selectHook).toHaveBeenCalledWith("hook-1", undefined);
+    expect(confirmGeneration).not.toHaveBeenCalled();
+  });
+
+  it("reloads the hooks phase from persisted editorial without generating", () => {
+    const confirmGeneration = vi.fn();
+    renderCarousel(controller({
+      phase: "hooks",
+      editorial: editorialState(),
+      generateCarousel: confirmGeneration,
+    }));
+
+    expect(screen.getByTestId("carousel-hook-choices")).toBeInTheDocument();
+    expect(confirmGeneration).not.toHaveBeenCalled();
+  });
+
+  it("shows copy, visual direction, caption and http sources together on the script", () => {
+    renderCarousel(controller({
+      phase: "sequence",
+      draft: carouselDraft(),
+      editorial: editorialState({ selectedHookId: "hook-1" }),
+      canApproveScript: true,
+    }));
+
+    expect(screen.getByTestId("carousel-slide-1")).toHaveTextContent("Texto 1");
+    expect(screen.getByTestId("carousel-slide-1")).toHaveTextContent("Tipografia com o fato principal");
+    expect(screen.getByTestId("carousel-slide-direction")).toHaveTextContent("O leitor vê a data");
+    expect(screen.getByTestId("carousel-caption")).toHaveTextContent("Inscreva-se pelo WhatsApp");
+    fireEvent.click(screen.getByText("Fontes consultadas"));
+    const source = screen.getByRole("link", { name: "Estudo clínico" });
+    expect(source).toHaveAttribute("href", "https://example.com/estudo");
+    expect(screen.getByRole("button", { name: "Aprovar roteiro" })).toBeEnabled();
+  });
+
+  it("does not present discovered http links as consulted sources", () => {
+    renderCarousel(controller({
+      phase: "sequence",
+      draft: carouselDraft(),
+      editorial: editorialState({
+        selectedHookId: "hook-1",
+        research: {
+          status: "ready",
+          question: "O grupo começa em agosto?",
+          thesis: "O consultório abre grupo em agosto.",
+          sources: [
+            {
+              id: "src-discovered",
+              url: "https://search.example/resultado",
+              sourceId: null,
+              title: "Resultado de busca",
+              checkedOn: null,
+              publicationDate: null,
+              evidence: "Snippet de busca.",
+              limitations: [],
+              access: "discovered",
+            },
+            {
+              id: "src-1",
+              url: "https://example.com/estudo",
+              sourceId: null,
+              title: "Estudo clínico",
+              checkedOn: "2026-08-01",
+              publicationDate: null,
+              evidence: "Turma abre em agosto.",
+              limitations: [],
+              access: "opened",
+            },
+          ],
+          claims: [],
+          gaps: [],
+        },
+      }),
+    }));
+
+    fireEvent.click(screen.getByText("Fontes consultadas"));
+    expect(screen.getByRole("link", { name: "Estudo clínico" })).toHaveAttribute("href", "https://example.com/estudo");
+    expect(screen.queryByRole("link", { name: "Resultado de busca" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Resultado de busca")).not.toBeInTheDocument();
+  });
+
+  it("keeps storyboard copy and visual direction after slides materialize with database ids", () => {
+    const cover = publicSlide(1, { id: "db-cover", planSlideId: "slide-1", status: "completed" });
+    renderCarousel(controller({
+      phase: "cover_review",
+      draft: carouselDraft(),
+      editorial: editorialState({ selectedHookId: "hook-1" }),
+      slides: [
+        cover,
+        publicSlide(2, { id: "db-2", planSlideId: "slide-2", status: "draft", hasOutput: false }),
+        publicSlide(3, { id: "db-3", planSlideId: "slide-3", status: "draft", hasOutput: false }),
+        publicSlide(4, { id: "db-4", planSlideId: "slide-4", status: "draft", hasOutput: false }),
+        publicSlide(5, { id: "db-5", planSlideId: "slide-5", status: "draft", hasOutput: false }),
+      ],
+      selectedSlideId: "db-cover",
+      canApproveCover: true,
+    }));
+
+    expect(screen.getByTestId("carousel-slide-1")).toHaveTextContent("Texto 1");
+    expect(screen.getByTestId("carousel-slide-1")).toHaveTextContent("Tipografia com o fato principal");
+    expect(screen.getByTestId("carousel-slide-direction")).toHaveTextContent("O leitor vê a data");
+  });
+
+  it("keeps a human edit in the sequence without generating", () => {
+    const editSlide = vi.fn();
+    const generateCarousel = vi.fn();
+    renderCarousel(controller({
+      phase: "sequence",
+      draft: carouselDraft(),
+      editorial: editorialState({ selectedHookId: "hook-1" }),
+      editSlide,
+      generateCarousel,
+    }));
+
+    fireEvent.change(screen.getByLabelText("Texto principal"), { target: { value: "WIP do gancho" } });
+    expect(editSlide).toHaveBeenCalledWith("slide-1", "primaryText", "WIP do gancho");
+    expect(generateCarousel).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a recoverable editorial failure without confirming generation", () => {
+    const confirmGeneration = vi.fn();
+    renderCarousel(controller({
+      phase: "hooks",
+      editorial: editorialState(),
+      editorialError: "A evidência não basta para sustentar a tese. Restrinja o argumento ou envie fontes.",
+      generateCarousel: confirmGeneration,
+    }));
+
+    const alert = screen.getByTestId("carousel-editorial-error");
+    expect(alert).toHaveAttribute("role", "alert");
+    expect(alert).toHaveTextContent("A evidência não basta");
+    expect(confirmGeneration).not.toHaveBeenCalled();
+  });
+
+  it("shows the completed cover button and does not generate on mount", () => {
+    const confirmGeneration = vi.fn();
+    const approveCoverAndGenerate = vi.fn();
+    renderCarousel(controller({
+      phase: "cover_review",
+      draft: carouselDraft(),
+      editorial: editorialState({
+        selectedHookId: "hook-1",
+        approvedScriptRevision: "script-1",
+      }),
+      slides: [
+        publicSlide(1),
+        publicSlide(2, { status: "draft", hasOutput: false }),
+        publicSlide(3, { status: "draft", hasOutput: false }),
+        publicSlide(4, { status: "draft", hasOutput: false }),
+        publicSlide(5, { status: "draft", hasOutput: false }),
+      ],
+      canApproveCover: true,
+      interiorsQuote: { unitCount: 4, credits: 200 },
+      generateCarousel: confirmGeneration,
+      approveCoverAndGenerate,
+    }));
+
+    const coverButton = screen.getByRole("button", { name: "Aprovar capa e gerar demais slides" });
+    expect(coverButton).toBeEnabled();
+    expect(screen.getByTestId("carousel-interiors-budget")).toHaveTextContent(
+      "Orçamento desta etapa: 4 imagens (200 créditos).",
+    );
+    expect(confirmGeneration).not.toHaveBeenCalled();
+    expect(approveCoverAndGenerate).not.toHaveBeenCalled();
+    fireEvent.click(coverButton);
+    expect(approveCoverAndGenerate).toHaveBeenCalledTimes(1);
+    expect(confirmGeneration).not.toHaveBeenCalled();
+  });
+
+  it("reloads a completed cover without generating remaining slides", () => {
+    const confirmGeneration = vi.fn();
+    renderCarousel(controller({
+      phase: "cover_review",
+      draft: carouselDraft(),
+      slides: [publicSlide(1), ...[2, 3, 4, 5].map((position) => publicSlide(position, { status: "draft", hasOutput: false }))],
+      canApproveCover: true,
+      generateCarousel: confirmGeneration,
+    }));
+
+    expect(screen.getByRole("button", { name: "Aprovar capa e gerar demais slides" })).toBeInTheDocument();
+    expect(confirmGeneration).not.toHaveBeenCalled();
   });
 
   it("usa pedido externo e mantém a ação de organizar", () => {

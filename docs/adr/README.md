@@ -23,6 +23,7 @@
 | [0011](./0011-threads-como-canal-novo.md) | Threads vira canal oficial no Q3 (substitui YouTube). Reaproveita copy de LI/IG. Sem criação original. | 2026-06-27 | ✅ Aceita |
 | [0012](./0012-cognitive-atlas.md) | Cognitive Atlas — órgãos da cabeça criativa (Cortex, Hands, Gaze/Olhar, Skin, Nerve, Taste, Memory, Marrow, Energy) | 2026-07-09 | ✅ Aceita |
 | [0013](./0013-trabalho-criativo-first.md) | Trabalho criativo-first — convergência de produto e arquitetura (Campanha, Assistente, Quick Tools, Templates, Brand Training como adapters de um único trabalho criativo) | 2026-07-12 | ✅ Aceita |
+| [0014](./2026-09-10-carousel-editorial.md) | Carrossel editorial — aprovações de gancho, roteiro e capa neste Protocolo (não tornam briefing manual obrigatório para os demais) | 2026-09-10 | ✅ Aceita |
 
 ---
 
@@ -65,4 +66,4 @@ Todo ADR segue:
 
 ---
 
-*Mantido em `docs/adr/` · PT-BR · Última atualização: 2026-07-09*
+*Mantido em `docs/adr/` · PT-BR · Última atualização: 2026-09-10*

@@ -178,6 +178,17 @@ function workFixture(slide: CreativeWorkCarouselSlide) {
           preparedRevision: "prep-1",
           deck: deckFixture(),
           visualContract: visualContractFixture(),
+          generationScope: "cover",
+          scriptRevision: "script-1",
+          storyboard: [{
+            slideId: "slide-1",
+            learning: "A capa ancora a tese",
+            representation: "Retrato com paleta aprovada",
+            hierarchy: "Título e marca",
+            transition: "Abre o argumento",
+            claimIds: [],
+          }],
+          caption: "Inscreva-se pelo direct",
         },
       },
     } as unknown as CreativeWorkItem,
@@ -338,6 +349,11 @@ describe("runCreativeWorkCarouselSlide", () => {
       attempt: 0,
     });
     expect(request.identity.referenceImages).toHaveLength(1);
+    expect(promptBuilder.buildCarouselSlidePrompt).toHaveBeenCalledWith(expect.objectContaining({
+      slide: expect.objectContaining({ slideId: "slide-2", position: 2 }),
+      generationScope: "cover",
+      storyboard: [expect.objectContaining({ slideId: "slide-1" })],
+    }));
     expect(request.renderPolicy).toEqual({
       version: 1,
       model: "gpt-image-2-2026-04-21",
@@ -426,6 +442,26 @@ describe("runCreativeWorkCarouselSlide", () => {
       workItemId: WORK_ID,
       userId: "user-1",
     });
+  });
+
+  it("still asks dispatchNextCarouselStage after the cover completes so the gate can pause interiors", async () => {
+    const cover = slideRow({
+      id: "slide-1",
+      position: 1,
+      role: "hook",
+      layoutFamily: "impact",
+      generationOperationKey: "deck-r1:slide-1",
+      anchorKey: null,
+    });
+    carouselRepo.listCurrentCarouselSlides.mockResolvedValue([cover]);
+    carouselRepo.markCarouselSlideProcessing.mockResolvedValue({ ...cover, status: "processing" });
+
+    await runCreativeWorkCarouselSlide({
+      event: { workspaceId: "workspace-1", workItemId: WORK_ID, slideId: "slide-1" },
+    });
+
+    expect(carouselRepo.completeCarouselSlide).toHaveBeenCalledTimes(1);
+    expect(continuation.dispatchNextCarouselStage).toHaveBeenCalledTimes(1);
   });
 
   it("fails only that slide with refund on objective fail — no second correction call", async () => {

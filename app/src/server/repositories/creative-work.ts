@@ -32,6 +32,8 @@ import {
 import { getClientProfile, resolveCampaignClientProfileId } from "./client-reference";
 import { getCampaignById } from "./campaign";
 import { MAX_PIECE_REFERENCES, type PieceReferenceCategory } from "../creative-work/piece-reference";
+import { withInvalidatedCarouselApprovals } from "../creative-work/carousel-editorial-state";
+import { mergeCarouselEditorialForClientSettingsWrite } from "../creative-work/carousel-editorial-hash";
 import {
   boundCatalogLimit,
   takeCatalogPage,
@@ -439,6 +441,36 @@ export type CreativeWorkDraftPatch = Partial<{
   identitySnapshot: CreativeWorkItem["identitySnapshot"] | null;
 }>;
 
+function settingsAfterMaterialCarouselEdit(
+  settings: CreativeWorkSettings | undefined | null,
+): { settings?: CreativeWorkSettings } {
+  if (!settings?.carouselEditorial) return {};
+  return { settings: withInvalidatedCarouselApprovals(settings) };
+}
+
+function sanitizeClientCarouselSettingsPatch(
+  patch: CreativeWorkDraftPatch,
+  persistCarouselApprovals = false,
+): CreativeWorkDraftPatch {
+  if (persistCarouselApprovals || !patch.settings?.carouselEditorial) return patch;
+  return {
+    ...patch,
+    settings: withInvalidatedCarouselApprovals(patch.settings),
+  };
+}
+
+async function workPatchInvalidatingCarouselEditorial(
+  tx: Pick<typeof db, "select">,
+  workspaceId: string,
+  workItemId: string,
+): Promise<{ settings?: CreativeWorkSettings }> {
+  const [work] = await tx.select().from(creativeWorkItems).where(and(
+    eq(creativeWorkItems.workspaceId, workspaceId),
+    eq(creativeWorkItems.id, workItemId),
+  )).limit(1);
+  return settingsAfterMaterialCarouselEdit(work?.settings);
+}
+
 const automaticPieceReference = {
   version: 1 as const,
   category: null,
@@ -592,12 +624,19 @@ export async function autosaveCreativeWorkDraft(input: {
       sourcesNeedingSingleAnalysis = normalizedSources.flatMap((rows) => rows);
     }
 
+    const settings = mergeCarouselEditorialForClientSettingsWrite({
+      persistedRequest: work.request,
+      incomingRequest: input.request,
+      persistedSettings: work.settings,
+      incomingSettings: input.settings,
+    });
+
     const [updated] = await tx.update(creativeWorkItems).set({
       ...(reopeningPreparedRetry ? { status: "draft", identitySnapshot: null } : {}),
       request: input.request,
       toolKind: input.intent,
       format: input.format,
-      settings: input.settings,
+      settings,
       brief: null,
       copy: null,
       inputSnapshot: null,
@@ -689,6 +728,7 @@ export async function mutateCreativeWorkPieceReference(input: {
         brief: null,
         copy: null,
         inputSnapshot: null,
+        ...settingsAfterMaterialCarouselEdit(work.settings),
         updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
       }).where(and(
         eq(creativeWorkItems.workspaceId, input.workspaceId),
@@ -729,15 +769,38 @@ export async function updateCreativeWorkDraftIfUnchanged(
   expectedUpdatedAt: Date,
   patch: CreativeWorkDraftPatch,
   executor: Pick<typeof db, "update"> = db,
+  options?: { persistCarouselApprovals?: boolean },
 ): Promise<CreativeWorkItem | null> {
+  const nextPatch = sanitizeClientCarouselSettingsPatch(patch, options?.persistCarouselApprovals);
   const [row] = await executor.update(creativeWorkItems).set({
-    ...patch,
+    ...nextPatch,
     updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
   }).where(and(
     eq(creativeWorkItems.workspaceId, workspaceId),
     eq(creativeWorkItems.id, workItemId),
     eq(creativeWorkItems.status, "draft"),
     sql`date_trunc('milliseconds', ${creativeWorkItems.updatedAt}) = cast(${expectedUpdatedAt.toISOString()} as timestamp without time zone)`,
+  )).returning();
+  return row ?? null;
+}
+
+/** CAS write that is not limited to draft — interiors prepare/confirm run after the cover has left draft. */
+export async function updateCreativeWorkIfUnchanged(
+  workspaceId: string,
+  workItemId: string,
+  expectedUpdatedAt: Date,
+  patch: CreativeWorkDraftPatch,
+  executor: Pick<typeof db, "update"> = db,
+  options?: { persistCarouselApprovals?: boolean },
+): Promise<CreativeWorkItem | null> {
+  const nextPatch = sanitizeClientCarouselSettingsPatch(patch, options?.persistCarouselApprovals);
+  const [row] = await executor.update(creativeWorkItems).set({
+    ...nextPatch,
+    updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
+  }).where(and(
+    eq(creativeWorkItems.workspaceId, workspaceId),
+    eq(creativeWorkItems.id, workItemId),
+    workRevisionMatches(expectedUpdatedAt),
   )).returning();
   return row ?? null;
 }
@@ -933,6 +996,7 @@ export async function createCreativeWorkSource(input: CreateCreativeWorkSourceIn
       brief: null,
       copy: null,
       inputSnapshot: null,
+      ...settingsAfterMaterialCarouselEdit(work.settings),
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
     }).where(and(
       eq(creativeWorkItems.workspaceId, input.workspaceId),
@@ -1009,6 +1073,7 @@ export async function mutateCreativeWorkDraftSource(input: {
         brief: null,
         copy: null,
         inputSnapshot: null,
+        ...settingsAfterMaterialCarouselEdit(work.settings),
         updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
       }).where(and(
         eq(creativeWorkItems.workspaceId, input.workspaceId),
@@ -1042,10 +1107,12 @@ export async function updateCreativeWorkSource(workspaceId: string, workItemId: 
       eq(creativeWorkSources.id, sourceId),
     )).returning();
     if (!row) return null;
+    const editorialPatch = await workPatchInvalidatingCarouselEditorial(tx, workspaceId, workItemId);
     await tx.update(creativeWorkItems).set({
       brief: null,
       copy: null,
       inputSnapshot: null,
+      ...editorialPatch,
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
     }).where(and(
       eq(creativeWorkItems.workspaceId, workspaceId),
@@ -1080,10 +1147,12 @@ export async function updateCreativeWorkSourceIfUnchanged(
       sql`date_trunc('milliseconds', ${creativeWorkSources.updatedAt}) = cast(${expected.updatedAt.toISOString()} as timestamp without time zone)`,
     )).returning();
     if (!row) return null;
+    const editorialPatch = await workPatchInvalidatingCarouselEditorial(tx, workspaceId, workItemId);
     await tx.update(creativeWorkItems).set({
       brief: null,
       copy: null,
       inputSnapshot: null,
+      ...editorialPatch,
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
     }).where(and(
       eq(creativeWorkItems.workspaceId, workspaceId),
@@ -1101,10 +1170,12 @@ export async function deleteCreativeWorkSource(workspaceId: string, workItemId: 
       eq(creativeWorkSources.id, sourceId),
     )).returning();
     if (!row) return null;
+    const editorialPatch = await workPatchInvalidatingCarouselEditorial(tx, workspaceId, workItemId);
     await tx.update(creativeWorkItems).set({
       brief: null,
       copy: null,
       inputSnapshot: null,
+      ...editorialPatch,
       updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
     }).where(and(
       eq(creativeWorkItems.workspaceId, workspaceId),

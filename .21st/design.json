@@ -252,6 +252,13 @@
       "reason": "Auth is a credential form, not a studio instrument. White primary is Palco-home language."
     },
     {
+      "id": "auth-porta-2026-09-10",
+      "surface": "Auth /login /signup /invite /forgot-password /reset-password",
+      "status": "closed",
+      "choice": "Porta do Estúdio: keep the quiet centered form and Config commit. Add Palco empty occupancy behind it (edge-peeking pieces, Image Cursor Trail, radial veil). No split marketing panel, no nested card, no TalkBox, no ShineBorder. 21st login components stay inspiration only.",
+      "reason": "The void canvas read as a blank Config page. Auth Section 2 / split logins prove the product with images; Palco empty occupancy is the ADScale translation without turning credentials into a composer."
+    },
+    {
       "id": "share-closed-2026-09-04",
       "surface": "Share /share/[token]",
       "status": "closed",
@@ -316,6 +323,43 @@
     }
   ],
   "explorations": [
+    {
+      "id": "login-ui-explore-2026-09-10",
+      "surface": "Auth /login",
+      "status": "selected",
+      "route": "/login",
+      "directions": [
+        {
+          "id": "vitrine",
+          "name": "Vitrine",
+          "status": "rejected",
+          "refs": [
+            "21st Auth Section 2 #20036",
+            "21st Sign In Split Screen #19050"
+          ]
+        },
+        {
+          "id": "porta",
+          "name": "Porta do Estúdio",
+          "status": "selected",
+          "refs": [
+            "21st Auth Section 2 #20036",
+            "21st Arc Gallery Hero #5509",
+            "21st Image Cursor Trail (installed)"
+          ]
+        },
+        {
+          "id": "link",
+          "name": "Link primeiro",
+          "status": "rejected",
+          "refs": [
+            "21st Login with Magic Link and SSO #21493"
+          ]
+        }
+      ],
+      "recommendation": "porta",
+      "note": "Inspired by 21st split/image-auth panels, implemented as Palco empty occupancy behind the quiet credential form. Catalog components were not installed."
+    },
     {
       "id": "home-ui-explore-2026-09-01",
       "surface": "studio home",

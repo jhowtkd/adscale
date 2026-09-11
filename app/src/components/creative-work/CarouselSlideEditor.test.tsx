@@ -33,6 +33,10 @@ vi.mock("next-intl", () => ({
       retryAction: "Tentar novamente esta tela",
       failedNote: "Esta tela falhou. Você pode tentar novamente.",
       findingsTitle: "Ajustes necessários",
+      visualLearning: "Aprendizado",
+      visualRepresentation: "Direção visual",
+      visualHierarchy: "Hierarquia",
+      visualTransition: "Transição",
     }[key] ?? key);
   },
 }));
@@ -212,5 +216,36 @@ describe("CarouselSlideEditor", () => {
   it("renders nothing without a slide", () => {
     const { container } = renderEditor({ slide: null });
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("shows visual direction next to the slide copy", () => {
+    render(
+      <CarouselSlideEditor
+        slide={editorSlide()}
+        pendingChanges={[]}
+        findings={[]}
+        canEditDraft={false}
+        isBusy={false}
+        direction={{
+          slideId: "slide-2",
+          learning: "O leitor entende a oferta",
+          representation: "Comparar duas rotinas com o mesmo critério",
+          hierarchy: "Dois blocos",
+          transition: "Fecha o contraste",
+          claimIds: [],
+        }}
+        onEdit={vi.fn()}
+        onAcceptChange={vi.fn()}
+        onRejectChange={vi.fn()}
+        onCopyRevision={vi.fn()}
+        onVisualRevision={vi.fn()}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    const direction = screen.getByTestId("carousel-slide-direction");
+    expect(direction).toHaveTextContent("O leitor entende a oferta");
+    expect(direction).toHaveTextContent("Comparar duas rotinas com o mesmo critério");
+    expect(screen.getByLabelText("Texto principal")).toHaveValue("Texto atual");
   });
 });

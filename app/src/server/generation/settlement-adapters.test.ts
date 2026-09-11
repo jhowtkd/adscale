@@ -12,6 +12,7 @@ const refund = vi.hoisted(() => vi.fn());
 const recordUsage = vi.hoisted(() => vi.fn());
 const spendPaywall = vi.hoisted(() => vi.fn());
 const queueSlide = vi.hoisted(() => vi.fn());
+const queueAuthorized = vi.hoisted(() => vi.fn());
 const listSlides = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
 const createOutputs = vi.hoisted(() => vi.fn());
@@ -78,6 +79,7 @@ vi.mock("@/server/repositories/campaign", () => ({ updateCampaign }));
 vi.mock("@/server/billing/paywall", () => ({ spend: spendPaywall }));
 vi.mock("@/server/repositories/creative-work-carousel", () => ({
   queueCarouselSlide: queueSlide,
+  queueAuthorizedCarouselSlide: queueAuthorized,
   listCurrentCarouselSlides: listSlides,
 }));
 
@@ -2559,6 +2561,14 @@ describe("carouselSlideSettlementAdapter", () => {
     send.mockResolvedValue(undefined);
     trackUsage.mockResolvedValue({ id: "usage-ack" });
     queueSlide.mockResolvedValue(null);
+    queueAuthorized.mockImplementation(async (input: { slideId: string; anchorKey: string | null; operationKey: string }) => {
+      const queued = await queueSlide(input);
+      if (queued) return { outcome: "claimed", slide: queued };
+      const current = (await listSlides()).find((row: { id: string }) => row.id === input.slideId)
+        ?? carouselSlideFixture({ status: "queued" });
+      if (current.status === "draft" || current.status === "failed") return { outcome: "unauthorized" };
+      return { outcome: "already_claimed", slide: current };
+    });
     listSlides.mockResolvedValue([carouselSlideFixture({ status: "queued" })]);
     getUsage.mockResolvedValue(null);
     getWork.mockResolvedValue(carouselWorkFixture([carouselSlideFixture()]));
@@ -2712,5 +2722,33 @@ describe("carouselSlideSettlementAdapter", () => {
     }));
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0].id).toBe(`${billingKey}:dispatch`);
+  });
+
+  it("does not charge when the authorized queue CAS refuses the current revision", async () => {
+    queueAuthorized.mockResolvedValue({ outcome: "unauthorized" });
+    listSlides.mockResolvedValue([carouselSlideFixture({ status: "draft" })]);
+
+    await expect(startGenerationSettlement(adapter())).rejects.toMatchObject({
+      name: "CarouselGenerationGateError",
+      code: "invalid_generation_gate",
+    });
+    expect(spendPaywall).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("does not take over a queued row after the generation gate is invalidated", async () => {
+    const queued = carouselSlideFixture({ status: "queued" });
+    queueAuthorized
+      .mockResolvedValueOnce({ outcome: "already_claimed", slide: queued })
+      .mockResolvedValueOnce({ outcome: "unauthorized" });
+    listSlides.mockResolvedValue([queued]);
+    getUsage.mockResolvedValue(null);
+
+    await expect(startGenerationSettlement(adapter())).rejects.toMatchObject({
+      name: "CarouselGenerationGateError",
+      code: "invalid_generation_gate",
+    });
+    expect(spendPaywall).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
   });
 });

@@ -12,6 +12,7 @@ import {
   carouselAnchorPositions,
   resolveCarouselPreparedSnapshot,
 } from "@/server/creative-work/carousel-contracts";
+import { CarouselGenerationGateError } from "@/server/creative-work/carousel-editorial-state";
 import {
   chargeForGeneration,
   chargeForGenerationBatch,
@@ -62,7 +63,7 @@ import {
 } from "@/server/repositories/derivation";
 import {
   listCurrentCarouselSlides,
-  queueCarouselSlide,
+  queueAuthorizedCarouselSlide,
 } from "@/server/repositories/creative-work-carousel";
 import type { CreativeWorkCarouselSlide } from "@/server/db/schema";
 import {
@@ -666,16 +667,24 @@ export function carouselSlideSettlementAdapter(input: {
       const existing = await currentSlide(input.slideId);
       if (!existing) throw new Error("carousel_slide_missing_for_settlement");
       await assertAnchorKeyPolicy(existing);
-      const queued = await queueCarouselSlide({
+      const queued = await queueAuthorizedCarouselSlide({
         workspaceId: input.workspaceId,
         workItemId: input.workItemId,
         slideId: input.slideId,
         anchorKey: input.anchorKey,
         operationKey: input.operationKey,
       });
-      if (queued) return { claimed: true, value: { slide: queued } };
-      const slide = (await currentSlide(input.slideId)) ?? existing;
-      return { claimed: false, value: { slide } };
+      if (queued.outcome === "claimed") return { claimed: true, value: { slide: queued.slide } };
+      if (queued.outcome === "already_claimed") {
+        return { claimed: false, value: { slide: queued.slide } };
+      }
+      if (queued.outcome === "unauthorized") {
+        throw new CarouselGenerationGateError({
+          slideId: input.slideId,
+          reason: "carousel_generation_gate",
+        });
+      }
+      throw new Error("carousel_slide_missing_for_settlement");
     },
     async join(reservation) {
       const refund = carouselSlideDispatchRefund(input, input.slideId);
@@ -722,9 +731,22 @@ export function carouselSlideSettlementAdapter(input: {
         await new Promise((resolve) => setTimeout(resolve, 25));
         slide = (await currentSlide(input.slideId)) ?? slide;
       }
-      // Takeover/recovery: the idempotent spend either confirms the single
-      // unit or reports the block; the send is deduplicated by Inngest.
-      slide = (await currentSlide(input.slideId)) ?? slide;
+      // Takeover/recovery: re-authorize the current revision before spend or
+      // send. Invalidation after the original claim must not dispatch.
+      const reauthorized = await queueAuthorizedCarouselSlide({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        slideId: input.slideId,
+        anchorKey: input.anchorKey,
+        operationKey: input.operationKey,
+      });
+      if (reauthorized.outcome !== "already_claimed" && reauthorized.outcome !== "claimed") {
+        throw new CarouselGenerationGateError({
+          slideId: input.slideId,
+          reason: "carousel_generation_gate",
+        });
+      }
+      slide = reauthorized.slide;
       const spendResult = await spend({
         workspaceId: input.workspaceId,
         action: "image_derivation",

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { resolveCarouselPreparedSnapshot } from "@/server/creative-work/carousel-contracts";
 import {
   reviseCarouselSlide,
   toPublicCarouselSlide,
@@ -62,12 +63,14 @@ export async function POST(
         case "composition_failed": return apiError("carouselCompositionFailed", 422, result.error.details);
         case "generation_in_flight": return apiError("carouselDeckGenerationInFlight", 409);
         case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502, result.error.details);
+        case "invalid_generation_gate": return apiError("creativeWorkNotReady", 409, result.error.details);
       }
     }
+    const deck = resolveCarouselPreparedSnapshot(result.value.work.inputSnapshot)?.deck ?? null;
     return NextResponse.json(
       {
-        slide: toPublicCarouselSlide(result.value.slide),
-        slides: result.value.slides.map(toPublicCarouselSlide),
+        slide: toPublicCarouselSlide(result.value.slide, deck),
+        slides: result.value.slides.map((slide) => toPublicCarouselSlide(slide, deck)),
         replay: result.value.replay,
       },
       { status: result.value.replay || parsed.data.kind === "copy" ? 200 : 202 },

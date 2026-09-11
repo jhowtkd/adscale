@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { carouselDeckPlanSchema } from "@/server/creative-work/carousel-contracts";
+import { carouselDeckPlanSchema, resolveCarouselPreparedSnapshot } from "@/server/creative-work/carousel-contracts";
 import {
   reviseCarouselDeck,
   toPublicCarouselSlide,
@@ -48,9 +48,10 @@ export async function POST(
         case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502, result.error.details);
       }
     }
+    const deck = resolveCarouselPreparedSnapshot(result.value.work.inputSnapshot)?.deck ?? null;
     return NextResponse.json({
       work: result.value.work,
-      slides: result.value.slides.map(toPublicCarouselSlide),
+      slides: result.value.slides.map((slide) => toPublicCarouselSlide(slide, deck)),
       deckRevision: result.value.deckRevision,
       replay: result.value.replay,
     });

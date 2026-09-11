@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-09T11:01:39.813Z",
+  "generatedAt": "2026-09-11T13:13:14.197Z",
   "schemaVersion": 2,
-  "fingerprint": "23dad9a3c9cc022c10ae85dae20ba711c6395db663486139f1095c021ffd0067",
+  "fingerprint": "b12cd10c8bb6c1d31dca3341e97087de0cdc23c9d73f7066111e530efa043105",
   "counts": {
     "dashboardPages": 15,
     "apiRoutes": 179,
@@ -1381,12 +1381,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/auth/AuthPageShell.tsx:21",
+      "id": "nav:app/src/components/auth/AuthPageShell.tsx:67",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/auth/AuthPageShell.tsx",
-      "line": 21,
-      "evidence": "app/src/components/auth/AuthPageShell.tsx:21",
+      "line": 67,
+      "evidence": "app/src/components/auth/AuthPageShell.tsx:67",
       "requiresDecision": false
     },
     {

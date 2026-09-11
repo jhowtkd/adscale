@@ -5,26 +5,21 @@ import JSZip from "jszip";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 /**
- * Studio Carousel — full controlled-provider acceptance gate (Task 10).
+ * Studio Carousel — researched editorial flow (Task 8) on the controlled provider.
  *
- * Drives the whole deck lifecycle once, in one serial scenario:
- *   1. choose `Criar carrossel`
- *   2. enter a raw long text
- *   3. answer one controlled blocking question
- *   4. receive five slides
- *   5. accept one suggestion and human-edit another
- *   6. reorder with the accessible button
- *   7. prepare and click `Gerar carrossel` once
- *   8. observe cover, middle, closing, then remaining states without an
- *      intermediate button
- *   9. inject `[e2e:hard-fail-once]` into one non-anchor purpose and verify
- *      only it fails
- *  10. retry only that slide and preserve sibling IDs
- *  11. change one completed slide's copy and prove provider-call evidence
- *      count does not increase
- *  12. approve the deck
- *  13. download ZIP and assert `01.png`…`05.png` + manifest order/copy/hash
- *  14. reload the work and verify the same current versions and approval
+ * Drives the researched carousel once, in one serial scenario:
+ *   1. choose `Criar carrossel` with backstage notes in the input
+ *   2. organize → three hooks
+ *   3. edit a hook headline and choose it
+ *   4. receive the script, approve it
+ *   5. prepare and generate one cover
+ *   6. confirmed pause (no interiors yet)
+ *   7. approve cover and generate the lote
+ *   8. review, approve, export ZIP (`01.png`…`NN.png` + one manifest)
+ *   9. reload, then an old session tries to confirm a stale revision
+ *
+ * Explicit `E2E_CONTROLLED_PROVIDER`. Asserts provider dispatch counts per
+ * stage. This spec never seeds and never calls a live provider.
  *
  * Requires the local app on :3000 started exactly like the Create Post gate:
  *   DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
@@ -34,8 +29,6 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
  *   STUDIO_CAROUSEL_ROLLOUT_PERCENT=100 \
  *   npm run dev:next
  * plus `npm run inngest:dev` and a fresh `npm run seed:create-post-e2e`.
- * The login/profile/credits fixture is REUSED — this spec never seeds
- * anything and never calls a live provider.
  */
 
 const FIXTURE_PATH = process.env.CREATE_POST_E2E_FIXTURE_PATH
@@ -77,11 +70,19 @@ interface CarouselWorkDetail {
       carouselDraft: {
         plan: {
           revision: string;
-          slides: Array<{ slideId: string; position: number; purpose: string }>;
+          slides: Array<{ slideId: string; position: number; purpose: string; primaryText: string }>;
         } | null;
+      } | null;
+      carouselEditorial?: {
+        hooks: Array<{ id: string; headline: string }>;
+        selectedHookId: string | null;
+        caption: string | null;
+        approvedScriptRevision: string | null;
+        storyboard: Array<{ slideId: string; representation: string }>;
       } | null;
     };
   };
+  preparedPlan: { preparedRevision: string; protocol: string } | null;
   carouselSlides: CarouselSlideRow[];
 }
 
@@ -93,13 +94,16 @@ interface ProviderCallEvidence {
   promptMarkers: string[];
 }
 
-/** Long raw operator text — every word stays grounded for the deck copy. */
-const RAW_LONG_TEXT = [
+const PUBLIC_BRIEF = [
   "O ateliê de cerâmica da Marina abre agenda para setembro com turmas noturnas de modelagem manual.",
   "Cada encontro inclui preparação da argila, orientação de torneta e queima assistida no forno do estúdio.",
   "As vagas da turma de quarta-feira são limitadas e a lista de espera abre no fim de agosto.",
   "O endereço do galpão fica na região central e o estacionamento é gratuito para alunos matriculados.",
 ].join(" ");
+
+const BACKSTAGE_NOTES = "notas de bastidor: drafts/angles-hooks.md score=9 não copiar";
+const OPERATOR_REQUEST = `${PUBLIC_BRIEF}\n${BACKSTAGE_NOTES}`;
+const EDITED_HOOK_HEADLINE = "Agenda de setembro no ateliê de cerâmica";
 
 function loadFixture(): CreatePostFixture {
   if (!fs.existsSync(FIXTURE_PATH)) {
@@ -116,12 +120,8 @@ function readEvidence(): ProviderCallEvidence[] {
     .map((line) => JSON.parse(line) as ProviderCallEvidence);
 }
 
-function evidenceCount(): number {
-  return readEvidence().length;
-}
-
-function slidePrefix(workId: string, slideId: string): string {
-  return `creative-work/${workId}/carousel/slides/${slideId}`;
+function deckEvidence(workId: string): ProviderCallEvidence[] {
+  return readEvidence().filter((row) => row.outputPrefix.startsWith(`creative-work/${workId}/carousel/slides/`));
 }
 
 async function getDetail(request: APIRequestContext, workId: string): Promise<CarouselWorkDetail> {
@@ -138,16 +138,6 @@ async function getDetail(request: APIRequestContext, workId: string): Promise<Ca
   }).toPass({ timeout: 15_000, intervals: [300, 600, 1_000] });
   expect(body, `detail must succeed (got ${lastStatus})`).not.toBeNull();
   return body!;
-}
-
-/**
- * The sequence board is a draggable strip whose fixed-width cards can
- * overlap at 1280px, so native pointer clicks on its buttons can start an
- * HTML5 drag that never ends. The accessible buttons are driven through
- * their real click handlers instead — same code path, no drag ghost.
- */
-async function clickBoardButton(page: Page, testId: string): Promise<void> {
-  await page.getByTestId(testId).evaluate((button: HTMLElement) => button.click());
 }
 
 async function login(page: Page, fixture: CreatePostFixture): Promise<void> {
@@ -171,10 +161,10 @@ async function login(page: Page, fixture: CreatePostFixture): Promise<void> {
 
 test.describe.configure({ mode: "serial" });
 
-test.describe("Studio Carousel controlled-provider gate", () => {
+test.describe("Studio Carousel editorial controlled-provider gate", () => {
   let workId = "";
 
-  test("creates, generates, repairs, approves and exports the deck", async ({ page }) => {
+  test("researches, generates the cover, pauses, then exports the lote", async ({ page }) => {
     test.setTimeout(600_000);
     const fixture = loadFixture();
     await login(page, fixture);
@@ -203,7 +193,7 @@ test.describe("Studio Carousel controlled-provider gate", () => {
     const preserveSwitch = page.getByRole("button", { name: /preservar e trocar|preserve and switch/i });
     if (await preserveSwitch.isVisible().catch(() => false)) await preserveSwitch.click();
     await expect(carouselCard).toHaveAttribute("aria-checked", "true");
-    const carouselRequest = `${RAW_LONG_TEXT} [e2e:ask-once]`;
+    const carouselRequest = OPERATOR_REQUEST;
     await requestBox.fill(carouselRequest);
     await expect(requestBox).toHaveValue(carouselRequest);
     // Draft create follows the selected protocol + filled request (autosave /
@@ -223,93 +213,74 @@ test.describe("Studio Carousel controlled-provider gate", () => {
     await expect(page.locator("#creative-composer-request")).toHaveValue(carouselRequest);
     await expect(page.locator("#creative-composer-request")).toHaveCount(1);
 
-    // -- Step 3: answer one controlled blocking question --------------------
     await expect(page.getByTestId("carousel-organize")).toBeEnabled({ timeout: 60_000 });
     await page.getByTestId("carousel-organize").click();
     const questions = page.getByTestId("carousel-questions");
-    await expect(questions).toBeVisible({ timeout: 120_000 });
-    await expect(questions.locator("input")).toHaveCount(1);
-    const questionInput = questions.locator("input").first();
-    await questionInput.fill("Lista de espera pelo direct do ateliê");
-    await box.getByRole("button", { name: "Recolher controles" }).click();
-    await expect(box).toHaveAttribute("data-expanded", "false");
-    await box.getByRole("button", { name: "Abrir controles" }).click();
-    await expect(questionInput).toHaveValue("Lista de espera pelo direct do ateliê");
-    await page.getByTestId("carousel-answer-submit").click();
+    const hooks = page.getByTestId("carousel-hook-choices");
+    await expect(questions.or(hooks)).toBeVisible({ timeout: 120_000 });
+    if (await questions.isVisible().catch(() => false)) {
+      await expect(questions.locator("input")).toHaveCount(1);
+      const questionInput = questions.locator("input").first();
+      await questionInput.fill("Lista de espera pelo direct do ateliê");
+      await page.getByTestId("carousel-answer-submit").click();
+    }
+    await expect(hooks).toBeVisible({ timeout: 120_000 });
+    const chooseButtons = page.getByRole("button", { name: /escolher gancho/i });
+    await expect(chooseButtons).toHaveCount(3);
 
-    // -- Step 4: receive five slides ----------------------------------------
-    await expect(page.getByTestId("carousel-questions")).toBeHidden({ timeout: 120_000 });
-    await expect(page.getByText("Mesa de sequência")).toBeVisible({ timeout: 30_000 });
+    const firstHookInput = page.getByTestId("carousel-hook-choices").locator("input").first();
+    await firstHookInput.fill(EDITED_HOOK_HEADLINE);
+    await chooseButtons.first().click();
+
+    await expect(page.getByText("Mesa de sequência")).toBeVisible({ timeout: 120_000 });
     let detail = await getDetail(page.request, workId);
     expect(detail.work.toolKind).toBe("carousel");
-    expect(detail.carouselSlides).toHaveLength(0);
+    expect(detail.work.settings.carouselEditorial?.selectedHookId).toBeTruthy();
+    expect(detail.work.settings.carouselEditorial?.hooks).toHaveLength(3);
     const plannedSlides = detail.work.settings.carouselDraft?.plan?.slides ?? [];
-    expect(plannedSlides).toHaveLength(5);
-    expect(plannedSlides.map((slide) => slide.position)).toEqual([1, 2, 3, 4, 5]);
+    expect(plannedSlides.length).toBeGreaterThanOrEqual(5);
+    const publishedBlob = JSON.stringify({
+      slides: plannedSlides,
+      caption: detail.work.settings.carouselEditorial?.caption ?? null,
+    });
+    expect(publishedBlob).not.toContain("drafts/angles-hooks.md");
 
-    // -- Step 5: accept one suggestion and human-edit another ---------------
-    await clickBoardButton(page, "carousel-slide-2");
-    await expect(page.getByTestId("carousel-slide-2")).toHaveAttribute("aria-current", "true", { timeout: 30_000 });
-    const suggestion = page.getByTestId("carousel-suggestion-change-1");
-    await expect(suggestion).toBeVisible();
-    await suggestion.getByRole("button", { name: "Aceitar" }).click();
-    await expect(suggestion).toBeHidden({ timeout: 30_000 });
-
-    await clickBoardButton(page, "carousel-slide-4");
-    await expect(page.getByTestId("carousel-slide-4")).toHaveAttribute("aria-current", "true", { timeout: 30_000 });
-    const purposeInput = page.getByLabel("Propósito");
-    await purposeInput.fill("Agenda de setembro no ateliê [e2e:hard-fail-once]");
+    await page.getByTestId("carousel-approve-script").click();
     await expect
-      .poll(async () => (await getDetail(page.request, workId)).work.settings.carouselDraft?.plan?.slides
-        .find((slide) => slide.position === 4)?.purpose ?? "", { timeout: 30_000 })
-      .toContain("[e2e:hard-fail-once]");
+      .poll(async () => (await getDetail(page.request, workId)).work.settings.carouselEditorial?.approvedScriptRevision ?? "", { timeout: 60_000 })
+      .not.toBe("");
 
-    // -- Step 6: reorder with the accessible button -------------------------
-    const beforeOrder = (await getDetail(page.request, workId)).work.settings.carouselDraft?.plan?.slides ?? [];
-    await clickBoardButton(page, "carousel-move-down-2");
-    await expect
-      .poll(async () => (await getDetail(page.request, workId)).work.settings.carouselDraft?.plan?.slides ?? [], { timeout: 30_000 })
-      .toEqual(beforeOrder.map((slide, index) => {
-        const moved = index === 1 ? beforeOrder[2] : index === 2 ? beforeOrder[1] : slide;
-        return { ...moved, position: index + 1 };
-      }));
-
-    // -- Step 7: prepare and click `Gerar carrossel` once -------------------
     await page.getByTestId("carousel-prepare").click();
     await expect(page.getByTestId("carousel-generate")).toBeEnabled({ timeout: 120_000 });
-    const generateClicks = page.locator('[data-testid="carousel-generate"]');
-    expect(await generateClicks.count()).toBe(1);
-    await generateClicks.click();
+    expect(await page.locator('[data-testid="carousel-generate"]').count()).toBe(1);
+    const evidenceBeforeCover = deckEvidence(workId).length;
+    await page.getByTestId("carousel-generate").click();
 
-    // -- Steps 8 + 9: cover → middle → closing → remaining; only the marked
-    // slide fails -------------------------------------------------------------
     await expect(page.getByTestId("carousel-generating")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("carousel-composer")).toHaveCount(1);
-    await expect(page.getByTestId("studio-results-surface").getByTestId("carousel-progress")).toBeVisible();
-    await expect(page.getByTestId("studio-talk-box")).toHaveAttribute("data-expanded", "false");
-    // No intermediate button: the generate control disappears while the chain runs.
     await expect(page.getByTestId("carousel-generate")).toHaveCount(0);
-    // Fail fast when Inngest never claims a slide, instead of waiting 300s.
-    // `queued` proves nothing: the generate request writes it synchronously
-    // (settlement reserve -> queueCarouselSlide), which is also what makes the
-    // `carousel-generating` phase above appear. Only the job itself writes
-    // `processing` (markCarouselSlideProcessing), so that -- or a terminal
-    // state -- is the first evidence the worker actually picked the slide up.
     await expect
       .poll(
         async () => {
           detail = await getDetail(page.request, workId);
-          return detail.carouselSlides.some((slide) =>
-            slide.status === "processing"
-            || slide.status === "completed"
-            || slide.status === "failed",
-          )
-            ? "claimed"
-            : `unclaimed:${detail.carouselSlides.map((slide) => `${slide.position}:${slide.status}`).join(",") || "none"}`;
+          const cover = detail.carouselSlides.find((slide) => slide.position === 1);
+          const interiors = detail.carouselSlides.filter((slide) => slide.position !== 1);
+          if (cover?.status === "completed" && interiors.every((slide) => slide.status === "draft")) {
+            return "cover-paused";
+          }
+          return `pending:${detail.carouselSlides.map((slide) => `${slide.position}:${slide.status}`).join(",") || "none"}`;
         },
-        { timeout: 60_000, intervals: [1_000, 2_000] },
+        { timeout: 300_000, intervals: [1_000, 2_000, 3_000] },
       )
-      .toBe("claimed");
+      .toBe("cover-paused");
+    expect(deckEvidence(workId)).toHaveLength(evidenceBeforeCover + 1);
+    await expect(page.getByTestId("carousel-approve-cover")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId("carousel-generate")).toHaveCount(0);
+
+    const coverRevision = (await getDetail(page.request, workId)).preparedPlan?.preparedRevision;
+    expect(coverRevision).toBeTruthy();
+
+    await page.getByTestId("carousel-approve-cover").click();
     await expect
       .poll(
         async () => {
@@ -317,115 +288,16 @@ test.describe("Studio Carousel controlled-provider gate", () => {
           const terminal = detail.carouselSlides.filter(
             (slide) => slide.status === "completed" || slide.status === "failed",
           );
-          return terminal.length === 5 ? terminal.map((slide) => `${slide.position}:${slide.status}`).sort().join(",") : "pending";
+          return terminal.length === plannedSlides.length && terminal.every((slide) => slide.status === "completed")
+            ? "lote-complete"
+            : `pending:${detail.carouselSlides.map((slide) => `${slide.position}:${slide.status}`).join(",") || "none"}`;
         },
         { timeout: 300_000, intervals: [1_000, 2_000, 3_000] },
       )
-      .toBe("1:completed,2:completed,3:completed,4:failed,5:completed");
+      .toBe("lote-complete");
+    expect(deckEvidence(workId).filter((row) => row.outcome === "success")).toHaveLength(plannedSlides.length);
+    expect(deckEvidence(workId).filter((row) => row.outcome === "failure")).toHaveLength(0);
 
-    // The deterministic chain order is proven by the provider evidence: cover,
-    // middle and closing complete before the remaining pair, and the marked
-    // non-anchor purpose is the ONLY provider failure with the marker. The
-    // `[e2e:ask-once]` marker legitimately travels inside the frozen request
-    // text (same contract as the Create Post gate markers).
-    const evidence = readEvidence();
-    const deckEvidence = evidence.filter((row) => row.outputPrefix.startsWith(`creative-work/${workId}/carousel/slides/`));
-    const failedRows = deckEvidence.filter((row) => row.outcome === "failure");
-    expect(failedRows).toHaveLength(1);
-    expect(failedRows[0]!.promptMarkers).toContain("[e2e:hard-fail-once]");
-    expect(failedRows[0]!.attempt).toBe(0);
-    const succeededRows = deckEvidence.filter((row) => row.outcome === "success");
-    expect(succeededRows).toHaveLength(4);
-    for (const row of deckEvidence) {
-      const expectedMarkers = row === failedRows[0] ? ["[e2e:hard-fail-once]"] : [];
-      expect(
-        row.promptMarkers.filter((marker) => marker !== "[e2e:ask-once]"),
-        `unexpected failure marker in ${row.outputPrefix}`,
-      ).toEqual(expectedMarkers);
-    }
-    detail = await getDetail(page.request, workId);
-    const positionByPrefix = new Map(
-      detail.carouselSlides.map((slide) => [slidePrefix(workId, slide.id), slide.position]),
-    );
-    const tsByPosition = new Map<number, string[]>();
-    for (const row of deckEvidence) {
-      const position = positionByPrefix.get(row.outputPrefix);
-      if (!position) continue;
-      tsByPosition.set(position, [...(tsByPosition.get(position) ?? []), row.ts]);
-    }
-    // ISO-UTC timestamps compare correctly as strings; Math.max/min would
-    // coerce them to NaN and fail this check on valid evidence.
-    const anchorTs = [1, 3, 5].flatMap((position) => tsByPosition.get(position) ?? []);
-    const lastAnchorTs = anchorTs.length > 0 ? anchorTs.reduce((acc, ts) => (ts > acc ? ts : acc)) : "0";
-    for (const position of [2, 4]) {
-      const fillerTs = tsByPosition.get(position) ?? [];
-      const firstTs = fillerTs.length > 0 ? fillerTs.reduce((acc, ts) => (ts < acc ? ts : acc)) : "9";
-      expect(
-        firstTs > lastAnchorTs,
-        `position ${position} must only run after the anchor trio`,
-      ).toBe(true);
-    }
-
-    // -- Step 10: retry only that slide and preserve sibling IDs ------------
-    const beforeRetry = await getDetail(page.request, workId);
-    const siblings = beforeRetry.carouselSlides.filter((slide) => slide.position !== 4);
-    await expect(page.getByTestId("carousel-review-retry-4")).toBeVisible();
-    await page.getByTestId("carousel-review-retry-4").click();
-    await expect
-      .poll(
-        async () => {
-          const current = await getDetail(page.request, workId);
-          return current.carouselSlides.map((slide) => `${slide.position}:${slide.status}`).sort().join(",");
-        },
-        { timeout: 300_000, intervals: [1_000, 2_000, 3_000] },
-      )
-      .toBe("1:completed,2:completed,3:completed,4:completed,5:completed");
-    const afterRetry = await getDetail(page.request, workId);
-    for (const sibling of siblings) {
-      const current = afterRetry.carouselSlides.find((slide) => slide.position === sibling.position);
-      expect(current?.id, `sibling id at position ${sibling.position} must be preserved`).toBe(sibling.id);
-      expect(current?.versionNumber).toBe(sibling.versionNumber);
-    }
-    const retried = afterRetry.carouselSlides.find((slide) => slide.position === 4)!;
-    expect(retried.id).not.toBe(beforeRetry.carouselSlides.find((slide) => slide.position === 4)!.id);
-    expect(retried.parentSlideId).toBe(beforeRetry.carouselSlides.find((slide) => slide.position === 4)!.id);
-    expect(retried.lineageId).toBe(beforeRetry.carouselSlides.find((slide) => slide.position === 4)!.lineageId);
-    // The retry settles exactly one new provider call (attempt 1, no marker failure).
-    const retryRows = readEvidence().filter((row) => row.outputPrefix === slidePrefix(workId, retried.id));
-    expect(retryRows).toHaveLength(1);
-    expect(retryRows[0]).toMatchObject({ attempt: 1, outcome: "success" });
-
-    // -- Step 11: copy-only revision never calls the provider ----------------
-    const evidenceBeforeCopy = evidenceCount();
-    const copyTarget = afterRetry.carouselSlides.find((slide) => slide.position === 2)!;
-    const revisionKey = crypto.randomUUID();
-    const copyRes = await page.request.post(
-      `/api/creative-work/${workId}/carousel/slides/${copyTarget.id}/revise`,
-      {
-        data: {
-          kind: "copy",
-          expectedVersion: copyTarget.versionNumber,
-          revisionKey,
-          primaryText: "Turmas noturnas de modelagem no ateliê",
-          secondaryText: null,
-        },
-      },
-    );
-    // Copy revisions are synchronous: the slide route answers 200 (only the
-    // async visual/retry kinds answer 202).
-    expect(copyRes.status(), `copy revision must succeed (got ${copyRes.status()})`).toBe(200);
-    const copyBody = (await copyRes.json()) as { slide: CarouselSlideRow };
-    expect(copyBody.slide.copyAuthority).toBe("human_edit");
-    expect(copyBody.slide.versionNumber).toBe(copyTarget.versionNumber + 1);
-    expect(copyBody.slide.primaryText).toBe("Turmas noturnas de modelagem no ateliê");
-    await expect
-      .poll(async () => (await getDetail(page.request, workId)).carouselSlides.find((slide) => slide.position === 2)?.id, { timeout: 30_000 })
-      .toBe(copyBody.slide.id);
-    expect(evidenceCount(), "copy-only revision must not add provider calls").toBe(evidenceBeforeCopy);
-    expect(readEvidence().some((row) => row.outputPrefix === slidePrefix(workId, copyBody.slide.id))).toBe(false);
-
-    // -- Step 12: approve the deck -------------------------------------------
-    await page.reload({ waitUntil: "commit" });
     await expect(page.getByTestId("carousel-deck-review")).toBeVisible({ timeout: 60_000 });
     await page.getByTestId("carousel-approve").click();
     await expect(page.getByText("Carrossel aprovado")).toBeVisible({ timeout: 60_000 });
@@ -433,52 +305,42 @@ test.describe("Studio Carousel controlled-provider gate", () => {
     const deckRevision = approvedDetail.carouselSlides[0]!.deckRevision;
     expect(approvedDetail.work.carouselApprovedRevision).toBe(deckRevision);
 
-    // -- Step 13: download ZIP and assert order/copy/hash --------------------
     const [download] = await Promise.all([
       page.waitForEvent("download", { timeout: 60_000 }),
       page.getByTestId("carousel-export").click(),
     ]);
     const zipBuffer = fs.readFileSync(await download.path());
     const zip = await JSZip.loadAsync(zipBuffer);
-    const names = Object.keys(zip.files).sort();
-    expect(names).toEqual(["01.png", "02.png", "03.png", "04.png", "05.png", "manifest.json"]);
+    const pngNames = plannedSlides.map((_, index) => `${String(index + 1).padStart(2, "0")}.png`);
+    expect(Object.keys(zip.files).sort()).toEqual([...pngNames, "manifest.json"].sort());
     const manifest = JSON.parse(await zip.file("manifest.json")!.async("string")) as {
       version: number;
       workId: string;
       deckRevision: string;
+      caption: string | null;
+      references: Array<{ title: string; url: string | null }>;
       slides: Array<{
         position: number;
         fileName: string;
-        slideId: string;
-        lineageId: string;
-        versionNumber: number;
         primaryText: string;
-        secondaryText: string | null;
-        copyAuthority: string;
         outputHash: string;
       }>;
     };
     expect(manifest.version).toBe(1);
     expect(manifest.workId).toBe(workId);
     expect(manifest.deckRevision).toBe(deckRevision);
-    expect(manifest.slides.map((slide) => slide.position)).toEqual([1, 2, 3, 4, 5]);
-    expect(manifest.slides.map((slide) => slide.fileName)).toEqual(["01.png", "02.png", "03.png", "04.png", "05.png"]);
+    expect(manifest.slides.map((slide) => slide.fileName)).toEqual(pngNames);
+    expect(manifest.caption === null || typeof manifest.caption === "string").toBe(true);
+    expect(Array.isArray(manifest.references)).toBe(true);
+    expect(JSON.stringify(manifest)).not.toContain("drafts/angles-hooks.md");
     const exportDetail = await getDetail(page.request, workId);
     for (const entry of manifest.slides) {
       const row = exportDetail.carouselSlides.find((slide) => slide.position === entry.position)!;
-      expect(entry.slideId).toBe(
-        approvedDetail.work.settings.carouselDraft?.plan?.slides.find((plan) => plan.position === entry.position)?.slideId,
-      );
-      expect(entry.lineageId).toBe(row.lineageId);
-      expect(entry.versionNumber).toBe(row.versionNumber);
       expect(entry.primaryText).toBe(row.primaryText);
-      expect(entry.secondaryText).toBe(row.secondaryText);
-      expect(entry.copyAuthority).toBe(row.copyAuthority);
       const png = await zip.file(entry.fileName)!.async("nodebuffer");
       expect(createHash("sha256").update(png).digest("hex")).toBe(entry.outputHash);
     }
 
-    // -- Step 14: reload and verify the same current versions and approval ---
     await page.reload({ waitUntil: "commit" });
     await expect(page.getByTestId("carousel-deck-review")).toBeVisible({ timeout: 60_000 });
     await expect(page.getByText("Carrossel aprovado")).toBeVisible({ timeout: 60_000 });
@@ -486,6 +348,12 @@ test.describe("Studio Carousel controlled-provider gate", () => {
     expect(reloadedDetail.carouselSlides.map((slide) => ({ id: slide.id, versionNumber: slide.versionNumber })))
       .toEqual(exportDetail.carouselSlides.map((slide) => ({ id: slide.id, versionNumber: slide.versionNumber })));
     expect(reloadedDetail.work.carouselApprovedRevision).toBe(deckRevision);
-    expect(reloadedDetail.work.carouselApprovedRevision).toBe(approvedDetail.work.carouselApprovedRevision);
+
+    const evidenceBeforeStale = deckEvidence(workId).length;
+    const staleConfirm = await page.request.post(`/api/creative-work/${workId}/generate`, {
+      data: { action: "initial", preparedRevision: "prep-old-session" },
+    });
+    expect(staleConfirm.status(), "old session confirm must be rejected").toBe(409);
+    expect(deckEvidence(workId).length, "stale confirm must not dispatch").toBe(evidenceBeforeStale);
   });
 });

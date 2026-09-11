@@ -6,9 +6,15 @@ import {
   validateCarouselDeckStructure,
   validateTextFieldsAgainstFactPack,
   type CarouselDeckPlanV1,
+  type CarouselGenerationScope,
   type CarouselVisualContractV1,
 } from "../creative-work/carousel-contracts";
 import { lintCarouselDeck } from "../creative-work/carousel-editorial";
+import {
+  hasCurrentApprovedCarouselCover,
+  readCarouselEditorial,
+  storyboardCoversDeck,
+} from "../creative-work/carousel-editorial-state";
 import { buildCarouselVisualContract } from "../creative-work/carousel-visual";
 import { canonicalJsonStringify } from "../creative-work/canonical-json";
 import type { CreativeWorkInputSnapshot } from "../creative-work/contracts";
@@ -23,6 +29,7 @@ import {
   getCreativeWork,
   getCreativeWorkSourceAssetDetails,
   updateCreativeWorkDraftIfUnchanged,
+  updateCreativeWorkIfUnchanged,
   withCreativeWorkPreparationLock,
 } from "../repositories/creative-work";
 import { getBrandKit } from "../repositories/brand-kit";
@@ -38,6 +45,7 @@ export type PrepareCarouselWorkErrorCode =
   | "blocking_questions"
   | "editorial_invalid"
   | "invalid_context"
+  | "invalid_generation_gate"
   | "stale_input";
 
 export type PrepareCarouselWorkResult =
@@ -108,10 +116,38 @@ export async function prepareCarouselWork(input: {
         error: { code: "work_not_carousel" as const, details: { toolKind: work.toolKind } },
       };
     }
-    if (work.status !== "draft") {
+    const editorial = readCarouselEditorial(work.settings);
+    const approvedScriptRevision = editorial?.approvedScriptRevision ?? null;
+    if (!editorial || !approvedScriptRevision || approvedScriptRevision !== editorial.revision) {
+      return {
+        ok: false as const,
+        error: { code: "invalid_generation_gate" as const, details: { reason: "script_not_approved" } },
+      };
+    }
+    const currentSnapshot = resolveCarouselPreparedSnapshot(work.inputSnapshot);
+    const coverSlideId = editorial.approvedCover?.slideId ?? null;
+    const interiorsReady = Boolean(
+      coverSlideId
+      && hasCurrentApprovedCarouselCover(
+        editorial,
+        approvedScriptRevision,
+        editorial.approvedCover?.preparedRevision ?? "",
+        coverSlideId,
+      )
+      && currentSnapshot
+      && editorial.approvedCover?.preparedRevision === currentSnapshot.preparedRevision,
+    );
+    const generationScope: CarouselGenerationScope = interiorsReady ? "interiors" : "cover";
+    if (generationScope === "cover" && work.status !== "draft") {
       return {
         ok: false as const,
         error: { code: "work_not_draft" as const, details: { status: work.status } },
+      };
+    }
+    if (generationScope === "interiors" && (work.status === "completed" || work.status === "failed")) {
+      return {
+        ok: false as const,
+        error: { code: "invalid_generation_gate" as const, details: { status: work.status } },
       };
     }
     if (aggregate.sources.some((source) => source.status === "uploaded" || source.status === "analyzing")) {
@@ -158,6 +194,70 @@ export async function prepareCarouselWork(input: {
       return {
         ok: false as const,
         error: { code: "editorial_invalid" as const, details: { findings: structuralFindings } },
+      };
+    }
+
+    if (editorial.storyboard.length > 0) {
+      if (!storyboardCoversDeck(editorial.storyboard, deck.slides.map((slide) => slide.slideId))) {
+        return {
+          ok: false as const,
+          error: { code: "editorial_invalid" as const, details: { reason: "storyboard_incomplete" } },
+        };
+      }
+      const knownClaimIds = new Set(editorial.research.claims.map((claim) => claim.id));
+      const missingClaimIds = [...new Set(
+        editorial.storyboard.flatMap((item) => item.claimIds.filter((claimId) => !knownClaimIds.has(claimId))),
+      )];
+      if (missingClaimIds.length > 0) {
+        return {
+          ok: false as const,
+          error: {
+            code: "editorial_invalid" as const,
+            details: { reason: "missing_claim_reference", claimIds: missingClaimIds },
+          },
+        };
+      }
+    }
+
+    if (generationScope === "interiors" && currentSnapshot && work.inputSnapshot) {
+      if (
+        currentSnapshot.generationScope === "interiors"
+        && currentSnapshot.scriptRevision === approvedScriptRevision
+      ) {
+        return {
+          ok: true as const,
+          value: {
+            work,
+            preparedRevision: currentSnapshot.preparedRevision,
+            deck: currentSnapshot.deck,
+            visualContract: currentSnapshot.visualContract,
+          },
+        };
+      }
+      const snapshot: CreativeWorkInputSnapshot = {
+        ...work.inputSnapshot,
+        carousel: {
+          ...currentSnapshot,
+          generationScope: "interiors",
+          scriptRevision: approvedScriptRevision,
+        },
+      };
+      const updated = await updateCreativeWorkIfUnchanged(
+        input.workspaceId,
+        input.workItemId,
+        work.updatedAt,
+        { inputSnapshot: snapshot },
+        executor,
+      );
+      if (!updated) return { ok: false as const, error: { code: "stale_input" as const } };
+      return {
+        ok: true as const,
+        value: {
+          work: updated,
+          preparedRevision: currentSnapshot.preparedRevision,
+          deck: currentSnapshot.deck,
+          visualContract: currentSnapshot.visualContract,
+        },
       };
     }
 
@@ -254,6 +354,9 @@ export async function prepareCarouselWork(input: {
         contractHash: visualContract.contractHash,
         factPack,
         sources: frozenSources,
+        scriptRevision: approvedScriptRevision,
+        storyboard: editorial.storyboard,
+        caption: editorial.caption,
         renderPolicy,
       }))
       .digest("hex")
@@ -266,7 +369,16 @@ export async function prepareCarouselWork(input: {
       request: work.request,
       settings: work.settings,
       sources: frozenSources,
-      carousel: { version: 1, preparedRevision, deck, visualContract },
+      carousel: {
+        version: 1,
+        preparedRevision,
+        deck,
+        visualContract,
+        generationScope,
+        scriptRevision: approvedScriptRevision,
+        storyboard: editorial.storyboard,
+        caption: editorial.caption,
+      },
     };
 
     if (
@@ -289,7 +401,10 @@ export async function prepareCarouselWork(input: {
       }
     }
 
-    const updated = await updateCreativeWorkDraftIfUnchanged(
+    const persistSnapshot = generationScope === "cover"
+      ? updateCreativeWorkDraftIfUnchanged
+      : updateCreativeWorkIfUnchanged;
+    const updated = await persistSnapshot(
       input.workspaceId,
       input.workItemId,
       work.updatedAt,

@@ -18,7 +18,14 @@ import type {
   CarouselLayoutFamily,
   CarouselNarrativeRole,
 } from "../creative-work/carousel-contracts";
-import { getCreativeWork } from "./creative-work";
+import { resolveCarouselPreparedSnapshot } from "../creative-work/carousel-contracts";
+import {
+  authorizeCarouselSlideClaim,
+  hasCurrentApprovedCarouselCover,
+  readCarouselEditorial,
+  writeCarouselEditorial,
+} from "../creative-work/carousel-editorial-state";
+import { getCreativeWork, updateCreativeWorkIfUnchanged } from "./creative-work";
 
 type CarouselExecutor = Pick<typeof db, "select">;
 type CarouselTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -146,6 +153,171 @@ export async function queueCarouselSlide(input: {
     )
     .returning();
   return row ?? null;
+}
+
+export type QueueAuthorizedCarouselSlideResult =
+  | { outcome: "claimed"; slide: CreativeWorkCarouselSlide }
+  | { outcome: "already_claimed"; slide: CreativeWorkCarouselSlide }
+  | { outcome: "unauthorized" }
+  | { outcome: "missing" };
+
+/**
+ * Queue CAS bound to the current editorial revision: the cover/interiors
+ * authorization is observed in the same transaction as the draft|failed →
+ * queued claim so a distant pre-check cannot win the race.
+ */
+export async function queueAuthorizedCarouselSlide(input: {
+  workspaceId: string;
+  workItemId: string;
+  slideId: string;
+  anchorKey: string | null;
+  operationKey: string;
+}): Promise<QueueAuthorizedCarouselSlideResult> {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${carouselLockScope(input.workspaceId, input.workItemId)}))`,
+    );
+    const [work] = await tx
+      .select()
+      .from(creativeWorkItems)
+      .where(
+        and(
+          eq(creativeWorkItems.workspaceId, input.workspaceId),
+          eq(creativeWorkItems.id, input.workItemId),
+        ),
+      )
+      .limit(1);
+    const [slide] = await tx
+      .select()
+      .from(creativeWorkCarouselSlides)
+      .where(
+        and(
+          eq(creativeWorkCarouselSlides.workspaceId, input.workspaceId),
+          eq(creativeWorkCarouselSlides.workItemId, input.workItemId),
+          eq(creativeWorkCarouselSlides.id, input.slideId),
+        ),
+      )
+      .limit(1);
+    if (!work || !slide) return { outcome: "missing" as const };
+    const snapshot = resolveCarouselPreparedSnapshot(work.inputSnapshot);
+    const editorial = readCarouselEditorial(work.settings);
+    const current = await listCurrentCarouselSlides(input.workspaceId, input.workItemId, tx);
+    const coverSlideId = editorial?.approvedCover?.slideId
+      ?? current.find((row) => row.position === 1)?.id
+      ?? null;
+    if (!snapshot || !authorizeCarouselSlideClaim({
+      editorial,
+      generationScope: snapshot.generationScope,
+      scriptRevision: snapshot.scriptRevision,
+      preparedRevision: snapshot.preparedRevision,
+      slidePosition: slide.position,
+      coverSlideId,
+    })) {
+      return { outcome: "unauthorized" as const };
+    }
+    if (slide.status !== "draft" && slide.status !== "failed") {
+      return { outcome: "already_claimed" as const, slide };
+    }
+    const [queued] = await tx
+      .update(creativeWorkCarouselSlides)
+      .set({
+        status: "queued",
+        anchorKey: input.anchorKey,
+        generationOperationKey: input.operationKey,
+        errorCode: null,
+        queuedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(creativeWorkCarouselSlides.workspaceId, input.workspaceId),
+          eq(creativeWorkCarouselSlides.workItemId, input.workItemId),
+          eq(creativeWorkCarouselSlides.id, input.slideId),
+          inArray(creativeWorkCarouselSlides.status, ["draft", "failed"]),
+        ),
+      )
+      .returning();
+    if (queued) return { outcome: "claimed" as const, slide: queued };
+    const [latest] = await tx
+      .select()
+      .from(creativeWorkCarouselSlides)
+      .where(
+        and(
+          eq(creativeWorkCarouselSlides.workspaceId, input.workspaceId),
+          eq(creativeWorkCarouselSlides.workItemId, input.workItemId),
+          eq(creativeWorkCarouselSlides.id, input.slideId),
+        ),
+      )
+      .limit(1);
+    if (latest && latest.status !== "draft" && latest.status !== "failed") {
+      return { outcome: "already_claimed" as const, slide: latest };
+    }
+    return { outcome: "unauthorized" as const };
+  });
+}
+
+/**
+ * Persist lote confirmation under the same CAS sanitizer as other approvals.
+ * The write observes the current script/cover revision in-transaction so a
+ * stale read cannot confirm interiors after invalidation.
+ */
+export async function confirmCarouselInteriorsRevision(input: {
+  workspaceId: string;
+  workItemId: string;
+  expectedUpdatedAt: Date;
+  preparedRevision: string;
+  scriptRevision: string;
+  coverSlideId: string;
+}): Promise<CreativeWorkItem | null> {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${carouselLockScope(input.workspaceId, input.workItemId)}))`,
+    );
+    const [work] = await tx
+      .select()
+      .from(creativeWorkItems)
+      .where(
+        and(
+          eq(creativeWorkItems.workspaceId, input.workspaceId),
+          eq(creativeWorkItems.id, input.workItemId),
+        ),
+      )
+      .limit(1);
+    if (!work) return null;
+    const editorial = readCarouselEditorial(work.settings);
+    if (!editorial) return null;
+    if (
+      editorial.confirmedInteriorsRevision === input.preparedRevision
+      && hasCurrentApprovedCarouselCover(
+        editorial,
+        input.scriptRevision,
+        input.preparedRevision,
+        input.coverSlideId,
+      )
+    ) {
+      return work;
+    }
+    if (!hasCurrentApprovedCarouselCover(
+      editorial,
+      input.scriptRevision,
+      input.preparedRevision,
+      input.coverSlideId,
+    )) {
+      return null;
+    }
+    const nextSettings = writeCarouselEditorial(work.settings, {
+      ...editorial,
+      confirmedInteriorsRevision: input.preparedRevision,
+    });
+    return updateCreativeWorkIfUnchanged(
+      input.workspaceId,
+      input.workItemId,
+      input.expectedUpdatedAt,
+      { settings: nextSettings },
+      tx,
+      { persistCarouselApprovals: true },
+    );
+  });
 }
 
 /** `queued → processing`; a lost lease returns null. */

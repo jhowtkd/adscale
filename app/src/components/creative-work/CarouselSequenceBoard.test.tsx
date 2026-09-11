@@ -206,4 +206,26 @@ describe("CarouselSequenceBoard", () => {
     expect(screen.getByTestId("carousel-remove-2")).toBeDisabled();
     expect(screen.getByTestId("carousel-slide-card-2")).not.toHaveAttribute("draggable", "true");
   });
+
+  it("shows copy and visual direction together on each card", () => {
+    render(
+      <CarouselSequenceBoard
+        slides={fiveSlides.map((slide, index) => ({
+          ...slide,
+          primaryText: `Copy ${index + 1}`,
+          visualDirection: `Direção ${index + 1}`,
+        }))}
+        selectedSlideId="slide-1"
+        canEdit
+        onSelect={vi.fn()}
+        onMove={vi.fn()}
+        onAdd={vi.fn()}
+        onRemove={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("carousel-slide-1")).toHaveTextContent("Copy 1");
+    expect(screen.getByTestId("carousel-slide-1")).toHaveTextContent("Direção 1");
+    expect(screen.getByTestId("carousel-slide-2")).toHaveTextContent("Copy 2");
+  });
 });

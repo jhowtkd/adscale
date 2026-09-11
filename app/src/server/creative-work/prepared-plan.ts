@@ -104,7 +104,12 @@ export function projectPreparedPlanV1(work: {
     // internals — the raw snapshot stays on the server.
     const carousel = resolveCarouselPreparedSnapshot(work.inputSnapshot);
     if (!carousel) return null;
-    const outputs = carousel.deck.slides.map((slide) => ({
+    const billedSlides = carousel.generationScope === "cover"
+      ? carousel.deck.slides.filter((slide) => slide.position === 1)
+      : carousel.generationScope === "interiors"
+        ? carousel.deck.slides.filter((slide) => slide.position !== 1)
+        : carousel.deck.slides;
+    const outputs = billedSlides.map((slide) => ({
       label: `Tela ${slide.position}`,
       targetFormat: carousel.deck.format,
       directionId: null,

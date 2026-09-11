@@ -73,6 +73,8 @@ import {
   isCreativeWorkRevisionConflict,
 } from "@/server/repositories/creative-work";
 import { listCurrentCarouselSlides } from "@/server/repositories/creative-work-carousel";
+import { resolveCarouselPlanSlideId, resolveCarouselPreparedSnapshot } from "@/server/creative-work/carousel-contracts";
+import { readCarouselEditorial, toPublicCarouselEditorial } from "@/server/creative-work/carousel-editorial-state";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getTemplateById } from "@/server/repositories/template";
 import { inngest } from "@/server/jobs/client";
@@ -576,23 +578,45 @@ export async function GET(
       layerEditor: toPublicLayerEditorSummary(output.layerEditor),
     }));
     const { inputSnapshot: _inputSnapshot, carouselQuality, ...publicWork } = result.work;
+    const editorial = readCarouselEditorial(publicWork.settings);
+    const publicSettings = publicWork.settings
+      ? (() => {
+          const { carouselEditorial: _ignored, ...restSettings } = publicWork.settings;
+          return editorial
+            ? { ...restSettings, carouselEditorial: toPublicCarouselEditorial(editorial) }
+            : restSettings;
+        })()
+      : publicWork.settings;
     const carouselSlideRows = result.work.toolKind === "carousel"
       ? await listCurrentCarouselSlides(workspace.id, id)
       : [];
+    const carouselDeck = resolveCarouselPreparedSnapshot(result.work.inputSnapshot)?.deck ?? null;
     const carouselSlides = carouselSlideRows.map((slide) => {
       const {
         providerBaseKey: _providerBaseKey,
         outputKey,
         previewKey: _previewKey,
         anchorKey: _anchorKey,
-        generationOperationKey: _generationOperationKey,
+        generationOperationKey,
         ...publicSlide
       } = slide;
-      return { ...publicSlide, hasOutput: Boolean(outputKey) };
+      return {
+        ...publicSlide,
+        hasOutput: Boolean(outputKey),
+        planSlideId: resolveCarouselPlanSlideId(
+          {
+            position: slide.position,
+            deckRevision: slide.deckRevision,
+            generationOperationKey,
+          },
+          carouselDeck,
+        ),
+      };
     });
     return NextResponse.json({
       work: {
         ...publicWork,
+        settings: publicSettings,
         request: displayRequestForCreativeWork(result.work),
       },
       preparedPlan: projectPreparedPlanV1(result.work),
@@ -840,6 +864,7 @@ export async function PATCH(
             case "blocking_questions": return apiError("blocking_questions", 409, prepared.error.details);
             case "editorial_invalid": return apiError("editorial_invalid", 422, prepared.error.details);
             case "invalid_context": return apiError("invalid_context", 422, prepared.error.details);
+            case "invalid_generation_gate": return apiError("creativeWorkNotReady", 409, prepared.error.details);
           }
         }
         return NextResponse.json(prepared.value);

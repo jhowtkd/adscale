@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   categorizeCreativeWorkFailure,
   creativeWorkRefetchInterval,
@@ -8,6 +9,7 @@ import {
   isCreativeWorkRetryEligible,
   CreativeWorkRequestError,
   mapCreativeWorkDetail,
+  translateCreativeWorkClientError,
 } from "./use-creative-work";
 
 describe("creativeWorkRefetchInterval (R-008: 202 + polling contract)", () => {
@@ -54,6 +56,18 @@ describe("creativeWorkRefetchInterval (R-008: 202 + polling contract)", () => {
 });
 
 describe("creative-work detail projection", () => {
+  it("keeps the client mapper graph free of Node crypto for the editorial envelope", () => {
+    const hookSource = readFileSync("src/lib/hooks/use-creative-work.ts", "utf8");
+    const stateSource = readFileSync("src/server/creative-work/carousel-editorial-state.ts", "utf8");
+    const contractsSource = readFileSync("src/server/creative-work/contracts.ts", "utf8");
+    const hashSource = readFileSync("src/server/creative-work/carousel-editorial-hash.ts", "utf8");
+    expect(hookSource).not.toMatch(/carousel-editorial-hash|node:crypto|createHash/);
+    expect(stateSource).not.toMatch(/node:crypto|createHash/);
+    expect(contractsSource).not.toMatch(/carousel-editorial-hash/);
+    expect(contractsSource).toMatch(/carousel-editorial-state/);
+    expect(hashSource).toMatch(/from "node:crypto"/);
+    expect(hashSource).toMatch(/import "server-only"/);
+  });
   it("retains the allowlisted Layer Editor quota access for Results before confirmation", () => {
     const detail = mapCreativeWorkDetail({
       work: { id: "work-1", createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" } as never,
@@ -62,6 +76,84 @@ describe("creative-work detail projection", () => {
     });
 
     expect(detail.layerEditorAccess).toMatchObject({ enabled: true, layerize: { remaining: 4 }, regeneration: { remaining: 3 } });
+  });
+
+  it("keeps the public carousel editorial envelope on settings", () => {
+    const detail = mapCreativeWorkDetail({
+      work: {
+        id: "work-1",
+        createdAt: "2026-08-22T00:00:00.000Z",
+        updatedAt: "2026-08-22T00:00:00.000Z",
+        settings: {
+          targetFormats: [],
+          carouselEditorial: {
+            version: 1,
+            revision: "rev-1",
+            contextHash: "ctx-1",
+            research: { status: "not_needed", question: "", thesis: "", sources: [], claims: [], gaps: [] },
+            hooks: [],
+            recommendedHookId: null,
+            recommendation: null,
+            selectedHookId: null,
+            storyboard: [],
+            caption: null,
+            approvedScriptRevision: "script-1",
+            approvedCover: { slideId: "cover-1", scriptRevision: "script-1", preparedRevision: "prep-1" },
+            confirmedInteriorsRevision: "prep-1",
+          },
+        },
+      } as never,
+      outputs: [],
+    });
+
+    expect(detail.work.settings.carouselEditorial).toMatchObject({
+      version: 1,
+      approvedScriptRevision: "script-1",
+      approvedCover: { slideId: "cover-1" },
+    });
+  });
+
+  it("maps preparedPlan and public planSlideId from the GET contract", () => {
+    const detail = mapCreativeWorkDetail({
+      work: { id: "work-1", createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" } as never,
+      outputs: [],
+      preparedPlan: {
+        version: 1,
+        workId: "work-1",
+        preparedRevision: "prep-1",
+        protocol: "carousel",
+        materials: [],
+        preserve: [],
+        explore: [],
+        outputs: [],
+        outputCount: 1,
+        formats: ["4:5"],
+      },
+      carouselSlides: [{
+        id: "db-cover",
+        lineageId: "lineage-1",
+        parentSlideId: null,
+        versionNumber: 1,
+        deckRevision: "deck-r1",
+        position: 1,
+        role: "hook",
+        primaryText: "Gancho",
+        secondaryText: null,
+        copyAuthority: "ai_proposal",
+        sourceFactIds: [],
+        layoutFamily: "impact",
+        status: "completed",
+        hasOutput: true,
+        planSlideId: "slide-1",
+        errorCode: null,
+        quality: null,
+        createdAt: "2026-08-22T00:00:00.000Z",
+        updatedAt: "2026-08-22T00:00:00.000Z",
+      }],
+    });
+
+    expect(detail.preparedPlan?.preparedRevision).toBe("prep-1");
+    expect(detail.carouselSlides[0]).toMatchObject({ id: "db-cover", planSlideId: "slide-1" });
   });
 });
 
@@ -160,5 +252,17 @@ describe("extractCreativeWorkBrandConflict (R-003/R-008)", () => {
     expect(
       extractCreativeWorkBrandConflict(new CreativeWorkRequestError("x", "brand_conflict", 422, { wrong: true })),
     ).toBeNull();
+  });
+});
+
+describe("translateCreativeWorkClientError", () => {
+  it("maps carousel editorial codes without leaking provider text", () => {
+    expect(translateCreativeWorkClientError("research_unavailable")).toMatch(/pesquisa/i);
+    expect(translateCreativeWorkClientError("research_insufficient")).toMatch(/evidência|tese/i);
+    expect(translateCreativeWorkClientError("invalid_editorial_transition")).toMatch(/editorial/i);
+    expect(translateCreativeWorkClientError("editorial_plan_invalid")).not.toMatch(/openai|gpt|web_search/i);
+    expect(translateCreativeWorkClientError("stale_input")).toMatch(/alterad|reload/i);
+    expect(translateCreativeWorkClientError("invalid_generation_gate")).toMatch(/capa|roteiro|prepare/i);
+    expect(translateCreativeWorkClientError("brand_conflict")).toBeNull();
   });
 });

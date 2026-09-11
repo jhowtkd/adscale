@@ -8,7 +8,7 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 
 const bodySchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("initial"), preparedRevision: z.string().min(1).optional(), studioSessionId: z.string().uuid().optional(), rolloutVariant: z.enum(["control", "progressive"]).optional() }).strict(),
+  z.object({ action: z.literal("initial"), preparedRevision: z.string().min(1).optional(), studioSessionId: z.string().uuid().optional(), rolloutVariant: z.enum(["control", "progressive"]).optional(), generationScope: z.enum(["cover", "interiors"]).optional() }).strict(),
   z.object({
     action: z.literal("revision"),
     revisionKey: z.string().uuid(),
@@ -60,6 +60,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           case "work_not_found": return apiError("creativeWorkNotFound", 404);
           case "work_not_carousel": return apiError("invalidInput", 400, result.error.details);
           case "stale_input": return apiError("creativeWorkNotReady", 409, result.error.details);
+          case "invalid_generation_gate": return apiError("creativeWorkNotReady", 409, result.error.details);
           case "credit_blocked": return apiError("insufficientCredits", 402, result.error.details);
           case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502);
           default: return apiError("creativeWorkNotReady", 409, result.error.details);

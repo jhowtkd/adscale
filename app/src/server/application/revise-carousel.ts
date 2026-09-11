@@ -1,10 +1,11 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import {
   carouselAnchorPositions,
   carouselLayoutFamilyForRole,
+  resolveCarouselPlanSlideId,
   resolveCarouselPreparedSnapshot,
   validateCarouselDeckStructure,
   validateTextFieldsAgainstFactPack,
@@ -13,6 +14,10 @@ import {
   type CarouselVisualContractV1,
 } from "@/server/creative-work/carousel-contracts";
 import { canonicalJsonStringify } from "@/server/creative-work/canonical-json";
+import {
+  withInvalidatedAndRecomputedCarouselEditorial,
+  withInvalidatedProductionAndRecomputedCarouselEditorial,
+} from "@/server/creative-work/carousel-editorial-hash";
 import {
   runCarouselTextComposition,
   TextCompositionError,
@@ -25,6 +30,7 @@ import type {
 import { creativeWorkCarouselSlides, creativeWorkItems } from "@/server/db/schema";
 import { db } from "@/server/db";
 import { dispatchNextCarouselStage } from "@/server/application/advance-carousel-generation";
+import { CarouselGenerationGateError } from "@/server/creative-work/carousel-editorial-state";
 import { carouselSlideSettlementAdapter } from "@/server/generation/settlement-adapters";
 import { startGenerationSettlement } from "@/server/generation/settlement";
 import { getCreativeWork } from "@/server/repositories/creative-work";
@@ -88,7 +94,8 @@ export type ReviseCarouselSlideErrorCode =
   | "invalid_context"
   | "composition_failed"
   | "generation_in_flight"
-  | "dispatch_failed";
+  | "dispatch_failed"
+  | "invalid_generation_gate";
 
 export type ReviseCarouselSlideResult =
   | {
@@ -238,15 +245,58 @@ const PUBLIC_SLIDE_OMIT = [
 type PublicCarouselSlide = Omit<
   CreativeWorkCarouselSlide,
   (typeof PUBLIC_SLIDE_OMIT)[number]
-> & { hasOutput: boolean };
+> & { hasOutput: boolean; planSlideId: string | null };
+
+function settingsAfterMaterialCarouselEdit(work: CreativeWorkItem) {
+  if (!work.settings?.carouselEditorial) return {};
+  return { settings: withInvalidatedAndRecomputedCarouselEditorial(work.settings, work.request) };
+}
+
+function settingsAfterVisualCarouselEdit(work: CreativeWorkItem) {
+  if (!work.settings?.carouselEditorial) return {};
+  return { settings: withInvalidatedProductionAndRecomputedCarouselEditorial(work.settings, work.request) };
+}
+
+function workRevisionMatches(expectedUpdatedAt: Date) {
+  return sql`date_trunc('milliseconds', ${creativeWorkItems.updatedAt}) = cast(${expectedUpdatedAt.toISOString()} as timestamp without time zone)`;
+}
+
+async function persistCarouselWorkIfUnchanged(
+  work: CreativeWorkItem,
+  patch: Record<string, unknown>,
+): Promise<CreativeWorkItem | null> {
+  if (!work.updatedAt) return null;
+  const [row] = await db
+    .update(creativeWorkItems)
+    .set({
+      ...patch,
+      updatedAt: sql`greatest(${creativeWorkItems.updatedAt} + interval '1 millisecond', now())`,
+    })
+    .where(
+      and(
+        eq(creativeWorkItems.workspaceId, work.workspaceId),
+        eq(creativeWorkItems.id, work.id),
+        workRevisionMatches(work.updatedAt),
+      ),
+    )
+    .returning();
+  return row ?? null;
+}
 
 /** Same projection the work GET route uses: no storage or settlement keys. */
-export function toPublicCarouselSlide(slide: CreativeWorkCarouselSlide): PublicCarouselSlide {
+export function toPublicCarouselSlide(
+  slide: CreativeWorkCarouselSlide,
+  deck?: { slides: Array<{ position: number; slideId: string }> } | null,
+): PublicCarouselSlide {
   const publicSlide: Record<string, unknown> = { ...slide };
   for (const key of PUBLIC_SLIDE_OMIT) {
     delete publicSlide[key];
   }
-  return { ...publicSlide, hasOutput: Boolean(slide.outputKey) } as PublicCarouselSlide;
+  return {
+    ...publicSlide,
+    hasOutput: Boolean(slide.outputKey),
+    planSlideId: resolveCarouselPlanSlideId(slide, deck),
+  } as PublicCarouselSlide;
 }
 
 export async function reviseCarouselSlide(
@@ -364,6 +414,12 @@ export async function reviseCarouselSlide(
     const outputKey = `creative-work/${input.workItemId}/carousel/revise/${input.revisionKey}/final.png`;
     await objectStorage.put(outputKey, finalBuffer, "image/png");
 
+    const editorialSettings = settingsAfterVisualCarouselEdit(work);
+    if (editorialSettings.settings) {
+      const persisted = await persistCarouselWorkIfUnchanged(work, editorialSettings);
+      if (!persisted) return { ok: false, error: { code: "stale_input" } };
+    }
+
     const child = await createCarouselSlideDescendant({
       workspaceId: input.workspaceId,
       workItemId: input.workItemId,
@@ -404,6 +460,13 @@ export async function reviseCarouselSlide(
   // flow generates it through its own one-slide settlement. Anchors never take
   // the shared board as a reference; revising one also drafts dependents so
   // the board is rebuilt after the new anchor completes.
+  if (input.kind === "visual") {
+    const editorialSettings = settingsAfterVisualCarouselEdit(work);
+    if (editorialSettings.settings) {
+      const persisted = await persistCarouselWorkIfUnchanged(work, editorialSettings);
+      if (!persisted) return { ok: false, error: { code: "stale_input" } };
+    }
+  }
   const child = await createCarouselSlideDescendant({
     workspaceId: input.workspaceId,
     workItemId: input.workItemId,
@@ -423,7 +486,7 @@ export async function reviseCarouselSlide(
     outputKey: null,
     previewKey: null,
   });
-  if (!child) {
+    if (!child) {
     return {
       ok: false,
       error: { code: "slide_version_conflict", details: { reason: "parent_no_longer_current" } },
@@ -443,16 +506,24 @@ export async function reviseCarouselSlide(
     });
     if (!propagated.ok) return { ok: false, error: { code: propagated.code } };
   }
-  const settled = await startGenerationSettlement(
-    carouselSlideSettlementAdapter({
-      workspaceId: input.workspaceId,
-      workItemId: input.workItemId,
-      slideId: child.id,
-      userId: input.userId,
-      anchorKey: revisingAnchor ? null : (slide.anchorKey ?? null),
-      operationKey: input.revisionKey,
-    }),
-  );
+  let settled: Awaited<ReturnType<typeof startGenerationSettlement>>;
+  try {
+    settled = await startGenerationSettlement(
+      carouselSlideSettlementAdapter({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        slideId: child.id,
+        userId: input.userId,
+        anchorKey: revisingAnchor ? null : (slide.anchorKey ?? null),
+        operationKey: input.revisionKey,
+      }),
+    );
+  } catch (error) {
+    if (error instanceof CarouselGenerationGateError) {
+      return { ok: false, error: { code: "invalid_generation_gate", details: error.details } };
+    }
+    throw error;
+  }
   if (!settled.ok) {
     return { ok: false, error: { code: "dispatch_failed", details: settled.error } };
   }
@@ -688,28 +759,21 @@ export async function reviseCarouselDeck(
     };
     const currentSnapshot = work.inputSnapshot;
     if (!currentSnapshot) return { ok: false, error: { code: "stale_input" } };
-    await db
-      .update(creativeWorkItems)
-      .set({
-        inputSnapshot: {
-          ...currentSnapshot,
-          carousel: {
-            version: 1 as const,
-            preparedRevision: snapshot.preparedRevision,
-            deck: { ...input.plan, revision: deckRevision },
-            visualContract: newContract,
-          },
+    const persisted = await persistCarouselWorkIfUnchanged(work, {
+      inputSnapshot: {
+        ...currentSnapshot,
+        carousel: {
+          version: 1 as const,
+          preparedRevision: snapshot.preparedRevision,
+          deck: { ...input.plan, revision: deckRevision },
+          visualContract: newContract,
         },
-        carouselApprovedRevision: null,
-        carouselQuality: null,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(creativeWorkItems.workspaceId, input.workspaceId),
-          eq(creativeWorkItems.id, input.workItemId),
-        ),
-      );
+      },
+      carouselApprovedRevision: null,
+      carouselQuality: null,
+      ...settingsAfterMaterialCarouselEdit(work),
+    });
+    if (!persisted) return { ok: false, error: { code: "stale_input" } };
 
     // Descendants every position: every slide is regenerated under the new
     // direction while its lineage and prior versions are preserved.
@@ -760,6 +824,22 @@ export async function reviseCarouselDeck(
       value: { work: refreshed ?? work, slides: current, deckRevision, replay: false },
     };
   }
+
+  const currentSnapshot = work.inputSnapshot;
+  if (!currentSnapshot) return { ok: false, error: { code: "stale_input" } };
+  const persisted = await persistCarouselWorkIfUnchanged(work, {
+    inputSnapshot: {
+      ...currentSnapshot,
+      carousel: {
+        version: 1 as const,
+        preparedRevision: snapshot.preparedRevision,
+        deck: { ...input.plan, revision: deckRevision },
+        visualContract: snapshot.visualContract,
+      },
+    },
+    ...settingsAfterMaterialCarouselEdit(work),
+  });
+  if (!persisted) return { ok: false, error: { code: "stale_input" } };
 
   // Reorder/edit revision: the frozen contract, approval and quality stay.
   for (const planSlide of input.plan.slides) {
@@ -847,29 +927,6 @@ export async function reviseCarouselDeck(
     });
     if (!child) return { ok: false, error: { code: "stale_input" } };
   }
-
-  const currentSnapshot = work.inputSnapshot;
-  if (!currentSnapshot) return { ok: false, error: { code: "stale_input" } };
-  await db
-    .update(creativeWorkItems)
-    .set({
-      inputSnapshot: {
-        ...currentSnapshot,
-        carousel: {
-          version: 1 as const,
-          preparedRevision: snapshot.preparedRevision,
-          deck: { ...input.plan, revision: deckRevision },
-          visualContract: snapshot.visualContract,
-        },
-      },
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(creativeWorkItems.workspaceId, input.workspaceId),
-        eq(creativeWorkItems.id, input.workItemId),
-      ),
-    );
 
   const refreshed = await refreshCarouselWorkStatus({
     workspaceId: input.workspaceId,
