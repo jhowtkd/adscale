@@ -179,6 +179,14 @@ describe("carousel editorial state", () => {
     })).toBe(true);
     expect(authorizeCarouselSlideClaim({
       editorial: state,
+      generationScope: "interiors",
+      scriptRevision: "script-1",
+      preparedRevision: "prepared-1",
+      slidePosition: 1,
+      coverSlideId: "cover-1",
+    })).toBe(false);
+    expect(authorizeCarouselSlideClaim({
+      editorial: state,
       generationScope: undefined,
       scriptRevision: "script-1",
       preparedRevision: "prepared-1",

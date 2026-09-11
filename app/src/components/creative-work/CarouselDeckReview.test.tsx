@@ -44,6 +44,7 @@ function reviewSlide(position: number, overrides: Partial<PublicCarouselSlide> =
     layoutFamily: "development",
     status: "completed",
     hasOutput: true,
+    planSlideId: `slide-${position}`,
     errorCode: null,
     quality: null,
     createdAt: NOW,

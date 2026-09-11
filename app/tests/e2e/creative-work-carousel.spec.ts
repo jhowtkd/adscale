@@ -65,13 +65,6 @@ interface CarouselWorkDetail {
     id: string;
     toolKind: string;
     carouselApprovedRevision: string | null;
-    inputSnapshot: {
-      carousel?: {
-        preparedRevision: string;
-        generationScope?: "cover" | "interiors";
-        caption?: string | null;
-      };
-    } | null;
     settings: {
       carouselDraft: {
         plan: {
@@ -88,6 +81,7 @@ interface CarouselWorkDetail {
       } | null;
     };
   };
+  preparedPlan: { preparedRevision: string; protocol: string } | null;
   carouselSlides: CarouselSlideRow[];
 }
 
@@ -252,7 +246,7 @@ test.describe("Studio Carousel editorial controlled-provider gate", () => {
     await expect(page.getByTestId("carousel-approve-cover")).toBeVisible({ timeout: 60_000 });
     await expect(page.getByTestId("carousel-generate")).toHaveCount(0);
 
-    const coverRevision = (await getDetail(page.request, workId)).work.inputSnapshot?.carousel?.preparedRevision;
+    const coverRevision = (await getDetail(page.request, workId)).preparedPlan?.preparedRevision;
     expect(coverRevision).toBeTruthy();
 
     await page.getByTestId("carousel-approve-cover").click();

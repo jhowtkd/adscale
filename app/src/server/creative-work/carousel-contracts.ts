@@ -252,3 +252,28 @@ export function validateCarouselDeckStructure(deck: CarouselDeckPlanV1): Carouse
   });
   return findings;
 }
+
+/**
+ * Public plan identity for a materialized slide. Storyboard keys are plan
+ * `slideId` values stored on insert as `${deckRevision}:${slideId}`; the DB
+ * row id is a different UUID after materialize, and queue overwrites the
+ * operation key with a billing id.
+ */
+export function resolveCarouselPlanSlideId(
+  slide: {
+    position: number;
+    deckRevision?: string | null;
+    generationOperationKey?: string | null;
+  },
+  deck?: { slides: Array<{ position: number; slideId: string }> } | null,
+): string | null {
+  const fromDeck = deck?.slides.find((plan) => plan.position === slide.position)?.slideId;
+  if (fromDeck) return fromDeck;
+  const revision = slide.deckRevision?.trim();
+  const key = slide.generationOperationKey?.trim();
+  if (!revision || !key) return null;
+  const prefix = `${revision}:`;
+  if (!key.startsWith(prefix) || key.includes("::")) return null;
+  const planSlideId = key.slice(prefix.length);
+  return planSlideId.length > 0 ? planSlideId : null;
+}

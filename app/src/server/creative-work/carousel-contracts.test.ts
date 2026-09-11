@@ -10,6 +10,7 @@ import {
   carouselLayoutFamilyForRole,
   quoteCarouselDeck,
   quoteCarouselUnits,
+  resolveCarouselPlanSlideId,
   resolveCarouselPreparedSnapshot,
   validateCarouselDeckStructure,
   validateTextFieldsAgainstFactPack,
@@ -255,6 +256,25 @@ describe("carousel contracts", () => {
       sources: [],
       carousel: scoped,
     })).toEqual(scoped);
+  });
+
+  it("resolves the public plan slide id from the deck, then from the stored operation key", () => {
+    const deck = deckOf(5, FIVE_ROLES);
+    expect(resolveCarouselPlanSlideId({
+      position: 2,
+      deckRevision: "deck-r1",
+      generationOperationKey: "creative-work:work-1:carousel-slide:db-2:generate",
+    }, deck)).toBe("slide-2");
+    expect(resolveCarouselPlanSlideId({
+      position: 1,
+      deckRevision: "deck-r1",
+      generationOperationKey: "deck-r1:slide-1",
+    })).toBe("slide-1");
+    expect(resolveCarouselPlanSlideId({
+      position: 1,
+      deckRevision: "deck-r1",
+      generationOperationKey: "creative-work:work-1:carousel-slide:db-cover:generate",
+    })).toBeNull();
   });
 });
 

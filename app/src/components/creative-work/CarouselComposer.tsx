@@ -10,7 +10,7 @@ import { CarouselSlideEditor, type CarouselEditorSlide } from "./CarouselSlideEd
 import { CarouselVisualSummary } from "./CarouselVisualSummary";
 import { CarouselDeckReview } from "./CarouselDeckReview";
 import { CarouselHookChoices } from "./CarouselHookChoices";
-import { publishableCarouselSources, safeCarouselHttpUrl } from "./carousel-composer-phase";
+import { carouselStoryboardForSlide, publishableCarouselSources, safeCarouselHttpUrl } from "./carousel-composer-phase";
 import type { CarouselComposerController } from "./useCarouselComposer";
 
 function editorSlideFromPlan(slide: CarouselSlidePlanV1): CarouselEditorSlide {
@@ -111,7 +111,7 @@ export function CarouselComposer({
       role: slide.role,
       status: slide.status,
       primaryText: slide.primaryText,
-      visualDirection: editorial?.storyboard.find((item) => item.slideId === slide.id)?.representation ?? null,
+      visualDirection: carouselStoryboardForSlide(editorial, slide)?.representation ?? null,
     }))
     : planSlides.map((slide) => ({
       id: slide.slideId,
@@ -119,7 +119,7 @@ export function CarouselComposer({
       role: slide.role,
       status: null,
       primaryText: slide.primaryText,
-      visualDirection: editorial?.storyboard.find((item) => item.slideId === slide.slideId)?.representation ?? null,
+      visualDirection: carouselStoryboardForSlide(editorial, { id: slide.slideId, planSlideId: slide.slideId })?.representation ?? null,
     })));
 
   const plannedSlide = planSlides.find((slide) => slide.slideId === carousel.selectedSlideId)
@@ -141,9 +141,11 @@ export function CarouselComposer({
     (change): change is CarouselEditorialChangeV1 => change.status === "pending" && change.slideId === editorSlideId,
   );
 
-  const editorDirection = editorSlideId
-    ? editorial?.storyboard.find((item) => item.slideId === editorSlideId) ?? null
-    : null;
+  const editorDirection = editorSlide
+    ? carouselStoryboardForSlide(editorial, editorSlide)
+    : plannedSlide
+      ? carouselStoryboardForSlide(editorial, { id: plannedSlide.slideId, planSlideId: plannedSlide.slideId })
+      : null;
   const caption = editorial?.caption ?? null;
   const sources = publishableCarouselSources(editorial);
 

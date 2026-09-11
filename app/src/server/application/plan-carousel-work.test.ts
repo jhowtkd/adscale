@@ -12,6 +12,7 @@ import { recomputeCarouselEditorialHashes } from "@/server/creative-work/carouse
 const repo = vi.hoisted(() => ({
   getCreativeWork: vi.fn(),
   updateCreativeWorkDraftIfUnchanged: vi.fn(),
+  updateCreativeWorkIfUnchanged: vi.fn(),
 }));
 const brandKitMock = vi.hoisted(() => vi.fn());
 const proposeMock = vi.hoisted(() => vi.fn());
@@ -25,6 +26,7 @@ const lockState = vi.hoisted(() => ({ held: false }));
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: (...args: unknown[]) => repo.getCreativeWork(...args),
   updateCreativeWorkDraftIfUnchanged: (...args: unknown[]) => repo.updateCreativeWorkDraftIfUnchanged(...args),
+  updateCreativeWorkIfUnchanged: (...args: unknown[]) => repo.updateCreativeWorkIfUnchanged(...args),
   withCreativeWorkPreparationLock: async (
     _workspaceId: string,
     _workItemId: string,
@@ -307,6 +309,7 @@ describe("planCarouselWork", () => {
       prohibitedElements: null,
     });
     repo.updateCreativeWorkDraftIfUnchanged.mockResolvedValue({ ...work(), updatedAt: new Date("2026-08-30T12:00:01.000Z") });
+    repo.updateCreativeWorkIfUnchanged.mockResolvedValue({ ...work(), updatedAt: new Date("2026-08-30T12:00:01.000Z") });
     refundCreditsMock.mockResolvedValue({ status: "refunded" });
     researchMock.mockImplementation(async () => {
       expect(lockState.held).toBe(false);
@@ -823,7 +826,9 @@ describe("planCarouselWork", () => {
     expect(repo.updateCreativeWorkDraftIfUnchanged).not.toHaveBeenCalled();
   });
 
-  it("approves the current completed cover of this work without dispatching interiors", async () => {
+  it.each(["partial", "generating"] as const)(
+    "approves the current completed cover of a %s work without dispatching interiors",
+    async (status) => {
     const draft = deckDraft();
     const hashed = editorialState({
       storyboard: storyboardFor(planOfFive()),
@@ -836,6 +841,7 @@ describe("planCarouselWork", () => {
     const withApproval = { ...prepared, approvedScriptRevision: prepared.revision };
     repo.getCreativeWork.mockResolvedValue({
       work: work({
+        status,
         settings: { targetFormats: [], carouselDraft: draft, carouselEditorial: withApproval },
         inputSnapshot: {
           carousel: preparedSnapshot(),
@@ -846,6 +852,7 @@ describe("planCarouselWork", () => {
     });
     listSlidesMock.mockResolvedValue([coverSlide()]);
     const persisted = work({
+      status,
       updatedAt: new Date("2026-08-30T12:00:01.000Z"),
       settings: {
         targetFormats: [],
@@ -856,7 +863,7 @@ describe("planCarouselWork", () => {
         },
       },
     });
-    repo.updateCreativeWorkDraftIfUnchanged.mockResolvedValue(persisted);
+    repo.updateCreativeWorkIfUnchanged.mockResolvedValue(persisted);
 
     const result = await planCarouselWork({
       ...baseInput,
@@ -872,7 +879,8 @@ describe("planCarouselWork", () => {
     });
     expect(inngestSendMock).not.toHaveBeenCalled();
     expect(refundCreditsMock).not.toHaveBeenCalled();
-    expect(repo.updateCreativeWorkDraftIfUnchanged).toHaveBeenCalledWith(
+    expect(repo.updateCreativeWorkDraftIfUnchanged).not.toHaveBeenCalled();
+    expect(repo.updateCreativeWorkIfUnchanged).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
       expect.anything(),

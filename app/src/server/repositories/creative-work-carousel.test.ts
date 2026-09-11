@@ -424,6 +424,24 @@ describe("carousel slide repository (CAS transitions)", () => {
       expect(mocks.updateMock).not.toHaveBeenCalled();
     });
 
+    it("does not claim the cover under an interiors snapshot after lote confirmation", async () => {
+      const cover = slide({ id: "slide-1", position: 1, status: "failed" });
+      mocks.state.selectResults.push(
+        [interiorsWork()],
+        [cover],
+        [cover, slide({ id: "slide-2", position: 2 })],
+      );
+
+      const result = await queueAuthorizedCarouselSlide({
+        ...queueInput,
+        slideId: "slide-1",
+        operationKey: "op-cover-retry",
+      });
+
+      expect(result).toEqual({ outcome: "unauthorized" });
+      expect(mocks.updateMock).not.toHaveBeenCalled();
+    });
+
     it("queues an interior only when the current lote confirmation matches", async () => {
       const interior = slide({ id: "slide-2", position: 2, status: "draft" });
       const queued = { ...interior, status: "queued" as const };

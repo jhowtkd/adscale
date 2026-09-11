@@ -1,4 +1,9 @@
-import type { CarouselEditorialState, ResearchSource } from "@/server/creative-work/carousel-editorial-state";
+import {
+  sourceSustainsClaim,
+  type CarouselEditorialState,
+  type ResearchSource,
+  type SlideDirection,
+} from "@/server/creative-work/carousel-editorial-state";
 import { quoteCarouselUnits } from "@/server/creative-work/carousel-contracts";
 
 export type CarouselComposerPhase =
@@ -76,7 +81,16 @@ export function safeCarouselHttpUrl(url: string | null | undefined): string | nu
 }
 
 export function publishableCarouselSources(editorial: CarouselEditorialState | null): ResearchSource[] {
-  return editorial?.research.sources ?? [];
+  return (editorial?.research.sources ?? []).filter(sourceSustainsClaim);
+}
+
+export function carouselStoryboardForSlide(
+  editorial: CarouselEditorialState | null,
+  slide: { id: string; planSlideId?: string | null },
+): SlideDirection | null {
+  if (!editorial) return null;
+  const planId = slide.planSlideId || slide.id;
+  return editorial.storyboard.find((item) => item.slideId === planId) ?? null;
 }
 
 export function isCurrentCoverApproval(input: {

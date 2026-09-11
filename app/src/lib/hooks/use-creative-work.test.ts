@@ -112,6 +112,49 @@ describe("creative-work detail projection", () => {
       approvedCover: { slideId: "cover-1" },
     });
   });
+
+  it("maps preparedPlan and public planSlideId from the GET contract", () => {
+    const detail = mapCreativeWorkDetail({
+      work: { id: "work-1", createdAt: "2026-08-22T00:00:00.000Z", updatedAt: "2026-08-22T00:00:00.000Z" } as never,
+      outputs: [],
+      preparedPlan: {
+        version: 1,
+        workId: "work-1",
+        preparedRevision: "prep-1",
+        protocol: "carousel",
+        materials: [],
+        preserve: [],
+        explore: [],
+        outputs: [],
+        outputCount: 1,
+        formats: ["4:5"],
+      },
+      carouselSlides: [{
+        id: "db-cover",
+        lineageId: "lineage-1",
+        parentSlideId: null,
+        versionNumber: 1,
+        deckRevision: "deck-r1",
+        position: 1,
+        role: "hook",
+        primaryText: "Gancho",
+        secondaryText: null,
+        copyAuthority: "ai_proposal",
+        sourceFactIds: [],
+        layoutFamily: "impact",
+        status: "completed",
+        hasOutput: true,
+        planSlideId: "slide-1",
+        errorCode: null,
+        quality: null,
+        createdAt: "2026-08-22T00:00:00.000Z",
+        updatedAt: "2026-08-22T00:00:00.000Z",
+      }],
+    });
+
+    expect(detail.preparedPlan?.preparedRevision).toBe("prep-1");
+    expect(detail.carouselSlides[0]).toMatchObject({ id: "db-cover", planSlideId: "slide-1" });
+  });
 });
 
 describe("categorizeCreativeWorkFailure (R-008: stable typed categories)", () => {

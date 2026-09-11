@@ -158,6 +158,7 @@ function publicSlide(position: number, overrides: Partial<PublicCarouselSlide> =
     layoutFamily: "development",
     status: "completed",
     hasOutput: true,
+    planSlideId: `slide-${position}`,
     errorCode: null,
     quality: null,
     createdAt: NOW,
@@ -566,6 +567,74 @@ describe("CarouselComposer", () => {
     const source = screen.getByRole("link", { name: "Estudo clínico" });
     expect(source).toHaveAttribute("href", "https://example.com/estudo");
     expect(screen.getByRole("button", { name: "Aprovar roteiro" })).toBeEnabled();
+  });
+
+  it("does not present discovered http links as consulted sources", () => {
+    renderCarousel(controller({
+      phase: "sequence",
+      draft: carouselDraft(),
+      editorial: editorialState({
+        selectedHookId: "hook-1",
+        research: {
+          status: "ready",
+          question: "O grupo começa em agosto?",
+          thesis: "O consultório abre grupo em agosto.",
+          sources: [
+            {
+              id: "src-discovered",
+              url: "https://search.example/resultado",
+              sourceId: null,
+              title: "Resultado de busca",
+              checkedOn: null,
+              publicationDate: null,
+              evidence: "Snippet de busca.",
+              limitations: [],
+              access: "discovered",
+            },
+            {
+              id: "src-1",
+              url: "https://example.com/estudo",
+              sourceId: null,
+              title: "Estudo clínico",
+              checkedOn: "2026-08-01",
+              publicationDate: null,
+              evidence: "Turma abre em agosto.",
+              limitations: [],
+              access: "opened",
+            },
+          ],
+          claims: [],
+          gaps: [],
+        },
+      }),
+    }));
+
+    fireEvent.click(screen.getByText("Fontes consultadas"));
+    expect(screen.getByRole("link", { name: "Estudo clínico" })).toHaveAttribute("href", "https://example.com/estudo");
+    expect(screen.queryByRole("link", { name: "Resultado de busca" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Resultado de busca")).not.toBeInTheDocument();
+  });
+
+  it("keeps storyboard copy and visual direction after slides materialize with database ids", () => {
+    const cover = publicSlide(1, { id: "db-cover", planSlideId: "slide-1", status: "completed" });
+    renderCarousel(controller({
+      phase: "cover_review",
+      draft: carouselDraft(),
+      editorial: editorialState({ selectedHookId: "hook-1" }),
+      slides: [
+        cover,
+        publicSlide(2, { id: "db-2", planSlideId: "slide-2", status: "draft", hasOutput: false }),
+        publicSlide(3, { id: "db-3", planSlideId: "slide-3", status: "draft", hasOutput: false }),
+        publicSlide(4, { id: "db-4", planSlideId: "slide-4", status: "draft", hasOutput: false }),
+        publicSlide(5, { id: "db-5", planSlideId: "slide-5", status: "draft", hasOutput: false }),
+      ],
+      selectedSlideId: "db-cover",
+      canApproveCover: true,
+    }));
+
+    expect(screen.getByTestId("carousel-slide-1")).toHaveTextContent("Texto 1");
+    expect(screen.getByTestId("carousel-slide-1")).toHaveTextContent("Tipografia com o fato principal");
+    expect(screen.getByTestId("carousel-slide-direction")).toHaveTextContent("O leitor vê a data");
   });
 
   it("keeps a human edit in the sequence without generating", () => {

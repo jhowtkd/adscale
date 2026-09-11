@@ -173,6 +173,8 @@ export type PublicCarouselSlide = {
   layoutFamily: CarouselLayoutFamily;
   status: CarouselSlideStatus;
   hasOutput: boolean;
+  /** Plan `slideId` used by the storyboard; distinct from the DB row id. */
+  planSlideId: string | null;
   errorCode: string | null;
   quality: Record<string, unknown> | null;
   createdAt: Date | string;
@@ -449,6 +451,9 @@ function mapCarouselSlide(raw: Record<string, unknown>): PublicCarouselSlide {
     layoutFamily: raw.layoutFamily as CarouselLayoutFamily,
     status: raw.status as CarouselSlideStatus,
     hasOutput: Boolean(raw.hasOutput),
+    planSlideId: typeof raw.planSlideId === "string" && raw.planSlideId.trim().length > 0
+      ? raw.planSlideId
+      : null,
     errorCode: (raw.errorCode as string | null) ?? null,
     quality: (raw.quality as Record<string, unknown> | null) ?? null,
     createdAt: new Date(raw.createdAt as string),

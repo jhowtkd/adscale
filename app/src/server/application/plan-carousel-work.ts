@@ -29,6 +29,7 @@ import { getBrandKit } from "../repositories/brand-kit";
 import {
   getCreativeWork,
   updateCreativeWorkDraftIfUnchanged,
+  updateCreativeWorkIfUnchanged,
   withCreativeWorkPreparationLock,
 } from "../repositories/creative-work";
 import { listCurrentCarouselSlides } from "../repositories/creative-work-carousel";
@@ -92,7 +93,7 @@ export async function planCarouselWork(input: {
 
   if (command.kind === "approve_script" || command.kind === "approve_cover") {
     return withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (executor) => {
-      const snapshot = await authorizeSnapshot(input, executor);
+      const snapshot = await authorizeSnapshot(input, executor, command);
       if (!snapshot.ok) return snapshot;
       return command.kind === "approve_script"
         ? approveScript(input, command, snapshot.value, executor)
@@ -102,7 +103,7 @@ export async function planCarouselWork(input: {
 
   if (command.kind === "select_hook") {
     const selected = await withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (executor) => {
-      const snapshot = await authorizeSnapshot(input, executor);
+      const snapshot = await authorizeSnapshot(input, executor, command);
       if (!snapshot.ok) return snapshot;
       return persistHookSelection(input, command, snapshot.value, executor);
     });
@@ -111,7 +112,7 @@ export async function planCarouselWork(input: {
   }
 
   const snapshot = await withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (executor) => (
-    authorizeSnapshot(input, executor)
+    authorizeSnapshot(input, executor, command)
   ));
   if (!snapshot.ok) return snapshot;
 
@@ -121,6 +122,8 @@ export async function planCarouselWork(input: {
   return proposeHooks(input, snapshot.value);
 }
 
+const COVER_APPROVAL_WORK_STATUSES = new Set(["draft", "generating", "partial"]);
+
 async function authorizeSnapshot(
   input: {
     workspaceId: string;
@@ -129,6 +132,7 @@ async function authorizeSnapshot(
     answers: Record<string, string>;
   },
   executor: Executor,
+  command?: CarouselEditorialCommand,
 ): Promise<AuthorizeResult> {
   const aggregate = await getCreativeWork(input.workspaceId, input.workItemId, executor);
   if (!aggregate) return { ok: false, error: { code: "work_not_found" } };
@@ -136,7 +140,10 @@ async function authorizeSnapshot(
   if (work.toolKind !== "carousel") {
     return { ok: false, error: { code: "work_not_carousel", details: { toolKind: work.toolKind } } };
   }
-  if (work.status !== "draft") {
+  const statusAllowed = command?.kind === "approve_cover"
+    ? COVER_APPROVAL_WORK_STATUSES.has(work.status)
+    : work.status === "draft";
+  if (!statusAllowed) {
     return { ok: false, error: { code: "work_not_draft", details: { status: work.status } } };
   }
   if (aggregate.sources.some((item) => item.status === "uploaded" || item.status === "analyzing")) {
@@ -378,6 +385,7 @@ async function approveCover(
     { carouselDraft: draft, carouselEditorial: editorial },
     executor,
     true,
+    "any",
   );
   if (!updated) return { ok: false, error: { code: "stale_input" } };
   return success(updated, draft, [], editorial);
@@ -409,13 +417,15 @@ async function writeSettings(
   settingsPatch: { carouselDraft?: CarouselDraftStateV1 | null; carouselEditorial?: CarouselEditorialState },
   executor?: Executor,
   persistCarouselApprovals = false,
+  cas: "draft" | "any" = "draft",
 ): Promise<CreativeWorkItem | null> {
   const settings = {
     ...work.settings,
     ...(settingsPatch.carouselDraft !== undefined ? { carouselDraft: settingsPatch.carouselDraft ?? undefined } : {}),
     ...(settingsPatch.carouselEditorial ? { carouselEditorial: settingsPatch.carouselEditorial } : {}),
   };
-  return updateCreativeWorkDraftIfUnchanged(
+  const persist = cas === "any" ? updateCreativeWorkIfUnchanged : updateCreativeWorkDraftIfUnchanged;
+  return persist(
     input.workspaceId,
     input.workItemId,
     work.updatedAt,

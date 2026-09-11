@@ -118,6 +118,7 @@ function publicSlide(slide: ReturnType<typeof planSlide>, overrides: Record<stri
     layoutFamily: slide.layoutFamily,
     status: "completed",
     hasOutput: true,
+    planSlideId: slide.slideId,
     errorCode: null,
     quality: null,
     createdAt: NOW,

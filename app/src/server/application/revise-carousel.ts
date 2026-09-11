@@ -4,6 +4,7 @@ import sharp from "sharp";
 import { and, eq, sql } from "drizzle-orm";
 import {
   carouselLayoutFamilyForRole,
+  resolveCarouselPlanSlideId,
   resolveCarouselPreparedSnapshot,
   validateCarouselDeckStructure,
   validateTextFieldsAgainstFactPack,
@@ -238,7 +239,7 @@ const PUBLIC_SLIDE_OMIT = [
 type PublicCarouselSlide = Omit<
   CreativeWorkCarouselSlide,
   (typeof PUBLIC_SLIDE_OMIT)[number]
-> & { hasOutput: boolean };
+> & { hasOutput: boolean; planSlideId: string | null };
 
 function settingsAfterMaterialCarouselEdit(work: CreativeWorkItem) {
   if (!work.settings?.carouselEditorial) return {};
@@ -272,12 +273,19 @@ async function persistCarouselWorkIfUnchanged(
 }
 
 /** Same projection the work GET route uses: no storage or settlement keys. */
-export function toPublicCarouselSlide(slide: CreativeWorkCarouselSlide): PublicCarouselSlide {
+export function toPublicCarouselSlide(
+  slide: CreativeWorkCarouselSlide,
+  deck?: { slides: Array<{ position: number; slideId: string }> } | null,
+): PublicCarouselSlide {
   const publicSlide: Record<string, unknown> = { ...slide };
   for (const key of PUBLIC_SLIDE_OMIT) {
     delete publicSlide[key];
   }
-  return { ...publicSlide, hasOutput: Boolean(slide.outputKey) } as PublicCarouselSlide;
+  return {
+    ...publicSlide,
+    hasOutput: Boolean(slide.outputKey),
+    planSlideId: resolveCarouselPlanSlideId(slide, deck),
+  } as PublicCarouselSlide;
 }
 
 export async function reviseCarouselSlide(

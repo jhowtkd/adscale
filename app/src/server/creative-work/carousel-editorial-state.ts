@@ -244,6 +244,7 @@ export function authorizeCarouselSlideClaim(input: {
   if (generationScope === "cover") {
     return slidePosition === 1 && editorial.approvedScriptRevision === scriptRevision;
   }
+  if (slidePosition === 1) return false;
   if (!coverSlideId) return false;
   return canDispatchCarouselInteriors(editorial, scriptRevision, preparedRevision, coverSlideId);
 }

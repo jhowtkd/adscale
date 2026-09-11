@@ -72,6 +72,7 @@ import {
   isCreativeWorkRevisionConflict,
 } from "@/server/repositories/creative-work";
 import { listCurrentCarouselSlides } from "@/server/repositories/creative-work-carousel";
+import { resolveCarouselPlanSlideId, resolveCarouselPreparedSnapshot } from "@/server/creative-work/carousel-contracts";
 import { readCarouselEditorial, toPublicCarouselEditorial } from "@/server/creative-work/carousel-editorial-state";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getTemplateById } from "@/server/repositories/template";
@@ -576,16 +577,28 @@ export async function GET(
     const carouselSlideRows = result.work.toolKind === "carousel"
       ? await listCurrentCarouselSlides(workspace.id, id)
       : [];
+    const carouselDeck = resolveCarouselPreparedSnapshot(result.work.inputSnapshot)?.deck ?? null;
     const carouselSlides = carouselSlideRows.map((slide) => {
       const {
         providerBaseKey: _providerBaseKey,
         outputKey,
         previewKey: _previewKey,
         anchorKey: _anchorKey,
-        generationOperationKey: _generationOperationKey,
+        generationOperationKey,
         ...publicSlide
       } = slide;
-      return { ...publicSlide, hasOutput: Boolean(outputKey) };
+      return {
+        ...publicSlide,
+        hasOutput: Boolean(outputKey),
+        planSlideId: resolveCarouselPlanSlideId(
+          {
+            position: slide.position,
+            deckRevision: slide.deckRevision,
+            generationOperationKey,
+          },
+          carouselDeck,
+        ),
+      };
     });
     return NextResponse.json({
       work: {
