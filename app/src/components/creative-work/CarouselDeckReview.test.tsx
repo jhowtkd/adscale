@@ -19,6 +19,8 @@ vi.mock("next-intl", () => ({
       approved: "Carrossel aprovado",
       exportAction: "Baixar carrossel (.zip)",
       exportRequiresApproval: "Aprove o carrossel para baixar o arquivo .zip.",
+      coverReviewTitle: "Revise a capa piloto",
+      approveCoverAndGenerate: "Aprovar capa e gerar demais slides",
     }[key] ?? key);
   },
 }));
@@ -152,5 +154,26 @@ describe("CarouselDeckReview", () => {
     expect(exportButton).toBeEnabled();
     fireEvent.click(exportButton);
     expect(onExport).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the cover approval button without generating on render", () => {
+    const onApproveCoverAndGenerate = vi.fn();
+    const onApprove = vi.fn();
+    renderReview({
+      coverReview: true,
+      canApproveCover: true,
+      onApproveCoverAndGenerate,
+      onApprove,
+      slides: [reviewSlide(1), ...[2, 3, 4, 5].map((position) => reviewSlide(position, { status: "draft", hasOutput: false }))],
+    });
+
+    expect(screen.getByRole("heading", { name: "Revise a capa piloto" })).toBeInTheDocument();
+    const coverButton = screen.getByRole("button", { name: "Aprovar capa e gerar demais slides" });
+    expect(coverButton).toBeEnabled();
+    expect(onApproveCoverAndGenerate).not.toHaveBeenCalled();
+    expect(onApprove).not.toHaveBeenCalled();
+    fireEvent.click(coverButton);
+    expect(onApproveCoverAndGenerate).toHaveBeenCalledTimes(1);
+    expect(onApprove).not.toHaveBeenCalled();
   });
 });

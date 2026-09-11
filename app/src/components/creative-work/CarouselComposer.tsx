@@ -9,6 +9,8 @@ import { CarouselSequenceBoard, type CarouselBoardSlide } from "./CarouselSequen
 import { CarouselSlideEditor, type CarouselEditorSlide } from "./CarouselSlideEditor";
 import { CarouselVisualSummary } from "./CarouselVisualSummary";
 import { CarouselDeckReview } from "./CarouselDeckReview";
+import { CarouselHookChoices } from "./CarouselHookChoices";
+import { publishableCarouselSources, safeCarouselHttpUrl } from "./carousel-composer-phase";
 import type { CarouselComposerController } from "./useCarouselComposer";
 
 function editorSlideFromPlan(slide: CarouselSlidePlanV1): CarouselEditorSlide {
@@ -80,6 +82,8 @@ export function CarouselComposer({
   const t = useTranslations("dashboard.home.composer.carousel");
   const styleInputRef = useRef<HTMLInputElement>(null);
   const firstQuestionRef = useRef<HTMLDivElement>(null);
+  const hooksHeadingRef = useRef<HTMLHeadingElement>(null);
+  const researchingHeadingRef = useRef<HTMLHeadingElement>(null);
   const sequenceHeadingRef = useRef<HTMLHeadingElement>(null);
   const reviewHeadingRef = useRef<HTMLHeadingElement>(null);
   const previousPhaseRef = useRef<string | null>(null);
@@ -90,7 +94,7 @@ export function CarouselComposer({
   const [retryTick, setRetryTick] = useState(0);
   const pendingRetryRef = useRef<string | null>(null);
 
-  const { draft, slides, phase, findings, isBusy } = carousel;
+  const { draft, editorial, slides, phase, findings, isBusy, editorialError } = carousel;
   // Mirrors the controller's internal editing gate: the draft is editable
   // while the sequence exists and no prepared revision has frozen it.
   const canEditDraft = phase === "sequence" && Boolean(draft?.plan) && !isBusy;
@@ -101,8 +105,22 @@ export function CarouselComposer({
   const failedCount = slides.filter((slide) => slide.status === "failed").length;
 
   const boardSlides: CarouselBoardSlide[] = (generated
-    ? slides.map((slide) => ({ id: slide.id, position: slide.position, role: slide.role, status: slide.status }))
-    : planSlides.map((slide) => ({ id: slide.slideId, position: slide.position, role: slide.role, status: null })));
+    ? slides.map((slide) => ({
+      id: slide.id,
+      position: slide.position,
+      role: slide.role,
+      status: slide.status,
+      primaryText: slide.primaryText,
+      visualDirection: editorial?.storyboard.find((item) => item.slideId === slide.id)?.representation ?? null,
+    }))
+    : planSlides.map((slide) => ({
+      id: slide.slideId,
+      position: slide.position,
+      role: slide.role,
+      status: null,
+      primaryText: slide.primaryText,
+      visualDirection: editorial?.storyboard.find((item) => item.slideId === slide.slideId)?.representation ?? null,
+    })));
 
   const plannedSlide = planSlides.find((slide) => slide.slideId === carousel.selectedSlideId)
     ?? (planSlides[0] as CarouselSlidePlanV1 | undefined);
@@ -123,13 +141,21 @@ export function CarouselComposer({
     (change): change is CarouselEditorialChangeV1 => change.status === "pending" && change.slideId === editorSlideId,
   );
 
+  const editorDirection = editorSlideId
+    ? editorial?.storyboard.find((item) => item.slideId === editorSlideId) ?? null
+    : null;
+  const caption = editorial?.caption ?? null;
+  const sources = publishableCarouselSources(editorial);
+
   useEffect(() => {
     const previous = previousPhaseRef.current;
     previousPhaseRef.current = phase;
     if (previous === null || previous === phase) return;
     if (phase === "questions") firstQuestionRef.current?.focus();
+    else if (phase === "researching") researchingHeadingRef.current?.focus();
+    else if (phase === "hooks") hooksHeadingRef.current?.focus();
     else if (phase === "sequence" || phase === "ready_to_generate") sequenceHeadingRef.current?.focus();
-    else if (phase === "review") reviewHeadingRef.current?.focus();
+    else if (phase === "cover_review" || phase === "review") reviewHeadingRef.current?.focus();
   }, [phase]);
 
   const { selectedSlide, retrySlide } = carousel;
@@ -228,6 +254,43 @@ export function CarouselComposer({
         </section>
       ) : null}
 
+      {phase === "researching" ? (
+        <section
+          data-testid="carousel-researching"
+          aria-labelledby="carousel-researching-title"
+          className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4"
+        >
+          <h2
+            id="carousel-researching-title"
+            ref={researchingHeadingRef}
+            tabIndex={-1}
+            className="flex items-center gap-2 text-base font-semibold text-[var(--text-primary)] focus-visible:outline-none"
+          >
+            <Loader2 size={16} aria-hidden="true" className="animate-spin" />
+            {t("researchingTitle")}
+          </h2>
+          <p role="status" aria-live="polite" className="mt-2 text-sm text-[var(--text-secondary)]">{t("researchingHint")}</p>
+        </section>
+      ) : null}
+
+      {phase === "hooks" && editorial ? (
+        <CarouselHookChoices
+          hooks={editorial.hooks}
+          recommendedHookId={editorial.recommendedHookId}
+          recommendation={editorial.recommendation}
+          busy={isBusy}
+          headingRef={hooksHeadingRef}
+          onSelect={(hookId, headline) => void carousel.selectHook(hookId, headline)}
+          onRegenerate={() => void carousel.regenerateHooks()}
+        />
+      ) : null}
+
+      {editorialError ? (
+        <p role="alert" aria-live="assertive" data-testid="carousel-editorial-error" className="text-sm font-medium text-[var(--danger-text)]">
+          {editorialError}
+        </p>
+      ) : null}
+
       {phase === "questions" ? (
         <section data-testid="carousel-questions" aria-label={t("questionsTitle")} className="space-y-3 rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
           <h2 className="text-base font-semibold text-[var(--text-primary)]">{t("questionsTitle")}</h2>
@@ -263,7 +326,7 @@ export function CarouselComposer({
         </section>
       ) : null}
 
-      {phase !== "entry" && phase !== "questions" ? (
+      {phase !== "entry" && phase !== "questions" && phase !== "researching" && phase !== "hooks" ? (
         <section aria-labelledby="carousel-sequence-title" className="space-y-4">
           <h2
             id="carousel-sequence-title"
@@ -274,6 +337,40 @@ export function CarouselComposer({
             {t("sequenceTitle")}
           </h2>
           <p className="text-sm text-[var(--text-muted)]">{t("sequenceHint")}</p>
+
+          {caption ? (
+            <p data-testid="carousel-caption" className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-2 text-sm text-[var(--text-secondary)]">
+              <span className="font-medium text-[var(--text-primary)]">{t("captionLabel")}: </span>
+              {caption}
+            </p>
+          ) : null}
+
+          {sources.length > 0 ? (
+            <details data-testid="carousel-sources" className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)]">
+              <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+                {t("sourcesTitle")}
+              </summary>
+              <ul className="space-y-2 border-t border-[var(--border-subtle)] px-3 py-2 text-sm text-[var(--text-secondary)]">
+                {sources.map((source) => {
+                  const href = safeCarouselHttpUrl(source.url);
+                  return (
+                    <li key={source.id}>
+                      {href ? (
+                        <a href={href} target="_blank" rel="noopener noreferrer" className="font-medium text-[var(--text-primary)] underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+                          {source.title}
+                        </a>
+                      ) : (
+                        <span>{source.title}</span>
+                      )}
+                      {source.checkedOn ? (
+                        <span className="ml-2 text-xs text-[var(--text-muted)]">{t("sourceCheckedOn", { date: source.checkedOn })}</span>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </details>
+          ) : null}
 
           {findings.length > 0 ? (
             <div data-testid="carousel-findings" className="space-y-1 rounded-[var(--radius-control)] border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3">
@@ -301,6 +398,7 @@ export function CarouselComposer({
             findings={editorFindings}
             canEditDraft={canEditDraft}
             isBusy={isBusy}
+            direction={editorDirection}
             onEdit={(slideId, field, value) => void carousel.editSlide(slideId, field, value)}
             onAcceptChange={(changeId) => void carousel.acceptChange(changeId)}
             onRejectChange={(changeId) => void carousel.rejectChange(changeId)}
@@ -315,7 +413,18 @@ export function CarouselComposer({
 
           {phase === "sequence" || phase === "ready_to_generate" ? (
             <div className="flex flex-wrap items-center justify-end gap-3">
-              {phase === "sequence" ? (
+              {carousel.canApproveScript ? (
+                <button
+                  type="button"
+                  data-testid="carousel-approve-script"
+                  disabled={!carousel.canApproveScript || isBusy}
+                  onClick={() => void carousel.approveScript()}
+                  className="inline-flex min-h-[var(--control-touch)] items-center rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {t("approveScript")}
+                </button>
+              ) : null}
+              {phase === "sequence" && !carousel.canApproveScript ? (
                 <button
                   type="button"
                   data-testid="carousel-prepare"
@@ -326,20 +435,25 @@ export function CarouselComposer({
                   {t("prepareAction")}
                 </button>
               ) : null}
-              <button
-                type="button"
-                data-testid="carousel-generate"
-                disabled={!carousel.canGenerate || isBusy}
-                onKeyDown={(event) => {
-                  // Enter never triggers generation; the single explicit
-                  // confirmation is a pointer click on this button.
-                  if (event.key === "Enter") event.preventDefault();
-                }}
-                onClick={() => void carousel.generateCarousel()}
-                className="inline-flex min-h-[var(--control-touch)] items-center rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {t("generateAction")}
-              </button>
+              {phase === "ready_to_generate" || carousel.canGenerate ? (
+                <div className="flex flex-col items-end gap-1">
+                  <button
+                    type="button"
+                    data-testid="carousel-generate"
+                    disabled={!carousel.canGenerate || isBusy}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.preventDefault();
+                    }}
+                    onClick={() => void carousel.generateCarousel()}
+                    className="inline-flex min-h-[var(--control-touch)] items-center rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--action-primary-text)] hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {t("generateCoverAction")}
+                  </button>
+                  <p data-testid="carousel-cover-budget" className="text-xs text-[var(--text-muted)]">
+                    {t("coverBudget", { count: carousel.coverQuote.unitCount, credits: carousel.coverQuote.credits })}
+                  </p>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </section>
@@ -354,7 +468,7 @@ export function CarouselComposer({
         </section>
       ) : null}
 
-      {phase === "review" || phase === "generating" ? (
+      {phase === "review" || phase === "generating" || phase === "cover_review" ? (
         <>
           <p
             role="status"
@@ -364,7 +478,7 @@ export function CarouselComposer({
           >
             {t("progressAnnouncement", { completed: completedCount, failed: failedCount, total: slides.length })}
           </p>
-          {phase === "review" ? (
+          {phase === "review" || phase === "cover_review" ? (
             <CarouselDeckReview
               headingRef={reviewHeadingRef}
               slides={slides}
@@ -379,6 +493,9 @@ export function CarouselComposer({
                 && slides.every((slide) => slide.status === "completed"),
               )}
               isBusy={isBusy}
+              coverReview={phase === "cover_review"}
+              canApproveCover={carousel.canApproveCover}
+              onApproveCoverAndGenerate={() => void carousel.approveCoverAndGenerate()}
               onApprove={() => void carousel.approveDeck()}
               onDownloadSlide={(slideId) => carousel.downloadSlide(slideId)}
               onExport={() => void carousel.exportDeck()}

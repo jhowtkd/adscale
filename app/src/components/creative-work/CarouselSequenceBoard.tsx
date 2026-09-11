@@ -11,6 +11,8 @@ export type CarouselBoardSlide = {
   position: number;
   role: CarouselNarrativeRole;
   status: CarouselSlideStatus | null;
+  primaryText?: string | null;
+  visualDirection?: string | null;
 };
 
 /**
@@ -119,6 +121,16 @@ export function CarouselSequenceBoard({
                     <span className="mt-1 block text-xs text-[var(--text-muted)]">
                       {t(`status_${slide.status ?? "draft"}`)}
                     </span>
+                    {slide.primaryText ? (
+                      <span className="mt-2 block text-sm leading-snug text-[var(--text-primary)]">
+                        {slide.primaryText}
+                      </span>
+                    ) : null}
+                    {slide.visualDirection ? (
+                      <span className="mt-1 block text-xs leading-snug text-[var(--text-secondary)]">
+                        {slide.visualDirection}
+                      </span>
+                    ) : null}
                   </button>
                   <button
                       type="button"

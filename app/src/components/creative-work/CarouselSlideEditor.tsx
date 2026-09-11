@@ -13,6 +13,7 @@ import type {
 } from "@/server/creative-work/carousel-contracts";
 import type { CarouselEditableField } from "./useCarouselComposer";
 import { CAROUSEL_NARRATIVE_ROLES } from "@/server/creative-work/carousel-contracts";
+import type { SlideDirection } from "@/server/creative-work/carousel-editorial-state";
 
 export type CarouselEditorSlide = {
   id: string;
@@ -53,12 +54,14 @@ export function CarouselSlideEditor({
   onCopyRevision,
   onVisualRevision,
   onRetry,
+  direction = null,
 }: {
   slide: CarouselEditorSlide | null;
   pendingChanges: CarouselEditorialChangeV1[];
   findings: CarouselStructureFinding[];
   canEditDraft: boolean;
   isBusy: boolean;
+  direction?: SlideDirection | null;
   onEdit: (slideId: string, field: CarouselEditableField, value: string) => void;
   onAcceptChange: (changeId: string) => void;
   onRejectChange: (changeId: string) => void;
@@ -175,6 +178,27 @@ export function CarouselSlideEditor({
           {slide.versionNumber ? ` · v${slide.versionNumber}` : ""}
         </span>
       </div>
+
+      {direction ? (
+        <dl data-testid="carousel-slide-direction" className="mt-3 grid gap-2 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3 text-sm text-[var(--text-secondary)]">
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t("visualLearning")}</dt>
+            <dd className="mt-0.5">{direction.learning}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t("visualRepresentation")}</dt>
+            <dd className="mt-0.5">{direction.representation}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t("visualHierarchy")}</dt>
+            <dd className="mt-0.5">{direction.hierarchy}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t("visualTransition")}</dt>
+            <dd className="mt-0.5">{direction.transition}</dd>
+          </div>
+        </dl>
+      ) : null}
 
       {slide.copyAuthority === "human_edit" ? (
         <p data-testid="carousel-slide-human-edit" className="mt-2 text-xs font-medium text-[var(--text-secondary)]">

@@ -14,6 +14,8 @@ import {
   type CarouselNarrativeRole,
 } from "@/server/creative-work/carousel-contracts";
 import type { PreparedPlanProjectionV1 } from "@/server/creative-work/prepared-plan";
+import type { CarouselEditorialState } from "@/server/creative-work/carousel-editorial-state";
+import { CreativeWorkRequestError } from "@/lib/hooks/use-creative-work";
 
 const mocks = vi.hoisted(() => ({
   work: vi.fn(),
@@ -124,8 +126,45 @@ function publicSlide(slide: ReturnType<typeof planSlide>, overrides: Record<stri
   };
 }
 
+function editorialState(overrides: Partial<CarouselEditorialState> = {}): CarouselEditorialState {
+  return {
+    version: 1,
+    revision: "script-1",
+    contextHash: "ctx-1",
+    research: {
+      status: "not_needed",
+      question: "O grupo começa em agosto?",
+      thesis: "O consultório abre grupo em agosto.",
+      sources: [],
+      claims: [],
+      gaps: [],
+    },
+    hooks: [
+      { id: "hook-1", headline: "Grupo em agosto", promise: "Vagas limitadas", narrative: "Fato, prova, inscrição" },
+      { id: "hook-2", headline: "Comece o cuidado", promise: "Rotina em grupo", narrative: "Dor, método, convite" },
+      { id: "hook-3", headline: "Agosto abre vagas", promise: "Turma pequena", narrative: "Novidade, critério, CTA" },
+    ],
+    recommendedHookId: "hook-1",
+    recommendation: "Abre com o fato datado.",
+    selectedHookId: null,
+    storyboard: [
+      { slideId: "slide-1", learning: "Data", representation: "Tipografia com o fato principal", hierarchy: "Título", transition: "Prova", claimIds: [] },
+      { slideId: "slide-2", learning: "Oferta", representation: "Comparar duas rotinas", hierarchy: "Dois blocos", transition: "Contraste", claimIds: [] },
+      { slideId: "slide-3", learning: "Método", representation: "Diagrama", hierarchy: "Passos", transition: "Convite", claimIds: [] },
+      { slideId: "slide-4", learning: "Prova", representation: "Detalhe", hierarchy: "Citação", transition: "Ação", claimIds: [] },
+      { slideId: "slide-5", learning: "CTA", representation: "Tipografia", hierarchy: "Ação", transition: "Fim", claimIds: [] },
+    ],
+    caption: "Inscreva-se pelo WhatsApp",
+    approvedScriptRevision: null,
+    approvedCover: null,
+    confirmedInteriorsRevision: null,
+    ...overrides,
+  };
+}
+
 function carouselDetail(overrides: {
   draft?: CarouselDraftStateV1 | null;
+  editorial?: CarouselEditorialState | null;
   preparedPlan?: PreparedPlanProjectionV1 | null;
   slides?: ReturnType<typeof publicSlide>[];
   status?: string;
@@ -133,6 +172,7 @@ function carouselDetail(overrides: {
   carouselQuality?: Record<string, unknown> | null;
 } = {}): CreativeWorkDetail {
   const draft = overrides.draft === undefined ? carouselDraft({ plan: carouselPlan() }) : overrides.draft;
+  const editorial = overrides.editorial === undefined ? null : overrides.editorial;
   return {
     work: {
       id: WORK_ID,
@@ -147,7 +187,11 @@ function carouselDetail(overrides: {
       status: (overrides.status ?? "draft") as CreativeWorkDetail["work"]["status"],
       brief: { theme: "tema", objective: "objetivo", audience: "público", offer: null },
       format: "4:5",
-      settings: { targetFormats: [], ...(draft ? { carouselDraft: draft } : {}) },
+      settings: {
+        targetFormats: [],
+        ...(draft ? { carouselDraft: draft } : {}),
+        ...(editorial ? { carouselEditorial: editorial } : {}),
+      },
       copy: null,
       identitySnapshot: null,
       carouselApprovedRevision: overrides.carouselApprovedRevision ?? null,
@@ -273,7 +317,7 @@ describe("useCarouselComposer phase derivation", () => {
     queryClient.setQueryData(creativeWorkKey(WORK_ID), carouselDetail());
     const sequence = renderComposer();
     expect(sequence.result.current.phase).toBe("sequence");
-    expect(sequence.result.current.canPrepare).toBe(true);
+    expect(sequence.result.current.canPrepare).toBe(false);
     expect(sequence.result.current.canGenerate).toBe(false);
 
     queryClient.setQueryData(
@@ -317,6 +361,48 @@ describe("useCarouselComposer phase derivation", () => {
     expect(review.result.current.slides).toHaveLength(5);
     expect(review.result.current.selectedSlide?.id).toBe("slide-1");
     expect(review.result.current.canApprove).toBe(true);
+  });
+
+  it("reloads hooks, script and cover from persisted editorial", () => {
+    bindWorkToCache();
+
+    queryClient.setQueryData(
+      creativeWorkKey(WORK_ID),
+      carouselDetail({ draft: carouselDraft({ plan: null }), editorial: editorialState() }),
+    );
+    const hooks = renderComposer();
+    expect(hooks.result.current.phase).toBe("hooks");
+    expect(hooks.result.current.editorial?.hooks).toHaveLength(3);
+
+    queryClient.setQueryData(
+      creativeWorkKey(WORK_ID),
+      carouselDetail({ editorial: editorialState({ selectedHookId: "hook-1" }) }),
+    );
+    const script = renderComposer();
+    expect(script.result.current.phase).toBe("sequence");
+    expect(script.result.current.canApproveScript).toBe(true);
+
+    queryClient.setQueryData(
+      creativeWorkKey(WORK_ID),
+      carouselDetail({
+        editorial: editorialState({
+          selectedHookId: "hook-1",
+          approvedScriptRevision: "script-1",
+        }),
+        preparedPlan: carouselPreparedPlan(),
+        slides: [
+          publicSlide(planSlide(1, "hook"), { status: "completed" }),
+          publicSlide(planSlide(2, "context"), { status: "draft", hasOutput: false }),
+          publicSlide(planSlide(3, "problem"), { status: "draft", hasOutput: false }),
+          publicSlide(planSlide(4, "argument"), { status: "draft", hasOutput: false }),
+          publicSlide(planSlide(5, "cta"), { status: "draft", hasOutput: false }),
+        ],
+      }),
+    );
+    const cover = renderComposer(null, carouselPreparedPlan());
+    expect(cover.result.current.phase).toBe("cover_review");
+    expect(cover.result.current.canApproveCover).toBe(true);
+    expect(cover.result.current.canGenerate).toBe(false);
   });
 });
 
@@ -481,7 +567,10 @@ describe("useCarouselComposer draft editing", () => {
 
 describe("useCarouselComposer prepare and generate", () => {
   beforeEach(() => {
-    queryClient.setQueryData(creativeWorkKey(WORK_ID), carouselDetail());
+    queryClient.setQueryData(
+      creativeWorkKey(WORK_ID),
+      carouselDetail({ editorial: editorialState({ selectedHookId: "hook-1", approvedScriptRevision: "script-1" }) }),
+    );
     bindWorkToCache();
   });
 
@@ -722,5 +811,146 @@ describe("useCarouselComposer approval and export", () => {
     } finally {
       window.open = originalOpen;
     }
+  });
+});
+
+describe("useCarouselComposer editorial commands", () => {
+  it("selects a hook without confirming image generation", async () => {
+    queryClient.setQueryData(
+      creativeWorkKey(WORK_ID),
+      carouselDetail({ draft: carouselDraft({ plan: null }), editorial: editorialState() }),
+    );
+    bindWorkToCache();
+    mocks.plan.mockResolvedValue({
+      work: {},
+      draft: carouselDraft(),
+      editorial: editorialState({ selectedHookId: "hook-1" }),
+    });
+    const { result } = renderComposer();
+
+    await act(() => result.current.selectHook("hook-1"));
+
+    expect(mocks.plan).toHaveBeenCalledWith(expect.objectContaining({
+      command: { kind: "select_hook", hookId: "hook-1" },
+    }));
+    expect(mocks.confirmGeneration).not.toHaveBeenCalled();
+    expect(mocks.preparePlan).not.toHaveBeenCalled();
+  });
+
+  it("approves the script then leaves cover generation to the existing confirm", async () => {
+    queryClient.setQueryData(
+      creativeWorkKey(WORK_ID),
+      carouselDetail({ editorial: editorialState({ selectedHookId: "hook-1" }) }),
+    );
+    bindWorkToCache();
+    mocks.plan.mockResolvedValue({
+      work: {},
+      draft: carouselDraft({ plan: carouselPlan() }),
+      editorial: editorialState({ selectedHookId: "hook-1", approvedScriptRevision: "script-1" }),
+    });
+    const { result } = renderComposer();
+
+    await act(() => result.current.approveScript());
+
+    expect(mocks.plan).toHaveBeenCalledWith(expect.objectContaining({
+      command: { kind: "approve_script", scriptRevision: "script-1" },
+    }));
+    expect(mocks.confirmGeneration).not.toHaveBeenCalled();
+  });
+
+  it("approves the cover then prepares interiors and confirms only while the revision stays current", async () => {
+    const approvedEditorial = editorialState({
+      selectedHookId: "hook-1",
+      approvedScriptRevision: "script-1",
+      approvedCover: { slideId: "slide-1", scriptRevision: "script-1", preparedRevision: "prep-1" },
+    });
+    queryClient.setQueryData(
+      creativeWorkKey(WORK_ID),
+      carouselDetail({
+        editorial: editorialState({ selectedHookId: "hook-1", approvedScriptRevision: "script-1" }),
+        preparedPlan: carouselPreparedPlan(),
+        slides: [
+          publicSlide(planSlide(1, "hook"), { status: "completed" }),
+          publicSlide(planSlide(2, "context"), { status: "draft", hasOutput: false }),
+          publicSlide(planSlide(3, "problem"), { status: "draft", hasOutput: false }),
+          publicSlide(planSlide(4, "argument"), { status: "draft", hasOutput: false }),
+          publicSlide(planSlide(5, "cta"), { status: "draft", hasOutput: false }),
+        ],
+      }),
+    );
+    bindWorkToCache();
+    mocks.plan.mockResolvedValue({
+      work: { updatedAt: NOW },
+      draft: carouselDraft({ plan: carouselPlan() }),
+      editorial: approvedEditorial,
+    });
+    mocks.preparePlan.mockResolvedValue(carouselPreparedPlan());
+    const { result } = renderComposer(null, carouselPreparedPlan());
+
+    await act(() => result.current.approveCoverAndGenerate());
+
+    expect(mocks.plan).toHaveBeenCalledWith(expect.objectContaining({
+      command: { kind: "approve_cover", slideId: "slide-1", preparedRevision: "prep-1" },
+    }));
+    expect(mocks.preparePlan).toHaveBeenCalledTimes(1);
+    expect(mocks.confirmGeneration).toHaveBeenCalledTimes(1);
+    expect(mocks.confirmGeneration).toHaveBeenCalledWith("prep-1");
+  });
+
+  it("stops the lote when prepare returns a different revision", async () => {
+    queryClient.setQueryData(
+      creativeWorkKey(WORK_ID),
+      carouselDetail({
+        editorial: editorialState({ selectedHookId: "hook-1", approvedScriptRevision: "script-1" }),
+        preparedPlan: carouselPreparedPlan(),
+        slides: [
+          publicSlide(planSlide(1, "hook"), { status: "completed" }),
+          publicSlide(planSlide(2, "context"), { status: "draft", hasOutput: false }),
+          publicSlide(planSlide(3, "problem"), { status: "draft", hasOutput: false }),
+          publicSlide(planSlide(4, "argument"), { status: "draft", hasOutput: false }),
+          publicSlide(planSlide(5, "cta"), { status: "draft", hasOutput: false }),
+        ],
+      }),
+    );
+    bindWorkToCache();
+    mocks.plan.mockResolvedValue({
+      work: { updatedAt: NOW },
+      draft: carouselDraft({ plan: carouselPlan() }),
+      editorial: editorialState({
+        selectedHookId: "hook-1",
+        approvedScriptRevision: "script-1",
+        approvedCover: { slideId: "slide-1", scriptRevision: "script-1", preparedRevision: "prep-1" },
+      }),
+    });
+    mocks.preparePlan.mockResolvedValue(carouselPreparedPlan("prep-stale"));
+    const { result } = renderComposer(null, carouselPreparedPlan());
+
+    await act(() => result.current.approveCoverAndGenerate());
+
+    expect(mocks.preparePlan).toHaveBeenCalledTimes(1);
+    expect(mocks.confirmGeneration).not.toHaveBeenCalled();
+  });
+
+  it("keeps a recoverable research failure and does not confirm generation", async () => {
+    queryClient.setQueryData(
+      creativeWorkKey(WORK_ID),
+      carouselDetail({ draft: carouselDraft({ plan: null }), editorial: editorialState() }),
+    );
+    bindWorkToCache();
+    mocks.plan.mockRejectedValue(
+      new CreativeWorkRequestError(
+        "A evidência não basta para sustentar a tese. Restrinja o argumento ou envie fontes.",
+        "research_insufficient",
+        422,
+        { gaps: ["Falta a data de abertura"] },
+      ),
+    );
+    const { result } = renderComposer();
+
+    await act(() => result.current.regenerateHooks());
+
+    expect(result.current.editorialError).toMatch(/evidência não basta/);
+    expect(mocks.confirmGeneration).not.toHaveBeenCalled();
+    expect(result.current.phase).toBe("hooks");
   });
 });
