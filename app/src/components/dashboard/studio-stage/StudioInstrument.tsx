@@ -42,7 +42,7 @@ export const studioFilterStripClass =
 
 /** TalkBox protocol switcher: hug content, selected pill only — no outer stroke. */
 export const studioSwitcherClass =
-  "-ml-3 inline-flex max-w-full flex-nowrap items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+  "flex min-h-8 max-w-full flex-nowrap items-center gap-0.5 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 /** Image-led bento: columns hug each asset box instead of equal cards. */
 export const studioBentoClass =

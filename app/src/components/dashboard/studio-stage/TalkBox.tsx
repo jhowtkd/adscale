@@ -175,7 +175,7 @@ export function TalkBox({
       borderWidth={1}
       duration={28}
       color={[...SHINE_COLORS]}
-      className={cn("h-auto w-full min-w-0", !centered && "flex min-h-0 flex-[0_1_auto] flex-col")}
+      className={cn("h-auto w-full min-w-0", !centered && "flex flex-[0_0_auto] flex-col")}
     >
       <div
         data-testid="studio-talk-box"

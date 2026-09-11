@@ -69,7 +69,8 @@
 }
 
 .workspace[data-empty="false"] {
-  overflow: clip;
+  /* Clip posters on .desk only. Overflow here also clipped the docked TalkBox
+     (protocol pills + request card) when the expanded box grew upward. */
   min-height: min(42rem, calc(100dvh - (var(--shell-v6-gap) * 2)));
 }
 
@@ -89,15 +90,20 @@
   max-height: calc(100% - max(0.75rem, env(safe-area-inset-bottom)));
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: stretch;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-block: 0.25rem;
 }
 
 .workspace[data-empty="false"] .dock > * {
-  flex: 0 1 auto;
+  /* Spare space keeps the box on the floor; overflow keeps pills + request at the top. */
+  flex: 0 0 auto;
   height: auto;
-  max-height: 100%;
-  min-height: 0;
+  max-height: none;
+  min-height: min-content;
+  margin-top: auto;
 }
 
 .controls {
@@ -108,7 +114,7 @@
 }
 
 .controls[data-expanded="true"] {
-  grid-template-rows: 1fr;
+  grid-template-rows: auto;
 }
 
 .controlsInner {
@@ -116,22 +122,26 @@
   min-height: 0;
 }
 
+.controls[data-expanded="true"] .controlsInner {
+  overflow: visible;
+  min-height: min-content;
+}
+
 .body {
-  min-height: 0;
-  flex: 0 1 auto;
-  overflow-x: auto;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  flex: 0 0 auto;
+  min-height: min-content;
+  overflow: visible;
+  padding-block: 0.25rem;
 }
 
 .talkBox {
   display: flex;
   flex-direction: column;
   height: auto;
-  max-height: 100%;
-  min-height: 0;
-  flex: 0 1 auto;
-  overflow: hidden;
+  max-height: none;
+  min-height: min-content;
+  flex: 0 0 auto;
+  overflow: visible;
   overflow-anchor: none;
 }
 

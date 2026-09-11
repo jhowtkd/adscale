@@ -20,6 +20,14 @@ const required = {
   generateLabel: "Gerar",
 };
 
+it("não encolhe a caixa dock abaixo do chrome das pills e do pedido", () => {
+  render(<TalkBox {...required} onGenerate={vi.fn()} />);
+  const wrap = screen.getByTestId("studio-talk-box").parentElement!;
+  expect(wrap.className).toContain("flex-[0_0_auto]");
+  expect(wrap.className).not.toContain("min-h-0");
+  expect(wrap.className).not.toContain("flex-[0_1_auto]");
+});
+
 it("separa o botão de expansão do resumo recolhido", () => {
   render(
     <TalkBox

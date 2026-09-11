@@ -18,11 +18,17 @@ describe("ProtocolRadios", () => {
     render(<ProtocolRadios selected="variations" onSelect={onSelect} />);
 
     const group = screen.getByRole("radiogroup");
-    expect(group.className).toContain("inline-flex");
+    expect(group.className).toMatch(/(?:^|\s)flex(?:\s|$)/);
     expect(group.className).toContain("flex-nowrap");
+    expect(group.className).toContain("min-h-8");
+    expect(group.className).toContain("py-1");
+    expect(group.className).not.toContain("inline-flex");
+    expect(group.className).not.toContain("-ml-3");
     expect(group.className).not.toContain("border-white/15");
     expect(group.className).not.toMatch(/(?:^|\s)border(?:\s|$)/);
     const selected = screen.getByRole("radio", { name: "variations" });
+    expect(selected.className).toContain("inline-flex");
+    expect(selected.className).toContain("items-center");
     expect(selected.getAttribute("style") ?? "").toMatch(/linear-gradient/i);
     expect(selected.className).toContain("text-[#0a0a0a]");
     fireEvent.click(screen.getByRole("radio", { name: "single" }));
