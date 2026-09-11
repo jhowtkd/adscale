@@ -479,6 +479,92 @@ describe("exportCarouselWork", () => {
     expect(Object.keys(zip.files).filter((name) => name.endsWith(".json"))).toEqual(["manifest.json"]);
   });
 
+  it("omits discovered sources from ZIP references and keeps opened and provided", async () => {
+    const approved = approvedWorkFixture();
+    repo.getCreativeWork.mockResolvedValue({
+      ...approved,
+      work: {
+        ...approved.work,
+        settings: {
+          carouselEditorial: {
+            version: 1,
+            revision: "script-1",
+            contextHash: "ctx-1",
+            research: {
+              status: "ready",
+              question: "O grupo começa em agosto?",
+              thesis: "Grupo de terapia começa em agosto",
+              sources: [
+                {
+                  id: "S-discovered",
+                  url: "https://example.org/snippet",
+                  sourceId: null,
+                  title: "Snippet de busca",
+                  checkedOn: null,
+                  publicationDate: null,
+                  evidence: "Trecho indexado",
+                  limitations: ["Apenas resultado de busca"],
+                  access: "discovered",
+                },
+                {
+                  id: "S-opened",
+                  url: "https://example.org/agenda",
+                  sourceId: null,
+                  title: "Agenda oficial",
+                  checkedOn: "2026-09-10",
+                  publicationDate: null,
+                  evidence: "Turmas em setembro",
+                  limitations: [],
+                  access: "opened",
+                },
+                {
+                  id: "S-provided",
+                  url: null,
+                  sourceId: "source-this-work",
+                  title: "Material autorizado",
+                  checkedOn: null,
+                  publicationDate: null,
+                  evidence: "Grupo de terapia começa em agosto",
+                  limitations: [],
+                  access: "provided",
+                },
+              ],
+              claims: [],
+              gaps: [],
+            },
+            hooks: [],
+            recommendedHookId: null,
+            recommendation: null,
+            selectedHookId: null,
+            storyboard: [],
+            caption: "Legenda viva",
+            approvedScriptRevision: "script-1",
+            approvedCover: null,
+            confirmedInteriorsRevision: null,
+          },
+        },
+      },
+    });
+
+    const result = await exportCarouselWork({ workspaceId: WORKSPACE, workItemId: WORK });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const zipBuffer = await collectStream(result.value.stream);
+    const zip = await JSZip.loadAsync(zipBuffer);
+    expect(Object.keys(zip.files)).toEqual([
+      "01.png", "02.png", "03.png", "04.png", "05.png", "manifest.json",
+    ]);
+    const manifest = JSON.parse(await zip.files["manifest.json"].async("string"));
+    expect(manifest.version).toBe(1);
+    expect(manifest.references).toEqual([
+      { title: "Agenda oficial", url: "https://example.org/agenda" },
+      { title: "Material autorizado", url: null },
+    ]);
+    expect(JSON.stringify(manifest.references)).not.toContain("Snippet de busca");
+    expect(JSON.stringify(manifest.references)).not.toContain("example.org/snippet");
+  });
+
   it("rebuilds the same manifest on replay", async () => {
     const first = await exportCarouselWork({ workspaceId: WORKSPACE, workItemId: WORK });
     const second = await exportCarouselWork({ workspaceId: WORKSPACE, workItemId: WORK });
@@ -541,5 +627,45 @@ describe("buildCarouselManifest", () => {
       "primaryText", "role", "secondaryText", "slideId", "sourceFactIds", "versionNumber",
     ].sort());
     expect(JSON.stringify(manifest)).not.toMatch(/outputKey|providerBaseKey|previewKey|anchorKey|prompt|storageKey|quality/);
+  });
+
+  it("honors a frozen caption of null instead of the live editorial caption", () => {
+    const approved = approvedWorkFixture();
+    const snapshot = (approved.work.inputSnapshot as { carousel: Record<string, unknown> }).carousel;
+    const manifest = buildCarouselManifest({
+      work: {
+        ...approved.work,
+        settings: {
+          carouselEditorial: {
+            version: 1,
+            revision: "script-1",
+            contextHash: "ctx-1",
+            research: { status: "not_needed", question: "", thesis: "", sources: [], claims: [], gaps: [] },
+            hooks: [],
+            recommendedHookId: null,
+            recommendation: null,
+            selectedHookId: null,
+            storyboard: [],
+            caption: "Legenda viva do envelope",
+            approvedScriptRevision: "script-1",
+            approvedCover: null,
+            confirmedInteriorsRevision: null,
+          },
+        },
+        inputSnapshot: {
+          ...approved.work.inputSnapshot,
+          carousel: { ...snapshot, caption: null },
+        },
+      },
+      deckRevision: DECK_REVISION,
+      approvedAt: APPROVED_AT,
+      slides: completedDeck([1]).map((slide) => ({
+        ...slide,
+        outputHash: createHash("sha256").update(Buffer.from("png-bytes-1")).digest("hex"),
+      })),
+    });
+
+    expect(manifest.version).toBe(1);
+    expect(manifest.caption).toBeNull();
   });
 });

@@ -9,7 +9,10 @@ import {
   type CarouselCopyAuthority,
   type CarouselNarrativeRole,
 } from "@/server/creative-work/carousel-contracts";
-import { readCarouselEditorial } from "@/server/creative-work/carousel-editorial-state";
+import {
+  readCarouselEditorial,
+  sourceSustainsClaim,
+} from "@/server/creative-work/carousel-editorial-state";
 import type {
   CreativeWorkCarouselSlide,
   CreativeWorkItem,
@@ -95,11 +98,13 @@ export function buildCarouselManifest(input: {
     format: snapshot.deck.format,
     visualContractHash: snapshot.visualContract.contractHash,
     approvedAt: input.approvedAt,
-    caption: snapshot.caption ?? editorial?.caption ?? null,
-    references: (editorial?.research.sources ?? []).map((source) => ({
-      title: source.title,
-      url: source.url,
-    })),
+    caption: snapshot.caption !== undefined ? snapshot.caption : editorial?.caption ?? null,
+    references: (editorial?.research.sources ?? [])
+      .filter(sourceSustainsClaim)
+      .map((source) => ({
+        title: source.title,
+        url: source.url,
+      })),
     slides: ordered.map((slide) => ({
       position: slide.position,
       fileName: `${String(slide.position).padStart(2, "0")}.png`,
