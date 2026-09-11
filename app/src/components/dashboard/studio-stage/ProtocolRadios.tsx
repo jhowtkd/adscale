@@ -23,7 +23,7 @@ export const protocolShineFill = {
 export function protocolRadioClass(checked: boolean) {
   return cn(
     discreetRadioClass(false),
-    "shrink-0 whitespace-nowrap",
+    "inline-flex shrink-0 items-center whitespace-nowrap",
     checked && "text-[#0a0a0a] hover:bg-transparent hover:text-[#0a0a0a]",
   );
 }
