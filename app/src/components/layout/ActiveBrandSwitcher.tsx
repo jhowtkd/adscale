@@ -41,8 +41,24 @@ export default function ActiveBrandSwitcher({
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const deleteProfile = useDeleteClientProfile();
+  const grouped = variant === "grouped";
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <span
+        data-testid="brand-switcher-loading"
+        aria-busy="true"
+        aria-label={t("activeBrand")}
+        className={cn(
+          grouped
+            ? cn(studioChipClass, "pointer-events-none min-w-0 max-w-full", className)
+            : "flex h-full min-w-[8rem] items-center bg-transparent px-3",
+        )}
+      >
+        <span className="h-3 w-24 max-w-full animate-pulse rounded-full bg-white/12" />
+      </span>
+    );
+  }
 
   const handleChange = (value: string) => {
     if (value === NEW_BRAND_VALUE) {
@@ -51,8 +67,6 @@ export default function ActiveBrandSwitcher({
     }
     selectProfile(value);
   };
-
-  const grouped = variant === "grouped";
 
   const menu = (
     <DropdownMenu>

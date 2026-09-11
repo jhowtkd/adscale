@@ -55,6 +55,24 @@ describe("ActiveBrandSwitcher", () => {
     expect(screen.getByRole("menuitem", { name: "Brand One" })).toBeInTheDocument();
   });
 
+  it("keeps the Palco grouped chip as a loading skeleton instead of vanishing", () => {
+    mockUseActiveClientProfile.mockReturnValue({
+      profiles: [],
+      activeProfile: null,
+      activeClientProfileId: null,
+      requiresSelection: false,
+      isLoading: true,
+      selectProfile: vi.fn(),
+    } as ReturnType<typeof useActiveClientProfile>);
+
+    render(<ActiveBrandSwitcher variant="grouped" className="min-w-0 flex-1 max-w-[16rem]" />);
+
+    const loading = screen.getByTestId("brand-switcher-loading");
+    expect(loading).toHaveAttribute("aria-busy", "true");
+    expect(loading).toHaveAttribute("aria-label", "activeBrand");
+    expect(screen.queryByRole("button", { name: "activeBrand" })).not.toBeInTheDocument();
+  });
+
   it("hides deletion in the Palco grouped control", () => {
     mockUseActiveClientProfile.mockReturnValue({
       profiles: [profiles[0]],

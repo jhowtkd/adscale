@@ -470,6 +470,7 @@
       "stageHeadline": "O que a {name} precisa sair hoje?",
       "stageHeadlineAnonymous": "O que precisa sair hoje?",
       "stageEmptySubtitle": "A marca já está no palco. É só pedir a primeira peça.",
+      "stageEmptySubtitleAnonymous": "Escolha uma marca para subir no palco.",
       "talkAttach": "Anexar até 3",
       "talkAttachReference": "Anexar referência",
       "talkAttachCount": "{count} de 3 anexos",

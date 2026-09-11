@@ -110,6 +110,27 @@ it("não mostra o botão de expansão sem onExpandedChange", () => {
   expect(screen.getByRole("button", { name: "Gerar" })).toBeInTheDocument();
 });
 
+it("não mostra Abrir controles no Palco vazio até o pedido receber foco", () => {
+  function Harness() {
+    const [expanded, setExpanded] = useState(false);
+    return (
+      <TalkBox
+        {...required}
+        placement="center"
+        request=""
+        intent="single"
+        onGenerate={vi.fn()}
+        expanded={expanded}
+        onExpandedChange={setExpanded}
+      />
+    );
+  }
+  render(<Harness />);
+  expect(screen.queryByRole("button", { name: "studioDesk.expand" })).not.toBeInTheDocument();
+  fireEvent.focus(document.querySelector("#creative-composer-request")!);
+  expect(screen.getByRole("button", { name: "studioDesk.collapse" })).toBeInTheDocument();
+});
+
 it("revela os rádios de protocolo ao expandir a caixa na primeira visita", () => {
   function Harness() {
     const [expanded, setExpanded] = useState(false);

@@ -27,6 +27,8 @@ import { firstVisitComposerIntent } from "@/lib/studio/detect-entry-gaps";
 import { studioStageOccupancy } from "@/lib/studio/stage-occupancy";
 import { useCreateCampaign } from "@/lib/hooks/use-campaigns";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { StudioMode } from "@/app/(dashboard)/dashboard-search-params";
 import { getOrCreateStudioSession, type StudioRolloutVariant } from "@/lib/beta-analytics/studio-session";
@@ -94,9 +96,9 @@ function ContinueWorkCard({
       >
         <ContinueWorkThumbnail outputs={data?.outputs ?? []} className="size-6 rounded-md border-0 bg-transparent" />
         <span className="min-w-0">
-          <span id="continue-work-title" className="block font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--text-muted)]">{t("continueWhereLeftOff")}</span>
+          <span id="continue-work-title" className="block font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">{t("continueWhereLeftOff")}</span>
           <span className="mt-0.5 flex min-w-0 items-center gap-1">
-            <span className="truncate text-[11px] font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">{target.name}</span>
+            <span className="truncate text-xs font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">{target.name}</span>
             <ArrowRight size={11} className="shrink-0 text-[var(--text-muted)] transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
           </span>
           <span className="sr-only">{meta}</span>
@@ -166,11 +168,11 @@ function CreateCampaignDialog({
       <form onSubmit={(event) => void submit(event)}>
         <DialogHeader><DialogTitle>{t("campaignDialog.title")}</DialogTitle></DialogHeader>
         <DialogBody className="space-y-4">
-          <label className="block text-sm font-medium text-[var(--text-primary)]">{t("campaignDialog.nameLabel")}<input aria-label={t("campaignDialog.nameLabel")} required value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-3 py-2" /></label>
-          <p className="text-sm text-[var(--text-secondary)]"><span className="font-medium text-[var(--text-primary)]">{t("campaignDialog.brandLabel")}</span><br />{activeProfile?.name ?? t("campaignDialog.noBrand")}</p>
+          <label htmlFor="estudio-campaign-name" className="block text-sm font-medium text-[var(--text-primary)]">{t("campaignDialog.nameLabel")}<Input id="estudio-campaign-name" aria-label={t("campaignDialog.nameLabel")} required value={name} onChange={(event) => setName(event.target.value)} className="mt-1 bg-[var(--surface-raised)]" /></label>
+          <p className="text-sm text-[var(--text-secondary)]"><span className="font-medium text-[var(--text-primary)]">{t("campaignDialog.brandLabel")}</span><br /><span className={activeProfile ? undefined : "text-[var(--warning-text)]"}>{activeProfile?.name ?? t("campaignDialog.noBrand")}</span></p>
           {error ? <p role="alert" className="text-sm text-[var(--danger-text)]">{error}</p> : null}
         </DialogBody>
-        <DialogFooter><button type="button" onClick={() => setOpen(false)} disabled={createCampaign.isPending} className="rounded-[var(--radius-control)] border border-[var(--border-default)] px-3 py-2 text-sm font-medium">{t("campaignDialog.cancel")}</button><button type="submit" disabled={!activeProfile || !name.trim() || createCampaign.isPending} className="rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-3 py-2 text-sm font-semibold text-[var(--action-primary-text)]">{t("campaignDialog.submit")}</button></DialogFooter>
+        <DialogFooter><Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={createCampaign.isPending}>{t("campaignDialog.cancel")}</Button><Button type="submit" disabled={!activeProfile || !name.trim() || createCampaign.isPending}>{t("campaignDialog.submit")}</Button></DialogFooter>
       </form>
     </DialogContent>
   </Dialog>;
@@ -536,10 +538,10 @@ export default function DashboardHomeActions({
       expanded={boxExpanded}
       onExpandedChange={setBoxExpanded}
       {...carouselTalkBoxProps}
-      summary={<span className="text-xs text-[var(--text-secondary)]">
+      summary={brandName || sources.length > 0 ? <span className="text-xs text-[var(--text-secondary)]">
         {[composer.brandName, composer.format, sources.length ? `${sources.length}/3` : null]
           .filter(Boolean).join(" · ")}
-      </span>}
+      </span> : undefined}
     >
       {protocolSwitchControls}
       {showPlan && billing && !billing.access.hasSpendAccess ? (
@@ -606,7 +608,7 @@ export default function DashboardHomeActions({
         occupancy={occupancy}
         brandName={brandName}
         headline={brandName ? t("stageHeadline", { name: brandName }) : t("stageHeadlineAnonymous")}
-        subtitle={t("stageEmptySubtitle")}
+        subtitle={brandName ? t("stageEmptySubtitle") : t("stageEmptySubtitleAnonymous")}
         eyebrow={t("stageEyebrow")}
         mosaicItems={mosaicItems}
         repeatItems={deskView !== "production"}

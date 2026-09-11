@@ -470,6 +470,7 @@
       "stageHeadline": "What does {name} need to ship today?",
       "stageHeadlineAnonymous": "What needs to ship today?",
       "stageEmptySubtitle": "The brand is already on stage. Just ask for the first piece.",
+      "stageEmptySubtitleAnonymous": "Choose a brand to bring on stage.",
       "talkAttach": "Attach up to 3",
       "talkAttachReference": "Attach a reference",
       "talkAttachCount": "{count} of 3 attachments",

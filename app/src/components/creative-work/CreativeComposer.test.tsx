@@ -292,6 +292,21 @@ describe("CreativeComposer", () => {
     expect(screen.queryAllByTestId("brand-identity")).toHaveLength(1);
   });
 
+  it("does not claim applied identity on Peça única without a brand", () => {
+    renderComposer(composer({
+      intent: "single",
+      clientProfileId: null,
+      brandName: null,
+      brandIdentity: {
+        source: "live",
+        mode: "legacy_fallback",
+        versionNumber: null,
+        assets: [],
+      },
+    }));
+    expect(screen.queryByTestId("brand-identity")).not.toBeInTheDocument();
+  });
+
   it("keeps Enter as a newline in Peça única and never generates from the textarea", () => {
     const value = composer({ intent: "single", quote: { unitCount: 1, credits: 5 } });
     renderComposer(value);

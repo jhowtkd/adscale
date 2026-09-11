@@ -61,6 +61,7 @@ vi.mock("next-intl", () => ({
           variationsReferenceError: "Anexe a peça de referência para gerar variações.",
           restylePairError: "Adicione a arte original e a referência de estilo.",
           requestLabel: "dashboard.home.composer.requestLabel",
+          stageHeadlineAnonymous: "O que precisa sair hoje?",
           "studioDesk.views": "Conteúdo da mesa",
           "studioDesk.inspirations": "Inspirações",
           "studioDesk.production": "Produção",
@@ -481,6 +482,27 @@ describe("DashboardHomeActions", () => {
 
     expect(screen.getByRole("heading", { name: "O que a Marca A precisa sair hoje?" })).toBeInTheDocument();
     expect(screen.getByText("dashboard.home.stageEmptySubtitle")).toBeInTheDocument();
+  });
+
+  it("does not claim a brand is on stage when none is selected", () => {
+    useActiveProfileMock.mockReturnValue({ activeProfile: null });
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      intent: "single",
+      brandName: null,
+      clientProfileId: null,
+      request: "",
+      sources: [],
+      quote: { unitCount: 1, credits: 5 },
+      selectIntent: selectIntentMock,
+    });
+
+    render(<DashboardHomeActions />);
+
+    expect(screen.getByRole("heading", { name: "O que precisa sair hoje?" })).toBeInTheDocument();
+    expect(screen.getByText("dashboard.home.stageEmptySubtitleAnonymous")).toBeInTheDocument();
+    expect(screen.queryByText("dashboard.home.stageEmptySubtitle")).not.toBeInTheDocument();
+    expect(screen.getByTestId("studio-talk-box")).not.toHaveTextContent("4:5");
   });
 
   it("attaches brand inspirations through the same composer model", () => {
