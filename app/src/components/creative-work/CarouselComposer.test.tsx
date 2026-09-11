@@ -334,7 +334,7 @@ describe("CarouselComposer", () => {
     expect(askForPlan).toHaveBeenCalledTimes(1);
   });
 
-  it("moves focus to the first blocking question and answers only once", () => {
+  it("moves focus to the first blocking question and answers only once", async () => {
     const answerQuestions = vi.fn();
     const first = renderCarousel(controller({ phase: "entry" }));
     first.rerender(
@@ -348,7 +348,7 @@ describe("CarouselComposer", () => {
     );
 
     expect(screen.getByTestId("carousel-questions")).toBeInTheDocument();
-    awaitWaitForFocus(screen.getByLabelText("Qual é a oferta?"));
+    await awaitWaitForFocus(screen.getByTestId("carousel-question-0"));
 
     fireEvent.change(screen.getByLabelText("Qual é a oferta?"), { target: { value: "30% na primeira compra" } });
     fireEvent.change(screen.getByLabelText("Qual é a ação final?"), { target: { value: "Comprar agora" } });
@@ -357,7 +357,7 @@ describe("CarouselComposer", () => {
     expect(answerQuestions).toHaveBeenCalledWith({ "q-1": "30% na primeira compra", "q-2": "Comprar agora" });
   });
 
-  it("focuses the sequence heading and renders the board, editor and visual system", () => {
+  it("focuses the sequence heading and renders the board, editor and visual system", async () => {
     const prepareCarousel = vi.fn();
     const first = renderCarousel(controller({ phase: "questions" }));
     first.rerender(
@@ -376,7 +376,7 @@ describe("CarouselComposer", () => {
       />,
     );
 
-    awaitWaitForFocus(screen.getByRole("heading", { name: "Mesa de sequência" }));
+    await awaitWaitForFocus(screen.getByRole("heading", { name: "Mesa de sequência" }));
     expect(screen.getByTestId("carousel-board-scroll")).toBeInTheDocument();
     expect(screen.getByTestId("carousel-slide-editor")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Sistema visual" })).toBeInTheDocument();
@@ -451,7 +451,7 @@ describe("CarouselComposer", () => {
     expect(screen.getByRole("heading", { name: "Gerando o carrossel" })).toBeInTheDocument();
   });
 
-  it("moves focus to the review heading, renders the deck review and keeps the live region", () => {
+  it("moves focus to the review heading, renders the deck review and keeps the live region", async () => {
     const slides = [1, 2, 3, 4, 5].map((position) => publicSlide(position));
     const approveDeck = vi.fn();
     const exportDeck = vi.fn();
@@ -482,7 +482,7 @@ describe("CarouselComposer", () => {
       />,
     );
 
-    awaitWaitForFocus(screen.getByRole("heading", { name: "Revise o carrossel" }));
+    await awaitWaitForFocus(screen.getByRole("heading", { name: "Revise o carrossel" }));
     expect(screen.getByTestId("carousel-deck-review")).toBeInTheDocument();
     expect(screen.getByTestId("carousel-progress")).toHaveTextContent("5 de 5 telas prontas; 0 com falha.");
 
