@@ -9,6 +9,7 @@ import {
   isCreativeWorkRetryEligible,
   CreativeWorkRequestError,
   mapCreativeWorkDetail,
+  translateCreativeWorkClientError,
 } from "./use-creative-work";
 
 describe("creativeWorkRefetchInterval (R-008: 202 + polling contract)", () => {
@@ -208,5 +209,16 @@ describe("extractCreativeWorkBrandConflict (R-003/R-008)", () => {
     expect(
       extractCreativeWorkBrandConflict(new CreativeWorkRequestError("x", "brand_conflict", 422, { wrong: true })),
     ).toBeNull();
+  });
+});
+
+describe("translateCreativeWorkClientError", () => {
+  it("maps carousel editorial codes without leaking provider text", () => {
+    expect(translateCreativeWorkClientError("research_unavailable")).toMatch(/pesquisa/i);
+    expect(translateCreativeWorkClientError("research_insufficient")).toMatch(/evidência|tese/i);
+    expect(translateCreativeWorkClientError("invalid_editorial_transition")).toMatch(/editorial/i);
+    expect(translateCreativeWorkClientError("editorial_plan_invalid")).not.toMatch(/openai|gpt|web_search/i);
+    expect(translateCreativeWorkClientError("stale_input")).toMatch(/alterad|reload/i);
+    expect(translateCreativeWorkClientError("brand_conflict")).toBeNull();
   });
 });

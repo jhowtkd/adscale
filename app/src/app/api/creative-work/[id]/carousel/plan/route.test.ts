@@ -1,17 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { WorkspaceAuthError } from "@/server/auth/errors";
 import { POST } from "./route";
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
+const requireWorkspaceAccess = vi.hoisted(() => vi.fn());
 vi.mock("@/server/auth/workspace", () => ({
-  requireWorkspaceAccess: vi.fn(() =>
-    Promise.resolve({
-      user: { id: "user-1" },
-      workspace: { id: "workspace-1" },
-    })
-  ),
+  requireWorkspaceAccess: (...args: unknown[]) => requireWorkspaceAccess(...args),
 }));
 
 const rateLimitMock = vi.hoisted(() => vi.fn());
@@ -43,14 +40,43 @@ const draft = {
   changes: [],
 };
 
+const editorial = {
+  version: 1,
+  revision: "rev-1",
+  contextHash: "ctx-1",
+  research: { status: "not_needed", question: "", thesis: "", sources: [], claims: [], gaps: [] },
+  hooks: [],
+  recommendedHookId: null,
+  recommendation: null,
+  selectedHookId: null,
+  storyboard: [],
+  caption: null,
+  approvedScriptRevision: null,
+  approvedCover: null,
+  confirmedInteriorsRevision: null,
+};
+
 describe("POST /api/creative-work/[id]/carousel/plan", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    requireWorkspaceAccess.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { id: "workspace-1" },
+    });
     rateLimitMock.mockResolvedValue(null);
     planMock.mockResolvedValue({
       ok: true,
-      value: { work: { id: "work-1" }, draft, findings: [] },
+      value: { work: { id: "work-1" }, draft, findings: [], editorial },
     });
+  });
+
+  it("is isolated behind workspace authentication", async () => {
+    requireWorkspaceAccess.mockRejectedValue(new WorkspaceAuthError("unauthorized", "no session"));
+
+    const res = await requestPlan(validBody);
+
+    expect(res.status).toBe(401);
+    expect(planMock).not.toHaveBeenCalled();
   });
 
   it("rate-limits with the ai category before doing any work", async () => {
@@ -81,7 +107,17 @@ describe("POST /api/creative-work/[id]/carousel/plan", () => {
     expect(planMock).not.toHaveBeenCalled();
   });
 
-  it("defaults answers to an empty record", async () => {
+  it("rejects an invalid editorial command", async () => {
+    const unknown = await requestPlan({ ...validBody, command: { kind: "dispatch_interiors" } });
+    expect(unknown.status).toBe(400);
+    expect(planMock).not.toHaveBeenCalled();
+
+    const extra = await requestPlan({ ...validBody, command: { kind: "propose_hooks", extra: true } });
+    expect(extra.status).toBe(400);
+    expect(planMock).not.toHaveBeenCalled();
+  });
+
+  it("defaults answers to an empty record and maps a missing command to propose_hooks", async () => {
     const res = await requestPlan(validBody);
 
     expect(res.status).toBe(200);
@@ -91,6 +127,18 @@ describe("POST /api/creative-work/[id]/carousel/plan", () => {
       expectedUpdatedAt: "2026-08-30T12:00:00.000Z",
       answers: {},
     });
+  });
+
+  it("forwards a valid command to the application", async () => {
+    const res = await requestPlan({
+      ...validBody,
+      command: { kind: "select_hook", hookId: "hook-1", headline: "Grupo agora" },
+    });
+
+    expect(res.status).toBe(200);
+    expect(planMock).toHaveBeenCalledWith(expect.objectContaining({
+      command: { kind: "select_hook", hookId: "hook-1", headline: "Grupo agora" },
+    }));
   });
 
   it("trims and bounds answers, rejecting blanks", async () => {
@@ -103,12 +151,12 @@ describe("POST /api/creative-work/[id]/carousel/plan", () => {
     expect(blank.status).toBe(400);
   });
 
-  it("returns work, draft, and findings on success", async () => {
+  it("returns work, draft, findings and editorial on success", async () => {
     const res = await requestPlan(validBody);
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body).toEqual({ work: { id: "work-1" }, draft, findings: [] });
+    expect(body).toEqual({ work: { id: "work-1" }, draft, findings: [], editorial });
   });
 
   it.each([
@@ -117,6 +165,9 @@ describe("POST /api/creative-work/[id]/carousel/plan", () => {
     ["work_not_draft", 409],
     ["sources_not_ready", 409],
     ["stale_input", 409],
+    ["invalid_editorial_transition", 409],
+    ["research_unavailable", 422],
+    ["research_insufficient", 422],
   ])("maps %s to %i", async (code, status) => {
     planMock.mockResolvedValue({ ok: false, error: { code } });
 

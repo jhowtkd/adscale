@@ -32,7 +32,7 @@ import type {
   CarouselSlideStatus,
   CarouselVisualContractV1,
 } from "@/server/creative-work/carousel-contracts";
-import type { CarouselEditorialState } from "@/server/creative-work/carousel-editorial-state";
+import type { CarouselEditorialCommand, CarouselEditorialState } from "@/server/creative-work/carousel-editorial-state";
 import {
   creativeWorkFactPackSchema,
   inferredBriefingSchema,
@@ -288,16 +288,48 @@ async function readError(res: Response): Promise<CreativeWorkRequestError> {
   const body: unknown = await res.json().catch(() => ({}));
   const err = body && typeof body === "object" ? body as Record<string, unknown> : {};
   const legacyCode = res.status === 429 && typeof err.error === "string" ? err.error : null;
+  const code = typeof err.code === "string" ? err.code : legacyCode;
+  const translated = translateCreativeWorkClientError(code);
   return new CreativeWorkRequestError(
-    typeof err.message === "string"
-      ? err.message
-      : typeof err.error === "string"
-        ? err.error
-        : "Request failed",
-    typeof err.code === "string" ? err.code : legacyCode,
+    translated
+      ?? (typeof err.message === "string"
+        ? err.message
+        : typeof err.error === "string"
+          ? err.error
+          : "Request failed"),
+    code,
     res.status,
-    "details" in err ? err.details : null,
+    sanitizeCreativeWorkErrorDetails(code, "details" in err ? err.details : null),
   );
+}
+
+const CAROUSEL_EDITORIAL_CLIENT_ERRORS: Record<string, string> = {
+  research_unavailable: "A pesquisa não ficou disponível. Restrinja a tese ou envie o material.",
+  research_insufficient: "A evidência não basta para sustentar a tese. Restrinja o argumento ou envie fontes.",
+  invalid_editorial_transition: "Esta etapa editorial ainda não pode ser confirmada. Revise o gancho, o roteiro ou a capa.",
+  editorial_plan_invalid: "Não foi possível montar uma proposta editorial segura. Tente novamente.",
+  stale_input: "Este trabalho foi alterado. Recarregue e tente novamente.",
+};
+
+/** Safe client copy for carousel editorial failures — never raw provider text. */
+export function translateCreativeWorkClientError(code: string | null): string | null {
+  if (!code) return null;
+  return CAROUSEL_EDITORIAL_CLIENT_ERRORS[code] ?? null;
+}
+
+function sanitizeCreativeWorkErrorDetails(code: string | null, details: unknown): unknown {
+  if (!details || typeof details !== "object") return details;
+  if (
+    code === "editorial_plan_invalid"
+    || code === "research_unavailable"
+    || code === "research_insufficient"
+  ) {
+    const gaps = Array.isArray((details as { gaps?: unknown }).gaps)
+      ? (details as { gaps: unknown[] }).gaps.filter((gap): gap is string => typeof gap === "string")
+      : undefined;
+    return gaps && gaps.length > 0 ? { gaps } : {};
+  }
+  return details;
 }
 
 // ---------------------------------------------------------------------------
@@ -968,14 +1000,20 @@ export function useDownloadOutputUrl() {
 export function usePlanCarouselWork() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ workItemId, expectedUpdatedAt, answers }: {
+    mutationFn: ({ workItemId, expectedUpdatedAt, answers, command }: {
       workItemId: string;
       expectedUpdatedAt: string;
       answers: Record<string, string>;
+      command?: CarouselEditorialCommand;
     }) =>
-      postJson<{ work: CreativeWorkItem; draft: CarouselDraftStateV1 }>(
+      postJson<{
+        work: CreativeWorkItem;
+        draft: CarouselDraftStateV1;
+        findings?: unknown;
+        editorial: CarouselEditorialState;
+      }>(
         `/api/creative-work/${workItemId}/carousel/plan`,
-        { expectedUpdatedAt, answers },
+        { expectedUpdatedAt, answers, ...(command ? { command } : {}) },
         120_000,
       ),
     onSuccess: (_data, input) => queryClient.invalidateQueries({ queryKey: creativeWorkKey(input.workItemId) }),
