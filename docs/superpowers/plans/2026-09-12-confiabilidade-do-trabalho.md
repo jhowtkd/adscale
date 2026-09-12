@@ -809,14 +809,7 @@ async function runEffect(
   };
 ```
 
-**3c — fechar o recibo.** Procurar uma função de patch de output já existente antes de criar outra:
-
-```bash
-cd /Users/jhonatan/Repos/ADScale_2
-grep -n "export async function .*CreativeWorkOutput" app/src/server/repositories/creative-work.ts
-```
-
-Se nenhuma servir, acrescentar em `app/src/server/repositories/creative-work.ts`:
+**3c — fechar o recibo.** Decisão já resolvida por inventário: as 17 funções que escrevem em `creativeWorkOutputs` são todas de domínio específico (`completeCreativeWorkOutput`, `failCreativeWorkOutput`, `markCreativeWorkOutputFailureCode`, `claimCreativeWorkOutputImageCall`, …) — **nenhuma é patch genérico**. Acrescentar uma nova, seguindo o estilo de `markCreativeWorkOutputFailureCode` (linha 1939), que é o vizinho mais próximo: setter estreito de um campo só, escopado por workspace. Em `app/src/server/repositories/creative-work.ts`:
 
 ```ts
 /**
