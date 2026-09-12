@@ -24,9 +24,64 @@ const TEST_DB_EXPLICITLY_CONFIGURED = Boolean(
   process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL,
 );
 
+/**
+ * Barreira de concorrencia, armavel por teste.
+ *
+ * POR QUE ELA EXISTE — nao simplifique sem ler isto. Sem barreira, um
+ * Promise.all das duas chamadas da concorrencia de intencao, nao de execucao.
+ * Entrelacamento medido por instrumentacao em 12/09/2026:
+ *
+ *   A:read-start / B:read-start
+ *   A:read-done existing=nao
+ *   A:insert-start -> A:insert-done criou=SIM
+ *   B:read-done existing=SIM      <- B nunca chega no insert
+ *
+ * A completa leitura+insert ANTES da leitura de B retornar, entao B sai pelo
+ * caminho benigno do `if (existing)` e a janela de corrida nunca abre. O teste
+ * passava identico contra o insert desprotegido (createWorkspaceAsset), ou
+ * seja: nao provava nada.
+ *
+ * `objectStorage.head` e o unico ponto que ambas as chamadas atravessam ENTRE
+ * a leitura e o insert, o que faz dele a barreira correta. Segurar as duas ali
+ * garante que ambas passaram da leitura com miss antes de qualquer insert.
+ * Deadlock e impossivel: ninguem insere sem passar pela barreira, logo ambas
+ * as leituras dao miss e ambas chegam.
+ *
+ * Desarmada (padrao), `head` e passagem livre — testes que nao precisam de
+ * corrida nao sao afetados.
+ */
+const storageBarrier = vi.hoisted(() => {
+  let pending = 0;
+  let release: (() => void) | null = null;
+  let gate: Promise<void> | null = null;
+  return {
+    /** Segura as proximas `n` chamadas a head() ate que todas tenham chegado. */
+    arm(n: number) {
+      pending = n;
+      gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    },
+    async pass() {
+      if (!gate) return;
+      pending -= 1;
+      if (pending <= 0) release?.();
+      await gate;
+    },
+    disarm() {
+      gate = null;
+      release = null;
+      pending = 0;
+    },
+  };
+});
+
 vi.mock("@/server/storage", () => ({
   objectStorage: {
-    head: vi.fn(async () => ({ contentLength: 1024 })),
+    head: vi.fn(async () => {
+      await storageBarrier.pass();
+      return { contentLength: 1024 };
+    }),
   },
 }));
 
@@ -104,20 +159,30 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work preparation concu
     const { workspaceId } = await createScope();
     const outputKey = `creative-work/${crypto.randomUUID()}/out.png`;
 
-    const [first, second] = await Promise.all([
-      ensureCreativeWorkOutputInLibrary({
-        workspaceId,
-        outputKey,
-        theme: "Tema",
-        creativeLevel: "balanced",
-      }),
-      ensureCreativeWorkOutputInLibrary({
-        workspaceId,
-        outputKey,
-        theme: "Tema",
-        creativeLevel: "balanced",
-      }),
-    ]);
+    type EnsureResult = Awaited<ReturnType<typeof ensureCreativeWorkOutputInLibrary>>;
+    let first: EnsureResult;
+    let second: EnsureResult;
+
+    // Sem isto as chamadas serializam e o caminho de conflito nunca roda.
+    storageBarrier.arm(2);
+    try {
+      [first, second] = await Promise.all([
+        ensureCreativeWorkOutputInLibrary({
+          workspaceId,
+          outputKey,
+          theme: "Tema",
+          creativeLevel: "balanced",
+        }),
+        ensureCreativeWorkOutputInLibrary({
+          workspaceId,
+          outputKey,
+          theme: "Tema",
+          creativeLevel: "balanced",
+        }),
+      ]);
+    } finally {
+      storageBarrier.disarm();
+    }
 
     const rows = await db
       .select()
