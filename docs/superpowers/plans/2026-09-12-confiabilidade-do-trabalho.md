@@ -1895,7 +1895,9 @@ Esperado: FAIL — módulo inexistente.
 
 O `claim` roda numa transação curta e faz, nesta ordem: (1) expirar tentativas `running` com `lease_expires_at <= now()` marcando `invalidated`; (2) expirar tentativas cujo `input_revision` difere do recebido; (3) ler a tentativa `running` restante; (4) se existir e `isAttemptUsable`, devolver `joined`; (5) senão, inserir com `onConflictDoNothing` no índice parcial e, em conflito, reler e devolver `joined`. O lease é calculado **no banco**: `sql\`now() + make_interval(secs => ${input.leaseSeconds})\``.
 
-`finalizePreparationAttempt` relê a tentativa e o Trabalho na mesma transação curta, aplica `canFinalizeAttempt` da Task 10 e só então grava o estado terminal. **Resultado incompatível é descartado de forma auditável**: registrar o `reason` via `logCreativeWorkPreparationAttempt` (Task 9) com `phase: "invalidated"` antes de retornar.
+`finalizePreparationAttempt` relê a tentativa na mesma transação curta, aplica `canFinalizeAttempt` da Task 10 e só então grava o estado terminal.
+
+**Resultado incompatível é descartado de forma auditável — mas o log sai do CHAMADOR, não daqui.** `logCreativeWorkPreparationAttempt` exige `releaseSha`, `environment`, `process` e quatro timings que a camada de repositório não tem e não deve passar a ter: enfiar env e cronômetro num repositório para satisfazer telemetria inverte a dependência. O `reason` volta **tipado** no resultado, então um chamador que o ignore está ignorando o valor de retorno — visível em revisão, não silencioso. A obrigação de logar é das Tasks 15 e 16, e está no aceite de cada uma.
 
 `invalidatePreparationAttempts` aceita um `executor` opcional para poder rodar **dentro** da transação curta de edição de fonte (Task 13) — é assim que a edição invalida a tentativa sem esperar a IA.
 
@@ -2129,6 +2131,12 @@ Dividir o callback atual (`prepare-creative-work.ts`, lock aberto na linha 136) 
 
 Preservar sem alteração: `assertOfferActive`, todos os ramos de `sources_not_ready` / `piece_reference_*` / `source_usage_required` / `missing_input` / `invalid_preparation`, a detecção de conflito de marca (`brand_conflict`), `briefing_blocked`, `invalid_context` e o congelamento de `generationPolicyVersion`.
 
+- [ ] **Step 3b: Registrar todo descarte de resultado**
+
+Quando `finalizePreparationAttempt` devolver `{ ok: false, reason }`, chamar `logCreativeWorkPreparationAttempt` com `phase: "invalidated"`, o `reason` e os timings que esta camada mediu (`lockWaitMs`, `inTransactionMs`, `externalMs`, `totalMs`). O repositório não loga — ele não tem `releaseSha`, `environment` nem cronômetro, e não deve passar a ter.
+
+**Um descarte silencioso é o pior resultado possível deste protocolo:** o usuário vê a preparação falhar sem rastro do porquê, e o custo do provedor já foi pago. Esta é a única fonte de verdade sobre resultados antigos rejeitados.
+
 **Garantia pretendida:** uma tentativa vigente, resultado aplicado apenas à revisão válida e sem duplicação financeira. Após queda com resposta externa ambígua, **não prometer exatamente uma chamada ao provedor** sem suporte específico: limitar tentativas, rejeitar resultado antigo e registrar a ambiguidade via `logCreativeWorkPreparationAttempt`.
 
 - [ ] **Step 4: Rodar e ver passar**
@@ -2237,7 +2245,7 @@ git add app/src/server/application/plan-carousel-work.ts app/tests/integration/c
 git commit -m "test: pin carousel stale-result protection and record attempt-dedupe decision"
 ```
 
-**Aceite:** a proteção contra resultado velho continua provada por teste; a decisão sobre deduplicação está sustentada por medição, não por suposição; nada foi reescrito por engano.
+**Aceite:** a proteção contra resultado velho continua provada por teste; a decisão sobre deduplicação está sustentada por medição, não por suposição; nada foi reescrito por engano. Se o Step 3 tiver sido executado, todo `{ ok: false, reason }` de `finalizePreparationAttempt` também produz log `phase: "invalidated"`, como na Task 15.
 
 ---
 
@@ -2292,7 +2300,7 @@ git add app/src/app/api app/src/lib/hooks/use-creative-work.ts docs/operations/r
 git commit -m "feat: expose an in-progress preparation state and activate behind existing rollout"
 ```
 
-**Aceite (fecha PR-05):** nenhuma chamada externa identificada permanece dentro da transação longa; invariantes antigas preservadas; teste web+worker e jornadas humanas registrados; peça única e carrossel passam nos testes concorrentes.
+**Aceite (fecha PR-05):** nenhuma chamada externa identificada permanece dentro da transação longa; invariantes antigas preservadas; teste web+worker e jornadas humanas registrados; peça única e carrossel passam nos testes concorrentes; **todo `{ ok: false, reason }` de `finalizePreparationAttempt` produz um log `phase: "invalidated"` com o `reason`** — um descarte sem rastro reprova a entrega.
 
 **Reversão:** desativar novas tentativas no caminho novo, drenar/invalidar as ativas e voltar à versão compatível da Task 13. **Não alternar por flag para um caminho antigo que ignora reservas em voo.**
 
