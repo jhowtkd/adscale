@@ -143,6 +143,13 @@ A expansão de escopo após o marco de convergência é liberada no **Gate 8** (
 
 Sem isso, o freeze permanece ativo.
 
+## Adendo 2026-09-12 — o encerramento do Gate 8 não levanta o freeze
+
+O Gate 8 encerrou em 2026-07-16 como `approved_with_accepted_debt` (1/10). Esse registro histórico **não se reescreve**. A operação muda: o freeze de destinos primários e de Landing/Persona **permanece** até existir funil escopado em Trabalho (sessões `studio_entry_started` em `/api/feedback/analytics/funnel`). Os 12/18 `campaign.completed` do snapshot de 2026-07-14 são unidade errada e não são evidência de go. O 100% progressivo no `render.yaml` é exposição, não validação.
+
+Decisão: [`docs/decisions/2026-09-12-funnel-read-gate8-holds.md`](../decisions/2026-09-12-funnel-read-gate8-holds.md).
+Nota operacional: [`docs/decisions/allowed-primary-destinations.json`](../decisions/allowed-primary-destinations.json).
+
 ---
 
-*Decidido em 2026-07-12 · Registrado 2026-07-12 · Owner: Jhonatan Soares*
+*Decidido em 2026-07-12 · Registrado 2026-07-12 · Owner: Jhonatan Soares · Adendo 2026-09-12*

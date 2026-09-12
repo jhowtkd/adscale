@@ -21,6 +21,20 @@ describe("document class for agents", () => {
     expect(classifyAgentSource("docs/ARCHITECTURE.md")).toBe("historical");
   });
 
+  it("treats the 2026-09-12 funnel read as canonical freeze policy", () => {
+    expect(classifyAgentSource("docs/decisions/2026-09-12-funnel-read-gate8-holds.md")).toBe("canonical");
+    const manifest = JSON.parse(
+      readFileSync(
+        path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../docs/decisions/allowed-primary-destinations.json"),
+        "utf8",
+      ),
+    ) as { note: string };
+    expect(manifest.note).not.toMatch(/until Gate 8 lifts/i);
+    expect(manifest.note).toMatch(/does not lift this freeze/);
+    expect(manifest.note).toMatch(/campaign\.completed is the wrong unit/);
+    expect(manifest.note).toMatch(/studio_entry_started/);
+  });
+
   it("does not let README reintroduce campaign as a required creative destination", () => {
     const readme = readFileSync(
       path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../README.md"),

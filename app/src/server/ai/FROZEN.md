@@ -6,8 +6,11 @@
 
 Durante o marco de convergência, os geradores abaixo aceitam somente
 **correções críticas** (bugs de segurança, quebra de build, perda de
-dado, isolamento de workspace). **Expansão de escopo é proibida** até o
-Gate 8 (evidência humana) liberar novas funções.
+dado, isolamento de workspace). **Expansão de escopo é proibida.** O
+Gate 8 encerrou em 2026-07-16 como `approved_with_accepted_debt` (1/10)
+e **não** libera estes módulos. `campaign.completed` também não. Nova
+função aqui exige funil escopado em Trabalho (`studio_entry_started`),
+não o encerramento histórico do gate.
 
 | Módulo                                  | Por quê                                                                 |
 | --------------------------------------- | ----------------------------------------------------------------------- |
@@ -31,8 +34,12 @@ Gate 8 (evidência humana) liberar novas funções.
 
 Se o PR tocar estes arquivos sem ser correção crítica, ele deve:
 
-1. Referenciar um requisito aprovado depois do Gate 8, **ou**
+1. Referenciar um requisito aprovado com funil escopado em Trabalho
+   (`studio_entry_started` via `/api/feedback/analytics/funnel`), **ou**
 2. Ser redirecionado para o roadmap pós-convergência.
+
+O encerramento do Gate 8 (1/10, `iterate`) não conta como o item 1.
+Ver [`docs/decisions/2026-09-12-funnel-read-gate8-holds.md`](../../../../docs/decisions/2026-09-12-funnel-read-gate8-holds.md).
 
 O validador `app/scripts/check-frozen-modules.mjs` alerta quando um PR
 toca estes caminhos sem a tag `frozen-exception:` no título do commit.

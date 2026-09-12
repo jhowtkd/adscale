@@ -16,7 +16,21 @@ Antes de qualquer tráfego progressivo, mantenha `STUDIO_PROGRESSIVE_ROLLOUT_PER
 
 | Faixa UTC | Conclusão | Abandono | Falha | Reembolso | Troca de objetivo | Correção de papel | Refinamento | Retomada | Mediana entrada→briefing | Owner | Decisão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | a preencher | baseline congelado |
+| 2026-06-01T00:00:00.000Z → 2026-07-14T23:31:09.469Z (snapshot commitado; não é consulta ao painel) | unavailable | unavailable | unavailable | unavailable | unavailable | unavailable | unavailable | unavailable | unavailable | n/a — leitura de snapshot | ausência congelada: sem sessões `studio_entry_started`; não é baseline de go |
+
+Esta linha congela a **ausência** das métricas que este runbook pede. O único snapshot de produção commitado (`.planning/convergence/baseline.json`) conta jornadas por origem (`campaign` / `guided_flow` / `creative_work_item`) e **não** sessões `studio_entry_started`. Nenhum readout de `/api/feedback/analytics/funnel` está no repositório. Não converter `campaign.completed` 12/18 em Conclusão desta tabela. Task 12 e Gate Humano B continuam não executados; o percentual 100% no `render.yaml` veio do waiver de 2026-08-31, não desta tabela.
+
+### Snapshot de produção por origem (unidade errada para este runbook)
+
+Lido em 2026-09-12 a partir de `.planning/convergence/baseline.json` (`environment: production`, `capturedAt` 2026-07-14T23:31:09.469Z, `since` 2026-06-01T00:00:00.000Z). Eventos canônicos nomeados; **sem** contagem por estágio.
+
+| Origem | Unidade | started | completed | failed | abandoned | mediana completed |
+| --- | --- | --- | --- | --- | --- | --- |
+| `campaign` | `campaign` | 18 | 12 | 1 | unavailable — status sem `abandoned`; estados in-flight não são abandono | 6360807 ms (n=12) |
+| `assistant` | `guided_flow` | 4 | 0 | 0 | 0 | unavailable (n=0) |
+| `quick_tool` | `creative_work_item` | 2 | 0 | 0 | unavailable — status de item sem `abandoned` | unavailable (n=0) |
+
+Decisão desta leitura: [`docs/decisions/2026-09-12-funnel-read-gate8-holds.md`](../decisions/2026-09-12-funnel-read-gate8-holds.md). `campaign.completed` não é evidência de go para o Estúdio nem para o rollout progressivo.
 
 O baseline só permite medição: Task 12 aprovada e Gate Humano B aprovado continuam sendo pré-condições para qualquer alteração percentual.
 
@@ -43,5 +57,6 @@ O retorno a zero é uma alteração humana de ambiente e precisa da mesma evidê
 | Data/hora UTC | Owner | Ambiente | Commit implantado | Faixa de consulta | Percentual | Métricas e denominadores | Incidentes | Decisão e justificativa |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-08-31T19:46:00Z | Jhonatan Soares | closeout | 31aefd1a | n/a | 100 (render.yaml; apply on main deploy) | Baseline Gate A, Task 12 e Human Gate B não executados | nenhum | Product owner dispensou os gates humanos e o baseline formal. Não é aprovação de compreensão 10/10. |
+| 2026-09-12T11:38:07Z | agent (layers item 8) | leitura de snapshot commitado | n/a — sem deploy neste passo | 2026-06-01T00:00:00.000Z → 2026-07-14T23:31:09.469Z (`.planning/convergence/baseline.json`) | 100 já em `render.yaml` (não alterado) | Sessões Estúdio: unavailable. Origens (unidade errada): campaign 18 started / 12 completed / 1 failed / abandoned unavailable; assistant 4/0; quick_tool 2/0. Phase 8: 1/24 completed, dívida 1/10. Sem readout do painel. | nenhum | `campaign.completed` não é go para Estúdio/rollout. 100% é exposição, não validação. Entry interview permanece 0. Freeze de destino primário permanece; Gate 8 encerrado não o levanta. |
 
 Mantenha uma linha por baseline, entrada de estágio, avanço, retenção e rollback. A aprovação visual do product owner e a aprovação humana do Gate B são evidências separadas e devem ser vinculadas na coluna de decisão.

@@ -13,7 +13,8 @@ Do not treat every markdown file in this repository as the live product.
 - `CONTEXT.md` — product vocabulary (Trabalho, Peça, Protocolo, Estúdio)
 - `docs/adr/` — accepted decisions, including [0013](../adr/0013-trabalho-criativo-first.md) (Trabalho-first; Campaign is optional grouping)
 - `docs/agents/` — how agents use GitHub, labels, and this file
-- `docs/decisions/allowed-primary-destinations.json` — freeze of primary surfaces
+- `docs/decisions/allowed-primary-destinations.json` — freeze of primary surfaces (Gate 8 close does not lift it)
+- `docs/decisions/2026-09-12-funnel-read-gate8-holds.md` — `campaign.completed` is not go-evidence; exceptions need a Trabalho-scoped funnel
 - `app/src/server/ai/FROZEN.md` — Landing Page and Persona Simulation stay frozen
 
 ## Historical (do not implement as if this were the spine)
