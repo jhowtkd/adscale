@@ -783,6 +783,7 @@
           "confirmApproval": "Confirm approval",
           "saveAsRecipe": "Save as visual recipe",
           "savedAsRecipe": "Proposal approved and saved as a recipe",
+          "approvedRecipePending": "Piece selected. The recipe could not be saved — try saving it again.",
           "shareForReview": "Share for review",
           "sharingForReview": "Creating link",
           "sharedForReview": "Review link copied",

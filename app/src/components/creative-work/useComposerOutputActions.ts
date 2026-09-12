@@ -3,6 +3,7 @@
 import { useCallback, type MutableRefObject, type RefObject } from "react";
 import { uploadChatAttachment } from "@/lib/assistant/chat-attachments";
 import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
+import type { SelectionEffects } from "@/server/application/select-creative-work-output";
 import { classifyLayerizeRequestFailure, revisionAttemptKey } from "./composer-outputs";
 
 type RevisionAttempt = { revisionKey: string; revisionAssetId: string | null };
@@ -26,7 +27,7 @@ export function useComposerOutputActions(input: {
       saveToLibrary: boolean;
       confirmObjective: boolean;
       saveAsRecipe?: boolean;
-    }) => Promise<unknown>;
+    }) => Promise<{ output: CreativeWorkOutput; recipe: unknown; effects: SelectionEffects }>;
   };
   reviseOutputMutation: {
     mutateAsync: (vars: {
@@ -99,14 +100,23 @@ export function useComposerOutputActions(input: {
     if (!workIdRef.current) return;
     setApprovalErrorOutputId(null);
     try {
-      await selectOutputMutation.mutateAsync({
+      const result = await selectOutputMutation.mutateAsync({
         workItemId: workIdRef.current,
         outputId,
         saveToLibrary: false,
         confirmObjective,
         saveAsRecipe,
       });
-      setAnnouncement(saveAsRecipe ? tResults("savedAsRecipe") : "Proposta aprovada");
+      // A peca esta selecionada. Um efeito parcial informa, mas nunca reverte
+      // visualmente a selecao nem marca approvalErrorOutputId.
+      const recipeIncomplete = saveAsRecipe && result.effects.recipe.status !== "done";
+      setAnnouncement(
+        recipeIncomplete
+          ? tResults("approvedRecipePending")
+          : saveAsRecipe
+            ? tResults("savedAsRecipe")
+            : "Proposta aprovada",
+      );
       recordCanonicalEvent("creative_work_approved", workIdRef.current, {
         protocol: toolKind === "social_post" ? "variations" : toolKind ?? "variations",
       });

@@ -37,6 +37,7 @@ import {
   creativeWorkFactPackSchema,
   inferredBriefingSchema,
 } from "@/server/creative-work/contracts";
+import type { SelectionEffects } from "@/server/application/select-creative-work-output";
 import type { PublicLayerizationState } from "@/server/layerize/contracts";
 import type { LayerEditorAccessV1, PublicLayerEditorSummaryV1 } from "@/server/layer-editor/contracts";
 import type { PieceReferenceCategory, PieceReferenceDraft } from "@/server/creative-work/piece-reference";
@@ -965,7 +966,7 @@ export function useSelectOutput() {
       confirmObjective?: boolean;
       saveAsRecipe?: boolean;
     }) =>
-      postJson<{ output: CreativeWorkOutput; recipe: unknown }>(
+      postJson<{ output: CreativeWorkOutput; recipe: unknown; effects: SelectionEffects }>(
         `/api/creative-work/${workItemId}/outputs/${outputId}/select`,
         {
           saveToLibrary,

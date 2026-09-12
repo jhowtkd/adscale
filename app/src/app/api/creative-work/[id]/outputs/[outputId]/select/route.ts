@@ -65,7 +65,11 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({ output: result.value.output, recipe: result.value.recipe ?? null });
+    return NextResponse.json({
+      output: result.value.output,
+      recipe: result.value.recipe ?? null,
+      effects: result.value.effects,
+    });
   } catch (error) {
     return handleApiError(error, "creative-work.[id].outputs.[outputId].select.POST");
   }

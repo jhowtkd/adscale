@@ -186,4 +186,33 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/select", () => {
     expect(res.status).toBe(400);
     expect(selectMock).not.toHaveBeenCalled();
   });
+
+  it("devolve 200 com efeitos parciais quando a selecao foi confirmada", async () => {
+    selectMock.mockResolvedValue({
+      ok: true,
+      value: {
+        output: { id: "output-1", isSelected: true },
+        recipe: undefined,
+        effects: {
+          library: { status: "failed", code: "library_failed", retryable: true },
+          valueEvent: { status: "done" },
+          recipe: { status: "pending", receiptId: "receipt-1" },
+        },
+      },
+    });
+
+    const response = await POST(
+      new Request("http://localhost/api/creative-work/work-1/outputs/output-1/select", {
+        method: "POST",
+        body: JSON.stringify({ saveAsRecipe: true }),
+      }),
+      { params: Promise.resolve({ id: "work-1", outputId: "output-1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      output: { isSelected: true },
+      effects: { recipe: { status: "pending" } },
+    });
+  });
 });
