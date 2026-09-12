@@ -108,7 +108,7 @@ O inventário acima é ponto de partida da Task 7, não substituto dela: chamada
 | Arquivo | Responsabilidade |
 |---|---|
 | `docs/operations/2026-09-12-reliability-baseline.md` | Relatório operacional da Task 1 (banco, restore, conexões, proteção, base fixada). Sem segredos. |
-| `docs/operations/reliability-metrics.md` | Baseline medido por SHA: espera de lock, tempo em transação, tempo de modelo, replays, consultas. |
+| `docs/operations/reliability-metrics.md` | Baseline medido por SHA: espera de lock, tempo em transação, tempo de modelo, replays, consultas. Criado pela Task 18; Tasks 9, 16 e 17 acrescentam seções. |
 | `docs/operations/2026-09-12-preparation-lock-inventory.md` | Inventário classificado dos chamadores do lock, incluindo chamadas transitivas. |
 | `app/tests/integration/creative-work-preparation-concurrency.test.ts` | Caracterização concorrente contra Postgres real. |
 | `app/src/server/creative-work/preparation-attempt.ts` | Regras puras da tentativa de preparação (fingerprint, validade, transições). |
@@ -1248,7 +1248,7 @@ git add docs/operations/2026-09-12-preparation-lock-inventory.md
 git commit -m "docs: classify every preparation-lock caller by external I/O"
 ```
 
-**Aceite:** cada um dos sete chamadores tem classificação justificada por leitura, com arquivo e linha.
+**Aceite:** cada um dos nove chamadores tem classificação justificada por leitura, com arquivo e linha.
 
 ---
 
@@ -1336,7 +1336,7 @@ git commit -m "test: characterize preparation concurrency against real Postgres"
 
 **Files:**
 - Modify: `app/src/server/creative-work/job-telemetry.ts`
-- Create: `docs/operations/reliability-metrics.md`
+- Modify: `docs/operations/reliability-metrics.md` — **criado pela Task 18**, que já preencheu a seção "Settlement: oito laços". Acrescentar as seções desta tarefa **sem reescrever** a existente.
 
 **Interfaces:**
 - Consumes: medições da Task 8.
@@ -2547,3 +2547,5 @@ Cada tarefa entrega: SHA-base e SHA-candidato; escopo e invariantes; arquivos al
 O executor implementa **apenas a próxima tarefa elegível**. O revisor confere a diferença contra este plano e os testes de fronteira, sem adicionar funcionalidades. O proprietário decide merge e qualquer mudança operacional paga. **Falha de um gate não autoriza enfraquecê-lo.**
 
 Comando verde com zero testes não conta como evidência. E2E e smoke usam a configuração existente e o gate da Task 14.
+
+**Invariante concorrente exige passo vermelho executado por quem escreve o teste.** Sem rodar, um teste vazio é indistinguível de um bom — na Task 6 (12/09/2026) o teste tinha as asserções certas, o mock certo e a limpeza certa, e mesmo assim passava idêntico contra o insert desprotegido, porque a corrida nunca abria. Tarefas cujo aceite é uma invariante concorrente (**8, 12, 15, 16**) são estruturalmente do proprietário: um executor sem acesso TCP ao Postgres de teste não consegue escrever nem validar esses testes, e não tem sinal algum que o avise disso.
