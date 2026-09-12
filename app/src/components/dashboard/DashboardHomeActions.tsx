@@ -25,6 +25,7 @@ import { useStudioEntryInterview } from "@/lib/hooks/use-studio-entry-interview"
 import type { EntryLocale } from "@/lib/studio/entry-types";
 import { firstVisitComposerIntent } from "@/lib/studio/detect-entry-gaps";
 import { studioStageOccupancy } from "@/lib/studio/stage-occupancy";
+import { summarizeStudioBatch } from "@/lib/studio/result-summary";
 import { useCreateCampaign } from "@/lib/hooks/use-campaigns";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -288,6 +289,14 @@ export default function DashboardHomeActions({
   const resultStage = rolloutVariant === "progressive"
     && !isCarouselWorkflow
     && (composer.stage === "generation" || composer.stage === "results");
+  const resultSummary = summarizeStudioBatch(outputs, composer.stage);
+  const resultSummaryLabel = resultSummary.kind === "generating"
+    ? t("resultStateGenerating")
+    : resultSummary.kind === "failed"
+      ? t("resultStateFailed")
+      : resultSummary.kind === "partial"
+        ? t("resultStatePartial", { ready: resultSummary.ready, failed: resultSummary.failed })
+        : t("resultStateReady");
   const showPlan = rolloutVariant === "progressive"
     && composer.stage === "plan"
     && Boolean(composer.preparedPlan)
@@ -547,7 +556,7 @@ export default function DashboardHomeActions({
       {showPlan && billing && !billing.access.hasSpendAccess ? (
         <section className="rounded-[var(--radius-object)] border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4" role="alert">
           <p className="font-semibold text-[var(--warning-text)]">{t("insufficientBalance")}</p>
-          <Link href="/billing" className="mt-2 inline-flex text-sm font-semibold underline">{t("getCredits")}</Link>
+          <Link href="/settings?tab=billing" className="mt-2 inline-flex text-sm font-semibold underline">{t("getCredits")}</Link>
         </section>
       ) : null}
       {showPlan ? (
@@ -582,7 +591,7 @@ export default function DashboardHomeActions({
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{composer.workTitle ?? (composer.request?.trim() || t(`planReview.protocol.${composer.preparedPlan?.protocol === "format_adaptation" ? "formatAdaptation" : composer.preparedPlan?.protocol ?? composer.intent}`))}</p>
           <h2 ref={progressiveResultsHeadingRef} id="progressive-results-title" tabIndex={-1} className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{t("resultsTitle")}</h2>
         </div>
-        <p className="text-sm text-[var(--text-secondary)]">{composer.brandName ?? t("continueBrandUnknown")} · {composer.stage === "generation" ? t("resultStateGenerating") : outputs.length > 0 && outputs.every((output) => output.status === "failed") ? t("resultStateFailed") : t("resultStateReady")}</p>
+        <p className="text-sm text-[var(--text-secondary)]">{composer.brandName ?? t("continueBrandUnknown")} · {resultSummaryLabel}</p>
       </section>
       <details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] p-4">
         <summary className="cursor-pointer text-sm font-medium">{t("planUsed")}</summary>
@@ -647,13 +656,13 @@ export default function DashboardHomeActions({
             data-testid="stage-brand-bar"
             className="flex min-w-0 w-full max-w-full items-center justify-end gap-2"
           >
-            {!resultStage ? (
-              <CreateCampaignDialog
-                activeProfile={activeProfile}
-                onCreated={composer.linkCampaign}
-                triggerClassName={cn(studioChipClass, "shrink-0")}
-              />
-            ) : null}
+            <Link
+              href="/?mode=arte&compose=1&fresh=1"
+              className={cn(studioChipClass, "shrink-0")}
+            >
+              <Plus size={16} aria-hidden="true" />
+              {t("newWork")}
+            </Link>
             <ActiveBrandSwitcher
               id="active-client-switcher-home"
               variant="grouped"

@@ -13,6 +13,7 @@ const selectIntentMock = vi.fn();
 const addInspirationMock = vi.fn();
 const useCreativeInspirationsMock = vi.fn();
 const useCreativeProductionMock = vi.fn();
+const useBillingStatusMock = vi.fn();
 const createCampaignMutationMock = vi.fn();
 const pushMock = vi.fn();
 const protocolButton = (intent: "variations" | "single" | "format_adaptation" | "restyle" | "carousel") =>
@@ -31,10 +32,13 @@ vi.mock("next-intl", () => ({
             ? `Produção de ${values.name}`
             : key === "studioDesk.slide" && values?.position
               ? `Tela ${values.position}`
+      : key === "resultStatePartial"
+        ? `Parcial: ${values?.ready ?? 0} prontas, ${values?.failed ?? 0} falhas`
       : ({
-          createCampaign: "Nova campanha",
-          "campaignDialog.open": "Nova campanha",
-          "campaignDialog.title": "Nova campanha",
+          createCampaign: "Novo trabalho",
+          newWork: "Novo trabalho",
+          "campaignDialog.open": "Agrupar em campanha",
+          "campaignDialog.title": "Agrupar em campanha",
           "campaignDialog.nameLabel": "Nome da campanha",
           "campaignDialog.brandLabel": "Marca",
           "campaignDialog.noBrand": "Selecione uma marca",
@@ -85,10 +89,7 @@ vi.mock("@/lib/hooks/use-creative-work", () => ({
   useCreativeWork: (...args: unknown[]) => useCreativeWorkMock(...args),
 }));
 vi.mock("@/lib/hooks/use-billing", () => ({
-  useBillingStatus: () => ({
-    data: { access: { hasSpendAccess: true } },
-    isLoading: false,
-  }),
+  useBillingStatus: () => useBillingStatusMock(),
   useStartCheckout: () => ({
     mutateAsync: vi.fn(),
     isPending: false,
@@ -149,6 +150,10 @@ describe("DashboardHomeActions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     createCampaignMutationMock.mockResolvedValue({ id: "campaign-1" });
+    useBillingStatusMock.mockReturnValue({
+      data: { access: { hasSpendAccess: true } },
+      isLoading: false,
+    });
     useActiveProfileMock.mockReturnValue({ activeProfile: { id: "p1", name: "Marca A" } });
     useCreativeWorkMock.mockReturnValue({ data: undefined, isLoading: false });
     useStudioEntryInterviewMock.mockReturnValue({
@@ -240,7 +245,8 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("stage-brand-bar")).toHaveClass("min-w-0", "max-w-full", "gap-2");
     expect(screen.getByTestId("studio-chrome-bar")).toHaveClass("flex-col", "min-w-0");
     expect(screen.getByTestId("studio-chrome-bar")).toContainElement(screen.getByTestId("stage-brand-bar"));
-    expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByRole("button", { name: "Nova campanha" }));
+    expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByRole("link", { name: "Novo trabalho" }));
+    expect(screen.getByRole("link", { name: "Novo trabalho" })).toHaveAttribute("href", "/?mode=arte&compose=1&fresh=1");
     expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByTestId("active-client-switcher"));
     expect(screen.getAllByRole("radio")).toHaveLength(4);
     expect(within(screen.getByTestId("studio-talk-box")).getByTestId("creative-composer")).toBeInTheDocument();
@@ -251,8 +257,14 @@ describe("DashboardHomeActions", () => {
 
   it("creates a campaign from the secondary dialog without extra briefing fields", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
-    render(<DashboardHomeActions />);
-    fireEvent.click(screen.getByRole("button", { name: "Nova campanha" }));
+    useComposerMock.mockReturnValue({
+      request: "Campanha", workTitle: "Título", hasEntry: true, objectiveSelected: true, intent: "variations",
+      stage: "results", preparedPlan: { preparedRevision: "revision-1", protocol: "variations", materials: [], preserve: [], explore: [], formats: ["4:5"], outputCount: 1 },
+      actionPhase: "idle", clientProfileId: "p1", brandName: "Marca A", state: "results", workId: "work-1",
+      quote: { unitCount: 1, credits: 5 }, outputs: [{ status: "completed" }], linkCampaign: vi.fn().mockResolvedValue(true),
+    });
+    render(<DashboardHomeActions rolloutVariant="progressive" />);
+    fireEvent.click(screen.getByRole("button", { name: "Agrupar em campanha" }));
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveTextContent("Nome da campanha");
     expect(dialog).toHaveTextContent("Marca A");
@@ -263,11 +275,14 @@ describe("DashboardHomeActions", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     const linkCampaign = vi.fn().mockResolvedValue(false);
     useComposerMock.mockReturnValue({
-      intent: "single", quote: { unitCount: 1, credits: 5 }, linkCampaign,
+      request: "Campanha", workTitle: "Título", hasEntry: true, objectiveSelected: true, intent: "variations",
+      stage: "results", preparedPlan: { preparedRevision: "revision-1", protocol: "variations", materials: [], preserve: [], explore: [], formats: ["4:5"], outputCount: 1 },
+      actionPhase: "idle", clientProfileId: "p1", brandName: "Marca A", state: "results", workId: "work-1",
+      quote: { unitCount: 1, credits: 5 }, outputs: [{ status: "completed" }], linkCampaign,
     });
-    render(<DashboardHomeActions />);
+    render(<DashboardHomeActions rolloutVariant="progressive" />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Nova campanha" }));
+    fireEvent.click(screen.getByRole("button", { name: "Agrupar em campanha" }));
     const dialog = screen.getByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText("Nome da campanha"), { target: { value: "Lançamento" } });
     fireEvent.submit(within(dialog).getByRole("button", { name: "Criar campanha" }).closest("form")!);
@@ -278,6 +293,24 @@ describe("DashboardHomeActions", () => {
     fireEvent.submit(within(dialog).getByRole("button", { name: "Criar campanha" }).closest("form")!);
     await waitFor(() => expect(linkCampaign).toHaveBeenCalledTimes(2));
     expect(createCampaignMutationMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends the credits CTA to settings billing instead of a missing /billing route", () => {
+    useBillingStatusMock.mockReturnValue({
+      data: { access: { hasSpendAccess: false } },
+      isLoading: false,
+    });
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    useComposerMock.mockReturnValue({
+      request: "Campanha", hasEntry: true, objectiveSelected: true, intent: "variations",
+      stage: "plan", preparedPlan: { preparedRevision: "revision-1", protocol: "variations", materials: [], preserve: [], explore: [], formats: ["4:5"], outputCount: 3 },
+      actionPhase: "idle", clientProfileId: "p1", quote: { unitCount: 3, credits: 15 },
+    });
+    render(<DashboardHomeActions rolloutVariant="progressive" />);
+    expect(screen.getByRole("link", { name: "dashboard.home.getCredits" })).toHaveAttribute(
+      "href",
+      "/settings?tab=billing",
+    );
   });
 
   it("opens the work's own page even when continue targets the work open on Home (#126)", () => {
@@ -702,6 +735,8 @@ describe("DashboardHomeActions", () => {
     expect(within(screen.getByTestId("studio-mosaic")).getByRole("button", { name: "Peça produzida" })).toBeVisible();
     expect(within(screen.getByTestId("studio-mosaic")).queryByRole("button", { name: "Inspiração visível" })).not.toBeInTheDocument();
     expect(screen.getByTestId("progressive-results-summary")).toHaveTextContent("Volta às aulas");
+    expect(screen.getByTestId("progressive-results-summary")).toHaveTextContent("Parcial: 1 prontas, 1 falhas");
+    expect(screen.getByTestId("progressive-results-summary")).not.toHaveTextContent("dashboard.home.resultStateReady");
     expect(screen.getByTestId("progressive-results-summary")).not.toHaveTextContent("Campanha de matrículas");
     expect(screen.getByTestId("progressive-results-summary")).not.toHaveTextContent("work-1");
     expect(screen.queryByRole("button", { name: "Inspirações p1" })).not.toBeInTheDocument();

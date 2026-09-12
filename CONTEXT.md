@@ -227,7 +227,7 @@ Detalhes: `[marketing/2026-Q3/fontes-pauta.md](marketing/2026-Q3/fontes-pauta.md
 | ✅ Trava        | Brasil-only (ADR 0010) — LinkedIn vira PT-BR, EN sai                                          |
 | ✅ Trava        | Threads entra como canal novo (ADR 0011) — substitui YouTube, reaproveita LI/IG               |
 | ✅ Trava        | Tese central reformulada: "inteligência criativa em escala" (2026-06-27) — substituiu "Curator > operator" na conceituação, CONTEXT, canais, ADRs e teses |
-| 🟡 Em revisão  | Copy de produto (i18n `app/messages/en.json` + testes) ainda diz "Curator" — quando execução descongelar, revisar pra refletir nova tese |
+| ✅ Trava        | Copy de produto (i18n `app/messages/` + testes) não usa "Curator"; a tese visível é inteligência criativa em escala |
 | 🟡 Em execução | Reescrita da documentação v2 (CONTEXT + ADRs + canais + calendário + ritual + stack + fontes) |
 | 🟡 Em execução | Banco de Teses seed (10 teses) + Kanban alinhado                                              |
 | ⏸ Congelado    | Produção de copy/execução (até documentação ser aprovada)                                     |

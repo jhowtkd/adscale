@@ -273,6 +273,20 @@ describe("product narrative copy guard (Phase 170 / BRAND-04)", () => {
     }
   });
 
+  it("names the operational home Estúdio, not Início", () => {
+    expect(getStringAtPath(ptBR as JsonObject, "dashboard.home.title")).toBe("Estúdio");
+    expect(getStringAtPath(en as JsonObject, "dashboard.home.title")).toBe("Studio");
+    expect(getStringAtPath(ptBR as JsonObject, "navigation.home")).toBe("Estúdio");
+    expect(getStringAtPath(en as JsonObject, "navigation.home")).toBe("Studio");
+  });
+
+  it("does not use Nova campanha as the Studio creation CTA", () => {
+    expect(getStringAtPath(ptBR as JsonObject, "dashboard.home.newWork")).toBe("Novo trabalho");
+    expect(getStringAtPath(en as JsonObject, "dashboard.home.newWork")).toBe("New work");
+    expect(getStringAtPath(ptBR as JsonObject, "dashboard.home.campaignDialog.open")).not.toMatch(/nova campanha/i);
+    expect(getStringAtPath(en as JsonObject, "dashboard.home.campaignDialog.open")).not.toMatch(/new campaign/i);
+  });
+
   describe("forbidden claim patterns", () => {
     it("narrative namespaces contain no forbidden claims (en)", () => {
       const violations = findForbiddenViolations(en as JsonObject, PARITY_TARGETS);
