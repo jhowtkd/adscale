@@ -1041,7 +1041,9 @@ O `key` de `workspace_assets` é único **no banco inteiro** (Descobertas). Duas
 
 - [ ] **Step 1: Escrever o teste de integração concorrente**
 
-Criar `app/tests/integration/creative-work-preparation-concurrency.test.ts` seguindo o cabeçalho e a convenção de `app/tests/integration/creative-work-recovery.test.ts:1-40` (pular sem `TEST_DATABASE_URL`/`DATABASE_URL`; falhar de verdade no `beforeAll` quando configurado e inacessível):
+Criar `app/tests/integration/creative-work-preparation-concurrency.test.ts` seguindo o cabeçalho e a convenção de `app/tests/integration/creative-work-recovery.test.ts:1-40` (pular sem `TEST_DATABASE_URL`/`DATABASE_URL`; falhar de verdade no `beforeAll` quando configurado e inacessível).
+
+**A variável que conecta é `DATABASE_URL`, não `TEST_DATABASE_URL`.** O guard de skip aceita qualquer uma das duas, mas o cliente em `app/src/server/db/index.ts:8` lê `env.DATABASE_URL`, e `app/tests/setup.ts` não mapeia uma na outra. Rodar com `TEST_DATABASE_URL` apenas desarma o skip e depois falha no `beforeAll` com "Postgres de teste INACESSÍVEL (DATABASE_URL=(não definida))" — verificado em 12/09/2026. Todo comando de integração deste plano usa `DATABASE_URL=`.
 
 ```ts
 it("duas recuperacoes concorrentes do mesmo ativo produzem uma linha e nenhum erro", async () => {
@@ -1080,7 +1082,7 @@ Mockar `@/server/storage` para que `objectStorage.head` devolva `{ contentLength
 
 ```bash
 cd app && npm run test:db:setup
-cd app && TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-preparation-concurrency.test.ts
+cd app && DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-preparation-concurrency.test.ts
 ```
 
 Esperado: FAIL com violação de unicidade em `workspace_assets_key_unique` numa das duas chamadas.
@@ -1179,7 +1181,7 @@ Em `select-creative-work-output.ts`, dentro do `runEffect` da biblioteca (Task 4
 - [ ] **Step 6: Rodar e ver passar**
 
 ```bash
-cd app && TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-preparation-concurrency.test.ts
+cd app && DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-preparation-concurrency.test.ts
 cd app && npm test -- src/server/application/ensure-creative-work-output-library.test.ts src/server/application/select-creative-work-output.test.ts
 ```
 
@@ -1316,7 +1318,7 @@ Cada cenário mede e registra, via `console.info` estruturado capturado pelo tes
 - [ ] **Step 3: Rodar e registrar**
 
 ```bash
-cd app && TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-preparation-concurrency.test.ts
+cd app && DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-preparation-concurrency.test.ts
 ```
 
 Esperado: PASS, com as medições impressas. Os testes caracterizam; não afirmam que o comportamento é correto.
@@ -1759,7 +1761,7 @@ Conferir que o SQL é puramente aditivo: um `CREATE TABLE`, um `CREATE UNIQUE IN
 - [ ] **Step 3: Aplicar no banco de teste e provar o índice parcial**
 
 ```bash
-cd app && TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm run db:migrate
+cd app && DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm run db:migrate
 psql postgres://test:test@localhost:5433/adscale_test -c "\d adscale_app.creative_work_preparation_attempts"
 ```
 
@@ -1884,7 +1886,7 @@ it("dois workspaces com Trabalhos distintos nao interferem", async () => { /* is
 - [ ] **Step 2: Rodar e ver falhar**
 
 ```bash
-cd app && TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/repositories/creative-work-preparation.test.ts
+cd app && DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/repositories/creative-work-preparation.test.ts
 ```
 
 Esperado: FAIL — módulo inexistente.
@@ -1902,7 +1904,7 @@ Preservar o orçamento de tentativas do produto: expiração de lease **não** v
 - [ ] **Step 4: Rodar e ver passar**
 
 ```bash
-cd app && TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/repositories/creative-work-preparation.test.ts
+cd app && DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/repositories/creative-work-preparation.test.ts
 ```
 
 - [ ] **Step 5: Commit**
@@ -1949,7 +1951,7 @@ it("reserva de outputs recusa quando ha tentativa de preparacao em curso", async
 - [ ] **Step 2: Rodar e ver falhar**
 
 ```bash
-cd app && TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/repositories/creative-work-preparation.test.ts
+cd app && DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/repositories/creative-work-preparation.test.ts
 ```
 
 - [ ] **Step 3: Implementar**
@@ -1963,7 +1965,7 @@ Nenhum caminho de produção cria tentativas ainda — só a Task 15 em diante f
 - [ ] **Step 4: Rodar tudo e ver passar**
 
 ```bash
-cd app && TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test
+cd app && DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test
 cd app && npm run lint && npm run typecheck && npm run build
 ```
 
@@ -2108,7 +2110,7 @@ it("o tempo suspenso no provedor nao aparece como transacao aberta", async () =>
 - [ ] **Step 2: Rodar e ver falhar**
 
 ```bash
-cd app && TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-preparation-concurrency.test.ts
+cd app && DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-preparation-concurrency.test.ts
 ```
 
 Esperado: FAIL — hoje a edição espera o modelo.
@@ -2133,7 +2135,7 @@ Preservar sem alteração: `assertOfferActive`, todos os ramos de `sources_not_r
 
 ```bash
 cd app && npm test -- src/server/application/prepare-creative-work.test.ts
-cd app && TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-preparation-concurrency.test.ts
+cd app && DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-preparation-concurrency.test.ts
 ```
 
 Esperado: PASS, incluindo **todos** os testes antigos de `prepare-creative-work.test.ts` sem edição.
@@ -2204,7 +2206,7 @@ it("mede quantas chamadas ao provedor duas requisicoes concorrentes iguais produ
 Rodar e registrar em `docs/operations/reliability-metrics.md`.
 
 ```bash
-cd app && TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-preparation-concurrency.test.ts -t "carrossel"
+cd app && DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-preparation-concurrency.test.ts -t "carrossel"
 ```
 
 - [ ] **Step 3: Decidir pelo resultado medido, não por expectativa**
@@ -2223,7 +2225,7 @@ Se a Task 7 tiver encontrado I/O externo **transitivo** dentro de `createIdentit
 
 ```bash
 cd app && npm test -- src/server/application/plan-carousel-work.test.ts src/server/application/prepare-carousel-work.test.ts
-cd app && TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-preparation-concurrency.test.ts
+cd app && DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-preparation-concurrency.test.ts
 ```
 
 Esperado: PASS, com o teste do Step 1 passando **sem edição** — se ele quebrar, a mudança regrediu uma garantia existente e precisa ser desfeita.
@@ -2449,7 +2451,7 @@ Testes obrigatórios, um por caso: ACK ausente com job já iniciado; reenvio ace
 
 ```bash
 cd app && npm test -- src/server/generation/settlement.test.ts src/server/generation/settlement-adapters.test.ts src/server/generation/settlement-wait.test.ts
-cd app && TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-recovery.test.ts
+cd app && DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-recovery.test.ts
 cd app && npm run lint && npm run typecheck && npm test && npm run build
 ```
 
