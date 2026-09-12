@@ -28,6 +28,7 @@ vi.mock("@/server/repositories/creative-work-preparation", () => ({
     attempt: { id: "attempt-unit" },
   })),
   finalizePreparationAttempt: vi.fn(async () => ({ ok: true as const })),
+  renewPreparationAttempt: vi.fn(async () => true),
 }));
 vi.mock("@/server/repositories/brand-kit", () => ({ getBrandKit: vi.fn() }));
 vi.mock("@/server/creative-work/copy", async (importOriginal) => ({
@@ -68,6 +69,7 @@ import { getBrandKit } from "@/server/repositories/brand-kit";
 import {
   claimPreparationAttempt,
   finalizePreparationAttempt,
+  renewPreparationAttempt,
 } from "@/server/repositories/creative-work-preparation";
 import { prepareCreativeWork } from "./prepare-creative-work";
 import { generateSocialPostCopy as generatePaidCopy } from "./generate-social-post-copy";
@@ -101,6 +103,7 @@ describe("prepareCreativeWork", () => {
       attempt: { id: "attempt-unit" },
     } as never);
     vi.mocked(finalizePreparationAttempt).mockResolvedValue({ ok: true } as never);
+    vi.mocked(renewPreparationAttempt).mockResolvedValue(true);
     envState.qualityRecoveryEnabled = "false";
     envState.sunburstPercent = 100;
     envState.sunburstQuality = "max";
@@ -465,6 +468,44 @@ describe("prepareCreativeWork", () => {
     if (result.ok) expect(result.value).not.toHaveProperty("briefing");
     const patch = updateDraft.mock.calls[0]?.[3] as { inputSnapshot: Record<string, unknown> };
     expect(patch.inputSnapshot).not.toHaveProperty("inferredBriefing");
+  });
+
+  it("descarta ANTES de pagar a chamada de copy quando a tentativa e perdida", async () => {
+    getWork.mockResolvedValue({ work, outputs: [], sources: [readyVariationSource] } as never);
+    // A edicao venceu durante a revisao do briefing: a renovacao falha.
+    vi.mocked(renewPreparationAttempt).mockResolvedValue(false);
+
+    const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(result).toMatchObject({ ok: false, error: { code: "stale_input" } });
+    // O ponto do fix: nao se paga o provedor por um resultado que ja nasceu velho.
+    expect(generateCopy).not.toHaveBeenCalled();
+    expect(updateDraft).not.toHaveBeenCalled();
+  });
+
+  it("nao devolve briefing velho pelo atalho de reuso quando o finalize recusa", async () => {
+    // Round trip real, como no teste de reuso acima: a primeira preparacao
+    // persiste o snapshot; so entao a SEGUNDA toma o atalho de reuso. Sem
+    // isso o teste passaria pelo finalize da fase 3 e nao provaria este fix.
+    let current = { ...work } as typeof work & { inputSnapshot?: unknown; brief?: unknown; copy?: unknown };
+    getWork.mockImplementation(async () => ({ work: current, outputs: [], sources: [readyVariationSource] } as never));
+    updateDraft.mockImplementation(async (_ws, _id, _updatedAt, patch) => {
+      current = { ...current, ...patch } as typeof current;
+      return current as never;
+    });
+
+    const first = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(first.ok).toBe(true);
+
+    // Agora uma edicao entra na janela entre a leitura e o fechamento da
+    // tentativa da SEGUNDA preparacao, que iria pelo atalho.
+    vi.mocked(finalizePreparationAttempt).mockResolvedValue({ ok: false, reason: "not_running" } as never);
+    const second = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    // Devolver ok:true com o briefing lido antes da edicao seria mentir.
+    expect(second).toMatchObject({ ok: false, error: { code: "stale_input" } });
+    // E o atalho nao pode ter regerado copy.
+    expect(generateCopy).toHaveBeenCalledOnce();
   });
 
   it("duas preparacoes identicas concorrentes chamam copy UMA vez", async () => {

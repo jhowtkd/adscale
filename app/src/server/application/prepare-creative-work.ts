@@ -5,6 +5,7 @@ import { preparationInputFingerprint } from "@/server/creative-work/preparation-
 import {
   claimPreparationAttempt,
   finalizePreparationAttempt,
+  renewPreparationAttempt,
 } from "@/server/repositories/creative-work-preparation";
 import { logCreativeWorkPreparationAttempt } from "@/server/creative-work/job-telemetry";
 
@@ -559,7 +560,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       if (!preparedPlan) return discard({ ok: false as const, error: { code: "invalid_preparation" as const } }, "invalid_preparation");
       // Nada a persistir: a preparação já valia. A tentativa fecha como
       // concluída para não bloquear o Trabalho até o lease vencer.
-      await finalizePreparationAttempt({
+      const earlyFinalize = await finalizePreparationAttempt({
         workspaceId: input.workspaceId,
         workItemId: input.workItemId,
         attemptId,
@@ -567,6 +568,12 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
         currentFingerprint: inputFingerprint,
         state: "completed",
       });
+      // Se uma edição entrou nesta janela, o briefing que estamos prestes a
+      // devolver é velho. Devolvê-lo com ok:true seria mentir.
+      if (!earlyFinalize.ok) {
+        logDiscard(earlyFinalize.reason);
+        return { ok: false as const, error: { code: "stale_input" as const } };
+      }
       if (briefing) {
         const persistedBriefing = resolveCreativeWorkInferredBriefing(aggregate.work.inputSnapshot) ?? briefing;
         return {
@@ -584,6 +591,20 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       }
       return { ok: true as const, value: { work: aggregate.work, quote, preparedPlan } };
     }
+  // Renova o lease ENTRE as duas chamadas externas. A soma delas pode passar do
+  // prazo, e uma tentativa auto-expirada faria o finalize recusar DEPOIS de a
+  // chamada de copy já ter sido paga.
+  if (!(await renewPreparationAttempt({
+    workspaceId: input.workspaceId,
+    attemptId,
+    leaseSeconds: PREPARATION_LEASE_SECONDS,
+  }))) {
+    // A tentativa deixou de estar viva: uma edição venceu enquanto o briefing
+    // era revisado. Descartar AGORA, antes de pagar a chamada de copy.
+    logDiscard("attempt_lost_before_copy");
+    return { ok: false as const, error: { code: "stale_input" as const } };
+  }
+
     // R-002: the copy is generated from the fact pack (full request + sourced
     // facts + brand) and validated for provenance. A copy that keeps claims
     // without origin after one textual rewrite fails the preparation as

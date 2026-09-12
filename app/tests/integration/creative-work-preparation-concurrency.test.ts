@@ -161,10 +161,7 @@ import {
   mutateCreativeWorkDraftSource,
   withCreativeWorkPreparationLock,
 } from "@/server/repositories/creative-work";
-import {
-  getActivePreparationAttempt,
-  invalidatePreparationAttempts,
-} from "@/server/repositories/creative-work-preparation";
+import { invalidatePreparationAttempts } from "@/server/repositories/creative-work-preparation";
 import { creativeWorkPreparationAttempts } from "@/server/db/schema";
 
 const RUN_ID = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
