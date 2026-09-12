@@ -2,11 +2,11 @@
 
 > Nota de escopo: este arquivo foi criado pela Task 18 (PR-06) com a seção
 > "Settlement: oito laços"; a Task 8 (PR-02) acrescentou "Preparação:
-> caracterização concorrente". A Task 9 (PR-02) ainda não
-> rodou; ela acrescentará as demais seções (espera de preparação, tempo até
-> primeira peça, erro por etapa, efeitos posteriores, custo operacional, amostras
-> com intervalo/`n`/percentis/SHA/flags, tráfego real vs. teste). O merge futuro é
-> trivial: acrescentar seções, sem reescrever esta.
+> caracterização concorrente"; a Task 9 (PR-02) acrescentou "Telemetria mínima
+> e baseline medido" (espera de preparação, tempo até primeira peça, erro por
+> etapa, efeitos posteriores, custo operacional, amostras com
+> intervalo/`n`/percentis/SHA/flags, tráfego real vs. teste). Novas tarefas
+> acrescentam seções, sem reescrever as existentes.
 >
 > Sem amostra, escrever "não medido" — nunca zero. Tráfego real e de teste em
 > seções separadas. 80 × 25 ms é soma nominal de pausas, não duração máxima.
@@ -279,3 +279,64 @@ Leitura:
   são adicionais.
 - Estes números são de teste, não de produção; servem de baseline para a
   Task 19 comparar após o loteamento (esperado: reads independentes de N).
+
+## Telemetria mínima e baseline medido (Task 9, PR-02)
+
+SHA de execução: `f3b504cb` (HEAD do worktree na execução; as funções abaixo
+entram no commit desta tarefa sobre essa base). Fecha o PR-02: reproduções
+determinísticas (Tasks 7-8) + baseline por SHA. A ausência de volume real não
+bloqueia correções de contrato, mas **proíbe prometer ganho percentual**.
+
+### Eventos novos em `app/src/server/creative-work/job-telemetry.ts`
+
+- `creative_work_preparation_attempt` — `logCreativeWorkPreparationAttempt`:
+  `releaseSha`, `environment`, `process` (`web`|`worker`), `workspaceId`,
+  `workItemId`, `attemptId` (null até a Task 12 existir), `kind`, `phase`
+  (`claim`|`external`|`finalize`|`invalidated`|`expired`), `lockWaitMs`,
+  `inTransactionMs`, `externalMs` (null quando não há chamada externa),
+  `totalMs`. Mesmo canal e shape de `creative_work_output_stage` /
+  `creative_work_output_retry` (`logger.info` + fallback
+  `creative_work_telemetry_emit_failed`).
+- `creative_work_selection_effect` — `logCreativeWorkSelectionEffect`:
+  `releaseSha`, `workspaceId`, `workItemId`, `outputId`, `effect`
+  (`library`|`valueEvent`|`recipe`), `status`
+  (`done`|`not_requested`|`pending`|`failed`), `attempt`, `code`.
+- REGRA DURA: prompts, chaves, conteúdo de cliente e URLs assinadas nunca entram
+  nos eventos (coberta pelo teste "nao emite prompt, chave, conteudo de cliente
+  nem URL assinada"). Identificadores de alta cardinalidade (`workspaceId`,
+  `workItemId`, `attemptId`) vão em log/trace, **nunca** em label irrestrito de
+  métrica.
+
+### Baseline por amostra (tráfego de teste)
+
+Toda amostra abaixo é tráfego de teste. Sem amostra, "não medido" — nunca zero.
+
+| Métrica | Valor | Intervalo | n | Percentis | SHA | Flags |
+|---|---|---|---|---|---|---|
+| Espera por preparação, mesmo Trabalho | 205 ms (amostragem) / 227 ms (total) — ver seção Task 8 | 12/09/2026 | 1 | não medido | `fed92864`/`f3b504cb` | teste; provedor suspenso por promessa; limitada pelo tempo que o teste segurou o modelo |
+| Espera por preparação, Trabalho diferente | 5 ms — ver seção Task 8 | 12/09/2026 | 1 | não medido | `fed92864`/`f3b504cb` | teste; passa direto pelo lock escopado por Trabalho |
+| Pressão de pool, mesmo Trabalho | 5 de 5 escritores curtos presos — ver seção Task 8 | 12/09/2026 | 5 escritores, 1 rodada | não medido | `fed92864`/`f3b504cb` | teste; `max: 10` por processo |
+| Tempo até primeira peça | não medido | — | — | — | — | nenhum emissor de `creative_work_preparation_attempt` em produção ainda |
+| Erro por etapa de preparação | não medido | — | — | — | — | idem |
+| Efeitos posteriores (`library`/`valueEvent`/`recipe`: `done`/`pending`/`failed`) | não medido | — | — | — | — | PR-01 sem tráfego; nenhum emissor de `creative_work_selection_effect` ainda |
+| Replay de settlement: tentativas, reads, outputs, tempo | ver tabela "Replay medido" da seção Settlement (ex.: laço 378, N=12: 80 tentativas, 1200 reads, 12 outputs, 2086 ms) | 12/09/2026 | 1 replay por célula | não medido | `b2ee6511` (conteúdo byte-idêntico no worktree) | teste, mocks; cada read ≥ 1 query; `getCreativeWork` projeta o agregado inteiro |
+| Consultas SQL por replay | não medido | — | — | — | — | contagem exata exige log de banco (Task 9/14); **não publicar "400 queries no máximo"** sem medir caminho e lote |
+| Custo operacional por versão única selecionada/entregue | não medido | — | — | — | — | sessões do Estúdio e outputs são denominadores diferentes e não devem ser misturados |
+
+### Tráfego real
+
+Não medido. Nenhum dos dois eventos novos tem emissor em produção nesta base;
+quando houver, as amostras reais entram em seção separada desta, com
+intervalo/`n`/percentis/SHA/flags próprios. Tráfego real e de teste nunca se
+misturam na mesma amostra.
+
+### Convenções reafirmadas
+
+- 80 × 25 ms é soma nominal de pausas, não duração máxima. Consultas, espera por
+  conexão, escrita e eventual reenvio são adicionais, e as consultas de
+  reembolso dependem do número de outputs.
+- Prazo de lease proposto para a Task 12:
+  `lease = clamp(2 × p99(externalMs) medido aqui, 60s, 300s)`.
+  `p99(externalMs)` está **não medido** — a Task 8 suspendeu o provedor por
+  promessa de propósito, então tempo de modelo real nunca foi amostrado — e o
+  lease, portanto, **não calculado**. Não copiar os 90 s do editor de camadas.

@@ -7,6 +7,8 @@ import {
   logCreativeWorkGenerationLifecycle,
   logCreativeWorkOutputStage,
   logCreativeWorkOutputTerminal,
+  logCreativeWorkPreparationAttempt,
+  logCreativeWorkSelectionEffect,
   observeCreativeWorkStage,
 } from "./job-telemetry";
 
@@ -333,5 +335,94 @@ describe("carousel funnel chain completeness (Task 10)", () => {
     expect(composer).toContain('recordCanonicalEvent("creative_work_reviewed"');
     expect(composer).toContain('recordCanonicalEvent("creative_work_approved"');
     expect(composer).toContain("protocol: \"carousel\"");
+  });
+});
+
+describe("preparation attempt and selection effect telemetry (Task 9)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("nao emite prompt, chave, conteudo de cliente nem URL assinada", () => {
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+    logCreativeWorkPreparationAttempt({
+      releaseSha: "abc1234",
+      environment: "test",
+      process: "web",
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      attemptId: null,
+      kind: "creative_prepare",
+      phase: "claim",
+      lockWaitMs: 3,
+      inTransactionMs: 12,
+      externalMs: null,
+      totalMs: 15,
+    });
+    const payload = JSON.stringify(spy.mock.calls);
+    expect(payload).not.toMatch(/X-Amz-Signature|Bearer |sk-|prompt/i);
+    spy.mockRestore();
+  });
+
+  it("emits the preparation attempt with the stable event shape", () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    logCreativeWorkPreparationAttempt({
+      releaseSha: "abc1234",
+      environment: "test",
+      process: "web",
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      attemptId: null,
+      kind: "creative_prepare",
+      phase: "external",
+      lockWaitMs: 3,
+      inTransactionMs: 12,
+      externalMs: 120,
+      totalMs: 135,
+    });
+
+    expect(JSON.parse(String(info.mock.calls[0]?.[0]))).toMatchObject({
+      event: "creative_work_preparation_attempt",
+      jobType: "creative_work",
+      releaseSha: "abc1234",
+      environment: "test",
+      process: "web",
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      attemptId: null,
+      kind: "creative_prepare",
+      phase: "external",
+      lockWaitMs: 3,
+      inTransactionMs: 12,
+      externalMs: 120,
+      totalMs: 135,
+    });
+  });
+
+  it("emits the selection effect with the stable event shape", () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    logCreativeWorkSelectionEffect({
+      releaseSha: "abc1234",
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      effect: "recipe",
+      status: "pending",
+      attempt: 1,
+      code: null,
+    });
+
+    expect(JSON.parse(String(info.mock.calls[0]?.[0]))).toMatchObject({
+      event: "creative_work_selection_effect",
+      jobType: "creative_work",
+      releaseSha: "abc1234",
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      effect: "recipe",
+      status: "pending",
+      attempt: 1,
+      code: null,
+    });
   });
 });

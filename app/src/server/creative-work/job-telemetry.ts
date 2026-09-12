@@ -353,3 +353,65 @@ export function logCreativeWorkLateCompletionDiscarded(
     // The late result is already discarded; a sink failure must stay auxiliary.
   }
 }
+
+/**
+ * PR-02 Task 9 — preparation-attempt and selection-effect telemetry.
+ * Operational fields only: prompts, keys, client content and signed URLs
+ * must never enter these events. High-cardinality ids (workspaceId,
+ * workItemId, attemptId) stay in log/trace, never in metric labels.
+ */
+export function logCreativeWorkPreparationAttempt(fields: {
+  releaseSha: string;
+  environment: string;
+  process: "web" | "worker";
+  workspaceId: string;
+  workItemId: string;
+  attemptId: string | null;
+  kind: string;
+  phase: "claim" | "external" | "finalize" | "invalidated" | "expired";
+  lockWaitMs: number;
+  inTransactionMs: number;
+  externalMs: number | null;
+  totalMs: number;
+}): void {
+  try {
+    logger.info({ event: "creative_work_preparation_attempt", jobType: "creative_work", ...heavyImageExecutorIdentity(), ...fields });
+  } catch (error) {
+    try {
+      logger.warn({
+        event: "creative_work_telemetry_emit_failed",
+        sourceEvent: "creative_work_preparation_attempt",
+        ...fields,
+        errorMessage: truncateTelemetryMessage(error),
+      });
+    } catch {
+      // Observability never changes preparation behavior.
+    }
+  }
+}
+
+export function logCreativeWorkSelectionEffect(fields: {
+  releaseSha: string;
+  workspaceId: string;
+  workItemId: string;
+  outputId: string;
+  effect: "library" | "valueEvent" | "recipe";
+  status: "done" | "not_requested" | "pending" | "failed";
+  attempt: number;
+  code: string | null;
+}): void {
+  try {
+    logger.info({ event: "creative_work_selection_effect", jobType: "creative_work", ...heavyImageExecutorIdentity(), ...fields });
+  } catch (error) {
+    try {
+      logger.warn({
+        event: "creative_work_telemetry_emit_failed",
+        sourceEvent: "creative_work_selection_effect",
+        ...fields,
+        errorMessage: truncateTelemetryMessage(error),
+      });
+    } catch {
+      // Observability never changes selection behavior.
+    }
+  }
+}
