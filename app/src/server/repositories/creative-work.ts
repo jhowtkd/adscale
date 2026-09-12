@@ -2215,7 +2215,7 @@ export async function selectCreativeWorkOutput(
   workspaceId: string,
   workItemId: string,
   outputId: string,
-  options: { confirmObjective?: boolean } = {}
+  options: { confirmObjective?: boolean; pendingRecipeReceiptId?: string } = {}
 ): Promise<CreativeWorkOutput | null> {
   return db.transaction(async (tx) => {
     const outputs = await tx
@@ -2255,7 +2255,22 @@ export async function selectCreativeWorkOutput(
 
     const [selected] = await tx
       .update(creativeWorkOutputs)
-      .set({ isSelected: true, updatedAt: new Date() })
+      .set({
+        isSelected: true,
+        updatedAt: new Date(),
+        ...(options.pendingRecipeReceiptId
+          ? {
+              selectionEffects: {
+                version: 1 as const,
+                recipe: {
+                  receiptId: options.pendingRecipeReceiptId,
+                  requestedAt: new Date().toISOString(),
+                  state: "pending" as const,
+                },
+              },
+            }
+          : {}),
+      })
       .where(
         and(
           eq(creativeWorkOutputs.workspaceId, workspaceId),

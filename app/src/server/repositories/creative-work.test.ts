@@ -2253,6 +2253,48 @@ describe("creative-work repository", () => {
       expect(result?.isSelected).toBe(true);
     });
 
+    it("grava o recibo da receita no mesmo set() que marca isSelected", async () => {
+      const newlySelected = workOutput({ id: "output-1", isSelected: true });
+      mocks.state.selectResults.push([workOutput({
+        id: "output-1",
+        status: "completed",
+        outputKey: "creative-work/output-1/out.png",
+        quality: { schemaVersion: 1, objectiveVerdict: "pass" },
+      })]);
+      mocks.state.txUpdateResults.push([newlySelected]);
+
+      const result = await selectCreativeWorkOutput("ws-1", "work-1", "output-1", {
+        confirmObjective: true,
+        pendingRecipeReceiptId: "receipt-1",
+      });
+
+      expect(result?.isSelected).toBe(true);
+      // 1o set() limpa a selecao anterior; o recibo pertence ao 2o.
+      expect(mocks.txSetMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        isSelected: true,
+        selectionEffects: expect.objectContaining({
+          version: 1,
+          recipe: expect.objectContaining({ receiptId: "receipt-1", state: "pending" }),
+        }),
+      }));
+    });
+
+    it("nao grava selectionEffects quando o recibo nao e pedido", async () => {
+      const newlySelected = workOutput({ id: "output-1", isSelected: true });
+      mocks.state.selectResults.push([workOutput({
+        id: "output-1",
+        status: "completed",
+        outputKey: "creative-work/output-1/out.png",
+        quality: { schemaVersion: 1, objectiveVerdict: "pass" },
+      })]);
+      mocks.state.txUpdateResults.push([newlySelected]);
+
+      await selectCreativeWorkOutput("ws-1", "work-1", "output-1", { confirmObjective: true });
+
+      expect(mocks.txSetMock).toHaveBeenCalledTimes(2);
+      expect(mocks.txSetMock.mock.calls[1]?.[0]).not.toHaveProperty("selectionEffects");
+    });
+
     it("keeps the previous selection when the locked candidate fails objective policy", async () => {
       mocks.state.selectResults.push([
         workOutput({

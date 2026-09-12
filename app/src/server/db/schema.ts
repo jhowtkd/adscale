@@ -2699,6 +2699,21 @@ export const creativeWorkSources = adscaleSchema.table(
 export type CreativeWorkSource = typeof creativeWorkSources.$inferSelect;
 export type NewCreativeWorkSource = typeof creativeWorkSources.$inferInsert;
 
+/**
+ * Obrigacao minima de dominio persistida junto com a selecao. Existe para que
+ * um efeito "pending" tenha lastro: sem ela a resposta so poderia dizer
+ * "failed". Nao e outbox generico — so o efeito que o usuario pediu.
+ */
+export type CreativeWorkSelectionEffectsState = {
+  version: 1;
+  recipe?: {
+    receiptId: string;
+    requestedAt: string;
+    state: "pending" | "done" | "failed";
+    code?: string;
+  };
+};
+
 export const creativeWorkOutputs = adscaleSchema.table(
   "creative_work_outputs",
   {
@@ -2737,6 +2752,7 @@ export const creativeWorkOutputs = adscaleSchema.table(
     layerization: jsonb("layerization").$type<import("../layerize/contracts").LayerizationState | null>(),
     layerEditor: jsonb("layer_editor").$type<import("../layer-editor/contracts").LayerEditorStateV1 | null>(),
     isSelected: boolean("is_selected").notNull().default(false),
+    selectionEffects: jsonb("selection_effects").$type<CreativeWorkSelectionEffectsState | null>(),
     directionId: uuid("direction_id"),
     directionSnapshot: jsonb("direction_snapshot").$type<{
       label: string;
