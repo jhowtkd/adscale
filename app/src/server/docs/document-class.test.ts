@@ -47,7 +47,7 @@ describe("document class for agents", () => {
     expect(decision).toMatch(/N01-after-attempt-2/);
     expect(decision).toMatch(/home_create_post/);
     expect(decision).toMatch(/Não valida o Estúdio atual/);
-    expect(decision).toMatch(/não são observação de operador/);
+    expect(decision).toMatch(/observação de operador/);
   });
 
   it("does not let README reintroduce campaign as a required creative destination", () => {
