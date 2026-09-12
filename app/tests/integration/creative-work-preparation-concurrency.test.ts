@@ -6,13 +6,19 @@
  * preparação): duas recuperações concorrentes do mesmo output produzem uma
  * linha, resultado consistente e nenhum erro 23505.
  *
- * Único mock: `@/server/storage` (objectStorage.head) — o bucket R2 é efeito
- * externo; tudo que o teste prova é transacional no Postgres.
+ * PR-02 Task 8: caracterização concorrente da preparação. Mede — não julga —
+ * o que a transação longa provoca hoje: quantas chamadas de modelo dois
+ * pedidos iguais disparam, se um escritor curto do MESMO Trabalho espera a
+ * resposta do modelo, se um Trabalho DIFERENTE escapa, e quantas conexões o
+ * mesmo Trabalho consegue prender.
+ *
+ * Mocks: `@/server/storage` (objectStorage.head) e `generateSocialPostCopy`
+ * (o provedor suspenso). Tudo o mais é produção real contra Postgres real.
  *
  * Requer o container adscale-test-postgres migrado (coluna selection_effects):
  *   DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- tests/integration/creative-work-preparation-concurrency.test.ts
  */
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq, inArray, sql } from "drizzle-orm";
 import crypto from "node:crypto";
 
@@ -85,14 +91,73 @@ vi.mock("@/server/storage", () => ({
   },
 }));
 
+/**
+ * Portao do modelo: suspende `generateSocialPostCopy` sob controle do teste.
+ *
+ * Sem isto a medicao mistura tempo de IA com tempo de banco e nenhuma conclusao
+ * sobre a transacao e possivel. O mock substitui SO a chamada externa — o lock,
+ * a transacao e toda a validacao de `prepareCreativeWork` continuam reais.
+ */
+const modelGate = vi.hoisted(() => {
+  let arrivals = 0;
+  let waiters: Array<{ n: number; resolve: () => void }> = [];
+  let release!: () => void;
+  let gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return {
+    get arrivals() {
+      return arrivals;
+    },
+    /** Chamado de dentro do mock: registra a chegada e espera a liberacao. */
+    async enter() {
+      arrivals += 1;
+      for (const w of waiters) if (arrivals >= w.n) w.resolve();
+      await gate;
+    },
+    /** Resolve quando `n` chamadas tiverem entrado no portao. */
+    waitForArrivals(n: number) {
+      if (arrivals >= n) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        waiters.push({ n, resolve });
+      });
+    },
+    releaseAll() {
+      release();
+    },
+    reset() {
+      arrivals = 0;
+      waiters = [];
+      gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    },
+  };
+});
+
+vi.mock("@/server/creative-work/copy", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/server/creative-work/copy")>();
+  return {
+    ...actual,
+    generateSocialPostCopy: vi.fn(async () => {
+      await modelGate.enter();
+      return { headline: "Titulo medido", body: "Corpo medido", cta: "Acao" };
+    }),
+  };
+});
+
 import { db } from "@/server/db";
 import {
   clientProfiles,
+  creativeWorkItems,
+  creativeWorkSources,
   user,
   workspaceAssets,
   workspaces,
 } from "@/server/db/schema";
 import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-creative-work-output-library";
+import { prepareCreativeWork } from "@/server/application/prepare-creative-work";
+import { withCreativeWorkPreparationLock } from "@/server/repositories/creative-work";
 
 const RUN_ID = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -130,6 +195,79 @@ async function createScope(): Promise<{ userId: string; workspaceId: string; cli
   return { userId, workspaceId: workspace.id, clientProfileId: profile.id };
 }
 
+
+/** Cede o event loop por `ms` para que promessas de banco em voo progridam. */
+function tick(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Observa se uma promessa ja assentou, sem await-la. */
+function watch<T>(promise: Promise<T>): { readonly done: boolean; promise: Promise<T> } {
+  let done = false;
+  promise.then(
+    () => { done = true; },
+    () => { done = true; },
+  );
+  return {
+    get done() { return done; },
+    promise,
+  };
+}
+
+/** Medicoes da Task 8; gravadas so quando TASK8_MEASUREMENTS_OUT aponta um arquivo. */
+const measurements: Array<Record<string, unknown>> = [];
+
+/**
+ * Semeia um Trabalho `variations` em draft com uma fonte pronta — o caminho
+ * mais curto que `prepareCreativeWork` percorre ATE O FIM passando por
+ * `generateSocialPostCopy`, que e onde o portao do modelo suspende.
+ *
+ * Nao usar `social_post` aqui: `projectPreparedPlanV1` devolve null para esse
+ * protocolo por design (`prepared-plan.ts:100`), entao a preparacao terminaria
+ * sempre em `invalid_preparation` e o cenario mediria um caminho de erro.
+ * `variations` exige apenas `sources.length > 0`
+ * (`creative-work-protocol-eligibility.ts:10`).
+ */
+async function createWork(scope: { userId: string; workspaceId: string; clientProfileId: string }): Promise<string> {
+  const [work] = await db
+    .insert(creativeWorkItems)
+    .values({
+      workspaceId: scope.workspaceId,
+      clientProfileId: scope.clientProfileId,
+      createdByUserId: scope.userId,
+      title: "Caracterizacao T8",
+      request: "Anunciar a promocao de primavera da loja com desconto de 20%",
+      toolKind: "variations",
+      status: "draft",
+      format: "4:5",
+      settings: { targetFormats: [] },
+    })
+    .returning();
+
+  const [asset] = await db
+    .insert(workspaceAssets)
+    .values({
+      workspaceId: scope.workspaceId,
+      name: "base.png",
+      key: `creative-work/${crypto.randomUUID()}/base.png`,
+      type: "image/png",
+      size: 2048,
+      source: "upload",
+    })
+    .returning();
+
+  await db.insert(creativeWorkSources).values({
+    workspaceId: scope.workspaceId,
+    workItemId: work.id,
+    assetId: asset.id,
+    usage: "both",
+    usageConfirmed: true,
+    status: "ready",
+  });
+
+  return work.id;
+}
+
 beforeAll(async () => {
   try {
     await db.execute(sql`select 1`);
@@ -144,7 +282,14 @@ beforeAll(async () => {
 }, 30_000);
 
 afterAll(async () => {
+  const out = process.env.TASK8_MEASUREMENTS_OUT;
+  if (out && measurements.length > 0) {
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(out, JSON.stringify(measurements, null, 2));
+  }
   if (createdWorkspaceIds.length > 0) {
+    await db.delete(creativeWorkSources).where(inArray(creativeWorkSources.workspaceId, createdWorkspaceIds));
+    await db.delete(creativeWorkItems).where(inArray(creativeWorkItems.workspaceId, createdWorkspaceIds));
     await db.delete(workspaceAssets).where(inArray(workspaceAssets.workspaceId, createdWorkspaceIds));
     await db.delete(clientProfiles).where(inArray(clientProfiles.workspaceId, createdWorkspaceIds));
     await db.delete(workspaces).where(inArray(workspaces.id, createdWorkspaceIds));
@@ -194,4 +339,139 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work preparation concu
     expect(first.asset?.id).toBe(rows[0].id);
     expect(second.asset?.id).toBe(rows[0].id);
   });
+});
+
+describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("PR-02 Task 8 — caracterizacao da preparacao (Postgres real)", () => {
+  beforeEach(() => {
+    modelGate.reset();
+  });
+
+  it("caracteriza: duas preparacoes iguais do mesmo Trabalho", async () => {
+    const scope = await createScope();
+    const workItemId = await createWork(scope);
+
+    const first = watch(prepareCreativeWork({ workspaceId: scope.workspaceId, workItemId }));
+    await modelGate.waitForArrivals(1);
+
+    const second = watch(prepareCreativeWork({ workspaceId: scope.workspaceId, workItemId }));
+    await tick(150);
+
+    // OBSERVADO hoje: a segunda requisicao nao alcanca o modelo — ela fica
+    // presa no advisory lock que a primeira segura durante a chamada externa.
+    const arrivalsEnquantoSuspenso = modelGate.arrivals;
+    const segundaAssentouDurante = second.done;
+
+    modelGate.releaseAll();
+    const [a, b] = await Promise.all([first.promise, second.promise]);
+
+    measurements.push({
+      cenario: "duas preparacoes iguais",
+      arrivalsEnquantoSuspenso,
+      segundaAssentouDurante,
+      arrivalsTotal: modelGate.arrivals,
+      primeiro: a.ok ? "ok" : `erro:${a.error.code}`,
+      segundo: b.ok ? "ok" : `erro:${b.error.code}`,
+    });
+
+    expect(arrivalsEnquantoSuspenso).toBe(1);
+    expect(segundaAssentouDurante).toBe(false);
+    expect(a.ok).toBe(true);
+  }, 30_000);
+
+  it("caracteriza: escritor curto do MESMO Trabalho espera a resposta do modelo", async () => {
+    const scope = await createScope();
+    const workItemId = await createWork(scope);
+
+    const preparing = watch(prepareCreativeWork({ workspaceId: scope.workspaceId, workItemId }));
+    await modelGate.waitForArrivals(1);
+
+    const startedAt = Date.now();
+    const writer = watch(
+      withCreativeWorkPreparationLock(scope.workspaceId, workItemId, async () => "entrou"),
+    );
+    await tick(200);
+
+    // ESTE E O BUG que o PR-05 corrige: uma escrita curta, que nao depende de
+    // IA nenhuma, fica bloqueada pelo tempo do provedor.
+    const bloqueadoDurante = !writer.done;
+    const esperaMedidaMs = Date.now() - startedAt;
+
+    modelGate.releaseAll();
+    await preparing.promise;
+    await expect(writer.promise).resolves.toBe("entrou");
+
+    measurements.push({
+      cenario: "escritor curto — mesmo Trabalho",
+      bloqueadoDurante,
+      esperaMedidaAteAmostragemMs: esperaMedidaMs,
+      esperaTotalMs: Date.now() - startedAt,
+    });
+
+    expect(bloqueadoDurante).toBe(true);
+  }, 30_000);
+
+  it("caracteriza: escritor curto de Trabalho DIFERENTE nao espera", async () => {
+    const scope = await createScope();
+    const suspendedWorkId = await createWork(scope);
+    const otherWorkId = await createWork(scope);
+
+    const preparing = watch(prepareCreativeWork({ workspaceId: scope.workspaceId, workItemId: suspendedWorkId }));
+    await modelGate.waitForArrivals(1);
+
+    const startedAt = Date.now();
+    const writer = await withCreativeWorkPreparationLock(
+      scope.workspaceId,
+      otherWorkId,
+      async () => "entrou",
+    );
+    const esperaMs = Date.now() - startedAt;
+
+    modelGate.releaseAll();
+    await preparing.promise;
+
+    measurements.push({ cenario: "escritor curto — Trabalho diferente", esperaMs });
+
+    // O lock e por Trabalho: outro Trabalho passa direto. Isto delimita o dano
+    // do bug e afasta a hipotese de um lock global.
+    expect(writer).toBe("entrou");
+    expect(esperaMs).toBeLessThan(1_000);
+  }, 30_000);
+
+  it("caracteriza: o mesmo Trabalho prende conexoes do pool enquanto o modelo responde", async () => {
+    const scope = await createScope();
+    const workItemId = await createWork(scope);
+
+    const preparing = watch(prepareCreativeWork({ workspaceId: scope.workspaceId, workItemId }));
+    await modelGate.waitForArrivals(1);
+
+    // `withCreativeWorkPreparationLock` abre a transacao ANTES de pedir o
+    // advisory lock, entao cada tentativa bloqueada ja segura uma conexao.
+    // 5 e deliberadamente menor que o pool (max: 10 por processo): o objetivo
+    // e medir o mecanismo, nao esgotar o pool e travar a propria suite.
+    const CONCORRENTES = 5;
+    const writers = Array.from({ length: CONCORRENTES }, () =>
+      watch(withCreativeWorkPreparationLock(scope.workspaceId, workItemId, async () => "entrou")),
+    );
+    await tick(300);
+
+    const presosDurante = writers.filter((w) => !w.done).length;
+
+    modelGate.releaseAll();
+    await preparing.promise;
+    const resultados = await Promise.all(writers.map((w) => w.promise));
+
+    measurements.push({
+      cenario: "pressao de pool — mesmo Trabalho",
+      concorrentes: CONCORRENTES,
+      presosDurante,
+      poolMaxPorProcesso: 10,
+    });
+
+    // Confirma por medicao o que a spec so inferia da ordem
+    // `db.transaction -> pg_advisory_xact_lock`: requisicoes do MESMO Trabalho
+    // ocupam conexoes enquanto esperam. Nao e preciso Trabalhos distintos para
+    // pressionar o pool.
+    expect(presosDurante).toBe(CONCORRENTES);
+    expect(resultados).toEqual(Array(CONCORRENTES).fill("entrou"));
+  }, 30_000);
 });

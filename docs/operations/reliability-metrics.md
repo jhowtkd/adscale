@@ -1,7 +1,8 @@
 # Métricas de confiabilidade (baseline por SHA)
 
-> Nota de escopo (Task 18, PR-06): este arquivo foi criado pela Task 18 contendo
-> **somente** a seção "Settlement: oito laços" abaixo. A Task 9 (PR-02) ainda não
+> Nota de escopo: este arquivo foi criado pela Task 18 (PR-06) com a seção
+> "Settlement: oito laços"; a Task 8 (PR-02) acrescentou "Preparação:
+> caracterização concorrente". A Task 9 (PR-02) ainda não
 > rodou; ela acrescentará as demais seções (espera de preparação, tempo até
 > primeira peça, erro por etapa, efeitos posteriores, custo operacional, amostras
 > com intervalo/`n`/percentis/SHA/flags, tráfego real vs. teste). O merge futuro é
@@ -9,6 +10,44 @@
 >
 > Sem amostra, escrever "não medido" — nunca zero. Tráfego real e de teste em
 > seções separadas. 80 × 25 ms é soma nominal de pausas, não duração máxima.
+
+## Preparação: caracterização concorrente (Task 8, PR-02)
+
+Medido em 12/09/2026 contra o Postgres de teste real (`adscale-test-postgres`, schema migrado até `0095`), branch de execução `fed92864`. Fonte: `app/tests/integration/creative-work-preparation-concurrency.test.ts`, bloco "PR-02 Task 8". Reproduzir com:
+
+```bash
+cd app && DATABASE_URL=postgres://test:test@localhost:5433/adscale_test \
+  TASK8_MEASUREMENTS_OUT=/tmp/task8.json \
+  npm test -- tests/integration/creative-work-preparation-concurrency.test.ts
+```
+
+O provedor é suspenso por promessa (`generateSocialPostCopy` mockada), então **tempo de IA e tempo de banco ficam separados**: os números abaixo medem o banco e o lock, nunca o modelo. O Trabalho semeado é `variations` com uma fonte pronta — `social_post` não serve, porque `projectPreparedPlanV1` devolve `null` para esse protocolo por design (`prepared-plan.ts:100`) e a preparação terminaria sempre em `invalid_preparation`.
+
+| Cenário | Medição | Observado |
+|---|---|---|
+| Duas preparações iguais do mesmo Trabalho | chamadas ao modelo enquanto a primeira está suspensa | **1** — a segunda não alcança o modelo |
+| " | segunda requisição assentou durante a suspensão? | **não** — presa no advisory lock |
+| " | chamadas ao modelo no total | **1** — a segunda reaproveita o resultado persistido |
+| " | resultado de ambas | `ok` / `ok` |
+| Escritor curto, **mesmo** Trabalho | bloqueado durante a suspensão? | **sim** |
+| " | espera medida | 205 ms na amostragem, 227 ms no total — limitada apenas pelo tempo que o teste segurou o modelo |
+| Escritor curto, Trabalho **diferente** | espera | **5 ms** — passa direto |
+| Pressão de pool, mesmo Trabalho | 5 escritores curtos concorrentes presos | **5 de 5**, com `max: 10` por processo |
+
+### O que estes números estabelecem
+
+**A inferência da spec virou fato medido.** A spec deduzia, da ordem `db.transaction → pg_advisory_xact_lock`, que requisições do mesmo Trabalho podem prender conexões enquanto esperam. Está medido: 5 de 5 escritores curtos do mesmo Trabalho ficaram presos, cada um segurando a conexão que abriu antes de pedir o lock. **Não é preciso Trabalhos distintos para pressionar o pool.**
+
+**O dano é por Trabalho, não global.** Um escritor de outro Trabalho passou em 5 ms contra 227 ms do mesmo Trabalho. O advisory lock é escopado por `workspaceId:workItemId:prepare`, e isso delimita o raio do problema.
+
+**Uma escrita curta espera a IA.** `withCreativeWorkPreparationLock` sobre o mesmo Trabalho não retorna enquanto o modelo não responde, embora a escrita não dependa de IA nenhuma. É o bug que o PR-05 corrige.
+
+### Invariante acidental que a Task 15 precisa PRESERVAR
+
+Duas preparações iguais concorrentes produzem **uma única** chamada ao provedor. Isso não é deduplicação deliberada: é efeito colateral da serialização pelo lock — a segunda requisição só entra depois que a primeira persistiu, e então cai no atalho de reaproveitamento de snapshot.
+
+**Ao tirar a chamada externa da transação (Task 15), essa propriedade some por construção** se nada a substituir: as duas requisições passariam a chamar o modelo em paralelo, dobrando o gasto com o provedor. É exatamente para isso que serve a tentativa persistida do PR-03 — `claimPreparationAttempt` devolvendo `joined` para a segunda requisição. O teste de Task 15 "duas requisicoes iguais compartilham UMA tentativa ativa" é o sucessor direto desta medição, e o número a bater é **1 chamada ao provedor**, o mesmo de hoje.
+
 
 ## Settlement: oito laços
 
