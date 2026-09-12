@@ -378,15 +378,14 @@ E, dentro do objeto de colunas de `creativeWorkOutputs`, logo após `isSelected:
     selectionEffects: jsonb("selection_effects").$type<CreativeWorkSelectionEffectsState | null>(),
 ```
 
-- [ ] **Step 2: Gerar a migração**
+- [ ] **Step 2: Escrever a migração**
 
-```bash
-cd app && npm run db:generate
-```
+> **Convenção de migração deste repo — `npm run db:generate` NÃO funciona aqui.**
+> A cadeia de snapshots do drizzle-kit para em `drizzle/meta/0037_snapshot.json`, mas existem 99 migrações. O gerador diffa contra o snapshot 0037, enxerga ~40 tabelas "novas" e cai num prompt interativo de renomeação (`promptNamedWithSchemasConflict`), que estoura em execução não interativa. Desde a `0038` as migrações são **escritas à mão**, com `IF NOT EXISTS`, `--> statement-breakpoint` entre statements, e a entrada do journal acrescentada manualmente (`idx` sequencial, `version: "7"`, `tag` igual ao nome do arquivo sem `.sql`). Verificado em 12/09/2026. Siga `drizzle/0094_commercial_offers.sql` como modelo de estilo.
 
-Não adivinhar o número do journal — o comando o atribui. A migração mais recente hoje é `0094_commercial_offers`, então espere `0095_*`. Renomear o arquivo gerado para `0095_creative_work_selection_effects.sql` **somente se** o gerador não tiver produzido nome equivalente, e ajustar o `tag` correspondente em `app/drizzle/meta/_journal.json` no mesmo commit.
+A migração mais recente antes desta é `0094_commercial_offers` (journal `idx` 94), então esta é `0095_creative_work_selection_effects.sql` com `idx` 95. Escrever o arquivo e a entrada do journal no mesmo commit.
 
-Conferir que o SQL gerado é aditivo e nullable:
+Conferir que o SQL é aditivo e nullable:
 
 ```bash
 cat app/drizzle/0095_*.sql
@@ -1750,13 +1749,14 @@ export type CreativeWorkPreparationAttempt = typeof creativeWorkPreparationAttem
 export type NewCreativeWorkPreparationAttempt = typeof creativeWorkPreparationAttempts.$inferInsert;
 ```
 
-- [ ] **Step 2: Gerar e conferir a migração**
+- [ ] **Step 2: Escrever e conferir a migração**
 
-```bash
-cd app && npm run db:generate && cat app/drizzle/0096_*.sql
-```
+> **Convenção de migração deste repo — `npm run db:generate` NÃO funciona aqui.**
+> A cadeia de snapshots do drizzle-kit para em `drizzle/meta/0037_snapshot.json`, mas existem 99 migrações. O gerador diffa contra o snapshot 0037, enxerga ~40 tabelas "novas" e cai num prompt interativo de renomeação (`promptNamedWithSchemasConflict`), que estoura em execução não interativa. Desde a `0038` as migrações são **escritas à mão**, com `IF NOT EXISTS`, `--> statement-breakpoint` entre statements, e a entrada do journal acrescentada manualmente (`idx` sequencial, `version: "7"`, `tag` igual ao nome do arquivo sem `.sql`). Verificado em 12/09/2026. Siga `drizzle/0094_commercial_offers.sql` como modelo de estilo.
 
-Conferir que o SQL é puramente aditivo: um `CREATE TABLE`, um `CREATE UNIQUE INDEX … WHERE state = 'running'`, um `CREATE INDEX`, dois `ADD CONSTRAINT … CHECK` e as duas FKs. Nenhum `DROP`, nenhuma alteração em tabela existente. Se o gerador emitir qualquer outra coisa, parar.
+Criar `app/drizzle/0096_creative_work_preparation_attempts.sql` à mão: um `CREATE TABLE IF NOT EXISTS`, duas FKs, dois `ADD CONSTRAINT … CHECK`, o `CREATE UNIQUE INDEX IF NOT EXISTS … WHERE "state" = 'running'` e um `CREATE INDEX IF NOT EXISTS` de escopo. Nenhum `DROP`, nenhuma alteração em tabela existente.
+
+Acrescentar a entrada no journal no **mesmo commit** do arquivo — journal e arquivo fora de sincronia quebram a migração em produção de um jeito que passa despercebido em teste local.
 
 - [ ] **Step 3: Aplicar no banco de teste e provar o índice parcial**
 
