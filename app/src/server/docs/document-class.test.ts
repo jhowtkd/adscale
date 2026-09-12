@@ -35,6 +35,21 @@ describe("document class for agents", () => {
     expect(manifest.note).toMatch(/studio_entry_started/);
   });
 
+  it("does not treat Gate 8's completed Create Post journey as current Estúdio validation", () => {
+    expect(classifyAgentSource("docs/decisions/2026-09-12-estudio-atual-nao-observado.md")).toBe("canonical");
+    const decision = readFileSync(
+      path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)),
+        "../../../../docs/decisions/2026-09-12-estudio-atual-nao-observado.md",
+      ),
+      "utf8",
+    );
+    expect(decision).toMatch(/N01-after-attempt-2/);
+    expect(decision).toMatch(/home_create_post/);
+    expect(decision).toMatch(/Não valida o Estúdio atual/);
+    expect(decision).toMatch(/não são observação de operador/);
+  });
+
   it("does not let README reintroduce campaign as a required creative destination", () => {
     const readme = readFileSync(
       path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../README.md"),
