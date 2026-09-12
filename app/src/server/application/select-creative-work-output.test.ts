@@ -61,6 +61,37 @@ const completedOutput = {
   isSelected: false,
 };
 
+/**
+ * Peça estruturada mínima que satisfaz extractVisualRecipe: tipografia
+ * determinística, layout válido, fonte, copy completa e geometria de logo.
+ * Sem ela a pré-validação recusa antes do commit e o teste mediria outra coisa.
+ */
+const structuredOutput = {
+  ...completedOutput,
+  targetFormat: "4:5",
+  quality: {
+    textComposition: {
+      execution: "deterministic",
+      appliedLayout: "bottom",
+      typographyPlan: { fontAssetKey: "brand/fonts/inter.ttf" },
+      copy: { headline: "Titulo", body: "Corpo", cta: "Clique" },
+      dimensions: { width: 1080, height: 1350 },
+      layers: [{ role: "headline", box: { left: 80, top: 900, width: 920, height: 120 } }],
+    },
+    exactComposition: {
+      composed: [
+        {
+          referenceId: "ref-logo",
+          assetKey: "brand/logo.png",
+          category: "logo",
+          box: { left: 80, top: 80, width: 200, height: 80 },
+        },
+      ],
+      dimensions: { width: 1080, height: 1350 },
+    },
+  },
+};
+
 describe("selectCreativeWorkOutputCommand", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -390,5 +421,42 @@ describe("selectCreativeWorkOutputCommand", () => {
     });
     expect(mockSelect).not.toHaveBeenCalled();
     expect(mockSaveRecipe).not.toHaveBeenCalled();
+  });
+
+  describe("efeitos posteriores ao commit da selecao", () => {
+    // it.fails documenta a regressao ATUAL: o teste passa enquanto o bug
+    // existe e falha quando ele e corrigido. A Task 4 converte os dois em
+    // asserts normais.
+    it.fails("nao deveria reportar fracasso global quando a receita falha depois do commit", async () => {
+      mockGet.mockResolvedValue({ work: workItem, outputs: [structuredOutput], sources: [] } as never);
+      mockSelect.mockResolvedValue({ ...structuredOutput, isSelected: true } as never);
+      mockSaveRecipe.mockResolvedValue({ ok: false, error: { code: "missing_font" } } as never);
+
+      const result = await selectCreativeWorkOutputCommand({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: "output-1",
+        saveAsRecipe: true,
+      });
+
+      expect(result.ok).toBe(true);
+    });
+
+    it.fails("nao deveria propagar excecao da biblioteca sobre uma selecao ja confirmada", async () => {
+      mockGet.mockResolvedValue({ work: workItem, outputs: [completedOutput], sources: [] } as never);
+      mockSelect.mockResolvedValue({ ...completedOutput, isSelected: true } as never);
+      mockEnsure.mockRejectedValue(
+        Object.assign(new Error("duplicate key value violates unique constraint"), { code: "23505" }),
+      );
+
+      const result = await selectCreativeWorkOutputCommand({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: "output-1",
+        saveToLibrary: true,
+      });
+
+      expect(result.ok).toBe(true);
+    });
   });
 });
