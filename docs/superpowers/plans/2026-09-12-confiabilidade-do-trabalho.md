@@ -527,7 +527,9 @@ Regra do contrato: **antes** do commit da seleção, erro de validação continu
 
 - [ ] **Step 1: Escrever os testes do contrato novo**
 
-Substituir o bloco `describe("efeitos posteriores ao commit da selecao")` da Task 2 por este (os dois `it.fails` viram asserts normais e ganham companhia):
+Substituir o bloco `describe("efeitos posteriores ao commit da selecao")` da Task 2 por este (os dois `it.fails` viram asserts normais e ganham companhia).
+
+**Todos os casos passam `confirmObjective: true`.** Sem isso, `getCreativeWorkSelectionPolicy` sobre a `quality` da fixture devolve `requiresConfirmation` e o comando sai em `objective_confirmation_required` **antes** de commitar — o teste falharia pelo motivo errado, medindo a pré-validação em vez do efeito.
 
 ```ts
   describe("efeitos posteriores ao commit da selecao", () => {
@@ -540,6 +542,7 @@ Substituir o bloco `describe("efeitos posteriores ao commit da selecao")` da Tas
         workspaceId: "ws-1",
         workItemId: "work-1",
         outputId: "output-1",
+        confirmObjective: true,
         saveAsRecipe: true,
       });
 
@@ -573,6 +576,7 @@ Substituir o bloco `describe("efeitos posteriores ao commit da selecao")` da Tas
         workspaceId: "ws-1",
         workItemId: "work-1",
         outputId: "output-1",
+        confirmObjective: true,
         saveToLibrary: true,
       });
 
@@ -592,6 +596,7 @@ Substituir o bloco `describe("efeitos posteriores ao commit da selecao")` da Tas
         workspaceId: "ws-1",
         workItemId: "work-1",
         outputId: "output-1",
+        confirmObjective: true,
         saveToLibrary: true,
         saveAsRecipe: true,
       });
@@ -619,6 +624,7 @@ Substituir o bloco `describe("efeitos posteriores ao commit da selecao")` da Tas
         workspaceId: "ws-1",
         workItemId: "work-1",
         outputId: "output-1",
+        confirmObjective: true,
         saveToLibrary: false,
       });
 
@@ -668,6 +674,7 @@ Substituir o bloco `describe("efeitos posteriores ao commit da selecao")` da Tas
         workspaceId: "ws-1",
         workItemId: "work-1",
         outputId: "output-1",
+        confirmObjective: true,
         saveAsRecipe: true,
       });
 
@@ -869,7 +876,7 @@ git commit -m "feat: report selection effects instead of failing a committed sel
 **Files:**
 - Modify: `app/src/app/api/creative-work/[id]/outputs/[outputId]/select/route.ts`
 - Modify: `app/src/lib/hooks/use-creative-work.ts` (mutação de seleção; `saveAsRecipe` nas linhas 960-973)
-- Modify: `app/src/components/creative-work/useComposerOutputActions.ts` (linhas 98-125)
+- Modify: `app/src/components/creative-work/useComposerOutputActions.ts` (`approveOutput`: `try` em 102-112, `catch` em 113-116)
 - Modify: `app/messages/pt-BR.json`, `app/messages/en.json`
 - Test: `app/src/app/api/creative-work/[id]/outputs/[outputId]/select/route.test.ts`
 
@@ -946,7 +953,7 @@ Importar `SelectionEffects` de `@/server/application/select-creative-work-output
 
 - [ ] **Step 5: Ajustar o anúncio da interface**
 
-Em `useComposerOutputActions.ts`, trocar o corpo do `try` de `approveOutput` (linhas 101-118) por:
+Em `useComposerOutputActions.ts`, trocar o corpo do `try` de `approveOutput` (linhas 102-112) por:
 
 ```ts
       const result = await selectOutputMutation.mutateAsync({
@@ -971,7 +978,7 @@ Em `useComposerOutputActions.ts`, trocar o corpo do `try` de `approveOutput` (li
       });
 ```
 
-O `catch` (linhas 119-122) continua marcando `approvalErrorOutputId` — ele agora só é atingido por erro anterior ao commit ou falha de rede, que são fracassos reais da aprovação.
+O `catch` (linhas 113-116) continua marcando `approvalErrorOutputId` — ele agora só é atingido por erro anterior ao commit ou falha de rede, que são fracassos reais da aprovação.
 
 - [ ] **Step 6: Acrescentar as mensagens**
 
