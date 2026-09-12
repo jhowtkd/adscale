@@ -1960,6 +1960,29 @@ export async function markCreativeWorkOutputFailureCode(
   return row ?? null;
 }
 
+/**
+ * Marca o recibo do efeito de receita como concluido. Escrita curta, um unico
+ * update escopado por workspace; nunca toca em isSelected.
+ */
+export async function markCreativeWorkSelectionEffectDone(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string,
+  receiptId: string,
+): Promise<void> {
+  await db.update(creativeWorkOutputs).set({
+    selectionEffects: {
+      version: 1 as const,
+      recipe: { receiptId, requestedAt: new Date().toISOString(), state: "done" as const },
+    },
+    updatedAt: new Date(),
+  }).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.id, outputId),
+  ));
+}
+
 /** Failed outputs whose compensatory refund still needs a retry. */
 export async function listCreativeWorkOutputsNeedingRefund(
   workspaceId: string,
