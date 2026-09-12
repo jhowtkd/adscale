@@ -464,7 +464,7 @@
       "seconds": "segundos"
     },
     "home": {
-      "title": "Início",
+      "title": "Estúdio",
       "studioLabel": "Estúdio",
       "stageEyebrow": "Estúdio · palco",
       "stageHeadline": "O que a {name} precisa sair hoje?",
@@ -522,10 +522,10 @@
       "emptyNoCampaigns": "Sua fila de aprovação está vazia",
       "emptyAdjustSearch": "Tente ajustar os termos de busca",
       "emptyCreateHint": "Defina seu briefing, rode um batch de variações e cure o que vai ao ar—comece pela sua primeira campanha.",
-      "createCampaign": "Nova campanha",
+      "createCampaign": "Novo trabalho",
       "campaignDialog": {
-        "open": "Nova campanha",
-        "title": "Nova campanha",
+        "open": "Agrupar em campanha",
+        "title": "Agrupar em campanha",
         "nameLabel": "Nome da campanha",
         "brandLabel": "Marca",
         "noBrand": "Selecione uma marca",
@@ -554,6 +554,7 @@
       "resultStateGenerating": "Em geração",
       "resultStateReady": "Pronta para revisar",
       "resultStateFailed": "Geração sem resultado disponível",
+      "resultStatePartial": "{ready} prontas · {failed} falhas",
       "insufficientBalance": "Créditos insuficientes",
       "getCredits": "Obter créditos",
       "continueStates": {
@@ -881,6 +882,9 @@
           "sharingForReview": "Criando link",
           "sharedForReview": "Link de revisão copiado",
           "shareForReviewFailed": "Não foi possível criar o link de revisão",
+          "reviewShareUrlLabel": "Link de revisão",
+          "reviewShareCopyFailed": "Não foi possível copiar. Selecione o link abaixo.",
+          "copyReviewLinkAgain": "Copiar link de novo",
           "retryUnavailable": "Esta proposta já usou todas as tentativas automáticas. Crie um novo pedido para gerar uma nova variação.",
           "layerizeQuotaRemaining": "{count, plural, =0 {Nenhuma separação restante neste mês} one {# separação restante neste mês} other {# separações restantes neste mês}}",
           "layerizeRetry": "Tentar separar novamente",

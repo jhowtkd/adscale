@@ -14,7 +14,7 @@ import {
 } from "@/lib/creative-work-selection-policy";
 import { isVisualRecipeCandidate } from "@/server/creative-work/visual-recipe";
 import { ActionStatusIcon } from "@/components/animations/ActionStatusIcon";
-import { useSharePieceReview } from "@/lib/hooks/use-piece-review-share";
+import { copyTextToClipboard, useSharePieceReview } from "@/lib/hooks/use-piece-review-share";
 import type {
   DeterministicBrandFidelityReport,
   ResidualBrandFidelityReview,
@@ -69,7 +69,7 @@ export function CreativeResultCard({
   const [attachment, setAttachment] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmingSelection, setConfirmingSelection] = useState(false);
-  const [sharedForReview, setSharedForReview] = useState(false);
+  const [reviewShare, setReviewShare] = useState<{ url: string; copied: boolean } | null>(null);
   const shareReview = useSharePieceReview();
   const [saveAsRecipe, setSaveAsRecipe] = useState(false);
   const t = useTranslations("dashboard.home.composer.results");
@@ -285,12 +285,24 @@ export function CreativeResultCard({
               data-testid="share-for-review"
               disabled={shareReview.isPending}
               onClick={() => {
+                if (reviewShare) {
+                  void copyTextToClipboard(reviewShare.url).then((copied) => {
+                    setReviewShare({ url: reviewShare.url, copied });
+                  });
+                  return;
+                }
                 void shareReview.mutateAsync({ workId: output.workItemId, outputId: output.id })
-                  .then(() => setSharedForReview(true))
-                  .catch(() => setSharedForReview(false));
+                  .then((result) => setReviewShare({ url: result.shareUrl, copied: result.copied }))
+                  .catch(() => setReviewShare(null));
               }}
             >
-              {shareReview.isPending ? t("sharingForReview") : sharedForReview ? t("sharedForReview") : t("shareForReview")}
+              {shareReview.isPending
+                ? t("sharingForReview")
+                : reviewShare?.copied
+                  ? t("sharedForReview")
+                  : reviewShare
+                    ? t("copyReviewLinkAgain")
+                    : t("shareForReview")}
             </button>
             {canOpenEditor ? (
               <button type="button" className={actionClass} disabled={editDisabled} onClick={() => onOpenLayerEditor?.(output.id)}>
@@ -301,6 +313,23 @@ export function CreativeResultCard({
             {layerization?.status === "completed" && onDownloadLayerized ? <button type="button" className={`${actionClass} border-[var(--focus-ring)]`} onClick={() => onDownloadLayerized(output.id, "psd")}>{t("downloadPsdWithLayers", { count: layerization.layers.length })}</button> : null}
             {onRevise ? <button type="button" className={actionClass} aria-expanded={editing} onClick={() => setEditing((value) => !value)}>{t("refine")}</button> : null}
           </div>
+          {reviewShare ? (
+            <div data-testid="review-share-url-panel" className="space-y-2">
+              {reviewShare.copied ? null : (
+                <p role="status" className="text-sm text-[var(--warning-text)]">{t("reviewShareCopyFailed")}</p>
+              )}
+              <label className="block text-xs font-medium text-[var(--text-secondary)]">
+                {t("reviewShareUrlLabel")}
+                <input
+                  data-testid="review-share-url"
+                  readOnly
+                  value={reviewShare.url}
+                  onFocus={(event) => event.currentTarget.select()}
+                  className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-base)] px-2 py-1.5 font-mono text-xs text-[var(--text-primary)]"
+                />
+              </label>
+            </div>
+          ) : null}
           {canSaveAsRecipe && selectionPolicy?.selectable && !output.isSelected ? (
             <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
               <input

@@ -1617,7 +1617,7 @@
     {
       "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:550",
       "kind": "cta_navigation",
-      "destination": "/billing",
+      "destination": "/settings?tab=billing",
       "file": "app/src/components/dashboard/DashboardHomeActions.tsx",
       "line": 550,
       "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:550",
