@@ -396,30 +396,38 @@ Esperado: um único `ALTER TABLE "adscale_app"."creative_work_outputs" ADD COLUM
 
 - [ ] **Step 3: Escrever o teste do recibo na transação**
 
-Em `app/src/server/repositories/creative-work.test.ts`, no bloco que já cobre `selectCreativeWorkOutput`:
+O arquivo já expõe um duplo de transação com `txSetMock` (definido na linha 91, exportado em `mocks` na linha 132) e o idioma de asserção já usado nas linhas 603-609. `selectCreativeWorkOutput` faz **dois** `.set()` dentro da transação: o primeiro limpa `isSelected: false` da vencedora anterior, o segundo marca `isSelected: true`. O recibo tem de ir no **segundo**.
+
+Acrescentar dentro de `describe("selectCreativeWorkOutput", …)` (linha 2229):
 
 ```ts
-it("grava o recibo da receita na mesma transacao da selecao", async () => {
-  const updates: Array<Record<string, unknown>> = [];
-  // O harness do arquivo ja fornece o duplo de transacao usado pelos demais
-  // testes; registrar aqui o set() aplicado a creative_work_outputs.
+it("grava o recibo da receita no mesmo set() que marca isSelected", async () => {
+  // Preparar o cenario exatamente como o teste vizinho que ja seleciona um
+  // output valido (ler o `it` da linha 2240 e reaproveitar o setup dele).
   const result = await selectCreativeWorkOutput("ws-1", "work-1", "output-1", {
     confirmObjective: true,
     pendingRecipeReceiptId: "receipt-1",
   });
 
   expect(result?.isSelected).toBe(true);
-  expect(updates.at(-1)).toMatchObject({
+  // 1o set() limpa a selecao anterior; o recibo pertence ao 2o.
+  expect(mocks.txSetMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
     isSelected: true,
-    selectionEffects: {
+    selectionEffects: expect.objectContaining({
       version: 1,
-      recipe: { receiptId: "receipt-1", state: "pending" },
-    },
-  });
+      recipe: expect.objectContaining({ receiptId: "receipt-1", state: "pending" }),
+    }),
+  }));
+});
+
+it("nao grava selectionEffects quando o recibo nao e pedido", async () => {
+  await selectCreativeWorkOutput("ws-1", "work-1", "output-1", { confirmObjective: true });
+
+  expect(mocks.txSetMock.mock.calls[1]?.[0]).not.toHaveProperty("selectionEffects");
 });
 ```
 
-Adaptar `updates` ao duplo de transação já existente no arquivo (ler o teste vizinho de `selectCreativeWorkOutput` antes de escrever) — a asserção que importa é que `selectionEffects` seja gravado no **mesmo** `update` que marca `isSelected`, nunca num segundo `update` fora da transação.
+O segundo teste é o que protege todos os chamadores atuais: sem `pendingRecipeReceiptId`, a escrita precisa continuar idêntica à de hoje.
 
 - [ ] **Step 4: Rodar e ver falhar**
 
@@ -427,7 +435,7 @@ Adaptar `updates` ao duplo de transação já existente no arquivo (ler o teste 
 cd app && npm test -- src/server/repositories/creative-work.test.ts -t "recibo da receita"
 ```
 
-Esperado: FAIL — `selectCreativeWorkOutput` ainda ignora `pendingRecipeReceiptId`.
+Esperado: FAIL — `selectCreativeWorkOutput` ainda ignora `pendingRecipeReceiptId`. O segundo teste (`nao grava selectionEffects`) deve **passar** já agora: ele descreve o comportamento atual e existe para detectar regressão.
 
 - [ ] **Step 5: Implementar**
 
@@ -437,7 +445,7 @@ Em `app/src/server/repositories/creative-work.ts`, alterar a assinatura de `sele
   options: { confirmObjective?: boolean; pendingRecipeReceiptId?: string } = {}
 ```
 
-E, no `update` que marca a linha vencedora como selecionada (dentro da `db.transaction` que a função abre logo em seguida), acrescentar ao objeto do `.set({ … })`:
+E, no **segundo** `update` — o que faz `.set({ isSelected: true, updatedAt: new Date() })`, não o que limpa a seleção anterior — acrescentar ao objeto do `.set({ … })`:
 
 ```ts
       ...(options.pendingRecipeReceiptId
