@@ -15,6 +15,7 @@ Do not treat every markdown file in this repository as the live product.
 - `docs/agents/` — how agents use GitHub, labels, and this file
 - `docs/decisions/allowed-primary-destinations.json` — freeze of primary surfaces (Gate 8 close does not lift it)
 - `docs/decisions/2026-09-12-funnel-read-gate8-holds.md` — `campaign.completed` is not go-evidence; exceptions need a Trabalho-scoped funnel
+- `docs/decisions/2026-09-12-estudio-atual-nao-observado.md` — Gate 8's one completed human journey is Create Post (2026-07-16), not current Estúdio
 - `app/src/server/ai/FROZEN.md` — Landing Page and Persona Simulation stay frozen
 
 ## Historical (do not implement as if this were the spine)
@@ -22,6 +23,7 @@ Do not treat every markdown file in this repository as the live product.
 - Root `README.md` and `docs/ARCHITECTURE.md` still describe a **campaign / briefing / creative plan / cockpit** journey as a **legacy adapter**. README now leads with Estúdio; Campaign is optional grouping. The live operator surface is the **Estúdio** (`creative_work`).
 - Plans under `docs/plans/2026-05-23-persona-simulator*` and any issue that asks to unfreeze Persona Simulation or Landing Page.
 - Copy that names **Quick Tools / Criar Post** as a separate product. Studio is the name; `quick_tool` is a historical origin alias.
+- Phase 8 human corpus (P01/P02, including `N01-after-attempt-2`) is a diagnostic of the July 2026 campaign / Criar Post journey. It does not validate current Estúdio. Agent smoke, E2E, and client cases are not human journeys.
 
 ## Proposal
 
