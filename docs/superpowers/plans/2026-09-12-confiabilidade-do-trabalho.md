@@ -394,6 +394,14 @@ cat app/drizzle/0095_*.sql
 
 Esperado: um único `ALTER TABLE "adscale_app"."creative_work_outputs" ADD COLUMN "selection_effects" jsonb;`. Se o gerador emitir qualquer `DROP` ou `NOT NULL`, parar — a coluna precisa ser aditiva e compatível com linhas antigas.
 
+**Armadilha a partir daqui:** `getCreativeWork` faz `.select().from(creativeWorkOutputs)`, e o Drizzle expande isso para a lista explícita de colunas do schema. A partir deste commit, qualquer consulta a `creative_work_outputs` referencia `selection_effects` — então um banco de teste não migrado passa a falhar com "column does not exist" em **qualquer** teste de integração, não só nos novos. As Tasks 4 e 5 são unitárias com mocks e não sentem isso; a primeira que sente é a Task 6. Quem rodar `npm test` com `TEST_DATABASE_URL` apontando para um banco antigo, entre uma tarefa e outra, deve rodar antes:
+
+```bash
+cd app && npm run test:db:setup
+```
+
+Esse script executa `drizzle-kit migrate` e é idempotente.
+
 - [ ] **Step 3: Escrever o teste do recibo na transação**
 
 O arquivo já expõe um duplo de transação com `txSetMock` (definido na linha 91, exportado em `mocks` na linha 132) e o idioma de asserção já usado nas linhas 603-609. `selectCreativeWorkOutput` faz **dois** `.set()` dentro da transação: o primeiro limpa `isSelected: false` da vencedora anterior, o segundo marca `isSelected: true`. O recibo tem de ir no **segundo**.
