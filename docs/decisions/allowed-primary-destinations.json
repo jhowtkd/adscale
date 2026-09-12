@@ -3,7 +3,7 @@
   "decidedAt": "2026-07-12",
   "decision": "docs/decisions/2026-07-12-trabalho-criativo-first.md",
   "plan": "docs/plans/2026-07-12-convergencia-produto-arquitetura-implementation-plan.md",
-  "note": "During the convergence milestone, no new primary creative destinations or creative pipelines may be introduced. Anything not on this list is rejected until Gate 8 lifts the freeze.",
+  "note": "During the convergence milestone, no new primary creative destinations or creative pipelines may be introduced. Anything not on this list is rejected. Gate 8 closed as approved_with_accepted_debt (1/10) does not lift this freeze. campaign.completed is the wrong unit and is not go-evidence. Exceptions require a Trabalho-scoped funnel (studio_entry_started sessions from /api/feedback/analytics/funnel), not campaign origin completion. Landing Page and Persona Simulation stay frozen. See docs/decisions/2026-09-12-funnel-read-gate8-holds.md.",
   "allowedPrimaryDestinations": [
     {
       "id": "campaign",
