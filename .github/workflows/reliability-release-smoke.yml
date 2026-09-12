@@ -1,0 +1,202 @@
+name: reliability-release-smoke
+
+# Release gate: web + worker + schema on the SAME candidate SHA (Task 14 / PR-04).
+# Manual or on release-published. NEVER on pull_request: real models stay out of
+# PR CI, and this gate must not become a required PR check by accident.
+# It creates its claim on the isolated staging pair on demand (candidate SHA
+# deployed to BOTH services), migrates BEFORE releasing, runs the five proofs,
+# archives the per-SHA report, and restores staging afterwards.
+# It does NOT create permanent per-PR previews: render.yaml keeps
+# `previews: { generation: manual }` and this workflow never touches it.
+#
+# Honesty note (see docs/runbooks/reliability-release.md): main is deliberately
+# unprotected, so a green gate here is discipline, not a technical merge block.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Candidate commit SHA (40-char hex) to gate"
+        required: true
+        type: string
+      provider:
+        description: "controlled (default) or real (owner-authorized, capped)"
+        required: false
+        default: "controlled"
+        type: choice
+        options: [controlled, real]
+      owner_authorized:
+        description: "Explicit owner authorization for provider=real (this run only)"
+        required: false
+        default: false
+        type: boolean
+      real_provider_max_calls:
+        description: "Call ceiling for provider=real"
+        required: false
+        default: "5"
+        type: string
+  release:
+    types: [published]
+
+# One gate at a time: the staging pair hosts a single candidate SHA.
+concurrency:
+  group: reliability-release-smoke
+  cancel-in-progress: false
+
+permissions:
+  # contents:write only to move the staging-only branch (never main).
+  contents: write
+  actions: read
+
+env:
+  STAGING_BRANCH: staging-smoke
+  NODE_VERSION: "22"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    environment: reliability-release-smoke
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Resolve inputs
+        id: inputs
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "provider=controlled" >> "$GITHUB_OUTPUT"
+            echo "owner_authorized=false" >> "$GITHUB_OUTPUT"
+            echo "real_provider_max_calls=5" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ inputs.sha }}" >> "$GITHUB_OUTPUT"
+            echo "provider=${{ inputs.provider }}" >> "$GITHUB_OUTPUT"
+            echo "owner_authorized=${{ inputs.owner_authorized }}" >> "$GITHUB_OUTPUT"
+            echo "real_provider_max_calls=${{ inputs.real_provider_max_calls }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate gate inputs
+        run: |
+          SHA='${{ steps.inputs.outputs.sha }}'
+          PROVIDER='${{ steps.inputs.outputs.provider }}'
+          AUTH='${{ steps.inputs.outputs.owner_authorized }}'
+          if ! [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::sha must be a 40-char lowercase hex commit SHA"
+            exit 1
+          fi
+          if [ "$PROVIDER" != "controlled" ] && [ "$PROVIDER" != "real" ]; then
+            echo "::error::provider must be controlled or real"
+            exit 1
+          fi
+          if [ "$PROVIDER" = "real" ] && [ "$AUTH" != "true" ]; then
+            echo "::error::provider=real requires owner_authorized=true for this run"
+            exit 1
+          fi
+          echo "Gating SHA $SHA with provider $PROVIDER"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.inputs.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Confirm the candidate SHA is what we checked out
+        run: |
+          test "$(git rev-parse HEAD)" = '${{ steps.inputs.outputs.sha }}'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install app dependencies
+        working-directory: app
+        run: npm ci --include=dev --no-audit --no-fund
+
+      # Migrate BEFORE releasing: the staging schema reaches the candidate
+      # level before either new process boots (Task 1 ordering, Step 8).
+      - name: Migrate staging schema first
+        working-directory: app
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: npm run db:migrate
+
+      # Deploy the SAME candidate SHA to staging web AND worker. Mechanism: the
+      # staging Render pair tracks $STAGING_BRANCH with autodeploy; moving that
+      # branch is the deploy. No previews are created; main is never moved here.
+      - name: Deploy candidate SHA to staging pair
+        run: |
+          git push origin '${{ steps.inputs.outputs.sha }}:refs/heads/${{ env.STAGING_BRANCH }}' --force
+          echo "Pushed candidate to ${{ env.STAGING_BRANCH }}; waiting for staging deploys."
+
+      - name: Wait for staging web readiness
+        env:
+          STAGING_WEB_URL: ${{ secrets.STAGING_WEB_URL }}
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sSf --max-time 10 "$STAGING_WEB_URL/api/health" | grep -q '"ok":true'; then
+              echo "staging web is ready"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::staging web never became ready"
+          exit 1
+
+      # The worker's OWN signal (image_worker_connected from the staging worker
+      # logs via the owner-wired command). /api/health alone proves nothing
+      # about the worker; without this signal the script blocks.
+      - name: Wait for staging worker signal
+        id: worker-signal
+        env:
+          SMOKE_WORKER_SIGNAL_CMD: ${{ secrets.SMOKE_WORKER_SIGNAL_CMD }}
+        run: |
+          mkdir -p /tmp/reliability-smoke
+          for i in $(seq 1 60); do
+            if bash -c "$SMOKE_WORKER_SIGNAL_CMD" > /tmp/reliability-smoke/worker-signal.json 2>/tmp/reliability-smoke/worker-signal.err; then
+              if node -e "const s=require('/tmp/reliability-smoke/worker-signal.json');const l=Array.isArray(s)?s:[s];const b=l.sort((a,b)=>Date.parse(b.observedAt)-Date.parse(a.observedAt))[0];if(!b||!b.connectionId||!Array.isArray(b.syncedV2FunctionIds)||b.syncedV2FunctionIds.length<8)process.exit(1)"; then
+                echo "staging worker signal observed (8/8 v2 functions)"
+                exit 0
+              fi
+            fi
+            sleep 15
+          done
+          echo "::error::staging worker never emitted its own ready signal"
+          exit 1
+
+      - name: Run the five proofs
+        working-directory: app
+        env:
+          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          SMOKE_AUTH_COOKIE: ${{ secrets.SMOKE_AUTH_COOKIE }}
+          SMOKE_CLIENT_PROFILE_ID: ${{ secrets.SMOKE_CLIENT_PROFILE_ID }}
+          SMOKE_WORKER_SIGNAL_CMD: ${{ secrets.SMOKE_WORKER_SIGNAL_CMD }}
+          SMOKE_WORKER_SIGNAL_FILE: /tmp/reliability-smoke/worker-signal.json
+          SMOKE_WORKER_RESTART_HOOK: ${{ secrets.SMOKE_WORKER_RESTART_HOOK }}
+          SMOKE_OWNER_AUTHORIZED: ${{ steps.inputs.outputs.owner_authorized }}
+          REAL_PROVIDER_MAX_CALLS: ${{ steps.inputs.outputs.real_provider_max_calls }}
+        run: |
+          npx tsx scripts/reliability-release-smoke.ts \
+            --sha '${{ steps.inputs.outputs.sha }}' \
+            --provider '${{ steps.inputs.outputs.provider }}' \
+            --web-url "${{ secrets.STAGING_WEB_URL }}" \
+            --artifacts-dir ../artifacts/reliability-release
+
+      - name: Upload per-SHA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reliability-release-${{ steps.inputs.outputs.sha }}
+          path: artifacts/reliability-release/${{ steps.inputs.outputs.sha }}.json
+          if-no-files-found: error
+          retention-days: 90
+
+      # Teardown ALWAYS runs: restore staging to main so the next gate starts
+      # from a known state, and never leave a candidate deployed.
+      - name: Restore staging to main
+        if: always()
+        run: |
+          git fetch origin main:refs/remotes/origin/main
+          git push origin refs/remotes/origin/main:refs/heads/${{ env.STAGING_BRANCH }} --force
+          echo "staging branch restored to origin/main"
