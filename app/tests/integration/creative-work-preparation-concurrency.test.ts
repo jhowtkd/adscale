@@ -135,6 +135,51 @@ const modelGate = vi.hoisted(() => {
   };
 });
 
+
+/**
+ * Portao da pesquisa do carrossel. O CONTEUDO vem do provedor controlado ja
+ * existente (E2E_CONTROLLED_PROVIDER), determinístico; este portao controla
+ * apenas o TEMPO, para abrir a janela entre a leitura e a persistencia.
+ */
+const researchGate = vi.hoisted(() => {
+  process.env.E2E_CONTROLLED_PROVIDER = "true";
+  process.env.APP_URL = process.env.APP_URL ?? "http://localhost:3000";
+  let arrivals = 0;
+  let waiters: Array<{ n: number; resolve: () => void }> = [];
+  let release: (() => void) | null = null;
+  let gate: Promise<void> | null = null;
+  return {
+    get arrivals() { return arrivals; },
+    arm() {
+      arrivals = 0;
+      waiters = [];
+      gate = new Promise<void>((resolve) => { release = resolve; });
+    },
+    async pass() {
+      arrivals += 1;
+      for (const w of waiters) if (arrivals >= w.n) w.resolve();
+      if (gate) await gate;
+    },
+    waitForArrivals(n: number) {
+      if (arrivals >= n) return Promise.resolve();
+      return new Promise<void>((resolve) => { waiters.push({ n, resolve }); });
+    },
+    releaseAll() { release?.(); },
+    disarm() { gate = null; release = null; },
+  };
+});
+
+vi.mock("@/server/creative-work/carousel-research", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/server/creative-work/carousel-research")>();
+  return {
+    ...actual,
+    researchCarousel: vi.fn(async (input: Parameters<typeof actual.researchCarousel>[0]) => {
+      await researchGate.pass();
+      return actual.researchCarousel(input);
+    }),
+  };
+});
+
 vi.mock("@/server/creative-work/copy", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/server/creative-work/copy")>();
   return {
@@ -157,6 +202,7 @@ import {
 } from "@/server/db/schema";
 import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-creative-work-output-library";
 import { prepareCreativeWork } from "@/server/application/prepare-creative-work";
+import { planCarouselWork } from "@/server/application/plan-carousel-work";
 import {
   mutateCreativeWorkDraftSource,
   withCreativeWorkPreparationLock,
@@ -613,5 +659,100 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("PR-05 Task 15 — IA fora da tr
 
     measurements.push({ cenario: "Task 15 — lock livre durante modelo", esperaMs });
     expect(esperaMs).toBeLessThan(1_000);
+  }, 30_000);
+});
+
+describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("PR-05 Task 16 — carrossel", () => {
+  /** Trabalho de carrossel em draft, sem fontes. */
+  async function createCarousel(scope: { userId: string; workspaceId: string; clientProfileId: string }) {
+    const [row] = await db
+      .insert(creativeWorkItems)
+      .values({
+        workspaceId: scope.workspaceId,
+        clientProfileId: scope.clientProfileId,
+        createdByUserId: scope.userId,
+        title: "Carrossel T16",
+        request: "Explicar por que a manutencao preventiva reduz custo na frota",
+        toolKind: "carousel",
+        status: "draft",
+        format: "4:5",
+        settings: { targetFormats: [] },
+      })
+      .returning();
+    return row;
+  }
+
+  it("resultado velho do planner NAO sobrescreve edicao concorrente (garantia ja existente)", async () => {
+    const scope = await createScope();
+    const work = await createCarousel(scope);
+    researchGate.arm();
+
+    const planning = watch(planCarouselWork({
+      workspaceId: scope.workspaceId,
+      workItemId: work.id,
+      expectedUpdatedAt: work.updatedAt.toISOString(),
+      answers: {},
+    }));
+    await researchGate.waitForArrivals(1);
+
+    // Uma escrita curta avanca a revisao enquanto a pesquisa segue suspensa.
+    await db
+      .update(creativeWorkItems)
+      .set({ updatedAt: sql`now() + interval '1 second'` })
+      .where(eq(creativeWorkItems.id, work.id));
+
+    researchGate.releaseAll();
+    const result = await planning.promise;
+    researchGate.disarm();
+
+    // persistEditorial rele o Trabalho e recusa; e o CAS de writeSettings, que
+    // sempre compara contra snapshot.work.updatedAt, e a segunda camada. Esta
+    // protecao JA EXISTE hoje e nao pode regredir.
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("stale_input");
+  }, 30_000);
+
+  it("duas requisicoes iguais fazem UMA chamada ao provedor", async () => {
+    const scope = await createScope();
+    const work = await createCarousel(scope);
+    researchGate.arm();
+
+    const input = {
+      workspaceId: scope.workspaceId,
+      workItemId: work.id,
+      expectedUpdatedAt: work.updatedAt.toISOString(),
+      answers: {},
+    };
+    const both = Promise.all([
+      planCarouselWork(input).catch((e) => e),
+      planCarouselWork(input).catch((e) => e),
+    ]);
+
+    // Espera ate 2 chegadas ou um tempo curto: se houver dedupe, a segunda
+    // nunca chega e o wait resolve pelo timeout.
+    await Promise.race([
+      researchGate.waitForArrivals(2),
+      new Promise((resolve) => setTimeout(resolve, 500)),
+    ]);
+    const chamadasObservadas = researchGate.arrivals;
+
+    researchGate.releaseAll();
+    researchGate.disarm();
+
+    measurements.push({
+      cenario: "Task 16 — duas requisicoes iguais de carrossel",
+      chamadasObservadas,
+    });
+
+    // Uma preparacao pode legitimamente ter pesquisa + ganchos: sao ETAPAS
+    // distintas, nao duplicacao. O que se conta aqui e quantas vezes a MESMA
+    // etapa (pesquisa) roda para o mesmo Trabalho.
+    //
+    // MEDIDO em 12/09/2026: eram 2 antes do portao de deduplicacao, 1 depois.
+    // O CAS de persistEditorial protegia a ESCRITA, nunca o GASTO.
+    expect(chamadasObservadas).toBe(1);
+    const [a, b] = await both;
+    // Uma das duas recebeu estado tipado em vez de chamar o provedor.
+    expect([a, b].filter((r) => r?.ok === false && r.error?.code === "preparation_in_progress")).toHaveLength(1);
   }, 30_000);
 });

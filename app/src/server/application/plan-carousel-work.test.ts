@@ -40,6 +40,17 @@ vi.mock("@/server/repositories/creative-work", () => ({
     }
   },
 }));
+// Dependencia nova da Task 16: o planejamento reserva uma tentativa para
+// deduplicar requisicoes concorrentes. Sem este duplo, claimPreparationAttempt
+// vai ao banco real. A concorrencia de verdade e coberta pela suite de
+// integracao (tests/integration/creative-work-preparation-concurrency.test.ts).
+vi.mock("@/server/repositories/creative-work-preparation", () => ({
+  claimPreparationAttempt: vi.fn(async () => ({
+    outcome: "claimed" as const,
+    attempt: { id: "attempt-carousel" },
+  })),
+  finalizePreparationAttempt: vi.fn(async () => ({ ok: true as const })),
+}));
 vi.mock("@/server/repositories/brand-kit", () => ({
   getBrandKit: (...args: unknown[]) => brandKitMock(...args),
 }));

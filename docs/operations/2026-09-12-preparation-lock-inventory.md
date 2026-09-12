@@ -41,6 +41,14 @@ Para cada um dos 3 arquivos de aplicação, todos os `await` foram enumerados e 
 - **Task 16 (carrossel):** `planCarouselWork` já roda pesquisa/planejador fora do lock (linhas 192/218/289, após liberar em 95/105/114); `prepareCarouselWork` não faz I/O externo. O guard atual contra resultado velho é o CAS de `expectedUpdatedAt`, não tentativa persistida — é só isso que a Task 16 avalia.
 - `objectStorage` (que conta como externa) aparece apenas em arquivos fora dos callbacks do lock (`advance-carousel-generation.ts`, `manage/publish-creative-work-layer-editor.ts`, `export-carousel-work.ts`, `ensure-creative-work-output-library.ts`, `analyze-creative-work-source.ts`, entre outros) — nenhum caminho sob o lock a alcança.
 
+## Decisões da Task 16 (PR-05), registradas em 12/09/2026
+
+**`prepareCarouselWork` conserva a transação curta — nada mudou.** A releitura confirmou o que a tabela já dizia: todos os `await` do callback do lock são de banco. Pelo critério do plano, um caller sem I/O externo não vira tentativa.
+
+**`planCarouselWork` ganhou deduplicação, não proteção contra resultado velho.** A proteção já existia e é de duas camadas: `persistEditorial` relê o Trabalho e recusa, e `writeSettings` persiste por `updateCreativeWork*IfUnchanged` com CAS em `snapshot.work.updatedAt` — o parâmetro `cas: "draft" | "any"` só escolhe se o status precisa ser `draft`, **nunca desliga a comparação de revisão**.
+
+O que faltava era o gasto, não a escrita. Medido: duas requisições iguais concorrentes faziam **2** chamadas de pesquisa ao provedor; com `claimPreparationAttempt` devolvendo `joined`, passaram a fazer **1**. `persistEditorial`, `writeSettings` e as três transações curtas ficaram intocadas.
+
 ## Divergências registradas
 
 - O aceite da Task 7 no plano diz "sete chamadores", mas a reconfirmação no SHA de execução encontra **9 call sites em produção** — exatamente os 9 da tabela "Corrigido" das Descobertas do plano, sem deslocamento de linha. A contagem 9 é a correta; o "sete" é texto desatualizado do aceite.

@@ -58,6 +58,15 @@ A invariante que mais importava sobreviveu: **duas preparações iguais continua
 
 Os três cenários de caracterização da Task 8 foram **invertidos**, não removidos: cada um passou a afirmar o oposto, que é exatamente o que a correção produz. Os números de antes ficam nos comentários do teste como registro.
 
+### Carrossel (Task 16) — medido em 12/09/2026
+
+| Cenário | Antes | Depois |
+|---|---|---|
+| Chamadas de pesquisa ao provedor, duas requisições iguais concorrentes | **2** | **1** |
+| Segunda requisição concorrente | chamava o provedor | `preparation_in_progress` |
+
+O CAS de `persistEditorial`/`writeSettings` já protegia a **escrita** contra resultado velho; nunca protegeu o **gasto**. A tentativa cobre essa lacuna e nada mais.
+
 ### Invariante acidental que a Task 15 precisa PRESERVAR
 
 Duas preparações iguais concorrentes produzem **uma única** chamada ao provedor. Isso não é deduplicação deliberada: é efeito colateral da serialização pelo lock — a segunda requisição só entra depois que a primeira persistiu, e então cai no atalho de reaproveitamento de snapshot.
