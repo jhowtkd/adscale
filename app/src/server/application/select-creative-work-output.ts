@@ -185,12 +185,17 @@ export async function selectCreativeWorkOutputCommand(
   let library: SelectionEffect = { status: "not_requested" };
   if (saveToLibrary) {
     library = await runEffect(async () => {
-      await ensureCreativeWorkOutputInLibrary({
+      const registered = await ensureCreativeWorkOutputInLibrary({
         workspaceId: input.workspaceId,
         outputKey,
         theme: briefTheme,
         creativeLevel: output.creativeLevel,
       });
+      if (registered.conflict) {
+        throw Object.assign(new Error("library_key_owned_elsewhere"), {
+          code: "library_key_owned_elsewhere",
+        });
+      }
     }, "library_failed");
   }
 
