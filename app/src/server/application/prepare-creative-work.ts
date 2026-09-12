@@ -1,6 +1,33 @@
 import { CreativeCopyContextError, generateSocialPostCopy } from "@/server/creative-work/copy";
 import { approvedBrandFontAssets } from "@/server/brand-training/font-assets";
 import { canonicalJsonStringify } from "@/server/creative-work/canonical-json";
+import { preparationInputFingerprint } from "@/server/creative-work/preparation-attempt";
+import {
+  claimPreparationAttempt,
+  finalizePreparationAttempt,
+} from "@/server/repositories/creative-work-preparation";
+import { logCreativeWorkPreparationAttempt } from "@/server/creative-work/job-telemetry";
+
+/**
+ * Prazo do lease da tentativa de preparacao.
+ *
+ * 120 s = ~2x o pior caso observado das duas chamadas de modelo desta rota,
+ * com margem. NAO e copia dos 90 s do editor de camadas — aquele prazo responde
+ * a outra operacao. Revisar contra o p99 real quando houver amostra em
+ * docs/operations/reliability-metrics.md, que hoje registra "nao medido".
+ */
+const PREPARATION_LEASE_SECONDS = 120;
+
+/** Campos fixos da telemetria de tentativa; os identificadores vem do input. */
+function preparationTelemetryBase(input: { workspaceId: string; workItemId: string }) {
+  return {
+    releaseSha: process.env.RENDER_GIT_COMMIT ?? "unknown",
+    environment: process.env.NODE_ENV ?? "unknown",
+    process: "web" as const,
+    workspaceId: input.workspaceId,
+    workItemId: input.workItemId,
+  };
+}
 import {
   detectCreativeWorkBrandConflict,
   type CreativeWorkBrandConflictDetails,
@@ -133,7 +160,8 @@ function freezeImageRenderPolicy(input: {
 }
 
 export async function prepareCreativeWork(input: { workspaceId: string; workItemId: string }) {
-  return withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (executor) => {
+  const startedAt = Date.now();
+  const claimed = await withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (executor) => {
     const aggregate = await getCreativeWork(input.workspaceId, input.workItemId, executor);
     if (!aggregate) return { ok: false as const, error: { code: "work_not_found" as const } };
     if (aggregate.work.status !== "draft") {
@@ -341,11 +369,11 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       contentAnalyses,
     ), preparation.data.settings.briefingOverrides);
     const parsedBrief = socialPostBriefSchema.safeParse(inferredBrief);
-    let effectiveBrief: SocialPostBrief | null = parsedBrief.success ? parsedBrief.data : null;
+    const effectiveBrief: SocialPostBrief | null = parsedBrief.success ? parsedBrief.data : null;
     if (!parsedBrief.success && preparation.data.intent !== "single") {
       return { ok: false as const, error: { code: "invalid_preparation" as const } };
     }
-    let briefing = preparation.data.intent === "single"
+    const briefing = preparation.data.intent === "single"
       ? buildInferredBriefing({
           request: aggregate.work.request,
           brief: parsedBrief.success ? parsedBrief.data : inferredBrief,
@@ -354,6 +382,98 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
           briefingOverrides: preparation.data.settings.briefingOverrides,
         })
       : null;
+
+    // ---- fim da fase 1: reserva a tentativa e sai da transação ----
+    // Tudo acima já rodou dentro do lock, como antes. A partir daqui a chamada
+    // externa acontece FORA de qualquer transação, sob a tentativa reservada.
+    const inputFingerprint = preparationInputFingerprint(snapshotBase);
+    const claim = await claimPreparationAttempt({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      kind: "creative_prepare",
+      inputRevision: aggregate.work.updatedAt.toISOString(),
+      inputFingerprint,
+      leaseSeconds: PREPARATION_LEASE_SECONDS,
+    });
+    if (claim.outcome === "joined") {
+      // Uma preparação equivalente já está em curso: o consumidor acompanha
+      // aquela em vez de disparar outra chamada ao provedor. É esta linha que
+      // preserva a invariante medida na Task 8 — uma chamada, não duas.
+      return {
+        ok: false as const,
+        error: {
+          code: "preparation_in_progress" as const,
+          details: { attemptId: claim.attempt.id },
+        },
+      };
+    }
+    if (claim.outcome === "revision_changed") {
+      return { ok: false as const, error: { code: "stale_input" as const } };
+    }
+    return {
+      phase: "continue" as const,
+      aggregate,
+      preparation,
+      factPack,
+      brandKit,
+      brandAuthority,
+      effectiveFormat,
+      snapshotBase,
+      effectiveBrief,
+      briefing,
+      attemptId: claim.attempt.id,
+      inputFingerprint,
+    };
+  });
+  // As saídas antecipadas da fase 1 são resultados do comando; o contexto para
+  // as fases seguintes carrega `phase: "continue"`. Discriminar por esse literal
+  // evita reescrever qualquer um dos retornos existentes e estreita de forma
+  // inequívoca para o TypeScript.
+  if (claimed.phase !== "continue") return claimed;
+
+  const {
+    aggregate,
+    preparation,
+    factPack,
+    brandKit,
+    brandAuthority,
+    effectiveFormat,
+    snapshotBase,
+    attemptId,
+    inputFingerprint,
+  } = claimed;
+  let effectiveBrief = claimed.effectiveBrief;
+  let briefing = claimed.briefing;
+
+  /** Fecha a tentativa e registra o descarte quando o resultado não vale mais. */
+  const logDiscard = (reason: string) => {
+    logCreativeWorkPreparationAttempt({
+      ...preparationTelemetryBase(input),
+      attemptId,
+      kind: "creative_prepare",
+      phase: "invalidated",
+      lockWaitMs: 0,
+      inTransactionMs: 0,
+      externalMs: Date.now() - startedAt,
+      totalMs: Date.now() - startedAt,
+      reason,
+    });
+  };
+
+  /** Fecha a tentativa como falha e registra o descarte. */
+  const discard = async <T>(result: T, reason: string): Promise<T> => {
+    await finalizePreparationAttempt({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      attemptId,
+      currentRevision: aggregate.work.updatedAt.toISOString(),
+      currentFingerprint: inputFingerprint,
+      state: "failed",
+    });
+    logDiscard(reason);
+    return result;
+  };
+
     if (briefing) {
       let check = checkInferredBriefing(briefing, factPack);
       let automaticRevisionCount = 0;
@@ -395,7 +515,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
         reviewResult,
       });
       if (!check.ok || briefing.readiness === "blocked") {
-        return {
+        return discard({
           ok: false as const,
           error: {
             code: "briefing_blocked" as const,
@@ -407,11 +527,11 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
               factPack,
             },
           },
-        };
+        }, "briefing_blocked");
       }
     }
     if (!effectiveBrief) {
-      return { ok: false as const, error: { code: "invalid_preparation" as const } };
+      return discard({ ok: false as const, error: { code: "invalid_preparation" as const } }, "invalid_preparation");
     }
     // R-011: the env switch is a creation-time policy. Its current value is
     // frozen into the snapshot here; jobs later obey this frozen version and
@@ -436,7 +556,17 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       socialPostCopySchema.safeParse(aggregate.work.copy).success
     ) {
       const preparedPlan = projectPreparedPlanV1(aggregate.work);
-      if (!preparedPlan) return { ok: false as const, error: { code: "invalid_preparation" as const } };
+      if (!preparedPlan) return discard({ ok: false as const, error: { code: "invalid_preparation" as const } }, "invalid_preparation");
+      // Nada a persistir: a preparação já valia. A tentativa fecha como
+      // concluída para não bloquear o Trabalho até o lease vencer.
+      await finalizePreparationAttempt({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        attemptId,
+        currentRevision: aggregate.work.updatedAt.toISOString(),
+        currentFingerprint: inputFingerprint,
+        state: "completed",
+      });
       if (briefing) {
         const persistedBriefing = resolveCreativeWorkInferredBriefing(aggregate.work.inputSnapshot) ?? briefing;
         return {
@@ -476,13 +606,31 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       });
     } catch (error) {
       if (error instanceof CreativeCopyContextError) {
-        return {
+        return discard({
           ok: false as const,
           error: { code: "invalid_context" as const, details: { violations: error.violations } },
-        };
+        }, "invalid_context");
       }
+      await discard(null, "provider_error");
       throw error;
     }
+  // ---- fase 3: finalize curto ----
+  // Relê a revisão AGORA. Se uma edição entrou enquanto o modelo respondia, o
+  // resultado recém-chegado foi calculado sobre entradas que já não valem.
+  const current = await getCreativeWork(input.workspaceId, input.workItemId);
+  const finalized = await finalizePreparationAttempt({
+    workspaceId: input.workspaceId,
+    workItemId: input.workItemId,
+    attemptId,
+    currentRevision: current?.work.updatedAt.toISOString() ?? "",
+    currentFingerprint: inputFingerprint,
+    state: "completed",
+  });
+  if (!finalized.ok) {
+    logDiscard(finalized.reason);
+    return { ok: false as const, error: { code: "stale_input" as const } };
+  }
+
     const work = await updateCreativeWorkDraftIfUnchanged(
       input.workspaceId,
       input.workItemId,
@@ -495,9 +643,11 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
         settings: preparation.data.settings,
         inputSnapshot: snapshot,
       },
-      executor,
     );
-    if (!work) return { ok: false as const, error: { code: "stale_input" as const } };
+    if (!work) {
+      logDiscard("stale_input");
+      return { ok: false as const, error: { code: "stale_input" as const } };
+    }
     const preparedPlan = projectPreparedPlanV1(work);
     if (!preparedPlan) return { ok: false as const, error: { code: "invalid_preparation" as const } };
     return briefing
@@ -514,5 +664,4 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
           },
         }
       : { ok: true as const, value: { work, quote, preparedPlan } };
-  });
 }

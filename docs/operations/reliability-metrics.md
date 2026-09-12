@@ -42,6 +42,22 @@ O provedor é suspenso por promessa (`generateSocialPostCopy` mockada), então *
 
 **Uma escrita curta espera a IA.** `withCreativeWorkPreparationLock` sobre o mesmo Trabalho não retorna enquanto o modelo não responde, embora a escrita não dependa de IA nenhuma. É o bug que o PR-05 corrige.
 
+### Depois da Task 15 — medido em 12/09/2026, mesmo teste, mesmo banco
+
+| Cenário | Antes (Task 8) | Depois (Task 15) |
+|---|---|---|
+| Escritor curto, **mesmo** Trabalho | bloqueado, 227 ms | **não bloqueia**, 214 ms sem espera |
+| Edição de fonte durante modelo suspenso | bloqueava até a resposta | **8 ms** |
+| Aquisição do lock durante modelo suspenso | 227 ms | **1 ms** |
+| Pressão de pool, 5 escritores concorrentes | **5 de 5 presos** | **0 de 5** |
+| Escritor curto, Trabalho diferente | 5 ms | 1 ms |
+| **Chamadas ao provedor, duas preparações iguais** | **1** | **1** — invariante preservada |
+| Segunda requisição concorrente | presa no lock | `preparation_in_progress` com `attemptId` |
+
+A invariante que mais importava sobreviveu: **duas preparações iguais continuam produzindo uma única chamada ao provedor**. Antes era efeito colateral da serialização pelo lock; agora é deliberada, via `claimPreparationAttempt` devolvendo `joined`. O gasto com o provedor não dobrou, que era o risco.
+
+Os três cenários de caracterização da Task 8 foram **invertidos**, não removidos: cada um passou a afirmar o oposto, que é exatamente o que a correção produz. Os números de antes ficam nos comentários do teste como registro.
+
 ### Invariante acidental que a Task 15 precisa PRESERVAR
 
 Duas preparações iguais concorrentes produzem **uma única** chamada ao provedor. Isso não é deduplicação deliberada: é efeito colateral da serialização pelo lock — a segunda requisição só entra depois que a primeira persistiu, e então cai no atalho de reaproveitamento de snapshot.

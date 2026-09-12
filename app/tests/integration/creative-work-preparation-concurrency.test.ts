@@ -157,7 +157,15 @@ import {
 } from "@/server/db/schema";
 import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-creative-work-output-library";
 import { prepareCreativeWork } from "@/server/application/prepare-creative-work";
-import { withCreativeWorkPreparationLock } from "@/server/repositories/creative-work";
+import {
+  mutateCreativeWorkDraftSource,
+  withCreativeWorkPreparationLock,
+} from "@/server/repositories/creative-work";
+import {
+  getActivePreparationAttempt,
+  invalidatePreparationAttempts,
+} from "@/server/repositories/creative-work-preparation";
+import { creativeWorkPreparationAttempts } from "@/server/db/schema";
 
 const RUN_ID = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -288,6 +296,9 @@ afterAll(async () => {
     writeFileSync(out, JSON.stringify(measurements, null, 2));
   }
   if (createdWorkspaceIds.length > 0) {
+    await db
+      .delete(creativeWorkPreparationAttempts)
+      .where(inArray(creativeWorkPreparationAttempts.workspaceId, createdWorkspaceIds));
     await db.delete(creativeWorkSources).where(inArray(creativeWorkSources.workspaceId, createdWorkspaceIds));
     await db.delete(creativeWorkItems).where(inArray(creativeWorkItems.workspaceId, createdWorkspaceIds));
     await db.delete(workspaceAssets).where(inArray(workspaceAssets.workspaceId, createdWorkspaceIds));
@@ -341,7 +352,17 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work preparation concu
   });
 });
 
-describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("PR-02 Task 8 — caracterizacao da preparacao (Postgres real)", () => {
+/**
+ * Escritos na Task 8 para CARACTERIZAR o bug (o plano: "os testes caracterizam;
+ * nao afirmam que o comportamento e correto"). A Task 15 corrigiu o bug e
+ * inverteu os tres — que agora protegem a invariante nova. Os numeros medidos
+ * antes da correcao ficam nos comentarios como registro historico; estao
+ * tambem em docs/operations/reliability-metrics.md.
+ *
+ * Nenhuma asserção foi removida: cada uma passou a afirmar o oposto, que e
+ * exatamente o que a correcao produz.
+ */
+describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("PR-02/05 — preparacao sob concorrencia (Postgres real)", () => {
   beforeEach(() => {
     modelGate.reset();
   });
@@ -356,8 +377,10 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("PR-02 Task 8 — caracterizacao
     const second = watch(prepareCreativeWork({ workspaceId: scope.workspaceId, workItemId }));
     await tick(150);
 
-    // OBSERVADO hoje: a segunda requisicao nao alcanca o modelo — ela fica
-    // presa no advisory lock que a primeira segura durante a chamada externa.
+    // ANTES da Task 15 (medido 12/09): a segunda ficava PRESA no advisory lock
+    // que a primeira segurava durante a chamada externa — nao assentava.
+    // DEPOIS: ela assenta de imediato com preparation_in_progress, e continua
+    // havendo UMA unica chamada ao provedor. O numero a bater nao mudou.
     const arrivalsEnquantoSuspenso = modelGate.arrivals;
     const segundaAssentouDurante = second.done;
 
@@ -374,7 +397,8 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("PR-02 Task 8 — caracterizacao
     });
 
     expect(arrivalsEnquantoSuspenso).toBe(1);
-    expect(segundaAssentouDurante).toBe(false);
+    expect(segundaAssentouDurante).toBe(true);
+    expect(modelGate.arrivals).toBe(1);
     expect(a.ok).toBe(true);
   }, 30_000);
 
@@ -391,8 +415,9 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("PR-02 Task 8 — caracterizacao
     );
     await tick(200);
 
-    // ESTE E O BUG que o PR-05 corrige: uma escrita curta, que nao depende de
-    // IA nenhuma, fica bloqueada pelo tempo do provedor.
+    // ANTES da Task 15: bloqueado por todo o tempo do provedor (227 ms medidos
+    // em 12/09) — uma escrita curta, que nao depende de IA nenhuma, esperava o
+    // modelo. DEPOIS: passa direto, porque a chamada externa saiu da transacao.
     const bloqueadoDurante = !writer.done;
     const esperaMedidaMs = Date.now() - startedAt;
 
@@ -407,7 +432,8 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("PR-02 Task 8 — caracterizacao
       esperaTotalMs: Date.now() - startedAt,
     });
 
-    expect(bloqueadoDurante).toBe(true);
+    expect(bloqueadoDurante).toBe(false);
+    expect(esperaMedidaMs).toBeLessThan(1_000);
   }, 30_000);
 
   it("caracteriza: escritor curto de Trabalho DIFERENTE nao espera", async () => {
@@ -467,11 +493,128 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("PR-02 Task 8 — caracterizacao
       poolMaxPorProcesso: 10,
     });
 
-    // Confirma por medicao o que a spec so inferia da ordem
-    // `db.transaction -> pg_advisory_xact_lock`: requisicoes do MESMO Trabalho
-    // ocupam conexoes enquanto esperam. Nao e preciso Trabalhos distintos para
-    // pressionar o pool.
-    expect(presosDurante).toBe(CONCORRENTES);
+    // ANTES da Task 15: 5 de 5 presos, cada um segurando a conexao que abriu
+    // antes de pedir o lock — a pressao de pool que a spec inferia da ordem
+    // `db.transaction -> pg_advisory_xact_lock`, medida em 12/09.
+    // DEPOIS: nenhum preso. O lock nao e mais segurado durante a chamada.
+    expect(presosDurante).toBe(0);
     expect(resultados).toEqual(Array(CONCORRENTES).fill("entrou"));
+  }, 30_000);
+});
+
+describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("PR-05 Task 15 — IA fora da transacao", () => {
+  beforeEach(() => {
+    modelGate.reset();
+  });
+
+  it("a edicao de fonte conclui ANTES da resposta do modelo ser liberada", async () => {
+    const scope = await createScope();
+    const workItemId = await createWork(scope);
+    const [source] = await db
+      .select()
+      .from(creativeWorkSources)
+      .where(eq(creativeWorkSources.workItemId, workItemId));
+    const [work] = await db
+      .select()
+      .from(creativeWorkItems)
+      .where(eq(creativeWorkItems.id, workItemId));
+
+    const preparing = watch(prepareCreativeWork({ workspaceId: scope.workspaceId, workItemId }));
+    await modelGate.waitForArrivals(1);
+
+    // Hoje isto BLOQUEIA ate o modelo responder (medido na Task 8: 227 ms).
+    // Depois da Task 15 precisa concluir enquanto o provedor segue suspenso.
+    const startedAt = Date.now();
+    const edited = await mutateCreativeWorkDraftSource({
+      workspaceId: scope.workspaceId,
+      workItemId,
+      expectedUpdatedAt: work.updatedAt,
+      sourceId: source.id,
+      mutation: { kind: "update", patch: { usage: "content" } },
+    });
+    const edicaoMs = Date.now() - startedAt;
+    expect(edited).not.toBeNull();
+
+    modelGate.releaseAll();
+    const result = await preparing.promise;
+
+    measurements.push({ cenario: "Task 15 — edicao durante modelo suspenso", edicaoMs });
+
+    // A edicao nao esperou o modelo...
+    expect(edicaoMs).toBeLessThan(1_000);
+    // ...e o resultado antigo NAO sobrescreveu a edicao.
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("stale_input");
+  }, 30_000);
+
+  it("duas requisicoes iguais compartilham UMA tentativa ativa", async () => {
+    const scope = await createScope();
+    const workItemId = await createWork(scope);
+
+    const first = watch(prepareCreativeWork({ workspaceId: scope.workspaceId, workItemId }));
+    // Segurar a primeira DENTRO da chamada externa e o que da dentes a este
+    // teste: sem isso as duas serializam, a segunda encontra a preparacao ja
+    // concluida e o resultado nao distingue "compartilhou tentativa" de
+    // "rodou depois". Verificado pelo passo vermelho.
+    await modelGate.waitForArrivals(1);
+
+    const second = await prepareCreativeWork({ workspaceId: scope.workspaceId, workItemId });
+
+    const durante = await db
+      .select()
+      .from(creativeWorkPreparationAttempts)
+      .where(eq(creativeWorkPreparationAttempts.workItemId, workItemId));
+
+    modelGate.releaseAll();
+    await first.promise;
+
+    // Uma tentativa, e a segunda requisicao devolveu estado tipado em vez de
+    // criar outra. O numero a bater e 1 chamada ao provedor — o mesmo de hoje,
+    // medido na Task 8.
+    expect(durante.filter((row) => row.state === "running")).toHaveLength(1);
+    expect(modelGate.arrivals).toBe(1);
+    expect(second.ok).toBe(false);
+    if (!second.ok) expect(second.error.code).toBe("preparation_in_progress");
+  }, 30_000);
+
+  it("conclusao atrasada de tentativa invalidada nao persiste resultado antigo", async () => {
+    const scope = await createScope();
+    const workItemId = await createWork(scope);
+
+    const preparing = watch(prepareCreativeWork({ workspaceId: scope.workspaceId, workItemId }));
+    await modelGate.waitForArrivals(1);
+
+    // Invalida a tentativa enquanto o modelo ainda responde.
+    expect(await invalidatePreparationAttempts({ workspaceId: scope.workspaceId, workItemId })).toBe(1);
+
+    modelGate.releaseAll();
+    const result = await preparing.promise;
+
+    expect(result.ok).toBe(false);
+    const [work] = await db
+      .select()
+      .from(creativeWorkItems)
+      .where(eq(creativeWorkItems.id, workItemId));
+    // Nada do resultado antigo foi persistido.
+    expect(work.copy).toBeNull();
+  }, 30_000);
+
+  it("o tempo suspenso no provedor nao aparece como transacao aberta", async () => {
+    const scope = await createScope();
+    const workItemId = await createWork(scope);
+
+    const preparing = watch(prepareCreativeWork({ workspaceId: scope.workspaceId, workItemId }));
+    await modelGate.waitForArrivals(1);
+
+    // O mesmo probe da Task 8, onde antes media 227 ms de bloqueio.
+    const startedAt = Date.now();
+    await withCreativeWorkPreparationLock(scope.workspaceId, workItemId, async () => "entrou");
+    const esperaMs = Date.now() - startedAt;
+
+    modelGate.releaseAll();
+    await preparing.promise;
+
+    measurements.push({ cenario: "Task 15 — lock livre durante modelo", esperaMs });
+    expect(esperaMs).toBeLessThan(1_000);
   }, 30_000);
 });

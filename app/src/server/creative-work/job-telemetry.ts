@@ -369,6 +369,12 @@ export function logCreativeWorkPreparationAttempt(fields: {
   attemptId: string | null;
   kind: string;
   phase: "claim" | "external" | "finalize" | "invalidated" | "expired";
+  /**
+   * Motivo do descarte, quando `phase` e "invalidated". Vem tipado de
+   * `finalizePreparationAttempt`; sem ele um resultado antigo rejeitado nao
+   * deixa rastro, que e o pior desfecho deste protocolo.
+   */
+  reason?: string;
   lockWaitMs: number;
   inTransactionMs: number;
   externalMs: number | null;
