@@ -27,10 +27,17 @@ import { db } from "@/server/db";
 import {
   clientProfiles,
   creativeWorkItems,
+  creativeWorkOutputs,
   creativeWorkPreparationAttempts,
+  creativeWorkSources,
   user,
+  workspaceAssets,
   workspaces,
 } from "@/server/db/schema";
+import {
+  mutateCreativeWorkDraftSource,
+  reservePreparedCreativeWorkOutputsIfCurrent,
+} from "./creative-work";
 import {
   claimPreparationAttempt,
   finalizePreparationAttempt,
@@ -115,7 +122,10 @@ afterAll(async () => {
     await db
       .delete(creativeWorkPreparationAttempts)
       .where(inArray(creativeWorkPreparationAttempts.workspaceId, createdWorkspaceIds));
+    await db.delete(creativeWorkOutputs).where(inArray(creativeWorkOutputs.workspaceId, createdWorkspaceIds));
+    await db.delete(creativeWorkSources).where(inArray(creativeWorkSources.workspaceId, createdWorkspaceIds));
     await db.delete(creativeWorkItems).where(inArray(creativeWorkItems.workspaceId, createdWorkspaceIds));
+    await db.delete(workspaceAssets).where(inArray(workspaceAssets.workspaceId, createdWorkspaceIds));
     await db.delete(clientProfiles).where(inArray(clientProfiles.workspaceId, createdWorkspaceIds));
     await db.delete(workspaces).where(inArray(workspaces.id, createdWorkspaceIds));
   }
@@ -446,5 +456,137 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("creative-work preparation attem
 
     // E o escopo de workspace e obrigatorio: o id de B com o workspace de A nao le nada.
     expect(await getActivePreparationAttempt({ workspaceId: a.workspaceId, workItemId: b.workItemId })).toBeNull();
+  }, 30_000);
+});
+
+/** Semeia um ativo e uma fonte pronta no Trabalho do escopo. */
+async function createSource(scope: Scope): Promise<string> {
+  const [asset] = await db
+    .insert(workspaceAssets)
+    .values({
+      workspaceId: scope.workspaceId,
+      name: "base.png",
+      key: `t13/${RUN_ID}/${Math.random().toString(36).slice(2)}.png`,
+      type: "image/png",
+      size: 1024,
+      source: "upload",
+    })
+    .returning();
+  const [source] = await db
+    .insert(creativeWorkSources)
+    .values({
+      workspaceId: scope.workspaceId,
+      workItemId: scope.workItemId,
+      assetId: asset.id,
+      usage: "both",
+      usageConfirmed: true,
+      status: "ready",
+    })
+    .returning();
+  return source.id;
+}
+
+/**
+ * Leva o Trabalho ao estado que `reservePreparedCreativeWorkOutputsIfCurrent`
+ * exige: `ready` com brief, copy, inputSnapshot e identitySnapshot presentes.
+ * O conteudo e minimo de proposito — a reserva so checa presenca.
+ */
+async function makeReadyForReservation(scope: Scope): Promise<Date> {
+  const [row] = await db
+    .update(creativeWorkItems)
+    .set({
+      status: "ready",
+      brief: { theme: "T", objective: "O", audience: "A", offer: "Of" },
+      copy: { headline: "H", body: "B", cta: "C" },
+      inputSnapshot: { request: "R", settings: { targetFormats: [] }, sources: [] },
+      identitySnapshot: { version: 1 },
+    } as never)
+    .where(eq(creativeWorkItems.id, scope.workItemId))
+    .returning();
+  return row.updatedAt;
+}
+
+const PLANS = [{ creativeLevel: "balanced", targetFormat: "4:5", versionNumber: 1 }] as never;
+
+describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("PR-03 Task 13 — escritores compativeis com a tentativa", () => {
+  it("edicao de fonte invalida a tentativa em curso, na mesma transacao curta", async () => {
+    const scope = await createScope();
+    const sourceId = await createSource(scope);
+    const [work] = await db
+      .select()
+      .from(creativeWorkItems)
+      .where(eq(creativeWorkItems.id, scope.workItemId));
+
+    const claimed = await claimPreparationAttempt({
+      workspaceId: scope.workspaceId,
+      workItemId: scope.workItemId,
+      kind: "creative_prepare",
+      inputRevision: work.updatedAt.toISOString(),
+      inputFingerprint: "fp-1",
+      leaseSeconds: 60,
+    });
+    expect(claimed.outcome).toBe("claimed");
+
+    const changed = await mutateCreativeWorkDraftSource({
+      workspaceId: scope.workspaceId,
+      workItemId: scope.workItemId,
+      expectedUpdatedAt: work.updatedAt,
+      sourceId,
+      mutation: { kind: "update", patch: { usage: "content" } },
+    });
+    expect(changed).not.toBeNull();
+
+    // A edicao nao espera a IA: ela grava e invalida na mesma transacao curta.
+    expect(await getActivePreparationAttempt({
+      workspaceId: scope.workspaceId,
+      workItemId: scope.workItemId,
+    })).toBeNull();
+  }, 30_000);
+
+  it("reserva de outputs PROSSEGUE quando nao ha tentativa viva (controle)", async () => {
+    const scope = await createScope();
+    const preparedRevision = await makeReadyForReservation(scope);
+
+    const reserved = await reservePreparedCreativeWorkOutputsIfCurrent({
+      workspaceId: scope.workspaceId,
+      workItemId: scope.workItemId,
+      preparedRevision,
+      plans: PLANS,
+    });
+
+    // Sem este controle, o teste seguinte passaria mesmo se a reserva falhasse
+    // por um motivo qualquer da fixture, em vez de pela tentativa viva.
+    expect(reserved).not.toBeNull();
+    expect(reserved?.newlyCreatedIds).toHaveLength(1);
+  }, 30_000);
+
+  it("reserva de outputs RECUSA enquanto ha tentativa de preparacao viva", async () => {
+    const scope = await createScope();
+    const preparedRevision = await makeReadyForReservation(scope);
+
+    const claimed = await claimPreparationAttempt({
+      workspaceId: scope.workspaceId,
+      workItemId: scope.workItemId,
+      kind: "creative_prepare",
+      inputRevision: preparedRevision.toISOString(),
+      inputFingerprint: "fp-1",
+      leaseSeconds: 60,
+    });
+    expect(claimed.outcome).toBe("claimed");
+
+    const reserved = await reservePreparedCreativeWorkOutputsIfCurrent({
+      workspaceId: scope.workspaceId,
+      workItemId: scope.workItemId,
+      preparedRevision,
+      plans: PLANS,
+    });
+
+    // Gerar sobre briefing antigo e o que esta reserva existe para impedir.
+    expect(reserved).toBeNull();
+    const outputs = await db
+      .select()
+      .from(creativeWorkOutputs)
+      .where(eq(creativeWorkOutputs.workItemId, scope.workItemId));
+    expect(outputs).toHaveLength(0);
   }, 30_000);
 });

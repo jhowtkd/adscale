@@ -252,8 +252,14 @@ export async function finalizePreparationAttempt(input: {
 export async function getActivePreparationAttempt(input: {
   workspaceId: string;
   workItemId: string;
+  /**
+   * Extensão aditiva da assinatura fixada no plano: permite ler DENTRO da
+   * transação curta de quem reserva outputs, para que a decisão use o mesmo
+   * instantâneo da checagem de revisão.
+   */
+  executor?: Pick<typeof db, "select">;
 }): Promise<CreativeWorkPreparationAttempt | null> {
-  const [row] = await db
+  const [row] = await (input.executor ?? db)
     .select()
     .from(creativeWorkPreparationAttempts)
     .where(and(

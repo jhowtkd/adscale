@@ -35,6 +35,10 @@ import { MAX_PIECE_REFERENCES, type PieceReferenceCategory } from "../creative-w
 import { withInvalidatedCarouselApprovals } from "../creative-work/carousel-editorial-state";
 import { mergeCarouselEditorialForClientSettingsWrite } from "../creative-work/carousel-editorial-hash";
 import {
+  getActivePreparationAttempt,
+  invalidatePreparationAttempts,
+} from "./creative-work-preparation";
+import {
   boundCatalogLimit,
   takeCatalogPage,
   type CatalogQuery,
@@ -743,6 +747,14 @@ export async function mutateCreativeWorkPieceReference(input: {
         )] : []),
       )).returning();
       if (!invalidated) throw new CreativeWorkRevisionConflict();
+      // A edição venceu: qualquer preparação em curso foi calculada sobre
+      // entradas que já não valem. Invalidar aqui, na MESMA transação curta,
+      // é o que impede a edição de esperar a resposta do modelo.
+      await invalidatePreparationAttempts({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        executor: tx,
+      });
       return updated;
     });
   } catch (error) {
@@ -1088,6 +1100,13 @@ export async function mutateCreativeWorkDraftSource(input: {
         )] : []),
       )).returning();
       if (!invalidated) throw new CreativeWorkRevisionConflict();
+      // Mesma razão da mutação de Peça: a edição invalida a preparação em
+      // curso sem esperar a IA.
+      await invalidatePreparationAttempts({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        executor: tx,
+      });
       return changed;
     });
   } catch (error) {
@@ -1455,6 +1474,14 @@ export async function reservePreparedCreativeWorkOutputsIfCurrent(input: {
     if (!aggregate || aggregate.outputs.length !== 0 || aggregate.work.status !== "ready") return null;
     if (aggregate.work.updatedAt.getTime() !== input.preparedRevision.getTime()) return null;
     if (!aggregate.work.brief || !aggregate.work.copy || !aggregate.work.inputSnapshot || !aggregate.work.identitySnapshot) return null;
+    // Uma preparação viva significa que o briefing pode estar prestes a mudar.
+    // Reservar agora seria gerar — e cobrar — sobre snapshot que a tentativa em
+    // curso vai substituir.
+    if (await getActivePreparationAttempt({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      executor: tx,
+    })) return null;
     const created = await createPlannedCreativeWorkOutputs(
       input.workspaceId,
       input.workItemId,
@@ -1482,6 +1509,13 @@ export async function reserveCreativeWorkGenerationOutputs(input: {
   return withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (tx) => {
     let aggregate = await getCreativeWork(input.workspaceId, input.workItemId, tx);
     if (!aggregate || aggregate.outputs.length !== 0 || aggregate.work.updatedAt.getTime() !== input.preparedRevision.getTime()) return null;
+    // Ver a nota em reservePreparedCreativeWorkOutputsIfCurrent: reserva não
+    // acontece com preparação viva.
+    if (await getActivePreparationAttempt({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      executor: tx,
+    })) return null;
 
     if (aggregate.work.status === "draft") {
       if (!aggregate.work.brief || !aggregate.work.copy || !aggregate.work.inputSnapshot || !input.identitySnapshot) return null;

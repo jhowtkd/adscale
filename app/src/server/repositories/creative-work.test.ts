@@ -673,9 +673,12 @@ describe("creative-work repository", () => {
         [{ id: "work-1", toolKind: "single" }], [original],
         [{ id: "work-1", toolKind: "single" }], [afterCategory],
       );
+      // Cada mutacao emite TRES tx.update: fonte, Trabalho e invalidacao da
+      // tentativa de preparacao (PR-03 Task 13). A terceira entrada de cada par
+      // e a invalidacao, que normalmente nao atinge linha nenhuma.
       mocks.state.txUpdateResults.push(
-        [afterCategory], [workItem({ toolKind: "single", status: "draft" })],
-        [afterInstruction], [workItem({ toolKind: "single", status: "draft" })],
+        [afterCategory], [workItem({ toolKind: "single", status: "draft" })], [],
+        [afterInstruction], [workItem({ toolKind: "single", status: "draft" })], [],
       );
 
       await mutateCreativeWorkPieceReference({
@@ -690,7 +693,7 @@ describe("creative-work repository", () => {
       expect(mocks.txSetMock).toHaveBeenNthCalledWith(1, expect.objectContaining({
         pieceReference: expect.objectContaining({ category: "style_reference", userInstruction: "Manter rótulo" }),
       }));
-      expect(mocks.txSetMock).toHaveBeenNthCalledWith(3, expect.objectContaining({
+      expect(mocks.txSetMock).toHaveBeenNthCalledWith(4, expect.objectContaining({
         pieceReference: expect.objectContaining({ category: "style_reference", userInstruction: "Só a textura" }),
       }));
     });
@@ -712,9 +715,12 @@ describe("creative-work repository", () => {
         [{ id: "work-1", toolKind: "single" }], [automaticLow],
         [{ id: "work-1", toolKind: "single" }], [afterInstruction],
       );
+      // Cada mutacao emite TRES tx.update: fonte, Trabalho e invalidacao da
+      // tentativa de preparacao (PR-03 Task 13). A terceira entrada de cada par
+      // e a invalidacao, que normalmente nao atinge linha nenhuma.
       mocks.state.txUpdateResults.push(
-        [afterInstruction], [workItem({ toolKind: "single", status: "draft" })],
-        [afterConfirmation], [workItem({ toolKind: "single", status: "draft" })],
+        [afterInstruction], [workItem({ toolKind: "single", status: "draft" })], [],
+        [afterConfirmation], [workItem({ toolKind: "single", status: "draft" })], [],
       );
 
       await expect(mutateCreativeWorkPieceReference({
@@ -731,7 +737,7 @@ describe("creative-work repository", () => {
         mutation: { kind: "correct", category: "product_or_packaging" },
       })).resolves.toEqual(afterConfirmation);
       expect(isPieceReferenceReady(afterConfirmation.pieceReference)).toBe(true);
-      expect(mocks.txSetMock).toHaveBeenNthCalledWith(3, expect.objectContaining({
+      expect(mocks.txSetMock).toHaveBeenNthCalledWith(4, expect.objectContaining({
         pieceReference: expect.objectContaining({ category: "product_or_packaging", classificationSource: "user", confidence: "low", userInstruction: null }),
       }));
     });
