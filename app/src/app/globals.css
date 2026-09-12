@@ -227,6 +227,7 @@
   --layer-skip-link: 100;
 
   /* Canonical light theme */
+  /* Neutral Cinema (hue 260, graphite accent) */
   --canvas: oklch(0.965 0.004 260);
   --surface-base: oklch(0.992 0.003 260);
   --surface-raised: oklch(0.955 0.004 260);

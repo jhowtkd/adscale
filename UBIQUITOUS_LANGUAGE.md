@@ -18,9 +18,9 @@
 
 | Termo | Definição | Evitar |
 | --- | --- | --- |
-| **Início** | Superfície operacional para começar um Trabalho ou retomar o mais relevante. | Dashboard |
+| **Estúdio** | Superfície operacional para começar um Trabalho ou retomar o mais relevante. | Início, Dashboard |
 | **Trabalhos** | Lista canônica de todos os Trabalhos, com Campanha como filtro ou agrupamento. | Campanhas como nome da lista |
-| **Visão geral** | Superfície gerencial secundária para indicadores, atividade e itens que exigem atenção. | Dashboard como nome visível, Início |
+| **Visão geral** | Superfície gerencial secundária para indicadores, atividade e itens que exigem atenção. | Dashboard como nome visível, Estúdio, Início |
 
 ## Papéis
 
@@ -37,7 +37,7 @@
 - Uma **Variação** é uma **Peça** relacionada a uma base, direção ou Peça anterior.
 - Uma **Versão** preserva a identidade da mesma **Peça** ao longo de revisões.
 - Um **Veredito objetivo** reprovado bloqueia a **Aprovação humana**; um veredito inconclusivo ou ausente exige confirmação explícita.
-- **Início**, **Trabalhos** e **Visão geral** são superfícies distintas: criar/retomar, localizar/organizar e gerir, respectivamente.
+- **Estúdio**, **Trabalhos** e **Visão geral** são superfícies distintas: criar/retomar, localizar/organizar e gerir, respectivamente.
 
 ## Exemplo de diálogo
 
@@ -56,6 +56,7 @@
 - **Campanha** não é sinônimo de **Trabalho**; a lista principal chama-se **Trabalhos** e usa Campanha como agrupamento.
 - **Derivação** permanece como termo técnico legado e não deve aparecer como nome principal de uma Peça na interface.
 - **Variação** e **Versão** não são equivalentes: a primeira cria uma alternativa; a segunda revisa a mesma Peça.
-- **Dashboard** não nomeia uma superfície visível: **Início** é operacional e **Visão geral** é gerencial.
+- **Dashboard** não nomeia uma superfície visível: **Estúdio** é operacional e **Visão geral** é gerencial.
+- **Início** é nome legado da superfície operacional; o nome visível é **Estúdio**.
 - **Dono da plataforma** é um papel global e não deriva do papel owner ou admin de um workspace.
 - Score subjetivo é consultivo: não libera nem bloqueia a **Aprovação humana**.

@@ -1,26 +1,20 @@
 ---
 name: ADScale
-description: Product UI for AI-powered static ad creative production — fast, expert, neon-accented studio energy.
+description: Product UI for AI-powered static ad creative production — calm Neutral Cinema studio, graphite in light and ivory in dark.
 colors:
-  deep-bg-light: "#fafafa"
-  surface-base-light: "#ffffff"
-  surface-raised-light: "#f5f5f5"
-  text-primary-light: "#0a0a0a"
-  text-secondary-light: "#444444"
-  text-muted-light: "#525252"
-  accent-green-light-mode: "#00b34a"
-  accent-green-bright-light: "#00e85e"
-  accent-green-dark-light: "#007a33"
-  accent-rose-light: "#d43d5c"
-  accent-amber-light: "#c7920a"
-  deep-bg-dark: "#0a0a0a"
-  surface-base-dark: "#111111"
-  surface-raised-dark: "#1a1a1a"
-  text-primary-dark: "#ffffff"
-  text-secondary-dark: "#888888"
-  accent-green-dark-mode: "#00e85e"
-  accent-green-bright-dark: "#3fff80"
-  ink: "#0a0a0a"
+  canvas-light: "oklch(0.965 0.004 260)"
+  surface-base-light: "oklch(0.992 0.003 260)"
+  surface-raised-light: "oklch(0.955 0.004 260)"
+  text-primary-light: "oklch(0.18 0.012 260)"
+  text-secondary-light: "oklch(0.38 0.01 260)"
+  text-muted-light: "oklch(0.40 0.008 260)"
+  accent-graphite-light: "oklch(0.32 0.025 260)"
+  canvas-dark: "oklch(0.145 0.004 260)"
+  surface-base-dark: "oklch(0.175 0.004 260)"
+  surface-raised-dark: "oklch(0.21 0.005 260)"
+  text-primary-dark: "oklch(0.96 0.005 260)"
+  text-secondary-dark: "oklch(0.72 0.006 260)"
+  accent-ivory-dark: "oklch(0.93 0.012 90)"
 typography:
   display:
     fontFamily: '"Press Start 2P", cursive'
@@ -67,20 +61,15 @@ spacing:
   section: "clamp(6rem, 15vh, 12rem)"
 components:
   button-primary:
-    backgroundColor: "{colors.ink}"
-    textColor: "#ffffff"
+    backgroundColor: "{colors.accent-graphite-light}"
+    textColor: "oklch(0.98 0.005 260)"
     rounded: "{rounded.md}"
     padding: "10px 20px"
   button-primary-hover:
-    backgroundColor: "{colors.accent-green-light-mode}"
-    textColor: "{colors.ink}"
+    backgroundColor: "oklch(0.28 0.02 260)"
+    textColor: "oklch(0.98 0.005 260)"
     rounded: "{rounded.md}"
     padding: "10px 20px"
-  button-cta-green:
-    backgroundColor: "{colors.accent-green-light-mode}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.lg}"
-    padding: "12px 24px"
   card-surface:
     backgroundColor: "{colors.surface-base-light}"
     textColor: "{colors.text-primary-light}"
@@ -88,31 +77,31 @@ components:
     padding: "16px"
 ---
 
-## Overview: The Creative Studio at 2am
+## Overview: Neutral Cinema
 
-**Professional without losing energy.** ADScale is a productivity surface for marketers and designers: organized like a best-in-class app (Linear-level structure), with streetwear-level accent punch (electric green, pixel moments, dark-depth contrast).
+**Professional without losing energy.** ADScale is a productivity surface for marketers and designers: organized like a best-in-class app (Linear-level structure), with restrained cinema lighting instead of neon punch.
 
-**Color strategy:** Restrained neutrals + green accent ≤10% on product screens; marketing surfaces may go **Committed** (more ink + green contrast). Default theme is **light** (`next-themes`); dark mode deepens backgrounds for long review sessions.
+**Color strategy:** Cool graphite neutrals (hue 260) in light; the same hue in dark with an ivory accent (hue 90). Semantic green/amber/rose stay on status only. Default theme is **light** (`next-themes`); dark mode deepens the canvas for long review sessions.
 
-**Scene:** A trafficker at a desk, mid-campaign, scanning a gallery of AI derivations before export. Ambient office light; UI stays calm, status and CTAs read instantly.
+**Scene:** A trafficker at a desk, mid-work, scanning a gallery of AI pieces before export. Ambient office light; UI stays calm, status and CTAs read instantly.
 
 **Motion:** Purposeful, ease-out-expo / out-quint; no bounce. Respect `prefers-reduced-motion`.
 
-Implementation tokens live in `app/src/app/globals.css` as CSS custom properties (`--deep-bg`, `--accent-green`, etc.). Prefer tokens over raw hex in components.
+Implementation tokens live in `app/src/app/globals.css` as CSS custom properties (`--canvas`, `--accent-primary`, `--surface-base`, etc.). Prefer tokens over raw hex in components. Electric green (`--accent-green`) is not a production token.
 
-## Colors: Electric Green on Tinted Neutrals
+## Colors: Graphite / Ivory on Cool Neutrals
 
 | Role | Light (`:root`) | Dark (`.dark`) | Usage |
 |------|-----------------|----------------|--------|
-| Canvas | `#fafafa` | `#0a0a0a` | `--deep-bg` page background |
-| Surface | `#ffffff` / `#f5f5f5` | `#111111` / `#1a1a1a` | `--surface-base`, `--surface-raised` |
-| Text | `#0a0a0a` → muted steps | `#ffffff` → `#888888` | `--text-primary`, `--text-secondary`, `--text-muted` |
-| Primary accent | `#00b34a` / `#00e85e` hover | `#00e85e` / `#3fff80` hover | CTAs, active nav, focus ring |
-| Semantic | `#c7920a` amber, `#d43d5c` rose | same family | warnings, destructive |
+| Canvas | `oklch(0.965 0.004 260)` | `oklch(0.145 0.004 260)` | `--canvas` / `--deep-bg` page background |
+| Surface | `oklch(0.992 0.003 260)` / `oklch(0.955 0.004 260)` | `oklch(0.175 0.004 260)` / `oklch(0.21 0.005 260)` | `--surface-base`, `--surface-raised` |
+| Text | `oklch(0.18 0.012 260)` → muted steps | `oklch(0.96 0.005 260)` → `oklch(0.72 0.006 260)` | `--text-primary`, `--text-secondary`, `--text-muted` |
+| Primary accent | Graphite `oklch(0.32 0.025 260)` | Ivory `oklch(0.93 0.012 90)` | CTAs, active nav, `--accent-primary` |
+| Semantic | Success / warning / danger / info families in CSS | same families | status only — not brand accent |
 
-- Green is **accent**, not a full bleed surface on dashboard views.
-- Status badges use tinted backgrounds + dot color; badge text stays `--text-primary` or `--accent-green-text` for contrast.
-- **Do not** use purple/indigo as brand accents. **No** pure `#000` / `#fff` in new work; use `--ink` and theme text tokens (impeccable OKLCH migration can happen incrementally in CSS).
+- Accent is **graphite (light) or ivory (dark)**, not a green bleed on product screens.
+- Status badges use tinted backgrounds + dot color; badge text stays `--text-primary` or the matching `--*-text` token.
+- **Do not** use purple/indigo as brand accents. **Do not** reintroduce `--accent-green` in product CSS. Use `--accent-primary` and semantic status tokens.
 
 ## Typography: Inter + Mono Labels + Pixel Impact
 
@@ -126,26 +115,25 @@ Hierarchy via **scale + weight** (≥1.25 ratio between steps). Page titles ~18p
 
 ## Elevation: Tonal Layers + Subtle Lift
 
-Product UI is mostly **flat tonal layering** (`deep-bg` → `surface-base` → `surface-raised`) with 1px `--border-dim` borders.
+Product UI is mostly **flat tonal layering** (`canvas` → `surface-base` → `surface-raised`) with 1px `--border-subtle` borders.
 
 - **Cards:** `glass-card` utility where documented; hover: slight translate-y + shadow (`duration-300`, ease-out), not layout-thrashing transforms.
-- **Overlays:** top bar / dropdowns use raised surface + soft shadow (`0 24px 80px rgba(0,0,0,0.1)` in light).
-- **Marketing:** optional ambient green radial glow (low opacity), dot grids, grain overlay on light sections only.
+- **Overlays:** top bar / dropdowns use raised surface + soft shadow (`--shadow-overlay`).
 - **Banned:** nested cards, side-stripe colored borders, gradient text.
 
 ## Components
 
 **App shell:** icon sidebar (64px) + `h-14` top bar; main `pt-14`; mobile bottom nav (4 cols). Max content width 1400px; dashboard grids `gap-3`.
 
-**Buttons:** shadcn default maps to green accent; marketing `.btn-primary` ink fill with green hover slide; `.btn-pill` full radius green.
+**Buttons:** shadcn default maps to `--accent-primary` (graphite in light, ivory in dark).
 
-**Inputs:** `surface-raised` background, `--border-medium`, 13px type, focus ring on `--accent-green`.
+**Inputs:** `surface-raised` background, `--border-default`, 13px type, focus ring on `--focus-ring`.
 
 **Cards / panels:** `rounded-xl`, compact `p-4`, flex column gaps; use `glass-card` instead of hand-rolled borders when possible.
 
 **Status:** dot + label on semantic tinted bg (draft, processing, completed, failed tokens in CSS).
 
-**Icons:** Lucide, 14–18px, ghost → green on active/hover.
+**Icons:** Lucide, 14–18px, ghost → accent on active/hover.
 
 **Theme toggle:** `ThemeToggle` in TopBar; persists via `next-themes`.
 
@@ -153,16 +141,16 @@ Product UI is mostly **flat tonal layering** (`deep-bg` → `surface-base` → `
 
 ### Do
 
-- Optimize for **speed to exportable variations** (clear primary actions, visible job/status state).
-- Use green sparingly for **progress, success, and primary CTAs**.
+- Optimize for **speed to exportable pieces** (clear primary actions, visible job/status state).
+- Use accent sparingly for **primary CTAs and focus**; keep success/warning/danger on status tokens.
 - Keep section rhythm with varied spacing (8px grid; larger gaps between major blocks).
-- Number marketing sections `(01)`, `(02)` in mono green for editorial structure.
-- Show **actionable errors** in campaign workspace before users blame generation quality.
+- Show **actionable errors** in the Estúdio before users blame generation quality.
 
 ### Don't
 
 - Slide into **gray generic SaaS** (anonymous layouts, timid typography, no brand pulse).
 - Use **AI slop** templates: identical card grids, hero metrics, glassmorphism as wallpaper, gradient text.
-- Overuse pixel font in product chrome (dashboard, settings, forms).
+- Overuse pixel font in product chrome (Estúdio, settings, forms).
 - Animate layout properties (width/height/top/left); use opacity/transform.
+- Document electric green as the product accent — production is Neutral Cinema.
 - Break briefing/brand/CTA contracts in UI copy or empty states that imply features we do not ship.
