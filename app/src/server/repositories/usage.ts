@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lte } from "drizzle-orm";
+import { and, desc, eq, gte, lte, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { usageEvents } from "../db/schema";
 
@@ -71,6 +71,15 @@ export async function getUsageByIdempotencyKey(
     .limit(1);
 
   return rows[0] ?? null;
+}
+
+export async function getUsageByIdempotencyKeys(workspaceId: string, keys: string[]) {
+  if (keys.length === 0) return new Map<string, Awaited<ReturnType<typeof getUsageByIdempotencyKey>>>();
+  const rows = await db.select().from(usageEvents).where(and(
+    eq(usageEvents.workspaceId, workspaceId),
+    inArray(usageEvents.idempotencyKey, keys),
+  ));
+  return new Map(rows.map((row) => [row.idempotencyKey!, row]));
 }
 
 export async function getUsageForWorkspace(workspaceId: string) {

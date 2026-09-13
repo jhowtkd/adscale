@@ -379,6 +379,17 @@ export async function getDerivationById(id: string, workspaceId: string) {
   return result[0] ?? null;
 }
 
+export async function getDerivationsByIds(ids: string[], workspaceId: string) {
+  if (ids.length === 0) return [];
+  const rows = await db.select().from(derivations).where(and(
+    inArray(derivations.id, ids),
+    eq(derivations.workspaceId, workspaceId),
+  ));
+  // Preserve the original metadata order; SQL IN does not guarantee it.
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return ids.flatMap((id) => { const row = byId.get(id); return row ? [row] : []; });
+}
+
 export async function getApprovedDerivationsByCampaign(
   campaignId: string,
   workspaceId: string

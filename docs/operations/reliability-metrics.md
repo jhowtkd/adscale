@@ -407,3 +407,38 @@ misturam na mesma amostra.
 - Ativação e jornadas humanas continuam bloqueadas pelo gate da Task 14.
   Consulta ao GitHub em 13/09/2026: zero secrets de repositório e ausência do
   ambiente `reliability-release-smoke`. Nenhum percentual de rollout mudou.
+
+## Task 19 — lote e deadline monotônico, 13/09/2026
+
+- Os oito loops preservam 80 tentativas e a pausa de 25 ms, com teto adicional
+  de 10 s medido por `performance.now()`. Leituras em voo são limitadas pelo
+  orçamento restante; um timeout propaga erro, nunca autoriza compensação.
+  O timeout limita o caller, não cancela a consulta PostgreSQL já iniciada.
+- Refunds do batch criativo usam uma consulta por volta tanto com 3 como com
+  30 outputs. Os três fan-outs de derivations do replay de lote viraram SQL
+  `IN`, com filtro de workspace e restauração da ordem dos IDs históricos.
+- O aggregate usado durante polling preserva work e outputs necessários ao
+  contrato de retorno, mas dispensa a consulta de sources.
+- Vermelho executado antes da implementação: helper ausente e nenhum uso do
+  leitor em lote para 3/30 outputs. Depois: 262 testes focados passaram; 122
+  testes de settlement/recovery/concorrência passaram com Postgres real local.
+- Comparação AST contra `4900ef1f`: nenhum literal string/template removido ou
+  alterado em settlement-adapters; única string nova é o import do helper.
+  As oito caracterizações da Task 18 permanecem byte a byte intactas.
+- Casos existentes preservados: ACK tardio/ausente, replay com cobrança prévia,
+  resposta de despacho perdida e refund parcial. Teste adicional confirma que
+  leitura pendurada não causa cobrança, refund nem reenvio.
+
+### Validação ampla local
+
+- 835 arquivos passaram: 6.713 testes passaram e 1 skip preexistente de upload
+  real (`api/workspace/assets/route.test.ts`). Após adicionar o teste de timeout
+  financeiro, a suíte focada acima passou novamente (262 testes).
+- A primeira execução encontrou o duplo antigo do leitor de usage em
+  `generate-creative-work.test.ts` (corrigido) e falta dos três pais da fixture
+  de catálogo no banco local. A segunda criou somente esses pais sintéticos,
+  executou a suíte e os removeu no finally, sem mudar o teste de catálogo.
+- Typecheck completo passou; lint: zero erros, 176 warnings preexistentes.
+  Build completo passou usando as credenciais fictícias do CI e banco local.
+- 46 testes de convergência e todos os gates locais passaram. CI e smoke de
+  staging são evidências separadas; este registro não autoriza rollout.

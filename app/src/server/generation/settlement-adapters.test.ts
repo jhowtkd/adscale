@@ -30,6 +30,12 @@ const getChild = vi.hoisted(() => vi.fn());
 const getPreviousChild = vi.hoisted(() => vi.fn());
 const touchChild = vi.hoisted(() => vi.fn());
 const getUsage = vi.hoisted(() => vi.fn());
+const getUsages = vi.hoisted(() => vi.fn(async (workspaceId: string, keys: string[]) =>
+  new Map(await Promise.all(keys.map(async (key) => [key, await getUsage(workspaceId, key)] as const))),
+));
+const getChildren = vi.hoisted(() => vi.fn(async (ids: string[], workspaceId: string) =>
+  (await Promise.all(ids.map((id) => getChild(id, workspaceId)))).filter(Boolean),
+));
 const trackUsage = vi.hoisted(() => vi.fn());
 const updateCampaign = vi.hoisted(() => vi.fn());
 const recordAggregate = vi.hoisted(() => vi.fn());
@@ -54,6 +60,7 @@ vi.mock("@/server/creative-work/job-telemetry", () => ({
 }));
 vi.mock("@/server/repositories/usage", () => ({
   getUsageByIdempotencyKey: getUsage,
+  getUsageByIdempotencyKeys: getUsages,
   trackUsage,
 }));
 vi.mock("@/server/repositories/creative-work", () => ({
@@ -72,6 +79,7 @@ vi.mock("@/server/repositories/derivation", () => ({
   deleteQueuedDerivation: deleteChild,
   failQueuedDerivation: failChild,
   getDerivationById: getChild,
+  getDerivationsByIds: getChildren,
   getLatestFormatAdaptationChild: getPreviousChild,
   touchQueuedDerivation: touchChild,
 }));
@@ -3053,3 +3061,36 @@ describe("settlement loop families (Task 18 characterization)", () => {
   });
 });
 
+
+
+describe("settlement batched refund reads", () => {
+  it.each([3, 30])("uses one refund query for %i outputs", async (count) => {
+    vi.clearAllMocks();
+    const rows = Array.from({ length: count }, (_, i) => ({ ...outputs[0], id: `out-${i}`, status: "processing" }));
+    getWork.mockResolvedValue({ work: { ...work, status: "generating" }, outputs: rows });
+    getUsage.mockResolvedValue(null);
+    getUsages.mockResolvedValueOnce(new Map());
+    const result = await batchAdapter().join!(undefined as never);
+    expect(result?.status).toBe("settled");
+    expect(getUsages).toHaveBeenCalledExactlyOnceWith("workspace-1", rows.map((row) => `creative-work:work-1:output:${row.id}:dispatch-refund`));
+    expect(getUsage).toHaveBeenCalledTimes(1);
+    expect(refund).not.toHaveBeenCalled();
+  });
+});
+
+it("a timed-out settlement read does not authorize a refund or another dispatch", async () => {
+  vi.clearAllMocks();
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+  try {
+    getWork.mockImplementationOnce(() => new Promise(() => {}));
+    const pending = startGenerationSettlement(batchAdapter({ work, outputs }));
+    const assertion = expect(pending).rejects.toThrow("settlement_read_timeout");
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(refund).not.toHaveBeenCalled();
+    expect(chargeBatch).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
+});

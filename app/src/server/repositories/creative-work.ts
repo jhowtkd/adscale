@@ -845,6 +845,7 @@ export async function getCreativeWork(
   workspaceId: string,
   workItemId: string,
   executor: Pick<typeof db, "select"> = db,
+  options?: { includeSources?: boolean },
 ): Promise<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[]; sources: CreativeWorkSource[] } | null> {
   const workRows = await executor
     .select()
@@ -873,7 +874,7 @@ export async function getCreativeWork(
     )
     .orderBy(asc(creativeWorkOutputs.targetFormat), asc(creativeWorkOutputs.creativeLevel), asc(creativeWorkOutputs.versionNumber));
 
-  const sources = await executor.select().from(creativeWorkSources).where(and(
+  const sources = options?.includeSources === false ? [] : await executor.select().from(creativeWorkSources).where(and(
     eq(creativeWorkSources.workspaceId, workspaceId),
     eq(creativeWorkSources.workItemId, workItemId),
   )).orderBy(asc(creativeWorkSources.createdAt));

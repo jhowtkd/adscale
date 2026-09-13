@@ -2625,3 +2625,13 @@ describe("creative-work repository", () => {
     });
   });
 });
+
+
+it("settlement reads omit sources without changing normal aggregate reads", async () => {
+  mocks.resetState();
+  vi.clearAllMocks();
+  mocks.state.selectResults.push([{ id: "work-1" }], [{ id: "output-1" }]);
+  const result = await getCreativeWork("workspace-1", "work-1", undefined, { includeSources: false });
+  expect(result).toEqual({ work: { id: "work-1" }, outputs: [{ id: "output-1" }], sources: [] });
+  expect(mocks.selectMock).toHaveBeenCalledTimes(2);
+});
