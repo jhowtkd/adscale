@@ -62,10 +62,6 @@ services:
         value: "0"
       - key: OPENAI_IMAGE_SUNBURST_QUALITY
         value: max
-      - key: MINIMAX_API_KEY
-        sync: false
-      - key: MINIMAX_MODEL
-        value: MiniMax-M3
       - key: R2_ACCOUNT_ID
         sync: false
       - key: R2_ACCESS_KEY_ID
