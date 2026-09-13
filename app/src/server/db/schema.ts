@@ -2699,6 +2699,21 @@ export const creativeWorkSources = adscaleSchema.table(
 export type CreativeWorkSource = typeof creativeWorkSources.$inferSelect;
 export type NewCreativeWorkSource = typeof creativeWorkSources.$inferInsert;
 
+/**
+ * Obrigacao minima de dominio persistida junto com a selecao. Existe para que
+ * um efeito "pending" tenha lastro: sem ela a resposta so poderia dizer
+ * "failed". Nao e outbox generico — so o efeito que o usuario pediu.
+ */
+export type CreativeWorkSelectionEffectsState = {
+  version: 1;
+  recipe?: {
+    receiptId: string;
+    requestedAt: string;
+    state: "pending" | "done" | "failed";
+    code?: string;
+  };
+};
+
 export const creativeWorkOutputs = adscaleSchema.table(
   "creative_work_outputs",
   {
@@ -2737,6 +2752,7 @@ export const creativeWorkOutputs = adscaleSchema.table(
     layerization: jsonb("layerization").$type<import("../layerize/contracts").LayerizationState | null>(),
     layerEditor: jsonb("layer_editor").$type<import("../layer-editor/contracts").LayerEditorStateV1 | null>(),
     isSelected: boolean("is_selected").notNull().default(false),
+    selectionEffects: jsonb("selection_effects").$type<CreativeWorkSelectionEffectsState | null>(),
     directionId: uuid("direction_id"),
     directionSnapshot: jsonb("direction_snapshot").$type<{
       label: string;
@@ -2909,6 +2925,69 @@ export const creativeWorkCarouselSlides = adscaleSchema.table(
 
 export type CreativeWorkCarouselSlide = typeof creativeWorkCarouselSlides.$inferSelect;
 export type NewCreativeWorkCarouselSlide = typeof creativeWorkCarouselSlides.$inferInsert;
+
+/**
+ * Tentativa vigente de preparacao.
+ *
+ * Existe para que a chamada externa aconteca FORA da transacao sem reabrir
+ * corridas. Hoje `withCreativeWorkPreparationLock` abre a transacao e so entao
+ * pede o advisory lock, entao uma escrita curta do mesmo Trabalho espera o
+ * modelo responder — medido em 12/09/2026: 227 ms de espera e 5 de 5 escritores
+ * concorrentes presos, cada um segurando uma conexao do pool
+ * (docs/operations/reliability-metrics.md).
+ *
+ * A exclusao mutua e do BANCO, nao da aplicacao: o indice unico parcial
+ * `..._active_uq` garante no maximo uma tentativa `running` por Trabalho.
+ * `inputRevision` congela a revisao de conteudo, `inputFingerprint` as entradas
+ * canonicas efetivamente usadas, e `leaseExpiresAt` impede que uma execucao
+ * morta bloqueie o Trabalho para sempre.
+ */
+export const creativeWorkPreparationAttempts = adscaleSchema.table(
+  "creative_work_preparation_attempts",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    workItemId: uuid("work_item_id")
+      .notNull()
+      .references(() => creativeWorkItems.id, { onDelete: "cascade" }),
+    kind: text("kind")
+      .notNull()
+      .$type<import("../creative-work/preparation-attempt").PreparationKind>(),
+    inputRevision: text("input_revision").notNull(),
+    inputFingerprint: text("input_fingerprint").notNull(),
+    state: text("state")
+      .notNull()
+      .default("running")
+      .$type<import("../creative-work/preparation-attempt").PreparationAttemptState>(),
+    leaseExpiresAt: timestamp("lease_expires_at", { mode: "date" }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    // A exclusao mutua e do banco: no maximo uma tentativa viva por Trabalho.
+    uniqueIndex("creative_work_preparation_attempts_active_uq")
+      .on(table.workItemId)
+      .where(sql`${table.state} = 'running'`),
+    index("creative_work_preparation_attempts_scope_idx").on(
+      table.workspaceId,
+      table.workItemId,
+      table.updatedAt,
+    ),
+    check(
+      "creative_work_preparation_attempts_state_check",
+      sql`${table.state} in ('running','completed','failed','invalidated')`
+    ),
+    check(
+      "creative_work_preparation_attempts_kind_check",
+      sql`${table.kind} in ('creative_prepare','carousel_plan','carousel_prepare')`
+    ),
+  ]
+);
+
+export type CreativeWorkPreparationAttempt = typeof creativeWorkPreparationAttempts.$inferSelect;
+export type NewCreativeWorkPreparationAttempt = typeof creativeWorkPreparationAttempts.$inferInsert;
 
 export const visualRecipes = adscaleSchema.table(
   "visual_recipes",

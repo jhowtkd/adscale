@@ -7,6 +7,9 @@ const envState = vi.hoisted(() => ({
   sunburstPercent: 100,
   sunburstQuality: "max" as const,
 }));
+// Continua sendo o executor da FASE 1 (leituras e validações dentro do lock).
+// A partir da Task 15 a persistência acontece na fase 3, FORA da transação,
+// então updateCreativeWorkDraftIfUnchanged deixou de receber um 5º argumento.
 const transactionExecutor = { scope: "preparation-tx" } as never;
 
 vi.mock("@/server/repositories/creative-work", () => ({
@@ -14,6 +17,18 @@ vi.mock("@/server/repositories/creative-work", () => ({
   updateCreativeWorkDraftIfUnchanged: vi.fn(),
   getCreativeWorkSourceAssetDetails: vi.fn(),
   withCreativeWorkPreparationLock: vi.fn(async (_workspaceId, _workItemId, callback) => callback(transactionExecutor)),
+}));
+// Dependencia nova da Task 15: a preparacao reserva uma tentativa antes de
+// sair da transacao. Sem este duplo, claimPreparationAttempt vai ao banco real.
+// O caminho de concorrencia de verdade e coberto pela suite de integracao
+// (tests/integration/creative-work-preparation-concurrency.test.ts).
+vi.mock("@/server/repositories/creative-work-preparation", () => ({
+  claimPreparationAttempt: vi.fn(async () => ({
+    outcome: "claimed" as const,
+    attempt: { id: "attempt-unit" },
+  })),
+  finalizePreparationAttempt: vi.fn(async () => ({ ok: true as const })),
+  renewPreparationAttempt: vi.fn(async () => true),
 }));
 vi.mock("@/server/repositories/brand-kit", () => ({ getBrandKit: vi.fn() }));
 vi.mock("@/server/creative-work/copy", async (importOriginal) => ({
@@ -51,6 +66,16 @@ import {
   withCreativeWorkPreparationLock,
 } from "@/server/repositories/creative-work";
 import { getBrandKit } from "@/server/repositories/brand-kit";
+import {
+  claimPreparationAttempt,
+  finalizePreparationAttempt,
+  renewPreparationAttempt,
+} from "@/server/repositories/creative-work-preparation";
+import { logCreativeWorkPreparationAttempt } from "@/server/creative-work/job-telemetry";
+vi.mock("@/server/creative-work/job-telemetry", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/server/creative-work/job-telemetry")>(),
+  logCreativeWorkPreparationAttempt: vi.fn(),
+}));
 import { prepareCreativeWork } from "./prepare-creative-work";
 import { generateSocialPostCopy as generatePaidCopy } from "./generate-social-post-copy";
 
@@ -76,6 +101,14 @@ const readyVariationSource = {
 describe("prepareCreativeWork", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Padrao: a preparacao reserva a tentativa e a finaliza. Testes que
+    // exercitam concorrencia sobrescrevem estes valores.
+    vi.mocked(claimPreparationAttempt).mockResolvedValue({
+      outcome: "claimed",
+      attempt: { id: "attempt-unit" },
+    } as never);
+    vi.mocked(finalizePreparationAttempt).mockResolvedValue({ ok: true } as never);
+    vi.mocked(renewPreparationAttempt).mockResolvedValue(true);
     envState.qualityRecoveryEnabled = "false";
     envState.sunburstPercent = 100;
     envState.sunburstQuality = "max";
@@ -124,7 +157,7 @@ describe("prepareCreativeWork", () => {
           userInstruction: "Mostrar o rótulo", hasTransparency: false,
         },
       })] }),
-    }), transactionExecutor);
+    }));
 
     updateDraft.mockClear();
     getWork.mockResolvedValue({
@@ -212,7 +245,7 @@ describe("prepareCreativeWork", () => {
     expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
       brief: expect.objectContaining({ theme: "Promoção de matrícula para julho" }),
       copy: { headline: "Julho", body: "Matricule-se", cta: "Saiba mais" },
-    }), transactionExecutor);
+    }));
     if (result.ok) expect(result.value.quote).toMatchObject({ unitCount: 3, credits: 150 });
   });
 
@@ -261,7 +294,7 @@ describe("prepareCreativeWork", () => {
           readiness: "exploratory",
         }),
       }),
-    }), transactionExecutor);
+    }));
   });
 
   it("blocks an incomplete single-piece briefing before copy or persistence", async () => {
@@ -311,7 +344,7 @@ describe("prepareCreativeWork", () => {
           readiness: "exploratory",
         }),
       }),
-    }), transactionExecutor);
+    }));
   });
 
   it("does not loop after the single automatic revision fails validation", async () => {
@@ -392,7 +425,7 @@ describe("prepareCreativeWork", () => {
           fontSelection: "operator_selected",
         }),
       }),
-    }), transactionExecutor);
+    }));
   });
 
   it("rejects a pending font selected from a stale draft", async () => {
@@ -442,7 +475,45 @@ describe("prepareCreativeWork", () => {
     expect(patch.inputSnapshot).not.toHaveProperty("inferredBriefing");
   });
 
-  it("serializes identical concurrent prepares and calls copy once", async () => {
+  it("descarta ANTES de pagar a chamada de copy quando a tentativa e perdida", async () => {
+    getWork.mockResolvedValue({ work, outputs: [], sources: [readyVariationSource] } as never);
+    // A edicao venceu durante a revisao do briefing: a renovacao falha.
+    vi.mocked(renewPreparationAttempt).mockResolvedValue(false);
+
+    const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(result).toMatchObject({ ok: false, error: { code: "stale_input" } });
+    // O ponto do fix: nao se paga o provedor por um resultado que ja nasceu velho.
+    expect(generateCopy).not.toHaveBeenCalled();
+    expect(updateDraft).not.toHaveBeenCalled();
+  });
+
+  it("nao devolve briefing velho pelo atalho de reuso quando o finalize recusa", async () => {
+    // Round trip real, como no teste de reuso acima: a primeira preparacao
+    // persiste o snapshot; so entao a SEGUNDA toma o atalho de reuso. Sem
+    // isso o teste passaria pelo finalize da fase 3 e nao provaria este fix.
+    let current = { ...work } as typeof work & { inputSnapshot?: unknown; brief?: unknown; copy?: unknown };
+    getWork.mockImplementation(async () => ({ work: current, outputs: [], sources: [readyVariationSource] } as never));
+    updateDraft.mockImplementation(async (_ws, _id, _updatedAt, patch) => {
+      current = { ...current, ...patch } as typeof current;
+      return current as never;
+    });
+
+    const first = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(first.ok).toBe(true);
+
+    // Agora uma edicao entra na janela entre a leitura e o fechamento da
+    // tentativa da SEGUNDA preparacao, que iria pelo atalho.
+    vi.mocked(finalizePreparationAttempt).mockResolvedValue({ ok: false, reason: "not_running" } as never);
+    const second = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    // Devolver ok:true com o briefing lido antes da edicao seria mentir.
+    expect(second).toMatchObject({ ok: false, error: { code: "stale_input" } });
+    // E o atalho nao pode ter regerado copy.
+    expect(generateCopy).toHaveBeenCalledOnce();
+  });
+
+  it("duas preparacoes identicas concorrentes chamam copy UMA vez", async () => {
     let current = { ...work } as typeof work & { inputSnapshot?: unknown; brief?: unknown; copy?: unknown };
     let tail = Promise.resolve();
     withLock.mockImplementation((_ws, _id, callback) => {
@@ -455,12 +526,26 @@ describe("prepareCreativeWork", () => {
       current = { ...current, ...patch } as typeof current;
       return current as never;
     });
+    // A dedupe deixou de ser efeito colateral da serializacao pelo lock e
+    // passou a ser explicita: a segunda requisicao encontra a tentativa da
+    // primeira e recebe estado tipado. O duplo precisa modelar isso.
+    vi.mocked(claimPreparationAttempt)
+      .mockResolvedValueOnce({ outcome: "claimed", attempt: { id: "attempt-1" } } as never)
+      .mockResolvedValue({ outcome: "joined", attempt: { id: "attempt-1" } } as never);
+
     const [first, second] = await Promise.all([
       prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" }),
       prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" }),
     ]);
     expect(first.ok).toBe(true);
-    expect(second.ok).toBe(true);
+    // Antes da Task 15 a segunda devolvia ok reaproveitando o snapshot ja
+    // persistido. Agora devolve o estado tipado que a Task 17 expoe como 409.
+    expect(second).toMatchObject({
+      ok: false,
+      error: { code: "preparation_in_progress", details: { attemptId: "attempt-1" } },
+    });
+    // A INVARIANTE nao mudou, e e o ponto do teste: uma unica chamada ao
+    // provedor para duas preparacoes iguais (medida na Task 8).
     expect(generateCopy).toHaveBeenCalledOnce();
   });
 
@@ -469,7 +554,7 @@ describe("prepareCreativeWork", () => {
     updateDraft.mockResolvedValue(null);
     await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" }))
       .resolves.toEqual({ ok: false, error: { code: "stale_input" } });
-    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.any(Object), transactionExecutor);
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.any(Object));
   });
 
   it("rejects a non-draft before inference or copy", async () => {
@@ -554,7 +639,7 @@ describe("prepareCreativeWork", () => {
       inputSnapshot: expect.objectContaining({
         renderPolicy: { version: 1, model: "gpt-image-2.5-sunburst-2026-09-08", quality: "max" },
       }),
-    }), transactionExecutor);
+    }));
   });
 
   it("reuses preparation when the persisted snapshot only differs in jsonb key order", async () => {
@@ -608,7 +693,7 @@ describe("prepareCreativeWork", () => {
         factPack: expect.objectContaining({ version: 1, request: work.request }),
         renderPolicy: { version: 1, model: "gpt-image-2-2026-04-21", quality: "medium" },
       }),
-    }), transactionExecutor);
+    }));
   });
 
   it("freezes the candidate image policy in the preparation transaction", async () => {
@@ -617,7 +702,7 @@ describe("prepareCreativeWork", () => {
     expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now,
       expect.objectContaining({ inputSnapshot: expect.objectContaining({
         renderPolicy: { version: 1, model: "gpt-image-2.5-sunburst-2026-09-08", quality: "max" },
-      }) }), transactionExecutor);
+      }) }));
   });
 
   it("assigns a sunburst cohort on first prepare of a pinned commercial-offer draft", async () => {
@@ -648,7 +733,7 @@ describe("prepareCreativeWork", () => {
     expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now,
       expect.objectContaining({ inputSnapshot: expect.objectContaining({
         renderPolicy: { version: 1, model: "gpt-image-2.5-sunburst-2026-09-08", quality: "max" },
-      }) }), transactionExecutor);
+      }) }));
   });
 
   it("freezes the policy version as legacy into the snapshot while the switch is disabled", async () => {
@@ -656,7 +741,7 @@ describe("prepareCreativeWork", () => {
     await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
     expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
       inputSnapshot: expect.objectContaining({ generationPolicyVersion: "legacy" }),
-    }), transactionExecutor);
+    }));
   });
 
   it("freezes quality_recovery_v1 into the snapshot while the switch is enabled", async () => {
@@ -665,7 +750,7 @@ describe("prepareCreativeWork", () => {
     await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
     expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
       inputSnapshot: expect.objectContaining({ generationPolicyVersion: "quality_recovery_v1" }),
-    }), transactionExecutor);
+    }));
   });
 
   it("re-prepares an old legacy snapshot when the enabled switch changes the resolved version", async () => {
@@ -681,7 +766,7 @@ describe("prepareCreativeWork", () => {
     expect(generateCopy).toHaveBeenCalledOnce();
     expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
       inputSnapshot: expect.objectContaining({ generationPolicyVersion: "quality_recovery_v1" }),
-    }), transactionExecutor);
+    }));
   });
 
   it("blocks while a source is still analyzing", async () => {
@@ -721,7 +806,7 @@ describe("prepareCreativeWork", () => {
         expect.objectContaining({ sourceId: "source-style", usage: "style" }),
         expect.objectContaining({ sourceId: "source-content", usage: "content" }),
       ]) }),
-    }), transactionExecutor);
+    }));
   });
 
   it("infers the format from ready content analysis while the draft is in auto mode", async () => {
@@ -737,7 +822,7 @@ describe("prepareCreativeWork", () => {
 
     const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
 
-    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({ format: "9:16" }), transactionExecutor);
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({ format: "9:16" }));
     if (result.ok) expect(result.value.quote.plans).toEqual(expect.arrayContaining([expect.objectContaining({ targetFormat: "9:16" })]));
   });
 
@@ -750,7 +835,7 @@ describe("prepareCreativeWork", () => {
     await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
     expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
       inputSnapshot: expect.objectContaining({ sources: [expect.objectContaining({ assetKey: "workspaces/ws/source.png", mimeType: "image/png", style: { description: "Editorial" } })] }),
-    }), transactionExecutor);
+    }));
   });
 
   it("freezes a fact pack with the full request, all content facts and provenance — never style-only facts", async () => {
@@ -793,7 +878,7 @@ describe("prepareCreativeWork", () => {
           offer: { value: "Inscrições abertas", state: "sourced" },
         }),
       }),
-    }), transactionExecutor);
+    }));
     const patch = updateDraft.mock.calls[0]?.[3] as { inputSnapshot: { factPack: unknown } };
     const serialized = JSON.stringify(patch.inputSnapshot.factPack);
     expect(serialized).not.toContain("Condomínio fechado");
@@ -813,6 +898,14 @@ describe("prepareCreativeWork", () => {
         error: { code: "invalid_context", details: { violations: [{ class: "price", value: "50%", field: "headline" }] } },
       });
     expect(updateDraft).not.toHaveBeenCalled();
+  });
+
+  it("records the finalize refusal reason when discarding a provider error", async () => {
+    getWork.mockResolvedValue({ work, outputs: [], sources: [readyVariationSource] } as never);
+    generateCopy.mockRejectedValue(new Error("provider unavailable"));
+    vi.mocked(finalizePreparationAttempt).mockResolvedValue({ ok: false, reason: "not_running" } as never);
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).rejects.toThrow("provider unavailable");
+    expect(logCreativeWorkPreparationAttempt).toHaveBeenCalledWith(expect.objectContaining({ phase: "invalidated", reason: "not_running" }));
   });
 
   it("propagates provider failures from copy generation instead of masking them as invalid_context", async () => {
@@ -913,7 +1006,7 @@ describe("prepareCreativeWork", () => {
             ]),
           }),
         }),
-      }), transactionExecutor);
+      }));
       const patch = updateDraft.mock.calls[0]?.[3] as { inputSnapshot: { factPack: unknown } };
       expect(JSON.stringify(patch.inputSnapshot.factPack)).not.toContain('"Cenbrap"');
     });
@@ -932,7 +1025,7 @@ describe("prepareCreativeWork", () => {
             ]),
           }),
         }),
-      }), transactionExecutor);
+      }));
     });
 
     it("asks again when the saved choice was bound to a different detected brand", async () => {
@@ -1006,7 +1099,7 @@ describe("prepareCreativeWork", () => {
             identity: { clientProfileId: "profile-1", brandName: "Cenbrap", brandAuthority: "active" },
           }),
         }),
-      }), transactionExecutor);
+      }));
     });
 
     it("proceeds with the active brand when the detected brands are ambiguous", async () => {

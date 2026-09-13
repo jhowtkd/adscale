@@ -22,6 +22,7 @@ vi.mock("../db", () => ({
 
 import {
   failQueuedDerivation,
+  getDerivationsByIds,
   getActivePackageChildren,
   touchQueuedDerivation,
   updateDerivationDualVerdict,
@@ -319,5 +320,22 @@ describe("derivation repository", () => {
       );
       expect(result).toBe(row);
     });
+  });
+});
+
+
+describe("getDerivationsByIds", () => {
+  beforeEach(() => vi.clearAllMocks());
+  it("uses one workspace-scoped query and preserves metadata order", async () => {
+    whereMock.mockResolvedValue([{ id: "b" }, { id: "a" }]);
+    await expect(getDerivationsByIds(["a", "missing", "b"], "workspace-1")).resolves.toEqual([{ id: "a" }, { id: "b" }]);
+    expect(selectMock).toHaveBeenCalledTimes(1);
+    const query = new PgDialect().sqlToQuery(whereMock.mock.calls[0][0] as SQL);
+    expect(query.sql).toContain('"derivations"."workspace_id"');
+    expect(query.params).toEqual(["a", "missing", "b", "workspace-1"]);
+  });
+  it("does not query an empty batch", async () => {
+    await expect(getDerivationsByIds([], "workspace-1")).resolves.toEqual([]);
+    expect(selectMock).not.toHaveBeenCalled();
   });
 });

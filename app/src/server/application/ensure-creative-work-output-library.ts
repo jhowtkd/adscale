@@ -4,6 +4,7 @@
  */
 import {
   createWorkspaceAsset,
+  createWorkspaceAssetIfKeyAbsent,
   getWorkspaceAssetByKey,
 } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
@@ -16,30 +17,19 @@ export type EnsureCreativeWorkOutputLibraryInput = {
   creativeLevel: string;
 };
 
-export type EnsureCreativeWorkOutputLibraryResult = {
-  asset: Awaited<ReturnType<typeof createWorkspaceAsset>>;
-  /** False when an asset for this key already existed. */
-  created: boolean;
-};
+export type EnsureCreativeWorkOutputLibraryResult =
+  | { asset: Awaited<ReturnType<typeof createWorkspaceAsset>>; created: boolean; conflict?: undefined }
+  | { asset: null; created: false; conflict: "key_owned_elsewhere" };
 
-/**
- * Ensure a creative_work-sourced workspace asset exists for the output key.
- * Idempotent: if key is already registered in the workspace, returns it.
- */
 export async function ensureCreativeWorkOutputInLibrary(
   input: EnsureCreativeWorkOutputLibraryInput
 ): Promise<EnsureCreativeWorkOutputLibraryResult> {
-  const existing = await getWorkspaceAssetByKey(
-    input.workspaceId,
-    input.outputKey
-  );
-  if (existing) {
-    return { asset: existing, created: false };
-  }
+  const existing = await getWorkspaceAssetByKey(input.workspaceId, input.outputKey);
+  if (existing) return { asset: existing, created: false };
 
   const head = await objectStorage.head(input.outputKey);
   const size = Number(head?.contentLength ?? 0);
-  const asset = await createWorkspaceAsset({
+  const asset = await createWorkspaceAssetIfKeyAbsent({
     workspaceId: input.workspaceId,
     name: `Post ${input.theme} - ${input.creativeLevel}`,
     key: input.outputKey,
@@ -47,5 +37,13 @@ export async function ensureCreativeWorkOutputInLibrary(
     size,
     source: "creative_work",
   });
-  return { asset, created: true };
+  if (asset) return { asset, created: true };
+
+  // Perdeu a corrida: relemos com escopo de workspace. Se a chave existe mas
+  // pertence a outro workspace, NAO devolvemos o ativo alheio — isolamento
+  // vale mais do que completar o efeito.
+  const winner = await getWorkspaceAssetByKey(input.workspaceId, input.outputKey);
+  return winner
+    ? { asset: winner, created: false }
+    : { asset: null, created: false, conflict: "key_owned_elsewhere" };
 }

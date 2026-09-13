@@ -1,3 +1,4 @@
+import { settlementDeadline } from "./settlement-wait";
 import { GOAL_CREATIVE_LEVELS } from "@/lib/assistant/goal";
 import { logger } from "@/lib/logger";
 import { getTargetDimensions } from "@/lib/formats";
@@ -58,6 +59,7 @@ import {
   deleteQueuedDerivation,
   failQueuedDerivation,
   getDerivationById,
+  getDerivationsByIds,
   getLatestFormatAdaptationChild,
   touchQueuedDerivation,
 } from "@/server/repositories/derivation";
@@ -68,6 +70,7 @@ import {
 import type { CreativeWorkCarouselSlide } from "@/server/db/schema";
 import {
   getUsageByIdempotencyKey,
+  getUsageByIdempotencyKeys,
   trackUsage,
 } from "@/server/repositories/usage";
 import type {
@@ -375,35 +378,28 @@ export function creativeWorkSettlementAdapter(input: {
     async join() {
       let lastAggregate: Awaited<ReturnType<typeof getCreativeWork>> = null;
       let missingRequiredAck = false;
-      for (let attempt = 0; attempt < 80; attempt += 1) {
-        const aggregate = await getCreativeWork(
-          input.workspaceId,
-          input.workItemId,
-        );
+      const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 10_000 });
+      for (let attempt = 0; attempt < 80 && deadline.shouldContinue(attempt); attempt += 1) {
+        const aggregate = await deadline.read(() => getCreativeWork(input.workspaceId, input.workItemId, undefined, { includeSources: false }));
         if (!aggregate?.outputs.length) return null;
         lastAggregate = aggregate;
-        const chargeUsage = await getUsageByIdempotencyKey(
+        const chargeUsage = await deadline.read(() => getUsageByIdempotencyKey(
           input.workspaceId,
           input.batch.billingKey,
-        );
+        ));
         const ack = settlementDispatchMetadata(chargeUsage?.metadata);
         missingRequiredAck =
           ack.required &&
           (!ack.key ||
-            !(await getUsageByIdempotencyKey(input.workspaceId, ack.key)));
+            !(await deadline.read(() => getUsageByIdempotencyKey(input.workspaceId, ack.key!))));
         const failed = aggregate.outputs.filter(
           (output) => output.failureCode === "dispatch_failed",
         );
-        const hasRecordedRefund = (
-          await Promise.all(
-            aggregate.outputs.map((output) =>
-              getUsageByIdempotencyKey(
-                input.workspaceId,
-                creativeWorkDispatchRefundKey(input.workItemId, output.id),
-              ),
-            ),
-          )
-        ).some((usage) => usage != null);
+        const refundUsages = await deadline.read(() => getUsageByIdempotencyKeys(
+          input.workspaceId,
+          aggregate.outputs.map((output) => creativeWorkDispatchRefundKey(input.workItemId, output.id)),
+        ));
+        const hasRecordedRefund = [...refundUsages.values()].some((usage) => usage != null);
         if (failed.length > 0 || hasRecordedRefund) {
           return {
             status: "dispatch_failed",
@@ -429,7 +425,7 @@ export function creativeWorkSettlementAdapter(input: {
               value: { work, outputs: aggregate.outputs },
             };
           }
-          await new Promise((resolve) => setTimeout(resolve, 25));
+          await deadline.pause();
           continue;
         }
         if (
@@ -441,7 +437,7 @@ export function creativeWorkSettlementAdapter(input: {
             value: { work: aggregate.work, outputs: aggregate.outputs },
           };
         }
-        await new Promise((resolve) => setTimeout(resolve, 25));
+        await deadline.pause();
       }
       // Missing ack is not proof of dispatch. Resume idempotent send for still-
       // queued rows, then write ack and settle. Already-progressed rows settle.
@@ -689,7 +685,8 @@ export function carouselSlideSettlementAdapter(input: {
     async join(reservation) {
       const refund = carouselSlideDispatchRefund(input, input.slideId);
       let slide = reservation.value.slide;
-      for (let attempt = 0; attempt < 80; attempt += 1) {
+      const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 10_000 });
+      for (let attempt = 0; attempt < 80 && deadline.shouldContinue(attempt); attempt += 1) {
         if (slide.status === "completed" || slide.status === "processing") {
           return { status: "settled" as const, value: { slide } };
         }
@@ -699,14 +696,14 @@ export function carouselSlideSettlementAdapter(input: {
             failure: { value: { slide }, refunds: [refund] },
           };
         }
-        const chargeUsage = await getUsageByIdempotencyKey(
+        const chargeUsage = await deadline.read(() => getUsageByIdempotencyKey(
           input.workspaceId,
           billingKeyFor(slide.id),
-        );
-        const recordedRefund = await getUsageByIdempotencyKey(
+        ));
+        const recordedRefund = await deadline.read(() => getUsageByIdempotencyKey(
           input.workspaceId,
           refund.idempotencyKey,
-        );
+        ));
         if (recordedRefund) {
           return {
             status: "dispatch_failed" as const,
@@ -723,13 +720,13 @@ export function carouselSlideSettlementAdapter(input: {
         if (ack.required) {
           const recordedAck =
             ack.key &&
-            (await getUsageByIdempotencyKey(input.workspaceId, ack.key));
+            (await deadline.read(() => getUsageByIdempotencyKey(input.workspaceId, ack.key!)));
           if (recordedAck) {
             return { status: "settled" as const, value: { slide } };
           }
         }
-        await new Promise((resolve) => setTimeout(resolve, 25));
-        slide = (await currentSlide(input.slideId)) ?? slide;
+        await deadline.pause();
+        slide = (await deadline.read(() => currentSlide(input.slideId))) ?? slide;
       }
       // Takeover/recovery: re-authorize the current revision before spend or
       // send. Invalidation after the original claim must not dispatch.
@@ -815,11 +812,12 @@ export function carouselSlideSettlementAdapter(input: {
         billingKeyFor(slide.id),
       );
       const ack = settlementDispatchMetadata(chargeUsage?.metadata);
-      for (let attempt = 0; attempt < 80; attempt += 1) {
-        const recordedRefund = await getUsageByIdempotencyKey(
+      const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 10_000 });
+      for (let attempt = 0; attempt < 80 && deadline.shouldContinue(attempt); attempt += 1) {
+        const recordedRefund = await deadline.read(() => getUsageByIdempotencyKey(
           input.workspaceId,
           refund.idempotencyKey,
-        );
+        ));
         if (recordedRefund || slide.status === "failed") {
           return {
             status: "dispatch_failed" as const,
@@ -832,15 +830,15 @@ export function carouselSlideSettlementAdapter(input: {
         if (ack.required) {
           const recordedAck =
             ack.key &&
-            (await getUsageByIdempotencyKey(input.workspaceId, ack.key));
+            (await deadline.read(() => getUsageByIdempotencyKey(input.workspaceId, ack.key!)));
           if (recordedAck) {
             return { status: "settled" as const, value: { slide } };
           }
         } else if (slide.status !== "queued") {
           return { status: "settled" as const, value: { slide } };
         }
-        await new Promise((resolve) => setTimeout(resolve, 25));
-        slide = (await currentSlide(input.slideId)) ?? slide;
+        await deadline.pause();
+        slide = (await deadline.read(() => currentSlide(input.slideId))) ?? slide;
       }
       // Missing ack is not proof of dispatch. Resume the idempotent send for
       // the still-queued row, then write ack and settle.
@@ -1065,14 +1063,15 @@ export function formatAdaptationSettlementAdapter(input: {
           },
         };
       }
-      for (let attempt = 0; original && attempt < 80; attempt += 1) {
+      const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 10_000 });
+      for (let attempt = 0; original && attempt < 80 && deadline.shouldContinue(attempt); attempt += 1) {
         // When ack is required, wait for ack or the durable dispatch-refund
         // marker. A fast terminal job failure before completeDispatch writes
         // ack must not look like a sync dispatch failure.
         if (ack.required) {
           const recordedAck =
             ack.key &&
-            (await getUsageByIdempotencyKey(input.workspaceId, ack.key));
+            (await deadline.read(() => getUsageByIdempotencyKey(input.workspaceId, ack.key!)));
           if (recordedAck) {
             await updateCampaign(input.source.campaignId, input.workspaceId, {
               status: "generating",
@@ -1082,10 +1081,10 @@ export function formatAdaptationSettlementAdapter(input: {
               value: { derivation: original, source: input.source },
             };
           }
-          const lateRefund = await getUsageByIdempotencyKey(
+          const lateRefund = await deadline.read(() => getUsageByIdempotencyKey(
             input.workspaceId,
             dispatchRefund.idempotencyKey,
-          );
+          ));
           if (lateRefund) {
             return {
               status: "dispatch_failed",
@@ -1095,8 +1094,8 @@ export function formatAdaptationSettlementAdapter(input: {
               },
             };
           }
-          await new Promise((resolve) => setTimeout(resolve, 25));
-          original = await getDerivationById(original.id, input.workspaceId);
+          await deadline.pause();
+          original = await deadline.read(() => getDerivationById(original!.id, input.workspaceId));
           continue;
         }
         if (original.status === "failed") {
@@ -1121,8 +1120,8 @@ export function formatAdaptationSettlementAdapter(input: {
             value: { derivation: original, source: input.source },
           };
         }
-        await new Promise((resolve) => setTimeout(resolve, 25));
-        original = await getDerivationById(original.id, input.workspaceId);
+        await deadline.pause();
+        original = await deadline.read(() => getDerivationById(original!.id, input.workspaceId));
       }
       if (!original) return null;
       // Timeout with ack required: only a successful queued re-send may mint
@@ -1394,11 +1393,12 @@ export function creativeWorkRevisionSettlementAdapter(input: {
         return { status: "settled", value: { output } };
       }
       const ack = settlementDispatchMetadata(chargeUsage.metadata);
-      for (let attempt = 0; attempt < 80; attempt += 1) {
-        const recordedRefund = await getUsageByIdempotencyKey(
+      const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 10_000 });
+      for (let attempt = 0; attempt < 80 && deadline.shouldContinue(attempt); attempt += 1) {
+        const recordedRefund = await deadline.read(() => getUsageByIdempotencyKey(
           input.workspaceId,
           refund.idempotencyKey,
-        );
+        ));
         if (output.failureCode === "dispatch_failed" || recordedRefund) {
           return {
             status: "dispatch_failed",
@@ -1408,17 +1408,17 @@ export function creativeWorkRevisionSettlementAdapter(input: {
         if (ack.required) {
           const recordedAck =
             ack.key &&
-            (await getUsageByIdempotencyKey(input.workspaceId, ack.key));
+            (await deadline.read(() => getUsageByIdempotencyKey(input.workspaceId, ack.key!)));
           if (recordedAck) {
             return { status: "settled", value: { output } };
           }
         } else if (output.status !== "queued") {
           return { status: "settled", value: { output } };
         }
-        await new Promise((resolve) => setTimeout(resolve, 25));
+        await deadline.pause();
         output =
           (
-            await getCreativeWork(input.workspaceId, input.workItemId)
+            await deadline.read(() => getCreativeWork(input.workspaceId, input.workItemId, undefined, { includeSources: false }))
           )?.outputs.find((row) => row.id === output.id) ?? output;
       }
       // Missing ack is not proof of dispatch. Resume idempotent send while
@@ -1645,11 +1645,7 @@ async function resolveDerivationBatchReplay(input: {
   );
   let originals =
     originalIds.length > 0
-      ? (
-          await Promise.all(
-            originalIds.map((id) => getDerivationById(id, input.workspaceId)),
-          )
-        ).filter((row): row is NonNullable<typeof row> => row != null)
+      ? await getDerivationsByIds(originalIds, input.workspaceId)
       : [];
   if (recordedRefund && originals.length > 0) {
     return {
@@ -1661,24 +1657,25 @@ async function resolveDerivationBatchReplay(input: {
     };
   }
   const ack = settlementDispatchMetadata(metadata);
-  for (let attempt = 0; originals.length > 0 && attempt < 80; attempt += 1) {
+  const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 10_000 });
+  for (let attempt = 0; originals.length > 0 && attempt < 80 && deadline.shouldContinue(attempt); attempt += 1) {
     // When ack is required, wait for ack or the durable dispatch-refund
     // marker. A fast terminal job failure before completeDispatch writes
     // ack must not look like a sync dispatch failure.
     if (ack.required) {
       const recordedAck =
         ack.key &&
-        (await getUsageByIdempotencyKey(input.workspaceId, ack.key));
+        (await deadline.read(() => getUsageByIdempotencyKey(input.workspaceId, ack.key!)));
       if (recordedAck) {
         await updateCampaign(input.campaignId, input.workspaceId, {
           status: "generating",
         });
         return { status: "settled", value: { derivations: originals } };
       }
-      const lateRefund = await getUsageByIdempotencyKey(
+      const lateRefund = await deadline.read(() => getUsageByIdempotencyKey(
         input.workspaceId,
         refund.idempotencyKey,
-      );
+      ));
       if (lateRefund) {
         return {
           status: "dispatch_failed",
@@ -1688,12 +1685,8 @@ async function resolveDerivationBatchReplay(input: {
           },
         };
       }
-      await new Promise((resolve) => setTimeout(resolve, 25));
-      originals = (
-        await Promise.all(
-          originalIds.map((id) => getDerivationById(id, input.workspaceId)),
-        )
-      ).filter((row): row is NonNullable<typeof row> => row != null);
+      await deadline.pause();
+      originals = await deadline.read(() => getDerivationsByIds(originalIds, input.workspaceId));
       continue;
     }
     if (originals.some((row) => row.status === "failed")) {
@@ -1711,12 +1704,8 @@ async function resolveDerivationBatchReplay(input: {
       });
       return { status: "settled", value: { derivations: originals } };
     }
-    await new Promise((resolve) => setTimeout(resolve, 25));
-    originals = (
-      await Promise.all(
-        originalIds.map((id) => getDerivationById(id, input.workspaceId)),
-      )
-    ).filter((row): row is NonNullable<typeof row> => row != null);
+    await deadline.pause();
+    originals = await deadline.read(() => getDerivationsByIds(originalIds, input.workspaceId));
   }
   if (originals.length === 0) return null;
   // Timeout with ack required: only a successful queued re-send may mint
@@ -2281,14 +2270,15 @@ export function assistantPreviewSettlementAdapter(input: {
         };
       }
       const ack = settlementDispatchMetadata(metadata);
-      for (let attempt = 0; original && attempt < 80; attempt += 1) {
+      const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 10_000 });
+      for (let attempt = 0; original && attempt < 80 && deadline.shouldContinue(attempt); attempt += 1) {
         // When ack is required, wait for ack or the durable dispatch-refund
         // marker. A fast terminal job failure before completeDispatch writes
         // ack must not look like a sync dispatch failure.
         if (ack.required) {
           const recordedAck =
             ack.key &&
-            (await getUsageByIdempotencyKey(input.workspaceId, ack.key));
+            (await deadline.read(() => getUsageByIdempotencyKey(input.workspaceId, ack.key!)));
           if (recordedAck) {
             await updateCampaign(input.campaignId, input.workspaceId, {
               status: "generating",
@@ -2298,10 +2288,10 @@ export function assistantPreviewSettlementAdapter(input: {
               value: { derivation: original },
             };
           }
-          const lateRefund = await getUsageByIdempotencyKey(
+          const lateRefund = await deadline.read(() => getUsageByIdempotencyKey(
             input.workspaceId,
             refund.idempotencyKey,
-          );
+          ));
           if (lateRefund) {
             return {
               status: "dispatch_failed",
@@ -2311,8 +2301,8 @@ export function assistantPreviewSettlementAdapter(input: {
               },
             };
           }
-          await new Promise((resolve) => setTimeout(resolve, 25));
-          original = await getDerivationById(original.id, input.workspaceId);
+          await deadline.pause();
+          original = await deadline.read(() => getDerivationById(original!.id, input.workspaceId));
           continue;
         }
         if (original.status === "failed") {
@@ -2336,8 +2326,8 @@ export function assistantPreviewSettlementAdapter(input: {
             value: { derivation: original },
           };
         }
-        await new Promise((resolve) => setTimeout(resolve, 25));
-        original = await getDerivationById(original.id, input.workspaceId);
+        await deadline.pause();
+        original = await deadline.read(() => getDerivationById(original!.id, input.workspaceId));
       }
       if (!original) return null;
       // Timeout with ack required: only a successful queued re-send may mint
@@ -2655,11 +2645,12 @@ export function campaignDerivationUnitSettlementAdapter(input: {
         };
       }
       const ack = settlementDispatchMetadata(metadata);
-      for (let attempt = 0; original && attempt < 80; attempt += 1) {
+      const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 10_000 });
+      for (let attempt = 0; original && attempt < 80 && deadline.shouldContinue(attempt); attempt += 1) {
         if (ack.required) {
           const recordedAck =
             ack.key &&
-            (await getUsageByIdempotencyKey(input.workspaceId, ack.key));
+            (await deadline.read(() => getUsageByIdempotencyKey(input.workspaceId, ack.key!)));
           if (recordedAck) {
             await updateCampaign(input.campaignId, input.workspaceId, {
               status: "generating",
@@ -2670,10 +2661,10 @@ export function campaignDerivationUnitSettlementAdapter(input: {
               value: { derivation: original },
             };
           }
-          const lateRefund = await getUsageByIdempotencyKey(
+          const lateRefund = await deadline.read(() => getUsageByIdempotencyKey(
             input.workspaceId,
             refund.idempotencyKey,
-          );
+          ));
           if (lateRefund) {
             return {
               status: "dispatch_failed",
@@ -2683,8 +2674,8 @@ export function campaignDerivationUnitSettlementAdapter(input: {
               },
             };
           }
-          await new Promise((resolve) => setTimeout(resolve, 25));
-          original = await getDerivationById(original.id, input.workspaceId);
+          await deadline.pause();
+          original = await deadline.read(() => getDerivationById(original!.id, input.workspaceId));
           continue;
         }
         if (original.status === "failed") {
@@ -2709,8 +2700,8 @@ export function campaignDerivationUnitSettlementAdapter(input: {
             value: { derivation: original },
           };
         }
-        await new Promise((resolve) => setTimeout(resolve, 25));
-        original = await getDerivationById(original.id, input.workspaceId);
+        await deadline.pause();
+        original = await deadline.read(() => getDerivationById(original!.id, input.workspaceId));
       }
       if (!original) return null;
       if (ack.required) {

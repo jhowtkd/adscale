@@ -878,6 +878,7 @@
           "confirmApproval": "Confirmar aprovação",
           "saveAsRecipe": "Salvar como receita visual",
           "savedAsRecipe": "Proposta aprovada e salva como receita",
+          "approvedRecipePending": "Peça selecionada. Não foi possível salvar a receita — tente salvar de novo.",
           "shareForReview": "Compartilhar para revisão",
           "sharingForReview": "Criando link",
           "sharedForReview": "Link de revisão copiado",

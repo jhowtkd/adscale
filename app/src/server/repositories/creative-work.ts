@@ -35,6 +35,10 @@ import { MAX_PIECE_REFERENCES, type PieceReferenceCategory } from "../creative-w
 import { withInvalidatedCarouselApprovals } from "../creative-work/carousel-editorial-state";
 import { mergeCarouselEditorialForClientSettingsWrite } from "../creative-work/carousel-editorial-hash";
 import {
+  getActivePreparationAttempt,
+  invalidatePreparationAttempts,
+} from "./creative-work-preparation";
+import {
   boundCatalogLimit,
   takeCatalogPage,
   type CatalogQuery,
@@ -743,6 +747,14 @@ export async function mutateCreativeWorkPieceReference(input: {
         )] : []),
       )).returning();
       if (!invalidated) throw new CreativeWorkRevisionConflict();
+      // A edição venceu: qualquer preparação em curso foi calculada sobre
+      // entradas que já não valem. Invalidar aqui, na MESMA transação curta,
+      // é o que impede a edição de esperar a resposta do modelo.
+      await invalidatePreparationAttempts({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        executor: tx,
+      });
       return updated;
     });
   } catch (error) {
@@ -833,6 +845,7 @@ export async function getCreativeWork(
   workspaceId: string,
   workItemId: string,
   executor: Pick<typeof db, "select"> = db,
+  options?: { includeSources?: boolean },
 ): Promise<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[]; sources: CreativeWorkSource[] } | null> {
   const workRows = await executor
     .select()
@@ -861,7 +874,7 @@ export async function getCreativeWork(
     )
     .orderBy(asc(creativeWorkOutputs.targetFormat), asc(creativeWorkOutputs.creativeLevel), asc(creativeWorkOutputs.versionNumber));
 
-  const sources = await executor.select().from(creativeWorkSources).where(and(
+  const sources = options?.includeSources === false ? [] : await executor.select().from(creativeWorkSources).where(and(
     eq(creativeWorkSources.workspaceId, workspaceId),
     eq(creativeWorkSources.workItemId, workItemId),
   )).orderBy(asc(creativeWorkSources.createdAt));
@@ -1088,6 +1101,13 @@ export async function mutateCreativeWorkDraftSource(input: {
         )] : []),
       )).returning();
       if (!invalidated) throw new CreativeWorkRevisionConflict();
+      // Mesma razão da mutação de Peça: a edição invalida a preparação em
+      // curso sem esperar a IA.
+      await invalidatePreparationAttempts({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        executor: tx,
+      });
       return changed;
     });
   } catch (error) {
@@ -1455,6 +1475,14 @@ export async function reservePreparedCreativeWorkOutputsIfCurrent(input: {
     if (!aggregate || aggregate.outputs.length !== 0 || aggregate.work.status !== "ready") return null;
     if (aggregate.work.updatedAt.getTime() !== input.preparedRevision.getTime()) return null;
     if (!aggregate.work.brief || !aggregate.work.copy || !aggregate.work.inputSnapshot || !aggregate.work.identitySnapshot) return null;
+    // Uma preparação viva significa que o briefing pode estar prestes a mudar.
+    // Reservar agora seria gerar — e cobrar — sobre snapshot que a tentativa em
+    // curso vai substituir.
+    if (await getActivePreparationAttempt({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      executor: tx,
+    })) return null;
     const created = await createPlannedCreativeWorkOutputs(
       input.workspaceId,
       input.workItemId,
@@ -1482,6 +1510,13 @@ export async function reserveCreativeWorkGenerationOutputs(input: {
   return withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (tx) => {
     let aggregate = await getCreativeWork(input.workspaceId, input.workItemId, tx);
     if (!aggregate || aggregate.outputs.length !== 0 || aggregate.work.updatedAt.getTime() !== input.preparedRevision.getTime()) return null;
+    // Ver a nota em reservePreparedCreativeWorkOutputsIfCurrent: reserva não
+    // acontece com preparação viva.
+    if (await getActivePreparationAttempt({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      executor: tx,
+    })) return null;
 
     if (aggregate.work.status === "draft") {
       if (!aggregate.work.brief || !aggregate.work.copy || !aggregate.work.inputSnapshot || !input.identitySnapshot) return null;
@@ -1960,6 +1995,29 @@ export async function markCreativeWorkOutputFailureCode(
   return row ?? null;
 }
 
+/**
+ * Marca o recibo do efeito de receita como concluido. Escrita curta, um unico
+ * update escopado por workspace; nunca toca em isSelected.
+ */
+export async function markCreativeWorkSelectionEffectDone(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string,
+  receiptId: string,
+): Promise<void> {
+  await db.update(creativeWorkOutputs).set({
+    selectionEffects: {
+      version: 1 as const,
+      recipe: { receiptId, requestedAt: new Date().toISOString(), state: "done" as const },
+    },
+    updatedAt: new Date(),
+  }).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.id, outputId),
+  ));
+}
+
 /** Failed outputs whose compensatory refund still needs a retry. */
 export async function listCreativeWorkOutputsNeedingRefund(
   workspaceId: string,
@@ -2215,7 +2273,7 @@ export async function selectCreativeWorkOutput(
   workspaceId: string,
   workItemId: string,
   outputId: string,
-  options: { confirmObjective?: boolean } = {}
+  options: { confirmObjective?: boolean; pendingRecipeReceiptId?: string } = {}
 ): Promise<CreativeWorkOutput | null> {
   return db.transaction(async (tx) => {
     const outputs = await tx
@@ -2255,7 +2313,22 @@ export async function selectCreativeWorkOutput(
 
     const [selected] = await tx
       .update(creativeWorkOutputs)
-      .set({ isSelected: true, updatedAt: new Date() })
+      .set({
+        isSelected: true,
+        updatedAt: new Date(),
+        ...(options.pendingRecipeReceiptId
+          ? {
+              selectionEffects: {
+                version: 1 as const,
+                recipe: {
+                  receiptId: options.pendingRecipeReceiptId,
+                  requestedAt: new Date().toISOString(),
+                  state: "pending" as const,
+                },
+              },
+            }
+          : {}),
+      })
       .where(
         and(
           eq(creativeWorkOutputs.workspaceId, workspaceId),

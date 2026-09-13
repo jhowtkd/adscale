@@ -38,6 +38,32 @@ export async function createWorkspaceAsset(data: CreateWorkspaceAssetInput) {
   return result[0];
 }
 
+/**
+ * Insert idempotente por `key`. A constraint workspace_assets_key_unique e
+ * GLOBAL, entao duas recuperacoes concorrentes do mesmo output disputam a
+ * mesma chave: a perdedora recebe null em vez de estourar 23505.
+ */
+export async function createWorkspaceAssetIfKeyAbsent(
+  data: CreateWorkspaceAssetInput,
+): Promise<Awaited<ReturnType<typeof createWorkspaceAsset>> | null> {
+  const result = await db
+    .insert(workspaceAssets)
+    .values({
+      workspaceId: data.workspaceId,
+      name: data.name,
+      key: data.key,
+      type: data.type,
+      size: data.size,
+      width: data.width ?? null,
+      height: data.height ?? null,
+      source: data.source ?? "upload",
+      ...(data.metadata !== undefined && { metadata: data.metadata }),
+    })
+    .onConflictDoNothing({ target: workspaceAssets.key })
+    .returning();
+  return result[0] ?? null;
+}
+
 interface WorkspaceAssetFilters {
   query?: string;
   tags?: string[];

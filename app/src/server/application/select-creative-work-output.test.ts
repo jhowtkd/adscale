@@ -33,6 +33,7 @@ import {
 import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-creative-work-output-library";
 import { saveVisualRecipeFromOutput } from "@/server/application/save-visual-recipe";
 import { selectCreativeWorkOutputCommand } from "./select-creative-work-output";
+import type { SelectionEffects } from "./select-creative-work-output";
 import { recordCreativeWorkValueEvent } from "@/server/creative-work/record-value-event";
 
 const mockGet = vi.mocked(getCreativeWork);
@@ -59,6 +60,37 @@ const completedOutput = {
   status: "completed",
   outputKey: "creative-work/output-1/out.png",
   isSelected: false,
+};
+
+/**
+ * Peça estruturada mínima que satisfaz extractVisualRecipe: tipografia
+ * determinística, layout válido, fonte, copy completa e geometria de logo.
+ * Sem ela a pré-validação recusa antes do commit e o teste mediria outra coisa.
+ */
+const structuredOutput = {
+  ...completedOutput,
+  targetFormat: "4:5",
+  quality: {
+    textComposition: {
+      execution: "deterministic",
+      appliedLayout: "bottom",
+      typographyPlan: { fontAssetKey: "brand/fonts/inter.ttf" },
+      copy: { headline: "Titulo", body: "Corpo", cta: "Clique" },
+      dimensions: { width: 1080, height: 1350 },
+      layers: [{ role: "headline", box: { left: 80, top: 900, width: 920, height: 120 } }],
+    },
+    exactComposition: {
+      composed: [
+        {
+          referenceId: "ref-logo",
+          assetKey: "brand/logo.png",
+          category: "logo",
+          box: { left: 80, top: 80, width: 200, height: 80 },
+        },
+      ],
+      dimensions: { width: 1080, height: 1350 },
+    },
+  },
 };
 
 describe("selectCreativeWorkOutputCommand", () => {
@@ -390,5 +422,162 @@ describe("selectCreativeWorkOutputCommand", () => {
     });
     expect(mockSelect).not.toHaveBeenCalled();
     expect(mockSaveRecipe).not.toHaveBeenCalled();
+  });
+
+  describe("efeitos posteriores ao commit da selecao", () => {
+    it("confirma a selecao e marca a receita como pendente quando o efeito falha", async () => {
+      mockGet.mockResolvedValue({ work: workItem, outputs: [structuredOutput], sources: [] } as never);
+      mockSelect.mockResolvedValue({ ...structuredOutput, isSelected: true } as never);
+      mockSaveRecipe.mockResolvedValue({ ok: false, error: { code: "missing_font" } } as never);
+
+      const result = await selectCreativeWorkOutputCommand({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: "output-1",
+        confirmObjective: true,
+        saveAsRecipe: true,
+      });
+
+      expect(result).toMatchObject({
+        ok: true,
+        value: {
+          output: { isSelected: true },
+          effects: { recipe: { status: "pending" } },
+        },
+      });
+      // O recibo veio da transacao, nao foi inventado na resposta.
+      expect(mockSelect).toHaveBeenCalledWith(
+        "ws-1",
+        "work-1",
+        "output-1",
+        expect.objectContaining({ pendingRecipeReceiptId: expect.any(String) }),
+      );
+      const effects = (result as { value: { effects: SelectionEffects } }).value.effects;
+      const pending = effects.recipe as { status: "pending"; receiptId: string };
+      expect(mockSelect.mock.calls[0][3]).toMatchObject({ pendingRecipeReceiptId: pending.receiptId });
+    });
+
+    it("confirma a selecao quando a biblioteca falha e marca o efeito como recuperavel", async () => {
+      mockGet.mockResolvedValue({ work: workItem, outputs: [completedOutput], sources: [] } as never);
+      mockSelect.mockResolvedValue({ ...completedOutput, isSelected: true } as never);
+      mockEnsure.mockRejectedValue(
+        Object.assign(new Error("duplicate key value violates unique constraint"), { code: "23505" }),
+      );
+
+      const result = await selectCreativeWorkOutputCommand({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: "output-1",
+        confirmObjective: true,
+        saveToLibrary: true,
+      });
+
+      expect(result).toMatchObject({
+        ok: true,
+        value: { effects: { library: { status: "failed", retryable: true } } },
+      });
+    });
+
+    it("isola os efeitos: a falha da biblioteca nao impede o evento de valor nem a receita", async () => {
+      mockGet.mockResolvedValue({ work: workItem, outputs: [structuredOutput], sources: [] } as never);
+      mockSelect.mockResolvedValue({ ...structuredOutput, isSelected: true } as never);
+      mockEnsure.mockRejectedValue(new Error("head timeout"));
+      mockSaveRecipe.mockResolvedValue({ ok: true, value: { recipe: { version: 1 } } } as never);
+
+      const result = await selectCreativeWorkOutputCommand({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: "output-1",
+        confirmObjective: true,
+        saveToLibrary: true,
+        saveAsRecipe: true,
+      });
+
+      expect(result).toMatchObject({
+        ok: true,
+        value: {
+          effects: {
+            library: { status: "failed" },
+            valueEvent: { status: "done" },
+            recipe: { status: "done" },
+          },
+        },
+      });
+      expect(mockRecordValue).toHaveBeenCalledTimes(1);
+      expect(mockSaveRecipe).toHaveBeenCalledTimes(1);
+    });
+
+    it("marca not_requested o que nao foi pedido", async () => {
+      mockGet.mockResolvedValue({ work: workItem, outputs: [completedOutput], sources: [] } as never);
+      mockSelect.mockResolvedValue({ ...completedOutput, isSelected: true } as never);
+      mockEnsure.mockResolvedValue({ asset: { id: "asset-1" }, created: true } as never);
+
+      const result = await selectCreativeWorkOutputCommand({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: "output-1",
+        confirmObjective: true,
+        saveToLibrary: false,
+      });
+
+      expect(result).toMatchObject({
+        ok: true,
+        value: { effects: { library: { status: "not_requested" }, recipe: { status: "not_requested" } } },
+      });
+      expect(mockEnsure).not.toHaveBeenCalled();
+    });
+
+    it("mantem erro de validacao ANTES do commit como erro do comando", async () => {
+      mockGet.mockResolvedValue({ work: workItem, outputs: [completedOutput], sources: [] } as never);
+
+      const result = await selectCreativeWorkOutputCommand({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: "output-1",
+        confirmObjective: true,
+        saveAsRecipe: true,
+      });
+
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: "visual_recipe_not_structured", reason: "raster_only" },
+      });
+      expect(mockSelect).not.toHaveBeenCalled();
+      expect(mockSaveRecipe).not.toHaveBeenCalled();
+    });
+
+    it("retoma somente o efeito pendente numa segunda chamada, sem regerar nem recobrar", async () => {
+      mockGet.mockResolvedValue({
+        work: workItem,
+        outputs: [{
+          ...structuredOutput,
+          isSelected: true,
+          selectionEffects: {
+            version: 1,
+            recipe: { receiptId: "receipt-1", requestedAt: "2026-09-12T10:00:00.000Z", state: "pending" },
+          },
+        }],
+        sources: [],
+      } as never);
+      mockSelect.mockResolvedValue({ ...structuredOutput, isSelected: true } as never);
+      mockSaveRecipe.mockResolvedValue({ ok: true, value: { recipe: { version: 1 } } } as never);
+
+      const result = await selectCreativeWorkOutputCommand({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: "output-1",
+        confirmObjective: true,
+        saveAsRecipe: true,
+      });
+
+      expect(result).toMatchObject({ ok: true, value: { effects: { recipe: { status: "done" } } } });
+      // O recibo existente e reutilizado: a retentativa nao cria outra obrigacao.
+      expect(mockSelect).toHaveBeenCalledWith(
+        "ws-1",
+        "work-1",
+        "output-1",
+        expect.objectContaining({ pendingRecipeReceiptId: "receipt-1" }),
+      );
+    });
   });
 });

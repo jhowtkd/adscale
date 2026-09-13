@@ -47,6 +47,7 @@ export async function POST(
         case "research_unavailable": return apiError("research_unavailable", 422, result.error.details);
         case "research_insufficient": return apiError("research_insufficient", 422, result.error.details);
         case "invalid_editorial_transition": return apiError("invalid_editorial_transition", 409, result.error.details);
+        case "preparation_in_progress": return NextResponse.json({ error: "creativeWorkPreparationInProgress", code: "creativeWorkPreparationInProgress", attemptId: (result.error.details as { attemptId: string }).attemptId }, { status: 409 });
       }
     }
     return NextResponse.json({

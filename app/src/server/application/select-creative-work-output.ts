@@ -5,6 +5,7 @@
 import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-creative-work-output-library";
 import {
   getCreativeWork,
+  markCreativeWorkSelectionEffectDone,
   selectCreativeWorkOutput,
 } from "@/server/repositories/creative-work";
 import type { CreativeWorkOutput, VisualRecipe } from "@/server/db/schema";
@@ -36,14 +37,47 @@ export type SelectCreativeWorkOutputError =
   | { code: "visual_recipe_not_structured"; reason: string };
 
 
+export type SelectionEffect =
+  | { status: "done" }
+  | { status: "not_requested" }
+  | { status: "pending"; receiptId: string }
+  | { status: "failed"; code: string; retryable: boolean };
+
+export type SelectionEffects = {
+  library: SelectionEffect;
+  valueEvent: SelectionEffect;
+  recipe: SelectionEffect;
+};
+
 export type SelectCreativeWorkOutputSuccess = {
   output: CreativeWorkOutput;
   recipe?: VisualRecipe;
+  effects: SelectionEffects;
 };
 
 export type SelectCreativeWorkOutputResult =
   | { ok: true; value: SelectCreativeWorkOutputSuccess }
   | { ok: false; error: SelectCreativeWorkOutputError };
+
+/**
+ * Um efeito posterior nunca derruba a selecao ja confirmada. Erro inesperado
+ * vira estado tipado; a excecao nao sobe. `retryable` diz se outra chamada do
+ * MESMO comando pode resolver — nao promete recuperacao automatica.
+ */
+async function runEffect(
+  run: () => Promise<void>,
+  fallbackCode: string,
+): Promise<SelectionEffect> {
+  try {
+    await run();
+    return { status: "done" };
+  } catch (cause) {
+    const code = cause && typeof cause === "object" && "code" in cause
+      ? String((cause as { code: unknown }).code)
+      : fallbackCode;
+    return { status: "failed", code, retryable: true };
+  }
+}
 
 export async function selectCreativeWorkOutputCommand(
   input: SelectCreativeWorkOutputInput
@@ -96,11 +130,27 @@ export async function selectCreativeWorkOutputCommand(
     }
   }
 
+  // Valores ja estreitados pelas validacoes acima (linhas 57 e 73). Capturar
+  // em const porque o estreitamento de propriedade nao sobrevive ao closure
+  // dos efeitos.
+  const outputKey = output.outputKey;
+  const briefTheme = existing.work.brief.theme;
+
+  // O recibo identifica a obrigacao persistida. Numa retomada, reutiliza-se o
+  // recibo ja gravado — a retentativa salva so o efeito, nunca gera, cobra ou
+  // refaz a aprovacao.
+  const receiptId = input.saveAsRecipe
+    ? output.selectionEffects?.recipe?.receiptId ?? crypto.randomUUID()
+    : "";
+
   const selected = await selectCreativeWorkOutput(
     input.workspaceId,
     input.workItemId,
     input.outputId,
-    { confirmObjective: input.confirmObjective }
+    {
+      confirmObjective: input.confirmObjective,
+      ...(input.saveAsRecipe ? { pendingRecipeReceiptId: receiptId } : {}),
+    }
   );
   if (!selected) {
     const current = await getCreativeWork(input.workspaceId, input.workItemId);
@@ -130,37 +180,67 @@ export async function selectCreativeWorkOutputCommand(
     return { ok: false, error: { code: "output_not_found" } };
   }
 
+  // A selecao esta commitada a partir daqui. Nenhum caminho abaixo pode
+  // reclassificar isso como fracasso do comando.
+  let library: SelectionEffect = { status: "not_requested" };
   if (saveToLibrary) {
-    await ensureCreativeWorkOutputInLibrary({
-      workspaceId: input.workspaceId,
-      outputKey: output.outputKey,
-      theme: existing.work.brief.theme,
-      creativeLevel: output.creativeLevel,
-    });
+    library = await runEffect(async () => {
+      const registered = await ensureCreativeWorkOutputInLibrary({
+        workspaceId: input.workspaceId,
+        outputKey,
+        theme: briefTheme,
+        creativeLevel: output.creativeLevel,
+      });
+      if (registered.conflict) {
+        throw Object.assign(new Error("library_key_owned_elsewhere"), {
+          code: "library_key_owned_elsewhere",
+        });
+      }
+    }, "library_failed");
   }
 
-  if (existing.work.createdByUserId && selected.outputKey) {
+  let valueEvent: SelectionEffect = { status: "not_requested" };
+  const selectedKey = selected.outputKey;
+  if (existing.work.createdByUserId && selectedKey) {
     const context = valueEventFromCreativeWork(existing.work);
-    await recordCreativeWorkValueEvent({
-      ...context,
-      kind: "approved",
-      outputId: selected.id,
-      outputKey: selected.outputKey,
-    });
+    valueEvent = await runEffect(async () => {
+      await recordCreativeWorkValueEvent({
+        ...context,
+        kind: "approved",
+        outputId: selected.id,
+        outputKey: selectedKey,
+      });
+    }, "value_event_failed");
   }
 
   let recipe: VisualRecipe | undefined;
+  let recipeEffect: SelectionEffect = { status: "not_requested" };
   if (input.saveAsRecipe) {
     const saved = await saveVisualRecipeFromOutput({
       workspaceId: input.workspaceId,
       workItemId: input.workItemId,
       outputId: input.outputId,
-    });
-    if (!saved.ok) {
-      return { ok: false, error: { code: "visual_recipe_not_structured", reason: saved.error.code } };
+    }).catch(() => ({ ok: false as const, error: { code: "save_recipe_threw" } }));
+    if (saved.ok) {
+      recipe = saved.value.recipe;
+      recipeEffect = { status: "done" };
+      // Fechar o recibo e efeito nao fatal: se esta escrita curta falhar, o
+      // recibo fica pendente e uma nova chamada o reconcilia.
+      await runEffect(
+        () => markCreativeWorkSelectionEffectDone(
+          input.workspaceId, input.workItemId, input.outputId, receiptId,
+        ).then(() => undefined),
+        "receipt_close_failed",
+      );
+    } else {
+      // O recibo ja existe no banco (gravado na transacao da selecao): a
+      // pendencia tem lastro e pode ser retomada pelo mesmo comando.
+      recipeEffect = { status: "pending", receiptId };
     }
-    recipe = saved.value.recipe;
   }
 
-  return { ok: true, value: { output: selected, recipe } };
+  return {
+    ok: true,
+    value: { output: selected, recipe, effects: { library, valueEvent, recipe: recipeEffect } },
+  };
 }

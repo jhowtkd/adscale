@@ -51,6 +51,7 @@ vi.mock("@/server/jobs/client", () => ({ inngest: { send } }));
 vi.mock("@/server/billing/credits", () => ({ refundCredits: refund }));
 vi.mock("@/server/repositories/usage", () => ({
   getUsageByIdempotencyKey: getUsage,
+  getUsageByIdempotencyKeys: async (workspaceId: string, keys: string[]) => new Map(await Promise.all(keys.map(async (key) => [key, await getUsage(workspaceId, key)] as const))),
   trackUsage,
 }));
 vi.mock("@/server/creative-work/job-telemetry", () => ({

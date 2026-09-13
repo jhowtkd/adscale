@@ -673,9 +673,12 @@ describe("creative-work repository", () => {
         [{ id: "work-1", toolKind: "single" }], [original],
         [{ id: "work-1", toolKind: "single" }], [afterCategory],
       );
+      // Cada mutacao emite TRES tx.update: fonte, Trabalho e invalidacao da
+      // tentativa de preparacao (PR-03 Task 13). A terceira entrada de cada par
+      // e a invalidacao, que normalmente nao atinge linha nenhuma.
       mocks.state.txUpdateResults.push(
-        [afterCategory], [workItem({ toolKind: "single", status: "draft" })],
-        [afterInstruction], [workItem({ toolKind: "single", status: "draft" })],
+        [afterCategory], [workItem({ toolKind: "single", status: "draft" })], [],
+        [afterInstruction], [workItem({ toolKind: "single", status: "draft" })], [],
       );
 
       await mutateCreativeWorkPieceReference({
@@ -690,7 +693,7 @@ describe("creative-work repository", () => {
       expect(mocks.txSetMock).toHaveBeenNthCalledWith(1, expect.objectContaining({
         pieceReference: expect.objectContaining({ category: "style_reference", userInstruction: "Manter rótulo" }),
       }));
-      expect(mocks.txSetMock).toHaveBeenNthCalledWith(3, expect.objectContaining({
+      expect(mocks.txSetMock).toHaveBeenNthCalledWith(4, expect.objectContaining({
         pieceReference: expect.objectContaining({ category: "style_reference", userInstruction: "Só a textura" }),
       }));
     });
@@ -712,9 +715,12 @@ describe("creative-work repository", () => {
         [{ id: "work-1", toolKind: "single" }], [automaticLow],
         [{ id: "work-1", toolKind: "single" }], [afterInstruction],
       );
+      // Cada mutacao emite TRES tx.update: fonte, Trabalho e invalidacao da
+      // tentativa de preparacao (PR-03 Task 13). A terceira entrada de cada par
+      // e a invalidacao, que normalmente nao atinge linha nenhuma.
       mocks.state.txUpdateResults.push(
-        [afterInstruction], [workItem({ toolKind: "single", status: "draft" })],
-        [afterConfirmation], [workItem({ toolKind: "single", status: "draft" })],
+        [afterInstruction], [workItem({ toolKind: "single", status: "draft" })], [],
+        [afterConfirmation], [workItem({ toolKind: "single", status: "draft" })], [],
       );
 
       await expect(mutateCreativeWorkPieceReference({
@@ -731,7 +737,7 @@ describe("creative-work repository", () => {
         mutation: { kind: "correct", category: "product_or_packaging" },
       })).resolves.toEqual(afterConfirmation);
       expect(isPieceReferenceReady(afterConfirmation.pieceReference)).toBe(true);
-      expect(mocks.txSetMock).toHaveBeenNthCalledWith(3, expect.objectContaining({
+      expect(mocks.txSetMock).toHaveBeenNthCalledWith(4, expect.objectContaining({
         pieceReference: expect.objectContaining({ category: "product_or_packaging", classificationSource: "user", confidence: "low", userInstruction: null }),
       }));
     });
@@ -2253,6 +2259,48 @@ describe("creative-work repository", () => {
       expect(result?.isSelected).toBe(true);
     });
 
+    it("grava o recibo da receita no mesmo set() que marca isSelected", async () => {
+      const newlySelected = workOutput({ id: "output-1", isSelected: true });
+      mocks.state.selectResults.push([workOutput({
+        id: "output-1",
+        status: "completed",
+        outputKey: "creative-work/output-1/out.png",
+        quality: { schemaVersion: 1, objectiveVerdict: "pass" },
+      })]);
+      mocks.state.txUpdateResults.push([newlySelected]);
+
+      const result = await selectCreativeWorkOutput("ws-1", "work-1", "output-1", {
+        confirmObjective: true,
+        pendingRecipeReceiptId: "receipt-1",
+      });
+
+      expect(result?.isSelected).toBe(true);
+      // 1o set() limpa a selecao anterior; o recibo pertence ao 2o.
+      expect(mocks.txSetMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        isSelected: true,
+        selectionEffects: expect.objectContaining({
+          version: 1,
+          recipe: expect.objectContaining({ receiptId: "receipt-1", state: "pending" }),
+        }),
+      }));
+    });
+
+    it("nao grava selectionEffects quando o recibo nao e pedido", async () => {
+      const newlySelected = workOutput({ id: "output-1", isSelected: true });
+      mocks.state.selectResults.push([workOutput({
+        id: "output-1",
+        status: "completed",
+        outputKey: "creative-work/output-1/out.png",
+        quality: { schemaVersion: 1, objectiveVerdict: "pass" },
+      })]);
+      mocks.state.txUpdateResults.push([newlySelected]);
+
+      await selectCreativeWorkOutput("ws-1", "work-1", "output-1", { confirmObjective: true });
+
+      expect(mocks.txSetMock).toHaveBeenCalledTimes(2);
+      expect(mocks.txSetMock.mock.calls[1]?.[0]).not.toHaveProperty("selectionEffects");
+    });
+
     it("keeps the previous selection when the locked candidate fails objective policy", async () => {
       mocks.state.selectResults.push([
         workOutput({
@@ -2576,4 +2624,14 @@ describe("creative-work repository", () => {
       expect(mocks.whereMock).toHaveBeenCalled();
     });
   });
+});
+
+
+it("settlement reads omit sources without changing normal aggregate reads", async () => {
+  mocks.resetState();
+  vi.clearAllMocks();
+  mocks.state.selectResults.push([{ id: "work-1" }], [{ id: "output-1" }]);
+  const result = await getCreativeWork("workspace-1", "work-1", undefined, { includeSources: false });
+  expect(result).toEqual({ work: { id: "work-1" }, outputs: [{ id: "output-1" }], sources: [] });
+  expect(mocks.selectMock).toHaveBeenCalledTimes(2);
 });

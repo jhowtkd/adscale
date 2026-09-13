@@ -30,6 +30,12 @@ const getChild = vi.hoisted(() => vi.fn());
 const getPreviousChild = vi.hoisted(() => vi.fn());
 const touchChild = vi.hoisted(() => vi.fn());
 const getUsage = vi.hoisted(() => vi.fn());
+const getUsages = vi.hoisted(() => vi.fn(async (workspaceId: string, keys: string[]) =>
+  new Map(await Promise.all(keys.map(async (key) => [key, await getUsage(workspaceId, key)] as const))),
+));
+const getChildren = vi.hoisted(() => vi.fn(async (ids: string[], workspaceId: string) =>
+  (await Promise.all(ids.map((id) => getChild(id, workspaceId)))).filter(Boolean),
+));
 const trackUsage = vi.hoisted(() => vi.fn());
 const updateCampaign = vi.hoisted(() => vi.fn());
 const recordAggregate = vi.hoisted(() => vi.fn());
@@ -54,6 +60,7 @@ vi.mock("@/server/creative-work/job-telemetry", () => ({
 }));
 vi.mock("@/server/repositories/usage", () => ({
   getUsageByIdempotencyKey: getUsage,
+  getUsageByIdempotencyKeys: getUsages,
   trackUsage,
 }));
 vi.mock("@/server/repositories/creative-work", () => ({
@@ -72,6 +79,7 @@ vi.mock("@/server/repositories/derivation", () => ({
   deleteQueuedDerivation: deleteChild,
   failQueuedDerivation: failChild,
   getDerivationById: getChild,
+  getDerivationsByIds: getChildren,
   getLatestFormatAdaptationChild: getPreviousChild,
   touchQueuedDerivation: touchChild,
 }));
@@ -87,6 +95,7 @@ import {
   assistantCreativeTripletSettlementAdapter,
   assistantGoalPackageSettlementAdapter,
   assistantPreviewSettlementAdapter,
+  campaignDerivationUnitSettlementAdapter,
   carouselSlideBillingKey,
   carouselSlideSettlementAdapter,
   creativeWorkRevisionSettlementAdapter,
@@ -2751,4 +2760,337 @@ describe("carouselSlideSettlementAdapter", () => {
     expect(spendPaywall).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
   });
+});
+
+/**
+ * Task 18 (PR-06): characterization of the eight settlement wait loops, one
+ * test per loop grouped by policy family. Each test pins observable behavior
+ * only — logical charge operations, literal idempotency keys, terminal state —
+ * so it keeps passing WITHOUT edits after Task 19 batches the fan-out reads
+ * and adds a monotonic deadline. Deliberately asserts nothing about read
+ * counts or wait mechanics.
+ */
+describe("settlement loop families (Task 18 characterization)", () => {
+  const slideBillingKey = carouselSlideBillingKey("work-1", "slide-1");
+
+  function slideAdapter() {
+    return carouselSlideSettlementAdapter({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      slideId: "slide-1",
+      userId: "user-1",
+      anchorKey: null,
+      operationKey: slideBillingKey,
+    });
+  }
+
+  function unitReplayAdapter(onComplete: () => void) {
+    return campaignDerivationUnitSettlementAdapter({
+      workspaceId: "workspace-1",
+      userId: "user-1",
+      campaignId: "campaign-1",
+      billingKey: "campaign:campaign-1:unit-1",
+      amount: 50,
+      action: "image_derivation",
+      intentMode: "creative_revision",
+      eventIdPrefix: "campaign-unit",
+      refundDescription: "campaign_unit_dispatch_refund",
+      promptText: "characterization",
+      targetFormat: "1:1",
+      reserve: async () => ({
+        claimed: true,
+        value: { derivation: unitDerivation as never },
+      }),
+      buildEventData: (derivation) => ({ derivationId: derivation.id }),
+      onComplete: async () => {
+        onComplete();
+      },
+    });
+  }
+
+  const unitDerivation = {
+    id: "unit-1",
+    status: "queued",
+    updatedAt: new Date("2026-07-26T12:00:00.000Z"),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    chargeUnit.mockResolvedValue({ ok: true, creditsSpent: 5 });
+    chargeBatch.mockResolvedValue({ ok: true, creditsSpent: 15 });
+    spendPaywall.mockResolvedValue({ ok: true, creditsSpent: 50 });
+    refund.mockResolvedValue({ status: "refunded" });
+    send.mockResolvedValue(undefined);
+    trackUsage.mockResolvedValue({ id: "usage-event" });
+    updateCampaign.mockResolvedValue(undefined);
+    setWorkStatus.mockResolvedValue({ ...work, status: "generating" });
+    getUsage.mockResolvedValue(null);
+  });
+
+  it("loop 378 (creative batch join): one recorded refund fails the batch with one unit refund per output", async () => {
+    getWork.mockResolvedValue({ work, outputs });
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) =>
+      idempotencyKey === "creative-work:work-1:output:a:dispatch-refund"
+        ? { id: "refund-a" }
+        : null,
+    );
+
+    const result = await batchAdapter().join!(undefined as never);
+
+    expect(result?.status).toBe("dispatch_failed");
+    if (result?.status !== "dispatch_failed") return;
+    expect(result.failure.refunds.map((entry) => entry.idempotencyKey)).toEqual([
+      "creative-work:work-1:output:a:dispatch-refund",
+      "creative-work:work-1:output:b:dispatch-refund",
+      "creative-work:work-1:output:c:dispatch-refund",
+    ]);
+    expect(result.failure.refunds.map((entry) => entry.amount)).toEqual([50, 50, 50]);
+    expect(result.failure.resumeAfterCompensation).toBe(false);
+    expect(chargeBatch).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+    expect(setWorkStatus).not.toHaveBeenCalled();
+  });
+
+  it("loop 692 (carousel join): a queued row with no charge is taken over with exactly one recovery spend", async () => {
+    const queued = carouselSlideFixture({ status: "queued" });
+    listSlides.mockResolvedValue([queued]);
+    queueAuthorized.mockResolvedValue({ outcome: "already_claimed", slide: queued });
+
+    const result = await slideAdapter().join!({ claimed: false, value: { slide: queued } });
+
+    expect(result?.status).toBe("settled");
+    expect(spendPaywall).toHaveBeenCalledTimes(1);
+    expect(spendPaywall).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "workspace-1",
+      action: "image_derivation",
+      idempotencyKey: slideBillingKey,
+      amount: 50,
+    }));
+    expect(chargeUnit).not.toHaveBeenCalled();
+    expect(chargeBatch).not.toHaveBeenCalled();
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0].id).toBe(`${slideBillingKey}:dispatch`);
+    expect(trackUsage).toHaveBeenCalledWith(
+      "workspace-1",
+      "generation_dispatch_ack",
+      0,
+      expect.objectContaining({ slideId: "slide-1" }),
+      `${slideBillingKey}:dispatch-ack`,
+    );
+  });
+
+  it("loop 818 (carousel replay): a recorded ack settles without charging or dispatching", async () => {
+    const queued = carouselSlideFixture({ status: "queued" });
+    listSlides.mockResolvedValue([queued]);
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (idempotencyKey === slideBillingKey) {
+        return {
+          metadata: {
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey: `${slideBillingKey}:dispatch-ack`,
+          },
+        };
+      }
+      return idempotencyKey === `${slideBillingKey}:dispatch-ack` ? { id: "slide-ack" } : null;
+    });
+
+    const result = await slideAdapter().resolveReplay!({ claimed: false, value: { slide: queued } });
+
+    expect(result?.status).toBe("settled");
+    if (result?.status !== "settled") return;
+    expect(result.value.slide.id).toBe("slide-1");
+    expect(spendPaywall).not.toHaveBeenCalled();
+    expect(chargeUnit).not.toHaveBeenCalled();
+    expect(chargeBatch).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+    expect(getUsage).toHaveBeenCalledWith("workspace-1", `${slideBillingKey}:dispatch-ack`);
+  });
+
+  it("loop 1068 (format replay): a recorded ack settles the original derivation and retries the campaign status", async () => {
+    getChild.mockResolvedValue(originalChild);
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (idempotencyKey === "adapt:source-1") {
+        return {
+          metadata: {
+            derivationId: originalChild.id,
+            reservationUpdatedAt: "2026-07-26T12:00:00.000Z",
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey: "adapt:source-1:dispatch-ack",
+          },
+        };
+      }
+      return idempotencyKey === "adapt:source-1:dispatch-ack" ? { id: "format-ack" } : null;
+    });
+
+    const result = await unitAdapter().resolveReplay!({
+      claimed: true,
+      value: { derivation: child as never, source: source as never },
+      previous: null,
+    });
+
+    expect(result?.status).toBe("settled");
+    if (result?.status !== "settled") return;
+    expect(result.value.derivation.id).toBe("original-child");
+    expect(updateCampaign).toHaveBeenCalledWith("campaign-1", "workspace-1", { status: "generating" });
+    expect(chargeUnit).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("loop 1397 (revision join): a dispatch_failed marker fails the revision with its own literal refund key", async () => {
+    const failedOutput = { ...revisionOutput, status: "failed", failureCode: "dispatch_failed" };
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) =>
+      idempotencyKey === "creative-work:work-1:revision:output-v2"
+        ? {
+            metadata: {
+              settlementDispatchAckRequired: true,
+              settlementDispatchAckKey: "creative-work:work-1:revision:output-v2:dispatch-ack",
+            },
+          }
+        : null,
+    );
+
+    const result = await revisionAdapter().join!({ claimed: true, value: { output: failedOutput as never } });
+
+    expect(result?.status).toBe("dispatch_failed");
+    if (result?.status !== "dispatch_failed") return;
+    expect(result.failure.refunds.map((entry) => entry.idempotencyKey)).toEqual([
+      "creative-work:work-1:revision:output-v2:dispatch-refund",
+    ]);
+    expect(result.failure.refunds.map((entry) => entry.amount)).toEqual([50]);
+    expect(getUsage).toHaveBeenCalledWith("workspace-1", "creative-work:work-1:revision:output-v2");
+    expect(chargeBatch).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+    expect(trackUsage).not.toHaveBeenCalled();
+  });
+
+  it("loop 1664 (derivation batch replay): one recorded refund fails the batch with a single full-amount refund", async () => {
+    getChild.mockImplementation(async (id: string) => ({
+      id,
+      status: "queued",
+      updatedAt: new Date("2026-07-26T12:00:00.000Z"),
+    }));
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (idempotencyKey === "assistant-action:action-triplet:creative-triplet") {
+        return { metadata: { derivationIds: ["t1", "t2", "t3"] } };
+      }
+      return idempotencyKey === "assistant-action:action-triplet:creative-triplet:dispatch-refund"
+        ? { id: "triplet-refund" }
+        : null;
+    });
+
+    const result = await tripletAdapter().resolveReplay!({
+      claimed: true,
+      value: { derivations: tripletDerivations as never },
+      newlyCreatedIds: ["t1", "t2", "t3"],
+    });
+
+    expect(result?.status).toBe("dispatch_failed");
+    if (result?.status !== "dispatch_failed") return;
+    expect(result.failure.refunds).toHaveLength(1);
+    expect(result.failure.refunds[0]).toMatchObject({
+      action: "image_derivation",
+      idempotencyKey: "assistant-action:action-triplet:creative-triplet:dispatch-refund",
+      amount: 150,
+    });
+    expect(result.failure.value.derivations.map((row) => row.id)).toEqual(["t1", "t2", "t3"]);
+    expect(chargeBatch).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+    expect(updateCampaign).not.toHaveBeenCalled();
+  });
+
+  it("loop 2284 (preview replay): one recorded refund fails the preview with its own literal refund key", async () => {
+    getChild.mockResolvedValue(previewDerivation);
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (idempotencyKey === "assistant-action:action-preview:preview") {
+        return {
+          metadata: {
+            derivationId: "preview-1",
+            reservationUpdatedAt: "2026-07-26T12:00:00.000Z",
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey: "assistant-action:action-preview:preview:dispatch-ack",
+          },
+        };
+      }
+      return idempotencyKey === "assistant-action:action-preview:preview:dispatch-refund"
+        ? { id: "preview-refund" }
+        : null;
+    });
+
+    const result = await previewAdapter().resolveReplay!(undefined as never);
+
+    expect(result?.status).toBe("dispatch_failed");
+    if (result?.status !== "dispatch_failed") return;
+    expect(result.failure.refunds.map((entry) => entry.idempotencyKey)).toEqual([
+      "assistant-action:action-preview:preview:dispatch-refund",
+    ]);
+    expect(result.failure.refunds.map((entry) => entry.amount)).toEqual([50]);
+    expect(chargeUnit).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+    expect(updateCampaign).not.toHaveBeenCalled();
+  });
+
+  it("loop 2658 (campaign unit replay): a recorded ack settles, retries the campaign status, and runs onComplete", async () => {
+    const onComplete = vi.fn();
+    getChild.mockResolvedValue(unitDerivation);
+    getUsage.mockImplementation(async (_workspaceId, idempotencyKey) => {
+      if (idempotencyKey === "campaign:campaign-1:unit-1") {
+        return {
+          metadata: {
+            derivationId: "unit-1",
+            reservationUpdatedAt: "2026-07-26T12:00:00.000Z",
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey: "campaign:campaign-1:unit-1:dispatch-ack",
+          },
+        };
+      }
+      return idempotencyKey === "campaign:campaign-1:unit-1:dispatch-ack" ? { id: "unit-ack" } : null;
+    });
+
+    const result = await unitReplayAdapter(onComplete).resolveReplay!({
+      claimed: true,
+      value: { derivation: unitDerivation as never },
+    });
+
+    expect(result?.status).toBe("settled");
+    if (result?.status !== "settled") return;
+    expect(result.value.derivation.id).toBe("unit-1");
+    expect(updateCampaign).toHaveBeenCalledWith("campaign-1", "workspace-1", { status: "generating" });
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(chargeUnit).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+});
+
+
+
+describe("settlement batched refund reads", () => {
+  it.each([3, 30])("uses one refund query for %i outputs", async (count) => {
+    vi.clearAllMocks();
+    const rows = Array.from({ length: count }, (_, i) => ({ ...outputs[0], id: `out-${i}`, status: "processing" }));
+    getWork.mockResolvedValue({ work: { ...work, status: "generating" }, outputs: rows });
+    getUsage.mockResolvedValue(null);
+    getUsages.mockResolvedValueOnce(new Map());
+    const result = await batchAdapter().join!(undefined as never);
+    expect(result?.status).toBe("settled");
+    expect(getUsages).toHaveBeenCalledExactlyOnceWith("workspace-1", rows.map((row) => `creative-work:work-1:output:${row.id}:dispatch-refund`));
+    expect(getUsage).toHaveBeenCalledTimes(1);
+    expect(refund).not.toHaveBeenCalled();
+  });
+});
+
+it("a timed-out settlement read does not authorize a refund or another dispatch", async () => {
+  vi.clearAllMocks();
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+  try {
+    getWork.mockImplementationOnce(() => new Promise(() => {}));
+    const pending = startGenerationSettlement(batchAdapter({ work, outputs }));
+    const assertion = expect(pending).rejects.toThrow("settlement_read_timeout");
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(refund).not.toHaveBeenCalled();
+    expect(chargeBatch).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
 });

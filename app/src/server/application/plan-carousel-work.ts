@@ -33,6 +33,12 @@ import {
   withCreativeWorkPreparationLock,
 } from "../repositories/creative-work";
 import { listCurrentCarouselSlides } from "../repositories/creative-work-carousel";
+import { preparationInputFingerprint } from "../creative-work/preparation-attempt";
+import {
+  claimPreparationAttempt,
+  finalizePreparationAttempt,
+} from "../repositories/creative-work-preparation";
+import { logCreativeWorkPreparationAttempt } from "../creative-work/job-telemetry";
 
 export type PlanCarouselWorkErrorCode =
   | "work_not_found"
@@ -43,7 +49,8 @@ export type PlanCarouselWorkErrorCode =
   | "editorial_plan_invalid"
   | "research_unavailable"
   | "research_insufficient"
-  | "invalid_editorial_transition";
+  | "invalid_editorial_transition"
+  | "preparation_in_progress";
 
 export type PlanCarouselWorkResult =
   | {
@@ -73,6 +80,91 @@ type AuthorizedSnapshot = {
 type AuthorizeResult =
   | { ok: true; value: AuthorizedSnapshot }
   | { ok: false; error: { code: PlanCarouselWorkErrorCode; details?: unknown } };
+
+/**
+ * Prazo do lease do planejamento de carrossel. Cobre pesquisa + ganchos com
+ * margem; nao e copia do prazo de outra rota.
+ */
+const CAROUSEL_PLAN_LEASE_SECONDS = 120;
+
+/**
+ * Envolve um ramo que chama o provedor com a tentativa de preparacao.
+ *
+ * POR QUE: medido em 12/09/2026, duas requisicoes iguais concorrentes faziam
+ * DUAS chamadas de pesquisa ao provedor. A protecao contra resultado velho ja
+ * existia — `persistEditorial` rele o Trabalho e recusa com `stale_input` — mas
+ * o CAS protege a ESCRITA, nao o GASTO. A tentativa e um portao de deduplicacao
+ * e nada mais: `persistEditorial`, `writeSettings` e as tres transacoes curtas
+ * seguem intocadas.
+ */
+async function withPlannerAttempt(
+  input: { workspaceId: string; workItemId: string },
+  snapshot: AuthorizedSnapshot,
+  run: () => Promise<PlanCarouselWorkResult>,
+): Promise<PlanCarouselWorkResult> {
+  const startedAt = Date.now();
+  const inputFingerprint = preparationInputFingerprint({
+    requestContext: snapshot.requestContext,
+    factPack: snapshot.factPack,
+    toneOfVoice: snapshot.toneOfVoice,
+    previous: snapshot.previous,
+  });
+  const claim = await claimPreparationAttempt({
+    workspaceId: input.workspaceId,
+    workItemId: input.workItemId,
+    kind: "carousel_plan",
+    inputRevision: snapshot.work.updatedAt.toISOString(),
+    inputFingerprint,
+    leaseSeconds: CAROUSEL_PLAN_LEASE_SECONDS,
+  });
+  if (claim.outcome === "joined") {
+    return {
+      ok: false,
+      error: {
+        code: "preparation_in_progress",
+        details: { attemptId: claim.attempt.id },
+      },
+    };
+  }
+  if (claim.outcome === "revision_changed") {
+    return { ok: false, error: { code: "stale_input" } };
+  }
+
+  let state: "completed" | "failed" = "failed";
+  try {
+    const result = await run();
+    state = result.ok ? "completed" : "failed";
+    return result;
+  } finally {
+    const finalized = await finalizePreparationAttempt({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      attemptId: claim.attempt.id,
+      currentRevision: snapshot.work.updatedAt.toISOString(),
+      currentFingerprint: inputFingerprint,
+      state,
+    });
+    if (!finalized.ok) {
+      // Descarte sem rastro e o pior desfecho deste protocolo: o custo do
+      // provedor ja foi pago.
+      logCreativeWorkPreparationAttempt({
+        releaseSha: process.env.RENDER_GIT_COMMIT ?? "unknown",
+        environment: process.env.NODE_ENV ?? "unknown",
+        process: "web",
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        attemptId: claim.attempt.id,
+        kind: "carousel_plan",
+        phase: "invalidated",
+        reason: finalized.reason,
+        lockWaitMs: 0,
+        inTransactionMs: 0,
+        externalMs: Date.now() - startedAt,
+        totalMs: Date.now() - startedAt,
+      });
+    }
+  }
+}
 
 const EXTERNAL_EVIDENCE_PATTERN =
   /\b(estudo|pesquisa mostra|segundo a|de acordo com|lei\s+n|ibge|oms\b|estatíst)/i;
@@ -108,7 +200,7 @@ export async function planCarouselWork(input: {
       return persistHookSelection(input, command, snapshot.value, executor);
     });
     if (!selected.ok) return selected;
-    return proposeSelectedScript(input, selected.value);
+    return withPlannerAttempt(input, selected.value, () => proposeSelectedScript(input, selected.value));
   }
 
   const snapshot = await withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (executor) => (
@@ -117,9 +209,9 @@ export async function planCarouselWork(input: {
   if (!snapshot.ok) return snapshot;
 
   if (command.kind === "revise_script") {
-    return reviseScript(input, command, snapshot.value);
+    return withPlannerAttempt(input, snapshot.value, () => reviseScript(input, command, snapshot.value));
   }
-  return proposeHooks(input, snapshot.value);
+  return withPlannerAttempt(input, snapshot.value, () => proposeHooks(input, snapshot.value));
 }
 
 const EDITORIAL_APPROVAL_WORK_STATUSES = new Set(["draft", "generating", "partial"]);
