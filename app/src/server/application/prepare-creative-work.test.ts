@@ -71,6 +71,11 @@ import {
   finalizePreparationAttempt,
   renewPreparationAttempt,
 } from "@/server/repositories/creative-work-preparation";
+import { logCreativeWorkPreparationAttempt } from "@/server/creative-work/job-telemetry";
+vi.mock("@/server/creative-work/job-telemetry", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/server/creative-work/job-telemetry")>(),
+  logCreativeWorkPreparationAttempt: vi.fn(),
+}));
 import { prepareCreativeWork } from "./prepare-creative-work";
 import { generateSocialPostCopy as generatePaidCopy } from "./generate-social-post-copy";
 
@@ -893,6 +898,14 @@ describe("prepareCreativeWork", () => {
         error: { code: "invalid_context", details: { violations: [{ class: "price", value: "50%", field: "headline" }] } },
       });
     expect(updateDraft).not.toHaveBeenCalled();
+  });
+
+  it("records the finalize refusal reason when discarding a provider error", async () => {
+    getWork.mockResolvedValue({ work, outputs: [], sources: [readyVariationSource] } as never);
+    generateCopy.mockRejectedValue(new Error("provider unavailable"));
+    vi.mocked(finalizePreparationAttempt).mockResolvedValue({ ok: false, reason: "not_running" } as never);
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).rejects.toThrow("provider unavailable");
+    expect(logCreativeWorkPreparationAttempt).toHaveBeenCalledWith(expect.objectContaining({ phase: "invalidated", reason: "not_running" }));
   });
 
   it("propagates provider failures from copy generation instead of masking them as invalid_context", async () => {

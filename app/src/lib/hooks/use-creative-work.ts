@@ -231,6 +231,7 @@ export interface CreativeWorkSource {
 }
 
 export interface CreativeWorkDetail {
+  preparationAttempt?: { id: string } | null;
   work: CreativeWorkItem;
   outputs: CreativeWorkOutput[];
   sources: CreativeWorkSource[];
@@ -251,6 +252,7 @@ export interface CreativeWorkCampaignOption {
 export function creativeWorkRefetchInterval(
   data:
     | {
+        preparationAttempt?: { id: string } | null;
         work: Pick<CreativeWorkItem, "status">;
         outputs: Array<Pick<CreativeWorkOutput, "status"> & { layerization?: PublicLayerizationState | null }>;
         carouselSlides?: Array<Pick<PublicCarouselSlide, "status">>;
@@ -258,6 +260,7 @@ export function creativeWorkRefetchInterval(
     | undefined,
 ) {
   const shouldPoll =
+    Boolean(data?.preparationAttempt) ||
     data?.work.status === "generating" ||
     data?.outputs.some((output) => output.status === "queued" || output.status === "processing" || ["queued", "processing", "reconciling", "finalizing"].includes(output.layerization?.status ?? "")) ||
     // Carousel decks never enter creative_work_outputs: active slides alone
@@ -302,11 +305,14 @@ async function readError(res: Response): Promise<CreativeWorkRequestError> {
           : "Request failed"),
     code,
     res.status,
-    sanitizeCreativeWorkErrorDetails(code, "details" in err ? err.details : null),
+    sanitizeCreativeWorkErrorDetails(code, code === "creativeWorkPreparationInProgress"
+      ? { attemptId: err.attemptId }
+      : "details" in err ? err.details : null),
   );
 }
 
 const CAROUSEL_EDITORIAL_CLIENT_ERRORS: Record<string, string> = {
+  creativeWorkPreparationInProgress: "Este trabalho já está sendo preparado. Aguarde a atualização.",
   research_unavailable: "A pesquisa não ficou disponível. Restrinja a tese ou envie o material.",
   research_insufficient: "A evidência não basta para sustentar a tese. Restrinja o argumento ou envie fontes.",
   invalid_editorial_transition: "Esta etapa editorial ainda não pode ser confirmada. Revise o gancho, o roteiro ou a capa.",
@@ -463,6 +469,7 @@ function mapCarouselSlide(raw: Record<string, unknown>): PublicCarouselSlide {
 }
 
 export function mapCreativeWorkDetail(data: {
+  preparationAttempt?: { id: string } | null;
   work: CreativeWorkItem;
   outputs: CreativeWorkOutput[];
   sources?: CreativeWorkSource[];
@@ -475,6 +482,7 @@ export function mapCreativeWorkDetail(data: {
   layerEditorAccess?: LayerEditorAccessV1;
 }): CreativeWorkDetail {
   return {
+      preparationAttempt: data.preparationAttempt ?? null,
       work: {
         ...data.work,
         // The detail GET projects deck quality at the payload root; the client
@@ -689,6 +697,12 @@ export function usePrepareCreativeWork() {
         { action: "prepare" },
         120_000,
       ),
+    retry: false,
+    onError: (error, input) => {
+      if (error instanceof CreativeWorkRequestError && error.code === "creativeWorkPreparationInProgress") {
+        return queryClient.invalidateQueries({ queryKey: creativeWorkKey(input.workItemId) });
+      }
+    },
     onSuccess: (_data, input) => invalidateCreativeDraft(queryClient, input.workItemId),
   });
 }
@@ -1023,6 +1037,12 @@ export function usePlanCarouselWork() {
         { expectedUpdatedAt, answers, ...(command ? { command } : {}) },
         120_000,
       ),
+    retry: false,
+    onError: (error, input) => {
+      if (error instanceof CreativeWorkRequestError && error.code === "creativeWorkPreparationInProgress") {
+        return queryClient.invalidateQueries({ queryKey: creativeWorkKey(input.workItemId) });
+      }
+    },
     onSuccess: (_data, input) => queryClient.invalidateQueries({ queryKey: creativeWorkKey(input.workItemId) }),
   });
 }

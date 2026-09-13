@@ -70,6 +70,17 @@ describe("POST /api/creative-work/[id]/carousel/plan", () => {
     });
   });
 
+  it("returns the active preparation attempt in a typed 409", async () => {
+    planMock.mockResolvedValue({ ok: false, error: { code: "preparation_in_progress", details: { attemptId: "attempt-1" } } });
+    const response = await requestPlan(validBody);
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "creativeWorkPreparationInProgress",
+      code: "creativeWorkPreparationInProgress",
+      attemptId: "attempt-1",
+    });
+  });
+
   it("is isolated behind workspace authentication", async () => {
     requireWorkspaceAccess.mockRejectedValue(new WorkspaceAuthError("unauthorized", "no session"));
 

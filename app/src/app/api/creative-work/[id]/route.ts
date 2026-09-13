@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getActivePreparationAttempt } from "@/server/repositories/creative-work-preparation";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { confirmSocialPostWork } from "@/server/application/confirm-social-post-work";
@@ -613,7 +614,9 @@ export async function GET(
         ),
       };
     });
+    const preparationAttempt = await getActivePreparationAttempt({ workspaceId: workspace.id, workItemId: id });
     return NextResponse.json({
+      preparationAttempt: preparationAttempt ? { id: preparationAttempt.id } : null,
       work: {
         ...publicWork,
         settings: publicSettings,
@@ -871,6 +874,7 @@ export async function PATCH(
       }
       const prepared = await prepareCreativeWork({ workspaceId: workspace.id, workItemId: id });
       if (!prepared.ok) {
+        if (prepared.error.code === "preparation_in_progress") return NextResponse.json({ error: "creativeWorkPreparationInProgress", code: "creativeWorkPreparationInProgress", attemptId: (prepared.error.details as { attemptId: string }).attemptId }, { status: 409 });
         if (prepared.error.code === "work_not_found") return apiError("creativeWorkNotFound", 404);
         if (prepared.error.code === "missing_input") return apiError("creativeWorkInputRequired", 422);
         if (prepared.error.code === "piece_reference_required") return apiError("creativeWorkPieceReferenceRequired", 422);

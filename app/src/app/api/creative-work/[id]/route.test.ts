@@ -14,6 +14,11 @@ vi.mock("@/server/auth/workspace", () => ({
   ),
 }));
 
+const activePreparationMock = vi.hoisted(() => vi.fn<() => Promise<{ id: string; inputFingerprint?: string } | null>>(async () => null));
+vi.mock("@/server/repositories/creative-work-preparation", () => ({
+  getActivePreparationAttempt: activePreparationMock,
+}));
+
 const requirePlatformOwnerMock = vi.hoisted(() => vi.fn());
 const isPlatformOwnerEmailMock = vi.hoisted(() => vi.fn());
 const requestLayerizationMock = vi.hoisted(() => vi.fn());
@@ -313,6 +318,15 @@ describe("GET /api/creative-work/[id]", () => {
   });
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("projects only the active attempt id through the existing work query", async () => {
+    activePreparationMock.mockResolvedValueOnce({ id: "attempt-1", inputFingerprint: "private" });
+    getWorkMock.mockResolvedValue({ work: { ...workItem, status: "draft" }, outputs: [], sources: [] });
+    const response = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
+    expect(response.status).toBe(200);
+    expect((await response.json()).preparationAttempt).toEqual({ id: "attempt-1" });
+    expect(activePreparationMock).toHaveBeenCalledWith({ workspaceId: "workspace-1", workItemId: "work-1" });
   });
 
   it("catches up generating work status once outputs are terminal", async () => {
@@ -1343,6 +1357,17 @@ describe("PATCH /api/creative-work/[id]", () => {
     const body = await res.json();
     expect(res.status).toBe(422);
     expect(body.code).toBe("commercialOfferMissingOffer");
+  });
+
+  it("returns the active preparation attempt in a typed 409", async () => {
+    prepareMock.mockResolvedValue({ ok: false, error: { code: "preparation_in_progress", details: { attemptId: "attempt-1" } } });
+    const response = await requestPatch({ action: "prepare" });
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "creativeWorkPreparationInProgress",
+      code: "creativeWorkPreparationInProgress",
+      attemptId: "attempt-1",
+    });
   });
 
   it("maps prepare invalid_context to 422 preserving the violations payload", async () => {

@@ -463,7 +463,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
 
   /** Fecha a tentativa como falha e registra o descarte. */
   const discard = async <T>(result: T, reason: string): Promise<T> => {
-    await finalizePreparationAttempt({
+    const finalized = await finalizePreparationAttempt({
       workspaceId: input.workspaceId,
       workItemId: input.workItemId,
       attemptId,
@@ -471,7 +471,7 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       currentFingerprint: inputFingerprint,
       state: "failed",
     });
-    logDiscard(reason);
+    logDiscard(finalized.ok ? reason : finalized.reason);
     return result;
   };
 

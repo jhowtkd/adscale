@@ -389,3 +389,21 @@ misturam na mesma amostra.
   `p99(externalMs)` está **não medido** — a Task 8 suspendeu o provedor por
   promessa de propósito, então tempo de modelo real nunca foi amostrado — e o
   lease, portanto, **não calculado**. Não copiar os 90 s do editor de camadas.
+
+## Task 17 — contrato local de preparação em curso, 13/09/2026
+
+- PATCH do Trabalho (peça única) e POST do planner de carrossel devolvem 409 com
+  `error`/`code: creativeWorkPreparationInProgress` e `attemptId` no topo.
+- GET existente do Trabalho projeta somente o id da tentativa ativa, filtrada
+  por workspace e lease pelo repositório. O consumidor invalida essa consulta
+  no 409 e continua o polling enquanto a tentativa existir; as duas mutações
+  desabilitam retry automático. Não há endpoint nem tentativa adicional.
+- O descarte da peça única registra o `reason` real quando o finalize recusa,
+  preservando o erro do provedor. Regressão observada antes do fix: o log dizia
+  `provider_error` em vez de `not_running`.
+- Vermelho executado nos dois adaptadores antes da implementação; depois,
+  195 testes de rotas/hooks passaram e 75 testes de preparação/geração passaram
+  após a correção de auditoria e ajuste do duplo do leitor em lote.
+- Ativação e jornadas humanas continuam bloqueadas pelo gate da Task 14.
+  Consulta ao GitHub em 13/09/2026: zero secrets de repositório e ausência do
+  ambiente `reliability-release-smoke`. Nenhum percentual de rollout mudou.

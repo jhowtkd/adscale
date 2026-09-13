@@ -10,6 +10,7 @@ import {
   useCreativeWorkSourceActions,
   useLinkCreativeWorkCampaign,
   usePrepareCreativeWork,
+  usePlanCarouselWork,
   useResolveBrandConflict,
   useReviseOutput,
   useSelectOutput,
@@ -514,5 +515,31 @@ describe("result actions", () => {
       method: "PATCH",
       body: JSON.stringify({ action: "linkCampaign", campaignId: null }),
     }));
+  });
+});
+
+
+describe("preparation in progress", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it.each([usePrepareCreativeWork, usePlanCarouselWork])("refetches the work without retrying a joined mutation", async (hook) => {
+    mockApiFetch.mockResolvedValue(new Response(JSON.stringify({
+      error: "creativeWorkPreparationInProgress", code: "creativeWorkPreparationInProgress", attemptId: "attempt-1",
+    }), { status: 409 }));
+    const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: 3 } } });
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+    const { result } = renderHook(() => hook(), { wrapper: wrapperWith(queryClient) });
+    await act(async () => {
+      await expect(result.current.mutateAsync({ workItemId: "work-1", expectedUpdatedAt: "2026-09-13T00:00:00.000Z", answers: {} }))
+        .rejects.toMatchObject({ code: "creativeWorkPreparationInProgress", details: { attemptId: "attempt-1" } });
+    });
+    expect(mockApiFetch).toHaveBeenCalledTimes(1);
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["creative-work", "work-1"] });
+  });
+
+  it("polls a draft only while its preparation attempt is active", () => {
+    const draft = { work: { status: "draft" as const }, outputs: [] };
+    expect(creativeWorkRefetchInterval({ ...draft, preparationAttempt: { id: "attempt-1" } })).toBe(2000);
+    expect(creativeWorkRefetchInterval({ ...draft, preparationAttempt: null })).toBe(false);
   });
 });
