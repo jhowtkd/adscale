@@ -102,7 +102,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               `img-src 'self' blob: data: https:${e2eStorageImages}`,
               "font-src 'self' https://fonts.gstatic.com",
-              "connect-src 'self' https://*.sentry.io https://api.stripe.com https://fonts.googleapis.com",
+              "connect-src 'self' https://*.sentry.io https://api.stripe.com https://fonts.googleapis.com http://localhost:4747",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
