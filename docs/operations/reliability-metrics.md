@@ -67,6 +67,30 @@ Os três cenários de caracterização da Task 8 foram **invertidos**, não remo
 
 O CAS de `persistEditorial`/`writeSettings` já protegia a **escrita** contra resultado velho; nunca protegeu o **gasto**. A tentativa cobre essa lacuna e nada mais.
 
+
+### Task 16 — controles negativos e correção, 13/09/2026
+
+Base: `93d7820b`, com correção local no wrapper e um teste unitário de exceção.
+Postgres de testes: `localhost:5433/adscale_test`; provedor controlado existente.
+
+| Controle | Resultado observado |
+|---|---|
+| Teste novo de exceção contra o wrapper original | Vermelho: finalize chamado 0 vezes |
+| Retirada temporária só da releitura em `persistEditorial` | Verde: CAS ainda impede escrita velha |
+| Retirada também do predicado SQL de revisão em `updateCreativeWorkDraftIfUnchanged` | Vermelho: `result.ok` veio `true`, esperado `false` |
+| Guards restaurados + fix; duas suítes unitárias e integração completa | 60/60 passaram, nenhum skip |
+
+As mutações foram pontuais, com restauração em `finally`; não ficaram no diff.
+Não houve mudança na fixture nem uso de `cas: "any"` para desligar revisão.
+Comando final:
+
+```sh
+cd app
+DATABASE_URL=postgres://test:test@localhost:5433/adscale_test TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/application/plan-carousel-work.test.ts src/server/application/prepare-carousel-work.test.ts tests/integration/creative-work-preparation-concurrency.test.ts
+```
+
+Evidência local; não inclui CI, deploy ou chamadas pagas.
+
 ### Invariante acidental que a Task 15 precisa PRESERVAR
 
 Duas preparações iguais concorrentes produzem **uma única** chamada ao provedor. Isso não é deduplicação deliberada: é efeito colateral da serialização pelo lock — a segunda requisição só entra depois que a primeira persistiu, e então cai no atalho de reaproveitamento de snapshot.

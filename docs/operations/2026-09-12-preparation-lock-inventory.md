@@ -49,6 +49,17 @@ Para cada um dos 3 arquivos de aplicação, todos os `await` foram enumerados e 
 
 O que faltava era o gasto, não a escrita. Medido: duas requisições iguais concorrentes faziam **2** chamadas de pesquisa ao provedor; com `claimPreparationAttempt` devolvendo `joined`, passaram a fazer **1**. `persistEditorial`, `writeSettings` e as três transações curtas ficaram intocadas.
 
+
+**Revisão de 13/09/2026:** o wrapper finaliza também quando `run()` lança, usando
+`finally`, estado `failed` e propagação da exceção após o cleanup. O finalize e
+seu log de recusa são compartilhados com o caminho normal. `currentRevision`
+continua sendo o snapshot: a tentativa é dedupe + lifecycle/auditoria; a
+revalidação da escrita permanece em `persistEditorial` e no CAS do repositório.
+O controle negativo confirmou que retirar apenas a releitura mantém o teste
+verde; retirar também o predicado de revisão de
+`updateCreativeWorkDraftIfUnchanged` torna o teste vermelho. `cas: "any"` não
+servia como bypass. Fixture de bump cru e guards originais preservados.
+
 ## Divergências registradas
 
 - O aceite da Task 7 no plano diz "sete chamadores", mas a reconfirmação no SHA de execução encontra **9 call sites em produção** — exatamente os 9 da tabela "Corrigido" das Descobertas do plano, sem deslocamento de linha. A contagem 9 é a correta; o "sete" é texto desatualizado do aceite.

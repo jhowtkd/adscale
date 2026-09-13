@@ -81,6 +81,7 @@ vi.mock("@/server/jobs/client", () => ({
 
 import { CarouselEditorialPlanInvalidError } from "@/server/creative-work/carousel-editorial";
 import { planCarouselWork } from "./plan-carousel-work";
+import { finalizePreparationAttempt } from "@/server/repositories/creative-work-preparation";
 
 const UPDATED_AT = "2026-08-30T12:00:00.000Z";
 const NEWER_AT = "2026-08-30T12:05:00.000Z";
@@ -339,6 +340,25 @@ describe("planCarouselWork", () => {
       return { draft: deckDraft(), storyboard: storyboardFor(planOfFive()), caption: "Inscreva-se" };
     });
     listSlidesMock.mockResolvedValue([]);
+  });
+
+  it("finalizes the attempt as failed and rethrows when research throws", async () => {
+    repo.getCreativeWork.mockResolvedValue({ work: work(), outputs: [], sources: [] });
+    const error = new Error("provider unavailable");
+    researchMock.mockRejectedValueOnce(error);
+
+    await expect(planCarouselWork(baseInput)).rejects.toBe(error);
+
+    expect(finalizePreparationAttempt).toHaveBeenCalledExactlyOnceWith({
+      workspaceId: baseInput.workspaceId,
+      workItemId: baseInput.workItemId,
+      attemptId: "attempt-carousel",
+      currentRevision: UPDATED_AT,
+      currentFingerprint: expect.any(String),
+      state: "failed",
+    });
+    expect(repo.updateCreativeWorkDraftIfUnchanged).not.toHaveBeenCalled();
+    expect(repo.updateCreativeWorkIfUnchanged).not.toHaveBeenCalled();
   });
 
   it("returns work_not_found for a work outside the workspace", async () => {

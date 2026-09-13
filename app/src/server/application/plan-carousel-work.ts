@@ -130,35 +130,40 @@ async function withPlannerAttempt(
     return { ok: false, error: { code: "stale_input" } };
   }
 
-  const result = await run();
-  const finalized = await finalizePreparationAttempt({
-    workspaceId: input.workspaceId,
-    workItemId: input.workItemId,
-    attemptId: claim.attempt.id,
-    currentRevision: snapshot.work.updatedAt.toISOString(),
-    currentFingerprint: inputFingerprint,
-    state: result.ok ? "completed" : "failed",
-  });
-  if (!finalized.ok) {
-    // Descarte sem rastro e o pior desfecho deste protocolo: o custo do
-    // provedor ja foi pago.
-    logCreativeWorkPreparationAttempt({
-      releaseSha: process.env.RENDER_GIT_COMMIT ?? "unknown",
-      environment: process.env.NODE_ENV ?? "unknown",
-      process: "web",
+  let state: "completed" | "failed" = "failed";
+  try {
+    const result = await run();
+    state = result.ok ? "completed" : "failed";
+    return result;
+  } finally {
+    const finalized = await finalizePreparationAttempt({
       workspaceId: input.workspaceId,
       workItemId: input.workItemId,
       attemptId: claim.attempt.id,
-      kind: "carousel_plan",
-      phase: "invalidated",
-      reason: finalized.reason,
-      lockWaitMs: 0,
-      inTransactionMs: 0,
-      externalMs: Date.now() - startedAt,
-      totalMs: Date.now() - startedAt,
+      currentRevision: snapshot.work.updatedAt.toISOString(),
+      currentFingerprint: inputFingerprint,
+      state,
     });
+    if (!finalized.ok) {
+      // Descarte sem rastro e o pior desfecho deste protocolo: o custo do
+      // provedor ja foi pago.
+      logCreativeWorkPreparationAttempt({
+        releaseSha: process.env.RENDER_GIT_COMMIT ?? "unknown",
+        environment: process.env.NODE_ENV ?? "unknown",
+        process: "web",
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        attemptId: claim.attempt.id,
+        kind: "carousel_plan",
+        phase: "invalidated",
+        reason: finalized.reason,
+        lockWaitMs: 0,
+        inTransactionMs: 0,
+        externalMs: Date.now() - startedAt,
+        totalMs: Date.now() - startedAt,
+      });
+    }
   }
-  return result;
 }
 
 const EXTERNAL_EVIDENCE_PATTERN =
