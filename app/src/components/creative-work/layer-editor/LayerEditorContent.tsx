@@ -97,6 +97,9 @@ export function LayerEditorContent({
     if (exitRequestToken === lastExitTokenRef.current) return;
     lastExitTokenRef.current = exitRequestToken;
     if (!open || !exitRequestToken) return;
+    // The token is an external close request; keep the editor's async flush
+    // path instead of duplicating it in the parent.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void close();
     // close() captures the current editor state; calling it once per token.
     // eslint-disable-next-line react-hooks/exhaustive-deps

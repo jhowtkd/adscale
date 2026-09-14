@@ -53,6 +53,7 @@ export function TalkBox({
   showRequest = true,
   showAttachments = true,
   showGenerate = true,
+  requestDisabled = false,
 }: {
   placement: "center" | "dock";
   request: string;
@@ -92,6 +93,7 @@ export function TalkBox({
   showRequest?: boolean;
   showAttachments?: boolean;
   showGenerate?: boolean;
+  requestDisabled?: boolean;
 }) {
   const t = useTranslations("dashboard.home");
   const tComposer = useTranslations("dashboard.home.composer");
@@ -238,6 +240,7 @@ export function TalkBox({
               ref={requestRef}
               aria-label={tComposer("requestLabel")}
               value={request}
+              disabled={requestDisabled}
               onChange={(event) => {
                 setFidelityError(null);
                 onRequestChange(event.target.value);

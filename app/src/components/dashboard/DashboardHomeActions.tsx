@@ -563,6 +563,7 @@ export default function DashboardHomeActions({
       }}
       suggestedProtocol={interviewEnabled && !composer.objectiveSelected ? interview.suggestedProtocol : null}
       carouselEnabled={carouselCreationEnabled}
+      requestDisabled={isLoading && works.length === 0 && !isError}
       sources={sources.map((source) => ({ id: source.id, name: source.name, previewUrl: source.previewUrl, usage: source.usage }))}
       bufferedFile={composer.bufferedFile ?? null}
       onAddFiles={(files) => {

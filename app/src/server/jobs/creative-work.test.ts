@@ -3106,7 +3106,7 @@ describe("creativeWorkOutputJob", () => {
       }));
       const evidence = {
         artDirection: { text: "Hierarquia editorial com destaque para a oferta.", source: "model" },
-        creativeRenderPolicy: "integrated_v1",
+        renderPolicy: "integrated_v1",
         quality: "high",
       };
       expect(JSON.parse(JSON.stringify(steps.get("generate-base")))).toMatchObject({

@@ -484,4 +484,54 @@ describe("StudioPieceWorkspace", () => {
     expect(screen.queryByTestId("layer-scanner-stub")).not.toBeInTheDocument();
     expect(mocks.editorProps).toBeNull();
   });
+
+  it("flushes the review draft before leaving through the open editor", async () => {
+    const base = output({ id: "base" });
+    const child = output({
+      id: "child",
+      parentOutputId: "base",
+      versionNumber: 2,
+      layerization: { status: "completed", operationId: "op-1" } as CreativeWorkOutput["layerization"],
+    });
+    const composer = composerMock([base, child], {
+      canLayerize: true,
+      layerEditorAccess: { enabled: true, period: null, layerize: { remaining: 1, limit: 2 }, regeneration: null },
+    });
+    render(<StudioPieceWorkspace composer={composer} />);
+    fireEvent.click(screen.getByRole("button", { name: "Camadas" }));
+    expect(screen.getByTestId("layer-editor-content-stub")).toBeInTheDocument();
+
+    mocks.review.hasUnsavedChanges = vi.fn(() => true);
+    mocks.review.flush = vi.fn(async () => null);
+    fireEvent.click(screen.getByRole("button", { name: "Versão 1 · 4:5" }));
+    await waitFor(() => expect(mocks.review.flush).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId("layer-editor-content-stub")).toBeInTheDocument();
+    expect(screen.getByTestId("result-card-stub")).toHaveAttribute("data-output", "child");
+  });
+
+  it("recovers legacy revision instructions when the base has no draft", () => {
+    const base = output({ id: "base", targetFormat: "4:5", reviewDraft: null });
+    const legacyFailed = output({
+      id: "legacy-failed",
+      parentOutputId: "base",
+      versionNumber: 2,
+      status: "failed",
+      hasOutput: false,
+      revisionInstruction: "Aumente o título",
+      revisionAssetId: "asset-7",
+    });
+    render(<StudioPieceWorkspace composer={composerMock([base, legacyFailed])} />);
+    fireEvent.click(screen.getByRole("button", { name: "Versão 2 · 4:5" }));
+    fireEvent.click(screen.getByRole("button", { name: "revisar-nova-tentativa" }));
+    expect(mocks.review.beginFreshDraftAttempt).toHaveBeenCalledWith({
+      targetOutputId: "base",
+      from: {
+        action: "refine",
+        targetFormat: "4:5",
+        instruction: "Aumente o título",
+        revisionAssetId: "asset-7",
+        annotations: [],
+      },
+    });
+  });
 });

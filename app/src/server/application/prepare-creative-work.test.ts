@@ -638,7 +638,7 @@ describe("prepareCreativeWork", () => {
         creativeRenderPolicy: "integrated_v1",
         generationPolicyVersion: "quality_recovery_v1",
       }),
-    }), transactionExecutor);
+    }));
     expect(updateDraft.mock.calls[0][3].inputSnapshot).not.toHaveProperty("typographyPlan");
   });
 
@@ -687,7 +687,7 @@ describe("prepareCreativeWork", () => {
     if (result.ok) expect(result.value).not.toHaveProperty("briefing");
     const patch = updateDraft.mock.calls[0]?.[3] as { inputSnapshot: Record<string, unknown> };
     expect(patch.inputSnapshot).not.toHaveProperty("inferredBriefing");
-    expect(patch.inputSnapshot).not.toHaveProperty("renderPolicy");
+    expect(patch.inputSnapshot).toHaveProperty("renderPolicy");
   });
 
   it("reuses the frozen single policy but invalidates a prepared snapshot missing its marker", async () => {
@@ -1129,7 +1129,7 @@ describe("prepareCreativeWork", () => {
     }])));
 
     await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).resolves.toMatchObject({ ok: true });
-    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({ format: expected }), transactionExecutor);
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({ format: expected }));
   });
 
   it("does not resize a single from a temporary style reference's geometry", async () => {
@@ -1146,7 +1146,7 @@ describe("prepareCreativeWork", () => {
     }]]));
 
     await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).resolves.toMatchObject({ ok: true });
-    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({ format: "1:1" }), transactionExecutor);
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({ format: "1:1" }));
   });
 
   it("freezes ready source asset keys and analyses in the input snapshot", async () => {
