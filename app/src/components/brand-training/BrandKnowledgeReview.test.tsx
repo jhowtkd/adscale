@@ -9,7 +9,11 @@ const mocks = vi.hoisted(() => ({
   synthesizeRepertoire: vi.fn(),
 }));
 const calibrationState = vi.hoisted(() => ({ payload: null as null | Record<string, unknown> }));
-const assetsState = vi.hoisted(() => ({ assets: [] as Array<{ id: string; url: string }> }));
+const assetsState = vi.hoisted(() => ({ assets: [] as Array<Record<string, unknown>> }));
+const synthesizeState = vi.hoisted(() => ({
+  error: null as null | { message: string; code?: string },
+  isPending: false,
+}));
 const knowledgeState = vi.hoisted(() => {
   const claims = [
     {
@@ -64,6 +68,9 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   synthesizeRepertoire: "Sintetizar repertório",
   synthesizingRepertoire: "Sintetizando repertório…",
   confirmRepertoireSet: "Aprovar entendimento e preparar calibração",
+  repertoireSelectionTitle: "Escolha as referências desta síntese",
+  repertoireSelectionHint: `${values?.count ?? ""} aprovadas — até ${values?.max ?? ""}`,
+  repertoireSelectionEmpty: "Nenhuma referência aprovada e analisada",
 }[key] ?? key) }));
 
 vi.mock("@/lib/hooks/use-brand-training", async (original) => ({
@@ -83,7 +90,11 @@ vi.mock("@/lib/hooks/use-brand-training", async (original) => ({
   useCalibrationCommand: () => ({ mutate: mocks.command, isPending: false }),
   useBrandTrainingAssets: () => ({ data: assetsState.assets, isLoading: false }),
   useReviewRepertoire: () => ({ mutate: mocks.reviewRepertoire, isPending: false }),
-  useSynthesizeRepertoire: () => ({ mutate: mocks.synthesizeRepertoire, isPending: false }),
+  useSynthesizeRepertoire: () => ({
+    mutate: mocks.synthesizeRepertoire,
+    isPending: synthesizeState.isPending,
+    error: synthesizeState.error,
+  }),
 }));
 
 import { BrandKnowledgeReview } from "./BrandKnowledgeReview";
@@ -94,6 +105,8 @@ describe("BrandKnowledgeReview", () => {
     knowledgeState.claims = knowledgeState.defaultClaims;
     calibrationState.payload = null;
     assetsState.assets = [];
+    synthesizeState.error = null;
+    synthesizeState.isPending = false;
   });
 
   it("shows source, authority, confidence and conflicts side by side", () => {
@@ -244,5 +257,59 @@ describe("BrandKnowledgeReview", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sintetizar repertório" }));
     expect(mocks.synthesizeRepertoire).toHaveBeenCalledTimes(1);
     expect(mocks.synthesizeRepertoire).toHaveBeenCalledWith({});
+  });
+
+  it("offers an explicit subset picker when synthesis refuses more than 48 sources", () => {
+    const analysis = { description: "d", visualAttributes: [], rules: [], constraints: [], confidence: 1 };
+    assetsState.assets = [
+      { id: "b-ref", url: "https://img/b.jpg", label: "B", reviewStatus: "approved", trainingAnalysis: analysis },
+      { id: "a-ref", url: "https://img/a.jpg", label: "A", reviewStatus: "approved", trainingAnalysis: analysis },
+      { id: "pending-ref", url: "https://img/p.jpg", label: "P", reviewStatus: "pending_approval", trainingAnalysis: analysis },
+      { id: "unanalyzed-ref", url: "https://img/u.jpg", label: "U", reviewStatus: "approved", trainingAnalysis: null },
+    ];
+    synthesizeState.error = { message: "too many", code: "brandRepertoireSelectionRequired" };
+    render(<BrandKnowledgeReview clientProfileId="profile-1" />);
+
+    expect(screen.getByText("Escolha as referências desta síntese")).toBeVisible();
+    expect(screen.getByText("2 aprovadas — até 48")).toBeVisible();
+    // Only approved, analyzed references are eligible.
+    expect(screen.getByRole("checkbox", { name: /Aa-ref/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Bb-ref/ })).toBeChecked();
+    expect(screen.queryByRole("checkbox", { name: /pending-ref/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /unanalyzed-ref/ })).not.toBeInTheDocument();
+
+    // Unchecking one narrows the retry subset; nothing is dropped silently.
+    fireEvent.click(screen.getByRole("checkbox", { name: /Bb-ref/ }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Sintetizar repertório" })[1]!);
+    expect(mocks.synthesizeRepertoire).toHaveBeenLastCalledWith({ referenceIds: ["a-ref"] });
+  });
+
+  it("caps the default subset at the first 48 by id", () => {
+    const analysis = { description: "d", visualAttributes: [], rules: [], constraints: [], confidence: 1 };
+    assetsState.assets = Array.from({ length: 50 }, (_, index) => ({
+      id: `ref-${String(index).padStart(2, "0")}`,
+      url: `https://img/${index}.jpg`,
+      label: `R${index}`,
+      reviewStatus: "approved",
+      trainingAnalysis: analysis,
+    }));
+    synthesizeState.error = { message: "too many", code: "brandRepertoireSelectionRequired" };
+    render(<BrandKnowledgeReview clientProfileId="profile-1" />);
+
+    const boxes = screen.getAllByRole("checkbox");
+    expect(boxes).toHaveLength(50);
+    expect(boxes.filter((box) => (box as HTMLInputElement).checked)).toHaveLength(48);
+    expect(boxes.filter((box) => (box as HTMLInputElement).disabled)).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole("button", { name: "Sintetizar repertório" })[1]!);
+    const subset = mocks.synthesizeRepertoire.mock.calls.at(-1)?.[0]?.referenceIds as string[];
+    expect(subset).toHaveLength(48);
+    expect(subset).not.toContain("ref-49");
+  });
+
+  it("hides the subset picker for unrelated synthesis errors", () => {
+    synthesizeState.error = { message: "boom" };
+    render(<BrandKnowledgeReview clientProfileId="profile-1" />);
+
+    expect(screen.queryByText("Escolha as referências desta síntese")).not.toBeInTheDocument();
   });
 });

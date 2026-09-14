@@ -16,11 +16,14 @@ import {
   useReviewRepertoire,
   useSynthesizeRepertoire,
   type BrandKnowledgeClaimRecord,
+  type BrandTrainingAssetRecord,
+  type SynthesizeRepertoireError,
 } from "@/lib/hooks/use-brand-training";
 import { BrandCalibrationReview } from "./BrandCalibrationReview";
 import { BrandPeopleReview } from "./BrandPeopleReview";
 import { VisualRepertoireReview } from "./VisualRepertoireReview";
 import { peopleCatalogSchema } from "@/server/brand-training/people";
+import { REPERTOIRE_MAX_SOURCES } from "@/server/brand-training/synthesize-repertoire";
 import { visualRepertoireSchema } from "@/server/brand-training/visual-repertoire";
 
 type KnowledgeFilter = "all" | "review" | "approved" | "archive";
@@ -66,6 +69,8 @@ export function BrandKnowledgeReview({ clientProfileId }: { clientProfileId: str
   if (!data) return null;
 
   const repertoireClaim = data.claims.find((claim) => claim.claimKey === "visual.repertoire");
+  const synthesizeFailure = (synthesize.error ?? null) as SynthesizeRepertoireError | null;
+  const selectionRequired = synthesizeFailure?.code === "brandRepertoireSelectionRequired";
   const repertoireSession = calibration.data?.session;
   const canConfirmRepertoire = Boolean(
     repertoireClaim &&
@@ -119,6 +124,14 @@ export function BrandKnowledgeReview({ clientProfileId }: { clientProfileId: str
           </button>
         ) : null}
       </div>
+
+      {selectionRequired ? (
+        <RepertoireSubsetSelector
+          assets={assets.data ?? []}
+          pending={synthesize.isPending}
+          onRetry={(referenceIds) => synthesize.mutate({ referenceIds })}
+        />
+      ) : null}
 
       <div data-testid="brand-knowledge-strip" className={studioFilterStripClass}>
         <DiscreetRadios
@@ -198,6 +211,93 @@ export function BrandKnowledgeReview({ clientProfileId }: { clientProfileId: str
         </div>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * Explicit subset picker (plan 02, T1): synthesis refuses more than
+ * REPERTOIRE_MAX_SOURCES references instead of silently dropping some, so
+ * the operator picks the subset. Only approved, analyzed references are
+ * eligible; the deterministic default is the first 48 by id.
+ */
+function RepertoireSubsetSelector({
+  assets,
+  pending,
+  onRetry,
+}: {
+  assets: readonly BrandTrainingAssetRecord[];
+  pending: boolean;
+  onRetry: (referenceIds: string[]) => void;
+}) {
+  const t = useTranslations("brandTraining.knowledge");
+  const tCommon = useTranslations("common");
+  const eligible = useMemo(
+    () =>
+      assets
+        .filter((asset) => asset.reviewStatus === "approved" && asset.trainingAnalysis != null)
+        .slice()
+        .sort((left, right) => left.id.localeCompare(right.id)),
+    [assets],
+  );
+  const [override, setOverride] = useState<readonly string[] | null>(null);
+  const selected = override ?? eligible.slice(0, REPERTOIRE_MAX_SOURCES).map((asset) => asset.id);
+  const atCap = selected.length >= REPERTOIRE_MAX_SOURCES;
+  const toggle = (id: string, checked: boolean) => {
+    setOverride(
+      checked ? [...selected, id] : selected.filter((entry) => entry !== id),
+    );
+  };
+
+  if (eligible.length === 0) {
+    return (
+      <p role="alert" className="text-sm text-[var(--danger-text)]">
+        {t("repertoireSelectionEmpty")}
+      </p>
+    );
+  }
+  return (
+    <fieldset className="space-y-3 rounded-[var(--radius-card)] bg-white/4 p-3">
+      <legend className="text-xs font-medium text-[var(--text-secondary)]">
+        {t("repertoireSelectionTitle")}
+      </legend>
+      <p className="text-xs text-[var(--text-muted)]">
+        {t("repertoireSelectionHint", { count: eligible.length, max: REPERTOIRE_MAX_SOURCES })}
+      </p>
+      <ul className="grid max-h-64 gap-1 overflow-y-auto sm:grid-cols-2">
+        {eligible.map((asset) => {
+          const checked = selected.includes(asset.id);
+          return (
+            <li key={asset.id}>
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={pending || (!checked && atCap)}
+                  onChange={(event) => toggle(asset.id, event.target.checked)}
+                />
+                <span className="min-w-0 flex-1 truncate">{asset.label || asset.id}</span>
+                <span className="shrink-0 font-mono text-[10px] text-[var(--text-muted)]">
+                  {asset.id.slice(0, 8)}
+                </span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={pending || selected.length === 0}
+          onClick={() => onRetry([...selected])}
+          className={studioQuietActionClass}
+        >
+          {pending ? t("synthesizingRepertoire") : t("synthesizeRepertoire")}
+        </button>
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
+          {selected.length} {tCommon("selected")}
+        </span>
+      </div>
+    </fieldset>
   );
 }
 

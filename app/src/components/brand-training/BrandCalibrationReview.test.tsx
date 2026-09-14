@@ -42,6 +42,7 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   calibrationNoteLabel: "O que precisa mudar?",
   calibrationNotePlaceholder: "Descreva o ajuste sem presumir a causa",
   calibrationCoverage: `Aspectos cobertos: ${values?.covered ?? ""}`,
+  calibrationUncovered: `Não exercitados: ${values?.uncovered ?? ""}`,
   calibrationFailed: "Falha na geração — este slot não será reposto",
   calibrationRunning: "Gerando…",
   calibrationActivate: "Ativar treinamento validado",
@@ -131,6 +132,7 @@ describe("BrandCalibrationReview", () => {
     render(<BrandCalibrationReview clientProfileId="profile-1" />);
     expect(screen.getByText("Rodada 1 de 3")).toBeVisible();
     expect(screen.getByText("Aspectos cobertos: palette.colors")).toBeVisible();
+    expect(screen.getByText("Não exercitados: —")).toBeVisible();
     expect(screen.getByRole("button", { name: "Ativar treinamento validado" })).toBeDisabled();
 
     const notes = screen.getAllByRole("textbox");
@@ -202,6 +204,18 @@ describe("BrandCalibrationReview", () => {
     for (const button of screen.getAllByRole("button", { name: "Está bom" })) {
       expect(button).toBeDisabled();
     }
+  });
+
+  it("shows the reviewed IDs the four cases leave unexercised", () => {
+    calibrationState.payload = {
+      session: sessionWithRound(1),
+      activeVersionId: null,
+      quoteCredits: 200,
+      uncovered: ["bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb"],
+      examples: [example(0, {}), example(1, {}), example(2, {}), example(3, {})],
+    } as never;
+    render(<BrandCalibrationReview clientProfileId="profile-1" />);
+    expect(screen.getByText("Não exercitados: bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb")).toBeVisible();
   });
 
   it("offers an explicit extension at the ceiling without auto-generating", () => {

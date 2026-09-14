@@ -2883,6 +2883,7 @@
       "calibrationNotePlaceholder": "Describe the adjustment without guessing the cause",
       "calibrationSaveFeedback": "Save rating",
       "calibrationCoverage": "Covered aspects: {covered}",
+      "calibrationUncovered": "Not exercised: {uncovered}",
       "calibrationFailed": "Generation failed — this slot will not be replaced",
       "calibrationRunning": "Generating…",
       "calibrationActivate": "Activate validated training",
@@ -2895,7 +2896,10 @@
       "calibrationWaitingJudgement": "Awaiting judgement of all 4 examples",
       "synthesizeRepertoire": "Synthesize repertoire",
       "synthesizingRepertoire": "Synthesizing repertoire…",
-      "confirmRepertoireSet": "Approve understanding and prepare calibration"
+      "confirmRepertoireSet": "Approve understanding and prepare calibration",
+      "repertoireSelectionTitle": "Choose the references for this synthesis",
+      "repertoireSelectionHint": "{count} approved, analyzed references — select up to {max}; the rest stay out of this synthesis.",
+      "repertoireSelectionEmpty": "No approved, analyzed references available to synthesize."
     },
     "repertoire": {
       "explanation": "Review the visual rules learned across references. The common identity applies to every piece; each language specializes one context.",

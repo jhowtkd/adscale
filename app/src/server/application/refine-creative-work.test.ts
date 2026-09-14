@@ -7,6 +7,14 @@ const listAttempts = vi.hoisted(() => vi.fn());
 const markAttempt = vi.hoisted(() => vi.fn());
 const setState = vi.hoisted(() => vi.fn());
 const revise = vi.hoisted(() => vi.fn());
+const storageGet = vi.hoisted(() => vi.fn());
+const analyzeArtComparisonMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/server/storage", () => ({ objectStorage: { get: storageGet } }));
+vi.mock("@/server/ai/creative-qa", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/ai/creative-qa")>()),
+  analyzeArtComparison: (...args: unknown[]) => analyzeArtComparisonMock(...args),
+}));
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: getWork,
@@ -109,6 +117,10 @@ describe("refineCreativeWork", () => {
     revise.mockResolvedValue({ ok: true, value: { output: { id: "rev-1" } } });
     markAttempt.mockResolvedValue({});
     setState.mockResolvedValue({});
+    storageGet.mockRejectedValue(new Error("missing"));
+    analyzeArtComparisonMock.mockResolvedValue({
+      winner: "tie", reason: "Empate.", fixedIssues: [], regressions: [],
+    });
   });
 
   it("dispatches one revision through the canonical path with the frozen author", async () => {
@@ -237,6 +249,10 @@ describe("refreshArtRefinementState", () => {
     vi.clearAllMocks();
     setState.mockResolvedValue({});
     listAttempts.mockResolvedValue([]);
+    storageGet.mockRejectedValue(new Error("missing"));
+    analyzeArtComparisonMock.mockResolvedValue({
+      winner: "tie", reason: "Empate.", fixedIssues: [], regressions: [],
+    });
   });
 
   it("keeps the previous version on a structural tie and reports ready", async () => {
@@ -298,5 +314,40 @@ describe("refreshArtRefinementState", () => {
     }));
     await refreshArtRefinementState({ workspaceId: "ws-1", workItemId: "work-1" });
     expect(setState).not.toHaveBeenCalled();
+  });
+
+  it("recommends the revision when the multimodal judge prefers it", async () => {
+    storageGet.mockImplementation(async (key: string) => Buffer.from(`img:${key}`));
+    analyzeArtComparisonMock.mockResolvedValue({
+      winner: "after", reason: "Foco unificado.", fixedIssues: ["foco"], regressions: [],
+    });
+    getWork.mockResolvedValue(aggregate({
+      outputs: [
+        output({ id: "root-1", quality: qualityWith(weakCritique) }),
+        output({ id: "rev-1", parentOutputId: "root-1", quality: qualityWith(readyCritique), createdAt: new Date(NOW.getTime() + 1000) }),
+      ],
+    }));
+    await refreshArtRefinementState({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(analyzeArtComparisonMock).toHaveBeenCalledTimes(1);
+    expect(setState).toHaveBeenCalledWith("ws-1", "work-1", expect.objectContaining({
+      recommendedOutputIds: ["rev-1"],
+      status: "ready",
+    }));
+  });
+
+  it("falls back to a structural tie when comparison bytes are unavailable", async () => {
+    storageGet.mockRejectedValueOnce(new Error("missing"));
+    getWork.mockResolvedValue(aggregate({
+      outputs: [
+        output({ id: "root-1", quality: qualityWith(weakCritique) }),
+        output({ id: "rev-1", parentOutputId: "root-1", quality: qualityWith(readyCritique), createdAt: new Date(NOW.getTime() + 1000) }),
+      ],
+    }));
+    await refreshArtRefinementState({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(analyzeArtComparisonMock).not.toHaveBeenCalled();
+    expect(setState).toHaveBeenCalledWith("ws-1", "work-1", expect.objectContaining({
+      recommendedOutputIds: ["root-1"],
+      status: "ready",
+    }));
   });
 });

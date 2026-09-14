@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { creativeWorkVisualDirectionSchema } from "../creative-work/contracts";
 import {
   composeVisualDirection,
   feedbackEvidence,
@@ -256,6 +257,29 @@ describe("composeVisualDirection", () => {
       language,
     });
     expect(direction?.preserve).toEqual(["Nunca usar neon"]);
+  });
+
+  it("é determinística: mesma entrada, mesma direção válida contra o snapshot congelado", () => {
+    const language: VisualLanguage = {
+      id: uuid("2"),
+      name: "Comercial",
+      contexts: ["oferta"],
+      rules: [commonRule({ id: uuid("3"), dimension: "imagery", application: "Fotografia real de produto" })],
+    };
+    const repertoire: VisualRepertoire = { version: 1, common: [commonRule()], languages: [language] };
+    const first = composeVisualDirection({ repertoire, language });
+    const second = composeVisualDirection({
+      repertoire: JSON.parse(JSON.stringify(repertoire)) as VisualRepertoire,
+      language: JSON.parse(JSON.stringify(language)) as VisualLanguage,
+    });
+    // Pure: no randomness, no dates, no provider — repeat calls are identical.
+    expect(second).toEqual(first);
+    expect(first).not.toBeNull();
+    // Every composed direction validates against the frozen snapshot schema…
+    expect(creativeWorkVisualDirectionSchema.safeParse(first).success).toBe(true);
+    // …and every rule id belongs to the frozen repertoire version.
+    const known = new Set([commonRule().id, uuid("3")]);
+    expect(first!.ruleIds.every((id) => known.has(id))).toBe(true);
   });
 
   it("retorna nulo sem regras e limita ruleIds a 30", () => {

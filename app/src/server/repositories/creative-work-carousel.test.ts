@@ -101,6 +101,7 @@ import {
   createCarouselSlideDescendant,
   failCarouselSlide,
   getCreativeWorkCarouselAggregate,
+  listCarouselSlideLineage,
   listCurrentCarouselSlides,
   markCarouselSlideProcessing,
   materializeCarouselSlides,
@@ -298,6 +299,23 @@ describe("carousel slide repository (CAS transitions)", () => {
       expect(result).toEqual(rows);
       expect(serializedCondition(mocks.selectMock.mock.results[0]!.value.where.mock.calls[0]![0])).toMatchObject({
         sql: expect.stringContaining('"is_current"'),
+      });
+    });
+  });
+
+  describe("listCarouselSlideLineage", () => {
+    it("returns every version of one lineage, oldest first", async () => {
+      const rows = [
+        slide({ id: "slide-1", versionNumber: 1 }),
+        slide({ id: "slide-1-v2", parentSlideId: "slide-1", versionNumber: 2 }),
+      ];
+      mocks.state.selectResults.push(rows);
+
+      const result = await listCarouselSlideLineage("ws-1", "work-1", "lineage-1");
+
+      expect(result).toEqual(rows);
+      expect(serializedCondition(mocks.selectMock.mock.results[0]!.value.where.mock.calls[0]![0])).toMatchObject({
+        sql: expect.stringContaining('"lineage_id"'),
       });
     });
   });
@@ -835,6 +853,40 @@ describe("carousel slide repository (CAS transitions)", () => {
       expect(result).toBeNull();
       expect(mocks.updateMock).not.toHaveBeenCalled();
       expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it("persists an optional draft payload such as a pending revision instruction", async () => {
+      const parent = slide({ id: "slide-1", status: "completed" });
+      const child = slide({ id: "slide-1-r2", status: "draft" });
+      mocks.state.selectResults.push([parent]);
+      mocks.state.updateResults.push([{ ...parent, isCurrent: false }]);
+      mocks.state.insertResults.push([child]);
+
+      await createCarouselSlideDescendant({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        parentSlideId: parent.id,
+        deckRevision: "deck-r1",
+        position: 1,
+        role: "hook",
+        primaryText: "Gancho",
+        secondaryText: null,
+        copyAuthority: "ai_proposal",
+        sourceFactIds: [],
+        layoutFamily: "impact",
+        visualContractHash: "contract-hash",
+        generationOperationKey: "rev-1",
+        status: "draft",
+        providerBaseKey: null,
+        outputKey: null,
+        previewKey: null,
+        quality: { revisionInstruction: "Fundo mais claro" },
+      });
+
+      const insertedChild = mocks.valuesMock.mock.calls[0]![0] as Record<string, unknown>;
+      expect(insertedChild).toMatchObject({
+        quality: { revisionInstruction: "Fundo mais claro" },
+      });
     });
   });
 

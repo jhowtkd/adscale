@@ -130,6 +130,7 @@ describe("brand knowledge calibration route", () => {
       assessment: { status: "completed", objective: "pass", rating: "good", needsHumanReview: false },
     });
     expect(body.examples[1].assessment.rating).toBeNull();
+    expect(body.uncovered).toEqual([]);
   });
 
   it("returns an empty review when no session is open", async () => {
@@ -138,7 +139,7 @@ describe("brand knowledge calibration route", () => {
       { params: Promise.resolve({ id: "profile-1" }) },
     );
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ session: null, examples: [] });
+    await expect(response.json()).resolves.toMatchObject({ session: null, examples: [], uncovered: [] });
     expect(mocks.getWork).not.toHaveBeenCalled();
   });
 
