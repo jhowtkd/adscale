@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import type { CreativeComposerViewModel } from "./useCreativeComposer";
@@ -52,15 +53,20 @@ vi.mock("./CreativeResultCard", () => ({
     onApprove: (id: string) => void;
     onDownload: (id: string) => void;
     onRetryThroughReview?: (output: { id: string; parentOutputId?: string | null }) => void;
-  }) => (
-    <div data-testid="result-card-stub" data-output={props.output.id}>
-      <button onClick={() => props.onApprove(props.output.id, false)}>Escolher</button>
-      <button onClick={() => props.onDownload(props.output.id)}>Baixar</button>
-      <button onClick={() => props.onRetryThroughReview?.(props.output)}>
-        revisar-nova-tentativa
-      </button>
-    </div>
-  ),
+  }) => {
+    const [sharedOutputId, setSharedOutputId] = useState<string | null>(null);
+    return (
+      <div data-testid="result-card-stub" data-output={props.output.id}>
+        <button onClick={() => props.onApprove(props.output.id, false)}>Escolher</button>
+        <button onClick={() => props.onDownload(props.output.id)}>Baixar</button>
+        <button onClick={() => props.onRetryThroughReview?.(props.output)}>
+          revisar-nova-tentativa
+        </button>
+        <button onClick={() => setSharedOutputId(props.output.id)}>Compartilhar</button>
+        {sharedOutputId ? <span data-testid="shared-output-id">{sharedOutputId}</span> : null}
+      </div>
+    );
+  },
 }));
 
 vi.mock("next-intl", () => ({
@@ -179,6 +185,20 @@ describe("StudioPieceWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Versão 2 · 4:5" }));
     expect(screen.getByTestId("result-card-stub")).toHaveAttribute("data-output", "child");
     expect(composer.approveOutput).not.toHaveBeenCalled();
+  });
+
+  it("resets output-scoped card state when switching thumbnails", () => {
+    const base = output({ id: "base" });
+    const child = output({ id: "child", parentOutputId: "base", versionNumber: 2 });
+    render(<StudioPieceWorkspace composer={composerMock([base, child])} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Versão 1 · 4:5" }));
+    fireEvent.click(screen.getByRole("button", { name: "Compartilhar" }));
+    expect(screen.getByTestId("shared-output-id")).toHaveTextContent("base");
+
+    fireEvent.click(screen.getByRole("button", { name: "Versão 2 · 4:5" }));
+    expect(screen.queryByTestId("shared-output-id")).not.toBeInTheDocument();
+    expect(screen.getByTestId("result-card-stub")).toHaveAttribute("data-output", "child");
   });
 
   it("keeps the base visible with an explicit status while a queued child is selected", () => {

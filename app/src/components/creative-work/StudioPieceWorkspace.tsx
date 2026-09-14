@@ -351,6 +351,7 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
 
       <footer className={styles.dock}>
         <CreativeResultCard
+          key={selected.id}
           presentation="workspace"
           output={selected}
           label={versionLabel}
