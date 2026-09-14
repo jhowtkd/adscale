@@ -334,7 +334,8 @@ export async function prepareCreativeWork(input: {
     const briefingPeople = resolveBriefingPeople({
       catalog,
       personIds: preparation.data.settings.personIds,
-      text: briefingText,
+      // Calibration only exercises the people explicitly selected by its case plan.
+      text: calibrationCandidate ? "" : briefingText,
       textOnly: preparation.data.settings.personTextOnly,
     });
     if (!briefingPeople.ok) {

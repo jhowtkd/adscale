@@ -1,7 +1,7 @@
+import { artRefinementParentHash } from "@/server/creative-work/art-refinement-parent-hash";
 import { getCreativeWorkObjectiveVerdict, getCreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
 import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import {
-  artRefinementParentHash,
   chooseBestCandidate,
   resolveArtCritique,
   shouldRefine,

@@ -23,7 +23,7 @@ import {
   user,
   workspaces,
 } from "@/server/db/schema";
-import { artRefinementParentHash } from "@/server/creative-work/art-refinement";
+import { artRefinementParentHash } from "@/server/creative-work/art-refinement-parent-hash";
 import {
   claimArtRefinementSlideAttempt,
   claimArtRefinementSlideUnits,
