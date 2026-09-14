@@ -1,4 +1,5 @@
 export type LibraryV6AssetKind = "reference" | "logo" | "photo" | "generated";
+export type LibraryV6Filter = "all" | LibraryV6AssetKind | "favorite";
 
 export type LibraryV6Asset = {
   id: string;
@@ -33,6 +34,7 @@ export type LibraryV6Labels = {
   filterLogo: string;
   filterPhoto: string;
   filterGenerated: string;
+  filterFavorite: string;
   countSummary: string;
   deleteAsset: string;
   previewLoading: string;

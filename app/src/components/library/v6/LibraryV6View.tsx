@@ -16,9 +16,7 @@ import {
   studioQuietActionClass,
   studioSearchClass,
 } from "@/components/dashboard/studio-stage/StudioInstrument";
-import type { LibraryV6Asset, LibraryV6Labels } from "./library-v6-types";
-
-type LibraryV6Filter = "all" | LibraryV6Asset["kind"];
+import type { LibraryV6Asset, LibraryV6Filter, LibraryV6Labels } from "./library-v6-types";
 
 type LibraryV6ViewProps = {
   labels: LibraryV6Labels;
@@ -169,6 +167,7 @@ export default function LibraryV6View({
               { value: "logo", label: labels.filterLogo },
               { value: "photo", label: labels.filterPhoto },
               { value: "generated", label: labels.filterGenerated },
+              { value: "favorite", label: labels.filterFavorite },
             ]}
           />
           <p

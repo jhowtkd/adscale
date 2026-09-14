@@ -4,6 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/hooks/use-piece-review-share", () => ({
   useSharePieceReview: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
+vi.mock("@/lib/hooks/use-piece-favorite", () => ({
+  usePieceFavorite: () => ({ isFavorite: false, isPending: false, toggle: vi.fn() }),
+}));
 vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
   default: ({ id }: { id?: string }) => <select id={id ?? "active-brand-switcher"} aria-label="Marca ativa"><option>Escolha</option></select>,
 }));
@@ -329,8 +332,8 @@ describe("CreativeComposer", () => {
     renderComposer(value);
 
     expect(screen.getByText("Leitura da IA")).toBeInTheDocument();
-    expect(screen.getByText(/Produto: Tênis/)).toBeInTheDocument();
-    expect(screen.getByText(/Clima: urbano/)).toBeInTheDocument();
+    expect(screen.getByTestId("variation-analysis-summary")).toHaveTextContent("Produto: Tênis");
+    expect(screen.getByTestId("variation-analysis-summary")).toHaveTextContent("Clima: urbano");
 
     expect(
       screen.queryByRole("textbox", { name: "O que você quer variar?" }),
@@ -354,7 +357,7 @@ describe("CreativeComposer", () => {
 
     expect(action.textContent?.toLowerCase()).not.toMatch(/crédito|credit/);
 
-    expect(workspace).toHaveClass("items-start", "lg:grid-cols-2");
+    expect(workspace).toHaveClass("lg:grid-cols-2", "lg:items-stretch");
     expect(referenceAndContext).toContainElement(screen.getByRole("img", { name: "arte.png" }));
     expect(referenceAndContext).toContainElement(context);
     expect(guidance).toContainElement(directions);
@@ -856,13 +859,11 @@ describe("CreativeComposer", () => {
     expect(screen.getByRole("combobox", { name: "Fonte da marca" })).toBeDisabled();
   });
 
-  it("explains format settings without attaching redundant help to generation", async () => {
+  it("explains format settings without attaching redundant help to generation", () => {
     renderComposer(composer({ intent: "format_adaptation", targetFormats: ["1:1"] }));
 
-    const targetFormatsHelp = screen.getByRole("button", { name: "Ajuda sobre formatos de destino" });
-    fireEvent.pointerDown(targetFormatsHelp, { pointerType: "touch" });
-    fireEvent.click(targetFormatsHelp);
-    expect(await screen.findByRole("tooltip")).toHaveTextContent("Cria uma versão para cada formato marcado.");
+    expect(screen.getByText(/Cria uma versão para cada formato marcado/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Ajuda sobre formatos de destino" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Ajuda sobre (Adicionar|Remover|Tentar novamente|Gerar)/i })).not.toBeInTheDocument();
   });
 

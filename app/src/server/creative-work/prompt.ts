@@ -61,7 +61,16 @@ function buildFixedContract(
     `BODY: "${input.copy.body}"`,
     `CTA: "${input.copy.cta}"`,
     "Do not paraphrase, translate, omit, or add visible copy.",
-    "Exact assets will be composited after generation; leave clean space at their declared placements.",
+    "The application composites official brand marks after generation. Do not draw logos, wordmarks, signature plates, empty frames, dashed boxes, construction guides or placeholder plates.",
+  ].join("\n");
+}
+
+function buildVisibleCopyContract(): string {
+  return [
+    "VISIBLE COPY CONTRACT:",
+    "The only text that may appear on the canvas is HEADLINE, BODY and CTA from FIXED CONTRACT. Render them as finished advertising copy, not as labeled fields or captions.",
+    "REQUEST, FACT PACK, BRIEF and source analysis are production context. Do not dump them onto the canvas.",
+    "Do not repeat the same offer sentence in headline, body and CTA. A short echo between HEADLINE and CTA is allowed when it reads as a call to action.",
   ].join("\n");
 }
 
@@ -326,7 +335,8 @@ function buildReservedPlacementsBlock(
     "RESERVED PLACEMENTS — PROVIDER EXCLUSION (HIGHEST PRIORITY):",
     "The exact assets below belong only to the application composition layer.",
     "Do not draw, trace, imitate, preserve, or repeat these assets in provider-generated pixels, even when one is visible in a content/reference image or named as a required brand element.",
-    "Leave each declared placement clean; the application will composite every exact asset once after generation.",
+    "Return a finished canvas. Never render dashed boxes, empty frames, construction guides, blank plates or leftover layout scaffolding at these placements.",
+    "The official mark is composited once after generation; do not render it.",
   ];
   for (const asset of exactAssets) {
     if (!asset.placement) {
@@ -337,7 +347,7 @@ function buildReservedPlacementsBlock(
     }
     const { gravity, widthRatio } = asset.placement;
     lines.push(
-      `- ${providerSafe ? "exact application asset" : asset.label} (${asset.category}, ref=${asset.referenceId}): keep clean space at gravity=${gravity}, width=${widthRatio.toFixed(2)} of canvas${!providerSafe && asset.compositionInstruction ? `; operator composition guidance=${asset.compositionInstruction}` : ""}`,
+      `- ${providerSafe ? "exact application asset" : asset.label} (${asset.category}, ref=${asset.referenceId}): official mark; do not render it. Application overlay gravity=${gravity}, width=${widthRatio.toFixed(2)} of canvas${!providerSafe && asset.compositionInstruction ? `; operator composition guidance=${asset.compositionInstruction}` : ""}`,
     );
   }
   return lines.join("\n");
@@ -381,6 +391,8 @@ export function buildSocialPostPrompt(input: BuildSocialPostPromptInput): string
     CREATIVE_LEVEL_DIRECTIONS[creativeLevel],
     "",
     fixedContract,
+    "",
+    buildVisibleCopyContract(),
     "",
     sourceAnalysisBlock,
     "",
@@ -506,6 +518,12 @@ function buildReferenceRolesBlock(
   lines.push(
     "The numbering above is positional: image #1 is the first attached image, #2 the second, and so on, in the exact order listed.",
   );
+  if (references.some((slot) => slot.role === "content")) {
+    lines.push(
+      "CONTENT references supply subject, composition and campaign facts only.",
+      "Do not copy visible logos, wordmarks, signature plates, dashed construction guides or empty frames from content art; the application composites the official mark once.",
+    );
+  }
   if (references.some((slot) => slot.role === "brand_identity")) {
     lines.push(
       "BRAND IDENTITY references transfer ONLY abstract visual attributes: palette, hierarchy, rhythm, media treatment and atmosphere.",
@@ -644,6 +662,8 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
     factPackBlock,
     "",
     fixedContract,
+    "",
+    buildVisibleCopyContract(),
     "",
     modePolicyBlock,
     "",

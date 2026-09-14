@@ -687,6 +687,13 @@
       "when": 1789228800000,
       "tag": "0096_creative_work_preparation_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1789401600000,
+      "tag": "0098_piece_favorites",
+      "breakpoints": true
     }
   ]
 }

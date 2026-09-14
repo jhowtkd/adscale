@@ -248,7 +248,7 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByRole("link", { name: "Novo trabalho" }));
     expect(screen.getByRole("link", { name: "Novo trabalho" })).toHaveAttribute("href", "/?mode=arte&compose=1&fresh=1");
     expect(screen.getByTestId("stage-brand-bar")).toContainElement(screen.getByTestId("active-client-switcher"));
-    expect(screen.getAllByRole("radio")).toHaveLength(4);
+    expect(within(protocols!).getAllByRole("radio")).toHaveLength(4);
     expect(within(screen.getByTestId("studio-talk-box")).getByTestId("creative-composer")).toBeInTheDocument();
     expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
     expect(screen.queryByText("dashboard.home.chooseIntent")).not.toBeInTheDocument();
@@ -359,6 +359,7 @@ describe("DashboardHomeActions", () => {
       initialIntent: undefined,
       focusComposer: false,
       initialTemplateId: undefined,
+      onGenerationAccepted: expect.any(Function),
     });
     expect(protocolButton("single")).toHaveAttribute("aria-checked", "true");
     expect(screen.getByTestId("creative-composer")).toBeInTheDocument();
@@ -375,7 +376,7 @@ describe("DashboardHomeActions", () => {
     render(<DashboardHomeActions />);
     expect(useComposerMock).toHaveBeenCalledWith(expect.objectContaining({ initialIntent: "single" }));
     expect(screen.getByTestId("studio-talk-box")).toHaveAttribute("data-placement", "center");
-    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "dashboard.home.title" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Começar" })).toBeInTheDocument();
     expect(screen.getByTestId("creative-composer")).toHaveTextContent("single:5");
   });
@@ -423,7 +424,7 @@ describe("DashboardHomeActions", () => {
   it("keeps protocol radios reachable once a work occupies the stage", () => {
     render(<DashboardHomeActions workId="opened-work" />);
     expect(screen.getByTestId("studio-talk-box")).toHaveAttribute("data-placement", "dock");
-    expect(screen.getByRole("radiogroup")).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: "dashboard.home.title" })).toBeInTheDocument();
   });
 
   it("keeps the composer linked to every creation protocol once work exists", () => {
@@ -489,6 +490,7 @@ describe("DashboardHomeActions", () => {
       initialIntent: "restyle",
       focusComposer: true,
       initialTemplateId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      onGenerationAccepted: expect.any(Function),
     });
   });
 
@@ -611,11 +613,11 @@ describe("DashboardHomeActions", () => {
 
     render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
     expect(screen.getByTestId("studio-stage")).toBeInTheDocument();
-    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "dashboard.home.title" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "dashboard.home.chooseObjective" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "dashboard.home.composer.requestLabel" }), { target: { value: "Uma campanha" } });
-    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "dashboard.home.title" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("brand-inspirations-slot")).not.toBeInTheDocument();
   });
 
@@ -729,8 +731,8 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("studio-desk")).not.toHaveAttribute("inert");
     expect(screen.getByTestId("studio-mosaic")).toBeVisible();
     expect(within(screen.getByTestId("studio-mosaic")).getAllByRole("button", { name: "Inspiração visível" }).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("button", { name: "Produção", exact: true }));
-    expect(screen.getByRole("button", { name: "Produção", exact: true })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("radio", { name: "Produção" }));
+    expect(screen.getByRole("radio", { name: "Produção" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByTestId("studio-mosaic")).toBeVisible();
     expect(within(screen.getByTestId("studio-mosaic")).getByRole("button", { name: "Peça produzida" })).toBeVisible();
     expect(within(screen.getByTestId("studio-mosaic")).queryByRole("button", { name: "Inspiração visível" })).not.toBeInTheDocument();
@@ -741,6 +743,52 @@ describe("DashboardHomeActions", () => {
     expect(screen.getByTestId("progressive-results-summary")).not.toHaveTextContent("work-1");
     expect(screen.queryByRole("button", { name: "Inspirações p1" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /restyle/i })).not.toBeInTheDocument();
+  });
+
+  it("abre Produção somente quando a geração é aceita", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    const originalScroll = HTMLElement.prototype.scrollIntoView;
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    try {
+      render(<DashboardHomeActions workspaceId="ws" />);
+      expect(screen.getByRole("radio", { name: "Inspirações" })).toHaveAttribute("aria-checked", "true");
+      const options = useComposerMock.mock.calls.at(-1)?.[0] as { onGenerationAccepted?: () => void };
+      act(() => options.onGenerationAccepted?.());
+      expect(screen.getByRole("radio", { name: "Produção" })).toHaveAttribute("aria-checked", "true");
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScroll;
+    }
+  });
+
+  it("não rola a mesa enquanto o pedido está sendo editado", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    const originalScroll = HTMLElement.prototype.scrollIntoView;
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    try {
+      render(<DashboardHomeActions workspaceId="ws" />);
+      const request = screen.getAllByRole("textbox").find((node) => node.tagName === "TEXTAREA");
+      expect(request).toBeDefined();
+      request!.focus();
+      const options = useComposerMock.mock.calls.at(-1)?.[0] as { onGenerationAccepted?: () => void };
+      act(() => options.onGenerationAccepted?.());
+      expect(screen.getByRole("radio", { name: "Produção" })).toHaveAttribute("aria-checked", "true");
+      expect(scrollIntoView).not.toHaveBeenCalled();
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScroll;
+    }
+  });
+
+  it("alterna Inspirações e Produção com as setas do teclado", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    render(<DashboardHomeActions workspaceId="ws" />);
+    screen.getByRole("radio", { name: "Inspirações" }).focus();
+    fireEvent.keyDown(screen.getByRole("radiogroup", { name: "Conteúdo da mesa" }), { key: "ArrowRight" });
+    expect(screen.getByRole("radio", { name: "Produção" })).toHaveAttribute("aria-checked", "true");
+    fireEvent.keyDown(screen.getByRole("radiogroup", { name: "Conteúdo da mesa" }), { key: "ArrowLeft" });
+    expect(screen.getByRole("radio", { name: "Inspirações" })).toHaveAttribute("aria-checked", "true");
   });
 
   it("marks an all-failed progressive result distinctly while keeping its controls reachable", () => {
@@ -1126,7 +1174,7 @@ describe("DashboardHomeActions", () => {
     render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
     const talkBox = screen.getByTestId("studio-talk-box");
     expect(talkBox).toHaveAttribute("data-placement", "center");
-    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "dashboard.home.title" })).not.toBeInTheDocument();
     expect(screen.getByTestId("studio-dock")).toContainElement(talkBox);
   });
 
@@ -1160,7 +1208,7 @@ describe("DashboardHomeActions", () => {
     });
     render(<DashboardHomeActions rolloutVariant="progressive" workspaceId="ws" />);
     expect(screen.getByTestId("studio-talk-box")).toHaveAttribute("data-placement", "center");
-    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "dashboard.home.title" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Começar" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Começar" }));
     expect(generateLegacy).toHaveBeenCalled();
@@ -1241,7 +1289,7 @@ describe("DashboardHomeActions", () => {
     });
 
     render(<DashboardHomeActions workspaceId="ws" />);
-    fireEvent.click(screen.getByRole("button", { name: "Produção", exact: true }));
+    fireEvent.click(screen.getByRole("radio", { name: "Produção" }));
 
     expect(generateLegacy).not.toHaveBeenCalled();
     expect(preparePlan).not.toHaveBeenCalled();
@@ -1294,7 +1342,7 @@ describe("DashboardHomeActions", () => {
     });
 
     render(<DashboardHomeActions workspaceId="ws" />);
-    fireEvent.click(screen.getByRole("button", { name: "Produção", exact: true }));
+    fireEvent.click(screen.getByRole("radio", { name: "Produção" }));
     fireEvent.click(screen.getByRole("button", { name: "Peça produzida" }));
 
     expect(pushMock).toHaveBeenCalledWith("/campaigns/campaign-a?creativeWork=w1");
@@ -1354,7 +1402,7 @@ describe("DashboardHomeActions", () => {
     });
 
     const view = render(<DashboardHomeActions workspaceId="ws" />);
-    fireEvent.click(screen.getByRole("button", { name: "Produção", exact: true }));
+    fireEvent.click(screen.getByRole("radio", { name: "Produção" }));
     expect(screen.getByRole("button", { name: "Peça A 1" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Próximas peças" }));
     expect(fetchNextPage).toHaveBeenCalledTimes(1);
@@ -1424,7 +1472,7 @@ describe("DashboardHomeActions", () => {
     });
 
     render(<DashboardHomeActions workspaceId="ws" />);
-    fireEvent.click(screen.getByRole("button", { name: "Produção", exact: true }));
+    fireEvent.click(screen.getByRole("radio", { name: "Produção" }));
     const next = screen.getByRole("button", { name: "Próximas peças" });
     expect(next).toBeEnabled();
     fireEvent.click(next);

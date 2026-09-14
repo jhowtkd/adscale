@@ -124,9 +124,11 @@ describe("CreativeVariationBrief", () => {
     // textarea was removed so it no longer competes with the manual direction.
     render(<CreativeVariationBrief source={source} />);
 
-    expect(
-      screen.queryByRole("textbox", { name: "O que você quer variar?" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "O que você quer variar?" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("variation-analysis-summary")).toHaveTextContent(
+      "Produto: Curso de Psiquiatria · Headline: Nova turma em agosto · Oferta: Vagas limitadas · CTA: Inscreva-se",
+    );
+    expect(screen.getByTestId("variation-analysis-summary")).toBeVisible();
   });
 
   it("shows localized fields, literal text, palette samples, mood chips, and composition schematic", () => {

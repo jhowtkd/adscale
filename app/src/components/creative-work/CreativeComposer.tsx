@@ -4,11 +4,10 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { Check, Paperclip, Sparkles } from "lucide-react";
+import { Paperclip, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { AnimatedDisplayValue } from "@/components/animations/AnimatedDisplayValue";
-import { ContextualHelp } from "@/components/ui/contextual-help";
 import { CreativeSourceChip } from "./CreativeSourceChip";
 import { PieceReferenceStrip } from "./PieceReferenceStrip";
 import { CreativeSourcePreviewCard } from "./CreativeSourcePreviewCard";
@@ -157,11 +156,11 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
   ] : [];
   const variationDirections = isVariations && directions ? (
     <fieldset
-      className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-5"
+      className="flex h-full flex-col rounded-[var(--radius-object)] border border-white/10 bg-white/[0.03] p-4"
       data-testid="variation-directions-region"
     >
-      <legend className="px-1 text-sm font-semibold text-[var(--text-primary)]">{t("directionsTitle")}</legend>
-      <p className="mt-1 max-w-2xl text-sm leading-5 text-[var(--text-muted)]">{t("directionsHint")}</p>
+      <legend className="px-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">{t("directionsTitle")}</legend>
+      <p className="mt-1 max-w-2xl text-sm leading-5 text-[var(--text-secondary)]">{t("directionsHint")}</p>
       {composer.directionSuggestionState === "loading" ? (
         <p className="mt-2 text-xs text-[var(--text-muted)]" role="status">{t("directionsLoading")}</p>
       ) : null}
@@ -184,17 +183,10 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
                 fillsLastRow && "sm:col-span-2",
                 selected
                   ? "border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--selection-text)] ring-1 ring-inset ring-[var(--selection-border)]"
-                  : "border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-inset)]",
+                  : "border-transparent bg-white/[0.04] text-[var(--text-secondary)] hover:bg-white/8",
               )}
             >
-              <span className="flex items-start justify-between gap-3">
-                <span className="text-sm font-semibold text-[var(--text-primary)]">{direction.label}</span>
-                {selected ? (
-                  <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--selection-text)] text-[var(--surface-base)]">
-                    <Check size={12} strokeWidth={2.5} aria-hidden="true" />
-                  </span>
-                ) : null}
-              </span>
+              <span className="text-sm font-semibold text-[var(--text-primary)]">{direction.label}</span>
               <span className="mt-2 block text-xs leading-5 text-[var(--text-secondary)]">{direction.instruction}</span>
             </button>
           );
@@ -551,10 +543,10 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
       {isVariations && composer.sources.length > 0 ? (
         <section
           aria-label={t("variationsTitle")}
-          className="grid min-w-0 items-start gap-4 lg:grid-cols-2"
+          className="grid min-w-0 items-start gap-4 lg:grid-cols-2 lg:items-stretch"
           data-testid="variation-workspace"
         >
-          <div className="min-w-0 space-y-4" data-testid="variation-reference-context">
+          <div className="flex h-full min-w-0 flex-col space-y-4" data-testid="variation-reference-context">
             {composer.sources.map((source) => (
               <CreativeSourceChip
                 key={source.id}
@@ -579,7 +571,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
               />
             ) : null}
           </div>
-          <div className="min-w-0 space-y-4" data-testid="variation-guidance">
+          <div className="flex h-full min-w-0 flex-col space-y-4" data-testid="variation-guidance">
             {variationDirections}
           </div>
         </section>
@@ -738,13 +730,9 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
       {isFormatAdaptation ? (
         <fieldset className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4">
           <legend className="px-1 text-sm font-medium text-[var(--text-primary)]">
-            <span className="inline-flex items-center gap-2">
-              {t("targetFormats")}
-              <ContextualHelp label={t("targetFormatsHelpLabel")}>
-                {t("targetFormatsHelp")}
-              </ContextualHelp>
-            </span>
+            {t("targetFormats")}
           </legend>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">{t("targetFormatsHelp")}</p>
           <div className="mt-2 flex flex-wrap gap-3">
             {FORMATS.map((value) => (
               <label key={value} className="inline-flex items-center gap-2 text-sm text-[var(--text-primary)]">
@@ -760,11 +748,9 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         </summary>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="text-sm text-[var(--text-secondary)]">
-            <div className="mb-1 flex items-center gap-2">
+            <div className="mb-1">
               <label htmlFor="creative-composer-format">{t("format")}</label>
-              <ContextualHelp label={t("formatHelpLabel")}>
-                {t("formatHelp")}
-              </ContextualHelp>
+              <p className="mt-0.5 text-xs text-[var(--text-muted)]">{t("formatHelp")}</p>
             </div>
             <select
               id="creative-composer-format"
@@ -825,13 +811,9 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           ) : null}
           <fieldset>
             <legend className="mb-1 text-sm text-[var(--text-secondary)]">
-              <span className="inline-flex items-center gap-2">
-                {t("targetFormats")}
-                <ContextualHelp label={t("targetFormatsHelpLabel")}>
-                  {t("targetFormatsHelp")}
-                </ContextualHelp>
-              </span>
+              {t("targetFormats")}
             </legend>
+            <p className="mb-2 text-xs text-[var(--text-muted)]">{t("targetFormatsHelp")}</p>
             <div className="flex flex-wrap gap-3">
               {FORMATS.map((value) => (
                 <label key={value} className="inline-flex items-center gap-2 text-sm text-[var(--text-primary)]">

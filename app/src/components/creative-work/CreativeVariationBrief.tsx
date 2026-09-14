@@ -68,6 +68,10 @@ export function CreativeVariationBrief({
 
   const content = source.usage === "style" ? null : draft.contentAnalysis;
   const style = draft.styleAnalysis;
+  const collapsedSummary = joinParts([
+    content ? summarizeVariationContent({ contentAnalysis: content }) : null,
+    style ? summarizeVariationStyle({ styleAnalysis: style }) : null,
+  ]);
   const unknown = t("unknownValue");
   const setContentField = (field: "product" | "offer" | "keyVisual", value: string) => {
     if (!draft.contentAnalysis) return;
@@ -108,10 +112,15 @@ export function CreativeVariationBrief({
   return (
     <section aria-labelledby="variation-analysis-title">
       <details className="group">
-      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-full py-1.5 text-[var(--text-muted)] marker:content-none hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none flex-col items-start gap-1 rounded-full py-1.5 text-[var(--text-muted)] marker:content-none hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] [&::-webkit-details-marker]:hidden">
         <h2 id="variation-analysis-title" className="text-xs font-medium uppercase tracking-[0.14em]">
           {t("variationAnalysisTitle")}
         </h2>
+        {collapsedSummary ? (
+          <p data-testid="variation-analysis-summary" className="max-w-prose text-left text-xs font-normal normal-case tracking-normal text-[var(--text-secondary)] line-clamp-2">
+            {collapsedSummary}
+          </p>
+        ) : null}
       </summary>
       <div className="mt-4 space-y-4">
       {onSave && !editing ? (

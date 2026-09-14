@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Layers } from "lucide-react";
+import { Layers, Star } from "lucide-react";
 import {
   categorizeCreativeWorkFailure,
   isCreativeWorkRetryEligible,
@@ -15,6 +15,8 @@ import {
 import { isVisualRecipeCandidate } from "@/server/creative-work/visual-recipe";
 import { ActionStatusIcon } from "@/components/animations/ActionStatusIcon";
 import { copyTextToClipboard, useSharePieceReview } from "@/lib/hooks/use-piece-review-share";
+import { usePieceFavorite } from "@/lib/hooks/use-piece-favorite";
+import { studioPrimaryActionClass, studioQuietActionClass } from "@/components/dashboard/studio-stage/StudioInstrument";
 import type {
   DeterministicBrandFidelityReport,
   ResidualBrandFidelityReview,
@@ -43,7 +45,7 @@ type CreativeResultCardProps = {
   isMobile?: boolean;
 };
 
-const actionClass = "inline-flex min-h-[var(--control-touch)] flex-1 items-center justify-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] disabled:cursor-not-allowed disabled:opacity-60";
+const secondaryActionClass = `${studioQuietActionClass} min-h-[var(--control-touch)] rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm`;
 
 export function CreativeResultCard({
   output,
@@ -70,11 +72,12 @@ export function CreativeResultCard({
   const [submitting, setSubmitting] = useState(false);
   const [confirmingSelection, setConfirmingSelection] = useState(false);
   const [reviewShare, setReviewShare] = useState<{ url: string; copied: boolean } | null>(null);
-  const shareReview = useSharePieceReview();
   const [saveAsRecipe, setSaveAsRecipe] = useState(false);
   const t = useTranslations("dashboard.home.composer.results");
   const statusLabel = (status: CreativeWorkOutput["status"]) => t(`status.${status}`);
   const isCompleted = output.status === "completed" && (output.hasOutput ?? Boolean(output.outputKey));
+  const shareReview = useSharePieceReview();
+  const favorite = usePieceFavorite(output.workItemId, output.id, isCompleted);
   const isRevision = Boolean(output.parentOutputId);
   // R-008: failure categories are stable and typed; the free retry exists
   // only while the durable image-call budget has a call (R-006).
@@ -125,8 +128,24 @@ export function CreativeResultCard({
           <span data-testid="proposal-level-name">{label}</span>
           <span className="ml-1 text-[var(--text-muted)]">· {output.targetFormat ?? "4:5"} · {t("variationShort", { count: output.versionNumber ?? 1 })}</span>
         </p>
-        <span className="rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-[var(--text-caption)] uppercase tracking-wider text-[var(--text-muted)]">
-          {statusLabel(output.status)}
+        <span className="flex items-center gap-2">
+          {isCompleted ? (
+            <button
+              type="button"
+              data-testid="favorite-piece"
+              aria-pressed={favorite.isFavorite}
+              aria-label={favorite.isFavorite ? t("unfavorite") : t("favorite")}
+              title={favorite.isFavorite ? t("unfavoriteHint") : t("favoriteHint")}
+              disabled={favorite.isPending}
+              onClick={() => favorite.toggle()}
+              className={studioQuietActionClass}
+            >
+              <Star className="size-4" fill={favorite.isFavorite ? "currentColor" : "none"} aria-hidden="true" />
+            </button>
+          ) : null}
+          <span className="rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-[var(--text-caption)] uppercase tracking-wider text-[var(--text-muted)]">
+            {statusLabel(output.status)}
+          </span>
         </span>
       </header>
 
@@ -235,12 +254,12 @@ export function CreativeResultCard({
       {output.status === "failed" ? (
         isRevision ? (
           onRetryRevision ? (
-            <button type="button" className={actionClass} disabled={isRevising} onClick={() => onRetryRevision(output)}>
+            <button type="button" className={secondaryActionClass} disabled={isRevising} onClick={() => onRetryRevision(output)}>
               {t("retry")}
             </button>
           ) : null
         ) : retryEligible ? (
-          <button type="button" className={actionClass} disabled={isRetrying} onClick={() => onRetry(output.id)}>
+          <button type="button" className={secondaryActionClass} disabled={isRetrying} onClick={() => onRetry(output.id)}>
             {t("retryProposal")}
           </button>
         ) : (
@@ -250,11 +269,12 @@ export function CreativeResultCard({
 
       {isCompleted ? (
         <>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-2">
             {selectionPolicy?.selectable ? (
               <button
                 type="button"
-                className={actionClass}
+                className={studioPrimaryActionClass}
+                title={t("approveHint")}
                 aria-busy={isApproving}
                 disabled={isApproving || output.isSelected}
                 onClick={() => {
@@ -278,11 +298,13 @@ export function CreativeResultCard({
                         : t("approve")}
               </button>
             ) : null}
-            <button type="button" className={actionClass} onClick={() => onDownload(output.id)}>{t("download")}</button>
+            <div className="flex flex-wrap gap-2">
+            <button type="button" className={secondaryActionClass} title={t("downloadHint")} onClick={() => onDownload(output.id)}>{t("download")}</button>
             <button
               type="button"
-              className={actionClass}
+              className={secondaryActionClass}
               data-testid="share-for-review"
+              title={t("shareHint")}
               disabled={shareReview.isPending}
               onClick={() => {
                 if (reviewShare) {
@@ -305,13 +327,14 @@ export function CreativeResultCard({
                     : t("shareForReview")}
             </button>
             {canOpenEditor ? (
-              <button type="button" className={actionClass} disabled={editDisabled} onClick={() => onOpenLayerEditor?.(output.id)}>
+              <button type="button" className={secondaryActionClass} disabled={editDisabled} onClick={() => onOpenLayerEditor?.(output.id)}>
                 <Layers className="size-4" aria-hidden="true" />
                 {t("editImage")}
               </button>
             ) : null}
-            {layerization?.status === "completed" && onDownloadLayerized ? <button type="button" className={`${actionClass} border-[var(--focus-ring)]`} onClick={() => onDownloadLayerized(output.id, "psd")}>{t("downloadPsdWithLayers", { count: layerization.layers.length })}</button> : null}
-            {onRevise ? <button type="button" className={actionClass} aria-expanded={editing} onClick={() => setEditing((value) => !value)}>{t("refine")}</button> : null}
+            {layerization?.status === "completed" && onDownloadLayerized ? <button type="button" className={`${secondaryActionClass} border-[var(--focus-ring)]`} onClick={() => onDownloadLayerized(output.id, "psd")}>{t("downloadPsdWithLayers", { count: layerization.layers.length })}</button> : null}
+            {onRevise ? <button type="button" className={secondaryActionClass} title={t("refineHint")} aria-expanded={editing} onClick={() => setEditing((value) => !value)}>{t("refine")}</button> : null}
+            </div>
           </div>
           {reviewShare ? (
             <div data-testid="review-share-url-panel" className="space-y-2">
@@ -376,7 +399,7 @@ export function CreativeResultCard({
                   className="mt-2 block w-full text-xs"
                 />
               </label>
-              <button type="submit" className={actionClass} disabled={!instruction.trim() || isRevising || submitting}>
+              <button type="submit" className={studioPrimaryActionClass} disabled={!instruction.trim() || isRevising || submitting}>
                 {t("generateVariation")}
               </button>
             </form>

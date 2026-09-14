@@ -20,6 +20,7 @@ const labels: LibraryV6Labels = {
   filterLogo: "Logo",
   filterPhoto: "Fotografia",
   filterGenerated: "Gerado",
+  filterFavorite: "Favoritos",
   countSummary: "{shown} de {total}",
   deleteAsset: "Excluir asset",
   previewLoading: "Carregando preview",
@@ -96,6 +97,8 @@ describe("LibraryV6View visual role contract", () => {
 
     fireEvent.click(screen.getByRole("radio", { name: "Gerado" }));
     expect(onFilterChange).toHaveBeenCalledWith("generated");
+    fireEvent.click(screen.getByRole("radio", { name: "Favoritos" }));
+    expect(onFilterChange).toHaveBeenCalledWith("favorite");
   });
 
   it("keeps loading, ready, error, retry, and no-preview states distinct", async () => {

@@ -11,7 +11,8 @@ import { CreativeComposer } from "@/components/creative-work/CreativeComposer";
 import { CreativePlanReview } from "@/components/creative-work/CreativePlanReview";
 import { useCreativeComposer, type ComposerIntent } from "@/components/creative-work/useCreativeComposer";
 import { BrandStageHome } from "@/components/dashboard/studio-stage/BrandStageHome";
-import { studioChipClass } from "@/components/dashboard/studio-stage/StudioInstrument";
+import { studioChipClass, studioSwitcherClass } from "@/components/dashboard/studio-stage/StudioInstrument";
+import { protocolRadioClass, protocolShineFill } from "@/components/dashboard/studio-stage/ProtocolRadios";
 import { TalkBox } from "@/components/dashboard/studio-stage/TalkBox";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { resolveContinueWork, type ContinueWorkTarget } from "@/lib/dashboard/resolve-continue-work";
@@ -36,6 +37,18 @@ import { getOrCreateStudioSession, type StudioRolloutVariant } from "@/lib/beta-
 
 function toTimestamp(value: Date | string) {
   return value instanceof Date ? value.getTime() : new Date(value).getTime();
+}
+
+function followStudioGeneration() {
+  const editing = document.activeElement;
+  const skipScroll =
+    editing instanceof HTMLElement
+    && (editing.tagName === "INPUT" || editing.tagName === "TEXTAREA" || editing.isContentEditable);
+  const anchor = document.getElementById("studio-production-anchor");
+  if (!anchor || skipScroll || typeof anchor.scrollIntoView !== "function") return;
+  const reduceMotion = typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  anchor.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "nearest" });
 }
 
 function ContinueWorkThumbnail({ outputs, className }: { outputs: CreativeWorkOutput[]; className?: string }) {
@@ -225,6 +238,11 @@ export default function DashboardHomeActions({
     () => workspaceId ? getOrCreateStudioSession(workspaceId, undefined, undefined, rolloutVariant) : null,
     [rolloutVariant, workspaceId],
   );
+  const [deskView, setDeskView] = useState<"inspirations" | "production">("inspirations");
+  const onGenerationAccepted = useCallback(() => {
+    setDeskView("production");
+    followStudioGeneration();
+  }, []);
   const { composerRef, ...composer } = useCreativeComposer({
     initialWorkId: workId,
     initialIntent: initialStudioIntent,
@@ -237,10 +255,10 @@ export default function DashboardHomeActions({
       studioSessionId: studioSession?.id,
     } : {}),
     ...(freshEntry ? { freshEntry: true } : {}),
+    onGenerationAccepted,
   });
   const [boxExpanded, setBoxExpanded] = useState(false);
   const [resultsContainer, setResultsContainer] = useState<HTMLDivElement | null>(null);
-  const [deskView, setDeskView] = useState<"inspirations" | "production">("inspirations");
   const [deskPaging, setDeskPaging] = useState({ scope: "", page: 0 });
   const primaryActionRef = useRef<HTMLButtonElement>(null);
   const expansionButtonRef = useRef<HTMLButtonElement>(null);
@@ -428,18 +446,42 @@ export default function DashboardHomeActions({
     ?? t("studioDesk.unnamedCampaign");
   const deskControls = (
     <div className="relative z-20 flex flex-col items-center gap-2">
-      <div role="group" aria-label={t("studioDesk.views")} className="flex gap-2">
-        {(["inspirations", "production"] as const).map((view) => (
-          <button
-            key={view}
-            type="button"
-            aria-pressed={deskView === view}
-            onClick={() => setDeskView(view)}
-            className={studioChipClass}
-          >
-            {t(`studioDesk.${view}`)}
-          </button>
-        ))}
+      <div
+        role="radiogroup"
+        aria-label={t("studioDesk.views")}
+        className={cn(studioSwitcherClass, "rounded-full border border-white/15 bg-white/[0.04] px-0.5")}
+        onKeyDown={(event) => {
+          if (!["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp", "Home", "End"].includes(event.key)) return;
+          event.preventDefault();
+          const views = ["inspirations", "production"] as const;
+          const current = views.indexOf(deskView);
+          const nextIndex = event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? views.length - 1
+              : (current + (event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : -1) + views.length) % views.length;
+          setDeskView(views[nextIndex]!);
+          const radios = event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]');
+          radios[nextIndex]?.focus();
+        }}
+      >
+        {(["inspirations", "production"] as const).map((view) => {
+          const checked = deskView === view;
+          return (
+            <button
+              key={view}
+              type="button"
+              role="radio"
+              aria-checked={checked}
+              tabIndex={checked ? 0 : -1}
+              onClick={() => setDeskView(view)}
+              className={protocolRadioClass(checked)}
+              style={checked ? protocolShineFill : undefined}
+            >
+              {t(`studioDesk.${view}`)}
+            </button>
+          );
+        })}
       </div>
       {deskView === "production" ? (
         <p className="text-xs text-[var(--text-secondary)]">

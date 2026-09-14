@@ -635,6 +635,9 @@ describe("buildCreativeWorkQaPrompt", () => {
     ]) {
       expect(prompt).toContain(code);
     }
+    expect(prompt).toMatch(/unreadable_required_text: factual text rendered by the output is illegible/);
+    expect(prompt).toContain("dashed boxes, empty logo frames, placeholder plates");
+    expect(prompt).toContain("A single official mark is expected; a second drawn duplicate is wrong_brand");
     expect(prompt).toMatch(/SUBJECTIVE signals scored elsewhere/i);
     expect(prompt).toMatch(/confirmed.*ONLY when you are visually certain/i);
     // Deterministic checks are explicitly out of the evaluator's scope.

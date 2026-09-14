@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { protocolShineFill } from "@/components/dashboard/studio-stage/ProtocolRadios";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useBrandTrainingStatus, type BrandTrainingStatus } from "@/lib/hooks/use-brand-training";
 
@@ -51,9 +52,15 @@ export default function SidebarBrandKitFeature() {
         )}
       >
         <span className="flex items-center justify-between gap-2">
-          <span className="text-[13px] font-semibold text-[var(--text-primary)]">
-            {activeProfile?.name ?? tNav("brands")}
+          <span
+            className="inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-[#0a0a0a]"
+            style={protocolShineFill}
+          >
+            {tNav("cortexLabel")}
           </span>
+        </span>
+        <span className="text-[13px] font-semibold text-[var(--text-primary)]">
+          {activeProfile?.name ?? tNav("brands")}
         </span>
         <span className="text-[11px] text-[var(--text-muted)]">
           {status === "loading"

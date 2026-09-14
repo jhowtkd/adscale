@@ -75,6 +75,7 @@ export function useComposerPlanActions({
   studioSessionId,
   workflowVariant,
   submissionBlocked,
+  onGenerationAccepted,
 }: {
   workIdRef: RefObject<string | null>;
   intentRef: MutableRefObject<ComposerIntent>;
@@ -121,6 +122,7 @@ export function useComposerPlanActions({
   studioSessionId?: string;
   workflowVariant: StudioRolloutVariant;
   submissionBlocked: () => boolean;
+  onGenerationAccepted?: () => void;
 }) {
   const preparePlanCommand = useCallback(async (): Promise<PreparedPlanProjectionV1 | null> => {
     const current = detailQuery.data?.work;
@@ -252,6 +254,7 @@ export function useComposerPlanActions({
       setBrandTrainingSuggestion(generated.brandTrainingSuggestion ?? null);
       setAnnouncement("Geração iniciada");
       recordStudioEvent("studio_plan_confirmed", { creativeWorkId: id });
+      onGenerationAccepted?.();
     } catch (cause) {
       if (isApiRequestUncertain(cause) && workIdRef.current) {
         setActionPhase("reconciling");
@@ -265,6 +268,7 @@ export function useComposerPlanActions({
           })) {
             setError(null);
             setAnnouncement("Geração aceita; acompanhando o processamento");
+            onGenerationAccepted?.();
           } else setError("A geração não foi confirmada. Tente gerar novamente.");
         } catch {
           setError("Não foi possível confirmar o estado da geração. Atualize e tente novamente.");
@@ -287,6 +291,7 @@ export function useComposerPlanActions({
     studioSessionId,
     workIdRef,
     workflowVariant,
+    onGenerationAccepted,
   ]);
 
   const preparePlan = useCallback(async () => {

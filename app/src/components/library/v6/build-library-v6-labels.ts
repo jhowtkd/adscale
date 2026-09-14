@@ -20,6 +20,7 @@ export function buildLibraryV6Labels(t: Translate): LibraryV6Labels {
     filterLogo: t("v6.filterLogo"),
     filterPhoto: t("v6.filterPhoto"),
     filterGenerated: t("v6.filterGenerated"),
+    filterFavorite: t("v6.filterFavorite"),
     // Template with {shown}/{total} filled in LibraryV6View via .replace —
     // t.raw avoids ICU FORMATTING_ERROR when values are not passed here.
     countSummary: String(t.raw("v6.countSummary")),

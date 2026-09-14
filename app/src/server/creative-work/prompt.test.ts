@@ -146,8 +146,11 @@ describe("buildSocialPostPrompt", () => {
       "Do not paraphrase, translate, omit, or add visible copy.",
     );
     expect(prompt).toContain(
-      "Exact assets will be composited after generation; leave clean space at their declared placements.",
+      "The application composites official brand marks after generation. Do not draw logos, wordmarks, signature plates, empty frames, dashed boxes, construction guides or placeholder plates.",
     );
+    expect(prompt).toContain("VISIBLE COPY CONTRACT:");
+    expect(prompt).not.toContain("leave clean space");
+    expect(prompt).not.toContain("keep clean space");
   });
 
   it("lists brand rules from the brand kit", () => {
@@ -248,8 +251,11 @@ describe("buildSocialPostPrompt", () => {
 
     expect(prompt).toContain("RESERVED PLACEMENTS — PROVIDER EXCLUSION (HIGHEST PRIORITY)");
     expect(prompt).toContain("Do not draw, trace, imitate, preserve, or repeat these assets in provider-generated pixels");
+    expect(prompt).toContain("Return a finished canvas");
+    expect(prompt).toContain("official mark; do not render it");
     expect(prompt).toContain("logo-exact");
     expect(prompt).toContain("southeast");
+    expect(prompt).not.toContain("keep clean space");
   });
 
   it("includes the persisted brief and textual input analysis", () => {
@@ -396,6 +402,9 @@ describe("buildCreativeWorkPrompt", () => {
 
     expect(prompt).toContain("Do not draw, trace, imitate, preserve, or repeat these assets in provider-generated pixels");
     expect(prompt).toContain("even when one is visible in a content/reference image or named as a required brand element");
+    expect(prompt).toContain("Do not copy visible logos, wordmarks, signature plates, dashed construction guides or empty frames from content art");
+    expect(prompt).toContain("VISIBLE COPY CONTRACT:");
+    expect(prompt).not.toContain("leave clean space");
     expect(prompt.indexOf("PROVIDER EXCLUSION (HIGHEST PRIORITY)")).toBeGreaterThan(
       prompt.indexOf("Required elements: Logo visível"),
     );

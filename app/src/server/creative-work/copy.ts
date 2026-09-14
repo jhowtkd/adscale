@@ -31,6 +31,8 @@ const SOCIAL_POST_COPY_SYSTEM_PROMPT = [
   "",
   "Constraints:",
   "- Write in pt-BR.",
+  "- Headline, body, and CTA have distinct jobs: headline is the hook; body supports with facts without restating the headline wholesale; CTA is a short verb phrase.",
+  "- Do not paste the same request sentence into more than one field.",
   "- Headline, body, and CTA must be on-brand and consistent with the brief.",
   "- Do not include emojis unless explicitly required.",
   "- Do not include trailing whitespace.",

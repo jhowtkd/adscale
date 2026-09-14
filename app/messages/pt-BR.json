@@ -58,7 +58,8 @@
     "recentCampaigns": "Campanhas recentes",
     "unassignedClient": "Sem cliente",
     "recentWorksEmpty": "Nenhum trabalho ainda",
-    "recentWorksCreate": "Novo trabalho"
+    "recentWorksCreate": "Novo trabalho",
+    "cortexLabel": "CORTEX"
   },
   "language": {
     "label": "Idioma",
@@ -500,7 +501,8 @@
         "brandScope": "Produção de {name}",
         "campaignScope": "Campanha: {name}",
         "slide": "Tela {position}",
-        "unnamedCampaign": "Campanha selecionada"
+        "unnamedCampaign": "Campanha selecionada",
+        "generationFollow": "Acompanhando a geração em Produção"
       },
       "studioModeLabel": "Modo do Estúdio",
       "studioArtTitle": "Gerar variações a partir de uma arte",
@@ -870,6 +872,14 @@
           "failedGeneration": "Falha na geração",
           "status": { "queued": "Na fila", "processing": "Processando", "completed": "Pronto", "failed": "Falhou" },
           "variationShort": "v{count}", "proposalAlt": "Proposta {label}", "generating": "Gerando...", "retry": "Tentar novamente", "retryProposal": "Repetir esta proposta", "approving": "Aprovando", "approved": "Aprovada", "approve": "Aprovar", "download": "Baixar", "editImage": "Editar imagem", "editLayers": "Editar camadas", "viewLayers": "Visualizar camadas", "refine": "Refinar", "revisionInstruction": "O que você quer mudar?", "optionalAttachment": "Anexo opcional", "generateVariation": "Gerar nova variação", "scanningLayers": "Identificando elementos, pessoas e textos da imagem...", "askAiPlaceholder": "Diga o que mudar (ex: 'deixa ela séria', 'mude a cor')...", "elementPrompt": "Prompt do elemento", "editWithAi": "Editar com IA", "clearSelection": "Limpar seleção", "adjustingLayer": "Ajustando {name}…",
+          "approveHint": "Seleciona esta peça como a versão aprovada do trabalho.",
+          "downloadHint": "Baixa o arquivo desta versão.",
+          "shareHint": "Cria um link para alguém revisar esta peça.",
+          "refineHint": "Gera uma nova versão a partir desta, com o que você pedir.",
+          "favorite": "Favoritar peça",
+          "unfavorite": "Remover dos favoritos",
+          "favoriteHint": "Guarda esta peça nos seus favoritos. Não aprova nem copia o arquivo.",
+          "unfavoriteHint": "Remove esta peça dos seus favoritos. A aprovação não muda.",
           "reviewRecommended": "Revisão recomendada — a checagem automática ficou inconclusiva",
           "objectiveFailed": "A checagem objetiva reprovou esta peça.",
           "objectiveFailedNext": "Gere uma nova variação antes de aprovar.",
@@ -3307,6 +3317,9 @@
       "filterLogo": "Logo",
       "filterPhoto": "Foto",
       "filterGenerated": "Gerado",
+      "filterFavorite": "Favoritos",
+      "favoritesEmptyTitle": "Nenhuma peça favorita ainda",
+      "favoritesEmptyDescription": "Favorite uma peça pronta no Estúdio para encontrá-la aqui.",
       "countSummary": "{shown} de {total} assets",
       "dropzoneAria": "Arraste arquivos aqui ou clique para selecionar",
       "deleteAsset": "Excluir asset",

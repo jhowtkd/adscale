@@ -24,6 +24,11 @@ vi.mock("@/lib/hooks/use-active-client-profile", () => ({
   }),
 }));
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams("workId=w1"),
+}));
+
 vi.mock("next/link", () => ({
   default: ({
     href,
@@ -105,6 +110,8 @@ describe("SidebarRecentWorks", () => {
       "href",
       "/?workId=w1"
     );
+    expect(screen.getByRole("link", { name: /Post social/i })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByText("W")).not.toBeInTheDocument();
     expect(screen.getByText("Marca A")).toBeInTheDocument();
     expect(screen.getByText("Marca B")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Black Friday/i })).toHaveAttribute(

@@ -55,6 +55,7 @@ export function useCreativeComposer({
   initialTemplateId,
   initialCampaignId,
   freshEntry = false,
+  onGenerationAccepted,
 }: {
   initialWorkId?: string;
   initialIntent?: ComposerIntent;
@@ -66,6 +67,7 @@ export function useCreativeComposer({
   initialCampaignId?: string;
   /** A canonical Studio entry that intentionally starts without draft resume. */
   freshEntry?: boolean;
+  onGenerationAccepted?: () => void;
 } = {}) {
   const tHome = useTranslations("dashboard.home");
   const tResults = useTranslations("dashboard.home.composer.results");
@@ -297,6 +299,7 @@ export function useCreativeComposer({
     recordCanonicalEvent,
     tHome: (key, values) => tHome(key, values),
     tResults: (key) => tResults(key),
+    onGenerationAccepted,
   });
 
   const detail = detailQuery.data;

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const shareMutate = vi.fn();
+const toggleFavorite = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/hooks/use-piece-review-share", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/hooks/use-piece-review-share")>();
@@ -10,6 +11,14 @@ vi.mock("@/lib/hooks/use-piece-review-share", async (importOriginal) => {
     useSharePieceReview: () => ({ mutateAsync: shareMutate, isPending: false }),
   };
 });
+
+vi.mock("@/lib/hooks/use-piece-favorite", () => ({
+  usePieceFavorite: () => ({
+    isFavorite: false,
+    isPending: false,
+    toggle: toggleFavorite,
+  }),
+}));
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: { count?: number }) => {
@@ -23,6 +32,14 @@ vi.mock("next-intl", () => ({
     legacyReviewRequired: "Esta peça não tem veredito objetivo. Revise-a antes de confirmar a aprovação.",
     reviewBeforeApprove: "Revisar e aprovar",
     confirmApproval: "Confirmar aprovação",
+    approveHint: "Seleciona esta peça como a versão aprovada do trabalho.",
+    downloadHint: "Baixa o arquivo desta versão.",
+    shareHint: "Cria um link para alguém revisar esta peça.",
+    refineHint: "Gera uma nova versão a partir desta, com o que você pedir.",
+    favorite: "Favoritar peça",
+    unfavorite: "Remover dos favoritos",
+    favoriteHint: "Guarda esta peça nos seus favoritos.",
+    unfavoriteHint: "Remove esta peça dos seus favoritos.",
     retryUnavailable: "Esta proposta já usou todas as tentativas automáticas. Crie um novo pedido para gerar uma nova variação.",
     "failure.timeout": "A geração demorou demais e foi interrompida.",
     "failure.invalid_context": "O pedido ou as fontes não tinham informação suficiente para gerar com fidelidade.",
@@ -143,6 +160,7 @@ function layerization(status: PublicLayerizationState["status"], failureCode: Pu
 describe("CreativeResultCard", () => {
   beforeEach(() => {
     shareMutate.mockReset();
+    toggleFavorite.mockReset();
   });
 
   it("shows completed imagery and approve, download, and inline edit actions", () => {
@@ -160,6 +178,17 @@ describe("CreativeResultCard", () => {
 
     expect(screen.getByRole("img", { name: /equilibrada/i })).toBeVisible();
     expect(screen.getByRole("button", { name: "Aprovar" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Aprovar" })).toHaveAttribute(
+      "title",
+      "Seleciona esta peça como a versão aprovada do trabalho.",
+    );
+    expect(screen.getByRole("button", { name: "Baixar" })).toHaveAttribute("title", "Baixa o arquivo desta versão.");
+    expect(screen.getByRole("button", { name: "Favoritar peça" })).toHaveAttribute(
+      "title",
+      "Guarda esta peça nos seus favoritos.",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Favoritar peça" }));
+    expect(toggleFavorite).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "Baixar" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Refinar" }));
     fireEvent.change(screen.getByRole("textbox", { name: "O que você quer mudar?" }), {

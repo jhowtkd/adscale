@@ -2819,6 +2819,30 @@ export const creativeWorkOutputs = adscaleSchema.table(
 export type CreativeWorkOutput = typeof creativeWorkOutputs.$inferSelect;
 export type NewCreativeWorkOutput = typeof creativeWorkOutputs.$inferInsert;
 
+export const pieceFavorites = adscaleSchema.table(
+  "piece_favorites",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    outputId: uuid("output_id")
+      .notNull()
+      .references(() => creativeWorkOutputs.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("piece_favorites_user_output_uq").on(table.userId, table.outputId),
+    index("piece_favorites_workspace_user_idx").on(table.workspaceId, table.userId, table.createdAt),
+  ],
+);
+
+export type PieceFavorite = typeof pieceFavorites.$inferSelect;
+export type NewPieceFavorite = typeof pieceFavorites.$inferInsert;
+
 export const creativeWorkCarouselSlides = adscaleSchema.table(
   "creative_work_carousel_slides",
   {

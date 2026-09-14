@@ -89,6 +89,8 @@ describe("generateSocialPostCopy with a fact pack", () => {
     const system = call.messages?.find((message) => message.role === "system")?.content ?? "";
     const user = call.messages?.find((message) => message.role === "user")?.content ?? "";
     expect(system).toContain("NEVER invent");
+    expect(system).toContain("distinct jobs");
+    expect(system).toContain("Do not paste the same request sentence into more than one field");
     expect(user).toContain(PSICOLOGIA_REQUEST);
     expect(user).toContain('"Grupo de terapia"');
     expect(user).toContain("source source-1");

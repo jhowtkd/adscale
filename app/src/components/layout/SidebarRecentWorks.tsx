@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { formatDistanceToNow } from "date-fns";
@@ -15,6 +16,9 @@ import { cn } from "@/lib/utils";
 export default function SidebarRecentWorks() {
   const tNav = useTranslations("navigation");
   const locale = useLocale();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentWorkId = searchParams.get("workId");
   const dateLocale = locale.startsWith("pt") ? ptBR : enUS;
   const { data: works = [], isLoading } = useCanonicalWorks();
   const active = useActiveClientProfile();
@@ -75,7 +79,7 @@ export default function SidebarRecentWorks() {
               open={group.clientProfileId === active.activeClientProfileId || (!active.activeClientProfileId && index === 0)}
               className="rounded-[var(--radius-control)]"
             >
-              <summary className="cursor-pointer truncate rounded-[var(--radius-control)] px-2 py-2 text-[12px] font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-inset)]">
+              <summary className="cursor-pointer truncate rounded-[var(--radius-control)] px-2 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] hover:bg-[var(--surface-inset)]">
                 {group.name}
               </summary>
               <ul className="space-y-1 pb-1 pl-2" role="list">
@@ -84,16 +88,33 @@ export default function SidebarRecentWorks() {
                     addSuffix: true,
                     locale: dateLocale,
                   });
+                  const isCurrent = work.originKind === "creative_work"
+                    ? currentWorkId === work.originId
+                    : pathname === work.resumeHref || pathname.startsWith(`${work.resumeHref}/`);
+                  const initials = work.name.trim().slice(0, 1).toUpperCase() || "·";
                   return (
                     <li key={work.id}>
                       <Link
                         href={work.resumeHref}
+                        aria-current={isCurrent ? "page" : undefined}
                         className={cn(
                           "flex items-center gap-2 rounded-[var(--radius-control)] px-2 py-1.5",
-                          "transition-colors hover:bg-[var(--surface-inset)]"
+                          "transition-colors hover:bg-[var(--surface-inset)]",
+                          isCurrent && "bg-[var(--selection-bg)] text-[var(--selection-text)]",
                         )}
                       >
-                        <span className="grid size-7 shrink-0 place-items-center rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] font-mono text-xs font-bold text-[var(--utility-icon)]">W</span>
+                        {work.previewHref ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={work.previewHref}
+                            alt=""
+                            className="size-7 shrink-0 rounded-[var(--radius-control)] object-cover"
+                          />
+                        ) : (
+                          <span className="grid size-7 shrink-0 place-items-center rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] font-mono text-xs font-bold text-[var(--utility-icon)]">
+                            {initials}
+                          </span>
+                        )}
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[12px] font-medium text-[var(--text-primary)]">{work.name}</span>
                           <time className="block text-[10px] text-[var(--text-muted)]" dateTime={work.updatedAt}>{formattedDate}</time>

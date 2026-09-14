@@ -626,11 +626,11 @@ You decide ONLY objective integrity. Composition, impact, originality, rhythm, d
 ## Objective failure codes (the only values allowed in findings[].code)
 - missing_required_fact: a REQUIRED fact from the fact pack is absent or altered in the rendered piece.
 - unsupported_claim: the piece renders a factual claim (price, date, offer, condition, credential, guarantee, benefit, proof, named entity) with no origin in the fact pack, request, validated copy or authoritative brand.
-- wrong_brand: the rendered brand, logo, product or service is wrong — including a prohibited brand element.
+- wrong_brand: the rendered brand, logo, product or service is wrong — including a prohibited brand element, a signature or wordmark copied from a content reference, or a second drawn logo when the official mark is composited by the application.
 - style_reference_contamination: facts, copy, brand or the complete ad layout were copied from the STYLE reference instead of the content authority.
 - ignored_mandatory_reference: a required reference was visibly ignored (for example an adaptation that does not preserve the original art).
 - cropped_critical_content: factual elements (offer, brand, required text, product) are severely cropped.
-- unreadable_required_text: factual text rendered by the output is illegible, garbled or corrupted.
+- unreadable_required_text: factual text rendered by the output is illegible, garbled or corrupted. Also flag visible construction artifacts: dashed boxes, empty logo frames, placeholder plates, leftover layout scaffolding.
 
 ## Verdict discipline
 - findings[].status is "confirmed" ONLY when you are visually certain; use "suspected" when the evidence is genuinely ambiguous.
@@ -646,7 +646,7 @@ ${factPackSection(input)}
 - CTA: ${input.copy.cta}
 
 ## DETERMINISTIC COMPOSITION AND REFERENCE AUTHORITY
-- In a single social_post, the exact logo/brand assets and approved copy may be composited after the provider image. Their presence in the OUTPUT is authorized; do not require a matching provider reference or flag the deterministic layer as ignored_mandatory_reference.
+- In a single social_post, the exact logo/brand assets and approved copy may be composited after the provider image. Their presence in the OUTPUT is authorized; do not require a matching provider reference or flag the deterministic layer as ignored_mandatory_reference. A single official mark is expected; a second drawn duplicate is wrong_brand. Construction guides, dashed frames and empty plates are unreadable_required_text.
 - A reference marked optional is guidance only. In social_post, optional style and brand_identity references are never mandatory. Optional piece_visual references are also never mandatory; they may transfer visual language only and must never supply facts, copy, brands or logos.
 - Use ignored_mandatory_reference only when a reference explicitly marked required is visibly omitted, or when the mode policy says a required original/content/style authority was not preserved.
 

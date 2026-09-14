@@ -147,7 +147,7 @@
 
 .footer {
   flex-shrink: 0;
-  background: var(--surface-base);
+  background: transparent;
 }
 
 @media (max-width: 47.99rem) {

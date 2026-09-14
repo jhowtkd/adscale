@@ -14,6 +14,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import LibraryV6View from "@/components/library/v6/LibraryV6View";
 import { buildLibraryV6Labels } from "@/components/library/v6/build-library-v6-labels";
 import { mapWorkspaceAssetToV6 } from "@/components/library/v6/map-library-v6";
+import { useLibraryFavorites, type LibraryFavoriteItem } from "@/lib/hooks/use-piece-favorite";
+import type { LibraryV6Filter } from "@/components/library/v6/library-v6-types";
+import { pickSurfaceGradient } from "@/lib/v6-surface-gradients";
 
 const PAGE_SIZE = 24;
 const MAX_LIMIT = 200;
@@ -26,7 +29,7 @@ interface LibraryState {
   uploadProgress: number;
   dragOver: boolean;
   deleteTarget: { id: string; name: string } | null;
-  filter: "all" | "reference" | "logo" | "photo" | "generated";
+  filter: LibraryV6Filter;
 }
 
 const initialLibraryState: LibraryState = {
@@ -49,6 +52,23 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024).toFixed(0)} KB`;
 }
 
+function mapFavoriteToV6(item: LibraryFavoriteItem, index: number) {
+  return {
+    id: item.outputId,
+    name: item.name,
+    tags: ["favorite"],
+    sizeLabel: "—",
+    dimensionsLabel: "—",
+    aspectRatioLabel: "—",
+    source: "favorite",
+    createdAtLabel: new Date(item.createdAt).toLocaleDateString(),
+    kind: "generated" as const,
+    imageUrl: item.downloadHref,
+    glyph: item.name.slice(0, 4).toUpperCase(),
+    gradient: pickSurfaceGradient(index),
+  };
+}
+
 export default function LibraryPage() {
   const t = useTranslations("library");
   const tCommon = useTranslations("common");
@@ -65,17 +85,24 @@ export default function LibraryPage() {
     excludeSources: ["curated_inspiration", "curated_inspiration_copy"],
   });
   const deleteAsset = useDeleteWorkspaceAsset();
+  const favoritesQuery = useLibraryFavorites(filter === "favorite");
   const labels = useMemo(() => buildLibraryV6Labels(t), [t]);
 
   const assets = useMemo(
     () => (data?.assets ?? []).map((asset, index) => mapWorkspaceAssetToV6(asset, index, formatSize, (date) => new Date(date).toLocaleDateString())),
     [data?.assets],
   );
-  const visibleAssets = useMemo(
-    () => (filter === "all" ? assets : assets.filter((asset) => asset.kind === filter)),
-    [assets, filter],
+  const favoriteAssets = useMemo(
+    () => (favoritesQuery.data ?? []).map((item, index) => mapFavoriteToV6(item, index)),
+    [favoritesQuery.data],
   );
-  const totalCount = filter === "all" ? data?.total ?? assets.length : visibleAssets.length;
+  const visibleAssets = useMemo(() => {
+    if (filter === "favorite") return favoriteAssets;
+    return filter === "all" ? assets : assets.filter((asset) => asset.kind === filter);
+  }, [assets, favoriteAssets, filter]);
+  const totalCount = filter === "favorite"
+    ? favoriteAssets.length
+    : filter === "all" ? data?.total ?? assets.length : visibleAssets.length;
 
   useEffect(() => {
     return () => {
@@ -182,7 +209,7 @@ export default function LibraryPage() {
     [handleUpload],
   );
 
-  const emptyState = isError ? (
+  const emptyState = isError && filter !== "favorite" ? (
     <EmptyState
       icon={AlertCircle}
       title={t("errorTitle")}
@@ -191,6 +218,12 @@ export default function LibraryPage() {
         label: tCommon("retry"),
         onClick: () => queryClient.invalidateQueries({ queryKey: ["workspace-assets"] }),
       }}
+    />
+  ) : filter === "favorite" && !favoritesQuery.isLoading && favoriteAssets.length === 0 ? (
+    <EmptyState
+      icon={ImageIcon}
+      title={t("v6.favoritesEmptyTitle")}
+      description={t("v6.favoritesEmptyDescription")}
     />
   ) : !isLoading && visibleAssets.length === 0 && (debouncedSearch || filter !== "all") ? (
     <EmptyState
@@ -223,7 +256,7 @@ export default function LibraryPage() {
         assets={visibleAssets}
         shownCount={visibleAssets.length}
         totalCount={totalCount}
-        isLoading={isLoading}
+        isLoading={filter === "favorite" ? favoritesQuery.isLoading : isLoading}
         searchQuery={search}
         onSearchChange={handleSearch}
         activeFilter={filter}
@@ -239,7 +272,7 @@ export default function LibraryPage() {
         onDragLeave={() => updateState({ dragOver: false })}
         onDrop={handleDrop}
         onUploadClick={() => fileInputRef.current?.click()}
-        onDeleteAsset={(id, name) => updateState({ deleteTarget: { id, name } })}
+        onDeleteAsset={filter === "favorite" ? undefined : (id, name) => updateState({ deleteTarget: { id, name } })}
         onReplaceAsset={() => fileInputRef.current?.click()}
         emptyState={emptyState}
         onLoadMore={handleLoadMore}

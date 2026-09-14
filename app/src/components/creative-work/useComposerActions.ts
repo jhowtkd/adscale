@@ -39,6 +39,7 @@ export function useComposerActions({
   recordCanonicalEvent,
   tHome,
   tResults,
+  onGenerationAccepted,
 }: {
   session: Session;
   queries: Queries;
@@ -57,6 +58,7 @@ export function useComposerActions({
   recordCanonicalEvent: (eventKey: string, creativeWorkId: string, properties?: Record<string, string | number | boolean>) => void;
   tHome: (key: string, values?: { name: string }) => string;
   tResults: (key: string) => string;
+  onGenerationAccepted?: () => void;
 }) {
   const {
     workIdRef, pendingCampaignIdRef, setPendingCampaignId, setAnnouncement, setError,
@@ -505,6 +507,7 @@ export function useComposerActions({
     studioSessionId,
     workflowVariant,
     submissionBlocked,
+    onGenerationAccepted,
   });
 
   const { resolveBrandConflict } = useComposerBrandConflict({
