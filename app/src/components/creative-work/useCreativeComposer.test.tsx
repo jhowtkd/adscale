@@ -99,6 +99,7 @@ vi.mock("next-intl", () => ({
 }));
 
 import { useCreativeComposer } from "./useCreativeComposer";
+import type { CarouselComposerInput } from "./useCarouselComposer";
 import { createDefaultCreativeDirectionPool } from "@/server/creative-work/contracts";
 
 const profileA = { id: "profile-a", name: "Marca A" };
@@ -369,6 +370,25 @@ describe("useCreativeComposer", () => {
     expect(mocks.brandKnowledge).toHaveBeenCalledWith(null);
   });
 
+  it("projects the canonical revision credit cost for the review gate", async () => {
+    mocks.work.mockReturnValue({
+      data: { ...workDetail({ toolKind: "single", status: "partial" }), revisionCreditCost: 10 },
+      isLoading: false,
+      isError: false,
+    });
+    const withCost = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", initialIntent: "single" }));
+    expect(withCost.result.current.revisionCreditCost).toBe(10);
+    withCost.unmount();
+
+    mocks.work.mockReturnValue({
+      data: workDetail({ toolKind: "single", status: "partial" }),
+      isLoading: false,
+      isError: false,
+    });
+    const withoutCost = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", initialIntent: "single" }));
+    expect(withoutCost.result.current.revisionCreditCost).toBeNull();
+  });
+
   it("keeps an approval failure on the affected output until retry", async () => {
     mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
     mocks.selectOutput.mockRejectedValueOnce(new Error("Falha na aprovação"));
@@ -582,6 +602,94 @@ describe("useCreativeComposer", () => {
     expect(mocks.suggest).toHaveBeenCalledWith("work-1");
     expect(result.current.directionPool?.selectedIds).toEqual(suggestions.slice(0, 3).map((suggestion) => suggestion.id));
     expect(result.current.quote).toEqual({ unitCount: 3, credits: 150 });
+  });
+
+  it("keeps a restored manual selection and its cost when initial suggestions arrive", async () => {
+    vi.useRealTimers();
+    const pool = createDefaultCreativeDirectionPool();
+    pool.selectedIds = [pool.directions[0].id];
+    const suggestions = pool.directions.map((direction, index) => ({
+      ...direction,
+      id: `00000000-0000-4000-8000-0000000000f${index}`,
+      provenance: "ai-suggestion" as const,
+    }));
+    const response = deferred<{ directions: typeof suggestions }>();
+    mocks.suggest.mockReturnValue(response.promise);
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ settings: { targetFormats: [], directionPool: pool } }),
+        sources: [{ id: "source-1", status: "ready" }],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    await waitFor(() => expect(mocks.suggest).toHaveBeenCalledTimes(1));
+
+    await act(async () => response.resolve({ directions: suggestions }));
+
+    expect(result.current.directionPool?.selectedIds).toEqual(pool.selectedIds);
+    expect(result.current.quote).toEqual({ unitCount: 1, credits: 50 });
+    expect(result.current.pendingDirectionSuggestions?.directions).toEqual(suggestions);
+  });
+
+  it.each(["resolve", "reject"] as const)("ignores an obsolete suggestion %s after requesting a newer round", async (settlement) => {
+    vi.useRealTimers();
+    const suggestions = createDefaultCreativeDirectionPool().directions.map((direction) => ({
+      ...direction,
+      provenance: "ai-suggestion" as const,
+    }));
+    const older = deferred<{ directions: typeof suggestions }>();
+    const newer = deferred<{ directions: typeof suggestions }>();
+    mocks.suggest.mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
+    mocks.work.mockReturnValue({
+      data: { ...workDetail(), sources: [{ id: "source-1", status: "ready" }] },
+      isLoading: false,
+      isError: false,
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    await waitFor(() => expect(mocks.suggest).toHaveBeenCalledTimes(1));
+    act(() => result.current.requestDirectionSuggestions());
+    await waitFor(() => expect(mocks.suggest).toHaveBeenCalledTimes(2));
+    await act(async () => newer.resolve({ directions: suggestions }));
+    const acceptedPool = result.current.directionPool;
+
+    await act(async () => {
+      if (settlement === "resolve") older.resolve({ directions: [{ ...suggestions[0], label: "Resposta antiga" }] });
+      else older.reject(new Error("Falha antiga"));
+    });
+
+    expect(result.current.directionPool).toEqual(acceptedPool);
+    expect(result.current.directionSuggestionState).toBe("ready");
+    expect(result.current.pendingDirectionSuggestions).toBeNull();
+  });
+
+  it.each(["resolve", "reject"] as const)("ignores a suggestion %s from the previous protocol", async (settlement) => {
+    vi.useRealTimers();
+    const suggestions = createDefaultCreativeDirectionPool().directions;
+    const response = deferred<{ directions: typeof suggestions }>();
+    mocks.suggest.mockReturnValue(response.promise);
+    mocks.work.mockImplementation((id) => ({
+      data: id === "work-1"
+        ? { ...workDetail(), sources: [{ id: "source-1", status: "ready" }] }
+        : undefined,
+      isLoading: false,
+      isError: false,
+    }));
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    await waitFor(() => expect(mocks.suggest).toHaveBeenCalledTimes(1));
+    await act(async () => { await result.current.selectIntent("single"); });
+    expect(result.current.intent).toBe("single");
+
+    await act(async () => {
+      if (settlement === "resolve") response.resolve({ directions: suggestions });
+      else response.reject(new Error("Falha antiga"));
+    });
+
+    expect(result.current.intent).toBe("single");
+    expect(result.current.directionPool).toBeNull();
+    expect(result.current.directionSuggestionState).toBe("idle");
+    expect(result.current.pendingDirectionSuggestions).toBeNull();
   });
 
   it("requests suggestions again on demand even when suggestions are already persisted (#129)", async () => {
@@ -1917,6 +2025,68 @@ describe("useCreativeComposer", () => {
     expect(mocks.prepare).not.toHaveBeenCalled();
     expect(mocks.autosave).not.toHaveBeenCalled();
     expect(result.current.error).toBe("Adicione a arte original e a referência de estilo.");
+  });
+
+  it.each(["uploaded", "analyzing"])("reports a %s restyle reference as pending instead of absent", async (status) => {
+    mocks.work.mockReturnValue({
+      data: {
+        ...workDetail({ toolKind: "restyle", request: "Preserve a pessoa" }),
+        sources: [
+          { id: "original", usage: "content", usageConfirmed: true, status: "ready" },
+          { id: "style", usage: "style", usageConfirmed: true, status },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+    });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", initialIntent: "restyle" }));
+
+    await act(async () => { await result.current.preparePlan(); });
+
+    expect(result.current.request).toBe("Preserve a pessoa");
+    expect(result.current.error).toBe("Aguarde a análise da arte terminar antes de gerar.");
+    expect(mocks.prepare).not.toHaveBeenCalled();
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it("gives the carousel the current request save command before the debounce fires", async () => {
+    const { result } = renderHook(() => useCreativeComposer({ initialIntent: "carousel" }));
+    act(() => result.current.setRequest("Pedido escrito agora"));
+    const carousel = mocks.carouselController.mock.lastCall![0] as CarouselComposerInput;
+    let savedId: string | null = null;
+
+    await act(async () => { savedId = await carousel.flushAutosave(); });
+
+    expect(savedId).toBe(WORK_ID);
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      intent: "carousel",
+      request: "Pedido escrito agora",
+    }));
+    expect(carousel.workIdRef.current).toBe(WORK_ID);
+    expect(await carousel.resolveCanonicalWorkRevision(WORK_ID)).toEqual(expect.any(String));
+    act(() => carousel.setError("Não foi possível organizar o conteúdo"));
+    expect(result.current.error).toBe("Não foi possível organizar o conteúdo");
+  });
+
+  it("gives carousel planning the saved revision of the latest edit in an existing draft", async () => {
+    const initial = workDetail({ id: WORK_ID, toolKind: "carousel" });
+    const updatedAt = new Date(Date.parse(initial.work.updatedAt) + 1_000).toISOString();
+    mocks.work.mockReturnValue({ data: initial, isLoading: false, isError: false });
+    mocks.autosave.mockImplementation(async (input) => ({
+      work: { ...initial.work, request: input.request, updatedAt },
+    }));
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: WORK_ID, initialIntent: "carousel" }));
+    act(() => result.current.setRequest("Edição ainda sem debounce"));
+    const carousel = mocks.carouselController.mock.lastCall![0] as CarouselComposerInput;
+
+    await act(async () => { await carousel.flushAutosave(); });
+
+    expect(mocks.autosave).toHaveBeenCalledWith(expect.objectContaining({
+      workItemId: WORK_ID,
+      request: "Edição ainda sem debounce",
+    }));
+    expect(await carousel.resolveCanonicalWorkRevision(WORK_ID)).toBe(updatedAt);
+    expect(result.current.request).toBe("Edição ainda sem debounce");
   });
 
   it("persists variation instructions without trimming outer whitespace", async () => {

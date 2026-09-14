@@ -32,6 +32,11 @@ const mocks = vi.hoisted(() => ({
   preparePlan: vi.fn(),
   confirmGeneration: vi.fn(),
   recordCanonicalEvent: vi.fn(),
+  flushAutosave: vi.fn(),
+  resolveCanonicalWorkRevision: vi.fn(),
+  setCanonicalWorkRevision: vi.fn(),
+  blockStaleRevision: vi.fn(),
+  setError: vi.fn(),
 }));
 
 vi.mock("@/lib/hooks/use-creative-work", async (importOriginal) => ({
@@ -46,6 +51,7 @@ vi.mock("@/lib/hooks/use-creative-work", async (importOriginal) => ({
 }));
 
 import { useCarouselComposer } from "./useCarouselComposer";
+import { useComposerRevision } from "./useComposerRevision";
 
 const WORK_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const NOW = new Date().toISOString();
@@ -260,10 +266,19 @@ function renderComposer(
   input: Partial<Parameters<typeof useCarouselComposer>[0]> = {},
   preparedPlan: PreparedPlanProjectionV1 | null = null,
 ) {
+  const workIdRef = { current: WORK_ID as string | null };
+  const draftEpochRef = { current: 0 };
   return renderHook(
     () =>
       useCarouselComposer({
         workId: WORK_ID,
+        workIdRef,
+        draftEpochRef,
+        flushAutosave: mocks.flushAutosave,
+        resolveCanonicalWorkRevision: mocks.resolveCanonicalWorkRevision,
+        setCanonicalWorkRevision: mocks.setCanonicalWorkRevision,
+        blockStaleRevision: mocks.blockStaleRevision,
+        setError: mocks.setError,
         preparedPlan,
         preparePlan: mocks.preparePlan,
         confirmGeneration: mocks.confirmGeneration,
@@ -286,7 +301,7 @@ function bindWorkToCache() {
 beforeEach(() => {
   vi.clearAllMocks();
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  mocks.plan.mockResolvedValue({ work: {}, draft: carouselDraft() });
+  mocks.plan.mockResolvedValue({ work: carouselDetail().work, draft: carouselDraft() });
   mocks.reviseSlide.mockResolvedValue({ slide: {}, slides: [], replay: false });
   mocks.reviseDeck.mockResolvedValue({});
   mocks.approve.mockResolvedValue({ approvedRevision: "deck-r1", replay: false });
@@ -296,6 +311,9 @@ beforeEach(() => {
   mocks.preparePlan.mockResolvedValue(carouselPreparedPlan());
   mocks.confirmGeneration.mockResolvedValue(undefined);
   mocks.recordCanonicalEvent.mockReturnValue(undefined);
+  mocks.flushAutosave.mockResolvedValue(WORK_ID);
+  mocks.resolveCanonicalWorkRevision.mockResolvedValue(NOW);
+  mocks.setCanonicalWorkRevision.mockReturnValue(NOW);
 });
 
 describe("useCarouselComposer phase derivation", () => {
@@ -431,29 +449,142 @@ describe("useCarouselComposer phase derivation", () => {
 });
 
 describe("useCarouselComposer plan questions", () => {
-  it("flushes the generic draft detail then posts answers on the first plan call", async () => {
+  it("flushes the latest draft before resolving its revision and posting answers", async () => {
     queryClient.setQueryData(creativeWorkKey(WORK_ID), carouselDetail({ draft: null }));
     bindWorkToCache();
     const order: string[] = [];
-    mocks.refetch.mockImplementation(async () => {
-      order.push("refetch");
-      return { data: cacheDetail() };
+    const savedRevision = new Date(Date.parse(NOW) + 1_000).toISOString();
+    mocks.flushAutosave.mockImplementation(async () => {
+      order.push("save");
+      return WORK_ID;
+    });
+    mocks.resolveCanonicalWorkRevision.mockImplementation(async () => {
+      order.push("revision");
+      return savedRevision;
     });
     mocks.plan.mockImplementation(async () => {
       order.push("plan");
-      return { work: {}, draft: carouselDraft() };
+      return { work: carouselDetail().work, draft: carouselDraft() };
     });
 
     const { result } = renderComposer();
     await act(() => result.current.askForPlan({ objective: "Lançamento" }));
 
-    expect(order).toEqual(["refetch", "plan"]);
+    expect(order).toEqual(["save", "revision", "plan"]);
     expect(mocks.plan).toHaveBeenCalledTimes(1);
     expect(mocks.plan).toHaveBeenCalledWith({
       workItemId: WORK_ID,
-      expectedUpdatedAt: new Date(NOW).toISOString(),
+      expectedUpdatedAt: savedRevision,
       answers: { objective: "Lançamento" },
     });
+  });
+
+  it("organizes a first request using the draft created by the generic save command", async () => {
+    const workIdRef = { current: null as string | null };
+    mocks.flushAutosave.mockImplementation(async () => {
+      workIdRef.current = WORK_ID;
+      return WORK_ID;
+    });
+    const { result } = renderComposer({ workId: "", workIdRef });
+
+    await act(() => result.current.askForPlan());
+
+    expect(mocks.plan).toHaveBeenCalledWith({
+      workItemId: WORK_ID,
+      expectedUpdatedAt: NOW,
+      answers: {},
+    });
+  });
+
+  it("stays busy through saving and planning and ignores duplicate clicks", async () => {
+    let finishSave!: (id: string) => void;
+    let finishPlan!: (value: unknown) => void;
+    mocks.flushAutosave.mockReturnValue(new Promise<string>((resolve) => { finishSave = resolve; }));
+    mocks.plan.mockReturnValue(new Promise((resolve) => { finishPlan = resolve; }));
+    const { result } = renderComposer();
+    let pending!: Promise<void>;
+    act(() => { pending = result.current.askForPlan(); });
+
+    expect(result.current.isBusy).toBe(true);
+    await act(() => result.current.askForPlan());
+    expect(mocks.flushAutosave).toHaveBeenCalledTimes(1);
+    expect(mocks.plan).not.toHaveBeenCalled();
+
+    await act(async () => { finishSave(WORK_ID); });
+    expect(result.current.isBusy).toBe(true);
+    expect(mocks.plan).toHaveBeenCalledTimes(1);
+    await act(async () => { finishPlan({ work: carouselDetail().work }); await pending; });
+    expect(result.current.isBusy).toBe(false);
+  });
+
+  it.each(["save", "revision", "plan"])("exposes a %s failure without leaving the action busy", async (step) => {
+    const failure = new Error(`Falha de ${step}`);
+    if (step === "save") mocks.flushAutosave.mockRejectedValue(failure);
+    if (step === "revision") mocks.resolveCanonicalWorkRevision.mockRejectedValue(failure);
+    if (step === "plan") mocks.plan.mockRejectedValue(failure);
+    const { result } = renderComposer();
+
+    await act(() => result.current.askForPlan());
+
+    expect(mocks.setError).toHaveBeenLastCalledWith(failure.message);
+    expect(result.current.isBusy).toBe(false);
+    if (step !== "plan") expect(mocks.plan).not.toHaveBeenCalled();
+  });
+
+  it.each(["save", "revision"])("shows an error when %s returns no canonical draft", async (step) => {
+    if (step === "save") mocks.flushAutosave.mockResolvedValue(null);
+    if (step === "revision") mocks.resolveCanonicalWorkRevision.mockResolvedValue(null);
+    const { result } = renderComposer();
+
+    await act(() => result.current.askForPlan());
+
+    expect(mocks.setError).toHaveBeenLastCalledWith(expect.stringContaining("Não foi possível"));
+    expect(mocks.plan).not.toHaveBeenCalled();
+    expect(result.current.isBusy).toBe(false);
+  });
+
+  it("shows a save failure after the first draft was created without discarding its identity", async () => {
+    const workIdRef = { current: null as string | null };
+    mocks.flushAutosave.mockImplementation(async () => {
+      workIdRef.current = WORK_ID;
+      throw new Error("Não foi possível salvar a edição mais recente");
+    });
+    const { result } = renderComposer({ workId: "", workIdRef });
+
+    await act(() => result.current.askForPlan());
+
+    expect(mocks.setError).toHaveBeenLastCalledWith("Não foi possível salvar a edição mais recente");
+    expect(workIdRef.current).toBe(WORK_ID);
+    expect(mocks.plan).not.toHaveBeenCalled();
+  });
+
+  it("does not plan another work after resolving the previous work revision", async () => {
+    const workIdRef = { current: WORK_ID as string | null };
+    mocks.resolveCanonicalWorkRevision.mockImplementation(async () => {
+      workIdRef.current = "another-work";
+      return NOW;
+    });
+    const { result } = renderComposer({ workIdRef });
+
+    await act(() => result.current.askForPlan());
+
+    expect(mocks.plan).not.toHaveBeenCalled();
+    expect(mocks.setError).toHaveBeenLastCalledWith(null);
+  });
+
+  it("does not plan an old request after a protocol switch during save", async () => {
+    const draftEpochRef = { current: 0 };
+    mocks.flushAutosave.mockImplementation(async () => {
+      draftEpochRef.current += 1;
+      return WORK_ID;
+    });
+    const { result } = renderComposer({ draftEpochRef });
+
+    await act(() => result.current.askForPlan());
+
+    expect(mocks.plan).not.toHaveBeenCalled();
+    expect(mocks.setError).toHaveBeenCalledTimes(1);
+    expect(mocks.setError).toHaveBeenCalledWith(null);
   });
 
   it("keeps blocking questions visible after the cache refetch", async () => {
@@ -472,6 +603,121 @@ describe("useCarouselComposer plan questions", () => {
       answers: { offer: "50% na primeira compra" },
     }));
     expect(result.current.phase).toBe("questions");
+  });
+
+  it("answers planner questions with the revision returned by the previous plan", async () => {
+    let serverDetail = carouselDetail({ draft: null });
+    queryClient.setQueryData(creativeWorkKey(WORK_ID), serverDetail);
+    bindWorkToCache();
+    const { result: revision } = renderHook(() => useComposerRevision({
+      data: cacheDetail(),
+      refetch: mocks.refetch,
+    }));
+    const { result, rerender } = renderComposer(revision.current);
+    const revisions = [NOW];
+    mocks.plan.mockImplementation(async ({ expectedUpdatedAt, answers }) => {
+      if (expectedUpdatedAt !== serverDetail.work.updatedAt) {
+        throw Object.assign(new Error("Rascunho alterado"), { status: 409 });
+      }
+      const draft = Object.keys(answers).length === 0
+        ? carouselDraft({ blockingQuestions: [blockingQuestion] })
+        : carouselDraft({ answers, plan: carouselPlan() });
+      const updatedAt = new Date(Date.parse(expectedUpdatedAt) + 1_000).toISOString();
+      revisions.push(updatedAt);
+      serverDetail = {
+        ...serverDetail,
+        work: { ...serverDetail.work, updatedAt, settings: { ...serverDetail.work.settings, carouselDraft: draft } },
+      };
+      queryClient.setQueryData(creativeWorkKey(WORK_ID), serverDetail);
+      return { work: serverDetail.work, draft };
+    });
+
+    await act(() => result.current.askForPlan());
+    rerender();
+    expect(result.current.phase).toBe("questions");
+    await act(() => result.current.answerQuestions({ offer: "50% na primeira compra" }));
+    rerender();
+
+    expect(mocks.plan.mock.calls.map(([input]) => input.expectedUpdatedAt)).toEqual(revisions.slice(0, 2));
+    expect(await revision.current.resolveCanonicalWorkRevision(WORK_ID)).toBe(revisions[2]);
+    expect(result.current.phase).toBe("sequence");
+    expect(mocks.autosave).not.toHaveBeenCalled();
+    expect(mocks.setError).toHaveBeenLastCalledWith(null);
+  });
+
+  it.each([false, true])("refreshes a 409 before the next explicit answer (first refresh fails: %s)", async (refreshFails) => {
+    const initial = carouselDetail({ draft: carouselDraft({ blockingQuestions: [blockingQuestion] }) });
+    queryClient.setQueryData(creativeWorkKey(WORK_ID), initial);
+    bindWorkToCache();
+    const currentRevision = new Date(Date.parse(NOW) + 1_000).toISOString();
+    const acceptedRevision = new Date(Date.parse(NOW) + 2_000).toISOString();
+    const current = { ...initial, work: { ...initial.work, updatedAt: currentRevision } };
+    mocks.refetch.mockImplementation(async () => {
+      queryClient.setQueryData(creativeWorkKey(WORK_ID), current);
+      return { data: current };
+    });
+    if (refreshFails) mocks.refetch.mockRejectedValueOnce(new Error("Sem conexão"));
+    const { result: revision } = renderHook(() => useComposerRevision({
+      data: initial,
+      refetch: mocks.refetch,
+    }));
+    const { result } = renderComposer(revision.current);
+    mocks.plan.mockImplementation(async ({ expectedUpdatedAt }) => {
+      if (expectedUpdatedAt !== currentRevision) {
+        throw Object.assign(new Error("Rascunho alterado"), { status: 409 });
+      }
+      return { work: { ...current.work, updatedAt: acceptedRevision }, draft: carouselDraft() };
+    });
+    const answers = { offer: "50% na primeira compra" };
+
+    await act(() => result.current.answerQuestions(answers));
+    expect(mocks.plan).toHaveBeenCalledTimes(1);
+    expect(mocks.setError).toHaveBeenLastCalledWith("Rascunho alterado");
+    expect(result.current.isBusy).toBe(false);
+
+    await act(() => result.current.answerQuestions(answers));
+    expect(mocks.plan.mock.calls.map(([input]) => input.expectedUpdatedAt)).toEqual([NOW, currentRevision]);
+    expect(mocks.plan).toHaveBeenLastCalledWith({ workItemId: WORK_ID, expectedUpdatedAt: currentRevision, answers });
+    expect(await revision.current.resolveCanonicalWorkRevision(WORK_ID)).toBe(acceptedRevision);
+    expect(mocks.setError).toHaveBeenLastCalledWith(null);
+    expect(mocks.refetch).toHaveBeenCalledTimes(refreshFails ? 2 : 1);
+  });
+
+  it.each(["success", "conflict"] as const)("does not update revision or error after switching work during plan %s", async (outcome) => {
+    const workIdRef = { current: WORK_ID as string | null };
+    const draftEpochRef = { current: 0 };
+    const { result } = renderComposer({ workIdRef, draftEpochRef });
+    mocks.plan.mockImplementation(async () => {
+      workIdRef.current = "another-work";
+      draftEpochRef.current += 1;
+      if (outcome === "conflict") throw Object.assign(new Error("Rascunho alterado"), { status: 409 });
+      return { work: carouselDetail().work, draft: carouselDraft() };
+    });
+
+    await act(() => result.current.askForPlan());
+
+    expect(mocks.setCanonicalWorkRevision).not.toHaveBeenCalled();
+    expect(mocks.blockStaleRevision).not.toHaveBeenCalled();
+    expect(mocks.refetch).not.toHaveBeenCalled();
+    expect(mocks.setError).toHaveBeenLastCalledWith(null);
+  });
+
+  it("does not hydrate a conflict refresh after switching work", async () => {
+    const workIdRef = { current: WORK_ID as string | null };
+    const draftEpochRef = { current: 0 };
+    mocks.plan.mockRejectedValue(Object.assign(new Error("Rascunho alterado"), { status: 409 }));
+    mocks.refetch.mockImplementation(async () => {
+      workIdRef.current = "another-work";
+      draftEpochRef.current += 1;
+      return { data: carouselDetail() };
+    });
+    const { result } = renderComposer({ workIdRef, draftEpochRef });
+
+    await act(() => result.current.askForPlan());
+
+    expect(mocks.blockStaleRevision).toHaveBeenCalledWith(WORK_ID);
+    expect(mocks.setCanonicalWorkRevision).not.toHaveBeenCalled();
+    expect(mocks.setError).toHaveBeenLastCalledWith(null);
   });
 });
 

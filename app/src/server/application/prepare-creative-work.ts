@@ -42,6 +42,7 @@ import { assertOfferActive, mergeCatalogFacts } from "@/server/creative-work/com
 import {
   deriveCreativeWorkTitle,
   inferCreativeWorkFormat,
+  formatFromDimensions,
   inferSocialPostBrief,
   applyCreativeWorkBriefingOverrides,
   buildInferredBriefing,
@@ -369,15 +370,17 @@ export async function prepareCreativeWork(input: {
     const visualDirection = repertoire
       ? composeVisualDirection({ repertoire, language: workLanguage.language })
       : null;
-    const contentAnalyses = factualEffectiveSources.flatMap(({ source, usage }) =>
-      usage !== "style" && source.contentAnalysis ? [source.contentAnalysis] : []
-    );
+    const contentSources = factualEffectiveSources.filter(({ usage }) => usage !== "style");
+    const contentAnalyses = contentSources.flatMap(({ source }) => source.contentAnalysis ? [source.contentAnalysis] : []);
+    const contentAsset = contentSources.length === 1 ? sourceAssets.get(contentSources[0].source.id) : null;
+    const sourceFormat = contentAsset ? formatFromDimensions(contentAsset.width, contentAsset.height) : null;
     const effectiveFormat = preparation.data.settings.formatMode === "auto"
-      ? inferCreativeWorkFormat(contentAnalyses, aggregate.work.request) ?? preparation.data.format
+      ? inferCreativeWorkFormat(contentAnalyses, aggregate.work.request, sourceFormat) ?? preparation.data.format
       : preparation.data.format;
+    const integrated = preparation.data.intent === "single";
     let typographyPlan;
     try {
-      typographyPlan = shouldBuildTypographyPlan(preparation.data.intent)
+      typographyPlan = !integrated && shouldBuildTypographyPlan(preparation.data.intent)
         ? buildTypographyPlan({
             format: effectiveFormat,
             requestedLayout: preparation.data.settings.textLayout,
@@ -425,7 +428,8 @@ export async function prepareCreativeWork(input: {
       copy: aggregate.work.copy,
     });
     const snapshotBase: CreativeWorkInputSnapshot = {
-      generationPolicyVersion: generationPolicyVersionFromSwitch(env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED),
+      generationPolicyVersion: integrated ? "quality_recovery_v1" : generationPolicyVersionFromSwitch(env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED),
+      ...(integrated ? { creativeRenderPolicy: "integrated_v1" as const } : {}),
       renderPolicy,
       factPack,
       ...(briefingPeople.people.length > 0

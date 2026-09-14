@@ -56,6 +56,9 @@ import {
   type CatalogQuery,
   type CatalogPageResult,
 } from "@/lib/catalog-page";
+import { canonicalJsonStringify } from "../creative-work/canonical-json";
+import { parsePersistedOutputReviewDraft } from "../creative-work/output-review";
+import type { OutputRevisionContextV1 } from "../creative-work/output-review";
 
 export type { CreativeWorkFormat } from "../creative-work/contracts";
 
@@ -900,20 +903,29 @@ export async function getCreativeWork(
   return { work: workRows[0], outputs, sources };
 }
 
+export type SourceAssetDetails = {
+  assetKey: string;
+  mimeType: string;
+  source: string;
+  name: string;
+  width: number | null;
+  height: number | null;
+};
+
 export async function getCreativeWorkSourceAssetDetails(
   workspaceId: string,
   sources: Pick<CreativeWorkSource, "id" | "assetId">[],
   executor: Pick<typeof db, "select"> = db,
-): Promise<Map<string, { assetKey: string; mimeType: string; source: string; name: string }>> {
+): Promise<Map<string, SourceAssetDetails>> {
   const assetIds = sources.flatMap((source) => source.assetId ? [source.assetId] : []);
   if (assetIds.length === 0) return new Map();
-  const assets = await executor.select({ id: workspaceAssets.id, key: workspaceAssets.key, type: workspaceAssets.type, source: workspaceAssets.source, name: workspaceAssets.name })
+  const assets = await executor.select({ id: workspaceAssets.id, key: workspaceAssets.key, type: workspaceAssets.type, source: workspaceAssets.source, name: workspaceAssets.name, width: workspaceAssets.width, height: workspaceAssets.height })
     .from(workspaceAssets)
     .where(and(eq(workspaceAssets.workspaceId, workspaceId), inArray(workspaceAssets.id, assetIds)));
   const byId = new Map(assets.map((asset) => [asset.id, asset]));
   return new Map(sources.flatMap((source) => {
     const asset = source.assetId ? byId.get(source.assetId) : null;
-    return asset ? [[source.id, { assetKey: asset.key, mimeType: asset.type, source: asset.source, name: asset.name }] as const] : [];
+    return asset ? [[source.id, { assetKey: asset.key, mimeType: asset.type, source: asset.source, name: asset.name, width: asset.width ?? null, height: asset.height ?? null }] as const] : [];
   }));
 }
 
@@ -1596,6 +1608,21 @@ export async function deleteQueuedCreativeWorkOutputs(
   ));
 }
 
+export type CreateCreativeWorkRevisionOptions = {
+  context?: OutputRevisionContextV1 | null;
+  expectedReviewRevision?: number;
+};
+
+/**
+ * A credit_blocked revision child never held a charge (the settlement release
+ * marks queued rows failed/credit_blocked when charging is refused). Only
+ * these rows may be re-queued by a funded replay under the same operation
+ * key; every other failed row keeps its terminal state and compensation.
+ */
+function isCreditBlockedRevision(output: CreativeWorkOutput): boolean {
+  return output.status === "failed" && output.failureCode === "credit_blocked";
+}
+
 export async function createCreativeWorkRevision(
   workspaceId: string,
   workItemId: string,
@@ -1603,11 +1630,20 @@ export async function createCreativeWorkRevision(
   parentOutputId: string,
   instruction: string,
   revisionAssetId: string | null,
+  options?: CreateCreativeWorkRevisionOptions,
 ): Promise<{ output: CreativeWorkOutput; claimedForDispatch: boolean } | null> {
-  const matchesCommand = (output: CreativeWorkOutput) =>
-    output.parentOutputId === parentOutputId
-    && output.revisionInstruction === instruction
-    && output.revisionAssetId === revisionAssetId;
+  const context = options?.context ?? null;
+  const matchesCommand = (output: CreativeWorkOutput) => {
+    if (output.parentOutputId !== parentOutputId) return false;
+    if (output.revisionInstruction !== instruction) return false;
+    if (output.revisionAssetId !== revisionAssetId) return false;
+    if (!context) return true;
+    if (output.targetFormat !== context.targetFormat) return false;
+    return (
+      canonicalJsonStringify(output.revisionContext ?? null) ===
+      canonicalJsonStringify(context)
+    );
+  };
 
   const [parent] = await db.select().from(creativeWorkOutputs).where(and(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
@@ -1615,6 +1651,7 @@ export async function createCreativeWorkRevision(
     eq(creativeWorkOutputs.id, parentOutputId),
   )).limit(1);
   if (!parent) return null;
+  const targetFormat = context?.targetFormat ?? parent.targetFormat;
 
   // Revisions keep the parent direction for identity and versioning, while
   // the operation key remains global so a revision key cannot be replayed
@@ -1625,7 +1662,13 @@ export async function createCreativeWorkRevision(
     eq(creativeWorkOutputs.workItemId, workItemId),
     eq(creativeWorkOutputs.operationKey, operationKey),
   )).limit(1);
-  if (existing) return matchesCommand(existing) ? { output: existing, claimedForDispatch: false } : null;
+  // A failed/credit_blocked row never held a charge: it must fall through to
+  // the transaction so a funded replay can re-queue the SAME row (same key)
+  // instead of returning a dead child without generating.
+  if (existing && !isCreditBlockedRevision(existing)) {
+    return matchesCommand(existing) ? { output: existing, claimedForDispatch: false } : null;
+  }
+  if (existing && !matchesCommand(existing)) return null;
 
   if (revisionAssetId) {
     const [asset] = await db.select({ id: workspaceAssets.id, type: workspaceAssets.type }).from(workspaceAssets).where(and(
@@ -1635,7 +1678,7 @@ export async function createCreativeWorkRevision(
     if (!asset?.type.startsWith("image/")) return null;
   }
   return db.transaction(async (tx) => {
-    const versionScope = creativeWorkVersionLockScope({ workspaceId, workItemId, creativeLevel: parent.creativeLevel, targetFormat: parent.targetFormat, directionId: parent.directionId });
+    const versionScope = creativeWorkVersionLockScope({ workspaceId, workItemId, creativeLevel: parent.creativeLevel, targetFormat, directionId: parent.directionId });
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${versionScope}))`);
 
     const [retry] = await tx.select().from(creativeWorkOutputs).where(and(
@@ -1643,7 +1686,69 @@ export async function createCreativeWorkRevision(
       eq(creativeWorkOutputs.workItemId, workItemId),
       eq(creativeWorkOutputs.operationKey, operationKey),
     )).limit(1);
-    if (retry) return matchesCommand(retry) ? { output: retry, claimedForDispatch: false } : null;
+    if (retry && matchesCommand(retry)) {
+      // A funded replay of a never-charged credit_blocked row re-queues the
+      // SAME row under the same operation key: the kernel then charges once
+      // (idempotent billing key) and dispatches once. Concurrent replays race
+      // on this CAS; the loser observes the queued row and joins the winner.
+      // updatedAt restarts the queued lease (a stale updatedAt would be reaped
+      // as a timeout on the next GET) and terminalAt is cleared because the
+      // row is live again; the operation key and call counters are preserved.
+      if (isCreditBlockedRevision(retry)) {
+        const [requeued] = await tx.update(creativeWorkOutputs).set({
+          status: "queued",
+          failureCode: null,
+          terminalAt: null,
+          queuedAt: new Date(),
+          updatedAt: new Date(),
+        }).where(and(
+          eq(creativeWorkOutputs.workspaceId, workspaceId),
+          eq(creativeWorkOutputs.workItemId, workItemId),
+          eq(creativeWorkOutputs.id, retry.id),
+          eq(creativeWorkOutputs.operationKey, operationKey),
+          eq(creativeWorkOutputs.status, "failed"),
+          eq(creativeWorkOutputs.failureCode, "credit_blocked"),
+        )).returning();
+        if (requeued) return { output: requeued, claimedForDispatch: true };
+        const [fresh] = await tx.select().from(creativeWorkOutputs).where(and(
+          eq(creativeWorkOutputs.workspaceId, workspaceId),
+          eq(creativeWorkOutputs.workItemId, workItemId),
+          eq(creativeWorkOutputs.operationKey, operationKey),
+        )).limit(1);
+        return fresh && matchesCommand(fresh)
+          ? { output: fresh, claimedForDispatch: false }
+          : null;
+      }
+      return { output: retry, claimedForDispatch: false };
+    }
+    if (retry) return null;
+
+    if (context) {
+      const [lockedParent] = await tx
+        .select()
+        .from(creativeWorkOutputs)
+        .where(and(
+          eq(creativeWorkOutputs.workspaceId, workspaceId),
+          eq(creativeWorkOutputs.workItemId, workItemId),
+          eq(creativeWorkOutputs.id, parentOutputId),
+        ))
+        .for("update")
+        .limit(1);
+      if (!lockedParent) return null;
+      const expectedRevision = options?.expectedReviewRevision ?? context.reviewRevision;
+      // The persisted draft is revalidated under lock: absent means revision
+      // 0, schema-invalid is rejected (never trusted, never overwritten here).
+      const persisted = lockedParent.reviewDraft == null
+        ? { revision: 0, revisionKey: null as string | null }
+        : parsePersistedOutputReviewDraft(lockedParent.reviewDraft);
+      if (
+        !persisted ||
+        persisted.revision !== expectedRevision ||
+        persisted.revisionKey !== revisionKey
+      ) {
+        return null;
+      }
+    }
 
     const [latest] = await tx.select({ maxVersion: max(creativeWorkOutputs.versionNumber) })
       .from(creativeWorkOutputs)
@@ -1651,7 +1756,7 @@ export async function createCreativeWorkRevision(
         eq(creativeWorkOutputs.workspaceId, workspaceId),
         eq(creativeWorkOutputs.workItemId, workItemId),
         eq(creativeWorkOutputs.creativeLevel, parent.creativeLevel),
-        eq(creativeWorkOutputs.targetFormat, parent.targetFormat),
+        eq(creativeWorkOutputs.targetFormat, targetFormat),
         ...(parent.directionId ? [eq(creativeWorkOutputs.directionId, parent.directionId)] : []),
       ));
     const versionNumber = (latest?.maxVersion ?? 0) + 1;
@@ -1659,11 +1764,12 @@ export async function createCreativeWorkRevision(
       workspaceId,
       workItemId,
       creativeLevel: parent.creativeLevel,
-      targetFormat: parent.targetFormat,
+      targetFormat,
       versionNumber,
       parentOutputId,
       revisionInstruction: instruction,
       revisionAssetId,
+      revisionContext: context,
       operationKey,
       status: "queued",
       isSelected: false,
@@ -1721,7 +1827,7 @@ export const CREATIVE_WORK_MAX_IMAGE_CALLS = 2;
 
 /**
  * Atomically claims one provider image call for the output. The guarded
- * UPDATE only matches while `image_call_count < CREATIVE_WORK_MAX_IMAGE_CALLS`,
+ * UPDATE only matches while `image_call_count < maxCalls`,
  * so once the counter reaches the ceiling the claim fails here — before the
  * provider is reached — returning null without side effects.
  * Intentionally status-agnostic: the transport-retry second call must be
@@ -1731,6 +1837,7 @@ export async function claimCreativeWorkOutputImageCall(
   workspaceId: string,
   workItemId: string,
   outputId: string,
+  maxCalls: 1 | 2 = CREATIVE_WORK_MAX_IMAGE_CALLS,
 ): Promise<CreativeWorkOutput | null> {
   const [row] = await db.update(creativeWorkOutputs).set({
     imageCallCount: sql`${creativeWorkOutputs.imageCallCount} + 1`,
@@ -1739,7 +1846,7 @@ export async function claimCreativeWorkOutputImageCall(
     eq(creativeWorkOutputs.workspaceId, workspaceId),
     eq(creativeWorkOutputs.workItemId, workItemId),
     eq(creativeWorkOutputs.id, outputId),
-    lt(creativeWorkOutputs.imageCallCount, CREATIVE_WORK_MAX_IMAGE_CALLS),
+    lt(creativeWorkOutputs.imageCallCount, maxCalls),
   )).returning();
   return row ?? null;
 }
@@ -1802,11 +1909,35 @@ export async function countCreativeWorkProcessingOutputs(
   return Number(row?.count ?? 0);
 }
 
+/**
+ * Durable marker for an integrated QA-fail completion whose compensatory
+ * refund is still pending (R1). Born ONLY in the winning completion CAS with
+ * a valid image and objectiveVerdict fail; cleared ONLY by
+ * {@link clearCreativeWorkOutputObjectiveQualityRefundPending} after a
+ * confirmed settlement. Never set on historical rows.
+ */
+export const CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING =
+  "objective_quality_failed_refund_pending";
+
+/**
+ * Exact marker an integrated technical failure carries while its terminal
+ * refund is suspended. Written ONLY by the winning failed CAS (A, job side);
+ * cleared ONLY by
+ * {@link clearCreativeWorkOutputGenerationFailedRefundPending} after a
+ * confirmed terminal settlement. Legacy snapshots never carry it.
+ */
+export const CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING =
+  "generation_failed_terminal_refund_pending";
+
+/** Settled failure code shared by the job and GET recoveries above. */
+export const CREATIVE_WORK_GENERATION_FAILED = "generation_failed";
+
 export async function completeCreativeWorkOutput(
   workspaceId: string,
   workItemId: string,
   outputId: string,
-  data: CompleteCreativeWorkOutputData
+  data: CompleteCreativeWorkOutputData,
+  options?: { markObjectiveQualityFailedRefundPending?: boolean },
 ): Promise<CreativeWorkOutput | null> {
   const [row] = await db
     .update(creativeWorkOutputs)
@@ -1815,7 +1946,9 @@ export async function completeCreativeWorkOutput(
       outputKey: data.outputKey,
       cost: data.cost,
       quality: data.quality,
-      failureCode: null,
+      failureCode: options?.markObjectiveQualityFailedRefundPending
+        ? CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING
+        : null,
       terminalAt: new Date(),
       updatedAt: new Date(),
     })
@@ -2042,7 +2175,36 @@ export async function markCreativeWorkSelectionEffectDone(
   ));
 }
 
-/** Failed outputs whose compensatory refund still needs a retry. */
+/** Clears a terminal integrated refund marker with a compare-and-set guard. */
+export async function clearCreativeWorkOutputGenerationFailedRefundPending(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string,
+  expectedManualRetryAttempt: number | null,
+  expectedRetryCount: number,
+): Promise<CreativeWorkOutput | null> {
+  const [row] = await db.update(creativeWorkOutputs).set({
+    failureCode: CREATIVE_WORK_GENERATION_FAILED,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.id, outputId),
+    eq(creativeWorkOutputs.status, "failed"),
+    eq(creativeWorkOutputs.failureCode, CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING),
+    expectedManualRetryAttempt === null
+      ? isNull(creativeWorkOutputs.manualRetryAttempt)
+      : eq(creativeWorkOutputs.manualRetryAttempt, expectedManualRetryAttempt),
+    eq(creativeWorkOutputs.retryCount, expectedRetryCount),
+  )).returning();
+  return row ?? null;
+}
+
+/** Outputs whose compensatory refund still needs a retry: failed rows with a
+ * pending code (historical rule, preserved), plus completed rows carrying the
+ * exact R1 objective-quality marker with a QA-fail verdict and a valid image.
+ * Historical completed rows never match: the marker is only born in the new
+ * winning completion CAS. */
 export async function listCreativeWorkOutputsNeedingRefund(
   workspaceId: string,
   workItemId: string,
@@ -2054,10 +2216,48 @@ export async function listCreativeWorkOutputsNeedingRefund(
       and(
         eq(creativeWorkOutputs.workspaceId, workspaceId),
         eq(creativeWorkOutputs.workItemId, workItemId),
-        eq(creativeWorkOutputs.status, "failed"),
-        sql`${creativeWorkOutputs.failureCode} like '%_refund_pending'`,
+        or(
+          and(
+            eq(creativeWorkOutputs.status, "failed"),
+            sql`${creativeWorkOutputs.failureCode} like '%_refund_pending'`,
+          ),
+          and(
+            eq(creativeWorkOutputs.status, "completed"),
+            eq(creativeWorkOutputs.failureCode, CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING),
+            isNotNull(creativeWorkOutputs.outputKey),
+            sql`${creativeWorkOutputs.quality}->>'objectiveVerdict' = 'fail'`,
+          ),
+        ),
       ),
     );
+}
+
+/**
+ * Clears the R1 objective-quality refund marker after a CONFIRMED settlement.
+ * The CAS accepts only the exact pending case (completed + marker + QA-fail
+ * verdict + expected image); it touches failureCode/updatedAt alone and never
+ * rewrites quality, outputKey or terminalAt. A replay after an applied refund
+ * recognizes the same liquidated ledger key and clears the marker again.
+ */
+export async function clearCreativeWorkOutputObjectiveQualityRefundPending(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string,
+  expectedOutputKey: string,
+): Promise<CreativeWorkOutput | null> {
+  const [row] = await db.update(creativeWorkOutputs).set({
+    failureCode: null,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.id, outputId),
+    eq(creativeWorkOutputs.status, "completed"),
+    eq(creativeWorkOutputs.failureCode, CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING),
+    eq(creativeWorkOutputs.outputKey, expectedOutputKey),
+    sql`${creativeWorkOutputs.quality}->>'objectiveVerdict' = 'fail'`,
+  )).returning();
+  return row ?? null;
 }
 
 /** Releases source analyses whose worker event disappeared after dispatch. */
@@ -2472,6 +2672,13 @@ export async function requeueFailedCreativeWorkOutput(
           : expectedManualRetryAttempt === null
             ? isNull(creativeWorkOutputs.manualRetryAttempt)
             : eq(creativeWorkOutputs.manualRetryAttempt, expectedManualRetryAttempt),
+        // A suspended integrated technical refund must never be requeued by a
+        // manual retry: the later refund would land on top of a new
+        // generation. NULL-safe so historic rows without a code keep working.
+        or(
+          isNull(creativeWorkOutputs.failureCode),
+          ne(creativeWorkOutputs.failureCode, CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING),
+        ),
         lt(creativeWorkOutputs.imageCallCount, CREATIVE_WORK_MAX_IMAGE_CALLS)
       )
     )
@@ -2507,6 +2714,12 @@ export async function claimCreativeWorkOutputManualRetryAttempt(
     expectedManualRetryAttempt === null
       ? isNull(creativeWorkOutputs.manualRetryAttempt)
       : eq(creativeWorkOutputs.manualRetryAttempt, expectedManualRetryAttempt),
+    // Same suspended-refund gate as the requeue CAS: a stale service read
+    // must not reserve an ordinal on a marker row. NULL-safe for history.
+    or(
+      isNull(creativeWorkOutputs.failureCode),
+      ne(creativeWorkOutputs.failureCode, CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING),
+    ),
     lt(creativeWorkOutputs.imageCallCount, CREATIVE_WORK_MAX_IMAGE_CALLS),
   )).returning();
   return claimed ?? null;

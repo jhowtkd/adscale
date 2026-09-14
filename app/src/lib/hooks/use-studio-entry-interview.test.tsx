@@ -90,6 +90,20 @@ describe("useStudioEntryInterview", () => {
     expect(result.current.chips).toEqual([]);
   });
 
+  it.each([
+    { enabled: false, previousProfile: null },
+    { enabled: true, previousProfile: null },
+    { enabled: false, previousProfile: PROFILE_A },
+  ])("preserves typed input on profile arrival when $enabled from $previousProfile", ({ enabled, previousProfile }) => {
+    mockEntryContext(richContext);
+    const { setRequest, rerender, input } = renderInterview(createQueryClient(), {
+      enabled, clientProfileId: previousProfile, request: "Pedido digitado antes da marca carregar",
+      requestFocused: true,
+    });
+    rerender({ ...input, clientProfileId: PROFILE_B });
+    expect(setRequest).not.toHaveBeenCalled();
+  });
+
   it("shows protocol and audience on GET 500 without inventing an offer", async () => {
     mockEntryContext("error");
     const queryClient = createQueryClient();

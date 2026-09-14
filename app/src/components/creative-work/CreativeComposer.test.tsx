@@ -14,6 +14,11 @@ vi.mock("@/lib/hooks/use-person-fidelity", () => ({
 vi.mock("@/components/layout/ActiveBrandSwitcher", () => ({
   default: ({ id }: { id?: string }) => <select id={id ?? "active-brand-switcher"} aria-label="Marca ativa"><option>Escolha</option></select>,
 }));
+vi.mock("./StudioPieceWorkspace", () => ({
+  StudioPieceWorkspace: ({ composer }: { composer: { outputs: unknown[] } }) => (
+    <div data-testid="studio-piece-workspace" data-output-count={composer.outputs.length} />
+  ),
+}));
 const carouselComposerKeys: Record<string, string> = {
   title: "Criar carrossel", subtitle: "Transforme uma ideia ou texto em uma sequência visual coerente.",
   requestLabel: "Pedido do carrossel", requestPlaceholder: "Descreva a sequência que você precisa.",
@@ -956,7 +961,8 @@ describe("CreativeComposer", () => {
       createdAt: new Date(), updatedAt: new Date(),
     };
     const piece = renderComposer(composer({ workId: "work-1", outputs: [output], sources: [readySource] }), { layout: "piece" });
-    const pieceResults = screen.getByTestId("proposal-review-surface");
+    const pieceResults = screen.getByTestId("studio-piece-workspace");
+    expect(screen.queryByTestId("proposal-review-surface")).not.toBeInTheDocument();
     const pieceReading = screen.getByRole("heading", { name: "Leitura da IA" }).closest("section")!;
 
     expect(pieceResults.compareDocumentPosition(pieceReading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

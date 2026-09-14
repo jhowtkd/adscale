@@ -94,6 +94,8 @@ const aggregateTelemetryMock = vi.hoisted(() => vi.fn());
 const recordAggregateMock = vi.hoisted(() => vi.fn());
 const listPendingRefundsMock = vi.hoisted(() => vi.fn());
 const markOutputFailureCodeMock = vi.hoisted(() => vi.fn());
+const clearObjectiveQualityMarkerMock = vi.hoisted(() => vi.fn());
+const clearGenerationFailedMarkerMock = vi.hoisted(() => vi.fn());
 const refundCreditsMock = vi.hoisted(() => vi.fn());
 const resolveReactivationMock = vi.hoisted(() => vi.fn());
 const getUsageByIdempotencyKeyMock = vi.hoisted(() => vi.fn());
@@ -106,6 +108,13 @@ vi.mock("@/server/repositories/creative-work", () => ({
   failStaleCreativeWorkSources: (...args: unknown[]) => failStaleSourcesMock(...args),
   listCreativeWorkOutputsNeedingRefund: (...args: unknown[]) => listPendingRefundsMock(...args),
   markCreativeWorkOutputFailureCode: (...args: unknown[]) => markOutputFailureCodeMock(...args),
+  clearCreativeWorkOutputObjectiveQualityRefundPending: (...args: unknown[]) =>
+    clearObjectiveQualityMarkerMock(...args),
+  clearCreativeWorkOutputGenerationFailedRefundPending: (...args: unknown[]) =>
+    clearGenerationFailedMarkerMock(...args),
+  CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING: "objective_quality_failed_refund_pending",
+  CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING:
+    "generation_failed_terminal_refund_pending",
   recordCreativeWorkGenerationAggregate: (...args: unknown[]) => recordAggregateMock(...args),
   refreshCreativeWorkStatus: (...args: unknown[]) => refreshStatusMock(...args),
   updateCreativeWorkDraft: (...args: unknown[]) => updateDraftMock(...args),
@@ -177,6 +186,18 @@ vi.mock("@/server/application/prepare-carousel-work", () => ({
 const approveCarouselDeckMock = vi.hoisted(() => vi.fn());
 vi.mock("@/server/application/export-carousel-work", () => ({
   approveCarouselDeck: (...args: unknown[]) => approveCarouselDeckMock(...args),
+}));
+
+const refundHelperMock = vi.hoisted(() => vi.fn());
+vi.mock("@/server/application/refund-creative-work-output", () => ({
+  refundCreativeWorkOutputCompensatory: (...args: unknown[]) =>
+    refundHelperMock(...args),
+}));
+
+const saveOutputReviewMock = vi.hoisted(() => vi.fn());
+vi.mock("@/server/application/save-creative-work-output-review", () => ({
+  saveCreativeWorkOutputReview: (...args: unknown[]) =>
+    saveOutputReviewMock(...args),
 }));
 
 function makeParams(id: string) {
@@ -311,6 +332,7 @@ describe("GET /api/creative-work/[id]", () => {
     listPendingRefundsMock.mockResolvedValue([]);
     markOutputFailureCodeMock.mockResolvedValue(null);
     refundCreditsMock.mockResolvedValue({ status: "refunded" });
+    refundHelperMock.mockResolvedValue(true);
     getUsageByIdempotencyKeyMock.mockResolvedValue(null);
     resolveReactivationMock.mockResolvedValue({ state: "none" });
     recordAggregateMock.mockResolvedValue(null);
@@ -413,11 +435,13 @@ describe("GET /api/creative-work/[id]", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
+    // Routing only: the shared helper owns keys/ledger (covered in its suite).
+    expect(refundHelperMock).toHaveBeenCalledWith(expect.objectContaining({
       workspaceId: "workspace-1",
-      action: "image_derivation",
-      amount: 50,
-      idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund",
+      workItemId: "work-1",
+      outputId: "output-1",
+      reason: "retry_pending_compensatory_refund",
+      failurePhase: "terminal",
     }));
     expect(markOutputFailureCodeMock).toHaveBeenCalledWith(
       "workspace-1",
@@ -428,13 +452,6 @@ describe("GET /api/creative-work/[id]", () => {
   });
 
   it("reconciles an unsettled reactivation exact preflight refund with its distinct charge key", async () => {
-    resolveReactivationMock.mockResolvedValue({
-      state: "outstanding",
-      kind: "manual",
-      retryAttempt: 2,
-      chargeKey: "creative-work:work-1:output:output-1:reactivate-terminal:2",
-      refundKey: "creative-work:work-1:output:output-1:reactivate-terminal:2-refund",
-    });
     listPendingRefundsMock.mockResolvedValue([
       {
         id: "output-1",
@@ -451,9 +468,12 @@ describe("GET /api/creative-work/[id]", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
-      amount: 50,
-      idempotencyKey: "creative-work:work-1:output:output-1:reactivate-terminal:2-refund",
+    expect(refundHelperMock).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      manualRetryAttempt: 2,
+      reason: "retry_pending_compensatory_refund",
     }));
     expect(markOutputFailureCodeMock).toHaveBeenCalledWith(
       "workspace-1",
@@ -464,19 +484,6 @@ describe("GET /api/creative-work/[id]", () => {
   });
 
   it("clears a pending manual reactivation refund already settled in the real ledger resolver without a fallback refund", async () => {
-    const actual = await vi.importActual<typeof import("@/server/generation/settlement-adapters")>(
-      "@/server/generation/settlement-adapters",
-    );
-    resolveReactivationMock.mockImplementation(actual.resolveCreativeWorkOutputReactivationOutcome);
-    getUsageByIdempotencyKeyMock.mockImplementation(async (_workspaceId: string, key: string) => {
-      if (
-        key === "creative-work:work-1:output:output-1:reactivate-terminal:2" ||
-        key === "creative-work:work-1:output:output-1:reactivate-terminal:2-refund"
-      ) {
-        return { id: key, idempotencyKey: key };
-      }
-      return null;
-    });
     listPendingRefundsMock.mockResolvedValue([{
       id: "output-1",
       manualRetryAttempt: 2,
@@ -490,7 +497,12 @@ describe("GET /api/creative-work/[id]", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(refundCreditsMock).not.toHaveBeenCalled();
+    expect(refundHelperMock).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      manualRetryAttempt: 2,
+    }));
     expect(markOutputFailureCodeMock).toHaveBeenCalledWith(
       "workspace-1",
       "work-1",
@@ -504,22 +516,17 @@ describe("GET /api/creative-work/[id]", () => {
       .mockResolvedValueOnce([{ id: "output-1", manualRetryAttempt: 3 }])
       .mockResolvedValueOnce([]);
     listPendingRefundsMock.mockResolvedValue([{ id: "output-2", manualRetryAttempt: 1, failureCode: "generation_canceled_refund_pending" }]);
-    resolveReactivationMock.mockImplementation(async (_input: { outputId: string; manualRetryAttempt?: number }) => ({
-      state: "outstanding" as const,
-      kind: "manual",
-      retryAttempt: _input.manualRetryAttempt ?? 1,
-      chargeKey: `creative-work:work-1:output:${_input.outputId}:reactivate-terminal:${_input.manualRetryAttempt ?? 1}`,
-      refundKey: `creative-work:work-1:output:${_input.outputId}:reactivate-terminal:${_input.manualRetryAttempt ?? 1}-refund`,
-    }));
     getWorkMock.mockResolvedValue({ work: workItem, outputs, sources: [] });
 
     await expect(GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") }))
       .resolves.toHaveProperty("status", 200);
-    expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
-      idempotencyKey: "creative-work:work-1:output:output-1:reactivate-terminal:3-refund",
+    expect(refundHelperMock).toHaveBeenCalledWith(expect.objectContaining({
+      outputId: "output-1",
+      manualRetryAttempt: 3,
     }));
-    expect(refundCreditsMock).toHaveBeenCalledWith(expect.objectContaining({
-      idempotencyKey: "creative-work:work-1:output:output-2:reactivate-terminal:1-refund",
+    expect(refundHelperMock).toHaveBeenCalledWith(expect.objectContaining({
+      outputId: "output-2",
+      manualRetryAttempt: 1,
     }));
   });
 
@@ -2289,5 +2296,394 @@ describe("PATCH /api/creative-work/[id] approveCarousel", () => {
     await expect(response.json()).resolves.toMatchObject({ details: { findings } });
     expect(linkCampaignMock).not.toHaveBeenCalled();
     expect(createSourceMock).not.toHaveBeenCalled();
+  });
+
+  it("saves a review draft and returns the canonical cost without dispatch", async () => {
+    const draft = {
+      version: 1,
+      revision: 1,
+      revisionKey: "00000000-0000-4000-8000-000000000001",
+      action: "refine",
+      targetFormat: "4:5",
+      instruction: "Aumente o título",
+      annotations: [],
+      revisionAssetId: null,
+    };
+    saveOutputReviewMock.mockResolvedValue({
+      ok: true,
+      value: { draft, revisionCreditCost: 50 },
+    });
+    const response = await requestPatch({
+      action: "saveOutputReview",
+      outputId: "00000000-0000-4000-8000-000000000002",
+      expectedReviewRevision: 0,
+      draft: {
+        action: "refine",
+        targetFormat: "4:5",
+        instruction: "Aumente o título",
+        annotations: [],
+        revisionAssetId: null,
+      },
+    });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      draft,
+      revisionCreditCost: 50,
+    });
+  });
+
+  it("maps a stale review writer to 409 without overwriting", async () => {
+    saveOutputReviewMock.mockResolvedValue({
+      ok: false,
+      error: { code: "review_conflict" },
+    });
+    const response = await requestPatch({
+      action: "saveOutputReview",
+      outputId: "00000000-0000-4000-8000-000000000002",
+      expectedReviewRevision: 0,
+      draft: {
+        action: "refine",
+        targetFormat: "4:5",
+        instruction: "Aumente o título",
+        annotations: [],
+        revisionAssetId: null,
+      },
+    });
+    expect(response.status).toBe(409);
+  });
+});
+
+describe("GET review projection", () => {
+  it("projects saved drafts without private storage keys and exposes canonical cost", async () => {
+    const { GET } = await import("./route");
+    getWorkMock.mockResolvedValue({
+      work: { ...workItem, toolKind: "single", inputSnapshot: null },
+      outputs: [
+        {
+          id: "output-1",
+          workItemId: "work-1",
+          creativeLevel: "balanced",
+          targetFormat: "4:5",
+          versionNumber: 1,
+          parentOutputId: null,
+          revisionInstruction: null,
+          revisionAssetId: null,
+          reviewDraft: {
+            version: 1,
+            revision: 1,
+            revisionKey: "00000000-0000-4000-8000-000000000001",
+            action: "refine",
+            targetFormat: "4:5",
+            instruction: "Aumente o título",
+            annotations: [],
+            revisionAssetId: null,
+          },
+          revisionContext: null,
+          retryCount: 0,
+          imageCallCount: 1,
+          status: "completed",
+          outputKey: "pieces/base.png",
+          failureCode: null,
+          quality: null,
+          isSelected: false,
+          directionId: null,
+          directionSnapshot: null,
+          createdAt: new Date("2026-07-13T12:00:00.000Z"),
+          updatedAt: new Date("2026-07-13T12:00:00.000Z"),
+          layerization: null,
+          layerEditor: null,
+        },
+      ],
+      sources: [],
+    });
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), {
+      params: makeParams("work-1"),
+    });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.outputs[0].reviewDraft).toMatchObject({ revision: 1 });
+    expect(body.outputs[0].revisionContext).toBeNull();
+    expect(body.revisionCreditCost).toBe(50);
+    expect(JSON.stringify(body)).not.toContain("pieces/base.png");
+  });
+
+  it("rejects persisted drafts with extra private keys or invalid versions without reset", async () => {    const { GET } = await import("./route");
+    const base = {
+      id: "output-1",
+      workItemId: "work-1",
+      creativeLevel: "balanced",
+      targetFormat: "4:5",
+      versionNumber: 1,
+      parentOutputId: null,
+      revisionInstruction: null,
+      revisionAssetId: null,
+      retryCount: 0,
+      imageCallCount: 1,
+      status: "completed",
+      outputKey: "pieces/base.png",
+      failureCode: null,
+      quality: null,
+      isSelected: false,
+      directionId: null,
+      directionSnapshot: null,
+      createdAt: new Date("2026-07-13T12:00:00.000Z"),
+      updatedAt: new Date("2026-07-13T12:00:00.000Z"),
+      layerization: null,
+      layerEditor: null,
+    };
+    getWorkMock.mockResolvedValue({
+      work: { ...workItem, toolKind: "single", inputSnapshot: null },
+      outputs: [
+        {
+          ...base,
+          id: "output-extra",
+          reviewDraft: {
+            version: 1,
+            revision: 1,
+            revisionKey: "00000000-0000-4000-8000-000000000001",
+            action: "refine",
+            targetFormat: "4:5",
+            instruction: "Ajuste",
+            annotations: [],
+            revisionAssetId: null,
+            storageKey: "private/extra.png",
+          },
+          revisionContext: {
+            version: 2,
+            reviewRevision: 1,
+            sourceOutputId: "00000000-0000-4000-8000-000000000002",
+            sourceOutputVersion: 1,
+            action: "refine",
+            targetFormat: "4:5",
+            instruction: "Ajuste",
+            annotations: [],
+            revisionAssetId: null,
+          },
+        },
+      ],
+      sources: [],
+    });
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), {
+      params: makeParams("work-1"),
+    });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.outputs[0].reviewDraft).toBeNull();
+    expect(body.outputs[0].revisionContext).toBeNull();
+    expect(JSON.stringify(body)).not.toContain("private/extra.png");
+  });
+});
+
+describe("GET objective-quality refund recovery (R1)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    failStaleOutputsMock.mockResolvedValue([]);
+    failStaleSourcesMock.mockResolvedValue([]);
+    listPendingRefundsMock.mockResolvedValue([]);
+    markOutputFailureCodeMock.mockResolvedValue(null);
+    clearObjectiveQualityMarkerMock.mockResolvedValue(null);
+    refundHelperMock.mockResolvedValue(true);
+    getUsageByIdempotencyKeyMock.mockResolvedValue(null);
+    resolveReactivationMock.mockResolvedValue({ state: "none" });
+    recordAggregateMock.mockResolvedValue(null);
+    layerEditorAccessMock.mockResolvedValue({ enabled: false, period: null, layerize: null, regeneration: null });
+  });
+
+  const markedOutput = {
+    id: "output-1",
+    workItemId: "work-1",
+    creativeLevel: "balanced",
+    targetFormat: "4:5",
+    versionNumber: 1,
+    parentOutputId: null,
+    revisionInstruction: null,
+    revisionAssetId: null,
+    reviewDraft: null,
+    revisionContext: null,
+    retryCount: 0,
+    imageCallCount: 1,
+    manualRetryAttempt: null,
+    status: "completed",
+    outputKey: "pieces/final.png",
+    failureCode: "objective_quality_failed_refund_pending",
+    quality: { schemaVersion: 1, objectiveVerdict: "fail" },
+    isSelected: false,
+    directionId: null,
+    directionSnapshot: null,
+    createdAt: new Date("2026-07-13T12:00:00.000Z"),
+    updatedAt: new Date("2026-07-13T12:00:00.000Z"),
+    layerization: null,
+    layerEditor: null,
+  };
+
+  it("refunds a preserved QA-fail preview with the terminal key and clears only the marker", async () => {
+    listPendingRefundsMock.mockResolvedValue([markedOutput]);
+    getWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [markedOutput],
+      sources: [],
+    });
+
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), {
+      params: makeParams("work-1"),
+    });
+
+    expect(res.status).toBe(200);
+    expect(refundHelperMock).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      reason: "objective_quality_failed",
+      manualRetryAttempt: null,
+      failurePhase: "terminal",
+      userId: "user-1",
+    });
+    expect(clearObjectiveQualityMarkerMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      "pieces/final.png",
+    );
+    // The generic failed-row code rewrite never touches a completed preview.
+    expect(markOutputFailureCodeMock).not.toHaveBeenCalled();
+    const body = await res.json();
+    expect(body.outputs[0].hasOutput).toBe(true);
+    expect(body.outputs[0].quality).toMatchObject({ objectiveVerdict: "fail" });
+  });
+
+  it("keeps the marker when the refund fails so recovery can resume", async () => {
+    refundHelperMock.mockResolvedValueOnce(false);
+    listPendingRefundsMock.mockResolvedValue([markedOutput]);
+    getWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [markedOutput],
+      sources: [],
+    });
+
+    const res = await GET(new Request("http://localhost/api/creative-work/work-1"), {
+      params: makeParams("work-1"),
+    });
+
+    expect(res.status).toBe(200);
+    expect(refundHelperMock).toHaveBeenCalledTimes(1);
+    expect(clearObjectiveQualityMarkerMock).not.toHaveBeenCalled();
+    expect(markOutputFailureCodeMock).not.toHaveBeenCalled();
+    const body = await res.json();
+    expect(body.outputs[0].hasOutput).toBe(true);
+  });
+});
+
+describe("GET integrated technical-failure refund recovery", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    failStaleOutputsMock.mockResolvedValue([]);
+    failStaleSourcesMock.mockResolvedValue([]);
+    listPendingRefundsMock.mockResolvedValue([]);
+    markOutputFailureCodeMock.mockResolvedValue(null);
+    clearObjectiveQualityMarkerMock.mockResolvedValue(null);
+    clearGenerationFailedMarkerMock.mockResolvedValue(null);
+    refundHelperMock.mockResolvedValue(true);
+    getUsageByIdempotencyKeyMock.mockResolvedValue(null);
+    resolveReactivationMock.mockResolvedValue({ state: "none" });
+    recordAggregateMock.mockResolvedValue(null);
+    layerEditorAccessMock.mockResolvedValue({ enabled: false, period: null, layerize: null, regeneration: null });
+  });
+
+  const failedTechnicalRow = {
+    id: "output-1",
+    status: "failed",
+    failureCode: "generation_failed_terminal_refund_pending",
+    manualRetryAttempt: null,
+    retryCount: 0,
+  };
+
+  async function getDetail() {
+    return GET(new Request("http://localhost/api/creative-work/work-1"), {
+      params: makeParams("work-1"),
+    });
+  }
+
+  it("recovers with terminal phase and the authenticated actor, settling as generation_failed", async () => {
+    listPendingRefundsMock.mockResolvedValue([failedTechnicalRow]);
+    getWorkMock.mockResolvedValue({ work: workItem, outputs, sources: [] });
+
+    const res = await getDetail();
+
+    expect(res.status).toBe(200);
+    expect(refundHelperMock).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      reason: "retry_pending_compensatory_refund",
+      manualRetryAttempt: null,
+      failurePhase: "terminal",
+      userId: "user-1",
+    });
+    expect(clearGenerationFailedMarkerMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      null,
+      0,
+    );
+    expect(markOutputFailureCodeMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the marker when the terminal refund fails so recovery can resume", async () => {
+    refundHelperMock.mockResolvedValueOnce(false);
+    listPendingRefundsMock.mockResolvedValue([failedTechnicalRow]);
+    getWorkMock.mockResolvedValue({ work: workItem, outputs, sources: [] });
+
+    const res = await getDetail();
+
+    expect(res.status).toBe(200);
+    expect(refundHelperMock).toHaveBeenCalledTimes(1);
+    expect(clearGenerationFailedMarkerMock).not.toHaveBeenCalled();
+    expect(markOutputFailureCodeMock).not.toHaveBeenCalled();
+  });
+
+  it("does not refund twice on replay after the marker cleared", async () => {
+    listPendingRefundsMock.mockResolvedValueOnce([failedTechnicalRow]);
+    getWorkMock.mockResolvedValue({ work: workItem, outputs, sources: [] });
+
+    await expect(getDetail()).resolves.toHaveProperty("status", 200);
+    expect(refundHelperMock).toHaveBeenCalledTimes(1);
+    expect(clearGenerationFailedMarkerMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-1",
+      null,
+      0,
+    );
+    expect(markOutputFailureCodeMock).not.toHaveBeenCalled();
+
+    listPendingRefundsMock.mockResolvedValue([]);
+    await expect(getDetail()).resolves.toHaveProperty("status", 200);
+    expect(refundHelperMock).toHaveBeenCalledTimes(1);
+    expect(clearGenerationFailedMarkerMock).toHaveBeenCalledTimes(1);
+    expect(markOutputFailureCodeMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps historic pending codes on their existing mappings", async () => {
+    listPendingRefundsMock.mockResolvedValue([
+      { id: "output-9", failureCode: "generation_timeout_refund_pending" },
+    ]);
+    getWorkMock.mockResolvedValue({ work: workItem, outputs, sources: [] });
+
+    const res = await getDetail();
+
+    expect(res.status).toBe(200);
+    expect(refundHelperMock).toHaveBeenCalledWith(expect.objectContaining({
+      outputId: "output-9",
+      failurePhase: "job_failure",
+    }));
+    expect(refundHelperMock.mock.calls[0][0]).not.toHaveProperty("userId");
+    expect(clearGenerationFailedMarkerMock).not.toHaveBeenCalled();
+    expect(markOutputFailureCodeMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "work-1",
+      "output-9",
+      "generation_timeout",
+    );
   });
 });

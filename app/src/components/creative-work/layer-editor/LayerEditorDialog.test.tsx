@@ -19,6 +19,7 @@ vi.mock("next-intl", () => ({
 }));
 
 import { LayerEditorDialog } from "./LayerEditorDialog";
+import { LayerEditorContent } from "./LayerEditorContent";
 
 const document: PublicLayerEditorDocumentV1 = {
   schemaVersion: 1,
@@ -277,5 +278,153 @@ describe("LayerEditorDialog", () => {
       expect(within(screen.getByRole("banner")).getByRole("button", { name })).toHaveClass("min-h-11", "min-w-11");
     }
     expect(within(screen.getByRole("banner")).getByRole("button", { name: "Criar nova variação" })).toHaveClass("min-h-11");
+  });
+
+  it("hosts the same single session inline without a dialog wrapper", () => {
+    mocks.useLayerEditor.mockReturnValue(editor("edit"));
+    const onOpenChange = vi.fn();
+    render(
+      <LayerEditorContent
+        open
+        workItemId="work-inline"
+        outputId="output-inline"
+        mode="edit"
+        presentation="inline"
+        onOpenChange={onOpenChange}
+      />,
+    );
+
+    expect(screen.queryByRole("dialog", { name: "Editor de camadas" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Canvas de camadas" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Camadas" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Criar nova variação" })).toBeInTheDocument();
+    expect(mocks.useLayerEditor).toHaveBeenCalledWith({ workItemId: "work-inline", outputId: "output-inline", mode: "edit" });
+  });
+
+  it("hides the inactive regeneration panel only in inline read mode", () => {
+    mocks.useLayerEditor.mockReturnValue(editor("inspect"));
+    const { unmount } = render(
+      <LayerEditorContent
+        open
+        workItemId="work-inspect"
+        outputId="output-inspect"
+        mode="inspect"
+        presentation="inline"
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    // Canvas keeps a legible reserved area; the idle panel is not mounted.
+    expect(screen.getByRole("region", { name: "Canvas de camadas" })).toBeInTheDocument();
+    expect(screen.queryByText("Sem regeneração ativa")).not.toBeInTheDocument();
+    unmount();
+
+    // Dialog presentation keeps the panel for the same state.
+    mocks.useLayerEditor.mockReturnValue(editor("inspect"));
+    render(
+      <LayerEditorDialog
+        open
+        workItemId="work-inspect-d"
+        outputId="output-inspect-d"
+        mode="inspect"
+        onOpenChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Sem regeneração ativa")).toBeInTheDocument();
+  });
+
+  it("preserves the regeneration panel whenever a regeneration exists", () => {
+    const value = {
+      ...editor("inspect"),
+      document: {
+        ...document,
+        regeneration: {
+          id: "regen",
+          status: "processing" as const,
+          layerId: document.layers[0]!.id,
+          instruction: "Change",
+          candidateUrl: null,
+          failureCode: null,
+        },
+      },
+    };
+    mocks.useLayerEditor.mockReturnValue(value);
+    render(
+      <LayerEditorContent
+        open
+        workItemId="work-regen"
+        outputId="output-regen"
+        mode="inspect"
+        presentation="inline"
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    // The panel stays mounted and renders the ACTIVE regeneration status.
+    expect(screen.getByRole("region", { name: "Canvas de camadas" })).toBeInTheDocument();
+    expect(screen.getByText("processing")).toBeInTheDocument();
+  });
+
+  it("routes external exit requests through the flushed close", async () => {
+    const value = editor("edit");
+    const onOpenChange = vi.fn();
+    mocks.useLayerEditor.mockReturnValue(value);
+    const view = render(
+      <LayerEditorContent
+        open
+        workItemId="work-exit"
+        outputId="output-exit"
+        presentation="inline"
+        onOpenChange={onOpenChange}
+        exitRequestToken={0}
+      />,
+    );
+
+    expect(value.flushAndRelease).not.toHaveBeenCalled();
+    view.rerender(
+      <LayerEditorContent
+        open
+        workItemId="work-exit"
+        outputId="output-exit"
+        presentation="inline"
+        onOpenChange={onOpenChange}
+        exitRequestToken={1}
+      />,
+    );
+
+    await waitFor(() => expect(value.flushAndRelease).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+  });
+
+  it("keeps the editor mounted when the external exit flush fails", async () => {
+    const value = editor("edit");
+    const onOpenChange = vi.fn();
+    value.flushAndRelease = vi.fn().mockResolvedValue(false);
+    mocks.useLayerEditor.mockReturnValue(value);
+    const view = render(
+      <LayerEditorContent
+        open
+        workItemId="work-exit-fail"
+        outputId="output-exit-fail"
+        presentation="inline"
+        onOpenChange={onOpenChange}
+        exitRequestToken={0}
+      />,
+    );
+
+    view.rerender(
+      <LayerEditorContent
+        open
+        workItemId="work-exit-fail"
+        outputId="output-exit-fail"
+        presentation="inline"
+        onOpenChange={onOpenChange}
+        exitRequestToken={2}
+      />,
+    );
+
+    await waitFor(() => expect(value.flushAndRelease).toHaveBeenCalledTimes(1));
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("region", { name: "Canvas de camadas" })).toBeInTheDocument();
   });
 });

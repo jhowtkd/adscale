@@ -13,6 +13,7 @@
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import {
+  CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING,
   CREATIVE_WORK_MAX_IMAGE_CALLS,
   claimCreativeWorkOutputManualRetryAttempt,
   releaseCreativeWorkOutputManualRetryAttempt,
@@ -119,6 +120,18 @@ export async function retryCreativeWorkOutput(
     return {
       ok: false,
       error: { code: "output_not_retriable", status: "revision_requires_paid_command" },
+    };
+  }
+
+  // An integrated technical failure holds a suspended terminal refund under an
+  // exact marker. A manual retry must never reserve, charge or dispatch while
+  // that compensation is unresolved: the later refund would land on top of a
+  // new generation. Once the marker clears to generation_failed the output
+  // returns to the normal budget path below.
+  if (output.failureCode === CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING) {
+    return {
+      ok: false,
+      error: { code: "output_not_retriable", status: "terminal_refund_pending" },
     };
   }
 

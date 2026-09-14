@@ -623,6 +623,25 @@ describe("buildCreativeWorkQaPrompt", () => {
     ],
   };
 
+  it("includes declared identity and requested revision without claiming exact visual font verification", () => {
+    const brandKit = {
+      colors: ["#123456"], fonts: ["Inter"], requiredElements: "Logo", prohibitedElements: "Clipart",
+      fontAssets: [{ assetKey: "PRIVATE_FONT_STORAGE_SENTINEL" }],
+    };
+    const prompt = buildCreativeWorkQaPrompt({
+      ...baseInput,
+      brandKit,
+      revisionInstruction: "Aumente o título e preserve a oferta",
+    });
+    expect(prompt).toContain("#123456");
+    expect(prompt).toContain("Inter");
+    expect(prompt).toContain("Aumente o título e preserve a oferta");
+    expect(prompt).toContain("Não declare verificação exata de arquivo de fonte por visão");
+    expect(prompt).toContain("pequenas variações de estilo não são falha factual");
+    expect(prompt).not.toContain("brand_visual_drift");
+    expect(prompt).not.toContain("PRIVATE_FONT_STORAGE_SENTINEL");
+  });
+
   it("embeds the fact pack with origins, required/allowed split and brand rules", () => {
     const prompt = buildCreativeWorkQaPrompt(baseInput);
     expect(prompt).toContain("FACT PACK — AUDITABLE FACTUAL CONTRACT:");

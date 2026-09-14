@@ -125,20 +125,21 @@ export function useStudioEntryInterview(input: {
 
   useEffect(() => {
     if (prevClientProfileIdRef.current === clientProfileId) return;
+    const clearRequest = enabled && prevClientProfileIdRef.current !== null;
     prevClientProfileIdRef.current = clientProfileId;
 
     setAnswers({});
     chipsShownSignatureRef.current = null;
     lastWrittenRef.current = "";
     userEditedSinceWriteRef.current = false;
-    prevRequestRef.current = "";
-    setRequest("");
+    prevRequestRef.current = clearRequest ? "" : request;
+    if (clearRequest) setRequest("");
     postGenerationRef.current += 1;
     if (postDebounceRef.current) clearTimeout(postDebounceRef.current);
     postDebounceRef.current = null;
     postAbortRef.current?.abort();
     postAbortRef.current = null;
-  }, [clientProfileId, setRequest]);
+  }, [clientProfileId, enabled, request, setRequest]);
 
   useEffect(() => {
     if (!enabled || !clientProfileId) return;

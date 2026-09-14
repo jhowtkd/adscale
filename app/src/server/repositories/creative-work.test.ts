@@ -158,7 +158,11 @@ vi.mock("./client-reference", () => ({
 vi.mock("./campaign", () => ({ getCampaignById: scopeMocks.getCampaignById }));
 
 import { creativeWorkOutputs } from "../db/schema";
+import { saveOutputReviewDraft } from "./creative-work-output-review";
 import {
+  CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING,
+  CREATIVE_WORK_GENERATION_FAILED,
+  CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING,
   claimCreativeWorkOutputImageCall,
   claimCreativeWorkOutputManualRetryAttempt,
   releaseCreativeWorkOutputManualRetryAttempt,
@@ -205,6 +209,10 @@ import {
   updateCreativeWorkDraftIfUnchanged,
   updateCreativeWorkIfUnchanged,
   withCreativeWorkPreparationLock,
+  getCreativeWorkSourceAssetDetails,
+  clearCreativeWorkOutputObjectiveQualityRefundPending,
+  clearCreativeWorkOutputGenerationFailedRefundPending,
+  listCreativeWorkOutputsNeedingRefund,
 } from "./creative-work";
 import type {
   SocialPostBrief,
@@ -1740,6 +1748,40 @@ describe("creative-work repository", () => {
       expect(query.params).toContain(1);
     });
 
+    it("refuses to requeue while the exact terminal refund marker is pending", async () => {
+      mocks.state.updateResults.push([]);
+      await expect(requeueFailedCreativeWorkOutput(
+        "ws-1", "work-1", "output-1", 0, null,
+      )).resolves.toBeNull();
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql.toLowerCase()).toContain("is null");
+      expect(query.params).toEqual(expect.arrayContaining([
+        "ws-1",
+        "work-1",
+        "output-1",
+        "failed",
+        0,
+        CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING,
+      ]));
+    });
+
+    it("refuses to reserve a manual ordinal while the exact terminal refund marker is pending", async () => {
+      mocks.state.updateResults.push([]);
+      await expect(claimCreativeWorkOutputManualRetryAttempt(
+        "ws-1", "work-1", "output-1", 0, null, 1,
+      )).resolves.toBeNull();
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql.toLowerCase()).toContain("is null");
+      expect(query.params).toEqual(expect.arrayContaining([
+        "ws-1",
+        "work-1",
+        "output-1",
+        "failed",
+        0,
+        CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING,
+      ]));
+    });
+
     it("links only a same-workspace campaign with a compatible client profile", async () => {
       const work = workItem();
       const linked = workItem({ campaignId: "campaign-1" });
@@ -2625,6 +2667,552 @@ describe("creative-work repository", () => {
       expect(rows).toHaveLength(1);
       expect(mocks.limitMock).toHaveBeenCalled();
       expect(mocks.whereMock).toHaveBeenCalled();
+    });
+  });
+
+  describe("output review drafts", () => {
+    it("saves only a scoped review draft and rejects a stale writer", async () => {
+      const before = workOutput({
+        status: "completed",
+        outputKey: "pieces/base.png",
+        reviewDraft: null,
+      });
+      const draft = {
+        action: "refine" as const,
+        targetFormat: "9:16" as const,
+        instruction: "Aumente o título",
+        annotations: [],
+        revisionAssetId: null,
+      };
+      mocks.state.selectResults.push([before]);
+      const saved = await saveOutputReviewDraft({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: before.id,
+        expectedReviewRevision: 0,
+        draft,
+      });
+      expect(saved.ok).toBe(true);
+      if (!saved.ok) throw new Error(saved.code);
+      expect(saved.draft).toMatchObject({
+        version: 1,
+        revision: 1,
+        targetFormat: "4:5",
+      });
+      expect(mocks.txSetMock).toHaveBeenCalledWith({
+        reviewDraft: saved.draft,
+      });
+      mocks.state.selectResults.push([{ ...before, reviewDraft: saved.draft }]);
+      const stale = await saveOutputReviewDraft({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: before.id,
+        expectedReviewRevision: 0,
+        draft,
+      });
+      expect(stale).toEqual({ ok: false, code: "review_conflict" });
+      expect(mocks.txSetMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects a draft outside the workspace scope without writing", async () => {
+      mocks.state.selectResults.push([]);
+      const draft = {
+        action: "refine" as const,
+        targetFormat: "4:5" as const,
+        instruction: "Aumente o título",
+        annotations: [],
+        revisionAssetId: null,
+      };
+      await expect(
+        saveOutputReviewDraft({
+          workspaceId: "ws-other",
+          workItemId: "work-1",
+          outputId: "output-1",
+          expectedReviewRevision: 0,
+          draft,
+        }),
+      ).resolves.toEqual({ ok: false, code: "not_found" });
+      expect(mocks.txSetMock).not.toHaveBeenCalled();
+    });
+
+    it("refuses to overwrite a schema-invalid persisted draft as a fresh one", async () => {
+      const before = workOutput({
+        status: "completed",
+        outputKey: "pieces/base.png",
+        reviewDraft: {
+          version: 2,
+          revision: 1,
+          revisionKey: "00000000-0000-4000-8000-000000000001",
+          action: "refine",
+          targetFormat: "4:5",
+          instruction: "Ajuste",
+          annotations: [],
+          revisionAssetId: null,
+        },
+      });
+      const draft = {
+        action: "refine" as const,
+        targetFormat: "4:5" as const,
+        instruction: "Texto novo",
+        annotations: [],
+        revisionAssetId: null,
+      };
+      mocks.state.selectResults.push([before]);
+      await expect(
+        saveOutputReviewDraft({
+          workspaceId: "ws-1",
+          workItemId: "work-1",
+          outputId: before.id,
+          expectedReviewRevision: 0,
+          draft,
+        }),
+      ).resolves.toEqual({ ok: false, code: "review_conflict" });
+      expect(mocks.txSetMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("output review compatibility", () => {
+    it("claims with an explicit ceiling of one call for integrated policy", async () => {
+      const claimed = workOutput({ imageCallCount: 1, status: "processing" });
+      mocks.state.updateResults.push([claimed]);
+      await expect(
+        claimCreativeWorkOutputImageCall("ws-1", "work-1", "output-1", 1),
+      ).resolves.toEqual(claimed);
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.params).toEqual(["ws-1", "work-1", "output-1", 1]);
+    });
+
+    it("projects existing source dimensions without changing identity fields", async () => {
+      mocks.state.selectResults.push([
+        {
+          id: "asset-1",
+          key: "uploads/base.png",
+          type: "image/png",
+          source: "upload",
+          name: "base.png",
+          width: 1080,
+          height: 1350,
+        },
+      ]);
+      const details = await getCreativeWorkSourceAssetDetails("ws-1", [
+        { id: "source-1", assetId: "asset-1" },
+      ]);
+      expect(details.get("source-1")).toEqual({
+        assetKey: "uploads/base.png",
+        mimeType: "image/png",
+        source: "upload",
+        name: "base.png",
+        width: 1080,
+        height: 1350,
+      });
+    });
+  });
+
+  describe("reviewed revisions", () => {
+    const reviewContext = {
+      version: 1 as const,
+      sourceOutputId: "output-1",
+      sourceOutputVersion: 1,
+      reviewRevision: 2,
+      action: "format" as const,
+      targetFormat: "9:16" as const,
+      instruction: "Preserve a pessoa.",
+      annotations: [],
+      revisionAssetId: null,
+    };
+    const reviewKey = "00000000-0000-4000-8000-000000000201";
+
+    it("creates a format child with frozen context without touching the parent", async () => {
+      const parent = workOutput({
+        id: "output-1",
+        targetFormat: "4:5",
+        versionNumber: 1,
+        outputKey: "pieces/base.png",
+        status: "completed",
+        reviewDraft: {
+          version: 1,
+          revision: 2,
+          revisionKey: reviewKey,
+          action: "format",
+          targetFormat: "9:16",
+          instruction: "Preserve a pessoa.",
+          annotations: [],
+          revisionAssetId: null,
+        },
+      });
+      const child = workOutput({
+        id: "output-2",
+        parentOutputId: "output-1",
+        targetFormat: "9:16",
+        versionNumber: 1,
+        operationKey: `revision:${reviewKey}`,
+        revisionInstruction: "Adapte a mesma peça para 9:16. Preserve os fatos e a identidade visual.\nPreserve a pessoa.",
+        revisionContext: reviewContext,
+      });
+      mocks.state.selectResults.push(
+        [parent],
+        [],
+        [],
+        [parent],
+        [{ maxVersion: 0 }],
+      );
+      mocks.state.onConflictResults.push([child]);
+      const result = await createCreativeWorkRevision(
+        "ws-1",
+        "work-1",
+        reviewKey,
+        "output-1",
+        "Adapte a mesma peça para 9:16. Preserve os fatos e a identidade visual.\nPreserve a pessoa.",
+        null,
+        { context: reviewContext, expectedReviewRevision: 2 },
+      );
+      expect(result).toEqual({ output: child, claimedForDispatch: true });
+      expect(mocks.valuesMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          targetFormat: "9:16",
+          parentOutputId: "output-1",
+          revisionContext: reviewContext,
+        }),
+      );
+    });
+
+    it("replays the same key with the same context without a second charge", async () => {
+      const parent = workOutput({ id: "output-1", targetFormat: "4:5" });
+      const existing = workOutput({
+        id: "output-2",
+        parentOutputId: "output-1",
+        targetFormat: "9:16",
+        operationKey: `revision:${reviewKey}`,
+        revisionInstruction: "Adapte",
+        revisionContext: reviewContext,
+      });
+      mocks.state.selectResults.push([parent], [existing]);
+      await expect(
+        createCreativeWorkRevision("ws-1", "work-1", reviewKey, "output-1", "Adapte", null, {
+          context: reviewContext,
+          expectedReviewRevision: 2,
+        }),
+      ).resolves.toEqual({ output: existing, claimedForDispatch: false });
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it("conflicts when the same key carries another target without charging", async () => {
+      const parent = workOutput({ id: "output-1", targetFormat: "4:5" });
+      const existing = workOutput({
+        id: "output-2",
+        parentOutputId: "output-1",
+        targetFormat: "9:16",
+        operationKey: `revision:${reviewKey}`,
+        revisionInstruction: "Adapte",
+        revisionContext: reviewContext,
+      });
+      const otherContext = { ...reviewContext, targetFormat: "1:1" as const };
+      mocks.state.selectResults.push([parent], [existing]);
+      await expect(
+        createCreativeWorkRevision("ws-1", "work-1", reviewKey, "output-1", "Adapte", null, {
+          context: otherContext,
+          expectedReviewRevision: 2,
+        }),
+      ).resolves.toBeNull();
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects a reservation whose draft changed under lock without dispatch", async () => {
+      const parent = workOutput({
+        id: "output-1",
+        targetFormat: "4:5",
+        reviewDraft: {
+          version: 1,
+          revision: 2,
+          revisionKey: reviewKey,
+          action: "format",
+          targetFormat: "9:16",
+          instruction: "Preserve a pessoa.",
+          annotations: [],
+          revisionAssetId: null,
+        },
+      });
+      const edited = {
+        ...parent,
+        reviewDraft: {
+          version: 1,
+          revision: 3,
+          revisionKey: "00000000-0000-4000-8000-000000000099",
+          action: "format",
+          targetFormat: "9:16",
+          instruction: "Texto novo",
+          annotations: [],
+          revisionAssetId: null,
+        },
+      };
+      mocks.state.selectResults.push([parent], [], [], [edited]);
+      await expect(
+        createCreativeWorkRevision("ws-1", "work-1", reviewKey, "output-1", "Adapte", null, {
+          context: reviewContext,
+          expectedReviewRevision: 2,
+        }),
+      ).resolves.toBeNull();
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it("re-queues a funded credit_blocked replay under the same key and claims dispatch", async () => {
+      const key = "00000000-0000-4000-8000-000000000202";
+      const blocked = workOutput({
+        id: "output-2",
+        parentOutputId: "output-1",
+        operationKey: `revision:${key}`,
+        revisionInstruction: "Shorter",
+        status: "failed",
+        failureCode: "credit_blocked",
+        terminalAt: new Date("2026-09-10T10:00:00.000Z"),
+        updatedAt: new Date("2026-09-10T10:00:00.000Z"),
+        imageCallCount: 0,
+        retryCount: 0,
+      });
+      const requeued = { ...blocked, status: "queued", failureCode: null };
+      mocks.state.selectResults.push(
+        [workOutput({ id: "output-1" })],
+        [blocked],
+        [blocked],
+      );
+      mocks.state.txUpdateResults.push([requeued]);
+      await expect(
+        createCreativeWorkRevision("ws-1", "work-1", key, "output-1", "Shorter", null),
+      ).resolves.toEqual({ output: requeued, claimedForDispatch: true });
+      // The lease restarts and the terminal marker clears; key and counters
+      // are preserved so the same billing key charges exactly once.
+      const patch = mocks.txSetMock.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+      expect(patch.status).toBe("queued");
+      expect(patch.failureCode).toBeNull();
+      expect(patch.terminalAt).toBeNull();
+      expect(patch.queuedAt).toBeInstanceOf(Date);
+      expect(patch.updatedAt).toBeInstanceOf(Date);
+      expect(patch).not.toHaveProperty("operationKey");
+      expect(patch).not.toHaveProperty("imageCallCount");
+      expect(patch).not.toHaveProperty("retryCount");
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it("lets a concurrent credit_blocked replay loser join the winner without a second claim", async () => {
+      const key = "00000000-0000-4000-8000-000000000203";
+      const blocked = workOutput({
+        id: "output-2",
+        parentOutputId: "output-1",
+        operationKey: `revision:${key}`,
+        revisionInstruction: "Shorter",
+        status: "failed",
+        failureCode: "credit_blocked",
+      });
+      const winner = { ...blocked, status: "queued", failureCode: null };
+      mocks.state.selectResults.push(
+        [workOutput({ id: "output-1" })],
+        [blocked],
+        [blocked],
+        [winner],
+      );
+      mocks.state.txUpdateResults.push([]);
+      await expect(
+        createCreativeWorkRevision("ws-1", "work-1", key, "output-1", "Shorter", null),
+      ).resolves.toEqual({ output: winner, claimedForDispatch: false });
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+
+    it("conflicts a credit_blocked row when the same key carries another command", async () => {      const key = "00000000-0000-4000-8000-000000000204";
+      const blocked = workOutput({
+        id: "output-2",
+        parentOutputId: "output-1",
+        operationKey: `revision:${key}`,
+        revisionInstruction: "Shorter",
+        status: "failed",
+        failureCode: "credit_blocked",
+      });
+      mocks.state.selectResults.push([workOutput({ id: "output-1" })], [blocked]);
+      await expect(
+        createCreativeWorkRevision("ws-1", "work-1", key, "output-1", "Different", null),
+      ).resolves.toBeNull();
+      expect(mocks.txSetMock).not.toHaveBeenCalled();
+      expect(mocks.insertMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("objective-quality refund marker (R1)", () => {
+    const qaFailQuality = { schemaVersion: 1, objectiveVerdict: "fail" };
+
+    it("marks the winning QA-fail completion in the same CAS without touching history", async () => {
+      const updated = workOutput({
+        status: "completed",
+        outputKey: "pieces/final.png",
+        quality: qaFailQuality,
+        failureCode: CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING,
+      });
+      mocks.state.updateResults.push([updated]);
+      const result = await completeCreativeWorkOutput(
+        "ws-1",
+        "work-1",
+        "output-1",
+        { outputKey: "pieces/final.png", cost: 50, quality: qaFailQuality },
+        { markObjectiveQualityFailedRefundPending: true },
+      );
+      expect(result?.failureCode).toBe(
+        "objective_quality_failed_refund_pending",
+      );
+      expect(mocks.setMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "completed",
+          outputKey: "pieces/final.png",
+          failureCode: CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING,
+        }),
+      );
+      expect(serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]).params).toContain(
+        "processing",
+      );
+    });
+
+    it("leaves the CAS loser without a row so no refund is authorized", async () => {
+      mocks.state.updateResults.push([]);
+      const result = await completeCreativeWorkOutput(
+        "ws-1",
+        "work-1",
+        "output-1",
+        { outputKey: "pieces/final.png", cost: 50, quality: qaFailQuality },
+        { markObjectiveQualityFailedRefundPending: true },
+      );
+      expect(result).toBeNull();
+    });
+
+    it("lists failed pending rows plus exactly the completed QA-fail marked case", async () => {
+      mocks.state.selectResults.push([]);
+      await listCreativeWorkOutputsNeedingRefund("ws-1", "work-1");
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql).toContain("creative_work_outputs");
+      expect(query.sql).toContain("objectiveVerdict");
+      expect(query.sql).toContain("output_key");
+      expect(query.params).toEqual(
+        expect.arrayContaining([
+          "ws-1",
+          "work-1",
+          "failed",
+          "completed",
+          CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING,
+        ]),
+      );
+    });
+
+    it("clears only the exact pending marker preserving image, quality and terminal", async () => {
+      const cleared = workOutput({
+        status: "completed",
+        outputKey: "pieces/final.png",
+        quality: qaFailQuality,
+        failureCode: null,
+      });
+      mocks.state.updateResults.push([cleared]);
+      const result = await clearCreativeWorkOutputObjectiveQualityRefundPending(
+        "ws-1",
+        "work-1",
+        "output-1",
+        "pieces/final.png",
+      );
+      expect(result?.failureCode).toBeNull();
+      // Only the marker and the timestamp move; image/quality stay intact.
+      expect(mocks.setMock).toHaveBeenCalledWith(
+        expect.objectContaining({ failureCode: null }),
+      );
+      const patch = mocks.setMock.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+      expect(Object.keys(patch).sort()).toEqual(["failureCode", "updatedAt"]);
+      const params = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]).params;
+      expect(params).toEqual(
+        expect.arrayContaining([
+          "ws-1",
+          "work-1",
+          "output-1",
+          "completed",
+          CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING,
+          "pieces/final.png",
+        ]),
+      );
+    });
+
+    it("refuses cleanup when the image, verdict or marker differs", async () => {
+      mocks.state.updateResults.push([]);
+      const result = await clearCreativeWorkOutputObjectiveQualityRefundPending(
+        "ws-1",
+        "work-1",
+        "output-1",
+        "pieces/other.png",
+      );
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("clearCreativeWorkOutputGenerationFailedRefundPending", () => {
+    it("normalizes the matching pending identity to generation_failed", async () => {
+      const cleared = workOutput({
+        status: "failed",
+        failureCode: CREATIVE_WORK_GENERATION_FAILED,
+        retryCount: 1,
+        manualRetryAttempt: 2,
+      });
+      mocks.state.updateResults.push([cleared]);
+      const result = await clearCreativeWorkOutputGenerationFailedRefundPending(
+        "ws-1",
+        "work-1",
+        "output-1",
+        2,
+        1,
+      );
+      expect(result?.failureCode).toBe(CREATIVE_WORK_GENERATION_FAILED);
+      expect(mocks.setMock).toHaveBeenCalledWith(
+        expect.objectContaining({ failureCode: CREATIVE_WORK_GENERATION_FAILED }),
+      );
+      const patch = mocks.setMock.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+      expect(Object.keys(patch).sort()).toEqual(["failureCode", "updatedAt"]);
+      expect(serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]).params).toEqual(
+        expect.arrayContaining([
+          "ws-1",
+          "work-1",
+          "output-1",
+          "failed",
+          CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING,
+          2,
+          1,
+        ]),
+      );
+    });
+
+    it("does not let a stale recovery erase a newer pending identity", async () => {
+      mocks.state.updateResults.push([]);
+      await expect(clearCreativeWorkOutputGenerationFailedRefundPending(
+        "ws-1",
+        "work-1",
+        "output-1",
+        null,
+        0,
+      )).resolves.toBeNull();
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.sql.toLowerCase()).toContain("is null");
+      expect(query.params).toEqual(expect.arrayContaining([
+        "ws-1",
+        "work-1",
+        "output-1",
+        "failed",
+        CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING,
+        0,
+      ]));
+    });
+
+    it("never matches a completed QA-fail row", async () => {
+      mocks.state.updateResults.push([]);
+      await expect(clearCreativeWorkOutputGenerationFailedRefundPending(
+        "ws-1",
+        "work-1",
+        "output-1",
+        null,
+        0,
+      )).resolves.toBeNull();
+      const query = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(query.params).toContain("failed");
+      expect(query.params).not.toContain("completed");
+      expect(query.params).not.toContain(CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING);
     });
   });
 });

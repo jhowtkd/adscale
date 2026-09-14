@@ -141,6 +141,10 @@ export function useComposerPlanActions({
       outputCount: detailQuery.data?.outputs.length ?? 0,
       planIsStale,
     })) return currentPlan;
+    if (pendingAnalysisBlocksPrepare(detailQuery.data?.sources ?? [])) {
+      setError("Aguarde a análise da arte terminar antes de gerar.");
+      return null;
+    }
     if (restylePairMissing({
       intent: intentRef.current,
       request: requestRef.current,

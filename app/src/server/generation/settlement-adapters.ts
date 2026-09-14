@@ -1338,20 +1338,37 @@ export function creativeWorkRevisionSettlementAdapter(input: {
   instruction: string;
   revisionAssetId: string | null;
   objective: string | null;
+  context?: import("@/server/creative-work/output-review").OutputRevisionContextV1 | null;
+  expectedReviewRevision?: number;
 }): GenerationSettlementAdapter<
   CreativeWorkRevisionSettlementValue,
   CreativeWorkRevisionReservation
 > {
   return {
     async reserve() {
-      const reservation = await createCreativeWorkRevision(
-        input.workspaceId,
-        input.workItemId,
-        input.revisionKey,
-        input.parentOutputId,
-        input.instruction,
-        input.revisionAssetId,
-      );
+      const hasReviewContext =
+        input.context != null || input.expectedReviewRevision !== undefined;
+      const reservation = hasReviewContext
+        ? await createCreativeWorkRevision(
+            input.workspaceId,
+            input.workItemId,
+            input.revisionKey,
+            input.parentOutputId,
+            input.instruction,
+            input.revisionAssetId,
+            {
+              context: input.context ?? null,
+              expectedReviewRevision: input.expectedReviewRevision,
+            },
+          )
+        : await createCreativeWorkRevision(
+            input.workspaceId,
+            input.workItemId,
+            input.revisionKey,
+            input.parentOutputId,
+            input.instruction,
+            input.revisionAssetId,
+          );
       if (!reservation) {
         throw new InvalidCreativeWorkRevisionError();
       }

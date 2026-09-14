@@ -9,14 +9,16 @@ import {
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getBillingCustomerByWorkspace } from "@/server/repositories/billing";
 import { getMemberRole } from "@/server/repositories/workspace";
+import { workspaceHasUnlimitedBillingAccess } from "@/server/billing/unlimited-access";
 
 export async function GET(request: Request) {
   try {
     const { user, workspace } = await requireWorkspaceAccess(request);
-    const [customer, access, role] = await Promise.all([
+    const [customer, access, role, unlimited] = await Promise.all([
       getBillingCustomerByWorkspace(workspace.id),
       getWorkspaceBillingAccess(workspace.id),
       getMemberRole(workspace.id, user.id),
+      workspaceHasUnlimitedBillingAccess(workspace.id),
     ]);
 
     const subscriptionRecord = access.latestSubscription;
@@ -48,6 +50,7 @@ export async function GET(request: Request) {
           label: access.label,
           remainingAds: access.remainingAds,
           hasSpendAccess: access.hasSpendAccess,
+          unlimited,
           beta: betaSummary,
           trial: trialStatus,
         },

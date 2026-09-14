@@ -254,6 +254,10 @@ Detalhes: `[marketing/2026-Q3/fontes-pauta.md](marketing/2026-Q3/fontes-pauta.md
 
 
 
+## 10b. Nota canônica — Estúdio peça na caixa (2026-09-10)
+
+Revisão obrigatória aqui é a confirmação operacional de uma geração cobrada, não um wizard obrigatório para editar briefing. "Versões" designa histórico de revisão e "Criar variação" mantém a base no mesmo Trabalho. A UI não muda o protocolo do rascunho para produzir um filho.
+
 ## 11. Links canônicos
 
 

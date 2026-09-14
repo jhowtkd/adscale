@@ -45,6 +45,7 @@ export default function AppSidebar() {
     .join("") || "U";
   const planLabel = billingStatus?.access?.label ?? billing.planName;
   const isTesterAccount = billingStatus?.access?.kind === "tester";
+  const unlimited = billingStatus?.access?.unlimited === true;
   const isPlatformOwner = ownerAccess?.allowed === true;
 
   // The shell has four primary destinations. Overview stays available from the account card.
@@ -162,9 +163,9 @@ export default function AppSidebar() {
               <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{displayName}</p>
               {isTesterAccount ? <AccountStatusBadge variant="tester" /> : null}
             </div>
-            {!isTesterAccount ? (
+            {!isTesterAccount || unlimited ? (
               <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                {billingStatus?.creditBalance ?? planLabel} {tNav("credits")}
+                {unlimited ? tNav("unlimited") : `${billingStatus?.creditBalance ?? planLabel} ${tNav("credits")}`}
               </p>
             ) : null}
           </div>

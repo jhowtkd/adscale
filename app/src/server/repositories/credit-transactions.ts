@@ -2,16 +2,37 @@ import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { db } from "@/server/db";
 import { campaigns, creditTransactions } from "@/server/db/schema";
 
-export async function createCreditTransaction(data: {
-  userId: string;
-  workspaceId: string;
-  campaignId?: string | null;
-  derivationId?: string | null;
-  amount: number;
-  type: "usage" | "refund" | "grant" | "purchase";
-  description?: string | null;
-}) {
-  const rows = await db
+export type CreditTransactionFilters = {
+  from?: Date;
+  to?: Date;
+  campaignId?: string;
+};
+
+function transactionWhere(workspaceId: string, filters: CreditTransactionFilters = {}) {
+  return and(
+    eq(creditTransactions.workspaceId, workspaceId),
+    filters.from ? gte(creditTransactions.createdAt, filters.from) : undefined,
+    filters.to ? lte(creditTransactions.createdAt, filters.to) : undefined,
+    filters.campaignId ? eq(creditTransactions.campaignId, filters.campaignId) : undefined
+  );
+}
+
+type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export async function createCreditTransaction(
+  data: {
+    userId: string;
+    workspaceId: string;
+    campaignId?: string | null;
+    derivationId?: string | null;
+    amount: number;
+    type: "usage" | "refund" | "grant" | "purchase";
+    description?: string | null;
+  },
+  tx?: DbOrTx
+) {
+  const client = tx ?? db;
+  const rows = await client
     .insert(creditTransactions)
     .values({
       userId: data.userId,
@@ -28,23 +49,8 @@ export async function createCreditTransaction(data: {
 
 export async function getCreditTransactionsForWorkspace(
   workspaceId: string,
-  filters?: {
-    from?: Date;
-    to?: Date;
-    campaignId?: string;
-  }
+  filters: CreditTransactionFilters = {}
 ) {
-  const conditions = [eq(creditTransactions.workspaceId, workspaceId)];
-
-  if (filters?.from) {
-    conditions.push(gte(creditTransactions.createdAt, filters.from));
-  }
-  if (filters?.to) {
-    conditions.push(lte(creditTransactions.createdAt, filters.to));
-  }
-  if (filters?.campaignId) {
-    conditions.push(eq(creditTransactions.campaignId, filters.campaignId));
-  }
 
   return db
     .select({
@@ -61,21 +67,27 @@ export async function getCreditTransactionsForWorkspace(
     })
     .from(creditTransactions)
     .leftJoin(campaigns, eq(creditTransactions.campaignId, campaigns.id))
-    .where(and(...conditions))
+    .where(transactionWhere(workspaceId, filters))
     .orderBy(desc(creditTransactions.createdAt));
 }
 
-export async function getCreditTransactionSummary(workspaceId: string) {
+export async function getCreditTransactionSummary(
+  workspaceId: string,
+  filters: CreditTransactionFilters = {}
+) {
   const result = await db
     .select({
       totalSpent: sql<number>`COALESCE(SUM(CASE WHEN ${creditTransactions.amount} < 0 THEN ABS(${creditTransactions.amount}) ELSE 0 END), 0)`,
       totalAdded: sql<number>`COALESCE(SUM(CASE WHEN ${creditTransactions.amount} > 0 THEN ${creditTransactions.amount} ELSE 0 END), 0)`,
       transactionCount: sql<number>`COUNT(*)`,
+      distinctCampaignCount: sql<number>`COUNT(DISTINCT ${creditTransactions.campaignId})`,
     })
     .from(creditTransactions)
-    .where(eq(creditTransactions.workspaceId, workspaceId));
+    .where(transactionWhere(workspaceId, filters));
 
-  return result[0] ?? { totalSpent: 0, totalAdded: 0, transactionCount: 0 };
+  return (
+    result[0] ?? { totalSpent: 0, totalAdded: 0, transactionCount: 0, distinctCampaignCount: 0 }
+  );
 }
 
 export async function getCampaignsWithTransactions(workspaceId: string) {

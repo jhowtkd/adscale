@@ -746,6 +746,27 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
   return prompt;
 }
 
+/** Complete generative composition with the same factual and reference authorities. */
+export function buildIntegratedSinglePrompt(input: BuildCreativeWorkPromptInput, brief: string): string {
+  const visualDirectionBlock = buildVisualDirectionBlock(input.inputSnapshot.visualDirection);
+  return [
+    "Crie uma peça publicitária completa, com tipografia e composição integradas.",
+    `DIREÇÃO VISUAL:\n${brief}`,
+    ...(visualDirectionBlock ? [visualDirectionBlock] : []),
+    `1. CONTEÚDO EXATO:\n${buildFixedContract({ ...input, textExecution: "generative" })}\nNão acrescente claims. As referências de estilo não são fontes factuais.`,
+    buildFactPackBlock(input),
+    buildModePolicyBlock(input),
+    buildBrandKnowledgeBlock(input.identitySnapshot.brandKnowledge),
+    buildRuleModeBlock(input.identitySnapshot.assets),
+    buildNegativePatternBlock(input.identitySnapshot.negativePatterns),
+    buildReferenceModeBlock(input.identitySnapshot.assets),
+    `2. IDENTIDADE E ASSETS EXATOS:\n${buildBrandKitBlock(input.identitySnapshot.brandKit)}\n${buildReservedPlacementsBlock(input.identitySnapshot.assets)}`,
+    `3. FORMATO: ${input.format}. Renderize o texto; deixe livres somente as áreas declaradas dos assets exatos.`,
+    buildReferenceRolesBlock(input.references),
+    input.revisionInstruction ? `AJUSTE SOBRE A BASE:\n${input.revisionInstruction}` : "",
+  ].filter(Boolean).join("\n\n");
+}
+
 // ---------------------------------------------------------------------------
 // Carousel slide prompt (Task 6). One text-free visual base per slide, fed
 // ONLY by the frozen prepared snapshot: contract hash, role/purpose, layout

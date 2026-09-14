@@ -18,6 +18,10 @@ import {
 } from "@/server/application/handle-creative-work-layerization-callback";
 import { recoverExpiredCreativeWorkLayerizations } from "@/server/application/recover-expired-creative-work-layerizations";
 import { saveCommercialOfferFromWork } from "@/server/application/save-commercial-offer";
+import { saveCreativeWorkOutputReview } from "@/server/application/save-creative-work-output-review";
+import { outputReviewInputSchema } from "@/server/creative-work/output-review";
+import { projectPublicCreativeWorkOutput } from "@/server/creative-work/output-projection";
+import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import { toPublicLayerizationState } from "@/server/layerize/contracts";
 import { toPublicLayerEditorSummary } from "@/server/layer-editor/contracts";
 import { getLayerEditorAccess } from "@/server/layer-editor/quota";
@@ -55,6 +59,8 @@ import {
   socialPostCopySchema,
 } from "@/server/creative-work/contracts";
 import {
+  CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING,
+  CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING,
   failStaleQueuedCreativeWorkOutputs,
   failStaleProcessingCreativeWorkOutputs,
   failStaleCreativeWorkSources,
@@ -64,6 +70,8 @@ import {
   linkCreativeWorkCampaign,
   listCreativeWorkOutputsNeedingRefund,
   markCreativeWorkOutputFailureCode,
+  clearCreativeWorkOutputGenerationFailedRefundPending,
+  clearCreativeWorkOutputObjectiveQualityRefundPending,
   recordCreativeWorkGenerationAggregate,
   refreshCreativeWorkStatus,
   updateCreativeWorkSourceIfUnchanged,
@@ -80,11 +88,7 @@ import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getTemplateById } from "@/server/repositories/template";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
-import {
-  decideCreativeWorkRefund,
-} from "@/server/generation/canonical/policies";
-import { settleTerminalRefund } from "@/server/generation/settlement";
-import { resolveCreativeWorkOutputReactivationOutcome } from "@/server/generation/settlement-adapters";
+import { refundCreativeWorkOutputCompensatory } from "@/server/application/refund-creative-work-output";
 import type { CreativeWorkSource } from "@/server/db/schema";
 import { PIECE_REFERENCE_CATEGORIES, type PieceReferenceCategory } from "@/server/creative-work/piece-reference";
 import { logger } from "@/lib/logger";
@@ -104,63 +108,6 @@ function withoutPrivateArtifactFields(value: unknown): unknown {
   return Object.fromEntries(Object.entries(value as Record<string, unknown>)
     .filter(([key]) => !["outputKey", "operationKey", "publishedPsdKey", "candidateKey", "storageKey"].includes(key))
     .map(([key, child]) => [key, withoutPrivateArtifactFields(child)]));
-}
-
-async function refundCreativeWorkOutputCompensatory(input: {
-  workspaceId: string;
-  workItemId: string;
-  outputId: string;
-  reason: string;
-  manualRetryAttempt?: number | null;
-  failurePhase?: "job_failure" | "terminal";
-}): Promise<boolean> {
-  const outcome = await resolveCreativeWorkOutputReactivationOutcome({
-    workspaceId: input.workspaceId,
-    workItemId: input.workItemId,
-    outputId: input.outputId,
-    manualRetryAttempt: input.manualRetryAttempt,
-  });
-  if (outcome.state === "already_refunded") return true;
-  const reactivation = outcome.state === "outstanding" ? outcome : null;
-  const canonicalFailurePhase: "job_failure" | "terminal" = reactivation || input.failurePhase === "terminal"
-    ? "terminal"
-    : "job_failure";
-  const canonicalDecision = decideCreativeWorkRefund({
-    surface: "quick_tool",
-    failurePhase: canonicalFailurePhase,
-    workItemId: input.workItemId,
-    outputId: input.outputId,
-  });
-  const decision = reactivation && canonicalDecision.refund
-    ? {
-        ...canonicalDecision,
-        idempotencyKey: reactivation.refundKey,
-        reason: "creative_work_terminal_reactivation_failure",
-      }
-    : canonicalDecision;
-  if (!decision.refund) return true;
-  const settled = await settleTerminalRefund({
-    decision,
-    workspaceId: input.workspaceId,
-    action: "image_derivation",
-    metadata: {
-      creativeWorkId: input.workItemId,
-      outputId: input.outputId,
-      reason: input.reason,
-      description: "creative_work_compensatory_refund",
-    },
-  });
-  if (!settled.applied) {
-    logger.warn({
-      event: "image_pipeline_stage",
-      stage: "compensatory_refund",
-      status: "failed",
-      outputId: input.outputId,
-      errorMessage: settled.error,
-    });
-    return false;
-  }
-  return true;
 }
 
 const confirmCreativeWorkSchema = z
@@ -224,6 +171,12 @@ const saveAsOfferSchema = z.object({
   validFrom: z.string().datetime({ offset: true }).optional(),
   validUntil: z.string().datetime({ offset: true }),
 }).strict();
+const saveOutputReviewSchema = z.object({
+  action: z.literal("saveOutputReview"),
+  outputId: z.string().uuid(),
+  expectedReviewRevision: z.number().int().min(0),
+  draft: outputReviewInputSchema,
+}).strict();
 const linkCampaignSchema = z.object({ action: z.literal("linkCampaign"), campaignId: z.string().min(1).nullable() }).strict();
 const sourceUsageSchema = z.enum(CREATIVE_SOURCE_USAGES);
 const attachSourceSchema = z.union([
@@ -253,6 +206,7 @@ const patchCreativeWorkSchema = z.union([
   autosaveSchema, prepareSchema, approveCarouselSchema, editBriefingSchema, attachSourceSchema, updateSourceSchema,
   retrySourceSchema, removeSourceSchema, updatePieceReferenceSchema, replacePieceReferenceSchema, promotePieceReferenceSchema, editSourceAnalysisSchema, confirmCreativeWorkSchema,
   linkCampaignSchema, resolveBrandConflictSchema,
+  saveOutputReviewSchema,
   layerizeOutputSchema,
   openLayerEditorSchema, heartbeatLayerEditorSchema, releaseLayerEditorSchema, saveLayerEditorSchema,
   regenerateLayerSchema,candidateActionSchema,
@@ -364,7 +318,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const [{ workspace }, { id }] = await Promise.all([
+    const [{ workspace, user }, { id }] = await Promise.all([
       requireWorkspaceAccess(request),
       params,
     ]);
@@ -419,6 +373,43 @@ export async function GET(
     if (pendingRefunds.length > 0) {
       await Promise.all(
         pendingRefunds.map(async (output) => {
+          // R1 preserved QA-fail completion: terminal compensatory refund with
+          // the authenticated actor, then clear ONLY the marker (image, QA
+          // verdict and terminal stay intact). A failed refund keeps the
+          // marker so job/onFailure/GET can resume with the same ledger key.
+          if (
+            output.status === "completed" &&
+            output.failureCode === CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING &&
+            output.outputKey
+          ) {
+            const refunded = await refundCreativeWorkOutputCompensatory({
+              workspaceId: workspace.id,
+              workItemId: id,
+              outputId: output.id,
+              reason: "objective_quality_failed",
+              manualRetryAttempt: output.manualRetryAttempt,
+              failurePhase: "terminal",
+              userId: user.id,
+            });
+            if (refunded) {
+              await clearCreativeWorkOutputObjectiveQualityRefundPending(
+                workspace.id,
+                id,
+                output.id,
+                output.outputKey,
+              );
+            }
+            return;
+          }
+          // Integrated technical failure (A writes this exact code in the
+          // winning failed CAS before refunding): terminal phase reuses the
+          // SAME terminal-refund ledger key as the job, never a second
+          // compensatory-refund key. The authenticated actor keeps the ledger
+          // auditable; the dedicated clear below only normalizes the exact
+          // observed state (marker + ordinal + counter) after a confirmed
+          // refund, so a stale recovery never erases a newer pending state.
+          const isGenerationFailedTerminalPending =
+            output.failureCode === CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING;
           const refunded = await refundCreativeWorkOutputCompensatory({
             workspaceId: workspace.id,
             workItemId: id,
@@ -429,10 +420,22 @@ export async function GET(
             // resolver finds an outstanding modern/legacy reactivation debit.
             failurePhase: output.failureCode === "generation_canceled_refund_pending"
               || output.failureCode === "exact_asset_preflight_failed_refund_pending"
+              || isGenerationFailedTerminalPending
               ? "terminal"
               : "job_failure",
+            ...(isGenerationFailedTerminalPending ? { userId: user.id } : {}),
           });
           if (refunded) {
+            if (isGenerationFailedTerminalPending) {
+              await clearCreativeWorkOutputGenerationFailedRefundPending(
+                workspace.id,
+                id,
+                output.id,
+                output.manualRetryAttempt,
+                output.retryCount,
+              );
+              return;
+            }
             const settledCode = (output.failureCode === "exact_asset_preflight_failed_reactivation_refund_pending"
               ? "exact_asset_preflight_failed"
               : output.failureCode ?? "generation_timeout").replace(
@@ -560,25 +563,7 @@ export async function GET(
       ...(!layerEditorAccess.enabled ? { cleanupOnly: true } : {}),
     });
     const outputs = result.outputs.map((output) => ({
-      id: output.id,
-      workItemId: output.workItemId,
-      creativeLevel: output.creativeLevel,
-      targetFormat: output.targetFormat,
-      versionNumber: output.versionNumber,
-      parentOutputId: output.parentOutputId,
-      revisionInstruction: output.revisionInstruction,
-      revisionAssetId: output.revisionAssetId,
-      retryCount: output.retryCount,
-      imageCallCount: output.imageCallCount,
-      status: output.status,
-      hasOutput: Boolean(output.outputKey),
-      failureCode: output.failureCode,
-      quality: output.quality,
-      isSelected: output.isSelected,
-      directionId: output.directionId,
-      directionSnapshot: output.directionSnapshot,
-      createdAt: output.createdAt,
-      updatedAt: output.updatedAt,
+      ...projectPublicCreativeWorkOutput(output),
       layerization: layerEditorAccess.enabled ? toPublicLayerizationState(recoveredLayerizations.get(output.id) ?? output.layerization) : null,
       layerEditor: toPublicLayerEditorSummary(output.layerEditor),
     }));
@@ -628,6 +613,7 @@ export async function GET(
       },
       preparedPlan: projectPreparedPlanV1(result.work),
       outputs,
+      revisionCreditCost: GENERATION_CREDIT_COSTS.creativeWorkOutput,
       canLayerize,
       layerEditorAccess,
       sources,
@@ -996,6 +982,35 @@ export async function PATCH(
       const work = await linkCreativeWorkCampaign(workspace.id, id, parsed.data.campaignId);
       if (!work) return apiError("creativeWorkCampaignMismatch", 409);
       return NextResponse.json({ work });
+    }
+
+    if ("action" in parsed.data && parsed.data.action === "saveOutputReview") {
+      const saved = await saveCreativeWorkOutputReview({
+        workspaceId: workspace.id,
+        workItemId: id,
+        outputId: parsed.data.outputId,
+        expectedReviewRevision: parsed.data.expectedReviewRevision,
+        draft: parsed.data.draft,
+      });
+      if (!saved.ok) {
+        switch (saved.error.code) {
+          case "invalid_input":
+          case "invalid_reference":
+            return apiError("invalidInput", 400);
+          case "not_found":
+            return apiError("creativeWorkNotFound", 404);
+          case "review_conflict":
+            return apiError("stale_input", 409);
+          case "not_ready":
+            return apiError("creativeWorkNotReady", 409);
+          default:
+            return apiError("invalidInput", 400);
+        }
+      }
+      return NextResponse.json({
+        draft: saved.value.draft,
+        revisionCreditCost: saved.value.revisionCreditCost,
+      });
     }
 
     if ("action" in parsed.data && parsed.data.action === "attachSource") {

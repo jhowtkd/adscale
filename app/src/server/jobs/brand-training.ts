@@ -211,6 +211,7 @@ async function brandTrainingAnalyzeHandler({
             const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 60_000, maxRetries: 0 });
             const response = await openai.chat.completions.create({
               model,
+              ...(model.startsWith("gpt-5.6") ? { reasoning_effort: "none" as const } : {}),
               messages: [
                 { role: "system", content: SYSTEM_PROMPT },
                 {

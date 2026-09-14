@@ -205,4 +205,52 @@ describe("AppSidebar role-aware navigation", () => {
 
     expect(authClient.signOut).toHaveBeenCalled();
   });
+
+  it("shows Ilimitado instead of the sentinel balance for unlimited access", () => {
+    vi.mocked(useBillingStatus).mockReturnValue({
+      data: { access: { kind: "paid", label: "Dev admin", unlimited: true }, creditBalance: 999999 },
+    } as ReturnType<typeof useBillingStatus>);
+    render(<AppSidebar />);
+
+    const balance = screen.getByText(
+      (_content, element) => element?.tagName === "P" && (element.textContent ?? "").includes("navigation.unlimited")
+    );
+    expect(balance).toBeInTheDocument();
+    expect(screen.queryByText(/999999/)).not.toBeInTheDocument();
+  });
+
+  it("shows the numeric balance for regular workspaces", () => {
+    vi.mocked(useBillingStatus).mockReturnValue({
+      data: { access: { kind: "paid", label: "Assinatura ativa", unlimited: false }, creditBalance: 120 },
+    } as ReturnType<typeof useBillingStatus>);
+    render(<AppSidebar />);
+
+    expect(screen.getByText(/120/)).toBeInTheDocument();
+    expect(screen.queryByText("navigation.unlimited")).not.toBeInTheDocument();
+  });
+
+  it("keeps the Tester badge and shows unlimited access from billing authority", () => {
+    vi.mocked(useBillingStatus).mockReturnValue({
+      data: { access: { kind: "tester", label: "Tester", unlimited: true }, creditBalance: 999999 },
+    } as ReturnType<typeof useBillingStatus>);
+    render(<AppSidebar />);
+
+    const account = screen.getByRole("link", { name: /Test User/ });
+    expect(account).toHaveTextContent("testerMode.badge");
+    expect(account).toHaveTextContent("navigation.unlimited");
+    expect(account).not.toHaveTextContent("navigation.credits");
+    expect(account).not.toHaveTextContent("999999");
+  });
+
+  it.each([false, undefined])("does not infer unlimited access from the Tester badge when authority is %s", (unlimited) => {
+    vi.mocked(useBillingStatus).mockReturnValue({
+      data: { access: { kind: "tester", label: "Tester", unlimited }, creditBalance: 999999 },
+    } as ReturnType<typeof useBillingStatus>);
+    render(<AppSidebar />);
+
+    const account = screen.getByRole("link", { name: /Test User/ });
+    expect(account).toHaveTextContent("testerMode.badge");
+    expect(account).not.toHaveTextContent("navigation.unlimited");
+    expect(account).not.toHaveTextContent("999999");
+  });
 });

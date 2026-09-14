@@ -422,4 +422,28 @@ describe("BillingTab account states", () => {
     render(<BillingTab />, { wrapper: createWrapper() });
     expect(screen.getByText("billing.account.grants.empty")).toBeInTheDocument();
   });
+
+  it("shows Ilimitado instead of the numeric balance for unlimited access", () => {
+    mockBillingStatus({
+      hasCustomer: false,
+      subscriptionStatus: "active",
+      access: {
+        kind: "tester",
+        label: "Tester",
+        remainingAds: null,
+        hasSpendAccess: true,
+        beta: null,
+        unlimited: true,
+      },
+      pastDue: null,
+      canceled: null,
+      subscription: null,
+      creditBalance: 999999,
+    });
+
+    render(<BillingTab />, { wrapper: createWrapper() });
+
+    expect(screen.getByText("billing.account.financial.unlimited")).toBeInTheDocument();
+    expect(screen.queryByText("999999")).not.toBeInTheDocument();
+  });
 });

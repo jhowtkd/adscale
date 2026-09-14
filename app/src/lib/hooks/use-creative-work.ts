@@ -22,6 +22,7 @@ import type {
   CreativeWorkIntent,
   InferredBriefing,
 } from "@/server/creative-work/contracts";
+import type { OutputReviewInput } from "@/server/creative-work/output-review";
 import type {
   CarouselCopyAuthority,
   CarouselDeckQualityV1,
@@ -40,6 +41,7 @@ import {
 import type { SelectionEffects } from "@/server/application/select-creative-work-output";
 import type { PublicLayerizationState } from "@/server/layerize/contracts";
 import type { LayerEditorAccessV1, PublicLayerEditorSummaryV1 } from "@/server/layer-editor/contracts";
+import type { OutputReviewDraftV1, OutputRevisionContextV1 } from "@/server/creative-work/output-review";
 import type { PieceReferenceCategory, PieceReferenceDraft } from "@/server/creative-work/piece-reference";
 import { brandTrainingAssetsKey } from "@/lib/hooks/use-brand-training";
 
@@ -212,6 +214,10 @@ export interface CreativeWorkOutput {
   layerization: PublicLayerizationState | null;
   layerEditor: PublicLayerEditorSummaryV1 | null;
   isSelected: boolean;
+  /** Mutable review draft owned by this output, with its own CAS revision. */
+  reviewDraft?: OutputReviewDraftV1 | null;
+  /** Frozen input of the confirmed revision that produced this child. */
+  revisionContext?: OutputRevisionContextV1 | null;
   directionId?: string | null;
   directionSnapshot?: { label: string; instruction: string; order: number } | null;
   createdAt: Date | string;
@@ -250,6 +256,8 @@ export interface CreativeWorkDetail {
   briefingFactPack?: CreativeWorkFactPack | null;
   canLayerize?: boolean;
   layerEditorAccess?: LayerEditorAccessV1;
+  /** Canonical server price for one reviewed revision. */
+  revisionCreditCost?: number | null;
 }
 
 export interface CreativeWorkCampaignOption {
@@ -258,12 +266,20 @@ export interface CreativeWorkCampaignOption {
   clientProfileId: string | null;
 }
 
+/**
+ * R1: a completed output carrying the refund-pending quality marker keeps
+ * polling alive until the canonical settlement clears it. The preview stays,
+ * choice stays blocked, and the UI shows compensation as pending only.
+ */
+export const CREATIVE_WORK_REFUND_PENDING_FAILURE_CODE = "objective_quality_failed_refund_pending";
+export const CREATIVE_WORK_TERMINAL_REFUND_PENDING_FAILURE_CODE = "generation_failed_terminal_refund_pending";
+
 export function creativeWorkRefetchInterval(
   data:
     | {
         preparationAttempt?: { id: string } | null;
         work: Pick<CreativeWorkItem, "status">;
-        outputs: Array<Pick<CreativeWorkOutput, "status"> & { layerization?: PublicLayerizationState | null }>;
+        outputs: Array<Pick<CreativeWorkOutput, "status" | "failureCode"> & { layerization?: PublicLayerizationState | null }>;
         carouselSlides?: Array<Pick<PublicCarouselSlide, "status">>;
       }
     | undefined,
@@ -272,6 +288,10 @@ export function creativeWorkRefetchInterval(
     Boolean(data?.preparationAttempt) ||
     data?.work.status === "generating" ||
     data?.outputs.some((output) => output.status === "queued" || output.status === "processing" || ["queued", "processing", "reconciling", "finalizing"].includes(output.layerization?.status ?? "")) ||
+    data?.outputs.some((output) =>
+      output.status === "completed" && output.failureCode === CREATIVE_WORK_REFUND_PENDING_FAILURE_CODE) ||
+    data?.outputs.some((output) =>
+      output.status === "failed" && output.failureCode === CREATIVE_WORK_TERMINAL_REFUND_PENDING_FAILURE_CODE) ||
     // Carousel decks never enter creative_work_outputs: active slides alone
     // keep the polling alive even when the legacy outputs list is empty.
     data?.carouselSlides?.some((slide) => slide.status === "queued" || slide.status === "processing") ||
@@ -391,11 +411,14 @@ export const CREATIVE_WORK_RETRY_IMAGE_CALL_LIMIT = 2;
  * stays a transient 409 the UI simply re-reads via polling).
  */
 export function isCreativeWorkRetryEligible(
-  output: Pick<CreativeWorkOutput, "status" | "parentOutputId" | "imageCallCount">,
+  output: Pick<CreativeWorkOutput, "status" | "parentOutputId" | "imageCallCount"> & {
+    failureCode?: string | null;
+  },
 ): boolean {
   return (
     output.status === "failed" &&
     !output.parentOutputId &&
+    output.failureCode !== CREATIVE_WORK_TERMINAL_REFUND_PENDING_FAILURE_CODE &&
     (output.imageCallCount ?? 0) < CREATIVE_WORK_RETRY_IMAGE_CALL_LIMIT
   );
 }
@@ -489,6 +512,7 @@ export function mapCreativeWorkDetail(data: {
   briefingFactPack?: CreativeWorkFactPack | null;
   canLayerize?: boolean;
   layerEditorAccess?: LayerEditorAccessV1;
+  revisionCreditCost?: number | null;
 }): CreativeWorkDetail {
   return {
       preparationAttempt: data.preparationAttempt ?? null,
@@ -517,8 +541,9 @@ export function mapCreativeWorkDetail(data: {
         : [],
       inferredBriefing: (data.inferredBriefing as InferredBriefing | null | undefined) ?? null,
       briefingFactPack: (data.briefingFactPack as CreativeWorkFactPack | null | undefined) ?? null,
-    canLayerize: Boolean(data.canLayerize),
-    layerEditorAccess: data.layerEditorAccess,
+      canLayerize: Boolean(data.canLayerize),
+      layerEditorAccess: data.layerEditorAccess,
+      revisionCreditCost: data.revisionCreditCost ?? null,
   };
 }
 
@@ -959,8 +984,60 @@ export function useReviseOutput() {
   });
 }
 
-export function useLinkCreativeWorkCampaign() {
+/**
+ * Persists one output's mutable review draft (CAS on its own revision).
+ * Only the work detail cache is touched — the canonical works list is not
+ * affected by draft edits.
+ */
+export function useSaveOutputReview() {
   const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workItemId, ...body }: {
+      workItemId: string;
+      outputId: string;
+      expectedReviewRevision: number;
+      draft: OutputReviewInput;
+    }) =>
+      patchJson<{ draft: OutputReviewDraftV1; revisionCreditCost: number }>(
+        `/api/creative-work/${workItemId}`,
+        { action: "saveOutputReview", ...body },
+      ),
+    onSuccess: (_data, input) => queryClient.invalidateQueries({ queryKey: creativeWorkKey(input.workItemId) }),
+    onError: (_error, input) => queryClient.invalidateQueries({ queryKey: creativeWorkKey(input.workItemId) }),
+  });
+}
+
+/**
+ * Confirms a reviewed draft: the server freezes the context, reserves the
+ * canonical settlement and dispatches the child generation. Replay with the
+ * same revisionKey never charges twice.
+ */
+export function useGenerateReviewedRevision() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workItemId, ...body }: {
+      workItemId: string;
+      outputId: string;
+      reviewRevision: number;
+      revisionKey: string;
+      expectedCredits: number;
+    }) =>
+      postJson<{ output: CreativeWorkOutput }>(
+        `/api/creative-work/${workItemId}/generate`,
+        { action: "reviewed_revision", ...body },
+        120_000,
+      ),
+    onSuccess: async (_data, input) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: creativeWorkKey(input.workItemId) }),
+        invalidateCanonicalWorks(queryClient),
+      ]);
+    },
+    onError: (_error, input) => queryClient.invalidateQueries({ queryKey: creativeWorkKey(input.workItemId) }),
+  });
+}
+
+export function useLinkCreativeWorkCampaign() {  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ workItemId, campaignId }: { workItemId: string; campaignId: string | null }) =>
       patchJson<{ work: CreativeWorkItem }>(`/api/creative-work/${workItemId}`, { action: "linkCampaign", campaignId }),

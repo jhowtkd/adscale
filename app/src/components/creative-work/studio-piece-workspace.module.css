@@ -1,0 +1,104 @@
+.workspace {
+  width: 100%;
+  max-width: 1250px;
+  margin-inline: auto;
+  border-radius: 20px;
+}
+
+.inner {
+  display: flex;
+  flex-direction: column;
+  /* Always bounded: a content-driven height lets the unbounded canvas drive
+     the page height and breaks containment in short desktop windows. The
+     580px floor keeps the review dock usable at 1045×586 (QA banner +
+     actions + request) with mild page scroll instead of clipping. */
+  height: min(690px, calc(100dvh - 136px));
+  min-height: 580px;
+  overflow: hidden;
+}
+
+.visual {
+  flex: 1;
+  min-height: 200px;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.artGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.versions {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.thumb {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.thumb img {
+  width: 34px;
+  height: 34px;
+  border-radius: 5px;
+  object-fit: cover;
+}
+
+.art {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.dock {
+  flex: none;
+  border-top: 1px solid var(--border-subtle);
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 50%;
+  overflow-y: auto;
+}
+
+.compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: center;
+  justify-items: center;
+  height: 100%;
+  width: 100%;
+}
+
+@media (max-width: 700px) {
+  .inner {
+    height: auto;
+    min-height: 0;
+  }
+
+  .visual {
+    height: 48dvh;
+    min-height: 310px;
+    flex: none;
+  }
+
+  .compare {
+    grid-template-columns: 1fr;
+  }
+}

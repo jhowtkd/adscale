@@ -211,6 +211,7 @@ export function useCreativeComposer({
     textLayoutRef,
     fontAssetKeyRef,
     directionPoolRef,
+    directionTouchedRef,
     formatModeRef,
     briefingOverridesRef,
     briefingVersionRef,
@@ -247,6 +248,8 @@ export function useCreativeComposer({
   }, [active.activeClientProfileId, exposeWorkId, freshEntry, initialWorkId, intentRef, progressivePlainEntry, restoredProfileRef, setWorkId, workIdRef]);
 
   const {
+    flushAutosave,
+    resolveCanonicalWorkRevision,
     linkCampaign,
     setRequest,
     editBriefingField,
@@ -390,6 +393,13 @@ export function useCreativeComposer({
   });
   const carousel = useCarouselComposer({
     workId: workId ?? "",
+    workIdRef,
+    draftEpochRef,
+    flushAutosave,
+    resolveCanonicalWorkRevision,
+    setCanonicalWorkRevision,
+    blockStaleRevision: queries.blockStaleRevision,
+    setError,
     preparedPlan: preparedPlan ?? null,
     preparePlan,
     confirmGeneration,
@@ -418,6 +428,7 @@ export function useCreativeComposer({
     protocolSwitchNotice, returnToPreviousProtocol,
     sources: detail?.sources ?? [], outputs: detail?.outputs ?? [], quote, canGenerate, isUploading,
     artRefinement: detail?.work.artRefinementState ?? null,
+    revisionCreditCost: detail?.revisionCreditCost ?? null,
     sourceMutationPending: sourceMutation.isPending,
     settingsLocked: Boolean(detail?.work && detail.work.status !== "draft"),
     inferredBriefing, briefingFactPack, brandIdentity,

@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { logger } from "@/lib/logger";
+import { getCreativeWorkObjectiveVerdict } from "@/lib/creative-work-selection-policy";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { objectStorage } from "@/server/storage";
 import { isRetryableProviderError } from "@/server/ai/image-generation";
@@ -29,6 +30,11 @@ import {
 import { resolveCreativeWorkOutputReactivation } from "@/server/generation/settlement-adapters";
 import {
   CREATIVE_WORK_MAX_IMAGE_CALLS,
+  CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING,
+  CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING as INTEGRATED_TERMINAL_REFUND_PENDING,
+  CREATIVE_WORK_GENERATION_FAILED,
+  clearCreativeWorkOutputGenerationFailedRefundPending,
+  clearCreativeWorkOutputObjectiveQualityRefundPending,
   claimCreativeWorkOutputImageCall,
   countCreativeWorkProcessingOutputs,
   getCreativeWork,
@@ -44,6 +50,7 @@ import {
 } from "@/server/repositories/creative-work";
 import {
   buildCreativeWorkPrompt,
+  buildIntegratedSinglePrompt,
   buildSocialPostPrompt,
   type BuildCreativeWorkPromptInput,
   type SocialPostFormat,
@@ -87,6 +94,8 @@ import {
   resolveGenerationPolicyVersion,
 } from "@/server/creative-work/contracts";
 import { resolveCreativeWorkProtocol } from "@/server/creative-work/protocol";
+import { resolveCreativeWorkRenderPolicy } from "@/server/creative-work/render-policy";
+import { createSinglePieceArtDirection, type ArtDirectionResult } from "@/server/creative-work/art-direction";
 import { exactPieceReferenceAssets } from "@/server/creative-work/piece-reference";
 import {
   CreativeWorkReferenceError,
@@ -108,6 +117,8 @@ import {
 } from "@/server/ai/creative-qa";
 import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-creative-work-output-library";
 import { refineCreativeWork } from "@/server/application/refine-creative-work";
+import { refundCreativeWorkOutputCompensatory } from "@/server/application/refund-creative-work-output";
+import type { CreativeWorkOutput } from "@/server/db/schema";
 import { inngest } from "./client";
 import { heavyImageEventName } from "./heavy-image-events";
 import {
@@ -145,6 +156,12 @@ type GenerationReferenceEvidence = {
   sourceMimeType: string;
   mimeType: string;
   sha256: string;
+};
+
+type IntegratedRenderEvidence = {
+  artDirection: ArtDirectionResult;
+  renderPolicy: "integrated_v1";
+  quality: "high";
 };
 
 function generationEvidence(
@@ -232,6 +249,40 @@ function restoreCreativeWorkProviderError(error: SerializedCreativeWorkProviderE
     retryable: error.retryable,
   });
   return restored;
+}
+
+async function recoverPendingCreativeWorkRefund(input: {
+  workspaceId: string;
+  workItemId: string;
+  output: CreativeWorkOutput | null | undefined;
+  userId?: string;
+}): Promise<boolean> {
+  const output = input.output;
+  if (!output) return false;
+  const qualityFailure = output.status === "completed"
+    && output.failureCode === CREATIVE_WORK_OBJECTIVE_QUALITY_REFUND_PENDING
+    && getCreativeWorkObjectiveVerdict(output.quality) === "fail" && Boolean(output.outputKey);
+  const terminalFailure = output.status === "failed" && output.failureCode === INTEGRATED_TERMINAL_REFUND_PENDING;
+  if (!qualityFailure && !terminalFailure) return false;
+  let liquidated = false;
+  try {
+    liquidated = await refundCreativeWorkOutputCompensatory({
+      workspaceId: input.workspaceId, workItemId: input.workItemId, outputId: output.id,
+      manualRetryAttempt: output.manualRetryAttempt, userId: input.userId,
+      failurePhase: "terminal", reason: qualityFailure ? "objective_quality_failed" : CREATIVE_WORK_GENERATION_FAILED,
+    });
+    if (liquidated) {
+      if (qualityFailure && output.outputKey) await clearCreativeWorkOutputObjectiveQualityRefundPending(
+        input.workspaceId, input.workItemId, output.id, output.outputKey,
+      );
+      else await clearCreativeWorkOutputGenerationFailedRefundPending(
+        input.workspaceId, input.workItemId, output.id, output.manualRetryAttempt, output.retryCount,
+      );
+    }
+  } catch (error) {
+    logger.warn(`[creativeWorkOutputJob] refund recovery pending outputId=${output.id}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return liquidated;
 }
 
 function deserializeCreativeWorkTimestamp(value: Date | string): Date {
@@ -345,23 +396,46 @@ const creativeWorkOutputJobConfig: {
         );
       }
       const recovered = await step.run("recover-interrupted-output", async () => {
+        const aggregate = await getCreativeWork(workspaceId, workItemId);
+        const output = aggregate?.outputs.find((candidate) => candidate.id === outputId);
+        const failureCode = resolveCreativeWorkRenderPolicy(aggregate?.work.inputSnapshot).integrated && (output?.imageCallCount ?? 0) > 0
+          ? INTEGRATED_TERMINAL_REFUND_PENDING : "generation_interrupted";
         const failed = await failCreativeWorkOutput(
           workspaceId,
           workItemId,
           outputId,
-          "generation_interrupted",
+          failureCode,
         ) ?? await failQueuedCreativeWorkOutput(
           workspaceId,
           workItemId,
           outputId,
-          "generation_interrupted",
+          failureCode,
         );
         if (failed) await refreshCreativeWorkStatus(workspaceId, workItemId);
         return Boolean(failed);
       });
-      if (!recovered) return;
+      if (!recovered) {
+        const currentScope = await getCreativeWork(workspaceId, workItemId);
+        const current = currentScope?.outputs.find((candidate) => candidate.id === outputId);
+        await recoverPendingCreativeWorkRefund({ workspaceId, workItemId, output: current, userId: currentScope?.work.createdByUserId ?? undefined });
+        return;
+      }
 
-      const refunded = await step.run("refund-interrupted-output", async () => {
+      const interruptedScope = await getCreativeWork(workspaceId, workItemId);
+      const interruptedOutput = interruptedScope?.outputs.find((candidate) => candidate.id === outputId);
+      const interruptedIntegrated = resolveCreativeWorkRenderPolicy(interruptedScope?.work.inputSnapshot).integrated;
+      // A cached winning failure CAS does not authorize refunding a later
+      // completed/retried row or falling back to a different settled key.
+      if (interruptedOutput?.status === "completed" || (interruptedIntegrated && interruptedOutput && interruptedOutput.status !== "failed")) {
+        await recoverPendingCreativeWorkRefund({ workspaceId, workItemId, output: interruptedOutput, userId: interruptedScope?.work.createdByUserId ?? undefined });
+        return;
+      }
+      if (interruptedOutput?.failureCode === CREATIVE_WORK_GENERATION_FAILED
+        && interruptedIntegrated) return;
+      const integratedTerminalFailure = interruptedOutput?.failureCode === INTEGRATED_TERMINAL_REFUND_PENDING;
+      const refunded = integratedTerminalFailure
+        ? await recoverPendingCreativeWorkRefund({ workspaceId, workItemId, output: interruptedOutput, userId: interruptedScope?.work.createdByUserId ?? undefined })
+        : await step.run("refund-interrupted-output", async () => {
         const current = (await getCreativeWork(workspaceId, workItemId))?.outputs.find((candidate) => candidate.id === outputId);
         const reactivation = await resolveCreativeWorkOutputReactivation({
           workspaceId,
@@ -389,7 +463,7 @@ const creativeWorkOutputJobConfig: {
         });
         return settlement.applied;
       });
-      if (refunded === false) {
+      if (refunded === false && !integratedTerminalFailure) {
         await step.run("mark-interrupted-refund-pending", async () => {
           await markCreativeWorkOutputFailureCode(
             workspaceId,
@@ -486,6 +560,7 @@ const creativeWorkOutputJobHandler = async ({
     let providerInvoked = false;
     let isV1Policy = false;
     let isDirectExecution = false;
+    let renderPolicy = resolveCreativeWorkRenderPolicy(null);
     let imageCallCount = 0;
     let providerCalls = 0;
     let providerRetries = 0;
@@ -496,6 +571,7 @@ const creativeWorkOutputJobHandler = async ({
     let activeUnitCount = 1;
     let terminalTelemetryEmitted = false;
     let outputManualRetryAttempt: number | null = null;
+    let workCreatedByUserId: string | undefined;
     const incompleteOutputKeys = new Set<string>();
     let retainedOutputKey: string | null = null;
     const logCreativeWorkOutputTerminal = (
@@ -564,6 +640,7 @@ const creativeWorkOutputJobHandler = async ({
       }
 
       const work = scopeRaw.work;
+      workCreatedByUserId = work.createdByUserId ?? undefined;
       const brief = work.brief;
       if (!brief) return { success: false, skipped: true, outputId };
       const output = scopeRaw.output;
@@ -576,6 +653,11 @@ const creativeWorkOutputJobHandler = async ({
       const identitySnapshot = work.identitySnapshot as CreativeWorkIdentitySnapshot;
       const copy = work.copy as SocialPostCopy;
 
+      if (output.status === "failed" && output.failureCode === INTEGRATED_TERMINAL_REFUND_PENDING) {
+        const refunded = await recoverPendingCreativeWorkRefund({ workspaceId, workItemId, output, userId: work.createdByUserId ?? undefined });
+        return { success: false, skipped: true, outputId, failureCode: refunded ? CREATIVE_WORK_GENERATION_FAILED : INTEGRATED_TERMINAL_REFUND_PENDING };
+      }
+
       // Idempotency: if a duplicate event arrives after the row already
       // completed, skip provider invocation entirely.
       const idempotency = decideJobIdempotency({
@@ -583,6 +665,7 @@ const creativeWorkOutputJobHandler = async ({
         outputStatus: output.status,
       });
       if (idempotency.skip) {
+        await recoverPendingCreativeWorkRefund({ workspaceId, workItemId, output, userId: work.createdByUserId ?? undefined });
         logger.info(
           `[creativeWorkOutputJob] SKIP duplicate event outputId=${outputId} status=completed (${idempotency.reason})`,
         );
@@ -639,6 +722,7 @@ const creativeWorkOutputJobHandler = async ({
       // through the single pure translation; legacy-frozen works (and the
       // explicit legacy social_post toolKind) keep the current adapter.
       const generationPolicyVersion = resolveGenerationPolicyVersion(work.inputSnapshot);
+      renderPolicy = resolveCreativeWorkRenderPolicy(work.inputSnapshot);
       isV1Policy = generationPolicyVersion === "quality_recovery_v1";
       imageCallCount = output.imageCallCount ?? 0;
       // A frozen temporary Single reference needs its ordered provider plan
@@ -652,6 +736,7 @@ const creativeWorkOutputJobHandler = async ({
             format: output.targetFormat as CreativeWorkFormat,
             targetFormats: work.settings?.targetFormats ?? [],
             revision: Boolean(parentOutput),
+            revisionAction: output.revisionContext?.action,
           })
         : null;
       isDirectExecution = protocol?.execution === "direct";
@@ -860,7 +945,7 @@ const creativeWorkOutputJobHandler = async ({
         }
         executionIdentitySnapshot = { ...identitySnapshot, assets: executionIdentityAssets };
       }
-      const typographyPlan = shouldBuildTypographyPlan(work.toolKind)
+      const typographyPlan = !renderPolicy.integrated && shouldBuildTypographyPlan(work.toolKind)
         ? work.inputSnapshot?.typographyPlan ?? buildTypographyPlan({
             format: targetFormat,
             requestedLayout: work.settings?.textLayout,
@@ -897,6 +982,7 @@ const creativeWorkOutputJobHandler = async ({
       // only appends the failure codes (R-004 criterion 5).
       let v1PromptInputs: Omit<BuildCreativeWorkPromptInput, "correction"> | null = null;
       let generationReferences: GenerationReferenceEvidence[] = [];
+      let renderEvidence: IntegratedRenderEvidence | null = null;
       try {
         if (typographyPlan && typographyPlan.format !== targetFormat) {
           throw new Error("brand_typography_format_mismatch");
@@ -1186,14 +1272,24 @@ const creativeWorkOutputJobHandler = async ({
           referenceImages = await normalizeReferenceBuffers(referenceImages);
         }
 
-        if (output.directionSnapshot?.instruction) {
+        const directionInstruction = output.directionSnapshot?.instruction
+          ? [output.directionSnapshot.instruction, inputSnapshot.settings?.directionPool?.manualInstruction?.trim()]
+              .filter(Boolean).join("\n")
+          : null;
+        if (renderPolicy.integrated && v1PromptInputs) {
+          const promptInput = v1PromptInputs;
+          const artDirection = await step.run("single-piece-art-direction", () =>
+            createSinglePieceArtDirection({ ...promptInput, directionInstruction })
+          );
+          prompt = artDirection.text
+            ? buildIntegratedSinglePrompt(promptInput, artDirection.text)
+            : buildCreativeWorkPrompt({ ...promptInput, textExecution: "generative" });
+          renderEvidence = { artDirection, renderPolicy: "integrated_v1", quality: "high" };
+        }
+        if (directionInstruction) {
           // The pool's global manual instruction constrains every directional
           // output; rows generated before the pool have neither and keep the
           // legacy prompt untouched.
-          const manualInstruction = inputSnapshot.settings?.directionPool?.manualInstruction?.trim();
-          const directionInstruction = [output.directionSnapshot.instruction, manualInstruction]
-            .filter(Boolean)
-            .join("\n");
           prompt += `\n\nDIRECTION INSTRUCTION:\n${directionInstruction}`;
         }
       } catch (error) {
@@ -1273,8 +1369,9 @@ const creativeWorkOutputJobHandler = async ({
               workspaceId,
               workItemId,
               outputId,
+              ...(renderPolicy.integrated ? [output.manualRetryAttempt != null ? 2 : renderPolicy.maxImageCalls] as const : [] as const),
             );
-            if (!claimedCall) return { outputKey: null as string | null };
+            if (!claimedCall) return { outputKey: null as string | null, imageCallCount, providerInvoked: false };
             imageCallCount = claimedCall.imageCallCount;
             logCreativeWorkOutputStage({
               ...telemetryBase(),
@@ -1287,6 +1384,7 @@ const creativeWorkOutputJobHandler = async ({
           // Same canonical executor as campaign/assistant (Gate 3 / item 25).
           try {
             const result = await executeCanonicalGeneration(generationRequest, {
+              ...(renderPolicy.integrated ? { quality: renderPolicy.quality, callBudget: { remaining: 1 } } : {}),
               telemetry: {
                 workId: workItemId,
                 outputId,
@@ -1304,6 +1402,9 @@ const creativeWorkOutputJobHandler = async ({
             const generation = generationEvidence(result, prompt, generationReferences, output.directionSnapshot ?? null);
             return {
               outputKey: result.outputKey as string | null,
+              imageCallCount,
+              providerInvoked,
+              ...(renderEvidence ? { renderEvidence } : {}),
               ...(generation ? { generation } : {}),
               ...(result.providerCalls === undefined
                 ? {}
@@ -1315,10 +1416,15 @@ const creativeWorkOutputJobHandler = async ({
           } catch (error) {
             return {
               outputKey: null as string | null,
+              imageCallCount,
+              providerInvoked,
+              ...(renderEvidence ? { renderEvidence } : {}),
               generationError: serializeCreativeWorkProviderError(error),
             };
           }
         });
+        imageCallCount = result.imageCallCount ?? imageCallCount;
+        providerInvoked = result.providerInvoked ?? (Boolean(result.outputKey) || "generationError" in result);
         if ("generationError" in result && result.generationError) {
           throw restoreCreativeWorkProviderError(result.generationError);
         }
@@ -1329,11 +1435,13 @@ const creativeWorkOutputJobHandler = async ({
         generation?: ReturnType<typeof generationEvidence>;
         providerCalls?: number;
         providerRetries?: number;
+        renderEvidence?: IntegratedRenderEvidence;
       };
       providerCalls = generatedResult.providerCalls ?? providerCalls;
       providerRetries = generatedResult.providerRetries ?? providerRetries;
       const generatedOutputKey = generatedResult.outputKey;
       if (!generatedOutputKey) {
+        if (renderPolicy.integrated) throw new Error("image_call_budget_exhausted");
         // Durable budget already consumed before this run (e.g. a stalled
         // run raced a manual retry): terminal failure with ZERO provider
         // calls here, settled net zero by the idempotent terminal refund.
@@ -1467,6 +1575,7 @@ const creativeWorkOutputJobHandler = async ({
             copy,
             factPack: v1FactPack,
             brandName: v1FactPack?.identity.brandName ?? clientProfile?.name ?? null,
+            ...(renderPolicy.integrated ? { brandKit: identitySnapshot.brandKit, revisionInstruction: output.revisionInstruction } : {}),
             references: v1QaReferences,
             locale: "pt-BR",
             // Plan 04, T1: request the same-call art critique only when the
@@ -1566,6 +1675,10 @@ const creativeWorkOutputJobHandler = async ({
         | { kind: "assessment"; assessment: CreativeWorkQualityAssessmentResult }
         | { kind: "postgen"; postGen: CreativeWorkPostGenerationResult };
 
+      if (renderPolicy.integrated && analyzed.kind === "assessment" && !analyzed.assessment.quality.checks.file.ok) {
+        throw new Error("unusable_file");
+      }
+
       if (analyzed.kind === "postgen" && analyzed.postGen.decision === "reject_low_quality") {
         // Adapter applies shared post-gen refund decision — does not re-decide policy.
         terminalRefunded = await applyRefundDecision({
@@ -1611,6 +1724,7 @@ const creativeWorkOutputJobHandler = async ({
       // 2, the claim fails and the output settles terminally. `inconclusive`
       // and subjective-only findings never reach this branch.
       if (
+        renderPolicy.automaticCorrection &&
         analyzed.kind === "assessment" &&
         analyzed.assessment.objectiveVerdict === "fail" &&
         v1PromptInputs
@@ -1801,8 +1915,11 @@ const creativeWorkOutputJobHandler = async ({
           exactComposition: compositionProvenance,
         };
       }
-      if (finalGenerationEvidence) {
-        completedQuality = { ...(completedQuality ?? {}), generation: finalGenerationEvidence };
+      if (finalGenerationEvidence || generatedResult.renderEvidence) {
+        completedQuality = {
+          ...(completedQuality ?? {}),
+          generation: { ...finalGenerationEvidence, ...generatedResult.renderEvidence },
+        };
       }
       if (work.toolKind === "single" && typographyPlan) {
         completedQuality = {
@@ -1860,7 +1977,8 @@ const creativeWorkOutputJobHandler = async ({
           outputKey: finalOutputKey,
           cost: OUTPUT_COST,
           quality: completedQuality,
-        })
+        }, ...(renderPolicy.integrated && completedVerdict === "fail"
+          ? [{ markObjectiveQualityFailedRefundPending: true }] as const : [] as const))
       );
       if (!completed) {
         // Late completion: the row left `processing` before the commit landed
@@ -1873,6 +1991,9 @@ const creativeWorkOutputJobHandler = async ({
         return { success: true, skipped: true, outputId };
       }
       retainedOutputKey = finalOutputKey;
+      terminalRefunded = await recoverPendingCreativeWorkRefund({
+        workspaceId, workItemId, output: completed, userId: work.createdByUserId ?? undefined,
+      });
 
       try {
         await recordCreativeWorkFunnelEvent(workspaceId, workItemId, "output_ready");
@@ -1886,7 +2007,7 @@ const creativeWorkOutputJobHandler = async ({
       // Isolated from generation success: a library/storage failure must never
       // reclassify a completed output as failed (retries: 0).
       try {
-        await step.run("ensure-library", async () => {
+        if (completedVerdict !== "fail") await step.run("ensure-library", async () => {
           await ensureCreativeWorkOutputInLibrary({
             workspaceId,
             outputKey: finalOutputKey,
@@ -1970,11 +2091,26 @@ const creativeWorkOutputJobHandler = async ({
       logger.error(
         `[creativeWorkOutputJob] FAIL outputId=${outputId} code=${code} message=${message}`,
       );
+      if (renderPolicy.integrated && (providerInvoked || code === "image_call_budget_exhausted")) {
+        const failed = await step.run("mark-failed", () =>
+          failCreativeWorkOutput(workspaceId, workItemId, outputId, INTEGRATED_TERMINAL_REFUND_PENDING)
+        );
+        terminalRefunded = await recoverPendingCreativeWorkRefund({ workspaceId, workItemId, output: failed, userId: workCreatedByUserId });
+        if (failed) logCreativeWorkOutputTerminal({
+          workspaceId, workItemId, outputId, generationCorrelationId,
+          protocol: "v1", imageCallCount, providerCalls, providerRetries,
+          unitCount: generationUnitCount, activeUnitCount,
+          environment: CREATIVE_WORK_RUNTIME_ENVIRONMENT,
+          outcome: "failed", failureCode: code, refunded: terminalRefunded, durationMs: jobTimer.elapsedMs(),
+        });
+        return { success: false, outputId, failureCode: code };
+      }
       // R-006: the transport retry consumes the second call ONLY when the
       // durable budget still has one — a correction that timed out
       // (imageCallCount = 2) never earns a third call. Legacy outputs never
       // claim, so their historical requeue behavior is unchanged.
       if (
+        !renderPolicy.integrated &&
         isDirectExecution &&
         isRetryableProviderError(error) &&
         imageCallCount < CREATIVE_WORK_MAX_IMAGE_CALLS

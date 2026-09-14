@@ -5,6 +5,12 @@ import { Expand } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { CreativeResultCard, type CreativeResultCardArtRefinement } from "@/components/creative-work/CreativeResultCard";
 import { LayerEditorDialog } from "@/components/creative-work/layer-editor/LayerEditorDialog";
+import {
+  hasUsableOutput,
+  lineageRootId,
+  outputLineage,
+  outputSource,
+} from "@/components/creative-work/composer-outputs";
 import { TetrisLoader } from "@/components/ui/loader-tetris";
 import {
   Dialog,
@@ -48,35 +54,6 @@ type CreativeProposalGridProps = {
 const LEVEL_ORDER: CreativeWorkOutput["creativeLevel"][] = ["conservative", "balanced", "bold"];
 function outputLabel(output: CreativeWorkOutput, levels: Record<CreativeWorkOutput["creativeLevel"], string>) {
   return output.directionSnapshot?.label ?? levels[output.creativeLevel];
-}
-
-function outputSource(output: CreativeWorkOutput) {
-  return `/api/creative-work/${output.workItemId}/outputs/${output.id}/download`;
-}
-
-function hasUsableOutput(output: CreativeWorkOutput) {
-  return output.status === "completed" && (output.hasOutput ?? Boolean(output.outputKey));
-}
-
-function outputLineage(
-  outputs: readonly CreativeWorkOutput[],
-  current: CreativeWorkOutput,
-): CreativeWorkOutput[] {
-  const byId = new Map(outputs.map((output) => [output.id, output]));
-  const visited = new Set<string>();
-  const lineage: CreativeWorkOutput[] = [];
-  let cursor: CreativeWorkOutput | undefined = current;
-  while (cursor && !visited.has(cursor.id)) {
-    visited.add(cursor.id);
-    lineage.push(cursor);
-    cursor = cursor.parentOutputId ? byId.get(cursor.parentOutputId) : undefined;
-  }
-  return lineage;
-}
-
-function lineageRootId(outputs: readonly CreativeWorkOutput[], output: CreativeWorkOutput) {
-  const lineage = outputLineage(outputs, output);
-  return lineage.at(-1)?.id ?? output.id;
 }
 
 export default function CreativeProposalGrid({

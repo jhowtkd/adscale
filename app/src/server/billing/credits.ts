@@ -17,7 +17,6 @@ import { db } from "@/server/db";
 import { user } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { logger } from "@/lib/logger";
-import { captureException } from "@/lib/sentry";
 import { resolveCreditOperationKey } from "./credit-operation-key";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { createCreditTransaction } from "@/server/repositories/credit-transactions";
@@ -34,6 +33,23 @@ import {
 } from "@/lib/billing/credit-units";
 
 export { CREDIT_COSTS, type CreditAction };
+
+/**
+ * Unique-violation probe shared by the recordUsage and refundCredits
+ * recovery paths. The installed Drizzle surfaces SQLSTATE on the driver
+ * error at `error.cause.code` (DrizzleQueryError itself carries no `code`),
+ * while some drivers/tests surface it at the root — accept both, and only
+ * the 23505 unique-violation state.
+ */
+function isUniqueViolation(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const record = error as { code?: unknown; cause?: unknown };
+  if (record.code === "23505") return true;
+  if (typeof record.cause === "object" && record.cause !== null) {
+    return (record.cause as { code?: unknown }).code === "23505";
+  }
+  return false;
+}
 
 export type SpendCheck =
   | { allowed: true; amount: number; balance: number }
@@ -206,6 +222,16 @@ export async function recordUsage(input: {
 
   const check = await canSpend(input.workspaceId, input.action, input.amount);
   if (!check.allowed) {
+    // A concurrent winner may have charged between the first idempotency
+    // read and this spend check. Re-query by workspace/key before reporting
+    // blocked so an already-charged operation returns duplicate.
+    const raced = await getUsageByIdempotencyKey(
+      input.workspaceId,
+      input.idempotencyKey
+    );
+    if (raced) {
+      return { status: "duplicate" as const, usage: raced };
+    }
     if (input.userId) {
       emitCreditBlockedAnalytics({ ...input, userId: input.userId }, check);
     }
@@ -229,6 +255,18 @@ export async function recordUsage(input: {
       if (!unlimitedBillingBypass) {
         let remainingToDebit = check.amount;
         const grants = await getAvailableCreditGrants(input.workspaceId, tx, true);
+        // The grant locks serialize concurrent spenders. Revalidate idempotency
+        // now that the locks are held: a concurrent operation may have settled
+        // between the first checks and this point, and debiting again would
+        // surface as insufficient credits for an already-charged operation.
+        const raced = await getUsageByIdempotencyKey(
+          input.workspaceId,
+          input.idempotencyKey,
+          tx
+        );
+        if (raced) {
+          throw new Error("duplicate_usage");
+        }
         const balance = totalRemaining(grants);
         if (balance < check.amount) {
           throw new Error("insufficient_credits");
@@ -251,7 +289,7 @@ export async function recordUsage(input: {
         );
       }
 
-      return trackUsage(
+      const recorded = await trackUsage(
         input.workspaceId,
         input.action,
         unlimitedBillingBypass ? 0 : check.amount,
@@ -263,6 +301,32 @@ export async function recordUsage(input: {
         input.idempotencyKey,
         tx
       );
+
+      // The ledger entry commits in the same transaction as the grant debit
+      // and the usage reservation: a ledger failure rejects and rolls the
+      // whole operation back instead of disappearing in a catch after commit.
+      if (input.userId && !unlimitedBillingBypass) {
+        const meta = input.metadata ?? {};
+        await createCreditTransaction(
+          {
+            userId: input.userId,
+            workspaceId: input.workspaceId,
+            campaignId: typeof meta.campaignId === "string" ? meta.campaignId : null,
+            derivationId:
+              typeof meta.sourceDerivationId === "string"
+                ? meta.sourceDerivationId
+                : typeof meta.derivationId === "string"
+                  ? meta.derivationId
+                  : null,
+            amount: -check.amount,
+            type: "usage",
+            description: input.action,
+          },
+          tx
+        );
+      }
+
+      return recorded;
     });
   } catch (err) {
     if (err instanceof Error && err.message === "duplicate_usage") {
@@ -288,31 +352,19 @@ export async function recordUsage(input: {
         check: blockedCheck,
       };
     }
-    throw err;
-  }
-
-  if (input.userId && !unlimitedBillingBypass) {
-    try {
-      const meta = input.metadata ?? {};
-      await createCreditTransaction({
-        userId: input.userId,
-        workspaceId: input.workspaceId,
-        campaignId: typeof meta.campaignId === "string" ? meta.campaignId : null,
-        derivationId: typeof meta.sourceDerivationId === "string"
-          ? meta.sourceDerivationId
-          : typeof meta.derivationId === "string"
-            ? meta.derivationId
-            : null,
-        amount: -check.amount,
-        type: "usage",
-        description: input.action,
-      });
-    } catch (txErr) {
-      logger.error("[recordUsage] failed to create credit transaction", { error: txErr, workspaceId: input.workspaceId, amount: -check.amount });
-      captureException(txErr, {
-        tags: { component: "billing-ledger", workspaceId: input.workspaceId, action: input.action },
-      });
+    if (isUniqueViolation(err)) {
+      // A unique violation inside the transaction only proves a replay when
+      // the charged operation for this workspace+key is visible outside the
+      // aborted tx. Any other 23505 is a genuine conflict: rethrow.
+      const confirmed = await getUsageByIdempotencyKey(
+        input.workspaceId,
+        input.idempotencyKey
+      );
+      if (confirmed) {
+        return { status: "duplicate" as const, usage: confirmed };
+      }
     }
+    throw err;
   }
 
   const newBalance = unlimitedBillingBypass
@@ -458,20 +510,42 @@ export async function refundCredits(input: {
         input.idempotencyKey,
         tx
       );
+
+      // The refund ledger entry commits in the same transaction: a ledger
+      // failure rejects and rolls the grant credit back. Unlimited bypass
+      // settles without any financial movement, so it writes no ledger line.
+      if (input.userId && !unlimitedBillingBypass) {
+        await createCreditTransaction(
+          {
+            userId: input.userId,
+            workspaceId: input.workspaceId,
+            campaignId: typeof meta.campaignId === "string" ? meta.campaignId : null,
+            derivationId:
+              typeof meta.sourceDerivationId === "string"
+                ? meta.sourceDerivationId
+                : typeof meta.derivationId === "string"
+                  ? meta.derivationId
+                  : null,
+            amount: refundAmount,
+            type: "refund",
+            description: `${input.action}_refund`,
+          },
+          tx
+        );
+      }
     });
   } catch (err) {
     if (err instanceof DuplicateRefundError) {
       return { status: "duplicate" as const };
     }
-    if (
-      typeof err === "object" &&
-      err !== null &&
-      "code" in err &&
-      (err as { code?: string }).code === "23505"
-    ) {
-      // Concurrent refund won the idempotency-key race inside the
-      // transaction — the credit landed exactly once.
-      return { status: "duplicate" as const };
+    if (isUniqueViolation(err)) {
+      // A unique violation inside the transaction only proves a replay when
+      // the expected usage for this workspace+key is visible outside the
+      // aborted tx. Any other 23505 is a genuine conflict: rethrow.
+      const raced = await getUsageByIdempotencyKey(input.workspaceId, input.idempotencyKey);
+      if (raced) {
+        return { status: "duplicate" as const };
+      }
     }
     logger.error("[refundCredits] failed to credit grant atomically", {
       error: err,
@@ -479,38 +553,6 @@ export async function refundCredits(input: {
       amount: refundAmount,
     });
     throw err;
-  }
-
-  if (input.userId) {
-    try {
-      await createCreditTransaction({
-        userId: input.userId,
-        workspaceId: input.workspaceId,
-        campaignId: typeof meta.campaignId === "string" ? meta.campaignId : null,
-        derivationId:
-          typeof meta.sourceDerivationId === "string"
-            ? meta.sourceDerivationId
-            : typeof meta.derivationId === "string"
-              ? meta.derivationId
-              : null,
-        amount: refundAmount,
-        type: "refund",
-        description: `${input.action}_refund`,
-      });
-    } catch (txErr) {
-      logger.error("[refundCredits] failed to create refund transaction", {
-        error: txErr,
-        workspaceId: input.workspaceId,
-        amount: refundAmount,
-      });
-      captureException(txErr, {
-        tags: {
-          component: "billing-ledger",
-          workspaceId: input.workspaceId,
-          action: input.action,
-        },
-      });
-    }
   }
 
   return { status: "refunded" as const };
