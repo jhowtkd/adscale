@@ -333,6 +333,19 @@ describe("reviseCreativeWorkOutput", () => {
         outputId: parent.id,
         revisionKey: REVISION_KEY,
         reviewRevision: 2,
+        expectedCredits: GENERATION_CREDIT_COSTS.creativeWorkOutput + 1,
+      }),
+    ).resolves.toMatchObject({ ok: false, error: { code: "quote_changed" } });
+    expect(settle).not.toHaveBeenCalled();
+
+    await expect(
+      reviseCreativeWorkOutput({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        userId: "user-1",
+        outputId: parent.id,
+        revisionKey: REVISION_KEY,
+        reviewRevision: 2,
         expectedCredits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
       }),
     ).resolves.toEqual({ ok: true, value: { output: existing } });

@@ -7,6 +7,7 @@ import {
   categorizeCreativeWorkFailure,
   isCreativeWorkRetryEligible,
   CREATIVE_WORK_REFUND_PENDING_FAILURE_CODE,
+  CREATIVE_WORK_TERMINAL_REFUND_PENDING_FAILURE_CODE,
   type CreativeWorkOutput,
 } from "@/lib/hooks/use-creative-work";
 import {
@@ -131,8 +132,11 @@ export function CreativeResultCard({
   const layerization = output.layerization;
   // R1: completed with QA fail keeps its preview; choice stays blocked and the
   // compensation is shown as pending only — never as an executed refund.
-  const refundPending = output.status === "completed"
-    && output.failureCode === CREATIVE_WORK_REFUND_PENDING_FAILURE_CODE;
+  const refundPending = (
+    output.status === "completed" && output.failureCode === CREATIVE_WORK_REFUND_PENDING_FAILURE_CODE
+  ) || (
+    output.status === "failed" && output.failureCode === CREATIVE_WORK_TERMINAL_REFUND_PENDING_FAILURE_CODE
+  );
   const layerizeRemaining = layerEditorAccess?.layerize?.remaining ?? null;
   const hasReadyLayers = layerization?.status === "completed" || Boolean(output.layerEditor);
   const canOpenEditor = Boolean(onOpenLayerEditor) && !isMobile && isCompleted && (hasReadyLayers || canLayerize);
@@ -518,7 +522,7 @@ export function CreativeResultCard({
               {t("retryProposal")}
             </button>
           )
-        ) : (
+        ) : refundPending ? null : (
           <p className="text-xs text-[var(--text-muted)]">{t("retryUnavailable")}</p>
         )
       ) : null}

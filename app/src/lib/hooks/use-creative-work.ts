@@ -272,6 +272,7 @@ export interface CreativeWorkCampaignOption {
  * choice stays blocked, and the UI shows compensation as pending only.
  */
 export const CREATIVE_WORK_REFUND_PENDING_FAILURE_CODE = "objective_quality_failed_refund_pending";
+export const CREATIVE_WORK_TERMINAL_REFUND_PENDING_FAILURE_CODE = "generation_failed_terminal_refund_pending";
 
 export function creativeWorkRefetchInterval(
   data:
@@ -289,6 +290,8 @@ export function creativeWorkRefetchInterval(
     data?.outputs.some((output) => output.status === "queued" || output.status === "processing" || ["queued", "processing", "reconciling", "finalizing"].includes(output.layerization?.status ?? "")) ||
     data?.outputs.some((output) =>
       output.status === "completed" && output.failureCode === CREATIVE_WORK_REFUND_PENDING_FAILURE_CODE) ||
+    data?.outputs.some((output) =>
+      output.status === "failed" && output.failureCode === CREATIVE_WORK_TERMINAL_REFUND_PENDING_FAILURE_CODE) ||
     // Carousel decks never enter creative_work_outputs: active slides alone
     // keep the polling alive even when the legacy outputs list is empty.
     data?.carouselSlides?.some((slide) => slide.status === "queued" || slide.status === "processing") ||
@@ -408,11 +411,14 @@ export const CREATIVE_WORK_RETRY_IMAGE_CALL_LIMIT = 2;
  * stays a transient 409 the UI simply re-reads via polling).
  */
 export function isCreativeWorkRetryEligible(
-  output: Pick<CreativeWorkOutput, "status" | "parentOutputId" | "imageCallCount">,
+  output: Pick<CreativeWorkOutput, "status" | "parentOutputId" | "imageCallCount"> & {
+    failureCode?: string | null;
+  },
 ): boolean {
   return (
     output.status === "failed" &&
     !output.parentOutputId &&
+    output.failureCode !== CREATIVE_WORK_TERMINAL_REFUND_PENDING_FAILURE_CODE &&
     (output.imageCallCount ?? 0) < CREATIVE_WORK_RETRY_IMAGE_CALL_LIMIT
   );
 }

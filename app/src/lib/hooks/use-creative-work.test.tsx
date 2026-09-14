@@ -2,7 +2,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  CREATIVE_WORK_TERMINAL_REFUND_PENDING_FAILURE_CODE,
   creativeWorkRefetchInterval,
+  isCreativeWorkRetryEligible,
   useAutosaveCreativeWork,
   useCreateCreativeWorkDraft,
   useGenerateCopy,
@@ -110,6 +112,24 @@ describe("R1 refund-pending polling", () => {
         outputs: [{ status: "completed", failureCode: null }],
       }),
     ).toBe(false);
+  });
+
+  it("keeps polling a terminal generation failure until its refund settles", () => {
+    expect(
+      creativeWorkRefetchInterval({
+        work: { status: "failed" },
+        outputs: [{ status: "failed", failureCode: CREATIVE_WORK_TERMINAL_REFUND_PENDING_FAILURE_CODE }],
+      }),
+    ).toBe(2000);
+  });
+
+  it("does not expose retry while the terminal refund is pending", () => {
+    expect(isCreativeWorkRetryEligible({
+      status: "failed",
+      parentOutputId: null,
+      imageCallCount: 1,
+      failureCode: CREATIVE_WORK_TERMINAL_REFUND_PENDING_FAILURE_CODE,
+    })).toBe(false);
   });
 });
 

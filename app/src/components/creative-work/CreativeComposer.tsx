@@ -15,6 +15,7 @@ import { CreativeVariationBrief } from "./CreativeVariationBrief";
 import CreativeProposalGrid from "@/components/quick-tools/create-post/CreativeProposalGrid";
 import { CarouselComposer } from "./CarouselComposer";
 import { BrandVisualRecipes } from "./BrandVisualRecipes";
+import { StudioPieceWorkspace } from "./StudioPieceWorkspace";
 import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
 
 const FORMATS = ["1:1", "4:5", "9:16"] as const;
@@ -256,26 +257,30 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           <p className="text-sm text-[var(--text-muted)]">{t("results.subtitle")}</p>
         </div> : null}
       </div>
-      <CreativeProposalGrid
-        outputs={composer.outputs}
-        artRefinement={composer.artRefinement}
-        layout={layout}
-        onRetry={composer.retryOutput}
-        onRetryRevision={composer.retryRevisionOutput}
-        onApprove={composer.approveOutput}
-        onDownload={composer.downloadOutput}
-        canLayerize={composer.canLayerize}
-        layerEditorAccess={composer.layerEditorAccess}
-        onLayerize={composer.layerizeOutput}
-        onDownloadLayerized={composer.downloadLayerizedOutput}
-        isLayerizing={composer.isLayerizingOutput}
-        onRevise={composer.reviseOutput}
-        isRetrying={composer.isRetryingOutput}
-        isApproving={composer.isApprovingOutput}
-        approvalErrorOutputId={composer.approvalErrorOutputId}
-        isRevising={composer.isRevisingOutput}
-        onLayerEditorPublished={composer.refreshOutputs}
-      />
+      {layout === "piece" && !isCarousel ? (
+        <StudioPieceWorkspace composer={composer} />
+      ) : (
+        <CreativeProposalGrid
+          outputs={composer.outputs}
+          artRefinement={composer.artRefinement}
+          layout={layout}
+          onRetry={composer.retryOutput}
+          onRetryRevision={composer.retryRevisionOutput}
+          onApprove={composer.approveOutput}
+          onDownload={composer.downloadOutput}
+          canLayerize={composer.canLayerize}
+          layerEditorAccess={composer.layerEditorAccess}
+          onLayerize={composer.layerizeOutput}
+          onDownloadLayerized={composer.downloadLayerizedOutput}
+          isLayerizing={composer.isLayerizingOutput}
+          onRevise={composer.reviseOutput}
+          isRetrying={composer.isRetryingOutput}
+          isApproving={composer.isApprovingOutput}
+          approvalErrorOutputId={composer.approvalErrorOutputId}
+          isRevising={composer.isRevisingOutput}
+          onLayerEditorPublished={composer.refreshOutputs}
+        />
+      )}
       <div className={cn("flex", layout === "piece" ? "justify-start" : "justify-end")}>
         <label className="text-sm text-[var(--text-secondary)]">
           <span className="sr-only">{t("results.campaignLabel")}</span>

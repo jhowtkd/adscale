@@ -134,6 +134,9 @@ async function reviseReviewedOutput(
   parent: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["outputs"][number],
   input: ReviewedCommand,
 ): Promise<ReviseCreativeWorkOutputResult> {
+  if (input.expectedCredits !== GENERATION_CREDIT_COSTS.creativeWorkOutput) {
+    return { ok: false, error: { code: "quote_changed" } };
+  }
   const operationKey = `revision:${input.revisionKey}`;
   const existing = aggregate.outputs.find(
     (output) => output.operationKey === operationKey,
@@ -204,10 +207,6 @@ async function reviseReviewedOutput(
   ) {
     return { ok: false, error: { code: "stale_review" } };
   }
-  if (input.expectedCredits !== GENERATION_CREDIT_COSTS.creativeWorkOutput) {
-    return { ok: false, error: { code: "quote_changed" } };
-  }
-
   const parsed = outputReviewInputSchema.safeParse({
     action: draft.action,
     targetFormat: draft.targetFormat,

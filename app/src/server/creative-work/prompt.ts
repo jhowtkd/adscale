@@ -748,9 +748,11 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
 
 /** Complete generative composition with the same factual and reference authorities. */
 export function buildIntegratedSinglePrompt(input: BuildCreativeWorkPromptInput, brief: string): string {
+  const visualDirectionBlock = buildVisualDirectionBlock(input.inputSnapshot.visualDirection);
   return [
     "Crie uma peça publicitária completa, com tipografia e composição integradas.",
     `DIREÇÃO VISUAL:\n${brief}`,
+    ...(visualDirectionBlock ? [visualDirectionBlock] : []),
     `1. CONTEÚDO EXATO:\n${buildFixedContract({ ...input, textExecution: "generative" })}\nNão acrescente claims. As referências de estilo não são fontes factuais.`,
     buildFactPackBlock(input),
     buildModePolicyBlock(input),

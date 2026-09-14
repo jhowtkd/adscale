@@ -146,6 +146,33 @@ describe("buildIntegratedSinglePrompt", () => {
     expect(text).toContain("9:16");
     expect(text).toContain("Reposicione o título");
   });
+
+  it("carries the frozen visual direction into integrated single-piece prompts", () => {
+    const text = buildIntegratedSinglePrompt({
+      ...input,
+      inputSnapshot: {
+        ...input.inputSnapshot,
+        visualDirection: {
+          languageId: "language-1",
+          ruleIds: ["rule-1"],
+          dominantIdea: "Dar escala ao título",
+          composition: "Respiro generoso ao redor do foco",
+          typography: "Caixa alta condensada",
+          finish: "Acabamento fosco editorial",
+          preserve: ["Dois focos em competição"],
+        },
+      },
+    }, "Composição editorial.");
+
+    expect(text).toContain("TRAINED VISUAL DIRECTION (frozen):");
+    expect(text).toContain("- Dominant idea: Dar escala ao título");
+    expect(text).toContain("- Composition: Respiro generoso ao redor do foco");
+    expect(text).toContain("- Typography: Caixa alta condensada");
+    expect(text).toContain("- Finish: Acabamento fosco editorial");
+    expect(text).toContain("- Preserve: Dois focos em competição");
+    expect(text).not.toContain("language-1");
+    expect(text).not.toContain("rule-1");
+  });
 });
 
 describe("buildSocialPostPrompt", () => {

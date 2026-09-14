@@ -41,6 +41,32 @@ it("preserves a valid brief and sends only projected context without private sto
   expect(context).not.toHaveProperty("inputSnapshot");
 });
 
+it("passes the frozen visual direction to the art-direction model", async () => {
+  create.mockResolvedValue({ choices: [{ message: { content: JSON.stringify({ brief: "Composição editorial." }) } }] });
+  const visualDirection = {
+    languageId: "language-1",
+    ruleIds: ["rule-1"],
+    dominantIdea: "Dar escala ao título",
+    composition: "Respiro generoso ao redor do foco",
+    typography: "Caixa alta condensada",
+    finish: "Acabamento fosco editorial",
+    preserve: ["Dois focos em competição"],
+  };
+  await createSinglePieceArtDirection({
+    ...input,
+    inputSnapshot: { ...input.inputSnapshot, visualDirection },
+  });
+
+  const context = JSON.parse(create.mock.calls[0][0].messages[1].content);
+  expect(context.visualDirection).toEqual({
+    dominantIdea: visualDirection.dominantIdea,
+    composition: visualDirection.composition,
+    typography: visualDirection.typography,
+    finish: visualDirection.finish,
+    preserve: visualDirection.preserve,
+  });
+});
+
 it.each(["", "not json", "null", JSON.stringify({ brief: "" }), JSON.stringify({ brief: Array(121).fill("palavra").join(" ") }), JSON.stringify({ brief: "certo", extra: "não" })])("uses explicit invalid-response fallback for %s", async (content) => {
   create.mockResolvedValue({ choices: [{ message: { content } }] });
   expect(await createSinglePieceArtDirection(input)).toEqual({ text: null, source: "fallback", reason: "invalid_response" });

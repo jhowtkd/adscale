@@ -214,6 +214,27 @@ describe("CreativeResultCard", () => {
     expect(screen.getByTestId("objective-selection-blocked")).toBeInTheDocument();
   });
 
+  it("keeps terminal refund failures pending and hides retry", () => {
+    render(
+      <CreativeResultCard
+        output={output({
+          status: "failed",
+          outputKey: null,
+          failureCode: "generation_failed_terminal_refund_pending",
+          imageCallCount: 1,
+        })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("refund-pending")).toHaveTextContent("Reposição de créditos pendente para esta peça.");
+    expect(screen.queryByRole("button", { name: "Repetir esta proposta" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/já usou todas as tentativas automáticas/)).not.toBeInTheDocument();
+  });
+
   it("in workspace mode sends a failed revision to the reviewed flow, never a legacy retry", () => {
     const onRetryRevision = vi.fn();
     const onRetryThroughReview = vi.fn();

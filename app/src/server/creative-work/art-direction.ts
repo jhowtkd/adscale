@@ -26,6 +26,15 @@ export async function createSinglePieceArtDirection(input: ArtDirectionInput): P
     format: input.format, copy: input.copy, request: input.inputSnapshot.request,
     factPack: input.factPack, creativeLevel: input.creativeLevel,
     directionInstruction: input.directionInstruction, revisionInstruction: input.revisionInstruction,
+    visualDirection: input.inputSnapshot.visualDirection
+      ? {
+          dominantIdea: input.inputSnapshot.visualDirection.dominantIdea,
+          composition: input.inputSnapshot.visualDirection.composition,
+          typography: input.inputSnapshot.visualDirection.typography,
+          finish: input.inputSnapshot.visualDirection.finish,
+          preserve: input.inputSnapshot.visualDirection.preserve,
+        }
+      : null,
     brandKit: {
       colors: kit.colors, fonts: kit.fonts, toneOfVoice: kit.toneOfVoice,
       visualNotes: kit.visualNotes, constraints: kit.constraints,
