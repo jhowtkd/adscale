@@ -1478,8 +1478,42 @@ describe("prepareCreativeWork", () => {
       expect(updateDraft).not.toHaveBeenCalled();
     });
 
+    it.each([undefined, "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"])(
+      "keeps calibration language choice explicit (%s)", async (explicitId) => {
+      const languageId = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa";
+      const candidate = { ...candidateB, knowledge: { ...candidateB.knowledge, claims: [{
+        ...candidateB.knowledge.claims[0], claimKey: "visual.repertoire", value: {
+          version: 1, common: [{id: "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb", dimension: "hierarchy",
+            observation: "Título dominante", application: "Destacar o título", avoid: "", evidenceIds: ["r1"], confidence: "high"}],
+          languages: [{id: languageId, name: "Institucional", contexts: ["institucional"], rules: []}],
+        },
+      }] } };
+      getWork.mockResolvedValue({ work: { ...calibrationWork, request: "Apresentação Institucional",
+        settings: { targetFormats: [], ...(explicitId ? { visualLanguageId: explicitId } : {}) } }, outputs: [], sources: [] } as never);
+      vi.mocked(loadCalibrationCandidateForWork).mockResolvedValue(candidate as never);
+      const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1",
+        calibration: { sessionId: "session-1", round: 1, slot: 0 } });
+      expect(result.ok).toBe(true);
+      expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+        inputSnapshot: expect.objectContaining({ visualDirection: expect.objectContaining({ languageId: explicitId ?? null }) }),
+      }));
+    });
+
+    it.each(["confirmed", "needs_more_photos"])("does not infer Tom from calibration copy (%s)", async (adequacy) => {
+      const candidate = structuredClone(candidateB);
+      candidate.knowledge.claims[0].value.people[0].name = "Tom";
+      candidate.knowledge.claims[0].value.people[0].referenceAdequacy = adequacy;
+      getWork.mockResolvedValue({ work: { ...calibrationWork, request: "Definir o tom visual" }, outputs: [], sources: [] } as never);
+      loadCandidate.mockResolvedValue(candidate as never);
+      const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1",
+        calibration: { sessionId: "session-1", round: 1, slot: 0 } });
+      expect(result.ok).toBe(true);
+      expect(updateDraft.mock.calls[0]?.[3].inputSnapshot).not.toHaveProperty("people");
+    });
+
     it("composes calibration examples from the frozen candidate, not the live kit", async () => {
-      getWork.mockResolvedValue({ work: calibrationWork, outputs: [], sources: [] } as never);
+      getWork.mockResolvedValue({ work: { ...calibrationWork, settings: { targetFormats: [],
+        personIds: ["33333333-3333-4333-8333-333333333333"] } }, outputs: [], sources: [] } as never);
       loadCandidate.mockResolvedValue(candidateB as never);
       // Live kit/version changed after the round was created (identity A).
       getKit.mockResolvedValue({ name: "Cenbrap", toneOfVoice: "Tom ao vivo A", requiredElements: "live-yes", prohibitedElements: "live-no" } as never);

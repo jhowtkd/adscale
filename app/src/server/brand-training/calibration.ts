@@ -16,6 +16,8 @@ import {
   brandKnowledgeEvidenceRefSchema,
 } from "../brand-knowledge/contracts";
 import type { BrandKnowledgeVersionSnapshotV1 } from "../brand-knowledge/version-compiler";
+import { peopleCatalogSchema, type PeopleCatalog } from "./people";
+import { visualRepertoireSchema, type VisualRepertoire } from "./visual-repertoire";
 
 /** Slots per calibration round and base rounds before an explicit extension. */
 export const CALIBRATION_SLOTS_PER_ROUND = 4;
@@ -111,13 +113,176 @@ export function personFidelitySlotSignal(
 }
 
 /**
- * Coverage labels of a candidate: the distinct claim keys it exercises,
- * capped like round coverage. Shown in the review UI; never a claim of
- * exhaustive brand validation.
+ * One deterministic calibration case (plan 02, T2): which reviewed language
+ * or person the slot exercises. The brief copy always comes from the neutral
+ * calibration briefs by slot order — only these IDs replace the context.
  */
-export function calibrationCoverage(candidate: Pick<Candidate, "knowledge">): string[] {
-  const keys = [...new Set(candidate.knowledge.claims.map((claim) => claim.claimKey))];
-  return keys.slice(0, CALIBRATION_COVERAGE_LIMIT);
+export type CalibrationCase = {
+  slot: 0 | 1 | 2 | 3;
+  languageId: string | null;
+  personId: string | null;
+};
+
+type CalibrationLearnedContent = {
+  repertoire: VisualRepertoire | null;
+  catalog: PeopleCatalog | null;
+};
+
+function learnedContentOf(knowledge: BrandKnowledgeVersionSnapshotV1 | null | undefined): CalibrationLearnedContent {
+  const claims = knowledge?.claims ?? [];
+  const repertoireValue = claims.find((claim) => claim.claimKey === "visual.repertoire")?.value;
+  const catalogValue = claims.find((claim) => claim.claimKey === "people.catalog")?.value;
+  const repertoire = visualRepertoireSchema.safeParse(repertoireValue);
+  const catalog = peopleCatalogSchema.safeParse(catalogValue);
+  return {
+    repertoire: repertoire.success ? repertoire.data : null,
+    catalog: catalog.success ? catalog.data : null,
+  };
+}
+
+/**
+ * Plans the four deterministic calibration cases from the reviewed content
+ * (plan 02, T2): (1) the common identity, (2) the first reviewed language,
+ * (3) the second language, or the first photo-confirmed person when there is
+ * no second language, (4) a new composition of the first case — or, when the
+ * previous round tested the same candidate, a recomposition of the
+ * highest-priority bad-rated slot (lowest slot index wins).
+ *
+ * Language order is the confirmed collection's order: the review's explicit
+ * choice, never a silent first-occurrence pick. Later rounds keep the same
+ * briefings and aspects while the candidate is unchanged (the plan is a pure
+ * function of it); a changed candidate regenerates all four cases. Only
+ * photo-confirmed people are exercised — an unconfirmed person would fail
+ * preparation, never silently become optional inspiration.
+ *
+ * The retest target of a bad slot 3 is the case slot 3 itself exercised,
+ * which only the full round history can reconstruct: pass `priorRounds` in
+ * creation order so a twice-failed language keeps being retested instead of
+ * silently falling back to the common context. `priorRound` stays as a
+ * single-step shorthand for the first retest, where both forms agree.
+ */
+export function planCalibrationCases(input: {
+  candidate: Pick<Candidate, "hash" | "knowledge">;
+  priorRound?: Pick<CalibrationRound, "candidate" | "slots"> | null;
+  priorRounds?: ReadonlyArray<Pick<CalibrationRound, "candidate" | "slots">> | null;
+}): [CalibrationCase, CalibrationCase, CalibrationCase, CalibrationCase] {
+  const { repertoire, catalog } = learnedContentOf(input.candidate.knowledge);
+  const languages = repertoire?.languages ?? [];
+  const confirmedPerson = catalog?.people.find((person) => person.referenceAdequacy === "confirmed") ?? null;
+  const base: [CalibrationCase, CalibrationCase, CalibrationCase, CalibrationCase] = [
+    { slot: 0, languageId: null, personId: null },
+    { slot: 1, languageId: languages[0]?.id ?? null, personId: null },
+    languages[1]
+      ? { slot: 2, languageId: languages[1].id, personId: null }
+      : confirmedPerson
+        ? { slot: 2, languageId: null, personId: confirmedPerson.id }
+        : { slot: 2, languageId: null, personId: null },
+    { slot: 3, languageId: null, personId: null },
+  ];
+  const history = input.priorRounds ?? (input.priorRound ? [input.priorRound] : []);
+  // Only the trailing same-candidate suffix chains: the round before it
+  // tested another candidate, so its plan was the base plan above.
+  let chainStart = history.length;
+  while (chainStart > 0 && history[chainStart - 1]!.candidate.hash === input.candidate.hash) {
+    chainStart -= 1;
+  }
+  const chain = history.slice(chainStart);
+  if (chain.length === 0) return base;
+  // Slots 0-2 never change while the candidate is unchanged; only the slot 3
+  // retest target threads through the chain.
+  const retestTargetOf = (
+    plan: [CalibrationCase, CalibrationCase, CalibrationCase, CalibrationCase],
+    slots: Pick<CalibrationRound, "slots">["slots"],
+  ): CalibrationCase => {
+    const badSlot = slots.find((slot) => slot.feedback?.rating === "bad");
+    const target = badSlot ? plan[badSlot.index] : plan[0];
+    return { slot: 3, languageId: target!.languageId, personId: target!.personId };
+  };
+  // Rebuild what each chained round exercised: the first one ran the base
+  // plan, each later one retested its predecessor's worst slot.
+  let priorPlan: [CalibrationCase, CalibrationCase, CalibrationCase, CalibrationCase] = [
+    base[0]!,
+    base[1]!,
+    base[2]!,
+    base[3]!,
+  ];
+  for (let index = 1; index < chain.length; index += 1) {
+    priorPlan = [base[0]!, base[1]!, base[2]!, retestTargetOf(priorPlan, chain[index - 1]!.slots)];
+  }
+  return [base[0]!, base[1]!, base[2]!, retestTargetOf(priorPlan, chain[chain.length - 1]!.slots)];
+}
+
+function caseRuleIds(
+  learned: CalibrationLearnedContent,
+  target: Pick<CalibrationCase, "languageId">,
+): string[] {
+  const language = target.languageId
+    ? (learned.repertoire?.languages.find((entry) => entry.id === target.languageId) ?? null)
+    : null;
+  const rules = language ? language.rules : (learned.repertoire?.common ?? []);
+  return rules.map((rule) => rule.id);
+}
+
+/**
+ * Coverage IDs of a candidate: the ordered distinct language, person and
+ * rule IDs its four deterministic cases exercise, capped like round
+ * coverage. Shown in the review UI next to the IDs left unexercised; never
+ * a claim of exhaustive brand validation.
+ */
+function fullCalibrationCoverage(
+  candidate: Pick<Candidate, "hash" | "knowledge">,
+  priorRound?: Pick<CalibrationRound, "candidate" | "slots"> | null,
+  priorRounds?: ReadonlyArray<Pick<CalibrationRound, "candidate" | "slots">> | null,
+): string[] {
+  const learned = learnedContentOf(candidate.knowledge);
+  const cases = planCalibrationCases({
+    candidate,
+    priorRound: priorRound ?? null,
+    priorRounds: priorRounds ?? null,
+  });
+  // Case targets first so a long rule list never pushes the exercised
+  // language/person IDs out of the capped coverage; rule IDs follow in the
+  // same slot order.
+  const ordered: string[] = [];
+  for (const target of cases) {
+    if (target.languageId) ordered.push(target.languageId);
+    if (target.personId) ordered.push(target.personId);
+  }
+  for (const target of cases) {
+    ordered.push(...caseRuleIds(learned, target));
+  }
+  return [...new Set(ordered)];
+}
+
+/** Persisted display metadata is bounded; coverage decisions use the full set. */
+export function calibrationCoverage(
+  candidate: Pick<Candidate, "hash" | "knowledge">,
+  priorRound?: Pick<CalibrationRound, "candidate" | "slots"> | null,
+  priorRounds?: ReadonlyArray<Pick<CalibrationRound, "candidate" | "slots">> | null,
+): string[] {
+  return fullCalibrationCoverage(candidate, priorRound, priorRounds).slice(0, CALIBRATION_COVERAGE_LIMIT);
+}
+
+/**
+ * Reviewed language, rule and person IDs the round coverage does not
+ * exercise. Deterministic order: languages (id, then their rules), common
+ * rules, people. The review shows these next to the covered IDs so four
+ * cases never read as exhaustive brand validation.
+ */
+export function uncoveredTrainingIds(input: {
+  candidate: Pick<Candidate, "hash" | "knowledge">;
+  priorRounds?: ReadonlyArray<Pick<CalibrationRound, "candidate" | "slots">>;
+
+}): string[] {
+  const learned = learnedContentOf(input.candidate.knowledge);
+  const all: string[] = [];
+  for (const language of learned.repertoire?.languages ?? []) {
+    all.push(language.id, ...language.rules.map((rule) => rule.id));
+  }
+  all.push(...(learned.repertoire?.common.map((rule) => rule.id) ?? []));
+  all.push(...(learned.catalog?.people.map((person) => person.id) ?? []));
+  const covered = new Set(fullCalibrationCoverage(input.candidate, null, input.priorRounds));
+  return [...new Set(all)].filter((id) => !covered.has(id));
 }
 
 type PersistedCalibrationOutput = {

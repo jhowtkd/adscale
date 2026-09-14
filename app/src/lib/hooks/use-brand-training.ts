@@ -477,6 +477,8 @@ export function useReviewRepertoire(clientProfileId: string | null) {
   });
 }
 
+export type SynthesizeRepertoireError = Error & { code?: string };
+
 export function useSynthesizeRepertoire(clientProfileId: string | null) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -490,7 +492,17 @@ export function useSynthesizeRepertoire(clientProfileId: string | null) {
         body: JSON.stringify({ command: "synthesize_repertoire", ...input }),
         timeoutMs: 180_000,
       });
-      if (!response.ok) throw new Error(await readError(response));
+      if (!response.ok) {
+        // The API body carries a machine-readable code next to the localized
+        // message; the review needs the code to offer a subset picker on
+        // brandRepertoireSelectionRequired instead of a dead error.
+        const body = await response.json().catch(() => ({}));
+        const failure: SynthesizeRepertoireError = new Error(
+          typeof body?.error === "string" ? body.error : "Request failed",
+        );
+        if (typeof body?.code === "string") failure.code = body.code;
+        throw failure;
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -557,6 +569,8 @@ export interface BrandCalibrationPayload {
   activeVersionId: string | null;
   quoteCredits: number;
   examples: BrandCalibrationExample[];
+  /** Reviewed language/rule/person IDs the latest round does not exercise. */
+  uncovered: string[];
 }
 
 export type BrandCalibrationCommand =

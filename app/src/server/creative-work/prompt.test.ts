@@ -1124,4 +1124,14 @@ describe("buildCarouselSlidePrompt", () => {
     expect(prompt).toContain("Do not copy the cover");
     expect(prompt).toContain("DETERMINISTIC TEXT CONTRACT:");
   });
+
+  it("appends a pending visual-revision instruction, absent on first generations", () => {
+    expect(buildCarouselSlidePrompt(baseInput)).not.toContain("REVISION INSTRUCTION:");
+
+    const prompt = buildCarouselSlidePrompt({
+      ...baseInput,
+      revisionInstruction: "Problema: foco dividido. Intervenção: unificar foco.",
+    });
+    expect(prompt).toContain("REVISION INSTRUCTION: Problema: foco dividido. Intervenção: unificar foco.");
+  });
 });

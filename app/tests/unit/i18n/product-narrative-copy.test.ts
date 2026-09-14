@@ -45,6 +45,32 @@ const BRAND_KIT_ERROR_PARITY_KEYS = [
   "unknown",
 ] as const;
 
+/**
+ * Exact leaf contract of `brandTraining.people` (treinamento de marca E3/T1,
+ * consumed by BrandPeopleReview). Parity between locales is not enough here:
+ * an orphan key in both catalogs (or a key missing from both) would still be
+ * in parity, so the 17 keys are pinned explicitly.
+ */
+const BRAND_PEOPLE_KEYS = [
+  "add",
+  "adequacyConfirmed",
+  "aliases",
+  "aliasesPlaceholder",
+  "empty",
+  "explanation",
+  "homonymWarning",
+  "name",
+  "newName",
+  "noPhotos",
+  "photos",
+  "preserve",
+  "preservePlaceholder",
+  "primary",
+  "remove",
+  "removePhoto",
+  "setPrimary",
+] as const;
+
 const STUDIO_CAMPAIGN_DIALOG_KEYS = [
   "dashboard.home.campaignDialog.open",
   "dashboard.home.campaignDialog.title",
@@ -340,6 +366,36 @@ describe("product narrative copy guard (Phase 170 / BRAND-04)", () => {
         expect(CANONICAL_VOCABULARY_PT.test(value as string)).toBe(true);
       });
     }
+  });
+
+  describe("brand people key parity (treinamento de marca E3/T1)", () => {
+    it("en and pt-BR share keys for brandTraining.people", () => {
+      const enKeys = parityKeysForNamespace(en as JsonObject, "brandTraining.people");
+      const ptKeys = parityKeysForNamespace(ptBR as JsonObject, "brandTraining.people");
+
+      const onlyEn = enKeys.filter((k) => !ptKeys.includes(k));
+      const onlyPt = ptKeys.filter((k) => !enKeys.includes(k));
+
+      expect(onlyEn, `keys only in en.json: ${onlyEn.join(", ")}`).toEqual([]);
+      expect(onlyPt, `keys only in pt-BR.json: ${onlyPt.join(", ")}`).toEqual([]);
+    });
+
+    for (const key of BRAND_PEOPLE_KEYS) {
+      it(`brandTraining.people.${key} exists non-empty in both catalogs`, () => {
+        const enValue = getStringAtPath(en as JsonObject, `brandTraining.people.${key}`);
+        const ptValue = getStringAtPath(ptBR as JsonObject, `brandTraining.people.${key}`);
+        expect(typeof enValue, `brandTraining.people.${key} missing in en.json`).toBe("string");
+        expect(typeof ptValue, `brandTraining.people.${key} missing in pt-BR.json`).toBe("string");
+        expect((enValue as string).length).toBeGreaterThan(0);
+        expect((ptValue as string).length).toBeGreaterThan(0);
+      });
+    }
+
+    it("brandTraining.people carries no orphan keys beyond the 17-key contract", () => {
+      const expected = [...BRAND_PEOPLE_KEYS].sort();
+      expect(parityKeysForNamespace(en as JsonObject, "brandTraining.people")).toEqual(expected);
+      expect(parityKeysForNamespace(ptBR as JsonObject, "brandTraining.people")).toEqual(expected);
+    });
   });
 
   describe("brand-kit error key parity (Sprint 1 / #2 reshape)", () => {

@@ -2941,6 +2941,7 @@
       "calibrationNotePlaceholder": "Descreva o ajuste sem presumir a causa",
       "calibrationSaveFeedback": "Salvar avaliação",
       "calibrationCoverage": "Aspectos cobertos: {covered}",
+      "calibrationUncovered": "Não exercitados: {uncovered}",
       "calibrationFailed": "Falha na geração — este slot não será reposto",
       "calibrationRunning": "Gerando…",
       "calibrationActivate": "Ativar treinamento validado",
@@ -2953,7 +2954,10 @@
       "calibrationWaitingJudgement": "Aguardando avaliação dos 4 exemplos",
       "synthesizeRepertoire": "Sintetizar repertório",
       "synthesizingRepertoire": "Sintetizando repertório…",
-      "confirmRepertoireSet": "Aprovar entendimento e preparar calibração"
+      "confirmRepertoireSet": "Aprovar entendimento e preparar calibração",
+      "repertoireSelectionTitle": "Escolha as referências desta síntese",
+      "repertoireSelectionHint": "{count} referências aprovadas e analisadas — selecione até {max}; as demais ficam de fora desta síntese.",
+      "repertoireSelectionEmpty": "Nenhuma referência aprovada e analisada disponível para sintetizar."
     },
     "repertoire": {
       "explanation": "Revise as regras visuais aprendidas entre as referências. A identidade comum vale para todas as peças; cada linguagem especializa um contexto.",

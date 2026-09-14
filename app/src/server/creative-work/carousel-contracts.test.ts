@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CreativeWorkInputSnapshot } from "./contracts";
 import { buildCreativeWorkFactPack } from "./fact-pack";
 import {
+  buildCarouselSlideRevisionQuality,
   CAROUSEL_LAYOUT_FAMILIES,
   CAROUSEL_NARRATIVE_ROLES,
   CAROUSEL_SLIDE_STATUSES,
@@ -12,6 +13,7 @@ import {
   quoteCarouselUnits,
   resolveCarouselPlanSlideId,
   resolveCarouselPreparedSnapshot,
+  resolveCarouselSlideRevisionInstruction,
   validateCarouselDeckStructure,
   validateTextFieldsAgainstFactPack,
   type CarouselDeckPlanV1,
@@ -275,6 +277,31 @@ describe("carousel contracts", () => {
       deckRevision: "deck-r1",
       generationOperationKey: "creative-work:work-1:carousel-slide:db-cover:generate",
     })).toBeNull();
+  });
+
+  it("round-trips a pending visual-revision instruction through the draft payload", () => {
+    const quality = buildCarouselSlideRevisionQuality("  Fundo mais claro  ");
+    expect(quality).toEqual({ revisionInstruction: "Fundo mais claro" });
+    expect(resolveCarouselSlideRevisionInstruction(quality)).toBe("Fundo mais claro");
+  });
+
+  it("resolves no instruction from assessment quality, blanks or garbage", () => {
+    expect(resolveCarouselSlideRevisionInstruction(null)).toBeNull();
+    expect(resolveCarouselSlideRevisionInstruction({})).toBeNull();
+    expect(resolveCarouselSlideRevisionInstruction({ revisionInstruction: "   " })).toBeNull();
+    expect(resolveCarouselSlideRevisionInstruction({ revisionInstruction: 42 })).toBeNull();
+    expect(resolveCarouselSlideRevisionInstruction("text")).toBeNull();
+    expect(resolveCarouselSlideRevisionInstruction({
+      schemaVersion: 1,
+      objectiveVerdict: "pass",
+      artCritique: { verdict: "weak" },
+    })).toBeNull();
+  });
+
+  it("caps an overlong instruction at the shared bound", () => {
+    const quality = buildCarouselSlideRevisionQuality("x".repeat(5000));
+    expect((quality.revisionInstruction as string)).toHaveLength(2000);
+    expect(resolveCarouselSlideRevisionInstruction(quality)).toHaveLength(2000);
   });
 });
 

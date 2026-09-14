@@ -9,12 +9,15 @@ vi.mock("@/server/validation/env", () => ({
 }));
 
 import {
+  analyzeArtComparison,
   analyzeCreativeQa,
   analyzeCreativeWorkQa,
   analyzePersonFidelity,
+  normalizeArtComparisonResult,
   normalizeCreativeQaResult,
   normalizeCreativeWorkQaResult,
   normalizePersonFidelityResult,
+  buildArtComparisonPrompt,
   buildCreativeQaPrompt,
   buildCreativeWorkQaPrompt,
   buildPersonFidelityPrompt,
@@ -825,5 +828,60 @@ describe("person fidelity assessment (plan 03, T3)", () => {
       evidence: [],
       issue: null,
     }]);
+  });
+});
+
+describe("art comparison judge (plan 04, T3)", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("asks for concrete fixes and regressions with a tie default", () => {
+    const prompt = buildArtComparisonPrompt({
+      brief: "Promo de agosto",
+      beforeProblem: "Foco dividido",
+      afterProblem: null,
+      locale: "pt-BR",
+    });
+    expect(prompt).toContain("Promo de agosto");
+    expect(prompt).toContain("Foco dividido");
+    expect(prompt).toContain("BEFORE");
+    expect(prompt).toContain("AFTER");
+    expect(prompt).toContain("regressions");
+    expect(prompt).toContain("A tie keeps BEFORE");
+  });
+
+  it("degrades an unknown winner to a tie and trims every list to bounds", () => {
+    const result = normalizeArtComparisonResult({
+      winner: "intruder",
+      reason: "",
+      fixedIssues: ["  foco  ", "", 42, "x".repeat(500)],
+      regressions: "not-a-list",
+    }, "Reserva.");
+    expect(result).toEqual({
+      winner: "tie",
+      reason: "Reserva.",
+      fixedIssues: ["foco", "x".repeat(300)],
+      regressions: [],
+    });
+  });
+
+  it("returns a deterministic tie under the controlled E2E provider", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("E2E_CONTROLLED_PROVIDER", "true");
+    vi.stubEnv("APP_URL", "http://localhost:3000");
+    const result = await analyzeArtComparison({
+      brief: "Promo",
+      beforeImageBuffer: Buffer.from("a"),
+      afterImageBuffer: Buffer.from("b"),
+      mimeType: "image/png",
+      beforeProblem: "Foco dividido",
+      afterProblem: null,
+      locale: "pt-BR",
+    });
+    expect(result).toEqual({
+      winner: "tie",
+      reason: "Comparação inconclusiva; a versão anterior foi mantida.",
+      fixedIssues: [],
+      regressions: [],
+    });
   });
 });

@@ -42,6 +42,7 @@ export function BrandCalibrationReview({ clientProfileId }: { clientProfileId: s
   const payload = calibration.data;
   if (!payload) return null;
   const { session, activeVersionId, quoteCredits, examples } = payload;
+  const uncovered = payload.uncovered ?? [];
   const latest = session?.rounds[session.rounds.length - 1] ?? null;
   const totalRounds = CALIBRATION_BASE_ROUNDS + (session?.extensionCount ?? 0);
   const atCeiling = (session?.rounds.length ?? 0) >= totalRounds;
@@ -107,6 +108,9 @@ export function BrandCalibrationReview({ clientProfileId }: { clientProfileId: s
         <div className="space-y-3">
           <p className="text-xs text-[var(--text-muted)]">
             {t("calibrationCoverage", { covered: latest.coverage.join(", ") || "—" })}
+          </p>
+          <p className="text-xs text-[var(--text-muted)]">
+            {t("calibrationUncovered", { uncovered: uncovered.join(", ") || "—" })}
           </p>
           <ul className="grid gap-3 sm:grid-cols-2">
             {examples.map((example, slot) => (

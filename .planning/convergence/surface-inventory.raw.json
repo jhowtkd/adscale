@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-12T00:35:41.935Z",
+  "generatedAt": "2026-09-14T17:32:13.329Z",
   "schemaVersion": 2,
-  "fingerprint": "fdf0931909ca6c69a21e4dcc02ef50a765930f02b9025d52e48897552780843e",
+  "fingerprint": "9239ca123733925aa6d9eead7c5259ee23138a9e13f1be4c15b446715898b3ce",
   "counts": {
     "dashboardPages": 15,
-    "apiRoutes": 179,
+    "apiRoutes": 183,
     "ctas": 72,
     "requiringDecision": 1
   },
@@ -642,6 +642,13 @@
       "requiresDecision": false
     },
     {
+      "id": "api:/api/client-profiles/[id]/brand-knowledge/calibration",
+      "kind": "api_route",
+      "route": "/api/client-profiles/[id]/brand-knowledge/calibration",
+      "file": "app/src/app/api/client-profiles/[id]/brand-knowledge/calibration/route.ts",
+      "requiresDecision": false
+    },
+    {
       "id": "api:/api/client-profiles/[id]/brand-knowledge/publish",
       "kind": "api_route",
       "route": "/api/client-profiles/[id]/brand-knowledge/publish",
@@ -793,6 +800,20 @@
       "kind": "api_route",
       "route": "/api/creative-work/[id]/outputs/[outputId]/download",
       "file": "app/src/app/api/creative-work/[id]/outputs/[outputId]/download/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/creative-work/[id]/outputs/[outputId]/favorite",
+      "kind": "api_route",
+      "route": "/api/creative-work/[id]/outputs/[outputId]/favorite",
+      "file": "app/src/app/api/creative-work/[id]/outputs/[outputId]/favorite/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/creative-work/[id]/outputs/[outputId]/person-references",
+      "kind": "api_route",
+      "route": "/api/creative-work/[id]/outputs/[outputId]/person-references",
+      "file": "app/src/app/api/creative-work/[id]/outputs/[outputId]/person-references/route.ts",
       "requiresDecision": false
     },
     {
@@ -1150,6 +1171,13 @@
       "kind": "api_route",
       "route": "/api/inngest",
       "file": "app/src/app/api/inngest/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/library/favorites",
+      "kind": "api_route",
+      "route": "/api/library/favorites",
+      "file": "app/src/app/api/library/favorites/route.ts",
       "requiresDecision": false
     },
     {
@@ -1579,12 +1607,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/creative-work/CreativeComposer.tsx:315",
+      "id": "nav:app/src/components/creative-work/CreativeComposer.tsx:308",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/creative-work/CreativeComposer.tsx",
-      "line": 315,
-      "evidence": "app/src/components/creative-work/CreativeComposer.tsx:315",
+      "line": 308,
+      "evidence": "app/src/components/creative-work/CreativeComposer.tsx:308",
       "requiresDecision": false
     },
     {
@@ -1615,21 +1643,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:559",
+      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:611",
       "kind": "cta_navigation",
       "destination": "/settings?tab=billing",
       "file": "app/src/components/dashboard/DashboardHomeActions.tsx",
-      "line": 559,
-      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:559",
+      "line": 611,
+      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:611",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:660",
+      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:712",
       "kind": "cta_navigation",
       "destination": "/?mode=arte&compose=1&fresh=1",
       "file": "app/src/components/dashboard/DashboardHomeActions.tsx",
-      "line": 660,
-      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:660",
+      "line": 712,
+      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:712",
       "requiresDecision": false
     },
     {
@@ -1858,21 +1886,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/SidebarBrandKitFeature.tsx:38",
+      "id": "nav:app/src/components/layout/SidebarBrandKitFeature.tsx:39",
       "kind": "cta_navigation",
       "destination": "/brand-kit",
       "file": "app/src/components/layout/SidebarBrandKitFeature.tsx",
-      "line": 38,
-      "evidence": "app/src/components/layout/SidebarBrandKitFeature.tsx:38",
+      "line": 39,
+      "evidence": "app/src/components/layout/SidebarBrandKitFeature.tsx:39",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/SidebarRecentWorks.tsx:64",
+      "id": "nav:app/src/components/layout/SidebarRecentWorks.tsx:68",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/SidebarRecentWorks.tsx",
-      "line": 64,
-      "evidence": "app/src/components/layout/SidebarRecentWorks.tsx:64",
+      "line": 68,
+      "evidence": "app/src/components/layout/SidebarRecentWorks.tsx:68",
       "requiresDecision": false
     },
     {

@@ -101,6 +101,22 @@ test("primary gate tolerates stale snapshot entries that already exist on base",
   assert.match(result.stderr, /snapshot drift/i);
 });
 
+test("primary gate accepts base API trees but rejects feature routes and trees", () => {
+  const root = setupPrimaryRepository();
+  write(join(root, "app/src/app/api/library/favorites/route.ts"), "export const GET = () => null;\n");
+  git(root, ["add", "."]);
+  git(root, ["commit", "-m", "route already on base"]);
+  git(root, ["update-ref", "refs/remotes/origin/main", git(root, ["rev-parse", "HEAD"])]);
+  const accepted = runPrimaryGate(root);
+  assert.equal(accepted.status, 0, accepted.stderr);
+  write(join(root, "app/src/app/api/library/new/route.ts"), "export const GET = () => null;\n");
+  write(join(root, "app/src/app/api/expansion/route.ts"), "export const GET = () => null;\n");
+  const rejected = runPrimaryGate(root);
+  assert.equal(rejected.status, 1);
+  assert.match(rejected.stderr, /new top-level API route tree\(s\): expansion/);
+  assert.match(rejected.stderr, /library\/new\/route.ts/);
+});
+
 test("primary gate still rejects an AI module introduced by the feature", () => {
   const root = setupPrimaryRepository();
   write(join(root, "app/src/server/ai/feature-expansion.ts"), "export const expansion = true;\n");

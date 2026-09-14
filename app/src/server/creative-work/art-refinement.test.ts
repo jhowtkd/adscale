@@ -1,8 +1,8 @@
+import { artRefinementParentHash } from "@/server/creative-work/art-refinement-parent-hash";
 import { describe, expect, it } from "vitest";
 import {
   ART_DIRECTION_CRITIQUE_INSTRUCTION,
   artRefinementMaxUnits,
-  artRefinementParentHash,
   artRefinementRevisionKey,
   artRefinementRootId,
   artCritiqueSchema,
@@ -165,4 +165,11 @@ describe("orçamento", () => {
     expect(resolveRevisionCompositionMode("recompose", "restyle")).toBe("edit");
     expect(resolveRevisionCompositionMode("edit", null)).toBe("edit");
   });
+});
+
+it("keeps creative-work contracts browser-compatible without tree shaking", async () => {
+  const { build } = await import("esbuild");
+  await expect(build({ entryPoints: ["src/server/creative-work/contracts.ts"],
+    bundle: true, platform: "browser", treeShaking: false, write: false,
+    logLevel: "silent", })).resolves.toBeDefined();
 });

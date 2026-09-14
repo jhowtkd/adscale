@@ -338,6 +338,15 @@ export type CalibrationWorkDraft = {
   draftKey: string;
   title: string;
   request: string;
+  /**
+   * Deterministic case context (plan 02, T2): the reviewed language/person
+   * IDs this slot exercises. Persisted into the draft settings so the
+   * canonical prepare path resolves them against the frozen candidate.
+   */
+  settings?: {
+    visualLanguageId?: string;
+    personIds?: string[];
+  };
 };
 
 /**
@@ -431,7 +440,13 @@ export async function appendCalibrationRound(input: {
           title: work.title,
           request: work.request,
           format: "4:5" as const,
-          settings: { targetFormats: [] },
+          settings: {
+            targetFormats: [],
+            ...(work.settings?.visualLanguageId
+              ? { visualLanguageId: work.settings.visualLanguageId }
+              : {}),
+            ...(work.settings?.personIds ? { personIds: work.settings.personIds } : {}),
+          },
           brief: null,
           status: "draft" as const,
           trainingSessionId: input.sessionId,
