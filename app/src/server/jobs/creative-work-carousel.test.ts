@@ -10,10 +10,14 @@ const repo = vi.hoisted(() => ({
 }));
 const carouselRepo = vi.hoisted(() => ({
   listCurrentCarouselSlides: vi.fn(),
+  listCarouselSlideLineage: vi.fn(),
   markCarouselSlideProcessing: vi.fn(),
   completeCarouselSlide: vi.fn(),
   failCarouselSlide: vi.fn(),
   refreshCarouselWorkStatus: vi.fn(),
+}));
+const refine = vi.hoisted(() => ({
+  refineCarouselSlide: vi.fn(),
 }));
 const executor = vi.hoisted(() => ({
   executeCanonicalGeneration: vi.fn(),
@@ -48,6 +52,7 @@ vi.mock("@/server/repositories/creative-work-carousel", () => carouselRepo);
 vi.mock("@/server/generation/pipeline/execute", () => executor);
 vi.mock("@/server/generation/pipeline/post-generation", () => qa);
 vi.mock("@/server/application/advance-carousel-generation", () => continuation);
+vi.mock("@/server/application/refine-carousel-slide", () => refine);
 vi.mock("@/server/generation/settlement", () => settlement);
 vi.mock("@/server/storage", () => storage);
 vi.mock("@/server/creative-work/text-composite", () => ({
@@ -271,6 +276,8 @@ describe("runCreativeWorkCarouselSlide", () => {
       { role: "anchor_board", required: true, assetKey: "creative-work/work-1/carousel/prep-1/anchor-board.png", mimeType: "image/png", label: "Anchor board" },
     ]);
     normalize.normalizeReferenceBuffers.mockImplementation(async (refs: unknown[]) => refs);
+    carouselRepo.listCarouselSlideLineage.mockResolvedValue([]);
+    refine.refineCarouselSlide.mockResolvedValue({ kind: "stopped", outputId: null, reason: "gate_closed" });
   });
 
   it("skips before the provider when the work is missing or cross-workspace", async () => {
@@ -340,6 +347,89 @@ describe("runCreativeWorkCarouselSlide", () => {
     await runCreativeWorkCarouselSlide(input);
     const legacyQa = qa.runCreativeWorkQualityAssessment.mock.calls[0]?.[0] as { qa: Record<string, unknown> };
     expect(legacyQa.qa).not.toHaveProperty("artCritique");
+  });
+
+  it("passes the pending visual instruction to the slide prompt, null on first generations", async () => {
+    await runCreativeWorkCarouselSlide(input);
+    expect(promptBuilder.buildCarouselSlidePrompt).toHaveBeenCalledWith(
+      expect.objectContaining({ revisionInstruction: null }),
+    );
+
+    promptBuilder.buildCarouselSlidePrompt.mockClear();
+    carouselRepo.listCurrentCarouselSlides.mockResolvedValue([
+      { ...slide, quality: { revisionInstruction: "Fundo mais claro" } },
+    ]);
+    await runCreativeWorkCarouselSlide(input);
+    expect(promptBuilder.buildCarouselSlidePrompt).toHaveBeenCalledWith(
+      expect.objectContaining({ revisionInstruction: "Fundo mais claro" }),
+    );
+  });
+
+  it("triggers one bounded art revision after completion on budgeted works, before the chain continuation", async () => {
+    const budgeted = workFixture(slide);
+    budgeted.work.inputSnapshot = {
+      ...budgeted.work.inputSnapshot,
+      artRefinement: {
+        version: 1,
+        maxRevisionsPerRoot: 2,
+        acceptedCreditCeiling: 30,
+        acceptedBy: "user-1",
+        acceptedAt: "2026-09-13T00:00:00.000Z",
+      },
+    };
+    repo.getCreativeWork.mockImplementation(async () => budgeted);
+    carouselRepo.completeCarouselSlide.mockImplementation(async () =>
+      ({ ...slide, status: "completed", versionNumber: 2, outputKey: "final.png" }));
+    carouselRepo.listCarouselSlideLineage.mockResolvedValue([
+      { ...slide, id: "slide-2-v1", versionNumber: 1 },
+      { ...slide, id: SLIDE_ID, versionNumber: 2 },
+    ]);
+    refine.refineCarouselSlide.mockResolvedValue({ kind: "started", outputId: "slide-2-v3", reason: "revision_dispatched" });
+
+    const result = await runCreativeWorkCarouselSlide(input);
+
+    expect(result).toMatchObject({ success: true, slideId: SLIDE_ID });
+    expect(refine.refineCarouselSlide).toHaveBeenCalledTimes(1);
+    expect(refine.refineCarouselSlide).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      workItemId: WORK_ID,
+      rootSlideId: "slide-2-v1",
+      completedSlideId: SLIDE_ID,
+    });
+    expect(refine.refineCarouselSlide.mock.invocationCallOrder[0])
+      .toBeLessThan(continuation.dispatchNextCarouselStage.mock.invocationCallOrder[0]!);
+    expect(continuation.dispatchNextCarouselStage).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips the refinement trigger without a budget", async () => {
+    const result = await runCreativeWorkCarouselSlide(input);
+
+    expect(result).toMatchObject({ success: true, slideId: SLIDE_ID });
+    expect(carouselRepo.listCarouselSlideLineage).not.toHaveBeenCalled();
+    expect(refine.refineCarouselSlide).not.toHaveBeenCalled();
+    expect(continuation.dispatchNextCarouselStage).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the slide completed when the refinement trigger fails", async () => {
+    const budgeted = workFixture(slide);
+    budgeted.work.inputSnapshot = {
+      ...budgeted.work.inputSnapshot,
+      artRefinement: {
+        version: 1,
+        maxRevisionsPerRoot: 2,
+        acceptedCreditCeiling: 30,
+        acceptedBy: "user-1",
+        acceptedAt: "2026-09-13T00:00:00.000Z",
+      },
+    };
+    repo.getCreativeWork.mockImplementation(async () => budgeted);
+    refine.refineCarouselSlide.mockRejectedValue(new Error("coordinator down"));
+
+    const result = await runCreativeWorkCarouselSlide(input);
+
+    expect(result).toMatchObject({ success: true, slideId: SLIDE_ID });
+    expect(carouselRepo.completeCarouselSlide).toHaveBeenCalledTimes(1);
+    expect(continuation.dispatchNextCarouselStage).toHaveBeenCalledTimes(1);
   });
 
   it("makes exactly one direct canonical image call with the plan's GenerationRequest", async () => {

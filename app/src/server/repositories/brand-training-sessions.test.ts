@@ -423,6 +423,47 @@ describe("brand training sessions", () => {
     expect(dbMock.setFn).not.toHaveBeenCalled();
   });
 
+  it("persiste o contexto determinístico do caso nas settings do draft", async () => {
+    const languageId = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa";
+    const personId = "dddddddd-dddd-4ddd-dddd-dddddddddddd";
+    const drafts = [0, 1, 2, 3].map((index) => ({
+      id: `55555555-5555-4555-8555-55555555555${index}`,
+      draftKey: `brand-calibration:${SESSION_ID}:1:${index}`,
+      title: `Calibração — exemplo ${index + 1}`,
+      request: "[Texto de teste de calibração] Peça neutra.",
+      settings: index === 1
+        ? { visualLanguageId: languageId }
+        : index === 2
+          ? { personIds: [personId] }
+          : {},
+    })) as Parameters<typeof appendCalibrationRound>[0]["works"];
+    dbMock.state.selects.push(
+      [testSession({ revision: 1 })],
+      drafts.map((draft) => ({ id: draft.id, draftKey: draft.draftKey })),
+    );
+    dbMock.state.updates.push([testSession({ revision: 2 })]);
+    await appendCalibrationRound({
+      workspaceId: WORKSPACE_ID,
+      profileId: PROFILE_ID,
+      sessionId: SESSION_ID,
+      expectedRevision: 1,
+      roundNumber: 1,
+      candidate: testCandidate(),
+      quoteCredits: 8,
+      coverage: [languageId, personId],
+      confirmedBy: "user-1",
+      works: drafts,
+      now: () => new Date("2026-09-13T12:00:00.000Z"),
+    });
+    const inserted = dbMock.valuesFn.mock.calls[0]?.[0] as Array<{ settings: Record<string, unknown> }>;
+    expect(inserted.map((row) => row.settings)).toEqual([
+      { targetFormats: [] },
+      { targetFormats: [], visualLanguageId: languageId },
+      { targetFormats: [], personIds: [personId] },
+      { targetFormats: [] },
+    ]);
+  });
+
   it("não abre rodada seguinte com slot em processamento", async () => {
     dbMock.state.selects.push(
       [testSession({ revision: 2, rounds: [roundWithSlots(1)], status: "calibrating" })],

@@ -26,12 +26,14 @@ vi.mock("@/server/ai/creative-quality-gate", async (importOriginal) => ({
 const analyzeCreativeWorkQaMock = vi.hoisted(() => vi.fn());
 const inspectCreativeWorkImageFileMock = vi.hoisted(() => vi.fn());
 const analyzePersonFidelityMock = vi.hoisted(() => vi.fn());
+const analyzeArtComparisonMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/ai/creative-qa", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/ai/creative-qa")>()),
   analyzeCreativeWorkQa: (...args: unknown[]) => analyzeCreativeWorkQaMock(...args),
   inspectCreativeWorkImageFile: (...args: unknown[]) => inspectCreativeWorkImageFileMock(...args),
   analyzePersonFidelity: (...args: unknown[]) => analyzePersonFidelityMock(...args),
+  analyzeArtComparison: (...args: unknown[]) => analyzeArtComparisonMock(...args),
 }));
 
 vi.mock("@/server/human-quality/candidate-capture", () => ({
@@ -644,6 +646,10 @@ describe("art critique + comparison (plan 04, T1/T3)", () => {
   beforeEach(() => {
     mockAnalyze.mockReset();
     analyzeCreativeWorkQaMock.mockReset();
+    analyzeArtComparisonMock.mockReset();
+    analyzeArtComparisonMock.mockResolvedValue({
+      winner: "tie", reason: "Empate.", fixedIssues: [], regressions: [],
+    });
     inspectCreativeWorkImageFileMock.mockReset();
     inspectCreativeWorkImageFileMock.mockResolvedValue({
       ok: true, width: 1080, height: 1080, format: "png", bytes: 4096, error: null,
@@ -763,5 +769,83 @@ describe("art critique + comparison (plan 04, T1/T3)", () => {
     });
     expect(win.preferredId).toBe("b");
     expect(win.fixedIssues).toEqual(["foco"]);
+  });
+
+  it("usa o juiz multimodal padrão quando ambas as imagens estão presentes", async () => {
+    analyzeArtComparisonMock.mockResolvedValue({
+      winner: "after", reason: "Foco unificado.", fixedIssues: ["foco"], regressions: [],
+    });
+    const weak = {
+      verdict: "weak" as const,
+      problem: "Foco dividido",
+      intervention: "Unificar foco",
+      mode: "edit" as const,
+      preserve: [],
+      evidence: ["Dois títulos dominantes"],
+      confidence: "high" as const,
+    };
+    const before = { id: "a", objective: "pass" as const, humanReviewRequired: false, critique: weak };
+
+    const win = await compareArtCandidates({
+      before,
+      after: { ...before, id: "b" },
+      brief: "Promo",
+      beforeImage: Buffer.from("a"),
+      afterImage: Buffer.from("b"),
+    });
+
+    expect(analyzeArtComparisonMock).toHaveBeenCalledTimes(1);
+    expect(analyzeArtComparisonMock).toHaveBeenCalledWith(expect.objectContaining({
+      brief: "Promo",
+      beforeProblem: "Foco dividido",
+    }));
+    expect(win.preferredId).toBe("b");
+    expect(win.fixedIssues).toEqual(["foco"]);
+  });
+
+  it("empata sem chamar o modelo quando as imagens estão ausentes", async () => {
+    const weak = {
+      verdict: "weak" as const,
+      problem: "Foco dividido",
+      intervention: "Unificar foco",
+      mode: "edit" as const,
+      preserve: [],
+      evidence: ["Dois títulos dominantes"],
+      confidence: "high" as const,
+    };
+    const before = { id: "a", objective: "pass" as const, humanReviewRequired: false, critique: weak };
+
+    const tie = await compareArtCandidates({
+      before,
+      after: { ...before, id: "b" },
+      brief: "Promo",
+      beforeImage: Buffer.from("a"),
+    });
+
+    expect(tie.preferredId).toBe("a");
+    expect(analyzeArtComparisonMock).not.toHaveBeenCalled();
+  });
+
+  it("mantém a anterior quando o juiz multimodal falha ou empata", async () => {
+    const weak = {
+      verdict: "weak" as const,
+      problem: "Foco dividido",
+      intervention: "Unificar foco",
+      mode: "edit" as const,
+      preserve: [],
+      evidence: ["Dois títulos dominantes"],
+      confidence: "high" as const,
+    };
+    const before = { id: "a", objective: "pass" as const, humanReviewRequired: false, critique: weak };
+    const base = { before, brief: "Promo", beforeImage: Buffer.from("a"), afterImage: Buffer.from("b") };
+
+    analyzeArtComparisonMock.mockRejectedValueOnce(new Error("vision 500"));
+    expect((await compareArtCandidates({ ...base, after: { ...before, id: "b" } })).preferredId).toBe("a");
+
+    analyzeArtComparisonMock.mockResolvedValueOnce({
+      winner: "tie", reason: "Empate técnico.", fixedIssues: [], regressions: [],
+    });
+    expect((await compareArtCandidates({ ...base, after: { ...before, id: "b" } })).preferredId).toBe("a");
+    expect(analyzeArtComparisonMock).toHaveBeenCalledTimes(2);
   });
 });

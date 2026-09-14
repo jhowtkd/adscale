@@ -382,6 +382,7 @@ describe("reviseCarouselSlide", () => {
         copyAuthority: "ai_proposal",
         primaryText: "Texto primário 2 do grupo de terapia",
         generationOperationKey: REVISION_KEY,
+        quality: { revisionInstruction: "Fundo mais claro" },
       }),
     );
     expect(adapters.carouselSlideSettlementAdapter).toHaveBeenCalledTimes(1);
@@ -602,6 +603,28 @@ describe("reviseCarouselSlide", () => {
     if (completedResult.ok) return;
     expect(completedResult.error.code).toBe("slide_not_failed");
     expect(carouselRepo.createCarouselSlideDescendant).toHaveBeenCalledTimes(1);
+  });
+
+  it("retry keeps the failed draft's pending visual instruction", async () => {
+    resetDeck({ 2: "failed" });
+    slides = slides.map((row) =>
+      row.id === "slide-2" ? { ...row, quality: { revisionInstruction: "Fundo mais claro" } } : row,
+    );
+    const result = await reviseCarouselSlide({
+      ...slideInput,
+      slideId: "slide-2",
+      kind: "retry",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(carouselRepo.createCarouselSlideDescendant).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parentSlideId: "slide-2",
+        status: "draft",
+        quality: { revisionInstruction: "Fundo mais claro" },
+      }),
+    );
   });
 
   it("stale expectedVersion returns a conflict without writing", async () => {

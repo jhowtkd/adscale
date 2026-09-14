@@ -9,6 +9,7 @@ import {
   calibrationCredits,
   calibrationDraftKey,
   freezeCandidate,
+  planCalibrationCases,
   type Candidate,
 } from "../brand-training/calibration";
 import {
@@ -46,7 +47,9 @@ export class BrandCalibrationError extends Error {
  * The four factually neutral calibration briefs (plan 01, T2). No offer,
  * role, qualification, date, price or technical claim is ever invented; when
  * there is no factual content the text is explicitly labeled as test copy.
- * Plans 02/03 replace these contexts with the reviewed language/person IDs.
+ * The deterministic case plan (plan 02, T2) replaces the context of each
+ * brief with the reviewed language/person IDs via draft settings — the copy
+ * itself never gains offers, roles or qualifications.
  */
 export const CALIBRATION_NEUTRAL_BRIEFS: ReadonlyArray<{ title: string; request: string }> = [
   {
@@ -151,13 +154,26 @@ export async function startBrandCalibration(input: {
     throw new BrandCalibrationError("quote_changed", "Calibration quote changed");
   }
   const roundNumber = requireRoundCapacity(session.rounds.length, session.extensionCount);
+  // Full history, not just the last round: a bad slot 3 retests whatever
+  // slot 3 exercised, which only the chain can reconstruct.
+  const priorRounds = session.rounds;
+  const cases = planCalibrationCases({ candidate: session.candidate, priorRounds });
   const [first, second, third, fourth] = CALIBRATION_NEUTRAL_BRIEFS;
-  const drafts = [first, second, third, fourth].map((brief, index) => ({
-    id: randomUUID(),
-    draftKey: calibrationDraftKey(input.sessionId, roundNumber, index),
-    title: brief!.title,
-    request: brief!.request,
-  }));
+  const drafts = [first, second, third, fourth].map((brief, index) => {
+    const target = cases[index]!;
+    return {
+      id: randomUUID(),
+      draftKey: calibrationDraftKey(input.sessionId, roundNumber, index),
+      title: brief!.title,
+      request: brief!.request,
+      // The briefs stay neutral; only the reviewed language/person context
+      // comes from the deterministic case plan (plan 02, T2).
+      settings: {
+        ...(target.languageId ? { visualLanguageId: target.languageId } : {}),
+        ...(target.personId ? { personIds: [target.personId] } : {}),
+      },
+    };
+  });
   const appended = await appendCalibrationRound({
     workspaceId: input.workspaceId,
     profileId: input.profileId,
@@ -166,13 +182,13 @@ export async function startBrandCalibration(input: {
     roundNumber,
     candidate: session.candidate,
     quoteCredits: input.acceptedCredits,
-    coverage: calibrationCoverage(session.candidate),
+    coverage: calibrationCoverage(session.candidate, null, priorRounds),
     confirmedBy: input.userId,
     works: drafts as [
-      { id: string; draftKey: string; title: string; request: string },
-      { id: string; draftKey: string; title: string; request: string },
-      { id: string; draftKey: string; title: string; request: string },
-      { id: string; draftKey: string; title: string; request: string },
+      { id: string; draftKey: string; title: string; request: string; settings: { visualLanguageId?: string; personIds?: string[] } },
+      { id: string; draftKey: string; title: string; request: string; settings: { visualLanguageId?: string; personIds?: string[] } },
+      { id: string; draftKey: string; title: string; request: string; settings: { visualLanguageId?: string; personIds?: string[] } },
+      { id: string; draftKey: string; title: string; request: string; settings: { visualLanguageId?: string; personIds?: string[] } },
     ],
   });
 

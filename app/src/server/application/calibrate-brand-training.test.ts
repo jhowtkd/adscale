@@ -182,6 +182,116 @@ describe("calibrate brand training", () => {
     });
   });
 
+  it("anexa os casos determinísticos com contexto revisado e cobertura de IDs", async () => {
+    const languageId = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa";
+    const personId = "dddddddd-dddd-4ddd-dddd-dddddddddddd";
+    const referenceId = "ffffffff-ffff-4fff-ffff-ffffffffffff";
+    const candidate = freezeCandidate({
+      ...testCandidate(),
+      knowledge: {
+        schemaVersion: 1 as const,
+        profileId: PROFILE_ID,
+        compiledAt: "2026-09-13T12:00:00.000Z",
+        excluded: [],
+        claims: [
+          {
+            id: "claim-repertoire",
+            claimKey: "visual.repertoire",
+            kind: "rule",
+            value: {
+              version: 1,
+              common: [{
+                id: "00000000-0000-4000-8000-000000000001",
+                dimension: "hierarchy",
+                observation: "Título domina",
+                application: "Priorizar o título",
+                avoid: "",
+                evidenceIds: [referenceId],
+                confidence: "high",
+              }],
+              languages: [{
+                id: languageId,
+                name: "Comercial",
+                contexts: ["oferta"],
+                rules: [{
+                  id: "00000000-0000-4000-8000-000000000100",
+                  dimension: "composition",
+                  observation: "Grade simples",
+                  application: "Usar grade simples",
+                  avoid: "",
+                  evidenceIds: [referenceId],
+                  confidence: "high",
+                }],
+              }],
+            },
+            scope: { level: "global" },
+            authority: "human",
+            confidence: "high",
+            evidenceRefs: [],
+            reviewedAt: "2026-09-13T12:00:00.000Z",
+            reviewedByUserId: "user-1",
+          },
+          {
+            id: "claim-catalog",
+            claimKey: "people.catalog",
+            kind: "fact",
+            value: {
+              version: 1,
+              people: [{
+                id: personId,
+                name: "Ana",
+                aliases: [],
+                referenceIds: [referenceId],
+                primaryReferenceId: referenceId,
+                preserve: [],
+                referenceAdequacy: "confirmed",
+              }],
+            },
+            scope: { level: "global" },
+            authority: "human",
+            confidence: "high",
+            evidenceRefs: [],
+            reviewedAt: "2026-09-13T12:00:00.000Z",
+            reviewedByUserId: "user-1",
+          },
+        ],
+      },
+    });
+    const session = testSession({ candidate, rounds: [] });
+    const quote = calibrationCredits(CALIBRATION_FORMAT);
+    mocks.getSessionById.mockResolvedValue(session);
+    mocks.appendRound.mockResolvedValue({ session: { ...session, revision: 2 }, workItemIds: WORK_IDS, resumed: false });
+    mockDispatch();
+    mocks.linkOutputs.mockResolvedValue({});
+
+    await startBrandCalibration({
+      workspaceId: WORKSPACE_ID,
+      profileId: PROFILE_ID,
+      sessionId: SESSION_ID,
+      userId: "user-1",
+      expectedRevision: 1,
+      acceptedCredits: quote,
+    });
+
+    const appended = mocks.appendRound.mock.calls[0]?.[0] as {
+      coverage: string[];
+      works: Array<{ request: string; settings: Record<string, unknown> }>;
+    };
+    // Neutral copy stays neutral; the reviewed IDs travel in settings.
+    expect(appended.works.map((work) => work.settings)).toEqual([
+      {},
+      { visualLanguageId: languageId },
+      { personIds: [personId] },
+      {},
+    ]);
+    for (const work of appended.works) {
+      expect(work.request).toMatch(/\[Texto de teste de calibração\]/);
+    }
+    expect(appended.coverage).toContain(languageId);
+    expect(appended.coverage).toContain(personId);
+    expect(appended.coverage.every((id) => /^[0-9a-f-]{36}$/.test(id))).toBe(true);
+  });
+
   it("rejeita cotação divergente, revisão obsoleta e perfil alheio", async () => {
     const session = testSession();
     const quote = calibrationCredits(CALIBRATION_FORMAT);

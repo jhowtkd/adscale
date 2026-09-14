@@ -7,6 +7,7 @@ import {
   CALIBRATION_FORMAT,
   calibrationCommandSchema,
   calibrationCredits,
+  uncoveredTrainingIds,
 } from "@/server/brand-training/calibration";
 import {
   BrandCalibrationError,
@@ -103,6 +104,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       activeVersionId: active?.id ?? null,
       quoteCredits: calibrationCredits(CALIBRATION_FORMAT),
       examples,
+      uncovered: latest ? uncoveredTrainingIds({ candidate: latest.candidate, coverage: latest.coverage }) : [],
     });
   } catch (error) {
     return calibrationErrorResponse(error, "client-profiles.[id].brand-knowledge.calibration.GET");
