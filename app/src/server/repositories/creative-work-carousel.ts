@@ -1,3 +1,4 @@
+import { artRefinementParentHash } from "@/server/creative-work/art-refinement-parent-hash";
 import { and, asc, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
@@ -11,7 +12,6 @@ import {
 } from "../db/schema";
 import {
   ART_REFINEMENT_MAX_REVISIONS_PER_ROOT,
-  artRefinementParentHash,
   artRefinementRevisionKey,
   carouselRevisionUnits,
 } from "../creative-work/art-refinement";

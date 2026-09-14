@@ -47,20 +47,18 @@ function assertTestDatabaseUrl(url: string): void {
 
 if (TEST_DATABASE_URL) assertTestDatabaseUrl(TEST_DATABASE_URL);
 
-const { db } = await import("@/server/db");
-const {
-  brandKnowledgeVersions,
-  brandTrainingSessions,
-  clientProfiles,
-  creativeWorkItems,
-  creativeWorkOutputs,
-  user,
-  workspaces,
-} = await import("@/server/db/schema");
-const { freezeCandidate } = await import("@/server/brand-training/calibration");
-const { createTrainingSession } = await import("./brand-training-sessions");
-const { BrandKnowledgeCalibrationError, publishBrandKnowledgeVersion } =
-  await import("./brand-knowledge");
+let brandKnowledgeVersions: typeof import("@/server/db/schema")["brandKnowledgeVersions"];
+let brandTrainingSessions: typeof import("@/server/db/schema")["brandTrainingSessions"];
+let clientProfiles: typeof import("@/server/db/schema")["clientProfiles"];
+let creativeWorkItems: typeof import("@/server/db/schema")["creativeWorkItems"];
+let creativeWorkOutputs: typeof import("@/server/db/schema")["creativeWorkOutputs"];
+let user: typeof import("@/server/db/schema")["user"];
+let workspaces: typeof import("@/server/db/schema")["workspaces"];
+let db: typeof import("@/server/db")["db"];
+let freezeCandidate: typeof import("@/server/brand-training/calibration")["freezeCandidate"];
+let createTrainingSession: typeof import("./brand-training-sessions")["createTrainingSession"];
+let BrandKnowledgeCalibrationError: typeof import("./brand-knowledge")["BrandKnowledgeCalibrationError"];
+let publishBrandKnowledgeVersion: typeof import("./brand-knowledge")["publishBrandKnowledgeVersion"];
 
 const RUN_ID = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 let seq = 0;
@@ -189,6 +187,13 @@ async function createActivatableSession(scope: Scope) {
 }
 
 beforeAll(async () => {
+  // No database module or hook may run without the explicit local test URL.
+  if (!TEST_DB_EXPLICITLY_CONFIGURED) return;
+  ({ db } = await import("@/server/db"));
+  ({ brandKnowledgeVersions, brandTrainingSessions, clientProfiles, creativeWorkItems, creativeWorkOutputs, user, workspaces } = await import("@/server/db/schema"));
+  ({ freezeCandidate } = await import("@/server/brand-training/calibration"));
+  ({ createTrainingSession } = await import("./brand-training-sessions"));
+  ({ BrandKnowledgeCalibrationError, publishBrandKnowledgeVersion } = await import("./brand-knowledge"));
   try {
     await db.execute(sql`select 1 from adscale_app.brand_knowledge_versions limit 0`);
   } catch (err) {
@@ -202,6 +207,7 @@ beforeAll(async () => {
 }, 30_000);
 
 afterAll(async () => {
+  if (!TEST_DB_EXPLICITLY_CONFIGURED) return;
   if (createdWorkspaceIds.length > 0) {
     await db
       .delete(creativeWorkOutputs)
