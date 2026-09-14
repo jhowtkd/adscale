@@ -346,6 +346,7 @@ export function CarouselComposer({
               headingRef={reviewHeadingRef}
               slides={slides}
               quality={carousel.quality}
+              artRefinement={carousel.artRefinement}
               deckRevision={carousel.draft?.plan?.revision ?? carousel.slides[0]?.deckRevision ?? null}
               approvedRevision={approvedRevision}
               canApprove={carousel.canApprove}

@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "targets": {
+    "/": {
+      "targetKind": "existing-ui",
+      "projectId": "28127a73-5385-4ad3-b87e-b6bdb0b1896c",
+      "baselineDraftId": "20dea61b-4c19-420f-a0f2-210b322b21b5",
+      "activeDraftId": "4891ea24-04ff-4043-829c-18965074516b",
+      "designSystemPath": ".superdesign/design-system.md",
+      "referenceIds": [
+        "c3bb0e25-81f6-428d-9e83-ed62c2bfa2f5",
+        "app-public-images-logo.svg",
+        "a488515a-0928-407e-a666-a09b7cb70246",
+        "0dd111ef-c9f9-4ca1-94f4-2709fe5ca9b9",
+        "30448f78-6f55-4fe6-a48d-a87b8f59c516",
+        "791392d1-ddb7-4fa4-ac76-958193a6bd5a",
+        "b7859354-1553-439e-9e47-4bf5eac0f163",
+        "17dfbd34-dbc8-4af1-b69f-b0f9344a0cf2"
+      ],
+      "brandAssets": {
+        "logo": {
+          "assetKey": "app-public-images-logo.svg",
+          "url": "https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/projects/28127a73-5385-4ad3-b87e-b6bdb0b1896c/brand-assets/app-public-images-logo.svg/logo.svg",
+          "sourcePath": "app/public/images/logo.svg"
+        }
+      },
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        ".superdesign/init/theme.md:1:80",
+        "app/src/components/layout/AppSidebar.tsx",
+        "app/src/components/layout/AppShell.tsx:32:80",
+        "app/src/components/layout/V6ShellLayout.tsx",
+        "app/src/components/layout/SidebarBrandKitFeature.tsx",
+        "app/src/components/layout/SidebarRecentWorks.tsx",
+        "app/src/components/layout/Footer.tsx",
+        "app/src/components/layout/TopBar.tsx:127:157",
+        "app/src/components/dashboard/DashboardHomeActions.tsx:250:309",
+        "app/src/components/creative-work/BrandInspirations.tsx",
+        "app/src/app/globals.css:310:377",
+        "app/src/app/globals.css:723:803",
+        "app/src/lib/utils.ts"
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "2aef71333bb9e3a5cf10cde61ddb14500a10934a33e6d9b83c9da902ebdbda46",
+        ".superdesign/init/theme.md": "dab4d14d2ecb74d256c933c9f751d56ef273dfd9cfb4a7e71550f62e44ffd371",
+        "app/src/components/layout/AppSidebar.tsx": "b5ab1db93643f839dccacc5b89c7a11c8e491704ec28187f2b41c96a413aad47",
+        "app/src/components/layout/AppShell.tsx": "4eaa691dda4f06f8da22870a04d720749dd061e168954232259ef6077bba21ee",
+        "app/src/components/layout/V6ShellLayout.tsx": "ef7c3a818e992113c106c82b08f1693f27ee10d97b3852af2e5844b1c6c02899",
+        "app/src/components/layout/SidebarBrandKitFeature.tsx": "0b05bdc4c25daf44a5dbd66386ecefb1d72e26dc45afc02e3ad229962904e31a",
+        "app/src/components/layout/SidebarRecentWorks.tsx": "1fc469253a138db8898d68431bce17c6b3bf5802fab6ff44a16a1f36bf26fe98",
+        "app/src/components/layout/Footer.tsx": "ba2b1797b54a0787a2d51088fa2899f0d1ea07d6f8ace486c60e28c40518d447",
+        "app/src/components/layout/TopBar.tsx": "7f75cfb959e3d07ca5f89adeb242837642c2997d1fcf17a3afbb6c30ed6733a8",
+        "app/src/components/dashboard/DashboardHomeActions.tsx": "2565fbcdb5f1d6b831595298fe1ecaff11f78f6a0986a2944c3944724757593d",
+        "app/src/components/creative-work/BrandInspirations.tsx": "e5651004cfb54a31940a1c01b1c8e48203ea9c4e2547faa895df7a52be718485",
+        "app/src/app/globals.css": "4871882f7011881de606d81642f721ae22ee4bfc9fcd19723a6b3ce6aca5b1dd",
+        "app/src/lib/utils.ts": "7c8c3dfc0cdd370d44932828eb067ef771c8fe7996693221d5d4b90af6d54f2d"
+      },
+      "components": [
+        {
+          "name": "AppSidebar",
+          "id": "e0362cde-a177-4bea-9b6d-92643e4c5385",
+          "sourcePath": "app/src/components/layout/AppSidebar.tsx",
+          "logoAssetKey": "app-public-images-logo.svg"
+        }
+      ],
+      "drafts": {
+        "20dea61b-4c19-420f-a0f2-210b322b21b5": {
+          "title": "Current Estúdio progressivo",
+          "visualDirection": "pixel-perfect first paint, no inspirations gallery",
+          "currentVersion": 1
+        },
+        "ea3e1a03-ee32-4346-b597-6124ad601635": {
+          "title": "Estúdio · Inspirações da Marca",
+          "visualDirection": "editorial magazine board with featured tile + 2x2 grid",
+          "parentDraftId": "20dea61b-4c19-420f-a0f2-210b322b21b5",
+          "currentVersion": 1
+        },
+        "4891ea24-04ff-4043-829c-18965074516b": {
+          "title": "Estúdio · Inspirações Cinemáticas",
+          "visualDirection": "aligned cinema strip in the composer column, neutral charcoal + ivory accent",
+          "parentDraftId": "20dea61b-4c19-420f-a0f2-210b322b21b5",
+          "currentVersion": 2
+        }
+      },
+      "updatedAt": "2026-08-31T18:00:00.000Z"
+    }
+  }
+}

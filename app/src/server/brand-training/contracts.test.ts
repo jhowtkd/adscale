@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  brandTrainingAnalysisSchema,
   mergeMeasurementIntoAnalysis,
   mergeStructureIntoAnalysis,
   preserveHumanStructure,
@@ -25,6 +26,43 @@ describe("brand training contracts", () => {
 
     expect(parsed.trainingCategory).toBe("graphic");
     expect(parsed.usageMode).toBe("reference");
+  });
+
+  it("accepts the person category with reference mode only", () => {
+    const approved = reviewTrainingAssetSchema.parse({
+      trainingCategory: "person",
+      usageMode: "reference",
+      analysis: {
+        description: "Retrato da porta-voz para referência de identidade.",
+        visualAttributes: ["portrait"],
+        rules: [],
+        constraints: [],
+        confidence: 0.8,
+      },
+      reviewStatus: "approved",
+    });
+    expect(approved.trainingCategory).toBe("person");
+    // People are never exact-composited like logos and never a textual rule.
+    for (const usageMode of ["exact", "rule"] as const) {
+      expect(() =>
+        reviewTrainingAssetSchema.parse({
+          trainingCategory: "person",
+          usageMode,
+          analysis: null,
+          reviewStatus: "approved",
+        }),
+      ).toThrow();
+    }
+  });
+
+  it("keeps the character category for legacy mascots", () => {
+    const parsed = reviewTrainingAssetSchema.parse({
+      trainingCategory: "character",
+      usageMode: "exact",
+      analysis: null,
+      reviewStatus: "approved",
+    });
+    expect(parsed.trainingCategory).toBe("character");
   });
 
   it("parses a status-only legacy confirmation for contextual route validation", () => {
@@ -207,5 +245,29 @@ describe("brand training contracts", () => {
     });
     expect(withM.structure?.archetype?.id).toBe("other");
     expect(withM.measurement?.width).toBe(10);
+  });
+
+  it("keeps legacy analyses readable and accepts relational observations", () => {
+    const legacy = {
+      description: "Peça antiga sem camada de repertório.",
+      visualAttributes: ["título"],
+      rules: ["Dar escala ao título"],
+      constraints: ["Não competir focos"],
+      confidence: 0.8,
+    };
+    expect(brandTrainingAnalysisSchema.parse(legacy)).not.toHaveProperty("compositionalRelations");
+    const parsed = brandTrainingAnalysisSchema.parse({
+      ...legacy,
+      compositionalRelations: [{
+        dimension: "hierarchy",
+        observation: "Título domina a leitura com respiro ao redor",
+        application: "Dar ao título escala superior ao texto de apoio",
+      }],
+    });
+    expect(parsed.compositionalRelations).toHaveLength(1);
+    expect(brandTrainingAnalysisSchema.safeParse({
+      ...legacy,
+      compositionalRelations: [{ dimension: "unknown", observation: "x", application: "y" }],
+    }).success).toBe(false);
   });
 });

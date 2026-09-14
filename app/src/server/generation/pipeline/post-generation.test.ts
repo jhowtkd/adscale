@@ -25,11 +25,13 @@ vi.mock("@/server/ai/creative-quality-gate", async (importOriginal) => ({
 
 const analyzeCreativeWorkQaMock = vi.hoisted(() => vi.fn());
 const inspectCreativeWorkImageFileMock = vi.hoisted(() => vi.fn());
+const analyzePersonFidelityMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/ai/creative-qa", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/ai/creative-qa")>()),
   analyzeCreativeWorkQa: (...args: unknown[]) => analyzeCreativeWorkQaMock(...args),
   inspectCreativeWorkImageFile: (...args: unknown[]) => inspectCreativeWorkImageFileMock(...args),
+  analyzePersonFidelity: (...args: unknown[]) => analyzePersonFidelityMock(...args),
 }));
 
 vi.mock("@/server/human-quality/candidate-capture", () => ({
@@ -38,6 +40,7 @@ vi.mock("@/server/human-quality/candidate-capture", () => ({
 
 import { analyzeDerivationCreative } from "@/server/ai/creative-score";
 import {
+  compareArtCandidates,
   runCreativeWorkPostGeneration,
   runCreativeWorkQualityAssessment,
   type CreativeWorkQualityAssessmentInput,
@@ -516,5 +519,249 @@ describe("runCreativeWorkQualityAssessment (R-005)", () => {
       qualityScore: null,
       issues: [],
     });
+  });
+});
+
+describe("runCreativeWorkQualityAssessment person fidelity (plan 03, T3)", () => {
+  const PERSON_ID = "11111111-1111-4111-8111-111111111111";
+  const PRIMARY_REF = "22222222-2222-4222-8222-222222222222";
+
+  beforeEach(() => {
+    mockAnalyze.mockReset();
+    analyzeCreativeWorkQaMock.mockReset();
+    inspectCreativeWorkImageFileMock.mockReset();
+    analyzePersonFidelityMock.mockReset();
+    inspectCreativeWorkImageFileMock.mockResolvedValue({
+      ok: true,
+      width: 1080,
+      height: 1080,
+      format: "png",
+      bytes: 4096,
+      error: null,
+    });
+    analyzeCreativeWorkQaMock.mockResolvedValue({ findings: [], summary: "Objetivamente íntegro." });
+    mockAnalyze.mockResolvedValue({
+      scoreStatus: "analyzed",
+      qualityScore: 80,
+      scoreBreakdown: {},
+      scoreIssues: [],
+      regenerationSuggestion: "",
+    });
+  });
+
+  function personInput(overrides: Record<string, unknown> = {}) {
+    return {
+      personId: PERSON_ID,
+      name: "Ana",
+      primaryReferenceId: PRIMARY_REF,
+      preserve: ["sinal na bochecha"],
+      reference: { buffer: Buffer.from("foto"), mimeType: "image/jpeg" },
+      ...overrides,
+    };
+  }
+
+  function assessmentInput(
+    overrides: Partial<CreativeWorkQualityAssessmentInput> = {},
+  ): CreativeWorkQualityAssessmentInput {
+    return {
+      workItemId: "w1",
+      outputId: "o1",
+      attempt: 1,
+      imageBuffer: Buffer.from("img"),
+      expectedDimensions: { width: 1080, height: 1080 },
+      requiredReferenceRoles: [],
+      attachedReferenceRoles: [],
+      qa: {
+        mode: "social_post" as const,
+        format: "1:1",
+        request: "Peça com Ana",
+        copy: { headline: "H", body: "B", cta: "C" },
+        factPack: null,
+        brandName: "Cliente XPTO",
+        references: [],
+        locale: "pt-BR",
+      },
+      score: analyzeInput(),
+      ...overrides,
+    };
+  }
+
+  it("persists no block when the snapshot required no people", async () => {
+    const result = await runCreativeWorkQualityAssessment(assessmentInput());
+
+    expect(result.quality.personFidelity).toBeUndefined();
+    expect(analyzePersonFidelityMock).not.toHaveBeenCalled();
+  });
+
+  it("confirmed mismatch becomes a fail with the person code and a bound block", async () => {
+    analyzePersonFidelityMock.mockResolvedValue({
+      findings: [{ personId: PERSON_ID, status: "mismatch", evidence: ["rosto trocado"], issue: "troca" }],
+    });
+
+    const result = await runCreativeWorkQualityAssessment(assessmentInput({ people: [personInput()] }));
+
+    expect(result.objectiveVerdict).toBe("fail");
+    expect(result.quality.objectiveCodes).toContain("person_identity_mismatch");
+    expect(result.quality.personFidelity?.findings).toEqual([
+      { personId: PERSON_ID, status: "mismatch", evidence: ["rosto trocado"], issue: "troca" },
+    ]);
+    expect(result.quality.personFidelity?.referenceHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(analyzePersonFidelityMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("doubt completes without fail and never triggers the automatic loop", async () => {
+    analyzePersonFidelityMock.mockResolvedValue({
+      findings: [{ personId: PERSON_ID, status: "inconclusive", evidence: [], issue: "Rosto ocluído" }],
+    });
+
+    const result = await runCreativeWorkQualityAssessment(assessmentInput({ people: [personInput()] }));
+
+    expect(result.objectiveVerdict).toBe("pass");
+    expect(result.quality.objectiveCodes).toEqual([]);
+    expect(result.quality.personFidelity?.findings[0]?.status).toBe("inconclusive");
+  });
+
+  it("missing photo and assessor crash degrade to inconclusive, never approval", async () => {
+    analyzePersonFidelityMock.mockRejectedValue(new Error("vision 500"));
+
+    const crashed = await runCreativeWorkQualityAssessment(assessmentInput({ people: [personInput()] }));
+    expect(crashed.objectiveVerdict).toBe("pass");
+    expect(crashed.quality.personFidelity?.findings).toEqual([
+      { personId: PERSON_ID, status: "inconclusive", evidence: [], issue: expect.any(String) },
+    ]);
+
+    const missing = await runCreativeWorkQualityAssessment(
+      assessmentInput({ people: [personInput({ reference: null })] }),
+    );
+    expect(missing.quality.personFidelity?.findings[0]).toMatchObject({
+      personId: PERSON_ID,
+      status: "inconclusive",
+    });
+  });
+});
+
+describe("art critique + comparison (plan 04, T1/T3)", () => {
+  beforeEach(() => {
+    mockAnalyze.mockReset();
+    analyzeCreativeWorkQaMock.mockReset();
+    inspectCreativeWorkImageFileMock.mockReset();
+    inspectCreativeWorkImageFileMock.mockResolvedValue({
+      ok: true, width: 1080, height: 1080, format: "png", bytes: 4096, error: null,
+    });
+    analyzeCreativeWorkQaMock.mockResolvedValue({ findings: [], summary: "Objetivamente íntegro." });
+    mockAnalyze.mockResolvedValue({
+      scoreStatus: "analyzed", qualityScore: 80, scoreBreakdown: {},
+      scoreIssues: [], regenerationSuggestion: "",
+    });
+  });
+
+  function input(overrides: Partial<CreativeWorkQualityAssessmentInput> = {}) {
+    return {
+      workItemId: "w1",
+      outputId: "o1",
+      attempt: 1,
+      imageBuffer: Buffer.from("img"),
+      expectedDimensions: { width: 1080, height: 1080 },
+      requiredReferenceRoles: [],
+      attachedReferenceRoles: [],
+      qa: {
+        mode: "social_post" as const,
+        format: "1:1",
+        request: "Promo",
+        copy: { headline: "H", body: "B", cta: "C" },
+        factPack: null,
+        brandName: "Marca",
+        references: [],
+        locale: "pt-BR",
+      },
+      score: analyzeInput(),
+      ...overrides,
+    };
+  }
+
+  it("persiste a crítica do avaliador e a usa antes do mapeamento de achados", async () => {
+    analyzeCreativeWorkQaMock.mockResolvedValue({
+      findings: [],
+      summary: "Objetivamente íntegro.",
+      artCritique: {
+        verdict: "weak", problem: "Foco dividido", intervention: "Unificar foco",
+        mode: "edit", preserve: ["facts"], evidence: ["Dois títulos dominantes"], confidence: "high",
+      },
+    });
+
+    const result = await runCreativeWorkQualityAssessment(input());
+
+    expect(result.objectiveVerdict).toBe("pass");
+    expect(result.quality.artCritique).toMatchObject({
+      verdict: "weak",
+      problem: "Foco dividido",
+      mode: "edit",
+      confidence: "high",
+    });
+  });
+
+  it("persiste crítica fraca fundamentada só com achado confirmado de direção de arte", async () => {
+    analyzeCreativeWorkQaMock.mockResolvedValue({
+      findings: [
+        { code: "missing_dominant_idea", status: "confirmed", note: "Três focos competem sem hierarquia." },
+      ],
+      summary: "Composição confusa.",
+    });
+
+    const result = await runCreativeWorkQualityAssessment(input());
+
+    expect(result.quality.artCritique).toMatchObject({
+      verdict: "weak",
+      problem: "Três focos competem sem hierarquia.",
+      mode: "recompose",
+      confidence: "high",
+    });
+    expect(result.quality.artCritique?.intervention.length).toBeGreaterThan(0);
+    expect(result.quality.artCritique?.evidence).toEqual(["Três focos competem sem hierarquia."]);
+  });
+
+  it("não inventa crítica sem problema confirmado de composição", async () => {
+    const result = await runCreativeWorkQualityAssessment(input());
+    expect(result.quality.artCritique).toBeUndefined();
+  });
+
+  it("mantém a anterior quando a revisão falha, empata ou o avaliador erra", async () => {
+    const weak = {
+      verdict: "weak" as const,
+      problem: "Foco dividido",
+      intervention: "Unificar foco",
+      mode: "edit" as const,
+      preserve: [],
+      evidence: ["Dois títulos dominantes"],
+      confidence: "high" as const,
+    };
+    const before = { id: "a", objective: "pass" as const, humanReviewRequired: false, critique: weak };
+    const failed = { ...before, id: "b", objective: "fail" as const };
+
+    const base = { before, brief: "Promo", beforeImage: Buffer.from("a"), afterImage: Buffer.from("b") };
+    // Invalid revision: never compared as a candidate, judge not even called.
+    const judge = vi.fn();
+    expect((await compareArtCandidates({ ...base, after: failed, judge })).preferredId).toBe("a");
+    expect(judge).not.toHaveBeenCalled();
+    // Tie / judge error / out-of-set answer: keep the previous version.
+    expect((await compareArtCandidates({ ...base, after: { ...before, id: "b" } })).preferredId).toBe("a");
+    expect((await compareArtCandidates({
+      ...base,
+      after: { ...before, id: "b" },
+      judge: async () => { throw new Error("vision 500"); },
+    })).preferredId).toBe("a");
+    expect((await compareArtCandidates({
+      ...base,
+      after: { ...before, id: "b" },
+      judge: async () => ({ preferredId: "intruder", reason: "x", fixedIssues: [], regressions: [] }),
+    })).preferredId).toBe("a");
+    // A validated win adopts the revision.
+    const win = await compareArtCandidates({
+      ...base,
+      after: { ...before, id: "b" },
+      judge: async () => ({ preferredId: "b", reason: "Foco unificado.", fixedIssues: ["foco"], regressions: [] }),
+    });
+    expect(win.preferredId).toBe("b");
+    expect(win.fixedIssues).toEqual(["foco"]);
   });
 });

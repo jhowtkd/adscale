@@ -5,6 +5,9 @@ import type {
   BrandKnowledgeClaimKey,
 } from "./contracts";
 import { parseBrandKnowledgeClaimInput } from "./contracts";
+import { REPERTOIRE_EXTRACTOR_VERSION } from "../brand-training/synthesize-repertoire";
+import { visualRepertoireSchema, type VisualRepertoire } from "../brand-training/visual-repertoire";
+import { PEOPLE_CATALOG_EXTRACTOR_VERSION, peopleCatalogSchema, type PeopleCatalog } from "../brand-training/people";
 import { canonicalJsonStringify } from "../creative-work/canonical-json";
 
 type Evidence = {
@@ -101,6 +104,66 @@ export function compileBrandKnowledgeCandidates(input: CandidateInput): Candidat
     confidence,
   ));
   return claims;
+}
+
+export function compileRepertoireCandidate(input: {
+  repertoire: VisualRepertoire;
+  evidence: Array<{
+    type: "training_asset";
+    id: string;
+    path: string;
+    sourceHash: string;
+  }>;
+  sourceHash: string;
+  confidence?: BrandKnowledgeClaimInput["confidence"];
+}): CandidateBrandKnowledgeClaim {
+  return {
+    ...parseBrandKnowledgeClaimInput({
+      claimKey: "visual.repertoire",
+      kind: "rule",
+      value: visualRepertoireSchema.parse(input.repertoire),
+      scope: { level: "global" },
+      authority: "inferred",
+      confidence: input.confidence ?? "medium",
+      evidenceRefs: input.evidence,
+      extractorVersion: REPERTOIRE_EXTRACTOR_VERSION,
+      sourceHash: input.sourceHash,
+    }),
+    status: "candidate",
+  };
+}
+
+/**
+ * Compile the operator-reviewed people catalog as a `people.catalog` fact.
+ * Approval replaces the previous catalog atomically at publish; editing a
+ * name/photo afterwards compiles a different candidate and requires a new
+ * calibration before normal work can use it.
+ */
+export function compilePeopleCatalogCandidate(input: {
+  catalog: PeopleCatalog;
+  evidence: Array<{
+    type: "training_asset";
+    id: string;
+    path: string;
+    sourceHash: string;
+  }>;
+  sourceHash: string;
+  confidence?: BrandKnowledgeClaimInput["confidence"];
+}): CandidateBrandKnowledgeClaim {
+  return {
+    ...parseBrandKnowledgeClaimInput({
+      claimKey: "people.catalog",
+      kind: "fact",
+      value: peopleCatalogSchema.parse(input.catalog),
+      scope: { level: "global" },
+      authority: "human",
+      confidence: input.confidence ?? "high",
+      evidenceRefs: input.evidence,
+      extractorVersion: PEOPLE_CATALOG_EXTRACTOR_VERSION,
+      sourceHash: input.sourceHash,
+    }),
+    status: "candidate",
+  };
 }
 
 export function compileExplicitBrandKitCandidates(input: {

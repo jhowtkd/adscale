@@ -239,10 +239,16 @@ export default function DashboardHomeActions({
     [rolloutVariant, workspaceId],
   );
   const [deskView, setDeskView] = useState<"inspirations" | "production">("inspirations");
+  const [acceptedGeneration, setAcceptedGeneration] = useState(0);
   const onGenerationAccepted = useCallback(() => {
     setDeskView("production");
-    followStudioGeneration();
+    setAcceptedGeneration((count) => count + 1);
   }, []);
+  useEffect(() => {
+    if (acceptedGeneration === 0) return;
+    const frame = requestAnimationFrame(followStudioGeneration);
+    return () => cancelAnimationFrame(frame);
+  }, [acceptedGeneration]);
   const { composerRef, ...composer } = useCreativeComposer({
     initialWorkId: workId,
     initialIntent: initialStudioIntent,
@@ -326,7 +332,11 @@ export default function DashboardHomeActions({
     showGenerate: !isCarouselWorkflow && !showPlan && !resultStage,
   };
   useEffect(() => {
-    if (resultStage) progressiveResultsHeadingRef.current?.focus();
+    const editing = document.activeElement;
+    if (resultStage && !(editing instanceof HTMLElement &&
+      (editing.tagName === "INPUT" || editing.tagName === "TEXTAREA" || editing.isContentEditable))) {
+      progressiveResultsHeadingRef.current?.focus({ preventScroll: true });
+    }
   }, [resultStage]);
   useEffect(() => {
     // Presentation follows an already-mounted composer; do not remount the box.

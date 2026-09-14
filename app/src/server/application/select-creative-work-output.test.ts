@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: vi.fn(),
   selectCreativeWorkOutput: vi.fn(),
+  reviewCreativeWorkOutputPersonFidelity: vi.fn(),
 }));
 
 vi.mock("@/server/application/ensure-creative-work-output-library", () => ({
@@ -28,16 +29,18 @@ vi.mock("@/server/creative-work/record-value-event", () => ({
 
 import {
   getCreativeWork,
+  reviewCreativeWorkOutputPersonFidelity,
   selectCreativeWorkOutput,
 } from "@/server/repositories/creative-work";
 import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-creative-work-output-library";
 import { saveVisualRecipeFromOutput } from "@/server/application/save-visual-recipe";
-import { selectCreativeWorkOutputCommand } from "./select-creative-work-output";
+import { reviewCreativeWorkPersonFidelity, selectCreativeWorkOutputCommand } from "./select-creative-work-output";
 import type { SelectionEffects } from "./select-creative-work-output";
 import { recordCreativeWorkValueEvent } from "@/server/creative-work/record-value-event";
 
 const mockGet = vi.mocked(getCreativeWork);
 const mockSelect = vi.mocked(selectCreativeWorkOutput);
+const mockReviewPersonFidelity = vi.mocked(reviewCreativeWorkOutputPersonFidelity);
 const mockEnsure = vi.mocked(ensureCreativeWorkOutputInLibrary);
 const mockSaveRecipe = vi.mocked(saveVisualRecipeFromOutput);
 const mockRecordValue = vi.mocked(recordCreativeWorkValueEvent);
@@ -579,5 +582,77 @@ describe("selectCreativeWorkOutputCommand", () => {
         expect.objectContaining({ pendingRecipeReceiptId: "receipt-1" }),
       );
     });
+  });
+});
+
+describe("reviewCreativeWorkPersonFidelity (plan 03, T3)", () => {
+  const HASH = "a".repeat(64);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function reviewInput(overrides: Record<string, unknown> = {}) {
+    return {
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      userId: "user-1",
+      referenceHash: HASH,
+      accepted: true,
+      ...overrides,
+    };
+  }
+
+  it("records the bound review without executing selection effects", async () => {
+    mockGet.mockResolvedValue({ work: workItem, outputs: [completedOutput] } as never);
+    mockReviewPersonFidelity.mockResolvedValue({ ok: true, output: completedOutput } as never);
+
+    const result = await reviewCreativeWorkPersonFidelity(reviewInput());
+
+    expect(result).toEqual({ ok: true, value: { output: completedOutput } });
+    expect(mockReviewPersonFidelity).toHaveBeenCalledWith({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      actorId: "user-1",
+      referenceHash: HASH,
+      accepted: true,
+    });
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(mockEnsure).not.toHaveBeenCalled();
+    expect(mockRecordValue).not.toHaveBeenCalled();
+  });
+
+  it("rejects unknown work, unknown output and stale hashes", async () => {
+    mockGet.mockResolvedValue(null as never);
+    await expect(reviewCreativeWorkPersonFidelity(reviewInput())).resolves.toEqual({
+      ok: false,
+      error: { code: "work_not_found" },
+    });
+
+    mockGet.mockResolvedValue({ work: workItem, outputs: [completedOutput] } as never);
+    await expect(reviewCreativeWorkPersonFidelity(reviewInput({ outputId: "output-9" }))).resolves.toEqual({
+      ok: false,
+      error: { code: "output_not_found" },
+    });
+
+    mockReviewPersonFidelity.mockResolvedValue({ ok: false, error: { code: "stale_reference" } } as never);
+    await expect(reviewCreativeWorkPersonFidelity(reviewInput())).resolves.toEqual({
+      ok: false,
+      error: { code: "stale_reference" },
+    });
+  });
+
+  it("refuses generic selection of calibration examples (plan 01, T2)", async () => {
+    mockGet.mockResolvedValue({
+      work: { ...workItem, trainingSessionId: "session-1", trainingRound: 1, trainingSlot: 0 },
+      outputs: [completedOutput],
+    } as never);
+    await expect(
+      selectCreativeWorkOutputCommand({ workspaceId: "ws-1", workItemId: "work-1", outputId: "output-1" }),
+    ).resolves.toEqual({ ok: false, error: { code: "calibration_managed" } });
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(mockEnsure).not.toHaveBeenCalled();
   });
 });

@@ -51,6 +51,11 @@ export function compareBrandKnowledgeValues(
   if (claimKey === "logo.placement" || claimKey === "layout.hierarchy" || claimKey === "imagery.treatment" || claimKey === "graphic.treatment") {
     return canonicalJsonStringify(first) === canonicalJsonStringify(second) ? "compatible" : "human_needed";
   }
+  if (claimKey === "visual.repertoire") {
+    // One approved collection per scope: a differing second collection must
+    // explicitly supersede the prior one instead of coexisting with it.
+    return canonicalJsonStringify(first) === canonicalJsonStringify(second) ? "compatible" : "conflict";
+  }
   return canonicalJsonStringify(first) === canonicalJsonStringify(second) ? "compatible" : "conflict";
 }
 

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import sharp from "sharp";
 import { and, eq, sql } from "drizzle-orm";
 import {
+  buildCarouselSlideRevisionQuality,
   carouselAnchorPositions,
   carouselLayoutFamilyForRole,
   resolveCarouselPlanSlideId,
@@ -467,6 +468,16 @@ export async function reviseCarouselSlide(
       if (!persisted) return { ok: false, error: { code: "stale_input" } };
     }
   }
+  // Visual revisions persist their instruction on the draft descendant so
+  // the slide job consumes it at generation time (previously the
+  // instruction was accepted and silently dropped). A retry keeps the
+  // failed draft's pending payload: failed slides never carry assessment
+  // quality, so the passthrough can only be a pending instruction or null.
+  const draftQuality = input.kind === "visual"
+    ? buildCarouselSlideRevisionQuality(input.instruction)
+    : slide.quality && typeof slide.quality === "object" && !Array.isArray(slide.quality)
+      ? slide.quality as Record<string, unknown>
+      : null;
   const child = await createCarouselSlideDescendant({
     workspaceId: input.workspaceId,
     workItemId: input.workItemId,
@@ -485,6 +496,7 @@ export async function reviseCarouselSlide(
     providerBaseKey: null,
     outputKey: null,
     previewKey: null,
+    quality: draftQuality,
   });
     if (!child) {
     return {

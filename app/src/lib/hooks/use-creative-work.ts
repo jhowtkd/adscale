@@ -145,6 +145,15 @@ export interface CreativeWorkItem {
   identitySnapshot: CreativeWorkIdentitySnapshot | null;
   carouselApprovedRevision: string | null;
   carouselQuality: PublicCarouselQualityV1 | null;
+  /**
+   * Automatic art-refinement summary (plan 04, T3). Present only on works
+   * with a frozen refinement budget; null on legacy works.
+   */
+  artRefinementState?: {
+    recommendedOutputIds: string[];
+    status: "running" | "ready" | "budget_exhausted" | "needs_review";
+    issues: string[];
+  } | null;
   createdAt: Date | string;
   updatedAt: Date | string;
 }

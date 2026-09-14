@@ -40,6 +40,11 @@ vi.mock("@/server/repositories/brand-knowledge", () => ({
   listBrandKnowledgeClaims: (...args: unknown[]) => listBrandKnowledgeClaims(...args),
 }));
 
+const getTrainingSession = vi.fn();
+vi.mock("@/server/repositories/brand-training-sessions", () => ({
+  getTrainingSession: (...args: unknown[]) => getTrainingSession(...args),
+}));
+
 function mockProfile(overrides: Record<string, unknown> = {}) {
   return {
     id: PROFILE_ID,
@@ -55,7 +60,9 @@ describe("GET /api/client-profiles/[id]/training-status", () => {
     getBrandKit.mockReset();
     getOlharVoiceConfigByClientProfileId.mockReset();
     listBrandKnowledgeClaims.mockReset();
+    getTrainingSession.mockReset();
     listBrandKnowledgeClaims.mockResolvedValue([]);
+    getTrainingSession.mockResolvedValue(null);
   });
 
   it("returns 404 when the profile does not exist", async () => {
@@ -88,6 +95,7 @@ describe("GET /api/client-profiles/[id]/training-status", () => {
       missing: ["logo", "visual-signal"],
       needsReview: false,
       voice: { configured: false, reviewStatus: null },
+      calibration: null,
     });
   });
 
@@ -225,5 +233,46 @@ describe("GET /api/client-profiles/[id]/training-status", () => {
     // approved yet.
     expect(body.missing).toEqual(["visual-signal"]);
     expect(body.trained).toBe(false);
+  });
+
+  it("distinguishes pending calibration from active training (plan 01, T3)", async () => {
+    getClientProfile.mockResolvedValue(mockProfile());
+    getBrandKit.mockResolvedValue({ logoAssetKey: null, brandColors: null, brandFonts: null });
+    getClientReferences.mockResolvedValue([]);
+    getOlharVoiceConfigByClientProfileId.mockResolvedValue(null);
+    getTrainingSession.mockResolvedValue({
+      id: "session-1",
+      status: "calibrating",
+      rounds: [{ number: 1 }, { number: 2 }],
+      extensionCount: 0,
+    });
+
+    const res = await GET(
+      new Request(`http://localhost/api/client-profiles/${PROFILE_ID}/training-status`),
+      { params: Promise.resolve({ id: PROFILE_ID }) },
+    );
+
+    const body = await res.json();
+    expect(body.calibration).toEqual({
+      sessionId: "session-1",
+      status: "calibrating",
+      round: 2,
+      roundsCompleted: 2,
+      extensionCount: 0,
+    });
+  });
+
+  it("reports no calibration session when none is open", async () => {
+    getClientProfile.mockResolvedValue(mockProfile());
+    getBrandKit.mockResolvedValue({ logoAssetKey: null, brandColors: null, brandFonts: null });
+    getClientReferences.mockResolvedValue([]);
+    getOlharVoiceConfigByClientProfileId.mockResolvedValue(null);
+
+    const res = await GET(
+      new Request(`http://localhost/api/client-profiles/${PROFILE_ID}/training-status`),
+      { params: Promise.resolve({ id: PROFILE_ID }) },
+    );
+
+    expect((await res.json()).calibration).toBeNull();
   });
 });

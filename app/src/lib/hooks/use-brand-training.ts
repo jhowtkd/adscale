@@ -11,6 +11,18 @@ export interface BrandTrainingStatus {
     configured: boolean;
     reviewStatus: "pending_review" | "approved" | "changes_requested" | null;
   };
+  /**
+   * Open calibration session, when one exists. A pending/calibrating session
+   * is NOT active training: the previous version (if any) stays in use until
+   * the validated candidate is explicitly activated.
+   */
+  calibration: {
+    sessionId: string;
+    status: "review" | "calibrating" | "pending";
+    round: number | null;
+    roundsCompleted: number;
+    extensionCount: number;
+  } | null;
 }
 
 export interface MultiExtractEntry {
@@ -441,21 +453,180 @@ export function useReviewBrandKnowledgeClaim(clientProfileId: string | null) {
   });
 }
 
-export function usePublishBrandKnowledge(clientProfileId: string | null) {
+export function useReviewRepertoire(clientProfileId: string | null) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      const response = await apiFetch(`/api/client-profiles/${clientProfileId}/brand-knowledge/publish`, { method: "POST" });
+    mutationFn: async (input: {
+      sessionId: string;
+      expectedRevision: number;
+      value: unknown;
+    }) => {
+      const response = await apiFetch(`/api/client-profiles/${clientProfileId}/brand-knowledge`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: "review_repertoire", ...input }),
+      });
       if (!response.ok) throw new Error(await readError(response));
       return response.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: brandKnowledgeKey(clientProfileId ?? "") }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: brandKnowledgeKey(clientProfileId ?? "") });
+      queryClient.invalidateQueries({ queryKey: brandCalibrationKey(clientProfileId ?? "") });
+      queryClient.invalidateQueries({ queryKey: ["brand-training-status", clientProfileId] });
+    },
+  });
+}
+
+export function useSynthesizeRepertoire(clientProfileId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      referenceIds?: string[];
+      feedback?: Array<{ outputId: string; rating: "good" | "bad"; note: string }>;
+    }) => {
+      const response = await apiFetch(`/api/client-profiles/${clientProfileId}/brand-knowledge`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: "synthesize_repertoire", ...input }),
+        timeoutMs: 180_000,
+      });
+      if (!response.ok) throw new Error(await readError(response));
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: brandKnowledgeKey(clientProfileId ?? "") });
+      queryClient.invalidateQueries({ queryKey: ["brand-training-status", clientProfileId] });
+    },
+  });
+}
+
+export function usePublishBrandKnowledge(clientProfileId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (proof: { sessionId: string; expectedRevision: number; candidateHash: string }) => {
+      const response = await apiFetch(`/api/client-profiles/${clientProfileId}/brand-knowledge/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(proof),
+      });
+      if (!response.ok) throw new Error(await readError(response));
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: brandKnowledgeKey(clientProfileId ?? "") });
+      queryClient.invalidateQueries({ queryKey: brandCalibrationKey(clientProfileId ?? "") });
+      queryClient.invalidateQueries({ queryKey: ["brand-training-status", clientProfileId] });
+    },
+  });
+}
+
+export interface BrandCalibrationExample {
+  workItemId: string;
+  outputId: string | null;
+  previewUrl: string | null;
+  assessment: {
+    status: "queued" | "processing" | "completed" | "failed";
+    objective: "pass" | "fail" | "inconclusive";
+    rating: "good" | "bad" | null;
+    needsHumanReview: boolean;
+  };
+}
+
+export interface BrandCalibrationSessionPayload {
+  id: string;
+  status: "review" | "calibrating" | "pending" | "activated" | "archived";
+  revision: number;
+  candidate: { hash: string };
+  rounds: Array<{
+    number: number;
+    candidate: { hash: string };
+    quoteCredits: number;
+    coverage: string[];
+    slots: Array<{
+      index: number;
+      workItemId: string;
+      outputId: string | null;
+      feedback: { rating: "good" | "bad"; note: string; dimensions: string[] } | null;
+    }>;
+  }>;
+  extensionCount: number;
+}
+
+export interface BrandCalibrationPayload {
+  session: BrandCalibrationSessionPayload | null;
+  activeVersionId: string | null;
+  quoteCredits: number;
+  examples: BrandCalibrationExample[];
+}
+
+export type BrandCalibrationCommand =
+  | { action: "create"; expectedActiveVersionId: string | null }
+  | { action: "start"; sessionId: string; expectedRevision: number; acceptedCredits: number }
+  | {
+      action: "feedback";
+      sessionId: string;
+      expectedRevision: number;
+      round: number;
+      slot: number;
+      rating: "good" | "bad";
+      note: string;
+      dimensions: string[];
+    }
+  | { action: "extend"; sessionId: string; expectedRevision: number }
+  | { action: "archive"; sessionId: string; expectedRevision: number };
+
+export const brandCalibrationKey = (clientProfileId: string) =>
+  ["brand-calibration", clientProfileId] as const;
+
+export function useBrandCalibration(clientProfileId: string | null) {
+  return useQuery({
+    queryKey: brandCalibrationKey(clientProfileId ?? ""),
+    queryFn: async (): Promise<BrandCalibrationPayload> => {
+      const response = await apiFetch(
+        `/api/client-profiles/${clientProfileId}/brand-knowledge/calibration`,
+      );
+      if (!response.ok) throw new Error(await readError(response));
+      return response.json();
+    },
+    enabled: Boolean(clientProfileId),
+    refetchInterval: (query) => {
+      const payload = query.state.data as BrandCalibrationPayload | undefined;
+      return payload?.examples.some(
+        (example) =>
+          example.assessment.status === "queued" || example.assessment.status === "processing",
+      )
+        ? 5_000
+        : false;
+    },
+  });
+}
+
+export function useCalibrationCommand(clientProfileId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (command: BrandCalibrationCommand) => {
+      const response = await apiFetch(
+        `/api/client-profiles/${clientProfileId}/brand-knowledge/calibration`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(command),
+        },
+      );
+      if (!response.ok) throw new Error(await readError(response));
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: brandCalibrationKey(clientProfileId ?? "") });
+      queryClient.invalidateQueries({ queryKey: brandKnowledgeKey(clientProfileId ?? "") });
+      queryClient.invalidateQueries({ queryKey: ["brand-training-status", clientProfileId] });
+    },
   });
 }
 
 export interface ReviewBrandTrainingAssetInput {
   referenceId: string;
-  trainingCategory: "logo" | "graphic" | "character" | "visual_reference";
+  trainingCategory: "logo" | "graphic" | "character" | "person" | "visual_reference";
   usageMode: "exact" | "reference" | "rule";
   analysis: BrandTrainingAssetRecord["trainingAnalysis"] | null;
   reviewStatus: "approved" | "archived" | "rejected";

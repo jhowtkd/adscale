@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { POST } from "./route";
+import { PATCH, POST } from "./route";
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
 const selectMock = vi.hoisted(() => vi.fn());
+const reviewMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/auth/workspace", () => ({
   requireWorkspaceAccess: vi.fn(() =>
@@ -18,6 +19,7 @@ vi.mock("@/server/auth/workspace", () => ({
 
 vi.mock("@/server/application/select-creative-work-output", () => ({
   selectCreativeWorkOutputCommand: (...args: unknown[]) => selectMock(...args),
+  reviewCreativeWorkPersonFidelity: (...args: unknown[]) => reviewMock(...args),
 }));
 
 function makeParams(id: string, outputId: string) {
@@ -214,5 +216,73 @@ describe("POST /api/creative-work/[id]/outputs/[outputId]/select", () => {
       output: { isSelected: true },
       effects: { recipe: { status: "pending" } },
     });
+  });
+});
+
+describe("PATCH /api/creative-work/[id]/outputs/[outputId]/select (plan 03, T3)", () => {
+  const OUTPUT_ID = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa";
+  const HASH = "b".repeat(64);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    reviewMock.mockResolvedValue({ ok: true, value: { output: selectedOutput } });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function patchRequest(body: unknown) {
+    return new Request(`http://localhost/api/creative-work/work-1/outputs/${OUTPUT_ID}/select`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("records the specific review and returns the output without effects", async () => {
+    const res = await PATCH(
+      patchRequest({ action: "review_person_fidelity", outputId: OUTPUT_ID, referenceHash: HASH, accepted: true }),
+      { params: makeParams("work-1", OUTPUT_ID) },
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ output: { id: "output-1" } });
+    expect(reviewMock).toHaveBeenCalledWith({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      outputId: OUTPUT_ID,
+      userId: "user-1",
+      referenceHash: HASH,
+      accepted: true,
+    });
+    expect(selectMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects body/path output mismatch and maps review errors", async () => {
+    const mismatch = await PATCH(
+      patchRequest({
+        action: "review_person_fidelity",
+        outputId: "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb",
+        referenceHash: HASH,
+        accepted: true,
+      }),
+      { params: makeParams("work-1", OUTPUT_ID) },
+    );
+    expect(mismatch.status).toBe(400);
+    expect(reviewMock).not.toHaveBeenCalled();
+
+    reviewMock.mockResolvedValue({ ok: false, error: { code: "stale_reference" } });
+    const stale = await PATCH(
+      patchRequest({ action: "review_person_fidelity", outputId: OUTPUT_ID, referenceHash: HASH, accepted: false }),
+      { params: makeParams("work-1", OUTPUT_ID) },
+    );
+    expect(stale.status).toBe(409);
+
+    reviewMock.mockResolvedValue({ ok: false, error: { code: "no_person_fidelity" } });
+    const missing = await PATCH(
+      patchRequest({ action: "review_person_fidelity", outputId: OUTPUT_ID, referenceHash: HASH, accepted: false }),
+      { params: makeParams("work-1", OUTPUT_ID) },
+    );
+    expect(missing.status).toBe(409);
   });
 });

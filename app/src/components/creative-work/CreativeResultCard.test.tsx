@@ -3,6 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const shareMutate = vi.fn();
 const toggleFavorite = vi.hoisted(() => vi.fn());
+const personFidelityState = vi.hoisted(() => ({
+  references: [] as Array<{ personId: string; name: string; primaryPhotoUrl: string | null; photoUrls: string[] }>,
+  review: vi.fn(),
+  isPending: false,
+  isError: false,
+}));
 
 vi.mock("@/lib/hooks/use-piece-review-share", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/hooks/use-piece-review-share")>();
@@ -20,9 +26,23 @@ vi.mock("@/lib/hooks/use-piece-favorite", () => ({
   }),
 }));
 
+vi.mock("@/lib/hooks/use-person-fidelity", () => ({
+  useOutputPersonReferences: () => ({ data: personFidelityState.references }),
+  useReviewPersonFidelity: () => ({
+    review: personFidelityState.review,
+    isPending: personFidelityState.isPending,
+    isError: personFidelityState.isError,
+    reset: vi.fn(),
+  }),
+}));
+
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string, values?: { count?: number }) => {
+  useTranslations: () => (key: string, values?: { count?: number; issue?: string }) => {
     if (key === "layerizeQuotaRemaining") return `Translate: ${values?.count ?? 0} remaining quota`;
+    if (key === "artRefinementRunning") return `Ajustando a composição: ${values?.issue ?? ""}`;
+    if (key === "artRefinementBest") return "Melhor versão disponível.";
+    if (key === "artRefinementNeedsReview") return `Ainda precisa de revisão: ${values?.issue ?? ""}`;
+    if (key === "artRefinementReviewMore") return "Revisar mais uma vez";
     return ({
     failedGeneration: "Falha na geração",
     "status.queued": "Na fila", "status.processing": "Processando", "status.completed": "Pronto", "status.failed": "Falhou", variationShort: `v${values?.count}`, proposalAlt: `Proposta ${values?.label}`, generating: "Gerando...", retry: "Tentar novamente", retryProposal: "Repetir esta proposta", approving: "Aprovando", approved: "Aprovada", approve: "Aprovar", saveAsRecipe: "Salvar como receita visual", shareForReview: "Compartilhar para revisão", sharingForReview: "Criando link", sharedForReview: "Link de revisão copiado", copyReviewLinkAgain: "Copiar link de novo", reviewShareUrlLabel: "Link de revisão", reviewShareCopyFailed: "Não foi possível copiar. Selecione o link abaixo.", download: "Baixar", editImage: "Editar imagem", refine: "Refinar", revisionInstruction: "O que você quer mudar?", optionalAttachment: "Anexo opcional", generateVariation: "Gerar nova variação",
@@ -72,6 +92,16 @@ vi.mock("next-intl", () => ({
     visualInconclusiveTitle: "Análise visual inconclusiva",
     visualConfidence: "Confiança do modelo: 64%",
     visualNoConfidence: "Sem confiança mensurável",
+    personFidelityTitle: "Fidelidade das pessoas",
+    "personFidelityStatus.consistent": "Preservada",
+    "personFidelityStatus.mismatch": "Divergente",
+    "personFidelityStatus.inconclusive": "Inconclusiva",
+    personFidelityConfirm: "Confirmo que é a pessoa e a anatomia foi preservada",
+    personFidelityReject: "Há divergência",
+    personFidelityBlocked: "Divergência confirmada — gere uma nova imagem.",
+    personFidelityAccepted: "Você confirmou a identidade desta peça.",
+    personFidelityRejected: "Você marcou divergência nesta peça.",
+    personFidelityReviewFailed: "Não foi possível registrar a revisão.",
     }[key] ?? key);
   },
 }));
@@ -694,5 +724,168 @@ describe("CreativeResultCard", () => {
     );
     expect(screen.getByRole("button", { name: "Editar imagem" })).toBeDisabled();
     expect(screen.getByText("Translate: 0 remaining quota")).toBeVisible();
+  });
+
+  describe("person fidelity (plan 03, T3)", () => {
+    const PERSON_ID = "11111111-1111-4111-8111-111111111111";
+    const OUTPUT_ID = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa";
+    const HASH = "e".repeat(64);
+
+    beforeEach(() => {
+      personFidelityState.references = [{
+        personId: PERSON_ID,
+        name: "Ana",
+        primaryPhotoUrl: "https://cdn.test/ana.png",
+        photoUrls: ["https://cdn.test/ana.png"],
+      }];
+      personFidelityState.review.mockReset();
+      personFidelityState.isPending = false;
+      personFidelityState.isError = false;
+    });
+
+    function fidelityQuality(findings: unknown[], review?: unknown) {
+      return {
+        schemaVersion: 1,
+        objectiveVerdict: "pass",
+        personFidelity: {
+          findings,
+          referenceHash: HASH,
+          ...(review === undefined ? {} : { review }),
+        },
+      };
+    }
+
+    function renderCard(quality: unknown) {
+      return render(
+        <CreativeResultCard
+          output={output({ id: OUTPUT_ID, quality: quality as never })}
+          label="Equilibrada"
+          onRetry={vi.fn()}
+          onApprove={vi.fn()}
+          onDownload={vi.fn()}
+        />,
+      );
+    }
+
+    it("shows references beside the output with evidence and the specific choice", () => {
+      renderCard(fidelityQuality([
+        { personId: PERSON_ID, status: "inconclusive", evidence: [], issue: "Rosto ocluído" },
+      ]));
+
+      expect(screen.getByTestId("person-fidelity")).toBeVisible();
+      expect(screen.getByRole("img", { name: "Ana" })).toHaveAttribute("src", "https://cdn.test/ana.png");
+      expect(screen.getByText("Rosto ocluído")).toBeVisible();
+      expect(screen.queryByTestId("objective-selection-blocked")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Aprovar" })).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Confirmo que é a pessoa e a anatomia foi preservada" }));
+      expect(personFidelityState.review).toHaveBeenCalledWith({ referenceHash: HASH, accepted: true });
+      fireEvent.click(screen.getByRole("button", { name: "Há divergência" }));
+      expect(personFidelityState.review).toHaveBeenCalledWith({ referenceHash: HASH, accepted: false });
+    });
+
+    it("blocks mismatch without the specific choice and hides the section when absent", () => {
+      const { rerender } = renderCard(fidelityQuality([
+        { personId: PERSON_ID, status: "mismatch", evidence: ["rosto trocado"], issue: "troca" },
+      ]));
+
+      expect(screen.getByText("Divergência confirmada — gere uma nova imagem.")).toBeVisible();
+      expect(screen.getByText("rosto trocado")).toBeVisible();
+      expect(screen.queryByRole("button", { name: "Confirmo que é a pessoa e a anatomia foi preservada" })).not.toBeInTheDocument();
+
+      rerender(
+        <CreativeResultCard
+          output={output({ id: OUTPUT_ID, quality: { schemaVersion: 1, objectiveVerdict: "pass" } as never })}
+          label="Equilibrada"
+          onRetry={vi.fn()}
+          onApprove={vi.fn()}
+          onDownload={vi.fn()}
+        />,
+      );
+      expect(screen.queryByTestId("person-fidelity")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("automatic art refinement (plan 04, T3)", () => {
+    const weakQuality = {
+      schemaVersion: 1,
+      objectiveVerdict: "pass",
+      artCritique: {
+        verdict: "weak",
+        problem: "Foco dividido",
+        intervention: "Unificar foco",
+        mode: "edit",
+        preserve: [],
+        evidence: ["Dois títulos dominantes"],
+        confidence: "high",
+      },
+    } as never;
+
+    it("announces progress while a revision runs", () => {
+      render(
+        <CreativeResultCard
+          output={output({ quality: weakQuality })}
+          artRefinement={{ status: "running", issues: ["Foco dividido"], recommendedOutputIds: [] }}
+          label="Equilibrada"
+          onRetry={vi.fn()}
+          onApprove={vi.fn()}
+          onDownload={vi.fn()}
+        />,
+      );
+      expect(screen.getByTestId("art-refinement-running"))
+        .toHaveTextContent("Ajustando a composição: Foco dividido");
+      expect(screen.queryByTestId("art-refinement-best")).not.toBeInTheDocument();
+    });
+
+    it("presents the best valid version with pending issues and an explicit manual round", () => {
+      const onRevise = vi.fn();
+      render(
+        <CreativeResultCard
+          output={output({ quality: weakQuality })}
+          artRefinement={{ status: "budget_exhausted", issues: ["Foco dividido"], recommendedOutputIds: ["output-1"] }}
+          label="Equilibrada"
+          onRetry={vi.fn()}
+          onApprove={vi.fn()}
+          onDownload={vi.fn()}
+          onRevise={onRevise}
+        />,
+      );
+      expect(screen.getByTestId("art-refinement-best")).toHaveTextContent("Melhor versão disponível.");
+      expect(screen.getByTestId("art-refinement-best"))
+        .toHaveTextContent("Ainda precisa de revisão: Foco dividido");
+      // Opening the manual form charges nothing: onRevise fires only on submit.
+      fireEvent.click(screen.getByRole("button", { name: "Revisar mais uma vez" }));
+      expect(screen.getByLabelText("O que você quer mudar?")).toBeVisible();
+      expect(onRevise).not.toHaveBeenCalled();
+      // The recommendation never selects: approval keeps its own guard.
+      expect(screen.getByRole("button", { name: "Aprovar" })).toBeVisible();
+    });
+
+    it("stays silent for non-recommended outputs and legacy works", () => {
+      const { rerender } = render(
+        <CreativeResultCard
+          output={output({ quality: weakQuality })}
+          artRefinement={{ status: "ready", issues: [], recommendedOutputIds: ["other-output"] }}
+          label="Equilibrada"
+          onRetry={vi.fn()}
+          onApprove={vi.fn()}
+          onDownload={vi.fn()}
+        />,
+      );
+      expect(screen.queryByTestId("art-refinement-best")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("art-refinement-running")).not.toBeInTheDocument();
+
+      rerender(
+        <CreativeResultCard
+          output={output({ quality: weakQuality })}
+          label="Equilibrada"
+          onRetry={vi.fn()}
+          onApprove={vi.fn()}
+          onDownload={vi.fn()}
+        />,
+      );
+      expect(screen.queryByTestId("art-refinement-best")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("art-refinement-running")).not.toBeInTheDocument();
+    });
   });
 });

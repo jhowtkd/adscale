@@ -7,6 +7,10 @@ vi.mock("@/lib/hooks/use-piece-review-share", () => ({
 vi.mock("@/lib/hooks/use-piece-favorite", () => ({
   usePieceFavorite: () => ({ isFavorite: false, isPending: false, toggle: vi.fn() }),
 }));
+vi.mock("@/lib/hooks/use-person-fidelity", () => ({
+  useOutputPersonReferences: () => ({ data: [] }),
+  useReviewPersonFidelity: () => ({ review: vi.fn(), isPending: false, isError: false, reset: vi.fn() }),
+}));
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: Record<string, string | number>) => ({

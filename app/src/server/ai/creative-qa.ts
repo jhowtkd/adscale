@@ -11,6 +11,12 @@ import type {
   SocialPostCopy,
 } from "@/server/creative-work/contracts";
 import type { CreativeWorkReferenceRole } from "@/server/creative-work/reference-plan";
+import type { PersonFidelityFinding } from "@/server/creative-work/person-fidelity";
+import {
+  ART_DIRECTION_CRITIQUE_INSTRUCTION,
+  artCritiqueSchema,
+  type ArtCritique,
+} from "@/server/creative-work/art-refinement";
 import {
   CREATIVE_QA_CORE_CRITERIA,
   type CreativeQaCriterion,
@@ -371,6 +377,12 @@ export const CREATIVE_WORK_OBJECTIVE_FAILURE_CODES = [
   "cropped_critical_content",
   /** Factual text chosen by the output is illegible or garbled. */
   "unreadable_required_text",
+  /**
+   * A named person's rendered identity diverges from the approved reference
+   * photo (omitted, fused or swapped person, plan 03 T3). Emitted only by the
+   * person-fidelity assessment — never by the shared objective evaluator.
+   */
+  "person_identity_mismatch",
 ] as const;
 
 export type CreativeWorkObjectiveFailureCode =
@@ -380,10 +392,12 @@ export type CreativeWorkObjectiveFailureCode =
  * Codes the vision evaluator may assign. Deterministic-only codes
  * (`wrong_dimensions`, `unusable_file`) are never model-emitted — they come
  * from the file/dimension checks, which do not depend on the vision model.
+ * `person_identity_mismatch` is never emitted by the shared evaluator either:
+ * it comes from the dedicated person-fidelity assessment only.
  */
 export const CREATIVE_WORK_VISION_FAILURE_CODES: readonly CreativeWorkObjectiveFailureCode[] =
   CREATIVE_WORK_OBJECTIVE_FAILURE_CODES.filter(
-    (code) => code !== "wrong_dimensions" && code !== "unusable_file",
+    (code) => code !== "wrong_dimensions" && code !== "unusable_file" && code !== "person_identity_mismatch",
   );
 
 export interface CreativeWorkQaFinding {
@@ -401,6 +415,12 @@ export interface CreativeWorkQaFinding {
 export interface CreativeWorkQaResult {
   findings: CreativeWorkQaFinding[];
   summary: string;
+  /**
+   * Structured art-direction critique (plan 04, T1). Present only when the
+   * call requested it AND the model returned a valid critique; an invalid
+   * answer degrades to absent (inconclusive), never to retries.
+   */
+  artCritique?: ArtCritique;
 }
 
 /**
@@ -542,6 +562,12 @@ export interface AnalyzeCreativeWorkQaInput {
    * the production evaluator is attempt-agnostic.
    */
   attempt?: number;
+  /**
+   * Request a structured art-direction critique in the SAME evaluator call
+   * (plan 04, T1). Absent/disabled keeps the objective-only contract exactly.
+   * The critique rides the same response — never a second provider call.
+   */
+  artCritique?: { enabled: boolean };
 }
 
 type CreativeWorkQaPromptInput = Omit<
@@ -657,8 +683,20 @@ ${referenceLines.join("\n")}
 
 TARGET FORMAT: ${input.format}
 
-Return only JSON: { "findings": [{ "code", "status", "confidence": 0.0, "note" }], "summary": "<one sentence>" }.
+${artCritiquePromptSection(input)}Return only JSON: { "findings": [{ "code", "status", "confidence": 0.0, "note" }], "summary": "<one sentence>"${input.artCritique?.enabled ? ', "artCritique": { "verdict", "problem", "intervention", "mode", "preserve", "evidence", "confidence" }' : ""} }.
 Keep notes short and evidence-based. Locale for notes: ${input.locale}.`;
+}
+
+function artCritiquePromptSection(input: CreativeWorkQaPromptInput): string {
+  if (!input.artCritique?.enabled) return "";
+  return `## ART-DIRECTION CRITIQUE (composition only — never objective findings)
+${ART_DIRECTION_CRITIQUE_INSTRUCTION}
+- Answer "artCritique" with verdict "ready" when the composition resolves the message, "weak" only for a concrete visible problem with one intervention and visible evidence, "inconclusive" when genuinely unsure.
+- "mode" is "recompose" only when the whole structure is weak and another composition is needed, else "edit".
+- "preserve" lists the invariants the revision must keep (facts, identity, anatomy, approved brand elements).
+- The critique never changes facts, never invents causes and never adds objective findings.
+
+`;
 }
 
 const MAX_CREATIVE_WORK_QA_FINDINGS = 6;
@@ -671,6 +709,7 @@ export function normalizeCreativeWorkQaResult(value: unknown): CreativeWorkQaRes
   const input = (value && typeof value === "object" ? value : {}) as {
     findings?: unknown;
     summary?: unknown;
+    artCritique?: unknown;
   };
   const allowedCodes = new Set<string>(CREATIVE_WORK_VISION_FAILURE_CODES);
   const byCode = new Map<string, CreativeWorkQaFinding>();
@@ -693,9 +732,16 @@ export function normalizeCreativeWorkQaResult(value: unknown): CreativeWorkQaRes
       byCode.set(code, { code: typedCode, status, ...(confidence === undefined ? {} : { confidence }), note });
     }
   }
+  // A weak critique without problem/intervention/evidence is invalid and
+  // degrades to absent (inconclusive) — it never justifies a new image and
+  // never triggers retries.
+  const parsedCritique = input.artCritique === undefined || input.artCritique === null
+    ? null
+    : artCritiqueSchema.safeParse(input.artCritique);
   return {
     findings: [...byCode.values()].slice(0, MAX_CREATIVE_WORK_QA_FINDINGS),
     summary: typeof input.summary === "string" ? input.summary.trim() : "",
+    ...(parsedCritique && parsedCritique.success ? { artCritique: parsedCritique.data } : {}),
   };
 }
 
@@ -764,7 +810,9 @@ export async function analyzeCreativeWorkQa(
         {
           role: "system",
           content:
-            "You are the objective integrity evaluator for generated ad creatives. You report only factual/brand/reference defects with structured codes — never taste.",
+            input.artCritique?.enabled
+              ? "You are the integrity and art-direction evaluator for generated ad creatives. You report factual/brand/reference defects with structured codes, plus a separate composition critique — taste never leaks into the findings."
+              : "You are the objective integrity evaluator for generated ad creatives. You report only factual/brand/reference defects with structured codes — never taste.",
         },
         { role: "user", content },
       ],
@@ -796,8 +844,28 @@ export async function analyzeCreativeWorkQa(
                 },
               },
               summary: { type: "string" },
+              ...(input.artCritique?.enabled
+                ? {
+                    artCritique: {
+                      type: "object",
+                      additionalProperties: false,
+                      properties: {
+                        verdict: { type: "string", enum: ["ready", "weak", "inconclusive"] },
+                        problem: { type: "string" },
+                        intervention: { type: "string" },
+                        mode: { type: "string", enum: ["edit", "recompose"] },
+                        preserve: { type: "array", items: { type: "string" } },
+                        evidence: { type: "array", items: { type: "string" } },
+                        confidence: { type: "string", enum: ["low", "medium", "high"] },
+                      },
+                      required: ["verdict", "problem", "intervention", "mode", "preserve", "evidence", "confidence"],
+                    },
+                  }
+                : {}),
             },
-            required: ["findings", "summary"],
+            required: input.artCritique?.enabled
+              ? ["findings", "summary", "artCritique"]
+              : ["findings", "summary"],
           },
         },
       },
@@ -808,4 +876,384 @@ export async function analyzeCreativeWorkQa(
   const raw = extractOutputText(response);
   if (!raw) throw new Error("Empty vision response for creative work QA");
   return normalizeCreativeWorkQaResult(JSON.parse(raw));
+}
+
+// ---------------------------------------------------------------------------
+// Named-person fidelity assessment (plan 03, T3).
+//
+// A dedicated visual comparison of the generated output against each named
+// person's approved primary photo. It runs inside the same post-generation
+// assessment step as the shared objective evaluator, but with its own prompt
+// and strict schema so the shared evaluator contract stays untouched.
+// Anatomy only: new poses, clothing, scenes and light are free and must never
+// be flagged. Uncertainty (occlusion, low resolution, evaluator failure)
+// persists `inconclusive` per person — never an approval, never a retry.
+// ---------------------------------------------------------------------------
+
+export interface PersonFidelityAssessmentReference {
+  personId: string;
+  name: string;
+  preserve: readonly string[];
+  buffer: Buffer;
+  mimeType: string;
+}
+
+export interface AnalyzePersonFidelityInput {
+  imageBuffer: Buffer;
+  mimeType: string;
+  /** People whose primary photo was attached to the generation call. */
+  people: readonly PersonFidelityAssessmentReference[];
+  locale: string;
+}
+
+export interface PersonFidelityAssessmentResult {
+  findings: PersonFidelityFinding[];
+}
+
+export function buildPersonFidelityPrompt(
+  input: Pick<AnalyzePersonFidelityInput, "people" | "locale">,
+): string {
+  const personLines = input.people.map(
+    (person, index) =>
+      `- #${index + 1} personId "${person.personId}" ("${person.name}") — image #${index + 1} is this person's approved primary photo${
+        person.preserve.length > 0 ? `; operator asked to preserve: ${person.preserve.join("; ")}` : ""
+      }`,
+  );
+  return `Compare the generated OUTPUT against each named person's approved REFERENCE photo.
+
+You decide ONLY identity and anatomy preservation. New poses, clothing, scenes, light and expression are FREE — they must never appear in your findings. Never confuse staging with anatomy.
+
+## Finding status
+- "consistent": you are visually certain the person appears recognizably with observable facial structure, body proportions and distinguishing marks preserved.
+- "mismatch": confirmed divergence — the person is omitted, fused with another face, swapped for a different face, or their observable anatomy is visibly altered. Requires non-empty evidence describing the concrete divergence.
+- "inconclusive": the comparison cannot be made (occluded face, low resolution, person too small, ambiguous crop). State the cause in issue.
+
+## Discipline
+- Compare observable characteristics only. Do not infer names, roles, professions or sensitive traits.
+- Do not copy visible text, job titles or roles from a reference photo into findings.
+- One finding per listed personId, no other personIds, no similarity scores.
+
+## APPROVED REFERENCE PHOTOS
+${personLines.join("\n")}
+
+Return only JSON: { "findings": [{ "personId", "status", "evidence": ["<short, evidence-based>"], "issue": "<cause or null>" }] }.
+Locale for evidence and issue: ${input.locale}.`;
+}
+
+const MAX_PERSON_FIDELITY_FINDINGS = 10;
+
+function asPersonFidelityStatus(value: unknown): PersonFidelityFinding["status"] | null {
+  return value === "consistent" || value === "mismatch" || value === "inconclusive" ? value : null;
+}
+
+function asEvidenceList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value
+        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+        .map((item) => item.trim().slice(0, 600))
+        .slice(0, 12)
+    : [];
+}
+
+function asIssue(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim().slice(0, 300) : null;
+}
+
+/**
+ * Normalize the assessor payload into one finding per requested person.
+ * Unknown personIds are dropped, duplicates resolve worst-first
+ * (mismatch > inconclusive > consistent), a mismatch without evidence
+ * degrades to inconclusive, and every person without a comparison gets an
+ * explicit inconclusive finding — the gate never runs on an empty array.
+ */
+export function normalizePersonFidelityResult(
+  value: unknown,
+  people: readonly { personId: string }[],
+  unavailableIssue: string,
+): PersonFidelityAssessmentResult {
+  const wanted = new Set(people.map((person) => person.personId));
+  const input = (value && typeof value === "object" ? value : {}) as { findings?: unknown };
+  const rawFindings = Array.isArray(input.findings) ? input.findings : [];
+  const rank = { consistent: 0, inconclusive: 1, mismatch: 2 } as const;
+  const byPerson = new Map<string, PersonFidelityFinding>();
+  for (const raw of rawFindings) {
+    if (!raw || typeof raw !== "object") continue;
+    const item = raw as { personId?: unknown; status?: unknown; evidence?: unknown; issue?: unknown };
+    const personId = typeof item.personId === "string" ? item.personId : "";
+    const status = asPersonFidelityStatus(item.status);
+    if (!wanted.has(personId) || !status) continue;
+    const evidence = asEvidenceList(item.evidence);
+    const finding: PersonFidelityFinding = status === "mismatch" && evidence.length === 0
+      ? { personId, status: "inconclusive", evidence: [], issue: asIssue(item.issue) ?? unavailableIssue }
+      : { personId, status, evidence, issue: asIssue(item.issue) };
+    const existing = byPerson.get(personId);
+    if (!existing || rank[finding.status] > rank[existing.status]) {
+      byPerson.set(personId, finding);
+    }
+  }
+  return {
+    findings: people
+      .map((person) =>
+        byPerson.get(person.personId) ?? {
+          personId: person.personId,
+          status: "inconclusive" as const,
+          evidence: [],
+          issue: unavailableIssue,
+        },
+      )
+      .slice(0, MAX_PERSON_FIDELITY_FINDINGS),
+  };
+}
+
+export async function analyzePersonFidelity(
+  input: AnalyzePersonFidelityInput,
+): Promise<PersonFidelityAssessmentResult> {
+  const unavailableIssue = input.locale.startsWith("pt")
+    ? "Comparação indisponível para esta pessoa."
+    : "Comparison unavailable for this person.";
+  if (input.people.length === 0) return { findings: [] };
+  if (isE2EControlledProviderEnabled()) {
+    return {
+      findings: input.people.map((person) => ({
+        personId: person.personId,
+        status: "consistent" as const,
+        evidence: [],
+        issue: null,
+      })),
+    };
+  }
+
+  const content: Array<
+    | { type: "input_text"; text: string }
+    | { type: "input_image"; image_url: string; detail: "high" }
+  > = [
+    { type: "input_text", text: buildPersonFidelityPrompt(input) },
+    { type: "input_text", text: "OUTPUT UNDER REVIEW:" },
+    {
+      type: "input_image",
+      image_url: `data:${input.mimeType};base64,${input.imageBuffer.toString("base64")}`,
+      detail: "high",
+    },
+  ];
+  input.people.forEach((person, index) => {
+    content.push(
+      { type: "input_text", text: `REFERENCE #${index + 1} personId "${person.personId}" ("${person.name}"):` },
+      {
+        type: "input_image",
+        image_url: `data:${person.mimeType};base64,${person.buffer.toString("base64")}`,
+        detail: "high",
+      },
+    );
+  });
+
+  const response = await getOpenAI().responses.create(
+    {
+      model: env.OPENAI_TEXT_MODEL,
+      input: [
+        {
+          role: "system",
+          content:
+            "You are the person-fidelity evaluator for generated ad creatives. You compare rendered people against their approved reference photos and report only identity/anatomy preservation — never taste, never staging.",
+        },
+        { role: "user", content },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "person_fidelity_assessment",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              findings: {
+                type: "array",
+                maxItems: MAX_PERSON_FIDELITY_FINDINGS,
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    personId: { type: "string" },
+                    status: { type: "string", enum: ["consistent", "mismatch", "inconclusive"] },
+                    evidence: { type: "array", items: { type: "string" } },
+                    issue: { type: ["string", "null"] },
+                  },
+                  required: ["personId", "status", "evidence", "issue"],
+                },
+              },
+            },
+            required: ["findings"],
+          },
+        },
+      },
+    },
+    { timeout: 180_000, maxRetries: 0 },
+  );
+
+  const raw = extractOutputText(response);
+  if (!raw) throw new Error("Empty vision response for person fidelity");
+  return normalizePersonFidelityResult(JSON.parse(raw), input.people, unavailableIssue);
+}
+
+// ---------------------------------------------------------------------------
+// Art-refinement comparison judge (plan 04, T3).
+//
+// A side-by-side visual comparison of a revision against its parent under the
+// same briefing. The model picks a winner side — never an id: the caller maps
+// "before"/"after"/"tie" onto the presented candidate ids, so an arbitrary
+// model value can never smuggle an out-of-set preferredId. One call per
+// revision, no taste retries; a failure keeps the previous version.
+// ---------------------------------------------------------------------------
+
+export interface ArtComparisonAssessmentInput {
+  brief: string;
+  beforeImageBuffer: Buffer;
+  afterImageBuffer: Buffer;
+  mimeType: string;
+  beforeProblem: string | null;
+  afterProblem: string | null;
+  locale: string;
+}
+
+export interface ArtComparisonAssessmentResult {
+  winner: "before" | "after" | "tie";
+  reason: string;
+  fixedIssues: string[];
+  regressions: string[];
+}
+
+export function buildArtComparisonPrompt(
+  input: Pick<ArtComparisonAssessmentInput, "brief" | "beforeProblem" | "afterProblem" | "locale">,
+): string {
+  const beforeLine = input.beforeProblem
+    ? `The previous version (BEFORE) was critiqued: "${input.beforeProblem}".`
+    : "The previous version (BEFORE) had no recorded critique.";
+  const afterLine = input.afterProblem
+    ? `The revision (AFTER) was critiqued: "${input.afterProblem}".`
+    : "The revision (AFTER) had no recorded critique.";
+  return `Compare two versions of the same creative under the same briefing.
+
+BRIEFING: ${input.brief}
+
+${beforeLine}
+${afterLine}
+
+## What to judge
+- Did the revision fix a concrete composition problem (hierarchy, focus, person integration, typography, crop, perspective, light, finish)? Name the fixed issues with visible evidence.
+- Did the revision introduce regressions (new defects, lost strengths, broken facts or identity)? Name them with visible evidence.
+- A generic aesthetic preference or an isolated score never decides. A tie keeps BEFORE.
+
+## Discipline
+- Judge observable composition only. Do not invent facts, people or brand elements.
+- fixedIssues lists AFTER improvements over BEFORE; regressions lists AFTER defects versus BEFORE.
+- reason is one concrete sentence justifying the winner.
+
+Return only JSON: { "winner": "before" | "after" | "tie", "reason": "<concrete>", "fixedIssues": ["<short, evidence-based>"], "regressions": ["<short, evidence-based>"] }.
+Locale for reason and lists: ${input.locale}.`;
+}
+
+function asComparisonWinner(value: unknown): ArtComparisonAssessmentResult["winner"] {
+  return value === "before" || value === "after" || value === "tie" ? value : "tie";
+}
+
+function asShortReason(value: unknown, fallback: string): string {
+  const reason = typeof value === "string" ? value.trim().slice(0, 1000) : "";
+  return reason.length > 0 ? reason : fallback;
+}
+
+function asComparisonList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value
+        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+        .map((item) => item.trim().slice(0, 300))
+        .slice(0, 10)
+    : [];
+}
+
+/**
+ * Normalize the judge payload. An unknown winner degrades to a tie (the
+ * caller keeps the previous version); lists are trimmed to the ArtComparison
+ * bounds so the result always validates downstream.
+ */
+export function normalizeArtComparisonResult(
+  value: unknown,
+  fallbackReason: string,
+): ArtComparisonAssessmentResult {
+  const input = (value && typeof value === "object" ? value : {}) as {
+    winner?: unknown;
+    reason?: unknown;
+    fixedIssues?: unknown;
+    regressions?: unknown;
+  };
+  return {
+    winner: asComparisonWinner(input.winner),
+    reason: asShortReason(input.reason, fallbackReason),
+    fixedIssues: asComparisonList(input.fixedIssues),
+    regressions: asComparisonList(input.regressions),
+  };
+}
+
+export async function analyzeArtComparison(
+  input: ArtComparisonAssessmentInput,
+): Promise<ArtComparisonAssessmentResult> {
+  const fallbackReason = input.locale.startsWith("pt")
+    ? "Comparação inconclusiva; a versão anterior foi mantida."
+    : "Inconclusive comparison; the previous version was kept.";
+  if (isE2EControlledProviderEnabled()) {
+    return { winner: "tie", reason: fallbackReason, fixedIssues: [], regressions: [] };
+  }
+
+  const response = await getOpenAI().responses.create(
+    {
+      model: env.OPENAI_TEXT_MODEL,
+      input: [
+        {
+          role: "system",
+          content:
+            "You are the art-direction comparison judge for generated ad creatives. You compare a revision against its parent side by side and report only observable composition improvements and regressions — never taste alone.",
+        },
+        {
+          role: "user",
+          content: [
+            { type: "input_text", text: buildArtComparisonPrompt(input) },
+            { type: "input_text", text: "BEFORE (previous version):" },
+            {
+              type: "input_image",
+              image_url: `data:${input.mimeType};base64,${input.beforeImageBuffer.toString("base64")}`,
+              detail: "high",
+            },
+            { type: "input_text", text: "AFTER (revision):" },
+            {
+              type: "input_image",
+              image_url: `data:${input.mimeType};base64,${input.afterImageBuffer.toString("base64")}`,
+              detail: "high",
+            },
+          ],
+        },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "art_comparison_assessment",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              winner: { type: "string", enum: ["before", "after", "tie"] },
+              reason: { type: "string" },
+              fixedIssues: { type: "array", items: { type: "string" } },
+              regressions: { type: "array", items: { type: "string" } },
+            },
+            required: ["winner", "reason", "fixedIssues", "regressions"],
+          },
+        },
+      },
+    },
+    { timeout: 180_000, maxRetries: 0 },
+  );
+
+  const raw = extractOutputText(response);
+  if (!raw) throw new Error("Empty vision response for art comparison");
+  return normalizeArtComparisonResult(JSON.parse(raw), fallbackReason);
 }

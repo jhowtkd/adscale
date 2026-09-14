@@ -55,6 +55,10 @@ import {
   buildIdentityOptions,
   createIdentitySnapshot,
   DEFAULT_EXACT_PLACEMENT,
+  getPersonReferenceAssets,
+  IdentitySnapshotMissingReferenceError,
+  matchPersonPhotoBuffers,
+  resolveSnapshotPersonSlots,
 } from "./identity";
 
 const socialBrief: SocialPostBrief = {
@@ -138,12 +142,155 @@ describe("creative-work identity module", () => {
     mocks.getActiveBrandKnowledgeVersionMock.mockResolvedValue(null);
   });
 
+  describe("getPersonReferenceAssets", () => {
+    it("resolves approved reference-mode photos and skips unapproved ids", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([
+        approvedReference({
+          id: "photo-ana",
+          trainingCategory: "person",
+          usageMode: "reference",
+          assetKey: "workspaces/ws-1/assets/ana.png",
+          label: "Ana",
+        }),
+      ]);
+      mocks.selectResults.push([
+        { key: "workspaces/ws-1/assets/ana.png", type: "image/png", metadata: { hasAlpha: false } },
+      ]);
+      const resolved = await getPersonReferenceAssets("ws-1", "profile-1", ["photo-ana", "photo-missing"]);
+      expect([...resolved.entries()]).toEqual([
+        ["photo-ana", { assetKey: "workspaces/ws-1/assets/ana.png", mimeType: "image/png", label: "Ana" }],
+      ]);
+    });
+
+    it("never resolves exact-mode photos as identity proofs", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([
+        approvedReference({ id: "photo-ana", trainingCategory: "person", usageMode: "exact" }),
+      ]);
+      const resolved = await getPersonReferenceAssets("ws-1", "profile-1", ["photo-ana"]);
+      expect(resolved.size).toBe(0);
+    });
+  });
+
+  describe("resolveSnapshotPersonSlots", () => {
+    const snapshotPerson = {
+      personId: "11111111-1111-4111-8111-111111111111",
+      name: "Ana",
+      referenceIds: ["photo-ana"],
+      primaryReferenceId: "photo-ana",
+      preserve: ["formato do rosto"],
+    };
+
+    it("builds mandatory slots from confirmed identity assets without extra reads", async () => {
+      const { slots, secondaryAssets } = await resolveSnapshotPersonSlots({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        people: [snapshotPerson],
+        identityAssets: [{
+          referenceId: "photo-ana",
+          assetKey: "workspaces/ws-1/assets/ana.png",
+          mimeType: "image/png",
+          label: "Ana",
+        }],
+      });
+      expect(slots).toHaveLength(1);
+      expect(slots[0]).toMatchObject({
+        role: "piece_required",
+        required: true,
+        label: "Ana",
+        pieceReference: { category: "person_or_character", treatment: "identity_preservation" },
+      });
+      expect(secondaryAssets).toEqual([]);
+      expect(mocks.getApprovedTrainingReferencesMock).not.toHaveBeenCalled();
+    });
+
+    it("falls back to approved training references and fails missing photos as reference_failure", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([
+        approvedReference({
+          id: "photo-ana",
+          trainingCategory: "person",
+          usageMode: "reference",
+          assetKey: "workspaces/ws-1/assets/ana.png",
+          label: "Ana",
+        }),
+      ]);
+      mocks.selectResults.push([
+        { key: "workspaces/ws-1/assets/ana.png", type: "image/png", metadata: { hasAlpha: false } },
+      ]);
+      const { slots } = await resolveSnapshotPersonSlots({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        people: [snapshotPerson],
+        identityAssets: [],
+      });
+      expect(slots).toHaveLength(1);
+      await expect(resolveSnapshotPersonSlots({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        people: [{ ...snapshotPerson, referenceIds: ["photo-gone"], primaryReferenceId: "photo-gone" }],
+        identityAssets: [],
+      })).rejects.toMatchObject({ code: "reference_failure" });
+    });
+  });
+
+  describe("matchPersonPhotoBuffers (plan 03, T3)", () => {
+    const snapshotPerson = {
+      personId: "11111111-1111-4111-8111-111111111111",
+      name: "Ana",
+      referenceIds: ["photo-ana"],
+      primaryReferenceId: "photo-ana",
+      preserve: ["formato do rosto"],
+    };
+    const slot = (assetKey: string) => ({
+      assetKey,
+      mimeType: "image/png",
+      label: "Ana",
+      role: "piece_required",
+      required: true,
+    }) as never;
+
+    it("binds each person to their loaded primary photo by assetKey", () => {
+      const photo = Buffer.from("foto");
+      const matched = matchPersonPhotoBuffers({
+        people: [snapshotPerson],
+        personSlots: [slot("workspaces/ws-1/assets/ana.png")],
+        loaded: [{
+          slot: slot("workspaces/ws-1/assets/ana.png"),
+          buffer: photo,
+          mimeType: "image/png",
+        }],
+      });
+      expect(matched).toEqual([{
+        personId: snapshotPerson.personId,
+        name: "Ana",
+        primaryReferenceId: "photo-ana",
+        preserve: ["formato do rosto"],
+        reference: { buffer: photo, mimeType: "image/png" },
+      }]);
+    });
+
+    it("keeps a null reference when the photo did not load", () => {
+      const matched = matchPersonPhotoBuffers({
+        people: [snapshotPerson],
+        personSlots: [],
+        loaded: [],
+      });
+      expect(matched).toEqual([{
+        personId: snapshotPerson.personId,
+        name: "Ana",
+        primaryReferenceId: "photo-ana",
+        preserve: ["formato do rosto"],
+        reference: null,
+      }]);
+    });
+  });
+
   describe("DEFAULT_EXACT_PLACEMENT", () => {
     it("exposes the documented default placements per category", () => {
       expect(DEFAULT_EXACT_PLACEMENT).toEqual({
         logo: { gravity: "southeast", widthRatio: 0.18 },
         graphic: { gravity: "northwest", widthRatio: 0.35 },
         character: { gravity: "southeast", widthRatio: 0.42 },
+        person: null,
         visual_reference: null,
       });
     });
@@ -375,6 +522,161 @@ describe("creative-work identity module", () => {
         compiledAt: null,
         claims: [],
       });
+    });
+
+    it("uses the validated v2 identity as the frozen base for new works (plan 01, T4)", async () => {
+      // Live tables moved on after validation: a new approval and a new kit.
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([
+        approvedReference({ id: "live-new", trainingCategory: "visual_reference", usageMode: "reference" }),
+      ]);
+      mocks.getRejectedTrainingReferencesMock.mockResolvedValue([
+        { id: "live-rejected", label: "Live", trainingAnalysis: null, rejectionReason: { code: "other" } },
+      ]);
+      mocks.getBrandKitMock.mockResolvedValue({
+        brandColors: ["#LIVE00"],
+        brandFonts: ["Live Sans"],
+        toneOfVoice: "Tom ao vivo",
+        prohibitedElements: "live-no",
+        requiredElements: "live-yes",
+      });
+      mocks.getActiveBrandKnowledgeVersionMock.mockResolvedValue({
+        id: "version-2",
+        versionNumber: 2,
+        hash: "c".repeat(64),
+        snapshot: {
+          schemaVersion: 2,
+          profileId: "profile-1",
+          compiledAt: "2026-09-13T12:00:00.000Z",
+          claims: [],
+          excluded: [],
+          identity: {
+            clientProfileId: "profile-1",
+            confirmedAt: "2026-09-13T12:00:00.000Z",
+            assets: [
+              {
+                referenceId: "frozen-logo",
+                assetKey: "workspaces/ws-1/assets/frozen-logo.png",
+                label: "Frozen logo",
+                category: "logo",
+                usageMode: "reference",
+                analysis: { description: "frozen", visualAttributes: [], rules: [], constraints: [], confidence: 1 },
+                mimeType: "image/png",
+                hasAlpha: false,
+                placement: null,
+              },
+            ],
+            negativePatterns: [{ referenceId: "rej-1", label: "Old", description: "frozen rejection" }],
+            brandKit: {
+              colors: ["#FROZEN"],
+              fonts: ["Frozen Sans"],
+              toneOfVoice: "Frozen voice",
+              prohibitedElements: "frozen-no",
+              requiredElements: "frozen-yes",
+            },
+          },
+          evidenceHashes: {},
+          calibration: { sessionId: "session-1", round: 1, candidateHash: "c".repeat(64) },
+        },
+      });
+      mocks.selectResults.push([
+        { key: "workspaces/ws-1/assets/frozen-logo.png", type: "image/png", metadata: { hasAlpha: false } },
+      ]);
+
+      const snapshot = await createIdentitySnapshot({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        selectedReferenceIds: [],
+        brief: socialBrief,
+        format: "4:5",
+      });
+
+      expect(snapshot.assets.map((asset) => asset.referenceId)).toEqual(["frozen-logo"]);
+      expect(snapshot.brandKit).toMatchObject({
+        colors: ["#FROZEN"],
+        fonts: ["Frozen Sans"],
+        toneOfVoice: "Frozen voice",
+        prohibitedElements: "frozen-no",
+        requiredElements: "frozen-yes",
+      });
+      expect(snapshot.negativePatterns).toEqual([
+        { referenceId: "rej-1", label: "Old", description: "frozen rejection" },
+      ]);
+    });
+
+    it("fails v2 selection when a frozen asset is no longer reachable", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([]);
+      mocks.getBrandKitMock.mockResolvedValue(null);
+      mocks.getActiveBrandKnowledgeVersionMock.mockResolvedValue({
+        id: "version-2",
+        versionNumber: 2,
+        hash: "c".repeat(64),
+        snapshot: {
+          schemaVersion: 2,
+          profileId: "profile-1",
+          compiledAt: "2026-09-13T12:00:00.000Z",
+          claims: [],
+          excluded: [],
+          identity: {
+            clientProfileId: "profile-1",
+            confirmedAt: "2026-09-13T12:00:00.000Z",
+            assets: [
+              {
+                referenceId: "frozen-logo",
+                assetKey: "workspaces/ws-1/assets/revoked.png",
+                label: "Revoked",
+                category: "logo",
+                usageMode: "reference",
+                analysis: { description: "", visualAttributes: [], rules: [], constraints: [], confidence: 1 },
+                mimeType: "image/png",
+                hasAlpha: false,
+                placement: null,
+              },
+            ],
+            brandKit: { colors: [], fonts: [], toneOfVoice: null, prohibitedElements: null, requiredElements: null },
+          },
+          evidenceHashes: {},
+          calibration: { sessionId: "session-1", round: 1, candidateHash: "c".repeat(64) },
+        },
+      });
+      mocks.selectResults.push([]);
+
+      await expect(
+        createIdentitySnapshot({
+          workspaceId: "ws-1",
+          clientProfileId: "profile-1",
+          selectedReferenceIds: [],
+          brief: socialBrief,
+          format: "4:5",
+        }),
+      ).rejects.toBeInstanceOf(IdentitySnapshotMissingReferenceError);
+    });
+
+    it("keeps the live fallback for v1 active versions", async () => {
+      mocks.getApprovedTrainingReferencesMock.mockResolvedValue([
+        approvedReference({ id: "live-logo", trainingCategory: "logo", usageMode: "reference" }),
+      ]);
+      mocks.getRejectedTrainingReferencesMock.mockResolvedValue([]);
+      mocks.getBrandKitMock.mockResolvedValue({ brandColors: ["#LIVE00"], brandFonts: [], toneOfVoice: null, prohibitedElements: null, requiredElements: null });
+      mocks.getActiveBrandKnowledgeVersionMock.mockResolvedValue({
+        id: "version-1",
+        versionNumber: 1,
+        hash: "a".repeat(64),
+        snapshot: { schemaVersion: 1, profileId: "profile-1", compiledAt: "2026-08-13T12:00:00.000Z", claims: [], excluded: [] },
+      });
+      mocks.selectResults.push([
+        { key: "workspaces/ws-1/assets/live-logo.png", type: "image/png", metadata: { hasAlpha: false } },
+      ]);
+
+      const snapshot = await createIdentitySnapshot({
+        workspaceId: "ws-1",
+        clientProfileId: "profile-1",
+        selectedReferenceIds: [],
+        brief: socialBrief,
+        format: "4:5",
+      });
+
+      expect(snapshot.assets.map((asset) => asset.referenceId)).toEqual(["live-logo"]);
+      expect(snapshot.brandKit.colors).toEqual(["#LIVE00"]);
     });
 
     it("persists a manual override as selection provenance", async () => {

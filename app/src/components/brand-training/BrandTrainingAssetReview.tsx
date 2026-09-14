@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { studioQuietActionClass } from "@/components/dashboard/studio-stage/StudioInstrument";
 import type { BrandTrainingAssetRecord } from "@/lib/hooks/use-brand-training";
 
-const CATEGORIES = ["logo", "graphic", "character", "visual_reference"] as const;
+const CATEGORIES = ["logo", "graphic", "character", "person", "visual_reference"] as const;
 type Category = (typeof CATEGORIES)[number];
 const USAGE_MODES = ["exact", "reference", "rule"] as const;
 type UsageMode = (typeof USAGE_MODES)[number];

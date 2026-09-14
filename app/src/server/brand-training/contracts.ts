@@ -10,6 +10,7 @@ export const BRAND_TRAINING_CATEGORIES = [
   "logo",
   "graphic",
   "character",
+  "person",
   "visual_reference",
 ] as const;
 export const BRAND_TRAINING_USAGE_MODES = ["exact", "reference", "rule"] as const;
@@ -95,12 +96,24 @@ export const deterministicMeasurementSchema = z.object({
   measuredAt: z.string(),
 });
 
+const compositionalRelationSchema = z.object({
+  dimension: z.enum(["composition", "hierarchy", "typography", "imagery", "finish", "motif", "human_presence"]),
+  observation: z.string().trim().min(1).max(600),
+  application: z.string().trim().min(1).max(600),
+});
+
 export const brandTrainingAnalysisSchema = z.object({
   description: z.string().trim().min(1).max(1000),
   visualAttributes: z.array(z.string().trim().min(1).max(120)).max(20),
   rules: z.array(z.string().trim().min(1).max(240)).max(20),
   constraints: z.array(z.string().trim().min(1).max(240)).max(20),
   confidence: z.number().min(0).max(1),
+  /**
+   * Relational observations per compositional dimension, feeding batch
+   * repertoire synthesis. Optional — assets analyzed before the repertoire
+   * layer still validate.
+   */
+  compositionalRelations: z.array(compositionalRelationSchema).max(20).optional(),
   /**
    * Deterministic Sharp metrics only. Never store vision labels here.
    * Optional — assets analyzed before measurement still validate.
@@ -169,6 +182,15 @@ export const reviewTrainingAssetSchema = z.object({
   reviewStatus: z.enum(["approved", "archived", "rejected"]),
   rejectionReason: brandTrainingRejectionReasonSchema.nullable().optional(),
 }).superRefine((value, ctx) => {
+  // Named people are identity references only: never exact-composited like
+  // logos, never a textual rule. Placement is always null.
+  if (value.trainingCategory === "person" && value.usageMode !== "reference") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["usageMode"],
+      message: "Person training assets require usageMode reference",
+    });
+  }
   if (value.reviewStatus === "rejected" && !value.rejectionReason) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,

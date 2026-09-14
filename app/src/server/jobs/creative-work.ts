@@ -82,6 +82,7 @@ import {
 import { getTargetDimensions } from "@/lib/formats";
 import { canonicalJsonStringify } from "@/server/creative-work/canonical-json";
 import {
+  resolveCreativeWorkArtRefinement,
   resolveCreativeWorkFactPack,
   resolveGenerationPolicyVersion,
 } from "@/server/creative-work/contracts";
@@ -90,9 +91,11 @@ import { exactPieceReferenceAssets } from "@/server/creative-work/piece-referenc
 import {
   CreativeWorkReferenceError,
   planCreativeWorkReferences,
+  type CreativeWorkReferencePlanAsset,
   type CreativeWorkReferenceRole,
   type CreativeWorkReferenceSlot,
 } from "@/server/creative-work/reference-plan";
+import { matchPersonPhotoBuffers, resolveSnapshotPersonSlots, type MatchedPersonPhotoInput } from "@/server/creative-work/identity";
 import type {
   CreativeWorkFormat,
   CreativeWorkFactPack,
@@ -104,6 +107,7 @@ import {
   type AnalyzeCreativeWorkQaReference,
 } from "@/server/ai/creative-qa";
 import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-creative-work-output-library";
+import { refineCreativeWork } from "@/server/application/refine-creative-work";
 import { inngest } from "./client";
 import { heavyImageEventName } from "./heavy-image-events";
 import {
@@ -885,6 +889,9 @@ const creativeWorkOutputJobHandler = async ({
       let v1FactPack: CreativeWorkFactPack | null = null;
       let v1RequiredReferenceRoles: CreativeWorkReferenceRole[] = [];
       let v1QaReferences: AnalyzeCreativeWorkQaReference[] = [];
+      // Plan 03, T3: frozen snapshot people bound to their loaded primary
+      // photos for the person-fidelity assessment in analyze-quality.
+      let v1PersonPhotos: MatchedPersonPhotoInput[] = [];
       // R-006: frozen prompt inputs reused verbatim by the objective
       // correction — the second call starts from the SAME prompt/sources and
       // only appends the failure codes (R-004 criterion 5).
@@ -914,6 +921,27 @@ const creativeWorkOutputJobHandler = async ({
           // logo as a provider reference invites a second, model-drawn mark.
           .filter((asset) => !exactLogoAssetKeys.has(asset.assetKey))
           .slice(0, MAX_REFERENCE_IMAGES);
+
+        // Named people (plan 03, T2): frozen snapshot people become mandatory
+        // provider references; secondary photos fill free slots in catalog
+        // order. Anything missing fails as reference_failure before the
+        // provider. Person asset keys are deduped out of the generic identity
+        // list without losing the person association (dedicated slots above).
+        const { slots: personSlots, secondaryAssets: personSecondaryAssets } =
+          await resolveSnapshotPersonSlots({
+            workspaceId,
+            clientProfileId: work.clientProfileId,
+            people: inputSnapshot.people ?? [],
+            identityAssets: identitySnapshot.assets,
+          });
+        const personAssetKeys = new Set([
+          ...personSlots.map((slot) => slot.assetKey),
+          ...personSecondaryAssets.map((asset) => asset.assetKey),
+        ]);
+        const identityReferenceInputs = [
+          ...personSecondaryAssets,
+          ...referenceAssets.filter((asset) => !personAssetKeys.has(asset.assetKey)),
+        ];
 
         if (output.parentOutputId && (!parentOutput?.outputKey || parentOutput.status !== "completed")) {
           throw new Error("creative_work_revision_parent_missing");
@@ -950,12 +978,13 @@ const creativeWorkOutputJobHandler = async ({
           const planned = planCreativeWorkReferences({
             mode: protocol.mode,
             sources: work.inputSnapshot?.sources ?? [],
-            identityReferenceAssets: referenceAssets.map((asset) => ({
+            identityReferenceAssets: identityReferenceInputs.map((asset) => ({
               assetKey: asset.assetKey,
               mimeType: asset.mimeType,
               label: asset.label,
             })),
             revisionReferences,
+            personSlots,
             limit: MAX_REFERENCE_IMAGES,
             allowPieceReferences: work.toolKind === "single",
           });
@@ -1078,6 +1107,15 @@ const creativeWorkOutputJobHandler = async ({
               buffer: loaded.reference.buffer,
               mimeType: loaded.reference.mimeType,
             }));
+            v1PersonPhotos = matchPersonPhotoBuffers({
+              people: inputSnapshot.people ?? [],
+              personSlots,
+              loaded: normalizedReferences.map((loaded) => ({
+                slot: loaded.slot,
+                buffer: loaded.reference.buffer,
+                mimeType: loaded.reference.mimeType,
+              })),
+            });
           }
           prompt = protocol.execution === "direct"
             ? buildCreativeWorkPrompt({
@@ -1431,7 +1469,14 @@ const creativeWorkOutputJobHandler = async ({
             brandName: v1FactPack?.identity.brandName ?? clientProfile?.name ?? null,
             references: v1QaReferences,
             locale: "pt-BR",
+            // Plan 04, T1: request the same-call art critique only when the
+            // snapshot carries an explicitly accepted refinement budget.
+            // Legacy and calibration snapshots keep the objective-only QA.
+            ...(resolveCreativeWorkArtRefinement(work.inputSnapshot)
+              ? { artCritique: { enabled: true } }
+              : {}),
           },
+          people: v1PersonPhotos,
           score: {
             imageBuffer,
             mimeType: "image/png",
@@ -1855,6 +1900,43 @@ const creativeWorkOutputJobHandler = async ({
         logger.warn(
           `[creativeWorkOutputJob] ensure-library failed outputId=${outputId} (output stays completed): ${detail}`,
         );
+      }
+
+      // Plan 04, T2: automatic art refinement after a terminal validated
+      // output. Best-effort and isolated like the library step: the output
+      // is already COMPLETED, so a refinement failure must never reclassify
+      // it. Only budgeted works pay for the aggregate re-read; the
+      // coordinator re-validates everything (calibration, root, critique,
+      // ceiling) against live rows.
+      if (resolveCreativeWorkArtRefinement(work.inputSnapshot)) {
+        try {
+          await step.run("maybe-refine-art", async () => {
+            const aggregate = await getCreativeWork(workspaceId, workItemId);
+            const outputs = aggregate?.outputs ?? [];
+            const byId = new Map(outputs.map((candidate) => [candidate.id, candidate]));
+            let rootId: string | null = null;
+            let current = byId.get(outputId);
+            const seen = new Set<string>();
+            while (current && !seen.has(current.id)) {
+              seen.add(current.id);
+              rootId = current.id;
+              current = current.parentOutputId ? byId.get(current.parentOutputId) : undefined;
+            }
+            const outcome = await refineCreativeWork({
+              workspaceId,
+              workItemId,
+              rootOutputId: rootId ?? outputId,
+              completedOutputId: outputId,
+            });
+            logger.info(
+              `[creativeWorkOutputJob] art-refinement outputId=${outputId} kind=${outcome.kind} reason=${outcome.reason}`,
+            );
+          });
+        } catch (refineError) {
+          logger.warn(
+            `[creativeWorkOutputJob] art-refinement failed outputId=${outputId} (output stays completed): ${refineError instanceof Error ? refineError.message : String(refineError)}`,
+          );
+        }
       }
 
       // R-007.7: telemetry is auxiliary — a failure here must NOT fall into

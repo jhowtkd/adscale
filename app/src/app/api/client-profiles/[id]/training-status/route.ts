@@ -9,6 +9,7 @@ import {
 } from "@/server/repositories/client-reference";
 import { getOlharVoiceConfigByClientProfileId } from "@/server/repositories/client-profile-olhar-config";
 import { listBrandKnowledgeClaims } from "@/server/repositories/brand-knowledge";
+import { getTrainingSession } from "@/server/repositories/brand-training-sessions";
 import { resolveBrandProfileStatus } from "@/server/brand-profile/trained-status";
 
 /**
@@ -34,11 +35,12 @@ export async function GET(
       return apiError("clientProfileNotFound", 404);
     }
 
-    const [brandKit, references, voiceConfig, knowledgeClaims] = await Promise.all([
+    const [brandKit, references, voiceConfig, knowledgeClaims, calibrationSession] = await Promise.all([
       getBrandKit(workspace.id, id),
       getClientReferences(workspace.id, id),
       getOlharVoiceConfigByClientProfileId({ workspaceId: workspace.id, clientProfileId: id }),
       listBrandKnowledgeClaims(workspace.id, id),
+      getTrainingSession(workspace.id, id),
     ]);
 
     const status = resolveBrandProfileStatus(
@@ -70,6 +72,19 @@ export async function GET(
         configured: Boolean(voiceConfig),
         reviewStatus: voiceConfig?.reviewStatus ?? null,
       },
+      // An open calibration session is pending human validation — it never
+      // counts as active training, even when the profile holds assets.
+      // Consumers derive the "pending" ceiling display from roundsCompleted
+      // reaching 3 + extensionCount; the server keeps the stored status.
+      calibration: calibrationSession
+        ? {
+            sessionId: calibrationSession.id,
+            status: calibrationSession.status,
+            round: calibrationSession.rounds[calibrationSession.rounds.length - 1]?.number ?? null,
+            roundsCompleted: calibrationSession.rounds.length,
+            extensionCount: calibrationSession.extensionCount,
+          }
+        : null,
     });
   } catch (error) {
     return handleApiError(error, "client-profiles.[id].training-status.GET");

@@ -184,7 +184,11 @@ const autosaveSchema = z.object({
   const parsed = creativeWorkPreparationSchema.safeParse(value);
   if (!parsed.success) parsed.error.issues.forEach((issue) => context.addIssue(issue));
 });
-const prepareSchema = z.object({ action: z.literal("prepare") }).strict();
+const prepareSchema = z.object({
+  action: z.literal("prepare"),
+  /** Explicit opt-in to automatic art refinement (plan 04, T1). Absent preserves legacy generation. */
+  artRefinementOptIn: z.literal(true).optional(),
+}).strict();
 const approveCarouselSchema = z.object({
   action: z.literal("approveCarousel"),
   revision: z.string().min(1),
@@ -743,6 +747,7 @@ export async function PATCH(
       });
       if (autosaved.error === "carousel_reference_limit") return apiError("creativeWorkCarouselReferenceLimit", 409);
       if (autosaved.error === "single_piece_reference_limit") return apiError("creativeWorkPieceReferenceLimit", 409);
+      if (autosaved.error === "calibration_managed") return apiError("creativeWorkCalibrationManaged", 403);
       if (autosaved.error === "not_draft") return apiError("creativeWorkNotDraft", 409);
       if (!autosaved.work) return apiError("creativeWorkNotFound", 404);
       // The repository committed the mode transition and every source's new
@@ -757,6 +762,7 @@ export async function PATCH(
     if ("action" in parsed.data && parsed.data.action === "editBriefing") {
       const aggregate = await getCreativeWork(workspace.id, id);
       if (!aggregate) return apiError("creativeWorkNotFound", 404);
+      if (aggregate.work.trainingSessionId) return apiError("creativeWorkCalibrationManaged", 403);
       if (aggregate.work.status !== "draft") return apiError("creativeWorkNotDraft", 409);
       if (aggregate.work.toolKind !== "single") return apiError("invalidInput", 400);
       if (aggregate.work.updatedAt.toISOString() !== parsed.data.expectedUpdatedAt) {
@@ -855,7 +861,11 @@ export async function PATCH(
       const aggregate = await getCreativeWork(workspace.id, id);
       if (!aggregate) return apiError("creativeWorkNotFound", 404);
       if (aggregate.work.toolKind === "carousel") {
-        const prepared = await prepareCarouselWork({ workspaceId: workspace.id, workItemId: id });
+        const prepared = await prepareCarouselWork({
+          workspaceId: workspace.id,
+          workItemId: id,
+          ...(parsed.data.artRefinementOptIn ? { artRefinement: { acceptedBy: user.id } } : {}),
+        });
         if (!prepared.ok) {
           switch (prepared.error.code) {
             case "work_not_found": return apiError("creativeWorkNotFound", 404);
@@ -868,11 +878,24 @@ export async function PATCH(
             case "editorial_invalid": return apiError("editorial_invalid", 422, prepared.error.details);
             case "invalid_context": return apiError("invalid_context", 422, prepared.error.details);
             case "invalid_generation_gate": return apiError("creativeWorkNotReady", 409, prepared.error.details);
+            // Named people and trained visual languages block carousel
+            // preparation with clarification payloads (catalog options) — 422.
+            case "person_unknown":
+            case "person_ambiguous":
+            case "person_unconfirmed":
+            case "person_limit":
+            case "visual_language_unknown":
+            case "visual_language_ambiguous":
+              return apiError(prepared.error.code, 422, prepared.error);
           }
         }
         return NextResponse.json(prepared.value);
       }
-      const prepared = await prepareCreativeWork({ workspaceId: workspace.id, workItemId: id });
+      const prepared = await prepareCreativeWork({
+        workspaceId: workspace.id,
+        workItemId: id,
+        ...(parsed.data.artRefinementOptIn ? { artRefinement: { acceptedBy: user.id } } : {}),
+      });
       if (!prepared.ok) {
         if (prepared.error.code === "preparation_in_progress") return NextResponse.json({ error: "creativeWorkPreparationInProgress", code: "creativeWorkPreparationInProgress", attemptId: (prepared.error.details as { attemptId: string }).attemptId }, { status: 409 });
         if (prepared.error.code === "work_not_found") return apiError("creativeWorkNotFound", 404);
@@ -886,7 +909,21 @@ export async function PATCH(
         // two short choices (source/active) — billing stays blocked.
         if (prepared.error.code === "brand_conflict") return apiError("brand_conflict", 422, prepared.error.details);
         if (prepared.error.code === "briefing_blocked") return apiError("briefing_blocked", 422, prepared.error.details);
+        // Named people and trained visual languages: unknown/ambiguous/
+        // unconfirmed/over-cap mentions block preparation with a clarification
+        // payload (catalog options) — 422.
+        if (
+          prepared.error.code === "person_unknown" ||
+          prepared.error.code === "person_ambiguous" ||
+          prepared.error.code === "person_unconfirmed" ||
+          prepared.error.code === "person_limit" ||
+          prepared.error.code === "visual_language_unknown" ||
+          prepared.error.code === "visual_language_ambiguous"
+        ) {
+          return apiError(prepared.error.code, 422, prepared.error);
+        }
         if (prepared.error.code === "offer_expired") return apiError("commercialOfferExpired", 409);
+        if (prepared.error.code === "calibration_managed") return apiError("creativeWorkCalibrationManaged", 403);
         return apiError("creativeWorkNotReady", 409);
       }
       return NextResponse.json(prepared.value);

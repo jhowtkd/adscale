@@ -2,6 +2,10 @@ import {
   creativeWorkRevisionSettlementAdapter,
   InvalidCreativeWorkRevisionError,
 } from "@/server/generation/settlement-adapters";
+import {
+  RECOMPOSE_INSTRUCTION_PREFIX,
+  resolveRevisionCompositionMode,
+} from "@/server/creative-work/art-refinement";
 import { startGenerationSettlement } from "@/server/generation/settlement";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
@@ -33,6 +37,15 @@ export async function reviseCreativeWorkOutput(input: {
   revisionKey: string;
   instruction: string;
   revisionAssetId: string | null;
+  /**
+   * Internal composition mode (plan 04, T2): "edit" conditions on the parent
+   * pixels, "recompose" rebuilds from the original briefing/photos/brand.
+   * Internal only — never bound to a client-controlled field — and never a
+   * preservation escape: adaptation/restyle protocols constrain to edit.
+   */
+  compositionMode?: "edit" | "recompose";
+  /** Resolved protocol mode of the work, for the preservation constraint. */
+  protocolMode?: string | null;
 }): Promise<ReviseCreativeWorkOutputResult> {
   const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!aggregate) return { ok: false, error: { code: "work_not_found" } };
@@ -42,6 +55,11 @@ export async function reviseCreativeWorkOutput(input: {
     return { ok: false, error: { code: "output_not_ready" } };
   }
 
+  const effectiveMode = resolveRevisionCompositionMode(input.compositionMode ?? "edit", input.protocolMode);
+  const instruction = effectiveMode === "recompose"
+    ? `${RECOMPOSE_INSTRUCTION_PREFIX}${input.instruction}`
+    : input.instruction;
+
   try {
     const settled = await startGenerationSettlement(
       creativeWorkRevisionSettlementAdapter({
@@ -50,7 +68,7 @@ export async function reviseCreativeWorkOutput(input: {
         userId: input.userId,
         parentOutputId: parent.id,
         revisionKey: input.revisionKey,
-        instruction: input.instruction,
+        instruction,
         revisionAssetId: input.revisionAssetId,
         objective: aggregate.work.brief?.objective ?? null,
       }),

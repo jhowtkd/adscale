@@ -129,6 +129,12 @@ export function planCreativeWorkReferences(input: {
   identityReferenceAssets: readonly CreativeWorkReferencePlanAsset[];
   /** Parent output / revision asset references, already validated by the caller. */
   revisionReferences?: readonly CreativeWorkReferencePlanAsset[];
+  /**
+   * Named-person slots (plan 03, T2), already built by `personReferenceSlots`.
+   * Mandatory and reserved first — never evicted for style. Verified required
+   * slots; the limit check below counts them.
+   */
+  personSlots?: readonly CreativeWorkReferenceSlot[];
   /** Provider reference cap (today: 4). */
   limit: number;
   /** Only persisted Single Piece work may interpret frozen Piece metadata. */
@@ -221,7 +227,10 @@ export function planCreativeWorkReferences(input: {
     }),
   );
 
-  const required = [...revisionSlots, ...requiredPieceSlots, ...sourceSlots.filter((slot) => slot.required)];
+  // Person presence first, then every other mandatory authority. Person
+  // slots are kept verbatim (no silent drop): the catalog already forbids one
+  // photo for two people, so each slot keeps its person's association.
+  const required = [...(input.personSlots ?? []), ...revisionSlots, ...requiredPieceSlots, ...sourceSlots.filter((slot) => slot.required)];
   const optional = [...visualPieceSlots, ...sourceSlots.filter((slot) => !slot.required), ...identitySlots];
   if (required.length > input.limit) {
     throw new CreativeWorkReferenceError(
@@ -250,6 +259,12 @@ export function planCarouselSlideReferences(input: {
   anchorBoardKey: string | null;
   identityReferenceAssets: readonly CreativeWorkReferencePlanAsset[];
   temporaryReference: CreativeWorkReferencePlanAsset | null;
+  /**
+   * Named-person slots for slides where the person must appear (plan 03,
+   * T2). Required, next to the anchor board; exceeding the cap fails so the
+   * caller asks for fewer people/elements instead of dropping identity.
+   */
+  personSlots?: readonly CreativeWorkReferenceSlot[];
   limit?: number;
 }): CreativeWorkReferenceSlot[] {
   const limit = input.limit ?? 4;
@@ -274,6 +289,7 @@ export function planCarouselSlideReferences(input: {
       : []),
   ];
 
+  const personSlots = [...(input.personSlots ?? [])];
   if (!input.isAnchor) {
     if (!input.anchorBoardKey) {
       throw new CreativeWorkReferenceError(
@@ -287,7 +303,18 @@ export function planCarouselSlideReferences(input: {
       mimeType: "image/png",
       label: "Anchor board",
     };
-    return [boardSlot, ...optionalAuthorities.slice(0, limit - 1)];
+    const required = [boardSlot, ...personSlots];
+    if (required.length > limit) {
+      throw new CreativeWorkReferenceError(
+        `carousel slide mandatory references (${required.length}) exceed the provider reference limit (${limit})`,
+      );
+    }
+    return [...required, ...optionalAuthorities.slice(0, limit - required.length)];
   }
-  return optionalAuthorities.slice(0, limit);
+  if (personSlots.length > limit) {
+    throw new CreativeWorkReferenceError(
+      `carousel anchor mandatory references (${personSlots.length}) exceed the provider reference limit (${limit})`,
+    );
+  }
+  return [...personSlots, ...optionalAuthorities.slice(0, limit - personSlots.length)];
 }

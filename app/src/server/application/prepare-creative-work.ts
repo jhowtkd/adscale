@@ -58,6 +58,7 @@ import {
 } from "@/server/creative-work/briefing-review";
 import { logCreativeWorkBriefingCheck } from "@/server/creative-work/job-telemetry";
 import {
+  artRefinementCreditCeiling,
   creativeWorkPreparationSchema,
   hasCreativeWorkProtocolSourceShape,
   generationPolicyVersionFromSwitch,
@@ -75,6 +76,14 @@ import type { ContentBrief } from "@/server/ai/image-analysis";
 import { isPieceReferenceReady, pieceReferenceTreatment } from "@/server/creative-work/piece-reference";
 import { projectPreparedPlanV1 } from "@/server/creative-work/prepared-plan";
 import { getBrandKit } from "@/server/repositories/brand-kit";
+import { getActiveBrandKnowledgeVersion } from "@/server/repositories/brand-knowledge";
+import { loadCalibrationCandidateForWork } from "@/server/repositories/brand-training-sessions";
+import { peopleCatalogSchema, resolveBriefingPeople } from "@/server/brand-training/people";
+import {
+  composeVisualDirection,
+  resolveWorkVisualLanguage,
+  visualRepertoireSchema,
+} from "@/server/brand-training/visual-repertoire";
 import {
   getCreativeWork,
   getCreativeWorkSourceAssetDetails,
@@ -160,7 +169,22 @@ function freezeImageRenderPolicy(input: {
   );
 }
 
-export async function prepareCreativeWork(input: { workspaceId: string; workItemId: string }) {
+export async function prepareCreativeWork(input: {
+  workspaceId: string;
+  workItemId: string;
+  /**
+   * Explicit user opt-in to automatic art refinement (plan 04, T1): the
+   * accepting user id. Absent/blank preserves legacy generation exactly.
+   */
+  artRefinement?: { acceptedBy: string };
+  /**
+   * Internal calibration context (plan 01, T2), passed only by the
+   * calibration service. Calibration works refuse preparation without the
+   * context bound to their own session/round/slot — this is a scoped
+   * capability, never a public boolean bypass.
+   */
+  calibration?: { sessionId: string; round: number; slot: number };
+}) {
   const startedAt = Date.now();
   const claimed = await withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (executor) => {
     const aggregate = await getCreativeWork(input.workspaceId, input.workItemId, executor);
@@ -209,6 +233,30 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       return { ok: false as const, error: { code: "invalid_preparation" as const } };
     }
     const sourceAssets = await getCreativeWorkSourceAssetDetails(input.workspaceId, readySources, executor);
+    // Calibration-owned works (plan 01, T2): only the calibration service
+    // may prepare them, with the context bound to their persisted link.
+    // Generic routes never pass it, so they are refused here.
+    const managedTrainingLink = aggregate.work.trainingSessionId
+      ? {
+          sessionId: aggregate.work.trainingSessionId,
+          round: aggregate.work.trainingRound,
+          slot: aggregate.work.trainingSlot,
+        }
+      : null;
+    if (
+      managedTrainingLink &&
+      (input.calibration?.sessionId !== managedTrainingLink.sessionId ||
+        input.calibration.round !== managedTrainingLink.round ||
+        input.calibration.slot !== managedTrainingLink.slot)
+    ) {
+      return { ok: false as const, error: { code: "calibration_managed" as const } };
+    }
+    const calibrationCandidate = managedTrainingLink
+      ? await loadCalibrationCandidateForWork(input.workspaceId, input.workItemId)
+      : null;
+    if (managedTrainingLink && !calibrationCandidate) {
+      return { ok: false as const, error: { code: "work_not_found" as const } };
+    }
     const effectiveSources = resolveEffectiveSources(readySources);
     // Temporary Single Piece assets are rendering authorities only.  Even
     // when their persisted usage is "both" (the browser never controls it),
@@ -216,7 +264,20 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
     const factualEffectiveSources = effectiveSources.filter(({ source }) =>
       aggregate.work.toolKind !== "single" || !source.pieceReference,
     );
-    const brandKit = await getBrandKit(input.workspaceId, aggregate.work.clientProfileId, executor);
+    const liveBrandKit = await getBrandKit(input.workspaceId, aggregate.work.clientProfileId, executor);
+    // Calibration examples compose from the FROZEN candidate, not the live
+    // kit: a kit edit after the round was created must not change what the
+    // round tests. Only the fields the candidate freezes are overridden.
+    const brandKit = calibrationCandidate
+      ? {
+          ...liveBrandKit,
+          brandColors: calibrationCandidate.identity.brandKit.colors,
+          brandFonts: calibrationCandidate.identity.brandKit.fonts,
+          toneOfVoice: calibrationCandidate.identity.brandKit.toneOfVoice,
+          requiredElements: calibrationCandidate.identity.brandKit.requiredElements,
+          prohibitedElements: calibrationCandidate.identity.brandKit.prohibitedElements,
+        }
+      : liveBrandKit;
     // R-003 / spec 8.4: the restyle brand conflict is the only new visible
     // decision. A high-confidence explicit brand in the content art that
     // differs from the active brand blocks preparation — before copy,
@@ -248,6 +309,63 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
         }
       }
     }
+    // Named people (plan 03, T2): briefing names resolve against the frozen
+    // published catalog into mandatory presence. Unknown/ambiguous mentions
+    // block preparation BEFORE copy, persistence, billing or any image call,
+    // with a clarification payload carrying catalog options.
+    const activeVersion = !calibrationCandidate && aggregate.work.clientProfileId
+      ? await getActiveBrandKnowledgeVersion(input.workspaceId, aggregate.work.clientProfileId)
+      : null;
+    const catalogValue = (calibrationCandidate
+      ? calibrationCandidate.knowledge.claims
+      : (activeVersion?.snapshot.claims ?? [])
+    ).find((claim) => claim.claimKey === "people.catalog")?.value;
+    const catalog = catalogValue === undefined
+      ? null
+      : peopleCatalogSchema.safeParse(catalogValue).success
+        ? peopleCatalogSchema.parse(catalogValue)
+        : null;
+    const briefingText = [
+      aggregate.work.request,
+      ...(aggregate.work.brief && typeof aggregate.work.brief === "object"
+        ? Object.values(aggregate.work.brief).filter((field): field is string => typeof field === "string")
+        : []),
+    ].join("\n");
+    const briefingPeople = resolveBriefingPeople({
+      catalog,
+      personIds: preparation.data.settings.personIds,
+      text: briefingText,
+      textOnly: preparation.data.settings.personTextOnly,
+    });
+    if (!briefingPeople.ok) {
+      return { ok: false as const, error: briefingPeople.error };
+    }
+    // Trained visual language (plan 02, T3): the briefing resolves against
+    // the FROZEN repertoire — the published version, or the calibration
+    // candidate under test. Unknown explicit ids and ambiguous names block
+    // preparation BEFORE copy, persistence, billing or any image call, with a
+    // clarification payload carrying repertoire options. Unknown names never
+    // block: the piece falls back to the common identity.
+    const repertoireValue = (calibrationCandidate
+      ? calibrationCandidate.knowledge.claims
+      : (activeVersion?.snapshot.claims ?? [])
+    ).find((claim) => claim.claimKey === "visual.repertoire")?.value;
+    const repertoire = repertoireValue === undefined
+      ? null
+      : visualRepertoireSchema.safeParse(repertoireValue).success
+        ? visualRepertoireSchema.parse(repertoireValue)
+        : null;
+    const workLanguage = resolveWorkVisualLanguage({
+      repertoire,
+      explicitId: preparation.data.settings.visualLanguageId,
+      text: briefingText,
+    });
+    if (!workLanguage.ok) {
+      return { ok: false as const, error: workLanguage.error };
+    }
+    const visualDirection = repertoire
+      ? composeVisualDirection({ repertoire, language: workLanguage.language })
+      : null;
     const contentAnalyses = factualEffectiveSources.flatMap(({ source, usage }) =>
       usage !== "style" && source.contentAnalysis ? [source.contentAnalysis] : []
     );
@@ -307,6 +425,18 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
       generationPolicyVersion: generationPolicyVersionFromSwitch(env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED),
       renderPolicy,
       factPack,
+      ...(briefingPeople.people.length > 0
+        ? {
+            people: briefingPeople.people.map((person) => ({
+              personId: person.id,
+              name: person.name,
+              referenceIds: [...person.referenceIds],
+              primaryReferenceId: person.primaryReferenceId,
+              preserve: [...person.preserve],
+            })),
+          }
+        : {}),
+      ...(visualDirection ? { visualDirection } : {}),
       ...(typographyPlan ? { typographyPlan } : {}),
       request: aggregate.work.request,
       settings: preparation.data.settings,
@@ -332,6 +462,26 @@ export async function prepareCreativeWork(input: { workspaceId: string; workItem
           : undefined,
       })),
     };
+    // Plan 04, T1: freeze the accepted refinement budget into the snapshot.
+    // The ceiling covers n initial outputs (root + two revisions each); the
+    // reserve happens only when a unit executes, never upfront. No opt-in, no
+    // budget — and calibration works never carry one.
+    const refinementAcceptedBy = input.artRefinement?.acceptedBy.trim() || null;
+    if (refinementAcceptedBy && !aggregate.work.trainingSessionId && preparation.data.intent !== "carousel") {
+      const refinementQuote = quoteCreativeWork({
+        intent: preparation.data.intent,
+        format: effectiveFormat,
+        targetFormats: preparation.data.settings.targetFormats,
+        directionPool: preparation.data.settings.directionPool,
+      });
+      snapshotBase.artRefinement = {
+        version: 1,
+        maxRevisionsPerRoot: 2,
+        acceptedCreditCeiling: artRefinementCreditCeiling(refinementQuote.unitCount),
+        acceptedBy: refinementAcceptedBy,
+        acceptedAt: new Date().toISOString(),
+      };
+    }
     const persistedBriefing = resolveCreativeWorkInferredBriefing(aggregate.work.inputSnapshot);
     const persistedBrief = socialPostBriefSchema.safeParse(aggregate.work.brief);
     const persistedCopy = socialPostCopySchema.safeParse(aggregate.work.copy);

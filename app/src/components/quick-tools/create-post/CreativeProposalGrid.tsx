@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Expand } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { CreativeResultCard } from "@/components/creative-work/CreativeResultCard";
+import { CreativeResultCard, type CreativeResultCardArtRefinement } from "@/components/creative-work/CreativeResultCard";
 import { LayerEditorDialog } from "@/components/creative-work/layer-editor/LayerEditorDialog";
 import { TetrisLoader } from "@/components/ui/loader-tetris";
 import {
@@ -41,6 +41,8 @@ type CreativeProposalGridProps = {
   layerEditorAccess?: LayerEditorAccessV1;
   onLayerEditorPublished?: () => void | Promise<void>;
   layout?: "studio" | "piece";
+  /** Work-level automatic-refinement summary (plan 04, T3); absent on legacy works. */
+  artRefinement?: CreativeResultCardArtRefinement;
 };
 
 const LEVEL_ORDER: CreativeWorkOutput["creativeLevel"][] = ["conservative", "balanced", "bold"];
@@ -97,6 +99,7 @@ export default function CreativeProposalGrid({
   layerEditorAccess,
   onLayerEditorPublished,
   layout = "studio",
+  artRefinement,
 }: CreativeProposalGridProps) {
   const t = useTranslations("dashboard.home.composer");
   const levelLabels: Record<CreativeWorkOutput["creativeLevel"], string> = {
@@ -255,6 +258,7 @@ export default function CreativeProposalGrid({
           <CreativeResultCard
             output={selected}
             label={label}
+            artRefinement={artRefinement}
             onRetry={onRetry}
             onRetryRevision={onRetryRevision}
             onApprove={approve}

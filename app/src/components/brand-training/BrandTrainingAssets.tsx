@@ -26,7 +26,7 @@ import {
   type RejectionReason,
 } from "./BrandTrainingAssetReview";
 
-type Category = "logo" | "graphic" | "character" | "visual_reference";
+type Category = "logo" | "graphic" | "character" | "person" | "visual_reference";
 type UsageMode = "exact" | "reference" | "rule";
 type ReferenceFilter = "all" | "review" | "approved" | "archive";
 

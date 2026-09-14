@@ -31,6 +31,8 @@ vi.mock("@/server/repositories/creative-work-preparation", () => ({
   renewPreparationAttempt: vi.fn(async () => true),
 }));
 vi.mock("@/server/repositories/brand-kit", () => ({ getBrandKit: vi.fn() }));
+vi.mock("@/server/repositories/brand-knowledge", () => ({ getActiveBrandKnowledgeVersion: vi.fn() }));
+vi.mock("@/server/repositories/brand-training-sessions", () => ({ loadCalibrationCandidateForWork: vi.fn() }));
 vi.mock("@/server/creative-work/copy", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/creative-work/copy")>()),
   generateSocialPostCopy: vi.fn(),
@@ -66,6 +68,8 @@ import {
   withCreativeWorkPreparationLock,
 } from "@/server/repositories/creative-work";
 import { getBrandKit } from "@/server/repositories/brand-kit";
+import { getActiveBrandKnowledgeVersion } from "@/server/repositories/brand-knowledge";
+import { loadCalibrationCandidateForWork } from "@/server/repositories/brand-training-sessions";
 import {
   claimPreparationAttempt,
   finalizePreparationAttempt,
@@ -84,6 +88,8 @@ const updateDraft = vi.mocked(updateCreativeWorkDraftIfUnchanged);
 const getSourceAssets = vi.mocked(getCreativeWorkSourceAssetDetails);
 const withLock = vi.mocked(withCreativeWorkPreparationLock);
 const getKit = vi.mocked(getBrandKit);
+const getActiveVersion = vi.mocked(getActiveBrandKnowledgeVersion);
+const loadCandidate = vi.mocked(loadCalibrationCandidateForWork);
 const generateCopy = vi.mocked(generateSocialPostCopy);
 const now = new Date("2026-07-16T12:00:00.000Z");
 const work = {
@@ -123,6 +129,219 @@ describe("prepareCreativeWork", () => {
       toolKind: patch.inputSnapshot?.inferredBriefing ? "single" : work.toolKind,
     } as never));
     getSourceAssets.mockResolvedValue(new Map());
+    getActiveVersion.mockResolvedValue(null);
+    loadCandidate.mockResolvedValue(null);
+  });
+
+  it("freezes briefing people from the published catalog into the snapshot", async () => {
+    getActiveVersion.mockResolvedValue({
+      snapshot: {
+        claims: [{
+          claimKey: "people.catalog",
+          value: {
+            version: 1,
+            people: [{
+              id: "11111111-1111-4111-8111-111111111111",
+              name: "Ana",
+              aliases: [],
+              referenceIds: ["22222222-2222-4222-8222-222222222222"],
+              primaryReferenceId: "22222222-2222-4222-8222-222222222222",
+              preserve: ["formato do rosto"],
+              referenceAdequacy: "confirmed",
+            }],
+          },
+        }],
+      },
+    } as never);
+    getWork.mockResolvedValue({
+      work: {
+        ...work,
+        toolKind: "variations",
+        request: "Arte com a Ana apresentando a oferta",
+        settings: { targetFormats: [] },
+      },
+      outputs: [],
+      sources: [readyVariationSource],
+    } as never);
+    const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(result.ok).toBe(true);
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+      inputSnapshot: expect.objectContaining({
+        people: [{
+          personId: "11111111-1111-4111-8111-111111111111",
+          name: "Ana",
+          referenceIds: ["22222222-2222-4222-8222-222222222222"],
+          primaryReferenceId: "22222222-2222-4222-8222-222222222222",
+          preserve: ["formato do rosto"],
+        }],
+      }),
+    }));
+  });
+
+  it("blocks unknown person IDs before copy with catalog options", async () => {
+    getActiveVersion.mockResolvedValue({
+      snapshot: {
+        claims: [{
+          claimKey: "people.catalog",
+          value: {
+            version: 1,
+            people: [{
+              id: "11111111-1111-4111-8111-111111111111",
+              name: "Ana",
+              aliases: [],
+              referenceIds: ["22222222-2222-4222-8222-222222222222"],
+              primaryReferenceId: "22222222-2222-4222-8222-222222222222",
+              preserve: [],
+              referenceAdequacy: "confirmed",
+            }],
+          },
+        }],
+      },
+    } as never);
+    getWork.mockResolvedValue({
+      work: {
+        ...work,
+        toolKind: "variations",
+        settings: { targetFormats: [], personIds: ["99999999-9999-4999-8999-999999999999"] },
+      },
+      outputs: [],
+      sources: [readyVariationSource],
+    } as never);
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).resolves.toEqual({
+      ok: false,
+      error: {
+        code: "person_unknown",
+        personId: "99999999-9999-4999-8999-999999999999",
+        options: [{ id: "11111111-1111-4111-8111-111111111111", name: "Ana" }],
+      },
+    });
+    expect(generateCopy).not.toHaveBeenCalled();
+  });
+
+  it("freezes the trained visual direction from the published repertoire", async () => {
+    getActiveVersion.mockResolvedValue({
+      snapshot: {
+        claims: [{
+          claimKey: "visual.repertoire",
+          value: {
+            version: 1,
+            common: [{
+              id: "11111111-1111-4111-8111-111111111111",
+              dimension: "hierarchy",
+              observation: "Título domina a leitura",
+              application: "Dar ao título escala superior ao texto de apoio",
+              avoid: "Competição de dois focos",
+              evidenceIds: ["ref-1"],
+              confidence: "high",
+            }],
+            languages: [{
+              id: "22222222-2222-4222-8222-222222222222",
+              name: "Comercial",
+              contexts: ["oferta"],
+              rules: [],
+            }],
+          },
+        }],
+      },
+    } as never);
+    getWork.mockResolvedValue({
+      work: {
+        ...work,
+        toolKind: "variations",
+        request: "Arte Comercial para a oferta de julho",
+        settings: { targetFormats: [] },
+      },
+      outputs: [],
+      sources: [readyVariationSource],
+    } as never);
+    const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(result.ok).toBe(true);
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+      inputSnapshot: expect.objectContaining({
+        visualDirection: expect.objectContaining({
+          languageId: "22222222-2222-4222-8222-222222222222",
+          ruleIds: ["11111111-1111-4111-8111-111111111111"],
+          dominantIdea: "Dar ao título escala superior ao texto de apoio",
+          preserve: ["Competição de dois focos"],
+        }),
+      }),
+    }));
+  });
+
+  it("blocks unknown and ambiguous visual languages before copy", async () => {
+    getActiveVersion.mockResolvedValue({
+      snapshot: {
+        claims: [{
+          claimKey: "visual.repertoire",
+          value: {
+            version: 1,
+            common: [],
+            languages: [
+              { id: "22222222-2222-4222-8222-222222222222", name: "Comercial", contexts: ["oferta"], rules: [] },
+              { id: "33333333-3333-4333-8333-333333333333", name: "Comercial", contexts: ["varejo"], rules: [] },
+            ],
+          },
+        }],
+      },
+    } as never);
+    getWork.mockResolvedValue({
+      work: {
+        ...work,
+        toolKind: "variations",
+        settings: { targetFormats: [], visualLanguageId: "99999999-9999-4999-8999-999999999999" },
+      },
+      outputs: [],
+      sources: [readyVariationSource],
+    } as never);
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).resolves.toEqual({
+      ok: false,
+      error: {
+        code: "visual_language_unknown",
+        visualLanguageId: "99999999-9999-4999-8999-999999999999",
+        options: [
+          { id: "22222222-2222-4222-8222-222222222222", name: "Comercial" },
+          { id: "33333333-3333-4333-8333-333333333333", name: "Comercial" },
+        ],
+      },
+    });
+    expect(generateCopy).not.toHaveBeenCalled();
+
+    getWork.mockResolvedValue({
+      work: {
+        ...work,
+        toolKind: "variations",
+        request: "Peça comercial de julho",
+        settings: { targetFormats: [] },
+      },
+      outputs: [],
+      sources: [readyVariationSource],
+    } as never);
+    await expect(prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" })).resolves.toEqual({
+      ok: false,
+      error: {
+        code: "visual_language_ambiguous",
+        name: "Comercial",
+        options: [
+          { id: "22222222-2222-4222-8222-222222222222", name: "Comercial" },
+          { id: "33333333-3333-4333-8333-333333333333", name: "Comercial" },
+        ],
+      },
+    });
+    expect(generateCopy).not.toHaveBeenCalled();
+  });
+
+  it("keeps legacy snapshots readable without a visual direction", async () => {
+    getActiveVersion.mockResolvedValue({ snapshot: { claims: [] } } as never);
+    getWork.mockResolvedValue({
+      work: { ...work, toolKind: "variations", settings: { targetFormats: [] } },
+      outputs: [],
+      sources: [readyVariationSource],
+    } as never);
+    const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(result.ok).toBe(true);
+    expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+      inputSnapshot: expect.not.objectContaining({ visualDirection: expect.anything() }),
+    }));
   });
 
   it("blocks an automatic low-confidence piece reference before copy", async () => {
@@ -473,6 +692,54 @@ describe("prepareCreativeWork", () => {
     if (result.ok) expect(result.value).not.toHaveProperty("briefing");
     const patch = updateDraft.mock.calls[0]?.[3] as { inputSnapshot: Record<string, unknown> };
     expect(patch.inputSnapshot).not.toHaveProperty("inferredBriefing");
+  });
+
+  it("freezes the refinement budget only on explicit opt-in, never for calibration (plan 04, T1)", async () => {
+    getWork.mockResolvedValue({ work, outputs: [], sources: [readyVariationSource] } as never);
+
+    const accepted = await prepareCreativeWork({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      artRefinement: { acceptedBy: "user-1" },
+    });
+    expect(accepted.ok).toBe(true);
+    const patch = updateDraft.mock.calls[0]?.[3] as { inputSnapshot: Record<string, unknown> };
+    expect(patch.inputSnapshot).toHaveProperty("artRefinement", expect.objectContaining({
+      version: 1,
+      maxRevisionsPerRoot: 2,
+      acceptedBy: "user-1",
+    }));
+    expect((patch.inputSnapshot.artRefinement as { acceptedCreditCeiling: number }).acceptedCreditCeiling)
+      .toBeGreaterThan(0);
+
+    updateDraft.mockClear();
+    getWork.mockResolvedValue({
+      work: { ...work, trainingSessionId: "session-1", trainingRound: 1, trainingSlot: 0 },
+      outputs: [],
+      sources: [readyVariationSource],
+    } as never);
+    // Plan 01, T2: calibration works prepare only through the authorized
+    // internal context; the budget assertion below runs on that path.
+    loadCandidate.mockResolvedValue({
+      hash: "c".repeat(64),
+      knowledge: { schemaVersion: 1, profileId: "profile-1", compiledAt: now.toISOString(), claims: [], excluded: [] },
+      identity: {
+        clientProfileId: "profile-1",
+        confirmedAt: now.toISOString(),
+        assets: [],
+        brandKit: { colors: [], fonts: [], toneOfVoice: null, prohibitedElements: null, requiredElements: null },
+      },
+      evidenceHashes: {},
+    } as never);
+    const calibration = await prepareCreativeWork({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      artRefinement: { acceptedBy: "user-1" },
+      calibration: { sessionId: "session-1", round: 1, slot: 0 },
+    });
+    expect(calibration.ok).toBe(true);
+    const calibrationPatch = updateDraft.mock.calls[0]?.[3] as { inputSnapshot: Record<string, unknown> } | undefined;
+    if (calibrationPatch) expect(calibrationPatch.inputSnapshot).not.toHaveProperty("artRefinement");
   });
 
   it("descarta ANTES de pagar a chamada de copy quando a tentativa e perdida", async () => {
@@ -1136,6 +1403,115 @@ describe("prepareCreativeWork", () => {
       expect(result.ok).toBe(true);
       expect(result).not.toMatchObject({ error: { code: "brand_conflict" } });
       expect(generateCopy).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("calibration-owned works (plan 01, T2)", () => {
+    const calibrationWork = {
+      ...work,
+      toolKind: "single",
+      request: "[Texto de teste de calibração] Peça com a Bia apresentando a marca.",
+      trainingSessionId: "session-1",
+      trainingRound: 1,
+      trainingSlot: 0,
+    };
+    const candidateB = {
+      hash: "b".repeat(64),
+      knowledge: {
+        schemaVersion: 1,
+        profileId: "profile-1",
+        compiledAt: "2026-09-13T12:00:00.000Z",
+        claims: [
+          {
+            id: "claim-b",
+            claimKey: "people.catalog",
+            kind: "fact",
+            value: {
+              version: 1,
+              people: [{
+                id: "33333333-3333-4333-8333-333333333333",
+                name: "Bia",
+                aliases: [],
+                referenceIds: ["44444444-4444-4344-8344-444444444444"],
+                primaryReferenceId: "44444444-4444-4344-8344-444444444444",
+                preserve: ["sinal na bochecha"],
+                referenceAdequacy: "confirmed",
+              }],
+            },
+            scope: { level: "global" },
+            authority: "human",
+            confidence: "high",
+            evidenceRefs: [],
+            reviewedAt: "2026-09-13T12:00:00.000Z",
+            reviewedByUserId: "user-1",
+          },
+        ],
+        excluded: [],
+      },
+      identity: {
+        clientProfileId: "profile-1",
+        confirmedAt: "2026-09-13T12:00:00.000Z",
+        assets: [],
+        brandKit: {
+          colors: ["#BEEF00"],
+          fonts: ["Frozen Sans"],
+          toneOfVoice: "Tom congelado B",
+          prohibitedElements: "frozen-no",
+          requiredElements: "frozen-yes",
+        },
+      },
+      evidenceHashes: {},
+    };
+
+    it("refuses generic preparation without the bound internal context", async () => {
+      getWork.mockResolvedValue({ work: calibrationWork, outputs: [], sources: [] } as never);
+      await expect(
+        prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" }),
+      ).resolves.toMatchObject({ ok: false, error: { code: "calibration_managed" } });
+      await expect(
+        prepareCreativeWork({
+          workspaceId: "ws-1",
+          workItemId: "work-1",
+          calibration: { sessionId: "session-1", round: 1, slot: 1 },
+        }),
+      ).resolves.toMatchObject({ ok: false, error: { code: "calibration_managed" } });
+      expect(updateDraft).not.toHaveBeenCalled();
+    });
+
+    it("composes calibration examples from the frozen candidate, not the live kit", async () => {
+      getWork.mockResolvedValue({ work: calibrationWork, outputs: [], sources: [] } as never);
+      loadCandidate.mockResolvedValue(candidateB as never);
+      // Live kit/version changed after the round was created (identity A).
+      getKit.mockResolvedValue({ name: "Cenbrap", toneOfVoice: "Tom ao vivo A", requiredElements: "live-yes", prohibitedElements: "live-no" } as never);
+      getActiveVersion.mockResolvedValue({ snapshot: { claims: [] } } as never);
+
+      const result = await prepareCreativeWork({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        calibration: { sessionId: "session-1", round: 1, slot: 0 },
+      });
+
+      expect(result.ok).toBe(true);
+      expect(loadCandidate).toHaveBeenCalledWith("ws-1", "work-1");
+      expect(getActiveVersion).not.toHaveBeenCalled();
+      expect(generateCopy).toHaveBeenCalledWith(expect.objectContaining({
+        toneOfVoice: "Tom congelado B",
+        requiredElements: "frozen-yes",
+        prohibitedElements: "frozen-no",
+      }));
+      expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+        inputSnapshot: expect.objectContaining({
+          people: [expect.objectContaining({ personId: "33333333-3333-4333-8333-333333333333", name: "Bia" })],
+        }),
+      }));
+    });
+
+    it("keeps regular works on the live kit without loading a candidate", async () => {
+      getWork.mockResolvedValue({ work: { ...work, toolKind: "variations" }, outputs: [], sources: [readyVariationSource] } as never);
+      const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+      expect(result.ok).toBe(true);
+      expect(loadCandidate).not.toHaveBeenCalled();
+      expect(generateCopy).toHaveBeenCalledWith(expect.objectContaining({ toneOfVoice: "Direto" }));
     });
   });
 });

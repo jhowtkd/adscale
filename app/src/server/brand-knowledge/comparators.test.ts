@@ -28,6 +28,25 @@ describe("brand knowledge typed comparators", () => {
     expect(compareBrandKnowledgeValues("logo.placement", "inferior direito", "canto direito inferior")).toBe("human_needed");
   });
 
+  it("treats differing visual repertoires as conflicts, not silent coexistence", () => {
+    const first = { version: 1, common: [], languages: [] };
+    const second = {
+      version: 1,
+      common: [{
+        id: "11111111-1111-4111-8111-111111111111",
+        dimension: "hierarchy",
+        observation: "Título domina",
+        application: "Dar escala ao título",
+        avoid: "",
+        evidenceIds: ["a"],
+        confidence: "low",
+      }],
+      languages: [],
+    };
+    expect(compareBrandKnowledgeValues("visual.repertoire", first, first)).toBe("compatible");
+    expect(compareBrandKnowledgeValues("visual.repertoire", first, second)).toBe("conflict");
+  });
+
   it("returns real conflicts with values, authority, confidence and evidence", () => {
     const claims = [
       claim("claim-1", ["#D71F2B"], "explicit", "high"),

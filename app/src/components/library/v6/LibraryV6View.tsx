@@ -39,6 +39,7 @@ type LibraryV6ViewProps = {
   onUploadClick?: () => void;
   onDeleteAsset?: (id: string, name: string) => void;
   onReplaceAsset?: () => void;
+  renderAssetActions?: (asset: LibraryV6Asset) => ReactNode;
   emptyState?: ReactNode;
   useImagePreview?: boolean;
   onLoadMore?: () => void;
@@ -95,6 +96,7 @@ export default function LibraryV6View({
   onUploadClick,
   onDeleteAsset,
   onReplaceAsset,
+  renderAssetActions,
   emptyState,
   useImagePreview = true,
   onLoadMore,
@@ -205,6 +207,7 @@ export default function LibraryV6View({
                   onDelete={onDeleteAsset}
                   onReplace={onReplaceAsset}
                 />
+                {interactive ? renderAssetActions?.(asset) : null}
               </li>
             ))}
           </ul>

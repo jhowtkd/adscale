@@ -128,7 +128,7 @@ export default async function SharePage({ params }: SharePageProps) {
       );
     }
 
-    const canApprove = getCreativeWorkSelectionPolicy(output.quality).selectable;
+    const canApprove = getCreativeWorkSelectionPolicy(output.quality, output.id).selectable;
     return (
       <ShareShell>
         <header className="space-y-2">

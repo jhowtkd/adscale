@@ -6,7 +6,9 @@ import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-c
 import {
   getCreativeWork,
   markCreativeWorkSelectionEffectDone,
+  reviewCreativeWorkOutputPersonFidelity,
   selectCreativeWorkOutput,
+  type ReviewPersonFidelityError,
 } from "@/server/repositories/creative-work";
 import type { CreativeWorkOutput, VisualRecipe } from "@/server/db/schema";
 import { getCreativeWorkSelectionPolicy, type CreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
@@ -28,6 +30,7 @@ export type SelectCreativeWorkOutputInput = {
 
 export type SelectCreativeWorkOutputError =
   | { code: "work_not_found" }
+  | { code: "calibration_managed" }
   | { code: "work_not_prepared" }
   | { code: "output_not_found" }
   | { code: "output_not_selectable"; status: string }
@@ -88,6 +91,11 @@ export async function selectCreativeWorkOutputCommand(
   if (!existing) {
     return { ok: false, error: { code: "work_not_found" } };
   }
+  // Calibration examples are judged only through their session review —
+  // generic selection would leak unvalidated outputs into the library.
+  if (existing.work.trainingSessionId) {
+    return { ok: false, error: { code: "calibration_managed" } };
+  }
   if (!existing.work.brief) {
     return { ok: false, error: { code: "work_not_prepared" } };
   }
@@ -108,7 +116,7 @@ export async function selectCreativeWorkOutputCommand(
     return { ok: false, error: { code: "output_missing_key" } };
   }
 
-  const policy = getCreativeWorkSelectionPolicy(output.quality);
+  const policy = getCreativeWorkSelectionPolicy(output.quality, output.id);
   if (!policy.selectable) {
     return { ok: false, error: { code: "objective_selection_blocked", policy } };
   }
@@ -170,7 +178,7 @@ export async function selectCreativeWorkOutputCommand(
     if (!currentOutput.outputKey) {
       return { ok: false, error: { code: "output_missing_key" } };
     }
-    const currentPolicy = getCreativeWorkSelectionPolicy(currentOutput.quality);
+    const currentPolicy = getCreativeWorkSelectionPolicy(currentOutput.quality, currentOutput.id);
     if (!currentPolicy.selectable) {
       return { ok: false, error: { code: "objective_selection_blocked", policy: currentPolicy } };
     }
@@ -243,4 +251,52 @@ export async function selectCreativeWorkOutputCommand(
     ok: true,
     value: { output: selected, recipe, effects: { library, valueEvent, recipe: recipeEffect } },
   };
+}
+
+export type ReviewCreativeWorkPersonFidelityInput = {
+  workspaceId: string;
+  workItemId: string;
+  outputId: string;
+  userId: string;
+  referenceHash: string;
+  accepted: boolean;
+};
+
+export type ReviewCreativeWorkPersonFidelityError =
+  | { code: "work_not_found" }
+  | ReviewPersonFidelityError;
+
+export type ReviewCreativeWorkPersonFidelityResult =
+  | { ok: true; value: { output: CreativeWorkOutput } }
+  | { ok: false; error: ReviewCreativeWorkPersonFidelityError };
+
+/**
+ * Record the specific human review of a person-fidelity assessment
+ * (plan 03, T3). Authenticated command: verifies workspace/work/output and
+ * the reference hash, then persists the bound review. An accepted review
+ * resolves inconclusive doubt only — a confirmed mismatch stays blocked and
+ * needs a new image. This command registers the review WITHOUT executing
+ * selection or its library/revenue effects.
+ */
+export async function reviewCreativeWorkPersonFidelity(
+  input: ReviewCreativeWorkPersonFidelityInput,
+): Promise<ReviewCreativeWorkPersonFidelityResult> {
+  const existing = await getCreativeWork(input.workspaceId, input.workItemId);
+  if (!existing) {
+    return { ok: false, error: { code: "work_not_found" } };
+  }
+  const output = existing.outputs.find((candidate) => candidate.id === input.outputId);
+  if (!output) {
+    return { ok: false, error: { code: "output_not_found" } };
+  }
+  const reviewed = await reviewCreativeWorkOutputPersonFidelity({
+    workspaceId: input.workspaceId,
+    workItemId: input.workItemId,
+    outputId: input.outputId,
+    actorId: input.userId,
+    referenceHash: input.referenceHash,
+    accepted: input.accepted,
+  });
+  if (!reviewed.ok) return reviewed;
+  return { ok: true, value: { output: reviewed.output } };
 }

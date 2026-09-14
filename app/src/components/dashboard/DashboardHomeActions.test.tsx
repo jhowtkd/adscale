@@ -745,7 +745,7 @@ describe("DashboardHomeActions", () => {
     expect(screen.queryByRole("button", { name: /restyle/i })).not.toBeInTheDocument();
   });
 
-  it("abre Produção somente quando a geração é aceita", () => {
+  it("abre Produção somente quando a geração é aceita", async () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     const originalScroll = HTMLElement.prototype.scrollIntoView;
     const scrollIntoView = vi.fn();
@@ -756,13 +756,14 @@ describe("DashboardHomeActions", () => {
       const options = useComposerMock.mock.calls.at(-1)?.[0] as { onGenerationAccepted?: () => void };
       act(() => options.onGenerationAccepted?.());
       expect(screen.getByRole("radio", { name: "Produção" })).toHaveAttribute("aria-checked", "true");
-      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(1));
+      expect(scrollIntoView.mock.instances[0]).toBe(screen.getByTestId("studio-results-surface"));
     } finally {
       HTMLElement.prototype.scrollIntoView = originalScroll;
     }
   });
 
-  it("não rola a mesa enquanto o pedido está sendo editado", () => {
+  it("não rola a mesa enquanto o pedido está sendo editado", async () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     const originalScroll = HTMLElement.prototype.scrollIntoView;
     const scrollIntoView = vi.fn();
@@ -775,6 +776,7 @@ describe("DashboardHomeActions", () => {
       const options = useComposerMock.mock.calls.at(-1)?.[0] as { onGenerationAccepted?: () => void };
       act(() => options.onGenerationAccepted?.());
       expect(screen.getByRole("radio", { name: "Produção" })).toHaveAttribute("aria-checked", "true");
+      await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
       expect(scrollIntoView).not.toHaveBeenCalled();
     } finally {
       HTMLElement.prototype.scrollIntoView = originalScroll;

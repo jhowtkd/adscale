@@ -474,6 +474,33 @@ export const brandKnowledgeVersions = adscaleSchema.table(
   ],
 );
 
+export const brandTrainingSessions = adscaleSchema.table(
+  "brand_training_sessions",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
+    createdByUserId: text("created_by_user_id").notNull().references(() => user.id, { onDelete: "restrict" }),
+    baseVersionId: uuid("base_version_id").references(() => brandKnowledgeVersions.id, { onDelete: "set null" }),
+    revision: integer("revision").notNull().default(0),
+    status: text("status").notNull().default("review").$type<import("../brand-training/calibration").TrainingSessionStatus>(),
+    candidate: jsonb("candidate").notNull().$type<import("../brand-training/calibration").Candidate>(),
+    rounds: jsonb("rounds").notNull().default([]).$type<import("../brand-training/calibration").CalibrationRound[]>(),
+    extensionCount: integer("extension_count").notNull().default(0),
+    activatedVersionId: uuid("activated_version_id").references(() => brandKnowledgeVersions.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("brand_training_sessions_scope_idx").on(table.workspaceId, table.clientProfileId),
+    uniqueIndex("brand_training_sessions_open_uq").on(table.workspaceId, table.clientProfileId).where(sql`${table.status} not in ('archived','activated')`),
+    check("brand_training_sessions_status_check", sql`${table.status} in ('review','calibrating','pending','activated','archived')`),
+  ],
+);
+
+export type TrainingSession = typeof brandTrainingSessions.$inferSelect;
+export type NewTrainingSession = typeof brandTrainingSessions.$inferInsert;
+
 export const campaigns = adscaleSchema.table(
   "campaigns",
   {
@@ -2629,9 +2656,19 @@ export const creativeWorkItems = adscaleSchema.table(
     identitySnapshot: jsonb("identity_snapshot").$type<
       import("../creative-work/contracts").CreativeWorkIdentitySnapshot
     >(),
+    trainingSessionId: uuid("training_session_id").references(() => brandTrainingSessions.id, { onDelete: "set null" }),
+    trainingRound: integer("training_round"),
+    trainingSlot: integer("training_slot"),
     carouselApprovedRevision: text("carousel_approved_revision"),
     carouselQuality: jsonb("carousel_quality").$type<
       import("../creative-work/carousel-contracts").CarouselDeckQualityV1 | null
+    >(),
+    /**
+     * Automatic art-refinement summary (plan 04, T2): recommended output ids,
+     * terminal status and open issues. Null on works without refinement.
+     */
+    artRefinementState: jsonb("art_refinement_state").$type<
+      import("../creative-work/art-refinement").ArtRefinementState | null
     >(),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
@@ -2657,6 +2694,21 @@ export const creativeWorkItems = adscaleSchema.table(
     check(
       "creative_work_items_format_check",
       sql`${table.format} in ('1:1','4:5','9:16')`
+    ),
+    uniqueIndex("creative_work_items_training_slot_uq")
+      .on(table.trainingSessionId, table.trainingRound, table.trainingSlot)
+      .where(sql`${table.trainingSessionId} is not null`),
+    check(
+      "creative_work_items_training_link_check",
+      sql`(${table.trainingSessionId} is null and ${table.trainingRound} is null and ${table.trainingSlot} is null) or (${table.trainingSessionId} is not null and ${table.trainingRound} is not null and ${table.trainingSlot} is not null)`
+    ),
+    check(
+      "creative_work_items_training_round_check",
+      sql`${table.trainingRound} is null or ${table.trainingRound} > 0`
+    ),
+    check(
+      "creative_work_items_training_slot_range_check",
+      sql`${table.trainingSlot} is null or (${table.trainingSlot} >= 0 and ${table.trainingSlot} <= 3)`
     ),
   ]
 );
@@ -2949,6 +3001,97 @@ export const creativeWorkCarouselSlides = adscaleSchema.table(
 
 export type CreativeWorkCarouselSlide = typeof creativeWorkCarouselSlides.$inferSelect;
 export type NewCreativeWorkCarouselSlide = typeof creativeWorkCarouselSlides.$inferInsert;
+
+/**
+ * Automatic art-refinement attempt claims (plan 04, T2/T4). One row per
+ * root + attempt (1..2): the unique indexes — not application code — are
+ * the authority that a root is never revised a third time. Output roots
+ * use rootOutputId/parentOutputId; carousel slide roots use
+ * rootSlideId/parentSlideId (exactly one root kind per row).
+ */
+export const creativeWorkRefinementAttempts = adscaleSchema.table(
+  "creative_work_refinement_attempts",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    workItemId: uuid("work_item_id")
+      .notNull()
+      .references(() => creativeWorkItems.id, { onDelete: "cascade" }),
+    rootOutputId: uuid("root_output_id"),
+    parentOutputId: uuid("parent_output_id"),
+    rootSlideId: uuid("root_slide_id"),
+    parentSlideId: uuid("parent_slide_id"),
+    attempt: integer("attempt").notNull(),
+    revisionKey: text("revision_key").notNull(),
+    status: text("status")
+      .notNull()
+      .default("claimed")
+      .$type<"claimed" | "dispatched" | "completed" | "failed">(),
+    unitCredits: integer("unit_credits").notNull().default(0),
+    outputId: uuid("output_id").references(() => creativeWorkOutputs.id, { onDelete: "set null" }),
+    slideId: uuid("slide_id").references(() => creativeWorkCarouselSlides.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("creative_work_refinement_attempts_key_uq").on(table.revisionKey),
+    uniqueIndex("creative_work_refinement_attempts_output_uq")
+      .on(table.workItemId, table.rootOutputId, table.attempt)
+      .where(sql`${table.rootOutputId} is not null`),
+    uniqueIndex("creative_work_refinement_attempts_slide_uq")
+      .on(table.workItemId, table.rootSlideId, table.attempt)
+      .where(sql`${table.rootSlideId} is not null`),
+    index("creative_work_refinement_attempts_scope_idx").on(
+      table.workspaceId,
+      table.workItemId,
+    ),
+    check(
+      "creative_work_refinement_attempts_attempt_check",
+      sql`${table.attempt} in (1,2)`,
+    ),
+    check(
+      "creative_work_refinement_attempts_status_check",
+      sql`${table.status} in ('claimed','dispatched','completed','failed')`,
+    ),
+    check(
+      "creative_work_refinement_attempts_credits_check",
+      sql`${table.unitCredits} >= 0`,
+    ),
+    check(
+      "creative_work_refinement_attempts_root_check",
+      sql`(${table.rootOutputId} is null) != (${table.rootSlideId} is null)`,
+    ),
+    check(
+      "creative_work_refinement_attempts_parent_check",
+      sql`(${table.rootOutputId} is null) = (${table.parentOutputId} is null) and (${table.rootSlideId} is null) = (${table.parentSlideId} is null)`,
+    ),
+    foreignKey({
+      columns: [table.rootOutputId],
+      foreignColumns: [creativeWorkOutputs.id],
+      name: "creative_work_refinement_attempts_root_output_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.parentOutputId],
+      foreignColumns: [creativeWorkOutputs.id],
+      name: "creative_work_refinement_attempts_parent_output_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.rootSlideId],
+      foreignColumns: [creativeWorkCarouselSlides.id],
+      name: "creative_work_refinement_attempts_root_slide_fk",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.parentSlideId],
+      foreignColumns: [creativeWorkCarouselSlides.id],
+      name: "creative_work_refinement_attempts_parent_slide_fk",
+    }).onDelete("set null"),
+  ]
+);
+
+export type CreativeWorkRefinementAttempt = typeof creativeWorkRefinementAttempts.$inferSelect;
+export type NewCreativeWorkRefinementAttempt = typeof creativeWorkRefinementAttempts.$inferInsert;
 
 /**
  * Tentativa vigente de preparacao.

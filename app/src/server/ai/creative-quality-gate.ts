@@ -2,7 +2,17 @@
  * Hard quality gate: classifies QA checklist + score issues into blocking hard failures
  * vs advisory polish, and derives qualityVerdict. Orchestration runs after derivation scoring.
  */
+import { createHash } from "node:crypto";
 import { logger } from "@/lib/logger";
+import { canonicalJsonStringify } from "@/server/creative-work/canonical-json";
+import {
+  personFidelityBlockSchema,
+  type PersonFidelityBlock,
+} from "@/server/creative-work/person-fidelity";
+import {
+  artCritiqueSchema,
+  type ArtCritique,
+} from "@/server/creative-work/art-refinement";
 import type { CreativeContract, ObjectiveIntegrityFailureCode } from "./creative-contract";
 import { OBJECTIVE_INTEGRITY_FAILURE_CODES } from "./creative-contract";
 import { resolveContractPolicy } from "./canonical-creative-contract";
@@ -890,6 +900,50 @@ export interface CreativeWorkQualityPayload {
   /** 1-based attempt of the provider call that produced the assessed image. */
   attempt: number;
   checkedAt: string;
+  /**
+   * Named-person fidelity (plan 03, T3). Present only when the frozen input
+   * snapshot required person presence. Absent on every legacy payload.
+   */
+  personFidelity?: PersonFidelityBlock;
+  /**
+   * Structured art-direction critique (plan 04, T1). Present only when the
+   * post-generation assessment produced a validated critique; absent on every
+   * legacy payload. Schema version stays 1 — legacy readers ignore it.
+   */
+  artCritique?: ArtCritique;
+}
+
+/** Hash binding a fidelity assessment to the exact frozen reference set. */
+export function personReferenceHash(
+  people: ReadonlyArray<{ personId: string; primaryReferenceId: string }>,
+): string {
+  return createHash("sha256")
+    .update(canonicalJsonStringify(
+      [...people]
+        .map((person) => ({ personId: person.personId, primaryReferenceId: person.primaryReferenceId }))
+        .sort((a, b) => a.personId.localeCompare(b.personId)),
+    ))
+    .digest("hex");
+}
+
+/**
+ * Inconclusive findings for people whose comparison is unavailable (occluded
+ * face, low resolution, evaluator failure). Uncertainty never auto-approves:
+ * every person without a comparison gets an inconclusive finding.
+ */
+export function inconclusivePersonFidelity(
+  people: ReadonlyArray<{ personId: string; primaryReferenceId: string }>,
+  issue: string,
+): PersonFidelityBlock {
+  return {
+    findings: people.map((person) => ({
+      personId: person.personId,
+      status: "inconclusive" as const,
+      evidence: [],
+      issue,
+    })),
+    referenceHash: personReferenceHash(people),
+  };
 }
 
 // Lazy membership check (no module-scope Set construction): test doubles that
@@ -924,6 +978,10 @@ export function buildCreativeWorkQualityPayload(input: {
   checks: CreativeWorkQualityPayload["checks"];
   attempt: number;
   checkedAt?: Date;
+  /** Person-fidelity block, present only when the snapshot required people. */
+  personFidelity?: PersonFidelityBlock;
+  /** Validated art critique; invalid input is dropped, never persisted raw. */
+  artCritique?: ArtCritique;
 }): CreativeWorkQualityPayload {
   // Defense in depth for persisted JSON: unknown codes (never emitted by the
   // normalizer or the deterministic checks) are dropped BEFORE the verdict
@@ -985,5 +1043,14 @@ export function buildCreativeWorkQualityPayload(input: {
     checks: input.checks,
     attempt,
     checkedAt: (input.checkedAt ?? new Date()).toISOString(),
+    ...(input.personFidelity === undefined
+      ? {}
+      : { personFidelity: personFidelityBlockSchema.parse(input.personFidelity) }),
+    ...(input.artCritique === undefined
+      ? {}
+      : (() => {
+          const parsed = artCritiqueSchema.safeParse(input.artCritique);
+          return parsed.success ? { artCritique: parsed.data } : {};
+        })()),
   };
 }

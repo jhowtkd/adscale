@@ -1,0 +1,10 @@
+const fs = require('node:fs');
+const {createRequire} = require('node:module');
+const requireApp = createRequire('/Users/jhonatan/Repos/ADScale_2/app/package.json');
+const ts = requireApp('typescript');
+const source = fs.readFileSync('/Users/jhonatan/Repos/ADScale_2/.worktrees/sunburst-engine/app/src/server/ai/image-call-observation.ts','utf8');
+const js = ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const mod={exports:{}};
+new Function('require','module','exports',js)(name=>name==='@/lib/logger'?{logger:{info(){throw new Error('logger unavailable');}}}:requireApp(name),mod,mod.exports);
+let calls=0;
+mod.exports.observeImageCall({version:1,model:'gpt-image-2-2026-04-21',quality:'medium'},{key:'audit',operation:'generate',size:'1088x1088'},async()=>{calls++;return {usage:{output_tokens:3}};}).then(()=>{console.log({result:'success',calls});}).catch(error=>{console.log(JSON.stringify({result:'rejected',error:error.message,providerCalls:calls}));});

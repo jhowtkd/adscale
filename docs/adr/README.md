@@ -24,6 +24,8 @@
 | [0012](./0012-cognitive-atlas.md) | Cognitive Atlas — órgãos da cabeça criativa (Cortex, Hands, Gaze/Olhar, Skin, Nerve, Taste, Memory, Marrow, Energy) | 2026-07-09 | ✅ Aceita |
 | [0013](./0013-trabalho-criativo-first.md) | Trabalho criativo-first — convergência de produto e arquitetura (Campanha, Assistente, Quick Tools, Templates, Brand Training como adapters de um único trabalho criativo) | 2026-07-12 | ✅ Aceita |
 | [0014](./2026-09-10-carousel-editorial.md) | Carrossel editorial — aprovações de gancho, roteiro e capa neste Protocolo (não tornam briefing manual obrigatório para os demais) | 2026-09-10 | ✅ Aceita |
+| [0015](./0015-refinamento-criativo-com-orcamento.md) | Refinamento criativo autônomo dentro de um orçamento por Trabalho | 2026-09-13 | ✅ Direção aceita; limites em definição |
+| [0016](./0016-ativacao-treinamento-apos-calibracao.md) | Ativar treinamento após calibração visual validada, preservando a versão anterior durante os ajustes | 2026-09-13 | ✅ Direção aceita; execução em definição |
 
 ---
 

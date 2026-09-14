@@ -190,4 +190,24 @@ describe("reviseCreativeWorkOutput", () => {
     ).resolves.toEqual({ ok: false, error: { code: "work_not_found" } });
     expect(settle).not.toHaveBeenCalled();
   });
+
+  it("directs recompose from the originals but constrains adaptation/restyle to edit (plan 04, T2)", async () => {
+    const base = {
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      userId: "user-1",
+      outputId: parent.id,
+      revisionKey: REVISION_KEY,
+      instruction: "Unificar foco",
+      revisionAssetId: null,
+    };
+    await reviseCreativeWorkOutput({ ...base, compositionMode: "recompose", protocolMode: "art_variation" });
+    const recomposeInstruction = buildAdapter.mock.calls[0]?.[0].instruction as string;
+    expect(recomposeInstruction).toMatch(/^RECOMPOSE from the original briefing/);
+    expect(recomposeInstruction).toContain("Unificar foco");
+
+    buildAdapter.mockClear();
+    await reviseCreativeWorkOutput({ ...base, compositionMode: "recompose", protocolMode: "format_adaptation" });
+    expect(buildAdapter.mock.calls[0]?.[0].instruction).toBe("Unificar foco");
+  });
 });

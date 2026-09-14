@@ -9,6 +9,8 @@ import type {
   CreativeWorkIdentityAssetSnapshot,
   CreativeWorkIdentitySnapshot,
   CreativeWorkInputSnapshot,
+  CreativeWorkPersonSnapshot,
+  CreativeWorkVisualDirection,
   SocialPostBrief,
   SocialPostCopy,
 } from "./contracts";
@@ -539,6 +541,55 @@ function buildReferenceRolesBlock(
   return lines.join("\n");
 }
 
+/**
+ * Named-person presence (plan 03, T2). Poses, clothing and scenes are free;
+ * the observable anatomy from the attached identity reference is not. Style
+ * references never donate anatomy; photo text/roles are never copied.
+ */
+function buildPersonPresenceBlock(
+  people: readonly CreativeWorkPersonSnapshot[] | undefined,
+): string | null {
+  if (!people || people.length === 0) return null;
+  const lines = ["NAMED PEOPLE (mandatory presence):"];
+  for (const person of people) {
+    const guidance = person.preserve.length > 0 ? ` Preserve: ${person.preserve.join("; ")}.` : "";
+    lines.push(
+      `- "${person.name}" must appear recognizably. Create new poses, clothing and scenes freely, but preserve the observable facial structure, body proportions and distinguishing marks from the attached identity reference.${guidance}`,
+    );
+  }
+  lines.push(
+    "Never substitute another face for a named person. Never transfer anatomy from a style reference. Never copy visible text, job titles or roles from a person's photo into the piece.",
+  );
+  return lines.join("\n");
+}
+
+/**
+ * Trained visual direction (plan 02, T3). Projects the frozen relational
+ * guidelines, the dominant visual and the contextual application as prose —
+ * the rule JSON behind them never reaches the provider. Facts still come
+ * only from the fact pack.
+ */
+export function buildVisualDirectionBlock(
+  direction: CreativeWorkVisualDirection | null | undefined,
+): string | null {
+  if (!direction) return null;
+  return [
+    "TRAINED VISUAL DIRECTION (frozen):",
+    `- Dominant idea: ${direction.dominantIdea}`,
+    `- Composition: ${direction.composition}`,
+    `- Typography: ${direction.typography}`,
+    `- Finish: ${direction.finish}`,
+    ...(direction.preserve.length > 0
+      ? [`- Preserve: ${direction.preserve.join("; ")}`]
+      : []),
+    "Planeje a peça para este problema de comunicação. Escolha uma ideia dominante",
+    "que conecte imagem e mensagem. Aplique as regras comuns e a linguagem indicada.",
+    "Varie layout, corte e escala quando isso fortalecer a ideia. Preserve os",
+    "invariantes declarados. Descreva como tipografia, pessoa, fundo e acabamento",
+    "trabalham juntos. Não acrescente fatos ausentes do briefing factual.",
+  ].join("\n");
+}
+
 function referenceLabels(
   references: readonly CreativeWorkReferenceSlot[],
   role: CreativeWorkReferenceSlot["role"],
@@ -645,6 +696,8 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
   const factPackBlock = buildFactPackBlock(input);
   const modePolicyBlock = buildModePolicyBlock(input);
   const referenceRolesBlock = buildReferenceRolesBlock(input.references);
+  const personPresenceBlock = buildPersonPresenceBlock(input.inputSnapshot.people);
+  const visualDirectionBlock = buildVisualDirectionBlock(input.inputSnapshot.visualDirection);
   const brandKitBlock = buildBrandKitBlock(input.identitySnapshot.brandKit);
   const brandKnowledgeBlock = buildBrandKnowledgeBlock(input.identitySnapshot.brandKnowledge);
   const ruleModeBlock = buildRuleModeBlock(input.identitySnapshot.assets);
@@ -668,6 +721,8 @@ export function buildCreativeWorkPrompt(input: BuildCreativeWorkPromptInput): st
     modePolicyBlock,
     "",
     referenceRolesBlock,
+    ...(personPresenceBlock ? ["", personPresenceBlock] : []),
+    ...(visualDirectionBlock ? ["", visualDirectionBlock] : []),
     "",
     brandKitBlock,
     ...(brandKnowledgeBlock ? ["", brandKnowledgeBlock] : []),
@@ -727,6 +782,18 @@ export interface BuildCarouselSlidePromptInput {
   references: readonly CreativeWorkReferenceSlot[];
   storyboard?: readonly SlideDirection[];
   generationScope?: CarouselGenerationScope;
+  /**
+   * Frozen trained visual direction (plan 02, T3): every slide of the deck
+   * consumes the SAME direction frozen at prepare time, specialized per slide
+   * only by role and layout family. Absent on legacy snapshots.
+   */
+  visualDirection?: CreativeWorkVisualDirection | null;
+  /**
+   * Pending visual-revision instruction persisted on the draft slide
+   * (plan 04, T4): the concrete defect/intervention the new base must
+   * address. Absent on first generations and legacy drafts.
+   */
+  revisionInstruction?: string | null;
 }
 
 function publicCarouselRequest(request: string): string {
@@ -783,6 +850,7 @@ export function buildCarouselSlidePrompt(input: BuildCarouselSlidePromptInput): 
   const palette = contract.palette.length > 0 ? contract.palette.join(", ") : "(none declared)";
   const motifs = contract.recurringMotifs.length > 0 ? contract.recurringMotifs.join("; ") : "(none)";
   const prohibitions = contract.prohibitedElements.length > 0 ? contract.prohibitedElements.join("; ") : "(none)";
+  const visualDirectionBlock = buildVisualDirectionBlock(input.visualDirection);
 
   return [
     `CAROUSEL SLIDE ${input.slide.position}/${deck.slides.length} — TEXT-FREE VISUAL BASE`,
@@ -802,6 +870,10 @@ export function buildCarouselSlidePrompt(input: BuildCarouselSlidePromptInput): 
     contract.directionInstruction
       ? `- Direction instruction: ${contract.directionInstruction}`
       : "- Direction instruction: (none)",
+    ...(visualDirectionBlock ? ["", visualDirectionBlock] : []),
+    ...(input.revisionInstruction?.trim()
+      ? ["", `REVISION INSTRUCTION: ${input.revisionInstruction.trim()}`]
+      : []),
     "",
     buildCarouselSlideVisualOrientation({
       position: input.slide.position,

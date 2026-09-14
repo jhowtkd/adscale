@@ -93,7 +93,7 @@ export function policyForExactAsset(
   category: BrandTrainingCategory,
   format: string,
 ): ExactAssetPlacementPolicy | null {
-  if (category === "visual_reference") return null;
+  if (category === "visual_reference" || category === "person") return null;
 
   const tall = format === "9:16";
   const square = format === "1:1";

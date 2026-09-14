@@ -8,6 +8,12 @@ import type {
 import type { ContentBrief, StyleBrief } from "@/server/ai/image-analysis";
 import type { ImageRenderPolicy } from "@/server/ai/image-render-policy";
 import type { TextLayout, TypographyPlan } from "./typography-plan";
+import {
+  artRefinementMaxUnits,
+  resolveArtRefinementBudget,
+  type ArtRefinementBudget,
+} from "./art-refinement";
+export type { ArtRefinementBudget } from "./art-refinement";
 import { carouselDraftStateSchema } from "./carousel-contracts";
 import type { CarouselDraftStateV1, CarouselPreparedSnapshotV1 } from "./carousel-contracts";
 import { carouselEditorialStateSchema } from "./carousel-editorial-state";
@@ -133,7 +139,51 @@ export type CreativeWorkSettings = {
    * Absent on legacy carousel drafts; missing is a valid read.
    */
   carouselEditorial?: CarouselEditorialState;
+  /**
+   * Explicit named people (catalog IDs) that must appear in the piece.
+   * At most 3 — every person consumes a mandatory provider reference slot.
+   * Explicit IDs win over briefing names; unknown IDs block preparation.
+   */
+  personIds?: string[];
+  /**
+   * Catalog names that stay textual only ("somente mencionar no texto") even
+   * when they appear in the briefing. Case-insensitive; matched exactly.
+   */
+  personTextOnly?: string[];
+  /**
+   * Explicit trained visual language (repertoire language id) governing the
+   * piece. Wins over briefing mentions; an unknown id blocks preparation.
+   * Absent on every legacy snapshot — those keep the common-only direction.
+   */
+  visualLanguageId?: string;
 };
+
+/**
+ * Frozen trained visual direction (plan 02, T3): the resolved language, the
+ * rule ids it applies and the composed relational guidelines. Projected into
+ * the prompt as prose, never dumped as JSON. IDs resolve only against the
+ * frozen repertoire version of the work.
+ */
+export const creativeWorkVisualDirectionSchema = z.object({
+  languageId: z.string().uuid().nullable(),
+  ruleIds: z.array(z.string().uuid()).max(30),
+  dominantIdea: z.string().trim().min(1).max(1000),
+  composition: z.string().trim().min(1).max(1000),
+  typography: z.string().trim().min(1).max(1000),
+  finish: z.string().trim().min(1).max(1000),
+  preserve: z.array(z.string().trim().min(1).max(240)).max(10),
+});
+export type CreativeWorkVisualDirection = z.infer<typeof creativeWorkVisualDirectionSchema>;
+
+/** Frozen named-person presence (plan 03, T2): IDs, names, photos, guidance. */
+export const creativeWorkPersonSnapshotSchema = z.object({
+  personId: z.string().uuid(),
+  name: z.string().trim().min(1).max(100),
+  referenceIds: z.array(z.string().uuid()).min(1).max(12),
+  primaryReferenceId: z.string().uuid(),
+  preserve: z.array(z.string().trim().min(1).max(240)).max(12),
+});
+export type CreativeWorkPersonSnapshot = z.infer<typeof creativeWorkPersonSnapshotSchema>;
 
 export const CREATIVE_WORK_BRIEFING_FIELDS = [
   "message", "objective", "audience", "offer", "tone", "constraints",
@@ -277,6 +327,16 @@ export type CreativeWorkInputSnapshot = {
    * before the fact pack existed; those stay readable and are rebuilt.
    */
   factPack?: CreativeWorkFactPack;
+  /**
+   * Frozen named people resolved at prepare time. Absent on snapshots
+   * without person presence (including every legacy snapshot).
+   */
+  people?: CreativeWorkPersonSnapshot[];
+  /**
+   * Frozen trained visual direction resolved at prepare time. Absent on
+   * snapshots without repertoire knowledge (including every legacy snapshot).
+   */
+  visualDirection?: CreativeWorkVisualDirection;
   /** Versioned presentation contract; absent on legacy snapshots. */
   inferredBriefing?: InferredBriefing;
   /** Explicit operator edits that produced the frozen briefing. */
@@ -318,7 +378,29 @@ export type CreativeWorkInputSnapshot = {
    * that were not instantiated from an authorized commercial offer.
    */
   commercialOffer?: import("./commercial-offer").CommercialOfferSnapshot;
+  /**
+   * Frozen automatic-refinement budget (plan 04, T1). Present only when the
+   * user explicitly accepted the ceiling before generation; absent on every
+   * legacy snapshot and always absent on calibration works (legacy behavior).
+   */
+  artRefinement?: ArtRefinementBudget;
 };
+
+/** Max credit ceiling for n initial outputs: root + 2 revisions each. */
+export function artRefinementCreditCeiling(initialOutputCount: number): number {
+  return artRefinementMaxUnits(initialOutputCount) * GENERATION_CREDIT_COSTS.creativeWorkOutput;
+}
+
+/**
+ * Read the frozen refinement budget. Absent/invalid resolves to null —
+ * legacy behavior (no automatic refinement) — instead of failing the read.
+ */
+export function resolveCreativeWorkArtRefinement(
+  snapshot: Pick<CreativeWorkInputSnapshot, "artRefinement"> | null | undefined,
+): ArtRefinementBudget | null {
+  if (!snapshot?.artRefinement) return null;
+  return resolveArtRefinementBudget(snapshot.artRefinement);
+}
 
 /**
  * Read the optional fact pack from an input snapshot. Snapshots written
@@ -442,6 +524,9 @@ export const creativeWorkSettingsSchema = z.object({
   // modules finish evaluating.
   carouselDraft: z.lazy(() => carouselDraftStateSchema).optional(),
   carouselEditorial: carouselEditorialStateSchema.optional(),
+  personIds: z.array(z.string().uuid()).max(3).optional(),
+  personTextOnly: z.array(z.string().trim().min(1).max(100)).max(10).optional(),
+  visualLanguageId: z.string().uuid().optional(),
 });
 export const creativeWorkPreparationSchema = z.object({
   intent: creativeWorkIntentSchema,

@@ -1310,6 +1310,10 @@ describe("PATCH /api/creative-work/[id]", () => {
     ["work_not_draft", 409],
     ["stale_input", 409],
     ["missing_input", 422],
+    ["person_unknown", 422],
+    ["person_ambiguous", 422],
+    ["visual_language_unknown", 422],
+    ["visual_language_ambiguous", 422],
   ])("maps prepare %s to %i", async (code, status) => {
     prepareMock.mockResolvedValue({ ok: false, error: { code } });
     const res = await PATCH(new Request("http://localhost/api/creative-work/work-1", {
@@ -1440,6 +1444,12 @@ describe("PATCH /api/creative-work/[id]", () => {
     ["temporary_reference_limit", 409],
     ["editorial_invalid", 422],
     ["invalid_context", 422],
+    ["person_unknown", 422],
+    ["person_ambiguous", 422],
+    ["person_unconfirmed", 422],
+    ["person_limit", 422],
+    ["visual_language_unknown", 422],
+    ["visual_language_ambiguous", 422],
   ])("maps carousel prepare %s to %i", async (code, status) => {
     getWorkMock.mockResolvedValue({ work: { ...workItem, toolKind: "carousel" }, outputs: [], sources: [] });
     prepareCarouselMock.mockResolvedValue({ ok: false, error: { code, details: { findings: [] } } });

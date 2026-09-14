@@ -22,6 +22,7 @@ const getUsage = vi.hoisted(() => vi.fn());
 const trackUsage = vi.hoisted(() => vi.fn());
 const getBrandKitMock = vi.hoisted(() => vi.fn());
 const logLifecycleMock = vi.hoisted(() => vi.fn());
+const loadCandidateMock = vi.hoisted(() => vi.fn());
 const envState = vi.hoisted(() => ({ brandCortexSinglePieceEnabled: "false" }));
 
 vi.mock("@/server/repositories/creative-work", () => ({
@@ -44,6 +45,9 @@ vi.mock("@/server/repositories/brand-kit", () => ({ getBrandKit: getBrandKitMock
 vi.mock("./prepare-creative-work", () => ({ prepareCreativeWork: prepare }));
 vi.mock("@/server/creative-work/identity", () => ({
   createIdentitySnapshot: snapshot,
+}));
+vi.mock("@/server/repositories/brand-training-sessions", () => ({
+  loadCalibrationCandidateForWork: loadCandidateMock,
 }));
 vi.mock("@/server/generation/canonical/charge", () => ({ chargeForGenerationBatch: charge }));
 vi.mock("@/server/billing/paywall", () => ({ spend: vi.fn() }));
@@ -489,5 +493,74 @@ describe("generateCreativeWork", () => {
     expect(first).toMatchObject({ ok: false, error: { code: "dispatch_failed" } });
     expect(second).toMatchObject({ ok: true, value: { outputs: failed } });
     expect(refund).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses generic generation for calibration-owned works", async () => {
+    getWork.mockResolvedValue({
+      work: { ...preparedWork, toolKind: "single", trainingSessionId: "session-1", trainingRound: 1, trainingSlot: 0 },
+      outputs: [],
+      sources: [],
+    });
+    loadCandidateMock.mockResolvedValue(null);
+    const result = await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+    expect(result).toMatchObject({ ok: false, error: { code: "calibration_managed" } });
+    expect(snapshot).not.toHaveBeenCalled();
+    expect(reserveGenerationOutputs).not.toHaveBeenCalled();
+  });
+
+  it("reserves the frozen candidate identity for calibration works", async () => {
+    getWork.mockResolvedValue({
+      work: { ...preparedWork, toolKind: "single", trainingSessionId: "session-1", trainingRound: 1, trainingSlot: 2 },
+      outputs: [],
+      sources: [],
+    });
+    const claim = {
+      id: "claim-1",
+      claimKey: "palette.colors",
+      kind: "fact",
+      value: ["#BEEF00"],
+      scope: { level: "global" },
+      authority: "explicit",
+      confidence: "high",
+      evidenceRefs: [],
+      reviewedAt: "2026-09-13T12:00:00.000Z",
+      reviewedByUserId: "user-1",
+    };
+    loadCandidateMock.mockResolvedValue({
+      hash: "d".repeat(64),
+      knowledge: {
+        schemaVersion: 1,
+        profileId: "profile-1",
+        compiledAt: "2026-09-13T12:00:00.000Z",
+        claims: [claim, { ...claim, id: "claim-2", scope: { level: "global", format: "1:1" } }],
+        excluded: [],
+      },
+      identity: {
+        clientProfileId: "profile-1",
+        confirmedAt: "2026-09-13T12:00:00.000Z",
+        assets: [{ referenceId: "ref-1", assetKey: "k", label: "L", category: "logo", usageMode: "exact" }],
+        brandKit: { colors: ["#BEEF00"], fonts: [], toneOfVoice: null, prohibitedElements: null, requiredElements: null },
+      },
+      evidenceHashes: {},
+    });
+    const result = await generateCreativeWork({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      userId: "user-1",
+      calibration: { sessionId: "session-1", round: 1, slot: 2 },
+    });
+    expect(result.ok).toBe(true);
+    // The live identity is never reloaded for a calibration reservation.
+    expect(snapshot).not.toHaveBeenCalled();
+    expect(reserveGenerationOutputs).toHaveBeenCalledWith(expect.objectContaining({
+      identitySnapshot: expect.objectContaining({
+        confirmedAt: "2026-09-13T12:00:00.000Z",
+        brandKnowledge: expect.objectContaining({
+          mode: "published",
+          versionHash: "d".repeat(64),
+          claims: [expect.objectContaining({ id: "claim-1" })],
+        }),
+      }),
+    }));
   });
 });

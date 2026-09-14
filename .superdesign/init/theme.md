@@ -1,0 +1,1166 @@
+# Theme tokens
+
+There is **no** `tailwind.config.*`. Styling is **Tailwind CSS v4** (`@import "tailwindcss"`) with CSS-first `@theme inline` in `app/src/app/globals.css`, compiled via `@tailwindcss/postcss`. Product tokens are OKLCH on a green hue (~145). Root layout sets `class="dark"` and `ThemeProvider` **`forcedTheme="dark"`**.
+
+## Compact token summary
+
+### Colors (canonical, `:root` light / `.dark`)
+
+| Token | Light | Dark |
+|---|---|---|
+| `--canvas` | `oklch(0.965 0.006 145)` | `oklch(0.15 0.008 145)` |
+| `--surface-base` | `oklch(0.992 0.004 145)` | `oklch(0.18 0.009 145)` |
+| `--surface-raised` | `oklch(0.955 0.007 145)` | `oklch(0.22 0.01 145)` |
+| `--surface-inset` | `oklch(0.945 0.007 145)` | `oklch(0.13 0.007 145)` |
+| `--surface-overlay` | `oklch(0.995 0.003 145)` | `oklch(0.2 0.01 145)` |
+| `--text-primary` | `oklch(0.18 0.012 145)` | `oklch(0.96 0.006 145)` |
+| `--text-secondary` | `oklch(0.38 0.012 145)` | `oklch(0.72 0.008 145)` |
+| `--text-muted` | `oklch(0.46 0.01 145)` | `oklch(0.66 0.01 145)` |
+| `--text-disabled` | `oklch(0.63 0.008 145)` | `oklch(0.48 0.009 145)` |
+| `--text-on-accent` | `oklch(0.16 0.02 145)` | `oklch(0.13 0.02 145)` |
+| `--accent-primary` | `oklch(0.62 0.21 145)` | `oklch(0.78 0.22 145)` |
+| `--accent-primary-hover` | `oklch(0.68 0.23 145)` | `oklch(0.84 0.2 145)` |
+| `--border-subtle` | text-primary / 0.06 | text-primary / 0.06 |
+| `--border-default` | text-primary / 0.12 | text-primary / 0.10 |
+| `--border-strong` | text-primary / 0.22 | text-primary / 0.20 |
+| `--focus-ring` | `oklch(0.52 0.012 145 / 0.45)` | `oklch(0.72 0.01 145 / 0.45)` |
+
+Semantic families: `--neutral-*`, `--success-*`, `--warning-*`, `--danger-*`, `--info-*` (each `bg` / `border` / `text` / `dot`). Status aliases map draft/active/queued/processing/generating/completed/approved/rejected/failed onto those families.
+
+Action: `--action-primary-bg/hover/text` → accent. Selection/nav: `--selection-*`, `--active-navigation-*`.
+
+`@theme inline` maps these to Tailwind colors (`--color-background` → `--canvas`, `--color-primary` → `--accent-primary`, sidebar/chart slots, etc.).
+
+### Fonts
+
+Loaded in `app/src/app/layout.tsx` via `next/font/google`:
+
+| CSS variable | Family | Tailwind |
+|---|---|---|
+| `--font-inter` | Inter | `--font-sans`, `--font-heading` |
+| `--font-space-mono` | Space Mono 400/700 | `--font-mono` |
+| `--font-press-start` | Press Start 2P | `--font-pixel` |
+
+Type scale tokens: `--text-caption` 0.75rem, `--text-label` 0.8125rem, `--text-body` 0.875rem, `--text-body-lg` 1rem, `--text-section` 1rem, `--text-page` 1.25rem, `--text-display` 1.5rem.
+
+### Spacing
+
+`--space-1` 0.25rem … `--space-7` 3rem. Controls: `--control-sm` 1.75rem, `--control-md` 2rem, `--control-lg` 2.25rem, `--control-touch` 2.75rem. Page gutters: 1 / 1.5 / 2 / 2.5rem by breakpoint. Content max: reading 45rem, form 40rem, operational 80rem, workspace 87.5rem, wide 100rem.
+
+Shell: topbar 3rem mobile / 3.5rem desktop; sidebar expanded 15rem / rail 4rem; v6 sidebar 17.5rem; bottom nav 4.75rem; v6 gap 1rem.
+
+### Radius
+
+`@theme`: `--radius-sm` 2px, `--radius-md` 4px, `--radius-lg` 8px, `--radius-xl` 12px, `--radius-full` 9999px, `--radius` 0.25rem.
+
+Product: `--radius-control` 0.5rem, `--radius-panel` 0.5rem, `--radius-object` 0.75rem, `--radius-overlay` 0.75rem, `--radius-pill` 9999px. v6 shell uses `border-radius: 1rem` in CSS utilities.
+
+### Shadows
+
+`--shadow-floating`: `0 12px 32px color-mix(in oklch, var(--text-primary) 12%, transparent)`  
+`--shadow-overlay`: `0 24px 80px color-mix(in oklch, var(--text-primary) 16%, transparent)`  
+v6 shell: stacked `0 16px 40px rgb(0 0 0 / 0.65)` + inset highlight + `backdrop-filter: blur(24px)`.
+
+### Breakpoints (used in CSS / Tailwind)
+
+Tailwind v4 defaults: `sm` 40rem, `md` 48rem, `lg` 64rem, `xl` 80rem, `2xl` 96rem.
+
+Product media in `globals.css`:
+
+| Query | Use |
+|---|---|
+| `min-width: 40rem` | Desktop topbar height, sticky offsets |
+| `min-width: 48rem` | Tablet gutter; hide mobile bottom padding |
+| `min-width: 64rem` | Desktop gutter; workspace chat sticky height |
+| `min-width: 100rem` | Wide gutter |
+| `max-width: 767px` / `min-width: 768px` | v6 shell: hide sidebar, collapse offsets |
+| `pointer: fine` and `min-width: 48rem` | Smaller control text |
+
+Motion: `--duration-fast` 120ms, `--duration-default` 180ms, `--duration-slow` 280ms. Layers `--layer-base` 0 … `--layer-skip-link` 100.
+
+---
+
+## Raw dump: PostCSS (Tailwind v4 — no tailwind.config)
+
+### `app/postcss.config.mjs`
+
+```js
+const config = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+
+export default config;
+```
+
+
+## Raw dump: `app/src/app/globals.css`
+
+### `app/src/app/globals.css`
+
+```css
+@import "tailwindcss";
+
+.global-error-page {
+  --canvas: oklch(0.15 0.008 145);
+  --text-primary: oklch(0.96 0.006 145);
+  --text-muted: oklch(0.7 0.008 145);
+  --text-on-accent: oklch(0.16 0.02 145);
+  --accent-primary: oklch(0.66 0.2 145);
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--canvas);
+  color: var(--text-primary);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  padding: 24px;
+}
+
+.global-error-main {
+  max-width: 28rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.global-error-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.global-error-message {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.global-error-button {
+  margin-top: 8px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  background-color: var(--action-primary-bg);
+  color: var(--action-primary-text);
+}
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================
+   ADScale — Design Tokens (Light/Dark)
+   ============================================ */
+
+@theme inline {
+  --color-background: var(--canvas);
+  --color-foreground: var(--text-primary);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-space-mono);
+  --font-pixel: var(--font-press-start);
+  --font-heading: var(--font-inter);
+
+  /* Core colors mapped to shadcn */
+  --color-card: var(--surface-base);
+  --color-card-foreground: var(--text-primary);
+  --color-popover: var(--surface-overlay);
+  --color-popover-foreground: var(--text-primary);
+  --color-primary: var(--accent-primary);
+  --color-primary-foreground: var(--text-on-accent);
+  --color-secondary: var(--surface-raised);
+  --color-secondary-foreground: var(--text-primary);
+  --color-muted: var(--surface-base);
+  --color-muted-foreground: var(--text-muted);
+  --color-accent: var(--surface-raised);
+  --color-accent-foreground: var(--text-primary);
+  --color-destructive: var(--danger-text);
+  --color-border: var(--border-subtle);
+  --color-input: var(--border-default);
+  --color-ring: var(--focus-ring);
+
+  /* Chart colors */
+  --color-chart-1: var(--text-muted);
+  --color-chart-2: var(--text-secondary);
+  --color-chart-3: var(--text-disabled);
+  --color-chart-4: var(--neutral-dot);
+  --color-chart-5: var(--border-strong);
+
+  /* Sidebar */
+  --color-sidebar: var(--surface-base);
+  --color-sidebar-foreground: var(--text-primary);
+  --color-sidebar-primary: var(--accent-primary);
+  --color-sidebar-primary-foreground: var(--text-on-accent);
+  --color-sidebar-accent: var(--surface-raised);
+  --color-sidebar-accent-foreground: var(--text-primary);
+  --color-sidebar-border: var(--border-subtle);
+  --color-sidebar-ring: var(--focus-ring);
+
+  /* Radius */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+  --radius: 0.25rem;
+}
+
+/* ============================================
+   LIGHT MODE (Default)
+   ============================================ */
+
+:root {
+  --font-inter: Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-space-mono: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-press-start: "Press Start 2P", cursive;
+
+  /* Global foundation scales */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --control-sm: 1.75rem;
+  --control-md: 2rem;
+  --control-lg: 2.25rem;
+  --control-touch: 2.75rem;
+  --text-caption: 0.75rem;
+  --text-label: 0.8125rem;
+  --text-body: 0.875rem;
+  --text-body-lg: 1rem;
+  --text-section: 1rem;
+  --text-page: 1.25rem;
+  --text-display: 1.5rem;
+  --radius-control: 0.5rem;
+  --radius-panel: 0.5rem;
+  --radius-object: 0.75rem;
+  --radius-overlay: 0.75rem;
+  --radius-pill: 9999px;
+  --duration-fast: 120ms;
+  --duration-default: 180ms;
+  --duration-slow: 280ms;
+  --ease-product: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  --shell-topbar-mobile: 3rem;
+  --shell-topbar-desktop: 3.5rem;
+  --shell-sidebar-expanded: 15rem;
+  --shell-sidebar-rail: 4rem;
+  --shell-bottom-nav: 4.75rem;
+  --shell-sticky-gap: 0.5rem;
+  --shell-v6-gap: 1rem;
+  --shell-v6-sidebar-width: 17.5rem;
+  --shell-v6-topbar-offset: calc(var(--shell-v6-gap) * 2 + var(--shell-topbar-desktop));
+  --shell-v6-main-offset-left: calc(var(--shell-v6-gap) * 2 + var(--shell-v6-sidebar-width));
+  --shell-safe-bottom: calc(var(--shell-bottom-nav) + env(safe-area-inset-bottom, 0px));
+  --page-gutter-mobile: 1rem;
+  --page-gutter-tablet: 1.5rem;
+  --page-gutter-desktop: 2rem;
+  --page-gutter-wide: 2.5rem;
+  --page-gutter: var(--page-gutter-mobile);
+  --content-reading: 45rem;
+  --content-form: 40rem;
+  --content-operational: 80rem;
+  --content-workspace: 87.5rem;
+  --content-wide: 100rem;
+
+  /*
+   * Global layers: feature content may use base/raised/sticky; shell uses
+   * shell/shell-floating; menus, selects and tooltips use popover; dialogs and
+   * sheets use backdrop/overlay; toast sits above overlays; tour and skip-link
+   * are highest. Local component internals should prefer isolation: isolate.
+   */
+  --layer-base: 0;
+  --layer-raised: 10;
+  --layer-sticky: 20;
+  --layer-shell: 30;
+  --layer-shell-floating: 40;
+  --layer-popover: 50;
+  --layer-backdrop: 60;
+  --layer-overlay: 70;
+  --layer-toast: 80;
+  --layer-tour: 90;
+  --layer-skip-link: 100;
+
+  /* Canonical light theme */
+  --canvas: oklch(0.965 0.006 145);
+  --surface-base: oklch(0.992 0.004 145);
+  --surface-raised: oklch(0.955 0.007 145);
+  --surface-inset: oklch(0.945 0.007 145);
+  --surface-overlay: oklch(0.995 0.003 145);
+  --text-primary: oklch(0.18 0.012 145);
+  --text-secondary: oklch(0.38 0.012 145);
+  --text-muted: oklch(0.46 0.01 145);
+  --text-disabled: oklch(0.63 0.008 145);
+  --text-on-accent: oklch(0.16 0.02 145);
+  --border-subtle: oklch(0.18 0.012 145 / 0.06);
+  --border-default: oklch(0.18 0.012 145 / 0.12);
+  --border-strong: oklch(0.18 0.012 145 / 0.22);
+  --focus-ring: oklch(0.52 0.012 145 / 0.45);
+  --accent-primary: oklch(0.62 0.21 145);
+  --accent-primary-hover: oklch(0.68 0.23 145);
+  --accent-primary-subtle: var(--neutral-bg);
+  --accent-primary-text: var(--text-secondary);
+  --action-primary-bg: var(--accent-primary);
+  --action-primary-hover: var(--accent-primary-hover);
+  --action-primary-text: var(--text-on-accent);
+  --selection-bg: var(--neutral-bg);
+  --selection-border: var(--neutral-border);
+  --selection-text: var(--neutral-text);
+  --active-navigation-bg: var(--neutral-bg);
+  --active-navigation-text: var(--text-primary);
+  --utility-icon: var(--text-muted);
+  --neutral-bg: oklch(0.58 0.01 145 / 0.12);
+  --neutral-border: oklch(0.52 0.01 145 / 0.24);
+  --neutral-text: oklch(0.34 0.01 145);
+  --neutral-dot: oklch(0.48 0.01 145);
+  --success-bg: oklch(0.62 0.13 145 / 0.12);
+  --success-border: oklch(0.54 0.12 145 / 0.28);
+  --success-text: oklch(0.4 0.12 145);
+  --success-dot: oklch(0.54 0.14 145);
+  --warning-bg: oklch(0.68 0.14 82 / 0.16);
+  --warning-border: oklch(0.58 0.13 82 / 0.3);
+  --warning-text: oklch(0.39 0.1 82);
+  --warning-dot: oklch(0.56 0.13 82);
+  --danger-bg: oklch(0.58 0.2 18 / 0.12);
+  --danger-border: oklch(0.52 0.18 18 / 0.28);
+  --danger-text: oklch(0.43 0.17 18);
+  --danger-dot: oklch(0.52 0.19 18);
+  --info-bg: oklch(0.62 0.13 245 / 0.12);
+  --info-border: oklch(0.54 0.12 245 / 0.28);
+  --info-text: oklch(0.4 0.12 245);
+  --info-dot: oklch(0.54 0.14 245);
+
+  /* Light-mode logo: stronger outline against warm canvas */
+  --logo-filter: contrast(1.18) brightness(0.88);
+
+  /* Retained compatibility aliases consumed by production callers. */
+  --deep-bg: var(--canvas);
+  --border-dim: var(--border-subtle);
+  --border-medium: var(--border-default);
+  --ghost: var(--text-muted);
+  --accent-secondary: var(--neutral-text);
+
+  /* Product statuses alias semantic state families. */
+  --status-draft: var(--neutral-dot);
+  --status-active: var(--info-dot);
+  --status-processing: var(--warning-dot);
+  --status-completed: var(--success-dot);
+  --status-failed: var(--danger-dot);
+  --status-draft-bg: var(--neutral-bg);
+  --status-draft-text: var(--neutral-text);
+  --status-draft-dot: var(--neutral-dot);
+  --status-active-bg: var(--info-bg);
+  --status-active-text: var(--info-text);
+  --status-active-dot: var(--info-dot);
+  --status-queued-bg: var(--warning-bg);
+  --status-queued-text: var(--warning-text);
+  --status-queued-dot: var(--warning-dot);
+  --status-processing-bg: var(--warning-bg);
+  --status-processing-text: var(--warning-text);
+  --status-processing-dot: var(--warning-dot);
+  --status-generating-bg: var(--warning-bg);
+  --status-generating-text: var(--warning-text);
+  --status-generating-dot: var(--warning-dot);
+  --status-completed-bg: var(--success-bg);
+  --status-completed-text: var(--success-text);
+  --status-completed-dot: var(--success-dot);
+  --status-approved-bg: var(--success-bg);
+  --status-approved-text: var(--success-text);
+  --status-approved-dot: var(--success-dot);
+  --status-rejected-bg: var(--danger-bg);
+  --status-rejected-text: var(--danger-text);
+  --status-rejected-dot: var(--danger-dot);
+  --status-failed-bg: var(--danger-bg);
+  --status-failed-text: var(--danger-text);
+  --status-failed-dot: var(--danger-dot);
+  --gradient-progress: linear-gradient(
+    90deg,
+    oklch(0.78 0.006 145),
+    oklch(0.66 0.008 145)
+  );
+  --gradient-hero: linear-gradient(
+    180deg,
+    oklch(0.96 0.004 145),
+    oklch(0.91 0.006 145)
+  );
+  --gradient-hero-radial: radial-gradient(
+    circle at 80% 20%,
+    oklch(0.88 0.006 145 / 0.55),
+    transparent 60%
+  );
+
+  /* Easing */
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.6, 1);
+  --shadow-floating: 0 12px 32px color-mix(in oklch, var(--text-primary) 12%, transparent);
+  --shadow-overlay: 0 24px 80px color-mix(in oklch, var(--text-primary) 16%, transparent);
+}
+
+/* ============================================
+   DARK MODE
+   ============================================ */
+
+.dark {
+  /* Canonical dark theme */
+  --canvas: oklch(0.15 0.008 145);
+  --surface-base: oklch(0.18 0.009 145);
+  --surface-raised: oklch(0.22 0.01 145);
+  --surface-inset: oklch(0.13 0.007 145);
+  --surface-overlay: oklch(0.2 0.01 145);
+  --text-primary: oklch(0.96 0.006 145);
+  --text-secondary: oklch(0.72 0.008 145);
+  --text-muted: oklch(0.66 0.01 145);
+  --text-disabled: oklch(0.48 0.009 145);
+  --text-on-accent: oklch(0.13 0.02 145);
+  --border-subtle: oklch(0.96 0.006 145 / 0.06);
+  --border-default: oklch(0.96 0.006 145 / 0.1);
+  --border-strong: oklch(0.96 0.006 145 / 0.2);
+  --focus-ring: oklch(0.72 0.01 145 / 0.45);
+  --accent-primary: oklch(0.78 0.22 145);
+  --accent-primary-hover: oklch(0.84 0.2 145);
+  --accent-primary-subtle: var(--neutral-bg);
+  --accent-primary-text: var(--text-secondary);
+  --action-primary-bg: var(--accent-primary);
+  --action-primary-hover: var(--accent-primary-hover);
+  --action-primary-text: var(--text-on-accent);
+  --selection-bg: var(--neutral-bg);
+  --selection-border: var(--neutral-border);
+  --selection-text: var(--neutral-text);
+  --active-navigation-bg: var(--neutral-bg);
+  --active-navigation-text: var(--text-primary);
+  --utility-icon: var(--text-muted);
+  --neutral-bg: oklch(0.72 0.01 145 / 0.12);
+  --neutral-border: oklch(0.72 0.01 145 / 0.24);
+  --neutral-text: oklch(0.78 0.01 145);
+  --neutral-dot: oklch(0.64 0.01 145);
+  --success-bg: oklch(0.7 0.14 145 / 0.14);
+  --success-border: oklch(0.7 0.14 145 / 0.3);
+  --success-text: oklch(0.76 0.13 145);
+  --success-dot: oklch(0.7 0.14 145);
+  --warning-bg: oklch(0.76 0.15 82 / 0.16);
+  --warning-border: oklch(0.76 0.15 82 / 0.3);
+  --warning-text: oklch(0.8 0.14 82);
+  --warning-dot: oklch(0.76 0.15 82);
+  --danger-bg: oklch(0.67 0.2 18 / 0.16);
+  --danger-border: oklch(0.67 0.2 18 / 0.3);
+  --danger-text: oklch(0.72 0.19 18);
+  --danger-dot: oklch(0.67 0.2 18);
+  --info-bg: oklch(0.7 0.14 245 / 0.14);
+  --info-border: oklch(0.7 0.14 245 / 0.3);
+  --info-text: oklch(0.76 0.13 245);
+  --info-dot: oklch(0.7 0.14 245);
+
+  --gradient-progress: linear-gradient(
+    90deg,
+    oklch(0.38 0.008 145),
+    oklch(0.3 0.01 145)
+  );
+  --gradient-hero: linear-gradient(
+    180deg,
+    oklch(0.22 0.01 145),
+    oklch(0.17 0.009 145)
+  );
+  --gradient-hero-radial: radial-gradient(
+    circle at 80% 20%,
+    oklch(0.32 0.01 145 / 0.45),
+    transparent 60%
+  );
+
+  --logo-filter: none;
+}
+
+/* ============================================
+   Redesign v6 — Token Translation Reference
+   ============================================
+   Mockups v5 (06/07/09/10) use legacy token names defined ONLY in
+   _review/public/tokens-v6.css (lines 182-213). These names do NOT exist
+   in production. During component migration, translate legacy → canonical
+   (defined above in .dark { }). NEVER alias legacy names in production:
+   - Creates dual source of truth.
+   - --ink is especially dangerous: tokens-v6.css:186 defines --ink as
+     oklch(0.15 0.008 145) (= canvas), but production :root (line 241)
+     defines --ink as var(--text-on-accent). Aliasing in .dark would
+     override the production value and cause visual regression.
+
+   Translation table (apply during migration, never alias in production):
+
+   --surface-0      → --canvas
+   --surface-1      → --surface-base
+   --surface-2      → --surface-raised
+   --surface-3      → --surface-inset
+   --text-1         → --text-primary
+   --text-2         → --text-secondary
+   --text-3         → --text-muted
+   --accent         → --accent-primary
+   --accent-bright  → --accent-primary-hover
+   --accent-dim     → --accent-primary-subtle
+   --accent-text    → --text-on-accent
+   --amber          → --warning-text
+   --rose           → --danger-text
+   --gold           → --warning-text
+   --ink            → --text-on-accent  (NEVER use the mockup's oklch literal)
+   --r-sm           → --radius-control
+   --r-md           → --radius-panel
+   --r-lg           → --radius-object
+   --r-xl           → --radius-overlay
+   --sidebar-w      → --shell-sidebar-expanded  (15rem = 240px)
+   --topbar-h       → --shell-topbar-desktop     (3.5rem = 56px)
+   --context-w      → hardcode 320px (AssistantShell.tsx:42) or add new token
+   ============================================ */
+
+/* ============================================
+   Base Styles
+   ============================================ */
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    background-color: var(--deep-bg);
+    color: var(--text-primary);
+    font-family: var(--font-inter), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--deep-bg);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-medium);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-medium) var(--deep-bg);
+  }
+}
+
+/* ============================================
+   Animation Keyframes
+   ============================================ */
+
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.animate-toast-progress {
+  animation-name: toast-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.4);
+    opacity: 0.5;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px var(--focus-ring), 0 0 10px var(--focus-ring);
+  }
+  50% {
+    box-shadow: 0 0 15px var(--focus-ring), 0 0 30px var(--focus-ring);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes motion-value-in {
+  from {
+    transform: translateY(0.2em);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+.motion-feedback-enter {
+  animation: motion-value-in var(--duration-default) var(--ease-emphasized) both;
+}
+
+/* One-shot emphasis when AI or system updates a field value */
+@keyframes suggest-emphasis {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--selection-border) 0%, transparent);
+  }
+  30% {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--selection-border) 40%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--selection-border) 0%, transparent);
+  }
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes grain {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-5%, -10%); }
+  20% { transform: translate(-15%, 5%); }
+  30% { transform: translate(7%, -25%); }
+  40% { transform: translate(-5%, 25%); }
+  50% { transform: translate(-15%, 10%); }
+  60% { transform: translate(15%, 0%); }
+  70% { transform: translate(0%, 15%); }
+  80% { transform: translate(3%, 35%); }
+  90% { transform: translate(-10%, 10%); }
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .page-gutters {
+    padding-inline: var(--page-gutter);
+  }
+
+  .shell-topbar-height {
+    height: var(--shell-topbar-mobile);
+  }
+
+  .shell-offset-top {
+    padding-top: var(--shell-topbar-mobile);
+  }
+
+  .shell-offset-bottom-mobile {
+    padding-bottom: var(--shell-safe-bottom);
+  }
+
+  .shell-min-height-below-topbar {
+    min-height: calc(100vh - var(--shell-topbar-mobile));
+  }
+
+  .workspace-sticky-top {
+    top: calc(var(--shell-topbar-mobile) + var(--shell-sticky-gap));
+  }
+
+  .workspace-scroll-padding {
+    scroll-padding-top: calc(var(--shell-topbar-mobile) + var(--shell-sticky-gap) + 3rem);
+  }
+
+  @media (min-width: 40rem) {
+    .shell-topbar-height {
+      height: var(--shell-topbar-desktop);
+    }
+
+    .shell-offset-top {
+      padding-top: var(--shell-topbar-desktop);
+    }
+
+    .shell-min-height-below-topbar {
+      min-height: calc(100vh - var(--shell-topbar-desktop));
+    }
+
+    .workspace-sticky-top {
+      top: calc(var(--shell-topbar-desktop) + var(--shell-sticky-gap));
+    }
+
+    .workspace-scroll-padding {
+      scroll-padding-top: calc(var(--shell-topbar-desktop) + var(--shell-sticky-gap) + 3rem);
+    }
+  }
+
+  @media (min-width: 48rem) {
+    .shell-offset-bottom-mobile {
+      padding-bottom: 0;
+    }
+  }
+
+  .content-reading,
+  .content-form,
+  .content-operational,
+  .content-workspace,
+  .content-wide,
+  .content-fluid {
+    width: min(100%, var(--content-max, 100%));
+    margin-inline: auto;
+  }
+
+  .content-reading { --content-max: var(--content-reading); }
+  .content-form { --content-max: var(--content-form); }
+  .content-operational { --content-max: var(--content-operational); }
+  .content-workspace { --content-max: var(--content-workspace); }
+  .content-wide { --content-max: var(--content-wide); }
+  .content-fluid { --content-max: 100%; }
+
+  /* Campaign workspace: 2-column split (main + permanent assistant panel). */
+  .workspace-split {
+    gap: 1rem;
+  }
+
+  .workspace-chat {
+    min-width: 0;
+  }
+
+  /* The chat panel is sticky on desktop so it stays in view while the main
+     column scrolls. */
+  @media (min-width: 64rem) {
+    .workspace-chat {
+      height: calc(100vh - var(--shell-topbar-desktop) - var(--shell-sticky-gap) - 1rem);
+    }
+  }
+
+  .product-page-title {
+    font-size: var(--text-page);
+    line-height: 1.25;
+    font-weight: 600;
+  }
+
+  .product-section-title {
+    font-size: var(--text-section);
+    line-height: 1.35;
+    font-weight: 600;
+  }
+
+  .product-control-text {
+    font-size: var(--text-body-lg);
+  }
+
+  .layer-base { z-index: var(--layer-base); }
+  .layer-raised { z-index: var(--layer-raised); }
+  .layer-sticky { z-index: var(--layer-sticky); }
+  .layer-shell { z-index: var(--layer-shell); }
+  .layer-shell-floating { z-index: var(--layer-shell-floating); }
+
+  /* Redesign v6 — BYQ-style floating shell (see shell.css in mockup ref) */
+  .v6-shell-sidebar {
+    position: fixed;
+    top: var(--shell-v6-gap);
+    left: var(--shell-v6-gap);
+    bottom: var(--shell-v6-gap);
+    z-index: calc(var(--layer-shell-floating) + 1);
+    display: flex;
+    width: var(--shell-v6-sidebar-width);
+    flex-direction: column;
+    gap: 0.25rem;
+    overflow: hidden;
+    border-radius: 1rem;
+    border: 1px solid var(--border-default);
+    background: var(--surface-raised);
+    padding: 0.875rem 0.75rem;
+    box-shadow:
+      0 16px 40px rgb(0 0 0 / 0.65),
+      0 4px 12px rgb(0 0 0 / 0.4),
+      inset 0 1px 0 rgb(255 255 255 / 0.06);
+    backdrop-filter: blur(24px) saturate(140%);
+  }
+
+  .v6-sidebar-logo {
+    margin-inline: auto;
+    object-fit: contain;
+    object-position: center;
+    filter: brightness(0) invert(1);
+    opacity: 0.88;
+  }
+
+  .v6-sidebar-scroll {
+    scrollbar-color: transparent transparent;
+  }
+
+  .v6-sidebar-scroll:hover {
+    scrollbar-color: color-mix(in srgb, var(--text-muted) 28%, transparent) transparent;
+  }
+
+  .v6-sidebar-scroll::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .v6-sidebar-scroll::-webkit-scrollbar-track,
+  .v6-sidebar-scroll::-webkit-scrollbar-thumb {
+    background: transparent;
+  }
+
+  .v6-sidebar-scroll:hover::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--text-muted) 28%, transparent);
+    border-radius: 999px;
+  }
+
+  .v6-shell-topbar {
+    position: fixed;
+    top: var(--shell-v6-gap);
+    right: var(--shell-v6-gap);
+    left: var(--shell-v6-main-offset-left);
+    z-index: var(--layer-shell-floating);
+    display: flex;
+    height: var(--shell-topbar-desktop);
+    align-items: center;
+    gap: 1rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border-default);
+    background: var(--surface-raised);
+    padding-inline: 1rem;
+    box-shadow:
+      0 16px 40px rgb(0 0 0 / 0.6),
+      0 4px 12px rgb(0 0 0 / 0.35),
+      inset 0 1px 0 rgb(255 255 255 / 0.05);
+    backdrop-filter: blur(24px) saturate(140%);
+  }
+
+  .v6-shell-main {
+    min-height: 100vh;
+    padding-top: var(--shell-v6-topbar-offset);
+    padding-right: var(--shell-v6-gap);
+    padding-bottom: 2rem;
+    padding-left: var(--shell-v6-main-offset-left);
+  }
+
+  .v6-shell-main.assistant-shell-host {
+    height: calc(100dvh - var(--shell-v6-topbar-offset) - var(--shell-v6-gap));
+    max-height: calc(100dvh - var(--shell-v6-topbar-offset) - var(--shell-v6-gap));
+    min-height: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+  }
+
+  @media (min-width: 768px) {
+    .v6-shell-main {
+      padding-top: calc(var(--shell-v6-gap) * 2);
+    }
+
+    .v6-shell-main.assistant-shell-host {
+      height: calc(100dvh - (var(--shell-v6-gap) * 2));
+      max-height: calc(100dvh - (var(--shell-v6-gap) * 2));
+    }
+  }
+
+  @media (max-width: 767px) {
+    .v6-shell-sidebar {
+      display: none;
+    }
+
+    .v6-shell-topbar {
+      left: var(--shell-v6-gap);
+    }
+
+    .v6-shell-main {
+      padding-left: var(--shell-v6-gap);
+    }
+
+    .v6-shell-main.assistant-shell-host {
+      height: 100dvh;
+      max-height: 100dvh;
+      padding-top: 3rem;
+    }
+  }
+  .layer-popover { z-index: var(--layer-popover); }
+  .layer-backdrop { z-index: var(--layer-backdrop); }
+  .layer-overlay { z-index: var(--layer-overlay); }
+  .layer-toast { z-index: var(--layer-toast); }
+  .layer-tour { z-index: var(--layer-tour); }
+  .layer-skip-link { z-index: var(--layer-skip-link); }
+
+  .isolate-component {
+    isolation: isolate;
+  }
+
+  .animate-pulse-dot {
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    animation: shimmer 1.5s linear infinite;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 250ms var(--ease-out-expo) forwards;
+  }
+
+  .animate-suggest-emphasis {
+    animation: suggest-emphasis 650ms var(--ease-out-expo) 1;
+  }
+
+  .animate-shake {
+    animation: shake 400ms ease-in-out;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-marquee {
+    animation: marquee 45s linear infinite;
+  }
+
+  .animate-grain {
+    animation: grain 8s steps(10) infinite;
+  }
+
+  .gradient-progress {
+    background: var(--gradient-progress);
+  }
+
+  .gradient-thumb-1 {
+    background: linear-gradient(135deg, var(--surface-base), var(--surface-raised));
+  }
+
+  .gradient-thumb-2 {
+    background: linear-gradient(135deg, var(--surface-raised), var(--surface-inset));
+  }
+
+  .gradient-thumb-3 {
+    background: linear-gradient(135deg, var(--surface-base), var(--surface-inset));
+  }
+
+  .gradient-thumb-4 {
+    background: linear-gradient(145deg, var(--surface-overlay), var(--surface-raised));
+  }
+
+  .gradient-thumb-5 {
+    background: linear-gradient(125deg, var(--surface-raised), var(--canvas));
+  }
+
+  .gradient-thumb-6 {
+    background: linear-gradient(155deg, var(--surface-inset), var(--canvas));
+  }
+
+  .gradient-hero-surface {
+    background: var(--gradient-hero-radial), var(--gradient-hero);
+  }
+
+  .dark .gradient-thumb-1 {
+    background: linear-gradient(135deg, var(--surface-raised), var(--surface-base));
+  }
+
+  .dark .gradient-thumb-2 {
+    background: linear-gradient(135deg, var(--surface-raised), var(--surface-inset));
+  }
+
+  .dark .gradient-thumb-3 {
+    background: linear-gradient(135deg, var(--surface-base), var(--surface-inset));
+  }
+
+  .dark .gradient-thumb-4 {
+    background: linear-gradient(145deg, var(--surface-raised), var(--surface-base));
+  }
+
+  .dark .gradient-thumb-5 {
+    background: linear-gradient(125deg, var(--surface-base), var(--surface-inset));
+  }
+
+  .dark .gradient-thumb-6 {
+    background: linear-gradient(155deg, var(--surface-inset), var(--canvas));
+  }
+
+  .glass-backdrop {
+    background: rgba(10, 10, 10, 0.88);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .glass-backdrop-strong {
+    background: rgba(10, 10, 10, 0.96);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .dark .glass-card {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .glass-card-light {
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(10, 10, 10, 0.04);
+  }
+
+  .grain {
+    position: relative;
+  }
+
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .dot-grid {
+    background-image: radial-gradient(circle, var(--border-strong) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .ambient-glow {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ambient-glow::before {
+    content: "";
+    position: absolute;
+    width: 600px;
+    height: 400px;
+    background: color-mix(in oklch, var(--text-muted) 8%, transparent);
+    border-radius: 50%;
+    filter: blur(100px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .will-change-transform {
+    will-change: transform, opacity;
+  }
+
+  /* Text utilities */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Section spacing */
+  .py-section {
+    padding-top: clamp(6rem, 15vh, 12rem);
+    padding-bottom: clamp(6rem, 15vh, 12rem);
+  }
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --page-gutter: var(--page-gutter-tablet);
+  }
+}
+
+@media (min-width: 64rem) {
+  :root {
+    --page-gutter: var(--page-gutter-desktop);
+  }
+}
+
+@media (min-width: 100rem) {
+  :root {
+    --page-gutter: var(--page-gutter-wide);
+  }
+}
+
+@media (pointer: fine) and (min-width: 48rem) {
+  .product-control-text {
+    font-size: var(--text-body);
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
+

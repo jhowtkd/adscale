@@ -31,6 +31,7 @@ const normalizeReferenceMock = vi.hoisted(() => vi.fn());
 const sendMock = vi.hoisted(() => vi.fn());
 const ensureLibraryMock = vi.hoisted(() => vi.fn());
 const recordBetaAnalyticsMock = vi.hoisted(() => vi.fn());
+const refineCreativeWorkMock = vi.hoisted(() => vi.fn());
 
 const objectGetMock = vi.hoisted(() => vi.fn());
 const objectPutMock = vi.hoisted(() => vi.fn());
@@ -110,6 +111,10 @@ vi.mock("@/server/application/ensure-creative-work-output-library", () => ({
     ensureLibraryMock(...args),
 }));
 
+vi.mock("@/server/application/refine-creative-work", () => ({
+  refineCreativeWork: (...args: unknown[]) => refineCreativeWorkMock(...args),
+}));
+
 vi.mock("@/server/repositories/client-reference", () => ({
   getClientProfile: vi.fn(async () => ({ id: "profile-1", name: "Cliente XPTO" })),
 }));
@@ -149,6 +154,7 @@ vi.mock("@/server/ai/creative-score", () => ({
 const analyzeCreativeWorkQaMock = vi.hoisted(() => vi.fn());
 const inspectCreativeWorkImageFileMock = vi.hoisted(() => vi.fn());
 const inspectExactCompositionAssetMock = vi.hoisted(() => vi.fn());
+const analyzePersonFidelityMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/ai/creative-qa", async (importOriginal) => ({
   // Keep the real QA contracts (R-005 codes/types) and mock only the I/O
@@ -157,6 +163,7 @@ vi.mock("@/server/ai/creative-qa", async (importOriginal) => ({
   analyzeCreativeWorkQa: (...args: unknown[]) => analyzeCreativeWorkQaMock(...args),
   inspectCreativeWorkImageFile: (...args: unknown[]) => inspectCreativeWorkImageFileMock(...args),
   inspectExactCompositionAsset: (...args: unknown[]) => inspectExactCompositionAssetMock(...args),
+  analyzePersonFidelity: (...args: unknown[]) => analyzePersonFidelityMock(...args),
 }));
 
 vi.mock("@/server/storage", () => ({
@@ -406,6 +413,7 @@ describe("creativeWorkOutputJob", () => {
       findings: [],
       summary: "Objetivamente íntegro.",
     });
+    analyzePersonFidelityMock.mockResolvedValue({ findings: [] });
     // Default: planner unavailable, so legacy social_post outputs fall back to
     // the direct prompt — the same effective behavior these tests had before
     // the planner module was mocked.
@@ -3036,6 +3044,64 @@ describe("creativeWorkOutputJob", () => {
       expect(settleTerminalRefundMock).not.toHaveBeenCalled();
     });
 
+    it("compares frozen snapshot people against their primary photos (plan 03, T3)", async () => {
+      const PERSON_ID = "11111111-1111-4111-8111-111111111111";
+      analyzePersonFidelityMock.mockResolvedValue({
+        findings: [{ personId: PERSON_ID, status: "consistent", evidence: [], issue: null }],
+      });
+      getCreativeWorkMock.mockResolvedValue({
+        work: {
+          ...v1DirectWork(),
+          identitySnapshot: {
+            ...identitySnapshot,
+            assets: [
+              ...identitySnapshot.assets,
+              {
+                referenceId: "photo-ana",
+                assetKey: "workspaces/workspace-1/brand-training/ana.png",
+                label: "Ana",
+                category: "person",
+                usageMode: "reference",
+                analysis: { description: "", visualAttributes: [], rules: [], constraints: [], confidence: 1 },
+                mimeType: "image/png",
+                hasAlpha: false,
+                placement: null,
+              },
+            ],
+          },
+          inputSnapshot: {
+            ...v1Snapshot,
+            people: [{
+              personId: PERSON_ID,
+              name: "Ana",
+              referenceIds: ["photo-ana"],
+              primaryReferenceId: "photo-ana",
+              preserve: ["formato do rosto"],
+            }],
+          },
+        },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: true });
+      expect(analyzePersonFidelityMock).toHaveBeenCalledTimes(1);
+      expect(analyzePersonFidelityMock.mock.calls[0]?.[0]).toMatchObject({
+        people: [{ personId: PERSON_ID, name: "Ana" }],
+        locale: "pt-BR",
+      });
+      expect(completedQuality()).toMatchObject({
+        objectiveVerdict: "pass",
+        personFidelity: {
+          findings: [{ personId: PERSON_ID, status: "consistent", evidence: [], issue: null }],
+          referenceHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        },
+      });
+      expect(settleTerminalRefundMock).not.toHaveBeenCalled();
+    });
+
     it("score 95 + confirmed objective finding triggers the exclusive correction and completes on pass", async () => {
       analyzeDerivationCreativeMock.mockResolvedValue({
         scoreStatus: "analyzed",
@@ -3842,6 +3908,88 @@ describe("creativeWorkOutputJob", () => {
       expect(request.referenceImages).toEqual([]);
       expect(completeMock).toHaveBeenCalled();
       expect(settleTerminalRefundMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("automatic art refinement trigger (plan 04, T2)", () => {
+    const budgetedSnapshot = {
+      generationPolicyVersion: "quality_recovery_v1" as const,
+      request: "Promoção de agosto com vagas limitadas",
+      settings: { targetFormats: [] },
+      sources: [],
+      artRefinement: {
+        version: 1,
+        maxRevisionsPerRoot: 2,
+        acceptedCreditCeiling: 30,
+        acceptedBy: "user-1",
+        acceptedAt: "2026-09-13T00:00:00.000Z",
+      },
+    };
+
+    function budgetedWork() {
+      return { ...workItem, toolKind: "single", inputSnapshot: budgetedSnapshot };
+    }
+
+    it("calls the coordinator after a terminal output with the chain root", async () => {
+      refineCreativeWorkMock.mockResolvedValue({ kind: "started", outputId: "rev-1", reason: "revision_dispatched" });
+      getCreativeWorkMock.mockResolvedValue({
+        work: budgetedWork(),
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const result = await runJob();
+
+      expect(result).toMatchObject({ success: true });
+      expect(completeMock).toHaveBeenCalled();
+      expect(refineCreativeWorkMock).toHaveBeenCalledWith({
+        workspaceId: "workspace-1",
+        workItemId: "work-1",
+        rootOutputId: "output-1",
+        completedOutputId: "output-1",
+      });
+    });
+
+    it("resolves the initial root for a completed revision output", async () => {
+      refineCreativeWorkMock.mockResolvedValue({ kind: "stopped", outputId: null, reason: "gate_closed" });
+      const root = makeQueuedOutput({ id: "output-root", status: "completed", outputKey: "creative-work/output-root/original.png" });
+      const revision = makeQueuedOutput({
+        id: "output-rev",
+        status: "queued",
+        parentOutputId: "output-root",
+        versionNumber: 2,
+      });
+      getCreativeWorkMock.mockResolvedValue({ work: budgetedWork(), outputs: [root, revision] });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ id: "output-rev", status: "processing", parentOutputId: "output-root", versionNumber: 2 }));
+
+      const result = await runJob({ ...baseEvent, outputId: "output-rev" });
+
+      expect(result).toMatchObject({ success: true });
+      expect(refineCreativeWorkMock).toHaveBeenCalledWith(expect.objectContaining({
+        rootOutputId: "output-root",
+        completedOutputId: "output-rev",
+      }));
+    });
+
+    it("skips legacy works without a budget and never fails the job on coordinator error", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...workItem, toolKind: "single", inputSnapshot: null },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+
+      const legacy = await runJob();
+      expect(legacy).toMatchObject({ success: true });
+      expect(refineCreativeWorkMock).not.toHaveBeenCalled();
+
+      refineCreativeWorkMock.mockRejectedValue(new Error("coordinator down"));
+      getCreativeWorkMock.mockResolvedValue({
+        work: budgetedWork(),
+        outputs: [makeQueuedOutput()],
+      });
+      const survived = await runJob();
+      expect(survived).toMatchObject({ success: true });
+      expect(completeMock).toHaveBeenCalled();
     });
   });
 });

@@ -2,8 +2,13 @@ import { eq, and, asc, desc, count, inArray, isNull, isNotNull, lt, max, ne, not
 import { db } from "../db";
 import { getCreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
 import {
+  personFidelityReviewSchema,
+  resolvePersonFidelity,
+} from "../creative-work/person-fidelity";
+import {
   creativeWorkItems,
   creativeWorkOutputs,
+  creativeWorkRefinementAttempts,
   creativeWorkSources,
   clientReferences,
   clientProfiles,
@@ -11,8 +16,15 @@ import {
   campaignTemplates,
   type CreativeWorkItem,
   type CreativeWorkOutput,
+  type CreativeWorkRefinementAttempt,
   type CreativeWorkSource,
 } from "../db/schema";
+import {
+  ART_REFINEMENT_MAX_REVISIONS_PER_ROOT,
+  artRefinementParentHash,
+  artRefinementRevisionKey,
+  type ArtRefinementState,
+} from "../creative-work/art-refinement";
 import {
   CREATIVE_LEVELS,
   requestTextFromBrief,
@@ -125,7 +137,7 @@ export async function promoteCreativeWorkPieceReference(input: {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${input.workspaceId}:${input.workItemId}:prepare`}))`);
     const [source] = await tx.select({ id: creativeWorkSources.id, assetId: creativeWorkSources.assetId, updatedAt: creativeWorkSources.updatedAt, pieceReference: creativeWorkSources.pieceReference }).from(creativeWorkSources)
       .innerJoin(creativeWorkItems, eq(creativeWorkItems.id, creativeWorkSources.workItemId))
-      .where(and(eq(creativeWorkSources.workspaceId, input.workspaceId), eq(creativeWorkSources.workItemId, input.workItemId), eq(creativeWorkSources.id, input.sourceId), eq(creativeWorkSources.status, "ready"), eq(creativeWorkItems.toolKind, "single"), eq(creativeWorkItems.clientProfileId, input.clientProfileId)))
+      .where(and(eq(creativeWorkSources.workspaceId, input.workspaceId), eq(creativeWorkSources.workItemId, input.workItemId), eq(creativeWorkSources.id, input.sourceId), eq(creativeWorkSources.status, "ready"), eq(creativeWorkItems.toolKind, "single"), eq(creativeWorkItems.clientProfileId, input.clientProfileId), isNull(creativeWorkItems.trainingSessionId)))
       .limit(1);
     if (!source || source.assetId !== input.expected.assetId || source.updatedAt.getTime() !== input.expected.updatedAt.getTime()
       || source.pieceReference?.category !== input.expected.category) return null;
@@ -191,6 +203,9 @@ export async function listCreativeWorkInspirationCandidates(
       eq(creativeWorkItems.clientProfileId, clientProfileId),
       eq(creativeWorkOutputs.status, "completed"),
       eq(creativeWorkOutputs.isSelected, true),
+      // Calibration examples are private to their session review — never
+      // inspiration, gallery or production-metric material.
+      isNull(creativeWorkItems.trainingSessionId),
       ...(cursorWhere ? [cursorWhere] : []),
     ))
     .orderBy(desc(creativeWorkOutputs.updatedAt), desc(creativeWorkOutputs.id))
@@ -539,7 +554,7 @@ async function editableCreativeWork(
 
 export type CreativeWorkAutosaveResult =
   | { work: CreativeWorkItem; error: null; sourcesNeedingSingleAnalysis: CreativeWorkSource[] }
-  | { work: null; error: "not_found" | "not_draft" | "single_piece_reference_limit" | "carousel_reference_limit"; sourcesNeedingSingleAnalysis: [] };
+  | { work: null; error: "not_found" | "not_draft" | "single_piece_reference_limit" | "carousel_reference_limit" | "calibration_managed"; sourcesNeedingSingleAnalysis: [] };
 
 /**
  * Serializes tool-mode changes with source claims.  The persisted tool kind is
@@ -560,6 +575,9 @@ export async function autosaveCreativeWorkDraft(input: {
     const work = await editableCreativeWork(tx, input);
     if (work === undefined) return { work: null, error: "not_found", sourcesNeedingSingleAnalysis: [] };
     if (!work) return { work: null, error: "not_draft", sourcesNeedingSingleAnalysis: [] };
+    // Calibration examples are owned by the calibration service: generic
+    // autosaves cannot rewrite their frozen neutral briefs.
+    if (work.trainingSessionId) return { work: null, error: "calibration_managed", sourcesNeedingSingleAnalysis: [] };
     const reopeningPreparedRetry = work.status === "ready";
 
     let sourcesNeedingSingleAnalysis: CreativeWorkSource[] = [];
@@ -1213,7 +1231,11 @@ export async function listCreativeWorks(
   const query = db
     .select()
     .from(creativeWorkItems)
-    .where(eq(creativeWorkItems.workspaceId, workspaceId))
+    .where(and(
+      eq(creativeWorkItems.workspaceId, workspaceId),
+      // Calibration examples stay private to their session review.
+      isNull(creativeWorkItems.trainingSessionId),
+    ))
     .orderBy(desc(creativeWorkItems.updatedAt));
   return typeof limit === "number" ? query.limit(limit) : query;
 }
@@ -1231,6 +1253,8 @@ export async function listCreativeWorksForEntryContext(
     .where(and(
       eq(creativeWorkItems.workspaceId, workspaceId),
       eq(creativeWorkItems.clientProfileId, clientProfileId),
+      // Calibration examples stay private to their session review.
+      isNull(creativeWorkItems.trainingSessionId),
     ))
     .orderBy(desc(creativeWorkItems.updatedAt))
     .limit(limit);
@@ -2295,7 +2319,7 @@ export async function selectCreativeWorkOutput(
       return null;
     }
 
-    const policy = getCreativeWorkSelectionPolicy(candidate.quality);
+    const policy = getCreativeWorkSelectionPolicy(candidate.quality, candidate.id);
     if (!policy.selectable || (policy.requiresConfirmation && !options.confirmObjective)) {
       return null;
     }
@@ -2341,6 +2365,72 @@ export async function selectCreativeWorkOutput(
       .returning();
 
     return selected ?? null;
+  });
+}
+
+export type ReviewPersonFidelityError =
+  | { code: "output_not_found" }
+  | { code: "no_person_fidelity" }
+  | { code: "stale_reference" };
+
+/**
+ * Record the specific human review of a person-fidelity assessment
+ * (plan 03, T3). The review binds to THIS output and reference hash — a
+ * review of another image never counts. The original assessor signal and the
+ * human decision stay stored separately (`findings` vs `review`). A negative
+ * review invalidates an existing selection of this output; it never executes
+ * selection or its library/revenue effects.
+ */
+export async function reviewCreativeWorkOutputPersonFidelity(input: {
+  workspaceId: string;
+  workItemId: string;
+  outputId: string;
+  actorId: string;
+  referenceHash: string;
+  accepted: boolean;
+  at?: Date;
+}): Promise<{ ok: true; output: CreativeWorkOutput } | { ok: false; error: ReviewPersonFidelityError }> {
+  return db.transaction(async (tx) => {
+    const [candidate] = await tx
+      .select()
+      .from(creativeWorkOutputs)
+      .where(and(
+        eq(creativeWorkOutputs.workspaceId, input.workspaceId),
+        eq(creativeWorkOutputs.workItemId, input.workItemId),
+        eq(creativeWorkOutputs.id, input.outputId),
+      ))
+      .for("update");
+    if (!candidate) return { ok: false as const, error: { code: "output_not_found" as const } };
+    const block = resolvePersonFidelity(candidate.quality);
+    if (!block) return { ok: false as const, error: { code: "no_person_fidelity" as const } };
+    if (block.referenceHash !== input.referenceHash) {
+      return { ok: false as const, error: { code: "stale_reference" as const } };
+    }
+    const review = personFidelityReviewSchema.parse({
+      actorId: input.actorId,
+      at: (input.at ?? new Date()).toISOString(),
+      outputId: input.outputId,
+      referenceHash: input.referenceHash,
+      accepted: input.accepted,
+    });
+    const quality = { ...(candidate.quality as Record<string, unknown> | null), personFidelity: { ...block, review } };
+    const [updated] = await tx
+      .update(creativeWorkOutputs)
+      .set({
+        quality,
+        // A negative review invalidates an existing selection; an accepted
+        // review resolves doubt but never selects by itself.
+        ...(input.accepted ? {} : { isSelected: false }),
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(creativeWorkOutputs.workspaceId, input.workspaceId),
+        eq(creativeWorkOutputs.workItemId, input.workItemId),
+        eq(creativeWorkOutputs.id, input.outputId),
+      ))
+      .returning();
+    if (!updated) return { ok: false as const, error: { code: "output_not_found" as const } };
+    return { ok: true as const, output: updated };
   });
 }
 
@@ -2431,4 +2521,168 @@ export async function releaseCreativeWorkOutputManualRetryAttempt(
     eq(creativeWorkOutputs.status, "failed"), eq(creativeWorkOutputs.retryCount, retryCount), eq(creativeWorkOutputs.manualRetryAttempt, reservedAttempt),
   )).returning();
   return released ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Automatic art-refinement claims (plan 04, T2).
+// ---------------------------------------------------------------------------
+
+export type ArtRefinementClaimResult = {
+  attempt: number;
+  revisionKey: string;
+  /** True when the claim replayed an already-claimed attempt (no new row). */
+  replay: boolean;
+};
+
+/**
+ * Claim one automatic revision for an output root. Under the work advisory
+ * lock: replays the existing attempt for the same (root, parent), else
+ * verifies the parent is unchanged, the root has fewer than two revisions
+ * and the frozen ceiling (minus the initial outputs already charged) still
+ * covers the new units. The unique indexes are the final authority on
+ * races: a conflict returns the winning row as a replay. Never holds the
+ * lock across provider/settlement calls — the caller settles after.
+ */
+export async function claimArtRefinementAttempt(input: {
+  workspaceId: string;
+  workItemId: string;
+  rootOutputId: string;
+  parentOutputId: string;
+  /** Parent binding read with the completed output; a mismatch means stale. */
+  expectedParentHash: string;
+  unitCredits: number;
+  /** Frozen ceiling minus the initial outputs already charged. */
+  remainingCreditCeiling: number;
+}): Promise<ArtRefinementClaimResult | null> {
+  if (!Number.isInteger(input.unitCredits) || input.unitCredits < 0) return null;
+  if (!Number.isInteger(input.remainingCreditCeiling)) return null;
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`art-refinement:${input.workspaceId}:${input.workItemId}`}))`,
+    );
+
+    const [replay] = await tx.select().from(creativeWorkRefinementAttempts).where(and(
+      eq(creativeWorkRefinementAttempts.workspaceId, input.workspaceId),
+      eq(creativeWorkRefinementAttempts.workItemId, input.workItemId),
+      eq(creativeWorkRefinementAttempts.rootOutputId, input.rootOutputId),
+      eq(creativeWorkRefinementAttempts.parentOutputId, input.parentOutputId),
+    )).limit(1);
+    if (replay) {
+      return { attempt: replay.attempt, revisionKey: replay.revisionKey, replay: true };
+    }
+
+    const [parent] = await tx.select({
+      id: creativeWorkOutputs.id,
+      updatedAt: creativeWorkOutputs.updatedAt,
+      outputKey: creativeWorkOutputs.outputKey,
+    }).from(creativeWorkOutputs).where(and(
+      eq(creativeWorkOutputs.workspaceId, input.workspaceId),
+      eq(creativeWorkOutputs.workItemId, input.workItemId),
+      eq(creativeWorkOutputs.id, input.parentOutputId),
+    )).limit(1);
+    if (!parent || artRefinementParentHash(parent) !== input.expectedParentHash) return null;
+
+    const used = await tx.select({
+      used: count(),
+      credits: sql<number>`coalesce(sum(${creativeWorkRefinementAttempts.unitCredits}), 0)`,
+    }).from(creativeWorkRefinementAttempts).where(and(
+      eq(creativeWorkRefinementAttempts.workspaceId, input.workspaceId),
+      eq(creativeWorkRefinementAttempts.workItemId, input.workItemId),
+      eq(creativeWorkRefinementAttempts.rootOutputId, input.rootOutputId),
+    ));
+    const usedRevisions = Number(used[0]?.used ?? 0);
+    if (usedRevisions >= ART_REFINEMENT_MAX_REVISIONS_PER_ROOT) return null;
+
+    const spent = await tx.select({
+      credits: sql<number>`coalesce(sum(${creativeWorkRefinementAttempts.unitCredits}), 0)`,
+    }).from(creativeWorkRefinementAttempts).where(and(
+      eq(creativeWorkRefinementAttempts.workspaceId, input.workspaceId),
+      eq(creativeWorkRefinementAttempts.workItemId, input.workItemId),
+    ));
+    if (Number(spent[0]?.credits ?? 0) + input.unitCredits > input.remainingCreditCeiling) return null;
+
+    const attempt = usedRevisions + 1;
+    const revisionKey = artRefinementRevisionKey({
+      workId: input.workItemId,
+      rootId: input.rootOutputId,
+      attempt,
+    });
+    const [row] = await tx.insert(creativeWorkRefinementAttempts).values({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      rootOutputId: input.rootOutputId,
+      parentOutputId: input.parentOutputId,
+      attempt,
+      revisionKey,
+      status: "claimed",
+      unitCredits: input.unitCredits,
+    }).onConflictDoNothing().returning();
+    if (row) return { attempt: row.attempt, revisionKey: row.revisionKey, replay: false };
+
+    const [conflict] = await tx.select().from(creativeWorkRefinementAttempts).where(and(
+      eq(creativeWorkRefinementAttempts.workspaceId, input.workspaceId),
+      eq(creativeWorkRefinementAttempts.workItemId, input.workItemId),
+      eq(creativeWorkRefinementAttempts.revisionKey, revisionKey),
+    )).limit(1);
+    if (!conflict) throw new Error("art_refinement_claim_conflict_without_row");
+    return { attempt: conflict.attempt, revisionKey: conflict.revisionKey, replay: true };
+  });
+}
+
+export async function getArtRefinementAttemptByKey(
+  workspaceId: string,
+  revisionKey: string,
+): Promise<CreativeWorkRefinementAttempt | null> {
+  const [row] = await db.select().from(creativeWorkRefinementAttempts).where(and(
+    eq(creativeWorkRefinementAttempts.workspaceId, workspaceId),
+    eq(creativeWorkRefinementAttempts.revisionKey, revisionKey),
+  )).limit(1);
+  return row ?? null;
+}
+
+export async function listArtRefinementAttempts(
+  workspaceId: string,
+  workItemId: string,
+): Promise<CreativeWorkRefinementAttempt[]> {
+  return db.select().from(creativeWorkRefinementAttempts).where(and(
+    eq(creativeWorkRefinementAttempts.workspaceId, workspaceId),
+    eq(creativeWorkRefinementAttempts.workItemId, workItemId),
+  )).orderBy(asc(creativeWorkRefinementAttempts.createdAt));
+}
+
+export async function markArtRefinementAttempt(
+  workspaceId: string,
+  revisionKey: string,
+  patch: {
+    status: "dispatched" | "completed" | "failed";
+    outputId?: string | null;
+    slideId?: string | null;
+  },
+): Promise<CreativeWorkRefinementAttempt | null> {
+  const [row] = await db.update(creativeWorkRefinementAttempts).set({
+    status: patch.status,
+    ...(patch.outputId === undefined ? {} : { outputId: patch.outputId }),
+    ...(patch.slideId === undefined ? {} : { slideId: patch.slideId }),
+    updatedAt: new Date(),
+  }).where(and(
+    eq(creativeWorkRefinementAttempts.workspaceId, workspaceId),
+    eq(creativeWorkRefinementAttempts.revisionKey, revisionKey),
+  )).returning();
+  return row ?? null;
+}
+
+/** Persist the presentation summary: recommended ids, status, open issues. */
+export async function setArtRefinementState(
+  workspaceId: string,
+  workItemId: string,
+  state: ArtRefinementState,
+): Promise<CreativeWorkItem | null> {
+  const [row] = await db.update(creativeWorkItems).set({
+    artRefinementState: state,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(creativeWorkItems.workspaceId, workspaceId),
+    eq(creativeWorkItems.id, workItemId),
+  )).returning();
+  return row ?? null;
 }

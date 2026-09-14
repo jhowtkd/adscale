@@ -14,6 +14,7 @@ import {
   getCreativeWork,
   reserveCreativeWorkGenerationOutputs,
 } from "@/server/repositories/creative-work";
+import { loadCalibrationCandidateForWork } from "@/server/repositories/brand-training-sessions";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { logger } from "@/lib/logger";
 import { logCreativeWorkGenerationLifecycle } from "@/server/creative-work/job-telemetry";
@@ -21,7 +22,7 @@ import { env } from "@/server/validation/env";
 
 export type GenerateCreativeWorkResult =
   | { ok: true; value: { work: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["work"]; outputs: NonNullable<Awaited<ReturnType<typeof getCreativeWork>>>["outputs"]; billingKey: string; brandTrainingSuggestion: string | null } }
-  | { ok: false; error: { code: "work_not_found" | "work_not_draft" | "work_not_prepared" | "stale_input" | "credit_blocked" | "dispatch_failed" | "offer_expired"; details?: unknown } };
+  | { ok: false; error: { code: "work_not_found" | "work_not_draft" | "work_not_prepared" | "stale_input" | "credit_blocked" | "dispatch_failed" | "offer_expired" | "calibration_managed"; details?: unknown } };
 
 async function buildInputSnapshot(
   workspaceId: string,
@@ -75,10 +76,30 @@ export async function generateCreativeWork(input: {
   preparedRevision: string;
   studioSessionId?: string;
   rolloutVariant?: "control" | "progressive";
+  /**
+   * Internal calibration context (plan 01, T2), passed only by the
+   * calibration service. Calibration works refuse generic generation without
+   * the context bound to their own session/round/slot.
+   */
+  calibration?: { sessionId: string; round: number; slot: number };
 }): Promise<GenerateCreativeWorkResult> {
   const billingKey = `creative-work:${input.workItemId}:initial`;
   const existing = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!existing) return { ok: false, error: { code: "work_not_found" } };
+  if (
+    existing.work.trainingSessionId &&
+    (input.calibration?.sessionId !== existing.work.trainingSessionId ||
+      input.calibration.round !== existing.work.trainingRound ||
+      input.calibration.slot !== existing.work.trainingSlot)
+  ) {
+    return { ok: false, error: { code: "calibration_managed" } };
+  }
+  const calibrationCandidate = existing.work.trainingSessionId
+    ? await loadCalibrationCandidateForWork(input.workspaceId, input.workItemId)
+    : null;
+  if (existing.work.trainingSessionId && !calibrationCandidate) {
+    return { ok: false, error: { code: "work_not_found" } };
+  }
   const pinnedOffer = existing.work.inputSnapshot?.commercialOffer;
   if (pinnedOffer) {
     const active = assertOfferActive(pinnedOffer, new Date());
@@ -98,18 +119,32 @@ export async function generateCreativeWork(input: {
   if (existing.outputs.length === 0 && work.status === "draft") {
     if (!work.brief || !work.copy || !work.inputSnapshot) return { ok: false, error: { code: "work_not_prepared" } };
 
-    // Empty selection delegates ranking to the snapshot's single canonical
-    // selector. Operator-selected IDs use the same path in confirmSocialPostWork.
-    const identitySnapshot = await createIdentitySnapshot({
-      workspaceId: input.workspaceId,
-      clientProfileId: work.clientProfileId,
-      selectedReferenceIds: [],
-      brief: work.brief,
-      format: work.format,
-      includePublishedBrandKnowledge: shouldIncludePublishedBrandKnowledge(work.toolKind, {
-        brandCortexSinglePieceEnabled: env.BRAND_CORTEX_SINGLE_PIECE_ENABLED,
-      }),
-    });
+    // Calibration examples reserve the FROZEN candidate identity: reloading
+    // the live active identity here would substitute what the round tests.
+    const identitySnapshot = calibrationCandidate
+      ? {
+          ...calibrationCandidate.identity,
+          brandKnowledge: {
+            mode: "published" as const,
+            versionId: null,
+            versionNumber: null,
+            versionHash: calibrationCandidate.hash,
+            compiledAt: calibrationCandidate.knowledge.compiledAt,
+            claims: calibrationCandidate.knowledge.claims.filter((claim) =>
+              (!claim.scope.format || claim.scope.format === work.format) && !claim.scope.channel
+            ),
+          },
+        }
+      : await createIdentitySnapshot({
+        workspaceId: input.workspaceId,
+        clientProfileId: work.clientProfileId,
+        selectedReferenceIds: [],
+        brief: work.brief,
+        format: work.format,
+        includePublishedBrandKnowledge: shouldIncludePublishedBrandKnowledge(work.toolKind, {
+          brandCortexSinglePieceEnabled: env.BRAND_CORTEX_SINGLE_PIECE_ENABLED,
+        }),
+      });
     reservationIdentitySnapshot = identitySnapshot;
     brandTrainingSuggestion = identitySnapshot.assets.length === 0
       ? "missing_visual_references"

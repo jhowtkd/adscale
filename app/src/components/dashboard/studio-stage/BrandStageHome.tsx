@@ -185,7 +185,7 @@ export function BrandStageHome({
         data-expanded={expanded ? "true" : "false"}
         data-results={resultsActive ? "true" : "false"}
       >
-        <div id="studio-production-anchor" data-testid="studio-desk" className={styles.desk} inert={expanded}>
+        <div data-testid="studio-desk" className={styles.desk} inert={expanded}>
           {deskControls}
           {continueWork ? (
             <div data-testid="continue-work-suggestion" className="relative z-20 mt-6 flex justify-center">
@@ -236,7 +236,7 @@ export function BrandStageHome({
         ) : null}
         <div data-testid="studio-dock" className={styles.dock}>{talkBox}</div>
       </div>
-      <div data-testid="studio-results-surface">{results}{children}</div>
+      <div id="studio-production-anchor" data-testid="studio-results-surface">{results}{children}</div>
     </div>
   );
 }

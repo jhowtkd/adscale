@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import { visualRepertoireSchema } from "../brand-training/visual-repertoire";
+import { peopleCatalogSchema } from "../brand-training/people";
+
 export const BRAND_KNOWLEDGE_CLAIM_KEYS = [
   "palette.colors",
   "typography.families",
@@ -13,6 +16,8 @@ export const BRAND_KNOWLEDGE_CLAIM_KEYS = [
   "graphic.treatment",
   "visual.required_elements",
   "visual.prohibited_elements",
+  "visual.repertoire",
+  "people.catalog",
 ] as const;
 
 export const brandKnowledgeClaimKeySchema = z.enum(BRAND_KNOWLEDGE_CLAIM_KEYS);
@@ -79,6 +84,8 @@ const valueSchemas: Record<BrandKnowledgeClaimKey, z.ZodType> = {
   "graphic.treatment": z.string().trim().min(1).max(240),
   "visual.required_elements": stringList,
   "visual.prohibited_elements": stringList,
+  "visual.repertoire": visualRepertoireSchema,
+  "people.catalog": peopleCatalogSchema,
 };
 
 const baseClaimSchema = z.object({

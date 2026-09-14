@@ -48,6 +48,10 @@ describe("policyForExactAsset — per format, not category-only", () => {
   it("returns null for visual_reference", () => {
     expect(policyForExactAsset("visual_reference", "4:5")).toBeNull();
   });
+
+  it("returns null for person: people are never exact-composited", () => {
+    expect(policyForExactAsset("person", "4:5")).toBeNull();
+  });
 });
 
 describe("layerBox + clearspace", () => {

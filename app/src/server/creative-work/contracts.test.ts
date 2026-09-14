@@ -7,13 +7,18 @@ import {
   CREATIVE_SOURCE_USAGES,
   CREATIVE_WORK_GENERATION_POLICY_VERSIONS,
   CREATIVE_WORK_INTENTS,
+  artRefinementCreditCeiling,
   createCreativeWorkSchema,
   creativeDirectionPoolSchema,
+  creativeWorkPersonSnapshotSchema,
+  creativeWorkSettingsSchema,
+  creativeWorkVisualDirectionSchema,
   displayRequestForCreativeWork,
   generationPolicyVersionFromSwitch,
   inferredBriefingSchema,
   quoteCreativeWork,
   requestTextFromBrief,
+  resolveCreativeWorkArtRefinement,
   resolveCreativeWorkFactPack,
   resolveCreativeWorkInferredBriefing,
   resolveCreativeWorkStatus,
@@ -417,5 +422,75 @@ describe("creative work contracts", () => {
     expect(migration).toContain('CREATE UNIQUE INDEX "creative_work_sources_template_uq" ON "adscale_app"."creative_work_sources" ("work_item_id", "template_id") WHERE "template_id" is not null');
     expect(migration).toContain('REFERENCES "adscale_app"."workspace_assets"("id") ON DELETE CASCADE');
     expect(migration).toContain('REFERENCES "adscale_app"."campaign_templates"("id") ON DELETE CASCADE');
+  });
+
+  it("caps explicit briefing people at three UUIDs and keeps legacy settings valid", () => {
+    const settings: CreativeWorkSettings = { targetFormats: [] };
+    expect(creativeWorkSettingsSchema.safeParse(settings).success).toBe(true);
+    const ids = [
+      "11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222",
+      "33333333-3333-4333-8333-333333333333",
+    ];
+    expect(creativeWorkSettingsSchema.safeParse({ targetFormats: [], personIds: ids }).success).toBe(true);
+    expect(creativeWorkSettingsSchema.safeParse({ targetFormats: [], personIds: [...ids, ids[0]] }).success).toBe(false);
+    expect(creativeWorkSettingsSchema.safeParse({ targetFormats: [], personIds: ["ana"] }).success).toBe(false);
+  });
+
+  it("validates the frozen person snapshot strictly", () => {
+    const person = {
+      personId: "11111111-1111-4111-8111-111111111111",
+      name: "Ana",
+      referenceIds: ["22222222-2222-4222-8222-222222222222"],
+      primaryReferenceId: "22222222-2222-4222-8222-222222222222",
+      preserve: ["formato do rosto"],
+    };
+    expect(creativeWorkPersonSnapshotSchema.safeParse(person).success).toBe(true);
+    expect(creativeWorkPersonSnapshotSchema.safeParse({ ...person, referenceIds: [] }).success).toBe(false);
+  });
+
+  it("accepts an explicit visual language id and validates the frozen direction", () => {
+    expect(creativeWorkSettingsSchema.safeParse({
+      targetFormats: [],
+      visualLanguageId: "22222222-2222-4222-8222-222222222222",
+    }).success).toBe(true);
+    expect(creativeWorkSettingsSchema.safeParse({
+      targetFormats: [],
+      visualLanguageId: "comercial",
+    }).success).toBe(false);
+    const direction = {
+      languageId: "22222222-2222-4222-8222-222222222222",
+      ruleIds: ["11111111-1111-4111-8111-111111111111"],
+      dominantIdea: "Dar ao título escala superior ao texto de apoio",
+      composition: "Respiro generoso ao redor do foco",
+      typography: "Usar caixa alta condensada nos títulos",
+      finish: "Acabamento fosco editorial",
+      preserve: ["Competição de dois focos"],
+    };
+    expect(creativeWorkVisualDirectionSchema.safeParse(direction).success).toBe(true);
+    expect(creativeWorkVisualDirectionSchema.safeParse({ ...direction, languageId: null }).success).toBe(true);
+    expect(creativeWorkVisualDirectionSchema.safeParse({ ...direction, dominantIdea: "" }).success).toBe(false);
+    expect(creativeWorkVisualDirectionSchema.safeParse({
+      ...direction,
+      ruleIds: Array.from({ length: 31 }, () => "11111111-1111-4111-8111-111111111111"),
+    }).success).toBe(false);
+    expect(creativeWorkVisualDirectionSchema.safeParse({ ...direction, languageId: "comercial" }).success).toBe(false);
+  });
+
+  it("resolves the frozen refinement budget and prices 3 units per root (plan 04, T1)", () => {
+    expect(resolveCreativeWorkArtRefinement(null)).toBeNull();
+    expect(resolveCreativeWorkArtRefinement({})).toBeNull();
+    const budget = {
+      version: 1 as const,
+      maxRevisionsPerRoot: 2 as const,
+      acceptedCreditCeiling: 30,
+      acceptedBy: "user-1",
+      acceptedAt: "2026-09-13T00:00:00.000Z",
+    };
+    expect(resolveCreativeWorkArtRefinement({ artRefinement: budget })).toEqual(budget);
+    expect(resolveCreativeWorkArtRefinement({ artRefinement: { ...budget, maxRevisionsPerRoot: 3 } })).toBeNull();
+    const unit = artRefinementCreditCeiling(1);
+    expect(artRefinementCreditCeiling(4)).toBe(unit * 4);
+    expect(unit).toBeGreaterThan(0);
   });
 });

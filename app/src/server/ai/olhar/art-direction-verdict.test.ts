@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   ART_DIRECTION_FAILURE_TO_VERDICT,
   ART_DIRECTION_FAILURE_REASONS,
+  buildArtCritiqueFromFailures,
   resolveArtDirectionVerdictFromFailures,
   type ArtDirectionFailureReason,
 } from "./art-direction-verdict";
@@ -104,5 +105,41 @@ describe("resolveArtDirectionVerdictFromFailures", () => {
         codes.map((code) => ({ code, message: "export issue" }))
       )
     ).toBeNull();
+  });
+});
+
+describe("buildArtCritiqueFromFailures (plan 04, T1)", () => {
+  it("builds a weak critique with problem, intervention and evidence", () => {
+    const critique = buildArtCritiqueFromFailures([
+      { code: "visual_overload", message: "Muitos elementos competem." },
+    ]);
+    expect(critique).toMatchObject({
+      verdict: "weak",
+      problem: "Muitos elementos competem.",
+      mode: "edit",
+      confidence: "high",
+    });
+    expect(critique?.intervention.length).toBeGreaterThan(0);
+    expect(critique?.evidence).toEqual(["Muitos elementos competem."]);
+    expect(critique?.preserve).toContain("anatomy");
+  });
+
+  it("asks for another composition only when the structure is weak", () => {
+    expect(buildArtCritiqueFromFailures([
+      { code: "missing_dominant_idea", message: "Sem foco." },
+    ])?.mode).toBe("recompose");
+    expect(buildArtCritiqueFromFailures([
+      { code: "decorative_only_variation", message: "Só decorativo." },
+    ])?.mode).toBe("edit");
+  });
+
+  it("never invents a critique without an art-direction failure", () => {
+    expect(buildArtCritiqueFromFailures([])).toBeNull();
+    expect(buildArtCritiqueFromFailures([
+      { code: "wrong_brand", message: "Marca errada." },
+    ])).toBeNull();
+    expect(buildArtCritiqueFromFailures([
+      { code: "visual_overload", message: "   " },
+    ])).toBeNull();
   });
 });

@@ -13,12 +13,23 @@ import type {
   BrandTrainingUsageMode,
 } from "../brand-training/contracts";
 import { approvedBrandFontAssets } from "../brand-training/font-assets";
+import {
+  personReferenceSlots,
+  secondaryPersonReferenceAssets,
+  type BrandPerson,
+} from "../brand-training/people";
 import type {
   CreativeWorkFormat,
   CreativeWorkIdentityAssetSnapshot,
   CreativeWorkIdentitySnapshot,
+  CreativeWorkPersonSnapshot,
   SocialPostBrief,
 } from "./contracts";
+import {
+  CreativeWorkReferenceError,
+  type CreativeWorkReferencePlanAsset,
+  type CreativeWorkReferenceSlot,
+} from "./reference-plan";
 import {
   selectReferences,
   type ReferenceCandidate,
@@ -33,6 +44,7 @@ export const DEFAULT_EXACT_PLACEMENT = {
   logo: { gravity: "southeast", widthRatio: 0.18 },
   graphic: { gravity: "northwest", widthRatio: 0.35 },
   character: { gravity: "southeast", widthRatio: 0.42 },
+  person: null,
   visual_reference: null,
 } as const;
 
@@ -183,6 +195,8 @@ function pickDefaultPlacement(
       return { ...DEFAULT_EXACT_PLACEMENT.graphic };
     case "character":
       return { ...DEFAULT_EXACT_PLACEMENT.character };
+    case "person":
+      return DEFAULT_EXACT_PLACEMENT.person;
     case "visual_reference":
       return DEFAULT_EXACT_PLACEMENT.visual_reference;
   }
@@ -217,6 +231,142 @@ function hasAlphaFromMetadata(
   metadata: Record<string, unknown> | null | undefined
 ): boolean {
   return metadata?.hasAlpha === true;
+}
+
+/**
+ * Resolve person photo reference IDs to loadable provider assets (plan 03,
+ * T2). Reads approved training references only — a photo that is not approved
+ * (or not reference-mode) never becomes an identity proof. IDs with no
+ * approved row are absent from the map so the caller fails as reference_failure.
+ */
+export async function getPersonReferenceAssets(
+  workspaceId: string,
+  clientProfileId: string,
+  referenceIds: readonly string[],
+): Promise<Map<string, { assetKey: string; mimeType: string; label: string }>> {
+  const resolved = new Map<string, { assetKey: string; mimeType: string; label: string }>();
+  if (referenceIds.length === 0) return resolved;
+  const wanted = new Set(referenceIds);
+  const approved = (await getApprovedTrainingReferences(
+    workspaceId,
+    clientProfileId,
+  )) as ApprovedReferenceRow[];
+  const matches = approved.filter(
+    (row) => wanted.has(row.id) && row.usageMode === "reference",
+  );
+  const meta = await fetchAssetMetadata(
+    workspaceId,
+    matches.map((row) => row.assetKey),
+  );
+  for (const row of matches) {
+    resolved.set(row.id, {
+      assetKey: row.assetKey,
+      mimeType: meta.get(row.assetKey)?.type ?? "application/octet-stream",
+      label: row.label,
+    });
+  }
+  return resolved;
+}
+
+/**
+ * Build mandatory person slots for frozen snapshot people (plan 03, T2),
+ * shared by the single-piece and carousel generation paths. Photos resolve
+ * from the confirmed identity first, then from approved training references;
+ * anything missing fails as reference_failure before the provider. Secondary
+ * photos are returned separately for free slots only, in catalog order.
+ * Prepare freezes confirmed people only, so adequacy is always confirmed here.
+ */
+export async function resolveSnapshotPersonSlots(input: {
+  workspaceId: string;
+  clientProfileId: string | null;
+  people: readonly CreativeWorkPersonSnapshot[];
+  identityAssets: ReadonlyArray<{
+    referenceId: string;
+    assetKey: string;
+    mimeType: string;
+    label: string;
+  }>;
+}): Promise<{
+  slots: CreativeWorkReferenceSlot[];
+  secondaryAssets: CreativeWorkReferencePlanAsset[];
+}> {
+  if (input.people.length === 0) return { slots: [], secondaryAssets: [] };
+  const assetsByReferenceId = new Map(
+    input.identityAssets.map((asset) => [asset.referenceId, {
+      assetKey: asset.assetKey,
+      mimeType: asset.mimeType,
+      label: asset.label,
+    }]),
+  );
+  const missingReferenceIds = [...new Set(
+    input.people.flatMap((person) => person.referenceIds),
+  )].filter((referenceId) => !assetsByReferenceId.has(referenceId));
+  if (missingReferenceIds.length > 0 && input.clientProfileId) {
+    const fallback = await getPersonReferenceAssets(
+      input.workspaceId,
+      input.clientProfileId,
+      missingReferenceIds,
+    );
+    for (const [referenceId, asset] of fallback) {
+      assetsByReferenceId.set(referenceId, asset);
+    }
+  }
+  const brandPeople: BrandPerson[] = input.people.map((person) => ({
+    id: person.personId,
+    name: person.name,
+    aliases: [],
+    referenceIds: [...person.referenceIds],
+    primaryReferenceId: person.primaryReferenceId,
+    preserve: [...person.preserve],
+    referenceAdequacy: "confirmed",
+  }));
+  try {
+    return {
+      slots: personReferenceSlots(brandPeople, assetsByReferenceId),
+      secondaryAssets: brandPeople.flatMap((person) =>
+        secondaryPersonReferenceAssets(person, assetsByReferenceId),
+      ),
+    };
+  } catch {
+    throw new CreativeWorkReferenceError("person_reference_required");
+  }
+}
+
+export type MatchedPersonPhotoInput = {
+  personId: string;
+  name: string;
+  primaryReferenceId: string;
+  preserve: readonly string[];
+  reference: { buffer: Buffer; mimeType: string } | null;
+};
+
+/**
+ * Bind frozen snapshot people to their loaded primary-photo buffers for the
+ * person-fidelity assessment (plan 03, T3). `personSlots` is order-matched to
+ * `people` (resolveSnapshotPersonSlots preserves order); buffers resolve by
+ * assetKey from the slots that actually loaded. A person whose photo is
+ * absent keeps a null reference — the assessment persists an explicit
+ * inconclusive finding instead of skipping the comparison silently.
+ */
+export function matchPersonPhotoBuffers(input: {
+  people: readonly CreativeWorkPersonSnapshot[];
+  personSlots: readonly CreativeWorkReferenceSlot[];
+  loaded: ReadonlyArray<{ slot: CreativeWorkReferenceSlot; buffer: Buffer; mimeType: string }>;
+}): MatchedPersonPhotoInput[] {
+  const buffersByAssetKey = new Map(
+    input.loaded.map((loaded) => [loaded.slot.assetKey, { buffer: loaded.buffer, mimeType: loaded.mimeType }]),
+  );
+  return input.people.map((person, index) => {
+    const slot = input.personSlots[index];
+    const reference = slot ? buffersByAssetKey.get(slot.assetKey) ?? null : null;
+    return {
+      personId: person.personId,
+      name: person.name,
+      primaryReferenceId: person.primaryReferenceId,
+      preserve: [...person.preserve],
+      reference,
+    };
+  });
 }
 
 function readAnalysisText(analysis: BrandTrainingAnalysis | null): string {
@@ -429,13 +579,35 @@ export async function createIdentitySnapshot(
 ): Promise<CreativeWorkIdentitySnapshot> {
   const { workspaceId, clientProfileId, selectedReferenceIds } = input;
 
-  const [approved, rejected, activeBrandKnowledge] = await Promise.all([
+  const [approvedLive, rejectedLive, activeBrandKnowledge] = await Promise.all([
     getApprovedTrainingReferences(workspaceId, clientProfileId) as Promise<ApprovedReferenceRow[]>,
     getRejectedTrainingReferences(workspaceId, clientProfileId) as Promise<RejectedReferenceRow[]>,
-    input.includePublishedBrandKnowledge
-      ? getActiveBrandKnowledgeVersion(workspaceId, clientProfileId)
-      : null,
+    getActiveBrandKnowledgeVersion(workspaceId, clientProfileId),
   ]);
+
+  // Plan 01, T4: a calibration-validated (v2) active version is the frozen
+  // base for new works — approved rows, kit fields and negative patterns come
+  // from the validated identity, never from the live mutable tables. v1 keeps
+  // the live fallback above; the first cycle without active training never
+  // consumes a pending candidate.
+  const frozenIdentity =
+    activeBrandKnowledge && activeBrandKnowledge.snapshot.schemaVersion === 2
+      ? activeBrandKnowledge.snapshot.identity
+      : null;
+  const approved: ApprovedReferenceRow[] = frozenIdentity
+    ? frozenIdentity.assets.map((asset) => ({
+        id: asset.referenceId,
+        assetKey: asset.assetKey,
+        label: asset.label,
+        trainingCategory: asset.category,
+        usageMode: asset.usageMode,
+        trainingAnalysis: asset.analysis,
+      }))
+    : approvedLive;
+  const rejected: RejectedReferenceRow[] = frozenIdentity ? [] : rejectedLive;
+  const frozenAssetByReferenceId = new Map(
+    (frozenIdentity?.assets ?? []).map((asset) => [asset.referenceId, asset]),
+  );
 
   const approvedById = new Map(approved.map((row) => [row.id, row]));
   // #178: an operator choice always wins; without one the ranked selector
@@ -476,8 +648,15 @@ export async function createIdentitySnapshot(
 
   for (const ref of selectedRows) {
     const meta = assetMeta.get(ref.assetKey);
-    const mimeType = meta?.type ?? "application/octet-stream";
-    const hasAlpha = hasAlphaFromMetadata(meta?.metadata ?? null);
+    const frozen = frozenAssetByReferenceId.get(ref.id);
+    // Frozen v2 assets keep their validated bytes description, but selection
+    // still verifies the asset is reachable right now — a revoked file fails
+    // instead of silently conditioning the request.
+    if (frozen && !meta) {
+      throw new IdentitySnapshotMissingReferenceError(ref.id);
+    }
+    const mimeType = frozen?.mimeType ?? meta?.type ?? "application/octet-stream";
+    const hasAlpha = frozen ? frozen.hasAlpha : hasAlphaFromMetadata(meta?.metadata ?? null);
 
     if (ref.usageMode === "exact" && !hasAlpha) {
       throw new IdentitySnapshotMissingAlphaError(ref.id, ref.trainingCategory);
@@ -497,23 +676,29 @@ export async function createIdentitySnapshot(
   }
 
   const brandKit = await getBrandKit(workspaceId, clientProfileId);
-  const negativePatterns = rejected
-    .map((ref) => ({
-      referenceId: ref.id,
-      label: ref.label,
-      description: [
-        readAnalysisText(ref.trainingAnalysis),
-        ref.rejectionReason
-          ? `rejection_reason=${ref.rejectionReason.code}${ref.rejectionReason.note ? `: ${ref.rejectionReason.note}` : ""}`
-          : "",
-      ].filter((part) => part.length > 0).join(" "),
-    }))
-    .filter((pattern) => pattern.description.length > 0)
-    .sort((a, b) => a.referenceId.localeCompare(b.referenceId));
+  const negativePatterns = frozenIdentity
+    ? [...(frozenIdentity.negativePatterns ?? [])]
+    : rejected
+        .map((ref) => ({
+          referenceId: ref.id,
+          label: ref.label,
+          description: [
+            readAnalysisText(ref.trainingAnalysis),
+            ref.rejectionReason
+              ? `rejection_reason=${ref.rejectionReason.code}${ref.rejectionReason.note ? `: ${ref.rejectionReason.note}` : ""}`
+              : "",
+          ].filter((part) => part.length > 0).join(" "),
+        }))
+        .filter((pattern) => pattern.description.length > 0)
+        .sort((a, b) => a.referenceId.localeCompare(b.referenceId));
 
-  const colors = (brandKit?.brandColors as string[] | null | undefined) ?? [];
-  const fonts = (brandKit?.brandFonts as string[] | null | undefined) ?? [];
-  const fontAssets = approvedBrandFontAssets(brandKit?.brandFontAssets ?? []);
+  const colors = frozenIdentity
+    ? [...frozenIdentity.brandKit.colors]
+    : ((brandKit?.brandColors as string[] | null | undefined) ?? []);
+  const fonts = frozenIdentity
+    ? [...frozenIdentity.brandKit.fonts]
+    : ((brandKit?.brandFonts as string[] | null | undefined) ?? []);
+  const fontAssets = frozenIdentity ? undefined : approvedBrandFontAssets(brandKit?.brandFontAssets ?? []);
   const brandKnowledge = input.includePublishedBrandKnowledge
     ? activeBrandKnowledge
       ? {
@@ -546,12 +731,20 @@ export async function createIdentitySnapshot(
     brandKit: {
       colors,
       fonts,
-      fontAssets,
-      toneOfVoice: brandKit?.toneOfVoice ?? null,
-      ...(brandKit?.visualNotes ? { visualNotes: brandKit.visualNotes } : {}),
-      ...(brandKit?.constraints ? { constraints: brandKit.constraints } : {}),
-      prohibitedElements: brandKit?.prohibitedElements ?? null,
-      requiredElements: brandKit?.requiredElements ?? null,
+      ...(fontAssets ? { fontAssets } : {}),
+      toneOfVoice: frozenIdentity ? frozenIdentity.brandKit.toneOfVoice : (brandKit?.toneOfVoice ?? null),
+      ...(frozenIdentity
+        ? {}
+        : {
+            ...(brandKit?.visualNotes ? { visualNotes: brandKit.visualNotes } : {}),
+            ...(brandKit?.constraints ? { constraints: brandKit.constraints } : {}),
+          }),
+      prohibitedElements: frozenIdentity
+        ? frozenIdentity.brandKit.prohibitedElements
+        : (brandKit?.prohibitedElements ?? null),
+      requiredElements: frozenIdentity
+        ? frozenIdentity.brandKit.requiredElements
+        : (brandKit?.requiredElements ?? null),
     },
   };
 }

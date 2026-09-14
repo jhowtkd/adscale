@@ -2,6 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import type { CreativeWorkItem } from "../db/schema";
 import {
+  quoteCarouselDeck,
   resolveCarouselPreparedSnapshot,
   validateCarouselDeckStructure,
   validateTextFieldsAgainstFactPack,
@@ -9,6 +10,7 @@ import {
   type CarouselGenerationScope,
   type CarouselVisualContractV1,
 } from "../creative-work/carousel-contracts";
+import { ART_REFINEMENT_UNITS_PER_ROOT } from "../creative-work/art-refinement";
 import { lintCarouselDeck } from "../creative-work/carousel-editorial";
 import {
   hasCurrentApprovedCarouselCover,
@@ -26,6 +28,18 @@ import {
 import { createIdentitySnapshot } from "../creative-work/identity";
 import { shouldIncludePublishedBrandKnowledge } from "../creative-work/identity-policy";
 import {
+  peopleCatalogSchema,
+  resolveBriefingPeople,
+  type BriefingPeopleError,
+} from "../brand-training/people";
+import {
+  composeVisualDirection,
+  repertoireMotifs,
+  resolveWorkVisualLanguage,
+  visualRepertoireSchema,
+  type WorkVisualLanguageError,
+} from "../brand-training/visual-repertoire";
+import {
   getCreativeWork,
   getCreativeWorkSourceAssetDetails,
   updateCreativeWorkDraftIfUnchanged,
@@ -33,6 +47,7 @@ import {
   withCreativeWorkPreparationLock,
 } from "../repositories/creative-work";
 import { getBrandKit } from "../repositories/brand-kit";
+import { getActiveBrandKnowledgeVersion } from "../repositories/brand-knowledge";
 import { resolveImageRenderPolicy, selectImageRenderPolicy } from "../ai/image-render-policy";
 import { env } from "../validation/env";
 
@@ -46,7 +61,13 @@ export type PrepareCarouselWorkErrorCode =
   | "editorial_invalid"
   | "invalid_context"
   | "invalid_generation_gate"
-  | "stale_input";
+  | "stale_input"
+  | "person_unknown"
+  | "person_ambiguous"
+  | "person_unconfirmed"
+  | "person_limit"
+  | "visual_language_unknown"
+  | "visual_language_ambiguous";
 
 export type PrepareCarouselWorkResult =
   | {
@@ -58,7 +79,13 @@ export type PrepareCarouselWorkResult =
         visualContract: CarouselVisualContractV1;
       };
     }
-  | { ok: false; error: { code: PrepareCarouselWorkErrorCode; details?: unknown } };
+  | {
+      ok: false;
+      error:
+        | { code: Exclude<PrepareCarouselWorkErrorCode, BriefingPeopleError["code"] | WorkVisualLanguageError["code"]>; details?: unknown }
+        | BriefingPeopleError
+        | WorkVisualLanguageError;
+    };
 
 /** Compare snapshots ignoring the policy version, which is checked separately. */
 function withoutPolicyVersion(snapshot: CreativeWorkInputSnapshot | null) {
@@ -105,6 +132,11 @@ function freezeImageRenderPolicy(input: {
 export async function prepareCarouselWork(input: {
   workspaceId: string;
   workItemId: string;
+  /**
+   * Explicit user opt-in to automatic art refinement (plan 04, T4): the
+   * accepting user id. Absent/blank preserves legacy generation exactly.
+   */
+  artRefinement?: { acceptedBy: string };
 }): Promise<PrepareCarouselWorkResult> {
   return withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, async (executor) => {
     const aggregate = await getCreativeWork(input.workspaceId, input.workItemId, executor);
@@ -281,6 +313,58 @@ export async function prepareCarouselWork(input: {
       clientProfileId: work.clientProfileId,
     });
 
+    // Named people (plan 03, T2) and trained visual language (plan 02, T3):
+    // deck mentions resolve against the FROZEN published catalog and
+    // repertoire into mandatory presence and a frozen direction. Unknown and
+    // ambiguous mentions block preparation with clarification payloads,
+    // before persistence or any image call — the same contract as the
+    // single-piece path, over request + answers + slide texts.
+    const deckMentionText = [
+      requestContext,
+      ...deck.slides.flatMap((slide) => [slide.purpose, slide.primaryText, slide.secondaryText ?? ""]),
+    ].join("\n");
+    const activeVersion = work.clientProfileId
+      ? await getActiveBrandKnowledgeVersion(input.workspaceId, work.clientProfileId)
+      : null;
+    const publishedClaims = activeVersion?.snapshot.claims ?? [];
+    const peopleCatalogValue = publishedClaims
+      .find((claim) => claim.claimKey === "people.catalog")?.value;
+    const peopleCatalog = peopleCatalogValue === undefined
+      ? null
+      : peopleCatalogSchema.safeParse(peopleCatalogValue).success
+        ? peopleCatalogSchema.parse(peopleCatalogValue)
+        : null;
+    const briefingPeople = resolveBriefingPeople({
+      catalog: peopleCatalog,
+      personIds: work.settings.personIds,
+      text: deckMentionText,
+      textOnly: work.settings.personTextOnly,
+    });
+    if (!briefingPeople.ok) {
+      return { ok: false as const, error: briefingPeople.error };
+    }
+    const repertoireValue = publishedClaims
+      .find((claim) => claim.claimKey === "visual.repertoire")?.value;
+    const repertoire = repertoireValue === undefined
+      ? null
+      : visualRepertoireSchema.safeParse(repertoireValue).success
+        ? visualRepertoireSchema.parse(repertoireValue)
+        : null;
+    const workLanguage = resolveWorkVisualLanguage({
+      repertoire,
+      explicitId: work.settings.visualLanguageId,
+      text: deckMentionText,
+    });
+    if (!workLanguage.ok) {
+      return { ok: false as const, error: workLanguage.error };
+    }
+    const visualDirection = repertoire
+      ? composeVisualDirection({ repertoire, language: workLanguage.language })
+      : null;
+    const contractMotifs = repertoire
+      ? repertoireMotifs({ repertoire, language: workLanguage.language })
+      : [];
+
     const blockingFindings = lintCarouselDeck({ deck, factPack }).filter((finding) => finding.blocking);
     if (blockingFindings.length > 0) {
       return {
@@ -318,6 +402,7 @@ export async function prepareCarouselWork(input: {
       identity,
       temporaryReferenceId,
       ...(work.settings.fontAssetKey ? { selectedFontAssetKey: work.settings.fontAssetKey } : {}),
+      ...(contractMotifs.length > 0 ? { motifs: contractMotifs } : {}),
     });
 
     const sourceAssets = await getCreativeWorkSourceAssetDetails(
@@ -366,6 +451,18 @@ export async function prepareCarouselWork(input: {
       generationPolicyVersion: "quality_recovery_v1",
       renderPolicy,
       factPack,
+      ...(briefingPeople.people.length > 0
+        ? {
+            people: briefingPeople.people.map((person) => ({
+              personId: person.id,
+              name: person.name,
+              referenceIds: [...person.referenceIds],
+              primaryReferenceId: person.primaryReferenceId,
+              preserve: [...person.preserve],
+            })),
+          }
+        : {}),
+      ...(visualDirection ? { visualDirection } : {}),
       request: work.request,
       settings: work.settings,
       sources: frozenSources,
@@ -380,6 +477,21 @@ export async function prepareCarouselWork(input: {
         caption: editorial.caption,
       },
     };
+
+    // Plan 04, T4: freeze the accepted refinement budget into the snapshot.
+    // The ceiling covers the initial deck (root + two revisions per slide);
+    // every slide revision still settles its own canonical unit on dispatch.
+    const refinementAcceptedBy = input.artRefinement?.acceptedBy.trim() || null;
+    if (refinementAcceptedBy && !work.trainingSessionId) {
+      const deckQuote = quoteCarouselDeck(deck.slides.length);
+      snapshot.artRefinement = {
+        version: 1,
+        maxRevisionsPerRoot: 2,
+        acceptedCreditCeiling: deckQuote.credits * ART_REFINEMENT_UNITS_PER_ROOT,
+        acceptedBy: refinementAcceptedBy,
+        acceptedAt: new Date().toISOString(),
+      };
+    }
 
     if (
       resolveGenerationPolicyVersion(work.inputSnapshot) === resolveGenerationPolicyVersion(snapshot) &&

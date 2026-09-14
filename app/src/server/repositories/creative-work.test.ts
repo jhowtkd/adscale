@@ -190,8 +190,11 @@ import {
   requeueFailedCreativeWorkOutput,
   linkCreativeWorkCampaign,
   listCreativeWorkInspirationCandidates,
+  listCreativeWorks,
+  listCreativeWorksForEntryContext,
   refreshCreativeWorkStatus,
   recordCreativeWorkGenerationAggregate,
+  reviewCreativeWorkOutputPersonFidelity,
   selectCreativeWorkOutput,
   setCreativeWorkBrief,
   setCreativeWorkCopy,
@@ -2634,4 +2637,142 @@ it("settlement reads omit sources without changing normal aggregate reads", asyn
   const result = await getCreativeWork("workspace-1", "work-1", undefined, { includeSources: false });
   expect(result).toEqual({ work: { id: "work-1" }, outputs: [{ id: "output-1" }], sources: [] });
   expect(mocks.selectMock).toHaveBeenCalledTimes(2);
+});
+
+describe("reviewCreativeWorkOutputPersonFidelity (plan 03, T3)", () => {
+  const PERSON_ID = "11111111-1111-4111-8111-111111111111";
+  const OUTPUT_ID = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa";
+  const HASH = "c".repeat(64);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.resetState();
+    mocks.txSetReturningMock.mockImplementation(() =>
+      Promise.resolve(mocks.state.txUpdateResults.shift() ?? [])
+    );
+  });
+
+  function candidate(overrides: Record<string, unknown> = {}) {
+    return workOutput({
+      id: OUTPUT_ID,
+      status: "completed",
+      outputKey: "creative-work/output/out.png",
+      quality: {
+        schemaVersion: 1,
+        objectiveVerdict: "pass",
+        personFidelity: {
+          findings: [{ personId: PERSON_ID, status: "inconclusive", evidence: [], issue: "ocluído" }],
+          referenceHash: HASH,
+        },
+      },
+      ...overrides,
+    });
+  }
+
+  function reviewInput(overrides: Record<string, unknown> = {}) {
+    return {
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: OUTPUT_ID,
+      actorId: "user-1",
+      referenceHash: HASH,
+      accepted: true,
+      ...overrides,
+    };
+  }
+
+  it("persists the bound review beside the original signal without selecting", async () => {
+    const row = candidate();
+    mocks.state.selectResults.push([row]);
+    mocks.state.txUpdateResults.push([{ ...row, quality: { ...row.quality } }]);
+
+    const result = await reviewCreativeWorkOutputPersonFidelity(reviewInput());
+
+    expect(result.ok).toBe(true);
+    const patch = mocks.txSetMock.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    const quality = patch.quality as { personFidelity: { findings: unknown[]; review: Record<string, unknown> } };
+    expect(quality.personFidelity.findings).toHaveLength(1);
+    expect(quality.personFidelity.review).toMatchObject({
+      actorId: "user-1",
+      outputId: OUTPUT_ID,
+      referenceHash: HASH,
+      accepted: true,
+    });
+    expect(patch).not.toHaveProperty("isSelected");
+  });
+
+  it("a negative review invalidates an existing selection", async () => {
+    const row = candidate({ isSelected: true });
+    mocks.state.selectResults.push([row]);
+    mocks.state.txUpdateResults.push([{ ...row, isSelected: false }]);
+
+    const result = await reviewCreativeWorkOutputPersonFidelity(reviewInput({ accepted: false }));
+
+    expect(result.ok).toBe(true);
+    const patch = mocks.txSetMock.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(patch).toHaveProperty("isSelected", false);
+  });
+
+  it("rejects missing outputs, missing blocks and stale hashes without writing", async () => {
+    mocks.state.selectResults.push([]);
+    await expect(reviewCreativeWorkOutputPersonFidelity(reviewInput())).resolves.toEqual({
+      ok: false,
+      error: { code: "output_not_found" },
+    });
+
+    mocks.state.selectResults.push([candidate({ quality: { schemaVersion: 1 } })]);
+    await expect(reviewCreativeWorkOutputPersonFidelity(reviewInput())).resolves.toEqual({
+      ok: false,
+      error: { code: "no_person_fidelity" },
+    });
+
+    mocks.state.selectResults.push([candidate()]);
+    await expect(reviewCreativeWorkOutputPersonFidelity(reviewInput({ referenceHash: "d".repeat(64) }))).resolves.toEqual({
+      ok: false,
+      error: { code: "stale_reference" },
+    });
+    expect(mocks.txUpdateMock).not.toHaveBeenCalled();
+  });
+
+  describe("calibration privacy (plan 01, T2)", () => {
+    it("hides calibration examples from generic listings and inspiration", async () => {
+      mocks.state.selectResults.push([workItem()]);
+      await listCreativeWorks("ws-1");
+      const listWhere = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(listWhere.sql).toContain('"creative_work_items"."training_session_id" is null');
+
+      mocks.state.selectResults.push([workItem()]);
+      await listCreativeWorksForEntryContext("ws-1", "profile-1");
+      const entryWhere = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(entryWhere.sql).toContain('"creative_work_items"."training_session_id" is null');
+
+      mocks.state.selectResults.push([]);
+      await listCreativeWorkInspirationCandidates("ws-1", "profile-1");
+      const inspirationWhere = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(inspirationWhere.sql).toContain('"creative_work_items"."training_session_id" is null');
+    });
+
+    it("refuses generic autosaves on calibration-managed works", async () => {
+      mocks.state.selectResults.push([
+        workItem({ id: "work-cal", toolKind: "single", status: "draft", trainingSessionId: "session-1", trainingRound: 1, trainingSlot: 0 }),
+      ]);
+      await expect(autosaveCreativeWorkDraft({
+        workspaceId: "ws-1", workItemId: "work-cal", expectedUpdatedAt: new Date(), request: "Peça", intent: "single", format: "4:5", settings: { targetFormats: [] },
+      })).resolves.toEqual({ work: null, error: "calibration_managed", sourcesNeedingSingleAnalysis: [] });
+      expect(mocks.txUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("never promotes piece references from calibration works", async () => {
+      mocks.state.selectResults.push([]);
+      const updatedAt = new Date("2026-09-13T12:00:00.000Z");
+      await expect(promoteCreativeWorkPieceReference({
+        workspaceId: "ws-1", workItemId: "work-cal", sourceId: "source-1", clientProfileId: "profile-1",
+        assetKey: "k", label: "l",
+        expected: { assetId: "asset-1", assetKey: "k", updatedAt, category: "logo" },
+      })).resolves.toBeNull();
+      const promoteWhere = serializedCondition(mocks.whereMock.mock.calls.at(-1)?.[0]);
+      expect(promoteWhere.sql).toContain('"creative_work_items"."training_session_id" is null');
+      expect(mocks.valuesMock).not.toHaveBeenCalled();
+    });
+  });
 });

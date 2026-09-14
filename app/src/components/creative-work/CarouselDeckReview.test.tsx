@@ -7,6 +7,8 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: Record<string, string | number>) => {
     if (key === "slideLabel") return `Tela ${values?.position}`;
     if (key === "versionLabel") return `versão ${values?.version}`;
+    if (key === "refinementRunning") return `Ajustando o conjunto: ${values?.issue ?? ""}`;
+    if (key === "refinementPending") return `Ainda precisa de revisão: ${values?.issue ?? ""}`;
     return ({
       reviewTitle: "Revise o carrossel",
       status_queued: "Na fila", status_processing: "Gerando", status_completed: "Pronta", status_failed: "Falhou",
@@ -22,6 +24,7 @@ vi.mock("next-intl", () => ({
       coverReviewTitle: "Revise a capa piloto",
       approveCoverAndGenerate: "Aprovar capa e gerar demais slides",
       interiorsBudget: `Orçamento desta etapa: ${values?.count ?? 4} imagens (${values?.credits ?? 200} créditos).`,
+      refinementBestDeck: "Melhor deck válido anterior mantido.",
     }[key] ?? key);
   },
 }));
@@ -156,6 +159,36 @@ describe("CarouselDeckReview", () => {
     expect(exportButton).toBeEnabled();
     fireEvent.click(exportButton);
     expect(onExport).toHaveBeenCalledTimes(1);
+  });
+
+  it("announces set refinement progress and keeps the previous best deck on pending issues (plan 04, T4)", () => {
+    const { rerender } = renderReview({
+      artRefinement: { status: "running", issues: ["Ritmo quebrado na tela 3"], recommendedOutputIds: [] },
+    });
+    expect(screen.getByTestId("carousel-refinement-running"))
+      .toHaveTextContent("Ajustando o conjunto: Ritmo quebrado na tela 3");
+    expect(screen.queryByTestId("carousel-refinement-issues")).not.toBeInTheDocument();
+
+    rerender(
+      <CarouselDeckReview
+        slides={[1, 2, 3, 4, 5].map((position) => reviewSlide(position))}
+        quality={completedQuality}
+        deckRevision="deck-r1"
+        approvedRevision={null}
+        canApprove={false}
+        canExport={false}
+        isBusy={false}
+        onApprove={vi.fn()}
+        onDownloadSlide={vi.fn()}
+        onExport={vi.fn()}
+        onRetrySlide={vi.fn()}
+        artRefinement={{ status: "budget_exhausted", issues: ["Ritmo quebrado na tela 3"], recommendedOutputIds: ["deck-r1"] }}
+      />,
+    );
+    expect(screen.getByTestId("carousel-refinement-best"))
+      .toHaveTextContent("Melhor deck válido anterior mantido.");
+    expect(screen.getByTestId("carousel-refinement-issues"))
+      .toHaveTextContent("Ainda precisa de revisão: Ritmo quebrado na tela 3");
   });
 
   it("shows the cover approval button without generating on render", () => {

@@ -62,6 +62,13 @@ export async function addPieceFavorite(input: {
   userId: string;
   outputId: string;
 }): Promise<{ id: string; created: boolean }> {
+  const [created] = await db
+    .insert(pieceFavorites)
+    .values(input)
+    .onConflictDoNothing({ target: [pieceFavorites.userId, pieceFavorites.outputId] })
+    .returning({ id: pieceFavorites.id });
+  if (created) return { id: created.id, created: true };
+
   const [existing] = await db
     .select({ id: pieceFavorites.id })
     .from(pieceFavorites)
@@ -72,17 +79,8 @@ export async function addPieceFavorite(input: {
       ),
     )
     .limit(1);
-  if (existing) return { id: existing.id, created: false };
-
-  const [created] = await db
-    .insert(pieceFavorites)
-    .values({
-      workspaceId: input.workspaceId,
-      userId: input.userId,
-      outputId: input.outputId,
-    })
-    .returning({ id: pieceFavorites.id });
-  return { id: created!.id, created: true };
+  if (!existing) throw new Error("Favorite changed concurrently; retry the request");
+  return { id: existing.id, created: false };
 }
 
 export async function removePieceFavorite(input: {

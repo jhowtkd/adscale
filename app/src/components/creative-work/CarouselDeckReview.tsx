@@ -4,6 +4,8 @@ import type { Ref } from "react";
 import { useTranslations } from "next-intl";
 import { Download } from "lucide-react";
 import type { PublicCarouselQualityV1, PublicCarouselSlide } from "@/lib/hooks/use-creative-work";
+import { getArtRefinementPresentation } from "@/lib/creative-work-selection-policy";
+import type { CreativeResultCardArtRefinement } from "./CreativeResultCard";
 
 /**
  * Deck review surface: current slide status/version per position, objective
@@ -27,6 +29,7 @@ export function CarouselDeckReview({
   canApproveCover = false,
   interiorsQuote = null,
   onApproveCoverAndGenerate,
+  artRefinement = null,
 }: {
   slides: PublicCarouselSlide[];
   quality: PublicCarouselQualityV1 | null;
@@ -45,9 +48,13 @@ export function CarouselDeckReview({
   canApproveCover?: boolean;
   interiorsQuote?: { unitCount: number; credits: number } | null;
   onApproveCoverAndGenerate?: () => void;
+  /** Work-level automatic-refinement summary (plan 04, T4); absent on legacy works. */
+  artRefinement?: CreativeResultCardArtRefinement;
 }) {
   const t = useTranslations("dashboard.home.composer.carousel");
   const approved = Boolean(deckRevision && approvedRevision === deckRevision);
+  // Deck-level refinement state is work-scoped: no single output id applies.
+  const refinement = getArtRefinementPresentation(null, artRefinement);
 
   return (
     <section
@@ -75,6 +82,25 @@ export function CarouselDeckReview({
           <ul data-testid="carousel-advisory-warnings" className="mt-1 list-disc space-y-1 pl-4 text-xs text-[var(--text-secondary)]">
             {quality.advisoryWarnings.map((warning) => (
               <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {refinement.status === "running" && refinement.issues[0] ? (
+        <p role="status" data-testid="carousel-refinement-running" className="mt-2 text-sm text-[var(--text-secondary)]">
+          {t("refinementRunning", { issue: refinement.issues[0] })}
+        </p>
+      ) : null}
+
+      {refinement.status && refinement.status !== "running" && refinement.issues.length > 0 ? (
+        <div className="mt-2">
+          <p data-testid="carousel-refinement-best" className="text-xs font-medium text-[var(--text-secondary)]">
+            {t("refinementBestDeck")}
+          </p>
+          <ul data-testid="carousel-refinement-issues" className="mt-1 list-disc space-y-1 pl-4 text-xs text-[var(--text-muted)]">
+            {refinement.issues.map((issue) => (
+              <li key={issue}>{t("refinementPending", { issue })}</li>
             ))}
           </ul>
         </div>

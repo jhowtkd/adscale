@@ -1,0 +1,240 @@
+{
+  "capturedAt": "2026-06-24T14:28:12.116Z",
+  "baseUrl": "http://localhost:3000",
+  "viewport": {
+    "width": 1280,
+    "height": 900
+  },
+  "results": [
+    {
+      "name": "Login",
+      "route": "/login",
+      "file": "docs/screenshots/app/login.png",
+      "status": "ok"
+    },
+    {
+      "name": "Signup",
+      "route": "/signup",
+      "file": "docs/screenshots/app/signup.png",
+      "status": "ok"
+    },
+    {
+      "name": "Forgot Password",
+      "route": "/forgot-password",
+      "file": "docs/screenshots/app/forgot-password.png",
+      "status": "ok"
+    },
+    {
+      "name": "Privacy Policy",
+      "route": "/privacy",
+      "file": "docs/screenshots/app/privacy-policy.png",
+      "status": "ok"
+    },
+    {
+      "name": "Terms of Service",
+      "route": "/terms",
+      "file": "docs/screenshots/app/terms-of-service.png",
+      "status": "ok"
+    },
+    {
+      "name": "Invite (no token)",
+      "route": "/invite",
+      "file": "docs/screenshots/app/invite-no-token.png",
+      "status": "ok"
+    },
+    {
+      "name": "Reset Password (no token)",
+      "route": "/reset-password",
+      "file": "docs/screenshots/app/reset-password-no-token.png",
+      "status": "ok"
+    },
+    {
+      "name": "Invite (with token)",
+      "route": "/invite?token=testsprite-e2e-invite",
+      "file": "docs/screenshots/app/invite-with-token.png",
+      "status": "ok"
+    },
+    {
+      "name": "Reset Password (with token)",
+      "route": "/reset-password?token=…",
+      "file": "",
+      "status": "skipped",
+      "note": "reset-token endpoint failed (404)"
+    },
+    {
+      "name": "Share Gallery",
+      "route": "/share/testsprite-e2e-share",
+      "file": "docs/screenshots/app/share-gallery.png",
+      "status": "ok"
+    },
+    {
+      "name": "Dashboard",
+      "route": "/",
+      "file": "docs/screenshots/app/dashboard.png",
+      "status": "ok"
+    },
+    {
+      "name": "Campaigns List",
+      "route": "/campaigns",
+      "file": "docs/screenshots/app/campaigns-list.png",
+      "status": "ok"
+    },
+    {
+      "name": "Campaign Workspace",
+      "route": "/campaigns/96ab4965-cac4-475b-b7c9-338788b7e04d",
+      "file": "docs/screenshots/app/campaign-workspace.png",
+      "status": "ok"
+    },
+    {
+      "name": "Library",
+      "route": "/library",
+      "file": "docs/screenshots/app/library.png",
+      "status": "ok"
+    },
+    {
+      "name": "Templates",
+      "route": "/templates",
+      "file": "docs/screenshots/app/templates.png",
+      "status": "ok"
+    },
+    {
+      "name": "Restyling",
+      "route": "/restyling",
+      "file": "docs/screenshots/app/restyling.png",
+      "status": "ok"
+    },
+    {
+      "name": "Quick Tools Restyling",
+      "route": "/quick-tools/restyling",
+      "file": "docs/screenshots/app/quick-tools-restyling.png",
+      "status": "ok"
+    },
+    {
+      "name": "Feedback",
+      "route": "/feedback",
+      "file": "docs/screenshots/app/feedback.png",
+      "status": "ok"
+    },
+    {
+      "name": "Settings — Brand Kit",
+      "route": "/settings?tab=brandKit",
+      "file": "docs/screenshots/app/settings-brand-kit.png",
+      "status": "ok"
+    },
+    {
+      "name": "Settings — Team",
+      "route": "/settings?tab=team",
+      "file": "docs/screenshots/app/settings-team.png",
+      "status": "ok"
+    },
+    {
+      "name": "Settings — Billing",
+      "route": "/settings?tab=billing",
+      "file": "docs/screenshots/app/settings-billing.png",
+      "status": "ok"
+    },
+    {
+      "name": "Settings — Credit History",
+      "route": "/settings?tab=creditHistory",
+      "file": "docs/screenshots/app/settings-credit-history.png",
+      "status": "ok"
+    },
+    {
+      "name": "Settings — Plans",
+      "route": "/settings?tab=plans",
+      "file": "docs/screenshots/app/settings-plans.png",
+      "status": "ok"
+    },
+    {
+      "name": "Settings — Privacy",
+      "route": "/settings?tab=privacy",
+      "file": "docs/screenshots/app/settings-privacy.png",
+      "status": "ok"
+    },
+    {
+      "name": "Admin — Brand Voice Inspect",
+      "route": "/admin/quality/brands/c4846246-a0db-4c51-a6ef-af108135df50",
+      "file": "docs/screenshots/app/admin-brand-voice-inspect.png",
+      "status": "ok"
+    }
+  ],
+  "wireframes": [
+    {
+      "name": "Wireframe — Framer",
+      "source": "docs/wireframe-framer.html",
+      "file": "docs/screenshots/wireframes/wireframe-framer.png",
+      "status": "ok"
+    },
+    {
+      "name": "Wireframe — Framer Flat",
+      "source": "docs/wireframe-framer-flat.html",
+      "file": "docs/screenshots/wireframes/wireframe-framer-flat.png",
+      "status": "ok"
+    },
+    {
+      "name": "Wireframe — Linear",
+      "source": "docs/wireframe-linear.html",
+      "file": "docs/screenshots/wireframes/wireframe-linear.png",
+      "status": "ok"
+    },
+    {
+      "name": "Wireframe — Figma",
+      "source": "docs/wireframe-figma.html",
+      "file": "docs/screenshots/wireframes/wireframe-figma.png",
+      "status": "ok"
+    },
+    {
+      "name": "Wireframe — Pinterest",
+      "source": "docs/wireframe-pinterest.html",
+      "file": "docs/screenshots/wireframes/wireframe-pinterest.png",
+      "status": "ok"
+    },
+    {
+      "name": "Wireframe — Notion",
+      "source": "docs/wireframe-notion.html",
+      "file": "docs/screenshots/wireframes/wireframe-notion.png",
+      "status": "ok"
+    }
+  ],
+  "notCaptured": [
+    {
+      "name": "New Campaign",
+      "route": "/campaigns/new",
+      "reason": "Server-side redirect — creates a draft campaign and immediately redirects to /campaigns/:id"
+    },
+    {
+      "name": "Settings — Profile",
+      "route": "/settings?tab=profile",
+      "reason": "Tab disabled in settings-tabs.ts (enabled: false)"
+    },
+    {
+      "name": "Settings — Workspace",
+      "route": "/settings?tab=workspace",
+      "reason": "Tab disabled in settings-tabs.ts (enabled: false)"
+    },
+    {
+      "name": "Settings — Integrations",
+      "route": "/settings?tab=integrations",
+      "reason": "Tab disabled in settings-tabs.ts (enabled: false)"
+    },
+    {
+      "name": "Marketing site",
+      "route": "marketing/",
+      "reason": "No deployable HTML app in repo — markdown/assets only"
+    },
+    {
+      "name": "Open Design artifacts",
+      "route": "OD projects",
+      "reason": "No ADScale Open Design projects on local daemon (unrelated prototypes only)"
+    }
+  ],
+  "commands": {
+    "devServer": "cd app && E2E_DISABLE_RATE_LIMIT=true npm run dev:next",
+    "seeds": [
+      "cd app && npx tsx scripts/seed-visual-foundations.ts",
+      "cd app && npx tsx scripts/seed-dev-admin.ts --create --email=dev-admin@adscale.local --password='DevAdmin123!'",
+      "cd app && npx tsx scripts/seed-testsprite.ts"
+    ],
+    "capture": "cd app && npx playwright install chromium && npx tsx scripts/capture-ui-screenshots.ts"
+  }
+}

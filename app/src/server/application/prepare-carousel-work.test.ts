@@ -13,6 +13,7 @@ const repo = vi.hoisted(() => ({
 }));
 const identityMock = vi.hoisted(() => vi.fn());
 const brandKitMock = vi.hoisted(() => vi.fn());
+const activeVersionMock = vi.hoisted(() => vi.fn());
 const billing = vi.hoisted(() => ({
   refundCredits: vi.fn(),
   spend: vi.fn(),
@@ -44,6 +45,9 @@ vi.mock("@/server/repositories/creative-work", () => ({
 }));
 vi.mock("@/server/repositories/brand-kit", () => ({
   getBrandKit: (...args: unknown[]) => brandKitMock(...args),
+}));
+vi.mock("@/server/repositories/brand-knowledge", () => ({
+  getActiveBrandKnowledgeVersion: (...args: unknown[]) => activeVersionMock(...args),
 }));
 vi.mock("@/server/creative-work/identity", () => ({
   createIdentitySnapshot: (...args: unknown[]) => identityMock(...args),
@@ -211,6 +215,7 @@ describe("prepareCarouselWork", () => {
       requiredElements: null,
       prohibitedElements: null,
     });
+    activeVersionMock.mockResolvedValue(null);
     repo.getCreativeWorkSourceAssetDetails.mockResolvedValue(
       new Map([
         ["source-style-1", { assetKey: "workspaces/ws/assets/ref.png", mimeType: "image/png", source: "upload", name: "ref.png" }],
@@ -496,6 +501,172 @@ describe("prepareCarouselWork", () => {
     expect(result.value.work.status).toBe("draft");
   });
 
+  it("freezes deck people and the visual direction from the published claims", async () => {
+    const ANA_ID = "11111111-1111-4111-8111-111111111111";
+    const ANA_REF = "22222222-2222-4222-8222-222222222222";
+    const RULE_ID = "33333333-3333-4333-8333-333333333333";
+    const LANG_ID = "44444444-4444-4334-8334-444444444444";
+    const MOTIF_ID = "55555555-5555-4555-8555-555555555555";
+    activeVersionMock.mockResolvedValue({
+      snapshot: {
+        claims: [
+          {
+            claimKey: "people.catalog",
+            value: {
+              version: 1,
+              people: [{
+                id: ANA_ID,
+                name: "Ana",
+                aliases: [],
+                referenceIds: [ANA_REF],
+                primaryReferenceId: ANA_REF,
+                preserve: ["formato do rosto"],
+                referenceAdequacy: "confirmed",
+              }],
+            },
+          },
+          {
+            claimKey: "visual.repertoire",
+            value: {
+              version: 1,
+              common: [{
+                id: RULE_ID,
+                dimension: "hierarchy",
+                observation: "Título domina a leitura",
+                application: "Dar ao título escala superior ao texto de apoio",
+                avoid: "Competição de dois focos",
+                evidenceIds: ["ref-1"],
+                confidence: "high",
+              }],
+              languages: [{
+                id: LANG_ID,
+                name: "Comercial",
+                contexts: ["oferta"],
+                rules: [{
+                  id: MOTIF_ID,
+                  dimension: "motif",
+                  observation: "Selo circular recorrente",
+                  application: "Repetir o selo circular",
+                  avoid: "",
+                  evidenceIds: ["ref-1"],
+                  confidence: "medium",
+                }],
+              }],
+            },
+          },
+        ],
+      },
+    });
+    const plan = planOfFive();
+    plan.slides[1] = {
+      ...plan.slides[1]!,
+      purpose: "Abertura Comercial",
+      primaryText: "Ana apresenta o grupo no consultório",
+    };
+    repo.getCreativeWork.mockResolvedValue(aggregate({
+      settings: {
+        targetFormats: [],
+        carouselDraft: draftWithPlan({ plan }),
+        carouselEditorial: approvedEditorial(),
+      },
+    }));
+
+    const result = await prepareCarouselWork(baseInput);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.visualContract.recurringMotifs).toEqual(["Repetir o selo circular"]);
+    const patch = repo.updateCreativeWorkDraftIfUnchanged.mock.calls[0][3] as {
+      inputSnapshot: Record<string, unknown>;
+    };
+    expect(patch.inputSnapshot.people).toEqual([{
+      personId: ANA_ID,
+      name: "Ana",
+      referenceIds: [ANA_REF],
+      primaryReferenceId: ANA_REF,
+      preserve: ["formato do rosto"],
+    }]);
+    expect(patch.inputSnapshot.visualDirection).toMatchObject({
+      languageId: LANG_ID,
+      ruleIds: [RULE_ID, MOTIF_ID],
+      dominantIdea: "Dar ao título escala superior ao texto de apoio",
+      preserve: ["Competição de dois focos"],
+    });
+  });
+
+  it("blocks unknown people and ambiguous languages before freezing the deck", async () => {
+    activeVersionMock.mockResolvedValue({
+      snapshot: {
+        claims: [
+          {
+            claimKey: "people.catalog",
+            value: {
+              version: 1,
+              people: [{
+                id: "11111111-1111-4111-8111-111111111111",
+                name: "Ana",
+                aliases: [],
+                referenceIds: ["22222222-2222-4222-8222-222222222222"],
+                primaryReferenceId: "22222222-2222-4222-8222-222222222222",
+                preserve: [],
+                referenceAdequacy: "confirmed",
+              }],
+            },
+          },
+          {
+            claimKey: "visual.repertoire",
+            value: {
+              version: 1,
+              common: [],
+              languages: [
+                { id: "44444444-4444-4334-8334-444444444444", name: "Comercial", contexts: ["oferta"], rules: [] },
+                { id: "66666666-6666-4666-8666-666666666666", name: "Comercial", contexts: ["varejo"], rules: [] },
+              ],
+            },
+          },
+        ],
+      },
+    });
+    repo.getCreativeWork.mockResolvedValue(aggregate({
+      settings: {
+        targetFormats: [],
+        personIds: ["99999999-9999-4999-8999-999999999999"],
+        carouselDraft: draftWithPlan(),
+        carouselEditorial: approvedEditorial(),
+      },
+    }));
+    await expect(prepareCarouselWork(baseInput)).resolves.toEqual({
+      ok: false,
+      error: {
+        code: "person_unknown",
+        personId: "99999999-9999-4999-8999-999999999999",
+        options: [{ id: "11111111-1111-4111-8111-111111111111", name: "Ana" }],
+      },
+    });
+    expect(repo.updateCreativeWorkDraftIfUnchanged).not.toHaveBeenCalled();
+
+    repo.getCreativeWork.mockResolvedValue(aggregate({
+      request: "Grupo de terapia começa em agosto. Peça Comercial.",
+      settings: {
+        targetFormats: [],
+        carouselDraft: draftWithPlan(),
+        carouselEditorial: approvedEditorial(),
+      },
+    }));
+    await expect(prepareCarouselWork(baseInput)).resolves.toEqual({
+      ok: false,
+      error: {
+        code: "visual_language_ambiguous",
+        name: "Comercial",
+        options: [
+          { id: "44444444-4444-4334-8334-444444444444", name: "Comercial" },
+          { id: "66666666-6666-4666-8666-666666666666", name: "Comercial" },
+        ],
+      },
+    });
+    expect(repo.updateCreativeWorkDraftIfUnchanged).not.toHaveBeenCalled();
+  });
+
   it("freezes the candidate image policy in the preparation transaction", async () => {
     repo.getCreativeWork.mockResolvedValue(aggregate());
     await prepareCarouselWork(baseInput);
@@ -510,6 +681,32 @@ describe("prepareCarouselWork", () => {
       }),
       transactionExecutor,
     );
+  });
+
+  it("freezes the refinement budget only on explicit opt-in (plan 04, T4)", async () => {
+    repo.getCreativeWork.mockResolvedValue(aggregate());
+
+    const accepted = await prepareCarouselWork({ ...baseInput, artRefinement: { acceptedBy: "user-1" } });
+    expect(accepted.ok).toBe(true);
+    const patch = repo.updateCreativeWorkDraftIfUnchanged.mock.calls[0][3] as {
+      inputSnapshot: Record<string, unknown>;
+    };
+    expect(patch.inputSnapshot).toHaveProperty("artRefinement", expect.objectContaining({
+      version: 1,
+      maxRevisionsPerRoot: 2,
+      acceptedBy: "user-1",
+    }));
+    // Five slides × (root + two revisions): the deck quote tripled.
+    const ceiling = (patch.inputSnapshot.artRefinement as { acceptedCreditCeiling: number }).acceptedCreditCeiling;
+    expect(ceiling).toBeGreaterThan(0);
+
+    repo.updateCreativeWorkDraftIfUnchanged.mockClear();
+    const legacy = await prepareCarouselWork(baseInput);
+    expect(legacy.ok).toBe(true);
+    const legacyPatch = repo.updateCreativeWorkDraftIfUnchanged.mock.calls[0]?.[3] as
+      | { inputSnapshot: Record<string, unknown> }
+      | undefined;
+    if (legacyPatch) expect(legacyPatch.inputSnapshot).not.toHaveProperty("artRefinement");
   });
 
   it("reuses the prepared revision when an identical prepare runs again", async () => {

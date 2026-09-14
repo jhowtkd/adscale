@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { compileBrandKnowledgeVersion } from "./version-compiler";
+import { compileBrandKnowledgeVersion, compileBrandKnowledgeVersionV2 } from "./version-compiler";
 import { brandKnowledgeEvidenceKey, type BrandKnowledgeClaim } from "./contracts";
 
 describe("brand knowledge version compiler", () => {
@@ -23,6 +23,36 @@ describe("brand knowledge version compiler", () => {
   it("rejects stale evidence after review", () => {
     const current = claim("claim-1", "palette.colors", ["#D71F2B"]);
     expect(() => compileBrandKnowledgeVersion({ profileId: "profile-1", claims: [current], evidenceHashes: new Map([[brandKnowledgeEvidenceKey(current.evidenceRefs[0]!), "b".repeat(64)]]) })).toThrow("evidence changed");
+  });
+
+  it("publishes the exact validated candidate as v2 without recompiling mutable claims (plan 01, T4)", () => {
+    const claims = [claim("claim-a", "palette.colors", ["#D71F2B"])];
+    const v1 = compileBrandKnowledgeVersion({ profileId: "profile-1", claims, evidenceHashes: evidenceHashes(claims) });
+    const candidate = {
+      hash: "c".repeat(64),
+      knowledge: v1.snapshot,
+      identity: {
+        clientProfileId: "profile-1",
+        confirmedAt: "2026-09-13T12:00:00.000Z",
+        assets: [],
+        brandKit: { colors: ["#D71F2B"], fonts: [], toneOfVoice: null, prohibitedElements: null, requiredElements: null },
+      },
+      evidenceHashes: { "brand_guide:evidence-claim-a:value": "a".repeat(64) },
+    };
+    const published = compileBrandKnowledgeVersionV2({
+      candidate,
+      calibration: { sessionId: "session-1", round: 2 },
+    });
+    // The version hash is the validated content hash — proof metadata never alters it.
+    expect(published.hash).toBe("c".repeat(64));
+    expect(published.snapshot.schemaVersion).toBe(2);
+    expect(published.snapshot.compiledAt).toBe(v1.snapshot.compiledAt);
+    expect(published.snapshot.claims).toEqual(v1.snapshot.claims);
+    expect(published.snapshot.identity).toEqual(candidate.identity);
+    expect(published.snapshot.calibration).toEqual({ sessionId: "session-1", round: 2, candidateHash: "c".repeat(64) });
+    // Later candidate edits cannot mutate the published output.
+    candidate.knowledge.claims[0]!.value = ["#000000"];
+    expect(published.snapshot.claims[0]?.value).toEqual(["#D71F2B"]);
   });
 });
 

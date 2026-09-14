@@ -11,10 +11,13 @@ vi.mock("@/server/validation/env", () => ({
 import {
   analyzeCreativeQa,
   analyzeCreativeWorkQa,
+  analyzePersonFidelity,
   normalizeCreativeQaResult,
   normalizeCreativeWorkQaResult,
+  normalizePersonFidelityResult,
   buildCreativeQaPrompt,
   buildCreativeWorkQaPrompt,
+  buildPersonFidelityPrompt,
   extractObservableRubricSection,
   inspectCreativeWorkImageFile,
   inspectExactCompositionAsset,
@@ -545,6 +548,32 @@ describe("normalizeCreativeWorkQaResult", () => {
     ]);
   });
 
+  it("keeps a valid art critique and drops an unjustified weak one", () => {
+    const valid = normalizeCreativeWorkQaResult({
+      findings: [],
+      summary: "Ok.",
+      artCritique: {
+        verdict: "weak", problem: "Foco dividido", intervention: "Unificar foco",
+        mode: "edit", preserve: ["facts"], evidence: ["Dois títulos dominantes"], confidence: "high",
+      },
+    });
+    expect(valid.artCritique).toMatchObject({ verdict: "weak", mode: "edit" });
+
+    // A weak verdict without problem/intervention/evidence is invalid: it
+    // degrades to absent (inconclusive) instead of justifying a new image.
+    const unjustified = normalizeCreativeWorkQaResult({
+      findings: [],
+      summary: "Ok.",
+      artCritique: {
+        verdict: "weak", problem: "", intervention: "", mode: "edit",
+        preserve: [], evidence: [], confidence: "high",
+      },
+    });
+    expect(unjustified).toEqual({ findings: [], summary: "Ok." });
+    expect(normalizeCreativeWorkQaResult({ findings: [], summary: "Ok.", artCritique: null }))
+      .toEqual({ findings: [], summary: "Ok." });
+  });
+
   it("tolerates garbage input and caps findings", () => {
     expect(normalizeCreativeWorkQaResult(null)).toEqual({ findings: [], summary: "" });
     expect(normalizeCreativeWorkQaResult("junk")).toEqual({ findings: [], summary: "" });
@@ -666,6 +695,17 @@ describe("buildCreativeWorkQaPrompt", () => {
     expect(prompt).toContain('- #2 [style] "Style source" (required)');
   });
 
+  it("requests the art critique only when enabled, keeping the objective contract otherwise", () => {
+    const enabled = buildCreativeWorkQaPrompt({ ...baseInput, artCritique: { enabled: true } });
+    expect(enabled).toContain("ART-DIRECTION CRITIQUE");
+    expect(enabled).toContain("nota isolada não justifica nova imagem");
+    expect(enabled).toContain('"artCritique"');
+
+    const legacy = buildCreativeWorkQaPrompt(baseInput);
+    expect(legacy).not.toContain("ART-DIRECTION CRITIQUE");
+    expect(legacy).not.toContain('"artCritique"');
+  });
+
   it("adaptation mode demands the same piece", () => {
     const prompt = buildCreativeWorkQaPrompt({ ...baseInput, mode: "format_adaptation" });
     expect(prompt).toContain("MODE POLICY — FORMAT ADAPTATION:");
@@ -697,5 +737,93 @@ describe("analyzeCreativeWorkQa controlled E2E seam", () => {
 
     expect(result.findings).toEqual([]);
     expect(result.summary).toContain("Deterministic");
+  });
+});
+
+describe("person fidelity assessment (plan 03, T3)", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  const people = [{ personId: "11111111-1111-4111-8111-111111111111" }];
+
+  it("asks for anatomy-only comparison with free staging", () => {
+    const prompt = buildPersonFidelityPrompt({
+      people: [{
+        personId: people[0]!.personId,
+        name: "Ana",
+        preserve: ["sinal na bochecha"],
+        buffer: Buffer.from("ref"),
+        mimeType: "image/jpeg",
+      }],
+      locale: "pt-BR",
+    });
+    expect(prompt).toContain("Ana");
+    expect(prompt).toContain("sinal na bochecha");
+    expect(prompt).toContain("FREE");
+    expect(prompt).toContain("inconclusive");
+    expect(prompt).toContain("no similarity scores");
+  });
+
+  it("fills every missing person with inconclusive instead of an empty array", () => {
+    const result = normalizePersonFidelityResult({ findings: [] }, people, "indisponível");
+    expect(result.findings).toEqual([{
+      personId: people[0]!.personId,
+      status: "inconclusive",
+      evidence: [],
+      issue: "indisponível",
+    }]);
+  });
+
+  it("drops unknown personIds and degrades evidence-less mismatch to doubt", () => {
+    const result = normalizePersonFidelityResult({
+      findings: [
+        { personId: "99999999-9999-4999-8999-999999999999", status: "mismatch", evidence: ["x"], issue: null },
+        { personId: people[0]!.personId, status: "mismatch", evidence: [], issue: "vago" },
+      ],
+    }, people, "indisponível");
+    expect(result.findings).toEqual([{
+      personId: people[0]!.personId,
+      status: "inconclusive",
+      evidence: [],
+      issue: "vago",
+    }]);
+  });
+
+  it("resolves duplicate findings worst-first and keeps mismatch evidence", () => {
+    const result = normalizePersonFidelityResult({
+      findings: [
+        { personId: people[0]!.personId, status: "consistent", evidence: [], issue: null },
+        { personId: people[0]!.personId, status: "mismatch", evidence: ["rosto trocado"], issue: "troca" },
+      ],
+    }, people, "indisponível");
+    expect(result.findings).toEqual([{
+      personId: people[0]!.personId,
+      status: "mismatch",
+      evidence: ["rosto trocado"],
+      issue: "troca",
+    }]);
+  });
+
+  it("returns consistent findings under the controlled E2E provider", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("E2E_CONTROLLED_PROVIDER", "true");
+    vi.stubEnv("APP_URL", "http://localhost:3000");
+    const result = await analyzePersonFidelity({
+      imageBuffer: Buffer.from("out"),
+      mimeType: "image/png",
+      people: [{
+        personId: people[0]!.personId,
+        name: "Ana",
+        preserve: [],
+        buffer: Buffer.from("ref"),
+        mimeType: "image/jpeg",
+      }],
+      locale: "pt-BR",
+    });
+    expect(result.findings).toEqual([{
+      personId: people[0]!.personId,
+      status: "consistent",
+      evidence: [],
+      issue: null,
+    }]);
   });
 });

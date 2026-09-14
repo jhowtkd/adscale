@@ -19,19 +19,25 @@ import { getCreativeWork } from "@/server/repositories/creative-work";
 import {
   completeCarouselSlide,
   failCarouselSlide,
+  listCarouselSlideLineage,
   listCurrentCarouselSlides,
   markCarouselSlideProcessing,
 } from "@/server/repositories/creative-work-carousel";
 import { dispatchNextCarouselStage } from "@/server/application/advance-carousel-generation";
+import { refineCarouselSlide } from "@/server/application/refine-carousel-slide";
 import {
   carouselAnchorPositions,
   resolveCarouselPreparedSnapshot,
+  resolveCarouselSlideRevisionInstruction,
 } from "@/server/creative-work/carousel-contracts";
 import { buildCarouselSlidePrompt } from "@/server/creative-work/prompt";
 import {
   planCarouselSlideReferences,
   type CreativeWorkReferenceSlot,
 } from "@/server/creative-work/reference-plan";
+import { matchPersonPhotoBuffers, resolveSnapshotPersonSlots, type MatchedPersonPhotoInput } from "@/server/creative-work/identity";
+import { resolveCreativeWorkArtRefinement } from "@/server/creative-work/contracts";
+import { snapshotPeopleMentionedInText } from "@/server/brand-training/people";
 import {
   runCarouselTextComposition,
   TextCompositionError,
@@ -201,14 +207,33 @@ export async function runCreativeWorkCarouselSlide(input: {
     const temporaryReference = temporarySource?.assetKey && temporarySource.mimeType
       ? { assetKey: temporarySource.assetKey, mimeType: temporarySource.mimeType, label: temporarySource.label?.trim() || "Temporary reference" }
       : null;
+    // Named people (plan 03, T2): slides whose frozen copy mentions a frozen
+    // snapshot person carry that person's primary photo next to the anchor
+    // board. Missing photos fail the slide as reference_failure, like any
+    // other mandatory authority.
+    const planSlide = snapshot.deck.slides.find((candidate) => candidate.position === claimed.position);
+    const slidePeople = snapshotPeopleMentionedInText(
+      planSlide ? [planSlide.purpose, planSlide.primaryText, planSlide.secondaryText ?? ""].join("\n") : "",
+      work.inputSnapshot?.people ?? [],
+    );
     let referenceSlots: CreativeWorkReferenceSlot[];
     let referenceImages: Array<{ buffer: Buffer; mimeType: string; name: string }>;
+    // Plan 03, T3: slide people bound to their loaded primary photos for the
+    // person-fidelity assessment over the final composed image.
+    let slidePersonPhotos: MatchedPersonPhotoInput[] = [];
     try {
+      const { slots: personSlots } = await resolveSnapshotPersonSlots({
+        workspaceId,
+        clientProfileId: work.clientProfileId,
+        people: slidePeople,
+        identityAssets: identitySnapshot?.assets ?? [],
+      });
       referenceSlots = planCarouselSlideReferences({
         isAnchor: anchor,
         anchorBoardKey: claimed.anchorKey,
         identityReferenceAssets,
         temporaryReference,
+        personSlots,
       });
       referenceImages = await Promise.all(
         referenceSlots.map(async (slot) => ({
@@ -217,6 +242,15 @@ export async function runCreativeWorkCarouselSlide(input: {
           name: slot.label,
         })),
       );
+      slidePersonPhotos = matchPersonPhotoBuffers({
+        people: slidePeople,
+        personSlots,
+        loaded: referenceSlots.map((slot, index) => ({
+          slot,
+          buffer: referenceImages[index]!.buffer,
+          mimeType: referenceImages[index]!.mimeType,
+        })),
+      });
     } catch (error) {
       // Any failure in the reference stage — planning rejection or a
       // missing/unloadable (unauthorized) reference asset — is terminal for
@@ -244,6 +278,10 @@ export async function runCreativeWorkCarouselSlide(input: {
       references: referenceSlots,
       storyboard: snapshot.storyboard,
       generationScope: snapshot.generationScope,
+      visualDirection: work.inputSnapshot?.visualDirection ?? null,
+      // Pending visual-revision instruction persisted on the draft by the
+      // revise path (manual or automatic); first generations carry none.
+      revisionInstruction: resolveCarouselSlideRevisionInstruction(claimed.quality),
     });
 
     const request: GenerationRequest = {
@@ -428,7 +466,13 @@ export async function runCreativeWorkCarouselSlide(input: {
             mimeType: slot.mimeType,
           })),
           locale: "pt-BR",
+          // Plan 04, T4: request the same-call art critique only when the
+          // snapshot carries an explicitly accepted refinement budget.
+          ...(resolveCreativeWorkArtRefinement(work.inputSnapshot)
+            ? { artCritique: { enabled: true } }
+            : {}),
         },
+        people: slidePersonPhotos,
         score: {
           imageBuffer: composition.buffer,
           mimeType: "image/png",
@@ -497,6 +541,40 @@ export async function runCreativeWorkCarouselSlide(input: {
     if (!completed) {
       // Lost lease after a concurrent terminal transition: never double-settle.
       return { success: true, slideId, skipped: true };
+    }
+
+    // Plan 04, T4: automatic art refinement after a terminal validated
+    // slide. Best-effort and isolated: the slide is already COMPLETED, so a
+    // refinement failure must never reclassify it. Runs BEFORE the chain
+    // continuation so an anchor revision supersedes its dependents before
+    // they dispatch — never after they settle. Only budgeted works pay for
+    // the lineage re-read; the coordinator re-validates everything
+    // (calibration, root, critique, ceiling) against live rows.
+    if (resolveCreativeWorkArtRefinement(work.inputSnapshot)) {
+      try {
+        const lineage = await listCarouselSlideLineage(workspaceId, workItemId, completed.lineageId);
+        let rootSlideId = completed.id;
+        let rootVersion = completed.versionNumber;
+        for (const version of lineage) {
+          if (version.versionNumber < rootVersion) {
+            rootSlideId = version.id;
+            rootVersion = version.versionNumber;
+          }
+        }
+        const outcome = await refineCarouselSlide({
+          workspaceId,
+          workItemId,
+          rootSlideId,
+          completedSlideId: completed.id,
+        });
+        logger.info(
+          `[carouselSlideJob] art-refinement slideId=${slideId} kind=${outcome.kind} reason=${outcome.reason}`,
+        );
+      } catch (refineError) {
+        logger.warn(
+          `[carouselSlideJob] art-refinement failed slideId=${slideId} (slide stays completed): ${refineError instanceof Error ? refineError.message : String(refineError)}`,
+        );
+      }
     }
 
     // Chain continuation exactly once per terminal transition.

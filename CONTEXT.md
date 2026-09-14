@@ -50,6 +50,22 @@ _Evitar_: sessão temporária, formulário descartável.
 Resultado visual produzido por um Trabalho, independentemente do Protocolo usado.
 _Evitar_: output, asset gerado, derivação.
 
+**Direção de arte**:
+Disciplina que interpreta o problema de comunicação, identifica oportunidades de composição e conduz criação, crítica e refinamento de uma Peça com julgamento contextual e repertório da marca.
+_Evitar_: execução literal de regras, mera aplicação de estilo.
+
+**Pessoa da marca**:
+Pessoa identificada pelo operador por um nome e referências visuais, que pode ser citada no briefing para aparecer em uma Peça com sua identidade e características anatômicas preservadas.
+_Evitar_: mascote, persona de público, usuário da plataforma.
+
+**Linguagem visual da marca**:
+Conjunto de escolhas e padrões visuais adequado a um contexto de comunicação, que compartilha a identidade comum da marca e pode ser citado no briefing. Uma marca pode ter várias linguagens, cuja aplicação depende do pedido.
+_Evitar_: identidade inteira da marca, template fixo.
+
+**Calibração da marca**:
+Etapa do treinamento em que o operador avalia Peças de teste para aferir e ajustar como o sistema compreende e aplica o repertório da marca. O julgamento dessas Peças orienta o aprendizado destinado a trabalhos futuros.
+_Evitar_: aprovação de publicação, refinamento de uma única Peça.
+
 **Variação**:
 Peça criada como alternativa relacionada a uma base, direção ou Peça anterior.
 _Evitar_: versão, derivação.

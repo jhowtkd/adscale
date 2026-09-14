@@ -258,6 +258,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
       </div>
       <CreativeProposalGrid
         outputs={composer.outputs}
+        artRefinement={composer.artRefinement}
         layout={layout}
         onRetry={composer.retryOutput}
         onRetryRevision={composer.retryRevisionOutput}

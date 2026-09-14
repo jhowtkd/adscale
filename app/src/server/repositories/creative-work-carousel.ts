@@ -1,13 +1,21 @@
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   creativeWorkCarouselSlides,
   creativeWorkItems,
+  creativeWorkRefinementAttempts,
   type CreativeWorkCarouselSlide,
   type CreativeWorkItem,
   type CreativeWorkOutput,
   type CreativeWorkSource,
 } from "../db/schema";
+import {
+  ART_REFINEMENT_MAX_REVISIONS_PER_ROOT,
+  artRefinementParentHash,
+  artRefinementRevisionKey,
+  carouselRevisionUnits,
+} from "../creative-work/art-refinement";
+import type { ArtRefinementClaimResult } from "./creative-work";
 import {
   resolveCreativeWorkStatus,
   type CreativeWorkStatus,
@@ -436,6 +444,30 @@ export async function setRemainingCarouselAnchorKey(input: {
  transaction under the per-work lock. The parent row itself is preserved for
  its lineage and provider provenance.
  */
+/**
+ * Every version of one slide lineage — current and superseded — oldest
+ * first. The refinement coordinator walks this to resolve the stable root
+ * (version 1) and to compare the completed versions of a lineage.
+ */
+export async function listCarouselSlideLineage(
+  workspaceId: string,
+  workItemId: string,
+  lineageId: string,
+  executor: CarouselExecutor = db,
+): Promise<CreativeWorkCarouselSlide[]> {
+  return executor
+    .select()
+    .from(creativeWorkCarouselSlides)
+    .where(
+      and(
+        eq(creativeWorkCarouselSlides.workspaceId, workspaceId),
+        eq(creativeWorkCarouselSlides.workItemId, workItemId),
+        eq(creativeWorkCarouselSlides.lineageId, lineageId)
+      )
+    )
+    .orderBy(asc(creativeWorkCarouselSlides.versionNumber));
+}
+
 export async function createCarouselSlideDescendant(input: {
   workspaceId: string;
   workItemId: string;
@@ -454,6 +486,12 @@ export async function createCarouselSlideDescendant(input: {
   providerBaseKey: string | null;
   outputKey: string | null;
   previewKey: string | null;
+  /**
+   * Draft payload only (e.g. a pending visual revision instruction). The job
+   * consumes it at generation time and the completion assessment overwrites
+   * `quality` with the versioned QA payload.
+   */
+  quality?: Record<string, unknown> | null;
 }): Promise<CreativeWorkCarouselSlide | null> {
   return db.transaction(async (tx) => {
     await tx.execute(
@@ -508,6 +546,7 @@ export async function createCarouselSlideDescendant(input: {
         visualContractHash: input.visualContractHash,
         generationOperationKey: input.generationOperationKey,
         isCurrent: true,
+        ...(input.quality ? { quality: input.quality } : {}),
         ...(input.status === "completed"
           ? { queuedAt: new Date(), terminalAt: new Date() }
           : {}),
@@ -583,4 +622,165 @@ export async function approveCarouselDeckRevision(input: {
     )
     .returning();
   return row ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Automatic art-refinement slide claims (plan 04, T4).
+// ---------------------------------------------------------------------------
+
+export type ArtRefinementSlideUnit = {
+  rootSlideId: string;
+  parentSlideId: string;
+  /** Parent binding read with the completed slide; a mismatch means stale. */
+  expectedParentHash: string;
+};
+
+const artRefinementLockScope = (workspaceId: string, workItemId: string) =>
+  `art-refinement:${workspaceId}:${workItemId}`;
+
+async function claimSlideAttemptInTx(
+  tx: CarouselTransaction,
+  scope: {
+    workspaceId: string;
+    workItemId: string;
+    unitCredits: number;
+    remainingCreditCeiling: number;
+  },
+  unit: ArtRefinementSlideUnit,
+): Promise<ArtRefinementClaimResult | null> {
+  const [replay] = await tx.select().from(creativeWorkRefinementAttempts).where(and(
+    eq(creativeWorkRefinementAttempts.workspaceId, scope.workspaceId),
+    eq(creativeWorkRefinementAttempts.workItemId, scope.workItemId),
+    eq(creativeWorkRefinementAttempts.rootSlideId, unit.rootSlideId),
+    eq(creativeWorkRefinementAttempts.parentSlideId, unit.parentSlideId),
+  )).limit(1);
+  if (replay) {
+    return { attempt: replay.attempt, revisionKey: replay.revisionKey, replay: true };
+  }
+
+  const [parent] = await tx.select({
+    id: creativeWorkCarouselSlides.id,
+    updatedAt: creativeWorkCarouselSlides.updatedAt,
+    outputKey: creativeWorkCarouselSlides.outputKey,
+  }).from(creativeWorkCarouselSlides).where(and(
+    eq(creativeWorkCarouselSlides.workspaceId, scope.workspaceId),
+    eq(creativeWorkCarouselSlides.workItemId, scope.workItemId),
+    eq(creativeWorkCarouselSlides.id, unit.parentSlideId),
+  )).limit(1);
+  if (!parent || artRefinementParentHash(parent) !== unit.expectedParentHash) return null;
+
+  const used = await tx.select({ used: count() })
+    .from(creativeWorkRefinementAttempts)
+    .where(and(
+      eq(creativeWorkRefinementAttempts.workspaceId, scope.workspaceId),
+      eq(creativeWorkRefinementAttempts.workItemId, scope.workItemId),
+      eq(creativeWorkRefinementAttempts.rootSlideId, unit.rootSlideId),
+    ));
+  const usedRevisions = Number(used[0]?.used ?? 0);
+  if (usedRevisions >= ART_REFINEMENT_MAX_REVISIONS_PER_ROOT) return null;
+
+  // The ceiling is shared by output and slide attempts of the same work.
+  const spent = await tx.select({
+    credits: sql<number>`coalesce(sum(${creativeWorkRefinementAttempts.unitCredits}), 0)`,
+  }).from(creativeWorkRefinementAttempts).where(and(
+    eq(creativeWorkRefinementAttempts.workspaceId, scope.workspaceId),
+    eq(creativeWorkRefinementAttempts.workItemId, scope.workItemId),
+  ));
+  if (Number(spent[0]?.credits ?? 0) + scope.unitCredits > scope.remainingCreditCeiling) return null;
+
+  const attempt = usedRevisions + 1;
+  const revisionKey = artRefinementRevisionKey({
+    workId: scope.workItemId,
+    rootId: unit.rootSlideId,
+    attempt,
+  });
+  const [row] = await tx.insert(creativeWorkRefinementAttempts).values({
+    workspaceId: scope.workspaceId,
+    workItemId: scope.workItemId,
+    rootSlideId: unit.rootSlideId,
+    parentSlideId: unit.parentSlideId,
+    attempt,
+    revisionKey,
+    status: "claimed",
+    unitCredits: scope.unitCredits,
+  }).onConflictDoNothing().returning();
+  if (row) return { attempt: row.attempt, revisionKey: row.revisionKey, replay: false };
+
+  const [conflict] = await tx.select().from(creativeWorkRefinementAttempts).where(and(
+    eq(creativeWorkRefinementAttempts.workspaceId, scope.workspaceId),
+    eq(creativeWorkRefinementAttempts.workItemId, scope.workItemId),
+    eq(creativeWorkRefinementAttempts.revisionKey, revisionKey),
+  )).limit(1);
+  if (!conflict) throw new Error("art_refinement_slide_claim_conflict_without_row");
+  return { attempt: conflict.attempt, revisionKey: conflict.revisionKey, replay: true };
+}
+
+/**
+ * Claim one automatic revision for a slide root. Same contract as the
+ * output claim (replay by root+parent, stale-parent refusal, two-revision
+ * cap, shared frozen ceiling), under the same per-work advisory lock.
+ */
+export async function claimArtRefinementSlideAttempt(input: {
+  workspaceId: string;
+  workItemId: string;
+  rootSlideId: string;
+  parentSlideId: string;
+  expectedParentHash: string;
+  unitCredits: number;
+  remainingCreditCeiling: number;
+}): Promise<ArtRefinementClaimResult | null> {
+  if (!Number.isInteger(input.unitCredits) || input.unitCredits < 0) return null;
+  if (!Number.isInteger(input.remainingCreditCeiling)) return null;
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${artRefinementLockScope(input.workspaceId, input.workItemId)}))`,
+    );
+    return claimSlideAttemptInTx(tx, input, input);
+  });
+}
+
+class SlideUnitsRefusedError extends Error {}
+
+/**
+ * Reserve one anchor revision plus every dependent slide rebuild in a
+ * single transaction (plan 04, T4). All-or-nothing: a refusal on any unit
+ * (stale parent, root cap, shared ceiling) rolls every unit back, so an
+ * anchor is never authorized cheaply with its dependents left outside the
+ * budget. Dependent slide ids must come from the frozen plan, never the
+ * browser — the caller owns that binding.
+ */
+export async function claimArtRefinementSlideUnits(input: {
+  workspaceId: string;
+  workItemId: string;
+  anchor: ArtRefinementSlideUnit | null;
+  dependents: ArtRefinementSlideUnit[];
+  unitCredits: number;
+  remainingCreditCeiling: number;
+}): Promise<ArtRefinementClaimResult[] | null> {
+  if (!Number.isInteger(input.unitCredits) || input.unitCredits < 0) return null;
+  if (!Number.isInteger(input.remainingCreditCeiling)) return null;
+  const units = input.anchor ? [input.anchor, ...input.dependents] : input.dependents;
+  if (units.length === 0) return null;
+  const expected = carouselRevisionUnits({
+    changesAnchor: input.anchor !== null,
+    dependentSlides: input.dependents.length,
+  });
+  if (units.length !== expected) return null;
+  try {
+    return await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtext(${artRefinementLockScope(input.workspaceId, input.workItemId)}))`,
+      );
+      const results: ArtRefinementClaimResult[] = [];
+      for (const unit of units) {
+        const claimed = await claimSlideAttemptInTx(tx, input, unit);
+        if (!claimed) throw new SlideUnitsRefusedError("slide_units_refused");
+        results.push(claimed);
+      }
+      return results;
+    });
+  } catch (error) {
+    if (error instanceof SlideUnitsRefusedError) return null;
+    throw error;
+  }
 }

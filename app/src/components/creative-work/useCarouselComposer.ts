@@ -548,6 +548,7 @@ export function useCarouselComposer({
     editorial,
     slides,
     quality,
+    artRefinement: work?.artRefinementState ?? null,
     selectedSlideId,
     selectedSlide,
     phase,

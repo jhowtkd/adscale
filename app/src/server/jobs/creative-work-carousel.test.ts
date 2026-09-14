@@ -315,6 +315,33 @@ describe("runCreativeWorkCarouselSlide", () => {
     expect(executor.executeCanonicalGeneration).not.toHaveBeenCalled();
   });
 
+  it("requests the same-call art critique only for budgeted snapshots (plan 04, T4)", async () => {
+    const budgeted = workFixture(slide);
+    budgeted.work.inputSnapshot = {
+      ...budgeted.work.inputSnapshot,
+      artRefinement: {
+        version: 1,
+        maxRevisionsPerRoot: 2,
+        acceptedCreditCeiling: 30,
+        acceptedBy: "user-1",
+        acceptedAt: "2026-09-13T00:00:00.000Z",
+      },
+    };
+    repo.getCreativeWork.mockImplementation(async () => budgeted);
+
+    await runCreativeWorkCarouselSlide(input);
+
+    expect(qa.runCreativeWorkQualityAssessment).toHaveBeenCalledWith(
+      expect.objectContaining({ qa: expect.objectContaining({ artCritique: { enabled: true } }) }),
+    );
+
+    qa.runCreativeWorkQualityAssessment.mockClear();
+    repo.getCreativeWork.mockImplementation(async () => workFixture(slide));
+    await runCreativeWorkCarouselSlide(input);
+    const legacyQa = qa.runCreativeWorkQualityAssessment.mock.calls[0]?.[0] as { qa: Record<string, unknown> };
+    expect(legacyQa.qa).not.toHaveProperty("artCritique");
+  });
+
   it("makes exactly one direct canonical image call with the plan's GenerationRequest", async () => {
     await runCreativeWorkCarouselSlide(input);
 

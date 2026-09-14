@@ -11,18 +11,30 @@ import {
   runCompletedDerivationQualityGate,
   buildCreativeWorkQualityPayload,
   deriveCreativeWorkObjectiveVerdict,
+  inconclusivePersonFidelity,
+  personReferenceHash,
   type CreativeWorkQaEvaluatorStatus,
   type CreativeWorkQualityFinding,
   type CreativeWorkQualityPayload,
 } from "@/server/ai/creative-quality-gate";
 import {
+  analyzeArtComparison,
   analyzeCreativeWorkQa,
+  analyzePersonFidelity,
   inspectCreativeWorkImageFile,
   type AnalyzeCreativeWorkQaInput,
   type CreativeWorkObjectiveVerdict,
   type CreativeWorkQaFinding,
 } from "@/server/ai/creative-qa";
+import type { PersonFidelityBlock } from "@/server/creative-work/person-fidelity";
 import type { CreativeWorkReferenceRole } from "@/server/creative-work/reference-plan";
+import { buildArtCritiqueFromFailures } from "@/server/ai/olhar/art-direction-verdict";
+import {
+  artComparisonSchema,
+  type ArtComparison,
+  type ArtCritique,
+  type RefinementCandidate,
+} from "@/server/creative-work/art-refinement";
 import {
   analyzeDerivationCreative,
   type AnalyzeInput,
@@ -262,6 +274,20 @@ export async function runCreativeWorkPostGeneration(input: {
 // Creative Work v1 tri-state quality assessment (R-005 / spec 9).
 // ---------------------------------------------------------------------------
 
+/**
+ * Named-person presence frozen in the input snapshot (plan 03, T3). The
+ * reference is the primary photo buffer attached to the generation call —
+ * null when that photo is unavailable, which persists an inconclusive
+ * finding for the person instead of silently skipping the comparison.
+ */
+export interface CreativeWorkQualityAssessmentPerson {
+  personId: string;
+  name: string;
+  primaryReferenceId: string;
+  preserve: readonly string[];
+  reference: { buffer: Buffer; mimeType: string } | null;
+}
+
 export interface CreativeWorkQualityAssessmentInput {
   workItemId: string;
   outputId: string;
@@ -279,6 +305,11 @@ export interface CreativeWorkQualityAssessmentInput {
   /** Advisory subjective scorer input — its failure never rejects. */
   score: AnalyzeInput;
   telemetry?: ImagePipelineTelemetryContext;
+  /**
+   * Frozen snapshot people to compare against their primary photos.
+   * Absent/empty on every legacy call — no block is persisted then.
+   */
+  people?: readonly CreativeWorkQualityAssessmentPerson[];
 }
 
 export interface CreativeWorkQualityAssessmentResult {
@@ -309,6 +340,14 @@ function shortAssessmentError(error: unknown): string {
  * - subjective-only findings stay advisory and never reject or retry;
  * - the function always resolves — the adapter completes the output with the
  *   persisted payload; there is no `reject_low_quality` on this path.
+ *
+ * Named people (plan 03, T3): when `people` is present, each person is
+ * compared against their primary photo and a `personFidelity` block is
+ * persisted. A confirmed mismatch also becomes a confirmed
+ * `person_identity_mismatch` objective finding, so the existing exclusive
+ * correction is claimed exactly like any other objective fail. Doubt
+ * (`inconclusive`) never triggers the automatic loop — it completes with a
+ * review signal that only a specific human review can resolve.
  */
 export async function runCreativeWorkQualityAssessment(
   input: CreativeWorkQualityAssessmentInput,
@@ -366,6 +405,7 @@ export async function runCreativeWorkQualityAssessment(
   let evaluatorError: string | null = null;
   let evaluatorSummary: string | null = null;
   let visionFindings: CreativeWorkQaFinding[] = [];
+  let evaluatorCritique: ArtCritique | null = null;
   if (file.ok) {
     try {
       const qa = await observeImagePipelineExternalCall({
@@ -384,6 +424,9 @@ export async function runCreativeWorkQualityAssessment(
       // T8: persist the one-sentence evaluator summary for the T9 review
       // surface (null when the evaluator failed or was skipped).
       evaluatorSummary = qa.summary.trim().length > 0 ? qa.summary.trim() : null;
+      // Plan 04, T1: the same-call art critique, already validated by the
+      // QA normalizer (invalid degrades to absent, never retries).
+      evaluatorCritique = qa.artCritique ?? null;
     } catch (error) {
       evaluatorStatus = "failed";
       evaluatorError = shortAssessmentError(error);
@@ -393,6 +436,73 @@ export async function runCreativeWorkQualityAssessment(
     }
   } else {
     evaluatorStatus = "skipped";
+  }
+
+  // 2b. Named-person fidelity (plan 03, T3). People with an attached primary
+  // photo are compared by the dedicated assessor; people without one — or
+  // when the output file itself is undecodable — get an explicit
+  // inconclusive finding. An assessor crash degrades the same way: doubt
+  // never auto-approves and never triggers the correction loop.
+  let personFidelity: PersonFidelityBlock | undefined;
+  const assessmentPeople = input.people ?? [];
+  if (assessmentPeople.length > 0) {
+    const referenceHash = personReferenceHash(assessmentPeople);
+    const unavailableIssue = input.qa.locale.startsWith("pt")
+      ? "Comparação indisponível para esta pessoa."
+      : "Comparison unavailable for this person.";
+    const comparable = file.ok
+      ? assessmentPeople.filter((person) => person.reference !== null)
+      : [];
+    let assessed: PersonFidelityBlock["findings"] = [];
+    if (comparable.length > 0) {
+      try {
+        const result = await observeImagePipelineExternalCall({
+          callType: "qa",
+          attempt: input.attempt,
+          ...input.telemetry,
+        }, () => analyzePersonFidelity({
+          imageBuffer: input.imageBuffer,
+          mimeType: "image/png",
+          people: comparable.map((person) => ({
+            personId: person.personId,
+            name: person.name,
+            preserve: person.preserve,
+            buffer: person.reference!.buffer,
+            mimeType: person.reference!.mimeType,
+          })),
+          locale: input.qa.locale,
+        }));
+        assessed = result.findings;
+      } catch (error) {
+        logger.warn(
+          `[creative-work-quality-assessment] person fidelity failed outputId=${input.outputId} — persisting inconclusive: ${shortAssessmentError(error)}`,
+        );
+      }
+    }
+    const assessedById = new Map(assessed.map((finding) => [finding.personId, finding]));
+    const unassessed = assessmentPeople.filter((person) => !assessedById.has(person.personId));
+    const fallbackById = new Map(
+      (unassessed.length > 0 ? inconclusivePersonFidelity(unassessed, unavailableIssue).findings : [])
+        .map((finding) => [finding.personId, finding]),
+    );
+    personFidelity = {
+      findings: assessmentPeople.map((person) =>
+        assessedById.get(person.personId) ?? fallbackById.get(person.personId)!,
+      ),
+      referenceHash,
+    };
+    for (const finding of personFidelity.findings) {
+      if (finding.status !== "mismatch") continue;
+      const person = assessmentPeople.find((candidate) => candidate.personId === finding.personId);
+      const detail = finding.evidence.length > 0 ? finding.evidence.join("; ") : finding.issue;
+      visionFindings.push({
+        code: "person_identity_mismatch",
+        status: "confirmed",
+        note: [`Pessoa ${person?.name ?? finding.personId} divergiu da foto aprovada`, detail]
+          .filter(Boolean)
+          .join(": "),
+      });
+    }
   }
 
   // 3. Advisory subjective score. Skipped entirely when the objective
@@ -429,6 +539,16 @@ export async function runCreativeWorkQualityAssessment(
     }
   }
 
+  // Plan 04, T1: persist a structured art critique — the same-call
+  // evaluator critique first, else a critique built from confirmed
+  // art-direction findings reusing the existing failure vocabulary. Absent
+  // when the assessment found no composition problem: no invented cause.
+  const artCritique = evaluatorCritique ?? buildArtCritiqueFromFailures(
+    visionFindings
+      .filter((finding) => finding.status === "confirmed")
+      .map((finding) => ({ code: finding.code, message: finding.note })),
+  );
+
   const quality = buildCreativeWorkQualityPayload({
     deterministicFindings,
     visionFindings,
@@ -436,6 +556,7 @@ export async function runCreativeWorkQualityAssessment(
     evaluatorError,
     evaluatorSummary,
     subjective,
+    ...(artCritique === null ? {} : { artCritique }),
     checks: {
       file: {
         ok: file.ok,
@@ -455,7 +576,121 @@ export async function runCreativeWorkQualityAssessment(
       references: { ok: missingRequired.length === 0, missingRequired },
     },
     attempt: input.attempt,
+    ...(personFidelity === undefined ? {} : { personFidelity }),
   });
 
   return { objectiveVerdict: quality.objectiveVerdict, quality };
+}
+
+// ---------------------------------------------------------------------------
+// Art-refinement comparison (plan 04, T3).
+// ---------------------------------------------------------------------------
+
+export type ArtComparisonJudge = (input: {
+  before: RefinementCandidate;
+  after: RefinementCandidate;
+  brief: string;
+  beforeImage?: Buffer;
+  afterImage?: Buffer;
+}) => Promise<unknown>;
+
+function isEligibleCandidate(candidate: RefinementCandidate): boolean {
+  return candidate.objective === "pass" && !candidate.humanReviewRequired;
+}
+
+function tieComparison(before: RefinementCandidate, reason: string): ArtComparison {
+  return { preferredId: before.id, reason, fixedIssues: [], regressions: [] };
+}
+
+function critiqueProblem(critique: RefinementCandidate["critique"]): string | null {
+  const problem = critique.problem.trim();
+  return problem.length > 0 ? problem.slice(0, 1000) : null;
+}
+
+/**
+ * Default multimodal judge: one side-by-side vision call per revision, no
+ * taste retries. The model picks a winner side and this adapter maps it onto
+ * the presented ids — a "tie" keeps the previous version. Used
+ * automatically when both images are present and no explicit judge is given.
+ */
+export const artComparisonVisionJudge: ArtComparisonJudge = async (input) => {
+  if (!input.beforeImage || !input.afterImage) {
+    throw new Error("art_comparison_images_missing");
+  }
+  const assessed = await analyzeArtComparison({
+    brief: input.brief,
+    beforeImageBuffer: input.beforeImage,
+    afterImageBuffer: input.afterImage,
+    mimeType: "image/png",
+    beforeProblem: critiqueProblem(input.before.critique),
+    afterProblem: critiqueProblem(input.after.critique),
+    locale: "pt-BR",
+  });
+  return {
+    preferredId:
+      assessed.winner === "after" ? input.after.id : assessed.winner === "before" ? input.before.id : null,
+    reason: assessed.reason,
+    fixedIssues: assessed.fixedIssues,
+    regressions: assessed.regressions,
+  };
+};
+
+/**
+ * Compare a revision against its parent under the same briefing. The new
+ * version only wins through a validated comparison: an ineligible `after`
+ * (objective fail or pending human review) is never compared as a candidate,
+ * a tie/inconclusive keeps the previous version, and a judge error or an
+ * invalid/out-of-set answer also keeps it. The judge is called at most once
+ * per revision, with no taste retries. Without images the comparison is
+ * structural (a tie keeps the previous version, no model call); with both
+ * images the default multimodal judge runs unless an explicit judge is given.
+ */
+export async function compareArtCandidates(input: {
+  before: RefinementCandidate;
+  after: RefinementCandidate;
+  brief: string;
+  /** Both required for the default multimodal judge; absent means structural tie. */
+  beforeImage?: Buffer;
+  afterImage?: Buffer;
+  judge?: ArtComparisonJudge;
+}): Promise<ArtComparison> {
+  const validIds = new Set([input.before.id, input.after.id]);
+  if (!isEligibleCandidate(input.after)) {
+    return tieComparison(input.before, "A revisão não produziu uma candidata válida; a versão anterior foi mantida.");
+  }
+  if (!isEligibleCandidate(input.before)) {
+    return {
+      preferredId: input.after.id,
+      reason: "A versão anterior não era elegível; a revisão válida foi adotada.",
+      fixedIssues: [],
+      regressions: [],
+    };
+  }
+  const judge = input.judge ?? (input.beforeImage && input.afterImage ? artComparisonVisionJudge : undefined);
+  if (!judge) {
+    return tieComparison(input.before, "Sem avaliador comparativo; empate mantém a versão anterior.");
+  }
+  let raw: unknown;
+  try {
+    raw = await judge({
+      before: input.before,
+      after: input.after,
+      brief: input.brief,
+      beforeImage: input.beforeImage,
+      afterImage: input.afterImage,
+    });
+  } catch (error) {
+    logger.warn(
+      `[compare-art-candidates] judge failed — keeping previous version: ${shortAssessmentError(error)}`,
+    );
+    return tieComparison(input.before, "O avaliador comparativo falhou; a versão anterior foi mantida.");
+  }
+  const parsed = artComparisonSchema.safeParse(raw);
+  if (!parsed.success || (parsed.data.preferredId !== null && !validIds.has(parsed.data.preferredId))) {
+    return tieComparison(input.before, "Comparação inválida ou inconclusiva; a versão anterior foi mantida.");
+  }
+  if (parsed.data.preferredId === null) {
+    return tieComparison(input.before, parsed.data.reason);
+  }
+  return parsed.data;
 }

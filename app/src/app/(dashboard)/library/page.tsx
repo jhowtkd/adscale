@@ -14,7 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import LibraryV6View from "@/components/library/v6/LibraryV6View";
 import { buildLibraryV6Labels } from "@/components/library/v6/build-library-v6-labels";
 import { mapWorkspaceAssetToV6 } from "@/components/library/v6/map-library-v6";
-import { useLibraryFavorites, type LibraryFavoriteItem } from "@/lib/hooks/use-piece-favorite";
+import { useLibraryFavorites, useSetPieceFavorite, type LibraryFavoriteItem } from "@/lib/hooks/use-piece-favorite";
 import type { LibraryV6Filter } from "@/components/library/v6/library-v6-types";
 import { pickSurfaceGradient } from "@/lib/v6-surface-gradients";
 
@@ -72,6 +72,7 @@ function mapFavoriteToV6(item: LibraryFavoriteItem, index: number) {
 export default function LibraryPage() {
   const t = useTranslations("library");
   const tCommon = useTranslations("common");
+  const tComposer = useTranslations("dashboard.home.composer.results");
   const queryClient = useQueryClient();
   const [state, updateState] = useReducer(libraryReducer, initialLibraryState);
   const { search, debouncedSearch, limit, isUploading, uploadProgress, dragOver, deleteTarget, filter } = state;
@@ -86,6 +87,7 @@ export default function LibraryPage() {
   });
   const deleteAsset = useDeleteWorkspaceAsset();
   const favoritesQuery = useLibraryFavorites(filter === "favorite");
+  const setFavorite = useSetPieceFavorite();
   const labels = useMemo(() => buildLibraryV6Labels(t), [t]);
 
   const assets = useMemo(
@@ -97,11 +99,13 @@ export default function LibraryPage() {
     [favoritesQuery.data],
   );
   const visibleAssets = useMemo(() => {
-    if (filter === "favorite") return favoriteAssets;
+    if (filter === "favorite") return favoriteAssets.filter((asset) =>
+      asset.name.toLocaleLowerCase().includes(debouncedSearch.trim().toLocaleLowerCase()),
+    );
     return filter === "all" ? assets : assets.filter((asset) => asset.kind === filter);
-  }, [assets, favoriteAssets, filter]);
+  }, [assets, favoriteAssets, filter, debouncedSearch]);
   const totalCount = filter === "favorite"
-    ? favoriteAssets.length
+    ? visibleAssets.length
     : filter === "all" ? data?.total ?? assets.length : visibleAssets.length;
 
   useEffect(() => {
@@ -209,14 +213,16 @@ export default function LibraryPage() {
     [handleUpload],
   );
 
-  const emptyState = isError && filter !== "favorite" ? (
+  const emptyState = (filter === "favorite" ? favoritesQuery.isError : isError) ? (
     <EmptyState
       icon={AlertCircle}
       title={t("errorTitle")}
       description={t("errorDescription")}
       action={{
         label: tCommon("retry"),
-        onClick: () => queryClient.invalidateQueries({ queryKey: ["workspace-assets"] }),
+        onClick: () => filter === "favorite"
+          ? void favoritesQuery.refetch()
+          : void queryClient.invalidateQueries({ queryKey: ["workspace-assets"] }),
       }}
     />
   ) : filter === "favorite" && !favoritesQuery.isLoading && favoriteAssets.length === 0 ? (
@@ -273,7 +279,22 @@ export default function LibraryPage() {
         onDrop={handleDrop}
         onUploadClick={() => fileInputRef.current?.click()}
         onDeleteAsset={filter === "favorite" ? undefined : (id, name) => updateState({ deleteTarget: { id, name } })}
-        onReplaceAsset={() => fileInputRef.current?.click()}
+        onReplaceAsset={filter === "favorite" ? undefined : () => fileInputRef.current?.click()}
+        renderAssetActions={filter === "favorite" ? (asset) => {
+          const item = favoritesQuery.data?.find((entry) => entry.outputId === asset.id);
+          if (!item) return null;
+          return (
+            <div className="flex flex-wrap gap-3 px-2 py-2 text-sm">
+              <a href={item.downloadHref} className="underline focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{tComposer("download")}</a>
+              <button
+                type="button"
+                disabled={setFavorite.isPending}
+                onClick={() => setFavorite.mutate({ workId: item.workItemId, outputId: item.outputId, next: false })}
+                className="underline focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50"
+              >{tComposer("unfavorite")}</button>
+            </div>
+          );
+        } : undefined}
         emptyState={emptyState}
         onLoadMore={handleLoadMore}
         isLoadingMore={isFetching && !isLoading}

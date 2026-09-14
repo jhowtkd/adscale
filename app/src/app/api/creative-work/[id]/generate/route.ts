@@ -79,6 +79,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         case "credit_blocked": return apiError("insufficientCredits", 402, result.error.details);
         case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502);
         case "offer_expired": return apiError("commercialOfferExpired", 409);
+        case "calibration_managed": return apiError("creativeWorkCalibrationManaged", 403);
         default: return apiError("creativeWorkNotReady", 409, result.error.details);
       }
     }

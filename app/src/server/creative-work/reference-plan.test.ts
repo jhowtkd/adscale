@@ -236,6 +236,54 @@ describe("planCreativeWorkReferences", () => {
     });
   });
 
+  describe("named people", () => {
+    const personSlot = (label: string, assetKey: string) => ({
+      role: "piece_required" as const,
+      required: true,
+      assetKey,
+      mimeType: "image/jpeg",
+      label,
+      pieceReference: {
+        category: "person_or_character" as const,
+        treatment: "identity_preservation" as const,
+        userInstruction: `Pessoa ${label}. Preservar identidade e anatomia.`,
+      },
+    });
+
+    it("reserves person slots first and never evicts them for style", () => {
+      const plan = planCreativeWorkReferences({
+        mode: "art_variation",
+        sources: [source("style", "style")],
+        identityReferenceAssets: [identity("logo"), identity("mood"), identity("extra")],
+        personSlots: [personSlot("Ana", "people/ana.png")],
+        limit: LIMIT,
+      });
+      expect(plan.map((slot) => slot.role)).toEqual([
+        "piece_required",
+        "style",
+        "brand_identity",
+        "brand_identity",
+      ]);
+      expect(plan[0]).toMatchObject({ required: true, label: "Ana" });
+    });
+
+    it("fails before the provider when mandatory people exceed the cap", () => {
+      expect(() =>
+        planCreativeWorkReferences({
+          mode: "format_adaptation",
+          sources: [source("a", "content"), source("b", "content")],
+          identityReferenceAssets: [],
+          personSlots: [
+            personSlot("Ana", "people/ana.png"),
+            personSlot("Bia", "people/bia.png"),
+            personSlot("Cid", "people/cid.png"),
+          ],
+          limit: LIMIT,
+        }),
+      ).toThrow(CreativeWorkReferenceError);
+    });
+  });
+
   describe("CreativeWorkReferenceError", () => {
     it("chains the underlying storage cause for diagnosis", () => {
       const cause = new Error("R2 NoSuchKey");
@@ -349,5 +397,45 @@ describe("planCarouselSlideReferences", () => {
     // Exact-asset keys (logo used for post-composition) are not among the slots.
     expect(plan.every((slot) => slot.role !== "piece_required")).toBe(true);
     expect(plan.filter((slot) => slot.role === "anchor_board")).toHaveLength(1);
+  });
+
+  it("keeps the person photo next to the anchor board on non-anchor slides", () => {
+    const plan = planCarouselSlideReferences({
+      isAnchor: false,
+      anchorBoardKey: "board.png",
+      identityReferenceAssets: identity,
+      temporaryReference: temporary,
+      personSlots: [{
+        role: "piece_required",
+        required: true,
+        assetKey: "people/ana.png",
+        mimeType: "image/jpeg",
+        label: "Ana",
+      }],
+    });
+    expect(plan.map((slot) => slot.role)).toEqual([
+      "anchor_board",
+      "piece_required",
+      "brand_identity",
+      "brand_identity",
+    ]);
+    expect(plan[1]).toMatchObject({ required: true, label: "Ana" });
+  });
+
+  it("fails when slide people exceed the cap instead of dropping identity", () => {
+    const personSlots = ["ana", "bia", "cid", "dan"].map((name) => ({
+      role: "piece_required" as const,
+      required: true,
+      assetKey: `people/${name}.png`,
+      mimeType: "image/jpeg",
+      label: name,
+    }));
+    expect(() => planCarouselSlideReferences({
+      isAnchor: false,
+      anchorBoardKey: "board.png",
+      identityReferenceAssets: [],
+      temporaryReference: null,
+      personSlots,
+    })).toThrow(CreativeWorkReferenceError);
   });
 });

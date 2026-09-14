@@ -76,6 +76,8 @@ const useReviewBrandFontMock = vi.fn();
 const useBrandKnowledgeMock = vi.fn();
 const useReviewBrandKnowledgeClaimMock = vi.fn();
 const usePublishBrandKnowledgeMock = vi.fn();
+const useBrandCalibrationMock = vi.fn();
+const useCalibrationCommandMock = vi.fn();
 vi.mock("@/lib/hooks/use-brand-training", () => ({
   useBrandTrainingStatus: (...args: unknown[]) => useBrandTrainingStatusMock(...args),
   useExtractMulti: () => useExtractMultiMock(),
@@ -90,6 +92,8 @@ vi.mock("@/lib/hooks/use-brand-training", () => ({
   useBrandKnowledge: () => useBrandKnowledgeMock(),
   useReviewBrandKnowledgeClaim: () => useReviewBrandKnowledgeClaimMock(),
   usePublishBrandKnowledge: () => usePublishBrandKnowledgeMock(),
+  useBrandCalibration: () => useBrandCalibrationMock(),
+  useCalibrationCommand: () => useCalibrationCommandMock(),
 }));
 
 const useBrandKitMock = vi.fn();
@@ -149,6 +153,8 @@ function defaultHooks() {
   });
   useReviewBrandKnowledgeClaimMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
   usePublishBrandKnowledgeMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
+  useBrandCalibrationMock.mockReturnValue({ data: null, isLoading: false });
+  useCalibrationCommandMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
   useBrandKitMock.mockReturnValue({ data: null });
   useUpdateBrandKitMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
 }

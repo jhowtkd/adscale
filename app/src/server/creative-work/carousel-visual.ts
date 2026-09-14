@@ -219,6 +219,13 @@ export function buildCarouselVisualContract(input: {
   identity: CreativeWorkIdentitySnapshot;
   temporaryReferenceId: string | null;
   selectedFontAssetKey?: string;
+  /**
+   * Applicable trained `motif` rule applications (plan 02, T3), resolved from
+   * the frozen repertoire at prepare time. Shared by every slide — the deck
+   * keeps one typography, one language and one motif set while role and
+   * composition vary per slide. Absent on legacy contracts.
+   */
+  motifs?: readonly string[];
 }): CarouselVisualContractV1 {
   const safeAreaPx = CAROUSEL_SAFE_AREA_PX;
   const exactAssetSlots = exactAssetSlotsForCarousel({
@@ -244,7 +251,7 @@ export function buildCarouselVisualContract(input: {
     // The first contract ships no global direction; revisions own it later.
     directionInstruction: null,
     layoutFamilies,
-    recurringMotifs: [],
+    recurringMotifs: [...(input.motifs ?? [])],
     exactAssetKeys: [...new Set(exactAssetSlots.map((slot) => slot.assetKey))],
     prohibitedElements: splitElements(input.identity.brandKit.prohibitedElements),
     safeAreaPx,

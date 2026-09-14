@@ -85,6 +85,7 @@ function build4x5(
     identity?: CreativeWorkIdentitySnapshot;
     temporaryReferenceId?: string | null;
     selectedFontAssetKey?: string;
+    motifs?: readonly string[];
   } = {}
 ): CarouselVisualContractV1 {
   return buildCarouselVisualContract({
@@ -94,6 +95,7 @@ function build4x5(
     ...(overrides.selectedFontAssetKey
       ? { selectedFontAssetKey: overrides.selectedFontAssetKey }
       : {}),
+    ...(overrides.motifs ? { motifs: overrides.motifs } : {}),
   });
 }
 
@@ -430,6 +432,15 @@ describe("buildCarouselVisualContract", () => {
     expect(contract.palette).toEqual(["#112233", "#AABBCC"]);
     expect(contract.prohibitedElements).toEqual(["Sem clipart", "Sem promessas de cura"]);
     expect(contract.recurringMotifs).toEqual([]);
+  });
+
+  it("carries trained motif rules as shared recurring motifs", () => {
+    const motifs = ["Faixa diagonal recorrente", "Repetir o selo circular"];
+    const contract = build4x5({ motifs });
+
+    expect(contract.recurringMotifs).toEqual(motifs);
+    expect(contract.contractHash).not.toBe(build4x5().contractHash);
+    expect(contract.contractHash).toBe(build4x5({ motifs }).contractHash);
   });
 });
 

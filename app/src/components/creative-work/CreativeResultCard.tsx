@@ -9,6 +9,8 @@ import {
   type CreativeWorkOutput,
 } from "@/lib/hooks/use-creative-work";
 import {
+  getArtRefinementIssue,
+  getArtRefinementPresentation,
   getCreativeWorkEvaluatorSummary,
   getCreativeWorkSelectionPolicy,
 } from "@/lib/creative-work-selection-policy";
@@ -16,6 +18,14 @@ import { isVisualRecipeCandidate } from "@/server/creative-work/visual-recipe";
 import { ActionStatusIcon } from "@/components/animations/ActionStatusIcon";
 import { copyTextToClipboard, useSharePieceReview } from "@/lib/hooks/use-piece-review-share";
 import { usePieceFavorite } from "@/lib/hooks/use-piece-favorite";
+import {
+  useOutputPersonReferences,
+  useReviewPersonFidelity,
+} from "@/lib/hooks/use-person-fidelity";
+import {
+  personFidelitySelectionGate,
+  resolvePersonFidelity,
+} from "@/server/creative-work/person-fidelity";
 import { studioPrimaryActionClass, studioQuietActionClass } from "@/components/dashboard/studio-stage/StudioInstrument";
 import type {
   DeterministicBrandFidelityReport,
@@ -23,9 +33,20 @@ import type {
 } from "@/server/creative-work/brand-fidelity";
 import type { LayerEditorAccessV1 } from "@/server/layer-editor/contracts";
 
+export type CreativeResultCardArtRefinement = {
+  status: string;
+  issues: string[];
+  recommendedOutputIds: string[];
+} | null;
+
 type CreativeResultCardProps = {
   output: CreativeWorkOutput;
   label: string;
+  /**
+   * Work-level automatic-refinement summary (plan 04, T3). Presentation only:
+   * a recommendation badge, never selection. Absent on legacy works.
+   */
+  artRefinement?: CreativeResultCardArtRefinement;
   onRetry: (outputId: string) => void;
   onRetryRevision?: (output: CreativeWorkOutput) => void | Promise<void>;
   onApprove: (outputId: string, confirmObjective?: boolean, saveAsRecipe?: boolean) => void;
@@ -50,6 +71,7 @@ const secondaryActionClass = `${studioQuietActionClass} min-h-[var(--control-tou
 export function CreativeResultCard({
   output,
   label,
+  artRefinement = null,
   onRetry,
   onRetryRevision,
   onApprove,
@@ -74,6 +96,7 @@ export function CreativeResultCard({
   const [reviewShare, setReviewShare] = useState<{ url: string; copied: boolean } | null>(null);
   const [saveAsRecipe, setSaveAsRecipe] = useState(false);
   const t = useTranslations("dashboard.home.composer.results");
+  const tCommon = useTranslations("common");
   const statusLabel = (status: CreativeWorkOutput["status"]) => t(`status.${status}`);
   const isCompleted = output.status === "completed" && (output.hasOutput ?? Boolean(output.outputKey));
   const shareReview = useSharePieceReview();
@@ -87,7 +110,7 @@ export function CreativeResultCard({
   const retryEligible = isCreativeWorkRetryEligible(output);
   // R-008: `inconclusive` is an available output with a review signal — never
   // a failure, never an objective approval.
-  const selectionPolicy = isCompleted ? getCreativeWorkSelectionPolicy(output.quality) : null;
+  const selectionPolicy = isCompleted ? getCreativeWorkSelectionPolicy(output.quality, output.id) : null;
   const objectiveVerdict = selectionPolicy?.verdict === "legacy" ? null : selectionPolicy?.verdict ?? null;
   const evaluatorSummary = objectiveVerdict === "inconclusive"
     ? getCreativeWorkEvaluatorSummary(output.quality)
@@ -114,6 +137,32 @@ export function CreativeResultCard({
     && Array.isArray(storedBrandFidelity.residual.signals)
     ? storedBrandFidelity.residual
     : null;
+  // Named-person fidelity (plan 03, T3): the assessment block persisted on
+  // the output, the approved reference photos beside it, and the specific
+  // human review. Doubt renders its own review surface instead of the
+  // generic objective-failed banner — approval needs this review, not a
+  // new image. A confirmed mismatch still needs a new image.
+  const personFidelity = isCompleted ? resolvePersonFidelity(output.quality) : null;
+  const personFidelityGate = personFidelitySelectionGate(personFidelity, output.id);
+  const personReferences = useOutputPersonReferences(
+    output.workItemId,
+    output.id,
+    isCompleted && personFidelity !== null,
+  );
+  const personReview = useReviewPersonFidelity(output.workItemId, output.id);
+  const personNameById = new Map(
+    (personReferences.data ?? []).map((person) => [person.personId, person.name]),
+  );
+  // Automatic art refinement (plan 04, T3): progress while a revision runs,
+  // the best valid version once it settles, and an explicit manual round on
+  // request. The recommendation never selects: approval keeps its own guard.
+  const refinement = getArtRefinementPresentation(output.id, artRefinement);
+  const ownIssue = isCompleted ? getArtRefinementIssue(output.quality) : null;
+  const runningIssue = refinement.status === "running"
+    ? (refinement.issues[0] ?? ownIssue)
+    : null;
+  const showBest = isCompleted && refinement.isRecommended && refinement.status !== "running";
+  const bestIssues = showBest ? refinement.issues : [];
 
   return (
     <div
@@ -134,8 +183,8 @@ export function CreativeResultCard({
               type="button"
               data-testid="favorite-piece"
               aria-pressed={favorite.isFavorite}
-              aria-label={favorite.isFavorite ? t("unfavorite") : t("favorite")}
-              title={favorite.isFavorite ? t("unfavoriteHint") : t("favoriteHint")}
+              aria-label={favorite.isError ? tCommon("retry") : favorite.isFavorite ? t("unfavorite") : t("favorite")}
+              title={favorite.isError ? tCommon("error") : favorite.isFavorite ? t("unfavoriteHint") : t("favoriteHint")}
               disabled={favorite.isPending}
               onClick={() => favorite.toggle()}
               className={studioQuietActionClass}
@@ -186,7 +235,40 @@ export function CreativeResultCard({
         </div>
       ) : null}
 
-      {selectionPolicy && !selectionPolicy.selectable ? (
+      {runningIssue ? (
+        <p
+          role="status"
+          data-testid="art-refinement-running"
+          className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-2 text-xs text-[var(--text-secondary)]"
+        >
+          {t("artRefinementRunning", { issue: runningIssue })}
+        </p>
+      ) : null}
+
+      {showBest ? (
+        <div
+          data-testid="art-refinement-best"
+          className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-2"
+        >
+          <p className="text-xs font-medium text-[var(--text-secondary)]">{t("artRefinementBest")}</p>
+          {bestIssues.map((issue) => (
+            <p key={issue} className="mt-0.5 text-xs text-[var(--text-muted)]">
+              {t("artRefinementNeedsReview", { issue })}
+            </p>
+          ))}
+          {onRevise ? (
+            <button
+              type="button"
+              className={`${secondaryActionClass} mt-2`}
+              onClick={() => setEditing(true)}
+            >
+              {t("artRefinementReviewMore")}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {selectionPolicy && !selectionPolicy.selectable && personFidelityGate !== "needs_review" ? (
         <div
           role="note"
           data-testid="objective-selection-blocked"
@@ -195,6 +277,77 @@ export function CreativeResultCard({
           <p className="font-medium">{t("objectiveFailed")}</p>
           <p className="mt-0.5">{t("objectiveFailedNext")}</p>
         </div>
+      ) : null}
+
+      {personFidelity ? (
+        <section
+          data-testid="person-fidelity"
+          aria-label={t("personFidelityTitle")}
+          className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-2"
+        >
+          <h3 className="text-xs font-medium text-[var(--text-secondary)]">{t("personFidelityTitle")}</h3>
+          {(personReferences.data ?? []).length > 0 ? (
+            <ul className="mt-2 flex flex-wrap gap-2" aria-label={t("personFidelityTitle")}>
+              {(personReferences.data ?? []).map((person) => (
+                <li key={person.personId} className="flex items-center gap-2">
+                  {person.primaryPhotoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={person.primaryPhotoUrl} alt={person.name} className="h-12 w-12 rounded object-cover" />
+                  ) : null}
+                  <span className="text-xs text-[var(--text-secondary)]">{person.name}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <ul className="mt-2 space-y-1 text-xs text-[var(--text-muted)]">
+            {personFidelity.findings.map((finding) => (
+              <li key={finding.personId}>
+                <p>
+                  <span className="font-medium text-[var(--text-secondary)]">
+                    {personNameById.get(finding.personId) ?? finding.personId}
+                  </span>
+                  {" · "}
+                  {t(`personFidelityStatus.${finding.status}`)}
+                </p>
+                {finding.issue ? <p>{finding.issue}</p> : null}
+                {finding.evidence.map((item) => (
+                  <p key={item}>{item}</p>
+                ))}
+              </li>
+            ))}
+          </ul>
+          {personFidelityGate === "blocked" ? (
+            <p role="note" className="mt-2 text-xs text-[var(--danger-text)]">{t("personFidelityBlocked")}</p>
+          ) : null}
+          {personFidelity.review ? (
+            <p role="status" className="mt-2 text-xs text-[var(--text-muted)]">
+              {personFidelity.review.accepted ? t("personFidelityAccepted") : t("personFidelityRejected")}
+            </p>
+          ) : null}
+          {personFidelityGate === "needs_review" && personFidelity.review === undefined ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={personReview.isPending}
+                onClick={() => personReview.review({ referenceHash: personFidelity.referenceHash, accepted: true })}
+                className={secondaryActionClass}
+              >
+                {t("personFidelityConfirm")}
+              </button>
+              <button
+                type="button"
+                disabled={personReview.isPending}
+                onClick={() => personReview.review({ referenceHash: personFidelity.referenceHash, accepted: false })}
+                className={secondaryActionClass}
+              >
+                {t("personFidelityReject")}
+              </button>
+            </div>
+          ) : null}
+          {personReview.isError ? (
+            <p role="alert" className="mt-2 text-xs text-[var(--danger-text)]">{t("personFidelityReviewFailed")}</p>
+          ) : null}
+        </section>
       ) : null}
 
       {selectionPolicy?.verdict === "legacy" && selectionPolicy.selectable ? (

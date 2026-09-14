@@ -5,16 +5,23 @@ import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { DiscreetRadios } from "@/components/dashboard/studio-stage/DiscreetRadios";
 import {
-  studioChipClass,
   studioFilterStripClass,
   studioQuietActionClass,
 } from "@/components/dashboard/studio-stage/StudioInstrument";
 import {
+  useBrandCalibration,
   useBrandKnowledge,
-  usePublishBrandKnowledge,
+  useBrandTrainingAssets,
   useReviewBrandKnowledgeClaim,
+  useReviewRepertoire,
+  useSynthesizeRepertoire,
   type BrandKnowledgeClaimRecord,
 } from "@/lib/hooks/use-brand-training";
+import { BrandCalibrationReview } from "./BrandCalibrationReview";
+import { BrandPeopleReview } from "./BrandPeopleReview";
+import { VisualRepertoireReview } from "./VisualRepertoireReview";
+import { peopleCatalogSchema } from "@/server/brand-training/people";
+import { visualRepertoireSchema } from "@/server/brand-training/visual-repertoire";
 
 type KnowledgeFilter = "all" | "review" | "approved" | "archive";
 
@@ -31,7 +38,10 @@ export function BrandKnowledgeReview({ clientProfileId }: { clientProfileId: str
   const t = useTranslations("brandTraining.knowledge");
   const knowledge = useBrandKnowledge(clientProfileId);
   const review = useReviewBrandKnowledgeClaim(clientProfileId);
-  const publish = usePublishBrandKnowledge(clientProfileId);
+  const calibration = useBrandCalibration(clientProfileId);
+  const reviewRepertoire = useReviewRepertoire(clientProfileId);
+  const synthesize = useSynthesizeRepertoire(clientProfileId);
+  const assets = useBrandTrainingAssets(clientProfileId);
   const [filter, setFilter] = useState<KnowledgeFilter>("all");
   const data = knowledge.data;
 
@@ -45,16 +55,28 @@ export function BrandKnowledgeReview({ clientProfileId }: { clientProfileId: str
     [data, filter],
   );
 
+  const previewById = useMemo(
+    () => Object.fromEntries((assets.data ?? []).map((asset) => [asset.id, asset.url])),
+    [assets.data],
+  );
+
   if (knowledge.isLoading) {
     return <div role="status" className="h-24 animate-pulse rounded-2xl bg-white/6" />;
   }
   if (!data) return null;
 
+  const repertoireClaim = data.claims.find((claim) => claim.claimKey === "visual.repertoire");
+  const repertoireSession = calibration.data?.session;
+  const canConfirmRepertoire = Boolean(
+    repertoireClaim &&
+    repertoireSession &&
+    (repertoireSession.status === "review" || repertoireSession.status === "pending"),
+  );
+
   const alternatives = (claim: BrandKnowledgeClaimRecord) =>
     data.claims
       .filter((item) => item.claimKey === claim.claimKey && item.id !== claim.id)
       .map((item) => ({ claimId: item.id, value: item.value }));
-  const publishable = data.claims.some((claim) => claim.status === "approved") && data.conflicts.length === 0;
 
   return (
     <section data-testid="brand-kit-knowledge" className="space-y-5" aria-label={t("title")}>
@@ -67,14 +89,35 @@ export function BrandKnowledgeReview({ clientProfileId }: { clientProfileId: str
             {t("activeVersion", { number: data.activeVersion.versionNumber })}
           </p>
         ) : null}
+      </div>
+
+      <BrandCalibrationReview clientProfileId={clientProfileId} />
+
+      <div className="flex flex-wrap gap-1">
         <button
           type="button"
-          disabled={!publishable || publish.isPending}
-          onClick={() => publish.mutate()}
-          className={studioChipClass}
+          disabled={synthesize.isPending}
+          onClick={() => synthesize.mutate({})}
+          className={studioQuietActionClass}
         >
-          {t("publish")}
+          {synthesize.isPending ? t("synthesizingRepertoire") : t("synthesizeRepertoire")}
         </button>
+        {canConfirmRepertoire && repertoireClaim && repertoireSession ? (
+          <button
+            type="button"
+            disabled={reviewRepertoire.isPending}
+            onClick={() =>
+              reviewRepertoire.mutate({
+                sessionId: repertoireSession.id,
+                expectedRevision: repertoireSession.revision,
+                value: repertoireClaim.value,
+              })
+            }
+            className={studioQuietActionClass}
+          >
+            {t("confirmRepertoireSet")}
+          </button>
+        ) : null}
       </div>
 
       <div data-testid="brand-knowledge-strip" className={studioFilterStripClass}>
@@ -121,6 +164,7 @@ export function BrandKnowledgeReview({ clientProfileId }: { clientProfileId: str
               <ClaimEditor
                 claim={claim}
                 pending={review.isPending}
+                previewById={previewById}
                 onReview={(input) => review.mutate({ ...input, alternatives: alternatives(claim) })}
               />
             </li>
@@ -173,10 +217,12 @@ function ClaimSummary({ claim }: { claim: BrandKnowledgeClaimRecord }) {
 function ClaimEditor({
   claim,
   pending,
+  previewById,
   onReview,
 }: {
   claim: BrandKnowledgeClaimRecord;
   pending: boolean;
+  previewById: Record<string, string>;
   onReview: (input: { claimId: string; status: "approved" | "rejected"; value?: unknown }) => void;
 }) {
   const t = useTranslations("brandTraining.knowledge");
@@ -190,6 +236,31 @@ function ClaimEditor({
       setInvalid(true);
     }
   };
+  // Named people (plan 03, T1): a parseable people.catalog candidate edits
+  // through the structured operator review (names, aliases, primary photo,
+  // adequacy) instead of raw JSON. Unparseable drafts keep the textarea.
+  const peopleCatalog = claim.claimKey === "people.catalog"
+    ? (() => {
+        try {
+          const parsed = peopleCatalogSchema.safeParse(JSON.parse(draft));
+          return parsed.success ? parsed.data : null;
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+  // Visual repertoire (plan 02, T2): a parseable visual.repertoire claim edits
+  // through the structured rule/language review with evidence thumbnails.
+  const repertoire = claim.claimKey === "visual.repertoire"
+    ? (() => {
+        try {
+          const parsed = visualRepertoireSchema.safeParse(JSON.parse(draft));
+          return parsed.success ? parsed.data : null;
+        } catch {
+          return null;
+        }
+      })()
+    : null;
 
   return (
     <div className="space-y-3">
@@ -199,14 +270,28 @@ function ClaimEditor({
           {t(claim.status)}
         </span>
       </div>
-      <textarea
-        aria-label={`${claim.claimKey} value`}
-        aria-invalid={invalid}
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        rows={2}
-        className={cn(occupancyFieldClass, invalid && "ring-2 ring-[var(--danger-text)]")}
-      />
+      {peopleCatalog ? (
+        <BrandPeopleReview
+          value={peopleCatalog.people}
+          onChange={(people) => setDraft(JSON.stringify({ ...peopleCatalog, people }))}
+          previewByReferenceId={{}}
+        />
+      ) : repertoire ? (
+        <VisualRepertoireReview
+          value={repertoire}
+          onChange={(next) => setDraft(JSON.stringify(next))}
+          previewById={previewById}
+        />
+      ) : (
+        <textarea
+          aria-label={`${claim.claimKey} value`}
+          aria-invalid={invalid}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          rows={2}
+          className={cn(occupancyFieldClass, invalid && "ring-2 ring-[var(--danger-text)]")}
+        />
+      )}
       <p className="text-xs text-[var(--text-muted)]">
         {t("authority")}: {claim.authority} · {t("confidence")}: {claim.confidence}
       </p>

@@ -21,6 +21,28 @@ export type CarouselLayoutFamily = (typeof CAROUSEL_LAYOUT_FAMILIES)[number];
 export type CarouselCopyAuthority = "user_input" | "ai_proposal" | "human_edit";
 export type CarouselSlideStatus = (typeof CAROUSEL_SLIDE_STATUSES)[number];
 
+/**
+ * Draft-only payload persisted on a visual-revision descendant (plan 04,
+ * T4): the instruction the slide job consumes at generation time. The
+ * completion assessment overwrites `quality` with the versioned QA payload,
+ * so a pending instruction never survives its own generation. Same 2000
+ * bound as the revise route and the single-output revision instruction.
+ */
+export const CAROUSEL_SLIDE_REVISION_INSTRUCTION_MAX = 2000 as const;
+
+export function buildCarouselSlideRevisionQuality(instruction: string): Record<string, unknown> {
+  return { revisionInstruction: instruction.trim().slice(0, CAROUSEL_SLIDE_REVISION_INSTRUCTION_MAX) };
+}
+
+/** Pending visual instruction on a draft slide, if any — null otherwise. */
+export function resolveCarouselSlideRevisionInstruction(quality: unknown): string | null {
+  if (!quality || typeof quality !== "object" || Array.isArray(quality)) return null;
+  const instruction = (quality as Record<string, unknown>).revisionInstruction;
+  if (typeof instruction !== "string") return null;
+  const trimmed = instruction.trim();
+  return trimmed.length > 0 ? trimmed.slice(0, CAROUSEL_SLIDE_REVISION_INSTRUCTION_MAX) : null;
+}
+
 export function carouselLayoutFamilyForRole(role: CarouselNarrativeRole): CarouselLayoutFamily {
   if (role === "hook" || role === "problem" || role === "cta") return "impact";
   if (role === "bridge" || role === "closing") return "respite";

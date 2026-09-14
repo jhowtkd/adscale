@@ -338,6 +338,73 @@ function factPackSection(prompt: string): string {
 }
 
 describe("buildCreativeWorkPrompt", () => {
+  it("states named-person presence with free staging and frozen anatomy", () => {
+    const prompt = buildCreativeWorkPrompt(
+      creativeWorkPromptInput({
+        inputSnapshot: {
+          request: LONG_REQUEST,
+          settings: { targetFormats: [] },
+          sources: [],
+          people: [{
+            personId: "11111111-1111-4111-8111-111111111111",
+            name: "Ana",
+            referenceIds: ["22222222-2222-4222-8222-222222222222"],
+            primaryReferenceId: "22222222-2222-4222-8222-222222222222",
+            preserve: ["formato do rosto"],
+          }],
+        },
+      }),
+    );
+    expect(prompt).toContain("NAMED PEOPLE (mandatory presence):");
+    expect(prompt).toContain('"Ana" must appear recognizably');
+    expect(prompt).toContain("Create new poses, clothing and scenes freely");
+    expect(prompt).toContain("preserve the observable facial structure, body proportions");
+    expect(prompt).toContain("Preserve: formato do rosto.");
+    expect(prompt).toContain("Never substitute another face for a named person");
+    expect(prompt).toContain("Never transfer anatomy from a style reference");
+  });
+
+  it("omits the person block when the snapshot carries no people", () => {
+    const prompt = buildCreativeWorkPrompt(creativeWorkPromptInput({ mode: "social_post" }));
+    expect(prompt).not.toContain("NAMED PEOPLE");
+  });
+
+  it("projects the frozen visual direction as prose, never as JSON", () => {
+    const prompt = buildCreativeWorkPrompt(
+      creativeWorkPromptInput({
+        inputSnapshot: {
+          request: LONG_REQUEST,
+          settings: { targetFormats: [] },
+          sources: [],
+          visualDirection: {
+            languageId: "22222222-2222-4222-8222-222222222222",
+            ruleIds: ["11111111-1111-4111-8111-111111111111"],
+            dominantIdea: "Dar ao título escala superior ao texto de apoio",
+            composition: "Respiro generoso ao redor do foco",
+            typography: "Usar caixa alta condensada nos títulos",
+            finish: "Acabamento fosco editorial",
+            preserve: ["Competição de dois focos"],
+          },
+        },
+      }),
+    );
+    expect(prompt).toContain("TRAINED VISUAL DIRECTION (frozen):");
+    expect(prompt).toContain("- Dominant idea: Dar ao título escala superior ao texto de apoio");
+    expect(prompt).toContain("- Composition: Respiro generoso ao redor do foco");
+    expect(prompt).toContain("- Typography: Usar caixa alta condensada nos títulos");
+    expect(prompt).toContain("- Finish: Acabamento fosco editorial");
+    expect(prompt).toContain("- Preserve: Competição de dois focos");
+    expect(prompt).toContain("Planeje a peça para este problema de comunicação. Escolha uma ideia dominante");
+    expect(prompt).toContain("Não acrescente fatos ausentes do briefing factual.");
+    expect(prompt).not.toContain("11111111-1111-4111-8111-111111111111");
+    expect(prompt).not.toContain("22222222-2222-4222-8222-222222222222");
+  });
+
+  it("omits the visual direction block on legacy snapshots", () => {
+    const prompt = buildCreativeWorkPrompt(creativeWorkPromptInput({ mode: "social_post" }));
+    expect(prompt).not.toContain("TRAINED VISUAL DIRECTION");
+  });
+
   it("binds a temporary reference to its treatment without allowing factual contamination", () => {
     const prompt = buildCreativeWorkPrompt(
       creativeWorkPromptInput({
@@ -981,6 +1048,30 @@ describe("buildCarouselSlidePrompt", () => {
     expect(prompt).toContain("#112233");
     expect(prompt).toContain("ondas suaves");
     expect(prompt).toContain("Sem clipart");
+  });
+
+  it("consumes the same frozen visual direction on every slide", () => {
+    const visualDirection = {
+      languageId: null,
+      ruleIds: [],
+      dominantIdea: "Dar ao título escala superior ao texto de apoio",
+      composition: "Respiro generoso ao redor do foco",
+      typography: "Seguir a tipografia aprovada da marca.",
+      finish: "Aplicar o acabamento padrão da marca.",
+      preserve: [],
+    };
+    const cover = buildCarouselSlidePrompt({ ...baseInput, visualDirection });
+    const interior = buildCarouselSlidePrompt({
+      ...baseInput,
+      slide: { slideId: "slide-2", position: 2, role: "context", purpose: "Contextualizar", layoutFamily: "development" },
+      visualDirection,
+    });
+    for (const prompt of [cover, interior]) {
+      expect(prompt).toContain("TRAINED VISUAL DIRECTION (frozen):");
+      expect(prompt).toContain("Dar ao título escala superior ao texto de apoio");
+      expect(prompt).toContain("Não acrescente fatos ausentes do briefing factual.");
+    }
+    expect(buildCarouselSlidePrompt(baseInput)).not.toContain("TRAINED VISUAL DIRECTION");
   });
 
   it("includes the factual visual context from the request", () => {
