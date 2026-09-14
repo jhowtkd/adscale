@@ -3252,7 +3252,7 @@ describe("creativeWorkOutputJob", () => {
         version: 1, reviewRevision: 1, sourceOutputId: parent.id, sourceOutputVersion: 1,
         action: "format", targetFormat: "9:16", instruction: "Preserve a oferta", revisionAssetId: null, annotations: [],
       } });
-      const frozenWork = { ...workItem, toolKind: "single", format: "1:1", inputSnapshot: { renderPolicy: "integrated_v1", generationPolicyVersion: "quality_recovery_v1", request: "Pedido", settings: {}, sources: [] } };
+      const frozenWork = { ...workItem, toolKind: "single", format: "1:1", inputSnapshot: { creativeRenderPolicy: "integrated_v1", generationPolicyVersion: "quality_recovery_v1", request: "Pedido", settings: {}, sources: [] } };
       const before = JSON.stringify({ parent, frozenWork });
       getCreativeWorkMock.mockResolvedValue({ work: frozenWork, outputs: [parent, child] });
       objectGetMock.mockImplementation(async (key: string) => key === "parent.png" ? Buffer.from("parent-pixels") : VALID_PNG);
@@ -3322,7 +3322,7 @@ describe("creativeWorkOutputJob", () => {
 
     it("never allows a third call on a reserved human retry", async () => {
       getCreativeWorkMock.mockResolvedValue({
-        work: { ...workItem, toolKind: "single", inputSnapshot: { renderPolicy: "integrated_v1", generationPolicyVersion: "quality_recovery_v1", request: "Pedido", settings: {}, sources: [] } },
+        work: { ...workItem, toolKind: "single", inputSnapshot: { creativeRenderPolicy: "integrated_v1", generationPolicyVersion: "quality_recovery_v1", request: "Pedido", settings: {}, sources: [] } },
         outputs: [makeQueuedOutput({ imageCallCount: 2, manualRetryAttempt: 1 })],
       });
       claimImageCallMock.mockResolvedValue(null);
@@ -3377,7 +3377,7 @@ describe("creativeWorkOutputJob", () => {
     it("recovers a crashed integrated worker and never changes refund keys after a cached recovery", async () => {
       let current = makeQueuedOutput({ status: "processing", imageCallCount: 1 });
       getCreativeWorkMock.mockImplementation(async () => ({
-        work: { ...workItem, inputSnapshot: { renderPolicy: "integrated_v1" } }, outputs: [current],
+        work: { ...workItem, inputSnapshot: { creativeRenderPolicy: "integrated_v1" } }, outputs: [current],
       }));
       failMock.mockImplementation(async (_ws, _work, _id, failureCode) => {
         current = { ...current, status: "failed", failureCode };
