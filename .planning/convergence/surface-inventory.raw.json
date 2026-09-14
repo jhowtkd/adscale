@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-14T21:18:41.441Z",
+  "generatedAt": "2026-09-14T23:07:06.659Z",
   "schemaVersion": 2,
-  "fingerprint": "6e0077af1fe7df8b0b2fb6ca616b50ac928ca248a766ee369739f7ec163f4c35",
+  "fingerprint": "5a907b7dfd29f28491b1fb1799b9b243ac617ba24e6c2dc3b41feb4cbca97807",
   "counts": {
     "dashboardPages": 15,
     "apiRoutes": 183,
@@ -1607,12 +1607,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/creative-work/CreativeComposer.tsx:308",
+      "id": "nav:app/src/components/creative-work/CreativeComposer.tsx:313",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/creative-work/CreativeComposer.tsx",
-      "line": 308,
-      "evidence": "app/src/components/creative-work/CreativeComposer.tsx:308",
+      "line": 313,
+      "evidence": "app/src/components/creative-work/CreativeComposer.tsx:313",
       "requiresDecision": false
     },
     {

@@ -436,14 +436,19 @@ export function useOutputReview({
   }, [hydrateFromOutput, output]);
 
   const attachReference = useCallback(async (file: File) => {
+    if (referencePendingRef.current || confirmingRef.current) return;
+    const sourceOutputId = outputIdRef.current;
     setReferencePending(true);
     setError(null);
     try {
       const uploaded = await uploadChatAttachment(file);
+      if (outputIdRef.current !== sourceOutputId) return;
       update({ revisionAssetId: uploaded.assetId });
       await flush();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t("reviewSubmitFailed"));
+      if (outputIdRef.current === sourceOutputId) {
+        setError(cause instanceof Error ? cause.message : t("reviewSubmitFailed"));
+      }
     } finally {
       setReferencePending(false);
     }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { MAX_OUTPUT_REVIEW_ANNOTATIONS } from "@/server/creative-work/output-review";
 import { containedImageBounds, imagePoint, type PieceImageBounds } from "./piece-review-geometry";
 
 export type PieceReviewAnnotation = { id: string; x: number; y: number; text: string };
@@ -85,9 +86,10 @@ export function PieceReviewCanvas({
   // transition: any open editor simply renders inert and every mutator bails.
   const activeDraft = readOnly ? null : draft;
   const activeCommentMode = readOnly ? false : commentMode;
+  const annotationLimitReached = annotations.length >= MAX_OUTPUT_REVIEW_ANNOTATIONS;
 
   const startDraftFromClick = (event: React.MouseEvent) => {
-    if (readOnly || !commentMode || draft) return;
+    if (readOnly || !commentMode || draft || annotationLimitReached) return;
     const container = containerRef.current;
     if (!container) return;
     const rect = container.getBoundingClientRect();
@@ -98,7 +100,7 @@ export function PieceReviewCanvas({
   };
 
   const saveDraft = () => {
-    if (!activeDraft || !activeDraft.text.trim()) return;
+    if (!activeDraft || !activeDraft.text.trim() || (activeDraft.isNew && annotationLimitReached)) return;
     const saved: PieceReviewAnnotation = {
       id: activeDraft.id,
       x: activeDraft.x,
@@ -199,7 +201,7 @@ export function PieceReviewCanvas({
           </button>
           <button
             type="button"
-            disabled={!activeCommentMode}
+            disabled={!activeCommentMode || annotationLimitReached}
             onClick={() => setDraft({ id: crypto.randomUUID(), x: 0.5, y: 0.5, text: "", isNew: true })}
             className="inline-flex min-h-[var(--control-touch)] items-center justify-center rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
@@ -265,7 +267,7 @@ export function PieceReviewCanvas({
           <div className="flex gap-2">
             <button
               type="submit"
-              disabled={!activeDraft.text.trim()}
+              disabled={!activeDraft.text.trim() || (activeDraft.isNew && annotationLimitReached)}
               className="inline-flex min-h-[var(--control-touch)] items-center justify-center rounded-[var(--radius-control)] bg-[var(--action-primary-bg)] px-3 py-2 text-sm font-semibold text-[var(--action-primary-text)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               {t("commentSave")}

@@ -123,6 +123,24 @@ beforeEach(() => {
 });
 
 describe("useOutputReview", () => {
+  it.each(["success", "failure"])("ignores an upload %s belonging to the previous piece", async (outcome) => {
+    const upload = deferred<{ assetId: string }>();
+    mocks.uploadChatAttachment.mockReturnValue(upload.promise);
+    const { result, rerender } = renderReview();
+    let pending!: Promise<void>;
+    act(() => { pending = result.current.attachReference(new File(["image"], "reference.png", { type: "image/png" })); });
+    rerender({ output: outputFixture({ id: "output-2" }), revisionCreditCost: 10 });
+    await act(async () => {
+      if (outcome === "success") upload.resolve({ assetId: "asset-for-output-1" });
+      else upload.reject(new Error("Upload failed for output-1"));
+      await pending;
+    });
+    expect(result.current.draft.revisionAssetId).toBeNull();
+    expect(result.current.error).toBeNull();
+    expect(result.current.referencePending).toBe(false);
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+
   it("flushes, reviews and only then confirms with the frozen draft", async () => {
     const { result } = renderReview();
     await act(async () => result.current.update({ instruction: "Preserve o logo." }));

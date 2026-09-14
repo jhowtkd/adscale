@@ -6,7 +6,7 @@ import type { CreativeComposerViewModel } from "./useCreativeComposer";
 
 const mocks = vi.hoisted(() => ({
   review: {
-    draft: { action: "refine", targetFormat: "4:5", instruction: "", revisionAssetId: null, annotations: [] as unknown[] },
+    draft: { action: "refine", targetFormat: "4:5", instruction: "", revisionAssetId: null as string | null, annotations: [] as unknown[] },
     phase: "editing",
     error: null as string | null,
     pendingOutputId: null as string | null,
@@ -91,6 +91,7 @@ vi.mock("next-intl", () => ({
       commentX: "X (%)", commentY: "Y (%)", commentSave: "Salvar comentário", commentRemove: "Remover comentário",
       commentSaving: "Salvando", commentSaved: "Salvo", commentSaveError: "Erro ao salvar",
       referenceUploading: "Enviando referência", expandPiece: "Ampliar peça", refine: "Refinar",
+      optionalAttachment: "Anexo opcional", referenceAttached: "Referência anexada", referenceRemove: "Remover referência",
       technicalDetails: "Detalhes técnicos", cancel: "Cancelar", choosePiece: "Escolher",
     }[key] ?? key);
   },
@@ -155,6 +156,8 @@ beforeEach(() => {
   mocks.review.phase = "editing";
   mocks.review.error = null;
   mocks.review.pendingOutputId = null;
+  mocks.review.referencePending = false;
+  mocks.review.isBusy = false;
   mocks.review.saveState = null;
   mocks.review.error = null;
   mocks.review.beginFreshDraftAttempt.mockClear();
@@ -167,6 +170,63 @@ beforeEach(() => {
 });
 
 describe("StudioPieceWorkspace", () => {
+  it("attaches, reports and removes an optional revision reference", () => {
+    const composer = composerMock([output({ id: "base" })]);
+    const view = render(<StudioPieceWorkspace composer={composer} />);
+    const input = screen.getByLabelText("Anexo opcional");
+    expect(input).toHaveAttribute("accept", "image/png,image/jpeg,image/webp");
+    const file = new File(["image"], "reference.png", { type: "image/png" });
+    fireEvent.change(input, { target: { files: [file] } });
+    expect(mocks.review.attachReference).toHaveBeenCalledWith(file);
+
+    mocks.review.referencePending = true;
+    view.rerender(<StudioPieceWorkspace composer={composer} />);
+    expect(screen.getByLabelText("Anexo opcional")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Revisar" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Enviando referência");
+
+    mocks.review.referencePending = false;
+    mocks.review.draft.revisionAssetId = "asset-9";
+    view.rerender(<StudioPieceWorkspace composer={composer} />);
+    expect(screen.getByText("Referência anexada")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remover referência" }));
+    expect(mocks.review.update).toHaveBeenCalledWith({ revisionAssetId: null });
+
+    mocks.review.phase = "reviewing";
+    view.rerender(<StudioPieceWorkspace composer={composer} />);
+    expect(screen.getByLabelText("Anexo opcional")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Remover referência" })).toBeDisabled();
+  });
+
+  it("waits for layer flush before following its confirmed child", () => {
+    const base = output({
+      id: "base",
+      layerization: { status: "completed", operationId: "op-1" } as CreativeWorkOutput["layerization"],
+    });
+    const child = output({ id: "child", parentOutputId: "base", versionNumber: 2, status: "queued", hasOutput: false });
+    const composer = composerMock([base, child], { canLayerize: true });
+    mocks.review.phase = "reviewing";
+    const view = render(<StudioPieceWorkspace composer={composer} />);
+    fireEvent.click(screen.getByRole("button", { name: "Camadas" }));
+    fireEvent.click(screen.getByTestId("piece-review-confirm"));
+    expect(mocks.review.confirm).toHaveBeenCalledOnce();
+
+    mocks.review.pendingOutputId = child.id;
+    mocks.review.phase = "editing";
+    view.rerender(<StudioPieceWorkspace composer={composer} />);
+    expect(mocks.editorProps?.exitRequestToken).toBe(1);
+    expect(screen.getByTestId("layer-editor-content-stub")).toBeInTheDocument();
+    expect(screen.getByTestId("result-card-stub")).toHaveAttribute("data-output", "base");
+
+    // A failed or pending flush leaves the same editor mounted across polls.
+    view.rerender(<StudioPieceWorkspace composer={{ ...composer }} />);
+    expect(mocks.editorProps?.exitRequestToken).toBe(1);
+    expect(screen.getByTestId("result-card-stub")).toHaveAttribute("data-output", "base");
+    fireEvent.click(screen.getByRole("button", { name: "editor-fechar-ok" }));
+    expect(screen.queryByTestId("layer-editor-content-stub")).not.toBeInTheDocument();
+    expect(screen.getByTestId("result-card-stub")).toHaveAttribute("data-output", "child");
+  });
+
   it("keeps result, review field and thumbnails inside the contained box", () => {
     const base = output({ id: "base" });
     render(<StudioPieceWorkspace composer={composerMock([base])} />);

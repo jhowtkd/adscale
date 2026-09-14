@@ -2007,7 +2007,7 @@ const creativeWorkOutputJobHandler = async ({
       // Isolated from generation success: a library/storage failure must never
       // reclassify a completed output as failed (retries: 0).
       try {
-        await step.run("ensure-library", async () => {
+        if (completedVerdict !== "fail") await step.run("ensure-library", async () => {
           await ensureCreativeWorkOutputInLibrary({
             workspaceId,
             outputKey: finalOutputKey,

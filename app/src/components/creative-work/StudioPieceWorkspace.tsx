@@ -75,9 +75,22 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
     revisionCreditCost: composer.revisionCreditCost ?? null,
   });
 
+  const readyLayers = Boolean(selected && (selected.layerization?.status === "completed" || selected.layerEditor));
+
+  /** Keep the editor mounted until flushAndRelease succeeds. */
+  const requestLayersExit = useCallback((thenSelect?: string) => {
+    setPendingSelection(thenSelect ?? null);
+    setLayersExitToken((token) => token + 1);
+  }, []);
+
   // Only an own confirmation moves the selection; polling never steals it.
   if (review.pendingOutputId && review.pendingOutputId !== selectedId) {
-    setSelectedId(review.pendingOutputId);
+    if (layersOpen && readyLayers) {
+      if (pendingSelection !== review.pendingOutputId) requestLayersExit(review.pendingOutputId);
+    } else {
+      if (layersOpen) setLayersOpen(false);
+      setSelectedId(review.pendingOutputId);
+    }
   }
 
   // A guarded layer exit finished: apply whatever was requested while the
@@ -91,15 +104,7 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
     setPendingCompare(false);
   }
 
-  const readyLayers = Boolean(selected && (selected.layerization?.status === "completed" || selected.layerEditor));
   const layerizeRemaining = composer.layerEditorAccess?.layerize?.remaining ?? null;
-
-  /** Exits the layer editor through its flush path; the editor stays mounted
-   * until flushAndRelease succeeds, so recent edits are never dropped. */
-  const requestLayersExit = useCallback((thenSelect?: string) => {
-    setPendingSelection(thenSelect ?? null);
-    setLayersExitToken((token) => token + 1);
-  }, []);
 
   const closeLayers = useCallback((open: boolean) => {
     if (!open) setLayersOpen(false);
@@ -424,6 +429,35 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
                   {t("reviewAction")}
                 </button>
               </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
+              <label className="flex flex-wrap items-center gap-2">
+                {t("optionalAttachment")}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  disabled={review.referencePending || reviewed}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (file) void review.attachReference(file);
+                  }}
+                  className="min-w-0 max-w-full"
+                />
+              </label>
+              {review.draft.revisionAssetId ? (
+                <>
+                  <span>{t("referenceAttached")}</span>
+                  <button
+                    type="button"
+                    disabled={review.referencePending || reviewed}
+                    onClick={() => review.update({ revisionAssetId: null })}
+                    className="min-h-[var(--control-touch)] rounded-[var(--radius-control)] px-2 text-[var(--danger-text)] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  >
+                    {t("referenceRemove")}
+                  </button>
+                </>
+              ) : null}
             </div>
             <p role="status" aria-live="polite" className="text-xs text-[var(--text-muted)]">
               {review.referencePending

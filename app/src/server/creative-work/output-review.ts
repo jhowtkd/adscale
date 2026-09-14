@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { creativeWorkFormatSchema } from "./contracts";
 
+export const MAX_OUTPUT_REVIEW_ANNOTATIONS = 8;
+
 const annotationSchema = z
   .object({
     id: z.string().uuid(),
@@ -16,7 +18,7 @@ const fields = z
     targetFormat: creativeWorkFormatSchema,
     instruction: z.string().trim().max(800),
     revisionAssetId: z.string().uuid().nullable(),
-    annotations: z.array(annotationSchema).max(8),
+  annotations: z.array(annotationSchema).max(MAX_OUTPUT_REVIEW_ANNOTATIONS),
   })
   .strict();
 

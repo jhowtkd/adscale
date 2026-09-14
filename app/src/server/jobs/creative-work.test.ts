@@ -3114,6 +3114,7 @@ describe("creativeWorkOutputJob", () => {
       });
       expect(completeMock.mock.calls[0][3].quality).toMatchObject({ generation: evidence });
       expect(completeMock.mock.calls[0][3].quality).not.toHaveProperty("textComposition");
+      expect(ensureLibraryMock).toHaveBeenCalledOnce();
     });
 
     it("records the textual fallback and keeps visible copy when art direction is unavailable", async () => {
@@ -3170,6 +3171,7 @@ describe("creativeWorkOutputJob", () => {
       expect(settleTerminalRefundMock).toHaveBeenCalledWith(expect.objectContaining({ decision: expect.objectContaining({ idempotencyKey: "creative-work:work-1:output:output-1:terminal-refund" }) }));
       expect(completeMock.mock.invocationCallOrder[0]).toBeLessThan(settleTerminalRefundMock.mock.invocationCallOrder[0]);
       expect(clearObjectiveRefundPendingMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", "creative-work/output-1/1700000000000.png");
+      expect(ensureLibraryMock).not.toHaveBeenCalled();
       expect(failMock).not.toHaveBeenCalled();
       expect(objectDeleteMock).not.toHaveBeenCalled();
     });

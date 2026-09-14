@@ -42,6 +42,39 @@ function enterCommentMode() {
 }
 
 describe("PieceReviewCanvas", () => {
+  it("blocks a ninth annotation through either add path while allowing edits and removal", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(rect as DOMRect);
+    const annotations = Array.from({ length: 8 }, (_, index) => ({ id: `a-${index}`, x: 0.5, y: 0.5, text: "Nota" }));
+    const { onChange } = renderCanvas(annotations);
+    enterCommentMode();
+    expect(screen.getByRole("button", { name: "Adicionar comentário" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar comentário" }));
+    fireEvent.mouseDown(screen.getByRole("img", { name: "Peça 1" }), { clientX: 300, clientY: 200 });
+    expect(screen.queryByRole("textbox", { name: "Comentário" })).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Comentário 1" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Comentário" }), { target: { value: "Revisada" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar comentário" }));
+    expect(onChange).toHaveBeenCalledWith([{ ...annotations[0], text: "Revisada" }, ...annotations.slice(1)]);
+    fireEvent.click(screen.getByRole("button", { name: "Comentário 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remover comentário" }));
+    expect(onChange).toHaveBeenLastCalledWith(annotations.slice(1));
+  });
+
+  it("does not save a new annotation if the refreshed draft has reached eight", () => {
+    const annotations = Array.from({ length: 8 }, (_, index) => ({ id: `a-${index}`, x: 0.5, y: 0.5, text: "Nota" }));
+    const { onChange, rerender } = renderCanvas(annotations.slice(0, 7));
+    enterCommentMode();
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar comentário" }));
+    const textbox = screen.getByRole("textbox", { name: "Comentário" });
+    fireEvent.change(textbox, { target: { value: "Nova" } });
+    rerender(<PieceReviewCanvas src="/art.png" alt="Peça 1" annotations={annotations} onChange={onChange} />);
+    expect(screen.getByRole("button", { name: "Salvar comentário" })).toBeDisabled();
+    fireEvent.submit(textbox.closest("form")!);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("renders the artwork and existing pins with accessible names", () => {
     const existing = [{ id: "a-1", x: 0.25, y: 0.8, text: "Aumente o CTA" }];
     renderCanvas(existing);
