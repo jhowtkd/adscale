@@ -1478,6 +1478,27 @@ describe("prepareCreativeWork", () => {
       expect(updateDraft).not.toHaveBeenCalled();
     });
 
+    it.each([undefined, "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"])(
+      "keeps calibration language choice explicit (%s)", async (explicitId) => {
+      const languageId = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa";
+      const candidate = { ...candidateB, knowledge: { ...candidateB.knowledge, claims: [{
+        ...candidateB.knowledge.claims[0], claimKey: "visual.repertoire", value: {
+          version: 1, common: [{id: "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb", dimension: "hierarchy",
+            observation: "Título dominante", application: "Destacar o título", avoid: "", evidenceIds: ["r1"], confidence: "high"}],
+          languages: [{id: languageId, name: "Institucional", contexts: ["institucional"], rules: []}],
+        },
+      }] } };
+      getWork.mockResolvedValue({ work: { ...calibrationWork, request: "Apresentação Institucional",
+        settings: { targetFormats: [], ...(explicitId ? { visualLanguageId: explicitId } : {}) } }, outputs: [], sources: [] } as never);
+      vi.mocked(loadCalibrationCandidateForWork).mockResolvedValue(candidate as never);
+      const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1",
+        calibration: { sessionId: "session-1", round: 1, slot: 0 } });
+      expect(result.ok).toBe(true);
+      expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
+        inputSnapshot: expect.objectContaining({ visualDirection: expect.objectContaining({ languageId: explicitId ?? null }) }),
+      }));
+    });
+
     it("composes calibration examples from the frozen candidate, not the live kit", async () => {
       getWork.mockResolvedValue({ work: calibrationWork, outputs: [], sources: [] } as never);
       loadCandidate.mockResolvedValue(candidateB as never);

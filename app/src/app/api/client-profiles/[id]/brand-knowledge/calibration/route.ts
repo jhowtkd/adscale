@@ -104,7 +104,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       activeVersionId: active?.id ?? null,
       quoteCredits: calibrationCredits(CALIBRATION_FORMAT),
       examples,
-      uncovered: latest ? uncoveredTrainingIds({ candidate: latest.candidate, coverage: latest.coverage }) : [],
+      uncovered: latest ? uncoveredTrainingIds({ candidate: latest.candidate, priorRounds: session!.rounds.slice(0, -1) }) : [],
     });
   } catch (error) {
     return calibrationErrorResponse(error, "client-profiles.[id].brand-knowledge.calibration.GET");

@@ -466,7 +466,7 @@ describe("brand training calibration contracts", () => {
       catalog: { people: [confirmedPerson(PERSON_ANA)] },
     }));
     const coverage = calibrationCoverage(candidate);
-    const uncovered = uncoveredTrainingIds({ candidate, coverage });
+    const uncovered = uncoveredTrainingIds({ candidate });
     // Third language and its rule stay out; the person never fits case 3.
     expect(uncovered).toContain(LANG_THREE);
     expect(uncovered).toContain(PERSON_ANA);
@@ -526,4 +526,13 @@ describe("brand training calibration contracts", () => {
       }).success,
     ).toBe(false);
   });
+});
+
+it("does not label applied rules as uncovered when display coverage is capped", () => {
+  const candidate = freezeCandidate(candidateWithLearning({
+    languages: [{ id: LANG_ONE }, { id: LANG_TWO }, { id: LANG_THREE }], commonRules: 20,
+  }));
+  expect(calibrationCoverage(candidate)).toHaveLength(12);
+  const uncovered = uncoveredTrainingIds({ candidate });
+  expect(uncovered).toEqual([LANG_THREE, testRule(102).id]);
 });

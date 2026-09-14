@@ -229,7 +229,7 @@ function caseRuleIds(
  * coverage. Shown in the review UI next to the IDs left unexercised; never
  * a claim of exhaustive brand validation.
  */
-export function calibrationCoverage(
+function fullCalibrationCoverage(
   candidate: Pick<Candidate, "hash" | "knowledge">,
   priorRound?: Pick<CalibrationRound, "candidate" | "slots"> | null,
   priorRounds?: ReadonlyArray<Pick<CalibrationRound, "candidate" | "slots">> | null,
@@ -251,7 +251,16 @@ export function calibrationCoverage(
   for (const target of cases) {
     ordered.push(...caseRuleIds(learned, target));
   }
-  return [...new Set(ordered)].slice(0, CALIBRATION_COVERAGE_LIMIT);
+  return [...new Set(ordered)];
+}
+
+/** Persisted display metadata is bounded; coverage decisions use the full set. */
+export function calibrationCoverage(
+  candidate: Pick<Candidate, "hash" | "knowledge">,
+  priorRound?: Pick<CalibrationRound, "candidate" | "slots"> | null,
+  priorRounds?: ReadonlyArray<Pick<CalibrationRound, "candidate" | "slots">> | null,
+): string[] {
+  return fullCalibrationCoverage(candidate, priorRound, priorRounds).slice(0, CALIBRATION_COVERAGE_LIMIT);
 }
 
 /**
@@ -261,8 +270,9 @@ export function calibrationCoverage(
  * cases never read as exhaustive brand validation.
  */
 export function uncoveredTrainingIds(input: {
-  candidate: Pick<Candidate, "knowledge">;
-  coverage: readonly string[];
+  candidate: Pick<Candidate, "hash" | "knowledge">;
+  priorRounds?: ReadonlyArray<Pick<CalibrationRound, "candidate" | "slots">>;
+
 }): string[] {
   const learned = learnedContentOf(input.candidate.knowledge);
   const all: string[] = [];
@@ -271,7 +281,7 @@ export function uncoveredTrainingIds(input: {
   }
   all.push(...(learned.repertoire?.common.map((rule) => rule.id) ?? []));
   all.push(...(learned.catalog?.people.map((person) => person.id) ?? []));
-  const covered = new Set(input.coverage);
+  const covered = new Set(fullCalibrationCoverage(input.candidate, null, input.priorRounds));
   return [...new Set(all)].filter((id) => !covered.has(id));
 }
 

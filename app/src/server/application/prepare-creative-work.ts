@@ -358,7 +358,9 @@ export async function prepareCreativeWork(input: {
     const workLanguage = resolveWorkVisualLanguage({
       repertoire,
       explicitId: preparation.data.settings.visualLanguageId,
-      text: briefingText,
+      // Calibration targets are server-planned; neutral copy must not infer
+      // a specialization for a common/person case. Explicit IDs still win.
+      text: calibrationCandidate ? "" : briefingText,
     });
     if (!workLanguage.ok) {
       return { ok: false as const, error: workLanguage.error };

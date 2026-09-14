@@ -4,6 +4,8 @@ import { z } from "zod";
 import { canonicalJsonStringify } from "../creative-work/canonical-json";
 import type { BrandTrainingAnalysis } from "./contracts";
 import {
+  REPERTOIRE_GROUP_SIZE,
+  REPERTOIRE_MAX_SOURCES,
   validateRepertoireEvidence,
   VISUAL_RULE_DIMENSIONS,
   type VisualLanguage,
@@ -12,9 +14,7 @@ import {
 } from "./visual-repertoire";
 
 export const REPERTOIRE_EXTRACTOR_VERSION = "visual-repertoire-v1";
-export const REPERTOIRE_GROUP_SIZE = 8;
-export const REPERTOIRE_MAX_GROUPS = 6;
-export const REPERTOIRE_MAX_SOURCES = REPERTOIRE_GROUP_SIZE * REPERTOIRE_MAX_GROUPS;
+export { REPERTOIRE_GROUP_SIZE, REPERTOIRE_MAX_GROUPS, REPERTOIRE_MAX_SOURCES } from "./visual-repertoire";
 
 export type RepertoireSource = {
   id: string;
