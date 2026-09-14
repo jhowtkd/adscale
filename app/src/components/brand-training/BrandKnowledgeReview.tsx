@@ -23,7 +23,7 @@ import { BrandCalibrationReview } from "./BrandCalibrationReview";
 import { BrandPeopleReview } from "./BrandPeopleReview";
 import { VisualRepertoireReview } from "./VisualRepertoireReview";
 import { peopleCatalogSchema } from "@/server/brand-training/people";
-import { REPERTOIRE_MAX_SOURCES } from "@/server/brand-training/synthesize-repertoire";
+import { REPERTOIRE_MAX_SOURCES } from "@/server/brand-training/visual-repertoire";
 import { visualRepertoireSchema } from "@/server/brand-training/visual-repertoire";
 
 type KnowledgeFilter = "all" | "review" | "approved" | "archive";

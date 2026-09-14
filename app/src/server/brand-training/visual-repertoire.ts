@@ -2,6 +2,10 @@ import { z } from "zod";
 
 import type { CreativeWorkVisualDirection } from "../creative-work/contracts";
 
+export const REPERTOIRE_GROUP_SIZE = 8;
+export const REPERTOIRE_MAX_GROUPS = 6;
+export const REPERTOIRE_MAX_SOURCES = REPERTOIRE_GROUP_SIZE * REPERTOIRE_MAX_GROUPS;
+
 export const VISUAL_RULE_DIMENSIONS = [
   "composition",
   "hierarchy",

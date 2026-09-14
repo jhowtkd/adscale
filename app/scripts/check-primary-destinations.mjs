@@ -387,7 +387,12 @@ function main() {
     );
   }
 
-  const newApiTrees = diff(current.apiRouteTrees, base.apiRouteTrees);
+  const baseTreeApiRoutes = listBaseApiRouteFiles(args.base);
+  const allowedApiTrees = [...new Set([
+    ...base.apiRouteTrees,
+    ...baseTreeApiRoutes.map((route) => route.split("/")[0]),
+  ])];
+  const newApiTrees = diff(current.apiRouteTrees, allowedApiTrees);
   if (newApiTrees.length > 0) {
     failures.push(
       `new top-level API route tree(s): ${newApiTrees.join(", ")}.`
@@ -397,7 +402,6 @@ function main() {
   // A stale snapshot must not brick every subsequent PR after routes/modules
   // already landed on the protected base. Union with the immutable base tree:
   // this repairs policy drift without allowing a feature-branch addition.
-  const baseTreeApiRoutes = listBaseApiRouteFiles(args.base);
   const snapshotApiRoutes = Array.isArray(base.apiRouteFiles) ? base.apiRouteFiles : [];
   const missingApiFromSnapshot = diff(baseTreeApiRoutes, snapshotApiRoutes);
   if (missingApiFromSnapshot.length > 0) {
