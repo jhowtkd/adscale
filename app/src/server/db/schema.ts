@@ -2640,6 +2640,8 @@ export const creativeWorkItems = adscaleSchema.table(
       .notNull()
       .default("draft")
       .$type<import("../creative-work/contracts").CreativeWorkStatus>(),
+    /** Pedido teve ao menos um trecho inserido via Ditado (#351). */
+    hasDictatedExcerpt: boolean("has_dictated_excerpt").notNull().default(false),
     brief: jsonb("brief")
       .$type<import("../creative-work/contracts").SocialPostBrief>(),
     format: text("format")

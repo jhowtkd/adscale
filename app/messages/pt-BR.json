@@ -658,6 +658,18 @@
         "requestLabel": "Pedido criativo",
         "continuePlan": "Continuar para revisar o plano",
         "placeholder": "Ex.: crie uma campanha de matrículas com tom acolhedor...",
+        "dictation": {
+          "start": "Ditar pedido",
+          "stop": "Parar e transcrever",
+          "listening": "Ouvindo {time} — clique para parar",
+          "transcribing": "Transcrevendo...",
+          "timeWarning": "O ditado para sozinho em {seconds}s",
+          "permissionDenied": "Microfone bloqueado. Libere o acesso nas configurações do navegador.",
+          "noMicrophone": "Nenhum microfone encontrado.",
+          "networkError": "Falha de rede. Sua gravação foi perdida; tente novamente.",
+          "unsupported": "Este navegador não suporta ditado.",
+          "dailyLimit": "Limite de ditado do dia atingido (15 min). Digite o restante."
+        },
         "addArt": "Adicionar arte",
         "progressiveAddArtReference": "Adicionar arte ou referência",
         "pieceReferences": {
@@ -2801,6 +2813,9 @@
     "derivationHardFailures": "Esta criação tem falhas graves de qualidade e não pode ser aprovada nem usada para entrega até ser corrigida",
     "derivationMissingOutput": "Variação criativa está sem imagem de saída",
     "invalidInput": "Entrada inválida",
+    "dictationInvalidAudio": "Áudio do ditado inválido. Grave novamente.",
+    "dictationDailyLimit": "Limite de ditado do dia atingido (15 min). O pedido digitado continua funcionando.",
+    "dictationTranscriptionFailed": "Não foi possível transcrever o áudio. Tente novamente.",
     "creativeWorkInputRequired": "Este tipo de criação ainda está incompleto. Confira o pedido e as artes.",
     "creativeWorkSourcesNotReady": "Aguarde a análise da arte terminar antes de gerar.",
     "creativeWorkPieceReferenceLimit": "Você pode adicionar no máximo 3 referências a esta Peça.",
