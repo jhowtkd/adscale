@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-14T23:07:06.659Z",
+  "generatedAt": "2026-09-15T17:37:27.729Z",
   "schemaVersion": 2,
-  "fingerprint": "5a907b7dfd29f28491b1fb1799b9b243ac617ba24e6c2dc3b41feb4cbca97807",
+  "fingerprint": "0731d2e1a20e7e901d57fe43f4755ef8edab70c1ee000ee2a334edeced8cfbe8",
   "counts": {
     "dashboardPages": 15,
-    "apiRoutes": 183,
+    "apiRoutes": 184,
     "ctas": 72,
     "requiringDecision": 1
   },
@@ -845,6 +845,13 @@
       "requiresDecision": false
     },
     {
+      "id": "api:/api/creative-work/dictation",
+      "kind": "api_route",
+      "route": "/api/creative-work/dictation",
+      "file": "app/src/app/api/creative-work/dictation/route.ts",
+      "requiresDecision": false
+    },
+    {
       "id": "api:/api/creative-work/entry-context",
       "kind": "api_route",
       "route": "/api/creative-work/entry-context",
@@ -1607,12 +1614,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/creative-work/CreativeComposer.tsx:313",
+      "id": "nav:app/src/components/creative-work/CreativeComposer.tsx:338",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/creative-work/CreativeComposer.tsx",
-      "line": 313,
-      "evidence": "app/src/components/creative-work/CreativeComposer.tsx:313",
+      "line": 338,
+      "evidence": "app/src/components/creative-work/CreativeComposer.tsx:338",
       "requiresDecision": false
     },
     {
