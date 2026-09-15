@@ -19,6 +19,7 @@ import {
   settingsHintClass,
   settingsRowClass,
 } from "@/components/settings/settings-chrome";
+import { McpTokensCard } from "@/components/settings/McpTokensCard";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -174,6 +175,7 @@ export default function IntegrationsTab() {
       animate="show"
       className="max-w-[720px]"
     >
+      <McpTokensCard />
       <div>
         {integrations.map((integration) => {
           const status = integrationStates[integration.id];
