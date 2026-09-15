@@ -27,7 +27,7 @@
     {
       "id": "creative_work_home",
       "kind": "primary_destination",
-      "description": "Estúdio: adaptador operacional do trabalho criativo. /quick-tools/create-post existe somente como rota de compatibilidade para redirecionar links antigos. Exceção aprovada em 2026-07-30: /creative-work/[id] é a página própria autenticada do mesmo trabalho (retomada sem campanha, issue #126), não uma jornada concorrente.",
+      "description": "Estúdio: adaptador operacional do trabalho criativo. /quick-tools/create-post existe somente como rota de compatibilidade para redirecionar links antigos. Exceção aprovada em 2026-07-30: /creative-work/[id] é a página própria autenticada do mesmo trabalho (retomada sem campanha, issue #126), não uma jornada concorrente. Exceção aprovada em 2026-09-15: POST creative-work/dictation (ditado por voz no composer, PR #360) é rota de suporte aninhada ao mesmo trabalho, não destino novo.",
       "entrypoints": [
         "/",
         "/creative-work/[id]",
@@ -126,6 +126,7 @@
       "feedback",
       "health",
       "inngest",
+      "library",
       "notifications",
       "share",
       "strategy-recipe",
@@ -210,6 +211,7 @@
       "campaigns/[id]/suggest-ctas/route.ts",
       "campaigns/route.ts",
       "client-profiles/[id]/brand-fonts/route.ts",
+      "client-profiles/[id]/brand-knowledge/calibration/route.ts",
       "client-profiles/[id]/brand-knowledge/publish/route.ts",
       "client-profiles/[id]/brand-knowledge/route.ts",
       "client-profiles/[id]/memory/route.ts",
@@ -232,10 +234,13 @@
       "creative-work/[id]/identity-options/route.ts",
       "creative-work/[id]/outputs/[outputId]/cancel/route.ts",
       "creative-work/[id]/outputs/[outputId]/download/route.ts",
+      "creative-work/[id]/outputs/[outputId]/favorite/route.ts",
+      "creative-work/[id]/outputs/[outputId]/person-references/route.ts",
       "creative-work/[id]/outputs/[outputId]/retry/route.ts",
       "creative-work/[id]/outputs/[outputId]/select/route.ts",
       "creative-work/[id]/route.ts",
       "creative-work/[id]/suggest/route.ts",
+      "creative-work/dictation/route.ts",
       "creative-work/entry-context/route.ts",
       "creative-work/entry-request/route.ts",
       "creative-work/inspirations/[id]/file/route.ts",
@@ -283,6 +288,7 @@
       "feedback/score-calibration/route.ts",
       "health/route.ts",
       "inngest/route.ts",
+      "library/favorites/route.ts",
       "notifications/[id]/read/route.ts",
       "notifications/route.ts",
       "notifications/webhook/route.ts",
@@ -344,8 +350,8 @@
       "creative-readiness.ts",
       "creative-route-planner.test.ts",
       "creative-route-planner.ts",
-      "creative-score-payload.test.ts",
       "creative-score-ceilings.ts",
+      "creative-score-payload.test.ts",
       "creative-score.ts",
       "creative-validation-aggregation.ts",
       "derivation-auto-retry-observability.test.ts",
@@ -427,6 +433,6 @@
       "voices/voice-prompt-section.ts",
       "voices/voice-review-gate.ts"
     ],
-    "capturedAt": "2026-09-09T11:00:54.000Z"
+    "capturedAt": "2026-09-15T17:36:12.853Z"
   }
 }
