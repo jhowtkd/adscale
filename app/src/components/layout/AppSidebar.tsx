@@ -9,6 +9,7 @@ import {
   FolderOpen,
   House,
   LogOut,
+  Megaphone,
   Settings,
   Tag,
   type LucideIcon,
@@ -53,6 +54,7 @@ export default function AppSidebar() {
   const isHome = pathname === "/" || pathname === "/quick-tools/create-post" || pathname.startsWith("/creative-work/");
   const isLibrary = pathname.startsWith("/library");
   const isBrand = pathname.startsWith("/brand-kit");
+  const isServedAds = pathname.startsWith("/served-ads");
   const isConfig = pathname.startsWith("/settings");
   const isDocs = pathname.startsWith("/docs");
 
@@ -85,7 +87,7 @@ export default function AppSidebar() {
       </div>
 
       <nav
-        className="mb-3 grid shrink-0 grid-cols-4 gap-1"
+        className="mb-3 grid shrink-0 grid-cols-5 gap-1"
         aria-label={tNav("sectionPrincipal")}
       >
         <IconNavItem
@@ -112,6 +114,12 @@ export default function AppSidebar() {
           active={isBrand}
           label={tNav("brands")}
           icon={Tag}
+        />
+        <IconNavItem
+          href="/served-ads"
+          active={isServedAds}
+          label={tNav("servedAds")}
+          icon={Megaphone}
         />
       </nav>
 

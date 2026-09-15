@@ -736,6 +736,34 @@
       "when": 1789491573547,
       "tag": "0102_creative_work_selected_by",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1789493134502,
+      "tag": "0103_meta_connections",
+      "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1789493134502,
+      "tag": "0104_meta_ad_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1789493134502,
+      "tag": "0105_served_ads",
+      "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1789493134502,
+      "tag": "0106_served_ad_metrics",
+      "breakpoints": true
     }
   ]
 }

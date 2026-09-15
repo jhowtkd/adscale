@@ -9,6 +9,7 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  primaryKey,
   check,
   varchar,
   foreignKey,
@@ -182,6 +183,111 @@ export const mcpWorkspaceTokens = adscaleSchema.table(
   },
   (table) => [
     index("mcp_workspace_tokens_workspace_id_idx").on(table.workspaceId),
+  ]
+);
+
+/**
+ * Conexão Meta: o login OAuth. Pertence ao workspace (#345).
+ * Token (system user de integração) cifrado com AES-GCM; ciphertext aqui.
+ */
+export const metaConnections = adscaleSchema.table(
+  "meta_connections",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    status: text("status")
+      .notNull()
+      .default("ativa")
+      .$type<"ativa" | "expirada" | "revogada" | "com_erro">(),
+    tokenCiphertext: text("token_ciphertext"),
+    tokenUpdatedAt: timestamp("token_updated_at", { mode: "date" }),
+    lastSyncAt: timestamp("last_sync_at", { mode: "date" }),
+    lastSyncError: text("last_sync_error"),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [index("meta_connections_workspace_id_idx").on(table.workspaceId)]
+);
+
+/**
+ * Conta de anúncios exposta pela Conexão. Vinculada a no máximo uma
+ * marca; uma marca pode ter várias contas (#345).
+ */
+export const metaAdAccounts = adscaleSchema.table(
+  "meta_ad_accounts",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => metaConnections.id, { onDelete: "cascade" }),
+    /** Dígitos, sem prefixo act_. */
+    adAccountId: text("ad_account_id").notNull(),
+    name: text("name"),
+    currency: text("currency").notNull().default("BRL"),
+    brandId: uuid("brand_id").references(() => clientProfiles.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("meta_ad_accounts_connection_account_uq").on(table.connectionId, table.adAccountId),
+    index("meta_ad_accounts_brand_id_idx").on(table.brandId),
+  ]
+);
+
+/**
+ * Anúncio veiculado: spec completa importada (mídia + texto + CTA).
+ * Pertence à Conta, não à marca (#345). Id = ad_account_id:creative_id (#346 rev. 2).
+ */
+export const servedAds = adscaleSchema.table(
+  "served_ads",
+  {
+    id: text("id").primaryKey(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => metaAdAccounts.id, { onDelete: "cascade" }),
+    adAccountId: text("ad_account_id").notNull(),
+    creativeId: text("creative_id").notNull(),
+    format: text("format")
+      .notNull()
+      .$type<"imagem" | "video" | "carrossel">(),
+    textExcerpt: text("text_excerpt"),
+    /** Chaves do ObjectStorage (cópia na ingestão); nunca URL da Meta. */
+    mediaImageKey: text("media_image_key"),
+    mediaVideoKey: text("media_video_key"),
+    mediaThumbKey: text("media_thumb_key"),
+    /** TTL 90 dias após a última entrega (#347 rev. 2). */
+    lastDeliveredAt: timestamp("last_delivered_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [index("served_ads_account_id_idx").on(table.accountId)]
+);
+
+/** Métricas por Anúncio veiculado + janela (presets 7/30/90, #346). */
+export const servedAdMetrics = adscaleSchema.table(
+  "served_ad_metrics",
+  {
+    anuncioId: text("anuncio_id")
+      .notNull()
+      .references(() => servedAds.id, { onDelete: "cascade" }),
+    windowDays: integer("window_days").notNull(),
+    impressions: integer("impressions").notNull().default(0),
+    clicks: integer("clicks").notNull().default(0),
+    spend: numeric("spend", { precision: 14, scale: 2 }).notNull().default("0"),
+    conversions: integer("conversions").notNull().default(0),
+    syncedAt: timestamp("synced_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.anuncioId, table.windowDays] }),
   ]
 );
 

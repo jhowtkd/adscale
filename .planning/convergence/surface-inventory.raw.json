@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-15T17:37:27.729Z",
+  "generatedAt": "2026-09-15T18:49:58.393Z",
   "schemaVersion": 2,
-  "fingerprint": "0731d2e1a20e7e901d57fe43f4755ef8edab70c1ee000ee2a334edeced8cfbe8",
+  "fingerprint": "db94593ee506b34f4ca3f9ee51c46bf3b23a7891203e8c8ee35c3162393caee7",
   "counts": {
-    "dashboardPages": 15,
-    "apiRoutes": 184,
-    "ctas": 72,
+    "dashboardPages": 16,
+    "apiRoutes": 188,
+    "ctas": 73,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -98,6 +98,13 @@
       "kind": "dashboard_page",
       "route": "/quick-tools/create-post",
       "file": "app/src/app/(dashboard)/quick-tools/create-post/page.tsx",
+      "requiresDecision": false
+    },
+    {
+      "id": "page:/served-ads",
+      "kind": "dashboard_page",
+      "route": "/served-ads",
+      "file": "app/src/app/(dashboard)/served-ads/page.tsx",
       "requiresDecision": false
     },
     {
@@ -1188,6 +1195,13 @@
       "requiresDecision": false
     },
     {
+      "id": "api:/api/mcp",
+      "kind": "api_route",
+      "route": "/api/mcp",
+      "file": "app/src/app/api/mcp/route.ts",
+      "requiresDecision": false
+    },
+    {
       "id": "api:/api/notifications/[id]/read",
       "kind": "api_route",
       "route": "/api/notifications/[id]/read",
@@ -1206,6 +1220,13 @@
       "kind": "api_route",
       "route": "/api/notifications/webhook",
       "file": "app/src/app/api/notifications/webhook/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/served-ads",
+      "kind": "api_route",
+      "route": "/api/served-ads",
+      "file": "app/src/app/api/served-ads/route.ts",
       "requiresDecision": false
     },
     {
@@ -1367,6 +1388,20 @@
       "kind": "api_route",
       "route": "/api/workspace/invites",
       "file": "app/src/app/api/workspace/invites/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/workspace/mcp-tokens/[id]",
+      "kind": "api_route",
+      "route": "/api/workspace/mcp-tokens/[id]",
+      "file": "app/src/app/api/workspace/mcp-tokens/[id]/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/workspace/mcp-tokens",
+      "kind": "api_route",
+      "route": "/api/workspace/mcp-tokens",
+      "file": "app/src/app/api/workspace/mcp-tokens/route.ts",
       "requiresDecision": false
     },
     {
@@ -1749,93 +1784,102 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:64",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:66",
       "kind": "cta_navigation",
       "destination": "/login",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 64,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:64",
+      "line": 66,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:66",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:73",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:75",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 73,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:73",
+      "line": 75,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:75",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:92",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:94",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 92,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:92",
+      "line": 94,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:94",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:98",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:100",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 98,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:98",
+      "line": 100,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:100",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:105",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:107",
       "kind": "cta_navigation",
       "destination": "/library",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 105,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:105",
+      "line": 107,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:107",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:111",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:113",
       "kind": "cta_navigation",
       "destination": "/brand-kit",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 111,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:111",
+      "line": 113,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:113",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:131",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:119",
+      "kind": "cta_navigation",
+      "destination": "/served-ads",
+      "file": "app/src/components/layout/AppSidebar.tsx",
+      "line": 119,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:119",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:139",
       "kind": "cta_navigation",
       "destination": "/docs",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 131,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:131",
+      "line": 139,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:139",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:138",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:146",
       "kind": "cta_navigation",
       "destination": "/settings",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 138,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:138",
+      "line": 146,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:146",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:153",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:161",
       "kind": "cta_navigation",
       "destination": "/feedback",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 153,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:153",
+      "line": 161,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:161",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:155",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:163",
       "kind": "cta_navigation",
       "destination": "/settings",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 155,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:155",
+      "line": 163,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:163",
       "requiresDecision": false
     },
     {
