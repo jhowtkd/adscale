@@ -333,6 +333,11 @@
       "workspace/mcp-tokens/[id]/route.ts",
       "workspace/mcp-tokens/route.ts",
       "workspace/members/route.ts",
+      "workspace/meta-connection/accounts/route.ts",
+      "workspace/meta-connection/oauth/callback/route.ts",
+      "workspace/meta-connection/oauth/start/route.ts",
+      "workspace/meta-connection/route.ts",
+      "workspace/meta-connection/sync/route.ts",
       "workspace/mission-insights/route.ts",
       "workspace/missions/route.ts",
       "workspace/progression/route.ts",
@@ -450,6 +455,6 @@
       "voices/voice-prompt-section.ts",
       "voices/voice-review-gate.ts"
     ],
-    "capturedAt": "2026-09-15T18:47:14.124Z"
+    "capturedAt": "2026-09-15T21:43:26.021Z"
   }
 }
