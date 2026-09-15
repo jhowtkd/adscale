@@ -2,7 +2,7 @@
 
 > **Fonte canônica do "o que é o ADScale, em que acredita, e como opera."**
 > Tudo passa pelo crivo da tese central **inteligência criativa em escala** (antes chamada "Curator > operator", reformulada em 2026-06-27).
-> Última atualização: 2026-09-06.
+> Última atualização: 2026-09-15.
 
 ---
 
@@ -25,7 +25,8 @@ A IA **reposiciona** o humano. Não substitui. [isso ficou vago e pouco rescriti
 - **Prontidão do briefing:** estado que distingue direção pronta para geração normal, direção apenas exploratória sem claims e ausência de direção segura para gerar. Oferta, benefício, preço e outros fatos desconhecidos nunca são preenchidos para alcançar prontidão.
 - **Avaliação inconclusiva:** resultado pós-geração em que a integridade da peça não pôde ser confirmada nem refutada. A peça permanece disponível para decisão humana, mas não conta como aprovação automática.
 - **Veredito objetivo:** avaliação automática de integridade expressa como aprovado, reprovado ou inconclusivo. Não deriva do score subjetivo.
-- **Aprovação humana:** decisão explícita do operador de selecionar uma Peça. Pode confirmar um veredito inconclusivo ou ausente, mas nunca substituir uma reprovação objetiva.
+- **Aprovação humana:** decisão explícita do operador de selecionar uma Peça. Pode confirmar um veredito inconclusivo ou ausente, mas nunca substituir uma reprovação objetiva. Seleção feita por um agente via MCP não é Aprovação humana.
+- **Seleção por agente:** ato de um agente, via MCP, de selecionar uma Peça em nome de um operador. Respeita a reprovação objetiva. Não conta como Aprovação humana em métricas nem na Calibração da marca até o operador confirmar.
 - **Dono da plataforma:** operador autorizado a acessar dados e ferramentas globais do ADScale entre workspaces. Não equivale a owner ou admin de um workspace.
 
 ### Modelo de produto canônico
@@ -49,6 +50,10 @@ _Evitar_: sessão temporária, formulário descartável.
 **Peça**:
 Resultado visual produzido por um Trabalho, independentemente do Protocolo usado.
 _Evitar_: output, asset gerado, derivação.
+
+**Seleção por agente**:
+Ato de um agente, via MCP, de selecionar uma Peça em nome de um operador. Fica registrada como seleção por agente, distinta da Aprovação humana. Respeita a reprovação objetiva e não alimenta métricas nem a Calibração da marca até o operador confirmar.
+_Evitar_: Aprovação humana, aprovação automática.
 
 **Direção de arte**:
 Disciplina que interpreta o problema de comunicação, identifica oportunidades de composição e conduz criação, crítica e refinamento de uma Peça com julgamento contextual e repertório da marca.
@@ -77,6 +82,26 @@ _Evitar_: Início, Dashboard como nome visível.
 **Visão geral**:
 Superfície gerencial secundária para acompanhar indicadores, atividade e itens que exigem atenção.
 _Evitar_: Dashboard como nome visível.
+
+**Anúncios veiculados**:
+Superfície de leitura da marca ativa para os Anúncios veiculados das Contas de anúncios vinculadas. Destino próprio da navegação principal, distinto de Estúdio, Trabalhos, Biblioteca e Marcas.
+_Evitar_: Relatório, Insights, Criativos, Performance, Visão geral.
+
+**Conexão Meta**:
+Login autorizado de um workspace junto ao Meta, que expõe as contas de anúncios acessíveis ao operador. Pertence ao workspace, não a uma marca; estados: ativa, expirada, revogada, com erro. Criada e desfeita por owner ou admin.
+_Evitar_: integração (nome da aba, não do objeto), conta conectada.
+
+**Conta de anúncios**:
+Conta do Meta Ads exposta por uma Conexão Meta. Pode ser vinculada a no máximo uma marca; uma marca pode ter várias. O vínculo é feito por owner ou admin; membros leem o que a marca enxerga.
+_Evitar_: ad account, conta do cliente.
+
+**Ditado**:
+Entrada do pedido por fala na caixa do Estúdio: o que o operador diz vira texto editável, com limpeza leve (remover hesitações e repetições, pontuar, capitalizar) que preserva toda palavra de conteúdo na mesma ordem. Não reescreve, não resume, não estrutura em briefing. O texto ditado é palavra do operador e integra o Contexto autorizado como qualquer texto digitado.
+_Evitar_: voz (reservado para voz da marca), input de voz, comando de voz, speech-to-text.
+
+**Anúncio veiculado**:
+Criativo que rodou de fato numa Conta de anúncios, com gasto e métricas reais, trazido para o ADScale para leitura e análise. A identidade é a spec completa (mídia, texto e CTA): a mesma peça reutilizada em vários ads da Meta é um só; a mesma mídia com texto diferente são Anúncios veiculados distintos. Um carrossel é um Anúncio veiculado; cada card não é uma linha. Um anúncio com variação dinâmica de assets na Meta também é um só; combinações de asset não viram linhas. Campanha e conjunto não são a unidade de análise. Pertence à Conta de anúncios e é visto pela marca vinculada. Não é Peça (não foi produzido por um Trabalho) nem Referência visual (não orienta geração).
+_Evitar_: criativo importado, ad, asset do Meta, campanha, conjunto.
 
 ---
 
