@@ -77,6 +77,8 @@ export const envSchema = z.object({
    * deterministic bucket as progressive Studio rollout.
    */
   STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT: z.coerce.number().int().min(0).max(100).default(0),
+  /** MCP primeira fatia (#356 rev. 2): Bearer por workspace. OAuth+CIMD é a fatia seguinte. */
+  MCP_BEARER_ENABLED: z.enum(["true", "false"]).default("false"),
 });
 
 const parsed = envSchema.safeParse(process.env);

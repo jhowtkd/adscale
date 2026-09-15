@@ -26,6 +26,12 @@ export type SelectCreativeWorkOutputInput = {
   confirmObjective?: boolean;
   /** Persist a brand-scoped visual recipe from this structured piece. */
   saveAsRecipe?: boolean;
+  /**
+   * Quem seleciona. `agent` = Seleção por agente (#355): respeita a
+   * reprovação objetiva, mas pula biblioteca, evento de valor e receita —
+   * não conta em métricas nem na Calibração até o operador confirmar.
+   */
+  selectedBy?: "operator" | "agent";
 };
 
 export type SelectCreativeWorkOutputError =
@@ -85,7 +91,10 @@ async function runEffect(
 export async function selectCreativeWorkOutputCommand(
   input: SelectCreativeWorkOutputInput
 ): Promise<SelectCreativeWorkOutputResult> {
-  const saveToLibrary = input.saveToLibrary ?? true;
+  const selectedBy = input.selectedBy ?? "operator";
+  const isAgent = selectedBy === "agent";
+  const saveToLibrary = isAgent ? false : (input.saveToLibrary ?? true);
+  const saveAsRecipe = isAgent ? false : input.saveAsRecipe;
 
   const existing = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!existing) {
@@ -124,7 +133,7 @@ export async function selectCreativeWorkOutputCommand(
     return { ok: false, error: { code: "objective_confirmation_required", policy } };
   }
 
-  if (input.saveAsRecipe) {
+  if (saveAsRecipe) {
     const structured = extractVisualRecipe({
       workId: existing.work.id,
       outputId: output.id,
@@ -147,7 +156,7 @@ export async function selectCreativeWorkOutputCommand(
   // O recibo identifica a obrigacao persistida. Numa retomada, reutiliza-se o
   // recibo ja gravado — a retentativa salva so o efeito, nunca gera, cobra ou
   // refaz a aprovacao.
-  const receiptId = input.saveAsRecipe
+  const receiptId = saveAsRecipe
     ? output.selectionEffects?.recipe?.receiptId ?? crypto.randomUUID()
     : "";
 
@@ -157,7 +166,9 @@ export async function selectCreativeWorkOutputCommand(
     input.outputId,
     {
       confirmObjective: input.confirmObjective,
-      ...(input.saveAsRecipe ? { pendingRecipeReceiptId: receiptId } : {}),
+      // Ramo operador preserva a chamada exata (repositório defaulteia operator).
+      ...(isAgent ? { selectedBy: selectedBy as "agent" } : {}),
+      ...(saveAsRecipe ? { pendingRecipeReceiptId: receiptId } : {}),
     }
   );
   if (!selected) {
@@ -209,7 +220,8 @@ export async function selectCreativeWorkOutputCommand(
 
   let valueEvent: SelectionEffect = { status: "not_requested" };
   const selectedKey = selected.outputKey;
-  if (existing.work.createdByUserId && selectedKey) {
+  // Seleção por agente não registra evento de valor: sem métricas até o operador confirmar.
+  if (!isAgent && existing.work.createdByUserId && selectedKey) {
     const context = valueEventFromCreativeWork(existing.work);
     valueEvent = await runEffect(async () => {
       await recordCreativeWorkValueEvent({
@@ -223,7 +235,7 @@ export async function selectCreativeWorkOutputCommand(
 
   let recipe: VisualRecipe | undefined;
   let recipeEffect: SelectionEffect = { status: "not_requested" };
-  if (input.saveAsRecipe) {
+  if (saveAsRecipe) {
     const saved = await saveVisualRecipeFromOutput({
       workspaceId: input.workspaceId,
       workItemId: input.workItemId,
