@@ -629,6 +629,18 @@
         "requestLabel": "Creative request",
         "continuePlan": "Continue to plan review",
         "placeholder": "E.g. create an enrollment campaign with a warm tone...",
+        "dictation": {
+          "start": "Dictate request",
+          "stop": "Stop and transcribe",
+          "listening": "Listening {time} — click to stop",
+          "transcribing": "Transcribing...",
+          "timeWarning": "Dictation stops automatically in {seconds}s",
+          "permissionDenied": "Microphone blocked. Allow access in your browser settings.",
+          "noMicrophone": "No microphone found.",
+          "networkError": "Network failure. Your recording was lost; try again.",
+          "unsupported": "This browser does not support dictation.",
+          "dailyLimit": "Daily dictation limit reached (15 min). Type the rest."
+        },
         "addArt": "Add image",
         "progressiveAddArtReference": "Add art or reference",
         "pieceReferences": {
@@ -2744,6 +2756,9 @@
     "derivationHardFailures": "This creative has blocking quality failures and cannot be approved or used for delivery until they are fixed",
     "derivationMissingOutput": "Creative variant is missing output image",
     "invalidInput": "Invalid input",
+    "dictationInvalidAudio": "Invalid dictation audio. Record again.",
+    "dictationDailyLimit": "Daily dictation limit reached (15 min). Typed requests still work.",
+    "dictationTranscriptionFailed": "Could not transcribe the audio. Try again.",
     "creativeWorkInputRequired": "This creation is still incomplete. Check the request and the artwork.",
     "creativeWorkSourcesNotReady": "Wait for the artwork analysis to finish before generating.",
     "creativeWorkPieceReferenceLimit": "You can add up to 3 references to this Piece.",
