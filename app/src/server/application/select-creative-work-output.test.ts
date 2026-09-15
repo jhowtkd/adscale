@@ -143,6 +143,39 @@ describe("selectCreativeWorkOutputCommand", () => {
     }));
   });
 
+  it("agent selection skips library, value event and recipe (Seleção por agente)", async () => {
+    mockGet.mockResolvedValue({
+      work: workItem,
+      outputs: [{
+        ...completedOutput,
+        quality: { schemaVersion: 1, objectiveVerdict: "pass", qualityScore: 1 },
+      }],
+    } as never);
+
+    const result = await selectCreativeWorkOutputCommand({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      selectedBy: "agent",
+      saveAsRecipe: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(mockSelect).toHaveBeenCalledWith("ws-1", "work-1", "output-1", {
+      confirmObjective: undefined,
+      selectedBy: "agent",
+    });
+    expect(mockEnsure).not.toHaveBeenCalled();
+    expect(mockRecordValue).not.toHaveBeenCalled();
+    expect(mockSaveRecipe).not.toHaveBeenCalled();
+    expect(result.value.effects).toEqual({
+      library: { status: "not_requested" },
+      valueEvent: { status: "not_requested" },
+      recipe: { status: "not_requested" },
+    });
+  });
+
   it("skips library ensure when saveToLibrary=false", async () => {
     mockGet.mockResolvedValue({
       work: workItem,

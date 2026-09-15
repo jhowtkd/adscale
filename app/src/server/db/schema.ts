@@ -156,6 +156,35 @@ export const workspaceInvites = adscaleSchema.table(
   ]
 );
 
+/**
+ * Bearer tokens do MCP por workspace (primeira fatia, #356 rev. 2).
+ * Guarda só o hash sha256 — o segredo aparece uma vez, na criação.
+ * O agente age em nome do operador que criou o token.
+ */
+export const mcpWorkspaceTokens = adscaleSchema.table(
+  "mcp_workspace_tokens",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    prefix: text("prefix").notNull(),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    lastUsedAt: timestamp("last_used_at", { mode: "date" }),
+    revokedAt: timestamp("revoked_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("mcp_workspace_tokens_workspace_id_idx").on(table.workspaceId),
+  ]
+);
+
 // ============================================
 // Billing tables
 // ============================================
@@ -2808,6 +2837,8 @@ export const creativeWorkOutputs = adscaleSchema.table(
     layerization: jsonb("layerization").$type<import("../layerize/contracts").LayerizationState | null>(),
     layerEditor: jsonb("layer_editor").$type<import("../layer-editor/contracts").LayerEditorStateV1 | null>(),
     isSelected: boolean("is_selected").notNull().default(false),
+    /** Quem selecionou: operador (Aprovação humana) ou agente (Seleção por agente, #355). Null = legado. */
+    selectedBy: text("selected_by").$type<"operator" | "agent">(),
     selectionEffects: jsonb("selection_effects").$type<CreativeWorkSelectionEffectsState | null>(),
     directionId: uuid("direction_id"),
     directionSnapshot: jsonb("direction_snapshot").$type<{
