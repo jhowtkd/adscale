@@ -53,6 +53,15 @@
         "/templates",
         "src/app/api/templates"
       ]
+    },
+    {
+      "id": "served_ads",
+      "kind": "supporting_module",
+      "description": "Anúncios veiculados: observabilidade somente-leitura de ads servidos (Meta). Exceção aprovada em 2026-09-15 (PR #363): superfície de leitura com fixture determinístico, sem jornada criativa. Conexão live (OAuth/sync) é esforço próprio posterior.",
+      "entrypoints": [
+        "/served-ads",
+        "src/app/api/served-ads"
+      ]
     }
   ],
   "frozenModules": [
@@ -87,6 +96,7 @@
       "feedback",
       "library",
       "quick-tools",
+      "served-ads",
       "settings",
       "templates"
     ],
@@ -104,6 +114,7 @@
       "library/page.tsx",
       "page.tsx",
       "quick-tools/create-post/page.tsx",
+      "served-ads/page.tsx",
       "settings/page.tsx",
       "templates/page.tsx"
     ],
@@ -127,7 +138,9 @@
       "health",
       "inngest",
       "library",
+      "mcp",
       "notifications",
+      "served-ads",
       "share",
       "strategy-recipe",
       "templates",
@@ -289,9 +302,11 @@
       "health/route.ts",
       "inngest/route.ts",
       "library/favorites/route.ts",
+      "mcp/route.ts",
       "notifications/[id]/read/route.ts",
       "notifications/route.ts",
       "notifications/webhook/route.ts",
+      "served-ads/route.ts",
       "share/[token]/asset/[derivationId]/route.ts",
       "share/route.ts",
       "strategy-recipe/resolve/route.ts",
@@ -315,6 +330,8 @@
       "workspace/brand-kit/route.ts",
       "workspace/invites/accept/route.ts",
       "workspace/invites/route.ts",
+      "workspace/mcp-tokens/[id]/route.ts",
+      "workspace/mcp-tokens/route.ts",
       "workspace/members/route.ts",
       "workspace/mission-insights/route.ts",
       "workspace/missions/route.ts",
@@ -433,6 +450,6 @@
       "voices/voice-prompt-section.ts",
       "voices/voice-review-gate.ts"
     ],
-    "capturedAt": "2026-09-15T17:36:12.853Z"
+    "capturedAt": "2026-09-15T18:47:14.124Z"
   }
 }
