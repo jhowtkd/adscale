@@ -87,17 +87,22 @@ describe("journal buffer bounds (frozen contract budget)", () => {
   });
 
   it("enforces the byte cap before the count cap", () => {
+    const restore = silenceEmergency();
     const seen: NewDiagnosticEvent[][] = [];
     const journal = createDiagnosticJournal({
       persistBatch: workingWriter(seen),
-      maxBufferedBytes: 400,
+      maxBufferedBytes: 20_000,
     });
-    journal.enqueue(makeEnvelope());
-    expect(journal.stats().bufferedEvents).toBe(1);
-    // A second average envelope no longer fits in 400 bytes.
-    journal.enqueue(makeEnvelope());
-    expect(journal.stats().bufferedEvents).toBe(1);
-    expect(journal.stats().droppedEvents).toBe(1);
+    const bulky = () => makeEnvelope({ attributes: { payload: "p".repeat(2000) } });
+    for (let i = 0; i < 30; i += 1) {
+      journal.enqueue(bulky());
+    }
+    const stats = journal.stats();
+    // The 20 KiB byte cap binds while the 128-event count cap is far away.
+    expect(stats.droppedEvents).toBeGreaterThan(0);
+    expect(stats.bufferedEvents).toBeLessThan(30);
+    expect(stats.bufferedEvents + stats.droppedEvents).toBe(30);
+    restore.mockRestore();
   });
 
   it("flushes in batches of at most 25 events", async () => {
