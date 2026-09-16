@@ -3315,11 +3315,16 @@ describe("diagnostic envelope at the settlement-dispatch boundary (trace-386)", 
     expect(envelopedSend.map((event) => event.id)).toEqual(
       legacySend.map((event) => event.id),
     );
-    // Business payload identical once the envelope is stripped.
+    // Business payload identical once the envelope is stripped: any hash
+    // over business fields is byte-identical with the envelope on or off.
+    const { createHash } = await import("node:crypto");
     for (const [index, event] of envelopedSend.entries()) {
       const business = { ...event.data };
       delete business[DIAGNOSTIC_ENVELOPE_KEY];
       expect(business).toEqual(legacySend[index]!.data);
+      const digest = (value: unknown) =>
+        createHash("sha256").update(JSON.stringify(value)).digest("hex");
+      expect(digest(business)).toBe(digest(legacySend[index]!.data));
     }
   });
 
