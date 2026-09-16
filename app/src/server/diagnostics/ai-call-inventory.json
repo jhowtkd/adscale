@@ -1,0 +1,401 @@
+{
+  "schemaVersion": 1,
+  "ticket": "jhowtkd/adscale#384",
+  "spec": "jhowtkd/adscale#382",
+  "scope": "protocol \"single\" (Peça única) only — from linked-source analysis to export/delivery",
+  "executionSha": "92bc0ed22280058dfd7c38956535a24ac11f3439",
+  "planBaseSha": "dfea5690a535b1db3ade83b85c26e21e5558f127",
+  "openaiSdk": "openai@6.34.0",
+  "classifications": {
+    "covered": "On the single-piece path; later instrumentation wraps it via observeModelCall.",
+    "unused-by-scope": "Real model call outside the single-piece recorte; never wrapped by this track.",
+    "coverage-pending-blocking-acceptance": "On the single path but not yet wrappable; blocks acceptance while non-empty."
+  },
+  "sharedAccessor": {
+    "file": "app/src/server/ai/utils.ts",
+    "symbol": "getOpenAI()",
+    "notes": "Memoized process-wide OpenAI client (60s timeout). All covered text/vision calls go through it."
+  },
+  "directHttp": {
+    "finding": "No direct HTTP model invocations. app/src/server/ai/safe-fetch.ts only downloads result bytes from an allowlist (files.openai.com, api.openai.com) for the image providers; it never invokes a model.",
+    "classification": "unused-by-scope"
+  },
+  "callPoints": [
+    {
+      "id": "CP-01",
+      "file": "app/src/server/creative-work/copy.ts",
+      "symbol": "generateSocialPostCopy (via requestCopy)",
+      "sdkMethod": "chat.completions.create",
+      "kind": "text",
+      "stage": [
+        "copy",
+        "copy_rewrite"
+      ],
+      "classification": "covered",
+      "path": "prepare-creative-work (prepare flow) and POST /api/creative-work/[id]/copy",
+      "notes": "Includes factual-correction rewrite prompt (copy_rewrite). Shared entry: wrap only when the work item protocol is single."
+    },
+    {
+      "id": "CP-02",
+      "file": "app/src/server/creative-work/briefing-review.ts",
+      "symbol": "reviewInferredBriefingOnce",
+      "sdkMethod": "chat.completions.create",
+      "kind": "text",
+      "stage": [
+        "briefing"
+      ],
+      "classification": "covered",
+      "path": "prepare-creative-work (briefing inference/check)",
+      "notes": "Also reachable from calibrate-brand-training; wrap only with a single-work context."
+    },
+    {
+      "id": "CP-03",
+      "file": "app/src/server/creative-work/art-direction.ts",
+      "symbol": "createSinglePieceArtDirection",
+      "sdkMethod": "chat.completions.create",
+      "kind": "text",
+      "stage": [
+        "art_direction"
+      ],
+      "classification": "covered",
+      "path": "jobs/creative-work.ts (single-piece generation job)",
+      "notes": "Exclusive to the single-piece job; no other callers."
+    },
+    {
+      "id": "CP-04",
+      "file": "app/src/server/ai/image-analysis.ts",
+      "symbol": "analyzeImageContent",
+      "sdkMethod": "responses.create",
+      "kind": "vision",
+      "stage": [
+        "source_analysis"
+      ],
+      "classification": "covered",
+      "path": "analyze-creative-work-source (linked content sources)",
+      "notes": "Vision call over normalized source bytes."
+    },
+    {
+      "id": "CP-05",
+      "file": "app/src/server/ai/image-analysis.ts",
+      "symbol": "analyzeImageStyle",
+      "sdkMethod": "responses.create",
+      "kind": "vision",
+      "stage": [
+        "source_analysis"
+      ],
+      "classification": "covered",
+      "path": "analyze-creative-work-source (non-content linked sources)",
+      "notes": "Vision call over normalized source bytes."
+    },
+    {
+      "id": "CP-06",
+      "file": "app/src/server/ai/providers/openai-image-provider.ts",
+      "symbol": "OpenAIImageProvider.generate",
+      "sdkMethod": "images.generate / images.edit",
+      "kind": "image",
+      "stage": [
+        "image"
+      ],
+      "classification": "covered",
+      "path": "executeCanonicalGeneration (executionPolicy direct for single) <- jobs/creative-work.ts",
+      "notes": "Module-level OpenAI client; observed today by observeImageCall/observeImagePipelineExternalCall (error path lacks normalized class/status/reason — fixed by #385)."
+    },
+    {
+      "id": "CP-07",
+      "file": "app/src/server/ai/creative-qa.ts",
+      "symbol": "analyzeCreativeWorkQa",
+      "sdkMethod": "responses.create",
+      "kind": "vision",
+      "stage": [
+        "quality"
+      ],
+      "classification": "covered",
+      "path": "runCreativeWorkQualityAssessment <- jobs/creative-work.ts",
+      "notes": "Objective verdict (approved/rejected/inconclusive). Optional art critique rides the SAME response, never a second call."
+    },
+    {
+      "id": "CP-08",
+      "file": "app/src/server/ai/creative-qa.ts",
+      "symbol": "analyzePersonFidelity",
+      "sdkMethod": "responses.create",
+      "kind": "vision",
+      "stage": [
+        "quality"
+      ],
+      "classification": "covered",
+      "path": "runCreativeWorkQualityAssessment <- jobs/creative-work.ts (person slots only)",
+      "notes": "Only invoked when the work carries person-fidelity slots."
+    },
+    {
+      "id": "CP-09",
+      "file": "app/src/server/ai/creative-qa.ts",
+      "symbol": "analyzeArtComparison",
+      "sdkMethod": "responses.create",
+      "kind": "vision",
+      "stage": [
+        "revision"
+      ],
+      "classification": "covered",
+      "path": "compareArtCandidates <- refine-creative-work (existing revision flow)",
+      "notes": "Side-by-side judge: one vision call per revision; tie keeps the previous version."
+    },
+    {
+      "id": "CP-10",
+      "file": "app/src/server/layer-editor/openai-provider.ts",
+      "symbol": "OpenAILayerRegenerationProvider",
+      "sdkMethod": "images.edit",
+      "kind": "image",
+      "stage": [
+        "revision"
+      ],
+      "classification": "covered",
+      "path": "runCreativeWorkLayerRegeneration (Inngest creative-work.layer-regenerate[.v2]) <- creative-work [id] route",
+      "notes": "Own OpenAI client (180s timeout, maxRetries 0). Post-approval layer edit on a creative-work output."
+    },
+    {
+      "id": "CP-11",
+      "file": "app/src/server/application/suggest-creative-directions.ts",
+      "symbol": "suggestCreativeDirections",
+      "sdkMethod": "chat.completions.create",
+      "kind": "text",
+      "stage": [
+        "briefing"
+      ],
+      "classification": "covered",
+      "path": "POST /api/creative-work/[id]/suggest",
+      "notes": "Direction assist on an existing work item; wrap only when protocol is single."
+    },
+    {
+      "id": "U-01",
+      "file": "app/src/server/ai/copy-generator.ts",
+      "symbol": "generateCopyVariants",
+      "sdkMethod": "chat.completions.create",
+      "kind": "text",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "derivations/[id]/copy-variants route only (derivation scope)",
+      "notes": "The creative-work copy route uses creative-work/copy.ts (CP-01), not this module."
+    },
+    {
+      "id": "U-02",
+      "file": "app/src/server/ai/creative-score.ts",
+      "symbol": "analyzeDerivationCreative",
+      "sdkMethod": "responses.create",
+      "kind": "vision",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "scoreCompletedDerivation (derivation scope). Creative-work quality uses CP-07/CP-08.",
+      "notes": "Only pure helpers (buildHardFailureRegenerationSuggestion, scoreDerivationHeuristic) are shared."
+    },
+    {
+      "id": "U-03",
+      "file": "app/src/server/ai/creative-route-planner.ts",
+      "symbol": "planCreativeRoutes",
+      "sdkMethod": "responses.create",
+      "kind": "text",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "executeCanonicalGeneration tournament branch only; single resolves to direct (protocol.ts) and bypasses it",
+      "notes": "Reachable via legacy_tournament/derivation only."
+    },
+    {
+      "id": "U-04",
+      "file": "app/src/server/ai/creative-candidate-selector.ts",
+      "symbol": "selectCreativeCandidate",
+      "sdkMethod": "responses.create",
+      "kind": "vision",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "executeCanonicalGeneration tournament branch only; single resolves to direct and bypasses it",
+      "notes": "Reachable via legacy_tournament/derivation only."
+    },
+    {
+      "id": "U-05",
+      "file": "app/src/server/ai/preflight-analysis.ts",
+      "symbol": "analyzePreflight",
+      "sdkMethod": "responses.create",
+      "kind": "vision",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "campaign asset preflight, creative-readiness, derivation-pipeline",
+      "notes": "Campaign/derivation scope; no creative-work callers."
+    },
+    {
+      "id": "U-06",
+      "file": "app/src/server/ai/creative-diagnosis.ts",
+      "symbol": "analyzeCreativeDiagnosis",
+      "sdkMethod": "responses.create",
+      "kind": "text",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "campaign diagnosis routes, derivation-pipeline",
+      "notes": "Campaign/derivation scope."
+    },
+    {
+      "id": "U-07",
+      "file": "app/src/server/ai/campaign-deduction.ts",
+      "symbol": "analyzeCampaignCreative",
+      "sdkMethod": "chat.completions.create",
+      "kind": "text",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "campaigns/[id]/analyze route",
+      "notes": "Campaign adapter scope."
+    },
+    {
+      "id": "U-08",
+      "file": "app/src/server/ai/competitor-analyzer.ts",
+      "symbol": "analyzeCompetitorCreative + generateDifferentiationStrategy",
+      "sdkMethod": "chat.completions.create",
+      "kind": "text",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "campaign competitors routes",
+      "notes": "Campaign adapter scope."
+    },
+    {
+      "id": "U-09",
+      "file": "app/src/server/ai/smart-resize.ts",
+      "symbol": "analyzeSmartResize",
+      "sdkMethod": "chat.completions.create",
+      "kind": "text",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "campaigns/[id]/smart-resize-preview route",
+      "notes": "Campaign adapter scope."
+    },
+    {
+      "id": "U-10",
+      "file": "app/src/server/ai/brand-kit-extractor.ts",
+      "symbol": "extractBrandKitFromImage",
+      "sdkMethod": "chat.completions.create",
+      "kind": "text",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "workspace brand-kit extract routes",
+      "notes": "Brand-kit surface, not the single-piece journey."
+    },
+    {
+      "id": "U-11",
+      "file": "app/src/server/ai/voices/voice-extractor.ts",
+      "symbol": "extractVoiceFromBrandInputs",
+      "sdkMethod": "chat.completions.create",
+      "kind": "text",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "client-profiles/[id]/voice/extract route",
+      "notes": "Brand voice surface."
+    },
+    {
+      "id": "U-12",
+      "file": "app/src/server/application/synthesize-brand-repertoire.ts",
+      "symbol": "synthesizeBrandRepertoire",
+      "sdkMethod": "chat.completions.create",
+      "kind": "text",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "client-profiles/[id]/brand-knowledge route",
+      "notes": "Brand knowledge surface."
+    },
+    {
+      "id": "U-13",
+      "file": "app/src/server/application/synthesize-studio-entry-request.ts",
+      "symbol": "synthesizeStudioEntryRequest",
+      "sdkMethod": "chat.completions.create",
+      "kind": "text",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "POST /api/creative-work/entry-request",
+      "notes": "Pre-Work entry assist: no workItemId exists yet, so no DiagnosticContext can attach. Falls back to template."
+    },
+    {
+      "id": "U-14",
+      "file": "app/src/server/dictation/service.ts",
+      "symbol": "transcribeDictation + chat cleanup",
+      "sdkMethod": "audio.transcriptions.create + chat.completions.create",
+      "kind": "audio",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "POST /api/creative-work/dictation (Ditado voice input)",
+      "notes": "Input modality before the Trabalho journey; no workItemId at call time. Not a listed spec stage."
+    },
+    {
+      "id": "U-15",
+      "file": "app/src/server/assistant/model/openai-client.ts",
+      "symbol": "assistant OpenAI client + OpenAIModelAdapter (streaming)",
+      "sdkMethod": "chat.completions.create (stream)",
+      "kind": "text",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "assistant model layer",
+      "notes": "Assistant scope with its own client; untouched by this track."
+    },
+    {
+      "id": "U-16",
+      "file": "app/src/server/assistant/action-execution/handlers/*, plan-iteration/proposal.ts, creative-iteration/proposal.ts",
+      "symbol": "campaign/plan proposal handlers",
+      "sdkMethod": "chat.completions.create",
+      "kind": "text",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "assistant action execution",
+      "notes": "Campaign/assistant scope."
+    },
+    {
+      "id": "U-17",
+      "file": "app/src/app/api/campaigns/[id]/plan/route.ts, app/src/app/api/campaigns/[id]/suggest-ctas/route.ts",
+      "symbol": "campaign plan / suggest-ctas routes",
+      "sdkMethod": "chat.completions.create",
+      "kind": "text",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "campaign adapter routes",
+      "notes": "Campaign scope."
+    },
+    {
+      "id": "U-18",
+      "file": "app/src/server/jobs/workspace-asset.ts, app/src/server/jobs/brand-training.ts",
+      "symbol": "asset/brand-training jobs (own new OpenAI clients)",
+      "sdkMethod": "chat.completions.create",
+      "kind": "text",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "brand-training / workspace-asset background jobs",
+      "notes": "Brand-training scope with direct instantiations."
+    },
+    {
+      "id": "U-19",
+      "file": "app/src/server/creative-work/carousel-*.ts, app/src/server/jobs/creative-work-carousel.ts",
+      "symbol": "carousel editorial/visual/research",
+      "sdkMethod": "chat.completions.create / responses.create",
+      "kind": "text",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "carousel protocol flows",
+      "notes": "Explicit later expansion under the same frozen contract (Trabalho -> slide -> attempt -> call)."
+    },
+    {
+      "id": "U-20",
+      "file": "app/src/server/ai/landing-page.ts, app/src/server/ai/persona-simulator.ts",
+      "symbol": "frozen peripheral generators",
+      "sdkMethod": "chat.completions.create / responses.create",
+      "kind": "text",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "frozen modules (FROZEN.md)",
+      "notes": "Frozen; convergence gate forbids non-critical touches."
+    },
+    {
+      "id": "U-21",
+      "file": "app/src/server/ai/creative-qa.ts",
+      "symbol": "analyzeCreativeQa",
+      "sdkMethod": "responses.create",
+      "kind": "vision",
+      "stage": [],
+      "classification": "unused-by-scope",
+      "path": "derivations/[id]/qa route + creative-quality-gate (derivation scope)",
+      "notes": "Legacy derivation QA. Single-piece quality uses CP-07/CP-08. inspectExactCompositionAsset in the same file is pure sharp logic, not a model call."
+    }
+  ],
+  "pendingAcceptanceBlockers": []
+}
