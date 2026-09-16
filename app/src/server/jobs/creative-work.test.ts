@@ -209,6 +209,8 @@ import { logger } from "@/lib/logger";
 import { observeImagePipelineExternalCall } from "@/server/ai/image-pipeline-telemetry";
 import { E2EControlledImageProvider } from "@/server/ai/providers/e2e-controlled-provider";
 import { creativeWorkOutputJob } from "./creative-work";
+import { createDiagnosticContext } from "@/server/diagnostics/context";
+import { DIAGNOSTIC_ENVELOPE_KEY } from "@/server/diagnostics/contract";
 import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import { getCreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
 import type { OutputRevisionContextV1 } from "@/server/creative-work/output-review";
@@ -346,6 +348,7 @@ async function runJob(
   eventData: GenerateEvent = baseEvent,
   onStepResult?: (name: string, result: unknown) => void,
   cachedSteps?: ReadonlyMap<string, string | undefined>,
+  extraArgs: Record<string, unknown> = {},
 ) {
   const event = { data: eventData };
   const step = {
@@ -360,7 +363,7 @@ async function runJob(
   };
   return (creativeWorkOutputJob as unknown as {
     fn: (args: { event: unknown; step: unknown }) => Promise<unknown>;
-  }).fn({ event, step });
+  }).fn({ event, step, ...extraArgs });
 }
 
 describe("creativeWorkOutputJob", () => {
@@ -4431,6 +4434,175 @@ describe("creativeWorkOutputJob", () => {
       const survived = await runJob();
       expect(survived).toMatchObject({ success: true });
       expect(completeMock).toHaveBeenCalled();
+    });
+  });
+
+  describe("diagnostic context propagation (trace-386)", () => {
+    const traceWork = () => ({
+      ...workItem,
+      toolKind: "single",
+      inputSnapshot: {
+        generationPolicyVersion: "quality_recovery_v1" as const,
+        request: "Promoção de agosto com vagas limitadas",
+        settings: { targetFormats: [] },
+        sources: [],
+      },
+    });
+
+    function envelopedEvent(
+      envelope: Record<string, unknown>,
+    ): GenerateEvent {
+      return { ...baseEvent, [DIAGNOSTIC_ENVELOPE_KEY]: envelope } as GenerateEvent;
+    }
+
+    function dispatchedEnvelope() {
+      const payload = sendMock.mock.calls[0]?.[0] as {
+        data: Record<string, unknown>;
+      };
+      return payload.data[DIAGNOSTIC_ENVELOPE_KEY] as Record<string, unknown>;
+    }
+
+    it("binds the live run on first entry and preserves it on re-dispatch", async () => {
+      const incoming = createDiagnosticContext({
+        workspaceId: "workspace-1",
+        workItemId: "work-1",
+        clientProfileId: "profile-1",
+        outputId: "output-1",
+        generationCorrelationId: "generation-1",
+      });
+      generateAndStoreImageMock.mockRejectedValue(
+        Object.assign(new Error("provider timeout"), { retryable: true }),
+      );
+      requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
+      getCreativeWorkMock.mockResolvedValue({
+        work: traceWork(),
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(
+        makeQueuedOutput({ status: "processing" }),
+      );
+
+      const result = await runJob(envelopedEvent({ ...incoming }), undefined, undefined, {
+        runId: "run-live",
+        attempt: 0,
+      });
+
+      expect(result).toMatchObject({ success: false, retrying: true });
+      expect(sendMock).toHaveBeenCalledOnce();
+      expect(dispatchedEnvelope()).toMatchObject({
+        operationId: incoming.operationId,
+        workspaceId: "workspace-1",
+        workItemId: "work-1",
+        inngestRunId: "run-live",
+        attemptNumber: 0,
+      });
+      const payload = sendMock.mock.calls[0]?.[0] as {
+        id: string;
+        name: string;
+        data: Record<string, unknown>;
+      };
+      expect(payload.id).toBe("creative-work-generate:output-1:retry-1");
+      const business = { ...payload.data };
+      delete business[DIAGNOSTIC_ENVELOPE_KEY];
+      expect(business).toEqual(baseEvent);
+    });
+
+    it("preserves the original run across a repeated run instead of relabeling it", async () => {
+      const incoming = createDiagnosticContext({
+        workspaceId: "workspace-1",
+        workItemId: "work-1",
+        outputId: "output-1",
+        generationCorrelationId: "generation-1",
+        inngestRunId: "run-original",
+        attemptNumber: 0,
+      });
+      generateAndStoreImageMock.mockRejectedValue(
+        Object.assign(new Error("provider timeout"), { retryable: true }),
+      );
+      requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
+      getCreativeWorkMock.mockResolvedValue({
+        work: traceWork(),
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(
+        makeQueuedOutput({ status: "processing" }),
+      );
+
+      const result = await runJob(envelopedEvent({ ...incoming }), undefined, undefined, {
+        runId: "run-repeat",
+        attempt: 0,
+      });
+
+      expect(result).toMatchObject({ success: false, retrying: true });
+      expect(dispatchedEnvelope()).toMatchObject({
+        operationId: incoming.operationId,
+        inngestRunId: "run-original",
+        attemptNumber: 0,
+      });
+    });
+
+    it("keeps the legacy re-dispatch shape for envelopeless events without rejecting them", async () => {
+      generateAndStoreImageMock.mockRejectedValue(
+        Object.assign(new Error("provider timeout"), { retryable: true }),
+      );
+      requeueOnceMock.mockResolvedValue(makeQueuedOutput({ retryCount: 1 }));
+      getCreativeWorkMock.mockResolvedValue({
+        work: traceWork(),
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(
+        makeQueuedOutput({ status: "processing" }),
+      );
+
+      const result = await runJob(
+        { ...baseEvent },
+        undefined,
+        undefined,
+        { runId: "run-legacy", attempt: 0 },
+      );
+
+      expect(result).toMatchObject({ success: false, retrying: true });
+      expect(sendMock).toHaveBeenCalledWith({
+        id: "creative-work-generate:output-1:retry-1",
+        name: "creative-work.generate",
+        data: baseEvent,
+      });
+    });
+
+    it("executes enveloped events normally through the idempotent skip path", async () => {
+      const incoming = createDiagnosticContext({
+        workspaceId: "workspace-1",
+        workItemId: "work-1",
+        outputId: "output-1",
+        generationCorrelationId: "generation-1",
+      });
+      getCreativeWorkMock.mockResolvedValue({
+        work: traceWork(),
+        outputs: [makeQueuedOutput({ status: "completed", outputKey: "k" })],
+      });
+
+      const result = await runJob(envelopedEvent({ ...incoming }), undefined, undefined, {
+        runId: "run-1",
+        attempt: 0,
+      });
+
+      expect(result).toMatchObject({ success: true, skipped: true });
+    });
+
+    it("executes malformed-envelope events normally instead of rejecting them", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: traceWork(),
+        outputs: [makeQueuedOutput({ status: "completed", outputKey: "k" })],
+      });
+
+      const result = await runJob(
+        envelopedEvent({ operationId: "op-1" }),
+        undefined,
+        undefined,
+        { runId: "run-1", attempt: 0 },
+      );
+
+      expect(result).toMatchObject({ success: true, skipped: true });
     });
   });
 });

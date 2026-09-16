@@ -42,6 +42,11 @@ import {
   logCreativeWorkGenerationLifecycle,
   logCreativeWorkOutputTerminal,
 } from "@/server/creative-work/job-telemetry";
+import {
+  attachDiagnosticEnvelope,
+  diagnosticContextForDispatch,
+  type DispatchWorkIdentity,
+} from "@/server/diagnostics/envelope";
 import { inngest } from "@/server/jobs/client";
 import { updateCampaign } from "@/server/repositories/campaign";
 import {
@@ -255,6 +260,11 @@ async function dispatchCreativeWorkOutputs(input: {
   generationCorrelationId: string;
   outputIds: string[];
   result: "sent" | "recovered";
+  /**
+   * Server-validated work identity for the diagnostic envelope (trace-386).
+   * Envelope only — never read for settlement decisions or effects.
+   */
+  work?: DispatchWorkIdentity | null;
 }) {
   const started = performance.now();
   try {
@@ -262,12 +272,22 @@ async function dispatchCreativeWorkOutputs(input: {
       input.outputIds.map((outputId) => ({
         id: creativeWorkGenerateEventId(outputId),
         name: heavyImageEventName("creative-work.generate"),
-        data: {
-          workspaceId: input.workspaceId,
-          workItemId: input.workItemId,
-          outputId,
-          generationCorrelationId: input.generationCorrelationId,
-        },
+        data: attachDiagnosticEnvelope(
+          {
+            workspaceId: input.workspaceId,
+            workItemId: input.workItemId,
+            outputId,
+            generationCorrelationId: input.generationCorrelationId,
+          },
+          diagnosticContextForDispatch({
+            workspaceId: input.workspaceId,
+            workItemId: input.workItemId,
+            outputId,
+            generationCorrelationId: input.generationCorrelationId,
+            work: input.work,
+            synthesize: true,
+          }),
+        ),
       })),
     );
     logCreativeWorkGenerationLifecycle({
@@ -308,12 +328,24 @@ async function dispatchCreativeWorkRevision(input: {
     await inngest.send({
       id: creativeWorkRevisionEventId(input.outputId),
       name: heavyImageEventName("creative-work.generate"),
-      data: {
-        workspaceId: input.workspaceId,
-        workItemId: input.workItemId,
-        outputId: input.outputId,
-        generationCorrelationId: input.generationCorrelationId,
-      },
+      // Ambient only (trace-386): the revise command scopes a fresh
+      // single-operation context around settlement; without one the legacy
+      // shape is preserved. Envelope only — never a settlement input.
+      data: attachDiagnosticEnvelope(
+        {
+          workspaceId: input.workspaceId,
+          workItemId: input.workItemId,
+          outputId: input.outputId,
+          generationCorrelationId: input.generationCorrelationId,
+        },
+        diagnosticContextForDispatch({
+          workspaceId: input.workspaceId,
+          workItemId: input.workItemId,
+          outputId: input.outputId,
+          generationCorrelationId: input.generationCorrelationId,
+          synthesize: false,
+        }),
+      ),
     });
     logCreativeWorkGenerationLifecycle({
       event: "creative_work_generation_dispatched",
@@ -453,6 +485,7 @@ export function creativeWorkSettlementAdapter(input: {
               generationCorrelationId: lastAggregate.work.generationCorrelationId,
               outputIds: queuedIds,
               result: "recovered",
+              work: lastAggregate.work,
             });
           } catch (error) {
             // Ambiguous vs an earlier accepted send. Leave rows queued and do
@@ -511,6 +544,7 @@ export function creativeWorkSettlementAdapter(input: {
         generationCorrelationId: reservation.value.work.generationCorrelationId,
         outputIds: reservation.newlyCreatedIds,
         result: "sent",
+        work: reservation.value.work,
       });
     },
     async failDispatch(reservation) {

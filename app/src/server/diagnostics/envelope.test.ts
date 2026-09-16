@@ -55,7 +55,8 @@ describe("attachDiagnosticEnvelope (trace-386)", () => {
     expect(attached).not.toBe(data);
     expect(attached[DIAGNOSTIC_ENVELOPE_KEY]).toEqual(context);
     expect(attached[DIAGNOSTIC_ENVELOPE_KEY]).not.toBe(context);
-    const { [DIAGNOSTIC_ENVELOPE_KEY]: _envelope, ...business } = attached;
+    const business = { ...attached };
+    delete business[DIAGNOSTIC_ENVELOPE_KEY];
     expect(business).toEqual(data);
   });
 

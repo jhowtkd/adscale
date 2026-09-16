@@ -7,6 +7,11 @@ import {
   resolveRevisionCompositionMode,
 } from "@/server/creative-work/art-refinement";
 import { startGenerationSettlement } from "@/server/generation/settlement";
+import { withDiagnosticContext } from "@/server/diagnostics/context";
+import {
+  diagnosticContextForDispatch,
+  type DispatchWorkIdentity,
+} from "@/server/diagnostics/envelope";
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
@@ -68,6 +73,24 @@ type ReviewedCommand = {
   expectedCredits: number;
 };
 
+/**
+ * Run revision settlement inside a fresh single-operation context when the
+ * work is Peça única (trace-386). The settlement dispatch attaches the
+ * ambient context as its envelope; non-single works run unscoped with the
+ * legacy event shape. Envelope only — settlement reads nothing from it.
+ */
+async function startRevisionSettlement<T>(
+  identity: {
+    workspaceId: string;
+    workItemId: string;
+    work: DispatchWorkIdentity;
+  },
+  run: () => Promise<T>,
+): Promise<T> {
+  const context = diagnosticContextForDispatch({ ...identity, synthesize: true });
+  return context ? withDiagnosticContext(context, run) : run();
+}
+
 export async function reviseCreativeWorkOutput(
   input: LegacyCommand | ReviewedCommand,
 ): Promise<ReviseCreativeWorkOutputResult> {
@@ -88,17 +111,22 @@ export async function reviseCreativeWorkOutput(
     : input.instruction;
 
   try {
-    const settled = await startGenerationSettlement(
-      creativeWorkRevisionSettlementAdapter({
-        workspaceId: input.workspaceId,
-        workItemId: input.workItemId,
-        userId: input.userId,
-        parentOutputId: parent.id,
-        revisionKey: input.revisionKey,
-        instruction,
-        revisionAssetId: input.revisionAssetId,
-        objective: aggregate.work.brief?.objective ?? null,
-      }),
+    const runSettlement = () =>
+      startGenerationSettlement(
+        creativeWorkRevisionSettlementAdapter({
+          workspaceId: input.workspaceId,
+          workItemId: input.workItemId,
+          userId: input.userId,
+          parentOutputId: parent.id,
+          revisionKey: input.revisionKey,
+          instruction,
+          revisionAssetId: input.revisionAssetId,
+          objective: aggregate.work.brief?.objective ?? null,
+        }),
+      );
+    const settled = await startRevisionSettlement(
+      { workspaceId: input.workspaceId, workItemId: input.workItemId, work: aggregate.work },
+      runSettlement,
     );
     if (!settled.ok) {
       if (settled.error.code === "credit_blocked") {
@@ -165,19 +193,24 @@ async function reviseReviewedOutput(
     // a second charge (unclaimed reserve + join); a failed/credit_blocked row
     // is re-queued and charged exactly once by the same billing key.
     try {
-      const settled = await startGenerationSettlement(
-        creativeWorkRevisionSettlementAdapter({
-          workspaceId: input.workspaceId,
-          workItemId: input.workItemId,
-          userId: input.userId,
-          parentOutputId: parent.id,
-          revisionKey: input.revisionKey,
-          instruction: replayInstruction,
-          revisionAssetId: replayAssetId,
-          objective: aggregate.work.brief?.objective ?? null,
-          context: frozenContext,
-          expectedReviewRevision: frozenContext.reviewRevision,
-        }),
+      const runSettlement = () =>
+        startGenerationSettlement(
+          creativeWorkRevisionSettlementAdapter({
+            workspaceId: input.workspaceId,
+            workItemId: input.workItemId,
+            userId: input.userId,
+            parentOutputId: parent.id,
+            revisionKey: input.revisionKey,
+            instruction: replayInstruction,
+            revisionAssetId: replayAssetId,
+            objective: aggregate.work.brief?.objective ?? null,
+            context: frozenContext,
+            expectedReviewRevision: frozenContext.reviewRevision,
+          }),
+        );
+      const settled = await startRevisionSettlement(
+        { workspaceId: input.workspaceId, workItemId: input.workItemId, work: aggregate.work },
+        runSettlement,
       );
       if (!settled.ok) {
         if (settled.error.code === "credit_blocked") {
@@ -249,19 +282,24 @@ async function reviseReviewedOutput(
   const instruction = compileOutputReview(parsed.data);
 
   try {
-    const settled = await startGenerationSettlement(
-      creativeWorkRevisionSettlementAdapter({
-        workspaceId: input.workspaceId,
-        workItemId: input.workItemId,
-        userId: input.userId,
-        parentOutputId: parent.id,
-        revisionKey: input.revisionKey,
-        instruction,
-        revisionAssetId: parsed.data.revisionAssetId,
-        objective: aggregate.work.brief?.objective ?? null,
-        context,
-        expectedReviewRevision: input.reviewRevision,
-      }),
+    const runSettlement = () =>
+      startGenerationSettlement(
+        creativeWorkRevisionSettlementAdapter({
+          workspaceId: input.workspaceId,
+          workItemId: input.workItemId,
+          userId: input.userId,
+          parentOutputId: parent.id,
+          revisionKey: input.revisionKey,
+          instruction,
+          revisionAssetId: parsed.data.revisionAssetId,
+          objective: aggregate.work.brief?.objective ?? null,
+          context,
+          expectedReviewRevision: input.reviewRevision,
+        }),
+      );
+    const settled = await startRevisionSettlement(
+      { workspaceId: input.workspaceId, workItemId: input.workItemId, work: aggregate.work },
+      runSettlement,
     );
     if (!settled.ok) {
       if (settled.error.code === "credit_blocked") {

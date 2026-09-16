@@ -13,6 +13,10 @@
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import {
+  attachDiagnosticEnvelope,
+  diagnosticContextForDispatch,
+} from "@/server/diagnostics/envelope";
+import {
   CREATIVE_WORK_GENERATION_FAILED_TERMINAL_REFUND_PENDING,
   CREATIVE_WORK_MAX_IMAGE_CALLS,
   claimCreativeWorkOutputManualRetryAttempt,
@@ -279,12 +283,22 @@ export async function retryCreativeWorkOutput(
       {
         id: `creative-work-generate:${input.outputId}:retry-${reset.retryCount}`,
         name: heavyImageEventName("creative-work.generate"),
-        data: {
-          workspaceId: input.workspaceId,
-          workItemId: input.workItemId,
-          outputId: input.outputId,
-          generationCorrelationId: existing.work.generationCorrelationId,
-        },
+        data: attachDiagnosticEnvelope(
+          {
+            workspaceId: input.workspaceId,
+            workItemId: input.workItemId,
+            outputId: input.outputId,
+            generationCorrelationId: existing.work.generationCorrelationId,
+          },
+          diagnosticContextForDispatch({
+            workspaceId: input.workspaceId,
+            workItemId: input.workItemId,
+            outputId: input.outputId,
+            generationCorrelationId: existing.work.generationCorrelationId,
+            work: existing.work,
+            synthesize: true,
+          }),
+        ),
       },
     ]);
   } catch {

@@ -26,6 +26,8 @@ vi.mock("@/server/repositories/workspace-asset", () => ({
 }));
 
 import { InvalidCreativeWorkRevisionError } from "@/server/generation/settlement-adapters";
+import { getDiagnosticContext } from "@/server/diagnostics/context";
+import type { DiagnosticContext } from "@/server/diagnostics/contract";
 import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import { reviseCreativeWorkOutput } from "./revise-creative-work-output";
 
@@ -92,6 +94,64 @@ describe("reviseCreativeWorkOutput", () => {
       outputIds: [REVISION_ID],
       result: "accepted",
     }));
+  });
+
+  it("scopes revision settlement in a fresh single-operation context (trace-386)", async () => {
+    getWork.mockResolvedValue({
+      work: { ...work, toolKind: "single", clientProfileId: "profile-1" },
+      outputs: [parent],
+      sources: [],
+    });
+    let seen: DiagnosticContext | undefined;
+    settle.mockImplementation(async () => {
+      seen = getDiagnosticContext();
+      return { ok: true, value: { output: revision } };
+    });
+
+    await reviseCreativeWorkOutput({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      userId: "user-1",
+      outputId: parent.id,
+      revisionKey: REVISION_KEY,
+      instruction: "Use mais contraste",
+      revisionAssetId: null,
+    });
+
+    expect(seen).toMatchObject({
+      schemaVersion: 1,
+      workspaceId: "ws-1",
+      clientProfileId: "profile-1",
+      workItemId: "work-1",
+      protocol: "single",
+      process: "web",
+    });
+    expect(typeof seen?.operationId).toBe("string");
+  });
+
+  it("runs revision settlement unscoped for non-single work (trace-386)", async () => {
+    getWork.mockResolvedValue({
+      work: { ...work, toolKind: "variations", clientProfileId: "profile-1" },
+      outputs: [parent],
+      sources: [],
+    });
+    let seen: DiagnosticContext | undefined | "unset" = "unset";
+    settle.mockImplementation(async () => {
+      seen = getDiagnosticContext();
+      return { ok: true, value: { output: revision } };
+    });
+
+    await reviseCreativeWorkOutput({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      userId: "user-1",
+      outputId: parent.id,
+      revisionKey: REVISION_KEY,
+      instruction: "Use mais contraste",
+      revisionAssetId: null,
+    });
+
+    expect(seen).toBeUndefined();
   });
 
   it("maps credit_blocked and dispatch_failed from typed settlement results", async () => {
