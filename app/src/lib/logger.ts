@@ -190,7 +190,7 @@ function redactedExtra(
       ? (redacted as Record<string, unknown>)
       : {};
   if (namespace) extra.namespace = namespace;
-  if (logMessage) extra.logMessage = logMessage;
+  if (logMessage) extra.logMessage = redactTelemetry(logMessage);
   return extra;
 }
 

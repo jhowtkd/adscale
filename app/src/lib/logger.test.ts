@@ -75,10 +75,16 @@ describe("logger hardening (trace-385)", () => {
 
   it("captures a top-level Error without a duplicate message (no-duplicate rule)", async () => {
     const error = new Error("top-level boom");
-    logger.error("operation failed", error);
+    logger.error("operation failed for Bearer trace-385-raw", error);
     await flushSentry();
     expect(sentryMocks.captureException).toHaveBeenCalledTimes(1);
     expect(sentryMocks.captureMessage).not.toHaveBeenCalled();
+    const options = sentryMocks.captureException.mock.calls[0][1] as {
+      extra: Record<string, unknown>;
+    };
+    expect(options.extra.logMessage).toBe(
+      "operation failed for Bearer [REDACTED]"
+    );
   });
 
   it("attaches the namespace to console output and Sentry context", async () => {
