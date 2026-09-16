@@ -8,9 +8,9 @@ const sentryMocks = vi.hoisted(() => ({
 
 vi.mock("@sentry/nextjs", () => sentryMocks);
 
-import { observeImageCall } from "./image-call-observation";
-import { LEGACY_IMAGE_POLICY } from "./image-render-policy";
-import { SentryMiddleware } from "@/server/jobs/sentry-middleware";
+import { observeImageCall } from "@/server/ai/image-call-observation";
+import { LEGACY_IMAGE_POLICY } from "@/server/ai/image-render-policy";
+import { SentryMiddleware } from "./sentry-middleware";
 
 const flushSentry = () =>
   new Promise<void>((resolve) => setTimeout(resolve, 25));
@@ -57,7 +57,11 @@ describe("capture property: AI wrapper observes, boundary logs (trace-385)", () 
   });
 
   it("the middleware boundary logs a run error as exactly one incident", async () => {
-    const middleware = new SentryMiddleware();
+    // Inngest instantiates middleware with client context; onRunError uses no
+    // instance state, so invoke it on the prototype directly.
+    const middleware = Object.create(
+      SentryMiddleware.prototype
+    ) as SentryMiddleware;
     middleware.onRunError(runErrorArgs(new Error("trace-385-run-boom")));
     await flushSentry();
     expect(console.error).toHaveBeenCalledTimes(1);
