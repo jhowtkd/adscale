@@ -783,6 +783,35 @@ describe("DashboardHomeActions", () => {
     }
   });
 
+  it("consulta Produção no escopo da marca ativa após o aceite", () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    render(<DashboardHomeActions workspaceId="ws" />);
+    const options = useComposerMock.mock.calls.at(-1)?.[0] as { onGenerationAccepted?: () => void };
+    act(() => options.onGenerationAccepted?.());
+    expect(screen.getByRole("radio", { name: "Produção" })).toHaveAttribute("aria-checked", "true");
+    expect(useCreativeProductionMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      workspaceId: "ws",
+      clientProfileId: "p1",
+      campaignId: null,
+      enabled: true,
+    }));
+  });
+
+  it("não pula para Produção ao retomar um Trabalho existente", async () => {
+    useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    const originalScroll = HTMLElement.prototype.scrollIntoView;
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    try {
+      render(<DashboardHomeActions workspaceId="ws" workId="work-1" />);
+      expect(screen.getByRole("radio", { name: "Inspirações" })).toHaveAttribute("aria-checked", "true");
+      await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+      expect(scrollIntoView).not.toHaveBeenCalled();
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScroll;
+    }
+  });
+
   it("alterna Inspirações e Produção com as setas do teclado", () => {
     useCanonicalWorksMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
     render(<DashboardHomeActions workspaceId="ws" />);
