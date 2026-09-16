@@ -79,6 +79,15 @@ export const envSchema = z.object({
   STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT: z.coerce.number().int().min(0).max(100).default(0),
   /** MCP primeira fatia (#356 rev. 2): Bearer por workspace. OAuth+CIMD é a fatia seguinte. */
   MCP_BEARER_ENABLED: z.enum(["true", "false"]).default("false"),
+  /**
+   * Anúncios veiculados, PR de rotas (#347). Opcionais no schema para não
+   * quebrar deploys sem Meta; exigidas no uso (connect/sync falham sem elas).
+   */
+  META_TOKEN_ENCRYPTION_KEY: z.string().min(1).optional(),
+  META_APP_ID: z.string().min(1).optional(),
+  META_APP_SECRET: z.string().min(1).optional(),
+  /** Sem Meta App (#348 OPEN): Graph mockada determinística. */
+  META_GRAPH_MOCK: z.enum(["true", "false"]).default("false"),
 });
 
 const parsed = envSchema.safeParse(process.env);

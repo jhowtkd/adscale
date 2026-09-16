@@ -11,6 +11,7 @@ import { creativeWorkCarouselSlideJob } from "@/server/jobs/creative-work-carous
 import { creativeWorkSourceAnalyzeJob } from "@/server/jobs/creative-work-source";
 import { creativeWorkLayerizationJob } from "@/server/jobs/creative-work-layerization";
 import { creativeWorkLayerRegenerationJob } from "@/server/jobs/creative-work-layer-regeneration";
+import { metaAdsSyncJob } from "@/server/jobs/meta-ads-sync";
 
 /**
  * Security: refuse to run in "dev" mode (which disables signature
@@ -39,5 +40,6 @@ export const { GET, POST, PUT } = serve({
     creativeWorkSourceAnalyzeJob,
     creativeWorkLayerizationJob,
     creativeWorkLayerRegenerationJob,
+    metaAdsSyncJob,
   ],
 });

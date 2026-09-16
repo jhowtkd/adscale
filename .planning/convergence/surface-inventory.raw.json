@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-15T18:49:58.393Z",
+  "generatedAt": "2026-09-15T21:43:06.176Z",
   "schemaVersion": 2,
-  "fingerprint": "db94593ee506b34f4ca3f9ee51c46bf3b23a7891203e8c8ee35c3162393caee7",
+  "fingerprint": "0a53aa79fd458ea6db7e03e137ce9850c6fb1c89e4456efe400f7e68d76de282",
   "counts": {
     "dashboardPages": 16,
-    "apiRoutes": 188,
-    "ctas": 73,
+    "apiRoutes": 193,
+    "ctas": 74,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -1412,6 +1412,41 @@
       "requiresDecision": false
     },
     {
+      "id": "api:/api/workspace/meta-connection/accounts",
+      "kind": "api_route",
+      "route": "/api/workspace/meta-connection/accounts",
+      "file": "app/src/app/api/workspace/meta-connection/accounts/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/workspace/meta-connection/oauth/callback",
+      "kind": "api_route",
+      "route": "/api/workspace/meta-connection/oauth/callback",
+      "file": "app/src/app/api/workspace/meta-connection/oauth/callback/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/workspace/meta-connection/oauth/start",
+      "kind": "api_route",
+      "route": "/api/workspace/meta-connection/oauth/start",
+      "file": "app/src/app/api/workspace/meta-connection/oauth/start/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/workspace/meta-connection",
+      "kind": "api_route",
+      "route": "/api/workspace/meta-connection",
+      "file": "app/src/app/api/workspace/meta-connection/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/workspace/meta-connection/sync",
+      "kind": "api_route",
+      "route": "/api/workspace/meta-connection/sync",
+      "file": "app/src/app/api/workspace/meta-connection/sync/route.ts",
+      "requiresDecision": false
+    },
+    {
       "id": "api:/api/workspace/mission-insights",
       "kind": "api_route",
       "route": "/api/workspace/mission-insights",
@@ -2045,6 +2080,15 @@
       "file": "app/src/components/settings/BillingTab.tsx",
       "line": 417,
       "evidence": "app/src/components/settings/BillingTab.tsx:417",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/settings/MetaConnectionCard.tsx:209",
+      "kind": "cta_navigation",
+      "destination": "/api/workspace/meta-connection/oauth/start",
+      "file": "app/src/components/settings/MetaConnectionCard.tsx",
+      "line": 209,
+      "evidence": "app/src/components/settings/MetaConnectionCard.tsx:209",
       "requiresDecision": false
     },
     {

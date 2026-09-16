@@ -5,7 +5,8 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { aggregateAdRows, sortReportRows, type ServedAdFormat } from "@/server/served-ads/aggregate";
 import { getFixtureAdRows } from "@/server/served-ads/fixture";
-import { hasMetaConnection, listServedAdRows } from "@/server/served-ads/repository";
+import { resolvePreviewUrl } from "@/server/served-ads/previews";
+import { hasMetaConnection, listServedAdRows, type ServedAdDbRow } from "@/server/served-ads/repository";
 
 const querySchema = z.object({
   brandId: z.string().uuid(),
@@ -43,12 +44,17 @@ export async function GET(request: Request) {
       : ["BRL"];
 
     const rows = sortReportRows(aggregateAdRows(sourceRows));
-    return NextResponse.json({
-      mode: connected ? "live" : "fixture",
-      currencies,
-      primaryCurrency: currencies[0] ?? "BRL",
-      hasConversions: rows.some((row) => row.conversions > 0),
-      rows: rows.map((row) => ({
+    const keysByAnuncio = new Map<string, { imageKey: string | null; thumbKey: string | null }>();
+    if (connected) {
+      for (const source of sourceRows as ServedAdDbRow[]) {
+        const anuncioId = `${source.ad_account_id}:${source.creative_id}`;
+        if (!keysByAnuncio.has(anuncioId)) {
+          keysByAnuncio.set(anuncioId, { imageKey: source.imageKey, thumbKey: source.thumbKey });
+        }
+      }
+    }
+    const items = await Promise.all(
+      rows.map(async (row) => ({
         anuncioId: row.anuncio_id,
         format: row.format,
         text: row.text,
@@ -60,9 +66,18 @@ export async function GET(request: Request) {
         cpc: row.cpc,
         cpa: row.cpa,
         insufficientEvidence: row.sem_evidencia,
-        // PR de rotas resolve para URL assinada do R2; null = placeholder de formato.
-        previewUrl: null,
-      })),
+        // Live resolve para URL assinada do R2; null = placeholder de formato.
+        previewUrl: connected
+          ? await resolvePreviewUrl(keysByAnuncio.get(row.anuncio_id) ?? {})
+          : null,
+      }))
+    );
+    return NextResponse.json({
+      mode: connected ? "live" : "fixture",
+      currencies,
+      primaryCurrency: currencies[0] ?? "BRL",
+      hasConversions: rows.some((row) => row.conversions > 0),
+      rows: items,
     });
   } catch (error) {
     return handleApiError(error, "served-ads.GET");
