@@ -26,10 +26,7 @@ import {
   user,
   workspaces,
 } from "../db/schema";
-import type {
-  DiagnosticEventEnvelope,
-  DiagnosticEventName,
-} from "./contract";
+import type { DiagnosticEventEnvelope } from "./contract";
 import {
   DiagnosticJournalError,
   createDiagnosticJournal,
@@ -637,7 +634,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("journal default instance (contr
     await emitDiagnosticEvent(
       makeEnvelope(
         { workspaceId: ws, workItemId: work },
-        { eventId: `evt-387-${RUN_ID}-default-1`, event: "operation.completed" as DiagnosticEventName },
+        { eventId: `evt-387-${RUN_ID}-default-1`, event: "operation.completed" },
       ),
     );
     await flushDiagnosticEvents();
