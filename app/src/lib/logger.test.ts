@@ -41,15 +41,13 @@ describe("logger hardening (trace-385)", () => {
     });
     await flushSentry();
     expect(sentryMocks.captureMessage).toHaveBeenCalledTimes(1);
-    const [message, level] = sentryMocks.captureMessage.mock.calls[0] as [
+    const [message, context] = sentryMocks.captureMessage.mock.calls[0] as [
       string,
-      string,
+      { level: string; extra: Record<string, unknown> },
     ];
-    expect(level).toBe("warning");
+    expect(context.level).toBe("warning");
     expect(message).toContain("creative_work_output_terminal");
-    const options = sentryMocks.captureMessage.mock.calls[0][2] as {
-      extra: Record<string, unknown>;
-    };
+    const options = { extra: context.extra };
     expect(options.extra).toMatchObject({
       workItemId: "work-1",
       outcome: "lease_lost",
@@ -90,7 +88,8 @@ describe("logger hardening (trace-385)", () => {
     expect(console.warn).toHaveBeenCalledTimes(1);
     expect(String(console.warn.mock.calls[0]?.[0])).toContain("trace-385-ns");
     expect(sentryMocks.captureMessage).toHaveBeenCalledTimes(1);
-    const options = sentryMocks.captureMessage.mock.calls[0][2] as {
+    const options = sentryMocks.captureMessage.mock.calls[0][1] as {
+      level: string;
       extra: Record<string, unknown>;
     };
     expect(options.extra).toMatchObject({ namespace: "trace-385-ns" });
@@ -129,10 +128,11 @@ describe("logger hardening (trace-385)", () => {
   });
 
   it("never turns a capture-plus-log pair into two incidents", async () => {
-    const { captureExceptionOnce } = await import("@/lib/logger");
+    // Same module instance for both calls (an earlier test resets modules).
+    const sameModule = await import("@/lib/logger");
     const error = new Error("trace-385-run-error");
-    captureExceptionOnce(error, { runId: "run-1", fn: "test-fn" });
-    logger.error("[inngest] run failed", {
+    sameModule.captureExceptionOnce(error, { runId: "run-1", fn: "test-fn" });
+    sameModule.logger.error("[inngest] run failed", {
       fn: "test-fn",
       runId: "run-1",
       error,
@@ -162,7 +162,8 @@ describe("logger hardening (trace-385)", () => {
     });
     await flushSentry();
     expect(sentryMocks.captureMessage).toHaveBeenCalledTimes(1);
-    const options = sentryMocks.captureMessage.mock.calls[0][2] as {
+    const options = sentryMocks.captureMessage.mock.calls[0][1] as {
+      level: string;
       extra: Record<string, unknown>;
     };
     expect(options.extra).toMatchObject({
@@ -205,7 +206,8 @@ describe("logger hardening (trace-385)", () => {
     logger.warn({ event: "trace_385_ctx_root" });
     await flushSentry();
     expect(sentryMocks.captureMessage).toHaveBeenCalledTimes(2);
-    const second = sentryMocks.captureMessage.mock.calls[1][2] as {
+    const second = sentryMocks.captureMessage.mock.calls[1][1] as {
+      level: string;
       extra: Record<string, unknown>;
     };
     expect(second.extra).not.toHaveProperty("secretA");

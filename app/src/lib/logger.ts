@@ -281,7 +281,7 @@ function forwardToSentry(
       .then((Sentry) => {
         if (!Sentry) return;
         try {
-          Sentry.captureMessage(message, sentryLevel, { extra });
+          Sentry.captureMessage(message, { level: sentryLevel, extra });
         } catch {
           // SDK failures must never break callers.
         }

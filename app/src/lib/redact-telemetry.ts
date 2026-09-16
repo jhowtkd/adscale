@@ -140,13 +140,14 @@ function redactErrorToPlain(
   if ("cause" in error && error.cause !== undefined) {
     shape.cause = redactValue(error.cause, seen, depth + 1);
   }
+  const errorRecord = error as unknown as Record<string, unknown>;
   for (const key of Object.keys(error)) {
     if (key === "name" || key === "message" || key === "stack" || key === "cause") {
       continue;
     }
     let raw: unknown;
     try {
-      raw = (error as Record<string, unknown>)[key];
+      raw = errorRecord[key];
     } catch {
       shape[key] = UNREADABLE;
       continue;
@@ -174,18 +175,20 @@ function cloneErrorRedacted(
       depth + 1
     );
   }
+  const errorRecord = error as unknown as Record<string, unknown>;
+  const cloneRecord = clone as unknown as Record<string, unknown>;
   for (const key of Object.keys(error)) {
     if (key === "name" || key === "message" || key === "stack" || key === "cause") {
       continue;
     }
     let raw: unknown;
     try {
-      raw = (error as Record<string, unknown>)[key];
+      raw = errorRecord[key];
     } catch {
-      (clone as Record<string, unknown>)[key] = UNREADABLE;
+      cloneRecord[key] = UNREADABLE;
       continue;
     }
-    (clone as Record<string, unknown>)[key] = isSensitiveTelemetryKey(key)
+    cloneRecord[key] = isSensitiveTelemetryKey(key)
       ? REDACTED
       : redactConsoleValue(raw, seen, depth + 1);
   }
@@ -198,11 +201,10 @@ function redactValue(
   depth: number
 ): unknown {
   if (value === null || value === undefined) return value;
-  const type = typeof value;
-  if (type === "string") return redactString(value);
-  if (type === "number" || type === "boolean") return value;
-  if (type === "bigint") return String(value);
-  if (type === "function" || type === "symbol") return value;
+  if (typeof value === "string") return redactString(value);
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (typeof value === "bigint") return String(value);
+  if (typeof value === "function" || typeof value === "symbol") return value;
   if (depth >= MAX_DEPTH) return TRUNCATED;
   const container = value as object;
   if (seen.has(container)) return CIRCULAR;
