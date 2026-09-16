@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   upsertServedAd: vi.fn(),
   updateServedAdMedia: vi.fn(),
   upsertAdMetrics: vi.fn(),
+  insertSnapshot: vi.fn(),
   updateConnectionSync: vi.fn(),
   listExpiredServedAds: vi.fn(),
   deleteServedAd: vi.fn(),
@@ -52,6 +53,7 @@ describe("syncConnection (mock Graph)", () => {
       accounts.map((account) => ({ id: `row-${account.adAccountId}`, adAccountId: account.adAccountId }))
     );
     mocks.listExpiredServedAds.mockResolvedValue([]);
+    mocks.insertSnapshot.mockResolvedValue({ id: "snap-default", definitionVersion: 2 });
   });
 
   it("agrega 2 ads do mesmo creative em 1 anúncio + métricas nas 3 janelas", async () => {
@@ -77,6 +79,86 @@ describe("syncConnection (mock Graph)", () => {
     )?.[0] as { impressions: number; spend: number };
     expect(m30.impressions).toBe(60000);
     expect(m30.spend).toBe(2700);
+  });
+
+  it("persiste mapa por tipo de ação com snapshot versionado, sem somar tipos", async () => {
+    const now = new Date("2026-09-15T12:00:00Z");
+    mocks.insertSnapshot.mockImplementation(async (input: { accountId: string; windowDays: number }) => ({
+      id: `snap-${input.accountId}-${input.windowDays}`,
+      definitionVersion: 2,
+      ...input,
+    }));
+    await syncConnection("conn-1", {
+      client: new MockMetaGraphClient(),
+      storage: fakeStorage(),
+      download: fakeDownload(),
+      now,
+      origin: "mock",
+    });
+    // Um snapshot por conta × janela, com período absoluto e coleta carimbada.
+    expect(mocks.insertSnapshot).toHaveBeenCalledTimes(3);
+    expect(mocks.insertSnapshot).toHaveBeenCalledWith(expect.objectContaining({
+      windowDays: 30,
+      periodStart: new Date("2026-08-16T12:00:00Z"),
+      periodEnd: now,
+      currency: "BRL",
+      attribution: { status: "unknown", condition: "meta_attribution_not_requested" },
+      completeness: "complete",
+      origin: "mock",
+      collectedAt: now,
+    }));
+    // 1001 soma o MESMO tipo entre seus 2 ads: purchase 61+22, lead 35+12.
+    const m30 = mocks.upsertAdMetrics.mock.calls.find((call) => {
+      const arg = call[0] as { anuncioId: string; windowDays: number };
+      return arg.anuncioId === "123:1001" && arg.windowDays === 30;
+    })?.[0] as { actionCounts: Record<string, number>; definitionVersion: number; snapshotId: string; conversions: number };
+    expect(m30.actionCounts).toEqual({ purchase: 83, lead: 47 });
+    expect(m30.definitionVersion).toBe(2);
+    expect(m30.snapshotId).toBe("snap-row-123-30");
+    // A soma antiga segue gravada só para exibição sinalizada de legado.
+    expect(m30.conversions).toBe(130);
+  });
+
+  it("leitura parcial marca o snapshot e nunca vira número final", async () => {
+    const client = new MockMetaGraphClient();
+    vi.spyOn(client, "getInsights").mockImplementation(async (accountId: string, windowDays: 7 | 30 | 90) => {
+      const rows = await MockMetaGraphClient.prototype.getInsights.call(client, accountId, windowDays);
+      return rows.map((row) => ({ ...row, complete: false }));
+    });
+    mocks.insertSnapshot.mockImplementation(async (input: object) => ({ id: "snap-1", definitionVersion: 2, ...input }));
+    await syncConnection("conn-1", { client, storage: fakeStorage(), download: fakeDownload() });
+    for (const call of mocks.insertSnapshot.mock.calls) {
+      expect(call[0]).toMatchObject({ completeness: "partial" });
+    }
+  });
+
+  it("valores conflitantes do mesmo tipo vão para ambíguos, fora do mapa", async () => {
+    const client = new MockMetaGraphClient();
+    vi.spyOn(client, "getInsights").mockResolvedValue([
+      {
+        adId: "501",
+        impressions: 100,
+        clicks: 5,
+        spend: 10,
+        actions: [
+          { actionType: "purchase", value: 2 },
+          { actionType: "purchase", value: 3 },
+          { actionType: "lead", value: 1 },
+        ],
+        complete: true,
+      },
+    ]);
+    mocks.insertSnapshot.mockImplementation(async (input: object) => ({ id: "snap-1", definitionVersion: 2, ...input }));
+    await syncConnection("conn-1", { client, storage: fakeStorage(), download: fakeDownload() });
+    const metrics = mocks.upsertAdMetrics.mock.calls.map((call) => call[0]) as Array<{
+      actionCounts: Record<string, number>;
+      ambiguousActionTypes: string[];
+    }>;
+    expect(metrics.length).toBeGreaterThan(0);
+    for (const metric of metrics) {
+      expect(metric.actionCounts).toEqual({ lead: 1 });
+      expect(metric.ambiguousActionTypes).toEqual(["purchase"]);
+    }
   });
 
   it("mapeia formato vídeo/carrossel e texto", async () => {

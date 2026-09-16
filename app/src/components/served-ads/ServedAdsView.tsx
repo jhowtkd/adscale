@@ -18,10 +18,16 @@ interface ServedAdRow {
   impressions: number;
   clicks: number;
   spend: number;
-  conversions: number;
+  conversions: number | null;
   ctr: number | null;
   cpc: number | null;
   cpa: number | null;
+  conversion: {
+    definitionVersion: number;
+    actionType: string | null;
+    value: number | null;
+    status: "measured" | "not_defined" | "incomplete" | "incompatible" | "legacy_unverified";
+  };
   insufficientEvidence: boolean;
   previewUrl: string | null;
 }
@@ -56,7 +62,8 @@ function formatMoney(value: number | null, locale: string, currency: string): st
   }
 }
 
-function formatInt(value: number, locale: string): string {
+function formatInt(value: number | null, locale: string): string {
+  if (value === null) return "—";
   return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value);
 }
 
@@ -258,6 +265,11 @@ export function ServedAdsView() {
                       <>
                         <td className="px-3 py-2 text-right tabular-nums text-[var(--text-primary)]">
                           {formatInt(row.conversions, locale)}
+                          {row.conversion.status !== "measured" ? (
+                            <span className="block text-xs font-normal text-[var(--text-muted)]">
+                              {t("unverifiedMeasure")}
+                            </span>
+                          ) : null}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums text-[var(--text-primary)]">
                           {formatMoney(row.cpa, locale, report.primaryCurrency)}

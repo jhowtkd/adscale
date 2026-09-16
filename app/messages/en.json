@@ -3455,6 +3455,7 @@
     "colResults": "Results",
     "colCpa": "CPA",
     "insufficientEvidence": "insufficient evidence",
+    "unverifiedMeasure": "unverified",
     "fixtureBadge": "sample data — connect Meta to see yours",
     "multiCurrency": "multiple currencies: values summed without conversion",
     "noBrandTitle": "Select a brand",

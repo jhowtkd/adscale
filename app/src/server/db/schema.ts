@@ -272,6 +272,48 @@ export const servedAds = adscaleSchema.table(
   (table) => [index("served_ads_account_id_idx").on(table.accountId)]
 );
 
+/**
+ * Coleta versionada de métricas (ICE-01A): o que foi medido, quando e sob
+ * quais condições. Uma coleta alimenta várias linhas de métricas; sem
+ * snapshot, a linha é legado não verificado.
+ */
+export const servedAdSnapshots = adscaleSchema.table(
+  "served_ad_snapshots",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => metaAdAccounts.id, { onDelete: "cascade" }),
+    /** Janela solicitada em dias (presets 7/30/90). */
+    windowDays: integer("window_days").notNull(),
+    /** Período absoluto da coleta. */
+    periodStart: timestamp("period_start", { mode: "date" }).notNull(),
+    periodEnd: timestamp("period_end", { mode: "date" }).notNull(),
+    currency: text("currency").notNull(),
+    /**
+     * Atribuição efetiva ou condição de desconhecida. Nunca presume
+     * equivalência entre janelas de atribuição distintas.
+     */
+    attribution: jsonb("attribution")
+      .notNull()
+      .$type<
+        | { status: "known"; spec: string }
+        | { status: "unknown"; condition: string }
+      >(),
+    completeness: text("completeness")
+      .notNull()
+      .$type<"complete" | "partial">(),
+    origin: text("origin").notNull().$type<"real" | "mock">(),
+    definitionVersion: integer("definition_version").notNull().default(2),
+    collectedAt: timestamp("collected_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("served_ad_snapshots_account_window_idx").on(table.accountId, table.windowDays),
+  ]
+);
+
 /** Métricas por Anúncio veiculado + janela (presets 7/30/90, #346). */
 export const servedAdMetrics = adscaleSchema.table(
   "served_ad_metrics",
@@ -284,6 +326,17 @@ export const servedAdMetrics = adscaleSchema.table(
     clicks: integer("clicks").notNull().default(0),
     spend: numeric("spend", { precision: 14, scale: 2 }).notNull().default("0"),
     conversions: integer("conversions").notNull().default(0),
+    /**
+     * Mapa normalizado de contagens por tipo de ação (ICE-01A). Sem tokens
+     * ou payload de mídia; a soma antiga em `conversions` permanece só como
+     * legado não verificado até nova coleta compatível.
+     */
+    actionCounts: jsonb("action_counts").notNull().default({}).$type<Record<string, number>>(),
+    /** Tipos com valores conflitantes na coleta; medir um deles é incompatível até resolução. */
+    ambiguousActionTypes: text("ambiguous_action_types").array().notNull().default([]),
+    /** 1 = soma legada sem definição; 2 = medição versionada por evento. */
+    definitionVersion: integer("definition_version").notNull().default(1),
+    snapshotId: uuid("snapshot_id").references(() => servedAdSnapshots.id, { onDelete: "set null" }),
     syncedAt: timestamp("synced_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
