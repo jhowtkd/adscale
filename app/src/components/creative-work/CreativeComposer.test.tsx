@@ -394,6 +394,24 @@ describe("CreativeComposer", () => {
     );
   });
 
+  it("gives the variation reference and guidance panels the same presence", () => {
+    renderComposer(composer({ intent: "variations", sources: [{ ...readySource, previewUrl: "/api/workspace/assets/a1/file" }] }));
+
+    const referencePanel = screen.getByTestId("variation-reference-panel");
+    const directions = screen.getByTestId("variation-directions-region");
+    const panelClasses = ["rounded-[var(--radius-object)]", "border", "border-white/10", "bg-white/[0.03]", "p-4"];
+    expect(referencePanel).toHaveClass(...panelClasses);
+    expect(directions).toHaveClass(...panelClasses);
+    expect(screen.getByRole("img", { name: "arte.png" })).toHaveClass("object-contain");
+    expect(screen.getByTestId("variation-workspace")).not.toHaveClass("grid-cols-2");
+    const optionalSettings = screen.getByTestId("creative-optional-settings");
+    expect(optionalSettings).toContainElement(screen.getByLabelText("Formato"));
+    expect(
+      directions.compareDocumentPosition(optionalSettings)
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("shows each direction instruction inside its selectable card without separate help controls", () => {
     const value = composer();
     renderComposer(value);

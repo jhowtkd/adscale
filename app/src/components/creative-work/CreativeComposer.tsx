@@ -155,9 +155,10 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         })),
     )),
   ] : [];
+  const variationPanelClass = "flex h-full flex-col rounded-[var(--radius-object)] border border-white/10 bg-white/[0.03] p-4";
   const variationDirections = isVariations && directions ? (
     <fieldset
-      className="flex h-full flex-col rounded-[var(--radius-object)] border border-white/10 bg-white/[0.03] p-4"
+      className={variationPanelClass}
       data-testid="variation-directions-region"
     >
       <legend className="px-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">{t("directionsTitle")}</legend>
@@ -553,29 +554,31 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           data-testid="variation-workspace"
         >
           <div className="flex h-full min-w-0 flex-col space-y-4" data-testid="variation-reference-context">
-            {composer.sources.map((source) => (
-              <CreativeSourceChip
-                key={source.id}
-                source={source}
-                onUsageChange={(usage) => void composer.updateSource(source.id, usage)}
-                onRetry={() => void composer.retrySource(source.id)}
-                onRemove={() => void composer.removeSource(source.id)}
-                simple
-                fullPreview
-              />
-            ))}
-            {readyVariationSource ? (
-              <CreativeVariationBrief
-                source={readyVariationSource}
-                request={composer.request}
-                brandName={composer.brandName}
-                onSave={({ contentAnalysis, styleAnalysis }) => composer.editSource(
-                  readyVariationSource.id,
-                  contentAnalysis,
-                  styleAnalysis,
-                )}
-              />
-            ) : null}
+            <div className={cn(variationPanelClass, "min-w-0 space-y-4")} data-testid="variation-reference-panel">
+              {composer.sources.map((source) => (
+                <CreativeSourceChip
+                  key={source.id}
+                  source={source}
+                  onUsageChange={(usage) => void composer.updateSource(source.id, usage)}
+                  onRetry={() => void composer.retrySource(source.id)}
+                  onRemove={() => void composer.removeSource(source.id)}
+                  simple
+                  fullPreview
+                />
+              ))}
+              {readyVariationSource ? (
+                <CreativeVariationBrief
+                  source={readyVariationSource}
+                  request={composer.request}
+                  brandName={composer.brandName}
+                  onSave={({ contentAnalysis, styleAnalysis }) => composer.editSource(
+                    readyVariationSource.id,
+                    contentAnalysis,
+                    styleAnalysis,
+                  )}
+                />
+              ) : null}
+            </div>
           </div>
           <div className="flex h-full min-w-0 flex-col space-y-4" data-testid="variation-guidance">
             {variationDirections}
