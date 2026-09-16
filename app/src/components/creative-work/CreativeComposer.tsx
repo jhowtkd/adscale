@@ -155,7 +155,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
         })),
     )),
   ] : [];
-  const variationPanelClass = "flex h-full flex-col rounded-[var(--radius-object)] border border-white/10 bg-white/[0.03] p-4";
+  const variationPanelClass = "flex h-full flex-col rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4";
   const variationDirections = isVariations && directions ? (
     <fieldset
       className={variationPanelClass}
@@ -185,7 +185,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
                 fillsLastRow && "sm:col-span-2",
                 selected
                   ? "border-[var(--selection-border)] bg-[var(--selection-bg)] text-[var(--selection-text)] ring-1 ring-inset ring-[var(--selection-border)]"
-                  : "border-transparent bg-white/[0.04] text-[var(--text-secondary)] hover:bg-white/8",
+                  : "border-[var(--border-subtle)] bg-[var(--surface-inset)] text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]",
               )}
             >
               <span className="text-sm font-semibold text-[var(--text-primary)]">{direction.label}</span>

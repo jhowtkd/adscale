@@ -399,7 +399,7 @@ describe("CreativeComposer", () => {
 
     const referencePanel = screen.getByTestId("variation-reference-panel");
     const directions = screen.getByTestId("variation-directions-region");
-    const panelClasses = ["rounded-[var(--radius-object)]", "border", "border-white/10", "bg-white/[0.03]", "p-4"];
+    const panelClasses = ["rounded-[var(--radius-object)]", "border", "border-[var(--border-subtle)]", "bg-[var(--surface-base)]", "p-4"];
     expect(referencePanel).toHaveClass(...panelClasses);
     expect(directions).toHaveClass(...panelClasses);
     expect(screen.getByRole("img", { name: "arte.png" })).toHaveClass("object-contain");
@@ -410,6 +410,53 @@ describe("CreativeComposer", () => {
       directions.compareDocumentPosition(optionalSettings)
         & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it("renders direction cards in the current visual system with keyboard affordances", () => {
+    const base = composer();
+    const value = {
+      ...base,
+      directionPool: { ...base.directionPool, selectedIds: [base.directionPool.selectedIds[0]!] },
+    };
+    renderComposer(value);
+
+    const selected = screen.getByRole("button", { name: "Conservadora" });
+    expect(selected).toHaveAttribute("aria-pressed", "true");
+    expect(selected).toHaveClass("bg-[var(--selection-bg)]");
+    const unselected = screen.getByRole("button", { name: "Equilibrada" });
+    expect(unselected).toHaveAttribute("aria-pressed", "false");
+    expect(unselected).toHaveClass(
+      "border-[var(--border-subtle)]",
+      "bg-[var(--surface-inset)]",
+      "hover:bg-[var(--surface-raised)]",
+      "focus-visible:ring-[var(--focus-ring)]",
+    );
+    expect(unselected).toHaveTextContent("Equilibrar");
+    expect(screen.queryByRole("button", { name: "Ajuda sobre Equilibrada" })).not.toBeInTheDocument();
+  });
+
+  it("keeps loading, retry, and keep-current controls in the renewed directions block", () => {
+    const base = composer();
+    const view = renderComposer({ ...base, directionSuggestionState: "loading" });
+    expect(within(screen.getByTestId("variation-directions-region")).getByRole("status")).toHaveTextContent("directionsLoading");
+
+    view.rerender(
+      <CreativeComposer
+        composer={{ ...base, directionSuggestionState: "error" } as CreativeComposerViewModel}
+        composerRef={base.composerRef as CreativeComposerModel["composerRef"]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "retryDirections" }));
+    expect(base.requestDirectionSuggestions).toHaveBeenCalledOnce();
+
+    view.rerender(
+      <CreativeComposer
+        composer={{ ...base, pendingDirectionSuggestions: { directions: [], preserveSelection: true } } as unknown as CreativeComposerViewModel}
+        composerRef={base.composerRef as CreativeComposerModel["composerRef"]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "keepDirections" }));
+    expect(base.keepCurrentDirections).toHaveBeenCalledOnce();
   });
 
   it("shows each direction instruction inside its selectable card without separate help controls", () => {
