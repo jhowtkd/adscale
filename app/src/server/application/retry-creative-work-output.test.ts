@@ -42,6 +42,7 @@ import { recordUsage } from "@/server/billing/credits";
 import { inngest } from "@/server/jobs/client";
 import { settleTerminalRefund } from "@/server/generation/settlement";
 import { retryCreativeWorkOutput } from "./retry-creative-work-output";
+import { DIAGNOSTIC_ENVELOPE_KEY } from "@/server/diagnostics/contract";
 
 const mockGet = vi.mocked(getCreativeWork);
 const mockClaimManualRetry = vi.mocked(claimCreativeWorkOutputManualRetryAttempt);
@@ -132,6 +133,48 @@ describe("retryCreativeWorkOutput", () => {
     ]);
     // No refund on the ledger -> the retry must not add any charge.
     expect(mockRecordUsage).not.toHaveBeenCalled();
+  });
+
+  it("attaches a fresh diagnostic envelope for single-protocol retries", async () => {
+    mockGet.mockResolvedValue({
+      work: { ...workItem, toolKind: "single", clientProfileId: "profile-1" },
+      outputs: [failedOutput],
+    } as never);
+
+    const result = await retryCreativeWorkOutput({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mockSend).toHaveBeenCalledOnce();
+    const payload = mockSend.mock.calls[0]?.[0]?.[0] as {
+      id: string;
+      name: string;
+      data: Record<string, unknown>;
+    };
+    expect(payload.id).toBe("creative-work-generate:output-1:retry-1");
+    expect(payload.name).toBe("creative-work.generate");
+    expect(payload.data[DIAGNOSTIC_ENVELOPE_KEY]).toMatchObject({
+      schemaVersion: 1,
+      workspaceId: "ws-1",
+      clientProfileId: "profile-1",
+      workItemId: "work-1",
+      protocol: "single",
+      outputId: "output-1",
+      generationCorrelationId: "generation-1",
+      process: "web",
+      dataOrigin: "test",
+    });
+    const business = { ...payload.data };
+    delete business[DIAGNOSTIC_ENVELOPE_KEY];
+    expect(business).toEqual({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      generationCorrelationId: "generation-1",
+    });
   });
 
   it("retries only the failed directional output and preserves its frozen snapshot", async () => {

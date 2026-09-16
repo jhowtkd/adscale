@@ -122,6 +122,12 @@ import type { CreativeWorkOutput } from "@/server/db/schema";
 import { inngest } from "./client";
 import { heavyImageEventName } from "./heavy-image-events";
 import {
+  attachDiagnosticEnvelope,
+  diagnosticContextForDispatch,
+  withWorkerDiagnosticContext,
+} from "@/server/diagnostics/envelope";
+import type { DiagnosticContext } from "@/server/diagnostics/contract";
+import {
   decideCreativeWorkRefund,
   decideJobIdempotency,
 } from "@/server/generation/canonical/policies";
@@ -132,6 +138,12 @@ interface CreativeWorkGenerateEvent {
   outputId: string;
   /** New dispatches include this; old queued events resolve it from storage. */
   generationCorrelationId?: string;
+  /**
+   * Optional diagnostic envelope (trace-386, key frozen as
+   * DIAGNOSTIC_ENVELOPE_KEY). Absent on old events, which keep running with
+   * partial correlation. Never part of business identity.
+   */
+  diagnosticContext?: DiagnosticContext;
 }
 
 interface CreativeWorkJobStep {
@@ -2129,7 +2141,13 @@ const creativeWorkOutputJobHandler = async ({
                 retryCount: retried.retryCount,
                 imageCallCount: retried.imageCallCount,
               });
-              await inngest.send({ id: `creative-work-generate:${outputId}:retry-${retried.retryCount}`, name: heavyImageEventName("creative-work.generate"), data: { workspaceId, workItemId, outputId, generationCorrelationId } });
+              // Worker re-dispatch propagates the reentered context only
+              // (trace-386): old envelopeless flows keep their legacy shape.
+              const redispatchContext = diagnosticContextForDispatch({
+                workspaceId, workItemId, outputId, generationCorrelationId,
+                synthesize: false,
+              });
+              await inngest.send({ id: `creative-work-generate:${outputId}:retry-${retried.retryCount}`, name: heavyImageEventName("creative-work.generate"), data: attachDiagnosticEnvelope({ workspaceId, workItemId, outputId, generationCorrelationId }, redispatchContext) });
               return { success: false, retrying: true, outputId, failureCode: code };
             } catch (dispatchError) {
               const failed = await failQueuedCreativeWorkOutput(workspaceId, workItemId, outputId, "auto_retry_dispatch_failed");
@@ -2292,12 +2310,27 @@ const creativeWorkOutputJobHandler = async ({
     }
   };
 
+type CreativeWorkOutputJobArgs = Parameters<
+  typeof creativeWorkOutputJobHandler
+>[0];
+
+/**
+ * Worker reentry (trace-386): run the handler inside the diagnostic context
+ * adopted from the event envelope. Shared by the v1 function (web client,
+ * drain) and the v2 function (worker client): both clients propagate the
+ * envelope as data without unification. Envelopeless, malformed or
+ * mismatched events run unchanged with partial correlation.
+ */
+const creativeWorkOutputJobHandlerWithDiagnostics = (
+  args: CreativeWorkOutputJobArgs,
+) => withWorkerDiagnosticContext(args, () => creativeWorkOutputJobHandler(args));
+
 export const creativeWorkOutputJob = inngest.createFunction(
   {
     ...creativeWorkOutputJobConfig,
     triggers: [{ event: "creative-work.generate" }],
   },
-  creativeWorkOutputJobHandler,
+  creativeWorkOutputJobHandlerWithDiagnostics,
 );
 
 export function createCreativeWorkOutputJobV2(client: typeof inngest) {
@@ -2310,7 +2343,7 @@ export function createCreativeWorkOutputJobV2(client: typeof inngest) {
       ],
       triggers: [{ event: "creative-work.generate.v2" }],
     },
-    creativeWorkOutputJobHandler,
+    creativeWorkOutputJobHandlerWithDiagnostics,
   );
 }
 

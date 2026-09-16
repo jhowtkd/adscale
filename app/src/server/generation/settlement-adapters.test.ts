@@ -106,6 +106,11 @@ import {
   resolveCreativeWorkOutputReactivationOutcome,
 } from "./settlement-adapters";
 import { startGenerationSettlement } from "./settlement";
+import {
+  createDiagnosticContext,
+  withDiagnosticContext,
+} from "@/server/diagnostics/context";
+import { DIAGNOSTIC_ENVELOPE_KEY } from "@/server/diagnostics/contract";
 import { CAROUSEL_SLIDE_GENERATE_EVENT, heavyImageEventName } from "@/server/jobs/heavy-image-events";
 
 const work = { id: "work-1", status: "ready", generationCorrelationId: "generation-1" };
@@ -3131,4 +3136,295 @@ it("a timed-out settlement read does not authorize a refund or another dispatch"
   } finally {
     vi.useRealTimers();
   }
+});
+
+describe("diagnostic envelope at the settlement-dispatch boundary (trace-386)", () => {
+  const singleWork = {
+    ...work,
+    toolKind: "single",
+    clientProfileId: "profile-1",
+  };
+  const variationsWork = {
+    ...work,
+    toolKind: "variations",
+    clientProfileId: "profile-1",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    chargeBatch.mockResolvedValue({ ok: true, creditsSpent: 15 });
+    send.mockResolvedValue(undefined);
+    createRevision.mockResolvedValue({
+      output: revisionOutput,
+      claimedForDispatch: true,
+    });
+    setWorkStatus.mockResolvedValue({ ...work, status: "generating" });
+    trackUsage.mockResolvedValue({ id: "usage-event" });
+  });
+
+  function singleBatchAdapter() {
+    return creativeWorkSettlementAdapter({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      userId: "user-1",
+      readyWork: singleWork as never,
+      plans: [...batchPlans],
+      batch,
+      reserveReadyWork: async () => ({
+        work: singleWork as never,
+        outputs: outputs as never,
+        newlyCreatedIds: outputs.map((output) => output.id),
+      }),
+    });
+  }
+
+  function sentGenerateEvents() {
+    return (send.mock.calls[0]?.[0] ?? []) as Array<{
+      id: string;
+      name: string;
+      data: Record<string, unknown>;
+    }>;
+  }
+
+  it("attaches a fresh single-operation envelope per dispatched output", async () => {
+    getWork.mockResolvedValue({
+      work: { ...singleWork, status: "generating" },
+      outputs,
+    });
+    getUsage.mockResolvedValue(null);
+
+    const result = await startGenerationSettlement(singleBatchAdapter());
+
+    expect(result.ok).toBe(true);
+    expect(send).toHaveBeenCalledOnce();
+    const events = sentGenerateEvents();
+    expect(events).toHaveLength(3);
+    const operationIds = new Set<string>();
+    for (const event of events) {
+      const outputId = event.data.outputId as string;
+      expect(event.id).toBe(`creative-work-generate:${outputId}`);
+      expect(event.name).toBe("creative-work.generate");
+      expect(event.data.workspaceId).toBe("workspace-1");
+      expect(event.data.workItemId).toBe("work-1");
+      expect(event.data.generationCorrelationId).toBe("generation-1");
+      const envelope = event.data[DIAGNOSTIC_ENVELOPE_KEY] as Record<string, unknown>;
+      expect(envelope).toMatchObject({
+        schemaVersion: 1,
+        workspaceId: "workspace-1",
+        clientProfileId: "profile-1",
+        workItemId: "work-1",
+        protocol: "single",
+        outputId,
+        generationCorrelationId: "generation-1",
+        process: "web",
+        dataOrigin: "test",
+      });
+      expect(typeof envelope.operationId).toBe("string");
+      operationIds.add(envelope.operationId as string);
+    }
+    // Each Inngest event is an independent run with its own operation id;
+    // the batch stays correlated through the generation correlation id.
+    expect(operationIds.size).toBe(3);
+  });
+
+  it("keeps the legacy payload byte-identical for non-single work", async () => {
+    getWork.mockResolvedValue({
+      work: { ...variationsWork, status: "generating" },
+      outputs,
+    });
+    getUsage.mockResolvedValue(null);
+
+    const result = await startGenerationSettlement(
+      creativeWorkSettlementAdapter({
+        workspaceId: "workspace-1",
+        workItemId: "work-1",
+        userId: "user-1",
+        readyWork: variationsWork as never,
+        plans: [...batchPlans],
+        batch,
+        reserveReadyWork: async () => ({
+          work: variationsWork as never,
+          outputs: outputs as never,
+          newlyCreatedIds: outputs.map((output) => output.id),
+        }),
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(send).toHaveBeenCalledWith(
+      outputs.map((output) => ({
+        id: `creative-work-generate:${output.id}`,
+        name: "creative-work.generate",
+        data: {
+          workspaceId: "workspace-1",
+          workItemId: "work-1",
+          outputId: output.id,
+          generationCorrelationId: "generation-1",
+        },
+      })),
+    );
+  });
+
+  it("leaves settlement decisions and effects identical with the envelope on or off", async () => {
+    getUsage.mockResolvedValue(null);
+    getWork.mockResolvedValue({
+      work: { ...singleWork, status: "generating" },
+      outputs,
+    });
+    const enveloped = await startGenerationSettlement(singleBatchAdapter());
+    const envelopedSend = send.mock.calls[0]?.[0] as Array<{
+      id: string;
+      data: Record<string, unknown>;
+    }>;
+    const envelopedCharge = chargeBatch.mock.calls[0]?.[0];
+
+    vi.clearAllMocks();
+    chargeBatch.mockResolvedValue({ ok: true, creditsSpent: 15 });
+    send.mockResolvedValue(undefined);
+    getWork.mockResolvedValue({
+      work: { ...variationsWork, status: "generating" },
+      outputs,
+    });
+    const legacy = await startGenerationSettlement(
+      creativeWorkSettlementAdapter({
+        workspaceId: "workspace-1",
+        workItemId: "work-1",
+        userId: "user-1",
+        readyWork: variationsWork as never,
+        plans: [...batchPlans],
+        batch,
+        reserveReadyWork: async () => ({
+          work: variationsWork as never,
+          outputs: outputs as never,
+          newlyCreatedIds: outputs.map((output) => output.id),
+        }),
+      }),
+    );
+    const legacySend = send.mock.calls[0]?.[0] as Array<{
+      id: string;
+      data: Record<string, unknown>;
+    }>;
+
+    expect(enveloped.ok).toBe(true);
+    expect(legacy.ok).toBe(true);
+    // Same billing key in, same event ids out.
+    expect(chargeBatch).toHaveBeenCalledWith(
+      envelopedCharge,
+      expect.anything(),
+    );
+    expect(envelopedSend.map((event) => event.id)).toEqual(
+      legacySend.map((event) => event.id),
+    );
+    // Business payload identical once the envelope is stripped: any hash
+    // over business fields is byte-identical with the envelope on or off.
+    const { createHash } = await import("node:crypto");
+    for (const [index, event] of envelopedSend.entries()) {
+      const business = { ...event.data };
+      delete business[DIAGNOSTIC_ENVELOPE_KEY];
+      expect(business).toEqual(legacySend[index]!.data);
+      const digest = (value: unknown) =>
+        createHash("sha256").update(JSON.stringify(value)).digest("hex");
+      expect(digest(business)).toBe(digest(legacySend[index]!.data));
+    }
+  });
+
+  it("attaches the ambient envelope to revision dispatch, legacy shape otherwise", async () => {
+    getUsage.mockResolvedValue(null);
+
+    // The revise command scopes settlement in a fresh single-operation
+    // context; the revision dispatch attaches it without touching the
+    // adapter input contract.
+    const ambient = createDiagnosticContext({
+      workspaceId: "workspace-1",
+      workItemId: "work-1",
+      clientProfileId: "profile-1",
+    });
+    const enveloped = await withDiagnosticContext(ambient, () =>
+      startGenerationSettlement(revisionAdapter()),
+    );
+    expect(enveloped).toEqual({ ok: true, value: { output: revisionOutput } });
+    const envelopedPayload = send.mock.calls[0]?.[0] as {
+      id: string;
+      name: string;
+      data: Record<string, unknown>;
+    };
+    expect(envelopedPayload.id).toBe("creative-work-revision:output-v2");
+    expect(envelopedPayload.name).toBe("creative-work.generate");
+    expect(envelopedPayload.data[DIAGNOSTIC_ENVELOPE_KEY]).toEqual({
+      ...ambient,
+    });
+    expect(envelopedPayload.data[DIAGNOSTIC_ENVELOPE_KEY]).toMatchObject({
+      schemaVersion: 1,
+      workspaceId: "workspace-1",
+      clientProfileId: "profile-1",
+      workItemId: "work-1",
+      protocol: "single",
+      operationId: ambient.operationId,
+      process: "web",
+    });
+
+    vi.clearAllMocks();
+    send.mockResolvedValue(undefined);
+    createRevision.mockResolvedValue({
+      output: revisionOutput,
+      claimedForDispatch: true,
+    });
+    chargeBatch.mockResolvedValue({ ok: true, creditsSpent: 15 });
+
+    const legacy = await startGenerationSettlement(revisionAdapter());
+    expect(legacy).toEqual({ ok: true, value: { output: revisionOutput } });
+    expect(send).toHaveBeenCalledWith({
+      id: "creative-work-revision:output-v2",
+      name: "creative-work.generate",
+      data: {
+        workspaceId: "workspace-1",
+        workItemId: "work-1",
+        outputId: "output-v2",
+        generationCorrelationId: "generation-revision-1",
+      },
+    });
+  });
+
+  it("attaches the envelope on join-resume recovery dispatch", async () => {
+    vi.useFakeTimers();
+    try {
+      getWork.mockResolvedValue({
+        work: { ...singleWork, status: "generating" },
+        outputs,
+      });
+      getUsage.mockImplementation(async (_workspaceId, idempotencyKey) =>
+        idempotencyKey === "creative-work:work-1:initial"
+          ? {
+              metadata: {
+                creativeWorkId: "work-1",
+                settlementDispatchAckRequired: true,
+                settlementDispatchAckKey:
+                  "creative-work:work-1:initial:dispatch-ack",
+              },
+            }
+          : null,
+      );
+
+      const pending = startGenerationSettlement(singleBatchAdapter());
+      const expectation = expect(pending).resolves.toMatchObject({ ok: true });
+      await vi.runAllTimersAsync();
+      await expectation;
+
+      // Join runs before charge/dispatch: the only send is the recovery.
+      expect(send).toHaveBeenCalledOnce();
+      const events = sentGenerateEvents();
+      expect(events).toHaveLength(3);
+      for (const event of events) {
+        expect(event.data[DIAGNOSTIC_ENVELOPE_KEY]).toMatchObject({
+          schemaVersion: 1,
+          workspaceId: "workspace-1",
+          clientProfileId: "profile-1",
+          workItemId: "work-1",
+          protocol: "single",
+        });
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
