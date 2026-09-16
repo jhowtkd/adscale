@@ -12,6 +12,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { NewDiagnosticEvent } from "../db/schema";
 import {
   DIAGNOSTIC_EXPORT_BUDGET,
+  type DiagnosticContext,
+  type DiagnosticDataOrigin,
   type DiagnosticEventEnvelope,
   type DiagnosticEventName,
 } from "./contract";
@@ -317,6 +319,32 @@ describe("journal never breaks the caller", () => {
     }
     expect(journal.stats().droppedEvents).toBe(cases.length);
     expect(journal.stats().bufferedEvents).toBe(0);
+    restore.mockRestore();
+  });
+
+  it("invalid correlation and dataOrigin are dropped, valid batch keeps flowing", async () => {
+    const restore = silenceEmergency();
+    const seen: NewDiagnosticEvent[][] = [];
+    const journal = createDiagnosticJournal({ persistBatch: workingWriter(seen) });
+    const validContext = makeEnvelope().context as DiagnosticContext;
+    const cases: DiagnosticEventEnvelope[] = [
+      makeEnvelope({ correlation: "bogus" as DiagnosticEventEnvelope["correlation"] }),
+      makeEnvelope({
+        context: { ...validContext, dataOrigin: "prod" as DiagnosticDataOrigin },
+      }),
+    ];
+    for (const event of cases) {
+      expect(() => journal.enqueue(event)).not.toThrow();
+    }
+    const good = makeEnvelope();
+    journal.enqueue(good);
+    expect(journal.stats().droppedEvents).toBe(cases.length);
+    expect(journal.stats().bufferedEvents).toBe(1);
+    await journal.flush();
+    expect(seen.flat()).toHaveLength(1);
+    expect(seen.flat()[0].id).toBe(good.eventId);
+    expect(journal.stats().persistedEvents).toBe(1);
+    expect(journal.stats().failedFlushes).toBe(0);
     restore.mockRestore();
   });
 

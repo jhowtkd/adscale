@@ -31,6 +31,7 @@ import {
   CONTENT_AVAILABILITY_STATES,
   DIAGNOSTIC_EXPORT_BUDGET,
   DIAGNOSTIC_SCHEMA_VERSION,
+  isDiagnosticDataOrigin,
   isDiagnosticEventName,
   isDiagnosticEventStatus,
   isDiagnosticStage,
@@ -183,7 +184,7 @@ function isValidContext(value: unknown): value is DiagnosticContext {
     isNonEmptyString(context.releaseSha) &&
     isNonEmptyString(context.environment) &&
     (context.process === "web" || context.process === "worker") &&
-    isNonEmptyString(context.dataOrigin)
+    isDiagnosticDataOrigin(context.dataOrigin)
   );
 }
 
@@ -199,6 +200,7 @@ function isValidEnvelope(event: unknown): event is DiagnosticEventEnvelope {
       !Number.isNaN(Date.parse(envelope.occurredAt)) &&
       isNonEmptyString(envelope.recordedAt) &&
       !Number.isNaN(Date.parse(envelope.recordedAt)) &&
+      (envelope.correlation === "full" || envelope.correlation === "partial") &&
       isValidContext(envelope.context)
     );
   } catch {
