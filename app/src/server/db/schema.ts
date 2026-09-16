@@ -3410,3 +3410,142 @@ export const brandCommercialOffers = adscaleSchema.table(
 
 export type BrandCommercialOffer = typeof brandCommercialOffers.$inferSelect;
 export type NewBrandCommercialOffer = typeof brandCommercialOffers.$inferInsert;
+
+// ============================================
+// Diagnostic journal (traceability, #387)
+//
+// Queryable index of selected single-piece lifecycle events. Business and
+// external IDs are plain references (no FK): the journal must stay writable
+// for synthetic/test origins and must never couple canonical writes to
+// telemetry delivery. NO prompt/response content columns — attributes hold
+// sanitized, bounded scalars only (see journal.ts).
+// ============================================
+
+export const diagnosticEvents = adscaleSchema.table(
+  "diagnostic_events",
+  {
+    // Event identity — the dedup key (contract: DiagnosticEventEnvelope.eventId).
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id").notNull(),
+    clientProfileId: text("client_profile_id"),
+    workItemId: text("work_item_id").notNull(),
+    protocol: text("protocol").notNull().default("single"),
+    operationId: text("operation_id").notNull(),
+    parentOperationId: text("parent_operation_id"),
+    generationCorrelationId: text("generation_correlation_id"),
+    outputId: text("output_id"),
+    attemptNumber: integer("attempt_number"),
+    event: text("event").notNull(),
+    stage: text("stage"),
+    status: text("status"),
+    correlation: text("correlation").notNull().default("full"),
+    occurredAt: timestamp("occurred_at", { mode: "date" }).notNull(),
+    recordedAt: timestamp("recorded_at", { mode: "date" }).notNull(),
+    durationMs: integer("duration_ms"),
+    callId: text("call_id"),
+    provider: text("provider"),
+    requestedModel: text("requested_model"),
+    returnedModel: text("returned_model"),
+    providerRequestId: text("provider_request_id"),
+    latencyMs: integer("latency_ms"),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    errorClass: text("error_class"),
+    errorStatus: integer("error_status"),
+    errorReason: text("error_reason"),
+    sentryEventId: text("sentry_event_id"),
+    inngestRunId: text("inngest_run_id"),
+    langfuseTraceId: text("langfuse_trace_id"),
+    langfuseObservationId: text("langfuse_observation_id"),
+    contentAvailability: text("content_availability"),
+    contentPolicyVersion: text("content_policy_version"),
+    releaseSha: text("release_sha").notNull(),
+    environment: text("environment").notNull(),
+    process: text("process").notNull(),
+    dataOrigin: text("data_origin").notNull(),
+    // Telemetry delivery state (created/export_pending/observed_at_destination/
+    // unavailable) — describes the telemetry, never the generation.
+    exportState: text("export_state").notNull().default("created"),
+    attributes: jsonb("attributes")
+      .$type<Record<string, string | number | boolean | null>>()
+      .notNull()
+      .default({}),
+    schemaVersion: integer("schema_version").notNull().default(1),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("diagnostic_events_workspace_work_time_idx").on(
+      table.workspaceId,
+      table.workItemId,
+      table.occurredAt,
+      table.id,
+    ),
+    index("diagnostic_events_environment_time_idx").on(
+      table.environment,
+      table.occurredAt,
+      table.id,
+    ),
+    index("diagnostic_events_workspace_call_idx")
+      .on(table.workspaceId, table.callId)
+      .where(sql`${table.callId} is not null`),
+    check(
+      "diagnostic_events_event_check",
+      sql`${table.event} in ('operation.started','stage.started','stage.completed','stage.failed','model.call.started','model.call.completed','model.call.failed','model.validation.failed','operation.replayed','operation.completed','operation.failed','selection.confirmed','selection.effect.failed','export.prepared','export.served','telemetry.degraded')`,
+    ),
+    check(
+      "diagnostic_events_correlation_check",
+      sql`${table.correlation} in ('full','partial')`,
+    ),
+    check(
+      "diagnostic_events_process_check",
+      sql`${table.process} in ('web','worker')`,
+    ),
+    check(
+      "diagnostic_events_data_origin_check",
+      sql`${table.dataOrigin} in ('production','staging','synthetic','test')`,
+    ),
+    check(
+      "diagnostic_events_export_state_check",
+      sql`${table.exportState} in ('created','export_pending','observed_at_destination','unavailable')`,
+    ),
+  ],
+);
+
+export type DiagnosticEvent = typeof diagnosticEvents.$inferSelect;
+export type NewDiagnosticEvent = typeof diagnosticEvents.$inferInsert;
+
+// Content-read audit trail. The TABLE lands here; the write path and
+// deny-on-audit-failure enforcement belong to a later ticket (#391).
+export const diagnosticAccessAudit = adscaleSchema.table(
+  "diagnostic_access_audit",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    operatorId: text("operator_id").notNull(),
+    scope: text("scope").notNull(),
+    workspaceId: text("workspace_id").notNull(),
+    workItemId: text("work_item_id").notNull(),
+    resource: text("resource").notNull(),
+    action: text("action").notNull(),
+    reason: text("reason").notNull(),
+    result: text("result").notNull(),
+    occurredAt: timestamp("occurred_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("diagnostic_access_audit_workspace_work_time_idx").on(
+      table.workspaceId,
+      table.workItemId,
+      table.occurredAt,
+    ),
+    index("diagnostic_access_audit_operator_time_idx").on(
+      table.operatorId,
+      table.occurredAt,
+    ),
+    check(
+      "diagnostic_access_audit_result_check",
+      sql`${table.result} in ('allowed','denied')`,
+    ),
+  ],
+);
+
+export type DiagnosticAccessAudit = typeof diagnosticAccessAudit.$inferSelect;
+export type NewDiagnosticAccessAudit = typeof diagnosticAccessAudit.$inferInsert;
