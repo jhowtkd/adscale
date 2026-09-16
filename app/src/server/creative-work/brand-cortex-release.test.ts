@@ -97,6 +97,25 @@ function approvedPilot() {
 }
 
 describe("Brand Cortex real-pilot review", () => {
+  it("keeps v1 historical evidence on three formats; 3:4 needs a complementary contract (ICE-04A)", () => {
+    const pilot = approvedPilot();
+    const artifact34 = {
+      ...pilotArtifact("4:5", 9),
+      artifactId: "3:4-1",
+      format: "3:4",
+      height: 1440,
+    };
+    // A v1 gate never reclassifies an old evaluation as if it tested 3:4:
+    // the artifact fails the v1 manifest instead of passing silently.
+    expect(() =>
+      evaluateBrandCortexPilotPending({ pilot: { ...pilot, artifacts: [...pilot.artifacts, artifact34] }, artifactFailures: [] }),
+    ).toThrow();
+    // And the historical pilot still verifies untouched.
+    expect(() =>
+      evaluateBrandCortexPilotPending({ pilot, artifactFailures: [] }),
+    ).not.toThrow();
+  });
+
   it("emits hash-bound coverage and integrity evidence before human review exists", () => {
     const pilot = approvedPilot();
     pilot.artifacts = pilot.artifacts.filter((artifact) => artifact.format !== "9:16" || artifact.artifactId !== "9:16-2");

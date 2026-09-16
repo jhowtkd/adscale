@@ -36,7 +36,8 @@ Return ONLY a JSON object with this exact shape:
   "crops": {
     "1:1": { "x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0 },
     "4:5": { "x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0 },
-    "9:16": { "x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0 }
+    "9:16": { "x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0 },
+    "3:4": { "x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0 }
   },
   "safeZones": [
     { "x": 0.1, "y": 0.1, "width": 0.8, "height": 0.3, "label": "Text safe zone" }
@@ -87,7 +88,7 @@ Guidelines:
 
 function normalizeSmartResizeAnalysis(analysis: Partial<SmartResizeAnalysis>): SmartResizeAnalysis {
   const issues: string[] = [];
-  const requiredRatios = ["1:1", "4:5", "9:16"];
+  const requiredRatios = ["1:1", "4:5", "9:16", "3:4"];
   const sourceCrops = analysis.crops && typeof analysis.crops === "object" ? analysis.crops : {};
   const crops: SmartResizeAnalysis["crops"] = {};
 

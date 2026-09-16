@@ -36,6 +36,8 @@ function resolveOpenAISize(input: ProviderGenerateInput, model: string): OpenAII
     return dimensionsToGptImage2Size(input.dimensions);
   }
   // Legacy models: square / portrait / landscape SDK enum only.
+  // (Unreachable for 3:4 — the render policy schema only admits gpt-image-2
+  // models, and the format-id path throws explicitly in formatToOpenAIImageSize.)
   const ratio = input.dimensions.width / input.dimensions.height;
   if (Math.abs(ratio - 1) < 0.05) return "1024x1024";
   if (ratio < 1) return "1024x1536";

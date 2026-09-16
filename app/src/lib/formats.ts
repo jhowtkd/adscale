@@ -42,6 +42,17 @@ const AD_FORMATS: AdFormat[] = [
     description: "Stories, Reels, Discovery, Performance Max",
   },
   {
+    id: "3:4",
+    label: "Retrato 3:4",
+    ratio: "3:4",
+    dimensions: { width: 1080, height: 1440 },
+    // Sem veiculação confirmada na etapa 04A: só contrato de entrega.
+    platforms: [],
+    // Nunca usado: 3:4 exige gpt-image-2 e falha explícito nos legados.
+    openaiSize: "1024x1536",
+    description: "Retrato 3:4 (contrato de entrega 1080x1440)",
+  },
+  {
     id: "1.91:1",
     label: "Link / Horizontal",
     ratio: "1.91:1",
@@ -64,6 +75,14 @@ const AD_FORMATS: AdFormat[] = [
 function getFormatById(id: string): AdFormat | undefined {
   return AD_FORMATS.find((f) => f.id === id);
 }
+
+/**
+ * Formatos do Estúdio (ICE-04): o subconjunto do catálogo publicitário
+ * oferecido na interface canônica. Oferecer 3:4 não autoriza expor as
+ * opções legadas/horizontais (1.91:1, 16:9) no fluxo do Estúdio.
+ */
+export const STUDIO_FORMATS = ["1:1", "4:5", "9:16", "3:4"] as const;
+export type StudioFormat = (typeof STUDIO_FORMATS)[number];
 
 export function getTargetDimensions(formatId: string, isPreview?: boolean): { width: number; height: number } | null {
   const format = getFormatById(formatId);
@@ -96,6 +115,7 @@ const GPT_IMAGE_2_SIZE_TABLE: ReadonlyArray<{
   { formatId: "1:1", size: "1088x1088", ratio: 1 },
   { formatId: "4:5", size: "1088x1360", ratio: 0.8 },
   { formatId: "9:16", size: "1152x2048", ratio: 9 / 16 },
+  { formatId: "3:4", size: "1152x1536", ratio: 3 / 4 },
   { formatId: "16:9", size: "2048x1152", ratio: 16 / 9 },
   { formatId: "1.91:1", size: "2048x1072", ratio: 1.91 },
 ];
@@ -110,6 +130,7 @@ export type OpenAIImageSize =
   | "1024x1280"
   | "1088x1088"
   | "1088x1360"
+  | "1152x1536"
   | "1152x2048"
   | "2048x1072"
   | "2048x1152";
@@ -180,6 +201,13 @@ export function dimensionsToGptImage2Size(dimensions: {
 }
 
 /**
+ * Formats with no confirmed generation support on legacy models (ICE-04A).
+ * They fail explicitly before any provider call instead of silently
+ * rendering a stretched approximation of another format.
+ */
+const GPT_IMAGE_2_ONLY_FORMATS = new Set(["3:4"]);
+
+/**
  * Returns the best OpenAI image generation size for `formatId`.
  *
  * For gpt-image-2 models the helper returns the true target-aspect size so the
@@ -188,6 +216,9 @@ export function dimensionsToGptImage2Size(dimensions: {
  *
  * Preview mode no longer collapses 4:5 or 9:16 to square when the model
  * supports portrait sizes — square previews caused blurred-bar post-processing.
+ *
+ * Throws for gpt-image-2-only formats on other models: without confirmed
+ * support there is no valid size, and guessing would bill a distorted piece.
  */
 export function formatToOpenAIImageSize(
   formatId: string,
@@ -200,6 +231,12 @@ export function formatToOpenAIImageSize(
     // so the model never produces a square that then gets blurred-bar padded.
     return assertValidGptImage2Size(
       GPT_IMAGE_2_GENERATION_SIZES[formatId] ?? "1088x1088",
+    );
+  }
+
+  if (GPT_IMAGE_2_ONLY_FORMATS.has(formatId)) {
+    throw new Error(
+      `Format "${formatId}" requires a model with confirmed 3:4 support (gpt-image-2); refusing to bill a stretched fallback on "${modelName || "default model"}".`,
     );
   }
 

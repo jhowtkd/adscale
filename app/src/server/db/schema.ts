@@ -563,7 +563,7 @@ export const brandKnowledgeClaims = adscaleSchema.table(
     claimKey: text("claim_key").notNull().$type<import("../brand-knowledge/contracts").BrandKnowledgeClaimKey>(),
     kind: text("kind").notNull().$type<"fact" | "rule" | "preference" | "prohibition">(),
     value: jsonb("value").notNull(),
-    scope: jsonb("scope").notNull().$type<{ level: "global"; format?: "1:1" | "4:5" | "9:16"; channel?: string }>(),
+    scope: jsonb("scope").notNull().$type<{ level: "global"; format?: "1:1" | "4:5" | "9:16" | "3:4"; channel?: string }>(),
     authority: text("authority").notNull().$type<"human" | "explicit" | "measured" | "inferred">(),
     confidence: text("confidence").notNull().$type<"low" | "medium" | "high">(),
     status: text("status").notNull().default("candidate").$type<import("../brand-knowledge/contracts").BrandKnowledgeClaimStatus>(),
@@ -2782,7 +2782,7 @@ export const creativeWorkItems = adscaleSchema.table(
     format: text("format")
       .notNull()
       .default("4:5")
-      .$type<"1:1" | "4:5" | "9:16">(),
+      .$type<"1:1" | "4:5" | "9:16" | "3:4">(),
     settings: jsonb("settings")
       .$type<import("../creative-work/contracts").CreativeWorkSettings>()
       .notNull(),
@@ -2919,7 +2919,7 @@ export const creativeWorkOutputs = adscaleSchema.table(
     creativeLevel: text("creative_level")
       .notNull()
       .$type<import("../creative-work/contracts").CreativeLevel>(),
-    targetFormat: text("target_format").notNull().$type<"1:1" | "4:5" | "9:16">(),
+    targetFormat: text("target_format").notNull().$type<"1:1" | "4:5" | "9:16" | "3:4">(),
     versionNumber: integer("version_number").notNull().default(1),
     parentOutputId: uuid("parent_output_id"),
     revisionInstruction: text("revision_instruction"),

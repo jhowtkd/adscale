@@ -19,7 +19,7 @@ import type { TextLayout } from "./typography-plan";
 import { canonicalJsonStringify } from "./canonical-json";
 import { CREATIVE_LEVEL_DIRECTIONS } from "@/server/ai/creative-level-direction";
 
-export type SocialPostFormat = "1:1" | "4:5" | "9:16";
+export type SocialPostFormat = "1:1" | "4:5" | "9:16" | "3:4";
 
 export interface BuildSocialPostPromptInput {
   format: SocialPostFormat;

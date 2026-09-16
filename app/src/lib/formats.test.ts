@@ -5,6 +5,7 @@ import {
   dimensionsToGptImage2Size,
   assertValidGptImage2Size,
   parseOpenAIImageSize,
+  STUDIO_FORMATS,
 } from "./formats";
 
 describe("getTargetDimensions", () => {
@@ -26,6 +27,17 @@ describe("getTargetDimensions", () => {
 
   it("returns null for unknown format", () => {
     expect(getTargetDimensions("unknown")).toBeNull();
+  });
+
+  it("recognizes 3:4 delivery 1080x1440 and proportional preview 270x360", () => {
+    expect(getTargetDimensions("3:4")).toEqual({ width: 1080, height: 1440 });
+    expect(getTargetDimensions("3:4", true)).toEqual({ width: 270, height: 360 });
+  });
+});
+
+describe("STUDIO_FORMATS", () => {
+  it("lists the Studio formats without legacy/horizontal ad options", () => {
+    expect([...STUDIO_FORMATS]).toEqual(["1:1", "4:5", "9:16", "3:4"]);
   });
 });
 
@@ -50,6 +62,7 @@ describe("dimensionsToGptImage2Size — priority formats never upscale", () => {
     { label: "1:1", target: { width: 1080, height: 1080 }, size: "1088x1088" },
     { label: "4:5", target: { width: 1080, height: 1350 }, size: "1088x1360" },
     { label: "9:16", target: { width: 1080, height: 1920 }, size: "1152x2048" },
+    { label: "3:4", target: { width: 1080, height: 1440 }, size: "1152x1536" },
     { label: "1.91:1", target: { width: 1200, height: 628 }, size: "2048x1072" },
     { label: "16:9", target: { width: 1920, height: 1080 }, size: "2048x1152" },
   ];
@@ -111,6 +124,16 @@ describe("formatToOpenAIImageSize — gpt-image-2 target-aspect sizing", () => {
     expect(size).toBe("1152x2048");
     expect(size).not.toBe("1024x1024");
   });
+
+  it("returns 3:4 target-aspect size for 3:4 with gpt-image-2, never 4:5", () => {
+    const size = formatToOpenAIImageSize("3:4", { modelName: "gpt-image-2" });
+    expect(size).toBe("1152x1536");
+    expect(size).not.toBe("1088x1360");
+  });
+
+  it("nearest-ratio search never returns 4:5 for 3:4 dimensions", () => {
+    expect(dimensionsToGptImage2Size({ width: 1080, height: 1440 })).toBe("1152x1536");
+  });
 });
 
 describe("formatToOpenAIImageSize — non-gpt-image-2 fallback", () => {
@@ -133,5 +156,15 @@ describe("formatToOpenAIImageSize — non-gpt-image-2 fallback", () => {
 
   it("falls back to square when no model is provided", () => {
     expect(formatToOpenAIImageSize("4:5")).toBe("1024x1536");
+  });
+
+  it("fails explicitly for 3:4 on models without confirmed 3:4 support", () => {
+    expect(() => formatToOpenAIImageSize("3:4", { modelName: "gpt-image-1" })).toThrow(
+      /3:4.*gpt-image-2/
+    );
+    expect(() => formatToOpenAIImageSize("3:4", { isPreview: true, modelName: "dall-e-3" })).toThrow(
+      /3:4.*gpt-image-2/
+    );
+    expect(() => formatToOpenAIImageSize("3:4")).toThrow(/3:4.*gpt-image-2/);
   });
 });

@@ -84,7 +84,7 @@ export interface CreativeWorkIdentitySnapshot {
   }>;
   referenceSelection?: {
     strategy: "ranked" | "manual";
-    format: "1:1" | "4:5" | "9:16" | null;
+    format: "1:1" | "4:5" | "9:16" | "3:4" | null;
     operatorSelectedReferenceIds: string[];
     reasons: Record<string, string[]>;
   };
@@ -131,9 +131,9 @@ export interface CreativeWorkItem {
   toolKind: CreativeWorkIntent;
   status: CreativeWorkStatus;
   brief: SocialPostBrief;
-  format: "1:1" | "4:5" | "9:16";
+  format: "1:1" | "4:5" | "9:16" | "3:4";
   settings: {
-    targetFormats: Array<"1:1" | "4:5" | "9:16">;
+    targetFormats: Array<"1:1" | "4:5" | "9:16" | "3:4">;
     formatMode?: "auto" | "manual";
     textLayout?: "top" | "center" | "bottom" | "side";
     fontAssetKey?: string;
@@ -197,7 +197,7 @@ export interface CreativeWorkOutput {
   id: string;
   workItemId: string;
   creativeLevel: CreativeLevel;
-  targetFormat: "1:1" | "4:5" | "9:16";
+  targetFormat: "1:1" | "4:5" | "9:16" | "3:4";
   versionNumber: number;
   parentOutputId: string | null;
   revisionInstruction: string | null;
@@ -646,7 +646,7 @@ export function useCreateCreativeWork() {
     mutationFn: (input: {
       clientProfileId: string;
       toolKind: "social_post";
-      format: "1:1" | "4:5" | "9:16";
+      format: "1:1" | "4:5" | "9:16" | "3:4";
       brief: SocialPostBrief;
     }) => postJson<{ work: CreativeWorkItem }>("/api/creative-work", input),
     onSuccess: async (result) => {

@@ -23,8 +23,9 @@ import {
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import {
+  CREATABLE_CREATIVE_WORK_FORMATS,
   createCreativeWorkSchema,
-  creativeWorkFormatSchema,
+  creatableCreativeWorkFormatSchema,
   creativeWorkIntentSchema,
   creativeWorkPreparationSchema,
   creativeWorkSettingsSchema,
@@ -52,7 +53,7 @@ const createDraftSchema = z.object({
   draftKey: z.string().uuid(),
   request: z.string().trim(),
   intent: creativeWorkIntentSchema,
-  format: creativeWorkFormatSchema,
+  format: creatableCreativeWorkFormatSchema,
   settings: creativeWorkSettingsSchema,
   assetId: z.string().min(1).optional(),
   templateId: z.string().min(1).optional(),
@@ -64,6 +65,14 @@ const createDraftSchema = z.object({
   }
   if (sourceCount > 1 || Boolean(sourceCount) !== Boolean(value.usage)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["usage"], message: "sourceAndUsageRequired" });
+  }
+  // ICE-04A: adaptation targets are new outputs — 3:4 stays off here too.
+  const creatable = new Set<string>(CREATABLE_CREATIVE_WORK_FORMATS);
+  for (const target of value.settings.targetFormats) {
+    if (!creatable.has(target)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["settings", "targetFormats"], message: "formatCreationDisabled" });
+      break;
+    }
   }
   const parsed = creativeWorkPreparationSchema.safeParse(value);
   if (!parsed.success) parsed.error.issues.forEach((issue) => context.addIssue(issue));

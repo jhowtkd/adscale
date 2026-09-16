@@ -39,7 +39,7 @@ export interface BrandKnowledgeClaimInput {
   claimKey: BrandKnowledgeClaimKey;
   kind: "fact" | "rule" | "preference" | "prohibition";
   value: unknown;
-  scope: { level: "global"; format?: "1:1" | "4:5" | "9:16"; channel?: string };
+  scope: { level: "global"; format?: "1:1" | "4:5" | "9:16" | "3:4"; channel?: string };
   authority: "human" | "explicit" | "measured" | "inferred";
   confidence: "low" | "medium" | "high";
   evidenceRefs: BrandKnowledgeEvidenceRef[];
@@ -66,7 +66,7 @@ export const brandKnowledgeEvidenceRefSchema = z.object({
 
 const scopeSchema = z.object({
   level: z.literal("global"),
-  format: z.enum(["1:1", "4:5", "9:16"]).optional(),
+  format: z.enum(["1:1", "4:5", "9:16", "3:4"]).optional(),
   channel: z.string().trim().min(1).max(80).optional(),
 });
 

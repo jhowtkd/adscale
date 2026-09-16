@@ -265,7 +265,7 @@ export async function executeGenerationStep(
     })
   );
 
-  const targetFormat = ctx.promptContext.targetFormat as "1:1" | "4:5" | "9:16";
+  const targetFormat = ctx.promptContext.targetFormat as "1:1" | "4:5" | "9:16" | "3:4";
   const referenceImages = referenceToInputs(ctx.reference, ctx.promptContext.generationMode);
   const outputPrefix = `derivations/${ctx.derivationId}`;
   const outputSuffix = ctx.autoRetry ? "-retry" : "";

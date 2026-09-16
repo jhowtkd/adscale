@@ -346,7 +346,7 @@ const publishedClaimSchema = z
     value: z.unknown(),
     scope: z.object({
       level: z.literal("global"),
-      format: z.enum(["1:1", "4:5", "9:16"]).optional(),
+      format: z.enum(["1:1", "4:5", "9:16", "3:4"]).optional(),
       channel: z.string().trim().min(1).max(80).optional(),
     }),
     authority: z.enum(["human", "explicit", "measured", "inferred"]),

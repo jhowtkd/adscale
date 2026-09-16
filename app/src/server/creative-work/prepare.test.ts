@@ -10,8 +10,8 @@ import { quoteCreativeWork } from "./contracts";
 
 describe("formatFromDimensions", () => {
   it.each([
-    [1080, 1080, "1:1"], [1080, 1350, "4:5"], [1080, 1920, "9:16"],
-    [1024, 1280, "4:5"], [1079, 1350, "4:5"],
+    [1080, 1080, "1:1"], [1080, 1350, "4:5"], [1080, 1920, "9:16"], [1080, 1440, "3:4"],
+    [1024, 1280, "4:5"], [1079, 1350, "4:5"], [1152, 1536, "3:4"],
     [0, 1350, null], [-1, 1350, null], [1080, 0, null],
     [null, 1350, null], [1080, null, null], [NaN, 1350, null],
     [1080, Infinity, null], [1920, 1080, null], [1000, 1350, null],
@@ -67,6 +67,17 @@ describe("inferCreativeWorkFormat", () => {
 
   it("infers the format from the textual request before image analysis", () => {
     expect(inferCreativeWorkFormat([], "Crie um Story vertical 9:16")).toBe("9:16");
+  });
+
+  it("infers explicit 3:4 without changing the old keyword readings", () => {
+    expect(inferCreativeWorkFormat([], "Peça 3:4 para o feed")).toBe("3:4");
+    expect(inferCreativeWorkFormat([], "Quero 3 : 4, formato 3:4")).toBe("3:4");
+    expect(inferCreativeWorkFormat([{ format: "retrato 3:4" }])).toBe("3:4");
+    // Old readings stay put: retrato is 4:5, vertical is 9:16.
+    expect(inferCreativeWorkFormat([], "retrato vertical")).toBe("9:16");
+    expect(inferCreativeWorkFormat([], "retrato")).toBe("4:5");
+    expect(inferCreativeWorkFormat([{ format: "vertical" }], "Base 3:4 ou 9:16", "4:5")).toBe("4:5");
+    expect(inferCreativeWorkFormat([], "3:4 ou 9:16")).toBeNull();
   });
 });
 
