@@ -1,7 +1,5 @@
-import * as Sentry from "@sentry/nextjs";
+import { captureExceptionOnce } from "./logger";
 
 export function captureException(error: unknown, context?: Record<string, unknown>) {
-  if (process.env.SENTRY_DSN) {
-    Sentry.captureException(error, { extra: context });
-  }
+  captureExceptionOnce(error, context);
 }
