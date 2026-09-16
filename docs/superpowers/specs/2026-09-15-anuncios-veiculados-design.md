@@ -4,6 +4,7 @@ Data: 2026-09-15 (rev. 2). Especificação de implementação proposta; nenhuma
 alteração de aplicação, migração ou publicação foi executada nesta etapa.
 
 Mapa: [#343](https://github.com/jhowtkd/adscale/issues/343).
+Pesquisa: `docs/research/2026-09-14-meta-marketing-api-creatives-insights.md` (branch `research/meta-marketing-api`).
 Decisões: [#344](https://github.com/jhowtkd/adscale/issues/344) (API),
 [#345](https://github.com/jhowtkd/adscale/issues/345) (vínculo/termos),
 [#346](https://github.com/jhowtkd/adscale/issues/346) (relatório),

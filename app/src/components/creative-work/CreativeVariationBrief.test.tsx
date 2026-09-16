@@ -118,6 +118,15 @@ describe("CreativeVariationBrief", () => {
     );
   });
 
+  it("keeps the collapsed reading under an accessible disclosure toggle", () => {
+    render(<CreativeVariationBrief source={source} />);
+
+    const toggle = document.querySelector("summary");
+    expect(toggle).toHaveTextContent("Leitura da IA");
+    expect(toggle).toContainElement(screen.getByTestId("variation-analysis-summary"));
+    expect(screen.getByTestId("variation-analysis-summary")).toHaveClass("line-clamp-2");
+  });
+
   it("does not render the legacy free-form instructions textarea", () => {
     // The variations journey supervises the batch through direction chips and
     // the collapsed manual directions; the old "O que você quer variar?"

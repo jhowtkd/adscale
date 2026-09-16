@@ -4,6 +4,7 @@ Data: 2026-09-15 (rev. 2). Especificação de implementação proposta; nenhuma
 alteração de aplicação, migração ou publicação foi executada nesta etapa.
 
 Mapa: [#343](https://github.com/jhowtkd/adscale/issues/343).
+Pesquisa: `docs/research/2026-09-14-voice-dictation-transcription-ptbr.md` (branch `research/voice-dictation`).
 Decisões: [#350](https://github.com/jhowtkd/adscale/issues/350) (motores),
 [#351](https://github.com/jhowtkd/adscale/issues/351) (termo/comportamento),
 [#352](https://github.com/jhowtkd/adscale/issues/352) (cobrança/limites).

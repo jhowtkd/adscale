@@ -4,6 +4,7 @@ Data: 2026-09-15 (rev. 2). Especificação de implementação proposta; nenhuma
 alteração de aplicação, migração ou publicação foi executada nesta etapa.
 
 Mapa: [#343](https://github.com/jhowtkd/adscale/issues/343).
+Pesquisa: `docs/research/2026-09-14-mcp-remote-server-and-skills.md` (branch `research/mcp-and-skills`).
 Decisões: [#354](https://github.com/jhowtkd/adscale/issues/354) (spec/auth),
 [#355](https://github.com/jhowtkd/adscale/issues/355) (operações),
 [#356](https://github.com/jhowtkd/adscale/issues/356) (identidade),
