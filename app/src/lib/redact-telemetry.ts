@@ -248,6 +248,21 @@ function redactConsoleValue(
 }
 
 /**
+ * Clone `error` as a redacted `Error` instance for Sentry capture. Unlike
+ * {@link redactTelemetry} (which flattens Errors to plain shapes), the clone
+ * stays an `Error` so Sentry keeps native exception grouping, with secrets
+ * scrubbed from `message`, `stack`, `cause` chains and own props. Never
+ * mutates the input and never throws.
+ */
+export function redactErrorForCapture(error: Error): Error {
+  try {
+    return cloneErrorRedacted(error, new WeakMap(), 0);
+  } catch {
+    return new Error(UNREADABLE);
+  }
+}
+
+/**
  * Deep-redact `value` into JSON-serializable plain data. Errors become plain
  * `{ name, message, stack?, cause?, ...props }` shapes. Never mutates the
  * input and never throws.

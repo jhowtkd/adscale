@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { redactTelemetry } from "./redact-telemetry";
+import { redactErrorForCapture, redactTelemetry } from "./redact-telemetry";
 
 describe("redactTelemetry", () => {
   it("redacts well-known secret keys without touching siblings", () => {
@@ -110,6 +110,31 @@ describe("redactTelemetry", () => {
     expect(error.message).toBe("call failed");
     expect((error as unknown as Record<string, unknown>).accessToken).toBe(
       "tok-err"
+    );
+  });
+
+  it("clones Errors for capture with secrets scrubbed and the original untouched", () => {
+    const cause = new Error("inner password=hunter2-inner");
+    const error = new Error("outer token=tok-outer-1", { cause });
+    (error as unknown as Record<string, unknown>).apiKey = "key-outer-2";
+    const clone = redactErrorForCapture(error);
+    expect(clone).toBeInstanceOf(Error);
+    expect(clone).not.toBe(error);
+    expect(clone.name).toBe("Error");
+    expect(clone.message).not.toContain("tok-outer-1");
+    expect(clone.message).toContain("[REDACTED]");
+    expect(String((clone.cause as Error | undefined)?.message ?? "")).not.toContain(
+      "hunter2-inner"
+    );
+    expect((clone as unknown as Record<string, unknown>).apiKey).toBe(
+      "[REDACTED]"
+    );
+    expect(String(clone.stack)).toContain("Error");
+    expect(String(clone.stack)).not.toContain("tok-outer-1");
+    // The caller's Error instance is untouched.
+    expect(error.message).toBe("outer token=tok-outer-1");
+    expect((error as unknown as Record<string, unknown>).apiKey).toBe(
+      "key-outer-2"
     );
   });
 

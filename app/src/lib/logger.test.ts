@@ -64,12 +64,13 @@ describe("logger hardening (trace-385)", () => {
     });
     await flushSentry();
     expect(sentryMocks.captureException).toHaveBeenCalledTimes(1);
-    expect(sentryMocks.captureException).toHaveBeenCalledWith(
-      nested,
-      expect.objectContaining({
-        extra: expect.objectContaining({ workItemId: "work-2" }),
-      })
-    );
+    const [captured, nestedOptions] = sentryMocks.captureException.mock
+      .calls[0] as [unknown, { extra: Record<string, unknown> }];
+    // Sentry receives a redacted clone, not the caller's object.
+    expect(captured).toBeInstanceOf(Error);
+    expect(captured).not.toBe(nested);
+    expect((captured as Error).message).toBe("provider blew up");
+    expect(nestedOptions.extra).toMatchObject({ workItemId: "work-2" });
     expect(sentryMocks.captureMessage).not.toHaveBeenCalled();
   });
 
@@ -237,6 +238,97 @@ describe("logger hardening (trace-385)", () => {
     expect(second.extra).not.toHaveProperty("secretA");
     expect(second.extra).not.toHaveProperty("apiKey");
     expect(second.extra).not.toHaveProperty("namespace");
+  });
+
+  it("redacts secret-bearing headlines before they reach Sentry", async () => {
+    logger.warn(
+      "trace-385-headline Bearer abcDEF123456 api_key=sk-live-secret-1"
+    );
+    logger.warn(
+      "https://cdn.example.com/a.png?workspaceId=ws-1&signature=sig-secret-2&token=tok-secret-3"
+    );
+    await flushSentry();
+    expect(sentryMocks.captureMessage).toHaveBeenCalledTimes(2);
+    const [mixed] = sentryMocks.captureMessage.mock.calls[0] as [string];
+    expect(mixed).toContain("trace-385-headline");
+    expect(mixed).toContain("Bearer [REDACTED]");
+    expect(mixed).toContain("api_key=[REDACTED]");
+    expect(mixed).not.toContain("abcDEF123456");
+    expect(mixed).not.toContain("sk-live-secret-1");
+    const [signed] = sentryMocks.captureMessage.mock.calls[1] as [string];
+    expect(signed).toContain("workspaceId=ws-1");
+    expect(signed).toContain("cdn.example.com/a.png");
+    expect(signed).not.toContain("sig-secret-2");
+    expect(signed).not.toContain("tok-secret-3");
+  });
+
+  it("captures a redacted Error clone while deduping by original identity", async () => {
+    const cause = new Error("connect with password=hunter2-cause");
+    const error = new Error("call failed with token=tok-secret-msg", { cause });
+    logger.error("trace-385-first", error);
+    logger.error("trace-385-second", { error });
+    await flushSentry();
+    // Same original object: still exactly one incident.
+    expect(sentryMocks.captureException).toHaveBeenCalledTimes(1);
+    expect(sentryMocks.captureMessage).not.toHaveBeenCalled();
+    const [captured] = sentryMocks.captureException.mock.calls[0] as [
+      Error,
+    ];
+    expect(captured).toBeInstanceOf(Error);
+    expect(captured).not.toBe(error);
+    expect(captured.message).not.toContain("tok-secret-msg");
+    expect(captured.message).toContain("[REDACTED]");
+    expect(String((captured.cause as Error)?.message ?? "")).not.toContain(
+      "hunter2-cause"
+    );
+    // The caller's Error instance is untouched.
+    expect(error.message).toBe("call failed with token=tok-secret-msg");
+    expect((cause as Error).message).toBe("connect with password=hunter2-cause");
+  });
+
+  it("redacts secrets captured via captureExceptionOnce", async () => {
+    const sameModule = await import("@/lib/logger");
+    const error = new Error("run failed with api_key=sk-once-secret", {
+      cause: new Error("inner secret=inner-secret-3"),
+    });
+    sameModule.captureExceptionOnce(error, { runId: "run-redact" });
+    sameModule.captureExceptionOnce(error, { runId: "run-redact" });
+    await flushSentry();
+    expect(sentryMocks.captureException).toHaveBeenCalledTimes(1);
+    const [captured, options] = sentryMocks.captureException.mock
+      .calls[0] as [Error, { extra: Record<string, unknown> }];
+    expect(captured).toBeInstanceOf(Error);
+    expect(captured).not.toBe(error);
+    expect(captured.message).not.toContain("sk-once-secret");
+    expect(String((captured.cause as Error)?.message ?? "")).not.toContain(
+      "inner-secret-3"
+    );
+    expect(options.extra).toMatchObject({ runId: "run-redact" });
+    expect(error.message).toBe("run failed with api_key=sk-once-secret");
+  });
+
+  it("keeps warn+Error at warning severity without opening an error incident", async () => {
+    logger.warn("trace-385-recoverable", new Error("provider timeout"));
+    await flushSentry();
+    expect(sentryMocks.captureException).toHaveBeenCalledTimes(1);
+    expect(sentryMocks.captureMessage).not.toHaveBeenCalled();
+    const [captured, options] = sentryMocks.captureException.mock
+      .calls[0] as [unknown, { level?: string; extra: Record<string, unknown> }];
+    expect(captured).toBeInstanceOf(Error);
+    expect(options.level).toBe("warning");
+    expect(options.extra.logMessage).toBe("trace-385-recoverable");
+  });
+
+  it("keeps error+Error capture shape unchanged (default error severity)", async () => {
+    logger.error("trace-385-fatal", new Error("disk gone"));
+    await flushSentry();
+    expect(sentryMocks.captureException).toHaveBeenCalledTimes(1);
+    const [, options] = sentryMocks.captureException.mock.calls[0] as [
+      unknown,
+      { level?: string; extra: Record<string, unknown> },
+    ];
+    expect(options).not.toHaveProperty("level");
+    expect(options.extra.logMessage).toBe("trace-385-fatal");
   });
 
   it("keeps the [api-error] single-capture exemption", async () => {

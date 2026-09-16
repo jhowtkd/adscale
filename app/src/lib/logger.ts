@@ -1,4 +1,8 @@
-import { redactConsoleArg, redactTelemetry } from "./redact-telemetry";
+import {
+  redactConsoleArg,
+  redactErrorForCapture,
+  redactTelemetry,
+} from "./redact-telemetry";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -177,6 +181,16 @@ function wasCaptured(error: object): boolean {
 
 type CaptureTags = Record<string, string | number | boolean>;
 
+/**
+ * Redact the Sentry-bound capture payload. Errors become redacted `Error`
+ * clones (native grouping preserved); anything else goes through the shared
+ * deep redaction. Never throws.
+ */
+function redactedCapturePayload(error: unknown): unknown {
+  if (error instanceof Error) return redactErrorForCapture(error);
+  return redactTelemetry(error);
+}
+
 function redactedExtra(
   context: Record<string, unknown>,
   skipValue: unknown,
@@ -211,12 +225,13 @@ export function captureExceptionOnce(
       if (wasCaptured(error)) return;
       markCaptured(error);
     }
+    const payload = redactedCapturePayload(error);
     void loadSentry()
       .then((Sentry) => {
         if (!Sentry) return;
         try {
           Sentry.captureException(
-            error,
+            payload,
             context || tags
               ? {
                   ...(tags ? { tags } : {}),
@@ -255,16 +270,22 @@ function forwardToSentry(
     if (record.error) {
       // No-duplicate rule: an Error-bearing call captures the exception only,
       // never exception-plus-message; an already-captured exception (the
-      // capture-plus-log pair) stays console-only.
+      // capture-plus-log pair) stays console-only. Dedup stays keyed on the
+      // ORIGINAL object while Sentry receives a redacted clone.
       if (wasCaptured(record.error)) return;
       markCaptured(record.error);
-      const error = record.error;
-      const extra = redactedExtra(record.context, error, namespace, record.message || undefined);
+      const original = record.error;
+      const error = redactErrorForCapture(original);
+      const extra = redactedExtra(record.context, original, namespace, record.message || undefined);
+      // Warn+Error preserves warning severity (recoverable paths must not
+      // open error-severity incidents); error+Error keeps the default.
+      const captureOptions =
+        record.level === "warn" ? { level: "warning" as const, extra } : { extra };
       void loadSentry()
         .then((Sentry) => {
           if (!Sentry) return;
           try {
-            Sentry.captureException(error, { extra });
+            Sentry.captureException(error, captureOptions);
           } catch {
             // SDK failures must never break callers.
           }
@@ -274,7 +295,7 @@ function forwardToSentry(
     }
 
     if (!record.headline) return;
-    const message = record.headline;
+    const message = String(redactTelemetry(record.headline));
     const extra = redactedExtra(record.context, undefined, namespace);
     const sentryLevel = record.level === "error" ? "error" : "warning";
     void loadSentry()
