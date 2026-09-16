@@ -55,7 +55,14 @@ describe("redactTelemetry", () => {
         { attemptNumber: 2, headers: { authorization: "Bearer b" } },
       ],
       nested: { deep: { password: "c" } },
-    }) as any;
+    }) as {
+      attempts: Array<{
+        attemptNumber: unknown;
+        apiKey?: unknown;
+        headers?: { authorization: unknown };
+      }>;
+      nested: { deep: { password: unknown } };
+    };
     expect(out.attempts[0]).toMatchObject({ attemptNumber: 1, apiKey: "[REDACTED]" });
     expect(out.attempts[1].headers.authorization).toBe("[REDACTED]");
     expect(out.nested.deep.password).toBe("[REDACTED]");
@@ -84,8 +91,16 @@ describe("redactTelemetry", () => {
   it("serializes Errors and redacts secrets in message, stack and cause chains", () => {
     const cause = new Error("connect with api_key=sk-cause");
     const error = new Error("call failed", { cause });
-    (error as any).accessToken = "tok-err";
-    const out = redactTelemetry({ error }) as any;
+    (error as unknown as Record<string, unknown>).accessToken = "tok-err";
+    const out = redactTelemetry({ error }) as {
+      error: {
+        name: unknown;
+        message: unknown;
+        stack?: unknown;
+        cause?: { message: unknown };
+        accessToken: unknown;
+      };
+    };
     expect(out.error.name).toBe("Error");
     expect(String(out.error.message)).not.toContain("sk-cause");
     expect(out.error.accessToken).toBe("[REDACTED]");
@@ -93,7 +108,9 @@ describe("redactTelemetry", () => {
     expect(String(out.error.stack)).toContain("Error");
     // The caller's Error instance is untouched.
     expect(error.message).toBe("call failed");
-    expect((error as any).accessToken).toBe("tok-err");
+    expect((error as unknown as Record<string, unknown>).accessToken).toBe(
+      "tok-err"
+    );
   });
 
   it("is safe against circular references", () => {
