@@ -1,5 +1,8 @@
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
-import { findBetaAnalyticsEventByPiece } from "@/server/repositories/beta-analytics";
+import { sanitizeBetaEventProperties } from "@/server/beta-analytics/sanitize";
+import { findBetaAnalyticsEventByPiece, insertBetaAnalyticsEventIdempotent } from "@/server/repositories/beta-analytics";
+import { validateCampaignOwnership } from "@/server/feedback/validate-refs";
+import type { BetaAnalyticsEvent } from "@/server/db/schema";
 import {
   canonicalCreativeWorkOrigin,
   originFromCreativeWork,
@@ -7,7 +10,7 @@ import {
 
 export type CreativeWorkValueEventKind = "approved" | "delivered";
 
-export async function recordCreativeWorkValueEvent(input: {
+export type CreativeWorkValueEventInput = {
   kind: CreativeWorkValueEventKind;
   userId: string;
   workspaceId: string;
@@ -18,10 +21,27 @@ export async function recordCreativeWorkValueEvent(input: {
   origin?: string | null;
   campaignId?: string | null;
   clientProfileId?: string | null;
-}): Promise<void> {
-  const eventKey = input.kind === "approved"
-    ? "creative_work_approved"
-    : "creative_work_delivered";
+};
+
+function valueEventKey(kind: CreativeWorkValueEventKind): string {
+  return kind === "approved" ? "creative_work_approved" : "creative_work_delivered";
+}
+
+function valueEventProperties(input: CreativeWorkValueEventInput): Record<string, unknown> {
+  return {
+    creativeWorkId: input.creativeWorkId,
+    outputId: input.outputId,
+    outputKey: input.outputKey,
+    protocol: input.protocol,
+    origin: canonicalCreativeWorkOrigin(input.origin),
+    ...(input.clientProfileId ? { clientProfileId: input.clientProfileId } : {}),
+  };
+}
+
+export async function recordCreativeWorkValueEvent(
+  input: CreativeWorkValueEventInput
+): Promise<void> {
+  const eventKey = valueEventKey(input.kind);
   try {
     const existing = await findBetaAnalyticsEventByPiece({
       workspaceId: input.workspaceId,
@@ -36,18 +56,55 @@ export async function recordCreativeWorkValueEvent(input: {
       eventKey,
       source: "server",
       campaignId: input.campaignId ?? null,
-      properties: {
-        creativeWorkId: input.creativeWorkId,
-        outputId: input.outputId,
-        outputKey: input.outputKey,
-        protocol: input.protocol,
-        origin: canonicalCreativeWorkOrigin(input.origin),
-        ...(input.clientProfileId ? { clientProfileId: input.clientProfileId } : {}),
-      },
+      properties: valueEventProperties(input),
     });
   } catch (error) {
     console.error("recordCreativeWorkValueEvent failed", error);
   }
+}
+
+/**
+ * Deterministic identity of one logical value event: workspace, event type
+ * and piece. Concurrent writers and next-day retries converge on it.
+ */
+export function valueEventIdempotencyKey(input: {
+  workspaceId: string;
+  eventKey: string;
+  outputId: string;
+}): string {
+  return `ve1:${input.workspaceId}:${input.eventKey}:${input.outputId}`;
+}
+
+/**
+ * Strict value-event path (ICE-03A): constraint-level deduplicated write
+ * that THROWS when the write fails and returns the confirmed record —
+ * never a swallowed error. Used by the selection outbox; legacy callers
+ * outside the outbox keep the tolerant helper above.
+ */
+export async function recordCreativeWorkValueEventStrict(
+  input: CreativeWorkValueEventInput
+): Promise<BetaAnalyticsEvent> {
+  const eventKey = valueEventKey(input.kind);
+  const properties = sanitizeBetaEventProperties(valueEventProperties(input));
+  if (input.campaignId) {
+    await validateCampaignOwnership(input.workspaceId, input.campaignId);
+  }
+  const { event } = await insertBetaAnalyticsEventIdempotent({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    eventKey,
+    properties,
+    sessionId: null,
+    campaignId: input.campaignId ?? null,
+    derivationId: null,
+    source: "server",
+    idempotencyKey: valueEventIdempotencyKey({
+      workspaceId: input.workspaceId,
+      eventKey,
+      outputId: input.outputId,
+    }),
+  });
+  return event;
 }
 
 export function valueEventFromCreativeWork(work: {
