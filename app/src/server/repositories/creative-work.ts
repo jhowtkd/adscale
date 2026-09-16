@@ -1,4 +1,9 @@
 import { artRefinementParentHash } from "@/server/creative-work/art-refinement-parent-hash";
+import {
+  enqueueSelectionEffects,
+  type EnqueuedSelectionEffect,
+  type EnqueueSelectionEffectRequest,
+} from "./selection-effects";
 import { eq, and, asc, desc, count, inArray, isNull, isNotNull, lt, max, ne, notExists, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import { getCreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
@@ -2493,12 +2498,42 @@ export async function recordCreativeWorkGenerationAggregate(
  * Relies on the unique partial index on `is_selected = true` per work item to
  * keep the invariant.
  */
+export type SelectCreativeWorkOutputOptions = {
+  confirmObjective?: boolean;
+  pendingRecipeReceiptId?: string;
+  selectedBy?: "operator" | "agent";
+  /**
+   * Obligations to persist atomically with the selection (ICE-03A). When
+   * present, the same transaction enqueues outbox rows and the result carries
+   * them; an obligation failure rolls the selection back.
+   */
+  effects?: EnqueueSelectionEffectRequest[];
+  /** Original request date shared by the command's effects. Defaults to now. */
+  effectsRequestedAt?: Date;
+};
+
 export async function selectCreativeWorkOutput(
   workspaceId: string,
   workItemId: string,
   outputId: string,
-  options: { confirmObjective?: boolean; pendingRecipeReceiptId?: string; selectedBy?: "operator" | "agent" } = {}
-): Promise<CreativeWorkOutput | null> {
+  options?: SelectCreativeWorkOutputOptions & { effects?: undefined }
+): Promise<CreativeWorkOutput | null>;
+export async function selectCreativeWorkOutput(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string,
+  options: SelectCreativeWorkOutputOptions & { effects: EnqueueSelectionEffectRequest[] }
+): Promise<{ output: CreativeWorkOutput; enqueued: EnqueuedSelectionEffect[] } | null>;
+export async function selectCreativeWorkOutput(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string,
+  options: SelectCreativeWorkOutputOptions = {}
+): Promise<
+  | CreativeWorkOutput
+  | { output: CreativeWorkOutput; enqueued: EnqueuedSelectionEffect[] }
+  | null
+> {
   return db.transaction(async (tx) => {
     const outputs = await tx
       .select()
@@ -2565,7 +2600,16 @@ export async function selectCreativeWorkOutput(
       )
       .returning();
 
-    return selected ?? null;
+    if (!selected) return null;
+    if (!options.effects || options.effects.length === 0) return selected;
+    const enqueued = await enqueueSelectionEffects(tx, {
+      workspaceId,
+      workItemId,
+      outputId,
+      effects: options.effects,
+      requestedAt: options.effectsRequestedAt ?? new Date(),
+    });
+    return { output: selected, enqueued };
   });
 }
 

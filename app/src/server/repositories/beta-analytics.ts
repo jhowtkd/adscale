@@ -37,6 +37,45 @@ export async function insertBetaAnalyticsEvent(
   return event;
 }
 
+export async function findBetaAnalyticsEventByIdempotencyKey(input: {
+  workspaceId: string;
+  idempotencyKey: string;
+}): Promise<BetaAnalyticsEvent | null> {
+  const [row] = await db
+    .select()
+    .from(betaAnalyticsEvents)
+    .where(and(
+      eq(betaAnalyticsEvents.workspaceId, input.workspaceId),
+      eq(betaAnalyticsEvents.idempotencyKey, input.idempotencyKey),
+    ))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Constraint-level deduplicated insert (ICE-03A). Concurrent writers of the
+ * same logical event converge on one row: the loser re-reads the winner's
+ * row instead of failing. Never swallows real errors.
+ */
+export async function insertBetaAnalyticsEventIdempotent(
+  input: NewBetaAnalyticsEvent & { idempotencyKey: string }
+): Promise<{ event: BetaAnalyticsEvent; created: boolean }> {
+  const [created] = await db
+    .insert(betaAnalyticsEvents)
+    .values(input)
+    .onConflictDoNothing({ target: betaAnalyticsEvents.idempotencyKey })
+    .returning();
+  if (created) return { event: created, created: true };
+  const existing = await findBetaAnalyticsEventByIdempotencyKey({
+    workspaceId: input.workspaceId,
+    idempotencyKey: input.idempotencyKey,
+  });
+  if (!existing) {
+    throw new Error("beta_analytics_conflict_without_row");
+  }
+  return { event: existing, created: false };
+}
+
 function buildAnalyticsConditions(
   filters: BetaAnalyticsListFilters | OwnerAnalyticsListFilters
 ) {

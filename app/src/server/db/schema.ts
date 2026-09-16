@@ -1279,9 +1279,14 @@ export const betaAnalyticsEvents = adscaleSchema.table(
     derivationId: uuid("derivation_id").references(() => derivations.id, {
       onDelete: "set null",
     }),
+    idempotencyKey: text("idempotency_key"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
+    // Full (not partial) unique index: Postgres treats NULLs as distinct, so
+    // legacy rows without a key are unaffected, and plain ON CONFLICT (key)
+    // arbiters match this index.
+    uniqueIndex("beta_analytics_events_idempotency_uq").on(table.idempotencyKey),
     index("beta_analytics_events_workspace_created_idx").on(
       table.workspaceId,
       table.createdAt
@@ -3011,6 +3016,104 @@ export const creativeWorkOutputs = adscaleSchema.table(
 
 export type CreativeWorkOutput = typeof creativeWorkOutputs.$inferSelect;
 export type NewCreativeWorkOutput = typeof creativeWorkOutputs.$inferInsert;
+
+/**
+ * Outbox durável de efeitos de seleção humana (ICE-03A). Cada linha é uma
+ * obrigação confirmada junto com a aprovação, na mesma transação da seleção:
+ * se a transação falhar, nada foi aprovado; se confirmar, falhas posteriores
+ * não desfazem a decisão. A unicidade (workspace, output, tipo, versão do
+ * efeito) é a autoridade de deduplicação — replays e retentativas encontram
+ * a linha original com a data original, sem trocar de coorte. O processador
+ * com lease (ICE-03B) converge pendências; esta tabela nunca é exposta ao
+ * navegador — a interface lê a projeção do resultado do comando.
+ */
+export type SelectionEffectKind = "library" | "value_event" | "recipe";
+export type DurableEffectState =
+  | "pending"
+  | "processing"
+  | "retry_wait"
+  | "done"
+  | "dead"
+  | "canceled";
+
+export type SelectionEffectPayload =
+  | {
+      version: 1;
+      kind: "library";
+      outputKey: string;
+      theme: string;
+      creativeLevel: string;
+    }
+  | {
+      version: 1;
+      kind: "value_event";
+      eventKey: string;
+      userId: string;
+      protocol: string;
+      origin: string;
+      campaignId: string | null;
+      clientProfileId: string | null;
+      creativeWorkId: string;
+      outputKey: string;
+    }
+  | { version: 1; kind: "recipe"; receiptId: string };
+
+export const creativeWorkSelectionEffects = adscaleSchema.table(
+  "creative_work_selection_effects",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    workItemId: uuid("work_item_id")
+      .notNull()
+      .references(() => creativeWorkItems.id, { onDelete: "cascade" }),
+    outputId: uuid("output_id")
+      .notNull()
+      .references(() => creativeWorkOutputs.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull().$type<SelectionEffectKind>(),
+    effectVersion: integer("effect_version").notNull().default(1),
+    idempotencyKey: text("idempotency_key").notNull(),
+    payload: jsonb("payload").notNull().$type<SelectionEffectPayload>(),
+    state: text("state").notNull().$type<DurableEffectState>().default("pending"),
+    requestedAt: timestamp("requested_at", { mode: "date" }).notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { mode: "date" }),
+    leaseOwner: text("lease_owner"),
+    leaseExpiresAt: timestamp("lease_expires_at", { mode: "date" }),
+    errorCode: text("error_code"),
+    completedAt: timestamp("completed_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("creative_work_selection_effects_dedup_uq").on(
+      table.workspaceId,
+      table.outputId,
+      table.kind,
+      table.effectVersion,
+    ),
+    index("creative_work_selection_effects_scope_idx").on(
+      table.workspaceId,
+      table.workItemId,
+    ),
+    index("creative_work_selection_effects_claim_idx").on(
+      table.state,
+      table.nextAttemptAt,
+    ),
+    check(
+      "creative_work_selection_effects_kind_check",
+      sql`${table.kind} in ('library','value_event','recipe')`,
+    ),
+    check(
+      "creative_work_selection_effects_state_check",
+      sql`${table.state} in ('pending','processing','retry_wait','done','dead','canceled')`,
+    ),
+  ],
+);
+
+export type CreativeWorkSelectionEffect = typeof creativeWorkSelectionEffects.$inferSelect;
+export type NewCreativeWorkSelectionEffect = typeof creativeWorkSelectionEffects.$inferInsert;
 
 export const pieceFavorites = adscaleSchema.table(
   "piece_favorites",

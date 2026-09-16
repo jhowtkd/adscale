@@ -16,6 +16,7 @@ function event(
     source: "client",
     campaignId: null,
     derivationId: null,
+    idempotencyKey: null,
     createdAt: new Date("2026-06-07T14:00:00.000Z"),
     ...overrides,
   };
@@ -132,6 +133,7 @@ function studioEvent(
     source,
     campaignId: null,
     derivationId: null,
+    idempotencyKey: null,
     createdAt: new Date(createdAt),
   };
 }

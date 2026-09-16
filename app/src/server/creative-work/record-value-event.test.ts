@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const recordMock = vi.hoisted(() => vi.fn());
 const findMock = vi.hoisted(() => vi.fn());
+const insertIdempotentMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/beta-analytics/record", () => ({
   recordBetaAnalyticsEvent: (...args: unknown[]) => recordMock(...args),
@@ -9,9 +10,19 @@ vi.mock("@/server/beta-analytics/record", () => ({
 
 vi.mock("@/server/repositories/beta-analytics", () => ({
   findBetaAnalyticsEventByPiece: (...args: unknown[]) => findMock(...args),
+  insertBetaAnalyticsEventIdempotent: (...args: unknown[]) => insertIdempotentMock(...args),
 }));
 
-import { recordCreativeWorkValueEvent, valueEventFromCreativeWork } from "./record-value-event";
+vi.mock("@/server/feedback/validate-refs", () => ({
+  validateCampaignOwnership: vi.fn().mockResolvedValue(undefined),
+}));
+
+import {
+  recordCreativeWorkValueEvent,
+  recordCreativeWorkValueEventStrict,
+  valueEventFromCreativeWork,
+  valueEventIdempotencyKey,
+} from "./record-value-event";
 
 describe("recordCreativeWorkValueEvent", () => {
   beforeEach(() => {
@@ -108,5 +119,69 @@ describe("recordCreativeWorkValueEvent", () => {
       campaignId: "camp-1",
       toolKind: "single",
     }).origin).toBe("campaign");
+  });
+});
+
+describe("valueEventIdempotencyKey", () => {
+  it("is deterministic per workspace, event type and piece", () => {
+    const input = { workspaceId: "ws-1", eventKey: "creative_work_approved", outputId: "out-1" };
+    expect(valueEventIdempotencyKey(input)).toBe(valueEventIdempotencyKey(input));
+    expect(valueEventIdempotencyKey({ ...input, outputId: "out-2" })).not.toBe(
+      valueEventIdempotencyKey(input),
+    );
+    expect(
+      valueEventIdempotencyKey({ ...input, eventKey: "creative_work_delivered" }),
+    ).not.toBe(valueEventIdempotencyKey(input));
+  });
+});
+
+describe("recordCreativeWorkValueEventStrict", () => {
+  const payload = {
+    kind: "approved" as const,
+    userId: "user-1",
+    workspaceId: "ws-1",
+    creativeWorkId: "work-1",
+    outputId: "output-1",
+    outputKey: "creative-work/output-1/v1.png",
+    protocol: "single",
+  };
+
+  beforeEach(() => {
+    insertIdempotentMock.mockReset();
+    insertIdempotentMock.mockResolvedValue({ event: { id: "evt-1" }, created: true });
+  });
+
+  it("writes with the deterministic idempotency key and returns the confirmed row", async () => {
+    const event = await recordCreativeWorkValueEventStrict(payload);
+    expect(event).toEqual({ id: "evt-1" });
+    expect(insertIdempotentMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "ws-1",
+        eventKey: "creative_work_approved",
+        idempotencyKey: valueEventIdempotencyKey({
+          workspaceId: "ws-1",
+          eventKey: "creative_work_approved",
+          outputId: "output-1",
+        }),
+      }),
+    );
+  });
+
+  it("returns the existing logical event on conflict without a second write", async () => {
+    const originalCreatedAt = new Date("2026-09-10T00:00:00.000Z");
+    insertIdempotentMock.mockResolvedValue({
+      event: { id: "evt-orig", createdAt: originalCreatedAt },
+      created: false,
+    });
+    const event = await recordCreativeWorkValueEventStrict(payload);
+    // Escritor perdedor, crash após persistir ou retry no dia seguinte: um
+    // evento lógico só, com a data original (sem troca de coorte).
+    expect(event).toEqual({ id: "evt-orig", createdAt: originalCreatedAt });
+    expect(insertIdempotentMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects when the write fails instead of swallowing", async () => {
+    insertIdempotentMock.mockRejectedValue(new Error("analytics down"));
+    await expect(recordCreativeWorkValueEventStrict(payload)).rejects.toThrow("analytics down");
   });
 });

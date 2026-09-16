@@ -2408,6 +2408,130 @@ describe("creative-work repository", () => {
     });
   });
 
+  describe("selectCreativeWorkOutput with outbox effects", () => {
+    const requestedAt = new Date("2026-09-16T00:00:00.000Z");
+    const libraryEffect = {
+      kind: "library" as const,
+      payload: {
+        version: 1 as const,
+        kind: "library" as const,
+        outputKey: "creative-work/output-1/out.png",
+        theme: "Tema",
+        creativeLevel: "balanced",
+      },
+    };
+
+    function queueSelectableCandidate() {
+      mocks.state.selectResults.push([workOutput({
+        id: "output-1",
+        status: "completed",
+        outputKey: "creative-work/output-1/out.png",
+        quality: { schemaVersion: 1, objectiveVerdict: "pass" },
+      })]);
+      mocks.state.txUpdateResults.push([workOutput({ id: "output-1", isSelected: true })]);
+    }
+
+    it("enqueues requested effects in the selection transaction", async () => {
+      queueSelectableCandidate();
+      mocks.state.onConflictResults.push(
+        [{ id: "effect-1", state: "pending" }],
+        [{ id: "effect-2", state: "pending" }],
+      );
+
+      const result = await selectCreativeWorkOutput("ws-1", "work-1", "output-1", {
+        confirmObjective: true,
+        effects: [
+          libraryEffect,
+          {
+            kind: "value_event",
+            payload: {
+              version: 1,
+              kind: "value_event",
+              eventKey: "creative_work_approved",
+              userId: "user-1",
+              protocol: "single",
+              origin: "studio",
+              campaignId: null,
+              clientProfileId: "profile-1",
+              creativeWorkId: "work-1",
+              outputKey: "creative-work/output-1/out.png",
+            },
+          },
+        ],
+        effectsRequestedAt: requestedAt,
+      });
+
+      expect(mocks.transactionMock).toHaveBeenCalledTimes(1);
+      expect(result).toMatchObject({
+        output: { id: "output-1", isSelected: true },
+        enqueued: [
+          { kind: "library", created: true },
+          { kind: "value_event", created: true },
+        ],
+      });
+      expect(mocks.valuesMock).toHaveBeenCalledTimes(2);
+      expect(mocks.valuesMock.mock.calls[0]?.[0]).toMatchObject({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: "output-1",
+        kind: "library",
+        state: "pending",
+        requestedAt,
+      });
+    });
+
+    it("returns the existing row on replay without a second logical effect", async () => {
+      queueSelectableCandidate();
+      mocks.state.onConflictResults.push([]);
+      const originalRequestedAt = new Date("2026-09-10T00:00:00.000Z");
+      mocks.state.selectResults.push([{ id: "effect-orig", state: "pending", requestedAt: originalRequestedAt }]);
+
+      const result = await selectCreativeWorkOutput("ws-1", "work-1", "output-1", {
+        confirmObjective: true,
+        effects: [libraryEffect],
+        effectsRequestedAt: requestedAt,
+      });
+
+      // Retry no dia seguinte: converge para a linha original, sem trocar a coorte.
+      expect(result).toMatchObject({
+        enqueued: [{
+          kind: "library",
+          created: false,
+          effect: { id: "effect-orig", requestedAt: originalRequestedAt },
+        }],
+      });
+      expect(result).not.toMatchObject({
+        enqueued: [expect.objectContaining({ effect: expect.objectContaining({ requestedAt }) })],
+      });
+    });
+
+    it("aborts the selection when the obligation insert fails", async () => {
+      queueSelectableCandidate();
+      mocks.onConflictReturningMock.mockRejectedValueOnce(new Error("obligation down"));
+
+      await expect(
+        selectCreativeWorkOutput("ws-1", "work-1", "output-1", {
+          confirmObjective: true,
+          effects: [libraryEffect],
+          effectsRequestedAt: requestedAt,
+        }),
+      ).rejects.toThrow("obligation down");
+    });
+
+    it("keeps migration 0108 additive: outbox table plus dedup constraints", () => {
+      const migration = readFileSync(
+        new URL("../../../drizzle/0108_selection_effects_outbox.sql", import.meta.url),
+        "utf8",
+      );
+
+      expect(migration).toContain('CREATE TABLE IF NOT EXISTS "adscale_app"."creative_work_selection_effects"');
+      expect(migration).toContain("creative_work_selection_effects_dedup_uq");
+      expect(migration).toContain("beta_analytics_events_idempotency_uq");
+      expect(migration).toContain('"requested_at" timestamp NOT NULL');
+      expect(migration).not.toMatch(/DELETE FROM|DROP TABLE|ALTER TABLE .* DROP COLUMN/);
+    });
+  });
+
   describe("carousel visual-reference cap", () => {
     it("rejects a second non-failed carousel source before insert and analysis dispatch", async () => {
       mocks.state.selectResults.push(

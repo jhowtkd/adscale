@@ -1,7 +1,13 @@
 /**
  * Phase 5 / item 38: select a completed creative-work output as the winner.
  * Library registration reuses ensureCreativeWorkOutputInLibrary (item 37).
+ *
+ * ICE-03A: human approval persists with its requested obligations in one
+ * transaction (selection outbox). Post-commit sinks are strict and
+ * idempotent — "done" requires a confirmed record, never a tolerant return.
  */
+import { db } from "@/server/db";
+import { logger } from "@/lib/logger";
 import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-creative-work-output-library";
 import {
   getCreativeWork,
@@ -10,9 +16,16 @@ import {
   selectCreativeWorkOutput,
   type ReviewPersonFidelityError,
 } from "@/server/repositories/creative-work";
+import {
+  markSelectionEffectDone,
+  recordSelectionEffectAttempt,
+  type DurableEffectState,
+  type EnqueuedSelectionEffect,
+  type EnqueueSelectionEffectRequest,
+} from "@/server/repositories/selection-effects";
 import type { CreativeWorkOutput, VisualRecipe } from "@/server/db/schema";
 import { getCreativeWorkSelectionPolicy, type CreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
-import { recordCreativeWorkValueEvent, valueEventFromCreativeWork } from "@/server/creative-work/record-value-event";
+import { recordCreativeWorkValueEventStrict, valueEventFromCreativeWork } from "@/server/creative-work/record-value-event";
 import { saveVisualRecipeFromOutput } from "@/server/application/save-visual-recipe";
 import { extractVisualRecipe } from "@/server/creative-work/visual-recipe";
 
@@ -69,23 +82,83 @@ export type SelectCreativeWorkOutputResult =
   | { ok: false; error: SelectCreativeWorkOutputError };
 
 /**
- * Um efeito posterior nunca derruba a selecao ja confirmada. Erro inesperado
- * vira estado tipado; a excecao nao sobe. `retryable` diz se outra chamada do
- * MESMO comando pode resolver — nao promete recuperacao automatica.
+ * Project a durable row to the interface contract. "done" surfaces only for
+ * confirmed rows; unfinished work reports pending for convergence; only a
+ * dead or canceled row reports failure.
  */
-async function runEffect(
+export function durableEffectToProjection(effect: {
+  id: string;
+  state: DurableEffectState;
+  errorCode: string | null;
+}): SelectionEffect {
+  switch (effect.state) {
+    case "done":
+      return { status: "done" };
+    case "dead":
+      return { status: "failed", code: effect.errorCode ?? "effect_dead", retryable: false };
+    case "canceled":
+      return { status: "failed", code: "effect_canceled", retryable: false };
+    default:
+      return { status: "pending", receiptId: effect.id };
+  }
+}
+
+function effectErrorCode(cause: unknown, fallback: string): string {
+  const code =
+    cause && typeof cause === "object" && "code" in cause
+      ? String((cause as { code: unknown }).code)
+      : fallback;
+  return code.slice(0, 120);
+}
+
+/**
+ * Execute one outbox obligation post-commit. A later failure never topples
+ * the confirmed selection: it lands as a pending row for convergence
+ * (replay of this same command, or the ICE-03B recovery processor).
+ * Already-settled rows project their state without re-executing.
+ */
+async function executeOutboxEffect(
+  enqueued: EnqueuedSelectionEffect,
   run: () => Promise<void>,
   fallbackCode: string,
 ): Promise<SelectionEffect> {
+  if (!enqueued.created && enqueued.effect.state !== "pending") {
+    return durableEffectToProjection(enqueued.effect);
+  }
   try {
     await run();
-    return { status: "done" };
   } catch (cause) {
-    const code = cause && typeof cause === "object" && "code" in cause
-      ? String((cause as { code: unknown }).code)
-      : fallbackCode;
-    return { status: "failed", code, retryable: true };
+    const code = effectErrorCode(cause, fallbackCode);
+    await recordSelectionEffectAttempt(db, {
+      id: enqueued.effect.id,
+      errorCode: code,
+    }).catch((recordError) => {
+      logger.warn({
+        event: "selection_effect_attempt_unrecorded",
+        effectId: enqueued.effect.id,
+        code,
+        recordError: String(recordError),
+      });
+    });
+    return { status: "pending", receiptId: enqueued.effect.id };
   }
+  try {
+    await markSelectionEffectDone(db, { id: enqueued.effect.id });
+  } catch (cause) {
+    // Sink wrote but confirmation did not persist: stay pending so recovery
+    // replays the idempotent sink instead of claiming an unconfirmed "done".
+    await recordSelectionEffectAttempt(db, {
+      id: enqueued.effect.id,
+      errorCode: "effect_confirm_failed",
+    }).catch(() => undefined);
+    logger.warn({
+      event: "selection_effect_confirm_failed",
+      effectId: enqueued.effect.id,
+      cause: String(cause),
+    });
+    return { status: "pending", receiptId: enqueued.effect.id };
+  }
+  return { status: "done" };
 }
 
 export async function selectCreativeWorkOutputCommand(
@@ -159,8 +232,51 @@ export async function selectCreativeWorkOutputCommand(
   const receiptId = saveAsRecipe
     ? output.selectionEffects?.recipe?.receiptId ?? crypto.randomUUID()
     : "";
+  const requestedAt = new Date();
 
-  const selected = await selectCreativeWorkOutput(
+  const effectRequests: EnqueueSelectionEffectRequest[] = [];
+  if (saveToLibrary) {
+    effectRequests.push({
+      kind: "library",
+      payload: {
+        version: 1,
+        kind: "library",
+        outputKey,
+        theme: briefTheme,
+        creativeLevel: output.creativeLevel,
+      },
+    });
+  }
+  // Seleção por agente não registra evento de valor: sem métricas até o operador confirmar.
+  const valueContext =
+    !isAgent && existing.work.createdByUserId && outputKey
+      ? valueEventFromCreativeWork(existing.work)
+      : null;
+  if (valueContext) {
+    effectRequests.push({
+      kind: "value_event",
+      payload: {
+        version: 1,
+        kind: "value_event",
+        eventKey: "creative_work_approved",
+        userId: valueContext.userId,
+        protocol: valueContext.protocol,
+        origin: valueContext.origin,
+        campaignId: valueContext.campaignId,
+        clientProfileId: valueContext.clientProfileId,
+        creativeWorkId: valueContext.creativeWorkId,
+        outputKey,
+      },
+    });
+  }
+  if (saveAsRecipe) {
+    effectRequests.push({
+      kind: "recipe",
+      payload: { version: 1, kind: "recipe", receiptId },
+    });
+  }
+
+  const selection = await selectCreativeWorkOutput(
     input.workspaceId,
     input.workItemId,
     input.outputId,
@@ -169,9 +285,11 @@ export async function selectCreativeWorkOutputCommand(
       // Ramo operador preserva a chamada exata (repositório defaulteia operator).
       ...(isAgent ? { selectedBy: selectedBy as "agent" } : {}),
       ...(saveAsRecipe ? { pendingRecipeReceiptId: receiptId } : {}),
+      effects: effectRequests,
+      effectsRequestedAt: requestedAt,
     }
   );
-  if (!selected) {
+  if (!selection) {
     const current = await getCreativeWork(input.workspaceId, input.workItemId);
     const currentOutput = current?.outputs.find((candidate) => candidate.id === input.outputId);
     if (!current) {
@@ -198,12 +316,15 @@ export async function selectCreativeWorkOutputCommand(
     }
     return { ok: false, error: { code: "output_not_found" } };
   }
+  const selected = selection.output;
+  const enqueuedByKind = new Map(selection.enqueued.map((entry) => [entry.kind, entry]));
 
   // A selecao esta commitada a partir daqui. Nenhum caminho abaixo pode
   // reclassificar isso como fracasso do comando.
   let library: SelectionEffect = { status: "not_requested" };
-  if (saveToLibrary) {
-    library = await runEffect(async () => {
+  const libraryEntry = enqueuedByKind.get("library");
+  if (libraryEntry) {
+    library = await executeOutboxEffect(libraryEntry, async () => {
       const registered = await ensureCreativeWorkOutputInLibrary({
         workspaceId: input.workspaceId,
         outputKey,
@@ -219,13 +340,13 @@ export async function selectCreativeWorkOutputCommand(
   }
 
   let valueEvent: SelectionEffect = { status: "not_requested" };
-  const selectedKey = selected.outputKey;
-  // Seleção por agente não registra evento de valor: sem métricas até o operador confirmar.
-  if (!isAgent && existing.work.createdByUserId && selectedKey) {
-    const context = valueEventFromCreativeWork(existing.work);
-    valueEvent = await runEffect(async () => {
-      await recordCreativeWorkValueEvent({
-        ...context,
+  const valueEntry = enqueuedByKind.get("value_event");
+  // selected.outputKey tem garantia de repositório; outputKey é o fallback inalcançável.
+  const selectedKey = selected.outputKey ?? outputKey;
+  if (valueEntry && valueContext) {
+    valueEvent = await executeOutboxEffect(valueEntry, async () => {
+      await recordCreativeWorkValueEventStrict({
+        ...valueContext,
         kind: "approved",
         outputId: selected.id,
         outputKey: selectedKey,
@@ -235,28 +356,27 @@ export async function selectCreativeWorkOutputCommand(
 
   let recipe: VisualRecipe | undefined;
   let recipeEffect: SelectionEffect = { status: "not_requested" };
-  if (saveAsRecipe) {
-    const saved = await saveVisualRecipeFromOutput({
-      workspaceId: input.workspaceId,
-      workItemId: input.workItemId,
-      outputId: input.outputId,
-    }).catch(() => ({ ok: false as const, error: { code: "save_recipe_threw" } }));
-    if (saved.ok) {
+  const recipeEntry = enqueuedByKind.get("recipe");
+  if (recipeEntry) {
+    recipeEffect = await executeOutboxEffect(recipeEntry, async () => {
+      const saved = await saveVisualRecipeFromOutput({
+        workspaceId: input.workspaceId,
+        workItemId: input.workItemId,
+        outputId: input.outputId,
+      }).catch((cause) => ({
+        ok: false as const,
+        error: { code: effectErrorCode(cause, "save_recipe_threw") },
+      }));
+      if (!saved.ok) {
+        throw Object.assign(new Error(saved.error.code), { code: saved.error.code });
+      }
       recipe = saved.value.recipe;
-      recipeEffect = { status: "done" };
-      // Fechar o recibo e efeito nao fatal: se esta escrita curta falhar, o
-      // recibo fica pendente e uma nova chamada o reconcilia.
-      await runEffect(
-        () => markCreativeWorkSelectionEffectDone(
-          input.workspaceId, input.workItemId, input.outputId, receiptId,
-        ).then(() => undefined),
-        "receipt_close_failed",
-      );
-    } else {
-      // O recibo ja existe no banco (gravado na transacao da selecao): a
-      // pendencia tem lastro e pode ser retomada pelo mesmo comando.
-      recipeEffect = { status: "pending", receiptId };
-    }
+      // Fechar o recibo jsonb e compat nao fatal (a interface o le ate a #401
+      // migrar os leitores); a autoridade e a linha da outbox.
+      await markCreativeWorkSelectionEffectDone(
+        input.workspaceId, input.workItemId, input.outputId, receiptId,
+      ).catch(() => undefined);
+    }, "save_recipe_failed");
   }
 
   return {

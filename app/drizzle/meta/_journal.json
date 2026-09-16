@@ -771,6 +771,13 @@
       "when": 1789586284821,
       "tag": "0107_diagnostic_journal",
       "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "7",
+      "when": 1787300000001,
+      "tag": "0108_selection_effects_outbox",
+      "breakpoints": true
     }
   ]
 }

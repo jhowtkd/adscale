@@ -2,8 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: vi.fn(),
+  markCreativeWorkSelectionEffectDone: vi.fn(),
   selectCreativeWorkOutput: vi.fn(),
   reviewCreativeWorkOutputPersonFidelity: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/selection-effects", () => ({
+  markSelectionEffectDone: vi.fn(),
+  recordSelectionEffectAttempt: vi.fn(),
 }));
 
 vi.mock("@/server/application/ensure-creative-work-output-library", () => ({
@@ -15,7 +21,7 @@ vi.mock("@/server/application/save-visual-recipe", () => ({
 }));
 
 vi.mock("@/server/creative-work/record-value-event", () => ({
-  recordCreativeWorkValueEvent: vi.fn(),
+  recordCreativeWorkValueEventStrict: vi.fn(),
   valueEventFromCreativeWork: vi.fn((work: { id: string; workspaceId: string; createdByUserId: string; clientProfileId: string; campaignId?: string | null; toolKind: string }) => ({
     userId: work.createdByUserId,
     workspaceId: work.workspaceId,
@@ -27,23 +33,43 @@ vi.mock("@/server/creative-work/record-value-event", () => ({
   })),
 }));
 
+vi.mock("@/lib/logger", () => ({
+  logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
 import {
   getCreativeWork,
+  markCreativeWorkSelectionEffectDone,
   reviewCreativeWorkOutputPersonFidelity,
   selectCreativeWorkOutput,
 } from "@/server/repositories/creative-work";
+import {
+  markSelectionEffectDone,
+  recordSelectionEffectAttempt,
+} from "@/server/repositories/selection-effects";
 import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-creative-work-output-library";
 import { saveVisualRecipeFromOutput } from "@/server/application/save-visual-recipe";
-import { reviewCreativeWorkPersonFidelity, selectCreativeWorkOutputCommand } from "./select-creative-work-output";
-import type { SelectionEffects } from "./select-creative-work-output";
-import { recordCreativeWorkValueEvent } from "@/server/creative-work/record-value-event";
+import { durableEffectToProjection, reviewCreativeWorkPersonFidelity, selectCreativeWorkOutputCommand } from "./select-creative-work-output";
+import { recordCreativeWorkValueEventStrict } from "@/server/creative-work/record-value-event";
 
 const mockGet = vi.mocked(getCreativeWork);
 const mockSelect = vi.mocked(selectCreativeWorkOutput);
 const mockReviewPersonFidelity = vi.mocked(reviewCreativeWorkOutputPersonFidelity);
 const mockEnsure = vi.mocked(ensureCreativeWorkOutputInLibrary);
 const mockSaveRecipe = vi.mocked(saveVisualRecipeFromOutput);
-const mockRecordValue = vi.mocked(recordCreativeWorkValueEvent);
+const mockRecordValueStrict = vi.mocked(recordCreativeWorkValueEventStrict);
+const mockMarkDone = vi.mocked(markSelectionEffectDone);
+const mockRecordAttempt = vi.mocked(recordSelectionEffectAttempt);
+const mockMarkRecipeDone = vi.mocked(markCreativeWorkSelectionEffectDone);
+
+function enqueuedEntry(kind: string, overrides: Record<string, unknown> = {}) {
+  return {
+    kind,
+    created: true,
+    effect: { id: `effect-${kind}`, state: "pending", errorCode: null },
+    ...overrides,
+  };
+}
 
 const workItem = {
   id: "work-1",
@@ -100,13 +126,17 @@ describe("selectCreativeWorkOutputCommand", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSelect.mockResolvedValue({
-      ...completedOutput,
-      isSelected: true,
+      output: { ...completedOutput, isSelected: true },
+      enqueued: [enqueuedEntry("library"), enqueuedEntry("value_event")],
     } as never);
     mockEnsure.mockResolvedValue({
       asset: { id: "asset-1" } as never,
       created: true,
     });
+    mockRecordValueStrict.mockResolvedValue({} as never);
+    mockMarkDone.mockResolvedValue(undefined as never);
+    mockRecordAttempt.mockResolvedValue(undefined as never);
+    mockMarkRecipeDone.mockResolvedValue(undefined as never);
   });
 
   it("selects completed output and ensures library by default", async () => {
@@ -127,6 +157,25 @@ describe("selectCreativeWorkOutputCommand", () => {
     expect(result.value.output.isSelected).toBe(true);
     expect(mockSelect).toHaveBeenCalledWith("ws-1", "work-1", "output-1", {
       confirmObjective: true,
+      effects: [
+        {
+          kind: "library",
+          payload: expect.objectContaining({
+            kind: "library",
+            outputKey: completedOutput.outputKey,
+            theme: "Tema do Post",
+          }),
+        },
+        {
+          kind: "value_event",
+          payload: expect.objectContaining({
+            kind: "value_event",
+            eventKey: "creative_work_approved",
+            protocol: "social_post",
+          }),
+        },
+      ],
+      effectsRequestedAt: expect.any(Date),
     });
     expect(mockEnsure).toHaveBeenCalledWith({
       workspaceId: "ws-1",
@@ -134,13 +183,19 @@ describe("selectCreativeWorkOutputCommand", () => {
       theme: "Tema do Post",
       creativeLevel: "balanced",
     });
-    expect(mockRecordValue).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockRecordValueStrict).toHaveBeenCalledWith(expect.objectContaining({
       kind: "approved",
       outputId: "output-1",
       outputKey: completedOutput.outputKey,
       protocol: "social_post",
       origin: "studio",
     }));
+    expect(result.value.effects).toEqual({
+      library: { status: "done" },
+      valueEvent: { status: "done" },
+      recipe: { status: "not_requested" },
+    });
+    expect(mockMarkDone).toHaveBeenCalledTimes(2);
   });
 
   it("agent selection skips library, value event and recipe (Seleção por agente)", async () => {
@@ -150,6 +205,10 @@ describe("selectCreativeWorkOutputCommand", () => {
         ...completedOutput,
         quality: { schemaVersion: 1, objectiveVerdict: "pass", qualityScore: 1 },
       }],
+    } as never);
+    mockSelect.mockResolvedValue({
+      output: { ...completedOutput, isSelected: true },
+      enqueued: [],
     } as never);
 
     const result = await selectCreativeWorkOutputCommand({
@@ -165,9 +224,11 @@ describe("selectCreativeWorkOutputCommand", () => {
     expect(mockSelect).toHaveBeenCalledWith("ws-1", "work-1", "output-1", {
       confirmObjective: undefined,
       selectedBy: "agent",
+      effects: [],
+      effectsRequestedAt: expect.any(Date),
     });
     expect(mockEnsure).not.toHaveBeenCalled();
-    expect(mockRecordValue).not.toHaveBeenCalled();
+    expect(mockRecordValueStrict).not.toHaveBeenCalled();
     expect(mockSaveRecipe).not.toHaveBeenCalled();
     expect(result.value.effects).toEqual({
       library: { status: "not_requested" },
@@ -176,10 +237,43 @@ describe("selectCreativeWorkOutputCommand", () => {
     });
   });
 
+  it("operator confirmation after agent selection enqueues the then-legitimate effects", async () => {
+    mockGet.mockResolvedValue({
+      work: workItem,
+      outputs: [{
+        ...completedOutput,
+        isSelected: true,
+        selectedBy: "agent",
+        quality: { schemaVersion: 1, objectiveVerdict: "pass", qualityScore: 1 },
+      }],
+    } as never);
+
+    const result = await selectCreativeWorkOutputCommand({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      confirmObjective: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(mockEnsure).toHaveBeenCalledTimes(1);
+    expect(mockRecordValueStrict).toHaveBeenCalledTimes(1);
+    expect(result.value.effects).toEqual({
+      library: { status: "done" },
+      valueEvent: { status: "done" },
+      recipe: { status: "not_requested" },
+    });
+  });
+
   it("skips library ensure when saveToLibrary=false", async () => {
     mockGet.mockResolvedValue({
       work: workItem,
       outputs: [completedOutput],
+    } as never);
+    mockSelect.mockResolvedValue({
+      output: { ...completedOutput, isSelected: true },
+      enqueued: [enqueuedEntry("value_event")],
     } as never);
 
     const result = await selectCreativeWorkOutputCommand({
@@ -192,6 +286,14 @@ describe("selectCreativeWorkOutputCommand", () => {
 
     expect(result.ok).toBe(true);
     expect(mockEnsure).not.toHaveBeenCalled();
+    expect(mockSelect).toHaveBeenCalledWith(
+      "ws-1",
+      "work-1",
+      "output-1",
+      expect.objectContaining({
+        effects: [expect.objectContaining({ kind: "value_event" })],
+      }),
+    );
   });
 
   it("selects an objective pass directly regardless of subjective score", async () => {
@@ -212,6 +314,8 @@ describe("selectCreativeWorkOutputCommand", () => {
     expect(result.ok).toBe(true);
     expect(mockSelect).toHaveBeenCalledWith("ws-1", "work-1", "output-1", {
       confirmObjective: undefined,
+      effects: expect.any(Array),
+      effectsRequestedAt: expect.any(Date),
     });
   });
 
@@ -316,7 +420,10 @@ describe("selectCreativeWorkOutputCommand", () => {
       } as never;
     });
     mockSelect
-      .mockResolvedValueOnce({ ...completedOutput, isSelected: true })
+      .mockResolvedValueOnce({
+        output: { ...completedOutput, isSelected: true },
+        enqueued: [enqueuedEntry("library"), enqueuedEntry("value_event")],
+      })
       .mockResolvedValueOnce(null);
 
     const results = await Promise.all([
@@ -425,7 +532,10 @@ describe("selectCreativeWorkOutputCommand", () => {
         { ...completedOutput, id: "output-2" },
       ],
     } as never);
-    mockSelect.mockResolvedValue({ ...completedOutput, id: "output-2", isSelected: true } as never);
+    mockSelect.mockResolvedValue({
+      output: { ...completedOutput, id: "output-2", isSelected: true },
+      enqueued: [enqueuedEntry("library"), enqueuedEntry("value_event")],
+    } as never);
 
     const result = await selectCreativeWorkOutputCommand({
       workspaceId: "ws-1",
@@ -434,8 +544,20 @@ describe("selectCreativeWorkOutputCommand", () => {
       confirmObjective: true,
     });
 
-    expect(result).toMatchObject({ ok: true, value: { output: { id: "output-2", isSelected: true } } });
-    expect(mockSelect).toHaveBeenCalledWith("ws-1", "work-1", "output-2", { confirmObjective: true });
+    // Troca posterior da peça: a nova seleção enfileira e executa as
+    // obrigações da peça nova, sem reaproveitar as da peça anterior.
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        output: { id: "output-2", isSelected: true },
+        effects: { library: { status: "done" }, valueEvent: { status: "done" } },
+      },
+    });
+    expect(mockSelect).toHaveBeenCalledWith("ws-1", "work-1", "output-2", {
+      confirmObjective: true,
+      effects: expect.any(Array),
+      effectsRequestedAt: expect.any(Date),
+    });
   });
 
   it("rejects saveAsRecipe when the piece is raster-only", async () => {
@@ -461,9 +583,16 @@ describe("selectCreativeWorkOutputCommand", () => {
   });
 
   describe("efeitos posteriores ao commit da selecao", () => {
+    function mockEnqueuedSelection(output: Record<string, unknown>, kinds: string[]) {
+      mockSelect.mockResolvedValue({
+        output: { ...output, isSelected: true },
+        enqueued: kinds.map((kind) => enqueuedEntry(kind)),
+      } as never);
+    }
+
     it("confirma a selecao e marca a receita como pendente quando o efeito falha", async () => {
       mockGet.mockResolvedValue({ work: workItem, outputs: [structuredOutput], sources: [] } as never);
-      mockSelect.mockResolvedValue({ ...structuredOutput, isSelected: true } as never);
+      mockEnqueuedSelection(structuredOutput, ["library", "value_event", "recipe"]);
       mockSaveRecipe.mockResolvedValue({ ok: false, error: { code: "missing_font" } } as never);
 
       const result = await selectCreativeWorkOutputCommand({
@@ -478,7 +607,7 @@ describe("selectCreativeWorkOutputCommand", () => {
         ok: true,
         value: {
           output: { isSelected: true },
-          effects: { recipe: { status: "pending" } },
+          effects: { recipe: { status: "pending", receiptId: "effect-recipe" } },
         },
       });
       // O recibo veio da transacao, nao foi inventado na resposta.
@@ -488,14 +617,15 @@ describe("selectCreativeWorkOutputCommand", () => {
         "output-1",
         expect.objectContaining({ pendingRecipeReceiptId: expect.any(String) }),
       );
-      const effects = (result as { value: { effects: SelectionEffects } }).value.effects;
-      const pending = effects.recipe as { status: "pending"; receiptId: string };
-      expect(mockSelect.mock.calls[0][3]).toMatchObject({ pendingRecipeReceiptId: pending.receiptId });
+      expect(mockRecordAttempt).toHaveBeenCalledWith(expect.anything(), {
+        id: "effect-recipe",
+        errorCode: "missing_font",
+      });
     });
 
-    it("confirma a selecao quando a biblioteca falha e marca o efeito como recuperavel", async () => {
+    it("confirma a selecao quando a biblioteca falha e registra a pendencia duravel", async () => {
       mockGet.mockResolvedValue({ work: workItem, outputs: [completedOutput], sources: [] } as never);
-      mockSelect.mockResolvedValue({ ...completedOutput, isSelected: true } as never);
+      mockEnqueuedSelection(completedOutput, ["library", "value_event"]);
       mockEnsure.mockRejectedValue(
         Object.assign(new Error("duplicate key value violates unique constraint"), { code: "23505" }),
       );
@@ -510,13 +640,21 @@ describe("selectCreativeWorkOutputCommand", () => {
 
       expect(result).toMatchObject({
         ok: true,
-        value: { effects: { library: { status: "failed", retryable: true } } },
+        value: { effects: { library: { status: "pending", receiptId: "effect-library" } } },
       });
+      expect(mockRecordAttempt).toHaveBeenCalledWith(expect.anything(), {
+        id: "effect-library",
+        errorCode: "23505",
+      });
+      expect(mockMarkDone).not.toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ id: "effect-library" }),
+      );
     });
 
     it("isola os efeitos: a falha da biblioteca nao impede o evento de valor nem a receita", async () => {
       mockGet.mockResolvedValue({ work: workItem, outputs: [structuredOutput], sources: [] } as never);
-      mockSelect.mockResolvedValue({ ...structuredOutput, isSelected: true } as never);
+      mockEnqueuedSelection(structuredOutput, ["library", "value_event", "recipe"]);
       mockEnsure.mockRejectedValue(new Error("head timeout"));
       mockSaveRecipe.mockResolvedValue({ ok: true, value: { recipe: { version: 1 } } } as never);
 
@@ -533,19 +671,20 @@ describe("selectCreativeWorkOutputCommand", () => {
         ok: true,
         value: {
           effects: {
-            library: { status: "failed" },
+            library: { status: "pending" },
             valueEvent: { status: "done" },
             recipe: { status: "done" },
           },
         },
       });
-      expect(mockRecordValue).toHaveBeenCalledTimes(1);
+      expect(mockRecordValueStrict).toHaveBeenCalledTimes(1);
       expect(mockSaveRecipe).toHaveBeenCalledTimes(1);
+      expect(mockMarkRecipeDone).toHaveBeenCalledTimes(1);
     });
 
     it("marca not_requested o que nao foi pedido", async () => {
       mockGet.mockResolvedValue({ work: workItem, outputs: [completedOutput], sources: [] } as never);
-      mockSelect.mockResolvedValue({ ...completedOutput, isSelected: true } as never);
+      mockEnqueuedSelection(completedOutput, ["value_event"]);
       mockEnsure.mockResolvedValue({ asset: { id: "asset-1" }, created: true } as never);
 
       const result = await selectCreativeWorkOutputCommand({
@@ -561,6 +700,40 @@ describe("selectCreativeWorkOutputCommand", () => {
         value: { effects: { library: { status: "not_requested" }, recipe: { status: "not_requested" } } },
       });
       expect(mockEnsure).not.toHaveBeenCalled();
+    });
+
+    it("replay nao reexecuta efeitos liquidados e projeta o estado duravel", async () => {
+      mockGet.mockResolvedValue({ work: workItem, outputs: [completedOutput], sources: [] } as never);
+      mockSelect.mockResolvedValue({
+        output: { ...completedOutput, isSelected: true },
+        enqueued: [
+          enqueuedEntry("library", {
+            created: false,
+            effect: { id: "effect-library", state: "done", errorCode: null },
+          }),
+          enqueuedEntry("value_event", {
+            created: false,
+            effect: { id: "effect-value", state: "done", errorCode: null },
+          }),
+        ],
+      } as never);
+
+      const result = await selectCreativeWorkOutputCommand({
+        workspaceId: "ws-1",
+        workItemId: "work-1",
+        outputId: "output-1",
+        confirmObjective: true,
+      });
+
+      expect(result).toMatchObject({
+        ok: true,
+        value: {
+          effects: { library: { status: "done" }, valueEvent: { status: "done" } },
+        },
+      });
+      expect(mockEnsure).not.toHaveBeenCalled();
+      expect(mockRecordValueStrict).not.toHaveBeenCalled();
+      expect(mockMarkDone).not.toHaveBeenCalled();
     });
 
     it("mantem erro de validacao ANTES do commit como erro do comando", async () => {
@@ -595,7 +768,17 @@ describe("selectCreativeWorkOutputCommand", () => {
         }],
         sources: [],
       } as never);
-      mockSelect.mockResolvedValue({ ...structuredOutput, isSelected: true } as never);
+      mockSelect.mockResolvedValue({
+        output: { ...structuredOutput, isSelected: true },
+        enqueued: [
+          enqueuedEntry("library"),
+          enqueuedEntry("value_event"),
+          enqueuedEntry("recipe", {
+            created: false,
+            effect: { id: "effect-recipe", state: "pending", errorCode: null },
+          }),
+        ],
+      } as never);
       mockSaveRecipe.mockResolvedValue({ ok: true, value: { recipe: { version: 1 } } } as never);
 
       const result = await selectCreativeWorkOutputCommand({
@@ -614,6 +797,33 @@ describe("selectCreativeWorkOutputCommand", () => {
         "output-1",
         expect.objectContaining({ pendingRecipeReceiptId: "receipt-1" }),
       );
+      expect(mockSaveRecipe).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("durableEffectToProjection", () => {
+    it("maps durable states to the interface contract", () => {
+      expect(
+        durableEffectToProjection({ id: "e1", state: "done", errorCode: null }),
+      ).toEqual({ status: "done" });
+      expect(
+        durableEffectToProjection({ id: "e2", state: "pending", errorCode: null }),
+      ).toEqual({ status: "pending", receiptId: "e2" });
+      expect(
+        durableEffectToProjection({ id: "e3", state: "processing", errorCode: null }),
+      ).toEqual({ status: "pending", receiptId: "e3" });
+      expect(
+        durableEffectToProjection({ id: "e4", state: "retry_wait", errorCode: "timeout" }),
+      ).toEqual({ status: "pending", receiptId: "e4" });
+      expect(
+        durableEffectToProjection({ id: "e5", state: "dead", errorCode: "library_key_owned_elsewhere" }),
+      ).toEqual({ status: "failed", code: "library_key_owned_elsewhere", retryable: false });
+      expect(
+        durableEffectToProjection({ id: "e6", state: "dead", errorCode: null }),
+      ).toEqual({ status: "failed", code: "effect_dead", retryable: false });
+      expect(
+        durableEffectToProjection({ id: "e7", state: "canceled", errorCode: null }),
+      ).toEqual({ status: "failed", code: "effect_canceled", retryable: false });
     });
   });
 });
@@ -654,7 +864,7 @@ describe("reviewCreativeWorkPersonFidelity (plan 03, T3)", () => {
     });
     expect(mockSelect).not.toHaveBeenCalled();
     expect(mockEnsure).not.toHaveBeenCalled();
-    expect(mockRecordValue).not.toHaveBeenCalled();
+    expect(mockRecordValueStrict).not.toHaveBeenCalled();
   });
 
   it("rejects unknown work, unknown output and stale hashes", async () => {
