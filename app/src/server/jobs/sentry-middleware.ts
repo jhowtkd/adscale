@@ -1,6 +1,5 @@
 import { Middleware } from "inngest";
-import * as Sentry from "@sentry/nextjs";
-import { logger } from "@/lib/logger";
+import { captureExceptionOnce, logger } from "@/lib/logger";
 
 function fnName(fn: Middleware.OnRunErrorArgs["fn"]): string {
   try {
@@ -15,12 +14,14 @@ export class SentryMiddleware extends Middleware.BaseMiddleware {
 
   onRunError(arg: Middleware.OnRunErrorArgs): void {
     const fn = fnName(arg.fn);
-    if (process.env.SENTRY_DSN) {
-      Sentry.captureException(arg.error, {
-        tags: { component: "inngest", fn, final_attempt: arg.isFinalAttempt },
-        extra: { runId: arg.ctx.runId, attempt: arg.ctx.attempt },
-      });
-    }
+    // Single capture (trace-385): the explicit capture marks the exception so
+    // the logger.error below stays console-only instead of opening a second
+    // incident for the same run error. Tags preserved for Sentry grouping.
+    captureExceptionOnce(
+      arg.error,
+      { runId: arg.ctx.runId, attempt: arg.ctx.attempt },
+      { component: "inngest", fn, final_attempt: arg.isFinalAttempt }
+    );
     logger.error("[inngest] run failed", {
       fn,
       runId: arg.ctx.runId,
@@ -32,14 +33,14 @@ export class SentryMiddleware extends Middleware.BaseMiddleware {
   onStepError(arg: Middleware.OnStepErrorArgs): void {
     if (!arg.isFinalAttempt) return;
     const fn = fnName(arg.fn);
-    if (process.env.SENTRY_DSN) {
-      Sentry.captureException(arg.error, {
-        tags: {
-          component: "inngest-step",
-          fn,
-          step: arg.stepInfo.options?.id ?? "unnamed",
-        },
-      });
-    }
+    captureExceptionOnce(
+      arg.error,
+      undefined,
+      {
+        component: "inngest-step",
+        fn,
+        step: arg.stepInfo.options?.id ?? "unnamed",
+      }
+    );
   }
 }
