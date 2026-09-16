@@ -2432,6 +2432,30 @@ describe("useCreativeComposer", () => {
     }));
   });
 
+  it("notifies an accepted generation once and never on prepare alone", async () => {
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false });
+    const onGenerationAccepted = vi.fn();
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", onGenerationAccepted }));
+
+    await act(async () => { await result.current.preparePlan(); });
+    expect(onGenerationAccepted).not.toHaveBeenCalled();
+
+    await act(async () => { await result.current.confirmGeneration("2026-08-30T12:00:00.000Z"); });
+    expect(onGenerationAccepted).toHaveBeenCalledOnce();
+  });
+
+  it("does not notify acceptance when confirmation is blocked", async () => {
+    mocks.work.mockReturnValue({ data: { ...workDetail(), preparedPlan: null }, isLoading: false });
+    const onGenerationAccepted = vi.fn();
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1", onGenerationAccepted }));
+
+    await act(async () => { await result.current.confirmGeneration(); });
+
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(onGenerationAccepted).not.toHaveBeenCalled();
+    expect(result.current.error).toBe("Revise o plano antes de gerar.");
+  });
+
   it("does not confirm when the prepared plan is missing", async () => {
     mocks.work.mockReturnValue({ data: { ...workDetail(), preparedPlan: null }, isLoading: false });
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
