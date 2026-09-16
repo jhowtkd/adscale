@@ -320,39 +320,46 @@ function createLogger(namespace?: string): Logger {
   }
 
   function log(level: LogLevel, ...args: unknown[]) {
+    if (!shouldLog(level)) return;
+    let consoleArgs: unknown[];
     try {
-      if (!shouldLog(level)) return;
       const record = normalizeLogRecord(level, args);
       forwardToSentry(record, namespace);
       const timestamp = new Date().toISOString();
       if (record.structured) {
         const redacted = redactTelemetry(record.context);
-        const payload = safeStringify({
-          ...((typeof redacted === "object" && redacted !== null
-            ? redacted
-            : {}) as Record<string, unknown>),
-          timestamp,
-          level,
-          ...(namespace ? { namespace } : {}),
-        });
-        write(level, payload);
-        return;
+        consoleArgs = [
+          safeStringify({
+            ...((typeof redacted === "object" && redacted !== null
+              ? redacted
+              : {}) as Record<string, unknown>),
+            timestamp,
+            level,
+            ...(namespace ? { namespace } : {}),
+          }),
+        ];
+      } else {
+        const label = `${timestamp} ${level.toUpperCase().padStart(5)} ${prefix}`;
+        consoleArgs = [
+          label,
+          ...args.map((arg) => {
+            try {
+              return redactConsoleArg(arg);
+            } catch {
+              return "[Unreadable]";
+            }
+          }),
+        ];
       }
-      const label = `${timestamp} ${level.toUpperCase().padStart(5)} ${prefix}`;
-      write(
-        level,
-        label,
-        ...args.map((arg) => {
-          try {
-            return redactConsoleArg(arg);
-          } catch {
-            return "[Unreadable]";
-          }
-        })
-      );
     } catch {
+      // Logger-internal failures (normalization, redaction, serialization)
+      // never throw: rate-limited emergency output instead.
       emergencyLogFailure();
+      return;
     }
+    // Console-sink failures propagate so established caller guards
+    // (telemetry fallbacks, AI-wrapper guards) keep working.
+    write(level, ...consoleArgs);
   }
 
   return {

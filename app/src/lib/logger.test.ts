@@ -184,11 +184,29 @@ describe("logger hardening (trace-385)", () => {
     expect(console.warn).toHaveBeenCalledTimes(1);
   });
 
-  it("never throws when the console itself fails", () => {
+  it("propagates console sink failures so caller guards keep working", () => {
+    // Existing contract (pinned by job-telemetry's sink-failure test): the
+    // sink throwing reaches the caller's try/catch, which emits its fallback.
     vi.mocked(console.info).mockImplementationOnce(() => {
       throw new Error("console down");
     });
-    expect(() => logger.info({ event: "trace_385_console_down" })).not.toThrow();
+    expect(() => logger.info({ event: "trace_385_console_down" })).toThrow(
+      "console down"
+    );
+  });
+
+  it("degrades logger-internal failures to rate-limited emergency output", () => {
+    const evil = Object.defineProperty({}, "boom", {
+      enumerable: true,
+      get() {
+        throw new Error("getter exploded");
+      },
+    });
+    expect(() => logger.info(evil)).not.toThrow();
+    expect(console.info).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith(
+      "[logger] internal failure; original payload dropped"
+    );
   });
 
   it("never throws when the Sentry SDK fails", async () => {
