@@ -1,86 +1,155 @@
-# Spec: ADScale como MCP server + skill
+# ADScale como MCP server + skills públicas
 
-Data: 2026-09-15 (rev. 2). Handoff executável. A “paridade com o Estúdio” do ticket de operações é o norte, **não** o recorte desta entrega.
+Data: 2026-09-15 (rev. 2). Especificação de implementação proposta; nenhuma
+alteração de aplicação, migração ou publicação foi executada nesta etapa.
 
-Mapa: [Wayfinder: Meta Ads, voz no pedido e MCP/skills](https://github.com/jhowtkd/adscale/issues/343).
+Mapa: [#343](https://github.com/jhowtkd/adscale/issues/343).
 Pesquisa: `docs/research/2026-09-14-mcp-remote-server-and-skills.md` (branch `research/mcp-and-skills`).
+Decisões: [#354](https://github.com/jhowtkd/adscale/issues/354) (spec/auth),
+[#355](https://github.com/jhowtkd/adscale/issues/355) (operações),
+[#356](https://github.com/jhowtkd/adscale/issues/356) (identidade),
+[#357](https://github.com/jhowtkd/adscale/issues/357) (skills),
+[#359](https://github.com/jhowtkd/adscale/issues/359) (async).
+Protótipo [#358](https://github.com/jhowtkd/adscale/issues/358) pulado —
+conexão Claude/Cursor fica nesta execução.
 
-## Fatias (nomes honestos)
+## Resultado e recorte
 
-| Fatia | Auth | Superfície | Aceite |
-| --- | --- | --- | --- |
-| **Esta spec (MCP loop)** | Bearer por workspace, atrás de flag | Loop Estúdio: criar → gerar → poll → selecionar | Claude Code **ou** Cursor contra **dev**, com skill instalada à mão |
-| **MCP auth (seguinte)** | OAuth 2.1 + PRM + CIMD | Grants + revoke em Integrações | Aceite próprio; não trava o loop |
-| **MCP paridade** | a do momento | Layerize, marca write, Campanha, saldo, repertório, um prompt por Protocolo | Aceite próprio |
+Agentes externos (Claude, Cursor na v1) operam o ADScale via MCP remoto:
+criar Trabalho, gerar Peça, acompanhar, listar, selecionar. Uma skill
+(`SKILL.md`) ensina esses agentes a usar bem o servidor. Toda geração
+disparada via MCP passa pelo **Generation Settlement canônico** — mesma
+cobrança, reserva, dispatch e refund; nenhuma jornada paralela.
 
-Não chamar esta spec de “v1 paridade”. OAuth nesta entrega transforma o item mais arriscado em gating de tudo — recusado.
+**Primeira entrega ≠ paridade.** Paridade com a API do Estúdio é o
+norte; o aceite desta fatia é menor (ver § Primeira entrega). OAuth/CIMD
+e paridade são fatias seguintes.
 
-## Resultado desta spec
+Fora desta spec: assistente interno consumindo MCP de terceiros;
+MCP/skills para os agentes que desenvolvem o repo; ChatGPT (connector
+OAuth fica para depois); marketplace de skills; voz no assistente; MCP
+expondo a análise do Meta Ads (cruzamento no fog).
 
-Um agente em Claude Code ou Cursor, com Bearer do workspace, cria um Trabalho, dispara `gerar_peca`, lê a Peça pronta por **resource** e faz Seleção por agente. Toda geração passa pelo Generation Settlement.
+## Fontes e precedência
 
-## Auth (esta spec)
+- `CONTEXT.md`: Seleção por agente, Generation Settlement, Contexto
+  autorizado, Aprovação humana. `docs/agents/source-of-truth.md`.
+- Pesquisa #354: spec MCP current `2026-07-28`; transporte remoto
+  **Streamable HTTP** (HTTP+SSE deprecated); dual-era obrigatório (hosts
+  ainda falam `initialize` 2025); stateless no Next.js do Render
+  (`POST /mcp`); geração = job id + poll (MCP Tasks fora da client
+  matrix dos hosts; Codex timeout default 60 s — nunca bloquear o worker
+  no `tools/call`); skills = `SKILL.md` (agentskills.io) + plugin/`mcp.json`.
+- Código inspecionado no checkout `main` HEAD `78a7378b`: assistente
+  interno tem só 3 tools (`get-thread-context`, `propose-action`,
+  `update-goal-plan`) em `app/src/server/assistant/tools/registry.ts` —
+  o MCP **não** reexpõe esse registry; mapeia a API do Estúdio
+  (`/api/creative-work/*`, client-profiles); `POST
+  .../outputs/[outputId]/select` hoje é Aprovação humana
+  (`app/src/app/api/creative-work/[id]/outputs/[outputId]/select/route.ts`);
+  generate retorna HTTP 202
+  (`app/src/app/api/creative-work/[id]/generate/route.ts`).
 
-- Transporte: MCP spec current `2026-07-28`, Streamable HTTP, handler **stateless** no Next/Render. Dual-era (`initialize` 2025) no handler — isso é transporte, não OAuth.
-- **Bearer** escopado ao **workspace**, emitido por owner/admin. Flag de produto (off por default em produção até o aceite passar em dev). Token mostrado **uma vez**; persistir só hash. Sem Dono da plataforma.
-- O agente age **em nome do operador que emitiu o token** (o owner/admin que criou). Escopo = aquele workspace, marcas que esse operador já vê.
-- **Configurações → Integrações** nesta fatia: **lista de tokens Bearer + criar + revogar**. Isso é credencial pré-criada, e está certo *porque não é CIMD*.
+## Primeira entrega (aceite desta fatia)
 
-## Auth (fatia seguinte — não implementar aqui)
+- Auth: **Bearer por workspace atrás de flag**. Configurações →
+  Integrações = **criar/revogar token** (credencial pré-criada,
+  coerente com Bearer).
+- Loop: `criar_trabalho` → `gerar_peca` → resource `peca`/`trabalho`
+  → `selecionar_peca` (+ `listar_pecas`, `cancelar_peca`).
+- Resources de leitura: `peca`, `trabalho`.
+- Skill copiada e funcional em Claude + Cursor (ver § Skills).
 
-OAuth 2.1 + PRM + CIMD. Registro do cliente é o Client ID Metadata Document: **não há credencial pré-criada**. A mesma tela passa a ser **lista de grants ativos + revoke** (qual cliente, que operador, quando). Sem botão “gerar API key”. Sem misturar Bearer e OAuth no mesmo aceite.
+Fora desta fatia (norte, não aceite): demais Protocolos como prompts,
+carrossel, Layerize, marca, Campanha, saldo, repertório, OAuth 2.1 +
+CIMD, paridade completa. Na fatia OAuth, a mesma tela Integrações vira
+**grants ativos + revoke**, sem mint de secret — sem isso, CIMD e
+"criar credencial" se contradizem.
 
-## Tools (write)
+## Operações — norte de paridade (fora do aceite, dentro do desenho)
 
-Só estas quatro:
+- Todos os Protocolos (`single`, `variations`, `format_adaptation`,
+  `restyle`) + carrossel + Layerize (falha claramente sem entitlement
+  `layer_editor_v1`); criar/editar marca; Campanha; leitura de saldo;
+  leitura do repertório.
+- Tools em **PT-BR snake_case**, sem prefixo (`criar_trabalho`,
+  `gerar_peca`, `listar_pecas`, `selecionar_peca`, `criar_variacao`,
+  `cancelar_peca`). Servidor dedicado: sem prefixo `adscale.` na v1.
+- Resources de leitura (marca, Trabalho, Peça, briefing inferido). Um
+  prompt por Protocolo (incluindo carrossel). Glossário/`CONTEXT.md`
+  **não** vira resource — skills cobrem o "como pedir bem".
+- Fora da v1: compra de créditos/assinatura (leitura de saldo entra);
+  admin e tudo do Dono da plataforma; gestão de workspace/membros/
+  convites; escrita de Treinamento Visual e Calibração (leitura do
+  repertório entra); Landing Page e Persona Simulation congelados —
+  MCP não é porta de descongelar.
 
-- `criar_trabalho` — Protocolo como argumento (`single` \| `variations` \| `format_adaptation` \| `restyle` \| `carousel`). Um tool, não um por Protocolo.
-- `gerar_peca`
-- `cancelar_peca`
-- `selecionar_peca` — grava **Seleção por agente**, rastro distinto do `POST .../select` humano.
+## Identidade, escopo e autoridade
 
-Sem prefixo `adscale.`. PT-BR snake_case.
+- O agente age **em nome de um operador**. Escopo **workspace** — as
+  marcas que aquele operador já enxerga; um token não atravessa
+  workspace; nunca herda Dono da plataforma.
+- Pode o que o operador pode na API do Estúdio (dentro da v1 fechada),
+  inclusive Seleção por agente. **Não** é Aprovação humana. Gasta os
+  créditos do workspace pelo Settlement canônico. Sem teto extra por
+  agente na v1.
+- Auditoria registra o operador e o cliente que disparou.
+- Nesta fatia: Bearer por workspace (ver § Primeira entrega). Fatia
+  seguinte: OAuth 2.1 + PRM (RFC 9728) + `resource` (RFC 8707) + CIMD
+  (DCR deprecated).
 
-**Não nesta spec:** Layerize, criar/editar marca, Campanha, leitura de saldo, leitura/escrita de repertório, Ditado, Anúncios veiculados.
+## Assincronia da geração
 
-O MCP **não** reexpõe `assistant/tools/registry.ts`. Mapeia `/api/creative-work/*`.
+- `gerar_peca` devolve **job id** (espelha HTTP 202) e **não bloqueia**
+  o `tools/call`. O agente **polla** estado (tool/resource de
+  Trabalho/Peça) até completar, falhar ou ser cancelado.
+- Fora: webhook HTTP, MCP Tasks, notificação MCP como caminho
+  obrigatório (hosts v1 não são confiáveis nisso).
+- `cancelar_peca` existe, alinhado à API.
+- Job falho ≠ Peça com veredito objetivo (aprovado/reprovado/
+  inconclusivo). O agente vê os dois como a API do Estúdio.
 
-## Resources (read) — não tools
+## Seleção por agente
 
-Leitura é **resource**, não `obter_peca`:
+`selecionar_peca` mapeia o select da API mas com **rastro distinto** de
+Aprovação humana: respeita a reprovação objetiva; não conta em métricas
+nem na Calibração da marca até o operador confirmar. Exige trilha
+própria no comando de select — não reutilizar o POST de aprovação como
+está.
 
-| Resource | Lê |
-| --- | --- |
-| `marca` | marca ativa do workspace do token |
-| `trabalho` | Trabalho (inclui estado do job de geração) |
-| `peca` | Peça (status, URLs, veredito objetivo) |
-| `briefing_inferido` | briefing do Trabalho |
+## Skills
 
-Poll = reler `trabalho` / `peca`. Sem webhook, sem MCP Tasks, sem notificação obrigatória. `gerar_peca` devolve job/id, não bloqueia `tools/call`. Job falho ≠ veredito objetivo — os resources expõem os dois. `CONTEXT.md` não é resource.
+- **Uma skill** — "como operar o ADScale" (criar Trabalho, gerar Peça,
+  selecionar). Não uma por Protocolo.
+- Hosts v1: **Claude e Cursor**.
+- Fonte canônica no monorepo, ao lado do MCP server:
+  `app/src/mcp/skills/adscale/SKILL.md`, versionada **junto** com o
+  servidor (rename de tool = bump da skill no mesmo release).
+- Skill no monorepo versiona; **não distribui**. Aceite exige copiar
+  para `.cursor/skills/adscale/` e `.claude/skills/adscale/` (ambos
+  existem na raiz), com README com os caminhos. Sem marketplace nesta
+  fatia. Quem escreve/mantém: o time do produto.
+- Teste: o agente completar o fluxo Estúdio num host v1 contra dev.
 
-## Skill — versionamento ≠ distribuição
+## Hospedagem
 
-**Onde vive (versão):** `app/src/mcp/skills/adscale/SKILL.md`, no mesmo commit/release do handler e dos nomes das tools. Rename de tool = bump da skill no mesmo release.
+`createMcpHandler` (server v2) **stateless** no Next.js do Render,
+`POST /mcp`. Dual-era `initialize` obrigatório. Sem sessão in-memory.
+Timeouts de host (Codex ~60 s) respeitados via job + poll, nunca
+bloqueando o `tools/call`.
 
-**Como chega no host (esta spec, teste e mundo real):** **não se instala sozinha.** Não há marketplace.
+## Aceites
 
-| Host | Como a skill entra |
-| --- | --- |
-| Cursor | Copiar/symlink `SKILL.md` para `.cursor/skills/adscale/SKILL.md` **do projeto de teste** (ou `~/.cursor/skills/adscale/` na máquina do aceite) |
-| Claude Code | Copiar/symlink para `.claude/skills/adscale/SKILL.md` do projeto de teste (ou `~/.claude/skills/adscale/`) |
-| Claude.ai / ChatGPT | Fora desta spec (depende da fatia OAuth) |
-
-O README da skill tem esses dois caminhos, literais. O aceite **inclui** executar esses passos — “a skill está no monorepo” não conta.
-
-## Aceite desta spec
-
-1. Flag on em dev; owner cria Bearer em Integrações; o agente só vê aquele workspace.
-2. Com a skill instalada pelo README: `criar_trabalho` → `gerar_peca` → poll nos resources `trabalho`/`peca` → `selecionar_peca`. Settlement e créditos iguais ao Estúdio.
-3. Seleção por agente ≠ Aprovação humana / Calibração.
-4. Bearer não obtém Dono da plataforma.
-5. O fluxo completa em **pelo menos um** de Claude Code ou Cursor contra dev; o segundo host é o mesmo contrato, não um segundo projeto de auth.
-6. `npm test`: poll/cancel, rastro de seleção, escopo de workspace, resource `peca` (não tool `obter_peca`), flag off rejeita.
-
-## Fora
-
-OAuth/CIMD/PRM. Paridade Estúdio. ChatGPT. Observabilidade/preço por agente. Distribuir skill por plugin marketplace.
+1. Com Bearer válido: `criar_trabalho` → `gerar_peca` (retorna job id
+   em < 60 s sem bloquear) → poll no resource até Peça pronta →
+   `listar_pecas` mostra → `selecionar_peca` registra Seleção por
+   agente (não Aprovação humana); créditos do workspace consumidos via
+   Settlement canônico.
+2. `cancelar_peca` cancela job pendente; job falho e veredito objetivo
+   aparecem como estados distintos.
+3. Bearer de outro workspace não atravessa; sem flag, `POST /mcp`
+   recusa; revogar o token em Integrações invalida chamadas seguintes.
+4. Claude e Cursor (hosts v1): agente com a skill instalada completa o
+   fluxo contra dev; `SKILL.md` canônico e as duas cópias idênticos;
+   README com os caminhos presente.
+5. Auditoria de uma chamada mostra operador + cliente OAuth/Bearer.

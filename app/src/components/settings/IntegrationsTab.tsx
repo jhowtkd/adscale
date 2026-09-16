@@ -2,7 +2,6 @@
 
 import { m, useReducedMotion } from "@/components/animations/MotionBoundary";
 import {
-  Megaphone,
   Search,
   Music,
   MessageSquare,
@@ -19,6 +18,8 @@ import {
   settingsHintClass,
   settingsRowClass,
 } from "@/components/settings/settings-chrome";
+import { McpTokensCard } from "@/components/settings/McpTokensCard";
+import { MetaConnectionCard } from "@/components/settings/MetaConnectionCard";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -50,15 +51,6 @@ interface Integration {
 }
 
 const integrations: Integration[] = [
-  {
-    id: "meta",
-    name: "Meta Ads",
-    description: "Export derivations directly to Meta Ads Manager",
-    icon: <Megaphone size={22} />,
-    status: "not_connected",
-    iconBg: "var(--neutral-bg)",
-    iconColor: "var(--utility-icon)",
-  },
   {
     id: "google",
     name: "Google Ads",
@@ -122,7 +114,6 @@ const statusKeyMap: Record<IntegrationStatus, string> = {
 };
 
 const nameKeyMap: Record<string, string> = {
-  meta: "metaAds",
   google: "googleAds",
   tiktok: "tiktokAds",
   slack: "slack",
@@ -131,7 +122,6 @@ const nameKeyMap: Record<string, string> = {
 };
 
 const descKeyMap: Record<string, string> = {
-  meta: "metaAdsDesc",
   google: "googleAdsDesc",
   tiktok: "tiktokAdsDesc",
   slack: "slackDesc",
@@ -174,6 +164,8 @@ export default function IntegrationsTab() {
       animate="show"
       className="max-w-[720px]"
     >
+      <McpTokensCard />
+      <MetaConnectionCard />
       <div>
         {integrations.map((integration) => {
           const status = integrationStates[integration.id];

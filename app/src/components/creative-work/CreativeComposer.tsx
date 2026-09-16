@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { AnimatedDisplayValue } from "@/components/animations/AnimatedDisplayValue";
 import { CreativeSourceChip } from "./CreativeSourceChip";
+import { DictationButton } from "./DictationButton";
 import { PieceReferenceStrip } from "./PieceReferenceStrip";
 import { CreativeSourcePreviewCard } from "./CreativeSourcePreviewCard";
 import { CreativeVariationBrief } from "./CreativeVariationBrief";
@@ -39,6 +40,30 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
   const t = useTranslations("dashboard.home.composer");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const styleInputRef = useRef<HTMLInputElement>(null);
+  /** Ditado: texto limpo entra na posição do cursor, sem apagar nada (#351). */
+  const insertDictation = useCallback(
+    (text: string) => {
+      const area = composerRef.current;
+      const current = composer.request;
+      if (!area) {
+        composer.setRequest(current ? `${current} ${text}` : text);
+        return;
+      }
+      const start = area.selectionStart ?? current.length;
+      const end = area.selectionEnd ?? current.length;
+      const before = current.slice(0, start);
+      const after = current.slice(end);
+      const joinLeft = before.length > 0 && !/\s$/.test(before) ? " " : "";
+      const joinRight = after.length > 0 && !/^\s/.test(after) ? " " : "";
+      composer.setRequest(`${before}${joinLeft}${text}${joinRight}${after}`);
+      const cursor = before.length + joinLeft.length + text.length;
+      requestAnimationFrame(() => {
+        area.focus();
+        area.setSelectionRange(cursor, cursor);
+      });
+    },
+    [composer, composerRef]
+  );
   // R-008: when the brand conflict appears, focus moves to the choice so
   // keyboard/screen-reader users land on the only pending decision.
   const brandConflictChoiceRef = useRef<HTMLButtonElement>(null);
@@ -494,6 +519,9 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
               rows={5}
               className="w-full resize-y bg-transparent text-base text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
             />
+            <div className="mt-2 flex justify-end">
+              <DictationButton workId={composer.workId ?? undefined} onInsert={insertDictation} />
+            </div>
           </> : null}
           {isSingle && !hideSourceUpload ? <PieceReferenceStrip
             sources={pieceReferenceSources}
