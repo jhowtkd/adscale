@@ -80,3 +80,25 @@ describe("PieceFormatPopover", () => {
     expect(screen.getByRole("button", { name: "Adaptar formato" })).toHaveAttribute("aria-expanded", "false");
   });
 });
+
+describe("PieceFormatPopover offered formats (ICE-04B)", () => {
+  it("renders 3:4 only when the offered list includes it", () => {
+    const first = render(
+      <PieceFormatPopover value={null} onChoose={vi.fn()} onCancel={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Adaptar formato" }));
+    expect(screen.queryByRole("button", { name: "3:4", exact: true })).not.toBeInTheDocument();
+    first.unmount();
+
+    render(
+      <PieceFormatPopover
+        value={null}
+        formats={["1:1", "4:5", "9:16", "3:4"]}
+        onChoose={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Adaptar formato" }));
+    fireEvent.click(screen.getByRole("button", { name: "3:4", exact: true }));
+  });
+});

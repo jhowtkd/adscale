@@ -114,6 +114,7 @@ function composer(overrides = {}) {
   return {
     composerRef: { current: null }, request: "", setRequest: vi.fn(), intent: "variations", selectIntent: vi.fn(),
     format: "4:5", formatMode: "manual", setFormat: vi.fn(), setFormatAuto: vi.fn(), targetFormats: [], toggleTargetFormat: vi.fn(),
+    offeredFormats: ["1:1", "4:5", "9:16"], threeFourCreationEnabled: false,
     textLayout: "top", setTextLayout: vi.fn(), fontAssetKey: null, setFontAssetKey: vi.fn(), fontOptions: [],
     visualRecipes: [], instantiateRecipe: vi.fn(),
     commercialOffers: [], instantiateOffer: vi.fn(), saveCommercialOffer: vi.fn(),
@@ -799,6 +800,45 @@ describe("CreativeComposer", () => {
     expect(select).toHaveValue("auto");
     fireEvent.change(select, { target: { value: "4:5" } });
     expect(value.setFormat).toHaveBeenCalledWith("4:5");
+  });
+
+  it("offers 3:4 in the format select only with the capability (ICE-04B)", () => {
+    renderComposer(
+      composer({ intent: "single", offeredFormats: ["1:1", "4:5", "9:16", "3:4"] }),
+    );
+    const options = within(screen.getByRole("combobox", { name: "Formato" }))
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value);
+    expect(options).toContain("3:4");
+  });
+
+  it("hides 3:4 from the format select without the capability (ICE-04B)", () => {
+    renderComposer(composer({ intent: "variations" }));
+    const options = within(screen.getByRole("combobox", { name: "Formato" }))
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value);
+    expect(options).not.toContain("3:4");
+  });
+
+  it("shows a stale 3:4 selection as disabled instead of a blank select (ICE-04B)", () => {
+    renderComposer(composer({ intent: "variations", format: "3:4", formatMode: "manual" }));
+    const select = screen.getByRole("combobox", { name: "Formato" });
+    expect(select).toHaveValue("3:4");
+    const stale = within(select).getByRole("option", { name: "3:4" });
+    expect(stale).toBeDisabled();
+  });
+
+  it("offers 3:4 adaptation targets only with the capability (ICE-04B)", () => {
+    renderComposer(
+      composer({ intent: "format_adaptation", offeredFormats: ["1:1", "4:5", "9:16", "3:4"] }),
+    );
+    expect(screen.getByRole("checkbox", { name: "3:4" })).toBeInTheDocument();
+  });
+
+  it("hides 3:4 adaptation targets without the capability (ICE-04B)", () => {
+    renderComposer(composer({ intent: "format_adaptation" }));
+    expect(screen.queryByRole("checkbox", { name: "3:4" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "1:1" })).toBeInTheDocument();
   });
 
   it("lets Peça única choose a limited text layout and an approved font", () => {

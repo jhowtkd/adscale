@@ -9,6 +9,15 @@ vi.mock("@/server/repositories/creative-work", () => ({
   createCreativeWorkDraft: vi.fn(),
 }));
 
+const envState: { threeFourCreation: string | undefined } = { threeFourCreation: undefined };
+vi.mock("@/server/validation/env", () => ({
+  env: {
+    get CREATIVE_WORK_34_CREATION_ENABLED() {
+      return envState.threeFourCreation;
+    },
+  },
+}));
+
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { createCreativeWork, createCreativeWorkDraft } from "@/server/repositories/creative-work";
 import {
@@ -46,6 +55,7 @@ describe("buildSocialPostCreateInput", () => {
 describe("startSocialPostWork", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    envState.threeFourCreation = undefined;
   });
 
   it("rejects unknown profile without creating work", async () => {
@@ -90,6 +100,64 @@ describe("startSocialPostWork", () => {
     });
     expect(result).toEqual({ ok: false, error: { code: "format_creation_disabled", format: "3:4" } });
     expect(mockCreateDraft).not.toHaveBeenCalled();
+  });
+
+  it("creates 3:4 works in validated protocols once enabled (ICE-04B)", async () => {
+    envState.threeFourCreation = "true";
+    mockProfile.mockResolvedValue({ id: profileId } as never);
+    mockCreateDraft.mockResolvedValue({
+      id: "w-1",
+      workspaceId: "ws-1",
+      toolKind: "single",
+      status: "draft",
+      format: "3:4",
+      settings: { targetFormats: [] },
+      createdAt: new Date("2026-09-17T12:00:00.000Z"),
+      updatedAt: new Date("2026-09-17T12:00:00.000Z"),
+    } as never);
+    const result = await startSocialPostWork({
+      workspaceId: "ws-1",
+      userId: "u-1",
+      clientProfileId: profileId,
+      draftKey: "00000000-0000-4000-8000-000000000003",
+      request: "retrato 3:4",
+      intent: "single",
+      format: "3:4",
+      settings: { targetFormats: [] },
+    });
+    expect(result.ok).toBe(true);
+    expect(mockCreateDraft).toHaveBeenCalled();
+  });
+
+  it("blocks 3:4 in unvalidated protocols without faking coverage (ICE-04B)", async () => {
+    envState.threeFourCreation = "true";
+    mockProfile.mockResolvedValue({ id: profileId } as never);
+    const result = await startSocialPostWork({
+      workspaceId: "ws-1",
+      userId: "u-1",
+      clientProfileId: profileId,
+      draftKey: "00000000-0000-4000-8000-000000000004",
+      request: "variar",
+      intent: "variations",
+      format: "3:4",
+      settings: { targetFormats: [] },
+    });
+    expect(result).toEqual({ ok: false, error: { code: "format_protocol_unsupported", format: "3:4" } });
+    expect(mockCreateDraft).not.toHaveBeenCalled();
+  });
+
+  it("blocks 3:4 on the legacy path: social_post is not validated (ICE-04B)", async () => {
+    envState.threeFourCreation = "true";
+    mockProfile.mockResolvedValue({ id: profileId } as never);
+    const result = await startSocialPostWork({
+      workspaceId: "ws-1",
+      userId: "u-1",
+      clientProfileId: profileId,
+      format: "3:4",
+      brief,
+    });
+    expect(result).toEqual({ ok: false, error: { code: "format_protocol_unsupported", format: "3:4" } });
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 
   it("creates creative_work origin with social_post intent and no campaign", async () => {

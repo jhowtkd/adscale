@@ -25,6 +25,15 @@ vi.mock("@/server/repositories/workspace-asset", () => ({
   getWorkspaceAssetById: vi.fn(async () => null),
 }));
 
+const envState: { threeFourCreation: string | undefined } = { threeFourCreation: undefined };
+vi.mock("@/server/validation/env", () => ({
+  env: {
+    get CREATIVE_WORK_34_CREATION_ENABLED() {
+      return envState.threeFourCreation;
+    },
+  },
+}));
+
 import { InvalidCreativeWorkRevisionError } from "@/server/generation/settlement-adapters";
 import { getDiagnosticContext } from "@/server/diagnostics/context";
 import type { DiagnosticContext } from "@/server/diagnostics/contract";
@@ -59,6 +68,7 @@ const adapter = { kind: "revision-adapter" };
 describe("reviseCreativeWorkOutput", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    envState.threeFourCreation = undefined;
     getWork.mockResolvedValue({ work, outputs: [parent], sources: [] });
     buildAdapter.mockReturnValue(adapter);
     settle.mockResolvedValue({ ok: true, value: { output: revision } });
@@ -300,6 +310,80 @@ describe("reviseCreativeWorkOutput", () => {
         }),
       }),
     );
+    expect(settle).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks a reviewed format revision to 3:4 while creation is off (ICE-04B)", async () => {
+    getWork.mockResolvedValue({
+      work,
+      outputs: [
+        {
+          ...parent,
+          targetFormat: "4:5",
+          versionNumber: 1,
+          reviewDraft: {
+            version: 1,
+            revision: 2,
+            revisionKey: REVISION_KEY,
+            action: "format",
+            targetFormat: "3:4",
+            instruction: "",
+            annotations: [],
+            revisionAssetId: null,
+          },
+        },
+      ],
+      sources: [],
+    });
+    const result = await reviseCreativeWorkOutput({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      userId: "user-1",
+      outputId: parent.id,
+      revisionKey: REVISION_KEY,
+      reviewRevision: 2,
+      expectedCredits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+    });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "format_creation_disabled", details: { format: "3:4" } },
+    });
+    expect(settle).not.toHaveBeenCalled();
+  });
+
+  it("confirms a reviewed format revision to 3:4 once enabled (ICE-04B)", async () => {
+    envState.threeFourCreation = "true";
+    getWork.mockResolvedValue({
+      work,
+      outputs: [
+        {
+          ...parent,
+          targetFormat: "4:5",
+          versionNumber: 1,
+          reviewDraft: {
+            version: 1,
+            revision: 2,
+            revisionKey: REVISION_KEY,
+            action: "format",
+            targetFormat: "3:4",
+            instruction: "",
+            annotations: [],
+            revisionAssetId: null,
+          },
+        },
+      ],
+      sources: [],
+    });
+    const result = await reviseCreativeWorkOutput({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      userId: "user-1",
+      outputId: parent.id,
+      revisionKey: REVISION_KEY,
+      reviewRevision: 2,
+      expectedCredits: GENERATION_CREDIT_COSTS.creativeWorkOutput,
+    });
+    expect(result.ok).toBe(true);
     expect(settle).toHaveBeenCalledTimes(1);
   });
 

@@ -2124,6 +2124,26 @@ describe("useCreativeComposer", () => {
     expect(result.current.formatMode).toBe("manual");
   });
 
+  it("derives offered formats from the 3:4 switch plus the current protocol (ICE-04B)", () => {
+    const enabled = renderHook(() =>
+      useCreativeComposer({ initialIntent: "single", threeFourCreationEnabled: true }),
+    );
+    expect(enabled.result.current.offeredFormats).toEqual(["1:1", "4:5", "9:16", "3:4"]);
+    enabled.unmount();
+
+    const unvalidated = renderHook(() =>
+      useCreativeComposer({ initialIntent: "variations", threeFourCreationEnabled: true }),
+    );
+    expect(unvalidated.result.current.offeredFormats).toEqual(["1:1", "4:5", "9:16"]);
+    unvalidated.unmount();
+
+    const disabled = renderHook(() =>
+      useCreativeComposer({ initialIntent: "single" }),
+    );
+    expect(disabled.result.current.offeredFormats).toEqual(["1:1", "4:5", "9:16"]);
+    disabled.unmount();
+  });
+
   it("autosaves a format-mode change when the displayed ratio stays the same", async () => {
     mocks.work.mockReturnValue({
       data: workDetail({ settings: { targetFormats: [], formatMode: "auto" } }),

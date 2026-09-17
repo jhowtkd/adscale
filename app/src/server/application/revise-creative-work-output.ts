@@ -23,6 +23,7 @@ import {
   type OutputRevisionContextV1,
 } from "@/server/creative-work/output-review";
 import { logCreativeWorkGenerationLifecycle } from "@/server/creative-work/job-telemetry";
+import { env } from "@/server/validation/env";
 
 type RevisionErrorCode =
   | "work_not_found"
@@ -31,7 +32,9 @@ type RevisionErrorCode =
   | "stale_review"
   | "quote_changed"
   | "credit_blocked"
-  | "dispatch_failed";
+  | "dispatch_failed"
+  /** ICE-04B: a format revision to 3:4 is a new 3:4 output — gated by the switch. */
+  | "format_creation_disabled";
 
 export type ReviseCreativeWorkOutputResult =
   | {
@@ -256,6 +259,15 @@ async function reviseReviewedOutput(
     parsed.data.annotations.length === 0
   ) {
     return { ok: false, error: { code: "invalid_revision" } };
+  }
+  // A format revision resolves to the format_adaptation mode (validated),
+  // so only the creation switch gates a 3:4 target — before any charge.
+  if (
+    parsed.data.action === "format" &&
+    parsed.data.targetFormat === "3:4" &&
+    env.CREATIVE_WORK_34_CREATION_ENABLED !== "true"
+  ) {
+    return { ok: false, error: { code: "format_creation_disabled", details: { format: "3:4" } } };
   }
 
   if (parsed.data.revisionAssetId) {
