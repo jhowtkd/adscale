@@ -37,6 +37,16 @@ vi.mock("@/lib/logger", () => ({
   logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
+vi.mock("@/server/diagnostics/selection-export-tracing", () => ({
+  resolveLifecycleTraceContext: vi.fn((scope: { toolKind: string }) =>
+    scope.toolKind === "single"
+      ? { operationId: "op-trace-1", ...scope }
+      : null,
+  ),
+  traceSelectionConfirmed: vi.fn(),
+  traceSelectionEffectFailed: vi.fn(),
+}));
+
 import {
   getCreativeWork,
   markCreativeWorkSelectionEffectDone,
@@ -51,6 +61,11 @@ import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-c
 import { saveVisualRecipeFromOutput } from "@/server/application/save-visual-recipe";
 import { durableEffectToProjection, reviewCreativeWorkPersonFidelity, selectCreativeWorkOutputCommand } from "./select-creative-work-output";
 import { recordCreativeWorkValueEventStrict } from "@/server/creative-work/record-value-event";
+import {
+  resolveLifecycleTraceContext,
+  traceSelectionConfirmed,
+  traceSelectionEffectFailed,
+} from "@/server/diagnostics/selection-export-tracing";
 
 const mockGet = vi.mocked(getCreativeWork);
 const mockSelect = vi.mocked(selectCreativeWorkOutput);
@@ -61,6 +76,9 @@ const mockRecordValueStrict = vi.mocked(recordCreativeWorkValueEventStrict);
 const mockMarkDone = vi.mocked(markSelectionEffectDone);
 const mockRecordAttempt = vi.mocked(recordSelectionEffectAttempt);
 const mockMarkRecipeDone = vi.mocked(markCreativeWorkSelectionEffectDone);
+const mockResolveTrace = vi.mocked(resolveLifecycleTraceContext);
+const mockTraceConfirmed = vi.mocked(traceSelectionConfirmed);
+const mockTraceEffectFailed = vi.mocked(traceSelectionEffectFailed);
 
 function enqueuedEntry(kind: string, overrides: Record<string, unknown> = {}) {
   return {
@@ -898,4 +916,159 @@ describe("reviewCreativeWorkPersonFidelity (plan 03, T3)", () => {
     expect(mockSelect).not.toHaveBeenCalled();
     expect(mockEnsure).not.toHaveBeenCalled();
   });
+});
+
+describe("trace-390 diagnostic tracing of selection", () => {
+  const singleWork = { ...workItem, toolKind: "single" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSelect.mockResolvedValue({
+      output: { ...completedOutput, isSelected: true, selectedBy: "operator" },
+      enqueued: [enqueuedEntry("library"), enqueuedEntry("value_event")],
+    } as never);
+    mockEnsure.mockResolvedValue({ asset: { id: "asset-1" } as never, created: true });
+    mockRecordValueStrict.mockResolvedValue({} as never);
+    mockMarkDone.mockResolvedValue(undefined as never);
+    mockRecordAttempt.mockResolvedValue(undefined as never);
+  });
+
+  it("emits selection.confirmed for single-protocol approval", async () => {
+    mockGet.mockResolvedValue({ work: singleWork, outputs: [completedOutput] } as never);
+
+    const result = await selectCreativeWorkOutputCommand({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      confirmObjective: true,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mockResolveTrace).toHaveBeenCalledWith({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      clientProfileId: "profile-1",
+      toolKind: "single",
+    });
+    expect(mockTraceConfirmed).toHaveBeenCalledTimes(1);
+    expect(mockTraceConfirmed).toHaveBeenCalledWith({
+      context: expect.objectContaining({ operationId: "op-trace-1" }),
+      selectedBy: "operator",
+      effectsRequested: 2,
+    });
+    expect(mockTraceEffectFailed).not.toHaveBeenCalled();
+  });
+
+  it("marks agent selection distinctly from human approval", async () => {
+    mockGet.mockResolvedValue({ work: singleWork, outputs: [completedOutput] } as never);
+    mockSelect.mockResolvedValue({
+      output: { ...completedOutput, isSelected: true, selectedBy: "agent" },
+      enqueued: [],
+    } as never);
+
+    const result = await selectCreativeWorkOutputCommand({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      selectedBy: "agent",
+      confirmObjective: true,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mockTraceConfirmed).toHaveBeenCalledWith({
+      context: expect.objectContaining({ operationId: "op-trace-1" }),
+      selectedBy: "agent",
+      effectsRequested: 0,
+    });
+    expect(mockTraceEffectFailed).not.toHaveBeenCalled();
+  });
+
+  it("records a failed follow-up effect without rewriting approval truth", async () => {
+    mockGet.mockResolvedValue({ work: singleWork, outputs: [completedOutput] } as never);
+    mockEnsure.mockRejectedValue(
+      Object.assign(new Error("duplicate key value violates unique constraint"), { code: "23505" }),
+    );
+
+    const result = await selectCreativeWorkOutputCommand({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      confirmObjective: true,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { effects: { library: { status: "pending", receiptId: "effect-library" } } },
+    });
+    expect(mockTraceConfirmed).toHaveBeenCalledTimes(1);
+    expect(mockTraceEffectFailed).toHaveBeenCalledTimes(1);
+    expect(mockTraceEffectFailed).toHaveBeenCalledWith({
+      context: expect.objectContaining({ operationId: "op-trace-1" }),
+      effect: "library",
+      effectId: "effect-library",
+      code: "23505",
+      phase: "run",
+    });
+  });
+
+  it("records a confirm-phase failure distinctly from a run failure", async () => {
+    mockGet.mockResolvedValue({ work: singleWork, outputs: [completedOutput] } as never);
+    mockMarkDone.mockRejectedValueOnce(new Error("db down"));
+
+    const result = await selectCreativeWorkOutputCommand({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      confirmObjective: true,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { effects: { library: { status: "pending" }, valueEvent: { status: "done" } } },
+    });
+    expect(mockTraceEffectFailed).toHaveBeenCalledWith({
+      context: expect.objectContaining({ operationId: "op-trace-1" }),
+      effect: "library",
+      effectId: "effect-library",
+      code: "effect_confirm_failed",
+      phase: "confirm",
+    });
+  });
+
+  it("stays silent outside the Peça única pilot, even when an effect fails", async () => {
+    mockGet.mockResolvedValue({ work: workItem, outputs: [completedOutput] } as never);
+    mockEnsure.mockRejectedValue(new Error("head timeout"));
+
+    const result = await selectCreativeWorkOutputCommand({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      confirmObjective: true,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { effects: { library: { status: "pending" } } },
+    });
+    expect(mockTraceConfirmed).not.toHaveBeenCalled();
+    expect(mockTraceEffectFailed).not.toHaveBeenCalled();
+  });
+
+  it("emits nothing when selection fails before the commit", async () => {
+    mockGet.mockResolvedValue({ work: singleWork, outputs: [completedOutput] } as never);
+    mockSelect.mockResolvedValue(null);
+
+    const result = await selectCreativeWorkOutputCommand({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      confirmObjective: true,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(mockTraceConfirmed).not.toHaveBeenCalled();
+    expect(mockTraceEffectFailed).not.toHaveBeenCalled();
+  });
+
 });
