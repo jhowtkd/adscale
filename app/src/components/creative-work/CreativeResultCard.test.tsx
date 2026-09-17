@@ -37,7 +37,7 @@ vi.mock("@/lib/hooks/use-person-fidelity", () => ({
 }));
 
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string, values?: { count?: number; issue?: string }) => {
+  useTranslations: () => (key: string, values?: { count?: number; issue?: string; label?: string; code?: string }) => {
     if (key === "layerizeQuotaRemaining") return `Translate: ${values?.count ?? 0} remaining quota`;
     if (key === "artRefinementRunning") return `Ajustando a composição: ${values?.issue ?? ""}`;
     if (key === "artRefinementBest") return "Melhor versão disponível.";
@@ -46,6 +46,8 @@ vi.mock("next-intl", () => ({
     return ({
     failedGeneration: "Falha na geração",
     "status.queued": "Na fila", "status.processing": "Processando", "status.completed": "Pronto", "status.failed": "Falhou", variationShort: `v${values?.count}`, proposalAlt: `Proposta ${values?.label}`, generating: "Gerando...", retry: "Tentar novamente", retryProposal: "Repetir esta proposta", approving: "Aprovando", approved: "Aprovada", approve: "Aprovar", saveAsRecipe: "Salvar como receita visual", shareForReview: "Compartilhar para revisão", sharingForReview: "Criando link", sharedForReview: "Link de revisão copiado", copyReviewLinkAgain: "Copiar link de novo", reviewShareUrlLabel: "Link de revisão", reviewShareCopyFailed: "Não foi possível copiar. Selecione o link abaixo.", download: "Baixar", editImage: "Editar imagem", refine: "Refinar", revisionInstruction: "O que você quer mudar?", optionalAttachment: "Anexo opcional", generateVariation: "Gerar nova variação",
+    approvedSavePending: "Peça aprovada; salvamento pendente",
+    approvedSaveFailedDetail: `Peça aprovada, mas houve uma falha permanente no salvamento (${values?.code ?? ""})`,
     reviewRecommended: "Revisão recomendada — a checagem automática ficou inconclusiva",
     objectiveFailed: "A checagem objetiva reprovou esta peça.",
     objectiveFailedNext: "Gere uma nova variação antes de aprovar.",
@@ -419,6 +421,74 @@ describe("CreativeResultCard", () => {
 
     expect(screen.getByRole("button", { name: "Aprovada" })).toBeDisabled();
     expect(screen.getByTestId("action-status-icon")).toHaveAttribute("data-action-status", "success");
+  });
+
+  it("shows approved-with-save-pending without failing the approval (ICE-03B)", () => {
+    const props = { label: "Equilibrada", onRetry: vi.fn(), onApprove: vi.fn(), onDownload: vi.fn() };
+    render(
+      <CreativeResultCard
+        output={output({
+          isSelected: true,
+          effects: {
+            library: { status: "done" },
+            valueEvent: { status: "not_requested" },
+            recipe: { status: "pending", receiptId: "r1" },
+          },
+        })}
+        {...props}
+      />,
+    );
+    expect(screen.getByTestId("effect-save-pending")).toHaveTextContent(
+      "Peça aprovada; salvamento pendente",
+    );
+    // The approval itself stays successful — pending saves never restyle it.
+    expect(screen.getByRole("button", { name: "Aprovada" })).toBeDisabled();
+    expect(screen.getByTestId("action-status-icon")).toHaveAttribute("data-action-status", "success");
+    expect(screen.queryByTestId("effect-save-failed")).not.toBeInTheDocument();
+  });
+
+  it("identifies permanent save failure with its code, approval intact (ICE-03B)", () => {
+    const props = { label: "Equilibrada", onRetry: vi.fn(), onApprove: vi.fn(), onDownload: vi.fn() };
+    render(
+      <CreativeResultCard
+        output={output({
+          isSelected: true,
+          effects: {
+            library: { status: "done" },
+            valueEvent: { status: "not_requested" },
+            recipe: { status: "failed", code: "library_key_owned_elsewhere", retryable: false },
+          },
+        })}
+        {...props}
+      />,
+    );
+    expect(screen.getByTestId("effect-save-failed")).toHaveTextContent(
+      "falha permanente no salvamento (library_key_owned_elsewhere)",
+    );
+    expect(screen.getByRole("button", { name: "Aprovada" })).toBeDisabled();
+    expect(screen.getByTestId("action-status-icon")).toHaveAttribute("data-action-status", "success");
+  });
+
+  it("shows no save notice when effects settle or are absent", () => {
+    const props = { label: "Equilibrada", onRetry: vi.fn(), onApprove: vi.fn(), onDownload: vi.fn() };
+    const { rerender } = render(
+      <CreativeResultCard
+        output={output({
+          isSelected: true,
+          effects: {
+            library: { status: "done" },
+            valueEvent: { status: "not_requested" },
+            recipe: { status: "done" },
+          },
+        })}
+        {...props}
+      />,
+    );
+    expect(screen.queryByTestId("effect-save-pending")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("effect-save-failed")).not.toBeInTheDocument();
+    rerender(<CreativeResultCard output={output({ isSelected: true })} {...props} />);
+    expect(screen.queryByTestId("effect-save-pending")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("effect-save-failed")).not.toBeInTheDocument();
   });
 
   it("renders an independent status for processing and retries only the failed card", () => {

@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, sql, type SQL } from "drizzle-orm";
 import { db } from "../db";
 import {
   creativeWorkSelectionEffects,
@@ -176,4 +176,139 @@ export async function recordSelectionEffectAttempt(
       updatedAt: new Date(),
     })
     .where(eq(creativeWorkSelectionEffects.id, input.id));
+}
+
+export async function getSelectionEffectsForWork(
+  executor: EffectExecutor,
+  input: { workspaceId: string; workItemId: string },
+): Promise<CreativeWorkSelectionEffect[]> {
+  return executor
+    .select()
+    .from(creativeWorkSelectionEffects)
+    .where(and(
+      eq(creativeWorkSelectionEffects.workspaceId, input.workspaceId),
+      eq(creativeWorkSelectionEffects.workItemId, input.workItemId),
+    ));
+}
+
+/**
+ * Raw-SQL executor for the recovery processor: claim uses SELECT FOR
+ * UPDATE SKIP LOCKED plus database-clock leases, which the query builder
+ * cannot express. Both `db` and transaction executors satisfy it.
+ */
+export interface SelectionEffectsProcessorExecutor {
+  execute: (query: SQL<unknown>) => Promise<{ rows: Array<Record<string, unknown>> }>;
+}
+
+export interface ClaimedSelectionEffectRow {
+  id: string;
+  workspaceId: string;
+  workItemId: string;
+  outputId: string;
+  kind: SelectionEffectKind;
+  effectVersion: number;
+  payload: SelectionEffectPayload;
+  attempts: number;
+}
+
+function mapClaimedRow(row: Record<string, unknown>): ClaimedSelectionEffectRow {
+  return {
+    id: String(row.id),
+    workspaceId: String(row.workspace_id),
+    workItemId: String(row.work_item_id),
+    outputId: String(row.output_id),
+    kind: row.kind as SelectionEffectKind,
+    effectVersion: Number(row.effect_version),
+    payload: row.payload as SelectionEffectPayload,
+    attempts: Number(row.attempts),
+  };
+}
+
+/**
+ * Claim due obligations in one statement: pending rows, matured retries
+ * and expired leases, oldest first, skipping rows locked by a concurrent
+ * claimant. Attempts increment on claim, so each execution counts exactly
+ * once even when the worker crashes mid-effect. The database clock
+ * governs both the due comparison and the lease computation.
+ */
+export async function claimSelectionEffects(
+  executor: SelectionEffectsProcessorExecutor,
+  input: { owner: string; limit: number; leaseSeconds: number },
+): Promise<ClaimedSelectionEffectRow[]> {
+  const result = await executor.execute(sql`
+    WITH claimed AS (
+      SELECT effect.id
+      FROM adscale_app.creative_work_selection_effects AS effect
+      WHERE effect.state = 'pending'
+         OR (effect.state = 'retry_wait' AND effect.next_attempt_at <= now())
+         OR (effect.state = 'processing' AND effect.lease_expires_at <= now())
+      ORDER BY effect.requested_at ASC, effect.id ASC
+      LIMIT ${input.limit}
+      FOR UPDATE OF effect SKIP LOCKED
+    )
+    UPDATE adscale_app.creative_work_selection_effects AS effect
+    SET state = 'processing',
+        lease_owner = ${input.owner},
+        lease_expires_at = now() + make_interval(secs => ${input.leaseSeconds}),
+        attempts = effect.attempts + 1,
+        updated_at = now()
+    FROM claimed
+    WHERE effect.id = claimed.id
+    RETURNING
+      effect.id AS id,
+      effect.workspace_id AS workspace_id,
+      effect.work_item_id AS work_item_id,
+      effect.output_id AS output_id,
+      effect.kind AS kind,
+      effect.effect_version AS effect_version,
+      effect.payload AS payload,
+      effect.attempts AS attempts
+  `);
+  return result.rows.map(mapClaimedRow);
+}
+
+export type CloseSelectionEffectResolution =
+  | { outcome: "done" }
+  | { outcome: "retry"; delayMs: number; code: string }
+  | { outcome: "dead"; code: string }
+  | { outcome: "canceled"; code: string };
+
+/**
+ * Owner-compared close: only the lease holder in `processing` state may
+ * resolve the row. `closed: false` means the lease moved on or the row is
+ * gone (cascade) — the caller replays later or stops silently, and never
+ * resurrects the obligation.
+ */
+export async function closeSelectionEffect(
+  executor: SelectionEffectsProcessorExecutor,
+  input: { id: string; owner: string; resolution: CloseSelectionEffectResolution },
+): Promise<{ closed: boolean }> {
+  const { resolution } = input;
+  const setClause =
+    resolution.outcome === "done"
+      ? sql`state = 'done', completed_at = now(), error_code = NULL,
+            lease_owner = NULL, lease_expires_at = NULL, next_attempt_at = NULL`
+      : resolution.outcome === "retry" && resolution.delayMs > 0
+        ? sql`state = 'retry_wait',
+              next_attempt_at = now() + (${resolution.delayMs} * interval '1 millisecond'),
+              error_code = ${resolution.code.slice(0, 120)},
+              lease_owner = NULL, lease_expires_at = NULL`
+        : resolution.outcome === "retry"
+          ? sql`state = 'pending', next_attempt_at = NULL,
+                error_code = ${resolution.code.slice(0, 120)},
+                lease_owner = NULL, lease_expires_at = NULL`
+          : resolution.outcome === "dead"
+            ? sql`state = 'dead', error_code = ${resolution.code.slice(0, 120)},
+                  lease_owner = NULL, lease_expires_at = NULL, next_attempt_at = NULL`
+            : sql`state = 'canceled', error_code = ${resolution.code.slice(0, 120)},
+                  lease_owner = NULL, lease_expires_at = NULL, next_attempt_at = NULL`;
+  const result = await executor.execute(sql`
+    UPDATE adscale_app.creative_work_selection_effects AS effect
+    SET ${setClause}, updated_at = now()
+    WHERE effect.id = ${input.id}
+      AND effect.lease_owner = ${input.owner}
+      AND effect.state = 'processing'
+    RETURNING effect.id AS id
+  `);
+  return { closed: result.rows.length > 0 };
 }

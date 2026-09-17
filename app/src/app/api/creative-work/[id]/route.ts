@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import { db } from "@/server/db";
 import { getActivePreparationAttempt } from "@/server/repositories/creative-work-preparation";
+import { getSelectionEffectsForWork } from "@/server/repositories/selection-effects";
+import { projectOutputSelectionEffects } from "@/server/application/select-creative-work-output";
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { confirmSocialPostWork } from "@/server/application/confirm-social-post-work";
@@ -562,10 +565,24 @@ export async function GET(
       outputs: result.outputs,
       ...(!layerEditorAccess.enabled ? { cleanupOnly: true } : {}),
     });
+    // Selection obligations, projected — never the outbox table itself.
+    // Lets the interface follow pending/recovered/permanent-failure states
+    // as the recovery processor converges them.
+    const effectRows = await getSelectionEffectsForWork(db, {
+      workspaceId: workspace.id,
+      workItemId: id,
+    });
+    const effectsByOutput = new Map<string, typeof effectRows>();
+    for (const row of effectRows) {
+      const list = effectsByOutput.get(row.outputId) ?? [];
+      list.push(row);
+      effectsByOutput.set(row.outputId, list);
+    }
     const outputs = result.outputs.map((output) => ({
       ...projectPublicCreativeWorkOutput(output),
       layerization: layerEditorAccess.enabled ? toPublicLayerizationState(recoveredLayerizations.get(output.id) ?? output.layerization) : null,
       layerEditor: toPublicLayerEditorSummary(output.layerEditor),
+      effects: projectOutputSelectionEffects(effectsByOutput.get(output.id) ?? []),
     }));
     const { inputSnapshot: _inputSnapshot, carouselQuality, ...publicWork } = result.work;
     const editorial = readCarouselEditorial(publicWork.settings);

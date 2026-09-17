@@ -4,8 +4,11 @@ import {
   classifyExecutor,
   countJourneyProviderCalls,
   parseHarnessArgs,
+  recoveryEffectsSettled,
+  recoveryRequestedKinds,
   resolveHarnessConfig,
   summarizeJourneyOutputs,
+  summarizeRecoveryEffects,
 } from "./worker-journey-harness";
 
 describe("harness args", () => {
@@ -246,5 +249,46 @@ describe("evidence building", () => {
       outputsSummary: { allCompletedWithBytes: false, unexecuted: false, anyCompleted: true },
     });
     expect(evidence.resultObserved).toBe("unknown");
+  });
+});
+
+describe("selection-effects recovery summary (ICE-03B)", () => {
+  it("reads the interface projection and collects failed codes", () => {
+    expect(
+      summarizeRecoveryEffects({
+        library: { status: "done" },
+        valueEvent: { status: "pending", receiptId: "r1" },
+        recipe: { status: "failed", code: "effect_dead", retryable: false },
+      }),
+    ).toEqual({
+      library: "done",
+      valueEvent: "pending",
+      recipe: "failed",
+      failedCodes: ["recipe:effect_dead"],
+    });
+  });
+
+  it("treats missing and unknown states as not requested or pending", () => {
+    expect(summarizeRecoveryEffects(undefined)).toEqual({
+      library: "not_requested",
+      valueEvent: "not_requested",
+      recipe: "not_requested",
+      failedCodes: [],
+    });
+    expect(
+      summarizeRecoveryEffects({ library: { status: "bogus" } }),
+    ).toMatchObject({ library: "pending" });
+  });
+
+  it("settles only when no kind is pending", () => {
+    const settled = summarizeRecoveryEffects({
+      library: { status: "done" },
+      valueEvent: { status: "done" },
+    });
+    expect(recoveryEffectsSettled(settled)).toBe(true);
+    expect(recoveryRequestedKinds(settled)).toEqual(["library", "valueEvent"]);
+    const open = summarizeRecoveryEffects({ library: { status: "pending", receiptId: "r" } });
+    expect(recoveryEffectsSettled(open)).toBe(false);
+    expect(recoveryRequestedKinds(open)).toEqual(["library"]);
   });
 });

@@ -22,6 +22,8 @@
     "test:create-post-e2e": "playwright test tests/e2e/create-post.spec.ts",
     "test:guided-e2e": "node scripts/run-guided-e2e.mjs",
     "harness:worker-journey": "tsx scripts/run-worker-journey-harness.ts",
+    "harness:selection-effects-recovery": "tsx scripts/run-selection-effects-recovery.ts",
+    "selection-effects:backfill": "NODE_OPTIONS='--conditions=react-server' tsx scripts/backfill-selection-effects.ts",
     "harness:studio-format-matrix": "tsx scripts/run-studio-format-matrix.ts",
     "check:34-enablement": "tsx scripts/check-34-enablement-evidence.ts",
     "served-ads:resync": "NODE_OPTIONS='--conditions=react-server' tsx scripts/resync-served-ads-windows.ts",

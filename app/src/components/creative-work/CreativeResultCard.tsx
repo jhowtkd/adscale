@@ -116,6 +116,22 @@ export function CreativeResultCard({
   const shareReview = useSharePieceReview();
   const favorite = usePieceFavorite(output.workItemId, output.id, isCompleted);
   const isRevision = Boolean(output.parentOutputId);
+  // Selection obligations (ICE-03B): the approval already succeeded when
+  // these exist — pending means "approved, save converging", failed means a
+  // permanent save failure. Neither ever restyles the approval itself.
+  const effectStates = output.isSelected && output.effects
+    ? [output.effects.library, output.effects.valueEvent, output.effects.recipe]
+    : [];
+  const effectSaveState: "settled" | "pending" | "failed" = effectStates.some(
+    (effect) => effect.status === "pending",
+  )
+    ? "pending"
+    : effectStates.some((effect) => effect.status === "failed")
+      ? "failed"
+      : "settled";
+  const failedEffect = effectStates.find((effect) => effect.status === "failed");
+  const failedEffectCode =
+    failedEffect && "code" in failedEffect ? failedEffect.code : null;
   // R-008: failure categories are stable and typed; the free retry exists
   // only while the durable image-call budget has a call (R-006).
   const failureCategory = output.status === "failed"
@@ -557,6 +573,21 @@ export function CreativeResultCard({
                         ? confirmingSelection ? t("confirmApproval") : t("reviewBeforeApprove")
                         : workspace ? t("choosePiece") : t("approve")}
               </button>
+            ) : null}
+            {output.isSelected && effectSaveState !== "settled" ? (
+              <p
+                role="status"
+                data-testid={effectSaveState === "pending" ? "effect-save-pending" : "effect-save-failed"}
+                className={
+                  effectSaveState === "pending"
+                    ? "text-xs text-[var(--text-muted)]"
+                    : "text-xs text-[var(--warning-text)]"
+                }
+              >
+                {effectSaveState === "pending"
+                  ? t("approvedSavePending")
+                  : t("approvedSaveFailedDetail", { code: failedEffectCode ?? "" })}
+              </p>
             ) : null}
             <div className="flex flex-wrap gap-2">
             <button type="button" className={secondaryActionClass} title={t("downloadHint")} onClick={() => onDownload(output.id)}>{t("download")}</button>
