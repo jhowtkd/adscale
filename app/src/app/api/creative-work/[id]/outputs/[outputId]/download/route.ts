@@ -3,6 +3,7 @@ import { apiError, handleApiError } from "@/lib/api-response";
 import { resolveCreativeWorkOutputDownload, type CreativeWorkOutputDownloadFormat } from "@/server/application/resolve-creative-work-output-download";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
+import { traceExportServed } from "@/server/diagnostics/selection-export-tracing";
 import { getLayerEditorAccess } from "@/server/layer-editor/quota";
 import { objectDownloadResponse } from "@/server/storage/download-response";
 
@@ -64,15 +65,28 @@ export async function GET(
       }
     }
 
-    const { url } = result.value;
+    const { url, traceContext } = result.value;
     const url2 = new URL(request.url);
     const wantsJson =
       url2.searchParams.get("format") === "json" ||
       request.headers.get("accept")?.includes("application/json");
     if (wantsJson) {
-      return NextResponse.json({ url });
+      const response = NextResponse.json({ url });
+      // trace-390: served lands on the same operation as prepared (Peça única
+      // only — untraced downloads skip silently). Journaling never throws.
+      if (traceContext) {
+        traceExportServed({ context: traceContext, servedAs: "json" });
+      }
+      return response;
     }
-    return objectDownloadResponse(url, result.value.outputKey);
+    const response = await objectDownloadResponse(url, result.value.outputKey);
+    if (traceContext) {
+      traceExportServed({
+        context: traceContext,
+        servedAs: url.startsWith("e2e-storage://") ? "bytes" : "redirect",
+      });
+    }
+    return response;
   } catch (error) {
     return handleApiError(error, "creative-work.[id].outputs.[outputId].download.GET");
   }

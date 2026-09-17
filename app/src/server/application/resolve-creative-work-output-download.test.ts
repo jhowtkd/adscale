@@ -29,13 +29,24 @@ vi.mock("@/server/storage", () => ({
   },
 }));
 
+vi.mock("@/server/diagnostics/selection-export-tracing", () => ({
+  resolveLifecycleTraceContext: vi.fn(),
+  traceExportPrepared: vi.fn(),
+}));
+
 import { getCreativeWork } from "@/server/repositories/creative-work";
 import { objectStorage } from "@/server/storage";
 import { recordCreativeWorkValueEvent } from "@/server/creative-work/record-value-event";
+import {
+  resolveLifecycleTraceContext,
+  traceExportPrepared,
+} from "@/server/diagnostics/selection-export-tracing";
 import { resolveCreativeWorkOutputDownload } from "./resolve-creative-work-output-download";
 
 const mockGet = vi.mocked(getCreativeWork);
 const mockRecordValue = vi.mocked(recordCreativeWorkValueEvent);
+const mockResolveTrace = vi.mocked(resolveLifecycleTraceContext);
+const mockTracePrepared = vi.mocked(traceExportPrepared);
 const mockSigned = vi.mocked(objectStorage.signedDownloadUrl);
 const mockHead = vi.mocked(objectStorage.head);
 const mockGetObject = vi.mocked(objectStorage.get);
@@ -67,6 +78,9 @@ describe("resolveCreativeWorkOutputDownload", () => {
     vi.clearAllMocks();
     mockSigned.mockResolvedValue("https://signed.example.com/asset.png");
     mockHead.mockResolvedValue(null);
+    mockResolveTrace.mockImplementation((scope: { toolKind: string }) =>
+      scope.toolKind === "single" ? { operationId: `op-${Math.random()}` } : null,
+    );
   });
 
   it("returns signed url for completed output", async () => {
@@ -222,5 +236,158 @@ describe("resolveCreativeWorkOutputDownload", () => {
     expect(mockPutObject).not.toHaveBeenCalled();
     const zip = await JSZip.loadAsync(Buffer.concat(storedChunks));
     expect(Object.keys(zip.files)).toContain("manifest.json");
+  });
+});
+
+describe("trace-390 diagnostic tracing of export", () => {
+  const singleWork = { ...workItem, toolKind: "single" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSigned.mockResolvedValue("https://signed.example.com/asset.png");
+    mockHead.mockResolvedValue(null);
+    mockResolveTrace.mockImplementation((scope: { toolKind: string }) =>
+      scope.toolKind === "single" ? { operationId: `op-${Math.random()}` } : null,
+    );
+  });
+
+  it("emits export.prepared for a single-protocol download and threads the operation", async () => {
+    mockGet.mockResolvedValue({
+      work: singleWork,
+      outputs: [completedOutput],
+    } as never);
+
+    const result = await resolveCreativeWorkOutputDownload({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(mockResolveTrace).toHaveBeenCalledWith({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      clientProfileId: "profile-1",
+      toolKind: "single",
+    });
+    expect(mockTracePrepared).toHaveBeenCalledTimes(1);
+    expect(mockTracePrepared).toHaveBeenCalledWith({
+      context: result.value.traceContext,
+      format: "original",
+    });
+    expect(result.value.traceContext).toMatchObject({ operationId: expect.any(String) });
+    expect(result.value.url).toBe("https://signed.example.com/asset.png");
+  });
+
+  it("treats repeated downloads as distinct operations", async () => {
+    mockGet.mockResolvedValue({
+      work: singleWork,
+      outputs: [completedOutput],
+    } as never);
+    const input = { workspaceId: "ws-1", workItemId: "work-1", outputId: "output-1" };
+
+    const first = await resolveCreativeWorkOutputDownload(input);
+    const second = await resolveCreativeWorkOutputDownload(input);
+
+    expect(first.ok && second.ok).toBe(true);
+    if (!first.ok || !second.ok) return;
+    expect(mockTracePrepared).toHaveBeenCalledTimes(2);
+    expect(first.value.traceContext?.operationId).toBeTruthy();
+    expect(second.value.traceContext?.operationId).toBeTruthy();
+    expect(first.value.traceContext?.operationId).not.toBe(
+      second.value.traceContext?.operationId,
+    );
+    // New operations, same Peça: no new output, same key.
+    expect(first.value.outputKey).toBe(completedOutput.outputKey);
+    expect(second.value.outputKey).toBe(completedOutput.outputKey);
+  });
+
+  it("keeps the delivered value event alongside the journal record", async () => {
+    mockGet.mockResolvedValue({
+      work: singleWork,
+      outputs: [completedOutput],
+    } as never);
+
+    const result = await resolveCreativeWorkOutputDownload({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mockRecordValue).toHaveBeenCalledWith(expect.objectContaining({
+      kind: "delivered",
+      outputId: "output-1",
+      outputKey: completedOutput.outputKey,
+      origin: "studio",
+    }));
+    expect(mockTracePrepared).toHaveBeenCalledTimes(1);
+  });
+
+  it("records the requested format on prepared", async () => {
+    mockGet.mockResolvedValue({
+      work: singleWork,
+      outputs: [{
+        ...completedOutput,
+        layerEditor: {
+          schemaVersion: 1, revision: 1, sourceLayerizationAttemptId: "attempt", canvas: { width: 2, height: 2 }, layers: [
+            { id: "00000000-0000-4000-8000-000000000001", source: { order: 0, name: "Base", visible: true, x: 0, y: 0, width: 2, height: 2, key: "layers/base.png" }, order: 0, name: "Base", visible: true, x: 0, y: 0, width: 2, height: 2, currentKey: "layers/base.png", currentKind: "source", restorableKey: null },
+            { id: "00000000-0000-4000-8000-000000000002", source: { order: 1, name: "Product", visible: true, x: 0, y: 0, width: 2, height: 2, key: "layers/product.png" }, order: 1, name: "Product", visible: true, x: 0, y: 0, width: 2, height: 2, currentKey: "layers/product.png", currentKind: "source", restorableKey: null },
+          ], lease: null, regeneration: null,
+          publishedPsdKey: "creative-work/output-1/editor/published.psd", updatedAt: "2026-08-22T00:00:00.000Z",
+        },
+      }],
+    } as never);
+
+    const result = await resolveCreativeWorkOutputDownload({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+      format: "psd",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mockTracePrepared).toHaveBeenCalledWith({
+      context: expect.objectContaining({ operationId: expect.any(String) }),
+      format: "psd",
+    });
+  });
+
+  it("stays silent outside the Peça única pilot", async () => {
+    mockGet.mockResolvedValue({
+      work: workItem,
+      outputs: [completedOutput],
+    } as never);
+
+    const result = await resolveCreativeWorkOutputDownload({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(mockTracePrepared).not.toHaveBeenCalled();
+    expect(result.value.traceContext).toBeUndefined();
+    // The value event is business behavior — unchanged by the pilot gate.
+    expect(mockRecordValue).toHaveBeenCalledTimes(1);
+  });
+
+  it("emits nothing when the download is not ready", async () => {
+    mockGet.mockResolvedValue({
+      work: singleWork,
+      outputs: [{ ...completedOutput, status: "failed", outputKey: null }],
+    } as never);
+
+    const result = await resolveCreativeWorkOutputDownload({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(mockTracePrepared).not.toHaveBeenCalled();
   });
 });

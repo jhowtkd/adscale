@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GET } from "./route";
 import { AUTH_ERROR_CODES, WorkspaceAuthError } from "@/server/auth/errors";
+import { traceExportServed } from "@/server/diagnostics/selection-export-tracing";
+
+const mockTraceServed = vi.mocked(traceExportServed);
+const TRACE_CONTEXT = { operationId: "op-trace-1" };
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
@@ -29,6 +33,22 @@ vi.mock("@/server/application/resolve-creative-work-output-download", () => ({
 vi.mock("@/server/layer-editor/quota", () => ({
   getLayerEditorAccess: (...args: unknown[]) => layerEditorAccessMock(...args),
 }));
+vi.mock("@/server/diagnostics/selection-export-tracing", () => ({
+  traceExportServed: vi.fn(),
+}));
+vi.mock("@/server/storage/download-response", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/server/storage/download-response")>();
+  return {
+    ...original,
+    objectDownloadResponse: vi.fn((url: string) =>
+      import("next/server").then(({ NextResponse }) =>
+        url.startsWith("e2e-storage://")
+          ? new NextResponse("bytes", { status: 200 })
+          : NextResponse.redirect(url, { status: 302 }),
+      ),
+    ),
+  };
+});
 
 function makeParams(id: string, outputId: string) {
   return Promise.resolve({ id, outputId });
@@ -186,5 +206,98 @@ describe("GET /api/creative-work/[id]/outputs/[outputId]/download", () => {
     );
 
     expect(res.status).toBe(409);
+  });
+
+  it("journals export.served on the prepared operation for redirects", async () => {
+    resolveMock.mockResolvedValue({
+      ok: true,
+      value: {
+        url: "https://signed.example.com/asset.png",
+        outputKey: "creative-work/output-1/out.png",
+        traceContext: TRACE_CONTEXT,
+      },
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/creative-work/work-1/outputs/output-1/download"),
+      { params: makeParams("work-1", "output-1") }
+    );
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("https://signed.example.com/asset.png");
+    expect(mockTraceServed).toHaveBeenCalledTimes(1);
+    expect(mockTraceServed).toHaveBeenCalledWith({
+      context: TRACE_CONTEXT,
+      servedAs: "redirect",
+    });
+  });
+
+  it("journals export.served as json for JSON responses", async () => {
+    resolveMock.mockResolvedValue({
+      ok: true,
+      value: {
+        url: "https://signed.example.com/asset.png",
+        outputKey: "creative-work/output-1/out.png",
+        traceContext: TRACE_CONTEXT,
+      },
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/creative-work/work-1/outputs/output-1/download?format=json"),
+      { params: makeParams("work-1", "output-1") }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockTraceServed).toHaveBeenCalledWith({
+      context: TRACE_CONTEXT,
+      servedAs: "json",
+    });
+  });
+
+  it("journals export.served as bytes for streamed downloads", async () => {
+    resolveMock.mockResolvedValue({
+      ok: true,
+      value: {
+        url: "e2e-storage://bucket/key",
+        outputKey: "creative-work/output-1/out.png",
+        traceContext: TRACE_CONTEXT,
+      },
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/creative-work/work-1/outputs/output-1/download"),
+      { params: makeParams("work-1", "output-1") }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockTraceServed).toHaveBeenCalledWith({
+      context: TRACE_CONTEXT,
+      servedAs: "bytes",
+    });
+  });
+
+  it("serves untraced downloads without journaling", async () => {
+    const res = await GET(
+      new Request("http://localhost/api/creative-work/work-1/outputs/output-1/download"),
+      { params: makeParams("work-1", "output-1") }
+    );
+
+    expect(res.status).toBe(302);
+    expect(mockTraceServed).not.toHaveBeenCalled();
+  });
+
+  it("journals nothing when the download fails", async () => {
+    resolveMock.mockResolvedValue({
+      ok: false,
+      error: { code: "output_not_found" },
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/creative-work/work-1/outputs/output-1/download"),
+      { params: makeParams("work-1", "output-1") }
+    );
+
+    expect(res.status).toBe(404);
+    expect(mockTraceServed).not.toHaveBeenCalled();
   });
 });

@@ -8,6 +8,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getCreativeWork } from "@/server/repositories/creative-work";
+import type { DiagnosticContext } from "@/server/diagnostics/contract";
+import {
+  resolveLifecycleTraceContext,
+  traceExportPrepared,
+} from "@/server/diagnostics/selection-export-tracing";
 import { objectStorage } from "@/server/storage";
 import { layerizationStateFromDatabase } from "@/server/layerize/contracts";
 import { layerEditorStateFromDatabase } from "@/server/layer-editor/contracts";
@@ -39,6 +44,13 @@ export type ResolveCreativeWorkOutputDownloadError =
 export type ResolveCreativeWorkOutputDownloadSuccess = {
   url: string;
   outputKey: string;
+  /**
+   * trace-390: the journal operation this download resolved under (Peça única
+   * only; absent otherwise). Threaded to the HTTP adapter so `export.served`
+   * lands on the same operation as `export.prepared`. Telemetry only — it
+   * never leaves the server and never decides business outcomes.
+   */
+  traceContext?: DiagnosticContext;
 };
 
 export type ResolveCreativeWorkOutputDownloadResult =
@@ -114,9 +126,32 @@ export async function resolveCreativeWorkOutputDownload(
   }
 
   const format = input.format ?? "original";
+  // trace-390: every successful resolution is one export operation with its
+  // own journal context — repeated downloads are distinct operations over the
+  // same Peça, never new Peças. Failures return before this point and emit
+  // nothing; the delivered value event below stays exactly as it was.
+  const succeed = (
+    resolvedKey: string,
+    url: string,
+  ): ResolveCreativeWorkOutputDownloadResult => {
+    const traceContext = resolveLifecycleTraceContext({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      outputId: output.id,
+      clientProfileId: existing.work.clientProfileId ?? null,
+      toolKind: existing.work.toolKind,
+    });
+    if (traceContext) {
+      traceExportPrepared({ context: traceContext, format });
+    }
+    return {
+      ok: true,
+      value: { url, outputKey: resolvedKey, ...(traceContext ? { traceContext } : {}) },
+    };
+  };
   const editor = layerEditorStateFromDatabase(output.layerEditor);
   if (format === "psd" && editor?.publishedPsdKey) {
-    return { ok: true, value: { url: await objectStorage.signedDownloadUrl(editor.publishedPsdKey), outputKey: editor.publishedPsdKey } };
+    return succeed(editor.publishedPsdKey, await objectStorage.signedDownloadUrl(editor.publishedPsdKey));
   }
   if (["layer", "layer-candidate", "draft-png", "draft-psd"].includes(format)) {
     if (!editor) return { ok: false, error: { code: "output_not_ready", status: "layer_editor_not_started" } };
@@ -129,7 +164,7 @@ export async function resolveCreativeWorkOutputDownload(
       outputKey = format === "draft-png" ? draft.pngKey : draft.psdKey;
     }
     if (!outputKey) return { ok: false, error: { code: "output_not_ready", status: "layer_editor_artifact_missing" } };
-    return { ok: true, value: { url: await objectStorage.signedDownloadUrl(outputKey), outputKey } };
+    return succeed(outputKey, await objectStorage.signedDownloadUrl(outputKey));
   }
   const state = layerizationStateFromDatabase(output.layerization);
   if (format !== "original") {
@@ -148,7 +183,7 @@ export async function resolveCreativeWorkOutputDownload(
       return { ok: false, error: { code: "output_not_ready", status: "layerization_artifact_missing" } };
     }
     const url = await objectStorage.signedDownloadUrl(outputKey);
-    return { ok: true, value: { url, outputKey } };
+    return succeed(outputKey, url);
   }
 
   const url = await objectStorage.signedDownloadUrl(output.outputKey);
@@ -163,8 +198,5 @@ export async function resolveCreativeWorkOutputDownload(
       outputKey: output.outputKey,
     });
   }
-  return {
-    ok: true,
-    value: { url, outputKey: output.outputKey },
-  };
+  return succeed(output.outputKey, url);
 }
