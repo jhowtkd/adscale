@@ -96,6 +96,11 @@ export async function buildBrandCortexPilotPackage(
     if (!output || output.status !== "completed" || !output.outputKey) {
       throw new Error(`Completed output not found: ${selection.outputId}`);
     }
+    // ICE-05A: an agent selection is not a human vote — agent-selected
+    // outputs never enter a blind human-eval package.
+    if (output.selectedBy === "agent") {
+      throw new Error(`Agent-selected output cannot enter a human-eval package: ${selection.outputId}`);
+    }
     return { aggregate, output };
   }));
   const { first, knowledge } = assertSameIdentity(aggregates.map(({ aggregate }) => aggregate));

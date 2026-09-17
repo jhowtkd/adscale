@@ -238,6 +238,48 @@ describe("Brand Cortex real-pilot review", () => {
     });
   });
 
+  it("fails verdicts decided by an agent or an automatic score (ICE-05A)", () => {
+    const pilot = approvedPilot();
+    const review = {
+      schemaVersion: 1 as const,
+      reportType: "brand-cortex-release-review" as const,
+      pilotId: pilot.pilotId,
+      pilotSha256: hashBrandCortexEvidence(pilot),
+      reviewerId: "reviewer-1",
+      reviewedAt: "2026-08-13T13:00:00.000Z",
+      artifacts: pilot.artifacts.map((artifact) => ({
+        artifactId: artifact.artifactId,
+        artifactSha256: artifact.artifactSha256,
+        verdict: "pass" as const,
+        criteria: {
+          brandRecognition: "pass" as const,
+          visualGrammar: "pass" as const,
+          paletteAndTypography: "pass" as const,
+          hierarchyAndComposition: "pass" as const,
+          assetUse: "pass" as const,
+          noInvention: "pass" as const,
+        },
+        notes: null,
+        decidedBy: "agent" as const,
+      })),
+      releaseDecision: { status: "approved" as const, notes: "Aprovado para piloto." },
+    };
+
+    expect(() => evaluateBrandCortexPilotReview({ pilot, review })).toThrow(
+      /never count as human review/,
+    );
+  });
+
+  it("emits review templates with null verdicts and null provenance (ICE-05A)", () => {
+    const pilot = approvedPilot();
+    const template = createBrandCortexReviewTemplate(pilot);
+    expect(template.reviewerId).toBe("");
+    for (const artifact of template.artifacts) {
+      expect(artifact.verdict).toBeNull();
+      expect(artifact.decidedBy).toBeNull();
+    }
+  });
+
   it("fails when a review is copied to a changed pilot or artifact", () => {
     const pilot = approvedPilot();
     const review = {

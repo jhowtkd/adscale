@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "seed": "exp-1",
+  "journeys": [
+    {
+      "id": "j1",
+      "protocol": "single",
+      "brand": "BRAND",
+      "segment": "SEGMENT",
+      "mandatoryCase": "psicologia_fact_preservation",
+      "plannedOutputs": 3
+    },
+    {
+      "id": "j2",
+      "protocol": "single",
+      "brand": "BRAND",
+      "segment": "SEGMENT",
+      "mandatoryCase": "xtb_content_style_identity_separation",
+      "plannedOutputs": 3
+    },
+    {
+      "id": "j3",
+      "protocol": "variations",
+      "brand": "BRAND",
+      "segment": "SEGMENT",
+      "mandatoryCase": "nr1_three_format_adaptation",
+      "plannedOutputs": 3
+    },
+    {
+      "id": "j4",
+      "protocol": "variations",
+      "brand": "BRAND",
+      "segment": "SEGMENT",
+      "mandatoryCase": "carousel_slide_sequence",
+      "plannedOutputs": 3
+    },
+    {
+      "id": "j5",
+      "protocol": "format_adaptation",
+      "brand": "BRAND",
+      "segment": "SEGMENT",
+      "mandatoryCase": "studio_edit_preserves_copy",
+      "plannedOutputs": 3
+    },
+    {
+      "id": "j6",
+      "protocol": "format_adaptation",
+      "brand": "BRAND",
+      "segment": "SEGMENT",
+      "mandatoryCase": "safe_margins",
+      "plannedOutputs": 3
+    },
+    {
+      "id": "j7",
+      "protocol": "restyle",
+      "brand": "BRAND",
+      "segment": "SEGMENT",
+      "mandatoryCase": "psicologia_fact_preservation",
+      "plannedOutputs": 3
+    },
+    {
+      "id": "j8",
+      "protocol": "restyle",
+      "brand": "BRAND",
+      "segment": "SEGMENT",
+      "mandatoryCase": "xtb_content_style_identity_separation",
+      "plannedOutputs": 3
+    },
+    {
+      "id": "j9",
+      "protocol": "carousel",
+      "brand": "BRAND",
+      "segment": "SEGMENT",
+      "mandatoryCase": "nr1_three_format_adaptation",
+      "plannedOutputs": 3
+    },
+    {
+      "id": "j10",
+      "protocol": "carousel",
+      "brand": "BRAND",
+      "segment": "SEGMENT",
+      "mandatoryCase": "carousel_slide_sequence",
+      "plannedOutputs": 3
+    }
+  ],
+  "_instructions": [
+    "Blind-package spec (ICE-05A): exactly 10 journeys, 2 per protocol, all 6 mandatory cases present.",
+    "Fill brand/segment per journey; keep the seed recorded for reproducible blind assignments.",
+    "Build with: npx tsx scripts/build-quality-recovery-blind-package.ts <spec.json> <package.json>."
+  ]
+}

@@ -28,6 +28,11 @@ const brandCortexArtifactReviewSchema = z.object({
     noInvention: reviewCriterionSchema,
   }),
   notes: z.string().nullable(),
+  /**
+   * ICE-05A: who cast the verdict. Optional so historical reviews parse;
+   * agent and automatic-score verdicts fail evaluation loudly.
+   */
+  decidedBy: z.enum(["human", "agent", "auto_score"]).nullish(),
 }).superRefine((review, context) => {
   const nonPass = review.verdict !== "pass"
     || Object.values(review.criteria).some((verdict) => verdict !== "pass");
@@ -36,6 +41,13 @@ const brandCortexArtifactReviewSchema = z.object({
       code: z.ZodIssueCode.custom,
       path: ["notes"],
       message: "notes are required for non-pass review",
+    });
+  }
+  if (review.decidedBy === "agent" || review.decidedBy === "auto_score") {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["decidedBy"],
+      message: "agent and automatic-score verdicts never count as human review",
     });
   }
 });
@@ -423,6 +435,7 @@ export function createBrandCortexReviewTemplate(input: unknown) {
       verdict: null,
       criteria: Object.fromEntries(REVIEW_CRITERIA.map((criterion) => [criterion, null])),
       notes: null,
+      decidedBy: null,
     })),
     releaseDecision: { status: null, notes: "" },
   };

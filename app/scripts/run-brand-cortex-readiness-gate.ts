@@ -165,6 +165,16 @@ function parseArgs(argv: string[]) {
   return defaults;
 }
 
+/**
+ * ICE-05A: human_needed stays pending (exit 2, the repo's pending signal),
+ * never a pass — and distinct from a hard failure (exit 1).
+ */
+export function readinessExitCode(status: BrandCortexReadinessReport["status"]): number {
+  if (status === "approved") return 0;
+  if (status === "human_needed") return 2;
+  return 1;
+}
+
 export async function main(argv = process.argv.slice(2)): Promise<number> {
   let temporaryDirectory: string | null = null;
   try {
@@ -219,7 +229,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     writeFileSync(args.out, `${JSON.stringify(report, null, 2)}\n`, "utf8");
     console.log(`BRAND-CORTEX: ${report.status}`);
     console.log(`Structured evidence: ${args.out}`);
-    return report.status === "approved" ? 0 : 1;
+    return readinessExitCode(report.status);
   } catch (error) {
     console.error(`BRAND-CORTEX: ${error instanceof Error ? error.message : String(error)}`);
     return 1;
