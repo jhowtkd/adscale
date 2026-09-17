@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 
 vi.mock("@/server/validation/env", () => ({
@@ -6,6 +6,13 @@ vi.mock("@/server/validation/env", () => ({
     OPENAI_API_KEY: "sk-test",
     OPENAI_TEXT_MODEL: "gpt-4o",
   },
+}));
+
+const responsesCreate = vi.hoisted(() => vi.fn());
+
+vi.mock("./utils", () => ({
+  getOpenAI: () => ({ responses: { create: responsesCreate } }),
+  extractOutputText: (response: { output_text?: string }) => response.output_text,
 }));
 
 import {
@@ -26,6 +33,12 @@ import {
   inspectExactCompositionAsset,
 } from "./creative-qa";
 import { normalizeGeneratedImage } from "./image-generation";
+import type { DiagnosticEventEnvelope } from "@/server/diagnostics/contract";
+import { createDiagnosticContext, withDiagnosticContext } from "@/server/diagnostics/context";
+import {
+  __setModelCallEventSinkForTests,
+  __setModelCallSpanStarterForTests,
+} from "@/server/diagnostics/model-calls";
 
 describe("analyzeCreativeQa controlled E2E seam", () => {
   afterEach(() => vi.unstubAllEnvs());
@@ -967,4 +980,152 @@ describe("normalizeGeneratedImage 3:4 (real bytes, ICE-04A)", () => {
     expect(box.top).toBeGreaterThanOrEqual(Math.floor(200 * scale) - 2);
     expect(box.top).toBeLessThanOrEqual(Math.ceil(200 * scale) + 2);
   }, 30_000);
+});
+
+describe("trace-389: quality/revision model-call observation", () => {
+  let captured: DiagnosticEventEnvelope[];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    captured = [];
+    __setModelCallEventSinkForTests((event) => {
+      captured.push(event);
+    });
+    __setModelCallSpanStarterForTests(() => undefined);
+  });
+
+  afterEach(() => vi.unstubAllEnvs());
+
+  function testContext() {
+    return createDiagnosticContext({
+      workspaceId: "ws-qa",
+      workItemId: "work-qa",
+      operationId: "op-qa",
+      releaseSha: "test-sha",
+      environment: "test",
+      process: "web",
+      dataOrigin: "test",
+    });
+  }
+
+  function qaInput() {
+    return {
+      imageBuffer: Buffer.from("output"),
+      mimeType: "image/png",
+      mode: "social_post" as const,
+      format: "1:1",
+      request: "Promoção de agosto",
+      copy: { headline: "H", body: "B", cta: "C" },
+      factPack: null,
+      brandName: "ADScale",
+      references: [],
+      locale: "pt-BR",
+    };
+  }
+
+  it("treats a quality rejection as a completed verdict, never a provider error", async () => {
+    responsesCreate.mockResolvedValueOnce({
+      model: "gpt-4o",
+      id: "resp-qa",
+      output_text: JSON.stringify({
+        findings: [{
+          code: "unsupported_claim",
+          status: "confirmed",
+          confidence: 0.99,
+          note: "Claim without origin.",
+        }],
+        summary: "Rejected: unsupported claim.",
+      }),
+    });
+
+    const result = await withDiagnosticContext(testContext(), () =>
+      analyzeCreativeWorkQa(qaInput()),
+    );
+
+    expect(result.findings).toHaveLength(1);
+    expect(responsesCreate).toHaveBeenCalledTimes(1);
+    const completed = captured.filter((event) => event.event === "model.call.completed");
+    expect(completed).toHaveLength(1);
+    expect(completed[0]!.stage).toBe("quality");
+    expect(completed[0]!.call).toMatchObject({
+      requestedModel: "gpt-4o",
+      returnedModel: "gpt-4o",
+      providerRequestId: "resp-qa",
+    });
+    expect(captured.filter((event) => event.event === "model.call.failed")).toHaveLength(0);
+    expect(captured.filter((event) => event.event === "model.validation.failed")).toHaveLength(0);
+  });
+
+  it("records answered transport plus validation failure on invalid QA JSON", async () => {
+    responsesCreate.mockResolvedValueOnce({ output_text: "not-json{" });
+
+    await expect(
+      withDiagnosticContext(testContext(), () => analyzeCreativeWorkQa(qaInput())),
+    ).rejects.toThrow(SyntaxError);
+    expect(captured.filter((event) => event.event === "model.call.completed")).toHaveLength(1);
+    const validation = captured.filter((event) => event.event === "model.validation.failed");
+    expect(validation).toHaveLength(1);
+    expect(validation[0]!.stage).toBe("quality");
+  });
+
+  it("observes person fidelity on the quality stage", async () => {
+    responsesCreate.mockResolvedValueOnce({
+      output_text: JSON.stringify({
+        findings: [{
+          personId: "11111111-1111-4111-8111-111111111111",
+          status: "consistent",
+          evidence: [],
+          issue: null,
+        }],
+      }),
+    });
+
+    const result = await withDiagnosticContext(testContext(), () =>
+      analyzePersonFidelity({
+        imageBuffer: Buffer.from("output"),
+        mimeType: "image/png",
+        people: [{
+          personId: "11111111-1111-4111-8111-111111111111",
+          name: "Ana",
+          preserve: [],
+          buffer: Buffer.from("ref"),
+          mimeType: "image/jpeg",
+        }],
+        locale: "pt-BR",
+      }),
+    );
+
+    expect(result.findings).toHaveLength(1);
+    const completed = captured.filter((event) => event.event === "model.call.completed");
+    expect(completed).toHaveLength(1);
+    expect(completed[0]!.stage).toBe("quality");
+  });
+
+  it("observes the art comparison on the revision stage", async () => {
+    responsesCreate.mockResolvedValueOnce({
+      output_text: JSON.stringify({
+        winner: "after",
+        reason: "Fixed the hierarchy.",
+        fixedIssues: ["hierarchy"],
+        regressions: [],
+      }),
+    });
+
+    const result = await withDiagnosticContext(testContext(), () =>
+      analyzeArtComparison({
+        brief: "Promo",
+        beforeImageBuffer: Buffer.from("before"),
+        afterImageBuffer: Buffer.from("after"),
+        mimeType: "image/png",
+        beforeProblem: null,
+        afterProblem: null,
+        locale: "pt-BR",
+      }),
+    );
+
+    expect(result.winner).toBe("after");
+    const completed = captured.filter((event) => event.event === "model.call.completed");
+    expect(completed).toHaveLength(1);
+    expect(completed[0]!.stage).toBe("revision");
+  });
 });

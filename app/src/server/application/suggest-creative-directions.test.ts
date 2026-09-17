@@ -12,8 +12,17 @@ vi.mock("@/server/ai/utils", () => ({
 vi.mock("@/server/ai/providers/e2e-controlled-provider", () => ({
   isE2EControlledProviderEnabled: () => false,
 }));
+vi.mock("@/server/validation/env", () => ({
+  env: { OPENAI_TEXT_MODEL: "gpt-4o" },
+}));
 
 import { suggestCreativeDirections } from "./suggest-creative-directions";
+import type { DiagnosticEventEnvelope } from "@/server/diagnostics/contract";
+import { createDiagnosticContext, withDiagnosticContext } from "@/server/diagnostics/context";
+import {
+  __setModelCallEventSinkForTests,
+  __setModelCallSpanStarterForTests,
+} from "@/server/diagnostics/model-calls";
 
 const WORK_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -102,5 +111,83 @@ describe("suggestCreativeDirections", () => {
     await expect(suggestCreativeDirections({ workspaceId: "workspace-1", workItemId: WORK_ID }))
       .resolves.toEqual({ ok: false, error: { code: "source_not_ready" } });
     expect(createCompletionMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("trace-389: suggest model-call observation", () => {
+  let captured: DiagnosticEventEnvelope[];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getWorkMock.mockResolvedValue(workAggregate());
+    createCompletionMock.mockResolvedValue({
+      model: "gpt-4o",
+      choices: [{ message: { content: JSON.stringify({ directions: [
+        { label: "Oferta em primeiro plano", instruction: "Destaque a oferta com hierarquia imediata.", safetyBand: "safe" },
+        { label: "Prova social", instruction: "Use sinais visuais de confiança sem inventar depoimentos.", safetyBand: "safe" },
+        { label: "Ritmo editorial", instruction: "Organize a informação como uma capa editorial clara.", safetyBand: "safe" },
+        { label: "Contraste ousado", instruction: "Aumente o contraste visual preservando a leitura da marca.", safetyBand: "experimental" },
+        { label: "CTA destacado", instruction: "Dê ao CTA uma posição e uma forma fáceis de identificar.", safetyBand: "safe" },
+      ] }) } }],
+    });
+    captured = [];
+    __setModelCallEventSinkForTests((event) => {
+      captured.push(event);
+    });
+    __setModelCallSpanStarterForTests(() => undefined);
+  });
+
+  function testContext() {
+    return createDiagnosticContext({
+      workspaceId: "workspace-1",
+      workItemId: WORK_ID,
+      operationId: "op-suggest",
+      releaseSha: "test-sha",
+      environment: "test",
+      process: "web",
+      dataOrigin: "test",
+    });
+  }
+
+  it("observes the suggestion call on the briefing stage", async () => {
+    const result = await withDiagnosticContext(testContext(), () =>
+      suggestCreativeDirections({ workspaceId: "workspace-1", workItemId: WORK_ID }),
+    );
+
+    expect(result.ok).toBe(true);
+    const completed = captured.filter((event) => event.event === "model.call.completed");
+    expect(completed).toHaveLength(1);
+    expect(completed[0]!.stage).toBe("briefing");
+    expect(completed[0]!.call?.returnedModel).toBe("gpt-4o");
+  });
+
+  it("keeps direction ids identical with the wrapper on or off", async () => {
+    const traced = await withDiagnosticContext(testContext(), () =>
+      suggestCreativeDirections({ workspaceId: "workspace-1", workItemId: WORK_ID }),
+    );
+    const untraced = await suggestCreativeDirections({ workspaceId: "workspace-1", workItemId: WORK_ID });
+
+    expect(traced).toEqual(untraced);
+    if (!traced.ok || !untraced.ok) throw new Error("expected ok results");
+    expect(traced.directions.map((direction) => direction.id)).toEqual(
+      untraced.directions.map((direction) => direction.id),
+    );
+  });
+
+  it("falls back on invalid JSON while recording a validation failure", async () => {
+    createCompletionMock.mockResolvedValue({
+      choices: [{ message: { content: "not-json{" } }],
+    });
+
+    const result = await withDiagnosticContext(testContext(), () =>
+      suggestCreativeDirections({ workspaceId: "workspace-1", workItemId: WORK_ID }),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.directions).toHaveLength(5);
+    const validation = captured.filter((event) => event.event === "model.validation.failed");
+    expect(validation).toHaveLength(1);
+    expect(validation[0]!.error?.reason).toContain("invalid-json");
   });
 });

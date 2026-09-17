@@ -11,6 +11,12 @@ import {
   observeImageCall,
   type ImageCallObservation,
 } from "@/server/ai/image-call-observation";
+import {
+  newModelCallId,
+  observeModelCall,
+  reportModelValidationFailed,
+  summarizeImageResult,
+} from "@/server/diagnostics/model-calls";
 import { resolveImageRenderPolicy } from "@/server/ai/image-render-policy";
 import type {
   ImageCandidate,
@@ -63,6 +69,10 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
     let requestId: string | undefined;
     let observation: ImageCallObservation;
 
+    // Trace-389: the journal/span observation nests inside the logger
+    // observation so each destination keeps its own single record; neither
+    // wrapper changes the call count, the payload or the error identity.
+    const trace = { callId: newModelCallId(), provider: "openai", requestedModel: policy.model, stage: "image" as const };
     if (input.referenceImages.length > 0) {
       const files = await Promise.all(
         input.referenceImages.map((ref) =>
@@ -70,19 +80,22 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
         )
       );
       const observed = await observeImageCall(policy, { key: input.outputPrefix, operation: "edit", size: openaiSize }, () =>
-        openai.images.edit({
+        observeModelCall(trace, () => openai.images.edit({
           model: policy.model,
           image: files,
           prompt: input.prompt,
           n: 1,
           size: openaiSize,
           quality: policy.quality as OpenAI.Images.ImageEditParams["quality"],
-        }, REQUEST_OPTIONS),
+        }, REQUEST_OPTIONS), summarizeImageResult),
       );
       const response = observed.response;
       observation = observed.observation;
       const first = response.data?.[0];
-      if (!first) throw new Error("No image data returned from OpenAI");
+      if (!first) {
+        reportModelValidationFailed({ ...trace, reason: "empty-content" });
+        throw new Error("No image data returned from OpenAI");
+      }
       requestId = response._request_id ?? undefined;
       logger.info(
         `[OpenAIImageProvider] edit success references=${input.referenceImages.length}`
@@ -90,18 +103,21 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
       result = first;
     } else {
       const observed = await observeImageCall(policy, { key: input.outputPrefix, operation: "generate", size: openaiSize }, () =>
-        openai.images.generate({
+        observeModelCall(trace, () => openai.images.generate({
           model: policy.model,
           prompt: input.prompt,
           n: 1,
           size: openaiSize,
           quality: policy.quality as OpenAI.Images.ImageGenerateParams["quality"],
-        }, REQUEST_OPTIONS),
+        }, REQUEST_OPTIONS), summarizeImageResult),
       );
       const response = observed.response;
       observation = observed.observation;
       const first = response.data?.[0];
-      if (!first) throw new Error("No image data returned from OpenAI");
+      if (!first) {
+        reportModelValidationFailed({ ...trace, reason: "empty-content" });
+        throw new Error("No image data returned from OpenAI");
+      }
       requestId = response._request_id ?? undefined;
       logger.info(`[OpenAIImageProvider] generate success`);
       result = first;
@@ -113,6 +129,7 @@ export class OpenAIImageProvider implements ImageGenerationProvider {
     } else if (result.url) {
       buffer = await fetchProviderUrlSafe(result.url);
     } else {
+      reportModelValidationFailed({ ...trace, reason: "empty-content" });
       throw new Error("No image data returned from OpenAI");
     }
 

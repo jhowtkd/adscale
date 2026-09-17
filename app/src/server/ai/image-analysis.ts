@@ -1,5 +1,11 @@
 import { env } from "@/server/validation/env";
 import { extractOutputText, getOpenAI } from "@/server/ai/utils";
+import {
+  newModelCallId,
+  observeModelCall,
+  reportModelValidationFailed,
+  summarizeResponsesApi,
+} from "@/server/diagnostics/model-calls";
 import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
 import { z } from "zod";
 import { PIECE_REFERENCE_CATEGORIES } from "@/server/creative-work/piece-reference";
@@ -76,8 +82,10 @@ export async function analyzeImageContent(
   const base64 = imageBuffer.toString("base64");
   const dataUrl = `data:${mimeType};base64,${base64}`;
 
-  const response = await getOpenAI().responses.create({
-    model: env.OPENAI_TEXT_MODEL,
+  const model = env.OPENAI_TEXT_MODEL;
+  const trace = { callId: newModelCallId(), provider: "openai", requestedModel: model, stage: "source_analysis" as const };
+  const response = await observeModelCall(trace, () => getOpenAI().responses.create({
+    model,
     input: [
       {
         role: "system",
@@ -98,15 +106,28 @@ export async function analyzeImageContent(
       },
     ],
     text: { format: { type: "json_object" } },
-  });
+  }), summarizeResponsesApi);
 
   const raw = extractOutputText(response);
   if (!raw) {
+    reportModelValidationFailed({ ...trace, reason: "empty-content" });
     throw new Error("Empty vision response for content analysis");
   }
 
   const jsonString = raw.replace(/```(?:json)?\s*([\s\S]*?)\s*```/, "$1").trim();
-  return normalizeContentBrief(contentBriefSchema.parse(JSON.parse(jsonString)));
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonString);
+  } catch (error) {
+    reportModelValidationFailed({ ...trace, reason: "invalid-json" });
+    throw error;
+  }
+  try {
+    return normalizeContentBrief(contentBriefSchema.parse(parsed));
+  } catch (error) {
+    reportModelValidationFailed({ ...trace, reason: "schema-mismatch" });
+    throw error;
+  }
 }
 
 export const styleBriefSchema = z.object({
@@ -195,8 +216,10 @@ export async function analyzeImageStyle(
   const base64 = imageBuffer.toString("base64");
   const dataUrl = `data:${mimeType};base64,${base64}`;
 
-  const response = await getOpenAI().responses.create({
-    model: env.OPENAI_TEXT_MODEL,
+  const model = env.OPENAI_TEXT_MODEL;
+  const trace = { callId: newModelCallId(), provider: "openai", requestedModel: model, stage: "source_analysis" as const };
+  const response = await observeModelCall(trace, () => getOpenAI().responses.create({
+    model,
     input: [
       { role: "system", content: STYLE_SYSTEM_PROMPT },
       {
@@ -212,13 +235,26 @@ export async function analyzeImageStyle(
       },
     ],
     text: { format: { type: "json_object" } },
-  });
+  }), summarizeResponsesApi);
 
   const raw = extractOutputText(response);
   if (!raw) {
+    reportModelValidationFailed({ ...trace, reason: "empty-content" });
     throw new Error("Empty vision response for style analysis");
   }
 
   const jsonString = raw.replace(/```(?:json)?\s*([\s\S]*?)\s*```/, "$1").trim();
-  return normalizeStyleBrief(styleBriefSchema.parse(JSON.parse(jsonString)));
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonString);
+  } catch (error) {
+    reportModelValidationFailed({ ...trace, reason: "invalid-json" });
+    throw error;
+  }
+  try {
+    return normalizeStyleBrief(styleBriefSchema.parse(parsed));
+  } catch (error) {
+    reportModelValidationFailed({ ...trace, reason: "schema-mismatch" });
+    throw error;
+  }
 }

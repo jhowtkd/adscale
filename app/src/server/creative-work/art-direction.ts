@@ -3,6 +3,12 @@ import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { getOpenAI } from "@/server/ai/utils";
 import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
+import {
+  newModelCallId,
+  observeModelCall,
+  reportModelValidationFailed,
+  summarizeChatCompletion,
+} from "@/server/diagnostics/model-calls";
 import { env } from "@/server/validation/env";
 import type { BuildCreativeWorkPromptInput } from "./prompt";
 
@@ -45,14 +51,16 @@ export async function createSinglePieceArtDirection(input: ArtDirectionInput): P
     references: input.references.map(({ role, label, required, pieceReference }) =>
       ({ role, label, required, pieceReference })),
   };
+  const model = env.OPENAI_TEXT_MODEL;
+  const trace = { callId: newModelCallId(), provider: "openai", requestedModel: model, stage: "art_direction" as const };
   let content: string | null | undefined;
   try {
-    const response = await getOpenAI().chat.completions.create({
-      model: env.OPENAI_TEXT_MODEL,
+    const response = await observeModelCall(trace, () => getOpenAI().chat.completions.create({
+      model,
       messages: [{ role: "system", content: system }, { role: "user", content: JSON.stringify(modelContext) }],
       response_format: zodResponseFormat(schema, "single_piece_art_direction"),
       max_completion_tokens: 500,
-    }, { timeout: 30_000, maxRetries: 0 });
+    }, { timeout: 30_000, maxRetries: 0 }), summarizeChatCompletion);
     content = response.choices[0]?.message?.content;
   } catch {
     return { text: null, source: "fallback", reason: "unavailable" };
@@ -62,8 +70,10 @@ export async function createSinglePieceArtDirection(input: ArtDirectionInput): P
     if (parsed.success && parsed.data.brief.split(/\s+/u).length <= 120) {
       return { text: parsed.data.brief, source: "model" };
     }
+    reportModelValidationFailed({ ...trace, reason: "schema-mismatch" });
   } catch {
     // Malformed model output uses the existing generative prompt, never a second text call.
+    reportModelValidationFailed({ ...trace, reason: "invalid-json" });
   }
   return { text: null, source: "fallback", reason: "invalid_response" };
 }

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { logger } from "@/lib/logger";
+import { normalizeModelCallError } from "@/server/diagnostics/model-call-metadata";
 import type { ImageRenderPolicy } from "./image-render-policy";
 
 type ImageResponseMetadata = {
@@ -58,6 +59,16 @@ export async function observeImageCall<T extends ImageResponseMetadata>(
     }
     return { response, observation };
   } catch (error) {
+    // Trace-389 local fix (spec #382): the error path now carries the
+    // normalized provider class/status/reason when known. This record is
+    // one capture among others (Inngest middleware, journal) — never proof
+    // that every error is otherwise lost.
+    let normalized = { errorClass: null as string | null, status: null as number | null, reason: null as string | null };
+    try {
+      normalized = normalizeModelCallError(error).error;
+    } catch {
+      // Normalization faults keep the failure honest-but-minimal.
+    }
     try {
       logger.info({
         event: "image_api_call",
@@ -66,6 +77,9 @@ export async function observeImageCall<T extends ImageResponseMetadata>(
         durationMs: Date.now() - start,
         usage: null,
         billing: "unknown",
+        errorClass: normalized.errorClass,
+        errorStatus: normalized.status,
+        errorReason: normalized.reason,
       });
     } catch {
       // Observability must never change provider or generation behavior.

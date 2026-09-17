@@ -18,6 +18,12 @@ import {
   type CopySafeBrandVoice,
 } from "./brand-field-routing";
 import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
+import {
+  newModelCallId,
+  observeModelCall,
+  reportModelValidationFailed,
+  summarizeChatCompletion,
+} from "@/server/diagnostics/model-calls";
 
 const SOCIAL_POST_COPY_SYSTEM_PROMPT = [
   "You are a senior Portuguese (pt-BR) social-media copywriter.",
@@ -155,19 +161,28 @@ function renderRewritePrompt(input: {
   ].join("\n");
 }
 
-async function requestCopy(systemPrompt: string, userPrompt: string): Promise<SocialPostCopy> {
+async function requestCopy(
+  systemPrompt: string,
+  userPrompt: string,
+  stage: "copy" | "copy_rewrite",
+): Promise<SocialPostCopy> {
   const model = env.OPENAI_TEXT_MODEL || "gpt-4o-mini";
-  const response = await getOpenAI().chat.completions.create({
+  // Trace-389: every real attempt mints its own callId. The factual rewrite
+  // is a distinct logical call (stage copy_rewrite) related to the first
+  // attempt (stage copy) by the shared ambient operation context.
+  const trace = { callId: newModelCallId(), provider: "openai", requestedModel: model, stage };
+  const response = await observeModelCall(trace, () => getOpenAI().chat.completions.create({
     model,
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
     ],
-  });
+  }), summarizeChatCompletion);
 
   const content = response.choices[0]?.message?.content;
   if (!content) {
+    reportModelValidationFailed({ ...trace, reason: "empty-content" });
     throw new Error("Social post copy generation returned an empty response");
   }
 
@@ -175,13 +190,19 @@ async function requestCopy(systemPrompt: string, userPrompt: string): Promise<So
   try {
     parsed = JSON.parse(content);
   } catch (error) {
+    reportModelValidationFailed({ ...trace, reason: "invalid-json" });
     throw new Error(
       `Social post copy generation returned invalid JSON: ${(error as Error).message}`,
     );
   }
 
   // Fail loudly on schema mismatch — no silent defaults.
-  return socialPostCopySchema.parse(parsed);
+  try {
+    return socialPostCopySchema.parse(parsed);
+  } catch (error) {
+    reportModelValidationFailed({ ...trace, reason: "schema-mismatch" });
+    throw error;
+  }
 }
 
 function truncateAtWordBoundary(text: string, max: number): string {
@@ -280,7 +301,7 @@ export async function generateSocialPostCopy(input: {
       "",
       "Write the social post copy in pt-BR following the JSON contract in the system prompt. Never write visual production instructions as copy.",
     ].join("\n");
-    return requestCopy(SOCIAL_POST_COPY_SYSTEM_PROMPT, legacyPrompt);
+    return requestCopy(SOCIAL_POST_COPY_SYSTEM_PROMPT, legacyPrompt, "copy");
   }
 
   const systemPrompt = SOCIAL_POST_COPY_SYSTEM_PROMPT + "\n" + FACT_PACK_GROUNDING_PROMPT;
@@ -291,7 +312,7 @@ export async function generateSocialPostCopy(input: {
     voice,
   });
 
-  const first = await requestCopy(systemPrompt, factPackPrompt);
+  const first = await requestCopy(systemPrompt, factPackPrompt, "copy");
   const firstViolations = validateSocialPostCopyAgainstFactPack(first, groundedPack);
   if (firstViolations.length === 0) return first;
 
@@ -302,7 +323,7 @@ export async function generateSocialPostCopy(input: {
       factPackPrompt,
       copy: first,
       violations: firstViolations,
-    }));
+    }), "copy_rewrite");
   } catch {
     // Unsafe validation: without a parsable rewrite the copy cannot be
     // trusted, so the preparation must fail as invalid_context.

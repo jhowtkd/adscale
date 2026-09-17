@@ -2,6 +2,12 @@ import sharp from "sharp";
 import { hasUsableAlphaValue } from "./normalize-image-for-ai";
 import { env } from "@/server/validation/env";
 import { getOpenAI, extractOutputText } from "./utils";
+import {
+  newModelCallId,
+  observeModelCall,
+  reportModelValidationFailed,
+  summarizeResponsesApi,
+} from "@/server/diagnostics/model-calls";
 import type { CreativeContract } from "./creative-contract";
 import { resolveAllowedEntitiesForCampaign } from "./creative-corpus";
 import { isE2EControlledProviderEnabled } from "./providers/e2e-controlled-provider";
@@ -817,9 +823,11 @@ export async function analyzeCreativeWorkQa(
     );
   });
 
-  const response = await getOpenAI().responses.create(
+  const model = env.OPENAI_TEXT_MODEL;
+  const trace = { callId: newModelCallId(), provider: "openai", requestedModel: model, stage: "quality" as const };
+  const response = await observeModelCall(trace, () => getOpenAI().responses.create(
     {
-      model: env.OPENAI_TEXT_MODEL,
+      model,
       input: [
         {
           role: "system",
@@ -885,11 +893,23 @@ export async function analyzeCreativeWorkQa(
       },
     },
     { timeout: 180_000, maxRetries: 0 },
-  );
+  ), summarizeResponsesApi);
 
   const raw = extractOutputText(response);
-  if (!raw) throw new Error("Empty vision response for creative work QA");
-  return normalizeCreativeWorkQaResult(JSON.parse(raw));
+  if (!raw) {
+    reportModelValidationFailed({ ...trace, reason: "empty-content" });
+    throw new Error("Empty vision response for creative work QA");
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    reportModelValidationFailed({ ...trace, reason: "invalid-json" });
+    throw error;
+  }
+  // A rejection verdict inside a well-formed payload is a quality verdict,
+  // recorded by the completed call above — never a provider error.
+  return normalizeCreativeWorkQaResult(parsed);
 }
 
 // ---------------------------------------------------------------------------
@@ -1060,9 +1080,11 @@ export async function analyzePersonFidelity(
     );
   });
 
-  const response = await getOpenAI().responses.create(
+  const model = env.OPENAI_TEXT_MODEL;
+  const trace = { callId: newModelCallId(), provider: "openai", requestedModel: model, stage: "quality" as const };
+  const response = await observeModelCall(trace, () => getOpenAI().responses.create(
     {
-      model: env.OPENAI_TEXT_MODEL,
+      model,
       input: [
         {
           role: "system",
@@ -1102,11 +1124,21 @@ export async function analyzePersonFidelity(
       },
     },
     { timeout: 180_000, maxRetries: 0 },
-  );
+  ), summarizeResponsesApi);
 
   const raw = extractOutputText(response);
-  if (!raw) throw new Error("Empty vision response for person fidelity");
-  return normalizePersonFidelityResult(JSON.parse(raw), input.people, unavailableIssue);
+  if (!raw) {
+    reportModelValidationFailed({ ...trace, reason: "empty-content" });
+    throw new Error("Empty vision response for person fidelity");
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    reportModelValidationFailed({ ...trace, reason: "invalid-json" });
+    throw error;
+  }
+  return normalizePersonFidelityResult(parsed, input.people, unavailableIssue);
 }
 
 // ---------------------------------------------------------------------------
@@ -1217,9 +1249,11 @@ export async function analyzeArtComparison(
     return { winner: "tie", reason: fallbackReason, fixedIssues: [], regressions: [] };
   }
 
-  const response = await getOpenAI().responses.create(
+  const model = env.OPENAI_TEXT_MODEL;
+  const trace = { callId: newModelCallId(), provider: "openai", requestedModel: model, stage: "revision" as const };
+  const response = await observeModelCall(trace, () => getOpenAI().responses.create(
     {
-      model: env.OPENAI_TEXT_MODEL,
+      model,
       input: [
         {
           role: "system",
@@ -1265,9 +1299,19 @@ export async function analyzeArtComparison(
       },
     },
     { timeout: 180_000, maxRetries: 0 },
-  );
+  ), summarizeResponsesApi);
 
   const raw = extractOutputText(response);
-  if (!raw) throw new Error("Empty vision response for art comparison");
-  return normalizeArtComparisonResult(JSON.parse(raw), fallbackReason);
+  if (!raw) {
+    reportModelValidationFailed({ ...trace, reason: "empty-content" });
+    throw new Error("Empty vision response for art comparison");
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    reportModelValidationFailed({ ...trace, reason: "invalid-json" });
+    throw error;
+  }
+  return normalizeArtComparisonResult(parsed, fallbackReason);
 }

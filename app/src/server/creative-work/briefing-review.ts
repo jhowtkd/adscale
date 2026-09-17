@@ -1,6 +1,12 @@
 import "server-only";
 import { z } from "zod";
 import { getOpenAI } from "@/server/ai/utils";
+import {
+  newModelCallId,
+  observeModelCall,
+  reportModelValidationFailed,
+  summarizeChatCompletion,
+} from "@/server/diagnostics/model-calls";
 import { env } from "@/server/validation/env";
 import {
   socialPostBriefSchema,
@@ -97,9 +103,12 @@ export async function reviewInferredBriefingOnce(input: {
   factPack: CreativeWorkFactPack;
   findings: readonly BriefingCheckFinding[];
 }): Promise<SocialPostBrief | null> {
+  const model = env.OPENAI_TEXT_MODEL || "gpt-4o-mini";
+  const trace = { callId: newModelCallId(), provider: "openai", requestedModel: model, stage: "briefing" as const };
+  let response: Awaited<ReturnType<ReturnType<typeof getOpenAI>["chat"]["completions"]["create"]>>;
   try {
-    const response = await getOpenAI().chat.completions.create({
-      model: env.OPENAI_TEXT_MODEL || "gpt-4o-mini",
+    response = await observeModelCall(trace, () => getOpenAI().chat.completions.create({
+      model,
       response_format: { type: "json_object" },
       messages: [
         {
@@ -108,10 +117,24 @@ export async function reviewInferredBriefingOnce(input: {
         },
         { role: "user", content: buildReviewPrompt(input) },
       ],
-    });
+    }), summarizeChatCompletion);
+  } catch {
+    return null;
+  }
+  try {
     const content = response.choices[0]?.message?.content;
-    if (!content) return null;
-    const reviewed = reviewedBriefSchema.parse(JSON.parse(content));
+    if (!content) {
+      reportModelValidationFailed({ ...trace, reason: "empty-content" });
+      return null;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      reportModelValidationFailed({ ...trace, reason: "invalid-json" });
+      return null;
+    }
+    const reviewed = reviewedBriefSchema.parse(parsed);
     const offer = reviewed.offer?.trim() || null;
     return socialPostBriefSchema.parse({
       theme: reviewed.message,
@@ -120,6 +143,7 @@ export async function reviewInferredBriefingOnce(input: {
       offer: offer && hasFactOrigin(offer, input.factPack) ? offer : null,
     });
   } catch {
+    reportModelValidationFailed({ ...trace, reason: "schema-mismatch" });
     return null;
   }
 }
