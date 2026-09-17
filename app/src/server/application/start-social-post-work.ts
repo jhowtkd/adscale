@@ -20,12 +20,13 @@ import {
 } from "@/server/repositories/creative-work";
 import type { CreativeWorkItem } from "@/server/db/schema";
 import {
-  CREATABLE_CREATIVE_WORK_FORMATS,
   quoteCreativeWork,
   type CreativeWorkIntent,
   type CreativeWorkOutputPlan,
   type CreativeWorkSettings,
 } from "@/server/creative-work/contracts";
+import { threeFourCreationBlock } from "@/lib/studio/three-four-capability";
+import { env } from "@/server/validation/env";
 import { deriveCreativeWorkTitle } from "@/server/creative-work/prepare";
 
 /** Fixed intent for the short Criar Post path (item 34). */
@@ -54,8 +55,13 @@ export type StartSocialPostWorkInput = StartSocialPostLegacyInput | StartSocialP
 
 export type StartSocialPostWorkError =
   | { code: "client_profile_not_found" }
-  /** ICE-04A: readers know 3:4, but new 3:4 works stay off until enablement. */
-  | { code: "format_creation_disabled"; format: string };
+  /**
+   * ICE-04B: 3:4 creation needs the switch plus a validated protocol.
+   * Disabled creation and unvalidated protocol stay distinct — an
+   * unvalidated protocol never fakes universal coverage.
+   */
+  | { code: "format_creation_disabled"; format: string }
+  | { code: "format_protocol_unsupported"; format: string };
 
 export type StartSocialPostWorkSuccess = {
   work: CreativeWorkItem;
@@ -92,16 +98,15 @@ export async function startSocialPostWork(
   if (!profile) {
     return { ok: false, error: { code: "client_profile_not_found" } };
   }
-  if (!(CREATABLE_CREATIVE_WORK_FORMATS as readonly string[]).includes(input.format)) {
-    return { ok: false, error: { code: "format_creation_disabled", format: input.format } };
-  }
-  if ("settings" in input) {
-    const blocked = input.settings.targetFormats.find(
-      (target) => !(CREATABLE_CREATIVE_WORK_FORMATS as readonly string[]).includes(target)
-    );
-    if (blocked) {
-      return { ok: false, error: { code: "format_creation_disabled", format: blocked } };
-    }
+  const creationBlock = threeFourCreationBlock({
+    format: input.format,
+    targetFormats: "settings" in input ? input.settings.targetFormats : [],
+    // The legacy path is fixed to the social_post protocol.
+    intent: "intent" in input ? input.intent : SOCIAL_POST_TOOL_KIND,
+    creationSwitch: env.CREATIVE_WORK_34_CREATION_ENABLED,
+  });
+  if (creationBlock) {
+    return { ok: false, error: creationBlock };
   }
 
   const work = "draftKey" in input

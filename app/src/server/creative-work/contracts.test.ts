@@ -13,6 +13,7 @@ import {
   creativeDirectionPoolSchema,
   creativeWorkFormatSchema,
   creativeWorkPersonSnapshotSchema,
+  creativeWorkPreparationSchema,
   creativeWorkSettingsSchema,
   creativeWorkVisualDirectionSchema,
   displayRequestForCreativeWork,
@@ -506,5 +507,28 @@ describe("creative work contracts", () => {
     const unit = artRefinementCreditCeiling(1);
     expect(artRefinementCreditCeiling(4)).toBe(unit * 4);
     expect(unit).toBeGreaterThan(0);
+  });
+});
+
+describe("3:4 creation versus finishing (ICE-04B)", () => {
+  it("keeps the legacy path creatable on three formats while finishing parses 3:4", () => {
+    // Legacy social_post works are never a validated 3:4 protocol.
+    expect(() => creatableCreativeWorkFormatSchema.parse("3:4")).toThrow();
+    // Finishing an authorized 3:4 work parses through the full schema —
+    // disabling creation never blocks prepare/generate of existing works.
+    expect(
+      creativeWorkPreparationSchema.safeParse({
+        intent: "single",
+        format: "3:4",
+        settings: { targetFormats: [] },
+      }).success,
+    ).toBe(true);
+    expect(
+      creativeWorkPreparationSchema.safeParse({
+        intent: "format_adaptation",
+        format: "1:1",
+        settings: { targetFormats: ["3:4"] },
+      }).success,
+    ).toBe(true);
   });
 });

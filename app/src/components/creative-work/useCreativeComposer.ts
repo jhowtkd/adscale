@@ -39,6 +39,7 @@ import {
   useCarouselComposer,
   type CarouselComposerInput,
 } from "./useCarouselComposer";
+import { offeredStudioFormats } from "@/lib/studio/three-four-capability";
 
 export type { ComposerActionPhase, ComposerIntent, ComposerStage, ComposerState };
 export { projectComposerStage };
@@ -55,6 +56,7 @@ export function useCreativeComposer({
   initialTemplateId,
   initialCampaignId,
   freshEntry = false,
+  threeFourCreationEnabled = false,
   onGenerationAccepted,
 }: {
   initialWorkId?: string;
@@ -67,6 +69,8 @@ export function useCreativeComposer({
   initialCampaignId?: string;
   /** A canonical Studio entry that intentionally starts without draft resume. */
   freshEntry?: boolean;
+  /** Server-derived 3:4 creation switch (ICE-04B); the protocol map applies on top. */
+  threeFourCreationEnabled?: boolean;
   onGenerationAccepted?: () => void;
 } = {}) {
   const tHome = useTranslations("dashboard.home");
@@ -411,9 +415,22 @@ export function useCreativeComposer({
     },
   } satisfies CarouselComposerInput);
 
+  // 3:4 appears only with the creation switch on and a validated protocol —
+  // the same capability the server gates enforce (ICE-04B).
+  const offeredFormats = useMemo(
+    () =>
+      offeredStudioFormats({
+        creationSwitch: threeFourCreationEnabled ? "true" : "false",
+        intent,
+      }),
+    [threeFourCreationEnabled, intent],
+  );
+
   return {
     composerRef: composerRef as RefObject<HTMLTextAreaElement | null>, request, setRequest,
     intent, selectIntent, format, formatMode, setFormat: setFormatManual,
+    offeredFormats,
+    threeFourCreationEnabled,
     setFormatAuto,
     targetFormats, toggleTargetFormat,
     textLayout,

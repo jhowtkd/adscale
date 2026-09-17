@@ -35,15 +35,19 @@ function pieceOccupancy(composer: CreativeComposerViewModel, t: ReturnType<typeo
 export function CreativeWorkResumeSurface({
   workId,
   campaignId = null,
+  threeFourCreationEnabled = false,
 }: {
   workId: string;
   campaignId?: string | null;
+  /** ICE-04B wires the 3:4 creation switch to this gate. */
+  threeFourCreationEnabled?: boolean;
 }) {
   const t = useTranslations("common");
   const tComposer = useTranslations("dashboard.home.composer");
   const { composerRef, ...composer } = useCreativeComposer({
     initialWorkId: workId,
     focusComposer: true,
+    threeFourCreationEnabled,
   });
   const occupancy = pieceOccupancy(composer, tComposer);
 

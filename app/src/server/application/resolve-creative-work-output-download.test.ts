@@ -108,6 +108,24 @@ describe("resolveCreativeWorkOutputDownload", () => {
     }));
   });
 
+  it("downloads an existing 3:4 output without consulting creation (ICE-04B)", async () => {
+    mockGet.mockResolvedValue({
+      work: { ...workItem, toolKind: "single", format: "3:4" },
+      outputs: [{ ...completedOutput, targetFormat: "3:4" }],
+    } as never);
+
+    const result = await resolveCreativeWorkOutputDownload({
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputId: "output-1",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.outputKey).toBe(completedOutput.outputKey);
+    expect(mockSigned).toHaveBeenCalledWith(completedOutput.outputKey);
+  });
+
   it("rejects missing work", async () => {
     mockGet.mockResolvedValue(null);
     const result = await resolveCreativeWorkOutputDownload({

@@ -16,5 +16,6 @@ export default async function DashboardPage({ searchParams }: {
     rolloutVariant={resolveStudioRolloutVariant(workspace.id, env.STUDIO_PROGRESSIVE_ROLLOUT_PERCENT)}
     carouselCreationEnabled={isStudioCarouselEnabled(workspace.id, env.STUDIO_CAROUSEL_ROLLOUT_PERCENT)}
     entryInterviewEnabled={isStudioEntryInterviewEnabled(workspace.id, env.STUDIO_ENTRY_INTERVIEW_ROLLOUT_PERCENT)}
+    threeFourCreationEnabled={env.CREATIVE_WORK_34_CREATION_ENABLED === "true"}
   />;
 }

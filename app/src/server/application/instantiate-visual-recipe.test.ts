@@ -12,6 +12,15 @@ vi.mock("@/server/repositories/creative-work", () => ({
   setCreativeWorkCopy: vi.fn(),
 }));
 
+const envState: { threeFourCreation: string | undefined } = { threeFourCreation: undefined };
+vi.mock("@/server/validation/env", () => ({
+  env: {
+    get CREATIVE_WORK_34_CREATION_ENABLED() {
+      return envState.threeFourCreation;
+    },
+  },
+}));
+
 import { getVisualRecipeInWorkspace } from "@/server/repositories/visual-recipe";
 import { createCreativeWorkDraft, setCreativeWorkCopy } from "@/server/repositories/creative-work";
 
@@ -46,8 +55,59 @@ const document: VisualRecipeDocument = {
 describe("instantiateVisualRecipe", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    envState.threeFourCreation = undefined;
     createDraft.mockResolvedValue({ id: "work-2" } as never);
     setCopy.mockImplementation(async (_ws, _id, copy) => ({ id: "work-2", copy } as never));
+  });
+
+  it("blocks instantiating a 3:4 recipe while creation is off (ICE-04B)", async () => {
+    getRecipe.mockResolvedValue({
+      id: "recipe-34",
+      workspaceId: "ws-1",
+      clientProfileId: "brand-a",
+      version: 1,
+      document: { ...document, format: "3:4" },
+      originWorkId: "work-1",
+      originOutputId: "out-1",
+    } as never);
+
+    const result = await instantiateVisualRecipe({
+      workspaceId: "ws-1",
+      userId: "user-1",
+      clientProfileId: "brand-a",
+      draftKey: "00000000-0000-4000-8000-000000000099",
+      recipeId: "recipe-34",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "format_creation_disabled", format: "3:4" },
+    });
+    expect(createDraft).not.toHaveBeenCalled();
+  });
+
+  it("instantiates a 3:4 recipe once enabled (ICE-04B)", async () => {
+    envState.threeFourCreation = "true";
+    getRecipe.mockResolvedValue({
+      id: "recipe-34",
+      workspaceId: "ws-1",
+      clientProfileId: "brand-a",
+      version: 1,
+      document: { ...document, format: "3:4" },
+      originWorkId: "work-1",
+      originOutputId: "out-1",
+    } as never);
+
+    const result = await instantiateVisualRecipe({
+      workspaceId: "ws-1",
+      userId: "user-1",
+      clientProfileId: "brand-a",
+      draftKey: "00000000-0000-4000-8000-000000000099",
+      recipeId: "recipe-34",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(createDraft).toHaveBeenCalledWith(expect.objectContaining({ format: "3:4" }));
   });
 
   it("refuses to instantiate a recipe from another brand", async () => {

@@ -23,15 +23,16 @@ import {
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import {
-  CREATABLE_CREATIVE_WORK_FORMATS,
   createCreativeWorkSchema,
-  creatableCreativeWorkFormatSchema,
+  creativeWorkFormatSchema,
   creativeWorkIntentSchema,
   creativeWorkPreparationSchema,
   creativeWorkSettingsSchema,
   quoteCreativeWork,
   socialPostCopySchema,
 } from "@/server/creative-work/contracts";
+import { threeFourCreationBlock } from "@/lib/studio/three-four-capability";
+import { env } from "@/server/validation/env";
 import { deriveCreativeWorkTitle } from "@/server/creative-work/prepare";
 import { z } from "zod";
 
@@ -53,7 +54,7 @@ const createDraftSchema = z.object({
   draftKey: z.string().uuid(),
   request: z.string().trim(),
   intent: creativeWorkIntentSchema,
-  format: creatableCreativeWorkFormatSchema,
+  format: creativeWorkFormatSchema,
   settings: creativeWorkSettingsSchema,
   assetId: z.string().min(1).optional(),
   templateId: z.string().min(1).optional(),
@@ -66,13 +67,21 @@ const createDraftSchema = z.object({
   if (sourceCount > 1 || Boolean(sourceCount) !== Boolean(value.usage)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["usage"], message: "sourceAndUsageRequired" });
   }
-  // ICE-04A: adaptation targets are new outputs — 3:4 stays off here too.
-  const creatable = new Set<string>(CREATABLE_CREATIVE_WORK_FORMATS);
-  for (const target of value.settings.targetFormats) {
-    if (!creatable.has(target)) {
-      context.addIssue({ code: z.ZodIssueCode.custom, path: ["settings", "targetFormats"], message: "formatCreationDisabled" });
-      break;
-    }
+  // ICE-04B: 3:4 creation needs the switch plus a validated protocol.
+  // Adaptation targets are new outputs — the same block applies to them.
+  const creationBlock = threeFourCreationBlock({
+    format: value.format,
+    targetFormats: value.settings.targetFormats,
+    intent: value.intent,
+    creationSwitch: env.CREATIVE_WORK_34_CREATION_ENABLED,
+  });
+  if (creationBlock) {
+    const isTarget = value.format !== creationBlock.format;
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: isTarget ? ["settings", "targetFormats"] : ["format"],
+      message: creationBlock.code === "format_creation_disabled" ? "formatCreationDisabled" : "formatProtocolUnsupported",
+    });
   }
   const parsed = creativeWorkPreparationSchema.safeParse(value);
   if (!parsed.success) parsed.error.issues.forEach((issue) => context.addIssue(issue));
@@ -221,6 +230,15 @@ export async function POST(request: Request) {
       if (!instantiated.ok) {
         if (instantiated.error.code === "recipe_not_found") return apiError("visualRecipeNotFound", 404);
         if (instantiated.error.code === "brand_mismatch") return apiError("visualRecipeBrandMismatch", 409);
+        if (
+          instantiated.error.code === "format_creation_disabled" ||
+          instantiated.error.code === "format_protocol_unsupported"
+        ) {
+          return apiError("invalidRequest", 400, {
+            code: instantiated.error.code,
+            format: instantiated.error.format,
+          });
+        }
         return apiError("clientProfileNotFound", 404);
       }
       return NextResponse.json({
@@ -344,7 +362,13 @@ export async function POST(request: Request) {
       if (result.error.code === "client_profile_not_found") {
         return apiError("clientProfileNotFound", 404);
       }
-      return apiError("invalidRequest", 400);
+      // Defense in depth (the schema enforces the same block): keep the
+      // machine-readable code so callers can tell disabled creation from
+      // an unvalidated protocol.
+      return apiError("invalidRequest", 400, {
+        code: result.error.code,
+        format: result.error.format,
+      });
     }
 
     // `work` kept for existing UI; `canonical` is the Phase 5 contract.
