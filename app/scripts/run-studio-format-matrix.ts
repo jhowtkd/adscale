@@ -106,10 +106,18 @@ export interface MatrixOutputObservation {
   byteDims: { width: number; height: number } | null;
 }
 
+/**
+ * Legacy tournament size: intents still outside quality_recovery_v1
+ * (e.g. format_adaptation) run planner → N candidates → selector, while
+ * direct v1 intents (single, carousel) make exactly one provider call.
+ */
+export const MATRIX_LEGACY_TOURNAMENT_CALLS = 3;
+
 export function validateMatrixOutput(
   leg: string,
   expectedFormat: string,
   observed: MatrixOutputObservation,
+  expectedCalls = 1,
 ): string[] {
   const failures: string[] = [];
   const expected = MATRIX_DELIVERY_DIMS[expectedFormat];
@@ -119,7 +127,7 @@ export function validateMatrixOutput(
       `${leg}:${observed.outputId}:format_mismatch:expected_${expectedFormat}:got_${observed.targetFormat}`,
     );
   }
-  if (observed.providerCalls !== 1) {
+  if (observed.providerCalls !== expectedCalls) {
     failures.push(`${leg}:${observed.outputId}:provider_calls:${observed.providerCalls}`);
   }
   if (
@@ -266,9 +274,16 @@ async function driveWorkToTerminal(
     throw new Error(`matrix create returned no id: ${truncate(created.body, 300)}`);
   }
   for (const source of input.sources ?? []) {
+    // attachSource is CAS-guarded: read the current revision first. A fresh
+    // read per attach keeps multi-source legs correct.
+    const before = await apiFetch(`${baseUrl}/api/creative-work/${workId}`, jar);
+    const expectedUpdatedAt = asRecord(parseJsonBody(before.body, "matrix cas").work).updatedAt;
+    if (typeof expectedUpdatedAt !== "string" || !expectedUpdatedAt) {
+      throw new Error(`matrix attachSource found no updatedAt: ${truncate(before.body, 300)}`);
+    }
     const attached = await apiFetch(`${baseUrl}/api/creative-work/${workId}`, jar, {
       method: "PATCH",
-      body: JSON.stringify({ action: "attachSource", assetId: source.assetId, usage: source.usage }),
+      body: JSON.stringify({ action: "attachSource", expectedUpdatedAt, assetId: source.assetId, usage: source.usage }),
     });
     if (!attached.response.ok) {
       throw new Error(
@@ -337,6 +352,7 @@ async function observeOutput(
   workId: string,
   output: Record<string, unknown>,
   providerCalls: MatrixProviderCall[],
+  expectedCalls = 1,
 ): Promise<MatrixOutputObservation> {
   const outputId = String(output.id ?? "");
   const calls = evidenceForOutput(providerCalls, outputId);
@@ -360,7 +376,7 @@ async function observeOutput(
     targetFormat: String(output.targetFormat ?? ""),
     completed: output.status === "completed",
     providerCalls: calls.length,
-    providerDims: calls.length === 1 ? (calls[0]?.dimensions ?? null) : null,
+    providerDims: calls.length === expectedCalls ? (calls[0]?.dimensions ?? null) : null,
     byteDims,
   };
 }
@@ -492,8 +508,8 @@ async function runMatrix(config: HarnessConfig, reportPathArg: string): Promise<
             failures.push(`${leg}:missing_target_${expected}`);
             continue;
           }
-          const observed = await observeOutput(config.baseUrl, jar, workId, match, calls);
-          failures.push(...validateMatrixOutput(leg, expected, observed));
+          const observed = await observeOutput(config.baseUrl, jar, workId, match, calls, MATRIX_LEGACY_TOURNAMENT_CALLS);
+          failures.push(...validateMatrixOutput(leg, expected, observed, MATRIX_LEGACY_TOURNAMENT_CALLS));
         }
       } catch (error) {
         failures.push(`${leg}:driver_error:${error instanceof Error ? error.message : String(error)}`);
