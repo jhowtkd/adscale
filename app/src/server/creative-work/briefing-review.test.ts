@@ -15,6 +15,12 @@ import {
   checkInferredBriefing,
   reviewInferredBriefingOnce,
 } from "./briefing-review";
+import type { DiagnosticEventEnvelope } from "@/server/diagnostics/contract";
+import { createDiagnosticContext, withDiagnosticContext } from "@/server/diagnostics/context";
+import {
+  __setModelCallEventSinkForTests,
+  __setModelCallSpanStarterForTests,
+} from "@/server/diagnostics/model-calls";
 
 const factPack: CreativeWorkFactPack = {
   version: 1,
@@ -111,5 +117,98 @@ describe("reviewInferredBriefingOnce", () => {
       findings: [{ code: "missing_direction", recoverable: true }],
     })).resolves.toBeNull();
     expect(create).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("trace-389: briefing model-call observation", () => {
+  let captured: DiagnosticEventEnvelope[];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    captured = [];
+    __setModelCallEventSinkForTests((event) => {
+      captured.push(event);
+    });
+    __setModelCallSpanStarterForTests(() => undefined);
+  });
+
+  function testContext() {
+    return createDiagnosticContext({
+      workspaceId: "ws-briefing",
+      workItemId: "work-briefing",
+      operationId: "op-briefing",
+      releaseSha: "test-sha",
+      environment: "test",
+      process: "web",
+      dataOrigin: "test",
+    });
+  }
+
+  function input() {
+    return {
+      briefing: briefing({ readiness: "blocked" }),
+      factPack,
+      findings: [{ code: "missing_direction", recoverable: true }] as const,
+    };
+  }
+
+  it("observes the briefing revision with requested vs returned model", async () => {
+    create.mockResolvedValueOnce({
+      model: "gpt-test-2024",
+      id: "chatcmpl-brief",
+      choices: [{ message: { content: JSON.stringify({
+        message: "Curso de Psicologia",
+        objective: "Apresentar o curso",
+        audience: "Profissionais",
+        offer: null,
+      }) } }],
+    });
+
+    const result = await withDiagnosticContext(testContext(), () =>
+      reviewInferredBriefingOnce(input()),
+    );
+
+    expect(result).toMatchObject({ theme: "Curso de Psicologia" });
+    const completed = captured.filter((event) => event.event === "model.call.completed");
+    expect(completed).toHaveLength(1);
+    expect(completed[0]!.stage).toBe("briefing");
+    expect(completed[0]!.call).toMatchObject({
+      provider: "openai",
+      requestedModel: "gpt-test",
+      returnedModel: "gpt-test-2024",
+      providerRequestId: "chatcmpl-brief",
+    });
+  });
+
+  it("still returns null on invalid JSON while recording transport + validation failure", async () => {
+    create.mockResolvedValueOnce({ choices: [{ message: { content: "not-json" } }] });
+
+    const result = await withDiagnosticContext(testContext(), () =>
+      reviewInferredBriefingOnce(input()),
+    );
+
+    expect(result).toBeNull();
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(captured.filter((event) => event.event === "model.call.completed")).toHaveLength(1);
+    const validation = captured.filter((event) => event.event === "model.validation.failed");
+    expect(validation).toHaveLength(1);
+    expect(validation[0]!.error?.reason).toContain("invalid-json");
+    expect(captured.filter((event) => event.event === "model.call.failed")).toHaveLength(0);
+  });
+
+  it("records a normalized transport failure when the provider rejects", async () => {
+    create.mockRejectedValueOnce(Object.assign(new Error("Rate limit reached"), {
+      name: "RateLimitError",
+      status: 429,
+    }));
+
+    const result = await withDiagnosticContext(testContext(), () =>
+      reviewInferredBriefingOnce(input()),
+    );
+
+    expect(result).toBeNull();
+    const failed = captured.filter((event) => event.event === "model.call.failed");
+    expect(failed).toHaveLength(1);
+    expect(failed[0]!.error).toMatchObject({ errorClass: "RateLimitError", status: 429 });
   });
 });

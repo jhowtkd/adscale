@@ -22,6 +22,12 @@ vi.mock("@/server/validation/env", () => ({
 }));
 
 import { CreativeCopyContextError, generateSocialPostCopy } from "./copy";
+import type { DiagnosticEventEnvelope } from "@/server/diagnostics/contract";
+import { createDiagnosticContext, withDiagnosticContext } from "@/server/diagnostics/context";
+import {
+  __setModelCallEventSinkForTests,
+  __setModelCallSpanStarterForTests,
+} from "@/server/diagnostics/model-calls";
 
 const brief: SocialPostBrief = {
   theme: "Novo produto",
@@ -343,5 +349,109 @@ describe("generateSocialPostCopy", () => {
         prohibitedElements: null,
       }),
     ).rejects.toThrow();
+  });
+});
+
+describe("trace-389: copy model-call observation", () => {
+  let captured: DiagnosticEventEnvelope[];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    captured = [];
+    __setModelCallEventSinkForTests((event) => {
+      captured.push(event);
+    });
+    __setModelCallSpanStarterForTests(() => undefined);
+  });
+
+  function testContext() {
+    return createDiagnosticContext({
+      workspaceId: "ws-copy",
+      workItemId: "work-copy",
+      operationId: "op-copy",
+      releaseSha: "test-sha",
+      environment: "test",
+      process: "web",
+      dataOrigin: "test",
+    });
+  }
+
+  const completed = () => captured.filter((event) => event.event === "model.call.completed");
+
+  it("observes copy and copy_rewrite as distinct related logical calls", async () => {
+    mockCopyResponse({
+      headline: "50% de desconto em agosto",
+      body: "Vagas limitadas no grupo de terapia.",
+      cta: "Inscreva-se",
+    });
+    mockCopyResponse({
+      headline: "Grupo de terapia em agosto",
+      body: "Vagas limitadas no grupo de terapia.",
+      cta: "Inscreva-se",
+    });
+
+    const copy = await withDiagnosticContext(testContext(), () =>
+      generateSocialPostCopy({
+        brief,
+        factPack,
+        brandName: "Cenbrap",
+        toneOfVoice: null,
+        requiredElements: null,
+        prohibitedElements: null,
+      }),
+    );
+
+    expect(copy.headline).toBe("Grupo de terapia em agosto");
+    expect(openAiCreateMock).toHaveBeenCalledTimes(2);
+    expect(completed()).toHaveLength(2);
+    expect(completed().map((event) => event.stage)).toEqual(["copy", "copy_rewrite"]);
+    const callIds = completed().map((event) => event.call!.callId);
+    expect(new Set(callIds).size).toBe(2);
+    expect(completed()[0]!.context?.operationId).toBe("op-copy");
+    expect(completed()[1]!.context?.operationId).toBe("op-copy");
+    expect(completed()[0]!.call?.requestedModel).toBe("gpt-4o-mini");
+  });
+
+  it("records answered transport plus validation failure on invalid JSON", async () => {
+    openAiCreateMock.mockResolvedValue({
+      choices: [{ message: { content: "not-json{" } }],
+    });
+
+    await expect(
+      withDiagnosticContext(testContext(), () =>
+        generateSocialPostCopy({
+          brief,
+          brandName: "Acme",
+          toneOfVoice: null,
+          requiredElements: null,
+          prohibitedElements: null,
+        }),
+      ),
+    ).rejects.toThrow(/invalid JSON/);
+    expect(openAiCreateMock).toHaveBeenCalledTimes(1);
+    expect(completed()).toHaveLength(1);
+    const validation = captured.filter((event) => event.event === "model.validation.failed");
+    expect(validation).toHaveLength(1);
+    expect(validation[0]!.error?.reason).toContain("invalid-json");
+    expect(validation[0]!.call?.callId).toBe(completed()[0]!.call?.callId);
+    expect(captured.filter((event) => event.event === "model.call.failed")).toHaveLength(0);
+  });
+
+  it("emits nothing without an ambient single-work context", async () => {
+    mockCopyResponse({
+      headline: "Grupo de terapia em agosto",
+      body: "Vagas limitadas no grupo de terapia.",
+      cta: "Inscreva-se",
+    });
+
+    await generateSocialPostCopy({
+      brief,
+      factPack,
+      brandName: "Cenbrap",
+      toneOfVoice: null,
+      requiredElements: null,
+      prohibitedElements: null,
+    });
+    expect(captured).toHaveLength(0);
   });
 });

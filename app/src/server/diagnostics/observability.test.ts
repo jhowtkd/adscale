@@ -41,7 +41,9 @@ import {
   getObservabilityStatus,
   initializeObservability,
   shutdownObservability,
+  SPAN_ATTRIBUTES_TRUNCATED_KEY,
   startAiSpan,
+  truncateSpanAttributes,
   type AiTracingRuntime,
 } from "./observability";
 
@@ -358,15 +360,22 @@ describe("bounded export", () => {
         exporter: recordingExporter(seen),
       }),
     )!;
-    // 8 KiB attributes x 100 spans overflows 512 KiB well before 128 spans.
-    endSpans(runtime, 100, { bulk: "x".repeat(8 * 1024) });
+    // Two 8 KiB attributes x 100 spans overflows 512 KiB well before 128
+    // spans. (Trace-389: creation-time truncation caps each string at 4 KiB,
+    // so one attribute per span no longer overflows the byte budget.)
+    endSpans(runtime, 100, { bulkA: "x".repeat(8 * 1024), bulkB: "y".repeat(8 * 1024) });
     const stats = runtime.stats();
     expect(stats.bufferedSpans).toBeLessThan(100);
     expect(stats.droppedSpans).toBeGreaterThan(0);
     expect(stats.bufferedSpans + stats.droppedSpans).toBe(100);
   });
 
-  it("drops a single span larger than the whole buffer", async () => {
+  it("truncates a single oversize span at creation instead of dropping it", async () => {
+    // Trace-389 (carried from the #388 review): creation-time truncation to
+    // the frozen per-event budget replaces the old drop-the-whole-span
+    // behavior for spans that are oversize at creation. The buffer-level
+    // drop stays as the backstop for spans that grow past the whole-buffer
+    // budget after creation.
     const seen: ReadableSpan[][] = [];
     const runtime = trackRuntime(
       createAiTracingRuntime({
@@ -375,6 +384,33 @@ describe("bounded export", () => {
       }),
     )!;
     endSpans(runtime, 1, { bulk: "y".repeat(600 * 1024) });
+    expect(runtime.stats().bufferedSpans).toBe(1);
+    expect(runtime.stats().droppedSpans).toBe(0);
+    await runtime.flush();
+    const exported = seen.flat();
+    expect(exported).toHaveLength(1);
+    const bulk = exported[0]!.attributes["bulk"];
+    expect(typeof bulk).toBe("string");
+    expect((bulk as string).length).toBeLessThan(600 * 1024);
+    expect(
+      Buffer.byteLength(
+        JSON.stringify({ name: exported[0]!.name, attributes: exported[0]!.attributes }),
+        "utf8",
+      ),
+    ).toBeLessThanOrEqual(DIAGNOSTIC_EXPORT_BUDGET.maxEventBytes);
+  });
+
+  it("still drops a span that grows past the whole buffer after creation", async () => {
+    const seen: ReadableSpan[][] = [];
+    const runtime = trackRuntime(
+      createAiTracingRuntime({
+        process: "web",
+        exporter: recordingExporter(seen),
+      }),
+    )!;
+    const span = runtime.startSpan("growing-span", { small: "ok" });
+    span.setAttribute("bulk", "z".repeat(600 * 1024));
+    span.end();
     expect(runtime.stats().bufferedSpans).toBe(0);
     expect(runtime.stats().droppedSpans).toBe(1);
     await runtime.flush();
@@ -521,6 +557,50 @@ describe("fake Langfuse endpoint", () => {
         server.close((error) => (error ? reject(error) : resolve())),
       );
     }
+  });
+});
+
+describe("per-span truncation at creation (trace-389)", () => {
+  function bytes(name: string, attributes: Record<string, unknown>): number {
+    return Buffer.byteLength(JSON.stringify({ name, attributes }), "utf8");
+  }
+
+  it("passes small attributes through without mutating the input", () => {
+    const input = { "adscale.call_id": "call-1", "adscale.latency_ms": 12 };
+    const out = truncateSpanAttributes("model.call", input);
+    expect(out).toEqual(input);
+    expect(out).not.toBe(input);
+    expect(input).toEqual({ "adscale.call_id": "call-1", "adscale.latency_ms": 12 });
+  });
+
+  it("passes undefined through", () => {
+    expect(truncateSpanAttributes("model.call", undefined)).toBeUndefined();
+  });
+
+  it("caps a single oversize string so the span fits the per-event budget", () => {
+    const out = truncateSpanAttributes("model.call", {
+      keep: "small",
+      bulk: "y".repeat(600 * 1024),
+    })!;
+    expect(out["keep"]).toBe("small");
+    expect(typeof out["bulk"]).toBe("string");
+    expect((out["bulk"] as string).length).toBeLessThan(600 * 1024);
+    expect(bytes("model.call", out)).toBeLessThanOrEqual(
+      DIAGNOSTIC_EXPORT_BUDGET.maxEventBytes,
+    );
+  });
+
+  it("drops the largest attributes with a marker when capping is not enough", () => {
+    const attributes: Record<string, string> = {};
+    for (let i = 0; i < 10; i += 1) {
+      attributes[`bulk-${i}`] = `${i}-`.padEnd(3 * 1024, "x");
+    }
+    const out = truncateSpanAttributes("model.call", attributes)!;
+    expect(bytes("model.call", out)).toBeLessThanOrEqual(
+      DIAGNOSTIC_EXPORT_BUDGET.maxEventBytes,
+    );
+    expect(out[SPAN_ATTRIBUTES_TRUNCATED_KEY]).toBe(true);
+    expect(Object.keys(out).length).toBeLessThan(10);
   });
 });
 

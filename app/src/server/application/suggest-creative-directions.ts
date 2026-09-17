@@ -3,6 +3,12 @@ import { zodResponseFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { getOpenAI } from "@/server/ai/utils";
 import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
+import {
+  newModelCallId,
+  observeModelCall,
+  reportModelValidationFailed,
+  summarizeChatCompletion,
+} from "@/server/diagnostics/model-calls";
 import { env } from "@/server/validation/env";
 import {
   createDefaultCreativeDirectionPool,
@@ -72,8 +78,10 @@ async function generateSuggestions(
 ): Promise<CreativeDirection[]> {
   if (isE2EControlledProviderEnabled()) return fallbackDirections(workItemId);
 
-  const response = await getOpenAI().chat.completions.create({
-    model: env.OPENAI_TEXT_MODEL,
+  const model = env.OPENAI_TEXT_MODEL;
+  const trace = { callId: newModelCallId(), provider: "openai", requestedModel: model, stage: "briefing" as const };
+  const response = await observeModelCall(trace, () => getOpenAI().chat.completions.create({
+    model,
     messages: [
       {
         role: "system",
@@ -90,10 +98,18 @@ Contexto das fontes analisadas: ${JSON.stringify(context).slice(0, 8_000)}`,
     ],
     response_format: zodResponseFormat(suggestionSchema, "creative_direction_suggestions"),
     max_completion_tokens: 1_500,
-  });
+  }), summarizeChatCompletion);
   const content = response.choices[0]?.message?.content;
-  if (!content) return fallbackDirections(workItemId);
-  return toDirections(workItemId, suggestionSchema.parse(JSON.parse(content)).directions);
+  if (!content) {
+    reportModelValidationFailed({ ...trace, reason: "empty-content" });
+    return fallbackDirections(workItemId);
+  }
+  try {
+    return toDirections(workItemId, suggestionSchema.parse(JSON.parse(content)).directions);
+  } catch (error) {
+    reportModelValidationFailed({ ...trace, reason: error instanceof SyntaxError ? "invalid-json" : "schema-mismatch" });
+    throw error;
+  }
 }
 
 export type SuggestCreativeDirectionsError =

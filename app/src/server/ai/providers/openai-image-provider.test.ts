@@ -18,6 +18,12 @@ vi.mock("openai", () => {
 });
 
 import { OpenAIImageProvider } from "./openai-image-provider";
+import type { DiagnosticEventEnvelope } from "@/server/diagnostics/contract";
+import { createDiagnosticContext, withDiagnosticContext } from "@/server/diagnostics/context";
+import {
+  __setModelCallEventSinkForTests,
+  __setModelCallSpanStarterForTests,
+} from "@/server/diagnostics/model-calls";
 
 const { edit: mockEdit, generate: mockGenerate } = mockOpenAIImages;
 
@@ -218,5 +224,97 @@ describe("OpenAIImageProvider", () => {
     ).rejects.toThrow(/gpt-image-2/);
     expect(mockGenerate).not.toHaveBeenCalled();
     expect(mockEdit).not.toHaveBeenCalled();
+  });
+});
+
+describe("trace-389: image model-call observation", () => {
+  let captured: DiagnosticEventEnvelope[];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    captured = [];
+    __setModelCallEventSinkForTests((event) => {
+      captured.push(event);
+    });
+    __setModelCallSpanStarterForTests(() => undefined);
+  });
+
+  function testContext() {
+    return createDiagnosticContext({
+      workspaceId: "ws-image",
+      workItemId: "work-image",
+      operationId: "op-image",
+      releaseSha: "test-sha",
+      environment: "test",
+      process: "web",
+      dataOrigin: "test",
+    });
+  }
+
+  function generateInput() {
+    return {
+      prompt: "a hero image",
+      dimensions: { width: 1080, height: 1080 },
+      referenceImages: [],
+      generationMode: "art_variation" as const,
+      outputPrefix: "work/test",
+      quality: "medium" as const,
+    };
+  }
+
+  it("observes image generation with requested model and provider request id", async () => {
+    mockGenerate.mockResolvedValue({
+      data: [{ b64_json: Buffer.from("png-bytes").toString("base64") }],
+      _request_id: "req-image-1",
+    });
+
+    const result = await withDiagnosticContext(testContext(), () =>
+      new OpenAIImageProvider().generate(generateInput()),
+    );
+
+    expect(result.buffer.length).toBeGreaterThan(0);
+    expect(mockGenerate).toHaveBeenCalledTimes(1);
+    const completed = captured.filter((event) => event.event === "model.call.completed");
+    expect(completed).toHaveLength(1);
+    expect(completed[0]!.stage).toBe("image");
+    expect(completed[0]!.call).toMatchObject({
+      provider: "openai",
+      requestedModel: "gpt-image-2-2026-04-21",
+      returnedModel: null,
+      providerRequestId: "req-image-1",
+    });
+  });
+
+  it("records a normalized transport failure without re-invoking the SDK", async () => {
+    const failure = Object.assign(new Error("Rate limit reached"), {
+      name: "RateLimitError",
+      status: 429,
+    });
+    mockGenerate.mockRejectedValueOnce(failure);
+
+    await expect(
+      withDiagnosticContext(testContext(), () => new OpenAIImageProvider().generate(generateInput())),
+    ).rejects.toBe(failure);
+    expect(mockGenerate).toHaveBeenCalledTimes(1);
+    const failed = captured.filter((event) => event.event === "model.call.failed");
+    expect(failed).toHaveLength(1);
+    expect(failed[0]!.error).toMatchObject({
+      errorClass: "RateLimitError",
+      status: 429,
+      reason: "Rate limit reached",
+    });
+  });
+
+  it("records empty image data as a validation failure, not a network outage", async () => {
+    mockGenerate.mockResolvedValue({ data: [], _request_id: "req-empty" });
+
+    await expect(
+      withDiagnosticContext(testContext(), () => new OpenAIImageProvider().generate(generateInput())),
+    ).rejects.toThrow("No image data returned from OpenAI");
+    expect(captured.filter((event) => event.event === "model.call.completed")).toHaveLength(1);
+    expect(captured.filter((event) => event.event === "model.call.failed")).toHaveLength(0);
+    const validation = captured.filter((event) => event.event === "model.validation.failed");
+    expect(validation).toHaveLength(1);
+    expect(validation[0]!.error?.reason).toContain("empty-content");
   });
 });

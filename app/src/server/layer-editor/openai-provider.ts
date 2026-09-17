@@ -5,6 +5,12 @@ import sharp from "sharp";
 import { dimensionsToGptImage2Size, toOpenAISdkImageSize } from "@/lib/formats";
 import { fetchProviderUrlSafe } from "@/server/ai/safe-fetch";
 import { observeImageCall, type ImageCallObservation } from "@/server/ai/image-call-observation";
+import {
+  newModelCallId,
+  observeModelCall,
+  reportModelValidationFailed,
+  summarizeImageResult,
+} from "@/server/diagnostics/model-calls";
 import { resolveImageRenderPolicy, type ImageRenderPolicy } from "@/server/ai/image-render-policy";
 import { env } from "@/server/validation/env";
 
@@ -37,18 +43,25 @@ export class OpenAILayerRegenerationProvider implements LayerRegenerationProvide
       toFile(input.composite, "composition-context.png", { type: "image/png" }),
     ]);
     const size = toOpenAISdkImageSize(dimensionsToGptImage2Size(input.bounds));
+    const trace = { callId: newModelCallId(), provider: "openai", requestedModel: policy.model, stage: "revision" as const };
     const observed = await observeImageCall(policy, { key: input.operationKey ?? "layer-regeneration", operation: "edit", size }, () =>
-      this.client.images.edit({
+      observeModelCall(trace, () => this.client.images.edit({
         model: policy.model, image: [selected, composite],
         prompt: `Revise somente o elemento isolado solicitado: ${input.instruction}. Retorne somente esse elemento em PNG transparente; sem fundo, moldura, texto extra ou composição completa.`,
         n: 1, size, quality: policy.quality as OpenAI.Images.ImageEditParams["quality"], background: "transparent", output_format: "png",
-      }, { timeout: 180_000, maxRetries: 0 }),
+      }, { timeout: 180_000, maxRetries: 0 }), summarizeImageResult),
     );
     const response = observed.response;
     const result = response.data?.[0];
-    if (!result) throw new Error("OpenAI returned no layer candidate");
+    if (!result) {
+      reportModelValidationFailed({ ...trace, reason: "empty-content" });
+      throw new Error("OpenAI returned no layer candidate");
+    }
     const buffer = result.b64_json ? Buffer.from(result.b64_json, "base64") : result.url ? await fetchProviderUrlSafe(result.url) : null;
-    if (!buffer) throw new Error("OpenAI returned no layer candidate");
+    if (!buffer) {
+      reportModelValidationFailed({ ...trace, reason: "empty-content" });
+      throw new Error("OpenAI returned no layer candidate");
+    }
     return { buffer, requestId: response._request_id ?? null, observation: observed.observation };
   }
 }

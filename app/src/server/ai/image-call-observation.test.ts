@@ -29,6 +29,33 @@ describe("observeImageCall", () => {
     expect(call).toHaveBeenCalledOnce();
     expect(logger.info).toHaveBeenCalledWith(expect.objectContaining({ event: "image_api_call", status: "error", usage: null, billing: "unknown" }));
   });
+  it("carries normalized class/status/reason on the error path when known", async () => {
+    const error = Object.assign(new Error("Rate limit reached"), {
+      name: "RateLimitError",
+      status: 429,
+    });
+    const call = vi.fn().mockRejectedValue(error);
+    await expect(observeImageCall(LEGACY_IMAGE_POLICY, { key: "output-5", operation: "generate", size: "1088x1088" }, call)).rejects.toBe(error);
+    expect(call).toHaveBeenCalledOnce();
+    expect(logger.info).toHaveBeenCalledWith(expect.objectContaining({
+      event: "image_api_call",
+      status: "error",
+      errorClass: "RateLimitError",
+      errorStatus: 429,
+      errorReason: "Rate limit reached",
+    }));
+  });
+  it("leaves normalized error fields null when nothing is known", async () => {
+    const call = vi.fn().mockRejectedValue(undefined);
+    await expect(observeImageCall(LEGACY_IMAGE_POLICY, { key: "output-6", operation: "generate", size: "1088x1088" }, call)).rejects.toBeUndefined();
+    expect(logger.info).toHaveBeenCalledWith(expect.objectContaining({
+      event: "image_api_call",
+      status: "error",
+      errorClass: null,
+      errorStatus: null,
+      errorReason: null,
+    }));
+  });
   it("still invokes the provider when started logging fails", async () => {
     vi.mocked(logger.info).mockClear();
     const response = { data: [{ b64_json: "img" }], usage: { output_tokens: 1 }, _request_id: "req-start" };

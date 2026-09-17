@@ -176,6 +176,80 @@ function resolveConfig(env: NodeJS.ProcessEnv): AiTracingConfig {
   };
 }
 
+/** Cap for a single string span attribute before the budget pass. */
+const SPAN_ATTRIBUTE_STRING_CAP = 4_000;
+
+/** Suffix marking a truncated string span attribute. */
+const SPAN_TRUNCATION_SUFFIX = "…[truncated]";
+
+/** Marker attribute left when whole attributes were dropped to fit. */
+export const SPAN_ATTRIBUTES_TRUNCATED_KEY = "adscale.attributes_truncated";
+
+function measureAttributesBytes(name: string, attributes: Attributes): number {
+  try {
+    return Buffer.byteLength(JSON.stringify({ name, attributes }), "utf8");
+  } catch {
+    return Number.POSITIVE_INFINITY;
+  }
+}
+
+function attributeByteSize(key: string, value: unknown): number {
+  try {
+    return Buffer.byteLength(JSON.stringify({ [key]: value }), "utf8");
+  } catch {
+    return Number.POSITIVE_INFINITY;
+  }
+}
+
+/**
+ * Reduce span attributes to the frozen per-event budget (trace-389,
+ * carried from the #388 review: #388 bounded the buffer only).
+ *
+ * First caps every string attribute, then drops the largest attributes
+ * until the span fits `maxEventBytes`, leaving a truncation marker when
+ * anything was dropped. Never mutates the input, never throws; the
+ * buffer-level drop stays as the backstop for spans that grow past the
+ * whole-buffer budget after creation.
+ */
+export function truncateSpanAttributes(
+  name: string,
+  attributes?: Attributes,
+): Attributes | undefined {
+  if (attributes === undefined) return undefined;
+  try {
+    let next: Attributes = { ...attributes };
+    for (const [key, value] of Object.entries(next)) {
+      if (typeof value === "string" && value.length > SPAN_ATTRIBUTE_STRING_CAP) {
+        next[key] = value.slice(0, SPAN_ATTRIBUTE_STRING_CAP) + SPAN_TRUNCATION_SUFFIX;
+      }
+    }
+    if (
+      measureAttributesBytes(name, next) <= DIAGNOSTIC_EXPORT_BUDGET.maxEventBytes
+    ) {
+      return next;
+    }
+    const bySizeDesc = Object.keys(next).sort(
+      (a, b) => attributeByteSize(b, next[b]) - attributeByteSize(a, next[a]),
+    );
+    let truncated = false;
+    for (const key of bySizeDesc) {
+      if (
+        measureAttributesBytes(name, next) <= DIAGNOSTIC_EXPORT_BUDGET.maxEventBytes
+      ) {
+        break;
+      }
+      delete next[key];
+      truncated = true;
+    }
+    if (truncated) {
+      next = { ...next, [SPAN_ATTRIBUTES_TRUNCATED_KEY]: true };
+    }
+    return next;
+  } catch {
+    return attributes;
+  }
+}
+
 function measureSpanBytes(span: ReadableSpan): number {
   try {
     const snapshot = {
@@ -492,7 +566,12 @@ export function createAiTracingRuntime(
         try {
           // Own root: never joins (or inherits sampling from) an ambient
           // Sentry context. Correlation is by business IDs, not traceId.
-          return tracer.startSpan(name, { attributes }, ROOT_CONTEXT);
+          // Creation-time truncation to the frozen per-event budget.
+          return tracer.startSpan(
+            name,
+            { attributes: truncateSpanAttributes(name, attributes) },
+            ROOT_CONTEXT,
+          );
         } catch {
           reportAiTracingFailure("start-span-failed");
           return trace.wrapSpanContext({
