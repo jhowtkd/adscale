@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   evidenceForOutput,
   MATRIX_DELIVERY_DIMS,
+  MATRIX_LEGACY_TOURNAMENT_CALLS,
   parseMatrixArgs,
   parseProviderEvidence,
   validateMatrixOutput,
@@ -77,6 +78,22 @@ describe("studio format matrix (ICE-04B)", () => {
       "single:3:4:out-1:provider_calls:2",
       "single:3:4:out-1:provider_dims_mismatch",
       "single:3:4:out-1:byte_dims_mismatch",
+    ]);
+  });
+
+  it("expects the legacy tournament size on adaptation legs", () => {
+    expect(MATRIX_LEGACY_TOURNAMENT_CALLS).toBe(3);
+    const converged = {
+      outputId: "out-9",
+      targetFormat: "3:4",
+      completed: true,
+      providerCalls: 3,
+      providerDims: { width: 1080, height: 1440 },
+      byteDims: { width: 1080, height: 1440 },
+    };
+    expect(validateMatrixOutput("adapt:1:1+3:4", "3:4", converged, MATRIX_LEGACY_TOURNAMENT_CALLS)).toEqual([]);
+    expect(validateMatrixOutput("adapt:1:1+3:4", "3:4", converged)).toEqual([
+      "adapt:1:1+3:4:out-9:provider_calls:3",
     ]);
   });
 });

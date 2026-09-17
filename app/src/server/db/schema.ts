@@ -2888,7 +2888,7 @@ export const creativeWorkItems = adscaleSchema.table(
     ),
     check(
       "creative_work_items_format_check",
-      sql`${table.format} in ('1:1','4:5','9:16')`
+      sql`${table.format} in ('1:1','4:5','9:16','3:4')`
     ),
     uniqueIndex("creative_work_items_training_slot_uq")
       .on(table.trainingSessionId, table.trainingRound, table.trainingSlot)
