@@ -96,6 +96,7 @@
     "@aws-sdk/client-s3": "^3.0.0",
     "@aws-sdk/s3-request-presigner": "^3.0.0",
     "@base-ui/react": "^1.4.1",
+    "@langfuse/otel": "5.11.1",
     "@modelcontextprotocol/server": "^2.0.0",
     "@neondatabase/serverless": "^1.1.0",
     "@sentry/nextjs": "^10.53.1",
