@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-16T14:26:47.203Z",
+  "generatedAt": "2026-09-17T15:03:53.359Z",
   "schemaVersion": 2,
-  "fingerprint": "60574e8c1a3a772ece7deda1e3f05752f1d9a6edd3bad425069886e1459effed",
+  "fingerprint": "c97e63d8d108302e9d6ea98e9d5b9c015ed30c50f3ef9534697133374edad8c4",
   "counts": {
     "dashboardPages": 16,
     "apiRoutes": 193,
-    "ctas": 74,
+    "ctas": 75,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -1693,12 +1693,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/creative-work/CreativeWorkResumeSurface.tsx:66",
+      "id": "nav:app/src/components/creative-work/CreativeWorkResumeSurface.tsx:70",
       "kind": "cta_navigation",
       "destination": "/?mode=arte&compose=1&intent=variations&fresh=1",
       "file": "app/src/components/creative-work/CreativeWorkResumeSurface.tsx",
-      "line": 66,
-      "evidence": "app/src/components/creative-work/CreativeWorkResumeSurface.tsx:66",
+      "line": 70,
+      "evidence": "app/src/components/creative-work/CreativeWorkResumeSurface.tsx:70",
       "requiresDecision": false
     },
     {
@@ -1720,21 +1720,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:612",
+      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:616",
       "kind": "cta_navigation",
       "destination": "/settings?tab=billing",
       "file": "app/src/components/dashboard/DashboardHomeActions.tsx",
-      "line": 612,
-      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:612",
+      "line": 616,
+      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:616",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:713",
+      "id": "nav:app/src/components/dashboard/DashboardHomeActions.tsx:717",
       "kind": "cta_navigation",
       "destination": "/?mode=arte&compose=1&fresh=1",
       "file": "app/src/components/dashboard/DashboardHomeActions.tsx",
-      "line": 713,
-      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:713",
+      "line": 717,
+      "evidence": "app/src/components/dashboard/DashboardHomeActions.tsx:717",
       "requiresDecision": false
     },
     {
@@ -2071,6 +2071,15 @@
       "file": "app/src/components/legal/LegalNav.tsx",
       "line": 15,
       "evidence": "app/src/components/legal/LegalNav.tsx:15",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/served-ads/ServedAdsView.tsx:266",
+      "kind": "cta_navigation",
+      "destination": "/api/served-ads?${queryString}&export=csv",
+      "file": "app/src/components/served-ads/ServedAdsView.tsx",
+      "line": 266,
+      "evidence": "app/src/components/served-ads/ServedAdsView.tsx:266",
       "requiresDecision": false
     },
     {

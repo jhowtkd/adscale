@@ -69,6 +69,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           case "work_not_found": return apiError("creativeWorkNotFound", 404);
           case "credit_blocked": return apiError("insufficientCredits", 402, result.error.details);
           case "dispatch_failed": return apiError("creativeWorkDispatchUnavailable", 502);
+          case "format_creation_disabled": {
+            const details =
+              typeof result.error.details === "object" && result.error.details !== null
+                ? result.error.details
+                : {};
+            return apiError("invalidInput", 400, { code: "format_creation_disabled", ...details });
+          }
           case "output_not_ready":
           case "stale_review":
           case "quote_changed":

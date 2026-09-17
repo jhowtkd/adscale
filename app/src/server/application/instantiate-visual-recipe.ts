@@ -12,6 +12,8 @@ import {
   setCreativeWorkCopy,
 } from "@/server/repositories/creative-work";
 import { getVisualRecipeInWorkspace } from "@/server/repositories/visual-recipe";
+import { threeFourCreationBlock } from "@/lib/studio/three-four-capability";
+import { env } from "@/server/validation/env";
 import type { CreativeWorkItem } from "@/server/db/schema";
 
 export type InstantiateVisualRecipeInput = {
@@ -26,7 +28,14 @@ export type InstantiateVisualRecipeInput = {
 export type InstantiateVisualRecipeError =
   | { code: "recipe_not_found" }
   | { code: "brand_mismatch" }
-  | { code: "client_profile_not_found" };
+  | { code: "client_profile_not_found" }
+  /**
+   * ICE-04B: a 3:4 recipe instantiates a new 3:4 single work — gated.
+   * Single is validated, so only the disabled case occurs in practice;
+   * the union stays total over the shared block.
+   */
+  | { code: "format_creation_disabled"; format: string }
+  | { code: "format_protocol_unsupported"; format: string };
 
 export async function instantiateVisualRecipe(
   input: InstantiateVisualRecipeInput,
@@ -44,6 +53,17 @@ export async function instantiateVisualRecipe(
   if (!brand.ok) return { ok: false, error: { code: "brand_mismatch" } };
 
   const applied = applyAuthorizedFields(stored.document, input.fields ?? {});
+  // Recipes instantiate single works (a validated protocol): a recipe whose
+  // frozen format is 3:4 creates a new 3:4 work, so the switch still gates.
+  const creationBlock = threeFourCreationBlock({
+    format: applied.format,
+    targetFormats: [applied.format],
+    intent: "single",
+    creationSwitch: env.CREATIVE_WORK_34_CREATION_ENABLED,
+  });
+  if (creationBlock) {
+    return { ok: false, error: creationBlock };
+  }
   const origin = visualRecipeOrigin({
     recipeId: stored.id,
     version: stored.version,

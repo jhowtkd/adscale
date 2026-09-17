@@ -204,6 +204,7 @@ export default function DashboardHomeActions({
   rolloutVariant = "control",
   carouselCreationEnabled = false,
   entryInterviewEnabled = false,
+  threeFourCreationEnabled = false,
 }: {
   workId?: string;
   initialIntent?: ComposerIntent;
@@ -218,6 +219,8 @@ export default function DashboardHomeActions({
   carouselCreationEnabled?: boolean;
   /** Task 9 wires the entry interview rollout percentage to this gate. */
   entryInterviewEnabled?: boolean;
+  /** ICE-04B wires the 3:4 creation switch to this gate. */
+  threeFourCreationEnabled?: boolean;
 }) {
   const t = useTranslations("dashboard.home");
   const locale = useLocale();
@@ -261,6 +264,7 @@ export default function DashboardHomeActions({
       studioSessionId: studioSession?.id,
     } : {}),
     ...(freshEntry ? { freshEntry: true } : {}),
+    threeFourCreationEnabled,
     onGenerationAccepted,
   });
   const [boxExpanded, setBoxExpanded] = useState(false);
