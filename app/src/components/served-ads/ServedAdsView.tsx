@@ -32,11 +32,46 @@ interface ServedAdRow {
   previewUrl: string | null;
 }
 
+interface ServedAdsEventRef {
+  actionType: string | null;
+  labelPtBR: string | null;
+  labelEn: string | null;
+  known: boolean;
+}
+
+interface ServedAdsEventOption {
+  actionType: string;
+  labelPtBR: string;
+  labelEn: string;
+  known: boolean;
+}
+
+interface ServedAdsSummary {
+  rows: number;
+  impressions: number;
+  clicks: number;
+  spend: number;
+  currencies: string[];
+  conversions: number | null;
+  cpa: number | null;
+  cpaUnavailableReason: string | null;
+  ctrDefinition: "clicks_divided_by_impressions";
+  collectionComplete: boolean;
+}
+
 interface ServedAdsReport {
   mode: "live" | "fixture";
   currencies: string[];
   primaryCurrency: string;
   hasConversions: boolean;
+  event: ServedAdsEventRef;
+  availableEvents: ServedAdsEventOption[];
+  windowDays: 7 | 30 | 90;
+  format: string;
+  definitionVersion: number;
+  collectionComplete: boolean;
+  generatedAt: string;
+  summary: ServedAdsSummary;
   rows: ServedAdRow[];
 }
 
@@ -82,18 +117,24 @@ export function ServedAdsView() {
   const brandId = useAppStore((s) => s.activeClientProfileId);
   const [windowDays, setWindowDays] = useState<WindowDays>("30");
   const [format, setFormat] = useState<FormatFilter>("all");
+  // Evento escolhido no escopo do relatório; null = não escolhido (sem CPA).
+  const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   // Relatório + falha versionados pela chave da busca: sem setState
   // síncrono no efeito, e resposta atrasada nunca sobrescreve a atual.
   const [loaded, setLoaded] = useState<{ key: string; report: ServedAdsReport } | null>(null);
   const [failedKey, setFailedKey] = useState<string | null>(null);
-  const key = `${brandId ?? ""}|${windowDays}|${format}`;
+  const key = `${brandId ?? ""}|${windowDays}|${format}|${selectedEvent ?? ""}`;
+
+  // Mesma query da tela e da exportação CSV: mesmo evento, período e versão.
+  const queryParams = new URLSearchParams({ brandId: brandId ?? "", window: windowDays });
+  if (format !== "all") queryParams.set("format", format);
+  if (selectedEvent) queryParams.set("event", selectedEvent);
+  const queryString = queryParams.toString();
 
   useEffect(() => {
     if (!brandId) return;
     let cancelled = false;
-    const params = new URLSearchParams({ brandId, window: windowDays });
-    if (format !== "all") params.set("format", format);
-    apiFetch(`/api/served-ads?${params.toString()}`)
+    apiFetch(`/api/served-ads?${queryString}`)
       .then(async (res) => {
         if (cancelled) return;
         if (!res.ok) {
@@ -109,11 +150,16 @@ export function ServedAdsView() {
     return () => {
       cancelled = true;
     };
-  }, [brandId, windowDays, format, key]);
+  }, [brandId, queryString, key]);
 
   const report = loaded?.key === key ? loaded.report : null;
   const failed = failedKey === key;
   const loading = brandId !== null && !report && !failed;
+  const summary = report?.summary ?? null;
+  // Totais do escopo sob a mesma definição das linhas: CTR = cliques/impressões.
+  const totalCtr =
+    summary && summary.impressions > 0 ? (summary.clicks / summary.impressions) * 100 : null;
+  const totalCpc = summary && summary.clicks > 0 ? summary.spend / summary.clicks : null;
 
   if (!brandId) {
     return (
@@ -156,6 +202,14 @@ export function ServedAdsView() {
               {t("multiCurrency")}
             </span>
           ) : null}
+          {report && !report.collectionComplete ? (
+            <span
+              data-testid="served-ads-partial-badge"
+              className="rounded-full bg-[var(--surface-inset)] px-2.5 py-0.5 text-xs text-[var(--text-muted)]"
+            >
+              {t("partialCollection")}
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -189,6 +243,32 @@ export function ServedAdsView() {
             </button>
           ))}
         </div>
+        <div className="h-4 w-px bg-[var(--border-subtle)]" aria-hidden />
+        <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+          {t("eventLabel")}
+          <select
+            data-testid="served-ads-event"
+            aria-label={t("eventLabel")}
+            value={selectedEvent ?? ""}
+            onChange={(e) => setSelectedEvent(e.target.value || null)}
+            className="rounded-full border border-[var(--border-subtle)] bg-transparent px-2 py-1 text-xs text-[var(--text-primary)]"
+          >
+            <option value="">{t("eventNone")}</option>
+            {(report?.availableEvents ?? []).map((option) => (
+              <option key={option.actionType} value={option.actionType}>
+                {locale === "pt-BR" ? option.labelPtBR : option.labelEn}
+              </option>
+            ))}
+          </select>
+        </label>
+        <a
+          data-testid="served-ads-export-csv"
+          href={`/api/served-ads?${queryString}&export=csv`}
+          download
+          className="rounded-full px-3 py-1 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+        >
+          {t("exportCsv")}
+        </a>
       </div>
 
       {loading ? (
@@ -280,8 +360,48 @@ export function ServedAdsView() {
                 );
               })}
             </tbody>
+            {summary ? (
+              <tfoot>
+                <tr
+                  data-testid="served-ads-total-row"
+                  className="border-t border-[var(--border-subtle)] font-medium"
+                >
+                  <td className="px-3 py-2 text-[var(--text-primary)]">{t("totalRow")}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-[var(--text-primary)]">
+                    {formatMoney(summary.spend, locale, report.primaryCurrency)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-[var(--text-primary)]">
+                    {formatInt(summary.impressions, locale)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-[var(--text-primary)]">
+                    {formatPct(totalCtr, locale)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-[var(--text-primary)]">
+                    {formatMoney(totalCpc, locale, report.primaryCurrency)}
+                  </td>
+                  {report.hasConversions ? (
+                    <>
+                      <td className="px-3 py-2 text-right tabular-nums text-[var(--text-primary)]">
+                        {formatInt(summary.conversions, locale)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-[var(--text-primary)]">
+                        {formatMoney(summary.cpa, locale, report.primaryCurrency)}
+                        {summary.cpa === null ? (
+                          <span className="block text-xs font-normal text-[var(--text-muted)]">
+                            {t("cpaUnavailable")}
+                          </span>
+                        ) : null}
+                      </td>
+                    </>
+                  ) : null}
+                </tr>
+              </tfoot>
+            ) : null}
           </table>
         </div>
+      ) : null}
+      {report && report.rows.length > 0 ? (
+        <p className="mt-2 text-xs text-[var(--text-muted)]">{t("ctrDefinition")}</p>
       ) : null}
     </div>
   );

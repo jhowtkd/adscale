@@ -70,13 +70,13 @@ export function mediaKey(workspaceId: string, adAccountId: string, creativeId: s
   return `served-ads/${workspaceId}/${adAccountId}/${creativeId}/${kind}`;
 }
 
-function formatOf(creative: MetaCreative): ServedAdFormat {
+export function formatOfCreative(creative: MetaCreative): ServedAdFormat {
   if (creative.isCarousel) return "carrossel";
   if (creative.videoId) return "video";
   return "imagem";
 }
 
-function textOf(creative: MetaCreative): string | null {
+export function textOfCreative(creative: MetaCreative): string | null {
   return creative.body ?? creative.title ?? null;
 }
 
@@ -186,8 +186,8 @@ export async function syncConnection(connectionId: string, deps: SyncDeps = {}):
             ad_account_id: account.id,
             ad_id: insight.adId,
             creative_id: ad.creative.id,
-            format: formatOf(ad.creative),
-            text: textOf(ad.creative),
+            format: formatOfCreative(ad.creative),
+            text: textOfCreative(ad.creative),
             impressions: insight.impressions,
             clicks: insight.clicks,
             spend: insight.spend,

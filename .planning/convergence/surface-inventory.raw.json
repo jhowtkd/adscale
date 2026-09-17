@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-16T14:26:47.203Z",
+  "generatedAt": "2026-09-17T13:29:00.728Z",
   "schemaVersion": 2,
-  "fingerprint": "60574e8c1a3a772ece7deda1e3f05752f1d9a6edd3bad425069886e1459effed",
+  "fingerprint": "f64709482840a97901677f31035af0da8e192083cc43602fd91643ea6bafcfc8",
   "counts": {
     "dashboardPages": 16,
     "apiRoutes": 193,
-    "ctas": 74,
+    "ctas": 75,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -2071,6 +2071,15 @@
       "file": "app/src/components/legal/LegalNav.tsx",
       "line": 15,
       "evidence": "app/src/components/legal/LegalNav.tsx:15",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/served-ads/ServedAdsView.tsx:266",
+      "kind": "cta_navigation",
+      "destination": "/api/served-ads?${queryString}&export=csv",
+      "file": "app/src/components/served-ads/ServedAdsView.tsx",
+      "line": 266,
+      "evidence": "app/src/components/served-ads/ServedAdsView.tsx:266",
       "requiresDecision": false
     },
     {

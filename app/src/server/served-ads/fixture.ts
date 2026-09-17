@@ -12,7 +12,15 @@ interface FixtureCreative {
   format: "imagem" | "video" | "carrossel";
   text: string | null;
   /** Métricas base de 30 dias por ad; outras janelas escalam. */
-  ads: Array<{ ad_id: string; impressions: number; clicks: number; spend: number; conversions: number }>;
+  ads: Array<{
+    ad_id: string;
+    impressions: number;
+    clicks: number;
+    spend: number;
+    conversions: number;
+    /** Mapa v2 por tipo de ação; ausente = linha legada não verificada. */
+    actions?: Record<string, number>;
+  }>;
 }
 
 const CREATIVES: FixtureCreative[] = [
@@ -21,29 +29,29 @@ const CREATIVES: FixtureCreative[] = [
     format: "imagem",
     text: "Matrículas abertas — 20% off nesta semana",
     ads: [
-      { ad_id: "501", impressions: 42000, clicks: 1260, spend: 1890, conversions: 96 },
-      { ad_id: "502", impressions: 18000, clicks: 450, spend: 810, conversions: 34 },
+      { ad_id: "501", impressions: 42000, clicks: 1260, spend: 1890, conversions: 96, actions: { purchase: 60, lead: 36 } },
+      { ad_id: "502", impressions: 18000, clicks: 450, spend: 810, conversions: 34, actions: { purchase: 20, lead: 14 } },
     ],
   },
   {
     creative_id: "1002",
     format: "imagem",
     text: "Matrículas abertas — garanta sua vaga",
-    ads: [{ ad_id: "503", impressions: 25000, clicks: 500, spend: 1250, conversions: 22 }],
+    ads: [{ ad_id: "503", impressions: 25000, clicks: 500, spend: 1250, conversions: 22, actions: { purchase: 14, lead: 8 } }],
   },
   {
     creative_id: "2001",
     format: "video",
     text: "Veja como funciona em 30 segundos",
-    ads: [{ ad_id: "504", impressions: 60000, clicks: 900, spend: 2400, conversions: 41 }],
+    ads: [{ ad_id: "504", impressions: 60000, clicks: 900, spend: 2400, conversions: 41, actions: { purchase: 30, view_content: 11 } }],
   },
   {
     creative_id: "3001",
     format: "carrossel",
     text: "3 motivos para começar hoje",
     ads: [
-      { ad_id: "505", impressions: 15000, clicks: 600, spend: 750, conversions: 18 },
-      { ad_id: "506", impressions: 9000, clicks: 270, spend: 540, conversions: 9 },
+      { ad_id: "505", impressions: 15000, clicks: 600, spend: 750, conversions: 18, actions: { lead: 18 } },
+      { ad_id: "506", impressions: 9000, clicks: 270, spend: 540, conversions: 9, actions: { purchase: 4, lead: 5 } },
     ],
   },
   {
@@ -77,6 +85,12 @@ export function getFixtureAdRows(windowDays: 7 | 30 | 90): MetaAdRow[] {
         clicks: Math.round(ad.clicks * scale),
         spend: Math.round(ad.spend * scale * 100) / 100,
         conversions: Math.round(ad.conversions * scale),
+        actionCounts: ad.actions
+          ? Object.fromEntries(
+              Object.entries(ad.actions).map(([type, value]) => [type, Math.round(value * scale)])
+            )
+          : null,
+        complete: true,
       });
     }
   }

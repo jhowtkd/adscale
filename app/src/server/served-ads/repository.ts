@@ -21,6 +21,8 @@ export interface ServedAdDbRow extends MetaAdRow {
   currency: string;
   imageKey: string | null;
   thumbKey: string | null;
+  /** Contexto de comparabilidade do snapshot da coleta; null = sem snapshot. */
+  snapshot: ComparabilityContext | null;
 }
 
 export interface ServedAdSnapshotInput {
@@ -106,7 +108,14 @@ export async function listServedAdRows(
       actionCounts: servedAdMetrics.actionCounts,
       ambiguousActionTypes: servedAdMetrics.ambiguousActionTypes,
       definitionVersion: servedAdMetrics.definitionVersion,
+      snapshotId: servedAdSnapshots.id,
+      snapshotDefinitionVersion: servedAdSnapshots.definitionVersion,
+      snapshotWindowDays: servedAdSnapshots.windowDays,
+      periodStart: servedAdSnapshots.periodStart,
+      periodEnd: servedAdSnapshots.periodEnd,
+      attribution: servedAdSnapshots.attribution,
       completeness: servedAdSnapshots.completeness,
+      origin: servedAdSnapshots.origin,
       currency: metaAdAccounts.currency,
       imageKey: servedAds.mediaImageKey,
       thumbKey: servedAds.mediaThumbKey,
@@ -134,6 +143,26 @@ export async function listServedAdRows(
     currency: row.currency,
     imageKey: row.imageKey,
     thumbKey: row.thumbKey,
+    snapshot:
+      row.snapshotId &&
+      row.snapshotDefinitionVersion !== null &&
+      row.snapshotWindowDays !== null &&
+      row.periodStart &&
+      row.periodEnd &&
+      row.attribution &&
+      row.completeness &&
+      row.origin
+        ? {
+            definitionVersion: row.snapshotDefinitionVersion,
+            currency: row.currency,
+            periodStart: row.periodStart.toISOString(),
+            periodEnd: row.periodEnd.toISOString(),
+            windowDays: row.snapshotWindowDays,
+            attribution: row.attribution as AttributionRef,
+            completeness: row.completeness,
+            origin: row.origin,
+          }
+        : null,
   }));
 }
 

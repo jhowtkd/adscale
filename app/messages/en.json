@@ -3464,7 +3464,14 @@
     "emptyTitle": "No ads in this window",
     "emptyDescription": "No Served ads delivered in this period.",
     "loading": "Loading…",
-    "loadError": "Could not load the ads."
+    "loadError": "Could not load the ads.",
+    "eventLabel": "Conversion event",
+    "eventNone": "Choose event",
+    "exportCsv": "Export CSV",
+    "totalRow": "Total",
+    "ctrDefinition": "CTR = clicks ÷ impressions; CTR is not proof of conversion.",
+    "partialCollection": "partial collection — incomplete numbers",
+    "cpaUnavailable": "CPA unavailable for this scope"
   },
   "library": {
     "title": "Library",
