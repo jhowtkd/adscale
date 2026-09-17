@@ -21,12 +21,12 @@ import { buildCarouselVisualContract } from "../creative-work/carousel-visual";
 import { canonicalJsonStringify } from "../creative-work/canonical-json";
 import type { CreativeWorkInputSnapshot } from "../creative-work/contracts";
 import { resolveGenerationPolicyVersion } from "../creative-work/contracts";
+import { resolveQualityFeaturePolicy } from "../creative-work/quality-policy";
 import {
   buildCreativeWorkFactPack,
   creativeWorkFactPackBrandFromKit,
 } from "../creative-work/fact-pack";
 import { createIdentitySnapshot } from "../creative-work/identity";
-import { shouldIncludePublishedBrandKnowledge } from "../creative-work/identity-policy";
 import {
   peopleCatalogSchema,
   resolveBriefingPeople,
@@ -394,7 +394,19 @@ export async function prepareCarouselWork(input: {
       selectedReferenceIds: [],
       brief: work.brief,
       format: deck.format,
-      includePublishedBrandKnowledge: shouldIncludePublishedBrandKnowledge("carousel"),
+      // ICE-05B: decided through the single resolver (carousel always
+      // includes published knowledge, whatever the switch says).
+      includePublishedBrandKnowledge: resolveQualityFeaturePolicy({
+        feature: "brand_cortex_single",
+        workspaceId: input.workspaceId,
+        toolKind: "carousel",
+        snapshot: null,
+        switches: {
+          qualityRecovery: env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED,
+          brandCortex: env.BRAND_CORTEX_SINGLE_PIECE_ENABLED,
+        },
+        allowlistRaw: env.BRAND_CORTEX_PILOT_WORKSPACES,
+      }).includePublishedBrandKnowledge,
     });
 
     const visualContract = buildCarouselVisualContract({
@@ -448,7 +460,19 @@ export async function prepareCarouselWork(input: {
       .slice(0, 24)}`;
 
     const snapshot: CreativeWorkInputSnapshot = {
-      generationPolicyVersion: "quality_recovery_v1",
+      // ICE-05B: carousel stays v1-only, decided by the single resolver —
+      // existing snapshots keep their frozen version either way.
+      generationPolicyVersion: resolveQualityFeaturePolicy({
+        feature: "quality_recovery",
+        workspaceId: input.workspaceId,
+        toolKind: "carousel",
+        snapshot: work.inputSnapshot,
+        switches: {
+          qualityRecovery: env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED,
+          brandCortex: env.BRAND_CORTEX_SINGLE_PIECE_ENABLED,
+        },
+        allowlistRaw: env.QUALITY_RECOVERY_PILOT_WORKSPACES,
+      }).generationPolicyVersion,
       renderPolicy,
       factPack,
       ...(briefingPeople.people.length > 0

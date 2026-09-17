@@ -23,7 +23,7 @@ const trackUsage = vi.hoisted(() => vi.fn());
 const getBrandKitMock = vi.hoisted(() => vi.fn());
 const logLifecycleMock = vi.hoisted(() => vi.fn());
 const loadCandidateMock = vi.hoisted(() => vi.fn());
-const envState = vi.hoisted(() => ({ brandCortexSinglePieceEnabled: "false" }));
+const envState = vi.hoisted(() => ({ brandCortexSinglePieceEnabled: "false", brandCortexAllowlist: "" }));
 
 vi.mock("@/server/repositories/creative-work", () => ({
   getCreativeWork: getWork,
@@ -66,6 +66,15 @@ vi.mock("@/server/validation/env", () => ({
     get BRAND_CORTEX_SINGLE_PIECE_ENABLED() {
       return envState.brandCortexSinglePieceEnabled;
     },
+    get BRAND_CORTEX_PILOT_WORKSPACES() {
+      return envState.brandCortexAllowlist;
+    },
+    get CREATIVE_WORK_QUALITY_RECOVERY_ENABLED() {
+      return "false";
+    },
+    get QUALITY_RECOVERY_PILOT_WORKSPACES() {
+      return "";
+    },
   },
 }));
 
@@ -91,6 +100,7 @@ describe("generateCreativeWork", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     envState.brandCortexSinglePieceEnabled = "false";
+    envState.brandCortexAllowlist = "";
     getWork.mockResolvedValue({ work: preparedWork, outputs: [], sources: [] });
     prepare.mockResolvedValue({ ok: true, value: { work: preparedWork, quote: { plans: [], unitCount: 0, credits: 0 } } });
     snapshot.mockResolvedValue(identitySnapshot);
@@ -234,6 +244,28 @@ describe("generateCreativeWork", () => {
 
     expect(snapshot).toHaveBeenCalledWith(expect.objectContaining({
       includePublishedBrandKnowledge: true,
+    }));
+  });
+
+  it("scopes Peça única Brand Cortex snapshots to the pilot allowlist (ICE-05B)", async () => {
+    envState.brandCortexSinglePieceEnabled = "true";
+    envState.brandCortexAllowlist = "00000000-0000-4000-8000-000000000001";
+    getWork.mockResolvedValue({ work: { ...preparedWork, toolKind: "single" }, outputs: [], sources: [] });
+    createOutputs.mockResolvedValue({ outputs: [rows[1]], newlyCreatedIds: [rows[1].id] });
+
+    await generateCreativeWork({
+      workspaceId: "00000000-0000-4000-8000-000000000001",
+      workItemId: "work-1",
+      userId: "user-1",
+    });
+    expect(snapshot).toHaveBeenCalledWith(expect.objectContaining({
+      includePublishedBrandKnowledge: true,
+    }));
+
+    vi.clearAllMocks();
+    await generateCreativeWork({ workspaceId: "ws-1", workItemId: "work-1", userId: "user-1" });
+    expect(snapshot).toHaveBeenCalledWith(expect.objectContaining({
+      includePublishedBrandKnowledge: false,
     }));
   });
 

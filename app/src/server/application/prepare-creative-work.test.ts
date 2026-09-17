@@ -4,6 +4,7 @@ const inferBrief = vi.hoisted(() => vi.fn());
 const reviewBrief = vi.hoisted(() => vi.fn());
 const envState = vi.hoisted(() => ({
   qualityRecoveryEnabled: "false",
+  qualityRecoveryAllowlist: "",
   sunburstPercent: 100,
   sunburstQuality: "max" as const,
 }));
@@ -42,6 +43,15 @@ vi.mock("@/server/validation/env", () => ({
   env: {
     get CREATIVE_WORK_QUALITY_RECOVERY_ENABLED() {
       return envState.qualityRecoveryEnabled;
+    },
+    get QUALITY_RECOVERY_PILOT_WORKSPACES() {
+      return envState.qualityRecoveryAllowlist;
+    },
+    get BRAND_CORTEX_SINGLE_PIECE_ENABLED() {
+      return "false";
+    },
+    get BRAND_CORTEX_PILOT_WORKSPACES() {
+      return "";
     },
     get OPENAI_IMAGE_SUNBURST_PERCENT() {
       return envState.sunburstPercent;
@@ -116,6 +126,7 @@ describe("prepareCreativeWork", () => {
     vi.mocked(finalizePreparationAttempt).mockResolvedValue({ ok: true } as never);
     vi.mocked(renewPreparationAttempt).mockResolvedValue(true);
     envState.qualityRecoveryEnabled = "false";
+    envState.qualityRecoveryAllowlist = "";
     envState.sunburstPercent = 100;
     envState.sunburstQuality = "max";
     withLock.mockImplementation(async (_workspaceId, _workItemId, callback) => callback(transactionExecutor) as never);
@@ -710,6 +721,26 @@ describe("prepareCreativeWork", () => {
     expect(updateDraft).toHaveBeenCalledTimes(2);
   });
 
+  it("scopes new non-single preparations to the pilot allowlist (ICE-05B)", async () => {
+    envState.qualityRecoveryEnabled = "true";
+    envState.qualityRecoveryAllowlist = "00000000-0000-4000-8000-000000000001";
+    getWork.mockResolvedValue({ work, outputs: [], sources: [readyVariationSource] } as never);
+
+    const listed = await prepareCreativeWork({
+      workspaceId: "00000000-0000-4000-8000-000000000001",
+      workItemId: "work-1",
+    });
+    expect(listed.ok).toBe(true);
+    const listedPatch = updateDraft.mock.calls[0]?.[3] as { inputSnapshot: Record<string, unknown> };
+    expect(listedPatch.inputSnapshot).toHaveProperty("generationPolicyVersion", "quality_recovery_v1");
+
+    vi.clearAllMocks();
+    const unlisted = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(unlisted.ok).toBe(true);
+    const unlistedPatch = updateDraft.mock.calls[0]?.[3] as { inputSnapshot: Record<string, unknown> };
+    expect(unlistedPatch.inputSnapshot).toHaveProperty("generationPolicyVersion", "legacy");
+  });
+
   it("freezes the refinement budget only on explicit opt-in, never for calibration (plan 04, T1)", async () => {
     getWork.mockResolvedValue({ work, outputs: [], sources: [readyVariationSource] } as never);
 
@@ -1036,7 +1067,7 @@ describe("prepareCreativeWork", () => {
     }));
   });
 
-  it("re-prepares an old legacy snapshot when the enabled switch changes the resolved version", async () => {
+  it("keeps an old legacy snapshot legacy on re-prepare even after the switch flips (ICE-05B)", async () => {
     envState.qualityRecoveryEnabled = "true";
     const snapshot = { request: work.request, settings: work.settings, sources: [] };
     getWork.mockResolvedValue({ work: {
@@ -1047,8 +1078,10 @@ describe("prepareCreativeWork", () => {
     const result = await prepareCreativeWork({ workspaceId: "ws-1", workItemId: "work-1" });
     expect(result.ok).toBe(true);
     expect(generateCopy).toHaveBeenCalledOnce();
+    // Snapshots never change retrospectively: the frozen legacy version
+    // survives re-preparation under an enabled switch.
     expect(updateDraft).toHaveBeenCalledWith("ws-1", "work-1", now, expect.objectContaining({
-      inputSnapshot: expect.objectContaining({ generationPolicyVersion: "quality_recovery_v1" }),
+      inputSnapshot: expect.objectContaining({ generationPolicyVersion: "legacy" }),
     }));
   });
 

@@ -62,7 +62,6 @@ import {
   artRefinementCreditCeiling,
   creativeWorkPreparationSchema,
   hasCreativeWorkProtocolSourceShape,
-  generationPolicyVersionFromSwitch,
   quoteCreativeWork,
   resolveGenerationPolicyVersion,
   resolveCreativeWorkInferredBriefing,
@@ -92,6 +91,7 @@ import {
   withCreativeWorkPreparationLock,
 } from "@/server/repositories/creative-work";
 import { env } from "@/server/validation/env";
+import { resolveQualityFeaturePolicy } from "@/server/creative-work/quality-policy";
 import { resolveImageRenderPolicy, selectImageRenderPolicy } from "@/server/ai/image-render-policy";
 
 /** Persisted roles are the only authority for preparation and conflict detection. */
@@ -428,7 +428,19 @@ export async function prepareCreativeWork(input: {
       copy: aggregate.work.copy,
     });
     const snapshotBase: CreativeWorkInputSnapshot = {
-      generationPolicyVersion: integrated ? "quality_recovery_v1" : generationPolicyVersionFromSwitch(env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED),
+      // ICE-05B: the single resolver freezes new preparations and never
+      // reinterprets an existing snapshot, even after the switch flips.
+      generationPolicyVersion: resolveQualityFeaturePolicy({
+        feature: "quality_recovery",
+        workspaceId: input.workspaceId,
+        toolKind: preparation.data.intent,
+        snapshot: aggregate.work.inputSnapshot,
+        switches: {
+          qualityRecovery: env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED,
+          brandCortex: env.BRAND_CORTEX_SINGLE_PIECE_ENABLED,
+        },
+        allowlistRaw: env.QUALITY_RECOVERY_PILOT_WORKSPACES,
+      }).generationPolicyVersion,
       ...(integrated ? { creativeRenderPolicy: "integrated_v1" as const } : {}),
       renderPolicy,
       factPack,

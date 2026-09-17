@@ -3,7 +3,7 @@ import type { SpendResult } from "@/server/billing/paywall";
 import { buildCreativeWorkFactPack, creativeWorkFactPackBrandFromKit } from "@/server/creative-work/fact-pack";
 import { assertOfferActive } from "@/server/creative-work/commercial-offer";
 import { createIdentitySnapshot } from "@/server/creative-work/identity";
-import { shouldIncludePublishedBrandKnowledge } from "@/server/creative-work/identity-policy";
+import { resolveQualityFeaturePolicy } from "@/server/creative-work/quality-policy";
 import { resolveCreativeWorkProtocol } from "@/server/creative-work/protocol";
 import { GENERATION_CREDIT_COSTS, type GenerationBatchCharge } from "@/server/generation/canonical/types";
 import { creativeWorkSettlementAdapter } from "@/server/generation/settlement-adapters";
@@ -141,9 +141,19 @@ export async function generateCreativeWork(input: {
         selectedReferenceIds: [],
         brief: work.brief,
         format: work.format,
-        includePublishedBrandKnowledge: shouldIncludePublishedBrandKnowledge(work.toolKind, {
-          brandCortexSinglePieceEnabled: env.BRAND_CORTEX_SINGLE_PIECE_ENABLED,
-        }),
+        // ICE-05B: a new identity snapshot decides through the single
+        // resolver; existing snapshots keep their frozen inclusion.
+        includePublishedBrandKnowledge: resolveQualityFeaturePolicy({
+          feature: "brand_cortex_single",
+          workspaceId: input.workspaceId,
+          toolKind: work.toolKind,
+          snapshot: null,
+          switches: {
+            qualityRecovery: env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED,
+            brandCortex: env.BRAND_CORTEX_SINGLE_PIECE_ENABLED,
+          },
+          allowlistRaw: env.BRAND_CORTEX_PILOT_WORKSPACES,
+        }).includePublishedBrandKnowledge,
       });
     reservationIdentitySnapshot = identitySnapshot;
     brandTrainingSuggestion = identitySnapshot.assets.length === 0
