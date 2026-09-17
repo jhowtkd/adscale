@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { ResolveContentPolicy } from "./contract";
 import {
   DIAGNOSTIC_CONTENT_POLICY_VERSION,
+  DIAGNOSTIC_RETENTION_WINDOWS,
   __resetContentPolicyForTests,
   configureContentPolicyVerifiers,
   getContentCaptureGateStatus,
@@ -211,6 +212,14 @@ describe("content capture shutdown (#391)", () => {
 describe("content capture gate status (#391)", () => {
   it("pins policy version v1", () => {
     expect(DIAGNOSTIC_CONTENT_POLICY_VERSION).toBe("v1");
+  });
+
+  it("carries the proposed retention windows as data (index 30d, traces 7d, audit 90d)", () => {
+    expect(DIAGNOSTIC_RETENTION_WINDOWS).toEqual({
+      diagnosticIndexDays: 30,
+      aiTracesDays: 7,
+      accessAuditDays: 90,
+    });
   });
 
   it("reports blocked with reasons under default env", () => {

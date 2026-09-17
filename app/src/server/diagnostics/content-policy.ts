@@ -30,6 +30,19 @@ import type {
 
 export const DIAGNOSTIC_CONTENT_POLICY_VERSION = "v1";
 
+/**
+ * Retention windows as DATA (jhowtkd/adscale#391) — the proposed values
+ * from spec #382, deliberately NOT frozen in #384 and NOT approved here:
+ * diagnostic index 30 days, AI traces 7 days, access audit 90 days.
+ * Consumed by ./content-cleanup and the expiry check in ./content-access.
+ * Effective only after data-owner approval; the gate record stays BLOCKED.
+ */
+export const DIAGNOSTIC_RETENTION_WINDOWS = {
+  diagnosticIndexDays: 30,
+  aiTracesDays: 7,
+  accessAuditDays: 90,
+} as const;
+
 export type ContentPolicyVerifier = (workspaceId: string) => Promise<boolean>;
 
 export interface ContentPolicyDeps {
