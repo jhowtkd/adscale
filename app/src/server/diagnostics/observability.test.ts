@@ -123,7 +123,7 @@ function throwingExporter(): SpanExporter {
 
 function hangingExporter(): SpanExporter {
   return {
-    export(_spans, _resultCallback) {
+    export() {
       // Never calls back: shutdown budget must abandon the flush.
     },
     shutdown() {
