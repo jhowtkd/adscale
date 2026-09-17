@@ -32,6 +32,13 @@ vi.mock("next-intl", () => ({
         emptyDescription: "Sem entrega.",
         loading: "Carregando…",
         loadError: "Falhou.",
+        eventLabel: "Evento",
+        eventNone: "Escolher evento",
+        exportCsv: "Exportar CSV",
+        totalRow: "Total",
+        ctrDefinition: "CTR = cliques ÷ impressões",
+        partialCollection: "coleta parcial",
+        cpaUnavailable: "CPA indisponível",
       }[key] ?? key
     ),
   useLocale: () => "pt-BR",
@@ -73,6 +80,25 @@ function reportResponse(rows: unknown[], overrides = {}) {
         currencies: ["BRL"],
         primaryCurrency: "BRL",
         hasConversions: true,
+        event: { actionType: null, labelPtBR: null, labelEn: null, known: false },
+        availableEvents: [],
+        windowDays: 30,
+        format: "all",
+        definitionVersion: 2,
+        collectionComplete: true,
+        generatedAt: "2026-09-17T12:00:00.000Z",
+        summary: {
+          rows: rows.length,
+          impressions: 5000,
+          clicks: 150,
+          spend: 750,
+          currencies: ["BRL"],
+          conversions: 12,
+          cpa: 62.5,
+          cpaUnavailableReason: null,
+          ctrDefinition: "clicks_divided_by_impressions",
+          collectionComplete: true,
+        },
         rows,
         ...overrides,
       }),
@@ -168,5 +194,77 @@ describe("ServedAdsView", () => {
     const cells = within(rows[0]).getAllByText("—");
     expect(cells.length).toBeGreaterThanOrEqual(2);
     expect(within(rows[0]).queryByText("0")).not.toBeInTheDocument();
+  });
+
+  it("seletor lista eventos do escopo e troca refaz a busca com o evento", async () => {
+    apiFetchMock.mockResolvedValue(
+      reportResponse([baseRow], {
+        availableEvents: [
+          { actionType: "lead", labelPtBR: "Lead", labelEn: "Lead", known: true },
+          { actionType: "purchase", labelPtBR: "Compra", labelEn: "Purchase", known: true },
+        ],
+      })
+    );
+    render(<ServedAdsView />);
+    await screen.findByTestId("served-ad-row");
+    expect(screen.getByText("Compra")).toBeInTheDocument();
+    expect(screen.getByText("Lead")).toBeInTheDocument();
+    // Busca inicial sem evento: nunca adivinhado.
+    expect(String(apiFetchMock.mock.calls[0][0])).not.toContain("event=");
+    fireEvent.change(screen.getByTestId("served-ads-event"), { target: { value: "purchase" } });
+    await waitFor(() => expect(apiFetchMock).toHaveBeenCalledTimes(2));
+    expect(String(apiFetchMock.mock.calls[1][0])).toContain("event=purchase");
+  });
+
+  it("rodapé mostra totais e CPA indisponível nunca vira zero", async () => {
+    apiFetchMock.mockResolvedValue(
+      reportResponse([baseRow], {
+        summary: {
+          rows: 1,
+          impressions: 5000,
+          clicks: 150,
+          spend: 750,
+          currencies: ["BRL"],
+          conversions: null,
+          cpa: null,
+          cpaUnavailableReason: "legacy_lines",
+          ctrDefinition: "clicks_divided_by_impressions",
+          collectionComplete: true,
+        },
+      })
+    );
+    render(<ServedAdsView />);
+    const total = await screen.findByTestId("served-ads-total-row");
+    expect(within(total).getByText("CPA indisponível")).toBeInTheDocument();
+    expect(within(total).getAllByText("—").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("CTR = cliques ÷ impressões")).toBeInTheDocument();
+  });
+
+  it("coleta parcial sinalizada com selo próprio", async () => {
+    apiFetchMock.mockResolvedValue(reportResponse([baseRow], { collectionComplete: false }));
+    render(<ServedAdsView />);
+    await screen.findByTestId("served-ad-row");
+    expect(screen.getByTestId("served-ads-partial-badge")).toHaveTextContent("coleta parcial");
+  });
+
+  it("exportação CSV carrega o mesmo escopo da tela", async () => {
+    apiFetchMock.mockResolvedValue(
+      reportResponse([baseRow], {
+        availableEvents: [
+          { actionType: "purchase", labelPtBR: "Compra", labelEn: "Purchase", known: true },
+        ],
+      })
+    );
+    render(<ServedAdsView />);
+    await screen.findByTestId("served-ad-row");
+    fireEvent.change(screen.getByTestId("served-ads-event"), { target: { value: "purchase" } });
+    fireEvent.click(screen.getByTestId("served-ads-window-7"));
+    await waitFor(() => expect(apiFetchMock).toHaveBeenCalledTimes(3));
+    const href = screen.getByTestId("served-ads-export-csv").getAttribute("href") ?? "";
+    expect(href).toContain("/api/served-ads?");
+    expect(href).toContain("brandId=brand-1");
+    expect(href).toContain("window=7");
+    expect(href).toContain("event=purchase");
+    expect(href).toContain("export=csv");
   });
 });

@@ -3522,7 +3522,14 @@
     "emptyTitle": "Nenhum anúncio na janela",
     "emptyDescription": "Não há Anúncios veiculados com entrega neste período.",
     "loading": "Carregando…",
-    "loadError": "Não foi possível carregar os anúncios."
+    "loadError": "Não foi possível carregar os anúncios.",
+    "eventLabel": "Evento de conversão",
+    "eventNone": "Escolher evento",
+    "exportCsv": "Exportar CSV",
+    "totalRow": "Total",
+    "ctrDefinition": "CTR = cliques ÷ impressões; CTR não prova conversão.",
+    "partialCollection": "coleta parcial — números incompletos",
+    "cpaUnavailable": "CPA indisponível para este escopo"
   },
   "library": {
     "title": "Biblioteca",
