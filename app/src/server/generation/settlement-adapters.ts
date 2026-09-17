@@ -983,7 +983,7 @@ export function formatAdaptationSettlementAdapter(input: {
     async charge(reservation) {
       const dimensions =
         getTargetDimensions(
-          input.targetFormat as "1:1" | "4:5" | "9:16",
+          input.targetFormat as "1:1" | "4:5" | "9:16" | "3:4",
         ) ?? { width: 1024, height: 1024 };
       const request: GenerationRequest = {
         authorship: {
@@ -2205,7 +2205,7 @@ export function assistantPreviewSettlementAdapter(input: {
     },
     async charge(reservation) {
       const dimensions =
-        getTargetDimensions(input.format as "1:1" | "4:5" | "9:16") ?? {
+        getTargetDimensions(input.format as "1:1" | "4:5" | "9:16" | "3:4") ?? {
           width: 1024,
           height: 1024,
         };
@@ -2586,7 +2586,7 @@ export function campaignDerivationUnitSettlementAdapter(input: {
       const ackKey = dispatchAckKey(input.billingKey);
       const dimensions =
         getTargetDimensions(
-          input.targetFormat as "1:1" | "4:5" | "9:16",
+          input.targetFormat as "1:1" | "4:5" | "9:16" | "3:4",
         ) ?? { width: 1024, height: 1024 };
       const request: GenerationRequest = {
         authorship: {

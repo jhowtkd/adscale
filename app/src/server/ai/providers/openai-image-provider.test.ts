@@ -116,6 +116,7 @@ describe("OpenAIImageProvider", () => {
     { label: "1:1", dims: { width: 1080, height: 1080 }, size: "1088x1088" },
     { label: "4:5", dims: { width: 1080, height: 1350 }, size: "1088x1360" },
     { label: "9:16", dims: { width: 1080, height: 1920 }, size: "1152x2048" },
+    { label: "3:4", dims: { width: 1080, height: 1440 }, size: "1152x1536" },
     { label: "landscape 1.91:1", dims: { width: 1200, height: 628 }, size: "2048x1072" },
     { label: "landscape 16:9", dims: { width: 1920, height: 1080 }, size: "2048x1152" },
   ])("requests $size for $label", async ({ dims, size }) => {
@@ -200,5 +201,22 @@ describe("OpenAIImageProvider", () => {
     } else {
       expect(mockGenerate).not.toHaveBeenCalled();
     }
+  });
+
+  it("rejects a legacy-model policy before any billable call", async () => {
+    const provider = new OpenAIImageProvider();
+    await expect(
+      provider.generate({
+        prompt: "x",
+        dimensions: { width: 1080, height: 1440 },
+        referenceImages: [],
+        generationMode: "art_variation",
+        outputPrefix: "p",
+        // Cast: the schema is the runtime gate for untyped callers.
+        renderPolicy: { version: 1, model: "gpt-image-1" as "gpt-image-2", quality: "medium" },
+      }),
+    ).rejects.toThrow(/gpt-image-2/);
+    expect(mockGenerate).not.toHaveBeenCalled();
+    expect(mockEdit).not.toHaveBeenCalled();
   });
 });

@@ -154,6 +154,21 @@ describe("generateAndStoreImage", () => {
     });
   });
 
+  it("normalizes 3:4 delivery to 1080x1440 with ratio-preserving cover", async () => {
+    await normalizeGeneratedImage(
+      Buffer.from("image"),
+      { width: 1080, height: 1440 },
+      "art_variation"
+    );
+
+    expect(mockSharpPipeline.resize).toHaveBeenCalledWith(1080, 1440, {
+      fit: "cover",
+      position: "attention",
+    });
+    expect(mockSharpPipeline.blur).not.toHaveBeenCalled();
+    expect(mockSharpPipeline.composite).not.toHaveBeenCalled();
+  });
+
   it("uses 1088x1360 for 4:5 dimensions (gpt-image-2 target-aspect size)", async () => {
     await generateAndStoreImage({
       ...BASE_INPUT,
@@ -164,6 +179,23 @@ describe("generateAndStoreImage", () => {
     expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
       expect.objectContaining({ size: "1088x1360" }),
       expect.objectContaining({ timeout: 180_000, maxRetries: 0 }),
+    );
+  });
+
+  it("uses 1152x1536 for 3:4 dimensions (gpt-image-2 target-aspect size, never 4:5)", async () => {
+    await generateAndStoreImage({
+      ...BASE_INPUT,
+      outputPrefix: "creative-work/output-34",
+      dimensions: { width: 1080, height: 1440 },
+    });
+
+    expect(mockOpenAIImages.generate).toHaveBeenCalledWith(
+      expect.objectContaining({ size: "1152x1536" }),
+      expect.objectContaining({ timeout: 180_000, maxRetries: 0 }),
+    );
+    expect(mockOpenAIImages.generate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ size: "1088x1360" }),
+      expect.anything(),
     );
   });
 

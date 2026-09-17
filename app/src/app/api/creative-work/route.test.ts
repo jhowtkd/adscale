@@ -370,6 +370,40 @@ describe("POST /api/creative-work", () => {
     expect(startMock).toHaveBeenLastCalledWith(expect.objectContaining({ draftKey: body.draftKey, request: body.request }));
   });
 
+  it("keeps new 3:4 drafts off until enablement (ICE-04A)", async () => {
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientProfileId: profileId,
+        draftKey: "00000000-0000-4000-8000-000000000099",
+        request: "Peça retrato 3:4",
+        intent: "social_post",
+        format: "3:4",
+        settings: { targetFormats: [] },
+      }),
+    }));
+    expect(res.status).toBe(400);
+    expect(startMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps 3:4 adaptation targets off until enablement (ICE-04A)", async () => {
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientProfileId: profileId,
+        draftKey: "00000000-0000-4000-8000-000000000099",
+        request: "Adaptar para 3:4",
+        intent: "format_adaptation",
+        format: "4:5",
+        settings: { targetFormats: ["3:4"] },
+      }),
+    }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(JSON.stringify(body)).toContain("formatCreationDisabled");
+    expect(startMock).not.toHaveBeenCalled();
+  });
+
   it("rejects an empty draft request before calling the command", async () => {
     const res = await POST(new Request("http://localhost/api/creative-work", {
       method: "POST", headers: { "Content-Type": "application/json" },

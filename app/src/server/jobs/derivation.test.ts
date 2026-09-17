@@ -1769,6 +1769,34 @@ describe("derivationJob — format adaptation generation sizes (gpt-image-2)", (
     );
   });
 
+  it("3:4 format adaptation edit request receives target-aspect size 1152x1536, never 4:5", async () => {
+    mockGetDerivationById.mockResolvedValue({
+      id: "size-test-id",
+      campaignId: "campaign-id",
+      workspaceId: "workspace-1",
+      parentId: null,
+      status: "queued",
+      generationMode: "format_adaptation",
+      format: "3:4",
+      ctaText: "Buy Now",
+      variantIndex: 0,
+      feedback: null,
+      prompt: null,
+      qualityScore: null,
+      scoreStatus: "pending",
+    } as Awaited<ReturnType<typeof getDerivationById>>);
+
+    await runDerivationJob(buildFormatAdaptationJob("3:4"));
+
+    expect(mockOpenAIImages.edit).toHaveBeenCalledWith(
+      expect.objectContaining({ size: "1152x1536" }),
+      expect.objectContaining({ maxRetries: 0, timeout: 180000 }),
+    );
+    expect(mockOpenAIImages.edit).not.toHaveBeenCalledWith(
+      expect.objectContaining({ size: "1088x1360" }),
+    );
+  });
+
   it("4:5 preview format adaptation does NOT send square 1024x1024 to OpenAI", async () => {
     mockGetDerivationById.mockResolvedValue({
       id: "size-test-id",

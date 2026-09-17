@@ -8,8 +8,10 @@ import {
   CREATIVE_WORK_GENERATION_POLICY_VERSIONS,
   CREATIVE_WORK_INTENTS,
   artRefinementCreditCeiling,
+  creatableCreativeWorkFormatSchema,
   createCreativeWorkSchema,
   creativeDirectionPoolSchema,
+  creativeWorkFormatSchema,
   creativeWorkPersonSnapshotSchema,
   creativeWorkSettingsSchema,
   creativeWorkVisualDirectionSchema,
@@ -65,6 +67,18 @@ describe("creative work contracts", () => {
         },
       }).format,
     ).toBe("4:5");
+  });
+
+  it("readers accept 3:4 while creation stays off (ICE-04A)", () => {
+    expect(creativeWorkFormatSchema.parse("3:4")).toBe("3:4");
+    expect(() => creatableCreativeWorkFormatSchema.parse("3:4")).toThrow();
+    expect(() =>
+      createCreativeWorkSchema.parse({
+        clientProfileId: "00000000-0000-4000-8000-000000000001",
+        format: "3:4",
+        brief: { theme: "Tema", objective: "Obj", audience: "Aud", offer: "Oferta" },
+      }),
+    ).toThrow();
   });
 
   it("defaults toolKind to social_post when omitted", () => {

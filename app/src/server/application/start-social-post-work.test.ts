@@ -62,6 +62,36 @@ describe("startSocialPostWork", () => {
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
+  it("keeps new 3:4 works off until enablement (ICE-04A)", async () => {
+    mockProfile.mockResolvedValue({ id: profileId } as never);
+    const result = await startSocialPostWork({
+      workspaceId: "ws-1",
+      userId: "u-1",
+      clientProfileId: profileId,
+      format: "3:4",
+      brief,
+    });
+    expect(result).toEqual({ ok: false, error: { code: "format_creation_disabled", format: "3:4" } });
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(mockCreateDraft).not.toHaveBeenCalled();
+  });
+
+  it("keeps 3:4 adaptation targets off until enablement (ICE-04A)", async () => {
+    mockProfile.mockResolvedValue({ id: profileId } as never);
+    const result = await startSocialPostWork({
+      workspaceId: "ws-1",
+      userId: "u-1",
+      clientProfileId: profileId,
+      draftKey: "00000000-0000-4000-8000-000000000002",
+      request: "adaptar",
+      intent: "format_adaptation",
+      format: "4:5",
+      settings: { targetFormats: ["1:1", "3:4"] },
+    });
+    expect(result).toEqual({ ok: false, error: { code: "format_creation_disabled", format: "3:4" } });
+    expect(mockCreateDraft).not.toHaveBeenCalled();
+  });
+
   it("creates creative_work origin with social_post intent and no campaign", async () => {
     mockProfile.mockResolvedValue({ id: profileId } as never);
     mockCreate.mockResolvedValue({

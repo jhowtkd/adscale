@@ -29,6 +29,7 @@ export const FORMAT_ASPECT: Record<CreativeWorkFormat, number> = {
   "1:1": 1,
   "4:5": 1080 / 1350,
   "9:16": 1080 / 1920,
+  "3:4": 1080 / 1440,
 };
 
 /**

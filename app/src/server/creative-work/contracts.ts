@@ -35,7 +35,7 @@ export type CreativeLevel = (typeof CREATIVE_LEVELS)[number];
 export type CreativeWorkIntent = (typeof CREATIVE_WORK_INTENTS)[number];
 export type CreativeSourceUsage = (typeof CREATIVE_SOURCE_USAGES)[number];
 export type CreativeSourceStatus = (typeof CREATIVE_SOURCE_STATUSES)[number];
-export type CreativeWorkFormat = "1:1" | "4:5" | "9:16";
+export type CreativeWorkFormat = "1:1" | "4:5" | "9:16" | "3:4";
 
 /** Canonical source-shape gate shared by preparation and plan projection. */
 /**
@@ -461,7 +461,17 @@ export type CreativeWorkOutputPlan = {
 };
 
 export const creativeWorkIntentSchema = z.enum(CREATIVE_WORK_INTENTS);
-export const creativeWorkFormatSchema = z.enum(["1:1", "4:5", "9:16"]);
+export const creativeWorkFormatSchema = z.enum(["1:1", "4:5", "9:16", "3:4"]);
+
+/**
+ * Formats accepted for NEW works (ICE-04A readers-first rollout).
+ * Readers, inference and rendering know 3:4, but creating a 3:4 Trabalho
+ * stays off until web and worker enablement (ICE-04B) — disabling
+ * creation never blocks reading, downloading or finishing an authorized
+ * 3:4 work, which parses through `creativeWorkFormatSchema`.
+ */
+export const CREATABLE_CREATIVE_WORK_FORMATS = ["1:1", "4:5", "9:16"] as const;
+export const creatableCreativeWorkFormatSchema = z.enum(CREATABLE_CREATIVE_WORK_FORMATS);
 
 export const creativeDirectionSchema = z.object({
   id: z.string().uuid(),
@@ -705,7 +715,7 @@ export interface CreativeWorkIdentitySnapshot {
 export const createCreativeWorkSchema = z.object({
   clientProfileId: z.string().uuid(),
   toolKind: z.literal("social_post").optional().default("social_post"),
-  format: z.enum(["1:1", "4:5", "9:16"]),
+  format: creatableCreativeWorkFormatSchema,
   brief: socialPostBriefSchema,
 });
 

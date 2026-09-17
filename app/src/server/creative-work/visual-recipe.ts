@@ -76,7 +76,7 @@ function isBox(value: unknown): value is VisualRecipeBox {
 }
 
 function isFormat(value: unknown): value is CreativeWorkFormat {
-  return value === "1:1" || value === "4:5" || value === "9:16";
+  return value === "1:1" || value === "4:5" || value === "9:16" || value === "3:4";
 }
 
 function isLayout(value: unknown): value is TextLayout {

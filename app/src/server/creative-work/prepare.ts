@@ -13,7 +13,7 @@ export function formatFromDimensions(width: number | null, height: number | null
   if (width == null || height == null || !Number.isFinite(width) || !Number.isFinite(height)
     || width <= 0 || height <= 0) return null;
   const ratio = width / height;
-  for (const [format, target] of [["1:1", 1], ["4:5", 4 / 5], ["9:16", 9 / 16]] as const) {
+  for (const [format, target] of [["1:1", 1], ["4:5", 4 / 5], ["9:16", 9 / 16], ["3:4", 3 / 4]] as const) {
     if (Math.abs(ratio / target - 1) <= 0.01) return format;
   }
   return null;
@@ -24,7 +24,7 @@ export function inferCreativeWorkFormat(
   request = "",
   sourceFormat: CreativeWorkFormat | null = null,
 ): CreativeWorkFormat | null {
-  const explicitFormats = [...new Set((request.match(/\b(?:1\s*:\s*1|4\s*:\s*5|9\s*:\s*16)\b/g) ?? [])
+  const explicitFormats = [...new Set((request.match(/\b(?:1\s*:\s*1|4\s*:\s*5|9\s*:\s*16|3\s*:\s*4)\b/g) ?? [])
     .map((format) => format.replace(/\s/g, "")))];
   if (explicitFormats.length === 1) return explicitFormats[0] as CreativeWorkFormat;
   if (sourceFormat) return sourceFormat;
@@ -37,6 +37,7 @@ export function inferCreativeWorkFormat(
     if (/\b1\s*:\s*1\b/.test(value)) return "1:1";
     if (/\b9\s*:\s*16\b/.test(value)) return "9:16";
     if (/\b4\s*:\s*5\b/.test(value)) return "4:5";
+    if (/\b3\s*:\s*4\b/.test(value)) return "3:4";
     if (/quadrad|square/.test(value)) return "1:1";
     if (/story|stories|reel|vertical/.test(value)) return "9:16";
     if (/retrato|portrait/.test(value)) return "4:5";

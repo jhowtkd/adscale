@@ -20,6 +20,7 @@ import {
 } from "@/server/repositories/creative-work";
 import type { CreativeWorkItem } from "@/server/db/schema";
 import {
+  CREATABLE_CREATIVE_WORK_FORMATS,
   quoteCreativeWork,
   type CreativeWorkIntent,
   type CreativeWorkOutputPlan,
@@ -52,7 +53,9 @@ type StartSocialPostDraftInput = {
 export type StartSocialPostWorkInput = StartSocialPostLegacyInput | StartSocialPostDraftInput;
 
 export type StartSocialPostWorkError =
-  | { code: "client_profile_not_found" };
+  | { code: "client_profile_not_found" }
+  /** ICE-04A: readers know 3:4, but new 3:4 works stay off until enablement. */
+  | { code: "format_creation_disabled"; format: string };
 
 export type StartSocialPostWorkSuccess = {
   work: CreativeWorkItem;
@@ -88,6 +91,17 @@ export async function startSocialPostWork(
   );
   if (!profile) {
     return { ok: false, error: { code: "client_profile_not_found" } };
+  }
+  if (!(CREATABLE_CREATIVE_WORK_FORMATS as readonly string[]).includes(input.format)) {
+    return { ok: false, error: { code: "format_creation_disabled", format: input.format } };
+  }
+  if ("settings" in input) {
+    const blocked = input.settings.targetFormats.find(
+      (target) => !(CREATABLE_CREATIVE_WORK_FORMATS as readonly string[]).includes(target)
+    );
+    if (blocked) {
+      return { ok: false, error: { code: "format_creation_disabled", format: blocked } };
+    }
   }
 
   const work = "draftKey" in input

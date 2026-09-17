@@ -2,7 +2,7 @@ import type { BrandTrainingCategory } from "../brand-training/contracts";
 import type { BrandAssetGravity } from "./composite";
 import type { CreativeWorkIdentityAssetSnapshot } from "./contracts";
 
-export type PriorityFormat = "1:1" | "4:5" | "9:16";
+export type PriorityFormat = "1:1" | "4:5" | "9:16" | "3:4";
 
 /** Per-asset, per-format placement policy (not fixed only by category). */
 export interface ExactAssetPlacementPolicy {

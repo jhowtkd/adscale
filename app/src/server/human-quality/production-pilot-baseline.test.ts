@@ -58,6 +58,30 @@ describe("production pilot baseline schema", () => {
     expect(JSON.stringify(baseline)).not.toMatch(/base64|imageBuffer|pngBytes/i);
   });
 
+  it("keeps v1 on the old format set; 3:4 evidence needs a complementary contract (ICE-04A)", () => {
+    expect(() =>
+      productionPilotBaselineSchema.parse({
+        version: 1,
+        pilotId: "p34",
+        brandName: "X",
+        provenance: { source: "manual_capture" },
+        requests: [
+          {
+            requestId: "r34",
+            requestText: "x",
+            format: "3:4",
+            contentPattern: "text_led_ad",
+            effectivePrompt: "p",
+            selectedReferences: [],
+            observedHardFailures: [],
+            humanVerdict: "pending",
+            capturedAt: "2026-09-16T00:00:00.000Z",
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
   it("flags incomplete coverage", () => {
     const baseline = productionPilotBaselineSchema.parse({
       version: 1,
