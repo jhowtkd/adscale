@@ -8,14 +8,18 @@
  */
 import { db } from "@/server/db";
 import { logger } from "@/lib/logger";
-import { ensureCreativeWorkOutputInLibrary } from "@/server/application/ensure-creative-work-output-library";
 import {
   getCreativeWork,
-  markCreativeWorkSelectionEffectDone,
   reviewCreativeWorkOutputPersonFidelity,
   selectCreativeWorkOutput,
   type ReviewPersonFidelityError,
 } from "@/server/repositories/creative-work";
+import {
+  applyLibrarySelectionEffect,
+  applyRecipeSelectionEffect,
+  applyValueEventSelectionEffect,
+} from "@/server/application/selection-effect-sinks";
+import { wakeSelectionEffectsProcessor } from "@/server/application/process-selection-effects";
 import {
   markSelectionEffectDone,
   recordSelectionEffectAttempt,
@@ -25,8 +29,7 @@ import {
 } from "@/server/repositories/selection-effects";
 import type { CreativeWorkOutput, VisualRecipe } from "@/server/db/schema";
 import { getCreativeWorkSelectionPolicy, type CreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
-import { recordCreativeWorkValueEventStrict, valueEventFromCreativeWork } from "@/server/creative-work/record-value-event";
-import { saveVisualRecipeFromOutput } from "@/server/application/save-visual-recipe";
+import { valueEventFromCreativeWork } from "@/server/creative-work/record-value-event";
 import { extractVisualRecipe } from "@/server/creative-work/visual-recipe";
 
 export type SelectCreativeWorkOutputInput = {
@@ -101,6 +104,30 @@ export function durableEffectToProjection(effect: {
     default:
       return { status: "pending", receiptId: effect.id };
   }
+}
+
+/**
+ * Project an output's outbox rows to the interface contract. Kinds without
+ * a row were never requested; the table itself is never exposed.
+ */
+export function projectOutputSelectionEffects(
+  rows: Array<{
+    kind: "library" | "value_event" | "recipe";
+    id: string;
+    state: DurableEffectState;
+    errorCode: string | null;
+  }>,
+): SelectionEffects {
+  const byKind = new Map(rows.map((row) => [row.kind, row]));
+  const project = (kind: "library" | "value_event" | "recipe"): SelectionEffect => {
+    const row = byKind.get(kind);
+    return row ? durableEffectToProjection(row) : { status: "not_requested" };
+  };
+  return {
+    library: project("library"),
+    valueEvent: project("value_event"),
+    recipe: project("recipe"),
+  };
 }
 
 function effectErrorCode(cause: unknown, fallback: string): string {
@@ -325,17 +352,12 @@ export async function selectCreativeWorkOutputCommand(
   const libraryEntry = enqueuedByKind.get("library");
   if (libraryEntry) {
     library = await executeOutboxEffect(libraryEntry, async () => {
-      const registered = await ensureCreativeWorkOutputInLibrary({
+      await applyLibrarySelectionEffect({
         workspaceId: input.workspaceId,
         outputKey,
         theme: briefTheme,
         creativeLevel: output.creativeLevel,
       });
-      if (registered.conflict) {
-        throw Object.assign(new Error("library_key_owned_elsewhere"), {
-          code: "library_key_owned_elsewhere",
-        });
-      }
     }, "library_failed");
   }
 
@@ -345,7 +367,7 @@ export async function selectCreativeWorkOutputCommand(
   const selectedKey = selected.outputKey ?? outputKey;
   if (valueEntry && valueContext) {
     valueEvent = await executeOutboxEffect(valueEntry, async () => {
-      await recordCreativeWorkValueEventStrict({
+      await applyValueEventSelectionEffect({
         ...valueContext,
         kind: "approved",
         outputId: selected.id,
@@ -359,30 +381,28 @@ export async function selectCreativeWorkOutputCommand(
   const recipeEntry = enqueuedByKind.get("recipe");
   if (recipeEntry) {
     recipeEffect = await executeOutboxEffect(recipeEntry, async () => {
-      const saved = await saveVisualRecipeFromOutput({
+      const saved = await applyRecipeSelectionEffect({
         workspaceId: input.workspaceId,
         workItemId: input.workItemId,
         outputId: input.outputId,
-      }).catch((cause) => ({
-        ok: false as const,
-        error: { code: effectErrorCode(cause, "save_recipe_threw") },
-      }));
-      if (!saved.ok) {
-        throw Object.assign(new Error(saved.error.code), { code: saved.error.code });
-      }
-      recipe = saved.value.recipe;
-      // Fechar o recibo jsonb e compat nao fatal (a interface o le ate a #401
-      // migrar os leitores); a autoridade e a linha da outbox.
-      await markCreativeWorkSelectionEffectDone(
-        input.workspaceId, input.workItemId, input.outputId, receiptId,
-      ).catch(() => undefined);
+        receiptId,
+      });
+      recipe = saved.recipe;
     }, "save_recipe_failed");
   }
 
-  return {
-    ok: true,
-    value: { output: selected, recipe, effects: { library, valueEvent, recipe: recipeEffect } },
-  };
+  const effects = { library, valueEvent, recipe: recipeEffect };
+  // Anything still pending converges on its own: wake the processor
+  // (best effort — the sweep recovers a lost wake-up). The selection is
+  // committed either way; this never fails the command.
+  if ([library, valueEvent, recipeEffect].some((effect) => effect.status === "pending")) {
+    await wakeSelectionEffectsProcessor({
+      workspaceId: input.workspaceId,
+      workItemId: input.workItemId,
+      outputId: input.outputId,
+    });
+  }
+  return { ok: true, value: { output: selected, recipe, effects } };
 }
 
 export type ReviewCreativeWorkPersonFidelityInput = {

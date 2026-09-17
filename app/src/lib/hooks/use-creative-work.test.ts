@@ -53,6 +53,42 @@ describe("creativeWorkRefetchInterval (R-008: 202 + polling contract)", () => {
     ).toBe(false);
     expect(creativeWorkRefetchInterval(undefined)).toBe(false);
   });
+
+  it("polls while any selection effect is pending, settles on terminal states (ICE-03B)", () => {
+    const pending = {
+      library: { status: "done" as const },
+      valueEvent: { status: "not_requested" as const },
+      recipe: { status: "pending" as const, receiptId: "r1" },
+    };
+    const settled = {
+      library: { status: "done" as const },
+      valueEvent: { status: "not_requested" as const },
+      recipe: { status: "done" as const },
+    };
+    const failed = {
+      library: { status: "done" as const },
+      valueEvent: { status: "not_requested" as const },
+      recipe: { status: "failed" as const, code: "effect_dead", retryable: false },
+    };
+    expect(
+      creativeWorkRefetchInterval({
+        work: { status: "completed" },
+        outputs: [{ status: "completed", effects: pending }],
+      }),
+    ).toBe(2000);
+    expect(
+      creativeWorkRefetchInterval({
+        work: { status: "completed" },
+        outputs: [{ status: "completed", effects: settled }],
+      }),
+    ).toBe(false);
+    expect(
+      creativeWorkRefetchInterval({
+        work: { status: "completed" },
+        outputs: [{ status: "completed", effects: failed }],
+      }),
+    ).toBe(false);
+  });
 });
 
 describe("creative-work detail projection", () => {

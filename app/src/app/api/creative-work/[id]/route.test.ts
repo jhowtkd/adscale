@@ -137,6 +137,11 @@ vi.mock("@/server/repositories/creative-work-carousel", () => ({
   listCurrentCarouselSlides: (...args: unknown[]) => listCurrentCarouselSlidesMock(...args),
 }));
 
+const getSelectionEffectsForWorkMock = vi.hoisted(() => vi.fn(() => Promise.resolve([])));
+vi.mock("@/server/repositories/selection-effects", () => ({
+  getSelectionEffectsForWork: (...args: unknown[]) => getSelectionEffectsForWorkMock(...args),
+}));
+
 vi.mock("@/server/billing/credits", () => ({
   refundCredits: (...args: unknown[]) => refundCreditsMock(...args),
   canSpend: vi.fn(),
@@ -421,6 +426,24 @@ describe("GET /api/creative-work/[id]", () => {
     expect(body.inferredBriefing).toEqual(inferredBriefing);
     expect(body.briefingFactPack).toEqual(factPack);
     expect(getWorkMock).toHaveBeenCalledWith("workspace-1", "work-1");
+  });
+
+  it("attaches the projected selection effects per output (ICE-03B)", async () => {
+    getWorkMock.mockResolvedValue({ work: workItem, outputs, sources: [] });
+    getSelectionEffectsForWorkMock.mockResolvedValue([
+      { id: "e1", outputId: "o1", kind: "library", state: "done", errorCode: null },
+      { id: "e2", outputId: "o1", kind: "recipe", state: "pending", errorCode: null },
+    ]);
+    const res = await GET(
+      new Request("http://localhost/api/creative-work/work-1"),
+      { params: makeParams("work-1") }
+    );
+    const body = await res.json();
+    expect(body.outputs[0].effects).toEqual({
+      library: { status: "done" },
+      valueEvent: { status: "not_requested" },
+      recipe: { status: "pending", receiptId: "e2" },
+    });
   });
 
   it("reconciles an unsettled exact preflight refund with the terminal key and clears its pending code", async () => {

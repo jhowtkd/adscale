@@ -214,6 +214,8 @@ export interface CreativeWorkOutput {
   layerization: PublicLayerizationState | null;
   layerEditor: PublicLayerEditorSummaryV1 | null;
   isSelected: boolean;
+  /** Selection-effect projection (ICE-03B); absent when nothing was requested. */
+  effects?: SelectionEffects | null;
   /** Mutable review draft owned by this output, with its own CAS revision. */
   reviewDraft?: OutputReviewDraftV1 | null;
   /** Frozen input of the confirmed revision that produced this child. */
@@ -274,12 +276,25 @@ export interface CreativeWorkCampaignOption {
 export const CREATIVE_WORK_REFUND_PENDING_FAILURE_CODE = "objective_quality_failed_refund_pending";
 export const CREATIVE_WORK_TERMINAL_REFUND_PENDING_FAILURE_CODE = "generation_failed_terminal_refund_pending";
 
+export function hasPendingSelectionEffects(
+  effects: SelectionEffects | null | undefined,
+): boolean {
+  if (!effects) return false;
+  return [effects.library, effects.valueEvent, effects.recipe].some(
+    (effect) => effect.status === "pending",
+  );
+}
+
 export function creativeWorkRefetchInterval(
   data:
     | {
         preparationAttempt?: { id: string } | null;
         work: Pick<CreativeWorkItem, "status">;
-        outputs: Array<Pick<CreativeWorkOutput, "status" | "failureCode"> & { layerization?: PublicLayerizationState | null }>;
+        outputs: Array<
+          Pick<CreativeWorkOutput, "status" | "failureCode" | "effects"> & {
+            layerization?: PublicLayerizationState | null;
+          }
+        >;
         carouselSlides?: Array<Pick<PublicCarouselSlide, "status">>;
       }
     | undefined,
@@ -298,7 +313,11 @@ export function creativeWorkRefetchInterval(
     ("sources" in (data ?? {}) &&
       (data as CreativeWorkDetail).sources.some(
         (source) => source.status === "uploaded" || source.status === "analyzing",
-      ));
+      )) ||
+    // Selection obligations converging: keep polling while any effect is
+    // pending so the interface follows pending → recovered without a
+    // manual refresh. Terminal states settle the poll.
+    data?.outputs.some((output) => hasPendingSelectionEffects(output.effects));
   if (!shouldPoll) return false;
   if (typeof document !== "undefined" && document.visibilityState !== "visible") {
     return false;
