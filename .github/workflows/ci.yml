@@ -325,7 +325,7 @@ jobs:
           DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           BETTER_AUTH_URL: http://localhost:3000
-          OPENAI_API_KEY: [REDACTED]
+          OPENAI_API_KEY: sk-test-ci-harness-dummy-key
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci-build
@@ -354,7 +354,7 @@ jobs:
           DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           EMAIL_FROM: "ADScale <onboarding@example.com>"
-          OPENAI_API_KEY: [REDACTED]
+          OPENAI_API_KEY: sk-test-ci-harness-dummy-key
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci
@@ -423,7 +423,7 @@ jobs:
           DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           BETTER_AUTH_URL: http://localhost:3000
-          OPENAI_API_KEY: [REDACTED]
+          OPENAI_API_KEY: sk-test-ci-harness-dummy-key
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci-build
@@ -452,7 +452,7 @@ jobs:
           DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           EMAIL_FROM: "ADScale <onboarding@example.com>"
-          OPENAI_API_KEY: [REDACTED]
+          OPENAI_API_KEY: sk-test-ci-harness-dummy-key
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci
@@ -521,7 +521,7 @@ jobs:
           DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           BETTER_AUTH_URL: http://localhost:3000
-          OPENAI_API_KEY: [REDACTED]
+          OPENAI_API_KEY: sk-test-ci-harness-dummy-key
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci-build
@@ -550,7 +550,7 @@ jobs:
           DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
           BETTER_AUTH_SECRET: "01234567890123456789012345678901"
           EMAIL_FROM: "ADScale <onboarding@example.com>"
-          OPENAI_API_KEY: [REDACTED]
+          OPENAI_API_KEY: sk-test-ci-harness-dummy-key
           OPENAI_TEXT_MODEL: gpt-4o
           OPENAI_IMAGE_MODEL: gpt-image-1
           MINIMAX_API_KEY: minimax-test-key-for-ci

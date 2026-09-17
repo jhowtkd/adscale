@@ -65,7 +65,7 @@ describe("CreativeWorkResumeSurface", () => {
 
     render(<CreativeWorkResumeSurface workId="work-1" campaignId="campaign-1" />);
 
-    expect(useCreativeComposerMock).toHaveBeenCalledWith({ initialWorkId: "work-1", focusComposer: true });
+    expect(useCreativeComposerMock).toHaveBeenCalledWith({ initialWorkId: "work-1", focusComposer: true, threeFourCreationEnabled: false });
     expect(screen.getByRole("heading", { name: "Piece" })).toHaveClass("sr-only");
     expect(screen.queryByText("Generate variations from an artwork")).not.toBeInTheDocument();
     expect(screen.queryByText("Send artwork for the AI to read.")).not.toBeInTheDocument();
