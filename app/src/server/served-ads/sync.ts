@@ -2,18 +2,22 @@ import "server-only";
 import { logger } from "@/lib/logger";
 import { R2ObjectStorage } from "@/server/storage/r2-object-storage";
 import { aggregateAdRows, buildAnuncioId, type MetaAdRow, type ServedAdFormat } from "./aggregate";
+import { CONVERSION_DEFINITION_VERSION, type MeasurementOrigin } from "./conversion";
 import { decryptMetaToken } from "./crypto";
 import {
   MetaGraphError,
   getGraphClient,
+  isMockMode,
   type MetaAd,
   type MetaCreative,
   type MetaGraphClient,
+  type MetaInsightAction,
 } from "./graph";
 import {
   deleteConnection,
   deleteServedAd,
   getConnectionById,
+  insertSnapshot,
   listActiveConnections,
   listExpiredServedAds,
   listMediaKeysForConnection,
@@ -81,6 +85,32 @@ export interface SyncDeps {
   storage?: MediaStore;
   download?: MediaDownloader;
   now?: Date;
+  /** Origem da coleta; default reflete mock/real do ambiente. */
+  origin?: MeasurementOrigin;
+}
+
+/**
+ * Normaliza as entradas brutas de um insight: leitura idempotente do mesmo
+ * valor dedupica; valores distintos para o mesmo tipo saem do mapa e caem
+ * em `ambiguous` — medir um deles é incompatível até resolução.
+ */
+export function normalizeInsightActions(actions: MetaInsightAction[]): {
+  counts: Record<string, number>;
+  ambiguous: string[];
+} {
+  const counts: Record<string, number> = {};
+  const ambiguous = new Set<string>();
+  for (const action of actions) {
+    if (ambiguous.has(action.actionType)) continue;
+    const seen = counts[action.actionType];
+    if (seen === undefined) {
+      counts[action.actionType] = action.value;
+    } else if (seen !== action.value) {
+      delete counts[action.actionType];
+      ambiguous.add(action.actionType);
+    }
+  }
+  return { counts, ambiguous: [...ambiguous].sort() };
 }
 
 export interface SyncResult {
@@ -134,10 +164,24 @@ export async function syncConnection(connectionId: string, deps: SyncDeps = {}):
 
       for (const windowDays of SYNC_WINDOWS) {
         const insights = await client.getInsights(account.id, windowDays);
+        const snapshot = await insertSnapshot({
+          accountId: accountRowId,
+          windowDays,
+          periodStart: new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000),
+          periodEnd: now,
+          currency: account.currency,
+          // Nenhum parâmetro de atribuição é enviado: a efetiva segue
+          // desconhecida até a reconciliação autorizada (ICE-01B).
+          attribution: { status: "unknown", condition: "meta_attribution_not_requested" },
+          completeness: insights.every((insight) => insight.complete) ? "complete" : "partial",
+          origin: deps.origin ?? (isMockMode() ? "mock" : "real"),
+          collectedAt: now,
+        });
         const rows: MetaAdRow[] = [];
         for (const insight of insights) {
           const ad = adsById.get(insight.adId);
           if (!ad || !ad.creative.id) continue;
+          const normalized = normalizeInsightActions(insight.actions);
           rows.push({
             ad_account_id: account.id,
             ad_id: insight.adId,
@@ -147,7 +191,10 @@ export async function syncConnection(connectionId: string, deps: SyncDeps = {}):
             impressions: insight.impressions,
             clicks: insight.clicks,
             spend: insight.spend,
-            conversions: insight.conversions,
+            conversions: insight.actions.reduce((sum, action) => sum + action.value, 0),
+            actionCounts: normalized.counts,
+            ambiguousActionTypes: normalized.ambiguous,
+            complete: insight.complete,
           });
         }
         for (const grouped of aggregateAdRows(rows)) {
@@ -170,7 +217,11 @@ export async function syncConnection(connectionId: string, deps: SyncDeps = {}):
             impressions: grouped.impressions,
             clicks: grouped.clicks,
             spend: grouped.spend,
-            conversions: grouped.conversions,
+            conversions: grouped.legacyConversions,
+            actionCounts: grouped.actionCounts ?? {},
+            ambiguousActionTypes: grouped.ambiguousActionTypes,
+            definitionVersion: CONVERSION_DEFINITION_VERSION,
+            snapshotId: snapshot.id,
           });
         }
       }

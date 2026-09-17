@@ -3513,6 +3513,7 @@
     "colResults": "Resultados",
     "colCpa": "CPA",
     "insufficientEvidence": "sem evidência suficiente",
+    "unverifiedMeasure": "não validado",
     "fixtureBadge": "dados de exemplo — conecte a Meta para ver os seus",
     "multiCurrency": "múltiplas moedas: valores somados sem conversão",
     "noBrandTitle": "Selecione uma marca",

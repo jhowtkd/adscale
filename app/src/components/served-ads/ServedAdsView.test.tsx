@@ -22,6 +22,7 @@ vi.mock("next-intl", () => ({
         colResults: "Resultados",
         colCpa: "CPA",
         insufficientEvidence: "sem evidência suficiente",
+        unverifiedMeasure: "não validado",
         fixtureBadge: "dados de exemplo",
         multiCurrency: "múltiplas moedas",
         noBrandTitle: "Selecione uma marca",
@@ -57,6 +58,7 @@ const baseRow = {
   ctr: 3,
   cpc: 5,
   cpa: 62.5,
+  conversion: { definitionVersion: 2, actionType: "purchase", value: 12, status: "measured" },
   insufficientEvidence: false,
   previewUrl: null,
 };
@@ -131,5 +133,40 @@ describe("ServedAdsView", () => {
     apiFetchMock.mockResolvedValue({ ok: false, status: 500, json: () => Promise.resolve({}) });
     render(<ServedAdsView />);
     expect(await screen.findByText("Falhou.")).toBeInTheDocument();
+  });
+
+  it("contenção: soma legada exibe sinalização de não validado e CPA indisponível", async () => {
+    apiFetchMock.mockResolvedValue(
+      reportResponse([
+        {
+          ...baseRow,
+          conversions: 130,
+          cpa: null,
+          conversion: { definitionVersion: 2, actionType: null, value: null, status: "legacy_unverified" },
+        },
+      ])
+    );
+    render(<ServedAdsView />);
+    const rows = await screen.findAllByTestId("served-ad-row");
+    expect(within(rows[0]).getByText("não validado")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("130")).toBeInTheDocument();
+  });
+
+  it("medida ausente mostra traço, nunca zero", async () => {
+    apiFetchMock.mockResolvedValue(
+      reportResponse([
+        {
+          ...baseRow,
+          conversions: null,
+          cpa: null,
+          conversion: { definitionVersion: 2, actionType: null, value: null, status: "not_defined" },
+        },
+      ])
+    );
+    render(<ServedAdsView />);
+    const rows = await screen.findAllByTestId("served-ad-row");
+    const cells = within(rows[0]).getAllByText("—");
+    expect(cells.length).toBeGreaterThanOrEqual(2);
+    expect(within(rows[0]).queryByText("0")).not.toBeInTheDocument();
   });
 });

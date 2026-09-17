@@ -37,12 +37,23 @@ export interface MetaAd {
   creative: MetaCreative;
 }
 
+export interface MetaInsightAction {
+  actionType: string;
+  value: number;
+}
+
 export interface MetaInsight {
   adId: string;
   impressions: number;
   clicks: number;
   spend: number;
-  conversions: number;
+  /**
+   * Contagens por tipo de ação como vieram da API, sem soma (ICE-01A).
+   * Somar tipos distintos aqui destruía a definição da conversão.
+   */
+  actions: MetaInsightAction[];
+  /** Falso quando a paginação bateu no teto: leitura parcial, nunca final. */
+  complete: boolean;
 }
 
 export interface MetaMedia {
@@ -107,7 +118,7 @@ export class RealMetaGraphClient implements MetaGraphClient {
   private async getPaged(
     path: string,
     params: Record<string, string>
-  ): Promise<Array<Record<string, unknown>>> {
+  ): Promise<{ rows: Array<Record<string, unknown>>; truncated: boolean }> {
     const out: Array<Record<string, unknown>> = [];
     let url: string | null = null;
     const first = new URL(`${GRAPH_BASE}${path}`);
@@ -123,11 +134,11 @@ export class RealMetaGraphClient implements MetaGraphClient {
       const paging = body.paging as { next?: string } | undefined;
       url = paging?.next ?? null;
     }
-    return out;
+    return { rows: out, truncated: url !== null };
   }
 
   async listAdAccounts(): Promise<MetaAdAccount[]> {
-    const rows = await this.getPaged("/me/adaccounts", {
+    const { rows } = await this.getPaged("/me/adaccounts", {
       fields: "account_id,name,currency,account_status",
       limit: "100",
     });
@@ -139,7 +150,7 @@ export class RealMetaGraphClient implements MetaGraphClient {
   }
 
   async listAds(accountId: string): Promise<MetaAd[]> {
-    const rows = await this.getPaged(`/act_${accountId}/ads`, {
+    const { rows } = await this.getPaged(`/act_${accountId}/ads`, {
       fields:
         "id,creative{id,body,title,image_hash,video_id,thumbnail_url,object_story_spec,asset_feed_spec}",
       limit: "100",
@@ -167,11 +178,12 @@ export class RealMetaGraphClient implements MetaGraphClient {
 
   async getInsights(accountId: string, windowDays: 7 | 30 | 90): Promise<MetaInsight[]> {
     const preset = windowDays === 7 ? "last_7d" : windowDays === 90 ? "last_90d" : "last_30d";
-    const rows = await this.getPaged(`/act_${accountId}/insights`, {
+    const { rows, truncated } = await this.getPaged(`/act_${accountId}/insights`, {
       level: "ad",
       fields: "ad_id,impressions,clicks,spend,actions",
       action_breakdowns: "action_type",
-      // Atribuição default da API: 7d_click + 1d_view (spec, sem knob).
+      // Atribuição: nenhum parâmetro enviado — a efetiva é registrada como
+      // desconhecida no snapshot (ICE-01A), nunca presumida como 7d+1d.
       date_preset: preset,
       limit: "500",
     });
@@ -182,7 +194,10 @@ export class RealMetaGraphClient implements MetaGraphClient {
         impressions: Number(row.impressions ?? 0),
         clicks: Number(row.clicks ?? 0),
         spend: Number(row.spend ?? 0),
-        conversions: actions.reduce((sum, action) => sum + Number(action.value ?? 0), 0),
+        actions: actions
+          .filter((action) => typeof action.action_type === "string" && action.action_type.length > 0)
+          .map((action) => ({ actionType: action.action_type as string, value: Number(action.value ?? 0) })),
+        complete: !truncated,
       };
     });
   }
@@ -322,17 +337,58 @@ export class MockMetaGraphClient implements MetaGraphClient {
   async getInsights(_accountId: string, windowDays: 7 | 30 | 90): Promise<MetaInsight[]> {
     const scale = windowDays === 7 ? 0.25 : windowDays === 90 ? 2.5 : 1;
     const base: MetaInsight[] = [
-      { adId: "501", impressions: 42000, clicks: 1260, spend: 1890, conversions: 96 },
-      { adId: "502", impressions: 18000, clicks: 450, spend: 810, conversions: 34 },
-      { adId: "504", impressions: 60000, clicks: 900, spend: 2400, conversions: 41 },
-      { adId: "505", impressions: 15000, clicks: 600, spend: 750, conversions: 18 },
+      {
+        adId: "501",
+        impressions: 42000,
+        clicks: 1260,
+        spend: 1890,
+        actions: [
+          { actionType: "purchase", value: 61 },
+          { actionType: "lead", value: 35 },
+        ],
+        complete: true,
+      },
+      {
+        adId: "502",
+        impressions: 18000,
+        clicks: 450,
+        spend: 810,
+        actions: [
+          { actionType: "purchase", value: 22 },
+          { actionType: "lead", value: 12 },
+        ],
+        complete: true,
+      },
+      {
+        adId: "504",
+        impressions: 60000,
+        clicks: 900,
+        spend: 2400,
+        actions: [
+          { actionType: "purchase", value: 30 },
+          { actionType: "lead", value: 11 },
+        ],
+        complete: true,
+      },
+      {
+        adId: "505",
+        impressions: 15000,
+        clicks: 600,
+        spend: 750,
+        actions: [
+          { actionType: "purchase", value: 12 },
+          { actionType: "lead", value: 6 },
+        ],
+        complete: true,
+      },
     ];
     return base.map((row) => ({
       adId: row.adId,
       impressions: Math.round(row.impressions * scale),
       clicks: Math.round(row.clicks * scale),
       spend: Math.round(row.spend * scale * 100) / 100,
-      conversions: Math.round(row.conversions * scale),
+      actions: row.actions.map((action) => ({ actionType: action.actionType, value: Math.round(action.value * scale) })),
+      complete: row.complete,
     }));
   }
 

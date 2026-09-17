@@ -49,6 +49,19 @@ describe("MetaGraphClient mock", () => {
     expect(d90[0]?.impressions).toBe(Math.round((d30[0]?.impressions ?? 0) * 2.5));
   });
 
+  it("mock relata contagens por tipo de ação, sem soma", async () => {
+    const d30 = await client.getInsights("123", 30);
+    expect(d30[0]).toMatchObject({
+      adId: "501",
+      actions: [
+        { actionType: "purchase", value: 61 },
+        { actionType: "lead", value: 35 },
+      ],
+      complete: true,
+    });
+    expect(d30[0]).not.toHaveProperty("conversions");
+  });
+
   it("mídia do mock nunca aponta para a Meta", async () => {
     const ads = await client.listAds("123");
     for (const ad of ads) {
@@ -120,7 +133,7 @@ describe("RealMetaGraphClient (fetch stub)", () => {
     expect(String(fetchFn.mock.calls[0]?.[0])).toContain("act_10/ads");
   });
 
-  it("insights somem actions em conversions e usam preset da janela", async () => {
+  it("insights preservam actions por tipo, nunca somam, e usam preset da janela", async () => {
     const fetchFn = vi.fn().mockResolvedValue(
       jsonResponse({
         data: [
@@ -140,11 +153,31 @@ describe("RealMetaGraphClient (fetch stub)", () => {
     );
     const client = new RealMetaGraphClient("tok", fetchFn as unknown as typeof fetch);
     await expect(client.getInsights("10", 7)).resolves.toEqual([
-      { adId: "1", impressions: 100, clicks: 5, spend: 12.5, conversions: 3 },
+      {
+        adId: "1",
+        impressions: 100,
+        clicks: 5,
+        spend: 12.5,
+        actions: [
+          { actionType: "purchase", value: 2 },
+          { actionType: "lead", value: 1 },
+        ],
+        complete: true,
+      },
     ]);
     const url = String(fetchFn.mock.calls[0]?.[0]);
     expect(url).toContain("level=ad");
     expect(url).toContain("date_preset=last_7d");
+  });
+
+  it("insights sem actions relatam mapa vazio, não zero presumido", async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      jsonResponse({ data: [{ ad_id: "1", impressions: "10", clicks: "1", spend: "2" }], paging: {} })
+    );
+    const client = new RealMetaGraphClient("tok", fetchFn as unknown as typeof fetch);
+    await expect(client.getInsights("10", 7)).resolves.toEqual([
+      { adId: "1", impressions: 10, clicks: 1, spend: 2, actions: [], complete: true },
+    ]);
   });
 
   it("erro da Graph vira MetaGraphError com mensagem", async () => {

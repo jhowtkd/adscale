@@ -76,6 +76,42 @@ describe("GET /api/served-ads", () => {
     expect(body.hasConversions).toBe(false);
   });
 
+  it("contenção: soma legada sem mapa sai sinalizada, sem CPA validado", async () => {
+    mocks.hasConnection.mockResolvedValue(true);
+    mocks.listRows.mockResolvedValue([
+      {
+        ad_account_id: "1", ad_id: "1:x", creative_id: "x", format: "imagem", text: "t",
+        impressions: 2000, clicks: 40, spend: 100, conversions: 4, currency: "BRL",
+      },
+    ]);
+    const res = await GET(servedAdsRequest(`brandId=${BRAND_ID}`));
+    const body = await res.json();
+    expect(body.rows[0]).toMatchObject({
+      conversions: 4,
+      cpa: null,
+      conversion: { definitionVersion: 2, actionType: null, value: null, status: "legacy_unverified" },
+    });
+  });
+
+  it("linha v2 sem evento escolhido não produz conversão nem CPA", async () => {
+    mocks.hasConnection.mockResolvedValue(true);
+    mocks.listRows.mockResolvedValue([
+      {
+        ad_account_id: "1", ad_id: "1:x", creative_id: "x", format: "imagem", text: "t",
+        impressions: 2000, clicks: 40, spend: 100, conversions: 14, currency: "BRL",
+        actionCounts: { purchase: 4, lead: 10 }, ambiguousActionTypes: [], complete: true,
+      },
+    ]);
+    const res = await GET(servedAdsRequest(`brandId=${BRAND_ID}`));
+    const body = await res.json();
+    expect(body.rows[0]).toMatchObject({
+      conversions: null,
+      cpa: null,
+      conversion: { status: "not_defined", value: null },
+    });
+    expect(body.hasConversions).toBe(false);
+  });
+
   it("400 sem brandId ou com janela inválida", async () => {
     expect((await GET(servedAdsRequest("window=30"))).status).toBe(400);
     expect((await GET(servedAdsRequest(`brandId=${BRAND_ID}&window=60`))).status).toBe(400);

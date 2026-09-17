@@ -61,10 +61,17 @@ export async function GET(request: Request) {
         impressions: row.impressions,
         clicks: row.clicks,
         spend: row.spend,
+        // Null = não medido; soma legada vem sinalizada via `conversion`.
         conversions: row.conversions,
         ctr: row.ctr,
         cpc: row.cpc,
         cpa: row.cpa,
+        conversion: {
+          definitionVersion: row.conversion.definitionVersion,
+          actionType: row.conversion.actionType,
+          value: row.conversion.value,
+          status: row.conversion.status,
+        },
         insufficientEvidence: row.sem_evidencia,
         // Live resolve para URL assinada do R2; null = placeholder de formato.
         previewUrl: connected
@@ -76,7 +83,7 @@ export async function GET(request: Request) {
       mode: connected ? "live" : "fixture",
       currencies,
       primaryCurrency: currencies[0] ?? "BRL",
-      hasConversions: rows.some((row) => row.conversions > 0),
+      hasConversions: rows.some((row) => (row.conversions ?? 0) > 0),
       rows: items,
     });
   } catch (error) {

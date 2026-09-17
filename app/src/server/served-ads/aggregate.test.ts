@@ -90,11 +90,78 @@ describe("aggregateAdRows (aceites 1–4)", () => {
     expect(rows[0]).toMatchObject({ ctr: null, cpc: null, cpa: null });
   });
 
-  it("CPA só com conversão", () => {
+  it("soma antiga sem definição é legado não verificado, sem CPA validado (contenção)", () => {
+    const rows = aggregateAdRows([row({ ad_id: "a1", spend: 100, conversions: 4 })]);
+    expect(rows[0]).toMatchObject({
+      conversions: 4,
+      cpa: null,
+      conversion: { status: "legacy_unverified", value: null },
+    });
+  });
+
+  it("linha v2 mede o evento explícito e deriva o CPA", () => {
+    const rows = aggregateAdRows(
+      [
+        row({
+          ad_id: "a1",
+          spend: 100,
+          conversions: 14,
+          actionCounts: { purchase: 4, lead: 10 },
+          complete: true,
+        }),
+      ],
+      { actionType: "purchase" }
+    );
+    expect(rows[0]).toMatchObject({
+      conversions: 4,
+      cpa: 25,
+      conversion: { status: "measured", actionType: "purchase", value: 4 },
+    });
+  });
+
+  it("linha v2 sem evento escolhido não produz conversão nem CPA", () => {
     const rows = aggregateAdRows([
-      row({ ad_id: "a1", spend: 100, conversions: 4 }),
+      row({ ad_id: "a1", spend: 100, conversions: 14, actionCounts: { purchase: 4 }, complete: true }),
     ]);
-    expect(rows[0].cpa).toBe(25);
+    expect(rows[0]).toMatchObject({
+      conversions: null,
+      cpa: null,
+      conversion: { status: "not_defined", value: null },
+    });
+  });
+
+  it("grupo soma o mesmo tipo entre ads e une ambiguidades", () => {
+    const rows = aggregateAdRows(
+      [
+        row({ ad_id: "a1", actionCounts: { purchase: 4, lead: 10 }, complete: true }),
+        row({ ad_id: "a2", actionCounts: { purchase: 6 }, ambiguousActionTypes: ["lead"], complete: true }),
+      ],
+      { actionType: "purchase" }
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      conversion: { status: "measured", value: 10 },
+      ambiguousActionTypes: ["lead"],
+    });
+    const lead = aggregateAdRows(
+      [
+        row({ ad_id: "a1", actionCounts: { purchase: 4, lead: 10 }, complete: true }),
+        row({ ad_id: "a2", actionCounts: { purchase: 6 }, ambiguousActionTypes: ["lead"], complete: true }),
+      ],
+      { actionType: "lead" }
+    );
+    expect(lead[0]).toMatchObject({ conversion: { status: "incompatible", value: null } });
+  });
+
+  it("leitura parcial no grupo não produz medida", () => {
+    const rows = aggregateAdRows(
+      [
+        row({ ad_id: "a1", actionCounts: { purchase: 4 }, complete: true }),
+        row({ ad_id: "a2", actionCounts: { purchase: 6 }, complete: false }),
+      ],
+      { actionType: "purchase" }
+    );
+    expect(rows[0]).toMatchObject({ conversion: { status: "incomplete", value: null }, cpa: null });
   });
 });
 

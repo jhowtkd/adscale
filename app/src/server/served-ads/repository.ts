@@ -1,8 +1,9 @@
 import "server-only";
 import { and, eq, lt, isNotNull } from "drizzle-orm";
 import { db } from "@/server/db";
-import { metaAdAccounts, metaConnections, servedAdMetrics, servedAds } from "@/server/db/schema";
+import { metaAdAccounts, metaConnections, servedAdMetrics, servedAdSnapshots, servedAds } from "@/server/db/schema";
 import type { MetaAdRow, ServedAdFormat } from "./aggregate";
+import type { AttributionRef, ComparabilityContext, MeasurementOrigin } from "./conversion";
 
 export async function hasMetaConnection(workspaceId: string): Promise<boolean> {
   const rows = await db
@@ -20,6 +21,56 @@ export interface ServedAdDbRow extends MetaAdRow {
   currency: string;
   imageKey: string | null;
   thumbKey: string | null;
+}
+
+export interface ServedAdSnapshotInput {
+  accountId: string;
+  windowDays: number;
+  periodStart: Date;
+  periodEnd: Date;
+  currency: string;
+  attribution: AttributionRef;
+  completeness: "complete" | "partial";
+  origin: MeasurementOrigin;
+  collectedAt: Date;
+}
+
+export interface ServedAdSnapshotRow extends ServedAdSnapshotInput {
+  id: string;
+  definitionVersion: number;
+}
+
+/** Registra uma coleta versionada; as métricas da coleta apontam para ela. */
+export async function insertSnapshot(input: ServedAdSnapshotInput): Promise<ServedAdSnapshotRow> {
+  const [row] = await db
+    .insert(servedAdSnapshots)
+    .values({
+      accountId: input.accountId,
+      windowDays: input.windowDays,
+      periodStart: input.periodStart,
+      periodEnd: input.periodEnd,
+      currency: input.currency,
+      attribution: input.attribution,
+      completeness: input.completeness,
+      origin: input.origin,
+      collectedAt: input.collectedAt,
+    })
+    .returning();
+  if (!row) throw new Error("snapshotInsertFailed");
+  return row as ServedAdSnapshotRow;
+}
+
+export function snapshotToComparability(snapshot: ServedAdSnapshotRow): ComparabilityContext {
+  return {
+    definitionVersion: snapshot.definitionVersion,
+    currency: snapshot.currency,
+    periodStart: snapshot.periodStart.toISOString(),
+    periodEnd: snapshot.periodEnd.toISOString(),
+    windowDays: snapshot.windowDays,
+    attribution: snapshot.attribution,
+    completeness: snapshot.completeness,
+    origin: snapshot.origin,
+  };
 }
 
 /**
@@ -52,6 +103,10 @@ export async function listServedAdRows(
       clicks: servedAdMetrics.clicks,
       spend: servedAdMetrics.spend,
       conversions: servedAdMetrics.conversions,
+      actionCounts: servedAdMetrics.actionCounts,
+      ambiguousActionTypes: servedAdMetrics.ambiguousActionTypes,
+      definitionVersion: servedAdMetrics.definitionVersion,
+      completeness: servedAdSnapshots.completeness,
       currency: metaAdAccounts.currency,
       imageKey: servedAds.mediaImageKey,
       thumbKey: servedAds.mediaThumbKey,
@@ -60,6 +115,7 @@ export async function listServedAdRows(
     .innerJoin(metaAdAccounts, eq(servedAds.accountId, metaAdAccounts.id))
     .innerJoin(metaConnections, eq(metaAdAccounts.connectionId, metaConnections.id))
     .innerJoin(servedAdMetrics, eq(servedAdMetrics.anuncioId, servedAds.id))
+    .leftJoin(servedAdSnapshots, eq(servedAdMetrics.snapshotId, servedAdSnapshots.id))
     .where(and(...conditions));
   return rows.map((row) => ({
     ad_account_id: row.adAccountId,
@@ -71,6 +127,10 @@ export async function listServedAdRows(
     clicks: row.clicks,
     spend: Number(row.spend),
     conversions: row.conversions,
+    // Linha v1 ou sem snapshot: sem mapa, a agregação projeta legado.
+    actionCounts: row.definitionVersion >= 2 ? (row.actionCounts as Record<string, number>) : null,
+    ambiguousActionTypes: row.ambiguousActionTypes ?? [],
+    complete: row.completeness ? row.completeness === "complete" : undefined,
     currency: row.currency,
     imageKey: row.imageKey,
     thumbKey: row.thumbKey,
@@ -282,8 +342,15 @@ export async function upsertAdMetrics(input: {
   impressions: number;
   clicks: number;
   spend: number;
+  /** Soma legada só para exibição sinalizada; a medida validada usa o mapa. */
   conversions: number;
+  actionCounts: Record<string, number>;
+  ambiguousActionTypes?: string[];
+  definitionVersion: number;
+  snapshotId: string | null;
 }): Promise<void> {
+  const spend = String(Math.round(input.spend * 100) / 100);
+  const ambiguousActionTypes = input.ambiguousActionTypes ?? [];
   await db
     .insert(servedAdMetrics)
     .values({
@@ -291,8 +358,12 @@ export async function upsertAdMetrics(input: {
       windowDays: input.windowDays,
       impressions: input.impressions,
       clicks: input.clicks,
-      spend: String(Math.round(input.spend * 100) / 100),
+      spend,
       conversions: input.conversions,
+      actionCounts: input.actionCounts,
+      ambiguousActionTypes,
+      definitionVersion: input.definitionVersion,
+      snapshotId: input.snapshotId,
       syncedAt: new Date(),
     })
     .onConflictDoUpdate({
@@ -300,8 +371,12 @@ export async function upsertAdMetrics(input: {
       set: {
         impressions: input.impressions,
         clicks: input.clicks,
-        spend: String(Math.round(input.spend * 100) / 100),
+        spend,
         conversions: input.conversions,
+        actionCounts: input.actionCounts,
+        ambiguousActionTypes,
+        definitionVersion: input.definitionVersion,
+        snapshotId: input.snapshotId,
         syncedAt: new Date(),
       },
     });
