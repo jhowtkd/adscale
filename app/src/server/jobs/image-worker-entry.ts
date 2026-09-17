@@ -1,5 +1,3 @@
-import { initializeObservability } from "../diagnostics/observability";
-
 /**
  * Worker entrypoint (trace-388).
  *
@@ -10,12 +8,25 @@ import { initializeObservability } from "../diagnostics/observability";
  * concurrency and env contract stay exactly as they were.
  *
  * This file is the worker startCommand (render.yaml). It constructs no
- * Inngest client of its own.
+ * Inngest client of its own. A telemetry bootstrap failure degrades to a
+ * one-line stderr note and the worker boots anyway.
  */
 
+async function bootObservability(): Promise<void> {
+  try {
+    const { initializeObservability } = await import(
+      "../diagnostics/observability"
+    );
+    await initializeObservability("worker");
+  } catch {
+    console.error(
+      "[image-worker-entry] observability bootstrap skipped; worker unaffected",
+    );
+  }
+}
+
 async function main(): Promise<void> {
-  // Never throws: a telemetry failure must not prevent worker boot.
-  await initializeObservability("worker");
+  await bootObservability();
   const { startImageWorker } = await import("./image-worker");
   await startImageWorker();
 }
