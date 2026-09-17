@@ -138,11 +138,11 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-function emitSafely(event: DiagnosticEventEnvelope): void {
+function emitSafely(build: () => DiagnosticEventEnvelope): void {
   try {
-    eventSink(event);
+    eventSink(build());
   } catch {
-    // Telemetry faults never disturb generation.
+    // Telemetry faults (including envelope construction) never disturb generation.
   }
 }
 
@@ -225,6 +225,7 @@ function setSpanAttributesSafely(
   if (!span) return;
   try {
     for (const [key, value] of Object.entries(attributes)) {
+      if (value === undefined) continue;
       span.setAttribute(key, typeof value === "string" ? boundSpanText(value) : value);
     }
   } catch {
@@ -290,7 +291,7 @@ export const observeModelCall: ObserveModelCall = async (
   const base = buildCallBase(spec);
   const startMark = performance.now();
   const startedAt = nowIso();
-  emitSafely(
+  emitSafely(() =>
     buildEnvelope({
       event: "model.call.started",
       status: "started",
@@ -323,7 +324,7 @@ export const observeModelCall: ObserveModelCall = async (
     } catch {
       // Normalization faults keep the failure honest-but-minimal.
     }
-    emitSafely(
+    emitSafely(() =>
       buildEnvelope({
         event: "model.call.failed",
         status: "failed",
@@ -373,7 +374,7 @@ export const observeModelCall: ObserveModelCall = async (
     // identical error. `call` is never invoked again.
     const elapsedMs = Math.max(0, Math.round(performance.now() - startMark));
     const endedAt = nowIso();
-    emitSafely(
+    emitSafely(() =>
       buildEnvelope({
         event: "model.call.completed",
         status: "completed",
@@ -384,7 +385,7 @@ export const observeModelCall: ObserveModelCall = async (
         call: { ...base, returnedModel: null, providerRequestId: null, latencyMs: elapsedMs },
       }),
     );
-    emitSafely(
+    emitSafely(() =>
       buildEnvelope({
         event: "model.validation.failed",
         status: "failed",
@@ -411,7 +412,7 @@ export const observeModelCall: ObserveModelCall = async (
     throw error;
   }
   const elapsedMs = Math.max(0, Math.round(performance.now() - startMark));
-  emitSafely(
+  emitSafely(() =>
     buildEnvelope({
       event: "model.call.completed",
       status: "completed",
@@ -476,7 +477,7 @@ export function reportModelValidationFailed(
       typeof input.latencyMs === "number" && Number.isFinite(input.latencyMs) && input.latencyMs >= 0
         ? Math.round(input.latencyMs)
         : undefined;
-    emitSafely(
+    emitSafely(() =>
       buildEnvelope({
         event: "model.validation.failed",
         status: "failed",
