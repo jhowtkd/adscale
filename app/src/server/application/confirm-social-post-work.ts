@@ -18,7 +18,7 @@ import {
   IdentitySnapshotMissingAlphaError,
   IdentitySnapshotMissingReferenceError,
 } from "@/server/creative-work/identity";
-import { shouldIncludePublishedBrandKnowledge } from "@/server/creative-work/identity-policy";
+import { resolveQualityFeaturePolicy } from "@/server/creative-work/quality-policy";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import type { CreativeWorkItem } from "@/server/db/schema";
 import {
@@ -147,9 +147,19 @@ export async function confirmSocialPostWork(
       selectedReferenceIds: input.selectedReferenceIds,
       brief: existing.work.brief,
       format: existing.work.format,
-      includePublishedBrandKnowledge: shouldIncludePublishedBrandKnowledge(existing.work.toolKind, {
-        brandCortexSinglePieceEnabled: env.BRAND_CORTEX_SINGLE_PIECE_ENABLED,
-      }),
+      // ICE-05B: decided through the single resolver (social_post never
+      // includes published knowledge, whatever the switch says).
+      includePublishedBrandKnowledge: resolveQualityFeaturePolicy({
+        feature: "brand_cortex_single",
+        workspaceId: input.workspaceId,
+        toolKind: existing.work.toolKind,
+        snapshot: null,
+        switches: {
+          qualityRecovery: env.CREATIVE_WORK_QUALITY_RECOVERY_ENABLED,
+          brandCortex: env.BRAND_CORTEX_SINGLE_PIECE_ENABLED,
+        },
+        allowlistRaw: env.BRAND_CORTEX_PILOT_WORKSPACES,
+      }).includePublishedBrandKnowledge,
     });
   } catch (error) {
     if (error instanceof IdentitySnapshotMissingReferenceError) {

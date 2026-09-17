@@ -61,6 +61,14 @@ export const envSchema = z.object({
    */
   CREATIVE_WORK_QUALITY_RECOVERY_ENABLED: z.enum(["true", "false"]).default("false"),
   /**
+   * Per-feature pilot allowlists (ICE-05B): comma-separated workspace ids.
+   * Non-empty scopes the feature to the listed workspaces; empty keeps the
+   * legacy global behavior of the switch. Malformed entries fail closed at
+   * resolve time instead of mis-scoping the pilot.
+   */
+  QUALITY_RECOVERY_PILOT_WORKSPACES: z.string().default(""),
+  BRAND_CORTEX_PILOT_WORKSPACES: z.string().default(""),
+  /**
    * 3:4 creation switch (ICE-04B): steers NEW 3:4 creations in validated
    * protocols only (see three-four-capability). Reads, downloads and
    * finishing authorized 3:4 works never consult this value.

@@ -91,8 +91,8 @@ import { canonicalJsonStringify } from "@/server/creative-work/canonical-json";
 import {
   resolveCreativeWorkArtRefinement,
   resolveCreativeWorkFactPack,
-  resolveGenerationPolicyVersion,
 } from "@/server/creative-work/contracts";
+import { resolveQualityFeaturePolicy } from "@/server/creative-work/quality-policy";
 import { resolveCreativeWorkProtocol } from "@/server/creative-work/protocol";
 import { resolveCreativeWorkRenderPolicy } from "@/server/creative-work/render-policy";
 import { createSinglePieceArtDirection, type ArtDirectionResult } from "@/server/creative-work/art-direction";
@@ -729,11 +729,20 @@ const creativeWorkOutputJobHandler = async ({
       // R-011: route by the generation policy version frozen in the input
       // snapshot at prepare time — never by the live env switch — so
       // in-flight outputs finish under their original contract when the
-      // switch is flipped.
+      // switch is flipped. ICE-05B: the single resolver reads the frozen
+      // snapshot only; switches and allowlists are absent here by
+      // construction, so the worker cannot reinterpret prepared work.
       // R-001: v1 works resolve protocol, canonical mode and execution policy
       // through the single pure translation; legacy-frozen works (and the
       // explicit legacy social_post toolKind) keep the current adapter.
-      const generationPolicyVersion = resolveGenerationPolicyVersion(work.inputSnapshot);
+      const generationPolicyVersion = resolveQualityFeaturePolicy({
+        feature: "quality_recovery",
+        workspaceId: work.workspaceId,
+        toolKind: work.toolKind,
+        snapshot: work.inputSnapshot,
+        switches: { qualityRecovery: undefined, brandCortex: undefined },
+        allowlistRaw: undefined,
+      }).generationPolicyVersion;
       renderPolicy = resolveCreativeWorkRenderPolicy(work.inputSnapshot);
       isV1Policy = generationPolicyVersion === "quality_recovery_v1";
       imageCallCount = output.imageCallCount ?? 0;
