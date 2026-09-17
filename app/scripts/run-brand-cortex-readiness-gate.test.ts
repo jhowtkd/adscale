@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { evaluateBrandCortexReadiness } from "./run-brand-cortex-readiness-gate";
+import {
+  evaluateBrandCortexReadiness,
+  readinessExitCode,
+} from "./run-brand-cortex-readiness-gate";
 
 const hashes = {
   inputs: "a".repeat(64),
@@ -124,5 +127,13 @@ describe("Brand Cortex readiness gate", () => {
       seamEvidence: { ...seam, paidGeneration: true },
       humanRelease: humanRelease(),
     }).status).toBe("failed");
+  });
+});
+
+describe("readiness exit codes (ICE-05A)", () => {
+  it("keeps human_needed pending (2), never a pass (0) or a hard failure (1)", () => {
+    expect(readinessExitCode("approved")).toBe(0);
+    expect(readinessExitCode("human_needed")).toBe(2);
+    expect(readinessExitCode("failed")).toBe(1);
   });
 });

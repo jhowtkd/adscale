@@ -179,6 +179,24 @@ describe("build Brand Cortex pilot package", () => {
       .rejects.toThrow("GPT Image 2 provider evidence is required");
   });
 
+  it("rejects agent-selected outputs: an agent selection is not a human vote (ICE-05A)", async () => {
+    const outDir = join(mkdtempSync(join(tmpdir(), "brand-cortex-package-")), "pilot");
+    const aggregate = {
+      work: { id: "work-1" },
+      outputs: [{
+        id: "output-1", status: "completed", targetFormat: "1:1", outputKey: "out.png",
+        selectedBy: "agent",
+      }],
+      sources: [],
+    };
+
+    await expect(buildBrandCortexPilotPackage({
+      workspaceId: "workspace-1", pilotId: "pilot-1", createdByUserId: "operator-1",
+      selections: [{ workItemId: "work-1", outputId: "output-1" }], outDir,
+    }, { getWork: async () => aggregate, getObject: async () => Buffer.from("unused") }))
+      .rejects.toThrow("Agent-selected output cannot enter a human-eval package");
+  });
+
   it("rejects paid packages without a raw ledger link", async () => {
     const outDir = join(mkdtempSync(join(tmpdir(), "brand-cortex-package-")), "pilot");
     await expect(buildBrandCortexPilotPackage({

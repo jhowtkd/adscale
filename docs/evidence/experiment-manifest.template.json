@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "experimentId": "exp-quality-recovery-1",
+  "sha": "0000000000000000000000000000000000000000",
+  "changedFeatures": ["quality_recovery"],
+  "control": { "kind": "frozen_production", "baselineId": "qr-baseline-1" },
+  "baseline": {
+    "id": "qr-baseline-1",
+    "policyVersion": "quality_recovery_v1",
+    "schemaVersion": 1,
+    "inputsHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "expectedPolicyVersion": "quality_recovery_v1",
+    "expectedSchemaVersion": 1
+  },
+  "inputs": {
+    "inputsHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "count": 10
+  },
+  "origin": "staging",
+  "authorization": {
+    "authorizedBy": null,
+    "authorizedAt": null,
+    "scope": "quality-recovery gate evidence collection"
+  },
+  "measurements": null,
+  "packages": [],
+  "gates": [],
+  "conclusion": { "decision": "pending", "decidedBy": null, "decidedAt": null, "notes": null },
+  "_instructions": [
+    "Experiment manifest (ICE-05A). This template is VALIDATOR INPUT ONLY.",
+    "One experiment, one feature: changedFeatures must list exactly one of quality_recovery | brand_cortex_single.",
+    "Fill sha with the 40-hex delivery SHA; baseline inputsHash must equal inputs.inputsHash (equivalent inputs).",
+    "A named human fills authorization before any collection; verified traceability measurements (OBS plan) must be referenced before any approval.",
+    "Run: npx tsx scripts/check-experiment-manifest.ts <this-file.json>. Pending exits 2; approval without passing gates and verified measurements fails."
+  ]
+}
