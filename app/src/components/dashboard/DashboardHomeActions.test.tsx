@@ -359,6 +359,8 @@ describe("DashboardHomeActions", () => {
       initialIntent: undefined,
       focusComposer: false,
       initialTemplateId: undefined,
+      initialCampaignId: undefined,
+      threeFourCreationEnabled: false,
       onGenerationAccepted: expect.any(Function),
     });
     expect(protocolButton("single")).toHaveAttribute("aria-checked", "true");
@@ -490,6 +492,8 @@ describe("DashboardHomeActions", () => {
       initialIntent: "restyle",
       focusComposer: true,
       initialTemplateId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      initialCampaignId: undefined,
+      threeFourCreationEnabled: false,
       onGenerationAccepted: expect.any(Function),
     });
   });

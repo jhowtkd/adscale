@@ -392,6 +392,14 @@ describe("useCreativeComposer", () => {
   it("keeps an approval failure on the affected output until retry", async () => {
     mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false });
     mocks.selectOutput.mockRejectedValueOnce(new Error("Falha na aprovação"));
+    // The retry resolves with the contracted selection effects (ICE-03B).
+    mocks.selectOutput.mockResolvedValueOnce({
+      effects: {
+        library: { status: "done" },
+        valueEvent: { status: "done" },
+        recipe: { status: "done" },
+      },
+    });
     const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
 
     await act(() => result.current.approveOutput("output-1"));
