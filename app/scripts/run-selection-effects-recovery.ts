@@ -85,7 +85,7 @@ export async function runCli(argv: string[], env: NodeJS.ProcessEnv): Promise<nu
   const processes = await bootHarness(config);
   try {
     await seedHarnessFixture(config, processes);
-    const journey = await driveJourney(config, processes);
+    const { journey } = await driveJourney(config, processes, "terminal");
     const recovery = await driveSelectionEffectsRecovery(config, processes, journey);
     const report: RecoveryCliReport = {
       recovery,
