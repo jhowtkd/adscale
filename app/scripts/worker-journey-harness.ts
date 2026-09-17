@@ -428,6 +428,8 @@ export interface JourneyLedgerSummary {
  * `creative-output:{output}:compensatory-refund`): rows whose key mentions
  * a refund are refunds, the rest are debits. Counts only — amounts are
  * zeroed under unlimited-billing test bypass, so presence is the signal.
+ * `generation_dispatch_ack` rows are settlement bookkeeping (amount 0,
+ * best-effort markers), never charges — they are excluded from both sides.
  */
 export function summarizeJourneyLedger(
   rows: JourneyLedgerRow[],
@@ -436,6 +438,7 @@ export function summarizeJourneyLedger(
 ): JourneyLedgerSummary {
   const outputs = new Set(outputIds);
   const relevant = rows.filter((row) => {
+    if (row.type === "generation_dispatch_ack") return false;
     if (row.idempotency_key.startsWith(`creative-work:${workId}`)) return true;
     const metadata = row.metadata ?? {};
     if (typeof metadata.creativeWorkId === "string" && metadata.creativeWorkId === workId) return true;
@@ -1587,14 +1590,14 @@ export async function runScenario(config: HarnessConfig): Promise<JourneyReport>
   const processes = await bootHarness(config);
   try {
     if (config.scenario === "pre-provider-failure") {
-      return runUnknownUnitScenario(config, processes, startedAt, started);
+      return await runUnknownUnitScenario(config, processes, startedAt, started);
     }
     await seedHarnessFixture(config, processes);
     if (config.scenario === "restart") {
-      return runRestartScenario(config, processes, startedAt, started);
+      return await runRestartScenario(config, processes, startedAt, started);
     }
     if (config.scenario === "replay") {
-      return runReplayScenario(config, processes, startedAt, started);
+      return await runReplayScenario(config, processes, startedAt, started);
     }
     const since = new Date().toISOString();
     const wait = config.scenario === "no-worker" ? "observe" : "terminal";

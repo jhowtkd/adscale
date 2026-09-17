@@ -407,6 +407,24 @@ describe("settlement ledger", () => {
     expect(summary).toMatchObject({ debits: 2, duplicateCharges: 1 });
   });
 
+  it("ignores dispatch-ack bookkeeping rows when counting charges", () => {
+    const summary = summarizeJourneyLedger(
+      [
+        row("creative-work:work-1:initial"),
+        {
+          idempotency_key: "creative-work:work-1:initial:dispatch-ack",
+          type: "generation_dispatch_ack",
+          amount: 0,
+          metadata: { creativeWorkId: "work-1" },
+        },
+      ],
+      "work-1",
+      ["out-1"],
+    );
+    expect(summary).toMatchObject({ debits: 1, refunds: 0, duplicateCharges: 0 });
+    expect(summary.debitKeys).toEqual(["creative-work:work-1:initial"]);
+  });
+
   it("queries the canonical usage ledger scoped to the journey", async () => {
     const seen: Array<{ sql: string; params: unknown[] }> = [];
     const rows = await readJourneyLedger(
