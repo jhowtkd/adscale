@@ -28,6 +28,8 @@ import {
   WORKER_JOURNEY_EVIDENCE_SCHEMA_VERSION,
   type WorkerJourneyEvidence,
   type WorkerJourneyObservedExecutor,
+  type WorkerJourneyObservedResult,
+  type WorkerJourneyRemoteUncertainty,
   type WorkerJourneyScenario,
 } from "../src/server/jobs/worker-journey-evidence";
 import { WORKER_CONNECTED_EVENT } from "../src/server/jobs/heavy-image-isolation";
@@ -103,6 +105,16 @@ function parsePositiveInt(raw: string | undefined, flag: string): number {
   return value;
 }
 
+export const HARNESS_SCENARIOS: WorkerJourneyScenario[] = [
+  "success",
+  "no-worker",
+  "replay",
+  "restart",
+  "failure",
+  "ambiguous-timeout",
+  "pre-provider-failure",
+];
+
 export function parseHarnessArgs(argv: string[]): HarnessArgs {
   const args: HarnessArgs = {
     scenario: "success",
@@ -121,10 +133,10 @@ export function parseHarnessArgs(argv: string[]): HarnessArgs {
     const next = argv[i + 1];
     switch (flag) {
       case "--scenario":
-        if (next !== "success" && next !== "no-worker") {
-          throw new Error(`invalid --scenario: expected success|no-worker, got ${JSON.stringify(next ?? "")}`);
+        if (!HARNESS_SCENARIOS.includes(next as WorkerJourneyScenario)) {
+          throw new Error(`invalid --scenario: expected ${HARNESS_SCENARIOS.join("|")}, got ${JSON.stringify(next ?? "")}`);
         }
-        args.scenario = next;
+        args.scenario = next as WorkerJourneyScenario;
         scenarioSeen = true;
         i += 1;
         break;
@@ -164,7 +176,7 @@ export function parseHarnessArgs(argv: string[]): HarnessArgs {
     }
   }
   if (args.help) return args;
-  if (!scenarioSeen) throw new Error("missing required --scenario success|no-worker");
+  if (!scenarioSeen) throw new Error(`missing required --scenario ${HARNESS_SCENARIOS.join("|")}`);
   if (!args.reportPath) {
     args.reportPath = path.resolve(
       process.cwd(),
@@ -254,6 +266,37 @@ export function countJourneyProviderCalls(jsonl: string, outputIds: string[]): n
   return count;
 }
 
+/** True when any journey-attributed provider record ended in failure. */
+export function hasJourneyFailureRecord(jsonl: string, outputIds: string[]): boolean {
+  const wanted = new Set(outputIds);
+  for (const line of jsonl.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const record = JSON.parse(trimmed) as { outputPrefix?: unknown; outcome?: unknown };
+      if (typeof record.outputPrefix !== "string" || record.outcome !== "failure") continue;
+      const suffix = record.outputPrefix.split("/").pop() ?? "";
+      if (wanted.has(suffix)) return true;
+    } catch {
+      continue;
+    }
+  }
+  return false;
+}
+
+/**
+ * Uncertainty is indicated only for the ambiguous-timeout probe, and only
+ * when a provider failure was actually observed — a timeout injection that
+ * produced no failure fails the scenario instead of assuming ambiguity.
+ */
+export function resolveRemoteUncertainty(
+  scenario: WorkerJourneyScenario,
+  sawProviderFailure: boolean,
+): WorkerJourneyRemoteUncertainty {
+  if (scenario === "ambiguous-timeout" && sawProviderFailure) return "ambiguous_provider_timeout";
+  return "none";
+}
+
 export interface ExecutorSignals {
   workerCalls: number;
   webCalls: number;
@@ -273,19 +316,21 @@ export interface JourneyOutputProjection {
   status: string;
   hasOutput: boolean;
   imageCallCount: number;
+  failureCode?: string | null;
 }
 
 export interface JourneyOutputsSummary {
   allCompletedWithBytes: boolean;
   unexecuted: boolean;
   anyCompleted: boolean;
+  failed: boolean;
 }
 
 export function summarizeJourneyOutputs(
   outputs: JourneyOutputProjection[],
 ): JourneyOutputsSummary {
   if (outputs.length === 0) {
-    return { allCompletedWithBytes: false, unexecuted: false, anyCompleted: false };
+    return { allCompletedWithBytes: false, unexecuted: false, anyCompleted: false, failed: false };
   }
   const anyCompleted = outputs.some((output) => output.status === "completed");
   const allCompletedWithBytes =
@@ -294,7 +339,9 @@ export function summarizeJourneyOutputs(
   const unexecuted =
     !anyCompleted &&
     outputs.every((output) => !output.hasOutput && output.imageCallCount === 0);
-  return { allCompletedWithBytes, unexecuted, anyCompleted };
+  // Terminal failure is its own verdict: every output failed, none completed.
+  const failed = !anyCompleted && outputs.every((output) => output.status === "failed");
+  return { allCompletedWithBytes, unexecuted, anyCompleted, failed };
 }
 
 export interface EvidenceInput {
@@ -307,18 +354,37 @@ export interface EvidenceInput {
   workerConnected: boolean;
   executorObserved: WorkerJourneyObservedExecutor;
   providerCalls: number;
+  duplicateCharges: number | null;
+  ledgerDebits: number | null;
+  ledgerRefunds: number | null;
+  remoteUncertainty: WorkerJourneyRemoteUncertainty;
   outputsSummary: JourneyOutputsSummary;
 }
 
-export function buildJourneyEvidence(input: EvidenceInput): WorkerJourneyEvidence {
-  const resultObserved =
-    input.scenario === "success"
-      ? input.outputsSummary.allCompletedWithBytes
-        ? "completed"
-        : "unknown"
-      : input.outputsSummary.unexecuted
+function deriveResultObserved(input: EvidenceInput): WorkerJourneyObservedResult {
+  switch (input.scenario) {
+    case "success":
+    case "replay":
+    case "restart":
+      return input.outputsSummary.allCompletedWithBytes ? "completed" : "unknown";
+    case "failure":
+    case "ambiguous-timeout":
+      return input.outputsSummary.failed ? "failed" : "unknown";
+    case "no-worker":
+      return input.outputsSummary.unexecuted ? "unexecuted" : "unknown";
+    case "pre-provider-failure":
+      // No output rows can exist for the unknown unit: unexecuted is derived
+      // from zero provider calls plus a clean observed ledger.
+      return input.providerCalls === 0 &&
+        input.duplicateCharges === 0 &&
+        input.ledgerDebits === 0 &&
+        input.ledgerRefunds === 0
         ? "unexecuted"
         : "unknown";
+  }
+}
+
+export function buildJourneyEvidence(input: EvidenceInput): WorkerJourneyEvidence {
   return {
     schemaVersion: WORKER_JOURNEY_EVIDENCE_SCHEMA_VERSION,
     sha: input.sha,
@@ -332,9 +398,133 @@ export function buildJourneyEvidence(input: EvidenceInput): WorkerJourneyEvidenc
     workerConnected: input.workerConnected,
     executorObserved: input.executorObserved,
     providerCalls: input.providerCalls,
-    duplicateCharges: null,
-    resultObserved,
+    duplicateCharges: input.duplicateCharges,
+    ledgerDebits: input.ledgerDebits,
+    ledgerRefunds: input.ledgerRefunds,
+    remoteUncertainty: input.remoteUncertainty,
+    resultObserved: deriveResultObserved(input),
   };
+}
+
+export interface JourneyLedgerRow {
+  idempotency_key: string;
+  type: string;
+  amount: number;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface JourneyLedgerSummary {
+  debits: number;
+  refunds: number;
+  duplicateCharges: number;
+  debitKeys: string[];
+  refundKeys: string[];
+}
+
+/**
+ * Settlement observation from canonical ledger rows. Classification follows
+ * the R-010 key shapes (`creative-work:{work}:initial`,
+ * `creative-work:{work}:output:{output}:terminal-refund`,
+ * `creative-output:{output}:compensatory-refund`): rows whose key mentions
+ * a refund are refunds, the rest are debits. Counts only — amounts are
+ * zeroed under unlimited-billing test bypass, so presence is the signal.
+ */
+export function summarizeJourneyLedger(
+  rows: JourneyLedgerRow[],
+  workId: string,
+  outputIds: string[],
+): JourneyLedgerSummary {
+  const outputs = new Set(outputIds);
+  const relevant = rows.filter((row) => {
+    if (row.idempotency_key.startsWith(`creative-work:${workId}`)) return true;
+    const metadata = row.metadata ?? {};
+    if (typeof metadata.creativeWorkId === "string" && metadata.creativeWorkId === workId) return true;
+    if (typeof metadata.outputId === "string" && outputs.has(metadata.outputId)) return true;
+    if (typeof metadata.destinationId === "string" && outputs.has(metadata.destinationId)) return true;
+    return false;
+  });
+  const refunds = relevant.filter((row) => row.idempotency_key.includes("refund"));
+  const debits = relevant.filter((row) => !row.idempotency_key.includes("refund"));
+  return {
+    debits: debits.length,
+    refunds: refunds.length,
+    duplicateCharges: Math.max(0, debits.length - 1),
+    debitKeys: debits.map((row) => row.idempotency_key).sort(),
+    refundKeys: refunds.map((row) => row.idempotency_key).sort(),
+  };
+}
+
+export interface JourneyLedgerScope {
+  workspaceId: string;
+  workId: string;
+  outputIds: string[];
+  /** ISO start of the journey; rows before it belong to earlier runs. */
+  since: string;
+}
+
+export type JourneyLedgerQuery = (
+  sql: string,
+  params: unknown[],
+) => Promise<JourneyLedgerRow[]>;
+
+export async function readJourneyLedger(
+  databaseUrl: string,
+  scope: JourneyLedgerScope,
+  queryImpl?: JourneyLedgerQuery,
+): Promise<JourneyLedgerRow[]> {
+  const sql = `select idempotency_key, type, amount, metadata from adscale_app.usage_events
+    where workspace_id = $1 and created_at >= $2 and (
+      idempotency_key like 'creative-work:' || $3 || '%'
+      or metadata->>'creativeWorkId' = $3
+      or metadata->>'outputId' = any($4)
+      or metadata->>'destinationId' = any($4)
+    ) order by created_at, id`;
+  const params: unknown[] = [scope.workspaceId, scope.since, scope.workId, scope.outputIds];
+  if (queryImpl) return queryImpl(sql, params);
+  const { Pool } = await import("pg");
+  const pool = new Pool({ connectionString: databaseUrl });
+  try {
+    const result = await pool.query(sql, params);
+    return result.rows as JourneyLedgerRow[];
+  } finally {
+    await pool.end();
+  }
+}
+
+/**
+ * Worker-side trigger for creative-work generation (the
+ * IMAGE_JOB_TARGET=worker `.v2` suffix of `creative-work.generate`).
+ * Replays carry a fresh event id with the original data so the run
+ * exercises job-level idempotency, not transport dedupe.
+ */
+export const REPLAY_GENERATE_EVENT = "creative-work.generate.v2";
+
+export interface ReplayEventData {
+  workspaceId: string;
+  workItemId: string;
+  outputId: string;
+  generationCorrelationId: string;
+}
+
+export function buildReplayEventId(outputId: string, nonce: string): string {
+  return `creative-work-generate:${outputId}:replay-${nonce}`;
+}
+
+export async function sendReplayEvent(input: {
+  queueUrl: string;
+  eventKey: string;
+  eventId: string;
+  data: ReplayEventData;
+}): Promise<{ eventId: string }> {
+  const { Inngest } = await import("inngest");
+  const sender = new Inngest({
+    id: "worker-journey-harness",
+    eventKey: input.eventKey,
+    baseUrl: input.queueUrl,
+    isDev: true,
+  });
+  await sender.send({ id: input.eventId, name: REPLAY_GENERATE_EVENT, data: input.data });
+  return { eventId: input.eventId };
 }
 
 export interface SpawnedProcess {
@@ -532,6 +722,23 @@ async function runBuild(config: HarnessConfig): Promise<void> {
   }
 }
 
+function startWorker(
+  config: HarnessConfig,
+  runDir: string,
+  workerEvidencePath: string,
+): SpawnedProcess {
+  return spawnLogged(
+    "worker",
+    process.execPath,
+    ["--conditions=react-server", "--import=tsx", "src/server/jobs/image-worker.ts"],
+    {
+      cwd: config.appDir,
+      env: childEnv(config, runDir, workerEvidencePath),
+      logPath: path.join(runDir, "worker.log"),
+    },
+  );
+}
+
 export async function bootHarness(config: HarnessConfig): Promise<HarnessProcesses> {
   await assertPortsFree(config.webPort, config.queuePort);
   if (config.build) {
@@ -562,18 +769,12 @@ export async function bootHarness(config: HarnessConfig): Promise<HarnessProcess
       logPath: path.join(runDir, "queue.log"),
     },
   );
+  // Every scenario except no-worker boots the worker: the matrix proves
+  // behavior WITH the executor up (replay, restart, failure, timeout and
+  // the unknown-unit skip all need a connected worker).
   let worker: SpawnedProcess | null = null;
-  if (config.scenario === "success") {
-    worker = spawnLogged(
-      "worker",
-      process.execPath,
-      ["--conditions=react-server", "--import=tsx", "src/server/jobs/image-worker.ts"],
-      {
-        cwd: config.appDir,
-        env: childEnv(config, runDir, workerEvidencePath),
-        logPath: path.join(runDir, "worker.log"),
-      },
-    );
+  if (config.scenario !== "no-worker") {
+    worker = startWorker(config, runDir, workerEvidencePath);
   }
   try {
     await withTimeout(
@@ -696,10 +897,27 @@ function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
 }
 
-async function driveJourney(
+export const JOURNEY_REQUEST_TEXT = "Peça sintética do harness worker-journey.";
+/**
+ * Failure markers travel inside the frozen request text (same R-010 seam
+ * the Playwright matrix uses), so the injection is per output, never per
+ * process — and unreachable code paths stay unmodified for the other rows.
+ */
+export const JOURNEY_REQUEST_TEXTS: Record<WorkerJourneyScenario, string> = {
+  success: JOURNEY_REQUEST_TEXT,
+  "no-worker": JOURNEY_REQUEST_TEXT,
+  replay: JOURNEY_REQUEST_TEXT,
+  restart: JOURNEY_REQUEST_TEXT,
+  failure: "Peça sintética [e2e:always-fail] do harness worker-journey.",
+  "ambiguous-timeout": "Peça sintética [e2e:timeout-once] do harness worker-journey.",
+  "pre-provider-failure": JOURNEY_REQUEST_TEXT,
+};
+
+async function dispatchJourney(
   config: HarnessConfig,
   processes: HarnessProcesses,
-): Promise<DispatchedJourney> {
+  requestText: string,
+): Promise<{ journey: DispatchedJourney; jar: string[]; workId: string }> {
   const fixture = JSON.parse(fs.readFileSync(processes.fixturePath, "utf8")) as JourneyFixture;
   if (!fixture.email || !fixture.password || !fixture.primaryClientProfileId) {
     throw new Error(
@@ -722,7 +940,7 @@ async function driveJourney(
     body: JSON.stringify({
       clientProfileId: fixture.primaryClientProfileId,
       draftKey: randomUUID(),
-      request: "Peça sintética do harness worker-journey.",
+      request: requestText,
       intent: "single",
       format: "4:5",
       settings: { targetFormats: [], formatMode: "manual" },
@@ -778,41 +996,70 @@ async function driveJourney(
     outputIds: outputs,
     outputs: [],
   };
-  const readOutputs = async (): Promise<JourneyOutputProjection[]> => {
-    const current = await apiFetch(
-      `${config.baseUrl}/api/creative-work/${workId}`,
-      jar,
+  return { journey, jar, workId };
+}
+
+export async function readJourneyOutputs(
+  baseUrl: string,
+  jar: string[],
+  workId: string,
+): Promise<JourneyOutputProjection[]> {
+  const current = await apiFetch(`${baseUrl}/api/creative-work/${workId}`, jar);
+  if (!current.response.ok) {
+    throw new Error(`poll failed (HTTP ${current.response.status}): ${truncate(current.body, 300)}`);
+  }
+  const state = parseJsonBody(current.body, "poll");
+  if (!Array.isArray(state.outputs)) throw new Error("poll returned no outputs array");
+  return (state.outputs as unknown[]).map((entry) => {
+    const row = asRecord(entry);
+    return {
+      id: String(row.id ?? ""),
+      status: String(row.status ?? ""),
+      hasOutput: row.hasOutput === true,
+      imageCallCount: typeof row.imageCallCount === "number" ? row.imageCallCount : 0,
+      failureCode: typeof row.failureCode === "string" ? row.failureCode : null,
+    };
+  });
+}
+
+export async function awaitJourneyTerminal(
+  baseUrl: string,
+  jar: string[],
+  workId: string,
+  timeoutMs: number,
+): Promise<JourneyOutputProjection[]> {
+  const deadline = Date.now() + timeoutMs;
+  let outputs: JourneyOutputProjection[] = [];
+  for (;;) {
+    outputs = await readJourneyOutputs(baseUrl, jar, workId);
+    const pending = outputs.filter(
+      (output) => output.status !== "completed" && output.status !== "failed",
     );
-    if (!current.response.ok) {
-      throw new Error(`poll failed (HTTP ${current.response.status}): ${truncate(current.body, 300)}`);
-    }
-    const state = parseJsonBody(current.body, "poll");
-    if (!Array.isArray(state.outputs)) throw new Error("poll returned no outputs array");
-    return (state.outputs as unknown[]).map((entry) => {
-      const row = asRecord(entry);
-      return {
-        id: String(row.id ?? ""),
-        status: String(row.status ?? ""),
-        hasOutput: row.hasOutput === true,
-        imageCallCount: typeof row.imageCallCount === "number" ? row.imageCallCount : 0,
-      };
-    });
-  };
-  if (config.scenario === "success") {
-    const deadline = Date.now() + config.timeoutMs;
-    for (;;) {
-      journey.outputs = await readOutputs();
-      const pending = journey.outputs.filter(
-        (output) => output.status !== "completed" && output.status !== "failed",
-      );
-      if (pending.length === 0 || Date.now() >= deadline) break;
-      await sleep(2000);
-    }
+    if (pending.length === 0 || Date.now() >= deadline) break;
+    await sleep(2000);
+  }
+  return outputs;
+}
+
+async function driveJourney(
+  config: HarnessConfig,
+  processes: HarnessProcesses,
+  wait: "terminal" | "observe",
+): Promise<{ journey: DispatchedJourney; jar: string[]; workId: string }> {
+  const driven = await dispatchJourney(
+    config,
+    processes,
+    JOURNEY_REQUEST_TEXTS[config.scenario],
+  );
+  if (wait === "terminal") {
+    driven.journey.outputs = await awaitJourneyTerminal(
+      config.baseUrl, driven.jar, driven.workId, config.timeoutMs,
+    );
   } else {
     await sleep(config.observeMs);
-    journey.outputs = await readOutputs();
+    driven.journey.outputs = await readJourneyOutputs(config.baseUrl, driven.jar, driven.workId);
   }
-  return journey;
+  return driven;
 }
 
 function readTextOrEmpty(filePath: string): string {
@@ -851,6 +1098,19 @@ export interface JourneyReportMeta {
   outputs: JourneyOutputProjection[];
   durationMs: number;
   startedAt: string;
+  /** Canonical settlement observation; null when the scenario skips the ledger. */
+  ledger: JourneyLedgerSummary | null;
+  sawProviderFailure: boolean;
+  replay: null | {
+    eventId: string;
+    providerCallsBefore: number;
+    providerCallsAfter: number;
+    debitsBefore: number;
+    debitsAfter: number;
+    refundsBefore: number;
+    refundsAfter: number;
+  };
+  restarted: boolean;
 }
 
 export interface JourneyReport {
@@ -863,15 +1123,20 @@ export const EXIT_OK = 0;
 export const EXIT_VALIDATION_FAILED = 1;
 export const EXIT_BOOTSTRAP_FAILED = 2;
 
-export const HARNESS_HELP = `worker-journey harness (ICE-02A): prove the split web + worker topology.
+export const HARNESS_HELP = `worker-journey harness (ICE-02A/02B): prove the split web + worker topology.
 
 usage:
   npx tsx scripts/run-worker-journey-harness.ts --scenario success [--build] [options]
   npx tsx scripts/run-worker-journey-harness.ts --scenario no-worker [options]
 
 scenarios:
-  success     boot web + queue + worker, run one synthetic piece, require worker execution
-  no-worker   boot web + queue only, dispatch, require zero execution anywhere
+  success               boot web + queue + worker, run one synthetic piece, require worker execution
+  no-worker             boot web + queue only, dispatch, require zero execution anywhere
+  replay                complete a journey, replay its event, require zero new generation or charges
+  restart               kill the worker around the dispatch, reboot, require exactly-once completion
+  failure               terminal provider failure, require single refund and zero net
+  ambiguous-timeout     retryable remote timeout, require current policy plus uncertainty flag
+  pre-provider-failure  dispatch an unknown unit, require zero calls and zero ledger rows
 
 options:
   --web-port N      web port (default ${HARNESS_DEFAULT_WEB_PORT})
@@ -891,69 +1156,255 @@ function writeReport(reportPath: string, report: JourneyReport): void {
   fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 }
 
+interface ProviderObservation {
+  webCalls: number;
+  workerCalls: number;
+  leakedCalls: number;
+  total: number;
+  sawFailure: boolean;
+}
+
+function observeProviderCalls(
+  processes: HarnessProcesses,
+  outputIds: string[],
+): ProviderObservation {
+  const webJsonl = readTextOrEmpty(processes.webEvidencePath);
+  const workerJsonl = processes.worker ? readTextOrEmpty(processes.workerEvidencePath) : "";
+  const defaultJsonl = readTextOrEmpty(processes.defaultEvidencePath);
+  // Journey output IDs are fresh per run, so any journey-attributed record
+  // in the default file belongs to this run.
+  const webCalls = countJourneyProviderCalls(webJsonl, outputIds);
+  const workerCalls = countJourneyProviderCalls(workerJsonl, outputIds);
+  const leakedCalls = countJourneyProviderCalls(defaultJsonl, outputIds);
+  return {
+    webCalls,
+    workerCalls,
+    leakedCalls,
+    total: webCalls + workerCalls + leakedCalls,
+    sawFailure: hasJourneyFailureRecord(workerJsonl, outputIds),
+  };
+}
+
+async function observeLedger(
+  config: HarnessConfig,
+  journey: Pick<DispatchedJourney, "workspaceId" | "workItemId" | "outputIds">,
+  since: string,
+): Promise<JourneyLedgerSummary> {
+  const rows = await readJourneyLedger(config.requiredEnv.DATABASE_URL, {
+    workspaceId: journey.workspaceId,
+    workId: journey.workItemId,
+    outputIds: journey.outputIds,
+    since,
+  });
+  return summarizeJourneyLedger(rows, journey.workItemId, journey.outputIds);
+}
+
+async function collectScenarioReport(
+  config: HarnessConfig,
+  processes: HarnessProcesses,
+  journey: DispatchedJourney,
+  since: string,
+  startedAt: string,
+  started: number,
+  extra: {
+    replay?: JourneyReportMeta["replay"];
+    restarted?: boolean;
+    skipLedger?: boolean;
+  } = {},
+): Promise<JourneyReport> {
+  const summary = summarizeJourneyOutputs(
+    journey.outputs.filter((output) => journey.outputIds.includes(output.id)),
+  );
+  const provider = observeProviderCalls(processes, journey.outputIds);
+  const executorObserved = classifyExecutor({
+    workerCalls: provider.workerCalls,
+    webCalls: provider.webCalls,
+    leakedCalls: provider.leakedCalls,
+    anyCompleted: summary.anyCompleted,
+  });
+  const workerConnected =
+    processes.worker !== null && processes.worker.output.includes(WORKER_CONNECTED_EVENT);
+  const ledger = extra.skipLedger ? null : await observeLedger(config, journey, since);
+  const evidence = buildJourneyEvidence({
+    scenario: config.scenario,
+    sha: resolveSha(config.appDir).sha,
+    nodeVersion: config.nodeVersion,
+    workspaceId: journey.workspaceId,
+    workItemId: journey.workItemId,
+    outputIds: journey.outputIds,
+    workerConnected,
+    executorObserved,
+    providerCalls: provider.total,
+    duplicateCharges: ledger ? ledger.duplicateCharges : null,
+    ledgerDebits: ledger ? ledger.debits : null,
+    ledgerRefunds: ledger ? ledger.refunds : null,
+    remoteUncertainty: resolveRemoteUncertainty(config.scenario, provider.sawFailure),
+    outputsSummary: summary,
+  });
+  const validation = validateWorkerJourneyEvidence(evidence);
+  const workerLog = processes.worker ? readTextOrEmpty(processes.worker.logPath) : "";
+  return {
+    evidence,
+    validation,
+    meta: {
+      scenario: config.scenario,
+      baseUrl: config.baseUrl,
+      queueUrl: config.queueUrl,
+      runDir: processes.runDir,
+      shaSource: resolveSha(config.appDir).source,
+      nodeVersion: config.nodeVersion,
+      runtimeCheckBypassed: config.runtimeCheckBypassed,
+      workerConnected,
+      providerCallsByProcess: {
+        web: provider.webCalls,
+        worker: provider.workerCalls,
+        leaked: provider.leakedCalls,
+      },
+      filesSeen: {
+        web: fs.existsSync(processes.webEvidencePath),
+        worker: processes.worker ? fs.existsSync(processes.workerEvidencePath) : false,
+      },
+      workerLogMentionsOutputs: journey.outputIds.some((id) => workerLog.includes(id)),
+      outputs: journey.outputs,
+      durationMs: Date.now() - started,
+      startedAt,
+      ledger,
+      sawProviderFailure: provider.sawFailure,
+      replay: extra.replay ?? null,
+      restarted: extra.restarted ?? false,
+    },
+  };
+}
+
+async function runReplayScenario(
+  config: HarnessConfig,
+  processes: HarnessProcesses,
+  startedAt: string,
+  started: number,
+): Promise<JourneyReport> {
+  const since = new Date().toISOString();
+  const { journey, jar, workId } = await driveJourney(config, processes, "terminal");
+  const outputId = journey.outputIds[0];
+  if (!outputId) throw new Error("replay scenario: journey produced no outputs");
+  const callsBefore = observeProviderCalls(processes, journey.outputIds).total;
+  const ledgerBefore = await observeLedger(config, journey, since);
+  // Fresh event id, original data: the run must hit job-level idempotency
+  // (completed output skips the provider), not transport dedupe.
+  const eventId = buildReplayEventId(outputId, randomUUID());
+  await sendReplayEvent({
+    queueUrl: config.queueUrl,
+    eventKey: config.requiredEnv.INNGEST_EVENT_KEY,
+    eventId,
+    data: {
+      workspaceId: journey.workspaceId,
+      workItemId: journey.workItemId,
+      outputId,
+      generationCorrelationId: journey.correlationId,
+    },
+  });
+  await sleep(config.observeMs);
+  journey.outputs = await readJourneyOutputs(config.baseUrl, jar, workId);
+  const callsAfter = observeProviderCalls(processes, journey.outputIds).total;
+  const ledgerAfter = await observeLedger(config, journey, since);
+  return collectScenarioReport(config, processes, journey, since, startedAt, started, {
+    replay: {
+      eventId,
+      providerCallsBefore: callsBefore,
+      providerCallsAfter: callsAfter,
+      debitsBefore: ledgerBefore.debits,
+      debitsAfter: ledgerAfter.debits,
+      refundsBefore: ledgerBefore.refunds,
+      refundsAfter: ledgerAfter.refunds,
+    },
+  });
+}
+
+async function runRestartScenario(
+  config: HarnessConfig,
+  processes: HarnessProcesses,
+  startedAt: string,
+  started: number,
+): Promise<JourneyReport> {
+  if (!processes.worker) throw new Error("restart scenario requires a booted worker");
+  // Kill the connected worker BEFORE the dispatch so the event queues while
+  // down; the rebooted worker must then execute it exactly once.
+  const firstWorker = processes.worker;
+  await stopProcess(firstWorker);
+  processes.worker = null;
+  const since = new Date().toISOString();
+  const { journey, jar, workId } = await dispatchJourney(
+    config,
+    processes,
+    JOURNEY_REQUEST_TEXTS.restart,
+  );
+  const rebooted = startWorker(config, processes.runDir, processes.workerEvidencePath);
+  processes.worker = rebooted;
+  await withTimeout(
+    waitForOutput(rebooted, WORKER_CONNECTED_EVENT, 120_000),
+    125_000,
+    "worker reconnect",
+  );
+  journey.outputs = await awaitJourneyTerminal(config.baseUrl, jar, workId, config.timeoutMs);
+  return collectScenarioReport(config, processes, journey, since, startedAt, started, {
+    restarted: true,
+  });
+}
+
+async function runUnknownUnitScenario(
+  config: HarnessConfig,
+  processes: HarnessProcesses,
+  startedAt: string,
+  started: number,
+): Promise<JourneyReport> {
+  // Fully synthetic unit: no work, output, charge or fixture rows exist.
+  // The connected worker must skip it before any provider invocation.
+  const since = new Date().toISOString();
+  const workspaceId = randomUUID();
+  const workItemId = randomUUID();
+  const outputId = randomUUID();
+  await sendReplayEvent({
+    queueUrl: config.queueUrl,
+    eventKey: config.requiredEnv.INNGEST_EVENT_KEY,
+    eventId: buildReplayEventId(outputId, randomUUID()),
+    data: {
+      workspaceId,
+      workItemId,
+      outputId,
+      generationCorrelationId: randomUUID(),
+    },
+  });
+  await sleep(config.observeMs);
+  const journey: DispatchedJourney = {
+    workspaceId,
+    workItemId,
+    correlationId: "",
+    outputIds: [outputId],
+    outputs: [],
+  };
+  return collectScenarioReport(config, processes, journey, since, startedAt, started, {});
+}
+
 export async function runScenario(config: HarnessConfig): Promise<JourneyReport> {
   const startedAt = new Date().toISOString();
   const started = Date.now();
   const processes = await bootHarness(config);
   try {
+    if (config.scenario === "pre-provider-failure") {
+      return runUnknownUnitScenario(config, processes, startedAt, started);
+    }
     await seedHarnessFixture(config, processes);
-    const journey = await driveJourney(config, processes);
-    const summary = summarizeJourneyOutputs(
-      journey.outputs.filter((output) => journey.outputIds.includes(output.id)),
-    );
-    const webJsonl = readTextOrEmpty(processes.webEvidencePath);
-    const workerJsonl = processes.worker ? readTextOrEmpty(processes.workerEvidencePath) : "";
-    const defaultJsonl = readTextOrEmpty(processes.defaultEvidencePath);
-    // Journey output IDs are fresh per run, so any journey-attributed record
-    // in the default file belongs to this run.
-    const webCalls = countJourneyProviderCalls(webJsonl, journey.outputIds);
-    const workerCalls = countJourneyProviderCalls(workerJsonl, journey.outputIds);
-    const leakedCalls = countJourneyProviderCalls(defaultJsonl, journey.outputIds);
-    const executorObserved = classifyExecutor({
-      workerCalls,
-      webCalls,
-      leakedCalls,
-      anyCompleted: summary.anyCompleted,
+    if (config.scenario === "restart") {
+      return runRestartScenario(config, processes, startedAt, started);
+    }
+    if (config.scenario === "replay") {
+      return runReplayScenario(config, processes, startedAt, started);
+    }
+    const since = new Date().toISOString();
+    const wait = config.scenario === "no-worker" ? "observe" : "terminal";
+    const { journey } = await driveJourney(config, processes, wait);
+    return collectScenarioReport(config, processes, journey, since, startedAt, started, {
+      skipLedger: config.scenario === "no-worker",
     });
-    const workerConnected =
-      processes.worker !== null && processes.worker.output.includes(WORKER_CONNECTED_EVENT);
-    const evidence = buildJourneyEvidence({
-      scenario: config.scenario,
-      sha: resolveSha(config.appDir).sha,
-      nodeVersion: config.nodeVersion,
-      workspaceId: journey.workspaceId,
-      workItemId: journey.workItemId,
-      outputIds: journey.outputIds,
-      workerConnected,
-      executorObserved,
-      providerCalls: webCalls + workerCalls + leakedCalls,
-      outputsSummary: summary,
-    });
-    const validation = validateWorkerJourneyEvidence(evidence);
-    const workerLog = processes.worker ? readTextOrEmpty(processes.worker.logPath) : "";
-    return {
-      evidence,
-      validation,
-      meta: {
-        scenario: config.scenario,
-        baseUrl: config.baseUrl,
-        queueUrl: config.queueUrl,
-        runDir: processes.runDir,
-        shaSource: resolveSha(config.appDir).source,
-        nodeVersion: config.nodeVersion,
-        runtimeCheckBypassed: config.runtimeCheckBypassed,
-        workerConnected,
-        providerCallsByProcess: { web: webCalls, worker: workerCalls, leaked: leakedCalls },
-        filesSeen: {
-          web: fs.existsSync(processes.webEvidencePath),
-          worker: processes.worker ? fs.existsSync(processes.workerEvidencePath) : false,
-        },
-        workerLogMentionsOutputs: journey.outputIds.some((id) => workerLog.includes(id)),
-        outputs: journey.outputs,
-        durationMs: Date.now() - started,
-        startedAt,
-      },
-    };
   } finally {
     await stopHarness(processes);
   }

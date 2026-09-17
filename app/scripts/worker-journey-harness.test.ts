@@ -1,12 +1,28 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildJourneyEvidence,
+  buildReplayEventId,
   classifyExecutor,
   countJourneyProviderCalls,
+  hasJourneyFailureRecord,
+  HARNESS_SCENARIOS,
   parseHarnessArgs,
+  readJourneyLedger,
+  REPLAY_GENERATE_EVENT,
   resolveHarnessConfig,
+  resolveRemoteUncertainty,
+  sendReplayEvent,
+  summarizeJourneyLedger,
   summarizeJourneyOutputs,
 } from "./worker-journey-harness";
+
+vi.mock("inngest", () => {
+  const send = vi.fn(async () => ({ ids: ["evt-test"] }));
+  function InngestMock() {
+    return { send };
+  }
+  return { Inngest: InngestMock, __send: send };
+});
 
 describe("harness args", () => {
   it("parses a full invocation", () => {
@@ -55,12 +71,27 @@ describe("harness args", () => {
   });
 
   it("rejects unknown scenarios, flags and bad ports", () => {
-    expect(() => parseHarnessArgs(["--scenario", "replay"])).toThrow(/scenario/);
+    expect(() => parseHarnessArgs(["--scenario", "bogus"])).toThrow(/scenario/);
     expect(() => parseHarnessArgs(["--scenario", "success", "--nope"])).toThrow(/unknown flag/);
     expect(() => parseHarnessArgs(["--scenario", "success", "--web-port", "abc"])).toThrow(
       /web-port/,
     );
     expect(() => parseHarnessArgs([])).toThrow(/scenario/);
+  });
+
+  it("accepts every failure-matrix scenario", () => {
+    expect(HARNESS_SCENARIOS).toEqual([
+      "success",
+      "no-worker",
+      "replay",
+      "restart",
+      "failure",
+      "ambiguous-timeout",
+      "pre-provider-failure",
+    ]);
+    for (const scenario of HARNESS_SCENARIOS) {
+      expect(parseHarnessArgs(["--scenario", scenario]).scenario).toBe(scenario);
+    }
   });
 });
 
@@ -166,7 +197,7 @@ describe("output summarization", () => {
         { id: "a", status: "completed", hasOutput: true, imageCallCount: 2 },
         { id: "b", status: "completed", hasOutput: true, imageCallCount: 1 },
       ]),
-    ).toEqual({ allCompletedWithBytes: true, unexecuted: false, anyCompleted: true });
+    ).toEqual({ allCompletedWithBytes: true, unexecuted: false, anyCompleted: true, failed: false });
   });
 
   it("recognizes unexecuted outputs", () => {
@@ -175,7 +206,7 @@ describe("output summarization", () => {
         { id: "a", status: "queued", hasOutput: false, imageCallCount: 0 },
         { id: "b", status: "processing", hasOutput: false, imageCallCount: 0 },
       ]),
-    ).toEqual({ allCompletedWithBytes: false, unexecuted: true, anyCompleted: false });
+    ).toEqual({ allCompletedWithBytes: false, unexecuted: true, anyCompleted: false, failed: false });
   });
 
   it("marks partial or failed states as neither completed nor unexecuted", () => {
@@ -184,16 +215,27 @@ describe("output summarization", () => {
         { id: "a", status: "completed", hasOutput: true, imageCallCount: 1 },
         { id: "b", status: "failed", hasOutput: false, imageCallCount: 0 },
       ]),
-    ).toEqual({ allCompletedWithBytes: false, unexecuted: false, anyCompleted: true });
+    ).toEqual({ allCompletedWithBytes: false, unexecuted: false, anyCompleted: true, failed: false });
     expect(summarizeJourneyOutputs([])).toEqual({
       allCompletedWithBytes: false,
       unexecuted: false,
       anyCompleted: false,
+      failed: false,
     });
+  });
+
+  it("recognizes a terminal all-failed set", () => {
+    expect(
+      summarizeJourneyOutputs([
+        { id: "a", status: "failed", hasOutput: false, imageCallCount: 1 },
+      ]),
+    ).toEqual({ allCompletedWithBytes: false, unexecuted: false, anyCompleted: false, failed: true });
   });
 });
 
 describe("evidence building", () => {
+  const settledLedger = { duplicateCharges: 0, ledgerDebits: 1, ledgerRefunds: 0 } as const;
+
   it("builds a valid success record from collected observations", () => {
     const evidence = buildJourneyEvidence({
       scenario: "success",
@@ -205,14 +247,19 @@ describe("evidence building", () => {
       workerConnected: true,
       executorObserved: "worker",
       providerCalls: 3,
-      outputsSummary: { allCompletedWithBytes: true, unexecuted: false, anyCompleted: true },
+      ...settledLedger,
+      remoteUncertainty: "none",
+      outputsSummary: { allCompletedWithBytes: true, unexecuted: false, anyCompleted: true, failed: false },
     });
     expect(evidence).toMatchObject({
       schemaVersion: 1,
       syntheticOrigin: true,
       workerTarget: "worker",
       resultObserved: "completed",
-      duplicateCharges: null,
+      duplicateCharges: 0,
+      ledgerDebits: 1,
+      ledgerRefunds: 0,
+      remoteUncertainty: "none",
     });
   });
 
@@ -227,7 +274,11 @@ describe("evidence building", () => {
       workerConnected: false,
       executorObserved: "none",
       providerCalls: 0,
-      outputsSummary: { allCompletedWithBytes: false, unexecuted: true, anyCompleted: false },
+      duplicateCharges: null,
+      ledgerDebits: null,
+      ledgerRefunds: null,
+      remoteUncertainty: "none",
+      outputsSummary: { allCompletedWithBytes: false, unexecuted: true, anyCompleted: false, failed: false },
     });
     expect(evidence.resultObserved).toBe("unexecuted");
   });
@@ -243,8 +294,149 @@ describe("evidence building", () => {
       workerConnected: true,
       executorObserved: "worker",
       providerCalls: 1,
-      outputsSummary: { allCompletedWithBytes: false, unexecuted: false, anyCompleted: true },
+      ...settledLedger,
+      remoteUncertainty: "none",
+      outputsSummary: { allCompletedWithBytes: false, unexecuted: false, anyCompleted: true, failed: false },
     });
     expect(evidence.resultObserved).toBe("unknown");
+  });
+
+  it("derives failed for terminal scenarios and unexecuted for the unknown unit", () => {
+    const failed = buildJourneyEvidence({
+      scenario: "failure",
+      sha: "deadbeef",
+      nodeVersion: "20.19.0",
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputIds: ["out-1"],
+      workerConnected: true,
+      executorObserved: "worker",
+      providerCalls: 1,
+      duplicateCharges: 0,
+      ledgerDebits: 1,
+      ledgerRefunds: 1,
+      remoteUncertainty: "none",
+      outputsSummary: { allCompletedWithBytes: false, unexecuted: false, anyCompleted: false, failed: true },
+    });
+    expect(failed.resultObserved).toBe("failed");
+    const unknown = buildJourneyEvidence({
+      scenario: "pre-provider-failure",
+      sha: "deadbeef",
+      nodeVersion: "20.19.0",
+      workspaceId: "ws-1",
+      workItemId: "work-1",
+      outputIds: ["out-1"],
+      workerConnected: true,
+      executorObserved: "none",
+      providerCalls: 0,
+      duplicateCharges: 0,
+      ledgerDebits: 0,
+      ledgerRefunds: 0,
+      remoteUncertainty: "none",
+      outputsSummary: { allCompletedWithBytes: false, unexecuted: false, anyCompleted: false, failed: false },
+    });
+    expect(unknown.resultObserved).toBe("unexecuted");
+  });
+});
+
+describe("remote uncertainty", () => {
+  const line = (outputPrefix: string, outcome: string) =>
+    JSON.stringify({ ts: "2026-09-16T00:00:00.000Z", outputPrefix, outcome });
+
+  it("detects journey failure records and ignores the rest", () => {
+    const jsonl = [
+      line("creative-work/out-1", "failure"),
+      line("creative-work/out-1", "success"),
+      line("creative-work/other", "failure"),
+      "not json",
+    ].join("\n");
+    expect(hasJourneyFailureRecord(jsonl, ["out-1"])).toBe(true);
+    expect(hasJourneyFailureRecord(jsonl, ["out-9"])).toBe(false);
+    expect(hasJourneyFailureRecord("", ["out-1"])).toBe(false);
+  });
+
+  it("indicates ambiguity only for the timeout probe with an observed failure", () => {
+    expect(resolveRemoteUncertainty("ambiguous-timeout", true)).toBe("ambiguous_provider_timeout");
+    expect(resolveRemoteUncertainty("ambiguous-timeout", false)).toBe("none");
+    expect(resolveRemoteUncertainty("failure", true)).toBe("none");
+    expect(resolveRemoteUncertainty("success", true)).toBe("none");
+  });
+});
+
+describe("settlement ledger", () => {
+  const row = (idempotency_key: string, metadata: Record<string, unknown> | null = null) => ({
+    idempotency_key,
+    type: "image_derivation",
+    amount: 5,
+    metadata,
+  });
+
+  it("counts one debit and zero refunds for a settled journey", () => {
+    const summary = summarizeJourneyLedger(
+      [row("creative-work:work-1:initial"), row("creative-work:other:initial")],
+      "work-1",
+      ["out-1"],
+    );
+    expect(summary).toMatchObject({ debits: 1, refunds: 0, duplicateCharges: 0 });
+    expect(summary.debitKeys).toEqual(["creative-work:work-1:initial"]);
+  });
+
+  it("counts terminal and compensatory refunds via keys and metadata", () => {
+    const summary = summarizeJourneyLedger(
+      [
+        row("creative-work:work-1:initial"),
+        row("creative-work:work-1:output:out-1:terminal-refund"),
+        row("creative-output:out-1:compensatory-refund", { creativeWorkId: "work-1", outputId: "out-1" }),
+        row("creative-output:out-9:compensatory-refund", { creativeWorkId: "work-9", outputId: "out-9" }),
+      ],
+      "work-1",
+      ["out-1"],
+    );
+    expect(summary).toMatchObject({ debits: 1, refunds: 2, duplicateCharges: 0 });
+  });
+
+  it("flags extra debits as duplicate charges", () => {
+    const summary = summarizeJourneyLedger(
+      [row("creative-work:work-1:initial"), row("creative-work:work-1:initial:retry")],
+      "work-1",
+      ["out-1"],
+    );
+    expect(summary).toMatchObject({ debits: 2, duplicateCharges: 1 });
+  });
+
+  it("queries the canonical usage ledger scoped to the journey", async () => {
+    const seen: Array<{ sql: string; params: unknown[] }> = [];
+    const rows = await readJourneyLedger(
+      "postgres://unused",
+      { workspaceId: "ws-1", workId: "work-1", outputIds: ["out-1"], since: "2026-09-17T00:00:00.000Z" },
+      async (sql, params) => {
+        seen.push({ sql, params });
+        return [];
+      },
+    );
+    expect(rows).toEqual([]);
+    expect(seen).toHaveLength(1);
+    expect(seen[0].sql).toMatch(/adscale_app\.usage_events/);
+    expect(seen[0].sql).toMatch(/workspace_id = \$1/);
+    expect(seen[0].params).toEqual(["ws-1", "2026-09-17T00:00:00.000Z", "work-1", ["out-1"]]);
+  });
+});
+
+describe("replay dispatch", () => {
+  it("targets the worker-side generate trigger with a fresh event id", async () => {
+    expect(REPLAY_GENERATE_EVENT).toBe("creative-work.generate.v2");
+    expect(buildReplayEventId("out-1", "abc")).toBe("creative-work-generate:out-1:replay-abc");
+    await sendReplayEvent({
+      queueUrl: "http://127.0.0.1:8288",
+      eventKey: "test",
+      eventId: "creative-work-generate:out-1:replay-abc",
+      data: { workspaceId: "ws-1", workItemId: "work-1", outputId: "out-1", generationCorrelationId: "corr-1" },
+    });
+    const mocked = (await import("inngest")) as unknown as { __send: ReturnType<typeof vi.fn> };
+    expect(mocked.__send).toHaveBeenCalledWith({
+      id: "creative-work-generate:out-1:replay-abc",
+      name: "creative-work.generate.v2",
+      data: { workspaceId: "ws-1", workItemId: "work-1", outputId: "out-1", generationCorrelationId: "corr-1" },
+    });
   });
 });

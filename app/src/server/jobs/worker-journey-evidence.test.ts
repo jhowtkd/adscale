@@ -19,7 +19,10 @@ function baseEvidence(): WorkerJourneyEvidence {
     workerConnected: true,
     executorObserved: "worker",
     providerCalls: 3,
-    duplicateCharges: null,
+    duplicateCharges: 0,
+    ledgerDebits: 1,
+    ledgerRefunds: 0,
+    remoteUncertainty: "none",
     resultObserved: "completed",
   };
 }
@@ -130,5 +133,120 @@ describe("worker-journey evidence contract", () => {
     expect(
       validateWorkerJourneyEvidence({ ...evidence, providerCalls: 2 }).ok,
     ).toBe(false);
+  });
+
+  it("accepts replay and restart with exactly one execution", () => {
+    for (const scenario of ["replay", "restart"] as const) {
+      const evidence = {
+        ...baseEvidence(),
+        scenario,
+        providerCalls: 1,
+      };
+      expect(validateWorkerJourneyEvidence(evidence)).toEqual({ ok: true, failures: [] });
+      // A new retry would surface as extra calls — the matrix must catch it.
+      expect(validateWorkerJourneyEvidence({ ...evidence, providerCalls: 2 }).ok).toBe(false);
+      expect(validateWorkerJourneyEvidence({ ...evidence, providerCalls: 0 }).ok).toBe(false);
+      expect(
+        validateWorkerJourneyEvidence({ ...evidence, resultObserved: "failed" }).ok,
+      ).toBe(false);
+    }
+  });
+
+  it("accepts terminal failure with a single refund and zero net", () => {
+    const evidence = {
+      ...baseEvidence(),
+      scenario: "failure" as const,
+      providerCalls: 1,
+      ledgerRefunds: 1,
+      resultObserved: "failed" as const,
+    };
+    expect(validateWorkerJourneyEvidence(evidence)).toEqual({ ok: true, failures: [] });
+    expect(validateWorkerJourneyEvidence({ ...evidence, ledgerRefunds: 0 }).ok).toBe(false);
+    expect(validateWorkerJourneyEvidence({ ...evidence, ledgerRefunds: 2 }).ok).toBe(false);
+    expect(
+      validateWorkerJourneyEvidence({ ...evidence, resultObserved: "completed" }).ok,
+    ).toBe(false);
+  });
+
+  it("requires the uncertainty flag on the ambiguous-timeout scenario", () => {
+    const evidence = {
+      ...baseEvidence(),
+      scenario: "ambiguous-timeout" as const,
+      providerCalls: 1,
+      ledgerRefunds: 1,
+      remoteUncertainty: "ambiguous_provider_timeout" as const,
+      resultObserved: "failed" as const,
+    };
+    expect(validateWorkerJourneyEvidence(evidence)).toEqual({ ok: true, failures: [] });
+    expect(
+      validateWorkerJourneyEvidence({ ...evidence, remoteUncertainty: "none" }).ok,
+    ).toBe(false);
+  });
+
+  it("accepts pre-provider failure with zero calls and zero ledger rows", () => {
+    const evidence = {
+      ...baseEvidence(),
+      scenario: "pre-provider-failure" as const,
+      executorObserved: "none" as const,
+      providerCalls: 0,
+      ledgerDebits: 0,
+      resultObserved: "unexecuted" as const,
+    };
+    expect(validateWorkerJourneyEvidence(evidence)).toEqual({ ok: true, failures: [] });
+    // The worker is UP here — that is what distinguishes it from no-worker.
+    expect(validateWorkerJourneyEvidence({ ...evidence, workerConnected: false }).ok).toBe(false);
+    expect(validateWorkerJourneyEvidence({ ...evidence, providerCalls: 1 }).ok).toBe(false);
+    expect(validateWorkerJourneyEvidence({ ...evidence, ledgerDebits: 1 }).ok).toBe(false);
+  });
+
+  it("requires an observed ledger in every matrix scenario", () => {
+    for (const scenario of [
+      "success",
+      "replay",
+      "restart",
+      "failure",
+      "ambiguous-timeout",
+      "pre-provider-failure",
+    ] as const) {
+      const evidence = {
+        ...baseEvidence(),
+        scenario,
+        providerCalls: scenario === "pre-provider-failure" ? 0 : 1,
+        executorObserved: (scenario === "pre-provider-failure" ? "none" : "worker") as
+          | "none"
+          | "worker",
+        resultObserved: (scenario === "failure" || scenario === "ambiguous-timeout"
+          ? "failed"
+          : scenario === "pre-provider-failure"
+            ? "unexecuted"
+            : "completed") as "completed" | "unexecuted" | "failed",
+        ledgerDebits: scenario === "pre-provider-failure" ? 0 : 1,
+        ledgerRefunds: scenario === "failure" || scenario === "ambiguous-timeout" ? 1 : 0,
+        remoteUncertainty: (scenario === "ambiguous-timeout"
+          ? "ambiguous_provider_timeout"
+          : "none") as "none" | "ambiguous_provider_timeout",
+      };
+      expect(validateWorkerJourneyEvidence(evidence).ok).toBe(true);
+      expect(
+        validateWorkerJourneyEvidence({ ...evidence, duplicateCharges: null }).ok,
+      ).toBe(false);
+      expect(validateWorkerJourneyEvidence({ ...evidence, ledgerDebits: null }).ok).toBe(false);
+      expect(validateWorkerJourneyEvidence({ ...evidence, ledgerRefunds: null }).ok).toBe(false);
+    }
+  });
+
+  it("keeps the ledger optional in the no-worker scenario", () => {
+    const evidence = {
+      ...baseEvidence(),
+      scenario: "no-worker" as const,
+      workerConnected: false,
+      executorObserved: "none" as const,
+      providerCalls: 0,
+      duplicateCharges: null,
+      ledgerDebits: null,
+      ledgerRefunds: null,
+      resultObserved: "unexecuted" as const,
+    };
+    expect(validateWorkerJourneyEvidence(evidence)).toEqual({ ok: true, failures: [] });
   });
 });
