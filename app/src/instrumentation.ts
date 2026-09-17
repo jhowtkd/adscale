@@ -59,6 +59,12 @@ function initSentry() {
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     initSentry();
+    // Dynamic import: the Node observability SDK must never enter the
+    // Edge bundle. Never throws into boot; failures degrade silently.
+    const { initializeObservability } = await import(
+      "./server/diagnostics/observability"
+    );
+    await initializeObservability("web");
   }
 
   if (process.env.NEXT_RUNTIME === "edge") {

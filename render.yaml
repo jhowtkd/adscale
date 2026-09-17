@@ -117,7 +117,7 @@ services:
     autoDeployTrigger: checksPass
     maxShutdownDelaySeconds: 300
     buildCommand: npm ci
-    startCommand: node --conditions=react-server --import=tsx src/server/jobs/image-worker.ts
+    startCommand: node --conditions=react-server --import=tsx src/server/jobs/image-worker-entry.ts
     envVars:
       - key: NODE_OPTIONS
         value: --conditions=react-server --max-old-space-size=1536
