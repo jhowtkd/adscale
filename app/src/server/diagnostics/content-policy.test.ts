@@ -99,11 +99,11 @@ describe("resolveContentPolicy (#391)", () => {
 
   it("returns redacted only after access AND deletion verification pass, in order", async () => {
     const order: string[] = [];
-    const verifyAccess = vi.fn(async (_workspaceId: string) => {
+    const verifyAccess = vi.fn(async () => {
       order.push("access");
       return true;
     });
-    const verifyDeletion = vi.fn(async (_workspaceId: string) => {
+    const verifyDeletion = vi.fn(async () => {
       order.push("deletion");
       return true;
     });

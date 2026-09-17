@@ -1,7 +1,4 @@
-import type {
-  DiagnosticContentMode,
-  ResolveContentPolicy,
-} from "./contract";
+import type { DiagnosticContentMode } from "./contract";
 
 /**
  * Diagnostic content policy (jhowtkd/adscale#391).
