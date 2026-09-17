@@ -107,15 +107,22 @@ export function useComposerOutputActions(input: {
         confirmObjective,
         saveAsRecipe,
       });
-      // A peca esta selecionada. Um efeito parcial informa, mas nunca reverte
-      // visualmente a selecao nem marca approvalErrorOutputId.
-      const recipeIncomplete = saveAsRecipe && result.effects.recipe.status !== "done";
+      // A peca esta selecionada. Efeitos parciais informam, mas nunca
+      // revertem visualmente a selecao nem marcam approvalErrorOutputId:
+      // pendentes convergem sozinhos, falhas sao permanentes e identificadas.
+      const effectStatuses = [
+        result.effects.library,
+        result.effects.valueEvent,
+        result.effects.recipe,
+      ].map((effect) => effect.status);
       setAnnouncement(
-        recipeIncomplete
-          ? tResults("approvedRecipePending")
-          : saveAsRecipe
-            ? tResults("savedAsRecipe")
-            : "Proposta aprovada",
+        effectStatuses.includes("pending")
+          ? tResults("approvedSavePending")
+          : effectStatuses.includes("failed")
+            ? tResults("approvedSaveFailed")
+            : saveAsRecipe
+              ? tResults("savedAsRecipe")
+              : "Proposta aprovada",
       );
       recordCanonicalEvent("creative_work_approved", workIdRef.current, {
         protocol: toolKind === "social_post" ? "variations" : toolKind ?? "variations",

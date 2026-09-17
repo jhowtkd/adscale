@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "baselineId": "qr-baseline-1",
+  "policyVersion": "quality_recovery_v1",
+  "inputsHash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "runAt": null,
+  "runBy": null,
+  "authorization": { "authorizedBy": null, "authorizedAt": null },
+  "artifacts": [],
+  "_instructions": [
+    "Baseline reproduction report (ICE-05A). Produced by an independently authorized rerun of the captured baseline — never synthesized.",
+    "The rerun needs its own human authorization (authorizedBy/authorizedAt); the verifier rejects unauthorized reports.",
+    "Verify with: npx tsx scripts/verify-baseline-reproduction.ts <baseline.json> <reproduction.json>."
+  ]
+}

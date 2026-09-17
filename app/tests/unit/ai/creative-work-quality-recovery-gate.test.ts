@@ -563,3 +563,52 @@ describe("evaluateGate technical and financial limits", () => {
     }, "after evidenceWindow.startedAt");
   });
 });
+
+describe("evaluateGate preference provenance and tally (ICE-05A)", () => {
+  it("fails votes decided by an agent or filled from an automatic score", () => {
+    expectFailure((evidence) => {
+      evidence.journeys[0].blindComparison.preferenceProvenance = {
+        vsProduction: "agent",
+        vsDirect: "human",
+      };
+    }, "never count as human preference");
+    expectFailure((evidence) => {
+      evidence.journeys[3].blindComparison.preferenceProvenance = {
+        vsProduction: "human",
+        vsDirect: "auto_score",
+      };
+    }, "never count as human preference");
+  });
+
+  it("accepts human provenance and legacy evidence without provenance", () => {
+    const human = failuresFor((evidence) => {
+      for (const journey of evidence.journeys) {
+        journey.blindComparison.preferenceProvenance = { vsProduction: "human", vsDirect: "human" };
+      }
+    });
+    expect(human).toEqual([]);
+    expect(failuresFor(() => {})).toEqual([]);
+  });
+
+  it("tallies wins, losses, ties, inconclusives and per-protocol buckets", () => {
+    const evidence = validEvidence();
+    evidence.journeys[0].blindComparison.preferenceVsProduction = "baseline";
+    evidence.journeys[1].blindComparison.preferenceVsProduction = "tie";
+    evidence.journeys[1].blindComparison.preferenceVsDirect = "tie";
+    evidence.journeys[2].objectiveVerdict = "inconclusive";
+    evidence.journeys[2].inconclusiveResolution = {
+      verdict: "pass",
+      reviewerId: "reviewer-1",
+      resolvedAt: "2026-07-24T10:00:00.000Z",
+    };
+    const { failures, summary } = evaluateGate(evidence);
+    expect(failures).toEqual([
+      expect.stringContaining('protocol "single" v1 preference rate is 25.0%'),
+    ]);
+    expect(summary.tallyVsProduction).toEqual({ wins: 7, losses: 1, ties: 2 });
+    expect(summary.tallyVsDirect).toEqual({ wins: 8, losses: 0, ties: 2 });
+    expect(summary.inconclusiveVerdicts).toBe(1);
+    expect(summary.perProtocolTally.single?.vsProduction).toEqual({ wins: 0, losses: 1, ties: 1 });
+    expect(summary.perProtocolTally.single?.vsDirect).toEqual({ wins: 1, losses: 0, ties: 1 });
+  });
+});

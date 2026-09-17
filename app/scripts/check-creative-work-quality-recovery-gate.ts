@@ -111,6 +111,12 @@ export interface GateEvidence {
   };
 }
 
+export interface PreferenceTally {
+  wins: number;
+  losses: number;
+  ties: number;
+}
+
 export interface GateSummary {
   journeys: number;
   brands: number;
@@ -121,6 +127,11 @@ export interface GateSummary {
   p95OutputMs: number | null;
   p95BatchMs: number | null;
   maxRssMb: number | null;
+  /** ICE-05A: blind wins/losses/ties plus inconclusive verdicts; absence is never zeroed silently. */
+  tallyVsProduction: PreferenceTally;
+  tallyVsDirect: PreferenceTally;
+  inconclusiveVerdicts: number;
+  perProtocolTally: Record<string, { vsProduction: PreferenceTally; vsDirect: PreferenceTally }>;
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -307,6 +318,7 @@ function checkMandatoryAssertions(journey: GateJourney, label: string, failures:
  */
 export function evaluateGate(evidence: unknown): { failures: string[]; summary: GateSummary } {
   const failures: string[] = [];
+  const emptyTally = (): PreferenceTally => ({ wins: 0, losses: 0, ties: 0 });
   const summary: GateSummary = {
     journeys: 0,
     brands: 0,
@@ -317,6 +329,10 @@ export function evaluateGate(evidence: unknown): { failures: string[]; summary: 
     p95OutputMs: null,
     p95BatchMs: null,
     maxRssMb: null,
+    tallyVsProduction: emptyTally(),
+    tallyVsDirect: emptyTally(),
+    inconclusiveVerdicts: 0,
+    perProtocolTally: {},
   };
 
   const record = asRecord(evidence);
@@ -457,6 +473,24 @@ export function evaluateGate(evidence: unknown): { failures: string[]; summary: 
       if (!PREFERENCES.includes(blind.preferenceVsDirect as Preference)) {
         failures.push(`${label}.blindComparison.preferenceVsDirect is required (v1, baseline or tie)`);
       }
+      // ICE-05A: a vote decided by an agent or filled from an automatic
+      // score is not a human vote — it fails loudly. Absent provenance is
+      // legacy evidence and passes through, never reclassified.
+      const provenance = asRecord(blind.preferenceProvenance) ?? {};
+      for (const key of ["vsProduction", "vsDirect"] as const) {
+        const decidedBy = provenance[key];
+        if (decidedBy === null || decidedBy === undefined) continue;
+        if (decidedBy === "human") continue;
+        if (decidedBy === "agent" || decidedBy === "auto_score") {
+          failures.push(
+            `${label}.blindComparison.preferenceProvenance.${key} is "${decidedBy}": agent and automatic-score votes never count as human preference`,
+          );
+        } else {
+          failures.push(
+            `${label}.blindComparison.preferenceProvenance.${key} must be "human", "agent" or "auto_score"`,
+          );
+        }
+      }
     }
 
     checkMandatoryAssertions(journey, label, failures);
@@ -488,6 +522,26 @@ export function evaluateGate(evidence: unknown): { failures: string[]; summary: 
   summary.v1PreferenceVsDirect = journeys.filter(
     (journey) => journey.blindComparison?.preferenceVsDirect === "v1"
   ).length;
+  // ICE-05A tally: every preference lands in exactly one bucket per arm;
+  // ties and inconclusives stay visible instead of vanishing into a rate.
+  const count = (preference: unknown, tally: PreferenceTally): void => {
+    if (preference === "v1") tally.wins += 1;
+    else if (preference === "baseline") tally.losses += 1;
+    else if (preference === "tie") tally.ties += 1;
+  };
+  for (const journey of journeys) {
+    count(journey.blindComparison?.preferenceVsProduction, summary.tallyVsProduction);
+    count(journey.blindComparison?.preferenceVsDirect, summary.tallyVsDirect);
+    if (journey.objectiveVerdict === "inconclusive") summary.inconclusiveVerdicts += 1;
+    const protocol = typeof journey.protocol === "string" ? journey.protocol : "unknown";
+    const slot = summary.perProtocolTally[protocol] ?? {
+      vsProduction: emptyTally(),
+      vsDirect: emptyTally(),
+    };
+    count(journey.blindComparison?.preferenceVsProduction, slot.vsProduction);
+    count(journey.blindComparison?.preferenceVsDirect, slot.vsDirect);
+    summary.perProtocolTally[protocol] = slot;
+  }
   if (summary.v1PreferenceVsProduction < MIN_V1_PREFERENCES) {
     failures.push(
       `v1 preference vs frozen production is ${summary.v1PreferenceVsProduction}/${JOURNEY_COUNT}; at least ${MIN_V1_PREFERENCES}/${JOURNEY_COUNT} is required and ties count as non-preference`

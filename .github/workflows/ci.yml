@@ -381,6 +381,104 @@ jobs:
           path: app/tests/e2e/.evidence/worker-journey-*.json
           if-no-files-found: warn
 
+  selection-effects-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: adscale_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: app/.nvmrc
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        run: cd app && npm ci
+
+      - name: Run migrations
+        run: cd app && npx drizzle-kit migrate
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
+
+      - name: Build for harness
+        run: cd app && npm run build
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
+          BETTER_AUTH_SECRET: "01234567890123456789012345678901"
+          BETTER_AUTH_URL: http://localhost:3000
+          OPENAI_API_KEY: [REDACTED]
+          OPENAI_TEXT_MODEL: gpt-4o
+          OPENAI_IMAGE_MODEL: gpt-image-1
+          MINIMAX_API_KEY: minimax-test-key-for-ci-build
+          R2_ACCOUNT_ID: test
+          R2_ACCESS_KEY_ID: test
+          R2_SECRET_ACCESS_KEY: test
+          R2_BUCKET: test
+          R2_PUBLIC_BASE_URL: https://test.example.com
+          INNGEST_EVENT_KEY: test
+          INNGEST_SIGNING_KEY: test
+          RESEND_API_KEY: re_test_ci_build_placeholder_key
+          EMAIL_FROM: "ADScale <onboarding@example.com>"
+          APP_URL: http://localhost:3000
+          STRIPE_SECRET_KEY: sk_test_ci_build_placeholder_key
+          STRIPE_WEBHOOK_SECRET: whsec_test_ci_build_placeholder
+          STRIPE_STARTER_PRICE_ID: price_starter
+          STRIPE_GROWTH_PRICE_ID: price_growth
+          STRIPE_SCALE_PRICE_ID: price_scale
+          STRIPE_SUCCESS_URL: http://localhost:3000/settings?tab=billing&checkout=success
+          STRIPE_CANCEL_URL: http://localhost:3000/settings?tab=plans&checkout=cancel
+          E2E_STORAGE_DIR: /tmp/adscale-e2e-storage
+
+      - name: Run selection-effects recovery E2E
+        run: cd app && npm run harness:selection-effects-recovery
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
+          BETTER_AUTH_SECRET: "01234567890123456789012345678901"
+          EMAIL_FROM: "ADScale <onboarding@example.com>"
+          OPENAI_API_KEY: [REDACTED]
+          OPENAI_TEXT_MODEL: gpt-4o
+          OPENAI_IMAGE_MODEL: gpt-image-1
+          MINIMAX_API_KEY: minimax-test-key-for-ci
+          R2_ACCOUNT_ID: test
+          R2_ACCESS_KEY_ID: test
+          R2_SECRET_ACCESS_KEY: test
+          R2_BUCKET: test
+          R2_PUBLIC_BASE_URL: https://test.example.com
+          INNGEST_EVENT_KEY: test
+          INNGEST_SIGNING_KEY: test
+          STRIPE_SECRET_KEY: sk_test_ci
+          STRIPE_WEBHOOK_SECRET: whsec_test_ci
+          STRIPE_STARTER_PRICE_ID: price_starter
+          STRIPE_GROWTH_PRICE_ID: price_growth
+          STRIPE_SCALE_PRICE_ID: price_scale
+          STRIPE_SUCCESS_URL: http://localhost:3000/settings?tab=billing&checkout=success
+          STRIPE_CANCEL_URL: http://localhost:3000/settings?tab=plans&checkout=cancel
+
+      - name: Upload recovery report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selection-effects-recovery-report
+          path: app/tests/e2e/.evidence/selection-effects-recovery.json
+          if-no-files-found: warn
+
   studio-format-matrix:
     runs-on: ubuntu-latest
     timeout-minutes: 45

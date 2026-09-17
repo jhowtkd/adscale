@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "baselineId": "qr-baseline-1",
+  "policyVersion": "quality_recovery_v1",
+  "inputsHash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "capturedAt": null,
+  "capturedBy": null,
+  "artifacts": [],
+  "_instructions": [
+    "Controlled baseline manifest (ICE-05A). Captured once: the exact input hash plus one sha256 per control artifact.",
+    "An independently authorized rerun reproduces it; verify with: npx tsx scripts/verify-baseline-reproduction.ts <baseline.json> <reproduction.json>.",
+    "Any hash divergence fails the comparison before any human verdict is weighed."
+  ]
+}

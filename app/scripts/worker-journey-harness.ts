@@ -852,7 +852,7 @@ interface JourneyFixture {
   primaryClientProfileId: string;
 }
 
-interface DispatchedJourney {
+export interface DispatchedJourney {
   workspaceId: string;
   workItemId: string;
   correlationId: string;
@@ -1041,7 +1041,7 @@ export async function awaitJourneyTerminal(
   return outputs;
 }
 
-async function driveJourney(
+export async function driveJourney(
   config: HarnessConfig,
   processes: HarnessProcesses,
   wait: "terminal" | "observe",
@@ -1060,6 +1060,203 @@ async function driveJourney(
     driven.journey.outputs = await readJourneyOutputs(config.baseUrl, driven.jar, driven.workId);
   }
   return driven;
+}
+
+/**
+ * Selection-effects recovery pass (ICE-03B). Runs on the shared harness
+ * after a success journey: approves a completed output through the real
+ * HTTP stack, then proves the pending obligations converge to done via the
+ * production path (inline attempt plus the wake-up processor served by the
+ * harness queue) while the approval itself is never shown as failed.
+ *
+ * States stay observable and stable: after convergence a second read past
+ * a settle delay must show the same projection — no flapping, no second
+ * receipt, no resurrection.
+ */
+export const RECOVERY_SETTLE_TIMEOUT_MS = 180_000;
+export const RECOVERY_STABILITY_DELAY_MS = 10_000;
+export const RECOVERY_POLL_INTERVAL_MS = 2_000;
+
+export type RecoveryEffectStatus = "done" | "not_requested" | "pending" | "failed";
+
+export interface RecoveryEffectsSnapshot {
+  library: RecoveryEffectStatus;
+  valueEvent: RecoveryEffectStatus;
+  recipe: RecoveryEffectStatus;
+  failedCodes: string[];
+}
+
+export function summarizeRecoveryEffects(raw: unknown): RecoveryEffectsSnapshot {
+  const effects = asRecord(raw);
+  const failedCodes: string[] = [];
+  const read = (key: string): RecoveryEffectStatus => {
+    const entry = asRecord(effects[key]);
+    const status = String(entry.status ?? "not_requested");
+    if (status === "done" || status === "not_requested" || status === "pending") return status;
+    if (status === "failed") {
+      failedCodes.push(`${key}:${String(entry.code ?? "effect_failed")}`);
+      return "failed";
+    }
+    return "pending";
+  };
+  return {
+    library: read("library"),
+    valueEvent: read("valueEvent"),
+    recipe: read("recipe"),
+    failedCodes,
+  };
+}
+
+export function recoveryEffectsSettled(snapshot: RecoveryEffectsSnapshot): boolean {
+  return (
+    snapshot.library !== "pending" &&
+    snapshot.valueEvent !== "pending" &&
+    snapshot.recipe !== "pending"
+  );
+}
+
+export function recoveryRequestedKinds(snapshot: RecoveryEffectsSnapshot): string[] {
+  return (["library", "valueEvent", "recipe"] as const).filter(
+    (kind) => snapshot[kind] !== "not_requested",
+  );
+}
+
+export interface SelectionEffectsRecoveryReport {
+  ok: boolean;
+  failures: string[];
+  selectedOutputId: string;
+  requestedKinds: string[];
+  initialEffects: RecoveryEffectsSnapshot;
+  finalEffects: RecoveryEffectsSnapshot;
+  /** True when a pending state was observed before convergence. */
+  sawPending: boolean;
+  polls: number;
+  stabilityConfirmed: boolean;
+}
+
+async function readWorkOutputs(
+  config: HarnessConfig,
+  jar: string[],
+  workId: string,
+): Promise<Array<Record<string, unknown>>> {
+  const current = await apiFetch(`${config.baseUrl}/api/creative-work/${workId}`, jar);
+  if (!current.response.ok) {
+    throw new Error(`recovery poll failed (HTTP ${current.response.status}): ${truncate(current.body, 300)}`);
+  }
+  const state = parseJsonBody(current.body, "recovery poll");
+  if (!Array.isArray(state.outputs)) throw new Error("recovery poll returned no outputs array");
+  return (state.outputs as unknown[]).map(asRecord);
+}
+
+export async function driveSelectionEffectsRecovery(
+  config: HarnessConfig,
+  processes: HarnessProcesses,
+  journey: DispatchedJourney,
+): Promise<SelectionEffectsRecoveryReport> {
+  const failures: string[] = [];
+  const fixture = JSON.parse(fs.readFileSync(processes.fixturePath, "utf8")) as JourneyFixture;
+  if (!fixture.email || !fixture.password) {
+    throw new Error(`fixture is missing email/password: ${processes.fixturePath}`);
+  }
+  const jar: string[] = [];
+  const signIn = await apiFetch(`${config.baseUrl}/api/auth/sign-in/email`, jar, {
+    method: "POST",
+    body: JSON.stringify({ email: fixture.email, password: fixture.password }),
+  });
+  if (!signIn.response.ok) {
+    throw new Error(`recovery sign-in failed (HTTP ${signIn.response.status}): ${truncate(signIn.body, 300)}`);
+  }
+  // Outputs with stored bytes first: select requires a completed output with a key.
+  const candidates = journey.outputs
+    .filter((output) => output.status === "completed" && journey.outputIds.includes(output.id))
+    .sort((a, b) => Number(b.hasOutput) - Number(a.hasOutput));
+  let selectedOutputId = "";
+  let initialEffects: RecoveryEffectsSnapshot = {
+    library: "not_requested",
+    valueEvent: "not_requested",
+    recipe: "not_requested",
+    failedCodes: [],
+  };
+  for (const candidate of candidates) {
+    const select = await apiFetch(
+      `${config.baseUrl}/api/creative-work/${journey.workItemId}/outputs/${candidate.id}/select`,
+      jar,
+      { method: "POST", body: JSON.stringify({}) },
+    );
+    if (select.response.ok) {
+      selectedOutputId = candidate.id;
+      initialEffects = summarizeRecoveryEffects(parseJsonBody(select.body, "select").effects);
+      break;
+    }
+    if (select.response.status === 409) continue;
+    throw new Error(
+      `select failed (HTTP ${select.response.status}): ${truncate(select.body, 300)}`,
+    );
+  }
+  if (!selectedOutputId) {
+    return {
+      ok: false,
+      failures: ["no_completed_output_accepted_selection"],
+      selectedOutputId: "",
+      requestedKinds: [],
+      initialEffects,
+      finalEffects: initialEffects,
+      sawPending: false,
+      polls: 0,
+      stabilityConfirmed: false,
+    };
+  }
+  const requestedKinds = recoveryRequestedKinds(initialEffects);
+  let sawPending = !recoveryEffectsSettled(initialEffects);
+  let finalEffects = initialEffects;
+  let polls = 0;
+  const deadline = Date.now() + RECOVERY_SETTLE_TIMEOUT_MS;
+  for (;;) {
+    const outputs = await readWorkOutputs(config, jar, journey.workItemId);
+    polls += 1;
+    const selected = outputs.find((output) => String(output.id ?? "") === selectedOutputId);
+    if (!selected) {
+      failures.push("selected_output_missing_from_poll");
+      break;
+    }
+    if (selected.isSelected !== true) failures.push("approval_not_preserved_in_poll");
+    finalEffects = summarizeRecoveryEffects(selected.effects);
+    if (!recoveryEffectsSettled(finalEffects)) sawPending = true;
+    else break;
+    if (Date.now() >= deadline) break;
+    await sleep(RECOVERY_POLL_INTERVAL_MS);
+  }
+  if (!recoveryEffectsSettled(finalEffects)) {
+    failures.push("effects_not_settled_within_timeout");
+  }
+  if (finalEffects.failedCodes.length > 0) {
+    failures.push(`effects_failed:${finalEffects.failedCodes.join(",")}`);
+  }
+  // Stability: past a settle delay the same projection must read back —
+  // converged effects never flap, duplicate receipts never appear.
+  let stabilityConfirmed = false;
+  if (failures.length === 0) {
+    await sleep(RECOVERY_STABILITY_DELAY_MS);
+    const outputs = await readWorkOutputs(config, jar, journey.workItemId);
+    const selected = outputs.find((output) => String(output.id ?? "") === selectedOutputId);
+    const reread = summarizeRecoveryEffects(selected?.effects);
+    if (selected?.isSelected === true && JSON.stringify(reread) === JSON.stringify(finalEffects)) {
+      stabilityConfirmed = true;
+    } else {
+      failures.push("effects_unstable_after_settle_delay");
+    }
+  }
+  return {
+    ok: failures.length === 0,
+    failures,
+    selectedOutputId,
+    requestedKinds,
+    initialEffects,
+    finalEffects,
+    sawPending,
+    polls,
+    stabilityConfirmed,
+  };
 }
 
 function readTextOrEmpty(filePath: string): string {

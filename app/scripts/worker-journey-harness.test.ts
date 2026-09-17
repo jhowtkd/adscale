@@ -8,12 +8,15 @@ import {
   HARNESS_SCENARIOS,
   parseHarnessArgs,
   readJourneyLedger,
+  recoveryEffectsSettled,
+  recoveryRequestedKinds,
   REPLAY_GENERATE_EVENT,
   resolveHarnessConfig,
   resolveRemoteUncertainty,
   sendReplayEvent,
   summarizeJourneyLedger,
   summarizeJourneyOutputs,
+  summarizeRecoveryEffects,
 } from "./worker-journey-harness";
 
 vi.mock("inngest", () => {
@@ -438,5 +441,46 @@ describe("replay dispatch", () => {
       name: "creative-work.generate.v2",
       data: { workspaceId: "ws-1", workItemId: "work-1", outputId: "out-1", generationCorrelationId: "corr-1" },
     });
+  });
+});
+
+describe("selection-effects recovery summary (ICE-03B)", () => {
+  it("reads the interface projection and collects failed codes", () => {
+    expect(
+      summarizeRecoveryEffects({
+        library: { status: "done" },
+        valueEvent: { status: "pending", receiptId: "r1" },
+        recipe: { status: "failed", code: "effect_dead", retryable: false },
+      }),
+    ).toEqual({
+      library: "done",
+      valueEvent: "pending",
+      recipe: "failed",
+      failedCodes: ["recipe:effect_dead"],
+    });
+  });
+
+  it("treats missing and unknown states as not requested or pending", () => {
+    expect(summarizeRecoveryEffects(undefined)).toEqual({
+      library: "not_requested",
+      valueEvent: "not_requested",
+      recipe: "not_requested",
+      failedCodes: [],
+    });
+    expect(
+      summarizeRecoveryEffects({ library: { status: "bogus" } }),
+    ).toMatchObject({ library: "pending" });
+  });
+
+  it("settles only when no kind is pending", () => {
+    const settled = summarizeRecoveryEffects({
+      library: { status: "done" },
+      valueEvent: { status: "done" },
+    });
+    expect(recoveryEffectsSettled(settled)).toBe(true);
+    expect(recoveryRequestedKinds(settled)).toEqual(["library", "valueEvent"]);
+    const open = summarizeRecoveryEffects({ library: { status: "pending", receiptId: "r" } });
+    expect(recoveryEffectsSettled(open)).toBe(false);
+    expect(recoveryRequestedKinds(open)).toEqual(["library"]);
   });
 });
