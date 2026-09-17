@@ -19,6 +19,7 @@ import type { CreativeComposerViewModel } from "./useCreativeComposer";
 import type { OutputReviewInput } from "./useOutputReview";
 import type { CreativeWorkOutput } from "@/lib/hooks/use-creative-work";
 import { useIsMobile } from "@/lib/hooks/use-media-query";
+import { offeredStudioFormats } from "@/lib/studio/three-four-capability";
 import styles from "./studio-piece-workspace.module.css";
 
 function byCreationOrder(left: CreativeWorkOutput, right: CreativeWorkOutput) {
@@ -409,6 +410,12 @@ function StudioPieceWorkspaceSession({ composer }: { composer: CreativeComposerV
               <div className="flex min-w-0 max-w-full flex-none flex-wrap items-center gap-2">
                 <PieceFormatPopover
                   value={review.draft.action === "format" ? review.draft.targetFormat : null}
+                  // Format revisions resolve to the format_adaptation mode —
+                  // validated on its own, whatever the composer intent is.
+                  formats={offeredStudioFormats({
+                    creationSwitch: composer.threeFourCreationEnabled ? "true" : "false",
+                    intent: "format_adaptation",
+                  })}
                   onChoose={(format) => review.update({ action: "format", targetFormat: format })}
                   onCancel={() => review.update({ action: "refine", targetFormat: selected.targetFormat })}
                 />

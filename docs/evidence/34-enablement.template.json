@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "status": "pending_enablement",
+  "webSha": null,
+  "workerSha": null,
+  "matrixReport": "app/tests/e2e/.evidence/studio-format-matrix.json",
+  "matrixSha": null,
+  "matrixOk": null,
+  "_instructions": [
+    "3:4 enablement gate (ICE-04B). This template is VALIDATOR INPUT ONLY.",
+    "Run the studio format matrix on the delivery SHA: npm run harness:studio-format-matrix (needs CREATIVE_WORK_34_CREATION_ENABLED=true). Copy its meta.sha into webSha, workerSha and matrixSha — web and worker must run the same SHA.",
+    "A human reviewer judges every format against real artifacts: composition intact (no stretch, no crop surprise) and delivered bytes at the format dimensions. Fill reviewer names and artifactIds (creative-work / output ids).",
+    "Run the provider smoke under a separate paid-generation authorization; fill authorizedBy, executedAt and reportRef. The validator never runs paid calls.",
+    "Set status to 'completed' and run: npx tsx scripts/check-34-enablement-evidence.ts <this-file.json>. Enablement (setting CREATIVE_WORK_34_CREATION_ENABLED=true in web and worker) happens only after PASS."
+  ],
+  "visualEntries": [
+    { "format": "1:1", "reviewer": null, "artifactIds": [], "compositionIntact": null, "dimensionsOk": null },
+    { "format": "4:5", "reviewer": null, "artifactIds": [], "compositionIntact": null, "dimensionsOk": null },
+    { "format": "9:16", "reviewer": null, "artifactIds": [], "compositionIntact": null, "dimensionsOk": null },
+    { "format": "3:4", "reviewer": null, "artifactIds": [], "compositionIntact": null, "dimensionsOk": null }
+  ],
+  "providerSmoke": { "authorizedBy": null, "executedAt": null, "reportRef": null, "outcome": null }
+}

@@ -105,4 +105,22 @@ describe("DeliveryPackageModal", () => {
     expect(screen.getByRole("button", { name: /confirm/i })).toBeDisabled();
     expect(onDownloadCurrent).toHaveBeenCalledOnce();
   });
+
+  it("exports a 3:4 source via download-current without inventing a 3:4 derivation target (ICE-04B)", () => {
+    const onDownloadCurrent = vi.fn();
+    render(
+      <DeliveryPackageModal
+        open
+        sourceFormat="3:4"
+        isSubmitting={false}
+        onOpenChange={vi.fn()}
+        onDownloadCurrent={onDownloadCurrent}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText("3:4")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /downloadCurrent/i }));
+    expect(onDownloadCurrent).toHaveBeenCalledOnce();
+  });
 });

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { CreativeWorkFormat } from "@/server/creative-work/contracts";
 
-const FORMATS: readonly CreativeWorkFormat[] = ["1:1", "4:5", "9:16"];
+const DEFAULT_FORMATS: readonly CreativeWorkFormat[] = ["1:1", "4:5", "9:16"];
 
 /**
  * Format proportions anchored to the trigger button through the native
@@ -13,11 +13,14 @@ const FORMATS: readonly CreativeWorkFormat[] = ["1:1", "4:5", "9:16"];
  */
 export function PieceFormatPopover({
   value,
+  formats = DEFAULT_FORMATS,
   onChoose,
   onCancel,
   disabled = false,
 }: {
   value: CreativeWorkFormat | null;
+  /** Offered options (ICE-04B): 3:4 appears only with the creation capability. */
+  formats?: readonly CreativeWorkFormat[];
   onChoose: (format: CreativeWorkFormat) => void;
   onCancel: () => void;
   disabled?: boolean;
@@ -123,7 +126,7 @@ export function PieceFormatPopover({
         style={{ position: "fixed", margin: 0, display: nativePopover ? undefined : open ? "flex" : "none" }}
         className="z-[var(--layer-popover)] w-44 flex-col gap-1 overflow-y-auto rounded-[var(--radius-overlay)] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] p-1 shadow-[var(--shadow-floating)] [&:popover-open]:flex"
       >
-        {FORMATS.map((format) => (
+        {formats.map((format) => (
           <button
             key={format}
             type="button"

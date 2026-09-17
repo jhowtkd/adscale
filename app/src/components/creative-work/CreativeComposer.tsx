@@ -19,7 +19,7 @@ import { BrandVisualRecipes } from "./BrandVisualRecipes";
 import { StudioPieceWorkspace } from "./StudioPieceWorkspace";
 import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
 
-const FORMATS = ["1:1", "4:5", "9:16"] as const;
+
 
 export function CreativeComposer({ composer, composerRef, hideSourceUpload = false, layout = "studio", workflowVariant = "control", resultsOnly = false, chrome = "full", resultsContainer = null, primaryActionRef, controlsActive = true }: {
   composer: CreativeComposerViewModel;
@@ -771,7 +771,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
           </legend>
           <p className="mt-1 text-xs text-[var(--text-muted)]">{t("targetFormatsHelp")}</p>
           <div className="mt-2 flex flex-wrap gap-3">
-            {FORMATS.map((value) => (
+            {composer.offeredFormats.map((value) => (
               <label key={value} className="inline-flex items-center gap-2 text-sm text-[var(--text-primary)]">
                 <input type="checkbox" checked={composer.targetFormats.includes(value)} onChange={() => composer.toggleTargetFormat(value)} />
                 {value}
@@ -799,7 +799,10 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
               className="w-full rounded-[var(--radius-control)] border border-[var(--border-default)] bg-[var(--surface-raised)] px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <option value="auto">{t("formatAuto", { format: composer.format })}</option>
-              {FORMATS.map((value) => <option key={value} value={value}>{value}</option>)}
+              {composer.offeredFormats.map((value) => <option key={value} value={value}>{value}</option>)}
+              {composer.offeredFormats.includes(composer.format) || composer.formatMode === "auto" ? null : (
+                <option key={composer.format} value={composer.format} disabled>{composer.format}</option>
+              )}
             </select>
           </div>
           {isSingle ? (
@@ -852,7 +855,7 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
             </legend>
             <p className="mb-2 text-xs text-[var(--text-muted)]">{t("targetFormatsHelp")}</p>
             <div className="flex flex-wrap gap-3">
-              {FORMATS.map((value) => (
+              {composer.offeredFormats.map((value) => (
                 <label key={value} className="inline-flex items-center gap-2 text-sm text-[var(--text-primary)]">
                   <input
                     type="checkbox"

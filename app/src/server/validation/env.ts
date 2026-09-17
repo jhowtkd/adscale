@@ -60,6 +60,12 @@ export const envSchema = z.object({
    * work's input snapshot, never this live value. Removed after Gate 8.
    */
   CREATIVE_WORK_QUALITY_RECOVERY_ENABLED: z.enum(["true", "false"]).default("false"),
+  /**
+   * 3:4 creation switch (ICE-04B): steers NEW 3:4 creations in validated
+   * protocols only (see three-four-capability). Reads, downloads and
+   * finishing authorized 3:4 works never consult this value.
+   */
+  CREATIVE_WORK_34_CREATION_ENABLED: z.enum(["true", "false"]).default("false"),
   /** New Peça única snapshots consume the active published Brand Cortex version. */
   BRAND_CORTEX_SINGLE_PIECE_ENABLED: z.enum(["true", "false"]).default("false"),
   STUDIO_PROGRESSIVE_ROLLOUT_PERCENT: z.coerce.number().int().min(0).max(100).default(0),

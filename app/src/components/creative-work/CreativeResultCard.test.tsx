@@ -1043,3 +1043,30 @@ describe("CreativeResultCard", () => {
     });
   });
 });
+
+describe("CreativeResultCard delivered format (ICE-04B)", () => {
+  it("presents the backend-delivered proportion, never the requested one", () => {
+    const { unmount } = render(
+      <CreativeResultCard
+        output={output({ targetFormat: "3:4" })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/3:4/)).toBeInTheDocument();
+    unmount();
+
+    render(
+      <CreativeResultCard
+        output={output({ targetFormat: "4:5" })}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={vi.fn()}
+        onDownload={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/3:4/)).not.toBeInTheDocument();
+  });
+});

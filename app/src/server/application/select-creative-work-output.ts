@@ -8,6 +8,13 @@
  */
 import { db } from "@/server/db";
 import { logger } from "@/lib/logger";
+import type { DiagnosticContext } from "@/server/diagnostics/contract";
+import {
+  resolveLifecycleTraceContext,
+  traceSelectionConfirmed,
+  traceSelectionEffectFailed,
+  type LifecycleEffectKind,
+} from "@/server/diagnostics/selection-export-tracing";
 import {
   getCreativeWork,
   reviewCreativeWorkOutputPersonFidelity,
@@ -143,11 +150,16 @@ function effectErrorCode(cause: unknown, fallback: string): string {
  * the confirmed selection: it lands as a pending row for convergence
  * (replay of this same command, or the ICE-03B recovery processor).
  * Already-settled rows project their state without re-executing.
+ *
+ * trace-390: a newly observed fault is also journaled as
+ * `selection.effect.failed` under the selection operation. The journal call
+ * never throws and never changes the projection — approval truth stands.
  */
 async function executeOutboxEffect(
   enqueued: EnqueuedSelectionEffect,
   run: () => Promise<void>,
   fallbackCode: string,
+  trace?: { context: DiagnosticContext; effect: LifecycleEffectKind },
 ): Promise<SelectionEffect> {
   if (!enqueued.created && enqueued.effect.state !== "pending") {
     return durableEffectToProjection(enqueued.effect);
@@ -167,6 +179,15 @@ async function executeOutboxEffect(
         recordError: String(recordError),
       });
     });
+    if (trace) {
+      traceSelectionEffectFailed({
+        context: trace.context,
+        effect: trace.effect,
+        effectId: enqueued.effect.id,
+        code,
+        phase: "run",
+      });
+    }
     return { status: "pending", receiptId: enqueued.effect.id };
   }
   try {
@@ -183,6 +204,15 @@ async function executeOutboxEffect(
       effectId: enqueued.effect.id,
       cause: String(cause),
     });
+    if (trace) {
+      traceSelectionEffectFailed({
+        context: trace.context,
+        effect: trace.effect,
+        effectId: enqueued.effect.id,
+        code: "effect_confirm_failed",
+        phase: "confirm",
+      });
+    }
     return { status: "pending", receiptId: enqueued.effect.id };
   }
   return { status: "done" };
@@ -348,6 +378,25 @@ export async function selectCreativeWorkOutputCommand(
 
   // A selecao esta commitada a partir daqui. Nenhum caminho abaixo pode
   // reclassificar isso como fracasso do comando.
+  //
+  // trace-390: journal the confirmation under its own operation (Peça única
+  // only — null elsewhere, keeping legacy protocols untraced). Approval
+  // truth comes from the committed row; a later effect fault is recorded as
+  // its own event and never rewrites this one.
+  const traceContext = resolveLifecycleTraceContext({
+    workspaceId: input.workspaceId,
+    workItemId: input.workItemId,
+    outputId: selected.id,
+    clientProfileId: existing.work.clientProfileId ?? null,
+    toolKind: existing.work.toolKind,
+  });
+  if (traceContext) {
+    traceSelectionConfirmed({
+      context: traceContext,
+      selectedBy: selected.selectedBy ?? selectedBy,
+      effectsRequested: effectRequests.length,
+    });
+  }
   let library: SelectionEffect = { status: "not_requested" };
   const libraryEntry = enqueuedByKind.get("library");
   if (libraryEntry) {
@@ -358,7 +407,7 @@ export async function selectCreativeWorkOutputCommand(
         theme: briefTheme,
         creativeLevel: output.creativeLevel,
       });
-    }, "library_failed");
+    }, "library_failed", traceContext ? { context: traceContext, effect: "library" } : undefined);
   }
 
   let valueEvent: SelectionEffect = { status: "not_requested" };
@@ -373,7 +422,7 @@ export async function selectCreativeWorkOutputCommand(
         outputId: selected.id,
         outputKey: selectedKey,
       });
-    }, "value_event_failed");
+    }, "value_event_failed", traceContext ? { context: traceContext, effect: "value_event" } : undefined);
   }
 
   let recipe: VisualRecipe | undefined;
@@ -388,7 +437,7 @@ export async function selectCreativeWorkOutputCommand(
         receiptId,
       });
       recipe = saved.recipe;
-    }, "save_recipe_failed");
+    }, "save_recipe_failed", traceContext ? { context: traceContext, effect: "recipe" } : undefined);
   }
 
   const effects = { library, valueEvent, recipe: recipeEffect };

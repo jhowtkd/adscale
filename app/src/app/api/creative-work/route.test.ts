@@ -80,6 +80,15 @@ vi.mock("@/server/application/analyze-creative-work-source", () => ({
   analyzeCreativeWorkSource: (...args: unknown[]) => analyzeSourceMock(...args),
 }));
 
+const envState: { threeFourCreation: string | undefined } = { threeFourCreation: undefined };
+vi.mock("@/server/validation/env", () => ({
+  env: {
+    get CREATIVE_WORK_34_CREATION_ENABLED() {
+      return envState.threeFourCreation;
+    },
+  },
+}));
+
 const profileId = "00000000-0000-4000-8000-000000000001";
 
 const validBody = {
@@ -285,6 +294,7 @@ describe("GET /api/creative-work", () => {
 describe("POST /api/creative-work", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    envState.threeFourCreation = undefined;
     inngestSendMock.mockResolvedValue(undefined);
     analyzeSourceMock.mockResolvedValue(null);
   });
@@ -402,6 +412,69 @@ describe("POST /api/creative-work", () => {
     const body = await res.json();
     expect(JSON.stringify(body)).toContain("formatCreationDisabled");
     expect(startMock).not.toHaveBeenCalled();
+  });
+
+  it("creates 3:4 drafts in validated protocols once enabled (ICE-04B)", async () => {
+    envState.threeFourCreation = "true";
+    startMock.mockResolvedValue({ ok: true, value: {
+      work: { id: "w-34", format: "3:4" },
+      canonical: { id: "creative_work:w-34" },
+      quote: { plans: [{}], unitCount: 1, credits: 5 },
+    } });
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientProfileId: profileId,
+        draftKey: "00000000-0000-4000-8000-000000000099",
+        request: "Peça retrato 3:4",
+        intent: "single",
+        format: "3:4",
+        settings: { targetFormats: [] },
+      }),
+    }));
+    expect(res.status).toBe(201);
+    expect(startMock).toHaveBeenCalledWith(expect.objectContaining({ format: "3:4", intent: "single" }));
+  });
+
+  it("blocks 3:4 in unvalidated protocols with a distinct message (ICE-04B)", async () => {
+    envState.threeFourCreation = "true";
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientProfileId: profileId,
+        draftKey: "00000000-0000-4000-8000-000000000099",
+        request: "Variar em 3:4",
+        intent: "variations",
+        format: "3:4",
+        settings: { targetFormats: [] },
+      }),
+    }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(JSON.stringify(body)).toContain("formatProtocolUnsupported");
+    expect(startMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the machine-readable code when the command blocks creation (ICE-04B)", async () => {
+    startMock.mockResolvedValue({
+      ok: false,
+      error: { code: "format_protocol_unsupported", format: "3:4" },
+    });
+    const res = await POST(new Request("http://localhost/api/creative-work", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientProfileId: profileId,
+        draftKey: "00000000-0000-4000-8000-000000000099",
+        request: "Peça retrato",
+        intent: "single",
+        format: "4:5",
+        settings: { targetFormats: [] },
+      }),
+    }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      details: { code: "format_protocol_unsupported", format: "3:4" },
+    });
   });
 
   it("rejects an empty draft request before calling the command", async () => {
