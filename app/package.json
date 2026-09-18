@@ -24,6 +24,8 @@
     "harness:worker-journey": "tsx scripts/run-worker-journey-harness.ts",
     "harness:worker-journey-matrix": "tsx scripts/run-worker-journey-matrix.ts",
     "harness:selection-effects-recovery": "tsx scripts/run-selection-effects-recovery.ts",
+    "harness:diagnostics-split-matrix": "tsx scripts/run-diagnostics-split-matrix.ts",
+    "diagnostics:overhead": "tsx scripts/measure-diagnostics-overhead.ts",
     "selection-effects:backfill": "NODE_OPTIONS='--conditions=react-server' tsx scripts/backfill-selection-effects.ts",
     "diagnostics:cleanup": "NODE_OPTIONS='--conditions=react-server' tsx scripts/cleanup-diagnostic-data.ts",
     "harness:studio-format-matrix": "tsx scripts/run-studio-format-matrix.ts",
