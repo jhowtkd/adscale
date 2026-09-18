@@ -4505,5 +4505,11 @@
   "testerMode": {
     "badge": "Tester",
     "badgeAriaLabel": "Tester account with unlimited usage"
+  },
+  "publicHome": {
+    "fallbackEyebrow": "ADSCALE",
+    "fallbackTitle": "Your Studio is still here.",
+    "fallbackDescription": "Sign in to your account to continue your work.",
+    "fallbackLogin": "Sign in to the Studio"
   }
 }

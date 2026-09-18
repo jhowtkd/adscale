@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-18T00:18:16.778Z",
+  "generatedAt": "2026-09-18T21:10:13.441Z",
   "schemaVersion": 2,
-  "fingerprint": "800ca6c70a384cc6a8dc987565eee579d27a03c349baf58469c1b51a5ce448fc",
+  "fingerprint": "a7f5979e597e43dcb076f8f9d170b8ed3d363e3aa302da2ce56190ad39b25801",
   "counts": {
     "dashboardPages": 16,
     "apiRoutes": 196,
-    "ctas": 75,
+    "ctas": 76,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -1801,6 +1801,15 @@
       "file": "app/src/components/feedback/FactualAlertsPanel.tsx",
       "line": 157,
       "evidence": "app/src/components/feedback/FactualAlertsPanel.tsx:157",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/guest-home/LocalPublicHomeFallback.tsx:12",
+      "kind": "cta_navigation",
+      "destination": "/login?callbackUrl=%2F",
+      "file": "app/src/components/guest-home/LocalPublicHomeFallback.tsx",
+      "line": 12,
+      "evidence": "app/src/components/guest-home/LocalPublicHomeFallback.tsx:12",
       "requiresDecision": false
     },
     {

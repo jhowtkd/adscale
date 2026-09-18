@@ -1,0 +1,32 @@
+import { render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import HiPage, { metadata } from './page';
+
+vi.mock('@/components/guest-home/LocalPublicHomeFallback', () => ({
+  default: () => <main id="main">fallback</main>,
+}));
+
+describe('HiPage', () => {
+  afterEach(() => {
+    delete process.env.PUBLIC_STUDIO_HOME_ENABLED;
+    delete process.env.PUBLIC_STUDIO_IMPORT_ENABLED;
+    delete process.env.PUBLIC_STUDIO_ATTACHMENTS_ENABLED;
+  });
+
+  it('serve o fallback local com a página desligada', () => {
+    render(<HiPage />);
+    expect(screen.getByRole('main')).toHaveAttribute('id', 'main');
+  });
+
+  it('rejeita flags inconsistentes em vez de servir a rota', () => {
+    process.env.PUBLIC_STUDIO_HOME_ENABLED = 'true';
+    expect(() => HiPage()).toThrow('public_studio_import_required');
+  });
+
+  it('expõe metadata canônica da entrada pública', () => {
+    expect(metadata.title).toBe('Adscale — comece sua próxima criação');
+    expect(metadata.alternates).toEqual({
+      canonical: 'https://adscale.jhonatansoares.com/hi',
+    });
+  });
+});

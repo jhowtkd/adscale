@@ -4591,5 +4591,11 @@
   "testerMode": {
     "badge": "Tester",
     "badgeAriaLabel": "Conta tester com uso ilimitado"
+  },
+  "publicHome": {
+    "fallbackEyebrow": "ADSCALE",
+    "fallbackTitle": "Seu Estúdio continua por aqui.",
+    "fallbackDescription": "Entre na sua conta para continuar seus trabalhos.",
+    "fallbackLogin": "Entrar no Estúdio"
   }
 }

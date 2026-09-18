@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import { withSentryConfig } from "@sentry/nextjs";
+import { publicStudioRewrites, readPublicStudioFlags } from "./src/lib/public-studio-config";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n.ts");
 
@@ -28,10 +29,6 @@ function getR2Hostname(): string | undefined {
 
 const r2Hostname = getR2Hostname();
 
-const marketingUpstream =
-  process.env.MARKETING_UPSTREAM_URL?.replace(/\/$/, "") ??
-  "https://adscale-marketing.onrender.com";
-
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Playwright and some local clients hit 127.0.0.1 while `next dev` serves
@@ -57,15 +54,8 @@ const nextConfig: NextConfig = {
       process.env.NODE_ENV === "production" ? "" : process.env.INNGEST_DEV,
   },
   async rewrites() {
-    return [
-      { source: "/manual", destination: "/manual/index.html" },
-      { source: "/manual/", destination: "/manual/index.html" },
-      { source: "/hi", destination: `${marketingUpstream}/` },
-      { source: "/hi/", destination: `${marketingUpstream}/` },
-      { source: "/hi/assets/:path*", destination: `${marketingUpstream}/assets/:path*` },
-      { source: "/hi/Adscale.svg", destination: `${marketingUpstream}/Adscale.svg` },
-      { source: "/Adscale.svg", destination: `${marketingUpstream}/Adscale.svg` },
-    ];
+    readPublicStudioFlags(process.env);
+    return publicStudioRewrites();
   },
   images: {
     remotePatterns: [
