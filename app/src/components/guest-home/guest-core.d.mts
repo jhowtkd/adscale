@@ -1,0 +1,22 @@
+export type Intent = 'single' | 'variations' | 'format_adaptation';
+export type Example = { id: string; title: string; category: string; description: string; action: string; intent: Intent; image: string; alt: string; prompt: string };
+export type DraftInput = { request: string; intent: Intent; exampleId?: string | null; files: File[] };
+export type GuestDraft = DraftInput & { version: 1; id: string; createdAt: number; expiresAt: number; exampleId: string | null };
+export const MAX_REQUEST_LENGTH: number;
+export const MAX_FILES: number;
+export const MAX_FILE_BYTES: number;
+export const DRAFT_TTL: number;
+export const UUID_PATTERN: RegExp;
+export const INTENTS: { id: Intent; label: string; short: string; description: string; icon: string; tone: string }[];
+export const EXAMPLES: Example[];
+export function getExample(id?: string | null): Example | null;
+export function getIntent(id: string): typeof INTENTS[number];
+export function validateRequest(request: string): string | null;
+export function selectFiles(existing: File[], incoming: File[] | FileList): { files: File[]; errors: string[] };
+export function createDraft(input: DraftInput, id: string, now?: number): GuestDraft;
+export function parseDraft(value: unknown, now?: number): GuestDraft | null;
+export function buildResumePath(id: string, intent: Intent): string;
+export function formatFileSize(bytes: number): string;
+export function escapeHtml(value: unknown): string;
+
+export function newDraftId(): string;

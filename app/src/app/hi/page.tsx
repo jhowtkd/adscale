@@ -1,17 +1,23 @@
+import AdscaleGuestHome from "@/components/guest-home/AdscaleGuestHome";
 import LocalPublicHomeFallback from "@/components/guest-home/LocalPublicHomeFallback";
-import { HomeIslandSlot } from "@/components/guest-home/HomeIslandSlot";
 import { readPublicStudioFlags } from "@/lib/public-studio-config";
 
 /**
- * Public home route shell (#439; island owned by #440). Server component
- * switching on the pure flags: `homeEnabled` renders the interactive
- * visitor island (`HomeIslandSlot` is the temporary integration slot until
- * #440 lands `AdscaleGuestHome`); otherwise the local fallback. Never
- * redirects to `/` (anti-recursion: the proxy sends unauthenticated `/`
- * here).
+ * Public home (#439 shell, #440 island). Server component switching on the
+ * pure flags: without home, the local containment fallback; with home, the
+ * interactive visitor island. The island navigates same-origin on continue
+ * (default `onContinue`) with only the opaque draft UUID in the URL —
+ * auth-return preservation is #441's job. Never redirects to `/`
+ * (anti-recursion: the proxy sends unauthenticated `/` here).
  */
 export default function HiPage() {
   const flags = readPublicStudioFlags(process.env);
   if (!flags.homeEnabled) return <LocalPublicHomeFallback />;
-  return <HomeIslandSlot />;
+  return (
+    <AdscaleGuestHome
+      assetBase="/adscale-guest"
+      preview={false}
+      attachmentsEnabled={flags.attachmentsEnabled}
+    />
+  );
 }
