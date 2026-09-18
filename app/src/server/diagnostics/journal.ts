@@ -576,7 +576,8 @@ function decodeCursor(cursor: string): CursorPosition {
 
 type DiagnosticEventRow = typeof diagnosticEvents.$inferSelect;
 
-function toEnvelope(row: DiagnosticEventRow): DiagnosticEventEnvelope {
+/** Row-to-envelope mapping, shared with the read-only diagnostics API (#392). */
+export function toEnvelope(row: DiagnosticEventRow): DiagnosticEventEnvelope {
   const context: DiagnosticContext = {
     schemaVersion: DIAGNOSTIC_SCHEMA_VERSION,
     workspaceId: row.workspaceId,
