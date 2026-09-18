@@ -1,6 +1,6 @@
 import { inngest } from "./client";
 import { derivationChannel } from "./channels";
-import { logger } from "@/lib/logger";
+import { captureExceptionOnce, logger } from "@/lib/logger";
 import { db } from "../db";
 import { derivations } from "../db/schema";
 import { eq, and, sql } from "drizzle-orm";
@@ -94,7 +94,6 @@ import {
   updateArtifactHead,
 } from "../repositories/artifact-version";
 import { sanitizeDerivationFailureError } from "./derivation-error-sanitizer";
-import * as Sentry from "@sentry/nextjs";
 import { finalizeGoalDerivation } from "@/server/assistant/goal/finalize-derivation";
 import { decideAutoRetry, decideDerivationRefund, decideJobIdempotency } from "@/server/generation/canonical/policies";
 import {
@@ -1349,19 +1348,24 @@ function buildDerivationJob(
       const { derivationId, campaignId, workspaceId, triggeredByUserId, assistantActionId, generationMode, refundPolicy, goalRunId } = originalEvent.data;
       const { userMessage, technicalDetail } = sanitizeDerivationFailureError(error);
       const errorId = crypto.randomUUID();
+      // Single capture (#406): capture first so the surviving incident keeps
+      // the derivation tags/grouping; the logger.error below carries the same
+      // Error object so shared dedup keeps it console-only.
+      const failureError =
+        error instanceof Error ? error : new Error(String(error ?? "Unknown error"));
+      captureExceptionOnce(
+        failureError,
+        { derivationId, campaignId, workspaceId, assistantActionId, triggeredByUserId, technicalDetail },
+        { component: "inngest", fn: "generate-derivation", errorId },
+      );
       logger.error("[Inngest onFailure] derivation failed", {
         errorId,
         derivationId,
         workspaceId,
         campaignId,
         technicalDetail,
+        error: failureError,
       });
-      if (process.env.SENTRY_DSN) {
-        Sentry.captureException(error, {
-          tags: { component: "inngest", fn: "generate-derivation", errorId },
-          extra: { derivationId, campaignId, workspaceId, assistantActionId, triggeredByUserId, technicalDetail },
-        });
-      }
       await step.run("mark-failed", async () => {
         await markDerivationFailed({
           derivationId,
