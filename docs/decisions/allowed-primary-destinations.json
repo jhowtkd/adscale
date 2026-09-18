@@ -62,6 +62,14 @@
         "/served-ads",
         "src/app/api/served-ads"
       ]
+    },
+    {
+      "id": "single_piece_diagnostics",
+      "kind": "supporting_module",
+      "description": "Diagnóstico de Peça única: API somente-leitura para Dono da plataforma (lista/busca, detalhe do Trabalho, detalhe de chamada auditada), aninhada ao ramo feedback existente. Exceção aprovada em 2026-09-17 (ticket #392): sem página, grupo ou árvore novos; sem escrita, crédito, Settlement, replay ou controle de geração.",
+      "entrypoints": [
+        "src/app/api/feedback/diagnostics"
+      ]
     }
   ],
   "frozenModules": [
@@ -285,6 +293,9 @@
       "feedback/beta-sessions/route.ts",
       "feedback/calibration-adjustments/[id]/accept/route.ts",
       "feedback/calibration-adjustments/[id]/reject/route.ts",
+      "feedback/diagnostics/works/[workItemId]/calls/[callId]/route.ts",
+      "feedback/diagnostics/works/[workItemId]/route.ts",
+      "feedback/diagnostics/works/route.ts",
       "feedback/global-corpus-evidence/route.ts",
       "feedback/guided-flow/staging-evidence/route.ts",
       "feedback/human-quality-corpus/[id]/evaluation/route.ts",
