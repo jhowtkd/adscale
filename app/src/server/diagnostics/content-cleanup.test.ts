@@ -1,7 +1,11 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { createServer, type Server } from "node:http";
 
-import { diagnosticAccessAudit, diagnosticEvents } from "../db/schema";
+import {
+  diagnosticAccessAudit,
+  diagnosticEvents,
+  diagnosticRemoteDeletionConfirmations,
+} from "../db/schema";
 import {
   DIAGNOSTIC_RETENTION_WINDOWS,
   __resetContentPolicyForTests,
@@ -176,8 +180,11 @@ describe("cleanupDiagnosticData (#391)", () => {
   }): {
     database: DiagnosticDatabase;
     deletes: Array<{ table: string; count: number }>;
+    inserts: Array<{ table: unknown; row: Record<string, unknown> }>;
   } {
     const deletes: Array<{ table: string; count: number }> = [];
+    const inserts: Array<{ table: unknown; row: Record<string, unknown> }> =
+      [];
     const database = {
       select: () => ({
         from: (table: unknown) => ({
@@ -219,8 +226,17 @@ describe("cleanupDiagnosticData (#391)", () => {
           },
         }),
       }),
+      insert: (table: unknown) => ({
+        values: async (row: Record<string, unknown>) => {
+          if (table !== diagnosticRemoteDeletionConfirmations) {
+            throw new Error("unexpected insert table");
+          }
+          inserts.push({ table, row });
+          return [];
+        },
+      }),
     } as unknown as DiagnosticDatabase;
-    return { database, deletes };
+    return { database, deletes, inserts };
   }
 
   it("satisfies the frozen CleanupDiagnosticData signature", () => {
@@ -229,7 +245,7 @@ describe("cleanupDiagnosticData (#391)", () => {
   });
 
   it("dry-run reports expired rows and candidates without writing", async () => {
-    const { database, deletes } = stubDatabase({
+    const { database, deletes, inserts } = stubDatabase({
       eventIds: ["e1", "e2"],
       auditIds: ["a1"],
       traceIds: ["t1"],
@@ -253,10 +269,11 @@ describe("cleanupDiagnosticData (#391)", () => {
     expect(result.remote.candidates).toEqual(["t1"]);
     expect(result.remote.traces).toEqual([]);
     expect(deletes).toEqual([]);
+    expect(inserts).toEqual([]);
   });
 
   it("dry-run is the default: no flags means no writes", async () => {
-    const { database, deletes } = stubDatabase({
+    const { database, deletes, inserts } = stubDatabase({
       eventIds: ["e1"],
       auditIds: [],
       traceIds: [],
@@ -265,10 +282,11 @@ describe("cleanupDiagnosticData (#391)", () => {
     expect(result.dryRun).toBe(true);
     expect(result.local.diagnosticEvents.deleted).toBe(0);
     expect(deletes).toEqual([]);
+    expect(inserts).toEqual([]);
   });
 
   it("real run deletes expired rows and records remote confirmations", async () => {
-    const { database, deletes } = stubDatabase({
+    const { database, deletes, inserts } = stubDatabase({
       eventIds: ["e1", "e2"],
       auditIds: ["a1"],
       traceIds: ["t1"],
@@ -300,6 +318,60 @@ describe("cleanupDiagnosticData (#391)", () => {
       confirmed: true,
     });
     expect(result.remote.traces[0].confirmedAt).toBeTruthy();
+    // #428: one durable row per attempt with the full proof shape.
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]?.table).toBe(diagnosticRemoteDeletionConfirmations);
+    expect(inserts[0]?.row).toMatchObject({
+      traceId: "t1",
+      workspaceId: null,
+      deleteAccepted: true,
+      requeryFound: false,
+      confirmed: true,
+      error: null,
+      runAt: NOW,
+    });
+    expect(inserts[0]?.row.confirmedAt).toBeInstanceOf(Date);
+  });
+
+  it("persists unconfirmed and errored attempts, not only confirmations", async () => {
+    const { database, inserts } = stubDatabase({
+      eventIds: [],
+      auditIds: [],
+      traceIds: ["t-unconfirmed", "t-error"],
+    });
+    const remote: RemoteTraceDeletionClient = {
+      deleteTrace: async (traceId) => {
+        if (traceId === "t-error") throw new Error("remote boom");
+        return { accepted: true };
+      },
+      getTrace: async () => ({ found: true }),
+    };
+    const result = await cleanupDiagnosticData(NOW, {
+      dryRun: false,
+      database,
+      remoteClient: remote,
+      workspaceId: "ws-428",
+    });
+    expect(result.remote.traces).toHaveLength(2);
+    expect(inserts).toHaveLength(2);
+    expect(inserts[0]?.row).toMatchObject({
+      traceId: "t-unconfirmed",
+      workspaceId: "ws-428",
+      deleteAccepted: true,
+      requeryFound: true,
+      confirmed: false,
+      confirmedAt: null,
+      error: null,
+      runAt: NOW,
+    });
+    expect(inserts[1]?.row).toMatchObject({
+      traceId: "t-error",
+      workspaceId: "ws-428",
+      deleteAccepted: false,
+      requeryFound: null,
+      confirmed: false,
+      error: "delete failed: remote boom",
+    });
   });
 
   it("reports the remote step honestly when no client is configured", async () => {
