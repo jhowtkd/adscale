@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-17T15:03:53.359Z",
+  "generatedAt": "2026-09-18T00:18:16.778Z",
   "schemaVersion": 2,
-  "fingerprint": "c97e63d8d108302e9d6ea98e9d5b9c015ed30c50f3ef9534697133374edad8c4",
+  "fingerprint": "800ca6c70a384cc6a8dc987565eee579d27a03c349baf58469c1b51a5ce448fc",
   "counts": {
     "dashboardPages": 16,
-    "apiRoutes": 193,
+    "apiRoutes": 196,
     "ctas": 75,
     "requiringDecision": 1
   },
@@ -1073,6 +1073,27 @@
       "kind": "api_route",
       "route": "/api/feedback/calibration-adjustments/[id]/reject",
       "file": "app/src/app/api/feedback/calibration-adjustments/[id]/reject/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/feedback/diagnostics/works/[workItemId]/calls/[callId]",
+      "kind": "api_route",
+      "route": "/api/feedback/diagnostics/works/[workItemId]/calls/[callId]",
+      "file": "app/src/app/api/feedback/diagnostics/works/[workItemId]/calls/[callId]/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/feedback/diagnostics/works/[workItemId]",
+      "kind": "api_route",
+      "route": "/api/feedback/diagnostics/works/[workItemId]",
+      "file": "app/src/app/api/feedback/diagnostics/works/[workItemId]/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/feedback/diagnostics/works",
+      "kind": "api_route",
+      "route": "/api/feedback/diagnostics/works",
+      "file": "app/src/app/api/feedback/diagnostics/works/route.ts",
       "requiresDecision": false
     },
     {
