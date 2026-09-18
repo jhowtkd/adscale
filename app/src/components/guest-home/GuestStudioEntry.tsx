@@ -9,6 +9,7 @@ import ActiveBrandSwitcher from '@/components/layout/ActiveBrandSwitcher';
 import { useActiveClientProfile } from '@/lib/hooks/use-active-client-profile';
 import type { ImportOutcome } from '@/lib/guest-home/import-contracts';
 import type { GuestDraft } from './guest-core.mjs';
+import { recordGuestDraftImported } from '@/lib/guest-home/telemetry';
 import { loadDraft, removeDraft } from './guest-store.mjs';
 import GuestDraftResume from './GuestDraftResume';
 import { useGuestDraftImport } from './useGuestDraftImport';
@@ -212,6 +213,11 @@ export default function GuestStudioEntry({
     }
     if (outcome.kind === 'verified' || outcome.kind === 'existing_changed') {
       setBusyFor(null);
+      try {
+        recordGuestDraftImported({ workId: outcome.workId, referenceCount: draft.files.length });
+      } catch {
+        // Analytics must never block the verified import.
+      }
       router.push(`/?workId=${outcome.workId}&compose=1`);
       return;
     }

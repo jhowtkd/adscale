@@ -24,6 +24,7 @@ const mockLoadDraft = vi.fn();
 const mockRemoveDraft = vi.fn();
 const mockImportDraft = vi.fn();
 const mockHookArgs = vi.fn();
+const mockRecordImport = vi.fn();
 const mockPush = vi.fn();
 
 vi.mock('./guest-store.mjs', () => ({
@@ -56,6 +57,9 @@ vi.mock('./useGuestDraftImport', () => ({
     mockHookArgs(...args);
     return { importDraft: (...call: unknown[]) => mockImportDraft(...call) };
   },
+}));
+vi.mock('@/lib/guest-home/telemetry', () => ({
+  recordGuestDraftImported: (...args: unknown[]) => mockRecordImport(...args),
 }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
@@ -117,6 +121,7 @@ describe('GuestStudioEntry', () => {
     mockRemoveDraft.mockReset().mockResolvedValue(undefined);
     mockImportDraft.mockReset().mockResolvedValue({ kind: 'blocked', code: 'import_not_available' });
     mockHookArgs.mockReset();
+    mockRecordImport.mockReset();
     mockPush.mockReset();
     singleBrand();
     window.history.replaceState({}, '', '/');
@@ -321,6 +326,39 @@ describe('GuestStudioEntry', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Importar só o texto' }));
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/?workId=work-1&compose=1'));
     expect(mockImportDraft.mock.calls[1][0]).toMatchObject({ textOnly: true });
+  });
+
+  it('verificação emite o evento de importação com o Trabalho', async () => {
+    mockLoadDraft.mockResolvedValue({
+      ...makeDraft(DRAFT_ID),
+      files: [new File(['bytes'], 'ref.png', { type: 'image/png' })],
+    });
+    mockImportDraft.mockResolvedValue({ kind: 'verified', workId: 'work-1' });
+    renderEntry();
+    await screen.findByText('Anúncio de lançamento');
+    fireEvent.click(screen.getByRole('button', { name: 'Usar este pedido' }));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/?workId=work-1&compose=1'));
+    expect(mockRecordImport).toHaveBeenCalledTimes(1);
+    expect(mockRecordImport).toHaveBeenCalledWith({ workId: 'work-1', referenceCount: 1 });
+  });
+
+  it('falha de analytics não bloqueia nem duplica a importação', async () => {
+    mockImportDraft.mockResolvedValue({ kind: 'verified', workId: 'work-1' });
+    mockRecordImport.mockImplementationOnce(() => { throw new Error('analytics down'); });
+    renderEntry();
+    await screen.findByText('Anúncio de lançamento');
+    fireEvent.click(screen.getByRole('button', { name: 'Usar este pedido' }));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/?workId=work-1&compose=1'));
+    expect(mockImportDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it('parcial e bloqueio não emitem evento de importação', async () => {
+    mockImportDraft.mockResolvedValueOnce({ kind: 'partial', workId: 'work-1', pendingFileIds: ['f1'] });
+    renderEntry();
+    await screen.findByText('Anúncio de lançamento');
+    fireEvent.click(screen.getByRole('button', { name: 'Usar este pedido' }));
+    expect(await screen.findByText('Falta 1 referência.')).toBeInTheDocument();
+    expect(mockRecordImport).not.toHaveBeenCalled();
   });
 
   it('anexos desligados não importam texto em silêncio', async () => {
