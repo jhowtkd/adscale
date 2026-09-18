@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import LocalPublicHomeFallback from '@/components/guest-home/LocalPublicHomeFallback';
+import AdscaleGuestHome from '@/components/guest-home/AdscaleGuestHome';
 import { readPublicStudioFlags } from '@/lib/public-studio-config';
 
 export const metadata: Metadata = {
@@ -9,8 +10,11 @@ export const metadata: Metadata = {
 };
 
 export default function HiPage() {
-  // Validates flag consistency (throws on invalid combos). S2 wires the
-  // interactive island on flags.homeEnabled; until then fail closed.
-  readPublicStudioFlags(process.env);
-  return <LocalPublicHomeFallback />;
+  const flags = readPublicStudioFlags(process.env);
+  if (!flags.homeEnabled) return <LocalPublicHomeFallback />;
+  return <AdscaleGuestHome
+    assetBase="/adscale-guest"
+    preview={false}
+    attachmentsEnabled={flags.attachmentsEnabled}
+  />;
 }
