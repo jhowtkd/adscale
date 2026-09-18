@@ -37,6 +37,7 @@ export default async function DashboardPage({ searchParams }: {
       userId={session.userId}
       workspaceId={session.workspaceId}
       importEnabled={flags.importEnabled}
+      attachmentsEnabled={flags.attachmentsEnabled}
       conflict={conflict}
     />;
   }

@@ -6,6 +6,8 @@ import { useGuestDraftImport } from './useGuestDraftImport';
 import type { GuestDraft } from './guest-core.mjs';
 
 const mockMutateAsync = vi.fn();
+const mockSourceMutateAsync = vi.fn();
+const mockUploadAttachment = vi.fn();
 const mockApiFetch = vi.fn();
 const mockClaim = vi.fn();
 const mockLoadReceipt = vi.fn();
@@ -15,7 +17,13 @@ const mockRelease = vi.fn();
 
 vi.mock('@/lib/hooks/use-creative-work', () => ({
   useCreateCreativeWorkDraft: () => ({ mutateAsync: (...args: unknown[]) => mockMutateAsync(...args) }),
-  mapCreativeWorkDetail: (data: { work: unknown }) => ({ work: data.work }),
+  useCreativeWorkSourceActions: () => ({ mutateAsync: (...args: unknown[]) => mockSourceMutateAsync(...args) }),
+  mapCreativeWorkDetail: (data: { work: unknown; sources?: unknown[] }) => ({
+    work: data.work, sources: data.sources ?? [],
+  }),
+}));
+vi.mock('@/lib/assistant/chat-attachments', () => ({
+  uploadChatAttachment: (...args: unknown[]) => mockUploadAttachment(...args),
 }));
 vi.mock('@/lib/api-client', () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
@@ -42,20 +50,31 @@ const DRAFT: GuestDraft = {
 const WORK = {
   id: 'work-1', createdByUserId: 'user-1', workspaceId: 'ws-1', clientProfileId: 'brand-1',
   draftKey: DRAFT_ID, request: 'Anúncio', toolKind: 'single',
+  updatedAt: '2026-09-18T00:00:00.000Z',
 };
+const FILE = new File(['bytes'], 'ref.png', { type: 'image/png' });
+const DRAFT_WITH_FILE = { ...DRAFT, files: [FILE] };
 
 function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>;
 }
 
 describe('useGuestDraftImport', () => {
+  const receiptStore = new Map<string, unknown>();
+
   beforeEach(() => {
+    receiptStore.clear();
     vi.restoreAllMocks();
+    receiptStore.clear();
+    mockLoadReceipt.mockReset().mockImplementation(async (id: string) => receiptStore.get(id) ?? null);
+    mockSaveReceipt.mockReset().mockImplementation(async (receipt: { guestDraftId: string }) => {
+      receiptStore.set(receipt.guestDraftId, structuredClone(receipt));
+    });
     mockMutateAsync.mockReset().mockResolvedValue({ work: WORK });
+    mockSourceMutateAsync.mockReset().mockResolvedValue({ source: { id: 'source-1' } });
+    mockUploadAttachment.mockReset().mockResolvedValue({ assetId: 'asset-1' });
     mockApiFetch.mockReset().mockResolvedValue({ ok: true, json: async () => ({ work: WORK }) });
     mockClaim.mockReset().mockResolvedValue({ kind: 'acquired', receipt: { revision: 1 } });
-    mockLoadReceipt.mockReset().mockResolvedValue(null);
-    mockSaveReceipt.mockReset().mockResolvedValue({ revision: 1 });
     mockRenew.mockReset().mockResolvedValue(true);
     mockRelease.mockReset().mockResolvedValue(undefined);
   });
@@ -65,7 +84,7 @@ describe('useGuestDraftImport', () => {
   });
 
   it('reivindica, cria, verifica, salva recibo e libera o lease', async () => {
-    const { result } = renderHook(() => useGuestDraftImport(), { wrapper });
+    const { result } = renderHook(() => useGuestDraftImport(true), { wrapper });
     let outcome: unknown;
     await act(async () => {
       outcome = await result.current.importDraft({ draft: DRAFT, context: CONTEXT });
@@ -86,7 +105,7 @@ describe('useGuestDraftImport', () => {
 
   it('lease ocupado bloqueia sem tocar na rede', async () => {
     mockClaim.mockResolvedValue({ kind: 'busy' });
-    const { result } = renderHook(() => useGuestDraftImport(), { wrapper });
+    const { result } = renderHook(() => useGuestDraftImport(true), { wrapper });
     let outcome: unknown;
     await act(async () => {
       outcome = await result.current.importDraft({ draft: DRAFT, context: CONTEXT });
@@ -101,10 +120,10 @@ describe('useGuestDraftImport', () => {
     vi.useFakeTimers();
     let releaseCreate!: (value: unknown) => void;
     mockMutateAsync.mockImplementation(() => new Promise((resolve) => { releaseCreate = resolve; }));
-    const { result } = renderHook(() => useGuestDraftImport(), { wrapper });
+    const { result } = renderHook(() => useGuestDraftImport(true), { wrapper });
     let outcome: unknown;
     let failed: unknown;
-    void act(async () => {
+    const importAct = act(async () => {
       try {
         outcome = await result.current.importDraft({ draft: DRAFT, context: CONTEXT });
       } catch (error) {
@@ -117,8 +136,53 @@ describe('useGuestDraftImport', () => {
       releaseCreate({ work: WORK });
       await vi.advanceTimersByTimeAsync(0);
     });
+    await importAct;
     expect(outcome).toEqual({ kind: 'verified', workId: 'work-1' });
     expect(failed).toBeUndefined();
     expect(mockRelease).toHaveBeenCalledTimes(1);
+  });
+
+  it('transfere referências após o texto verificado', async () => {
+    const reads = [
+      { work: WORK },
+      { work: WORK, sources: [] },
+      { work: WORK, sources: [{ id: 'source-1', assetId: 'asset-1' }] },
+    ];
+    mockApiFetch.mockImplementation(async () => ({
+      ok: true, json: async () => reads.shift() ?? { work: WORK, sources: [] },
+    }));
+    const { result } = renderHook(() => useGuestDraftImport(true), { wrapper });
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await result.current.importDraft({ draft: DRAFT_WITH_FILE, context: CONTEXT });
+    });
+    expect(outcome).toEqual({ kind: 'verified', workId: 'work-1' });
+    expect(mockUploadAttachment).toHaveBeenCalledWith(FILE);
+    expect(mockSourceMutateAsync).toHaveBeenCalledWith({
+      workItemId: 'work-1', action: 'attachSource', assetId: 'asset-1',
+      usage: 'content', expectedUpdatedAt: expect.any(String),
+    });
+  });
+
+  it('anexos desligados bloqueiam transferência sem enviar bytes', async () => {
+    const { result } = renderHook(() => useGuestDraftImport(false), { wrapper });
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await result.current.importDraft({ draft: DRAFT_WITH_FILE, context: CONTEXT });
+    });
+    expect(outcome).toEqual({ kind: 'blocked', code: 'attachments_disabled' });
+    expect(mockUploadAttachment).not.toHaveBeenCalled();
+    expect(mockSourceMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('texto explícito pula a transferência mesmo com arquivos', async () => {
+    const { result } = renderHook(() => useGuestDraftImport(true), { wrapper });
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await result.current.importDraft({ draft: DRAFT_WITH_FILE, context: CONTEXT, textOnly: true });
+    });
+    expect(outcome).toEqual({ kind: 'verified', workId: 'work-1' });
+    expect(mockUploadAttachment).not.toHaveBeenCalled();
+    expect(mockSourceMutateAsync).not.toHaveBeenCalled();
   });
 });

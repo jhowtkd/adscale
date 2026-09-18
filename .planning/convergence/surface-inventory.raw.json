@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-18T22:26:24.429Z",
+  "generatedAt": "2026-09-18T22:54:38.212Z",
   "schemaVersion": 2,
-  "fingerprint": "bdae5eaf45cfac1b3a83c12b2e329c032c13ea35939db68b5af044dbaa35b432",
+  "fingerprint": "9c2068033319ed407d390c85930feb62c3cbba86ceac6f8121549da389af7034",
   "counts": {
     "dashboardPages": 16,
     "apiRoutes": 196,
@@ -1804,39 +1804,39 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/guest-home/GuestStudioEntry.tsx:212",
+      "id": "nav:app/src/components/guest-home/GuestStudioEntry.tsx:215",
       "kind": "cta_navigation",
       "destination": "/?workId=${outcome.workId}&compose=1",
       "file": "app/src/components/guest-home/GuestStudioEntry.tsx",
-      "line": 212,
-      "evidence": "app/src/components/guest-home/GuestStudioEntry.tsx:212",
+      "line": 215,
+      "evidence": "app/src/components/guest-home/GuestStudioEntry.tsx:215",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/guest-home/GuestStudioEntry.tsx:117",
+      "id": "nav:app/src/components/guest-home/GuestStudioEntry.tsx:119",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/guest-home/GuestStudioEntry.tsx",
-      "line": 117,
-      "evidence": "app/src/components/guest-home/GuestStudioEntry.tsx:117",
+      "line": 119,
+      "evidence": "app/src/components/guest-home/GuestStudioEntry.tsx:119",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/guest-home/GuestStudioEntry.tsx:118",
+      "id": "nav:app/src/components/guest-home/GuestStudioEntry.tsx:120",
       "kind": "cta_navigation",
       "destination": "/hi",
       "file": "app/src/components/guest-home/GuestStudioEntry.tsx",
-      "line": 118,
-      "evidence": "app/src/components/guest-home/GuestStudioEntry.tsx:118",
+      "line": 120,
+      "evidence": "app/src/components/guest-home/GuestStudioEntry.tsx:120",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/guest-home/GuestStudioEntry.tsx:128",
+      "id": "nav:app/src/components/guest-home/GuestStudioEntry.tsx:130",
       "kind": "cta_navigation",
       "destination": "/hi",
       "file": "app/src/components/guest-home/GuestStudioEntry.tsx",
-      "line": 128,
-      "evidence": "app/src/components/guest-home/GuestStudioEntry.tsx:128",
+      "line": 130,
+      "evidence": "app/src/components/guest-home/GuestStudioEntry.tsx:130",
       "requiresDecision": false
     },
     {

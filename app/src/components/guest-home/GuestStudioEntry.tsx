@@ -24,6 +24,7 @@ export type GuestStudioEntryProps = {
   userId: string | null;
   workspaceId: string | null;
   importEnabled: boolean;
+  attachmentsEnabled: boolean;
   conflict: GuestConflict | null;
 };
 
@@ -50,17 +51,18 @@ function DiscardButton({ onDiscarded }: { onDiscarded: () => void }) {
 }
 
 export default function GuestStudioEntry({
-  guestDraftId, userId, workspaceId, importEnabled, conflict,
+  guestDraftId, userId, workspaceId, importEnabled, attachmentsEnabled, conflict,
 }: GuestStudioEntryProps) {
   const t = useTranslations('guestEntry');
   const router = useRouter();
   const queryClient = useQueryClient();
   const brands = useActiveClientProfile();
-  const { importDraft } = useGuestDraftImport();
+  const { importDraft } = useGuestDraftImport(attachmentsEnabled);
 
   const [loaded, setLoaded] = useState<{ id: string; draft: GuestDraft | null } | null>(null);
   const [busyFor, setBusyFor] = useState<string | null>(null);
-  const [failure, setFailure] = useState<{ id: string; message: string } | null>(null);
+  const [failure, setFailure] = useState<{ id: string; message: string; code?: string } | null>(null);
+  const [partial, setPartial] = useState<{ id: string; workId: string; pendingFileIds: string[] } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [discardedId, setDiscardedId] = useState<string | null>(null);
 
@@ -180,7 +182,7 @@ export default function GuestStudioEntry({
     );
   }
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (textOnly = false) => {
     const context = {
       userId,
       workspaceId,
@@ -190,9 +192,10 @@ export default function GuestStudioEntry({
     const seq = (importSeq.current += 1);
     setBusyFor(guestDraftId);
     setFailure(null);
+    setPartial(null);
     let outcome: ImportOutcome;
     try {
-      outcome = await importDraft({ draft, context });
+      outcome = await importDraft(textOnly ? { draft, context, textOnly: true } : { draft, context });
     } catch {
       if (seq !== importSeq.current) return;
       setBusyFor(null);
@@ -213,9 +216,17 @@ export default function GuestStudioEntry({
       return;
     }
     setBusyFor(null);
+    if (outcome.kind === 'partial') {
+      setPartial({ id: guestDraftId, workId: outcome.workId, pendingFileIds: outcome.pendingFileIds });
+      setFailure({ id: guestDraftId, message: t('partialMessage') });
+      return;
+    }
     setFailure({
       id: guestDraftId,
-      message: outcome.kind === 'partial' ? t('partialMessage') : t('blockedMessage'),
+      message: outcome.code === 'attachments_disabled'
+        ? t('attachmentsDisabledMessage')
+        : t('blockedMessage'),
+      code: outcome.code,
     });
   };
 
@@ -238,10 +249,24 @@ export default function GuestStudioEntry({
         state={busy ? 'creating' : 'review'}
         error={error}
         canConfirm={canConfirm}
-        onConfirm={handleConfirm}
+        onConfirm={() => handleConfirm()}
         onDiscard={handleDiscard}
         onCopy={handleCopy}
       />
+      {partial?.id === guestDraftId && !busy && (
+        <section aria-label={t('partialMessage')}>
+          <p>{partial.pendingFileIds.length === 1
+            ? t('partialPendingOne')
+            : t('partialPending', { count: partial.pendingFileIds.length })}</p>
+          <button type="button" onClick={() => handleConfirm()}>{t('partialRetry')}</button>
+          <button type="button" onClick={() => handleConfirm(true)}>{t('textOnlyConfirm')}</button>
+        </section>
+      )}
+      {failure?.id === guestDraftId && failure.code === 'attachments_disabled' && !busy && (
+        <section aria-label={t('attachmentsDisabledMessage')}>
+          <button type="button" onClick={() => handleConfirm(true)}>{t('textOnlyConfirm')}</button>
+        </section>
+      )}
     </div>
   );
 }

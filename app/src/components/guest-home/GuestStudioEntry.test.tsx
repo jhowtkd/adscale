@@ -23,6 +23,7 @@ const mockBrandState = vi.hoisted(() => ({
 const mockLoadDraft = vi.fn();
 const mockRemoveDraft = vi.fn();
 const mockImportDraft = vi.fn();
+const mockHookArgs = vi.fn();
 const mockPush = vi.fn();
 
 vi.mock('./guest-store.mjs', () => ({
@@ -51,7 +52,10 @@ vi.mock('@/components/layout/ActiveBrandSwitcher', () => ({
   ),
 }));
 vi.mock('./useGuestDraftImport', () => ({
-  useGuestDraftImport: () => ({ importDraft: (...args: unknown[]) => mockImportDraft(...args) }),
+  useGuestDraftImport: (...args: unknown[]) => {
+    mockHookArgs(...args);
+    return { importDraft: (...call: unknown[]) => mockImportDraft(...call) };
+  },
 }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
@@ -97,6 +101,7 @@ function renderEntry(props: Partial<Parameters<typeof GuestStudioEntry>[0]> = {}
         userId="user-1"
         workspaceId="ws-1"
         importEnabled
+        attachmentsEnabled
         conflict={null}
         {...props}
       />
@@ -111,6 +116,7 @@ describe('GuestStudioEntry', () => {
     mockLoadDraft.mockReset().mockResolvedValue(makeDraft(DRAFT_ID));
     mockRemoveDraft.mockReset().mockResolvedValue(undefined);
     mockImportDraft.mockReset().mockResolvedValue({ kind: 'blocked', code: 'import_not_available' });
+    mockHookArgs.mockReset();
     mockPush.mockReset();
     singleBrand();
     window.history.replaceState({}, '', '/');
@@ -166,7 +172,7 @@ describe('GuestStudioEntry', () => {
     };
     rerender(
       <QueryClientProvider client={client}>
-        <GuestStudioEntry guestDraftId={DRAFT_ID} userId="user-1" workspaceId="ws-1" importEnabled conflict={null} />
+        <GuestStudioEntry guestDraftId={DRAFT_ID} userId="user-1" workspaceId="ws-1" importEnabled attachmentsEnabled conflict={null} />
       </QueryClientProvider>,
     );
     await waitFor(() => expect(screen.getByRole('button', { name: 'Usar este pedido' })).toBeEnabled());
@@ -244,7 +250,7 @@ describe('GuestStudioEntry', () => {
 
     rerender(
       <QueryClientProvider client={client}>
-        <GuestStudioEntry guestDraftId={DRAFT_ID} userId="user-2" workspaceId="ws-1" importEnabled conflict={null} />
+        <GuestStudioEntry guestDraftId={DRAFT_ID} userId="user-2" workspaceId="ws-1" importEnabled attachmentsEnabled conflict={null} />
       </QueryClientProvider>,
     );
     resolveImport({ kind: 'verified', workId: 'work-1' });
@@ -260,7 +266,7 @@ describe('GuestStudioEntry', () => {
     const { rerender, client } = renderEntry();
     rerender(
       <QueryClientProvider client={client}>
-        <GuestStudioEntry guestDraftId={DRAFT_ID_2} userId="user-1" workspaceId="ws-1" importEnabled conflict={null} />
+        <GuestStudioEntry guestDraftId={DRAFT_ID_2} userId="user-1" workspaceId="ws-1" importEnabled attachmentsEnabled conflict={null} />
       </QueryClientProvider>,
     );
     expect(await screen.findByText('Segundo pedido')).toBeInTheDocument();
@@ -283,5 +289,50 @@ describe('GuestStudioEntry', () => {
     await screen.findByText('Anúncio de lançamento');
     fireEvent.click(screen.getByRole('button', { name: 'Usar este pedido' }));
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/?workId=work-1&compose=1'));
+  });
+
+  it('repasse de attachmentsEnabled chega ao hook', async () => {
+    renderEntry({ attachmentsEnabled: false });
+    await screen.findByText('Anúncio de lançamento');
+    expect(mockHookArgs).toHaveBeenCalledWith(false);
+  });
+
+  it('parcial oferece retomar só os pendentes', async () => {
+    mockImportDraft.mockResolvedValueOnce({ kind: 'partial', workId: 'work-1', pendingFileIds: ['f1', 'f2'] });
+    mockImportDraft.mockResolvedValue({ kind: 'verified', workId: 'work-1' });
+    renderEntry();
+    await screen.findByText('Anúncio de lançamento');
+    fireEvent.click(screen.getByRole('button', { name: 'Usar este pedido' }));
+    expect(await screen.findByText('Faltam 2 referências.')).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar referências pendentes' }));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/?workId=work-1&compose=1'));
+    expect(mockImportDraft).toHaveBeenCalledTimes(2);
+    expect(mockImportDraft.mock.calls[1][0]).not.toHaveProperty('textOnly');
+  });
+
+  it('texto explícito após parcial importa sem as referências', async () => {
+    mockImportDraft.mockResolvedValueOnce({ kind: 'partial', workId: 'work-1', pendingFileIds: ['f1'] });
+    mockImportDraft.mockResolvedValue({ kind: 'verified', workId: 'work-1' });
+    renderEntry();
+    await screen.findByText('Anúncio de lançamento');
+    fireEvent.click(screen.getByRole('button', { name: 'Usar este pedido' }));
+    expect(await screen.findByText('Falta 1 referência.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Importar só o texto' }));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/?workId=work-1&compose=1'));
+    expect(mockImportDraft.mock.calls[1][0]).toMatchObject({ textOnly: true });
+  });
+
+  it('anexos desligados não importam texto em silêncio', async () => {
+    mockImportDraft.mockResolvedValue({ kind: 'blocked', code: 'attachments_disabled', workId: 'work-1' });
+    renderEntry();
+    await screen.findByText('Anúncio de lançamento');
+    fireEvent.click(screen.getByRole('button', { name: 'Usar este pedido' }));
+    expect(await screen.findByText(
+      'Os anexos estão desligados. Seus arquivos continuam guardados; importe só o texto ou tente mais tarde.',
+    )).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(screen.getByText('Anúncio de lançamento')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Importar só o texto' })).toBeInTheDocument();
   });
 });

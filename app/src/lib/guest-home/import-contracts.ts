@@ -57,4 +57,29 @@ export type TextImportPorts = {
   readWork(id: string): Promise<CanonicalDraft>;
 };
 
-export type TextImportInput = { draft: GuestDraft; context: ImportContext };
+export type TextImportInput = { draft: GuestDraft; context: ImportContext; textOnly?: boolean };
+
+/** Upload was sent but the outcome is unknown (timeout, dropped response). Retryable, never declared failed. */
+export class ReferenceUploadUnknown extends Error {
+  constructor() {
+    super('upload_unknown');
+    this.name = 'ReferenceUploadUnknown';
+  }
+}
+
+export type SourceSnapshot = {
+  sources: { id: string; assetId: string | null }[];
+  updatedAt: string;
+};
+
+export type ReferenceImportPorts = {
+  loadReceipt(id: string): Promise<GuestImportReceipt | null>;
+  saveReceipt(receipt: GuestImportReceipt): Promise<void>;
+  uploadFile(file: File): Promise<{ assetId: string }>;
+  attachSource(input: {
+    workItemId: string; assetId: string; expectedUpdatedAt: string;
+  }): Promise<{ sourceId: string }>;
+  readSources(workItemId: string): Promise<SourceSnapshot>;
+};
+
+export type ReferenceImportInput = { draft: GuestDraft; workId: string; context: ImportContext };
