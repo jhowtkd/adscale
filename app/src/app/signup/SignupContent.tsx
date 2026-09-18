@@ -14,8 +14,10 @@ import PasswordInput from "@/components/auth/PasswordInput";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { authClient } from "@/lib/auth-client";
+import { authEntryHref, safeCallbackPath } from "@/lib/auth-callback";
 
 interface SignupState {
   name: string;
@@ -49,6 +51,8 @@ function signupReducer(state: SignupState, payload: Partial<SignupState>): Signu
 
 export default function SignupContent() {
   const t = useTranslations("auth");
+  const searchParams = useSearchParams();
+  const callbackUrl = safeCallbackPath(searchParams.get("callbackUrl"));
   const [state, dispatch] = useReducer(signupReducer, initialSignupState);
   const {
     name,
@@ -78,7 +82,7 @@ export default function SignupContent() {
       const res = await fetch("/api/auth/sign-up/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, callbackURL: callbackUrl }),
         signal: AbortSignal.timeout(10000),
       });
 
@@ -102,7 +106,7 @@ export default function SignupContent() {
     try {
       const res = await authClient.sendVerificationEmail({
         email: submittedEmail,
-        callbackURL: "/",
+        callbackURL: callbackUrl,
       });
 
       if (res?.error) {
@@ -163,7 +167,7 @@ export default function SignupContent() {
 
             <p className="text-center text-sm text-[var(--text-secondary)]">
               {t("hasAccount")}{" "}
-              <Link href="/login" className={authTextLinkClass}>
+              <Link href={authEntryHref("/login", callbackUrl)} className={authTextLinkClass}>
                 {t("signIn")}
               </Link>
             </p>
@@ -253,7 +257,7 @@ export default function SignupContent() {
 
           <p className="text-center text-sm text-[var(--text-secondary)]">
             {t("hasAccount")}{" "}
-            <Link href="/login" className={authTextLinkClass}>
+            <Link href={authEntryHref("/login", callbackUrl)} className={authTextLinkClass}>
               {t("signIn")}
             </Link>
           </p>

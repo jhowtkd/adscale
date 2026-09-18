@@ -17,7 +17,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { authClient } from "@/lib/auth-client";
-import { safeCallbackPath } from "@/lib/auth-callback";
+import { authEntryHref, safeCallbackPath } from "@/lib/auth-callback";
 import { cn } from "@/lib/utils";
 
 interface LoginState {
@@ -186,7 +186,7 @@ export default function LoginContent() {
                     autoComplete="current-password"
                   />
                   <p className="text-right">
-                    <Link href="/forgot-password" className={cn("text-xs", authTextLinkClass)}>
+                    <Link href={authEntryHref("/forgot-password", callbackUrl)} className={cn("text-xs", authTextLinkClass)}>
                       {t("forgotPassword")}
                     </Link>
                   </p>
@@ -208,7 +208,7 @@ export default function LoginContent() {
 
               <p className="text-center text-sm text-[var(--text-secondary)]">
                 {t("noAccount")}{" "}
-                <Link href="/signup" className={authTextLinkClass}>
+                <Link href={authEntryHref("/signup", callbackUrl)} className={authTextLinkClass}>
                   {t("signUp")}
                 </Link>
               </p>
