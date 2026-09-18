@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import { withSentryConfig } from "@sentry/nextjs";
+import { assertHiFlagsValid } from "./src/server/hi/flags";
+
+// /hi flags (#439): inconsistent combinations throw here, and `next build`
+// loads this file — so the build fails in every environment (local, CI,
+// Render) with zero new scripts.
+assertHiFlagsValid(process.env);
 
 const withNextIntl = createNextIntlPlugin("./src/i18n.ts");
 
@@ -27,10 +33,6 @@ function getR2Hostname(): string | undefined {
 }
 
 const r2Hostname = getR2Hostname();
-
-const marketingUpstream =
-  process.env.MARKETING_UPSTREAM_URL?.replace(/\/$/, "") ??
-  "https://adscale-marketing.onrender.com";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
@@ -60,11 +62,12 @@ const nextConfig: NextConfig = {
     return [
       { source: "/manual", destination: "/manual/index.html" },
       { source: "/manual/", destination: "/manual/index.html" },
-      { source: "/hi", destination: `${marketingUpstream}/` },
-      { source: "/hi/", destination: `${marketingUpstream}/` },
-      { source: "/hi/assets/:path*", destination: `${marketingUpstream}/assets/:path*` },
-      { source: "/hi/Adscale.svg", destination: `${marketingUpstream}/Adscale.svg` },
-      { source: "/Adscale.svg", destination: `${marketingUpstream}/Adscale.svg` },
+      // /hi is a native same-service route now (#439). These aliases keep old
+      // logo/asset addresses resolving to inventoried local copies under
+      // public/hi-assets/ — no external dependency at runtime or build.
+      { source: "/Adscale.svg", destination: "/hi-assets/Adscale.svg" },
+      { source: "/hi/Adscale.svg", destination: "/hi-assets/Adscale.svg" },
+      { source: "/hi/assets/:path*", destination: "/hi-assets/assets/:path*" },
     ];
   },
   images: {

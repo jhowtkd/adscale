@@ -46,10 +46,16 @@ services:
         value: https://adscale.jhonatansoares.com
       - key: MARKETING_URL
         value: https://adscale.jhonatansoares.com/hi
-      - key: MARKETING_UPSTREAM_URL
-        value: https://adscale-marketing.onrender.com
       - key: MARKETING_ALLOWED_ORIGINS
         value: https://adscale.jhonatansoares.com
+      # /hi flags (#439): containment defaults; #447 flips at rollout.
+      # Page or attachments without import fails the build.
+      - key: HI_IMPORT_ENABLED
+        value: "false"
+      - key: HI_PAGE_ENABLED
+        value: "false"
+      - key: HI_ATTACHMENTS_ENABLED
+        value: "false"
       - key: OPENAI_API_KEY
         sync: false
       - key: ATLASCLOUD_API_KEY

@@ -102,6 +102,31 @@ export const envSchema = z.object({
   META_APP_SECRET: z.string().min(1).optional(),
   /** Sem Meta App (#348 OPEN): Graph mockada determinística. */
   META_GRAPH_MOCK: z.enum(["true", "false"]).default("false"),
+  /** /hi import path live (#442/#443). */
+  HI_IMPORT_ENABLED: z.enum(["true", "false"]).default("false"),
+  /** /hi interactive visitor island (#440) instead of fallback. */
+  HI_PAGE_ENABLED: z.enum(["true", "false"]).default("false"),
+  /** /hi reference attachments accepted (#444). */
+  HI_ATTACHMENTS_ENABLED: z.enum(["true", "false"]).default("false"),
+}).superRefine((data, ctx) => {
+  // Mirror of the rule in src/server/hi/flags.ts (the build-time gate in
+  // next.config.ts). Keep the two messages in sync if either changes.
+  if (!data.HI_IMPORT_ENABLED || data.HI_IMPORT_ENABLED === "false") {
+    if (data.HI_PAGE_ENABLED === "true") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["HI_PAGE_ENABLED"],
+        message: "HI_PAGE_ENABLED=true requires HI_IMPORT_ENABLED=true",
+      });
+    }
+    if (data.HI_ATTACHMENTS_ENABLED === "true") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["HI_ATTACHMENTS_ENABLED"],
+        message: "HI_ATTACHMENTS_ENABLED=true requires HI_IMPORT_ENABLED=true",
+      });
+    }
+  }
 });
 
 const parsed = envSchema.safeParse(process.env);

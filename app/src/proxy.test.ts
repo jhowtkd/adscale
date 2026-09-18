@@ -98,4 +98,17 @@ describe("proxy auth routing", () => {
       "http://localhost:3000/login?callbackUrl=%2F%3Fcompose%3D1",
     );
   });
+
+  it("leaves unauthenticated /hi public with no redirect (#439)", async () => {
+    const res = await proxy(requestFor("/hi"));
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("locks the no-loop contract / -> /hi -> 200, never back to / (#439)", async () => {
+    process.env.MARKETING_URL = "http://localhost:3000/hi";
+    const root = await proxy(requestFor("/"));
+    expect(root.headers.get("location")).toBe("http://localhost:3000/hi");
+    const hi = await proxy(requestFor("/hi"));
+    expect(hi.headers.get("location")).toBeNull();
+  });
 });
