@@ -9,9 +9,9 @@ import { expect, test, type Page } from "@playwright/test";
  * the old host is blocked at the request layer for the whole session, then
  * the page, fallback, login return, and local asset aliases must all work.
  *
- * Runs against an already-running server (default flags: all HI_* false, so
- * the fallback renders). The login leg reuses the seeded dev identity used
- * by the other serial flows.
+ * Runs against an already-running server (default flags: all
+ * PUBLIC_STUDIO_* false, so the fallback renders). The login leg reuses the
+ * seeded dev identity used by the other serial flows.
  */
 
 const OLD_HOST = "adscale-marketing.onrender.com";
@@ -54,13 +54,15 @@ test.describe("unified /hi hosting (#439)", () => {
   }) => {
     const { response, oldHostHits } = await gotoNoOldHost(page, "/hi");
     expect(response?.status()).toBe(200);
+    const main = page.getByRole("main");
+    await expect(main).toHaveAttribute("id", "main");
+    await expect(main).toHaveAttribute("data-public-home-mode", "fallback");
     await expect(
-      page.getByRole("heading", { name: "Acesse o Estúdio" }),
+      page.getByRole("heading", { name: "Seu Estúdio continua por aqui." }),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Entrar" })).toHaveAttribute(
-      "href",
-      "/login?callbackUrl=%2Fhi",
-    );
+    await expect(
+      page.getByRole("link", { name: "Entrar no Estúdio" }),
+    ).toHaveAttribute("href", "/login?callbackUrl=%2F");
     expect(oldHostHits).toEqual([]);
   });
 
@@ -68,28 +70,25 @@ test.describe("unified /hi hosting (#439)", () => {
     const { response, oldHostHits } = await gotoNoOldHost(page, "/hi/");
     expect(response?.status()).toBe(200);
     await expect(
-      page.getByRole("heading", { name: "Acesse o Estúdio" }),
+      page.getByRole("heading", { name: "Seu Estúdio continua por aqui." }),
     ).toBeVisible();
     expect(oldHostHits).toEqual([]);
   });
 
-  test("login from the fallback lands back on /hi", async ({ page }) => {
+  test("login from the fallback lands back on /", async ({ page }) => {
     await page.route(
       (routeUrl) => routeUrl.hostname === OLD_HOST,
       (route) => route.abort(),
     );
     await page.goto("/hi", { waitUntil: "domcontentloaded" });
-    await page.getByRole("link", { name: "Entrar" }).click();
+    await page.getByRole("link", { name: "Entrar no Estúdio" }).click();
     await page.waitForURL(/\/login/, { timeout: 15_000 });
     await page.locator("#email").fill(EMAIL);
     await page.locator("#login-password").fill(PASSWORD);
     await page.locator("form:has(#email) button[type=submit]").click();
-    await page.waitForURL((url) => url.pathname === "/hi", {
+    await page.waitForURL((url) => url.pathname === "/", {
       timeout: 30_000,
     });
-    await expect(
-      page.getByRole("heading", { name: "Acesse o Estúdio" }),
-    ).toBeVisible();
   });
 
   test("old logo/asset addresses resolve to inventoried local bytes", async ({
@@ -105,9 +104,9 @@ test.describe("unified /hi hosting (#439)", () => {
       ).toBe(expectedHash);
     }
     // Local bytes equal the committed copies (not the live upstream).
-    const svgHash = sha256File(
-      path.resolve(process.cwd(), "public/hi-assets/Adscale.svg"),
+    const logoHash = sha256File(
+      path.resolve(process.cwd(), "public/adscale-guest/logo.svg"),
     );
-    expect(svgHash).toBe(INVENTORY_HASHES["/Adscale.svg"]);
+    expect(logoHash).toBe(INVENTORY_HASHES["/Adscale.svg"]);
   });
 });

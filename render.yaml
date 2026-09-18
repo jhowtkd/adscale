@@ -48,13 +48,13 @@ services:
         value: https://adscale.jhonatansoares.com/hi
       - key: MARKETING_ALLOWED_ORIGINS
         value: https://adscale.jhonatansoares.com
-      # /hi flags (#439): containment defaults; #447 flips at rollout.
-      # Page or attachments without import fails the build.
-      - key: HI_IMPORT_ENABLED
+      # Public home flags (#439): containment defaults; #447 flips at rollout.
+      # Home or attachments without import fails the build.
+      - key: PUBLIC_STUDIO_HOME_ENABLED
         value: "false"
-      - key: HI_PAGE_ENABLED
+      - key: PUBLIC_STUDIO_IMPORT_ENABLED
         value: "false"
-      - key: HI_ATTACHMENTS_ENABLED
+      - key: PUBLIC_STUDIO_ATTACHMENTS_ENABLED
         value: "false"
       - key: OPENAI_API_KEY
         sync: false

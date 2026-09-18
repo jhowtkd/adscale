@@ -1,12 +1,15 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import { withSentryConfig } from "@sentry/nextjs";
-import { assertHiFlagsValid } from "./src/server/hi/flags";
+import {
+  publicStudioRewrites,
+  readPublicStudioFlags,
+} from "./src/lib/public-studio-config";
 
-// /hi flags (#439): inconsistent combinations throw here, and `next build`
-// loads this file — so the build fails in every environment (local, CI,
-// Render) with zero new scripts.
-assertHiFlagsValid(process.env);
+// Public home flags (#439): inconsistent combinations throw here, and
+// `next build` loads this file — so the build fails in every environment
+// (local, CI, Render) with zero new scripts.
+readPublicStudioFlags(process.env);
 
 const withNextIntl = createNextIntlPlugin("./src/i18n.ts");
 
@@ -59,16 +62,12 @@ const nextConfig: NextConfig = {
       process.env.NODE_ENV === "production" ? "" : process.env.INNGEST_DEV,
   },
   async rewrites() {
-    return [
-      { source: "/manual", destination: "/manual/index.html" },
-      { source: "/manual/", destination: "/manual/index.html" },
-      // /hi is a native same-service route now (#439). These aliases keep old
-      // logo/asset addresses resolving to inventoried local copies under
-      // public/hi-assets/ — no external dependency at runtime or build.
-      { source: "/Adscale.svg", destination: "/hi-assets/Adscale.svg" },
-      { source: "/hi/Adscale.svg", destination: "/hi-assets/Adscale.svg" },
-      { source: "/hi/assets/:path*", destination: "/hi-assets/assets/:path*" },
-    ];
+    // Re-validated here (belt and suspenders with the module-top call):
+    // /hi is a native same-service route, and these aliases keep old
+    // logo/asset addresses resolving to inventoried local copies under
+    // public/adscale-guest/ — no external dependency at runtime or build.
+    readPublicStudioFlags(process.env);
+    return publicStudioRewrites();
   },
   images: {
     remotePatterns: [
