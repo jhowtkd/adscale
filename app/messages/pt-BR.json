@@ -3531,7 +3531,14 @@
     "totalRow": "Total",
     "ctrDefinition": "CTR = cliques ÷ impressões; CTR não prova conversão.",
     "partialCollection": "coleta parcial — números incompletos",
-    "cpaUnavailable": "CPA indisponível para este escopo"
+    "cpaUnavailable": "CPA indisponível para este escopo",
+    "contextPeriod": "Período",
+    "contextAttributionKnown": "atribuição conhecida",
+    "contextAttributionUnknown": "atribuição desconhecida",
+    "contextOriginReal": "dados reais",
+    "contextOriginMock": "dados de exemplo",
+    "contextsDivergent": "contextos divergentes — compare apenas o comparável",
+    "contextUnavailable": "contexto de coleta indisponível"
   },
   "library": {
     "title": "Biblioteca",

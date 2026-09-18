@@ -209,9 +209,25 @@ export interface ClaimedSelectionEffectRow {
   effectVersion: number;
   payload: SelectionEffectPayload;
   attempts: number;
+  /** Approval time: recovered effects keep the original cohort, never the processing time. */
+  requestedAt: Date;
+}
+
+/**
+ * Parse a tz-naive `timestamp` wall-clock (stored as UTC by convention)
+ * into the correct instant in any process timezone. A bare
+ * `new Date(naive)` parses in the PROCESS local timezone and shifts the
+ * instant off-UTC. Already-zoned inputs pass through untouched.
+ */
+function parseUtcNaiveTimestamp(value: unknown): Date {
+  if (value instanceof Date) return value;
+  const text = String(value).trim().replace(" ", "T");
+  if (/[zZ]$|[+-]\d{2}:?\d{2}$/.test(text)) return new Date(text);
+  return new Date(`${text}Z`);
 }
 
 function mapClaimedRow(row: Record<string, unknown>): ClaimedSelectionEffectRow {
+  const requestedAt = row.requested_at;
   return {
     id: String(row.id),
     workspaceId: String(row.workspace_id),
@@ -221,6 +237,7 @@ function mapClaimedRow(row: Record<string, unknown>): ClaimedSelectionEffectRow 
     effectVersion: Number(row.effect_version),
     payload: row.payload as SelectionEffectPayload,
     attempts: Number(row.attempts),
+    requestedAt: parseUtcNaiveTimestamp(requestedAt),
   };
 }
 
@@ -262,7 +279,8 @@ export async function claimSelectionEffects(
       effect.kind AS kind,
       effect.effect_version AS effect_version,
       effect.payload AS payload,
-      effect.attempts AS attempts
+      effect.attempts AS attempts,
+      effect.requested_at AS requested_at
   `);
   return result.rows.map(mapClaimedRow);
 }

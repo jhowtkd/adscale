@@ -104,6 +104,11 @@ export async function GET(request: Request) {
       definitionVersion: report.meta.definitionVersion,
       collectionComplete: report.meta.collectionComplete,
       generatedAt: report.meta.generatedAt,
+      periodStart: report.meta.periodStart,
+      periodEnd: report.meta.periodEnd,
+      attribution: report.meta.attribution,
+      origins: report.meta.origins,
+      contextsDivergent: report.meta.contextsDivergent,
       summary: report.summary,
       rows: items,
     });

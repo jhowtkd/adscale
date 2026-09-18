@@ -3473,7 +3473,14 @@
     "totalRow": "Total",
     "ctrDefinition": "CTR = clicks ÷ impressions; CTR is not proof of conversion.",
     "partialCollection": "partial collection — incomplete numbers",
-    "cpaUnavailable": "CPA unavailable for this scope"
+    "cpaUnavailable": "CPA unavailable for this scope",
+    "contextPeriod": "Period",
+    "contextAttributionKnown": "known attribution",
+    "contextAttributionUnknown": "unknown attribution",
+    "contextOriginReal": "real data",
+    "contextOriginMock": "sample data",
+    "contextsDivergent": "divergent contexts — compare only the comparable",
+    "contextUnavailable": "collection context unavailable"
   },
   "library": {
     "title": "Library",

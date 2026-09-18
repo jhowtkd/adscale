@@ -36,15 +36,25 @@ import type {
  */
 const REQUEST_OPTIONS = { timeout: 180_000, maxRetries: 0 } as const;
 
-function resolveOpenAISize(input: ProviderGenerateInput, model: string): OpenAIImageSize {
+/** 3:4 aspect (1080x1440, 1152x1536, 270x360); nearest neighbor formats are 4:5 (0.8) and 9:16. */
+const THREE_FOUR_RATIO = 3 / 4;
+const THREE_FOUR_RATIO_TOLERANCE = 0.02;
+
+/** Exported for unit tests: the legacy branch is unreachable via generate() (the render policy only admits gpt-image-2). */
+export function resolveOpenAISize(input: ProviderGenerateInput, model: string): OpenAIImageSize {
   const isGptImage2 = model.startsWith("gpt-image-2");
   if (isGptImage2) {
     return dimensionsToGptImage2Size(input.dimensions);
   }
   // Legacy models: square / portrait / landscape SDK enum only.
-  // (Unreachable for 3:4 — the render policy schema only admits gpt-image-2
-  // models, and the format-id path throws explicitly in formatToOpenAIImageSize.)
+  // 3:4 fails closed: mapping it to 2:3 portrait would bill a piece the
+  // downstream resize must stretch (forbidden), so there is no valid size.
   const ratio = input.dimensions.width / input.dimensions.height;
+  if (Math.abs(ratio - THREE_FOUR_RATIO) < THREE_FOUR_RATIO_TOLERANCE) {
+    throw new Error(
+      `Dimensions "${input.dimensions.width}x${input.dimensions.height}" require a model with confirmed 3:4 support (gpt-image-2); refusing to bill a stretched fallback on "${model}" (format_requires_gpt_image_2).`,
+    );
+  }
   if (Math.abs(ratio - 1) < 0.05) return "1024x1024";
   if (ratio < 1) return "1024x1536";
   return "1536x1024";

@@ -184,4 +184,18 @@ describe("recordCreativeWorkValueEventStrict", () => {
     insertIdempotentMock.mockRejectedValue(new Error("analytics down"));
     await expect(recordCreativeWorkValueEventStrict(payload)).rejects.toThrow("analytics down");
   });
+
+  it("cohorts a delayed recovery on the approval time, not the processing time", async () => {
+    const approval = new Date("2026-09-01T10:00:00.000Z");
+    await recordCreativeWorkValueEventStrict({ ...payload, occurredAt: approval });
+    expect(insertIdempotentMock).toHaveBeenCalledWith(
+      expect.objectContaining({ createdAt: approval }),
+    );
+  });
+
+  it("leaves createdAt to the database default without an approval time", async () => {
+    await recordCreativeWorkValueEventStrict(payload);
+    expect(insertIdempotentMock).toHaveBeenCalledOnce();
+    expect(insertIdempotentMock.mock.calls[0][0]).not.toHaveProperty("createdAt");
+  });
 });

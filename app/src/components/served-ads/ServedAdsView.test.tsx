@@ -39,6 +39,13 @@ vi.mock("next-intl", () => ({
         ctrDefinition: "CTR = cliques ÷ impressões",
         partialCollection: "coleta parcial",
         cpaUnavailable: "CPA indisponível",
+        contextPeriod: "Período",
+        contextAttributionKnown: "atribuição conhecida",
+        contextAttributionUnknown: "atribuição desconhecida",
+        contextOriginReal: "dados reais",
+        contextOriginMock: "dados de exemplo",
+        contextsDivergent: "contextos divergentes",
+        contextUnavailable: "contexto indisponível",
       }[key] ?? key
     ),
   useLocale: () => "pt-BR",
@@ -176,6 +183,56 @@ describe("ServedAdsView", () => {
     const rows = await screen.findAllByTestId("served-ad-row");
     expect(within(rows[0]).getByText("não validado")).toBeInTheDocument();
     expect(within(rows[0]).getByText("130")).toBeInTheDocument();
+  });
+
+  it("legenda mostra período, janela, moeda, atribuição e origem do escopo", async () => {
+    apiFetchMock.mockResolvedValue(
+      reportResponse([baseRow], {
+        mode: "live",
+        periodStart: "2026-08-18T12:00:00.000Z",
+        periodEnd: "2026-09-17T12:00:00.000Z",
+        attribution: { status: "unknown", condition: "meta_attribution_not_requested" },
+        origins: ["real"],
+        contextsDivergent: false,
+      })
+    );
+    render(<ServedAdsView />);
+    const caption = await screen.findByTestId("served-ads-context-caption");
+    expect(caption.textContent).toContain("Período: 18/08/2026–17/09/2026");
+    expect(caption.textContent).toContain("30 dias");
+    expect(caption.textContent).toContain("BRL");
+    expect(caption.textContent).toContain("atribuição desconhecida (meta_attribution_not_requested)");
+    expect(caption.textContent).toContain("dados reais");
+  });
+
+  it("contextos divergentes mostram o aviso em vez de período/atribuição", async () => {
+    apiFetchMock.mockResolvedValue(
+      reportResponse([baseRow], {
+        periodStart: null,
+        periodEnd: null,
+        attribution: null,
+        origins: ["mock", "real"],
+        contextsDivergent: true,
+      })
+    );
+    render(<ServedAdsView />);
+    const caption = await screen.findByTestId("served-ads-context-caption");
+    expect(caption.textContent).toBe("contextos divergentes");
+  });
+
+  it("sem contexto algum, a legenda diz que está indisponível", async () => {
+    apiFetchMock.mockResolvedValue(
+      reportResponse([baseRow], {
+        periodStart: null,
+        periodEnd: null,
+        attribution: null,
+        origins: [],
+        contextsDivergent: false,
+      })
+    );
+    render(<ServedAdsView />);
+    const caption = await screen.findByTestId("served-ads-context-caption");
+    expect(caption.textContent).toBe("contexto indisponível");
   });
 
   it("medida ausente mostra traço, nunca zero", async () => {

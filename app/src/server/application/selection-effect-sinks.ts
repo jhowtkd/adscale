@@ -51,6 +51,8 @@ export async function applyValueEventSelectionEffect(input: {
   origin?: string | null;
   campaignId?: string | null;
   clientProfileId?: string | null;
+  /** Approval time: the value event cohorts on it, never on processing time. */
+  occurredAt?: Date;
 }): Promise<void> {
   await recordCreativeWorkValueEventStrict(input);
 }

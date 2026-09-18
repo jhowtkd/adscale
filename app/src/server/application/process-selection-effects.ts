@@ -148,6 +148,8 @@ export interface ClaimedSelectionEffect {
   payload: SelectionEffectPayload;
   /** Attempts including the claim that produced this row. */
   attempts: number;
+  /** Approval time from the outbox row: sinks cohort on it, never on processing time. */
+  requestedAt: Date;
 }
 
 export interface EffectScope {
@@ -357,6 +359,7 @@ export async function runSelectionEffectsProcessor(input: {
           origin: payload.origin,
           campaignId: payload.campaignId,
           clientProfileId: payload.clientProfileId,
+          occurredAt: effect.requestedAt,
         });
       },
       recipe: async ({ effect }) => {
