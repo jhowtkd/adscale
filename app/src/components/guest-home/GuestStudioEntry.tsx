@@ -7,7 +7,9 @@ import AssistantCreateClientDialog from '@/components/assistant/AssistantCreateC
 import { useActiveClientProfile } from '@/lib/hooks/use-active-client-profile';
 import { useClientProfiles } from '@/lib/hooks/use-client-profiles';
 import type { GuestHandoff } from '@/lib/guest-home/handoff';
-import { loadDraft, removeDraft } from './guest-store.mjs';
+import type { ImportOutcome } from '@/lib/guest-home/import-contracts';
+import { useGuestDraftImport } from '@/lib/guest-home/useGuestDraftImport';
+import { loadDraft, loadImportReceipt, removeDraft } from './guest-store.mjs';
 import { GuestDraftResume } from './GuestDraftResume';
 
 export interface GuestStudioEntryProps {
@@ -43,18 +45,37 @@ const secondaryAction = {
   borderRadius: 10,
 } as const;
 
+function blockedMessage(code: string): string {
+  switch (code) {
+    case 'snapshot_changed':
+      return 'O pedido mudou neste navegador. Revise e confirme novamente.';
+    case 'lease_busy':
+      return 'Outra aba está importando este pedido. Aguarde alguns segundos e tente novamente.';
+    case 'receipt_context_mismatch':
+      return 'Este pedido foi vinculado a outra marca ou sessão. Confira a marca selecionada e tente de novo.';
+    case 'work_context_mismatch':
+      return 'O Trabalho vinculado pertence a outro contexto. Confira a marca selecionada e tente de novo.';
+    case 'storage_unavailable':
+      return 'Não foi possível acessar o armazenamento local. Verifique o navegador e tente novamente.';
+    case 'transfer_not_confirmed':
+      return 'Não foi possível confirmar a importação. Tente novamente — nada foi duplicado.';
+    default:
+      return 'Não foi possível importar agora. Tente novamente.';
+  }
+}
+
 /**
- * Authenticated entry for public requests (#442). Renders after the existing
+ * Authenticated entry for public requests (#443). Renders after the existing
  * server workspace guard: with no draft parameter the Studio is unchanged
  * (the page renders DashboardHomeActions instead). Import happens only by
  * explicit click with a valid draft and brand — mounting, brand selection,
- * or panel toggles never create or upload anything.
+ * or panel toggles never create or upload anything. Only a verified receipt
+ * navigates to the Studio work.
  */
 export function GuestStudioEntry({
   handoff, userId, workspaceId, importEnabled, conflictHrefs,
 }: GuestStudioEntryProps) {
   const [confirming, setConfirming] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
   const [discarded, setDiscarded] = useState(false);
   const [reconcileError, setReconcileError] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
@@ -79,7 +100,37 @@ export function GuestStudioEntry({
   });
   const draft = discarded ? null : (draftQuery.data ?? null);
 
-  // Mid-operation context change cancels new work and asks for reconciliation.
+  const importContext = profile.activeClientProfileId
+    ? { userId, workspaceId, clientProfileId: profile.activeClientProfileId }
+    : null;
+  const { attempt, busy: importBusy, start: importStart } = useGuestDraftImport({
+    draft,
+    context: importContext,
+  });
+  const outcome: ImportOutcome | null = attempt.status === 'done' ? attempt.outcome : null;
+  const terminalOutcome = outcome && outcome.kind !== 'blocked' ? outcome : null;
+  // Partial keeps the snapshot and allows retry; verified and existing_changed lock the review.
+  const reviewLocked = terminalOutcome?.kind === 'verified' || terminalOutcome?.kind === 'existing_changed';
+  const importError = outcome?.kind === 'blocked' ? blockedMessage(outcome.code) : null;
+
+  // A verified receipt can still open the authorized work after the content
+  // snapshot was cleared. The full context must match — never a foreign brand.
+  const receiptQuery = useQuery({
+    queryKey: ['guest-import-receipt', guestDraftId],
+    queryFn: () => loadImportReceipt(guestDraftId as string),
+    enabled: guestDraftId !== null && draftQuery.data === null && !discarded && importEnabled,
+    staleTime: 0,
+    retry: false,
+  });
+  const receipt = receiptQuery.data ?? null;
+  const recoverableWorkId = receipt?.phase === 'verified' && receipt.workId
+    && receipt.userId === userId && receipt.workspaceId === workspaceId
+    && receipt.clientProfileId === profile.activeClientProfileId
+    ? receipt.workId
+    : null;
+
+  // Mid-review context change cancels new work and asks for reconciliation.
+  // The import itself is bound to the frozen context by the lease claim.
   useEffect(() => {
     if (!confirming || !frozen.current) return;
     const live: FrozenContext = {
@@ -102,7 +153,7 @@ export function GuestStudioEntry({
   }, [confirming, userId, workspaceId, profile.activeClientProfileId]);
 
   const handleConfirm = useCallback(async () => {
-    if (!guestDraftId || !draft || confirming || confirmed) return;
+    if (!guestDraftId || !draft || confirming || importBusy || reviewLocked) return;
     const clientProfileId = profile.activeClientProfileId;
     if (!clientProfileId) return;
     frozen.current = { userId, workspaceId, clientProfileId };
@@ -124,22 +175,21 @@ export function GuestStudioEntry({
         );
         return;
       }
-      // #442 proves the gating; #443 performs the import. Nothing created here.
-      setConfirmed(true);
+      setConfirming(false);
+      await importStart();
     } catch {
       setReconcileError('Não foi possível confirmar agora. Tente novamente.');
     } finally {
       frozen.current = null;
       setConfirming(false);
     }
-  }, [guestDraftId, draft, confirming, confirmed, profile.activeClientProfileId, userId, workspaceId]);
+  }, [guestDraftId, draft, confirming, importBusy, reviewLocked, profile.activeClientProfileId, userId, workspaceId, importStart]);
 
   const handleDiscard = useCallback(async () => {
     if (!guestDraftId) return;
     await removeDraft(guestDraftId);
     queryClient.setQueryData(['guest-draft', guestDraftId], null);
     setConfirming(false);
-    setConfirmed(false);
     setDiscarded(true);
     try {
       const url = new URL(window.location.href);
@@ -196,8 +246,14 @@ export function GuestStudioEntry({
           ? 'Nenhum Trabalho foi criado ou alterado.'
           : 'Ele expirou ou foi preparado em outro navegador ou dispositivo. Rascunhos locais não sincronizam entre dispositivos.'}
       </p>
-      <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-        <Link href="/hi" style={primaryAction}>Voltar à página inicial</Link>
+      {recoverableWorkId && <p style={{ fontSize: 13 }}>
+        Este navegador já importou este pedido — a cópia local foi limpa após a confirmação.
+      </p>}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
+        {recoverableWorkId && (
+          <Link href={`/?workId=${recoverableWorkId}&compose=1`} style={primaryAction}>Abrir Trabalho importado</Link>
+        )}
+        <Link href="/hi" style={recoverableWorkId ? secondaryAction : primaryAction}>Voltar à página inicial</Link>
         <Link href="/" style={secondaryAction}>Abrir o Estúdio</Link>
       </div>
     </section>;
@@ -231,8 +287,55 @@ export function GuestStudioEntry({
     </section>;
   }
 
+  if (terminalOutcome?.kind === 'verified') {
+    const cleanupFailed = attempt.status === 'done' && attempt.cleanupError;
+    return <section aria-label="Pedido importado" data-guest-entry="imported" style={panelStyle}>
+      <strong>Pedido importado.</strong>
+      <p style={{ fontSize: 13 }}>Seu pedido virou um Trabalho no Estúdio. A cópia local foi limpa.</p>
+      {cleanupFailed && <p role="alert" style={{ color: 'var(--danger-text, #ffb7c5)' }}>
+        Importado, mas não foi possível limpar a cópia local. Abra o Trabalho e descarte a cópia de novo — o Trabalho não será apagado.
+      </p>}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
+        <Link href={`/?workId=${terminalOutcome.workId}&compose=1`} style={primaryAction}>Abrir no Estúdio</Link>
+        {cleanupFailed && (
+          <button type="button" onClick={() => void handleDiscard()} style={secondaryAction}>Descartar cópia local</button>
+        )}
+        <Link href="/hi" style={secondaryAction}>Voltar à página inicial</Link>
+      </div>
+    </section>;
+  }
+
+  if (terminalOutcome?.kind === 'existing_changed') {
+    return <section aria-label="Trabalho existente diferente" data-guest-entry="existing-changed" style={panelStyle}>
+      <strong>Este pedido já existe no Estúdio com outro conteúdo.</strong>
+      <p style={{ fontSize: 13 }}>Abrimos a versão atual sem alterar nada — seu texto antigo não foi regravado.</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
+        <Link href={`/?workId=${terminalOutcome.workId}&compose=1`} style={primaryAction}>Abrir versão atual</Link>
+        <button type="button" onClick={() => void handleCopy()} style={secondaryAction}>Copiar texto</button>
+        <button type="button" onClick={() => void handleDiscard()} style={secondaryAction}>Descartar cópia local</button>
+      </div>
+      {copyError && <p role="alert" style={{ color: 'var(--danger-text, #ffb7c5)' }}>{copyError}</p>}
+    </section>;
+  }
+
+  if (terminalOutcome?.kind === 'partial') {
+    const pending = terminalOutcome.pendingFileIds.length;
+    return <section aria-label="Texto importado, referências pendentes" data-guest-entry="partial" style={panelStyle}>
+      <strong>Texto importado. {pending} referência(s) ainda não {pending === 1 ? 'foi transferida' : 'foram transferidas'}.</strong>
+      <p style={{ fontSize: 13 }}>Sua cópia local está preservada para concluir a transferência. Nada foi duplicado.</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
+        <button type="button" onClick={() => void handleConfirm()} style={primaryAction}>Tentar novamente</button>
+        <button type="button" onClick={() => void handleCopy()} style={secondaryAction}>Copiar texto</button>
+        <Link href="/" style={secondaryAction}>Abrir o Estúdio</Link>
+        <Link href="/hi" style={secondaryAction}>Voltar à página inicial</Link>
+      </div>
+      {copyError && <p role="alert" style={{ color: 'var(--danger-text, #ffb7c5)' }}>{copyError}</p>}
+    </section>;
+  }
+
+  const busy = confirming || importBusy;
   const canConfirm =
-    !confirming && !confirmed && !reconcileError && !profile.isLoading && !profile.isError && profile.activeClientProfileId !== null;
+    !busy && !terminalOutcome && !reconcileError && !profile.isLoading && !profile.isError && profile.activeClientProfileId !== null;
 
   return <section aria-label="Revisão do pedido público" data-guest-entry="panel" style={panelStyle}>
     {profile.isLoading && <p style={{ fontSize: 13 }}>Carregando marcas…</p>}
@@ -262,6 +365,7 @@ export function GuestStudioEntry({
           aria-label="Marca do pedido"
           value={profile.activeClientProfileId ?? ''}
           onChange={(event) => profile.selectProfile(event.target.value)}
+          disabled={busy}
           style={{ padding: '8px 12px', borderRadius: 10 }}
         >
           <option value="" disabled>Selecione uma marca</option>
@@ -273,8 +377,8 @@ export function GuestStudioEntry({
     )}
     <GuestDraftResume
       draft={draft}
-      state={confirming ? 'confirming' : confirmed ? 'confirmed' : 'ready'}
-      error={reconcileError ?? copyError}
+      state={busy ? 'confirming' : 'ready'}
+      error={reconcileError ?? importError ?? copyError}
       brandName={profile.activeProfile?.name ?? null}
       canConfirm={canConfirm}
       onConfirm={() => void handleConfirm()}

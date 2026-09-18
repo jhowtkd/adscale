@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { GuestDraft } from './guest-core.mjs';
 
-export type GuestDraftReviewState = 'ready' | 'confirming' | 'confirmed';
+export type GuestDraftReviewState = 'ready' | 'confirming';
 
 export type GuestDraftResumeProps = {
   /** Draft loaded by the parent. This component never reads storage or the URL itself. */
@@ -30,16 +30,15 @@ export function GuestDraftResume({
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const busy = state === 'confirming';
   return <aside aria-label="Pedido preparado na página inicial" data-guest-entry="review" style={{ padding: 16, margin: '12px 0', border: '1px solid var(--border-default, #4b3d59)', borderRadius: 12, background: 'var(--surface-raised, #1b1822)' }}>
-    <strong>{state === 'confirmed' ? 'Pedido e marca confirmados' : 'Seu pedido está aqui.'}</strong>
+    <strong>Seu pedido está aqui.</strong>
     <p style={{ fontSize: 13, margin: '8px 0', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{draft.request}</p>
     <p style={{ fontSize: 12 }}>
       {draft.files.length} referência(s).{' '}
       {brandName ? `Marca: ${brandName}.` : 'Escolha uma marca para continuar.'}
     </p>
-    {state === 'confirmed' && <p style={{ fontSize: 12 }}>Nada foi criado ainda. A importação para o Trabalho continua na próxima etapa.</p>}
     {error && <p role="alert" style={{ color: 'var(--danger-text, #ffb7c5)' }}>{error}</p>}
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
-      {state !== 'confirmed' && <button type="button" disabled={!canConfirm || busy} onClick={onConfirm} style={{ padding: '8px 14px', borderRadius: 10, background: '#dfafea', color: '#211327' }}>{busy ? 'Confirmando…' : 'Usar este pedido'}</button>}
+      <button type="button" disabled={!canConfirm || busy} onClick={onConfirm} style={{ padding: '8px 14px', borderRadius: 10, background: '#dfafea', color: '#211327' }}>{busy ? 'Confirmando…' : 'Usar este pedido'}</button>
       <button type="button" disabled={busy} onClick={onCopy} style={{ padding: '8px 14px', border: '1px solid #766880', borderRadius: 10 }}>Copiar texto</button>
       {confirmingDiscard
         ? (<><button type="button" disabled={busy} onClick={onDiscard} style={{ padding: '8px 14px', borderRadius: 10, background: '#5c2530', color: '#ffdfe6' }}>Confirmar descarte</button>
