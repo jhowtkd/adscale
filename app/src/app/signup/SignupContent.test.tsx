@@ -7,11 +7,14 @@ const mockPush = vi.fn();
 const mockRefresh = vi.fn();
 const mockSendVerificationEmail = vi.fn();
 
+const mockSearchParams = new URLSearchParams();
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: mockPush,
     refresh: mockRefresh,
   }),
+  useSearchParams: () => mockSearchParams,
 }));
 
 vi.mock("next-intl", () => ({
@@ -41,6 +44,9 @@ describe("SignupContent", () => {
     mockPush.mockReset();
     mockRefresh.mockReset();
     mockSendVerificationEmail.mockReset();
+    for (const key of [...mockSearchParams.keys()]) {
+      mockSearchParams.delete(key);
+    }
   });
 
   it("renders the initial signup form with required fields", () => {
@@ -208,5 +214,65 @@ describe("SignupContent", () => {
 
     const errorAlert = await screen.findByRole("alert");
     expect(errorAlert).toHaveTextContent("Falha na conexão");
+  });
+
+  it("preserves the guestDraft continuation in signup POST, resend, and login links (#441)", async () => {
+    const callback =
+      "/?compose=1&guestDraft=aa111111-1111-4111-8111-111111111111";
+    mockSearchParams.set("callbackUrl", callback);
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    mockSendVerificationEmail.mockResolvedValueOnce({
+      data: { status: true },
+      error: null,
+    });
+
+    render(<SignupContent />);
+
+    expect(screen.getByRole("link", { name: /entrar/i })).toHaveAttribute(
+      "href",
+      `/login?callbackUrl=${encodeURIComponent(callback)}`,
+    );
+
+    fireEvent.change(screen.getByLabelText(/nome/i), {
+      target: { value: "Test User" },
+    });
+    fireEvent.change(screen.getByLabelText(/e-mail/i), {
+      target: { value: "user@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText(/^senha/i), {
+      target: { value: "Password123!" },
+    });
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: /criar conta/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /reenviar/i }),
+      ).toBeInTheDocument();
+    });
+
+    expect(JSON.parse(String(fetchSpy.mock.calls[0][1]?.body))).toMatchObject({
+      callbackURL: callback,
+    });
+    expect(screen.getByRole("link", { name: /entrar/i })).toHaveAttribute(
+      "href",
+      `/login?callbackUrl=${encodeURIComponent(callback)}`,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /reenviar/i }));
+
+    await waitFor(() => {
+      expect(mockSendVerificationEmail).toHaveBeenCalledWith({
+        email: "user@example.com",
+        callbackURL: callback,
+      });
+    });
   });
 });

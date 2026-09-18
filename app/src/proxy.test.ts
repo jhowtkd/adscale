@@ -45,12 +45,20 @@ describe("proxy auth routing", () => {
     expect(res.status).toBe(200);
   });
 
-  it("redirects authenticated /login to dashboard", async () => {
+  it("does not redirect /login on cookie presence alone (#441)", async () => {
+    // A stale or forged cookie must render the form, not loop: the
+    // already-authenticated jump happens on the page after real getSession().
     const res = await proxy(
       requestFor("/login", { "better-auth.session_token": "test" })
     );
-    expect(res.status).toBe(307);
-    expect(res.headers.get("location")).toBe("http://localhost:3000/");
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("does not redirect /signup on cookie presence alone (#441)", async () => {
+    const res = await proxy(
+      requestFor("/signup", { "better-auth.session_token": "test" })
+    );
+    expect(res.headers.get("location")).toBeNull();
   });
 
   it("sets X-Robots-Tag on auth entry paths", async () => {
