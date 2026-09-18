@@ -87,7 +87,16 @@ function requestPromise(request) {
 
 export async function saveDraft(draft) {
   if (!parseDraft(draft)) throw new Error('Pedido inválido ou expirado.');
-  await transaction([DRAFTS], 'readwrite', (tx) => tx.objectStore(DRAFTS).put(draft));
+  // Retry under the same id keeps the original validity window; a retry
+  // must never silently renew the TTL (matrix S03).
+  await transaction([DRAFTS], 'readwrite', async (tx) => {
+    const store = tx.objectStore(DRAFTS);
+    const existing = parseDraft(await requestPromise(store.get(draft.id)));
+    const toSave = existing
+      ? { ...draft, createdAt: existing.createdAt, expiresAt: existing.expiresAt }
+      : draft;
+    store.put(toSave);
+  });
   // Only an opaque UUID is stored in localStorage, never prompt or file content.
   try { localStorage.setItem(LAST_KEY, draft.id); } catch { /* IndexedDB save succeeded. */ }
 }

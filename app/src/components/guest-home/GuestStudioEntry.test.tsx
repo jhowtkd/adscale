@@ -263,6 +263,19 @@ describe('GuestStudioEntry', () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
+  it('duplo clique confirma uma única vez', async () => {
+    let resolveImport!: (value: unknown) => void;
+    mockImportDraft.mockImplementation(() => new Promise((resolve) => { resolveImport = resolve; }));
+    renderEntry();
+    await screen.findByText('Anúncio de lançamento');
+    const confirm = screen.getByRole('button', { name: 'Usar este pedido' });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+    resolveImport({ kind: 'verified', workId: 'work-1' });
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/?workId=work-1&compose=1'));
+    expect(mockImportDraft).toHaveBeenCalledTimes(1);
+  });
+
   it('troca de pedido recarrega e ignora resposta antiga', async () => {
     let resolveFirst!: (value: unknown) => void;
     mockLoadDraft.mockImplementation((id: string) => id === DRAFT_ID

@@ -69,6 +69,7 @@ export default function GuestStudioEntry({
 
   const loadSeq = useRef(0);
   const importSeq = useRef(0);
+  const importRunning = useRef(false);
   const liveContext = useRef({ userId, workspaceId, clientProfileId: brands.activeClientProfileId });
 
   useEffect(() => {
@@ -189,7 +190,8 @@ export default function GuestStudioEntry({
       workspaceId,
       clientProfileId: brands.activeClientProfileId ?? '',
     };
-    if (!context.clientProfileId || busy) return;
+    if (!context.clientProfileId || busy || importRunning.current) return;
+    importRunning.current = true;
     const seq = (importSeq.current += 1);
     setBusyFor(guestDraftId);
     setFailure(null);
@@ -198,42 +200,47 @@ export default function GuestStudioEntry({
     try {
       outcome = await importDraft(textOnly ? { draft, context, textOnly: true } : { draft, context });
     } catch {
+      importRunning.current = false;
       if (seq !== importSeq.current) return;
       setBusyFor(null);
       setFailure({ id: guestDraftId, message: t('blockedMessage') });
       return;
     }
-    if (seq !== importSeq.current) return;
-    const live = liveContext.current;
-    if (live.userId !== context.userId || live.workspaceId !== context.workspaceId
-      || live.clientProfileId !== context.clientProfileId) {
-      setBusyFor(null);
-      setFailure({ id: guestDraftId, message: t('contextChanged') });
-      return;
-    }
-    if (outcome.kind === 'verified' || outcome.kind === 'existing_changed') {
-      setBusyFor(null);
-      try {
-        recordGuestDraftImported({ workId: outcome.workId, referenceCount: draft.files.length });
-      } catch {
-        // Analytics must never block the verified import.
+    try {
+      if (seq !== importSeq.current) return;
+      const live = liveContext.current;
+      if (live.userId !== context.userId || live.workspaceId !== context.workspaceId
+        || live.clientProfileId !== context.clientProfileId) {
+        setBusyFor(null);
+        setFailure({ id: guestDraftId, message: t('contextChanged') });
+        return;
       }
-      router.push(`/?workId=${outcome.workId}&compose=1`);
-      return;
+      if (outcome.kind === 'verified' || outcome.kind === 'existing_changed') {
+        setBusyFor(null);
+        try {
+          recordGuestDraftImported({ workId: outcome.workId, referenceCount: draft.files.length });
+        } catch {
+          // Analytics must never block the verified import.
+        }
+        router.push(`/?workId=${outcome.workId}&compose=1`);
+        return;
+      }
+      setBusyFor(null);
+      if (outcome.kind === 'partial') {
+        setPartial({ id: guestDraftId, workId: outcome.workId, pendingFileIds: outcome.pendingFileIds });
+        setFailure({ id: guestDraftId, message: t('partialMessage') });
+        return;
+      }
+      setFailure({
+        id: guestDraftId,
+        message: outcome.code === 'attachments_disabled'
+          ? t('attachmentsDisabledMessage')
+          : t('blockedMessage'),
+        code: outcome.code,
+      });
+    } finally {
+      importRunning.current = false;
     }
-    setBusyFor(null);
-    if (outcome.kind === 'partial') {
-      setPartial({ id: guestDraftId, workId: outcome.workId, pendingFileIds: outcome.pendingFileIds });
-      setFailure({ id: guestDraftId, message: t('partialMessage') });
-      return;
-    }
-    setFailure({
-      id: guestDraftId,
-      message: outcome.code === 'attachments_disabled'
-        ? t('attachmentsDisabledMessage')
-        : t('blockedMessage'),
-      code: outcome.code,
-    });
   };
 
   const canConfirm = !busy && !brands.requiresSelection && brands.activeClientProfileId !== null;
