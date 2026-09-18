@@ -19,4 +19,11 @@ describe("hasStudioResumeQuery", () => {
     expect(hasStudioResumeQuery(new URLSearchParams("workId="))).toBe(false);
     expect(hasStudioResumeQuery(new URLSearchParams("utm_source=ig"))).toBe(false);
   });
+
+  it("recognizes only well-formed guestDraft UUIDs (#442)", () => {
+    expect(hasStudioResumeQuery(new URLSearchParams(`guestDraft=${UUID}`))).toBe(true);
+    expect(hasStudioResumeQuery(new URLSearchParams("guestDraft=../../etc"))).toBe(false);
+    expect(hasStudioResumeQuery(new URLSearchParams("guestDraft="))).toBe(false);
+    expect(hasStudioResumeQuery(new URLSearchParams("guestDraft=not-a-uuid&utm_source=ig"))).toBe(false);
+  });
 });
