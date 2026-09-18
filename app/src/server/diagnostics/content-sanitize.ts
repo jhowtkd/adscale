@@ -127,16 +127,24 @@ function stripUrlSecrets(match: string): string {
 
 function scrubContentString(value: string): string {
   let out = value;
-  try {
-    out = out.replace(URL_RE, stripUrlSecrets);
-  } catch {
-    // Keep the unscrubbed string; later passes still bound it.
+  // Fast-path guards (#433): each pattern below needs a literal character
+  // to match, so the pass is skipped when it is absent. This keeps long
+  // secret-free strings linear instead of quadratic (notably EMAIL_RE
+  // backtracking over a matchless run). No behavior change: a pattern
+  // cannot match without its required character.
+  if (out.includes("http")) {
+    try {
+      out = out.replace(URL_RE, stripUrlSecrets);
+    } catch {
+      // Keep the unscrubbed string; later passes still bound it.
+    }
   }
   try {
-    out = out
-      .replace(EMAIL_RE, REDACTED)
-      .replace(CPF_RE, REDACTED)
-      .replace(FORMATTED_PHONE_RE, REDACTED);
+    if (out.includes("@")) out = out.replace(EMAIL_RE, REDACTED);
+    out = out.replace(CPF_RE, REDACTED);
+    if (out.includes("+") || out.includes("(")) {
+      out = out.replace(FORMATTED_PHONE_RE, REDACTED);
+    }
   } catch {
     // Keep whatever survived the URL pass.
   }
