@@ -18,6 +18,7 @@ import { getCampaignById } from "@/server/repositories/campaign";
 import {
   createCreativeWorkDraftWithSource,
   getCreativeWork,
+  getCreativeWorkByDraftKey,
   updateCreativeWorkSourceIfUnchanged,
 } from "@/server/repositories/creative-work";
 import { inngest } from "@/server/jobs/client";
@@ -94,8 +95,17 @@ const createBodySchema = z.union([instantiateRecipeSchema, instantiateOfferSchem
  */
 export async function GET(request: Request) {
   try {
-    const { workspace } = await requireWorkspaceAccess(request);
+    const { user, workspace } = await requireWorkspaceAccess(request);
     const { searchParams } = new URL(request.url);
+    if (searchParams.get("view") === "draftByKey") {
+      const parsed = z.string().uuid().safeParse(searchParams.get("draftKey"));
+      if (!parsed.success) {
+        return apiError("invalidInput", 400, parsed.error.flatten());
+      }
+      const work = await getCreativeWorkByDraftKey(workspace.id, user.id, parsed.data);
+      if (!work) return apiError("notFound", 404);
+      return NextResponse.json({ work });
+    }
     if (searchParams.get("view") === "production") {
       const query = parseProductionSearchParams(searchParams);
       if (!query) return apiError("invalidInput", 400);

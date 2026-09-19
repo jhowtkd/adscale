@@ -595,23 +595,80 @@
         "requestUpdated": "Request updated"
       },
       "planReview": {
-        "eyebrow": "Prepared plan", "title": "Review your plan", "subtitle": "Generation starts only after your confirmation.",
-        "objective": "Objective", "materials": "Materials", "preserveTitle": "Preserve", "exploreTitle": "Explore", "format": "Format", "quantity": "Quantity", "pieces": "{count} pieces", "none": "No materials",
+        "eyebrow": "Prepared plan",
+        "title": "Review your plan",
+        "subtitle": "Generation starts only after your confirmation.",
+        "objective": "Objective",
+        "materials": "Materials",
+        "preserveTitle": "Preserve",
+        "exploreTitle": "Explore",
+        "format": "Format",
+        "quantity": "Quantity",
+        "pieces": "{count} pieces",
+        "none": "No materials",
         "labels": {
-          "material": { "reference": "Reference", "art": "Artwork" },
+          "material": {
+            "reference": "Reference",
+            "art": "Artwork"
+          },
           "output": {
             "singlePiece": "Single piece",
             "newStyle": "New style",
-            "level": { "conservative": "Conservative", "balanced": "Balanced", "bold": "Bold" }
+            "level": {
+              "conservative": "Conservative",
+              "balanced": "Balanced",
+              "bold": "Bold"
+            }
           }
         },
-        "edit": "Edit plan", "confirm": "Confirm and generate", "confirming": "Confirming",
-        "adjustments": { "title": "Adjustments", "action": "Edit the plan before you confirm and generate." },
-        "protocol": { "variations": "Variations", "single": "Single piece", "formatAdaptation": "Adapt formats", "restyle": "New style", "carousel": "Carousel" },
-        "roles": { "content": "content", "style": "style", "both": "content and style", "piece_reference": "piece reference", "original_art": "original artwork" },
-        "treatment": { "identity_preservation": "preserve identity", "recognizable_preservation": "preserve recognizability", "exact_application": "exact application", "required_presence": "required presence", "visual_language": "visual language", "style_direction": "style direction" },
-        "preserve": { "verified_facts": "verified facts", "brand_requirements": "brand requirements", "source_content": "source content", "source_visual_identity": "visual identity", "piece_reference_identity": "reference identity", "piece_reference_recognizability": "reference recognizability", "piece_reference_exact_application": "exact application", "piece_reference_required_presence": "required presence" },
-        "explore": { "composition": "composition", "hierarchy": "hierarchy", "visual_language": "visual language", "format_layout": "format layout", "new_execution": "new execution", "piece_reference_visual_language": "reference visual language", "piece_reference_style_direction": "reference style direction" }
+        "edit": "Edit plan",
+        "confirm": "Confirm and generate",
+        "confirming": "Confirming",
+        "adjustments": {
+          "title": "Adjustments",
+          "action": "Edit the plan before you confirm and generate."
+        },
+        "protocol": {
+          "variations": "Variations",
+          "single": "Single piece",
+          "formatAdaptation": "Adapt formats",
+          "restyle": "New style",
+          "carousel": "Carousel"
+        },
+        "roles": {
+          "content": "content",
+          "style": "style",
+          "both": "content and style",
+          "piece_reference": "piece reference",
+          "original_art": "original artwork"
+        },
+        "treatment": {
+          "identity_preservation": "preserve identity",
+          "recognizable_preservation": "preserve recognizability",
+          "exact_application": "exact application",
+          "required_presence": "required presence",
+          "visual_language": "visual language",
+          "style_direction": "style direction"
+        },
+        "preserve": {
+          "verified_facts": "verified facts",
+          "brand_requirements": "brand requirements",
+          "source_content": "source content",
+          "source_visual_identity": "visual identity",
+          "piece_reference_identity": "reference identity",
+          "piece_reference_recognizability": "reference recognizability",
+          "piece_reference_exact_application": "exact application",
+          "piece_reference_required_presence": "required presence"
+        },
+        "explore": {
+          "composition": "composition",
+          "hierarchy": "hierarchy",
+          "visual_language": "visual language",
+          "format_layout": "format layout",
+          "new_execution": "new execution",
+          "piece_reference_visual_language": "reference visual language",
+          "piece_reference_style_direction": "reference style direction"
+        }
       },
       "composer": {
         "title": "Which creative hypothesis should we test?",
@@ -645,9 +702,41 @@
         "addArt": "Add image",
         "progressiveAddArtReference": "Add art or reference",
         "pieceReferences": {
-          "title": "References for this piece", "count": "{count} of 3 attachments", "add": "Add reference", "limit": "Limit of 3 reached", "uploading": "Uploading reference", "replace": "Replace", "remove": "Remove", "retry": "Retry", "promote": "Save to brand training", "promoted": "Saved to training", "promotionFailed": "Could not save to training", "category": "Type", "choose": "Choose a type", "instruction": "How should this be used?", "analyzing": "Analyzing reference", "choiceRequired": "Choose a type to continue", "exactIncompatible": "Logo or seal has no usable transparency", "ready": "Reference ready", "failed": "Analysis failed",
-          "categories": { "person_or_character": "Character or person", "product_or_packaging": "Product or packaging", "additional_logo_or_seal": "Additional logo or seal", "required_object_or_scene": "Required object or scene", "graphic_or_texture": "Graphic or texture", "style_reference": "Style reference" },
-          "treatments": { "identity_preservation": "Identity preservation", "recognizable_preservation": "Recognizable preservation", "exact_application": "Exact application", "required_presence": "Required presence", "visual_language": "Visual language", "style_direction": "Style direction" }
+          "title": "References for this piece",
+          "count": "{count} of 3 attachments",
+          "add": "Add reference",
+          "limit": "Limit of 3 reached",
+          "uploading": "Uploading reference",
+          "replace": "Replace",
+          "remove": "Remove",
+          "retry": "Retry",
+          "promote": "Save to brand training",
+          "promoted": "Saved to training",
+          "promotionFailed": "Could not save to training",
+          "category": "Type",
+          "choose": "Choose a type",
+          "instruction": "How should this be used?",
+          "analyzing": "Analyzing reference",
+          "choiceRequired": "Choose a type to continue",
+          "exactIncompatible": "Logo or seal has no usable transparency",
+          "ready": "Reference ready",
+          "failed": "Analysis failed",
+          "categories": {
+            "person_or_character": "Character or person",
+            "product_or_packaging": "Product or packaging",
+            "additional_logo_or_seal": "Additional logo or seal",
+            "required_object_or_scene": "Required object or scene",
+            "graphic_or_texture": "Graphic or texture",
+            "style_reference": "Style reference"
+          },
+          "treatments": {
+            "identity_preservation": "Identity preservation",
+            "recognizable_preservation": "Recognizable preservation",
+            "exact_application": "Exact application",
+            "required_presence": "Required presence",
+            "visual_language": "Visual language",
+            "style_direction": "Style direction"
+          }
         },
         "restyleAddArt": "Add original artwork",
         "addStyleReference": "Add style reference",
@@ -814,7 +903,7 @@
           "reviewAnnotations": "{count, plural, one {# comment} other {# comments}}",
           "layersUnavailable": "Layer separation is unavailable for this work.",
           "retryThroughReview": "Review new attempt",
-      "resumePreviousInstructions": "Resume previous instructions",
+          "resumePreviousInstructions": "Resume previous instructions",
           "expandPiece": "Expand piece",
           "pieceAlt": "Piece {label}",
           "formatTrigger": "Adapt format",
@@ -841,8 +930,34 @@
           "campaignLabel": "Group into campaign",
           "noCampaign": "No campaign",
           "failedGeneration": "Generation failed",
-          "status": { "queued": "Queued", "processing": "Processing", "completed": "Ready", "failed": "Failed" },
-          "variationShort": "v{count}", "proposalAlt": "Proposal {label}", "generating": "Generating...", "retry": "Try again", "retryProposal": "Retry this proposal", "approving": "Approving", "approved": "Approved", "approve": "Approve", "download": "Download", "editImage": "Edit image", "editLayers": "Edit layers", "viewLayers": "View layers", "refine": "Refine", "revisionInstruction": "What would you like to change?", "optionalAttachment": "Optional attachment", "generateVariation": "Generate new variation", "scanningLayers": "Identifying image elements, people, and text...", "askAiPlaceholder": "Tell AI what to change (e.g. 'make her serious', 'change the color')...", "elementPrompt": "Element prompt", "editWithAi": "Edit with AI", "clearSelection": "Clear selection", "adjustingLayer": "Adjusting {name}…",
+          "status": {
+            "queued": "Queued",
+            "processing": "Processing",
+            "completed": "Ready",
+            "failed": "Failed"
+          },
+          "variationShort": "v{count}",
+          "proposalAlt": "Proposal {label}",
+          "generating": "Generating...",
+          "retry": "Try again",
+          "retryProposal": "Retry this proposal",
+          "approving": "Approving",
+          "approved": "Approved",
+          "approve": "Approve",
+          "download": "Download",
+          "editImage": "Edit image",
+          "editLayers": "Edit layers",
+          "viewLayers": "View layers",
+          "refine": "Refine",
+          "revisionInstruction": "What would you like to change?",
+          "optionalAttachment": "Optional attachment",
+          "generateVariation": "Generate new variation",
+          "scanningLayers": "Identifying image elements, people, and text...",
+          "askAiPlaceholder": "Tell AI what to change (e.g. 'make her serious', 'change the color')...",
+          "elementPrompt": "Element prompt",
+          "editWithAi": "Edit with AI",
+          "clearSelection": "Clear selection",
+          "adjustingLayer": "Adjusting {name}…",
           "approveHint": "Selects this piece as the approved version of the work.",
           "downloadHint": "Downloads this version's file.",
           "shareHint": "Creates a link so someone can review this piece.",
@@ -963,7 +1078,11 @@
           "artRefinementNeedsReview": "Still needs review: {issue}",
           "artRefinementReviewMore": "Review once more",
           "personFidelityTitle": "People fidelity",
-          "personFidelityStatus": { "consistent": "Preserved", "mismatch": "Divergent", "inconclusive": "Inconclusive" },
+          "personFidelityStatus": {
+            "consistent": "Preserved",
+            "mismatch": "Divergent",
+            "inconclusive": "Inconclusive"
+          },
           "personFidelityConfirm": "I confirm this is the person and anatomy was preserved",
           "personFidelityReject": "There is a mismatch",
           "personFidelityBlocked": "Mismatch confirmed — generate a new image.",
@@ -979,10 +1098,74 @@
             "unknown": "Generation failed with an unexpected error."
           }
         },
-        "inspirations": { "add": "Add reference", "title": "Brand references", "stripEyebrow": "Featured references", "stripTitle": "Start from an inspiration", "libraryEyebrow": "Brand library", "libraryTitle": "Inspirations", "filtersAria": "Origin filters", "filterAll": "All", "filterApproved": "Approved", "filterTemplates": "Templates", "filterCurated": "ADScale selection", "loading": "Loading inspirations", "loadFailed": "Could not load inspirations.", "retry": "Try again", "empty": "No inspirations available yet.", "loadMore": "Load more", "loadingMore": "Loading more", "attachFailed": "Could not add the reference. Try again.", "previewAria": "Preview inspiration {title}", "previewAlt": "Preview of {title}", "useForStyle": "Use to change style", "origin": { "curated": "ADScale selection", "approved_work": "Approved work", "template": "Template" } },
-        "recipes": { "title": "Visual recipes", "use": "Use recipe" },
-        "offers": { "title": "Brand offers", "use": "Use offer", "save": "Save offer", "validUntil": "Valid until" },
-        "proposal": { "level": { "conservative": "Conservative", "balanced": "Balanced", "bold": "Bold" }, "status": { "queued": "queued", "processing": "generating", "completed": "ready", "failed": "failed" }, "progress": "{ready} of {total} ready", "thumbnailsAria": "Proposal thumbnails", "selectAria": "Select {name} in {format}", "expandAria": "Expand {name} in {format}", "previewAlt": "Proposal {name}, format {format}", "approvalSurfaceAria": "Approval surface", "variations": "Variations ({count})", "variation": "Variation {count}", "variationAlt": "Variation {count}", "originalPiece": "Original piece", "retry": "Retry this proposal", "compare": "Compare", "compareTitle": "Compare variations", "currentVariation": "Current variation", "previousVariation": "Previous variation", "expandedDescription": "Expanded inspection in the original proportion, without cropping.", "expandedAlt": "Proposal {name}, format {format}, expanded" },
+        "inspirations": {
+          "add": "Add reference",
+          "title": "Brand references",
+          "stripEyebrow": "Featured references",
+          "stripTitle": "Start from an inspiration",
+          "libraryEyebrow": "Brand library",
+          "libraryTitle": "Inspirations",
+          "filtersAria": "Origin filters",
+          "filterAll": "All",
+          "filterApproved": "Approved",
+          "filterTemplates": "Templates",
+          "filterCurated": "ADScale selection",
+          "loading": "Loading inspirations",
+          "loadFailed": "Could not load inspirations.",
+          "retry": "Try again",
+          "empty": "No inspirations available yet.",
+          "loadMore": "Load more",
+          "loadingMore": "Loading more",
+          "attachFailed": "Could not add the reference. Try again.",
+          "previewAria": "Preview inspiration {title}",
+          "previewAlt": "Preview of {title}",
+          "useForStyle": "Use to change style",
+          "origin": {
+            "curated": "ADScale selection",
+            "approved_work": "Approved work",
+            "template": "Template"
+          }
+        },
+        "recipes": {
+          "title": "Visual recipes",
+          "use": "Use recipe"
+        },
+        "offers": {
+          "title": "Brand offers",
+          "use": "Use offer",
+          "save": "Save offer",
+          "validUntil": "Valid until"
+        },
+        "proposal": {
+          "level": {
+            "conservative": "Conservative",
+            "balanced": "Balanced",
+            "bold": "Bold"
+          },
+          "status": {
+            "queued": "queued",
+            "processing": "generating",
+            "completed": "ready",
+            "failed": "failed"
+          },
+          "progress": "{ready} of {total} ready",
+          "thumbnailsAria": "Proposal thumbnails",
+          "selectAria": "Select {name} in {format}",
+          "expandAria": "Expand {name} in {format}",
+          "previewAlt": "Proposal {name}, format {format}",
+          "approvalSurfaceAria": "Approval surface",
+          "variations": "Variations ({count})",
+          "variation": "Variation {count}",
+          "variationAlt": "Variation {count}",
+          "originalPiece": "Original piece",
+          "retry": "Retry this proposal",
+          "compare": "Compare",
+          "compareTitle": "Compare variations",
+          "currentVariation": "Current variation",
+          "previousVariation": "Previous variation",
+          "expandedDescription": "Expanded inspection in the original proportion, without cropping.",
+          "expandedAlt": "Proposal {name}, format {format}, expanded"
+        },
         "variationAnalysisTitle": "AI reading",
         "variationContentTitle": "Identified content",
         "variationStyleTitle": "Identified style",
@@ -1077,22 +1260,37 @@
           "removeSlideAria": "Remove slide {position}",
           "editorTitle": "Edit slide {position}",
           "roleLabel": "Narrative role",
-          "role_hook": "Hook", "role_context": "Context", "role_problem": "Problem", "role_argument": "Argument",
-          "role_evidence": "Evidence", "role_method": "Method", "role_bridge": "Bridge", "role_closing": "Closing", "role_cta": "Call to action",
+          "role_hook": "Hook",
+          "role_context": "Context",
+          "role_problem": "Problem",
+          "role_argument": "Argument",
+          "role_evidence": "Evidence",
+          "role_method": "Method",
+          "role_bridge": "Bridge",
+          "role_closing": "Closing",
+          "role_cta": "Call to action",
           "purposeLabel": "Purpose",
           "primaryTextLabel": "Primary text",
           "secondaryTextLabel": "Supporting text",
           "layoutFamilyLabel": "Composition",
-          "layout_impact": "Impact", "layout_development": "Development", "layout_respite": "Respite",
+          "layout_impact": "Impact",
+          "layout_development": "Development",
+          "layout_respite": "Respite",
           "densityLabel": "Density",
-          "density_high": "High", "density_medium": "Medium", "density_low": "Low",
+          "density_high": "High",
+          "density_medium": "Medium",
+          "density_low": "Low",
           "authorityLabel": "Text authorship",
           "authority_user_input": "Sent by you",
           "authority_ai_proposal": "AI proposal",
           "authority_human_edit": "Edited by you",
           "humanEditNote": "You edited this slide. Suggestions stay visible but never replace your text without acceptance.",
           "statusLabel": "Status",
-          "status_draft": "Draft", "status_queued": "Queued", "status_processing": "Generating", "status_completed": "Ready", "status_failed": "Failed",
+          "status_draft": "Draft",
+          "status_queued": "Queued",
+          "status_processing": "Generating",
+          "status_completed": "Ready",
+          "status_failed": "Failed",
           "suggestionTitle": "AI suggestion",
           "suggestionBefore": "Before",
           "suggestionAfter": "After",
@@ -1130,7 +1328,6 @@
           "refinementPending": "Still needs review: {issue}",
           "refinementBestDeck": "Previous best valid deck kept."
         }
-
       },
       "tools": {
         "title": "Choose a creation protocol",
@@ -3528,18 +3725,48 @@
     "openLink": "Open {title}",
     "topicsTitle": "How to work in ADScale",
     "links": {
-      "create": { "title": "Create work", "description": "Start a Work and generate creative variations." },
-      "templates": { "title": "Templates", "description": "Reuse approved briefs in new Works." },
-      "library": { "title": "Library", "description": "Find references, logos, photography, and generated results." },
-      "feedback": { "title": "Feedback", "description": "Send questions, bugs, or suggestions to the team." }
+      "create": {
+        "title": "Create work",
+        "description": "Start a Work and generate creative variations."
+      },
+      "templates": {
+        "title": "Templates",
+        "description": "Reuse approved briefs in new Works."
+      },
+      "library": {
+        "title": "Library",
+        "description": "Find references, logos, photography, and generated results."
+      },
+      "feedback": {
+        "title": "Feedback",
+        "description": "Send questions, bugs, or suggestions to the team."
+      }
     },
     "topics": {
-      "protocols": { "title": "Protocols", "body": "Single Piece creates one asset from the brief. Variations preserves the base piece and creates alternatives. Restyle preserves content and uses another reference for visual language." },
-      "references": { "title": "Using references", "body": "Choose references compatible with the Work's role and confirm their origin. A visual reference guides composition, color, and rhythm; it is not an automatic source of facts." },
-      "contentStyle": { "title": "Content versus style", "body": "Use the base piece for brand, product, offer, CTA, and other facts. Use a style reference only for visual direction, without copying claims or text." },
-      "inference": { "title": "Inferences and unknowns", "body": "The system separates provided facts from visual inference and keeps unknown values when there is no evidence. Review the inferred brief before generating." },
-      "failures": { "title": "Failures", "body": "When a source, preview, or generation fails, retry or replace the material. Failure is not approval and should not hide the next step." },
-      "approval": { "title": "Approval", "body": "Review the result and objective verdict. Inconclusive or legacy items require human confirmation; failed items need another attempt." }
+      "protocols": {
+        "title": "Protocols",
+        "body": "Single Piece creates one asset from the brief. Variations preserves the base piece and creates alternatives. Restyle preserves content and uses another reference for visual language."
+      },
+      "references": {
+        "title": "Using references",
+        "body": "Choose references compatible with the Work's role and confirm their origin. A visual reference guides composition, color, and rhythm; it is not an automatic source of facts."
+      },
+      "contentStyle": {
+        "title": "Content versus style",
+        "body": "Use the base piece for brand, product, offer, CTA, and other facts. Use a style reference only for visual direction, without copying claims or text."
+      },
+      "inference": {
+        "title": "Inferences and unknowns",
+        "body": "The system separates provided facts from visual inference and keeps unknown values when there is no evidence. Review the inferred brief before generating."
+      },
+      "failures": {
+        "title": "Failures",
+        "body": "When a source, preview, or generation fails, retry or replace the material. Failure is not approval and should not hide the next step."
+      },
+      "approval": {
+        "title": "Approval",
+        "body": "Review the result and objective verdict. Inconclusive or legacy items require human confirmation; failed items need another attempt."
+      }
     }
   },
   "copyGenerator": {
@@ -4249,8 +4476,41 @@
         "creditSurprises": "{count} credit surprises"
       },
       "studio": {
-        "title": "Progressive Studio", "stage": "Stage", "stageAria": "Rollout stage", "sampleSufficient": "Sufficient sample", "sampleInsufficient": "Insufficient sample", "requirement": "{observation}; ≥{sessions} sessions and ≥{generations} confirmed generations per arm", "incompleteData": "Incomplete data: the query reached the event limit", "observation7Days": "7 complete days", "observationAfter50": "after 50% + 14 complete days", "observationWindowMissing": "The selected filters cover fewer than {days} complete days", "priorStageConfirmation": "I confirm the 50% rollout stage met its gate before this review", "priorStageMissing": "Confirm prior 50% rollout evidence before judging the 100% stage", "failureCompletion": "Completion is more than 5 pp below control", "failureAbandonment": "Abandonment is more than 5 pp above control", "failureGeneration": "Failure is more than 0.5 pp above control", "failureRefund": "Refund is more than 0.5 pp above control", "metric": "Metric", "control": "Control", "progressive": "Progressive",
-        "metrics": { "eligibleSessions": "Eligible sessions", "confirmedGenerations": "Confirmed generations", "goalSwitches": "Objective switches", "sourceRoleCorrections": "Source role corrections", "successfulResumes": "Successful resumes", "refinements": "Refinements started", "debited": "Debited generations", "compensated": "Compensated generations", "completion24h": "Completion within 24 h", "abandonment": "Abandonment before generation", "failure": "Failure", "refund": "Refund", "entryToBriefing": "Entry to briefing", "entryToPlan": "Entry to plan" }
+        "title": "Progressive Studio",
+        "stage": "Stage",
+        "stageAria": "Rollout stage",
+        "sampleSufficient": "Sufficient sample",
+        "sampleInsufficient": "Insufficient sample",
+        "requirement": "{observation}; ≥{sessions} sessions and ≥{generations} confirmed generations per arm",
+        "incompleteData": "Incomplete data: the query reached the event limit",
+        "observation7Days": "7 complete days",
+        "observationAfter50": "after 50% + 14 complete days",
+        "observationWindowMissing": "The selected filters cover fewer than {days} complete days",
+        "priorStageConfirmation": "I confirm the 50% rollout stage met its gate before this review",
+        "priorStageMissing": "Confirm prior 50% rollout evidence before judging the 100% stage",
+        "failureCompletion": "Completion is more than 5 pp below control",
+        "failureAbandonment": "Abandonment is more than 5 pp above control",
+        "failureGeneration": "Failure is more than 0.5 pp above control",
+        "failureRefund": "Refund is more than 0.5 pp above control",
+        "metric": "Metric",
+        "control": "Control",
+        "progressive": "Progressive",
+        "metrics": {
+          "eligibleSessions": "Eligible sessions",
+          "confirmedGenerations": "Confirmed generations",
+          "goalSwitches": "Objective switches",
+          "sourceRoleCorrections": "Source role corrections",
+          "successfulResumes": "Successful resumes",
+          "refinements": "Refinements started",
+          "debited": "Debited generations",
+          "compensated": "Compensated generations",
+          "completion24h": "Completion within 24 h",
+          "abandonment": "Abandonment before generation",
+          "failure": "Failure",
+          "refund": "Refund",
+          "entryToBriefing": "Entry to briefing",
+          "entryToPlan": "Entry to plan"
+        }
       },
       "groups": {
         "coreFunnels": "Core funnels",
@@ -4616,5 +4876,52 @@
   "testerMode": {
     "badge": "Tester",
     "badgeAriaLabel": "Tester account with unlimited usage"
+  },
+  "publicHome": {
+    "fallbackEyebrow": "ADSCALE",
+    "fallbackTitle": "Your Studio is still here.",
+    "fallbackDescription": "Sign in to your account to continue your work.",
+    "fallbackLogin": "Sign in to the Studio"
+  },
+  "guestEntry": {
+    "loading": "Loading your request…",
+    "missingTitle": "Request unavailable in this browser.",
+    "missingBody": "It may have expired or been prepared in another browser or device. Resume works on the same origin and profile, while the data exists.",
+    "backToHome": "Back to the home page",
+    "reviewEyebrow": "Home page request",
+    "requestLabel": "Your request",
+    "referenceOne": "1 reference",
+    "referenceOther": "{count} references",
+    "brandLabel": "Brand",
+    "noBrandTitle": "You do not have a brand yet.",
+    "noBrandBody": "Create one to continue — your request is saved and nothing will be lost.",
+    "selectBrand": "Choose the brand that should receive this request.",
+    "brandLoadError": "Could not load your brands.",
+    "retry": "Try again",
+    "confirm": "Use this request",
+    "transferring": "Transferring…",
+    "discard": "Discard local copy",
+    "discardConfirm": "Confirm discard",
+    "discardCancel": "Keep",
+    "discardDone": "Local copy discarded. The Studio remains available as usual.",
+    "goToStudio": "Go to the Studio",
+    "copy": "Copy text",
+    "copied": "Request copied.",
+    "conflictTitle": "You have an open work item and a home page request.",
+    "conflictBody": "Choose how to continue. Nothing will be applied over the existing work without your decision.",
+    "openExisting": "Open the existing work",
+    "continueWithGuest": "Continue with the home page request",
+    "importDisabledTitle": "Import is currently off.",
+    "importDisabledBody": "Your request stays saved in this browser. Copy the text or discard the local copy.",
+    "noWorkspaceTitle": "Your account does not have a workspace yet.",
+    "noWorkspaceBody": "Finish setting up your account and come back — your request stays saved here.",
+    "blockedMessage": "Could not import right now. Your request stays saved.",
+    "partialMessage": "Some references are still pending.",
+    "contextChanged": "The session or brand changed during import. Review and try again.",
+    "partialPending": "{count} references still pending.",
+    "partialRetry": "Retry pending references",
+    "textOnlyConfirm": "Import text only",
+    "attachmentsDisabledMessage": "Attachments are off. Your files stay saved; import text only or try later.",
+    "partialPendingOne": "1 reference still pending."
   }
 }

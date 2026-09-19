@@ -42,8 +42,8 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `EMAIL_FROM` | Yes | — | Default transactional email sender (min. 3 characters). |
 | `RESEND_WAITLIST_SEGMENT_ID` | No (prod: Yes) | — | Resend Audiences segment ID for waitlist contact sync (`app/src/server/services/resend-contacts.ts`). Example: `seg_abc123`. Optional in development (sync skipped when unset); required in production for marketing waitlist sync. Not in `envSchema`. |
 | `APP_URL` | Yes | — | Canonical app URL (trusted origin, emails, redirects, Inngest serve URL). |
-| `MARKETING_URL` | No | — | Public marketing landing URL. Optional in `envSchema` (must be a valid URL if set). Read via `process.env` in `app/src/proxy.ts`; unauthenticated `/` redirects here when set. Locally typically `http://localhost:3000/hi` (proxied marketing). |
-| `MARKETING_UPSTREAM_URL` | No | `https://adscale-marketing.onrender.com` | Upstream static marketing site proxied at `/hi` via Next.js rewrites (`app/next.config.ts`). Locally typically `http://localhost:5173`. Not in `envSchema`. |
+| `MARKETING_URL` | No | — | Public studio home URL served by this app at `/hi`. Optional in `envSchema` (must be a valid URL if set). Read via `process.env` in `app/src/proxy.ts`; unauthenticated `/` redirects here when set. Locally typically `http://localhost:3000/hi`. |
+| `PUBLIC_STUDIO_HOME_ENABLED`, `PUBLIC_STUDIO_IMPORT_ENABLED`, `PUBLIC_STUDIO_ATTACHMENTS_ENABLED` | No | `false` | Rollout flags for the public studio home (`app/src/lib/public-studio-config.ts`). Home or attachments enabled require import enabled; inconsistent combos throw at build time. Not in `envSchema`. |
 | `MARKETING_ALLOWED_ORIGINS` | No (prod: Yes) | — | Comma-separated CORS origins for `POST /api/waitlist` from the marketing site (`app/src/lib/cors-marketing.ts`). Example: `http://localhost:5173,https://adscale.jhonatansoares.com`. Not in `envSchema`. |
 | `E2E_DISABLE_RATE_LIMIT` | No | — | Set to `true`, `1`, or `yes` to skip API rate limits during E2E/TestSprite runs. Not in `envSchema`. |
 | `STUDIO_PROGRESSIVE_ROLLOUT_PERCENT` | No | `0` | Temporary server-only percentage used for deterministic Studio presentation rollout. Keep at 0 until the rollout gates approve a change. |
@@ -90,7 +90,7 @@ Runtime secrets and service URLs are read from `process.env`. The canonical list
 | `VERCEL_GIT_COMMIT_SHA` | No | — | Fallback build ID on Vercel (`app/src/app/api/build-id/route.ts`). |
 | `BUILD_ID` | No | — | Generic build ID fallback when Render/Vercel commit vars are unset. |
 
-Variables in `.env.example` but **not** in `envSchema` still matter for tooling and middleware (e.g. `TEST_DATABASE_URL`, `MARKETING_UPSTREAM_URL`, `MARKETING_ALLOWED_ORIGINS`, `RESEND_WAITLIST_SEGMENT_ID`, `SENTRY_*`, `E2E_DISABLE_RATE_LIMIT`, `DEV_ADMIN_EMAIL`). Variables used in code but absent from `.env.example` (e.g. `MEM0_*`, `PLATFORM_OWNER_EMAILS`, `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS`, `DEMO_WORKSPACE_SLUG`, `DEMO_USER_EMAIL`, `INNGEST_DEV`, `NEXT_PUBLIC_DERIVATION_AUTO_RETRY_BADGE`) should be added to `.env.local` when you need that feature.
+Variables in `.env.example` but **not** in `envSchema` still matter for tooling and middleware (e.g. `TEST_DATABASE_URL`, `PUBLIC_STUDIO_*`, `MARKETING_ALLOWED_ORIGINS`, `RESEND_WAITLIST_SEGMENT_ID`, `SENTRY_*`, `E2E_DISABLE_RATE_LIMIT`, `DEV_ADMIN_EMAIL`). Variables used in code but absent from `.env.example` (e.g. `MEM0_*`, `PLATFORM_OWNER_EMAILS`, `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS`, `DEMO_WORKSPACE_SLUG`, `DEMO_USER_EMAIL`, `INNGEST_DEV`, `NEXT_PUBLIC_DERIVATION_AUTO_RETRY_BADGE`) should be added to `.env.local` when you need that feature.
 
 ## Env validation (Zod)
 
@@ -102,7 +102,7 @@ Validation lives in `app/src/server/validation/env.ts`:
 
 Import `env` from `@/server/validation/env` in server modules (database, auth, billing, storage, AI, jobs, email). Do not read validated secrets directly from `process.env` in those paths.
 
-Some features read `process.env` directly even when a key exists in `envSchema` (e.g. `BETA_ACCESS_CODES` in `beta.ts`, `MARKETING_URL` in `proxy.ts`, `MEM0_*` keys). Others are outside `envSchema` entirely (`DEV_ADMIN_EMAIL`, `MARKETING_UPSTREAM_URL` in `next.config.ts`, `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS`, `DEMO_WORKSPACE_SLUG`, `DEMO_USER_EMAIL`, `INNGEST_DEV`, rate-limit flags). Those variables are optional, test-only, or evaluated before the validated `env` object is needed.
+Some features read `process.env` directly even when a key exists in `envSchema` (e.g. `BETA_ACCESS_CODES` in `beta.ts`, `MARKETING_URL` in `proxy.ts`, `MEM0_*` keys). Others are outside `envSchema` entirely (`DEV_ADMIN_EMAIL`, `PUBLIC_STUDIO_*` in `next.config.ts`, `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS`, `DEMO_WORKSPACE_SLUG`, `DEMO_USER_EMAIL`, `INNGEST_DEV`, rate-limit flags). Those variables are optional, test-only, or evaluated before the validated `env` object is needed.
 
 CLI scripts that import `env` before other modules should import `app/scripts/load-env.ts` first so `app/.env.local` is loaded:
 
@@ -182,7 +182,7 @@ The script validates env presence, Zod schema, plan-to-price alignment, URL orig
 
 - OAuth providers — omitted unless both client ID and secret are set (`app/src/server/auth/index.ts`).
 - Marketing redirect — when `MARKETING_URL` is unset, unauthenticated `/` visitors go to `/login` instead of the marketing site.
-- Marketing proxy — `/hi` rewrites to `MARKETING_UPSTREAM_URL` (defaults to `https://adscale-marketing.onrender.com` when unset).
+- Public home — `/hi` is served by this app; local-only rewrites alias legacy logo and asset paths (`app/src/lib/public-studio-config.ts`).
 - Beta access — off unless `BETA_ACCESS_CODES` lists at least one code.
 - Dev admins — no special treatment unless `DEV_ADMIN_EMAIL` lists one or more addresses. Hard-gated behind `NODE_ENV`: `parseDevAdminEmails()` returns an empty set in production regardless of the env var (`app/src/server/auth/dev-admin.ts`).
 - Donos da plataforma — `PLATFORM_OWNER_EMAILS` entries can access global admin routes (`app/src/server/auth/platform-owner.ts`).
@@ -215,7 +215,7 @@ Code defaults not in Zod:
 |----------|---------|----------|
 | `MEM0_USER_PREFIX` | `adscale_workspace` | `app/src/server/memory/mem0-client.ts` (`env.MEM0_USER_PREFIX` or fallback) |
 | `HUMAN_QUALITY_SYNTHETIC_WORKSPACE_IDS` | empty (no synthetic workspaces) | `app/src/server/human-quality/source-label.ts` |
-| `MARKETING_UPSTREAM_URL` | `https://adscale-marketing.onrender.com` | `app/next.config.ts` |
+| `PUBLIC_STUDIO_HOME_ENABLED`, `PUBLIC_STUDIO_IMPORT_ENABLED`, `PUBLIC_STUDIO_ATTACHMENTS_ENABLED` | `false` | `app/next.config.ts` via `app/src/lib/public-studio-config.ts` |
 | `LOG_LEVEL` | `info` | `app/src/lib/logger.ts` |
 | `TEST_DATABASE_URL` | `postgres://test:test@localhost:5433/adscale_test` | `app/scripts/setup-test-db.ts` |
 | `NEXT_PUBLIC_APP_VERSION` | `unknown` | `app/src/lib/feedback/diagnostic-collector.ts` |
@@ -226,7 +226,7 @@ Code defaults not in Zod:
 | Checkout trial | `14` days | `app/src/server/billing/sessions.ts` |
 | Sentry `tracesSampleRate` | `0.1` production, `1.0` otherwise | `app/src/instrumentation.ts` |
 
-Example local values from `app/.env.example`: `BETTER_AUTH_URL` and `APP_URL` default to `http://localhost:3000`; `MARKETING_URL` defaults to `http://localhost:3000/hi`; `MARKETING_UPSTREAM_URL` defaults to `http://localhost:5173`; Inngest keys use `local`.
+Example local values from `app/.env.example`: `BETTER_AUTH_URL` and `APP_URL` default to `http://localhost:3000`; `MARKETING_URL` defaults to `http://localhost:3000/hi`; `PUBLIC_STUDIO_*` flags default to `"false"`; Inngest keys use `local`.
 
 ## Config file format
 
@@ -251,7 +251,7 @@ Production URLs in the committed blueprint:
 |----------|-------|
 | `BETTER_AUTH_URL`, `APP_URL` | `https://adscale.jhonatansoares.com` |
 | `MARKETING_URL` | `https://adscale.jhonatansoares.com/hi` |
-| `MARKETING_UPSTREAM_URL` | `https://adscale-marketing.onrender.com` |
+| `PUBLIC_STUDIO_HOME_ENABLED`, `PUBLIC_STUDIO_IMPORT_ENABLED`, `PUBLIC_STUDIO_ATTACHMENTS_ENABLED` | `"false"` |
 | `MARKETING_ALLOWED_ORIGINS` | `https://adscale.jhonatansoares.com` |
 | `STRIPE_SUCCESS_URL` | `https://adscale.jhonatansoares.com/settings?tab=billing&checkout=success` |
 | `STRIPE_CANCEL_URL` | `https://adscale.jhonatansoares.com/settings?tab=plans&checkout=cancel` |
@@ -272,7 +272,7 @@ Drizzle Kit config: schema `app/src/server/db/schema.ts`, migrations under `app/
 
 ### `app/next.config.ts`
 
-Next.js 16 config: `output: 'standalone'`, `next-intl` plugin, Sentry wrapper, optional bundle analyzer when `ANALYZE=true`. Reads `R2_PUBLIC_BASE_URL`, `MARKETING_UPSTREAM_URL`, `SENTRY_*`, and `NODE_ENV` from the environment at build time. Proxies `/hi` paths to the marketing upstream.
+Next.js 16 config: `output: 'standalone'`, `next-intl` plugin, Sentry wrapper, optional bundle analyzer when `ANALYZE=true`. Reads `R2_PUBLIC_BASE_URL`, `PUBLIC_STUDIO_*`, `SENTRY_*`, and `NODE_ENV` from the environment at build time. Serves `/hi` in-app with local-only rewrites for legacy asset aliases.
 
 ### Docker (optional local stack)
 

@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Static assets served verbatim (includes vendored legacy guest-home bundles).
+    "public/**",
   ]),
 ]);
 

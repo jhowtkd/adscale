@@ -30,7 +30,7 @@ Set up the ADScale Next.js application (`app/`) on your machine: install depende
 
 - **Google / GitHub OAuth** — leave `GOOGLE_*` and `GITHUB_*` empty to use email/password only
 - **Docker** — `app/docker-compose.yml` provides PostgreSQL 16 (and optional full stack); see [Common setup issues](#common-setup-issues)
-- **Marketing site** — `MARKETING_UPSTREAM_URL` in `.env.example` points at a separate Vite landing (`site-adscale` repo on port 5173), proxied at `/hi` when `MARKETING_URL` is set
+- **Public studio home** — served by this app at `/hi`; rollout flags `PUBLIC_STUDIO_*` in `.env.example` (all off by default), no separate landing repo needed
 - **Mem0 brand memory** — set `MEM0_ENABLED=true` and `MEM0_API_KEY` (optional; not in `.env.example`)
 
 ## Installation steps
@@ -119,8 +119,8 @@ Replace placeholder secrets before starting the app—values like `replace-with-
 
 **Optional in `.env.example`**
 
-- `MARKETING_URL` — public marketing landing URL; unauthenticated `/` redirects here when set (`app/src/proxy.ts`). Locally typically `http://localhost:3000/hi` (proxied marketing). Leave unset for local-only work (redirect falls back to `/login`).
-- `MARKETING_UPSTREAM_URL` — upstream static site proxied at `/hi` via Next.js rewrites; locally `http://localhost:5173` (falls back to `https://adscale-marketing.onrender.com` when unset)
+- `MARKETING_URL` — public studio home URL served by this app at `/hi`; unauthenticated `/` redirects here when set (`app/src/proxy.ts`). Locally typically `http://localhost:3000/hi`. Leave unset for local-only work (redirect falls back to `/login`).
+- `PUBLIC_STUDIO_HOME_ENABLED`, `PUBLIC_STUDIO_IMPORT_ENABLED`, `PUBLIC_STUDIO_ATTACHMENTS_ENABLED` — rollout flags for `/hi` (all `false` by default; home or attachments require import)
 - `MARKETING_ALLOWED_ORIGINS` — CORS origins for `POST /api/waitlist` from the marketing site
 - `RESEND_WAITLIST_SEGMENT_ID` — Resend Audiences segment for waitlist sync (optional in dev)
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — OAuth
@@ -281,7 +281,7 @@ Use `npm run dev` (not `dev:next` alone). Ensure `INNGEST_EVENT_KEY` and `INNGES
 
 ### Unauthenticated `/` redirects to a dead marketing URL
 
-If `MARKETING_URL` is set (for example `http://localhost:3000/hi`) but `MARKETING_UPSTREAM_URL` (`http://localhost:5173`) is unreachable, visitors hitting `/` while logged out get redirected to a broken proxy. For local app-only work, remove `MARKETING_URL` from `.env.local`, or run the separate `site-adscale` landing on port 5173.
+If `MARKETING_URL` is set (for example `http://localhost:3000/hi`), visitors hitting `/` while logged out land on the in-app public home (or its local fallback while flags are off). For local app-only work, remove `MARKETING_URL` from `.env.local` to fall back to `/login`.
 
 ### Migration errors on an existing database
 
