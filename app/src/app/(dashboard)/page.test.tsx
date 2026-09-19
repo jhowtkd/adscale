@@ -1,12 +1,19 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AUTH_ERROR_CODES, WorkspaceAuthError } from "@/server/auth/errors";
 import { parseDashboardSearchParams } from "./dashboard-search-params";
 
 const TEMPLATE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const WORK_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const CAMPAIGN_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+const GUEST_ID = "dd111111-1111-4111-8111-111111111111";
+
+const mockRequireWorkspaceAccess = vi.fn(async () => ({
+  user: { id: "user-1" },
+  workspace: { id: "ws-e2e-1" },
+}));
 
 vi.mock("@/server/auth/workspace", () => ({
-  requireWorkspaceAccess: async () => ({ workspace: { id: "ws-e2e-1" } }),
+  requireWorkspaceAccess: (...args: unknown[]) => mockRequireWorkspaceAccess(...args),
 }));
 vi.mock("@/server/validation/env", () => ({
   env: new Proxy({}, {
@@ -19,14 +26,24 @@ vi.mock("@/server/validation/env", () => ({
   }),
 }));
 vi.mock("@/components/dashboard/DashboardHomeActions", () => ({
-  default: () => null,
+  default: function DashboardHomeActionsStub() { return null; },
+}));
+vi.mock("@/components/guest-home/GuestStudioEntry", () => ({
+  default: function GuestStudioEntryStub() { return null; },
 }));
 
 type PageElement = { type: unknown; props: Record<string, unknown> };
 
-async function renderDashboardPage(): Promise<PageElement> {
+async function renderDashboardPage(
+  params: Record<string, string | string[] | undefined> = {},
+): Promise<PageElement> {
   const { default: DashboardPage } = await import("./page");
-  return (await DashboardPage({ searchParams: Promise.resolve({}) })) as unknown as PageElement;
+  return (await DashboardPage({ searchParams: Promise.resolve(params) })) as unknown as PageElement;
+}
+
+function renderedName(element: PageElement): string {
+  const type = element.type as { name?: string; render?: { name?: string } };
+  return type.name ?? type.render?.name ?? "unknown";
 }
 
 describe("DashboardPage entry interview rollout gate", () => {
@@ -123,5 +140,73 @@ describe("parseDashboardSearchParams", () => {
     expect(parseDashboardSearchParams({ campaignId: CAMPAIGN_ID })).toEqual({ campaignId: CAMPAIGN_ID });
     expect(parseDashboardSearchParams({ campaignId: [CAMPAIGN_ID] })).toEqual({});
     expect(parseDashboardSearchParams({ campaignId: "../campaign" })).toEqual({});
+  });
+
+  it("ignores the guest handoff key without broadening other inputs", () => {
+    expect(parseDashboardSearchParams({ guestDraft: GUEST_ID })).toEqual({});
+    expect(parseDashboardSearchParams({ guestDraft: GUEST_ID, workId: WORK_ID })).toEqual({
+      workId: WORK_ID,
+    });
+  });
+});
+
+describe("DashboardPage guest entry switch", () => {
+  beforeEach(() => {
+    mockRequireWorkspaceAccess.mockReset();
+    mockRequireWorkspaceAccess.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { id: "ws-e2e-1" },
+    });
+    delete process.env.PUBLIC_STUDIO_HOME_ENABLED;
+    delete process.env.PUBLIC_STUDIO_IMPORT_ENABLED;
+    delete process.env.PUBLIC_STUDIO_ATTACHMENTS_ENABLED;
+  });
+
+  it("renders the guest entry for an isolated public draft", async () => {
+    process.env.PUBLIC_STUDIO_IMPORT_ENABLED = "true";
+    const element = await renderDashboardPage({ guestDraft: GUEST_ID, compose: "1" });
+    expect(renderedName(element)).toBe("GuestStudioEntryStub");
+    expect(element.props).toMatchObject({
+      guestDraftId: GUEST_ID,
+      userId: "user-1",
+      workspaceId: "ws-e2e-1",
+      importEnabled: true,
+      conflict: null,
+    });
+  });
+
+  it("passes the import flag through to the entry", async () => {
+    const element = await renderDashboardPage({ guestDraft: GUEST_ID });
+    expect(renderedName(element)).toBe("GuestStudioEntryStub");
+    expect(element.props).toMatchObject({ importEnabled: false });
+  });
+
+  it("renders the entry in conflict mode over an open work item", async () => {
+    const element = await renderDashboardPage({ guestDraft: GUEST_ID, workId: WORK_ID });
+    expect(renderedName(element)).toBe("GuestStudioEntryStub");
+    expect(element.props).toMatchObject({
+      guestDraftId: GUEST_ID,
+      conflict: { workId: WORK_ID, templateId: undefined, campaignId: undefined },
+    });
+  });
+
+  it("ignores an invalid guest draft and keeps the normal Studio", async () => {
+    const element = await renderDashboardPage({ guestDraft: "../../x" });
+    expect(renderedName(element)).toBe("DashboardHomeActionsStub");
+    expect(element.props).toMatchObject({ workspaceId: "ws-e2e-1" });
+  });
+
+  it("preserves the draft without a workspace instead of throwing", async () => {
+    mockRequireWorkspaceAccess.mockRejectedValue(
+      new WorkspaceAuthError(AUTH_ERROR_CODES.noWorkspace, "No workspace"),
+    );
+    const element = await renderDashboardPage({ guestDraft: GUEST_ID });
+    expect(renderedName(element)).toBe("GuestStudioEntryStub");
+    expect(element.props).toMatchObject({ guestDraftId: GUEST_ID, userId: null, workspaceId: null });
+  });
+
+  it("rethrows other workspace errors", async () => {
+    mockRequireWorkspaceAccess.mockRejectedValue(new Error("boom"));
+    await expect(renderDashboardPage({ guestDraft: GUEST_ID })).rejects.toThrow("boom");
   });
 });

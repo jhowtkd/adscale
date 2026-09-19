@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { relativeCallbackPath, safeCallbackPath, unauthorizedLoginHref } from "./auth-callback";
+import { authEntryHref, relativeCallbackPath, safeCallbackPath, unauthorizedLoginHref } from "./auth-callback";
 
 describe("auth callback paths", () => {
   it("preserves an invite token as a relative callback", () => {
@@ -35,5 +35,44 @@ describe("unauthorizedLoginHref", () => {
   it("rejects open redirects the same way as safeCallbackPath", () => {
     expect(unauthorizedLoginHref("https://evil.example/")).toBe("/login");
     expect(unauthorizedLoginHref("//evil.example")).toBe("/login");
+  });
+});
+
+describe("safeCallbackPath hardening", () => {
+  it.each([
+    "https://evil.example",
+    "//evil.example",
+    "/\\evil.example",
+    "/\n/evil.example",
+    "/%2Fevil.example",
+    "/%252Fevil.example",
+    "javascript:alert(1)",
+    "",
+  ])("recusa retorno inseguro %s", (value) => expect(safeCallbackPath(value)).toBe("/"));
+
+  it("preserva callbacks internos legítimos", () => {
+    expect(safeCallbackPath("/?compose=1&guestDraft=aa111111-1111-4111-8111-111111111111"))
+      .toBe("/?compose=1&guestDraft=aa111111-1111-4111-8111-111111111111");
+    expect(safeCallbackPath("/invite?token=invite-1")).toBe("/invite?token=invite-1");
+    expect(safeCallbackPath("/settings?tab=billing")).toBe("/settings?tab=billing");
+    expect(safeCallbackPath(null)).toBe("/");
+  });
+});
+
+describe("authEntryHref", () => {
+  it("preserva a continuação no link de cadastro", () => {
+    const callback = "/?compose=1&guestDraft=aa111111-1111-4111-8111-111111111111";
+    const href = authEntryHref("/signup", callback);
+    expect(new URL(href, "https://app.example").searchParams.get("callbackUrl")).toBe(callback);
+  });
+
+  it("evita loop para as próprias páginas de auth", () => {
+    expect(authEntryHref("/signup", "/login?callbackUrl=%2F")).toBe("/signup");
+    expect(authEntryHref("/login", "/reset-password?token=x")).toBe("/login");
+  });
+
+  it("retorna a entrada sem query para callback vazio ou inseguro", () => {
+    expect(authEntryHref("/forgot-password", null)).toBe("/forgot-password");
+    expect(authEntryHref("/signup", "https://evil.example")).toBe("/signup");
   });
 });

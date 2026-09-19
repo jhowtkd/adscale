@@ -183,6 +183,7 @@ export interface AnalyticsFunnelSummary {
   shareEngagementByAssistance: ShareEngagementByAssistanceRow[];
   derivationAutoRetryFunnel: DerivationAutoRetryFunnelSummary;
   studioFunnel: StudioFunnelArm[];
+  guestImports: GuestImportSummary;
   valueDelivered: ValueDeliveredSummary;
   totals: {
     events: number;
@@ -704,6 +705,28 @@ export function aggregateReadinessOverrides(
   return dedupeReadinessOverrideSignals([...fromNotes, ...fromEvents]);
 }
 
+export interface GuestImportSummary {
+  distinctWorks: number;
+  events: number;
+}
+
+export function aggregateGuestImports(
+  events: BetaAnalyticsEvent[]
+): GuestImportSummary {
+  const works = new Set<string>();
+  let count = 0;
+
+  for (const event of events) {
+    if (event.eventKey !== "guest_draft_imported") continue;
+    const workId = propString(event, "creativeWorkId");
+    if (!workId) continue;
+    count += 1;
+    works.add(workId);
+  }
+
+  return { distinctWorks: works.size, events: count };
+}
+
 export function aggregateShareLinkOpens(
   events: BetaAnalyticsEvent[]
 ): ShareLinkOpenRow[] {
@@ -1219,6 +1242,7 @@ export function buildAnalyticsFunnelSummary(
     ),
     derivationAutoRetryFunnel: aggregateDerivationAutoRetryFunnel(events),
     studioFunnel: aggregateStudioFunnel(events, usageEvents, asOf),
+    guestImports: aggregateGuestImports(events),
     valueDelivered: aggregateValueDelivered(events, options?.selectedFromDatabase),
     totals: {
       events: events.length,
