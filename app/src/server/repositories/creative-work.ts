@@ -867,6 +867,26 @@ export function creativeWorkVersionLockScope(input: {
     : `${input.workspaceId}:${input.workItemId}:${input.creativeLevel}:${input.targetFormat}`;
 }
 
+export async function getCreativeWorkByDraftKey(
+  workspaceId: string,
+  userId: string,
+  draftKey: string,
+  executor: Pick<typeof db, "select"> = db,
+): Promise<CreativeWorkItem | null> {
+  const rows = await executor
+    .select()
+    .from(creativeWorkItems)
+    .where(
+      and(
+        eq(creativeWorkItems.workspaceId, workspaceId),
+        eq(creativeWorkItems.createdByUserId, userId),
+        eq(creativeWorkItems.draftKey, draftKey)
+      )
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function getCreativeWork(
   workspaceId: string,
   workItemId: string,

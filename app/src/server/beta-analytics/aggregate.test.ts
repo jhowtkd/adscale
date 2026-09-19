@@ -7,6 +7,7 @@ import {
   aggregateDerivationAutoRetryFunnel,
   aggregateDraftToShareTiming,
   aggregateGuidedBriefingAbandonByStep,
+  aggregateGuestImports,
   aggregateMissionFunnel,
   aggregatePostPreviewStalls,
   aggregateReadinessOverrideByDimension,
@@ -199,6 +200,29 @@ describe("beta analytics aggregate", () => {
     expect(aggregateShareLinkOpens(events)).toEqual([
       { campaignId, openCount: 1 },
     ]);
+  });
+
+  it("counts distinct guest-imported works without inflating on retry", () => {
+    const base = ANALYTICS_FIXTURE_EVENTS[0]!;
+    const guest = (id: string, creativeWorkId: unknown, eventKey = "guest_draft_imported") => ({
+      ...base,
+      id,
+      eventKey,
+      properties: { creativeWorkId, origin: "public_home", outputCount: 1 },
+    });
+    const events = [
+      guest("evt-g1", "work-1"),
+      guest("evt-g2", "work-1"),
+      guest("evt-g3", "work-2"),
+      guest("evt-g4", null),
+      guest("evt-g5", "work-3", "studio_plan_confirmed"),
+    ];
+
+    expect(aggregateGuestImports(events)).toEqual({ distinctWorks: 2, events: 3 });
+    expect(buildAnalyticsFunnelSummary(events).guestImports).toEqual({
+      distinctWorks: 2,
+      events: 3,
+    });
   });
 
   it("aggregates readiness override dimensions from comma-separated property", () => {
