@@ -1,0 +1,44 @@
+[
+  {
+    "file": "hero-collage.webp",
+    "kind": "illustrative",
+    "rights": "Estudo ilustrativo interno Adscale (colagem esporte/produto/café); sem foto de cliente. Rotulado como ilustrativo na página.",
+    "approvedBy": "",
+    "approvedAt": ""
+  },
+  {
+    "file": "example-product.webp",
+    "kind": "illustrative",
+    "rights": "Estudo ilustrativo interno Adscale (produto/embalagem em verde); sem foto de cliente.",
+    "approvedBy": "",
+    "approvedAt": ""
+  },
+  {
+    "file": "example-variations.webp",
+    "kind": "illustrative",
+    "rights": "Estudo ilustrativo interno Adscale (beleza, composições); sem foto de cliente.",
+    "approvedBy": "",
+    "approvedAt": ""
+  },
+  {
+    "file": "example-formats.webp",
+    "kind": "illustrative",
+    "rights": "Estudo ilustrativo interno Adscale (design em formatos); sem foto de cliente.",
+    "approvedBy": "",
+    "approvedAt": ""
+  },
+  {
+    "file": "poster-moka.webp",
+    "kind": "illustrative",
+    "rights": "Estudo ilustrativo interno Adscale (café editorial); sem foto de cliente.",
+    "approvedBy": "",
+    "approvedAt": ""
+  },
+  {
+    "file": "poster-runclub.webp",
+    "kind": "illustrative",
+    "rights": "Estudo ilustrativo interno Adscale (esporte, retrato em fundo escuro); sem foto de cliente.",
+    "approvedBy": "",
+    "approvedAt": ""
+  }
+]

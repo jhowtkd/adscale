@@ -7,6 +7,7 @@ import { createWorkspaceAsset, deleteWorkspaceAsset, getWorkspaceAssets, getWork
 import { objectStorage } from "@/server/storage";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
+import { logger } from "@/lib/logger";
 
 const MAX_SIZE = 10 * 1024 * 1024;
 
@@ -87,11 +88,20 @@ export async function POST(request: Request) {
       throw error;
     });
 
-    // Trigger async AI analysis
-    await inngest.send({
-      name: heavyImageEventName("workspace.asset.analyze"),
-      data: { assetId: asset.id, workspaceId: workspace.id, key },
-    });
+    // Trigger async AI analysis, best-effort (#446): bytes and row are
+    // durable already, so a dispatch failure (Inngest outage, bad key)
+    // must not 500 an already-persisted upload, orphaning the row.
+    try {
+      await inngest.send({
+        name: heavyImageEventName("workspace.asset.analyze"),
+        data: { assetId: asset.id, workspaceId: workspace.id, key },
+      });
+    } catch (error) {
+      logger.warn("[workspace.assets] analyze dispatch failed", {
+        assetId: asset.id,
+        error,
+      });
+    }
 
     return NextResponse.json(
       {

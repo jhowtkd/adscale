@@ -38,5 +38,17 @@ export default defineConfig({
       workers: 1,
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: 'guest-home-chromium',
+      testMatch: /guest-home-.*\.spec\.ts$/,
+      retries: 0,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'guest-home-webkit',
+      testMatch: /guest-home-(public|storage).*\.spec\.ts$/,
+      retries: 0,
+      use: { ...devices['Desktop Safari'] },
+    },
   ],
 });

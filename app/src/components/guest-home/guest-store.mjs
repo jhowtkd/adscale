@@ -18,8 +18,21 @@ export const IMPORT_LEASE_TTL_MS = 120_000;
 /** @type {Promise<IDBDatabase> | undefined} */
 let databasePromise;
 
+/**
+ * Open request stuck in `blocked` (#446). A blocked upgrade never settles
+ * while the other tab holds its connection, and a second open() queues
+ * behind it and hangs forever — so later callers must attach to this
+ * zombie's outcome (with a timeout) instead of opening again.
+ * @type {IDBOpenDBRequest | null}
+ */
+let blockedRequest = null;
+
+const BLOCKED_RETRY_WAIT_MS = 2000;
+const blockedError = () => new Error('Feche outras abas do Adscale e tente novamente.');
+
 function openDatabase() {
   if (databasePromise) return databasePromise;
+  if (blockedRequest) return openAfterUnblock(blockedRequest);
   databasePromise = new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') { reject(new Error('Este navegador não permite guardar referências locais.')); return; }
     const request = indexedDB.open(DB_NAME, 2);
@@ -37,9 +50,65 @@ function openDatabase() {
       resolve(database);
     };
     request.onerror = () => { databasePromise = undefined; reject(request.error ?? new Error('Não foi possível abrir o armazenamento local.')); };
-    request.onblocked = () => { databasePromise = undefined; reject(new Error('Feche outras abas do Adscale e tente novamente.')); };
+    request.onblocked = () => {
+      databasePromise = undefined;
+      blockedRequest = request;
+      reject(blockedError());
+    };
   });
   return databasePromise;
+}
+
+/**
+ * Follow a blocked open instead of queueing behind it: resolve with a fresh
+ * connection once the other tab releases the upgrade, or fail fast with the
+ * same guidance when it stays blocked past the wait.
+ * @param {IDBOpenDBRequest} zombie
+ * @returns {Promise<IDBDatabase>}
+ */
+function openAfterUnblock(zombie) {
+  databasePromise = new Promise((resolve, reject) => {
+    // The upgrade may have completed between the block and this call; a
+    // listener attached now would never fire, so settle synchronously.
+    if (zombie.readyState === 'done') {
+      databasePromise = undefined;
+      settleZombie(zombie);
+      if (zombie.error) reject(blockedError());
+      else resolve(openDatabase());
+      return;
+    }
+    const timer = setTimeout(() => {
+      cleanup();
+      databasePromise = undefined;
+      reject(blockedError());
+    }, BLOCKED_RETRY_WAIT_MS);
+    const onSettled = () => {
+      cleanup();
+      databasePromise = undefined;
+      settleZombie(zombie);
+      if (zombie.error) reject(blockedError());
+      else resolve(openDatabase());
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      zombie.removeEventListener('success', onSettled);
+      zombie.removeEventListener('error', onSettled);
+    };
+    zombie.addEventListener('success', onSettled);
+    zombie.addEventListener('error', onSettled);
+  });
+  return databasePromise;
+}
+
+/**
+ * Release a zombie open that finally settled: clear the gate and close its
+ * connection so the next open starts clean (same-version opens need no
+ * upgrade, so closing never strands a caller).
+ * @param {IDBOpenDBRequest} zombie
+ */
+function settleZombie(zombie) {
+  if (blockedRequest === zombie) blockedRequest = null;
+  try { zombie.result?.close(); } catch { /* Already closed; the gate is what matters. */ }
 }
 
 /**

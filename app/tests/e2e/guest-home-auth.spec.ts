@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 /**
  * Auth-return preservation (#441): a guest draft continuation survives every
@@ -14,6 +14,20 @@ const CALLBACK = `/?compose=1&fresh=1&intent=single&guestDraft=${GUEST_DRAFT}`;
 const EMAIL = "dev-admin@adscale.local";
 const PASSWORD = "DevAdmin123!";
 
+/**
+ * Fill the password form after hydration (#446): pre-hydration fills of the
+ * controlled inputs are wiped when React takes over, leaving `required`
+ * validation to block the submit. Round-tripping the values fails fast
+ * instead of timing out at waitForURL.
+ */
+async function fillPasswordForm(page: Page): Promise<void> {
+  await page.waitForLoadState("load");
+  await page.locator("#email").fill(EMAIL);
+  await page.locator("#login-password").fill(PASSWORD);
+  await expect(page.locator("#email")).toHaveValue(EMAIL);
+  await expect(page.locator("#login-password")).toHaveValue(PASSWORD);
+}
+
 test.describe("auth return preservation (#441)", () => {
   test("password login lands on the guestDraft continuation with the same UUID", async ({
     page,
@@ -21,8 +35,7 @@ test.describe("auth return preservation (#441)", () => {
     await page.goto(`/login?callbackUrl=${encodeURIComponent(CALLBACK)}`, {
       waitUntil: "domcontentloaded",
     });
-    await page.locator("#email").fill(EMAIL);
-    await page.locator("#login-password").fill(PASSWORD);
+    await fillPasswordForm(page);
     await page.locator("form:has(#email) button[type=submit]").click();
     await page.waitForURL(
       (url) => url.pathname === "/" && url.searchParams.get("guestDraft") === GUEST_DRAFT,
@@ -55,8 +68,7 @@ test.describe("auth return preservation (#441)", () => {
     page,
   }) => {
     await page.goto("/login", { waitUntil: "domcontentloaded" });
-    await page.locator("#email").fill(EMAIL);
-    await page.locator("#login-password").fill(PASSWORD);
+    await fillPasswordForm(page);
     await page.locator("form:has(#email) button[type=submit]").click();
     await page.waitForURL((url) => !url.pathname.startsWith("/login"), {
       timeout: 30_000,
@@ -91,7 +103,7 @@ test.describe("auth return preservation (#441)", () => {
   });
 
   test("external, protocol-relative and evasive destinations are rejected", async ({
-    page,
+    browser,
   }) => {
     for (const evil of [
       "https://evil.example/",
@@ -99,22 +111,29 @@ test.describe("auth return preservation (#441)", () => {
       "/%2Fevil.example/",
       "/%252Fevil.example/",
     ]) {
-      await page.goto(`/login?callbackUrl=${encodeURIComponent(evil)}`, {
-        waitUntil: "domcontentloaded",
-      });
-      await page.locator("#email").fill(EMAIL);
-      await page.locator("#login-password").fill(PASSWORD);
-      await page.locator("form:has(#email) button[type=submit]").click();
-      await page.waitForURL((url) => !url.pathname.startsWith("/login"), {
-        timeout: 30_000,
-      });
-      expect(new URL(page.url()).origin).toBe(
-        new URL(process.env.E2E_BASE_URL ?? "http://localhost:3000").origin,
-      );
-      expect(page.url()).not.toContain("evil.example");
-      // Log out for the next iteration.
-      await page.request.post("/api/auth/sign-out").catch(() => {});
-      await page.context().clearCookies();
+      // Fresh context per leg (#446): reusing one page across sign-outs
+      // races the dashboard's post-sign-out 401s, whose correct
+      // session-expiry redirect to bare /login aborts the next goto
+      // (net::ERR_ABORTED). Each evil leg starts logged-out, like a real
+      // attacker link, with no shared cookies, polls, or sign-out needed.
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      try {
+        await page.goto(`/login?callbackUrl=${encodeURIComponent(evil)}`, {
+          waitUntil: "domcontentloaded",
+        });
+        await fillPasswordForm(page);
+        await page.locator("form:has(#email) button[type=submit]").click();
+        await page.waitForURL((url) => !url.pathname.startsWith("/login"), {
+          timeout: 30_000,
+        });
+        expect(new URL(page.url()).origin).toBe(
+          new URL(process.env.E2E_BASE_URL ?? "http://localhost:3000").origin,
+        );
+        expect(page.url()).not.toContain("evil.example");
+      } finally {
+        await context.close();
+      }
     }
   });
 });
