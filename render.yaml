@@ -46,6 +46,8 @@ services:
         value: https://adscale.jhonatansoares.com
       - key: MARKETING_URL
         value: https://adscale.jhonatansoares.com/hi
+      # Public home flags (#439): containment defaults; #447 flips at rollout.
+      # Home or attachments without import fails the build.
       - key: PUBLIC_STUDIO_HOME_ENABLED
         value: "false"
       - key: PUBLIC_STUDIO_IMPORT_ENABLED

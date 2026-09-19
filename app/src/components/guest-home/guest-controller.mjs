@@ -13,16 +13,19 @@ export function mountGuestHome(root, options = {}) {
   const dialog = query('#ag-dialog');
   const toast = query('#ag-toast');
   const asset = (name) => options.assetResolver?.(name) ?? `${(options.assetBase ?? '/adscale-guest').replace(/\/$/,'')}/${name}`;
-  const attachmentsEnabled = options.attachmentsEnabled === true;
   let intent = 'single', exampleId = null, files = [], urls = [];
-  let destroyed = false, saving = false, draftId = null, restorable = null, savedSignature = null;
-  function contentSignature(request, currentIntent, currentExample, currentFiles) {
-    const fingerprint = currentFiles.map((file) => `${file.name}:${file.size}:${file.lastModified}`).join('|');
-    return `${request.trim()}${currentIntent}${currentExample ?? ''}${fingerprint}`;
-  }
+  let destroyed = false, saving = false, draftId = null, restorable = null;
   let pendingExample = null, toastTimer, overflowBefore;
   let previewResumePath = null;
   let dragDepth = 0;
+  const attachmentsEnabled = options.attachmentsEnabled === true;
+  const ATTACHMENTS_OFF_MESSAGE = 'Referências estão desligadas nesta etapa. Continue com o texto e adicione imagens depois, no Estúdio.';
+  // Last committed save: retry without material edits re-saves the identical
+  // snapshot (same UUID and original validity); any material edit rotates to
+  // a new UUID while the previous snapshot stays on disk under its own id.
+  let lastSave = null;
+  const fileKey = (file) => `${file.name}:${file.size}:${file.lastModified ?? 0}`;
+  const snapshotSignature = () => JSON.stringify({ request: textarea.value.trim(), intent, exampleId, files: files.map(fileKey) });
   const emit = (name, detail = {}) => {
     // Never include prompt text, file names, image contents or user identifiers in telemetry.
     const event = { name, detail: { ...detail, surface: 'public_studio' } };
@@ -48,7 +51,7 @@ export function mountGuestHome(root, options = {}) {
       const url = URL.createObjectURL(file); urls.push(url);
       return `<span class="ag-file-chip"><img src="${url}" alt="" width="27" height="27"/><span title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span><small>${formatFileSize(file.size)}</small><button type="button" class="ag-remove" data-action="remove-file" data-index="${index}" aria-label="Remover ${escapeHtml(file.name)}">${icon('close',13)}</button></span>`;
     }).join('');
-    const hint = query('.ag-file-hint'); hint.textContent = files.length ? `${files.length} de 3 imagens` : 'Até 3 imagens';
+    const hint = query('.ag-file-hint'); if (hint) hint.textContent = files.length ? `${files.length} de 3 imagens` : 'Até 3 imagens';
   }
   function updateIntent(next) {
     intent = getIntent(next).id;
@@ -73,11 +76,11 @@ export function mountGuestHome(root, options = {}) {
     applyExample(id);
   }
   function handleFiles(incoming) {
-    if (!attachmentsEnabled) return;
+    if (!attachmentsEnabled) { announce(ATTACHMENTS_OFF_MESSAGE); return; }
     const result = selectFiles(files, incoming); files = result.files; renderFiles();
     if (result.errors.length) setError(result.errors.join(' '));
     else { setError(null); announce('Referências adicionadas. Elas ainda estão apenas neste navegador.'); }
-    emit('references_changed', { count: files.length });
+    emit('references_changed', { referenceCount: files.length });
   }
   function closeDialog() { if (saving) return; if (dialog.open) { dialog.close(); document.body.style.overflow = overflowBefore ?? ''; } }
   function dialogHeader(title, subtitle='', label='') {
@@ -97,7 +100,7 @@ export function mountGuestHome(root, options = {}) {
       markup = dialogHeader(request ? 'Continue sua criação.' : 'Seu estúdio está logo ali.', 'Entre ou crie sua conta para gerar, revisar e salvar suas peças.', 'VAMOS DAR O PRÓXIMO PASSO');
       if (request) markup += `<div class="ag-summary"><div class="ag-summary-meta"><span>${getIntent(intent).short}</span><span>·</span><span>${files.length} referência${files.length === 1 ? '' : 's'}</span></div><p>${escapeHtml(request)}</p></div>`;
       markup += `<p class="ag-private-note">${icon('shield',16)}<span>${request ? 'Seu pedido e suas referências ficam disponíveis para retomada por 24 horas. Depois de entrar, continue neste mesmo navegador e dispositivo.' : 'Você escolhe sua marca e prepara o pedido dentro do estúdio.'} Nenhuma geração começa automaticamente.</span></p>${options.preview ? '<p class="ag-demo-note">Prévia local: não faz login, não envia arquivos e não consome créditos. O próximo botão demonstra a preparação do pedido.</p>' : ''}<p id="ag-dialog-error" class="ag-form-error" role="alert" hidden></p><div class="ag-dialog-actions"><button type="button" class="ag-secondary" data-action="close">Continuar explorando</button><button type="button" class="ag-primary" data-action="authenticate">${request ? 'Entrar e continuar' : 'Abrir meu estúdio'}${icon('arrow',16)}</button></div>`;
-      emit('auth_prompt_opened', { intent, hasRequest: Boolean(request) });
+      emit('auth_prompt_opened', { intent });
     } else if (kind === 'gallery') {
       markup = dialogHeader('Um ponto de partida para a sua ideia.', 'Explore os estudos visuais. Os pedidos são editáveis; as imagens são ilustrativas.', 'EXPLORE O ESTÚDIO');
       markup += `<label class="ag-search-field">${icon('search',19)}<span class="ag-sr">Buscar exemplos</span><input id="ag-search" type="search" placeholder="Busque por produto, beleza, café…" autocomplete="off"/></label><div id="ag-gallery-grid" class="ag-gallery-grid">${galleryItems()}</div>`;
@@ -143,19 +146,22 @@ export function mountGuestHome(root, options = {}) {
     try {
       let path = '/?compose=1&fresh=1';
       if (textarea.value.trim()) {
-        const signature = contentSignature(textarea.value, intent, exampleId, files);
-        if (draftId && signature !== savedSignature) draftId = newDraftId();
-        draftId ??= newDraftId();
-        draft = createDraft({ request: textarea.value, intent, exampleId, files }, draftId);
+        const signature = snapshotSignature();
+        if (lastSave && lastSave.signature === signature) {
+          draft = lastSave.draft;
+        } else {
+          draftId = newDraftId();
+          draft = createDraft({ request: textarea.value, intent, exampleId, files }, draftId);
+        }
         await saveDraft(draft);
-        savedSignature = signature;
+        lastSave = { signature, draft };
         path = buildResumePath(draft.id, intent);
       } else if (files.length) {
         throw new Error('Descreva o que você quer criar antes de continuar com as referências.');
       }
       if (destroyed) return;
       previewResumePath = path;
-      emit('continue_prepared', { intent, fileCount: files.length, hasRequest: Boolean(draft) });
+      emit('continue_prepared', { intent, referenceCount: files.length });
       if (options.preview) openDialog('prepared');
       else if (options.onContinue) await options.onContinue(draft, path);
       else window.location.assign(path); // Same origin: the existing proxy handles auth.
@@ -163,7 +169,17 @@ export function mountGuestHome(root, options = {}) {
       if (destroyed) return;
       const message = error instanceof Error ? error.message : 'Não foi possível preparar seu pedido. Tente novamente.';
       const alert = query('#ag-dialog-error');
-      if (alert) { alert.textContent = `${message} Seu texto e seus arquivos continuam nesta tela.`; alert.hidden = false; }
+      if (alert) {
+        alert.textContent = `${message} Seu texto e seus arquivos continuam nesta tela.`;
+        alert.hidden = false;
+        if (!query('#ag-dialog-copy')) {
+          const copy = document.createElement('button');
+          copy.type = 'button'; copy.id = 'ag-dialog-copy';
+          copy.className = 'ag-secondary'; copy.dataset.action = 'copy';
+          copy.textContent = 'Copiar pedido';
+          alert.after(copy);
+        }
+      }
       else announce(message);
       if (button) { button.disabled = false; button.textContent = 'Tentar continuar novamente'; }
     } finally { saving = false; if (button) button.disabled = false; }
@@ -173,7 +189,7 @@ export function mountGuestHome(root, options = {}) {
     try { for (const id of ids) await removeDraft(id); }
     catch { announce('Não foi possível apagar o pedido salvo. Tente novamente.'); return; }
     if (destroyed) return;
-    textarea.value = ''; files = []; exampleId = null; draftId = null; restorable = null; savedSignature = null;
+    textarea.value = ''; files = []; exampleId = null; draftId = null; restorable = null; lastSave = null;
     renderFiles(); updateExampleTag(); updateIntent('single'); setError(null);
     query('#ag-resume-banner').hidden = true; closeDialog(); focusRequest();
     emit('new_request');
@@ -182,9 +198,11 @@ export function mountGuestHome(root, options = {}) {
     if (!restorable || restorable.expiresAt <= Date.now()) { announce('O pedido salvo expirou. Comece uma nova criação.'); query('#ag-resume-banner').hidden = true; return; }
     if (restorable.files.some((file) => !(file instanceof Blob))) { announce('As referências salvas não puderam ser lidas. O pedido foi mantido para recuperação.'); return; }
     textarea.value = restorable.request; files = restorable.files; draftId = restorable.id;
-    savedSignature = contentSignature(restorable.request, restorable.intent, restorable.exampleId, restorable.files);
     exampleId = restorable.exampleId; updateIntent(restorable.intent); renderFiles(); updateExampleTag(); setError(null);
-    query('#ag-resume-banner').hidden = true; closeDialog(); focusRequest(); announce('Pedido retomado neste navegador.');
+    lastSave = { signature: snapshotSignature(), draft: restorable };
+    const keptFiles = !attachmentsEnabled && restorable.files.length > 0;
+    query('#ag-resume-banner').hidden = true; closeDialog(); focusRequest();
+    announce(keptFiles ? 'Pedido retomado. As referências salvas foram mantidas, mas novas referências só podem ser adicionadas no Estúdio.' : 'Pedido retomado neste navegador.');
   }
   const actions = {
     focus: () => { closeDialog(); focusRequest(); },
@@ -195,7 +213,7 @@ export function mountGuestHome(root, options = {}) {
     'confirm-example': () => { if (pendingExample) applyExample(pendingExample); pendingExample = null; },
     'clear-example': () => { exampleId = null; updateExampleTag(); },
     intent: (button) => { updateIntent(button.dataset.intent); emit('intent_selected', {intent}); },
-    attach: () => { if (attachmentsEnabled) fileInput?.click(); },
+    attach: () => { if (!attachmentsEnabled) { announce(ATTACHMENTS_OFF_MESSAGE); return; } fileInput?.click(); },
     'remove-file': (button) => { files.splice(Number(button.dataset.index),1); renderFiles(); setError(null); },
     continue: () => { const problem = validateRequest(textarea.value); if (problem) { setError(problem); focusRequest(); return; } setError(null); openDialog('auth'); },
     auth: () => openDialog('auth'), authenticate,
@@ -223,8 +241,14 @@ export function mountGuestHome(root, options = {}) {
   textarea.addEventListener('input', () => { if (query('#ag-form-error').textContent) setError(null); }, {signal});
   textarea.addEventListener('keydown', (event) => { if (event.isComposing) return; if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); actions.continue(); } }, {signal});
   fileInput?.addEventListener('change', () => { handleFiles(fileInput.files); fileInput.value = ''; }, {signal});
-  composer.addEventListener('dragenter', (event) => { if (!event.dataTransfer?.types.includes('Files')) return; event.preventDefault(); dragDepth++; composer.classList.add('is-dragging'); }, {signal});
-  composer.addEventListener('dragover', (event) => { if (event.dataTransfer?.types.includes('Files')) event.preventDefault(); }, {signal});
+  textarea.addEventListener('paste', (event) => {
+    const pasted = event.clipboardData ? Array.from(event.clipboardData.files ?? []) : [];
+    if (!pasted.length) return;
+    event.preventDefault();
+    handleFiles(pasted);
+  }, {signal});
+  composer.addEventListener('dragenter', (event) => { if (!attachmentsEnabled) return; if (!event.dataTransfer?.types.includes('Files')) return; event.preventDefault(); dragDepth++; composer.classList.add('is-dragging'); }, {signal});
+  composer.addEventListener('dragover', (event) => { if (!attachmentsEnabled) return; if (event.dataTransfer?.types.includes('Files')) event.preventDefault(); }, {signal});
   composer.addEventListener('dragleave', () => { dragDepth=Math.max(0,dragDepth-1); if (!dragDepth) composer.classList.remove('is-dragging'); }, {signal});
   composer.addEventListener('drop', (event) => { event.preventDefault(); dragDepth=0; composer.classList.remove('is-dragging'); if (event.dataTransfer) handleFiles(event.dataTransfer.files); }, {signal});
   dialog.addEventListener('input', (event) => { if (event.target.id === 'ag-search') query('#ag-gallery-grid').innerHTML = galleryItems(event.target.value); }, {signal});
@@ -239,12 +263,10 @@ export function mountGuestHome(root, options = {}) {
       await pruneExpiredDrafts();
       const last = await loadLastDraft(); if (destroyed || !last) return;
       restorable = last;
-      const banner=query('#ag-resume-banner');
-      const frozen = !attachmentsEnabled && last.files.length ? ' As referências salvas serão mantidas, mas o envio de novas referências está desligado.' : '';
-      banner.innerHTML=`Você tem um pedido salvo neste navegador.${frozen}<button type="button" data-action="restore">Retomar</button><button type="button" data-action="discard-saved">Descartar</button>`; banner.hidden=false;
+      const banner=query('#ag-resume-banner'); banner.innerHTML='Você tem um pedido salvo neste navegador.<button type="button" data-action="restore">Retomar</button><button type="button" data-action="discard-saved">Descartar</button>'; banner.hidden=false;
     } catch { /* Storage errors are surfaced on Continue, never crash public browsing. */ }
   })();
-  emit('home_viewed');
+  emit('home_viewed', { preview: options.preview === true });
   return {
     ready,
     getState: () => ({ request: textarea.value, intent, exampleId, files: [...files], draftId, previewResumePath }),

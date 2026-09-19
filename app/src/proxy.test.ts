@@ -46,11 +46,21 @@ describe("proxy auth routing", () => {
   });
 
   it("lets cookie-bearing /login through (session jump lives in the page)", async () => {
+    // A stale or forged cookie must render the form, not loop: the
+    // already-authenticated jump happens on the page after real getSession().
     const res = await proxy(
       requestFor("/login", { "better-auth.session_token": "test" })
     );
     expect(res.status).toBe(200);
+    expect(res.headers.get("location")).toBeNull();
     expect(res.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+  });
+
+  it("does not redirect /signup on cookie presence alone (#441)", async () => {
+    const res = await proxy(
+      requestFor("/signup", { "better-auth.session_token": "test" })
+    );
+    expect(res.headers.get("location")).toBeNull();
   });
 
   it("sets X-Robots-Tag on auth entry paths", async () => {
@@ -97,5 +107,18 @@ describe("proxy auth routing", () => {
     expect(res.headers.get("location")).toBe(
       "http://localhost:3000/login?callbackUrl=%2F%3Fcompose%3D1",
     );
+  });
+
+  it("leaves unauthenticated /hi public with no redirect (#439)", async () => {
+    const res = await proxy(requestFor("/hi"));
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("locks the no-loop contract / -> /hi -> 200, never back to / (#439)", async () => {
+    process.env.MARKETING_URL = "http://localhost:3000/hi";
+    const root = await proxy(requestFor("/"));
+    expect(root.headers.get("location")).toBe("http://localhost:3000/hi");
+    const hi = await proxy(requestFor("/hi"));
+    expect(hi.headers.get("location")).toBeNull();
   });
 });

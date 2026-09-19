@@ -22,6 +22,7 @@ export default function ForgotPasswordContent() {
   const t = useTranslations("auth");
   const searchParams = useSearchParams();
   const callbackUrl = safeCallbackPath(searchParams.get("callbackUrl"));
+  const loginHref = authEntryHref("/login", callbackUrl);
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -64,7 +65,7 @@ export default function ForgotPasswordContent() {
             <div className="space-y-4">
               <AuthV6SuccessAlert>{t("resetLinkSent")}</AuthV6SuccessAlert>
               <p className="text-center text-sm text-[var(--text-secondary)]">
-                <Link href={authEntryHref("/login", callbackUrl)} className={authTextLinkClass}>
+                <Link href={loginHref} className={authTextLinkClass}>
                   {t("backToSignIn")}
                 </Link>
               </p>
@@ -91,7 +92,7 @@ export default function ForgotPasswordContent() {
                 {loading ? t("sendingResetLink") : t("sendResetLink")}
               </button>
               <p className="text-center text-sm text-[var(--text-secondary)]">
-                <Link href={authEntryHref("/login", callbackUrl)} className={authTextLinkClass}>
+                <Link href={loginHref} className={authTextLinkClass}>
                   {t("backToSignIn")}
                 </Link>
               </p>

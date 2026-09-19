@@ -102,6 +102,36 @@ export const envSchema = z.object({
   META_APP_SECRET: z.string().min(1).optional(),
   /** Sem Meta App (#348 OPEN): Graph mockada determinística. */
   META_GRAPH_MOCK: z.enum(["true", "false"]).default("false"),
+  /** Public home interactive island live (#440). */
+  PUBLIC_STUDIO_HOME_ENABLED: z.enum(["true", "false"]).default("false"),
+  /** Public home import path live (#442/#443). */
+  PUBLIC_STUDIO_IMPORT_ENABLED: z.enum(["true", "false"]).default("false"),
+  /** Public home reference attachments accepted (#444). */
+  PUBLIC_STUDIO_ATTACHMENTS_ENABLED: z.enum(["true", "false"]).default("false"),
+}).superRefine((data, ctx) => {
+  // Mirror of the rule in src/lib/public-studio-config.ts (the build-time
+  // gate in next.config.ts). Keep the two in sync if either changes.
+  if (
+    !data.PUBLIC_STUDIO_IMPORT_ENABLED ||
+    data.PUBLIC_STUDIO_IMPORT_ENABLED === "false"
+  ) {
+    if (data.PUBLIC_STUDIO_HOME_ENABLED === "true") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["PUBLIC_STUDIO_HOME_ENABLED"],
+        message:
+          "PUBLIC_STUDIO_HOME_ENABLED=true requires PUBLIC_STUDIO_IMPORT_ENABLED=true",
+      });
+    }
+    if (data.PUBLIC_STUDIO_ATTACHMENTS_ENABLED === "true") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["PUBLIC_STUDIO_ATTACHMENTS_ENABLED"],
+        message:
+          "PUBLIC_STUDIO_ATTACHMENTS_ENABLED=true requires PUBLIC_STUDIO_IMPORT_ENABLED=true",
+      });
+    }
+  }
 });
 
 const parsed = envSchema.safeParse(process.env);
