@@ -36,6 +36,7 @@ const storeMocks = vi.hoisted(() => ({
   loadDraft: vi.fn<(id: string) => Promise<GuestDraft | null>>(),
   removeDraft: vi.fn<(id: string) => Promise<void>>(),
   loadImportReceipt: vi.fn<(id: string) => Promise<unknown>>(),
+  saveDraft: vi.fn<(draft: GuestDraft) => Promise<void>>(),
 }));
 
 vi.mock("./guest-store.mjs", () => ({
@@ -44,9 +45,16 @@ vi.mock("./guest-store.mjs", () => ({
     storeMocks.removeDraft(...(args as [string])),
   loadImportReceipt: (...args: unknown[]) =>
     storeMocks.loadImportReceipt(...(args as [string])),
-  saveDraft: vi.fn(),
+  saveDraft: (...args: unknown[]) =>
+    storeMocks.saveDraft(...(args as [GuestDraft])),
   loadLastDraft: vi.fn(async () => null),
   pruneExpiredDrafts: vi.fn(async () => {}),
+}));
+
+const routerMock = vi.hoisted(() => ({ replace: vi.fn() }));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: routerMock.replace }),
 }));
 
 const importMock = vi.hoisted(() => ({
@@ -115,7 +123,7 @@ const entryProps = {
   userId: "user-1",
   workspaceId: "ws-1",
   importEnabled: true,
-  attachmentsEnabled: false,
+  attachmentsEnabled: true,
 } as const;
 
 function setBrands(profiles: ClientProfile[], activeId: string | null = null) {
@@ -151,10 +159,13 @@ beforeEach(() => {
   storeMocks.loadDraft.mockReset();
   storeMocks.removeDraft.mockReset();
   storeMocks.loadImportReceipt.mockReset();
+  storeMocks.saveDraft.mockReset();
+  routerMock.replace.mockReset();
   refetchSpy.mockReset();
   storeMocks.loadDraft.mockResolvedValue(draftFixture());
   storeMocks.removeDraft.mockResolvedValue(undefined);
   storeMocks.loadImportReceipt.mockResolvedValue(null);
+  storeMocks.saveDraft.mockResolvedValue(undefined);
   importMock.attempt = { status: "idle" };
   importMock.start.mockReset();
   importMock.reset.mockReset();
@@ -465,7 +476,7 @@ describe("GuestStudioEntry", () => {
     ).toHaveAttribute("href", `/?workId=${WORK_ID}&compose=1`);
   });
 
-  it("partial import lists pending references without verified navigation", async () => {
+  it("partial import resumes references without automatic navigation", async () => {
     const outcome = {
       kind: "partial",
       workId: WORK_ID,
@@ -480,15 +491,112 @@ describe("GuestStudioEntry", () => {
     );
     await screen.findByText(/2 referência\(s\) ainda não foram transferidas/i);
     expect(
-      screen.queryByRole("link", { name: /abrir no estúdio|abrir versão atual/i }),
+      screen.queryByRole("link", { name: /abrir trabalho mesmo assim/i }),
     ).toBeNull();
     expect(
-      screen.getByRole("link", { name: "Abrir o Estúdio" }),
-    ).toHaveAttribute("href", "/");
-    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+      screen.queryByRole("button", { name: "Tentar envio novamente" }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Retomar referências" }));
     await waitFor(() => {
-      expect(importMock.start).toHaveBeenCalledTimes(1);
+      expect(importMock.start).toHaveBeenCalledWith({ retryUncertainUpload: false });
     });
+  });
+
+  it("partial import opens transferred work only after confirmation", async () => {
+    const outcome = {
+      kind: "partial",
+      workId: WORK_ID,
+      pendingFileIds: [`${GUEST_ID}:0`],
+    };
+    importMock.attempt = { status: "done", outcome, cleanupError: false };
+    renderEntry(
+      <GuestStudioEntry
+        {...entryProps}
+        handoff={{ kind: "guest", id: GUEST_ID }}
+      />,
+    );
+    await screen.findByText(/1 referência\(s\) ainda não foi transferida/i);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Abrir trabalho com as referências já transferidas" }),
+    );
+    await screen.findByText(/continuam na cópia local/i);
+    expect(
+      screen.getByRole("link", { name: "Abrir trabalho mesmo assim" }),
+    ).toHaveAttribute("href", `/?workId=${WORK_ID}&compose=1`);
+    fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("link", { name: "Abrir trabalho mesmo assim" }),
+      ).toBeNull();
+    });
+  });
+
+  it("uncertain uploads require an explicit retry", async () => {
+    const outcome = {
+      kind: "partial",
+      workId: WORK_ID,
+      pendingFileIds: [`${GUEST_ID}:0`],
+    };
+    importMock.attempt = { status: "done", outcome, cleanupError: false };
+    storeMocks.loadImportReceipt.mockResolvedValue({
+      userId: "user-1",
+      workspaceId: "ws-1",
+      clientProfileId: "brand-1",
+      guestDraftId: GUEST_ID,
+      workId: WORK_ID,
+      phase: "partial",
+      references: [
+        { fileId: `${GUEST_ID}:0`, assetId: null, sourceId: null, state: "uncertain" },
+      ],
+      expiresAt: Date.now() + 60_000,
+      revision: 4,
+      leaseOwner: null,
+      leaseExpiresAt: 0,
+    });
+    renderEntry(
+      <GuestStudioEntry
+        {...entryProps}
+        handoff={{ kind: "guest", id: GUEST_ID }}
+      />,
+    );
+    await screen.findByText(/não foi confirmado/i);
+    fireEvent.click(screen.getByRole("button", { name: "Tentar envio novamente" }));
+    await waitFor(() => {
+      expect(importMock.start).toHaveBeenCalledWith({ retryUncertainUpload: true });
+    });
+  });
+
+  it("attachments off offers back, copy, or an explicit text-only snapshot", async () => {
+    const outcome = {
+      kind: "partial",
+      workId: WORK_ID,
+      pendingFileIds: [`${GUEST_ID}:0`],
+    };
+    importMock.attempt = { status: "done", outcome, cleanupError: false };
+    renderEntry(
+      <GuestStudioEntry
+        {...entryProps}
+        attachmentsEnabled={false}
+        handoff={{ kind: "guest", id: GUEST_ID }}
+      />,
+    );
+    await screen.findByText(/transferência de referências está desligada/i);
+    expect(
+      screen.queryByRole("button", { name: "Retomar referências" }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Criar pedido só com texto" }));
+    await waitFor(() => {
+      expect(storeMocks.saveDraft).toHaveBeenCalledTimes(1);
+    });
+    const saved = storeMocks.saveDraft.mock.calls[0][0] as GuestDraft;
+    expect(saved.request).toBe("Pedido público de teste");
+    expect(saved.intent).toBe("single");
+    expect(saved.files).toEqual([]);
+    expect(saved.id).not.toBe(GUEST_ID);
+    expect(routerMock.replace).toHaveBeenCalledTimes(1);
+    expect(String(routerMock.replace.mock.calls[0][0])).toContain(`guestDraft=${saved.id}`);
+    // The original snapshot (with files) is preserved, not silently dropped.
+    expect(storeMocks.removeDraft).not.toHaveBeenCalled();
   });
 
   it("blocked import keeps the review with a retryable message", async () => {

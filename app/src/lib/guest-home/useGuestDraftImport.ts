@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
-import { useCreateCreativeWorkDraft } from '@/lib/hooks/use-creative-work';
+import { useCreateCreativeWorkDraft, useCreativeWorkSourceActions } from '@/lib/hooks/use-creative-work';
+import { uploadChatAttachment } from '@/lib/assistant/chat-attachments';
+import { isAllowedImageType, validateImageMagicBytes } from '@/lib/upload-config';
 import type { GuestDraft } from '@/components/guest-home/guest-core.mjs';
 import { newDraftId } from '@/components/guest-home/guest-core.mjs';
 import {
@@ -18,11 +20,15 @@ import type {
   CanonicalDraft,
   CreateTextDraftInput,
   GuestImportReceipt,
+  GuestSource,
   ImportContext,
   ImportOutcome,
+  ReferenceImportPorts,
+  ReferenceWork,
   TextImportPorts,
 } from './import-contracts';
 import { ensureCanonicalGuestDraft } from './import-text';
+import { UPLOAD_REJECTED, ensureGuestReferences } from './import-references';
 
 /** Lease heartbeat: the store holds a 120s lease, renewed every 30s. */
 const RENEW_EVERY_MS = 30_000;
@@ -65,17 +71,51 @@ export function toCanonicalDraft(value: unknown): CanonicalDraft {
   };
 }
 
+const SOURCE_STATUSES = new Set(['uploaded', 'analyzing', 'ready', 'failed']);
+
+/** Validates the work+sources aggregate before the references core sees it. */
+export function toReferenceWork(value: unknown): ReferenceWork {
+  if (!value || typeof value !== 'object') throw new Error('invalid_reference_work');
+  const data = value as { work?: unknown; sources?: unknown };
+  const work = toCanonicalDraft(data.work);
+  const raw = (data.work ?? {}) as Record<string, unknown>;
+  const updatedAt = raw.updatedAt;
+  if (typeof updatedAt !== 'string' || !updatedAt) throw new Error('invalid_reference_work');
+  if (!Array.isArray(data.sources)) throw new Error('invalid_reference_work');
+  const sources: GuestSource[] = data.sources.map((entry): GuestSource => {
+    if (!entry || typeof entry !== 'object') throw new Error('invalid_reference_work');
+    const row = entry as Record<string, unknown>;
+    if (typeof row.id !== 'string' || !row.id) throw new Error('invalid_reference_work');
+    if (row.assetId !== null && (typeof row.assetId !== 'string' || !row.assetId)) {
+      throw new Error('invalid_reference_work');
+    }
+    if (typeof row.status !== 'string' || !SOURCE_STATUSES.has(row.status)) {
+      throw new Error('invalid_reference_work');
+    }
+    return {
+      id: row.id,
+      assetId: row.assetId as string | null,
+      status: row.status as GuestSource['status'],
+    };
+  });
+  return { work: { ...work, updatedAt }, sources };
+}
+
 export type GuestImportAttempt =
   | { status: 'idle' }
   | { status: 'busy' }
   | { status: 'done'; outcome: ImportOutcome; cleanupError: boolean };
 
+export type GuestImportStartOptions = { retryUncertainUpload?: boolean };
+
 export function useGuestDraftImport(options: {
   draft: GuestDraft | null;
   context: ImportContext | null;
+  attachmentsEnabled: boolean;
 }) {
-  const { draft, context } = options;
+  const { draft, context, attachmentsEnabled } = options;
   const { mutateAsync } = useCreateCreativeWorkDraft();
+  const { mutateAsync: mutateSourceAsync } = useCreativeWorkSourceActions();
   const [attempt, setAttempt] = useState<GuestImportAttempt>({ status: 'idle' });
   const busyRef = useRef(false);
   const mountedRef = useRef(true);
@@ -89,9 +129,10 @@ export function useGuestDraftImport(options: {
     setAttempt({ status: 'idle' });
   }, []);
 
-  const start = useCallback(async (): Promise<ImportOutcome | null> => {
+  const start = useCallback(async (startOptions?: GuestImportStartOptions): Promise<ImportOutcome | null> => {
     if (busyRef.current) return null;
     if (!draft || !context) return null;
+    const retryUncertainUpload = startOptions?.retryUncertainUpload === true;
     busyRef.current = true;
     if (mountedRef.current) setAttempt({ status: 'busy' });
     // A new lease owner per explicit attempt; retries reuse the same draft UUID.
@@ -123,22 +164,32 @@ export function useGuestDraftImport(options: {
         // the actual enforcement, so a failed heartbeat never silently extends.
         void renewImportLease(draft.id, owner, Date.now()).catch(() => undefined);
       }, RENEW_EVERY_MS);
+      const loadReceiptPort = (id: string) => loadImportReceipt(id);
+      const saveReceiptPort = async (receipt: GuestImportReceipt) => {
+        // CAS local: reload the current revision, compare context + lease
+        // owner, then write the increment. The store transaction rejects a
+        // revision that moved underneath this load.
+        const current = await loadImportReceipt(receipt.guestDraftId);
+        if (!current || !sameContext(current, context) || current.leaseOwner !== owner) {
+          throw new Error('import_receipt_conflict');
+        }
+        // Preserve the live lease: the core spreads the copy it loaded,
+        // which predates heartbeats.
+        await saveImportReceipt({
+          ...receipt,
+          revision: current.revision,
+          leaseOwner: current.leaseOwner,
+          leaseExpiresAt: current.leaseExpiresAt,
+        }, current.revision);
+      };
+      const readAggregate = async (id: string) => {
+        const res = await apiFetch(`/api/creative-work/${id}`);
+        if (!res.ok) throw new Error(`read_work_failed:${res.status}`);
+        return toReferenceWork(await res.json());
+      };
       const ports: TextImportPorts = {
-        loadReceipt: (id) => loadImportReceipt(id),
-        saveReceipt: async (receipt: GuestImportReceipt) => {
-          const current = await loadImportReceipt(receipt.guestDraftId);
-          if (!current || current.revision !== receipt.revision
-            || !sameContext(current, context) || current.leaseOwner !== owner) {
-            throw new Error('import_receipt_conflict');
-          }
-          // Preserve the live lease: the core spreads the copy it loaded,
-          // which predates heartbeats.
-          await saveImportReceipt({
-            ...receipt,
-            leaseOwner: current.leaseOwner,
-            leaseExpiresAt: current.leaseExpiresAt,
-          }, current.revision);
-        },
+        loadReceipt: loadReceiptPort,
+        saveReceipt: saveReceiptPort,
         createDraft: async (input: CreateTextDraftInput) => {
           const created = await mutateAsync({
             clientProfileId: input.clientProfileId,
@@ -151,13 +202,47 @@ export function useGuestDraftImport(options: {
           return toCanonicalDraft(created.work);
         },
         readWork: async (id: string) => {
-          const res = await apiFetch(`/api/creative-work/${id}`);
-          if (!res.ok) throw new Error(`read_work_failed:${res.status}`);
-          const data = await res.json() as { work?: unknown };
-          return toCanonicalDraft(data.work);
+          const aggregate = await readAggregate(id);
+          const { updatedAt: _updatedAt, ...canonical } = aggregate.work;
+          void _updatedAt;
+          return canonical;
         },
       };
-      const outcome = await ensureCanonicalGuestDraft({ draft: fresh, context }, ports);
+      const textOutcome = await ensureCanonicalGuestDraft({ draft: fresh, context }, ports);
+      let outcome: ImportOutcome = textOutcome;
+      // One explicit click transfers text and first-time references under the
+      // same lease. Uncertain re-uploads always need a second explicit click.
+      if (textOutcome.kind === 'partial' && attachmentsEnabled) {
+        const referencePorts: ReferenceImportPorts = {
+          loadReceipt: loadReceiptPort,
+          saveReceipt: saveReceiptPort,
+          upload: async (file: File) => {
+            // Deterministic local rejection before any byte is sent: retrying
+            // cannot help, so mark it rejected instead of uncertain.
+            if (!isAllowedImageType(file.type)
+              || !(await validateImageMagicBytes(file, file.type))) {
+              throw new Error(UPLOAD_REJECTED);
+            }
+            const attachment = await uploadChatAttachment(file);
+            if (!attachment || typeof attachment.assetId !== 'string' || !attachment.assetId) {
+              throw new Error('invalid_upload_response');
+            }
+            return { assetId: attachment.assetId };
+          },
+          readWork: readAggregate,
+          attachSource: async (input) => mutateSourceAsync({
+            workItemId: input.workItemId,
+            action: 'attachSource',
+            assetId: input.assetId,
+            usage: 'both',
+            expectedUpdatedAt: input.expectedUpdatedAt,
+          }),
+        };
+        outcome = await ensureGuestReferences({
+          draft: fresh, context, workId: textOutcome.workId,
+          attachmentsEnabled, retryUncertainUpload,
+        }, referencePorts);
+      }
       let cleanupError = false;
       if (outcome.kind === 'verified') {
         // Clear the content snapshot after the verified receipt; the minimal
@@ -184,7 +269,7 @@ export function useGuestDraftImport(options: {
       }
       busyRef.current = false;
     }
-  }, [draft, context, mutateAsync]);
+  }, [draft, context, attachmentsEnabled, mutateAsync, mutateSourceAsync]);
 
   return { attempt, busy: attempt.status === 'busy', start, reset };
 }

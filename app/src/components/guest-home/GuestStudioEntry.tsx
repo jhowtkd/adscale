@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AssistantCreateClientDialog from '@/components/assistant/AssistantCreateClientDialog';
 import { useActiveClientProfile } from '@/lib/hooks/use-active-client-profile';
@@ -9,7 +10,8 @@ import { useClientProfiles } from '@/lib/hooks/use-client-profiles';
 import type { GuestHandoff } from '@/lib/guest-home/handoff';
 import type { ImportOutcome } from '@/lib/guest-home/import-contracts';
 import { useGuestDraftImport } from '@/lib/guest-home/useGuestDraftImport';
-import { loadDraft, loadImportReceipt, removeDraft } from './guest-store.mjs';
+import { createDraft, newDraftId } from './guest-core.mjs';
+import { loadDraft, loadImportReceipt, removeDraft, saveDraft } from './guest-store.mjs';
 import { GuestDraftResume } from './GuestDraftResume';
 
 export interface GuestStudioEntryProps {
@@ -55,6 +57,8 @@ function blockedMessage(code: string): string {
       return 'Este pedido foi vinculado a outra marca ou sessão. Confira a marca selecionada e tente de novo.';
     case 'work_context_mismatch':
       return 'O Trabalho vinculado pertence a outro contexto. Confira a marca selecionada e tente de novo.';
+    case 'invalid_reference':
+      return 'Uma referência não pôde ser lida neste navegador. Verifique o arquivo e tente de novo.';
     case 'storage_unavailable':
       return 'Não foi possível acessar o armazenamento local. Verifique o navegador e tente novamente.';
     case 'transfer_not_confirmed':
@@ -73,7 +77,7 @@ function blockedMessage(code: string): string {
  * navigates to the Studio work.
  */
 export function GuestStudioEntry({
-  handoff, userId, workspaceId, importEnabled, conflictHrefs,
+  handoff, userId, workspaceId, importEnabled, attachmentsEnabled, conflictHrefs,
 }: GuestStudioEntryProps) {
   const [confirming, setConfirming] = useState(false);
   const [discarded, setDiscarded] = useState(false);
@@ -81,7 +85,10 @@ export function GuestStudioEntry({
   const [copyError, setCopyError] = useState<string | null>(null);
   const [brandDialogOpen, setBrandDialogOpen] = useState(false);
   const [confirmingRecoveryDiscard, setConfirmingRecoveryDiscard] = useState(false);
+  const [confirmingPartialOpen, setConfirmingPartialOpen] = useState(false);
+  const [textOnlyError, setTextOnlyError] = useState<string | null>(null);
   const frozen = useRef<FrozenContext | null>(null);
+  const router = useRouter();
 
   const guestDraftId = handoff.kind === 'guest' ? handoff.id : null;
   const profile = useActiveClientProfile();
@@ -106,6 +113,7 @@ export function GuestStudioEntry({
   const { attempt, busy: importBusy, start: importStart } = useGuestDraftImport({
     draft,
     context: importContext,
+    attachmentsEnabled,
   });
   const outcome: ImportOutcome | null = attempt.status === 'done' ? attempt.outcome : null;
   const terminalOutcome = outcome && outcome.kind !== 'blocked' ? outcome : null;
@@ -115,14 +123,20 @@ export function GuestStudioEntry({
 
   // A verified receipt can still open the authorized work after the content
   // snapshot was cleared. The full context must match — never a foreign brand.
+  // Partial outcomes also read the receipt to separate uncertain uploads
+  // (explicit retry) from clean pendings (plain resume).
   const receiptQuery = useQuery({
     queryKey: ['guest-import-receipt', guestDraftId],
     queryFn: () => loadImportReceipt(guestDraftId as string),
-    enabled: guestDraftId !== null && draftQuery.data === null && !discarded && importEnabled,
+    enabled: guestDraftId !== null && importEnabled && !discarded
+      && (draftQuery.data === null || terminalOutcome?.kind === 'partial'),
     staleTime: 0,
     retry: false,
   });
   const receipt = receiptQuery.data ?? null;
+  const uncertainCount = terminalOutcome?.kind === 'partial'
+    ? (receipt?.references ?? []).filter((entry) => entry.state === 'uncertain').length
+    : 0;
   const recoverableWorkId = receipt?.phase === 'verified' && receipt.workId
     && receipt.userId === userId && receipt.workspaceId === workspaceId
     && receipt.clientProfileId === profile.activeClientProfileId
@@ -152,7 +166,7 @@ export function GuestStudioEntry({
     }
   }, [confirming, userId, workspaceId, profile.activeClientProfileId]);
 
-  const handleConfirm = useCallback(async () => {
+  const handleConfirm = useCallback(async (retryUncertainUpload = false) => {
     if (!guestDraftId || !draft || confirming || importBusy || reviewLocked) return;
     const clientProfileId = profile.activeClientProfileId;
     if (!clientProfileId) return;
@@ -176,7 +190,7 @@ export function GuestStudioEntry({
         return;
       }
       setConfirming(false);
-      await importStart();
+      await importStart({ retryUncertainUpload });
     } catch {
       setReconcileError('Não foi possível confirmar agora. Tente novamente.');
     } finally {
@@ -184,6 +198,26 @@ export function GuestStudioEntry({
       setConfirming(false);
     }
   }, [guestDraftId, draft, confirming, importBusy, reviewLocked, profile.activeClientProfileId, userId, workspaceId, importStart]);
+
+  const handleTextOnly = useCallback(async () => {
+    if (!guestDraftId || !draft || confirming || importBusy) return;
+    setTextOnlyError(null);
+    try {
+      // Explicit text-only snapshot with a new UUID; the original snapshot
+      // (with files) is preserved until discard/expiry.
+      const next = createDraft(
+        { request: draft.request, intent: draft.intent, files: [] },
+        newDraftId(),
+      );
+      await saveDraft(next);
+      queryClient.setQueryData(['guest-draft', next.id], next);
+      const url = new URL(window.location.href);
+      url.searchParams.set('guestDraft', next.id);
+      router.replace(`${url.pathname}${url.search}${url.hash}`);
+    } catch {
+      setTextOnlyError('Não foi possível criar o pedido só com texto. Tente novamente.');
+    }
+  }, [guestDraftId, draft, confirming, importBusy, queryClient, router]);
 
   const handleDiscard = useCallback(async () => {
     if (!guestDraftId) return;
@@ -320,13 +354,48 @@ export function GuestStudioEntry({
 
   if (terminalOutcome?.kind === 'partial') {
     const pending = terminalOutcome.pendingFileIds.length;
+    if (!attachmentsEnabled) {
+      return <section aria-label="Texto importado, referências desligadas" data-guest-entry="partial-off" style={panelStyle}>
+        <strong>Texto importado. A transferência de referências está desligada.</strong>
+        <p style={{ fontSize: 13 }}>
+          {pending} referência(s) {pending === 1 ? 'continua' : 'continuam'} somente na cópia local:
+          nada foi descartado e o texto não seguiu sozinho em silêncio.
+        </p>
+        <p style={{ fontSize: 12 }}>
+          Volte depois com a transferência ligada, copie o texto, ou crie explicitamente um pedido
+          só com texto (novo código, sem arquivos).
+        </p>
+        {textOnlyError && <p role="alert" style={{ color: 'var(--danger-text, #ffb7c5)' }}>{textOnlyError}</p>}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
+          <button type="button" onClick={() => void handleTextOnly()} style={primaryAction}>Criar pedido só com texto</button>
+          <button type="button" onClick={() => void handleCopy()} style={secondaryAction}>Copiar texto</button>
+          <Link href="/hi" style={secondaryAction}>Voltar à página inicial</Link>
+        </div>
+        {copyError && <p role="alert" style={{ color: 'var(--danger-text, #ffb7c5)' }}>{copyError}</p>}
+      </section>;
+    }
     return <section aria-label="Texto importado, referências pendentes" data-guest-entry="partial" style={panelStyle}>
       <strong>Texto importado. {pending} referência(s) ainda não {pending === 1 ? 'foi transferida' : 'foram transferidas'}.</strong>
       <p style={{ fontSize: 13 }}>Sua cópia local está preservada para concluir a transferência. Nada foi duplicado.</p>
+      {uncertainCount > 0 && <p style={{ fontSize: 12 }}>
+        {uncertainCount} envio(s) não {uncertainCount === 1 ? 'foi confirmado' : 'foram confirmados'}:
+        tente de novo explicitamente para concluir — nada será associado em duplicidade.
+      </p>}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
-        <button type="button" onClick={() => void handleConfirm()} style={primaryAction}>Tentar novamente</button>
+        <button type="button" onClick={() => { setConfirmingPartialOpen(false); void handleConfirm(false); }} style={primaryAction}>Retomar referências</button>
+        {uncertainCount > 0 && (
+          <button type="button" onClick={() => { setConfirmingPartialOpen(false); void handleConfirm(true); }} style={secondaryAction}>Tentar envio novamente</button>
+        )}
+        {confirmingPartialOpen
+          ? (<>
+            <span style={{ fontSize: 12, width: '100%' }}>
+              As {pending} referência(s) pendentes continuam na cópia local. Abrir o Trabalho agora não as apaga.
+            </span>
+            <Link href={`/?workId=${terminalOutcome.workId}&compose=1`} style={primaryAction}>Abrir trabalho mesmo assim</Link>
+            <button type="button" onClick={() => setConfirmingPartialOpen(false)} style={secondaryAction}>Voltar</button>
+          </>)
+          : (<button type="button" onClick={() => setConfirmingPartialOpen(true)} style={secondaryAction}>Abrir trabalho com as referências já transferidas</button>)}
         <button type="button" onClick={() => void handleCopy()} style={secondaryAction}>Copiar texto</button>
-        <Link href="/" style={secondaryAction}>Abrir o Estúdio</Link>
         <Link href="/hi" style={secondaryAction}>Voltar à página inicial</Link>
       </div>
       {copyError && <p role="alert" style={{ color: 'var(--danger-text, #ffb7c5)' }}>{copyError}</p>}

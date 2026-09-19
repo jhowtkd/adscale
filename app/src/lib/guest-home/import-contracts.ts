@@ -51,3 +51,26 @@ export type TextImportPorts = {
   readWork(id: string): Promise<CanonicalDraft>;
 };
 export type TextImportInput = { draft: GuestDraft; context: ImportContext };
+export type GuestSource = {
+  id: string; assetId: string | null;
+  status: 'uploaded' | 'analyzing' | 'ready' | 'failed';
+};
+export type ReferenceWork = {
+  work: CanonicalDraft & { updatedAt: string };
+  sources: GuestSource[];
+};
+export type ReferenceImportPorts = {
+  upload(file: File): Promise<{ assetId: string }>;
+  readWork(id: string): Promise<ReferenceWork>;
+  attachSource(input: {
+    workItemId: string; expectedUpdatedAt: string;
+    action: 'attachSource'; assetId: string; usage: 'both';
+  }): Promise<unknown>;
+  loadReceipt(id: string): Promise<GuestImportReceipt | null>;
+  saveReceipt(receipt: GuestImportReceipt): Promise<void>;
+};
+export type ReferenceImportInput = TextImportInput & {
+  workId: string;
+  attachmentsEnabled: boolean;
+  retryUncertainUpload: boolean;
+};
