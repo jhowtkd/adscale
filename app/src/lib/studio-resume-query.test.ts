@@ -26,6 +26,9 @@ describe("hasStudioResumeQuery", () => {
 
   it("ignores malformed guest draft identifiers", () => {
     expect(hasStudioResumeQuery(new URLSearchParams("guestDraft=../../x"))).toBe(false);
+    expect(hasStudioResumeQuery(new URLSearchParams("guestDraft=../../etc"))).toBe(false);
+    expect(hasStudioResumeQuery(new URLSearchParams("guestDraft="))).toBe(false);
+    expect(hasStudioResumeQuery(new URLSearchParams("guestDraft=not-a-uuid&utm_source=ig"))).toBe(false);
     expect(hasStudioResumeQuery(new URLSearchParams(`guestDraft=${UUID}&guestDraft=${UUID}`))).toBe(false);
   });
 });

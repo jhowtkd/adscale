@@ -21,6 +21,17 @@ describe('public studio routing on the same Render service', () => {
   it('recusa publicar home sem consumidor', () => {
     expect(() => readPublicStudioFlags({ PUBLIC_STUDIO_HOME_ENABLED: 'true' })).toThrow();
   });
+  it('recusa anexos sem importação', () => {
+    expect(() => readPublicStudioFlags({
+      PUBLIC_STUDIO_HOME_ENABLED: 'true',
+      PUBLIC_STUDIO_IMPORT_ENABLED: 'true',
+      PUBLIC_STUDIO_ATTACHMENTS_ENABLED: 'true',
+    })).not.toThrow();
+    expect(() => readPublicStudioFlags({
+      PUBLIC_STUDIO_HOME_ENABLED: 'true',
+      PUBLIC_STUDIO_ATTACHMENTS_ENABLED: 'true',
+    })).toThrow();
+  });
   it('permite drenar importações com o fallback local', () => {
     expect(readPublicStudioFlags({ PUBLIC_STUDIO_IMPORT_ENABLED: 'true' }))
       .toEqual({ homeEnabled: false, importEnabled: true, attachmentsEnabled: false });

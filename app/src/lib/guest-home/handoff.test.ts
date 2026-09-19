@@ -19,9 +19,14 @@ describe('parseGuestHandoff', () => {
   });
   it('rejeita identificador inválido', () => {
     expect(parseGuestHandoff({ guestDraft: '../../x' })).toEqual({ kind: 'invalid' });
+    expect(parseGuestHandoff({ guestDraft: '' })).toEqual({ kind: 'invalid' });
   });
   it('não muda entradas normais do Estúdio', () => {
     expect(parseGuestHandoff({ intent: 'single' })).toEqual({ kind: 'none' });
+    expect(parseGuestHandoff({ workId: id })).toEqual({ kind: 'none' });
     expect(parseGuestHandoff({})).toEqual({ kind: 'none' });
+  });
+  it('nunca aceita identidade de workspace ou marca pela URL', () => {
+    expect(parseGuestHandoff({ guestDraft: id, workspaceId: 'ws-1' })).toEqual({ kind: 'guest', id });
   });
 });

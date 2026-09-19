@@ -59,7 +59,12 @@ function ResetPasswordContentInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
-  const callbackUrl = safeCallbackPath(searchParams.get("callbackUrl"));
+  // Recovery token stays separate: it authenticates the reset call only and
+  // is never mixed into the continuation destination.
+  const loginHref = authEntryHref(
+    "/login",
+    safeCallbackPath(searchParams.get("callbackUrl")),
+  );
 
   const [state, dispatch] = useReducer(resetPasswordReducer, {
     newPassword: "",
@@ -98,7 +103,7 @@ function ResetPasswordContentInner() {
 
       dispatch({ success: true });
       setTimeout(() => {
-        router.push(authEntryHref("/login", callbackUrl));
+        router.push(loginHref);
       }, 2000);
     } catch (err) {
       dispatch({ error: err instanceof Error ? err.message : t("genericError") });
@@ -121,7 +126,7 @@ function ResetPasswordContentInner() {
             <div className="space-y-4">
               <AuthV6SuccessAlert>{t("passwordResetSuccess")}</AuthV6SuccessAlert>
               <p className="text-center text-sm text-[var(--text-secondary)]">
-                <Link href={authEntryHref("/login", callbackUrl)} className={authTextLinkClass}>
+                <Link href={loginHref} className={authTextLinkClass}>
                   {t("backToSignIn")}
                 </Link>
               </p>
@@ -159,7 +164,7 @@ function ResetPasswordContentInner() {
                 {loading ? t("resettingPassword") : t("resetPassword")}
               </button>
               <p className="text-center text-sm text-[var(--text-secondary)]">
-                <Link href={authEntryHref("/login", callbackUrl)} className={authTextLinkClass}>
+                <Link href={loginHref} className={authTextLinkClass}>
                   {t("backToSignIn")}
                 </Link>
               </p>

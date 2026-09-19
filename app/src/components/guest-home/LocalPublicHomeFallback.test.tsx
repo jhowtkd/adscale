@@ -14,6 +14,7 @@ describe('LocalPublicHomeFallback', () => {
   it('usa o landmark apontado pelo skip link global', async () => {
     render(await LocalPublicHomeFallback());
     expect(screen.getByRole('main')).toHaveAttribute('id', 'main');
+    expect(screen.getByRole('main')).toHaveAttribute('data-public-home-mode', 'fallback');
   });
 
   it('mantém a entrada disponível com login funcional', async () => {

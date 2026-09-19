@@ -72,4 +72,30 @@ describe("ResetPasswordContent", () => {
       timeout: 4000,
     });
   });
+
+  it("keeps the recovery token separate from the continuation in login links", () => {
+    mockSearchGet.mockImplementation((key: string) => {
+      if (key === "token") return "recovery-token-123";
+      if (key === "callbackUrl") return CALLBACK;
+      return null;
+    });
+    render(<ResetPasswordContent />);
+    const href = screen
+      .getByRole("link", { name: /voltar para entrar/i })
+      .getAttribute("href") as string;
+    expect(href).toBe(`/login?callbackUrl=${encodeURIComponent(CALLBACK)}`);
+    expect(href).not.toContain("recovery-token-123");
+  });
+
+  it("still requires a token even with a valid continuation", () => {
+    mockSearchGet.mockImplementation((key: string) => {
+      if (key === "callbackUrl") return CALLBACK;
+      return null;
+    });
+    render(<ResetPasswordContent />);
+    fireEvent.click(screen.getByRole("button", { name: /redefinir senha/i }));
+    expect(
+      screen.getByText(new RegExp(ptBR.auth.invalidResetToken)),
+    ).toBeInTheDocument();
+  });
 });

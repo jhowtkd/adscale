@@ -53,6 +53,7 @@ export default function SignupContent() {
   const t = useTranslations("auth");
   const searchParams = useSearchParams();
   const callbackUrl = safeCallbackPath(searchParams.get("callbackUrl"));
+  const loginHref = authEntryHref("/login", callbackUrl);
   const [state, dispatch] = useReducer(signupReducer, initialSignupState);
   const {
     name,
@@ -167,7 +168,7 @@ export default function SignupContent() {
 
             <p className="text-center text-sm text-[var(--text-secondary)]">
               {t("hasAccount")}{" "}
-              <Link href={authEntryHref("/login", callbackUrl)} className={authTextLinkClass}>
+              <Link href={loginHref} className={authTextLinkClass}>
                 {t("signIn")}
               </Link>
             </p>
@@ -257,7 +258,7 @@ export default function SignupContent() {
 
           <p className="text-center text-sm text-[var(--text-secondary)]">
             {t("hasAccount")}{" "}
-            <Link href={authEntryHref("/login", callbackUrl)} className={authTextLinkClass}>
+            <Link href={loginHref} className={authTextLinkClass}>
               {t("signIn")}
             </Link>
           </p>
