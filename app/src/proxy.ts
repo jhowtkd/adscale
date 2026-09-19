@@ -116,11 +116,9 @@ export async function proxy(request: NextRequest) {
   const locale = getLocaleFromRequest(request);
   const session = hasSessionCookie(request);
 
-  // Logged-in users skip auth entry screens
-  if (session && isAuthEntryPath(pathname)) {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
-
+  // No cookie-only shortcut here: a stale or forged cookie is not proof of a
+  // session. Authenticated users skip entry screens inside the auth pages,
+  // after real session verification that also preserves the callback.
   const response = NextResponse.next();
 
   if (isAuthEntryPath(pathname)) {
