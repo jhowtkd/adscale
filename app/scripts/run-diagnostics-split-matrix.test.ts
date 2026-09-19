@@ -3,6 +3,7 @@ import { DIAGNOSTIC_SCHEMA_VERSION } from "../src/server/diagnostics/contract";
 import {
   applyRowEnv,
   mapEnvelopeToObserved,
+  matrixWorkerSpawnOptions,
   parseSplitMatrixOnly,
   rowEnvOverlay,
   splitMatrixForwardedArgs,
@@ -167,6 +168,15 @@ describe("mapEnvelopeToObserved", () => {
       hasExternalRefs: true,
       hasLangfuseRefs: true,
       contentAvailability: "not_collected",
+    });
+  });
+});
+
+describe("restart worker spawn lifecycle", () => {
+  it("spawns detached on posix so the harness group kill reaps it (no orphan job theft)", () => {
+    expect(matrixWorkerSpawnOptions()).toEqual({
+      detached: process.platform !== "win32",
+      stdio: ["ignore", "pipe", "pipe"],
     });
   });
 });

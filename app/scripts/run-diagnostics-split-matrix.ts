@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { execSync } from "node:child_process";
 import fs from "node:fs";
@@ -459,6 +459,21 @@ async function stopMatrixWorker(worker: SpawnedProcess | null): Promise<void> {
  * Boot a replacement worker after the kill. Polls the log file (not process
  * memory) for the connected event, bounded at 120s like the harness gate.
  */
+/**
+ * Spawn lifecycle for the matrix-owned replacement worker. `detached`
+ * matches the harness's own spawn shape on purpose: stopHarness kills by
+ * process GROUP, and a non-detached child is not a group leader, so the
+ * group kill throws ESRCH, is swallowed, and the worker survives as an
+ * orphan whose reconnect loop steals later rows' jobs (trace-396:
+ * wandering exact_asset_preflight_failed rows). Pure (unit-tested).
+ */
+export function matrixWorkerSpawnOptions(): Pick<SpawnOptions, "detached" | "stdio"> {
+  return {
+    detached: process.platform !== "win32",
+    stdio: ["ignore", "pipe", "pipe"],
+  };
+}
+
 async function respawnMatrixWorker(
   config: HarnessConfig,
   processes: HarnessProcesses,
@@ -470,7 +485,7 @@ async function respawnMatrixWorker(
     {
       cwd: config.appDir,
       env: matrixChildEnv(config, processes.runDir),
-      stdio: ["ignore", "pipe", "pipe"],
+      ...matrixWorkerSpawnOptions(),
     },
   );
   let output = "";
