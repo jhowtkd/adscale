@@ -1,5 +1,21 @@
+import { execFileSync } from "node:child_process";
 import { expect, type Page } from "@playwright/test";
 import { VISUAL_PASSWORD } from "./visual-auth";
+
+export const NO_BRAND_EMAIL = "guest-no-brand@example.test";
+export const NO_BRAND_PASSWORD = process.env.GUEST_NO_BRAND_PASSWORD ?? "GuestNoBrand123!";
+
+export function seedNoBrandUser(): void {
+  execFileSync("npx", ["tsx", "scripts/seed-guest-no-brand.ts"], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      E2E_BASE_URL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
+      NODE_OPTIONS: `--conditions=react-server ${process.env.NODE_OPTIONS ?? ""}`.trim(),
+    },
+    stdio: "inherit",
+  });
+}
 
 export const GUEST_DB = { name: "adscale-public-drafts-v1", version: 2 };
 
@@ -58,9 +74,13 @@ export async function hasHorizontalOverflow(page: Page): Promise<boolean> {
 }
 
 /** Sign in from the current login page without dropping its callbackUrl. */
-export async function loginOnCurrentPage(page: Page, email: string): Promise<void> {
+export async function loginOnCurrentPage(
+  page: Page,
+  email: string,
+  password: string = VISUAL_PASSWORD
+): Promise<void> {
   await page.locator("#email:visible").fill(email);
-  await page.locator("#login-password:visible").fill(VISUAL_PASSWORD);
+  await page.locator("#login-password:visible").fill(password);
   const signInResponse = page.waitForResponse((response) =>
     response.url().includes("/api/auth/sign-in/email")
   );

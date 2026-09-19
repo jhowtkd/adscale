@@ -1,4 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, chromium } from "@playwright/test";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   guestDraftIdFromUrl,
   readGuestDraft,
@@ -137,6 +140,128 @@ test("snapshot vencido é recusado sem renovar", async ({ page }) => {
 
   await page.goto("/hi");
   await expect(page.locator("#ag-resume-banner")).toBeHidden();
+});
+
+test("upgrade v1 para v2 preserva o pedido salvo", async ({ page }) => {
+  const legacyId = "b0000000-0000-4000-8000-000000000001";
+  await page.goto("/hi");
+  await page.evaluate(({ id }) => new Promise<void>((resolve, reject) => {
+    const del = indexedDB.deleteDatabase("adscale-public-drafts-v1");
+    del.onsuccess = () => {
+      const open = indexedDB.open("adscale-public-drafts-v1", 1);
+      open.onupgradeneeded = () => {
+        open.result.createObjectStore("drafts", { keyPath: "id" });
+      };
+      open.onsuccess = () => {
+        const db = open.result;
+        const tx = db.transaction("drafts", "readwrite");
+        const createdAt = Date.now() - 1000;
+        tx.objectStore("drafts").put({
+          version: 1,
+          id,
+          request: "Pedido legado v1",
+          intent: "single",
+          exampleId: null,
+          files: [],
+          createdAt,
+          expiresAt: createdAt + 24 * 60 * 60 * 1000,
+        });
+        tx.oncomplete = () => {
+          db.close();
+          localStorage.setItem("adscale:guest:last-draft:v1", id);
+          resolve();
+        };
+        tx.onerror = () => reject(tx.error);
+      };
+      open.onerror = () => reject(open.error);
+    };
+    del.onerror = () => reject(del.error);
+  }), { id: legacyId });
+
+  await page.goto("/hi");
+  await expect(page.locator("#ag-resume-banner")).toContainText("pedido salvo");
+  await page.locator('#ag-resume-banner [data-action="restore"]').click();
+  await expect(page.getByLabel("Descreva o que você precisa criar")).toHaveValue("Pedido legado v1");
+  const stores = await page.evaluate(() => new Promise<string[]>((resolve, reject) => {
+    const open = indexedDB.open("adscale-public-drafts-v1", 2);
+    open.onsuccess = () => {
+      const names = [...open.result.objectStoreNames];
+      open.result.close();
+      resolve(names);
+    };
+    open.onerror = () => reject(open.error);
+  }));
+  expect(stores).toContain("importReceipts");
+  expect(await readGuestDraft(page, legacyId)).not.toBeNull();
+});
+
+test("sem IndexedDB a página não quebra e nada finge sucesso", async ({ browser }) => {
+  const context = await browser.newContext();
+  await context.addInitScript(() => {
+    Object.defineProperty(window, "indexedDB", { value: undefined });
+  });
+  const page = await context.newPage();
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(String(error)));
+  await page.goto("/hi");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("sua marca");
+  await page.getByLabel("Descreva o que você precisa criar").fill("Pedido sem armazenamento");
+  await page.locator('[data-action="continue"]').click();
+  await expect(page.locator("#ag-dialog")).toBeVisible();
+  await page.getByRole("button", { name: "Entrar e continuar" }).click();
+  await page.waitForTimeout(1500);
+  expect(page.url()).toContain("/hi");
+  expect(await page.getByLabel("Descreva o que você precisa criar").inputValue())
+    .toBe("Pedido sem armazenamento");
+  expect(errors).toEqual([]);
+  await context.close();
+});
+
+test("cota esgotada mostra erro honesto sem perder o texto", async ({ page, context }, testInfo) => {
+  test.skip(testInfo.project.name.includes("webkit"), "CDP quota override é Chromium-only");
+  const cdp = await context.newCDPSession(page);
+  const origin = new URL(process.env.E2E_BASE_URL ?? "http://localhost:3000").origin;
+  try {
+    await cdp.send("Storage.overrideQuotaForOrigin", { origin, quotaSize: 1024 });
+  } catch {
+    test.skip(true, "CDP sem overrideQuotaForOrigin neste Chromium");
+  }
+  try {
+    await page.goto("/hi");
+    await page.getByLabel("Descreva o que você precisa criar").fill("Pedido sem cota de disco");
+    await page.locator('[data-action="continue"]').click();
+    await page.getByRole("button", { name: "Entrar e continuar" }).click();
+    await expect(page.locator("#ag-dialog-error")).toContainText("continuam nesta tela");
+    await expect(page.getByRole("button", { name: "Tentar continuar novamente" })).toBeVisible();
+    expect(page.url()).toContain("/hi");
+    expect(await page.getByLabel("Descreva o que você precisa criar").inputValue())
+      .toBe("Pedido sem cota de disco");
+  } finally {
+    await cdp.send("Storage.overrideQuotaForOrigin", { origin, quotaSize: 1_000_000_000 })
+      .catch(() => undefined);
+  }
+});
+
+test("perfil persistente sobrevive a fechar e reabrir o navegador", async ({}, testInfo) => {
+  test.skip(testInfo.project.name.includes("webkit"), "launchPersistentContext é Chromium-only");
+  const userDataDir = mkdtempSync(join(tmpdir(), "guest-home-persist-"));
+  const baseUrl = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+  const first = await chromium.launchPersistentContext(userDataDir, { baseURL: baseUrl });
+  const page = first.pages()[0] ?? (await first.newPage());
+  await page.goto("/hi");
+  await page.getByLabel("Descreva o que você precisa criar").fill("Pedido persistente");
+  await page.locator('[data-action="continue"]').click();
+  await page.getByRole("button", { name: "Entrar e continuar" }).click();
+  await page.waitForURL(/\/login\?callbackUrl=/);
+  await first.close();
+
+  const second = await chromium.launchPersistentContext(userDataDir, { baseURL: baseUrl });
+  const resumed = second.pages()[0] ?? (await second.newPage());
+  await resumed.goto("/hi");
+  await expect(resumed.locator("#ag-resume-banner")).toContainText("pedido salvo");
+  await resumed.locator('#ag-resume-banner [data-action="restore"]').click();
+  await expect(resumed.getByLabel("Descreva o que você precisa criar")).toHaveValue("Pedido persistente");
+  await second.close();
 });
 
 test("anexo fica local até a confirmação; quarto arquivo rejeitado sem descartar válidos", async ({ page }) => {

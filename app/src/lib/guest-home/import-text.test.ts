@@ -63,8 +63,25 @@ function makePorts() {
       }
       throw new Error('missing');
     },
+    readByDraftKey: async (draftKey) => {
+      for (const work of works.values()) {
+        if (work.draftKey === draftKey) return structuredClone(work);
+      }
+      return null;
+    },
   };
-  return { ports, works, receipts, calls, armStaleWrite: (fn: () => void) => { onBeforeSave = fn; } };
+  return {
+    ports, works, receipts, calls,
+    armStaleWrite: (fn: () => void) => { onBeforeSave = fn; },
+    armLostResponse: () => {
+      const inner = ports.createDraft;
+      ports.createDraft = (async (input) => {
+        await inner(input);
+        ports.createDraft = inner;
+        throw new Error('response lost');
+      });
+    },
+  };
 }
 
 describe('ensureCanonicalGuestDraft', () => {
@@ -101,6 +118,33 @@ describe('ensureCanonicalGuestDraft', () => {
     const outcome = await ensureCanonicalGuestDraft({ draft: makeDraft(), context: CONTEXT }, ports);
     expect(outcome).toEqual({ kind: 'verified', workId: 'work-1' });
     expect(works.size).toBe(1);
+  });
+
+  it('falha na criação recupera o commit pela chave (I03)', async () => {
+    const { ports, works, armLostResponse } = makePorts();
+    armLostResponse();
+    const outcome = await ensureCanonicalGuestDraft({ draft: makeDraft(), context: CONTEXT }, ports);
+    expect(outcome).toEqual({ kind: 'verified', workId: 'work-1' });
+    expect(works.size).toBe(1);
+  });
+
+  it('falha sem commit propaga o erro original', async () => {
+    const { ports } = makePorts();
+    ports.createDraft = async () => { throw new Error('network down'); };
+    await expect(
+      ensureCanonicalGuestDraft({ draft: makeDraft(), context: CONTEXT }, ports),
+    ).rejects.toThrow('network down');
+  });
+
+  it('commit em marca divergente bloqueia sem adotar (I05)', async () => {
+    const { ports, works } = makePorts();
+    works.set(`ws-1:user-1:${DRAFT_ID}`, {
+      userId: 'user-1', workspaceId: 'ws-1', clientProfileId: 'brand-2',
+      id: 'work-9', draftKey: DRAFT_ID, request: 'Anúncio de lançamento', intent: 'single',
+    });
+    ports.createDraft = async () => { throw new Error('response lost'); };
+    const outcome = await ensureCanonicalGuestDraft({ draft: makeDraft(), context: CONTEXT }, ports);
+    expect(outcome).toEqual({ kind: 'blocked', code: 'context_mismatch' });
   });
 
   it('contexto divergente é rejeitado sem escrita', async () => {

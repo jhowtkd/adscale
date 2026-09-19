@@ -36,6 +36,16 @@ test("callback externo é rejeitado para destino interno seguro", async ({ page 
   expect(page.url()).not.toContain("evil.test");
 });
 
+test("login para cadastro preserva o callback", async ({ page }) => {
+  await page.goto("/login?callbackUrl=%2F%3FguestDraft%3Daa111111-1111-4111-8111-111111111111");
+  const signup = page.getByRole("link", { name: "Criar conta" });
+  await expect(signup).toBeVisible();
+  expect(await signup.getAttribute("href")).toContain("callbackUrl=");
+  await signup.click();
+  await page.waitForURL(/\/signup\?callbackUrl=/);
+  expect(page.url()).toContain("guestDraft");
+});
+
 test("cookie forjado não impede o login nem causa loop", async ({ page, context }) => {
   await context.addCookies([
     {

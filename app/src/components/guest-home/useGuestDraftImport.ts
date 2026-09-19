@@ -98,6 +98,13 @@ export function useGuestDraftImport(attachmentsEnabled: boolean): {
           return toCanonicalDraft(created.work);
         },
         readWork: readCanonicalWork,
+        readByDraftKey: async (draftKey) => {
+          const res = await apiFetch(`/api/creative-work?view=draftByKey&draftKey=${draftKey}`);
+          if (res.status === 404) return null;
+          if (!res.ok) throw new Error('Falha ao ler o trabalho.');
+          const data = (await res.json()) as { work: CreativeWorkDraftItem };
+          return toCanonicalDraft(data.work);
+        },
       };
       const textOutcome = await ensureCanonicalGuestDraft({ draft, context }, textPorts);
       if (textOutcome.kind !== 'verified' || textOnly || draft.files.length === 0) {
@@ -124,9 +131,10 @@ export function useGuestDraftImport(attachmentsEnabled: boolean): {
         },
         readSources: async (workItemId) => {
           const detail = await readDetail(workItemId);
+          const updatedAt = detail.work.updatedAt;
           return {
             sources: detail.sources.map((source) => ({ id: source.id, assetId: source.assetId })),
-            updatedAt: String(detail.work.updatedAt),
+            updatedAt: updatedAt instanceof Date ? updatedAt.toISOString() : String(updatedAt),
           };
         },
       };

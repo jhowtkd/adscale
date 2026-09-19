@@ -103,6 +103,40 @@ describe('useGuestDraftImport', () => {
     expect(claimOrder).toBeLessThan(releaseOrder);
   });
 
+  it('falha na criação recupera o commit pela chave (I03)', async () => {
+    mockMutateAsync.mockRejectedValueOnce(new Error('response lost'));
+    const { result } = renderHook(() => useGuestDraftImport(true), { wrapper });
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await result.current.importDraft({ draft: DRAFT, context: CONTEXT });
+    });
+    expect(outcome).toEqual({ kind: 'verified', workId: 'work-1' });
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      `/api/creative-work?view=draftByKey&draftKey=${DRAFT_ID}`);
+    expect(mockRelease).toHaveBeenCalledTimes(1);
+  });
+
+  it('falha sem commit propaga sem salvar recibo verificado', async () => {
+    mockMutateAsync.mockRejectedValueOnce(new Error('network down'));
+    mockApiFetch.mockImplementation(async (url: string) => (
+      String(url).includes('view=draftByKey')
+        ? { ok: false, status: 404, json: async () => ({}) }
+        : { ok: true, json: async () => ({ work: WORK }) }
+    ));
+    const { result } = renderHook(() => useGuestDraftImport(true), { wrapper });
+    let failed: unknown;
+    await act(async () => {
+      try {
+        await result.current.importDraft({ draft: DRAFT, context: CONTEXT });
+      } catch (error) {
+        failed = error;
+      }
+    });
+    expect(String((failed as Error).message)).toBe('network down');
+    expect(mockSaveReceipt).not.toHaveBeenCalled();
+    expect(mockRelease).toHaveBeenCalledTimes(1);
+  });
+
   it('lease ocupado bloqueia sem tocar na rede', async () => {
     mockClaim.mockResolvedValue({ kind: 'busy' });
     const { result } = renderHook(() => useGuestDraftImport(true), { wrapper });
@@ -162,6 +196,24 @@ describe('useGuestDraftImport', () => {
       workItemId: 'work-1', action: 'attachSource', assetId: 'asset-1',
       usage: 'content', expectedUpdatedAt: expect.any(String),
     });
+  });
+
+  it('expectedUpdatedAt sai em ISO mesmo quando o detalhe traz Date', async () => {
+    const reads = [
+      { work: WORK },
+      { work: { ...WORK, updatedAt: new Date('2026-09-18T00:00:00.000Z') }, sources: [] },
+      { work: WORK, sources: [{ id: 'source-1', assetId: 'asset-1' }] },
+    ];
+    mockApiFetch.mockImplementation(async () => ({
+      ok: true, json: async () => reads.shift() ?? { work: WORK, sources: [] },
+    }));
+    const { result } = renderHook(() => useGuestDraftImport(true), { wrapper });
+    await act(async () => {
+      await result.current.importDraft({ draft: DRAFT_WITH_FILE, context: CONTEXT });
+    });
+    expect(mockSourceMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+      expectedUpdatedAt: '2026-09-18T00:00:00.000Z',
+    }));
   });
 
   it('anexos desligados bloqueiam transferência sem enviar bytes', async () => {

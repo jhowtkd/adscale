@@ -55,7 +55,19 @@ export async function ensureCanonicalGuestDraft(
       : { kind: 'verified', workId: work.id };
   }
 
-  const created = await ports.createDraft(buildTextDraftInput(draft, context));
+  let created: CanonicalDraft;
+  try {
+    created = await ports.createDraft(buildTextDraftInput(draft, context));
+  } catch (error) {
+    // The server may have committed while the response was lost. Recover
+    // by draft key instead of failing or duplicating (matrix I03).
+    const recovered = await ports.readByDraftKey(draft.id);
+    if (!recovered) throw error;
+    if (!identityMatches(recovered, context, draft.id)) {
+      return { kind: 'blocked', code: 'context_mismatch' };
+    }
+    created = recovered;
+  }
   const work = await ports.readWork(created.id);
   if (!identityMatches(work, context, draft.id)) {
     return { kind: 'blocked', code: 'context_mismatch' };

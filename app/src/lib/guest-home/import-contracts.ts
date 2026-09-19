@@ -55,6 +55,7 @@ export type TextImportPorts = {
   saveReceipt(receipt: GuestImportReceipt): Promise<void>;
   createDraft(input: CreateTextDraftInput): Promise<CanonicalDraft>;
   readWork(id: string): Promise<CanonicalDraft>;
+  readByDraftKey(draftKey: string): Promise<CanonicalDraft | null>;
 };
 
 export type TextImportInput = { draft: GuestDraft; context: ImportContext; textOnly?: boolean };
