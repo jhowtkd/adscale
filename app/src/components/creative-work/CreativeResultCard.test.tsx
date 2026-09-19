@@ -318,6 +318,65 @@ describe("CreativeResultCard", () => {
     expect(onRevise).toHaveBeenCalledWith("output-1", "Use mais contraste", file);
   });
 
+  it("in workspace mode favorites a completed piece without approving it", () => {
+    const onApprove = vi.fn();
+    render(
+      <CreativeResultCard
+        presentation="workspace"
+        hidePreview
+        output={output()}
+        label="Versão 1"
+        onRetry={vi.fn()}
+        onApprove={onApprove}
+        onDownload={vi.fn()}
+      />,
+    );
+
+    const star = screen.getByTestId("favorite-piece");
+    expect(star).toHaveAttribute("aria-label", "Favoritar peça");
+    fireEvent.click(star);
+    expect(toggleFavorite).toHaveBeenCalledTimes(1);
+    expect(onApprove).not.toHaveBeenCalled();
+  });
+
+  it("keeps the star on completed but non-selectable pieces, independent of approval", () => {
+    const onApprove = vi.fn();
+    const qaFailed = output({
+      status: "completed",
+      failureCode: "objective_quality_failed_refund_pending",
+      quality: { schemaVersion: 1, objectiveVerdict: "fail" },
+    });
+    const { rerender } = render(
+      <CreativeResultCard
+        output={qaFailed}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={onApprove}
+        onDownload={vi.fn()}
+      />,
+    );
+
+    // QA fail blocks selection but the piece is still completed, so the star stays.
+    expect(screen.getByTestId("objective-selection-blocked")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("favorite-piece"));
+    expect(toggleFavorite).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <CreativeResultCard
+        presentation="workspace"
+        hidePreview
+        output={qaFailed}
+        label="Equilibrada"
+        onRetry={vi.fn()}
+        onApprove={onApprove}
+        onDownload={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("favorite-piece"));
+    expect(toggleFavorite).toHaveBeenCalledTimes(2);
+    expect(onApprove).not.toHaveBeenCalled();
+  });
+
   it("shares the completed piece for external review", async () => {
     shareMutate.mockResolvedValue({ shareUrl: "https://app.example.com/share/tok", copied: true });
     render(

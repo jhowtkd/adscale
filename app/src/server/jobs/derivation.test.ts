@@ -1,6 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const sharpOperations = vi.hoisted(() => [] as Array<{ method: string; args: unknown[] }>);
+
+const sentryMocks = vi.hoisted(() => ({
+  captureException: vi.fn(),
+  captureMessage: vi.fn(),
+}));
+
+vi.mock("@sentry/nextjs", () => sentryMocks);
 
 vi.mock("sharp", () => ({
   default: vi.fn((input: unknown) => {
@@ -333,6 +340,7 @@ import { getCompetitorAnalysesByCampaign } from "../repositories/competitor-anal
 import { getClientReferencesByIdsForProfile, resolveCampaignClientProfileId } from "../repositories/client-reference";
 import { objectStorage } from "@/server/storage";
 import { getBrandMemoryContext } from "@/server/memory/brand-memory-context";
+import { createNotification } from "../repositories/notification";
 import { env } from "../validation/env";
 
 const mockGetDerivationById = vi.mocked(getDerivationById);
@@ -347,6 +355,7 @@ const mockDownloadBuffer = vi.mocked(objectStorage.get);
 const mockGetBrandMemoryContext = vi.mocked(getBrandMemoryContext);
 const mockRunCompletedDerivationQualityGate = vi.mocked(runCompletedDerivationQualityGate);
 const mockRunDerivationAutoRetry = vi.mocked(runDerivationAutoRetry);
+const mockCreateNotification = vi.mocked(createNotification);
 
 async function runDerivationJob(eventData: Record<string, unknown>) {
   const event = { data: eventData } as unknown;
@@ -2428,5 +2437,155 @@ describe("creative revision callback (failure path)", () => {
     ).resolves.not.toThrow();
 
     expect(mockSettleTerminalRefund).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("onFailure single incident (#406)", () => {
+  const flushSentry = () =>
+    new Promise<void>((resolve) => setTimeout(resolve, 25));
+
+  function getOnFailure() {
+    return (
+      derivationJob as unknown as {
+        opts: { onFailure: (args: unknown) => Promise<unknown> };
+      }
+    ).opts.onFailure;
+  }
+
+  function failureArgs(error: unknown) {
+    return {
+      event: {
+        data: {
+          event: {
+            data: {
+              derivationId: "derivation-id",
+              campaignId: CREATIVE_CAMPAIGN_ID,
+              workspaceId: "workspace-1",
+              triggeredByUserId: "user-1",
+              assistantActionId: "action-creative-1",
+              generationMode: "creative_revision",
+              locale: "pt-BR",
+              variantIndex: 0,
+              ctaText: null,
+              format: "1:1",
+            },
+          },
+        },
+      },
+      error,
+      step: {
+        run: vi.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
+        realtime: { publish: vi.fn(() => Promise.resolve()) },
+      },
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAssistantActionById.mockReset();
+    mockGetAssistantThreadById.mockReset();
+    mockSettleTerminalRefund.mockClear();
+    mockSyncAssistantActionFromJob.mockClear();
+    vi.stubEnv("SENTRY_DSN", "https://example@o1.ingest.sentry.io/1");
+    sentryMocks.captureException.mockClear();
+    sentryMocks.captureMessage.mockClear();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+    sentryMocks.captureException.mockClear();
+    sentryMocks.captureMessage.mockClear();
+  });
+
+  it("emits exactly one incident per failure (captureException x1, captureMessage x0)", async () => {
+    await getOnFailure()(failureArgs(new Error("image generation failed")));
+    await flushSentry();
+
+    expect(sentryMocks.captureException).toHaveBeenCalledTimes(1);
+    expect(sentryMocks.captureMessage).not.toHaveBeenCalled();
+
+    const [captured, options] = sentryMocks.captureException.mock
+      .calls[0] as [
+      unknown,
+      { tags: Record<string, unknown>; extra: Record<string, unknown> },
+    ];
+    expect(captured).toBeInstanceOf(Error);
+    expect((captured as Error).message).toBe("image generation failed");
+    expect(options.tags).toMatchObject({
+      component: "inngest",
+      fn: "generate-derivation",
+    });
+    expect(options.tags).toHaveProperty("errorId");
+    expect(options.extra).toMatchObject({
+      derivationId: "derivation-id",
+      campaignId: CREATIVE_CAMPAIGN_ID,
+      workspaceId: "workspace-1",
+      assistantActionId: "action-creative-1",
+      triggeredByUserId: "user-1",
+      technicalDetail: "image generation failed",
+    });
+  });
+
+  it("normalizes non-Error throws to a single exception incident", async () => {
+    await getOnFailure()(failureArgs("string boom"));
+    await flushSentry();
+
+    expect(sentryMocks.captureException).toHaveBeenCalledTimes(1);
+    expect(sentryMocks.captureMessage).not.toHaveBeenCalled();
+
+    const [captured, options] = sentryMocks.captureException.mock
+      .calls[0] as [
+      unknown,
+      { tags: Record<string, unknown>; extra: Record<string, unknown> },
+    ];
+    expect(captured).toBeInstanceOf(Error);
+    expect((captured as Error).message).toBe("string boom");
+    expect(options.extra).toMatchObject({ technicalDetail: "string boom" });
+  });
+
+  it("keeps settlement behavior byte-identical on the failure path", async () => {
+    const args = failureArgs(new Error("image generation failed"));
+    await getOnFailure()(args);
+    await flushSentry();
+
+    expect(mockSettleTerminalRefund).toHaveBeenCalledTimes(1);
+    expect(mockSettleTerminalRefund).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        decision: expect.objectContaining({
+          refund: true,
+          idempotencyKey: "assistant-action:action-creative-1:refund",
+          amount: 50,
+        }),
+        metadata: expect.objectContaining({
+          actionId: "action-creative-1",
+          derivationId: "derivation-id",
+          campaignId: CREATIVE_CAMPAIGN_ID,
+          mode: "creative_revision",
+        }),
+        userId: "user-1",
+      }),
+    );
+
+    const stepRun = vi.mocked(args.step.run);
+    expect(stepRun.mock.calls.map(([name]) => name)).toEqual([
+      "mark-failed",
+      "refund-creative-revision",
+      "emit-generation-failed-telemetry",
+      "notify-failure",
+    ]);
+
+    expect(mockCreateNotification).toHaveBeenCalledTimes(1);
+    expect(mockCreateNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        workspaceId: "workspace-1",
+        type: "derivation_failed",
+        derivationId: "derivation-id",
+        campaignId: CREATIVE_CAMPAIGN_ID,
+      }),
+    );
   });
 });

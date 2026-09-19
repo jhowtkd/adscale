@@ -110,6 +110,17 @@ services:
         value: "100"
       - key: PLATFORM_OWNER_EMAILS
         value: jhonatan.marcela@gmail.com
+      # Traceability rollout (#397): declared at frozen defaults (capture off).
+      # Staged execution follows docs/runbooks/diagnostics-traceability-rollout.md
+      # and needs its own authorization per stage; do not enable here.
+      - key: OBSERVABILITY_ENABLED
+        value: "false"
+      - key: OBSERVABILITY_LANGFUSE_ENABLED
+        value: "false"
+      - key: OBSERVABILITY_WORKSPACE_ALLOWLIST
+        value: ""
+      - key: OBSERVABILITY_CONTENT_MODE
+        value: metadata_only
 
   - type: worker
     name: adscale-image-worker
@@ -191,6 +202,16 @@ services:
         value: "100"
       - key: STUDIO_PROGRESSIVE_ROLLOUT_PERCENT
         value: "100"
+      # Traceability rollout (#397): frozen defaults (capture off). See web
+      # service comment; staged execution needs per-stage authorization.
+      - key: OBSERVABILITY_ENABLED
+        value: "false"
+      - key: OBSERVABILITY_LANGFUSE_ENABLED
+        value: "false"
+      - key: OBSERVABILITY_WORKSPACE_ALLOWLIST
+        value: ""
+      - key: OBSERVABILITY_CONTENT_MODE
+        value: metadata_only
 
 databases:
   - name: adscale-postgres
