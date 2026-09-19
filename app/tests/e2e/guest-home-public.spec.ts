@@ -364,6 +364,21 @@ test.describe("visitor island (#440)", () => {
     await expect(
       page.getByRole("button", { name: "Entrar e continuar" }),
     ).toBeVisible();
+    // Fallback rehearsal with pending-draft drain (#447): the old host
+    // stays blocked while the draft saves through the same service and
+    // resumes after a reload — the pending request survives.
+    await page.getByRole("button", { name: "Entrar e continuar" }).click();
+    await page.waitForURL((url) => url.pathname !== "/hi", {
+      timeout: 30_000,
+    });
+    await page.goto("/hi", { waitUntil: "domcontentloaded" });
+    await page.waitForLoadState("load");
+    const banner = page.locator("#ag-resume-banner");
+    await expect(banner).toBeVisible();
+    await banner.getByRole("button", { name: /retomar/i }).click();
+    await expect(
+      page.getByLabel(/descreva o que você precisa criar/i),
+    ).toHaveValue("Pedido sem o serviço antigo");
     expect(oldHostHits).toEqual([]);
   });
 });
