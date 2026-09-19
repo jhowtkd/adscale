@@ -200,6 +200,24 @@ export function CreativeResultCard({
     : null;
   const showBest = isCompleted && refinement.isRecommended && refinement.status !== "running";
   const bestIssues = showBest ? refinement.issues : [];
+  // G1/G3 (#366): favorites are personal and decoupled from selection /
+  // approval (stories 26/48), so the only gate is a completed piece —
+  // including QA-failed-but-previewed outputs. One toggle shared by the
+  // card header and the workspace dock keeps both presentations in sync.
+  const favoriteToggle = isCompleted ? (
+    <button
+      type="button"
+      data-testid="favorite-piece"
+      aria-pressed={favorite.isFavorite}
+      aria-label={favorite.isError ? tCommon("retry") : favorite.isFavorite ? t("unfavorite") : t("favorite")}
+      title={favorite.isError ? tCommon("error") : favorite.isFavorite ? t("unfavoriteHint") : t("favoriteHint")}
+      disabled={favorite.isPending}
+      onClick={() => favorite.toggle()}
+      className={studioQuietActionClass}
+    >
+      <Star className="size-4" fill={favorite.isFavorite ? "currentColor" : "none"} aria-hidden="true" />
+    </button>
+  ) : null;
 
   return (
     <div
@@ -215,20 +233,7 @@ export function CreativeResultCard({
           <span className="ml-1 text-[var(--text-muted)]">· {output.targetFormat ?? "4:5"} · {t("variationShort", { count: output.versionNumber ?? 1 })}</span>
         </p>
         <span className="flex items-center gap-2">
-          {isCompleted ? (
-            <button
-              type="button"
-              data-testid="favorite-piece"
-              aria-pressed={favorite.isFavorite}
-              aria-label={favorite.isError ? tCommon("retry") : favorite.isFavorite ? t("unfavorite") : t("favorite")}
-              title={favorite.isError ? tCommon("error") : favorite.isFavorite ? t("unfavoriteHint") : t("favoriteHint")}
-              disabled={favorite.isPending}
-              onClick={() => favorite.toggle()}
-              className={studioQuietActionClass}
-            >
-              <Star className="size-4" fill={favorite.isFavorite ? "currentColor" : "none"} aria-hidden="true" />
-            </button>
-          ) : null}
+          {favoriteToggle}
           <span className="rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-[var(--text-caption)] uppercase tracking-wider text-[var(--text-muted)]">
             {statusLabel(output.status)}
           </span>
@@ -590,6 +595,7 @@ export function CreativeResultCard({
               </p>
             ) : null}
             <div className="flex flex-wrap gap-2">
+            {workspace ? favoriteToggle : null}
             <button type="button" className={secondaryActionClass} title={t("downloadHint")} onClick={() => onDownload(output.id)}>{t("download")}</button>
             <button
               type="button"

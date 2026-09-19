@@ -13,6 +13,7 @@ import { TesterProfilesPanel } from "@/components/feedback/TesterProfilesPanel";
 import { OwnerAnalyticsPanel } from "@/components/feedback/OwnerAnalyticsPanel";
 import { HumanQualityCorpusPanel } from "@/components/feedback/HumanQualityCorpusPanel";
 import { GuidedFlowFeedbackPanel } from "@/components/feedback/GuidedFlowFeedbackPanel";
+import { DiagnosticsTabPanel } from "@/components/feedback/diagnostics/DiagnosticsTabPanel";
 import { AdminInspirationsPanel } from "@/components/admin/AdminInspirationsPanel";
 import { cn } from "@/lib/utils";
 import PageFrame from "@/components/layout/PageFrame";
@@ -113,7 +114,7 @@ export default function FeedbackTriagePage() {
     }
   }, [isPlatformOwner, ownerAccess, ownerAccessLoading, router]);
 
-  const [consoleTab, setConsoleTab] = useState<"metrics" | "quality" | "feedback" | "inspirations">("feedback");
+  const [consoleTab, setConsoleTab] = useState<"metrics" | "quality" | "feedback" | "inspirations" | "diagnostics">("feedback");
   const [status, setStatus] = useState("");
   const [severity, setSeverity] = useState("");
   const [category, setCategory] = useState("");
@@ -228,7 +229,7 @@ export default function FeedbackTriagePage() {
 
       <div className={ownerShellClass}>
       <nav aria-label={t("consoleTabsAria")} className={ownerNavClass}>
-        {(["metrics", "quality", "feedback", "inspirations"] as const).map((tab) => (
+        {(["metrics", "quality", "feedback", "inspirations", "diagnostics"] as const).map((tab) => (
           <button
             key={tab}
             type="button"
@@ -248,6 +249,7 @@ export default function FeedbackTriagePage() {
       {consoleTab === "metrics" ? <OwnerAnalyticsPanel sessionOptions={sessionOptions} /> : null}
       {consoleTab === "quality" ? <HumanQualityCorpusPanel /> : null}
       {consoleTab === "inspirations" ? <AdminInspirationsPanel /> : null}
+      {consoleTab === "diagnostics" ? <DiagnosticsTabPanel isPlatformOwner={isPlatformOwner} /> : null}
       {consoleTab === "feedback" ? (
         <>
           <TesterProfilesPanel />
