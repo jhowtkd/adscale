@@ -719,6 +719,25 @@ export function startAiSpan(
   }
 }
 
+/**
+ * Global capture switch (jhowtkd/adscale#397): true only when
+ * `OBSERVABILITY_ENABLED` is explicitly truthy, else the frozen default
+ * (off). Pure env read — the tab-hiding gate in #394 and any emission host
+ * check this before observing anything. Never throws.
+ */
+export function isDiagnosticCaptureEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  try {
+    return isTruthyFlag(
+      env.OBSERVABILITY_ENABLED,
+      DIAGNOSTIC_FLAG_DEFAULTS.OBSERVABILITY_ENABLED,
+    );
+  } catch {
+    return DIAGNOSTIC_FLAG_DEFAULTS.OBSERVABILITY_ENABLED;
+  }
+}
+
 /** Process-local lifecycle state and loss counters for console health. */
 export function getObservabilityStatus(): ObservabilityStatus {
   const current = singleton;

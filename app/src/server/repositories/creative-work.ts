@@ -2621,7 +2621,10 @@ export async function selectCreativeWorkOutput(
       .returning();
 
     if (!selected) return null;
-    if (!options.effects || options.effects.length === 0) return selected;
+    // The `effects` key selects the envelope shape (see overloads): even an
+    // empty request list returns { output, enqueued: [] }. Agent selections
+    // always request zero effects and rely on the envelope.
+    if (!options.effects) return selected;
     const enqueued = await enqueueSelectionEffects(tx, {
       workspaceId,
       workItemId,

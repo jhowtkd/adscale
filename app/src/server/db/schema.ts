@@ -3705,3 +3705,37 @@ export const diagnosticAccessAudit = adscaleSchema.table(
 
 export type DiagnosticAccessAudit = typeof diagnosticAccessAudit.$inferSelect;
 export type NewDiagnosticAccessAudit = typeof diagnosticAccessAudit.$inferInsert;
+
+// Durable proof of per-trace remote AI-trace deletion attempts (#428).
+// One row per candidate attempt on the apply path, including unconfirmed
+// and errored attempts. Surrogate uuid PK so re-attempts across runs
+// append history. Deliberately NO FK to diagnostic_events: the local
+// rows carrying the trace references are deleted by the same run, and
+// the proof must survive them. Not routed through diagnostic_events —
+// journal rows are retention-deleted and contract.ts is frozen.
+export const diagnosticRemoteDeletionConfirmations = adscaleSchema.table(
+  "diagnostic_remote_deletion_confirmations",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    traceId: text("trace_id").notNull(),
+    workspaceId: text("workspace_id"),
+    deleteAccepted: boolean("delete_accepted").notNull(),
+    requeryFound: boolean("requery_found"),
+    confirmed: boolean("confirmed").notNull(),
+    confirmedAt: timestamp("confirmed_at", { mode: "date" }),
+    error: text("error"),
+    runAt: timestamp("run_at", { mode: "date" }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("diagnostic_remote_deletion_trace_run_idx").on(
+      table.traceId,
+      table.runAt,
+    ),
+  ],
+);
+
+export type DiagnosticRemoteDeletionConfirmation =
+  typeof diagnosticRemoteDeletionConfirmations.$inferSelect;
+export type NewDiagnosticRemoteDeletionConfirmation =
+  typeof diagnosticRemoteDeletionConfirmations.$inferInsert;

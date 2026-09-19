@@ -8,7 +8,7 @@
  * eventId uniqueness, pilot gating — are proven here, never with mocks.
  * (Object storage is stubbed: signed URLs are not a journal criterion.)
  *
- * Requires a migrated test database (migrations 0107 + 0108):
+ * Requires a migrated test database (migrations 0109 + 0110):
  *   DATABASE_URL=postgres://<user>@localhost:5432/adscale_test npm test -- src/server/diagnostics/selection-export-tracing.pg.test.ts
  */
 import { describe, expect, it, vi } from "vitest";

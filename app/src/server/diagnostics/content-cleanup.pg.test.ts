@@ -7,7 +7,7 @@
  * deletion, and the full policy gate (live access probe + fake-proven
  * deletion probe) resolves redacted end to end — are proven here.
  *
- * Requires a migrated test database (migration 0107):
+ * Requires a migrated test database (migrations 0109 + 0113):
  *   DATABASE_URL=postgres://<user>@localhost:5432/adscale_test npm test -- src/server/diagnostics/content-cleanup.pg.test.ts
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -19,7 +19,11 @@ const TEST_DB_EXPLICITLY_CONFIGURED = Boolean(
 );
 
 import { db } from "../db";
-import { diagnosticAccessAudit, diagnosticEvents } from "../db/schema";
+import {
+  diagnosticAccessAudit,
+  diagnosticEvents,
+  diagnosticRemoteDeletionConfirmations,
+} from "../db/schema";
 import {
   DIAGNOSTIC_RETENTION_WINDOWS,
   __resetContentPolicyForTests,
@@ -138,11 +142,14 @@ beforeAll(async () => {
     await db.execute(
       sql`select 1 from adscale_app.diagnostic_access_audit limit 0`,
     );
+    await db.execute(
+      sql`select 1 from adscale_app.diagnostic_remote_deletion_confirmations limit 0`,
+    );
   } catch (err) {
     throw new Error(
-      `[content-cleanup.pg] Postgres de teste INACESSÍVEL ou sem a 0107 ` +
+      `[content-cleanup.pg] Postgres de teste INACESSÍVEL ou sem as 0109/0113 ` +
         `(DATABASE_URL=${process.env.DATABASE_URL ?? "(não definida)"}). ` +
-        `Aplique drizzle/0107_diagnostic_journal.sql. ` +
+        `Aplique a cadeia de migrations. ` +
         `Causa: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
@@ -158,35 +165,71 @@ afterAll(async () => {
   await db
     .delete(diagnosticAccessAudit)
     .where(like(diagnosticAccessAudit.workspaceId, `${WS}%`));
+  await db
+    .delete(diagnosticRemoteDeletionConfirmations)
+    .where(
+      like(
+        diagnosticRemoteDeletionConfirmations.traceId,
+        `trace-391c-${RUN_ID}%`,
+      ),
+    );
 });
 
 describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)(
   "retention cleanup (real Postgres + fake remote)",
   () => {
     it("dry-run reports expired rows without deleting anything", async () => {
-      seq += 1;
-      const eventId = `evt-391c-${RUN_ID}-dry-${seq}`;
-      await db.insert(diagnosticEvents).values([oldEvent({ id: eventId })]);
-      const [audit] = await db
-        .insert(diagnosticAccessAudit)
-        .values({
-          operatorId: `op-391c-${RUN_ID}-dry`,
-          scope: "platform-owner",
-          workspaceId: WS,
-          workItemId: `work-391c-${RUN_ID}`,
-          resource: "call:dry",
-          action: "content.read",
-          reason: "dry-run fixture",
-          result: "allowed",
-          occurredAt: new Date("2025-01-05T00:00:00.000Z"),
-        })
-        .returning({ id: diagnosticAccessAudit.id });
+      const fake = startFakeRemote();
+      try {
+        const baseUrl = await fake.listen();
+        seq += 1;
+        const eventId = `evt-391c-${RUN_ID}-dry-${seq}`;
+        await db.insert(diagnosticEvents).values([oldEvent({ id: eventId })]);
+        const [audit] = await db
+          .insert(diagnosticAccessAudit)
+          .values({
+            operatorId: `op-391c-${RUN_ID}-dry`,
+            scope: "platform-owner",
+            workspaceId: WS,
+            workItemId: `work-391c-${RUN_ID}`,
+            resource: "call:dry",
+            action: "content.read",
+            reason: "dry-run fixture",
+            result: "allowed",
+            occurredAt: new Date("2025-01-05T00:00:00.000Z"),
+          })
+          .returning({ id: diagnosticAccessAudit.id });
 
-      const result = await cleanupDiagnosticData(new Date(), {
-        dryRun: true,
-        workspaceId: WS,
-      });
-      expect(result.dryRun).toBe(true);
+        const confirmationsBefore = await db
+          .select({ id: diagnosticRemoteDeletionConfirmations.id })
+          .from(diagnosticRemoteDeletionConfirmations)
+          .where(
+            like(
+              diagnosticRemoteDeletionConfirmations.traceId,
+              `trace-391c-${RUN_ID}%`,
+            ),
+          );
+        // Configured remote on purpose: dry-run must stay write-free even
+        // when the remote step is fully configured.
+        const client = createHttpRemoteDeletionClient({ baseUrl });
+        const result = await cleanupDiagnosticData(new Date(), {
+          dryRun: true,
+          workspaceId: WS,
+          remoteClient: client,
+        });
+        expect(result.dryRun).toBe(true);
+        expect(result.remote.configured).toBe(true);
+        // #428: dry-run persists nothing.
+        const confirmationsAfter = await db
+          .select({ id: diagnosticRemoteDeletionConfirmations.id })
+          .from(diagnosticRemoteDeletionConfirmations)
+          .where(
+            like(
+              diagnosticRemoteDeletionConfirmations.traceId,
+              `trace-391c-${RUN_ID}%`,
+            ),
+          );
+        expect(confirmationsAfter).toHaveLength(confirmationsBefore.length);
       expect(result.local.diagnosticEvents.expired).toBeGreaterThanOrEqual(1);
       expect(result.local.diagnosticEvents.deleted).toBe(0);
       expect(result.local.accessAudit.expired).toBeGreaterThanOrEqual(1);
@@ -202,6 +245,9 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)(
         .from(diagnosticAccessAudit)
         .where(eq(diagnosticAccessAudit.id, audit.id));
       expect(audits).toHaveLength(1);
+      } finally {
+        await fake.close();
+      }
     });
 
     it("real cleanup deletes only expired rows, fresh history survives", async () => {
@@ -266,6 +312,24 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)(
         });
         expect(confirmation?.confirmedAt).toBeTruthy();
         expect(confirmation?.error).toBeNull();
+        // #428: the confirmation is durably persisted, not just returned.
+        const persisted = await db
+          .select()
+          .from(diagnosticRemoteDeletionConfirmations)
+          .where(
+            eq(diagnosticRemoteDeletionConfirmations.traceId, traceId),
+          );
+        expect(persisted).toHaveLength(1);
+        expect(persisted[0]).toMatchObject({
+          traceId,
+          workspaceId: WS,
+          deleteAccepted: true,
+          requeryFound: false,
+          confirmed: true,
+          error: null,
+        });
+        expect(persisted[0]?.confirmedAt).toBeInstanceOf(Date);
+        expect(persisted[0]?.runAt).toBeInstanceOf(Date);
         // The fake really deleted it: a fresh re-query misses.
         expect(await probeRemoteDeletion(client, traceId)).toBe(true);
       } finally {

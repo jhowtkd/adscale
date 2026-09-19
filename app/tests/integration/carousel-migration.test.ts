@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 const describeWithDatabase = testDatabaseUrl ? describe : describe.skip;
 
-const MIGRATION_FILE = "0090_creative_work_carousels.sql";
+const MIGRATION_FILE = "0091_creative_work_carousels.sql";
 
 function migrationStatements(file: string, schema: string) {
   return readFileSync(resolve(process.cwd(), "drizzle", file), "utf8")
