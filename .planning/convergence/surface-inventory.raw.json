@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-18T00:18:16.778Z",
+  "generatedAt": "2026-09-19T00:44:23.696Z",
   "schemaVersion": 2,
-  "fingerprint": "800ca6c70a384cc6a8dc987565eee579d27a03c349baf58469c1b51a5ce448fc",
+  "fingerprint": "728f1253f55bb78dfec4f3238157d38da633e8cd631275a2d6d1bf077131241b",
   "counts": {
     "dashboardPages": 16,
     "apiRoutes": 196,
-    "ctas": 75,
+    "ctas": 80,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -1801,6 +1801,51 @@
       "file": "app/src/components/feedback/FactualAlertsPanel.tsx",
       "line": 157,
       "evidence": "app/src/components/feedback/FactualAlertsPanel.tsx:157",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/guest-home/GuestStudioEntry.tsx:225",
+      "kind": "cta_navigation",
+      "destination": "/?workId=${outcome.workId}&compose=1",
+      "file": "app/src/components/guest-home/GuestStudioEntry.tsx",
+      "line": 225,
+      "evidence": "app/src/components/guest-home/GuestStudioEntry.tsx:225",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/guest-home/GuestStudioEntry.tsx:121",
+      "kind": "cta_navigation",
+      "destination": "/",
+      "file": "app/src/components/guest-home/GuestStudioEntry.tsx",
+      "line": 121,
+      "evidence": "app/src/components/guest-home/GuestStudioEntry.tsx:121",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/guest-home/GuestStudioEntry.tsx:122",
+      "kind": "cta_navigation",
+      "destination": "/hi",
+      "file": "app/src/components/guest-home/GuestStudioEntry.tsx",
+      "line": 122,
+      "evidence": "app/src/components/guest-home/GuestStudioEntry.tsx:122",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/guest-home/GuestStudioEntry.tsx:132",
+      "kind": "cta_navigation",
+      "destination": "/hi",
+      "file": "app/src/components/guest-home/GuestStudioEntry.tsx",
+      "line": 132,
+      "evidence": "app/src/components/guest-home/GuestStudioEntry.tsx:132",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/guest-home/LocalPublicHomeFallback.tsx:12",
+      "kind": "cta_navigation",
+      "destination": "/login?callbackUrl=%2F",
+      "file": "app/src/components/guest-home/LocalPublicHomeFallback.tsx",
+      "line": 12,
+      "evidence": "app/src/components/guest-home/LocalPublicHomeFallback.tsx:12",
       "requiresDecision": false
     },
     {

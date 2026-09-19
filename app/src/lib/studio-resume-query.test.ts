@@ -19,4 +19,13 @@ describe("hasStudioResumeQuery", () => {
     expect(hasStudioResumeQuery(new URLSearchParams("workId="))).toBe(false);
     expect(hasStudioResumeQuery(new URLSearchParams("utm_source=ig"))).toBe(false);
   });
+
+  it("recognizes a validated guest draft as a resume query", () => {
+    expect(hasStudioResumeQuery(new URLSearchParams(`guestDraft=${UUID}`))).toBe(true);
+  });
+
+  it("ignores malformed guest draft identifiers", () => {
+    expect(hasStudioResumeQuery(new URLSearchParams("guestDraft=../../x"))).toBe(false);
+    expect(hasStudioResumeQuery(new URLSearchParams(`guestDraft=${UUID}&guestDraft=${UUID}`))).toBe(false);
+  });
 });

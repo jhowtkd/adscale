@@ -140,8 +140,13 @@ function scrubContentString(value: string): string {
     }
   }
   try {
+    // EMAIL_RE backtracks quadratically on long @-less runs (e.g. a 100k
+    // token took ~4s); the linear pre-check is equivalent because the
+    // pattern cannot match without a literal "@".
     if (out.includes("@")) out = out.replace(EMAIL_RE, REDACTED);
     out = out.replace(CPF_RE, REDACTED);
+    // Same fast-path guard for formatted phones: both alternatives need a
+    // literal "+" or "(" up front (#433).
     if (out.includes("+") || out.includes("(")) {
       out = out.replace(FORMATTED_PHONE_RE, REDACTED);
     }
