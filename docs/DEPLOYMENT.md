@@ -44,7 +44,7 @@ There is **no separate Render worker service** in this repository. Background jo
 
 Production public URL (custom domain, set in Blueprint env vars): `https://adscale.jhonatansoares.com`.
 
-The marketing landing page is a **separate** static site on Render (`https://adscale-marketing.onrender.com`). The app proxies `/hi` paths to that upstream via `MARKETING_UPSTREAM_URL` and Next.js rewrites in `app/next.config.ts`.
+The public studio home at `/hi` is served by this same app and service (no separate marketing service, no external proxy). Its rollout flags are `PUBLIC_STUDIO_HOME_ENABLED`, `PUBLIC_STUDIO_IMPORT_ENABLED` and `PUBLIC_STUDIO_ATTACHMENTS_ENABLED` (all `false` by default). The legacy static site (`https://adscale-marketing.onrender.com`) is retired once the migration runbook completes.
 
 Blueprint quick start: see [render-deployment.md](./render-deployment.md) for the secrets checklist and deploy steps. **Migration timing:** migrations run in `startCommand`, not `preDeployCommand` (the companion doc may reference an older Blueprint layout).
 
@@ -125,7 +125,7 @@ Production configuration is defined in `render.yaml` and completed in the **Rend
 | `BETTER_AUTH_SECRET` | Render `generateValue: true` |
 | `BETTER_AUTH_URL`, `APP_URL` | `https://adscale.jhonatansoares.com` |
 | `MARKETING_URL` | `https://adscale.jhonatansoares.com/hi` |
-| `MARKETING_UPSTREAM_URL` | `https://adscale-marketing.onrender.com` |
+| `PUBLIC_STUDIO_HOME_ENABLED`, `PUBLIC_STUDIO_IMPORT_ENABLED`, `PUBLIC_STUDIO_ATTACHMENTS_ENABLED` | `"false"` |
 | `MARKETING_ALLOWED_ORIGINS` | `https://adscale.jhonatansoares.com` |
 | `OPENAI_TEXT_MODEL` | `gpt-5-mini` |
 | `OPENAI_IMAGE_MODEL` | `gpt-image-2-2026-04-21` |
@@ -197,7 +197,7 @@ Do not copy values from `.env.docker` or `.env.local` into tracked files.
 - All `sync: false` secrets set in Render.
 - Migration SQL committed under `app/drizzle/`.
 - `BETTER_AUTH_URL` and `APP_URL` match how users reach the app.
-- `MARKETING_URL`, `MARKETING_UPSTREAM_URL`, and `MARKETING_ALLOWED_ORIGINS` match the marketing site setup.
+- `MARKETING_URL` and `MARKETING_ALLOWED_ORIGINS` match the public site setup; the `PUBLIC_STUDIO_*` flags hold their approved values.
 - Stripe live keys, live Price IDs, and webhook endpoint registered in the Stripe Dashboard (live mode).
 - `npm run preflight:stripe` passes against production env.
 - Inngest dashboard points at the production `/api/inngest` URL.
