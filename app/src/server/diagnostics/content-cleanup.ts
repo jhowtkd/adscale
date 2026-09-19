@@ -3,7 +3,11 @@ import "server-only";
 import { and, eq, inArray, isNotNull, lt } from "drizzle-orm";
 
 import { db } from "../db";
-import { diagnosticAccessAudit, diagnosticEvents } from "../db/schema";
+import {
+  diagnosticAccessAudit,
+  diagnosticEvents,
+  diagnosticRemoteDeletionConfirmations,
+} from "../db/schema";
 import { DIAGNOSTIC_RETENTION_WINDOWS } from "./content-policy";
 import type { CleanupDiagnosticData } from "./contract";
 import type { DiagnosticDatabase } from "./journal";
@@ -355,10 +359,30 @@ async function runCleanup(
     );
     if (!dryRun) {
       // Sequential: respect remote rate limits; each trace is re-queried.
+      // Every attempt is persisted immediately (#428) — including
+      // unconfirmed/errored ones — BEFORE the local-delete phase below
+      // removes the expired rows carrying the trace references. Dry-run
+      // never reaches this branch, so it performs zero writes.
       for (const traceId of candidates) {
-        traces.push(
-          await deleteRemoteTraceWithConfirmation(remoteClient, traceId),
+        const confirmation = await deleteRemoteTraceWithConfirmation(
+          remoteClient,
+          traceId,
         );
+        traces.push(confirmation);
+        await database
+          .insert(diagnosticRemoteDeletionConfirmations)
+          .values({
+            traceId: confirmation.traceId,
+            workspaceId: workspaceId ?? null,
+            deleteAccepted: confirmation.deleteAccepted,
+            requeryFound: confirmation.requeryFound,
+            confirmed: confirmation.confirmed,
+            confirmedAt: confirmation.confirmedAt
+              ? new Date(confirmation.confirmedAt)
+              : null,
+            error: confirmation.error,
+            runAt: now,
+          });
       }
     }
   }
