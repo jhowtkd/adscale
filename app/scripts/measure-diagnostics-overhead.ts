@@ -4,7 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { pathToFileURL } from "node:url";
-import { DIAGNOSTIC_SCHEMA_VERSION } from "../src/server/diagnostics/contract";
+import {
+  DIAGNOSTIC_EXPORT_BUDGET,
+  DIAGNOSTIC_SCHEMA_VERSION,
+} from "../src/server/diagnostics/contract";
 import type { DiagnosticEventEnvelope } from "../src/server/diagnostics/contract";
 import { redactTelemetry } from "../src/lib/redact-telemetry";
 import { splitProbeContext } from "./run-diagnostics-split-matrix";
@@ -276,9 +279,17 @@ async function measureOn(
   warmup: number,
 ): Promise<{ samples: number[]; flushMs: number; enqueued: number }> {
   const { createDiagnosticJournal } = await import("../src/server/diagnostics/journal");
+  // The synchronous burst bypasses the 1s drain by design (per-op cost is
+  // the measured quantity), so both production caps are lifted for the
+  // synthetic load — count and bytes alike. The byte bound is provably
+  // sufficient: every buffered row is at most maxEventBytes (oversize rows
+  // are reduced or dropped at enqueue), and at most maxBufferedEvents rows
+  // are ever buffered. Cap behavior itself stays covered by journal.test.ts.
+  const capacity = ops + warmup + 16;
   const journal = createDiagnosticJournal({
     persistBatch: async (rows) => ({ inserted: rows.length, duplicates: 0 }),
-    maxBufferedEvents: ops + warmup + 16,
+    maxBufferedEvents: capacity,
+    maxBufferedBytes: capacity * DIAGNOSTIC_EXPORT_BUDGET.maxEventBytes,
   });
   const operationId = `overhead-${randomUUID()}`;
   for (let i = 0; i < warmup; i += 1) instrumentedOp((event) => journal.enqueue(event), operationId);
