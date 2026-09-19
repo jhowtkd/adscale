@@ -6,10 +6,13 @@ const axePath = path.resolve(process.cwd(), "node_modules/axe-core/axe.min.js");
 
 test("home pública permite começar sem consultar dados privados", async ({ page }) => {
   const forbidden: string[] = [];
+  const offOrigin: string[] = [];
+  const origin = new URL(process.env.E2E_BASE_URL ?? "http://localhost:3000").origin;
   page.on("request", (request) => {
-    const pathname = new URL(request.url()).pathname;
-    if (/^\/api\/(client-profiles|creative-work|campaigns|billing)(\/|$)/.test(pathname))
-      forbidden.push(pathname);
+    const url = new URL(request.url());
+    if (url.origin !== origin) offOrigin.push(url.origin + url.pathname);
+    if (/^\/api\/(client-profiles|creative-work|campaigns|billing)(\/|$)/.test(url.pathname))
+      forbidden.push(url.pathname);
   });
   await page.goto("/hi");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("sua marca");
@@ -18,6 +21,8 @@ test("home pública permite começar sem consultar dados privados", async ({ pag
   await expect(page.locator("#ag-dialog")).toBeVisible();
   await expect(page.getByRole("button", { name: "Entrar e continuar" })).toBeVisible();
   expect(forbidden).toEqual([]);
+  // Old-service independence: the public journey never leaves the app origin.
+  expect(offOrigin).toEqual([]);
 });
 
 test("não cria rolagem horizontal na largura mínima", async ({ page }) => {
