@@ -46,8 +46,12 @@ services:
         value: https://adscale.jhonatansoares.com
       - key: MARKETING_URL
         value: https://adscale.jhonatansoares.com/hi
-      - key: MARKETING_UPSTREAM_URL
-        value: https://adscale-marketing.onrender.com
+      - key: PUBLIC_STUDIO_HOME_ENABLED
+        value: "false"
+      - key: PUBLIC_STUDIO_IMPORT_ENABLED
+        value: "false"
+      - key: PUBLIC_STUDIO_ATTACHMENTS_ENABLED
+        value: "false"
       - key: MARKETING_ALLOWED_ORIGINS
         value: https://adscale.jhonatansoares.com
       - key: OPENAI_API_KEY

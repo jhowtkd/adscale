@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { authClient } from "@/lib/auth-client";
+import { authEntryHref, safeCallbackPath } from "@/lib/auth-callback";
 
 interface ResetPasswordState {
   newPassword: string;
@@ -58,6 +59,7 @@ function ResetPasswordContentInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+  const callbackUrl = safeCallbackPath(searchParams.get("callbackUrl"));
 
   const [state, dispatch] = useReducer(resetPasswordReducer, {
     newPassword: "",
@@ -96,7 +98,7 @@ function ResetPasswordContentInner() {
 
       dispatch({ success: true });
       setTimeout(() => {
-        router.push("/login");
+        router.push(authEntryHref("/login", callbackUrl));
       }, 2000);
     } catch (err) {
       dispatch({ error: err instanceof Error ? err.message : t("genericError") });
@@ -119,7 +121,7 @@ function ResetPasswordContentInner() {
             <div className="space-y-4">
               <AuthV6SuccessAlert>{t("passwordResetSuccess")}</AuthV6SuccessAlert>
               <p className="text-center text-sm text-[var(--text-secondary)]">
-                <Link href="/login" className={authTextLinkClass}>
+                <Link href={authEntryHref("/login", callbackUrl)} className={authTextLinkClass}>
                   {t("backToSignIn")}
                 </Link>
               </p>
@@ -157,7 +159,7 @@ function ResetPasswordContentInner() {
                 {loading ? t("resettingPassword") : t("resetPassword")}
               </button>
               <p className="text-center text-sm text-[var(--text-secondary)]">
-                <Link href="/login" className={authTextLinkClass}>
+                <Link href={authEntryHref("/login", callbackUrl)} className={authTextLinkClass}>
                   {t("backToSignIn")}
                 </Link>
               </p>

@@ -13,11 +13,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { authClient } from "@/lib/auth-client";
+import { authEntryHref, safeCallbackPath } from "@/lib/auth-callback";
 
 export default function ForgotPasswordContent() {
   const t = useTranslations("auth");
+  const searchParams = useSearchParams();
+  const callbackUrl = safeCallbackPath(searchParams.get("callbackUrl"));
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -31,7 +35,7 @@ export default function ForgotPasswordContent() {
     try {
       const { error: forgetError } = await authClient.requestPasswordReset({
         email,
-        redirectTo: "/reset-password",
+        redirectTo: authEntryHref("/reset-password", callbackUrl),
       });
 
       if (forgetError) {
@@ -60,7 +64,7 @@ export default function ForgotPasswordContent() {
             <div className="space-y-4">
               <AuthV6SuccessAlert>{t("resetLinkSent")}</AuthV6SuccessAlert>
               <p className="text-center text-sm text-[var(--text-secondary)]">
-                <Link href="/login" className={authTextLinkClass}>
+                <Link href={authEntryHref("/login", callbackUrl)} className={authTextLinkClass}>
                   {t("backToSignIn")}
                 </Link>
               </p>
@@ -87,7 +91,7 @@ export default function ForgotPasswordContent() {
                 {loading ? t("sendingResetLink") : t("sendResetLink")}
               </button>
               <p className="text-center text-sm text-[var(--text-secondary)]">
-                <Link href="/login" className={authTextLinkClass}>
+                <Link href={authEntryHref("/login", callbackUrl)} className={authTextLinkClass}>
                   {t("backToSignIn")}
                 </Link>
               </p>

@@ -133,10 +133,11 @@ function scrubContentString(value: string): string {
     // Keep the unscrubbed string; later passes still bound it.
   }
   try {
-    out = out
-      .replace(EMAIL_RE, REDACTED)
-      .replace(CPF_RE, REDACTED)
-      .replace(FORMATTED_PHONE_RE, REDACTED);
+    // EMAIL_RE backtracks quadratically on long @-less runs (e.g. a 100k
+    // token took ~4s); the linear pre-check is equivalent because the
+    // pattern cannot match without a literal "@".
+    if (out.includes("@")) out = out.replace(EMAIL_RE, REDACTED);
+    out = out.replace(CPF_RE, REDACTED).replace(FORMATTED_PHONE_RE, REDACTED);
   } catch {
     // Keep whatever survived the URL pass.
   }
