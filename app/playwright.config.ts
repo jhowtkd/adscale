@@ -38,5 +38,19 @@ export default defineConfig({
       workers: 1,
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: "guest-home-chromium",
+      testMatch: /guest-home-.*\.spec\.ts$/,
+      fullyParallel: false,
+      workers: 1,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "guest-home-webkit",
+      testMatch: /guest-home-(public|storage)\.spec\.ts$/,
+      fullyParallel: false,
+      workers: 1,
+      use: { ...devices["iPhone 13"] },
+    },
   ],
 });
