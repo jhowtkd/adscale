@@ -595,23 +595,80 @@
         "requestUpdated": "Pedido atualizado"
       },
       "planReview": {
-        "eyebrow": "Plano preparado", "title": "Revise seu plano", "subtitle": "A geração só começa após sua confirmação.",
-        "objective": "Objetivo", "materials": "Materiais", "preserveTitle": "Preservar", "exploreTitle": "Explorar", "format": "Formato", "quantity": "Quantidade", "pieces": "{count} peças", "none": "Sem materiais",
+        "eyebrow": "Plano preparado",
+        "title": "Revise seu plano",
+        "subtitle": "A geração só começa após sua confirmação.",
+        "objective": "Objetivo",
+        "materials": "Materiais",
+        "preserveTitle": "Preservar",
+        "exploreTitle": "Explorar",
+        "format": "Formato",
+        "quantity": "Quantidade",
+        "pieces": "{count} peças",
+        "none": "Sem materiais",
         "labels": {
-          "material": { "reference": "Referência", "art": "Arte" },
+          "material": {
+            "reference": "Referência",
+            "art": "Arte"
+          },
           "output": {
             "singlePiece": "Peça única",
             "newStyle": "Novo estilo",
-            "level": { "conservative": "Conservadora", "balanced": "Equilibrada", "bold": "Ousada" }
+            "level": {
+              "conservative": "Conservadora",
+              "balanced": "Equilibrada",
+              "bold": "Ousada"
+            }
           }
         },
-        "edit": "Editar plano", "confirm": "Confirmar e gerar", "confirming": "Confirmando",
-        "adjustments": { "title": "Ajustes", "action": "Edite o plano antes de confirmar e gerar." },
-        "protocol": { "variations": "Variações", "single": "Peça única", "formatAdaptation": "Adaptar formatos", "restyle": "Mudar estilo", "carousel": "Carrossel" },
-        "roles": { "content": "conteúdo", "style": "estilo", "both": "conteúdo e estilo", "piece_reference": "referência da peça", "original_art": "arte original" },
-        "treatment": { "identity_preservation": "preservar identidade", "recognizable_preservation": "preservar reconhecimento", "exact_application": "aplicação exata", "required_presence": "presença obrigatória", "visual_language": "linguagem visual", "style_direction": "direção de estilo" },
-        "preserve": { "verified_facts": "fatos verificados", "brand_requirements": "requisitos da marca", "source_content": "conteúdo da fonte", "source_visual_identity": "identidade visual", "piece_reference_identity": "identidade da referência", "piece_reference_recognizability": "reconhecimento da referência", "piece_reference_exact_application": "aplicação exata", "piece_reference_required_presence": "presença obrigatória" },
-        "explore": { "composition": "composição", "hierarchy": "hierarquia", "visual_language": "linguagem visual", "format_layout": "layout do formato", "new_execution": "nova execução", "piece_reference_visual_language": "linguagem da referência", "piece_reference_style_direction": "direção da referência" }
+        "edit": "Editar plano",
+        "confirm": "Confirmar e gerar",
+        "confirming": "Confirmando",
+        "adjustments": {
+          "title": "Ajustes",
+          "action": "Edite o plano antes de confirmar e gerar."
+        },
+        "protocol": {
+          "variations": "Variações",
+          "single": "Peça única",
+          "formatAdaptation": "Adaptar formatos",
+          "restyle": "Mudar estilo",
+          "carousel": "Carrossel"
+        },
+        "roles": {
+          "content": "conteúdo",
+          "style": "estilo",
+          "both": "conteúdo e estilo",
+          "piece_reference": "referência da peça",
+          "original_art": "arte original"
+        },
+        "treatment": {
+          "identity_preservation": "preservar identidade",
+          "recognizable_preservation": "preservar reconhecimento",
+          "exact_application": "aplicação exata",
+          "required_presence": "presença obrigatória",
+          "visual_language": "linguagem visual",
+          "style_direction": "direção de estilo"
+        },
+        "preserve": {
+          "verified_facts": "fatos verificados",
+          "brand_requirements": "requisitos da marca",
+          "source_content": "conteúdo da fonte",
+          "source_visual_identity": "identidade visual",
+          "piece_reference_identity": "identidade da referência",
+          "piece_reference_recognizability": "reconhecimento da referência",
+          "piece_reference_exact_application": "aplicação exata",
+          "piece_reference_required_presence": "presença obrigatória"
+        },
+        "explore": {
+          "composition": "composição",
+          "hierarchy": "hierarquia",
+          "visual_language": "linguagem visual",
+          "format_layout": "layout do formato",
+          "new_execution": "nova execução",
+          "piece_reference_visual_language": "linguagem da referência",
+          "piece_reference_style_direction": "direção da referência"
+        }
       },
       "composer": {
         "title": "Qual hipótese criativa vamos testar?",
@@ -674,9 +731,41 @@
         "addArt": "Adicionar arte",
         "progressiveAddArtReference": "Adicionar arte ou referência",
         "pieceReferences": {
-          "title": "Referências desta peça", "count": "{count} de 3 anexos", "add": "Adicionar referência", "limit": "Limite de 3 atingido", "uploading": "Enviando referência", "replace": "Substituir", "remove": "Remover", "retry": "Tentar novamente", "promote": "Salvar no treinamento da marca", "promoted": "Salvo no treinamento", "promotionFailed": "Não foi possível salvar no treinamento", "category": "Tipo", "choose": "Escolha um tipo", "instruction": "Como usar nesta arte?", "analyzing": "Analisando referência", "choiceRequired": "Escolha um tipo para continuar", "exactIncompatible": "Logo ou selo sem transparência utilizável", "ready": "Referência pronta", "failed": "Falha na análise",
-          "categories": { "person_or_character": "Personagem ou pessoa", "product_or_packaging": "Produto ou embalagem", "additional_logo_or_seal": "Logo ou selo adicional", "required_object_or_scene": "Objeto ou cenário obrigatório", "graphic_or_texture": "Grafismo ou textura", "style_reference": "Referência de estilo" },
-          "treatments": { "identity_preservation": "Preservação de identidade", "recognizable_preservation": "Preservação reconhecível", "exact_application": "Aplicação exata", "required_presence": "Presença obrigatória", "visual_language": "Linguagem visual", "style_direction": "Direção de estilo" }
+          "title": "Referências desta peça",
+          "count": "{count} de 3 anexos",
+          "add": "Adicionar referência",
+          "limit": "Limite de 3 atingido",
+          "uploading": "Enviando referência",
+          "replace": "Substituir",
+          "remove": "Remover",
+          "retry": "Tentar novamente",
+          "promote": "Salvar no treinamento da marca",
+          "promoted": "Salvo no treinamento",
+          "promotionFailed": "Não foi possível salvar no treinamento",
+          "category": "Tipo",
+          "choose": "Escolha um tipo",
+          "instruction": "Como usar nesta arte?",
+          "analyzing": "Analisando referência",
+          "choiceRequired": "Escolha um tipo para continuar",
+          "exactIncompatible": "Logo ou selo sem transparência utilizável",
+          "ready": "Referência pronta",
+          "failed": "Falha na análise",
+          "categories": {
+            "person_or_character": "Personagem ou pessoa",
+            "product_or_packaging": "Produto ou embalagem",
+            "additional_logo_or_seal": "Logo ou selo adicional",
+            "required_object_or_scene": "Objeto ou cenário obrigatório",
+            "graphic_or_texture": "Grafismo ou textura",
+            "style_reference": "Referência de estilo"
+          },
+          "treatments": {
+            "identity_preservation": "Preservação de identidade",
+            "recognizable_preservation": "Preservação reconhecível",
+            "exact_application": "Aplicação exata",
+            "required_presence": "Presença obrigatória",
+            "visual_language": "Linguagem visual",
+            "style_direction": "Direção de estilo"
+          }
         },
         "restyleAddArt": "Adicionar arte original",
         "addStyleReference": "Adicionar referência de estilo",
@@ -690,68 +779,77 @@
         "sourceUploading": "Enviando imagem",
         "sourceReady": "Imagem pronta",
         "fullBriefing": "Briefing visual sugerido pela IA",
-      "inferredBriefingTitle": "Briefing inferido",
-      "inferredBriefingSentence": "A IA entendeu assim: {message}; objetivo {objective}; público {audience}; oferta {offer}; tom {tone}; restrições {constraints}.",
-      "inspirations": {
-        "add": "Adicionar referência",
-        "title": "Referências da marca",
-        "stripEyebrow": "Referências em destaque",
-        "stripTitle": "Comece por uma inspiração",
-        "libraryEyebrow": "Biblioteca da marca",
-        "libraryTitle": "Inspirações",
-        "filtersAria": "Filtros de origem",
-        "filterAll": "Todas",
-        "filterApproved": "Aprovadas",
-        "filterTemplates": "Templates",
-        "filterCurated": "Seleção ADScale",
-        "loading": "Carregando inspirações",
-        "loadFailed": "Não foi possível carregar as inspirações.",
-        "retry": "Tentar novamente",
-        "empty": "Ainda não há inspirações disponíveis.",
-        "loadMore": "Carregar mais",
-        "loadingMore": "Carregando mais",
-        "attachFailed": "Não foi possível adicionar a referência. Tente novamente.",
-        "previewAria": "Visualizar inspiração {title}",
-        "previewAlt": "Prévia de {title}",
-        "useForStyle": "Usar para mudar o estilo",
-        "origin": {
-          "curated": "Seleção ADScale",
-          "approved_work": "Trabalho aprovado",
-          "template": "Template"
-        }
-      },
-      "recipes": {
-        "title": "Receitas visuais",
-        "use": "Usar receita"
-      },
-      "offers": {
-        "title": "Ofertas da marca",
-        "use": "Usar oferta",
-        "save": "Salvar oferta",
-        "validUntil": "Válida até"
-      },
-      "proposal": {
-        "level": { "conservative": "Conservadora", "balanced": "Equilibrada", "bold": "Ousada" },
-        "status": { "queued": "na fila", "processing": "gerando", "completed": "pronta", "failed": "falhou" },
-        "progress": "{ready} de {total} prontas",
-        "thumbnailsAria": "Miniaturas das propostas",
-        "selectAria": "Selecionar {name} em {format}",
-        "expandAria": "Ampliar {name} em {format}",
-        "previewAlt": "Proposta {name}, formato {format}",
-        "approvalSurfaceAria": "Superfície de aprovação",
-        "variations": "Variações ({count})",
-        "variation": "Variação {count}",
-        "variationAlt": "Variação {count}",
-        "originalPiece": "Peça original",
-        "retry": "Repetir esta proposta",
-        "compare": "Comparar",
-        "compareTitle": "Comparar variações",
-        "currentVariation": "Variação atual",
-        "previousVariation": "Variação anterior",
-        "expandedDescription": "Inspeção ampliada na proporção original, sem corte.",
-        "expandedAlt": "Proposta {name}, formato {format}, ampliada"
-      },
-      "briefingProvenance": "Proveniência do briefing",
+        "inferredBriefingTitle": "Briefing inferido",
+        "inferredBriefingSentence": "A IA entendeu assim: {message}; objetivo {objective}; público {audience}; oferta {offer}; tom {tone}; restrições {constraints}.",
+        "inspirations": {
+          "add": "Adicionar referência",
+          "title": "Referências da marca",
+          "stripEyebrow": "Referências em destaque",
+          "stripTitle": "Comece por uma inspiração",
+          "libraryEyebrow": "Biblioteca da marca",
+          "libraryTitle": "Inspirações",
+          "filtersAria": "Filtros de origem",
+          "filterAll": "Todas",
+          "filterApproved": "Aprovadas",
+          "filterTemplates": "Templates",
+          "filterCurated": "Seleção ADScale",
+          "loading": "Carregando inspirações",
+          "loadFailed": "Não foi possível carregar as inspirações.",
+          "retry": "Tentar novamente",
+          "empty": "Ainda não há inspirações disponíveis.",
+          "loadMore": "Carregar mais",
+          "loadingMore": "Carregando mais",
+          "attachFailed": "Não foi possível adicionar a referência. Tente novamente.",
+          "previewAria": "Visualizar inspiração {title}",
+          "previewAlt": "Prévia de {title}",
+          "useForStyle": "Usar para mudar o estilo",
+          "origin": {
+            "curated": "Seleção ADScale",
+            "approved_work": "Trabalho aprovado",
+            "template": "Template"
+          }
+        },
+        "recipes": {
+          "title": "Receitas visuais",
+          "use": "Usar receita"
+        },
+        "offers": {
+          "title": "Ofertas da marca",
+          "use": "Usar oferta",
+          "save": "Salvar oferta",
+          "validUntil": "Válida até"
+        },
+        "proposal": {
+          "level": {
+            "conservative": "Conservadora",
+            "balanced": "Equilibrada",
+            "bold": "Ousada"
+          },
+          "status": {
+            "queued": "na fila",
+            "processing": "gerando",
+            "completed": "pronta",
+            "failed": "falhou"
+          },
+          "progress": "{ready} de {total} prontas",
+          "thumbnailsAria": "Miniaturas das propostas",
+          "selectAria": "Selecionar {name} em {format}",
+          "expandAria": "Ampliar {name} em {format}",
+          "previewAlt": "Proposta {name}, formato {format}",
+          "approvalSurfaceAria": "Superfície de aprovação",
+          "variations": "Variações ({count})",
+          "variation": "Variação {count}",
+          "variationAlt": "Variação {count}",
+          "originalPiece": "Peça original",
+          "retry": "Repetir esta proposta",
+          "compare": "Comparar",
+          "compareTitle": "Comparar variações",
+          "currentVariation": "Variação atual",
+          "previousVariation": "Variação anterior",
+          "expandedDescription": "Inspeção ampliada na proporção original, sem corte.",
+          "expandedAlt": "Proposta {name}, formato {format}, ampliada"
+        },
+        "briefingProvenance": "Proveniência do briefing",
         "briefingProvenanceRequest": "Pedido do operador",
         "briefingProvenanceBrand": "Marca: {brand}",
         "briefingProvenanceSource": "Fonte: {source}",
@@ -909,7 +1007,7 @@
           "reviewAnnotations": "{count, plural, one {# comentário} other {# comentários}}",
           "layersUnavailable": "Separação em camadas indisponível para este trabalho.",
           "retryThroughReview": "Revisar nova tentativa",
-      "resumePreviousInstructions": "Retomar instruções anteriores",
+          "resumePreviousInstructions": "Retomar instruções anteriores",
           "expandPiece": "Ampliar peça",
           "pieceAlt": "Peça {label}",
           "formatTrigger": "Adaptar formato",
@@ -936,8 +1034,34 @@
           "campaignLabel": "Agrupar em campanha",
           "noCampaign": "Sem campanha",
           "failedGeneration": "Falha na geração",
-          "status": { "queued": "Na fila", "processing": "Processando", "completed": "Pronto", "failed": "Falhou" },
-          "variationShort": "v{count}", "proposalAlt": "Proposta {label}", "generating": "Gerando...", "retry": "Tentar novamente", "retryProposal": "Repetir esta proposta", "approving": "Aprovando", "approved": "Aprovada", "approve": "Aprovar", "download": "Baixar", "editImage": "Editar imagem", "editLayers": "Editar camadas", "viewLayers": "Visualizar camadas", "refine": "Refinar", "revisionInstruction": "O que você quer mudar?", "optionalAttachment": "Anexo opcional", "generateVariation": "Gerar nova variação", "scanningLayers": "Identificando elementos, pessoas e textos da imagem...", "askAiPlaceholder": "Diga o que mudar (ex: 'deixa ela séria', 'mude a cor')...", "elementPrompt": "Prompt do elemento", "editWithAi": "Editar com IA", "clearSelection": "Limpar seleção", "adjustingLayer": "Ajustando {name}…",
+          "status": {
+            "queued": "Na fila",
+            "processing": "Processando",
+            "completed": "Pronto",
+            "failed": "Falhou"
+          },
+          "variationShort": "v{count}",
+          "proposalAlt": "Proposta {label}",
+          "generating": "Gerando...",
+          "retry": "Tentar novamente",
+          "retryProposal": "Repetir esta proposta",
+          "approving": "Aprovando",
+          "approved": "Aprovada",
+          "approve": "Aprovar",
+          "download": "Baixar",
+          "editImage": "Editar imagem",
+          "editLayers": "Editar camadas",
+          "viewLayers": "Visualizar camadas",
+          "refine": "Refinar",
+          "revisionInstruction": "O que você quer mudar?",
+          "optionalAttachment": "Anexo opcional",
+          "generateVariation": "Gerar nova variação",
+          "scanningLayers": "Identificando elementos, pessoas e textos da imagem...",
+          "askAiPlaceholder": "Diga o que mudar (ex: 'deixa ela séria', 'mude a cor')...",
+          "elementPrompt": "Prompt do elemento",
+          "editWithAi": "Editar com IA",
+          "clearSelection": "Limpar seleção",
+          "adjustingLayer": "Ajustando {name}…",
           "approveHint": "Seleciona esta peça como a versão aprovada do trabalho.",
           "downloadHint": "Baixa o arquivo desta versão.",
           "shareHint": "Cria um link para alguém revisar esta peça.",
@@ -1058,7 +1182,11 @@
           "artRefinementNeedsReview": "Ainda precisa de revisão: {issue}",
           "artRefinementReviewMore": "Revisar mais uma vez",
           "personFidelityTitle": "Fidelidade das pessoas",
-          "personFidelityStatus": { "consistent": "Preservada", "mismatch": "Divergente", "inconclusive": "Inconclusiva" },
+          "personFidelityStatus": {
+            "consistent": "Preservada",
+            "mismatch": "Divergente",
+            "inconclusive": "Inconclusiva"
+          },
           "personFidelityConfirm": "Confirmo que é a pessoa e a anatomia foi preservada",
           "personFidelityReject": "Há divergência",
           "personFidelityBlocked": "Divergência confirmada — gere uma nova imagem.",
@@ -1132,22 +1260,37 @@
           "removeSlideAria": "Remover a tela {position}",
           "editorTitle": "Editar a tela {position}",
           "roleLabel": "Função narrativa",
-          "role_hook": "Gancho", "role_context": "Contexto", "role_problem": "Problema", "role_argument": "Argumento",
-          "role_evidence": "Evidência", "role_method": "Método", "role_bridge": "Ponte", "role_closing": "Fechamento", "role_cta": "Chamada",
+          "role_hook": "Gancho",
+          "role_context": "Contexto",
+          "role_problem": "Problema",
+          "role_argument": "Argumento",
+          "role_evidence": "Evidência",
+          "role_method": "Método",
+          "role_bridge": "Ponte",
+          "role_closing": "Fechamento",
+          "role_cta": "Chamada",
           "purposeLabel": "Propósito",
           "primaryTextLabel": "Texto principal",
           "secondaryTextLabel": "Texto de apoio",
           "layoutFamilyLabel": "Composição",
-          "layout_impact": "Impacto", "layout_development": "Desenvolvimento", "layout_respite": "Respiro",
+          "layout_impact": "Impacto",
+          "layout_development": "Desenvolvimento",
+          "layout_respite": "Respiro",
           "densityLabel": "Densidade",
-          "density_high": "Alta", "density_medium": "Média", "density_low": "Baixa",
+          "density_high": "Alta",
+          "density_medium": "Média",
+          "density_low": "Baixa",
           "authorityLabel": "Autoria do texto",
           "authority_user_input": "Enviada por você",
           "authority_ai_proposal": "Proposta da IA",
           "authority_human_edit": "Editada por você",
           "humanEditNote": "Esta tela foi editada por você. Sugestões continuam visíveis, mas nunca trocam o seu texto sem aceitação.",
           "statusLabel": "Situação",
-          "status_draft": "Rascunho", "status_queued": "Na fila", "status_processing": "Gerando", "status_completed": "Pronta", "status_failed": "Falhou",
+          "status_draft": "Rascunho",
+          "status_queued": "Na fila",
+          "status_processing": "Gerando",
+          "status_completed": "Pronta",
+          "status_failed": "Falhou",
           "suggestionTitle": "Sugestão da IA",
           "suggestionBefore": "Antes",
           "suggestionAfter": "Depois",
@@ -1185,7 +1328,6 @@
           "refinementPending": "Ainda precisa de revisão: {issue}",
           "refinementBestDeck": "Melhor deck válido anterior mantido."
         }
-
       },
       "tools": {
         "title": "Escolha um protocolo de criação",
@@ -1329,8 +1471,53 @@
           "shortLabel": "Aprendiz",
           "description": "Monte seu laboratório e faça seu primeiro experimento criativo."
         },
-        "inspirations": { "add": "Adicionar referência", "title": "Referências da marca", "loading": "Carregando inspirações", "loadFailed": "Não foi possível carregar as inspirações.", "retry": "Tentar novamente", "empty": "Nenhuma inspiração disponível ainda.", "attachFailed": "Não foi possível adicionar a referência. Tente novamente.", "previewAria": "Pré-visualizar inspiração {title}", "previewAlt": "Pré-visualização de {title}", "useForStyle": "Usar para mudar estilo", "origin": { "curated": "Seleção ADScale", "approved_work": "Trabalho aprovado", "template": "Template" } },
-        "proposal": { "level": { "conservative": "Conservadora", "balanced": "Equilibrada", "bold": "Ousada" }, "status": { "queued": "na fila", "processing": "gerando", "completed": "pronta", "failed": "falhou" }, "progress": "{ready} de {total} prontas", "thumbnailsAria": "Miniaturas das propostas", "selectAria": "Selecionar {name} em {format}", "expandAria": "Ampliar {name} em {format}", "previewAlt": "Proposta {name}, formato {format}", "approvalSurfaceAria": "Superfície de aprovação", "variations": "Variações ({count})", "variation": "Variação {count}", "variationAlt": "Variação {count}", "originalPiece": "Peça original", "retry": "Repetir esta proposta", "compare": "Comparar", "compareTitle": "Comparar variações", "currentVariation": "Variação atual", "previousVariation": "Variação anterior", "expandedDescription": "Inspeção ampliada na proporção original, sem corte.", "expandedAlt": "Proposta {name}, formato {format}, ampliada" },
+        "inspirations": {
+          "add": "Adicionar referência",
+          "title": "Referências da marca",
+          "loading": "Carregando inspirações",
+          "loadFailed": "Não foi possível carregar as inspirações.",
+          "retry": "Tentar novamente",
+          "empty": "Nenhuma inspiração disponível ainda.",
+          "attachFailed": "Não foi possível adicionar a referência. Tente novamente.",
+          "previewAria": "Pré-visualizar inspiração {title}",
+          "previewAlt": "Pré-visualização de {title}",
+          "useForStyle": "Usar para mudar estilo",
+          "origin": {
+            "curated": "Seleção ADScale",
+            "approved_work": "Trabalho aprovado",
+            "template": "Template"
+          }
+        },
+        "proposal": {
+          "level": {
+            "conservative": "Conservadora",
+            "balanced": "Equilibrada",
+            "bold": "Ousada"
+          },
+          "status": {
+            "queued": "na fila",
+            "processing": "gerando",
+            "completed": "pronta",
+            "failed": "falhou"
+          },
+          "progress": "{ready} de {total} prontas",
+          "thumbnailsAria": "Miniaturas das propostas",
+          "selectAria": "Selecionar {name} em {format}",
+          "expandAria": "Ampliar {name} em {format}",
+          "previewAlt": "Proposta {name}, formato {format}",
+          "approvalSurfaceAria": "Superfície de aprovação",
+          "variations": "Variações ({count})",
+          "variation": "Variação {count}",
+          "variationAlt": "Variação {count}",
+          "originalPiece": "Peça original",
+          "retry": "Repetir esta proposta",
+          "compare": "Comparar",
+          "compareTitle": "Comparar variações",
+          "currentVariation": "Variação atual",
+          "previousVariation": "Variação anterior",
+          "expandedDescription": "Inspeção ampliada na proporção original, sem corte.",
+          "expandedAlt": "Proposta {name}, formato {format}, ampliada"
+        },
         "analista_criativo": {
           "label": "Analista Criativo",
           "shortLabel": "Analista",
@@ -3593,18 +3780,48 @@
     "openLink": "Abrir {title}",
     "topicsTitle": "Como trabalhar no ADScale",
     "links": {
-      "create": { "title": "Criar trabalho", "description": "Comece um Trabalho e gere variações criativas." },
-      "templates": { "title": "Templates", "description": "Reutilize briefings aprovados em novos Trabalhos." },
-      "library": { "title": "Biblioteca", "description": "Encontre referências, logos, fotografias e resultados." },
-      "feedback": { "title": "Feedback", "description": "Envie dúvidas, bugs ou sugestões para o time." }
+      "create": {
+        "title": "Criar trabalho",
+        "description": "Comece um Trabalho e gere variações criativas."
+      },
+      "templates": {
+        "title": "Templates",
+        "description": "Reutilize briefings aprovados em novos Trabalhos."
+      },
+      "library": {
+        "title": "Biblioteca",
+        "description": "Encontre referências, logos, fotografias e resultados."
+      },
+      "feedback": {
+        "title": "Feedback",
+        "description": "Envie dúvidas, bugs ou sugestões para o time."
+      }
     },
     "topics": {
-      "protocols": { "title": "Protocolos", "body": "Peça Única cria uma arte a partir do briefing. Variações preserva a peça base e cria alternativas. Restyle preserva o conteúdo e usa outra referência para a linguagem visual." },
-      "references": { "title": "Uso de referências", "body": "Escolha referências compatíveis com a função do Trabalho e confirme a origem. Uma referência visual orienta composição, cor e ritmo; ela não é fonte automática de fatos." },
-      "contentStyle": { "title": "Conteúdo versus estilo", "body": "Use a peça base para marca, produto, oferta, CTA e demais fatos. Use a referência de estilo apenas para direção visual, sem copiar afirmações ou texto." },
-      "inference": { "title": "Inferências e desconhecidos", "body": "O sistema identifica o que foi fornecido, separa inferência visual e mantém desconhecido quando não há evidência. Revise o briefing inferido antes de gerar." },
-      "failures": { "title": "Falhas", "body": "Quando uma fonte, preview ou geração falhar, tente novamente ou substitua o material. Falha não é aprovação e não deve ocultar o próximo passo." },
-      "approval": { "title": "Aprovação", "body": "Revise o resultado e o veredito objetivo. Itens inconclusivos ou legados pedem confirmação humana; itens reprovados precisam ser refeitos." }
+      "protocols": {
+        "title": "Protocolos",
+        "body": "Peça Única cria uma arte a partir do briefing. Variações preserva a peça base e cria alternativas. Restyle preserva o conteúdo e usa outra referência para a linguagem visual."
+      },
+      "references": {
+        "title": "Uso de referências",
+        "body": "Escolha referências compatíveis com a função do Trabalho e confirme a origem. Uma referência visual orienta composição, cor e ritmo; ela não é fonte automática de fatos."
+      },
+      "contentStyle": {
+        "title": "Conteúdo versus estilo",
+        "body": "Use a peça base para marca, produto, oferta, CTA e demais fatos. Use a referência de estilo apenas para direção visual, sem copiar afirmações ou texto."
+      },
+      "inference": {
+        "title": "Inferências e desconhecidos",
+        "body": "O sistema identifica o que foi fornecido, separa inferência visual e mantém desconhecido quando não há evidência. Revise o briefing inferido antes de gerar."
+      },
+      "failures": {
+        "title": "Falhas",
+        "body": "Quando uma fonte, preview ou geração falhar, tente novamente ou substitua o material. Falha não é aprovação e não deve ocultar o próximo passo."
+      },
+      "approval": {
+        "title": "Aprovação",
+        "body": "Revise o resultado e o veredito objetivo. Itens inconclusivos ou legados pedem confirmação humana; itens reprovados precisam ser refeitos."
+      }
     }
   },
   "copyGenerator": {
@@ -4231,8 +4448,41 @@
         "creditSurprises": "{count} surpresas de crédito"
       },
       "studio": {
-        "title": "Estúdio progressivo", "stage": "Estágio", "stageAria": "Estágio de rollout", "sampleSufficient": "Amostra suficiente", "sampleInsufficient": "Amostra insuficiente", "requirement": "{observation}; ≥{sessions} sessões e ≥{generations} gerações confirmadas por braço", "incompleteData": "Dados incompletos: a consulta atingiu o limite de eventos", "observation7Days": "7 dias completos", "observationAfter50": "após 50% + 14 dias completos", "observationWindowMissing": "Os filtros selecionados cobrem menos de {days} dias completos", "priorStageConfirmation": "Confirmo que o estágio de rollout de 50% atingiu seu gate antes desta revisão", "priorStageMissing": "Confirme a evidência do rollout anterior de 50% antes de avaliar o estágio de 100%", "failureCompletion": "Conclusão mais de 5 pp abaixo do controle", "failureAbandonment": "Abandono mais de 5 pp acima do controle", "failureGeneration": "Falha mais de 0,5 pp acima do controle", "failureRefund": "Reembolso mais de 0,5 pp acima do controle", "metric": "Métrica", "control": "Controle", "progressive": "Progressivo",
-        "metrics": { "eligibleSessions": "Sessões elegíveis", "confirmedGenerations": "Gerações confirmadas", "goalSwitches": "Trocas de objetivo", "sourceRoleCorrections": "Correções de papel", "successfulResumes": "Retomadas bem-sucedidas", "refinements": "Refinamentos iniciados", "debited": "Gerações debitadas", "compensated": "Gerações compensadas", "completion24h": "Conclusão em 24 h", "abandonment": "Abandono antes de gerar", "failure": "Falha", "refund": "Reembolso", "entryToBriefing": "Entrada até briefing", "entryToPlan": "Entrada até plano" }
+        "title": "Estúdio progressivo",
+        "stage": "Estágio",
+        "stageAria": "Estágio de rollout",
+        "sampleSufficient": "Amostra suficiente",
+        "sampleInsufficient": "Amostra insuficiente",
+        "requirement": "{observation}; ≥{sessions} sessões e ≥{generations} gerações confirmadas por braço",
+        "incompleteData": "Dados incompletos: a consulta atingiu o limite de eventos",
+        "observation7Days": "7 dias completos",
+        "observationAfter50": "após 50% + 14 dias completos",
+        "observationWindowMissing": "Os filtros selecionados cobrem menos de {days} dias completos",
+        "priorStageConfirmation": "Confirmo que o estágio de rollout de 50% atingiu seu gate antes desta revisão",
+        "priorStageMissing": "Confirme a evidência do rollout anterior de 50% antes de avaliar o estágio de 100%",
+        "failureCompletion": "Conclusão mais de 5 pp abaixo do controle",
+        "failureAbandonment": "Abandono mais de 5 pp acima do controle",
+        "failureGeneration": "Falha mais de 0,5 pp acima do controle",
+        "failureRefund": "Reembolso mais de 0,5 pp acima do controle",
+        "metric": "Métrica",
+        "control": "Controle",
+        "progressive": "Progressivo",
+        "metrics": {
+          "eligibleSessions": "Sessões elegíveis",
+          "confirmedGenerations": "Gerações confirmadas",
+          "goalSwitches": "Trocas de objetivo",
+          "sourceRoleCorrections": "Correções de papel",
+          "successfulResumes": "Retomadas bem-sucedidas",
+          "refinements": "Refinamentos iniciados",
+          "debited": "Gerações debitadas",
+          "compensated": "Gerações compensadas",
+          "completion24h": "Conclusão em 24 h",
+          "abandonment": "Abandono antes de gerar",
+          "failure": "Falha",
+          "refund": "Reembolso",
+          "entryToBriefing": "Entrada até briefing",
+          "entryToPlan": "Entrada até plano"
+        }
       },
       "groups": {
         "coreFunnels": "Funis principais",
@@ -4598,5 +4848,52 @@
   "testerMode": {
     "badge": "Tester",
     "badgeAriaLabel": "Conta tester com uso ilimitado"
+  },
+  "publicHome": {
+    "fallbackEyebrow": "ADSCALE",
+    "fallbackTitle": "Seu Estúdio continua por aqui.",
+    "fallbackDescription": "Entre na sua conta para continuar seus trabalhos.",
+    "fallbackLogin": "Entrar no Estúdio"
+  },
+  "guestEntry": {
+    "loading": "Carregando seu pedido…",
+    "missingTitle": "Pedido indisponível neste navegador.",
+    "missingBody": "Ele pode ter expirado ou sido preparado em outro navegador ou dispositivo. A retomada funciona na mesma origem e no mesmo perfil, enquanto os dados existirem.",
+    "backToHome": "Voltar à página inicial",
+    "reviewEyebrow": "Pedido da página inicial",
+    "requestLabel": "Seu pedido",
+    "referenceOne": "1 referência",
+    "referenceOther": "{count} referências",
+    "brandLabel": "Marca",
+    "noBrandTitle": "Você ainda não tem uma marca.",
+    "noBrandBody": "Crie uma para continuar — seu pedido está guardado e nada será perdido.",
+    "selectBrand": "Escolha a marca que deve receber este pedido.",
+    "brandLoadError": "Não foi possível carregar suas marcas.",
+    "retry": "Tentar novamente",
+    "confirm": "Usar este pedido",
+    "transferring": "Transferindo…",
+    "discard": "Descartar cópia local",
+    "discardConfirm": "Confirmar descarte",
+    "discardCancel": "Manter",
+    "discardDone": "Cópia local descartada. O Estúdio continua disponível normalmente.",
+    "goToStudio": "Ir para o Estúdio",
+    "copy": "Copiar texto",
+    "copied": "Pedido copiado.",
+    "conflictTitle": "Você tem um trabalho aberto e um pedido da página inicial.",
+    "conflictBody": "Escolha como continuar. Nada será aplicado sobre o trabalho existente sem a sua decisão.",
+    "openExisting": "Abrir o trabalho existente",
+    "continueWithGuest": "Continuar com o pedido da página inicial",
+    "importDisabledTitle": "A importação está desligada no momento.",
+    "importDisabledBody": "Seu pedido continua guardado neste navegador. Copie o texto ou descarte a cópia local.",
+    "noWorkspaceTitle": "Sua conta ainda não tem um espaço de trabalho.",
+    "noWorkspaceBody": "Conclua a configuração da conta e volte — seu pedido continua guardado aqui.",
+    "blockedMessage": "Não foi possível importar agora. Seu pedido continua guardado.",
+    "partialMessage": "Algumas referências ainda estão pendentes.",
+    "contextChanged": "A sessão ou a marca mudou durante a importação. Revise e tente novamente.",
+    "partialPending": "Faltam {count} referências.",
+    "partialRetry": "Tentar referências pendentes",
+    "textOnlyConfirm": "Importar só o texto",
+    "attachmentsDisabledMessage": "Os anexos estão desligados. Seus arquivos continuam guardados; importe só o texto ou tente mais tarde.",
+    "partialPendingOne": "Falta 1 referência."
   }
 }

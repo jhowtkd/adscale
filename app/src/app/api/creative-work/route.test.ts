@@ -23,6 +23,7 @@ const listInspirationsMock = vi.hoisted(() => vi.fn());
 const updateSourceCasMock = vi.hoisted(() => vi.fn());
 const createDraftWithSourceMock = vi.hoisted(() => vi.fn());
 const getCreativeWorkMock = vi.hoisted(() => vi.fn());
+const getCreativeWorkByDraftKeyMock = vi.hoisted(() => vi.fn());
 const inngestSendMock = vi.hoisted(() => vi.fn());
 const analyzeSourceMock = vi.hoisted(() => vi.fn());
 
@@ -69,6 +70,7 @@ vi.mock("@/server/repositories/commercial-offer", () => ({
 vi.mock("@/server/repositories/creative-work", () => ({
   createCreativeWorkDraftWithSource: (...args: unknown[]) => createDraftWithSourceMock(...args),
   getCreativeWork: (...args: unknown[]) => getCreativeWorkMock(...args),
+  getCreativeWorkByDraftKey: (...args: unknown[]) => getCreativeWorkByDraftKeyMock(...args),
   updateCreativeWorkSourceIfUnchanged: (...args: unknown[]) => updateSourceCasMock(...args),
 }));
 
@@ -180,6 +182,31 @@ describe("GET /api/creative-work", () => {
     expect(res.status).toBe(200);
     expect(listVisualRecipes).toHaveBeenCalledWith("workspace-1", profileId, expect.objectContaining({ limit: 24 }));
     expect(body.recipes).toEqual([{ id: "recipe-1", clientProfileId: profileId }]);
+  });
+
+  it("returns the work committed under a draft key", async () => {
+    const draftKey = "aa111111-1111-4111-8111-111111111111";
+    getCreativeWorkByDraftKeyMock.mockResolvedValue({ id: "work-1", draftKey });
+    const res = await GET(new Request(
+      `http://localhost/api/creative-work?view=draftByKey&draftKey=${draftKey}`));
+    expect(res.status).toBe(200);
+    expect(getCreativeWorkByDraftKeyMock).toHaveBeenCalledWith("workspace-1", "user-1", draftKey);
+    expect(await res.json()).toEqual({ work: { id: "work-1", draftKey } });
+    expect(listMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when no work matches the draft key", async () => {
+    getCreativeWorkByDraftKeyMock.mockResolvedValue(null);
+    const res = await GET(new Request(
+      "http://localhost/api/creative-work?view=draftByKey&draftKey=aa111111-1111-4111-8111-111111111111"));
+    expect(res.status).toBe(404);
+  });
+
+  it("rejects a non-uuid draft key", async () => {
+    const res = await GET(new Request(
+      "http://localhost/api/creative-work?view=draftByKey&draftKey=abc"));
+    expect(res.status).toBe(400);
+    expect(getCreativeWorkByDraftKeyMock).not.toHaveBeenCalled();
   });
 
   it("separa produção da listagem canônica e não despacha geração", async () => {
