@@ -45,12 +45,12 @@ describe("proxy auth routing", () => {
     expect(res.status).toBe(200);
   });
 
-  it("redirects authenticated /login to dashboard", async () => {
+  it("lets cookie-bearing /login through (session jump lives in the page)", async () => {
     const res = await proxy(
       requestFor("/login", { "better-auth.session_token": "test" })
     );
-    expect(res.status).toBe(307);
-    expect(res.headers.get("location")).toBe("http://localhost:3000/");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
   });
 
   it("sets X-Robots-Tag on auth entry paths", async () => {

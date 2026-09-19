@@ -13,11 +13,11 @@ import {
 import PasswordInput from "@/components/auth/PasswordInput";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { authClient } from "@/lib/auth-client";
-import { safeCallbackPath } from "@/lib/auth-callback";
+import { authEntryHref, safeCallbackPath } from "@/lib/auth-callback";
 import { cn } from "@/lib/utils";
 
 interface LoginState {
@@ -52,7 +52,6 @@ function loginReducer(state: LoginState, action: LoginAction): LoginState {
 }
 
 export default function LoginContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = safeCallbackPath(searchParams.get("callbackUrl"));
   const t = useTranslations("auth");
@@ -76,8 +75,10 @@ export default function LoginContent() {
         throw new Error(data.message || "Invalid credentials");
       }
 
-      router.push(callbackUrl);
-      router.refresh();
+      // Hard navigation: the session cookie was just set, so the
+      // destination must render server-side with the fresh session.
+      // Client-side push+refresh drops the navigation in production.
+      window.location.href = callbackUrl;
     } catch (err) {
       dispatch({ type: "patch", payload: { error: err instanceof Error ? err.message : "Login failed" } });
     } finally {
@@ -186,7 +187,7 @@ export default function LoginContent() {
                     autoComplete="current-password"
                   />
                   <p className="text-right">
-                    <Link href="/forgot-password" className={cn("text-xs", authTextLinkClass)}>
+                    <Link href={authEntryHref("/forgot-password", callbackUrl)} className={cn("text-xs", authTextLinkClass)}>
                       {t("forgotPassword")}
                     </Link>
                   </p>
@@ -208,7 +209,7 @@ export default function LoginContent() {
 
               <p className="text-center text-sm text-[var(--text-secondary)]">
                 {t("noAccount")}{" "}
-                <Link href="/signup" className={authTextLinkClass}>
+                <Link href={authEntryHref("/signup", callbackUrl)} className={authTextLinkClass}>
                   {t("signUp")}
                 </Link>
               </p>
