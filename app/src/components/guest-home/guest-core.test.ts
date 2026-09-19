@@ -7,7 +7,7 @@ import {
 const now = 1789680000000;
 const id = 'a216280c-2a0c-43dd-8eae-032203bf99cc';
 const file = (name = 'referencia.png', type = 'image/png', size = 500) =>
-  new File([new Uint8Array(size)], name, { type });
+  new File([new Uint8Array(size)], name, { type, lastModified: now });
 
 describe('guest-core (portado do pacote + regras de retomada)', () => {
   it('rejeita pedido vazio e acima de 4000 caracteres', () => {

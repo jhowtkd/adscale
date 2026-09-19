@@ -55,7 +55,16 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     readPublicStudioFlags(process.env);
-    return publicStudioRewrites();
+    const studio = publicStudioRewrites();
+    return {
+      beforeFiles: studio.beforeFiles,
+      afterFiles: [
+        { source: "/manual", destination: "/manual/index.html" },
+        { source: "/manual/", destination: "/manual/index.html" },
+        ...studio.afterFiles,
+      ],
+      fallback: studio.fallback,
+    };
   },
   images: {
     remotePatterns: [

@@ -28,8 +28,6 @@ export function publicStudioRewrites(): {
   return {
     beforeFiles: [],
     afterFiles: [
-      { source: '/manual', destination: '/manual/index.html' },
-      { source: '/manual/', destination: '/manual/index.html' },
       { source: '/hi/assets/:path*', destination: '/adscale-guest/legacy-assets/:path*' },
       { source: '/hi/Adscale.svg', destination: '/adscale-guest/logo.svg' },
       { source: '/Adscale.svg', destination: '/adscale-guest/logo.svg' },
