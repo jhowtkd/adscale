@@ -7,7 +7,7 @@
  * deletion, and the full policy gate (live access probe + fake-proven
  * deletion probe) resolves redacted end to end — are proven here.
  *
- * Requires a migrated test database (migrations 0107 + 0113):
+ * Requires a migrated test database (migrations 0109 + 0113):
  *   DATABASE_URL=postgres://<user>@localhost:5432/adscale_test npm test -- src/server/diagnostics/content-cleanup.pg.test.ts
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -147,7 +147,7 @@ beforeAll(async () => {
     );
   } catch (err) {
     throw new Error(
-      `[content-cleanup.pg] Postgres de teste INACESSÍVEL ou sem as 0107/0113 ` +
+      `[content-cleanup.pg] Postgres de teste INACESSÍVEL ou sem as 0109/0113 ` +
         `(DATABASE_URL=${process.env.DATABASE_URL ?? "(não definida)"}). ` +
         `Aplique a cadeia de migrations. ` +
         `Causa: ${err instanceof Error ? err.message : String(err)}`,

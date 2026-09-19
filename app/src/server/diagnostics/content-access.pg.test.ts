@@ -6,7 +6,7 @@
  * unreachable database, and the access probe round-trip — are proven here,
  * never with mocks. Deny-path unit logic lives in content-access.test.ts.
  *
- * Requires a migrated test database (migration 0107):
+ * Requires a migrated test database (migration 0109):
  *   DATABASE_URL=postgres://<user>@localhost:5432/adscale_test npm test -- src/server/diagnostics/content-access.pg.test.ts
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -51,9 +51,9 @@ beforeAll(async () => {
     await db.execute(sql`select 1 from adscale_app.diagnostic_access_audit limit 0`);
   } catch (err) {
     throw new Error(
-      `[content-access.pg] Postgres de teste INACESSÍVEL ou sem a 0107 ` +
+      `[content-access.pg] Postgres de teste INACESSÍVEL ou sem a 0109 ` +
         `(DATABASE_URL=${process.env.DATABASE_URL ?? "(não definida)"}). ` +
-        `Aplique drizzle/0107_diagnostic_journal.sql. ` +
+        `Aplique drizzle/0109_diagnostic_journal.sql. ` +
         `Causa: ${err instanceof Error ? err.message : String(err)}`,
     );
   }

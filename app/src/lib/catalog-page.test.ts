@@ -102,7 +102,7 @@ describe("catalog page", () => {
 
   it("ships btree indexes matching the catalog cursor walk", () => {
     const schema = readFileSync(path.resolve(__dirname, "../server/db/schema.ts"), "utf8");
-    const migration = readFileSync(path.resolve(__dirname, "../../drizzle/0091_catalog_cursor_indexes.sql"), "utf8");
+    const migration = readFileSync(path.resolve(__dirname, "../../drizzle/0092_catalog_cursor_indexes.sql"), "utf8");
     expect(schema).toContain(CATALOG_CURSOR_INDEXES.templates);
     expect(schema).toContain(CATALOG_CURSOR_INDEXES.curatedInspirations);
     expect(migration).toContain(CATALOG_CURSOR_INDEXES.templates);
@@ -129,7 +129,7 @@ describe("catalog page", () => {
         [[CATALOG_CURSOR_INDEXES.templates, CATALOG_CURSOR_INDEXES.curatedInspirations]],
       );
       if (indexes.rows.length !== 2) {
-        throw new Error("0091 catalog cursor indexes are missing from adscale_app");
+        throw new Error("0092 catalog cursor indexes are missing from adscale_app");
       }
       expect(indexes.rows.map((row) => row.indexname).sort()).toEqual([
         CATALOG_CURSOR_INDEXES.curatedInspirations,

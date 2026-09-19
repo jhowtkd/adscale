@@ -362,7 +362,7 @@ describe("creative-work repository", () => {
   describe("piece-reference training promotion claims", () => {
     it("keeps the migration additive for historical training-reference duplicates", () => {
       const migration = readFileSync(
-        new URL("../../../drizzle/0089_creative_work_piece_reference.sql", import.meta.url),
+        new URL("../../../drizzle/0090_creative_work_piece_reference.sql", import.meta.url),
         "utf8",
       );
 
@@ -2518,9 +2518,9 @@ describe("creative-work repository", () => {
       ).rejects.toThrow("obligation down");
     });
 
-    it("keeps migration 0108 additive: outbox table plus dedup constraints", () => {
+    it("keeps migration 0110 additive: outbox table plus dedup constraints", () => {
       const migration = readFileSync(
-        new URL("../../../drizzle/0108_selection_effects_outbox.sql", import.meta.url),
+        new URL("../../../drizzle/0110_selection_effects_outbox.sql", import.meta.url),
         "utf8",
       );
 
