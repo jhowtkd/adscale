@@ -28,6 +28,8 @@
     "harness:worker-journey": "tsx scripts/run-worker-journey-harness.ts",
     "harness:worker-journey-matrix": "tsx scripts/run-worker-journey-matrix.ts",
     "harness:selection-effects-recovery": "tsx scripts/run-selection-effects-recovery.ts",
+    "harness:diagnostics-split-matrix": "NODE_OPTIONS='--conditions=react-server' tsx scripts/run-diagnostics-split-matrix.ts",
+    "diagnostics:overhead": "NODE_OPTIONS='--conditions=react-server' tsx scripts/measure-diagnostics-overhead.ts",
     "selection-effects:backfill": "NODE_OPTIONS='--conditions=react-server' tsx scripts/backfill-selection-effects.ts",
     "diagnostics:cleanup": "NODE_OPTIONS='--conditions=react-server' tsx scripts/cleanup-diagnostic-data.ts",
     "harness:studio-format-matrix": "tsx scripts/run-studio-format-matrix.ts",
@@ -103,11 +105,7 @@
     "convergence:baseline": "node scripts/capture-convergence-baseline.mjs",
     "convergence:phase8-check": "node scripts/check-phase8-human-evidence.mjs",
     "convergence:inventory": "node scripts/generate-surface-inventory.mjs",
-    "convergence:gate": "node scripts/run-convergence-gate.mjs",
-    "test:guest-home": "vitest run --config config/vitest.config.ts src/lib/guest-home src/components/guest-home src/lib/public-studio-config.test.ts",
-    "test:guest-home-e2e": "playwright test --project=guest-home-chromium",
-    "test:guest-home-webkit": "playwright test --project=guest-home-webkit",
-    "check:guest-home-assets": "node scripts/check-public-home-assets.mjs"
+    "convergence:gate": "node scripts/run-convergence-gate.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.0.0",
