@@ -1,0 +1,76 @@
+{
+  "assets": [
+    {
+      "approvedAt": null,
+      "approvedBy": null,
+      "file": "logo.svg",
+      "kind": "illustrative",
+      "rights": "AdScale official brand mark reused from the product; authorization pending owner confirmation.",
+      "usedIn": [
+        "guest-markup sidebar logo",
+        "guest-markup topbar logo"
+      ]
+    },
+    {
+      "approvedAt": null,
+      "approvedBy": null,
+      "file": "hero-collage.webp",
+      "kind": "illustrative",
+      "rights": "Illustrative visual study labelled in UI as illustrative; provenance pending owner confirmation.",
+      "usedIn": [
+        "guest-markup hero art"
+      ]
+    },
+    {
+      "approvedAt": null,
+      "approvedBy": null,
+      "file": "example-product.webp",
+      "kind": "illustrative",
+      "rights": "Illustrative visual study labelled in UI as illustrative; provenance pending owner confirmation.",
+      "usedIn": [
+        "guest example product"
+      ]
+    },
+    {
+      "approvedAt": null,
+      "approvedBy": null,
+      "file": "example-variations.webp",
+      "kind": "illustrative",
+      "rights": "Illustrative visual study labelled in UI as illustrative; provenance pending owner confirmation.",
+      "usedIn": [
+        "guest example variations"
+      ]
+    },
+    {
+      "approvedAt": null,
+      "approvedBy": null,
+      "file": "example-formats.webp",
+      "kind": "illustrative",
+      "rights": "Illustrative visual study labelled in UI as illustrative; provenance pending owner confirmation.",
+      "usedIn": [
+        "guest example formats"
+      ]
+    },
+    {
+      "approvedAt": null,
+      "approvedBy": null,
+      "file": "poster-runclub.webp",
+      "kind": "illustrative",
+      "rights": "Illustrative visual study labelled in UI as illustrative; provenance pending owner confirmation.",
+      "usedIn": [
+        "guest gallery example sport"
+      ]
+    },
+    {
+      "approvedAt": null,
+      "approvedBy": null,
+      "file": "poster-moka.webp",
+      "kind": "illustrative",
+      "rights": "Illustrative visual study labelled in UI as illustrative; provenance pending owner confirmation.",
+      "usedIn": [
+        "guest gallery example coffee"
+      ]
+    }
+  ],
+  "version": 1
+}
