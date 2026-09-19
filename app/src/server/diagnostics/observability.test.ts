@@ -40,6 +40,7 @@ import {
   getAiTracerProvider,
   getObservabilityStatus,
   initializeObservability,
+  isDiagnosticCaptureEnabled,
   shutdownObservability,
   SPAN_ATTRIBUTES_TRUNCATED_KEY,
   startAiSpan,
@@ -734,5 +735,29 @@ describe("import-chain and wiring guards", () => {
     expect(workerClient).toContain('id: "adscale-image-worker"');
     const render = readFileSync(join(APP_ROOT, "..", "render.yaml"), "utf8");
     expect(render).toContain("src/server/jobs/image-worker-entry.ts");
+  });
+});
+
+describe("isDiagnosticCaptureEnabled (trace-397)", () => {
+  it("is off by default and on only with an explicit truthy flag", () => {
+    expect(isDiagnosticCaptureEnabled({})).toBe(false);
+    expect(isDiagnosticCaptureEnabled({ OBSERVABILITY_ENABLED: "true" })).toBe(true);
+    expect(isDiagnosticCaptureEnabled({ OBSERVABILITY_ENABLED: "TRUE" })).toBe(true);
+    expect(isDiagnosticCaptureEnabled({ OBSERVABILITY_ENABLED: "false" })).toBe(false);
+    expect(isDiagnosticCaptureEnabled({ OBSERVABILITY_ENABLED: "1" })).toBe(false);
+    expect(isDiagnosticCaptureEnabled({ OBSERVABILITY_ENABLED: "" })).toBe(false);
+  });
+
+  it("reads process.env when no env is passed", () => {
+    const previous = process.env.OBSERVABILITY_ENABLED;
+    try {
+      delete process.env.OBSERVABILITY_ENABLED;
+      expect(isDiagnosticCaptureEnabled()).toBe(false);
+      process.env.OBSERVABILITY_ENABLED = "true";
+      expect(isDiagnosticCaptureEnabled()).toBe(true);
+    } finally {
+      if (previous === undefined) delete process.env.OBSERVABILITY_ENABLED;
+      else process.env.OBSERVABILITY_ENABLED = previous;
+    }
   });
 });
