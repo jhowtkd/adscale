@@ -730,10 +730,13 @@ function startWorker(
   runDir: string,
   workerEvidencePath: string,
 ): SpawnedProcess {
+  // Production parity: boot the same observability-wrapped entrypoint as
+  // render.yaml's worker startCommand, not the bare worker module. The 8
+  // Inngest functions, --plan output and evidence shape are unchanged.
   return spawnLogged(
     "worker",
     process.execPath,
-    ["--conditions=react-server", "--import=tsx", "src/server/jobs/image-worker.ts"],
+    ["--conditions=react-server", "--import=tsx", "src/server/jobs/image-worker-entry.ts"],
     {
       cwd: config.appDir,
       env: childEnv(config, runDir, workerEvidencePath),

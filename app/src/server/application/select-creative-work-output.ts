@@ -421,6 +421,7 @@ export async function selectCreativeWorkOutputCommand(
         kind: "approved",
         outputId: selected.id,
         outputKey: selectedKey,
+        occurredAt: requestedAt,
       });
     }, "value_event_failed", traceContext ? { context: traceContext, effect: "value_event" } : undefined);
   }

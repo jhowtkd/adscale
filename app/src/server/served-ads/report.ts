@@ -13,8 +13,10 @@ import {
   assertCompatibleLines,
   CONVERSION_DEFINITION_VERSION,
   consolidateCpa,
+  type AttributionRef,
   type ComparabilityContext,
   type ConsolidationLine,
+  type MeasurementOrigin,
 } from "./conversion";
 import { describeEvent, listAvailableEvents, normalizeEventParam } from "./events";
 import { getFixtureAdRows } from "./fixture";
@@ -80,6 +82,15 @@ export interface ServedAdsReportMeta {
   mode: ReportMode;
   collectionComplete: boolean;
   generatedAt: string;
+  /** Absolute collection period when every line shares it; null when missing or divergent. */
+  periodStart: string | null;
+  periodEnd: string | null;
+  /** Effective attribution when unanimous across lines; null when missing or divergent. */
+  attribution: AttributionRef | null;
+  /** Origins present across measured lines (real, mock, or both). */
+  origins: MeasurementOrigin[];
+  /** True when line contexts are missing or disagree — compare with care. */
+  contextsDivergent: boolean;
 }
 
 export interface ServedAdsReport {
@@ -141,6 +152,58 @@ function rowContext(
     else if (JSON.stringify(found) !== JSON.stringify(current)) return null;
   }
   return contributors > 0 ? found : null;
+}
+
+/**
+ * Comparability summary for the caption, JSON and CSV: unanimous values
+ * surface directly; anything missing or divergent surfaces as null with
+ * `contextsDivergent` raised, so "compare only the comparable" never relies
+ * on hidden data.
+ */
+function summarizeContexts(
+  sources: ReportSourceRow[],
+  scope: ServedAdsReportScope,
+  now: Date
+): Pick<
+  ServedAdsReportMeta,
+  "periodStart" | "periodEnd" | "attribution" | "origins" | "contextsDivergent"
+> {
+  const effective = sources.map((source) => effectiveContext(source, scope, now));
+  const known = effective.filter((ctx): ctx is ComparabilityContext => ctx !== null);
+  const origins = [...new Set(known.map((ctx) => ctx.origin))].sort();
+  if (known.length === 0 || known.length < effective.length) {
+    return {
+      periodStart: null,
+      periodEnd: null,
+      attribution: null,
+      origins,
+      contextsDivergent: known.length > 0,
+    };
+  }
+  const [first, ...rest] = known as [ComparabilityContext, ...ComparabilityContext[]];
+  const divergent = rest.some(
+    (ctx) =>
+      ctx.periodStart !== first.periodStart ||
+      ctx.periodEnd !== first.periodEnd ||
+      ctx.origin !== first.origin ||
+      JSON.stringify(ctx.attribution) !== JSON.stringify(first.attribution)
+  );
+  if (divergent) {
+    return {
+      periodStart: null,
+      periodEnd: null,
+      attribution: null,
+      origins,
+      contextsDivergent: true,
+    };
+  }
+  return {
+    periodStart: first.periodStart,
+    periodEnd: first.periodEnd,
+    attribution: first.attribution,
+    origins,
+    contextsDivergent: false,
+  };
 }
 
 function bilingualEvent(actionType: string): ReportEventOption {
@@ -235,6 +298,8 @@ export function buildServedAdsReport(input: BuildReportInput): ServedAdsReport {
         };
       })();
 
+  const contexts = summarizeContexts(sources, scope, now);
+
   return {
     meta: {
       event,
@@ -248,6 +313,11 @@ export function buildServedAdsReport(input: BuildReportInput): ServedAdsReport {
       mode: scope.mode,
       collectionComplete,
       generatedAt: now.toISOString(),
+      periodStart: contexts.periodStart,
+      periodEnd: contexts.periodEnd,
+      attribution: contexts.attribution,
+      origins: contexts.origins,
+      contextsDivergent: contexts.contextsDivergent,
     },
     summary: {
       rows: rows.length,
@@ -275,6 +345,13 @@ function csvCell(value: string | number | null): string {
  * Exportação CSV do MESMO relatório da tela: mesmos evento, período e
  * versão, a partir do mesmo builder. Nulos saem vazios, nunca zero.
  */
+function csvAttribution(attribution: ServedAdsReportMeta["attribution"]): string {
+  if (!attribution) return "";
+  return attribution.status === "known"
+    ? `known:${attribution.spec}`
+    : `unknown:${attribution.condition}`;
+}
+
 export function reportToCsv(report: ServedAdsReport, generatedAt: Date = new Date()): string {
   const lines = [
     "# served_ads_report",
@@ -285,6 +362,11 @@ export function reportToCsv(report: ServedAdsReport, generatedAt: Date = new Dat
     `# event,${report.meta.event.actionType ?? ""}`,
     `# event_label_pt-BR,${report.meta.event.labelPtBR ?? ""}`,
     `# event_label_en,${report.meta.event.labelEn ?? ""}`,
+    `# period_start,${report.meta.periodStart ?? ""}`,
+    `# period_end,${report.meta.periodEnd ?? ""}`,
+    `# attribution,${csvAttribution(report.meta.attribution)}`,
+    `# origins,${report.meta.origins.join("|")}`,
+    `# contexts_divergent,${report.meta.contextsDivergent}`,
     `# collection_complete,${report.meta.collectionComplete}`,
     `# generated_at,${generatedAt.toISOString()}`,
     "anuncio_id,ad_account_id,creative_id,format,text,impressions,clicks,spend,conversions,ctr,cpc,cpa,conversion_status,conversion_action_type",

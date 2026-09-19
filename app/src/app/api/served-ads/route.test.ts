@@ -158,6 +158,30 @@ describe("GET /api/served-ads", () => {
     expect(body.windowDays).toBe(30);
   });
 
+  it("eco de comparabilidade: período, atribuição e origem no JSON (ICE-01)", async () => {
+    mocks.hasConnection.mockResolvedValue(true);
+    mocks.listRows.mockResolvedValue([
+      {
+        ad_account_id: "1", ad_id: "1:x", creative_id: "x", format: "imagem", text: "t",
+        impressions: 2000, clicks: 40, spend: 100, conversions: 14, currency: "BRL",
+        actionCounts: { purchase: 4 }, ambiguousActionTypes: [], complete: true,
+        snapshot: {
+          definitionVersion: 2, currency: "BRL",
+          periodStart: "2026-08-18T12:00:00.000Z", periodEnd: "2026-09-17T12:00:00.000Z",
+          windowDays: 30, attribution: { status: "known", spec: "7d_click" },
+          completeness: "complete", origin: "real",
+        },
+      },
+    ]);
+    const res = await GET(servedAdsRequest(`brandId=${BRAND_ID}&event=purchase`));
+    const body = await res.json();
+    expect(body.periodStart).toBe("2026-08-18T12:00:00.000Z");
+    expect(body.periodEnd).toBe("2026-09-17T12:00:00.000Z");
+    expect(body.attribution).toEqual({ status: "known", spec: "7d_click" });
+    expect(body.origins).toEqual(["real"]);
+    expect(body.contextsDivergent).toBe(false);
+  });
+
   it("evento fora do alfabeto rejeitado; vazio = não escolhido", async () => {
     mocks.hasConnection.mockResolvedValue(false);
     expect((await GET(servedAdsRequest(`brandId=${BRAND_ID}&event=<script>`))).status).toBe(400);
@@ -191,6 +215,11 @@ describe("GET /api/served-ads", () => {
     expect(body).toContain("# window_days,30");
     expect(body).toContain("# definition_version,2");
     expect(body).toContain("# mode,live");
+    expect(body).toContain("# period_start,2026-08-18T12:00:00.000Z");
+    expect(body).toContain("# period_end,2026-09-17T12:00:00.000Z");
+    expect(body).toContain("# attribution,unknown:c");
+    expect(body).toContain("# origins,real");
+    expect(body).toContain("# contexts_divergent,false");
     expect(body).toContain("1:x,1,x,imagem,t,2000,40,100,4,2,2.5,25,measured,purchase");
   });
 

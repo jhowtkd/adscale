@@ -132,6 +132,7 @@ export interface GateSummary {
   tallyVsDirect: PreferenceTally;
   inconclusiveVerdicts: number;
   perProtocolTally: Record<string, { vsProduction: PreferenceTally; vsDirect: PreferenceTally }>;
+  perBrandTally: Record<string, { vsProduction: PreferenceTally; vsDirect: PreferenceTally }>;
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -333,6 +334,7 @@ export function evaluateGate(evidence: unknown): { failures: string[]; summary: 
     tallyVsDirect: emptyTally(),
     inconclusiveVerdicts: 0,
     perProtocolTally: {},
+    perBrandTally: {},
   };
 
   const record = asRecord(evidence);
@@ -541,6 +543,14 @@ export function evaluateGate(evidence: unknown): { failures: string[]; summary: 
     count(journey.blindComparison?.preferenceVsProduction, slot.vsProduction);
     count(journey.blindComparison?.preferenceVsDirect, slot.vsDirect);
     summary.perProtocolTally[protocol] = slot;
+    const brand = typeof journey.brand === "string" ? journey.brand : "unknown";
+    const brandSlot = summary.perBrandTally[brand] ?? {
+      vsProduction: emptyTally(),
+      vsDirect: emptyTally(),
+    };
+    count(journey.blindComparison?.preferenceVsProduction, brandSlot.vsProduction);
+    count(journey.blindComparison?.preferenceVsDirect, brandSlot.vsDirect);
+    summary.perBrandTally[brand] = brandSlot;
   }
   if (summary.v1PreferenceVsProduction < MIN_V1_PREFERENCES) {
     failures.push(

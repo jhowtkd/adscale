@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildJourneyEvidence,
@@ -500,5 +503,17 @@ describe("selection-effects recovery summary (ICE-03B)", () => {
     const open = summarizeRecoveryEffects({ library: { status: "pending", receiptId: "r" } });
     expect(recoveryEffectsSettled(open)).toBe(false);
     expect(recoveryRequestedKinds(open)).toEqual(["library"]);
+  });
+});
+
+describe("worker boot parity (ICE-02)", () => {
+  const harnessSource = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "worker-journey-harness.ts"),
+    "utf8",
+  );
+
+  it("boots the production worker entrypoint, not the bare worker module", () => {
+    expect(harnessSource).toContain("src/server/jobs/image-worker-entry.ts");
+    expect(harnessSource).not.toContain('"src/server/jobs/image-worker.ts"');
   });
 });

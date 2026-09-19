@@ -611,4 +611,21 @@ describe("evaluateGate preference provenance and tally (ICE-05A)", () => {
     expect(summary.perProtocolTally.single?.vsProduction).toEqual({ wins: 0, losses: 1, ties: 1 });
     expect(summary.perProtocolTally.single?.vsDirect).toEqual({ wins: 1, losses: 0, ties: 1 });
   });
+
+  it("tallies wins, losses and ties per brand on both arms", () => {
+    const evidence = validEvidence();
+    // Brands: [Psicologia, Marca D, Marca B, Marca C, NR1, Marca D, Marca B, XTB, Marca C, Marca D].
+    evidence.journeys[0].blindComparison.preferenceVsProduction = "baseline";
+    evidence.journeys[1].blindComparison.preferenceVsProduction = "tie";
+    evidence.journeys[1].blindComparison.preferenceVsDirect = "tie";
+    const { summary } = evaluateGate(evidence);
+    expect(summary.perBrandTally.Psicologia?.vsProduction).toEqual({ wins: 0, losses: 1, ties: 0 });
+    expect(summary.perBrandTally.Psicologia?.vsDirect).toEqual({ wins: 1, losses: 0, ties: 0 });
+    expect(summary.perBrandTally["Marca D"]?.vsProduction).toEqual({ wins: 1, losses: 0, ties: 2 });
+    expect(summary.perBrandTally["Marca D"]?.vsDirect).toEqual({ wins: 1, losses: 0, ties: 2 });
+    expect(summary.perBrandTally["Marca B"]?.vsProduction).toEqual({ wins: 2, losses: 0, ties: 0 });
+    expect(Object.keys(summary.perBrandTally).sort()).toEqual(
+      ["Marca B", "Marca C", "Marca D", "NR1", "Psicologia", "XTB"].sort()
+    );
+  });
 });

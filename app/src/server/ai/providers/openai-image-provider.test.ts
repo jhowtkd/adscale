@@ -17,7 +17,7 @@ vi.mock("openai", () => {
   };
 });
 
-import { OpenAIImageProvider } from "./openai-image-provider";
+import { OpenAIImageProvider, resolveOpenAISize } from "./openai-image-provider";
 import type { DiagnosticEventEnvelope } from "@/server/diagnostics/contract";
 import { createDiagnosticContext, withDiagnosticContext } from "@/server/diagnostics/context";
 import {
@@ -207,6 +207,45 @@ describe("OpenAIImageProvider", () => {
     } else {
       expect(mockGenerate).not.toHaveBeenCalled();
     }
+  });
+
+  it("fails closed on legacy models with 3:4 dims instead of mapping to 2:3 portrait", () => {
+    const base = {
+      prompt: "x",
+      referenceImages: [],
+      generationMode: "art_variation",
+      outputPrefix: "p",
+    } as const;
+    for (const dimensions of [
+      { width: 1080, height: 1440 },
+      { width: 1152, height: 1536 },
+      { width: 270, height: 360 },
+    ]) {
+      expect(() => resolveOpenAISize({ ...base, dimensions }, "gpt-image-1")).toThrow(
+        /format_requires_gpt_image_2/
+      );
+    }
+  });
+
+  it("keeps legacy non-3:4 sizes and gpt-image-2 sizes unchanged", () => {
+    const base = {
+      prompt: "x",
+      referenceImages: [],
+      generationMode: "art_variation",
+      outputPrefix: "p",
+    } as const;
+    expect(
+      resolveOpenAISize({ ...base, dimensions: { width: 1024, height: 1024 } }, "gpt-image-1")
+    ).toBe("1024x1024");
+    expect(
+      resolveOpenAISize({ ...base, dimensions: { width: 1024, height: 1536 } }, "gpt-image-1")
+    ).toBe("1024x1536");
+    expect(
+      resolveOpenAISize({ ...base, dimensions: { width: 1536, height: 1024 } }, "gpt-image-1")
+    ).toBe("1536x1024");
+    expect(
+      resolveOpenAISize({ ...base, dimensions: { width: 1080, height: 1440 } }, "gpt-image-2-2026-04-21")
+    ).toBe("1152x1536");
   });
 
   it("rejects a legacy-model policy before any billable call", async () => {

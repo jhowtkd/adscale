@@ -213,6 +213,68 @@ describe("buildServedAdsReport (ICE-01B)", () => {
       periodStart: "2026-09-10T12:00:00.000Z",
     });
   });
+
+  it("meta expõe período absoluto, atribuição e origem quando unânimes", () => {
+    const report = buildServedAdsReport({
+      scope: { brandId: "b", workspaceId: "w", windowDays: 30, event: "purchase", mode: "live" },
+      sources: [sourceRow("c1"), sourceRow("c2")],
+      now: NOW,
+    });
+    expect(report.meta.periodStart).toBe("2026-08-18T12:00:00.000Z");
+    expect(report.meta.periodEnd).toBe("2026-09-17T12:00:00.000Z");
+    expect(report.meta.attribution).toEqual({
+      status: "unknown",
+      condition: "meta_attribution_not_requested",
+    });
+    expect(report.meta.origins).toEqual(["real"]);
+    expect(report.meta.contextsDivergent).toBe(false);
+  });
+
+  it("contextos divergentes: nulos + sinal explícito em vez de período/atribuição", () => {
+    const report = buildServedAdsReport({
+      scope: { brandId: "b", workspaceId: "w", windowDays: 30, event: "purchase", mode: "live" },
+      sources: [
+        sourceRow("c1", {}, context({ periodStart: "2026-08-18T12:00:00.000Z" })),
+        sourceRow("c2", {}, context({ periodStart: "2026-08-19T12:00:00.000Z" })),
+      ],
+      now: NOW,
+    });
+    expect(report.meta.periodStart).toBeNull();
+    expect(report.meta.periodEnd).toBeNull();
+    expect(report.meta.attribution).toBeNull();
+    expect(report.meta.contextsDivergent).toBe(true);
+  });
+
+  it("contexto ausente numa linha veta o resumo unânime e sinaliza divergência", () => {
+    const report = buildServedAdsReport({
+      scope: { brandId: "b", workspaceId: "w", windowDays: 30, event: "purchase", mode: "live" },
+      sources: [sourceRow("c1"), sourceRow("c2", {}, null)],
+      now: NOW,
+    });
+    expect(report.meta.periodStart).toBeNull();
+    expect(report.meta.attribution).toBeNull();
+    expect(report.meta.origins).toEqual(["real"]);
+    expect(report.meta.contextsDivergent).toBe(true);
+  });
+
+  it("modo fixture sintetiza período, atribuição e origem mock unânimes", () => {
+    const report = buildServedAdsReport({
+      scope: { brandId: "b", workspaceId: "w", windowDays: 7, event: "lead", mode: "fixture" },
+      sources: [
+        { row: { ...sourceRow("c1").row, actionCounts: { lead: 5 } }, context: null, currency: "BRL" },
+        { row: { ...sourceRow("c2").row, actionCounts: { lead: 7 } }, context: null, currency: "BRL" },
+      ],
+      now: NOW,
+    });
+    expect(report.meta.periodStart).toBe("2026-09-10T12:00:00.000Z");
+    expect(report.meta.periodEnd).toBe("2026-09-17T12:00:00.000Z");
+    expect(report.meta.attribution).toEqual({
+      status: "unknown",
+      condition: "fixture_no_attribution",
+    });
+    expect(report.meta.origins).toEqual(["mock"]);
+    expect(report.meta.contextsDivergent).toBe(false);
+  });
 });
 
 describe("reportToCsv (ICE-01B)", () => {
@@ -240,6 +302,32 @@ describe("reportToCsv (ICE-01B)", () => {
     expect(csv).toContain("# definition_version,2");
     expect(csv).toContain("# mode,fixture");
     expect(csv).toContain("anuncio_id,");
+  });
+
+  it("cabeçalho comenta período absoluto, atribuição e origem idênticos à tela", () => {
+    const csv = reportToCsv(csvReport());
+    expect(csv).toContain("# period_start,2026-08-18T12:00:00.000Z");
+    expect(csv).toContain("# period_end,2026-09-17T12:00:00.000Z");
+    expect(csv).toContain("# attribution,unknown:fixture_no_attribution");
+    expect(csv).toContain("# origins,mock");
+    expect(csv).toContain("# contexts_divergent,false");
+  });
+
+  it("contextos divergentes saem vazios no CSV com a divergência sinalizada", () => {
+    const csv = reportToCsv(
+      buildServedAdsReport({
+        scope: { brandId: "b", workspaceId: "w", windowDays: 30, event: "purchase", mode: "live" },
+        sources: [
+          sourceRow("c1", {}, context({ periodStart: "2026-08-18T12:00:00.000Z" })),
+          sourceRow("c2", {}, context({ periodStart: "2026-08-19T12:00:00.000Z" })),
+        ],
+        now: NOW,
+      })
+    );
+    expect(csv).toContain("# period_start,");
+    expect(csv).toContain("# period_end,");
+    expect(csv).toContain("# attribution,");
+    expect(csv).toContain("# contexts_divergent,true");
   });
 
   it("escapa texto com vírgula/aspas e nulos saem vazios", () => {

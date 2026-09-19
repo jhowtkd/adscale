@@ -27,6 +27,7 @@ function claimed(overrides: Partial<ClaimedSelectionEffect> = {}): ClaimedSelect
     effectVersion: 1,
     payload: { version: 1, kind: "library", outputKey: "key-1" } as never,
     attempts: 1,
+    requestedAt: new Date("2026-09-12T10:00:00.000Z"),
     ...overrides,
   };
 }
@@ -144,6 +145,38 @@ describe("processSelectionEffects (ICE-03B)", () => {
     const results = await processSelectionEffects(testDeps);
     expect(results).toEqual([{ effectId: "effect-1", status: "done" }]);
     expect(seen).toEqual(["effect-1:key-1"]);
+  });
+
+  it("threads the approval timestamp to the sink for cohort preservation", async () => {
+    const approval = new Date("2026-09-01T10:00:00.000Z");
+    const seen: Date[] = [];
+    const testDeps = deps({
+      claim: async () => [
+        claimed({
+          kind: "value_event",
+          payload: {
+            version: 1,
+            kind: "value_event",
+            eventKey: "creative_work_approved",
+            userId: "user-1",
+            protocol: "single",
+            creativeWorkId: "work-1",
+            outputKey: "key-1",
+          } as never,
+          requestedAt: approval,
+        }),
+      ],
+      sinks: {
+        library: async () => undefined,
+        value_event: async (ctx) => {
+          seen.push(ctx.effect.requestedAt);
+        },
+        recipe: async () => undefined,
+      },
+    });
+    const results = await processSelectionEffects(testDeps);
+    expect(results).toEqual([{ effectId: "effect-1", status: "done" }]);
+    expect(seen).toEqual([approval]);
   });
 
   it("crash after sink before ack converges: lease lost means replay, not double done", async () => {

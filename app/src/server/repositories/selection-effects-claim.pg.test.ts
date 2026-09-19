@@ -134,6 +134,20 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)(
       expect(first.find((row) => row.id === effect.id)?.attempts).toBe(1);
     });
 
+    it("claim returns requested_at so recovery cohorts on approval time", async () => {
+      const scope = await createScope();
+      const effect = await enqueueLibrary(scope, new Date("2026-09-01T10:00:00.000Z"));
+      const claimed = await claimSelectionEffects(db, {
+        owner: `a-${RUN_ID}`,
+        limit: 10,
+        leaseSeconds: 300,
+      });
+      const row = claimed.find((candidate) => candidate.id === effect.id);
+      expect(row?.requestedAt).toBeInstanceOf(Date);
+      // Same instant the outbox stored — parsed through the same driver path.
+      expect(row?.requestedAt.getTime()).toBe(effect.requestedAt.getTime());
+    });
+
     it("an expired lease is reclaimed on the database clock", async () => {
       const scope = await createScope();
       const effect = await enqueueLibrary(scope);

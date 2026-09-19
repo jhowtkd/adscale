@@ -21,6 +21,11 @@ export type CreativeWorkValueEventInput = {
   origin?: string | null;
   campaignId?: string | null;
   clientProfileId?: string | null;
+  /**
+   * Approval time (strict path only): the event cohorts on it. Absent =
+   * database default (processing time). The tolerant legacy helper ignores it.
+   */
+  occurredAt?: Date;
 };
 
 function valueEventKey(kind: CreativeWorkValueEventKind): string {
@@ -98,6 +103,7 @@ export async function recordCreativeWorkValueEventStrict(
     campaignId: input.campaignId ?? null,
     derivationId: null,
     source: "server",
+    ...(input.occurredAt ? { createdAt: input.occurredAt } : {}),
     idempotencyKey: valueEventIdempotencyKey({
       workspaceId: input.workspaceId,
       eventKey,

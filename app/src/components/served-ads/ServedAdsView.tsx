@@ -59,6 +59,12 @@ interface ServedAdsSummary {
   collectionComplete: boolean;
 }
 
+interface ServedAdsAttribution {
+  status: "known" | "unknown";
+  spec?: string;
+  condition?: string;
+}
+
 interface ServedAdsReport {
   mode: "live" | "fixture";
   currencies: string[];
@@ -71,6 +77,11 @@ interface ServedAdsReport {
   definitionVersion: number;
   collectionComplete: boolean;
   generatedAt: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+  attribution: ServedAdsAttribution | null;
+  origins: Array<"real" | "mock">;
+  contextsDivergent: boolean;
   summary: ServedAdsSummary;
   rows: ServedAdRow[];
 }
@@ -105,6 +116,16 @@ function formatInt(value: number | null, locale: string): string {
 function formatPct(value: number | null, locale: string): string {
   if (value === null) return "—";
   return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value)}%`;
+}
+
+function formatShortDate(iso: string, locale: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
 }
 
 /**
@@ -160,6 +181,35 @@ export function ServedAdsView() {
   const totalCtr =
     summary && summary.impressions > 0 ? (summary.clicks / summary.impressions) * 100 : null;
   const totalCpc = summary && summary.clicks > 0 ? summary.spend / summary.clicks : null;
+  // Comparability caption: the same absolute period, window, currencies,
+  // attribution and origins as JSON/CSV — divergent or missing contexts
+  // say so explicitly instead of hiding behind the totals.
+  const contextCaption = (() => {
+    if (!report || report.rows.length === 0) return null;
+    if (report.contextsDivergent) return t("contextsDivergent");
+    const contextParts: string[] = [];
+    if (report.periodStart && report.periodEnd) {
+      contextParts.push(
+        `${t("contextPeriod")}: ${formatShortDate(report.periodStart, locale)}–${formatShortDate(report.periodEnd, locale)}`
+      );
+    }
+    if (report.attribution) {
+      contextParts.push(
+        report.attribution.status === "known"
+          ? `${t("contextAttributionKnown")} (${report.attribution.spec})`
+          : `${t("contextAttributionUnknown")} (${report.attribution.condition})`
+      );
+    }
+    for (const origin of report.origins ?? []) {
+      contextParts.push(origin === "real" ? t("contextOriginReal") : t("contextOriginMock"));
+    }
+    if (contextParts.length === 0) return t("contextUnavailable");
+    return [
+      t(WINDOW_LABELS[String(report.windowDays) as WindowDays]),
+      ...(summary && summary.currencies.length > 0 ? [summary.currencies.join(", ")] : []),
+      ...contextParts,
+    ].join(" · ");
+  })();
 
   if (!brandId) {
     return (
@@ -212,6 +262,12 @@ export function ServedAdsView() {
           ) : null}
         </div>
       </div>
+
+      {contextCaption ? (
+        <p data-testid="served-ads-context-caption" className="mb-3 text-xs text-[var(--text-muted)]">
+          {contextCaption}
+        </p>
+      ) : null}
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div role="group" aria-label={t("title")} className="flex items-center gap-1">

@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-19T00:44:23.696Z",
+  "generatedAt": "2026-09-19T12:09:58.606Z",
   "schemaVersion": 2,
-  "fingerprint": "728f1253f55bb78dfec4f3238157d38da633e8cd631275a2d6d1bf077131241b",
+  "fingerprint": "c1138f4f8f52e1c352944e23308f904935363f737d50dd7c8fe6a20b3d8c61cc",
   "counts": {
     "dashboardPages": 16,
     "apiRoutes": 196,
@@ -2140,12 +2140,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/served-ads/ServedAdsView.tsx:266",
+      "id": "nav:app/src/components/served-ads/ServedAdsView.tsx:322",
       "kind": "cta_navigation",
       "destination": "/api/served-ads?${queryString}&export=csv",
       "file": "app/src/components/served-ads/ServedAdsView.tsx",
-      "line": 266,
-      "evidence": "app/src/components/served-ads/ServedAdsView.tsx:266",
+      "line": 322,
+      "evidence": "app/src/components/served-ads/ServedAdsView.tsx:322",
       "requiresDecision": false
     },
     {

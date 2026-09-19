@@ -208,6 +208,15 @@ describe("selectCreativeWorkOutputCommand", () => {
       protocol: "social_post",
       origin: "studio",
     }));
+    // Inline and recovered writes cohort identically: the value event keeps
+    // the same approval instant the command used for enqueue.
+    const requestedAt = (
+      mockSelect.mock.calls[0]?.[3] as { effectsRequestedAt?: Date } | undefined
+    )?.effectsRequestedAt;
+    expect(requestedAt).toBeInstanceOf(Date);
+    expect(mockRecordValueStrict).toHaveBeenCalledWith(
+      expect.objectContaining({ occurredAt: requestedAt }),
+    );
     expect(result.value.effects).toEqual({
       library: { status: "done" },
       valueEvent: { status: "done" },
