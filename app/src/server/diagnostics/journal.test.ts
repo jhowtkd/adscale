@@ -429,4 +429,30 @@ describe("journal periodic flush", () => {
     await journal.flush();
     expect(seen.flat()).toHaveLength(2);
   });
+
+  it("starts the loop lazily on first enqueue, without an explicit start", async () => {
+    vi.useFakeTimers();
+    const seen: NewDiagnosticEvent[][] = [];
+    const journal = createDiagnosticJournal({ persistBatch: workingWriter(seen) });
+    journal.enqueue(makeEnvelope());
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(seen.flat()).toHaveLength(1);
+    expect(journal.stats().bufferedEvents).toBe(0);
+    journal.stop();
+  });
+
+  it("keeps an explicit stop authoritative over later enqueues", async () => {
+    vi.useFakeTimers();
+    const seen: NewDiagnosticEvent[][] = [];
+    const journal = createDiagnosticJournal({ persistBatch: workingWriter(seen) });
+    journal.stop();
+    journal.enqueue(makeEnvelope());
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(seen.flat()).toHaveLength(0);
+    expect(journal.stats().bufferedEvents).toBe(1);
+    journal.start();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(seen.flat()).toHaveLength(1);
+    journal.stop();
+  });
 });

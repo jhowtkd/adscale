@@ -342,6 +342,7 @@ class DiagnosticJournalImpl implements DiagnosticJournal {
   private inFlightCount = 0;
   private discardRequeues = false;
   private timer: ReturnType<typeof setInterval> | null = null;
+  private stopped = false;
 
   constructor(options: DiagnosticJournalOptions = {}) {
     this.persistBatch =
@@ -392,6 +393,23 @@ class DiagnosticJournalImpl implements DiagnosticJournal {
     } catch {
       this.droppedEvents += 1;
       reportJournalFailure("enqueue-failed");
+      return;
+    }
+    // A journal that accepts writes must ensure they drain: start the
+    // periodic flush lazily so every instance flushes its own buffer. A
+    // boot-time start cannot cover this — the Next.js server bundle holds
+    // more than one copy of this module, and a start issued from one copy
+    // never flushes another copy's buffer (trace-396). An explicit stop
+    // stays authoritative: it quiesces the loop until the next explicit
+    // start. Unreachable on edge: this module statically imports the node
+    // pg pool, which throws there before any enqueue can run.
+    if (!this.stopped) {
+      try {
+        this.start();
+      } catch {
+        // Timer creation failing just delays the flush to the next enqueue;
+        // the buffered event itself is unaffected.
+      }
     }
   }
 
@@ -427,6 +445,7 @@ class DiagnosticJournalImpl implements DiagnosticJournal {
   }
 
   start(): void {
+    this.stopped = false;
     if (this.timer) return;
     this.timer = setInterval(() => {
       void this.flush();
@@ -441,6 +460,7 @@ class DiagnosticJournalImpl implements DiagnosticJournal {
   }
 
   stop(): void {
+    this.stopped = true;
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
