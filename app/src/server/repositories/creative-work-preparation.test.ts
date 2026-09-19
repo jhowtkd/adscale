@@ -10,7 +10,7 @@
  *
  * Sem mocks: tudo é produção real contra o banco.
  *
- * Requer o container adscale-test-postgres migrado (tabela da 0096):
+ * Requer o container adscale-test-postgres migrado (tabela da 0097):
  *   DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/repositories/creative-work-preparation.test.ts
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";

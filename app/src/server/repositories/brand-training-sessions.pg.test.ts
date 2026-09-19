@@ -6,7 +6,7 @@
  * CAS por revisão (uma mutação vence, a outra recebe stale_session) e
  * unicidade do vínculo (sessão, rodada, slot) com CHECK todos-ou-nenhum.
  *
- * Requer o container adscale-test-postgres com a migração 0097 aplicada:
+ * Requer o container adscale-test-postgres com a migração 0098 aplicada:
  *   DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/repositories/brand-training-sessions.pg.test.ts
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -123,9 +123,9 @@ beforeAll(async () => {
     await db.execute(sql`select 1 from adscale_app.brand_training_sessions limit 0`);
   } catch (err) {
     throw new Error(
-      `[brand-training-sessions.pg] Postgres de teste INACESSÍVEL ou sem a 0097 ` +
+      `[brand-training-sessions.pg] Postgres de teste INACESSÍVEL ou sem a 0098 ` +
         `(DATABASE_URL=${process.env.DATABASE_URL ?? "(não definida)"}). ` +
-        `Suba o container adscale-test-postgres e aplique drizzle/0097_brand_training_sessions.sql. ` +
+        `Suba o container adscale-test-postgres e aplique drizzle/0098_brand_training_sessions.sql. ` +
         `Causa: ${err instanceof Error ? err.message : String(err)}`,
     );
   }

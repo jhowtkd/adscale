@@ -7,7 +7,7 @@
  * link building from stored external refs. Skips without an explicit
  * test database; pure composition lives in diagnostics-api.test.ts.
  *
- * Requires a migrated test database (migration 0107):
+ * Requires a migrated test database (migration 0109):
  *   TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/diagnostics/diagnostics-api.pg.test.ts
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -132,7 +132,7 @@ beforeAll(async () => {
     await db.execute(sql`select 1 from adscale_app.diagnostic_access_audit limit 0`);
   } catch (err) {
     throw new Error(
-      `[diagnostics-api.pg] Postgres de teste INACESSÍVEL ou sem a 0107. ` +
+      `[diagnostics-api.pg] Postgres de teste INACESSÍVEL ou sem a 0109. ` +
         `Causa: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
