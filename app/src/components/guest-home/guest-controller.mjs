@@ -80,7 +80,7 @@ export function mountGuestHome(root, options = {}) {
     const result = selectFiles(files, incoming); files = result.files; renderFiles();
     if (result.errors.length) setError(result.errors.join(' '));
     else { setError(null); announce('Referências adicionadas. Elas ainda estão apenas neste navegador.'); }
-    emit('references_changed', { count: files.length });
+    emit('references_changed', { referenceCount: files.length });
   }
   function closeDialog() { if (saving) return; if (dialog.open) { dialog.close(); document.body.style.overflow = overflowBefore ?? ''; } }
   function dialogHeader(title, subtitle='', label='') {
@@ -100,7 +100,7 @@ export function mountGuestHome(root, options = {}) {
       markup = dialogHeader(request ? 'Continue sua criação.' : 'Seu estúdio está logo ali.', 'Entre ou crie sua conta para gerar, revisar e salvar suas peças.', 'VAMOS DAR O PRÓXIMO PASSO');
       if (request) markup += `<div class="ag-summary"><div class="ag-summary-meta"><span>${getIntent(intent).short}</span><span>·</span><span>${files.length} referência${files.length === 1 ? '' : 's'}</span></div><p>${escapeHtml(request)}</p></div>`;
       markup += `<p class="ag-private-note">${icon('shield',16)}<span>${request ? 'Seu pedido e suas referências ficam disponíveis para retomada por 24 horas. Depois de entrar, continue neste mesmo navegador e dispositivo.' : 'Você escolhe sua marca e prepara o pedido dentro do estúdio.'} Nenhuma geração começa automaticamente.</span></p>${options.preview ? '<p class="ag-demo-note">Prévia local: não faz login, não envia arquivos e não consome créditos. O próximo botão demonstra a preparação do pedido.</p>' : ''}<p id="ag-dialog-error" class="ag-form-error" role="alert" hidden></p><div class="ag-dialog-actions"><button type="button" class="ag-secondary" data-action="close">Continuar explorando</button><button type="button" class="ag-primary" data-action="authenticate">${request ? 'Entrar e continuar' : 'Abrir meu estúdio'}${icon('arrow',16)}</button></div>`;
-      emit('auth_prompt_opened', { intent, hasRequest: Boolean(request) });
+      emit('auth_prompt_opened', { intent });
     } else if (kind === 'gallery') {
       markup = dialogHeader('Um ponto de partida para a sua ideia.', 'Explore os estudos visuais. Os pedidos são editáveis; as imagens são ilustrativas.', 'EXPLORE O ESTÚDIO');
       markup += `<label class="ag-search-field">${icon('search',19)}<span class="ag-sr">Buscar exemplos</span><input id="ag-search" type="search" placeholder="Busque por produto, beleza, café…" autocomplete="off"/></label><div id="ag-gallery-grid" class="ag-gallery-grid">${galleryItems()}</div>`;
@@ -161,7 +161,7 @@ export function mountGuestHome(root, options = {}) {
       }
       if (destroyed) return;
       previewResumePath = path;
-      emit('continue_prepared', { intent, fileCount: files.length, hasRequest: Boolean(draft) });
+      emit('continue_prepared', { intent, referenceCount: files.length });
       if (options.preview) openDialog('prepared');
       else if (options.onContinue) await options.onContinue(draft, path);
       else window.location.assign(path); // Same origin: the existing proxy handles auth.
@@ -266,7 +266,7 @@ export function mountGuestHome(root, options = {}) {
       const banner=query('#ag-resume-banner'); banner.innerHTML='Você tem um pedido salvo neste navegador.<button type="button" data-action="restore">Retomar</button><button type="button" data-action="discard-saved">Descartar</button>'; banner.hidden=false;
     } catch { /* Storage errors are surfaced on Continue, never crash public browsing. */ }
   })();
-  emit('home_viewed');
+  emit('home_viewed', { preview: options.preview === true });
   return {
     ready,
     getState: () => ({ request: textarea.value, intent, exampleId, files: [...files], draftId, previewResumePath }),

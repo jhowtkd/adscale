@@ -65,4 +65,20 @@ describe("AdscaleGuestHome", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(xhrOpen).not.toHaveBeenCalled();
   });
+
+  it("forwards only allowlisted public events", async () => {
+    const onEvent = vi.fn();
+    const { unmount } = render(
+      <AdscaleGuestHome preview={false} attachmentsEnabled={false} onEvent={onEvent} />,
+    );
+    await screen.findByRole("main");
+    expect(onEvent).toHaveBeenCalledWith({
+      name: "home_viewed",
+      detail: { preview: false },
+    });
+    for (const call of onEvent.mock.calls) {
+      expect(Object.keys(call[0].detail)).not.toContain("surface");
+    }
+    unmount();
+  });
 });

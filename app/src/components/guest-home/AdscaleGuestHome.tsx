@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
+import { sanitizePublicGuestEvent } from '@/lib/guest-home/events';
 import { mountGuestHome, type GuestHomeOptions } from './guest-controller.mjs';
 import { renderShell } from './guest-markup.mjs';
 import './guest-home.css';
@@ -29,7 +30,16 @@ export default function AdscaleGuestHome({
       assetBase,
       preview,
       attachmentsEnabled,
-      onEvent: (event) => callbacks.current.onEvent?.(event),
+      // Public events stay on this callback until an approved collector with
+      // consent exists. Everything forwarded is allowlisted first; unknown
+      // events are dropped, never sent anywhere.
+      onEvent: (event) => {
+        const clean = sanitizePublicGuestEvent({
+          name: event.name,
+          detail: { ...event.detail },
+        });
+        if (clean) callbacks.current.onEvent?.(clean);
+      },
       onContinue: async (draft, path) => {
         const handler = callbacks.current.onContinue;
         if (handler) await handler(draft, path);

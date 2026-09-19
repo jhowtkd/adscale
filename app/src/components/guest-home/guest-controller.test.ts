@@ -337,3 +337,114 @@ describe("guest-controller", () => {
     second.root.remove();
   });
 });
+
+describe("guest-controller telemetry", () => {
+  type Captured = { name: string; detail: Record<string, unknown> };
+
+  function mountWithEvents(
+    options: Parameters<typeof mountGuestHome>[1] = {},
+  ) {
+    const events: Captured[] = [];
+    const mounted = mount({
+      ...options,
+      onEvent: (event) => events.push(event as Captured),
+    });
+    return { ...mounted, events };
+  }
+
+  function clickIntent(root: HTMLElement, intent: string): void {
+    const button = root.querySelector(
+      `[data-action="intent"][data-intent="${intent}"]`,
+    ) as HTMLElement;
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  }
+
+  it("emits home_viewed with the preview flag on mount", () => {
+    const { root, home, events } = mountWithEvents({ preview: false });
+    expect(events).toHaveLength(1);
+    expect(events[0].name).toBe("home_viewed");
+    expect(events[0].detail.preview).toBe(false);
+    home.destroy();
+    root.remove();
+  });
+
+  it("emits intent and example selections with catalog values only", () => {
+    const { root, home, events } = mountWithEvents();
+    clickIntent(root, "variations");
+    const useExample = root.querySelector(
+      '[data-action="use-example"]',
+    ) as HTMLElement;
+    useExample.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const names = events.map((event) => event.name);
+    expect(names).toContain("intent_selected");
+    expect(names).toContain("example_selected");
+    const intentEvent = events.find((event) => event.name === "intent_selected");
+    expect(intentEvent?.detail).toMatchObject({ intent: "variations" });
+    const exampleEvent = events.find(
+      (event) => event.name === "example_selected",
+    );
+    expect(typeof exampleEvent?.detail.exampleId).toBe("string");
+    expect(typeof exampleEvent?.detail.intent).toBe("string");
+    home.destroy();
+    root.remove();
+  });
+
+  it("emits references_changed with referenceCount", () => {
+    const { root, home, events } = mountWithEvents({
+      attachmentsEnabled: true,
+    });
+    const file = new File([new Uint8Array(10)], "ref.png", {
+      type: "image/png",
+    });
+    const input = root.querySelector("#ag-file-input") as HTMLInputElement;
+    Object.defineProperty(input, "files", { value: [file] });
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    const changed = events.find(
+      (event) => event.name === "references_changed",
+    );
+    expect(changed?.detail).toMatchObject({ referenceCount: 1 });
+    expect(changed?.detail).not.toHaveProperty("count");
+    home.destroy();
+    root.remove();
+  });
+
+  it("emits continue_prepared without request text or file names", async () => {
+    const { root, home, events } = mountWithEvents({
+      attachmentsEnabled: true,
+    });
+    const file = new File([new Uint8Array(10)], "cliente-logo.png", {
+      type: "image/png",
+    });
+    const input = root.querySelector("#ag-file-input") as HTMLInputElement;
+    Object.defineProperty(input, "files", { value: [file] });
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await continueWith("Anúncio secreto da cliente X", root);
+    const names = events.map((event) => event.name);
+    expect(names).toContain("auth_prompt_opened");
+    expect(names).toContain("continue_prepared");
+    const prepared = events.find(
+      (event) => event.name === "continue_prepared",
+    );
+    expect(prepared?.detail).toMatchObject({
+      intent: "single",
+      referenceCount: 1,
+    });
+    expect(prepared?.detail).not.toHaveProperty("hasRequest");
+    expect(prepared?.detail).not.toHaveProperty("fileCount");
+    for (const event of events) {
+      const payload = JSON.stringify(event.detail);
+      expect(payload).not.toContain("Anúncio secreto");
+      expect(payload).not.toContain("cliente-logo.png");
+    }
+    home.destroy();
+    root.remove();
+  });
+
+  it("emits new_request", () => {
+    const { root, home, events } = mountWithEvents();
+    click(root, "new");
+    expect(events.map((event) => event.name)).toContain("new_request");
+    home.destroy();
+    root.remove();
+  });
+});

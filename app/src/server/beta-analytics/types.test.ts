@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALLOWED_PROPERTY_KEYS, BETA_EVENT_KEYS, STUDIO_BETA_EVENT_KEYS, type AllowedPropertyKey } from "./types";
+import { ALLOWED_PROPERTY_KEYS, BETA_EVENT_KEYS, GUEST_BETA_EVENT_KEYS, STUDIO_BETA_EVENT_KEYS, type AllowedPropertyKey } from "./types";
 
 describe("beta analytics types", () => {
   it("includes creditUnitVersion in ALLOWED_PROPERTY_KEYS", () => {
@@ -25,6 +25,14 @@ describe("beta analytics types", () => {
     ]));
     expect(ALLOWED_PROPERTY_KEYS).toEqual(expect.arrayContaining([
       "workCount", "slots", "usedFallback", "slot", "requestSource",
+    ]));
+  });
+
+  it("allows the guest import event and its aggregate properties", () => {
+    expect(GUEST_BETA_EVENT_KEYS).toEqual(["guest_draft_imported"]);
+    expect(BETA_EVENT_KEYS).toEqual(expect.arrayContaining([...GUEST_BETA_EVENT_KEYS]));
+    expect(ALLOWED_PROPERTY_KEYS).toEqual(expect.arrayContaining([
+      "creativeWorkId", "protocol", "referenceCount", "recovered",
     ]));
   });
 });

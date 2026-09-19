@@ -17,6 +17,10 @@ vi.mock("../feedback/validate-refs", async (importOriginal) => {
   };
 });
 
+vi.mock("../repositories/creative-work", () => ({
+  getCreativeWork: vi.fn(),
+}));
+
 import { CREATIVE_WORK_FUNNEL_EVENTS } from "../creative-work/funnel-events";
 import { PHASE_76_BETA_EVENT_KEYS, PHASE_126_BETA_EVENT_KEYS, STUDIO_BETA_EVENT_KEYS } from "./types";
 import { recordBetaAnalyticsEvent } from "./record";
@@ -28,9 +32,11 @@ import {
   validateCampaignOwnership,
   validateDerivationOwnership,
 } from "../feedback/validate-refs";
+import { getCreativeWork } from "../repositories/creative-work";
 
 const mockInsert = vi.mocked(insertBetaAnalyticsEvent);
 const mockGetSession = vi.mocked(getBetaSessionById);
+const mockGetCreativeWork = vi.mocked(getCreativeWork);
 const mockValidateCampaign = vi.mocked(validateCampaignOwnership);
 const mockValidateDerivation = vi.mocked(validateDerivationOwnership);
 
@@ -326,6 +332,86 @@ describe("recordBetaAnalyticsEvent", () => {
         properties: { stage: "briefing" },
       })
     ).rejects.toThrow(BetaEventPropertiesValidationError);
+
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it("accepts a valid guest_draft_imported with an owned work", async () => {
+    mockGetCreativeWork.mockResolvedValue({ work: { id: "work-1" } } as never);
+    mockInsert.mockResolvedValue(mockInsertedEvent() as never);
+
+    await recordBetaAnalyticsEvent({
+      workspaceId: "ws-1",
+      userId: "user-1",
+      eventKey: "guest_draft_imported",
+      properties: {
+        creativeWorkId: "work-1",
+        protocol: "single",
+        referenceCount: 2,
+        recovered: false,
+      },
+    });
+
+    expect(mockGetCreativeWork).toHaveBeenCalledWith("ws-1", "work-1");
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "guest_draft_imported",
+        properties: {
+          creativeWorkId: "work-1",
+          protocol: "single",
+          referenceCount: 2,
+          recovered: false,
+        },
+      })
+    );
+  });
+
+  it("refuses a guest_draft_imported for a foreign work", async () => {
+    mockGetCreativeWork.mockResolvedValue(null);
+
+    await expect(
+      recordBetaAnalyticsEvent({
+        workspaceId: "ws-1",
+        userId: "user-1",
+        eventKey: "guest_draft_imported",
+        properties: {
+          creativeWorkId: "work-other",
+          protocol: "single",
+          referenceCount: 0,
+          recovered: true,
+        },
+      })
+    ).rejects.toThrow(BetaEventPropertiesValidationError);
+
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it("refuses malformed guest_draft_imported payloads", async () => {
+    mockGetCreativeWork.mockResolvedValue({ work: { id: "work-1" } } as never);
+    const base = {
+      creativeWorkId: "work-1",
+      protocol: "single",
+      referenceCount: 1,
+      recovered: false,
+    };
+    for (const properties of [
+      { ...base, creativeWorkId: "" },
+      { ...base, protocol: "hologram" },
+      { ...base, referenceCount: 4 },
+      { ...base, referenceCount: 1.5 },
+      { ...base, recovered: "yes" },
+      { ...base, request: "texto privado" },
+      { ...base, fileName: "cliente.png" },
+    ]) {
+      await expect(
+        recordBetaAnalyticsEvent({
+          workspaceId: "ws-1",
+          userId: "user-1",
+          eventKey: "guest_draft_imported",
+          properties,
+        })
+      ).rejects.toThrow(BetaEventPropertiesValidationError);
+    }
 
     expect(mockInsert).not.toHaveBeenCalled();
   });

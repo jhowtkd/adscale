@@ -45,6 +45,8 @@ export const ALLOWED_PROPERTY_KEYS = [
   "outputKey",
   "origin",
   "clientProfileId",
+  "referenceCount",
+  "recovered",
 ] as const;
 
 export type AllowedPropertyKey = (typeof ALLOWED_PROPERTY_KEYS)[number];
@@ -100,12 +102,17 @@ export const STUDIO_BETA_EVENT_KEYS = [
   "studio_entry_request_preserved",
 ] as const;
 
+export const GUEST_BETA_EVENT_KEYS = [
+  "guest_draft_imported",
+] as const;
+
 export const BETA_EVENT_KEYS = [
   ...PHASE_76_BETA_EVENT_KEYS,
   ...PHASE_107_BETA_EVENT_KEYS,
   ...PHASE_121_BETA_EVENT_KEYS,
   ...PHASE_126_BETA_EVENT_KEYS,
   ...STUDIO_BETA_EVENT_KEYS,
+  ...GUEST_BETA_EVENT_KEYS,
   ...CREATIVE_WORK_FUNNEL_EVENTS,
 ] as const;
 
@@ -114,6 +121,7 @@ export type Phase107BetaEventKey = (typeof PHASE_107_BETA_EVENT_KEYS)[number];
 export type Phase121BetaEventKey = (typeof PHASE_121_BETA_EVENT_KEYS)[number];
 export type Phase126BetaEventKey = (typeof PHASE_126_BETA_EVENT_KEYS)[number];
 export type StudioBetaEventKey = (typeof STUDIO_BETA_EVENT_KEYS)[number];
+export type GuestBetaEventKey = (typeof GUEST_BETA_EVENT_KEYS)[number];
 export type BetaEventKey = (typeof BETA_EVENT_KEYS)[number];
 
 const EVENT_KEY_PATTERN = /^[a-z][a-z0-9_]*$/;

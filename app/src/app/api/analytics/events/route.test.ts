@@ -156,6 +156,47 @@ describe("POST /api/analytics/events", () => {
     expect(mockRecordBetaAnalyticsEvent).not.toHaveBeenCalled();
   });
 
+  it("passes guest_draft_imported to record with the session workspace", async () => {
+    mockRecordBetaAnalyticsEvent.mockResolvedValue({
+      id: "event-guest",
+      workspaceId: "workspace-1",
+      userId: "user-1",
+      sessionId: null,
+      eventKey: "guest_draft_imported",
+      properties: {
+        creativeWorkId: "work-1",
+        protocol: "single",
+        referenceCount: 1,
+        recovered: false,
+      },
+      source: "client",
+      campaignId: null,
+      derivationId: null,
+      createdAt: new Date(),
+    } as never);
+
+    const res = await POST(
+      createRequest({
+        eventKey: "guest_draft_imported",
+        properties: {
+          creativeWorkId: "work-1",
+          protocol: "single",
+          referenceCount: 1,
+          recovered: false,
+        },
+      })
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockRecordBetaAnalyticsEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        userId: "user-1",
+        eventKey: "guest_draft_imported",
+      })
+    );
+  });
+
   it("rejects unauthenticated requests via requireWorkspaceAccess", async () => {
     mockRequireWorkspaceAccess.mockRejectedValue(
       new WorkspaceAuthError("unauthorized", "Not authenticated")

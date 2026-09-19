@@ -96,6 +96,11 @@ vi.mock('@/lib/api-client', () => ({ apiFetch }));
 const uploadChatAttachment = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/assistant/chat-attachments', () => ({ uploadChatAttachment }));
 
+const recordEvent = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/hooks/use-record-beta-event', () => ({
+  useRecordBetaEvent: () => ({ recordEvent }),
+}));
+
 const uploadConfig = vi.hoisted(() => ({
   isAllowedImageType: vi.fn(() => true),
   validateImageMagicBytes: vi.fn(async () => true),
@@ -149,6 +154,7 @@ beforeEach(() => {
   mutateAsync.mockReset();
   mutateSourceAsync.mockReset();
   uploadChatAttachment.mockReset();
+  recordEvent.mockReset();
   apiFetch.mockReset();
   mutateSourceAsync.mockResolvedValue({ source: { id: 'source-1' } });
   vi.mocked(loadDraft).mockClear();
@@ -191,6 +197,13 @@ it('importa com payload mínimo, verifica e limpa o snapshot', async () => {
   expect(memory.drafts.has(DRAFT_ID)).toBe(false);
   expect(memory.receipts.get(DRAFT_ID)?.phase).toBe('verified');
   expect(releaseImportLease).toHaveBeenCalledTimes(1);
+  expect(recordEvent).toHaveBeenCalledTimes(1);
+  expect(recordEvent).toHaveBeenCalledWith('guest_draft_imported', {
+    creativeWorkId: WORK_ID,
+    protocol: 'single',
+    referenceCount: 0,
+    recovered: false,
+  });
 });
 
 it('bloqueia clique repetido durante a tentativa', async () => {
@@ -358,6 +371,12 @@ it('transfere texto e referências no mesmo clique, sob o mesmo lease', async ()
   expect(claimImportLease).toHaveBeenCalledTimes(1);
   expect(memory.drafts.has(DRAFT_ID)).toBe(false);
   expect(memory.receipts.get(DRAFT_ID)?.phase).toBe('verified');
+  expect(recordEvent).toHaveBeenCalledWith('guest_draft_imported', {
+    creativeWorkId: WORK_ID,
+    protocol: 'single',
+    referenceCount: 1,
+    recovered: false,
+  });
 });
 
 it('anexos desligados retornam parcial sem transferir', async () => {
@@ -445,6 +464,57 @@ it('arquivo corrompido bloqueia antes de qualquer envio', async () => {
   expect(uploadChatAttachment).not.toHaveBeenCalled();
   expect(mutateSourceAsync).not.toHaveBeenCalled();
   expect(memory.drafts.has(DRAFT_ID)).toBe(true);
+});
+
+it('marca recovered quando o recibo já traz o Trabalho', async () => {
+  const draft = seedDraft();
+  memory.receipts.set(DRAFT_ID, {
+    ...context,
+    guestDraftId: DRAFT_ID,
+    workId: WORK_ID,
+    phase: 'created',
+    references: [],
+    expiresAt: Date.now() + 60_000,
+    revision: 2,
+    leaseOwner: null,
+    leaseExpiresAt: 0,
+  });
+  mutateAsync.mockResolvedValue({ work: canonicalWork() });
+  apiFetch.mockResolvedValue(detailResponse());
+  const { result } = renderHook(() => useGuestDraftImport({ draft, context, attachmentsEnabled: true }));
+  let outcome: unknown;
+  await act(async () => { outcome = await result.current.start(); });
+  expect(outcome).toEqual({ kind: 'verified', workId: WORK_ID });
+  expect(mutateAsync).not.toHaveBeenCalled();
+  expect(recordEvent).toHaveBeenCalledWith('guest_draft_imported', expect.objectContaining({
+    recovered: true,
+  }));
+});
+
+it('falha de analytics não bloqueia a importação verificada', async () => {
+  const draft = seedDraft();
+  mutateAsync.mockResolvedValue({ work: canonicalWork() });
+  apiFetch.mockResolvedValue(detailResponse());
+  recordEvent.mockImplementationOnce(() => { throw new Error('beacon down'); });
+  const { result } = renderHook(() => useGuestDraftImport({ draft, context, attachmentsEnabled: true }));
+  let outcome: unknown;
+  await act(async () => { outcome = await result.current.start(); });
+  expect(outcome).toEqual({ kind: 'verified', workId: WORK_ID });
+  expect(memory.drafts.has(DRAFT_ID)).toBe(false);
+});
+
+it('não emite antes da verificação', async () => {
+  const file = new File([new Uint8Array([1])], 'ref.png', { type: 'image/png' });
+  const draft = seedDraft([file]);
+  mutateAsync.mockResolvedValue({ work: canonicalWork() });
+  apiFetch.mockResolvedValue(detailResponse());
+  const { result } = renderHook(() => useGuestDraftImport({ draft, context, attachmentsEnabled: false }));
+  await act(async () => { await result.current.start(); });
+  expect(recordEvent).not.toHaveBeenCalled();
+  memory.claimResult = { kind: 'busy' };
+  const blocked = renderHook(() => useGuestDraftImport({ draft, context, attachmentsEnabled: true }));
+  await act(async () => { await blocked.result.current.start(); });
+  expect(recordEvent).not.toHaveBeenCalled();
 });
 
 it('perda de lease no meio das referências bloqueia sem avançar', async () => {

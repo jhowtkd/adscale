@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { useCreateCreativeWorkDraft, useCreativeWorkSourceActions } from '@/lib/hooks/use-creative-work';
+import { useRecordBetaEvent } from '@/lib/hooks/use-record-beta-event';
 import { uploadChatAttachment } from '@/lib/assistant/chat-attachments';
 import { isAllowedImageType, validateImageMagicBytes } from '@/lib/upload-config';
 import type { GuestDraft } from '@/components/guest-home/guest-core.mjs';
@@ -116,6 +117,7 @@ export function useGuestDraftImport(options: {
   const { draft, context, attachmentsEnabled } = options;
   const { mutateAsync } = useCreateCreativeWorkDraft();
   const { mutateAsync: mutateSourceAsync } = useCreativeWorkSourceActions();
+  const { recordEvent } = useRecordBetaEvent(undefined, { includeBetaSession: false });
   const [attempt, setAttempt] = useState<GuestImportAttempt>({ status: 'idle' });
   const busyRef = useRef(false);
   const mountedRef = useRef(true);
@@ -159,6 +161,10 @@ export function useGuestDraftImport(options: {
         if (mountedRef.current) setAttempt({ status: 'done', outcome, cleanupError: false });
         return outcome;
       }
+      // A receipt that already carries a workId means this attempt resumed a
+      // previous one (retry, reload, or references resume) instead of a fresh
+      // creation. Conversion still counts distinct works, not deliveries.
+      const recovered = claim.receipt.workId !== null;
       heartbeat = setInterval(() => {
         // Renewal keeps the lease alive; per-mutation lease checks below are
         // the actual enforcement, so a failed heartbeat never silently extends.
@@ -253,6 +259,18 @@ export function useGuestDraftImport(options: {
         } catch {
           cleanupError = true;
         }
+        // Authenticated import event, only after verification. Fire-and-forget:
+        // analytics never blocks, erases, or duplicates the import.
+        try {
+          recordEvent('guest_draft_imported', {
+            creativeWorkId: outcome.workId,
+            protocol: fresh.intent,
+            referenceCount: fresh.files.length,
+            recovered,
+          });
+        } catch {
+          /* Analytics failures stay silent by design. */
+        }
       }
       if (mountedRef.current) setAttempt({ status: 'done', outcome, cleanupError });
       return outcome;
@@ -269,7 +287,7 @@ export function useGuestDraftImport(options: {
       }
       busyRef.current = false;
     }
-  }, [draft, context, attachmentsEnabled, mutateAsync, mutateSourceAsync]);
+  }, [draft, context, attachmentsEnabled, mutateAsync, mutateSourceAsync, recordEvent]);
 
   return { attempt, busy: attempt.status === 'busy', start, reset };
 }
