@@ -6,7 +6,7 @@
  * duas revisões por raiz), teto de créditos, vínculo de parent (stale recusa)
  * e o CHECK de um único tipo de raiz por linha.
  *
- * Requer o container adscale-test-postgres com a migração 0099 aplicada:
+ * Requer o container adscale-test-postgres com a migração 0100 aplicada:
  *   TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/repositories/creative-work-refinement.pg.test.ts
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -119,9 +119,9 @@ beforeAll(async () => {
     await db.execute(sql`select 1 from adscale_app.creative_work_refinement_attempts limit 0`);
   } catch (err) {
     throw new Error(
-      `[creative-work-refinement.pg] Postgres de teste INACESSÍVEL ou sem a 0099 ` +
+      `[creative-work-refinement.pg] Postgres de teste INACESSÍVEL ou sem a 0100 ` +
         `(DATABASE_URL=${process.env.DATABASE_URL ?? "(não definida)"}). ` +
-        `Suba o container adscale-test-postgres e aplique drizzle/0099_creative_work_refinement.sql. ` +
+        `Suba o container adscale-test-postgres e aplique drizzle/0100_creative_work_refinement.sql. ` +
         `Causa: ${err instanceof Error ? err.message : String(err)}`,
     );
   }

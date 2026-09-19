@@ -4,7 +4,7 @@
  * teto de créditos compartilhado com outputs, recusa de parent stale e a
  * reserva atômica anchor+dependentes (tudo-ou-nada na mesma transação).
  *
- * Requer o container adscale-test-postgres com a migração 0099 aplicada:
+ * Requer o container adscale-test-postgres com a migração 0100 aplicada:
  *   DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/repositories/creative-work-carousel-refinement.pg.test.ts
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -127,8 +127,8 @@ beforeAll(async () => {
     await db.execute(sql`select 1 from adscale_app.creative_work_refinement_attempts limit 0`);
   } catch (err) {
     throw new Error(
-      `[creative-work-carousel-refinement.pg] Postgres de teste INACESSÍVEL ou sem a 0099. ` +
-        `Suba o container adscale-test-postgres e aplique drizzle/0099_creative_work_refinement.sql. ` +
+      `[creative-work-carousel-refinement.pg] Postgres de teste INACESSÍVEL ou sem a 0100. ` +
+        `Suba o container adscale-test-postgres e aplique drizzle/0100_creative_work_refinement.sql. ` +
         `Causa: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
