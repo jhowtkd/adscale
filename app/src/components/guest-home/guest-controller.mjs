@@ -39,7 +39,7 @@ export function mountGuestHome(root, options = {}) {
   }
   function focusRequest() {
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    composer.scrollIntoView({ behavior: reduced ? 'instant' : 'smooth', block: 'center' });
+    if (typeof composer.scrollIntoView === 'function') composer.scrollIntoView({ behavior: reduced ? 'instant' : 'smooth', block: 'center' });
     textarea.focus({ preventScroll:true });
   }
   function renderFiles() {
@@ -188,7 +188,7 @@ export function mountGuestHome(root, options = {}) {
   }
   const actions = {
     focus: () => { closeDialog(); focusRequest(); },
-    how: () => { closeDialog(); query('#ag-how').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth', block:'start'}); },
+    how: () => { closeDialog(); const how = query('#ag-how'); if (typeof how.scrollIntoView === 'function') how.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth', block:'start'}); },
     gallery: () => openDialog('gallery'), menu: () => openDialog('menu'), brand: () => openDialog('brand'), help: () => openDialog('help'),
     example: (button) => openDialog('example',button.dataset.example),
     'use-example': (button) => chooseExample(button.dataset.example),
