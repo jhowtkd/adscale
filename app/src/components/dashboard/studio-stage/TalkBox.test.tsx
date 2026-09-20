@@ -26,6 +26,7 @@ it("não encolhe a caixa dock abaixo do chrome das pills e do pedido", () => {
   expect(wrap.className).toContain("flex-[0_0_auto]");
   expect(wrap.className).not.toContain("min-h-0");
   expect(wrap.className).not.toContain("flex-[0_1_auto]");
+  expect(screen.getByRole("textbox", { name: "requestLabel" }).className).toContain("focus-visible:ring-0");
 });
 
 it("separa o botão de expansão do resumo recolhido", () => {

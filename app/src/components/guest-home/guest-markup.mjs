@@ -24,7 +24,7 @@ export function renderShell(assetBase = '/adscale-guest', resolveAsset, options 
   <aside class="ag-sidebar" aria-label="Navegação principal">
     <a class="ag-logo" href="/hi" aria-label="Adscale, início" data-action="focus"><img src="${asset('logo.svg')}" alt="Adscale" width="132" height="23"/></a>
     <nav class="ag-nav">${nav}</nav>
-    <button type="button" class="ag-side-brand" data-action="brand"><span class="ag-pill">SUA IDENTIDADE</span><strong>Sua marca, aqui ${icon('chevron',14)}</strong><p>O ponto de partida de cada criação.</p></button>
+    <button type="button" class="ag-side-brand" data-action="brand"><span class="ag-pill">BRAND CORTEX</span><strong>Treine sua marca ${icon('chevron',14)}</strong><p>O contexto que orienta cada criação.</p></button>
     <div class="ag-side-bottom"><p class="ag-side-note">Um espaço para as ideias que ainda não saíram do papel.</p><button type="button" class="ag-nav-item" data-action="help">${icon('help',18)}<span>Precisa de uma mão?</span></button><div class="ag-visitor"><span class="ag-visitor-icon">${icon('eye',16)}</span><div><strong>Explorando o Adscale</strong><small>MODO VISITANTE</small></div></div><button type="button" class="ag-nav-item" data-action="auth">${icon('login',18)}<span>Entrar no estúdio</span></button></div>
   </aside>
   <main class="ag-main" id="main">

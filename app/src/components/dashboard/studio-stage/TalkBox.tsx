@@ -256,7 +256,7 @@ export function TalkBox({
                 centered
                   ? "mt-4 min-h-28 text-lg leading-relaxed"
                   : "mt-2 min-h-10 field-sizing-content max-h-28 text-sm leading-snug",
-                focus,
+                "focus-visible:outline-none focus-visible:ring-0",
               )}
               placeholder={centered ? t("talkPlaceholderEmpty") : t("talkPlaceholderWork")}
             />

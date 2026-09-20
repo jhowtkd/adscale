@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { Paperclip, Sparkles } from "lucide-react";
+import { Check, Paperclip, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ActiveBrandSwitcher from "@/components/layout/ActiveBrandSwitcher";
 import { AnimatedDisplayValue } from "@/components/animations/AnimatedDisplayValue";
@@ -18,6 +18,14 @@ import { CarouselComposer } from "./CarouselComposer";
 import { BrandVisualRecipes } from "./BrandVisualRecipes";
 import { StudioPieceWorkspace } from "./StudioPieceWorkspace";
 import type { CreativeComposerModel, CreativeComposerViewModel } from "./useCreativeComposer";
+import type { CreativeWorkFormat } from "@/server/creative-work/contracts";
+
+const TARGET_FORMAT_META: Record<CreativeWorkFormat, { nameKey: string; hintKey: string }> = {
+  "1:1": { nameKey: "targetFormatSquare", hintKey: "targetFormatSquareHint" },
+  "4:5": { nameKey: "targetFormatPortrait", hintKey: "targetFormatPortraitHint" },
+  "9:16": { nameKey: "targetFormatStory", hintKey: "targetFormatStoryHint" },
+  "3:4": { nameKey: "targetFormatTall", hintKey: "targetFormatTallHint" },
+};
 
 
 
@@ -770,13 +778,49 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
             {t("targetFormats")}
           </legend>
           <p className="mt-1 text-xs text-[var(--text-muted)]">{t("targetFormatsHelp")}</p>
-          <div className="mt-2 flex flex-wrap gap-3">
-            {composer.offeredFormats.map((value) => (
-              <label key={value} className="inline-flex items-center gap-2 text-sm text-[var(--text-primary)]">
-                <input type="checkbox" checked={composer.targetFormats.includes(value)} onChange={() => composer.toggleTargetFormat(value)} />
-                {value}
-              </label>
-            ))}
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="target-format-options">
+            {composer.offeredFormats.map((value) => {
+              const selected = composer.targetFormats.includes(value);
+              const meta = TARGET_FORMAT_META[value];
+              return (
+                <label key={value} className="group block cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={() => composer.toggleTargetFormat(value)}
+                    className="peer sr-only"
+                    aria-label={value}
+                  />
+                  <span
+                    className={cn(
+                      "block min-h-36 rounded-[var(--radius-control)] border p-3 transition-colors",
+                      "peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--focus-ring)]",
+                      selected
+                        ? "border-[var(--selection-border)] bg-[var(--selection-bg)] ring-1 ring-inset ring-[var(--selection-border)]"
+                        : "border-[var(--border-subtle)] bg-[var(--surface-inset)] hover:border-[var(--border-default)] hover:bg-[var(--surface-raised)]",
+                    )}
+                  >
+                    <span className="flex h-16 items-center justify-center rounded-[calc(var(--radius-control)-2px)] bg-[var(--surface-base)]">
+                      <span
+                        aria-hidden="true"
+                        className="relative block h-12 overflow-hidden rounded-[4px] border border-[var(--focus-ring)]/70 bg-gradient-to-br from-[#a07cfe]/30 via-[#fe8fb5]/20 to-[#ffbe7b]/35 shadow-[0_5px_16px_-8px_rgba(255,190,123,.9)]"
+                        style={{ aspectRatio: value.replace(":", " / ") }}
+                      >
+                        <span className="absolute inset-x-1 top-1/3 h-px bg-white/45" />
+                        <span className="absolute inset-x-1 bottom-1/4 h-px bg-white/25" />
+                        <span className="absolute bottom-1 left-1 size-2 rounded-full bg-white/70" />
+                      </span>
+                    </span>
+                    <span className="mt-3 flex items-center justify-between gap-2">
+                      <span className="font-mono text-[11px] font-semibold tracking-[0.08em] text-[var(--text-primary)]">{value}</span>
+                      {selected ? <Check size={14} aria-hidden="true" className="text-[var(--selection-text)]" /> : null}
+                    </span>
+                    <span className="mt-1 block text-sm font-medium text-[var(--text-primary)]">{t(meta.nameKey)}</span>
+                    <span className="mt-0.5 block text-[11px] leading-4 text-[var(--text-muted)]">{t(meta.hintKey)}</span>
+                  </span>
+                </label>
+              );
+            })}
           </div>
         </fieldset>
       ) : !isRestyle ? <details className="rounded-[var(--radius-object)] border border-[var(--border-subtle)] bg-[var(--surface-base)] p-4" data-testid="creative-optional-settings">
