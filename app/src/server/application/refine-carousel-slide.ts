@@ -1,10 +1,14 @@
+import { createHash } from "node:crypto";
 import { artRefinementParentHash } from "@/server/creative-work/art-refinement-parent-hash";
 import { getCreativeWorkObjectiveVerdict, getCreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
 import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import {
+  artComparisonKey,
   chooseBestCandidate,
   resolveArtCritique,
+  resolveArtRefinementState,
   shouldRefine,
+  type ArtComparisonVerdict,
   type ArtCritique,
   type RefinementCandidate,
 } from "@/server/creative-work/art-refinement";
@@ -13,7 +17,10 @@ import {
   carouselAnchorPositions,
   resolveCarouselPreparedSnapshot,
 } from "@/server/creative-work/carousel-contracts";
-import { compareArtCandidates } from "@/server/generation/pipeline/post-generation";
+import {
+  ART_COMPARISON_JUDGE_FAILED_REASON,
+  compareArtCandidates,
+} from "@/server/generation/pipeline/post-generation";
 import {
   getArtRefinementAttemptByKey,
   getCreativeWork,
@@ -70,6 +77,10 @@ function toRefinementCandidate(slide: CreativeWorkCarouselSlide): RefinementCand
   };
 }
 
+function briefHash(brief: string): string {
+  return createHash("sha256").update(brief).digest("hex").slice(0, 16);
+}
+
 /**
  * Recompute the work-level presentation summary after a slide refinement
  * event: the best valid slide per lineage (compared pairwise with the
@@ -78,6 +89,12 @@ function toRefinementCandidate(slide: CreativeWorkCarouselSlide): RefinementCand
  * else "ready" when every lineage has a best, "needs_review" when some
  * lineage has none. Recommended ids are slide ids on carousel works. Never
  * promotes a rejected slide.
+ *
+ * Judged verdicts persist in the state (`comparisons`) keyed by the immutable
+ * pair plus brief hash, so each unique pair is judged once across refreshes;
+ * images are only loaded for pairs that still need a verdict. Verdicts from
+ * a failed judge or without both images stay unpersisted so a later refresh
+ * can retry them.
  */
 export async function refreshCarouselArtRefinementState(input: {
   workspaceId: string;
@@ -97,31 +114,55 @@ export async function refreshCarouselArtRefinementState(input: {
     (slide) => slide.status === "draft" || slide.status === "queued" || slide.status === "processing",
   );
   const brief = aggregate.work.inputSnapshot?.request ?? aggregate.work.request;
+  const hash = briefHash(brief);
+  const priorComparisons = resolveArtRefinementState(aggregate.work.artRefinementState)?.comparisons ?? {};
+  const comparisons: Record<string, ArtComparisonVerdict> = {};
+
+  const lineages = await Promise.all(current.map((slide) =>
+    listCarouselSlideLineage(input.workspaceId, input.workItemId, slide.lineageId),
+  ));
 
   const recommendedOutputIds: string[] = [];
   const issues: string[] = [];
-  for (const slide of current) {
-    const versions = (await listCarouselSlideLineage(input.workspaceId, input.workItemId, slide.lineageId))
+  for (const lineage of lineages) {
+    const versions = lineage
       .filter((version) => version.status === "completed" && version.outputKey)
       .sort((a, b) => a.versionNumber - b.versionNumber);
     if (versions.length === 0) continue;
     const candidates = versions.map(toRefinementCandidate);
-    const imageById = new Map<string, Buffer | undefined>();
-    for (const version of versions) {
-      imageById.set(version.id, await loadArtComparisonImage(version.outputKey));
-    }
+    const outputKeyById = new Map(versions.map((version) => [version.id, version.outputKey]));
+    const imageById = new Map<string, Promise<Buffer | undefined>>();
+    const imageOf = (id: string): Promise<Buffer | undefined> => {
+      let pending = imageById.get(id);
+      if (!pending) {
+        pending = loadArtComparisonImage(outputKeyById.get(id) ?? null);
+        imageById.set(id, pending);
+      }
+      return pending;
+    };
     let preferredId: string | null = null;
     let best = candidates[0]!;
     for (const next of candidates.slice(1)) {
-      const comparison = await compareArtCandidates({
-        before: best,
-        after: next,
-        brief,
-        beforeImage: imageById.get(best.id),
-        afterImage: imageById.get(next.id),
-      });
-      preferredId = comparison.preferredId;
-      best = candidates.find((candidate) => candidate.id === comparison.preferredId) ?? best;
+      const key = artComparisonKey(best.id, next.id, hash);
+      const cached = priorComparisons[key];
+      if (cached) {
+        comparisons[key] = cached;
+        preferredId = cached.preferredId;
+      } else {
+        const [beforeImage, afterImage] = await Promise.all([imageOf(best.id), imageOf(next.id)]);
+        const comparison = await compareArtCandidates({
+          before: best,
+          after: next,
+          brief,
+          beforeImage,
+          afterImage,
+        });
+        preferredId = comparison.preferredId;
+        if (beforeImage && afterImage && comparison.reason !== ART_COMPARISON_JUDGE_FAILED_REASON) {
+          comparisons[key] = { preferredId: comparison.preferredId };
+        }
+      }
+      best = candidates.find((candidate) => candidate.id === preferredId) ?? best;
     }
     const winner = chooseBestCandidate(candidates, preferredId);
     if (winner) {
@@ -148,6 +189,7 @@ export async function refreshCarouselArtRefinementState(input: {
     recommendedOutputIds,
     status,
     issues: openIssues,
+    comparisons,
   });
 }
 
