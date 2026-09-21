@@ -39,4 +39,28 @@ describe("canonical works polling", () => {
     await waitFor(() => expect(result.current.data?.[0]?.state).toBe("reviewing"));
     expect(mockApiFetch).toHaveBeenCalledTimes(2);
   });
+
+  it("requests a bounded page and appends the next page via cursor", async () => {
+    const responses = [
+      new Response(JSON.stringify({ works: [work("approved")], nextCursor: "c1" }), { status: 200 }),
+      new Response(JSON.stringify({ works: [work("failed")], nextCursor: null }), { status: 200 }),
+    ];
+    mockApiFetch.mockImplementation(async () => responses.shift()!);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client }, children);
+
+    const { result } = renderHook(() => useCanonicalWorks(), { wrapper });
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/creative-work?limit=24");
+    expect(result.current.hasNextPage).toBe(true);
+
+    await act(async () => {
+      await result.current.fetchNextPage();
+    });
+
+    await waitFor(() => expect(result.current.data).toHaveLength(2));
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/creative-work?limit=24&cursor=c1");
+    expect(result.current.hasNextPage).toBe(false);
+  });
 });

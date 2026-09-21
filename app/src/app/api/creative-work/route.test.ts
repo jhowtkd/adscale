@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GET, POST } from "./route";
+import { encodeCatalogCursor } from "@/lib/catalog-page";
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
@@ -32,7 +33,7 @@ vi.mock("@/server/application/start-social-post-work", () => ({
 }));
 
 vi.mock("@/server/creative-work/canonical/queries", () => ({
-  listCanonicalWorks: (...args: unknown[]) => listMock(...args),
+  listCanonicalWorksPage: (...args: unknown[]) => listMock(...args),
 }));
 
 vi.mock("@/server/application/list-creative-production", () => ({
@@ -123,7 +124,7 @@ describe("GET /api/creative-work", () => {
   });
 
   it("returns creative_work canonical summaries", async () => {
-    listMock.mockResolvedValue([
+    listMock.mockResolvedValue({ nextCursor: "next-1", items: [
       {
         id: "creative_work:aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
         originKind: "creative_work",
@@ -136,16 +137,39 @@ describe("GET /api/creative-work", () => {
         resumable: true,
         resumeHref: "/criar-post/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
       },
-    ]);
+    ] });
 
     const res = await GET(new Request("http://localhost/api/creative-work"));
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(listMock).toHaveBeenCalledWith("workspace-1");
+    expect(listMock).toHaveBeenCalledWith("workspace-1", { limit: 24, cursor: null });
     expect(body.works).toHaveLength(1);
     expect(body.works[0].originKind).toBe("creative_work");
     expect(body.works[0].name).toBe("Novo produto");
+    expect(body.nextCursor).toBe("next-1");
+  });
+
+  it("passes limit and cursor through to the works page query", async () => {
+    listMock.mockResolvedValue({ items: [], nextCursor: null });
+    const cursor = encodeCatalogCursor({
+      at: new Date("2026-07-13T12:00:00.000Z"),
+      id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    });
+
+    const res = await GET(new Request(`http://localhost/api/creative-work?limit=10&cursor=${cursor}`));
+
+    expect(res.status).toBe(200);
+    expect(listMock).toHaveBeenCalledWith("workspace-1", {
+      limit: 10,
+      cursor: { at: new Date("2026-07-13T12:00:00.000Z"), id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee" },
+    });
+  });
+
+  it("rejects a malformed works cursor", async () => {
+    const res = await GET(new Request("http://localhost/api/creative-work?cursor=not-a-cursor"));
+    expect(res.status).toBe(400);
+    expect(listMock).not.toHaveBeenCalled();
   });
 
   it("returns active-brand inspirations instead of the work list", async () => {

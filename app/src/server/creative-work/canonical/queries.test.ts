@@ -35,9 +35,11 @@ import {
 } from "@/server/repositories/client-reference";
 import {
   listCanonicalWorks,
+  listCanonicalWorksPage,
   openCanonicalWork,
   resumeCanonicalWork,
 } from "@/server/creative-work/canonical/queries";
+import { decodeCatalogCursor } from "@/lib/catalog-page";
 import { logger } from "@/lib/logger";
 
 const mockGetCampaignById = vi.mocked(getCampaignById);
@@ -127,8 +129,8 @@ describe("canonical queries isolation", () => {
     ] as never);
 
     const list = await listCanonicalWorks(WS);
-    expect(mockGetCampaignsPage).toHaveBeenCalledWith(WS, {});
-    expect(mockListWithOutputs).toHaveBeenCalledWith(WS);
+    expect(mockGetCampaignsPage).toHaveBeenCalledWith(WS, { limit: 25, cursor: null });
+    expect(mockListWithOutputs).toHaveBeenCalledWith(WS, 25, null);
     expect(list).toHaveLength(2);
     expect(list[0].originKind).toBe("creative_work");
     expect(list[0].brandName).toBe("Marca Aurora");
@@ -136,11 +138,50 @@ describe("canonical queries isolation", () => {
     expect(list.map((i) => i.workspaceId)).toEqual([WS, WS]);
   });
 
-  it("passes an explicit limit without imposing one by default", async () => {
-    await listCanonicalWorks(WS, { limit: 10 });
+  it("fetches limit + 1 from each origin with the shared cursor", async () => {
+    const cursor = { at: new Date("2026-01-02T00:00:00.000Z"), id: CAMPAIGN_ID };
+    await listCanonicalWorks(WS, { limit: 10, cursor });
 
-    expect(mockGetCampaignsPage).toHaveBeenCalledWith(WS, { limit: 10 });
-    expect(mockListWithOutputs).toHaveBeenCalledWith(WS, 10);
+    expect(mockGetCampaignsPage).toHaveBeenCalledWith(WS, { limit: 11, cursor });
+    expect(mockListWithOutputs).toHaveBeenCalledWith(WS, 11, cursor);
+  });
+
+  it("caps the merged page and emits a keyset cursor for the last row", async () => {
+    const baseWork = {
+      workspaceId: WS,
+      clientProfileId: "66666666-6666-4666-8666-666666666666",
+      createdByUserId: "u1",
+      toolKind: "social_post",
+      status: "draft",
+      format: "1:1",
+      brief: { theme: "T", objective: "O", audience: "A", offer: "Off" },
+      copy: null,
+      identitySnapshot: null,
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    };
+    mockListWithOutputs.mockResolvedValue([
+      { work: { ...baseWork, id: "33333333-3333-4333-8333-333333333331", updatedAt: new Date("2026-01-05T00:00:00.000Z") }, outputs: [] },
+      { work: { ...baseWork, id: "33333333-3333-4333-8333-333333333332", updatedAt: new Date("2026-01-04T00:00:00.000Z") }, outputs: [] },
+      { work: { ...baseWork, id: "33333333-3333-4333-8333-333333333333", updatedAt: new Date("2026-01-03T00:00:00.000Z") }, outputs: [] },
+    ] as never);
+
+    const page = await listCanonicalWorksPage(WS, { limit: 2 });
+    expect(page.items.map((i) => i.originId)).toEqual([
+      "33333333-3333-4333-8333-333333333331",
+      "33333333-3333-4333-8333-333333333332",
+    ]);
+    expect(page.nextCursor).not.toBeNull();
+    expect(decodeCatalogCursor(page.nextCursor!)).toEqual({
+      at: new Date("2026-01-04T00:00:00.000Z"),
+      id: "33333333-3333-4333-8333-333333333332",
+    });
+
+    mockListWithOutputs.mockResolvedValue([
+      { work: { ...baseWork, id: "33333333-3333-4333-8333-333333333333", updatedAt: new Date("2026-01-03T00:00:00.000Z") }, outputs: [] },
+    ] as never);
+    const last = await listCanonicalWorksPage(WS, { limit: 2, cursor: decodeCatalogCursor(page.nextCursor!) });
+    expect(last.items).toHaveLength(1);
+    expect(last.nextCursor).toBeNull();
   });
 
   it("list and open both reject generating Creative Work without outputs", async () => {

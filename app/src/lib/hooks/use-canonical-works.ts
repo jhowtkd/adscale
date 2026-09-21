@@ -1,8 +1,9 @@
 "use client";
 
 import { apiFetch } from "@/lib/api-client";
+import { CATALOG_PAGE_DEFAULT_LIMIT } from "@/lib/catalog-page";
 import { STALE_TIME } from "@/lib/query-config";
-import { useQuery, type QueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, type QueryClient } from "@tanstack/react-query";
 import type { CanonicalWorkSummary } from "@/server/creative-work/canonical/types";
 
 export const CANONICAL_WORKS_QUERY_KEY = ["canonical-works"] as const;
@@ -18,16 +19,25 @@ export function canonicalWorksRefetchInterval(
   return works?.some((work) => ACTIVE_STATES.has(work.state)) ? 5_000 : false;
 }
 
-async function fetchCanonicalWorks(): Promise<CanonicalWorkSummary[]> {
-  const res = await apiFetch("/api/creative-work");
+type CanonicalWorksPage = {
+  works: CanonicalWorkSummary[];
+  nextCursor: string | null;
+};
+
+async function fetchCanonicalWorks(cursor: string | null): Promise<CanonicalWorksPage> {
+  const query = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
+  const res = await apiFetch(`/api/creative-work?limit=${CATALOG_PAGE_DEFAULT_LIMIT}${query}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(
       typeof err.error === "string" ? err.error : "Erro ao carregar trabalhos"
     );
   }
-  const data = (await res.json()) as { works?: CanonicalWorkSummary[] };
-  return data.works ?? [];
+  const data = (await res.json()) as {
+    works?: CanonicalWorkSummary[];
+    nextCursor?: string | null;
+  };
+  return { works: data.works ?? [], nextCursor: data.nextCursor ?? null };
 }
 
 /** Invalidate home / sidebar / Trabalhos list after campaign or creative_work changes. */
@@ -47,13 +57,21 @@ export function invalidateWorkListProjections(queryClient: QueryClient) {
   ]);
 }
 
-/** Phase 6: shared list for home + sidebar (campaign + creative_work). */
+/**
+ * Phase 6: shared list for home + sidebar (campaign + creative_work).
+ * Cursor-paged; `data` is the flattened list of loaded pages.
+ */
 export function useCanonicalWorks() {
-  return useQuery({
+  const query = useInfiniteQuery({
     queryKey: CANONICAL_WORKS_QUERY_KEY,
-    queryFn: fetchCanonicalWorks,
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) => fetchCanonicalWorks(pageParam),
+    getNextPageParam: (last) => last.nextCursor,
+    select: (data) => data.pages.flatMap((page) => page.works),
     staleTime: STALE_TIME.DYNAMIC,
-    refetchInterval: (query) => canonicalWorksRefetchInterval(query.state.data),
+    refetchInterval: (query) =>
+      canonicalWorksRefetchInterval(query.state.data?.pages.flatMap((page) => page.works)),
     refetchIntervalInBackground: false,
   });
+  return query;
 }

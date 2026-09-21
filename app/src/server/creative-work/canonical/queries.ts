@@ -34,29 +34,68 @@ import {
 } from "@/server/creative-work/projection/from-creative-work";
 import { compareProjectionTelemetry } from "@/server/creative-work/telemetry/projection-compare";
 import { logger } from "@/lib/logger";
+import {
+  boundCatalogLimit,
+  encodeCatalogCursor,
+  type CatalogCursor,
+  type CatalogPageResult,
+} from "@/lib/catalog-page";
 
 export interface ListCanonicalWorksOptions {
+  /** Page size; bounded to the catalog default/max like sibling views. */
   limit?: number;
+  /** Keyset (updatedAt desc, originId asc) shared by both origins. */
+  cursor?: CatalogCursor | null;
   /** When true, emit projection-compare telemetry (no UI effect). */
   emitTelemetry?: boolean;
+}
+
+/**
+ * A fetched origin row in merged order. `summary` is null when the projection
+ * rejected the row (impossible state); it still occupies a keyset position so
+ * paging stays consistent with what the origins returned.
+ */
+type CanonicalPageEntry = {
+  key: CatalogCursor;
+  summary: CanonicalWorkSummary | null;
+};
+
+function compareEntries(a: CanonicalPageEntry, b: CanonicalPageEntry): number {
+  const at = b.key.at.getTime() - a.key.at.getTime();
+  if (at !== 0) return at;
+  return a.key.id < b.key.id ? -1 : a.key.id > b.key.id ? 1 : 0;
 }
 
 export async function listCanonicalWorks(
   workspaceId: string,
   options: ListCanonicalWorksOptions = {}
 ): Promise<CanonicalWorkSummary[]> {
-  const campaignQuery = options.limit === undefined ? {} : { limit: options.limit };
+  const page = await listCanonicalWorksPage(workspaceId, options);
+  return page.items;
+}
+
+/**
+ * Merged campaign + creative_work page. Each origin is fetched with the same
+ * keyset and `limit + 1` rows, so a page never needs more than 2·(limit+1)
+ * rows regardless of workspace size.
+ */
+export async function listCanonicalWorksPage(
+  workspaceId: string,
+  options: ListCanonicalWorksOptions = {}
+): Promise<CatalogPageResult<CanonicalWorkSummary>> {
+  const limit = boundCatalogLimit(options.limit);
+  const cursor = options.cursor ?? null;
+  const fetchLimit = limit + 1;
   const [{ campaigns }, worksWithOutputs, clientProfiles] = await Promise.all([
-    getCampaignsPage(workspaceId, campaignQuery),
-    options.limit === undefined
-      ? listCreativeWorksWithOutputs(workspaceId)
-      : listCreativeWorksWithOutputs(workspaceId, options.limit),
+    getCampaignsPage(workspaceId, { limit: fetchLimit, cursor }),
+    listCreativeWorksWithOutputs(workspaceId, fetchLimit, cursor),
     getClientProfiles(workspaceId),
   ]);
   const brandNameByProfileId = new Map(clientProfiles.map((profile) => [profile.id, profile.name]));
 
-  const campaignSummaries: CanonicalWorkSummary[] = [];
+  const entries: CanonicalPageEntry[] = [];
   for (const c of campaigns) {
+    const key = { at: c.updatedAt, id: c.id };
     try {
       const summary = summarizeCampaignAsCanonicalWork({
         id: c.id,
@@ -94,20 +133,21 @@ export async function listCanonicalWorks(
           outputCount: c.totalDerivations ?? 0,
         });
       }
-      campaignSummaries.push(summary);
+      entries.push({ key, summary });
     } catch (err) {
       if (err instanceof ImpossibleCanonicalStateError) {
         logger.warn(
           `[canonical.list] skip campaign ${c.id}: ${err.code} ${err.message}`
         );
+        entries.push({ key, summary: null });
         continue;
       }
       throw err;
     }
   }
 
-  const workSummaries: CanonicalWorkSummary[] = [];
   for (const { work: w, outputs } of worksWithOutputs) {
+    const key = { at: w.updatedAt, id: w.id };
     try {
       const summary = summarizeCreativeWorkAsCanonicalWork(
         {
@@ -140,21 +180,27 @@ export async function listCanonicalWorks(
           outputCount: outputs.length,
         });
       }
-      workSummaries.push(summary);
+      entries.push({ key, summary });
     } catch (err) {
       if (err instanceof ImpossibleCanonicalStateError) {
         logger.warn(
           `[canonical.list] skip creative_work ${w.id}: ${err.code} ${err.message}`
         );
+        entries.push({ key, summary: null });
         continue;
       }
       throw err;
     }
   }
 
-  return [...campaignSummaries, ...workSummaries].sort((a, b) =>
-    a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0
-  );
+  entries.sort(compareEntries);
+  const hasMore = entries.length > limit;
+  const page = hasMore ? entries.slice(0, limit) : entries;
+  const last = page.at(-1);
+  return {
+    items: page.flatMap((entry) => (entry.summary ? [entry.summary] : [])),
+    nextCursor: hasMore && last ? encodeCatalogCursor(last.key) : null,
+  };
 }
 
 export async function openCanonicalWork(
