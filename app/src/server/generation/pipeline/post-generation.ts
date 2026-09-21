@@ -598,6 +598,10 @@ function isEligibleCandidate(candidate: RefinementCandidate): boolean {
   return candidate.objective === "pass" && !candidate.humanReviewRequired;
 }
 
+/** Tie reason when the judge itself failed — a transient outcome, never cached. */
+export const ART_COMPARISON_JUDGE_FAILED_REASON =
+  "O avaliador comparativo falhou; a versão anterior foi mantida.";
+
 function tieComparison(before: RefinementCandidate, reason: string): ArtComparison {
   return { preferredId: before.id, reason, fixedIssues: [], regressions: [] };
 }
@@ -683,7 +687,7 @@ export async function compareArtCandidates(input: {
     logger.warn(
       `[compare-art-candidates] judge failed — keeping previous version: ${shortAssessmentError(error)}`,
     );
-    return tieComparison(input.before, "O avaliador comparativo falhou; a versão anterior foi mantida.");
+    return tieComparison(input.before, ART_COMPARISON_JUDGE_FAILED_REASON);
   }
   const parsed = artComparisonSchema.safeParse(raw);
   if (!parsed.success || (parsed.data.preferredId !== null && !validIds.has(parsed.data.preferredId))) {
