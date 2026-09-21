@@ -1,6 +1,7 @@
-import { eq, and, desc, asc, sql, ilike, inArray, lt, or, isNull } from "drizzle-orm";
+import { eq, and, desc, asc, sql, ilike, inArray, gt, lt, or, isNull } from "drizzle-orm";
 import { db } from "../db";
 import { campaigns, derivations } from "../db/schema";
+import type { CatalogCursor } from "@/lib/catalog-page";
 
 export type CampaignStatus =
   | "draft"
@@ -38,6 +39,8 @@ export interface CampaignListQuery {
   sortOption?: CampaignListSortOption;
   limit?: number;
   offset?: number;
+  /** Keyset on the "newest" order (updatedAt desc, id asc); only meaningful with that sort. */
+  cursor?: CatalogCursor | null;
 }
 
 export interface CreativeDiagnosis {
@@ -277,6 +280,13 @@ function buildCampaignListConditions(workspaceId: string, query: CampaignListQue
 
   if (query.statusFilter && query.statusFilter !== "all") {
     conditions.push(eq(campaigns.status, query.statusFilter));
+  }
+
+  if (query.cursor) {
+    conditions.push(or(
+      lt(campaigns.updatedAt, query.cursor.at),
+      and(eq(campaigns.updatedAt, query.cursor.at), gt(campaigns.id, query.cursor.id)),
+    )!);
   }
 
   return conditions;

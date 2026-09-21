@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-21T21:17:31.666Z",
+  "generatedAt": "2026-09-21T22:18:20.501Z",
   "schemaVersion": 2,
-  "fingerprint": "f6539a0b10a091287625b47042e40471a7a2e64c0a09a0c7d9fcb6228d747cce",
+  "fingerprint": "951a493d6049ed2cb08c84c5d9faffd1c1ff27b8741c88b9ccc4ee398c3dc892",
   "counts": {
     "dashboardPages": 16,
     "apiRoutes": 196,
@@ -2194,21 +2194,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/app/(dashboard)/campaigns/page.tsx:240",
+      "id": "nav:app/src/app/(dashboard)/campaigns/page.tsx:244",
       "kind": "cta_navigation",
       "destination": "/?mode=arte&compose=1",
       "file": "app/src/app/(dashboard)/campaigns/page.tsx",
-      "line": 240,
-      "evidence": "app/src/app/(dashboard)/campaigns/page.tsx:240",
+      "line": 244,
+      "evidence": "app/src/app/(dashboard)/campaigns/page.tsx:244",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/app/(dashboard)/campaigns/page.tsx:321",
+      "id": "nav:app/src/app/(dashboard)/campaigns/page.tsx:325",
       "kind": "cta_navigation",
       "destination": "/?mode=arte&compose=1",
       "file": "app/src/app/(dashboard)/campaigns/page.tsx",
-      "line": 321,
-      "evidence": "app/src/app/(dashboard)/campaigns/page.tsx:321",
+      "line": 325,
+      "evidence": "app/src/app/(dashboard)/campaigns/page.tsx:325",
       "requiresDecision": false
     },
     {

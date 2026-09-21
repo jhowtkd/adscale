@@ -4,8 +4,9 @@ import {
   type EnqueuedSelectionEffect,
   type EnqueueSelectionEffectRequest,
 } from "./selection-effects";
-import { eq, and, asc, desc, count, inArray, isNull, isNotNull, lt, max, ne, notExists, or, sql } from "drizzle-orm";
+import { eq, and, asc, desc, count, gt, inArray, isNull, isNotNull, lt, max, ne, notExists, or, sql } from "drizzle-orm";
 import { db } from "../db";
+import type { CatalogCursor } from "@/lib/catalog-page";
 import { getCreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
 import {
   personFidelityReviewSchema,
@@ -1260,20 +1261,31 @@ export async function deleteCreativeWorkSource(workspaceId: string, workItemId: 
   });
 }
 
-/** Workspace-scoped list for canonical queries (Phase 2). No cross-tenant leak. */
+/**
+ * Workspace-scoped list for canonical queries (Phase 2). No cross-tenant leak.
+ * Ordered by updatedAt desc, id asc; `cursor` is a keyset on that order.
+ */
 export async function listCreativeWorks(
   workspaceId: string,
-  limit?: number
+  limit?: number,
+  cursor?: CatalogCursor | null,
 ): Promise<CreativeWorkItem[]> {
+  const conditions = [
+    eq(creativeWorkItems.workspaceId, workspaceId),
+    // Calibration examples stay private to their session review.
+    isNull(creativeWorkItems.trainingSessionId),
+  ];
+  if (cursor) {
+    conditions.push(or(
+      lt(creativeWorkItems.updatedAt, cursor.at),
+      and(eq(creativeWorkItems.updatedAt, cursor.at), gt(creativeWorkItems.id, cursor.id)),
+    )!);
+  }
   const query = db
     .select()
     .from(creativeWorkItems)
-    .where(and(
-      eq(creativeWorkItems.workspaceId, workspaceId),
-      // Calibration examples stay private to their session review.
-      isNull(creativeWorkItems.trainingSessionId),
-    ))
-    .orderBy(desc(creativeWorkItems.updatedAt));
+    .where(and(...conditions))
+    .orderBy(desc(creativeWorkItems.updatedAt), asc(creativeWorkItems.id));
   return typeof limit === "number" ? query.limit(limit) : query;
 }
 
@@ -1303,9 +1315,10 @@ export async function listCreativeWorksForEntryContext(
  */
 export async function listCreativeWorksWithOutputs(
   workspaceId: string,
-  limit?: number
+  limit?: number,
+  cursor?: CatalogCursor | null,
 ): Promise<Array<{ work: CreativeWorkItem; outputs: CreativeWorkOutput[] }>> {
-  const works = await listCreativeWorks(workspaceId, limit);
+  const works = await listCreativeWorks(workspaceId, limit, cursor);
   if (works.length === 0) return [];
 
   const ids = works.map((w) => w.id);
