@@ -18,10 +18,52 @@ export class OutputLearningDomainError extends Error {
   }
 }
 
-export async function recomputeClientOutputLearnings(input: {
-  workspaceId: string;
-  clientProfileId: string;
-}) {
+type RecomputeInput = { workspaceId: string; clientProfileId: string };
+type RecomputeResult = Awaited<ReturnType<typeof runClientOutputLearningRecompute>>;
+
+const inFlightRecomputes = new Map<string, Promise<RecomputeResult>>();
+const queuedRecomputes = new Map<string, Promise<RecomputeResult>>();
+
+function recomputeKey(input: RecomputeInput) {
+  return `${input.workspaceId}::${input.clientProfileId}`;
+}
+
+/**
+ * Coalesces per-client recomputes: at most one full pass runs at a time per
+ * client, and any calls arriving while a pass is in flight share a single
+ * follow-up pass. Every caller resolves with a pass that started after its
+ * call, so the returned learnings always reflect the caller's event.
+ */
+export function recomputeClientOutputLearnings(
+  input: RecomputeInput
+): Promise<RecomputeResult> {
+  const key = recomputeKey(input);
+  const running = inFlightRecomputes.get(key);
+
+  if (!running) {
+    const current = runClientOutputLearningRecompute(input).finally(() => {
+      if (inFlightRecomputes.get(key) === current) {
+        inFlightRecomputes.delete(key);
+      }
+    });
+    inFlightRecomputes.set(key, current);
+    return current;
+  }
+
+  const queued = queuedRecomputes.get(key);
+  if (queued) return queued;
+
+  const next = running
+    .catch(() => undefined)
+    .then(() => {
+      queuedRecomputes.delete(key);
+      return recomputeClientOutputLearnings(input);
+    });
+  queuedRecomputes.set(key, next);
+  return next;
+}
+
+async function runClientOutputLearningRecompute(input: RecomputeInput) {
   const profile = await getClientProfile(input.workspaceId, input.clientProfileId);
   if (!profile) {
     throw new OutputLearningDomainError("clientProfileNotFound", 404);
