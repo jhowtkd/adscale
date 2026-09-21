@@ -69,12 +69,28 @@ export const artRefinementBudgetSchema = z.object({
 });
 export type ArtRefinementBudget = z.infer<typeof artRefinementBudgetSchema>;
 
+/**
+ * Persisted pairwise verdict of the multimodal judge. Completed versions are
+ * immutable, so a verdict keyed by (before, after, brief) never changes and
+ * later refreshes reuse it instead of re-running the vision call.
+ */
+export const artComparisonVerdictSchema = z.object({
+  preferredId: z.string().trim().min(1).nullable(),
+});
+export type ArtComparisonVerdict = z.infer<typeof artComparisonVerdictSchema>;
+
 export const artRefinementStateSchema = z.object({
   recommendedOutputIds: z.array(z.string().trim().min(1)),
   status: z.enum(["running", "ready", "budget_exhausted", "needs_review"]),
   issues: z.array(z.string().trim().min(1).max(300)).max(10),
+  comparisons: z.record(z.string().min(1), artComparisonVerdictSchema).optional(),
 });
 export type ArtRefinementState = z.infer<typeof artRefinementStateSchema>;
+
+/** Cache key of one pairwise verdict: `${beforeId}:${afterId}:${briefHash}`. */
+export function artComparisonKey(beforeId: string, afterId: string, briefHash: string): string {
+  return `${beforeId}:${afterId}:${briefHash}`;
+}
 
 export function resolveArtCritique(value: unknown): ArtCritique | null {
   const parsed = artCritiqueSchema.safeParse(value);
