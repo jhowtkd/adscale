@@ -24,8 +24,10 @@ import {
   updateConnectionSync,
   updateServedAdMedia,
   upsertAdAccounts,
-  upsertAdMetrics,
-  upsertServedAd,
+  upsertAdMetricsBatch,
+  upsertServedAds,
+  type UpsertAdMetricsInput,
+  type UpsertServedAd,
 } from "./repository";
 
 /**
@@ -197,10 +199,11 @@ export async function syncConnection(connectionId: string, deps: SyncDeps = {}):
             complete: insight.complete,
           });
         }
+        const servedAdRows: UpsertServedAd[] = [];
+        const metricRows: UpsertAdMetricsInput[] = [];
         for (const grouped of aggregateAdRows(rows)) {
           if (windowDays === 30) {
-            anuncios += 1;
-            await upsertServedAd({
+            servedAdRows.push({
               id: grouped.anuncio_id,
               accountId: accountRowId,
               adAccountId: grouped.ad_account_id,
@@ -209,9 +212,8 @@ export async function syncConnection(connectionId: string, deps: SyncDeps = {}):
               text: grouped.text,
               lastDeliveredAt: grouped.impressions > 0 ? now : null,
             });
-            await copyCreativeMedia(storage, download, connection.workspaceId, client, account.id, ads, grouped.creative_id);
           }
-          await upsertAdMetrics({
+          metricRows.push({
             anuncioId: grouped.anuncio_id,
             windowDays,
             impressions: grouped.impressions,
@@ -224,6 +226,14 @@ export async function syncConnection(connectionId: string, deps: SyncDeps = {}):
             snapshotId: snapshot.id,
           });
         }
+        if (windowDays === 30) {
+          anuncios += servedAdRows.length;
+          await upsertServedAds(servedAdRows);
+          for (const servedAd of servedAdRows) {
+            await copyCreativeMedia(storage, download, connection.workspaceId, client, account.id, ads, servedAd.creativeId);
+          }
+        }
+        await upsertAdMetricsBatch(metricRows);
       }
     }
 

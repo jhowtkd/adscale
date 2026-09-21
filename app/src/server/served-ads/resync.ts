@@ -8,9 +8,11 @@ import {
   getConnectionByWorkspace,
   insertSnapshot,
   upsertAdAccounts,
-  upsertAdMetrics,
-  upsertServedAd,
+  upsertAdMetricsBatch,
+  upsertServedAds,
   type MetaConnectionRow,
+  type UpsertAdMetricsInput,
+  type UpsertServedAd,
 } from "./repository";
 import { formatOfCreative, normalizeInsightActions, textOfCreative } from "./sync";
 import type { ResyncPlan, ResyncWindow } from "./resync-plan";
@@ -112,12 +114,12 @@ export async function executeResync(
           complete: insight.complete,
         });
       }
-      let anuncios = 0;
+      const servedAdRows: UpsertServedAd[] = [];
+      const metricRows: UpsertAdMetricsInput[] = [];
       for (const grouped of aggregateAdRows(rows)) {
-        anuncios += 1;
         // Identidade para integridade (métricas referenciam o anúncio);
         // mídia de anúncios novos chega no próximo sync completo.
-        await upsertServedAd({
+        servedAdRows.push({
           id: grouped.anuncio_id,
           accountId: accountRowId,
           adAccountId: grouped.ad_account_id,
@@ -126,7 +128,7 @@ export async function executeResync(
           text: grouped.text,
           lastDeliveredAt: grouped.impressions > 0 ? now : null,
         });
-        await upsertAdMetrics({
+        metricRows.push({
           anuncioId: grouped.anuncio_id,
           windowDays,
           impressions: grouped.impressions,
@@ -139,6 +141,9 @@ export async function executeResync(
           snapshotId: snapshot.id,
         });
       }
+      await upsertServedAds(servedAdRows);
+      await upsertAdMetricsBatch(metricRows);
+      const anuncios = servedAdRows.length;
       results.push({
         accountId: accountRowId,
         adAccountId: account.id,

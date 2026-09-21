@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, lt, isNotNull } from "drizzle-orm";
+import { and, eq, lt, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/server/db";
 import { metaAdAccounts, metaConnections, servedAdMetrics, servedAdSnapshots, servedAds } from "@/server/db/schema";
 import type { MetaAdRow, ServedAdFormat } from "./aggregate";
@@ -325,29 +325,37 @@ export interface UpsertServedAd {
   lastDeliveredAt: Date | null;
 }
 
-export async function upsertServedAd(ad: UpsertServedAd): Promise<void> {
+/** Upsert em lote (um statement); ids devem ser distintos dentro do lote. */
+export async function upsertServedAds(ads: UpsertServedAd[]): Promise<void> {
+  if (ads.length === 0) return;
   await db
     .insert(servedAds)
-    .values({
-      id: ad.id,
-      accountId: ad.accountId,
-      adAccountId: ad.adAccountId,
-      creativeId: ad.creativeId,
-      format: ad.format,
-      textExcerpt: ad.text,
-      lastDeliveredAt: ad.lastDeliveredAt,
-    })
+    .values(
+      ads.map((ad) => ({
+        id: ad.id,
+        accountId: ad.accountId,
+        adAccountId: ad.adAccountId,
+        creativeId: ad.creativeId,
+        format: ad.format,
+        textExcerpt: ad.text,
+        lastDeliveredAt: ad.lastDeliveredAt,
+      }))
+    )
     .onConflictDoUpdate({
       target: servedAds.id,
       set: {
-        accountId: ad.accountId,
-        format: ad.format,
-        textExcerpt: ad.text,
+        accountId: sql`excluded.account_id`,
+        format: sql`excluded.format`,
+        textExcerpt: sql`excluded.text_excerpt`,
         // Sync sem entrega na janela não apaga a última entrega conhecida.
-        ...(ad.lastDeliveredAt ? { lastDeliveredAt: ad.lastDeliveredAt } : {}),
+        lastDeliveredAt: sql`coalesce(excluded.last_delivered_at, ${servedAds.lastDeliveredAt})`,
         updatedAt: new Date(),
       },
     });
+}
+
+export async function upsertServedAd(ad: UpsertServedAd): Promise<void> {
+  await upsertServedAds([ad]);
 }
 
 export async function updateServedAdMedia(
@@ -365,7 +373,7 @@ export async function updateServedAdMedia(
     .where(eq(servedAds.id, anuncioId));
 }
 
-export async function upsertAdMetrics(input: {
+export interface UpsertAdMetricsInput {
   anuncioId: string;
   windowDays: number;
   impressions: number;
@@ -377,38 +385,47 @@ export async function upsertAdMetrics(input: {
   ambiguousActionTypes?: string[];
   definitionVersion: number;
   snapshotId: string | null;
-}): Promise<void> {
-  const spend = String(Math.round(input.spend * 100) / 100);
-  const ambiguousActionTypes = input.ambiguousActionTypes ?? [];
+}
+
+/** Upsert em lote (um statement); (anuncioId, windowDays) distintos dentro do lote. */
+export async function upsertAdMetricsBatch(inputs: UpsertAdMetricsInput[]): Promise<void> {
+  if (inputs.length === 0) return;
+  const syncedAt = new Date();
   await db
     .insert(servedAdMetrics)
-    .values({
-      anuncioId: input.anuncioId,
-      windowDays: input.windowDays,
-      impressions: input.impressions,
-      clicks: input.clicks,
-      spend,
-      conversions: input.conversions,
-      actionCounts: input.actionCounts,
-      ambiguousActionTypes,
-      definitionVersion: input.definitionVersion,
-      snapshotId: input.snapshotId,
-      syncedAt: new Date(),
-    })
+    .values(
+      inputs.map((input) => ({
+        anuncioId: input.anuncioId,
+        windowDays: input.windowDays,
+        impressions: input.impressions,
+        clicks: input.clicks,
+        spend: String(Math.round(input.spend * 100) / 100),
+        conversions: input.conversions,
+        actionCounts: input.actionCounts,
+        ambiguousActionTypes: input.ambiguousActionTypes ?? [],
+        definitionVersion: input.definitionVersion,
+        snapshotId: input.snapshotId,
+        syncedAt,
+      }))
+    )
     .onConflictDoUpdate({
       target: [servedAdMetrics.anuncioId, servedAdMetrics.windowDays],
       set: {
-        impressions: input.impressions,
-        clicks: input.clicks,
-        spend,
-        conversions: input.conversions,
-        actionCounts: input.actionCounts,
-        ambiguousActionTypes,
-        definitionVersion: input.definitionVersion,
-        snapshotId: input.snapshotId,
-        syncedAt: new Date(),
+        impressions: sql`excluded.impressions`,
+        clicks: sql`excluded.clicks`,
+        spend: sql`excluded.spend`,
+        conversions: sql`excluded.conversions`,
+        actionCounts: sql`excluded.action_counts`,
+        ambiguousActionTypes: sql`excluded.ambiguous_action_types`,
+        definitionVersion: sql`excluded.definition_version`,
+        snapshotId: sql`excluded.snapshot_id`,
+        syncedAt,
       },
     });
+}
+
+export async function upsertAdMetrics(input: UpsertAdMetricsInput): Promise<void> {
+  await upsertAdMetricsBatch([input]);
 }
 
 export interface ServedAdMediaKeys {
