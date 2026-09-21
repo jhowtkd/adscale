@@ -439,6 +439,78 @@ describe("refreshCarouselArtRefinementState", () => {
     }));
   });
 
+  function twoVersionLineage(current: ReturnType<typeof deckSlides>) {
+    listCurrent.mockResolvedValue(current);
+    listLineage.mockImplementation(async (_ws: string, _work: string, lineageId: string) => {
+      if (lineageId === "lineage-2") {
+        return [
+          slide({ id: "slide-2", lineageId, versionNumber: 1, quality: qualityWith(weakCritique) }),
+          slide({
+            id: "slide-2-v2", lineageId, versionNumber: 2, parentSlideId: "slide-2",
+            outputKey: "creative-work/work-1/carousel/slides/slide-2-v2/final.png",
+            quality: qualityWith(readyCritique),
+          }),
+        ];
+      }
+      return current.filter((row) => row.lineageId === lineageId);
+    });
+  }
+
+  it("judges each pair once and persists the verdict for later refreshes", async () => {
+    twoVersionLineage(deckSlides());
+    storageGet.mockResolvedValue(Buffer.from("png"));
+    analyzeArtComparisonMock.mockResolvedValue({
+      winner: "after", reason: "Melhor foco.", fixedIssues: [], regressions: [],
+    });
+
+    await refreshCarouselArtRefinementState({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(analyzeArtComparisonMock).toHaveBeenCalledTimes(1);
+    // Only the judged pair loads images — single-version lineages load nothing.
+    expect(storageGet).toHaveBeenCalledTimes(2);
+    const state = setState.mock.calls[0]?.[2] as { recommendedOutputIds: string[]; comparisons: Record<string, unknown> };
+    expect(state.recommendedOutputIds).toEqual(["slide-1", "slide-2-v2", "slide-3", "slide-4", "slide-5"]);
+    const [key, verdict] = Object.entries(state.comparisons)[0]!;
+    expect(key.startsWith("slide-2:slide-2-v2:")).toBe(true);
+    expect(verdict).toEqual({ preferredId: "slide-2-v2" });
+
+    // A refresh with the persisted verdict re-runs neither storage nor the judge.
+    vi.clearAllMocks();
+    setState.mockResolvedValue({});
+    getWork.mockResolvedValue(aggregate({ work: { artRefinementState: state } }));
+    twoVersionLineage(deckSlides());
+
+    await refreshCarouselArtRefinementState({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(analyzeArtComparisonMock).not.toHaveBeenCalled();
+    expect(storageGet).not.toHaveBeenCalled();
+    expect(setState).toHaveBeenCalledWith("ws-1", "work-1", expect.objectContaining({
+      recommendedOutputIds: ["slide-1", "slide-2-v2", "slide-3", "slide-4", "slide-5"],
+      comparisons: state.comparisons,
+    }));
+  });
+
+  it("does not persist verdicts from a failed judge or missing images", async () => {
+    twoVersionLineage(deckSlides());
+    analyzeArtComparisonMock.mockRejectedValue(new Error("timeout"));
+
+    await refreshCarouselArtRefinementState({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(setState).toHaveBeenCalledWith("ws-1", "work-1", expect.objectContaining({ comparisons: {} }));
+
+    vi.clearAllMocks();
+    setState.mockResolvedValue({});
+    getWork.mockResolvedValue(aggregate());
+    twoVersionLineage(deckSlides());
+    storageGet.mockResolvedValue(Buffer.from("png"));
+
+    await refreshCarouselArtRefinementState({ workspaceId: "ws-1", workItemId: "work-1" });
+    expect(analyzeArtComparisonMock).toHaveBeenCalledTimes(1);
+    expect(setState).toHaveBeenCalledWith("ws-1", "work-1", expect.objectContaining({
+      recommendedOutputIds: ["slide-1", "slide-2", "slide-3", "slide-4", "slide-5"],
+      comparisons: {},
+    }));
+  });
+
   it("asks for review when a lineage has no valid slide", async () => {
     listCurrent.mockResolvedValue([slide({ quality: qualityWith(weakCritique, "fail") })]);
     listLineage.mockResolvedValue([slide({ quality: qualityWith(weakCritique, "fail") })]);
