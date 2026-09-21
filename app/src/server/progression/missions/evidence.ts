@@ -44,7 +44,7 @@ export async function inferMissionCompletions(
     }
   }
 
-  const [briefingRow] = await db
+  const briefingQuery = db
     .select({
       id: campaigns.id,
       updatedAt: campaigns.updatedAt,
@@ -70,16 +70,7 @@ export async function inferMissionCompletions(
     .orderBy(campaigns.updatedAt, campaigns.createdAt)
     .limit(1);
 
-  if (briefingRow && !completions.has("guided_briefing")) {
-    completions.set("guided_briefing", {
-      key: "guided_briefing",
-      completedAt: briefingRow.updatedAt ?? briefingRow.createdAt,
-      evidenceId: briefingRow.id,
-      evidenceType: "campaign",
-    });
-  }
-
-  const [recipeRow] = await db
+  const recipeQuery = db
     .select({
       id: creativePlans.id,
       createdAt: creativePlans.createdAt,
@@ -89,6 +80,99 @@ export async function inferMissionCompletions(
     .where(eq(creativePlans.workspaceId, workspaceId))
     .orderBy(creativePlans.createdAt)
     .limit(1);
+
+  const previewQuery = db
+    .select({
+      id: derivations.id,
+      createdAt: derivations.createdAt,
+      campaignId: derivations.campaignId,
+    })
+    .from(derivations)
+    .where(
+      and(
+        eq(derivations.workspaceId, workspaceId),
+        eq(derivations.isPreview, true),
+        inArray(derivations.status, ["completed", "approved"])
+      )
+    )
+    .orderBy(derivations.createdAt)
+    .limit(1);
+
+  const batchQuery = db
+    .select({
+      id: derivations.id,
+      createdAt: derivations.createdAt,
+      campaignId: derivations.campaignId,
+    })
+    .from(derivations)
+    .where(
+      and(
+        eq(derivations.workspaceId, workspaceId),
+        eq(derivations.isPreview, false),
+        inArray(derivations.status, ["completed", "approved", "processing", "queued"])
+      )
+    )
+    .orderBy(derivations.createdAt)
+    .limit(1);
+
+  const reviewQuery = db
+    .select({
+      id: derivations.id,
+      updatedAt: derivations.updatedAt,
+      createdAt: derivations.createdAt,
+      campaignId: derivations.campaignId,
+    })
+    .from(derivations)
+    .where(
+      and(
+        eq(derivations.workspaceId, workspaceId),
+        inArray(derivations.status, ["approved", "rejected"])
+      )
+    )
+    .orderBy(derivations.updatedAt, derivations.createdAt)
+    .limit(1);
+
+  const regenerationQuery = db
+    .select({
+      id: derivations.id,
+      createdAt: derivations.createdAt,
+      campaignId: derivations.campaignId,
+    })
+    .from(derivations)
+    .where(
+      and(
+        eq(derivations.workspaceId, workspaceId),
+        isNotNull(derivations.parentId),
+        inArray(derivations.status, ["completed", "approved", "processing", "queued"])
+      )
+    )
+    .orderBy(derivations.createdAt)
+    .limit(1);
+
+  const [
+    [briefingRow],
+    [recipeRow],
+    [previewRow],
+    [batchRow],
+    [reviewRow],
+    [regenerationRow],
+  ] = await Promise.all([
+    briefingQuery,
+    recipeQuery,
+    previewQuery,
+    batchQuery,
+    reviewQuery,
+    regenerationQuery,
+  ]);
+
+  if (briefingRow && !completions.has("guided_briefing")) {
+    completions.set("guided_briefing", {
+      key: "guided_briefing",
+      completedAt: briefingRow.updatedAt ?? briefingRow.createdAt,
+      evidenceId: briefingRow.id,
+      evidenceType: "campaign",
+    });
+  }
 
   if (recipeRow && !completions.has("strategy_recipe")) {
     completions.set("strategy_recipe", {
@@ -134,23 +218,6 @@ export async function inferMissionCompletions(
     }
   }
 
-  const [previewRow] = await db
-    .select({
-      id: derivations.id,
-      createdAt: derivations.createdAt,
-      campaignId: derivations.campaignId,
-    })
-    .from(derivations)
-    .where(
-      and(
-        eq(derivations.workspaceId, workspaceId),
-        eq(derivations.isPreview, true),
-        inArray(derivations.status, ["completed", "approved"])
-      )
-    )
-    .orderBy(derivations.createdAt)
-    .limit(1);
-
   if (previewRow && !completions.has("preview")) {
     completions.set("preview", {
       key: "preview",
@@ -159,23 +226,6 @@ export async function inferMissionCompletions(
       evidenceType: "derivation",
     });
   }
-
-  const [batchRow] = await db
-    .select({
-      id: derivations.id,
-      createdAt: derivations.createdAt,
-      campaignId: derivations.campaignId,
-    })
-    .from(derivations)
-    .where(
-      and(
-        eq(derivations.workspaceId, workspaceId),
-        eq(derivations.isPreview, false),
-        inArray(derivations.status, ["completed", "approved", "processing", "queued"])
-      )
-    )
-    .orderBy(derivations.createdAt)
-    .limit(1);
 
   if (batchRow && !completions.has("batch")) {
     completions.set("batch", {
@@ -186,23 +236,6 @@ export async function inferMissionCompletions(
     });
   }
 
-  const [reviewRow] = await db
-    .select({
-      id: derivations.id,
-      updatedAt: derivations.updatedAt,
-      createdAt: derivations.createdAt,
-      campaignId: derivations.campaignId,
-    })
-    .from(derivations)
-    .where(
-      and(
-        eq(derivations.workspaceId, workspaceId),
-        inArray(derivations.status, ["approved", "rejected"])
-      )
-    )
-    .orderBy(derivations.updatedAt, derivations.createdAt)
-    .limit(1);
-
   if (reviewRow && !completions.has("review")) {
     completions.set("review", {
       key: "review",
@@ -211,23 +244,6 @@ export async function inferMissionCompletions(
       evidenceType: "derivation",
     });
   }
-
-  const [regenerationRow] = await db
-    .select({
-      id: derivations.id,
-      createdAt: derivations.createdAt,
-      campaignId: derivations.campaignId,
-    })
-    .from(derivations)
-    .where(
-      and(
-        eq(derivations.workspaceId, workspaceId),
-        isNotNull(derivations.parentId),
-        inArray(derivations.status, ["completed", "approved", "processing", "queued"])
-      )
-    )
-    .orderBy(derivations.createdAt)
-    .limit(1);
 
   if (regenerationRow && !completions.has("regeneration")) {
     completions.set("regeneration", {
