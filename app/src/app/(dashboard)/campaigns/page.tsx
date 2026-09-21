@@ -10,6 +10,7 @@ import { formatDistanceToNow } from "date-fns";
 import CampaignsBulkActionsBar from "@/components/campaigns/CampaignsBulkActionsBar";
 import CampaignsPagination from "@/components/campaigns/CampaignsPagination";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { Button } from "@/components/ui/button";
 import { useCampaignsPage } from "@/components/campaigns/useCampaignsPage";
 import CampaignsV6View from "@/components/campaigns/v6/CampaignsV6View";
 import { buildCampaignsV6Labels } from "@/components/campaigns/v6/build-campaigns-v6-labels";
@@ -65,6 +66,9 @@ function CampaignsProductContent() {
     isError: worksError,
     error: worksErrorObj,
     refetch: refetchWorks,
+    hasNextPage: worksHasNextPage,
+    isFetchingNextPage: worksFetchingNextPage,
+    fetchNextPage: fetchNextWorksPage,
   } = useCanonicalWorks();
   // Metadata enrich is optional; the canonical query itself is the source of list membership.
   const { campaigns: campaignsMeta, isLoading: metaLoading } = useCampaigns({
@@ -325,6 +329,18 @@ function CampaignsProductContent() {
         alternateView={alternateView}
         emptyState={emptyState}
       />
+
+      {isCanonicalMode && worksHasNextPage ? (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            disabled={worksFetchingNextPage}
+            onClick={() => void fetchNextWorksPage()}
+          >
+            {tc("showMore")}
+          </Button>
+        </div>
+      ) : null}
 
       {viewMode === "board" && !isLoading && campaignsTotalCount > 0 ? (
         <CampaignsPagination

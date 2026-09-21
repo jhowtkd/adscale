@@ -9,7 +9,7 @@ import { listVisualRecipes } from "@/server/repositories/visual-recipe";
 import { listActiveCommercialOffers } from "@/server/repositories/commercial-offer";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { parseCatalogPageSearchParams } from "@/lib/catalog-page";
-import { listCanonicalWorks } from "@/server/creative-work/canonical/queries";
+import { listCanonicalWorksPage } from "@/server/creative-work/canonical/queries";
 import { projectCreativeWorkAsCanonicalWork } from "@/server/creative-work/projection/from-creative-work";
 import { listCreativeProduction } from "@/server/application/list-creative-production";
 import { parseProductionSearchParams } from "@/server/repositories/creative-production";
@@ -185,8 +185,15 @@ export async function GET(request: Request) {
         nextCursor: offers.nextCursor,
       });
     }
-    const works = await listCanonicalWorks(workspace.id);
-    return NextResponse.json({ works });
+    const page = parseCatalogPageSearchParams(searchParams);
+    if (page.error) {
+      return apiError("invalidInput", 400, { page: page.error });
+    }
+    const works = await listCanonicalWorksPage(workspace.id, {
+      limit: page.limit,
+      cursor: page.cursor,
+    });
+    return NextResponse.json({ works: works.items, nextCursor: works.nextCursor });
   } catch (error) {
     return handleApiError(error, "creative-work.GET");
   }
