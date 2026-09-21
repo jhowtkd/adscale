@@ -15,7 +15,16 @@ const mocks = vi.hoisted(() => ({
   listActiveConnections: vi.fn(),
 }));
 
-vi.mock("@/server/served-ads/repository", () => ({ ...mocks }));
+vi.mock("@/server/served-ads/repository", () => ({
+  ...mocks,
+  // Lotes viram uma chamada por linha para manter as asserções por anúncio.
+  upsertServedAds: async (rows: unknown[]) => {
+    for (const row of rows) await mocks.upsertServedAd(row);
+  },
+  upsertAdMetricsBatch: async (rows: unknown[]) => {
+    for (const row of rows) await mocks.upsertAdMetrics(row);
+  },
+}));
 
 import { MockMetaGraphClient, MetaGraphError } from "./graph";
 import {

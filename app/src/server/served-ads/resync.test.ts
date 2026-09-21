@@ -26,8 +26,12 @@ vi.mock("./repository", async (importOriginal) => {
     getConnectionByWorkspace: (...args: unknown[]) => mocks.getByWorkspace(...args),
     upsertAdAccounts: (...args: unknown[]) => mocks.upsertAccounts(...args),
     insertSnapshot: (...args: unknown[]) => mocks.insertSnapshot(...args),
-    upsertServedAd: (...args: unknown[]) => mocks.upsertAd(...args),
-    upsertAdMetrics: (...args: unknown[]) => mocks.upsertMetrics(...args),
+    upsertServedAds: async (rows: unknown[]) => {
+      for (const row of rows) await mocks.upsertAd(row);
+    },
+    upsertAdMetricsBatch: async (rows: unknown[]) => {
+      for (const row of rows) await mocks.upsertMetrics(row);
+    },
   };
 });
 
