@@ -23,24 +23,10 @@ export interface ProgressionEvidenceContext {
   evidence: InferredEvidence[];
 }
 
-async function getFirstCampaignId(workspaceId: string): Promise<string | null> {
-  const [row] = await db
-    .select({ id: campaigns.id })
-    .from(campaigns)
-    .where(eq(campaigns.workspaceId, workspaceId))
-    .orderBy(campaigns.createdAt)
-    .limit(1);
-
-  return row?.id ?? null;
-}
-
 export async function inferWorkspaceEvidence(
   workspaceId: string
 ): Promise<ProgressionEvidenceContext> {
-  const firstCampaignId = await getFirstCampaignId(workspaceId);
-  const evidence: InferredEvidence[] = [];
-
-  const [campaignRow] = await db
+  const campaignQuery = db
     .select({
       id: campaigns.id,
       createdAt: campaigns.createdAt,
@@ -50,17 +36,7 @@ export async function inferWorkspaceEvidence(
     .orderBy(campaigns.createdAt)
     .limit(1);
 
-  if (campaignRow) {
-    evidence.push({
-      key: "campaign_created",
-      label: EVIDENCE_DEFINITIONS.campaign_created.label,
-      completedAt: campaignRow.createdAt,
-      evidenceId: campaignRow.id,
-      evidenceType: "campaign",
-    });
-  }
-
-  const [baseAssetRow] = await db
+  const baseAssetQuery = db
     .select({
       id: campaignAssets.id,
       createdAt: campaignAssets.createdAt,
@@ -76,17 +52,7 @@ export async function inferWorkspaceEvidence(
     .orderBy(campaignAssets.createdAt)
     .limit(1);
 
-  if (baseAssetRow) {
-    evidence.push({
-      key: "base_creative_uploaded",
-      label: EVIDENCE_DEFINITIONS.base_creative_uploaded.label,
-      completedAt: baseAssetRow.createdAt,
-      evidenceId: baseAssetRow.id,
-      evidenceType: "campaign_asset",
-    });
-  }
-
-  const [readinessRow] = await db
+  const readinessQuery = db
     .select({
       id: campaigns.id,
       updatedAt: campaigns.creativeDiagnosisUpdatedAt,
@@ -102,17 +68,7 @@ export async function inferWorkspaceEvidence(
     .orderBy(campaigns.creativeDiagnosisUpdatedAt, campaigns.createdAt)
     .limit(1);
 
-  if (readinessRow) {
-    evidence.push({
-      key: "readiness_ran",
-      label: EVIDENCE_DEFINITIONS.readiness_ran.label,
-      completedAt: readinessRow.updatedAt ?? readinessRow.createdAt,
-      evidenceId: readinessRow.id,
-      evidenceType: "campaign",
-    });
-  }
-
-  const [derivationRow] = await db
+  const derivationQuery = db
     .select({
       id: derivations.id,
       createdAt: derivations.createdAt,
@@ -129,17 +85,7 @@ export async function inferWorkspaceEvidence(
     .orderBy(derivations.createdAt)
     .limit(1);
 
-  if (derivationRow) {
-    evidence.push({
-      key: "derivation_generated",
-      label: EVIDENCE_DEFINITIONS.derivation_generated.label,
-      completedAt: derivationRow.createdAt,
-      evidenceId: derivationRow.id,
-      evidenceType: "derivation",
-    });
-  }
-
-  const [approvedRow] = await db
+  const approvedQuery = db
     .select({
       id: derivations.id,
       updatedAt: derivations.updatedAt,
@@ -156,17 +102,7 @@ export async function inferWorkspaceEvidence(
     .orderBy(derivations.updatedAt, derivations.createdAt)
     .limit(1);
 
-  if (approvedRow) {
-    evidence.push({
-      key: "creative_approved",
-      label: EVIDENCE_DEFINITIONS.creative_approved.label,
-      completedAt: approvedRow.updatedAt ?? approvedRow.createdAt,
-      evidenceId: approvedRow.id,
-      evidenceType: "derivation",
-    });
-  }
-
-  const [exportRow] = await db
+  const exportQuery = db
     .select({
       id: exports.id,
       createdAt: exports.createdAt,
@@ -177,17 +113,7 @@ export async function inferWorkspaceEvidence(
     .orderBy(exports.createdAt)
     .limit(1);
 
-  if (exportRow) {
-    evidence.push({
-      key: "creative_exported",
-      label: EVIDENCE_DEFINITIONS.creative_exported.label,
-      completedAt: exportRow.createdAt,
-      evidenceId: exportRow.id,
-      evidenceType: "export",
-    });
-  }
-
-  const [shareRow] = await db
+  const shareQuery = db
     .select({
       id: shareLinks.id,
       createdAt: shareLinks.createdAt,
@@ -197,6 +123,87 @@ export async function inferWorkspaceEvidence(
     .where(eq(shareLinks.workspaceId, workspaceId))
     .orderBy(shareLinks.createdAt)
     .limit(1);
+
+  const [
+    [campaignRow],
+    [baseAssetRow],
+    [readinessRow],
+    [derivationRow],
+    [approvedRow],
+    [exportRow],
+    [shareRow],
+  ] = await Promise.all([
+    campaignQuery,
+    baseAssetQuery,
+    readinessQuery,
+    derivationQuery,
+    approvedQuery,
+    exportQuery,
+    shareQuery,
+  ]);
+
+  const firstCampaignId = campaignRow?.id ?? null;
+  const evidence: InferredEvidence[] = [];
+
+  if (campaignRow) {
+    evidence.push({
+      key: "campaign_created",
+      label: EVIDENCE_DEFINITIONS.campaign_created.label,
+      completedAt: campaignRow.createdAt,
+      evidenceId: campaignRow.id,
+      evidenceType: "campaign",
+    });
+  }
+
+  if (baseAssetRow) {
+    evidence.push({
+      key: "base_creative_uploaded",
+      label: EVIDENCE_DEFINITIONS.base_creative_uploaded.label,
+      completedAt: baseAssetRow.createdAt,
+      evidenceId: baseAssetRow.id,
+      evidenceType: "campaign_asset",
+    });
+  }
+
+  if (readinessRow) {
+    evidence.push({
+      key: "readiness_ran",
+      label: EVIDENCE_DEFINITIONS.readiness_ran.label,
+      completedAt: readinessRow.updatedAt ?? readinessRow.createdAt,
+      evidenceId: readinessRow.id,
+      evidenceType: "campaign",
+    });
+  }
+
+  if (derivationRow) {
+    evidence.push({
+      key: "derivation_generated",
+      label: EVIDENCE_DEFINITIONS.derivation_generated.label,
+      completedAt: derivationRow.createdAt,
+      evidenceId: derivationRow.id,
+      evidenceType: "derivation",
+    });
+  }
+
+  if (approvedRow) {
+    evidence.push({
+      key: "creative_approved",
+      label: EVIDENCE_DEFINITIONS.creative_approved.label,
+      completedAt: approvedRow.updatedAt ?? approvedRow.createdAt,
+      evidenceId: approvedRow.id,
+      evidenceType: "derivation",
+    });
+  }
+
+  if (exportRow) {
+    evidence.push({
+      key: "creative_exported",
+      label: EVIDENCE_DEFINITIONS.creative_exported.label,
+      completedAt: exportRow.createdAt,
+      evidenceId: exportRow.id,
+      evidenceType: "export",
+    });
+  }
 
   if (shareRow) {
     evidence.push({
