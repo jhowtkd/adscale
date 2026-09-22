@@ -3,9 +3,9 @@
 Data: 22/09/2026. Ticket: [Reconciliar os findings do Devin](https://github.com/jhowtkd/adscale/issues/481).
 Revisões: base do plano `fddb9035` → ponta verificada `c8653c51` (merge do PR 480).
 
-Revisão do documento: **v2** (22/09/2026). Corrige o escopo Meta de #494 (finding `listAds` é do
+Revisão do documento: **v3** (22/09/2026). Corrige o escopo Meta de #494 (finding `listAds` é do
 `runReconcile`, não do `syncConnection`; upserts sem chunks), a redação de missões (duas rodadas
-paralelas, não duas queries) e amplia a rastreabilidade com findings enumerados (§3A). v1 superseded.
+paralelas, não duas queries) e amplia a rastreabilidade com findings enumerados (§3A). v1 e v2 substituídas pela v3. Status: inventário parcial, aguardando reconciliação individual.
 
 Fonte primária do scan: https://app.devin.ai/sessions/968709ebcbf24c869dd400a28decf217?tab=scan_findings&stage=unassigned
 (consultada em 22/09/2026 pelo Chrome autenticado no plano de findings; fetch programático
@@ -22,10 +22,11 @@ neste inventário retornou apenas o shell vazio do app — sem acesso aos regist
 | High + Unassigned | 0 itens | filtro do scan | compatível com o único high identificado (`sfind-e75c75…`, biblioteca) já resolvido pelo PR 477; mensagem histórica de "8 high" descartada |
 | Registros 1:1 exportados | 0 | — | não houve exportação integral; o inventário classifica grupos de causa + sfinds citados em PRs |
 
-Reconciliação possível: o universo é de ~70 registros (60 unassigned + 10 resolved, batendo com
-a mensagem antiga de "70 abertos"). Os 6 PRs merged são o conjunto fechado de correções já
-integradas. A divergência do cabeçalho (65/3) não pode ser fechada sem re-rodar o scan, que
-está `Failed` — recomendação: re-executar o scan após este inventário e comparar IDs.
+Reconciliação pendente: os contadores observados não estabelecem quantos registros únicos
+foram cobertos. Os seis PRs têm merge confirmado, mas falta o vínculo individual entre cada
+registro do scan, sua classificação e a correção correspondente. Exportar ou ler todos os IDs
+e títulos existentes antes de concluir cobertura; um novo scan é complementar e não substitui
+a reconciliação dos registros originais.
 
 ## 2. Correções já integradas (os seis PRs)
 
@@ -108,60 +109,61 @@ dos seis PRs acima. Causas fora desses arquivos mantêm o status da leitura em `
 | 26 | graduation counts / funnel N passagens / CSV / memos / scroll / bulk / notificações | evidência insuficiente | `fddb9035`, área não tocada | 506 |
 | 27 | biblioteca de works ilimitada (`sfind-e75c75…`, high) | **já corrigido** pelo PR 477 — **sem ticket** (nenhum trabalho a abrir) | `c8653c51` `creative-work/canonical/queries.ts:82-202` — `listCanonicalWorksPage` + cursor | — |
 
-## 3A. Enumeração por finding e cobertura (v2)
+## 3A. Mapeamento temático parcial (v3)
 
-Cada finding nomeado no plano de findings ou citado por `sfind-` em corpo de PR, com a linha de
-causa correspondente em §3. IDs `F-xx` são do inventário, não do scanner.
+Temas nomeados no plano ou citados em corpos de PR, com a causa correspondente em §3.
+IDs `F-xx` são referências locais preservadas para rastreabilidade; não representam registros
+individuais do scanner. Um tema pode reunir vários registros ou sobrepor outro tema.
+Este mapeamento não permite calcular quantidade coberta, resolvida ou faltante.
 
-**B1 — cache/CPU (3):** F-01 sample-coverage cache (→1); F-02 quality-improvement cache (→2);
+**B1 — cache/CPU:** F-01 sample-coverage cache (→1); F-02 quality-improvement cache (→2);
 F-03 report context por anúncio (→3).
 
-**B2 — leituras frequentes (8 registros):** F-04 creative-work detail (→4); F-05 goal
+**B2 — leituras frequentes:** F-04 creative-work detail (→4); F-05 goal
 projection/lineages (→5a); F-06 training-assets N+1 (→6); F-07a/F-07b missions/progression =
 `sfind-61ecd138…` + `sfind-c69941d7…`, resolvidos pelo PR 475 (→7); F-08 selection-effect
 aggregate (→25); F-09 thumbnail última derivation (→25); F-10 brand-knowledge snapshots (→25).
 
-**B3 — imagens/visão (7):** F-11 layerize composite (→9); F-12 materialização PNG/PSD (→10);
+**B3 — imagens/visão:** F-11 layerize composite (→9); F-12 materialização PNG/PSD (→10);
 F-13 art-refinement compare — carrossel resolvido pelo PR 476, peça única pendente (→8a/8b);
 F-14 QA + person-fidelity (→11); F-15 referências da geração (→11); F-16 exact-asset preflight
 (→11); F-17 uploads do composer (→12).
 
-**B4 — settlement (9, contando espera + 8 adapters como registros distintos — suposição
-explícita):** F-18 espera 25 ms + F-19…F-26 oito adapters (→13).
+**B4 — settlement:** F-18 espera de 25 ms e F-19…F-26 oito adapters afetados (→13).
+Os adapters são locais de ocorrência do padrão, não oito findings adicionais confirmados.
 
-**B5 — Meta/served ads (7):** F-27 executeResync por ad + F-29 runReconcile por janela —
+**B5 — Meta/served ads:** F-27 executeResync por ad + F-29 runReconcile por janela —
 aspecto upsert = `sfind-094c64f6…` + agrupado `sfind-df9f4f0d…`, loteados pelo PR 479, **sem
 chunks** (→14a); F-28 `upsertAdAccounts` em loop (→14b); F-29bis `listAds` no loop de janelas
 do `runReconcile` — verificado pendente em `reconcile.ts:255-258` (→14c); F-30 cópia de mídia
 serial (→15); F-31 purge/disconnect serial (→16); F-32 purge C+1 (→16); F-33 índice TTL (→16).
 
-**B6 — histórico/relatórios (8):** F-34 billing transactions + F-35 billing transactions+grants
+**B6 — histórico/relatórios:** F-34 billing transactions + F-35 billing transactions+grants
 — par duplicado (→17a/b); F-36/F-37 funnel `listUsageEventsForOwner` — par duplicado (→18a/b);
 F-38 diagnostic works (→19); F-39 corpus progress (→20); F-40 campaign assets/derivations
 (→23); F-41 user export (→24).
 
-**B7 — corpus/feedback (8):** F-42 `syncOutputLearningsForClient` — agendamento coalescido pelo
+**B7 — corpus/feedback:** F-42 `syncOutputLearningsForClient` — agendamento coalescido pelo
 PR 478, writes em lote pendentes (→21a/21b); F-43 corpus backfill (→20); F-44
 `persistProposedAdjustments` (→21b); F-45 `batchSelectDerivationsForCorpus` (→20); F-46
 approval-package evidence (→22); F-47 `resolveAssetLinks` (→22); F-48 `resolveEvidenceHashes`
 (→22); F-49 `exportAllApproved` (→22).
 
-**B8 — melhorias pequenas (9):** F-50 graduation counts + F-51 funnel N passagens + F-52 CSV +
+**B8 — melhorias pequenas:** F-50 graduation counts + F-51 funnel N passagens + F-52 CSV +
 F-53 ownership validations (→26/498); F-54 `compareArtifactVersions` A/B — enriquecimento
 serial pendente (→5b); F-55 `useMemo` campaign + F-56 scroll listener + F-57 bulk archive/delete
 + F-58 notificações mark-as-read (→26).
 
-**Resolvidos por PR fora dos lotes (3 registros):** F-59 biblioteca de works =
+**Temas resolvidos por PR fora dos lotes:** F-59 biblioteca de works =
 `sfind-e75c75…` (high), resolvido pelo PR 477, sem ticket (→27); F-60/F-61 thread detail =
 `sfind-94abc336…` + `sfind-5abb79d1…`, resolvidos pelo PR 480 (→5a; sobreposição parcial com
 F-05 — mesma projeção, outro caminho).
 
-**Aritmética de cobertura:** 3 + 8 + 7 + 9 + 8 (F-29bis conta à parte) + 8 + 8 + 9 + 3 = **63
-registros nomeados**. Destes, 9–10 correspondem a "Resolved" (2×PR475 + 2×PR479 + 1×PR477 +
-2×PR480 + ≥1×PR476 + ≥1×PR478). Restante nomeado ≈ 53–54 vs "Unassigned 60": **lacuna de ~6–7
-registros** não nomeados nas fontes locais, OU sobreposição entre F-05/F-60/F-61 e contagem de
-adapters em B4 diferente da suposição. Sem a exportação dos registros, o fechamento 1:1
-permanece pendente — pedido `needs-info` no ticket.
+**Cobertura não quantificada:** a enumeração local não comprova 63 registros do scan nem
+uma lacuna de 6–7 registros. Também não comprova a correspondência de 9–10 registros com
+Resolved. Essas estimativas da v2 ficam retiradas. O total coberto e a lacuna permanecem
+indeterminados até conferir os IDs reais, eliminar sobreposições e relacionar cada registro
+a um ticket ou à evidência de correção. A issue permanece aberta, aguardando informação.
 
 ## 4. Duplicatas consolidadas
 
@@ -179,9 +181,10 @@ permanece pendente — pedido `needs-info` no ticket.
    `upsertAdAccounts` em lote + verificação de retries/idempotência), 501 (restam writes em lote).
    Implementar somente o restante descrito na coluna "restante" acima.
 3. **Finding sem ticket, já corrigido**: biblioteca de works (PR 477). Nenhuma ação.
-4. **Tickets bloqueados por este inventário (484–487, 491, 492, 494–498, 500–506)** estão liberados
-   para implementação no escopo ajustado da tabela; itens "evidência insuficiente" devem ser
-   revalidados na revisão de implementação e fechados como sem-achado se o padrão não existir.
+4. **Tickets dependentes deste inventário (484–487, 491, 492, 494–498, 500–506) permanecem
+   bloqueados pela issue 481 aberta.** A tabela é orientação preliminar de escopo, não autorização
+   de desbloqueio. Quando o inventário estiver concluído, revalidar os itens de evidência
+   insuficiente antes de implementar; os tickets originalmente sem dependência não mudam.
 5. **Exportar os registros do scan** (títulos/IDs dos ~60 unassigned + resolved) e comparar com
    §3A para fechar o 1:1 e a divergência 60/65 e 10/3 — pedido `needs-info` no ticket, depende de
    acesso ao Devin. Re-rodar o scan (estado `Failed`) é complementar, não substituto da exportação.
@@ -194,7 +197,10 @@ permanece pendente — pedido `needs-info` no ticket.
 
 ## 7. Changelog
 
+- v3 (22/09/2026): retiradas contagens especulativas de cobertura/lacuna; adapters não contam
+  como findings individuais; dependentes permanecem bloqueados pela issue 481 aberta.
+
 - v2 (22/09/2026): pós-revisão — escopo #494 corrigido (`runReconcile` + chunks), missões como
-  2 rodadas paralelas, §3A com 63 registros nomeados e lacuna de ~6–7 registros declarada,
-  fechamento 1:1 movido para `needs-info` (exportação dos registros).
+  2 rodadas paralelas e enumeração local; as estimativas de cobertura dessa versão foram
+  retiradas na v3. Fechamento 1:1 pendente de exportação dos registros.
 - v1 (22/09/2026): inventário inicial em 27 linhas de causa; superseded.
