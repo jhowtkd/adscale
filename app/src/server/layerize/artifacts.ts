@@ -35,20 +35,20 @@ export async function recomposeStoredLayers(input: {
 }): Promise<Buffer> {
   const base = input.layers.find((layer) => layer.isBase);
   if (!base) throw new Error("Layerization has no base bitmap");
-  let recomposed = await sharp(await input.load(base))
+  const canvas = sharp(await input.load(base))
     .resize(input.width, input.height, { fit: "fill" })
-    .ensureAlpha()
-    .png()
-    .toBuffer();
+    .ensureAlpha();
+  const overlays: Array<{ input: Buffer; left: number; top: number }> = [];
   for (const layer of input.layers.filter((candidate) => !candidate.isBase).sort((left, right) => left.order - right.order)) {
     const overlay = await sharp(await input.load(layer))
       .resize(layer.width, layer.height, { fit: "fill" })
       .ensureAlpha()
       .png()
       .toBuffer();
-    recomposed = await sharp(recomposed).composite([{ input: overlay, left: layer.x, top: layer.y }]).png().toBuffer();
+    overlays.push({ input: overlay, left: layer.x, top: layer.y });
   }
-  return recomposed;
+  if (overlays.length > 0) canvas.composite(overlays);
+  return canvas.png().toBuffer();
 }
 
 export async function calculateLayerizationFidelity(
