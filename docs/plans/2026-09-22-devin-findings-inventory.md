@@ -3,30 +3,33 @@
 Data: 22/09/2026. Ticket: [Reconciliar os findings do Devin](https://github.com/jhowtkd/adscale/issues/481).
 Revisões: base do plano `fddb9035` → ponta verificada `c8653c51` (merge do PR 480).
 
-Revisão do documento: **v3** (22/09/2026). Corrige o escopo Meta de #494 (finding `listAds` é do
-`runReconcile`, não do `syncConnection`; upserts sem chunks), a redação de missões (duas rodadas
-paralelas, não duas queries) e amplia a rastreabilidade com findings enumerados (§3A). v1 e v2 substituídas pela v3. Status: inventário parcial, aguardando reconciliação individual.
+Revisão do documento: **v4** (22/09/2026). A leitura autenticada das abas do scan identificou
+60 registros Unassigned e 10 Resolved, cada um com ID e título (§8). O mapeamento temático da
+v3 (§3A) não era uma enumeração de registros. O contador adicional `10 of 75` permanece
+incompatível com os 70 registros expostos pelas abas e com o relato final da sessão original.
 
-Fonte primária do scan: https://app.devin.ai/sessions/968709ebcbf24c869dd400a28decf217?tab=scan_findings&stage=unassigned
-(consultada em 22/09/2026 pelo Chrome autenticado no plano de findings; fetch programático
-neste inventário retornou apenas o shell vazio do app — sem acesso aos registros individuais).
+Fonte primária das abas: https://app.devin.ai/sessions/968709ebcbf24c869dd400a28decf217?tab=scan_findings&stage=unassigned
+(lida em 22/09/2026 por sessão autenticada, com abertura individual para copiar cada ID).
+Relato final da [sessão original do scan](https://app.devin.ai/sessions/53e13738697a4573943c056a0a01ec8f):
+70 findings abertos na criação, sendo 8 high, 23 medium e 39 low, na revisão `fddb903`.
 
 ## 1. Contadores
 
 | Contador | Valor observado | Fonte | Status neste inventário |
 | --- | --- | --- | --- |
-| Unassigned | 60 | aba do scan | não reconciliável registro a registro sem export/acesso; universo aproximado |
-| Resolved (aba) | 10 | aba do scan | compatível com os ~9 sfinds citados nos corpos dos PRs 475/477/479/480 + 2 sem ID citado (476/478); hipótese, não prova |
+| Unassigned | 60 | aba do scan | 60 IDs e títulos conferidos no §8; 21 medium e 39 low |
+| Resolved (aba) | 10 | aba do scan | 10 IDs e títulos conferidos no §8; 3 Merged e 7 Dismissed |
 | Merged | 6 | aba do scan | **confirmado**: PRs 475, 476, 477, 478, 479, 480, todos merged em 21–22/09/2026 (gh API + `git log origin/main`) |
-| Header open/resolved | 65 open · 3 resolved | cabeçalho do scan | divergente das abas; scan em estado `Failed`. §3A reconstrói a cobertura a partir dos registros nomeados; fechamento 1:1 aguarda exportação dos registros (needs-info no ticket) |
-| High + Unassigned | 0 itens | filtro do scan | compatível com o único high identificado (`sfind-e75c75…`, biblioteca) já resolvido pelo PR 477; mensagem histórica de "8 high" descartada |
-| Registros 1:1 exportados | 0 | — | não houve exportação integral; o inventário classifica grupos de causa + sfinds citados em PRs |
+| Header open/resolved | 65 open · 3 resolved | cabeçalho do scan | não bate com as abas; o scan mostra estado `Failed`. Não usado para inferir IDs ausentes |
+| Reviewed | 10 of 75 | detalhes do scan | o denominador 75 não é reproduzido pela listagem de 70 nem pelo relato final de 70; origem dos 5 adicionais indeterminada |
+| High + Unassigned | 0 itens | filtro do scan | estado atual; o relato original de 8 high é preservado, sem inferir movimentação individual |
+| Registros 1:1 lidos | 70 | abas e detalhes individuais | 60 Unassigned + 10 Resolved; IDs/títulos/classificação no §8 |
 
-Reconciliação pendente: os contadores observados não estabelecem quantos registros únicos
-foram cobertos. Os seis PRs têm merge confirmado, mas falta o vínculo individual entre cada
-registro do scan, sua classificação e a correção correspondente. Exportar ou ler todos os IDs
-e títulos existentes antes de concluir cobertura; um novo scan é complementar e não substitui
-a reconciliação dos registros originais.
+Reconciliação: os 70 registros enumerados nas abas coincidem com o total do relato final
+original, mas `10 of 75` e `65 open · 3 resolved` não têm derivação verificável na UI atual.
+Não se inventam cinco IDs adicionais nem se equiparam os seis PRs merged a seis registros.
+Os IDs citados em corpos de PR podem vir de outros lotes; o vínculo de §8 usa a causa e o
+código na revisão indicada, não apenas prefixos de ID.
 
 ## 2. Correções já integradas (os seis PRs)
 
@@ -159,17 +162,16 @@ serial pendente (→5b); F-55 `useMemo` campaign + F-56 scroll listener + F-57 b
 `sfind-94abc336…` + `sfind-5abb79d1…`, resolvidos pelo PR 480 (→5a; sobreposição parcial com
 F-05 — mesma projeção, outro caminho).
 
-**Cobertura não quantificada:** a enumeração local não comprova 63 registros do scan nem
-uma lacuna de 6–7 registros. Também não comprova a correspondência de 9–10 registros com
-Resolved. Essas estimativas da v2 ficam retiradas. O total coberto e a lacuna permanecem
-indeterminados até conferir os IDs reais, eliminar sobreposições e relacionar cada registro
-a um ticket ou à evidência de correção. A issue permanece aberta, aguardando informação.
+**Rastreabilidade v4:** §3A continua sendo um índice de temas; o mapeamento dos 70 IDs reais,
+incluindo duplicatas e lacunas sem ticket, está em §8. As estimativas numéricas da v2 seguem
+retiradas. O denominador `75` do painel continua sem explicação verificável.
 
 ## 4. Duplicatas consolidadas
 
 - Billing history: 2 registros → 1 causa → ticket 497.
 - Funnel `listUsageEventsForOwner`: 2 registros → 1 causa → ticket 498.
-- Scan 479: `sfind-094c64f6…` + agrupado `sfind-df9f4f0d…` → 1 fix (PR 479).
+- PR 479 cita `sfind-094c64f6…` em outro lote; a aba deste scan contém
+  `sfind-df9f4f0d…` para a mesma causa corrigida. Não são dois registros desta lista.
 - `capturedAt`: 2 ocorrências distintas (não duplicatas), 1 lote → ticket 482.
 
 ## 5. Lacunas e decisões (sem ampliar escopo)
@@ -182,12 +184,13 @@ a um ticket ou à evidência de correção. A issue permanece aberta, aguardando
    Implementar somente o restante descrito na coluna "restante" acima.
 3. **Finding sem ticket, já corrigido**: biblioteca de works (PR 477). Nenhuma ação.
 4. **Tickets dependentes deste inventário (484–487, 491, 492, 494–498, 500–506) permanecem
-   bloqueados pela issue 481 aberta.** A tabela é orientação preliminar de escopo, não autorização
-   de desbloqueio. Quando o inventário estiver concluído, revalidar os itens de evidência
-   insuficiente antes de implementar; os tickets originalmente sem dependência não mudam.
-5. **Exportar os registros do scan** (títulos/IDs dos ~60 unassigned + resolved) e comparar com
-   §3A para fechar o 1:1 e a divergência 60/65 e 10/3 — pedido `needs-info` no ticket, depende de
-   acesso ao Devin. Re-rodar o scan (estado `Failed`) é complementar, não substituto da exportação.
+   bloqueados enquanto a issue 481 estiver aberta.** Após aceitar o inventário, revalidar no código
+   cada linha marcada `E` antes de implementar; a classificação do scan não prova o comportamento
+   na ponta atual. Os tickets originalmente sem dependência não mudam.
+5. **Lacunas sem ticket:** os registros marcados `sem ticket` em §8 não ampliam automaticamente
+   #482–#506. O produto pode decidir descartá-los, consolidá-los ou especificá-los depois.
+   O painel `Failed` explica por que o cabeçalho não é tomado como fonte de contagem, mas não
+   comprova a origem do denominador 75; export interno do Devin é necessário para essa explicação.
 
 ## 6. Limites
 
@@ -197,6 +200,8 @@ a um ticket ou à evidência de correção. A issue permanece aberta, aguardando
 
 ## 7. Changelog
 
+- v4 (22/09/2026): conferidos 70 IDs/títulos na UI autenticada; status Merged/Dismissed,
+  causas, tickets e lacunas relacionados no §8; contadores incompatíveis preservados como tal.
 - v3 (22/09/2026): retiradas contagens especulativas de cobertura/lacuna; adapters não contam
   como findings individuais; dependentes permanecem bloqueados pela issue 481 aberta.
 
@@ -204,3 +209,101 @@ a um ticket ou à evidência de correção. A issue permanece aberta, aguardando
   2 rodadas paralelas e enumeração local; as estimativas de cobertura dessa versão foram
   retiradas na v3. Fechamento 1:1 pendente de exportação dos registros.
 - v1 (22/09/2026): inventário inicial em 27 linhas de causa; superseded.
+
+## 8. Findings conferidos individualmente
+
+Cada ID abaixo veio da URL do detalhe aberto na UI autenticada em 22/09/2026. Títulos e
+severidades são os exibidos pelo scanner, que analisou `fddb9035`. `C` = padrão confirmado
+por leitura na ponta `c8653c51` ou em `fddb9035` quando a área não mudou (§3); `E` = apenas
+relato do scan ou leitura ainda insuficiente na ponta; `J` = já corrigido no PR integrado
+indicado (§2); `D` = duplicata da causa primária indicada. `E` não autoriza implementação
+sem revalidar código, contrato e teste. O scan não mediu ganho de produção.
+
+### 8.1 Unassigned — 39 low
+
+| ID | Título original | Classe | Destino/evidência |
+| --- | --- | --- | --- |
+| `sfind-8305642a4c9a48af9e2d68954504b019` | Selection-effect processor over-fetches the full creative-work aggregate per effect | E | #505 · §3/25 |
+| `sfind-2160bcb17a5a49f092ff3a29e73820f9` | Funnel summary makes ~20 full passes over the event array | E | #498 · §3/26 |
+| `sfind-e1ac37babe314943be6957837ca9bed1` | Serial per-reference DB lookups in resolveAssetLinks (batchable with inArray) | E | #502 · §3/22 |
+| `sfind-dcf88cf96e9c427f97e9ead044fd51e2` | unstable_cache never hits: fresh capturedAt timestamp passed as cached-function argument | C | #482, quality-improvement · §3/2; PR #507 aberto |
+| `sfind-da59325ff67942baa99ffc670f10954a` | Serial per-reference asset lookup + download + normalize inside generate-and-store-output step | E | #491 · §3/11 |
+| `sfind-95fdeed9355d44dc98ad72032a0771f1` | Campaign derivations GET loads all derivations without a limit/pagination | E | #503 · §3/23 |
+| `sfind-74121e60a80742cfa67748f7d145d54e` | Approval-package POST re-validates campaign ownership once per selected root | E | #502 · §3/22 |
+| `sfind-5428463f6c484a7f983128aee94f36c9` | Campaign assets GET loads all assets without a limit/pagination | E | #503 · §3/23 |
+| `sfind-b96eee1f19aa4a809efb0a53261f80ff` | runReconcile refetches ad list per window instead of once per account | C | #494 · §3/14c |
+| `sfind-5c063023dcac429aace639d752646214` | upsertAdAccounts issues one INSERT..ON CONFLICT per account in a serial loop | C | #494 · §3/14b |
+| `sfind-5596cbc12ed749839f3eb75b66ff39bc` | Owner funnel analytics loads the entire usage_events table into memory (no limit) | D | #498 · mesma consulta de `sfind-6ddb4de25eba43469ef46fce91f89aaf` |
+| `sfind-06ab72e783f6417695a31ea9e4fcd8d7` | batchSelectDerivationsForCorpus re-fetches the same campaign once per derivation | E | #500 · §3/20 |
+| `sfind-5b4f2f2233f64a46b6e739f20f4996c1` | Exact-asset preflight loads and decodes assets from object storage sequentially | E | #491 · §3/11 |
+| `sfind-44d2f24bc5d54cbe808ff83caa473174` | persistProposedAdjustments issues one lookup + one insert per proposal | C | #501 · §3/21b |
+| `sfind-201a342a4a89480b9d98b2d97bbe93c9` | Settlement join polls the DB every 25 ms with 3–4 sequential reads per tick | C | #493 · §3/13 |
+| `sfind-3d84d9e9e673460faee9430773b92e43` | getCorpusOperationsProgress loads the full corpus and counts in application memory | E | #500 · §3/20 |
+| `sfind-a56a5c6c65634db8901609bb5ad1e975` | User data export loads entire workspace-scoped tables into a single in-memory JSON response | E | #504 · §3/24 |
+| `sfind-e7398593b97445008a5a9c57735fc6c9` | exportAllApproved writes one INSERT per approved derivation instead of a single bulk insert | E | #502 · §3/22 |
+| `sfind-fc1540b51d1945499d617c329943e79c` | listBrandKnowledgeVersions returns full snapshot JSON for every version | E | #505 · §3/25 |
+| `sfind-60b8ff3ff3844ef2922cb62c586403c8` | getLatestDerivationOutputKeysByCampaignIds fetches all completed derivations to keep one per campaign | E | #505 · §3/25 |
+| `sfind-3d1559bc5a2b4b0b9d9366b67b6bcbed` | Per-evidence workspaceMembers query inside resolveEvidenceHashes loop | E | #502 · §3/22 |
+| `sfind-3cdd638969814a66ba55395b057e99a7` | Bulk archive/delete fans out one request + one cache invalidation per selected campaign | E | #506 · §3/26 |
+| `sfind-bd7e22bf911f41d2bc6e334367590650` | Sequential (not parallel) image uploads when attaching multiple sources | E | #492 · §3/12 |
+| `sfind-29d0cf1b1bd04e1c8e0e31837fd1c1fa` | CSV export awaits three independent queries sequentially instead of in parallel | E | #498 · §3/26 |
+| `sfind-8fa705108abc4ee69821f9bc1bfdeeae` | useMemo for derivation mapping is defeated by an unstable campaign object each render | E | #506 · §3/26 |
+| `sfind-12280624182e4f06a6e118e916a90613` | Scroll listener is removed and re-added on every scroll event | E | #506 · §3/26 |
+| `sfind-78f86eca479f40c4a8dcef3efe914f03` | Notification group click fires one PATCH + cache invalidation per unread notification (missing batch mark-as-read) | E | #506 · §3/26 |
+| `sfind-e58080f843914f42957f154115c11309` | Independent ownership validations awaited sequentially on analytics ingest | E | #498 · §3/26 |
+| `sfind-b3dbc157bafb460b8017c802f4cf7f4a` | Creative version A and B enriched sequentially in compareArtifactVersions | C | #485 · §3/5b |
+| `sfind-4ce2e0e49dd34533815e00cc82a95cc5` | Redundant membership query and per-attachment asset lookups on chat POST | E | sem ticket: chat do Assistente, fora do escopo de #492/#506 |
+| `sfind-3a4cf306f2bf4aaeaa0a201dfbaa0af7` | Action and message rows re-fetched three times across confirm pipeline | E | sem ticket: confirmação do Assistente |
+| `sfind-4cb945662fff4aba99775454c78480c5` | aggregateStudioFunnel re-scans the full event array per session (O(sessions × events)) | E | #498 · §3/26 |
+| `sfind-f0e6311d82474c3f8f0063cbbba41e79` | Piece-review share page loads every output and every source (with AI-analysis jsonb) of the creative work to render one output | E | sem ticket: página pública de revisão |
+| `sfind-d8afc6992cea4a978dc307bae2a17386` | GET /api/workspace/progression runs 8 sequential evidence queries and writes a snapshot on every read | E | sem ticket: escrita no GET de progressão é distinta das missões de #487; revisar após PR #475 |
+| `sfind-f1e151e90edc4a32b4130a76ce63c7b3` | Serial per-proposal UPDATEs when staling creative proposals on plan change | E | sem ticket: propostas do Assistente, distintas de #501 |
+| `sfind-ca2a571ed2cf423cb35ab714bc73772b` | workspaceHasUnlimitedBillingAccess repeats two queries already executed inside getWorkspaceBillingAccess | E | sem ticket: acesso de billing, distinto de histórico #497 |
+| `sfind-931db72bca2b4a5ea6ab0d3bda85ae10` | normalizeReferenceBuffers processes reference images serially through sharp | E | #491 · §3/11 |
+| `sfind-a3e1f064fc17420595d5faab34f9e56a` | Calibration GET over-fetches unused creative_work_sources per slot | E | sem ticket: rota de calibração |
+| `sfind-3c06d090ae2549d295d11af6583b0c7b` | Chat attachment uploads run serially instead of in parallel | E | sem ticket: chat do Assistente, distinto de #492 |
+
+### 8.2 Unassigned — 21 medium
+
+| ID | Título original | Classe | Destino/evidência |
+| --- | --- | --- | --- |
+| `sfind-143f0416261d4c27b010e34ff55bb7cf` | Art-refinement summary reloads images and re-runs comparisons on every refresh | C | #488, Peça única; carrossel já corrigido pelo PR #476 · §3/8 |
+| `sfind-9af041287c6a4f6da543d09d9bc9b2ff` | syncOutputLearningsForClient issues one sequential upsert per draft instead of a batched write | C | #501 · §3/21b |
+| `sfind-56b953bed6ef4aeea31d920dbb6adf5b` | unstable_cache never hits: fresh capturedAt timestamp passed as cached-function argument | C | #482, sample-coverage · §3/1; PR #507 aberto |
+| `sfind-217a7cfc46044882812423b73e96e364` | Quadratic per-row context scan in buildServedAdsReport (rowContext re-scans all sources for every row) | C | #483 · §3/3 |
+| `sfind-983fead0bfee4df5a69e38ef77b64114` | recomposeStoredLayers re-encodes the full canvas PNG once per layer instead of a single multi-input composite | C | #489 · §3/9 |
+| `sfind-51073b626b90418fbe8aab53095f99c1` | PSD materialization re-downloads and re-decodes every layer and re-renders the composite already produced for the PNG | C | #490 · §3/10 |
+| `sfind-df9f4f0d16394b60976f88fa4ceaf3cc` | executeResync writes served-ads and metrics one row per grouped ad in serial awaits | J | PR #479 corrige a gravação por linha; #494 ainda precisa de chunks e outros caminhos · §3/14a |
+| `sfind-e2a2a85e27dd4c2592f495ffe64b6e31` | Corpus backfill processes up to 1000 derivations strictly serially, ~7–12 queries each | E | #500 · §3/20 |
+| `sfind-3e6aede58f824260aad8a9474960d6d8` | Serial per-row storage+DB deletes in purge and disconnect | C | #496 · §3/16 |
+| `sfind-25562eab169746a59be2f0bb09e7709d` | Serial per-creative and per-media-kind media copy in sync | C | #495 · §3/15 |
+| `sfind-047eea4493df4143bbeaccb9019791a7` | TTL purge full-scans served_ads (no index on last_delivered_at) and re-runs per connection | C | #496; repetição confirmada, índice ainda sem plano medido · §3/16 |
+| `sfind-a07709d06474423c89dd3a81c7156ab4` | Billing history returns every credit transaction for the workspace without pagination | C | #497 · §3/17 |
+| `sfind-ab97365efbe74cfdbf504a6f068dd081` | Independent objective-QA and person-fidelity vision calls run sequentially on the generation path | E | #491 · §3/11 |
+| `sfind-8698c96fbc5d452b89a54ea70b83ab3b` | Works-list endpoint aggregates the entire diagnostic_events table per request; cursor pagination does not reduce the scan | C | #499 · §3/19 |
+| `sfind-6ddb4de25eba43469ef46fce91f89aaf` | Owner funnel loads the entire usage_events ledger (no limit) while sibling event sources are capped at 5000 | E | #498; causa primária do par · §3/18 |
+| `sfind-003ed4aa077d4cf9823653b7e4bcce23` | Graduation report issues 4 sequential count queries (2 full scans) that collapse into one | E | #498 · §3/26 |
+| `sfind-7460d7d6b94d453f87063006aaea7d64` | GET /api/workspace/missions issues ~15 sequential single-row queries (including a duplicated one) that could run concurrently | J | PR #475, #487; falta evidência antes/depois · §3/7 |
+| `sfind-8fe5ec6960c9402db602a29f97335947` | buildGoalProjection re-fetches each lineage and fans out one version query per creative lineage on a polled endpoint | J | PR #480, #485 parcialmente; A/B ainda serial · §3/5a |
+| `sfind-e1d75198c1064d689816bb8b3f1bff9a` | Credit history endpoint returns the full unbounded transaction and grant history | D | #497 · mesma paginação de `sfind-a07709d06474423c89dd3a81c7156ab4` |
+| `sfind-33e609384ba74dc3b6e3c186bd592ae5` | N+1: training-assets GET issues one asset query per training reference | E | #486 · §3/6 |
+| `sfind-db85fb114c5944f8bb1b4fedfff3b548` | Creative-work detail GET (2s poll) serializes ~10 independent DB round trips per request | E | #484 · §3/4 |
+
+### 8.3 Resolved — 3 Merged, 7 Dismissed
+
+`Merged` e `Dismissed` abaixo são estados observados no filtro da UI, não vereditos
+automáticos sobre a ponta atual. Há três IDs em Merged, enquanto seis PRs estão merged;
+um PR pode resolver vários IDs e outros PRs podem não ter ID associado nesta aba.
+
+| Estado | ID | Título original | Classe | Destino/evidência |
+| --- | --- | --- | --- | --- |
+| Merged | `sfind-e75c753412b748f1add5228e3866ff33` | Unbounded creative-work library listing loads all campaigns, works, and outputs per request | J | PR #477 · §3/27 |
+| Dismissed | `sfind-8fd01cf7441a4bb6bcfd882e8f70dc58` | Unbounded canonical-works listing on GET /api/creative-work drives the always-mounted sidebar (per page + 5s poll) | D | mesma causa de `sfind-e75c753412b748f1add5228e3866ff33`, PR #477 |
+| Dismissed | `sfind-b1a16d39c0424e58ae004b1a7aed5afd` | Workspace list endpoint loads every creative work and every output row (full jsonb columns) with no limit | D | mesmo fan-out de `sfind-e75c753412b748f1add5228e3866ff33`, PR #477 |
+| Dismissed | `sfind-b411200c300348f286dd5b701d052c6e` | Unbounded workspace load on GET /api/creative-work default listing | D | mesma causa de `sfind-e75c753412b748f1add5228e3866ff33`, PR #477 |
+| Merged | `sfind-5abb79d16a534c1f9665ef21092ab302` | getThreadArtifactVersionState issues ~6 queries per lineage (N+1 fan-out) on polled thread detail path | J | PR #480 · §3/5a |
+| Merged | `sfind-94abc336fc1c42ec86aea55978d91398` | Polled thread detail endpoint issues ~10 queries per artifact lineage (N+1 across two sub-builders) | J | PR #480 · §3/5a |
+| Dismissed | `sfind-91caaf29fafc4a9d94dc369cd23a2aeb` | syncConnection writes served-ads/metrics one row per ad in serial awaits (6h job) | J | mesmo padrão de `sfind-df9f4f0d16394b60976f88fa4ceaf3cc`, corrigido por PR #479; #494 parcial |
+| Dismissed | `sfind-fe969b53570447b2a10cc16261ffb3a0` | Objective QA and person-fidelity vision calls run sequentially though independent | D | mesma causa de `sfind-ab97365efbe74cfdbf504a6f068dd081`, #491 ainda aberto |
+| Dismissed | `sfind-e853a5d2cc6b4f50b6747293f8768873` | purgeExpiredServedAds deletes expired rows one at a time | D | mesmo purge de `sfind-3e6aede58f824260aad8a9474960d6d8`, #496 ainda aberto |
+| Dismissed | `sfind-bd01a36b787141cb93114d568f832b59` | Serial per-row S3+DB round trips (and per-row existence SELECT) in curated-inspiration import | E | sem ticket: importação eventual, impacto/execução atual não verificados |
