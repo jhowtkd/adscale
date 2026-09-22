@@ -10,11 +10,21 @@ import { objectStorage } from "@/server/storage";
 import type { GoalStage } from "@/lib/assistant/goal";
 import {
   listArtifactLineages,
-  listArtifactVersions,
+  listArtifactVersionsForLineages,
   type ArtifactScope,
 } from "@/server/repositories/artifact-version";
 
 type DerivationRow = Awaited<ReturnType<typeof getDerivationsByCampaign>>[number];
+type LineageRow = Awaited<ReturnType<typeof listArtifactLineages>>[number];
+
+/**
+ * Lineages already loaded by the caller for `campaignId`; reused only when the
+ * goal resolves to the same campaign so the projection never mixes scopes.
+ */
+export interface GoalProjectionPreload {
+  campaignId: string;
+  lineages: LineageRow[];
+}
 
 /**
  * Resolves an ephemeral preview URL from a stored output key. The URL is built
@@ -88,6 +98,7 @@ export async function buildGoalProjection(input: {
   workspaceId: string;
   clientProfileId: string;
   threadId: string;
+  preload?: GoalProjectionPreload;
 }): Promise<AssistantGoalPresentation | null> {
   const goal = await getGoalRunScoped(
     input.workspaceId,
@@ -108,14 +119,27 @@ export async function buildGoalProjection(input: {
     campaignId: goal.campaignId,
     threadId: input.threadId,
   };
-  const creativeLineages = (await listArtifactLineages(scope)).filter(
+  const lineages =
+    input.preload && input.preload.campaignId === goal.campaignId
+      ? input.preload.lineages
+      : await listArtifactLineages(scope);
+  const creativeLineages = lineages.filter(
     (lineage) => lineage.artifactType === "creative"
   );
-  const versionEntries = await Promise.all(
-    creativeLineages.map(async (lineage) => [
-      lineage.originalArtifactId,
-      (await listArtifactVersions(scope, lineage.id, 1))[0] ?? null,
-    ] as const)
+  const latestVersions = await listArtifactVersionsForLineages(
+    scope,
+    creativeLineages.map((lineage) => lineage.id),
+    1
+  );
+  const latestVersionByLineageId = new Map(
+    latestVersions.map((version) => [version.lineageId, version])
+  );
+  const versionEntries = creativeLineages.map(
+    (lineage) =>
+      [
+        lineage.originalArtifactId,
+        latestVersionByLineageId.get(lineage.id) ?? null,
+      ] as const
   );
   const versionByDerivationId = new Map(versionEntries);
   const derivationIdByVersionId = new Map(

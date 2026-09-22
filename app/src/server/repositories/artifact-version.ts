@@ -1,4 +1,15 @@
-import { and, desc, eq, max, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  getTableColumns,
+  inArray,
+  lte,
+  max,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import type {
   ArtifactPromotionCommand,
   ArtifactProposalPayload,
@@ -222,6 +233,107 @@ export async function listArtifactVersions(
     )
     .orderBy(desc(assistantArtifactVersions.versionNumber))
     .limit(Math.min(Math.max(limit, 1), 100));
+}
+
+/**
+ * Latest `limitPerLineage` versions for every lineage in one round trip,
+ * ordered by lineage then descending version number. Callers must pass lineage
+ * ids they already resolved within `scope`.
+ */
+export async function listArtifactVersionsForLineages(
+  scope: ArtifactScope,
+  lineageIds: string[],
+  limitPerLineage = 50
+) {
+  if (lineageIds.length === 0) return [];
+  const ranked = db
+    .select({
+      ...getTableColumns(assistantArtifactVersions),
+      lineageRank: sql<number>`row_number() over (partition by ${assistantArtifactVersions.lineageId} order by ${assistantArtifactVersions.versionNumber} desc)`.as(
+        "lineage_rank"
+      ),
+    })
+    .from(assistantArtifactVersions)
+    .where(
+      and(
+        inArray(assistantArtifactVersions.lineageId, lineageIds),
+        versionScope(scope)
+      )
+    )
+    .as("ranked_versions");
+  const { lineageRank, ...versionColumns } = ranked._.selectedFields;
+  return db
+    .select(versionColumns)
+    .from(ranked)
+    .where(lte(lineageRank, Math.min(Math.max(limitPerLineage, 1), 100)))
+    .orderBy(ranked.lineageId, desc(ranked.versionNumber));
+}
+
+export async function getArtifactVersionsByIds(
+  scope: ArtifactScope,
+  versionIds: string[]
+) {
+  if (versionIds.length === 0) return [];
+  return db
+    .select()
+    .from(assistantArtifactVersions)
+    .where(
+      and(inArray(assistantArtifactVersions.id, versionIds), versionScope(scope))
+    );
+}
+
+export async function listPreviouslyApprovedVersionIdsForLineages(
+  scope: ArtifactScope,
+  lineageIds: string[]
+) {
+  if (lineageIds.length === 0) return [];
+  return db
+    .select({
+      lineageId: assistantArtifactApprovalEvents.lineageId,
+      versionId: assistantArtifactApprovalEvents.promotedVersionId,
+    })
+    .from(assistantArtifactApprovalEvents)
+    .where(
+      and(
+        inArray(assistantArtifactApprovalEvents.lineageId, lineageIds),
+        approvalScope(scope)
+      )
+    );
+}
+
+export async function getArtifactHeads(scope: ArtifactScope, lineageIds: string[]) {
+  if (lineageIds.length === 0) return [];
+  return db
+    .select({ head: assistantArtifactLineageHeads })
+    .from(assistantArtifactLineageHeads)
+    .innerJoin(
+      assistantArtifactLineages,
+      eq(assistantArtifactLineages.id, assistantArtifactLineageHeads.lineageId)
+    )
+    .where(
+      and(
+        inArray(assistantArtifactLineageHeads.lineageId, lineageIds),
+        lineageScope(scope)
+      )
+    )
+    .then((rows) => rows.map((row) => row.head));
+}
+
+export async function listArtifactProposalsForLineages(
+  scope: ArtifactScope,
+  lineageIds: string[]
+) {
+  if (lineageIds.length === 0) return [];
+  return db
+    .select()
+    .from(assistantArtifactProposals)
+    .where(
+      and(
+        inArray(assistantArtifactProposals.lineageId, lineageIds),
+        proposalScope(scope)
+      )
+    )
+    .orderBy(desc(assistantArtifactProposals.createdAt));
 }
 
 export async function listPreviouslyApprovedVersionIds(

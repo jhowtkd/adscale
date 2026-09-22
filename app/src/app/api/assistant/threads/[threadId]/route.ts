@@ -10,6 +10,7 @@ import { journeyStateFromRow } from "@/server/assistant/guided-conversation/stat
 import { presentJourneyState } from "@/server/assistant/guided-conversation/presenter";
 import { getThreadArtifactVersionState } from "@/server/assistant/artifact-version/service";
 import { buildGoalProjection } from "@/server/assistant/goal/projection";
+import { listArtifactLineages } from "@/server/repositories/artifact-version";
 
 export async function GET(
   request: Request,
@@ -26,15 +27,28 @@ export async function GET(
       return apiError("threadNotFound", 404);
     }
 
+    const campaignId = thread.campaignId;
+    const lineages = campaignId
+      ? await listArtifactLineages({
+          workspaceId: workspace.id,
+          clientProfileId: thread.clientProfileId,
+          campaignId,
+          threadId,
+        }).catch(() => undefined)
+      : undefined;
+
     const [messages, guidedFlow, artifactVersionState, goalProjection] =
       await Promise.all([
         listAssistantMessages(workspace.id, threadId),
         getGuidedFlowByThread(workspace.id, threadId),
-        getThreadArtifactVersionState(workspace.id, threadId).catch(() => null),
+        getThreadArtifactVersionState(workspace.id, threadId, { thread, lineages }).catch(
+          () => null
+        ),
         buildGoalProjection({
           workspaceId: workspace.id,
           clientProfileId: thread.clientProfileId,
           threadId,
+          ...(campaignId && lineages ? { preload: { campaignId, lineages } } : {}),
         }).catch(() => null),
       ]);
 

@@ -40,7 +40,7 @@ export async function GET(
     const { workspace, threadId, thread } = await scopedRequest(request, params);
     if (!thread) return apiError("threadNotFound", 404);
     return NextResponse.json(
-      await getThreadArtifactVersionState(workspace.id, threadId)
+      await getThreadArtifactVersionState(workspace.id, threadId, { thread })
     );
   } catch (error) {
     if (error instanceof ArtifactVersionValidationError) {

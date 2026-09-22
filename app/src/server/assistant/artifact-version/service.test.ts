@@ -5,36 +5,38 @@ vi.mock("@/server/repositories/assistant-thread", () => ({
 }));
 vi.mock("@/server/repositories/plan", () => ({ getPlanById: vi.fn() }));
 vi.mock("@/server/repositories/campaign", () => ({ getCampaignById: vi.fn() }));
-vi.mock("@/server/repositories/derivation", () => ({ getDerivationById: vi.fn() }));
+vi.mock("@/server/repositories/derivation", () => ({
+  getDerivationById: vi.fn(),
+  getDerivationsByIds: vi.fn().mockResolvedValue([]),
+}));
 vi.mock("@/server/repositories/artifact-version", async (original) => {
   const actual = await original<typeof import("@/server/repositories/artifact-version")>();
   return {
     ...actual,
     createAdoptedArtifact: vi.fn(),
     findArtifactLineageOwner: vi.fn(),
-    getArtifactHead: vi.fn(),
-    getArtifactLineage: vi.fn(),
-    getArtifactVersion: vi.fn(),
+    getArtifactHeads: vi.fn(),
+    getArtifactVersionsByIds: vi.fn(),
     listArtifactLineages: vi.fn(),
-    listArtifactProposals: vi.fn(),
-    listArtifactVersions: vi.fn(),
-    listPreviouslyApprovedVersionIds: vi.fn(),
+    listArtifactProposalsForLineages: vi.fn(),
+    listArtifactVersionsForLineages: vi.fn(),
+    listPreviouslyApprovedVersionIdsForLineages: vi.fn(),
   };
 });
 
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { getPlanById } from "@/server/repositories/plan";
 import { getCampaignById } from "@/server/repositories/campaign";
+import { getDerivationsByIds } from "@/server/repositories/derivation";
 import {
   createAdoptedArtifact,
   findArtifactLineageOwner,
-  getArtifactHead,
-  getArtifactLineage,
-  getArtifactVersion,
+  getArtifactHeads,
+  getArtifactVersionsByIds,
   listArtifactLineages,
-  listArtifactProposals,
-  listArtifactVersions,
-  listPreviouslyApprovedVersionIds,
+  listArtifactProposalsForLineages,
+  listArtifactVersionsForLineages,
+  listPreviouslyApprovedVersionIdsForLineages,
 } from "@/server/repositories/artifact-version";
 import {
   ArtifactLineageOwnershipError,
@@ -55,8 +57,10 @@ describe("artifact version service", () => {
     vi.clearAllMocks();
     vi.mocked(getAssistantThreadById).mockResolvedValue(thread as never);
     vi.mocked(findArtifactLineageOwner).mockResolvedValue(null);
-    vi.mocked(listArtifactProposals).mockResolvedValue([]);
-    vi.mocked(listPreviouslyApprovedVersionIds).mockResolvedValue([]);
+    vi.mocked(listArtifactProposalsForLineages).mockResolvedValue([]);
+    vi.mocked(listPreviouslyApprovedVersionIdsForLineages).mockResolvedValue([]);
+    vi.mocked(getArtifactVersionsByIds).mockResolvedValue([]);
+    vi.mocked(getDerivationsByIds).mockResolvedValue([]);
   });
 
   it("adopts an approved legacy plan as v1 and mirrors approval", async () => {
@@ -65,9 +69,8 @@ describe("artifact version service", () => {
       strategy: "Proof", angles: [], hooks: [], ctas: [], status: "approved",
     } as never);
     vi.mocked(getCampaignById).mockResolvedValue({ constraints: "No claims" } as never);
-    vi.mocked(createAdoptedArtifact).mockResolvedValue({ lineage: { id: id("6") } } as never);
-    vi.mocked(getArtifactLineage).mockResolvedValue({
-      id: id("6"), artifactType: "plan", originalArtifactId: id("5"),
+    vi.mocked(createAdoptedArtifact).mockResolvedValue({
+      lineage: { id: id("6"), artifactType: "plan", originalArtifactId: id("5") },
     } as never);
     const version = {
       id: id("7"), lineageId: id("6"), versionNumber: 1, sourceVersionId: null,
@@ -75,10 +78,10 @@ describe("artifact version service", () => {
       provenance: { origin: "legacy_import", originalArtifactId: id("5"), sourceVersionId: null, messageId: null, actionId: null, planVersionId: null, format: null, generationMode: null },
       feedback: null, createdAt: new Date(),
     };
-    vi.mocked(listArtifactVersions).mockResolvedValue([version] as never);
-    vi.mocked(getArtifactHead).mockResolvedValue({
+    vi.mocked(listArtifactVersionsForLineages).mockResolvedValue([version] as never);
+    vi.mocked(getArtifactHeads).mockResolvedValue([{
       lineageId: id("6"), approvedCurrentVersionId: id("7"), workingVersionId: id("7"), revision: 0,
-    } as never);
+    }] as never);
 
     const result = await adoptArtifactForThread({
       workspaceId: thread.workspaceId,
@@ -108,9 +111,6 @@ describe("artifact version service", () => {
     vi.mocked(listArtifactLineages).mockResolvedValue([{
       id: id("6"), artifactType: "plan", originalArtifactId: id("5"),
     }] as never);
-    vi.mocked(getArtifactLineage).mockResolvedValue({
-      id: id("6"), artifactType: "plan", originalArtifactId: id("5"),
-    } as never);
     const versions = [1, 2].map((versionNumber) => ({
       id: id(String(6 + versionNumber)), lineageId: id("6"), versionNumber,
       sourceVersionId: versionNumber === 1 ? null : id("7"), status: "ready",
@@ -118,11 +118,13 @@ describe("artifact version service", () => {
       provenance: { origin: versionNumber === 1 ? "legacy_import" : "revision", originalArtifactId: id("5"), sourceVersionId: versionNumber === 1 ? null : id("7"), messageId: null, actionId: null, planVersionId: null, format: null, generationMode: null },
       feedback: null, createdAt: new Date(),
     }));
-    vi.mocked(listArtifactVersions).mockResolvedValue(versions as never);
-    vi.mocked(getArtifactHead).mockResolvedValue({
+    vi.mocked(listArtifactVersionsForLineages).mockResolvedValue(versions as never);
+    vi.mocked(getArtifactHeads).mockResolvedValue([{
       lineageId: id("6"), approvedCurrentVersionId: id("7"), workingVersionId: id("8"), revision: 1,
-    } as never);
-    vi.mocked(listPreviouslyApprovedVersionIds).mockResolvedValue([id("8")]);
+    }] as never);
+    vi.mocked(listPreviouslyApprovedVersionIdsForLineages).mockResolvedValue([
+      { lineageId: id("6"), versionId: id("8") },
+    ]);
 
     const state = await getThreadArtifactVersionState(thread.workspaceId, thread.id);
     expect(state.lineages[0]?.approvedCurrent?.id).toBe(id("7"));
@@ -148,22 +150,24 @@ describe("artifact version service", () => {
     vi.mocked(listArtifactLineages).mockResolvedValue([{
       id: lineageId, artifactType: "plan", originalArtifactId: id("5"),
     }] as never);
-    vi.mocked(getArtifactLineage).mockResolvedValue({
-      id: lineageId, artifactType: "plan", originalArtifactId: id("5"),
-    } as never);
-    vi.mocked(listArtifactVersions).mockResolvedValue([
+    vi.mocked(listArtifactVersionsForLineages).mockResolvedValue([
       makeVersion(id("99"), 99),
     ] as never);
-    vi.mocked(getArtifactHead).mockResolvedValue({
+    vi.mocked(getArtifactHeads).mockResolvedValue([{
       lineageId, approvedCurrentVersionId: approvedId, workingVersionId: workingId, revision: 3,
-    } as never);
-    vi.mocked(getArtifactVersion).mockImplementation(async (_scope, versionId) =>
-      versionId === approvedId
-        ? makeVersion(approvedId, 1) as never
-        : makeVersion(workingId, 2) as never
-    );
+    }] as never);
+    vi.mocked(getArtifactVersionsByIds).mockResolvedValue([
+      makeVersion(approvedId, 1),
+      makeVersion(workingId, 2),
+    ] as never);
 
     const state = await getThreadArtifactVersionState(thread.workspaceId, thread.id);
+
+    expect(getArtifactVersionsByIds).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.arrayContaining([approvedId, workingId])
+    );
+    expect(listArtifactVersionsForLineages).toHaveBeenCalledTimes(1);
 
     expect(state.lineages[0]?.approvedCurrent?.id).toBe(approvedId);
     expect(state.lineages[0]?.working?.id).toBe(workingId);
