@@ -8,20 +8,23 @@ import {
   artifactVersionSummarySchema,
 } from "@/lib/assistant/artifact-version";
 import { getCampaignById } from "@/server/repositories/campaign";
-import { getDerivationById } from "@/server/repositories/derivation";
+import {
+  getDerivationById,
+  getDerivationsByIds,
+} from "@/server/repositories/derivation";
 import { getPlanById } from "@/server/repositories/plan";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import {
   ArtifactVersionValidationError,
   createAdoptedArtifact,
   findArtifactLineageOwner,
-  getArtifactHead,
+  getArtifactHeads,
   getArtifactLineage,
-  getArtifactVersion,
+  getArtifactVersionsByIds,
   listArtifactLineages,
-  listArtifactProposals,
-  listArtifactVersions,
-  listPreviouslyApprovedVersionIds,
+  listArtifactProposalsForLineages,
+  listArtifactVersionsForLineages,
+  listPreviouslyApprovedVersionIdsForLineages,
   type ArtifactScope,
 } from "@/server/repositories/artifact-version";
 import {
@@ -102,7 +105,7 @@ export async function adoptArtifactForThread(input: {
     input.artifactType,
     input.artifactId
   );
-  if (existing) return getLineagePresentation(scope, existing.id);
+  if (existing) return getLineagePresentation(scope, existing);
 
   let createInput: Parameters<typeof createAdoptedArtifact>[0];
   if (input.artifactType === "plan") {
@@ -147,7 +150,7 @@ export async function adoptArtifactForThread(input: {
 
   try {
     const created = await createAdoptedArtifact(createInput);
-    return getLineagePresentation(scope, created.lineage.id);
+    return getLineagePresentation(scope, created.lineage);
   } catch (error) {
     const winner = await getOwnedExistingLineage(
       scope,
@@ -155,42 +158,134 @@ export async function adoptArtifactForThread(input: {
       input.artifactId
     );
     if (!winner) throw error;
-    return getLineagePresentation(scope, winner.id);
+    return getLineagePresentation(scope, winner);
   }
+}
+
+type ArtifactLineageRow = Awaited<ReturnType<typeof listArtifactLineages>>[number];
+type AssistantThreadRow = NonNullable<
+  Awaited<ReturnType<typeof getAssistantThreadById>>
+>;
+
+function groupBy<T, K>(rows: T[], keyOf: (row: T) => K): Map<K, T[]> {
+  const grouped = new Map<K, T[]>();
+  for (const row of rows) {
+    const key = keyOf(row);
+    const bucket = grouped.get(key);
+    if (bucket) bucket.push(row);
+    else grouped.set(key, [row]);
+  }
+  return grouped;
 }
 
 async function getLineagePresentation(
   scope: ArtifactScope,
-  lineageId: string
+  lineage: ArtifactLineageRow
 ): Promise<ArtifactVersionPresentation> {
-  const lineage = await getArtifactLineage(scope, lineageId);
-  if (!lineage) throw new ArtifactVersionValidationError("Lineage not found");
-  const [pageVersions, head, proposals, previouslyApprovedVersionIds] = await Promise.all([
-    listArtifactVersions(scope, lineageId),
-    getArtifactHead(scope, lineageId),
-    listArtifactProposals(scope, lineageId),
-    listPreviouslyApprovedVersionIds(scope, lineageId),
+  const [presentation] = await buildLineagePresentations(scope, [lineage]);
+  return presentation!;
+}
+
+/**
+ * Builds presentations for many lineages with one round trip per table
+ * (versions, heads, proposals, approval events, missing head versions,
+ * derivations) instead of a per-lineage query chain. Output order follows the
+ * input lineage order and each presentation is identical to the per-lineage
+ * build.
+ */
+async function buildLineagePresentations(
+  scope: ArtifactScope,
+  lineages: ArtifactLineageRow[]
+): Promise<ArtifactVersionPresentation[]> {
+  if (lineages.length === 0) return [];
+  const lineageIds = lineages.map((lineage) => lineage.id);
+  const [allPageVersions, heads, allProposals, approvalRows] = await Promise.all([
+    listArtifactVersionsForLineages(scope, lineageIds),
+    getArtifactHeads(scope, lineageIds),
+    listArtifactProposalsForLineages(scope, lineageIds),
+    listPreviouslyApprovedVersionIdsForLineages(scope, lineageIds),
   ]);
-  const pageVersionIds = new Set(pageVersions.map((version) => version.id));
-  const missingHeadIds = [
-    head?.approvedCurrentVersionId,
-    head?.workingVersionId,
-  ].filter(
-    (versionId): versionId is string =>
-      typeof versionId === "string" && !pageVersionIds.has(versionId)
-  );
-  const missingHeadVersions = await Promise.all(
-    [...new Set(missingHeadIds)].map((versionId) =>
-      getArtifactVersion(scope, versionId)
-    )
-  );
-  const allVersions = [
-    ...pageVersions,
-    ...missingHeadVersions.filter(
-      (version) => version !== null && version.lineageId === lineageId
+  const pageVersionsByLineage = groupBy(allPageVersions, (version) => version.lineageId);
+  const headByLineage = new Map(heads.map((head) => [head.lineageId, head]));
+  const proposalsByLineage = groupBy(allProposals, (proposal) => proposal.lineageId);
+  const approvedByLineage = new Map<string, Set<string>>();
+  for (const row of approvalRows) {
+    const bucket = approvedByLineage.get(row.lineageId);
+    if (bucket) bucket.add(row.versionId);
+    else approvedByLineage.set(row.lineageId, new Set([row.versionId]));
+  }
+
+  const pageVersionIds = new Set(allPageVersions.map((version) => version.id));
+  const missingHeadIds = new Set<string>();
+  for (const head of heads) {
+    for (const versionId of [head.approvedCurrentVersionId, head.workingVersionId]) {
+      if (typeof versionId === "string" && !pageVersionIds.has(versionId)) {
+        missingHeadIds.add(versionId);
+      }
+    }
+  }
+  const creativeDerivationIds = [
+    ...new Set(
+      lineages
+        .filter((lineage) => lineage.artifactType === "creative")
+        .map((lineage) => lineage.originalArtifactId)
     ),
   ];
-  const previouslyApproved = new Set(previouslyApprovedVersionIds);
+  const [missingHeadVersions, derivationRows] = await Promise.all([
+    getArtifactVersionsByIds(scope, [...missingHeadIds]),
+    getDerivationsByIds(creativeDerivationIds, scope.workspaceId),
+  ]);
+  const missingHeadVersionById = new Map(
+    missingHeadVersions.map((version) => [version.id, version])
+  );
+  const derivationById = new Map(
+    derivationRows.map((derivation) => [derivation.id, derivation])
+  );
+
+  return lineages.map((lineage) => {
+    const head = headByLineage.get(lineage.id) ?? null;
+    const pageVersions = pageVersionsByLineage.get(lineage.id) ?? [];
+    const lineagePageVersionIds = new Set(pageVersions.map((version) => version.id));
+    const lineageMissingHeadIds = [
+      head?.approvedCurrentVersionId,
+      head?.workingVersionId,
+    ].filter(
+      (versionId): versionId is string =>
+        typeof versionId === "string" && !lineagePageVersionIds.has(versionId)
+    );
+    const missingHeadVersionsForLineage = [...new Set(lineageMissingHeadIds)]
+      .map((versionId) => missingHeadVersionById.get(versionId) ?? null)
+      .filter(
+        (version): version is NonNullable<typeof version> =>
+          version !== null && version.lineageId === lineage.id
+      );
+    const derivation =
+      lineage.artifactType === "creative"
+        ? derivationById.get(lineage.originalArtifactId) ?? null
+        : null;
+    return presentLineage({
+      scope,
+      lineage,
+      head,
+      allVersions: [...pageVersions, ...missingHeadVersionsForLineage],
+      proposals: proposalsByLineage.get(lineage.id) ?? [],
+      previouslyApproved: approvedByLineage.get(lineage.id) ?? new Set<string>(),
+      derivation,
+    });
+  });
+}
+
+function presentLineage(input: {
+  scope: ArtifactScope;
+  lineage: ArtifactLineageRow;
+  head: Awaited<ReturnType<typeof getArtifactHeads>>[number] | null;
+  allVersions: Awaited<ReturnType<typeof listArtifactVersionsForLineages>>;
+  proposals: Awaited<ReturnType<typeof listArtifactProposalsForLineages>>;
+  previouslyApproved: Set<string>;
+  derivation: Awaited<ReturnType<typeof getDerivationsByIds>>[number] | null;
+}): ArtifactVersionPresentation {
+  const { scope, lineage, head, allVersions, proposals, previouslyApproved, derivation } =
+    input;
   const versionSummaries = allVersions.map((version) =>
     artifactVersionSummarySchema.parse({
       id: version.id,
@@ -223,14 +318,12 @@ async function getLineagePresentation(
   );
 
   let generationStatus: ArtifactVersionPresentation["generationStatus"] = null;
-  if (lineage.artifactType === "creative") {
-    const derivation = await getDerivationById(
-      lineage.originalArtifactId,
-      scope.workspaceId
-    );
-    if (derivation && derivation.campaignId === scope.campaignId) {
-      generationStatus = { status: derivation.status, safeError: null };
-    }
+  if (
+    lineage.artifactType === "creative" &&
+    derivation &&
+    derivation.campaignId === scope.campaignId
+  ) {
+    generationStatus = { status: derivation.status, safeError: null };
   }
 
   return {
@@ -249,11 +342,20 @@ async function getLineagePresentation(
   };
 }
 
+export interface ThreadArtifactPreload {
+  thread?: AssistantThreadRow | null;
+  lineages?: ArtifactLineageRow[];
+}
+
 export async function getThreadArtifactVersionState(
   workspaceId: string,
-  threadId: string
+  threadId: string,
+  preload: ThreadArtifactPreload = {}
 ) {
-  const thread = await getAssistantThreadById(workspaceId, threadId);
+  const thread =
+    preload.thread && preload.thread.id === threadId && preload.thread.workspaceId === workspaceId
+      ? preload.thread
+      : await getAssistantThreadById(workspaceId, threadId);
   if (!thread) throw new ArtifactVersionValidationError("Thread not found");
   if (!thread.campaignId) return { lineages: [] };
   const scope: ArtifactScope = {
@@ -262,10 +364,6 @@ export async function getThreadArtifactVersionState(
     campaignId: thread.campaignId,
     threadId,
   };
-  const lineages = await listArtifactLineages(scope);
-  return {
-    lineages: await Promise.all(
-      lineages.map((lineage) => getLineagePresentation(scope, lineage.id))
-    ),
-  };
+  const lineages = preload.lineages ?? (await listArtifactLineages(scope));
+  return { lineages: await buildLineagePresentations(scope, lineages) };
 }
