@@ -137,21 +137,16 @@ function effectiveContext(
 function rowContext(
   sources: ReportSourceRow[],
   scope: ServedAdsReportScope,
-  now: Date,
-  anuncioId: string
+  now: Date
 ): ComparabilityContext | null {
   let found: ComparabilityContext | null = null;
-  let contributors = 0;
   for (const source of sources) {
-    if (!source.row.creative_id) continue;
-    if (buildAnuncioId(source.row.ad_account_id, source.row.creative_id) !== anuncioId) continue;
-    contributors += 1;
     const current = effectiveContext(source, scope, now);
     if (!current) return null;
     if (!found) found = current;
     else if (JSON.stringify(found) !== JSON.stringify(current)) return null;
   }
-  return contributors > 0 ? found : null;
+  return found;
 }
 
 /**
@@ -249,10 +244,18 @@ export function buildServedAdsReport(input: BuildReportInput): ServedAdsReport {
       cpaUnavailableReason = unmeasuredReason(unmeasured.conversion.status);
     } else {
       conversions = rows.reduce((sum, row) => sum + (row.conversion.value ?? 0), 0);
+      const sourcesByAnuncio = new Map<string, ReportSourceRow[]>();
+      for (const source of sources) {
+        if (!source.row.creative_id) continue;
+        const anuncioId = buildAnuncioId(source.row.ad_account_id, source.row.creative_id);
+        const group = sourcesByAnuncio.get(anuncioId);
+        if (group) group.push(source);
+        else sourcesByAnuncio.set(anuncioId, [source]);
+      }
       const lines: ConsolidationLine[] = [];
       let missingContext = false;
       for (const row of rows) {
-        const context = rowContext(sources, scope, now, row.anuncio_id);
+        const context = rowContext(sourcesByAnuncio.get(row.anuncio_id) ?? [], scope, now);
         if (!context || !row.conversion.actionType || row.conversion.value === null) {
           missingContext = true;
           break;
