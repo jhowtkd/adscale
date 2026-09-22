@@ -1,8 +1,21 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GET } from "./route";
 
+const cachedResults = vi.hoisted(() => new Map<string, { expiresAt: number; value: unknown }>());
+
 vi.mock("next/cache", () => ({
-  unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
+  unstable_cache: <TArgs extends unknown[], TResult>(
+    fn: (...args: TArgs) => Promise<TResult>,
+    keyParts: string[],
+    options: { revalidate: number }
+  ) => async (...args: TArgs): Promise<TResult> => {
+    const key = JSON.stringify([keyParts, args]);
+    const cached = cachedResults.get(key);
+    if (cached && cached.expiresAt > Date.now()) return cached.value as TResult;
+    const value = await fn(...args);
+    cachedResults.set(key, { expiresAt: Date.now() + options.revalidate * 1000, value });
+    return value;
+  },
 }));
 
 vi.mock("@/server/auth/calibration-access", () => ({
@@ -53,12 +66,15 @@ const baseReport = {
 describe("/api/feedback/sample-coverage GET", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    cachedResults.clear();
     mockRequireAccess.mockResolvedValue({
       user: { id: "owner-1", email: "owner@test.com" },
       scope: "platform-owner",
     });
     mockRunCoverage.mockResolvedValue({ report: baseReport });
   });
+
+  afterEach(() => vi.useRealTimers());
 
   it("returns 200 with SampleCoverageReport for authorized platform owner", async () => {
     const res = await GET(new Request("http://localhost/api/feedback/sample-coverage"));
@@ -76,8 +92,45 @@ describe("/api/feedback/sample-coverage GET", () => {
     expect(mockRunCoverage).toHaveBeenCalledWith({
       workspaceId: undefined,
       cohort: undefined,
-      capturedAt: expect.any(String),
     });
+  });
+
+  it("reuses the report and capturedAt until cache expiry", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-22T12:00:00.000Z"));
+    mockRunCoverage.mockImplementation(async (input) => ({
+      report: { ...baseReport, capturedAt: input.capturedAt ?? new Date().toISOString() },
+    }));
+    const url = "http://localhost/api/feedback/sample-coverage";
+
+    const first = await (await GET(new Request(url))).json();
+    vi.setSystemTime(new Date("2026-09-22T12:00:30.000Z"));
+    const cached = await (await GET(new Request(url))).json();
+    expect(mockRunCoverage).toHaveBeenCalledTimes(1);
+    expect(cached.report.capturedAt).toBe(first.report.capturedAt);
+
+    vi.setSystemTime(new Date("2026-09-22T12:01:01.000Z"));
+    const refreshed = await (await GET(new Request(url))).json();
+    expect(mockRunCoverage).toHaveBeenCalledTimes(2);
+    expect(refreshed.report.capturedAt).toBe("2026-09-22T12:01:01.000Z");
+    expect(mockRequireAccess).toHaveBeenCalledTimes(3);
+  });
+
+  it("separates cache entries by workspace and cohort", async () => {
+    const otherWorkspaceId = "550e8400-e29b-41d4-a716-446655440003";
+    const url = "http://localhost/api/feedback/sample-coverage";
+    for (const suffix of [
+      "",
+      `?workspaceId=${WORKSPACE_ID}`,
+      `?workspaceId=${WORKSPACE_ID}&cohort=baseline`,
+      `?workspaceId=${otherWorkspaceId}`,
+      "",
+    ]) {
+      await GET(new Request(`${url}${suffix}`));
+    }
+
+    expect(mockRunCoverage).toHaveBeenCalledTimes(4);
+    expect(mockRequireAccess).toHaveBeenCalledTimes(5);
   });
 
   it("rejects workspace admin when workspaceId is provided", async () => {

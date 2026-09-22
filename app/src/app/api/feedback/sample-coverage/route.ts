@@ -33,7 +33,6 @@ export async function GET(request: Request) {
     const report = await cachedRun({
       workspaceId: parsed.data.workspaceId,
       cohort: parsed.data.cohort,
-      capturedAt: new Date().toISOString(),
     });
 
     return NextResponse.json({ report });
