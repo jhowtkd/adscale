@@ -290,29 +290,41 @@ export interface UpsertAdAccount {
   currency: string;
 }
 
+const UPSERT_CHUNK_SIZE = 250;
+
 /** Upsert preservando brandId (vínculo é ato do owner, nunca do sync). */
 export async function upsertAdAccounts(
   connectionId: string,
   accounts: UpsertAdAccount[]
 ): Promise<Array<{ id: string; adAccountId: string }>> {
-  const out: Array<{ id: string; adAccountId: string }> = [];
-  for (const account of accounts) {
+  const unique = [...new Map(accounts.map((account) => [account.adAccountId, account])).values()];
+  const rowsByRemoteId = new Map<string, { id: string; adAccountId: string }>();
+  const updatedAt = new Date();
+  for (let index = 0; index < unique.length; index += UPSERT_CHUNK_SIZE) {
     const rows = await db
       .insert(metaAdAccounts)
-      .values({
+      .values(unique.slice(index, index + UPSERT_CHUNK_SIZE).map((account) => ({
         connectionId,
         adAccountId: account.adAccountId,
         name: account.name,
         currency: account.currency,
-      })
+      })))
       .onConflictDoUpdate({
         target: [metaAdAccounts.connectionId, metaAdAccounts.adAccountId],
-        set: { name: account.name, currency: account.currency, updatedAt: new Date() },
+        set: {
+          name: sql`excluded.name`,
+          currency: sql`excluded.currency`,
+          updatedAt,
+        },
       })
       .returning({ id: metaAdAccounts.id, adAccountId: metaAdAccounts.adAccountId });
-    out.push(rows[0] as { id: string; adAccountId: string });
+    for (const row of rows) rowsByRemoteId.set(row.adAccountId, row);
   }
-  return out;
+  return accounts.map((account) => {
+    const row = rowsByRemoteId.get(account.adAccountId);
+    if (!row) throw new Error("adAccountUpsertMissing");
+    return row;
+  });
 }
 
 export interface UpsertServedAd {
@@ -325,13 +337,22 @@ export interface UpsertServedAd {
   lastDeliveredAt: Date | null;
 }
 
-/** Upsert em lote (um statement); ids devem ser distintos dentro do lote. */
+/** Upsert em chunks; o último valor vence, sem perder entrega anterior. */
 export async function upsertServedAds(ads: UpsertServedAd[]): Promise<void> {
   if (ads.length === 0) return;
-  await db
-    .insert(servedAds)
-    .values(
-      ads.map((ad) => ({
+  const unique = new Map<string, UpsertServedAd>();
+  for (const ad of ads) {
+    unique.set(ad.id, {
+      ...ad,
+      lastDeliveredAt: ad.lastDeliveredAt ?? unique.get(ad.id)?.lastDeliveredAt ?? null,
+    });
+  }
+  const rows = [...unique.values()];
+  const updatedAt = new Date();
+  for (let index = 0; index < rows.length; index += UPSERT_CHUNK_SIZE) {
+    await db
+      .insert(servedAds)
+      .values(rows.slice(index, index + UPSERT_CHUNK_SIZE).map((ad) => ({
         id: ad.id,
         accountId: ad.accountId,
         adAccountId: ad.adAccountId,
@@ -339,19 +360,19 @@ export async function upsertServedAds(ads: UpsertServedAd[]): Promise<void> {
         format: ad.format,
         textExcerpt: ad.text,
         lastDeliveredAt: ad.lastDeliveredAt,
-      }))
-    )
-    .onConflictDoUpdate({
-      target: servedAds.id,
-      set: {
-        accountId: sql`excluded.account_id`,
-        format: sql`excluded.format`,
-        textExcerpt: sql`excluded.text_excerpt`,
-        // Sync sem entrega na janela não apaga a última entrega conhecida.
-        lastDeliveredAt: sql`coalesce(excluded.last_delivered_at, ${servedAds.lastDeliveredAt})`,
-        updatedAt: new Date(),
-      },
-    });
+      })))
+      .onConflictDoUpdate({
+        target: servedAds.id,
+        set: {
+          accountId: sql`excluded.account_id`,
+          format: sql`excluded.format`,
+          textExcerpt: sql`excluded.text_excerpt`,
+          // Sync sem entrega na janela não apaga a última entrega conhecida.
+          lastDeliveredAt: sql`coalesce(excluded.last_delivered_at, ${servedAds.lastDeliveredAt})`,
+          updatedAt,
+        },
+      });
+  }
 }
 
 export async function upsertServedAd(ad: UpsertServedAd): Promise<void> {
@@ -387,14 +408,17 @@ export interface UpsertAdMetricsInput {
   snapshotId: string | null;
 }
 
-/** Upsert em lote (um statement); (anuncioId, windowDays) distintos dentro do lote. */
+/** Upsert em lotes limitados; o último valor vence para a mesma janela. */
 export async function upsertAdMetricsBatch(inputs: UpsertAdMetricsInput[]): Promise<void> {
   if (inputs.length === 0) return;
+  const unique = new Map<string, UpsertAdMetricsInput>();
+  for (const input of inputs) unique.set(JSON.stringify([input.anuncioId, input.windowDays]), input);
+  const rows = [...unique.values()];
   const syncedAt = new Date();
-  await db
-    .insert(servedAdMetrics)
-    .values(
-      inputs.map((input) => ({
+  for (let index = 0; index < rows.length; index += UPSERT_CHUNK_SIZE) {
+    await db
+      .insert(servedAdMetrics)
+      .values(rows.slice(index, index + UPSERT_CHUNK_SIZE).map((input) => ({
         anuncioId: input.anuncioId,
         windowDays: input.windowDays,
         impressions: input.impressions,
@@ -406,22 +430,22 @@ export async function upsertAdMetricsBatch(inputs: UpsertAdMetricsInput[]): Prom
         definitionVersion: input.definitionVersion,
         snapshotId: input.snapshotId,
         syncedAt,
-      }))
-    )
-    .onConflictDoUpdate({
-      target: [servedAdMetrics.anuncioId, servedAdMetrics.windowDays],
-      set: {
-        impressions: sql`excluded.impressions`,
-        clicks: sql`excluded.clicks`,
-        spend: sql`excluded.spend`,
-        conversions: sql`excluded.conversions`,
-        actionCounts: sql`excluded.action_counts`,
-        ambiguousActionTypes: sql`excluded.ambiguous_action_types`,
-        definitionVersion: sql`excluded.definition_version`,
-        snapshotId: sql`excluded.snapshot_id`,
-        syncedAt,
-      },
-    });
+      })))
+      .onConflictDoUpdate({
+        target: [servedAdMetrics.anuncioId, servedAdMetrics.windowDays],
+        set: {
+          impressions: sql`excluded.impressions`,
+          clicks: sql`excluded.clicks`,
+          spend: sql`excluded.spend`,
+          conversions: sql`excluded.conversions`,
+          actionCounts: sql`excluded.action_counts`,
+          ambiguousActionTypes: sql`excluded.ambiguous_action_types`,
+          definitionVersion: sql`excluded.definition_version`,
+          snapshotId: sql`excluded.snapshot_id`,
+          syncedAt,
+        },
+      });
+  }
 }
 
 export async function upsertAdMetrics(input: UpsertAdMetricsInput): Promise<void> {
