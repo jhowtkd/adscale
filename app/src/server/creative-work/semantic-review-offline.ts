@@ -144,6 +144,7 @@ export function projectSemanticReviewOffline(rawWork: unknown): ProjectionResult
     || briefing.message.value !== work.brief.theme
     || briefing.objective.value !== work.brief.objective
     || (briefing.audience.value ?? "") !== work.brief.audience
+    || (briefing.offer.value ?? null) !== work.brief.offer
     || briefing.readiness === "blocked"
     || !projectPreparedPlanV1({ ...work, inputSnapshot: snapshot as CreativeWorkInputSnapshot })) {
     return { ok: false, reason: "incoherent_snapshot" };
@@ -154,7 +155,7 @@ export function projectSemanticReviewOffline(rawWork: unknown): ProjectionResult
     const rebuilt = buildCreativeWorkFactPack({
       request: work.request,
       mode: "social_post",
-      sources: snapshot.sources.map((source) => ({ sourceId: source.sourceId, usage: source.usage, content: source.content as ContentBrief | null })),
+      sources: snapshot.sources.filter((source) => !source.pieceReference).map((source) => ({ sourceId: source.sourceId, usage: source.usage, content: source.content as ContentBrief | null })),
       brand: { name: pack.identity.brandName, requiredElements: null, prohibitedElements: null },
       clientProfileId: work.clientProfileId,
       briefingOverrides: work.settings.briefingOverrides,

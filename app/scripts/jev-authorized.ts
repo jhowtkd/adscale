@@ -1,11 +1,12 @@
 /** Explicitly authorized local pilot; manifest is metadata-only and append-only. */
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { constants, closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, unlinkSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { canonicalJsonStringify } from "../src/server/creative-work/canonical-json";
 import { evaluateJev, type JevResult } from "../src/server/creative-work/semantic-review-http";
 import { projectSemanticReviewOffline, SEMANTIC_MODEL, SEMANTIC_PROFILE, type SemanticProjection } from "../src/server/creative-work/semantic-review-offline";
+import { DIAGNOSTIC_SCHEMA_VERSION, type DiagnosticContext, type DiagnosticEventEnvelope, type DiagnosticEventName } from "../src/server/diagnostics/contract";
 import type { SyntheticCase } from "./run-jev-offline";
 
 const authorizationSchema = z.object({
@@ -106,6 +107,23 @@ function readManifest(path: string) {
   return { header: header.data, started, terminal };
 }
 
+function recordDiagnostic(
+  sink: (event: DiagnosticEventEnvelope) => void,
+  context: DiagnosticContext,
+  event: DiagnosticEventName,
+  details: Partial<Pick<DiagnosticEventEnvelope, "call" | "durationMs" | "error">> = {},
+) {
+  const at = new Date().toISOString();
+  try {
+    sink({
+      eventId: randomUUID(), event, schemaVersion: DIAGNOSTIC_SCHEMA_VERSION,
+      occurredAt: at, recordedAt: at,
+      status: event.endsWith("started") ? "started" : event.endsWith("completed") ? "completed" : "failed",
+      correlation: "full", context, attributes: { operationKind: "semantic_review" }, ...details,
+    });
+  } catch { /* Diagnostic loss cannot change the pilot result. */ }
+}
+
 type AuthorizedOptions = {
   cases: SyntheticCase[];
   authorization: unknown;
@@ -114,15 +132,22 @@ type AuthorizedOptions = {
   manifestDir: string;
   resume?: boolean;
   now?: Date;
+  clock?: () => Date;
   transport?: (projection: SemanticProjection, credential: string) => Promise<JevResult>;
   persist?: typeof appendManifestRecord;
+  diagnosticSink?: (event: DiagnosticEventEnvelope) => void;
 };
 
 export async function runAuthorizedCorpus(options: AuthorizedOptions) {
-  const now = options.now ?? new Date();
+  const clock = options.clock ?? (options.now ? () => options.now! : () => new Date());
+  const now = clock();
   const corpusHash = syntheticCorpusHash(options.cases);
-  const { value: authorization, expired } = validateAuthorization(options.authorization, corpusHash, options.maxCalls, now, Boolean(options.resume));
+  const { value: authorization, expired: initiallyExpired } = validateAuthorization(options.authorization, corpusHash, options.maxCalls, now, Boolean(options.resume));
+  let expired = initiallyExpired;
   if (!options.credential?.trim()) throw new Error("missing_credential");
+  const { createDiagnosticContext, withDiagnosticContext } = await import("../src/server/diagnostics/context");
+  const journal = options.diagnosticSink || expired ? null : await import("../src/server/diagnostics/journal");
+  const diagnosticSink = options.diagnosticSink ?? journal?.enqueueDiagnosticEvent ?? (() => {});
   const authorizationHash = sha256(canonicalJsonStringify(authorization));
   const manifestPath = join(options.manifestDir, "manifest.jsonl");
   if (!options.resume) mkdirSync(options.manifestDir, { mode: 0o700 });
@@ -155,12 +180,42 @@ export async function runAuthorizedCorpus(options: AuthorizedOptions) {
       if (manifest.started.size >= options.maxCalls) break;
       const projected = projectSemanticReviewOffline(entry.work);
       if (!projected.ok) { excluded += 1; continue; }
+      if (clock().getTime() >= Date.parse(authorization.expiresAt)) { expired = true; break; }
       const startedAt = new Date().toISOString();
       persist(fd, { kind: "started", caseKey, inputHash: projected.hash, startedAt });
       manifest.started.set(caseKey, { kind: "started", caseKey, inputHash: projected.hash, startedAt });
+      const work = entry.work as { id: string; workspaceId: string; clientProfileId: string };
+      const context = createDiagnosticContext({
+        workspaceId: work.workspaceId, workItemId: work.id, clientProfileId: work.clientProfileId,
+        dataOrigin: "synthetic", environment: "offline_jev_pilot", process: "web",
+      });
+      if (clock().getTime() >= Date.parse(authorization.expiresAt)) {
+        expired = true;
+        const terminal = { kind: "terminal" as const, caseKey, outcome: "failed" as const,
+          finishedAt: new Date().toISOString(), reason: "authorization_expired_before_send" };
+        persist(fd, terminal);
+        manifest.terminal.set(caseKey, terminal);
+        break;
+      }
+      const call = { callId: randomUUID(), provider: "typesafe", requestedModel: SEMANTIC_MODEL, returnedModel: null, providerRequestId: null };
+      recordDiagnostic(diagnosticSink, context, "operation.started");
+      recordDiagnostic(diagnosticSink, context, "model.call.started", { call });
+      const callStarted = performance.now();
       let result: JevResult;
-      try { result = await transport(projected.projection, options.credential); }
+      try { result = await withDiagnosticContext(context, () => transport(projected.projection, options.credential)); }
       catch { result = { ok: false, reason: "network_error" }; }
+      const durationMs = Math.max(0, Math.round(performance.now() - callStarted));
+      if (result.ok) {
+        recordDiagnostic(diagnosticSink, context, "model.call.completed", {
+          durationMs, call: { ...call, returnedModel: SEMANTIC_MODEL, latencyMs: durationMs,
+            ...(result.usage ? { inputTokens: result.usage.input_tokens, outputTokens: result.usage.output_tokens } : {}) },
+        });
+        recordDiagnostic(diagnosticSink, context, "operation.completed");
+      } else {
+        const error = { errorClass: null, status: result.status ?? null, reason: result.reason };
+        recordDiagnostic(diagnosticSink, context, "model.call.failed", { durationMs, call: { ...call, latencyMs: durationMs }, error });
+        recordDiagnostic(diagnosticSink, context, "operation.failed", { error });
+      }
       const ambiguous = !result.ok && (result.reason === "timeout" || result.reason === "network_error"
         || (result.reason === "http_status" && (result.status ?? 0) >= 500));
       const terminal: z.infer<typeof terminalRecord> = result.ok
@@ -185,5 +240,6 @@ export async function runAuthorizedCorpus(options: AuthorizedOptions) {
   } finally {
     if (fd !== undefined) closeSync(fd);
     try { unlinkSync(lockPath); } catch { /* crash recovery requires --resume */ }
+    await journal?.shutdownDiagnosticJournal(5_000);
   }
 }

@@ -83,7 +83,7 @@ export const SYNTHETIC_CASES: SyntheticCase[] = definitions.map((entry) => ({
     status: "draft",
     trainingSessionId: null,
     request: entry.request,
-    brief: { theme: entry.request.slice(0, 240), objective: "Apresentar o produto", audience: "", offer: null },
+    brief: { theme: entry.request.slice(0, 240), objective: "Apresentar o produto", audience: "", offer: entry.briefingOffer ?? null },
     format: "4:5",
     settings: { targetFormats: [] },
     inputSnapshot: {
@@ -136,8 +136,7 @@ export function validateSyntheticCorpus(cases: SyntheticCase[]) {
   return families;
 }
 
-export function runSyntheticCorpus(cases: SyntheticCase[]) {
-  const families = validateSyntheticCorpus(cases);
+function summarizeSyntheticCases(cases: SyntheticCase[]) {
   const exclusions: Record<string, number> = {};
   const matrix = Object.fromEntries(SEMANTIC_QUESTIONS.map((question) => [question, {}])) as Record<Question, Record<string, Record<string, number>>>;
   let eligible = 0;
@@ -179,14 +178,25 @@ export function runSyntheticCorpus(cases: SyntheticCase[]) {
     if (candidateAlert && baselineCount === 0) candidateOnlyAlertFamilies += 1;
   }
   return {
+    counts: { candidates: cases.length, eligible, exclusions, validResponses, responseErrors, baselineFindings, baselineAlertFamilies, candidateOnlyAlertFamilies, abstentions },
+    metrics: { responseErrorRate: ratio(responseErrors, eligible), abstentionRate: ratio(abstentions, validResponses * SEMANTIC_QUESTIONS.length), syntheticFamilyAgreement: ratio(agreements, eligible) },
+    matrix,
+  };
+}
+
+export function runSyntheticCorpus(cases: SyntheticCase[]) {
+  const families = validateSyntheticCorpus(cases);
+  return {
     origin: "synthetic" as const,
     execution: "controlled" as const,
     humanReference: "not_collected" as const,
     versions: { profile: SEMANTIC_PROFILE, projection: SEMANTIC_INPUT_VERSION, rubric: SEMANTIC_RUBRIC_VERSION, rubricHash: SEMANTIC_RUBRIC_HASH, requestedModel: SEMANTIC_MODEL },
     families: { total: families.size, calibration: [...families.values()].filter((split) => split === "calibration").length, holdout: [...families.values()].filter((split) => split === "holdout").length },
-    counts: { candidates: cases.length, eligible, exclusions, validResponses, responseErrors, baselineFindings, baselineAlertFamilies, candidateOnlyAlertFamilies, abstentions },
-    metrics: { responseErrorRate: ratio(responseErrors, eligible), abstentionRate: ratio(abstentions, validResponses * SEMANTIC_QUESTIONS.length), syntheticFamilyAgreement: ratio(agreements, eligible) },
-    matrix,
+    ...summarizeSyntheticCases(cases),
+    splits: {
+      calibration: summarizeSyntheticCases(cases.filter((entry) => entry.split === "calibration")),
+      holdout: summarizeSyntheticCases(cases.filter((entry) => entry.split === "holdout")),
+    },
   };
 }
 

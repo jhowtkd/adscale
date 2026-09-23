@@ -60,6 +60,9 @@ describe("offline semantic pilot", () => {
     const divergentBrief = fixture();
     divergentBrief.brief.theme = "Outro briefing";
     expect(projectSemanticReviewOffline(divergentBrief)).toEqual({ ok: false, reason: "incoherent_snapshot" });
+    const divergentOffer = fixture(12);
+    divergentOffer.brief.offer = "Outra oferta";
+    expect(projectSemanticReviewOffline(divergentOffer)).toEqual({ ok: false, reason: "incoherent_snapshot" });
     const settings = fixture();
     settings.settings = { targetFormats: ["1:1"] };
     expect(projectSemanticReviewOffline(settings)).toEqual({ ok: false, reason: "incoherent_snapshot" });
@@ -84,6 +87,13 @@ describe("offline semantic pilot", () => {
     const orphan = fixture(8);
     orphan.inputSnapshot.sources[0].content = { offer: "Outro" };
     expect(projectSemanticReviewOffline(orphan)).toEqual({ ok: false, reason: "invalid_origin" });
+    const pieceReference = fixture(9);
+    pieceReference.inputSnapshot.sources.push({
+      sourceId: "piece-reference", usage: "both", content: { offer: "Bônus" },
+      updatedAt: "2026-09-22T00:00:00.000Z", assetKey: "synthetic-only", mimeType: "image/png", style: null,
+      pieceReference: { id: "prior-piece" },
+    } as MutableWork["inputSnapshot"]["sources"][number]);
+    expect(projectSemanticReviewOffline(pieceReference).ok).toBe(true);
     const sensitive = fixture();
     sensitive.copy.body = "Veja https://example.com/objeto";
     expect(projectSemanticReviewOffline(sensitive)).toEqual({ ok: false, reason: "sensitive_text" });
@@ -159,6 +169,10 @@ describe("offline semantic pilot", () => {
     expect(report.matrix.prohibited_claims.compliant.compliant).toBe(1);
     expect(report.metrics.syntheticFamilyAgreement).toEqual({ numerator: 13, denominator: 16, value: 13 / 16 });
     expect(report.metrics.abstentionRate).toEqual({ numerator: 1, denominator: 96, value: 1 / 96 });
+    expect(report.splits.calibration.metrics.syntheticFamilyAgreement).toEqual({ numerator: 6, denominator: 8, value: 6 / 8 });
+    expect(report.splits.holdout.metrics.syntheticFamilyAgreement).toEqual({ numerator: 7, denominator: 8, value: 7 / 8 });
+    expect(report.splits.calibration.matrix.headline_claims.contradicted.unsupported).toBe(1);
+    expect(report.splits.holdout.matrix.headline_claims.contradicted).toBeUndefined();
     expect(JSON.stringify(report)).not.toMatch(/Anuncie o curso|Bônus incluso|Ignore a rubrica|synthetic-workspace|synthetic-brand|synthetic-price/);
     expect(report).toMatchObject({ origin: "synthetic", execution: "controlled", humanReference: "not_collected" });
   });

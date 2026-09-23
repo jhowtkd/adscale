@@ -3,6 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SEMANTIC_MODEL } from "../src/server/creative-work/semantic-review-offline";
+import type { DiagnosticEventEnvelope } from "../src/server/diagnostics/contract";
+import { createDiagnosticJournal } from "../src/server/diagnostics/journal";
+import type { NewDiagnosticEvent } from "../src/server/db/schema";
 import { appendManifestRecord, runAuthorizedCorpus, syntheticCorpusHash } from "./jev-authorized";
 import { SYNTHETIC_CASES } from "./run-jev-offline";
 
@@ -26,7 +29,7 @@ function fixture(maxCalls = 1) {
     spendApproved: true,
     maxCalls,
   };
-  return { cases, authorization, credential: "never-persist-this-key", maxCalls, manifestDir, now };
+  return { cases, authorization, credential: "never-persist-this-key", maxCalls, manifestDir, now, diagnosticSink: () => {} };
 }
 
 afterEach(() => {
@@ -45,11 +48,21 @@ describe("authorized Jev run manifest", () => {
 
   it("stores only metadata in private, durable files and counts successful calls", async () => {
     const options = fixture();
+    const events: DiagnosticEventEnvelope[] = [];
+    const saved: NewDiagnosticEvent[] = [];
+    const journal = createDiagnosticJournal({ persistBatch: async (rows) => {
+      saved.push(...rows);
+      return { inserted: rows.length, duplicates: 0 };
+    } });
     const transport = vi.fn(async () => ({
       ok: true as const, decisions: cases[0].expected, usage: null,
       confidence: {}, probabilities: {},
     }));
-    const report = await runAuthorizedCorpus({ ...options, transport });
+    const report = await runAuthorizedCorpus({ ...options, transport, diagnosticSink: (event) => {
+      events.push(event);
+      journal.enqueue(event);
+    } });
+    await journal.shutdown(1_000);
     expect(report).toMatchObject({ started: 1, completed: 1, failed: 0, outcomeUnknown: 0, remainingCalls: 0 });
     expect(transport).toHaveBeenCalledTimes(1);
     expect(transport.mock.calls[0][1]).toBe(options.credential);
@@ -60,6 +73,17 @@ describe("authorized Jev run manifest", () => {
     expect(text.split("\n").filter(Boolean)).toHaveLength(3);
     expect(text).toContain(SEMANTIC_MODEL);
     expect(text).not.toMatch(/never-persist-this-key|Anuncie o curso|Curso por R\$/);
+    expect(events.map((event) => event.event)).toEqual([
+      "operation.started", "model.call.started", "model.call.completed", "operation.completed",
+    ]);
+    expect(events.every((event) => event.stage === undefined && event.attributes?.operationKind === "semantic_review"
+      && event.context?.dataOrigin === "synthetic")).toBe(true);
+    expect(events[2].call).toMatchObject({ provider: "typesafe", requestedModel: SEMANTIC_MODEL, returnedModel: SEMANTIC_MODEL, providerRequestId: null });
+    expect(events[2].call?.inputTokens).toBeUndefined();
+    expect(JSON.stringify(events)).not.toMatch(/never-persist-this-key|Anuncie o curso|Curso por R\$/);
+    expect(saved.map((event) => event.event)).toEqual(events.map((event) => event.event));
+    expect(saved.every((event) => event.stage === null && event.dataOrigin === "synthetic"
+      && event.attributes.operationKind === "semantic_review")).toBe(true);
   });
 
   it("marks an interrupted attempt unknown on resume without sending it again", async () => {
@@ -82,11 +106,43 @@ describe("authorized Jev run manifest", () => {
 
   it("counts definite failures and uncertain timeouts against the call cap", async () => {
     const options = fixture(2);
+    const events: DiagnosticEventEnvelope[] = [];
     const transport = vi.fn()
       .mockResolvedValueOnce({ ok: false, reason: "http_status", status: 429 })
       .mockResolvedValueOnce({ ok: false, reason: "timeout" });
-    const report = await runAuthorizedCorpus({ ...options, transport });
+    const report = await runAuthorizedCorpus({ ...options, transport, diagnosticSink: (event) => events.push(event) });
     expect(report).toMatchObject({ started: 2, failed: 1, outcomeUnknown: 1, remainingCalls: 0 });
     expect(transport).toHaveBeenCalledTimes(2);
+    expect(events.map((event) => event.event)).toEqual([
+      "operation.started", "model.call.started", "model.call.failed", "operation.failed",
+      "operation.started", "model.call.started", "model.call.failed", "operation.failed",
+    ]);
+    expect(events.filter((event) => event.event === "model.call.failed").map((event) => event.error?.reason)).toEqual(["http_status", "timeout"]);
+  });
+
+  it("stops before the next send when approval expires during a run", async () => {
+    const options = fixture(2);
+    let clockTime = new Date("2026-09-23T10:59:59.000Z");
+    const transport = vi.fn(async () => {
+      clockTime = new Date("2026-09-23T11:00:00.000Z");
+      return { ok: true as const, decisions: cases[0].expected, usage: null, confidence: {}, probabilities: {} };
+    });
+    const report = await runAuthorizedCorpus({ ...options, now: undefined, clock: () => clockTime, transport });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(report).toMatchObject({ started: 1, completed: 1, remainingCalls: 0 });
+    expect(readFileSync(join(options.manifestDir, "manifest.jsonl"), "utf8").split("\n").filter(Boolean)).toHaveLength(3);
+  });
+
+  it("does not send if approval expires after the durable start marker", async () => {
+    const options = fixture();
+    let checks = 0;
+    const transport = vi.fn();
+    const report = await runAuthorizedCorpus({ ...options, now: undefined, transport, clock: () => {
+      checks += 1;
+      return new Date(checks < 3 ? "2026-09-23T10:59:59.000Z" : "2026-09-23T11:00:00.000Z");
+    } });
+    expect(transport).not.toHaveBeenCalled();
+    expect(report).toMatchObject({ started: 1, failed: 1, remainingCalls: 0 });
+    expect(readFileSync(join(options.manifestDir, "manifest.jsonl"), "utf8")).toContain("authorization_expired_before_send");
   });
 });
