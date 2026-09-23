@@ -144,7 +144,7 @@ export async function runAuthorizedCorpus(options: AuthorizedOptions) {
   const corpusHash = syntheticCorpusHash(options.cases);
   const { value: authorization, expired: initiallyExpired } = validateAuthorization(options.authorization, corpusHash, options.maxCalls, now, Boolean(options.resume));
   let expired = initiallyExpired;
-  if (!expired && !options.credential?.trim()) throw new Error("missing_credential");
+  if (!options.resume && !options.credential?.trim()) throw new Error("missing_credential");
   const { createDiagnosticContext, withDiagnosticContext } = await import("../src/server/diagnostics/context");
   const journal = options.diagnosticSink || expired ? null : await import("../src/server/diagnostics/journal");
   const diagnosticSink = options.diagnosticSink ?? journal?.enqueueDiagnosticEvent ?? (() => {});
@@ -165,6 +165,10 @@ export async function runAuthorizedCorpus(options: AuthorizedOptions) {
     const manifest = readManifest(manifestPath);
     if (manifest.header.corpusHash !== corpusHash || manifest.header.authorizationHash !== authorizationHash
       || manifest.header.maxCalls !== options.maxCalls) throw new Error("manifest_mismatch");
+    const canSend = !expired && manifest.started.size < options.maxCalls && options.cases.some((entry) =>
+      !manifest.started.has(sha256(`${entry.id}\u0000${entry.family}`)) && projectSemanticReviewOffline(entry.work).ok
+    );
+    if (canSend && !options.credential?.trim()) throw new Error("missing_credential");
     const persist = options.persist ?? appendManifestRecord;
     for (const [caseKey] of manifest.started) {
       if (manifest.terminal.has(caseKey)) continue;
@@ -263,7 +267,7 @@ export async function runAuthorizedCorpus(options: AuthorizedOptions) {
       remainingCalls: expired ? 0 : Math.max(0, options.maxCalls - manifest.started.size),
     };
   } catch (error) {
-    if (error instanceof Error && ["manifest_corrupt", "manifest_mismatch", "insecure_manifest_permissions"].includes(error.message)) throw error;
+    if (error instanceof Error && ["manifest_corrupt", "manifest_mismatch", "insecure_manifest_permissions", "missing_credential"].includes(error.message)) throw error;
     throw new Error("manifest_write_failed");
   } finally {
     if (fd !== undefined) closeSync(fd);

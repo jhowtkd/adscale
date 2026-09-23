@@ -95,13 +95,25 @@ describe("authorized Jev run manifest", () => {
     };
     await expect(runAuthorizedCorpus({ ...options, transport, persist })).rejects.toThrow("manifest_write_failed");
     expect(transport).toHaveBeenCalledTimes(1);
-    const resumed = await runAuthorizedCorpus({ ...options, resume: true, transport });
+    const resumed = await runAuthorizedCorpus({ ...options, credential: undefined, resume: true, transport });
     expect(resumed).toMatchObject({ started: 1, completed: 0, failed: 0, outcomeUnknown: 1, remainingCalls: 0 });
     expect(transport).toHaveBeenCalledTimes(1);
     const afterExpiry = await runAuthorizedCorpus({ ...options, credential: undefined, resume: true, now: new Date("2026-09-25T00:00:00.000Z"), transport });
     expect(afterExpiry).toMatchObject({ outcomeUnknown: 1, remainingCalls: 0 });
     expect(transport).toHaveBeenCalledTimes(1);
     await expect(runAuthorizedCorpus({ ...options, resume: true, authorization: { ...options.authorization, maxCalls: 2 }, transport })).rejects.toThrow("manifest_mismatch");
+  });
+
+  it("requires a credential on resume while an eligible call slot remains", async () => {
+    const options = fixture(2);
+    const transport = vi.fn(async () => ({ ok: true as const, decisions: cases[0].expected, usage: null, confidence: {}, probabilities: {} }));
+    const persist: typeof appendManifestRecord = (fd, record) => {
+      if (record.kind === "terminal") throw new Error("simulated disk failure");
+      appendManifestRecord(fd, record);
+    };
+    await expect(runAuthorizedCorpus({ ...options, transport, persist })).rejects.toThrow("manifest_write_failed");
+    await expect(runAuthorizedCorpus({ ...options, credential: undefined, resume: true, transport })).rejects.toThrow("missing_credential");
+    expect(transport).toHaveBeenCalledTimes(1);
   });
 
   it("reports calibration and holdout agreement from completed provider decisions", async () => {
