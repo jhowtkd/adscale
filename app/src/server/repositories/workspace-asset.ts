@@ -154,6 +154,18 @@ export async function getWorkspaceAssetById(id: string, workspaceId: string) {
   return result[0] ?? null;
 }
 
+export async function getWorkspaceAssetsByIds(workspaceId: string, ids: readonly string[]) {
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) return [];
+  return db
+    .select({ id: workspaceAssets.id, name: workspaceAssets.name, source: workspaceAssets.source })
+    .from(workspaceAssets)
+    .where(and(
+      eq(workspaceAssets.workspaceId, workspaceId),
+      inArray(workspaceAssets.id, uniqueIds),
+    ));
+}
+
 export async function getWorkspaceAssetByKey(
   workspaceId: string,
   key: string
