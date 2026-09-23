@@ -992,6 +992,83 @@ function studioWorkId(event: BetaAnalyticsEvent): string | null {
   return propString(event, "creativeWorkId");
 }
 
+function indexedStudioSessions(events: BetaAnalyticsEvent[], asOf?: Date) {
+  const chronological = [...events].sort(
+    (left, right) => left.createdAt.getTime() - right.createdAt.getTime()
+  );
+  const entries = new Map<string, StudioSessionEntry>();
+  const bySession = new Map<string, BetaAnalyticsEvent[]>();
+  const byWork = new Map<string, BetaAnalyticsEvent[]>();
+
+  for (const event of chronological) {
+    const sessionId = propString(event, "studioSessionId");
+    if (sessionId) {
+      const key = `${event.workspaceId}:${sessionId}`;
+      const bucket = bySession.get(key) ?? [];
+      bucket.push(event);
+      bySession.set(key, bucket);
+      if (event.eventKey === "studio_entry_started") {
+        const variant = propString(event, "rolloutVariant");
+        if (STUDIO_UUID_PATTERN.test(sessionId) && isStudioVariant(variant) && !entries.has(key)) {
+          entries.set(key, {
+            id: sessionId,
+            workspaceId: event.workspaceId,
+            variant,
+            startedAt: event.createdAt.getTime(),
+          });
+        }
+      }
+    }
+    const workId = studioWorkId(event);
+    if (workId) {
+      const key = `${event.workspaceId}:${workId}`;
+      const bucket = byWork.get(key) ?? [];
+      bucket.push(event);
+      byWork.set(key, bucket);
+    }
+  }
+
+  const maturityCutoff = (asOf?.getTime() ?? Date.now()) - STUDIO_SESSION_WINDOW_MS;
+  const sessions = [...entries.values()]
+    .filter((entry) => entry.startedAt <= maturityCutoff)
+    .map((entry) => {
+      const windowEndsAt = entry.startedAt + STUDIO_SESSION_WINDOW_MS;
+      const sessionEvents = (bySession.get(`${entry.workspaceId}:${entry.id}`) ?? [])
+        .filter((event) => {
+          const timestamp = event.createdAt.getTime();
+          const variant = propString(event, "rolloutVariant");
+          return timestamp >= entry.startedAt && timestamp <= windowEndsAt
+            && (variant === null || variant === entry.variant);
+        });
+      const acceptedWorks = new Set(
+        sessionEvents
+          .filter((event) => event.eventKey === "generation_confirmed")
+          .map(studioWorkId)
+          .filter((workId): workId is string => Boolean(workId))
+      );
+      return { entry, windowEndsAt, sessionEvents, acceptedWorks };
+    });
+  return { sessions, byWork };
+}
+
+export type StudioUsageWindow = {
+  workspaceId: string;
+  creativeWorkId: string;
+  startedAt: Date;
+  endsAt: Date;
+};
+
+export function listStudioUsageWindows(events: BetaAnalyticsEvent[], asOf?: Date): StudioUsageWindow[] {
+  return indexedStudioSessions(events, asOf).sessions.flatMap(({ entry, windowEndsAt, acceptedWorks }) =>
+    [...acceptedWorks].map((creativeWorkId) => ({
+      workspaceId: entry.workspaceId,
+      creativeWorkId,
+      startedAt: new Date(entry.startedAt),
+      endsAt: new Date(windowEndsAt),
+    }))
+  );
+}
+
 function createStudioArm(variant: StudioRolloutVariant): StudioArmAccumulator {
   return {
     variant,
@@ -1059,70 +1136,31 @@ export function aggregateStudioFunnel(
   usageEvents: StudioUsageEvent[],
   asOf?: Date,
 ): StudioFunnelArm[] {
-  const chronologicalEvents = [...events].sort(
-    (left, right) => left.createdAt.getTime() - right.createdAt.getTime(),
-  );
-  const entries = new Map<string, StudioSessionEntry>();
-
-  for (const event of chronologicalEvents) {
-    if (event.eventKey !== "studio_entry_started") continue;
-    const studioSessionId = propString(event, "studioSessionId");
-    const variant = propString(event, "rolloutVariant");
-    if (!studioSessionId || !STUDIO_UUID_PATTERN.test(studioSessionId) || !isStudioVariant(variant)) {
-      continue;
-    }
-    const key = `${event.workspaceId}:${studioSessionId}`;
-    if (!entries.has(key)) {
-      entries.set(key, {
-        id: studioSessionId,
-        workspaceId: event.workspaceId,
-        variant,
-        startedAt: event.createdAt.getTime(),
-      });
-    }
+  const { sessions, byWork } = indexedStudioSessions(events, asOf);
+  const usageByWork = new Map<string, StudioUsageEvent[]>();
+  for (const event of usageEvents) {
+    const workId = usageMetadata(event.metadata)?.creativeWorkId;
+    if (typeof workId !== "string") continue;
+    const key = `${event.workspaceId}:${workId}`;
+    const bucket = usageByWork.get(key) ?? [];
+    bucket.push(event);
+    usageByWork.set(key, bucket);
   }
 
   const arms = new Map<StudioRolloutVariant, StudioArmAccumulator>([
     ["control", createStudioArm("control")],
     ["progressive", createStudioArm("progressive")],
   ]);
-  const reportEndsAt = asOf?.getTime() ?? Date.now();
-  const maturityCutoff = reportEndsAt - STUDIO_SESSION_WINDOW_MS;
-
-  for (const session of entries.values()) {
-    // Sessions younger than the measurement window have no final outcome yet.
-    // Excluding them keeps them out of both completion and abandonment rates.
-    if (session.startedAt > maturityCutoff) continue;
+  for (const { entry: session, windowEndsAt, sessionEvents, acceptedWorks } of sessions) {
     const arm = arms.get(session.variant)!;
-    const windowEndsAt = session.startedAt + STUDIO_SESSION_WINDOW_MS;
     const inWindow = (createdAt: Date) => {
       const timestamp = createdAt.getTime();
       return timestamp >= session.startedAt && timestamp <= windowEndsAt;
     };
-    const sessionEvents = chronologicalEvents.filter(
-      (event) => event.workspaceId === session.workspaceId
-        && inWindow(event.createdAt)
-        && propString(event, "studioSessionId") === session.id
-        // Pre-binding events lack a variant; retain them for historical
-        // reports, but reject any explicitly cross-variant event.
-        && (() => {
-          const eventVariant = propString(event, "rolloutVariant");
-          return eventVariant === null || eventVariant === session.variant;
-        })(),
-    );
-    const acceptedWorks = new Set(
-      sessionEvents
-        .filter((event) => event.eventKey === "generation_confirmed")
-        .map(studioWorkId)
-        .filter((workId): workId is string => Boolean(workId)),
-    );
-    const workEvents = chronologicalEvents.filter(
-      (event) => event.workspaceId === session.workspaceId
-        && inWindow(event.createdAt)
-        && (() => {
-          const workId = studioWorkId(event);
-          return workId !== null && acceptedWorks.has(workId);
-        })(),
+    const workEvents = [...acceptedWorks].flatMap((workId) =>
+      (byWork.get(`${session.workspaceId}:${workId}`) ?? []).filter((event) =>
+        inWindow(event.createdAt)
+      )
     );
     const completedWorks = new Set(
       workEvents
@@ -1174,10 +1212,8 @@ export function aggregateStudioFunnel(
       const workId = studioWorkId(event);
       if (!workId) continue;
       const reopenedAt = event.createdAt.getTime();
-      const nextCanonicalStage = chronologicalEvents.find((candidate) =>
-        candidate.workspaceId === session.workspaceId
-        && inWindow(candidate.createdAt)
-        && studioWorkId(candidate) === workId
+      const nextCanonicalStage = (byWork.get(`${session.workspaceId}:${workId}`) ?? []).find((candidate) =>
+        inWindow(candidate.createdAt)
         && CANONICAL_STAGE_EVENTS.has(candidate.eventKey)
         && candidate.createdAt.getTime() > reopenedAt,
       );
@@ -1188,10 +1224,8 @@ export function aggregateStudioFunnel(
     }
 
     for (const workId of acceptedWorks) {
-      const usageForWork = usageEvents.filter((usageEvent) => {
-        if (usageEvent.workspaceId !== session.workspaceId || !inWindow(usageEvent.createdAt)) return false;
-        return usageMetadata(usageEvent.metadata)?.creativeWorkId === workId;
-      });
+      const usageForWork = (usageByWork.get(`${session.workspaceId}:${workId}`) ?? [])
+        .filter((event) => inWindow(event.createdAt));
       if (usageForWork.some((usageEvent) => (usageEvent.amount ?? 0) > 0)) {
         arm.debitedGenerations += 1;
       }
@@ -1218,32 +1252,42 @@ export function buildAnalyticsFunnelSummary(
   asOf?: Date,
   options?: { selectedFromDatabase?: SelectedPieceRow[] },
 ): AnalyticsFunnelSummary {
-  const sessionIds = new Set(
-    events.map((e) => e.sessionId).filter((id): id is string => Boolean(id))
-  );
+  const sessionIds = new Set<string>();
+  const byKey = new Map<string, Array<{ position: number; event: BetaAnalyticsEvent }>>();
+  events.forEach((event, position) => {
+    if (event.sessionId) sessionIds.add(event.sessionId);
+    const bucket = byKey.get(event.eventKey) ?? [];
+    bucket.push({ position, event });
+    byKey.set(event.eventKey, bucket);
+  });
+  const forKeys = (...keys: string[]) => keys
+    .flatMap((key) => byKey.get(key) ?? [])
+    .sort((a, b) => a.position - b.position)
+    .map(({ event }) => event);
+  const creditEvents = forKeys("credit_spend");
 
   return {
-    missionFunnel: aggregateMissionFunnel(events),
-    cockpitStageFunnel: aggregateCockpitStageFunnel(events),
-    recipeFunnel: aggregateRecipeFunnel(events),
-    guidedBriefingAbandonByStep: aggregateGuidedBriefingAbandonByStep(events),
-    creditSpendByStage: aggregateCreditSpendByStage(events),
-    creditSurprises: aggregateCreditSurprises(events),
-    creditSurprisesByOperation: aggregateCreditSurprisesByOperation(events),
-    sessionStageTimeline: aggregateSessionStageTimeline(events),
-    readinessOverrides: aggregateReadinessOverrides(events, sessions),
-    shareLinkOpens: aggregateShareLinkOpens(events),
-    readinessOverrideByDimension: aggregateReadinessOverrideByDimension(events),
+    missionFunnel: aggregateMissionFunnel(forKeys("cockpit_stage_entered", "mission_completed")),
+    cockpitStageFunnel: aggregateCockpitStageFunnel(forKeys("cockpit_stage_entered", "cockpit_stage_completed", "cockpit_stage_abandoned")),
+    recipeFunnel: aggregateRecipeFunnel(forKeys("recipe_tradeoff_viewed", "recipe_selected")),
+    guidedBriefingAbandonByStep: aggregateGuidedBriefingAbandonByStep(forKeys("cockpit_stage_abandoned")),
+    creditSpendByStage: aggregateCreditSpendByStage(creditEvents),
+    creditSurprises: aggregateCreditSurprises(creditEvents),
+    creditSurprisesByOperation: aggregateCreditSurprisesByOperation(creditEvents),
+    sessionStageTimeline: aggregateSessionStageTimeline(forKeys("cockpit_stage_completed")),
+    readinessOverrides: aggregateReadinessOverrides(forKeys("readiness_blocked"), sessions),
+    shareLinkOpens: aggregateShareLinkOpens(forKeys("share_link_opened")),
+    readinessOverrideByDimension: aggregateReadinessOverrideByDimension(forKeys("readiness_blocked")),
     postPreviewStall: aggregatePostPreviewStalls(events),
-    draftToShareTiming: aggregateDraftToShareTiming(events, sessions),
+    draftToShareTiming: aggregateDraftToShareTiming(forKeys("cockpit_stage_entered", "mission_completed"), sessions),
     shareEngagementByAssistance: aggregateShareEngagementByAssistance(
-      events,
+      forKeys("mission_completed", "share_link_opened"),
       sessions
     ),
-    derivationAutoRetryFunnel: aggregateDerivationAutoRetryFunnel(events),
+    derivationAutoRetryFunnel: aggregateDerivationAutoRetryFunnel(forKeys("derivation_auto_retry_triggered", "derivation_auto_retry_succeeded", "derivation_auto_retry_unchanged")),
     studioFunnel: aggregateStudioFunnel(events, usageEvents, asOf),
-    guestImports: aggregateGuestImports(events),
-    valueDelivered: aggregateValueDelivered(events, options?.selectedFromDatabase),
+    guestImports: aggregateGuestImports(forKeys("guest_draft_imported")),
+    valueDelivered: aggregateValueDelivered(forKeys("creative_work_approved", "creative_work_delivered"), options?.selectedFromDatabase),
     totals: {
       events: events.length,
       sessions: sessionIds.size,

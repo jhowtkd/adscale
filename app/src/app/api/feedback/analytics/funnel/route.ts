@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
 import { handleApiError } from "@/lib/api-response";
 import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
-import { buildAnalyticsFunnelSummary } from "@/server/beta-analytics/aggregate";
+import { buildAnalyticsFunnelSummary, listStudioUsageWindows } from "@/server/beta-analytics/aggregate";
 import { parseOwnerAnalyticsQuery } from "@/server/beta-analytics/query";
 import { listBetaAnalyticsEventsForOwner } from "@/server/repositories/beta-analytics";
 import { listBetaSessions } from "@/server/repositories/beta-sessions";
-import { listUsageEventsForOwner } from "@/server/repositories/usage";
+import { listStudioUsageEventsForWindows } from "@/server/repositories/usage";
 import { listSelectedCreativeWorkPieceVersions } from "@/server/repositories/selected-piece-versions";
 
 // listBetaAnalyticsEventsForOwner uses this cap. A full page may be truncated,
@@ -23,24 +23,38 @@ export async function GET(request: Request) {
       async (
         eventsArgs: Parameters<typeof listBetaAnalyticsEventsForOwner>[0],
         sessionsArgs: Parameters<typeof listBetaSessions>[0],
-        usageArgs: Parameters<typeof listUsageEventsForOwner>[0],
-      ): Promise<[
-        Awaited<ReturnType<typeof listBetaAnalyticsEventsForOwner>>,
-        Awaited<ReturnType<typeof listBetaSessions>>,
-        Awaited<ReturnType<typeof listUsageEventsForOwner>>,
-      ]> => {
-        const [events, sessions, usageEvents] = await Promise.all([
+      ) => {
+        const [events, sessions, selectedFromDatabase] = await Promise.all([
           listBetaAnalyticsEventsForOwner(eventsArgs),
           listBetaSessions(sessionsArgs),
-          listUsageEventsForOwner(usageArgs),
+          eventsArgs?.workspaceId
+            ? listSelectedCreativeWorkPieceVersions(eventsArgs.workspaceId)
+            : Promise.resolve(undefined),
         ]);
-        return [events, sessions, usageEvents];
+        const reportAsOf = eventsArgs?.to ?? new Date();
+        const usageEvents = await listStudioUsageEventsForWindows(
+          listStudioUsageWindows(events, reportAsOf)
+        );
+        const filteredSessions = eventsArgs?.sessionId
+          ? sessions.filter((session) => session.id === eventsArgs.sessionId)
+          : sessions;
+        // Next caches JSON; Date-backed rows must be aggregated before serialization.
+        return {
+          dataComplete: events.length < OWNER_ANALYTICS_EVENT_CAP,
+          summary: buildAnalyticsFunnelSummary(
+            events,
+            filteredSessions,
+            usageEvents,
+            reportAsOf,
+            { selectedFromDatabase },
+          ),
+        };
       },
       ["funnel-events"],
       { revalidate: 60, tags: ["feedback-funnel"] }
     );
 
-    const [events, sessions, usageEvents] = await cachedBuild(
+    const { dataComplete, summary } = await cachedBuild(
       {
         workspaceId: filters.workspaceId,
         sessionId: filters.sessionId,
@@ -50,28 +64,7 @@ export async function GET(request: Request) {
       {
         workspaceId: filters.workspaceId,
         activeOnly: false,
-      },
-      {
-        workspaceId: filters.workspaceId,
-        from: filters.from,
-        to: filters.to,
       }
-    );
-
-    const filteredSessions = filters.sessionId
-      ? sessions.filter((session) => session.id === filters.sessionId)
-      : sessions;
-
-    const selectedFromDatabase = filters.workspaceId
-      ? await listSelectedCreativeWorkPieceVersions(filters.workspaceId)
-      : undefined;
-
-    const summary = buildAnalyticsFunnelSummary(
-      events,
-      filteredSessions,
-      usageEvents,
-      filters.to,
-      { selectedFromDatabase },
     );
 
     return NextResponse.json({
@@ -81,7 +74,7 @@ export async function GET(request: Request) {
         from: filters.from?.toISOString() ?? null,
         to: filters.to?.toISOString() ?? null,
       },
-      dataComplete: events.length < OWNER_ANALYTICS_EVENT_CAP,
+      dataComplete,
       ...summary,
     });
   } catch (error) {
