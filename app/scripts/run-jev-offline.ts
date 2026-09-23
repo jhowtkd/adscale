@@ -1,6 +1,7 @@
 /** Synthetic, controlled-only pilot. No provider, database or domain writes. */
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+import { runAuthorizedCorpus, syntheticCorpusHash } from "./jev-authorized";
 import {
   parseControlledDecisions,
   projectSemanticReviewOffline,
@@ -14,7 +15,7 @@ import {
 } from "../src/server/creative-work/semantic-review-offline";
 
 type Question = (typeof SEMANTIC_QUESTIONS)[number];
-type SyntheticCase = {
+export type SyntheticCase = {
   id: string;
   family: string;
   split: "calibration" | "holdout";
@@ -119,7 +120,8 @@ function ratio(numerator: number, denominator: number) {
   return { numerator, denominator, value: denominator === 0 ? null : numerator / denominator };
 }
 
-export function runSyntheticCorpus(cases: SyntheticCase[]) {
+export function validateSyntheticCorpus(cases: SyntheticCase[]) {
+  if (!Array.isArray(cases)) throw new Error("invalid_synthetic_corpus");
   const ids = new Set<string>();
   const families = new Map<string, SyntheticCase["split"]>();
   for (const entry of cases) {
@@ -131,6 +133,11 @@ export function runSyntheticCorpus(cases: SyntheticCase[]) {
     ids.add(entry.id);
     families.set(entry.family, entry.split);
   }
+  return families;
+}
+
+export function runSyntheticCorpus(cases: SyntheticCase[]) {
+  const families = validateSyntheticCorpus(cases);
   const exclusions: Record<string, number> = {};
   const matrix = Object.fromEntries(SEMANTIC_QUESTIONS.map((question) => [question, {}])) as Record<Question, Record<string, Record<string, number>>>;
   let eligible = 0;
@@ -183,15 +190,56 @@ export function runSyntheticCorpus(cases: SyntheticCase[]) {
   };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try {
-    const args = process.argv.slice(2);
-    if (args.length !== 0 && (args.length !== 2 || args[0] !== "--input")) throw new Error("invalid_arguments");
-    const corpus = args.length === 0 ? SYNTHETIC_CASES : JSON.parse(readFileSync(args[1], "utf8")) as { origin?: string; cases?: SyntheticCase[] };
-    if (args.length && (corpus.origin !== "synthetic" || !Array.isArray(corpus.cases))) throw new Error("invalid_synthetic_corpus");
-    process.stdout.write(`${JSON.stringify(runSyntheticCorpus(args.length ? corpus.cases! : SYNTHETIC_CASES), null, 2)}\n`);
-  } catch {
-    process.stderr.write("jev_offline: invalid_synthetic_corpus\n");
-    process.exitCode = 1;
+function loadCases(path: string | undefined): SyntheticCase[] {
+  if (!path) return SYNTHETIC_CASES;
+  const corpus = JSON.parse(readFileSync(path, "utf8")) as { origin?: string; cases?: SyntheticCase[] };
+  if (corpus.origin !== "synthetic" || !Array.isArray(corpus.cases)) throw new Error("invalid_synthetic_corpus");
+  return corpus.cases;
+}
+
+async function main(args: string[]) {
+  const options = new Map<string, string>();
+  let resume = false;
+  for (let index = 0; index < args.length; index += 1) {
+    const flag = args[index];
+    if (flag === "--resume") {
+      if (resume) throw new Error("invalid_arguments");
+      resume = true;
+      continue;
+    }
+    if (!["--input", "--mode", "--authorization", "--max-calls", "--manifest-dir"].includes(flag)
+      || options.has(flag) || !args[index + 1] || args[index + 1].startsWith("--")) throw new Error("invalid_arguments");
+    options.set(flag, args[++index]);
   }
+  const cases = loadCases(options.get("--input"));
+  validateSyntheticCorpus(cases);
+  if (!options.has("--mode")) {
+    if (resume || [...options.keys()].some((key) => key !== "--input")) throw new Error("invalid_arguments");
+    return runSyntheticCorpus(cases);
+  }
+  if (options.get("--mode") === "hash") {
+    if (resume || [...options.keys()].some((key) => !["--mode", "--input"].includes(key))) throw new Error("invalid_arguments");
+    return { origin: "synthetic", corpusSha256: syntheticCorpusHash(cases) };
+  }
+  if (options.get("--mode") !== "jev" || !options.get("--authorization") || !options.get("--max-calls")
+    || !options.get("--manifest-dir")) throw new Error("invalid_arguments");
+  if (cases.length === 0) throw new Error("invalid_synthetic_corpus");
+  const rawMaxCalls = options.get("--max-calls")!;
+  if (!/^[1-9]\d*$/.test(rawMaxCalls)) throw new Error("invalid_arguments");
+  const authorization = JSON.parse(readFileSync(options.get("--authorization")!, "utf8")) as unknown;
+  return runAuthorizedCorpus({
+    cases, authorization, credential: process.env.TYPESAFE_API_KEY, maxCalls: Number(rawMaxCalls),
+    manifestDir: options.get("--manifest-dir")!, resume,
+  });
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main(process.argv.slice(2)).then((report) => {
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+  }).catch((error: unknown) => {
+    const safeCodes = ["invalid_arguments", "invalid_synthetic_corpus", "invalid_authorization", "missing_credential", "manifest_locked", "manifest_corrupt", "manifest_mismatch", "insecure_manifest_permissions", "manifest_write_failed"];
+    const reason = error instanceof Error && safeCodes.includes(error.message) ? error.message : "invalid_input";
+    process.stderr.write(`jev_offline: ${reason}\n`);
+    process.exitCode = 1;
+  });
 }
