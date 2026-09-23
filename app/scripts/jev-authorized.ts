@@ -1,6 +1,6 @@
 /** Explicitly authorized local pilot; manifest is metadata-only and append-only. */
 import { createHash, randomUUID } from "node:crypto";
-import { constants, closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, unlinkSync, writeSync } from "node:fs";
+import { constants, closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, rmdirSync, unlinkSync, writeSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { z } from "zod";
 import { canonicalJsonStringify } from "../src/server/creative-work/canonical-json";
@@ -158,7 +158,11 @@ export async function runAuthorizedCorpus(options: AuthorizedOptions) {
   const manifestPath = join(options.manifestDir, "manifest.jsonl");
   if (!options.resume) {
     mkdirSync(options.manifestDir, { mode: 0o700 });
-    syncDirectory(dirname(options.manifestDir));
+    try { syncDirectory(realpathSync(dirname(options.manifestDir))); }
+    catch {
+      try { rmdirSync(options.manifestDir); } catch { /* Preserve unexpected contents. */ }
+      throw new Error("manifest_write_failed");
+    }
   }
   privateStat(options.manifestDir, true);
   const lockPath = lockRun(options.manifestDir);

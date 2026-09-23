@@ -1,4 +1,4 @@
-import { lstatSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { chmodSync, lstatSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -37,6 +37,35 @@ afterEach(() => {
 });
 
 describe("authorized Jev run manifest", () => {
+  it("syncs a new run under a symlinked parent before sending", async () => {
+    const options = fixture();
+    const root = join(options.manifestDir, "..");
+    symlinkSync(root, join(root, "alias"));
+    const transport = vi.fn(async () => ({
+      ok: true as const, decisions: cases[0].expected, usage: null,
+      confidence: {}, probabilities: {},
+    }));
+    const report = await runAuthorizedCorpus({
+      ...options, manifestDir: join(root, "alias", "run"), transport,
+    });
+    expect(report.completed).toBe(1);
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a parent sync failure and removes the empty run before any send", async () => {
+    const options = fixture();
+    const root = join(options.manifestDir, "..");
+    const transport = vi.fn();
+    chmodSync(root, 0o300);
+    try {
+      await expect(runAuthorizedCorpus({ ...options, transport })).rejects.toThrow("manifest_write_failed");
+    } finally {
+      chmodSync(root, 0o700);
+    }
+    expect(transport).not.toHaveBeenCalled();
+    expect(() => lstatSync(options.manifestDir)).toThrow();
+  });
+
   it("requires bounded, corpus-specific authorization before any network call", async () => {
     const options = fixture();
     const transport = vi.fn();
