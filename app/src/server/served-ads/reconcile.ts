@@ -6,6 +6,7 @@ import {
   getGraphClient,
   isMockMode,
   META_GRAPH_VERSION,
+  type MetaAd,
   type MetaGraphClient,
   type MetaInsight,
 } from "./graph";
@@ -252,11 +253,16 @@ export async function runReconcile(
   const fresh: ReconcileLine[] = [];
   const stored: ReconcileLine[] = [];
   const accounts = await client.listAdAccounts();
+  const adsByAccount = new Map<string, Map<string, MetaAd>>();
   for (const windowDays of scope.windows) {
     stored.push(...(await loadStored(scope.workspaceId, scope.brandId, windowDays)));
     for (const account of accounts) {
-      const ads = await client.listAds(account.id);
-      const adsById = new Map(ads.map((ad) => [ad.id, ad]));
+      let adsById = adsByAccount.get(account.id);
+      if (!adsById) {
+        const ads = await client.listAds(account.id);
+        adsById = new Map(ads.map((ad) => [ad.id, ad]));
+        adsByAccount.set(account.id, adsById);
+      }
       const contract = validateApiContract(await client.getInsights(account.id, windowDays));
       if (!contract.ok) {
         return {
