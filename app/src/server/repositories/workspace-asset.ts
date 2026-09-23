@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, count, notInArray, or, lt } from "drizzle-orm";
+import { eq, and, desc, sql, count, notInArray, or, lt, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { workspaceAssets } from "../db/schema";
 import {
@@ -166,6 +166,18 @@ export async function getWorkspaceAssetByKey(
     )
     .limit(1);
   return row ?? null;
+}
+
+export async function getWorkspaceAssetsByKeys(workspaceId: string, keys: readonly string[]) {
+  const uniqueKeys = [...new Set(keys)];
+  if (uniqueKeys.length === 0) return [];
+  return db
+    .select()
+    .from(workspaceAssets)
+    .where(and(
+      eq(workspaceAssets.workspaceId, workspaceId),
+      inArray(workspaceAssets.key, uniqueKeys),
+    ));
 }
 
 export async function getCuratedInspirations(

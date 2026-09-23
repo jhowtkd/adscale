@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({
   getTrainingReferences: vi.fn(),
   createWorkspaceAsset: vi.fn(),
   deleteWorkspaceAsset: vi.fn(),
-  getWorkspaceAssetByKey: vi.fn(),
+  getWorkspaceAssetsByKeys: vi.fn(),
   normalizeTrainingUpload: vi.fn(),
   sanitizeStorageFilename: vi.fn((name: string) =>
     name.toLowerCase().replace(/[^a-z0-9._-]/g, ""),
@@ -48,7 +48,7 @@ vi.mock("@/server/repositories/client-reference", () => ({
 vi.mock("@/server/repositories/workspace-asset", () => ({
   createWorkspaceAsset: (...args: unknown[]) => mocks.createWorkspaceAsset(...args),
   deleteWorkspaceAsset: (...args: unknown[]) => mocks.deleteWorkspaceAsset(...args),
-  getWorkspaceAssetByKey: (...args: unknown[]) => mocks.getWorkspaceAssetByKey(...args),
+  getWorkspaceAssetsByKeys: (...args: unknown[]) => mocks.getWorkspaceAssetsByKeys(...args),
 }));
 
 vi.mock("@/server/brand-training/upload", () => ({
@@ -74,7 +74,7 @@ const deleteTrainingReference = mocks.deleteTrainingReference;
 const getTrainingReferences = mocks.getTrainingReferences;
 const createWorkspaceAsset = mocks.createWorkspaceAsset;
 const deleteWorkspaceAsset = mocks.deleteWorkspaceAsset;
-const getWorkspaceAssetByKey = mocks.getWorkspaceAssetByKey;
+const getWorkspaceAssetsByKeys = mocks.getWorkspaceAssetsByKeys;
 const normalizeTrainingUpload = mocks.normalizeTrainingUpload;
 const sanitizeStorageFilename = mocks.sanitizeStorageFilename;
 const putObject = mocks.putObject;
@@ -334,6 +334,7 @@ describe("GET /api/client-profiles/[id]/training-assets", () => {
       workspaceId: WORKSPACE_ID,
       name: "Acme",
     });
+    getWorkspaceAssetsByKeys.mockResolvedValue([]);
   });
 
   it("returns 404 when the profile does not belong to the workspace", async () => {
@@ -359,14 +360,14 @@ describe("GET /api/client-profiles/[id]/training-assets", () => {
         kind: "other",
       },
     ]);
-    getWorkspaceAssetByKey.mockResolvedValue({
+    getWorkspaceAssetsByKeys.mockResolvedValue([{
       id: "asset-1",
       workspaceId: WORKSPACE_ID,
       key: "workspaces/workspace-1/brand-training/abc-logo.png",
       name: "logo.png",
       type: "image/png",
       size: 123,
-    });
+    }]);
 
     const req = new Request(
       `http://localhost/api/client-profiles/${PROFILE_ID}/training-assets`,
@@ -378,6 +379,9 @@ describe("GET /api/client-profiles/[id]/training-assets", () => {
 
     expect(res.status).toBe(200);
     expect(getTrainingReferences).toHaveBeenCalledWith(WORKSPACE_ID, PROFILE_ID);
+    expect(getWorkspaceAssetsByKeys).toHaveBeenCalledWith(WORKSPACE_ID, [
+      "workspaces/workspace-1/brand-training/abc-logo.png",
+    ]);
     const body = await res.json();
     expect(body.references).toHaveLength(1);
     expect(body.references[0]).toEqual(
@@ -404,9 +408,11 @@ describe("GET /api/client-profiles/[id]/training-assets", () => {
         assetKey: "workspaces/workspace-1/brand-training/missing.png",
       },
     ]);
-    getWorkspaceAssetByKey.mockImplementation(async (_ws, key) =>
-      key.endsWith("abc.png") ? { id: "asset-ok", key, workspaceId: WORKSPACE_ID } : null,
-    );
+    getWorkspaceAssetsByKeys.mockResolvedValue([{
+      id: "asset-ok",
+      key: "workspaces/workspace-1/brand-training/abc.png",
+      workspaceId: WORKSPACE_ID,
+    }]);
 
     const req = new Request(
       `http://localhost/api/client-profiles/${PROFILE_ID}/training-assets`,
@@ -419,6 +425,37 @@ describe("GET /api/client-profiles/[id]/training-assets", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.references.map((r: { id: string }) => r.id)).toEqual(["ref-ok"]);
+  });
+
+  it("loads a large list in one workspace-scoped asset lookup and keeps reference order", async () => {
+    const references = Array.from({ length: 100 }, (_, index) => ({
+      id: `ref-${index}`,
+      workspaceId: WORKSPACE_ID,
+      clientProfileId: PROFILE_ID,
+      assetKey: `key-${index}`,
+    }));
+    getTrainingReferences.mockResolvedValue(references);
+    getWorkspaceAssetsByKeys.mockResolvedValue(
+      [...references].reverse().map((reference) => ({
+        id: `asset-${reference.id}`,
+        workspaceId: WORKSPACE_ID,
+        key: reference.assetKey,
+      })),
+    );
+
+    const res = await GET(
+      new Request(`http://localhost/api/client-profiles/${PROFILE_ID}/training-assets`),
+      { params: Promise.resolve({ id: PROFILE_ID }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(getWorkspaceAssetsByKeys).toHaveBeenCalledTimes(1);
+    expect(getWorkspaceAssetsByKeys).toHaveBeenCalledWith(
+      WORKSPACE_ID,
+      references.map((reference) => reference.assetKey),
+    );
+    expect((await res.json()).references.map((reference: { id: string }) => reference.id))
+      .toEqual(references.map((reference) => reference.id));
   });
 
   it("does not accept a workspace id from query parameters", async () => {
@@ -438,5 +475,6 @@ describe("GET /api/client-profiles/[id]/training-assets", () => {
       "other-workspace",
       expect.anything(),
     );
+    expect(getWorkspaceAssetsByKeys).toHaveBeenCalledWith(WORKSPACE_ID, []);
   });
 });
