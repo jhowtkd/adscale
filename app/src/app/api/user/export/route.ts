@@ -42,12 +42,19 @@ export async function GET(request: Request) {
 
     const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
     const writer = writable.getWriter();
+    let readyResolve!: () => void;
+    let readyReject!: (error: unknown) => void;
+    const ready = new Promise<void>((resolve, reject) => {
+      readyResolve = resolve;
+      readyReject = reject;
+    });
 
     void db.transaction(async (tx) => {
       const [userData, workspaceData] = await Promise.all([
         tx.select().from(userTable).where(eq(userTable.id, user.id)).limit(1),
         tx.select().from(workspaces).where(eq(workspaces.id, workspace.id)).limit(1),
       ]);
+      readyResolve();
       await writer.write(encoder.encode(JSON.stringify({
         exportedAt: new Date().toISOString(),
         user: {
@@ -150,9 +157,13 @@ export async function GET(request: Request) {
       );
       await writer.write(encoder.encode("}"));
     }, { isolationLevel: "repeatable read", accessMode: "read only" })
-      .then(() => writer.close(), (error) => writer.abort(error))
+      .then(() => writer.close(), (error) => {
+        readyReject(error);
+        return writer.abort(error);
+      })
       .catch(() => undefined);
 
+    await ready;
     return new Response(readable, {
       headers: { "content-type": "application/json; charset=utf-8" },
     });

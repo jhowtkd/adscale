@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { db } from "@/server/db";
+import { handleApiError } from "@/lib/api-response";
 import {
   campaigns,
   campaignAssets,
@@ -143,6 +144,24 @@ describe("GET /api/user/export", () => {
     fakeTransaction(205, 1);
     const response = await GET(request);
     await expect(response.text()).rejects.toThrow("page read failed");
+  });
+
+  it("returns an API error when the transaction cannot start", async () => {
+    const error = new Error("database unavailable");
+    vi.mocked(db.transaction).mockRejectedValueOnce(error);
+    const response = await GET(request);
+    expect(response.status).toBe(403);
+    expect(handleApiError).toHaveBeenCalledWith(error, "user.export.GET");
+  });
+
+  it("returns an API error when an initial scoped read fails", async () => {
+    const error = new Error("user read failed");
+    vi.mocked(db.transaction).mockImplementationOnce(async (callback) =>
+      callback({ select: () => ({ from: () => ({ where: () => ({ limit: async () => { throw error; } }) }) }) } as never)
+    );
+    const response = await GET(request);
+    expect(response.status).toBe(403);
+    expect(handleApiError).toHaveBeenCalledWith(error, "user.export.GET");
   });
 
   it("does not query the database when access is denied", async () => {
