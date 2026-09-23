@@ -11,9 +11,10 @@ import {
 } from "@/server/db/schema";
 import { getCorpusOperationsProgress } from "./human-quality-corpus";
 
-const url = process.env.DATABASE_URL;
-const localTestDb = url && new URL(url).hostname === "localhost"
-  && new URL(url).port === "5433" && new URL(url).pathname === "/adscale_test";
+const dbUrl = process.env.DATABASE_URL && new URL(process.env.DATABASE_URL);
+const localTestDb = dbUrl?.pathname === "/adscale_test"
+  && ["localhost", "127.0.0.1"].includes(dbUrl.hostname)
+  && ["5432", "5433"].includes(dbUrl.port);
 const testPg = localTestDb ? describe : describe.skip;
 
 testPg("corpus progress aggregation against isolated PostgreSQL", () => {
