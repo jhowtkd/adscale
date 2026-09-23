@@ -411,17 +411,6 @@ export async function submitCorpusEvaluation(
   return { item, evaluation };
 }
 
-function bumpStatusCount(
-  buckets: Record<string, CorpusStatusCount>,
-  key: string,
-  status: "pending" | "evaluated"
-): void {
-  if (!buckets[key]) {
-    buckets[key] = { pending: 0, evaluated: 0 };
-  }
-  buckets[key][status] += 1;
-}
-
 /** Summarize pending/evaluated corpus rows for operational queue progress. */
 export async function getCorpusOperationsProgress(
   workspaceId?: string,
@@ -433,26 +422,40 @@ export async function getCorpusOperationsProgress(
   });
   conditions.push(inArray(humanQualityCorpusItems.status, ["pending", "evaluated"]));
 
-  const rows = await db
-    .select({
-      status: humanQualityCorpusItems.status,
-      cohort: humanQualityCorpusItems.cohort,
-      generationMode: humanQualityCorpusItems.generationMode,
-      format: humanQualityCorpusItems.format,
-      campaignId: humanQualityCorpusItems.campaignId,
-      selectedAt: humanQualityCorpusItems.selectedAt,
-      updatedAt: humanQualityCorpusItems.updatedAt,
-    })
-    .from(humanQualityCorpusItems)
-    .leftJoin(
-      humanQualityCorpusCandidates,
-      and(
+  const rows = await db.execute(sql`
+    SELECT
+      grouping(
+        ${humanQualityCorpusItems.cohort},
+        ${humanQualityCorpusItems.generationMode},
+        ${humanQualityCorpusItems.format},
+        ${humanQualityCorpusItems.campaignId}
+      )::int AS grouping_mask,
+      ${humanQualityCorpusItems.cohort} AS cohort,
+      ${humanQualityCorpusItems.generationMode} AS generation_mode,
+      ${humanQualityCorpusItems.format} AS format,
+      ${humanQualityCorpusItems.campaignId} AS campaign_id,
+      count(*) FILTER (WHERE ${humanQualityCorpusItems.status} = 'pending')::int AS pending_count,
+      count(*) FILTER (WHERE ${humanQualityCorpusItems.status} = 'evaluated')::int AS evaluated_count,
+      max(extract(epoch from ${humanQualityCorpusItems.selectedAt}) * 1000) AS latest_selected_ms,
+      max(extract(epoch from ${humanQualityCorpusItems.updatedAt}) * 1000) FILTER (
+        WHERE ${humanQualityCorpusItems.status} = 'evaluated'
+      ) AS latest_evaluated_ms
+    FROM ${humanQualityCorpusItems}
+    LEFT JOIN ${humanQualityCorpusCandidates}
+      ON ${and(
         eq(humanQualityCorpusCandidates.workspaceId, humanQualityCorpusItems.workspaceId),
         eq(humanQualityCorpusCandidates.derivationId, humanQualityCorpusItems.derivationId),
         eq(humanQualityCorpusCandidates.corpusVersion, humanQualityCorpusItems.corpusVersion)
-      )
+      )}
+    WHERE ${and(...conditions)}
+    GROUP BY GROUPING SETS (
+      (),
+      (${humanQualityCorpusItems.cohort}),
+      (${humanQualityCorpusItems.generationMode}),
+      (${humanQualityCorpusItems.format}),
+      (${humanQualityCorpusItems.campaignId})
     )
-    .where(and(...conditions));
+  `);
 
   const progress: CorpusOperationsProgress = {
     totalPending: 0,
@@ -465,33 +468,32 @@ export async function getCorpusOperationsProgress(
     latestEvaluatedAt: null,
   };
 
-  for (const row of rows) {
-    const status = row.status as "pending" | "evaluated";
-    if (status === "pending") {
-      progress.totalPending += 1;
-    } else {
-      progress.totalEvaluated += 1;
-    }
-
-    bumpStatusCount(progress.byCohort, row.cohort, status);
-    bumpStatusCount(progress.byGenerationMode, row.generationMode, status);
-    bumpStatusCount(progress.byFormat, row.format || "unknown", status);
-    bumpStatusCount(progress.byCampaign, row.campaignId, status);
-
-    if (
-      !progress.latestSelectedAt ||
-      row.selectedAt.getTime() > progress.latestSelectedAt.getTime()
-    ) {
-      progress.latestSelectedAt = row.selectedAt;
-    }
-
-    if (status === "evaluated") {
-      if (
-        !progress.latestEvaluatedAt ||
-        row.updatedAt.getTime() > progress.latestEvaluatedAt.getTime()
-      ) {
-        progress.latestEvaluatedAt = row.updatedAt;
-      }
+  for (const row of rows.rows) {
+    const counts = {
+      pending: Number(row.pending_count),
+      evaluated: Number(row.evaluated_count),
+    };
+    switch (Number(row.grouping_mask)) {
+      case 15:
+        progress.totalPending = counts.pending;
+        progress.totalEvaluated = counts.evaluated;
+        progress.latestSelectedAt = row.latest_selected_ms !== null
+          ? new Date(Number(row.latest_selected_ms)) : null;
+        progress.latestEvaluatedAt = row.latest_evaluated_ms !== null
+          ? new Date(Number(row.latest_evaluated_ms)) : null;
+        break;
+      case 7:
+        progress.byCohort[String(row.cohort)] = counts;
+        break;
+      case 11:
+        progress.byGenerationMode[String(row.generation_mode)] = counts;
+        break;
+      case 13:
+        progress.byFormat[String(row.format || "unknown")] = counts;
+        break;
+      case 14:
+        progress.byCampaign[String(row.campaign_id)] = counts;
+        break;
     }
   }
 

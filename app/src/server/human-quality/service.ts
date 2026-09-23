@@ -203,27 +203,7 @@ function assertBoundedPayload(
   }
 }
 
-export async function selectDerivationForCorpus(
-  input: SelectCorpusItemInput
-): Promise<HumanQualityCorpusItem> {
-  const corpusVersion = input.corpusVersion ?? 1;
-  const cohort = classifyCohort(input.cohort);
-
-  const derivation = await getDerivationById(input.derivationId, input.workspaceId);
-  if (!derivation) {
-    throw new FeedbackValidationError(
-      "Derivation not found in workspace",
-      "invalid_derivation"
-    );
-  }
-
-  if (derivation.campaignId !== input.campaignId) {
-    throw new FeedbackValidationError(
-      "Derivation does not belong to campaign",
-      "invalid_derivation_campaign"
-    );
-  }
-
+async function resolveCorpusCampaignClientProfile(input: Pick<SelectCorpusItemInput, "workspaceId" | "campaignId">) {
   const campaign = await getCampaignById(input.campaignId, input.workspaceId);
   if (!campaign) {
     throw new FeedbackValidationError(
@@ -247,6 +227,33 @@ export async function selectDerivationForCorpus(
   if (!campaign.clientProfileId) {
     await updateCampaign(campaign.id, input.workspaceId, { clientProfileId });
   }
+
+  return clientProfileId;
+}
+
+async function selectDerivationForCorpusWithProfile(
+  input: SelectCorpusItemInput,
+  getClientProfileId: () => Promise<string>
+): Promise<HumanQualityCorpusItem> {
+  const corpusVersion = input.corpusVersion ?? 1;
+  const cohort = classifyCohort(input.cohort);
+
+  const derivation = await getDerivationById(input.derivationId, input.workspaceId);
+  if (!derivation) {
+    throw new FeedbackValidationError(
+      "Derivation not found in workspace",
+      "invalid_derivation"
+    );
+  }
+
+  if (derivation.campaignId !== input.campaignId) {
+    throw new FeedbackValidationError(
+      "Derivation does not belong to campaign",
+      "invalid_derivation_campaign"
+    );
+  }
+
+  const clientProfileId = await getClientProfileId();
 
   assertBoundedPayload("artifactRef", input.artifactRef);
   assertBoundedPayload("qualitySnapshot", input.qualitySnapshot);
@@ -309,6 +316,12 @@ export async function selectDerivationForCorpus(
   return insertCorpusItem(insertInput);
 }
 
+export async function selectDerivationForCorpus(
+  input: SelectCorpusItemInput
+): Promise<HumanQualityCorpusItem> {
+  return selectDerivationForCorpusWithProfile(input, () => resolveCorpusCampaignClientProfile(input));
+}
+
 function mapSelectErrorToBatchOutcome(
   error: unknown
 ): Pick<BatchSelectCorpusItemResult, "outcome" | "errorCode" | "message"> {
@@ -357,10 +370,12 @@ export async function batchSelectDerivationsForCorpus(
     missingProfile: 0,
     unsafePayload: 0,
   };
+  let sharedClientProfileId: Promise<string> | undefined;
+  const getClientProfileId = () => sharedClientProfileId ??= resolveCorpusCampaignClientProfile(input);
 
   for (const derivationId of input.derivationIds) {
     try {
-      const item = await selectDerivationForCorpus({
+      const item = await selectDerivationForCorpusWithProfile({
         workspaceId: input.workspaceId,
         campaignId: input.campaignId,
         derivationId,
@@ -369,7 +384,7 @@ export async function batchSelectDerivationsForCorpus(
         corpusVersion: input.corpusVersion,
         artifactRef: input.artifactRef,
         qualitySnapshot: input.qualitySnapshot,
-      });
+      }, getClientProfileId);
       results.push({ derivationId, outcome: "selected", item });
       summary.selected += 1;
     } catch (error) {
