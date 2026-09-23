@@ -1313,5 +1313,10 @@ export async function analyzeArtComparison(
     reportModelValidationFailed({ ...trace, reason: "invalid-json" });
     throw error;
   }
+  const reason = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>).reason : null;
+  if (typeof reason !== "string" || !reason.trim()) {
+    reportModelValidationFailed({ ...trace, reason: "invalid-reason" });
+    throw new Error("Invalid art comparison reason");
+  }
   return normalizeArtComparisonResult(parsed, fallbackReason);
 }
