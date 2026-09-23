@@ -12,7 +12,7 @@
  * at-least-once with idempotent effects and durable confirmation.
  */
 import { db } from "../db";
-import { getCreativeWork } from "../repositories/creative-work";
+import { getCreativeWorkOutputForSelectionEffect } from "../repositories/creative-work";
 import {
   claimSelectionEffects,
   closeSelectionEffect,
@@ -324,9 +324,12 @@ export async function runSelectionEffectsProcessor(input: {
         leaseSeconds: PROCESSOR_LEASE_SECONDS,
       }),
     loadScope: async (effect) => {
-      const existing = await getCreativeWork(effect.workspaceId, effect.workItemId);
-      const output = existing?.outputs.find((row) => row.id === effect.outputId);
-      if (!existing || !output?.outputKey) return null;
+      const output = await getCreativeWorkOutputForSelectionEffect(
+        effect.workspaceId,
+        effect.workItemId,
+        effect.outputId,
+      );
+      if (!output?.outputKey) return null;
       return {
         workspaceId: effect.workspaceId,
         workItemId: effect.workItemId,

@@ -706,7 +706,7 @@ export async function getLatestDerivationOutputKeysByCampaignIds(
   }
 
   const rows = await db
-    .select({
+    .selectDistinctOn([derivations.campaignId], {
       campaignId: derivations.campaignId,
       outputKey: derivations.outputKey,
     })
@@ -719,7 +719,7 @@ export async function getLatestDerivationOutputKeysByCampaignIds(
         isNotNull(derivations.outputKey)
       )
     )
-    .orderBy(desc(derivations.updatedAt));
+    .orderBy(derivations.campaignId, desc(derivations.updatedAt), desc(derivations.id));
 
   const outputKeysByCampaign = new Map<string, string>();
   for (const row of rows) {
