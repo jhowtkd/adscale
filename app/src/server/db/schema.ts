@@ -727,7 +727,10 @@ export const campaigns = adscaleSchema.table(
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
-  (table) => [index("campaigns_workspace_id_idx").on(table.workspaceId)]
+  (table) => [
+    index("campaigns_workspace_id_idx").on(table.workspaceId),
+    index("campaigns_workspace_id_cursor_idx").on(table.workspaceId, table.id),
+  ]
 );
 
 export const campaignTemplates = adscaleSchema.table(
@@ -790,6 +793,7 @@ export const campaignAssets = adscaleSchema.table(
   (table) => [
     index("campaign_assets_campaign_id_idx").on(table.campaignId),
     index("campaign_assets_workspace_id_idx").on(table.workspaceId),
+    index("campaign_assets_workspace_id_cursor_idx").on(table.workspaceId, table.id),
   ]
   );
 
@@ -873,6 +877,7 @@ export const creativePlans = adscaleSchema.table(
   (table) => [
     index("creative_plans_campaign_id_idx").on(table.campaignId),
     index("creative_plans_workspace_id_idx").on(table.workspaceId),
+    index("creative_plans_workspace_id_cursor_idx").on(table.workspaceId, table.id),
   ]
 );
 
@@ -984,6 +989,7 @@ export const derivations = adscaleSchema.table(
   (table) => [
     index("derivations_campaign_id_idx").on(table.campaignId),
     index("derivations_workspace_id_idx").on(table.workspaceId),
+    index("derivations_workspace_id_cursor_idx").on(table.workspaceId, table.id),
     index("derivations_plan_id_idx").on(table.planId),
     index("derivations_parent_id_idx").on(table.parentId),
     index("derivations_workspace_campaign_idx").on(table.workspaceId, table.campaignId),
