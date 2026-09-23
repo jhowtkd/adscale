@@ -181,14 +181,14 @@ describe("runScoreCalibration orchestrator", () => {
     }));
 
     vi.doMock("@/server/repositories/rubric-calibration-adjustments", () => ({
-      findProposedAdjustmentBySlice: vi.fn().mockResolvedValue(null),
-      insertProposedAdjustment: vi.fn().mockImplementation(async (input) => ({
+      listExistingAdjustmentKeys: vi.fn().mockResolvedValue([]),
+      insertProposedAdjustments: vi.fn().mockImplementation(async (inputs) => inputs.map((input) => ({
         id: "adj-new",
         status: "proposed",
         ...input,
         proposedAt: new Date("2026-06-17"),
         createdAt: new Date("2026-06-17"),
-      })),
+      }))),
       listProposedAdjustments: vi.fn().mockResolvedValue([
         {
           id: "adj-new",
@@ -221,7 +221,7 @@ describe("runScoreCalibration orchestrator", () => {
     expect(result.report.evaluatedItemCount).toBe(5);
     expect(result.report.adjustments.length).toBeGreaterThan(0);
     expect(result.persistedAdjustments.length).toBeGreaterThan(0);
-    expect(adjustmentsRepo.insertProposedAdjustment).toHaveBeenCalled();
+    expect(adjustmentsRepo.insertProposedAdjustments).toHaveBeenCalledTimes(1);
   });
 
   it("skips persistence when identical proposal already exists for slice and version", async () => {
@@ -254,11 +254,13 @@ describe("runScoreCalibration orchestrator", () => {
     }));
 
     vi.doMock("@/server/repositories/rubric-calibration-adjustments", () => ({
-      findProposedAdjustmentBySlice: vi.fn().mockResolvedValue({
-        id: "adj-existing",
-        status: "proposed",
-      }),
-      insertProposedAdjustment: vi.fn(),
+      listExistingAdjustmentKeys: vi.fn().mockResolvedValue([{
+        adjustmentVersion: "1.1.0",
+        targetModule: "score_ceiling",
+        targetKey: "visual_overload",
+        sliceKey: "visual_overload|art_variation|1:1",
+      }]),
+      insertProposedAdjustments: vi.fn(),
       listProposedAdjustments: vi.fn().mockResolvedValue([
         {
           id: "adj-existing",
@@ -285,6 +287,35 @@ describe("runScoreCalibration orchestrator", () => {
 
     expect(result.report.adjustments.length).toBeGreaterThan(0);
     expect(result.persistedAdjustments).toEqual([]);
-    expect(adjustmentsRepo.insertProposedAdjustment).not.toHaveBeenCalled();
+    expect(adjustmentsRepo.insertProposedAdjustments).not.toHaveBeenCalled();
+  });
+});
+
+describe("persistProposedAdjustments batch", () => {
+  it("reads once, removes duplicate identities, and returns only inserted proposals", async () => {
+    vi.resetModules();
+    const [first] = proposeAdjustments([
+      makeComparison({ id: "item-1" }),
+      makeComparison({ id: "item-2" }),
+      makeComparison({ id: "item-3" }),
+    ]);
+    const second = { ...first, targetKey: "other" };
+    const third = { ...first, sliceKey: "other-slice" };
+    const listExistingAdjustmentKeys = vi.fn().mockResolvedValue([first]);
+    const insertProposedAdjustments = vi.fn().mockResolvedValue([third]);
+    vi.doMock("@/server/repositories/rubric-calibration-adjustments", () => ({
+      listExistingAdjustmentKeys,
+      insertProposedAdjustments,
+    }));
+
+    const { persistProposedAdjustments } = await import(
+      "@/server/human-quality/calibration/service"
+    );
+    const persisted = await persistProposedAdjustments([first, second, second, third]);
+
+    expect(listExistingAdjustmentKeys).toHaveBeenCalledTimes(1);
+    expect(insertProposedAdjustments).toHaveBeenCalledOnce();
+    expect(insertProposedAdjustments).toHaveBeenCalledWith([second, third]);
+    expect(persisted).toEqual([third]);
   });
 });

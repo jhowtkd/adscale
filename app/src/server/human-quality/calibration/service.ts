@@ -1,7 +1,7 @@
 import { listEvaluatedCorpusWithEvaluations } from "../../repositories/human-quality-corpus";
 import {
-  findProposedAdjustmentBySlice,
-  insertProposedAdjustment,
+  insertProposedAdjustments,
+  listExistingAdjustmentKeys,
   listProposedAdjustments,
 } from "../../repositories/rubric-calibration-adjustments";
 import {
@@ -31,41 +31,34 @@ export interface RunScoreCalibrationResult {
 export async function persistProposedAdjustments(
   proposals: ProposedAdjustment[]
 ): Promise<ProposedAdjustment[]> {
-  const persistedAdjustments: ProposedAdjustment[] = [];
+  if (proposals.length === 0) return [];
 
-  if (proposals.length === 0) return persistedAdjustments;
-
-  const existingKeys = new Set<string>();
-  for (const proposal of proposals) {
-    const existing = await findProposedAdjustmentBySlice(
-      proposal.sliceKey,
+  const keyOf = (proposal: {
+    adjustmentVersion: string;
+    targetModule: string;
+    targetKey: string;
+    sliceKey: string;
+  }) =>
+    JSON.stringify([
       proposal.adjustmentVersion,
       proposal.targetModule,
-      proposal.targetKey
-    );
-    if (existing) {
-      existingKeys.add(
-        `${proposal.adjustmentVersion}::${proposal.targetModule}::${proposal.targetKey}::${proposal.sliceKey}`
-      );
-    }
-  }
+      proposal.targetKey,
+      proposal.sliceKey,
+    ]);
+  const unique = [
+    ...new Map(proposals.map((proposal) => [keyOf(proposal), proposal])).values(),
+  ];
+  const existing = await listExistingAdjustmentKeys(
+    [...new Set(unique.map((proposal) => proposal.adjustmentVersion))],
+    [...new Set(unique.map((proposal) => proposal.sliceKey))]
+  );
+  const existingKeys = new Set(existing.map(keyOf));
+  const missing = unique.filter((proposal) => !existingKeys.has(keyOf(proposal)));
+  if (missing.length === 0) return [];
 
-  for (const proposal of proposals) {
-    const key = `${proposal.adjustmentVersion}::${proposal.targetModule}::${proposal.targetKey}::${proposal.sliceKey}`;
-    if (existingKeys.has(key)) continue;
-
-    await insertProposedAdjustment({
-      adjustmentVersion: proposal.adjustmentVersion,
-      targetModule: proposal.targetModule,
-      targetKey: proposal.targetKey,
-      sliceKey: proposal.sliceKey,
-      rationale: proposal.rationale,
-      evidenceRefs: proposal.evidenceRefs,
-    });
-    persistedAdjustments.push(proposal);
-  }
-
-  return persistedAdjustments;
+  const inserted = await insertProposedAdjustments(missing);
+  const insertedKeys = new Set(inserted.map(keyOf));
+  return missing.filter((proposal) => insertedKeys.has(keyOf(proposal)));
 }
 
 export async function runScoreCalibration(
