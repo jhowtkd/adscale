@@ -2,10 +2,11 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 const mock = vi.hoisted(() => ({
   insert: vi.fn(),
+  transaction: vi.fn(),
   batches: [] as Array<Array<Record<string, unknown>>>,
   failAt: 0,
 }));
-vi.mock("@/server/db", () => ({ db: { insert: mock.insert } }));
+vi.mock("@/server/db", () => ({ db: { insert: mock.insert, transaction: mock.transaction } }));
 
 import {
   upsertAdAccounts,
@@ -18,6 +19,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mock.batches = [];
   mock.failAt = 0;
+  mock.transaction.mockImplementation(async (run: (tx: { insert: typeof mock.insert }) => Promise<void>) =>
+    run({ insert: mock.insert }));
   mock.insert.mockImplementation(() => ({
     values: (input: Record<string, unknown> | Array<Record<string, unknown>>) => {
       const rows = Array.isArray(input) ? input : [input];
@@ -96,6 +99,13 @@ it("chunks metrics with last duplicate values and a shared timestamp", async () 
   expect(mock.batches.map((batch) => batch.length)).toEqual([250, 1]);
   expect(mock.batches[0][0]).toMatchObject({ anuncioId: "ad-0", impressions: 999, spend: "1.24" });
   expect(new Set(mock.batches.flat().map((row) => row.syncedAt))).toHaveProperty("size", 1);
+  expect(mock.transaction).toHaveBeenCalledOnce();
+
+  mock.batches = [];
+  mock.failAt = 2;
+  await expect(upsertAdMetricsBatch(metrics)).rejects.toThrow("chunk failed");
+  expect(mock.batches.map((batch) => batch.length)).toEqual([250, 1]);
+  expect(mock.transaction).toHaveBeenCalledTimes(2);
 });
 
 it("retries the same bounded ads after a later chunk fails", async () => {

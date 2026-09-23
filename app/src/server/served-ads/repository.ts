@@ -415,37 +415,39 @@ export async function upsertAdMetricsBatch(inputs: UpsertAdMetricsInput[]): Prom
   for (const input of inputs) unique.set(JSON.stringify([input.anuncioId, input.windowDays]), input);
   const rows = [...unique.values()];
   const syncedAt = new Date();
-  for (let index = 0; index < rows.length; index += UPSERT_CHUNK_SIZE) {
-    await db
-      .insert(servedAdMetrics)
-      .values(rows.slice(index, index + UPSERT_CHUNK_SIZE).map((input) => ({
-        anuncioId: input.anuncioId,
-        windowDays: input.windowDays,
-        impressions: input.impressions,
-        clicks: input.clicks,
-        spend: String(Math.round(input.spend * 100) / 100),
-        conversions: input.conversions,
-        actionCounts: input.actionCounts,
-        ambiguousActionTypes: input.ambiguousActionTypes ?? [],
-        definitionVersion: input.definitionVersion,
-        snapshotId: input.snapshotId,
-        syncedAt,
-      })))
-      .onConflictDoUpdate({
-        target: [servedAdMetrics.anuncioId, servedAdMetrics.windowDays],
-        set: {
-          impressions: sql`excluded.impressions`,
-          clicks: sql`excluded.clicks`,
-          spend: sql`excluded.spend`,
-          conversions: sql`excluded.conversions`,
-          actionCounts: sql`excluded.action_counts`,
-          ambiguousActionTypes: sql`excluded.ambiguous_action_types`,
-          definitionVersion: sql`excluded.definition_version`,
-          snapshotId: sql`excluded.snapshot_id`,
+  await db.transaction(async (tx) => {
+    for (let index = 0; index < rows.length; index += UPSERT_CHUNK_SIZE) {
+      await tx
+        .insert(servedAdMetrics)
+        .values(rows.slice(index, index + UPSERT_CHUNK_SIZE).map((input) => ({
+          anuncioId: input.anuncioId,
+          windowDays: input.windowDays,
+          impressions: input.impressions,
+          clicks: input.clicks,
+          spend: String(Math.round(input.spend * 100) / 100),
+          conversions: input.conversions,
+          actionCounts: input.actionCounts,
+          ambiguousActionTypes: input.ambiguousActionTypes ?? [],
+          definitionVersion: input.definitionVersion,
+          snapshotId: input.snapshotId,
           syncedAt,
-        },
-      });
-  }
+        })))
+        .onConflictDoUpdate({
+          target: [servedAdMetrics.anuncioId, servedAdMetrics.windowDays],
+          set: {
+            impressions: sql`excluded.impressions`,
+            clicks: sql`excluded.clicks`,
+            spend: sql`excluded.spend`,
+            conversions: sql`excluded.conversions`,
+            actionCounts: sql`excluded.action_counts`,
+            ambiguousActionTypes: sql`excluded.ambiguous_action_types`,
+            definitionVersion: sql`excluded.definition_version`,
+            snapshotId: sql`excluded.snapshot_id`,
+            syncedAt,
+          },
+        });
+    }
+  });
 }
 
 export async function upsertAdMetrics(input: UpsertAdMetricsInput): Promise<void> {
