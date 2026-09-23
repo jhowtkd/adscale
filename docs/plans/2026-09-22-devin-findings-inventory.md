@@ -19,7 +19,7 @@ Relato final da [sessão original do scan](https://app.devin.ai/sessions/53e1373
 | --- | --- | --- | --- |
 | Unassigned | 60 | aba do scan | 60 IDs e títulos conferidos no §8; 21 medium e 39 low |
 | Resolved (aba) | 10 | aba do scan | 10 IDs e títulos conferidos no §8; 3 Merged e 7 Dismissed |
-| Merged | 6 | aba do scan | **confirmado**: PRs 475, 476, 477, 478, 479, 480, todos merged em 21–22/09/2026 (gh API + `git log origin/main`) |
+| PRs integrados | 6 | gh API + `git log origin/main` | PRs 475, 476, 477, 478, 479, 480, todos merged em 21–22/09/2026; não equivale aos 3 findings em estado Merged |
 | Header open/resolved | 65 open · 3 resolved | cabeçalho do scan | não bate com as abas; o scan mostra estado `Failed`. Não usado para inferir IDs ausentes |
 | Reviewed | 10 of 75 | detalhes do scan | o denominador 75 não é reproduzido pela listagem de 70 nem pelo relato final de 70; origem dos 5 adicionais indeterminada |
 | High + Unassigned | 0 itens | filtro do scan | estado atual; o relato original de 8 high é preservado, sem inferir movimentação individual |
@@ -35,7 +35,7 @@ código na revisão indicada, não apenas prefixos de ID.
 
 | PR | Merge | sfinds citados | Causa corrigida | Testes pertinentes @ `c8653c51` |
 | --- | --- | --- | --- | --- |
-| 475 | 21/09 | `sfind-61ecd138…`, `sfind-c69941d7…` | missions/progression: ~14 queries seriais → 2 rodadas paralelas (`Promise.all`); `getFirstCampaignId` duplicada removida | `src/server/progression` — verdes |
+| 475 | 21/09 | `sfind-61ecd138…`, `sfind-c69941d7…` | missions/progression: ~14 queries seriais → 2 rodadas paralelas (`Promise.all`) no caminho comum, 3 com fallback de receita; `getFirstCampaignId` duplicada removida | `src/server/progression` — verdes |
 | 476 | 21/09 | — (não citado) | carrossel: vereditos de comparação persistidos em `artRefinementState.comparisons`, reutilizados entre refreshes; linhagens em paralelo | `refine-carousel-slide.test.ts` (22) — verdes |
 | 477 | 21/09 | `sfind-e75c75…` (high) | biblioteca (`GET /api/creative-work` works view): `listCanonicalWorks` ilimitado → `listCanonicalWorksPage` keyset em `updatedAt`, hook em `useInfiniteQuery` | route (47) + queries + hook — verdes |
 | 478 | 21/09 | — (não citado) | output-learning: rajadas de `recomputeClientOutputLearnings` coalescidas (N passes → ≤2); índice recomendado já existia, sem migration | `output-learning/service.test.ts` — verdes |
@@ -61,7 +61,7 @@ npx vitest run --config config/vitest.config.ts src/server/progression \
 Antes/depois por PR (alegado no corpo, comportamento pós-fix confirmado por leitura @ `c8653c51`;
 medição de produção não executada — evidência local não equivale a ganho em produção):
 
-- 475: ~14 round-trips seriais → 2 rodadas paralelas por request em `/api/workspace/missions` (não necessariamente 2 queries ao banco).
+- 475: ~14 round-trips seriais → 2 rodadas paralelas por request em `/api/workspace/missions` no caminho comum, 3 quando a ausência de `creativePlans` exige consultar a campanha como fallback (não são 2 ou 3 queries ao banco).
 - 476: chamadas de visão por deck O(refreshes × N × B) → O(N × B); refresh sem mudança não repete julgamento.
 - 477: per request N+M linhas + projeção total → ≤25+25 linhas + outputs de ≤25 works.
 - 478: rajada de N decisões → ≤2 passes completos por cliente.
@@ -86,7 +86,7 @@ dos seis PRs acima. Causas fora desses arquivos mantêm o status da leitura em `
 | 5a | goal projection: última versão por linhagem | **já corrigido** pelo PR 480 | `c8653c51` `app/src/server/assistant/goal/projection.ts:129` — `listArtifactVersionsForLineages(ids, 1)` | 485 (parcial) |
 | 5b | A/B: enriquecimento serial (`versionA`/`versionB`) | confirmado | `c8653c51` `app/src/server/assistant/artifact-version/comparison.ts:166-167` — awaits seriais | 485 (restante) |
 | 6 | training assets N+1 | evidência insuficiente | `fddb9035`, área não tocada | 486 |
-| 7 | missions/progression: queries seriais + primeira-campanha duplicada | **já corrigido** pelo PR 475 | `c8653c51` `app/src/server/progression/{evidence,missions/evidence}.ts` — 2 rodadas paralelas, duplicada removida | 487 (implementado; falta só evidência antes/depois p/ fechar) |
+| 7 | missions/progression: queries seriais + primeira-campanha duplicada | **já corrigido** pelo PR 475 | `c8653c51` `app/src/server/progression/{evidence,missions/evidence}.ts` — 2 rodadas paralelas no caminho comum, 3 com fallback; duplicada removida | 487 (fechado; contagem e testes no comentário da issue de 23/09) |
 | 8a | carrossel: re-julgamento a cada refresh | **já corrigido** pelo PR 476 | `c8653c51` `refine-carousel-slide.ts:118-162` — `comparisons` persistidas e reutilizadas | 488 (parcial) |
 | 8b | peça única: `refreshArtRefinementState` recarrega imagens em série e re-julga tudo | confirmado | `c8653c51` `app/src/server/application/refine-creative-work.ts:131-171` — sem reutilização de `comparisons` | 488 (restante) |
 | 9 | layerize: recomposição por camada | confirmado | `fddb9035`, área não tocada pelos seis PRs | 489 |
@@ -206,7 +206,7 @@ retiradas. O denominador `75` do painel continua sem explicação verificável.
   como findings individuais; dependentes permanecem bloqueados pela issue 481 aberta.
 
 - v2 (22/09/2026): pós-revisão — escopo #494 corrigido (`runReconcile` + chunks), missões como
-  2 rodadas paralelas e enumeração local; as estimativas de cobertura dessa versão foram
+  2 rodadas paralelas no caminho comum (3 com fallback) e enumeração local; as estimativas de cobertura dessa versão foram
   retiradas na v3. Fechamento 1:1 pendente de exportação dos registros.
 - v1 (22/09/2026): inventário inicial em 27 linhas de causa; superseded.
 
@@ -283,7 +283,7 @@ sem revalidar código, contrato e teste. O scan não mediu ganho de produção.
 | `sfind-8698c96fbc5d452b89a54ea70b83ab3b` | Works-list endpoint aggregates the entire diagnostic_events table per request; cursor pagination does not reduce the scan | C | #499 · §3/19 |
 | `sfind-6ddb4de25eba43469ef46fce91f89aaf` | Owner funnel loads the entire usage_events ledger (no limit) while sibling event sources are capped at 5000 | E | #498; causa primária do par · §3/18 |
 | `sfind-003ed4aa077d4cf9823653b7e4bcce23` | Graduation report issues 4 sequential count queries (2 full scans) that collapse into one | E | #498 · §3/26 |
-| `sfind-7460d7d6b94d453f87063006aaea7d64` | GET /api/workspace/missions issues ~15 sequential single-row queries (including a duplicated one) that could run concurrently | J | PR #475, #487; falta evidência antes/depois · §3/7 |
+| `sfind-7460d7d6b94d453f87063006aaea7d64` | GET /api/workspace/missions issues ~15 sequential single-row queries (including a duplicated one) that could run concurrently | J | PR #475, #487 fechada com contagem antes/depois e testes locais · §3/7 |
 | `sfind-8fe5ec6960c9402db602a29f97335947` | buildGoalProjection re-fetches each lineage and fans out one version query per creative lineage on a polled endpoint | J | PR #480, #485 parcialmente; A/B ainda serial · §3/5a |
 | `sfind-e1d75198c1064d689816bb8b3f1bff9a` | Credit history endpoint returns the full unbounded transaction and grant history | D | #497 · mesma paginação de `sfind-a07709d06474423c89dd3a81c7156ab4` |
 | `sfind-33e609384ba74dc3b6e3c186bd592ae5` | N+1: training-assets GET issues one asset query per training reference | E | #486 · §3/6 |
