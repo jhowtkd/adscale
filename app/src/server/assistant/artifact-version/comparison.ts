@@ -160,11 +160,15 @@ export async function compareArtifactVersions(input: {
   if (lineage.artifactType !== "creative") {
     throw new ArtifactVersionValidationError("Invalid artifact type");
   }
+  const [enrichedA, enrichedB] = await Promise.all([
+    creativeVersion(scope, versionA),
+    creativeVersion(scope, versionB),
+  ]);
   const comparison = artifactVersionComparisonSchema.parse({
     type: "creative",
     headRevision: head.revision,
-    versionA: await creativeVersion(scope, versionA),
-    versionB: await creativeVersion(scope, versionB),
+    versionA: enrichedA,
+    versionB: enrichedB,
   });
   emitArtifactIterationTelemetry({
     scope,
