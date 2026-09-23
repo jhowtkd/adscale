@@ -25,6 +25,27 @@ testPg("corpus progress aggregation against isolated PostgreSQL", () => {
   const otherCampaignId = crypto.randomUUID();
   const derivationIds = Array.from({ length: 5 }, () => crypto.randomUUID());
   let created = false;
+  const readOldRows = () => db.select({
+    status: humanQualityCorpusItems.status,
+    cohort: humanQualityCorpusItems.cohort,
+    generationMode: humanQualityCorpusItems.generationMode,
+    format: humanQualityCorpusItems.format,
+    campaignId: humanQualityCorpusItems.campaignId,
+    selectedAt: humanQualityCorpusItems.selectedAt,
+    updatedAt: humanQualityCorpusItems.updatedAt,
+  }).from(humanQualityCorpusItems).where(and(
+    eq(humanQualityCorpusItems.workspaceId, workspaceId),
+    inArray(humanQualityCorpusItems.status, ["pending", "evaluated"]),
+  ));
+  const readGroupedRows = async (): Promise<unknown[]> => {
+    const executeSpy = vi.spyOn(db, "execute");
+    try {
+      await getCorpusOperationsProgress(workspaceId);
+      return (await executeSpy.mock.results[0].value as { rows: unknown[] }).rows;
+    } finally {
+      executeSpy.mockRestore();
+    }
+  };
 
   beforeAll(async () => {
     await db.insert(workspaces).values([
@@ -120,18 +141,7 @@ testPg("corpus progress aggregation against isolated PostgreSQL", () => {
       status: "pending",
     })));
 
-    const oldRows = await db.select({
-      status: humanQualityCorpusItems.status,
-      cohort: humanQualityCorpusItems.cohort,
-      generationMode: humanQualityCorpusItems.generationMode,
-      format: humanQualityCorpusItems.format,
-      campaignId: humanQualityCorpusItems.campaignId,
-      selectedAt: humanQualityCorpusItems.selectedAt,
-      updatedAt: humanQualityCorpusItems.updatedAt,
-    }).from(humanQualityCorpusItems).where(and(
-      eq(humanQualityCorpusItems.workspaceId, workspaceId),
-      inArray(humanQualityCorpusItems.status, ["pending", "evaluated"]),
-    ));
+    const oldRows = await readOldRows();
 
     const executeSpy = vi.spyOn(db, "execute");
     let progress;
@@ -149,5 +159,25 @@ testPg("corpus progress aggregation against isolated PostgreSQL", () => {
     expect(groupedRows.length).toBe(9);
     expect(Buffer.byteLength(JSON.stringify(groupedRows)))
       .toBeLessThan(Buffer.byteLength(JSON.stringify(oldRows)) / 4);
+  });
+
+  (process.env.CORPUS_HEAP_SAMPLE === "1" ? it : it.skip)("samples retained query-result heap without a CI threshold", async () => {
+    const gc = (globalThis as { gc?: () => void }).gc;
+    expect(gc).toBeTypeOf("function");
+    await readOldRows();
+    await readGroupedRows();
+    const sample = async (read: () => Promise<unknown[]>) => {
+      gc!();
+      const before = process.memoryUsage().heapUsed;
+      const held: unknown[][] = [];
+      for (let index = 0; index < 100; index += 1) held.push(await read());
+      gc!();
+      return { rows: held.reduce((count, rows) => count + rows.length, 0), heapBytes: process.memoryUsage().heapUsed - before };
+    };
+    const grouped = await sample(readGroupedRows);
+    const old = await sample(readOldRows);
+    expect(old.rows).toBe(20_300);
+    expect(grouped.rows).toBe(900);
+    process.stdout.write(`corpus_heap_sample=${JSON.stringify({ repeats: 100, old, grouped })}\n`);
   });
 });
