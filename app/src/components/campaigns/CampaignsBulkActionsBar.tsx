@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 
 interface CampaignsBulkActionsBarProps {
   selectedCount: number;
+  isPending: boolean;
   onArchive: () => void;
   onDelete: () => void;
   onCancel: () => void;
@@ -13,6 +14,7 @@ interface CampaignsBulkActionsBarProps {
 
 export default function CampaignsBulkActionsBar({
   selectedCount,
+  isPending,
   onArchive,
   onDelete,
   onCancel,
@@ -33,6 +35,7 @@ export default function CampaignsBulkActionsBar({
           variant="outline"
           size="sm"
           onClick={onArchive}
+          disabled={isPending}
           className="border-[var(--border-dim)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] h-7 text-xs"
         >
           <Archive size={14} className="mr-1" />
@@ -42,6 +45,7 @@ export default function CampaignsBulkActionsBar({
           variant="destructive"
           size="sm"
           onClick={onDelete}
+          disabled={isPending}
           className="h-7 text-xs"
         >
           <Trash2 size={14} className="mr-1" />

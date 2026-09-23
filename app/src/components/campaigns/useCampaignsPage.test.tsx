@@ -1,6 +1,9 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useCampaignsPage } from "./useCampaignsPage";
+import { toast } from "sonner";
+
+const { bulkMutateAsync } = vi.hoisted(() => ({ bulkMutateAsync: vi.fn() }));
 
 const replaceMock = vi.fn();
 const pushMock = vi.fn();
@@ -25,6 +28,7 @@ vi.mock("@/lib/hooks/use-campaigns", () => ({
   useUpdateCampaigns: () => ({ mutate: vi.fn(), mutateAsync: vi.fn() }),
   useDeleteCampaigns: () => ({ mutate: vi.fn(), mutateAsync: vi.fn() }),
   useDuplicateCampaign: () => ({ mutate: vi.fn() }),
+  useBulkCampaignActions: () => ({ mutateAsync: bulkMutateAsync, isPending: false }),
 }));
 
 vi.mock("sonner", () => ({
@@ -108,6 +112,33 @@ describe("useCampaignsPage search sync", () => {
     });
 
     expect(result.current.selectedIds).toEqual(new Set(["campaign-1"]));
+  });
+});
+
+describe("useCampaignsPage bulk actions", () => {
+  beforeEach(() => {
+    vi.useRealTimers();
+    bulkMutateAsync.mockReset();
+    vi.mocked(toast.success).mockClear();
+    vi.mocked(toast.error).mockClear();
+  });
+
+  it("keeps only failed selections and reports partial success", async () => {
+    bulkMutateAsync.mockResolvedValue(["campaign-2"]);
+    const { result } = renderHook(() => useCampaignsPage(createSearchParams()));
+    act(() => {
+      result.current.toggleSelect("campaign-1", true);
+      result.current.toggleSelect("campaign-2", true);
+    });
+    act(() => {
+      result.current.handleBulkArchive();
+    });
+    await waitFor(() => expect(result.current.selectedIds).toEqual(new Set(["campaign-2"])));
+    expect(bulkMutateAsync).toHaveBeenCalledWith({
+      ids: ["campaign-1", "campaign-2"], action: "archive",
+    });
+    expect(toast.success).toHaveBeenCalledWith("campaignsArchived");
+    expect(toast.error).toHaveBeenCalledWith("failedArchiveSome (1/2)");
   });
 });
 

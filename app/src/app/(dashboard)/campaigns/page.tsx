@@ -107,6 +107,7 @@ function CampaignsProductContent() {
     handleDelete,
     handleBulkArchive,
     handleBulkDelete,
+    isBulkPending,
     startIndex,
     endIndex,
     pageNumbers,
@@ -280,6 +281,7 @@ function CampaignsProductContent() {
 
       <CampaignsBulkActionsBar
         selectedCount={selectedIds.size}
+        isPending={isBulkPending}
         onArchive={handleBulkArchive}
         onDelete={handleBulkDelete}
         onCancel={() => setSelectedIds(new Set())}

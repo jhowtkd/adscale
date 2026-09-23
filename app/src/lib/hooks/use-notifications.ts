@@ -93,6 +93,21 @@ export function useMarkNotificationAsRead() {
   });
 }
 
+export function useMarkNotificationsAsRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      let failed = false;
+      for (let i = 0; i < ids.length; i += 4) {
+        const results = await Promise.allSettled(ids.slice(i, i + 4).map(markNotificationAsRead));
+        failed ||= results.some((result) => result.status === "rejected");
+      }
+      if (failed) throw new Error("Erro ao marcar algumas notificações como lidas");
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+}
+
 export function useMarkAllNotificationsAsRead() {
   const queryClient = useQueryClient();
   return useMutation({

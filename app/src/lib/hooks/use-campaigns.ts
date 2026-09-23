@@ -7,6 +7,7 @@ import {
 import { STALE_TIME } from "@/lib/query-config";
 import { invalidateWorkListProjections } from "@/lib/hooks/use-canonical-works";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 export interface Campaign {
   id: string;
@@ -268,10 +269,14 @@ export function useCampaigns(filters?: CampaignListQuery) {
     staleTime: STALE_TIME.SEMI_STATIC,
     refetchOnWindowFocus: true,
   });
+  const campaigns = useMemo(
+    () => (query.data?.campaigns ?? []).map(toUiCampaign),
+    [query.data?.campaigns],
+  );
 
   return {
     ...query,
-    campaigns: (query.data?.campaigns ?? []).map(toUiCampaign),
+    campaigns,
     totalCount: query.data?.totalCount ?? 0,
   };
 }
@@ -286,12 +291,13 @@ export function useCampaign(id: string) {
       return query.state.data?.status === "generating" ? 2000 : false;
     },
   });
+  const campaign = useMemo(() => query.data ? toUiCampaign(query.data) : null, [query.data]);
 
   const loadError = query.error instanceof CampaignLoadError ? query.error : null;
 
   return {
     ...query,
-    campaign: query.data ? toUiCampaign(query.data) : null,
+    campaign,
     loadError,
     loadErrorKind: loadError?.kind ?? null,
   };
@@ -351,6 +357,31 @@ export function useDeleteCampaigns() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: deleteCampaign,
+    onSuccess: async () => {
+      await invalidateWorkListProjections(queryClient);
+    },
+  });
+}
+
+async function runCampaignBatch(ids: string[], action: (id: string) => Promise<unknown>) {
+  const failedIds: string[] = [];
+  for (let i = 0; i < ids.length; i += 4) {
+    const chunk = ids.slice(i, i + 4);
+    const results = await Promise.allSettled(chunk.map(action));
+    results.forEach((result, index) => {
+      if (result.status === "rejected") failedIds.push(chunk[index]);
+    });
+  }
+  return failedIds;
+}
+
+export function useBulkCampaignActions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ids, action }: { ids: string[]; action: "archive" | "delete" }) =>
+      runCampaignBatch(ids, action === "archive"
+        ? (id) => updateCampaign(id, { status: "draft" })
+        : deleteCampaign),
     onSuccess: async () => {
       await invalidateWorkListProjections(queryClient);
     },

@@ -9,7 +9,7 @@ import {
   useNotifications,
   useMarkAllNotificationsAsRead,
   useClearAllNotifications,
-  useMarkNotificationAsRead,
+  useMarkNotificationsAsRead,
   type NotificationItem,
 } from "@/lib/hooks/use-notifications";
 import {
@@ -131,7 +131,7 @@ export function NotificationMenu({ className }: { className?: string }) {
   const { data: items = [] } = useNotifications({ refetchInterval: 30_000 });
   const markAllAsRead = useMarkAllNotificationsAsRead();
   const clearAll = useClearAllNotifications();
-  const markAsRead = useMarkNotificationAsRead();
+  const markAsRead = useMarkNotificationsAsRead();
   const unreadCount = items.filter((item) => !item.readAt).length;
 
   return (
@@ -149,7 +149,7 @@ export function NotificationMenu({ className }: { className?: string }) {
         {unreadCount > 0 ? <span aria-hidden="true" className="absolute -right-1 -top-1 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-[var(--info-dot)] px-1 text-[10px] font-semibold text-[var(--text-on-accent)]">{unreadCount > 9 ? "9+" : unreadCount}</span> : null}
       </button>
       <AnimatePresence>
-        {open ? <NotificationPanel items={items} onClose={() => setOpen(false)} onClear={() => clearAll.mutate()} onMarkAsRead={(id) => markAsRead.mutate(id)} onMarkAllAsRead={() => markAllAsRead.mutate()} bellRef={bellRef} tCommon={tCommon} tNotificationPanel={tNotificationPanel} /> : null}
+        {open ? <NotificationPanel items={items} onClose={() => setOpen(false)} onClear={() => clearAll.mutate()} onMarkAsRead={(ids) => markAsRead.mutate(ids)} onMarkAllAsRead={() => markAllAsRead.mutate()} bellRef={bellRef} tCommon={tCommon} tNotificationPanel={tNotificationPanel} /> : null}
       </AnimatePresence>
     </div>
   );
@@ -178,7 +178,7 @@ export default function TopBar({
   });
   const markAllAsRead = useMarkAllNotificationsAsRead();
   const clearAll = useClearAllNotifications();
-  const markAsRead = useMarkNotificationAsRead();
+  const markAsRead = useMarkNotificationsAsRead();
   const router = useRouter();
   const pathname = usePathname();
   const user = useAppStore((s) => s.user);
@@ -366,7 +366,7 @@ export default function TopBar({
                   items={notificationItems}
                   onClose={() => setNotificationsOpen(false)}
                   onClear={() => clearAll.mutate()}
-                  onMarkAsRead={(id) => markAsRead.mutate(id)}
+                  onMarkAsRead={(ids) => markAsRead.mutate(ids)}
                   onMarkAllAsRead={() => markAllAsRead.mutate()}
                   bellRef={bellRef}
                   tCommon={tCommon}
@@ -472,7 +472,7 @@ interface NotificationPanelProps {
   items: NotificationItem[];
   onClose: () => void;
   onClear: () => void;
-  onMarkAsRead: (id: string) => void;
+  onMarkAsRead: (ids: string[]) => void;
   onMarkAllAsRead: () => void;
   bellRef: React.RefObject<HTMLButtonElement | null>;
   tCommon: (key: string) => string;
@@ -626,9 +626,8 @@ function NotificationPanel({ items, onClose, onClear, onMarkAsRead, onMarkAllAsR
                     key={batch.key}
                     href={href}
                     onClick={() => {
-                      for (const n of batch.notifications) {
-                        if (!n.readAt) onMarkAsRead(n.id);
-                      }
+                      const unreadIds = batch.notifications.filter((n) => !n.readAt).map((n) => n.id);
+                      if (unreadIds.length) onMarkAsRead(unreadIds);
                     }}
                     className={cn(
                       "flex gap-3 border-b border-[var(--border-dim)] px-4 py-3 last:border-b-0 transition-colors",

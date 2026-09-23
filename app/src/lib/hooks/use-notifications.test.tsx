@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   useNotifications,
   useMarkNotificationAsRead,
+  useMarkNotificationsAsRead,
   useMarkAllNotificationsAsRead,
   useClearAllNotifications,
 } from "./use-notifications";
@@ -95,6 +96,33 @@ describe("useMarkNotificationAsRead", () => {
       "/api/notifications/notif-1/read",
       { method: "PATCH" }
     );
+  });
+});
+
+describe("useMarkNotificationsAsRead", () => {
+  it("marks only selected IDs with bounded concurrency and invalidates once", async () => {
+    vi.clearAllMocks();
+    let active = 0;
+    let peak = 0;
+    mockApiFetch.mockImplementation(async () => {
+      active++;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      active--;
+      return { ok: true, json: async () => ({ notification: {} }) } as Response;
+    });
+    const client = new QueryClient();
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const Wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const { result } = renderHook(() => useMarkNotificationsAsRead(), { wrapper: Wrapper });
+    await act(() => result.current.mutateAsync(["n1", "n2", "n3", "n4", "n5"]));
+    expect(mockApiFetch.mock.calls.map(([path]) => path)).toEqual(
+      ["n1", "n2", "n3", "n4", "n5"].map((id) => `/api/notifications/${id}/read`),
+    );
+    expect(peak).toBe(4);
+    expect(invalidate).toHaveBeenCalledExactlyOnceWith({ queryKey: ["notifications"] });
   });
 });
 

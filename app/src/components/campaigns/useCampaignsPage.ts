@@ -9,6 +9,7 @@ import {
   useUpdateCampaigns,
   useDeleteCampaigns,
   useDuplicateCampaign,
+  useBulkCampaignActions,
 } from "@/lib/hooks/use-campaigns";
 
 import { useTranslations } from "next-intl";
@@ -36,6 +37,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
   const updateCampaigns = useUpdateCampaigns();
   const deleteCampaigns = useDeleteCampaigns();
   const duplicateCampaign = useDuplicateCampaign();
+  const bulkCampaigns = useBulkCampaignActions();
 
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -295,33 +297,23 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     [deleteCampaigns, tc]
   );
 
-  const handleBulkArchive = useCallback(() => {
-    const promises = Array.from(selectedIds).map((id) =>
-      updateCampaigns.mutateAsync({ id, payload: { status: "draft" } })
-    );
-    Promise.all(promises)
-      .then(() => {
-        setSelectedIds(new Set());
-        toast.success(tc("campaignsArchived", { count: selectedIds.size }));
-      })
-      .catch(() => {
-        toast.error(tc("failedArchiveSome"));
-      });
-  }, [selectedIds, updateCampaigns, tc]);
+  const handleBulkAction = useCallback((action: "archive" | "delete") => {
+    if (bulkCampaigns.isPending || selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    bulkCampaigns.mutateAsync({ ids, action }).then((failedIds) => {
+      const attempted = new Set(ids);
+      const failed = new Set(failedIds);
+      setSelectedIds((current) => new Set([...current].filter((id) =>
+        !attempted.has(id) || failed.has(id)
+      )));
+      const succeeded = ids.length - failedIds.length;
+      if (succeeded) toast.success(tc(action === "archive" ? "campaignsArchived" : "campaignsDeleted", { count: succeeded }));
+      if (failedIds.length) toast.error(`${tc(action === "archive" ? "failedArchiveSome" : "failedDeleteSome")} (${failedIds.length}/${ids.length})`);
+    }).catch((error) => toast.error(error.message));
+  }, [bulkCampaigns, selectedIds, tc]);
 
-  const handleBulkDelete = useCallback(() => {
-    const promises = Array.from(selectedIds).map((id) =>
-      deleteCampaigns.mutateAsync(id)
-    );
-    Promise.all(promises)
-      .then(() => {
-        setSelectedIds(new Set());
-        toast.success(tc("campaignsDeleted", { count: selectedIds.size }));
-      })
-      .catch(() => {
-        toast.error(tc("failedDeleteSome"));
-      });
-  }, [selectedIds, deleteCampaigns, tc]);
+  const handleBulkArchive = useCallback(() => handleBulkAction("archive"), [handleBulkAction]);
+  const handleBulkDelete = useCallback(() => handleBulkAction("delete"), [handleBulkAction]);
 
   const startIndex = totalCount === 0 ? 0 : (visibleCurrentPage - 1) * itemsPerPage + 1;
   const endIndex = Math.min(visibleCurrentPage * itemsPerPage, totalCount);
@@ -388,6 +380,7 @@ export function useCampaignsPage(searchParams: CampaignSearchParams) {
     handleDelete,
     handleBulkArchive,
     handleBulkDelete,
+    isBulkPending: bulkCampaigns.isPending,
     startIndex,
     endIndex,
     pageNumbers,

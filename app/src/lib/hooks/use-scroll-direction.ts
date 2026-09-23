@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 
 /**
  * Hook to detect scroll direction
@@ -8,25 +8,24 @@ import { useState, useEffect } from "react"
  */
 export function useScrollDirection(): "up" | "down" | null {
   const [scrollDirection, setScrollDirection] = useState<"up" | "down" | null>(null)
-  const [lastScrollY, setLastScrollY] = useState(0)
+  const lastScrollY = useRef(0)
 
   useEffect(() => {
     const updateScrollDirection = () => {
       const scrollY = window.scrollY
-      const direction = scrollY > lastScrollY ? "down" : "up"
+      const direction = scrollY > lastScrollY.current ? "down" : "up"
       
       if (
-        direction !== scrollDirection &&
-        (scrollY - lastScrollY > 10 || scrollY - lastScrollY < -10)
+        Math.abs(scrollY - lastScrollY.current) > 10
       ) {
-        setScrollDirection(direction)
+        setScrollDirection((current) => current === direction ? current : direction)
       }
-      setLastScrollY(scrollY > 0 ? scrollY : 0)
+      lastScrollY.current = Math.max(0, scrollY)
     }
 
     window.addEventListener("scroll", updateScrollDirection, { passive: true })
     return () => window.removeEventListener("scroll", updateScrollDirection)
-  }, [scrollDirection, lastScrollY])
+  }, [])
 
   return scrollDirection
 }

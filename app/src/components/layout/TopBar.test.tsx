@@ -25,6 +25,7 @@ vi.mock("@/lib/auth-client", () => ({
 vi.mock("@/lib/hooks/use-notifications", () => ({
   useNotifications: vi.fn(),
   useMarkNotificationAsRead: vi.fn(() => ({ mutate: vi.fn() })),
+  useMarkNotificationsAsRead: vi.fn(() => ({ mutate: vi.fn() })),
   useMarkAllNotificationsAsRead: vi.fn(() => ({ mutate: vi.fn() })),
   useClearAllNotifications: vi.fn(() => ({ mutate: vi.fn() })),
 }));
@@ -56,9 +57,10 @@ vi.mock("next-intl", () => ({
   useLocale: vi.fn(() => "pt-BR"),
 }));
 
-import { useNotifications } from "@/lib/hooks/use-notifications";
+import { useNotifications, useMarkNotificationsAsRead } from "@/lib/hooks/use-notifications";
 
 const mockUseNotifications = vi.mocked(useNotifications);
+const mockUseMarkNotificationsAsRead = vi.mocked(useMarkNotificationsAsRead);
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -228,6 +230,8 @@ describe("TopBar notifications", () => {
       updatedAt: new Date(now - i * 1000),
     }));
     mockUseNotifications.mockReturnValue({ data: many } as ReturnType<typeof useNotifications>);
+    const markGroup = vi.fn();
+    mockUseMarkNotificationsAsRead.mockReturnValue({ mutate: markGroup } as ReturnType<typeof useMarkNotificationsAsRead>);
 
     render(<TopBar />, { wrapper: createWrapper() });
 
@@ -240,6 +244,9 @@ describe("TopBar notifications", () => {
     });
     // The full list of 39 items is reflected in the header count
     expect(screen.getByText(/39/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("link", { name: /Derivação pronta/i }));
+    expect(markGroup).toHaveBeenCalledTimes(1);
+    expect(markGroup).toHaveBeenCalledWith(many.map((item) => item.id));
   });
 });
 
