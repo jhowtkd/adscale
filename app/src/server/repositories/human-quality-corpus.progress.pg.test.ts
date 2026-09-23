@@ -180,4 +180,18 @@ testPg("corpus progress aggregation against isolated PostgreSQL", () => {
     expect(grouped.rows).toBe(900);
     process.stdout.write(`corpus_heap_sample=${JSON.stringify({ repeats: 100, old, grouped })}\n`);
   });
+
+  it("combines empty and literal unknown formats", async () => {
+    const derivationId = crypto.randomUUID();
+    await db.insert(derivations).values({
+      id: derivationId, workspaceId, campaignId, status: "completed", outputKey: `test-${derivationId}`,
+    });
+    await db.insert(humanQualityCorpusItems).values({
+      workspaceId, clientProfileId: profileId, campaignId, derivationId,
+      generationMode: "art_variation", format: "unknown", cohort: "baseline", status: "evaluated",
+    });
+
+    const progress = await getCorpusOperationsProgress(workspaceId);
+    expect(progress.byFormat.unknown).toEqual({ pending: 1, evaluated: 1 });
+  });
 });

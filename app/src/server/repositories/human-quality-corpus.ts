@@ -489,7 +489,14 @@ export async function getCorpusOperationsProgress(
         progress.byGenerationMode[String(row.generation_mode)] = counts;
         break;
       case 13:
-        progress.byFormat[String(row.format || "unknown")] = counts;
+        {
+          const format = String(row.format || "unknown");
+          const previous = progress.byFormat[format];
+          progress.byFormat[format] = {
+            pending: (previous?.pending ?? 0) + counts.pending,
+            evaluated: (previous?.evaluated ?? 0) + counts.evaluated,
+          };
+        }
         break;
       case 14:
         progress.byCampaign[String(row.campaign_id)] = counts;
