@@ -24,37 +24,21 @@ export async function GET(request: Request) {
         eventsArgs: Parameters<typeof listBetaAnalyticsEventsForOwner>[0],
         sessionsArgs: Parameters<typeof listBetaSessions>[0],
       ) => {
-        const [events, sessions, selectedFromDatabase] = await Promise.all([
+        const [events, sessions] = await Promise.all([
           listBetaAnalyticsEventsForOwner(eventsArgs),
           listBetaSessions(sessionsArgs),
-          eventsArgs?.workspaceId
-            ? listSelectedCreativeWorkPieceVersions(eventsArgs.workspaceId)
-            : Promise.resolve(undefined),
         ]);
         const reportAsOf = eventsArgs?.to ?? new Date();
         const usageEvents = await listStudioUsageEventsForWindows(
           listStudioUsageWindows(events, reportAsOf)
         );
-        const filteredSessions = eventsArgs?.sessionId
-          ? sessions.filter((session) => session.id === eventsArgs.sessionId)
-          : sessions;
-        // Next caches JSON; Date-backed rows must be aggregated before serialization.
-        return {
-          dataComplete: events.length < OWNER_ANALYTICS_EVENT_CAP,
-          summary: buildAnalyticsFunnelSummary(
-            events,
-            filteredSessions,
-            usageEvents,
-            reportAsOf,
-            { selectedFromDatabase },
-          ),
-        };
+        return [events, sessions, usageEvents, reportAsOf.toISOString()] as const;
       },
       ["funnel-events"],
       { revalidate: 60, tags: ["feedback-funnel"] }
     );
 
-    const { dataComplete, summary } = await cachedBuild(
+    const [cachedEvents, cachedSessions, cachedUsage, reportAsOf] = await cachedBuild(
       {
         workspaceId: filters.workspaceId,
         sessionId: filters.sessionId,
@@ -67,6 +51,24 @@ export async function GET(request: Request) {
       }
     );
 
+    // Next caches JSON, so revive dates before passing rows to the aggregators.
+    const events = cachedEvents.map((event) => ({ ...event, createdAt: new Date(event.createdAt) }));
+    const sessions = cachedSessions.map((session) => ({ ...session, startedAt: new Date(session.startedAt) }));
+    const usageEvents = cachedUsage.map((event) => ({ ...event, createdAt: new Date(event.createdAt) }));
+    const filteredSessions = filters.sessionId
+      ? sessions.filter((session) => session.id === filters.sessionId)
+      : sessions;
+    const selectedFromDatabase = filters.workspaceId
+      ? await listSelectedCreativeWorkPieceVersions(filters.workspaceId)
+      : undefined;
+    const summary = buildAnalyticsFunnelSummary(
+      events,
+      filteredSessions,
+      usageEvents,
+      new Date(reportAsOf),
+      { selectedFromDatabase },
+    );
+
     return NextResponse.json({
       filters: {
         workspaceId: filters.workspaceId ?? null,
@@ -74,7 +76,7 @@ export async function GET(request: Request) {
         from: filters.from?.toISOString() ?? null,
         to: filters.to?.toISOString() ?? null,
       },
-      dataComplete,
+      dataComplete: events.length < OWNER_ANALYTICS_EVENT_CAP,
       ...summary,
     });
   } catch (error) {
