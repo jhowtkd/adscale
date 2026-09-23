@@ -26,7 +26,7 @@ export default function PrivacyTab() {
     setError("");
     setExporting(true);
     try {
-      const res = await apiFetch("/api/user/export");
+      const res = await apiFetch("/api/user/export", { timeoutMs: 10 * 60_000 });
       if (!res.ok) throw new Error("Failed to export data");
       const data = await res.json();
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
