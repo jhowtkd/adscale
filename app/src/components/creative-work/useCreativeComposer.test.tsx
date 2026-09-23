@@ -1414,6 +1414,67 @@ describe("useCreativeComposer", () => {
     }));
   });
 
+  it("uploads selected images together and attaches out-of-order responses in selection order", async () => {
+    mocks.refetch.mockImplementation(async () => ({ data: workDetail() }));
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false, refetch: mocks.refetch });
+    const files = ["first.png", "second.png", "third.png"].map((name) =>
+      new File([name], name, { type: "image/png" })
+    );
+    const uploads = files.map(() => deferred<{ assetId: string }>());
+    mocks.upload.mockImplementation((file: File) => uploads[files.indexOf(file)]!.promise);
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => {
+      const adding = result.current.addFiles(files);
+      await Promise.resolve();
+      expect(mocks.upload).toHaveBeenCalledTimes(3);
+      uploads[2]!.resolve({ assetId: "asset-third" });
+      uploads[1]!.resolve({ assetId: "asset-second" });
+      expect(mocks.source).not.toHaveBeenCalled();
+      uploads[0]!.resolve({ assetId: "asset-first" });
+      expect(await adding).toBe(true);
+    });
+
+    expect(mocks.source.mock.calls.map(([action]) => action.assetId)).toEqual([
+      "asset-first", "asset-second", "asset-third",
+    ]);
+    expect(result.current.announcement).toBe("3 artes adicionadas");
+  });
+
+  it("keeps successful sources and retries only the image that failed", async () => {
+    mocks.refetch.mockImplementation(async () => ({ data: workDetail() }));
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false, refetch: mocks.refetch });
+    const files = ["first.png", "failed.png", "third.png"].map((name) =>
+      new File([name], name, { type: "image/png" })
+    );
+    const uploads = files.map(() => deferred<{ assetId: string }>());
+    mocks.upload.mockImplementation((file: File) => uploads[files.indexOf(file)]!.promise);
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+
+    await act(async () => {
+      const adding = result.current.addFiles(files);
+      await Promise.resolve();
+      expect(mocks.upload).toHaveBeenCalledTimes(3);
+      uploads[2]!.resolve({ assetId: "asset-third" });
+      uploads[1]!.reject(new Error("Falha de rede"));
+      uploads[0]!.resolve({ assetId: "asset-first" });
+      expect(await adding).toBe(false);
+    });
+
+    expect(mocks.source.mock.calls.map(([action]) => action.assetId)).toEqual(["asset-first", "asset-third"]);
+    expect(result.current.announcement).toBe("2 artes adicionadas");
+    expect(result.current.error).toContain("failed.png: Falha de rede");
+    expect(result.current.error).toContain("apenas os arquivos com falha");
+
+    mocks.upload.mockResolvedValue({ assetId: "asset-retry" });
+    await act(async () => { expect(await result.current.addFiles([files[1]!])).toBe(true); });
+
+    expect(mocks.source.mock.calls.map(([action]) => action.assetId)).toEqual([
+      "asset-first", "asset-third", "asset-retry",
+    ]);
+    expect(result.current.error).toBeNull();
+  });
+
   it("slices Single file selection to the remaining temporary-reference slots before upload", async () => {
     mocks.work.mockReturnValue({
       data: {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, type MutableRefObject, type RefObject } from "react";
+import pLimit from "p-limit";
 import { collectImageFiles, uploadChatAttachment } from "@/lib/assistant/chat-attachments";
 import { apiFetch } from "@/lib/api-client";
 import type { StudioRolloutVariant } from "@/lib/beta-analytics/studio-session";
@@ -95,38 +96,63 @@ export function useComposerSourceActions({
       focusBrandSwitcher();
       return false;
     }
+    if (uploadInFlightRef.current) return false;
     markPlanInputEdited();
     uploadInFlightRef.current = true;
     setIsUploading(true);
     setError(null);
     try {
+      const uploadLimit = pLimit(3);
+      const uploads = await Promise.allSettled(accepted.map((file) => uploadLimit(() => uploadChatAttachment(file))));
       let hasRestyleContent = Boolean(sources?.some((source) =>
         source.usageConfirmed && (source.usage === "content" || source.usage === "both")
       ));
-      for (const file of accepted) {
-        const uploaded = await uploadChatAttachment(file);
-        const usage: CreativeSourceUsage = usageForAttachedFile({
-          intent: intentRef.current,
-          preferredUsage,
-          hasRestyleContent,
-        });
-        if (usage === "content") hasRestyleContent = true;
-        const existingId = workIdRef.current;
-        if (!existingId) {
-          await ensureDraft({ assetId: uploaded.assetId, usage });
-        } else {
-          await mutateSource({
-            workItemId: existingId,
-            action: "attachSource",
-            assetId: uploaded.assetId,
-            usage,
+      const failures: { file: File; cause: unknown }[] = [];
+      let added = 0;
+      for (const [index, upload] of uploads.entries()) {
+        const file = accepted[index]!;
+        if (upload.status === "rejected") {
+          failures.push({ file, cause: upload.reason });
+          continue;
+        }
+        try {
+          const usage: CreativeSourceUsage = usageForAttachedFile({
+            intent: intentRef.current,
+            preferredUsage,
+            hasRestyleContent,
           });
+          const existingId = workIdRef.current;
+          if (!existingId) {
+            if (!await ensureDraft({ assetId: upload.value.assetId, usage })) {
+              throw new Error("Falha ao salvar rascunho");
+            }
+          } else {
+            await mutateSource({
+              workItemId: existingId,
+              action: "attachSource",
+              assetId: upload.value.assetId,
+              usage,
+            });
+          }
+          if (usage === "content") hasRestyleContent = true;
+          added++;
+        } catch (cause) {
+          failures.push({ file, cause });
         }
       }
-      setInferredBriefingContext(null);
-      const addedAnnouncement = accepted.length === 1 ? "Arte adicionada" : `${accepted.length} artes adicionadas`;
-      announce(rejectedByLimit > 0 ? `${addedAnnouncement}; ${rejectedByLimit} arquivo${rejectedByLimit === 1 ? "" : "s"} não enviado${rejectedByLimit === 1 ? "" : "s"} pelo limite de 3` : addedAnnouncement);
-      return true;
+      if (added > 0) {
+        setInferredBriefingContext(null);
+        const addedAnnouncement = added === 1 ? "Arte adicionada" : `${added} artes adicionadas`;
+        announce(rejectedByLimit > 0 ? `${addedAnnouncement}; ${rejectedByLimit} arquivo${rejectedByLimit === 1 ? "" : "s"} não enviado${rejectedByLimit === 1 ? "" : "s"} pelo limite de 3` : addedAnnouncement);
+      }
+      if (failures.length > 0) {
+        const message = failures.map(({ file, cause }) => `${file.name}: ${cause instanceof Error ? cause.message : "Falha ao adicionar arte"}`).join("; ");
+        const firstCause = failures[0]!.cause;
+        setError(accepted.length === 1
+          ? firstCause instanceof Error ? firstCause.message : "Falha ao adicionar arte"
+          : `${message}. Selecione novamente apenas os arquivos com falha.`);
+      }
+      return failures.length === 0;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Falha ao adicionar arte");
       return false;
