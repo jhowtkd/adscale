@@ -128,6 +128,7 @@ describe("syncConnection (mock Graph)", () => {
     )?.[0] as { impressions: number; spend: number };
     expect(m30.impressions).toBe(60000);
     expect(m30.spend).toBe(2700);
+    expect(mocks.listExpiredServedAds).toHaveBeenCalledWith(new Date("2026-06-17T12:00:00Z"), "conn-1");
   });
 
   it("persiste mapa por tipo de ação com snapshot versionado, sem somar tipos", async () => {
@@ -381,9 +382,60 @@ describe("purge + disconnect", () => {
       now: new Date("2026-09-15T12:00:00Z"),
     });
     expect(purged).toBe(1);
-    expect(mocks.listExpiredServedAds).toHaveBeenCalledWith(new Date("2026-06-17T12:00:00Z"));
+    expect(mocks.listExpiredServedAds).toHaveBeenCalledWith(new Date("2026-06-17T12:00:00Z"), undefined);
     expect(storage.delete.mock.calls.map((call) => call[0]).sort()).toEqual(["k-img", "k-thumb"]);
     expect(mocks.deleteServedAd).toHaveBeenCalledWith("123:9");
+  });
+
+  it("mantém a linha se a mídia falha e a remove no próximo purge", async () => {
+    const storage = fakeStorage();
+    const failed = { anuncioId: "123:1", imageKey: "retry", videoKey: null, thumbKey: null };
+    const ok = { anuncioId: "123:2", imageKey: "ok", videoKey: null, thumbKey: null };
+    mocks.listExpiredServedAds.mockResolvedValue([failed, ok]);
+    storage.delete.mockRejectedValueOnce(new Error("R2 indisponível"));
+
+    expect(await purgeExpiredServedAds({ storage })).toBe(1);
+    expect(mocks.deleteServedAd).toHaveBeenCalledTimes(1);
+    expect(mocks.deleteServedAd).toHaveBeenCalledWith("123:2");
+
+    mocks.listExpiredServedAds.mockResolvedValue([failed]);
+    expect(await purgeExpiredServedAds({ storage })).toBe(1);
+    expect(mocks.deleteServedAd).toHaveBeenCalledWith("123:1");
+  });
+
+  it("continua outras linhas e permite retry após falha no delete do banco", async () => {
+    const failed = { anuncioId: "123:1", imageKey: null, videoKey: null, thumbKey: null };
+    const ok = { anuncioId: "123:2", imageKey: null, videoKey: null, thumbKey: null };
+    mocks.listExpiredServedAds.mockResolvedValue([failed, ok]);
+    mocks.deleteServedAd.mockRejectedValueOnce(new Error("banco indisponível"));
+
+    expect(await purgeExpiredServedAds({ storage: fakeStorage() })).toBe(1);
+    expect(mocks.deleteServedAd).toHaveBeenCalledWith("123:2");
+
+    mocks.listExpiredServedAds.mockResolvedValue([failed]);
+    expect(await purgeExpiredServedAds({ storage: fakeStorage() })).toBe(1);
+  });
+
+  it("limita deletes simultâneos sem voltar à espera serial", async () => {
+    const storage = fakeStorage();
+    let active = 0;
+    let peak = 0;
+    storage.delete.mockImplementation(async () => {
+      active += 1;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      active -= 1;
+    });
+    mocks.listExpiredServedAds.mockResolvedValue(Array.from({ length: 8 }, (_, index) => ({
+      anuncioId: `123:${index}`,
+      imageKey: `key-${index}`,
+      videoKey: null,
+      thumbKey: null,
+    })));
+
+    expect(await purgeExpiredServedAds({ storage })).toBe(8);
+    expect(peak).toBeGreaterThan(1);
+    expect(peak).toBeLessThanOrEqual(2);
   });
 
   it("disconnect apaga mídia de todos e depois a conexão", async () => {
@@ -404,6 +456,17 @@ describe("purge + disconnect", () => {
     expect(order).toEqual(["r2", "r2", "r2", "db"]);
   });
 
+  it("disconnect preserva a conexão quando uma mídia não foi apagada", async () => {
+    const storage = fakeStorage();
+    mocks.listMediaKeysForConnection.mockResolvedValue([
+      { anuncioId: "123:1", imageKey: "retry", videoKey: null, thumbKey: null },
+    ]);
+    storage.delete.mockRejectedValueOnce(new Error("R2 indisponível"));
+
+    await expect(disconnectConnection("conn-1", { storage })).rejects.toThrow("mediaDeleteFailed");
+    expect(mocks.deleteConnection).not.toHaveBeenCalled();
+  });
+
   it("syncAll continua após falha individual", async () => {
     mocks.listActiveConnections.mockResolvedValue([
       { ...CONNECTION, id: "a" },
@@ -420,5 +483,6 @@ describe("purge + disconnect", () => {
       download: fakeDownload(),
     });
     expect(result).toEqual({ synced: 1, failed: 1, purged: 0 });
+    expect(mocks.listExpiredServedAds).toHaveBeenCalledTimes(1);
   });
 });

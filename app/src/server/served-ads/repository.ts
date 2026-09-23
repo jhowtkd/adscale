@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, lt, isNotNull, sql } from "drizzle-orm";
+import { and, eq, inArray, lt, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/server/db";
 import { metaAdAccounts, metaConnections, servedAdMetrics, servedAdSnapshots, servedAds } from "@/server/db/schema";
 import type { MetaAdRow, ServedAdFormat } from "./aggregate";
@@ -450,7 +450,7 @@ export async function listMediaKeysForConnection(connectionId: string): Promise<
 }
 
 /** Ads sem entrega há mais de `olderThan` (TTL 90 dias, #347). */
-export async function listExpiredServedAds(olderThan: Date): Promise<ServedAdMediaKeys[]> {
+export async function listExpiredServedAds(olderThan: Date, connectionId?: string): Promise<ServedAdMediaKeys[]> {
   return db
     .select({
       anuncioId: servedAds.id,
@@ -459,7 +459,16 @@ export async function listExpiredServedAds(olderThan: Date): Promise<ServedAdMed
       thumbKey: servedAds.mediaThumbKey,
     })
     .from(servedAds)
-    .where(and(isNotNull(servedAds.lastDeliveredAt), lt(servedAds.lastDeliveredAt, olderThan)));
+    .where(and(
+      isNotNull(servedAds.lastDeliveredAt),
+      lt(servedAds.lastDeliveredAt, olderThan),
+      connectionId ? inArray(
+        servedAds.accountId,
+        db.select({ id: metaAdAccounts.id })
+          .from(metaAdAccounts)
+          .where(eq(metaAdAccounts.connectionId, connectionId))
+      ) : undefined
+    ));
 }
 
 export async function deleteServedAd(anuncioId: string): Promise<void> {
