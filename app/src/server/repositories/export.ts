@@ -20,6 +20,21 @@ export async function createExportRecord(
   return result[0];
 }
 
+export async function createExportRecords(
+  workspaceId: string,
+  derivationIds: string[],
+  format: string,
+  key: string,
+) {
+  if (derivationIds.length === 0) return;
+  await db.insert(exports).values(derivationIds.map((derivationId) => ({
+    workspaceId,
+    derivationId,
+    format,
+    key,
+  })));
+}
+
 async function getExportsByWorkspace(workspaceId: string) {
   return db
     .select()

@@ -25,7 +25,7 @@ vi.mock("@/server/repositories/share-link", () => ({
 }));
 
 vi.mock("@/server/output-learning/output-decision-recorder", () => ({
-  recordOutputDecisionEvidenceBestEffort: vi.fn(() => Promise.resolve({ id: "evidence-1" })),
+  recordOutputDecisionEvidenceFromValidatedRootsBestEffort: vi.fn(() => Promise.resolve({ id: "evidence-1" })),
 }));
 
 vi.mock("next-intl/server", () => ({
@@ -40,7 +40,9 @@ import {
   getLatestShareLinkForCampaign,
   upsertShareLinkForCampaign,
 } from "@/server/repositories/share-link";
-import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
+import { recordOutputDecisionEvidenceFromValidatedRootsBestEffort } from "@/server/output-learning/output-decision-recorder";
+import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { WorkspaceAuthError, AUTH_ERROR_CODES } from "@/server/auth/errors";
 
 const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockUpdateCampaign = vi.mocked(updateCampaign);
@@ -198,12 +200,16 @@ describe("POST /api/campaigns/[id]/approval-package", () => {
       notes: "Client package notes",
     });
     expect(mockUpsertShareLinkForCampaign).toHaveBeenCalled();
-    expect(vi.mocked(recordOutputDecisionEvidenceBestEffort)).toHaveBeenCalledWith(
+    expect(vi.mocked(recordOutputDecisionEvidenceFromValidatedRootsBestEffort)).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "selected_for_delivery",
         derivationId: ROOT_ID,
         campaignId: CAMPAIGN_ID,
-      })
+      }),
+      expect.objectContaining({
+        campaign: expect.objectContaining({ id: CAMPAIGN_ID }),
+        approvedRootIds: new Set([ROOT_ID]),
+      }),
     );
   });
 
@@ -218,5 +224,24 @@ describe("POST /api/campaigns/[id]/approval-package", () => {
     );
 
     expect(res.status).toBe(409);
+  });
+
+  it("does not load or record evidence when workspace access is denied", async () => {
+    vi.mocked(requireWorkspaceAccess).mockRejectedValueOnce(
+      new WorkspaceAuthError(AUTH_ERROR_CODES.forbidden, "Forbidden"),
+    );
+
+    const res = await POST(
+      new Request("http://localhost", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ derivationIds: [ROOT_ID] }),
+      }),
+      { params: paramsWith(CAMPAIGN_ID) },
+    );
+
+    expect(res.status).toBe(403);
+    expect(mockGetCampaignById).not.toHaveBeenCalled();
+    expect(recordOutputDecisionEvidenceFromValidatedRootsBestEffort).not.toHaveBeenCalled();
   });
 });

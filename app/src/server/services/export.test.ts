@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getCampaign: vi.fn(),
   getApproved: vi.fn(),
   createExport: vi.fn(),
+  createExports: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/campaign", () => ({
@@ -20,6 +21,7 @@ vi.mock("@/server/repositories/derivation", () => ({
 
 vi.mock("@/server/repositories/export", () => ({
   createExportRecord: mocks.createExport,
+  createExportRecords: mocks.createExports,
 }));
 
 import { exportAllApproved } from "./export";
@@ -64,6 +66,7 @@ describe("exportAllApproved", () => {
       { id: "d2", outputKey: "output-2", format: "png" },
     ]);
     mocks.createExport.mockResolvedValue({});
+    mocks.createExports.mockResolvedValue([]);
   });
 
   it("uploads the generated archive as a stream", async () => {
@@ -77,6 +80,8 @@ describe("exportAllApproved", () => {
     expect(storage.putStream).toHaveBeenCalledTimes(1);
     expect(storage.put).not.toHaveBeenCalled();
     expect(uploaded[0]?.contentType).toBe("application/zip");
+    expect(mocks.createExports).toHaveBeenCalledTimes(1);
+    expect(mocks.createExports).toHaveBeenCalledWith("workspace-1", ["d1", "d2"], "png", result.key);
 
     const archive = await JSZip.loadAsync(uploaded[0]!.data);
     await expect(archive.file("derivations/campaign-1.png")?.async("string")).resolves.toBe("one");
@@ -179,6 +184,15 @@ describe("exportAllApproved", () => {
     await expect(
       exportAllApproved(storage, "campaign-1", "workspace-1", "png", controller.signal),
     ).rejects.toMatchObject({ name: "AbortError" });
-    expect(mocks.createExport).not.toHaveBeenCalled();
+    expect(mocks.createExports).not.toHaveBeenCalled();
+  });
+
+  it("fails the export when the bulk record insert fails", async () => {
+    const { storage } = storageForTest();
+    mocks.createExports.mockRejectedValue(new Error("record insert failed"));
+
+    await expect(exportAllApproved(storage, "campaign-1", "workspace-1", "png"))
+      .rejects.toThrow("record insert failed");
+    expect(mocks.createExports).toHaveBeenCalledTimes(1);
   });
 });
