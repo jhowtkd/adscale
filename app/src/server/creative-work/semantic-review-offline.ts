@@ -16,6 +16,7 @@ import {
 } from "./contracts";
 import { buildCreativeWorkFactPack, validateSocialPostCopyAgainstFactPack } from "./fact-pack";
 import { projectPreparedPlanV1 } from "./prepared-plan";
+import { PIECE_REFERENCE_CATEGORIES, PIECE_REFERENCE_TREATMENTS, pieceReferenceTreatment } from "./piece-reference";
 
 export const SEMANTIC_PROFILE = "single_shadow_v1";
 export const SEMANTIC_INPUT_VERSION = "semantic_input_v1";
@@ -59,6 +60,14 @@ export const SEMANTIC_RUBRIC = [
 ].join("\n");
 export const SEMANTIC_RUBRIC_HASH = createHash("sha256").update(SEMANTIC_RUBRIC).digest("hex");
 
+const frozenPieceReferenceSchema = z.object({
+  version: z.literal(1),
+  category: z.enum(PIECE_REFERENCE_CATEGORIES),
+  treatment: z.enum(PIECE_REFERENCE_TREATMENTS),
+  userInstruction: z.string().nullable(),
+  hasTransparency: z.boolean(),
+}).strict().refine((reference) => reference.treatment === pieceReferenceTreatment(reference.category));
+
 const sourceSchema = z.object({
   sourceId: z.string().trim().min(1),
   updatedAt: z.string(),
@@ -68,7 +77,7 @@ const sourceSchema = z.object({
   usage: z.enum(["content", "style", "both"]),
   content: z.unknown().nullable(),
   style: z.unknown().nullable(),
-  pieceReference: z.unknown().optional(),
+  pieceReference: frozenPieceReferenceSchema.optional(),
 }).passthrough();
 const snapshotSchema = z.object({
   request: z.string().trim().min(1),

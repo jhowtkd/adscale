@@ -1,7 +1,7 @@
 # Jev offline pilot: explicit authorization
 
 The fixture command stays local and controlled: `cd app && pnpm jev:offline`.
-`pnpm jev:offline --mode hash` prints the SHA-256 for the built-in synthetic corpus. An external corpus can be supplied with `--input corpus.json`, containing `{ "origin": "synthetic", "cases": [...] }`.
+`pnpm jev:offline --mode hash` prints the SHA-256 for the built-in synthetic corpus. An external corpus can be supplied to the controlled or hash modes with `--input corpus.json`, containing `{ "origin": "synthetic", "cases": [...] }`. Live Jev mode accepts only the built-in synthetic corpus.
 
 The Jev mode requires a separate approval record, a TypeSafe API key for calls, an explicit call cap, an authorized `DATABASE_URL` for the existing diagnostic journal, and a new private manifest directory:
 

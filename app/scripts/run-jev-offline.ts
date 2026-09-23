@@ -207,7 +207,7 @@ function loadCases(path: string | undefined): SyntheticCase[] {
   return corpus.cases;
 }
 
-async function main(args: string[]) {
+export async function main(args: string[]) {
   const options = new Map<string, string>();
   let resume = false;
   for (let index = 0; index < args.length; index += 1) {
@@ -221,6 +221,7 @@ async function main(args: string[]) {
       || options.has(flag) || !args[index + 1] || args[index + 1].startsWith("--")) throw new Error("invalid_arguments");
     options.set(flag, args[++index]);
   }
+  if (options.get("--mode") === "jev" && options.has("--input")) throw new Error("invalid_arguments");
   const cases = loadCases(options.get("--input"));
   validateSyntheticCorpus(cases);
   if (!options.has("--mode")) {

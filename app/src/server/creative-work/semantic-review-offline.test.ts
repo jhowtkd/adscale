@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runSyntheticCorpus, SYNTHETIC_CASES } from "../../../scripts/run-jev-offline";
+import { main, runSyntheticCorpus, SYNTHETIC_CASES } from "../../../scripts/run-jev-offline";
 import {
   parseControlledDecisions,
   projectSemanticReviewOffline,
@@ -30,6 +30,9 @@ function fixture(index = 0): MutableWork {
 }
 
 describe("offline semantic pilot", () => {
+  it("refuses external corpora before an authorized provider run", async () => {
+    await expect(main(["--mode", "jev", "--input", "/missing-corpus.json"])).rejects.toThrow("invalid_arguments");
+  });
   it("projects only frozen authorized text and compares existing deterministic checks", () => {
     const projected = projectSemanticReviewOffline(fixture(8));
     expect(projected.ok).toBe(true);
@@ -91,9 +94,18 @@ describe("offline semantic pilot", () => {
     pieceReference.inputSnapshot.sources.push({
       sourceId: "piece-reference", usage: "both", content: { offer: "Bônus" },
       updatedAt: "2026-09-22T00:00:00.000Z", assetKey: "synthetic-only", mimeType: "image/png", style: null,
-      pieceReference: { id: "prior-piece" },
+      pieceReference: { version: 1, category: "style_reference", treatment: "style_direction", userInstruction: null, hasTransparency: false },
     } as MutableWork["inputSnapshot"]["sources"][number]);
     expect(projectSemanticReviewOffline(pieceReference).ok).toBe(true);
+    const forgedReference = fixture(9);
+    forgedReference.inputSnapshot.sources.push({
+      ...pieceReference.inputSnapshot.sources.at(-1)!, pieceReference: {},
+    } as MutableWork["inputSnapshot"]["sources"][number]);
+    expect(projectSemanticReviewOffline(forgedReference)).toEqual({ ok: false, reason: "invalid_work" });
+    (forgedReference.inputSnapshot.sources.at(-1) as { pieceReference: unknown }).pieceReference = {
+      version: 1, category: "style_reference", treatment: "exact_application", userInstruction: null, hasTransparency: false,
+    };
+    expect(projectSemanticReviewOffline(forgedReference)).toEqual({ ok: false, reason: "invalid_work" });
     const sensitive = fixture();
     sensitive.copy.body = "Veja https://example.com/objeto";
     expect(projectSemanticReviewOffline(sensitive)).toEqual({ ok: false, reason: "sensitive_text" });
