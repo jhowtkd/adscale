@@ -28,11 +28,51 @@ vi.mock("@/server/served-ads/repository", () => ({
 
 import { MockMetaGraphClient, MetaGraphError } from "./graph";
 import {
+  defaultDownloadMedia,
   disconnectConnection,
   purgeExpiredServedAds,
   syncAllConnections,
   syncConnection,
 } from "./sync";
+
+it("stops an unannounced oversized HTTP body while reading it", async () => {
+  let sent = 0;
+  let cancelled = false;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      sent += 1;
+      controller.enqueue(new Uint8Array(1024 * 1024));
+      if (sent === 30) controller.close();
+    },
+    cancel() { cancelled = true; },
+  });
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(stream, {
+    headers: { "content-type": "image/png" },
+  }));
+  try {
+    await expect(defaultDownloadMedia("https://example.test/image.png"))
+      .rejects.toThrow("mídia acima de 25MB");
+    expect(cancelled).toBe(true);
+    expect(sent).toBeLessThan(30);
+  } finally {
+    fetchSpy.mockRestore();
+  }
+});
+
+it("keeps the bytes and MIME type of an accepted HTTP image", async () => {
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(
+    new Uint8Array([1, 2, 3]),
+    { headers: { "content-type": "image/png; charset=binary" } },
+  ));
+  try {
+    expect(await defaultDownloadMedia("https://example.test/image.png")).toEqual({
+      data: Buffer.from([1, 2, 3]),
+      contentType: "image/png",
+    });
+  } finally {
+    fetchSpy.mockRestore();
+  }
+});
 
 const CONNECTION = {
   id: "conn-1",
@@ -88,6 +128,7 @@ describe("syncConnection (mock Graph)", () => {
     )?.[0] as { impressions: number; spend: number };
     expect(m30.impressions).toBe(60000);
     expect(m30.spend).toBe(2700);
+    expect(mocks.listExpiredServedAds).toHaveBeenCalledWith(new Date("2026-06-17T12:00:00Z"), "conn-1");
   });
 
   it("persiste mapa por tipo de ação com snapshot versionado, sem somar tipos", async () => {
@@ -203,6 +244,62 @@ describe("syncConnection (mock Graph)", () => {
     }
   });
 
+  it("starts two creatives together while limiting active media transfers to two", async () => {
+    const client = new MockMetaGraphClient();
+    const mediaLookup = vi.spyOn(client, "getCreativeMedia");
+    const storage = fakeStorage();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let active = 0;
+    let peak = 0;
+    let started = 0;
+    const download = vi.fn(async (url: string) => {
+      active += 1;
+      started += 1;
+      peak = Math.max(peak, active);
+      if (started <= 2) await gate;
+      active -= 1;
+      return { data: Buffer.from(url), contentType: "image/jpeg" };
+    });
+
+    const sync = syncConnection("conn-1", { client, storage, download });
+    try {
+      await vi.waitFor(() => {
+        expect(mediaLookup).toHaveBeenCalledTimes(2);
+        expect(started).toBe(2);
+      });
+    } finally {
+      release();
+      await sync;
+    }
+
+    expect(peak).toBe(2);
+    expect(mocks.updateServedAdMedia).toHaveBeenCalledWith("123:1001", expect.objectContaining({
+      imageKey: "served-ads/ws-1/123/1001/image",
+      thumbKey: "served-ads/ws-1/123/1001/thumb",
+    }));
+  });
+
+  it("keeps successful media bound to its ad and retries one failed type on the next sync", async () => {
+    const failedStorage = fakeStorage();
+    failedStorage.put.mockImplementation(async (key: string) => {
+      if (key === "served-ads/ws-1/123/1001/image") throw new Error("R2 unavailable");
+    });
+    const client = new MockMetaGraphClient();
+
+    await syncConnection("conn-1", { client, storage: failedStorage, download: fakeDownload() });
+    expect(mocks.updateServedAdMedia).toHaveBeenCalledWith("123:1001", {
+      thumbKey: "served-ads/ws-1/123/1001/thumb",
+    });
+
+    mocks.updateServedAdMedia.mockClear();
+    await syncConnection("conn-1", { client, storage: fakeStorage(), download: fakeDownload() });
+    expect(mocks.updateServedAdMedia).toHaveBeenCalledWith("123:1001", expect.objectContaining({
+      imageKey: "served-ads/ws-1/123/1001/image",
+      thumbKey: "served-ads/ws-1/123/1001/thumb",
+    }));
+  });
+
   it("falha de download não derruba o sync nem a linha", async () => {
     const storage = fakeStorage();
     const download = vi.fn(async () => {
@@ -285,9 +382,60 @@ describe("purge + disconnect", () => {
       now: new Date("2026-09-15T12:00:00Z"),
     });
     expect(purged).toBe(1);
-    expect(mocks.listExpiredServedAds).toHaveBeenCalledWith(new Date("2026-06-17T12:00:00Z"));
+    expect(mocks.listExpiredServedAds).toHaveBeenCalledWith(new Date("2026-06-17T12:00:00Z"), undefined);
     expect(storage.delete.mock.calls.map((call) => call[0]).sort()).toEqual(["k-img", "k-thumb"]);
     expect(mocks.deleteServedAd).toHaveBeenCalledWith("123:9");
+  });
+
+  it("mantém a linha se a mídia falha e a remove no próximo purge", async () => {
+    const storage = fakeStorage();
+    const failed = { anuncioId: "123:1", imageKey: "retry", videoKey: null, thumbKey: null };
+    const ok = { anuncioId: "123:2", imageKey: "ok", videoKey: null, thumbKey: null };
+    mocks.listExpiredServedAds.mockResolvedValue([failed, ok]);
+    storage.delete.mockRejectedValueOnce(new Error("R2 indisponível"));
+
+    expect(await purgeExpiredServedAds({ storage })).toBe(1);
+    expect(mocks.deleteServedAd).toHaveBeenCalledTimes(1);
+    expect(mocks.deleteServedAd).toHaveBeenCalledWith("123:2");
+
+    mocks.listExpiredServedAds.mockResolvedValue([failed]);
+    expect(await purgeExpiredServedAds({ storage })).toBe(1);
+    expect(mocks.deleteServedAd).toHaveBeenCalledWith("123:1");
+  });
+
+  it("continua outras linhas e permite retry após falha no delete do banco", async () => {
+    const failed = { anuncioId: "123:1", imageKey: null, videoKey: null, thumbKey: null };
+    const ok = { anuncioId: "123:2", imageKey: null, videoKey: null, thumbKey: null };
+    mocks.listExpiredServedAds.mockResolvedValue([failed, ok]);
+    mocks.deleteServedAd.mockRejectedValueOnce(new Error("banco indisponível"));
+
+    expect(await purgeExpiredServedAds({ storage: fakeStorage() })).toBe(1);
+    expect(mocks.deleteServedAd).toHaveBeenCalledWith("123:2");
+
+    mocks.listExpiredServedAds.mockResolvedValue([failed]);
+    expect(await purgeExpiredServedAds({ storage: fakeStorage() })).toBe(1);
+  });
+
+  it("limita deletes simultâneos sem voltar à espera serial", async () => {
+    const storage = fakeStorage();
+    let active = 0;
+    let peak = 0;
+    storage.delete.mockImplementation(async () => {
+      active += 1;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      active -= 1;
+    });
+    mocks.listExpiredServedAds.mockResolvedValue(Array.from({ length: 8 }, (_, index) => ({
+      anuncioId: `123:${index}`,
+      imageKey: `key-${index}`,
+      videoKey: null,
+      thumbKey: null,
+    })));
+
+    expect(await purgeExpiredServedAds({ storage })).toBe(8);
+    expect(peak).toBeGreaterThan(1);
+    expect(peak).toBeLessThanOrEqual(2);
   });
 
   it("disconnect apaga mídia de todos e depois a conexão", async () => {
@@ -308,6 +456,17 @@ describe("purge + disconnect", () => {
     expect(order).toEqual(["r2", "r2", "r2", "db"]);
   });
 
+  it("disconnect preserva a conexão quando uma mídia não foi apagada", async () => {
+    const storage = fakeStorage();
+    mocks.listMediaKeysForConnection.mockResolvedValue([
+      { anuncioId: "123:1", imageKey: "retry", videoKey: null, thumbKey: null },
+    ]);
+    storage.delete.mockRejectedValueOnce(new Error("R2 indisponível"));
+
+    await expect(disconnectConnection("conn-1", { storage })).rejects.toThrow("mediaDeleteFailed");
+    expect(mocks.deleteConnection).not.toHaveBeenCalled();
+  });
+
   it("syncAll continua após falha individual", async () => {
     mocks.listActiveConnections.mockResolvedValue([
       { ...CONNECTION, id: "a" },
@@ -324,5 +483,6 @@ describe("purge + disconnect", () => {
       download: fakeDownload(),
     });
     expect(result).toEqual({ synced: 1, failed: 1, purged: 0 });
+    expect(mocks.listExpiredServedAds).toHaveBeenCalledTimes(1);
   });
 });
