@@ -6,7 +6,7 @@ import { initializeCanvas, readPsd } from "ag-psd";
 import JSZip from "jszip";
 import sharp from "sharp";
 import type { LayerBitmap } from "./artifacts";
-import { calculateLayerizationFidelity, recomposeLayerBitmaps, writeLayerizationDiagnosticZip, writeLayerizationDiagnosticZipFile, writeLayerizationPsd } from "./artifacts";
+import { calculateLayerizationFidelity, recomposeLayerBitmaps, recomposeStoredLayers, writeLayerizationDiagnosticZip, writeLayerizationDiagnosticZipFile, writeLayerizationPsd } from "./artifacts";
 
 initializeCanvas(
   () => { throw new Error("Canvas rendering is not used in this test"); },
@@ -21,6 +21,32 @@ async function solid(width: number, height: number, rgba: [number, number, numbe
 }
 
 describe("layerization artifacts", () => {
+  it("serializes large recompositions without changing their pixels", async () => {
+    const png = await solid(1, 1, [20, 30, 40, 255]);
+    const base: LayerBitmap = {
+      name: "Base", description: "Canvas base", order: 0, isBase: true,
+      x: 0, y: 0, width: 1025, height: 1024,
+      normalizedBoundingBox: { x: 0, y: 0, width: 1, height: 1 },
+      storageKey: "base", sourceBytes: png.length, png,
+    };
+    let active = 0;
+    let peak = 0;
+    const recompose = () => recomposeStoredLayers({
+      width: 1025, height: 1024, layers: [base], load: async () => {
+        active += 1;
+        peak = Math.max(peak, active);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        active -= 1;
+        return png;
+      },
+    });
+    const [first, second] = await Promise.all([recompose(), recompose()]);
+    expect(peak).toBe(1);
+    expect(first).toEqual(second);
+    expect(await sharp(first).extract({ left: 1024, top: 1023, width: 1, height: 1 }).raw().toBuffer())
+      .toEqual(Buffer.from([20, 30, 40, 255]));
+  });
+
   it("preserva pixels ao compor camadas sobrepostas com alfa e ordem fora da lista", async () => {
     const base = await solid(4, 4, [10, 20, 30, 255]);
     const middle = await solid(3, 3, [220, 20, 30, 128]);
