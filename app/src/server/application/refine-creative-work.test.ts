@@ -6,6 +6,7 @@ const getByKey = vi.hoisted(() => vi.fn());
 const listAttempts = vi.hoisted(() => vi.fn());
 const markAttempt = vi.hoisted(() => vi.fn());
 const setState = vi.hoisted(() => vi.fn());
+const withLock = vi.hoisted(() => vi.fn());
 const revise = vi.hoisted(() => vi.fn());
 const storageGet = vi.hoisted(() => vi.fn());
 const analyzeArtComparisonMock = vi.hoisted(() => vi.fn());
@@ -23,6 +24,7 @@ vi.mock("@/server/repositories/creative-work", () => ({
   listArtRefinementAttempts: listAttempts,
   markArtRefinementAttempt: markAttempt,
   setArtRefinementState: setState,
+  withCreativeWorkPreparationLock: withLock,
 }));
 vi.mock("./revise-creative-work-output", () => ({
   reviseCreativeWorkOutput: revise,
@@ -36,6 +38,10 @@ import { refineCreativeWork, refreshArtRefinementState } from "./refine-creative
 
 const UNIT = GENERATION_CREDIT_COSTS.creativeWorkOutput;
 const NOW = new Date("2026-09-13T12:00:00.000Z");
+
+beforeEach(() => {
+  withLock.mockImplementation((_workspaceId: string, _workItemId: string, run: () => Promise<unknown>) => run());
+});
 
 const weakCritique = {
   verdict: "weak",
@@ -384,6 +390,34 @@ describe("refreshArtRefinementState", () => {
     } finally {
       vi.unstubAllEnvs();
     }
+  });
+
+  it("serializes concurrent refreshes so a cached judgment is bought once", async () => {
+    const outputs = [
+      output({ id: "root-1", quality: qualityWith(weakCritique) }),
+      output({ id: "rev-1", parentOutputId: "root-1", quality: qualityWith(readyCritique), createdAt: new Date(NOW.getTime() + 1000) }),
+    ];
+    let work = aggregate({ outputs });
+    getWork.mockImplementation(async () => work);
+    setState.mockImplementation(async (_workspaceId: string, _workItemId: string, state: unknown) => {
+      work = aggregate({ work: { ...work.work, artRefinementState: state }, outputs });
+    });
+    storageGet.mockResolvedValue(Buffer.from("png"));
+    analyzeArtComparisonMock.mockResolvedValue({ winner: "after", reason: "Melhor foco.", fixedIssues: [], regressions: [] });
+    let tail = Promise.resolve();
+    withLock.mockImplementation((_workspaceId: string, _workItemId: string, run: () => Promise<void>) => {
+      const current = tail.then(run);
+      tail = current.then(() => undefined, () => undefined);
+      return current;
+    });
+
+    const refresh = () => refreshArtRefinementState({ workspaceId: "ws-1", workItemId: "work-1" });
+    await Promise.all([refresh(), refresh()]);
+
+    expect(withLock).toHaveBeenCalledTimes(2);
+    expect(analyzeArtComparisonMock).toHaveBeenCalledTimes(1);
+    expect(setState.mock.lastCall?.[2]).toMatchObject({ recommendedOutputIds: ["rev-1"] });
+    expect(Object.keys((setState.mock.lastCall?.[2] as { comparisons: Record<string, unknown> }).comparisons)).toHaveLength(1);
   });
 
   it("não persiste julgamento quando faltam bytes ou o avaliador falha", async () => {

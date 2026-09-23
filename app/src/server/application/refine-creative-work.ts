@@ -29,6 +29,7 @@ import {
   listArtRefinementAttempts,
   markArtRefinementAttempt,
   setArtRefinementState,
+  withCreativeWorkPreparationLock,
 } from "@/server/repositories/creative-work";
 import type { CreativeWorkOutput } from "@/server/db/schema";
 import { objectStorage } from "@/server/storage";
@@ -135,7 +136,7 @@ export async function loadArtComparisonImage(outputKey: string | null): Promise<
  * else "ready" when every root has a best, "needs_review" when some root
  * has none. Never promotes a rejected output.
  */
-export async function refreshArtRefinementState(input: {
+async function refreshArtRefinementStateLocked(input: {
   workspaceId: string;
   workItemId: string;
 }): Promise<void> {
@@ -230,6 +231,13 @@ export async function refreshArtRefinementState(input: {
     issues: openIssues,
     comparisons,
   });
+}
+
+export function refreshArtRefinementState(input: {
+  workspaceId: string;
+  workItemId: string;
+}): Promise<void> {
+  return withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, () => refreshArtRefinementStateLocked(input));
 }
 
 /**
