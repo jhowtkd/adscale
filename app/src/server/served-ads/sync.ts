@@ -1,4 +1,5 @@
 import "server-only";
+import pLimit from "p-limit";
 import { logger } from "@/lib/logger";
 import { R2ObjectStorage } from "@/server/storage/r2-object-storage";
 import { aggregateAdRows, buildAnuncioId, type MetaAdRow, type ServedAdFormat } from "./aggregate";
@@ -39,6 +40,7 @@ import {
 export const SYNC_WINDOWS = [7, 30, 90] as const;
 export const MEDIA_RETENTION_DAYS = 90;
 const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
+const mediaTransferLimit = pLimit(2);
 
 export interface MediaStore {
   put(key: string, data: Buffer, contentType: string): Promise<void>;
@@ -62,10 +64,29 @@ export const defaultDownloadMedia: MediaDownloader = async (url) => {
     throw new Error(`mídia content-type recusado: ${contentType}`);
   }
   const announced = Number(res.headers.get("content-length") ?? 0);
-  if (announced > MAX_MEDIA_BYTES) throw new Error("mídia acima de 25MB");
-  const buffer = Buffer.from(await res.arrayBuffer());
-  if (buffer.length > MAX_MEDIA_BYTES) throw new Error("mídia acima de 25MB");
-  return { data: buffer, contentType };
+  if (announced > MAX_MEDIA_BYTES) {
+    await res.body?.cancel().catch(() => undefined);
+    throw new Error("mídia acima de 25MB");
+  }
+  if (!res.body) return { data: Buffer.alloc(0), contentType };
+  const reader = res.body.getReader();
+  const chunks: Buffer[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_MEDIA_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new Error("mídia acima de 25MB");
+      }
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return { data: Buffer.concat(chunks, size), contentType };
 };
 
 export function mediaKey(workspaceId: string, adAccountId: string, creativeId: string, kind: string): string {
@@ -229,8 +250,12 @@ export async function syncConnection(connectionId: string, deps: SyncDeps = {}):
         if (windowDays === 30) {
           anuncios += servedAdRows.length;
           await upsertServedAds(servedAdRows);
-          for (const servedAd of servedAdRows) {
-            await copyCreativeMedia(storage, download, connection.workspaceId, client, account.id, ads, servedAd.creativeId);
+          for (let index = 0; index < servedAdRows.length; index += 2) {
+            const settled = await Promise.allSettled(servedAdRows.slice(index, index + 2).map((servedAd) =>
+              copyCreativeMedia(storage, download, connection.workspaceId, client, account.id, ads, servedAd.creativeId)
+            ));
+            const failure = settled.find((item) => item.status === "rejected");
+            if (failure?.status === "rejected") throw failure.reason;
           }
         }
         await upsertAdMetricsBatch(metricRows);
@@ -275,17 +300,16 @@ async function copyCreativeMedia(
     { url: media.videoUrl, kind: "video", assign: (key) => { saved.videoKey = key; } },
     { url: media.thumbUrl, kind: "thumb", assign: (key) => { saved.thumbKey = key; } },
   ];
-  for (const job of jobs) {
-    if (!job.url) continue;
+  await Promise.all(jobs.filter((job) => job.url).map((job) => mediaTransferLimit(async () => {
     try {
-      const file = await download(job.url);
+      const file = await download(job.url!);
       const key = mediaKey(workspaceId, accountId, creativeId, job.kind);
       await storage.put(key, file.data, file.contentType);
       job.assign(key);
     } catch (error) {
       logger.warn("[served-ads] falha ao copiar mídia", { anuncioId, kind: job.kind, error: String(error) });
     }
-  }
+  })));
   if (saved.imageKey || saved.videoKey || saved.thumbKey) {
     await updateServedAdMedia(anuncioId, saved);
   }

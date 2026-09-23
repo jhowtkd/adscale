@@ -28,11 +28,51 @@ vi.mock("@/server/served-ads/repository", () => ({
 
 import { MockMetaGraphClient, MetaGraphError } from "./graph";
 import {
+  defaultDownloadMedia,
   disconnectConnection,
   purgeExpiredServedAds,
   syncAllConnections,
   syncConnection,
 } from "./sync";
+
+it("stops an unannounced oversized HTTP body while reading it", async () => {
+  let sent = 0;
+  let cancelled = false;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      sent += 1;
+      controller.enqueue(new Uint8Array(1024 * 1024));
+      if (sent === 30) controller.close();
+    },
+    cancel() { cancelled = true; },
+  });
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(stream, {
+    headers: { "content-type": "image/png" },
+  }));
+  try {
+    await expect(defaultDownloadMedia("https://example.test/image.png"))
+      .rejects.toThrow("mídia acima de 25MB");
+    expect(cancelled).toBe(true);
+    expect(sent).toBeLessThan(30);
+  } finally {
+    fetchSpy.mockRestore();
+  }
+});
+
+it("keeps the bytes and MIME type of an accepted HTTP image", async () => {
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(
+    new Uint8Array([1, 2, 3]),
+    { headers: { "content-type": "image/png; charset=binary" } },
+  ));
+  try {
+    expect(await defaultDownloadMedia("https://example.test/image.png")).toEqual({
+      data: Buffer.from([1, 2, 3]),
+      contentType: "image/png",
+    });
+  } finally {
+    fetchSpy.mockRestore();
+  }
+});
 
 const CONNECTION = {
   id: "conn-1",
@@ -201,6 +241,62 @@ describe("syncConnection (mock Graph)", () => {
     for (const call of mocks.updateServedAdMedia.mock.calls) {
       expect(JSON.stringify(call[1])).not.toContain("http");
     }
+  });
+
+  it("starts two creatives together while limiting active media transfers to two", async () => {
+    const client = new MockMetaGraphClient();
+    const mediaLookup = vi.spyOn(client, "getCreativeMedia");
+    const storage = fakeStorage();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let active = 0;
+    let peak = 0;
+    let started = 0;
+    const download = vi.fn(async (url: string) => {
+      active += 1;
+      started += 1;
+      peak = Math.max(peak, active);
+      if (started <= 2) await gate;
+      active -= 1;
+      return { data: Buffer.from(url), contentType: "image/jpeg" };
+    });
+
+    const sync = syncConnection("conn-1", { client, storage, download });
+    try {
+      await vi.waitFor(() => {
+        expect(mediaLookup).toHaveBeenCalledTimes(2);
+        expect(started).toBe(2);
+      });
+    } finally {
+      release();
+      await sync;
+    }
+
+    expect(peak).toBe(2);
+    expect(mocks.updateServedAdMedia).toHaveBeenCalledWith("123:1001", expect.objectContaining({
+      imageKey: "served-ads/ws-1/123/1001/image",
+      thumbKey: "served-ads/ws-1/123/1001/thumb",
+    }));
+  });
+
+  it("keeps successful media bound to its ad and retries one failed type on the next sync", async () => {
+    const failedStorage = fakeStorage();
+    failedStorage.put.mockImplementation(async (key: string) => {
+      if (key === "served-ads/ws-1/123/1001/image") throw new Error("R2 unavailable");
+    });
+    const client = new MockMetaGraphClient();
+
+    await syncConnection("conn-1", { client, storage: failedStorage, download: fakeDownload() });
+    expect(mocks.updateServedAdMedia).toHaveBeenCalledWith("123:1001", {
+      thumbKey: "served-ads/ws-1/123/1001/thumb",
+    });
+
+    mocks.updateServedAdMedia.mockClear();
+    await syncConnection("conn-1", { client, storage: fakeStorage(), download: fakeDownload() });
+    expect(mocks.updateServedAdMedia).toHaveBeenCalledWith("123:1001", expect.objectContaining({
+      imageKey: "served-ads/ws-1/123/1001/image",
+      thumbKey: "served-ads/ws-1/123/1001/thumb",
+    }));
   });
 
   it("falha de download não derruba o sync nem a linha", async () => {
