@@ -21,6 +21,9 @@ vi.mock("@/server/repositories/assistant-action", () => ({
 vi.mock("@/server/storage", () => ({
   objectStorage: { signedDownloadUrl: vi.fn() },
 }));
+vi.mock("@/server/assistant/artifact-iteration-telemetry", () => ({
+  emitArtifactIterationTelemetry: vi.fn(),
+}));
 
 import { beforeEach, vi } from "vitest";
 import { getAssistantActionById } from "@/server/repositories/assistant-action";
@@ -262,10 +265,18 @@ describe("compareArtifactVersions", () => {
       generationMode: "art_variation", ctaText: "Comprar", planVersionId: ids.planVersion,
     });
     vi.mocked(getArtifactLineage).mockResolvedValue({ artifactType: "creative" } as never);
+    let planReads = 0;
+    let releaseFirstPlan = () => {};
+    const firstPlan = new Promise<{ versionNumber: number }>((resolve) => {
+      releaseFirstPlan = () => resolve({ versionNumber: 3 });
+    });
     vi.mocked(getArtifactVersion).mockImplementation(async (_scope, id) => {
       if (id === ids.versionA) return creativeA as never;
       if (id === ids.versionB) return creativeB as never;
-      if (id === ids.planVersion) return { versionNumber: 3 } as never;
+      if (id === ids.planVersion) {
+        planReads += 1;
+        return planReads === 1 ? await firstPlan as never : { versionNumber: 3 } as never;
+      }
       return null;
     });
     vi.mocked(objectStorage.signedDownloadUrl)
@@ -290,12 +301,19 @@ describe("compareArtifactVersions", () => {
       },
     } as never);
 
-    const result = await compareArtifactVersions({
+    const pending = compareArtifactVersions({
       workspaceId: "ws-1", threadId: "thread-1", lineageId: ids.lineage,
       versionAId: ids.versionA, versionBId: ids.versionB,
     });
+    try {
+      await vi.waitFor(() => expect(planReads).toBe(2));
+    } finally {
+      releaseFirstPlan();
+    }
+    const result = await pending;
 
     expect(result.type).toBe("creative");
+    expect(getArtifactVersion).toHaveBeenCalledTimes(4);
     if (result.type !== "creative") return;
     expect(result.versionA).toMatchObject({
       previewUrl: null, previewError: "preview_unavailable", format: "1:1",
