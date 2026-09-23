@@ -75,6 +75,10 @@ export function useComposerSourceActions({
   ) => {
     const images = collectImageFiles(files);
     if (images.length === 0) return false;
+    if (uploadInFlightRef.current) {
+      setError("Envio em andamento. Selecione os arquivos novamente quando terminar.");
+      return false;
+    }
     if (workflowVariant === "progressive" && !objectiveRef.current) {
       setBufferedFile(images[0]!);
       announce(images.length > 1
@@ -96,7 +100,6 @@ export function useComposerSourceActions({
       focusBrandSwitcher();
       return false;
     }
-    if (uploadInFlightRef.current) return false;
     markPlanInputEdited();
     uploadInFlightRef.current = true;
     setIsUploading(true);

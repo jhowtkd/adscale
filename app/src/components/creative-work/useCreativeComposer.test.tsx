@@ -1441,6 +1441,29 @@ describe("useCreativeComposer", () => {
     expect(result.current.announcement).toBe("3 artes adicionadas");
   });
 
+  it("reports files selected during an active upload and accepts them on retry", async () => {
+    mocks.refetch.mockImplementation(async () => ({ data: workDetail() }));
+    mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false, refetch: mocks.refetch });
+    const firstUpload = deferred<{ assetId: string }>();
+    mocks.upload.mockReturnValueOnce(firstUpload.promise).mockResolvedValue({ assetId: "asset-second" });
+    const { result } = renderHook(() => useCreativeComposer({ initialWorkId: "work-1" }));
+    const first = new File(["first"], "first.png", { type: "image/png" });
+    const second = new File(["second"], "second.png", { type: "image/png" });
+
+    await act(async () => {
+      const adding = result.current.addFiles([first]);
+      expect(await result.current.addFiles([second])).toBe(false);
+      expect(mocks.upload).toHaveBeenCalledTimes(1);
+      firstUpload.resolve({ assetId: "asset-first" });
+      expect(await adding).toBe(true);
+    });
+
+    expect(result.current.error).toContain("Selecione os arquivos novamente");
+    await act(async () => { expect(await result.current.addFiles([second])).toBe(true); });
+    expect(mocks.upload).toHaveBeenCalledTimes(2);
+    expect(result.current.error).toBeNull();
+  });
+
   it("keeps successful sources and retries only the image that failed", async () => {
     mocks.refetch.mockImplementation(async () => ({ data: workDetail() }));
     mocks.work.mockReturnValue({ data: workDetail(), isLoading: false, isError: false, refetch: mocks.refetch });
