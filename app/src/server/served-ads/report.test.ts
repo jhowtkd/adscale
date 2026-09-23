@@ -125,6 +125,71 @@ describe("buildServedAdsReport (ICE-01B)", () => {
     expect(report.summary.ctrDefinition).toBe("clicks_divided_by_impressions");
   });
 
+  it.each([100, 1000, 10000])("visita %i fontes uma vez ao reunir contextos por anúncio", (size) => {
+    const sharedContext = context();
+    const sources = Array.from({ length: size }, (_, index) =>
+      sourceRow(`c${index}`, {}, sharedContext)
+    );
+    const originalIterator = sources[Symbol.iterator].bind(sources);
+    let visits = 0;
+    sources[Symbol.iterator] = function* () {
+      for (const source of originalIterator()) {
+        visits += 1;
+        yield source;
+      }
+    };
+
+    const report = buildServedAdsReport({
+      scope: { brandId: "b", workspaceId: "w", windowDays: 30, event: "purchase", mode: "live" },
+      sources,
+      now: NOW,
+    });
+    expect(report.summary.rows).toBe(size);
+    expect(report.summary.cpa).toBeCloseTo(750 / 12, 10);
+    expect(visits).toBe(size);
+  });
+
+  it("contexto de anúncio repetido exige todos os contribuidores compatíveis", () => {
+    const scope = { brandId: "b", workspaceId: "w", windowDays: 30, event: "purchase", mode: "live" } as const;
+    const first = sourceRow("c1");
+    const duplicate = sourceRow("c1", { ad_id: "ad-c1-2" });
+    const compatible = buildServedAdsReport({ scope, sources: [first, duplicate], now: NOW });
+    expect(compatible.summary.rows).toBe(1);
+    expect(compatible.summary.conversions).toBe(24);
+    expect(compatible.summary.cpa).toBeCloseTo(1500 / 24, 10);
+
+    for (const conflicting of [
+      sourceRow("c1", { ad_id: "ad-c1-2" }, null),
+      sourceRow("c1", { ad_id: "ad-c1-2" }, context({ periodStart: "2026-08-19T12:00:00.000Z" })),
+    ]) {
+      const report = buildServedAdsReport({ scope, sources: [first, conflicting], now: NOW });
+      expect(report.summary.rows).toBe(1);
+      expect(report.summary.conversions).toBe(24);
+      expect(report.summary.cpa).toBeNull();
+      expect(report.summary.cpaUnavailableReason).toBe("missing_context");
+    }
+  });
+
+  it("fontes vazias ou sem creative preservam linhas, ordem e CPA", () => {
+    const scope = { brandId: "b", workspaceId: "w", windowDays: 30, event: "purchase", mode: "live" } as const;
+    const empty = buildServedAdsReport({ scope, sources: [], now: NOW });
+    expect(empty.summary.rows).toBe(0);
+    expect(empty.summary.cpaUnavailableReason).toBe("no_rows");
+
+    const report = buildServedAdsReport({
+      scope,
+      sources: [
+        sourceRow("low", { clicks: 50 }),
+        sourceRow("ignored", { creative_id: null }, null),
+        sourceRow("high", { clicks: 200 }),
+      ],
+      now: NOW,
+    });
+    expect(report.rows.map((row) => row.creative_id)).toEqual(["high", "low"]);
+    expect(report.summary.conversions).toBe(24);
+    expect(report.summary.cpa).toBeCloseTo(1500 / 24, 10);
+  });
+
   it("coleta parcial: linha incompleta sinalizada, consolidado indisponível", () => {
     const report = buildServedAdsReport({
       scope: { brandId: "b", workspaceId: "w", windowDays: 30, event: "purchase", mode: "live" },
