@@ -1,6 +1,7 @@
-import { and, desc, eq, gte, lte, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../db";
 import { usageEvents } from "../db/schema";
+import type { StudioUsageEvent, StudioUsageWindow } from "../beta-analytics/aggregate";
 
 type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -90,31 +91,55 @@ export async function getUsageForWorkspace(workspaceId: string) {
     .orderBy(desc(usageEvents.createdAt));
 }
 
-export async function listUsageEventsForOwner(filters: {
-  workspaceId?: string;
-  from?: Date;
-  to?: Date;
-} = {}) {
-  const conditions = [];
-  if (filters.workspaceId) {
-    conditions.push(eq(usageEvents.workspaceId, filters.workspaceId));
+/** Exact debit/refund existence per Studio work and its 24-hour session window. */
+export async function listStudioUsageEventsForWindows(
+  windows: StudioUsageWindow[]
+): Promise<StudioUsageEvent[]> {
+  const events: StudioUsageEvent[] = [];
+  for (let offset = 0; offset < windows.length; offset += 100) {
+    const batch = windows.slice(offset, offset + 100).map((window) => ({
+      workspace_id: window.workspaceId,
+      creative_work_id: window.creativeWorkId,
+      started_at: window.startedAt.toISOString(),
+      ends_at: window.endsAt.toISOString(),
+    }));
+    const result = await db.execute(sql`
+      WITH windows AS (
+        SELECT DISTINCT workspace_id, creative_work_id, started_at, ends_at
+        FROM jsonb_to_recordset(${JSON.stringify(batch)}::jsonb)
+          AS w(workspace_id uuid, creative_work_id text, started_at timestamp, ends_at timestamp)
+      )
+      SELECT w.workspace_id, w.creative_work_id,
+        min(extract(epoch from u.created_at) * 1000) FILTER (WHERE u.amount > 0) AS debit_ms,
+        min(extract(epoch from u.created_at) * 1000) FILTER (
+          WHERE u.amount < 0 AND u.metadata -> 'refund' = 'true'::jsonb
+        ) AS refund_ms,
+        min(extract(epoch from u.created_at) * 1000) FILTER (
+          WHERE u.amount < 0 AND u.metadata -> 'refund' = 'true'::jsonb
+            AND u.metadata ->> 'description' = 'creative_work_dispatch_refund'
+        ) AS compensate_ms
+      FROM windows AS w
+      LEFT JOIN ${usageEvents} AS u
+        ON u.workspace_id = w.workspace_id
+        AND u.created_at >= w.started_at
+        AND u.created_at <= w.ends_at
+        AND u.metadata ->> 'creativeWorkId' = w.creative_work_id
+      GROUP BY w.workspace_id, w.creative_work_id, w.started_at, w.ends_at
+    `);
+    for (const row of result.rows) {
+      const workspaceId = String(row.workspace_id);
+      const creativeWorkId = String(row.creative_work_id);
+      for (const [field, amount, metadata] of [
+        ["debit_ms", 1, { creativeWorkId }],
+        ["refund_ms", -1, { creativeWorkId, refund: true }],
+        ["compensate_ms", -1, { creativeWorkId, refund: true, description: "creative_work_dispatch_refund" }],
+      ] as const) {
+        if (row[field] === null || row[field] === undefined) continue;
+        const milliseconds = Number(row[field]);
+        if (!Number.isFinite(milliseconds)) throw new Error("invalid_studio_usage_timestamp");
+        events.push({ workspaceId, amount, metadata, createdAt: new Date(milliseconds) });
+      }
+    }
   }
-  if (filters.from) {
-    conditions.push(gte(usageEvents.createdAt, filters.from));
-  }
-  if (filters.to) {
-    conditions.push(lte(usageEvents.createdAt, filters.to));
-  }
-
-  const query = db
-    .select({
-      workspaceId: usageEvents.workspaceId,
-      amount: usageEvents.amount,
-      metadata: usageEvents.metadata,
-      createdAt: usageEvents.createdAt,
-    })
-    .from(usageEvents)
-    .orderBy(desc(usageEvents.createdAt));
-
-  return conditions.length === 0 ? query : query.where(and(...conditions));
+  return events;
 }

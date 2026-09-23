@@ -33,7 +33,7 @@ vi.mock("@/server/db", () => {
     from: vi.fn(() => chain),
     where: vi.fn(() => chain),
     then(resolve: (value: unknown) => void) {
-      resolve([{ count: 25 }]);
+      resolve([{ started: 25, completed: 16, stopped: 4, clients: 4 }]);
     },
   };
   return { db: { select: vi.fn(() => chain) } };
@@ -41,6 +41,7 @@ vi.mock("@/server/db", () => {
 
 import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { computeGraduationReport } from "@/server/assistant/goal/analytics";
+import { db } from "@/server/db";
 
 const mockRequireOwner = vi.mocked(requirePlatformOwner);
 const mockCompute = vi.mocked(computeGraduationReport);
@@ -56,7 +57,13 @@ describe("GET /api/feedback/analytics/goal-agent", () => {
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.graduation.passed).toBe(true);
-    expect(mockCompute).toHaveBeenCalled();
+    expect(db.select).toHaveBeenCalledTimes(1);
+    expect(mockCompute).toHaveBeenCalledWith(expect.objectContaining({
+      startedObjectives: 25,
+      completedObjectives: 16,
+      distinctClients: 4,
+      stageDropoff: { stopped: 4 },
+    }));
   });
 
   it("rejects non-platform owners", async () => {

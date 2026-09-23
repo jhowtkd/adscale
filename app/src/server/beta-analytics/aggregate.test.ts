@@ -17,6 +17,7 @@ import {
   aggregateShareEngagementByAssistance,
   aggregateShareLinkOpens,
   aggregateStudioFunnel,
+  listStudioUsageWindows,
   buildAnalyticsFunnelSummary,
   eventsToCsvRows,
 } from "./aggregate";
@@ -491,6 +492,20 @@ describe("beta analytics aggregate", () => {
         ],
       },
     ]);
+  });
+
+  it("selects only confirmed works from mature, variant-matched Studio windows", () => {
+    const windows = listStudioUsageWindows(
+      STUDIO_ROLLOUT_FIXTURE_EVENTS,
+      new Date("2026-07-06T00:00:00.000Z")
+    );
+    expect(windows).toHaveLength(2);
+    expect(windows[0]).toMatchObject({
+      creativeWorkId: "66666666-6666-4666-8666-666666666666",
+      startedAt: new Date("2026-07-01T23:50:00.000Z"),
+      endsAt: new Date("2026-07-02T23:50:00.000Z"),
+    });
+    expect(windows[1].creativeWorkId).toBe("77777777-7777-4777-8777-777777777777");
   });
 
   it("excludes sessions that have not completed their 24-hour outcome window", () => {
