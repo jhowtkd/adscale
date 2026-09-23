@@ -179,6 +179,7 @@ export async function runAuthorizedCorpus(options: AuthorizedOptions) {
     const manifest = readManifest(manifestPath);
     if (manifest.header.corpusHash !== corpusHash || manifest.header.authorizationHash !== authorizationHash
       || manifest.header.maxCalls !== options.maxCalls) throw new Error("manifest_mismatch");
+    if (options.resume) syncDirectory(options.manifestDir);
     const canSend = !expired && manifest.started.size < options.maxCalls && options.cases.some((entry) =>
       !manifest.started.has(sha256(`${entry.id}\u0000${entry.family}`)) && projectSemanticReviewOffline(entry.work).ok
     );
