@@ -3,7 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   useNotifications,
-  useMarkNotificationAsRead,
+  useMarkNotificationsAsRead,
   useMarkAllNotificationsAsRead,
   useClearAllNotifications,
 } from "./use-notifications";
@@ -16,10 +16,9 @@ import { apiFetch } from "@/lib/api-client";
 
 const mockApiFetch = vi.mocked(apiFetch);
 
-function createWrapper() {
-  const queryClient = new QueryClient({
+function createWrapper(queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
-  });
+  })) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -68,7 +67,7 @@ describe("useNotifications", () => {
   });
 });
 
-describe("useMarkNotificationAsRead", () => {
+describe("useMarkNotificationsAsRead", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -85,16 +84,57 @@ describe("useMarkNotificationAsRead", () => {
         }),
     } as unknown as Response);
 
-    const { result } = renderHook(() => useMarkNotificationAsRead(), {
+    const { result } = renderHook(() => useMarkNotificationsAsRead(), {
       wrapper: createWrapper(),
     });
 
-    await result.current.mutateAsync("notif-1");
+    await result.current.mutateAsync(["notif-1"]);
 
     expect(mockApiFetch).toHaveBeenCalledWith(
       "/api/notifications/notif-1/read",
       { method: "PATCH" }
     );
+  });
+
+  it("marks only supplied IDs with limited concurrency and one cache invalidation", async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let active = 0;
+    let peak = 0;
+    mockApiFetch.mockImplementation(async (input) => {
+      active++;
+      peak = Math.max(peak, active);
+      await gate;
+      active--;
+      if (String(input).includes("notif-bad")) {
+        return Response.json({ error: "failed" }, { status: 500 });
+      }
+      return Response.json({ notification: { id: String(input), readAt: new Date().toISOString() } });
+    });
+
+    const onPartialFailure = vi.fn();
+    const { result, unmount } = renderHook(() => useMarkNotificationsAsRead(onPartialFailure), {
+      wrapper: createWrapper(queryClient),
+    });
+    const pending = result.current.mutateAsync([
+      "notif-1", "notif-bad", "notif-3", "notif-4",
+    ]);
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(3));
+    expect(peak).toBe(3);
+    expect(invalidateSpy).not.toHaveBeenCalled();
+
+    unmount();
+    release?.();
+    expect(await pending).toEqual({
+      succeededIds: ["notif-1", "notif-3", "notif-4"],
+      failedIds: ["notif-bad"],
+    });
+    expect(mockApiFetch).toHaveBeenCalledTimes(4);
+    expect(invalidateSpy).toHaveBeenCalledTimes(1);
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["notifications"] });
+    expect(onPartialFailure).toHaveBeenCalledWith(1);
   });
 });
 

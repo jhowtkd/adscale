@@ -4872,6 +4872,7 @@
     }
   },
   "notificationPanel": {
+    "markGroupFailed": "Failed to mark notifications as read ({count})",
     "groupSummary": {
       "one": "{count} new notification in \"{campaign}\"",
       "many": "{count} new notifications in \"{campaign}\"",
