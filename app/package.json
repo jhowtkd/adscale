@@ -17,6 +17,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config config/vitest.config.ts --passWithNoTests",
+    "jev:offline": "node --conditions=react-server --import tsx scripts/run-jev-offline.ts",
     "test:e2e": "playwright test",
     "test:guest-home": "vitest run --config config/vitest.config.ts src/lib/guest-home src/components/guest-home src/lib/public-studio-config.test.ts",
     "test:guest-home-e2e": "playwright test --project=guest-home-chromium",
