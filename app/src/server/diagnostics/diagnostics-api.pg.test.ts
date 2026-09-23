@@ -295,6 +295,60 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("works listing", () => {
     });
     expect(scoped.works.map((w) => w.workItemId)).toEqual([work.id]);
   });
+
+  it("keeps complete mixed-event counts and stable cursor ties", async () => {
+    const scope = await createScope("mixed-page");
+    const [failedWork, completedWork, partialWork] = await Promise.all([
+      createWork(scope, "failed"),
+      createWork(scope, "completed"),
+      createWork(scope, "partial"),
+    ]);
+    const earlier = hoursAgo(2);
+    const later = hoursAgo(1);
+    for (const [workItemId, event, stage, correlation, occurredAt] of [
+      [failedWork.id, "operation.started", "prepare", "full", earlier],
+      [failedWork.id, "operation.completed", "image", "full", later],
+      [failedWork.id, "operation.failed", "image", "full", later],
+      [completedWork.id, "stage.completed", "prepare", "full", earlier],
+      [completedWork.id, "operation.completed", "image", "full", later],
+      [partialWork.id, "stage.started", "prepare", "full", earlier],
+      [partialWork.id, "telemetry.degraded", "image", "partial", later],
+    ] as const) {
+      await insertEvent({
+        workspaceId: scope.workspaceId,
+        workItemId,
+        operationId: `op-${workItemId}`,
+        event,
+        stage,
+        correlation,
+        occurredAt,
+        recordedAt: occurredAt,
+      });
+    }
+
+    const first = await listDiagnosticWorks({ workspaceId: scope.workspaceId, limit: 1 });
+    const second = await listDiagnosticWorks({ workspaceId: scope.workspaceId, limit: 1, cursor: first.nextCursor! });
+    const third = await listDiagnosticWorks({ workspaceId: scope.workspaceId, limit: 1, cursor: second.nextCursor! });
+    expect(third.nextCursor).toBeNull();
+    const rows = [...first.works, ...second.works, ...third.works];
+    expect(new Set(rows.map((row) => row.workItemId)).size).toBe(3);
+    expect(rows.map((row) => row.workItemId)).toEqual(
+      rows.map((row) => row.workItemId).sort().reverse(),
+    );
+    const oldestFirst = await listDiagnosticWorks({ workspaceId: scope.workspaceId, sort: "oldest", limit: 1 });
+    const oldestSecond = await listDiagnosticWorks({ workspaceId: scope.workspaceId, sort: "oldest", limit: 1, cursor: oldestFirst.nextCursor! });
+    expect([oldestFirst.works[0].workItemId, oldestSecond.works[0].workItemId]).toEqual(
+      rows.map((row) => row.workItemId).sort().slice(0, 2),
+    );
+    expect(Object.fromEntries(rows.map((row) => [row.workItemId, [row.eventCount, row.states]]))).toEqual({
+      [failedWork.id]: [3, ["failed"]],
+      [completedWork.id]: [2, ["completed"]],
+      [partialWork.id]: [2, ["unconfirmed", "partial"]],
+    });
+    const prepare = await listDiagnosticWorks({ workspaceId: scope.workspaceId, stage: "prepare" });
+    expect(prepare.works).toHaveLength(3);
+    expect(prepare.works.every((row) => row.eventCount === 1 && row.states[0] === "unconfirmed")).toBe(true);
+  });
 });
 
 describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("Trabalho detail", () => {
