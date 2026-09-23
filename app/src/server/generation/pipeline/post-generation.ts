@@ -398,6 +398,39 @@ export async function runCreativeWorkQualityAssessment(
     });
   }
 
+  const assessmentPeople = input.people ?? [];
+  const comparable = file.ok
+    ? assessmentPeople.filter((person) => person.reference !== null)
+    : [];
+  const personAssessment = comparable.length > 0
+    ? (async (): Promise<PersonFidelityBlock["findings"]> => {
+        try {
+          const result = await observeImagePipelineExternalCall({
+            callType: "qa",
+            attempt: input.attempt,
+            ...input.telemetry,
+          }, () => analyzePersonFidelity({
+            imageBuffer: input.imageBuffer,
+            mimeType: "image/png",
+            people: comparable.map((person) => ({
+              personId: person.personId,
+              name: person.name,
+              preserve: person.preserve,
+              buffer: person.reference!.buffer,
+              mimeType: person.reference!.mimeType,
+            })),
+            locale: input.qa.locale,
+          }));
+          return result.findings;
+        } catch (error) {
+          logger.warn(
+            `[creative-work-quality-assessment] person fidelity failed outputId=${input.outputId} — persisting inconclusive: ${shortAssessmentError(error)}`,
+          );
+          return [];
+        }
+      })()
+    : Promise.resolve([] as PersonFidelityBlock["findings"]);
+
   // 2. Visual objective evaluation. A corrupt/unusable file cannot be
   // evaluated — the verdict is already a deterministic fail — so the vision
   // call is skipped instead of burning an evaluator call on garbage.
@@ -444,41 +477,12 @@ export async function runCreativeWorkQualityAssessment(
   // inconclusive finding. An assessor crash degrades the same way: doubt
   // never auto-approves and never triggers the correction loop.
   let personFidelity: PersonFidelityBlock | undefined;
-  const assessmentPeople = input.people ?? [];
   if (assessmentPeople.length > 0) {
     const referenceHash = personReferenceHash(assessmentPeople);
     const unavailableIssue = input.qa.locale.startsWith("pt")
       ? "Comparação indisponível para esta pessoa."
       : "Comparison unavailable for this person.";
-    const comparable = file.ok
-      ? assessmentPeople.filter((person) => person.reference !== null)
-      : [];
-    let assessed: PersonFidelityBlock["findings"] = [];
-    if (comparable.length > 0) {
-      try {
-        const result = await observeImagePipelineExternalCall({
-          callType: "qa",
-          attempt: input.attempt,
-          ...input.telemetry,
-        }, () => analyzePersonFidelity({
-          imageBuffer: input.imageBuffer,
-          mimeType: "image/png",
-          people: comparable.map((person) => ({
-            personId: person.personId,
-            name: person.name,
-            preserve: person.preserve,
-            buffer: person.reference!.buffer,
-            mimeType: person.reference!.mimeType,
-          })),
-          locale: input.qa.locale,
-        }));
-        assessed = result.findings;
-      } catch (error) {
-        logger.warn(
-          `[creative-work-quality-assessment] person fidelity failed outputId=${input.outputId} — persisting inconclusive: ${shortAssessmentError(error)}`,
-        );
-      }
-    }
+    const assessed = await personAssessment;
     const assessedById = new Map(assessed.map((finding) => [finding.personId, finding]));
     const unassessed = assessmentPeople.filter((person) => !assessedById.has(person.personId));
     const fallbackById = new Map(

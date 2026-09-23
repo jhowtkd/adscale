@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
+import pLimit from "p-limit";
 import { logger } from "@/lib/logger";
 import { getCreativeWorkObjectiveVerdict } from "@/lib/creative-work-selection-policy";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
@@ -100,7 +101,6 @@ import { exactPieceReferenceAssets } from "@/server/creative-work/piece-referenc
 import {
   CreativeWorkReferenceError,
   planCreativeWorkReferences,
-  type CreativeWorkReferencePlanAsset,
   type CreativeWorkReferenceRole,
   type CreativeWorkReferenceSlot,
 } from "@/server/creative-work/reference-plan";
@@ -156,6 +156,9 @@ interface CreativeWorkFailureEvent {
 
 const OUTPUT_COST = GENERATION_CREDIT_COSTS.creativeWorkOutput;
 const MAX_REFERENCE_IMAGES = 4;
+const REFERENCE_PREPARATION_CONCURRENCY = 2;
+// ponytail: process-wide cap protects worker memory; use per-job limits if throughput becomes a measured bottleneck.
+const referencePreparationLimit = pLimit(REFERENCE_PREPARATION_CONCURRENCY);
 const CREATIVE_WORK_RUNTIME_ENVIRONMENT =
   process.env.RENDER_SERVICE_NAME ?? process.env.RENDER_SERVICE_ID ?? process.env.NODE_ENV ?? "unknown";
 
@@ -885,24 +888,33 @@ const creativeWorkOutputJobHandler = async ({
       const exactAssetBuffers = new Map<string, Buffer>();
       const exactAssetDimensions = new Map<string, { width: number; height: number }>();
       try {
-        for (const asset of exactAssets) {
-          const policy = policyForExactAsset(asset.category, targetFormat);
-          try {
+        for (let start = 0; start < exactAssets.length; start += REFERENCE_PREPARATION_CONCURRENCY) {
+          const assets = exactAssets.slice(start, start + REFERENCE_PREPARATION_CONCURRENCY);
+          const inspected = await Promise.allSettled(assets.map((asset) => referencePreparationLimit(async () => {
             const buffer = await objectStorage.get(asset.assetKey);
             const inspection = await inspectExactCompositionAsset(buffer);
             if (!inspection.ok) throw new Error("exact_asset_decode_failed");
             if (asset.hasAlpha && !inspection.hasUsableTransparency) {
               throw new Error("exact_asset_alpha_unusable");
             }
-            exactAssetBuffers.set(asset.assetKey, buffer);
-            exactAssetDimensions.set(asset.assetKey, { width: inspection.width, height: inspection.height });
-          } catch (error) {
-            if (!policy?.omissible) throw error;
+            return { buffer, inspection };
+          })));
+          for (const [index, result] of inspected.entries()) {
+            const asset = assets[index]!;
+            if (result.status === "fulfilled") {
+              exactAssetBuffers.set(asset.assetKey, result.value.buffer);
+              exactAssetDimensions.set(asset.assetKey, {
+                width: result.value.inspection.width,
+                height: result.value.inspection.height,
+              });
+              continue;
+            }
+            if (!policyForExactAsset(asset.category, targetFormat)?.omissible) throw result.reason;
             preflightExactOmissions.push({
               referenceId: asset.referenceId,
               assetKey: asset.assetKey,
               label: asset.label,
-              reason: error instanceof Error && error.message === "exact_asset_alpha_unusable"
+              reason: result.reason instanceof Error && result.reason.message === "exact_asset_alpha_unusable"
                 ? "exact_asset_missing_alpha"
                 : "exact_asset_load_failed",
             });
@@ -1101,7 +1113,7 @@ const creativeWorkOutputJobHandler = async ({
           // those reach the prompt builder — a skipped optional slot never
           // desyncs the numbering from the provider image array.
           const loadedReferences = (await Promise.all(
-            planned.map(async (slot): Promise<{
+            planned.map((slot) => referencePreparationLimit(async (): Promise<{
               slot: CreativeWorkReferenceSlot;
               reference: { buffer: Buffer; mimeType: string; name: string };
             } | null> => {
@@ -1130,7 +1142,7 @@ const creativeWorkOutputJobHandler = async ({
                 );
                 return null;
               }
-            }),
+            })),
           )).filter((loaded): loaded is {
             slot: CreativeWorkReferenceSlot;
             reference: { buffer: Buffer; mimeType: string; name: string };
@@ -1144,12 +1156,22 @@ const creativeWorkOutputJobHandler = async ({
             slot: CreativeWorkReferenceSlot;
             reference: { buffer: Buffer; mimeType: string; name: string };
           }> = [];
-          for (const loaded of loadedReferences) {
-            try {
-              const normalized = await normalizeCreativeWorkReferenceImage({
-                buffer: loaded.reference.buffer,
-                mimeType: loaded.reference.mimeType,
-              });
+          const normalizedResults = await Promise.allSettled(loadedReferences.map((loaded) =>
+            referencePreparationLimit(async () => {
+              try {
+                return await normalizeCreativeWorkReferenceImage({
+                  buffer: loaded.reference.buffer,
+                  mimeType: loaded.reference.mimeType,
+                });
+              } finally {
+                loaded.reference.buffer = Buffer.alloc(0);
+              }
+            })
+          ));
+          for (const [index, result] of normalizedResults.entries()) {
+            const loaded = loadedReferences[index]!;
+            if (result.status === "fulfilled") {
+              const normalized = result.value;
               normalizedReferences.push({
                 slot: loaded.slot,
                 reference: {
@@ -1158,7 +1180,8 @@ const creativeWorkOutputJobHandler = async ({
                   name: normalizedCreativeWorkReferenceName(loaded.reference.name, normalized.mimeType),
                 },
               });
-            } catch (error) {
+            } else {
+              const error = result.reason;
               if (loaded.slot.required) {
                 throw new CreativeWorkReferenceError(
                   `${loaded.slot.role} reference "${loaded.slot.label}" could not be normalized`,
@@ -1284,11 +1307,11 @@ const creativeWorkOutputJobHandler = async ({
             ? [...revisionReferences, ...sourceReferences, ...referenceAssets]
             : [...revisionReferences, ...referenceAssets, ...sourceReferences];
           referenceImages = await Promise.all(
-            orderedReferences.slice(0, MAX_REFERENCE_IMAGES).map(async (asset) => ({
+            orderedReferences.slice(0, MAX_REFERENCE_IMAGES).map((asset) => referencePreparationLimit(async () => ({
               buffer: await objectStorage.get(asset.assetKey),
               mimeType: asset.mimeType,
               name: asset.label,
-            })),
+            }))),
           );
           referenceImages = await normalizeReferenceBuffers(referenceImages);
         }

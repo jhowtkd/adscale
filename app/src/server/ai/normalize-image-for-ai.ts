@@ -125,20 +125,22 @@ export async function normalizeReferenceBuffers(
   refs: Array<{ buffer: Buffer; mimeType: string; name: string }>
 ): Promise<ImageReference[]> {
   const normalized: ImageReference[] = [];
-  for (const ref of refs) {
-    const result = await normalizeImageForAi({
-      buffer: ref.buffer,
-      mimeType: ref.mimeType,
-    });
-    const ext = result.mimeType === "image/png" ? "png" : "webp";
-    const baseName = ref.name.replace(/\.[^.]+$/, "") || "reference";
-    normalized.push({
-      buffer: result.buffer,
-      mimeType: result.mimeType,
-      name: `${baseName}.${ext}`,
-    });
-    // Drop the caller's raw buffer reference as soon as the normalized copy exists.
-    (ref as { buffer?: Buffer }).buffer = undefined;
+  for (let index = 0; index < refs.length; index += 2) {
+    const batch = await Promise.allSettled(refs.slice(index, index + 2).map(async (ref) => {
+      const result = await normalizeImageForAi({
+        buffer: ref.buffer,
+        mimeType: ref.mimeType,
+      });
+      const ext = result.mimeType === "image/png" ? "png" : "webp";
+      const baseName = ref.name.replace(/\.[^.]+$/, "") || "reference";
+      // Drop the caller's raw buffer reference as soon as the normalized copy exists.
+      (ref as { buffer?: Buffer }).buffer = undefined;
+      return { buffer: result.buffer, mimeType: result.mimeType, name: `${baseName}.${ext}` };
+    }));
+    for (const result of batch) {
+      if (result.status === "rejected") throw result.reason;
+      normalized.push(result.value);
+    }
   }
   return normalized;
 }
