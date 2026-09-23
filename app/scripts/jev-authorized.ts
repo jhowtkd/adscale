@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { canonicalJsonStringify } from "../src/server/creative-work/canonical-json";
 import { evaluateJev, type JevResult } from "../src/server/creative-work/semantic-review-http";
-import { projectSemanticReviewOffline, SEMANTIC_MODEL, SEMANTIC_PROFILE, type SemanticProjection } from "../src/server/creative-work/semantic-review-offline";
+import { parseControlledDecisions, projectSemanticReviewOffline, SEMANTIC_MODEL, SEMANTIC_PROFILE, SEMANTIC_QUESTIONS, type SemanticProjection } from "../src/server/creative-work/semantic-review-offline";
 import { DIAGNOSTIC_SCHEMA_VERSION, type DiagnosticContext, type DiagnosticEventEnvelope, type DiagnosticEventName } from "../src/server/diagnostics/contract";
 import type { SyntheticCase } from "./run-jev-offline";
 
@@ -144,7 +144,7 @@ export async function runAuthorizedCorpus(options: AuthorizedOptions) {
   const corpusHash = syntheticCorpusHash(options.cases);
   const { value: authorization, expired: initiallyExpired } = validateAuthorization(options.authorization, corpusHash, options.maxCalls, now, Boolean(options.resume));
   let expired = initiallyExpired;
-  if (!options.credential?.trim()) throw new Error("missing_credential");
+  if (!expired && !options.credential?.trim()) throw new Error("missing_credential");
   const { createDiagnosticContext, withDiagnosticContext } = await import("../src/server/diagnostics/context");
   const journal = options.diagnosticSink || expired ? null : await import("../src/server/diagnostics/journal");
   const diagnosticSink = options.diagnosticSink ?? journal?.enqueueDiagnosticEvent ?? (() => {});
@@ -202,7 +202,7 @@ export async function runAuthorizedCorpus(options: AuthorizedOptions) {
       recordDiagnostic(diagnosticSink, context, "model.call.started", { call });
       const callStarted = performance.now();
       let result: JevResult;
-      try { result = await withDiagnosticContext(context, () => transport(projected.projection, options.credential)); }
+      try { result = await withDiagnosticContext(context, () => transport(projected.projection, options.credential!)); }
       catch { result = { ok: false, reason: "network_error" }; }
       const durationMs = Math.max(0, Math.round(performance.now() - callStarted));
       if (result.ok) {
@@ -225,12 +225,40 @@ export async function runAuthorizedCorpus(options: AuthorizedOptions) {
       manifest.terminal.set(caseKey, terminal);
     }
     const outcomes = [...manifest.terminal.values()];
+    const splitMetrics = (split: SyntheticCase["split"]) => {
+      const entries = options.cases.filter((entry) => entry.split === split);
+      const matrix = Object.fromEntries(SEMANTIC_QUESTIONS.map((question) => [question, {}])) as Record<string, Record<string, Record<string, number>>>;
+      let completed = 0;
+      let evaluated = 0;
+      let agreed = 0;
+      for (const entry of entries) {
+        const terminal = manifest.terminal.get(sha256(`${entry.id}\u0000${entry.family}`));
+        if (terminal?.outcome !== "completed") continue;
+        completed += 1;
+        const decisions = parseControlledDecisions({ model: SEMANTIC_MODEL, decisions: terminal.decisions });
+        if (!decisions) continue;
+        evaluated += 1;
+        let caseAgreed = true;
+        for (const question of SEMANTIC_QUESTIONS) {
+          const expected = entry.expected[question];
+          const observed = decisions[question];
+          const row = (matrix[question] ??= {})[expected] ??= {};
+          row[observed] = (row[observed] ?? 0) + 1;
+          if (expected !== observed) caseAgreed = false;
+        }
+        if (caseAgreed) agreed += 1;
+      }
+      return { cases: entries.length, completed, evaluated, syntheticFamilyAgreement: {
+        numerator: agreed, denominator: evaluated, value: evaluated ? agreed / evaluated : null,
+      }, matrix };
+    };
     return {
       origin: "synthetic" as const, execution: "live_authorized" as const, humanReference: "not_collected" as const,
       corpusHash, started: manifest.started.size,
       completed: outcomes.filter((record) => record.outcome === "completed").length,
       failed: outcomes.filter((record) => record.outcome === "failed").length,
       outcomeUnknown: outcomes.filter((record) => record.outcome === "outcome_unknown").length,
+      splits: { calibration: splitMetrics("calibration"), holdout: splitMetrics("holdout") },
       excluded,
       remainingCalls: expired ? 0 : Math.max(0, options.maxCalls - manifest.started.size),
     };

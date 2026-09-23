@@ -98,10 +98,30 @@ describe("authorized Jev run manifest", () => {
     const resumed = await runAuthorizedCorpus({ ...options, resume: true, transport });
     expect(resumed).toMatchObject({ started: 1, completed: 0, failed: 0, outcomeUnknown: 1, remainingCalls: 0 });
     expect(transport).toHaveBeenCalledTimes(1);
-    const afterExpiry = await runAuthorizedCorpus({ ...options, resume: true, now: new Date("2026-09-25T00:00:00.000Z"), transport });
+    const afterExpiry = await runAuthorizedCorpus({ ...options, credential: undefined, resume: true, now: new Date("2026-09-25T00:00:00.000Z"), transport });
     expect(afterExpiry).toMatchObject({ outcomeUnknown: 1, remainingCalls: 0 });
     expect(transport).toHaveBeenCalledTimes(1);
     await expect(runAuthorizedCorpus({ ...options, resume: true, authorization: { ...options.authorization, maxCalls: 2 }, transport })).rejects.toThrow("manifest_mismatch");
+  });
+
+  it("reports calibration and holdout agreement from completed provider decisions", async () => {
+    const options = fixture(2);
+    const mixedCases = [SYNTHETIC_CASES[0], SYNTHETIC_CASES[6]];
+    const transport = vi.fn()
+      .mockResolvedValueOnce({ ok: true, decisions: mixedCases[0].expected, usage: null, confidence: {}, probabilities: {} })
+      .mockResolvedValueOnce({ ok: true, decisions: cases[0].expected, usage: null, confidence: {}, probabilities: {} });
+    const report = await runAuthorizedCorpus({ ...options, cases: mixedCases,
+      authorization: { ...options.authorization, corpusSha256: syntheticCorpusHash(mixedCases) }, transport });
+    expect(report.splits.calibration).toMatchObject({
+      cases: 1, completed: 1, evaluated: 1,
+      syntheticFamilyAgreement: { numerator: 1, denominator: 1, value: 1 },
+    });
+    expect(report.splits.holdout).toMatchObject({
+      cases: 1, completed: 1, evaluated: 1,
+      syntheticFamilyAgreement: { numerator: 0, denominator: 1, value: 0 },
+    });
+    expect(report.splits.holdout.matrix.body_claims.unsupported.not_applicable).toBe(1);
+    expect(transport).toHaveBeenCalledTimes(2);
   });
 
   it("counts definite failures and uncertain timeouts against the call cap", async () => {
