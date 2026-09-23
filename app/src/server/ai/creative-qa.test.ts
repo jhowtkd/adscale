@@ -1145,4 +1145,21 @@ describe("trace-389: quality/revision model-call observation", () => {
     }))).rejects.toThrow("Invalid art comparison reason");
     expect(captured.filter((event) => event.event === "model.validation.failed")).toHaveLength(1);
   });
+
+  it.each([undefined, "intruder"])("rejects an art comparison with invalid winner %s", async (winner) => {
+    responsesCreate.mockResolvedValueOnce({
+      output_text: JSON.stringify({ winner, reason: "Concrete reason.", fixedIssues: [], regressions: [] }),
+    });
+
+    await expect(withDiagnosticContext(testContext(), () => analyzeArtComparison({
+      brief: "Promo",
+      beforeImageBuffer: Buffer.from("before"),
+      afterImageBuffer: Buffer.from("after"),
+      mimeType: "image/png",
+      beforeProblem: null,
+      afterProblem: null,
+      locale: "pt-BR",
+    }))).rejects.toThrow("Invalid art comparison winner");
+    expect(captured.filter((event) => event.event === "model.validation.failed")).toHaveLength(1);
+  });
 });

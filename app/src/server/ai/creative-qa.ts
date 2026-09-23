@@ -1318,5 +1318,10 @@ export async function analyzeArtComparison(
     reportModelValidationFailed({ ...trace, reason: "invalid-reason" });
     throw new Error("Invalid art comparison reason");
   }
+  const winner = (parsed as Record<string, unknown>).winner;
+  if (winner !== "before" && winner !== "after" && winner !== "tie") {
+    reportModelValidationFailed({ ...trace, reason: "invalid-winner" });
+    throw new Error("Invalid art comparison winner");
+  }
   return normalizeArtComparisonResult(parsed, fallbackReason);
 }
