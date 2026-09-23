@@ -7,9 +7,10 @@ import { GET } from "./route";
 
 vi.mock("@/server/auth/workspace", () => ({ requireWorkspaceAccess: vi.fn() }));
 
-const url = process.env.DATABASE_URL;
-const localTestDb = url && new URL(url).hostname === "localhost"
-  && new URL(url).port === "5433" && new URL(url).pathname === "/adscale_test";
+const dbUrl = process.env.DATABASE_URL && new URL(process.env.DATABASE_URL);
+const localTestDb = dbUrl?.pathname === "/adscale_test"
+  && ["localhost", "127.0.0.1"].includes(dbUrl.hostname)
+  && ["5432", "5433"].includes(dbUrl.port);
 
 (localTestDb ? describe : describe.skip)("user export against isolated PostgreSQL", () => {
   const userId = `export-test-${crypto.randomUUID()}`;
