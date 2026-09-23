@@ -27,14 +27,22 @@ export const SEMANTIC_QUESTIONS = [
 ] as const;
 
 const factualClasses = ["supported", "unsupported", "contradicted", "not_applicable", "insufficient_context"] as const;
+export const SEMANTIC_OPTIONS = {
+  briefing_claims: factualClasses,
+  headline_claims: factualClasses,
+  body_claims: factualClasses,
+  cta_claims: factualClasses,
+  intent_alignment: ["aligned", "divergent", "insufficient_context"],
+  prohibited_claims: ["compliant", "violated", "not_applicable", "insufficient_context"],
+} as const;
 const factualDecision = z.enum(factualClasses);
 const decisionsSchema = z.object({
   briefing_claims: factualDecision,
   headline_claims: factualDecision,
   body_claims: factualDecision,
   cta_claims: factualDecision,
-  intent_alignment: z.enum(["aligned", "divergent", "insufficient_context"]),
-  prohibited_claims: z.enum(["compliant", "violated", "not_applicable", "insufficient_context"]),
+  intent_alignment: z.enum(SEMANTIC_OPTIONS.intent_alignment),
+  prohibited_claims: z.enum(SEMANTIC_OPTIONS.prohibited_claims),
 }).strict();
 export type SemanticDecisions = z.infer<typeof decisionsSchema>;
 
