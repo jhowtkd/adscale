@@ -283,6 +283,14 @@ Detalhes: `[marketing/2026-Q3/fontes-pauta.md](marketing/2026-Q3/fontes-pauta.md
 
 Revisão obrigatória aqui é a confirmação operacional de uma geração cobrada, não um wizard obrigatório para editar briefing. "Versões" designa histórico de revisão e "Criar variação" mantém a base no mesmo Trabalho. A UI não muda o protocolo do rascunho para produzir um filho.
 
+## 10c. Decisão restrita — piloto Jev de revisão semântica (2026-09-22)
+
+O piloto da [spec #465](https://github.com/jhowtkd/adscale/issues/465) observa somente texto de Trabalhos preparados no Protocolo Peça única (`single`), fora do caminho de criação. A primeira etapa (#466) usa snapshots e respostas sintéticos em CLI local, sem rede, banco, dados reais ou efeito em prontidão, geração, cobrança, seleção e exportação. Fatos, briefing e copy vêm do snapshot congelado do Trabalho; fontes só visuais não sustentam alegações. Resultado controlado não autoriza ativação nem equivale a evidência humana.
+
+Uma etapa posterior exige política própria e consentimento para fornecedor, finalidade, marcas, prazo e gasto; a allowlist do ICE-05B (ADR 0018) não concede essa autorização. Quando houver chamada real, a observação usa o journal e o contexto de diagnóstico existentes com `operationKind=semantic_review`, eventos `operation.*` e `model.call.*` sem `stage` e sem texto. `observeModelCall` exige `stage` e não deve ser chamado junto com essa sequência. O contrato v1 congelado pelo ADR 0017 continua intacto; a observação persistida será a autoridade de processamento e o journal será auxiliar. Nenhum destino primário ou módulo de IA paralelo nasce deste piloto.
+
+Na avaliação offline, famílias inteiras ficam em calibração ou holdout, com representante principal escolhido antes dos resultados. Qualquer referência humana futura exige dois revisores distintos e cegos para candidato e baseline; divergências são adjudicadas e ambiguidades continuam explícitas. Rótulos sintéticos de fixture testam instrumentação, não substituem essa referência.
+
 ## 11. Links canônicos
 
 
