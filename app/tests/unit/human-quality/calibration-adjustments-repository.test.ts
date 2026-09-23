@@ -5,12 +5,14 @@ vi.mock("@/server/db", () => ({
     insert: vi.fn(),
     select: vi.fn(),
     update: vi.fn(),
+    transaction: vi.fn(),
   },
 }));
 
 import { db } from "@/server/db";
 import {
-  insertProposedAdjustment,
+  insertProposedAdjustments,
+  listExistingAdjustmentKeys,
   listProposedAdjustments,
   rejectAdjustment,
 } from "@/server/repositories/rubric-calibration-adjustments";
@@ -39,9 +41,12 @@ describe("rubric-calibration-adjustments repository", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    (db.transaction as ReturnType<typeof vi.fn>).mockImplementation(async (callback) =>
+      callback({ insert: db.insert })
+    );
   });
 
-  it("insertProposedAdjustment persists status proposed with adjustmentVersion and evidence JSON", async () => {
+  it("inserts a proposal batch in one transaction and returns persisted evidence", async () => {
     const mockReturning = vi.fn().mockResolvedValue([
       {
         id: "adj-1",
@@ -51,12 +56,12 @@ describe("rubric-calibration-adjustments repository", () => {
         createdAt: new Date("2026-06-17"),
       },
     ]);
-    const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+    const mockValues = vi.fn().mockReturnValue({ onConflictDoNothing: () => ({ returning: mockReturning }) });
     (db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values: mockValues });
 
-    const result = await insertProposedAdjustment(baseInput);
+    const result = await insertProposedAdjustments([baseInput]);
 
-    expect(mockValues).toHaveBeenCalledWith(
+    expect(mockValues).toHaveBeenCalledWith([
       expect.objectContaining({
         adjustmentVersion: "1.0.0",
         status: "proposed",
@@ -64,10 +69,11 @@ describe("rubric-calibration-adjustments repository", () => {
         targetKey: "visual_overload",
         sliceKey: baseInput.sliceKey,
         evidenceRefs: baseInput.evidenceRefs,
-      })
-    );
-    expect(result.status).toBe("proposed");
-    expect(result.id).toBe("adj-1");
+      }),
+    ]);
+    expect(db.transaction).toHaveBeenCalledTimes(1);
+    expect(result[0].status).toBe("proposed");
+    expect(result[0].id).toBe("adj-1");
   });
 
   it("listProposedAdjustments filters by adjustmentVersion and status", async () => {
@@ -96,10 +102,10 @@ describe("rubric-calibration-adjustments repository", () => {
         evidenceRefs: baseInput.evidenceRefs,
       },
     ]);
-    const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+    const mockValues = vi.fn().mockReturnValue({ onConflictDoNothing: () => ({ returning: mockReturning }) });
     (db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values: mockValues });
 
-    const result = await insertProposedAdjustment(baseInput);
+    const [result] = await insertProposedAdjustments([baseInput]);
 
     expect(result.evidenceRefs.corpusItemIds).toEqual(["item-1", "item-2", "item-3"]);
     expect(result.evidenceRefs.sliceStats.meanSignedDelta).toBe(18);
@@ -108,6 +114,25 @@ describe("rubric-calibration-adjustments repository", () => {
       corpusItemId: "item-1",
       scoreDelta: 20,
     });
+  });
+
+  it("queries existing identities per chunk and rejects a failed later write", async () => {
+    const where = vi.fn().mockResolvedValueOnce([baseInput]).mockResolvedValueOnce([]);
+    (db.select as ReturnType<typeof vi.fn>).mockReturnValue({
+      from: () => ({ where }),
+    });
+    const sliceKeys = Array.from({ length: 101 }, (_, index) => `slice-${index}`);
+    expect(await listExistingAdjustmentKeys([baseInput.adjustmentVersion], sliceKeys)).toHaveLength(1);
+    expect(db.select).toHaveBeenCalledTimes(2);
+
+    const returning = vi.fn()
+      .mockResolvedValueOnce(Array.from({ length: 100 }, (_, i) => ({ id: `adj-${i}` })))
+      .mockRejectedValueOnce(new Error("insert failed"));
+    const values = vi.fn().mockReturnValue({ onConflictDoNothing: () => ({ returning }) });
+    (db.insert as ReturnType<typeof vi.fn>).mockReturnValue({ values });
+    await expect(insertProposedAdjustments(sliceKeys.map((sliceKey) => ({ ...baseInput, sliceKey })))).rejects.toThrow("insert failed");
+    expect(values).toHaveBeenCalledTimes(2);
+    expect(db.transaction).toHaveBeenCalledTimes(1);
   });
 
   it("rejectAdjustment sets status rejected with reason and audit fields", async () => {
