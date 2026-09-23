@@ -10,7 +10,7 @@ import {
 import { objectStorage } from "@/server/storage";
 import { db } from "@/server/db";
 import { campaignAssets, derivations, workspaceAssets } from "@/server/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 const patchSchema = z.object({
   status: z.enum(["new", "reviewing", "resolved", "archived"]).optional(),
@@ -25,6 +25,24 @@ async function resolveAssetLinks(
   if (!assetRefs?.length) return [];
 
   const links: Array<{ kind: string; id: string; url?: string; key?: string }> = [];
+  const campaignIds = [...new Set(assetRefs.filter((ref) => ref.kind === "campaign_asset").map((ref) => ref.id))];
+  const workspaceIds = [...new Set(assetRefs.filter((ref) => ref.kind === "workspace_asset").map((ref) => ref.id))];
+  const [campaignRows, workspaceRows] = await Promise.all([
+    campaignIds.length
+      ? db.select({ id: campaignAssets.id, key: campaignAssets.key }).from(campaignAssets).where(and(
+          eq(campaignAssets.workspaceId, workspaceId),
+          inArray(campaignAssets.id, campaignIds),
+        ))
+      : [],
+    workspaceIds.length
+      ? db.select({ id: workspaceAssets.id, key: workspaceAssets.key }).from(workspaceAssets).where(and(
+          eq(workspaceAssets.workspaceId, workspaceId),
+          inArray(workspaceAssets.id, workspaceIds),
+        ))
+      : [],
+  ]);
+  const campaignKeys = new Map(campaignRows.map((row) => [row.id, row.key]));
+  const workspaceKeys = new Map(workspaceRows.map((row) => [row.id, row.key]));
 
   for (const ref of assetRefs) {
     if (ref.kind === "derivation_output" && ref.key) {
@@ -37,47 +55,17 @@ async function resolveAssetLinks(
       continue;
     }
 
-    if (ref.kind === "campaign_asset") {
-      const [asset] = await db
-        .select()
-        .from(campaignAssets)
-        .where(
-          and(
-            eq(campaignAssets.id, ref.id),
-            eq(campaignAssets.workspaceId, workspaceId)
-          )
-        )
-        .limit(1);
-      if (asset) {
-        links.push({
-          kind: ref.kind,
-          id: ref.id,
-          key: asset.key,
-          url: await objectStorage.signedDownloadUrl(asset.key),
-        });
-      }
-      continue;
-    }
-
-    if (ref.kind === "workspace_asset") {
-      const [asset] = await db
-        .select()
-        .from(workspaceAssets)
-        .where(
-          and(
-            eq(workspaceAssets.id, ref.id),
-            eq(workspaceAssets.workspaceId, workspaceId)
-          )
-        )
-        .limit(1);
-      if (asset) {
-        links.push({
-          kind: ref.kind,
-          id: ref.id,
-          key: asset.key,
-          url: await objectStorage.signedDownloadUrl(asset.key),
-        });
-      }
+    if (ref.kind !== "campaign_asset" && ref.kind !== "workspace_asset") continue;
+    const key = ref.kind === "campaign_asset"
+      ? campaignKeys.get(ref.id)
+      : workspaceKeys.get(ref.id);
+    if (key) {
+      links.push({
+        kind: ref.kind,
+        id: ref.id,
+        key,
+        url: await objectStorage.signedDownloadUrl(key),
+      });
     }
   }
 

@@ -56,10 +56,42 @@ import {
   BrandKnowledgeEvidenceError,
   buildRepertoireReviewedCandidate,
   publishBrandKnowledgeVersion,
+  resolveEvidenceHashes,
   reviewRepertoireCollection,
 } from "./brand-knowledge";
 
 describe("brand knowledge persistence invariants", () => {
+  it("checks human evidence membership once for the whole claim set", async () => {
+    dbMock.reset();
+    dbMock.db.select.mockClear();
+    dbMock.state.selects.push(
+      [{ id: "profile-1" }],
+      [{ userId: "user-1" }, { userId: "user-2" }],
+    );
+    const claims = [
+      { value: "A", evidenceRefs: [{ type: "human", id: "user-1", path: "review", sourceHash: "a".repeat(64) }] },
+      { value: "B", evidenceRefs: [{ type: "human", id: "user-2", path: "review", sourceHash: "b".repeat(64) }] },
+    ];
+
+    const hashes = await resolveEvidenceHashes(dbMock.db as never, "workspace-1", "profile-1", claims as never);
+
+    expect(hashes.size).toBe(2);
+    expect(dbMock.db.select).toHaveBeenCalledTimes(2); // profile + members
+  });
+
+  it("rejects a human reference outside the workspace after one batch lookup", async () => {
+    dbMock.reset();
+    dbMock.db.select.mockClear();
+    dbMock.state.selects.push([{ id: "profile-1" }], [{ userId: "user-1" }]);
+
+    await expect(resolveEvidenceHashes(dbMock.db as never, "workspace-1", "profile-1", [
+      { value: "A", evidenceRefs: [{ type: "human", id: "user-1", path: "review", sourceHash: "a".repeat(64) }] },
+      { value: "B", evidenceRefs: [{ type: "human", id: "foreign", path: "review", sourceHash: "b".repeat(64) }] },
+    ] as never)).rejects.toThrow("Human evidence foreign is outside this workspace");
+
+    expect(dbMock.db.select).toHaveBeenCalledTimes(2);
+  });
+
   it("keys evidence by type, owner and path so one profile field cannot mask another", () => {
     expect(brandKnowledgeEvidenceKey({ type: "brand_kit_field", id: "profile-1", path: "brandColors" }))
       .not.toBe(brandKnowledgeEvidenceKey({ type: "brand_kit_field", id: "profile-1", path: "brandFonts" }));

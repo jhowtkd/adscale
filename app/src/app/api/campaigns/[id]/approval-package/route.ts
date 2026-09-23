@@ -18,7 +18,7 @@ import {
 } from "@/server/repositories/share-link";
 import { recordBetaAnalyticsEvent } from "@/server/beta-analytics/record";
 import { getBetaSessionIdFromRequest } from "@/server/beta-analytics/session";
-import { recordOutputDecisionEvidenceBestEffort } from "@/server/output-learning/output-decision-recorder";
+import { recordOutputDecisionEvidenceFromValidatedRootsBestEffort } from "@/server/output-learning/output-decision-recorder";
 
 const SHARE_LINK_TTL_DAYS = 7;
 
@@ -83,23 +83,6 @@ async function loadCampaignContext(campaignId: string, workspaceId: string) {
     campaign,
     derivations: derivations.map(toDerivationLike),
   };
-}
-
-function validateSelectedRoots(
-  selectedRootIds: string[],
-  derivations: DerivationLike[]
-) {
-  const approvedRoots = new Set(
-    getPackageEligibleRoots(derivations).map((d) => d.id)
-  );
-
-  for (const id of selectedRootIds) {
-    if (!approvedRoots.has(id)) {
-      return false;
-    }
-  }
-
-  return true;
 }
 
 export async function GET(
@@ -184,8 +167,9 @@ export async function POST(
 
     const { campaign, derivations } = context;
     const selectedRootIds = [...new Set(parsed.data.derivationIds)];
+    const approvedRootIds = new Set(getPackageEligibleRoots(derivations).map((root) => root.id));
 
-    if (!validateSelectedRoots(selectedRootIds, derivations)) {
+    if (!selectedRootIds.every((id) => approvedRootIds.has(id))) {
       return apiError("invalidApprovalPackageSelection", 409);
     }
 
@@ -261,7 +245,7 @@ export async function POST(
 
     for (const rootId of selectedRootIds) {
       const rootDerivation = derivations.find((d) => d.id === rootId);
-      void recordOutputDecisionEvidenceBestEffort({
+      void recordOutputDecisionEvidenceFromValidatedRootsBestEffort({
         workspaceId: workspace.id,
         userId: user.id,
         clientProfileId: campaign.clientProfileId ?? null,
@@ -278,7 +262,7 @@ export async function POST(
               status: rootDerivation.status,
             }
           : undefined,
-      });
+      }, { campaign, approvedRootIds });
     }
 
     return NextResponse.json({
