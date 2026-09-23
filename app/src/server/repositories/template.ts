@@ -1,4 +1,4 @@
-import { eq, and, desc, or, lt } from "drizzle-orm";
+import { eq, and, desc, or, lt, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { campaignTemplates, campaigns } from "../db/schema";
 import {
@@ -96,6 +96,18 @@ export async function getTemplateById(id: string, workspaceId: string) {
     )
     .limit(1);
   return result[0] ?? null;
+}
+
+export async function getTemplatesByIds(workspaceId: string, ids: readonly string[]) {
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) return [];
+  return db
+    .select({ id: campaignTemplates.id, name: campaignTemplates.name })
+    .from(campaignTemplates)
+    .where(and(
+      eq(campaignTemplates.workspaceId, workspaceId),
+      inArray(campaignTemplates.id, uniqueIds),
+    ));
 }
 
 export async function updateTemplate(

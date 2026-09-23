@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, count, notInArray, or, lt } from "drizzle-orm";
+import { eq, and, desc, sql, count, notInArray, or, lt, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { workspaceAssets } from "../db/schema";
 import {
@@ -152,6 +152,18 @@ export async function getWorkspaceAssetById(id: string, workspaceId: string) {
     )
     .limit(1);
   return result[0] ?? null;
+}
+
+export async function getWorkspaceAssetsByIds(workspaceId: string, ids: readonly string[]) {
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) return [];
+  return db
+    .select({ id: workspaceAssets.id, name: workspaceAssets.name, source: workspaceAssets.source })
+    .from(workspaceAssets)
+    .where(and(
+      eq(workspaceAssets.workspaceId, workspaceId),
+      inArray(workspaceAssets.id, uniqueIds),
+    ));
 }
 
 export async function getWorkspaceAssetByKey(
