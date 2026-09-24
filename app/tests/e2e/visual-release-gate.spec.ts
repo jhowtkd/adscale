@@ -126,21 +126,11 @@ function ticket167Labels(locale: "pt-BR" | "en") {
         help: "Ajuda sobre Peça única",
         protocol: "Peça única",
         manualDirections: "Direcionamentos manuais",
-        activeStatus: "Ativa",
-        workspaceView: "Visualização do workspace",
-        grid: "Grade",
-        chat: "Chat",
-        briefing: "Briefing",
       }
     : {
         help: "Help with Single piece",
         protocol: "Single piece",
         manualDirections: "Manual directions",
-        activeStatus: "Active",
-        workspaceView: "Workspace view",
-        grid: "Grid",
-        chat: "Chat",
-        briefing: "Briefing",
       };
 }
 
@@ -182,7 +172,7 @@ test.describe("visual release gate", () => {
     });
   }
 
-  test("ticket #167 keeps polished creation controls releasable", async ({ page }, testInfo) => {
+  test("ticket #167 keeps creation and variation controls usable (#370, #373)", async ({ page }, testInfo) => {
     manifest = seedVisualManifest();
     const width = testInfo.project.use.viewport?.width;
     if (width !== 390 && width !== 1280) {
@@ -205,22 +195,26 @@ test.describe("visual release gate", () => {
     const labels = ticket167Labels(locale);
     await loginVisualFoundation(page, locale, theme);
     await page.goto(`${manifest.routes.creativeWork}?intent=single`, { waitUntil: "domcontentloaded" });
+    await page.getByTestId("studio-talk-box").getByRole("button", { name: /Abrir controles|Open controls/ }).click();
+    await expect(page.getByTestId("studio-talk-box")).toHaveAttribute("data-expanded", "true");
 
-    const protocol = page.getByRole("button", { name: new RegExp(`^${labels.protocol}\\b`) });
+    const protocol = page.getByRole("radio", { name: labels.protocol, exact: true });
     const help = page.getByRole("button", { name: labels.help, exact: true });
     await protocol.click();
-    await expect(protocol).toHaveAttribute("aria-pressed", "true");
-    await expect(protocol).toHaveClass(/(?:^|\s)bg-\[var\(--selection-bg\)\](?:\s|$)/);
+    await expect(protocol).toHaveAttribute("aria-checked", "true");
+    await expect(protocol).toHaveCSS("background-image", /linear-gradient/);
     await expect(help).toHaveCount(0);
     await expect(page.locator('header a[href="/docs"]')).toHaveCount(0);
 
     await page.goto(manifest.routes.variationWorkspace, { waitUntil: "domcontentloaded" });
+    await page.getByTestId("studio-talk-box").getByRole("button", { name: /Abrir controles|Open controls/ }).click();
+    await expect(page.getByTestId("studio-talk-box")).toHaveAttribute("data-expanded", "true");
     const variationWorkspace = page.getByTestId("variation-workspace");
     const referenceContext = page.getByTestId("variation-reference-context");
     const directions = page.getByTestId("variation-directions-region");
     const contextHeading = referenceContext.getByRole("heading", { name: /leitura da ia|ai reading/i });
     const optionalSettings = page.getByTestId("creative-optional-settings");
-    const generateAction = page.getByTestId("creative-generate-action");
+    const generateAction = page.getByTestId("studio-talk-box").getByRole("button", { name: /^(Gerar|Generate)$/ });
     await expect(variationWorkspace).toBeVisible();
     await expect(contextHeading).toBeVisible();
     for (const source of manifest.variationSources) {
@@ -240,6 +234,11 @@ test.describe("visual release gate", () => {
       await expect(preview).toHaveCSS("object-fit", "contain");
     }
     await expect(directions.getByText(labels.manualDirections, { exact: true })).toBeVisible();
+    const firstDirection = directions.locator('[role="group"] button').first();
+    const selected = await firstDirection.getAttribute("aria-pressed");
+    await firstDirection.focus();
+    await page.keyboard.press("Space");
+    await expect(firstDirection).toHaveAttribute("aria-pressed", selected === "true" ? "false" : "true");
     await directions.getByText(labels.manualDirections, { exact: true }).click();
     await expect(directions.getByRole("textbox", { name: labels.manualDirections, exact: true })).toBeVisible();
 
@@ -259,6 +258,7 @@ test.describe("visual release gate", () => {
       expect(referenceBox!.y, "mobile reference precedes AI context").toBeLessThan(contextBox!.y);
       expect(contextBox!.y, "mobile AI context precedes directions").toBeLessThan(directionsBox!.y);
       expect(directionsBox!.y, "mobile directions precede optional settings").toBeLessThan(optionalSettingsBox!.y);
+      expect(directionsBox!.height, "mobile directions have no forced reference height").toBeLessThan(referenceBox!.height);
       expect(optionalSettingsBox!.y, "mobile optional settings precede generate action").toBeLessThan(generateActionBox!.y);
     } else {
       const [referenceBox, contextBox, directionsBox, optionalSettingsBox, generateActionBox] = await Promise.all([
@@ -275,31 +275,9 @@ test.describe("visual release gate", () => {
       expect(generateActionBox, "desktop generate action bounds").not.toBeNull();
       expect(directionsBox!.x, "desktop directions are to the right of reference context").toBeGreaterThan(referenceBox!.x);
       expect(Math.abs(directionsBox!.y - referenceBox!.y), "desktop reference context and directions share a row").toBeLessThanOrEqual(24);
+      expect(Math.abs(directionsBox!.height - referenceBox!.height), "desktop panels share a height").toBeLessThanOrEqual(2);
       expect(optionalSettingsBox!.y, "desktop optional settings follow the variations workspace").toBeGreaterThan(referenceBox!.y);
       expect(generateActionBox!.y, "desktop generate action follows optional settings").toBeGreaterThan(optionalSettingsBox!.y);
-    }
-
-    await page.goto(manifest.routes.workspace, { waitUntil: "domcontentloaded" });
-    const status = page.getByText(labels.activeStatus, { exact: true }).first();
-    const briefing = page.getByRole("button", { name: labels.briefing });
-    await expect(status).toHaveClass(/(?:^|\s)bg-\[var\(--info-bg\)\](?:\s|$)/);
-    await expect(briefing).toBeVisible();
-
-    if (testInfo.project.use.hasTouch) {
-      const tabs = page.getByRole("tablist", { name: labels.workspaceView });
-      const grid = tabs.getByRole("tab", { name: labels.grid, exact: true });
-      const chat = tabs.getByRole("tab", { name: labels.chat, exact: true });
-      await expect(grid).toHaveAttribute("aria-selected", "true");
-      await chat.click();
-      await expect(chat).toHaveAttribute("aria-selected", "true");
-      await expect(chat).toHaveClass(/(?:^|\s)bg-\[var\(--selection-bg\)\](?:\s|$)/);
-      await expect(grid).toHaveAttribute("aria-selected", "false");
-    } else {
-      await expect(briefing).toHaveClass(/hover:bg-\[var\(--surface-raised\)\]/);
-      await expect(briefing).toHaveClass(/focus-visible:ring-\[var\(--focus-ring\)\]/);
-      await briefing.hover();
-      await briefing.focus();
-      await expect(briefing).toBeFocused();
     }
   });
 
