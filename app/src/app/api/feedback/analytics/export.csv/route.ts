@@ -16,24 +16,24 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const filters = parseOwnerAnalyticsQuery(searchParams);
 
-    const events = await listBetaAnalyticsEventsForOwner({
-      workspaceId: filters.workspaceId,
-      sessionId: filters.sessionId,
-      from: filters.from,
-      to: filters.to,
-    });
-
-    const sessions = await listBetaSessions({
-      workspaceId: filters.workspaceId,
-      activeOnly: false,
-    });
+    const [events, sessions, selectedFromDatabase] = await Promise.all([
+      listBetaAnalyticsEventsForOwner({
+        workspaceId: filters.workspaceId,
+        sessionId: filters.sessionId,
+        from: filters.from,
+        to: filters.to,
+      }),
+      listBetaSessions({
+        workspaceId: filters.workspaceId,
+        activeOnly: false,
+      }),
+      filters.workspaceId
+        ? listSelectedCreativeWorkPieceVersions(filters.workspaceId)
+        : Promise.resolve(undefined),
+    ]);
     const filteredSessions = filters.sessionId
       ? sessions.filter((session) => session.id === filters.sessionId)
       : sessions;
-
-    const selectedFromDatabase = filters.workspaceId
-      ? await listSelectedCreativeWorkPieceVersions(filters.workspaceId)
-      : undefined;
 
     const summary = buildAnalyticsFunnelSummary(
       events,

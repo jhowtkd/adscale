@@ -83,6 +83,8 @@ const deleteSourceMock = vi.hoisted(() => vi.fn());
 const linkCampaignMock = vi.hoisted(() => vi.fn());
 const getAssetMock = vi.hoisted(() => vi.fn());
 const getTemplateMock = vi.hoisted(() => vi.fn());
+const getAssetsByIdsMock = vi.hoisted(() => vi.fn());
+const getTemplatesByIdsMock = vi.hoisted(() => vi.fn());
 const claimPieceTrainingReferenceMock = vi.hoisted(() => vi.fn());
 const getTrainingReferenceMock = vi.hoisted(() => vi.fn());
 const createTrainingReferenceMock = vi.hoisted(() => vi.fn());
@@ -156,8 +158,12 @@ vi.mock("@/server/generation/settlement-adapters", () => ({
 
 vi.mock("@/server/repositories/workspace-asset", () => ({
   getWorkspaceAssetById: (...args: unknown[]) => getAssetMock(...args),
+  getWorkspaceAssetsByIds: (...args: unknown[]) => getAssetsByIdsMock(...args),
 }));
-vi.mock("@/server/repositories/template", () => ({ getTemplateById: (...args: unknown[]) => getTemplateMock(...args) }));
+vi.mock("@/server/repositories/template", () => ({
+  getTemplateById: (...args: unknown[]) => getTemplateMock(...args),
+  getTemplatesByIds: (...args: unknown[]) => getTemplatesByIdsMock(...args),
+}));
 vi.mock("@/server/repositories/client-reference", () => ({
   getTrainingReferenceByAssetKey: (...args: unknown[]) => getTrainingReferenceMock(...args),
   createTrainingReference: (...args: unknown[]) => createTrainingReferenceMock(...args),
@@ -342,6 +348,8 @@ describe("GET /api/creative-work/[id]", () => {
     resolveReactivationMock.mockResolvedValue({ state: "none" });
     recordAggregateMock.mockResolvedValue(null);
     layerEditorAccessMock.mockResolvedValue({ enabled: false, period: null, layerize: null, regeneration: null });
+    getAssetsByIdsMock.mockResolvedValue([]);
+    getTemplatesByIdsMock.mockResolvedValue([]);
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -446,6 +454,25 @@ describe("GET /api/creative-work/[id]", () => {
     });
   });
 
+  it("starts independent detail reads together after recovery", async () => {
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources: [] });
+    let releaseEffects!: (rows: []) => void;
+    getSelectionEffectsForWorkMock.mockReturnValueOnce(new Promise<[]>(
+      (resolve) => { releaseEffects = resolve; },
+    ));
+
+    const response = GET(
+      new Request("http://localhost/api/creative-work/work-1"),
+      { params: makeParams("work-1") },
+    );
+    await vi.waitFor(() => {
+      expect(getSelectionEffectsForWorkMock).toHaveBeenCalledTimes(1);
+      expect(activePreparationMock).toHaveBeenCalledTimes(1);
+    });
+    releaseEffects([]);
+    expect((await response).status).toBe(200);
+  });
+
   it("reconciles an unsettled exact preflight refund with the terminal key and clears its pending code", async () => {
     listPendingRefundsMock.mockResolvedValue([
       { id: "output-1", failureCode: "exact_asset_preflight_failed_refund_pending" },
@@ -472,6 +499,8 @@ describe("GET /api/creative-work/[id]", () => {
       "output-1",
       "exact_asset_preflight_failed",
     );
+    expect(markOutputFailureCodeMock.mock.invocationCallOrder[0])
+      .toBeLessThan(getWorkMock.mock.invocationCallOrder[0]);
   });
 
   it("reconciles an unsettled reactivation exact preflight refund with its distinct charge key", async () => {
@@ -750,6 +779,8 @@ describe("GET /api/creative-work/[id]", () => {
     );
 
     expect(res.status).toBe(404);
+    expect(getAssetsByIdsMock).not.toHaveBeenCalled();
+    expect(getTemplatesByIdsMock).not.toHaveBeenCalled();
   });
 
   it("projects carousel slides without private keys and summarizes deck quality", async () => {
@@ -945,8 +976,8 @@ describe("GET /api/creative-work/[id]", () => {
         { id: "source-2", assetId: null, templateId: "template-1", usage: "style", status: "ready" },
       ],
     });
-    getAssetMock.mockResolvedValue({ id: "asset-1", workspaceId: "workspace-1", name: "aprovada.png", source: "creative_work" });
-    getTemplateMock.mockResolvedValue({ id: "template-1", workspaceId: "workspace-1", name: "Black Friday" });
+    getAssetsByIdsMock.mockResolvedValue([{ id: "asset-1", workspaceId: "workspace-1", name: "aprovada.png", source: "creative_work" }]);
+    getTemplatesByIdsMock.mockResolvedValue([{ id: "template-1", workspaceId: "workspace-1", name: "Black Friday" }]);
 
     const res = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
     const body = await res.json();
@@ -960,8 +991,8 @@ describe("GET /api/creative-work/[id]", () => {
       }),
       expect.objectContaining({ id: "source-2", name: "Black Friday", origin: "template" }),
     ]);
-    expect(getAssetMock).toHaveBeenCalledWith("asset-1", "workspace-1");
-    expect(getTemplateMock).toHaveBeenCalledWith("template-1", "workspace-1");
+    expect(getAssetsByIdsMock).toHaveBeenCalledWith("workspace-1", ["asset-1"]);
+    expect(getTemplatesByIdsMock).toHaveBeenCalledWith("workspace-1", ["template-1"]);
   });
 
   it("projects an authenticated preview URL for asset-backed sources", async () => {
@@ -977,12 +1008,12 @@ describe("GET /api/creative-work/[id]", () => {
       }],
     });
 
-    getAssetMock.mockResolvedValue({
+    getAssetsByIdsMock.mockResolvedValue([{
       id: "asset-1",
       workspaceId: "workspace-1",
       name: "original.png",
       source: "upload",
-    });
+    }]);
 
     const response = await GET(
       new Request("http://localhost/api/creative-work/work-1"),
@@ -1008,11 +1039,11 @@ describe("GET /api/creative-work/[id]", () => {
         status: "ready",
       }],
     });
-    getTemplateMock.mockResolvedValue({
+    getTemplatesByIdsMock.mockResolvedValue([{
       id: "template-1",
       workspaceId: "workspace-1",
       name: "Black Friday",
-    });
+    }]);
 
     const response = await GET(
       new Request("http://localhost/api/creative-work/work-1"),
@@ -1021,6 +1052,51 @@ describe("GET /api/creative-work/[id]", () => {
     const payload = await response.json();
 
     expect(payload.sources[0].previewUrl).toBeNull();
+  });
+
+  it("loads many mixed sources with one lookup per kind and preserves source order", async () => {
+    const sources = Array.from({ length: 40 }, (_, index) => ({
+      id: `source-${index}`,
+      assetId: index % 2 === 0 ? `asset-${index}` : null,
+      templateId: index % 2 === 1 ? `template-${index}` : null,
+      status: "ready",
+    }));
+    getWorkMock.mockResolvedValue({ work: workItem, outputs: [], sources });
+    getAssetsByIdsMock.mockResolvedValue(sources.filter((source) => source.assetId).reverse().map((source) => ({
+      id: source.assetId,
+      workspaceId: "workspace-1",
+      name: source.id,
+    })));
+    getTemplatesByIdsMock.mockResolvedValue(sources.filter((source) => source.templateId).reverse().map((source) => ({
+      id: source.templateId,
+      workspaceId: "workspace-1",
+      name: source.id,
+    })));
+
+    const response = await GET(new Request("http://localhost/api/creative-work/work-1"), { params: makeParams("work-1") });
+    expect(response.status).toBe(200);
+    expect(getAssetsByIdsMock).toHaveBeenCalledTimes(1);
+    expect(getTemplatesByIdsMock).toHaveBeenCalledTimes(1);
+    expect(getAssetsByIdsMock).toHaveBeenCalledWith("workspace-1", sources.flatMap((source) => source.assetId ? [source.assetId] : []));
+    expect(getTemplatesByIdsMock).toHaveBeenCalledWith("workspace-1", sources.flatMap((source) => source.templateId ? [source.templateId] : []));
+    expect((await response.json()).sources.map((source: { id: string; name: string }) => [source.id, source.name]))
+      .toEqual(sources.map((source) => [source.id, source.id]));
+  });
+
+  it("returns an error when source metadata cannot be loaded", async () => {
+    getWorkMock.mockResolvedValue({
+      work: workItem,
+      outputs: [],
+      sources: [{ id: "source-1", assetId: "asset-1", templateId: null }],
+    });
+    getAssetsByIdsMock.mockRejectedValueOnce(new Error("asset query failed"));
+
+    const response = await GET(
+      new Request("http://localhost/api/creative-work/work-1"),
+      { params: makeParams("work-1") },
+    );
+
+    expect(response.status).toBe(500);
   });
 });
 

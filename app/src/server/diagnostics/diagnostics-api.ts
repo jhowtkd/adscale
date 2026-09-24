@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { getCreativeWorkSelectionPolicy } from "../../lib/creative-work-selection-policy";
 import { db } from "../db";
@@ -400,22 +401,71 @@ export async function listDiagnosticWorks(
             ? and(eq(perWork.completed, false), eq(perWork.failed, false))
             : eq(perWork.partial, true);
 
-  const rows = await database
-    .select()
-    .from(perWork)
-    .where(and(cursorFilter, stateFilter))
-    .orderBy(
-      recentFirst
-        ? desc(perWork.lastSeen)
-        : asc(perWork.lastSeen),
-      recentFirst
-        ? desc(perWork.workspaceId)
-        : asc(perWork.workspaceId),
-      recentFirst
-        ? desc(perWork.workItemId)
-        : asc(perWork.workItemId),
-    )
-    .limit(parsed.limit + 1);
+  const useIndexedPage = Boolean(parsed.workspaceId) && !parsed.workItemId &&
+    !parsed.from && !parsed.to && !parsed.stage && !parsed.provider &&
+    !parsed.model && !parsed.state;
+  const rows = useIndexedPage
+    ? await (async () => {
+        // The existing work/time index can find the page without reading
+        // event/status columns for every event in the workspace.
+        const latest = sql<Date>`max(${diagnosticEvents.occurredAt})`;
+        const candidates = database.$with("diagnostic_page").as(
+          database.select({
+            workspaceId: diagnosticEvents.workspaceId,
+            workItemId: diagnosticEvents.workItemId,
+            lastSeen: latest.as("last_seen"),
+          })
+            .from(diagnosticEvents)
+            .where(parsed.workspaceId ? eq(diagnosticEvents.workspaceId, parsed.workspaceId) : undefined)
+            .groupBy(diagnosticEvents.workspaceId, diagnosticEvents.workItemId)
+            .having(position
+              ? recentFirst
+                ? sql`(${latest}, ${diagnosticEvents.workspaceId}, ${diagnosticEvents.workItemId}) < (${position.lastSeen}, ${position.workspaceId}, ${position.workItemId})`
+                : sql`(${latest}, ${diagnosticEvents.workspaceId}, ${diagnosticEvents.workItemId}) > (${position.lastSeen}, ${position.workspaceId}, ${position.workItemId})`
+              : undefined)
+            .orderBy(
+              recentFirst ? desc(latest) : asc(latest),
+              recentFirst ? desc(diagnosticEvents.workspaceId) : asc(diagnosticEvents.workspaceId),
+              recentFirst ? desc(diagnosticEvents.workItemId) : asc(diagnosticEvents.workItemId),
+            )
+            .limit(parsed.limit + 1),
+        );
+        const events = alias(diagnosticEvents, "page_events");
+        const details = database.select({
+          firstSeen: sql<Date>`min(${events.occurredAt})`.as("first_seen"),
+          eventCount: sql<number>`count(*)::int`.as("event_count"),
+          failed: sql<boolean>`bool_or(${events.event} in ('operation.failed','stage.failed','model.call.failed','model.validation.failed','selection.effect.failed'))`.as("failed"),
+          completed: sql<boolean>`bool_or(${events.event} = 'operation.completed')`.as("completed"),
+          partial: sql<boolean>`bool_or(${events.correlation} = 'partial')`.as("partial"),
+        }).from(events).where(and(
+          eq(events.workspaceId, candidates.workspaceId),
+          eq(events.workItemId, candidates.workItemId),
+        )).as("details");
+        return database.with(candidates).select({
+          workspaceId: candidates.workspaceId,
+          workItemId: candidates.workItemId,
+          firstSeen: details.firstSeen,
+          lastSeen: candidates.lastSeen,
+          eventCount: details.eventCount,
+          failed: details.failed,
+          completed: details.completed,
+          partial: details.partial,
+        }).from(candidates).innerJoinLateral(details, sql`true`).orderBy(
+          recentFirst ? desc(candidates.lastSeen) : asc(candidates.lastSeen),
+          recentFirst ? desc(candidates.workspaceId) : asc(candidates.workspaceId),
+          recentFirst ? desc(candidates.workItemId) : asc(candidates.workItemId),
+        );
+      })()
+    : await database
+      .select()
+      .from(perWork)
+      .where(and(cursorFilter, stateFilter))
+      .orderBy(
+        recentFirst ? desc(perWork.lastSeen) : asc(perWork.lastSeen),
+        recentFirst ? desc(perWork.workspaceId) : asc(perWork.workspaceId),
+        recentFirst ? desc(perWork.workItemId) : asc(perWork.workItemId),
+      )
+      .limit(parsed.limit + 1);
 
   const page = rows.slice(0, parsed.limit);
   // Aggregate expressions travel as text through the driver, bypassing the

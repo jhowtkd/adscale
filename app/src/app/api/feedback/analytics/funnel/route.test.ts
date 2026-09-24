@@ -4,7 +4,10 @@ import { GET as getCreditSignals } from "../credit-signals/route";
 import { GET as getExport } from "../export.csv/route";
 
 vi.mock("next/cache", () => ({
-  unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
+  unstable_cache: (fn: (...args: unknown[]) => Promise<unknown>, keys: string[]) =>
+    keys[0] === "funnel-events"
+      ? async (...args: unknown[]) => JSON.parse(JSON.stringify(await fn(...args)))
+      : fn,
 }));
 
 vi.mock("@/server/auth/require-platform-owner", () => ({
@@ -20,7 +23,7 @@ vi.mock("@/server/repositories/beta-sessions", () => ({
 }));
 
 vi.mock("@/server/repositories/usage", () => ({
-  listUsageEventsForOwner: vi.fn(),
+  listStudioUsageEventsForWindows: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/selected-piece-versions", () => ({
@@ -38,7 +41,7 @@ vi.mock("next-intl/server", () => ({
 import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
 import { listBetaAnalyticsEventsForOwner } from "@/server/repositories/beta-analytics";
 import { listBetaSessions } from "@/server/repositories/beta-sessions";
-import { listUsageEventsForOwner } from "@/server/repositories/usage";
+import { listStudioUsageEventsForWindows } from "@/server/repositories/usage";
 import { listSelectedCreativeWorkPieceVersions } from "@/server/repositories/selected-piece-versions";
 import { summarizeMissionCreditSignals } from "@/server/feedback/mission-credit-signals";
 import { ANALYTICS_FIXTURE_EVENTS } from "@/server/beta-analytics/aggregate.fixture";
@@ -48,7 +51,7 @@ import { WorkspaceAuthError, AUTH_ERROR_CODES } from "@/server/auth/errors";
 const mockRequireOwner = vi.mocked(requirePlatformOwner);
 const mockListEvents = vi.mocked(listBetaAnalyticsEventsForOwner);
 const mockListSessions = vi.mocked(listBetaSessions);
-const mockListUsage = vi.mocked(listUsageEventsForOwner);
+const mockListUsage = vi.mocked(listStudioUsageEventsForWindows);
 const mockListSelected = vi.mocked(listSelectedCreativeWorkPieceVersions);
 const mockCreditSummary = vi.mocked(summarizeMissionCreditSignals);
 
@@ -115,11 +118,7 @@ describe("owner analytics routes", () => {
         orphanedFromEvents: 0,
       });
       expect(mockListSelected).toHaveBeenCalledWith(WORKSPACE_ID);
-      expect(mockListUsage).toHaveBeenCalledWith({
-        workspaceId: WORKSPACE_ID,
-        from: undefined,
-        to: undefined,
-      });
+      expect(mockListUsage).toHaveBeenCalledWith(expect.any(Array));
       expect(mockListEvents).toHaveBeenCalledWith({
         workspaceId: WORKSPACE_ID,
         sessionId: undefined,
@@ -182,6 +181,28 @@ describe("owner analytics routes", () => {
   });
 
   describe("GET /api/feedback/analytics/export.csv", () => {
+    it("starts independent reads together before building the CSV", async () => {
+      let release!: () => void;
+      const hold = new Promise<void>((resolve) => { release = resolve; });
+      mockListEvents.mockImplementation(async () => { await hold; return ANALYTICS_FIXTURE_EVENTS; });
+      mockListSessions.mockImplementation(async () => { await hold; return [sessionRow()]; });
+      mockListSelected.mockImplementation(async () => { await hold; return []; });
+
+      const pending = getExport(new Request(
+        `http://localhost/api/feedback/analytics/export.csv?workspaceId=${WORKSPACE_ID}`
+      ));
+      try {
+        await vi.waitFor(() => {
+          expect(mockListEvents).toHaveBeenCalledTimes(1);
+          expect(mockListSessions).toHaveBeenCalledTimes(1);
+          expect(mockListSelected).toHaveBeenCalledTimes(1);
+        });
+      } finally {
+        release();
+      }
+      expect((await pending).status).toBe(200);
+    });
+
     it("returns CSV with funnel summary and event rows", async () => {
       const res = await getExport(
         new Request(

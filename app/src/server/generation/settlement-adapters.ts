@@ -84,6 +84,8 @@ import type {
   GenerationSettlementReservation,
 } from "./settlement";
 
+const SETTLEMENT_POLL_ATTEMPTS = 10;
+
 type CreativeWork = NonNullable<
   Awaited<ReturnType<typeof getCreativeWork>>
 >["work"];
@@ -410,12 +412,13 @@ export function creativeWorkSettlementAdapter(input: {
     async join() {
       let lastAggregate: Awaited<ReturnType<typeof getCreativeWork>> = null;
       let missingRequiredAck = false;
-      const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 10_000 });
-      for (let attempt = 0; attempt < 80 && deadline.shouldContinue(attempt); attempt += 1) {
+      let chargeUsage: Awaited<ReturnType<typeof getUsageByIdempotencyKey>> | null = null;
+      const deadline = settlementDeadline({ maxAttempts: SETTLEMENT_POLL_ATTEMPTS, maxMs: 10_000 });
+      for (let attempt = 0; deadline.shouldContinue(attempt); attempt += 1) {
         const aggregate = await deadline.read(() => getCreativeWork(input.workspaceId, input.workItemId, undefined, { includeSources: false }));
         if (!aggregate?.outputs.length) return null;
         lastAggregate = aggregate;
-        const chargeUsage = await deadline.read(() => getUsageByIdempotencyKey(
+        chargeUsage ??= await deadline.read(() => getUsageByIdempotencyKey(
           input.workspaceId,
           input.batch.billingKey,
         ));
@@ -474,6 +477,10 @@ export function creativeWorkSettlementAdapter(input: {
       // Missing ack is not proof of dispatch. Resume idempotent send for still-
       // queued rows, then write ack and settle. Already-progressed rows settle.
       if (lastAggregate) {
+        const recordedAck = settlementDispatchMetadata(chargeUsage?.metadata);
+        if (!chargeUsage || (recordedAck.required && !recordedAck.key)) {
+          throw new Error("generation_settlement_dispatch_uncertain");
+        }
         const queuedIds = lastAggregate.outputs
           .filter((output) => output.status === "queued")
           .map((output) => output.id);
@@ -719,8 +726,9 @@ export function carouselSlideSettlementAdapter(input: {
     async join(reservation) {
       const refund = carouselSlideDispatchRefund(input, input.slideId);
       let slide = reservation.value.slide;
-      const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 10_000 });
-      for (let attempt = 0; attempt < 80 && deadline.shouldContinue(attempt); attempt += 1) {
+      let chargeUsage: Awaited<ReturnType<typeof getUsageByIdempotencyKey>> | null = null;
+      const deadline = settlementDeadline({ maxAttempts: SETTLEMENT_POLL_ATTEMPTS, maxMs: 10_000 });
+      for (let attempt = 0; deadline.shouldContinue(attempt); attempt += 1) {
         if (slide.status === "completed" || slide.status === "processing") {
           return { status: "settled" as const, value: { slide } };
         }
@@ -730,7 +738,7 @@ export function carouselSlideSettlementAdapter(input: {
             failure: { value: { slide }, refunds: [refund] },
           };
         }
-        const chargeUsage = await deadline.read(() => getUsageByIdempotencyKey(
+        chargeUsage ??= await deadline.read(() => getUsageByIdempotencyKey(
           input.workspaceId,
           billingKeyFor(slide.id),
         ));
@@ -764,6 +772,10 @@ export function carouselSlideSettlementAdapter(input: {
       }
       // Takeover/recovery: re-authorize the current revision before spend or
       // send. Invalidation after the original claim must not dispatch.
+      const recoveryAck = settlementDispatchMetadata(chargeUsage?.metadata);
+      if (recoveryAck.required && !recoveryAck.key) {
+        throw new Error("generation_settlement_dispatch_uncertain");
+      }
       const reauthorized = await queueAuthorizedCarouselSlide({
         workspaceId: input.workspaceId,
         workItemId: input.workItemId,
@@ -846,8 +858,8 @@ export function carouselSlideSettlementAdapter(input: {
         billingKeyFor(slide.id),
       );
       const ack = settlementDispatchMetadata(chargeUsage?.metadata);
-      const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 10_000 });
-      for (let attempt = 0; attempt < 80 && deadline.shouldContinue(attempt); attempt += 1) {
+      const deadline = settlementDeadline({ maxAttempts: SETTLEMENT_POLL_ATTEMPTS, maxMs: 10_000 });
+      for (let attempt = 0; deadline.shouldContinue(attempt); attempt += 1) {
         const recordedRefund = await deadline.read(() => getUsageByIdempotencyKey(
           input.workspaceId,
           refund.idempotencyKey,
@@ -876,6 +888,9 @@ export function carouselSlideSettlementAdapter(input: {
       }
       // Missing ack is not proof of dispatch. Resume the idempotent send for
       // the still-queued row, then write ack and settle.
+      if (!chargeUsage || (ack.required && !ack.key)) {
+        throw new Error("generation_settlement_dispatch_uncertain");
+      }
       if (slide.status === "queued") {
         try {
           await dispatchCarouselSlideEvent(slide);
@@ -1097,8 +1112,8 @@ export function formatAdaptationSettlementAdapter(input: {
           },
         };
       }
-      const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 10_000 });
-      for (let attempt = 0; original && attempt < 80 && deadline.shouldContinue(attempt); attempt += 1) {
+      const deadline = settlementDeadline({ maxAttempts: SETTLEMENT_POLL_ATTEMPTS, maxMs: 10_000 });
+      for (let attempt = 0; original && deadline.shouldContinue(attempt); attempt += 1) {
         // When ack is required, wait for ack or the durable dispatch-refund
         // marker. A fast terminal job failure before completeDispatch writes
         // ack must not look like a sync dispatch failure.
@@ -1195,6 +1210,9 @@ export function formatAdaptationSettlementAdapter(input: {
       }
       // Missing ack is not proof of dispatch. Resume idempotent send while
       // still queued, then write ack and settle.
+      if (!usage || (ack.required && !ack.key)) {
+        throw new Error("generation_settlement_dispatch_uncertain");
+      }
       if (original.status === "queued") {
         try {
           await inngest.send({
@@ -1444,8 +1462,8 @@ export function creativeWorkRevisionSettlementAdapter(input: {
         return { status: "settled", value: { output } };
       }
       const ack = settlementDispatchMetadata(chargeUsage.metadata);
-      const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 10_000 });
-      for (let attempt = 0; attempt < 80 && deadline.shouldContinue(attempt); attempt += 1) {
+      const deadline = settlementDeadline({ maxAttempts: SETTLEMENT_POLL_ATTEMPTS, maxMs: 10_000 });
+      for (let attempt = 0; deadline.shouldContinue(attempt); attempt += 1) {
         const recordedRefund = await deadline.read(() => getUsageByIdempotencyKey(
           input.workspaceId,
           refund.idempotencyKey,
@@ -1474,6 +1492,7 @@ export function creativeWorkRevisionSettlementAdapter(input: {
       }
       // Missing ack is not proof of dispatch. Resume idempotent send while
       // still queued, then write ack and settle.
+      if (ack.required && !ack.key) throw new Error("generation_settlement_dispatch_uncertain");
       if (output.status === "queued") {
         try {
           await dispatchCreativeWorkRevision({
@@ -1708,8 +1727,8 @@ async function resolveDerivationBatchReplay(input: {
     };
   }
   const ack = settlementDispatchMetadata(metadata);
-  const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 10_000 });
-  for (let attempt = 0; originals.length > 0 && attempt < 80 && deadline.shouldContinue(attempt); attempt += 1) {
+  const deadline = settlementDeadline({ maxAttempts: SETTLEMENT_POLL_ATTEMPTS, maxMs: 10_000 });
+  for (let attempt = 0; originals.length > 0 && deadline.shouldContinue(attempt); attempt += 1) {
     // When ack is required, wait for ack or the durable dispatch-refund
     // marker. A fast terminal job failure before completeDispatch writes
     // ack must not look like a sync dispatch failure.
@@ -1790,6 +1809,9 @@ async function resolveDerivationBatchReplay(input: {
       );
       throw new Error("generation_settlement_dispatch_uncertain");
     }
+  }
+  if (!usage || (ack.required && !ack.key)) {
+    throw new Error("generation_settlement_dispatch_uncertain");
   }
   const queued = originals.filter((row) => row.status === "queued");
   if (queued.length > 0) {
@@ -2321,8 +2343,8 @@ export function assistantPreviewSettlementAdapter(input: {
         };
       }
       const ack = settlementDispatchMetadata(metadata);
-      const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 10_000 });
-      for (let attempt = 0; original && attempt < 80 && deadline.shouldContinue(attempt); attempt += 1) {
+      const deadline = settlementDeadline({ maxAttempts: SETTLEMENT_POLL_ATTEMPTS, maxMs: 10_000 });
+      for (let attempt = 0; original && deadline.shouldContinue(attempt); attempt += 1) {
         // When ack is required, wait for ack or the durable dispatch-refund
         // marker. A fast terminal job failure before completeDispatch writes
         // ack must not look like a sync dispatch failure.
@@ -2415,6 +2437,9 @@ export function assistantPreviewSettlementAdapter(input: {
           );
           throw new Error("generation_settlement_dispatch_uncertain");
         }
+      }
+      if (!usage || (ack.required && !ack.key)) {
+        throw new Error("generation_settlement_dispatch_uncertain");
       }
       if (original.status === "queued") {
         try {
@@ -2696,8 +2721,8 @@ export function campaignDerivationUnitSettlementAdapter(input: {
         };
       }
       const ack = settlementDispatchMetadata(metadata);
-      const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 10_000 });
-      for (let attempt = 0; original && attempt < 80 && deadline.shouldContinue(attempt); attempt += 1) {
+      const deadline = settlementDeadline({ maxAttempts: SETTLEMENT_POLL_ATTEMPTS, maxMs: 10_000 });
+      for (let attempt = 0; original && deadline.shouldContinue(attempt); attempt += 1) {
         if (ack.required) {
           const recordedAck =
             ack.key &&
@@ -2788,6 +2813,9 @@ export function campaignDerivationUnitSettlementAdapter(input: {
           );
           throw new Error("generation_settlement_dispatch_uncertain");
         }
+      }
+      if (!usage || (ack.required && !ack.key)) {
+        throw new Error("generation_settlement_dispatch_uncertain");
       }
       if (original.status === "queued") {
         try {

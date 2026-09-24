@@ -595,6 +595,23 @@ describe("runCreativeWorkQualityAssessment person fidelity (plan 03, T3)", () =>
     expect(analyzePersonFidelityMock).not.toHaveBeenCalled();
   });
 
+  it("starts objective and person assessment together only when both apply", async () => {
+    let finishQa!: (value: unknown) => void;
+    let finishPerson!: (value: unknown) => void;
+    analyzeCreativeWorkQaMock.mockImplementation(() => new Promise((resolve) => { finishQa = resolve; }));
+    analyzePersonFidelityMock.mockImplementation(() => new Promise((resolve) => { finishPerson = resolve; }));
+
+    const assessment = runCreativeWorkQualityAssessment(assessmentInput({ people: [personInput()] }));
+    await vi.waitFor(() => expect(analyzeCreativeWorkQaMock).toHaveBeenCalledTimes(1));
+    const bothStarted = analyzePersonFidelityMock.mock.calls.length === 1;
+    finishQa({ findings: [], summary: "Objetivamente íntegro." });
+    await vi.waitFor(() => expect(analyzePersonFidelityMock).toHaveBeenCalledTimes(1));
+    finishPerson({ findings: [{ personId: PERSON_ID, status: "consistent", evidence: [], issue: null }] });
+
+    await assessment;
+    expect(bothStarted).toBe(true);
+  });
+
   it("confirmed mismatch becomes a fail with the person code and a bound block", async () => {
     analyzePersonFidelityMock.mockResolvedValue({
       findings: [{ personId: PERSON_ID, status: "mismatch", evidence: ["rosto trocado"], issue: "troca" }],

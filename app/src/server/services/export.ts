@@ -10,7 +10,7 @@ import {
   getApprovedDerivationsByCampaign,
 } from "../repositories/derivation";
 import { getCampaignById } from "../repositories/campaign";
-import { createExportRecord } from "../repositories/export";
+import { createExportRecord, createExportRecords } from "../repositories/export";
 
 async function convertImage(buffer: Buffer, format: "png" | "jpeg" | "webp") {
   try {
@@ -160,7 +160,7 @@ export async function exportAllApproved(
 
   const [url] = await Promise.all([
     storage.signedDownloadUrl(zipKey),
-    Promise.all(items.map((d) => createExportRecord(workspaceId, d.id, format, zipKey))),
+    createExportRecords(workspaceId, items.map((d) => d.id), format, zipKey),
   ]);
   return { url, key: zipKey };
 }

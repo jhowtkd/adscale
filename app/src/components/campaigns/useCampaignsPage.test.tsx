@@ -1,10 +1,12 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useCampaignsPage } from "./useCampaignsPage";
+import { toast } from "sonner";
 
 const replaceMock = vi.fn();
 const pushMock = vi.fn();
 const TEMPLATE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const { bulkMutateMock } = vi.hoisted(() => ({ bulkMutateMock: vi.fn() }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: replaceMock, push: pushMock }),
@@ -24,6 +26,7 @@ vi.mock("@/lib/hooks/use-campaigns", () => ({
   }),
   useUpdateCampaigns: () => ({ mutate: vi.fn(), mutateAsync: vi.fn() }),
   useDeleteCampaigns: () => ({ mutate: vi.fn(), mutateAsync: vi.fn() }),
+  useBulkCampaigns: () => ({ mutate: bulkMutateMock, isPending: false }),
   useDuplicateCampaign: () => ({ mutate: vi.fn() }),
 }));
 
@@ -108,6 +111,40 @@ describe("useCampaignsPage search sync", () => {
     });
 
     expect(result.current.selectedIds).toEqual(new Set(["campaign-1"]));
+  });
+});
+
+describe("useCampaignsPage bulk actions", () => {
+  beforeEach(() => {
+    bulkMutateMock.mockReset();
+    vi.mocked(toast.success).mockReset();
+    vi.mocked(toast.error).mockReset();
+  });
+
+  it("keeps failed campaigns selected for retry and reports both outcomes", () => {
+    const { result } = renderHook(() => useCampaignsPage(createSearchParams()));
+    act(() => {
+      result.current.toggleSelect("ok", true);
+      result.current.toggleSelect("failed", true);
+    });
+
+    act(() => result.current.handleBulkArchive());
+    act(() => result.current.handleBulkArchive());
+    expect(bulkMutateMock).toHaveBeenCalledTimes(1);
+    expect(bulkMutateMock).toHaveBeenCalledWith(
+      { ids: ["ok", "failed"], action: "archive" },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+
+    act(() => {
+      bulkMutateMock.mock.calls[0][1].onSuccess({
+        succeededIds: ["ok"],
+        failedIds: ["failed"],
+      });
+    });
+    expect(result.current.selectedIds).toEqual(new Set(["failed"]));
+    expect(toast.success).toHaveBeenCalledWith("campaignsArchived");
+    expect(toast.error).toHaveBeenCalledWith("failedArchiveSome (1/2)");
   });
 });
 

@@ -526,6 +526,61 @@ describe("Generation Settlement production adapters", () => {
     expect(refund).not.toHaveBeenCalled();
   });
 
+  it("uses fewer ledger reads while waiting for a batch ack", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+    try {
+      const startedAt = performance.now();
+      getWork.mockResolvedValue({ work, outputs });
+      getUsage.mockImplementation(async (_workspaceId, key) => {
+        if (key === batch.billingKey) {
+          return { metadata: {
+            settlementDispatchAckRequired: true,
+            settlementDispatchAckKey: `${batch.billingKey}:dispatch-ack`,
+          } };
+        }
+        return key === `${batch.billingKey}:dispatch-ack` && performance.now() - startedAt >= 500
+          ? { id: "late-ack" }
+          : null;
+      });
+
+      const pending = startGenerationSettlement(batchAdapter({ work, outputs }))
+        .then((result) => ({ result, elapsedMs: performance.now() - startedAt }));
+      await vi.advanceTimersByTimeAsync(700);
+      const { result, elapsedMs } = await pending;
+
+      expect(result.ok).toBe(true);
+      expect(elapsedMs).toBe(625);
+      expect(getWork).toHaveBeenCalledTimes(6);
+      expect(getUsage.mock.calls.filter(([, key]) => key === batch.billingKey)).toHaveLength(1);
+      expect(getUsage.mock.calls.filter(([, key]) => key === `${batch.billingKey}:dispatch-ack`)).toHaveLength(6);
+      expect(getUsages).toHaveBeenCalledTimes(6);
+      expect(send).not.toHaveBeenCalled();
+      expect(refund).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    { state: "without a charge", charge: null },
+    { state: "with an incomplete ack key", charge: { metadata: { settlementDispatchAckRequired: true } } },
+  ])("does not recover a queued batch $state from a timeout alone", async ({ charge }) => {
+    vi.useFakeTimers();
+    try {
+      getWork.mockResolvedValue({ work, outputs });
+      getUsage.mockImplementation(async (_workspaceId, key) => key === batch.billingKey ? charge : null);
+      const pending = startGenerationSettlement(batchAdapter({ work, outputs }));
+      const assertion = expect(pending).rejects.toThrow("generation_settlement_dispatch_uncertain");
+      await vi.runAllTimersAsync();
+      await assertion;
+      expect(send).not.toHaveBeenCalled();
+      expect(trackUsage).not.toHaveBeenCalled();
+      expect(refund).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("resolves an idempotent unit replay to the original derivation", async () => {
     chargeUnit.mockResolvedValue({
       ok: true,

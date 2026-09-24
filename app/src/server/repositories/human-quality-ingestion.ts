@@ -4,6 +4,7 @@ import { derivations } from "../db/schema";
 
 export interface BackfillDerivationRow {
   workspaceId: string;
+  campaignId: string;
   derivationId: string;
   createdAt: Date;
 }
@@ -37,6 +38,7 @@ export async function listEligibleDerivationsForBackfill(input: {
   const rows = await db
     .select({
       workspaceId: derivations.workspaceId,
+      campaignId: derivations.campaignId,
       derivationId: derivations.id,
       createdAt: derivations.createdAt,
     })

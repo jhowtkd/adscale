@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
 import { handleApiError } from "@/lib/api-response";
 import { requirePlatformOwner } from "@/server/auth/require-platform-owner";
-import { buildAnalyticsFunnelSummary } from "@/server/beta-analytics/aggregate";
+import { buildAnalyticsFunnelSummary, listStudioUsageWindows } from "@/server/beta-analytics/aggregate";
 import { parseOwnerAnalyticsQuery } from "@/server/beta-analytics/query";
 import { listBetaAnalyticsEventsForOwner } from "@/server/repositories/beta-analytics";
 import { listBetaSessions } from "@/server/repositories/beta-sessions";
-import { listUsageEventsForOwner } from "@/server/repositories/usage";
+import { listStudioUsageEventsForWindows } from "@/server/repositories/usage";
 import { listSelectedCreativeWorkPieceVersions } from "@/server/repositories/selected-piece-versions";
 
 // listBetaAnalyticsEventsForOwner uses this cap. A full page may be truncated,
@@ -23,24 +23,22 @@ export async function GET(request: Request) {
       async (
         eventsArgs: Parameters<typeof listBetaAnalyticsEventsForOwner>[0],
         sessionsArgs: Parameters<typeof listBetaSessions>[0],
-        usageArgs: Parameters<typeof listUsageEventsForOwner>[0],
-      ): Promise<[
-        Awaited<ReturnType<typeof listBetaAnalyticsEventsForOwner>>,
-        Awaited<ReturnType<typeof listBetaSessions>>,
-        Awaited<ReturnType<typeof listUsageEventsForOwner>>,
-      ]> => {
-        const [events, sessions, usageEvents] = await Promise.all([
+      ) => {
+        const [events, sessions] = await Promise.all([
           listBetaAnalyticsEventsForOwner(eventsArgs),
           listBetaSessions(sessionsArgs),
-          listUsageEventsForOwner(usageArgs),
         ]);
-        return [events, sessions, usageEvents];
+        const reportAsOf = eventsArgs?.to ?? new Date();
+        const usageEvents = await listStudioUsageEventsForWindows(
+          listStudioUsageWindows(events, reportAsOf)
+        );
+        return [events, sessions, usageEvents, reportAsOf.toISOString()] as const;
       },
       ["funnel-events"],
       { revalidate: 60, tags: ["feedback-funnel"] }
     );
 
-    const [events, sessions, usageEvents] = await cachedBuild(
+    const [cachedEvents, cachedSessions, cachedUsage, reportAsOf] = await cachedBuild(
       {
         workspaceId: filters.workspaceId,
         sessionId: filters.sessionId,
@@ -50,27 +48,24 @@ export async function GET(request: Request) {
       {
         workspaceId: filters.workspaceId,
         activeOnly: false,
-      },
-      {
-        workspaceId: filters.workspaceId,
-        from: filters.from,
-        to: filters.to,
       }
     );
 
+    // Next caches JSON, so revive dates before passing rows to the aggregators.
+    const events = cachedEvents.map((event) => ({ ...event, createdAt: new Date(event.createdAt) }));
+    const sessions = cachedSessions.map((session) => ({ ...session, startedAt: new Date(session.startedAt) }));
+    const usageEvents = cachedUsage.map((event) => ({ ...event, createdAt: new Date(event.createdAt) }));
     const filteredSessions = filters.sessionId
       ? sessions.filter((session) => session.id === filters.sessionId)
       : sessions;
-
     const selectedFromDatabase = filters.workspaceId
       ? await listSelectedCreativeWorkPieceVersions(filters.workspaceId)
       : undefined;
-
     const summary = buildAnalyticsFunnelSummary(
       events,
       filteredSessions,
       usageEvents,
-      filters.to,
+      new Date(reportAsOf),
       { selectedFromDatabase },
     );
 

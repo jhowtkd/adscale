@@ -1,4 +1,5 @@
 import "server-only";
+import pLimit from "p-limit";
 import { logger } from "@/lib/logger";
 import { R2ObjectStorage } from "@/server/storage/r2-object-storage";
 import { aggregateAdRows, buildAnuncioId, type MetaAdRow, type ServedAdFormat } from "./aggregate";
@@ -39,6 +40,8 @@ import {
 export const SYNC_WINDOWS = [7, 30, 90] as const;
 export const MEDIA_RETENTION_DAYS = 90;
 const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
+const mediaTransferLimit = pLimit(2);
+const DELETE_ROW_BATCH_SIZE = 4;
 
 export interface MediaStore {
   put(key: string, data: Buffer, contentType: string): Promise<void>;
@@ -62,10 +65,29 @@ export const defaultDownloadMedia: MediaDownloader = async (url) => {
     throw new Error(`mídia content-type recusado: ${contentType}`);
   }
   const announced = Number(res.headers.get("content-length") ?? 0);
-  if (announced > MAX_MEDIA_BYTES) throw new Error("mídia acima de 25MB");
-  const buffer = Buffer.from(await res.arrayBuffer());
-  if (buffer.length > MAX_MEDIA_BYTES) throw new Error("mídia acima de 25MB");
-  return { data: buffer, contentType };
+  if (announced > MAX_MEDIA_BYTES) {
+    await res.body?.cancel().catch(() => undefined);
+    throw new Error("mídia acima de 25MB");
+  }
+  if (!res.body) return { data: Buffer.alloc(0), contentType };
+  const reader = res.body.getReader();
+  const chunks: Buffer[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_MEDIA_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new Error("mídia acima de 25MB");
+      }
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return { data: Buffer.concat(chunks, size), contentType };
 };
 
 export function mediaKey(workspaceId: string, adAccountId: string, creativeId: string, kind: string): string {
@@ -126,18 +148,23 @@ async function deleteKeysBestEffort(
   storage: MediaStore,
   keys: Array<string | null>,
   context: string
-): Promise<void> {
+): Promise<boolean> {
   const settled = await Promise.allSettled(
-    keys.filter((key): key is string => !!key).map((key) => storage.delete(key))
+    keys.filter((key): key is string => !!key).map((key) => mediaTransferLimit(() => storage.delete(key)))
   );
   for (const item of settled) {
     if (item.status === "rejected") {
       logger.warn(`[served-ads] falha ao apagar mídia (${context})`, { error: String(item.reason) });
     }
   }
+  return settled.every((item) => item.status === "fulfilled");
 }
 
 export async function syncConnection(connectionId: string, deps: SyncDeps = {}): Promise<SyncResult> {
+  return syncConnectionCore(connectionId, deps, true);
+}
+
+async function syncConnectionCore(connectionId: string, deps: SyncDeps, purgeAfterSync: boolean): Promise<SyncResult> {
   const now = deps.now ?? new Date();
   const storage = deps.storage ?? getDefaultStorage();
   const download = deps.download ?? defaultDownloadMedia;
@@ -229,15 +256,19 @@ export async function syncConnection(connectionId: string, deps: SyncDeps = {}):
         if (windowDays === 30) {
           anuncios += servedAdRows.length;
           await upsertServedAds(servedAdRows);
-          for (const servedAd of servedAdRows) {
-            await copyCreativeMedia(storage, download, connection.workspaceId, client, account.id, ads, servedAd.creativeId);
+          for (let index = 0; index < servedAdRows.length; index += 2) {
+            const settled = await Promise.allSettled(servedAdRows.slice(index, index + 2).map((servedAd) =>
+              copyCreativeMedia(storage, download, connection.workspaceId, client, account.id, ads, servedAd.creativeId)
+            ));
+            const failure = settled.find((item) => item.status === "rejected");
+            if (failure?.status === "rejected") throw failure.reason;
           }
         }
         await upsertAdMetricsBatch(metricRows);
       }
     }
 
-    const purged = await purgeExpiredServedAds({ storage, now });
+    const purged = purgeAfterSync ? await purgeExpiredServedAds({ storage, now, connectionId }) : 0;
     await updateConnectionSync(connectionId, { lastSyncAt: now, lastSyncError: null });
     return { connectionId, accounts: accounts.length, anuncios, purged };
   } catch (error) {
@@ -275,33 +306,46 @@ async function copyCreativeMedia(
     { url: media.videoUrl, kind: "video", assign: (key) => { saved.videoKey = key; } },
     { url: media.thumbUrl, kind: "thumb", assign: (key) => { saved.thumbKey = key; } },
   ];
-  for (const job of jobs) {
-    if (!job.url) continue;
+  await Promise.all(jobs.filter((job) => job.url).map((job) => mediaTransferLimit(async () => {
     try {
-      const file = await download(job.url);
+      const file = await download(job.url!);
       const key = mediaKey(workspaceId, accountId, creativeId, job.kind);
       await storage.put(key, file.data, file.contentType);
       job.assign(key);
     } catch (error) {
       logger.warn("[served-ads] falha ao copiar mídia", { anuncioId, kind: job.kind, error: String(error) });
     }
-  }
+  })));
   if (saved.imageKey || saved.videoKey || saved.thumbKey) {
     await updateServedAdMedia(anuncioId, saved);
   }
 }
 
 /** TTL 90 dias após a última entrega: apaga mídia do R2 + linhas (métricas por cascade). */
-export async function purgeExpiredServedAds(deps: { storage?: MediaStore; now?: Date } = {}): Promise<number> {
+export async function purgeExpiredServedAds(
+  deps: { storage?: MediaStore; now?: Date; connectionId?: string } = {}
+): Promise<number> {
   const now = deps.now ?? new Date();
   const storage = deps.storage ?? getDefaultStorage();
   const cutoff = new Date(now.getTime() - MEDIA_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-  const expired = await listExpiredServedAds(cutoff);
-  for (const row of expired) {
-    await deleteKeysBestEffort(storage, [row.imageKey, row.videoKey, row.thumbKey], `ttl:${row.anuncioId}`);
-    await deleteServedAd(row.anuncioId);
+  const expired = await listExpiredServedAds(cutoff, deps.connectionId);
+  let purged = 0;
+  for (let index = 0; index < expired.length; index += DELETE_ROW_BATCH_SIZE) {
+    const removed = await Promise.all(expired.slice(index, index + DELETE_ROW_BATCH_SIZE).map(async (row) => {
+      if (!await deleteKeysBestEffort(storage, [row.imageKey, row.videoKey, row.thumbKey], `ttl:${row.anuncioId}`)) {
+        return false;
+      }
+      try {
+        await deleteServedAd(row.anuncioId);
+        return true;
+      } catch (error) {
+        logger.warn("[served-ads] falha ao apagar anúncio expirado", { anuncioId: row.anuncioId, error: String(error) });
+        return false;
+      }
+    }));
+    purged += removed.filter(Boolean).length;
   }
-  return expired.length;
+  return purged;
 }
 
 /** Desconectar: apaga token + mídia + métricas imediatamente, sem parcelar. */
@@ -311,9 +355,14 @@ export async function disconnectConnection(
 ): Promise<void> {
   const storage = deps.storage ?? getDefaultStorage();
   const rows = await listMediaKeysForConnection(connectionId);
-  for (const row of rows) {
-    await deleteKeysBestEffort(storage, [row.imageKey, row.videoKey, row.thumbKey], `disconnect:${row.anuncioId}`);
+  let failed = false;
+  for (let index = 0; index < rows.length; index += DELETE_ROW_BATCH_SIZE) {
+    const removed = await Promise.all(rows.slice(index, index + DELETE_ROW_BATCH_SIZE).map((row) =>
+      deleteKeysBestEffort(storage, [row.imageKey, row.videoKey, row.thumbKey], `disconnect:${row.anuncioId}`)
+    ));
+    if (removed.includes(false)) failed = true;
   }
+  if (failed) throw new Error("mediaDeleteFailed");
   await deleteConnection(connectionId);
 }
 
@@ -324,7 +373,7 @@ export async function syncAllConnections(deps: SyncDeps = {}): Promise<{ synced:
   let failed = 0;
   for (const connection of connections) {
     try {
-      await syncConnection(connection.id, deps);
+      await syncConnectionCore(connection.id, deps, false);
       synced += 1;
     } catch (error) {
       failed += 1;

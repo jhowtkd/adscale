@@ -1,5 +1,5 @@
 {
-  "id": "b355a3b9-4331-4d73-8c08-60f86b9b2f2d",
+  "id": "0cbf4457-14c2-45ff-b0f7-3b1aa2266e03",
   "prevId": "256e4495-6820-446b-81a0-4dafa5650dbb",
   "version": "7",
   "dialect": "postgresql",
@@ -6146,6 +6146,27 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "campaign_assets_workspace_id_cursor_idx": {
+          "name": "campaign_assets_workspace_id_cursor_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -6566,6 +6587,27 @@
           "columns": [
             {
               "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campaigns_workspace_id_cursor_idx": {
+          "name": "campaigns_workspace_id_cursor_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -7965,6 +8007,27 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "creative_plans_workspace_id_cursor_idx": {
+          "name": "creative_plans_workspace_id_cursor_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -8359,60 +8422,6 @@
           "value": "\"adscale_app\".\"creative_work_carousel_slides\".\"parent_slide_id\" is null or \"adscale_app\".\"creative_work_carousel_slides\".\"parent_slide_id\" <> \"adscale_app\".\"creative_work_carousel_slides\".\"id\""
         }
       },
-      "isRLSEnabled": false
-    },
-    "adscale_app.creative_work_comparison_leases": {
-      "name": "creative_work_comparison_leases",
-      "schema": "adscale_app",
-      "columns": {
-        "work_item_id": {
-          "name": "work_item_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "token": {
-          "name": "token",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "lease_expires_at": {
-          "name": "lease_expires_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "creative_work_comparison_leases_work_fk": {
-          "name": "creative_work_comparison_leases_work_fk",
-          "tableFrom": "creative_work_comparison_leases",
-          "tableTo": "creative_work_items",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "work_item_id",
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id",
-            "workspace_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "adscale_app.creative_work_items": {
@@ -10979,6 +10988,27 @@
           "columns": [
             {
               "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "derivations_workspace_id_cursor_idx": {
+          "name": "derivations_workspace_id_cursor_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
