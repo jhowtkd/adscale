@@ -1,7 +1,7 @@
 /** Explicitly authorized local pilot; manifest is metadata-only and append-only. */
 import { createHash, randomUUID } from "node:crypto";
-import { constants, closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, unlinkSync, writeSync } from "node:fs";
-import { join } from "node:path";
+import { constants, closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, rmdirSync, unlinkSync, writeSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { z } from "zod";
 import { canonicalJsonStringify } from "../src/server/creative-work/canonical-json";
 import { evaluateJev, type JevResult } from "../src/server/creative-work/semantic-review-http";
@@ -62,6 +62,12 @@ function validateAuthorization(raw: unknown, corpusHash: string, maxCalls: numbe
 function privateStat(path: string, directory: boolean) {
   const stat = lstatSync(path);
   if ((directory ? !stat.isDirectory() : !stat.isFile()) || (stat.mode & 0o077) !== 0) throw new Error("insecure_manifest_permissions");
+}
+
+function syncDirectory(path: string) {
+  const fd = openSync(path, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+  try { fsyncSync(fd); }
+  finally { closeSync(fd); }
 }
 
 // ponytail: One lock serializes this local pilot; use OS locking if concurrent runs become necessary.
@@ -150,7 +156,14 @@ export async function runAuthorizedCorpus(options: AuthorizedOptions) {
   const diagnosticSink = options.diagnosticSink ?? journal?.enqueueDiagnosticEvent ?? (() => {});
   const authorizationHash = sha256(canonicalJsonStringify(authorization));
   const manifestPath = join(options.manifestDir, "manifest.jsonl");
-  if (!options.resume) mkdirSync(options.manifestDir, { mode: 0o700 });
+  if (!options.resume) {
+    mkdirSync(options.manifestDir, { mode: 0o700 });
+    try { syncDirectory(realpathSync(dirname(options.manifestDir))); }
+    catch {
+      try { rmdirSync(options.manifestDir); } catch { /* Preserve unexpected contents. */ }
+      throw new Error("manifest_write_failed");
+    }
+  }
   privateStat(options.manifestDir, true);
   const lockPath = lockRun(options.manifestDir);
   let fd: number | undefined;
@@ -158,6 +171,7 @@ export async function runAuthorizedCorpus(options: AuthorizedOptions) {
     if (!options.resume) {
       fd = openSync(manifestPath, "wx", 0o600);
       appendManifestRecord(fd, { kind: "run", version: 1, corpusHash, authorizationHash, model: SEMANTIC_MODEL, profile: SEMANTIC_PROFILE, maxCalls: options.maxCalls, createdAt: now.toISOString() });
+      syncDirectory(options.manifestDir);
     } else {
       privateStat(manifestPath, false);
       fd = openSync(manifestPath, constants.O_WRONLY | constants.O_APPEND | constants.O_NOFOLLOW);
@@ -165,6 +179,7 @@ export async function runAuthorizedCorpus(options: AuthorizedOptions) {
     const manifest = readManifest(manifestPath);
     if (manifest.header.corpusHash !== corpusHash || manifest.header.authorizationHash !== authorizationHash
       || manifest.header.maxCalls !== options.maxCalls) throw new Error("manifest_mismatch");
+    if (options.resume) syncDirectory(options.manifestDir);
     const canSend = !expired && manifest.started.size < options.maxCalls && options.cases.some((entry) =>
       !manifest.started.has(sha256(`${entry.id}\u0000${entry.family}`)) && projectSemanticReviewOffline(entry.work).ok
     );

@@ -1,4 +1,4 @@
-import { lstatSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { lstatSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -8,6 +8,21 @@ import { createDiagnosticJournal } from "../src/server/diagnostics/journal";
 import type { NewDiagnosticEvent } from "../src/server/db/schema";
 import { appendManifestRecord, runAuthorizedCorpus, syntheticCorpusHash } from "./jev-authorized";
 import { SYNTHETIC_CASES } from "./run-jev-offline";
+
+const directorySync = vi.hoisted(() => ({ calls: 0, failAt: 0 }));
+vi.mock("node:fs", async (importOriginal) => {
+  const fs = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...fs,
+    fsyncSync: (fd: number) => {
+      if (fs.fstatSync(fd).isDirectory()) {
+        directorySync.calls += 1;
+        if (directorySync.calls === directorySync.failAt) throw new Error("simulated directory fsync failure");
+      }
+      return fs.fsyncSync(fd);
+    },
+  };
+});
 
 const cases = SYNTHETIC_CASES.slice(0, 2);
 const now = new Date("2026-09-22T12:00:00.000Z");
@@ -34,9 +49,55 @@ function fixture(maxCalls = 1) {
 
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  directorySync.calls = 0;
+  directorySync.failAt = 0;
 });
 
 describe("authorized Jev run manifest", () => {
+  it("syncs a new run under a symlinked parent before sending", async () => {
+    const options = fixture();
+    const root = join(options.manifestDir, "..");
+    symlinkSync(root, join(root, "alias"));
+    const transport = vi.fn(async () => ({
+      ok: true as const, decisions: cases[0].expected, usage: null,
+      confidence: {}, probabilities: {},
+    }));
+    const report = await runAuthorizedCorpus({
+      ...options, manifestDir: join(root, "alias", "run"), transport,
+    });
+    expect(report.completed).toBe(1);
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a parent sync failure and removes the empty run before any send", async () => {
+    const options = fixture();
+    const transport = vi.fn();
+    directorySync.failAt = 1;
+    await expect(runAuthorizedCorpus({ ...options, transport })).rejects.toThrow("manifest_write_failed");
+    expect(transport).not.toHaveBeenCalled();
+    expect(() => lstatSync(options.manifestDir)).toThrow();
+  });
+
+  it("requires a successful directory sync on resume after a failed manifest sync", async () => {
+    const options = fixture();
+    const transport = vi.fn(async () => ({
+      ok: true as const, decisions: cases[0].expected, usage: null,
+      confidence: {}, probabilities: {},
+    }));
+    directorySync.failAt = 2;
+    await expect(runAuthorizedCorpus({ ...options, transport })).rejects.toThrow("manifest_write_failed");
+    expect(transport).not.toHaveBeenCalled();
+    directorySync.calls = 0;
+    directorySync.failAt = 1;
+    await expect(runAuthorizedCorpus({ ...options, resume: true, transport })).rejects.toThrow("manifest_write_failed");
+    expect(transport).not.toHaveBeenCalled();
+    directorySync.calls = 0;
+    directorySync.failAt = 0;
+    expect((await runAuthorizedCorpus({ ...options, resume: true, transport })).completed).toBe(1);
+    expect(directorySync.calls).toBe(1);
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
   it("requires bounded, corpus-specific authorization before any network call", async () => {
     const options = fixture();
     const transport = vi.fn();
