@@ -16,7 +16,7 @@ type Props = {
   assetSourceCount: number;
   disabled: boolean;
   uploading: boolean;
-  onAdd: (files: FileList | null) => void;
+  onAdd: (files: FileList | File[]) => void;
   onUpdate: (sourceId: string, patch: { category?: PieceReferenceCategory; userInstruction?: string | null }) => Promise<boolean>;
   onReplace: (sourceId: string, file: File) => Promise<boolean>;
   onRetry: (sourceId: string) => Promise<void>;
@@ -33,7 +33,7 @@ export function PieceReferenceStrip({ sources, assetSourceCount, disabled, uploa
   return <section aria-label={t("title")} className="mt-3 space-y-2 border-t border-[var(--border-subtle)] pt-3">
     <div className="flex items-center gap-2">
       <span className="text-xs text-[var(--text-muted)]">{t("count", { count: assetSourceCount })}</span>
-      <input ref={addInput} type="file" multiple accept="image/png,image/jpeg,image/webp" hidden tabIndex={-1} aria-label={t("add")} onChange={(event) => onAdd(event.target.files)} />
+      <input ref={addInput} type="file" multiple accept="image/png,image/jpeg,image/webp" hidden tabIndex={-1} aria-label={t("add")} onChange={(event) => { onAdd(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
       <button type="button" disabled={disabled || uploading || atLimit} aria-label={atLimit ? t("limit") : t("add")} onClick={() => addInput.current?.click()} className="rounded px-2 py-1 text-sm disabled:opacity-50">{atLimit ? t("limit") : t("add")}</button>
       <span aria-live="polite" className="sr-only">{uploading ? t("uploading") : atLimit ? t("limit") : ""}</span>
     </div>
