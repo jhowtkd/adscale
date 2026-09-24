@@ -6,6 +6,7 @@ const getByKey = vi.hoisted(() => vi.fn());
 const listAttempts = vi.hoisted(() => vi.fn());
 const markAttempt = vi.hoisted(() => vi.fn());
 const setState = vi.hoisted(() => vi.fn());
+const withLock = vi.hoisted(() => vi.fn());
 const revise = vi.hoisted(() => vi.fn());
 const storageGet = vi.hoisted(() => vi.fn());
 const analyzeArtComparisonMock = vi.hoisted(() => vi.fn());
@@ -22,7 +23,10 @@ vi.mock("@/server/repositories/creative-work", () => ({
   getArtRefinementAttemptByKey: getByKey,
   listArtRefinementAttempts: listAttempts,
   markArtRefinementAttempt: markAttempt,
-  setArtRefinementState: setState,
+}));
+vi.mock("@/server/repositories/creative-work-comparison-lease", () => ({
+  setArtRefinementStateWithComparisonLease: (workspaceId: string, workItemId: string, _token: string, state: unknown) => setState(workspaceId, workItemId, state),
+  withCreativeWorkComparisonLease: withLock,
 }));
 vi.mock("./revise-creative-work-output", () => ({
   reviseCreativeWorkOutput: revise,
@@ -36,6 +40,10 @@ import { refineCreativeWork, refreshArtRefinementState } from "./refine-creative
 
 const UNIT = GENERATION_CREDIT_COSTS.creativeWorkOutput;
 const NOW = new Date("2026-09-13T12:00:00.000Z");
+
+beforeEach(() => {
+  withLock.mockImplementation((_workspaceId: string, _workItemId: string, run: (token: string) => Promise<unknown>) => run("test-lease"));
+});
 
 const weakCritique = {
   verdict: "weak",
@@ -116,7 +124,7 @@ describe("refineCreativeWork", () => {
     claim.mockResolvedValue({ attempt: 1, revisionKey: "art-refinement:work-1:root-1:1", replay: false });
     revise.mockResolvedValue({ ok: true, value: { output: { id: "rev-1" } } });
     markAttempt.mockResolvedValue({});
-    setState.mockResolvedValue({});
+    setState.mockResolvedValue(true);
     storageGet.mockRejectedValue(new Error("missing"));
     analyzeArtComparisonMock.mockResolvedValue({
       winner: "tie", reason: "Empate.", fixedIssues: [], regressions: [],
@@ -247,7 +255,7 @@ describe("refineCreativeWork", () => {
 describe("refreshArtRefinementState", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    setState.mockResolvedValue({});
+    setState.mockResolvedValue(true);
     listAttempts.mockResolvedValue([]);
     storageGet.mockRejectedValue(new Error("missing"));
     analyzeArtComparisonMock.mockResolvedValue({
@@ -333,6 +341,138 @@ describe("refreshArtRefinementState", () => {
       recommendedOutputIds: ["rev-1"],
       status: "ready",
     }));
+  });
+
+  it("reutiliza o julgamento e invalida quando imagem, briefing ou avaliador mudam", async () => {
+    const outputs = [
+      output({ id: "root-1", quality: qualityWith(weakCritique) }),
+      output({ id: "rev-1", parentOutputId: "root-1", quality: qualityWith(readyCritique), createdAt: new Date(NOW.getTime() + 1000) }),
+    ];
+    let work = aggregate({ outputs });
+    getWork.mockImplementation(async () => work);
+    storageGet.mockImplementation(async (key: string) => Buffer.from(`img:${key}`));
+    analyzeArtComparisonMock.mockResolvedValue({ winner: "after", reason: "Melhor foco.", fixedIssues: [], regressions: [] });
+    const refresh = () => refreshArtRefinementState({ workspaceId: "ws-1", workItemId: "work-1" });
+    const saveState = () => {
+      const state = setState.mock.lastCall?.[2];
+      work = aggregate({ work: { ...work.work, artRefinementState: state }, outputs });
+      return state;
+    };
+
+    await refresh();
+    const firstState = saveState() as { comparisons: Record<string, unknown> };
+    expect(Object.keys(firstState.comparisons)).toHaveLength(1);
+    expect(analyzeArtComparisonMock).toHaveBeenCalledTimes(1);
+    expect(storageGet).toHaveBeenCalledTimes(2);
+
+    await refresh();
+    expect(analyzeArtComparisonMock).toHaveBeenCalledTimes(1);
+    expect(storageGet).toHaveBeenCalledTimes(2);
+    expect(setState.mock.lastCall?.[2]).toMatchObject({ recommendedOutputIds: ["rev-1"], comparisons: firstState.comparisons });
+
+    outputs[1] = output({ ...outputs[1], outputKey: "creative-work/rev-1/replaced.png" });
+    await refresh();
+    expect(analyzeArtComparisonMock).toHaveBeenCalledTimes(2);
+    saveState();
+
+    work = aggregate({ work: { artRefinementState: setState.mock.lastCall?.[2], inputSnapshot: { ...work.work.inputSnapshot, request: "Promo alterada" } }, outputs });
+    await refresh();
+    expect(analyzeArtComparisonMock).toHaveBeenCalledTimes(3);
+    saveState();
+
+    vi.stubEnv("OPENAI_TEXT_MODEL", "gpt-6-test");
+    try {
+      await refresh();
+      expect(analyzeArtComparisonMock).toHaveBeenCalledTimes(4);
+      saveState();
+      vi.stubEnv("APP_URL", "http://localhost:3000");
+      vi.stubEnv("E2E_CONTROLLED_PROVIDER", "true");
+      await refresh();
+      expect(analyzeArtComparisonMock).toHaveBeenCalledTimes(5);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("serializes concurrent refreshes so a cached judgment is bought once", async () => {
+    const outputs = [
+      output({ id: "root-1", quality: qualityWith(weakCritique) }),
+      output({ id: "rev-1", parentOutputId: "root-1", quality: qualityWith(readyCritique), createdAt: new Date(NOW.getTime() + 1000) }),
+    ];
+    let work = aggregate({ outputs });
+    getWork.mockImplementation(async () => work);
+    setState.mockImplementation(async (_workspaceId: string, _workItemId: string, state: unknown) => {
+      work = aggregate({ work: { ...work.work, artRefinementState: state }, outputs });
+      return true;
+    });
+    storageGet.mockResolvedValue(Buffer.from("png"));
+    analyzeArtComparisonMock.mockResolvedValue({ winner: "after", reason: "Melhor foco.", fixedIssues: [], regressions: [] });
+    let tail = Promise.resolve();
+    withLock.mockImplementation((_workspaceId: string, _workItemId: string, run: (token: string) => Promise<void>) => {
+      const current = tail.then(() => run("test-lease"));
+      tail = current.then(() => undefined, () => undefined);
+      return current;
+    });
+
+    const refresh = () => refreshArtRefinementState({ workspaceId: "ws-1", workItemId: "work-1" });
+    await Promise.all([refresh(), refresh()]);
+
+    expect(withLock).toHaveBeenCalledTimes(2);
+    expect(analyzeArtComparisonMock).toHaveBeenCalledTimes(1);
+    expect(setState.mock.lastCall?.[2]).toMatchObject({ recommendedOutputIds: ["rev-1"] });
+    expect(Object.keys((setState.mock.lastCall?.[2] as { comparisons: Record<string, unknown> }).comparisons)).toHaveLength(1);
+  });
+
+  it("não persiste julgamento quando faltam bytes ou o avaliador falha", async () => {
+    getWork.mockResolvedValue(aggregate({ outputs: [
+      output({ id: "root-1", quality: qualityWith(weakCritique) }),
+      output({ id: "rev-1", parentOutputId: "root-1", quality: qualityWith(readyCritique), createdAt: new Date(NOW.getTime() + 1000) }),
+    ] }));
+    const refresh = () => refreshArtRefinementState({ workspaceId: "ws-1", workItemId: "work-1" });
+    await refresh();
+    expect(setState.mock.lastCall?.[2]).toMatchObject({ comparisons: {} });
+
+    storageGet.mockResolvedValue(Buffer.from("png"));
+    analyzeArtComparisonMock.mockRejectedValue(new Error("timeout"));
+    await refresh();
+    expect(setState.mock.lastCall?.[2]).toMatchObject({ comparisons: {} });
+
+    analyzeArtComparisonMock.mockResolvedValue({ winner: "after", reason: "", fixedIssues: [], regressions: [] });
+    await refresh();
+    expect(setState.mock.lastCall?.[2]).toMatchObject({ comparisons: {} });
+
+    analyzeArtComparisonMock.mockResolvedValue({ winner: "after", reason: "Melhor foco.", fixedIssues: [], regressions: [] });
+    await refresh();
+    expect(analyzeArtComparisonMock).toHaveBeenCalledTimes(3);
+    expect(Object.keys((setState.mock.lastCall?.[2] as { comparisons: Record<string, unknown> }).comparisons)).toHaveLength(1);
+  });
+
+  it("mantém a comparação sequencial do vencedor com no máximo duas leituras simultâneas", async () => {
+    getWork.mockResolvedValue(aggregate({ outputs: [
+      output({ id: "root-1", outputKey: "root.png", quality: qualityWith(weakCritique) }),
+      output({ id: "rev-1", parentOutputId: "root-1", outputKey: "rev-1.png", quality: qualityWith(weakCritique), createdAt: new Date(NOW.getTime() + 1000) }),
+      output({ id: "rev-2", parentOutputId: "rev-1", outputKey: "rev-2.png", quality: qualityWith(readyCritique), createdAt: new Date(NOW.getTime() + 2000) }),
+    ] }));
+    let activeReads = 0;
+    let peakReads = 0;
+    storageGet.mockImplementation(async (key: string) => {
+      activeReads += 1;
+      peakReads = Math.max(peakReads, activeReads);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      activeReads -= 1;
+      return Buffer.from(`img:${key}`);
+    });
+    analyzeArtComparisonMock
+      .mockResolvedValueOnce({ winner: "after", reason: "Primeira revisão melhor.", fixedIssues: [], regressions: [] })
+      .mockResolvedValueOnce({ winner: "before", reason: "Segunda revisão pior.", fixedIssues: [], regressions: [] });
+
+    await refreshArtRefinementState({ workspaceId: "ws-1", workItemId: "work-1" });
+
+    expect(peakReads).toBeLessThanOrEqual(2);
+    expect(storageGet).toHaveBeenCalledTimes(3);
+    expect(analyzeArtComparisonMock).toHaveBeenCalledTimes(2);
+    expect(analyzeArtComparisonMock.mock.calls[1]?.[0].beforeImageBuffer).toEqual(Buffer.from("img:rev-1.png"));
+    expect(setState.mock.lastCall?.[2]).toMatchObject({ recommendedOutputIds: ["rev-1"] });
   });
 
   it("falls back to a structural tie when comparison bytes are unavailable", async () => {
