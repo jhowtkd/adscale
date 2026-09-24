@@ -186,8 +186,8 @@ jobs:
           STRIPE_CANCEL_URL: http://localhost:3000/settings?tab=plans&checkout=cancel
           VISUAL_FOUNDATIONS_SKIP_STORAGE: "true"
 
-      - name: Run visual release layout for carousel and edit
-        run: cd app && npx playwright test tests/e2e/visual-release-gate.spec.ts --config playwright.release.config.ts --grep "SCN-STUDIO-CAROUSEL|SCN-STUDIO-EDIT"
+      - name: Run visual release layout for carousel, edit and variations
+        run: cd app && npx playwright test tests/e2e/visual-release-gate.spec.ts --config playwright.release.config.ts --grep "SCN-STUDIO-CAROUSEL|SCN-STUDIO-EDIT|ticket #167"
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/adscale_test
           E2E_BASE_URL: http://localhost:3000
