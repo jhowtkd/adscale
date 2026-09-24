@@ -7,6 +7,13 @@ const mocks = vi.hoisted(() => ({
   command: vi.fn(),
   reviewRepertoire: vi.fn(),
   synthesizeRepertoire: vi.fn(),
+  getVersion: vi.fn(),
+  refetchVersion: vi.fn(),
+}));
+const versionState = vi.hoisted(() => ({
+  data: null as null | { snapshot: { claims: Array<{ id: string; claimKey: string; value: unknown; evidenceRefs: Array<{ path: string }> }> } },
+  isPending: true,
+  isError: false,
 }));
 const calibrationState = vi.hoisted(() => ({ payload: null as null | Record<string, unknown> }));
 const assetsState = vi.hoisted(() => ({ assets: [] as Array<Record<string, unknown>> }));
@@ -63,6 +70,9 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Reco
   publish: "Publicar versão",
   activeVersion: `Versão ativa ${values?.number ?? ""}`,
   historyTitle: "Histórico",
+  historyLoading: "Carregando versão…",
+  historyLoadFailed: "Não foi possível carregar esta versão.",
+  historyRetry: "Tentar novamente",
   empty: "Nenhum claim extraído",
   calibrationTitle: "Calibração do treinamento",
   synthesizeRepertoire: "Sintetizar repertório",
@@ -84,6 +94,10 @@ vi.mock("@/lib/hooks/use-brand-training", async (original) => ({
     },
     isLoading: false,
   }),
+  useBrandKnowledgeVersion: (...args: unknown[]) => {
+    mocks.getVersion(...args);
+    return { ...versionState, refetch: mocks.refetchVersion };
+  },
   useReviewBrandKnowledgeClaim: () => ({ mutate: mocks.review, isPending: false }),
   usePublishBrandKnowledge: () => ({ mutate: mocks.publish, isPending: false }),
   useBrandCalibration: () => ({ data: calibrationState.payload, isLoading: false }),
@@ -107,6 +121,9 @@ describe("BrandKnowledgeReview", () => {
     assetsState.assets = [];
     synthesizeState.error = null;
     synthesizeState.isPending = false;
+    versionState.data = null;
+    versionState.isPending = true;
+    versionState.isError = false;
   });
 
   it("shows source, authority, confidence and conflicts side by side", () => {
@@ -119,6 +136,30 @@ describe("BrandKnowledgeReview", () => {
     expect(screen.getAllByText(/inferred.*medium/)[0]).toBeVisible();
     // Direct publishing is gone: activation flows through calibration.
     expect(screen.queryByRole("button", { name: "Publicar versão" })).not.toBeInTheDocument();
+  });
+
+  it("loads a version snapshot only after opening its history entry", () => {
+    const { rerender } = render(<BrandKnowledgeReview clientProfileId="profile-1" />);
+    expect(mocks.getVersion).toHaveBeenCalledWith("profile-1", "version-1", false);
+    expect(screen.queryByText(/palette.colors: \["#D71F2B"\]/)).not.toBeInTheDocument();
+
+    const entry = screen.getByText(/v1 ·/).closest("details")!;
+    entry.open = true;
+    fireEvent(entry, new Event("toggle", { bubbles: true }));
+    expect(mocks.getVersion).toHaveBeenLastCalledWith("profile-1", "version-1", true);
+    expect(screen.getByText("Carregando versão…")).toBeVisible();
+
+    versionState.data = { snapshot: { claims: [{ id: "claim-history", claimKey: "palette.colors", value: ["#D71F2B"], evidenceRefs: [{ path: "guide.colors" }] }] } };
+    versionState.isPending = false;
+    rerender(<BrandKnowledgeReview clientProfileId="profile-1" />);
+    expect(screen.getByText(/palette.colors: \["#D71F2B"\]/)).toBeVisible();
+
+    versionState.data = null;
+    versionState.isError = true;
+    rerender(<BrandKnowledgeReview clientProfileId="profile-1" />);
+    expect(screen.getByText("Não foi possível carregar esta versão.")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    expect(mocks.refetchVersion).toHaveBeenCalledOnce();
   });
 
   it("mounts the calibration review on the already-mounted surface (plan 01, T3)", () => {

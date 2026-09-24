@@ -188,6 +188,7 @@ import {
   failCreativeWorkOutput,
   failQueuedCreativeWorkOutput,
   getCreativeWork,
+  getCreativeWorkOutputForSelectionEffect,
   markCreativeWorkOutputProcessing,
   incrementCreativeWorkOutputRetry,
   requeueCreativeWorkOutputOnce,
@@ -1895,6 +1896,29 @@ describe("creative-work repository", () => {
       expect(result).toBeNull();
       expect(mocks.whereMock).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("loads only the requested selection-effect output within its work and workspace", async () => {
+    mocks.state.selectResults.push([{ id: "output-1", outputKey: "key-1" }]);
+
+    await expect(getCreativeWorkOutputForSelectionEffect("ws-1", "work-1", "output-1"))
+      .resolves.toEqual({ id: "output-1", outputKey: "key-1" });
+
+    expect(mocks.selectMock).toHaveBeenCalledOnce();
+    expect(mocks.selectMock.mock.calls[0]?.[0]).toEqual({
+      id: creativeWorkOutputs.id,
+      outputKey: creativeWorkOutputs.outputKey,
+    });
+    expect(mocks.innerJoinMock).toHaveBeenCalledOnce();
+    expect(serializedCondition(mocks.innerJoinMock.mock.calls[0]?.[0]).params).toEqual(["ws-1"]);
+    expect(serializedCondition(mocks.whereMock.mock.calls[0]?.[0]).params).toEqual([
+      "ws-1", "work-1", "output-1",
+    ]);
+    expect(mocks.limitMock).toHaveBeenCalledWith(1);
+
+    mocks.state.selectResults.push([]);
+    await expect(getCreativeWorkOutputForSelectionEffect("other-workspace", "work-1", "output-1"))
+      .resolves.toBeNull();
   });
 
   describe("failStaleCreativeWorkOutputs", () => {

@@ -89,7 +89,7 @@ describe("/api/client-profiles/[id]/brand-knowledge", () => {
     vi.clearAllMocks();
     mocks.requireWorkspaceAccess.mockResolvedValue({ user: { id: "user-1" }, workspace: { id: "workspace-1" } });
     mocks.listClaims.mockResolvedValue(claims);
-    mocks.listVersions.mockResolvedValue([{ id: "version-1", status: "active", hash: "a".repeat(64) }]);
+    mocks.listVersions.mockResolvedValue([{ id: "version-1", versionNumber: 1, status: "active", hash: "a".repeat(64), publishedByUserId: "user-1", publishedAt: "2026-08-13T12:00:00.000Z" }]);
     mocks.reviewClaim.mockResolvedValue({ ...claims[0], status: "approved", reviewedByUserId: "user-1" });
     mocks.getClientProfile.mockResolvedValue({ id: "profile-1" });
   });
@@ -98,6 +98,7 @@ describe("/api/client-profiles/[id]/brand-knowledge", () => {
     const response = await GET(new Request("http://localhost/api/client-profiles/profile-1/brand-knowledge"), { params: Promise.resolve({ id: "profile-1" }) });
     expect(response.status).toBe(200);
     expect(mocks.listClaims).toHaveBeenCalledWith("workspace-1", "profile-1");
+    expect(mocks.listVersions).toHaveBeenCalledWith("workspace-1", "profile-1");
     expect(mocks.reviewClaim).not.toHaveBeenCalled();
     expect(await response.json()).toMatchObject({ claims, activeVersion: { id: "version-1" } });
   });

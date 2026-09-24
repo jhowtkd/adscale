@@ -929,6 +929,26 @@ export async function getCreativeWork(
   return { work: workRows[0], outputs, sources };
 }
 
+/** Minimal workspace-scoped output lookup for durable selection-effect replay. */
+export async function getCreativeWorkOutputForSelectionEffect(
+  workspaceId: string,
+  workItemId: string,
+  outputId: string,
+): Promise<Pick<CreativeWorkOutput, "id" | "outputKey"> | null> {
+  const [output] = await db.select({
+    id: creativeWorkOutputs.id,
+    outputKey: creativeWorkOutputs.outputKey,
+  }).from(creativeWorkOutputs).innerJoin(creativeWorkItems, and(
+    eq(creativeWorkItems.workspaceId, workspaceId),
+    eq(creativeWorkItems.id, creativeWorkOutputs.workItemId),
+  )).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.workItemId, workItemId),
+    eq(creativeWorkOutputs.id, outputId),
+  )).limit(1);
+  return output ?? null;
+}
+
 export type SourceAssetDetails = {
   assetKey: string;
   mimeType: string;

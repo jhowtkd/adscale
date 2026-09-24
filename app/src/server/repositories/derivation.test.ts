@@ -2,26 +2,31 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 
-const { whereMock, fromMock, selectMock, updateMock, setMock, updateWhereMock, returningMock } = vi.hoisted(() => {
+const { whereMock, fromMock, selectMock, distinctWhereMock, distinctOrderByMock, selectDistinctOnMock, updateMock, setMock, updateWhereMock, returningMock } = vi.hoisted(() => {
   const whereMock = vi.fn();
   const fromMock = vi.fn(() => ({ where: whereMock }));
   const selectMock = vi.fn(() => ({ from: fromMock }));
+  const distinctOrderByMock = vi.fn();
+  const distinctWhereMock = vi.fn(() => ({ orderBy: distinctOrderByMock }));
+  const selectDistinctOnMock = vi.fn(() => ({ from: vi.fn(() => ({ where: distinctWhereMock })) }));
   const returningMock = vi.fn();
   const updateWhereMock = vi.fn(() => ({ returning: returningMock }));
   const setMock = vi.fn(() => ({ where: updateWhereMock }));
   const updateMock = vi.fn(() => ({ set: setMock }));
-  return { whereMock, fromMock, selectMock, updateMock, setMock, updateWhereMock, returningMock };
+  return { whereMock, fromMock, selectMock, distinctWhereMock, distinctOrderByMock, selectDistinctOnMock, updateMock, setMock, updateWhereMock, returningMock };
 });
 
 vi.mock("../db", () => ({
   db: {
     select: selectMock,
+    selectDistinctOn: selectDistinctOnMock,
     update: updateMock,
   },
 }));
 
 import {
   failQueuedDerivation,
+  getLatestDerivationOutputKeysByCampaignIds,
   getDerivationsByIds,
   getActivePackageChildren,
   touchQueuedDerivation,
@@ -39,6 +44,28 @@ describe("derivation repository", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     whereMock.mockResolvedValue([]);
+    distinctOrderByMock.mockResolvedValue([]);
+  });
+
+  it("selects one latest output key per campaign with a stable tie-break", async () => {
+    distinctOrderByMock.mockResolvedValue([
+      { campaignId: "campaign-a", outputKey: "latest-a" },
+      { campaignId: "campaign-b", outputKey: "latest-b" },
+    ]);
+
+    const result = await getLatestDerivationOutputKeysByCampaignIds("ws-1", ["campaign-a", "campaign-b"]);
+
+    expect(result).toEqual(new Map([
+      ["campaign-a", "latest-a"],
+      ["campaign-b", "latest-b"],
+    ]));
+    expect(selectDistinctOnMock).toHaveBeenCalledOnce();
+    expect(selectDistinctOnMock.mock.calls[0]?.[0]).toHaveLength(1);
+    expect(distinctOrderByMock.mock.calls[0]).toHaveLength(3);
+    const query = new PgDialect().sqlToQuery(distinctWhereMock.mock.calls[0]?.[0] as SQL);
+    expect(query.params).toContain("ws-1");
+    expect(query.params).toContain("campaign-a");
+    expect(query.params).toContain("campaign-b");
   });
 
   describe("failQueuedDerivation", () => {

@@ -403,16 +403,21 @@ export interface BrandKnowledgePayload {
     comparison: "conflict" | "human_needed";
     claims: Array<Pick<BrandKnowledgeClaimRecord, "id" | "value" | "authority" | "confidence" | "evidenceRefs">>;
   }>;
-  versions: Array<{
-    id: string;
-    versionNumber: number;
-    hash: string;
-    status: "active" | "superseded";
-    publishedByUserId: string;
-    publishedAt: string;
-    snapshot?: { claims: Array<{ id: string; claimKey: string; value: unknown; evidenceRefs: BrandKnowledgeClaimRecord["evidenceRefs"]; reviewedByUserId: string; reviewedAt: string }> };
-  }>;
-  activeVersion: { id: string; versionNumber: number; hash: string; status: "active" } | null;
+  versions: BrandKnowledgeVersionMetadata[];
+  activeVersion: BrandKnowledgeVersionMetadata | null;
+}
+
+export interface BrandKnowledgeVersionMetadata {
+  id: string;
+  versionNumber: number;
+  hash: string;
+  status: "active" | "superseded";
+  publishedByUserId: string;
+  publishedAt: string;
+}
+
+export interface BrandKnowledgeVersionDetail extends BrandKnowledgeVersionMetadata {
+  snapshot: { claims: Array<{ id: string; claimKey: string; value: unknown; evidenceRefs: BrandKnowledgeClaimRecord["evidenceRefs"]; reviewedByUserId: string; reviewedAt: string }> };
 }
 
 const brandKnowledgeKey = (clientProfileId: string) => ["brand-knowledge", clientProfileId] as const;
@@ -426,6 +431,19 @@ export function useBrandKnowledge(clientProfileId: string | null) {
       return response.json();
     },
     enabled: Boolean(clientProfileId),
+  });
+}
+
+export function useBrandKnowledgeVersion(clientProfileId: string, versionId: string, open: boolean) {
+  return useQuery({
+    queryKey: [...brandKnowledgeKey(clientProfileId), "version", versionId],
+    queryFn: async (): Promise<BrandKnowledgeVersionDetail> => {
+      const response = await apiFetch(`/api/client-profiles/${clientProfileId}/brand-knowledge/versions/${versionId}`);
+      if (!response.ok) throw new Error(await readError(response));
+      return (await response.json()).version;
+    },
+    enabled: open,
+    staleTime: Infinity,
   });
 }
 
