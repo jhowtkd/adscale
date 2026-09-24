@@ -7,6 +7,8 @@ import {
 import { STALE_TIME } from "@/lib/query-config";
 import { invalidateWorkListProjections } from "@/lib/hooks/use-canonical-works";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
+import pLimit from "p-limit";
 
 export interface Campaign {
   id: string;
@@ -268,10 +270,14 @@ export function useCampaigns(filters?: CampaignListQuery) {
     staleTime: STALE_TIME.SEMI_STATIC,
     refetchOnWindowFocus: true,
   });
+  const campaigns = useMemo(
+    () => (query.data?.campaigns ?? []).map(toUiCampaign),
+    [query.data?.campaigns],
+  );
 
   return {
     ...query,
-    campaigns: (query.data?.campaigns ?? []).map(toUiCampaign),
+    campaigns,
     totalCount: query.data?.totalCount ?? 0,
   };
 }
@@ -288,10 +294,14 @@ export function useCampaign(id: string) {
   });
 
   const loadError = query.error instanceof CampaignLoadError ? query.error : null;
+  const campaign = useMemo(
+    () => query.data ? toUiCampaign(query.data) : null,
+    [query.data],
+  );
 
   return {
     ...query,
-    campaign: query.data ? toUiCampaign(query.data) : null,
+    campaign,
     loadError,
     loadErrorKind: loadError?.kind ?? null,
   };
@@ -353,6 +363,28 @@ export function useDeleteCampaigns() {
     mutationFn: deleteCampaign,
     onSuccess: async () => {
       await invalidateWorkListProjections(queryClient);
+    },
+  });
+}
+
+export function useBulkCampaigns() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ids, action }: { ids: string[]; action: "archive" | "delete" }) => {
+      const limit = pLimit(3);
+      const results = await Promise.allSettled(
+        ids.map((id) => limit(async () => {
+          if (action === "archive") await updateCampaign(id, { status: "draft" });
+          else await deleteCampaign(id);
+        })),
+      );
+      return {
+        succeededIds: ids.filter((_, index) => results[index].status === "fulfilled"),
+        failedIds: ids.filter((_, index) => results[index].status === "rejected"),
+      };
+    },
+    onSuccess: async ({ succeededIds }) => {
+      if (succeededIds.length) await invalidateWorkListProjections(queryClient);
     },
   });
 }

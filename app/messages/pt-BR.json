@@ -4948,6 +4948,7 @@
     }
   },
   "notificationPanel": {
+    "markGroupFailed": "Falha ao marcar notificações como lidas ({count})",
     "groupSummary": {
       "one": "{count} nova notificação em \"{campaign}\"",
       "many": "{count} novas notificações em \"{campaign}\"",

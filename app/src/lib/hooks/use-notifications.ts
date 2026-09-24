@@ -1,6 +1,7 @@
 import { apiFetch } from "@/lib/api-client";
 import { STALE_TIME } from "@/lib/query-config";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import pLimit from "p-limit";
 
 export interface NotificationItem {
   id: string;
@@ -83,12 +84,24 @@ export function useNotifications(options?: {
   });
 }
 
-export function useMarkNotificationAsRead() {
+export function useMarkNotificationsAsRead(onPartialFailure?: (count: number) => void) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: markNotificationAsRead,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    mutationFn: async (ids: string[]) => {
+      const limit = pLimit(3);
+      const results = await Promise.allSettled(
+        ids.map((id) => limit(() => markNotificationAsRead(id))),
+      );
+      return {
+        succeededIds: ids.filter((_, index) => results[index].status === "fulfilled"),
+        failedIds: ids.filter((_, index) => results[index].status === "rejected"),
+      };
+    },
+    onSuccess: async ({ succeededIds, failedIds }) => {
+      if (succeededIds.length) {
+        await queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      }
+      if (failedIds.length) onPartialFailure?.(failedIds.length);
     },
   });
 }
