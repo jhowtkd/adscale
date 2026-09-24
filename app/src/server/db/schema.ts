@@ -2911,6 +2911,23 @@ export const creativeWorkItems = adscaleSchema.table(
 export type CreativeWorkItem = typeof creativeWorkItems.$inferSelect;
 export type NewCreativeWorkItem = typeof creativeWorkItems.$inferInsert;
 
+export const creativeWorkComparisonLeases = adscaleSchema.table(
+  "creative_work_comparison_leases",
+  {
+    workItemId: uuid("work_item_id").primaryKey(),
+    workspaceId: uuid("workspace_id").notNull(),
+    token: uuid("token").notNull(),
+    leaseExpiresAt: timestamp("lease_expires_at", { mode: "date" }).notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.workItemId, table.workspaceId],
+      foreignColumns: [creativeWorkItems.id, creativeWorkItems.workspaceId],
+      name: "creative_work_comparison_leases_work_fk",
+    }).onDelete("cascade"),
+  ],
+);
+
 export const creativeWorkSources = adscaleSchema.table(
   "creative_work_sources",
   {

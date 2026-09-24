@@ -23,8 +23,10 @@ vi.mock("@/server/repositories/creative-work", () => ({
   getArtRefinementAttemptByKey: getByKey,
   listArtRefinementAttempts: listAttempts,
   markArtRefinementAttempt: markAttempt,
-  setArtRefinementState: setState,
-  withCreativeWorkPreparationLock: withLock,
+}));
+vi.mock("@/server/repositories/creative-work-comparison-lease", () => ({
+  setArtRefinementStateWithComparisonLease: (workspaceId: string, workItemId: string, _token: string, state: unknown) => setState(workspaceId, workItemId, state),
+  withCreativeWorkComparisonLease: withLock,
 }));
 vi.mock("./revise-creative-work-output", () => ({
   reviseCreativeWorkOutput: revise,
@@ -40,7 +42,7 @@ const UNIT = GENERATION_CREDIT_COSTS.creativeWorkOutput;
 const NOW = new Date("2026-09-13T12:00:00.000Z");
 
 beforeEach(() => {
-  withLock.mockImplementation((_workspaceId: string, _workItemId: string, run: () => Promise<unknown>) => run());
+  withLock.mockImplementation((_workspaceId: string, _workItemId: string, run: (token: string) => Promise<unknown>) => run("test-lease"));
 });
 
 const weakCritique = {
@@ -122,7 +124,7 @@ describe("refineCreativeWork", () => {
     claim.mockResolvedValue({ attempt: 1, revisionKey: "art-refinement:work-1:root-1:1", replay: false });
     revise.mockResolvedValue({ ok: true, value: { output: { id: "rev-1" } } });
     markAttempt.mockResolvedValue({});
-    setState.mockResolvedValue({});
+    setState.mockResolvedValue(true);
     storageGet.mockRejectedValue(new Error("missing"));
     analyzeArtComparisonMock.mockResolvedValue({
       winner: "tie", reason: "Empate.", fixedIssues: [], regressions: [],
@@ -253,7 +255,7 @@ describe("refineCreativeWork", () => {
 describe("refreshArtRefinementState", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    setState.mockResolvedValue({});
+    setState.mockResolvedValue(true);
     listAttempts.mockResolvedValue([]);
     storageGet.mockRejectedValue(new Error("missing"));
     analyzeArtComparisonMock.mockResolvedValue({
@@ -401,12 +403,13 @@ describe("refreshArtRefinementState", () => {
     getWork.mockImplementation(async () => work);
     setState.mockImplementation(async (_workspaceId: string, _workItemId: string, state: unknown) => {
       work = aggregate({ work: { ...work.work, artRefinementState: state }, outputs });
+      return true;
     });
     storageGet.mockResolvedValue(Buffer.from("png"));
     analyzeArtComparisonMock.mockResolvedValue({ winner: "after", reason: "Melhor foco.", fixedIssues: [], regressions: [] });
     let tail = Promise.resolve();
-    withLock.mockImplementation((_workspaceId: string, _workItemId: string, run: () => Promise<void>) => {
-      const current = tail.then(run);
+    withLock.mockImplementation((_workspaceId: string, _workItemId: string, run: (token: string) => Promise<void>) => {
+      const current = tail.then(() => run("test-lease"));
       tail = current.then(() => undefined, () => undefined);
       return current;
     });

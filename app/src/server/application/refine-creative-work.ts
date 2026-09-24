@@ -28,9 +28,11 @@ import {
   getCreativeWork,
   listArtRefinementAttempts,
   markArtRefinementAttempt,
-  setArtRefinementState,
-  withCreativeWorkPreparationLock,
 } from "@/server/repositories/creative-work";
+import {
+  setArtRefinementStateWithComparisonLease,
+  withCreativeWorkComparisonLease,
+} from "@/server/repositories/creative-work-comparison-lease";
 import type { CreativeWorkOutput } from "@/server/db/schema";
 import { objectStorage } from "@/server/storage";
 import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
@@ -139,7 +141,7 @@ export async function loadArtComparisonImage(outputKey: string | null): Promise<
 async function refreshArtRefinementStateLocked(input: {
   workspaceId: string;
   workItemId: string;
-}): Promise<void> {
+}, token: string): Promise<void> {
   const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!aggregate) return;
   const budget = resolveCreativeWorkArtRefinement(aggregate.work.inputSnapshot);
@@ -225,19 +227,20 @@ async function refreshArtRefinementStateLocked(input: {
   const openIssues = issues.length > 0 ? issues.slice(0, 10) : (
     status === "needs_review" ? ["Nenhuma versão válida disponível."] : []
   );
-  await setArtRefinementState(input.workspaceId, input.workItemId, {
+  const written = await setArtRefinementStateWithComparisonLease(input.workspaceId, input.workItemId, token, {
     recommendedOutputIds,
     status,
     issues: openIssues,
     comparisons,
   });
+  if (!written) throw new Error("Art comparison lease lost before state update");
 }
 
 export function refreshArtRefinementState(input: {
   workspaceId: string;
   workItemId: string;
 }): Promise<void> {
-  return withCreativeWorkPreparationLock(input.workspaceId, input.workItemId, () => refreshArtRefinementStateLocked(input));
+  return withCreativeWorkComparisonLease(input.workspaceId, input.workItemId, (token) => refreshArtRefinementStateLocked(input, token));
 }
 
 /**
