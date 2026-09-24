@@ -235,6 +235,7 @@
       "client-profiles/[id]/brand-knowledge/calibration/route.ts",
       "client-profiles/[id]/brand-knowledge/publish/route.ts",
       "client-profiles/[id]/brand-knowledge/route.ts",
+      "client-profiles/[id]/brand-knowledge/versions/[versionId]/route.ts",
       "client-profiles/[id]/memory/route.ts",
       "client-profiles/[id]/output-learnings/route.ts",
       "client-profiles/[id]/references/route.ts",
