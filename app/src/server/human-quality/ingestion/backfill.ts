@@ -15,6 +15,8 @@ export interface CorpusBackfillBatchResult {
   nextCursor: CorpusBackfillCursor | null;
 }
 
+const BACKFILL_CONCURRENCY = 5;
+
 export async function runCorpusBackfillBatch(input: {
   batchSize?: number;
   cursor?: CorpusBackfillCursor | null;
@@ -34,23 +36,32 @@ export async function runCorpusBackfillBatch(input: {
   let skipped = 0;
   let blocked = 0;
 
-  for (const row of rows) {
-    const result = await captureAndAutoPromote({
-      workspaceId: row.workspaceId,
-      derivationId: row.derivationId,
-    });
-
-    if (!result.candidate) {
-      skipped += 1;
-      continue;
-    }
-
-    created += 1;
-    if (result.promoted?.created) {
-      promoted += 1;
-    }
-    if (result.promoteError) {
-      blocked += 1;
+  for (let offset = 0; offset < rows.length; offset += BACKFILL_CONCURRENCY) {
+    const campaignTasks = new Map<string, Promise<unknown>>();
+    const settled = await Promise.allSettled(rows.slice(offset, offset + BACKFILL_CONCURRENCY)
+      .map((row) => {
+        // Profile resolution can update the campaign; serialize siblings to avoid races.
+        const previous = campaignTasks.get(row.campaignId) ?? Promise.resolve();
+        const task = previous.then(() => captureAndAutoPromote({
+          workspaceId: row.workspaceId,
+          derivationId: row.derivationId,
+        }));
+        campaignTasks.set(row.campaignId, task);
+        return task;
+      }));
+    const failure = settled.find((result) => result.status === "rejected");
+    // No cursor is returned after a failed chunk; retrying the same cursor is idempotent.
+    if (failure?.status === "rejected") throw failure.reason;
+    for (const settledResult of settled) {
+      if (settledResult.status !== "fulfilled") continue;
+      const result = settledResult.value;
+      if (!result.candidate) {
+        skipped += 1;
+        continue;
+      }
+      created += 1;
+      if (result.promoted?.created) promoted += 1;
+      if (result.promoteError) blocked += 1;
     }
   }
 
