@@ -2236,6 +2236,31 @@ describe("creativeWorkOutputJob", () => {
       expect(objectGetMock).toHaveBeenCalledWith("estilo.png");
     });
 
+    it("limits simultaneous reference reads while keeping the required order", async () => {
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...workItem, toolKind: "restyle", inputSnapshot: v1RestyleSnapshot },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+      const referenceKeys = new Set(["conteudo.png", "estilo.png", identitySnapshot.assets[1].assetKey]);
+      let active = 0;
+      let peak = 0;
+      objectGetMock.mockImplementation(async (key: string) => {
+        if (referenceKeys.has(key)) {
+          active += 1;
+          peak = Math.max(peak, active);
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          active -= 1;
+        }
+        return VALID_PNG;
+      });
+
+      await runJob();
+
+      expect(referenceNames()).toEqual(["Content source", "Style source", "Mood"]);
+      expect(peak).toBe(2);
+    });
+
     it.each([
       ["variations", [
         { ...v1Source("stale-seal", "both"), pieceReference: { version: 1, category: "additional_logo_or_seal", treatment: "exact_application", userInstruction: "rodapé", hasTransparency: true } },
@@ -2534,6 +2559,36 @@ describe("creativeWorkOutputJob", () => {
         .toBeLessThan(generateAndStoreImageMock.mock.invocationCallOrder[0]!);
       expect(completeMock).toHaveBeenCalledWith("workspace-1", "work-1", "output-1", expect.objectContaining({ cost: GENERATION_CREDIT_COSTS.creativeWorkOutput }));
       expect(GENERATION_CREDIT_COSTS.creativeWorkOutput).toBe(50);
+    });
+
+    it("preflights exact assets with at most two simultaneous storage reads", async () => {
+      const exactAssets = Array.from({ length: 3 }, (_, index) => ({
+        ...identitySnapshot.assets[0],
+        referenceId: `exact-${index}`,
+        assetKey: `workspaces/workspace-1/exact-${index}.png`,
+      }));
+      getCreativeWorkMock.mockResolvedValue({
+        work: { ...v1Work("single"), identitySnapshot: { ...identitySnapshot, assets: exactAssets } },
+        outputs: [makeQueuedOutput()],
+      });
+      markProcessingMock.mockResolvedValue(makeQueuedOutput({ status: "processing" }));
+      const exactKeys = new Set(exactAssets.map((asset) => asset.assetKey));
+      let active = 0;
+      let peak = 0;
+      objectGetMock.mockImplementation(async (key: string) => {
+        if (exactKeys.has(key)) {
+          active += 1;
+          peak = Math.max(peak, active);
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          active -= 1;
+        }
+        return VALID_PNG;
+      });
+
+      await runJob();
+
+      expect(peak).toBe(2);
+      expect(generateAndStoreImageMock).toHaveBeenCalledTimes(1);
     });
 
   it("fails an unreadable exact temporary binary before the paid provider call", async () => {

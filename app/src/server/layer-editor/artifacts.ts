@@ -25,8 +25,8 @@ export async function renderLayerEditorPng(input: { canvas: { width: number; hei
   return sharp({ create: { width: input.canvas.width, height: input.canvas.height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).composite(composites).png().toBuffer();
 }
 
-export async function writeLayerEditorPsd(input: { canvas: { width: number; height: number }; layers: RenderableLayer[]; load: (key: string) => Promise<Buffer> }): Promise<Buffer> {
-  const composite = await renderLayerEditorPng(input);
+export async function writeLayerEditorPsd(input: { canvas: { width: number; height: number }; layers: RenderableLayer[]; load: (key: string) => Promise<Buffer>; compositePng?: Buffer }): Promise<Buffer> {
+  const composite = input.compositePng ?? await renderLayerEditorPng(input);
   const children = await Promise.all([...input.layers].sort((a, b) => b.order - a.order).map(async (layer) => ({
     name: layer.name, left: layer.x, top: layer.y, right: layer.x + layer.width, bottom: layer.y + layer.height, hidden: !layer.visible,
     imageData: await imageData(await input.load(layer.currentKey), layer.width, layer.height),
@@ -40,8 +40,20 @@ export async function materializeLayerEditorDraft(input: { workspaceId: string; 
   if (!state || state.revision !== input.revision) throw new Error("Saved layer editor revision is unavailable");
   const pngKey = layerEditorArtifactKey(input, "png");
   const psdKey = layerEditorArtifactKey(input, "psd");
-  const load = (key: string) => objectStorage.get(key);
-  if (!await objectStorage.head(pngKey)) await objectStorage.put(pngKey, await renderLayerEditorPng({ canvas: state.canvas, layers: state.layers, load }), "image/png");
-  if (!await objectStorage.head(psdKey)) await objectStorage.put(psdKey, await writeLayerEditorPsd({ canvas: state.canvas, layers: state.layers, load }), "image/vnd.adobe.photoshop");
+  const pngExists = await objectStorage.head(pngKey);
+  const psdExists = await objectStorage.head(psdKey);
+  if (pngExists && psdExists) return { pngKey, psdKey };
+  const buffers = new Map<string, Promise<Buffer>>();
+  const load = (key: string) => {
+    const existing = buffers.get(key);
+    if (existing) return existing;
+    const pending = objectStorage.get(key);
+    buffers.set(key, pending);
+    return pending;
+  };
+  const renderInput = { canvas: state.canvas, layers: state.layers, load };
+  const compositePng = await renderLayerEditorPng(renderInput);
+  if (!pngExists) await objectStorage.put(pngKey, compositePng, "image/png");
+  if (!psdExists) await objectStorage.put(psdKey, await writeLayerEditorPsd({ ...renderInput, compositePng }), "image/vnd.adobe.photoshop");
   return { pngKey, psdKey };
 }

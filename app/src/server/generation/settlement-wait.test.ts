@@ -4,6 +4,20 @@ import { settlementDeadline } from "./settlement-wait";
 afterEach(() => vi.useRealTimers());
 
 describe("settlementDeadline", () => {
+  it("backs off progressively without sleeping past the deadline", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+    const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 400 });
+    const intervals: number[] = [];
+    for (let attempt = 0; deadline.shouldContinue(attempt); attempt += 1) {
+      const before = performance.now();
+      const pending = deadline.pause();
+      await vi.runOnlyPendingTimersAsync();
+      await pending;
+      intervals.push(performance.now() - before);
+    }
+    expect(intervals).toEqual([25, 50, 100, 200, 25]);
+  });
+
   it("stops by monotonic time even when wall time moves backwards", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance", "Date"] });
     const deadline = settlementDeadline({ maxAttempts: 80, maxMs: 50 });

@@ -39,7 +39,6 @@ export async function GET(request: Request) {
       workspaceId: parsed.data.workspaceId,
       cohort: parsed.data.cohort,
       improvementDeployedAt: parsed.data.improvementDeployedAt,
-      capturedAt: new Date().toISOString(),
     });
 
     const totalComparisonCount = comparisons.length;

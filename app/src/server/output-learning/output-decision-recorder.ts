@@ -34,6 +34,10 @@ export async function recordOutputDecisionEvidence(
     input.campaignId
   );
 
+  return insertValidatedOutputDecisionEvidence(input);
+}
+
+async function insertValidatedOutputDecisionEvidence(input: RecordOutputDecisionInput): Promise<OutputDecisionEvent> {
   const semantics = mapActionToSemantics(input.action);
   const contextSnapshot = buildOutputDecisionSnapshot(
     input.snapshotInput ?? {},
@@ -63,11 +67,9 @@ export async function recordOutputDecisionEvidence(
   });
 }
 
-export async function recordOutputDecisionEvidenceBestEffort(
-  input: RecordOutputDecisionInput
-): Promise<OutputDecisionEvent | null> {
+async function bestEffort(input: RecordOutputDecisionInput, write: () => Promise<OutputDecisionEvent>) {
   try {
-    return await recordOutputDecisionEvidence(input);
+    return await write();
   } catch (error) {
     logger.warn("[output-learning] evidence capture failed (non-blocking)", {
       action: input.action,
@@ -79,4 +81,30 @@ export async function recordOutputDecisionEvidenceBestEffort(
     });
     return null;
   }
+}
+
+export function recordOutputDecisionEvidenceBestEffort(
+  input: RecordOutputDecisionInput
+): Promise<OutputDecisionEvent | null> {
+  return bestEffort(input, () => recordOutputDecisionEvidence(input));
+}
+
+/** For approval-package roots loaded from workspace-scoped campaign and derivation queries. */
+export function recordOutputDecisionEvidenceFromValidatedRootsBestEffort(
+  input: RecordOutputDecisionInput,
+  context: {
+    campaign: { id: string; workspaceId: string };
+    approvedRootIds: ReadonlySet<string>;
+  },
+): Promise<OutputDecisionEvent | null> {
+  return bestEffort(input, () => {
+    if (
+      context.campaign.workspaceId !== input.workspaceId ||
+      context.campaign.id !== input.campaignId ||
+      !context.approvedRootIds.has(input.derivationId)
+    ) {
+      throw new Error("Output decision is outside the validated approval package");
+    }
+    return insertValidatedOutputDecisionEvidence(input);
+  });
 }

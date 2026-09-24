@@ -24,7 +24,7 @@ vi.mock("@/lib/auth-client", () => ({
 
 vi.mock("@/lib/hooks/use-notifications", () => ({
   useNotifications: vi.fn(),
-  useMarkNotificationAsRead: vi.fn(() => ({ mutate: vi.fn() })),
+  useMarkNotificationsAsRead: vi.fn(() => ({ mutate: vi.fn() })),
   useMarkAllNotificationsAsRead: vi.fn(() => ({ mutate: vi.fn() })),
   useClearAllNotifications: vi.fn(() => ({ mutate: vi.fn() })),
 }));
@@ -56,7 +56,7 @@ vi.mock("next-intl", () => ({
   useLocale: vi.fn(() => "pt-BR"),
 }));
 
-import { useNotifications } from "@/lib/hooks/use-notifications";
+import { useMarkNotificationsAsRead, useNotifications } from "@/lib/hooks/use-notifications";
 
 const mockUseNotifications = vi.mocked(useNotifications);
 
@@ -240,6 +240,32 @@ describe("TopBar notifications", () => {
     });
     // The full list of 39 items is reflected in the header count
     expect(screen.getByText(/39/)).toBeInTheDocument();
+  });
+
+  it("marks only the clicked group's unread notifications", async () => {
+    const markGroup = vi.fn();
+    vi.mocked(useMarkNotificationsAsRead).mockReturnValue({ mutate: markGroup } as unknown as ReturnType<typeof useMarkNotificationsAsRead>);
+    const now = new Date();
+    const base = {
+      userId: "user-1", workspaceId: "ws-1", type: "derivation_completed",
+      title: "Ready", derivationId: null, readAt: null,
+      createdAt: now, updatedAt: now,
+    };
+    mockUseNotifications.mockReturnValue({ data: [
+      { ...base, id: "n1", campaignId: "camp-1", message: 'Work "Alpha" ready' },
+      { ...base, id: "n2", campaignId: "camp-1", message: 'Work "Alpha" ready' },
+      { ...base, id: "n3", campaignId: "camp-1", message: 'Work "Alpha" ready', readAt: now },
+      { ...base, id: "n4", campaignId: "camp-2", message: 'Work "Beta" ready' },
+    ] } as ReturnType<typeof useNotifications>);
+
+    render(<NotificationMenu />, { wrapper: createWrapper() });
+    fireEvent.click(screen.getByRole("button", { name: /notifications/i }));
+    const link = document.querySelector('a[href^="/campaigns/camp-1"]');
+    expect(link).not.toBeNull();
+    fireEvent.click(link!);
+
+    expect(markGroup).toHaveBeenCalledTimes(1);
+    expect(markGroup.mock.calls[0][0]).toEqual(["n1", "n2"]);
   });
 });
 

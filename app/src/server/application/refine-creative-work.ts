@@ -1,10 +1,14 @@
+import { createHash } from "node:crypto";
 import { artRefinementParentHash } from "@/server/creative-work/art-refinement-parent-hash";
 import { getCreativeWorkObjectiveVerdict, getCreativeWorkSelectionPolicy } from "@/lib/creative-work-selection-policy";
 import { GENERATION_CREDIT_COSTS } from "@/server/generation/canonical/types";
 import {
+  artComparisonKey,
   chooseBestCandidate,
   resolveArtCritique,
+  resolveArtRefinementState,
   shouldRefine,
+  type ArtComparisonVerdict,
   type ArtCritique,
   type RefinementCandidate,
 } from "@/server/creative-work/art-refinement";
@@ -13,17 +17,26 @@ import {
   type CreativeWorkInputSnapshot,
 } from "@/server/creative-work/contracts";
 import { resolveCreativeWorkProtocol } from "@/server/creative-work/protocol";
-import { compareArtCandidates } from "@/server/generation/pipeline/post-generation";
+import {
+  ART_COMPARISON_INVALID_REASON,
+  ART_COMPARISON_JUDGE_FAILED_REASON,
+  compareArtCandidates,
+} from "@/server/generation/pipeline/post-generation";
 import {
   claimArtRefinementAttempt,
   getArtRefinementAttemptByKey,
   getCreativeWork,
   listArtRefinementAttempts,
   markArtRefinementAttempt,
-  setArtRefinementState,
 } from "@/server/repositories/creative-work";
+import {
+  setArtRefinementStateWithComparisonLease,
+  withCreativeWorkComparisonLease,
+} from "@/server/repositories/creative-work-comparison-lease";
 import type { CreativeWorkOutput } from "@/server/db/schema";
 import { objectStorage } from "@/server/storage";
+import { isE2EControlledProviderEnabled } from "@/server/ai/providers/e2e-controlled-provider";
+import { env } from "@/server/validation/env";
 import { reviseCreativeWorkOutput } from "./revise-creative-work-output";
 
 export type RefineCreativeWorkResult = {
@@ -125,10 +138,10 @@ export async function loadArtComparisonImage(outputKey: string | null): Promise<
  * else "ready" when every root has a best, "needs_review" when some root
  * has none. Never promotes a rejected output.
  */
-export async function refreshArtRefinementState(input: {
+async function refreshArtRefinementStateLocked(input: {
   workspaceId: string;
   workItemId: string;
-}): Promise<void> {
+}, token: string): Promise<void> {
   const aggregate = await getCreativeWork(input.workspaceId, input.workItemId);
   if (!aggregate) return;
   const budget = resolveCreativeWorkArtRefinement(aggregate.work.inputSnapshot);
@@ -142,6 +155,8 @@ export async function refreshArtRefinementState(input: {
     (output) => output.status === "queued" || output.status === "processing",
   );
   const brief = aggregate.work.inputSnapshot?.request ?? aggregate.work.request;
+  const priorComparisons = resolveArtRefinementState(aggregate.work.artRefinementState)?.comparisons ?? {};
+  const comparisons: Record<string, ArtComparisonVerdict> = {};
 
   const recommendedOutputIds: string[] = [];
   const issues: string[] = [];
@@ -151,22 +166,45 @@ export async function refreshArtRefinementState(input: {
       .filter((output) => output.status === "completed" && output.outputKey);
     if (chain.length === 0) continue;
     const candidates = chain.map(toRefinementCandidate);
-    const imageById = new Map<string, Buffer | undefined>();
-    for (const output of chain) {
-      imageById.set(output.id, await loadArtComparisonImage(output.outputKey));
-    }
+    const outputKeyById = new Map(chain.map((output) => [output.id, output.outputKey]));
+    const imageById = new Map<string, Promise<Buffer | undefined>>();
+    const imageOf = (id: string): Promise<Buffer | undefined> => {
+      let pending = imageById.get(id);
+      if (!pending) {
+        pending = loadArtComparisonImage(outputKeyById.get(id) ?? null);
+        imageById.set(id, pending);
+      }
+      return pending;
+    };
     let preferredId: string | null = null;
     let best = candidates[0]!;
     for (const next of candidates.slice(1)) {
-      const comparison = await compareArtCandidates({
-        before: best,
-        after: next,
-        brief,
-        beforeImage: imageById.get(best.id),
-        afterImage: imageById.get(next.id),
-      });
-      preferredId = comparison.preferredId;
-      best = candidates.find((candidate) => candidate.id === comparison.preferredId) ?? best;
+      // Bump v1 when the comparison prompt or judge policy changes.
+      const hash = createHash("sha256").update(JSON.stringify([
+        "art-comparison-v1", process.env.OPENAI_TEXT_MODEL ?? env.OPENAI_TEXT_MODEL,
+        isE2EControlledProviderEnabled() ? "controlled" : "real", brief,
+        outputKeyById.get(best.id), outputKeyById.get(next.id), best, next,
+      ])).digest("hex").slice(0, 16);
+      const key = artComparisonKey(best.id, next.id, hash);
+      const cached = priorComparisons[key];
+      if (cached) {
+        comparisons[key] = cached;
+        preferredId = cached.preferredId;
+      } else {
+        let beforeImage: Buffer | undefined;
+        let afterImage: Buffer | undefined;
+        if ([best, next].every((candidate) => candidate.objective === "pass" && !candidate.humanReviewRequired)) {
+          [beforeImage, afterImage] = await Promise.all([imageOf(best.id), imageOf(next.id)]);
+        }
+        const comparison = await compareArtCandidates({ before: best, after: next, brief, beforeImage, afterImage });
+        preferredId = comparison.preferredId;
+        if (beforeImage && afterImage
+          && comparison.reason !== ART_COMPARISON_JUDGE_FAILED_REASON
+          && comparison.reason !== ART_COMPARISON_INVALID_REASON) {
+          comparisons[key] = { preferredId };
+        }
+      }
+      best = candidates.find((candidate) => candidate.id === preferredId) ?? best;
     }
     const winner = chooseBestCandidate(candidates, preferredId);
     if (winner) {
@@ -189,11 +227,20 @@ export async function refreshArtRefinementState(input: {
   const openIssues = issues.length > 0 ? issues.slice(0, 10) : (
     status === "needs_review" ? ["Nenhuma versão válida disponível."] : []
   );
-  await setArtRefinementState(input.workspaceId, input.workItemId, {
+  const written = await setArtRefinementStateWithComparisonLease(input.workspaceId, input.workItemId, token, {
     recommendedOutputIds,
     status,
     issues: openIssues,
+    comparisons,
   });
+  if (!written) throw new Error("Art comparison lease lost before state update");
+}
+
+export function refreshArtRefinementState(input: {
+  workspaceId: string;
+  workItemId: string;
+}): Promise<void> {
+  return withCreativeWorkComparisonLease(input.workspaceId, input.workItemId, (token) => refreshArtRefinementStateLocked(input, token));
 }
 
 /**

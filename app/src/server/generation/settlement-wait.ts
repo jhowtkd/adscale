@@ -2,9 +2,14 @@
 export function settlementDeadline(input: { maxAttempts: number; maxMs: number }) {
   const expiresAt = performance.now() + input.maxMs;
   const remaining = () => Math.max(0, expiresAt - performance.now());
+  let delayMs = 25;
   return {
     shouldContinue: (attempt: number) => attempt < input.maxAttempts && remaining() > 0,
-    pause: () => new Promise<void>((resolve) => setTimeout(resolve, Math.min(25, remaining()))),
+    pause: () => new Promise<void>((resolve) => {
+      const waitMs = Math.min(delayMs, remaining());
+      delayMs = Math.min(delayMs * 2, 250);
+      setTimeout(resolve, waitMs);
+    }),
     async read<T>(operation: () => Promise<T>): Promise<T> {
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {

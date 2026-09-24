@@ -4,11 +4,17 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { writePsdBuffer } from "ag-psd";
+import pLimit from "p-limit";
 import sharp from "sharp";
 import type { LayerizationLayer, FidelityResult } from "./contracts";
 import { writeLayerizationDiagnosticZipFile } from "./artifacts-zip";
 
 export type LayerBitmap = LayerizationLayer & { png: Buffer };
+
+const recomposeLimit = pLimit(1);
+// ponytail: 1K canvas + 2M overlay pixels used ~50 MiB extra RSS locally; larger inputs use bounded sequential composition.
+const ONE_PASS_CANVAS_PIXELS = 1024 * 1024;
+const ONE_PASS_OVERLAY_PIXELS = 8 * 512 * 512;
 
 export function layerizationArtifactKey(input: { workItemId: string; attemptId: string }, extension: "psd" | "zip"): string {
   return `creative-work/${input.workItemId}/layerize/${input.attemptId}/piece.${extension}`;
@@ -27,28 +33,36 @@ export async function recomposeLayerBitmaps(input: {
   });
 }
 
-export async function recomposeStoredLayers(input: {
+export function recomposeStoredLayers(input: {
   width: number;
   height: number;
   layers: LayerizationLayer[];
   load: (layer: LayerizationLayer) => Promise<Buffer>;
 }): Promise<Buffer> {
-  const base = input.layers.find((layer) => layer.isBase);
-  if (!base) throw new Error("Layerization has no base bitmap");
-  let recomposed = await sharp(await input.load(base))
-    .resize(input.width, input.height, { fit: "fill" })
-    .ensureAlpha()
-    .png()
-    .toBuffer();
-  for (const layer of input.layers.filter((candidate) => !candidate.isBase).sort((left, right) => left.order - right.order)) {
-    const overlay = await sharp(await input.load(layer))
-      .resize(layer.width, layer.height, { fit: "fill" })
-      .ensureAlpha()
-      .png()
-      .toBuffer();
-    recomposed = await sharp(recomposed).composite([{ input: overlay, left: layer.x, top: layer.y }]).png().toBuffer();
-  }
-  return recomposed;
+  return recomposeLimit(async () => {
+    const base = input.layers.find((layer) => layer.isBase);
+    if (!base) throw new Error("Layerization has no base bitmap");
+    const layers = input.layers.filter((candidate) => !candidate.isBase).sort((left, right) => left.order - right.order);
+    const renderOverlay = async (layer: LayerizationLayer) => sharp(await input.load(layer))
+      .resize(layer.width, layer.height, { fit: "fill" }).ensureAlpha().png().toBuffer();
+    if (input.width * input.height <= ONE_PASS_CANVAS_PIXELS
+      && layers.reduce((pixels, layer) => pixels + layer.width * layer.height, 0) <= ONE_PASS_OVERLAY_PIXELS) {
+      const canvas = sharp(await input.load(base)).resize(input.width, input.height, { fit: "fill" }).ensureAlpha();
+      const overlays: Array<{ input: Buffer; left: number; top: number }> = [];
+      for (const layer of layers) {
+        overlays.push({ input: await renderOverlay(layer), left: layer.x, top: layer.y });
+      }
+      if (overlays.length > 0) canvas.composite(overlays);
+      return canvas.png().toBuffer();
+    }
+    let recomposed = await sharp(await input.load(base)).resize(input.width, input.height, { fit: "fill" }).ensureAlpha().png().toBuffer();
+    for (const layer of layers) {
+      recomposed = await sharp(recomposed)
+        .composite([{ input: await renderOverlay(layer), left: layer.x, top: layer.y }])
+        .png().toBuffer();
+    }
+    return recomposed;
+  });
 }
 
 export async function calculateLayerizationFidelity(

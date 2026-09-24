@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, not } from "drizzle-orm";
+import { and, desc, eq, inArray, not, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   clientOutputLearnings,
@@ -84,13 +84,14 @@ export async function syncOutputLearningsForClient(input: {
     input.clientProfileId,
     input.workspaceId
   );
-
-  const draftKeys = new Set(input.drafts.map((draft) => draftIdentityKey(draft)));
-
-  const removed: ClientOutputLearning[] = [];
-  const upserted: ClientOutputLearning[] = [];
+  const existingByKey = new Map(existing.map((row) => [rowIdentityKey(row), row]));
+  const draftsByKey = new Map(
+    input.drafts.map((draft) => [draftIdentityKey(draft), draft])
+  );
+  const draftKeys = new Set(draftsByKey.keys());
 
   return db.transaction(async (tx) => {
+    const removed: ClientOutputLearning[] = [];
     const idsToRemove = existing
       .filter((row) => !draftKeys.has(rowIdentityKey(row)) && row.status !== "removed")
       .map((row) => row.id);
@@ -103,49 +104,38 @@ export async function syncOutputLearningsForClient(input: {
       removed.push(...removedRows);
     }
 
-    for (const draft of input.drafts) {
-      const existingRow = existing.find(
-        (row) => rowIdentityKey(row) === draftIdentityKey(draft)
-      );
-
-      let status = draft.status;
-      if (
-        existingRow?.status === "approved" &&
-        draft.status === "superseded"
-      ) {
-        status = "superseded";
-      } else if (
-        existingRow?.status === "superseded" &&
-        draft.status === "approved"
-      ) {
-        status = "approved";
+    const payloads: NewClientOutputLearning[] = [...draftsByKey.values()].map(
+      (draft) => {
+        const existingRow = existingByKey.get(draftIdentityKey(draft));
+        return {
+          workspaceId: input.workspaceId,
+          clientProfileId: input.clientProfileId,
+          variableKey: draft.variableKey,
+          variableValue: existingRow?.variableValue ?? draft.variableValue,
+          scopeGenerationMode: draft.scopeGenerationMode,
+          scopeFormat: draft.scopeFormat,
+          preferenceDirection: draft.preferenceDirection,
+          statement: draft.statement,
+          confidence: draft.confidence,
+          confidenceScore: draft.confidenceScore,
+          sampleEventCount: draft.sampleEventCount,
+          sampleCampaignCount: draft.sampleCampaignCount,
+          supportingEvidence: draft.supportingEvidence,
+          contradictingEvidence: draft.contradictingEvidence,
+          algorithmVersion: OUTPUT_LEARNING_ALGORITHM_VERSION,
+          status: draft.status,
+          lastEvidenceAt: draft.lastEvidenceAt,
+          approvedAt: draft.status === "approved" ? new Date() : null,
+          updatedAt: new Date(),
+        };
       }
+    );
 
-      const payload: NewClientOutputLearning = {
-        workspaceId: input.workspaceId,
-        clientProfileId: input.clientProfileId,
-        variableKey: draft.variableKey,
-        variableValue: draft.variableValue,
-        scopeGenerationMode: draft.scopeGenerationMode,
-        scopeFormat: draft.scopeFormat,
-        preferenceDirection: draft.preferenceDirection,
-        statement: draft.statement,
-        confidence: draft.confidence,
-        confidenceScore: draft.confidenceScore,
-        sampleEventCount: draft.sampleEventCount,
-        sampleCampaignCount: draft.sampleCampaignCount,
-        supportingEvidence: draft.supportingEvidence,
-        contradictingEvidence: draft.contradictingEvidence,
-        algorithmVersion: OUTPUT_LEARNING_ALGORITHM_VERSION,
-        status,
-        lastEvidenceAt: draft.lastEvidenceAt,
-        approvedAt: status === "approved" ? new Date() : null,
-        updatedAt: new Date(),
-      };
-
-      const [row] = await tx
+    const rowsByKey = new Map<string, ClientOutputLearning>();
+    for (let offset = 0; offset < payloads.length; offset += 100) {
+      const rows = await tx
         .insert(clientOutputLearnings)
-        .values(payload)
+        .values(payloads.slice(offset, offset + 100))
         .onConflictDoUpdate({
           target: [
             clientOutputLearnings.workspaceId,
@@ -156,32 +146,32 @@ export async function syncOutputLearningsForClient(input: {
             clientOutputLearnings.scopeFormat,
           ],
           set: {
-            preferenceDirection: payload.preferenceDirection,
-            statement: payload.statement,
-            confidence: payload.confidence,
-            confidenceScore: payload.confidenceScore,
-            sampleEventCount: payload.sampleEventCount,
-            sampleCampaignCount: payload.sampleCampaignCount,
-            supportingEvidence: payload.supportingEvidence,
-            contradictingEvidence: payload.contradictingEvidence,
-            algorithmVersion: payload.algorithmVersion,
-            status: payload.status,
-            lastEvidenceAt: payload.lastEvidenceAt,
-            approvedAt:
-              payload.status === "approved"
-                ? new Date()
-                : payload.status === "superseded" || payload.status === "draft"
-                  ? null
-                  : undefined,
-            updatedAt: new Date(),
+            preferenceDirection: sql`excluded.preference_direction`,
+            statement: sql`excluded.statement`,
+            confidence: sql`excluded.confidence`,
+            confidenceScore: sql`excluded.confidence_score`,
+            sampleEventCount: sql`excluded.sample_event_count`,
+            sampleCampaignCount: sql`excluded.sample_campaign_count`,
+            supportingEvidence: sql`excluded.supporting_evidence`,
+            contradictingEvidence: sql`excluded.contradicting_evidence`,
+            algorithmVersion: sql`excluded.algorithm_version`,
+            status: sql`excluded.status`,
+            lastEvidenceAt: sql`excluded.last_evidence_at`,
+            approvedAt: sql`case when excluded.status = 'removed' then approved_at else excluded.approved_at end`,
+            updatedAt: sql`excluded.updated_at`,
           },
         })
         .returning();
-
-      if (row) upserted.push(row);
+      for (const row of rows) rowsByKey.set(rowIdentityKey(row), row);
     }
 
-    return { upserted, removed };
+    return {
+      upserted: [...draftsByKey.keys()].flatMap((key) => {
+        const row = rowsByKey.get(key);
+        return row ? [row] : [];
+      }),
+      removed,
+    };
   });
 }
 

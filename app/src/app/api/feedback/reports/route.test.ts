@@ -135,4 +135,42 @@ describe("POST /api/feedback/reports", () => {
     expect(mockValidateDerivationOwnership).not.toHaveBeenCalled();
     expect(mockCreateFeedbackReport).not.toHaveBeenCalled();
   });
+
+  it("validates independent references concurrently and keeps campaign error precedence", async () => {
+    let release!: () => void;
+    const hold = new Promise<void>((resolve) => { release = resolve; });
+    mockValidateCampaignOwnership.mockImplementation(async () => {
+      await hold;
+      throw new FeedbackValidationError("Invalid campaign", "invalid_campaign");
+    });
+    mockValidateDerivationOwnership.mockImplementation(async () => {
+      await hold;
+      throw new FeedbackValidationError("Invalid derivation", "invalid_derivation");
+    });
+
+    const pending = POST(new Request("http://localhost/api/feedback/reports", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        type: "bug",
+        severity: "medium",
+        category: "ui",
+        message: "Broken page",
+        campaignId: "550e8400-e29b-41d4-a716-446655440001",
+        derivationId: "550e8400-e29b-41d4-a716-446655440002",
+      }),
+    }));
+    try {
+      await vi.waitFor(() => {
+        expect(mockValidateCampaignOwnership).toHaveBeenCalledTimes(1);
+        expect(mockValidateDerivationOwnership).toHaveBeenCalledTimes(1);
+      });
+    } finally {
+      release();
+    }
+    const response = await pending;
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe("invalid_campaign");
+    expect(mockCreateFeedbackReport).not.toHaveBeenCalled();
+  });
 });

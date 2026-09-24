@@ -458,7 +458,10 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
             tabIndex={-1}
             aria-label={t("restyleAddArt")}
             className="sr-only"
-            onChange={(event) => void composer.addFiles(event.target.files, "content")}
+            onChange={(event) => {
+              void composer.addFiles(Array.from(event.target.files ?? []), "content");
+              event.target.value = "";
+            }}
           />
           <input
             ref={styleInputRef}
@@ -468,7 +471,10 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
             tabIndex={-1}
             aria-label={t("addStyleReference")}
             className="sr-only"
-            onChange={(event) => void composer.addFiles(event.target.files, "style")}
+            onChange={(event) => {
+              void composer.addFiles(Array.from(event.target.files ?? []), "style");
+              event.target.value = "";
+            }}
           />
 
           <div
@@ -553,7 +559,10 @@ export function CreativeComposer({ composer, composerRef, hideSourceUpload = fal
               tabIndex={-1}
               aria-label={t("addArt")}
               className="sr-only"
-              onChange={(event) => void composer.addFiles(event.target.files)}
+              onChange={(event) => {
+                void composer.addFiles(Array.from(event.target.files ?? []));
+                event.target.value = "";
+              }}
             />
             <button
               type="button"

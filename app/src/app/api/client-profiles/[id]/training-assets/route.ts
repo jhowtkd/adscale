@@ -11,7 +11,7 @@ import {
 import {
   createWorkspaceAsset,
   deleteWorkspaceAsset,
-  getWorkspaceAssetByKey,
+  getWorkspaceAssetsByKeys,
 } from "@/server/repositories/workspace-asset";
 import {
   normalizeTrainingUpload,
@@ -40,21 +40,22 @@ export async function GET(
     }
 
     const references = await getTrainingReferences(workspace.id, id);
-
-    const enriched = await Promise.all(
-      references.map(async (reference) => {
-        const asset = await getWorkspaceAssetByKey(workspace.id, reference.assetKey);
-        if (!asset) return null;
-        return {
-          ...reference,
-          asset,
-          url: objectStorage.publicUrl(asset.key),
-        };
-      }),
+    const assets = await getWorkspaceAssetsByKeys(
+      workspace.id,
+      references.map((reference) => reference.assetKey),
     );
+    const assetsByKey = new Map(assets.map((asset) => [asset.key, asset]));
+    const enriched = references.flatMap((reference) => {
+      const asset = assetsByKey.get(reference.assetKey);
+      return asset ? [{
+        ...reference,
+        asset,
+        url: objectStorage.publicUrl(asset.key),
+      }] : [];
+    });
 
     return NextResponse.json({
-      references: enriched.filter((entry) => entry !== null),
+      references: enriched,
     });
   } catch (error) {
     return handleApiError(error, "client-profiles.[id].training-assets.GET");

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   reconcileLines,
   runReconcile,
@@ -206,5 +206,34 @@ describe("runReconcile (ICE-01B)", () => {
     expect(outcome.status).toBe("fail");
     expect(outcome.reason).toBe("divergence");
     expect(outcome.report?.diverged.map((d) => d.field)).toEqual(["impressions"]);
+  });
+
+  it("lists ads once per account across all windows in one reconciliation", async () => {
+    const client = fakeClient();
+    client.listAdAccounts = async () => [
+      { id: "act1", name: "Loja 1", currency: "BRL" },
+      { id: "act2", name: "Loja 2", currency: "BRL" },
+    ];
+    const originalListAds = client.listAds;
+    const listAds = vi.fn(async (accountId: string) => (await originalListAds(accountId)).map((ad) => ({
+      ...ad,
+      creative: { ...ad.creative, id: accountId === "act1" ? "c1" : "c2" },
+    })));
+    client.listAds = listAds;
+
+    const outcome = await runReconcile(
+      { workspaceId: WS, brandId: BRAND, windows: [7, 30, 90] },
+      {
+        client,
+        mockMode: false,
+        getConnection: async () => connection,
+        loadStored: async () => [],
+      },
+    );
+
+    expect(listAds.mock.calls.map(([accountId]) => accountId)).toEqual(["act1", "act2"]);
+    expect([...new Set(outcome.report?.diverged.map((line) => line.anuncioId))].sort()).toEqual([
+      "act1:c1", "act2:c2",
+    ]);
   });
 });

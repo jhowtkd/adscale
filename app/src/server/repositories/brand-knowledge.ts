@@ -93,6 +93,16 @@ export async function resolveEvidenceHashes(
     : [];
   const rowsById = new Map(rows.map((row) => [row.id, row]));
   const assetsByKey = new Map(assets.map((asset) => [asset.key, asset]));
+  const humanIds = [...new Set(claims.flatMap((claim) => claim.evidenceRefs)
+    .filter((evidence) => evidence.type === "human")
+    .map((evidence) => evidence.id))];
+  const members = humanIds.length > 0
+    ? await executor.select({ userId: workspaceMembers.userId }).from(workspaceMembers).where(and(
+        eq(workspaceMembers.workspaceId, workspaceId),
+        inArray(workspaceMembers.userId, humanIds),
+      ))
+    : [];
+  const memberIds = new Set(members.map((member) => member.userId));
   const resolved = new Map<string, string>();
 
   for (const claim of claims) {
@@ -110,11 +120,7 @@ export async function resolveEvidenceHashes(
         if (evidence.id !== clientProfileId || !(evidence.path in profile)) throw new BrandKnowledgeEvidenceError(`Brand Kit evidence ${evidence.path} is not resolvable`);
         resolved.set(brandKnowledgeEvidenceKey(evidence), hash(profile[evidence.path as keyof typeof profile]));
       } else {
-        const [member] = await executor.select({ userId: workspaceMembers.userId }).from(workspaceMembers).where(and(
-          eq(workspaceMembers.workspaceId, workspaceId),
-          eq(workspaceMembers.userId, evidence.id),
-        )).limit(1);
-        if (!member) throw new BrandKnowledgeEvidenceError(`Human evidence ${evidence.id} is outside this workspace`);
+        if (!memberIds.has(evidence.id)) throw new BrandKnowledgeEvidenceError(`Human evidence ${evidence.id} is outside this workspace`);
         resolved.set(brandKnowledgeEvidenceKey(evidence), hash({ value: claim.value, actorId: evidence.id }));
       }
     }

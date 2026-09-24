@@ -9,7 +9,7 @@ vi.mock("@/lib/api-client", () => ({
 }));
 
 import { apiFetch } from "@/lib/api-client";
-import { useDeleteCampaign } from "./use-campaigns";
+import { useBulkCampaigns, useCampaign, useCampaigns, useDeleteCampaign, type Campaign } from "./use-campaigns";
 
 const mockApiFetch = vi.mocked(apiFetch);
 
@@ -66,5 +66,80 @@ describe("useDeleteCampaign", () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["campaigns"] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["dashboard"] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["canonical-works"] });
+  });
+});
+
+describe("campaign list work", () => {
+  it("keeps the mapped campaign list stable across unrelated rerenders", () => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(["campaigns", {}], {
+      campaigns: [{ id: "camp-1", createdAt: new Date(), updatedAt: new Date() } as Campaign],
+      totalCount: 1,
+    });
+    const { result, rerender } = renderHook(() => useCampaigns(), {
+      wrapper: createWrapper(queryClient),
+    });
+    const first = result.current.campaigns;
+
+    rerender();
+
+    expect(result.current.campaigns).toBe(first);
+  });
+
+  it("keeps the detail campaign stable for derivation mapping", () => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(["campaigns", "camp-1"], {
+      id: "camp-1", createdAt: new Date(), updatedAt: new Date(),
+    } as Campaign);
+    const { result, rerender } = renderHook(() => useCampaign("camp-1"), {
+      wrapper: createWrapper(queryClient),
+    });
+    const first = result.current.campaign;
+
+    rerender();
+
+    expect(result.current.campaign).toBe(first);
+  });
+
+  it("limits bulk requests, preserves failures and invalidates projections once", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let active = 0;
+    let peak = 0;
+    mockApiFetch.mockReset();
+    mockApiFetch.mockImplementation(async (input) => {
+      active++;
+      peak = Math.max(peak, active);
+      await gate;
+      active--;
+      if (String(input).endsWith("/bad")) {
+        return Response.json({ error: "failed" }, { status: 500 });
+      }
+      return new Response(null, { status: 204 });
+    });
+
+    const { result } = renderHook(() => useBulkCampaigns(), {
+      wrapper: createWrapper(queryClient),
+    });
+    const pending = result.current.mutateAsync({
+      ids: ["a", "b", "bad", "d", "e"],
+      action: "delete",
+    });
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(3));
+    expect(peak).toBe(3);
+    expect(invalidateSpy).not.toHaveBeenCalled();
+
+    release?.();
+    expect(await pending).toEqual({
+      succeededIds: ["a", "b", "d", "e"],
+      failedIds: ["bad"],
+    });
+    expect(mockApiFetch).toHaveBeenCalledTimes(5);
+    expect(peak).toBe(3);
+    expect(invalidateSpy).toHaveBeenCalledTimes(3);
   });
 });

@@ -110,19 +110,19 @@ export async function POST(request: Request) {
 
     const data = parsed.data;
 
-    if (data.campaignId) {
-      await validateCampaignOwnership(workspace.id, data.campaignId);
-    }
-
-    if (data.derivationId) {
-      await validateDerivationOwnership(
-        workspace.id,
-        data.derivationId,
-        data.campaignId
-      );
-    }
-
-    const assetRefs = await validateAssetRefs(workspace.id, data.assetRefs);
+    const [campaignCheck, derivationCheck, assetCheck] = await Promise.allSettled([
+      data.campaignId
+        ? validateCampaignOwnership(workspace.id, data.campaignId)
+        : Promise.resolve(),
+      data.derivationId
+        ? validateDerivationOwnership(workspace.id, data.derivationId, data.campaignId)
+        : Promise.resolve(),
+      validateAssetRefs(workspace.id, data.assetRefs),
+    ]);
+    if (campaignCheck.status === "rejected") throw campaignCheck.reason;
+    if (derivationCheck.status === "rejected") throw derivationCheck.reason;
+    if (assetCheck.status === "rejected") throw assetCheck.reason;
+    const assetRefs = assetCheck.value;
 
     const diagnosticContext = sanitizeDiagnosticContext({
       ...(data.diagnosticContext ?? {}),

@@ -1,4 +1,4 @@
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -46,23 +46,63 @@ export interface RejectAdjustmentRepoInput {
   reason: string;
 }
 
-export async function insertProposedAdjustment(
-  input: InsertProposedAdjustmentInput
-): Promise<RubricCalibrationAdjustment> {
-  const [row] = await db
-    .insert(rubricCalibrationAdjustments)
-    .values({
-      adjustmentVersion: input.adjustmentVersion,
-      status: "proposed",
-      targetModule: input.targetModule,
-      targetKey: input.targetKey,
-      sliceKey: input.sliceKey,
-      rationale: input.rationale,
-      evidenceRefs: input.evidenceRefs,
-    })
-    .returning();
+export async function listExistingAdjustmentKeys(
+  adjustmentVersions: string[],
+  sliceKeys: string[]
+) {
+  if (adjustmentVersions.length === 0 || sliceKeys.length === 0) return [];
+  const existing: Pick<
+    RubricCalibrationAdjustment,
+    "adjustmentVersion" | "targetModule" | "targetKey" | "sliceKey"
+  >[] = [];
+  for (let offset = 0; offset < sliceKeys.length; offset += 100) {
+    const rows = await db
+      .select({
+        adjustmentVersion: rubricCalibrationAdjustments.adjustmentVersion,
+        targetModule: rubricCalibrationAdjustments.targetModule,
+        targetKey: rubricCalibrationAdjustments.targetKey,
+        sliceKey: rubricCalibrationAdjustments.sliceKey,
+      })
+      .from(rubricCalibrationAdjustments)
+      .where(
+        and(
+          inArray(rubricCalibrationAdjustments.adjustmentVersion, adjustmentVersions),
+          inArray(rubricCalibrationAdjustments.sliceKey, sliceKeys.slice(offset, offset + 100))
+        )
+      );
+    existing.push(...rows);
+  }
+  return existing;
+}
 
-  return row;
+export async function insertProposedAdjustments(
+  inputs: InsertProposedAdjustmentInput[]
+): Promise<RubricCalibrationAdjustment[]> {
+  if (inputs.length === 0) return [];
+  return db.transaction(async (tx) => {
+    const inserted: RubricCalibrationAdjustment[] = [];
+    for (let offset = 0; offset < inputs.length; offset += 100) {
+      const rows = await tx
+        .insert(rubricCalibrationAdjustments)
+        .values(
+          inputs.slice(offset, offset + 100).map((input) => ({
+            ...input,
+            status: "proposed" as const,
+          }))
+        )
+        .onConflictDoNothing({
+          target: [
+            rubricCalibrationAdjustments.sliceKey,
+            rubricCalibrationAdjustments.adjustmentVersion,
+            rubricCalibrationAdjustments.targetModule,
+            rubricCalibrationAdjustments.targetKey,
+          ],
+        })
+        .returning();
+      inserted.push(...rows);
+    }
+    return inserted;
+  });
 }
 
 export async function listProposedAdjustments(
@@ -105,29 +145,6 @@ export async function listAcceptedAdjustments(
     .from(rubricCalibrationAdjustments)
     .where(and(...conditions))
     .orderBy(desc(rubricCalibrationAdjustments.acceptedAt));
-}
-
-export async function findProposedAdjustmentBySlice(
-  sliceKey: string,
-  adjustmentVersion: string,
-  targetModule: AdjustmentTargetModule,
-  targetKey: string
-): Promise<RubricCalibrationAdjustment | null> {
-  const [row] = await db
-    .select()
-    .from(rubricCalibrationAdjustments)
-    .where(
-      and(
-        eq(rubricCalibrationAdjustments.sliceKey, sliceKey),
-        eq(rubricCalibrationAdjustments.adjustmentVersion, adjustmentVersion),
-        eq(rubricCalibrationAdjustments.targetModule, targetModule),
-        eq(rubricCalibrationAdjustments.targetKey, targetKey),
-        eq(rubricCalibrationAdjustments.status, "proposed")
-      )
-    )
-    .limit(1);
-
-  return row ?? null;
 }
 
 export async function findAdjustmentById(

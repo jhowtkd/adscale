@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { inspectUsableTransparency, InvalidImageInputError, normalizeImageForAi } from "./normalize-image-for-ai";
+import { inspectUsableTransparency, InvalidImageInputError, normalizeImageForAi, normalizeReferenceBuffers } from "./normalize-image-for-ai";
 
 describe("normalizeImageForAi", () => {
   it("downscales a large JPEG to max 2048 without enlarging smaller images", async () => {
@@ -68,4 +68,18 @@ describe("normalizeImageForAi", () => {
       InvalidImageInputError
     );
   });
+});
+
+it("normalizes reference buffers in order and releases their raw copies", async () => {
+  const image = await sharp({
+    create: { width: 32, height: 32, channels: 3, background: { r: 1, g: 2, b: 3 } },
+  }).png().toBuffer();
+  const refs = ["first.png", "second.png", "third.png"].map((name) => ({
+    buffer: Buffer.from(image), mimeType: "image/png", name,
+  }));
+
+  const normalized = await normalizeReferenceBuffers(refs);
+
+  expect(normalized.map((ref) => ref.name)).toEqual(["first.webp", "second.webp", "third.webp"]);
+  expect(refs.every((ref) => ref.buffer === undefined)).toBe(true);
 });

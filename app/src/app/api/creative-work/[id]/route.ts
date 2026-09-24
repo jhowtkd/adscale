@@ -87,8 +87,8 @@ import {
 import { listCurrentCarouselSlides } from "@/server/repositories/creative-work-carousel";
 import { resolveCarouselPlanSlideId, resolveCarouselPreparedSnapshot } from "@/server/creative-work/carousel-contracts";
 import { readCarouselEditorial, toPublicCarouselEditorial } from "@/server/creative-work/carousel-editorial-state";
-import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
-import { getTemplateById } from "@/server/repositories/template";
+import { getWorkspaceAssetById, getWorkspaceAssetsByIds } from "@/server/repositories/workspace-asset";
+import { getTemplateById, getTemplatesByIds } from "@/server/repositories/template";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
 import { refundCreativeWorkOutputCompensatory } from "@/server/application/refund-creative-work-output";
@@ -282,34 +282,6 @@ async function dispatchSourceAnalysisOrFail(workspaceId: string, workItemId: str
     );
     throw error;
   }
-}
-
-async function projectSourceDto(workspaceId: string, source: CreativeWorkSource) {
-  if (source.templateId) {
-    const template = await getTemplateById(source.templateId, workspaceId);
-
-    return {
-      ...source,
-      name: template?.name ?? "Template",
-      previewUrl: null,
-      origin: "template" as const,
-    };
-  }
-
-  const asset = source.assetId
-    ? await getWorkspaceAssetById(source.assetId, workspaceId)
-    : null;
-
-  return {
-    ...source,
-    name: asset?.name ?? "Arte",
-    previewUrl: asset
-      ? `/api/workspace/assets/${asset.id}/file`
-      : null,
-    origin: asset?.source === "creative_work"
-      ? "approved_work" as const
-      : "upload" as const,
-  };
 }
 
 /**
@@ -553,11 +525,36 @@ export async function GET(
           result.work,
           result.outputs
         ));
-    const sources = await Promise.all((result.sources ?? []).map((source) => projectSourceDto(workspace.id, source)));
+    const sourceRows = result.sources ?? [];
+    const [assets, templates, layerEditorAccess] = await Promise.all([
+      getWorkspaceAssetsByIds(workspace.id, sourceRows.flatMap((source) =>
+        !source.templateId && source.assetId ? [source.assetId] : [])),
+      getTemplatesByIds(workspace.id, sourceRows.flatMap((source) =>
+        source.templateId ? [source.templateId] : [])),
+      getLayerEditorAccess(workspace.id, new Date()),
+    ]);
+    const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
+    const templatesById = new Map(templates.map((template) => [template.id, template]));
+    const sources = sourceRows.map((source) => {
+      if (source.templateId) {
+        return {
+          ...source,
+          name: templatesById.get(source.templateId)?.name ?? "Template",
+          previewUrl: null,
+          origin: "template" as const,
+        };
+      }
+      const asset = source.assetId ? assetsById.get(source.assetId) : null;
+      return {
+        ...source,
+        name: asset?.name ?? "Arte",
+        previewUrl: asset ? `/api/workspace/assets/${asset.id}/file` : null,
+        origin: asset?.source === "creative_work" ? "approved_work" as const : "upload" as const,
+      };
+    });
     const inferredBriefing = result.work.toolKind === "single"
       ? resolveCreativeWorkInferredBriefing(result.work.inputSnapshot)
       : null;
-    const layerEditorAccess = await getLayerEditorAccess(workspace.id, new Date());
     const canLayerize = layerEditorAccess.enabled && Boolean(env.ATLASCLOUD_API_KEY?.trim());
     const recoveredLayerizations = await recoverExpiredCreativeWorkLayerizations({
       workspaceId: workspace.id,
@@ -568,10 +565,11 @@ export async function GET(
     // Selection obligations, projected — never the outbox table itself.
     // Lets the interface follow pending/recovered/permanent-failure states
     // as the recovery processor converges them.
-    const effectRows = await getSelectionEffectsForWork(db, {
-      workspaceId: workspace.id,
-      workItemId: id,
-    });
+    const [effectRows, carouselSlideRows, preparationAttempt] = await Promise.all([
+      getSelectionEffectsForWork(db, { workspaceId: workspace.id, workItemId: id }),
+      result.work.toolKind === "carousel" ? listCurrentCarouselSlides(workspace.id, id) : Promise.resolve([]),
+      getActivePreparationAttempt({ workspaceId: workspace.id, workItemId: id }),
+    ]);
     const effectsByOutput = new Map<string, typeof effectRows>();
     for (const row of effectRows) {
       const list = effectsByOutput.get(row.outputId) ?? [];
@@ -594,9 +592,6 @@ export async function GET(
             : restSettings;
         })()
       : publicWork.settings;
-    const carouselSlideRows = result.work.toolKind === "carousel"
-      ? await listCurrentCarouselSlides(workspace.id, id)
-      : [];
     const carouselDeck = resolveCarouselPreparedSnapshot(result.work.inputSnapshot)?.deck ?? null;
     const carouselSlides = carouselSlideRows.map((slide) => {
       const {
@@ -620,7 +615,6 @@ export async function GET(
         ),
       };
     });
-    const preparationAttempt = await getActivePreparationAttempt({ workspaceId: workspace.id, workItemId: id });
     return NextResponse.json({
       preparationAttempt: preparationAttempt ? { id: preparationAttempt.id } : null,
       work: {
