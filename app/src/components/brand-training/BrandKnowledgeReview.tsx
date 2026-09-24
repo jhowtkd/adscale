@@ -11,11 +11,13 @@ import {
 import {
   useBrandCalibration,
   useBrandKnowledge,
+  useBrandKnowledgeVersion,
   useBrandTrainingAssets,
   useReviewBrandKnowledgeClaim,
   useReviewRepertoire,
   useSynthesizeRepertoire,
   type BrandKnowledgeClaimRecord,
+  type BrandKnowledgeVersionMetadata,
   type BrandTrainingAssetRecord,
   type SynthesizeRepertoireError,
 } from "@/lib/hooks/use-brand-training";
@@ -192,25 +194,49 @@ export function BrandKnowledgeReview({ clientProfileId }: { clientProfileId: str
           </p>
           <div className="space-y-1 text-xs text-[var(--text-muted)]">
             {data.versions.map((version) => (
-              <details key={version.id}>
-                <summary className="cursor-pointer text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
-                  v{version.versionNumber} · {version.hash.slice(0, 12)} · {version.publishedByUserId} ·{" "}
-                  {new Date(version.publishedAt).toLocaleDateString()}
-                </summary>
-                <ul className="mt-1 space-y-1 pl-3">
-                  {version.snapshot?.claims.map((claim) => (
-                    <li key={claim.id}>
-                      {claim.claimKey}: {JSON.stringify(claim.value)} ·{" "}
-                      {claim.evidenceRefs.map((evidence) => evidence.path).join(", ")}
-                    </li>
-                  ))}
-                </ul>
-              </details>
+              <BrandKnowledgeHistoryEntry key={version.id} clientProfileId={clientProfileId} version={version} />
             ))}
           </div>
         </div>
       ) : null}
     </section>
+  );
+}
+
+function BrandKnowledgeHistoryEntry({ clientProfileId, version }: {
+  clientProfileId: string;
+  version: BrandKnowledgeVersionMetadata;
+}) {
+  const t = useTranslations("brandTraining.knowledge");
+  const [open, setOpen] = useState(false);
+  const detail = useBrandKnowledgeVersion(clientProfileId, version.id, open);
+
+  return (
+    <details onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary className="cursor-pointer text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+        v{version.versionNumber} · {version.hash.slice(0, 12)} · {version.publishedByUserId} ·{" "}
+        {new Date(version.publishedAt).toLocaleDateString()}
+      </summary>
+      {open && detail.isPending ? <p role="status" className="mt-1 pl-3">{t("historyLoading")}</p> : null}
+      {open && detail.isError ? (
+        <div role="alert" className="mt-1 pl-3">
+          {t("historyLoadFailed")}{" "}
+          <button type="button" className={studioQuietActionClass} onClick={() => void detail.refetch()}>
+            {t("historyRetry")}
+          </button>
+        </div>
+      ) : null}
+      {open && detail.data ? (
+        <ul className="mt-1 space-y-1 pl-3">
+          {detail.data.snapshot.claims.map((claim) => (
+            <li key={claim.id}>
+              {claim.claimKey}: {JSON.stringify(claim.value)} ·{" "}
+              {claim.evidenceRefs.map((evidence) => evidence.path).join(", ")}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </details>
   );
 }
 

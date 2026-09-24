@@ -534,10 +534,26 @@ export async function publishBrandKnowledgeVersion(input: {
 
 export async function listBrandKnowledgeVersions(workspaceId: string, clientProfileId: string) {
   await assertProfile(db, workspaceId, clientProfileId);
-  return db.select().from(brandKnowledgeVersions).where(and(
+  return db.select({
+    id: brandKnowledgeVersions.id,
+    versionNumber: brandKnowledgeVersions.versionNumber,
+    hash: brandKnowledgeVersions.hash,
+    status: brandKnowledgeVersions.status,
+    publishedByUserId: brandKnowledgeVersions.publishedByUserId,
+    publishedAt: brandKnowledgeVersions.publishedAt,
+  }).from(brandKnowledgeVersions).where(and(
     eq(brandKnowledgeVersions.workspaceId, workspaceId),
     eq(brandKnowledgeVersions.clientProfileId, clientProfileId),
   )).orderBy(desc(brandKnowledgeVersions.versionNumber));
+}
+
+export async function getBrandKnowledgeVersion(workspaceId: string, clientProfileId: string, versionId: string) {
+  const [version] = await db.select().from(brandKnowledgeVersions).where(and(
+    eq(brandKnowledgeVersions.id, versionId),
+    eq(brandKnowledgeVersions.workspaceId, workspaceId),
+    eq(brandKnowledgeVersions.clientProfileId, clientProfileId),
+  )).limit(1);
+  return version ?? null;
 }
 
 export async function getActiveBrandKnowledgeVersion(workspaceId: string, clientProfileId: string) {
