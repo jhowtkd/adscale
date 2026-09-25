@@ -1,6 +1,7 @@
 # Runbook — home pública unificada: ativação, reversão e retirada do serviço antigo
 
-**Situação:** ensaios locais executados (S8/S9); publicação e desativação aguardam aprovação humana (#447).
+**Situação (2026-09-25):** ativação A em produção e verificada; serviço antigo suspenso e pós-verificado
+(falta build subsequente); ativação B aguarda os gates do §4.4. Registros na #447.
 Evidências S8: `.planning/public-studio-home/qa-evidence.md`.
 
 ## 1. Destino e limites
@@ -44,6 +45,10 @@ Não existe `MARKETING_UPSTREAM_URL` em código, config ou Blueprint (verificado
 4. Ativação B somente após: teste nativo de 3 arquivos + falha parcial em ambiente com
    R2/Inngest reais, Safari/iOS físico, aprovações V05 do dono e revisão manual V03.
 
+**Executado:** ativação A live no deploy `dep-daqpd6flot8c73amos40` (`a74bfb12`, 2026-09-24 21:38 UTC);
+pós-verificação em 2026-09-25 — home, assets same-origin, handoff → login → retomada → Trabalho sem
+geração, sem duplicação ao reabrir o rascunho, logs sem erro.
+
 ## 5. Reversão sem reativar servidor separado
 
 - Problema visual: `HOME=false` + `IMPORT=true` (+ATTACHMENTS conforme segurança),
@@ -69,6 +74,10 @@ O Blueprint não contém serviço separado de marketing — a retirada é opera�
 5. Limpar variáveis/credenciais exclusivas do recurso retirado (conferir grupos compartilhados).
 
 Se outro consumidor bloquear: registrar migração pendente, não concluir.
+
+**Executado:** `adscale-marketing` (`srv-d8k06j57vvec73e75fr0`, static site de `site-adscale`) suspenso
+em 2026-09-25 11:47 UTC; Custom Domains vazio; `MARKETING_ALLOWED_ORIGINS` sem o host antigo.
+Pós-verificação OK; build subsequente pendente. Exclusão definitiva após período de observação.
 
 ## 7. Sinais de interrupção
 
