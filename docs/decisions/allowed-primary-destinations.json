@@ -70,6 +70,18 @@
       "entrypoints": [
         "src/app/api/feedback/diagnostics"
       ]
+    },
+    {
+      "id": "equipe",
+      "kind": "primary_destination",
+      "description": "ADScale Equipe: Pipeline, Ideias e Metas do cliente e consoles internos em /admin/equipe. Exceção aprovada em 2026-09-27 (ADR 0019): opera sobre Trabalhos e Peças, sem pipeline criativo novo, e publica só post estático no Instagram via despacho com recibo.",
+      "entrypoints": [
+        "/pipeline",
+        "/ideas",
+        "/goals",
+        "/admin/equipe",
+        "src/app/api/equipe"
+      ]
     }
   ],
   "frozenModules": [
@@ -102,13 +114,21 @@
       "dashboard",
       "docs",
       "feedback",
+      "goals",
+      "ideas",
       "library",
+      "pipeline",
       "quick-tools",
       "served-ads",
       "settings",
       "templates"
     ],
     "dashboardPageFiles": [
+      "admin/equipe/accounts/page.tsx",
+      "admin/equipe/escalations/[escalationId]/page.tsx",
+      "admin/equipe/exceptions/page.tsx",
+      "admin/equipe/quality/page.tsx",
+      "admin/equipe/quality/rounds/[roundId]/page.tsx",
       "admin/quality/brands/[clientProfileId]/page.tsx",
       "assistant/page.tsx",
       "brand-kit/page.tsx",
@@ -119,8 +139,11 @@
       "dashboard/page.tsx",
       "docs/page.tsx",
       "feedback/page.tsx",
+      "goals/page.tsx",
+      "ideas/page.tsx",
       "library/page.tsx",
       "page.tsx",
+      "pipeline/page.tsx",
       "quick-tools/create-post/page.tsx",
       "served-ads/page.tsx",
       "settings/page.tsx",
@@ -140,6 +163,7 @@
       "dashboard",
       "derivations",
       "dev",
+      "equipe",
       "export",
       "exports",
       "feedback",
@@ -280,6 +304,21 @@
       "derivations/[id]/review/route.ts",
       "derivations/[id]/save-reference/route.ts",
       "dev/reset-token/route.ts",
+      "equipe/accounts/[accountId]/commands/route.ts",
+      "equipe/accounts/[accountId]/goals/route.ts",
+      "equipe/accounts/[accountId]/ideas/route.ts",
+      "equipe/accounts/[accountId]/instagram/connect/route.ts",
+      "equipe/accounts/[accountId]/items/[itemId]/route.ts",
+      "equipe/accounts/[accountId]/pipeline/route.ts",
+      "equipe/accounts/[accountId]/route.ts",
+      "equipe/accounts/route.ts",
+      "equipe/instagram/callback/route.ts",
+      "equipe/staff/accounts/route.ts",
+      "equipe/staff/commands/route.ts",
+      "equipe/staff/escalations/[escalationId]/route.ts",
+      "equipe/staff/exceptions/route.ts",
+      "equipe/staff/quality/route.ts",
+      "equipe/staff/rounds/[roundId]/route.ts",
       "export/zip/route.ts",
       "exports/route.ts",
       "feedback/analytics/artifact-iteration-funnel/route.ts",
