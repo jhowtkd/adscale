@@ -27,6 +27,7 @@
 | [0015](./0015-refinamento-criativo-com-orcamento.md) | Refinamento criativo autônomo dentro de um orçamento por Trabalho | 2026-09-13 | ✅ Direção aceita; limites em definição |
 | [0016](./0016-ativacao-treinamento-apos-calibracao.md) | Ativar treinamento após calibração visual validada, preservando a versão anterior durante os ajustes | 2026-09-13 | ✅ Direção aceita; execução em definição |
 | [0017](./0017-diagnostico-peca-unica-contrato-rastreabilidade.md) | Diagnóstico de Peça única: contrato de rastreabilidade congelado (contexto, envelope, eventos, inventário, SDKs, rotas, gate) | 2026-09-16 | ✅ Aceita |
+| [0019](./0019-equipe-operacao-self-driving-excecao-destinos.md) | ADScale Equipe: operação self-driving sobre o Trabalho, com exceção ao congelamento para Pipeline, Ideias e Metas | 2026-09-27 | ✅ Aceita |
 
 ---
 
