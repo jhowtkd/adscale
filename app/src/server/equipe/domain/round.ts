@@ -49,6 +49,12 @@ const REQUIRED_DECISIONS: Record<FrontKind, number> = {
   paid_media: 2, // 2 of 3
 };
 
+/** A Social round is 4 posts; a paid-media round is 1 batch of 3 angles. */
+const ROUND_SIZE: Record<FrontKind, number> = {
+  social: 4,
+  paid_media: 3,
+};
+
 export function requiredDecisionsFor(frontKind: FrontKind): number {
   return REQUIRED_DECISIONS[frontKind];
 }
@@ -68,6 +74,13 @@ export function decideRoundOutcome(args: {
   frontKind: FrontKind;
   items: RoundItemScore[];
 }): Result<RoundEvaluation> {
+  const expectedSize = ROUND_SIZE[args.frontKind];
+  if (args.items.length !== expectedSize) {
+    return err(
+      "round_size_mismatch",
+      `expected ${expectedSize} items for ${args.frontKind}, got ${args.items.length}`,
+    );
+  }
   const failures: RoundEvaluation["failures"] = [];
   for (const [index, item] of args.items.entries()) {
     const valid = validateScore(item, index);

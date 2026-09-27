@@ -90,6 +90,18 @@ describe("assisted window", () => {
     expect(isWithinAssistedWindow(fromSaoPauloWallTime(2026, 10, 30, 18, 0))).toBe(false);
     expect(isWithinAssistedWindow(fromSaoPauloWallTime(2026, 10, 31, 12, 0))).toBe(false);
   });
+
+  it("excludes national holidays, even at 10:00 on a weekday", () => {
+    // Fri 2026-05-01 is Dia do Trabalho; Mon 2026-05-04 is the next business day.
+    expect(isWithinAssistedWindow(fromSaoPauloWallTime(2026, 5, 1, 10, 0))).toBe(false);
+    expect(isWithinAssistedWindow(fromSaoPauloWallTime(2026, 5, 4, 10, 0))).toBe(true);
+  });
+
+  it("accepts an injected holiday table like the other calendar functions", () => {
+    const holidays = { 2026: [{ date: "2026-10-26", name: "Custom" }] };
+    expect(isWithinAssistedWindow(fromSaoPauloWallTime(2026, 10, 26, 10, 0), holidays)).toBe(false);
+    expect(isWithinAssistedWindow(fromSaoPauloWallTime(2026, 10, 26, 10, 0))).toBe(true);
+  });
 });
 
 describe("item limit", () => {

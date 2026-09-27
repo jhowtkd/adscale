@@ -94,4 +94,25 @@ describe("invalid input", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("invalid_score");
   });
+
+  it("rejects a social round that is not 4 posts", () => {
+    const short = decideRoundOutcome({ frontKind: "social", items: [STRONG, STRONG, STRONG] });
+    expect(short.ok).toBe(false);
+    if (!short.ok) expect(short.error.code).toBe("round_size_mismatch");
+    const long = decideRoundOutcome({ frontKind: "social", items: [STRONG, STRONG, STRONG, STRONG, STRONG] });
+    expect(long.ok).toBe(false);
+    if (!long.ok) expect(long.error.code).toBe("round_size_mismatch");
+  });
+
+  it("rejects a paid-media round that is not 1 batch of 3 angles", () => {
+    const short = decideRoundOutcome({ frontKind: "paid_media", items: [STRONG, STRONG] });
+    expect(short.ok).toBe(false);
+    if (!short.ok) expect(short.error.code).toBe("round_size_mismatch");
+    const long = decideRoundOutcome({
+      frontKind: "paid_media",
+      items: [STRONG, STRONG, STRONG, STRONG],
+    });
+    expect(long.ok).toBe(false);
+    if (!long.ok) expect(long.error.code).toBe("round_size_mismatch");
+  });
 });

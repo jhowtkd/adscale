@@ -73,6 +73,31 @@ describe("actors table", () => {
     expect(authorize(system, "global_stop").ok).toBe(false);
   });
 
+  it("lets quality or the system pause front content on an incident", () => {
+    expect(authorize(quality, "pause_front_content").ok).toBe(true);
+    expect(authorize(system, "pause_front_content").ok).toBe(true);
+    expect(authorize(operations, "pause_front_content").ok).toBe(false);
+    expect(authorize(support, "pause_front_content").ok).toBe(false);
+    expect(authorize(agent, "pause_front_content").ok).toBe(false);
+    expect(authorize(approver, "pause_front_content").ok).toBe(false);
+  });
+
+  it("lets the system suspend execution alongside operations", () => {
+    expect(authorize(system, "suspend_execution").ok).toBe(true);
+    expect(authorize(operations, "suspend_execution").ok).toBe(true);
+    expect(authorize(quality, "suspend_execution").ok).toBe(false);
+    expect(authorize(agent, "suspend_execution").ok).toBe(false);
+  });
+
+  it("restricts connection/delinquency automatic pauses to the system", () => {
+    expect(authorize(system, "apply_automatic_pause").ok).toBe(true);
+    expect(authorize(operations, "apply_automatic_pause").ok).toBe(false);
+    expect(authorize(support, "apply_automatic_pause").ok).toBe(false);
+    expect(authorize(quality, "apply_automatic_pause").ok).toBe(false);
+    expect(authorize(agent, "apply_automatic_pause").ok).toBe(false);
+    expect(authorize(approver, "apply_automatic_pause").ok).toBe(false);
+  });
+
   it("grants exceptions to support, with agents and jobs opening them", () => {
     expect(authorize(support, "assume_exception").ok).toBe(true);
     expect(authorize(support, "upload_for_client").ok).toBe(true);

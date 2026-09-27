@@ -125,9 +125,13 @@ export function submitNewVersion(
   });
 }
 
-/** Item limit passed without a decision → "perdeu a janela". */
+/**
+ * Item limit passed without a decision → "perdeu a janela". Covers
+ * "adjusting" too: while a new version is being produced the client cannot
+ * decide, so the item misses its window like any undecided item.
+ */
 export function markWindowMissed(state: ItemState): Result<Transition<ItemState, ItemEvent>> {
-  const gate = mustBeIn(state, ["awaiting_approval", "held"], "mark window missed");
+  const gate = mustBeIn(state, ["awaiting_approval", "held", "adjusting"], "mark window missed");
   if (!gate.ok) return gate;
   return ok({
     state: { ...state, status: "missed_window", approvedVersion: null },

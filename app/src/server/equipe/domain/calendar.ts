@@ -202,10 +202,17 @@ export function businessDaysElapsed(
   return count;
 }
 
-/** Assisted window ("janela assistida"): Mon–Fri 09:00–18:00, 18:00 exclusive. */
-export function isWithinAssistedWindow(instant: Date): boolean {
+/**
+ * Assisted window ("janela assistida"): business days Mon–Fri 09:00–18:00,
+ * 18:00 exclusive. National holidays are outside the window — external
+ * effects must not go out when the team is not working.
+ */
+export function isWithinAssistedWindow(
+  instant: Date,
+  holidays: Record<number, Holiday[]> = NATIONAL_HOLIDAYS_BY_YEAR,
+): boolean {
+  if (!isBusinessDay(instant, holidays)) return false;
   const civil = toSaoPauloCivilDate(instant);
-  if (civil.weekday === 0 || civil.weekday === 6) return false;
   const minutes = civil.hour * 60 + civil.minute;
   return minutes >= 9 * 60 && minutes < 18 * 60;
 }

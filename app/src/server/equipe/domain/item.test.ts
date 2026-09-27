@@ -82,6 +82,15 @@ describe("missed window and rescheduling", () => {
     if (back.ok) expect(back.value.state.status).toBe("awaiting_approval");
   });
 
+  it("misses the window while a new version is being produced", () => {
+    const adjusting = requestItemAdjustment(initialItemState("v1"), "marca: voz fora do guia");
+    if (!adjusting.ok) throw new Error("setup failed");
+    expect(adjusting.value.state.status).toBe("adjusting");
+    const missed = markWindowMissed(adjusting.value.state);
+    expect(missed.ok).toBe(true);
+    if (missed.ok) expect(missed.value.state.status).toBe("missed_window");
+  });
+
   it("declines or cancels without publishing", () => {
     expect(declineToPublish(initialItemState("v1"), "fora do momento").ok).toBe(true);
     const cancelled = cancelScheduledItem(scheduled());

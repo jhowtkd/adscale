@@ -52,6 +52,7 @@ export type EquipeAction =
   | "mark_critical_failure"
   | "release_front"
   | "resolve_content_escalation"
+  | "pause_front_content"
   | "resume_content_pause"
   // Staff: operations ("operação")
   | "resolve_technical_escalation"
@@ -78,7 +79,8 @@ export type EquipeAction =
   | "dispatch_publication"
   | "reconcile_publication"
   | "open_auto_exception"
-  | "open_auto_escalation";
+  | "open_auto_escalation"
+  | "apply_automatic_pause";
 
 type Permission =
   | { kind: "client_person"; roles: ClientPersonRole[] }
@@ -117,9 +119,10 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   mark_critical_failure: [QUALITY],
   release_front: [QUALITY],
   resolve_content_escalation: [QUALITY],
+  pause_front_content: [QUALITY, SYSTEM],
   resume_content_pause: [QUALITY],
   resolve_technical_escalation: [OPERATIONS],
-  suspend_execution: [OPERATIONS],
+  suspend_execution: [OPERATIONS, SYSTEM],
   global_stop: [OPERATIONS],
   resume_technical: [OPERATIONS],
   open_exception: [SUPPORT, AGENT, SYSTEM],
@@ -140,6 +143,7 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   reconcile_publication: [SYSTEM],
   open_auto_exception: [SYSTEM],
   open_auto_escalation: [SYSTEM],
+  apply_automatic_pause: [SYSTEM],
 };
 
 function permissionGrants(permission: Permission, actor: Actor): boolean {
