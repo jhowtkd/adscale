@@ -2,7 +2,7 @@
 
 > **Fonte canônica do "o que é o ADScale, em que acredita, e como opera."**
 > Tudo passa pelo crivo da tese central **inteligência criativa em escala** (antes chamada "Curator > operator", reformulada em 2026-06-27).
-> Última atualização: 2026-09-15.
+> Última atualização: 2026-09-27 (termos da ADScale Equipe, ADR 0019).
 
 ---
 
@@ -102,6 +102,99 @@ _Evitar_: voz (reservado para voz da marca), input de voz, comando de voz, speec
 **Anúncio veiculado**:
 Criativo que rodou de fato numa Conta de anúncios, com gasto e métricas reais, trazido para o ADScale para leitura e análise. A identidade é a spec completa (mídia, texto e CTA): a mesma peça reutilizada em vários ads da Meta é um só; a mesma mídia com texto diferente são Anúncios veiculados distintos. Um carrossel é um Anúncio veiculado; cada card não é uma linha. Um anúncio com variação dinâmica de assets na Meta também é um só; combinações de asset não viram linhas. Campanha e conjunto não são a unidade de análise. Pertence à Conta de anúncios e é visto pela marca vinculada. Não é Peça (não foi produzido por um Trabalho) nem Referência visual (não orienta geração).
 _Evitar_: criativo importado, ad, asset do Meta, campanha, conjunto.
+
+### ADScale Equipe — operação de marketing (ADR 0019)
+
+A Equipe **opera sobre** Trabalhos e Peças. Não é outro produto nem outro pipeline criativo: toda Peça continua nascendo de um Trabalho, por um Protocolo.
+
+**Equipe**:
+Serviço de operação de marketing de uma conta, conduzido por uma equipe de IA, com pessoas nossas só na calibração, nos escalonamentos e nas exceções. Vive no mesmo app, sem switch.
+_Evitar_: produto separado, agência (como nome de produto), "modo Equipe".
+
+**Estrategista IA**:
+Agente que conduz a conta: guia a Implantação, propõe o Plano e as Ideias, distribui o trabalho aos especialistas, cobra pendências e fala com o cliente na conversa. Abre Exceção de atendimento quando não resolve. Nunca aprova nem altera o próprio Mandato.
+_Evitar_: estrategista (sem "IA", reservado a pessoa), assistente, bot.
+
+**Especialista IA**:
+Agente com um papel de produção: Pesquisa, Redação, Direção de arte (usa o motor do ADScale) ou Mídia e mensuração. Aparece pelo papel, com selo IA, sem nome nem foto.
+_Evitar_: persona, colaborador, nomes próprios para agentes.
+
+**Revisor IA**:
+Agente que confere texto ou imagem antes do cliente e aponta problemas. O revisor de texto usa um modelo diferente do autor. Detecta; não reescreve nem aprova.
+_Evitar_: aprovador, validador automático.
+
+**Aprovador**:
+Pessoa do cliente indicada no contrato, com um **Substituto**, que dá a Aprovação humana de Itens, Plano e Mandatos e confirma fatos do negócio. Membros do cliente veem e comentam, mas não aprovam.
+_Evitar_: operador (no contexto da Equipe), usuário (genérico), admin.
+
+**Custodiante**:
+Pessoa do cliente que conecta uma conta externa (Instagram, Meta Ads, analytics). Conectar não dá acesso a aprovações nem liga nenhuma ação.
+_Evitar_: dono da conta, admin.
+
+**Implantação**:
+Caminho do contrato assinado até a Conta ativa, guiado pelo Estrategista IA: Escopo, Coleta, Contexto de marketing, Marca criativa, Conexões, Plano e mandatos, e Calibração da frente. Lembretes com teto; parada longa vira "implantação pausada".
+_Evitar_: onboarding (na UI), setup.
+
+**Contexto de marketing**:
+Registro versionado do negócio do cliente (o que vende, público, posicionamento, canais, políticas), aprovado por seção. Cada campo é sustentado, inferido ou desconhecido, e desconhecidos não recebem valor. Oferta e preço vêm do catálogo do ADScale, nunca do Contexto.
+_Evitar_: briefing (reservado ao Trabalho), persona, documento-base.
+
+**Frente**:
+Linha de trabalho contratada numa conta, como Social · Instagram ou Mídia paga. Calibração, liberação e pausa valem por Frente.
+_Evitar_: canal (uma Frente pode usar mais de um), campanha.
+
+**Plano**:
+Plano do ciclo de uma conta: metas, Frentes e ritmo do calendário. Proposto pelo Estrategista IA e versionado. Só vale com Aprovação humana e Recibo. "Todo o marketing" vive no Plano; o que é executado é só o contratado.
+_Evitar_: estratégia (genérico), roadmap, plano de mídia.
+
+**Mandato**:
+Regra aprovada pelo Aprovador que autoriza a Equipe a agir sozinha dentro de limites (ação, conta, formatos, versão, quantidade, janela, validade, condição de parada). Regras de desempenho nascem em **modo sombra**, que mostra o que faria sem efeito real.
+_Evitar_: automação, permissão, regra (sozinho, na UI técnica).
+
+**Item**:
+Unidade que pode sair para fora: um post (imagem + legenda + conta + data e hora) ou a Peça escolhida por ângulo num lote de criativos. Cada Item tem um estado só, e o mais restritivo vence.
+_Evitar_: post (quando for criativo de mídia), tarefa, card.
+
+**Versão (de Item)**:
+Estado imutável de um Item. Editar a legenda ou pedir ajuste cria uma Versão nova, e uma aprovação vale só para a Versão vista.
+_Evitar_: revisão (na UI), Variação (reservado a alternativas de Peça).
+
+**Lote**:
+Conjunto de Itens entregue para decisão de uma vez, com prazo. "Aprovar todos os prontos" aprova só uma lista fechada de Itens e Versões.
+_Evitar_: pacote, batch.
+
+**Recibo**:
+Registro imutável de uma Aprovação humana: pessoa, papel (Aprovador ou Substituto), objeto e Versão, data e hora. Depois da publicação, guarda também o resultado. "Aprovado" só aparece com Recibo.
+_Evitar_: log, confirmação (genérico).
+
+**Calibração da frente**:
+Rodadas semanais em que as primeiras entregas reais de uma Frente são pontuadas pela qualidade humana antes de chegar ao cliente. A nota que vale é a da primeira versão da IA. Três rodadas seguidas no critério liberam a Frente; falha crítica depois disso reabre a calibração.
+_Evitar_: Calibração da marca (é outra coisa: Peças de teste avaliadas pelo operador no treinamento da marca), aprovação.
+
+**Frente liberada**:
+Frente que passou na Calibração da frente. A revisão de rotina passa a ser só dos Revisores IA, com um monitor automático. A primeira Frente liberada torna a conta **ativa**.
+_Evitar_: conta liberada, go-live.
+
+**Escalonamento**:
+Exceção de conteúdo, técnica ou de segurança, com responsável humano (qualidade ou operação), gravidade e prazo. O que está em risco fica bloqueado até a resolução; fechar, retomar a Frente e recalibrar são decisões separadas.
+_Evitar_: ticket, incidente (reservado ao Escalonamento crítico), bug.
+
+**Exceção de atendimento**:
+Caso em que uma pessoa do atendimento entra na conversa porque a IA não levou a conta adiante ou o cliente pediu uma pessoa. Tem motivo registrado e prazo, e termina devolvendo a conta ao Estrategista IA.
+_Evitar_: suporte (genérico), chamado, atendimento (como rotina).
+
+**Pausa**:
+Interrupção com três níveis:
+- **publicação:** nada externo sai, e os Itens agendados ficam **segurados**;
+- **execução:** em segurança ou incidente entre contas, a IA, a recuperação de contexto e as entregas afetadas param;
+- **inadimplência:** o trabalho futuro para; exportação e revogação continuam.
+
+Retomar revalida cada Item segurado antes de enviar.
+_Evitar_: desligar, congelar (reservado ao congelamento de módulos).
+
+**Despacho de publicação**:
+Passo que envia um Item aprovado para fora. Só envia se valerem, no momento do envio: Mandato, conexão verificada, Recibo da Versão, conferência (na calibração), janela, limites e ausência de Pausa ou bloqueio. Persiste a intenção antes de enviar, usa chave de idempotência e reconcilia quando o resultado é incerto.
+_Evitar_: postar, disparo, automação de publicação.
 
 ---
 
