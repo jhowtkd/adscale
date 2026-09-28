@@ -3489,11 +3489,12 @@ describe("reviewCreativeWorkOutputPersonFidelity (plan 03, T3)", () => {
     });
 
     it("refuses generic autosaves on calibration-managed works", async () => {
+      const updatedAt = new Date("2026-09-13T12:00:00.000Z");
       mocks.state.selectResults.push([
-        workItem({ id: "work-cal", toolKind: "single", status: "draft", trainingSessionId: "session-1", trainingRound: 1, trainingSlot: 0 }),
+        workItem({ id: "work-cal", toolKind: "single", status: "draft", trainingSessionId: "session-1", trainingRound: 1, trainingSlot: 0, updatedAt }),
       ]);
       await expect(autosaveCreativeWorkDraft({
-        workspaceId: "ws-1", workItemId: "work-cal", expectedUpdatedAt: new Date(), request: "Peça", intent: "single", format: "4:5", settings: { targetFormats: [] },
+        workspaceId: "ws-1", workItemId: "work-cal", expectedUpdatedAt: updatedAt, request: "Peça", intent: "single", format: "4:5", settings: { targetFormats: [] },
       })).resolves.toEqual({ work: null, error: "calibration_managed", sourcesNeedingSingleAnalysis: [] });
       expect(mocks.txUpdateMock).not.toHaveBeenCalled();
     });
