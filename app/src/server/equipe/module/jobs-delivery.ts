@@ -42,10 +42,10 @@ export async function listNotificationOutbox(
   repos: EquipeRepositories,
   scope: AccountScope,
 ): Promise<OutboxEntry[]> {
-  const [events, deliveries] = await Promise.all([
-    repos.events.list(scope, { eventType: NOTIFICATION_REQUESTED_EVENT }),
-    repos.deliveries.list(scope),
-  ]);
+  // Sequential on purpose: repos may share one transaction client, where
+  // parallel queries warn today and break in pg@9 (#574).
+  const events = await repos.events.list(scope, { eventType: NOTIFICATION_REQUESTED_EVENT });
+  const deliveries = await repos.deliveries.list(scope);
   const byEvent = new Map(deliveries.map((row) => [row.eventId, row.channels as string[]]));
   return events
     .sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime())

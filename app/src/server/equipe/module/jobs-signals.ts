@@ -38,22 +38,16 @@ export async function pendingSignalEvents(
   repos: EquipeRepositories,
   scope: AccountScope,
 ): Promise<EquipeEvent[]> {
-  const [signals, markers] = await Promise.all([
-    (async () => {
-      const found: EquipeEvent[] = [];
-      for (const eventType of INGESTIBLE_SIGNAL_TYPES) {
-        found.push(...(await repos.events.list(scope, { eventType })));
-      }
-      return found;
-    })(),
-    (async () => {
-      const found: EquipeEvent[] = [];
-      for (const eventType of INGEST_MARKER_TYPES) {
-        found.push(...(await repos.events.list(scope, { eventType })));
-      }
-      return found;
-    })(),
-  ]);
+  // Sequential on purpose: repos may share one transaction client, where
+  // parallel queries warn today and break in pg@9 (#574).
+  const signals: EquipeEvent[] = [];
+  for (const eventType of INGESTIBLE_SIGNAL_TYPES) {
+    signals.push(...(await repos.events.list(scope, { eventType })));
+  }
+  const markers: EquipeEvent[] = [];
+  for (const eventType of INGEST_MARKER_TYPES) {
+    markers.push(...(await repos.events.list(scope, { eventType })));
+  }
   const ingested = new Set<string>();
   for (const marker of markers) {
     const source = sourceEventIdOf(marker);

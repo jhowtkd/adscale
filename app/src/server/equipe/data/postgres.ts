@@ -446,15 +446,85 @@ export function createPostgresInternalEquipeRepositories(
   };
 }
 
+export type TxConcurrencyProbe = {
+  /** Called with the in-flight query count at each query start inside a transaction. */
+  onQueryStart?: (inFlight: number) => void;
+};
+
+export type PostgresEquipeUnitOfWorkOptions = {
+  /** Test hook observing per-transaction query concurrency. */
+  txConcurrencyProbe?: TxConcurrencyProbe;
+};
+
+function reportConcurrentTxQuery(inFlight: number): void {
+  const message =
+    `equipe_concurrent_tx_query: ${inFlight} queries in flight on the same transaction ` +
+    `client; use sequential await inside transactions (breaks in pg@9, see #574)`;
+  if (process.env.NODE_ENV === "production") {
+    console.warn(message);
+    return;
+  }
+  throw new Error(message);
+}
+
+// Minimal structural view of the drizzle internals the guard touches: every
+// query through a transaction (builders, execute, relational reads) funnels
+// through session.prepareQuery, and the prepared query runs in execute/all.
+type GuardedPreparedQuery = {
+  execute: (...args: unknown[]) => Promise<unknown>;
+  all?: (...args: unknown[]) => Promise<unknown>;
+};
+
+type GuardableTxSession = {
+  prepareQuery: (...args: unknown[]) => GuardedPreparedQuery;
+};
+
+function installTxConcurrencyGuard(
+  tx: PostgresEquipeTransaction,
+  probe?: TxConcurrencyProbe
+): void {
+  const session = (tx as unknown as { session?: GuardableTxSession }).session;
+  if (!session || typeof session.prepareQuery !== "function") return;
+  let inFlight = 0;
+  const track = <T>(run: () => Promise<T>): Promise<T> => {
+    inFlight += 1;
+    probe?.onQueryStart?.(inFlight);
+    if (inFlight > 1) reportConcurrentTxQuery(inFlight);
+    // The counter must fall even when the query rejects, else one failure
+    // would trip the guard for every later query in the transaction.
+    return run().finally(() => {
+      inFlight -= 1;
+    });
+  };
+  const originalPrepare = session.prepareQuery.bind(session);
+  session.prepareQuery = (...args: unknown[]): GuardedPreparedQuery => {
+    const prepared = originalPrepare(...args);
+    const originalExecute = prepared.execute.bind(prepared);
+    prepared.execute = (...executeArgs: unknown[]) => track(() => originalExecute(...executeArgs));
+    if (typeof prepared.all === "function") {
+      const originalAll = prepared.all.bind(prepared);
+      prepared.all = (...allArgs: unknown[]) => track(() => originalAll(...allArgs));
+    }
+    return prepared;
+  };
+}
+
 export function createPostgresEquipeUnitOfWork(
-  database: PostgresEquipeDatabase
+  database: PostgresEquipeDatabase,
+  options: PostgresEquipeUnitOfWorkOptions = {}
 ): EquipeUnitOfWork {
   return {
     repos: createPostgresEquipeRepositories(database),
     internal: createPostgresInternalEquipeRepositories(database),
     run: (fn) =>
-      database.transaction((tx) =>
-        fn(createPostgresEquipeRepositories(tx), createPostgresInternalEquipeRepositories(tx))
-      ),
+      database.transaction((tx) => {
+        // The session is fresh per transaction, so this instance-level wrap
+        // cannot leak into other transactions or pooled checkouts.
+        installTxConcurrencyGuard(tx, options.txConcurrencyProbe);
+        return fn(
+          createPostgresEquipeRepositories(tx),
+          createPostgresInternalEquipeRepositories(tx)
+        );
+      }),
   };
 }

@@ -139,11 +139,11 @@ export async function revalidateHeldItem(
   if (!isWithinAssistedWindow(item.scheduledFor)) {
     reasons.push("outside_assisted_window");
   }
-  const [approval, review, version] = await Promise.all([
-    approvalReceiptFor(ctx, item.id, item.currentVersionHash),
-    loadItemReview(ctx.repos, scope, item),
-    ctx.repos.itemVersions.getByHash(scope, item.id, item.currentVersionHash),
-  ]);
+  // Sequential on purpose: one transaction client, where parallel queries
+  // warn today and break in pg@9 (#574).
+  const approval = await approvalReceiptFor(ctx, item.id, item.currentVersionHash);
+  const review = await loadItemReview(ctx.repos, scope, item);
+  const version = await ctx.repos.itemVersions.getByHash(scope, item.id, item.currentVersionHash);
   if (!approval) {
     reasons.push("version_not_approved");
   }

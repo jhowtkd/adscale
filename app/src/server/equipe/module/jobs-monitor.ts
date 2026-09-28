@@ -88,10 +88,10 @@ async function isItemRejected(ctx: CommandContext, item: EquipeItem): Promise<bo
 
 async function hasOpenFrontEscalation(ctx: CommandContext, frontId: string): Promise<boolean> {
   const scope = scopeOf(ctx);
-  const [escalations, items] = await Promise.all([
-    ctx.repos.escalations.list(scope),
-    ctx.repos.items.list(scope, { frontId }),
-  ]);
+  // Sequential on purpose: one transaction client, where parallel queries
+  // warn today and break in pg@9 (#574).
+  const escalations = await ctx.repos.escalations.list(scope);
+  const items = await ctx.repos.items.list(scope, { frontId });
   const itemIds = new Set(items.map((item) => item.id));
   return escalations.some((escalation) => {
     if (isTerminalStatus(escalation.status)) return false;

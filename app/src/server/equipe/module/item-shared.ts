@@ -238,13 +238,13 @@ export async function loadItemReview(
   scope: AccountScope,
   item: EquipeItem,
 ): Promise<ItemReview> {
-  const [currentVersion, itemEvents, hasOpenEscalation] = await Promise.all([
-    item.currentVersionHash
-      ? repos.itemVersions.getByHash(scope, item.id, item.currentVersionHash)
-      : Promise.resolve(null),
-    repos.events.list(scope, { objectType: "item", objectId: item.id }),
-    hasOpenItemEscalation(repos, scope, item.id),
-  ]);
+  // Sequential on purpose: repos may share one transaction client, where
+  // parallel queries warn today and break in pg@9 (#574).
+  const currentVersion = item.currentVersionHash
+    ? await repos.itemVersions.getByHash(scope, item.id, item.currentVersionHash)
+    : null;
+  const itemEvents = await repos.events.list(scope, { objectType: "item", objectId: item.id });
+  const hasOpenEscalation = await hasOpenItemEscalation(repos, scope, item.id);
   return resolveItemReview({ item, currentVersion, itemEvents, hasOpenEscalation });
 }
 

@@ -44,10 +44,10 @@ export async function getExceptionsQueue(
 ): Promise<ExceptionsQueueView | null> {
   const account = await repos.accounts.get(workspaceId, accountId);
   if (!account) return null;
-  const [rows, labels] = await Promise.all([
-    repos.exceptions.list({ workspaceId, accountId }),
-    loadStaffLabelMap(internal),
-  ]);
+  // Sequential on purpose: repos may share one transaction client, where
+  // parallel queries warn today and break in pg@9 (#574).
+  const rows = await repos.exceptions.list({ workspaceId, accountId });
+  const labels = await loadStaffLabelMap(internal);
   const open = rows
     .filter((row) => row.status === "open" || row.status === "claimed")
     .map((exception) => ({
@@ -112,11 +112,9 @@ export async function getCrossAccountPipeline(
   const labels = await loadStaffLabelMap(internal);
   const entries: CrossAccountEntry[] = [];
   for (const scope of scopes) {
-    const [escalations, exceptions, pauses] = await Promise.all([
-      repos.escalations.list(scope),
-      repos.exceptions.list(scope),
-      repos.pauses.list(scope),
-    ]);
+    const escalations = await repos.escalations.list(scope);
+    const exceptions = await repos.exceptions.list(scope);
+    const pauses = await repos.pauses.list(scope);
     const label = staffLabelOf(labels, scope.workspaceId, scope.accountId);
     entries.push({
       scope,
@@ -187,15 +185,13 @@ export async function getEscalationDetail(
         )
         .map((part) => ({ kind: part.kind, resolved: part.resolved }))
     : [{ kind: escalation.kind, resolved: escalation.status === "resolved" || escalation.status === "closed" }];
-  const [item, events, pauses, exceptions, openedEvents, pauseEvents, labels] = await Promise.all([
-    escalation.itemId ? repos.items.get(scope, escalation.itemId) : Promise.resolve(null),
-    repos.events.list(scope, { objectType: "escalation", objectId: escalationId }),
-    repos.pauses.list(scope),
-    repos.exceptions.list(scope),
-    repos.events.list(scope, { eventType: SUPPORT_EXCEPTION_OPENED_EVENT }),
-    repos.events.list(scope, { eventType: PAUSE_APPLIED_EVENT }),
-    loadStaffLabelMap(internal),
-  ]);
+  const item = escalation.itemId ? await repos.items.get(scope, escalation.itemId) : null;
+  const events = await repos.events.list(scope, { objectType: "escalation", objectId: escalationId });
+  const pauses = await repos.pauses.list(scope);
+  const exceptions = await repos.exceptions.list(scope);
+  const openedEvents = await repos.events.list(scope, { eventType: SUPPORT_EXCEPTION_OPENED_EVENT });
+  const pauseEvents = await repos.events.list(scope, { eventType: PAUSE_APPLIED_EVENT });
+  const labels = await loadStaffLabelMap(internal);
   const covering = pauses.filter((pause) => {
     if (pause.status !== "active") return false;
     if (pause.scope === "front") {

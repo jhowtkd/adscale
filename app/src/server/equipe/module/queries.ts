@@ -194,11 +194,11 @@ export async function getClientPipeline(
   const account = await repos.accounts.get(workspaceId, accountId);
   if (!account) return null;
   const scope = { workspaceId, accountId };
-  const [items, batches, fronts] = await Promise.all([
-    repos.items.list(scope),
-    repos.batches.list(scope),
-    repos.fronts.list(scope),
-  ]);
+  // Sequential on purpose: repos may share one transaction client, where
+  // parallel queries warn today and break in pg@9 (#574).
+  const items = await repos.items.list(scope);
+  const batches = await repos.batches.list(scope);
+  const fronts = await repos.fronts.list(scope);
   const byBatch = new Map(batches.map((batch) => [batch.id, batch]));
   const byFront = new Map(fronts.map((front) => [front.id, front]));
   const accountStatus = account.status;
@@ -283,15 +283,13 @@ export async function getItemDetail(
   ) {
     return null;
   }
-  const [versions, receipts, itemEvents, intents, hasOpenEscalation] = await Promise.all([
-    repos.itemVersions.list(scope, { itemId }),
-    repos.receipts.listByObject(scope, "item", itemId),
-    repos.events.list(scope, { objectType: "item", objectId: itemId }),
-    item.currentVersionHash
-      ? repos.intents.getByItemVersion(scope, itemId, item.currentVersionHash)
-      : Promise.resolve(null),
-    hasOpenItemEscalation(repos, scope, itemId),
-  ]);
+  const versions = await repos.itemVersions.list(scope, { itemId });
+  const receipts = await repos.receipts.listByObject(scope, "item", itemId);
+  const itemEvents = await repos.events.list(scope, { objectType: "item", objectId: itemId });
+  const intents = item.currentVersionHash
+    ? await repos.intents.getByItemVersion(scope, itemId, item.currentVersionHash)
+    : null;
+  const hasOpenEscalation = await hasOpenItemEscalation(repos, scope, itemId);
   const currentVersion = item.currentVersionHash
     ? (versions.find((v) => v.versionHash === item.currentVersionHash) ?? null)
     : null;

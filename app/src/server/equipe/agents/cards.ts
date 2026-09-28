@@ -40,17 +40,21 @@ async function currentVersions(
   scope: { workspaceId: string; accountId: string },
   views: PipelineItem[],
 ): Promise<Map<string, EquipeItemVersion | null>> {
-  const entries = await Promise.all(
-    views.map(async (view) => {
-      if (!view.item.currentVersionHash) return [view.item.id, null] as const;
-      const version = await repos.itemVersions.getByHash(
-        scope,
-        view.item.id,
-        view.item.currentVersionHash,
-      );
-      return [view.item.id, version] as const;
-    }),
-  );
+  // Sequential on purpose: repos may share one transaction client, where
+  // parallel queries warn today and break in pg@9 (#574).
+  const entries: Array<readonly [string, EquipeItemVersion | null]> = [];
+  for (const view of views) {
+    if (!view.item.currentVersionHash) {
+      entries.push([view.item.id, null] as const);
+      continue;
+    }
+    const version = await repos.itemVersions.getByHash(
+      scope,
+      view.item.id,
+      view.item.currentVersionHash,
+    );
+    entries.push([view.item.id, version] as const);
+  }
   return new Map(entries);
 }
 
