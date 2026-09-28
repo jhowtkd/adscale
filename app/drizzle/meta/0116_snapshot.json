@@ -19340,20 +19340,6 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
-        },
-        "equipe_item_versions_creative_work_output_id_creative_work_outputs_id_fk": {
-          "name": "equipe_item_versions_creative_work_output_id_creative_work_outputs_id_fk",
-          "tableFrom": "equipe_item_versions",
-          "tableTo": "creative_work_outputs",
-          "schemaTo": "adscale_app",
-          "columnsFrom": [
-            "creative_work_output_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},

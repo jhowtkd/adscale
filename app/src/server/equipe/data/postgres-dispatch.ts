@@ -198,6 +198,8 @@ export async function claimDueIntents(
   // inferível (42804). E as amarras vão como parede UTC em texto: Date ligado
   // no SQL cru compara como parede LOCAL (quebra fora de UTC), enquanto o
   // builder grava timestamp como parede UTC — o texto UTC casa com ele.
+  // Invariante: toda coluna de tempo da Equipe é timestamp sem tz gravada
+  // como parede UTC pelo drizzle (mode: "date", verificado em 0116/schema).
   const nowWall = toUtcWallClock(input.now);
   const expiresAtWall = toUtcWallClock(new Date(input.now.getTime() + leaseTtlMs));
   const result = await executor.execute(sql`

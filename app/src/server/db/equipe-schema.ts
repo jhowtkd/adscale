@@ -405,8 +405,9 @@ export const equipeItems = equipeSchema.table(
   ]
 );
 
-// Versões IMUTÁVEIS do item (trigger rejeita UPDATE/DELETE). Hash cobre saída
-// do Trabalho + legenda + conta + horário.
+// Versões IMUTÁVEIS do item (trigger rejeita UPDATE e DELETE direto; DELETE
+// por CASCADE do workspace/account/item passa). Hash cobre saída do Trabalho
+// + legenda + conta + horário.
 export const equipeItemVersions = equipeSchema.table(
   "equipe_item_versions",
   {
@@ -421,10 +422,9 @@ export const equipeItemVersions = equipeSchema.table(
       .notNull()
       .references(() => equipeItems.id, { onDelete: "cascade" }),
     versionHash: text("version_hash").notNull(),
-    creativeWorkOutputId: uuid("creative_work_output_id").references(
-      () => creativeWorkOutputs.id,
-      { onDelete: "set null" }
-    ),
+    // Referência simples (sem FK): o hash da versão já fixa o conteúdo, e uma
+    // linha imutável não pode receber SET NULL se a saída for excluída.
+    creativeWorkOutputId: uuid("creative_work_output_id"),
     caption: text("caption").notNull().default(""),
     scheduledFor: timestamp("scheduled_for", { mode: "date" }),
     authorRole: text("author_role").notNull(),
@@ -438,8 +438,9 @@ export const equipeItemVersions = equipeSchema.table(
   ]
 );
 
-// Recibos IMUTÁVEIS (trigger rejeita UPDATE/DELETE): pessoa, papel, objeto,
-// versão (hash), ação e horário.
+// Recibos IMUTÁVEIS (trigger rejeita UPDATE e DELETE direto; DELETE por
+// CASCADE do workspace/account passa): pessoa, papel, objeto, versão (hash),
+// ação e horário.
 export const equipeReceipts = equipeSchema.table(
   "equipe_receipts",
   {

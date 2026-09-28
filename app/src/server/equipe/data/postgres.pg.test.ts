@@ -9,7 +9,7 @@
  * esta suíte, para que ela jamais escreva num banco de dev ou produção:
  *   TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/equipe/data/postgres.pg.test.ts
  */
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { equipeStaff } from "@/server/db/equipe-schema";
 import { createPostgresEquipeUnitOfWork } from "./postgres";
 import { defineEquipeRepositoryContract, type EquipeContractHarness } from "./repository-contract";
@@ -68,14 +68,11 @@ defineEquipeRepositoryContract(
   },
   async () => {
     const { db, schema } = await loadDb();
-    // O CASCADE em versões/recibos passa pelo trigger: a limpeza explícita de
-    // teste abre a válvula por transação (SET LOCAL). O app nunca faz isso.
-    await db.transaction(async (tx) => {
-      await tx.execute(sql`SET LOCAL equipe.allow_immutable_write = 'on'`);
-      for (const workspaceId of createdWorkspaceIds.splice(0)) {
-        await tx.delete(schema.workspaces).where(eq(schema.workspaces.id, workspaceId));
-      }
-    });
+    // Versões/recibos caem por CASCADE do workspace (o trigger permite
+    // DELETE via CASCADE e rejeita só o DELETE/UPDATE direto).
+    for (const workspaceId of createdWorkspaceIds.splice(0)) {
+      await db.delete(schema.workspaces).where(eq(schema.workspaces.id, workspaceId));
+    }
     // Staff é global (sem workspace): tabela usada só por esta suíte no banco
     // de teste, então limpar tudo remove exatamente o que o contrato criou.
     await db.delete(equipeStaff);

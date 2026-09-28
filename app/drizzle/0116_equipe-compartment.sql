@@ -385,7 +385,7 @@ ALTER TABLE "adscale_equipe"."equipe_ideas" ADD CONSTRAINT "equipe_ideas_receipt
 ALTER TABLE "adscale_equipe"."equipe_item_versions" ADD CONSTRAINT "equipe_item_versions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "adscale_app"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "adscale_equipe"."equipe_item_versions" ADD CONSTRAINT "equipe_item_versions_account_id_equipe_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "adscale_equipe"."equipe_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "adscale_equipe"."equipe_item_versions" ADD CONSTRAINT "equipe_item_versions_item_id_equipe_items_id_fk" FOREIGN KEY ("item_id") REFERENCES "adscale_equipe"."equipe_items"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "adscale_equipe"."equipe_item_versions" ADD CONSTRAINT "equipe_item_versions_creative_work_output_id_creative_work_outputs_id_fk" FOREIGN KEY ("creative_work_output_id") REFERENCES "adscale_app"."creative_work_outputs"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+COMMENT ON COLUMN "adscale_equipe"."equipe_item_versions"."creative_work_output_id" IS 'Referência simples sem FK: o hash da versão já fixa o conteúdo, e uma linha imutável não pode receber SET NULL.';--> statement-breakpoint
 ALTER TABLE "adscale_equipe"."equipe_items" ADD CONSTRAINT "equipe_items_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "adscale_app"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "adscale_equipe"."equipe_items" ADD CONSTRAINT "equipe_items_account_id_equipe_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "adscale_equipe"."equipe_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "adscale_equipe"."equipe_items" ADD CONSTRAINT "equipe_items_front_id_equipe_fronts_id_fk" FOREIGN KEY ("front_id") REFERENCES "adscale_equipe"."equipe_fronts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -446,11 +446,15 @@ CREATE UNIQUE INDEX "equipe_threads_account_primary_uq" ON "adscale_equipe"."equ
 CREATE OR REPLACE FUNCTION "adscale_equipe"."reject_immutable_equipe_row"() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
-  -- Válvula de escape explícita por transação (limpeza de testes e remoção do
-  -- piloto via migração): sem ela, nem o CASCADE de workspace/account conclui.
-  -- O app nunca liga; o padrão é rejeitar.
-  IF current_setting('equipe.allow_immutable_write', true) = 'on' THEN
-    RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+  -- Imutabilidade compatível com exclusão em cascata: UPDATE direto sempre
+  -- falha; DELETE direto (statement que mira recibos/versões) falha; DELETE
+  -- que chega por CASCADE de FK (excluir workspace, conta ou item) passa.
+  -- Dentro do trigger, pg_trigger_depth() = 1 no DELETE direto e > 1 quando
+  -- a linha cai por integridade referencial, porque o gatilho interno de
+  -- CASCADE envolve o gatilho de linha. Sem válvula de sessão: o banco
+  -- sempre rejeita mutação direta (ver receipts-immutability.pg.test.ts).
+  IF TG_OP = 'DELETE' AND pg_trigger_depth() > 1 THEN
+    RETURN OLD;
   END IF;
   RAISE EXCEPTION 'equipe_immutable: % rejeita %', TG_TABLE_NAME, TG_OP;
   RETURN NULL;
