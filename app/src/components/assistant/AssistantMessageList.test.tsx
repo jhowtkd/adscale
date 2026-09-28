@@ -331,8 +331,8 @@ describe("AssistantMessageList", () => {
       expect(screen.getByTestId("equipe-card")).toHaveTextContent("Calendário 23–27/11");
       const reviews = screen.getAllByTestId("equipe-card-review");
       expect(reviews).toHaveLength(2);
-      expect(reviews[0]).toHaveAttribute("href", "/pipeline?item=item-1");
-      expect(reviews[1]).toHaveAttribute("href", "/pipeline?item=item-2");
+      expect(reviews[0]).toHaveAttribute("href", "/pipeline?account=account-1&item=item-1");
+      expect(reviews[1]).toHaveAttribute("href", "/pipeline?account=account-1&item=item-2");
       expect(screen.queryByTestId("equipe-card-approve")).not.toBeInTheDocument();
     });
 

@@ -9,14 +9,12 @@ import { formatDateTime, shortHash } from "./equipe-format";
 // its author, and every immutable receipt with person, role and hash.
 
 function ReceiptRow({ receipt }: { receipt: EquipeReceiptJson }) {
-  const t = useTranslations("equipe.item");
   const tActions = useTranslations("equipe.receiptActions");
+  const tRoles = useTranslations("equipe.roles");
   const locale = useLocale();
   const action = tActions.has(receipt.action) ? tActions(receipt.action) : receipt.action;
-  const role =
-    receipt.personRole && t.has(`role_${receipt.personRole}`)
-      ? t(`role_${receipt.personRole}`)
-      : (receipt.personRole ?? receipt.personKind);
+  const who = receipt.personRole ?? receipt.personKind;
+  const role = tRoles.has(who) ? tRoles(who) : who;
   return (
     <li
       className="flex flex-wrap items-baseline gap-x-2 text-xs text-[var(--text-secondary)]"

@@ -58,7 +58,21 @@ describe("EquipeTopActions", () => {
   it("links Painel to the conversation and Pipeline to the pipeline", () => {
     renderActions();
     expect(screen.getByTestId("equipe-view-painel")).toHaveAttribute("href", "/assistant");
-    expect(screen.getByTestId("equipe-view-pipeline")).toHaveAttribute("href", "/pipeline");
+    expect(screen.getByTestId("equipe-view-pipeline")).toHaveAttribute(
+      "href",
+      "/pipeline?account=acc-1",
+    );
+  });
+
+  it("marks neither view active when the screen is not Painel nor Pipeline", () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <EquipeTopActions active={null} accountId="acc-1" />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByTestId("equipe-view-painel")).not.toHaveAttribute("aria-current");
+    expect(screen.getByTestId("equipe-view-pipeline")).not.toHaveAttribute("aria-current");
   });
 
   it("pauses publications through the client pause command", async () => {

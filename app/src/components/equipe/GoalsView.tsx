@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Heart, Megaphone, Plus, Rocket, TrendingUp } from "lucide-react";
@@ -16,19 +16,20 @@ import type {
 } from "@/lib/equipe/api";
 import {
   useEquipeAccounts,
+  useEquipeAccountSelection,
   useEquipeAccountState,
   useEquipeGoals,
 } from "@/lib/equipe/use-equipe";
 import EquipeTopActions, { RequestSupportButton } from "./EquipeTopActions";
 import {
-  BrandVoiceCard,
   ConnectionStepAction,
   ContextStepActions,
   MandateStepActions,
-  MaterialsAction,
   PlanStepAction,
   ScopeConfirmAction,
 } from "./GoalsActions";
+import { BrandVoiceCard } from "./GoalsBrandVoice";
+import { MaterialsAction } from "./GoalsMaterialsAction";
 import {
   EquipeAccountSwitcher,
   EquipeDisabledNotice,
@@ -124,6 +125,7 @@ function ImplantationSteps({
   mandates: EquipeMandateJson[];
 }) {
   const t = useTranslations("equipe.goals");
+  const tRoles = useTranslations("equipe.roles");
   const locale = useLocale();
   const ordered = useMemo(() => {
     const rank = new Map<string, number>(STEP_ORDER.map((step, index) => [step, index]));
@@ -164,7 +166,9 @@ function ImplantationSteps({
                   </span>
                   <span className="text-xs text-[var(--text-muted)]">
                     {[
-                      step.owner,
+                      step.owner
+                        ? (tRoles.has(step.owner) ? tRoles(step.owner) : step.owner)
+                        : null,
                       due ? t("dueAt", { date: due }) : null,
                       completed ? t("completedAt", { date: completed }) : null,
                     ]
@@ -399,9 +403,9 @@ function GoalsBoard({
 export default function GoalsView() {
   const t = useTranslations("equipe.goals");
   const accountsQuery = useEquipeAccounts();
-  const [accountId, setAccountId] = useState<string | null>(null);
-  const accounts = accountsQuery.data?.accounts ?? [];
-  const selected = accountId ?? accounts[0]?.id ?? null;
+  const accounts = accountsQuery.data?.accounts;
+  const { selected, select } = useEquipeAccountSelection("/goals", accounts);
+  const list = accounts ?? [];
   const goalsQuery = useEquipeGoals(selected);
   const stateQuery = useEquipeAccountState(selected);
 
@@ -410,7 +414,7 @@ export default function GoalsView() {
       <PageHeader
         title={t("title")}
         description={t("subtitle")}
-        actions={<EquipeTopActions active="painel" accountId={selected} />}
+        actions={<EquipeTopActions active={null} accountId={selected} />}
       />
       <div className="py-4">
         {accountsQuery.isLoading ? <EquipeLoading /> : null}
@@ -421,13 +425,13 @@ export default function GoalsView() {
             <EquipeErrorNotice onRetry={() => void accountsQuery.refetch()} />
           )
         ) : null}
-        {accountsQuery.data && accounts.length === 0 ? <EquipeEmptyAccounts /> : null}
+        {accountsQuery.data && list.length === 0 ? <EquipeEmptyAccounts /> : null}
         {accountsQuery.data && selected ? (
           <div className="mb-3">
             <EquipeAccountSwitcher
-              accounts={accounts}
+              accounts={list}
               accountId={selected}
-              onSelect={setAccountId}
+              onSelect={select}
             />
           </div>
         ) : null}

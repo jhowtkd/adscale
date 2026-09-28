@@ -61,6 +61,7 @@ export function EquipeAccountSwitcher({
   onSelect: (accountId: string) => void;
 }) {
   const t = useTranslations("equipe.common");
+  const tStatus = useTranslations("equipe.accountStatuses");
   if (accounts.length < 2) return null;
   return (
     <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
@@ -71,11 +72,16 @@ export function EquipeAccountSwitcher({
         className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2 py-1 text-xs text-[var(--text-primary)]"
         data-testid="equipe-account-switcher"
       >
-        {accounts.map((account, index) => (
-          <option key={account.id} value={account.id}>
-            {t("accountOption", { index: index + 1, status: account.status })}
-          </option>
-        ))}
+        {accounts.map((account, index) => {
+          const status = tStatus.has(account.status) ? tStatus(account.status) : account.status;
+          return (
+            <option key={account.id} value={account.id}>
+              {account.clientProfileName
+                ? t("accountOptionNamed", { name: account.clientProfileName, status })
+                : t("accountOption", { index: index + 1, status })}
+            </option>
+          );
+        })}
       </select>
     </label>
   );

@@ -6,9 +6,17 @@ import { cn } from "@/lib/utils";
 
 // "Painel | Pipeline" view selector. Painel is the existing conversation
 // home for the account; Pipeline is the client pipeline page. Rendered with
-// the product's segmented style (no gradients, no purple accents).
+// the product's segmented style (no gradients, no purple accents). Only
+// the current view is marked: on /ideas and /goals neither is active.
+// The pipeline link carries the chosen account so it survives the switch.
 
-export default function EquipeViewSelector({ active }: { active: "painel" | "pipeline" }) {
+export default function EquipeViewSelector({
+  active,
+  accountId,
+}: {
+  active: "painel" | "pipeline" | null;
+  accountId: string | null;
+}) {
   const t = useTranslations("equipe.viewSelector");
   const item = (isActive: boolean) =>
     cn(
@@ -33,7 +41,7 @@ export default function EquipeViewSelector({ active }: { active: "painel" | "pip
         {t("painel")}
       </Link>
       <Link
-        href="/pipeline"
+        href={accountId ? `/pipeline?account=${accountId}` : "/pipeline"}
         aria-current={active === "pipeline" ? "page" : undefined}
         className={item(active === "pipeline")}
         data-testid="equipe-view-pipeline"

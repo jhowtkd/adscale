@@ -25,7 +25,7 @@ describe("EquipeCard idea", () => {
     expect(screen.getByTestId("equipe-card-idea")).toHaveTextContent("Gift kit focus");
     expect(screen.getByTestId("equipe-card-idea-link")).toHaveAttribute(
       "href",
-      "/ideas?idea=idea-1",
+      "/ideas?account=acc-1&idea=idea-1",
     );
   });
 });

@@ -5071,7 +5071,8 @@
       "noAccountsTitle": "Nenhuma conta da Equipe aqui",
       "noAccountsBody": "Quando a implantação começar, o Pipeline aparece neste workspace.",
       "accountOption": "Conta {index} · {status}",
-      "accountLabel": "Conta"
+      "accountLabel": "Conta",
+      "accountOptionNamed": "{name} · {status}"
     },
     "staffErrors": {
       "forbidden": "Você não tem acesso a esta área.",
@@ -5713,15 +5714,15 @@
       "scopeConfirm": "Confirmar escopo",
       "scopeDone": "Escopo confirmado.",
       "scopeConfirmed": "Escopo confirmado",
-      "materialExplainer": "Informe um material que já está no seu espaço (logo, fotos, textos).",
-      "materialAssetLabel": "Identificador do material",
+      "materialExplainer": "Escolha um material do seu espaço e diga o que ele é.",
+      "materialAssetLabel": "Material",
       "materialAssetPlaceholder": "ID do material no seu espaço",
       "materialKindLabel": "Tipo",
-      "materialKindPlaceholder": "Ex.: logo, foto, texto",
+      "materialKindPlaceholder": "Escolha o tipo",
       "materialOriginPlaceholder": "Origem (opcional)",
       "materialSend": "Enviar material",
       "materialSent": "Material enviado.",
-      "materialUnknownAsset": "Esse material não foi encontrado no seu espaço. Confira o identificador.",
+      "materialUnknownAsset": "Esse material não está mais no seu espaço.",
       "sectionProposal": "Seção {section} · v{version}",
       "sectionExplainer": "Confira os campos abaixo. Ao aprovar, essa versão vira o contexto oficial.",
       "sectionApprove": "Aprovar seção",
@@ -5753,7 +5754,13 @@
       "manualAgreed": "Modo manual aceito",
       "staleVersion": "Mudou desde que você abriu, revise de novo.",
       "forbidden": "Só o aprovador ou o substituto pode fazer isso.",
-      "commandError": "Não foi possível enviar. Tente novamente."
+      "commandError": "Não foi possível enviar. Tente novamente.",
+      "materialKind_logo": "Logo",
+      "materialKind_photo": "Foto",
+      "materialKind_video": "Vídeo",
+      "materialKind_text": "Texto",
+      "materialEmpty": "Nenhum material no seu espaço ainda.",
+      "materialLoading": "Carregando materiais…"
     },
     "fronts": {
       "social_instagram": "Social · Instagram",
@@ -5766,6 +5773,28 @@
       "scope_decision": "decisão de escopo",
       "paused": "pausada",
       "closed": "encerrada"
+    },
+    "accountStatuses": {
+      "deploying": "em implantação",
+      "paused": "pausada",
+      "calibrating": "em calibração",
+      "active": "ativa",
+      "suspended": "suspensa",
+      "closed": "encerrada"
+    },
+    "roles": {
+      "approver": "aprovador",
+      "substitute": "substituto",
+      "custodian": "custodiante",
+      "member": "membro",
+      "strategist": "Estrategista IA",
+      "support": "equipe",
+      "quality": "equipe",
+      "operations": "equipe",
+      "staff": "equipe",
+      "client_person": "cliente",
+      "agent": "Equipe IA",
+      "system": "automático"
     }
   }
 }

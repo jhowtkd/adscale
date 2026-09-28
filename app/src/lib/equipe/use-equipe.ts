@@ -3,7 +3,8 @@
 // React-query readers for the Equipe client screens. The accounts query is
 // also the client-side pilot gate: a 404 means "not enabled", never an error.
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   EquipeDisabledError,
@@ -13,6 +14,8 @@ import {
   fetchIdeas,
   fetchItemDetail,
   fetchPipeline,
+  resolveEquipeItemAccount,
+  type EquipeAccountJson,
 } from "@/lib/equipe/api";
 
 export function equipeKeys(accountId: string | null) {
@@ -97,4 +100,57 @@ export function useInvalidateEquipe(accountId: string | null) {
     if (!accountId) return;
     void client.invalidateQueries({ queryKey: ["equipe", accountId] });
   };
+}
+
+/** Default account: the first with pending client decisions, else the first. */
+export function defaultEquipeAccountId(accounts: EquipeAccountJson[]): string | null {
+  return accounts.find((account) => account.pendingDecisions)?.id ?? accounts[0]?.id ?? null;
+}
+
+/**
+ * The chosen account lives in `?account=`: read it, validate it against
+ * the workspace's accounts, and stamp the default back into the URL so
+ * the choice survives navigation between the screens. Switching accounts
+ * rewrites the param, preserving the rest of the query.
+ */
+export function useEquipeAccountSelection(
+  basePath: string,
+  accounts: EquipeAccountJson[] | undefined,
+): { selected: string | null; select: (accountId: string) => void } {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const param = searchParams.get("account");
+  const valid = param && accounts?.some((account) => account.id === param) ? param : null;
+  const selected = valid ?? (accounts ? defaultEquipeAccountId(accounts) : null);
+
+  useEffect(() => {
+    if (!accounts || !selected || param === selected) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("account", selected);
+    router.replace(`${basePath}?${params.toString()}`, { scroll: false });
+  }, [accounts, selected, param, basePath, router, searchParams]);
+
+  return {
+    selected,
+    select: (accountId: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("account", accountId);
+      router.replace(`${basePath}?${params.toString()}`, { scroll: false });
+    },
+  };
+}
+
+/** Resolve a bare `?item=` id to its account across the workspace's accounts. */
+export function useEquipeItemAccount(
+  accounts: EquipeAccountJson[] | undefined,
+  itemId: string | null,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ["equipe", "item-account", itemId],
+    queryFn: () => resolveEquipeItemAccount(accounts!, itemId!),
+    enabled: enabled && Boolean(accounts && itemId),
+    retry: false,
+    staleTime: 60_000,
+  });
 }

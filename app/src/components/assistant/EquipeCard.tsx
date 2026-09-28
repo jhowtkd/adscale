@@ -94,7 +94,7 @@ function CardShell({
   );
 }
 
-function ItemRow({ item }: { item: EquipeCardItemRef }) {
+function ItemRow({ item, accountId }: { item: EquipeCardItemRef; accountId: string }) {
   const t = useTranslations("assistant.equipe");
   const scheduled = item.scheduledFor ? formatDateTime(item.scheduledFor) : null;
   return (
@@ -111,7 +111,7 @@ function ItemRow({ item }: { item: EquipeCardItemRef }) {
         </p>
       </div>
       <Link
-        href={`/pipeline?item=${item.itemId}`}
+        href={`/pipeline?account=${accountId}&item=${item.itemId}`}
         className="shrink-0 rounded-[var(--radius-md)] border border-[var(--border-strong)] px-2.5 py-1 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)]"
         data-testid="equipe-card-review"
       >
@@ -265,7 +265,7 @@ export default function EquipeCard({
         </p>
         {card.ideaId ? (
           <Link
-            href={`/ideas?idea=${card.ideaId}`}
+            href={`/ideas?account=${card.accountId}&idea=${card.ideaId}`}
             className="w-fit rounded-[var(--radius-md)] border border-[var(--border-strong)] px-2.5 py-1 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)]"
             data-testid="equipe-card-idea-link"
           >
@@ -282,7 +282,7 @@ export default function EquipeCard({
       subtitle={approveBy ? t("approveBy", { date: approveBy }) : null}
     >
       {card.items.map((item) => (
-        <ItemRow key={item.itemId} item={item} />
+        <ItemRow key={item.itemId} item={item} accountId={card.accountId} />
       ))}
       {equipeEnabled && !approved ? (
         confirming ? (

@@ -23,7 +23,7 @@ export function useAuthorLabel(authorRole: string): { label: string; isAI: boole
   if (authorRole === "agent") return { label: t("team"), isAI: true };
   const key = AGENT_ROLE_KEYS[authorRole];
   if (key && t.has(key)) return { label: t(key), isAI: true };
-  return { label: authorRole, isAI: true };
+  return { label: t("team"), isAI: true };
 }
 
 export function IABadge() {

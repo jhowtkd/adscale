@@ -34,6 +34,16 @@ vi.mock("@/lib/api-client", () => ({
   apiFetch: vi.fn(),
 }));
 
+vi.mock("@/lib/hooks/use-workspace-assets", () => ({
+  useWorkspaceAssets: () => ({
+    data: {
+      assets: [{ id: "asset-1", name: "logo.png", url: "https://assets.test/logo.png" }],
+      total: 1,
+    },
+    isLoading: false,
+  }),
+}));
+
 const { commandMocks } = vi.hoisted(() => ({
   commandMocks: {
     confirmEquipeScope: vi.fn(),
@@ -250,11 +260,9 @@ describe("GoalsView", () => {
     });
   });
 
-  it("sends a material referencing the workspace asset", async () => {
+  it("sends a material picked from the workspace assets", async () => {
     renderView("deploying");
-    fireEvent.change(await screen.findByTestId("goals-material-asset"), {
-      target: { value: "asset-1" },
-    });
+    fireEvent.click(await screen.findByTestId("goals-material-pick-asset-1"));
     fireEvent.change(screen.getByTestId("goals-material-kind"), { target: { value: "logo" } });
     fireEvent.click(screen.getByTestId("goals-material-send"));
     await waitFor(() => {

@@ -83,7 +83,7 @@ function BatchRow({
         )}
       </div>
       <Link
-        href={`/pipeline?item=${view.item.id}`}
+        href={`/pipeline?account=${accountId}&item=${view.item.id}`}
         className="shrink-0 rounded-[var(--radius-md)] border border-[var(--border-strong)] px-2.5 py-1 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)]"
         data-testid={`batch-review-${view.item.id}`}
       >
@@ -111,7 +111,7 @@ function ResultRow({ result, accountId }: { result: EquipeBatchItemResult; accou
       </div>
       {ok ? null : (
         <Link
-          href={`/pipeline?item=${result.itemId}`}
+          href={`/pipeline?account=${accountId}&item=${result.itemId}`}
           className="shrink-0 rounded-[var(--radius-md)] border border-[var(--border-strong)] px-2.5 py-1 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)]"
           data-testid={`batch-rereview-${result.itemId}`}
         >

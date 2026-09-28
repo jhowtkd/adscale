@@ -45,6 +45,10 @@ export type EquipeAccountJson = {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Brand name from the client profile; null when the profile is gone. */
+  clientProfileName: string | null;
+  /** True while the account holds a decision for the client. */
+  pendingDecisions: boolean;
 };
 
 export type EquipeFrontJson = {
@@ -312,6 +316,28 @@ export async function fetchGoals(accountId: string): Promise<GoalsViewJson> {
 
 export async function fetchItemDetail(accountId: string, itemId: string): Promise<ItemDetailJson> {
   return getJson<ItemDetailJson>(`/api/equipe/accounts/${accountId}/items/${itemId}`);
+}
+
+/**
+ * Which of the workspace's accounts holds this item, by asking the
+ * existing item endpoints in turn — no new route (convergence freeze).
+ * Bare `/pipeline?item=` links from notifications resolve here; unknown
+ * ids answer null and the pipeline falls back to the default account.
+ * Only the workspace's own accounts are scanned, never another's.
+ */
+export async function resolveEquipeItemAccount(
+  accounts: EquipeAccountJson[],
+  itemId: string,
+): Promise<string | null> {
+  for (const account of accounts) {
+    try {
+      await fetchItemDetail(account.id, itemId);
+      return account.id;
+    } catch {
+      // Not this account's — keep scanning the workspace's accounts.
+    }
+  }
+  return null;
 }
 
 /** Final-image URL for an item version (302 redirect, works as <img src>). */

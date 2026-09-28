@@ -110,6 +110,7 @@ export type OpenTestAccountOptions = {
   fronts?: EquipeFrontKey[];
   people?: Array<{ name: string; role: EquipePersonRole; userId?: string; email?: string }>;
   labels?: { brandName: string; workspaceName: string };
+  profileName?: string;
 };
 
 /** Open an account through the real command (also exercises open_account). */
@@ -124,7 +125,7 @@ export async function openTestAccount(
 }> {
   const workspaceId = uuid();
   const profileId = uuid();
-  t.gateway.addProfile({ id: profileId, workspaceId });
+  t.gateway.addProfile({ id: profileId, workspaceId, name: options.profileName ?? null });
   // Staff views always carry brand/workspace names; tests that assert
   // them pass custom labels, the rest get deterministic defaults.
   seedMemoryAdscaleLabels(t.store, {

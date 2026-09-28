@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,11 @@ import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
 import type { ClientPipelineJson, PipelineItemJson } from "@/lib/equipe/api";
 import {
+  defaultEquipeAccountId,
   useEquipeAccounts,
   useEquipeAccountState,
+  useEquipeAccountSelection,
+  useEquipeItemAccount,
   useEquipePipeline,
 } from "@/lib/equipe/use-equipe";
 import EquipeTopActions from "./EquipeTopActions";
@@ -149,7 +152,7 @@ function PipelineBoard({ accountId, pipeline }: { accountId: string; pipeline: C
                 <p className="px-1 py-2 text-xs text-[var(--text-muted)]">{t("columnEmpty")}</p>
               ) : (
                 views.map((view) => (
-                  <PipelineCard key={view.item.id} view={view} />
+                  <PipelineCard key={view.item.id} view={view} accountId={accountId} />
                 ))
               )}
             </PipelineColumn>
@@ -165,7 +168,7 @@ function PipelineBoard({ accountId, pipeline }: { accountId: string; pipeline: C
           </h2>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
             {missed.map((view) => (
-              <PipelineCard key={view.item.id} view={view} />
+              <PipelineCard key={view.item.id} view={view} accountId={accountId} />
             ))}
           </div>
         </section>
@@ -183,7 +186,12 @@ function PipelineBoard({ accountId, pipeline }: { accountId: string; pipeline: C
         itemId={itemId}
         open={Boolean(itemId)}
         onOpenChange={(open) => {
-          if (!open) router.replace("/pipeline", { scroll: false });
+          if (!open) {
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete("item");
+            const query = params.toString();
+            router.replace(query ? `/pipeline?${query}` : "/pipeline", { scroll: false });
+          }
         }}
       />
     </>
@@ -192,11 +200,39 @@ function PipelineBoard({ accountId, pipeline }: { accountId: string; pipeline: C
 
 export default function PipelineView() {
   const t = useTranslations("equipe.pipeline");
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const accountsQuery = useEquipeAccounts();
-  const [accountId, setAccountId] = useState<string | null>(null);
-  const accounts = accountsQuery.data?.accounts ?? [];
-  const selected = accountId ?? accounts[0]?.id ?? null;
+  const accounts = accountsQuery.data?.accounts;
+  const itemId = searchParams.get("item");
+  const paramValid = Boolean(
+    searchParams.get("account") &&
+      accounts?.some((account) => account.id === searchParams.get("account")),
+  );
+  // Bare ?item= links (notifications) carry no account: resolve the item's
+  // account first, then stamp it into the URL. Unknown ids fall back to
+  // the default account and the overlay reports the miss.
+  const needsResolve = Boolean(itemId && accounts && accounts.length > 0 && !paramValid);
+  const resolution = useEquipeItemAccount(accounts, itemId, needsResolve);
+  const { selected: selectedByParam, select } = useEquipeAccountSelection(
+    "/pipeline",
+    needsResolve ? undefined : accounts,
+  );
+  const selected = needsResolve
+    ? resolution.isFetched
+      ? (resolution.data ?? defaultEquipeAccountId(accounts ?? []))
+      : null
+    : selectedByParam;
+  useEffect(() => {
+    if (!needsResolve || !resolution.isFetched) return;
+    const params = new URLSearchParams(searchParams.toString());
+    const resolved = resolution.data ?? defaultEquipeAccountId(accounts ?? []);
+    if (!resolved) return;
+    params.set("account", resolved);
+    router.replace(`/pipeline?${params.toString()}`, { scroll: false });
+  }, [needsResolve, resolution.isFetched, resolution.data, accounts, router, searchParams]);
   const pipelineQuery = useEquipePipeline(selected);
+  const list = accounts ?? [];
 
   return (
     <PageFrame width="fluid">
@@ -214,16 +250,17 @@ export default function PipelineView() {
             <EquipeErrorNotice onRetry={() => void accountsQuery.refetch()} />
           )
         ) : null}
-        {accountsQuery.data && accounts.length === 0 ? <EquipeEmptyAccounts /> : null}
+        {accountsQuery.data && list.length === 0 ? <EquipeEmptyAccounts /> : null}
         {accountsQuery.data && selected ? (
           <div className="mb-3">
             <EquipeAccountSwitcher
-              accounts={accounts}
+              accounts={list}
               accountId={selected}
-              onSelect={setAccountId}
+              onSelect={select}
             />
           </div>
         ) : null}
+        {needsResolve && !resolution.isFetched ? <EquipeLoading /> : null}
         {selected && pipelineQuery.isLoading ? <EquipeLoading /> : null}
         {selected && pipelineQuery.error ? (
           <EquipeErrorNotice onRetry={() => void pipelineQuery.refetch()} />

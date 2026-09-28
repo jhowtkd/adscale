@@ -4995,7 +4995,8 @@
       "noAccountsTitle": "No Equipe accounts here",
       "noAccountsBody": "When implantation starts, the Pipeline shows up in this workspace.",
       "accountOption": "Account {index} · {status}",
-      "accountLabel": "Account"
+      "accountLabel": "Account",
+      "accountOptionNamed": "{name} · {status}"
     },
     "staffErrors": {
       "forbidden": "You don't have access to this area.",
@@ -5637,15 +5638,15 @@
       "scopeConfirm": "Confirm scope",
       "scopeDone": "Scope confirmed.",
       "scopeConfirmed": "Scope confirmed",
-      "materialExplainer": "Point to material already in your workspace (logo, photos, copy).",
-      "materialAssetLabel": "Material identifier",
+      "materialExplainer": "Pick material from your workspace and say what it is.",
+      "materialAssetLabel": "Material",
       "materialAssetPlaceholder": "Material ID in your workspace",
       "materialKindLabel": "Type",
-      "materialKindPlaceholder": "E.g. logo, photo, copy",
+      "materialKindPlaceholder": "Choose the type",
       "materialOriginPlaceholder": "Origin (optional)",
       "materialSend": "Send material",
       "materialSent": "Material sent.",
-      "materialUnknownAsset": "That material was not found in your workspace. Check the identifier.",
+      "materialUnknownAsset": "That material is no longer in your workspace.",
       "sectionProposal": "Section {section} · v{version}",
       "sectionExplainer": "Review the fields below. Approving makes this version the official context.",
       "sectionApprove": "Approve section",
@@ -5677,7 +5678,13 @@
       "manualAgreed": "Manual mode accepted",
       "staleVersion": "It changed since you opened it, review it again.",
       "forbidden": "Only the approver or the substitute can do this.",
-      "commandError": "Could not send. Try again."
+      "commandError": "Could not send. Try again.",
+      "materialKind_logo": "Logo",
+      "materialKind_photo": "Photo",
+      "materialKind_video": "Video",
+      "materialKind_text": "Text",
+      "materialEmpty": "No material in your workspace yet.",
+      "materialLoading": "Loading materials…"
     },
     "fronts": {
       "social_instagram": "Social · Instagram",
@@ -5690,6 +5697,28 @@
       "scope_decision": "scope decision",
       "paused": "paused",
       "closed": "closed"
+    },
+    "accountStatuses": {
+      "deploying": "deploying",
+      "paused": "paused",
+      "calibrating": "calibrating",
+      "active": "active",
+      "suspended": "suspended",
+      "closed": "closed"
+    },
+    "roles": {
+      "approver": "approver",
+      "substitute": "substitute",
+      "custodian": "custodian",
+      "member": "member",
+      "strategist": "AI Strategist",
+      "support": "team",
+      "quality": "team",
+      "operations": "team",
+      "staff": "team",
+      "client_person": "client",
+      "agent": "AI team",
+      "system": "automatic"
     }
   }
 }

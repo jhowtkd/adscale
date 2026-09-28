@@ -9,6 +9,12 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => `navigation.${key}`,
 }));
 
+let searchString = "";
+
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(searchString),
+}));
+
 vi.mock("@/lib/api-client", () => ({
   apiFetch: vi.fn(),
 }));
@@ -31,6 +37,7 @@ function renderLinks() {
 describe("useEquipeNavLinks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    searchString = "";
   });
 
   it("exposes the three client destinations for pilot workspaces", async () => {
@@ -41,6 +48,20 @@ describe("useEquipeNavLinks", () => {
     });
     expect(result.current!.map((link) => link.href)).toEqual(["/pipeline", "/ideas", "/goals"]);
     expect(result.current![0]!.label).toBe("navigation.pipeline");
+  });
+
+  it("carries the chosen account across the three destinations", async () => {
+    searchString = "account=acc-9";
+    mockedFetch.mockResolvedValueOnce(json({ accounts: [] }));
+    const { result } = renderLinks();
+    await waitFor(() => {
+      expect(result.current).not.toBeNull();
+    });
+    expect(result.current!.map((link) => link.href)).toEqual([
+      "/pipeline?account=acc-9",
+      "/ideas?account=acc-9",
+      "/goals?account=acc-9",
+    ]);
   });
 
   it("hides every link when the workspace is not in the pilot", async () => {

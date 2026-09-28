@@ -120,7 +120,10 @@ describe("BatchApprovalDialog", () => {
       "changed_since_opened",
     );
     // The stale item goes back to individual review; the approved one does not.
-    expect(screen.getByTestId("batch-rereview-b")).toHaveAttribute("href", "/pipeline?item=b");
+    expect(screen.getByTestId("batch-rereview-b")).toHaveAttribute(
+      "href",
+      "/pipeline?account=acc-1&item=b",
+    );
     expect(screen.queryByTestId("batch-rereview-a")).not.toBeInTheDocument();
   });
 

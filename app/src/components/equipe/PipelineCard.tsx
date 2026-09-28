@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { ImageIcon } from "lucide-react";
 import { itemImageUrl, type PipelineItemJson } from "@/lib/equipe/api";
@@ -12,18 +13,28 @@ import { captionTitle, formatDateTime } from "./equipe-format";
 // board of N items needs no per-card detail fetch; the overlay keeps its
 // own detail query.
 
-export default function PipelineCard({ view }: { view: PipelineItemJson }) {
+export default function PipelineCard({
+  view,
+  accountId,
+}: {
+  view: PipelineItemJson;
+  accountId: string;
+}) {
   const t = useTranslations("equipe.pipeline");
   const locale = useLocale();
+  const searchParams = useSearchParams();
   const image = itemImageUrl(view.item, view.preview);
   const title =
     captionTitle(view.preview?.caption ?? null, 60) ?? view.batch?.title ?? t("untitledItem");
   const when = formatDateTime(view.item.scheduledFor, locale);
   const deadline = formatDateTime(view.item.deadlineAt ?? view.batch?.approveByAt ?? null, locale);
+  const params = new URLSearchParams(searchParams.toString());
+  params.set("account", accountId);
+  params.set("item", view.item.id);
 
   return (
     <Link
-      href={`/pipeline?item=${view.item.id}`}
+      href={`/pipeline?${params.toString()}`}
       data-testid={`pipeline-card-${view.item.id}`}
       data-state={view.displayState}
       className="group flex gap-3 rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3 transition-colors hover:border-[var(--border-strong)]"

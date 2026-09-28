@@ -24,13 +24,17 @@ export default function PageHeader({
       <div className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="product-page-title min-w-0 break-words text-[var(--text-primary)]">{title}</h1>
-          {meta ? <div className="shrink-0">{meta}</div> : null}
+          {meta ? <div className="min-w-0">{meta}</div> : null}
         </div>
         {description ? (
           <p className="text-sm text-[var(--text-secondary)]">{description}</p>
         ) : null}
       </div>
-      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:justify-end">
+          {actions}
+        </div>
+      ) : null}
     </header>
   );
 }

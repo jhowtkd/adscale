@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import PipelineView from "./PipelineView";
 import { apiFetch } from "@/lib/api-client";
@@ -23,9 +23,12 @@ vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
+const replaceMock = vi.fn();
+let searchString = "";
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ replace: replaceMock }),
+  useSearchParams: () => new URLSearchParams(searchString),
   usePathname: () => "/pipeline",
 }));
 
@@ -178,6 +181,7 @@ function renderView() {
 describe("PipelineView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    searchString = "";
   });
 
   it("renders the four columns with the API state pill per card", async () => {
@@ -193,8 +197,11 @@ describe("PipelineView", () => {
     // Misses stay visible below the four columns instead of vanishing.
     expect(screen.getByTestId("pipeline-column-missed")).toBeInTheDocument();
     expect(screen.getByTestId("pipeline-card-f")).toHaveAttribute("data-state", "missed_window");
-    // Card links open the overlay through ?item=.
-    expect(screen.getByTestId("pipeline-card-a")).toHaveAttribute("href", "/pipeline?item=a");
+    // Card links open the overlay through ?item=, keeping the account.
+    expect(screen.getByTestId("pipeline-card-a")).toHaveAttribute(
+      "href",
+      "/pipeline?account=acc-1&item=a",
+    );
   });
 
   it("renders card titles from the read model with no per-card detail fetch", async () => {
@@ -222,5 +229,108 @@ describe("PipelineView", () => {
     renderView();
     expect(await screen.findByTestId("equipe-disabled")).toBeInTheDocument();
     expect(screen.queryByTestId("pipeline-column-needs_you")).not.toBeInTheDocument();
+  });
+
+  it("defaults to the account with pending decisions and stamps it into the URL", async () => {
+    const quiet = { ...ACCOUNT, id: "acc-quiet", pendingDecisions: false };
+    const busy = {
+      ...ACCOUNT,
+      id: "acc-busy",
+      clientProfileName: "Café Aurora",
+      status: "calibrating",
+      pendingDecisions: true,
+    };
+    mockedFetch.mockImplementation(async (input) => {
+      const path = String(input);
+      if (path === "/api/equipe/accounts") return json({ accounts: [quiet, busy] });
+      if (path === "/api/equipe/accounts/acc-busy") {
+        return json({
+          workspaceId: "ws-1",
+          accountId: "acc-busy",
+          status: "calibrating",
+          fronts: [],
+          pendingSteps: [],
+          activePauses: [],
+        });
+      }
+      if (path === "/api/equipe/accounts/acc-busy/pipeline") return json(PIPELINE);
+      throw new Error(`unexpected fetch ${path}`);
+    });
+    renderView();
+    expect(await screen.findByTestId("pipeline-column-needs_you")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith("/pipeline?account=acc-busy", { scroll: false });
+    });
+    // The switcher shows the brand name through the named template.
+    expect(screen.getByTestId("equipe-account-switcher")).toHaveTextContent("accountOptionNamed");
+  });
+
+  it("switches accounts through the URL param", async () => {
+    searchString = "account=acc-1";
+    const second = { ...ACCOUNT, id: "acc-2", pendingDecisions: false };
+    mockedFetch.mockImplementation(async (input) => {
+      const path = String(input);
+      if (path === "/api/equipe/accounts") return json({ accounts: [ACCOUNT, second] });
+      if (path === "/api/equipe/accounts/acc-1") {
+        return json({
+          workspaceId: "ws-1",
+          accountId: "acc-1",
+          status: "active",
+          fronts: [],
+          pendingSteps: [],
+          activePauses: [],
+        });
+      }
+      if (path === "/api/equipe/accounts/acc-1/pipeline") return json(PIPELINE);
+      throw new Error(`unexpected fetch ${path}`);
+    });
+    renderView();
+    fireEvent.change(await screen.findByTestId("equipe-account-switcher"), {
+      target: { value: "acc-2" },
+    });
+    expect(replaceMock).toHaveBeenCalledWith("/pipeline?account=acc-2", { scroll: false });
+  });
+
+  it("opens a bare ?item= link on the item's account", async () => {
+    searchString = "item=x-item";
+    const second = { ...ACCOUNT, id: "acc-2", pendingDecisions: false };
+    mockedFetch.mockImplementation(async (input) => {
+      const path = String(input);
+      if (path === "/api/equipe/accounts") return json({ accounts: [ACCOUNT, second] });
+      if (path === "/api/equipe/accounts/acc-1/items/x-item") {
+        return json({ error: "notFound" }, 404);
+      }
+      if (path === "/api/equipe/accounts/acc-2/items/x-item") {
+        return json({ ...detailFor("a"), accountId: "acc-2" });
+      }
+      if (path === "/api/equipe/accounts/acc-1") {
+        return json({
+          workspaceId: "ws-1",
+          accountId: "acc-1",
+          status: "active",
+          fronts: [],
+          pendingSteps: [],
+          activePauses: [],
+        });
+      }
+      if (path === "/api/equipe/accounts/acc-2") {
+        return json({
+          workspaceId: "ws-1",
+          accountId: "acc-2",
+          status: "active",
+          fronts: [],
+          pendingSteps: [],
+          activePauses: [],
+        });
+      }
+      if (path === "/api/equipe/accounts/acc-2/pipeline") return json(PIPELINE);
+      throw new Error(`unexpected fetch ${path}`);
+    });
+    renderView();
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith("/pipeline?item=x-item&account=acc-2", {
+        scroll: false,
+      });
+    });
   });
 });

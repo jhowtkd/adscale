@@ -270,12 +270,12 @@ export default function EquipeTopActions({
   active,
   accountId,
 }: {
-  active: "painel" | "pipeline";
+  active: "painel" | "pipeline" | null;
   accountId: string | null;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="equipe-top-actions">
-      <EquipeViewSelector active={active} />
+      <EquipeViewSelector active={active} accountId={accountId} />
       <PauseOrResume accountId={accountId} />
       <RequestSupportButton accountId={accountId} />
     </div>

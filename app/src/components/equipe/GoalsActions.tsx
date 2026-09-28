@@ -8,13 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   agreeEquipeManualMode,
   answerEquipeConflict,
-  approveEquipeBrandVoice,
   approveEquipeContextSection,
   approveEquipeMandate,
   approveEquipePlan,
   confirmEquipeScope,
   EquipeCommandError,
-  registerEquipeMaterial,
 } from "@/lib/equipe/commands";
 import type {
   EquipeContextFieldJson,
@@ -22,7 +20,7 @@ import type {
   GoalsDecisionsJson,
 } from "@/lib/equipe/api";
 import { useInvalidateEquipe } from "@/lib/equipe/use-equipe";
-import { formatDate, shortHash } from "./equipe-format";
+import { formatDate } from "./equipe-format";
 
 // The implantação decisions the client takes in Metas (C3a): one action per
 // step, each wired to the commands endpoint. Hash-bound approvals echo the
@@ -39,7 +37,7 @@ function commandMessage(error: unknown, t: (key: string) => string): string {
   return t("commandError");
 }
 
-function useDecisionRunner(accountId: string) {
+export function useDecisionRunner(accountId: string) {
   const t = useTranslations("equipe.goals");
   const invalidate = useInvalidateEquipe(accountId);
   const [isPending, setIsPending] = useState(false);
@@ -64,7 +62,7 @@ function useDecisionRunner(accountId: string) {
   return { isPending, error, run };
 }
 
-function ActionError({ message, testId }: { message: string | null; testId: string }) {
+export function ActionError({ message, testId }: { message: string | null; testId: string }) {
   if (!message) return null;
   return (
     <p className="text-xs text-[var(--danger-text)]" role="alert" data-testid={testId}>
@@ -138,93 +136,6 @@ export function ScopeConfirmAction({
           data-testid="goals-scope-confirm"
         >
           {t("scopeConfirm")}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-export function MaterialsAction({
-  accountId,
-  materials,
-}: {
-  accountId: string;
-  materials: GoalsDecisionsJson["materials"];
-}) {
-  const t = useTranslations("equipe.goals");
-  const { isPending, error, run } = useDecisionRunner(accountId);
-  const [assetId, setAssetId] = useState("");
-  const [kind, setKind] = useState("");
-  const [origin, setOrigin] = useState("");
-
-  return (
-    <div className="flex flex-col gap-2" data-testid="goals-action-materials">
-      {materials.length > 0 ? (
-        <ul className="flex flex-col gap-1">
-          {materials.map((material) => (
-            <li
-              key={`${material.assetId}-${material.kind}`}
-              className="text-xs text-[var(--text-secondary)]"
-            >
-              {[material.kind, material.origin].filter(Boolean).join(" · ") || material.assetId}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <p className="text-xs text-[var(--text-secondary)]">{t("materialExplainer")}</p>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <input
-          value={assetId}
-          onChange={(event) => setAssetId(event.target.value)}
-          placeholder={t("materialAssetPlaceholder")}
-          aria-label={t("materialAssetLabel")}
-          data-testid="goals-material-asset"
-          className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2 py-1.5 text-sm text-[var(--text-primary)]"
-        />
-        <input
-          value={kind}
-          onChange={(event) => setKind(event.target.value)}
-          placeholder={t("materialKindPlaceholder")}
-          aria-label={t("materialKindLabel")}
-          data-testid="goals-material-kind"
-          className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2 py-1.5 text-sm text-[var(--text-primary)]"
-        />
-      </div>
-      <input
-        value={origin}
-        onChange={(event) => setOrigin(event.target.value)}
-        placeholder={t("materialOriginPlaceholder")}
-        aria-label={t("materialOriginPlaceholder")}
-        data-testid="goals-material-origin"
-        className="rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2 py-1.5 text-sm text-[var(--text-primary)]"
-      />
-      <ActionError message={error} testId="goals-material-error" />
-      <div>
-        <Button
-          type="button"
-          variant="default"
-          size="sm"
-          disabled={isPending || assetId.trim().length === 0 || kind.trim().length === 0}
-          onClick={() =>
-            void run(
-              () =>
-                registerEquipeMaterial(accountId, {
-                  assetId: assetId.trim(),
-                  kind: kind.trim(),
-                  ...(origin.trim() ? { origin: origin.trim() } : {}),
-                }),
-              t("materialSent"),
-            ).then((sent) => {
-              if (sent) {
-                setAssetId("");
-                setKind("");
-                setOrigin("");
-              }
-            })
-          }
-          data-testid="goals-material-send"
-        >
-          {t("materialSend")}
         </Button>
       </div>
     </div>
@@ -492,64 +403,5 @@ export function ConnectionStepAction({
         </Button>
       </div>
     </div>
-  );
-}
-
-export function BrandVoiceCard({
-  accountId,
-  brandVoice,
-}: {
-  accountId: string;
-  brandVoice: GoalsDecisionsJson["brandVoice"];
-}) {
-  const t = useTranslations("equipe.goals");
-  const { isPending, error, run } = useDecisionRunner(accountId);
-  const [voice, setVoice] = useState("");
-  return (
-    <section aria-label={t("brandVoice")} data-testid="goals-action-brand-voice">
-      <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("brandVoice")}</h2>
-      <div className="mt-2 flex flex-col gap-2 rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3">
-        {brandVoice.approved ? (
-          <p className="text-xs text-[var(--text-muted)]" data-testid="goals-voice-done">
-            {[
-              t("voiceApproved"),
-              brandVoice.versionHash ? shortHash(brandVoice.versionHash) : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        ) : (
-          <>
-            <p className="text-xs text-[var(--text-secondary)]">{t("voiceExplainer")}</p>
-            <Textarea
-              value={voice}
-              onChange={(event) => setVoice(event.target.value)}
-              rows={3}
-              placeholder={t("voicePlaceholder")}
-              aria-label={t("voiceLabel")}
-              data-testid="goals-voice-text"
-            />
-            <ActionError message={error} testId="goals-voice-error" />
-            <div>
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                disabled={isPending || voice.trim().length === 0}
-                onClick={() =>
-                  void run(
-                    () => approveEquipeBrandVoice(accountId, { voice: voice.trim() }),
-                    t("voiceDone"),
-                  )
-                }
-                data-testid="goals-voice-approve"
-              >
-                {t("voiceApprove")}
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
-    </section>
   );
 }

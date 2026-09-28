@@ -21,7 +21,12 @@ import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
 import type { EquipeIdeaJson } from "@/lib/equipe/api";
 import { decideEquipeIdea, EquipeCommandError } from "@/lib/equipe/commands";
-import { useEquipeAccounts, useEquipeIdeas, useInvalidateEquipe } from "@/lib/equipe/use-equipe";
+import {
+  useEquipeAccounts,
+  useEquipeAccountSelection,
+  useEquipeIdeas,
+  useInvalidateEquipe,
+} from "@/lib/equipe/use-equipe";
 import EquipeTopActions from "./EquipeTopActions";
 import {
   EquipeAccountSwitcher,
@@ -261,11 +266,13 @@ function IdeasBoard({ accountId, ideas }: { accountId: string; ideas: EquipeIdea
   const selected = selectedId ? (ordered.find((idea) => idea.id === selectedId) ?? null) : null;
   const openIdea = (ideaId: string) => {
     const params = new URLSearchParams(searchParams.toString());
+    params.set("account", accountId);
     params.set("idea", ideaId);
     router.replace(`/ideas?${params.toString()}`, { scroll: false });
   };
   const closeIdea = () => {
     const params = new URLSearchParams(searchParams.toString());
+    params.set("account", accountId);
     params.delete("idea");
     const query = params.toString();
     router.replace(query ? `/ideas?${query}` : "/ideas", { scroll: false });
@@ -331,9 +338,9 @@ function IdeasBoard({ accountId, ideas }: { accountId: string; ideas: EquipeIdea
 export default function IdeasView() {
   const t = useTranslations("equipe.ideas");
   const accountsQuery = useEquipeAccounts();
-  const [accountId, setAccountId] = useState<string | null>(null);
-  const accounts = accountsQuery.data?.accounts ?? [];
-  const selected = accountId ?? accounts[0]?.id ?? null;
+  const accounts = accountsQuery.data?.accounts;
+  const { selected, select } = useEquipeAccountSelection("/ideas", accounts);
+  const list = accounts ?? [];
   const ideasQuery = useEquipeIdeas(selected);
 
   return (
@@ -341,7 +348,7 @@ export default function IdeasView() {
       <PageHeader
         title={t("title")}
         description={t("subtitle")}
-        actions={<EquipeTopActions active="painel" accountId={selected} />}
+        actions={<EquipeTopActions active={null} accountId={selected} />}
       />
       <div className="py-4">
         {accountsQuery.isLoading ? <EquipeLoading /> : null}
@@ -352,13 +359,13 @@ export default function IdeasView() {
             <EquipeErrorNotice onRetry={() => void accountsQuery.refetch()} />
           )
         ) : null}
-        {accountsQuery.data && accounts.length === 0 ? <EquipeEmptyAccounts /> : null}
+        {accountsQuery.data && list.length === 0 ? <EquipeEmptyAccounts /> : null}
         {accountsQuery.data && selected ? (
           <div className="mb-3">
             <EquipeAccountSwitcher
-              accounts={accounts}
+              accounts={list}
               accountId={selected}
-              onSelect={setAccountId}
+              onSelect={select}
             />
           </div>
         ) : null}

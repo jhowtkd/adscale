@@ -196,6 +196,8 @@ describe("IdeasView", () => {
   it("selects an idea by updating the search params", async () => {
     renderView();
     fireEvent.click(await screen.findByTestId("idea-row-idea-2"));
-    expect(replaceMock).toHaveBeenCalledWith("/ideas?idea=idea-2", { scroll: false });
+    expect(replaceMock).toHaveBeenCalledWith("/ideas?account=acc-1&idea=idea-2", {
+      scroll: false,
+    });
   });
 });

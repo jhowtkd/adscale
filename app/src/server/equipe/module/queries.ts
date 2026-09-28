@@ -4,6 +4,7 @@
 
 import type { ItemReviewStatus, ItemStatus } from "../domain";
 import type {
+  EquipeAccount,
   EquipeBatch,
   EquipeContextFields,
   EquipeEvent,
@@ -20,6 +21,7 @@ import type {
   EquipeReceipt,
   EquipeRepositories,
 } from "../data";
+import type { EquipeModuleDeps } from "./ports";
 import { CONFLICT_SOURCE_PREFIX, contextVersionHash } from "./context";
 import { ideaVersionHash } from "./ideas-decide";
 import { BRAND_VOICE_APPROVED_EVENT, MANUAL_MODE_AGREED_EVENT } from "./onboarding";
@@ -56,6 +58,58 @@ function byStepOrder(a: EquipeOnboardingStep, b: EquipeOnboardingStep): number {
   return rank(a.step) - rank(b.step);
 }
 
+/** Steps still open: pending, in progress, or paused. */
+function isOpenOnboardingStep(status: string): boolean {
+  return status === "pending" || status === "in_progress" || status === "paused";
+}
+
+export type ClientAccountView = EquipeAccount & {
+  /** Brand name from the client profile; null when the profile is gone. */
+  clientProfileName: string | null;
+  /** True while the account holds a decision for the client. */
+  pendingDecisions: boolean;
+};
+
+/**
+ * The workspace's accounts for the client screens, oldest first: each
+ * with its brand name and whether it holds a pending client decision —
+ * an open implantação step, a proposed idea, or an item awaiting the
+ * client. The screens default to the first pending account. One pipeline
+ * build per account; workspaces hold few accounts and the client caches
+ * the list.
+ */
+export async function getClientAccounts(
+  deps: EquipeModuleDeps,
+  workspaceId: string,
+): Promise<ClientAccountView[]> {
+  const repos = deps.uow.repos;
+  const accounts = [...(await repos.accounts.list(workspaceId))].sort(
+    (a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id),
+  );
+  return Promise.all(
+    accounts.map(async (account): Promise<ClientAccountView> => {
+      const scope = { workspaceId, accountId: account.id };
+      const [profile, steps, ideas, pipeline] = await Promise.all([
+        deps.gateway.getClientProfile(workspaceId, account.clientProfileId),
+        repos.onboarding.list(scope),
+        repos.ideas.list(scope),
+        getClientPipeline(repos, workspaceId, account.id),
+      ]);
+      const needsYou =
+        pipeline?.columns.find((column) => column.key === "needs_you")?.itemIds.length ?? 0;
+      return {
+        ...account,
+        clientProfileName:
+          profile && profile.workspaceId === workspaceId ? (profile.name ?? null) : null,
+        pendingDecisions:
+          steps.some((step) => isOpenOnboardingStep(step.status)) ||
+          ideas.some((idea) => idea.status === "proposed") ||
+          needsYou > 0,
+      };
+    }),
+  );
+}
+
 export type AccountStateView = {
   workspaceId: string;
   accountId: string;
@@ -77,7 +131,7 @@ export async function getAccountState(
   const scope = { workspaceId, accountId };
   const fronts = (await repos.fronts.list(scope)).sort((a, b) => a.key.localeCompare(b.key));
   const pendingSteps = (await repos.onboarding.list(scope))
-    .filter((step) => step.status === "pending" || step.status === "in_progress" || step.status === "paused")
+    .filter((step) => isOpenOnboardingStep(step.status))
     .sort(byStepOrder);
   const activePauses = (await repos.pauses.list(scope))
     .filter((pause) => pause.status === "active")

@@ -12,6 +12,8 @@ import type { EquipeUnitOfWork } from "../data";
 export type AdscaleClientProfileRef = {
   id: string;
   workspaceId: string;
+  /** Brand name for the client screens; absent in old fakes. */
+  name?: string | null;
 };
 
 export type AdscaleAssetRef = {
