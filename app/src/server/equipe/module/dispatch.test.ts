@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { EquipeRepositories, InternalEquipeRepositories } from "../data";
 import { executeCommand } from "./commands";
 import {
   approveLiveMandate,
@@ -230,6 +231,80 @@ describe("dispatch_publication", () => {
     expect(t.publisher.creates).toHaveLength(0);
     expect(t.publisher.publishes).toHaveLength(1);
     expect(t.publisher.publishes[0]!.containerId).toBe("container_kept");
+  });
+
+  it("a crash after publish retries into verifying and never publishes twice", async () => {
+    const { t, ids } = await setupReady();
+    const scope = scopeOf(ids);
+    const { itemId, intentId } = await deliverDueApprovedItem(t, ids);
+
+    // Crash AFTER publishContainer succeeded but BEFORE the "done"
+    // transaction: the first unit of work after the publish throws.
+    const innerRun = t.deps.uow.run.bind(t.deps.uow);
+    let crashed = false;
+    t.deps.uow.run = async <T,>(
+      fn: (repos: EquipeRepositories, internal: InternalEquipeRepositories) => Promise<T>,
+    ): Promise<T> => {
+      if (!crashed && t.publisher.publishes.length === 1) {
+        crashed = true;
+        throw new Error("simulated crash after publish");
+      }
+      return innerRun(fn);
+    };
+    await expect(
+      executeCommand(t.deps, ctx(ids, ids.actors.system), {
+        type: "dispatch_publication",
+        payload: { intentId },
+      }),
+    ).rejects.toThrow("simulated crash after publish");
+    t.deps.uow.run = innerRun;
+    expect(crashed).toBe(true);
+    expect(t.publisher.publishes).toHaveLength(1);
+
+    const recorded = await t.deps.uow.repos.events.list(scope, {
+      objectType: "item",
+      objectId: itemId,
+    });
+    expect(
+      recorded.some(
+        (event) =>
+          event.eventType === "item.publish_attempted" &&
+          (event.payload as { containerId?: unknown } | null)?.containerId === "container_1",
+      ),
+    ).toBe(true);
+
+    // Retry: the recorded attempt turns into verifying — no second call.
+    const retry = await executeCommand(t.deps, ctx(ids, ids.actors.system), {
+      type: "dispatch_publication",
+      payload: { intentId },
+    });
+    expect(retry.ok).toBe(true);
+    if (!retry.ok) return;
+    expect(retry.value.data).toMatchObject({ action: "verifying", step: "publish" });
+    expect(t.publisher.creates).toHaveLength(1);
+    expect(t.publisher.publishes).toHaveLength(1);
+    expect((await t.deps.uow.repos.items.get(scope, itemId))?.status).toBe("verifying");
+    const intent = await t.deps.uow.repos.intents.get(scope, intentId);
+    expect(intent).toMatchObject({ status: "verifying", containerId: "container_1" });
+
+    // The post is live: reconcile finds it and publishes the item.
+    t.publisher.recentMedia = [
+      {
+        externalId: "ig_media_1",
+        caption: "legenda 1",
+        permalink: "https://instagram.test/p/1",
+        takenAt: new Date("2026-10-05T14:00:00.000Z"),
+      },
+    ];
+    const reconciled = await executeCommand(t.deps, ctx(ids, ids.actors.system), {
+      type: "reconcile_publication",
+      payload: { itemId },
+    });
+    expect(reconciled.ok).toBe(true);
+    if (!reconciled.ok) return;
+    expect(reconciled.value.data).toMatchObject({ reconciled: true, externalId: "ig_media_1" });
+    expect((await t.deps.uow.repos.items.get(scope, itemId))?.status).toBe("published");
+    expect((await t.deps.uow.repos.intents.get(scope, intentId))?.status).toBe("published");
   });
 
   it("with the kill switch off nothing is sent and the intent stays held", async () => {
