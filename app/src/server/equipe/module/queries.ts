@@ -1,14 +1,31 @@
-// Read projections over the repositories: account state and goals view.
-// Plain reads, no transactions, no domain decisions.
+// Read projections over the repositories: account state, goals view, the
+// client pipeline and item detail. Plain reads, no transactions; the single
+// state per item comes from the domain review precedence (see item-shared).
 
+import type { ItemReviewStatus, ItemStatus } from "../domain";
 import type {
+  EquipeBatch,
+  EquipeEvent,
   EquipeFront,
+  EquipeItem,
+  EquipeItemVersion,
   EquipeMandate,
   EquipeOnboardingStep,
   EquipeOnboardingStepKey,
   EquipePlan,
+  EquipePublicationIntent,
+  EquipeReceipt,
   EquipeRepositories,
 } from "../data";
+import {
+  hasOpenItemEscalation,
+  loadItemReview,
+  parseTriageEvent,
+  parseVersionFindings,
+  resolveItemReview,
+  storedItemStatusOf,
+  type ItemReview,
+} from "./item-shared";
 
 export const ONBOARDING_STEP_ORDER: EquipeOnboardingStepKey[] = [
   "scope_confirm",
@@ -83,4 +100,157 @@ export async function getGoalsView(
   const mandates = (await repos.mandates.list(scope)).sort((a, b) => a.version - b.version);
   const onboarding = (await repos.onboarding.list(scope)).sort(byStepOrder);
   return { workspaceId, accountId, plan, mandates, onboarding };
+}
+
+export type PipelineColumnKey =
+  | "needs_you"
+  | "in_progress"
+  | "scheduled"
+  | "finished"
+  | "missed";
+
+export type PipelineItem = {
+  item: EquipeItem;
+  batch: EquipeBatch | null;
+  /** The single state: review status while awaiting decision, else lifecycle. */
+  displayState: ItemReviewStatus | ItemStatus;
+  review: ItemReview;
+};
+
+export type ClientPipelineView = {
+  workspaceId: string;
+  accountId: string;
+  columns: Array<{ key: PipelineColumnKey; itemIds: string[] }>;
+  items: PipelineItem[];
+};
+
+function columnOf(item: EquipeItem): PipelineColumnKey {
+  switch (storedItemStatusOf(item)) {
+    case "awaiting_approval":
+      return "needs_you";
+    case "adjusting":
+      return "in_progress";
+    case "scheduled":
+    case "held":
+    case "sending":
+    case "verifying":
+      return "scheduled";
+    case "missed_window":
+    case "failed":
+      return "missed";
+    case "do_not_publish":
+    case "cancelled":
+    case "published":
+    case "available_for_download":
+    case "published_declared":
+    case "published_confirmed":
+    default:
+      return "finished";
+  }
+}
+
+/**
+ * The client pipeline: items grouped in columns, each with its single
+ * state — the domain review precedence while the item awaits a decision,
+ * the lifecycle state otherwise.
+ */
+export async function getClientPipeline(
+  repos: EquipeRepositories,
+  workspaceId: string,
+  accountId: string,
+): Promise<ClientPipelineView | null> {
+  const account = await repos.accounts.get(workspaceId, accountId);
+  if (!account) return null;
+  const scope = { workspaceId, accountId };
+  const [items, batches] = await Promise.all([
+    repos.items.list(scope),
+    repos.batches.list(scope),
+  ]);
+  const byBatch = new Map(batches.map((batch) => [batch.id, batch]));
+  const columns: Array<{ key: PipelineColumnKey; itemIds: string[] }> = [
+    { key: "needs_you", itemIds: [] },
+    { key: "in_progress", itemIds: [] },
+    { key: "scheduled", itemIds: [] },
+    { key: "finished", itemIds: [] },
+    { key: "missed", itemIds: [] },
+  ];
+  const byColumn = new Map(columns.map((column) => [column.key, column]));
+  const views: PipelineItem[] = [];
+  const ordered = [...items].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  for (const item of ordered) {
+    const review = await loadItemReview(repos, scope, item);
+    const lifecycle = storedItemStatusOf(item);
+    // The review precedence rules while the item awaits a decision, and a
+    // restrictive review state (edit in review, warning, blocked) stays the
+    // single state while adjusting too.
+    const displayState: ItemReviewStatus | ItemStatus =
+      lifecycle === "awaiting_approval" || review.status !== "ready"
+        ? review.status
+        : (lifecycle ?? "awaiting_approval");
+    views.push({
+      item,
+      batch: (item.batchId && byBatch.get(item.batchId)) || null,
+      displayState,
+      review,
+    });
+    byColumn.get(columnOf(item))?.itemIds.push(item.id);
+  }
+  return { workspaceId, accountId, columns, items: views };
+}
+
+export type ItemDetailView = {
+  workspaceId: string;
+  accountId: string;
+  item: EquipeItem;
+  batch: EquipeBatch | null;
+  versions: EquipeItemVersion[];
+  receipts: EquipeReceipt[];
+  review: ItemReview;
+  destinationAccount: string | null;
+  findings: Array<{ versionHash: string; findings: ReturnType<typeof parseVersionFindings> }>;
+  triage: EquipeEvent[];
+  activeIntent: EquipePublicationIntent | null;
+};
+
+/** Item detail: versions, receipts, findings, review state and live intent. */
+export async function getItemDetail(
+  repos: EquipeRepositories,
+  workspaceId: string,
+  accountId: string,
+  itemId: string,
+): Promise<ItemDetailView | null> {
+  const scope = { workspaceId, accountId };
+  const item = await repos.items.get(scope, itemId);
+  if (!item) return null;
+  const [versions, receipts, itemEvents, intents, hasOpenEscalation] = await Promise.all([
+    repos.itemVersions.list(scope, { itemId }),
+    repos.receipts.listByObject(scope, "item", itemId),
+    repos.events.list(scope, { objectType: "item", objectId: itemId }),
+    item.currentVersionHash
+      ? repos.intents.getByItemVersion(scope, itemId, item.currentVersionHash)
+      : Promise.resolve(null),
+    hasOpenItemEscalation(repos, scope, itemId),
+  ]);
+  const currentVersion = item.currentVersionHash
+    ? (versions.find((v) => v.versionHash === item.currentVersionHash) ?? null)
+    : null;
+  const review = resolveItemReview({ item, currentVersion, itemEvents, hasOpenEscalation });
+  const batch = item.batchId ? await repos.batches.get(scope, item.batchId) : null;
+  const ordered = [...versions].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  return {
+    workspaceId,
+    accountId,
+    item,
+    batch,
+    versions: ordered,
+    receipts,
+    review,
+    destinationAccount: item.destination ?? currentVersion?.destination ?? null,
+    findings: ordered.map((version) => ({
+      versionHash: version.versionHash,
+      findings: parseVersionFindings(version.reviewerFindings),
+    })),
+    triage: itemEvents.filter((event) => parseTriageEvent(event) !== null),
+    activeIntent: intents && intents.status !== "canceled" ? intents : null,
+  };
 }

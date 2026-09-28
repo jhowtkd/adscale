@@ -25,6 +25,12 @@ export type AdscaleCreativeWorkRef = {
   workspaceId: string;
 };
 
+export type AdscaleCreativeWorkOutputRef = {
+  id: string;
+  workspaceId: string;
+  workId: string;
+};
+
 export type AdscaleOfferRef = {
   id: string;
   workspaceId: string;
@@ -35,6 +41,8 @@ export interface AdscaleGateway {
   getAsset(assetId: string): Promise<AdscaleAssetRef | null>;
   /** Unused in #544; kept for the approval/publication commands. */
   getCreativeWork(workId: string): Promise<AdscaleCreativeWorkRef | null>;
+  /** Output (Peça) behind an item version; checked against its work. */
+  getCreativeWorkOutput(outputId: string): Promise<AdscaleCreativeWorkOutputRef | null>;
   /** Unused in #544; kept for caption triage against the catalog. */
   getOffer(offerId: string): Promise<AdscaleOfferRef | null>;
 }

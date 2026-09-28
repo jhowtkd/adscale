@@ -268,6 +268,9 @@ export type EquipeEventFilter = {
   objectId?: string;
   since?: Date;
 };
+export type EquipeEscalationFilter = {
+  itemId?: string;
+};
 export type EquipeStaffFilter = { role?: EquipeStaffRole; active?: boolean };
 
 // Chave de idempotência da intenção: item + hash da versão.

@@ -5,12 +5,13 @@
 // adapter was built with (the job builds it from the event).
 
 import { getClientProfile } from "@/server/repositories/client-reference";
-import { getCreativeWork } from "@/server/repositories/creative-work";
+import { getCreativeWork, getCreativeWorkOutputInWorkspace } from "@/server/repositories/creative-work";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getCommercialOfferInWorkspace } from "@/server/repositories/commercial-offer";
 import type {
   AdscaleAssetRef,
   AdscaleClientProfileRef,
+  AdscaleCreativeWorkOutputRef,
   AdscaleCreativeWorkRef,
   AdscaleGateway,
   AdscaleOfferRef,
@@ -42,6 +43,12 @@ export class LiveAdscaleGateway implements AdscaleGateway {
     const found = await getCreativeWork(this.workspaceId, workId);
     if (!found) return null;
     return { id: found.work.id, workspaceId: found.work.workspaceId };
+  }
+
+  async getCreativeWorkOutput(outputId: string): Promise<AdscaleCreativeWorkOutputRef | null> {
+    const found = await getCreativeWorkOutputInWorkspace(this.workspaceId, outputId);
+    if (!found) return null;
+    return { id: found.id, workspaceId: found.workspaceId, workId: found.workItemId };
   }
 
   async getOffer(offerId: string): Promise<AdscaleOfferRef | null> {

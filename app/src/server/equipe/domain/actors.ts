@@ -72,6 +72,11 @@ export type EquipeAction =
   | "record_finding"
   | "open_escalation"
   | "ask_question"
+  // Batch approval (#545)
+  | "deliver_batch"
+  | "record_caption_triage"
+  | "choose_piece"
+  | "propose_new_schedule"
   // System (jobs)
   | "remind"
   | "expire_deadline"
@@ -149,6 +154,10 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   record_finding: [AGENT],
   open_escalation: [AGENT, SYSTEM],
   ask_question: [AGENT],
+  deliver_batch: [AGENT, SYSTEM],
+  record_caption_triage: [AGENT],
+  choose_piece: [CLIENT_DECISION],
+  propose_new_schedule: [AGENT],
   remind: [SYSTEM],
   expire_deadline: [SYSTEM],
   hold_item: [SYSTEM],

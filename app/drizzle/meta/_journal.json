@@ -834,6 +834,13 @@
       "when": 1790583171087,
       "tag": "0118_equipe-agent-ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1790584962679,
+      "tag": "0119_equipe-item-domain-status",
+      "breakpoints": true
     }
   ]
 }

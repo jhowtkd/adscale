@@ -15,6 +15,7 @@ import type {
   EquipeContextVersion,
   EquipeContextVersionPatch,
   EquipeEscalation,
+  EquipeEscalationFilter,
   EquipeEscalationPatch,
   EquipeEvent,
   EquipeEventFilter,
@@ -163,7 +164,8 @@ export type EquipeCalibrationScoreRepository = AppendOnlyRepository<
 export type EquipeEscalationRepository = AccountScopedRepository<
   EquipeEscalation,
   NewEquipeEscalation,
-  EquipeEscalationPatch
+  EquipeEscalationPatch,
+  EquipeEscalationFilter
 >;
 export type EquipeExceptionRepository = AccountScopedRepository<
   EquipeException,
