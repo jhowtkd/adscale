@@ -80,7 +80,13 @@ describe("submit_corrected_version", () => {
     const scores = await t.deps.uow.repos.calibrationScores.list(scope);
     expect(scores).toHaveLength(1);
     expect(scores[0]).toMatchObject({ versionHash: round.versionHashes[0], verdict: "fail" });
-    const detail = await getRoundDetail(t.deps.uow.repos, ids.workspaceId, ids.accountId, round.roundId);
+    const detail = await getRoundDetail(
+      t.deps.uow.repos,
+      t.deps.uow.internal,
+      ids.workspaceId,
+      ids.accountId,
+      round.roundId,
+    );
     const entry = detail?.items.find((e) => e.item.id === itemId);
     expect(entry?.evaluatedAttempt?.versionHash).toBe(round.versionHashes[0]);
     expect(entry?.quality.corrected).toEqual({ versionHash });

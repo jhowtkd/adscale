@@ -29,6 +29,9 @@ vi.mock("@/lib/hooks/use-billing", () => ({
 vi.mock("@/lib/hooks/use-platform-owner", () => ({
   usePlatformOwnerAccess: () => ({ data: { allowed: platformOwnerAllowed } }),
 }));
+vi.mock("@/lib/hooks/use-equipe-staff", () => ({
+  useEquipeStaffAccess: () => ({ data: undefined }),
+}));
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
     useSession: () => ({ data: { user: { name: "Test User" } } }),

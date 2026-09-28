@@ -29,6 +29,7 @@ export async function GET(request: Request) {
 
     const view = await getExceptionsQueue(
       guard.deps.uow.repos,
+      guard.deps.uow.internal,
       parsed.data.workspaceId,
       parsed.data.accountId,
       guard.deps.clock.now(),

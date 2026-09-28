@@ -80,28 +80,68 @@ describe("GET /api/equipe/staff/escalations/[escalationId]", () => {
     const body = await res.json();
     expect(body.workspaceId).toBe(workspaceId);
     expect(body.accountId).toBe(accountId);
+    expect(body.brandName).toBe("Marca demo");
+    expect(body.workspaceName).toBe("Espaço demo");
     expect(body.escalation.id).toBe(escalation.id);
     expect(body.item).toBeNull();
     expect(body.events).toEqual([]);
     expect(body.pauses).toEqual([]);
     expect(body.exception).toBeNull();
+    expect(body.isolatedConnections).toEqual([]);
   });
 
-  it("returns 400 for malformed ids or a missing scope", async () => {
+  async function seedEscalation(t: TestDeps, workspaceId: string, accountId: string) {
+    return t.deps.uow.repos.escalations.create(
+      { workspaceId, accountId },
+      { kind: "content", severity: "high", ownerRole: "quality" },
+    );
+  }
+
+  it("resolves the scope from the id alone", async () => {
+    const { t, workspaceId, accountId } = await seed();
+    const escalation = await seedEscalation(t, workspaceId, accountId);
+
+    const res = await callGet(escalation.id, "");
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.workspaceId).toBe(workspaceId);
+    expect(body.accountId).toBe(accountId);
+    expect(body.escalation.id).toBe(escalation.id);
+  });
+
+  it("returns 404 when the scope hint does not match the id", async () => {
+    const { t, workspaceId, accountId } = await seed();
+    const escalation = await seedEscalation(t, workspaceId, accountId);
+
+    expect(
+      (await callGet(escalation.id, `?workspaceId=${UNKNOWN_ID}&accountId=${accountId}`)).status,
+    ).toBe(404);
+    expect(
+      (await callGet(escalation.id, `?workspaceId=${workspaceId}&accountId=${UNKNOWN_ID}`)).status,
+    ).toBe(404);
+    expect(
+      (await callGet(escalation.id, `?workspaceId=${workspaceId}&accountId=${accountId}`)).status,
+    ).toBe(200);
+  });
+
+  it("returns 400 for malformed ids", async () => {
     const { workspaceId, accountId } = await seed();
 
     expect(
       (await callGet("not-a-uuid", `?workspaceId=${workspaceId}&accountId=${accountId}`)).status,
     ).toBe(400);
-    expect((await callGet(UNKNOWN_ID, "")).status).toBe(400);
+    expect((await callGet(UNKNOWN_ID, "?workspaceId=not-a-uuid")).status).toBe(400);
+    expect((await callGet(UNKNOWN_ID, "?accountId=not-a-uuid")).status).toBe(400);
   });
 
-  it("returns 404 for an unknown escalation", async () => {
+  it("returns 404 for an unknown escalation, with or without a scope hint", async () => {
     const { workspaceId, accountId } = await seed();
 
-    const res = await callGet(UNKNOWN_ID, `?workspaceId=${workspaceId}&accountId=${accountId}`);
-
-    expect(res.status).toBe(404);
+    expect(
+      (await callGet(UNKNOWN_ID, `?workspaceId=${workspaceId}&accountId=${accountId}`)).status,
+    ).toBe(404);
+    expect((await callGet(UNKNOWN_ID, "")).status).toBe(404);
   });
 
   it("returns 403 for a session user with no staff row who is not an owner", async () => {

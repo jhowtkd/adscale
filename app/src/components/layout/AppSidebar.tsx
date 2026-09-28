@@ -20,6 +20,7 @@ import { useCanonicalWorks } from "@/lib/hooks/use-canonical-works";
 import { usePlatformOwnerAccess } from "@/lib/hooks/use-platform-owner";
 import { authClient } from "@/lib/auth-client";
 import AccountStatusBadge from "@/components/layout/AccountStatusBadge";
+import EquipeStaffNav from "@/components/equipe/EquipeStaffNav";
 import SidebarBrandKitFeature from "@/components/layout/SidebarBrandKitFeature";
 import SidebarRecentWorks from "@/components/layout/SidebarRecentWorks";
 import { cn } from "@/lib/utils";
@@ -159,6 +160,7 @@ export default function AppSidebar() {
           </Link>
         </div>
         {isPlatformOwner ? <TextNavItem href="/feedback" active={pathname.startsWith("/feedback")} label={tNav("feedback")} /> : null}
+        <EquipeStaffNav />
         <Link
           href="/settings"
           className="flex items-center gap-2 rounded-[var(--radius-control)] px-2 py-2 transition-colors hover:bg-[var(--surface-base)]"

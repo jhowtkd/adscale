@@ -40,12 +40,16 @@ describe("getQualityPipeline", () => {
       accountId: first.accountId,
       status: "open",
       weekKey: "2026-W41",
+      brandName: "Marca demo",
+      workspaceName: "Espaço demo",
+      frontKey: "social_instagram",
     });
     expect(pipeline.value.recentlyClosed.map((entry) => entry.roundId)).toEqual([closing.roundId]);
     expect(pipeline.value.recentlyClosed[0]).toMatchObject({
       accountId: second.accountId,
       status: "closed",
       outcome: "passed",
+      frontKey: "social_instagram",
     });
   });
 
@@ -79,11 +83,14 @@ describe("getRoundDetail", () => {
     await approveAll(t, ids, [round.itemIds[0]!, round.itemIds[2]!, round.itemIds[3]!]);
     const detail = await getRoundDetail(
       t.deps.uow.repos,
+      t.deps.uow.internal,
       ids.workspaceId,
       ids.accountId,
       round.roundId,
     );
     expect(detail?.round.id).toBe(round.roundId);
+    expect(detail?.brandName).toBe("Marca demo");
+    expect(detail?.workspaceName).toBe("Espaço demo");
     expect(detail?.front?.id).toBe(round.frontId);
     expect(detail?.batch?.id).toBe(round.batchId);
     expect(detail?.summary).toBeNull();
@@ -101,6 +108,7 @@ describe("getRoundDetail", () => {
     await closeTestRound(t, ids, round.roundId);
     const closed = await getRoundDetail(
       t.deps.uow.repos,
+      t.deps.uow.internal,
       ids.workspaceId,
       ids.accountId,
       round.roundId,
@@ -123,6 +131,7 @@ describe("getRoundDetail", () => {
     });
     const detail = await getRoundDetail(
       t.deps.uow.repos,
+      t.deps.uow.internal,
       ids.workspaceId,
       ids.accountId,
       round.roundId,

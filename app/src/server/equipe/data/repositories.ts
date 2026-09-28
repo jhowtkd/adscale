@@ -1,6 +1,7 @@
 import type {
   AccountScope,
   EquipeAccount,
+  EquipeAccountLabel,
   EquipeAccountPatch,
   EquipeAccountPerson,
   EquipeAccountPersonPatch,
@@ -270,6 +271,24 @@ export interface InternalEquipeRepositories {
   listCalibrationRounds(filter?: {
     status?: EquipeRoundStatus | EquipeRoundStatus[];
   }): Promise<EquipeCalibrationRound[]>;
+  /**
+   * Cross-account round lookup by id: the internal detail console resolves
+   * the account scope from the id alone (#554). Null when unknown.
+   */
+  getCalibrationRound(id: string): Promise<EquipeCalibrationRound | null>;
+  /**
+   * Cross-account escalation lookup by id: same scope resolution for the
+   * internal escalation console (#554). Null when unknown.
+   */
+  getEscalation(id: string): Promise<EquipeEscalation | null>;
+  /** Cross-account front scan: the quality pipeline labels rounds by front (#554). */
+  listFronts(): Promise<EquipeFront[]>;
+  /**
+   * Brand + workspace names per account for the internal consoles (#554).
+   * Read-only join over client profiles and workspaces; rows without a
+   * match come back with null names.
+   */
+  listAccountLabels(): Promise<EquipeAccountLabel[]>;
 }
 
 export interface EquipeRepositories {

@@ -20,11 +20,20 @@ import {
   type ClientDecision,
   type RoundItemQuality,
 } from "./calibration-shared";
+import {
+  loadStaffLabelMap,
+  staffLabelOf,
+  type StaffAccountLabel,
+} from "./staff-labels";
 
 export type QualityPipelineEntry = {
   workspaceId: string;
   accountId: string;
+  brandName: string | null;
+  workspaceName: string | null;
   frontId: string;
+  /** The front key (`social_instagram`, `midia_paga`) — null when the front row is gone. */
+  frontKey: string | null;
   roundId: string;
   sequence: number;
   weekKey: string;
@@ -46,11 +55,19 @@ function outcomeOf(round: EquipeCalibrationRound): string | null {
   return typeof outcome === "string" ? outcome : null;
 }
 
-function entryOf(round: EquipeCalibrationRound): QualityPipelineEntry {
+function entryOf(
+  round: EquipeCalibrationRound,
+  labels: Map<string, StaffAccountLabel>,
+  frontKeyById: Map<string, string>,
+): QualityPipelineEntry {
+  const label = staffLabelOf(labels, round.workspaceId, round.accountId);
   return {
     workspaceId: round.workspaceId,
     accountId: round.accountId,
+    brandName: label.brandName,
+    workspaceName: label.workspaceName,
     frontId: round.frontId,
+    frontKey: frontKeyById.get(round.frontId) ?? null,
     roundId: round.id,
     sequence: round.sequence,
     weekKey: round.weekKey,
@@ -76,15 +93,20 @@ export async function getQualityPipeline(
   if (!staff || !staff.active || staff.role !== "quality") {
     return err("forbidden_actor", `staff ${staffId} may not read the quality pipeline`);
   }
-  const rounds = await internal.listCalibrationRounds();
+  const [rounds, labels, fronts] = await Promise.all([
+    internal.listCalibrationRounds(),
+    loadStaffLabelMap(internal),
+    internal.listFronts(),
+  ]);
+  const frontKeyById = new Map(fronts.map((front) => [front.id, front.key]));
   const open = rounds
     .filter((round) => round.status === "open")
-    .map(entryOf)
+    .map((round) => entryOf(round, labels, frontKeyById))
     .sort((a, b) => a.weekKey.localeCompare(b.weekKey) || a.sequence - b.sequence);
   const closedLimit = options.closedLimit ?? 50;
   const recentlyClosed = rounds
     .filter((round) => round.status === "closed")
-    .map(entryOf)
+    .map((round) => entryOf(round, labels, frontKeyById))
     .sort((a, b) => (b.closedAt?.getTime() ?? 0) - (a.closedAt?.getTime() ?? 0))
     .slice(0, closedLimit);
   return ok({ staffId, open, recentlyClosed });
@@ -103,6 +125,8 @@ export type RoundDetailItem = {
 export type RoundDetailView = {
   workspaceId: string;
   accountId: string;
+  brandName: string | null;
+  workspaceName: string | null;
   round: EquipeCalibrationRound;
   front: EquipeFront | null;
   batch: EquipeBatch | null;
@@ -114,6 +138,7 @@ export type RoundDetailView = {
 /** Round detail: items with attempts, scores, quality state and verdicts. */
 export async function getRoundDetail(
   repos: EquipeRepositories,
+  internal: InternalEquipeRepositories,
   workspaceId: string,
   accountId: string,
   roundId: string,
@@ -121,12 +146,13 @@ export async function getRoundDetail(
   const scope = { workspaceId, accountId };
   const round = await repos.calibrationRounds.get(scope, roundId);
   if (!round) return null;
-  const [front, batch, { items }, scores, roundEvents] = await Promise.all([
+  const [front, batch, { items }, scores, roundEvents, labels] = await Promise.all([
     repos.fronts.get(scope, round.frontId),
     repos.batches.get(scope, round.batchId),
     loadRoundItems(scope, repos, round),
     repos.calibrationScores.list(scope),
     repos.events.list(scope, { objectType: "round", objectId: round.id }),
+    loadStaffLabelMap(internal),
   ]);
   const detail: RoundDetailItem[] = [];
   for (const item of items) {
@@ -151,9 +177,12 @@ export async function getRoundDetail(
       }),
     });
   }
+  const label = staffLabelOf(labels, workspaceId, accountId);
   return {
     workspaceId,
     accountId,
+    brandName: label.brandName,
+    workspaceName: label.workspaceName,
     round,
     front,
     batch,

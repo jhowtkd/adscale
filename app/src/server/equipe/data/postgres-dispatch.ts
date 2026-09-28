@@ -3,11 +3,14 @@ import {
   equipeAccounts,
   equipeCalibrationRounds,
   equipeConnections,
+  equipeEscalations,
   equipeEvents,
   equipeNotificationDeliveries,
+  equipeFronts,
   equipePublicationIntents,
   equipeThreads,
 } from "../../db/equipe-schema";
+import { clientProfiles, workspaces } from "../../db/schema";
 import type {
   EquipeConnectionRepository,
   EquipeDeliveryRepository,
@@ -31,9 +34,12 @@ import {
   publicationIntentIdempotencyKey,
   type AccountScope,
   type EquipeAccount,
+  type EquipeAccountLabel,
   type EquipeAccountStatus,
   type EquipeConnectionPatch,
+  type EquipeEscalation,
   type EquipeEventFilter,
+  type EquipeFront,
   type EquipeIntentFilter,
   type EquipeCalibrationRound,
   type EquipeNotificationDelivery,
@@ -336,4 +342,68 @@ export async function listCalibrationRounds(
     .select()
     .from(equipeCalibrationRounds)
     .where(inArray(equipeCalibrationRounds.status, [...wanted]));
+}
+
+// Internal cross-account lookups by id (#554): the detail consoles resolve
+// the account scope from the id alone (notification links carry no scope).
+export async function getCalibrationRound(
+  executor: PostgresEquipeExecutor,
+  id: string
+): Promise<EquipeCalibrationRound | null> {
+  const rows = await executor
+    .select()
+    .from(equipeCalibrationRounds)
+    .where(eq(equipeCalibrationRounds.id, id))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getEscalation(
+  executor: PostgresEquipeExecutor,
+  id: string
+): Promise<EquipeEscalation | null> {
+  const rows = await executor
+    .select()
+    .from(equipeEscalations)
+    .where(eq(equipeEscalations.id, id))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+// Internal cross-account scan of fronts (#554): the quality pipeline labels
+// each round with its front.
+export async function listFronts(
+  executor: PostgresEquipeExecutor
+): Promise<EquipeFront[]> {
+  return executor.select().from(equipeFronts);
+}
+
+// Internal label join (#554): brand (client profile name) + workspace name
+// per account, read-only. Left joins — a missing profile or workspace reads
+// as null, and the consoles fall back to the short id.
+export async function listAccountLabels(
+  executor: PostgresEquipeExecutor
+): Promise<EquipeAccountLabel[]> {
+  const rows = await executor
+    .select({
+      workspaceId: equipeAccounts.workspaceId,
+      accountId: equipeAccounts.id,
+      brandName: clientProfiles.name,
+      workspaceName: workspaces.name,
+    })
+    .from(equipeAccounts)
+    .leftJoin(
+      clientProfiles,
+      and(
+        eq(clientProfiles.id, equipeAccounts.clientProfileId),
+        eq(clientProfiles.workspaceId, equipeAccounts.workspaceId)
+      )
+    )
+    .leftJoin(workspaces, eq(workspaces.id, equipeAccounts.workspaceId));
+  return rows.map((row) => ({
+    workspaceId: row.workspaceId,
+    accountId: row.accountId,
+    brandName: row.brandName ?? null,
+    workspaceName: row.workspaceName ?? null,
+  }));
 }
