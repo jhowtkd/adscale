@@ -1,4 +1,11 @@
-export type MessageType = "user" | "assistant" | "tool" | "action_card";
+export type MessageType =
+  | "user"
+  | "assistant"
+  | "tool"
+  | "action_card"
+  | "equipe_card"
+  | "equipe_event"
+  | "staff_message";
 
 export type ActionStatus =
   | "pending"
@@ -24,10 +31,55 @@ export interface ActionCardMessagePayload {
   display: Record<string, unknown>;
 }
 
+// Equipe conversation (#551). A card points at module objects by reference:
+// the payload carries ids + version hashes, never a copy of the content, so
+// the approval confirmation below always shows the exact closed list the
+// client decides on. The chat never approves — the buttons call the Equipe
+// commands endpoint (#552).
+export interface EquipeCardItemRef {
+  itemId: string;
+  versionHash: string;
+  title?: string;
+  scheduledFor?: string;
+}
+
+export interface EquipeCardPayload {
+  kind: "item" | "batch" | "idea";
+  accountId: string;
+  title: string;
+  batchId?: string;
+  ideaId?: string;
+  approveByAt?: string;
+  summary?: string;
+  items: EquipeCardItemRef[];
+  excluded?: Array<{ itemId: string; reason: string }>;
+}
+
+// Feed line written by the module (actor system/agent): "Redação IA criou a
+// v2", "Bruna entrou na conversa". Rendered as a centered muted line.
+export interface EquipeEventPayload {
+  kind: string;
+  text: string;
+  actor?: "system" | "agent" | "staff";
+  actorName?: string;
+  ref?: { itemId?: string; batchId?: string };
+}
+
+// Message from one of our people (name + photo). Posting is a guarded
+// internal command (#547); here only the persisted type + rendering.
+export interface StaffMessagePayload {
+  staffId: string;
+  name: string;
+  photoUrl?: string | null;
+}
+
 export type AssistantMessagePayload =
   | Record<string, never>
   | ToolMessagePayload
-  | ActionCardMessagePayload;
+  | ActionCardMessagePayload
+  | EquipeCardPayload
+  | EquipeEventPayload
+  | StaffMessagePayload;
 
 export const ACTION_TRANSITIONS: Record<ActionStatus, ActionStatus[]> = {
   pending: ["confirmed", "canceled"],

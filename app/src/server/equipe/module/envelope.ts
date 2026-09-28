@@ -222,6 +222,16 @@ export const proposeNewSchedulePayloadSchema = z.object({
   scheduledFor: z.coerce.date(),
 });
 
+// #551 — conversation map: the module maps assistant threads to the account.
+export const ensurePrimaryThreadPayloadSchema = z.object({
+  assistantThreadId: uuid,
+});
+
+export const openParallelThreadPayloadSchema = z.object({
+  assistantThreadId: uuid,
+  topic: z.string().min(1).max(200),
+});
+
 /** Adapter-provided scope: session + URL, never the request body. */
 export const adapterContextSchema = z.object({
   actor: actorSchema,
@@ -263,6 +273,9 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("choose_piece", choosePiecePayloadSchema),
   command("expire_item_deadline", expireItemDeadlinePayloadSchema),
   command("propose_new_schedule", proposeNewSchedulePayloadSchema),
+  // #551
+  command("ensure_primary_thread", ensurePrimaryThreadPayloadSchema),
+  command("open_parallel_thread", openParallelThreadPayloadSchema),
 ]);
 
 /** Validated untrusted half of the call: { type, payload } only. */

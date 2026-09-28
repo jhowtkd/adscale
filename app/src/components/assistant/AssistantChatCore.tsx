@@ -29,6 +29,8 @@ export interface AssistantChatCoreProps {
   onClose?: () => void;
   pendingFirstMessage?: PendingFirstMessage | null;
   onPendingFirstMessageConsumed?: () => void;
+  /** Enables the Equipe card approval flow; off by default (#551). */
+  equipeEnabled?: boolean;
 }
 
 function mapServerMessage(message: AssistantMessage): AssistantDisplayMessage {
@@ -47,6 +49,20 @@ function mergeMessages(
   const merged = [...serverMessages];
 
   for (const live of liveMessages) {
+    if (live.type === "equipe_card") {
+      // The SSE frame carries the persisted message id, so the refetch after
+      // `done` replaces the live card instead of duplicating it.
+      if (!merged.some((message) => message.id === live.id)) {
+        merged.push({
+          id: live.id,
+          type: live.type,
+          content: live.content,
+          payload: live.payload,
+        });
+      }
+      continue;
+    }
+
     if (live.type === "action_card") {
       const actionRecordId = live.payload.actionRecordId;
       const index = merged.findIndex(
@@ -96,6 +112,7 @@ export default function AssistantChatCore({
   onClose,
   pendingFirstMessage,
   onPendingFirstMessageConsumed,
+  equipeEnabled = false,
 }: AssistantChatCoreProps) {
   const t = useTranslations("assistant.chat");
   const tMode = useTranslations("assistant.mode");
@@ -292,6 +309,7 @@ export default function AssistantChatCore({
             threadId={threadId}
             artifactLineages={data?.artifactVersionState?.lineages}
             openVersionComparison={openVersionComparison}
+            equipeEnabled={equipeEnabled}
           />
         </div>
       )}

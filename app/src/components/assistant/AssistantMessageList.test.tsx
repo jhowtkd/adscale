@@ -298,4 +298,168 @@ describe("AssistantMessageList", () => {
       ).not.toBeInTheDocument();
     });
   });
+
+  describe("equipe messages (#551)", () => {
+    const batchCard = {
+      id: "equipe-card-1",
+      type: "equipe_card" as const,
+      content: "Lote pronto",
+      payload: {
+        kind: "batch",
+        accountId: "account-1",
+        title: "Calendário 23–27/11",
+        batchId: "batch-1",
+        approveByAt: "2026-11-19T17:00:00.000Z",
+        items: [
+          { itemId: "item-1", versionHash: "hash-1", title: "Origem: Sul de Minas" },
+          { itemId: "item-2", versionHash: "hash-2", title: "Receita: coado gelado" },
+        ],
+        excluded: [{ itemId: "item-3", reason: "pede confirmação" }],
+      },
+    };
+
+    it("renders the card with Revisar links and no approve flow when disabled", () => {
+      render(
+        <AssistantMessageList
+          messages={[batchCard]}
+          streamingText=""
+          isStreaming={false}
+          threadId="thread-1"
+        />
+      );
+
+      expect(screen.getByTestId("equipe-card")).toHaveTextContent("Calendário 23–27/11");
+      const reviews = screen.getAllByTestId("equipe-card-review");
+      expect(reviews).toHaveLength(2);
+      expect(reviews[0]).toHaveAttribute("href", "/pipeline?item=item-1");
+      expect(reviews[1]).toHaveAttribute("href", "/pipeline?item=item-2");
+      expect(screen.queryByTestId("equipe-card-approve")).not.toBeInTheDocument();
+    });
+
+    it("confirms the closed list and calls the Equipe commands endpoint", async () => {
+      const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+      try {
+        render(
+          <AssistantMessageList
+            messages={[batchCard]}
+            streamingText=""
+            isStreaming={false}
+            threadId="thread-1"
+            equipeEnabled
+          />
+        );
+
+        fireEvent.click(screen.getByTestId("equipe-card-approve"));
+
+        const confirm = screen.getByTestId("equipe-card-confirm");
+        expect(within(confirm).getAllByTestId("equipe-card-confirm-item")).toHaveLength(2);
+        expect(confirm).toHaveTextContent("pede confirmação");
+
+        fireEvent.click(screen.getByTestId("equipe-card-confirm-button"));
+
+        expect(await screen.findByTestId("equipe-card-approved")).toBeInTheDocument();
+        expect(fetchMock).toHaveBeenCalledWith(
+          "/api/equipe/accounts/account-1/commands",
+          expect.objectContaining({
+            method: "POST",
+            body: JSON.stringify({
+              type: "approve_batch",
+              payload: {
+                items: [
+                  { itemId: "item-1", versionHash: "hash-1" },
+                  { itemId: "item-2", versionHash: "hash-2" },
+                ],
+              },
+            }),
+          })
+        );
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it("shows an error when the approval call fails", async () => {
+      const fetchMock = vi.fn(
+        async () => new Response(JSON.stringify({ error: "stale_version" }), { status: 409 })
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      try {
+        render(
+          <AssistantMessageList
+            messages={[batchCard]}
+            streamingText=""
+            isStreaming={false}
+            threadId="thread-1"
+            equipeEnabled
+          />
+        );
+
+        fireEvent.click(screen.getByTestId("equipe-card-approve"));
+        fireEvent.click(screen.getByTestId("equipe-card-confirm-button"));
+
+        expect(await screen.findByRole("alert")).toBeInTheDocument();
+        expect(screen.queryByTestId("equipe-card-approved")).not.toBeInTheDocument();
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it("renders equipe_event lines and staff messages", () => {
+      render(
+        <AssistantMessageList
+          messages={[
+            {
+              id: "equipe-event-1",
+              type: "equipe_event" as const,
+              content: "Redação IA criou a v2",
+              payload: { kind: "version_created", text: "Redação IA criou a v2" },
+            },
+            {
+              id: "staff-1",
+              type: "staff_message" as const,
+              content: "Oi, sou a Bruna",
+              payload: {
+                staffId: "staff-1",
+                name: "Bruna Lima",
+                photoUrl: "https://cdn.example/bruna.png",
+              },
+            },
+          ]}
+          streamingText=""
+          isStreaming={false}
+          threadId="thread-1"
+        />
+      );
+
+      expect(screen.getByTestId("equipe-event")).toHaveTextContent("Redação IA criou a v2");
+      const staff = screen.getByTestId("staff-message");
+      expect(staff).toHaveTextContent("Bruna Lima");
+      expect(staff).toHaveTextContent("Oi, sou a Bruna");
+      expect(staff.querySelector("img")).toHaveAttribute("src", "https://cdn.example/bruna.png");
+    });
+
+    it("falls back to a plain bubble for malformed card payloads", () => {
+      render(
+        <AssistantMessageList
+          messages={[
+            {
+              id: "equipe-card-bad",
+              type: "equipe_card" as const,
+              content: "conteúdo original",
+              payload: { kind: "batch" },
+            },
+          ]}
+          streamingText=""
+          isStreaming={false}
+          threadId="thread-1"
+        />
+      );
+
+      expect(screen.queryByTestId("equipe-card")).not.toBeInTheDocument();
+      expect(screen.getByTestId("assistant-message-equipe_card")).toHaveTextContent(
+        "conteúdo original"
+      );
+    });
+  });
 });

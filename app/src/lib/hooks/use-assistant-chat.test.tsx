@@ -123,6 +123,35 @@ describe("useAssistantChat", () => {
     });
   });
 
+  it("appends equipe_card messages from the SSE frame (#551)", async () => {
+    const card = {
+      kind: "batch",
+      accountId: "account-1",
+      title: "Lote",
+      batchId: "batch-1",
+      items: [{ itemId: "item-1", versionHash: "hash-1" }],
+    };
+    fetchMock.mockResolvedValue(
+      sseResponse([
+        { event: "equipe_card", data: { messageId: "msg-card", card } },
+        { event: "done", data: {} },
+      ])
+    );
+
+    const { result } = renderHook(() => useAssistantChat("thread-1"), {
+      wrapper: createWrapper(),
+    });
+
+    await act(async () => {
+      await result.current.sendMessage("ok, pode postar");
+    });
+
+    const cards = result.current.messages.filter((m) => m.type === "equipe_card");
+    expect(cards).toHaveLength(1);
+    expect(cards[0].id).toBe("msg-card");
+    expect(cards[0].payload).toMatchObject({ kind: "batch", batchId: "batch-1" });
+  });
+
   it("exposes error event without throwing", async () => {
     fetchMock.mockResolvedValue(
       sseResponse([{ event: "error", data: { message: "Stream failed" } }])

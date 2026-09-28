@@ -6,7 +6,14 @@ import { assistantThreadQueryKey } from "./use-assistant-threads";
 
 export interface AssistantChatMessage {
   id: string;
-  type: "user" | "assistant" | "action_card" | "tool";
+  type:
+    | "user"
+    | "assistant"
+    | "action_card"
+    | "tool"
+    | "equipe_card"
+    | "equipe_event"
+    | "staff_message";
   content: string;
   payload: Record<string, unknown>;
 }
@@ -188,6 +195,26 @@ export function useAssistantChat(threadId: string | null) {
               const next = [...prev];
               next[index] = card;
               return next;
+            });
+          } else if (frame.event === "equipe_card") {
+            const card =
+              frame.data.card && typeof frame.data.card === "object"
+                ? (frame.data.card as Record<string, unknown>)
+                : {};
+            const cardMessage: AssistantChatMessage = {
+              id:
+                typeof frame.data.messageId === "string"
+                  ? frame.data.messageId
+                  : createLocalId("equipe-card"),
+              type: "equipe_card",
+              content: typeof card.title === "string" ? card.title : "",
+              payload: card,
+            };
+            setMessages((prev) => {
+              if (prev.some((message) => message.id === cardMessage.id)) {
+                return prev;
+              }
+              return [...prev, cardMessage];
             });
           } else if (frame.event === "error") {
             const message =
