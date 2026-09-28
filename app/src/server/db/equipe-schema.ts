@@ -40,7 +40,7 @@ export const EQUIPE_ACCOUNT_STATUS = [
   "closed",
 ] as const;
 export const EQUIPE_PERSON_ROLE = ["approver", "substitute", "custodian", "member"] as const;
-export const EQUIPE_STAFF_ROLE = ["account_manager", "quality", "operations"] as const;
+export const EQUIPE_STAFF_ROLE = ["support", "quality", "operations"] as const;
 export const EQUIPE_FRONT_KEY = ["social_instagram", "midia_paga"] as const;
 export const EQUIPE_FRONT_STATUS = ["draft", "calibrating", "released", "paused", "closed"] as const;
 export const EQUIPE_ONBOARDING_STEP = [

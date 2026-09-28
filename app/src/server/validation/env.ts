@@ -69,6 +69,13 @@ export const envSchema = z.object({
   QUALITY_RECOVERY_PILOT_WORKSPACES: z.string().default(""),
   BRAND_CORTEX_PILOT_WORKSPACES: z.string().default(""),
   /**
+   * ADScale Equipe pilot (#544): master switch plus CSV allowlist of
+   * workspace ids. Unlike the quality pilot, an empty allowlist enables
+   * nobody — see isEquipeEnabledForWorkspace (fails closed).
+   */
+  EQUIPE_ENABLED: z.enum(["true", "false"]).default("false"),
+  EQUIPE_PILOT_WORKSPACES: z.string().default(""),
+  /**
    * 3:4 creation switch (ICE-04B): steers NEW 3:4 creations in validated
    * protocols only (see three-four-capability). Reads, downloads and
    * finishing authorized 3:4 works never consult this value.

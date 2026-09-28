@@ -1,0 +1,2 @@
+ALTER TABLE "adscale_equipe"."equipe_staff" DROP CONSTRAINT "equipe_staff_role_check";--> statement-breakpoint
+ALTER TABLE "adscale_equipe"."equipe_staff" ADD CONSTRAINT "equipe_staff_role_check" CHECK ("adscale_equipe"."equipe_staff"."role" in ('support', 'quality', 'operations'));
