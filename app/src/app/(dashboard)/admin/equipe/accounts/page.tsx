@@ -31,5 +31,16 @@ export default async function EquipeAccountsPage() {
       if (candidate) candidates.push(candidate);
     }
   }
-  return <CrossAccountPipeline candidates={candidates} canOpenAccount={canOpenAccount} />;
+  // #584: support or operations may propose the activation; the console
+  // acts with the held role so operations-only staff never hit a 403.
+  let activationRole: "support" | "operations" | null = null;
+  if (staffRoles.includes("support")) activationRole = "support";
+  else if (staffRoles.includes("operations")) activationRole = "operations";
+  return (
+    <CrossAccountPipeline
+      candidates={candidates}
+      canOpenAccount={canOpenAccount}
+      activationRole={activationRole}
+    />
+  );
 }

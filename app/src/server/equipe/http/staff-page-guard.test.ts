@@ -15,7 +15,7 @@ vi.mock("./guards", () => ({
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { equipeStaffContext } from "./guards";
-import { requireEquipeStaffPage } from "./staff-page-guard";
+import { requireEquipeStaffPage, requireEquipeStaffPageContext } from "./staff-page-guard";
 
 const mockHeaders = vi.mocked(headers);
 const mockNotFound = vi.mocked(notFound);
@@ -37,6 +37,27 @@ describe("requireEquipeStaffPage", () => {
   it("answers notFound for non-staff", async () => {
     mockStaffContext.mockRejectedValue(new Error("Forbidden"));
     await expect(requireEquipeStaffPage()).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(mockNotFound).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("requireEquipeStaffPageContext", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockHeaders.mockResolvedValue(new Headers());
+  });
+
+  it("returns the caller's staff rows for server-component role picks", async () => {
+    const staffRows = [{ id: "staff-1", role: "operations" }];
+    mockStaffContext.mockResolvedValue({ staffRows } as never);
+    await expect(requireEquipeStaffPageContext()).resolves.toEqual({ staffRows });
+    expect(mockStaffContext).toHaveBeenCalledTimes(1);
+    expect(mockNotFound).not.toHaveBeenCalled();
+  });
+
+  it("answers notFound for non-staff", async () => {
+    mockStaffContext.mockRejectedValue(new Error("Forbidden"));
+    await expect(requireEquipeStaffPageContext()).rejects.toThrow("NEXT_NOT_FOUND");
     expect(mockNotFound).toHaveBeenCalledTimes(1);
   });
 });

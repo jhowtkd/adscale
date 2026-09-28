@@ -198,6 +198,21 @@ export function requireDeploying(account: EquipeAccount): Result<void> {
   return ok(undefined);
 }
 
+/**
+ * Mandate activation runs while the account is deploying, calibrating or
+ * active (#584): the pilot takes a mandate out of shadow weeks after
+ * implantation, past the Meta App Review. Refused anywhere else.
+ */
+export function requireActivationAccount(account: EquipeAccount): Result<void> {
+  if (account.status !== "deploying" && account.status !== "calibrating" && account.status !== "active") {
+    return err(
+      "invalid_transition",
+      `account is ${account.status}, mandate activation requires deploying, calibrating or active`,
+    );
+  }
+  return ok(undefined);
+}
+
 export type TxBase = {
   actor: Actor;
   workspaceId: string;

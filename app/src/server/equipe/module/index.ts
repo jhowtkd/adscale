@@ -14,6 +14,8 @@ export * from "./platform-owner-staff";
 export * from "./scope-materials";
 export * from "./context";
 export * from "./plan-mandate";
+// #584 — staff-proposed mandate activation.
+export * from "./mandate-activation";
 export * from "./ideas-decide";
 export * from "./onboarding";
 export * from "./item-shared";

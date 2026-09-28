@@ -26,6 +26,8 @@ import { CONFLICT_SOURCE_PREFIX, contextVersionHash } from "./context";
 import { ideaVersionHash } from "./ideas-decide";
 import { BRAND_VOICE_APPROVED_EVENT, MANUAL_MODE_AGREED_EVENT } from "./onboarding";
 import { mandateRuleOf, mandateVersionHash, planVersionHash } from "./plan-mandate";
+// #584
+import { activationBaseOf } from "./plan-mandate";
 import { MATERIAL_REGISTERED_EVENT, SCOPE_CONFIRMED_EVENT } from "./scope-materials";
 import {
   hasOpenItemEscalation,
@@ -172,7 +174,7 @@ export type GoalsDecisions = {
   /** The open plan proposal, with the hash `approve_plan` verifies. */
   plan: { id: string; version: number; versionHash: string } | null;
   /** Open mandate proposals, each with the hash `approve_mandate` verifies. */
-  mandates: Array<{ id: string; version: number; versionHash: string }>;
+  mandates: Array<{ id: string; version: number; versionHash: string; activation: boolean }>;
   brandVoice: { approved: boolean; versionHash: string | null };
   connection: { verified: boolean; manualAgreed: boolean };
 };
@@ -272,6 +274,9 @@ export async function getGoalsView(
         id: mandate.id,
         version: mandate.version,
         versionHash: mandateVersionHash(mandateRuleOf(mandate)),
+        // #584: a pending activation (out of shadow, same rule as an
+        // approved shadow version) gets its plain-language explainer.
+        activation: activationBaseOf(mandates, mandate) !== null,
       })),
     brandVoice: {
       approved: brandVoiceEvents.length > 0,

@@ -17,8 +17,10 @@ import {
   appendEvent,
   loadAccountOrError,
   requestNotification,
+  requireActivationAccount,
   requireDeploying,
   scopeOf,
+  stableStringify,
   transact,
   versionHash,
   writeReceipt,
@@ -67,6 +69,42 @@ export function mandateRuleOf(mandate: EquipeMandate): MandateRule {
 /** Hash of the canonical mandate rule; stored on the approval receipt. */
 export function mandateVersionHash(rule: MandateRule): string {
   return versionHash(rule);
+}
+
+/**
+ * The rule minus the shadow flag: what an activation must preserve.
+ * Shared with propose_mandate_activation's duplicate check.
+ */
+export function liveRuleKey(rule: MandateRule): string {
+  return stableStringify({
+    frontId: rule.frontId,
+    limits: rule.limits,
+    window: rule.window,
+    validFrom: rule.validFrom,
+    validUntil: rule.validUntil,
+    stopCondition: rule.stopCondition,
+  });
+}
+
+/**
+ * The approved shadow mandate a proposed non-shadow version would take
+ * live — same rule except the shadow flag — or null when the proposal is
+ * not an activation (an agent proposal, no approved base, …). Latest base
+ * wins; approval supersedes the older ones anyway.
+ */
+export function activationBaseOf(
+  mandates: EquipeMandate[],
+  proposed: EquipeMandate,
+): EquipeMandate | null {
+  if (proposed.status !== "proposed" || proposed.shadow) return null;
+  const key = liveRuleKey(mandateRuleOf(proposed));
+  let best: EquipeMandate | null = null;
+  for (const mandate of mandates) {
+    if (mandate.status !== "approved" || !mandate.shadow) continue;
+    if (liveRuleKey(mandateRuleOf(mandate)) !== key) continue;
+    if (!best || mandate.version > best.version) best = mandate;
+  }
+  return best;
 }
 
 function latestPlan(plans: EquipePlan[]): EquipePlan | null {
@@ -234,12 +272,17 @@ export async function runApproveMandate(
   return transact(deps, base, async (ctx) => {
     const account = await loadAccountOrError(ctx);
     if (!account.ok) return account;
-    const deploying = requireDeploying(account.value);
-    if (!deploying.ok) return deploying;
     const scope = scopeOf(ctx);
-    const open = latestMandate(
-      (await ctx.repos.mandates.list(scope)).filter((mandate) => mandate.status === "proposed"),
-    );
+    const mandates = await ctx.repos.mandates.list(scope);
+    const open = latestMandate(mandates.filter((mandate) => mandate.status === "proposed"));
+    // #584: an activation (same rule as an approved shadow version) also
+    // approves while calibrating or active; ordinary proposals stay
+    // implantation-scoped.
+    const activation = open !== null && activationBaseOf(mandates, open) !== null;
+    const allowed = activation
+      ? requireActivationAccount(account.value)
+      : requireDeploying(account.value);
+    if (!allowed.ok) return allowed;
     if (!open) {
       return err("invalid_transition", "no proposed mandate version");
     }
@@ -254,7 +297,7 @@ export async function runApproveMandate(
       action: "approve_mandate",
       detail: { version: open.version, frontId: open.frontId },
     });
-    for (const mandate of await ctx.repos.mandates.list(scope)) {
+    for (const mandate of mandates) {
       if (mandate.status === "approved") {
         await ctx.repos.mandates.update(scope, mandate.id, { status: "superseded" });
       }

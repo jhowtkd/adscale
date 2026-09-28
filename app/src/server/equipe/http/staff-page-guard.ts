@@ -11,13 +11,6 @@ import { notFound } from "next/navigation";
 import type { EquipeStaffMember } from "../data";
 import { equipeStaffContext } from "./guards";
 
-export async function requireEquipeStaffPage(): Promise<void> {
-  await requireEquipeStaffPageContext();
-}
-
-// #582 — the guard above plus the caller's staff rows, for server
-// components that vary by role (the open-account action needs
-// operations). Same 404 for anyone else.
 export async function requireEquipeStaffPageContext(): Promise<{
   staffRows: EquipeStaffMember[];
 }> {
@@ -26,9 +19,13 @@ export async function requireEquipeStaffPageContext(): Promise<{
     headers: new Headers(headerList),
   });
   try {
-    const guard = await equipeStaffContext(request);
-    return { staffRows: guard.staffRows };
+    const context = await equipeStaffContext(request);
+    return { staffRows: context.staffRows };
   } catch {
     notFound();
   }
+}
+
+export async function requireEquipeStaffPage(): Promise<void> {
+  await requireEquipeStaffPageContext();
 }

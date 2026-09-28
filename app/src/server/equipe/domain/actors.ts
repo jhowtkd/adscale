@@ -118,6 +118,8 @@ export type EquipeAction =
   | "answer_conflict"
   | "propose_plan"
   | "propose_mandate"
+  // #584 — staff (support/operations) proposes activating a shadow mandate.
+  | "propose_mandate_activation"
   | "approve_brand_voice"
   | "agree_manual_mode"
   | "record_installment_paid"
@@ -234,6 +236,8 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   answer_conflict: [CLIENT_DECISION],
   propose_plan: [AGENT],
   propose_mandate: [AGENT],
+  // #584: staff proposes; approval stays approver/substitute-only.
+  propose_mandate_activation: [SUPPORT, OPERATIONS],
   approve_brand_voice: [CLIENT_DECISION],
   agree_manual_mode: [CLIENT_DECISION],
   record_installment_paid: [SUPPORT, OPERATIONS],

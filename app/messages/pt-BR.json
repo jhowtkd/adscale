@@ -5123,7 +5123,8 @@
       "invalidInput": "Confira os campos e tente de novo.",
       "conflict": "Conflito com o estado atual — recarregue e tente de novo.",
       "serverError": "Erro interno. Tente de novo em instantes.",
-      "generic": "Algo deu errado. Tente de novo."
+      "generic": "Algo deu errado. Tente de novo.",
+      "unknownMandate": "Este mandato não existe mais."
     },
     "labels": {
       "trigger": {
@@ -5365,7 +5366,13 @@
       "sectionExceptions": "Exceções",
       "sectionPauses": "Pausas",
       "noneInSection": "Nada aqui.",
-      "openException": "Ver fila"
+      "openException": "Ver fila",
+      "mandateTitle": "Mandato",
+      "mandateShadow": "Mandato v{version} em modo sombra",
+      "mandateActivationPending": "Ativação v{version} aguardando o cliente",
+      "proposeActivation": "Propor ativação",
+      "proposeActivationConfirm": "Criar uma versão idêntica fora do modo sombra e aguardar a aprovação do cliente?",
+      "proposeActivationSubmit": "Confirmar"
     },
     "quality": {
       "title": "Qualidade",
@@ -5795,7 +5802,8 @@
       "materialKind_video": "Vídeo",
       "materialKind_text": "Texto",
       "materialEmpty": "Nenhum material no seu espaço ainda.",
-      "materialLoading": "Carregando materiais…"
+      "materialLoading": "Carregando materiais…",
+      "mandateActivationExplainer": "A partir da aprovação, os itens aprovados passam a ser publicados automaticamente, dentro da janela e dos limites."
     },
     "fronts": {
       "social_instagram": "Social · Instagram",

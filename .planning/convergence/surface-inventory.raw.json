@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-28T17:09:48.249Z",
+  "generatedAt": "2026-09-28T17:52:49.370Z",
   "schemaVersion": 2,
-  "fingerprint": "b5af3926d8d6d1c05c847f320d5746028c69d1c69dbc7065e2b87950cf1fa52e",
+  "fingerprint": "9c88b0402a6e4cad3f05cd8159028ccf90a7f9a990f3948428a7caee85dc1a6c",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
@@ -1990,21 +1990,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/equipe/CrossAccountPipeline.tsx:136",
+      "id": "nav:app/src/components/equipe/CrossAccountPipeline.tsx:166",
       "kind": "cta_navigation",
       "destination": "/admin/equipe/exceptions?workspaceId=${entry.scope.workspaceId}&accountId=${entry.scope.accountId}",
       "file": "app/src/components/equipe/CrossAccountPipeline.tsx",
-      "line": 136,
-      "evidence": "app/src/components/equipe/CrossAccountPipeline.tsx:136",
+      "line": 166,
+      "evidence": "app/src/components/equipe/CrossAccountPipeline.tsx:166",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/equipe/CrossAccountPipeline.tsx:230",
+      "id": "nav:app/src/components/equipe/CrossAccountPipeline.tsx:364",
       "kind": "cta_navigation",
       "destination": "/admin/equipe/escalations/${row.id}?workspaceId=${workspaceId}&accountId=${accountId}",
       "file": "app/src/components/equipe/CrossAccountPipeline.tsx",
-      "line": 230,
-      "evidence": "app/src/components/equipe/CrossAccountPipeline.tsx:230",
+      "line": 364,
+      "evidence": "app/src/components/equipe/CrossAccountPipeline.tsx:364",
       "requiresDecision": false
     },
     {
@@ -2035,12 +2035,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/equipe/GoalsView.tsx:344",
+      "id": "nav:app/src/components/equipe/GoalsView.tsx:358",
       "kind": "cta_navigation",
       "destination": "/assistant",
       "file": "app/src/components/equipe/GoalsView.tsx",
-      "line": 344,
-      "evidence": "app/src/components/equipe/GoalsView.tsx:344",
+      "line": 358,
+      "evidence": "app/src/components/equipe/GoalsView.tsx:358",
       "requiresDecision": false
     },
     {

@@ -89,6 +89,9 @@ export const STAFF_ROLE_FOR_COMMAND: Record<string, StaffRole> = {
   record_quality_effort: "quality",
   // #582 — opening an account is operations'.
   open_account: "operations",
+  // #584: support or operations may propose; the accounts console sends
+  // the caller's held role down, this entry stays the API-direct default.
+  propose_mandate_activation: "support",
 };
 
 /** close_escalation: only the escalation's owner role closes it. */

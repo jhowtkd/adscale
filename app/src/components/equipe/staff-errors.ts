@@ -19,6 +19,8 @@ const CODE_TO_KEY: Record<string, string> = {
   unknown_pause: "unknownPause",
   unknown_connection: "unknownConnection",
   unknown_front: "unknownFront",
+  // #584
+  unknown_mandate: "unknownMandate",
   invalid_transition: "invalidTransition",
   already_scored: "alreadyScored",
   already_returned: "alreadyReturned",
