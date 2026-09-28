@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-28T15:11:47.485Z",
+  "generatedAt": "2026-09-28T17:09:48.249Z",
   "schemaVersion": 2,
-  "fingerprint": "9e048dd49afb35998e537fce25d9f7097e621994e5e1aa605555bd36094da92d",
+  "fingerprint": "b5af3926d8d6d1c05c847f320d5746028c69d1c69dbc7065e2b87950cf1fa52e",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
@@ -1990,21 +1990,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/equipe/CrossAccountPipeline.tsx:121",
+      "id": "nav:app/src/components/equipe/CrossAccountPipeline.tsx:136",
       "kind": "cta_navigation",
       "destination": "/admin/equipe/exceptions?workspaceId=${entry.scope.workspaceId}&accountId=${entry.scope.accountId}",
       "file": "app/src/components/equipe/CrossAccountPipeline.tsx",
-      "line": 121,
-      "evidence": "app/src/components/equipe/CrossAccountPipeline.tsx:121",
+      "line": 136,
+      "evidence": "app/src/components/equipe/CrossAccountPipeline.tsx:136",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/equipe/CrossAccountPipeline.tsx:215",
+      "id": "nav:app/src/components/equipe/CrossAccountPipeline.tsx:230",
       "kind": "cta_navigation",
       "destination": "/admin/equipe/escalations/${row.id}?workspaceId=${workspaceId}&accountId=${accountId}",
       "file": "app/src/components/equipe/CrossAccountPipeline.tsx",
-      "line": 215,
-      "evidence": "app/src/components/equipe/CrossAccountPipeline.tsx:215",
+      "line": 230,
+      "evidence": "app/src/components/equipe/CrossAccountPipeline.tsx:230",
       "requiresDecision": false
     },
     {

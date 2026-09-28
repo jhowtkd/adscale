@@ -4,10 +4,12 @@
 // workspace: the gateway methods that take no workspace use the one the
 // adapter was built with (the job builds it from the event).
 
-import { getClientProfile } from "@/server/repositories/client-reference";
+import { getClientProfile, getClientProfiles } from "@/server/repositories/client-reference";
 import { getCreativeWork, getCreativeWorkOutputInWorkspace } from "@/server/repositories/creative-work";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getCommercialOfferInWorkspace } from "@/server/repositories/commercial-offer";
+import { getWorkspaceById } from "@/server/repositories/workspace";
+import { getWorkspaceMembers } from "@/server/auth/team";
 import type {
   AdscaleAssetRef,
   AdscaleClientProfileRef,
@@ -15,6 +17,8 @@ import type {
   AdscaleCreativeWorkRef,
   AdscaleGateway,
   AdscaleOfferRef,
+  AdscaleWorkspaceMemberRef,
+  AdscaleWorkspaceRef,
 } from "../module/ports";
 
 export class LiveAdscaleGateway implements AdscaleGateway {
@@ -55,5 +59,34 @@ export class LiveAdscaleGateway implements AdscaleGateway {
     const offer = await getCommercialOfferInWorkspace(this.workspaceId, offerId);
     if (!offer) return null;
     return { id: offer.id, workspaceId: offer.workspaceId };
+  }
+
+  // #582 — directory reads for the internal open-account form, over the
+  // existing repositories. Same construction scope as the lookups above.
+  async getWorkspace(workspaceId: string): Promise<AdscaleWorkspaceRef | null> {
+    if (workspaceId !== this.workspaceId) return null;
+    const workspace = await getWorkspaceById(workspaceId);
+    if (!workspace) return null;
+    return { id: workspace.id, name: workspace.name };
+  }
+
+  async listClientProfiles(workspaceId: string): Promise<AdscaleClientProfileRef[]> {
+    if (workspaceId !== this.workspaceId) return [];
+    const profiles = await getClientProfiles(workspaceId);
+    return profiles.map((profile) => ({
+      id: profile.id,
+      workspaceId: profile.workspaceId,
+      name: profile.name,
+    }));
+  }
+
+  async listWorkspaceMembers(workspaceId: string): Promise<AdscaleWorkspaceMemberRef[]> {
+    if (workspaceId !== this.workspaceId) return [];
+    const members = await getWorkspaceMembers(workspaceId);
+    return members.map((member) => ({
+      userId: member.userId,
+      name: member.name,
+      email: member.email,
+    }));
   }
 }

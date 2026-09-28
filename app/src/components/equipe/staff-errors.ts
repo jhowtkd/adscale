@@ -51,6 +51,9 @@ const CODE_TO_KEY: Record<string, string> = {
   invalid_score: "invalidScore",
   invalid_command: "invalidCommand",
   invalidInput: "invalidInput",
+  // #582 — open_account failures, in plain language.
+  account_already_exists: "accountAlreadyExists",
+  unknown_client_profile: "unknownClientProfile",
 };
 
 export function staffErrorKey(error: unknown): string {

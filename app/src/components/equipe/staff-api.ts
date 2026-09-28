@@ -51,7 +51,8 @@ export type StaffCommandInput = {
   payload: Record<string, unknown>;
   role: StaffRole;
   workspaceId: string;
-  accountId: string;
+  /** Absent for open_account — the account does not exist yet (#582). */
+  accountId?: string;
 };
 
 export async function sendStaffCommand<T = Record<string, unknown>>(
@@ -86,6 +87,8 @@ export const STAFF_ROLE_FOR_COMMAND: Record<string, StaffRole> = {
   reopen_front_calibration: "quality",
   revoke_connection: "operations",
   record_quality_effort: "quality",
+  // #582 — opening an account is operations'.
+  open_account: "operations",
 };
 
 /** close_escalation: only the escalation's owner role closes it. */
