@@ -8,6 +8,7 @@ export * from "./shared";
 export * from "./commands";
 export * from "./queries";
 export * from "./open-account";
+export * from "./platform-owner-staff";
 export * from "./scope-materials";
 export * from "./context";
 export * from "./plan-mandate";

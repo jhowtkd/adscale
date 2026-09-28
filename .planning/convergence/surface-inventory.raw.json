@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-28T09:22:05.758Z",
+  "generatedAt": "2026-09-28T10:45:54.831Z",
   "schemaVersion": 2,
-  "fingerprint": "f0c72d090813c0c607676704d2cda9a6c6012572d140fc31538196c279814f4c",
+  "fingerprint": "38d28da6327940135b6b730beebccd20f98aa75012a59211f9e5e7f8367f2336",
   "counts": {
     "dashboardPages": 16,
-    "apiRoutes": 197,
+    "apiRoutes": 210,
     "ctas": 81,
     "requiringDecision": 1
   },
@@ -982,6 +982,97 @@
       "kind": "api_route",
       "route": "/api/dev/reset-token",
       "file": "app/src/app/api/dev/reset-token/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/equipe/accounts/[accountId]/commands",
+      "kind": "api_route",
+      "route": "/api/equipe/accounts/[accountId]/commands",
+      "file": "app/src/app/api/equipe/accounts/[accountId]/commands/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/equipe/accounts/[accountId]/goals",
+      "kind": "api_route",
+      "route": "/api/equipe/accounts/[accountId]/goals",
+      "file": "app/src/app/api/equipe/accounts/[accountId]/goals/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/equipe/accounts/[accountId]/ideas",
+      "kind": "api_route",
+      "route": "/api/equipe/accounts/[accountId]/ideas",
+      "file": "app/src/app/api/equipe/accounts/[accountId]/ideas/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/equipe/accounts/[accountId]/items/[itemId]",
+      "kind": "api_route",
+      "route": "/api/equipe/accounts/[accountId]/items/[itemId]",
+      "file": "app/src/app/api/equipe/accounts/[accountId]/items/[itemId]/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/equipe/accounts/[accountId]/pipeline",
+      "kind": "api_route",
+      "route": "/api/equipe/accounts/[accountId]/pipeline",
+      "file": "app/src/app/api/equipe/accounts/[accountId]/pipeline/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/equipe/accounts/[accountId]",
+      "kind": "api_route",
+      "route": "/api/equipe/accounts/[accountId]",
+      "file": "app/src/app/api/equipe/accounts/[accountId]/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/equipe/accounts",
+      "kind": "api_route",
+      "route": "/api/equipe/accounts",
+      "file": "app/src/app/api/equipe/accounts/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/equipe/staff/accounts",
+      "kind": "api_route",
+      "route": "/api/equipe/staff/accounts",
+      "file": "app/src/app/api/equipe/staff/accounts/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/equipe/staff/commands",
+      "kind": "api_route",
+      "route": "/api/equipe/staff/commands",
+      "file": "app/src/app/api/equipe/staff/commands/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/equipe/staff/escalations/[escalationId]",
+      "kind": "api_route",
+      "route": "/api/equipe/staff/escalations/[escalationId]",
+      "file": "app/src/app/api/equipe/staff/escalations/[escalationId]/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/equipe/staff/exceptions",
+      "kind": "api_route",
+      "route": "/api/equipe/staff/exceptions",
+      "file": "app/src/app/api/equipe/staff/exceptions/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/equipe/staff/quality",
+      "kind": "api_route",
+      "route": "/api/equipe/staff/quality",
+      "file": "app/src/app/api/equipe/staff/quality/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/equipe/staff/rounds/[roundId]",
+      "kind": "api_route",
+      "route": "/api/equipe/staff/rounds/[roundId]",
+      "file": "app/src/app/api/equipe/staff/rounds/[roundId]/route.ts",
       "requiresDecision": false
     },
     {
