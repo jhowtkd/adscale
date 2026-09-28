@@ -154,7 +154,12 @@ type IntentRow = Record<string, unknown>;
 
 function asDate(value: unknown): Date | null {
   if (value === null || value === undefined) return null;
-  return value instanceof Date ? value : new Date(value as string);
+  if (value instanceof Date) return value;
+  // O execute cru devolve timestamp sem tz como texto (o drizzle desliga o
+  // parser do pg e só o builder mapeia colunas). Interpreta a parede como UTC
+  // igual ao PgTimestamp.mapFromDriverValue (value + "+0000"): sem isso, o
+  // fuso local desloca as datas do claim fora de UTC.
+  return new Date(`${value as string}+0000`);
 }
 
 function mapIntentRow(row: IntentRow): EquipePublicationIntent {
