@@ -89,6 +89,9 @@ export type EquipeAction =
   | "answer_conflict"
   | "propose_plan"
   | "propose_mandate"
+  | "approve_brand_voice"
+  | "agree_manual_mode"
+  | "record_installment_paid"
   | "advance_onboarding"
   | "pause_onboarding";
 
@@ -161,6 +164,9 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   answer_conflict: [CLIENT_DECISION],
   propose_plan: [AGENT],
   propose_mandate: [AGENT],
+  approve_brand_voice: [CLIENT_DECISION],
+  agree_manual_mode: [CLIENT_DECISION],
+  record_installment_paid: [SUPPORT, OPERATIONS],
   advance_onboarding: [SUPPORT, OPERATIONS, AGENT, SYSTEM],
   pause_onboarding: [SUPPORT, OPERATIONS, SYSTEM],
 };

@@ -8,10 +8,12 @@ import {
   actorId,
   type AccountStatus,
   type Actor,
+  type ClientPersonRole,
   type DomainError,
   err,
   ok,
   type Result,
+  type StaffRole,
 } from "../domain";
 import type {
   AccountScope,
@@ -20,6 +22,7 @@ import type {
   EquipeEvent,
   EquipeReceipt,
   EquipeRepositories,
+  InternalEquipeRepositories,
 } from "../data";
 import type { EquipeModuleDeps } from "./ports";
 
@@ -95,6 +98,7 @@ export function fromDomainAccountStatus(status: AccountStatus): EquipeAccountSta
 
 export type CommandContext = {
   repos: EquipeRepositories;
+  internal: InternalEquipeRepositories;
   actor: Actor;
   workspaceId: string;
   accountId: string;
@@ -218,19 +222,73 @@ export class CommandRolledBack {
 }
 
 /**
- * One transaction per command: the handler loads state, decides with the
- * pure domain, writes state + equipe_events + notification intents. A
- * domain-error return rolls everything back; unexpected throws do too.
+ * Bind the claimed actor to a stored row, inside the command's transaction.
+ * A client_person must be an active person of THIS account holding the
+ * claimed role; staff must be an active equipe_staff row holding the claimed
+ * role (a platform owner holding several roles is just several rows).
+ * Agent and system actors have no table and pass through. The returned
+ * actor — person and role from the row — is what receipts record.
+ */
+export async function bindActor(ctx: CommandContext): Promise<Result<Actor>> {
+  const actor = ctx.actor;
+  if (actor.kind === "agent" || actor.kind === "system") return ok(actor);
+  if (actor.kind === "client_person") {
+    const person = await ctx.repos.people.get(scopeOf(ctx), actor.personId);
+    if (!person) {
+      return err("forbidden_actor", `unknown person ${actor.personId} on account ${ctx.accountId}`);
+    }
+    if (!person.active) {
+      return err("forbidden_actor", `person ${actor.personId} is inactive`);
+    }
+    if (person.role !== actor.role) {
+      return err(
+        "forbidden_actor",
+        `person ${actor.personId} holds role ${person.role}, not ${actor.role}`,
+      );
+    }
+    return ok({
+      kind: "client_person",
+      role: person.role as ClientPersonRole,
+      personId: person.id,
+    });
+  }
+  const member = await ctx.internal.staff.get(actor.staffId);
+  if (!member) {
+    return err("forbidden_actor", `unknown staff ${actor.staffId}`);
+  }
+  if (!member.active) {
+    return err("forbidden_actor", `staff ${actor.staffId} is inactive`);
+  }
+  if (member.role !== actor.role) {
+    return err("forbidden_actor", `staff ${actor.staffId} does not hold role ${actor.role}`);
+  }
+  return ok({ kind: "staff", role: member.role as StaffRole, staffId: member.id });
+}
+
+/**
+ * One transaction per command: bind the actor, then the handler loads
+ * state, decides with the pure domain, writes state + equipe_events +
+ * notification intents. A domain-error return rolls everything back;
+ * unexpected throws do too.
  */
 export async function transact(
   deps: EquipeModuleDeps,
   base: TxBase,
   fn: (ctx: CommandContext) => Promise<Result<Record<string, unknown>>>,
 ): Promise<Result<CommandSuccess>> {
-  const ctx: CommandContext = { repos: deps.uow.repos, ...base, events: [] };
+  const ctx: CommandContext = {
+    repos: deps.uow.repos,
+    internal: deps.uow.internal,
+    ...base,
+    events: [],
+  };
   try {
-    const data = await deps.uow.run(async (repos) => {
+    const data = await deps.uow.run(async (repos, internal) => {
       ctx.repos = repos;
+      ctx.internal = internal;
+      const bound = await bindActor(ctx);
+      if (!bound.ok) throw new CommandRolledBack(bound.error);
+      ctx.actor = bound.value;
       const outcome = await fn(ctx);
       if (!outcome.ok) throw new CommandRolledBack(outcome.error);
       return outcome.value;

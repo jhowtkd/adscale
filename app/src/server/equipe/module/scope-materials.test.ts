@@ -1,15 +1,25 @@
 import { describe, expect, it } from "vitest";
+import type { Actor } from "../domain";
 import { executeCommand } from "./commands";
-import { makeTestDeps, openTestAccount, testActors, uuid } from "./testing/deps";
+import {
+  makeTestDeps,
+  openTestAccount,
+  type TestAccountActors,
+  uuid,
+} from "./testing/deps";
+
+type Ids = { workspaceId: string; accountId: string; actors: TestAccountActors };
+
+function ctx(ids: Ids, actor: Actor) {
+  return { actor, workspaceId: ids.workspaceId, accountId: ids.accountId };
+}
 
 describe("confirm_scope", () => {
   it("records the scope confirmation with a notification intent", async () => {
     const t = makeTestDeps();
-    const { workspaceId, accountId } = await openTestAccount(t);
-    const outcome = await executeCommand(t.deps, testActors.substitute, {
+    const ids = await openTestAccount(t);
+    const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.substitute), {
       type: "confirm_scope",
-      workspaceId,
-      accountId,
       payload: { scopeDigest: "anexo-a:v3", note: "2 frentes" },
     });
     expect(outcome.ok).toBe(true);
@@ -28,15 +38,13 @@ describe("confirm_scope", () => {
 
   it("refuses actors outside approver/substitute", async () => {
     const t = makeTestDeps();
-    const { workspaceId, accountId } = await openTestAccount(t);
-    const envelope = {
+    const ids = await openTestAccount(t);
+    const rawCommand = {
       type: "confirm_scope",
-      workspaceId,
-      accountId,
       payload: { scopeDigest: "anexo-a:v3" },
     } as const;
-    for (const actor of [testActors.member, testActors.custodian, testActors.agent, testActors.system, testActors.support]) {
-      const outcome = await executeCommand(t.deps, actor, envelope);
+    for (const actor of [ids.actors.member, ids.actors.custodian, ids.actors.agent, ids.actors.system, ids.actors.support]) {
+      const outcome = await executeCommand(t.deps, ctx(ids, actor), rawCommand);
       expect(outcome.ok).toBe(false);
       if (!outcome.ok) expect(outcome.error.code).toBe("forbidden_actor");
     }
@@ -44,44 +52,50 @@ describe("confirm_scope", () => {
 
   it("rejects a second confirmation and unknown accounts", async () => {
     const t = makeTestDeps();
-    const { workspaceId, accountId } = await openTestAccount(t);
-    const first = await executeCommand(t.deps, testActors.approver, {
+    const ids = await openTestAccount(t);
+    const first = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
       type: "confirm_scope",
-      workspaceId,
-      accountId,
       payload: { scopeDigest: "anexo-a:v3" },
     });
     expect(first.ok).toBe(true);
-    const again = await executeCommand(t.deps, testActors.approver, {
+    const again = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
       type: "confirm_scope",
-      workspaceId,
-      accountId,
       payload: { scopeDigest: "anexo-a:v3" },
     });
     expect(again.ok).toBe(false);
     if (!again.ok) expect(again.error.code).toBe("invalid_transition");
 
-    const missing = await executeCommand(t.deps, testActors.approver, {
-      type: "confirm_scope",
-      workspaceId,
-      accountId: uuid(),
-      payload: { scopeDigest: "anexo-a:v3" },
-    });
-    expect(missing.ok).toBe(false);
-    if (!missing.ok) expect(missing.error.code).toBe("unknown_account");
+    // Binding runs before the handler: no such person on that account.
+    const missingPerson = await executeCommand(
+      t.deps,
+      { actor: ids.actors.approver, workspaceId: ids.workspaceId, accountId: uuid() },
+      {
+        type: "confirm_scope",
+        payload: { scopeDigest: "anexo-a:v3" },
+      },
+    );
+    expect(missingPerson.ok).toBe(false);
+    if (!missingPerson.ok) expect(missingPerson.error.code).toBe("forbidden_actor");
+
+    // Agents have no binding, so they reach the handler's account lookup.
+    const missingAccount = await executeCommand(
+      t.deps,
+      { actor: ids.actors.agent, workspaceId: ids.workspaceId, accountId: uuid() },
+      { type: "propose_plan", payload: { content: {} } },
+    );
+    expect(missingAccount.ok).toBe(false);
+    if (!missingAccount.ok) expect(missingAccount.error.code).toBe("unknown_account");
   });
 });
 
 describe("register_material", () => {
   it("records a reference to a workspace asset", async () => {
     const t = makeTestDeps();
-    const { workspaceId, accountId } = await openTestAccount(t);
+    const ids = await openTestAccount(t);
     const assetId = uuid();
-    t.gateway.addAsset({ id: assetId, workspaceId, kind: "deck" });
-    const outcome = await executeCommand(t.deps, testActors.member, {
+    t.gateway.addAsset({ id: assetId, workspaceId: ids.workspaceId, kind: "deck" });
+    const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.member), {
       type: "register_material",
-      workspaceId,
-      accountId,
       payload: { assetId, kind: "deck", origin: "conversa" },
     });
     expect(outcome.ok).toBe(true);
@@ -96,18 +110,16 @@ describe("register_material", () => {
 
   it("lets support upload on behalf of the client, but never agents", async () => {
     const t = makeTestDeps();
-    const { workspaceId, accountId } = await openTestAccount(t);
+    const ids = await openTestAccount(t);
     const assetId = uuid();
-    t.gateway.addAsset({ id: assetId, workspaceId, kind: "pdf" });
-    const envelope = {
+    t.gateway.addAsset({ id: assetId, workspaceId: ids.workspaceId, kind: "pdf" });
+    const rawCommand = {
       type: "register_material",
-      workspaceId,
-      accountId,
       payload: { assetId, kind: "pdf", origin: "recebido via WhatsApp" },
     } as const;
-    expect((await executeCommand(t.deps, testActors.support, envelope)).ok).toBe(true);
-    for (const actor of [testActors.agent, testActors.system, testActors.quality]) {
-      const outcome = await executeCommand(t.deps, actor, envelope);
+    expect((await executeCommand(t.deps, ctx(ids, ids.actors.support), rawCommand)).ok).toBe(true);
+    for (const actor of [ids.actors.agent, ids.actors.system, ids.actors.quality]) {
+      const outcome = await executeCommand(t.deps, ctx(ids, actor), rawCommand);
       expect(outcome.ok).toBe(false);
       if (!outcome.ok) expect(outcome.error.code).toBe("forbidden_actor");
     }
@@ -115,11 +127,9 @@ describe("register_material", () => {
 
   it("rejects assets outside the workspace", async () => {
     const t = makeTestDeps();
-    const { workspaceId, accountId } = await openTestAccount(t);
-    const missing = await executeCommand(t.deps, testActors.approver, {
+    const ids = await openTestAccount(t);
+    const missing = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
       type: "register_material",
-      workspaceId,
-      accountId,
       payload: { assetId: uuid(), kind: "deck" },
     });
     expect(missing.ok).toBe(false);
@@ -127,10 +137,8 @@ describe("register_material", () => {
 
     const foreignId = uuid();
     t.gateway.addAsset({ id: foreignId, workspaceId: uuid(), kind: "deck" });
-    const foreign = await executeCommand(t.deps, testActors.approver, {
+    const foreign = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
       type: "register_material",
-      workspaceId,
-      accountId,
       payload: { assetId: foreignId, kind: "deck" },
     });
     expect(foreign.ok).toBe(false);

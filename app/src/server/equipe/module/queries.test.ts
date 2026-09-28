@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { executeCommand } from "./commands";
 import { getAccountState, getGoalsView } from "./queries";
-import { makeTestDeps, openTestAccount, testActors, uuid } from "./testing/deps";
+import { makeTestDeps, openTestAccount, uuid } from "./testing/deps";
 
 describe("queries", () => {
   it("reads account state: status, fronts, pending steps", async () => {
     const t = makeTestDeps();
-    const { workspaceId, accountId } = await openTestAccount(t, {
+    const { workspaceId, accountId, actors } = await openTestAccount(t, {
       fronts: ["midia_paga", "social_instagram"],
     });
     const repos = t.deps.uow.repos;
@@ -26,20 +26,16 @@ describe("queries", () => {
 
     expect(
       (
-        await executeCommand(t.deps, testActors.approver, {
+        await executeCommand(t.deps, { actor: actors.approver, workspaceId, accountId }, {
           type: "confirm_scope",
-          workspaceId,
-          accountId,
           payload: { scopeDigest: "a:v1" },
         })
       ).ok,
     ).toBe(true);
     expect(
       (
-        await executeCommand(t.deps, testActors.agent, {
+        await executeCommand(t.deps, { actor: actors.agent, workspaceId, accountId }, {
           type: "advance_onboarding",
-          workspaceId,
-          accountId,
           payload: { step: "scope_confirm" },
         })
       ).ok,
@@ -51,7 +47,7 @@ describe("queries", () => {
 
   it("reads the goals view: plan, mandates, onboarding", async () => {
     const t = makeTestDeps();
-    const { workspaceId, accountId } = await openTestAccount(t);
+    const { workspaceId, accountId, actors } = await openTestAccount(t);
     const repos = t.deps.uow.repos;
     const empty = await getGoalsView(repos, workspaceId, accountId);
     expect(empty?.plan).toBeNull();
@@ -61,20 +57,16 @@ describe("queries", () => {
     const content = { goals: ["go"], fronts: ["social_instagram"], rhythm: "weekly" };
     expect(
       (
-        await executeCommand(t.deps, testActors.agent, {
+        await executeCommand(t.deps, { actor: actors.agent, workspaceId, accountId }, {
           type: "propose_plan",
-          workspaceId,
-          accountId,
           payload: { content },
         })
       ).ok,
     ).toBe(true);
     expect(
       (
-        await executeCommand(t.deps, testActors.agent, {
+        await executeCommand(t.deps, { actor: actors.agent, workspaceId, accountId }, {
           type: "propose_mandate",
-          workspaceId,
-          accountId,
           payload: { limits: { postsPerWeek: 6 } },
         })
       ).ok,

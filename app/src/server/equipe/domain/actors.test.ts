@@ -33,6 +33,33 @@ describe("hard rule: approvals", () => {
     expect(authorize(support, "approve_item").ok).toBe(false);
     expect(authorize(system, "approve_item").ok).toBe(false);
   });
+
+  it("covers the implantation client decisions: brand voice and manual mode", () => {
+    expect(authorize(approver, "approve_brand_voice").ok).toBe(true);
+    expect(authorize(substitute, "approve_brand_voice").ok).toBe(true);
+    expect(authorize(approver, "agree_manual_mode").ok).toBe(true);
+    expect(authorize(substitute, "agree_manual_mode").ok).toBe(true);
+    for (const action of ["approve_brand_voice", "agree_manual_mode"] as const) {
+      expect(authorize(member, action).ok).toBe(false);
+      expect(authorize(custodian, action).ok).toBe(false);
+      expect(authorize(agent, action).ok).toBe(false);
+      expect(authorize(system, action).ok).toBe(false);
+      expect(authorize(support, action).ok).toBe(false);
+      expect(authorize(operations, action).ok).toBe(false);
+      expect(authorize(quality, action).ok).toBe(false);
+    }
+  });
+
+  it("restricts installment records to support and operations staff", () => {
+    expect(authorize(support, "record_installment_paid").ok).toBe(true);
+    expect(authorize(operations, "record_installment_paid").ok).toBe(true);
+    expect(authorize(agent, "record_installment_paid").ok).toBe(false);
+    expect(authorize(system, "record_installment_paid").ok).toBe(false);
+    expect(authorize(approver, "record_installment_paid").ok).toBe(false);
+    expect(authorize(substitute, "record_installment_paid").ok).toBe(false);
+    expect(authorize(member, "record_installment_paid").ok).toBe(false);
+    expect(authorize(quality, "record_installment_paid").ok).toBe(false);
+  });
 });
 
 describe("actors table", () => {

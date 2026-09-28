@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { executeCommand } from "./commands";
 import { isEquipeEnabledForWorkspace } from "./equipe-enabled";
-import { makeTestDeps, testActors, uuid } from "./testing/deps";
+import { makeTestDeps, seedStaff, uuid } from "./testing/deps";
 
 const WS = "11111111-1111-1111-1111-111111111111";
 const OTHER = "22222222-2222-2222-2222-222222222222";
@@ -37,12 +37,12 @@ describe("isEquipeEnabledForWorkspace", () => {
 describe("workspace gate on commands", () => {
   it("refuses every command with a domain error when the workspace is off", async () => {
     const t = makeTestDeps({ isEnabledForWorkspace: () => false });
+    const operations = await seedStaff(t, "operations");
     const workspaceId = uuid();
     const profileId = uuid();
     t.gateway.addProfile({ id: profileId, workspaceId });
-    const outcome = await executeCommand(t.deps, testActors.operations, {
+    const outcome = await executeCommand(t.deps, { actor: operations, workspaceId }, {
       type: "open_account",
-      workspaceId,
       payload: {
         clientProfileId: profileId,
         fronts: ["social_instagram"],

@@ -1,13 +1,15 @@
 // executeCommand: the module's single entry point.
 //
-// The adapter (route, job, conversation) builds the actor and passes it
-// separately from the envelope — the request body can never smuggle an
-// actor in. Boundary order: validate actor + envelope (zod) → workspace
-// gate → authorize → run one transaction.
+// Trust boundary: `context` ({ actor, workspaceId, accountId? }) is trusted
+// — the adapter builds it from the session and the URL, never from the
+// request body. `rawCommand` ({ type, payload }) is the only untrusted part
+// and is validated with a strict zod schema. Boundary order: validate
+// context → validate rawCommand → workspace gate → authorize → run one
+// transaction (which binds the actor to a stored row).
 
-import { authorize, type Actor, type EquipeAction, err, type Result } from "../domain";
+import { authorize, type EquipeAction, err, type Result } from "../domain";
 import type { EquipeModuleDeps } from "./ports";
-import { actorSchema, commandEnvelopeSchema, type CommandType } from "./envelope";
+import { adapterContextSchema, commandSchema, type CommandType } from "./envelope";
 import { isEquipeEnabledForWorkspace } from "./equipe-enabled";
 import type { CommandSuccess, TxBase } from "./shared";
 import { runOpenAccount } from "./open-account";
@@ -19,7 +21,13 @@ import {
   runProposeMandate,
   runProposePlan,
 } from "./plan-mandate";
-import { runAdvanceOnboarding, runPauseOnboarding } from "./onboarding";
+import {
+  runAdvanceOnboarding,
+  runAgreeManualMode,
+  runApproveBrandVoice,
+  runPauseOnboarding,
+  runRecordInstallmentPaid,
+} from "./onboarding";
 
 const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   open_account: "open_account",
@@ -32,6 +40,9 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   approve_plan: "approve_plan",
   propose_mandate: "propose_mandate",
   approve_mandate: "approve_mandate",
+  approve_brand_voice: "approve_brand_voice",
+  agree_manual_mode: "agree_manual_mode",
+  record_installment_paid: "record_installment_paid",
   advance_onboarding: "advance_onboarding",
   pause_onboarding: "pause_onboarding",
 };
@@ -44,76 +55,93 @@ function zodIssues(error: { issues: Array<{ path: Array<string | number>; messag
 
 export async function executeCommand(
   deps: EquipeModuleDeps,
-  actor: Actor,
-  rawEnvelope: unknown,
+  context: unknown,
+  rawCommand: unknown,
 ): Promise<Result<ExecutedCommand>> {
-  const parsedActor = actorSchema.safeParse(actor);
-  if (!parsedActor.success) {
-    return err("invalid_actor", `invalid actor: ${zodIssues(parsedActor.error)}`);
+  const parsedContext = adapterContextSchema.safeParse(context);
+  if (!parsedContext.success) {
+    const actorIssue = parsedContext.error.issues.some((issue) => issue.path[0] === "actor");
+    return actorIssue
+      ? err("invalid_actor", `invalid actor: ${zodIssues(parsedContext.error)}`)
+      : err("invalid_context", `invalid context: ${zodIssues(parsedContext.error)}`);
   }
-  const parsedEnvelope = commandEnvelopeSchema.safeParse(rawEnvelope);
-  if (!parsedEnvelope.success) {
-    return err("invalid_command", `invalid command: ${zodIssues(parsedEnvelope.error)}`);
+  const parsedCommand = commandSchema.safeParse(rawCommand);
+  if (!parsedCommand.success) {
+    return err("invalid_command", `invalid command: ${zodIssues(parsedCommand.error)}`);
   }
-  const envelope = parsedEnvelope.data;
+  const trusted = parsedContext.data;
+  const command = parsedCommand.data;
+  const accountId = command.type === "open_account" ? "" : trusted.accountId;
+  if (command.type !== "open_account" && !accountId) {
+    return err("invalid_context", `command ${command.type} requires accountId in context`);
+  }
   const enabledForWorkspace = deps.isEnabledForWorkspace ?? isEquipeEnabledForWorkspace;
-  if (!enabledForWorkspace(envelope.workspaceId)) {
+  if (!enabledForWorkspace(trusted.workspaceId)) {
     return err(
       "equipe_not_enabled",
-      `equipe is not enabled for workspace ${envelope.workspaceId}`,
+      `equipe is not enabled for workspace ${trusted.workspaceId}`,
     );
   }
-  const authorized = authorize(parsedActor.data, COMMAND_ACTIONS[envelope.type]);
+  const authorized = authorize(trusted.actor, COMMAND_ACTIONS[command.type]);
   if (!authorized.ok) return authorized;
 
   const base: TxBase = {
-    actor: parsedActor.data,
-    workspaceId: envelope.workspaceId,
-    accountId: envelope.type === "open_account" ? "" : envelope.accountId,
+    actor: trusted.actor,
+    workspaceId: trusted.workspaceId,
+    accountId: accountId ?? "",
     now: deps.clock.now(),
   };
   let outcome: Result<CommandSuccess>;
-  switch (envelope.type) {
+  switch (command.type) {
     case "open_account":
-      outcome = await runOpenAccount(deps, base, envelope.payload);
+      outcome = await runOpenAccount(deps, base, command.payload);
       break;
     case "confirm_scope":
-      outcome = await runConfirmScope(deps, base, envelope.payload);
+      outcome = await runConfirmScope(deps, base, command.payload);
       break;
     case "register_material":
-      outcome = await runRegisterMaterial(deps, base, envelope.payload);
+      outcome = await runRegisterMaterial(deps, base, command.payload);
       break;
     case "propose_context_section":
-      outcome = await runProposeContextSection(deps, base, envelope.payload);
+      outcome = await runProposeContextSection(deps, base, command.payload);
       break;
     case "approve_context_section":
-      outcome = await runApproveContextSection(deps, base, envelope.payload);
+      outcome = await runApproveContextSection(deps, base, command.payload);
       break;
     case "answer_conflict":
-      outcome = await runAnswerConflict(deps, base, envelope.payload);
+      outcome = await runAnswerConflict(deps, base, command.payload);
       break;
     case "propose_plan":
-      outcome = await runProposePlan(deps, base, envelope.payload);
+      outcome = await runProposePlan(deps, base, command.payload);
       break;
     case "approve_plan":
-      outcome = await runApprovePlan(deps, base, envelope.payload);
+      outcome = await runApprovePlan(deps, base, command.payload);
       break;
     case "propose_mandate":
-      outcome = await runProposeMandate(deps, base, envelope.payload);
+      outcome = await runProposeMandate(deps, base, command.payload);
       break;
     case "approve_mandate":
-      outcome = await runApproveMandate(deps, base, envelope.payload);
+      outcome = await runApproveMandate(deps, base, command.payload);
+      break;
+    case "approve_brand_voice":
+      outcome = await runApproveBrandVoice(deps, base, command.payload);
+      break;
+    case "agree_manual_mode":
+      outcome = await runAgreeManualMode(deps, base, command.payload);
+      break;
+    case "record_installment_paid":
+      outcome = await runRecordInstallmentPaid(deps, base, command.payload);
       break;
     case "advance_onboarding":
-      outcome = await runAdvanceOnboarding(deps, base, envelope.payload);
+      outcome = await runAdvanceOnboarding(deps, base, command.payload);
       break;
     case "pause_onboarding":
-      outcome = await runPauseOnboarding(deps, base, envelope.payload);
+      outcome = await runPauseOnboarding(deps, base, command.payload);
       break;
   }
   if (!outcome.ok) return outcome;
   return {
     ok: true,
-    value: { ...outcome.value, type: envelope.type },
+    value: { ...outcome.value, type: command.type },
   };
 }

@@ -1,7 +1,10 @@
-// Command envelope: { type, workspaceId, accountId?, payload }, validated
-// with zod at the module boundary. The actor is NOT part of the envelope:
-// adapters pass it separately (see executeCommand), so a route can never
-// take the actor from the request body.
+// Trust boundary of executeCommand(deps, context, rawCommand).
+//
+// - `context` is TRUSTED: the adapter builds it from the session and the
+//   URL ({ actor, workspaceId, accountId? }), never from the request body.
+// - `rawCommand` is UNTRUSTED: { type, payload } only, validated with zod.
+//   The schema is strict: a rawCommand smuggling `actor`, `workspaceId` or
+//   `accountId` keys is rejected.
 
 import { z } from "zod";
 import {
@@ -122,11 +125,19 @@ export const approveMandatePayloadSchema = z.object({
   expectedVersionHash: versionHash,
 });
 
+export const approveBrandVoicePayloadSchema = z.object({
+  voice: z.string().min(1).max(8000),
+});
+
+export const agreeManualModePayloadSchema = z.object({});
+
+export const recordInstallmentPaidPayloadSchema = z.object({
+  installment: z.union([z.literal(1), z.literal(2)]),
+  reference: z.string().min(1).max(200),
+});
+
 export const advanceOnboardingPayloadSchema = z.object({
   step: equipeOnboardingStepKeySchema,
-  secondInstallmentPaid: z.boolean().optional(),
-  brandVoiceApproved: z.boolean().optional(),
-  manualModeAgreed: z.boolean().optional(),
 });
 
 export const pauseOnboardingPayloadSchema = z.object({
@@ -134,25 +145,37 @@ export const pauseOnboardingPayloadSchema = z.object({
   reason: z.string().max(2000).optional(),
 });
 
-function withScope<T extends string, P extends z.ZodTypeAny>(type: T, payload: P) {
-  return z.object({ type: z.literal(type), workspaceId: uuid, accountId: uuid, payload });
+/** Adapter-provided scope: session + URL, never the request body. */
+export const adapterContextSchema = z.object({
+  actor: actorSchema,
+  workspaceId: uuid,
+  accountId: uuid.optional(),
+});
+
+export type AdapterContext = z.infer<typeof adapterContextSchema>;
+
+function command<T extends string, P extends z.ZodTypeAny>(type: T, payload: P) {
+  return z.object({ type: z.literal(type), payload }).strict();
 }
 
-export const commandEnvelopeSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("open_account"), workspaceId: uuid, payload: openAccountPayloadSchema }),
-  withScope("confirm_scope", confirmScopePayloadSchema),
-  withScope("register_material", registerMaterialPayloadSchema),
-  withScope("propose_context_section", proposeContextSectionPayloadSchema),
-  withScope("approve_context_section", approveContextSectionPayloadSchema),
-  withScope("answer_conflict", answerConflictPayloadSchema),
-  withScope("propose_plan", proposePlanPayloadSchema),
-  withScope("approve_plan", approvePlanPayloadSchema),
-  withScope("propose_mandate", proposeMandatePayloadSchema),
-  withScope("approve_mandate", approveMandatePayloadSchema),
-  withScope("advance_onboarding", advanceOnboardingPayloadSchema),
-  withScope("pause_onboarding", pauseOnboardingPayloadSchema),
+export const commandSchema = z.discriminatedUnion("type", [
+  command("open_account", openAccountPayloadSchema),
+  command("confirm_scope", confirmScopePayloadSchema),
+  command("register_material", registerMaterialPayloadSchema),
+  command("propose_context_section", proposeContextSectionPayloadSchema),
+  command("approve_context_section", approveContextSectionPayloadSchema),
+  command("answer_conflict", answerConflictPayloadSchema),
+  command("propose_plan", proposePlanPayloadSchema),
+  command("approve_plan", approvePlanPayloadSchema),
+  command("propose_mandate", proposeMandatePayloadSchema),
+  command("approve_mandate", approveMandatePayloadSchema),
+  command("approve_brand_voice", approveBrandVoicePayloadSchema),
+  command("agree_manual_mode", agreeManualModePayloadSchema),
+  command("record_installment_paid", recordInstallmentPaidPayloadSchema),
+  command("advance_onboarding", advanceOnboardingPayloadSchema),
+  command("pause_onboarding", pauseOnboardingPayloadSchema),
 ]);
 
-/** Envelope WITHOUT the actor (the adapter passes the actor separately). */
-export type CommandEnvelope = z.infer<typeof commandEnvelopeSchema>;
-export type CommandType = CommandEnvelope["type"];
+/** Validated untrusted half of the call: { type, payload } only. */
+export type EquipeCommand = z.infer<typeof commandSchema>;
+export type CommandType = EquipeCommand["type"];

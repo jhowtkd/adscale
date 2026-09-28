@@ -1,7 +1,11 @@
 // Test assembly: in-memory unit of work, fixed clock, fakes, and an
 // enabled-workspace stub (the env gate has its own tests).
+//
+// Actors are bound inside the command transaction (see bindActor), so happy
+// paths use the bound actors returned by openTestAccount / seedStaff, while
+// the unbound testActors entries serve the forbidden-actor probes.
 
-import { fixedClock, type Actor } from "../../domain";
+import { fixedClock, type Actor, type StaffRole } from "../../domain";
 import {
   createMemoryEquipeStore,
   createMemoryEquipeUnitOfWork,
@@ -55,6 +59,11 @@ export function uuid(): string {
   return crypto.randomUUID();
 }
 
+/**
+ * Unbound actors: no store rows back the client/staff entries, so binding
+ * rejects them — exactly what the forbidden-actor probes need. Agent and
+ * system have no table and work as-is.
+ */
 export const testActors: Record<string, Actor> = {
   approver: { kind: "client_person", role: "approver", personId: "person-ana" },
   substitute: { kind: "client_person", role: "substitute", personId: "person-carla" },
@@ -67,6 +76,33 @@ export const testActors: Record<string, Actor> = {
   system: { kind: "system", job: "reminders" },
 };
 
+export type TestAccountActors = Record<
+  | "approver"
+  | "substitute"
+  | "custodian"
+  | "member"
+  | "support"
+  | "quality"
+  | "operations"
+  | "agent"
+  | "system",
+  Actor
+>;
+
+/** Create an active staff row and return the actor bound to it. */
+export async function seedStaff(
+  t: TestDeps,
+  role: StaffRole,
+  options: { active?: boolean; displayName?: string } = {},
+): Promise<Actor> {
+  const row = await t.deps.uow.internal.staff.create({
+    role,
+    displayName: options.displayName ?? role,
+    active: options.active ?? true,
+  });
+  return { kind: "staff", role, staffId: row.id };
+}
+
 export type OpenTestAccountOptions = {
   fronts?: EquipeFrontKey[];
   people?: Array<{ name: string; role: EquipePersonRole; userId?: string; email?: string }>;
@@ -76,24 +112,57 @@ export type OpenTestAccountOptions = {
 export async function openTestAccount(
   t: TestDeps,
   options: OpenTestAccountOptions = {},
-): Promise<{ workspaceId: string; accountId: string; profileId: string }> {
+): Promise<{
+  workspaceId: string;
+  accountId: string;
+  profileId: string;
+  actors: TestAccountActors;
+}> {
   const workspaceId = uuid();
   const profileId = uuid();
   t.gateway.addProfile({ id: profileId, workspaceId });
-  const outcome = await executeCommand(t.deps, testActors.operations, {
+  const operations = await seedStaff(t, "operations");
+  const outcome = await executeCommand(t.deps, { actor: operations, workspaceId }, {
     type: "open_account",
-    workspaceId,
     payload: {
       clientProfileId: profileId,
       fronts: options.fronts ?? ["social_instagram"],
       people: options.people ?? [
         { name: "Ana", role: "approver" },
         { name: "Carla", role: "substitute" },
+        { name: "Cid", role: "custodian" },
+        { name: "Rui", role: "member" },
       ],
     },
   });
   if (!outcome.ok) {
     throw new Error(`openTestAccount failed: ${outcome.error.code} ${outcome.error.message}`);
   }
-  return { workspaceId, accountId: outcome.value.accountId, profileId };
+  const accountId = outcome.value.accountId;
+  const people = await t.deps.uow.repos.people.list({ workspaceId, accountId });
+  const bound = (role: EquipePersonRole): Actor => {
+    const found = people.find((person) => person.role === role);
+    if (found) {
+      return { kind: "client_person", role, personId: found.id };
+    }
+    return testActors[role]!;
+  };
+  const support = await seedStaff(t, "support");
+  const quality = await seedStaff(t, "quality");
+  return {
+    workspaceId,
+    accountId,
+    profileId,
+    actors: {
+      approver: bound("approver"),
+      substitute: bound("substitute"),
+      custodian: bound("custodian"),
+      member: bound("member"),
+      support,
+      quality,
+      operations,
+      agent: testActors.agent!,
+      system: testActors.system!,
+    },
+  };
 }

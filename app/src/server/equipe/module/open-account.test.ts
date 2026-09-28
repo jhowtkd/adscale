@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { addBusinessDays, type Actor } from "../domain";
 import { executeCommand } from "./commands";
-import { makeTestDeps, openTestAccount, testActors, uuid } from "./testing/deps";
+import { makeTestDeps, openTestAccount, seedStaff, testActors, uuid } from "./testing/deps";
 
 const NOW = new Date("2026-10-05T14:00:00.000Z");
 
@@ -12,13 +12,13 @@ function setup() {
 describe("open_account", () => {
   it("creates the account, fronts, 7 steps and people in one command", async () => {
     const t = setup();
+    const operations = await seedStaff(t, "operations");
     const workspaceId = uuid();
     const profileId = uuid();
     t.gateway.addProfile({ id: profileId, workspaceId });
 
-    const outcome = await executeCommand(t.deps, testActors.operations, {
+    const outcome = await executeCommand(t.deps, { actor: operations, workspaceId }, {
       type: "open_account",
-      workspaceId,
       payload: {
         clientProfileId: profileId,
         fronts: ["social_instagram", "midia_paga"],
@@ -72,17 +72,18 @@ describe("open_account", () => {
     const workspaceId = uuid();
     const profileId = uuid();
     t.gateway.addProfile({ id: profileId, workspaceId });
-    const envelope = {
+    const rawCommand = {
       type: "open_account",
-      workspaceId,
       payload: {
         clientProfileId: profileId,
         fronts: ["social_instagram"],
         people: [{ name: "Ana", role: "approver" }],
       },
     } as const;
-    for (const actor of [testActors.agent, testActors.system, testActors.support, testActors.quality, testActors.approver]) {
-      const outcome = await executeCommand(t.deps, actor, envelope);
+    const support = await seedStaff(t, "support");
+    const quality = await seedStaff(t, "quality");
+    for (const actor of [testActors.agent!, testActors.system!, support, quality, testActors.approver!]) {
+      const outcome = await executeCommand(t.deps, { actor, workspaceId }, rawCommand);
       expect(outcome.ok).toBe(false);
       if (!outcome.ok) expect(outcome.error.code).toBe("forbidden_actor");
     }
@@ -91,10 +92,10 @@ describe("open_account", () => {
 
   it("fails for an unknown or foreign client profile", async () => {
     const t = setup();
+    const operations = await seedStaff(t, "operations");
     const workspaceId = uuid();
-    const missing = await executeCommand(t.deps, testActors.operations, {
+    const missing = await executeCommand(t.deps, { actor: operations, workspaceId }, {
       type: "open_account",
-      workspaceId,
       payload: {
         clientProfileId: uuid(),
         fronts: ["social_instagram"],
@@ -107,9 +108,8 @@ describe("open_account", () => {
     const elsewhere = uuid();
     const profileId = uuid();
     t.gateway.addProfile({ id: profileId, workspaceId: elsewhere });
-    const foreign = await executeCommand(t.deps, testActors.operations, {
+    const foreign = await executeCommand(t.deps, { actor: operations, workspaceId }, {
       type: "open_account",
-      workspaceId,
       payload: {
         clientProfileId: profileId,
         fronts: ["social_instagram"],
@@ -122,10 +122,9 @@ describe("open_account", () => {
 
   it("refuses a second account for the same client profile", async () => {
     const t = setup();
-    const { workspaceId, profileId } = await openTestAccount(t);
-    const again = await executeCommand(t.deps, testActors.operations, {
+    const { workspaceId, profileId, actors } = await openTestAccount(t);
+    const again = await executeCommand(t.deps, { actor: actors.operations, workspaceId }, {
       type: "open_account",
-      workspaceId,
       payload: {
         clientProfileId: profileId,
         fronts: ["midia_paga"],
@@ -139,6 +138,7 @@ describe("open_account", () => {
 
   it("rejects payloads without exactly one approver", async () => {
     const t = setup();
+    const operations = await seedStaff(t, "operations");
     const workspaceId = uuid();
     const profileId = uuid();
     t.gateway.addProfile({ id: profileId, workspaceId });
@@ -149,9 +149,8 @@ describe("open_account", () => {
         { name: "Bia", role: "approver" },
       ],
     ]) {
-      const outcome = await executeCommand(t.deps, testActors.operations, {
+      const outcome = await executeCommand(t.deps, { actor: operations, workspaceId }, {
         type: "open_account",
-        workspaceId,
         payload: { clientProfileId: profileId, fronts: ["social_instagram"], people },
       });
       expect(outcome.ok).toBe(false);
@@ -159,16 +158,16 @@ describe("open_account", () => {
     }
   });
 
-  it("never takes the actor from the request body", async () => {
+  it("never takes the actor from the raw command", async () => {
     const t = setup();
+    const operations = await seedStaff(t, "operations");
     const workspaceId = uuid();
     const profileId = uuid();
     t.gateway.addProfile({ id: profileId, workspaceId });
-    // An "actor" smuggled in the envelope is ignored: the actor argument
-    // (null here) is what gets validated.
-    const outcome = await executeCommand(t.deps, null as unknown as Actor, {
+    // An "actor" smuggled in the raw command is rejected: the strict schema
+    // takes { type, payload } only, and the actor lives in the context.
+    const outcome = await executeCommand(t.deps, { actor: operations, workspaceId }, {
       type: "open_account",
-      workspaceId,
       actor: testActors.operations,
       payload: {
         clientProfileId: profileId,
@@ -177,36 +176,43 @@ describe("open_account", () => {
       },
     });
     expect(outcome.ok).toBe(false);
-    if (!outcome.ok) expect(outcome.error.code).toBe("invalid_actor");
+    if (!outcome.ok) expect(outcome.error.code).toBe("invalid_command");
+    expect(await t.deps.uow.repos.accounts.list(workspaceId)).toHaveLength(0);
   });
 
-  it("rejects malformed actors and envelopes", async () => {
+  it("rejects malformed contexts and commands", async () => {
     const t = setup();
-    const { workspaceId, accountId } = await openTestAccount(t);
-    const badActor = await executeCommand(t.deps, { kind: "agent" } as unknown as Actor, {
-      type: "confirm_scope",
-      workspaceId,
-      accountId,
-      payload: { scopeDigest: "x" },
-    });
+    const { workspaceId, accountId, actors } = await openTestAccount(t);
+    const badActor = await executeCommand(
+      t.deps,
+      { actor: { kind: "agent" } as unknown as Actor, workspaceId, accountId },
+      {
+        type: "confirm_scope",
+        payload: { scopeDigest: "x" },
+      },
+    );
     expect(badActor.ok).toBe(false);
     if (!badActor.ok) expect(badActor.error.code).toBe("invalid_actor");
 
-    const badEnvelope = await executeCommand(t.deps, testActors.approver, {
-      type: "approve_everything",
-      workspaceId,
-      accountId,
-      payload: {},
-    });
-    expect(badEnvelope.ok).toBe(false);
-    if (!badEnvelope.ok) expect(badEnvelope.error.code).toBe("invalid_command");
+    const badCommand = await executeCommand(
+      t.deps,
+      { actor: actors.approver, workspaceId, accountId },
+      {
+        type: "approve_everything",
+        payload: {},
+      },
+    );
+    expect(badCommand.ok).toBe(false);
+    if (!badCommand.ok) expect(badCommand.error.code).toBe("invalid_command");
 
-    const badPayload = await executeCommand(t.deps, testActors.approver, {
-      type: "confirm_scope",
-      workspaceId,
-      accountId,
-      payload: { scopeDigest: "" },
-    });
+    const badPayload = await executeCommand(
+      t.deps,
+      { actor: actors.approver, workspaceId, accountId },
+      {
+        type: "confirm_scope",
+        payload: { scopeDigest: "" },
+      },
+    );
     expect(badPayload.ok).toBe(false);
     if (!badPayload.ok) expect(badPayload.error.code).toBe("invalid_command");
   });

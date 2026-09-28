@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
+import type { Actor } from "../domain";
 import { executeCommand } from "./commands";
 import { contextVersionHash } from "./context";
-import { makeTestDeps, openTestAccount, testActors, type TestDeps } from "./testing/deps";
+import {
+  makeTestDeps,
+  openTestAccount,
+  type TestAccountActors,
+  type TestDeps,
+} from "./testing/deps";
 
 const FIELDS = {
   offer: { status: "sustained" as const, value: "frete grátis acima de R$150", source: "catálogo" },
@@ -9,25 +15,30 @@ const FIELDS = {
   niche: { status: "unknown" as const },
 };
 
+type Ids = { workspaceId: string; accountId: string; actors: TestAccountActors };
+
 async function setup() {
   const t = makeTestDeps();
   const ids = await openTestAccount(t);
   return { t, ...ids };
 }
 
-async function propose(t: TestDeps, ids: { workspaceId: string; accountId: string }, fields = FIELDS) {
-  return executeCommand(t.deps, testActors.agent, {
+function ctx(ids: Ids, actor: Actor) {
+  return { actor, workspaceId: ids.workspaceId, accountId: ids.accountId };
+}
+
+async function propose(t: TestDeps, ids: Ids, fields = FIELDS) {
+  return executeCommand(t.deps, ctx(ids, ids.actors.agent), {
     type: "propose_context_section",
-    workspaceId: ids.workspaceId,
-    accountId: ids.accountId,
     payload: { section: "oferta", fields },
   });
 }
 
 describe("propose_context_section", () => {
   it("creates versioned proposals, superseding the open one", async () => {
-    const { t, workspaceId, accountId } = await setup();
-    const first = await propose(t, { workspaceId, accountId });
+    const { t, workspaceId, accountId, actors } = await setup();
+    const ids = { workspaceId, accountId, actors };
+    const first = await propose(t, ids);
     expect(first.ok).toBe(true);
     if (!first.ok) return;
     expect(first.value.data).toMatchObject({ section: "oferta", version: 1 });
@@ -40,7 +51,7 @@ describe("propose_context_section", () => {
       templateKey: "context_section.proposed",
     });
 
-    const second = await propose(t, { workspaceId, accountId });
+    const second = await propose(t, ids);
     expect(second.ok).toBe(true);
     if (!second.ok) return;
     expect(second.value.data).toMatchObject({ version: 2 });
@@ -55,26 +66,23 @@ describe("propose_context_section", () => {
   });
 
   it("is agent-only", async () => {
-    const { t, workspaceId, accountId } = await setup();
-    const envelope = {
+    const { t, workspaceId, accountId, actors } = await setup();
+    const ids = { workspaceId, accountId, actors };
+    const rawCommand = {
       type: "propose_context_section",
-      workspaceId,
-      accountId,
       payload: { section: "oferta", fields: FIELDS },
     } as const;
-    for (const actor of [testActors.approver, testActors.member, testActors.system, testActors.support]) {
-      const outcome = await executeCommand(t.deps, actor, envelope);
+    for (const actor of [actors.approver, actors.member, actors.system, actors.support]) {
+      const outcome = await executeCommand(t.deps, ctx(ids, actor), rawCommand);
       expect(outcome.ok).toBe(false);
       if (!outcome.ok) expect(outcome.error.code).toBe("forbidden_actor");
     }
   });
 
   it("rejects empty fields", async () => {
-    const { t, workspaceId, accountId } = await setup();
-    const outcome = await executeCommand(t.deps, testActors.agent, {
+    const { t, workspaceId, accountId, actors } = await setup();
+    const outcome = await executeCommand(t.deps, ctx({ workspaceId, accountId, actors }, actors.agent), {
       type: "propose_context_section",
-      workspaceId,
-      accountId,
       payload: { section: "oferta", fields: {} },
     });
     expect(outcome.ok).toBe(false);
@@ -84,13 +92,12 @@ describe("propose_context_section", () => {
 
 describe("approve_context_section", () => {
   it("approves the exact version with an immutable receipt", async () => {
-    const { t, workspaceId, accountId } = await setup();
-    expect((await propose(t, { workspaceId, accountId })).ok).toBe(true);
+    const { t, workspaceId, accountId, actors } = await setup();
+    const ids = { workspaceId, accountId, actors };
+    expect((await propose(t, ids)).ok).toBe(true);
     const hash = contextVersionHash(FIELDS);
-    const outcome = await executeCommand(t.deps, testActors.substitute, {
+    const outcome = await executeCommand(t.deps, ctx(ids, actors.substitute), {
       type: "approve_context_section",
-      workspaceId,
-      accountId,
       payload: { section: "oferta", expectedVersionHash: hash },
     });
     expect(outcome.ok).toBe(true);
@@ -103,9 +110,11 @@ describe("approve_context_section", () => {
 
     const receipts = await t.deps.uow.repos.receipts.list(scope);
     expect(receipts).toHaveLength(1);
+    const substituteId =
+      actors.substitute.kind === "client_person" ? actors.substitute.personId : "";
     expect(receipts[0]).toMatchObject({
       personKind: "client_person",
-      personId: "person-carla",
+      personId: substituteId,
       personRole: "substitute",
       objectType: "context_section",
       objectId: versions[0]?.id,
@@ -119,21 +128,18 @@ describe("approve_context_section", () => {
   });
 
   it("supersedes the previous approval on re-approval of a new version", async () => {
-    const { t, workspaceId, accountId } = await setup();
-    expect((await propose(t, { workspaceId, accountId })).ok).toBe(true);
-    const first = await executeCommand(t.deps, testActors.approver, {
+    const { t, workspaceId, accountId, actors } = await setup();
+    const ids = { workspaceId, accountId, actors };
+    expect((await propose(t, ids)).ok).toBe(true);
+    const first = await executeCommand(t.deps, ctx(ids, actors.approver), {
       type: "approve_context_section",
-      workspaceId,
-      accountId,
       payload: { section: "oferta", expectedVersionHash: contextVersionHash(FIELDS) },
     });
     expect(first.ok).toBe(true);
     const updated = { ...FIELDS, niche: { status: "sustained" as const, value: "moda" } };
-    expect((await propose(t, { workspaceId, accountId }, updated)).ok).toBe(true);
-    const second = await executeCommand(t.deps, testActors.approver, {
+    expect((await propose(t, ids, updated)).ok).toBe(true);
+    const second = await executeCommand(t.deps, ctx(ids, actors.approver), {
       type: "approve_context_section",
-      workspaceId,
-      accountId,
       payload: { section: "oferta", expectedVersionHash: contextVersionHash(updated) },
     });
     expect(second.ok).toBe(true);
@@ -146,37 +152,33 @@ describe("approve_context_section", () => {
   });
 
   it("rejects agent, system, member and staff approvals", async () => {
-    const { t, workspaceId, accountId } = await setup();
-    expect((await propose(t, { workspaceId, accountId })).ok).toBe(true);
-    const envelope = {
+    const { t, workspaceId, accountId, actors } = await setup();
+    const ids = { workspaceId, accountId, actors };
+    expect((await propose(t, ids)).ok).toBe(true);
+    const rawCommand = {
       type: "approve_context_section",
-      workspaceId,
-      accountId,
       payload: { section: "oferta", expectedVersionHash: contextVersionHash(FIELDS) },
     } as const;
-    for (const actor of [testActors.agent, testActors.system, testActors.member, testActors.custodian, testActors.quality, testActors.support]) {
-      const outcome = await executeCommand(t.deps, actor, envelope);
+    for (const actor of [actors.agent, actors.system, actors.member, actors.custodian, actors.quality, actors.support]) {
+      const outcome = await executeCommand(t.deps, ctx(ids, actor), rawCommand);
       expect(outcome.ok).toBe(false);
       if (!outcome.ok) expect(outcome.error.code).toBe("forbidden_actor");
     }
   });
 
   it("fails without an open proposal and on a stale version", async () => {
-    const { t, workspaceId, accountId } = await setup();
-    const none = await executeCommand(t.deps, testActors.approver, {
+    const { t, workspaceId, accountId, actors } = await setup();
+    const ids = { workspaceId, accountId, actors };
+    const none = await executeCommand(t.deps, ctx(ids, actors.approver), {
       type: "approve_context_section",
-      workspaceId,
-      accountId,
       payload: { section: "oferta", expectedVersionHash: "abc" },
     });
     expect(none.ok).toBe(false);
     if (!none.ok) expect(none.error.code).toBe("invalid_transition");
 
-    expect((await propose(t, { workspaceId, accountId })).ok).toBe(true);
-    const stale = await executeCommand(t.deps, testActors.approver, {
+    expect((await propose(t, ids)).ok).toBe(true);
+    const stale = await executeCommand(t.deps, ctx(ids, actors.approver), {
       type: "approve_context_section",
-      workspaceId,
-      accountId,
       payload: { section: "oferta", expectedVersionHash: "deadbeef" },
     });
     expect(stale.ok).toBe(false);
@@ -193,6 +195,7 @@ describe("approve_context_section", () => {
     });
     expect(approvals).toHaveLength(0);
   });
+
 });
 
 describe("answer_conflict", () => {
@@ -201,12 +204,11 @@ describe("answer_conflict", () => {
   };
 
   it("resolves the conflict with the client's answer", async () => {
-    const { t, workspaceId, accountId } = await setup();
-    expect((await propose(t, { workspaceId, accountId }, CONFLICT_FIELDS)).ok).toBe(true);
-    const outcome = await executeCommand(t.deps, testActors.approver, {
+    const { t, workspaceId, accountId, actors } = await setup();
+    const ids = { workspaceId, accountId, actors };
+    expect((await propose(t, ids, CONFLICT_FIELDS)).ok).toBe(true);
+    const outcome = await executeCommand(t.deps, ctx(ids, actors.approver), {
       type: "answer_conflict",
-      workspaceId,
-      accountId,
       payload: { section: "oferta", field: "shipping", answer: "Acima de R$150" },
     });
     expect(outcome.ok).toBe(true);
@@ -226,37 +228,33 @@ describe("answer_conflict", () => {
   });
 
   it("is a client decision: agents and members cannot answer", async () => {
-    const { t, workspaceId, accountId } = await setup();
-    expect((await propose(t, { workspaceId, accountId }, CONFLICT_FIELDS)).ok).toBe(true);
-    const envelope = {
+    const { t, workspaceId, accountId, actors } = await setup();
+    const ids = { workspaceId, accountId, actors };
+    expect((await propose(t, ids, CONFLICT_FIELDS)).ok).toBe(true);
+    const rawCommand = {
       type: "answer_conflict",
-      workspaceId,
-      accountId,
       payload: { section: "oferta", field: "shipping", answer: "x" },
     } as const;
-    for (const actor of [testActors.agent, testActors.system, testActors.member, testActors.support]) {
-      const outcome = await executeCommand(t.deps, actor, envelope);
+    for (const actor of [actors.agent, actors.system, actors.member, actors.support]) {
+      const outcome = await executeCommand(t.deps, ctx(ids, actor), rawCommand);
       expect(outcome.ok).toBe(false);
       if (!outcome.ok) expect(outcome.error.code).toBe("forbidden_actor");
     }
   });
 
   it("fails without an open conflict", async () => {
-    const { t, workspaceId, accountId } = await setup();
-    const noVersion = await executeCommand(t.deps, testActors.approver, {
+    const { t, workspaceId, accountId, actors } = await setup();
+    const ids = { workspaceId, accountId, actors };
+    const noVersion = await executeCommand(t.deps, ctx(ids, actors.approver), {
       type: "answer_conflict",
-      workspaceId,
-      accountId,
       payload: { section: "oferta", field: "shipping", answer: "x" },
     });
     expect(noVersion.ok).toBe(false);
     if (!noVersion.ok) expect(noVersion.error.code).toBe("invalid_transition");
 
-    expect((await propose(t, { workspaceId, accountId }, FIELDS)).ok).toBe(true);
-    const noConflict = await executeCommand(t.deps, testActors.approver, {
+    expect((await propose(t, ids, FIELDS)).ok).toBe(true);
+    const noConflict = await executeCommand(t.deps, ctx(ids, actors.approver), {
       type: "answer_conflict",
-      workspaceId,
-      accountId,
       payload: { section: "oferta", field: "niche", answer: "x" },
     });
     expect(noConflict.ok).toBe(false);

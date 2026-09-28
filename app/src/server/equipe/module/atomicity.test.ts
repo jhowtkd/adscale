@@ -8,7 +8,7 @@ import type {
 } from "../data";
 import { executeCommand } from "./commands";
 import { contextVersionHash } from "./context";
-import { makeTestDeps, openTestAccount, testActors } from "./testing/deps";
+import { makeTestDeps, openTestAccount, seedStaff } from "./testing/deps";
 
 /**
  * A mid-command storage failure must leave no state, no events and no
@@ -43,15 +43,13 @@ function sabotageSecondEventWrite(uow: EquipeUnitOfWork): void {
 describe("atomicity", () => {
   it("rolls back state, events and receipts when storage fails mid-command", async () => {
     const t = makeTestDeps();
-    const { workspaceId, accountId } = await openTestAccount(t);
+    const { workspaceId, accountId, actors } = await openTestAccount(t);
     const scope = { workspaceId, accountId };
     const fields = { offer: { status: "sustained" as const, value: "x" } };
     expect(
       (
-        await executeCommand(t.deps, testActors.agent, {
+        await executeCommand(t.deps, { actor: actors.agent, workspaceId, accountId }, {
           type: "propose_context_section",
-          workspaceId,
-          accountId,
           payload: { section: "oferta", fields },
         })
       ).ok,
@@ -59,10 +57,8 @@ describe("atomicity", () => {
 
     sabotageSecondEventWrite(t.deps.uow);
     await expect(
-      executeCommand(t.deps, testActors.approver, {
+      executeCommand(t.deps, { actor: actors.approver, workspaceId, accountId }, {
         type: "approve_context_section",
-        workspaceId,
-        accountId,
         payload: { section: "oferta", expectedVersionHash: contextVersionHash(fields) },
       }),
     ).rejects.toThrow("storage boom");
@@ -84,14 +80,14 @@ describe("atomicity", () => {
 
   it("rolls back the whole open_account when a late write fails", async () => {
     const t = makeTestDeps();
+    const operations = await seedStaff(t, "operations");
     const workspaceId = crypto.randomUUID();
     const profileId = crypto.randomUUID();
     t.gateway.addProfile({ id: profileId, workspaceId });
     sabotageSecondEventWrite(t.deps.uow);
     await expect(
-      executeCommand(t.deps, testActors.operations, {
+      executeCommand(t.deps, { actor: operations, workspaceId }, {
         type: "open_account",
-        workspaceId,
         payload: {
           clientProfileId: profileId,
           fronts: ["social_instagram"],
