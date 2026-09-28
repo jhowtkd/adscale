@@ -85,8 +85,7 @@ describe("recordAgentTurnFailed", () => {
       actorId: "estrategista",
       payload: { taskKind: "research", error: "model timeout" },
     });
-    // The memory store stamps its own occurredAt (like the DB default);
-    // the `at` argument flows to the real store in production.
+    // Both stores keep the passed occurredAt; the stamp is the fallback.
     expect(failed?.occurredAt).toBeInstanceOf(Date);
   });
 });

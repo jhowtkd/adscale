@@ -25,6 +25,7 @@ import {
 export type TestDepsOptions = {
   now?: Date;
   isEnabledForWorkspace?: (workspaceId: string) => boolean;
+  publishEnabled?: boolean;
 };
 
 export type TestDeps = {
@@ -51,6 +52,7 @@ export function makeTestDeps(options: TestDepsOptions = {}): TestDeps {
     agents,
     publisher,
     isEnabledForWorkspace: options.isEnabledForWorkspace ?? (() => true),
+    isPublishEnabled: () => options.publishEnabled ?? true,
   };
   return { deps, store, gateway, notifier, agents, publisher };
 }

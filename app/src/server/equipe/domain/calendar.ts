@@ -260,3 +260,16 @@ export function isoWeekKey(instant: Date): string {
   const week = Math.floor((thursday.getTime() - week1Monday.getTime()) / (7 * 86_400_000)) + 1;
   return `${weekYear}-W${String(week).padStart(2, "0")}`;
 }
+
+/**
+ * Calendar-week window containing an instant, on the São Paulo civil
+ * calendar: Monday 00:00 (inclusive) to next Monday 00:00 (exclusive).
+ * Powers the 6-posts/week publication limit — posts count in the week
+ * they went out, whatever the day of the send.
+ */
+export function weekWindow(instant: Date): { start: Date; endExclusive: Date } {
+  const civil = toSaoPauloCivilDate(instant);
+  const daysSinceMonday = (civil.weekday + 6) % 7;
+  const start = fromSaoPauloWallTime(civil.year, civil.month, civil.day - daysSinceMonday);
+  return { start, endExclusive: new Date(start.getTime() + 7 * 24 * 3_600_000) };
+}

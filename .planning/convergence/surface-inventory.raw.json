@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-28T10:45:54.831Z",
+  "generatedAt": "2026-09-28T11:18:07.856Z",
   "schemaVersion": 2,
-  "fingerprint": "38d28da6327940135b6b730beebccd20f98aa75012a59211f9e5e7f8367f2336",
+  "fingerprint": "b74ff1ef80ec433a114ab7662c4b64a755c44841b5c084221b5e583cee922734",
   "counts": {
     "dashboardPages": 16,
-    "apiRoutes": 210,
+    "apiRoutes": 212,
     "ctas": 81,
     "requiringDecision": 1
   },
@@ -1006,6 +1006,13 @@
       "requiresDecision": false
     },
     {
+      "id": "api:/api/equipe/accounts/[accountId]/instagram/connect",
+      "kind": "api_route",
+      "route": "/api/equipe/accounts/[accountId]/instagram/connect",
+      "file": "app/src/app/api/equipe/accounts/[accountId]/instagram/connect/route.ts",
+      "requiresDecision": false
+    },
+    {
       "id": "api:/api/equipe/accounts/[accountId]/items/[itemId]",
       "kind": "api_route",
       "route": "/api/equipe/accounts/[accountId]/items/[itemId]",
@@ -1031,6 +1038,13 @@
       "kind": "api_route",
       "route": "/api/equipe/accounts",
       "file": "app/src/app/api/equipe/accounts/route.ts",
+      "requiresDecision": false
+    },
+    {
+      "id": "api:/api/equipe/instagram/callback",
+      "kind": "api_route",
+      "route": "/api/equipe/instagram/callback",
+      "file": "app/src/app/api/equipe/instagram/callback/route.ts",
       "requiresDecision": false
     },
     {

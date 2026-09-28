@@ -95,6 +95,22 @@ export const envSchema = z.object({
    */
   EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS: z.coerce.number().int().min(0).default(100000),
   /**
+   * ADScale Equipe publication (#548): global kill switch for the dispatch.
+   * "false" (default) sends nothing — due intents stay held. Both services
+   * declare the frozen default; enabling is a deliberate deploy change.
+   */
+  EQUIPE_PUBLISH_ENABLED: z.enum(["true", "false"]).default("false"),
+  /**
+   * ADScale Equipe Instagram connection (#548): the Equipe's own app
+   * credentials and token encryption key (base64 of 32 bytes, AES-256-GCM
+   * `v1:` format shared with the Meta connection). Optional in the schema
+   * so deploys without the IG app keep booting; connect/publish fail when
+   * missing. Secrets stay out of git (render.yaml `sync: false`).
+   */
+  EQUIPE_IG_TOKEN_ENCRYPTION_KEY: z.string().min(1).optional(),
+  EQUIPE_IG_APP_ID: z.string().min(1).optional(),
+  EQUIPE_IG_APP_SECRET: z.string().min(1).optional(),
+  /**
    * 3:4 creation switch (ICE-04B): steers NEW 3:4 creations in validated
    * protocols only (see three-four-capability). Reads, downloads and
    * finishing authorized 3:4 works never consult this value.

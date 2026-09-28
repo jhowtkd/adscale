@@ -78,6 +78,9 @@ export type EquipeAction =
   | "record_caption_triage"
   | "choose_piece"
   | "propose_new_schedule"
+  // Publication dispatch (#548)
+  | "declare_manual_publication"
+  | "remove_published_post"
   // System (jobs)
   | "remind"
   | "expire_deadline"
@@ -183,6 +186,9 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   record_caption_triage: [AGENT],
   choose_piece: [CLIENT_DECISION],
   propose_new_schedule: [AGENT],
+  // #548: manual "publiquei" is a client decision; post removal is operations.
+  declare_manual_publication: [CLIENT_DECISION],
+  remove_published_post: [OPERATIONS],
   remind: [SYSTEM],
   expire_deadline: [SYSTEM],
   hold_item: [SYSTEM],
