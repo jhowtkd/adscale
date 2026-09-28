@@ -159,6 +159,7 @@ export default function FromZeroReferencesPanel({
                     fill
                     className="object-cover"
                     sizes="80px"
+                    unoptimized
                   />
                 ) : (
                   <span className="flex size-full items-center justify-center text-[var(--text-muted)]">
