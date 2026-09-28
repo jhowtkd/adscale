@@ -150,4 +150,55 @@ describe("envSchema", () => {
     expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", OPENAI_IMAGE_SUNBURST_PERCENT: "101" })).toThrow();
     expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", OPENAI_IMAGE_SUNBURST_QUALITY: "ultra" })).toThrow();
   });
+
+  it("defaults the Equipe agent models and AI budget", () => {
+    const parsed = schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy" });
+    expect(parsed.EQUIPE_MODEL_STRATEGIST).toBe("gpt-5.6-sol");
+    expect(parsed.EQUIPE_MODEL_RESEARCH).toBe("gpt-5.6-sol");
+    expect(parsed.EQUIPE_MODEL_REVIEWER).toBe("gpt-4o-mini");
+    expect(parsed.EQUIPE_AI_BUDGET_CENTS).toBe(100000);
+  });
+
+  it("refuses a reviewer model equal to the strategist model", () => {
+    expect(() =>
+      schema.parse({
+        ...baseEnv,
+        STRIPE_SECRET_KEY: "sk_test_dummy",
+        EQUIPE_MODEL_STRATEGIST: "gpt-x",
+        EQUIPE_MODEL_REVIEWER: "gpt-x",
+      })
+    ).toThrow(/EQUIPE_MODEL_REVIEWER must differ from the author model EQUIPE_MODEL_STRATEGIST/);
+  });
+
+  it("refuses a reviewer model equal to the writer model", () => {
+    expect(() =>
+      schema.parse({
+        ...baseEnv,
+        STRIPE_SECRET_KEY: "sk_test_dummy",
+        OPENAI_TEXT_MODEL: "gpt-x",
+        EQUIPE_MODEL_REVIEWER: "gpt-x",
+      })
+    ).toThrow(/EQUIPE_MODEL_REVIEWER must differ from the author model OPENAI_TEXT_MODEL/);
+  });
+
+  it("accepts a reviewer model different from every author model", () => {
+    const parsed = schema.parse({
+      ...baseEnv,
+      STRIPE_SECRET_KEY: "sk_test_dummy",
+      EQUIPE_MODEL_STRATEGIST: "gpt-a",
+      OPENAI_TEXT_MODEL: "gpt-b",
+      EQUIPE_MODEL_REVIEWER: "gpt-c",
+    });
+    expect(parsed.EQUIPE_MODEL_REVIEWER).toBe("gpt-c");
+  });
+
+  it("coerces the Equipe AI budget and refuses negatives", () => {
+    expect(
+      schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", EQUIPE_AI_BUDGET_CENTS: "2500" })
+        .EQUIPE_AI_BUDGET_CENTS
+    ).toBe(2500);
+    expect(() =>
+      schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", EQUIPE_AI_BUDGET_CENTS: "-1" })
+    ).toThrow();
+  });
 });
