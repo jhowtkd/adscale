@@ -122,17 +122,16 @@ export async function buildDispatchGate(
   if (!item.currentVersionHash) {
     return err("invalid_transition", `item ${item.id} has no current version`);
   }
-  const [front, version, mandates, connections, approval, review, pauses, released] =
-    await Promise.all([
-      ctx.repos.fronts.get(scope, item.frontId),
-      ctx.repos.itemVersions.getByHash(scope, item.id, item.currentVersionHash),
-      ctx.repos.mandates.list(scope),
-      ctx.repos.connections.list(scope),
-      approvalReceiptFor(ctx, item.id, item.currentVersionHash),
-      loadItemReview(ctx.repos, scope, item),
-      ctx.repos.pauses.list(scope),
-      loadReleasedVersions(ctx.repos, scope, item.frontId),
-    ]);
+  // Sequential on purpose: one transaction client, where parallel queries
+  // warn today and break in pg@9 (#574).
+  const front = await ctx.repos.fronts.get(scope, item.frontId);
+  const version = await ctx.repos.itemVersions.getByHash(scope, item.id, item.currentVersionHash);
+  const mandates = await ctx.repos.mandates.list(scope);
+  const connections = await ctx.repos.connections.list(scope);
+  const approval = await approvalReceiptFor(ctx, item.id, item.currentVersionHash);
+  const review = await loadItemReview(ctx.repos, scope, item);
+  const pauses = await ctx.repos.pauses.list(scope);
+  const released = await loadReleasedVersions(ctx.repos, scope, item.frontId);
   if (!front) return err("unknown_front", `unknown front ${item.frontId}`);
   if (!version) return err("unknown_version", `item ${item.id} has no current version row`);
   if (!version.creativeWorkOutputId) {
@@ -165,10 +164,8 @@ export async function buildDispatchGate(
     domainPauses.push(parsed.value);
   }
   const blockingEscalationOpen = await hasOpenItemEscalation(ctx.repos, scope, item.id);
-  const [publishedThisWeek, publishedThisMonth] = await Promise.all([
-    countPublishedSince(ctx, weekWindow(ctx.now).start),
-    countPublishedSince(ctx, monthWindow(ctx.now).start),
-  ]);
+  const publishedThisWeek = await countPublishedSince(ctx, weekWindow(ctx.now).start);
+  const publishedThisMonth = await countPublishedSince(ctx, monthWindow(ctx.now).start);
   return ok({
     snapshot: {
       // Manual mode never reaches the gate: prepare() holds manual items

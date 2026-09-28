@@ -63,11 +63,14 @@ export async function loadRoundItemState(
   itemId: string,
 ): Promise<Result<RoundItemState>> {
   const scope = scopeOf(ctx);
-  const [item, roundEvents, scores] = await Promise.all([
-    ctx.repos.items.get(scope, itemId),
-    ctx.repos.events.list(scope, { objectType: "round", objectId: round.id }),
-    ctx.repos.calibrationScores.list(scope),
-  ]);
+  // Sequential on purpose: one transaction client, where parallel queries
+  // warn today and break in pg@9 (#574).
+  const item = await ctx.repos.items.get(scope, itemId);
+  const roundEvents = await ctx.repos.events.list(scope, {
+    objectType: "round",
+    objectId: round.id,
+  });
+  const scores = await ctx.repos.calibrationScores.list(scope);
   if (!item) return err("unknown_item", `unknown item ${itemId}`);
   if (item.frontId !== round.frontId) {
     return err("item_not_in_round", `item ${itemId} is not in round ${round.id}`);

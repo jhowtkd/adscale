@@ -390,10 +390,10 @@ export async function loadRoundItems(
   repos: CommandContext["repos"],
   round: EquipeCalibrationRound,
 ): Promise<RoundItems> {
-  const [batchItems, roundEvents] = await Promise.all([
-    repos.items.list(scope, { batchId: round.batchId }),
-    repos.events.list(scope, { objectType: "round", objectId: round.id }),
-  ]);
+  // Sequential on purpose: repos may share one transaction client, where
+  // parallel queries warn today and break in pg@9 (#574).
+  const batchItems = await repos.items.list(scope, { batchId: round.batchId });
+  const roundEvents = await repos.events.list(scope, { objectType: "round", objectId: round.id });
   const withdrawnIds = new Set<string>();
   for (const event of roundEvents) {
     if (event.eventType !== ROUND_ITEM_WITHDRAWN_EVENT) continue;

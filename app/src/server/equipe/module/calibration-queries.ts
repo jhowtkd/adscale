@@ -93,11 +93,11 @@ export async function getQualityPipeline(
   if (!staff || !staff.active || staff.role !== "quality") {
     return err("forbidden_actor", `staff ${staffId} may not read the quality pipeline`);
   }
-  const [rounds, labels, fronts] = await Promise.all([
-    internal.listCalibrationRounds(),
-    loadStaffLabelMap(internal),
-    internal.listFronts(),
-  ]);
+  // Sequential on purpose: repos may share one transaction client, where
+  // parallel queries warn today and break in pg@9 (#574).
+  const rounds = await internal.listCalibrationRounds();
+  const labels = await loadStaffLabelMap(internal);
+  const fronts = await internal.listFronts();
   const frontKeyById = new Map(fronts.map((front) => [front.id, front.key]));
   const open = rounds
     .filter((round) => round.status === "open")
@@ -146,21 +146,17 @@ export async function getRoundDetail(
   const scope = { workspaceId, accountId };
   const round = await repos.calibrationRounds.get(scope, roundId);
   if (!round) return null;
-  const [front, batch, { items }, scores, roundEvents, labels] = await Promise.all([
-    repos.fronts.get(scope, round.frontId),
-    repos.batches.get(scope, round.batchId),
-    loadRoundItems(scope, repos, round),
-    repos.calibrationScores.list(scope),
-    repos.events.list(scope, { objectType: "round", objectId: round.id }),
-    loadStaffLabelMap(internal),
-  ]);
+  const front = await repos.fronts.get(scope, round.frontId);
+  const batch = await repos.batches.get(scope, round.batchId);
+  const { items } = await loadRoundItems(scope, repos, round);
+  const scores = await repos.calibrationScores.list(scope);
+  const roundEvents = await repos.events.list(scope, { objectType: "round", objectId: round.id });
+  const labels = await loadStaffLabelMap(internal);
   const detail: RoundDetailItem[] = [];
   for (const item of items) {
-    const [versions, receipts, itemEvents] = await Promise.all([
-      repos.itemVersions.list(scope, { itemId: item.id }),
-      repos.receipts.listByObject(scope, "item", item.id),
-      repos.events.list(scope, { objectType: "item", objectId: item.id }),
-    ]);
+    const versions = await repos.itemVersions.list(scope, { itemId: item.id });
+    const receipts = await repos.receipts.listByObject(scope, "item", item.id);
+    const itemEvents = await repos.events.list(scope, { objectType: "item", objectId: item.id });
     const ordered = [...versions].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
     const quality = roundItemQuality(roundEvents, item.id);
     detail.push({

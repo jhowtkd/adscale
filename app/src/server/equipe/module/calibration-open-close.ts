@@ -192,10 +192,13 @@ export async function runCloseRound(
         `a ${kind} round needs ${expectedSize} items, found ${items.length}`,
       );
     }
-    const [scores, roundEvents] = await Promise.all([
-      ctx.repos.calibrationScores.list(scope),
-      ctx.repos.events.list(scope, { objectType: "round", objectId: opened.value.round.id }),
-    ]);
+    // Sequential on purpose: one transaction client, where parallel
+    // queries warn today and break in pg@9 (#574).
+    const scores = await ctx.repos.calibrationScores.list(scope);
+    const roundEvents = await ctx.repos.events.list(scope, {
+      objectType: "round",
+      objectId: opened.value.round.id,
+    });
     const gate: RoundItemScore[] = [];
     const summaryItems: Array<Record<string, unknown>> = [];
     const loosenings: Array<Record<string, unknown>> = [];
@@ -205,10 +208,11 @@ export async function runCloseRound(
         return err("unscored_item", `item ${item.id} has no attempt score yet`);
       }
       const quality = roundItemQuality(roundEvents, item.id);
-      const [receipts, itemEvents] = await Promise.all([
-        ctx.repos.receipts.listByObject(scope, "item", item.id),
-        ctx.repos.events.list(scope, { objectType: "item", objectId: item.id }),
-      ]);
+      const receipts = await ctx.repos.receipts.listByObject(scope, "item", item.id);
+      const itemEvents = await ctx.repos.events.list(scope, {
+        objectType: "item",
+        objectId: item.id,
+      });
       const decision = resolveClientDecision({
         item,
         receipts,
