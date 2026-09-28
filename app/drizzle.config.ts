@@ -13,10 +13,10 @@ function getDatabaseUrl(): string {
 }
 
 export default defineConfig({
-  schema: "./src/server/db/schema.ts",
+  schema: ["./src/server/db/schema.ts", "./src/server/db/equipe-schema.ts"],
   out: "./drizzle",
   dialect: "postgresql",
-  schemaFilter: ["adscale_app"],
+  schemaFilter: ["adscale_app", "adscale_equipe"],
   dbCredentials: {
     url: getDatabaseUrl(),
   },
