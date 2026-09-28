@@ -86,6 +86,14 @@ export type EquipeAction =
   | "open_auto_exception"
   | "open_auto_escalation"
   | "apply_automatic_pause"
+  // Escalonamentos, exceções e pausas (#547)
+  | "merge_escalations"
+  | "close_escalation"
+  | "ingest_agent_signal"
+  | "reopen_calibration"
+  | "request_support"
+  | "post_staff_message"
+  | "resume_pause"
   // Implantation (module #544; owners from the implantação flow)
   | "open_account"
   | "confirm_scope"
@@ -168,6 +176,15 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   open_auto_exception: [SYSTEM],
   open_auto_escalation: [SYSTEM],
   apply_automatic_pause: [SYSTEM],
+  // #547: fine-grained owner checks (part kind, pause origin, escalation
+  // owner) run inside the command; the action grants the candidate set.
+  merge_escalations: [QUALITY, OPERATIONS],
+  close_escalation: [QUALITY, OPERATIONS],
+  ingest_agent_signal: [SYSTEM],
+  reopen_calibration: [QUALITY],
+  request_support: [ANY_CLIENT],
+  post_staff_message: [SUPPORT],
+  resume_pause: [CLIENT_DECISION, QUALITY, OPERATIONS, SUPPORT, SYSTEM],
   open_account: [OPERATIONS],
   confirm_scope: [CLIENT_DECISION],
   register_material: [ANY_CLIENT, SUPPORT],

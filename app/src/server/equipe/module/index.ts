@@ -20,3 +20,8 @@ export * from "./items-choose";
 export * from "./items-deadline";
 // #551
 export * from "./threads";
+// #547 — escalonamentos, exceções de atendimento e pausas.
+export * from "./escalations";
+export * from "./exceptions";
+export * from "./pauses";
+export * from "./escalation-queries";

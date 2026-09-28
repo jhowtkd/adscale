@@ -232,6 +232,153 @@ export const openParallelThreadPayloadSchema = z.object({
   topic: z.string().min(1).max(200),
 });
 
+// #547 — escalonamentos, exceções de atendimento e pausas.
+
+export const escalationKindSchema = z.enum(["content", "technical", "security"]);
+export const escalationSeveritySchema = z.enum(["normal", "critical", "critical_cross_account"]);
+export const escalationCauseSchema = z.enum([
+  "missing_source",
+  "outdated_offer",
+  "model_error",
+  "connection",
+  "client_request",
+  "isolation",
+  "other",
+  "no_client_response",
+]);
+export const escalationExitSchema = z.enum(["fix", "confirm_no_issue", "defer_to_client"]);
+export const supportTriggerSchema = z.enum([
+  "client_requested_person",
+  "stalled_implantation",
+  "stuck_connection",
+  "unresolved_fact_conflict",
+  "repeated_silence",
+  "out_of_contract_request",
+  "dissatisfaction_signal",
+  "cancel_request",
+  "critical_incident",
+  "off_app_material",
+]);
+export const supportCloseReasonSchema = z.enum([
+  "resolved",
+  "commercial_forwarded",
+  "client_no_response",
+]);
+export const contactChannelSchema = z.enum(["phone", "whatsapp", "in_person", "other"]);
+
+export const openEscalationPayloadSchema = z.object({
+  kind: escalationKindSchema,
+  severity: escalationSeveritySchema,
+  itemId: uuid.optional(),
+  frontId: uuid.optional(),
+  reason: z.string().min(1).max(2000),
+  systemic: z.boolean().default(false),
+  connectionIds: z.array(uuid).max(10).default([]),
+});
+
+export const reportItemProblemPayloadSchema = z.object({
+  itemId: uuid,
+  note: z.string().min(1).max(2000),
+});
+
+export const mergeEscalationsPayloadSchema = z.object({
+  escalationIds: z.tuple([uuid, uuid]),
+});
+
+export const resolveContentEscalationPayloadSchema = z.object({
+  escalationId: uuid,
+  exit: escalationExitSchema,
+});
+
+export const resolveTechnicalEscalationPayloadSchema = z.object({
+  escalationId: uuid,
+  kind: z.enum(["technical", "security"]).optional(),
+  exit: escalationExitSchema,
+});
+
+export const closeEscalationPayloadSchema = z.object({
+  escalationId: uuid,
+  cause: escalationCauseSchema,
+  lessonCandidate: z.string().max(2000).optional(),
+});
+
+export const expireEscalationClientWaitPayloadSchema = z.object({
+  escalationId: uuid,
+});
+
+export const ingestAgentSignalPayloadSchema = z.object({
+  sourceEventId: uuid,
+});
+
+export const reopenFrontCalibrationPayloadSchema = z.object({
+  frontId: uuid,
+  escalationId: uuid,
+});
+
+export const openExceptionPayloadSchema = z.object({
+  trigger: supportTriggerSchema,
+  reason: z.string().max(2000).optional(),
+});
+
+export const requestSupportPayloadSchema = z.object({
+  note: z.string().max(2000).optional(),
+});
+
+export const assumeExceptionPayloadSchema = z.object({
+  exceptionId: uuid,
+});
+
+export const postStaffMessagePayloadSchema = z.object({
+  exceptionId: uuid,
+  body: z.string().min(1).max(4000),
+});
+
+export const registerContactPayloadSchema = z.object({
+  exceptionId: uuid,
+  channel: contactChannelSchema,
+  summary: z.string().min(1).max(2000),
+});
+
+export const closeExceptionPayloadSchema = z.object({
+  exceptionId: uuid,
+  reason: supportCloseReasonSchema,
+});
+
+export const pausePublicationsPayloadSchema = z.object({
+  reason: z.string().max(2000).optional(),
+});
+
+export const pauseAccountTeamPayloadSchema = z.object({
+  reason: z.string().max(2000).optional(),
+});
+
+export const pauseFrontContentPayloadSchema = z.object({
+  frontId: uuid,
+  reason: z.string().max(2000).optional(),
+});
+
+export const pauseConnectionPayloadSchema = z.object({
+  reason: z.string().max(2000).optional(),
+  connectionId: uuid.optional(),
+});
+
+export const pauseGlobalPayloadSchema = z.object({
+  reason: z.string().max(2000).optional(),
+});
+
+export const suspendExecutionPayloadSchema = z.object({
+  reason: z.string().max(2000).optional(),
+  connectionIds: z.array(uuid).max(10).default([]),
+});
+
+export const pauseDelinquencyPayloadSchema = z.object({
+  reason: z.string().max(2000).optional(),
+});
+
+export const resumePausePayloadSchema = z.object({
+  pauseId: uuid,
+});
+
 /** Adapter-provided scope: session + URL, never the request body. */
 export const adapterContextSchema = z.object({
   actor: actorSchema,
@@ -276,6 +423,30 @@ export const commandSchema = z.discriminatedUnion("type", [
   // #551
   command("ensure_primary_thread", ensurePrimaryThreadPayloadSchema),
   command("open_parallel_thread", openParallelThreadPayloadSchema),
+  // #547
+  command("open_escalation", openEscalationPayloadSchema),
+  command("report_item_problem", reportItemProblemPayloadSchema),
+  command("merge_escalations", mergeEscalationsPayloadSchema),
+  command("resolve_content_escalation", resolveContentEscalationPayloadSchema),
+  command("resolve_technical_escalation", resolveTechnicalEscalationPayloadSchema),
+  command("close_escalation", closeEscalationPayloadSchema),
+  command("expire_escalation_client_wait", expireEscalationClientWaitPayloadSchema),
+  command("ingest_agent_signal", ingestAgentSignalPayloadSchema),
+  command("reopen_front_calibration", reopenFrontCalibrationPayloadSchema),
+  command("open_exception", openExceptionPayloadSchema),
+  command("request_support", requestSupportPayloadSchema),
+  command("assume_exception", assumeExceptionPayloadSchema),
+  command("post_staff_message", postStaffMessagePayloadSchema),
+  command("register_contact", registerContactPayloadSchema),
+  command("close_exception", closeExceptionPayloadSchema),
+  command("pause_publications", pausePublicationsPayloadSchema),
+  command("pause_account_team", pauseAccountTeamPayloadSchema),
+  command("pause_front_content", pauseFrontContentPayloadSchema),
+  command("pause_connection", pauseConnectionPayloadSchema),
+  command("pause_global", pauseGlobalPayloadSchema),
+  command("suspend_execution", suspendExecutionPayloadSchema),
+  command("pause_delinquency", pauseDelinquencyPayloadSchema),
+  command("resume_pause", resumePausePayloadSchema),
 ]);
 
 /** Validated untrusted half of the call: { type, payload } only. */

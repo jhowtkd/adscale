@@ -94,12 +94,14 @@ export const EQUIPE_AGENT_ROLE = [
 ] as const;
 export const EQUIPE_ROUND_STATUS = ["open", "closed"] as const;
 export const EQUIPE_SCORE_VERDICT = ["pass", "fail", "critical"] as const;
-export const EQUIPE_SEVERITY = ["low", "medium", "high", "critical"] as const;
+export const EQUIPE_SEVERITY = ["low", "medium", "high", "critical", "critical_cross_account"] as const;
 export const EQUIPE_ESCALATION_STATUS = [
   "open",
   "acknowledged",
   "resolving",
+  "awaiting_client",
   "resolved",
+  "merged",
   "closed",
 ] as const;
 export const EQUIPE_EXCEPTION_STATUS = ["open", "claimed", "resolved", "closed"] as const;
@@ -566,6 +568,9 @@ export const equipeEscalations = equipeSchema.table(
     severity: text("severity").notNull(),
     ownerRole: text("owner_role").notNull(),
     coOwnerRole: text("co_owner_role"),
+    // Resolution parts: [{ kind, resolved }]; one entry normally, two after
+    // a merge (#547). Null on rows written before 0121 means "single kind".
+    parts: jsonb("parts"),
     dueAt: timestamp("due_at", { mode: "date" }),
     status: text("status").notNull().default("open"),
     cause: text("cause"),
@@ -598,6 +603,8 @@ export const equipeExceptions = equipeSchema.table(
     attempts: integer("attempts").notNull().default(0),
     dueAt: timestamp("due_at", { mode: "date" }),
     ownerRole: text("owner_role").notNull().default("account_manager"),
+    // Staff member who assumed the case (#547); null until assumed.
+    assigneeId: uuid("assignee_id"),
     status: text("status").notNull().default("open"),
     resolvedAt: timestamp("resolved_at", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),

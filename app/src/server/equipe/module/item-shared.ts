@@ -223,14 +223,14 @@ export function resolveItemReview(input: {
   return { flags, status, batchApprovable: isBatchApprovable(status), triage };
 }
 
-/** An escalation row linked to the item blocks while not resolved/closed. */
+/** An escalation row linked to the item blocks while not resolved/closed/merged. */
 export async function hasOpenItemEscalation(
   repos: EquipeRepositories,
   scope: AccountScope,
   itemId: string,
 ): Promise<boolean> {
   const rows = await repos.escalations.list(scope, { itemId });
-  return rows.some((row) => row.status !== "resolved" && row.status !== "closed");
+  return rows.some((row) => row.status !== "resolved" && row.status !== "closed" && row.status !== "merged");
 }
 
 export async function loadItemReview(
