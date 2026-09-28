@@ -39,4 +39,11 @@ describe("EquipeStatePill", () => {
     render(<EquipeStatePill state="mystery" />);
     expect(screen.getByTestId("equipe-state-pill")).toHaveTextContent("mystery");
   });
+
+  it("stays inside narrow cards and keeps the full label on hover", () => {
+    render(<EquipeStatePill state="available_for_download" />);
+    const pill = screen.getByTestId("equipe-state-pill");
+    expect(pill).toHaveClass("max-w-full");
+    expect(pill).toHaveAttribute("title", "states.available_for_download");
+  });
 });

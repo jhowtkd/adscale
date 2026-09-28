@@ -208,6 +208,7 @@ describe("PipelineView", () => {
     routeFetch();
     renderView();
     expect(await screen.findByTestId("pipeline-card-a")).toHaveTextContent("Caption a");
+    expect(screen.getByTestId("pipeline-card-a")).toHaveTextContent(/· Caption a/);
     expect(screen.getByTestId("pipeline-card-f")).toHaveTextContent("Caption f");
     const itemFetches = mockedFetch.mock.calls.filter((call) =>
       String(call[0]).includes("/items/"),

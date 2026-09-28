@@ -52,10 +52,19 @@ export default function EquipeStatePill({ state }: { state: string }) {
   const t = useTranslations("equipe.states");
   const pill = PILL_BY_STATE[state] ?? { tone: "neutral" as PillTone, icon: AlertTriangle };
   const Icon = pill.icon;
+  const label = t.has(state) ? t(state) : state;
+  // Long labels ("disponível para baixar") truncate inside narrow cards
+  // instead of overflowing them; the full text stays on hover.
   return (
-    <Badge variant={pill.tone} data-testid="equipe-state-pill" data-state={state}>
-      <Icon aria-hidden="true" />
-      {t.has(state) ? t(state) : state}
+    <Badge
+      variant={pill.tone}
+      data-testid="equipe-state-pill"
+      data-state={state}
+      title={label}
+      className="max-w-full"
+    >
+      <Icon aria-hidden="true" className="shrink-0" />
+      <span className="truncate">{label}</span>
     </Badge>
   );
 }

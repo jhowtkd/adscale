@@ -273,8 +273,13 @@ export default function EquipeTopActions({
   active: "painel" | "pipeline" | null;
   accountId: string | null;
 }) {
+  // One row on desktop like /pipeline; the narrow reading frames of
+  // /goals and /ideas only wrap the actions below desktop widths.
   return (
-    <div className="flex flex-wrap items-center gap-2" data-testid="equipe-top-actions">
+    <div
+      className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:shrink-0"
+      data-testid="equipe-top-actions"
+    >
       <EquipeViewSelector active={active} accountId={accountId} />
       <PauseOrResume accountId={accountId} />
       <RequestSupportButton accountId={accountId} />

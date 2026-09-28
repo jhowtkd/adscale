@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { ImageIcon } from "lucide-react";
 import { itemImageUrl, type PipelineItemJson } from "@/lib/equipe/api";
 import EquipeStatePill from "./EquipeStatePill";
-import { captionTitle, formatDateTime } from "./equipe-format";
+import { captionTitle, formatShortDate, formatShortDay } from "./equipe-format";
 
 // One pipeline card: thumbnail, title, the single state pill and the
 // deadline. Title and thumbnail ride the pipeline read model itself, so a
@@ -26,8 +26,12 @@ export default function PipelineCard({
   const image = itemImageUrl(view.item, view.preview);
   const title =
     captionTitle(view.preview?.caption ?? null, 60) ?? view.batch?.title ?? t("untitledItem");
-  const when = formatDateTime(view.item.scheduledFor, locale);
-  const deadline = formatDateTime(view.item.deadlineAt ?? view.batch?.approveByAt ?? null, locale);
+  const when = formatShortDay(view.item.scheduledFor, locale);
+  const deadline = formatShortDate(
+    view.item.deadlineAt ?? view.batch?.approveByAt ?? null,
+    locale,
+  );
+  const heading = when ? `${when} · ${title}` : title;
   const params = new URLSearchParams(searchParams.toString());
   params.set("account", accountId);
   params.set("item", view.item.id);
@@ -56,10 +60,13 @@ export default function PipelineCard({
         </span>
       )}
       <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="truncate text-[13px] font-medium text-[var(--text-primary)]">
-          {when ? `${when} · ${title}` : title}
+        <span
+          title={heading}
+          className="line-clamp-2 text-[13px] font-medium text-[var(--text-primary)]"
+        >
+          {heading}
         </span>
-        <span>
+        <span className="min-w-0 max-w-full">
           <EquipeStatePill state={view.displayState} />
         </span>
         {deadline ? (

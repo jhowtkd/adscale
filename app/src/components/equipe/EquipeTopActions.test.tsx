@@ -64,6 +64,11 @@ describe("EquipeTopActions", () => {
     );
   });
 
+  it("keeps the actions on one row at desktop widths", () => {
+    renderActions();
+    expect(screen.getByTestId("equipe-top-actions")).toHaveClass("lg:flex-nowrap");
+  });
+
   it("marks neither view active when the screen is not Painel nor Pipeline", () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
