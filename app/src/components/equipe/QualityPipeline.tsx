@@ -22,6 +22,7 @@ import {
 } from "./staff-ui";
 import { enumLabel } from "./labels";
 import EquipeViewToggle from "./EquipeViewToggle";
+import GlobalStopBanner from "./GlobalStopBanner";
 import QualityEffortForm from "./QualityEffortForm";
 import type { QualityPipelineEntryView, QualityPipelineView } from "./types";
 
@@ -41,6 +42,7 @@ export default function QualityPipeline() {
         description={t("description")}
         actions={<EquipeViewToggle active="quality" />}
       />
+      <GlobalStopBanner />
       {query.isLoading ? <StaffLoading label={tCommon("loading")} /> : null}
       {query.error ? (
         <StaffErrorAlert error={query.error} onRetry={() => void query.refetch()} />

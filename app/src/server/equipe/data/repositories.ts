@@ -24,6 +24,8 @@ import type {
   EquipeExceptionPatch,
   EquipeFront,
   EquipeFrontPatch,
+  EquipeGlobalStop,
+  EquipeGlobalStopPatch,
   EquipeIdea,
   EquipeIdeaPatch,
   EquipeIntentFilter,
@@ -60,6 +62,7 @@ import type {
   NewEquipeEvent,
   NewEquipeException,
   NewEquipeFront,
+  NewEquipeGlobalStop,
   NewEquipeIdea,
   NewEquipeItem,
   NewEquipeItemVersion,
@@ -256,10 +259,22 @@ export interface EquipeStaffRepository {
   update(id: string, patch: EquipeStaffPatch): Promise<EquipeStaffMember>;
 }
 
+// Parada global (#583): fonte única sem escopo, no lado interno. Uma linha
+// ativa no máximo (o banco reforça com índice parcial; a memória com checagem).
+export interface EquipeGlobalStopRepository {
+  getActive(): Promise<EquipeGlobalStop | null>;
+  create(input: NewEquipeGlobalStop): Promise<EquipeGlobalStop>;
+  update(id: string, patch: EquipeGlobalStopPatch): Promise<EquipeGlobalStop>;
+}
+
 // Lado interno (staff/jobs, atrás do guard de equipe interna): o ÚNICO lugar
 // com consultas entre contas — staff global, claim de despacho e varreduras.
 export interface InternalEquipeRepositories {
   staff: EquipeStaffRepository;
+  // #583 — parada global de publicações.
+  globalStops: EquipeGlobalStopRepository;
+  /** Every account, any status: the global stop fans out across all of them. */
+  listAccounts(): Promise<EquipeAccount[]>;
   claimDueIntents(input: {
     owner: string;
     now: Date;

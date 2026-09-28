@@ -16,6 +16,7 @@ import type {
   EquipeEvent,
   EquipeException,
   EquipeFront,
+  EquipeGlobalStop,
   EquipeIdea,
   EquipeItem,
   EquipeItemVersion,
@@ -55,6 +56,8 @@ export type MemoryEquipeStore = {
   people: MemoryTable<EquipeAccountPerson>;
   staff: MemoryTable<EquipeStaffMember>;
   fronts: MemoryTable<EquipeFront>;
+  // #583 — parada global (fonte única, sem escopo).
+  globalStops: MemoryTable<EquipeGlobalStop>;
   onboarding: MemoryTable<EquipeOnboardingStep>;
   contexts: MemoryTable<EquipeContextVersion>;
   plans: MemoryTable<EquipePlan>;
@@ -84,6 +87,7 @@ export function createMemoryEquipeStore(): MemoryEquipeStore {
     people: new MemoryTable(),
     staff: new MemoryTable(),
     fronts: new MemoryTable(),
+    globalStops: new MemoryTable(),
     onboarding: new MemoryTable(),
     contexts: new MemoryTable(),
     plans: new MemoryTable(),

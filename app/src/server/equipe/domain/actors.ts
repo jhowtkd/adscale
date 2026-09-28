@@ -61,6 +61,8 @@ export type EquipeAction =
   | "suspend_execution"
   | "revoke_connection"
   | "global_stop"
+  // #583 — retomar a parada global (só operação, como parar).
+  | "resume_global_stop"
   | "resume_technical"
   // Staff: support ("atendimento")
   | "open_exception"
@@ -179,6 +181,7 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   suspend_execution: [OPERATIONS, SYSTEM],
   revoke_connection: [OPERATIONS],
   global_stop: [OPERATIONS],
+  resume_global_stop: [OPERATIONS],
   resume_technical: [OPERATIONS],
   open_exception: [SUPPORT, AGENT, SYSTEM],
   assume_exception: [SUPPORT],

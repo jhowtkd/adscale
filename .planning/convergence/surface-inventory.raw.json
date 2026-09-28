@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-28T17:52:49.370Z",
+  "generatedAt": "2026-09-28T18:12:36.999Z",
   "schemaVersion": 2,
-  "fingerprint": "9c88b0402a6e4cad3f05cd8159028ccf90a7f9a990f3948428a7caee85dc1a6c",
+  "fingerprint": "4180ddfdb258fb0db39364f5ab68dd9e59ff1c973bda909447b0573920dae63e",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
@@ -1990,21 +1990,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/equipe/CrossAccountPipeline.tsx:166",
+      "id": "nav:app/src/components/equipe/CrossAccountPipeline.tsx:168",
       "kind": "cta_navigation",
       "destination": "/admin/equipe/exceptions?workspaceId=${entry.scope.workspaceId}&accountId=${entry.scope.accountId}",
       "file": "app/src/components/equipe/CrossAccountPipeline.tsx",
-      "line": 166,
-      "evidence": "app/src/components/equipe/CrossAccountPipeline.tsx:166",
+      "line": 168,
+      "evidence": "app/src/components/equipe/CrossAccountPipeline.tsx:168",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/equipe/CrossAccountPipeline.tsx:364",
+      "id": "nav:app/src/components/equipe/CrossAccountPipeline.tsx:366",
       "kind": "cta_navigation",
       "destination": "/admin/equipe/escalations/${row.id}?workspaceId=${workspaceId}&accountId=${accountId}",
       "file": "app/src/components/equipe/CrossAccountPipeline.tsx",
-      "line": 364,
-      "evidence": "app/src/components/equipe/CrossAccountPipeline.tsx:364",
+      "line": 366,
+      "evidence": "app/src/components/equipe/CrossAccountPipeline.tsx:366",
       "requiresDecision": false
     },
     {
@@ -2026,12 +2026,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/equipe/ExceptionsQueue.tsx:98",
+      "id": "nav:app/src/components/equipe/ExceptionsQueue.tsx:100",
       "kind": "cta_navigation",
       "destination": "/admin/equipe/exceptions?workspaceId=${entry.scope.workspaceId}&accountId=${entry.scope.accountId}",
       "file": "app/src/components/equipe/ExceptionsQueue.tsx",
-      "line": 98,
-      "evidence": "app/src/components/equipe/ExceptionsQueue.tsx:98",
+      "line": 100,
+      "evidence": "app/src/components/equipe/ExceptionsQueue.tsx:100",
       "requiresDecision": false
     },
     {
@@ -2062,12 +2062,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/equipe/QualityPipeline.tsx:148",
+      "id": "nav:app/src/components/equipe/QualityPipeline.tsx:150",
       "kind": "cta_navigation",
       "destination": "/admin/equipe/quality/rounds/${entry.roundId}?workspaceId=${entry.workspaceId}&accountId=${entry.accountId}",
       "file": "app/src/components/equipe/QualityPipeline.tsx",
-      "line": 148,
-      "evidence": "app/src/components/equipe/QualityPipeline.tsx:148",
+      "line": 150,
+      "evidence": "app/src/components/equipe/QualityPipeline.tsx:150",
       "requiresDecision": false
     },
     {

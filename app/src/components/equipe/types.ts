@@ -103,6 +103,8 @@ export type CrossAccountEntryView = {
 
 export type CrossAccountPipelineView = {
   entries: CrossAccountEntryView[];
+  // #583 — the platform-wide publication stop; absent on stale mocks only.
+  globalStop?: GlobalStopStateView;
 };
 
 // Open-account candidates (#582): one pilot workspace with the brands
@@ -113,6 +115,18 @@ export type OpenAccountCandidateView = {
   brands: Array<{ id: string; name: string | null }>;
   members: Array<{ userId: string; name: string | null; email: string | null }>;
 };
+
+// #583 — same fields as the module's GlobalStopState; dates arrive as ISO.
+export type GlobalStopStateView =
+  | { active: false }
+  | {
+      active: true;
+      stopId: string;
+      reason: string;
+      stoppedBy: string;
+      stoppedByName: string | null;
+      stoppedAt: string;
+    };
 
 export type QualityPipelineEntryView = {
   workspaceId: string;

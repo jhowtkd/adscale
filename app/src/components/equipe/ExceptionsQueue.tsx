@@ -25,6 +25,7 @@ import {
 import { enumLabel } from "./labels";
 import EquipeViewToggle from "./EquipeViewToggle";
 import ExceptionConversation from "./ExceptionConversation";
+import GlobalStopBanner from "./GlobalStopBanner";
 import type {
   CrossAccountPipelineView,
   ExceptionsQueueView,
@@ -48,6 +49,7 @@ export default function ExceptionsQueue({
         description={t("description")}
         actions={<EquipeViewToggle active="exceptions" />}
       />
+      <GlobalStopBanner />
       {scoped ? (
         <ScopedQueue workspaceId={workspaceId} accountId={accountId} />
       ) : (

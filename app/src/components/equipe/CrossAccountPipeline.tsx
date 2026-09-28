@@ -24,6 +24,7 @@ import {
 } from "./staff-ui";
 import { enumLabel } from "./labels";
 import EquipeViewToggle from "./EquipeViewToggle";
+import GlobalStopBanner from "./GlobalStopBanner";
 import OpenAccountDialog from "./OpenAccountDialog";
 import type {
   CrossAccountEntryView,
@@ -88,6 +89,7 @@ export default function CrossAccountPipeline({
           </>
         }
       />
+      <GlobalStopBanner />
       {query.isLoading ? <StaffLoading label={tCommon("loading")} /> : null}
       {query.error ? (
         <StaffErrorAlert error={query.error} onRetry={() => void query.refetch()} />

@@ -8,6 +8,7 @@ import {
   EQUIPE_EXCEPTION_STATUS,
   EQUIPE_FRONT_KEY,
   EQUIPE_FRONT_STATUS,
+  EQUIPE_GLOBAL_STOP_STATUS,
   EQUIPE_IDEA_KIND,
   EQUIPE_IDEA_STATUS,
   EQUIPE_INTENT_STATUS,
@@ -36,6 +37,7 @@ import {
   equipeEvents,
   equipeExceptions,
   equipeFronts,
+  equipeGlobalStops,
   equipeIdeas,
   equipeItemVersions,
   equipeItems,
@@ -79,6 +81,8 @@ export type EquipeCalibrationScore = typeof equipeCalibrationScores.$inferSelect
 export type EquipeEscalation = typeof equipeEscalations.$inferSelect;
 export type EquipeException = typeof equipeExceptions.$inferSelect;
 export type EquipePause = typeof equipePauses.$inferSelect;
+// #583 — parada global: linha sem escopo de conta (fonte única).
+export type EquipeGlobalStop = typeof equipeGlobalStops.$inferSelect;
 export type EquipePublicationIntent = typeof equipePublicationIntents.$inferSelect;
 export type EquipeConnection = typeof equipeConnections.$inferSelect;
 export type EquipeThread = typeof equipeThreads.$inferSelect;
@@ -108,6 +112,8 @@ export type EquipeExceptionStatus = (typeof EQUIPE_EXCEPTION_STATUS)[number];
 export type EquipePauseLevel = (typeof EQUIPE_PAUSE_LEVEL)[number];
 export type EquipePauseScope = (typeof EQUIPE_PAUSE_SCOPE)[number];
 export type EquipePauseStatus = (typeof EQUIPE_PAUSE_STATUS)[number];
+// #583
+export type EquipeGlobalStopStatus = (typeof EQUIPE_GLOBAL_STOP_STATUS)[number];
 export type EquipeIntentStatus = (typeof EQUIPE_INTENT_STATUS)[number];
 export type EquipeConnectionStatus = (typeof EQUIPE_CONNECTION_STATUS)[number];
 export type EquipeThreadKind = (typeof EQUIPE_THREAD_KIND)[number];
@@ -135,6 +141,8 @@ export const equipeExceptionStatusSchema = z.enum(EQUIPE_EXCEPTION_STATUS);
 export const equipePauseLevelSchema = z.enum(EQUIPE_PAUSE_LEVEL);
 export const equipePauseScopeSchema = z.enum(EQUIPE_PAUSE_SCOPE);
 export const equipePauseStatusSchema = z.enum(EQUIPE_PAUSE_STATUS);
+// #583
+export const equipeGlobalStopStatusSchema = z.enum(EQUIPE_GLOBAL_STOP_STATUS);
 export const equipeIntentStatusSchema = z.enum(EQUIPE_INTENT_STATUS);
 export const equipeConnectionStatusSchema = z.enum(EQUIPE_CONNECTION_STATUS);
 export const equipeThreadKindSchema = z.enum(EQUIPE_THREAD_KIND);
@@ -217,6 +225,11 @@ export type NewEquipePause = NewRow<typeof equipePauses.$inferInsert> & {
   scope: EquipePauseScope;
   status?: EquipePauseStatus;
 };
+// #583 — sem escopo: stopped_by é o id do staff de operações.
+export type NewEquipeGlobalStop = Omit<
+  typeof equipeGlobalStops.$inferInsert,
+  "id" | "createdAt" | "updatedAt"
+> & { status?: EquipeGlobalStopStatus };
 export type NewEquipePublicationIntent = Omit<
   NewRow<typeof equipePublicationIntents.$inferInsert>,
   "idempotencyKey"
@@ -257,6 +270,8 @@ export type EquipeCalibrationRoundPatch = Partial<NewEquipeCalibrationRound>;
 export type EquipeEscalationPatch = Partial<NewEquipeEscalation>;
 export type EquipeExceptionPatch = Partial<NewEquipeException>;
 export type EquipePausePatch = Partial<NewEquipePause>;
+// #583
+export type EquipeGlobalStopPatch = Partial<NewEquipeGlobalStop>;
 export type EquipePublicationIntentPatch = Partial<NewEquipePublicationIntent>;
 export type EquipeConnectionPatch = Partial<NewEquipeConnection>;
 export type EquipeThreadPatch = Partial<NewEquipeThread>;

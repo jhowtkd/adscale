@@ -131,19 +131,44 @@ describe("open_escalation", () => {
       pauseIds: string[];
       exceptionId: string;
       isolatedConnectionIds: string[];
+      globalStopId: string | null;
     };
-    expect(data.pauseIds).toHaveLength(2);
+    // (#583) Systemic applies the real global stop immediately — containment
+    // before any other action — with no per-account global_stop pause row.
+    expect(data.pauseIds).toHaveLength(1);
+    expect(data.globalStopId).toEqual(expect.any(String));
     expect(data.isolatedConnectionIds).toEqual([connection.id]);
     const pauses = await t.deps.uow.repos.pauses.list(scope);
-    expect(pauses.filter((p) => p.status === "active")).toHaveLength(2);
+    expect(pauses.filter((p) => p.status === "active")).toHaveLength(1);
     const summaries = pauses.map((p) => [p.origin, p.level, p.scope].join("/"));
     expect(summaries).toContain("security/execution/account");
-    expect(pauses.map((p) => [p.origin, p.scope].join("/"))).toContain("global_stop/global");
+    const active = await t.deps.uow.internal.globalStops.getActive();
+    expect(active?.id).toBe(data.globalStopId);
+    expect(active).toMatchObject({
+      reason: `systemic cause suspected (escalation ${outcome.value.data.escalationId})`,
+      status: "active",
+    });
+    const applied = outcome.value.events.filter((e) => e.eventType === "global_stop.applied");
+    expect(applied).toHaveLength(1);
+    expect(applied[0]?.payload).toMatchObject({
+      escalationId: outcome.value.data.escalationId,
+    });
+    const notes = outcome.value.events.filter(
+      (e) =>
+        e.eventType === "notification.requested" &&
+        (e.payload as { templateKey?: string })?.templateKey === "global_stop.applied",
+    );
+    expect(notes.map((e) => (e.payload as { recipientRole?: string }).recipientRole).sort()).toEqual(
+      ["founder", "operations"],
+    );
     // Isolated through the suspension — the stored status stays untouched,
     // only operations revoke (see revoke_connection).
     expect((await t.deps.uow.repos.connections.get(scope, connection.id))?.status).toBe("active");
     const opened = outcome.value.events.find((e) => e.eventType === "escalation.opened");
-    expect(opened?.payload).toMatchObject({ isolatedConnectionIds: [connection.id] });
+    expect(opened?.payload).toMatchObject({
+      isolatedConnectionIds: [connection.id],
+      globalStopId: data.globalStopId,
+    });
     const suspended = outcome.value.events.find((e) => e.eventType === "pause.applied");
     expect(suspended?.payload).toMatchObject({ isolatedConnectionIds: [connection.id] });
     expect(data.exceptionId).toBeTruthy();

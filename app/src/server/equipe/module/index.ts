@@ -31,6 +31,8 @@ export * from "./escalations";
 export * from "./exceptions";
 export * from "./pauses";
 export * from "./escalation-queries";
+// #583 — parada global de publicações sem deploy.
+export * from "./global-stop";
 // Calibration (#546)
 export * from "./calibration-shared";
 export * from "./calibration-conference";

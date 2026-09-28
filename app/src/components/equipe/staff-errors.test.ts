@@ -20,6 +20,13 @@ describe("staffErrorKey", () => {
     expect(staffErrorKey(new StaffApiError(404, "round_not_in_front", "x"))).toBe(
       "roundNotInFront",
     );
+    // #583 — stopping twice / resuming without a stop.
+    expect(staffErrorKey(new StaffApiError(409, "global_stop_already_active", "x"))).toBe(
+      "globalStopAlreadyActive",
+    );
+    expect(staffErrorKey(new StaffApiError(409, "global_stop_not_active", "x"))).toBe(
+      "globalStopNotActive",
+    );
   });
 
   it("falls back by status for unknown codes", () => {

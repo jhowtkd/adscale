@@ -108,6 +108,8 @@ export const EQUIPE_EXCEPTION_STATUS = ["open", "claimed", "resolved", "closed"]
 export const EQUIPE_PAUSE_LEVEL = ["publishing", "execution", "billing"] as const;
 export const EQUIPE_PAUSE_SCOPE = ["account", "front", "global"] as const;
 export const EQUIPE_PAUSE_STATUS = ["active", "lifted"] as const;
+// #583 — parada global: fonte única, sem workspace/account.
+export const EQUIPE_GLOBAL_STOP_STATUS = ["active", "lifted"] as const;
 export const EQUIPE_INTENT_STATUS = [
   "pending",
   "sending",
@@ -836,5 +838,31 @@ export const equipeAgentLedger = equipeSchema.table(
   (t) => [
     index("equipe_agent_ledger_account_idx").on(t.accountId),
     check("equipe_agent_ledger_role_check", inList(t.role, EQUIPE_AGENT_ROLE)),
+  ]
+);
+
+// Parada global de publicações (#583): a fonte única de "parada ativa",
+// lida pelo gate do despacho para TODA conta (inclusive as abertas durante
+// a parada). Sem workspace/account: o índice parcial garante no máximo uma
+// linha ativa, e o histórico (lifted) fica para auditoria.
+export const equipeGlobalStops = equipeSchema.table(
+  "equipe_global_stops",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    status: text("status").notNull().default("active"),
+    reason: text("reason").notNull(),
+    stoppedBy: text("stopped_by").notNull(),
+    stoppedAt: timestamp("stopped_at", { mode: "date" }).notNull().defaultNow(),
+    liftedAt: timestamp("lifted_at", { mode: "date" }),
+    liftedBy: text("lifted_by"),
+    liftReason: text("lift_reason"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("equipe_global_stops_single_active_uq")
+      .on(t.status)
+      .where(sql`${t.status} = 'active'`),
+    check("equipe_global_stops_status_check", inList(t.status, EQUIPE_GLOBAL_STOP_STATUS)),
   ]
 );

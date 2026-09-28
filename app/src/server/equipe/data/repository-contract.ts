@@ -469,6 +469,31 @@ export function defineEquipeRepositoryContract(
       expect(await repos.events.list(fresh, { objectId: itemId })).toHaveLength(0);
     });
 
+    it("parada global (#583): uma ativa no máximo, sem escopo de conta", async () => {
+      expect(await internal.globalStops.getActive()).toBeNull();
+      const stop = await internal.globalStops.create({
+        reason: "contrato",
+        stoppedBy: "staff-1",
+      });
+      expect(stop.status).toBe("active");
+      expect((await internal.globalStops.getActive())?.id).toBe(stop.id);
+      await expect(
+        internal.globalStops.create({ reason: "outra", stoppedBy: "staff-2" }),
+      ).rejects.toBeInstanceOf(EquipeConflictError);
+      const lifted = await internal.globalStops.update(stop.id, {
+        status: "lifted",
+        liftedBy: "staff-2",
+        liftReason: "voltou",
+      });
+      expect(lifted.status).toBe("lifted");
+      expect(await internal.globalStops.getActive()).toBeNull();
+      await expect(
+        internal.globalStops.update(crypto.randomUUID(), { status: "lifted" }),
+      ).rejects.toBeInstanceOf(EquipeNotFoundError);
+      const fresh = await harness.createScope();
+      expect((await internal.listAccounts()).map((row) => row.id)).toContain(fresh.accountId);
+    });
+
     it("lado interno: staff global e contas por estado entre workspaces", async () => {
       const member = await internal.staff.create({
         role: "quality",

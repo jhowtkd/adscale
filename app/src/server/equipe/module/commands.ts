@@ -71,11 +71,12 @@ import {
   runPauseConnection,
   runPauseDelinquency,
   runPauseFrontContent,
-  runPauseGlobal,
   runPausePublications,
   runResumePause,
   runSuspendExecution,
 } from "./pauses";
+// #583 — parada global de publicações sem deploy.
+import { runResumeAllPublications, runStopAllPublications } from "./global-stop";
 // Calibration (#546)
 import { runCloseRound, runOpenRound } from "./calibration-open-close";
 import {
@@ -161,7 +162,9 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   pause_account_team: "pause_account",
   pause_front_content: "pause_front_content",
   pause_connection: "apply_automatic_pause",
-  pause_global: "global_stop",
+  // #583 — sem pause_global per-conta: parar/retomar é global.
+  stop_all_publications: "global_stop",
+  resume_all_publications: "resume_global_stop",
   suspend_execution: "suspend_execution",
   revoke_connection: "revoke_connection",
   pause_delinquency: "apply_automatic_pause",
@@ -197,6 +200,18 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
 
 export type ExecutedCommand = CommandSuccess & { type: CommandType };
 
+// #583 — comandos sem conta no contexto: open_account (não há conta ainda)
+// e a parada global (vale para todas as contas; o workspace do contexto é
+// ignorado e o gate de workspace não se aplica — é uma chave de plataforma,
+// um nível abaixo de EQUIPE_PUBLISH_ENABLED).
+function isAccountlessCommand(type: CommandType): boolean {
+  return type === "open_account" || type === "stop_all_publications" || type === "resume_all_publications";
+}
+
+function isGlobalStopCommand(type: CommandType): boolean {
+  return type === "stop_all_publications" || type === "resume_all_publications";
+}
+
 function zodIssues(error: { issues: Array<{ path: Array<string | number>; message: string }> }): string {
   return error.issues.map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`).join("; ");
 }
@@ -219,12 +234,12 @@ export async function executeCommand(
   }
   const trusted = parsedContext.data;
   const command = parsedCommand.data;
-  const accountId = command.type === "open_account" ? "" : trusted.accountId;
-  if (command.type !== "open_account" && !accountId) {
+  const accountId = isAccountlessCommand(command.type) ? "" : trusted.accountId;
+  if (!isAccountlessCommand(command.type) && !accountId) {
     return err("invalid_context", `command ${command.type} requires accountId in context`);
   }
   const enabledForWorkspace = deps.isEnabledForWorkspace ?? isEquipeEnabledForWorkspace;
-  if (!enabledForWorkspace(trusted.workspaceId)) {
+  if (!isGlobalStopCommand(command.type) && !enabledForWorkspace(trusted.workspaceId)) {
     return err(
       "equipe_not_enabled",
       `equipe is not enabled for workspace ${trusted.workspaceId}`,
@@ -394,8 +409,12 @@ export async function executeCommand(
     case "pause_connection":
       outcome = await runPauseConnection(deps, base, command.payload);
       break;
-    case "pause_global":
-      outcome = await runPauseGlobal(deps, base, command.payload);
+    // #583 — parada global de publicações sem deploy.
+    case "stop_all_publications":
+      outcome = await runStopAllPublications(deps, base, command.payload);
+      break;
+    case "resume_all_publications":
+      outcome = await runResumeAllPublications(deps, base, command.payload);
       break;
     case "suspend_execution":
       outcome = await runSuspendExecution(deps, base, command.payload);

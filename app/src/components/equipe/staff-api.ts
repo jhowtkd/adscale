@@ -50,7 +50,8 @@ export type StaffCommandInput = {
   type: string;
   payload: Record<string, unknown>;
   role: StaffRole;
-  workspaceId: string;
+  // Account scope; absent only for the platform-wide global stop (#583).
+  workspaceId?: string;
   /** Absent for open_account — the account does not exist yet (#582). */
   accountId?: string;
 };
@@ -92,6 +93,9 @@ export const STAFF_ROLE_FOR_COMMAND: Record<string, StaffRole> = {
   // #584: support or operations may propose; the accounts console sends
   // the caller's held role down, this entry stays the API-direct default.
   propose_mandate_activation: "support",
+  // #583 — the global stop is platform-wide and operations-only.
+  stop_all_publications: "operations",
+  resume_all_publications: "operations",
 };
 
 /** close_escalation: only the escalation's owner role closes it. */

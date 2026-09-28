@@ -77,12 +77,8 @@ describe("pause commands", () => {
         payload: {},
         expected: { origin: "connection", scope: "account", resumableBy: "system" },
       },
-      {
-        command: "pause_global",
-        actor: ids.actors.operations,
-        payload: {},
-        expected: { origin: "global_stop", scope: "global", resumableBy: "operations" },
-      },
+      // (#583) No pause_global case: stopping is global now
+      // (stop_all_publications), never a per-account row.
       {
         command: "suspend_execution",
         actor: ids.actors.operations,
@@ -123,8 +119,10 @@ describe("pause commands", () => {
       { command: "pause_account_team", actor: ids.actors.approver },
       { command: "pause_front_content", actor: ids.actors.support, payload: { frontId } },
       { command: "pause_connection", actor: ids.actors.quality },
-      { command: "pause_global", actor: ids.actors.quality },
-      { command: "pause_global", actor: ids.actors.system },
+      // (#583) The global stop commands replaced pause_global; they stay
+      // operations-only (full matrix in global-stop.test.ts).
+      { command: "stop_all_publications", actor: ids.actors.quality, payload: { reason: "x" } },
+      { command: "resume_all_publications", actor: ids.actors.system, payload: { reason: "x" } },
       { command: "suspend_execution", actor: ids.actors.quality },
       { command: "pause_delinquency", actor: ids.actors.support },
     ];
@@ -223,13 +221,27 @@ describe("resume_pause", () => {
         payload: { pauseId: connection },
       })).ok,
     ).toBe(true);
-    const global = await pauseId("pause_global", ids.actors.operations);
+    // (#583) Legacy per-account global_stop rows (written before the real
+    // global stop) stay resumable through resume_pause, operations-only.
+    const legacy = await t.deps.uow.repos.pauses.create(scope, {
+      level: "publishing",
+      scope: "global",
+      origin: "global_stop",
+      resumableBy: "operations",
+      reason: "legacy",
+    });
     expect(
       (await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
         type: "resume_pause",
-        payload: { pauseId: global },
+        payload: { pauseId: legacy.id },
       })).ok,
     ).toBe(false);
+    expect(
+      (await executeCommand(t.deps, ctx(ids, ids.actors.operations), {
+        type: "resume_pause",
+        payload: { pauseId: legacy.id },
+      })).ok,
+    ).toBe(true);
     // Lifting twice refuses.
     const lifted = await executeCommand(t.deps, ctx(ids, ids.actors.system), {
       type: "resume_pause",

@@ -53,6 +53,22 @@ describe("ExceptionsQueue", () => {
     vi.clearAllMocks();
   });
 
+  // #583 — the global stop banner fetches /api/equipe/staff/accounts on
+  // every console; the scoped mocks below serve it so the queue keeps its
+  // own single-shot response.
+  function mockScopedQueue(view: unknown) {
+    mockApiFetch.mockImplementation(async (url) => {
+      if (String(url) === "/api/equipe/staff/accounts") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ entries: [], globalStop: { active: false } }),
+        } as Response;
+      }
+      return { ok: true, status: 200, json: async () => view } as Response;
+    });
+  }
+
   it("shows the account picker without a scope", async () => {
     mockApiFetch.mockResolvedValueOnce({
       ok: true,
@@ -101,11 +117,7 @@ describe("ExceptionsQueue", () => {
         },
       ],
     };
-    mockApiFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => view,
-    } as Response);
+    mockScopedQueue(view);
 
     renderQueue({ workspaceId: WORKSPACE_ID, accountId: ACCOUNT_ID });
 
@@ -120,11 +132,7 @@ describe("ExceptionsQueue", () => {
   });
 
   it("shows the empty queue state", async () => {
-    mockApiFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ workspaceId: WORKSPACE_ID, accountId: ACCOUNT_ID, open: [] }),
-    } as Response);
+    mockScopedQueue({ workspaceId: WORKSPACE_ID, accountId: ACCOUNT_ID, open: [] });
 
     renderQueue({ workspaceId: WORKSPACE_ID, accountId: ACCOUNT_ID });
 
@@ -134,15 +142,11 @@ describe("ExceptionsQueue", () => {
   });
 
   it("expands the conversation panel per exception", async () => {
-    mockApiFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        workspaceId: WORKSPACE_ID,
-        accountId: ACCOUNT_ID,
-        open: [{ exception: exception(), slaBreached: false }],
-      }),
-    } as Response);
+    mockScopedQueue({
+      workspaceId: WORKSPACE_ID,
+      accountId: ACCOUNT_ID,
+      open: [{ exception: exception(), slaBreached: false }],
+    });
 
     renderQueue({ workspaceId: WORKSPACE_ID, accountId: ACCOUNT_ID });
 

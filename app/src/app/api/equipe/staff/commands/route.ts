@@ -11,16 +11,25 @@ import { executeCommand } from "@/server/equipe/module/commands";
  * raw command — role, workspaceId and accountId build the trusted
  * context, and any other top-level key (actor smuggling → 400) is
  * rejected here.
+ *
+ * (#583) workspaceId is optional for the platform-wide global stop
+ * commands only; every other command still needs its scope (400).
  */
 const staffCommandBodySchema = z
   .object({
     type: z.string().min(1),
     payload: z.unknown(),
     role: z.enum(["support", "quality", "operations"]).optional(),
-    workspaceId: z.string().uuid(),
+    workspaceId: z.string().uuid().optional(),
     accountId: z.string().uuid().optional(),
   })
   .strict();
+
+// #583 — the global stop commands ignore the workspace (platform-wide);
+// the placeholder below never reaches storage: those commands fan out per
+// account and skip the workspace gate.
+const GLOBAL_STOP_COMMANDS = new Set(["stop_all_publications", "resume_all_publications"]);
+const NIL_WORKSPACE_ID = "00000000-0000-0000-0000-000000000000";
 
 /**
  * POST /api/equipe/staff/commands — every internal command through one
@@ -36,7 +45,11 @@ export async function POST(request: Request) {
     if (!parsedBody.success) {
       return apiError("invalidInput", 400, parsedBody.error.flatten());
     }
-    const { type, payload, role, workspaceId, accountId } = parsedBody.data;
+    const { type, payload, role, accountId } = parsedBody.data;
+    const workspaceId = parsedBody.data.workspaceId ?? NIL_WORKSPACE_ID;
+    if (!parsedBody.data.workspaceId && !GLOBAL_STOP_COMMANDS.has(type)) {
+      return apiError("invalidInput", 400, { message: "workspaceId is required" });
+    }
 
     const resolved = resolveStaffActor(guard.staffRows, role);
     if (!resolved.ok) {

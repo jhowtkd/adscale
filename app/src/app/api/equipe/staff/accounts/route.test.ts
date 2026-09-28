@@ -67,6 +67,8 @@ describe("GET /api/equipe/staff/accounts", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.entries).toHaveLength(2);
+    // #583 — the global stop rides along for the internal consoles.
+    expect(body.globalStop).toEqual({ active: false });
     for (const entry of body.entries) {
       expect(entry.scope).toMatchObject({ workspaceId: expect.any(String), accountId: expect.any(String) });
       expect(entry.brandName).toBe("Marca demo");

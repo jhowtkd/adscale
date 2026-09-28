@@ -56,6 +56,7 @@ import {
 } from "./dispatch-outcomes";
 import { isReleasedVersion, loadReleasedVersions } from "./calibration-conference";
 import { calibrationGateSlice } from "./calibration-shared";
+import { GLOBAL_STOP_HOLD_REASON } from "./global-stop";
 import { ITEM_HELD_EVENT } from "./pauses-apply";
 import { domainPauseOf, ITEM_RESUMED_EVENT } from "./pauses-resume";
 import { MANUAL_PUBLISH_DECLARED_EVENT } from "./manual-publishing";
@@ -311,6 +312,17 @@ export async function prepareDispatch(
       return ok({ action: "held", reasons: [PUBLISH_DISABLED_HOLD_REASON], ...ids });
     }
     return ok({ action: "none", held, reason: PUBLISH_DISABLED_HOLD_REASON, ...ids });
+  }
+
+  // #583 — the global stop is the single source of truth for EVERY account
+  // (including accounts opened while it is active): nothing is sent while it
+  // lasts. Same shape as the kill switch above — EQUIPE_PUBLISH_ENABLED on top.
+  if (await ctx.internal.globalStops.getActive()) {
+    if (!held && item.status === "scheduled") {
+      await holdForDispatch(ctx, item, intent, [GLOBAL_STOP_HOLD_REASON]);
+      return ok({ action: "held", reasons: [GLOBAL_STOP_HOLD_REASON], ...ids });
+    }
+    return ok({ action: "none", held, reason: GLOBAL_STOP_HOLD_REASON, ...ids });
   }
 
   if (await isManualMode(ctx)) {
