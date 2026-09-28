@@ -100,6 +100,15 @@ describe("actors table", () => {
     expect(authorize(system, "global_stop").ok).toBe(false);
   });
 
+  it("restricts connection revocation to operations", () => {
+    expect(authorize(operations, "revoke_connection").ok).toBe(true);
+    expect(authorize(system, "revoke_connection").ok).toBe(false);
+    expect(authorize(agent, "revoke_connection").ok).toBe(false);
+    expect(authorize(support, "revoke_connection").ok).toBe(false);
+    expect(authorize(quality, "revoke_connection").ok).toBe(false);
+    expect(authorize(approver, "revoke_connection").ok).toBe(false);
+  });
+
   it("lets quality or the system pause front content on an incident", () => {
     expect(authorize(quality, "pause_front_content").ok).toBe(true);
     expect(authorize(system, "pause_front_content").ok).toBe(true);

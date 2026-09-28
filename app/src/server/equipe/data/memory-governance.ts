@@ -60,6 +60,7 @@ export function makeMemoryGovernanceRepositories(
             frontId: null,
             itemId: null,
             coOwnerRole: null,
+            parts: null,
             dueAt: null,
             cause: null,
             lessonCandidate: null,
@@ -90,6 +91,7 @@ export function makeMemoryGovernanceRepositories(
             status: "open",
             reason: null,
             dueAt: null,
+            assigneeId: null,
             resolvedAt: null,
           },
           "full"

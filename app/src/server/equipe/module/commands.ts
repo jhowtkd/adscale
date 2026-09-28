@@ -42,6 +42,37 @@ import { runChoosePiece } from "./items-choose";
 import { runExpireItemDeadline, runProposeNewSchedule } from "./items-deadline";
 // #551
 import { runEnsurePrimaryThread, runOpenParallelThread } from "./threads";
+// #547 — escalonamentos, exceções de atendimento e pausas.
+import {
+  runCloseEscalation,
+  runExpireEscalationClientWait,
+  runIngestAgentSignal,
+  runMergeEscalations,
+  runOpenEscalation,
+  runReopenFrontCalibration,
+  runReportItemProblem,
+  runResolveContentEscalation,
+  runResolveTechnicalEscalation,
+  runRevokeConnection,
+} from "./escalations";
+import {
+  runAssumeException,
+  runCloseException,
+  runOpenException,
+  runPostStaffMessage,
+  runRegisterContact,
+  runRequestSupport,
+} from "./exceptions";
+import {
+  runPauseAccountTeam,
+  runPauseConnection,
+  runPauseDelinquency,
+  runPauseFrontContent,
+  runPauseGlobal,
+  runPausePublications,
+  runResumePause,
+  runSuspendExecution,
+} from "./pauses";
 
 const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   open_account: "open_account",
@@ -74,6 +105,31 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   // #551
   ensure_primary_thread: "manage_threads",
   open_parallel_thread: "manage_threads",
+  // #547
+  open_escalation: "open_escalation",
+  report_item_problem: "report_problem",
+  merge_escalations: "merge_escalations",
+  resolve_content_escalation: "resolve_content_escalation",
+  resolve_technical_escalation: "resolve_technical_escalation",
+  close_escalation: "close_escalation",
+  expire_escalation_client_wait: "expire_deadline",
+  ingest_agent_signal: "ingest_agent_signal",
+  reopen_front_calibration: "reopen_calibration",
+  open_exception: "open_exception",
+  request_support: "request_support",
+  assume_exception: "assume_exception",
+  post_staff_message: "post_staff_message",
+  register_contact: "register_contact",
+  close_exception: "close_exception",
+  pause_publications: "pause_own_publications",
+  pause_account_team: "pause_account",
+  pause_front_content: "pause_front_content",
+  pause_connection: "apply_automatic_pause",
+  pause_global: "global_stop",
+  suspend_execution: "suspend_execution",
+  revoke_connection: "revoke_connection",
+  pause_delinquency: "apply_automatic_pause",
+  resume_pause: "resume_pause",
 };
 
 export type ExecutedCommand = CommandSuccess & { type: CommandType };
@@ -209,6 +265,79 @@ export async function executeCommand(
       break;
     case "open_parallel_thread":
       outcome = await runOpenParallelThread(deps, base, command.payload);
+      break;
+    // #547
+    case "open_escalation":
+      outcome = await runOpenEscalation(deps, base, command.payload);
+      break;
+    case "report_item_problem":
+      outcome = await runReportItemProblem(deps, base, command.payload);
+      break;
+    case "merge_escalations":
+      outcome = await runMergeEscalations(deps, base, command.payload);
+      break;
+    case "resolve_content_escalation":
+      outcome = await runResolveContentEscalation(deps, base, command.payload);
+      break;
+    case "resolve_technical_escalation":
+      outcome = await runResolveTechnicalEscalation(deps, base, command.payload);
+      break;
+    case "close_escalation":
+      outcome = await runCloseEscalation(deps, base, command.payload);
+      break;
+    case "expire_escalation_client_wait":
+      outcome = await runExpireEscalationClientWait(deps, base, command.payload);
+      break;
+    case "ingest_agent_signal":
+      outcome = await runIngestAgentSignal(deps, base, command.payload);
+      break;
+    case "reopen_front_calibration":
+      outcome = await runReopenFrontCalibration(deps, base, command.payload);
+      break;
+    case "open_exception":
+      outcome = await runOpenException(deps, base, command.payload);
+      break;
+    case "request_support":
+      outcome = await runRequestSupport(deps, base, command.payload);
+      break;
+    case "assume_exception":
+      outcome = await runAssumeException(deps, base, command.payload);
+      break;
+    case "post_staff_message":
+      outcome = await runPostStaffMessage(deps, base, command.payload);
+      break;
+    case "register_contact":
+      outcome = await runRegisterContact(deps, base, command.payload);
+      break;
+    case "close_exception":
+      outcome = await runCloseException(deps, base, command.payload);
+      break;
+    case "pause_publications":
+      outcome = await runPausePublications(deps, base, command.payload);
+      break;
+    case "pause_account_team":
+      outcome = await runPauseAccountTeam(deps, base, command.payload);
+      break;
+    case "pause_front_content":
+      outcome = await runPauseFrontContent(deps, base, command.payload);
+      break;
+    case "pause_connection":
+      outcome = await runPauseConnection(deps, base, command.payload);
+      break;
+    case "pause_global":
+      outcome = await runPauseGlobal(deps, base, command.payload);
+      break;
+    case "suspend_execution":
+      outcome = await runSuspendExecution(deps, base, command.payload);
+      break;
+    case "revoke_connection":
+      outcome = await runRevokeConnection(deps, base, command.payload);
+      break;
+    case "pause_delinquency":
+      outcome = await runPauseDelinquency(deps, base, command.payload);
+      break;
+    case "resume_pause":
+      outcome = await runResumePause(deps, base, command.payload);
       break;
   }
   if (!outcome.ok) return outcome;
