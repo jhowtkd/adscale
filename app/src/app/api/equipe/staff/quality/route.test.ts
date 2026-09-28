@@ -75,6 +75,43 @@ describe("GET /api/equipe/staff/quality", () => {
     expect(body.recentlyClosed).toEqual([]);
   });
 
+  it("labels open rounds with brand and workspace names", async () => {
+    const t = makeTestDeps();
+    const { workspaceId, accountId } = await openTestAccount(t, {
+      labels: { brandName: "Café Aurora", workspaceName: "Agência Sul" },
+    });
+    const row = await t.deps.uow.internal.staff.create({
+      role: "quality",
+      displayName: "Quality",
+      userId: USER_ID,
+      active: true,
+    });
+    mockGetSession.mockResolvedValue({ user: { id: USER_ID, email: "q@test.com" } } as never);
+    mockCreateDeps.mockReturnValue(t.deps);
+    const scope = { workspaceId, accountId };
+    const fronts = await t.deps.uow.repos.fronts.list(scope);
+    const batch = await t.deps.uow.repos.batches.create(scope, { title: "Lote 1" });
+    const round = await t.deps.uow.repos.calibrationRounds.create(scope, {
+      frontId: fronts[0]!.id,
+      batchId: batch.id,
+      weekKey: "2026-W40",
+      sequence: 1,
+    });
+
+    const res = await callGet();
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.staffId).toBe(row.id);
+    expect(body.open).toHaveLength(1);
+    expect(body.open[0]).toMatchObject({
+      roundId: round.id,
+      accountId,
+      brandName: "Café Aurora",
+      workspaceName: "Agência Sul",
+    });
+  });
+
   it("returns 403 for staff without the quality role", async () => {
     await seed("support");
 

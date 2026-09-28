@@ -85,6 +85,8 @@ describe("ExceptionsQueue", () => {
     const view: ExceptionsQueueView = {
       workspaceId: WORKSPACE_ID,
       accountId: ACCOUNT_ID,
+      brandName: "Café Aurora",
+      workspaceName: "Agência Sul",
       open: [
         { exception: exception({ id: "exc-1" }), slaBreached: true },
         {
@@ -114,6 +116,7 @@ describe("ExceptionsQueue", () => {
     });
     expect(screen.getByText("equipe.labels.trigger.critical_incident")).toBeInTheDocument();
     expect(screen.getByText(/equipe\.common\.breached/)).toBeInTheDocument();
+    expect(screen.getByText(/Café Aurora · Agência Sul/)).toBeInTheDocument();
   });
 
   it("shows the empty queue state", async () => {

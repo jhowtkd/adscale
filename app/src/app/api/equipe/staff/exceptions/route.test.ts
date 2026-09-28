@@ -56,7 +56,9 @@ describe("GET /api/equipe/staff/exceptions", () => {
     accountId: string;
   }> {
     const t = makeTestDeps();
-    const { workspaceId, accountId } = await openTestAccount(t);
+    const { workspaceId, accountId } = await openTestAccount(t, {
+      labels: { brandName: "Café Aurora", workspaceName: "Agência Sul" },
+    });
     await t.deps.uow.internal.staff.create({
       role,
       displayName: "Staffer",
@@ -83,6 +85,8 @@ describe("GET /api/equipe/staff/exceptions", () => {
     const body = await res.json();
     expect(body.workspaceId).toBe(workspaceId);
     expect(body.accountId).toBe(accountId);
+    expect(body.brandName).toBe("Café Aurora");
+    expect(body.workspaceName).toBe("Agência Sul");
     expect(body.open).toHaveLength(1);
     expect(body.open[0].exception.trigger).toBe("client_requested_person");
     expect(body.open[0].slaBreached).toBe(true);

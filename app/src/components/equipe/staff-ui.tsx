@@ -61,9 +61,24 @@ export function StaffEmpty({ label }: { label: string }) {
   );
 }
 
-/** Short, stable account label: the staff API exposes no display names. */
+/** Short, stable account id — the fallback when the API has no names. */
 export function shortAccountId(accountId: string): string {
   return accountId.slice(0, 8);
+}
+
+export type StaffAccountNames = {
+  brandName: string | null;
+  workspaceName: string | null;
+};
+
+/**
+ * What staff see as the account: "Brand · Workspace", the brand alone when
+ * the workspace name is missing, else the translated short-id fallback.
+ */
+export function accountDisplayName(names: StaffAccountNames, fallback: string): string {
+  if (!names.brandName) return fallback;
+  if (!names.workspaceName) return names.brandName;
+  return `${names.brandName} · ${names.workspaceName}`;
 }
 
 export function formatDue(value: string | null, locale: string): string | null {

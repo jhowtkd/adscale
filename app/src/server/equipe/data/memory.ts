@@ -15,6 +15,7 @@ import { makeMemoryProductionRepositories } from "./memory-production";
 import { makeMemoryGovernanceRepositories } from "./memory-governance";
 import {
   claimMemoryDueIntents,
+  listMemoryAccountLabels,
   listMemoryAccountsByStatus,
   listMemoryCalibrationRounds,
   makeMemoryDispatchRepositories,
@@ -29,6 +30,7 @@ import {
 // agregado no seu módulo memory-*; este arquivo só monta os repositórios e
 // a unidade de trabalho (mesma API pública de antes).
 export { MemoryTable, createMemoryEquipeStore, type MemoryEquipeStore } from "./memory-core";
+export { seedMemoryAdscaleLabels } from "./memory-dispatch";
 
 export function createMemoryEquipeRepositories(store: MemoryEquipeStore): EquipeRepositories {
   return {
@@ -49,6 +51,7 @@ export function createMemoryInternalEquipeRepositories(
     claimDueIntents: (input) => claimMemoryDueIntents(store, input),
     listAccountsByStatus: (status) => listMemoryAccountsByStatus(store, status),
     listCalibrationRounds: (filter) => listMemoryCalibrationRounds(store, filter),
+    listAccountLabels: () => listMemoryAccountLabels(store),
   };
 }
 

@@ -26,6 +26,7 @@ describe("getExceptionsQueue", () => {
     });
     const queue = await getExceptionsQueue(
       t.deps.uow.repos,
+      t.deps.uow.internal,
       ids.workspaceId,
       ids.accountId,
       new Date("2026-10-05T15:00:00.000Z"),
@@ -37,6 +38,7 @@ describe("getExceptionsQueue", () => {
     expect(queue?.open.map((entry) => entry.slaBreached)).toEqual([false, false]);
     const late = await getExceptionsQueue(
       t.deps.uow.repos,
+      t.deps.uow.internal,
       ids.workspaceId,
       ids.accountId,
       new Date("2026-10-05T17:00:00.000Z"),
@@ -45,11 +47,28 @@ describe("getExceptionsQueue", () => {
     expect(late?.open[1]?.slaBreached).toBe(false);
     const missing = await getExceptionsQueue(
       t.deps.uow.repos,
+      t.deps.uow.internal,
       ids.workspaceId,
       "00000000-0000-4000-8000-000000000000",
       new Date(),
     );
     expect(missing).toBeNull();
+  });
+
+  it("carries the brand and workspace names", async () => {
+    const t = makeTestDeps();
+    const ids = await openTestAccount(t, {
+      labels: { brandName: "Café Aurora", workspaceName: "Agência Sul" },
+    });
+    const queue = await getExceptionsQueue(
+      t.deps.uow.repos,
+      t.deps.uow.internal,
+      ids.workspaceId,
+      ids.accountId,
+      new Date(),
+    );
+    expect(queue?.brandName).toBe("Café Aurora");
+    expect(queue?.workspaceName).toBe("Agência Sul");
   });
 });
 
@@ -71,7 +90,7 @@ describe("getCrossAccountPipeline", () => {
       type: "pause_publications",
       payload: {},
     });
-    const view = await getCrossAccountPipeline(t.deps.uow.repos, [
+    const view = await getCrossAccountPipeline(t.deps.uow.repos, t.deps.uow.internal, [
       { workspaceId: first.workspaceId, accountId: first.accountId },
       { workspaceId: second.workspaceId, accountId: second.accountId },
     ]);
@@ -93,10 +112,28 @@ describe("getCrossAccountPipeline", () => {
       type: "close_escalation",
       payload: { escalationId: closeId, cause: "other" },
     });
-    const after = await getCrossAccountPipeline(t.deps.uow.repos, [
+    const after = await getCrossAccountPipeline(t.deps.uow.repos, t.deps.uow.internal, [
       { workspaceId: first.workspaceId, accountId: first.accountId },
     ]);
     expect(after.entries[0]?.escalations).toHaveLength(0);
+  });
+
+  it("labels each entry with its brand and workspace names", async () => {
+    const t = makeTestDeps();
+    const first = await openTestAccount(t, {
+      labels: { brandName: "Café Aurora", workspaceName: "Agência Sul" },
+    });
+    const second = await openTestAccount(t, {
+      labels: { brandName: "Papelaria Tinta", workspaceName: "Agência Norte" },
+    });
+    const view = await getCrossAccountPipeline(t.deps.uow.repos, t.deps.uow.internal, [
+      { workspaceId: first.workspaceId, accountId: first.accountId },
+      { workspaceId: second.workspaceId, accountId: second.accountId },
+    ]);
+    expect(view.entries.map((entry) => [entry.brandName, entry.workspaceName])).toEqual([
+      ["Café Aurora", "Agência Sul"],
+      ["Papelaria Tinta", "Agência Norte"],
+    ]);
   });
 });
 
@@ -117,6 +154,7 @@ describe("getEscalationDetail", () => {
     const escalationId = opened.value.data.escalationId as string;
     const detail = await getEscalationDetail(
       t.deps.uow.repos,
+      t.deps.uow.internal,
       ids.workspaceId,
       ids.accountId,
       escalationId,
@@ -127,12 +165,54 @@ describe("getEscalationDetail", () => {
     expect(detail?.events.map((e) => e.eventType)).toContain("escalation.opened");
     expect(detail?.pauses.map((p) => p.origin)).toContain("content_incident");
     expect(detail?.exception?.trigger).toBe("critical_incident");
+    expect(detail?.isolatedConnections).toEqual([]);
     const missing = await getEscalationDetail(
       t.deps.uow.repos,
+      t.deps.uow.internal,
       ids.workspaceId,
       ids.accountId,
       "00000000-0000-4000-8000-000000000000",
     );
     expect(missing).toBeNull();
+  });
+
+  it("carries the brand names and the isolated connections", async () => {
+    const t = makeTestDeps();
+    const ids = await openTestAccount(t, {
+      labels: { brandName: "Café Aurora", workspaceName: "Agência Sul" },
+    });
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    const connection = await t.deps.uow.repos.connections.create(scope, {
+      provider: "instagram",
+      encryptedToken: "v1:seed",
+      status: "active",
+    });
+    const opened = await executeCommand(t.deps, ctx(ids, ids.actors.agent), {
+      type: "open_escalation",
+      payload: {
+        kind: "security",
+        severity: "critical_cross_account",
+        reason: "token vazado",
+        connectionIds: [connection.id],
+      },
+    });
+    if (!opened.ok) throw new Error("open failed");
+    const detail = await getEscalationDetail(
+      t.deps.uow.repos,
+      t.deps.uow.internal,
+      ids.workspaceId,
+      ids.accountId,
+      opened.value.data.escalationId as string,
+    );
+    expect(detail?.brandName).toBe("Café Aurora");
+    expect(detail?.workspaceName).toBe("Agência Sul");
+    expect(detail?.isolatedConnections).toEqual([
+      {
+        id: connection.id,
+        provider: "instagram",
+        accountId: ids.accountId,
+        status: "active",
+      },
+    ]);
   });
 });

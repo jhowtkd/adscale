@@ -69,6 +69,8 @@ describe("GET /api/equipe/staff/accounts", () => {
     expect(body.entries).toHaveLength(2);
     for (const entry of body.entries) {
       expect(entry.scope).toMatchObject({ workspaceId: expect.any(String), accountId: expect.any(String) });
+      expect(entry.brandName).toBe("Marca demo");
+      expect(entry.workspaceName).toBe("Espaço demo");
       expect(entry.escalations).toEqual([]);
       expect(entry.exceptions).toEqual([]);
       expect(entry.pauses).toEqual([]);

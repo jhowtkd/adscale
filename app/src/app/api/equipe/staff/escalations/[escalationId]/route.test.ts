@@ -80,11 +80,14 @@ describe("GET /api/equipe/staff/escalations/[escalationId]", () => {
     const body = await res.json();
     expect(body.workspaceId).toBe(workspaceId);
     expect(body.accountId).toBe(accountId);
+    expect(body.brandName).toBe("Marca demo");
+    expect(body.workspaceName).toBe("Espaço demo");
     expect(body.escalation.id).toBe(escalation.id);
     expect(body.item).toBeNull();
     expect(body.events).toEqual([]);
     expect(body.pauses).toEqual([]);
     expect(body.exception).toBeNull();
+    expect(body.isolatedConnections).toEqual([]);
   });
 
   it("returns 400 for malformed ids or a missing scope", async () => {

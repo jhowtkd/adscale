@@ -41,6 +41,7 @@ export async function GET(
 
     const view = await getEscalationDetail(
       guard.deps.uow.repos,
+      guard.deps.uow.internal,
       parsedQuery.data.workspaceId,
       parsedQuery.data.accountId,
       parsedParams.data.escalationId,

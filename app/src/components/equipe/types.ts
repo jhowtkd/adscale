@@ -32,6 +32,8 @@ export type QueuedExceptionView = {
 export type ExceptionsQueueView = {
   workspaceId: string;
   accountId: string;
+  brandName: string | null;
+  workspaceName: string | null;
   open: QueuedExceptionView[];
 };
 
@@ -85,6 +87,8 @@ export type EquipeEventView = {
 
 export type CrossAccountEntryView = {
   scope: AccountScope;
+  brandName: string | null;
+  workspaceName: string | null;
   escalations: EquipeEscalationView[];
   exceptions: EquipeExceptionView[];
   pauses: EquipePauseView[];
@@ -97,6 +101,8 @@ export type CrossAccountPipelineView = {
 export type QualityPipelineEntryView = {
   workspaceId: string;
   accountId: string;
+  brandName: string | null;
+  workspaceName: string | null;
   frontId: string;
   roundId: string;
   sequence: number;
@@ -223,6 +229,8 @@ export type RoundDetailItemView = {
 export type RoundDetailView = {
   workspaceId: string;
   accountId: string;
+  brandName: string | null;
+  workspaceName: string | null;
   round: EquipeCalibrationRoundView;
   front: EquipeFrontView | null;
   batch: EquipeBatchView | null;
@@ -230,13 +238,23 @@ export type RoundDetailView = {
   summary: unknown;
 };
 
+export type IsolatedConnectionView = {
+  id: string;
+  provider: string;
+  accountId: string;
+  status: string;
+};
+
 export type EscalationDetailView = {
   workspaceId: string;
   accountId: string;
+  brandName: string | null;
+  workspaceName: string | null;
   escalation: EquipeEscalationView;
   parts: Array<{ kind: string; resolved: boolean }>;
   item: EquipeItemView | null;
   events: EquipeEventView[];
   pauses: EquipePauseView[];
   exception: EquipeExceptionView | null;
+  isolatedConnections: IsolatedConnectionView[];
 };

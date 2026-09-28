@@ -9,6 +9,7 @@ import { fixedClock, type Actor, type StaffRole } from "../../domain";
 import {
   createMemoryEquipeStore,
   createMemoryEquipeUnitOfWork,
+  seedMemoryAdscaleLabels,
   type EquipeFrontKey,
   type EquipePersonRole,
   type MemoryEquipeStore,
@@ -108,6 +109,7 @@ export async function seedStaff(
 export type OpenTestAccountOptions = {
   fronts?: EquipeFrontKey[];
   people?: Array<{ name: string; role: EquipePersonRole; userId?: string; email?: string }>;
+  labels?: { brandName: string; workspaceName: string };
 };
 
 /** Open an account through the real command (also exercises open_account). */
@@ -123,6 +125,14 @@ export async function openTestAccount(
   const workspaceId = uuid();
   const profileId = uuid();
   t.gateway.addProfile({ id: profileId, workspaceId });
+  // Staff views always carry brand/workspace names; tests that assert
+  // them pass custom labels, the rest get deterministic defaults.
+  seedMemoryAdscaleLabels(t.store, {
+    workspaceId,
+    profileId,
+    brandName: options.labels?.brandName ?? "Marca demo",
+    workspaceName: options.labels?.workspaceName ?? "Espaço demo",
+  });
   const operations = await seedStaff(t, "operations");
   const outcome = await executeCommand(t.deps, { actor: operations, workspaceId }, {
     type: "open_account",

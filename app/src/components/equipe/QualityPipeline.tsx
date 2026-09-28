@@ -15,6 +15,7 @@ import {
   StaffEmpty,
   StaffErrorAlert,
   StaffLoading,
+  accountDisplayName,
   shortAccountId,
 } from "./staff-ui";
 import { enumLabel } from "./labels";
@@ -94,7 +95,12 @@ function RoundSection({
                   {t("roundLabel", { sequence: entry.sequence, weekKey: entry.weekKey })}
                 </p>
                 <p className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
-                  <span>{tCommon("account", { id: shortAccountId(entry.accountId) })}</span>
+                  <span>
+                    {accountDisplayName(
+                      entry,
+                      tCommon("account", { id: shortAccountId(entry.accountId) }),
+                    )}
+                  </span>
                   <Badge variant="neutral">
                     {enumLabel(tLabels, `roundStatus.${entry.status}`)}
                   </Badge>

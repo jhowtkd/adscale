@@ -85,6 +85,8 @@ describe("GET /api/equipe/staff/rounds/[roundId]", () => {
     const body = await res.json();
     expect(body.workspaceId).toBe(workspaceId);
     expect(body.accountId).toBe(accountId);
+    expect(body.brandName).toBe("Marca demo");
+    expect(body.workspaceName).toBe("Espaço demo");
     expect(body.round.id).toBe(round.id);
     expect(body.front.id).toBe(fronts[0]!.id);
     expect(body.batch.id).toBe(batch.id);

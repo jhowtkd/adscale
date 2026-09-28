@@ -1,6 +1,7 @@
 import type {
   AccountScope,
   EquipeAccount,
+  EquipeAccountLabel,
   EquipeAccountPatch,
   EquipeAccountPerson,
   EquipeAccountPersonPatch,
@@ -270,6 +271,12 @@ export interface InternalEquipeRepositories {
   listCalibrationRounds(filter?: {
     status?: EquipeRoundStatus | EquipeRoundStatus[];
   }): Promise<EquipeCalibrationRound[]>;
+  /**
+   * Brand + workspace names per account for the internal consoles (#554).
+   * Read-only join over client profiles and workspaces; rows without a
+   * match come back with null names.
+   */
+  listAccountLabels(): Promise<EquipeAccountLabel[]>;
 }
 
 export interface EquipeRepositories {

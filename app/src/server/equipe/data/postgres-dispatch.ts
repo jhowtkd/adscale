@@ -8,6 +8,7 @@ import {
   equipePublicationIntents,
   equipeThreads,
 } from "../../db/equipe-schema";
+import { clientProfiles, workspaces } from "../../db/schema";
 import type {
   EquipeConnectionRepository,
   EquipeDeliveryRepository,
@@ -31,6 +32,7 @@ import {
   publicationIntentIdempotencyKey,
   type AccountScope,
   type EquipeAccount,
+  type EquipeAccountLabel,
   type EquipeAccountStatus,
   type EquipeConnectionPatch,
   type EquipeEventFilter,
@@ -336,4 +338,34 @@ export async function listCalibrationRounds(
     .select()
     .from(equipeCalibrationRounds)
     .where(inArray(equipeCalibrationRounds.status, [...wanted]));
+}
+
+// Internal label join (#554): brand (client profile name) + workspace name
+// per account, read-only. Left joins — a missing profile or workspace reads
+// as null, and the consoles fall back to the short id.
+export async function listAccountLabels(
+  executor: PostgresEquipeExecutor
+): Promise<EquipeAccountLabel[]> {
+  const rows = await executor
+    .select({
+      workspaceId: equipeAccounts.workspaceId,
+      accountId: equipeAccounts.id,
+      brandName: clientProfiles.name,
+      workspaceName: workspaces.name,
+    })
+    .from(equipeAccounts)
+    .leftJoin(
+      clientProfiles,
+      and(
+        eq(clientProfiles.id, equipeAccounts.clientProfileId),
+        eq(clientProfiles.workspaceId, equipeAccounts.workspaceId)
+      )
+    )
+    .leftJoin(workspaces, eq(workspaces.id, equipeAccounts.workspaceId));
+  return rows.map((row) => ({
+    workspaceId: row.workspaceId,
+    accountId: row.accountId,
+    brandName: row.brandName ?? null,
+    workspaceName: row.workspaceName ?? null,
+  }));
 }

@@ -18,6 +18,7 @@ import {
   StaffEmpty,
   StaffErrorAlert,
   StaffLoading,
+  accountDisplayName,
   formatDue,
   shortAccountId,
 } from "./staff-ui";
@@ -101,7 +102,10 @@ function AccountPicker({
               )}
             >
               <span className="text-sm font-medium text-[var(--text-primary)]">
-                {tCommon("account", { id: shortAccountId(entry.scope.accountId) })}
+                {accountDisplayName(
+                  entry,
+                  tCommon("account", { id: shortAccountId(entry.scope.accountId) }),
+                )}
               </span>
               <span className="text-xs text-[var(--text-secondary)]">
                 {t("openCount", { count: entry.exceptions.length })}
@@ -139,11 +143,15 @@ function ScopedQueue({
   const open = query.data?.open ?? [];
   if (open.length === 0) return <StaffEmpty label={t("empty")} />;
 
+  const accountName = accountDisplayName(
+    query.data ?? { brandName: null, workspaceName: null },
+    tCommon("account", { id: shortAccountId(accountId) }),
+  );
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-medium text-[var(--text-primary)]">
-          {t("queueTitle")} · {tCommon("account", { id: shortAccountId(accountId) })}
+          {t("queueTitle")} · {accountName}
         </h2>
         <span className="text-xs text-[var(--text-secondary)]">
           {t("openCount", { count: open.length })}

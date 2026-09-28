@@ -24,6 +24,8 @@ function view(): EscalationDetailView {
   return {
     workspaceId: WORKSPACE_ID,
     accountId: ACCOUNT_ID,
+    brandName: "Café Aurora",
+    workspaceName: "Agência Sul",
     escalation: {
       id: ESCALATION_ID,
       workspaceId: WORKSPACE_ID,
@@ -99,6 +101,9 @@ function view(): EscalationDetailView {
       },
     ],
     exception: null,
+    isolatedConnections: [
+      { id: "conn-1", provider: "instagram", accountId: ACCOUNT_ID, status: "active" },
+    ],
   };
 }
 
@@ -173,7 +178,21 @@ describe("EscalationDetail", () => {
     });
   });
 
-  it("revokes connections as operations only", async () => {
+  it("shows the brand name in the header", async () => {
+    mockApiFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => view(),
+    } as Response);
+
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Café Aurora · Agência Sul/)).toBeInTheDocument();
+    });
+  });
+
+  it("revokes a picked isolated connection as operations only", async () => {
     mockApiFetch.mockImplementation(async (url, init) => {
       if (String(url) === "/api/equipe/staff/commands" && init?.method === "POST") {
         return { ok: true, status: 200, json: async () => ({ ok: true }) } as Response;
@@ -186,6 +205,9 @@ describe("EscalationDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("equipe.escalation.revokeTitle")).toBeInTheDocument();
     });
+    expect(
+      screen.getByRole("option", { name: "instagram · conn-1 · active" }),
+    ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("equipe.escalation.revokeConnection"), {
       target: { value: "conn-1" },
     });
@@ -202,7 +224,25 @@ describe("EscalationDetail", () => {
     );
     expect(JSON.parse(String(commandCall![1]?.body))).toMatchObject({
       type: "revoke_connection",
+      payload: { connectionId: "conn-1", escalationId: ESCALATION_ID, reason: "token vazado" },
       role: "operations",
     });
+  });
+
+  it("disables revoking when nothing is isolated", async () => {
+    mockApiFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ ...view(), isolatedConnections: [] }),
+    } as Response);
+
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByText("equipe.escalation.revokeNone")).toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole("button", { name: "equipe.escalation.revokeSubmit" }),
+    ).toBeDisabled();
   });
 });

@@ -287,6 +287,16 @@ export function publicationIntentIdempotencyKey(itemId: string, versionHash: str
   return `pi1:${itemId}:${versionHash}`;
 }
 
+// Display label of an account for the internal consoles: the brand is the
+// client profile name, plus the workspace name. Both nullable — a label
+// join that finds nothing renders the short id instead.
+export type EquipeAccountLabel = {
+  workspaceId: string;
+  accountId: string;
+  brandName: string | null;
+  workspaceName: string | null;
+};
+
 // Lease padrão do despacho (5 min, como o outbox de efeitos de seleção).
 export const EQUIPE_INTENT_LEASE_TTL_MS = 5 * 60 * 1000;
 

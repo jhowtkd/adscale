@@ -19,6 +19,7 @@ import {
   StaffEmpty,
   StaffErrorAlert,
   StaffLoading,
+  accountDisplayName,
   shortAccountId,
 } from "./staff-ui";
 import { enumLabel } from "./labels";
@@ -89,7 +90,10 @@ export default function RoundDetail({
         description={
           view
             ? [
-                tCommon("account", { id: shortAccountId(view.accountId) }),
+                accountDisplayName(
+                  view,
+                  tCommon("account", { id: shortAccountId(view.accountId) }),
+                ),
                 view.front ? enumLabel(tLabels, `frontKey.${view.front.key}`) : null,
                 view.batch?.title ?? null,
               ]

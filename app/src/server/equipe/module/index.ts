@@ -48,3 +48,5 @@ export * from "./jobs-deadlines";
 export * from "./jobs-monitor";
 export * from "./jobs-signals";
 export * from "./jobs-delivery";
+// Staff consoles (#554)
+export * from "./staff-labels";

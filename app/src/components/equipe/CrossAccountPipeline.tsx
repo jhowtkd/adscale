@@ -17,6 +17,7 @@ import {
   StaffEmpty,
   StaffErrorAlert,
   StaffLoading,
+  accountDisplayName,
   formatDue,
   shortAccountId,
 } from "./staff-ui";
@@ -97,18 +98,20 @@ function AccountCard({ entry, now }: { entry: CrossAccountEntryView; now: number
   const t = useTranslations("equipe.accounts");
   const tCommon = useTranslations("equipe.common");
   const stuck = stuckCount(entry, now);
+  const accountName = accountDisplayName(
+    entry,
+    tCommon("account", { id: shortAccountId(entry.scope.accountId) }),
+  );
   return (
     <section
-      aria-label={tCommon("account", { id: shortAccountId(entry.scope.accountId) })}
+      aria-label={accountName}
       className={cn(
         "rounded-lg border bg-[var(--surface-raised)] px-4 py-3",
         stuck > 0 ? "border-[var(--warning-border)]" : "border-[var(--border-dim)]",
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-          {tCommon("account", { id: shortAccountId(entry.scope.accountId) })}
-        </h2>
+        <h2 className="text-sm font-semibold text-[var(--text-primary)]">{accountName}</h2>
         <div className="flex items-center gap-2">
           {stuck > 0 ? (
             <Badge variant="warning">{t("stuckBadge", { count: stuck })}</Badge>

@@ -51,6 +51,7 @@ describe("revoke_connection", () => {
     // The escalation itself records the revocation.
     const detail = await getEscalationDetail(
       t.deps.uow.repos,
+      t.deps.uow.internal,
       ids.workspaceId,
       ids.accountId,
       escalationId,

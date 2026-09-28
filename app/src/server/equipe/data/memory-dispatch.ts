@@ -278,3 +278,37 @@ export async function listMemoryCalibrationRounds(
     .filter((row) => !wanted || wanted.includes(row.status as EquipeRoundStatus))
     .map(copy);
 }
+
+// Internal label join (#554): brand (client profile name) + workspace name
+// per account. Missing seeds read as null, like the postgres left joins.
+export async function listMemoryAccountLabels(store: MemoryEquipeStore) {
+  return [...store.accounts.rows.values()].map((row) => {
+    const profile = store.adscaleProfiles.rows.get(row.clientProfileId) ?? null;
+    const workspace =
+      (profile && store.adscaleWorkspaces.rows.get(profile.workspaceId)) ??
+      store.adscaleWorkspaces.rows.get(row.workspaceId) ??
+      null;
+    return {
+      workspaceId: row.workspaceId,
+      accountId: row.id,
+      brandName: profile && profile.workspaceId === row.workspaceId ? profile.name : null,
+      workspaceName: workspace ? workspace.name : null,
+    };
+  });
+}
+
+/** Seed brand/workspace names for tests (never called by commands). */
+export function seedMemoryAdscaleLabels(
+  store: MemoryEquipeStore,
+  input: { workspaceId: string; workspaceName: string; profileId: string; brandName: string },
+): void {
+  store.adscaleWorkspaces.rows.set(input.workspaceId, {
+    id: input.workspaceId,
+    name: input.workspaceName,
+  });
+  store.adscaleProfiles.rows.set(input.profileId, {
+    id: input.profileId,
+    workspaceId: input.workspaceId,
+    name: input.brandName,
+  });
+}

@@ -21,6 +21,7 @@ export async function GET(request: Request) {
     ).flat();
     const view = await getCrossAccountPipeline(
       guard.deps.uow.repos,
+      guard.deps.uow.internal,
       accounts.map((account) => ({ workspaceId: account.workspaceId, accountId: account.id })),
     );
     return NextResponse.json(view);

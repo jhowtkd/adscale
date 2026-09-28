@@ -42,8 +42,16 @@ export class MemoryTable<R extends { id: string }> {
   rows = new Map<string, R>();
 }
 
+// Brand/workspace names backing the internal label join in memory. Plain
+// tables so clone/commit treat them like every other table; tests seed
+// them through seedMemoryAdscaleLabels (testing only, never commands).
+export type MemoryAdscaleProfile = { id: string; workspaceId: string; name: string };
+export type MemoryAdscaleWorkspace = { id: string; name: string };
+
 export type MemoryEquipeStore = {
   accounts: MemoryTable<EquipeAccount>;
+  adscaleProfiles: MemoryTable<MemoryAdscaleProfile>;
+  adscaleWorkspaces: MemoryTable<MemoryAdscaleWorkspace>;
   people: MemoryTable<EquipeAccountPerson>;
   staff: MemoryTable<EquipeStaffMember>;
   fronts: MemoryTable<EquipeFront>;
@@ -71,6 +79,8 @@ export type MemoryEquipeStore = {
 export function createMemoryEquipeStore(): MemoryEquipeStore {
   return {
     accounts: new MemoryTable(),
+    adscaleProfiles: new MemoryTable(),
+    adscaleWorkspaces: new MemoryTable(),
     people: new MemoryTable(),
     staff: new MemoryTable(),
     fronts: new MemoryTable(),
