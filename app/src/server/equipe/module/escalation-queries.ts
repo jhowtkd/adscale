@@ -17,6 +17,8 @@ import type {
 import { SUPPORT_EXCEPTION_OPENED_EVENT } from "./exceptions";
 import { PAUSE_APPLIED_EVENT } from "./pauses-apply";
 import { loadStaffLabelMap, staffLabelOf } from "./staff-labels";
+// #584
+import { activationBaseOf } from "./plan-mandate";
 
 export type QueuedException = {
   exception: EquipeException;
@@ -69,6 +71,14 @@ export async function getExceptionsQueue(
   };
 }
 
+// #584 — what the internal account view needs to offer "Propor ativação".
+export type CrossAccountMandateSummary = {
+  /** Latest approved mandate — the activation candidate, if shadow. */
+  approved: { id: string; version: number; shadow: boolean } | null;
+  /** Pending activation awaiting the client, if any. */
+  activationPending: { id: string; version: number } | null;
+};
+
 export type CrossAccountEntry = {
   scope: AccountScope;
   brandName: string | null;
@@ -76,6 +86,7 @@ export type CrossAccountEntry = {
   escalations: EquipeEscalation[];
   exceptions: EquipeException[];
   pauses: EquipePause[];
+  mandate: CrossAccountMandateSummary;
 };
 
 export type CrossAccountPipelineView = {
@@ -115,6 +126,16 @@ export async function getCrossAccountPipeline(
     const escalations = await repos.escalations.list(scope);
     const exceptions = await repos.exceptions.list(scope);
     const pauses = await repos.pauses.list(scope);
+    // #584: the account's mandate state for "Propor ativação".
+    const mandates = await repos.mandates.list(scope);
+    const approved =
+      mandates
+        .filter((row) => row.status === "approved")
+        .sort((a, b) => b.version - a.version)[0] ?? null;
+    const activation =
+      mandates
+        .filter((row) => row.status === "proposed" && activationBaseOf(mandates, row) !== null)
+        .sort((a, b) => b.version - a.version)[0] ?? null;
     const label = staffLabelOf(labels, scope.workspaceId, scope.accountId);
     entries.push({
       scope,
@@ -125,6 +146,12 @@ export async function getCrossAccountPipeline(
         .sort(bySeverityThenDue),
       exceptions: exceptions.filter((row) => row.status === "open" || row.status === "claimed"),
       pauses: pauses.filter((row) => row.status === "active"),
+      mandate: {
+        approved: approved
+          ? { id: approved.id, version: approved.version, shadow: approved.shadow }
+          : null,
+        activationPending: activation ? { id: activation.id, version: activation.version } : null,
+      },
     });
   }
   return { entries };

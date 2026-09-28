@@ -9,10 +9,11 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
 import { cn } from "@/lib/utils";
-import { staffFetchJson } from "./staff-api";
+import { staffFetchJson, useStaffCommand } from "./staff-api";
 import {
   StaffEmpty,
   StaffErrorAlert,
@@ -31,6 +32,7 @@ import type {
   EquipeExceptionView,
   EquipePauseView,
   OpenAccountCandidateView,
+  StaffRole,
 } from "./types";
 
 function isPastDue(dueAt: string | null, now: number): boolean {
@@ -53,11 +55,18 @@ function stuckCount(entry: CrossAccountEntryView, now: number): number {
 export default function CrossAccountPipeline({
   candidates = [],
   canOpenAccount = false,
+  activationRole = "support",
 }: {
   // #582 — open-account candidates from the server component; the dialog
   // renders its action only for operations staff.
   candidates?: OpenAccountCandidateView[];
   canOpenAccount?: boolean;
+  /**
+   * The caller's held role for "Propor ativação", picked by the page from
+   * its staff rows (support if held, else operations). Null hides the
+   * propose button — staff holding neither role only sees the state.
+   */
+  activationRole?: StaffRole | null;
 }) {
   const t = useTranslations("equipe.accounts");
   const tCommon = useTranslations("equipe.common");
@@ -83,12 +92,18 @@ export default function CrossAccountPipeline({
       {query.error ? (
         <StaffErrorAlert error={query.error} onRetry={() => void query.refetch()} />
       ) : null}
-      {query.data ? <PipelineEntries view={query.data} /> : null}
+      {query.data ? <PipelineEntries view={query.data} activationRole={activationRole} /> : null}
     </PageFrame>
   );
 }
 
-function PipelineEntries({ view }: { view: CrossAccountPipelineView }) {
+function PipelineEntries({
+  view,
+  activationRole,
+}: {
+  view: CrossAccountPipelineView;
+  activationRole: StaffRole | null;
+}) {
   const t = useTranslations("equipe.accounts");
   const [now] = useState(() => Date.now());
   const entries = [...view.entries]
@@ -96,20 +111,35 @@ function PipelineEntries({ view }: { view: CrossAccountPipelineView }) {
       (entry) =>
         entry.escalations.length > 0 ||
         entry.exceptions.length > 0 ||
-        entry.pauses.length > 0,
+        entry.pauses.length > 0 ||
+        // #584: a shadow mandate needs staff — propose, or await the client.
+        entry.mandate?.approved?.shadow === true,
     )
     .sort((a, b) => stuckCount(b, now) - stuckCount(a, now));
   if (entries.length === 0) return <StaffEmpty label={t("empty")} />;
   return (
     <div className="grid gap-4">
       {entries.map((entry) => (
-        <AccountCard key={entry.scope.accountId} entry={entry} now={now} />
+        <AccountCard
+          key={entry.scope.accountId}
+          entry={entry}
+          now={now}
+          activationRole={activationRole}
+        />
       ))}
     </div>
   );
 }
 
-function AccountCard({ entry, now }: { entry: CrossAccountEntryView; now: number }) {
+function AccountCard({
+  entry,
+  now,
+  activationRole,
+}: {
+  entry: CrossAccountEntryView;
+  now: number;
+  activationRole: StaffRole | null;
+}) {
   const t = useTranslations("equipe.accounts");
   const tCommon = useTranslations("equipe.common");
   const stuck = stuckCount(entry, now);
@@ -141,6 +171,11 @@ function AccountCard({ entry, now }: { entry: CrossAccountEntryView; now: number
           ) : null}
         </div>
       </div>
+      {entry.mandate?.approved?.shadow === true ? (
+        <div className="mt-3">
+          <MandateActivation entry={entry} activationRole={activationRole} />
+        </div>
+      ) : null}
       <div className="mt-3 grid gap-4 md:grid-cols-3">
         <div>
           <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
@@ -192,6 +227,105 @@ function AccountCard({ entry, now }: { entry: CrossAccountEntryView; now: number
         </div>
       </div>
     </section>
+  );
+}
+
+// #584 — the account's mandate on the internal account card: "Propor
+// ativação" with a confirmation while the approved mandate is in shadow
+// mode, the wait note once the activation pends the client.
+function MandateActivation({
+  entry,
+  activationRole,
+}: {
+  entry: CrossAccountEntryView;
+  activationRole: StaffRole | null;
+}) {
+  const t = useTranslations("equipe.accounts");
+  const tCommon = useTranslations("equipe.common");
+  const [confirming, setConfirming] = useState(false);
+  const command = useStaffCommand({ invalidateQueries: [["equipe-staff-accounts"]] });
+  const approved = entry.mandate?.approved;
+  const pending = entry.mandate?.activationPending;
+  if (!approved?.shadow) return null;
+  const mandateId = approved.id;
+
+  async function send() {
+    if (!activationRole) return;
+    try {
+      await command.mutateAsync({
+        type: "propose_mandate_activation",
+        payload: { mandateId },
+        role: activationRole,
+        workspaceId: entry.scope.workspaceId,
+        accountId: entry.scope.accountId,
+      });
+      setConfirming(false);
+    } catch {
+      // StaffErrorAlert below shows it; the confirmation stays open to retry.
+    }
+  }
+
+  return (
+    <div
+      className="rounded-md border border-[var(--border-dim)] px-3 py-2"
+      data-testid={`staff-mandate-${entry.scope.accountId}`}
+    >
+      <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
+        {t("mandateTitle")}
+      </h3>
+      {pending ? (
+        <p className="text-sm text-[var(--text-secondary)]" data-testid="staff-mandate-pending">
+          {t("mandateActivationPending", { version: pending.version })}
+        </p>
+      ) : confirming ? (
+        <div className="space-y-2">
+          <p className="text-sm text-[var(--text-primary)]">{t("proposeActivationConfirm")}</p>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              disabled={command.isPending}
+              onClick={() => void send()}
+              data-testid="staff-mandate-confirm"
+            >
+              {t("proposeActivationSubmit")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={command.isPending}
+              onClick={() => setConfirming(false)}
+              data-testid="staff-mandate-cancel"
+            >
+              {tCommon("cancel")}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-[var(--text-secondary)]">
+            {t("mandateShadow", { version: approved.version })}
+          </p>
+          {activationRole ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirming(true)}
+              data-testid="staff-mandate-propose"
+            >
+              {t("proposeActivation")}
+            </Button>
+          ) : null}
+        </div>
+      )}
+      {command.error ? (
+        <div className="mt-2">
+          <StaffErrorAlert error={command.error} />
+        </div>
+      ) : null}
+    </div>
   );
 }
 

@@ -322,6 +322,16 @@ export function MandateStepActions({
       {mandates.map((mandate) => {
         const row = byId.get(mandate.id);
         const validUntil = formatDate(row?.validUntil, locale);
+        // #584: a pending activation out of shadow says plainly what the
+        // approval changes; anything else keeps the compact mandate line.
+        const subtitle = mandate.activation
+          ? t("mandateActivationExplainer")
+          : [
+              row?.shadow ? t("shadowMode") : null,
+              validUntil ? t("validUntil", { date: validUntil }) : null,
+            ]
+              .filter(Boolean)
+              .join(" · ") || t("mandateExplainer");
         return (
           <div
             key={mandate.id}
@@ -331,14 +341,7 @@ export function MandateStepActions({
               <span className="block text-sm font-medium text-[var(--text-primary)]">
                 {t("mandateProposal", { version: mandate.version })}
               </span>
-              <span className="block text-xs text-[var(--text-muted)]">
-                {[
-                  row?.shadow ? t("shadowMode") : null,
-                  validUntil ? t("validUntil", { date: validUntil }) : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ") || t("mandateExplainer")}
-              </span>
+              <span className="block text-xs text-[var(--text-muted)]">{subtitle}</span>
             </span>
             <Button
               type="button"
@@ -359,6 +362,57 @@ export function MandateStepActions({
         );
       })}
       <ActionError message={error} testId="goals-mandate-error" />
+    </div>
+  );
+}
+
+// #584 (round 2): a pending activation on a calibrating/active account
+// approves from the mandates section — the implantação mandate step is
+// done (or hidden) by then. Same hash-bound approve_mandate flow.
+export function MandateActivationActions({
+  accountId,
+  mandates,
+}: {
+  accountId: string;
+  mandates: GoalsDecisionsJson["mandates"];
+}) {
+  const t = useTranslations("equipe.goals");
+  const { isPending, error, run } = useDecisionRunner(accountId);
+  const activations = mandates.filter((mandate) => mandate.activation);
+  if (activations.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-2" data-testid="goals-mandates-activation">
+      {activations.map((mandate) => (
+        <div
+          key={mandate.id}
+          className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius-md)] border border-[var(--border-subtle)] p-3"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium text-[var(--text-primary)]">
+              {t("mandateProposal", { version: mandate.version })}
+            </span>
+            <span className="block text-xs text-[var(--text-muted)]">
+              {t("mandateActivationExplainer")}
+            </span>
+          </span>
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            disabled={isPending}
+            onClick={() =>
+              void run(
+                () => approveEquipeMandate(accountId, { expectedVersionHash: mandate.versionHash }),
+                t("mandateApproved"),
+              )
+            }
+            data-testid={`goals-mandates-activation-approve-${mandate.version}`}
+          >
+            {t("mandateApprove")}
+          </Button>
+        </div>
+      ))}
+      <ActionError message={error} testId="goals-mandates-activation-error" />
     </div>
   );
 }

@@ -5047,7 +5047,8 @@
       "invalidInput": "Check the fields and try again.",
       "conflict": "Conflict with the current state — reload and try again.",
       "serverError": "Internal error. Try again in a moment.",
-      "generic": "Something went wrong. Try again."
+      "generic": "Something went wrong. Try again.",
+      "unknownMandate": "This mandate no longer exists."
     },
     "labels": {
       "trigger": {
@@ -5289,7 +5290,13 @@
       "sectionExceptions": "Exceptions",
       "sectionPauses": "Pauses",
       "noneInSection": "Nothing here.",
-      "openException": "See queue"
+      "openException": "See queue",
+      "mandateTitle": "Mandate",
+      "mandateShadow": "Mandate v{version} in shadow mode",
+      "mandateActivationPending": "Activation v{version} awaiting the client",
+      "proposeActivation": "Propose activation",
+      "proposeActivationConfirm": "Create an identical version outside shadow mode and wait for the client's approval?",
+      "proposeActivationSubmit": "Confirm"
     },
     "quality": {
       "title": "Quality",
@@ -5719,7 +5726,8 @@
       "materialKind_video": "Video",
       "materialKind_text": "Text",
       "materialEmpty": "No material in your workspace yet.",
-      "materialLoading": "Loading materials…"
+      "materialLoading": "Loading materials…",
+      "mandateActivationExplainer": "After approval, approved items start publishing automatically, within the window and limits."
     },
     "fronts": {
       "social_instagram": "Social · Instagram",

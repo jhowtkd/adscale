@@ -125,6 +125,11 @@ export const approveMandatePayloadSchema = z.object({
   expectedVersionHash: versionHash,
 });
 
+// #584 — staff proposes activating an approved shadow mandate.
+export const proposeMandateActivationPayloadSchema = z.object({
+  mandateId: uuid,
+});
+
 export const decideIdeaPayloadSchema = z.object({
   ideaId: uuid,
   decision: z.enum(["approve", "reject"]),
@@ -557,6 +562,8 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("approve_plan", approvePlanPayloadSchema),
   command("propose_mandate", proposeMandatePayloadSchema),
   command("approve_mandate", approveMandatePayloadSchema),
+  // #584
+  command("propose_mandate_activation", proposeMandateActivationPayloadSchema),
   command("decide_idea", decideIdeaPayloadSchema),
   command("approve_brand_voice", approveBrandVoicePayloadSchema),
   command("agree_manual_mode", agreeManualModePayloadSchema),

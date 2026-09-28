@@ -343,6 +343,56 @@ describe("GoalsView", () => {
     });
   });
 
+  it("explains a pending activation and approves it with the server hash", async () => {
+    renderView("deploying", {
+      ...DECISIONS,
+      mandates: [{ id: "mand-2", version: 2, versionHash: "hash-ativacao", activation: true }],
+    });
+    const action = await screen.findByTestId("goals-action-mandate");
+    expect(action).toHaveTextContent("mandateActivationExplainer");
+    fireEvent.click(screen.getByTestId("goals-mandate-approve-2"));
+    await waitFor(() => {
+      expect(commandMocks.approveEquipeMandate).toHaveBeenCalledWith("acc-1", {
+        expectedVersionHash: "hash-ativacao",
+      });
+    });
+  });
+
+  it("approves a pending activation from the mandates section on an active account", async () => {
+    renderView("active", {
+      ...DECISIONS,
+      mandates: [{ id: "mand-2", version: 2, versionHash: "hash-ativacao", activation: true }],
+    });
+    expect(screen.queryByTestId("goals-implantation")).not.toBeInTheDocument();
+    const action = await screen.findByTestId("goals-mandates-activation");
+    expect(action).toHaveTextContent("mandateActivationExplainer");
+    fireEvent.click(screen.getByTestId("goals-mandates-activation-approve-2"));
+    await waitFor(() => {
+      expect(commandMocks.approveEquipeMandate).toHaveBeenCalledWith("acc-1", {
+        expectedVersionHash: "hash-ativacao",
+      });
+    });
+  });
+
+  it("shows no activation action for a regular mandate on an active account", async () => {
+    renderView("active", {
+      ...DECISIONS,
+      mandates: [{ id: "mand-9", version: 1, versionHash: "hash-mandato", activation: false }],
+    });
+    expect(await screen.findByTestId("goals-mandates")).toBeInTheDocument();
+    expect(screen.queryByTestId("goals-mandates-activation")).not.toBeInTheDocument();
+  });
+
+  it("keeps the compact line for a regular mandate proposal", async () => {
+    renderView("deploying", {
+      ...DECISIONS,
+      mandates: [{ id: "mand-9", version: 1, versionHash: "hash-mandato", activation: false }],
+    });
+    const action = await screen.findByTestId("goals-action-mandate");
+    expect(action).not.toHaveTextContent("mandateActivationExplainer");
+    expect(action).toHaveTextContent("mandateExplainer");
+  });
+
   it("shows the API's reason when the step no longer allows the action", async () => {
     commandMocks.approveEquipePlan.mockRejectedValueOnce(
       new EquipeCommandError("conflict", 409, "invalid_transition", "no proposed plan version"),

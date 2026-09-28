@@ -24,6 +24,7 @@ import EquipeTopActions, { RequestSupportButton } from "./EquipeTopActions";
 import {
   ConnectionStepAction,
   ContextStepActions,
+  MandateActivationActions,
   MandateStepActions,
   PlanStepAction,
   ScopeConfirmAction,
@@ -281,11 +282,17 @@ function PlanState({ plan }: { plan: EquipePlanJson | null }) {
 }
 
 function MandatesState({
+  accountId,
+  accountStatus,
   mandates,
   fronts,
+  decisions,
 }: {
+  accountId: string;
+  accountStatus: string;
   mandates: EquipeMandateJson[];
   fronts: EquipeFrontJson[];
+  decisions: GoalsDecisionsJson;
 }) {
   const t = useTranslations("equipe.goals");
   const tFronts = useTranslations("equipe.fronts");
@@ -293,9 +300,16 @@ function MandatesState({
   const ordered = useMemo(() => [...mandates].sort((a, b) => a.version - b.version), [mandates]);
   if (ordered.length === 0) return null;
   const frontKeyOf = (frontId: string | null) => fronts.find((front) => front.id === frontId)?.key ?? null;
+  // #584 (round 2): past implantation the pending activation approves here.
+  const showActivation = accountStatus === "calibrating" || accountStatus === "active";
   return (
     <section aria-label={t("mandates")} data-testid="goals-mandates">
       <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("mandates")}</h2>
+      {showActivation ? (
+        <div className="mt-2">
+          <MandateActivationActions accountId={accountId} mandates={decisions.mandates} />
+        </div>
+      ) : null}
       <ul className="mt-2 flex flex-col gap-2">
         {ordered.map((mandate) => {
           const frontKey = frontKeyOf(mandate.frontId);
@@ -391,7 +405,13 @@ function GoalsBoard({
       ) : null}
       <FrontsState fronts={fronts} />
       <PlanState plan={plan} />
-      <MandatesState mandates={mandates} fronts={fronts} />
+      <MandatesState
+        accountId={accountId}
+        accountStatus={accountStatus}
+        mandates={mandates}
+        fronts={fronts}
+        decisions={decisions}
+      />
       {inOperation ? <CreateGoal /> : null}
       <div>
         <RequestSupportButton accountId={accountId} />

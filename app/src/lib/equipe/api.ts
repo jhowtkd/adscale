@@ -169,7 +169,7 @@ export type GoalsDecisionsJson = {
     question: string;
   }>;
   plan: { id: string; version: number; versionHash: string } | null;
-  mandates: Array<{ id: string; version: number; versionHash: string }>;
+  mandates: Array<{ id: string; version: number; versionHash: string; activation?: boolean }>;
   brandVoice: { approved: boolean; versionHash: string | null };
   connection: { verified: boolean; manualAgreed: boolean };
 };

@@ -85,6 +85,12 @@ export type EquipeEventView = {
   occurredAt: string;
 };
 
+// #584 — the account's mandate state for "Propor ativação".
+export type CrossAccountMandateSummaryView = {
+  approved: { id: string; version: number; shadow: boolean } | null;
+  activationPending: { id: string; version: number } | null;
+};
+
 export type CrossAccountEntryView = {
   scope: AccountScope;
   brandName: string | null;
@@ -92,6 +98,7 @@ export type CrossAccountEntryView = {
   escalations: EquipeEscalationView[];
   exceptions: EquipeExceptionView[];
   pauses: EquipePauseView[];
+  mandate: CrossAccountMandateSummaryView;
 };
 
 export type CrossAccountPipelineView = {
