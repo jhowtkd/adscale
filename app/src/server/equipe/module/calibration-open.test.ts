@@ -6,6 +6,7 @@ import {
   ctx,
   frontIdOf,
   openTestRound,
+  releaseAll,
   scoreAll,
   setNow,
   setup,
@@ -107,6 +108,7 @@ describe("open_round", () => {
     const { t, ids } = await setupCalibration();
     const first = await openTestRound(t, ids);
     await scoreAll(t, ids, first.roundId, first.itemIds);
+    await releaseAll(t, ids, first.roundId, first.itemIds);
     await approveAll(t, ids, first.itemIds);
     await closeTestRound(t, ids, first.roundId);
     setNow(t, new Date("2026-10-12T14:00:00.000Z"));

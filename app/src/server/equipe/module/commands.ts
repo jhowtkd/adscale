@@ -74,16 +74,18 @@ import {
   runSuspendExecution,
 } from "./pauses";
 // Calibration (#546)
+import { runCloseRound, runOpenRound } from "./calibration-open-close";
 import {
-  runClassifyRejection,
-  runCloseRound,
-  runMarkCriticalFailure,
-  runOpenRound,
   runReleaseItemToClient,
   runReturnItemForFix,
   runScoreAttempt,
+  runSubmitCorrectedVersion,
+} from "./calibration-scoring";
+import {
+  runClassifyRejection,
+  runMarkCriticalFailure,
   runWithdrawRoundItem,
-} from "./calibration-rounds";
+} from "./calibration-classify";
 import {
   runOpenScopeDecision,
   runReleaseFront,
@@ -151,6 +153,7 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   open_round: "open_round",
   score_attempt: "score_round",
   return_item_for_fix: "return_for_fix",
+  submit_corrected_version: "submit_corrected_version",
   release_item_to_client: "release_item_to_client",
   mark_critical_failure: "mark_critical_failure",
   withdraw_round_item: "withdraw_round_item",
@@ -378,6 +381,9 @@ export async function executeCommand(
       break;
     case "return_item_for_fix":
       outcome = await runReturnItemForFix(deps, base, command.payload);
+      break;
+    case "submit_corrected_version":
+      outcome = await runSubmitCorrectedVersion(deps, base, command.payload);
       break;
     case "release_item_to_client":
       outcome = await runReleaseItemToClient(deps, base, command.payload);

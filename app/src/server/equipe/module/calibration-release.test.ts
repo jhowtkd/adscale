@@ -9,6 +9,7 @@ import {
   frontIdOf,
   frontStatusOf,
   openTestRound,
+  releaseAll,
   scoreAll,
   setNow,
   setupCalibration,
@@ -28,6 +29,7 @@ async function passThreeWeeks(
     setNow(t, new Date(WEEK_1.getTime() + week * WEEK));
     const round = await openTestRound(t, ids, { front });
     await scoreAll(t, ids, round.roundId, round.itemIds);
+    await releaseAll(t, ids, round.roundId, round.itemIds);
     await approveAll(t, ids, round.itemIds);
     await closeTestRound(t, ids, round.roundId);
   }
@@ -40,6 +42,7 @@ describe("release_front", () => {
     setNow(t, WEEK_1);
     const round = await openTestRound(t, ids);
     await scoreAll(t, ids, round.roundId, round.itemIds);
+    await releaseAll(t, ids, round.roundId, round.itemIds);
     await approveAll(t, ids, round.itemIds);
     await closeTestRound(t, ids, round.roundId);
     const early = await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
@@ -100,6 +103,7 @@ describe("release_front", () => {
     setNow(t, WEEK_1);
     const round = await openTestRound(t, ids);
     await scoreAll(t, ids, round.roundId, round.itemIds);
+    await releaseAll(t, ids, round.roundId, round.itemIds);
     await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
       type: "request_adjustment",
       payload: { itemId: round.itemIds[0]!, category: "fact" },
@@ -119,6 +123,7 @@ describe("release_front", () => {
       setNow(t, new Date(WEEK_1.getTime() + week * WEEK));
       const next = await openTestRound(t, ids);
       await scoreAll(t, ids, next.roundId, next.itemIds);
+      await releaseAll(t, ids, next.roundId, next.itemIds);
       await approveAll(t, ids, next.itemIds);
       await closeTestRound(t, ids, next.roundId);
     }
@@ -153,6 +158,7 @@ describe("release_front", () => {
       setNow(t, new Date(WEEK_1.getTime() + week * WEEK));
       const round = await openTestRound(t, ids, { front: "midia_paga" });
       await scoreAll(t, ids, round.roundId, round.itemIds);
+      await releaseAll(t, ids, round.roundId, round.itemIds);
       await approveAll(t, ids, round.itemIds);
       await closeTestRound(t, ids, round.roundId);
     }
@@ -255,6 +261,7 @@ describe("reopen_calibration", () => {
     const round = await openTestRound(t, ids);
     expect(round.sequence).toBe(4);
     await scoreAll(t, ids, round.roundId, round.itemIds);
+    await releaseAll(t, ids, round.roundId, round.itemIds);
     await approveAll(t, ids, round.itemIds);
     const closed = await closeTestRound(t, ids, round.roundId);
     expect(closed).toMatchObject({ outcome: "passed", consecutivePasses: 1 });

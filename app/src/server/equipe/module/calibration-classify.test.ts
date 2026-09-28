@@ -5,6 +5,7 @@ import {
   closeTestRound,
   ctx,
   openTestRound,
+  releaseAll,
   scoreAll,
   setupCalibration,
 } from "./testing/calibration";
@@ -12,9 +13,13 @@ import {
 async function adjust(
   t: Parameters<typeof openTestRound>[0],
   ids: Parameters<typeof openTestRound>[1],
+  roundId: string,
   itemId: string,
   category: "fact" | "brand" | "voice" | "visual" | "other",
 ) {
+  // The client only adjusts conferred items: score, release, then request.
+  await scoreAll(t, ids, roundId, [itemId]);
+  await releaseAll(t, ids, roundId, [itemId]);
   const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
     type: "request_adjustment",
     payload: { itemId, category },
@@ -29,7 +34,7 @@ describe("classify_rejection", () => {
     const { t, ids } = await setupCalibration();
     const round = await openTestRound(t, ids);
     const itemId = round.itemIds[0]!;
-    await adjust(t, ids, itemId, "voice");
+    await adjust(t, ids, round.roundId, itemId, "voice");
     const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
       type: "classify_rejection",
       payload: { roundId: round.roundId, itemId, category: "brand" },
@@ -44,7 +49,7 @@ describe("classify_rejection", () => {
     const { t, ids } = await setupCalibration();
     const round = await openTestRound(t, ids);
     const itemId = round.itemIds[0]!;
-    await adjust(t, ids, itemId, "fact");
+    await adjust(t, ids, round.roundId, itemId, "fact");
     const bare = await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
       type: "classify_rejection",
       payload: { roundId: round.roundId, itemId, category: "taste" },
@@ -75,7 +80,7 @@ describe("classify_rejection", () => {
     const { t, ids } = await setupCalibration();
     const round = await openTestRound(t, ids);
     const itemId = round.itemIds[0]!;
-    await adjust(t, ids, itemId, "fact");
+    await adjust(t, ids, round.roundId, itemId, "fact");
     const lateral = await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
       type: "classify_rejection",
       payload: { roundId: round.roundId, itemId, category: "brand" },
@@ -86,7 +91,7 @@ describe("classify_rejection", () => {
       payload: { roundId: round.roundId, itemId, category: "taste", evidence: "voice guide covers it" },
     });
     expect(loosened.ok).toBe(true);
-    await scoreAll(t, ids, round.roundId, round.itemIds);
+    await scoreAll(t, ids, round.roundId, round.itemIds.slice(1));
     const closed = await closeTestRound(t, ids, round.roundId);
     expect(closed.outcome).toBe("inconclusive");
     const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
@@ -106,7 +111,7 @@ describe("classify_rejection", () => {
     expect(empty.ok).toBe(false);
     if (empty.ok) return;
     expect(empty.error.code).toBe("nothing_to_classify");
-    await adjust(t, ids, itemId, "brand");
+    await adjust(t, ids, round.roundId, itemId, "brand");
     const agent = await executeCommand(t.deps, ctx(ids, ids.actors.agent), {
       type: "classify_rejection",
       payload: { roundId: round.roundId, itemId, category: "taste", evidence: "x" },
@@ -114,7 +119,8 @@ describe("classify_rejection", () => {
     expect(agent.ok).toBe(false);
     if (agent.ok) return;
     expect(agent.error.code).toBe("forbidden_actor");
-    await scoreAll(t, ids, round.roundId, round.itemIds);
+    await scoreAll(t, ids, round.roundId, round.itemIds.slice(1));
+    await releaseAll(t, ids, round.roundId, round.itemIds.slice(1));
     await approveAll(t, ids, round.itemIds.slice(1));
     await closeTestRound(t, ids, round.roundId);
     const late = await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
@@ -131,8 +137,8 @@ describe("classification at close", () => {
   it("a loosened rejection passes and shows up in the round summary", async () => {
     const { t, ids } = await setupCalibration();
     const round = await openTestRound(t, ids);
-    await scoreAll(t, ids, round.roundId, round.itemIds);
-    await adjust(t, ids, round.itemIds[0]!, "fact");
+    await adjust(t, ids, round.roundId, round.itemIds[0]!, "fact");
+    await scoreAll(t, ids, round.roundId, round.itemIds.slice(1));
     await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
       type: "classify_rejection",
       payload: {
@@ -142,6 +148,7 @@ describe("classification at close", () => {
         evidence: "source shows the fact was right",
       },
     });
+    await releaseAll(t, ids, round.roundId, round.itemIds.slice(1));
     await approveAll(t, ids, round.itemIds.slice(1));
     const closed = await closeTestRound(t, ids, round.roundId);
     expect(closed.outcome).toBe("passed");
@@ -164,12 +171,13 @@ describe("classification at close", () => {
   it("a tightened taste adjustment fails the round", async () => {
     const { t, ids } = await setupCalibration();
     const round = await openTestRound(t, ids);
-    await scoreAll(t, ids, round.roundId, round.itemIds);
-    await adjust(t, ids, round.itemIds[0]!, "voice");
+    await adjust(t, ids, round.roundId, round.itemIds[0]!, "voice");
+    await scoreAll(t, ids, round.roundId, round.itemIds.slice(1));
     await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
       type: "classify_rejection",
       payload: { roundId: round.roundId, itemId: round.itemIds[0]!, category: "brand" },
     });
+    await releaseAll(t, ids, round.roundId, round.itemIds.slice(1));
     await approveAll(t, ids, round.itemIds.slice(1));
     const closed = await closeTestRound(t, ids, round.roundId);
     expect(closed.outcome).toBe("failed");

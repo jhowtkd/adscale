@@ -33,6 +33,7 @@ import { scopeOf, type CommandContext } from "./shared";
 export const ROUND_OPENED_EVENT = "round.opened";
 export const ROUND_ITEM_SCORED_EVENT = "round.item_scored";
 export const ROUND_ITEM_RETURNED_EVENT = "round.item_returned";
+export const ROUND_ITEM_CORRECTED_EVENT = "round.item_corrected";
 export const ROUND_ITEM_RELEASED_EVENT = "round.item_released";
 export const ROUND_CRITICAL_FAILURE_EVENT = "round.critical_failure";
 export const ROUND_ITEM_WITHDRAWN_EVENT = "round.item_withdrawn";
@@ -178,7 +179,13 @@ export type QualityClassification = "fact" | "brand" | "taste";
 export type RoundItemQuality = {
   /** First (only) return for fix, with the version hash it returned. */
   returned: { versionHash: string; note: string } | null;
-  /** Release to the client, with the version hash it released. */
+  /** Latest corrected version submitted after the return, when it arrived. */
+  corrected: { versionHash: string } | null;
+  /**
+   * Latest release to the client, with the version hash it released. A
+   * caption edit after release needs the re-check again, so the release is
+   * only current while it covers the item's current version.
+   */
   released: { versionHash: string; corrected: boolean } | null;
   critical: { reason: string } | null;
   withdrawn: { reason: string | null } | null;
@@ -204,6 +211,7 @@ function isClassification(value: unknown): value is QualityClassification {
 export function roundItemQuality(roundEvents: EquipeEvent[], itemId: string): RoundItemQuality {
   const quality: RoundItemQuality = {
     returned: null,
+    corrected: null,
     released: null,
     critical: null,
     withdrawn: null,
@@ -222,8 +230,13 @@ export function roundItemQuality(roundEvents: EquipeEvent[], itemId: string): Ro
           quality.returned = { versionHash: payload.versionHash, note: payload.note };
         }
         break;
+      case ROUND_ITEM_CORRECTED_EVENT:
+        if (typeof payload.versionHash === "string") {
+          quality.corrected = { versionHash: payload.versionHash };
+        }
+        break;
       case ROUND_ITEM_RELEASED_EVENT:
-        if (quality.released === null && typeof payload.versionHash === "string") {
+        if (typeof payload.versionHash === "string") {
           quality.released = {
             versionHash: payload.versionHash,
             corrected: payload.corrected === true,

@@ -27,6 +27,7 @@ import {
   storedDestinationOf,
   versionContentOf,
 } from "./item-shared";
+import { conferencePendingMessage, isItemConferring } from "./calibration-conference";
 
 export type ChoosePiecePayload = z.infer<typeof choosePiecePayloadSchema>;
 
@@ -42,6 +43,9 @@ export async function runChoosePiece(
     if (!loaded.ok) return loaded;
     const scope = scopeOf(ctx);
     const item = loaded.value;
+    if (await isItemConferring(ctx.repos, scope, account.value.status, item)) {
+      return err("conference_pending", conferencePendingMessage(payload.itemId));
+    }
     const front = await ctx.repos.fronts.get(scope, item.frontId);
     if (!front || front.key !== "midia_paga") {
       return err("wrong_front", `item ${item.id} is not a paid-media angle`);

@@ -409,6 +409,22 @@ export const returnItemForFixPayloadSchema = z.object({
   note: z.string().min(1).max(2000),
 });
 
+export const submitCorrectedVersionPayloadSchema = z
+  .object({
+    roundId: uuid,
+    itemId: uuid,
+    caption: z.string().min(1).max(4000).optional(),
+    creativeWorkOutputId: uuid.optional(),
+  })
+  .superRefine((payload, ctx) => {
+    if (payload.caption === undefined && payload.creativeWorkOutputId === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "caption or creativeWorkOutputId is required",
+      });
+    }
+  });
+
 export const releaseItemToClientPayloadSchema = z.object({
   roundId: uuid,
   itemId: uuid,
@@ -531,6 +547,7 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("open_round", openRoundPayloadSchema),
   command("score_attempt", scoreAttemptPayloadSchema),
   command("return_item_for_fix", returnItemForFixPayloadSchema),
+  command("submit_corrected_version", submitCorrectedVersionPayloadSchema),
   command("release_item_to_client", releaseItemToClientPayloadSchema),
   command("mark_critical_failure", markCriticalFailurePayloadSchema),
   command("withdraw_round_item", withdrawRoundItemPayloadSchema),

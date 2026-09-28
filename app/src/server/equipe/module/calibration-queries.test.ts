@@ -7,6 +7,7 @@ import {
   ctx,
   makeTestDeps,
   openTestRound,
+  releaseAll,
   scoreAll,
   setupCalibration,
   submitCorrection,
@@ -27,6 +28,7 @@ describe("getQualityPipeline", () => {
     const open = await openTestRound(t, first);
     const closing = await openTestRound(t, second);
     await scoreAll(t, second, closing.roundId, closing.itemIds);
+    await releaseAll(t, second, closing.roundId, closing.itemIds);
     await approveAll(t, second, closing.itemIds);
     await closeTestRound(t, second, closing.roundId);
     const qualityId = (first.actors.quality as { staffId: string }).staffId;
@@ -69,10 +71,7 @@ describe("getRoundDetail", () => {
     const { t, ids } = await setupCalibration();
     const round = await openTestRound(t, ids);
     await scoreAll(t, ids, round.roundId, round.itemIds);
-    await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
-      type: "release_item_to_client",
-      payload: { roundId: round.roundId, itemId: round.itemIds[0]! },
-    });
+    await releaseAll(t, ids, round.roundId, round.itemIds);
     await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
       type: "request_adjustment",
       payload: { itemId: round.itemIds[1]!, category: "voice" },
@@ -117,7 +116,7 @@ describe("getRoundDetail", () => {
       type: "return_item_for_fix",
       payload: { roundId: round.roundId, itemId: round.itemIds[0]!, note: "fix" },
     });
-    await submitCorrection(t, ids, round.itemIds[0]!, "corrected");
+    await submitCorrection(t, ids, round.roundId, round.itemIds[0]!, "corrected");
     await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
       type: "withdraw_round_item",
       payload: { roundId: round.roundId, itemId: round.itemIds[0]! },

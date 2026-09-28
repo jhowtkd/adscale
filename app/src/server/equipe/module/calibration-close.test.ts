@@ -8,6 +8,7 @@ import {
   frontIdOf,
   frontStatusOf,
   openTestRound,
+  releaseAll,
   scoreAll,
   setNow,
   setupCalibration,
@@ -33,6 +34,7 @@ async function runWeek(
 
 async function passRound(t: TestDeps, ids: CalibrationIds, itemIds: string[], roundId: string) {
   await scoreAll(t, ids, roundId, itemIds);
+  await releaseAll(t, ids, roundId, itemIds);
   await approveAll(t, ids, itemIds);
 }
 
@@ -72,6 +74,7 @@ describe("close_round", () => {
     const { t, ids } = await setupCalibration();
     const round = await openTestRound(t, ids);
     await scoreAll(t, ids, round.roundId, round.itemIds);
+    await releaseAll(t, ids, round.roundId, round.itemIds);
     await approveAll(t, ids, round.itemIds.slice(0, 2));
     await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
       type: "request_adjustment",
@@ -92,6 +95,7 @@ describe("close_round", () => {
     expect(first).toMatchObject({ outcome: "passed", consecutivePasses: 1 });
     const second = await runWeek(t, ids, new Date(WEEK_1.getTime() + WEEK), async (round) => {
       await scoreAll(t, ids, round.roundId, round.itemIds);
+      await releaseAll(t, ids, round.roundId, round.itemIds);
       await approveAll(t, ids, round.itemIds.slice(0, 2));
     });
     expect(second).toMatchObject({ outcome: "inconclusive", consecutivePasses: 1 });
@@ -127,6 +131,14 @@ describe("close_round", () => {
       payload: { roundId: round.roundId, itemId: round.itemIds[0]!, ...rubric },
     });
     await scoreAll(t, ids, round.roundId, round.itemIds.slice(1));
+    // The low attempt goes through correction before the client can decide;
+    // the note stays on the first version and still fails the round.
+    await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
+      type: "return_item_for_fix",
+      payload: { roundId: round.roundId, itemId: round.itemIds[0]!, note: "fix it" },
+    });
+    await submitCorrection(t, ids, round.roundId, round.itemIds[0]!, "corrected");
+    await releaseAll(t, ids, round.roundId, round.itemIds);
     await approveAll(t, ids, round.itemIds);
     const closed = await closeTestRound(t, ids, round.roundId);
     expect(closed.outcome).toBe("failed");
@@ -148,11 +160,12 @@ describe("close_round", () => {
       type: "return_item_for_fix",
       payload: { roundId: round.roundId, itemId: round.itemIds[0]!, note: "fix" },
     });
-    await submitCorrection(t, ids, round.itemIds[0]!, "corrected");
+    await submitCorrection(t, ids, round.roundId, round.itemIds[0]!, "corrected");
     await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
       type: "withdraw_round_item",
       payload: { roundId: round.roundId, itemId: round.itemIds[0]! },
     });
+    await releaseAll(t, ids, round.roundId, round.itemIds.slice(1));
     await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
       type: "request_adjustment",
       payload: { itemId: round.itemIds[1]!, category: "fact" },
@@ -183,6 +196,7 @@ describe("close_round", () => {
       WEEK_1,
       async (round) => {
         await scoreAll(t, ids, round.roundId, round.itemIds);
+        await releaseAll(t, ids, round.roundId, round.itemIds);
         await approveAll(t, ids, round.itemIds.slice(0, 2));
       },
       "midia_paga",
@@ -194,6 +208,7 @@ describe("close_round", () => {
       new Date(WEEK_1.getTime() + WEEK),
       async (round) => {
         await scoreAll(t, ids, round.roundId, round.itemIds);
+        await releaseAll(t, ids, round.roundId, round.itemIds);
         await approveAll(t, ids, round.itemIds.slice(0, 1));
       },
       "midia_paga",
@@ -263,6 +278,7 @@ describe("close_round", () => {
     const round = await openTestRound(t, ids);
     setNow(t, new Date(WEEK_1.getTime() + 6 * WEEK));
     await scoreAll(t, ids, round.roundId, round.itemIds);
+    await releaseAll(t, ids, round.roundId, round.itemIds);
     await approveAll(t, ids, round.itemIds);
     const closed = await closeTestRound(t, ids, round.roundId);
     expect(closed.outcome).toBe("passed");
@@ -275,6 +291,7 @@ describe("close_round", () => {
     for (let week = 0; week < 6; week += 1) {
       await runWeek(t, ids, new Date(WEEK_1.getTime() + week * WEEK), async (round) => {
         await scoreAll(t, ids, round.roundId, round.itemIds);
+        await releaseAll(t, ids, round.roundId, round.itemIds);
         if (week < 3) await approveAll(t, ids, round.itemIds);
       });
     }

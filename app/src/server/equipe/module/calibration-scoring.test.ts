@@ -14,14 +14,10 @@ import {
 import { deliverTestBatch } from "./testing/items";
 
 describe("score_attempt", () => {
-  it("scores the first AI version even after the client edits the caption", async () => {
+  it("scores the first AI version and keeps it after the client edits the caption", async () => {
     const { t, ids } = await setupCalibration();
     const round = await openTestRound(t, ids);
     const itemId = round.itemIds[0]!;
-    await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
-      type: "edit_caption",
-      payload: { itemId, caption: "client rewrite" },
-    });
     const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
       type: "score_attempt",
       payload: { roundId: round.roundId, itemId, ...PASS_RUBRIC },
@@ -35,6 +31,20 @@ describe("score_attempt", () => {
       verdict: "pass",
     });
     expect(outcome.value.events.map((e) => e.eventType)).toEqual(["round.item_scored"]);
+    // The client only edits conferred items; the note stays on the attempt.
+    await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
+      type: "release_item_to_client",
+      payload: { roundId: round.roundId, itemId },
+    });
+    const edited = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "edit_caption",
+      payload: { itemId, caption: "client rewrite" },
+    });
+    expect(edited.ok).toBe(true);
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    const scores = await t.deps.uow.repos.calibrationScores.list(scope);
+    expect(scores).toHaveLength(1);
+    expect(scores[0]?.versionHash).toBe(round.versionHashes[0]);
   });
 
   it("fails below 14 total or with any dimension below 3", async () => {
@@ -249,7 +259,7 @@ describe("release_item_to_client", () => {
     expect(pending.ok).toBe(false);
     if (pending.ok) return;
     expect(pending.error.code).toBe("correction_pending");
-    await submitCorrection(t, ids, itemId, "fixed caption");
+    await submitCorrection(t, ids, round.roundId, itemId, "fixed caption");
     const released = await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
       type: "release_item_to_client",
       payload: { roundId: round.roundId, itemId },

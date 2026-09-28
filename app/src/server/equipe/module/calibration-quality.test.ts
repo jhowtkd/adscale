@@ -115,7 +115,7 @@ describe("withdraw_round_item", () => {
       type: "return_item_for_fix",
       payload: { roundId: round.roundId, itemId, note: "fix" },
     });
-    await submitCorrection(t, ids, itemId, "still off");
+    await submitCorrection(t, ids, round.roundId, itemId, "still off");
     const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
       type: "withdraw_round_item",
       payload: { roundId: round.roundId, itemId, reason: "correction still off" },
@@ -153,7 +153,7 @@ describe("withdraw_round_item", () => {
     expect(pending.ok).toBe(false);
     if (pending.ok) return;
     expect(pending.error.code).toBe("correction_pending");
-    await submitCorrection(t, ids, pendingId!, "corrected");
+    await submitCorrection(t, ids, round.roundId, pendingId!, "corrected");
     const first = await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
       type: "withdraw_round_item",
       payload: { roundId: round.roundId, itemId: pendingId! },

@@ -26,6 +26,11 @@ import {
   storedItemStatusOf,
   type ItemReview,
 } from "./item-shared";
+import {
+  isReleasedVersion,
+  loadReleasedVersions,
+  requiresCalibrationConference,
+} from "./calibration-conference";
 
 export const ONBOARDING_STEP_ORDER: EquipeOnboardingStepKey[] = [
   "scope_confirm",
@@ -152,7 +157,8 @@ function columnOf(item: EquipeItem): PipelineColumnKey {
 /**
  * The client pipeline: items grouped in columns, each with its single
  * state — the domain review precedence while the item awaits a decision,
- * the lifecycle state otherwise.
+ * the lifecycle state otherwise. Items still in calibration conference are
+ * omitted: the client only sees conferred items.
  */
 export async function getClientPipeline(
   repos: EquipeRepositories,
@@ -162,11 +168,15 @@ export async function getClientPipeline(
   const account = await repos.accounts.get(workspaceId, accountId);
   if (!account) return null;
   const scope = { workspaceId, accountId };
-  const [items, batches] = await Promise.all([
+  const [items, batches, fronts] = await Promise.all([
     repos.items.list(scope),
     repos.batches.list(scope),
+    repos.fronts.list(scope),
   ]);
   const byBatch = new Map(batches.map((batch) => [batch.id, batch]));
+  const byFront = new Map(fronts.map((front) => [front.id, front]));
+  const accountStatus = account.status;
+  const releasedByFront = new Map<string, Set<string>>();
   const columns: Array<{ key: PipelineColumnKey; itemIds: string[] }> = [
     { key: "needs_you", itemIds: [] },
     { key: "in_progress", itemIds: [] },
@@ -176,8 +186,19 @@ export async function getClientPipeline(
   ];
   const byColumn = new Map(columns.map((column) => [column.key, column]));
   const views: PipelineItem[] = [];
+  async function isConferring(item: EquipeItem): Promise<boolean> {
+    const front = byFront.get(item.frontId);
+    if (!front || !requiresCalibrationConference(accountStatus, front.status)) return false;
+    let released = releasedByFront.get(front.id);
+    if (!released) {
+      released = await loadReleasedVersions(repos, scope, front.id);
+      releasedByFront.set(front.id, released);
+    }
+    return !isReleasedVersion(released, item);
+  }
   const ordered = [...items].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   for (const item of ordered) {
+    if (await isConferring(item)) continue;
     const review = await loadItemReview(repos, scope, item);
     const lifecycle = storedItemStatusOf(item);
     // The review precedence rules while the item awaits a decision, and a
@@ -212,7 +233,11 @@ export type ItemDetailView = {
   activeIntent: EquipePublicationIntent | null;
 };
 
-/** Item detail: versions, receipts, findings, review state and live intent. */
+/**
+ * Item detail: versions, receipts, findings, review state and live intent.
+ * Null while the item is still in calibration conference — the client only
+ * sees conferred items, same omission as the pipeline.
+ */
 export async function getItemDetail(
   repos: EquipeRepositories,
   workspaceId: string,
@@ -222,6 +247,16 @@ export async function getItemDetail(
   const scope = { workspaceId, accountId };
   const item = await repos.items.get(scope, itemId);
   if (!item) return null;
+  const account = await repos.accounts.get(workspaceId, accountId);
+  const front = await repos.fronts.get(scope, item.frontId);
+  if (
+    account &&
+    front &&
+    requiresCalibrationConference(account.status, front.status) &&
+    !isReleasedVersion(await loadReleasedVersions(repos, scope, front.id), item)
+  ) {
+    return null;
+  }
   const [versions, receipts, itemEvents, intents, hasOpenEscalation] = await Promise.all([
     repos.itemVersions.list(scope, { itemId }),
     repos.receipts.listByObject(scope, "item", itemId),

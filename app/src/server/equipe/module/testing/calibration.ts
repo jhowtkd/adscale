@@ -5,7 +5,6 @@
 import { fixedClock } from "../../domain";
 import type { EquipeFrontKey } from "../../data";
 import { executeCommand } from "../commands";
-import { itemVersionHash } from "../item-shared";
 import {
   ctx,
   deliverTestBatch,
@@ -159,43 +158,24 @@ export async function closeTestRound(
 }
 
 /**
- * Simulate the IA corrected version arriving after a return for fix: no
- * agent command creates versions yet, so the test writes the version row the
- * future agent path will write (authored by the agent, new caption).
+ * Submit the IA corrected version after a return for fix, through the real
+ * submit_corrected_version command (agent actor, new caption).
  */
 export async function submitCorrection(
   t: TestDeps,
   ids: CalibrationIds,
+  roundId: string,
   itemId: string,
   caption: string,
 ): Promise<string> {
-  const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
-  const item = await t.deps.uow.repos.items.get(scope, itemId);
-  if (!item?.currentVersionHash) throw new Error(`item ${itemId} has no current version`);
-  const current = await t.deps.uow.repos.itemVersions.getByHash(
-    scope,
-    itemId,
-    item.currentVersionHash,
-  );
-  if (!current) throw new Error(`item ${itemId} has no current version row`);
-  const versionHash = itemVersionHash({
-    output: current.creativeWorkOutputId,
-    caption,
-    destination: current.destination ?? "",
-    scheduledFor: current.scheduledFor,
+  const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.agent), {
+    type: "submit_corrected_version",
+    payload: { roundId, itemId, caption },
   });
-  await t.deps.uow.repos.itemVersions.create(scope, {
-    itemId,
-    versionHash,
-    creativeWorkOutputId: current.creativeWorkOutputId,
-    caption,
-    scheduledFor: current.scheduledFor,
-    destination: current.destination,
-    authorRole: "agent",
-    authorId: "estrategista",
-  });
-  await t.deps.uow.repos.items.update(scope, itemId, { currentVersionHash: versionHash });
-  return versionHash;
+  if (!outcome.ok) {
+    throw new Error(`submitCorrection failed: ${outcome.error.code} ${outcome.error.message}`);
+  }
+  return (outcome.value.data as { versionHash: string }).versionHash;
 }
 
 export async function frontStatusOf(
