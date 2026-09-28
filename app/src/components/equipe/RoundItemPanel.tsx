@@ -13,7 +13,7 @@ import {
 import { MIN_DIMENSION_SCORE } from "@/server/equipe/domain/round";
 import { STAFF_ROLE_FOR_COMMAND, useStaffCommand } from "./staff-api";
 import { StaffErrorAlert } from "./staff-ui";
-import { enumLabel } from "./labels";
+import { authorRoleLabel, enumLabel } from "./labels";
 import type { RoundDetailItemView, RubricView } from "./types";
 
 const DIMENSIONS = ["facts", "brand", "usefulness", "execution"] as const;
@@ -130,7 +130,7 @@ export default function RoundItemPanel({
               {evaluatedAttempt.caption || "—"}
             </p>
             <p className="text-xs text-[var(--text-secondary)]">
-              {evaluatedAttempt.authorRole} ·{" "}
+              {authorRoleLabel(tLabels, evaluatedAttempt.authorRole)} ·{" "}
               {t("versionCount", { count: detail.versions.length })}
             </p>
           </div>

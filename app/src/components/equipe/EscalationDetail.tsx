@@ -18,7 +18,7 @@ import {
   formatDue,
   shortAccountId,
 } from "./staff-ui";
-import { enumLabel } from "./labels";
+import { enumLabel, staffRoleLabel } from "./labels";
 import EscalationDetailHistory from "./EscalationDetailHistory";
 import EscalationDetailActions from "./EscalationDetailActions";
 import type { EscalationDetailView, StaffRole } from "./types";
@@ -100,7 +100,7 @@ export default function EscalationDetail({
                   view,
                   tCommon("account", { id: shortAccountId(escalation.accountId) }),
                 ),
-                `${t("ownerLabel")}: ${escalation.ownerRole}`,
+                `${t("ownerLabel")}: ${staffRoleLabel(tLabels, escalation.ownerRole)}`,
                 escalation.dueAt
                   ? tCommon("dueAt", { date: formatDue(escalation.dueAt, locale) ?? "—" })
                   : tCommon("noDue"),

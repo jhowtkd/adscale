@@ -5025,6 +5025,7 @@
       "pauseAlreadyActive": "This pause is already active.",
       "connectionAlreadyRevoked": "This connection is already revoked.",
       "itemNotInRound": "This item isn't in this round.",
+      "roundNotInFront": "That round belongs to another front — check the front before logging.",
       "staleVersion": "The version changed — reload and try again.",
       "versionMismatch": "The version changed — reload and try again.",
       "invalidScore": "The stored score is invalid.",
@@ -5173,10 +5174,41 @@
         "critical": "critical"
       },
       "actorType": {
-        "client_person": "client",
-        "staff": "staff",
+        "client_person": "Client",
+        "staff": "Staff",
         "agent": "AI",
-        "system": "system"
+        "system": "System"
+      },
+      "staffRole": {
+        "support": "support",
+        "quality": "quality",
+        "operations": "operations"
+      },
+      "agentRole": {
+        "strategist": "strategist",
+        "research": "research",
+        "writer": "writer",
+        "reviewer_text": "text review",
+        "reviewer_visual": "visual review",
+        "measurement": "measurement"
+      },
+      "connectionStatus": {
+        "active": "active",
+        "expired": "expired",
+        "revoked": "revoked",
+        "error": "error"
+      },
+      "payloadKey": {
+        "cause": "Cause",
+        "exit": "Decision",
+        "reason": "Reason",
+        "lessonCandidate": "Lesson",
+        "summary": "Summary",
+        "note": "Note",
+        "channel": "Channel",
+        "connectionId": "Connection",
+        "from": "From",
+        "to": "To"
       },
       "eventType": {
         "escalation__opened": "Escalation opened",
@@ -5186,6 +5218,9 @@
         "escalation__deferred_to_client": "Decision deferred to client",
         "escalation__merged": "Escalations merged",
         "escalation__closed": "Escalation closed",
+        "escalation__sla_breached": "Escalation past due",
+        "escalation__client_question": "Client question",
+        "escalation__client_reminder": "Client reminder",
         "connection__revoked": "Connection revoked",
         "pause__applied": "Pause applied",
         "pause__lifted": "Pause lifted",
@@ -5193,7 +5228,12 @@
         "support_exception__assumed": "Exception assumed",
         "support_exception__closed": "Exception closed",
         "staff__message_posted": "Staff message",
-        "staff__contact_registered": "Contact registered"
+        "staff__contact_registered": "Contact registered",
+        "quality__effort_recorded": "Quality time logged",
+        "quality__hours_warning": "Quality hours warning",
+        "quality__hours_alerted": "Quality hours alerted",
+        "quality__hours_escalated": "Quality hours escalated",
+        "quality__hours_over_budget": "Quality hours over budget"
       }
     },
     "exceptions": {
@@ -5246,7 +5286,14 @@
       "emptyClosed": "No closed rounds yet.",
       "roundLabel": "Round {sequence} · {weekKey}",
       "scoreRound": "Score",
-      "viewRound": "View"
+      "viewRound": "View",
+      "effortToggle": "Log time",
+      "effortTitle": "Quality time",
+      "effortMinutes": "Minutes",
+      "effortNote": "Note (optional)",
+      "effortSubmit": "Log",
+      "effortDone": "Time logged.",
+      "effortInvalid": "Enter 1 to 480 minutes."
     },
     "round": {
       "angleLabel": "Angle {current} of {total}",
@@ -5292,6 +5339,10 @@
       "stateWithdrawn": "out of round",
       "stateLoosened": "loosened with evidence",
       "noItems": "This round has no items.",
+      "summaryOutcome": "Outcome",
+      "summaryDecisions": "{decisions} of {required} decisions",
+      "summaryItem": "Angle {index}",
+      "summaryScore": "score {score}, min {min}",
       "summaryTitle": "Close summary",
       "versionCount": "{count, plural, one {# version} other {# versions}}"
     },

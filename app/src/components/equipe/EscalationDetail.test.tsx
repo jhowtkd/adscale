@@ -140,7 +140,9 @@ describe("EscalationDetail", () => {
       expect(screen.getByText("equipe.labels.eventType.escalation__opened")).toBeInTheDocument();
     });
     expect(screen.getByText(/equipe\.labels\.actorType\.system/)).toBeInTheDocument();
-    expect(screen.getByText(/operations/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/equipe\.labels\.staffRole\.operations · staff-op/),
+    ).toBeInTheDocument();
     expect(screen.getByText("equipe.escalation.partsTitle")).toBeInTheDocument();
     expect(screen.getByText(/equipe\.escalation\.partOpen/)).toBeInTheDocument();
     expect(screen.getByText("equipe.escalation.itemTitle")).toBeInTheDocument();
@@ -244,7 +246,9 @@ describe("EscalationDetail", () => {
       expect(screen.getByText("equipe.escalation.revokeTitle")).toBeInTheDocument();
     });
     expect(
-      screen.getByRole("option", { name: "instagram · conn-1 · active" }),
+      screen.getByRole("option", {
+        name: "instagram · conn-1 · equipe.labels.connectionStatus.active",
+      }),
     ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("equipe.escalation.revokeConnection"), {
       target: { value: "conn-1" },
@@ -265,6 +269,57 @@ describe("EscalationDetail", () => {
       payload: { connectionId: "conn-1", escalationId: ESCALATION_ID, reason: "token vazado" },
       role: "operations",
     });
+  });
+
+  it("shows translated roles, payload sentences and short ids — never raw enums or uuids", async () => {
+    const fullId = "550e8400-e29b-41d4-a716-446655440099";
+    const scoped = view();
+    scoped.events = [
+      {
+        ...scoped.events[0]!,
+        payload: { reason: `escalation ${fullId}: alegação de saúde sem fonte` },
+      },
+      {
+        ...scoped.events[1]!,
+        payload: { connectionId: fullId, exit: "fix" },
+      },
+    ];
+    scoped.pauses = [{ ...scoped.pauses[0]!, reason: `escalation ${fullId}: sem fonte` }];
+    mockApiFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => scoped,
+    } as Response);
+
+    renderDetail();
+
+    await waitFor(() => {
+      expect(screen.getByText("equipe.escalation.partsTitle")).toBeInTheDocument();
+    });
+    // Owner role translated in the header ("Dono: qualidade", not "quality").
+    expect(
+      screen.getByText(
+        /equipe\.escalation\.ownerLabel: equipe\.labels\.staffRole\.quality/,
+      ),
+    ).toBeInTheDocument();
+    // Payloads read as sentences with translated keys and values.
+    expect(
+      screen.getByText(
+        /equipe\.labels\.payloadKey\.reason: escalation 550e8400: alegação de saúde sem fonte/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /equipe\.labels\.payloadKey\.exit: equipe\.labels\.exit\.fix/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/equipe\.labels\.payloadKey\.connectionId: 550e8400/),
+    ).toBeInTheDocument();
+    // The pause reason keeps its prose but shortens the embedded uuid.
+    expect(screen.getByText(/escalation 550e8400: sem fonte/)).toBeInTheDocument();
+    // No full uuid anywhere in the rendered prose.
+    expect(document.body.textContent).not.toContain(fullId);
   });
 
   it("disables revoking when nothing is isolated", async () => {

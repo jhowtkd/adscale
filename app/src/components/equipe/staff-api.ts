@@ -85,6 +85,7 @@ export const STAFF_ROLE_FOR_COMMAND: Record<string, StaffRole> = {
   resolve_technical_escalation: "operations",
   reopen_front_calibration: "quality",
   revoke_connection: "operations",
+  record_quality_effort: "quality",
 };
 
 /** close_escalation: only the escalation's owner role closes it. */
