@@ -1,6 +1,6 @@
 {
-  "id": "258bda90-a422-4b3b-9fca-bb4fd1bb5be8",
-  "prevId": "c0a6094d-2d62-430f-8de5-bb990d8c5c5f",
+  "id": "0e4a61bf-86fe-4153-ae6f-e9072d187fa2",
+  "prevId": "9e608ad1-8c95-43eb-a584-45f74924806e",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -18674,6 +18674,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "parts": {
+          "name": "parts",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "due_at": {
           "name": "due_at",
           "type": "timestamp",
@@ -18816,11 +18822,11 @@
       "checkConstraints": {
         "equipe_escalations_severity_check": {
           "name": "equipe_escalations_severity_check",
-          "value": "\"adscale_equipe\".\"equipe_escalations\".\"severity\" in ('low', 'medium', 'high', 'critical')"
+          "value": "\"adscale_equipe\".\"equipe_escalations\".\"severity\" in ('low', 'medium', 'high', 'critical', 'critical_cross_account')"
         },
         "equipe_escalations_status_check": {
           "name": "equipe_escalations_status_check",
-          "value": "\"adscale_equipe\".\"equipe_escalations\".\"status\" in ('open', 'acknowledged', 'resolving', 'resolved', 'closed')"
+          "value": "\"adscale_equipe\".\"equipe_escalations\".\"status\" in ('open', 'acknowledged', 'resolving', 'awaiting_client', 'resolved', 'merged', 'closed')"
         }
       },
       "isRLSEnabled": false
@@ -19014,6 +19020,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'account_manager'"
+        },
+        "assignee_id": {
+          "name": "assignee_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "status": {
           "name": "status",
