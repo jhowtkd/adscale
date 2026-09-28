@@ -5101,6 +5101,7 @@
       "pauseAlreadyActive": "Já existe esta pausa ativa.",
       "connectionAlreadyRevoked": "Esta conexão já foi revogada.",
       "itemNotInRound": "Este item não é desta rodada.",
+      "roundNotInFront": "Essa rodada é de outra frente — confira a frente antes de registrar.",
       "staleVersion": "A versão mudou — recarregue e tente de novo.",
       "versionMismatch": "A versão mudou — recarregue e tente de novo.",
       "invalidScore": "A nota guardada está inválida.",
@@ -5249,10 +5250,41 @@
         "critical": "crítica"
       },
       "actorType": {
-        "client_person": "cliente",
-        "staff": "equipe",
+        "client_person": "Cliente",
+        "staff": "Equipe",
         "agent": "IA",
-        "system": "sistema"
+        "system": "Sistema"
+      },
+      "staffRole": {
+        "support": "atendimento",
+        "quality": "qualidade",
+        "operations": "operação"
+      },
+      "agentRole": {
+        "strategist": "estrategista",
+        "research": "pesquisa",
+        "writer": "redação",
+        "reviewer_text": "revisão de texto",
+        "reviewer_visual": "revisão visual",
+        "measurement": "mensuração"
+      },
+      "connectionStatus": {
+        "active": "ativa",
+        "expired": "expirada",
+        "revoked": "revogada",
+        "error": "com erro"
+      },
+      "payloadKey": {
+        "cause": "Causa",
+        "exit": "Decisão",
+        "reason": "Motivo",
+        "lessonCandidate": "Aprendizado",
+        "summary": "Resumo",
+        "note": "Anotação",
+        "channel": "Canal",
+        "connectionId": "Conexão",
+        "from": "De",
+        "to": "Para"
       },
       "eventType": {
         "escalation__opened": "Escalonamento aberto",
@@ -5262,6 +5294,9 @@
         "escalation__deferred_to_client": "Decisão levada à cliente",
         "escalation__merged": "Escalonamentos unidos",
         "escalation__closed": "Escalonamento fechado",
+        "escalation__sla_breached": "Prazo do escalonamento estourado",
+        "escalation__client_question": "Pergunta à cliente",
+        "escalation__client_reminder": "Lembrete à cliente",
         "connection__revoked": "Conexão revogada",
         "pause__applied": "Pausa aplicada",
         "pause__lifted": "Pausa retomada",
@@ -5269,7 +5304,12 @@
         "support_exception__assumed": "Exceção assumida",
         "support_exception__closed": "Exceção fechada",
         "staff__message_posted": "Mensagem da equipe",
-        "staff__contact_registered": "Contato registrado"
+        "staff__contact_registered": "Contato registrado",
+        "quality__effort_recorded": "Tempo da qualidade registrado",
+        "quality__hours_warning": "Alerta de horas da qualidade",
+        "quality__hours_alerted": "Horas da qualidade em alerta",
+        "quality__hours_escalated": "Horas da qualidade escalonadas",
+        "quality__hours_over_budget": "Horas da qualidade acima do teto"
       }
     },
     "exceptions": {
@@ -5322,7 +5362,14 @@
       "emptyClosed": "Nenhuma rodada fechada ainda.",
       "roundLabel": "Rodada {sequence} · {weekKey}",
       "scoreRound": "Pontuar",
-      "viewRound": "Ver"
+      "viewRound": "Ver",
+      "effortToggle": "Registrar tempo",
+      "effortTitle": "Tempo da qualidade",
+      "effortMinutes": "Minutos",
+      "effortNote": "Anotação (opcional)",
+      "effortSubmit": "Registrar",
+      "effortDone": "Tempo registrado.",
+      "effortInvalid": "Informe de 1 a 480 minutos."
     },
     "round": {
       "angleLabel": "Ângulo {current} de {total}",
@@ -5369,6 +5416,10 @@
       "stateLoosened": "afrouxado com evidência",
       "noItems": "Esta rodada não tem itens.",
       "summaryTitle": "Resumo do fechamento",
+      "summaryOutcome": "Resultado",
+      "summaryDecisions": "{decisions} de {required} decisões",
+      "summaryItem": "Ângulo {index}",
+      "summaryScore": "nota {score}, mín {min}",
       "versionCount": "{count, plural, one {# versão} other {# versões}}"
     },
     "escalation": {

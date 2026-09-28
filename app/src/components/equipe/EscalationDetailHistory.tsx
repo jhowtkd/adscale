@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { formatDue } from "./staff-ui";
-import { enumLabel, eventTypeLabel } from "./labels";
+import { actorLabel, enumLabel, eventTypeLabel, payloadFacts } from "./labels";
 import type { EscalationDetailView, EquipeEventView } from "./types";
 
 export default function EscalationDetailHistory({ view }: { view: EscalationDetailView }) {
@@ -76,36 +76,11 @@ export default function EscalationDetailHistory({ view }: { view: EscalationDeta
   );
 }
 
-const PAYLOAD_KEYS = [
-  "cause",
-  "exit",
-  "reason",
-  "lessonCandidate",
-  "summary",
-  "note",
-  "channel",
-  "connectionId",
-  "from",
-  "to",
-] as const;
-
 function HistoryEvent({ event }: { event: EquipeEventView }) {
   const tLabels = useTranslations("equipe.labels");
   const locale = useLocale();
-  const payload =
-    typeof event.payload === "object" && event.payload !== null
-      ? (event.payload as Record<string, unknown>)
-      : null;
-  const facts = (payload ? PAYLOAD_KEYS : [])
-    .filter((key) => payload && payload[key] !== undefined && payload[key] !== null)
-    .map((key) => `${key}: ${summarize(payload![key])}`);
-  const actor = [
-    enumLabel(tLabels, `actorType.${event.actorType}`),
-    event.actorRole ?? null,
-    event.actorId ? event.actorId.slice(0, 8) : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const facts = payloadFacts(tLabels, event.payload);
+  const actor = actorLabel(tLabels, event);
   return (
     <li className="rounded-md border border-[var(--border-dim)] px-3 py-2">
       <p className="text-sm font-medium text-[var(--text-primary)]">
@@ -115,19 +90,8 @@ function HistoryEvent({ event }: { event: EquipeEventView }) {
         {actor} · {formatDue(event.occurredAt, locale) ?? event.occurredAt}
       </p>
       {facts.length > 0 ? (
-        <p className="mt-0.5 font-mono text-xs text-[var(--text-muted)]">{facts.join(" · ")}</p>
+        <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{facts.join(" · ")}</p>
       ) : null}
     </li>
   );
-}
-
-function summarize(value: unknown): string {
-  if (typeof value === "string") return value.length > 80 ? `${value.slice(0, 80)}…` : value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  try {
-    const rendered = JSON.stringify(value);
-    return rendered.length > 80 ? `${rendered.slice(0, 80)}…` : rendered;
-  } catch {
-    return "…";
-  }
 }

@@ -13,7 +13,7 @@ import {
   roleForCloseEscalation,
   roleForResumePause,
 } from "./staff-api";
-import { enumLabel } from "./labels";
+import { enumLabel, shortenUuids, staffRoleLabel } from "./labels";
 import type {
   EscalationDetailView,
   EquipePauseView,
@@ -169,7 +169,7 @@ export default function EscalationDetailActions({
       >
         <h2 className="text-sm font-medium text-[var(--text-primary)]">{t("closeTitle")}</h2>
         <p className="text-xs text-[var(--text-muted)]">
-          {t("closeHint", { role: escalation.ownerRole })}
+          {t("closeHint", { role: staffRoleLabel(tLabels, escalation.ownerRole) })}
         </p>
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="grid gap-1 text-sm">
@@ -267,7 +267,8 @@ export default function EscalationDetailActions({
                 <option value="">{t("revokePick")}</option>
                 {isolated.map((connection) => (
                   <option key={connection.id} value={connection.id}>
-                    {connection.provider} · {connection.id.slice(0, 8)} · {connection.status}
+                    {connection.provider} · {connection.id.slice(0, 8)} ·{" "}
+                    {enumLabel(tLabels, `connectionStatus.${connection.status}`)}
                   </option>
                 ))}
               </select>
@@ -317,7 +318,7 @@ function PauseRow({
       </p>
       <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
         {enumLabel(tLabels, `pauseOrigin.${pause.origin}`)}
-        {pause.reason ? ` · ${pause.reason}` : ""}
+        {pause.reason ? ` · ${shortenUuids(pause.reason)}` : ""}
       </p>
       <div className="mt-2">
         {role ? (

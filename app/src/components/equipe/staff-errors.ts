@@ -45,6 +45,7 @@ const CODE_TO_KEY: Record<string, string> = {
   pause_already_active: "pauseAlreadyActive",
   connection_already_revoked: "connectionAlreadyRevoked",
   item_not_in_round: "itemNotInRound",
+  round_not_in_front: "roundNotInFront",
   stale_version: "staleVersion",
   version_mismatch: "versionMismatch",
   invalid_score: "invalidScore",

@@ -126,6 +126,14 @@ describe("RoundItemPanel", () => {
     expect(evidence).toBeRequired();
   });
 
+  it("reads the attempt author translated, never the raw role", () => {
+    renderPanel(detail());
+    expect(
+      screen.getByText(/equipe\.labels\.agentRole\.writer/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/^writer · /)).not.toBeInTheDocument();
+  });
+
   it("scores the attempt through score_attempt as quality", async () => {
     mockApiFetch.mockResolvedValueOnce({
       ok: true,

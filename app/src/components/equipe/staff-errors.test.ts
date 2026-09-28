@@ -17,6 +17,9 @@ describe("staffErrorKey", () => {
       staffErrorKey(new StaffApiError(409, "recalibration_requires_closed_critical_content", "x")),
     ).toBe("recalibrationNeedsClosedCritical");
     expect(staffErrorKey(new StaffApiError(404, "unknown_round", "x"))).toBe("unknownRound");
+    expect(staffErrorKey(new StaffApiError(404, "round_not_in_front", "x"))).toBe(
+      "roundNotInFront",
+    );
   });
 
   it("falls back by status for unknown codes", () => {

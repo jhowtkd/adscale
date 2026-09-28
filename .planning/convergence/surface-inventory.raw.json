@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-28T13:36:00.873Z",
+  "generatedAt": "2026-09-28T14:23:40.979Z",
   "schemaVersion": 2,
-  "fingerprint": "c52727915b7805a5eaceabc3ef1dbcaf3ad683137fd08308ce614407aef8fe0a",
+  "fingerprint": "036e7f94212ab924d9668e42336c5df3bb046173627dbc4de962b57c914bff5c",
   "counts": {
     "dashboardPages": 21,
     "apiRoutes": 212,
@@ -1978,12 +1978,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/equipe/QualityPipeline.tsx:120",
+      "id": "nav:app/src/components/equipe/QualityPipeline.tsx:148",
       "kind": "cta_navigation",
       "destination": "/admin/equipe/quality/rounds/${entry.roundId}?workspaceId=${entry.workspaceId}&accountId=${entry.accountId}",
       "file": "app/src/components/equipe/QualityPipeline.tsx",
-      "line": 120,
-      "evidence": "app/src/components/equipe/QualityPipeline.tsx:120",
+      "line": 148,
+      "evidence": "app/src/components/equipe/QualityPipeline.tsx:148",
       "requiresDecision": false
     },
     {

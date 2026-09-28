@@ -85,6 +85,7 @@ describe("staff-api", () => {
     expect(STAFF_ROLE_FOR_COMMAND.resolve_technical_escalation).toBe("operations");
     expect(STAFF_ROLE_FOR_COMMAND.reopen_front_calibration).toBe("quality");
     expect(STAFF_ROLE_FOR_COMMAND.revoke_connection).toBe("operations");
+    expect(STAFF_ROLE_FOR_COMMAND.record_quality_effort).toBe("quality");
   });
 
   it("closes escalations as the owner role", () => {
