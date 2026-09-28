@@ -28,6 +28,7 @@ import { AUTH_ERROR_CODES, WorkspaceAuthError } from "@/server/auth/errors";
 import {
   makeTestDeps,
   openTestAccount,
+  uuid,
   type TestDeps,
 } from "@/server/equipe/module/testing/deps";
 import type { EquipeStaffRole } from "@/server/equipe/data";
@@ -88,6 +89,34 @@ describe("POST /api/equipe/staff/commands", () => {
       accountId,
       ...extra,
     };
+  }
+
+  function openAccountBody(workspaceId: string, profileId: string, extra: Record<string, unknown> = {}) {
+    return {
+      type: "open_account",
+      payload: {
+        clientProfileId: profileId,
+        fronts: ["social_instagram"],
+        people: [{ name: "Ana", role: "approver" }],
+      },
+      workspaceId,
+      ...extra,
+    };
+  }
+
+  async function asOwnerWithoutRows(): Promise<{ t: TestDeps; workspaceId: string; profileId: string }> {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const profileId = uuid();
+    t.gateway.addProfile({ id: profileId, workspaceId });
+    mockGetSession.mockResolvedValue({ user: { id: "owner-1", email: "owner@test.com" } } as never);
+    mockRequireOwner.mockResolvedValue({ user: { id: "owner-1", email: "owner@test.com" } } as never);
+    mockCreateDeps.mockReturnValue(t.deps);
+    return { t, workspaceId, profileId };
+  }
+
+  async function rowsForUser(t: TestDeps, userId: string) {
+    return (await t.deps.uow.internal.staff.list()).filter((row) => row.userId === userId);
   }
 
   it("builds the staff actor from the single row and runs the command", async () => {
@@ -188,16 +217,39 @@ describe("POST /api/equipe/staff/commands", () => {
     expect(body.code).toBe("unknown_account");
   });
 
-  it("returns 403 for a bare platform owner with no staff row to act as", async () => {
-    const t = makeTestDeps();
-    const { workspaceId, accountId } = await openTestAccount(t);
-    mockGetSession.mockResolvedValue({ user: { id: "owner-1", email: "owner@test.com" } } as never);
-    mockRequireOwner.mockResolvedValue({ user: { id: "owner-1", email: "owner@test.com" } } as never);
-    mockCreateDeps.mockReturnValue(t.deps);
+  it("bootstraps a platform owner with no rows: rows created, open_account succeeds as operations", async () => {
+    const { t, workspaceId, profileId } = await asOwnerWithoutRows();
 
-    const res = await callPost(openExceptionBody(workspaceId, accountId));
+    const res = await callPost(openAccountBody(workspaceId, profileId, { role: "operations" }));
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.type).toBe("open_account");
+    const rows = await rowsForUser(t, "owner-1");
+    expect(rows).toHaveLength(3);
+    expect(rows.map((row) => row.role).sort()).toEqual(["operations", "quality", "support"]);
+    const operations = rows.find((row) => row.role === "operations")!;
+    expect(body.events[0]).toMatchObject({
+      actorType: "staff",
+      actorId: operations.id,
+      actorRole: "operations",
+    });
+  });
+
+  it("creates nothing on the owner's second request", async () => {
+    const { t, workspaceId, profileId } = await asOwnerWithoutRows();
+    const first = await callPost(openAccountBody(workspaceId, profileId, { role: "operations" }));
+    expect(first.status).toBe(200);
+    const before = await rowsForUser(t, "owner-1");
+    expect(before).toHaveLength(3);
+
+    const secondProfileId = uuid();
+    t.gateway.addProfile({ id: secondProfileId, workspaceId });
+    const second = await callPost(openAccountBody(workspaceId, secondProfileId, { role: "operations" }));
+
+    expect(second.status).toBe(200);
+    const after = await rowsForUser(t, "owner-1");
+    expect(after.map((row) => row.id).sort()).toEqual(before.map((row) => row.id).sort());
   });
 
   it("returns 403 for a session user with no staff row who is not an owner", async () => {
@@ -209,6 +261,51 @@ describe("POST /api/equipe/staff/commands", () => {
     const res = await callPost(openExceptionBody(workspaceId, accountId));
 
     expect(res.status).toBe(403);
+    expect(await rowsForUser(t, "random")).toHaveLength(0);
+  });
+
+  it("refuses the command when the owner's operations row was deactivated — no reactivation", async () => {
+    const { t, workspaceId, profileId } = await asOwnerWithoutRows();
+    for (const role of ["support", "quality", "operations"] as const) {
+      await t.deps.uow.internal.staff.create({
+        role,
+        displayName: role,
+        userId: "owner-1",
+        active: true,
+      });
+    }
+    const operations = (await rowsForUser(t, "owner-1")).find((row) => row.role === "operations")!;
+    await t.deps.uow.internal.staff.update(operations.id, { active: false });
+
+    const res = await callPost(openAccountBody(workspaceId, profileId, { role: "operations" }));
+
+    expect(res.status).toBe(403);
+    const rows = await rowsForUser(t, "owner-1");
+    expect(rows).toHaveLength(3);
+    expect(rows.find((row) => row.role === "operations")?.active).toBe(false);
+  });
+
+  it("returns 403 when every owner role was deactivated — nothing is reactivated", async () => {
+    const t = makeTestDeps();
+    const { workspaceId, accountId } = await openTestAccount(t);
+    for (const role of ["support", "quality", "operations"] as const) {
+      await t.deps.uow.internal.staff.create({
+        role,
+        displayName: role,
+        userId: "owner-1",
+        active: false,
+      });
+    }
+    mockGetSession.mockResolvedValue({ user: { id: "owner-1", email: "owner@test.com" } } as never);
+    mockRequireOwner.mockResolvedValue({ user: { id: "owner-1", email: "owner@test.com" } } as never);
+    mockCreateDeps.mockReturnValue(t.deps);
+
+    const res = await callPost(openExceptionBody(workspaceId, accountId, { role: "support" }));
+
+    expect(res.status).toBe(403);
+    const rows = await rowsForUser(t, "owner-1");
+    expect(rows).toHaveLength(3);
+    expect(rows.every((row) => !row.active)).toBe(true);
   });
 
   it("returns 401 without a session", async () => {

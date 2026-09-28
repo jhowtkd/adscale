@@ -119,7 +119,10 @@ export type EquipeAction =
   | "advance_onboarding"
   | "pause_onboarding"
   // Conversation map (#551): mapping assistant threads to the account.
-  | "manage_threads";
+  | "manage_threads"
+  // Platform-owner bootstrap (#552): the owner holds every internal role
+  // by default in the pilot, seeded as real staff rows on first use.
+  | "ensure_platform_owner_staff";
 
 type Permission =
   | { kind: "client_person"; roles: ClientPersonRole[] }
@@ -225,6 +228,9 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   // the primary for proactive messages, support joins for exceptions. Mapping
   // a conversation decides nothing — approvals stay human-only elsewhere.
   manage_threads: [ANY_CLIENT, SUPPORT, AGENT, SYSTEM],
+  // #552: only the module itself (actor system) seeds the owner's rows —
+  // the HTTP adapters never build a system actor, so no request can.
+  ensure_platform_owner_staff: [SYSTEM],
 };
 
 function permissionGrants(permission: Permission, actor: Actor): boolean {

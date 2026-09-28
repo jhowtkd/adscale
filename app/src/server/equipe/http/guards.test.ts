@@ -67,7 +67,7 @@ describe("pickClientPerson", () => {
 });
 
 describe("resolveStaffActor", () => {
-  it("has no identity without rows (bare platform owner)", () => {
+  it("has no identity without rows (every role deactivated)", () => {
     expect(resolveStaffActor([])).toEqual({ ok: false, reason: "no_identity" });
   });
 

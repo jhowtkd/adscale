@@ -9,6 +9,7 @@ import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import type { EquipeAccount, EquipeAccountPerson, EquipeStaffMember } from "../data";
 import type { ClientPersonRole, StaffRole } from "../domain";
 import { isEquipeEnabledForWorkspace } from "../module/equipe-enabled";
+import { ensurePlatformOwnerStaff } from "../module/platform-owner-staff";
 import type { EquipeModuleDeps } from "../module/ports";
 import { createEquipeRouteDeps } from "./deps";
 
@@ -88,14 +89,20 @@ export async function equipeClientContext(
 export type EquipeStaffContext = {
   user: { id: string };
   deps: EquipeModuleDeps;
-  /** The caller's active staff rows; empty for a bare platform owner. */
+  /**
+   * The caller's active staff rows. Empty only when every role was
+   * explicitly deactivated (owners are bootstrapped, non-owners get 403),
+   * and the routes refuse such requests.
+   */
   staffRows: EquipeStaffMember[];
 };
 
 /**
  * Internal guard: the session user holds at least one active equipe_staff
- * row, or is a platform owner (which covers every internal route in the
- * pilot — nothing is seeded, the allowlist is just accepted). Role binding
+ * row, or is a platform owner — who holds every internal role by default
+ * in the pilot, so the module ensures their real rows on first use (one
+ * idempotent system command, never a route-level bypass) and the request
+ * acts with them. A non-owner without rows still gets 403. Role binding
  * still happens per action: quality reads and staff commands need a real
  * row holding the role, and the module refuses the rest.
  */
@@ -105,15 +112,31 @@ export async function equipeStaffContext(request: Request): Promise<EquipeStaffC
     throw new WorkspaceAuthError(AUTH_ERROR_CODES.unauthorized, "Unauthorized");
   }
   const deps = createEquipeRouteDeps();
-  const rows = (await deps.uow.internal.staff.list({ active: true })).filter(
-    (row) => row.userId === session.user.id,
-  );
+  const activeForUser = async (): Promise<EquipeStaffMember[]> =>
+    (await deps.uow.internal.staff.list({ active: true })).filter(
+      (row) => row.userId === session.user.id,
+    );
+  const rows = await activeForUser();
   if (rows.length > 0) {
     return { user: session.user, deps, staffRows: rows };
   }
-  // Throws 403 unless the allowlist covers the user; nothing is seeded.
+  // Throws 403 unless the allowlist covers the user; nothing is seeded
+  // for a non-owner.
   await requirePlatformOwner(request);
-  return { user: session.user, deps, staffRows: [] };
+  const ensured = await ensurePlatformOwnerStaff(
+    deps,
+    { kind: "system", job: "ensure_platform_owner_staff" },
+    {
+      userId: session.user.id,
+      displayName: session.user.name?.trim() || session.user.email || session.user.id,
+    },
+  );
+  if (!ensured.ok) {
+    throw new Error(
+      `ensure_platform_owner_staff failed: ${ensured.error.code} ${ensured.error.message}`,
+    );
+  }
+  return { user: session.user, deps, staffRows: await activeForUser() };
 }
 
 export type StaffActorResolution =
@@ -124,7 +147,8 @@ export type StaffActorResolution =
  * The staff actor for one command, from the caller's rows. An explicit
  * role wins when held; a single row is used as-is; several rows without
  * an explicit role are ambiguous (400, the caller says which role it
- * acts as). A bare platform owner has no identity to act as (403).
+ * acts as). No rows at all (every role deactivated) means no identity
+ * to act as (403).
  */
 export function resolveStaffActor(
   rows: EquipeStaffMember[],

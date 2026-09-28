@@ -182,4 +182,13 @@ describe("actors table", () => {
     expect(authorize(agent, "dispatch_publication").ok).toBe(false);
     expect(authorize(support, "dispatch_publication").ok).toBe(false);
   });
+
+  it("restricts the platform-owner bootstrap to the system", () => {
+    expect(authorize(system, "ensure_platform_owner_staff").ok).toBe(true);
+    expect(authorize(agent, "ensure_platform_owner_staff").ok).toBe(false);
+    expect(authorize(support, "ensure_platform_owner_staff").ok).toBe(false);
+    expect(authorize(quality, "ensure_platform_owner_staff").ok).toBe(false);
+    expect(authorize(operations, "ensure_platform_owner_staff").ok).toBe(false);
+    expect(authorize(approver, "ensure_platform_owner_staff").ok).toBe(false);
+  });
 });
