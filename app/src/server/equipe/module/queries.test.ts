@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { executeCommand } from "./commands";
-import { getAccountState, getGoalsView } from "./queries";
+import { getAccountState, getGoalsView, getIdeasView } from "./queries";
 import { makeTestDeps, openTestAccount, uuid } from "./testing/deps";
 
 describe("queries", () => {
@@ -77,10 +77,32 @@ describe("queries", () => {
     expect(view?.mandates.map((m) => m.version)).toEqual([1]);
   });
 
+  it("reads the ideas view through the repository, oldest first", async () => {
+    const t = makeTestDeps();
+    const { workspaceId, accountId } = await openTestAccount(t);
+    const repos = t.deps.uow.repos;
+    const scope = { workspaceId, accountId };
+    expect(await getIdeasView(repos, workspaceId, accountId)).toEqual({
+      workspaceId,
+      accountId,
+      ideas: [],
+    });
+    const content = await repos.ideas.create(scope, { kind: "content", payload: { n: 2 } });
+    const planChange = await repos.ideas.create(scope, { kind: "plan_change", payload: { n: 1 } });
+    await repos.ideas.update(scope, planChange.id, { status: "accepted" });
+    const view = await getIdeasView(repos, workspaceId, accountId);
+    expect(view?.ideas).toHaveLength(2);
+    expect(new Set(view?.ideas.map((idea) => idea.id))).toEqual(
+      new Set([content.id, planChange.id]),
+    );
+    expect(view?.ideas.find((idea) => idea.id === planChange.id)?.status).toBe("accepted");
+  });
+
   it("returns null for unknown accounts", async () => {
     const t = makeTestDeps();
     const repos = t.deps.uow.repos;
     expect(await getAccountState(repos, uuid(), uuid())).toBeNull();
     expect(await getGoalsView(repos, uuid(), uuid())).toBeNull();
+    expect(await getIdeasView(repos, uuid(), uuid())).toBeNull();
   });
 });

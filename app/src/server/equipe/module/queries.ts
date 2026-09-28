@@ -7,6 +7,7 @@ import type {
   EquipeBatch,
   EquipeEvent,
   EquipeFront,
+  EquipeIdea,
   EquipeItem,
   EquipeItemVersion,
   EquipeMandate,
@@ -105,6 +106,31 @@ export async function getGoalsView(
   const mandates = (await repos.mandates.list(scope)).sort((a, b) => a.version - b.version);
   const onboarding = (await repos.onboarding.list(scope)).sort(byStepOrder);
   return { workspaceId, accountId, plan, mandates, onboarding };
+}
+
+export type IdeasView = {
+  workspaceId: string;
+  accountId: string;
+  /** All ideas, oldest first — proposals, acceptances and rejections alike. */
+  ideas: EquipeIdea[];
+};
+
+/** The client ideas feed: the account's ideas through a module query. */
+export async function getIdeasView(
+  repos: EquipeRepositories,
+  workspaceId: string,
+  accountId: string,
+): Promise<IdeasView | null> {
+  const account = await repos.accounts.get(workspaceId, accountId);
+  if (!account) return null;
+  const ideas = await repos.ideas.list({ workspaceId, accountId });
+  return {
+    workspaceId,
+    accountId,
+    ideas: [...ideas].sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id),
+    ),
+  };
 }
 
 export type PipelineColumnKey =
