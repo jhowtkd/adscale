@@ -29,7 +29,6 @@ import {
   approvedByOf,
   BATCH_APPROVED_EVENT,
   domainStateOf,
-  fromDomainItemStatus,
   isManualMode,
   ITEM_APPROVED_EVENT,
   loadItemOrError,
@@ -101,7 +100,7 @@ async function approveOne(
     detail: { mode, reviewStatus: review.status },
   });
   await ctx.repos.items.update(scope, item.id, {
-    status: fromDomainItemStatus(decided.value.state.status),
+    status: decided.value.state.status,
   });
   let intentId: string | null = null;
   if (mode === "auto" && item.scheduledFor) {

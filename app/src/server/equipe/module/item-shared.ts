@@ -1,7 +1,7 @@
-// Shared internals of the batch-approval commands (#545): stored/domain
-// item-status mapping, the version hash (output + caption + destination
-// account + scheduled time), review-status resolution over versions +
-// events, manual/auto mode, and publication-intent voiding.
+// Shared internals of the batch-approval commands (#545): the stored item
+// status (identical to the domain ItemStatus), the version hash (output +
+// caption + destination account + scheduled time), review-status resolution
+// over versions + events, manual/auto mode, and publication-intent voiding.
 
 import {
   actorId,
@@ -17,11 +17,11 @@ import {
   type Result,
   type TriagePath,
 } from "../domain";
+import { equipeItemStatusSchema } from "../data";
 import type {
   AccountScope,
   EquipeEvent,
   EquipeItem,
-  EquipeItemStatus,
   EquipeItemVersion,
   EquipeReceipt,
   EquipeRepositories,
@@ -55,74 +55,12 @@ export function itemDeadlineFor(scheduledFor: Date): Date {
   return new Date(scheduledFor.getTime() - ITEM_DECISION_LEAD_MS);
 }
 
-// Stored row status → domain machine status. The stored enum has no
-// adjusting/do_not_publish/available_for_download/sending/failed/manual tail:
-// adjusting reads back from in_production (adjustment running) and in_review
-// (edit revalidation running); both decline and cancel land on canceled,
-// told apart by their receipt action; available_for_download (manual-mode
-// approval, media-package choice) reads back from approved.
-export function toDomainItemStatus(status: string): ItemStatus | null {
-  switch (status) {
-    case "draft":
-    case "pending_approval":
-      return "awaiting_approval";
-    case "in_production":
-    case "in_review":
-      return "adjusting";
-    case "approved":
-      return "available_for_download";
-    case "scheduled":
-      return "scheduled";
-    case "held":
-      return "held";
-    case "verifying":
-      return "verifying";
-    case "published":
-      return "published";
-    case "missed_window":
-      return "missed_window";
-    case "canceled":
-      return "cancelled";
-    default:
-      return null;
-  }
-}
-
-// Domain machine status → stored row status. request_adjustment stores
-// in_production (the IA is producing) while caption edits store in_review
-// (revalidation running); both read back as adjusting. sending/failed and
-// the manual tail have no stored status yet — dispatch (#551) and manual
-// confirmation own those transitions.
-export function fromDomainItemStatus(
-  status: ItemStatus,
-  adjustingAs: "in_production" | "in_review" = "in_review",
-): EquipeItemStatus {
-  switch (status) {
-    case "awaiting_approval":
-      return "pending_approval";
-    case "adjusting":
-      return adjustingAs;
-    case "scheduled":
-      return "scheduled";
-    case "held":
-      return "held";
-    case "missed_window":
-      return "missed_window";
-    case "do_not_publish":
-    case "cancelled":
-      return "canceled";
-    case "available_for_download":
-      return "approved";
-    case "verifying":
-      return "verifying";
-    case "published":
-      return "published";
-    case "sending":
-    case "failed":
-    case "published_declared":
-    case "published_confirmed":
-      throw new Error(`${status} has no stored item status`);
-  }
+// The stored row status IS the domain machine status (same enum, same
+// check constraint). This only validates the read: commands store
+// `decided.value.state.status` directly, never a translation.
+export function storedItemStatusOf(item: EquipeItem): ItemStatus | null {
+  const parsed = equipeItemStatusSchema.safeParse(item.status);
+  return parsed.success ? parsed.data : null;
 }
 
 export type ItemVersionContent = {
@@ -226,15 +164,19 @@ export type ItemReview = {
 // Resolve the single review state of an item from its stored row, current
 // version, item events and open-escalation signal, using the domain
 // precedence (blocked > edited in review > edit with warning > needs
-// confirmation > ready). Escalation rows carry no item link yet, so an open
-// item escalation is read from escalation.requested/opened events without a
-// later resolution until #548 owns the escalation link.
+// confirmation > ready). "Editado por você · em revisão" is a review flag
+// here, not a stored lifecycle status: both adjustment requests and caption
+// edits store `adjusting`, and the edit is told apart by its caption.edited
+// event for the current version. An open escalation blocks via its
+// escalation row (item_id link) when present; the escalation.requested event
+// stays as the signal until #547 creates the rows.
 export function resolveItemReview(input: {
   item: EquipeItem;
   currentVersion: EquipeItemVersion | null;
   itemEvents: EquipeEvent[];
+  hasOpenEscalation?: boolean;
 }): ItemReview {
-  const { item, currentVersion, itemEvents } = input;
+  const { item, currentVersion, itemEvents, hasOpenEscalation = false } = input;
   const findings = parseVersionFindings(currentVersion?.reviewerFindings);
   let triage: CaptionTriageRecord | null = null;
   for (const event of itemEvents) {
@@ -255,14 +197,19 @@ export function resolveItemReview(input: {
       escalationOpen = false;
     }
   }
+  const editedCurrent = itemEvents.some(
+    (event) =>
+      event.eventType === CAPTION_EDITED_EVENT &&
+      (event.payload as { versionHash?: unknown } | null)?.versionHash === item.currentVersionHash,
+  );
   const flags: ItemReviewFlags = {
     blocked:
       escalationOpen ||
+      hasOpenEscalation ||
       findings.blocked === true ||
       triage?.path === "block_and_escalate" ||
       triage?.path === "update_catalog_only",
-    editedInReview:
-      item.status === "in_review" && (!triage || triage.qualityRecheckPending),
+    editedInReview: editedCurrent && (!triage || triage.qualityRecheckPending),
     editWarning:
       triage !== null &&
       triage.warnings.length > 0 &&
@@ -276,35 +223,40 @@ export function resolveItemReview(input: {
   return { flags, status, batchApprovable: isBatchApprovable(status), triage };
 }
 
+/** An escalation row linked to the item blocks while not resolved/closed. */
+export async function hasOpenItemEscalation(
+  repos: EquipeRepositories,
+  scope: AccountScope,
+  itemId: string,
+): Promise<boolean> {
+  const rows = await repos.escalations.list(scope, { itemId });
+  return rows.some((row) => row.status !== "resolved" && row.status !== "closed");
+}
+
 export async function loadItemReview(
   repos: EquipeRepositories,
   scope: AccountScope,
   item: EquipeItem,
 ): Promise<ItemReview> {
-  const currentVersion = item.currentVersionHash
-    ? await repos.itemVersions.getByHash(scope, item.id, item.currentVersionHash)
-    : null;
-  const itemEvents = await repos.events.list(scope, { objectType: "item", objectId: item.id });
-  return resolveItemReview({ item, currentVersion, itemEvents });
+  const [currentVersion, itemEvents, hasOpenEscalation] = await Promise.all([
+    item.currentVersionHash
+      ? repos.itemVersions.getByHash(scope, item.id, item.currentVersionHash)
+      : Promise.resolve(null),
+    repos.events.list(scope, { objectType: "item", objectId: item.id }),
+    hasOpenItemEscalation(repos, scope, item.id),
+  ]);
+  return resolveItemReview({ item, currentVersion, itemEvents, hasOpenEscalation });
 }
 
-// The destination account is part of the version hash but has no version
-// column, so every version-creating command records it on its event and the
-// next version recovers it from the latest one.
-export function destinationFromEvents(itemEvents: EquipeEvent[]): string | null {
-  const creating = new Set([
-    ITEM_DELIVERED_EVENT,
-    CAPTION_EDITED_EVENT,
-    ITEM_RESCHEDULED_EVENT,
-    PIECE_CHOSEN_EVENT,
-  ]);
-  let found: string | null = null;
-  for (const event of itemEvents) {
-    if (!creating.has(event.eventType)) continue;
-    const destination = (event.payload as { destinationAccount?: unknown } | null)?.destinationAccount;
-    if (typeof destination === "string" && destination.length > 0) found = destination;
-  }
-  return found;
+// The destination account is part of the version hash and is stored on the
+// item (set at delivery) and on every version row (set on INSERT).
+// Version-creating commands hash the stored value — never the event log.
+export function storedDestinationOf(
+  item: EquipeItem,
+  current: EquipeItemVersion | null,
+): string | null {
+  const destination = current?.destination ?? item.destination ?? null;
+  return typeof destination === "string" && destination.length > 0 ? destination : null;
 }
 
 export async function loadItemOrError(
@@ -317,7 +269,7 @@ export async function loadItemOrError(
 }
 
 export function domainStateOf(item: EquipeItem, approvalReceipts: EquipeReceipt[]): Result<ItemState> {
-  const status = toDomainItemStatus(item.status);
+  const status = storedItemStatusOf(item);
   if (!status || !item.currentVersionHash) {
     return err("invalid_transition", `item ${item.id} has no decidable state`);
   }

@@ -40,16 +40,15 @@ import {
   BUSINESS_FACT_CONFIRMED_EVENT,
   CAPTION_EDITED_EVENT,
   CAPTION_TRIAGED_EVENT,
-  destinationFromEvents,
   domainStateOf,
   ESCALATION_REQUESTED_EVENT,
-  fromDomainItemStatus,
   ITEM_ADJUSTMENT_REQUESTED_EVENT,
   ITEM_CANCELLED_EVENT,
   ITEM_DECLINED_EVENT,
   itemVersionHash,
   loadItemOrError,
   loadItemReview,
+  storedDestinationOf,
   versionContentOf,
   voidIntentForVersion,
 } from "./item-shared";
@@ -81,7 +80,7 @@ export async function runRequestAdjustment(
     );
     if (!decided.ok) return decided;
     await ctx.repos.items.update(scopeOf(ctx), payload.itemId, {
-      status: fromDomainItemStatus(decided.value.state.status, "in_production"),
+      status: decided.value.state.status,
     });
     await appendEvent(ctx, {
       eventType: ITEM_ADJUSTMENT_REQUESTED_EVENT,
@@ -133,8 +132,7 @@ export async function runEditCaption(
     if (current.caption === payload.caption) {
       return err("no_change", "the caption is unchanged");
     }
-    const itemEvents = await ctx.repos.events.list(scope, { objectType: "item", objectId: item.id });
-    const destination = destinationFromEvents(itemEvents);
+    const destination = storedDestinationOf(item, current);
     if (!destination) {
       return err("invalid_transition", `item ${item.id} has no recorded destination account`);
     }
@@ -153,12 +151,14 @@ export async function runEditCaption(
       creativeWorkOutputId: current.creativeWorkOutputId,
       caption: payload.caption,
       scheduledFor: current.scheduledFor,
+      destination,
       authorRole: "client_person",
       authorId: actorId(ctx.actor),
       reviewerFindings: null,
     });
     await ctx.repos.items.update(scope, item.id, {
-      status: fromDomainItemStatus(decided.value.state.status),
+      status: decided.value.state.status,
+      destination,
       currentVersionHash: versionHash,
     });
     const superseded = state.value.approvedVersion;
@@ -217,7 +217,19 @@ export async function runRecordCaptionTriage(
     if (!loaded.ok) return loaded;
     const scope = scopeOf(ctx);
     const item = loaded.value;
-    if (item.status !== "in_review" || !item.currentVersionHash) {
+    if (item.status !== "adjusting" || !item.currentVersionHash) {
+      return err("invalid_transition", `item ${item.id} is not awaiting caption triage`);
+    }
+    // Adjustment requests store `adjusting` too but never await triage —
+    // only a caption edit for the current version does.
+    const itemEvents = await ctx.repos.events.list(scope, { objectType: "item", objectId: item.id });
+    const edited = itemEvents.some(
+      (event) =>
+        event.eventType === CAPTION_EDITED_EVENT &&
+        (event.payload as { versionHash?: unknown } | null)?.versionHash ===
+          item.currentVersionHash,
+    );
+    if (!edited) {
       return err("invalid_transition", `item ${item.id} is not awaiting caption triage`);
     }
     const front = await ctx.repos.fronts.get(scope, item.frontId);
@@ -225,7 +237,7 @@ export async function runRecordCaptionTriage(
     const needsRecheck = isCalibrating(front) && !payload.qualityRecheckPassed;
     const backToDecision = !needsRecheck;
     if (backToDecision) {
-      await ctx.repos.items.update(scope, item.id, { status: "pending_approval" });
+      await ctx.repos.items.update(scope, item.id, { status: "awaiting_approval" });
     }
     const detail: Record<string, unknown> = {
       versionHash: item.currentVersionHash,
@@ -281,7 +293,7 @@ export async function runConfirmBusinessFact(
     if (!loaded.ok) return loaded;
     const scope = scopeOf(ctx);
     const item = loaded.value;
-    if (item.status !== "pending_approval" || !item.currentVersionHash) {
+    if (item.status !== "awaiting_approval" || !item.currentVersionHash) {
       return err("invalid_transition", `item ${item.id} is not awaiting a decision`);
     }
     if (payload.expectedVersionHash !== item.currentVersionHash) {
@@ -346,7 +358,7 @@ export async function runDeclinePublish(
       detail: { reason: payload.reason },
     });
     await ctx.repos.items.update(scope, item.id, {
-      status: fromDomainItemStatus(decided.value.state.status),
+      status: decided.value.state.status,
     });
     await appendEvent(ctx, {
       eventType: ITEM_DECLINED_EVENT,
@@ -394,7 +406,7 @@ export async function runCancelScheduled(
       action: "cancel_scheduled",
     });
     await ctx.repos.items.update(scope, item.id, {
-      status: fromDomainItemStatus(decided.value.state.status),
+      status: decided.value.state.status,
     });
     const { voided, intentId } = state.value.approvedVersion
       ? await voidIntentForVersion(ctx, item.id, state.value.approvedVersion)

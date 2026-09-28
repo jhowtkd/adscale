@@ -18,12 +18,12 @@ import type {
   EquipeRepositories,
 } from "../data";
 import {
-  destinationFromEvents,
+  hasOpenItemEscalation,
   loadItemReview,
   parseTriageEvent,
   parseVersionFindings,
   resolveItemReview,
-  toDomainItemStatus,
+  storedItemStatusOf,
   type ItemReview,
 } from "./item-shared";
 
@@ -125,22 +125,25 @@ export type ClientPipelineView = {
 };
 
 function columnOf(item: EquipeItem): PipelineColumnKey {
-  switch (item.status) {
-    case "pending_approval":
+  switch (storedItemStatusOf(item)) {
+    case "awaiting_approval":
       return "needs_you";
-    case "draft":
-    case "in_production":
-    case "in_review":
+    case "adjusting":
       return "in_progress";
     case "scheduled":
     case "held":
+    case "sending":
     case "verifying":
       return "scheduled";
     case "missed_window":
+    case "failed":
       return "missed";
+    case "do_not_publish":
+    case "cancelled":
     case "published":
-    case "approved":
-    case "canceled":
+    case "available_for_download":
+    case "published_declared":
+    case "published_confirmed":
     default:
       return "finished";
   }
@@ -176,7 +179,7 @@ export async function getClientPipeline(
   const ordered = [...items].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   for (const item of ordered) {
     const review = await loadItemReview(repos, scope, item);
-    const lifecycle = toDomainItemStatus(item.status);
+    const lifecycle = storedItemStatusOf(item);
     // The review precedence rules while the item awaits a decision, and a
     // restrictive review state (edit in review, warning, blocked) stays the
     // single state while adjusting too.
@@ -219,18 +222,19 @@ export async function getItemDetail(
   const scope = { workspaceId, accountId };
   const item = await repos.items.get(scope, itemId);
   if (!item) return null;
-  const [versions, receipts, itemEvents, intents] = await Promise.all([
+  const [versions, receipts, itemEvents, intents, hasOpenEscalation] = await Promise.all([
     repos.itemVersions.list(scope, { itemId }),
     repos.receipts.listByObject(scope, "item", itemId),
     repos.events.list(scope, { objectType: "item", objectId: itemId }),
     item.currentVersionHash
       ? repos.intents.getByItemVersion(scope, itemId, item.currentVersionHash)
       : Promise.resolve(null),
+    hasOpenItemEscalation(repos, scope, itemId),
   ]);
   const currentVersion = item.currentVersionHash
     ? (versions.find((v) => v.versionHash === item.currentVersionHash) ?? null)
     : null;
-  const review = resolveItemReview({ item, currentVersion, itemEvents });
+  const review = resolveItemReview({ item, currentVersion, itemEvents, hasOpenEscalation });
   const batch = item.batchId ? await repos.batches.get(scope, item.batchId) : null;
   const ordered = [...versions].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   return {
@@ -241,7 +245,7 @@ export async function getItemDetail(
     versions: ordered,
     receipts,
     review,
-    destinationAccount: destinationFromEvents(itemEvents),
+    destinationAccount: item.destination ?? currentVersion?.destination ?? null,
     findings: ordered.map((version) => ({
       versionHash: version.versionHash,
       findings: parseVersionFindings(version.reviewerFindings),

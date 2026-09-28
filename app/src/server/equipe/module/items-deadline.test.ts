@@ -1,10 +1,35 @@
 import { describe, expect, it } from "vitest";
+import type { EquipeUnitOfWork } from "../data";
 import { executeCommand } from "./commands";
-import { ctx, deliverTestBatch, setup } from "./testing/items";
+import { ctx, deliverTestBatch, setup, versionHashOf } from "./testing/items";
 
 // Fixed clock: 2026-10-05T14:00:00Z. The item limit is scheduled − 2 h.
 const PAST_LIMIT = new Date("2026-10-05T15:00:00.000Z");
 const FUTURE = new Date("2026-10-09T12:00:00.000Z");
+
+/** Wrap a uow counting every event-log read inside command transactions. */
+function countingEventReads(uow: EquipeUnitOfWork, counter: { reads: number }): EquipeUnitOfWork {
+  return {
+    ...uow,
+    run: (fn) =>
+      uow.run(async (repos, internal) => {
+        const list = repos.events.list.bind(repos.events);
+        return fn(
+          {
+            ...repos,
+            events: {
+              ...repos.events,
+              list: ((...args: Parameters<typeof list>) => {
+                counter.reads += 1;
+                return list(...args);
+              }) as typeof list,
+            },
+          },
+          internal,
+        );
+      }),
+  };
+}
 
 describe("expire_item_deadline", () => {
   it("moves undecided items past the limit to 'perdeu a janela'", async () => {
@@ -109,7 +134,7 @@ describe("propose_new_schedule", () => {
     ]);
     const item = await t.deps.uow.repos.items.get(scope, itemIds[0]!);
     expect(item).toMatchObject({
-      status: "pending_approval",
+      status: "awaiting_approval",
       currentVersionHash: versionHash,
       scheduledFor: FUTURE,
       deadlineAt: new Date("2026-10-09T10:00:00.000Z"),
@@ -155,5 +180,47 @@ describe("propose_new_schedule", () => {
     });
     expect(forbidden.ok).toBe(false);
     if (!forbidden.ok) expect(forbidden.error.code).toBe("forbidden_actor");
+  });
+
+  it("keeps the stored destination across an edit and a reschedule without reading events", async () => {
+    const { t, ids } = await setup();
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    const { itemIds } = await deliverTestBatch(t, ids, {
+      items: [{ scheduledFor: PAST_LIMIT, destinationAccount: "instagram:@brand" }],
+    });
+    const counter = { reads: 0 };
+    const deps = { ...t.deps, uow: countingEventReads(t.deps.uow, counter) };
+
+    const edited = await executeCommand(deps, ctx(ids, ids.actors.approver), {
+      type: "edit_caption",
+      payload: { itemId: itemIds[0]!, caption: "legenda nova" },
+    });
+    expect(edited.ok).toBe(true);
+    await executeCommand(deps, ctx(ids, ids.actors.system), {
+      type: "expire_item_deadline",
+      payload: { itemId: itemIds[0]! },
+    });
+    const outcome = await executeCommand(deps, ctx(ids, ids.actors.agent), {
+      type: "propose_new_schedule",
+      payload: { itemId: itemIds[0]!, scheduledFor: FUTURE },
+    });
+    expect(outcome.ok).toBe(true);
+    expect(counter.reads).toBe(0);
+
+    const item = await t.deps.uow.repos.items.get(scope, itemIds[0]!);
+    expect(item?.destination).toBe("instagram:@brand");
+    const versions = await t.deps.uow.repos.itemVersions.list(scope, { itemId: itemIds[0]! });
+    expect(versions).toHaveLength(3);
+    expect(versions.every((v) => v.destination === "instagram:@brand")).toBe(true);
+    // The rescheduled hash covers the edited caption + stored destination + new time.
+    const current = versions.find((v) => v.versionHash === item?.currentVersionHash);
+    expect(outcome.value.data).toMatchObject({
+      versionHash: versionHashOf({
+        output: current!.creativeWorkOutputId!,
+        caption: "legenda nova",
+        destination: "instagram:@brand",
+        scheduledFor: FUTURE,
+      }),
+    });
   });
 });

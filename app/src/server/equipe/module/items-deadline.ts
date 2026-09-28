@@ -19,14 +19,13 @@ import {
 } from "./shared";
 import {
   AGENT_WORK_REQUESTED_EVENT,
-  destinationFromEvents,
   domainStateOf,
-  fromDomainItemStatus,
   ITEM_RESCHEDULED_EVENT,
   ITEM_WINDOW_MISSED_EVENT,
   itemDeadlineFor,
   itemVersionHash,
   loadItemOrError,
+  storedDestinationOf,
   versionContentOf,
 } from "./item-shared";
 
@@ -70,7 +69,7 @@ export async function runExpireItemDeadline(
     const decided = markWindowMissed(state.value);
     if (!decided.ok) return decided;
     await ctx.repos.items.update(scope, item.id, {
-      status: fromDomainItemStatus(decided.value.state.status),
+      status: decided.value.state.status,
     });
     await appendEvent(ctx, {
       eventType: ITEM_WINDOW_MISSED_EVENT,
@@ -119,8 +118,7 @@ export async function runProposeNewSchedule(
     if (!current) {
       return err("invalid_transition", `item ${item.id} has no current version`);
     }
-    const itemEvents = await ctx.repos.events.list(scope, { objectType: "item", objectId: item.id });
-    const destination = destinationFromEvents(itemEvents);
+    const destination = storedDestinationOf(item, current);
     if (!destination) {
       return err("invalid_transition", `item ${item.id} has no recorded destination account`);
     }
@@ -139,12 +137,14 @@ export async function runProposeNewSchedule(
       creativeWorkOutputId: current.creativeWorkOutputId,
       caption: current.caption,
       scheduledFor: payload.scheduledFor,
+      destination,
       authorRole: "agent",
       authorId: actorId(ctx.actor),
       reviewerFindings: null,
     });
     await ctx.repos.items.update(scope, item.id, {
-      status: fromDomainItemStatus(decided.value.state.status),
+      status: decided.value.state.status,
+      destination,
       currentVersionHash: versionHash,
       scheduledFor: payload.scheduledFor,
       deadlineAt: itemDeadlineFor(payload.scheduledFor),

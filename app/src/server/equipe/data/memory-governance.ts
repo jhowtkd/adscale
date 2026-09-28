@@ -58,6 +58,7 @@ export function makeMemoryGovernanceRepositories(
           {
             status: "open",
             frontId: null,
+            itemId: null,
             coOwnerRole: null,
             dueAt: null,
             cause: null,
@@ -66,6 +67,8 @@ export function makeMemoryGovernanceRepositories(
           },
           "full"
         ),
+      filter: (rows, filter) =>
+        filter.itemId === undefined ? rows : rows.filter((row) => row.itemId === filter.itemId),
       validateCreate: checkFields(
         { severity: equipeSeveritySchema, status: equipeEscalationStatusSchema },
         ["severity"]

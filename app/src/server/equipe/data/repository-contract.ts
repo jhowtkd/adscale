@@ -146,19 +146,22 @@ export function defineEquipeRepositoryContract(
       const item = await repos.items.create(scope, {
         frontId,
         batchId: batch.id,
-        status: "in_production",
+        status: "adjusting",
+        destination: "instagram:@brand",
       });
       expect((await repos.items.get(scope, item.id))?.batchId).toBe(batch.id);
-      const produced = await repos.items.list(scope, { status: "in_production" });
+      expect((await repos.items.get(scope, item.id))?.destination).toBe("instagram:@brand");
+      const produced = await repos.items.list(scope, { status: "adjusting" });
       expect(produced.map((row) => row.id)).toContain(item.id);
       expect(await repos.items.list(scope, { status: "published" })).not.toContainEqual(
         expect.objectContaining({ id: item.id })
       );
       const byBatch = await repos.items.list(scope, { batchId: batch.id });
       expect(byBatch.map((row) => row.id)).toContain(item.id);
-      expect((await repos.items.update(scope, item.id, { status: "approved" })).status).toBe(
-        "approved"
-      );
+      expect(
+        (await repos.items.update(scope, item.id, { status: "available_for_download" })).status
+      ).toBe("available_for_download");
+      expect((await repos.items.get(scope, item.id))?.destination).toBe("instagram:@brand");
     });
 
     it("versões: imutáveis por interface e únicas por (item, hash)", async () => {
@@ -169,9 +172,13 @@ export function defineEquipeRepositoryContract(
         itemId,
         versionHash: "hash-1",
         caption: "Legenda",
+        destination: "instagram:@brand",
         authorRole: "agent",
       });
       expect((await repos.itemVersions.getByHash(scope, itemId, "hash-1"))?.id).toBe(version.id);
+      expect((await repos.itemVersions.getByHash(scope, itemId, "hash-1"))?.destination).toBe(
+        "instagram:@brand"
+      );
       expect(await repos.itemVersions.list(scope, { itemId })).toHaveLength(1);
       await expect(
         repos.itemVersions.create(scope, { itemId, versionHash: "hash-1", authorRole: "agent" })
@@ -224,11 +231,18 @@ export function defineEquipeRepositoryContract(
     });
 
     it("escalonamentos, exceções e pausas: ciclo básico", async () => {
+      const itemId = await newItemId();
       const escalation = await repos.escalations.create(scope, {
         kind: "conteudo",
         severity: "high",
         ownerRole: "quality",
+        itemId,
       });
+      expect((await repos.escalations.get(scope, escalation.id))?.itemId).toBe(itemId);
+      expect((await repos.escalations.list(scope, { itemId })).map((row) => row.id)).toContain(
+        escalation.id
+      );
+      expect(await repos.escalations.list(scope, { itemId: crypto.randomUUID() })).toHaveLength(0);
       expect(
         (await repos.escalations.update(scope, escalation.id, { status: "resolved" })).status
       ).toBe("resolved");

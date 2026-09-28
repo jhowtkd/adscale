@@ -20,12 +20,11 @@ import {
 import {
   approvalReceiptFor,
   approvedByOf,
-  destinationFromEvents,
   domainStateOf,
-  fromDomainItemStatus,
   itemVersionHash,
   loadItemOrError,
   PIECE_CHOSEN_EVENT,
+  storedDestinationOf,
   versionContentOf,
 } from "./item-shared";
 
@@ -74,8 +73,7 @@ export async function runChoosePiece(
     if (!current) {
       return err("invalid_transition", `item ${item.id} has no current version`);
     }
-    const itemEvents = await ctx.repos.events.list(scope, { objectType: "item", objectId: item.id });
-    const destination = destinationFromEvents(itemEvents);
+    const destination = storedDestinationOf(item, current);
     if (!destination) {
       return err("invalid_transition", `item ${item.id} has no recorded destination account`);
     }
@@ -92,6 +90,7 @@ export async function runChoosePiece(
       creativeWorkOutputId: payload.creativeWorkOutputId,
       caption: current.caption,
       scheduledFor: current.scheduledFor,
+      destination,
       authorRole: "client_person",
       authorId: actorId(ctx.actor),
       reviewerFindings: null,
@@ -112,7 +111,8 @@ export async function runChoosePiece(
       },
     });
     await ctx.repos.items.update(scope, item.id, {
-      status: fromDomainItemStatus(decided.value.state.status),
+      status: decided.value.state.status,
+      destination,
       currentVersionHash: versionHash,
     });
     await appendEvent(ctx, {

@@ -31,7 +31,7 @@ describe("choose_piece", () => {
     expect(versionHash).not.toBe(versionHashes[0]);
 
     const updated = await t.deps.uow.repos.items.get(scope, itemIds[0]!);
-    expect(updated).toMatchObject({ status: "approved", currentVersionHash: versionHash });
+    expect(updated).toMatchObject({ status: "available_for_download", currentVersionHash: versionHash });
     const versions = await t.deps.uow.repos.itemVersions.list(scope, { itemId: itemIds[0]! });
     expect(versions).toHaveLength(2);
     expect(versions.find((v) => v.versionHash === versionHash)).toMatchObject({

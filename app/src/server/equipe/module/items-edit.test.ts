@@ -24,7 +24,7 @@ describe("request_adjustment", () => {
       "agent_work.requested",
       "notification.requested",
     ]);
-    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("in_production");
+    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("adjusting");
     const requested = outcome.value.events[0];
     expect(requested?.payload).toMatchObject({ category: "brand", note: "tom muito formal" });
   });
@@ -81,7 +81,7 @@ describe("edit_caption", () => {
       scheduledFor: new Date("2026-10-09T12:00:00.000Z"),
     });
     const item = await t.deps.uow.repos.items.get(scope, itemIds[0]!);
-    expect(item).toMatchObject({ status: "in_review", currentVersionHash: versionHash });
+    expect(item).toMatchObject({ status: "adjusting", currentVersionHash: versionHash });
     expect(await reviewOf(t, ids, itemIds[0]!)).toBe("edited_in_review");
   });
 
@@ -110,7 +110,7 @@ describe("edit_caption", () => {
     expect(outcome.value.events[0]?.payload).toMatchObject({
       supersededVersion: versionHashes[0],
     });
-    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("in_review");
+    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("adjusting");
   });
 
   it("rejects an unchanged caption", async () => {
@@ -146,7 +146,7 @@ describe("record_caption_triage", () => {
       matched: "permanent_fact",
       backToDecision: true,
     });
-    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("pending_approval");
+    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("awaiting_approval");
     expect(await reviewOf(t, ids, itemIds[0]!)).toBe("needs_confirmation");
   });
 
@@ -243,7 +243,7 @@ describe("record_caption_triage", () => {
     if (!first.ok) return;
     expect(first.value.data).toMatchObject({ backToDecision: false });
     expect(first.value.events[0]?.payload).toMatchObject({ qualityRecheck: "pending" });
-    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("in_review");
+    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("adjusting");
     expect(await reviewOf(t, ids, itemIds[0]!)).toBe("edited_in_review");
 
     const second = await executeCommand(t.deps, ctx(ids, ids.actors.agent), {
@@ -251,7 +251,7 @@ describe("record_caption_triage", () => {
       payload: { itemId: itemIds[0]!, natures: ["none"], qualityRecheckPassed: true },
     });
     expect(second.ok).toBe(true);
-    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("pending_approval");
+    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("awaiting_approval");
     expect(await reviewOf(t, ids, itemIds[0]!)).toBe("ready");
   });
 
@@ -272,5 +272,17 @@ describe("record_caption_triage", () => {
     expect(early.ok).toBe(false);
     if (early.ok) return;
     expect(early.error.code).toBe("invalid_transition");
+    // An adjustment request stores `adjusting` too but never awaits triage.
+    await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "request_adjustment",
+      payload: { itemId: itemIds[1]!, category: "fact" },
+    });
+    const adjusting = await executeCommand(t.deps, ctx(ids, ids.actors.agent), {
+      type: "record_caption_triage",
+      payload: { itemId: itemIds[1]!, natures: ["none"] },
+    });
+    expect(adjusting.ok).toBe(false);
+    if (adjusting.ok) return;
+    expect(adjusting.error.code).toBe("invalid_transition");
   });
 });

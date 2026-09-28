@@ -95,7 +95,7 @@ describe("decline_publish", () => {
       "agent_work.requested",
       "notification.requested",
     ]);
-    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("canceled");
+    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("do_not_publish");
     const receipts = await t.deps.uow.repos.receipts.listByObject(scope, "item", itemIds[0]!);
     expect(receipts).toHaveLength(1);
     expect(receipts[0]?.action).toBe("decline_publish");
@@ -137,7 +137,7 @@ describe("cancel_scheduled", () => {
       "item.cancelled",
       "notification.requested",
     ]);
-    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("canceled");
+    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("cancelled");
     const intent = await t.deps.uow.repos.intents.getByItemVersion(
       scope,
       itemIds[0]!,
@@ -159,5 +159,30 @@ describe("cancel_scheduled", () => {
     expect(outcome.ok).toBe(false);
     if (outcome.ok) return;
     expect(outcome.error.code).toBe("invalid_transition");
+  });
+});
+
+describe("decline vs cancel", () => {
+  it("stores distinct states: do_not_publish for decline, cancelled for cancel", async () => {
+    const { t, ids } = await setup();
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    const { itemIds, versionHashes } = await deliverTestBatch(t, ids);
+    await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "decline_publish",
+      payload: { itemId: itemIds[0]!, reason: "fora da campanha" },
+    });
+    await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "approve_item",
+      payload: { itemId: itemIds[1]!, expectedVersionHash: versionHashes[1]! },
+    });
+    await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "cancel_scheduled",
+      payload: { itemId: itemIds[1]! },
+    });
+    const declined = await t.deps.uow.repos.items.get(scope, itemIds[0]!);
+    const cancelled = await t.deps.uow.repos.items.get(scope, itemIds[1]!);
+    expect(declined?.status).toBe("do_not_publish");
+    expect(cancelled?.status).toBe("cancelled");
+    expect(declined?.status).not.toBe(cancelled?.status);
   });
 });

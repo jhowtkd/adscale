@@ -25,7 +25,8 @@ describe("deliver_batch", () => {
       expect(itemIds).toContain(item.id);
       expect(item).toMatchObject({
         batchId,
-        status: "pending_approval",
+        status: "awaiting_approval",
+        destination: "instagram:@brand",
         scheduledFor: SCHEDULED,
         // Item limit: scheduled time − 2 h.
         deadlineAt: new Date("2026-10-09T10:00:00.000Z"),
@@ -36,6 +37,7 @@ describe("deliver_batch", () => {
     expect(versions[0]).toMatchObject({
       versionHash: versionHashes[0],
       caption: "legenda 1",
+      destination: "instagram:@brand",
       authorRole: "agent",
     });
 

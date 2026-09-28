@@ -64,18 +64,24 @@ export const EQUIPE_MANDATE_STATUS = [
 export const EQUIPE_IDEA_KIND = ["plan_change", "mandate_change", "content"] as const;
 export const EQUIPE_IDEA_STATUS = ["proposed", "accepted", "rejected"] as const;
 export const EQUIPE_BATCH_STATUS = ["open", "delivered", "approved", "closed"] as const;
+// Stored item status IS the domain ItemStatus 1:1 (see domain/item.ts) —
+// decline (do_not_publish) vs cancel (cancelled) and manual approval
+// (available_for_download) are distinct stored states.
 export const EQUIPE_ITEM_STATUS = [
-  "draft",
-  "in_production",
-  "in_review",
-  "pending_approval",
-  "approved",
+  "awaiting_approval",
+  "adjusting",
   "scheduled",
   "held",
+  "missed_window",
+  "do_not_publish",
+  "cancelled",
+  "sending",
   "verifying",
   "published",
-  "missed_window",
-  "canceled",
+  "failed",
+  "available_for_download",
+  "published_declared",
+  "published_confirmed",
 ] as const;
 export const EQUIPE_ACTOR_TYPE = ["client_person", "staff", "agent", "system"] as const;
 export const EQUIPE_AGENT_ROLE = [
@@ -396,9 +402,12 @@ export const equipeItems = equipeSchema.table(
     creativeWorkId: uuid("creative_work_id").references(() => creativeWorkItems.id, {
       onDelete: "set null",
     }),
-    status: text("status").notNull().default("draft"),
+    status: text("status").notNull().default("awaiting_approval"),
     scheduledFor: timestamp("scheduled_for", { mode: "date" }),
     deadlineAt: timestamp("deadline_at", { mode: "date" }),
+    // Destination account/connection reference, part of the version hash.
+    // Set at delivery; only version-creating commands may write it.
+    destination: text("destination"),
     currentVersionHash: text("current_version_hash"),
     publishedOutputId: uuid("published_output_id").references(() => creativeWorkOutputs.id, {
       onDelete: "set null",
@@ -435,6 +444,8 @@ export const equipeItemVersions = equipeSchema.table(
     creativeWorkOutputId: uuid("creative_work_output_id"),
     caption: text("caption").notNull().default(""),
     scheduledFor: timestamp("scheduled_for", { mode: "date" }),
+    // Destination hashed into this version; set on INSERT only (immutable row).
+    destination: text("destination"),
     authorRole: text("author_role").notNull(),
     authorId: text("author_id"),
     reviewerFindings: jsonb("reviewer_findings"),
@@ -550,6 +561,7 @@ export const equipeEscalations = equipeSchema.table(
       .notNull()
       .references(() => equipeAccounts.id, { onDelete: "cascade" }),
     frontId: uuid("front_id").references(() => equipeFronts.id, { onDelete: "set null" }),
+    itemId: uuid("item_id").references(() => equipeItems.id, { onDelete: "cascade" }),
     kind: text("kind").notNull(),
     severity: text("severity").notNull(),
     ownerRole: text("owner_role").notNull(),
@@ -564,6 +576,7 @@ export const equipeEscalations = equipeSchema.table(
   },
   (t) => [
     index("equipe_escalations_account_idx").on(t.accountId),
+    index("equipe_escalations_item_idx").on(t.itemId),
     check("equipe_escalations_severity_check", inList(t.severity, EQUIPE_SEVERITY)),
     check("equipe_escalations_status_check", inList(t.status, EQUIPE_ESCALATION_STATUS)),
   ]

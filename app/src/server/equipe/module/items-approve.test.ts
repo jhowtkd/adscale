@@ -104,7 +104,7 @@ describe("approve_item", () => {
     });
     expect(outcome.ok).toBe(true);
     const item = await t.deps.uow.repos.items.get(scope, itemIds[0]!);
-    expect(item?.status).toBe("approved");
+    expect(item?.status).toBe("available_for_download");
     expect(await t.deps.uow.repos.intents.list(scope)).toHaveLength(0);
   });
 
@@ -225,7 +225,7 @@ describe("approve_batch", () => {
     expect(outcome.value.data.results).toMatchObject([
       { itemId: itemIds[0], outcome: "changed_since_opened" },
     ]);
-    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("pending_approval");
+    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("awaiting_approval");
     expect(await t.deps.uow.repos.receipts.list(scope)).toHaveLength(0);
   });
 });

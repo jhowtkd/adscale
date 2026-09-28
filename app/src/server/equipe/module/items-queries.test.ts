@@ -79,6 +79,27 @@ describe("item detail", () => {
     expect(detail?.batch?.title).toBe("Lote 1");
   });
 
+  it("blocks an item with an open escalation row linked to it", async () => {
+    const { t, ids } = await setup();
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    const { itemIds } = await deliverTestBatch(t, ids, { items: [{}] });
+    const escalation = await t.deps.uow.repos.escalations.create(scope, {
+      kind: "content",
+      severity: "high",
+      ownerRole: "quality",
+      itemId: itemIds[0]!,
+    });
+    const blocked = await getItemDetail(t.deps.uow.repos, ids.workspaceId, ids.accountId, itemIds[0]!);
+    expect(blocked?.review.status).toBe("blocked");
+    expect(blocked?.review.flags.blocked).toBe(true);
+    const pipeline = await getClientPipeline(t.deps.uow.repos, ids.workspaceId, ids.accountId);
+    expect(pipeline?.items.find((i) => i.item.id === itemIds[0])?.displayState).toBe("blocked");
+
+    await t.deps.uow.repos.escalations.update(scope, escalation.id, { status: "resolved" });
+    const cleared = await getItemDetail(t.deps.uow.repos, ids.workspaceId, ids.accountId, itemIds[0]!);
+    expect(cleared?.review.status).toBe("ready");
+  });
+
   it("hides voided intents and returns null for unknown items", async () => {
     const { t, ids } = await setup();
     const { itemIds, versionHashes } = await deliverTestBatch(t, ids, { items: [{}] });

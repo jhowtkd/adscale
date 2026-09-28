@@ -949,6 +949,22 @@ export async function getCreativeWorkOutputForSelectionEffect(
   return output ?? null;
 }
 
+/** Minimal workspace-scoped output lookup (Equipe item versions pin an output). */
+export async function getCreativeWorkOutputInWorkspace(
+  workspaceId: string,
+  outputId: string,
+): Promise<Pick<CreativeWorkOutput, "id" | "workspaceId" | "workItemId"> | null> {
+  const [output] = await db.select({
+    id: creativeWorkOutputs.id,
+    workspaceId: creativeWorkOutputs.workspaceId,
+    workItemId: creativeWorkOutputs.workItemId,
+  }).from(creativeWorkOutputs).where(and(
+    eq(creativeWorkOutputs.workspaceId, workspaceId),
+    eq(creativeWorkOutputs.id, outputId),
+  )).limit(1);
+  return output ?? null;
+}
+
 export type SourceAssetDetails = {
   assetKey: string;
   mimeType: string;

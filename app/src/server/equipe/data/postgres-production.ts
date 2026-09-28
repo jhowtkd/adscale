@@ -31,6 +31,7 @@ import type {
   AccountScope,
   EquipeBatchPatch,
   EquipeCalibrationRoundPatch,
+  EquipeEscalationFilter,
   EquipeEscalationPatch,
   EquipeExceptionPatch,
   EquipeItemFilter,
@@ -156,10 +157,16 @@ export function makePgCalibrationScores(
 export function makePgEscalations(
   executor: PostgresEquipeExecutor
 ): EquipeEscalationRepository {
-  return makePgAccountRepo<typeof equipeEscalations, NewEquipeEscalation, EquipeEscalationPatch>(
-    executor,
-    { table: equipeEscalations }
-  );
+  return makePgAccountRepo<
+    typeof equipeEscalations,
+    NewEquipeEscalation,
+    EquipeEscalationPatch,
+    EquipeEscalationFilter
+  >(executor, {
+    table: equipeEscalations,
+    buildFilter: (table, filter) =>
+      filter.itemId === undefined ? undefined : eq(table.itemId, filter.itemId),
+  });
 }
 
 export function makePgExceptions(

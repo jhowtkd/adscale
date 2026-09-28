@@ -75,9 +75,10 @@ export async function runDeliverBatch(
         frontId: payload.frontId,
         batchId: batch.id,
         creativeWorkId: input.creativeWorkId,
-        status: "pending_approval",
+        status: "awaiting_approval",
         scheduledFor: input.scheduledFor,
         deadlineAt: itemDeadlineFor(input.scheduledFor),
+        destination: input.destinationAccount,
         currentVersionHash: versionHash,
       });
       await ctx.repos.itemVersions.create(scope, {
@@ -86,6 +87,7 @@ export async function runDeliverBatch(
         creativeWorkOutputId: input.creativeWorkOutputId,
         caption: input.caption,
         scheduledFor: input.scheduledFor,
+        destination: input.destinationAccount,
         authorRole: author.role,
         authorId: author.id,
         reviewerFindings: input.needsConfirmation ? { needsConfirmation: true } : null,
