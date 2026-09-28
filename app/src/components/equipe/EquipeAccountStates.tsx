@@ -65,7 +65,7 @@ export function EquipeAccountSwitcher({
   if (accounts.length < 2) return null;
   return (
     <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-      {t("account")}
+      {t("accountLabel")}
       <select
         value={accountId}
         onChange={(event) => onSelect(event.target.value)}

@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-28T14:23:40.979Z",
+  "generatedAt": "2026-09-28T15:11:47.485Z",
   "schemaVersion": 2,
-  "fingerprint": "036e7f94212ab924d9668e42336c5df3bb046173627dbc4de962b57c914bff5c",
+  "fingerprint": "9e048dd49afb35998e537fce25d9f7097e621994e5e1aa605555bd36094da92d",
   "counts": {
-    "dashboardPages": 21,
+    "dashboardPages": 24,
     "apiRoutes": 212,
-    "ctas": 86,
+    "ctas": 93,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -115,6 +115,20 @@
       "requiresDecision": false
     },
     {
+      "id": "page:/goals",
+      "kind": "dashboard_page",
+      "route": "/goals",
+      "file": "app/src/app/(dashboard)/goals/page.tsx",
+      "requiresDecision": false
+    },
+    {
+      "id": "page:/ideas",
+      "kind": "dashboard_page",
+      "route": "/ideas",
+      "file": "app/src/app/(dashboard)/ideas/page.tsx",
+      "requiresDecision": false
+    },
+    {
       "id": "page:/library",
       "kind": "dashboard_page",
       "route": "/library",
@@ -126,6 +140,13 @@
       "kind": "dashboard_page",
       "route": "/page.tsx",
       "file": "app/src/app/(dashboard)/page.tsx",
+      "requiresDecision": false
+    },
+    {
+      "id": "page:/pipeline",
+      "kind": "dashboard_page",
+      "route": "/pipeline",
+      "file": "app/src/app/(dashboard)/pipeline/page.tsx",
       "requiresDecision": false
     },
     {
@@ -1656,10 +1677,19 @@
     {
       "id": "nav:app/src/components/assistant/EquipeCard.tsx:114",
       "kind": "cta_navigation",
-      "destination": "/pipeline?item=${item.itemId}",
+      "destination": "/pipeline?account=${accountId}&item=${item.itemId}",
       "file": "app/src/components/assistant/EquipeCard.tsx",
       "line": 114,
       "evidence": "app/src/components/assistant/EquipeCard.tsx:114",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/assistant/EquipeCard.tsx:268",
+      "kind": "cta_navigation",
+      "destination": "/ideas?account=${card.accountId}&idea=${card.ideaId}",
+      "file": "app/src/components/assistant/EquipeCard.tsx",
+      "line": 268,
+      "evidence": "app/src/components/assistant/EquipeCard.tsx:268",
       "requiresDecision": false
     },
     {
@@ -1942,6 +1972,24 @@
       "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/equipe/BatchApprovalDialog.tsx:86",
+      "kind": "cta_navigation",
+      "destination": "/pipeline?account=${accountId}&item=${view.item.id}",
+      "file": "app/src/components/equipe/BatchApprovalDialog.tsx",
+      "line": 86,
+      "evidence": "app/src/components/equipe/BatchApprovalDialog.tsx:86",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/equipe/BatchApprovalDialog.tsx:114",
+      "kind": "cta_navigation",
+      "destination": "/pipeline?account=${accountId}&item=${result.itemId}",
+      "file": "app/src/components/equipe/BatchApprovalDialog.tsx",
+      "line": 114,
+      "evidence": "app/src/components/equipe/BatchApprovalDialog.tsx:114",
+      "requiresDecision": false
+    },
+    {
       "id": "nav:app/src/components/equipe/CrossAccountPipeline.tsx:121",
       "kind": "cta_navigation",
       "destination": "/admin/equipe/exceptions?workspaceId=${entry.scope.workspaceId}&accountId=${entry.scope.accountId}",
@@ -1960,6 +2008,15 @@
       "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/equipe/EquipeViewSelector.tsx:36",
+      "kind": "cta_navigation",
+      "destination": "/assistant",
+      "file": "app/src/components/equipe/EquipeViewSelector.tsx",
+      "line": 36,
+      "evidence": "app/src/components/equipe/EquipeViewSelector.tsx:36",
+      "requiresDecision": false
+    },
+    {
       "id": "nav:app/src/components/equipe/EscalationDetailHistory.tsx:68",
       "kind": "cta_navigation",
       "destination": "/admin/equipe/exceptions?workspaceId=${view.workspaceId}&accountId=${view.accountId}",
@@ -1975,6 +2032,33 @@
       "file": "app/src/components/equipe/ExceptionsQueue.tsx",
       "line": 98,
       "evidence": "app/src/components/equipe/ExceptionsQueue.tsx:98",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/equipe/GoalsView.tsx:344",
+      "kind": "cta_navigation",
+      "destination": "/assistant",
+      "file": "app/src/components/equipe/GoalsView.tsx",
+      "line": 344,
+      "evidence": "app/src/components/equipe/GoalsView.tsx:344",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/equipe/IdeasView.tsx:243",
+      "kind": "cta_navigation",
+      "destination": "/assistant",
+      "file": "app/src/components/equipe/IdeasView.tsx",
+      "line": 243,
+      "evidence": "app/src/components/equipe/IdeasView.tsx:243",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/equipe/PipelineCard.tsx:41",
+      "kind": "cta_navigation",
+      "destination": "/pipeline?${params.toString()}",
+      "file": "app/src/components/equipe/PipelineCard.tsx",
+      "line": 41,
+      "evidence": "app/src/components/equipe/PipelineCard.tsx:41",
       "requiresDecision": false
     },
     {
@@ -2050,138 +2134,138 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppShell.tsx:47",
+      "id": "nav:app/src/components/layout/AppShell.tsx:51",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/AppShell.tsx",
-      "line": 47,
-      "evidence": "app/src/components/layout/AppShell.tsx:47",
+      "line": 51,
+      "evidence": "app/src/components/layout/AppShell.tsx:51",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppShell.tsx:53",
+      "id": "nav:app/src/components/layout/AppShell.tsx:57",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/components/layout/AppShell.tsx",
-      "line": 53,
-      "evidence": "app/src/components/layout/AppShell.tsx:53",
+      "line": 57,
+      "evidence": "app/src/components/layout/AppShell.tsx:57",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppShell.tsx:59",
+      "id": "nav:app/src/components/layout/AppShell.tsx:63",
       "kind": "cta_navigation",
       "destination": "/library",
       "file": "app/src/components/layout/AppShell.tsx",
-      "line": 59,
-      "evidence": "app/src/components/layout/AppShell.tsx:59",
+      "line": 63,
+      "evidence": "app/src/components/layout/AppShell.tsx:63",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppShell.tsx:65",
+      "id": "nav:app/src/components/layout/AppShell.tsx:69",
       "kind": "cta_navigation",
       "destination": "/brand-kit",
       "file": "app/src/components/layout/AppShell.tsx",
-      "line": 65,
-      "evidence": "app/src/components/layout/AppShell.tsx:65",
+      "line": 69,
+      "evidence": "app/src/components/layout/AppShell.tsx:69",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:67",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:69",
       "kind": "cta_navigation",
       "destination": "/login",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 67,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:67",
+      "line": 69,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:69",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:76",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:78",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 76,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:76",
+      "line": 78,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:78",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:95",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:97",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 95,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:95",
+      "line": 97,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:97",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:101",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:103",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 101,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:101",
+      "line": 103,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:103",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:108",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:110",
       "kind": "cta_navigation",
       "destination": "/library",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 108,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:108",
+      "line": 110,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:110",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:114",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:116",
       "kind": "cta_navigation",
       "destination": "/brand-kit",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 114,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:114",
+      "line": 116,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:116",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:120",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:122",
       "kind": "cta_navigation",
       "destination": "/served-ads",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 120,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:120",
+      "line": 122,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:122",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:140",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:160",
       "kind": "cta_navigation",
       "destination": "/docs",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 140,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:140",
+      "line": 160,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:160",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:147",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:167",
       "kind": "cta_navigation",
       "destination": "/settings",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 147,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:147",
+      "line": 167,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:167",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:162",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:182",
       "kind": "cta_navigation",
       "destination": "/feedback",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 162,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:162",
+      "line": 182,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:182",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:165",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:185",
       "kind": "cta_navigation",
       "destination": "/settings",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 165,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:165",
+      "line": 185,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:185",
       "requiresDecision": false
     },
     {
@@ -2221,12 +2305,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/MobileMoreSheet.tsx:80",
+      "id": "nav:app/src/components/layout/MobileMoreSheet.tsx:88",
       "kind": "cta_navigation",
       "destination": "/login",
       "file": "app/src/components/layout/MobileMoreSheet.tsx",
-      "line": 80,
-      "evidence": "app/src/components/layout/MobileMoreSheet.tsx:80",
+      "line": 88,
+      "evidence": "app/src/components/layout/MobileMoreSheet.tsx:88",
       "requiresDecision": false
     },
     {
