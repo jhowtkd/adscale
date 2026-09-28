@@ -20,6 +20,7 @@ import type {
   EquipeItem,
   EquipeItemVersion,
   EquipeMandate,
+  EquipeNotificationDelivery,
   EquipeOnboardingStep,
   EquipePause,
   EquipePlan,
@@ -64,6 +65,7 @@ export type MemoryEquipeStore = {
   connections: MemoryTable<EquipeConnection>;
   threads: MemoryTable<EquipeThread>;
   events: MemoryTable<EquipeEvent>;
+  deliveries: MemoryTable<EquipeNotificationDelivery>;
 };
 
 export function createMemoryEquipeStore(): MemoryEquipeStore {
@@ -90,6 +92,7 @@ export function createMemoryEquipeStore(): MemoryEquipeStore {
     connections: new MemoryTable(),
     threads: new MemoryTable(),
     events: new MemoryTable(),
+    deliveries: new MemoryTable(),
   };
 }
 

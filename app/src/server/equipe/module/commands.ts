@@ -98,6 +98,11 @@ import { runReconcilePublication } from "./reconcile";
 import { runDeclareManualPublication } from "./manual-publishing";
 import { runRemovePublishedPost } from "./removal";
 import { runCompleteInstagramConnect, runFailInstagramConnect } from "./instagram-connect";
+// #549 — jobs duráveis e notificações.
+import { runReminders } from "./jobs-reminders";
+import { runDeadlines } from "./jobs-deadlines";
+import { runCalibrationMonitor, runRecordQualityEffort } from "./jobs-monitor";
+import { runRecordNotificationDelivered } from "./jobs-delivery";
 
 const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   open_account: "open_account",
@@ -176,6 +181,12 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   remove_published_post: "remove_published_post",
   complete_instagram_connect: "connect_account",
   fail_instagram_connect: "connect_account",
+  // #549
+  run_reminders: "remind",
+  run_deadlines: "expire_deadline",
+  run_calibration_monitor: "open_auto_escalation",
+  record_notification_delivered: "record_delivery",
+  record_quality_effort: "record_quality_effort",
 };
 
 export type ExecutedCommand = CommandSuccess & { type: CommandType };
@@ -443,6 +454,22 @@ export async function executeCommand(
       break;
     case "fail_instagram_connect":
       outcome = await runFailInstagramConnect(deps, base, command.payload);
+      break;
+    // #549
+    case "run_reminders":
+      outcome = await runReminders(deps, base, command.payload);
+      break;
+    case "run_deadlines":
+      outcome = await runDeadlines(deps, base, command.payload);
+      break;
+    case "run_calibration_monitor":
+      outcome = await runCalibrationMonitor(deps, base, command.payload);
+      break;
+    case "record_notification_delivered":
+      outcome = await runRecordNotificationDelivered(deps, base, command.payload);
+      break;
+    case "record_quality_effort":
+      outcome = await runRecordQualityEffort(deps, base, command.payload);
       break;
   }
   if (!outcome.ok) return outcome;

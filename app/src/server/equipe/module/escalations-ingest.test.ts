@@ -101,6 +101,36 @@ describe("ingest_agent_signal", () => {
     expect(await t.deps.uow.repos.exceptions.list(scope)).toHaveLength(0);
   });
 
+  it("downgrades a critical turn_failed without item context instead of failing (#549)", async () => {
+    const { t, ids } = await setup();
+    const scope = SCOPE(ids);
+    const sourceEventId = await seedSignal(t, ids, {
+      eventType: "agent.turn_failed",
+      payload: { taskKind: "research", error: "model timeout", severity: "critical" },
+    });
+    const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.system), {
+      type: "ingest_agent_signal",
+      payload: { sourceEventId },
+    });
+    // No front to pause — but the signal still lands as a normal
+    // technical escalation instead of front_required losing it.
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    const row = await t.deps.uow.repos.escalations.get(
+      scope,
+      outcome.value.data.escalationId as string,
+    );
+    expect(row).toMatchObject({
+      kind: "technical",
+      severity: "medium",
+      status: "open",
+      ownerRole: "operations",
+      itemId: null,
+      frontId: null,
+    });
+    expect(await t.deps.uow.repos.pauses.list(scope)).toHaveLength(0);
+  });
+
   it("honors a critical turn_failed when the signal points at an item", async () => {
     const { t, ids } = await setup();
     const scope = SCOPE(ids);

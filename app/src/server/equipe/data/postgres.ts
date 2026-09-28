@@ -63,6 +63,7 @@ import {
   listAccountsByStatus,
   listCalibrationRounds,
   makePgConnections,
+  makePgDeliveries,
   makePgEvents,
   makePgIntents,
   makePgThreads,
@@ -422,6 +423,7 @@ export function createPostgresEquipeRepositories(
     connections: makePgConnections(executor),
     threads: makePgThreads(executor),
     events: makePgEvents(executor),
+    deliveries: makePgDeliveries(executor),
   };
 }
 

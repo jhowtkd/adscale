@@ -317,6 +317,70 @@ export async function runCloseEscalation(
 }
 
 /**
+ * Expire one client wait inside the caller's transaction. Shared by the
+ * single command and the #549 deadlines sweep: already-settled cases are a
+ * quiet no-op.
+ */
+export async function expireEscalationClientWaitInTx(
+  ctx: CommandContext,
+  escalationId: string,
+): Promise<Result<Record<string, unknown>>> {
+  const loaded = await loadEscalationOrError(ctx, escalationId);
+  if (!loaded.ok) return loaded;
+  const row = loaded.value;
+  if (row.status !== "awaiting_client") {
+    return ok({ escalationId: row.id, expired: false, status: row.status });
+  }
+  if (!row.dueAt || ctx.now <= row.dueAt) {
+    return err("deadline_not_reached", `escalation ${row.id} still waits for the client`);
+  }
+  const state = domainEscalationOf(row);
+  if (!state.ok) return state;
+  const decided = closeEscalationForNoResponse(state.value);
+  if (!decided.ok) return decided;
+  const scope = scopeOf(ctx);
+  await ctx.repos.escalations.update(scope, row.id, {
+    status: "closed",
+    cause: "no_client_response",
+  });
+  let itemDeclined = false;
+  if (row.itemId) {
+    const item = await ctx.repos.items.get(scope, row.itemId);
+    if (
+      item?.currentVersionHash &&
+      (item.status === "awaiting_approval" || item.status === "held")
+    ) {
+      const declined = declineToPublish(
+        { status: item.status, currentVersion: item.currentVersionHash, approvedVersion: null },
+        "sem resposta do cliente",
+      );
+      if (declined.ok) {
+        await ctx.repos.items.update(scope, item.id, { status: declined.value.state.status });
+        await appendEvent(ctx, {
+          eventType: ITEM_DECLINED_EVENT,
+          objectType: "item",
+          objectId: item.id,
+          payload: { reason: "sem resposta do cliente", escalationId: row.id },
+        });
+        itemDeclined = true;
+      }
+    }
+  }
+  await appendEvent(ctx, {
+    eventType: ESCALATION_CLOSED_EVENT,
+    objectType: "escalation",
+    objectId: row.id,
+    payload: { cause: "no_client_response", itemDeclined },
+  });
+  await requestNotification(ctx, {
+    recipientRole: "strategist",
+    templateKey: "escalation.closed",
+    detail: { escalationId: row.id, cause: "no_client_response" },
+  });
+  return ok({ escalationId: row.id, expired: true, itemDeclined });
+}
+
+/**
  * The client never answered in time: the item goes to "não publicar" and
  * the escalation closes as unanswered. A timeout path, like the item-limit
  * expiry — already-settled cases are a quiet no-op.
@@ -329,59 +393,7 @@ export async function runExpireEscalationClientWait(
   return transact(deps, base, async (ctx) => {
     const account = await loadAccountOrError(ctx);
     if (!account.ok) return account;
-    const loaded = await loadEscalationOrError(ctx, payload.escalationId);
-    if (!loaded.ok) return loaded;
-    const row = loaded.value;
-    if (row.status !== "awaiting_client") {
-      return ok({ escalationId: row.id, expired: false, status: row.status });
-    }
-    if (!row.dueAt || ctx.now <= row.dueAt) {
-      return err("deadline_not_reached", `escalation ${row.id} still waits for the client`);
-    }
-    const state = domainEscalationOf(row);
-    if (!state.ok) return state;
-    const decided = closeEscalationForNoResponse(state.value);
-    if (!decided.ok) return decided;
-    const scope = scopeOf(ctx);
-    await ctx.repos.escalations.update(scope, row.id, {
-      status: "closed",
-      cause: "no_client_response",
-    });
-    let itemDeclined = false;
-    if (row.itemId) {
-      const item = await ctx.repos.items.get(scope, row.itemId);
-      if (
-        item?.currentVersionHash &&
-        (item.status === "awaiting_approval" || item.status === "held")
-      ) {
-        const declined = declineToPublish(
-          { status: item.status, currentVersion: item.currentVersionHash, approvedVersion: null },
-          "sem resposta do cliente",
-        );
-        if (declined.ok) {
-          await ctx.repos.items.update(scope, item.id, { status: declined.value.state.status });
-          await appendEvent(ctx, {
-            eventType: ITEM_DECLINED_EVENT,
-            objectType: "item",
-            objectId: item.id,
-            payload: { reason: "sem resposta do cliente", escalationId: row.id },
-          });
-          itemDeclined = true;
-        }
-      }
-    }
-    await appendEvent(ctx, {
-      eventType: ESCALATION_CLOSED_EVENT,
-      objectType: "escalation",
-      objectId: row.id,
-      payload: { cause: "no_client_response", itemDeclined },
-    });
-    await requestNotification(ctx, {
-      recipientRole: "strategist",
-      templateKey: "escalation.closed",
-      detail: { escalationId: row.id, cause: "no_client_response" },
-    });
-    return ok({ escalationId: row.id, expired: true, itemDeclined });
+    return expireEscalationClientWaitInTx(ctx, payload.escalationId);
   });
 }
 

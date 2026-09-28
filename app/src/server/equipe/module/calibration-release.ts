@@ -280,6 +280,45 @@ export async function runResolveScopeDecision(
 }
 
 /**
+ * Open one scope decision inside the caller's transaction. Shared by the
+ * single command and the #549 deadlines sweep.
+ */
+export async function openScopeDecisionInTx(
+  ctx: CommandContext,
+  frontId: string,
+): Promise<Result<Record<string, unknown>>> {
+  const front = await loadFrontOrError(ctx, frontId);
+  if (!front.ok) return front;
+  const state = frontStateOf(front.value);
+  if (!state.ok) return state;
+  const weeksElapsed = calibrationWeeksElapsed(front.value.calibrationStartedAt, ctx.now);
+  const expired = expireCalibrationTime(state.value, weeksElapsed);
+  if (!expired.ok) return expired;
+  await ctx.repos.fronts.update(scopeOf(ctx), front.value.id, {
+    status: storedFrontStatusOf(expired.value.state.status),
+  });
+  for (const event of expired.value.events) {
+    await appendEvent(ctx, {
+      eventType: event.type,
+      objectType: "front",
+      objectId: front.value.id,
+      payload: event,
+    });
+  }
+  await requestNotification(ctx, {
+    recipientRole: "quality",
+    templateKey: "front.scope_decision_opened",
+    detail: { frontId: front.value.id },
+  });
+  await requestNotification(ctx, {
+    recipientRole: "strategist",
+    templateKey: "front.scope_decision_opened",
+    detail: { frontId: front.value.id },
+  });
+  return ok({ frontId: front.value.id });
+}
+
+/**
  * Time-only scope trigger (system job): 6 weeks elapsed without 3
  * consecutive passes and without a 6th round being recorded.
  */
@@ -293,35 +332,7 @@ export async function runOpenScopeDecision(
     if (!account.ok) return account;
     const calibrating = requireCalibrationAccount(account.value);
     if (!calibrating.ok) return calibrating;
-    const front = await loadFrontOrError(ctx, payload.frontId);
-    if (!front.ok) return front;
-    const state = frontStateOf(front.value);
-    if (!state.ok) return state;
-    const weeksElapsed = calibrationWeeksElapsed(front.value.calibrationStartedAt, ctx.now);
-    const expired = expireCalibrationTime(state.value, weeksElapsed);
-    if (!expired.ok) return expired;
-    await ctx.repos.fronts.update(scopeOf(ctx), front.value.id, {
-      status: storedFrontStatusOf(expired.value.state.status),
-    });
-    for (const event of expired.value.events) {
-      await appendEvent(ctx, {
-        eventType: event.type,
-        objectType: "front",
-        objectId: front.value.id,
-        payload: event,
-      });
-    }
-    await requestNotification(ctx, {
-      recipientRole: "quality",
-      templateKey: "front.scope_decision_opened",
-      detail: { frontId: front.value.id },
-    });
-    await requestNotification(ctx, {
-      recipientRole: "strategist",
-      templateKey: "front.scope_decision_opened",
-      detail: { frontId: front.value.id },
-    });
-    return ok({ frontId: front.value.id });
+    return openScopeDecisionInTx(ctx, payload.frontId);
   });
 }
 

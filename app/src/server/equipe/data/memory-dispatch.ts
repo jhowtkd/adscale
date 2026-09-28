@@ -1,4 +1,8 @@
-import type { EquipeIntentRepository, EquipeRepositories } from "./repositories";
+import type {
+  EquipeDeliveryRepository,
+  EquipeIntentRepository,
+  EquipeRepositories,
+} from "./repositories";
 import {
   asList,
   buildRow,
@@ -22,8 +26,10 @@ import {
   type EquipeEvent,
   type EquipeEventFilter,
   type EquipeIntentFilter,
+  type EquipeNotificationDelivery,
   type EquipePublicationIntent,
   type EquipeRoundStatus,
+  type NewEquipeNotificationDelivery,
   type NewEquipePublicationIntent,
 } from "./types";
 
@@ -33,7 +39,7 @@ import {
 
 export type MemoryDispatchRepositories = Pick<
   EquipeRepositories,
-  "intents" | "connections" | "threads" | "events"
+  "intents" | "connections" | "threads" | "events" | "deliveries"
 >;
 
 function filterIntents(
@@ -167,6 +173,51 @@ export function makeMemoryDispatchRepositories(
       filter: filterEvents,
       sort: byOccurredAt,
     }),
+    deliveries: makeMemoryDeliveries(store),
+  };
+}
+
+// Outbox delivery records (#549): idempotent per event, channels unioned.
+function makeMemoryDeliveries(store: MemoryEquipeStore): EquipeDeliveryRepository {
+  return {
+    async record(scope, input: NewEquipeNotificationDelivery) {
+      const existing = [...store.deliveries.rows.values()].find(
+        (row) => inScope(row, scope) && row.eventId === input.eventId
+      );
+      if (!existing) {
+        const row = buildRow<EquipeNotificationDelivery>(
+          scope,
+          {
+            eventId: input.eventId,
+            channels: [...new Set(input.channels)],
+            deliveredAt: input.deliveredAt ?? new Date(),
+          },
+          {},
+          "full"
+        );
+        store.deliveries.rows.set(row.id, row);
+        return copy(row);
+      }
+      const channels = [...new Set([...existing.channels, ...input.channels])];
+      const next: EquipeNotificationDelivery = {
+        ...existing,
+        channels,
+        updatedAt: new Date(),
+      };
+      store.deliveries.rows.set(existing.id, next);
+      return copy(next);
+    },
+    async getByEvent(scope, eventId) {
+      const found = [...store.deliveries.rows.values()].find(
+        (row) => inScope(row, scope) && row.eventId === eventId
+      );
+      return found ? copy(found) : null;
+    },
+    async list(scope) {
+      return [...store.deliveries.rows.values()]
+        .filter((row) => inScope(row, scope))
+        .map(copy);
+    },
   };
 }
 

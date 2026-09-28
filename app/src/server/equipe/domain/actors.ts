@@ -54,6 +54,7 @@ export type EquipeAction =
   | "resolve_content_escalation"
   | "pause_front_content"
   | "resume_content_pause"
+  | "record_quality_effort"
   // Staff: operations ("operação")
   | "resolve_technical_escalation"
   | "suspend_execution"
@@ -121,6 +122,9 @@ export type EquipeAction =
   | "record_installment_paid"
   | "advance_onboarding"
   | "pause_onboarding"
+  // Notification outbox (#549): record that a `notification.requested`
+  // event was delivered, so retried runs skip it.
+  | "record_delivery"
   // Conversation map (#551): mapping assistant threads to the account.
   | "manage_threads"
   // Platform-owner bootstrap (#552): the owner holds every internal role
@@ -166,6 +170,7 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   resolve_content_escalation: [QUALITY],
   pause_front_content: [QUALITY, SYSTEM],
   resume_content_pause: [QUALITY],
+  record_quality_effort: [QUALITY],
   resolve_technical_escalation: [OPERATIONS],
   suspend_execution: [OPERATIONS, SYSTEM],
   revoke_connection: [OPERATIONS],
@@ -197,6 +202,8 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   open_auto_exception: [SYSTEM],
   open_auto_escalation: [SYSTEM],
   apply_automatic_pause: [SYSTEM],
+  // #549
+  record_delivery: [SYSTEM],
   // #547: fine-grained owner checks (part kind, pause origin, escalation
   // owner) run inside the command; the action grants the candidate set.
   merge_escalations: [QUALITY, OPERATIONS],

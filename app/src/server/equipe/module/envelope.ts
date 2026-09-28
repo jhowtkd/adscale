@@ -503,6 +503,29 @@ export const failInstagramConnectPayloadSchema = z.object({
   code: z.string().min(1).max(80),
 });
 
+// #549 — jobs duráveis e notificações: varreduras do sistema por conta.
+
+export const runRemindersPayloadSchema = z.object({});
+
+export const runDeadlinesPayloadSchema = z.object({});
+
+export const runCalibrationMonitorPayloadSchema = z.object({});
+
+export const recordNotificationDeliveredPayloadSchema = z.object({
+  eventId: uuid,
+  channels: z
+    .array(z.enum(["inapp", "email", "internal", "skipped"]))
+    .min(1)
+    .max(4),
+});
+
+export const recordQualityEffortPayloadSchema = z.object({
+  frontId: uuid,
+  roundId: uuid.optional(),
+  minutes: z.number().int().min(1).max(480),
+  note: z.string().max(2000).optional(),
+});
+
 /** Adapter-provided scope: session + URL, never the request body. */
 export const adapterContextSchema = z.object({
   actor: actorSchema,
@@ -593,6 +616,12 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("remove_published_post", removePublishedPostPayloadSchema),
   command("complete_instagram_connect", completeInstagramConnectPayloadSchema),
   command("fail_instagram_connect", failInstagramConnectPayloadSchema),
+  // #549
+  command("run_reminders", runRemindersPayloadSchema),
+  command("run_deadlines", runDeadlinesPayloadSchema),
+  command("run_calibration_monitor", runCalibrationMonitorPayloadSchema),
+  command("record_notification_delivered", recordNotificationDeliveredPayloadSchema),
+  command("record_quality_effort", recordQualityEffortPayloadSchema),
 ]);
 
 /** Validated untrusted half of the call: { type, payload } only. */

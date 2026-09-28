@@ -1,6 +1,13 @@
 import { serve } from "inngest/next";
 import { inngest } from "@/server/jobs/client";
 import { equipeAgentWorkJob } from "@/server/equipe/agents/agent-work";
+import { equipeDispatchJob } from "@/server/equipe/jobs/dispatch";
+import { equipeReconcileJob } from "@/server/equipe/jobs/reconcile";
+import { equipeRemindersJob } from "@/server/equipe/jobs/reminders";
+import { equipeDeadlinesJob } from "@/server/equipe/jobs/deadlines";
+import { equipeMonitorJob } from "@/server/equipe/jobs/monitor";
+import { equipeSignalsJob } from "@/server/equipe/jobs/signals";
+import { equipeNotificationsJob } from "@/server/equipe/jobs/notifications";
 import { derivationJob } from "@/server/jobs/derivation";
 import { trialNotificationJob } from "@/server/jobs/trial-notifications";
 import { workspaceAssetAnalyzeJob } from "@/server/jobs/workspace-asset";
@@ -45,5 +52,12 @@ export const { GET, POST, PUT } = serve({
     metaAdsSyncJob,
     selectionEffectsProcessorJob,
     equipeAgentWorkJob,
+    equipeDispatchJob,
+    equipeReconcileJob,
+    equipeRemindersJob,
+    equipeDeadlinesJob,
+    equipeMonitorJob,
+    equipeSignalsJob,
+    equipeNotificationsJob,
   ],
 });
