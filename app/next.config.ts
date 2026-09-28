@@ -36,11 +36,21 @@ const nextConfig: NextConfig = {
   // shell never hydrates — Começar is inert HTML.
   allowedDevOrigins: ["127.0.0.1"],
   output: 'standalone',
+  // Render builds run under an 8 GiB limit and died there after #588
+  // (OOM right after "Running TypeScript"). Types are already enforced by
+  // the CI `typecheck` job on every PR, so the Render build skips the
+  // duplicate check; CI builds (RENDER unset) keep it.
+  typescript: { ignoreBuildErrors: process.env.RENDER === "true" },
   outputFileTracingRoot: process.cwd(),
   // Brand-kit multi-upload allows up to 12 × 10MB images. Next.js buffers
   // route-handler bodies at 10MB by default, which truncates the multipart
   // payload and makes `request.formData()` throw. Match the route's own cap.
   experimental: {
+    // Keep the build under Render's 8 GiB: every page-data / static worker
+    // inherits the 4 GiB heap and loads the whole server module graph, so
+    // cap the worker count and let webpack trim its own memory.
+    cpus: 2,
+    webpackMemoryOptimizations: true,
     proxyClientMaxBodySize: "120mb",
   },
   // `INNGEST_DEV` points at the local Inngest dev server and disables
