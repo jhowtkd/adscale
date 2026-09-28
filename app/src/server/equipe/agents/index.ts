@@ -2,7 +2,9 @@
 // implementation. The module never imports this — adapters and jobs do.
 
 export * from "./roles";
+export * from "./provider";
 export * from "./model-client";
+export * from "./anthropic-client";
 export * from "./prompts";
 export * from "./ledger";
 export * from "./strategist";

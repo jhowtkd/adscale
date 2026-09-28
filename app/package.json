@@ -109,6 +109,7 @@
     "convergence:gate": "node scripts/run-convergence-gate.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.129.0",
     "@aws-sdk/client-s3": "^3.0.0",
     "@aws-sdk/s3-request-presigner": "^3.0.0",
     "@base-ui/react": "^1.4.1",

@@ -37,11 +37,26 @@ describe("runResearch", () => {
     expect(recorded).toMatchObject({ inputTokens: 500, outputTokens: 120 });
 
     const request = client.requests[0];
-    expect(request?.responseFormat).toBeDefined();
+    expect(request?.output).toMatchObject({ name: "equipe_research" });
+    expect(request?.output?.schema).toBeDefined();
+    expect(request?.model).toBe("muse-spark-1.3-contributor");
+    expect(request?.effort).toBe("xhigh");
+    expect(request?.maxTokens).toBe(16000);
     const userMessage = request?.messages.find((message) => message.role === "user");
     const text = userMessage && userMessage.role === "user" ? String(userMessage.content) : "";
     expect(text).toContain("Site da empresa");
     expect(text).toContain("Tabela de preços");
+  });
+
+  it("fails the task on refusal or truncation instead of parsing", async () => {
+    const refused = new FakeModelClient([{ content: null, stopReason: "refusal" }]);
+    await expect(runResearch({ client: refused, materials: MATERIALS })).rejects.toThrow(
+      "research_refused",
+    );
+    const truncated = new FakeModelClient([{ content: `{"facts":`, stopReason: "max_tokens" }]);
+    await expect(runResearch({ client: truncated, materials: MATERIALS })).rejects.toThrow(
+      "research_truncated",
+    );
   });
 
   it("refuses to run without materials", async () => {

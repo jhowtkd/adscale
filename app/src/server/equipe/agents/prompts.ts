@@ -71,19 +71,24 @@ export function textReviewerSystemPrompt(): string {
   ].join("\n");
 }
 
-export function textReviewUserMessage(input: { headline: string; body: string; cta: string; facts: string[] }): string {
-  const facts = input.facts.length > 0 ? input.facts.map((fact) => `- ${fact}`).join("\n") : "(no sustained facts provided)";
+/**
+ * Stable review context, shared across items of the same account/lote:
+ * sent BEFORE the Anthropic cache breakpoint (last stable block).
+ */
+export function textReviewContextMessage(facts: string[]): string {
+  const listed = facts.length > 0 ? facts.map((fact) => `- ${fact}`).join("\n") : "(no sustained facts provided)";
   return [
     "Review this copy against the sustained facts. Flag invented numbers,",
     "offers, prices, dates, or claims with no source as blocking.",
     "",
-    `Headline: ${input.headline}`,
-    `Body: ${input.body}`,
-    `CTA: ${input.cta}`,
-    "",
     "Sustained facts:",
-    facts,
+    listed,
   ].join("\n");
+}
+
+/** The item under review: sent AFTER the cache breakpoint. */
+export function textReviewItemMessage(copy: { headline: string; body: string; cta: string }): string {
+  return [`Headline: ${copy.headline}`, `Body: ${copy.body}`, `CTA: ${copy.cta}`].join("\n");
 }
 
 export function visualReviewerSystemPrompt(): string {
@@ -95,13 +100,20 @@ export function visualReviewerSystemPrompt(): string {
   ].join("\n");
 }
 
-export function visualReviewUserMessage(brief: string): string {
+/**
+ * Static instruction, shared across items: sent BEFORE the Anthropic
+ * cache breakpoint (last stable block).
+ */
+export function visualReviewInstructionMessage(): string {
   return [
     "Review the attached final image against this brief. Report what you see;",
     "do not invent copy that is not legible in the image.",
-    "",
-    `Brief: ${brief}`,
   ].join("\n");
+}
+
+/** The item's brief: sent AFTER the cache breakpoint, next to the image. */
+export function visualReviewBriefMessage(brief: string): string {
+  return `Brief: ${brief}`;
 }
 
 export function measurementSystemPrompt(): string {

@@ -1,14 +1,19 @@
 // Pesquisa IA: structured facts + diagnosis from registered materials (#550).
 
 import { z } from "zod";
-import { zodResponseFormat } from "openai/helpers/zod";
-import type { EquipeModelClient } from "./model-client";
+import {
+  EquipeModelRefusalError,
+  EquipeModelTruncatedError,
+  type EquipeModelClient,
+  type ModelCallUsage,
+} from "./model-client";
+import type { EquipeEffort } from "./provider";
 import {
   researchSystemPrompt,
   researchUserMessage,
   type ResearchMaterial,
 } from "./prompts";
-import { resolveResearchModel } from "./roles";
+import { resolveResearchEffort, resolveResearchModel } from "./roles";
 
 export const researchOutputSchema = z.object({
   facts: z.array(
@@ -24,11 +29,15 @@ export const researchOutputSchema = z.object({
 
 export type ResearchOutput = z.infer<typeof researchOutputSchema>;
 
+/** Reasoning tokens count toward the output limit: room for both. */
+export const RESEARCH_MAX_TOKENS = 16000;
+
 export type ResearchInput = {
   client: EquipeModelClient;
   materials: ResearchMaterial[];
   model?: string;
-  onModelCall?: (call: { model: string; inputTokens: number; outputTokens: number }) => Promise<void>;
+  effort?: EquipeEffort;
+  onModelCall?: (call: ModelCallUsage) => Promise<void>;
 };
 
 export async function runResearch(input: ResearchInput): Promise<ResearchOutput> {
@@ -36,20 +45,25 @@ export async function runResearch(input: ResearchInput): Promise<ResearchOutput>
     throw new Error("research_requires_materials");
   }
   const model = input.model ?? resolveResearchModel();
+  const effort = input.effort ?? resolveResearchEffort();
   const response = await input.client.chat({
     model,
     messages: [
       { role: "system", content: researchSystemPrompt() },
       { role: "user", content: researchUserMessage(input.materials) },
     ],
-    responseFormat: zodResponseFormat(researchOutputSchema, "equipe_research"),
-    maxTokens: 2000,
+    output: { name: "equipe_research", schema: researchOutputSchema },
+    effort,
+    maxTokens: RESEARCH_MAX_TOKENS,
   });
-  await input.onModelCall?.({
-    model,
-    inputTokens: response.usage.inputTokens,
-    outputTokens: response.usage.outputTokens,
-  });
+  await input.onModelCall?.({ model, ...response.usage });
+  // A cut or refused answer is a failed task — never parsed as research.
+  if (response.stopReason === "refusal") {
+    throw new EquipeModelRefusalError("research_refused");
+  }
+  if (response.stopReason === "max_tokens") {
+    throw new EquipeModelTruncatedError("research_truncated");
+  }
   let parsed: unknown;
   try {
     parsed = JSON.parse(response.content ?? "null");
@@ -62,5 +76,3 @@ export async function runResearch(input: ResearchInput): Promise<ResearchOutput>
   }
   return validated.data;
 }
-
-
