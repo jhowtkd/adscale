@@ -137,7 +137,7 @@ describe("EscalationDetail", () => {
     renderDetail();
 
     await waitFor(() => {
-      expect(screen.getByText("equipe.labels.eventType.escalation.opened")).toBeInTheDocument();
+      expect(screen.getByText("equipe.labels.eventType.escalation__opened")).toBeInTheDocument();
     });
     expect(screen.getByText(/equipe\.labels\.actorType\.system/)).toBeInTheDocument();
     expect(screen.getByText(/operations/)).toBeInTheDocument();
@@ -145,6 +145,44 @@ describe("EscalationDetail", () => {
     expect(screen.getByText(/equipe\.escalation\.partOpen/)).toBeInTheDocument();
     expect(screen.getByText("equipe.escalation.itemTitle")).toBeInTheDocument();
     expect(screen.getByText("equipe.escalation.pausesTitle")).toBeInTheDocument();
+  });
+
+  it("opens with only the id and scopes commands from the resolved view", async () => {
+    mockApiFetch.mockImplementation(async (url, init) => {
+      if (String(url) === "/api/equipe/staff/commands" && init?.method === "POST") {
+        return { ok: true, status: 200, json: async () => ({ ok: true }) } as Response;
+      }
+      return { ok: true, status: 200, json: async () => view() } as Response;
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <EscalationDetail escalationId={ESCALATION_ID} workspaceId="" accountId="" />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("equipe.escalation.closeTitle")).toBeInTheDocument();
+    });
+    const detailCall = mockApiFetch.mock.calls.find(([url]) =>
+      String(url).startsWith("/api/equipe/staff/escalations/"),
+    );
+    expect(detailCall?.[0]).toBe(`/api/equipe/staff/escalations/${ESCALATION_ID}`);
+    fireEvent.click(screen.getByRole("button", { name: "equipe.escalation.closeSubmit" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("equipe.escalation.closeDone")).toBeInTheDocument();
+    });
+    const commandCall = mockApiFetch.mock.calls.find(
+      ([url]) => String(url) === "/api/equipe/staff/commands",
+    );
+    expect(JSON.parse(String(commandCall![1]?.body))).toMatchObject({
+      workspaceId: WORKSPACE_ID,
+      accountId: ACCOUNT_ID,
+    });
   });
 
   it("closes the escalation as the owner role with cause and lesson", async () => {

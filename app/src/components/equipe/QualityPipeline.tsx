@@ -101,6 +101,11 @@ function RoundSection({
                       tCommon("account", { id: shortAccountId(entry.accountId) }),
                     )}
                   </span>
+                  {entry.frontKey ? (
+                    <Badge variant="neutral">
+                      {enumLabel(tLabels, `frontKey.${entry.frontKey}`)}
+                    </Badge>
+                  ) : null}
                   <Badge variant="neutral">
                     {enumLabel(tLabels, `roundStatus.${entry.status}`)}
                   </Badge>

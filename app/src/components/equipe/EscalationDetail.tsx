@@ -12,7 +12,6 @@ import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
 import { staffFetchJson, useStaffCommand, type StaffCommandInput } from "./staff-api";
 import {
-  StaffEmpty,
   StaffErrorAlert,
   StaffLoading,
   accountDisplayName,
@@ -41,17 +40,24 @@ export default function EscalationDetail({
 
   const command = useStaffCommand();
   const busy = command.isPending;
-  const scoped = workspaceId.length > 0 && accountId.length > 0;
 
+  // The scope resolves on the server from the id; queue links still
+  // carry it as a hint, notification links carry nothing.
+  const scopeQuery =
+    workspaceId.length > 0 && accountId.length > 0
+      ? `?workspaceId=${encodeURIComponent(workspaceId)}&accountId=${encodeURIComponent(accountId)}`
+      : "";
   const query = useQuery({
     queryKey: ["equipe-staff-escalation", workspaceId, accountId, escalationId],
     queryFn: () =>
       staffFetchJson<EscalationDetailView>(
-        `/api/equipe/staff/escalations/${escalationId}?workspaceId=${encodeURIComponent(workspaceId)}&accountId=${encodeURIComponent(accountId)}`,
+        `/api/equipe/staff/escalations/${escalationId}${scopeQuery}`,
       ),
     retry: false,
-    enabled: scoped,
   });
+
+  const view = query.data;
+  const escalation = view?.escalation;
 
   async function run(
     type: string,
@@ -59,9 +65,16 @@ export default function EscalationDetail({
     role: StaffCommandInput["role"],
     doneMessage: string,
   ) {
+    if (!view) return false;
     setNotice(null);
     try {
-      await command.mutateAsync({ type, payload, role, workspaceId, accountId });
+      await command.mutateAsync({
+        type,
+        payload,
+        role,
+        workspaceId: view.workspaceId,
+        accountId: view.accountId,
+      });
       setNotice(doneMessage);
       void query.refetch();
       return true;
@@ -69,9 +82,6 @@ export default function EscalationDetail({
       return false;
     }
   }
-
-  const view = query.data;
-  const escalation = view?.escalation;
   const critical =
     escalation?.severity === "critical" || escalation?.severity === "critical_cross_account";
 
@@ -111,8 +121,7 @@ export default function EscalationDetail({
         }
       />
 
-      {!scoped ? <StaffEmpty label={tCommon("missingScope")} /> : null}
-      {scoped && query.isLoading ? <StaffLoading label={tCommon("loading")} /> : null}
+      {query.isLoading ? <StaffLoading label={tCommon("loading")} /> : null}
       {query.error ? (
         <StaffErrorAlert error={query.error} onRetry={() => void query.refetch()} />
       ) : null}

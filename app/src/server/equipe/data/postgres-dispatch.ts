@@ -3,8 +3,10 @@ import {
   equipeAccounts,
   equipeCalibrationRounds,
   equipeConnections,
+  equipeEscalations,
   equipeEvents,
   equipeNotificationDeliveries,
+  equipeFronts,
   equipePublicationIntents,
   equipeThreads,
 } from "../../db/equipe-schema";
@@ -35,7 +37,9 @@ import {
   type EquipeAccountLabel,
   type EquipeAccountStatus,
   type EquipeConnectionPatch,
+  type EquipeEscalation,
   type EquipeEventFilter,
+  type EquipeFront,
   type EquipeIntentFilter,
   type EquipeCalibrationRound,
   type EquipeNotificationDelivery,
@@ -338,6 +342,40 @@ export async function listCalibrationRounds(
     .select()
     .from(equipeCalibrationRounds)
     .where(inArray(equipeCalibrationRounds.status, [...wanted]));
+}
+
+// Internal cross-account lookups by id (#554): the detail consoles resolve
+// the account scope from the id alone (notification links carry no scope).
+export async function getCalibrationRound(
+  executor: PostgresEquipeExecutor,
+  id: string
+): Promise<EquipeCalibrationRound | null> {
+  const rows = await executor
+    .select()
+    .from(equipeCalibrationRounds)
+    .where(eq(equipeCalibrationRounds.id, id))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getEscalation(
+  executor: PostgresEquipeExecutor,
+  id: string
+): Promise<EquipeEscalation | null> {
+  const rows = await executor
+    .select()
+    .from(equipeEscalations)
+    .where(eq(equipeEscalations.id, id))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+// Internal cross-account scan of fronts (#554): the quality pipeline labels
+// each round with its front.
+export async function listFronts(
+  executor: PostgresEquipeExecutor
+): Promise<EquipeFront[]> {
+  return executor.select().from(equipeFronts);
 }
 
 // Internal label join (#554): brand (client profile name) + workspace name

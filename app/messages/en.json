@@ -4984,7 +4984,6 @@
       "reason": "Reason",
       "note": "Note",
       "optional": "optional",
-      "missingScope": "This URL is missing the account. Go back to the queue and open it again.",
       "viewToggleLabel": "Team consoles"
     },
     "staffErrors": {
@@ -5180,21 +5179,21 @@
         "system": "system"
       },
       "eventType": {
-        "escalation.opened": "Escalation opened",
-        "escalation.requested": "Escalation requested",
-        "escalation.part_resolved": "Part resolved",
-        "escalation.resolved": "Escalation resolved",
-        "escalation.deferred_to_client": "Decision deferred to client",
-        "escalation.merged": "Escalations merged",
-        "escalation.closed": "Escalation closed",
-        "connection.revoked": "Connection revoked",
-        "pause.applied": "Pause applied",
-        "pause.lifted": "Pause lifted",
-        "support_exception.opened": "Exception opened",
-        "support_exception.assumed": "Exception assumed",
-        "support_exception.closed": "Exception closed",
-        "staff.message_posted": "Staff message",
-        "staff.contact_registered": "Contact registered"
+        "escalation__opened": "Escalation opened",
+        "escalation__requested": "Escalation requested",
+        "escalation__part_resolved": "Part resolved",
+        "escalation__resolved": "Escalation resolved",
+        "escalation__deferred_to_client": "Decision deferred to client",
+        "escalation__merged": "Escalations merged",
+        "escalation__closed": "Escalation closed",
+        "connection__revoked": "Connection revoked",
+        "pause__applied": "Pause applied",
+        "pause__lifted": "Pause lifted",
+        "support_exception__opened": "Exception opened",
+        "support_exception__assumed": "Exception assumed",
+        "support_exception__closed": "Exception closed",
+        "staff__message_posted": "Staff message",
+        "staff__contact_registered": "Contact registered"
       }
     },
     "exceptions": {

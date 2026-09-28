@@ -109,6 +109,7 @@ describe("GET /api/equipe/staff/quality", () => {
       accountId,
       brandName: "Café Aurora",
       workspaceName: "Agência Sul",
+      frontKey: "social_instagram",
     });
   });
 

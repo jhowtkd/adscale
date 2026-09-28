@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { formatDue } from "./staff-ui";
-import { enumLabel } from "./labels";
+import { enumLabel, eventTypeLabel } from "./labels";
 import type { EscalationDetailView, EquipeEventView } from "./types";
 
 export default function EscalationDetailHistory({ view }: { view: EscalationDetailView }) {
@@ -109,7 +109,7 @@ function HistoryEvent({ event }: { event: EquipeEventView }) {
   return (
     <li className="rounded-md border border-[var(--border-dim)] px-3 py-2">
       <p className="text-sm font-medium text-[var(--text-primary)]">
-        {enumLabel(tLabels, `eventType.${event.eventType}`)}
+        {eventTypeLabel(tLabels, event.eventType)}
       </p>
       <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
         {actor} · {formatDue(event.occurredAt, locale) ?? event.occurredAt}

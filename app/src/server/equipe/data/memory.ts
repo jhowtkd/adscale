@@ -15,9 +15,12 @@ import { makeMemoryProductionRepositories } from "./memory-production";
 import { makeMemoryGovernanceRepositories } from "./memory-governance";
 import {
   claimMemoryDueIntents,
+  getMemoryCalibrationRound,
+  getMemoryEscalation,
   listMemoryAccountLabels,
   listMemoryAccountsByStatus,
   listMemoryCalibrationRounds,
+  listMemoryFronts,
   makeMemoryDispatchRepositories,
 } from "./memory-dispatch";
 
@@ -51,6 +54,9 @@ export function createMemoryInternalEquipeRepositories(
     claimDueIntents: (input) => claimMemoryDueIntents(store, input),
     listAccountsByStatus: (status) => listMemoryAccountsByStatus(store, status),
     listCalibrationRounds: (filter) => listMemoryCalibrationRounds(store, filter),
+    getCalibrationRound: (id) => getMemoryCalibrationRound(store, id),
+    getEscalation: (id) => getMemoryEscalation(store, id),
+    listFronts: () => listMemoryFronts(store),
     listAccountLabels: () => listMemoryAccountLabels(store),
   };
 }

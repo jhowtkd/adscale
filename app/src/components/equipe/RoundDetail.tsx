@@ -43,15 +43,17 @@ export default function RoundDetail({
   const [notice, setNotice] = useState<string | null>(null);
   const closeCommand = useStaffCommand();
 
-  const scoped = workspaceId.length > 0 && accountId.length > 0;
+  // The scope resolves on the server from the id; queue links still
+  // carry it as a hint, notification links carry nothing.
+  const scopeQuery =
+    workspaceId.length > 0 && accountId.length > 0
+      ? `?workspaceId=${encodeURIComponent(workspaceId)}&accountId=${encodeURIComponent(accountId)}`
+      : "";
   const query = useQuery({
     queryKey: ["equipe-staff-round", workspaceId, accountId, roundId],
     queryFn: () =>
-      staffFetchJson<RoundDetailView>(
-        `/api/equipe/staff/rounds/${roundId}?workspaceId=${encodeURIComponent(workspaceId)}&accountId=${encodeURIComponent(accountId)}`,
-      ),
+      staffFetchJson<RoundDetailView>(`/api/equipe/staff/rounds/${roundId}${scopeQuery}`),
     retry: false,
-    enabled: scoped,
   });
 
   const view = query.data;
@@ -131,8 +133,7 @@ export default function RoundDetail({
         }
       />
 
-      {!scoped ? <StaffEmpty label={tCommon("missingScope")} /> : null}
-      {scoped && query.isLoading ? <StaffLoading label={tCommon("loading")} /> : null}
+      {query.isLoading ? <StaffLoading label={tCommon("loading")} /> : null}
       {query.error ? (
         <StaffErrorAlert error={query.error} onRetry={() => void query.refetch()} />
       ) : null}

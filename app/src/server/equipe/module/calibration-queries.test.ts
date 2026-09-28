@@ -42,12 +42,14 @@ describe("getQualityPipeline", () => {
       weekKey: "2026-W41",
       brandName: "Marca demo",
       workspaceName: "Espaço demo",
+      frontKey: "social_instagram",
     });
     expect(pipeline.value.recentlyClosed.map((entry) => entry.roundId)).toEqual([closing.roundId]);
     expect(pipeline.value.recentlyClosed[0]).toMatchObject({
       accountId: second.accountId,
       status: "closed",
       outcome: "passed",
+      frontKey: "social_instagram",
     });
   });
 

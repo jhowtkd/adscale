@@ -279,6 +279,24 @@ export async function listMemoryCalibrationRounds(
     .map(copy);
 }
 
+// Internal cross-account lookups by id (#554): the detail consoles resolve
+// the account scope from the id alone (notification links carry no scope).
+export async function getMemoryCalibrationRound(store: MemoryEquipeStore, id: string) {
+  const found = store.calibrationRounds.rows.get(id);
+  return found ? copy(found) : null;
+}
+
+export async function getMemoryEscalation(store: MemoryEquipeStore, id: string) {
+  const found = store.escalations.rows.get(id);
+  return found ? copy(found) : null;
+}
+
+// Internal cross-account scan of fronts (#554): the quality pipeline labels
+// each round with its front.
+export async function listMemoryFronts(store: MemoryEquipeStore) {
+  return [...store.fronts.rows.values()].map(copy);
+}
+
 // Internal label join (#554): brand (client profile name) + workspace name
 // per account. Missing seeds read as null, like the postgres left joins.
 export async function listMemoryAccountLabels(store: MemoryEquipeStore) {

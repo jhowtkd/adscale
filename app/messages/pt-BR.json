@@ -5060,7 +5060,6 @@
       "reason": "Motivo",
       "note": "Anotação",
       "optional": "opcional",
-      "missingScope": "Falta a conta nesta URL. Volte pela fila e abra de novo.",
       "viewToggleLabel": "Consoles da equipe"
     },
     "staffErrors": {
@@ -5256,21 +5255,21 @@
         "system": "sistema"
       },
       "eventType": {
-        "escalation.opened": "Escalonamento aberto",
-        "escalation.requested": "Escalonamento pedido",
-        "escalation.part_resolved": "Parte resolvida",
-        "escalation.resolved": "Escalonamento resolvido",
-        "escalation.deferred_to_client": "Decisão levada à cliente",
-        "escalation.merged": "Escalonamentos unidos",
-        "escalation.closed": "Escalonamento fechado",
-        "connection.revoked": "Conexão revogada",
-        "pause.applied": "Pausa aplicada",
-        "pause.lifted": "Pausa retomada",
-        "support_exception.opened": "Exceção aberta",
-        "support_exception.assumed": "Exceção assumida",
-        "support_exception.closed": "Exceção fechada",
-        "staff.message_posted": "Mensagem da equipe",
-        "staff.contact_registered": "Contato registrado"
+        "escalation__opened": "Escalonamento aberto",
+        "escalation__requested": "Escalonamento pedido",
+        "escalation__part_resolved": "Parte resolvida",
+        "escalation__resolved": "Escalonamento resolvido",
+        "escalation__deferred_to_client": "Decisão levada à cliente",
+        "escalation__merged": "Escalonamentos unidos",
+        "escalation__closed": "Escalonamento fechado",
+        "connection__revoked": "Conexão revogada",
+        "pause__applied": "Pausa aplicada",
+        "pause__lifted": "Pausa retomada",
+        "support_exception__opened": "Exceção aberta",
+        "support_exception__assumed": "Exceção assumida",
+        "support_exception__closed": "Exceção fechada",
+        "staff__message_posted": "Mensagem da equipe",
+        "staff__contact_registered": "Contato registrado"
       }
     },
     "exceptions": {

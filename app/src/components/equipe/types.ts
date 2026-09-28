@@ -104,6 +104,7 @@ export type QualityPipelineEntryView = {
   brandName: string | null;
   workspaceName: string | null;
   frontId: string;
+  frontKey: string | null;
   roundId: string;
   sequence: number;
   weekKey: string;

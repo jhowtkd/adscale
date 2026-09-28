@@ -60,9 +60,12 @@ import {
 } from "./postgres-production";
 import {
   claimDueIntents,
+  getCalibrationRound,
+  getEscalation,
   listAccountLabels,
   listAccountsByStatus,
   listCalibrationRounds,
+  listFronts,
   makePgConnections,
   makePgDeliveries,
   makePgEvents,
@@ -436,6 +439,9 @@ export function createPostgresInternalEquipeRepositories(
     claimDueIntents: (input) => claimDueIntents(executor, input),
     listAccountsByStatus: (status) => listAccountsByStatus(executor, status),
     listCalibrationRounds: (filter) => listCalibrationRounds(executor, filter),
+    getCalibrationRound: (id) => getCalibrationRound(executor, id),
+    getEscalation: (id) => getEscalation(executor, id),
+    listFronts: () => listFronts(executor),
     listAccountLabels: () => listAccountLabels(executor),
   };
 }

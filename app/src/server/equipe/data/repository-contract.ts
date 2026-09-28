@@ -253,6 +253,11 @@ export function defineEquipeRepositoryContract(
       expect(open.map((row) => row.id)).not.toContain(round.id);
       const all = await internal.listCalibrationRounds();
       expect(all.map((row) => row.id)).toEqual(expect.arrayContaining([round.id, nextWeek.id]));
+      // By-id scope resolution for the detail console + the fronts scan for
+      // the quality pipeline (#554): cross-account, null when unknown.
+      expect((await internal.getCalibrationRound(round.id))?.accountId).toBe(fresh.accountId);
+      expect(await internal.getCalibrationRound(crypto.randomUUID())).toBeNull();
+      expect((await internal.listFronts()).map((row) => row.id)).toContain(front.id);
     });
 
     it("escalonamentos, exceções e pausas: ciclo básico", async () => {
@@ -271,6 +276,10 @@ export function defineEquipeRepositoryContract(
       expect(
         (await repos.escalations.update(scope, escalation.id, { status: "resolved" })).status
       ).toBe("resolved");
+      // By-id scope resolution for the detail console (#554): cross-account,
+      // null when unknown.
+      expect((await internal.getEscalation(escalation.id))?.accountId).toBe(scope.accountId);
+      expect(await internal.getEscalation(crypto.randomUUID())).toBeNull();
       const exception = await repos.exceptions.create(scope, { trigger: "sem_material" });
       expect(exception.ownerRole).toBe("account_manager");
       const pause = await repos.pauses.create(scope, {

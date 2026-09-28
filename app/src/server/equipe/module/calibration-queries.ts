@@ -32,6 +32,8 @@ export type QualityPipelineEntry = {
   brandName: string | null;
   workspaceName: string | null;
   frontId: string;
+  /** The front key (`social_instagram`, `midia_paga`) — null when the front row is gone. */
+  frontKey: string | null;
   roundId: string;
   sequence: number;
   weekKey: string;
@@ -53,7 +55,11 @@ function outcomeOf(round: EquipeCalibrationRound): string | null {
   return typeof outcome === "string" ? outcome : null;
 }
 
-function entryOf(round: EquipeCalibrationRound, labels: Map<string, StaffAccountLabel>): QualityPipelineEntry {
+function entryOf(
+  round: EquipeCalibrationRound,
+  labels: Map<string, StaffAccountLabel>,
+  frontKeyById: Map<string, string>,
+): QualityPipelineEntry {
   const label = staffLabelOf(labels, round.workspaceId, round.accountId);
   return {
     workspaceId: round.workspaceId,
@@ -61,6 +67,7 @@ function entryOf(round: EquipeCalibrationRound, labels: Map<string, StaffAccount
     brandName: label.brandName,
     workspaceName: label.workspaceName,
     frontId: round.frontId,
+    frontKey: frontKeyById.get(round.frontId) ?? null,
     roundId: round.id,
     sequence: round.sequence,
     weekKey: round.weekKey,
@@ -86,18 +93,20 @@ export async function getQualityPipeline(
   if (!staff || !staff.active || staff.role !== "quality") {
     return err("forbidden_actor", `staff ${staffId} may not read the quality pipeline`);
   }
-  const [rounds, labels] = await Promise.all([
+  const [rounds, labels, fronts] = await Promise.all([
     internal.listCalibrationRounds(),
     loadStaffLabelMap(internal),
+    internal.listFronts(),
   ]);
+  const frontKeyById = new Map(fronts.map((front) => [front.id, front.key]));
   const open = rounds
     .filter((round) => round.status === "open")
-    .map((round) => entryOf(round, labels))
+    .map((round) => entryOf(round, labels, frontKeyById))
     .sort((a, b) => a.weekKey.localeCompare(b.weekKey) || a.sequence - b.sequence);
   const closedLimit = options.closedLimit ?? 50;
   const recentlyClosed = rounds
     .filter((round) => round.status === "closed")
-    .map((round) => entryOf(round, labels))
+    .map((round) => entryOf(round, labels, frontKeyById))
     .sort((a, b) => (b.closedAt?.getTime() ?? 0) - (a.closedAt?.getTime() ?? 0))
     .slice(0, closedLimit);
   return ok({ staffId, open, recentlyClosed });
