@@ -6,7 +6,9 @@
  * equipe_immutable do trigger), enquanto DELETE por CASCADE de FK (excluir o
  * workspace, a conta ou o item) conclui — sem nenhuma válvula de sessão.
  *
- * Requer o banco de teste EXPLÍCITO:
+ * Banco de teste (ver ./test-database): TEST_DATABASE_URL quando definida
+ * (local), senão DATABASE_URL cujo banco termina com `_test` (CI) — qualquer
+ * outro caso pula a suíte:
  *   TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/equipe/data/receipts-immutability.pg.test.ts
  */
 import { afterAll, describe, expect, it } from "vitest";
@@ -17,8 +19,9 @@ import {
   equipeItems,
   equipeReceipts,
 } from "@/server/db/equipe-schema";
+import { resolveEquipeTestDatabaseUrl } from "./test-database";
 
-const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL ?? null;
+const TEST_DATABASE_URL = resolveEquipeTestDatabaseUrl();
 if (TEST_DATABASE_URL) process.env.DATABASE_URL = TEST_DATABASE_URL;
 const TEST_DB_EXPLICITLY_CONFIGURED = TEST_DATABASE_URL !== null;
 
