@@ -1,14 +1,49 @@
 {
-  "generatedAt": "2026-09-28T11:18:07.856Z",
+  "generatedAt": "2026-09-28T13:36:00.873Z",
   "schemaVersion": 2,
-  "fingerprint": "b74ff1ef80ec433a114ab7662c4b64a755c44841b5c084221b5e583cee922734",
+  "fingerprint": "c52727915b7805a5eaceabc3ef1dbcaf3ad683137fd08308ce614407aef8fe0a",
   "counts": {
-    "dashboardPages": 16,
+    "dashboardPages": 21,
     "apiRoutes": 212,
-    "ctas": 81,
+    "ctas": 86,
     "requiringDecision": 1
   },
   "dashboardPages": [
+    {
+      "id": "page:/admin/equipe/accounts",
+      "kind": "dashboard_page",
+      "route": "/admin/equipe/accounts",
+      "file": "app/src/app/(dashboard)/admin/equipe/accounts/page.tsx",
+      "requiresDecision": false
+    },
+    {
+      "id": "page:/admin/equipe/escalations/:escalationId",
+      "kind": "dashboard_page",
+      "route": "/admin/equipe/escalations/:escalationId",
+      "file": "app/src/app/(dashboard)/admin/equipe/escalations/[escalationId]/page.tsx",
+      "requiresDecision": false
+    },
+    {
+      "id": "page:/admin/equipe/exceptions",
+      "kind": "dashboard_page",
+      "route": "/admin/equipe/exceptions",
+      "file": "app/src/app/(dashboard)/admin/equipe/exceptions/page.tsx",
+      "requiresDecision": false
+    },
+    {
+      "id": "page:/admin/equipe/quality",
+      "kind": "dashboard_page",
+      "route": "/admin/equipe/quality",
+      "file": "app/src/app/(dashboard)/admin/equipe/quality/page.tsx",
+      "requiresDecision": false
+    },
+    {
+      "id": "page:/admin/equipe/quality/rounds/:roundId",
+      "kind": "dashboard_page",
+      "route": "/admin/equipe/quality/rounds/:roundId",
+      "file": "app/src/app/(dashboard)/admin/equipe/quality/rounds/[roundId]/page.tsx",
+      "requiresDecision": false
+    },
     {
       "id": "page:/admin/quality/brands/:clientProfileId",
       "kind": "dashboard_page",
@@ -1907,6 +1942,51 @@
       "requiresDecision": false
     },
     {
+      "id": "nav:app/src/components/equipe/CrossAccountPipeline.tsx:121",
+      "kind": "cta_navigation",
+      "destination": "/admin/equipe/exceptions?workspaceId=${entry.scope.workspaceId}&accountId=${entry.scope.accountId}",
+      "file": "app/src/components/equipe/CrossAccountPipeline.tsx",
+      "line": 121,
+      "evidence": "app/src/components/equipe/CrossAccountPipeline.tsx:121",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/equipe/CrossAccountPipeline.tsx:215",
+      "kind": "cta_navigation",
+      "destination": "/admin/equipe/escalations/${row.id}?workspaceId=${workspaceId}&accountId=${accountId}",
+      "file": "app/src/components/equipe/CrossAccountPipeline.tsx",
+      "line": 215,
+      "evidence": "app/src/components/equipe/CrossAccountPipeline.tsx:215",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/equipe/EscalationDetailHistory.tsx:68",
+      "kind": "cta_navigation",
+      "destination": "/admin/equipe/exceptions?workspaceId=${view.workspaceId}&accountId=${view.accountId}",
+      "file": "app/src/components/equipe/EscalationDetailHistory.tsx",
+      "line": 68,
+      "evidence": "app/src/components/equipe/EscalationDetailHistory.tsx:68",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/equipe/ExceptionsQueue.tsx:98",
+      "kind": "cta_navigation",
+      "destination": "/admin/equipe/exceptions?workspaceId=${entry.scope.workspaceId}&accountId=${entry.scope.accountId}",
+      "file": "app/src/components/equipe/ExceptionsQueue.tsx",
+      "line": 98,
+      "evidence": "app/src/components/equipe/ExceptionsQueue.tsx:98",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/equipe/QualityPipeline.tsx:120",
+      "kind": "cta_navigation",
+      "destination": "/admin/equipe/quality/rounds/${entry.roundId}?workspaceId=${entry.workspaceId}&accountId=${entry.accountId}",
+      "file": "app/src/components/equipe/QualityPipeline.tsx",
+      "line": 120,
+      "evidence": "app/src/components/equipe/QualityPipeline.tsx:120",
+      "requiresDecision": false
+    },
+    {
       "id": "nav:app/src/components/feedback/FactualAlertsPanel.tsx:138",
       "kind": "cta_navigation",
       "destination": "/admin/quality/brands/${alert.clientProfileId}",
@@ -2006,102 +2086,102 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:66",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:67",
       "kind": "cta_navigation",
       "destination": "/login",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 66,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:66",
+      "line": 67,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:67",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:75",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:76",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 75,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:75",
+      "line": 76,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:76",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:94",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:95",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 94,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:94",
+      "line": 95,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:95",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:100",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:101",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 100,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:100",
+      "line": 101,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:101",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:107",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:108",
       "kind": "cta_navigation",
       "destination": "/library",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 107,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:107",
+      "line": 108,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:108",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:113",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:114",
       "kind": "cta_navigation",
       "destination": "/brand-kit",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 113,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:113",
+      "line": 114,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:114",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:119",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:120",
       "kind": "cta_navigation",
       "destination": "/served-ads",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 119,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:119",
+      "line": 120,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:120",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:139",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:140",
       "kind": "cta_navigation",
       "destination": "/docs",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 139,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:139",
+      "line": 140,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:140",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:146",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:147",
       "kind": "cta_navigation",
       "destination": "/settings",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 146,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:146",
+      "line": 147,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:147",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:161",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:162",
       "kind": "cta_navigation",
       "destination": "/feedback",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 161,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:161",
+      "line": 162,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:162",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/AppSidebar.tsx:163",
+      "id": "nav:app/src/components/layout/AppSidebar.tsx:165",
       "kind": "cta_navigation",
       "destination": "/settings",
       "file": "app/src/components/layout/AppSidebar.tsx",
-      "line": 163,
-      "evidence": "app/src/components/layout/AppSidebar.tsx:163",
+      "line": 165,
+      "evidence": "app/src/components/layout/AppSidebar.tsx:165",
       "requiresDecision": false
     },
     {
