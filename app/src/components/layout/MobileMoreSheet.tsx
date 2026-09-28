@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { BookOpen, LogOut, Settings, type LucideIcon } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { useEquipeNavLinks } from "@/components/equipe/EquipeNavLinks";
 import { useRouter } from "next/navigation";
 import {
   Sheet,
@@ -32,9 +33,16 @@ export default function MobileMoreSheet({ open, onOpenChange }: MobileMoreSheetP
   const pathname = usePathname();
   const router = useRouter();
   const tNav = useTranslations("navigation");
+  const equipeLinks = useEquipeNavLinks();
 
   // Config lives in More (item 45); primary tabs are Home · Trabalhos · Biblioteca · Marcas
   const items: MobileMoreItem[] = [
+    ...(equipeLinks ?? []).map(({ href, label, Icon }) => ({
+      href,
+      label,
+      icon: Icon,
+      active: pathname.startsWith(href),
+    })),
     {
       href: "/settings",
       label: tNav("config"),

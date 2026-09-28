@@ -21,12 +21,16 @@ export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  // Phase 6 / item 45: Home · Trabalhos · Biblioteca · Marca · Mais (Config in More)
+  // Phase 6 / item 45: Home · Trabalhos · Biblioteca · Marca · Mais (Config in More).
+  // The Equipe destinations live in More, so they highlight it too.
   const moreActive =
     pathname.startsWith("/docs") ||
     pathname.startsWith("/assistant") ||
     pathname.startsWith("/settings") ||
-    pathname.startsWith("/feedback");
+    pathname.startsWith("/feedback") ||
+    pathname.startsWith("/pipeline") ||
+    pathname.startsWith("/ideas") ||
+    pathname.startsWith("/goals");
 
   return (
     <V6ShellLayout>

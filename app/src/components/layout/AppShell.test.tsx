@@ -46,6 +46,10 @@ vi.mock("./DeploymentVersionGuard", () => ({
   default: () => null,
 }));
 
+vi.mock("@/lib/equipe/use-equipe", () => ({
+  useEquipeEnabled: () => false,
+}));
+
 describe("AppShell", () => {
   beforeEach(() => {
     pathname = "/campaigns";

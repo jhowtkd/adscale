@@ -263,6 +263,15 @@ export default function EquipeCard({
         <p className="text-xs text-[var(--text-muted)]" data-testid="equipe-card-idea">
           {card.summary ?? card.title}
         </p>
+        {card.ideaId ? (
+          <Link
+            href={`/ideas?idea=${card.ideaId}`}
+            className="w-fit rounded-[var(--radius-md)] border border-[var(--border-strong)] px-2.5 py-1 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-inset)]"
+            data-testid="equipe-card-idea-link"
+          >
+            {t("viewIdea")}
+          </Link>
+        ) : null}
       </CardShell>
     );
   }
