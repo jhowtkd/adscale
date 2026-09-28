@@ -2,18 +2,28 @@
  * Dev-only demo seed for the internal Equipe consoles (#554).
  *
  * Builds, through MODULE COMMANDS (executeCommand + the platform-owner
- * bootstrap — no raw inserts, no secrets, no network calls), one realistic
- * demo account on an EXISTING workspace + client profile:
+ * bootstrap — no raw inserts, no secrets, no network or AI calls), one
+ * realistic demo account on an EXISTING workspace + client profile:
  *
  * - the account (fronts social_instagram + midia_paga), `--user` as approver
  *   AND custodian, platform-owner staff rows (support/quality/operations)
  *   for `--staff-user`, and the implantação advanced to calibration;
+ * - 7 REAL creative works (Trabalhos), each with one finished output, plus
+ *   one material asset — created through the existing creative-work and
+ *   workspace-asset repositories and verified for real through the
+ *   LiveAdscaleGateway (the module's FKs point at creative_work_items, so
+ *   fake ids cannot work);
  * - a calibration round with scored items (one returned for fix and
  *   corrected), plus client decisions on the round (approved, adjusting,
  *   declined, ready);
  * - a second batch with items in several states (ready, needs confirmation,
  *   blocked by a critical escalation);
  * - one open support exception and one critical escalation.
+ *
+ * Finished outputs carry a placeholder `outputKey` (no bytes are uploaded)
+ * and cost 0: exactly one planned output is reserved per work and completed
+ * immediately through the repository functions, so nothing stays `queued`
+ * where a background dispatcher could pick it up and spend credits.
  *
  * Reachable states only: `scheduled`/`published` have no module-command path
  * yet (connection creation and dispatch live outside the module), so the
@@ -31,6 +41,14 @@
  * against a production-looking database name, and requires the explicit
  * --i-know-this-writes flag. It prints what it will create before writing.
  * Reads (workspace/profile/user existence) run before any command.
+ *
+ * Idempotency: if an Equipe account already exists for the (workspace,
+ * client-profile) pair, the seed prints its id and stops (exit 0). To force
+ * a clean re-run in dev, delete the stale account row — every Equipe child
+ * row references it ON DELETE CASCADE (there is no account delete command;
+ * this SQL is dev-only):
+ *   delete from adscale_equipe.equipe_accounts where id = '<account-id>';
+ * Seed Trabalhos stay behind as ordinary workspace rows.
  */
 import "./load-env";
 
@@ -49,19 +67,20 @@ import {
   mandateVersionHash,
   planVersionHash,
 } from "../src/server/equipe/module/plan-mandate";
-import type {
-  AdscaleAssetRef,
-  AdscaleClientProfileRef,
-  AdscaleCreativeWorkOutputRef,
-  AdscaleCreativeWorkRef,
-  AdscaleGateway,
-  AdscaleOfferRef,
-  EquipeModuleDeps,
-} from "../src/server/equipe/module/ports";
+import type { EquipeModuleDeps } from "../src/server/equipe/module/ports";
+import { LiveAdscaleGateway } from "../src/server/equipe/agents/gateway";
 import {
   FakePublisher,
   FixedAgents,
 } from "../src/server/equipe/module/testing/fakes";
+import {
+  completeCreativeWorkOutput,
+  createCreativeWork,
+  createPlannedCreativeWorkOutputs,
+  markCreativeWorkOutputProcessing,
+  refreshCreativeWorkStatus,
+} from "../src/server/repositories/creative-work";
+import { createWorkspaceAsset } from "../src/server/repositories/workspace-asset";
 import {
   assertSeedTargetSafe,
   assertWriteFlagPresent,
@@ -69,52 +88,6 @@ import {
 } from "./equipe-seed-dev-guard";
 
 const SEED_AGENT = "equipe-seed-dev";
-
-/**
- * In-memory gateway: the demo creative works/outputs/materials exist only as
- * command inputs, so the seed echoes workspace-scoped refs for the ids it
- * generated. The client profile is the real one passed as an arg. No I/O.
- */
-class SeedGateway implements AdscaleGateway {
-  private works = new Map<string, { outputId: string }>();
-
-  constructor(
-    private readonly workspaceId: string,
-    private readonly profileId: string,
-  ) {}
-
-  registerWorkPair(workId: string, outputId: string): void {
-    this.works.set(workId, { outputId });
-  }
-
-  async getClientProfile(
-    workspaceId: string,
-    clientProfileId: string,
-  ): Promise<AdscaleClientProfileRef | null> {
-    if (workspaceId !== this.workspaceId || clientProfileId !== this.profileId) return null;
-    return { id: clientProfileId, workspaceId };
-  }
-
-  async getAsset(assetId: string): Promise<AdscaleAssetRef | null> {
-    return { id: assetId, workspaceId: this.workspaceId, kind: "image" };
-  }
-
-  async getCreativeWork(workId: string): Promise<AdscaleCreativeWorkRef | null> {
-    if (!this.works.has(workId)) return null;
-    return { id: workId, workspaceId: this.workspaceId };
-  }
-
-  async getCreativeWorkOutput(outputId: string): Promise<AdscaleCreativeWorkOutputRef | null> {
-    for (const [workId, pair] of this.works) {
-      if (pair.outputId === outputId) return { id: outputId, workspaceId: this.workspaceId, workId };
-    }
-    return null;
-  }
-
-  async getOffer(): Promise<AdscaleOfferRef | null> {
-    return null;
-  }
-}
 
 function daysFromNow(days: number, extraHours = 0): Date {
   return new Date(Date.now() + days * 24 * 3_600_000 + extraHours * 3_600_000);
@@ -133,7 +106,8 @@ async function main(): Promise<void> {
   console.log(`[seed] user (approver + custodian): ${args.user}`);
   console.log(`[seed] staff user (support/quality/operations): ${args.staffUser}`);
   console.log(
-    "[seed] will create: 1 account, 2 fronts, 7 onboarding steps, 2 batches " +
+    "[seed] will create: 1 account, 2 fronts, 7 onboarding steps, 7 creative " +
+      "works (1 finished output each), 1 material asset, 2 batches " +
       "(4 + 3 items), 2 rounds, 1 critical escalation (+ its linked exception), " +
       "1 standalone open exception",
   );
@@ -161,16 +135,31 @@ async function main(): Promise<void> {
   }
   console.log(`[seed] brand: ${profile.name} · workspace: ${workspace.name}`);
 
-  const gateway = new SeedGateway(args.workspace, args.clientProfile);
   const deps: EquipeModuleDeps = {
     uow: createPostgresEquipeUnitOfWork(db),
     clock: systemClock(),
-    gateway,
+    // Live gateway: the seed creates real Trabalhos/outputs/assets through
+    // the app repositories, so the module verifies them for real.
+    gateway: new LiveAdscaleGateway(args.workspace),
     agents: new FixedAgents(),
     publisher: new FakePublisher(),
     // Dev seed: the pilot allowlist is an ops concern, not demo data.
     isEnabledForWorkspace: () => true,
   };
+
+  // Idempotent for dev: an existing account for this client profile means a
+  // previous run (possibly partial) already owns the pair — print it and
+  // stop instead of failing on the workspace/profile unique constraint.
+  const preexisting = (await deps.uow.repos.accounts.list(args.workspace)).find(
+    (row) => row.clientProfileId === args.clientProfile,
+  );
+  if (preexisting) {
+    console.log(
+      `[seed] account already exists for this client profile: ${preexisting.id} ` +
+        `(status=${preexisting.status}) — nothing to do`,
+    );
+    return;
+  }
   const system: Actor = { kind: "system", job: SEED_AGENT };
   const agent: Actor = { kind: "agent", agentId: SEED_AGENT };
 
@@ -243,10 +232,20 @@ async function main(): Promise<void> {
 
   // Implantação up to calibration.
   await run("confirm_scope", approver, { scopeDigest: "seed:escopo-demo" }, accountId);
+  const seedAsset = await createWorkspaceAsset({
+    workspaceId: args.workspace,
+    name: "equipe-seed-dev-logo.png",
+    key: `equipe-seed-dev/${args.workspace.slice(0, 8)}/${Date.now()}-logo.png`,
+    type: "image/png",
+    size: 0,
+    source: "seed",
+    metadata: { seed: SEED_AGENT },
+  });
+  console.log(`[seed] material asset: ${seedAsset.id}`);
   await run(
     "register_material",
     approver,
-    { assetId: crypto.randomUUID(), kind: "logo", origin: "seed" },
+    { assetId: seedAsset.id, kind: "logo", origin: "seed" },
     accountId,
   );
   const contextFields = {
@@ -313,25 +312,62 @@ async function main(): Promise<void> {
     return front.id;
   };
 
+  // One real Trabalho with one finished output per item, through the app
+  // repositories only (no raw SQL, no network, no AI): reserve exactly one
+  // planned output, claim it, and complete it with a placeholder outputKey.
+  async function createSeedWorkWithOutput(caption: string): Promise<{
+    workId: string;
+    outputId: string;
+  }> {
+    const work = await createCreativeWork({
+      workspaceId: args.workspace,
+      clientProfileId: args.clientProfile,
+      createdByUserId: args.user,
+      toolKind: "social_post",
+      brief: {
+        theme: caption,
+        objective: "Demo das consoles internas (#554)",
+        audience: "",
+        offer: null,
+      },
+      format: "4:5",
+    });
+    const planned = await createPlannedCreativeWorkOutputs(args.workspace, work.id, [
+      { creativeLevel: "balanced", targetFormat: "4:5", versionNumber: 1 },
+    ]);
+    const output = planned.outputs[0];
+    if (!output) throw new Error(`seed: no output reserved for work ${work.id}`);
+    const claimed = await markCreativeWorkOutputProcessing(args.workspace, work.id, output.id);
+    if (!claimed) throw new Error(`seed: cannot claim output ${output.id} for work ${work.id}`);
+    const finished = await completeCreativeWorkOutput(args.workspace, work.id, output.id, {
+      outputKey: `equipe-seed-dev/${args.workspace.slice(0, 8)}/${work.id.slice(0, 8)}-balanced.png`,
+      cost: 0,
+      quality: { seed: SEED_AGENT },
+    });
+    if (!finished) throw new Error(`seed: cannot complete output ${output.id} for work ${work.id}`);
+    await refreshCreativeWorkStatus(args.workspace, work.id);
+    return { workId: work.id, outputId: output.id };
+  }
+
   async function deliverDemoBatch(input: {
     title: string;
     front: EquipeFrontKey;
     captions: string[];
     needsConfirmationIndex?: number;
   }): Promise<{ batchId: string; itemIds: string[]; versionHashes: string[] }> {
-    const items = input.captions.map((caption, index) => {
-      const workId = crypto.randomUUID();
-      const outputId = crypto.randomUUID();
-      gateway.registerWorkPair(workId, outputId);
-      return {
-        creativeWorkId: workId,
-        creativeWorkOutputId: outputId,
+    const items = [];
+    for (const [index, caption] of input.captions.entries()) {
+      const pair = await createSeedWorkWithOutput(caption);
+      items.push({
+        creativeWorkId: pair.workId,
+        creativeWorkOutputId: pair.outputId,
         caption,
         destinationAccount: "instagram:@marca.demo",
         scheduledFor: daysFromNow(7, index),
         needsConfirmation: index === input.needsConfirmationIndex,
-      };
-    });
+      });
+    }
+    console.log(`[seed] batch "${input.title}": ${items.length} real works with finished outputs`);
     const delivered = await run(
       "deliver_batch",
       agent,
