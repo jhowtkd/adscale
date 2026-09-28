@@ -54,6 +54,8 @@ import {
   providerOf,
   writeFailedOutcome,
 } from "./dispatch-outcomes";
+import { isReleasedVersion, loadReleasedVersions } from "./calibration-conference";
+import { calibrationGateSlice } from "./calibration-shared";
 import { ITEM_HELD_EVENT } from "./pauses-apply";
 import { domainPauseOf, ITEM_RESUMED_EVENT } from "./pauses-resume";
 import { MANUAL_PUBLISH_DECLARED_EVENT } from "./manual-publishing";
@@ -120,7 +122,7 @@ export async function buildDispatchGate(
   if (!item.currentVersionHash) {
     return err("invalid_transition", `item ${item.id} has no current version`);
   }
-  const [front, version, mandates, connections, approval, review, pauses, scores] =
+  const [front, version, mandates, connections, approval, review, pauses, released] =
     await Promise.all([
       ctx.repos.fronts.get(scope, item.frontId),
       ctx.repos.itemVersions.getByHash(scope, item.id, item.currentVersionHash),
@@ -129,13 +131,21 @@ export async function buildDispatchGate(
       approvalReceiptFor(ctx, item.id, item.currentVersionHash),
       loadItemReview(ctx.repos, scope, item),
       ctx.repos.pauses.list(scope),
-      ctx.repos.calibrationScores.list(scope),
+      loadReleasedVersions(ctx.repos, scope, item.frontId),
     ]);
   if (!front) return err("unknown_front", `unknown front ${item.frontId}`);
   if (!version) return err("unknown_version", `item ${item.id} has no current version row`);
   if (!version.creativeWorkOutputId) {
     return err("item_without_media", `item ${item.id} has no media to publish`);
   }
+  // Calibration conference (#546): the same slice the client-facing gate
+  // uses — required while the front confers, checked once quality released
+  // the CURRENT version. A passing score alone is not the conference, and a
+  // caption edit re-arms the gate until re-release.
+  const calibrationSlice = calibrationGateSlice({
+    frontStatus: front.status,
+    releasedToClient: isReleasedVersion(released, item),
+  });
   const mandateApproved = mandates.some(
     (mandate) =>
       mandate.status === "approved" &&
@@ -168,13 +178,8 @@ export async function buildDispatchGate(
       connection: connectionStateOf(connection),
       approval: approval ? { approvedVersionHash: approval.objectVersion ?? "" } : null,
       currentVersionHash: item.currentVersionHash,
-      calibrationCheckRequired: front.status === "calibrating",
-      qualityChecked: scores.some(
-        (score) =>
-          score.itemId === item.id &&
-          score.versionHash === item.currentVersionHash &&
-          score.verdict === "pass",
-      ),
+      calibrationCheckRequired: calibrationSlice.calibrationCheckRequired,
+      qualityChecked: calibrationSlice.qualityChecked,
       now: ctx.now,
       publishedThisWeek,
       publishedThisMonth,

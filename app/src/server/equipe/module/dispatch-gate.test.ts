@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { executeCommand } from "./commands";
 import { mandateRuleOf, mandateVersionHash } from "./plan-mandate";
+import { releaseAll, scoreAll } from "./testing/calibration";
 import {
   approveLiveMandate,
   approveTestItem,
@@ -196,13 +197,35 @@ describe("dispatch_publication gate", () => {
     expect(t.publisher.publishes).toHaveLength(0);
   });
 
-  it("in calibration the item needs the quality check before it can go out", async () => {
+  it("in calibration the item needs the quality release before it can go out", async () => {
     const { t, ids } = await setupReady();
-    const scope = scopeOf(ids);
+    // Approvals land while the account is still deploying (no client
+    // conference), so every item already has its intent; the calibration
+    // commands below need a calibrating account instead.
+    const delivered = await deliverTestBatch(t, ids, {
+      items: [1, 2, 3, 4].map((n) => ({
+        scheduledFor: new Date("2026-10-05T13:55:00.000Z"),
+        caption: `legenda ${n}`,
+      })),
+    });
+    for (let index = 0; index < delivered.itemIds.length; index += 1) {
+      await approveTestItem(t, ids, delivered.itemIds[index]!, delivered.versionHashes[index]!);
+    }
+    await t.deps.uow.repos.accounts.update(ids.workspaceId, ids.accountId, {
+      status: "calibrating",
+    });
     const frontId = await frontIdOf(t, ids, "social_instagram");
-    await t.deps.uow.repos.fronts.update(scope, frontId, { status: "calibrating" });
-    const { itemId, versionHash, intentId } = await deliverDueApprovedItem(t, ids);
-    const blocked = await dispatchOf(t, ids, intentId);
+    const opened = await executeCommand(t.deps, ctx(ids, ids.actors.agent), {
+      type: "open_round",
+      payload: { frontId, batchId: delivered.batchId },
+    });
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+    const roundId = (opened.value.data as { roundId: string }).roundId;
+
+    // No score, no release: nothing goes out.
+    const firstIntent = await intentOf(t, ids, delivered.itemIds[0]!, delivered.versionHashes[0]!);
+    const blocked = await dispatchOf(t, ids, firstIntent.id);
     expect(blocked.ok).toBe(true);
     if (!blocked.ok) return;
     expect(blocked.value.data).toMatchObject({
@@ -211,23 +234,111 @@ describe("dispatch_publication gate", () => {
     });
     expect(t.publisher.publishes).toHaveLength(0);
 
-    const round = await t.deps.uow.repos.calibrationRounds.create(scope, {
-      frontId,
-      sequence: 1,
+    // A passing score alone is not the conference: still blocked.
+    await scoreAll(t, ids, roundId, [delivered.itemIds[1]!]);
+    const secondIntent = await intentOf(t, ids, delivered.itemIds[1]!, delivered.versionHashes[1]!);
+    const scored = await dispatchOf(t, ids, secondIntent.id);
+    expect(scored.ok).toBe(true);
+    if (!scored.ok) return;
+    expect(scored.value.data).toMatchObject({
+      action: "missed_window",
+      reasons: ["calibration_check_missing"],
     });
-    const second = await deliverDueApprovedItem(t, ids, { caption: "legenda 2" });
-    await t.deps.uow.repos.calibrationScores.create(scope, {
-      roundId: round.id,
-      itemId: second.itemId,
-      versionHash: second.versionHash,
-      verdict: "pass",
-    });
-    const sent = await dispatchOf(t, ids, second.intentId);
+    expect(t.publisher.publishes).toHaveLength(0);
+
+    // Score + release to the client: the current version goes out.
+    await scoreAll(t, ids, roundId, [delivered.itemIds[2]!]);
+    await releaseAll(t, ids, roundId, [delivered.itemIds[2]!]);
+    const thirdIntent = await intentOf(t, ids, delivered.itemIds[2]!, delivered.versionHashes[2]!);
+    const sent = await dispatchOf(t, ids, thirdIntent.id);
     expect(sent.ok).toBe(true);
     if (!sent.ok) return;
     expect(sent.value.data).toMatchObject({ action: "published" });
-    expect(itemId).not.toBe(second.itemId);
-    expect(versionHash).not.toBe(second.versionHash);
+    expect(t.publisher.publishes).toHaveLength(1);
+  });
+
+  it("a caption edit on a released item blocks dispatch until re-release", async () => {
+    const { t, ids } = await setupReady();
+    const delivered = await deliverTestBatch(t, ids, {
+      items: [1, 2, 3, 4].map((n) => ({
+        scheduledFor: new Date("2026-10-05T13:55:00.000Z"),
+        caption: `legenda ${n}`,
+      })),
+    });
+    for (let index = 0; index < delivered.itemIds.length; index += 1) {
+      await approveTestItem(t, ids, delivered.itemIds[index]!, delivered.versionHashes[index]!);
+    }
+    await t.deps.uow.repos.accounts.update(ids.workspaceId, ids.accountId, {
+      status: "calibrating",
+    });
+    const frontId = await frontIdOf(t, ids, "social_instagram");
+    const opened = await executeCommand(t.deps, ctx(ids, ids.actors.agent), {
+      type: "open_round",
+      payload: { frontId, batchId: delivered.batchId },
+    });
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+    const roundId = (opened.value.data as { roundId: string }).roundId;
+    await scoreAll(t, ids, roundId, delivered.itemIds);
+    await releaseAll(t, ids, roundId, delivered.itemIds.slice(0, 3));
+
+    // The released version goes out.
+    const firstIntent = await intentOf(t, ids, delivered.itemIds[0]!, delivered.versionHashes[0]!);
+    const sent = await dispatchOf(t, ids, firstIntent.id);
+    expect(sent.ok).toBe(true);
+    if (!sent.ok) return;
+    expect(sent.value.data).toMatchObject({ action: "published" });
+
+    // Both clients edit their caption; only the second is re-released.
+    const editedSecond = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "edit_caption",
+      payload: { itemId: delivered.itemIds[1]!, caption: "legenda 2 reescrita" },
+    });
+    expect(editedSecond.ok).toBe(true);
+    if (!editedSecond.ok) return;
+    const secondHash = editedSecond.value.data.versionHash as string;
+    const editedThird = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "edit_caption",
+      payload: { itemId: delivered.itemIds[2]!, caption: "legenda 3 reescrita" },
+    });
+    expect(editedThird.ok).toBe(true);
+    if (!editedThird.ok) return;
+    const thirdHash = editedThird.value.data.versionHash as string;
+    const rechecked = await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
+      type: "release_item_to_client",
+      payload: { roundId, itemId: delivered.itemIds[2]! },
+    });
+    expect(rechecked.ok).toBe(true);
+    if (!rechecked.ok) return;
+    expect(rechecked.value.data).toMatchObject({ versionHash: thirdHash, corrected: true });
+
+    // Back to deploying so approvals skip the client conference: the
+    // dispatch gate below is the only conference check under test. Triage
+    // returns both versions to decision; only the release confers them.
+    await t.deps.uow.repos.accounts.update(ids.workspaceId, ids.accountId, { status: "deploying" });
+    for (const itemId of [delivered.itemIds[1]!, delivered.itemIds[2]!]) {
+      const triaged = await executeCommand(t.deps, ctx(ids, ids.actors.agent), {
+        type: "record_caption_triage",
+        payload: { itemId, natures: ["none"], qualityRecheckPassed: true },
+      });
+      expect(triaged.ok).toBe(true);
+    }
+    await approveTestItem(t, ids, delivered.itemIds[1]!, secondHash);
+    const blockedIntent = await intentOf(t, ids, delivered.itemIds[1]!, secondHash);
+    const blocked = await dispatchOf(t, ids, blockedIntent.id);
+    expect(blocked.ok).toBe(true);
+    if (!blocked.ok) return;
+    expect(blocked.value.data).toMatchObject({
+      action: "missed_window",
+      reasons: ["calibration_check_missing"],
+    });
+    await approveTestItem(t, ids, delivered.itemIds[2]!, thirdHash);
+    const freedIntent = await intentOf(t, ids, delivered.itemIds[2]!, thirdHash);
+    const freed = await dispatchOf(t, ids, freedIntent.id);
+    expect(freed.ok).toBe(true);
+    if (!freed.ok) return;
+    expect(freed.value.data).toMatchObject({ action: "published" });
+    expect(t.publisher.publishes).toHaveLength(2);
   });
 
   it("the 7th post of the week is held back by the contract limit", async () => {
