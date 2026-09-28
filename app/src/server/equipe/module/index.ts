@@ -8,6 +8,8 @@ export * from "./shared";
 export * from "./commands";
 export * from "./queries";
 export * from "./open-account";
+// #582 — internal open-account candidates query.
+export * from "./open-account-candidates";
 export * from "./platform-owner-staff";
 export * from "./scope-materials";
 export * from "./context";

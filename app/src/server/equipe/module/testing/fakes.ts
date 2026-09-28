@@ -10,6 +10,8 @@ import {
   type AdscaleCreativeWorkRef,
   type AdscaleGateway,
   type AdscaleOfferRef,
+  type AdscaleWorkspaceMemberRef,
+  type AdscaleWorkspaceRef,
   type Agents,
   type AgentTask,
   type AgentTaskResult,
@@ -64,6 +66,32 @@ export class FakeAdscaleGateway implements AdscaleGateway {
 
   async getOffer(offerId: string): Promise<AdscaleOfferRef | null> {
     return this.offers.get(offerId) ?? null;
+  }
+
+  // #582 — directory seeds for the open-account candidates query.
+  workspaces = new Map<string, AdscaleWorkspaceRef>();
+  private memberships: Array<{ workspaceId: string; member: AdscaleWorkspaceMemberRef }> = [];
+
+  addWorkspace(ref: AdscaleWorkspaceRef): void {
+    this.workspaces.set(ref.id, ref);
+  }
+
+  addMember(workspaceId: string, ref: AdscaleWorkspaceMemberRef): void {
+    this.memberships.push({ workspaceId, member: ref });
+  }
+
+  async getWorkspace(workspaceId: string): Promise<AdscaleWorkspaceRef | null> {
+    return this.workspaces.get(workspaceId) ?? null;
+  }
+
+  async listClientProfiles(workspaceId: string): Promise<AdscaleClientProfileRef[]> {
+    return [...this.profiles.values()].filter((profile) => profile.workspaceId === workspaceId);
+  }
+
+  async listWorkspaceMembers(workspaceId: string): Promise<AdscaleWorkspaceMemberRef[]> {
+    return this.memberships
+      .filter((entry) => entry.workspaceId === workspaceId)
+      .map((entry) => entry.member);
   }
 }
 

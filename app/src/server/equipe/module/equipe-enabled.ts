@@ -28,6 +28,19 @@ export type EquipeEnabledOverrides = {
   allowlistRaw?: string | undefined;
 };
 
+// #582 — the pilot workspace ids for the internal open-account form.
+// Fails closed like the check below: disabled, empty or malformed
+// allowlist reads as no workspace.
+export function listPilotWorkspaceIds(overrides?: EquipeEnabledOverrides): string[] {
+  const enabledRaw = overrides?.enabledRaw ?? env.EQUIPE_ENABLED;
+  if (enabledRaw !== "true") return [];
+  try {
+    return [...new Set(parseAllowlist(overrides?.allowlistRaw ?? env.EQUIPE_PILOT_WORKSPACES))];
+  } catch {
+    return [];
+  }
+}
+
 export function isEquipeEnabledForWorkspace(
   workspaceId: string,
   overrides?: EquipeEnabledOverrides,

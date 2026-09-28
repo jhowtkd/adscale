@@ -38,6 +38,19 @@ export type AdscaleOfferRef = {
   workspaceId: string;
 };
 
+// #582 — directory reads for the internal open-account form: workspace
+// names, the workspace's brands, and its members (user id + name + email).
+export type AdscaleWorkspaceRef = {
+  id: string;
+  name: string;
+};
+
+export type AdscaleWorkspaceMemberRef = {
+  userId: string;
+  name: string | null;
+  email: string | null;
+};
+
 export interface AdscaleGateway {
   getClientProfile(workspaceId: string, clientProfileId: string): Promise<AdscaleClientProfileRef | null>;
   getAsset(assetId: string): Promise<AdscaleAssetRef | null>;
@@ -47,6 +60,12 @@ export interface AdscaleGateway {
   getCreativeWorkOutput(outputId: string): Promise<AdscaleCreativeWorkOutputRef | null>;
   /** Unused in #544; kept for caption triage against the catalog. */
   getOffer(offerId: string): Promise<AdscaleOfferRef | null>;
+  // #582 — directory reads for the internal open-account form. Same
+  // workspace scoping as the lookups above: a mismatched workspace reads
+  // as absent, so the gateway can never leak another workspace.
+  getWorkspace(workspaceId: string): Promise<AdscaleWorkspaceRef | null>;
+  listClientProfiles(workspaceId: string): Promise<AdscaleClientProfileRef[]>;
+  listWorkspaceMembers(workspaceId: string): Promise<AdscaleWorkspaceMemberRef[]>;
 }
 
 /**

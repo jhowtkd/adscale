@@ -133,6 +133,17 @@ export const getWorkspaceForUser = cache(async (userId: string) => {
   return workspace[0] ?? null;
 });
 
+// #582 — unscoped by-id read for the internal open-account directory.
+// Callers must already be behind the internal-staff guard.
+export async function getWorkspaceById(workspaceId: string) {
+  const workspace = await db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
+  return workspace[0] ?? null;
+}
+
 export async function getWorkspaceForUserInWorkspace(userId: string, workspaceId: string) {
   const member = await db
     .select({ workspaceId: workspaceMembers.workspaceId })

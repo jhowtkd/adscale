@@ -23,12 +23,14 @@ import {
 } from "./staff-ui";
 import { enumLabel } from "./labels";
 import EquipeViewToggle from "./EquipeViewToggle";
+import OpenAccountDialog from "./OpenAccountDialog";
 import type {
   CrossAccountEntryView,
   CrossAccountPipelineView,
   EquipeEscalationView,
   EquipeExceptionView,
   EquipePauseView,
+  OpenAccountCandidateView,
 } from "./types";
 
 function isPastDue(dueAt: string | null, now: number): boolean {
@@ -48,7 +50,15 @@ function stuckCount(entry: CrossAccountEntryView, now: number): number {
   return escalations + exceptions;
 }
 
-export default function CrossAccountPipeline() {
+export default function CrossAccountPipeline({
+  candidates = [],
+  canOpenAccount = false,
+}: {
+  // #582 — open-account candidates from the server component; the dialog
+  // renders its action only for operations staff.
+  candidates?: OpenAccountCandidateView[];
+  canOpenAccount?: boolean;
+}) {
   const t = useTranslations("equipe.accounts");
   const tCommon = useTranslations("equipe.common");
   const query = useQuery({
@@ -62,7 +72,12 @@ export default function CrossAccountPipeline() {
       <PageHeader
         title={t("title")}
         description={t("description")}
-        actions={<EquipeViewToggle active="accounts" />}
+        actions={
+          <>
+            <EquipeViewToggle active="accounts" />
+            <OpenAccountDialog canOpen={canOpenAccount} candidates={candidates} />
+          </>
+        }
       />
       {query.isLoading ? <StaffLoading label={tCommon("loading")} /> : null}
       {query.error ? (

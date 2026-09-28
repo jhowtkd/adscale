@@ -98,6 +98,15 @@ export type CrossAccountPipelineView = {
   entries: CrossAccountEntryView[];
 };
 
+// Open-account candidates (#582): one pilot workspace with the brands
+// still without an Equipe account and the workspace members to pick the
+// account people from. Fed from the server component, never fetched.
+export type OpenAccountCandidateView = {
+  workspace: { id: string; name: string };
+  brands: Array<{ id: string; name: string | null }>;
+  members: Array<{ userId: string; name: string | null; email: string | null }>;
+};
+
 export type QualityPipelineEntryView = {
   workspaceId: string;
   accountId: string;
