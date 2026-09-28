@@ -41,6 +41,7 @@ import type {
   EquipePublicationIntent,
   EquipePublicationIntentPatch,
   EquipeReceipt,
+  EquipeRoundStatus,
   EquipeStaffFilter,
   EquipeStaffMember,
   EquipeStaffPatch,
@@ -248,6 +249,10 @@ export interface InternalEquipeRepositories {
     leaseTtlMs?: number;
   }): Promise<EquipePublicationIntent[]>;
   listAccountsByStatus(status: EquipeAccountStatus): Promise<EquipeAccount[]>;
+  /** Cross-account round scan for the internal quality pipeline (#546). */
+  listCalibrationRounds(filter?: {
+    status?: EquipeRoundStatus | EquipeRoundStatus[];
+  }): Promise<EquipeCalibrationRound[]>;
 }
 
 export interface EquipeRepositories {

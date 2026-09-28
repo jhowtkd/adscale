@@ -42,7 +42,7 @@ export const EQUIPE_ACCOUNT_STATUS = [
 export const EQUIPE_PERSON_ROLE = ["approver", "substitute", "custodian", "member"] as const;
 export const EQUIPE_STAFF_ROLE = ["support", "quality", "operations"] as const;
 export const EQUIPE_FRONT_KEY = ["social_instagram", "midia_paga"] as const;
-export const EQUIPE_FRONT_STATUS = ["draft", "calibrating", "released", "paused", "closed"] as const;
+export const EQUIPE_FRONT_STATUS = ["draft", "calibrating", "released", "scope_decision", "paused", "closed"] as const;
 export const EQUIPE_ONBOARDING_STEP = [
   "scope_confirm",
   "materials",
@@ -207,6 +207,7 @@ export const equipeFronts = equipeSchema.table(
     calibrationSequence: integer("calibration_sequence").notNull().default(0),
     roundsUsed: integer("rounds_used").notNull().default(0),
     releasedAt: timestamp("released_at", { mode: "date" }),
+    calibrationStartedAt: timestamp("calibration_started_at", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
@@ -502,6 +503,10 @@ export const equipeCalibrationRounds = equipeSchema.table(
     frontId: uuid("front_id")
       .notNull()
       .references(() => equipeFronts.id, { onDelete: "cascade" }),
+    batchId: uuid("batch_id")
+      .notNull()
+      .references(() => equipeBatches.id, { onDelete: "cascade" }),
+    weekKey: text("week_key").notNull(),
     sequence: integer("sequence").notNull(),
     status: text("status").notNull().default("open"),
     closedAt: timestamp("closed_at", { mode: "date" }),
@@ -511,6 +516,7 @@ export const equipeCalibrationRounds = equipeSchema.table(
   },
   (t) => [
     uniqueIndex("equipe_calibration_rounds_front_sequence_uq").on(t.frontId, t.sequence),
+    uniqueIndex("equipe_calibration_rounds_front_week_uq").on(t.frontId, t.weekKey),
     check("equipe_calibration_rounds_status_check", inList(t.status, EQUIPE_ROUND_STATUS)),
   ]
 );

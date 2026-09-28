@@ -73,6 +73,23 @@ import {
   runResumePause,
   runSuspendExecution,
 } from "./pauses";
+// Calibration (#546)
+import {
+  runClassifyRejection,
+  runCloseRound,
+  runMarkCriticalFailure,
+  runOpenRound,
+  runReleaseItemToClient,
+  runReturnItemForFix,
+  runScoreAttempt,
+  runWithdrawRoundItem,
+} from "./calibration-rounds";
+import {
+  runOpenScopeDecision,
+  runReleaseFront,
+  runReopenCalibration,
+  runResolveScopeDecision,
+} from "./calibration-release";
 
 const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   open_account: "open_account",
@@ -130,6 +147,19 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   revoke_connection: "revoke_connection",
   pause_delinquency: "apply_automatic_pause",
   resume_pause: "resume_pause",
+  // Calibration (#546)
+  open_round: "open_round",
+  score_attempt: "score_round",
+  return_item_for_fix: "return_for_fix",
+  release_item_to_client: "release_item_to_client",
+  mark_critical_failure: "mark_critical_failure",
+  withdraw_round_item: "withdraw_round_item",
+  classify_rejection: "classify_rejection",
+  close_round: "close_round",
+  release_front: "release_front",
+  resolve_scope_decision: "resolve_scope_decision",
+  open_scope_decision: "open_scope_decision",
+  reopen_calibration: "reopen_calibration",
 };
 
 export type ExecutedCommand = CommandSuccess & { type: CommandType };
@@ -338,6 +368,43 @@ export async function executeCommand(
       break;
     case "resume_pause":
       outcome = await runResumePause(deps, base, command.payload);
+      break;
+    // Calibration (#546)
+    case "open_round":
+      outcome = await runOpenRound(deps, base, command.payload);
+      break;
+    case "score_attempt":
+      outcome = await runScoreAttempt(deps, base, command.payload);
+      break;
+    case "return_item_for_fix":
+      outcome = await runReturnItemForFix(deps, base, command.payload);
+      break;
+    case "release_item_to_client":
+      outcome = await runReleaseItemToClient(deps, base, command.payload);
+      break;
+    case "mark_critical_failure":
+      outcome = await runMarkCriticalFailure(deps, base, command.payload);
+      break;
+    case "withdraw_round_item":
+      outcome = await runWithdrawRoundItem(deps, base, command.payload);
+      break;
+    case "classify_rejection":
+      outcome = await runClassifyRejection(deps, base, command.payload);
+      break;
+    case "close_round":
+      outcome = await runCloseRound(deps, base, command.payload);
+      break;
+    case "release_front":
+      outcome = await runReleaseFront(deps, base, command.payload);
+      break;
+    case "resolve_scope_decision":
+      outcome = await runResolveScopeDecision(deps, base, command.payload);
+      break;
+    case "open_scope_decision":
+      outcome = await runOpenScopeDecision(deps, base, command.payload);
+      break;
+    case "reopen_calibration":
+      outcome = await runReopenCalibration(deps, base, command.payload);
       break;
   }
   if (!outcome.ok) return outcome;

@@ -242,3 +242,21 @@ export function monthKey(instant: Date): string {
   const civil = toSaoPauloCivilDate(instant);
   return `${civil.year}-${pad2(civil.month)}`;
 }
+
+/**
+ * "YYYY-Www" ISO week key of the São Paulo civil date containing an
+ * instant. Powers the calibration rhythm: one round per week per front.
+ */
+export function isoWeekKey(instant: Date): string {
+  const civil = toSaoPauloCivilDate(instant);
+  // ISO week date on the civil date: Thursday decides the week year.
+  const date = new Date(Date.UTC(civil.year, civil.month - 1, civil.day));
+  const weekday = (date.getUTCDay() + 6) % 7; // Monday = 0
+  const thursday = new Date(date.getTime() + (3 - weekday) * 86_400_000);
+  const weekYear = thursday.getUTCFullYear();
+  const jan4 = new Date(Date.UTC(weekYear, 0, 4));
+  const jan4Weekday = (jan4.getUTCDay() + 6) % 7;
+  const week1Monday = new Date(jan4.getTime() - jan4Weekday * 86_400_000);
+  const week = Math.floor((thursday.getTime() - week1Monday.getTime()) / (7 * 86_400_000)) + 1;
+  return `${weekYear}-W${String(week).padStart(2, "0")}`;
+}

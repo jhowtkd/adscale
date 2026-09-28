@@ -95,6 +95,15 @@ export type EquipeAction =
   | "request_support"
   | "post_staff_message"
   | "resume_pause"
+  // Calibration (#546)
+  | "open_round"
+  | "release_item_to_client"
+  | "withdraw_round_item"
+  | "classify_rejection"
+  | "close_round"
+  | "resolve_scope_decision"
+  | "open_scope_decision"
+  | "reopen_calibration"
   // Implantation (module #544; owners from the implantação flow)
   | "open_account"
   | "confirm_scope"
@@ -187,6 +196,17 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   request_support: [ANY_CLIENT],
   post_staff_message: [SUPPORT],
   resume_pause: [CLIENT_DECISION, QUALITY, OPERATIONS, SUPPORT, SYSTEM],
+  // Calibration (#546): the agent/system opens and closes rounds; only an
+  // active quality staffer scores, returns, releases items, classifies,
+  // releases fronts, resolves scope decisions and reopens calibration.
+  open_round: [AGENT, SYSTEM],
+  release_item_to_client: [QUALITY],
+  withdraw_round_item: [QUALITY],
+  classify_rejection: [QUALITY],
+  close_round: [QUALITY, SYSTEM],
+  resolve_scope_decision: [QUALITY],
+  open_scope_decision: [SYSTEM],
+  reopen_calibration: [QUALITY],
   open_account: [OPERATIONS],
   confirm_scope: [CLIENT_DECISION],
   register_material: [ANY_CLIENT, SUPPORT],

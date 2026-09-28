@@ -1,6 +1,7 @@
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import {
   equipeAccounts,
+  equipeCalibrationRounds,
   equipeConnections,
   equipeEvents,
   equipePublicationIntents,
@@ -32,8 +33,10 @@ import {
   type EquipeConnectionPatch,
   type EquipeEventFilter,
   type EquipeIntentFilter,
+  type EquipeCalibrationRound,
   type EquipePublicationIntent,
   type EquipePublicationIntentPatch,
+  type EquipeRoundStatus,
   type EquipeThreadPatch,
   type NewEquipeConnection,
   type NewEquipeEvent,
@@ -260,4 +263,20 @@ export async function listAccountsByStatus(
     .select()
     .from(equipeAccounts)
     .where(eq(equipeAccounts.status, status));
+}
+
+// Internal cross-account scan of calibration rounds (#546): the quality
+// pipeline groups rounds by state across the staff's accounts.
+export async function listCalibrationRounds(
+  executor: PostgresEquipeExecutor,
+  filter: { status?: EquipeRoundStatus | EquipeRoundStatus[] } = {}
+): Promise<EquipeCalibrationRound[]> {
+  if (filter.status === undefined) {
+    return executor.select().from(equipeCalibrationRounds);
+  }
+  const wanted = Array.isArray(filter.status) ? filter.status : [filter.status];
+  return executor
+    .select()
+    .from(equipeCalibrationRounds)
+    .where(inArray(equipeCalibrationRounds.status, [...wanted]));
 }

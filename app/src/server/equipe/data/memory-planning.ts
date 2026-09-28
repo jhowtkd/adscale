@@ -34,7 +34,13 @@ export function makeMemoryPlanningRepositories(
         buildRow(
           scope,
           input,
-          { status: "draft", calibrationSequence: 0, roundsUsed: 0, releasedAt: null },
+          {
+            status: "draft",
+            calibrationSequence: 0,
+            roundsUsed: 0,
+            releasedAt: null,
+            calibrationStartedAt: null,
+          },
           "full"
         ),
       uniques: [(row) => `${row.accountId}:${row.key}`],

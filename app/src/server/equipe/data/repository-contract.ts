@@ -206,8 +206,11 @@ export function defineEquipeRepositoryContract(
       expect("update" in repos.calibrationScores).toBe(false);
       const fresh = await harness.createScope();
       const front = await repos.fronts.create(fresh, { key: "social_instagram" });
+      const batch = await repos.batches.create(fresh, { frontId: front.id, title: "Lote 1" });
       const round = await repos.calibrationRounds.create(fresh, {
         frontId: front.id,
+        batchId: batch.id,
+        weekKey: "2026-W41",
         sequence: 1,
       });
       const itemId = await newItemId(fresh);
@@ -226,8 +229,30 @@ export function defineEquipeRepositoryContract(
           verdict: "fail",
         })
       ).rejects.toBeInstanceOf(EquipeConflictError);
+      // Uma rodada por semana por frente: a mesma semana conflita, outra passa.
+      await expect(
+        repos.calibrationRounds.create(fresh, {
+          frontId: front.id,
+          batchId: batch.id,
+          weekKey: "2026-W41",
+          sequence: 2,
+        })
+      ).rejects.toBeInstanceOf(EquipeConflictError);
+      const nextWeek = await repos.calibrationRounds.create(fresh, {
+        frontId: front.id,
+        batchId: batch.id,
+        weekKey: "2026-W42",
+        sequence: 2,
+      });
+      expect(nextWeek.sequence).toBe(2);
       expect((await repos.calibrationRounds.update(fresh, round.id, { status: "closed" })).status)
         .toBe("closed");
+      // Varredura interna entre contas: a pipeline de qualidade agrupa por estado.
+      const open = await internal.listCalibrationRounds({ status: "open" });
+      expect(open.map((row) => row.id)).toContain(nextWeek.id);
+      expect(open.map((row) => row.id)).not.toContain(round.id);
+      const all = await internal.listCalibrationRounds();
+      expect(all.map((row) => row.id)).toEqual(expect.arrayContaining([round.id, nextWeek.id]));
     });
 
     it("escalonamentos, exceções e pausas: ciclo básico", async () => {

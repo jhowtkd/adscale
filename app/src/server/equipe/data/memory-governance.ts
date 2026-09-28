@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { EquipeRepositories } from "./repositories";
 import {
   buildRow,
@@ -33,8 +34,15 @@ export function makeMemoryGovernanceRepositories(
       table: store.calibrationRounds,
       build: (scope, input) =>
         buildRow(scope, input, { status: "open", closedAt: null, decision: null }, "full"),
-      uniques: [(row) => `${row.frontId}:${row.sequence}`],
-      validateCreate: checkFields({ status: equipeRoundStatusSchema }),
+      uniques: [(row) => `${row.frontId}:${row.sequence}`, (row) => `${row.frontId}:${row.weekKey}`],
+      validateCreate: checkFields(
+        {
+          status: equipeRoundStatusSchema,
+          batchId: z.string().uuid(),
+          weekKey: z.string().min(1),
+        },
+        ["batchId", "weekKey"]
+      ),
       validatePatch: checkFields({ status: equipeRoundStatusSchema }),
     }),
     calibrationScores: makeMemoryAppendRepo({
