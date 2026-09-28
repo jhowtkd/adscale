@@ -57,6 +57,7 @@ export type EquipeAction =
   // Staff: operations ("operação")
   | "resolve_technical_escalation"
   | "suspend_execution"
+  | "revoke_connection"
   | "global_stop"
   | "resume_technical"
   // Staff: support ("atendimento")
@@ -151,6 +152,7 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   resume_content_pause: [QUALITY],
   resolve_technical_escalation: [OPERATIONS],
   suspend_execution: [OPERATIONS, SYSTEM],
+  revoke_connection: [OPERATIONS],
   global_stop: [OPERATIONS],
   resume_technical: [OPERATIONS],
   open_exception: [SUPPORT, AGENT, SYSTEM],

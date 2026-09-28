@@ -150,6 +150,25 @@ describe("pause commands", () => {
     const intent = await t.deps.uow.repos.intents.getByItemVersion(scope, itemId, versionHash);
     expect(intent?.status).toBe("held");
   });
+
+  it("suspend_execution isolates connections without revoking them", async () => {
+    const { t, ids } = await setup();
+    const scope = SCOPE(ids);
+    const connection = await seedConnection(t, ids);
+    const outcome = await pauseAs(t, ids, ids.actors.operations, "suspend_execution", {
+      reason: "conta errada",
+      connectionIds: [connection.id],
+    });
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.value.data.isolatedConnectionIds).toEqual([connection.id]);
+    expect((await t.deps.uow.repos.connections.get(scope, connection.id))?.status).toBe("active");
+    const applied = outcome.value.events.find((e) => e.eventType === "pause.applied");
+    expect(applied?.payload).toMatchObject({
+      origin: "security",
+      isolatedConnectionIds: [connection.id],
+    });
+  });
 });
 
 describe("resume_pause", () => {

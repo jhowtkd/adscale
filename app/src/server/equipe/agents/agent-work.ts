@@ -26,7 +26,7 @@ export const EQUIPE_AGENT_WORK_ID = "equipe-agent-work";
 /** Refusal when the workspace is outside the Equipe pilot. Never retried. */
 export const EQUIPE_NOT_ENABLED_ERROR = "equipe_not_enabled";
 
-/** Recorded when a turn throws, so #547 can turn it into an exception. */
+/** Recorded when a turn throws, so #547 can turn it into a technical escalation. */
 export const TURN_FAILED_EVENT = "agent.turn_failed";
 
 const agentWorkEventSchema = z.object({
@@ -99,9 +99,9 @@ export async function equipeAgentWorkHandler({
 
 /**
  * Record a failed turn as an account event through the module's unit of
- * work (never a raw insert). #547 turns `agent.turn_failed` into a
- * support exception. The write going through is best-effort: the turn
- * already failed, and a failing failure-hook must not mask that.
+ * work (never a raw insert). #547 turns `agent.turn_failed` into an
+ * automatic technical escalation. The write going through is best-effort:
+ * the turn already failed, and a failing failure-hook must not mask that.
  */
 export async function recordAgentTurnFailed(
   uow: EquipeUnitOfWork,
@@ -132,7 +132,7 @@ export function buildEquipeAgentWorkJob(
       // retry re-executes the WHOLE turn — duplicating commands the failed
       // attempt already ran (e.g. propose_context_section) and charging the
       // ledger a second time. A failure records `agent.turn_failed` (see
-      // onFailure) so #547 can surface it as an exception instead.
+      // onFailure) so #547 can surface it as a technical escalation instead.
       retries: 0,
       // One agent turn per account at a time: turns call module commands
       // that decide on loaded state, so concurrent turns could interleave.

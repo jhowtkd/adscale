@@ -108,7 +108,7 @@ describe("open_escalation", () => {
     expect(opened?.payload).toMatchObject({ escalationId: outcome.value.data.escalationId });
   });
 
-  it("suspends execution and contains connections on cross-account incidents", async () => {
+  it("suspends execution and isolates connections on cross-account incidents", async () => {
     const { t, ids } = await setup();
     const scope = SCOPE(ids);
     const connection = await t.deps.uow.repos.connections.create(scope, {
@@ -130,16 +130,22 @@ describe("open_escalation", () => {
     const data = outcome.value.data as {
       pauseIds: string[];
       exceptionId: string;
-      revokedConnectionIds: string[];
+      isolatedConnectionIds: string[];
     };
     expect(data.pauseIds).toHaveLength(2);
-    expect(data.revokedConnectionIds).toEqual([connection.id]);
+    expect(data.isolatedConnectionIds).toEqual([connection.id]);
     const pauses = await t.deps.uow.repos.pauses.list(scope);
     expect(pauses.filter((p) => p.status === "active")).toHaveLength(2);
     const summaries = pauses.map((p) => [p.origin, p.level, p.scope].join("/"));
     expect(summaries).toContain("security/execution/account");
     expect(pauses.map((p) => [p.origin, p.scope].join("/"))).toContain("global_stop/global");
-    expect((await t.deps.uow.repos.connections.get(scope, connection.id))?.status).toBe("revoked");
+    // Isolated through the suspension — the stored status stays untouched,
+    // only operations revoke (see revoke_connection).
+    expect((await t.deps.uow.repos.connections.get(scope, connection.id))?.status).toBe("active");
+    const opened = outcome.value.events.find((e) => e.eventType === "escalation.opened");
+    expect(opened?.payload).toMatchObject({ isolatedConnectionIds: [connection.id] });
+    const suspended = outcome.value.events.find((e) => e.eventType === "pause.applied");
+    expect(suspended?.payload).toMatchObject({ isolatedConnectionIds: [connection.id] });
     expect(data.exceptionId).toBeTruthy();
   });
 

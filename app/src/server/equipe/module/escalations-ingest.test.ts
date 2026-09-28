@@ -66,7 +66,7 @@ describe("ingest_agent_signal", () => {
     expect(await t.deps.uow.repos.escalations.list(scope)).toHaveLength(1);
   });
 
-  it("turns agent.turn_failed into a support exception", async () => {
+  it("turns agent.turn_failed into an automatic technical escalation", async () => {
     const { t, ids } = await setup();
     const scope = SCOPE(ids);
     const sourceEventId = await seedSignal(t, ids, {
@@ -79,17 +79,57 @@ describe("ingest_agent_signal", () => {
     });
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
-    expect(outcome.value.data.ingested).toBe("exception");
-    const row = await t.deps.uow.repos.exceptions.get(
+    expect(outcome.value.data.ingested).toBe("escalation");
+    const row = await t.deps.uow.repos.escalations.get(
       scope,
-      outcome.value.data.exceptionId as string,
+      outcome.value.data.escalationId as string,
     );
     expect(row).toMatchObject({
-      trigger: "repeated_silence",
+      kind: "technical",
+      severity: "medium",
       status: "open",
-      reason: "agent.turn_failed research: model timeout",
+      ownerRole: "operations",
     });
     expect(row?.dueAt).toEqual(new Date("2026-10-06T14:00:00.000Z"));
+    const opened = outcome.value.events.find((e) => e.eventType === "escalation.opened");
+    expect(opened?.payload).toMatchObject({
+      reason: "agent.turn_failed research: model timeout",
+      origin: "auto",
+      sourceEventId,
+    });
+    // No support exception: a failed turn is operations work, not atendimento.
+    expect(await t.deps.uow.repos.exceptions.list(scope)).toHaveLength(0);
+  });
+
+  it("honors a critical turn_failed when the signal points at an item", async () => {
+    const { t, ids } = await setup();
+    const scope = SCOPE(ids);
+    const { itemIds } = await deliverTestBatch(t, ids);
+    const sourceEventId = await seedSignal(t, ids, {
+      eventType: "agent.turn_failed",
+      objectType: "item",
+      objectId: itemIds[0]!,
+      payload: { taskKind: "writing", error: "tool blew up", severity: "critical" },
+    });
+    const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.system), {
+      type: "ingest_agent_signal",
+      payload: { sourceEventId },
+    });
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    const row = await t.deps.uow.repos.escalations.get(
+      scope,
+      outcome.value.data.escalationId as string,
+    );
+    expect(row).toMatchObject({
+      kind: "technical",
+      severity: "critical",
+      ownerRole: "operations",
+      itemId: itemIds[0],
+    });
+    // Critical still pauses the front through the shared open path.
+    const pauses = await t.deps.uow.repos.pauses.list(scope);
+    expect(pauses.some((p) => p.origin === "content_incident" && p.status === "active")).toBe(true);
   });
 
   it("turns agent.budget_exceeded into a commercial exception", async () => {

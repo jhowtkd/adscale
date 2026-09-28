@@ -53,6 +53,7 @@ import {
   runReportItemProblem,
   runResolveContentEscalation,
   runResolveTechnicalEscalation,
+  runRevokeConnection,
 } from "./escalations";
 import {
   runAssumeException,
@@ -126,6 +127,7 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   pause_connection: "apply_automatic_pause",
   pause_global: "global_stop",
   suspend_execution: "suspend_execution",
+  revoke_connection: "revoke_connection",
   pause_delinquency: "apply_automatic_pause",
   resume_pause: "resume_pause",
 };
@@ -327,6 +329,9 @@ export async function executeCommand(
       break;
     case "suspend_execution":
       outcome = await runSuspendExecution(deps, base, command.payload);
+      break;
+    case "revoke_connection":
+      outcome = await runRevokeConnection(deps, base, command.payload);
       break;
     case "pause_delinquency":
       outcome = await runPauseDelinquency(deps, base, command.payload);

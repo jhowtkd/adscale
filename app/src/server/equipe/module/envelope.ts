@@ -371,6 +371,12 @@ export const suspendExecutionPayloadSchema = z.object({
   connectionIds: z.array(uuid).max(10).default([]),
 });
 
+export const revokeConnectionPayloadSchema = z.object({
+  connectionId: uuid,
+  escalationId: uuid,
+  reason: z.string().min(1).max(2000),
+});
+
 export const pauseDelinquencyPayloadSchema = z.object({
   reason: z.string().max(2000).optional(),
 });
@@ -445,6 +451,7 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("pause_connection", pauseConnectionPayloadSchema),
   command("pause_global", pauseGlobalPayloadSchema),
   command("suspend_execution", suspendExecutionPayloadSchema),
+  command("revoke_connection", revokeConnectionPayloadSchema),
   command("pause_delinquency", pauseDelinquencyPayloadSchema),
   command("resume_pause", resumePausePayloadSchema),
 ]);
