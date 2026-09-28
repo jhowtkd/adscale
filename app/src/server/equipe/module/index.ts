@@ -35,3 +35,10 @@ export * from "./calibration-scoring";
 export * from "./calibration-classify";
 export * from "./calibration-release";
 export * from "./calibration-queries";
+// #548 — despacho de publicação, conexão Instagram e publicação manual.
+export * from "./publish-enabled";
+export * from "./dispatch";
+export * from "./reconcile";
+export * from "./manual-publishing";
+export * from "./removal";
+export * from "./instagram-connect";

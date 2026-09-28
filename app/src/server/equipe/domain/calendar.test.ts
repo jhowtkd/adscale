@@ -11,6 +11,7 @@ import {
   monthKey,
   monthWindow,
   toSaoPauloCivilDate,
+  weekWindow,
 } from "./calendar";
 
 describe("holidays", () => {
@@ -145,5 +146,31 @@ describe("iso week key", () => {
   it("keeps early-January days in the previous week-year when they belong there", () => {
     expect(isoWeekKey(fromSaoPauloWallTime(2027, 1, 1, 12, 0))).toBe("2026-W53");
     expect(isoWeekKey(fromSaoPauloWallTime(2027, 1, 4, 12, 0))).toBe("2027-W01");
+  });
+});
+
+describe("week window", () => {
+  it("spans Monday 00:00 to next Monday 00:00 on the São Paulo wall clock", () => {
+    // Friday 2026-10-09 12:00 SP → week starts Monday 2026-10-05 00:00 SP.
+    const window = weekWindow(fromSaoPauloWallTime(2026, 10, 9, 12, 0));
+    expect(toSaoPauloCivilDate(window.start)).toMatchObject({
+      year: 2026,
+      month: 10,
+      day: 5,
+      hour: 0,
+      minute: 0,
+    });
+    expect(toSaoPauloCivilDate(window.endExclusive)).toMatchObject({
+      year: 2026,
+      month: 10,
+      day: 12,
+      hour: 0,
+      minute: 0,
+    });
+  });
+
+  it("a Sunday still belongs to the week that started on Monday", () => {
+    const window = weekWindow(fromSaoPauloWallTime(2026, 10, 11, 23, 59));
+    expect(toSaoPauloCivilDate(window.start)).toMatchObject({ month: 10, day: 5 });
   });
 });

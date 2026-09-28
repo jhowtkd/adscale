@@ -92,6 +92,12 @@ import {
   runReopenCalibration,
   runResolveScopeDecision,
 } from "./calibration-release";
+// #548 — despacho de publicação, conexão Instagram e publicação manual.
+import { runDispatchPublication } from "./dispatch";
+import { runReconcilePublication } from "./reconcile";
+import { runDeclareManualPublication } from "./manual-publishing";
+import { runRemovePublishedPost } from "./removal";
+import { runCompleteInstagramConnect, runFailInstagramConnect } from "./instagram-connect";
 
 const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   open_account: "open_account",
@@ -163,6 +169,13 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   resolve_scope_decision: "resolve_scope_decision",
   open_scope_decision: "open_scope_decision",
   reopen_calibration: "reopen_calibration",
+  // #548
+  dispatch_publication: "dispatch_publication",
+  reconcile_publication: "reconcile_publication",
+  declare_manual_publication: "declare_manual_publication",
+  remove_published_post: "remove_published_post",
+  complete_instagram_connect: "connect_account",
+  fail_instagram_connect: "connect_account",
 };
 
 export type ExecutedCommand = CommandSuccess & { type: CommandType };
@@ -411,6 +424,25 @@ export async function executeCommand(
       break;
     case "reopen_calibration":
       outcome = await runReopenCalibration(deps, base, command.payload);
+      break;
+    // #548
+    case "dispatch_publication":
+      outcome = await runDispatchPublication(deps, base, command.payload);
+      break;
+    case "reconcile_publication":
+      outcome = await runReconcilePublication(deps, base, command.payload);
+      break;
+    case "declare_manual_publication":
+      outcome = await runDeclareManualPublication(deps, base, command.payload);
+      break;
+    case "remove_published_post":
+      outcome = await runRemovePublishedPost(deps, base, command.payload);
+      break;
+    case "complete_instagram_connect":
+      outcome = await runCompleteInstagramConnect(deps, base, command.payload);
+      break;
+    case "fail_instagram_connect":
+      outcome = await runFailInstagramConnect(deps, base, command.payload);
       break;
   }
   if (!outcome.ok) return outcome;

@@ -112,7 +112,10 @@ export function buildRow<R>(
       : stamps === "created"
         ? { createdAt: now }
         : { occurredAt: now };
-  return { id: crypto.randomUUID(), ...defaults, ...clean, ...scope, ...stamp } as R;
+  // Like the Postgres DEFAULTs, stamps only fill what the input omits: an
+  // explicit occurredAt (appendEvent always passes the command clock) wins,
+  // so fixed-clock tests observe deterministic event times on both stores.
+  return { id: crypto.randomUUID(), ...stamp, ...defaults, ...clean, ...scope } as R;
 }
 
 // Valida campos enumerados (espelha os checks do banco); campos opcionais

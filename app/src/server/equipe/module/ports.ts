@@ -85,23 +85,86 @@ export interface Agents {
   runTask(task: AgentTask): Promise<AgentTaskResult>;
 }
 
-/** Instagram publisher seam. Unused in #544; the dispatch job calls it. */
-export type PublishPostInput = {
+/**
+ * Instagram publisher seam (#548). Two steps, like the Graph content
+ * publishing API: create the container, then publish it. The dispatch
+ * persists the container id between the two calls, so a retry reuses the
+ * stored container and never creates another. Called OUTSIDE command
+ * transactions — never from inside `transact`.
+ */
+export type CreateContainerInput = {
   workspaceId: string;
   accountId: string;
   itemId: string;
   versionHash: string;
   caption: string;
+  /** Creative-work output id; the publisher resolves the media URL. */
   mediaRef: string;
 };
 
-export type PublishPostResult = {
+export type PublishContainerInput = CreateContainerInput & {
+  containerId: string;
+};
+
+export type RecentMediaInput = {
+  workspaceId: string;
+  accountId: string;
+  /** Stored container id, when the send reached the container step. */
+  containerId?: string | null;
+  caption: string;
+  /** Only media at or after this instant counts as a match candidate. */
+  since?: Date;
+};
+
+export type RecentMedia = {
+  externalId: string;
+  caption: string | null;
+  permalink: string | null;
+  takenAt: Date | null;
+};
+
+export type DeleteMediaInput = {
+  workspaceId: string;
+  accountId: string;
   externalId: string;
 };
 
 export interface Publisher {
-  publishPost(input: PublishPostInput): Promise<PublishPostResult>;
+  createContainer(input: CreateContainerInput): Promise<{ containerId: string }>;
+  publishContainer(input: PublishContainerInput): Promise<{ externalId: string; permalink?: string }>;
+  findRecentMedia(input: RecentMediaInput): Promise<RecentMedia[]>;
+  deleteMedia(input: DeleteMediaInput): Promise<{ deleted: boolean }>;
 }
+
+/**
+ * The send may or may not have happened (timeout, network failure, 5xx):
+ * the item goes to `verifying` and reconcile looks the media up. NEVER a
+ * blind re-publish on this error.
+ */
+export class PublisherUncertainError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PublisherUncertainError";
+  }
+}
+
+/**
+ * The send definitively did not happen (validation, auth). `code` names
+ * the cause: `connection_expired` / `connection_revoked` also flip the
+ * stored connection state; anything else is a plain send failure.
+ */
+export class PublisherFailedError extends Error {
+  constructor(
+    message: string,
+    readonly code: string = "publish_failed",
+  ) {
+    super(message);
+    this.name = "PublisherFailedError";
+  }
+}
+
+export const PUBLISHER_CONNECTION_EXPIRED = "connection_expired";
+export const PUBLISHER_CONNECTION_REVOKED = "connection_revoked";
 
 export type EquipeModuleDeps = {
   uow: EquipeUnitOfWork;
@@ -116,4 +179,9 @@ export type EquipeModuleDeps = {
    * `isEquipeEnabledForWorkspace`; tests inject a stub.
    */
   isEnabledForWorkspace?: (workspaceId: string) => boolean;
+  /**
+   * Publication kill-switch override (#548). Defaults to the env-based
+   * `isEquipePublishEnabled`; tests inject a stub.
+   */
+  isPublishEnabled?: () => boolean;
 };

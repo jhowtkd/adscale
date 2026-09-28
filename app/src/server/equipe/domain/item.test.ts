@@ -120,6 +120,14 @@ describe("held items", () => {
     expect(missed.ok).toBe(true);
     if (missed.ok) expect(missed.value.state.status).toBe("missed_window");
   });
+
+  it("misses the window from scheduled when the gate fails past the item time", () => {
+    const missed = markWindowMissed(scheduled());
+    expect(missed.ok).toBe(true);
+    if (!missed.ok) return;
+    expect(missed.value.state.status).toBe("missed_window");
+    expect(missed.value.state.approvedVersion).toBeNull();
+  });
 });
 
 describe("dispatch", () => {

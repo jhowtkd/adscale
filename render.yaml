@@ -118,6 +118,16 @@ services:
         value: gpt-4o-mini
       - key: EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS
         value: "100000"
+      # ADScale Equipe publication (#548): kill switch off by default; the
+      # Instagram app credentials are dashboard secrets, never committed.
+      - key: EQUIPE_PUBLISH_ENABLED
+        value: "false"
+      - key: EQUIPE_IG_TOKEN_ENCRYPTION_KEY
+        sync: false
+      - key: EQUIPE_IG_APP_ID
+        sync: false
+      - key: EQUIPE_IG_APP_SECRET
+        sync: false
       - key: BRAND_CORTEX_SINGLE_PIECE_ENABLED
         value: "false"
       - key: STUDIO_CAROUSEL_ROLLOUT_PERCENT
@@ -232,6 +242,16 @@ services:
         value: gpt-4o-mini
       - key: EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS
         value: "100000"
+      # ADScale Equipe publication (#548): kill switch off by default; the
+      # Instagram app credentials are dashboard secrets, never committed.
+      - key: EQUIPE_PUBLISH_ENABLED
+        value: "false"
+      - key: EQUIPE_IG_TOKEN_ENCRYPTION_KEY
+        sync: false
+      - key: EQUIPE_IG_APP_ID
+        sync: false
+      - key: EQUIPE_IG_APP_SECRET
+        sync: false
       # Traceability rollout (#397): frozen defaults (capture off). See web
       # service comment; staged execution needs per-stage authorization.
       - key: OBSERVABILITY_ENABLED

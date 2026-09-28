@@ -474,6 +474,35 @@ export const reopenCalibrationPayloadSchema = z.object({
   escalationId: uuid.optional(),
 });
 
+// #548 — despacho de publicação, conexão Instagram e publicação manual.
+
+export const dispatchPublicationPayloadSchema = z.object({
+  intentId: uuid,
+});
+
+export const reconcilePublicationPayloadSchema = z.object({
+  itemId: uuid,
+});
+
+export const declareManualPublicationPayloadSchema = z.object({
+  itemId: uuid,
+});
+
+export const removePublishedPostPayloadSchema = z.object({
+  itemId: uuid,
+  via: z.enum(["api", "custodian"]).default("api"),
+  reason: z.string().max(2000).optional(),
+});
+
+export const completeInstagramConnectPayloadSchema = z.object({
+  encryptedToken: z.string().min(1).max(8000),
+  igUsername: z.string().max(200).optional(),
+});
+
+export const failInstagramConnectPayloadSchema = z.object({
+  code: z.string().min(1).max(80),
+});
+
 /** Adapter-provided scope: session + URL, never the request body. */
 export const adapterContextSchema = z.object({
   actor: actorSchema,
@@ -557,6 +586,13 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("resolve_scope_decision", resolveScopeDecisionPayloadSchema),
   command("open_scope_decision", openScopeDecisionPayloadSchema),
   command("reopen_calibration", reopenCalibrationPayloadSchema),
+  // #548
+  command("dispatch_publication", dispatchPublicationPayloadSchema),
+  command("reconcile_publication", reconcilePublicationPayloadSchema),
+  command("declare_manual_publication", declareManualPublicationPayloadSchema),
+  command("remove_published_post", removePublishedPostPayloadSchema),
+  command("complete_instagram_connect", completeInstagramConnectPayloadSchema),
+  command("fail_instagram_connect", failInstagramConnectPayloadSchema),
 ]);
 
 /** Validated untrusted half of the call: { type, payload } only. */
