@@ -58,9 +58,10 @@ export function resolveWriterModel(): string {
   return env.OPENAI_TEXT_MODEL ?? DEFAULT_STRATEGIST_MODEL;
 }
 
-export const DEFAULT_AI_BUDGET_CENTS = 100000;
+export const DEFAULT_AI_MONTHLY_BUDGET_USD_CENTS = 100000;
 
-export function resolveAgentBudgetCents(): number {
-  const value = env.EQUIPE_AI_BUDGET_CENTS;
-  return typeof value === "number" && Number.isFinite(value) ? value : DEFAULT_AI_BUDGET_CENTS;
+/** Monthly per-account cap in USD cents (OpenAI estimates, not invoices). */
+export function resolveAgentMonthlyBudgetUsdCents(): number {
+  const value = env.EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS;
+  return typeof value === "number" && Number.isFinite(value) ? value : DEFAULT_AI_MONTHLY_BUDGET_USD_CENTS;
 }

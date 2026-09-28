@@ -86,11 +86,14 @@ export const envSchema = z.object({
   EQUIPE_MODEL_RESEARCH: z.string().min(1).default("gpt-5.6-sol"),
   EQUIPE_MODEL_REVIEWER: z.string().min(1).default("gpt-4o-mini"),
   /**
-   * Per-account AI budget for Equipe agent work, in cents. Generous
-   * default; the plan leaves the number open. Past the cap, new agent
-   * work refuses and emits an `agent.budget_exceeded` event.
+   * Monthly per-account AI budget for Equipe agent work, in USD cents.
+   * Prices are OpenAI USD estimates (see agents/ledger.ts), and the
+   * window is the current calendar month in America/Sao_Paulo — last
+   * month's spend never counts. Generous default; the plan leaves the
+   * number open. Past the cap, new agent work refuses and emits an
+   * `agent.budget_exceeded` event.
    */
-  EQUIPE_AI_BUDGET_CENTS: z.coerce.number().int().min(0).default(100000),
+  EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS: z.coerce.number().int().min(0).default(100000),
   /**
    * 3:4 creation switch (ICE-04B): steers NEW 3:4 creations in validated
    * protocols only (see three-four-capability). Reads, downloads and
@@ -157,18 +160,23 @@ export const envSchema = z.object({
   }
   // Equipe reviewer (#550): the text reviewer must run a different model
   // from the authors — the strategist and the writer (Redação reuses the
-  // existing caption generator, which runs on OPENAI_TEXT_MODEL).
-  const authorModels: Array<[string, string]> = [
-    ["EQUIPE_MODEL_STRATEGIST", data.EQUIPE_MODEL_STRATEGIST],
-    ["OPENAI_TEXT_MODEL", data.OPENAI_TEXT_MODEL],
-  ];
-  for (const [name, model] of authorModels) {
-    if (data.EQUIPE_MODEL_REVIEWER === model) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["EQUIPE_MODEL_REVIEWER"],
-        message: `EQUIPE_MODEL_REVIEWER must differ from the author model ${name} (${model})`,
-      });
+  // existing caption generator, which runs on OPENAI_TEXT_MODEL). Enforced
+  // ONLY while the Equipe pilot is on: env validation gates app boot, so an
+  // unconditional rule would take the whole app down over a model collision
+  // in a feature nobody can reach (e.g. a future OPENAI_TEXT_MODEL change).
+  if (data.EQUIPE_ENABLED === "true") {
+    const authorModels: Array<[string, string]> = [
+      ["EQUIPE_MODEL_STRATEGIST", data.EQUIPE_MODEL_STRATEGIST],
+      ["OPENAI_TEXT_MODEL", data.OPENAI_TEXT_MODEL],
+    ];
+    for (const [name, model] of authorModels) {
+      if (data.EQUIPE_MODEL_REVIEWER === model) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["EQUIPE_MODEL_REVIEWER"],
+          message: `EQUIPE_MODEL_REVIEWER must differ from the author model ${name} (${model})`,
+        });
+      }
     }
   }
 });

@@ -23,6 +23,10 @@ export class LiveAdscaleGateway implements AdscaleGateway {
     workspaceId: string,
     clientProfileId: string,
   ): Promise<AdscaleClientProfileRef | null> {
+    // The gateway is scoped to one workspace at construction, like every
+    // other method here: a mismatched argument refuses without touching
+    // the repository, so the gateway can never read another workspace.
+    if (workspaceId !== this.workspaceId) return null;
     const profile = await getClientProfile(workspaceId, clientProfileId);
     if (!profile) return null;
     return { id: profile.id, workspaceId: profile.workspaceId };

@@ -751,8 +751,10 @@ export const equipeEvents = equipeSchema.table(
 );
 
 // Ledger de custo dos agentes de IA (#550): uma linha por chamada direta
-// de modelo, com papel, modelo, tokens, custo estimado e versão do prompt.
-// Append-only; o teto por conta (EQUIPE_AI_BUDGET_CENTS) soma cost_cents.
+// de modelo, com papel, modelo, tokens, custo estimado em centavos de USD
+// e versão do prompt. Append-only; o teto mensal por conta
+// (EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS) soma cost_usd_cents do mês vigente
+// em America/Sao_Paulo.
 // Chamadas delegadas ao motor (Redação, Direção de arte) não passam por
 // aqui: o custo delas segue no spend/cobrança que já existe.
 export const equipeAgentLedger = equipeSchema.table(
@@ -771,7 +773,7 @@ export const equipeAgentLedger = equipeSchema.table(
     taskKind: text("task_kind").notNull(),
     inputTokens: integer("input_tokens").notNull().default(0),
     outputTokens: integer("output_tokens").notNull().default(0),
-    costCents: integer("cost_cents").notNull().default(0),
+    costUsdCents: integer("cost_usd_cents").notNull().default(0),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (t) => [

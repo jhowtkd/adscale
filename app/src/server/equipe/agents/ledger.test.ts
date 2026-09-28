@@ -1,7 +1,8 @@
-// Cost ledger: totals per account and conservative cost estimates.
+// Cost ledger: monthly totals per account and conservative cost estimates.
 
 import { describe, expect, it } from "vitest";
-import { estimateCostCents, MemoryLedgerStore } from "./ledger";
+import { fromSaoPauloWallTime } from "../domain";
+import { estimateCostUsdCents, MemoryLedgerStore } from "./ledger";
 import { EQUIPE_PROMPT_VERSION } from "./prompts";
 
 function entry(overrides: Partial<Parameters<MemoryLedgerStore["record"]>[0]> = {}) {
@@ -14,20 +15,26 @@ function entry(overrides: Partial<Parameters<MemoryLedgerStore["record"]>[0]> = 
     taskKind: "strategist_turn",
     inputTokens: 1000,
     outputTokens: 500,
-    costCents: 1,
+    costUsdCents: 1,
     ...overrides,
   };
 }
 
 describe("MemoryLedgerStore", () => {
-  it("totals costs per account", async () => {
+  it("totals the current São Paulo month per account", async () => {
+    const now = fromSaoPauloWallTime(2026, 10, 15, 12, 0);
     const ledger = new MemoryLedgerStore();
-    await ledger.record(entry({ costCents: 40 }));
-    await ledger.record(entry({ costCents: 60 }));
-    await ledger.record(entry({ accountId: "account-2", costCents: 999 }));
-    expect(await ledger.totalCostCents("workspace-1", "account-1")).toBe(100);
-    expect(await ledger.totalCostCents("workspace-1", "account-2")).toBe(999);
-    expect(await ledger.totalCostCents("workspace-1", "unknown")).toBe(0);
+    const lastMonth = await ledger.record(entry({ costUsdCents: 9999 }));
+    lastMonth.createdAt = fromSaoPauloWallTime(2026, 9, 30, 23, 59);
+    await ledger.record(entry({ costUsdCents: 40 }));
+    await ledger.record(entry({ costUsdCents: 60 }));
+    await ledger.record(entry({ accountId: "account-2", costUsdCents: 999 }));
+    for (const row of ledger.entries) {
+      if (row !== lastMonth) row.createdAt = now;
+    }
+    expect(await ledger.monthlyTotalCostUsdCents("workspace-1", "account-1", now)).toBe(100);
+    expect(await ledger.monthlyTotalCostUsdCents("workspace-1", "account-2", now)).toBe(999);
+    expect(await ledger.monthlyTotalCostUsdCents("workspace-1", "unknown", now)).toBe(0);
   });
 
   it("stores the prompt version with each call", async () => {
@@ -37,16 +44,16 @@ describe("MemoryLedgerStore", () => {
   });
 });
 
-describe("estimateCostCents", () => {
+describe("estimateCostUsdCents", () => {
   it("rounds up to the next cent", () => {
     // 1000 in * 0.015 + 1000 out * 0.06 = 0.075 -> 1 cent.
-    expect(estimateCostCents("gpt-4o-mini", 1000, 1000)).toBe(1);
-    expect(estimateCostCents("gpt-4o-mini", 0, 0)).toBe(0);
+    expect(estimateCostUsdCents("gpt-4o-mini", 1000, 1000)).toBe(1);
+    expect(estimateCostUsdCents("gpt-4o-mini", 0, 0)).toBe(0);
   });
 
   it("falls back to a conservative price for unknown models", () => {
-    expect(estimateCostCents("gpt-future", 1000, 1000)).toBe(
-      estimateCostCents("gpt-5.6-sol", 1000, 1000),
+    expect(estimateCostUsdCents("gpt-future", 1000, 1000)).toBe(
+      estimateCostUsdCents("gpt-5.6-sol", 1000, 1000),
     );
   });
 });

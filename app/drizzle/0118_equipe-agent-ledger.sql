@@ -8,7 +8,7 @@ CREATE TABLE "adscale_equipe"."equipe_agent_ledger" (
 	"task_kind" text NOT NULL,
 	"input_tokens" integer DEFAULT 0 NOT NULL,
 	"output_tokens" integer DEFAULT 0 NOT NULL,
-	"cost_cents" integer DEFAULT 0 NOT NULL,
+	"cost_usd_cents" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "equipe_agent_ledger_role_check" CHECK ("adscale_equipe"."equipe_agent_ledger"."role" in ('strategist', 'research', 'writer', 'reviewer_text', 'reviewer_visual', 'measurement'))
 );

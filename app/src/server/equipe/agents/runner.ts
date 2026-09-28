@@ -2,8 +2,9 @@
 //
 // createEquipeAgents returns the module's `Agents` port: runTask dispatches
 // by kind, records every direct model call in the cost ledger, and refuses
-// new work past the per-account cap with an `agent.budget_exceeded` event.
-// (The exception command itself arrives with #547.)
+// new work past the monthly per-account cap (current São Paulo month) with
+// an `agent.budget_exceeded` event. (The exception command itself arrives
+// with #547.)
 
 import { z } from "zod";
 import type { Agents, AgentTask, AgentTaskResult, EquipeModuleDeps } from "../module/ports";
@@ -11,7 +12,7 @@ import { runArtDirection } from "./art-direction";
 import {
   BUDGET_EXCEEDED_EVENT,
   MemoryLedgerStore,
-  estimateCostCents,
+  estimateCostUsdCents,
   type LedgerStore,
 } from "./ledger";
 import {
@@ -25,7 +26,7 @@ import type { ResearchMaterial } from "./prompts";
 import { runTextReview, runVisualReview } from "./reviewers";
 import {
   isAgentTaskKind,
-  resolveAgentBudgetCents,
+  resolveAgentMonthlyBudgetUsdCents,
   type EquipeAgentRole,
   type EquipeAgentTaskKind,
 } from "./roles";
@@ -93,8 +94,8 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
 
   async function refuseOverBudget(
     task: AgentTask,
-    totalCostCents: number,
-    budgetCents: number,
+    totalCostUsdCents: number,
+    budgetUsdCents: number,
   ): Promise<AgentTaskResult> {
     try {
       await options.moduleDeps.uow.run(async (repos) => {
@@ -105,7 +106,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
             actorId: STRATEGIST_AGENT_ID,
             actorRole: "agent",
             eventType: BUDGET_EXCEEDED_EVENT,
-            payload: { totalCostCents, budgetCents, taskKind: task.kind },
+            payload: { totalCostUsdCents, budgetUsdCents, taskKind: task.kind },
             occurredAt: now(),
           },
         );
@@ -130,10 +131,10 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
         return invalidTask(`invalid_agent_input:${parsedInput.error.issues[0]?.message ?? "invalid"}`);
       }
 
-      const budgetCents = resolveAgentBudgetCents();
-      const totalCostCents = await ledger.totalCostCents(task.workspaceId, task.accountId);
-      if (totalCostCents >= budgetCents) {
-        return refuseOverBudget(task, totalCostCents, budgetCents);
+      const budgetUsdCents = resolveAgentMonthlyBudgetUsdCents();
+      const totalCostUsdCents = await ledger.monthlyTotalCostUsdCents(task.workspaceId, task.accountId, now());
+      if (totalCostUsdCents >= budgetUsdCents) {
+        return refuseOverBudget(task, totalCostUsdCents, budgetUsdCents);
       }
 
       const recordCall = async (call: { model: string; inputTokens: number; outputTokens: number }) => {
@@ -146,7 +147,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
           taskKind: kind,
           inputTokens: call.inputTokens,
           outputTokens: call.outputTokens,
-          costCents: estimateCostCents(call.model, call.inputTokens, call.outputTokens),
+          costUsdCents: estimateCostUsdCents(call.model, call.inputTokens, call.outputTokens),
         });
       };
 

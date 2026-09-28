@@ -221,3 +221,24 @@ export function isWithinAssistedWindow(
 export function itemApprovalDeadline(scheduledAt: Date): Date {
   return new Date(scheduledAt.getTime() - 2 * 3_600_000);
 }
+
+/**
+ * Calendar-month window containing an instant, on the São Paulo civil
+ * calendar: [start, endExclusive). Powers the monthly AI budget cap —
+ * spend counts only inside the current month.
+ */
+export function monthWindow(instant: Date): { start: Date; endExclusive: Date } {
+  const civil = toSaoPauloCivilDate(instant);
+  const nextMonth = civil.month === 12 ? 1 : civil.month + 1;
+  const nextYear = civil.month === 12 ? civil.year + 1 : civil.year;
+  return {
+    start: fromSaoPauloWallTime(civil.year, civil.month, 1),
+    endExclusive: fromSaoPauloWallTime(nextYear, nextMonth, 1),
+  };
+}
+
+/** "YYYY-MM" key of the São Paulo civil month containing an instant. */
+export function monthKey(instant: Date): string {
+  const civil = toSaoPauloCivilDate(instant);
+  return `${civil.year}-${pad2(civil.month)}`;
+}

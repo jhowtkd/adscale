@@ -17702,8 +17702,8 @@
           "notNull": true,
           "default": 0
         },
-        "cost_cents": {
-          "name": "cost_cents",
+        "cost_usd_cents": {
+          "name": "cost_usd_cents",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,

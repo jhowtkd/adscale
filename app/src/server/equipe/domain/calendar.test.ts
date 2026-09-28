@@ -7,6 +7,8 @@ import {
   isHoliday,
   isWithinAssistedWindow,
   itemApprovalDeadline,
+  monthKey,
+  monthWindow,
   toSaoPauloCivilDate,
 } from "./calendar";
 
@@ -109,5 +111,19 @@ describe("item limit", () => {
     const scheduled = fromSaoPauloWallTime(2026, 10, 30, 17, 0);
     const limit = itemApprovalDeadline(scheduled);
     expect(toSaoPauloCivilDate(limit)).toMatchObject({ year: 2026, month: 10, day: 30, hour: 15, minute: 0 });
+  });
+});
+
+describe("month window", () => {
+  it("spans the São Paulo civil month, December wrapping to January", () => {
+    const window = monthWindow(fromSaoPauloWallTime(2026, 12, 15, 12, 30));
+    expect(toSaoPauloCivilDate(window.start)).toMatchObject({ year: 2026, month: 12, day: 1, hour: 0, minute: 0 });
+    expect(toSaoPauloCivilDate(window.endExclusive)).toMatchObject({ year: 2027, month: 1, day: 1, hour: 0, minute: 0 });
+  });
+
+  it("reads the month from the São Paulo wall clock, not UTC", () => {
+    // 2026-09-01T01:00Z is still 2026-08-31 22:00 in São Paulo (UTC-3).
+    expect(monthKey(new Date("2026-09-01T01:00:00.000Z"))).toBe("2026-08");
+    expect(monthKey(new Date("2026-09-01T03:00:00.000Z"))).toBe("2026-09");
   });
 });

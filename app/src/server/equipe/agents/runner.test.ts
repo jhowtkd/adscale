@@ -2,12 +2,15 @@
 
 import { describe, expect, it } from "vitest";
 import type { GenerateSocialPostCopySuccess } from "@/server/application/generate-social-post-copy";
+import { fromSaoPauloWallTime } from "../domain";
 import { makeTestDeps, openTestAccount, uuid } from "../module/testing/deps";
 import { BUDGET_EXCEEDED_EVENT, MemoryLedgerStore } from "./ledger";
 import { EQUIPE_PROMPT_VERSION } from "./prompts";
-import { resolveAgentBudgetCents } from "./roles";
+import { resolveAgentMonthlyBudgetUsdCents } from "./roles";
 import { BUDGET_EXCEEDED_ERROR, createEquipeAgents } from "./runner";
 import { FakeModelClient } from "./testing";
+
+const OCTOBER_NOON = () => fromSaoPauloWallTime(2026, 10, 15, 12, 0);
 
 async function setup() {
   const t = makeTestDeps();
@@ -65,13 +68,13 @@ describe("createEquipeAgents", () => {
       inputTokens: 1000,
       outputTokens: 100,
     });
-    expect(ledger.entries[0]?.costCents).toBeGreaterThan(0);
+    expect(ledger.entries[0]?.costUsdCents).toBeGreaterThan(0);
   });
 
-  it("refuses new work past the cap and emits agent.budget_exceeded", async () => {
+  it("refuses new work past the monthly cap and emits agent.budget_exceeded", async () => {
     const { t, account, ledger } = await setup();
-    const cap = resolveAgentBudgetCents();
-    await ledger.record({
+    const cap = resolveAgentMonthlyBudgetUsdCents();
+    const spent = await ledger.record({
       workspaceId: account.workspaceId,
       accountId: account.accountId,
       role: "strategist",
@@ -80,10 +83,11 @@ describe("createEquipeAgents", () => {
       taskKind: "strategist_turn",
       inputTokens: 0,
       outputTokens: 0,
-      costCents: cap,
+      costUsdCents: cap,
     });
+    spent.createdAt = fromSaoPauloWallTime(2026, 10, 1, 9, 0);
     const client = new FakeModelClient([{ content: "should never run" }]);
-    const agents = createEquipeAgents({ moduleDeps: t.deps, client, ledger });
+    const agents = createEquipeAgents({ moduleDeps: t.deps, client, ledger, now: OCTOBER_NOON });
     const result = await agents.runTask({
       kind: "strategist_turn",
       workspaceId: account.workspaceId,
@@ -99,7 +103,34 @@ describe("createEquipeAgents", () => {
     });
     const refusal = events.find((event) => event.eventType === BUDGET_EXCEEDED_EVENT);
     expect(refusal?.actorType).toBe("agent");
-    expect(refusal?.payload).toMatchObject({ totalCostCents: cap, budgetCents: cap });
+    expect(refusal?.payload).toMatchObject({ totalCostUsdCents: cap, budgetUsdCents: cap });
+  });
+
+  it("ignores last month's spend against the monthly cap", async () => {
+    const { t, account, ledger } = await setup();
+    const cap = resolveAgentMonthlyBudgetUsdCents();
+    const spent = await ledger.record({
+      workspaceId: account.workspaceId,
+      accountId: account.accountId,
+      role: "strategist",
+      model: "gpt-5.6-sol",
+      promptVersion: EQUIPE_PROMPT_VERSION,
+      taskKind: "strategist_turn",
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsdCents: cap,
+    });
+    spent.createdAt = fromSaoPauloWallTime(2026, 9, 30, 23, 59);
+    const client = new FakeModelClient([{ content: "Tudo certo por aqui." }]);
+    const agents = createEquipeAgents({ moduleDeps: t.deps, client, ledger, now: OCTOBER_NOON });
+    const result = await agents.runTask({
+      kind: "strategist_turn",
+      workspaceId: account.workspaceId,
+      accountId: account.accountId,
+      input: { message: "Como está a conta?" },
+    });
+    expect(result.ok).toBe(true);
+    expect(client.requests).toHaveLength(1);
   });
 
   it("delegates writing to the existing caption generator without a ledger entry", async () => {
