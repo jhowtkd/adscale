@@ -150,4 +150,71 @@ describe("envSchema", () => {
     expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", OPENAI_IMAGE_SUNBURST_PERCENT: "101" })).toThrow();
     expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", OPENAI_IMAGE_SUNBURST_QUALITY: "ultra" })).toThrow();
   });
+
+  it("defaults the Equipe agent models and AI budget", () => {
+    const parsed = schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy" });
+    expect(parsed.EQUIPE_MODEL_STRATEGIST).toBe("gpt-5.6-sol");
+    expect(parsed.EQUIPE_MODEL_RESEARCH).toBe("gpt-5.6-sol");
+    expect(parsed.EQUIPE_MODEL_REVIEWER).toBe("gpt-4o-mini");
+    expect(parsed.EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS).toBe(100000);
+  });
+
+  it("refuses a reviewer model equal to the strategist model while the Equipe is on", () => {
+    expect(() =>
+      schema.parse({
+        ...baseEnv,
+        STRIPE_SECRET_KEY: "sk_test_dummy",
+        EQUIPE_ENABLED: "true",
+        EQUIPE_MODEL_STRATEGIST: "gpt-x",
+        EQUIPE_MODEL_REVIEWER: "gpt-x",
+      })
+    ).toThrow(/EQUIPE_MODEL_REVIEWER must differ from the author model EQUIPE_MODEL_STRATEGIST/);
+  });
+
+  it("refuses a reviewer model equal to the writer model while the Equipe is on", () => {
+    expect(() =>
+      schema.parse({
+        ...baseEnv,
+        STRIPE_SECRET_KEY: "sk_test_dummy",
+        EQUIPE_ENABLED: "true",
+        OPENAI_TEXT_MODEL: "gpt-x",
+        EQUIPE_MODEL_REVIEWER: "gpt-x",
+      })
+    ).toThrow(/EQUIPE_MODEL_REVIEWER must differ from the author model OPENAI_TEXT_MODEL/);
+  });
+
+  it("accepts colliding reviewer/author models while the Equipe is off", () => {
+    // Env validation gates app boot: a collision in a disabled feature
+    // must never take the app down (e.g. a future OPENAI_TEXT_MODEL
+    // change to gpt-4o-mini, the reviewer's default).
+    const parsed = schema.parse({
+      ...baseEnv,
+      STRIPE_SECRET_KEY: "sk_test_dummy",
+      EQUIPE_MODEL_STRATEGIST: "gpt-x",
+      OPENAI_TEXT_MODEL: "gpt-x",
+      EQUIPE_MODEL_REVIEWER: "gpt-x",
+    });
+    expect(parsed.EQUIPE_MODEL_REVIEWER).toBe("gpt-x");
+  });
+
+  it("accepts a reviewer model different from every author model", () => {
+    const parsed = schema.parse({
+      ...baseEnv,
+      STRIPE_SECRET_KEY: "sk_test_dummy",
+      EQUIPE_MODEL_STRATEGIST: "gpt-a",
+      OPENAI_TEXT_MODEL: "gpt-b",
+      EQUIPE_MODEL_REVIEWER: "gpt-c",
+    });
+    expect(parsed.EQUIPE_MODEL_REVIEWER).toBe("gpt-c");
+  });
+
+  it("coerces the Equipe AI budget and refuses negatives", () => {
+    expect(
+      schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS: "2500" })
+        .EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS
+    ).toBe(2500);
+    expect(() =>
+      schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS: "-1" })
+    ).toThrow();
+  });
 });

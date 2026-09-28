@@ -109,6 +109,15 @@ services:
         value: "false"
       - key: EQUIPE_PILOT_WORKSPACES
         value: ""
+      # ADScale Equipe agents (#550): OpenAI models per role + monthly per-account AI budget (USD cents).
+      - key: EQUIPE_MODEL_STRATEGIST
+        value: gpt-5.6-sol
+      - key: EQUIPE_MODEL_RESEARCH
+        value: gpt-5.6-sol
+      - key: EQUIPE_MODEL_REVIEWER
+        value: gpt-4o-mini
+      - key: EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS
+        value: "100000"
       - key: BRAND_CORTEX_SINGLE_PIECE_ENABLED
         value: "false"
       - key: STUDIO_CAROUSEL_ROLLOUT_PERCENT
@@ -214,6 +223,15 @@ services:
         value: "false"
       - key: EQUIPE_PILOT_WORKSPACES
         value: ""
+      # ADScale Equipe agents (#550): OpenAI models per role + monthly per-account AI budget (USD cents).
+      - key: EQUIPE_MODEL_STRATEGIST
+        value: gpt-5.6-sol
+      - key: EQUIPE_MODEL_RESEARCH
+        value: gpt-5.6-sol
+      - key: EQUIPE_MODEL_REVIEWER
+        value: gpt-4o-mini
+      - key: EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS
+        value: "100000"
       # Traceability rollout (#397): frozen defaults (capture off). See web
       # service comment; staged execution needs per-stage authorization.
       - key: OBSERVABILITY_ENABLED

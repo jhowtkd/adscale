@@ -78,6 +78,14 @@ export const EQUIPE_ITEM_STATUS = [
   "canceled",
 ] as const;
 export const EQUIPE_ACTOR_TYPE = ["client_person", "staff", "agent", "system"] as const;
+export const EQUIPE_AGENT_ROLE = [
+  "strategist",
+  "research",
+  "writer",
+  "reviewer_text",
+  "reviewer_visual",
+  "measurement",
+] as const;
 export const EQUIPE_ROUND_STATUS = ["open", "closed"] as const;
 export const EQUIPE_SCORE_VERDICT = ["pass", "fail", "critical"] as const;
 export const EQUIPE_SEVERITY = ["low", "medium", "high", "critical"] as const;
@@ -739,5 +747,37 @@ export const equipeEvents = equipeSchema.table(
   (t) => [
     index("equipe_events_account_occurred_idx").on(t.accountId, t.occurredAt),
     check("equipe_events_actor_type_check", inList(t.actorType, EQUIPE_ACTOR_TYPE)),
+  ]
+);
+
+// Ledger de custo dos agentes de IA (#550): uma linha por chamada direta
+// de modelo, com papel, modelo, tokens, custo estimado em centavos de USD
+// e versão do prompt. Append-only; o teto mensal por conta
+// (EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS) soma cost_usd_cents do mês vigente
+// em America/Sao_Paulo.
+// Chamadas delegadas ao motor (Redação, Direção de arte) não passam por
+// aqui: o custo delas segue no spend/cobrança que já existe.
+export const equipeAgentLedger = equipeSchema.table(
+  "equipe_agent_ledger",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => equipeAccounts.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    model: text("model").notNull(),
+    promptVersion: text("prompt_version").notNull(),
+    taskKind: text("task_kind").notNull(),
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    costUsdCents: integer("cost_usd_cents").notNull().default(0),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("equipe_agent_ledger_account_idx").on(t.accountId),
+    check("equipe_agent_ledger_role_check", inList(t.role, EQUIPE_AGENT_ROLE)),
   ]
 );

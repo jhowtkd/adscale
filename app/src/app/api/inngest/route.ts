@@ -1,5 +1,6 @@
 import { serve } from "inngest/next";
 import { inngest } from "@/server/jobs/client";
+import { equipeAgentWorkJob } from "@/server/equipe/agents/agent-work";
 import { derivationJob } from "@/server/jobs/derivation";
 import { trialNotificationJob } from "@/server/jobs/trial-notifications";
 import { workspaceAssetAnalyzeJob } from "@/server/jobs/workspace-asset";
@@ -43,5 +44,6 @@ export const { GET, POST, PUT } = serve({
     creativeWorkLayerRegenerationJob,
     metaAdsSyncJob,
     selectionEffectsProcessorJob,
+    equipeAgentWorkJob,
   ],
 });
