@@ -109,13 +109,25 @@ services:
         value: "false"
       - key: EQUIPE_PILOT_WORKSPACES
         value: ""
-      # ADScale Equipe agents (#550): OpenAI models per role + monthly per-account AI budget (USD cents).
+      # ADScale Equipe agents (#550, multi-provider #588): model + reasoning
+      # level per role, monthly per-account AI budget (USD cents), and the
+      # provider keys (dashboard secrets, never committed).
       - key: EQUIPE_MODEL_STRATEGIST
-        value: gpt-5.6-sol
+        value: claude-opus-5-5
       - key: EQUIPE_MODEL_RESEARCH
-        value: gpt-5.6-sol
+        value: muse-spark-1.3-contributor
       - key: EQUIPE_MODEL_REVIEWER
-        value: gpt-4o-mini
+        value: claude-opus-5-5
+      - key: EQUIPE_EFFORT_STRATEGIST
+        value: high
+      - key: EQUIPE_EFFORT_RESEARCH
+        value: xhigh
+      - key: EQUIPE_EFFORT_REVIEWER
+        value: high
+      - key: META_MODEL_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
       - key: EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS
         value: "100000"
       # ADScale Equipe publication (#548): kill switch off by default; the
@@ -233,13 +245,25 @@ services:
         value: "false"
       - key: EQUIPE_PILOT_WORKSPACES
         value: ""
-      # ADScale Equipe agents (#550): OpenAI models per role + monthly per-account AI budget (USD cents).
+      # ADScale Equipe agents (#550, multi-provider #588): model + reasoning
+      # level per role, monthly per-account AI budget (USD cents), and the
+      # provider keys (dashboard secrets, never committed).
       - key: EQUIPE_MODEL_STRATEGIST
-        value: gpt-5.6-sol
+        value: claude-opus-5-5
       - key: EQUIPE_MODEL_RESEARCH
-        value: gpt-5.6-sol
+        value: muse-spark-1.3-contributor
       - key: EQUIPE_MODEL_REVIEWER
-        value: gpt-4o-mini
+        value: claude-opus-5-5
+      - key: EQUIPE_EFFORT_STRATEGIST
+        value: high
+      - key: EQUIPE_EFFORT_RESEARCH
+        value: xhigh
+      - key: EQUIPE_EFFORT_REVIEWER
+        value: high
+      - key: META_MODEL_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
       - key: EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS
         value: "100000"
       # ADScale Equipe publication (#548): kill switch off by default; the

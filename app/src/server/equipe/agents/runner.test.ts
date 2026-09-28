@@ -71,6 +71,35 @@ describe("createEquipeAgents", () => {
     expect(ledger.entries[0]?.costUsdCents).toBeGreaterThan(0);
   });
 
+  it("records cache reads/writes in the ledger and prices them", async () => {
+    const { t, account, ledger } = await setup();
+    const client = new FakeModelClient([
+      {
+        content: JSON.stringify({ facts: [{ claim: "Fato", source: "Site", section: null }], diagnosis: "Ok." }),
+        usage: { inputTokens: 1000, outputTokens: 100, cacheReadTokens: 9000, cacheWriteTokens: 0 },
+      },
+    ]);
+    const agents = createEquipeAgents({ moduleDeps: t.deps, client, ledger });
+    const result = await agents.runTask({
+      kind: "research",
+      workspaceId: account.workspaceId,
+      accountId: account.accountId,
+      input: { materials: [{ assetId: uuid(), label: "Site", excerpt: "texto" }] },
+    });
+    expect(result.ok).toBe(true);
+    expect(ledger.entries).toHaveLength(1);
+    expect(ledger.entries[0]).toMatchObject({
+      model: "muse-spark-1.3-contributor",
+      inputTokens: 1000,
+      outputTokens: 100,
+      cacheReadTokens: 9000,
+      cacheWriteTokens: 0,
+    });
+    // 1k uncached in * 0.01 + 100 out * 0.02 + 9k cache reads * 0.0002
+    // = 0.01 + 0.002 + 0.0018 = 0.0138 -> 1 cent.
+    expect(ledger.entries[0]?.costUsdCents).toBe(1);
+  });
+
   it("refuses new work past the monthly cap and emits agent.budget_exceeded", async () => {
     const { t, account, ledger } = await setup();
     const cap = resolveAgentMonthlyBudgetUsdCents();
@@ -237,5 +266,107 @@ describe("createEquipeAgents", () => {
       input: { message: "Oi" },
     });
     expect(failed).toEqual({ ok: false, error: "fakeModelClientOutOfResponses" });
+  });
+
+  it("routes each role to the client of its model's provider", async () => {
+    const { t, account, ledger } = await setup();
+    const anthropic = new FakeModelClient([
+      { content: "Tudo certo por aqui." },
+      {
+        content: JSON.stringify({ findings: [], summary: "Limpo." }),
+      },
+    ]);
+    const meta = new FakeModelClient([
+      {
+        content: JSON.stringify({
+          facts: [{ claim: "Fato", source: "Site", section: null }],
+          diagnosis: "Ok.",
+        }),
+      },
+    ]);
+    const agents = createEquipeAgents({
+      moduleDeps: t.deps,
+      clients: { anthropic, meta },
+      ledger,
+    });
+    const scope = { workspaceId: account.workspaceId, accountId: account.accountId };
+    const strategist = await agents.runTask({ kind: "strategist_turn", ...scope, input: { message: "Oi" } });
+    expect(strategist.ok).toBe(true);
+    const research = await agents.runTask({
+      kind: "research",
+      ...scope,
+      input: { materials: [{ assetId: uuid(), label: "Site", excerpt: "texto" }] },
+    });
+    expect(research.ok).toBe(true);
+    const review = await agents.runTask({
+      kind: "review_text",
+      ...scope,
+      input: { copy: { headline: "h", body: "b", cta: "c" } },
+    });
+    expect(review.ok).toBe(true);
+    // Defaults: strategist + reviewer on claude-*, research on muse-*.
+    expect(anthropic.requests.map((request) => request.model)).toEqual([
+      "claude-opus-5-5",
+      "claude-opus-5-5",
+    ]);
+    expect(meta.requests.map((request) => request.model)).toEqual(["muse-spark-1.3-contributor"]);
+  });
+
+  it("fills model and effort from the role config", async () => {
+    const { t, account, ledger } = await setup();
+    const client = new FakeModelClient([
+      { content: "ok" },
+      {
+        content: JSON.stringify({
+          facts: [{ claim: "Fato", source: "Site", section: null }],
+          diagnosis: "Ok.",
+        }),
+      },
+      { content: JSON.stringify({ findings: [], summary: "Limpo." }) },
+    ]);
+    const agents = createEquipeAgents({ moduleDeps: t.deps, client, ledger });
+    const scope = { workspaceId: account.workspaceId, accountId: account.accountId };
+    await agents.runTask({ kind: "strategist_turn", ...scope, input: { message: "Oi" } });
+    await agents.runTask({
+      kind: "research",
+      ...scope,
+      input: { materials: [{ assetId: uuid(), label: "Site", excerpt: "texto" }] },
+    });
+    await agents.runTask({
+      kind: "review_text",
+      ...scope,
+      input: { copy: { headline: "h", body: "b", cta: "c" } },
+    });
+    expect(client.requests.map((request) => [request.model, request.effort])).toEqual([
+      ["claude-opus-5-5", "high"],
+      ["muse-spark-1.3-contributor", "xhigh"],
+      ["claude-opus-5-5", "high"],
+    ]);
+  });
+
+  it("fails the task on typed model failures, never with empty output", async () => {
+    const { t, account, ledger } = await setup();
+    const scope = { workspaceId: account.workspaceId, accountId: account.accountId };
+    const truncated = createEquipeAgents({
+      moduleDeps: t.deps,
+      client: new FakeModelClient([{ content: "metad", stopReason: "max_tokens" }]),
+      ledger,
+    });
+    expect(
+      await truncated.runTask({ kind: "strategist_turn", ...scope, input: { message: "Oi" } }),
+    ).toEqual({ ok: false, error: "model_truncated:strategist_truncated" });
+
+    const refused = createEquipeAgents({
+      moduleDeps: t.deps,
+      client: new FakeModelClient([{ content: null, stopReason: "refusal" }]),
+      ledger,
+    });
+    expect(
+      await refused.runTask({
+        kind: "review_text",
+        ...scope,
+        input: { copy: { headline: "h", body: "b", cta: "c" } },
+      }),
+    ).toEqual({ ok: false, error: "model_refused:text_review_refused" });
   });
 });

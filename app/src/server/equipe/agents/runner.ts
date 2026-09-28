@@ -19,14 +19,29 @@ import {
   ServedAdsMeasurementReader,
   type MeasurementReader,
 } from "./measurement";
-import { OpenAIEquipeModelClient, type EquipeModelClient } from "./model-client";
+import { AnthropicEquipeModelClient } from "./anthropic-client";
+import {
+  EquipeModelRefusalError,
+  EquipeModelTruncatedError,
+  MetaEquipeModelClient,
+  OpenAIEquipeModelClient,
+  type EquipeModelClient,
+  type ModelCallUsage,
+} from "./model-client";
 import { EQUIPE_PROMPT_VERSION } from "./prompts";
+import { resolveEquipeProvider, type EquipeProvider } from "./provider";
 import { runResearch } from "./research";
 import type { ResearchMaterial } from "./prompts";
 import { runTextReview, runVisualReview } from "./reviewers";
 import {
   isAgentTaskKind,
   resolveAgentMonthlyBudgetUsdCents,
+  resolveResearchEffort,
+  resolveResearchModel,
+  resolveReviewerEffort,
+  resolveReviewerModel,
+  resolveStrategistEffort,
+  resolveStrategistModel,
   type EquipeAgentRole,
   type EquipeAgentTaskKind,
 } from "./roles";
@@ -71,7 +86,10 @@ const KIND_ROLES: Record<EquipeAgentTaskKind, EquipeAgentRole> = {
 
 export type EquipeAgentsOptions = {
   moduleDeps: EquipeModuleDeps;
+  /** Single fake for every role (tests). Wins over `clients`. */
   client?: EquipeModelClient;
+  /** Per-provider fakes (tests): routing stays observable, no network. */
+  clients?: Partial<Record<EquipeProvider, EquipeModelClient>>;
   ledger?: LedgerStore;
   measurement?: MeasurementReader;
   writing?: WritingDeps;
@@ -84,10 +102,25 @@ function invalidTask(error: string): AgentTaskResult {
 
 export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
   // Lazy: kinds without a direct model call (writing, art_direction,
-  // measurement) must work without OpenAI credentials configured.
-  let defaultClient: EquipeModelClient | null = null;
-  const getClient = (): EquipeModelClient =>
-    options.client ?? (defaultClient ??= new OpenAIEquipeModelClient());
+  // measurement) must work without model credentials configured. One
+  // cached client per provider; each is built on its first role's run.
+  const providerClients = new Map<EquipeProvider, EquipeModelClient>(
+    Object.entries(options.clients ?? {}) as Array<[EquipeProvider, EquipeModelClient]>,
+  );
+  const clientForModel = (model: string): EquipeModelClient => {
+    if (options.client) return options.client;
+    const provider = resolveEquipeProvider(model);
+    const cached = providerClients.get(provider);
+    if (cached) return cached;
+    const created =
+      provider === "anthropic"
+        ? new AnthropicEquipeModelClient()
+        : provider === "meta"
+          ? new MetaEquipeModelClient()
+          : new OpenAIEquipeModelClient();
+    providerClients.set(provider, created);
+    return created;
+  };
   const ledger = options.ledger ?? new MemoryLedgerStore();
   const measurement = options.measurement ?? new ServedAdsMeasurementReader();
   const now = options.now ?? (() => new Date());
@@ -137,7 +170,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
         return refuseOverBudget(task, totalCostUsdCents, budgetUsdCents);
       }
 
-      const recordCall = async (call: { model: string; inputTokens: number; outputTokens: number }) => {
+      const recordCall = async (call: ModelCallUsage) => {
         await ledger.record({
           workspaceId: task.workspaceId,
           accountId: task.accountId,
@@ -147,7 +180,15 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
           taskKind: kind,
           inputTokens: call.inputTokens,
           outputTokens: call.outputTokens,
-          costUsdCents: estimateCostUsdCents(call.model, call.inputTokens, call.outputTokens),
+          cacheReadTokens: call.cacheReadTokens,
+          cacheWriteTokens: call.cacheWriteTokens,
+          costUsdCents: estimateCostUsdCents(
+            call.model,
+            call.inputTokens,
+            call.outputTokens,
+            call.cacheReadTokens,
+            call.cacheWriteTokens,
+          ),
         });
       };
 
@@ -155,8 +196,11 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
         const input = parsedInput.data as { message?: string; maxIterations?: number } & Record<string, unknown>;
         switch (kind) {
           case "strategist_turn": {
+            const model = resolveStrategistModel();
             const output = await runStrategistTurn({
-              client: getClient(),
+              client: clientForModel(model),
+              model,
+              effort: resolveStrategistEffort(),
               ctx: { deps: options.moduleDeps, workspaceId: task.workspaceId, accountId: task.accountId },
               message: input.message as string,
               maxIterations: input.maxIterations as number | undefined,
@@ -165,8 +209,11 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
             return { ok: true, output };
           }
           case "research": {
+            const model = resolveResearchModel();
             const output = await runResearch({
-              client: getClient(),
+              client: clientForModel(model),
+              model,
+              effort: resolveResearchEffort(),
               materials: input.materials as ResearchMaterial[],
               onModelCall: recordCall,
             });
@@ -190,8 +237,11 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
             return { ok: true, output };
           }
           case "review_text": {
+            const model = resolveReviewerModel();
             const output = await runTextReview({
-              client: getClient(),
+              client: clientForModel(model),
+              model,
+              effort: resolveReviewerEffort(),
               copy: input.copy as { headline: string; body: string; cta: string },
               facts: input.facts as string[] | undefined,
               onModelCall: recordCall,
@@ -199,8 +249,11 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
             return { ok: true, output };
           }
           case "review_visual": {
+            const model = resolveReviewerModel();
             const output = await runVisualReview({
-              client: getClient(),
+              client: clientForModel(model),
+              model,
+              effort: resolveReviewerEffort(),
               imageUrl: input.imageUrl as string,
               brief: input.brief as string,
               onModelCall: recordCall,
@@ -217,6 +270,15 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
           }
         }
       } catch (error) {
+        // Typed model failures fail the task with a prefixed code so the
+        // task record tells them apart: truncation is retryable, refusal
+        // is not. (The pilot job retries nothing yet.)
+        if (error instanceof EquipeModelTruncatedError) {
+          return { ok: false, error: `model_truncated:${error.message}` };
+        }
+        if (error instanceof EquipeModelRefusalError) {
+          return { ok: false, error: `model_refused:${error.message}` };
+        }
         const message = error instanceof Error ? error.message : "agent_task_failed";
         return { ok: false, error: message };
       }

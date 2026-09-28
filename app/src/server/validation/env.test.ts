@@ -151,24 +151,31 @@ describe("envSchema", () => {
     expect(() => schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy", OPENAI_IMAGE_SUNBURST_QUALITY: "ultra" })).toThrow();
   });
 
-  it("defaults the Equipe agent models and AI budget", () => {
+  it("defaults the Equipe agent models, efforts, and AI budget", () => {
     const parsed = schema.parse({ ...baseEnv, STRIPE_SECRET_KEY: "sk_test_dummy" });
-    expect(parsed.EQUIPE_MODEL_STRATEGIST).toBe("gpt-5.6-sol");
-    expect(parsed.EQUIPE_MODEL_RESEARCH).toBe("gpt-5.6-sol");
-    expect(parsed.EQUIPE_MODEL_REVIEWER).toBe("gpt-4o-mini");
+    expect(parsed.EQUIPE_MODEL_STRATEGIST).toBe("claude-opus-5-5");
+    expect(parsed.EQUIPE_MODEL_RESEARCH).toBe("muse-spark-1.3-contributor");
+    expect(parsed.EQUIPE_MODEL_REVIEWER).toBe("claude-opus-5-5");
+    expect(parsed.EQUIPE_EFFORT_STRATEGIST).toBe("high");
+    expect(parsed.EQUIPE_EFFORT_RESEARCH).toBe("xhigh");
+    expect(parsed.EQUIPE_EFFORT_REVIEWER).toBe("high");
+    expect(parsed.META_MODEL_API_KEY).toBeUndefined();
+    expect(parsed.ANTHROPIC_API_KEY).toBeUndefined();
     expect(parsed.EQUIPE_AI_MONTHLY_BUDGET_USD_CENTS).toBe(100000);
   });
 
-  it("refuses a reviewer model equal to the strategist model while the Equipe is on", () => {
+  it("refuses a reviewer model equal to the research model while the Equipe is on", () => {
     expect(() =>
       schema.parse({
         ...baseEnv,
         STRIPE_SECRET_KEY: "sk_test_dummy",
         EQUIPE_ENABLED: "true",
-        EQUIPE_MODEL_STRATEGIST: "gpt-x",
-        EQUIPE_MODEL_REVIEWER: "gpt-x",
+        META_MODEL_API_KEY: "meta-test",
+        ANTHROPIC_API_KEY: "anthropic-test",
+        EQUIPE_MODEL_RESEARCH: "muse-x",
+        EQUIPE_MODEL_REVIEWER: "muse-x",
       })
-    ).toThrow(/EQUIPE_MODEL_REVIEWER must differ from the author model EQUIPE_MODEL_STRATEGIST/);
+    ).toThrow(/EQUIPE_MODEL_REVIEWER must differ from the author model EQUIPE_MODEL_RESEARCH/);
   });
 
   it("refuses a reviewer model equal to the writer model while the Equipe is on", () => {
@@ -177,24 +184,143 @@ describe("envSchema", () => {
         ...baseEnv,
         STRIPE_SECRET_KEY: "sk_test_dummy",
         EQUIPE_ENABLED: "true",
+        META_MODEL_API_KEY: "meta-test",
+        ANTHROPIC_API_KEY: "anthropic-test",
         OPENAI_TEXT_MODEL: "gpt-x",
         EQUIPE_MODEL_REVIEWER: "gpt-x",
       })
     ).toThrow(/EQUIPE_MODEL_REVIEWER must differ from the author model OPENAI_TEXT_MODEL/);
   });
 
+  it("allows the reviewer to share the strategist model", () => {
+    // The strategist orchestrates and never writes the reviewed copy.
+    const parsed = schema.parse({
+      ...baseEnv,
+      STRIPE_SECRET_KEY: "sk_test_dummy",
+      EQUIPE_ENABLED: "true",
+      META_MODEL_API_KEY: "meta-test",
+      ANTHROPIC_API_KEY: "anthropic-test",
+      EQUIPE_MODEL_STRATEGIST: "claude-x",
+      EQUIPE_MODEL_REVIEWER: "claude-x",
+    });
+    expect(parsed.EQUIPE_MODEL_REVIEWER).toBe("claude-x");
+  });
+
+  it("requires the Meta key while a role uses a muse-* model", () => {
+    expect(() =>
+      schema.parse({
+        ...baseEnv,
+        STRIPE_SECRET_KEY: "sk_test_dummy",
+        EQUIPE_ENABLED: "true",
+        ANTHROPIC_API_KEY: "anthropic-test",
+      })
+    ).toThrow(/META_MODEL_API_KEY is required/);
+  });
+
+  it("requires the Anthropic key while a role uses a claude-* model", () => {
+    expect(() =>
+      schema.parse({
+        ...baseEnv,
+        STRIPE_SECRET_KEY: "sk_test_dummy",
+        EQUIPE_ENABLED: "true",
+        META_MODEL_API_KEY: "meta-test",
+      })
+    ).toThrow(/ANTHROPIC_API_KEY is required/);
+  });
+
+  it("requires no provider key when every role stays on OpenAI", () => {
+    const parsed = schema.parse({
+      ...baseEnv,
+      STRIPE_SECRET_KEY: "sk_test_dummy",
+      EQUIPE_ENABLED: "true",
+      EQUIPE_MODEL_STRATEGIST: "gpt-a",
+      EQUIPE_MODEL_RESEARCH: "gpt-b",
+      EQUIPE_MODEL_REVIEWER: "gpt-c",
+    });
+    expect(parsed.EQUIPE_MODEL_REVIEWER).toBe("gpt-c");
+  });
+
+  it("refuses max reasoning with a -contributor model", () => {
+    expect(() =>
+      schema.parse({
+        ...baseEnv,
+        STRIPE_SECRET_KEY: "sk_test_dummy",
+        EQUIPE_ENABLED: "true",
+        META_MODEL_API_KEY: "meta-test",
+        ANTHROPIC_API_KEY: "anthropic-test",
+        EQUIPE_EFFORT_RESEARCH: "max",
+      })
+    ).toThrow(/max reasoning is only available on the Meta Standard tier/);
+  });
+
+  it("accepts max reasoning with a Standard Meta model", () => {
+    const parsed = schema.parse({
+      ...baseEnv,
+      STRIPE_SECRET_KEY: "sk_test_dummy",
+      EQUIPE_ENABLED: "true",
+      META_MODEL_API_KEY: "meta-test",
+      ANTHROPIC_API_KEY: "anthropic-test",
+      EQUIPE_MODEL_RESEARCH: "muse-spark-1.3",
+      EQUIPE_EFFORT_RESEARCH: "max",
+    });
+    expect(parsed.EQUIPE_EFFORT_RESEARCH).toBe("max");
+  });
+
+  it("refuses minimal reasoning for Anthropic models", () => {
+    expect(() =>
+      schema.parse({
+        ...baseEnv,
+        STRIPE_SECRET_KEY: "sk_test_dummy",
+        EQUIPE_ENABLED: "true",
+        META_MODEL_API_KEY: "meta-test",
+        ANTHROPIC_API_KEY: "anthropic-test",
+        EQUIPE_EFFORT_STRATEGIST: "minimal",
+      })
+    ).toThrow(/minimal reasoning is not an Anthropic effort level/);
+  });
+
+  it("accepts minimal reasoning for Meta models", () => {
+    const parsed = schema.parse({
+      ...baseEnv,
+      STRIPE_SECRET_KEY: "sk_test_dummy",
+      EQUIPE_ENABLED: "true",
+      META_MODEL_API_KEY: "meta-test",
+      ANTHROPIC_API_KEY: "anthropic-test",
+      EQUIPE_EFFORT_RESEARCH: "minimal",
+    });
+    expect(parsed.EQUIPE_EFFORT_RESEARCH).toBe("minimal");
+  });
+
   it("accepts colliding reviewer/author models while the Equipe is off", () => {
     // Env validation gates app boot: a collision in a disabled feature
     // must never take the app down (e.g. a future OPENAI_TEXT_MODEL
-    // change to gpt-4o-mini, the reviewer's default).
+    // change to claude-opus-5-5, the reviewer's default).
     const parsed = schema.parse({
       ...baseEnv,
       STRIPE_SECRET_KEY: "sk_test_dummy",
       EQUIPE_MODEL_STRATEGIST: "gpt-x",
+      EQUIPE_MODEL_RESEARCH: "gpt-x",
       OPENAI_TEXT_MODEL: "gpt-x",
       EQUIPE_MODEL_REVIEWER: "gpt-x",
     });
     expect(parsed.EQUIPE_MODEL_REVIEWER).toBe("gpt-x");
+  });
+
+  it("enforces nothing Equipe while EQUIPE_ENABLED is false", () => {
+    // Every rule below would fire while on: reviewer==author, max with
+    // a Contributor model, minimal with an Anthropic model, and both
+    // provider keys missing. While off, all of it parses.
+    const parsed = schema.parse({
+      ...baseEnv,
+      STRIPE_SECRET_KEY: "sk_test_dummy",
+      EQUIPE_ENABLED: "false",
+      EQUIPE_MODEL_RESEARCH: "muse-spark-1.3-contributor",
+      EQUIPE_MODEL_REVIEWER: "muse-spark-1.3-contributor",
+      EQUIPE_EFFORT_RESEARCH: "max",
+      EQUIPE_MODEL_STRATEGIST: "claude-x",
+      EQUIPE_EFFORT_STRATEGIST: "minimal",
+    });
+    expect(parsed.EQUIPE_MODEL_REVIEWER).toBe("muse-spark-1.3-contributor");
   });
 
   it("accepts a reviewer model different from every author model", () => {
@@ -202,10 +328,11 @@ describe("envSchema", () => {
       ...baseEnv,
       STRIPE_SECRET_KEY: "sk_test_dummy",
       EQUIPE_MODEL_STRATEGIST: "gpt-a",
-      OPENAI_TEXT_MODEL: "gpt-b",
-      EQUIPE_MODEL_REVIEWER: "gpt-c",
+      EQUIPE_MODEL_RESEARCH: "gpt-b",
+      OPENAI_TEXT_MODEL: "gpt-c",
+      EQUIPE_MODEL_REVIEWER: "gpt-d",
     });
-    expect(parsed.EQUIPE_MODEL_REVIEWER).toBe("gpt-c");
+    expect(parsed.EQUIPE_MODEL_REVIEWER).toBe("gpt-d");
   });
 
   it("coerces the Equipe AI budget and refuses negatives", () => {

@@ -104,6 +104,106 @@ describe("strategist tools", () => {
     expect(proposal?.actorId).toBe(STRATEGIST_AGENT_ID);
   });
 
+  it("sends the role effort and a reasoning-sized limit on every step", async () => {
+    const t = makeTestDeps();
+    const account = await openTestAccount(t);
+    const client = new FakeModelClient([
+      {
+        content: null,
+        toolCalls: [{ id: "call-1", name: "get_goals", argumentsJson: "{}" }],
+      },
+      { content: "Resumo." },
+    ]);
+    await runStrategistTurn({
+      client,
+      ctx: { deps: t.deps, workspaceId: account.workspaceId, accountId: account.accountId },
+      message: "Metas?",
+    });
+    expect(client.requests).toHaveLength(2);
+    for (const request of client.requests) {
+      expect(request.model).toBe("claude-opus-5-5");
+      expect(request.effort).toBe("high");
+      expect(request.maxTokens).toBe(16000);
+    }
+  });
+
+  it("sends cache auto with identical system/tools bytes on every iteration", async () => {
+    const t = makeTestDeps();
+    const account = await openTestAccount(t);
+    const client = new FakeModelClient([
+      {
+        content: null,
+        toolCalls: [{ id: "call-1", name: "get_goals", argumentsJson: "{}" }],
+      },
+      { content: "Resumo." },
+    ]);
+    await runStrategistTurn({
+      client,
+      ctx: { deps: t.deps, workspaceId: account.workspaceId, accountId: account.accountId },
+      message: "Metas?",
+    });
+    expect(client.requests).toHaveLength(2);
+    for (const request of client.requests) {
+      expect(request.cache).toBe("auto");
+    }
+    const systems = client.requests.map((request) =>
+      request.messages.filter((message) => message.role === "system"),
+    );
+    expect(systems[0]).toHaveLength(1);
+    expect(JSON.stringify(systems[1])).toBe(JSON.stringify(systems[0]));
+    const tools = client.requests.map((request) => JSON.stringify(request.tools));
+    expect(tools[1]).toBe(tools[0]);
+  });
+
+  it("replays the assistant providerContent unchanged on the next iteration", async () => {
+    const t = makeTestDeps();
+    const account = await openTestAccount(t);
+    const providerContent = [
+      { type: "thinking", thinking: "sigilo", signature: "sig-1" },
+      { type: "tool_use", id: "call-1", name: "get_goals", input: {} },
+    ];
+    const client = new FakeModelClient([
+      {
+        content: null,
+        toolCalls: [{ id: "call-1", name: "get_goals", argumentsJson: "{}" }],
+        stopReason: "tool_calls",
+        providerContent,
+      },
+      { content: "Resumo." },
+    ]);
+    await runStrategistTurn({
+      client,
+      ctx: { deps: t.deps, workspaceId: account.workspaceId, accountId: account.accountId },
+      message: "Metas?",
+    });
+    expect(client.requests).toHaveLength(2);
+    const assistant = client.requests[1]?.messages.find((message) => message.role === "assistant");
+    expect(assistant).toMatchObject({ role: "assistant" });
+    expect(assistant && assistant.role === "assistant" ? assistant.providerContent : undefined).toBe(
+      providerContent,
+    );
+  });
+
+  it("fails the turn on refusal or truncation instead of answering", async () => {
+    const t = makeTestDeps();
+    const account = await openTestAccount(t);
+    const ctx = { deps: t.deps, workspaceId: account.workspaceId, accountId: account.accountId };
+    await expect(
+      runStrategistTurn({
+        client: new FakeModelClient([{ content: null, stopReason: "refusal" }]),
+        ctx,
+        message: "Oi",
+      }),
+    ).rejects.toThrow("strategist_refused");
+    await expect(
+      runStrategistTurn({
+        client: new FakeModelClient([{ content: "metad", stopReason: "max_tokens" }]),
+        ctx,
+        message: "Oi",
+      }),
+    ).rejects.toThrow("strategist_truncated");
+  });
+
   it("feeds tool errors back to the model instead of crashing", async () => {
     const t = makeTestDeps();
     const account = await openTestAccount(t);

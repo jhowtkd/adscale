@@ -191,9 +191,7 @@ export type ModelLoadOptions = {
 };
 
 function formatNameOf(request: ModelCallRequest): string | null {
-  const format = request.responseFormat as { json_schema?: { name?: unknown } } | null;
-  const name = format?.json_schema?.name;
-  return typeof name === "string" ? name : null;
+  return request.output?.name ?? null;
 }
 
 /**
@@ -219,8 +217,9 @@ export class LoadModelClient implements EquipeModelClient {
     if (request.tools && request.tools.length > 0) {
       return { key: "strategist", load: this.options.strategist };
     }
-    if (request.maxTokens === 1500) return { key: "reviewer", load: this.options.reviewer };
-    if (request.maxTokens === 2000) return { key: "research", load: this.options.research };
+    // Every role sends the same reasoning-sized limit since #588, so the
+    // output name above is the only role signal; anything nameless is a
+    // strategist turn.
     return { key: "strategist", load: this.options.strategist };
   }
 
@@ -237,7 +236,12 @@ export class LoadModelClient implements EquipeModelClient {
       inputTokens: load.inputTokens,
       outputTokens: load.outputTokens,
     });
-    const usage = { inputTokens: load.inputTokens, outputTokens: load.outputTokens };
+    const usage = {
+      inputTokens: load.inputTokens,
+      outputTokens: load.outputTokens,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    };
     if (key === "research") {
       return {
         content: JSON.stringify({
@@ -246,6 +250,7 @@ export class LoadModelClient implements EquipeModelClient {
         }),
         toolCalls: [],
         usage,
+        stopReason: "stop",
       };
     }
     if (key === "reviewer") {
@@ -263,6 +268,7 @@ export class LoadModelClient implements EquipeModelClient {
         }),
         toolCalls: [],
         usage,
+        stopReason: "stop",
       };
     }
     const sawAssistant = request.messages.some((message) => message.role === "assistant");
@@ -271,12 +277,14 @@ export class LoadModelClient implements EquipeModelClient {
         content: null,
         toolCalls: [{ id: `call_${this.calls.length}`, name: "get_account_state", argumentsJson: "{}" }],
         usage,
+        stopReason: "tool_calls",
       };
     }
     return {
       content: "Leitura semanal registrada. Nada pendente além das aprovações em aberto.",
       toolCalls: [],
       usage,
+      stopReason: "stop",
     };
   }
 }

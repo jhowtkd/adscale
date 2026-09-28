@@ -18,9 +18,17 @@ import {
   type CommandType,
 } from "../module/envelope";
 import { getAccountState, getGoalsView } from "../module/queries";
-import type { EquipeModelClient, ModelMessage, ModelTool } from "./model-client";
+import {
+  EquipeModelRefusalError,
+  EquipeModelTruncatedError,
+  type EquipeModelClient,
+  type ModelCallUsage,
+  type ModelMessage,
+  type ModelTool,
+} from "./model-client";
+import type { EquipeEffort } from "./provider";
 import { EQUIPE_PROMPT_VERSION, strategistSystemPrompt } from "./prompts";
-import { resolveStrategistModel } from "./roles";
+import { resolveStrategistEffort, resolveStrategistModel } from "./roles";
 
 export const STRATEGIST_AGENT_ID = "estrategista";
 
@@ -197,7 +205,9 @@ export type StrategistTurnInput = {
   message: string;
   maxIterations?: number;
   model?: string;
-  onModelCall?: (call: { model: string; inputTokens: number; outputTokens: number }) => Promise<void>;
+  effort?: EquipeEffort;
+  maxTokens?: number;
+  onModelCall?: (call: ModelCallUsage) => Promise<void>;
 };
 
 export type StrategistTurnResult = {
@@ -209,9 +219,19 @@ export type StrategistTurnResult = {
 
 const DEFAULT_MAX_ITERATIONS = 6;
 
+/** Covers thinking + answer on the reasoning providers (Anthropic, Meta). */
+export const STRATEGIST_MAX_TOKENS = 16000;
+
 export async function runStrategistTurn(input: StrategistTurnInput): Promise<StrategistTurnResult> {
   const model = input.model ?? resolveStrategistModel();
+  const effort = input.effort ?? resolveStrategistEffort();
+  const maxTokens = input.maxTokens ?? STRATEGIST_MAX_TOKENS;
   const maxIterations = input.maxIterations ?? DEFAULT_MAX_ITERATIONS;
+  // Cache-prefix stability: the SAME tools array (stable order, stable
+  // schema key order) and the SAME static system prompt go out on every
+  // iteration; account state travels in messages/tool results only, and
+  // history below is append-only — so each iteration reuses the
+  // previous one's cached prefix (Anthropic cache: auto).
   const tools = buildStrategistTools(input.ctx);
   const messages: ModelMessage[] = [
     { role: "system", content: strategistSystemPrompt() },
@@ -221,12 +241,16 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
   let iterations = 0;
   for (;;) {
     iterations += 1;
-    const response = await input.client.chat({ model, messages, tools });
-    await input.onModelCall?.({
-      model,
-      inputTokens: response.usage.inputTokens,
-      outputTokens: response.usage.outputTokens,
-    });
+    const response = await input.client.chat({ model, messages, tools, effort, maxTokens, cache: "auto" });
+    await input.onModelCall?.({ model, ...response.usage });
+    // History is append-only: a truncated or refused turn fails instead of
+    // editing or dropping messages inside the loop.
+    if (response.stopReason === "refusal") {
+      throw new EquipeModelRefusalError("strategist_refused");
+    }
+    if (response.stopReason === "max_tokens") {
+      throw new EquipeModelTruncatedError("strategist_truncated");
+    }
     if (response.toolCalls.length === 0 || iterations >= maxIterations) {
       return {
         text: response.content,
@@ -235,7 +259,12 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
         promptVersion: EQUIPE_PROMPT_VERSION,
       };
     }
-    messages.push({ role: "assistant", content: response.content, toolCalls: response.toolCalls });
+    messages.push({
+      role: "assistant",
+      content: response.content,
+      toolCalls: response.toolCalls,
+      ...(response.providerContent !== undefined ? { providerContent: response.providerContent } : {}),
+    });
     for (const call of response.toolCalls) {
       toolCallsExecuted += 1;
       const execution = await executeStrategistTool(tools, call.name, call.argumentsJson);
