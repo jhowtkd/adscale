@@ -16,6 +16,7 @@ vi.mock("next-intl/server", () => ({
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
 import { AUTH_ERROR_CODES, WorkspaceAuthError } from "@/server/auth/errors";
+import { deliverTestBatch } from "@/server/equipe/module/testing/items";
 import { makeTestDeps, openTestAccount } from "@/server/equipe/module/testing/deps";
 
 const mockRequireAccess = vi.mocked(requireWorkspaceAccess);
@@ -66,6 +67,24 @@ describe("GET /api/equipe/accounts/[accountId]/pipeline", () => {
       "missed",
     ]);
     expect(body.items).toEqual([]);
+  });
+
+  it("carries each item's title and thumbnail source in the read model", async () => {
+    const { t, account } = await seed();
+    const { itemIds } = await deliverTestBatch(
+      t,
+      { workspaceId: account.workspaceId, accountId: account.accountId, actors: account.actors },
+      { items: [{ caption: "Card caption" }] },
+    );
+
+    const res = await callGet(account.accountId);
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const found = body.items.find((entry: { item: { id: string } }) => entry.item.id === itemIds[0]);
+    expect(found.preview).toMatchObject({ caption: "Card caption" });
+    expect(found.preview.versionHash).toBe(found.item.currentVersionHash);
+    expect(typeof found.preview.creativeWorkOutputId).toBe("string");
   });
 
   it("returns 400 for a malformed account id", async () => {

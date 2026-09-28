@@ -16,14 +16,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { pauseEquipePublications, requestEquipeSupport } from "@/lib/equipe/commands";
-import { useInvalidateEquipe } from "@/lib/equipe/use-equipe";
+import {
+  EquipeCommandError,
+  pauseEquipePublications,
+  requestEquipeSupport,
+  resumeEquipePause,
+} from "@/lib/equipe/commands";
+import { useEquipeAccountState, useInvalidateEquipe } from "@/lib/equipe/use-equipe";
 import EquipeViewSelector from "./EquipeViewSelector";
 
 // Header actions shared by the client screens: the Painel|Pipeline selector,
-// "Pausar publicações" (client pause command) and "Falar com uma pessoa"
-// (request_support). Both commands are reason-optional; the dialogs explain
-// what each one does before anything is sent.
+// "Pausar publicações" (client pause command, or "Retomar publicações" while
+// the client's own pause is active) and "Falar com uma pessoa"
+// (request_support). The dialogs explain what each one does before anything
+// is sent; the module decides who may resume, and a 403 says so plainly.
 
 function useCommandRunner(accountId: string | null) {
   const t = useTranslations("equipe.topActions");
@@ -115,6 +121,88 @@ export function PausePublicationsButton({ accountId }: { accountId: string | nul
   );
 }
 
+export function ResumePublicationsButton({
+  accountId,
+  pauseId,
+}: {
+  accountId: string | null;
+  pauseId: string;
+}) {
+  const t = useTranslations("equipe.topActions");
+  const invalidate = useInvalidateEquipe(accountId);
+  const [open, setOpen] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const ready = Boolean(accountId);
+
+  const run = async () => {
+    if (!accountId || isPending) return;
+    setIsPending(true);
+    try {
+      await resumeEquipePause(accountId, { pauseId });
+      toast.success(t("resumeDone"));
+      setOpen(false);
+      invalidate();
+    } catch (error) {
+      toast.error(
+        error instanceof EquipeCommandError && error.status === 403
+          ? t("resumeForbidden")
+          : t("commandError"),
+      );
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={!ready || isPending}
+        onClick={() => setOpen(true)}
+        data-testid="equipe-resume-button"
+      >
+        {t("resume")}
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent data-testid="equipe-resume-dialog">
+          <DialogHeader>
+            <DialogTitle>{t("resumeTitle")}</DialogTitle>
+            <DialogDescription>{t("resumeExplainer")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button type="button" variant="ghost" size="sm" />}>
+              {t("cancel")}
+            </DialogClose>
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              disabled={isPending}
+              onClick={() => void run()}
+              data-testid="equipe-resume-confirm"
+            >
+              {isPending ? t("sending") : t("resumeConfirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function PauseOrResume({ accountId }: { accountId: string | null }) {
+  const { data } = useEquipeAccountState(accountId);
+  const clientPause = data?.activePauses?.find(
+    (pause) => pause.origin === "client" && pause.status === "active",
+  );
+  if (clientPause) {
+    return <ResumePublicationsButton accountId={accountId} pauseId={clientPause.id} />;
+  }
+  return <PausePublicationsButton accountId={accountId} />;
+}
+
 export function RequestSupportButton({ accountId }: { accountId: string | null }) {
   const t = useTranslations("equipe.topActions");
   const { isPending, run } = useCommandRunner(accountId);
@@ -188,7 +276,7 @@ export default function EquipeTopActions({
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="equipe-top-actions">
       <EquipeViewSelector active={active} />
-      <PausePublicationsButton accountId={accountId} />
+      <PauseOrResume accountId={accountId} />
       <RequestSupportButton accountId={accountId} />
     </div>
   );

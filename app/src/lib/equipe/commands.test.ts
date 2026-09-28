@@ -121,6 +121,23 @@ describe("equipe commands", () => {
     expect((error as EquipeCommandError).status).toBe(409);
   });
 
+  it("carries the API's reason on conflicts so the UI can show it", async () => {
+    mockedFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: "invalid_transition",
+        code: "invalid_transition",
+        details: { message: "no proposed plan version" },
+      }),
+    } as Response);
+    const error = await approveEquipeItem("acc-1", { itemId: "i", versionHash: "v" }).catch(
+      (err: unknown) => err,
+    );
+    expect(error).toBeInstanceOf(EquipeCommandError);
+    expect((error as EquipeCommandError).detail).toBe("no proposed plan version");
+  });
+
   it("parses per-item batch results defensively", () => {
     expect(
       parseBatchResults({

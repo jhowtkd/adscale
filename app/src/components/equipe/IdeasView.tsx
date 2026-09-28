@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Lightbulb } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogBody,
@@ -14,10 +16,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import PageFrame from "@/components/layout/PageFrame";
 import PageHeader from "@/components/layout/PageHeader";
 import type { EquipeIdeaJson } from "@/lib/equipe/api";
-import { useEquipeAccounts, useEquipeIdeas } from "@/lib/equipe/use-equipe";
+import { decideEquipeIdea, EquipeCommandError } from "@/lib/equipe/commands";
+import { useEquipeAccounts, useEquipeIdeas, useInvalidateEquipe } from "@/lib/equipe/use-equipe";
 import EquipeTopActions from "./EquipeTopActions";
 import {
   EquipeAccountSwitcher,
@@ -29,10 +33,10 @@ import {
 } from "./EquipeAccountStates";
 import { formatDateTime } from "./equipe-format";
 
-// Estrategista proposals (C2) with a detail panel. The API exposes no idea
-// decision command, so this screen is read-only: accepting an idea happens
-// when its plan or mandate proposal arrives for approval, and the panel says
-// so. "Conversar" leads to the conversation.
+// Estrategista proposals (C2) with a detail panel. Open ideas are decided
+// here: approving echoes the server-provided versionHash and generates the
+// new Plan/Mandate version straight away; rejecting takes an optional
+// reason. "Conversar" leads to the conversation.
 
 function ideaText(idea: EquipeIdeaJson): { title: string; summary: string | null; rest: Array<[string, string]> } {
   const payload = idea.payload ?? {};
@@ -74,7 +78,109 @@ function IdeaStatusPill({ status }: { status: string }) {
   );
 }
 
-function IdeaDetail({ idea }: { idea: EquipeIdeaJson }) {
+function decideMessage(error: unknown, t: (key: string) => string): string {
+  if (error instanceof EquipeCommandError) {
+    if (error.code === "stale_version") return t("staleVersion");
+    if (error.status === 403) return t("forbidden");
+    if (error.status === 409 && error.detail) return error.detail;
+  }
+  return t("decideError");
+}
+
+function IdeaDecision({ accountId, idea }: { accountId: string; idea: EquipeIdeaJson }) {
+  const t = useTranslations("equipe.ideas");
+  const invalidate = useInvalidateEquipe(accountId);
+  const [isPending, setIsPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState("");
+
+  if (idea.status !== "proposed" || !idea.versionHash) return null;
+  const versionHash = idea.versionHash;
+  const run = async (decision: "approve" | "reject", done: string): Promise<boolean> => {
+    if (isPending) return false;
+    setIsPending(true);
+    setError(null);
+    try {
+      await decideEquipeIdea(accountId, {
+        ideaId: idea.id,
+        decision,
+        expectedVersionHash: versionHash,
+        ...(decision === "reject" && reason.trim() ? { reason: reason.trim() } : {}),
+      });
+      toast.success(done);
+      setRejecting(false);
+      setReason("");
+      invalidate();
+      return true;
+    } catch (err) {
+      setError(decideMessage(err, t));
+      invalidate();
+      return false;
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2" data-testid="idea-decision">
+      <p className="text-xs text-[var(--text-secondary)]">{t("decideExplainer")}</p>
+      {error ? (
+        <p className="text-xs text-[var(--danger-text)]" role="alert" data-testid="idea-decide-error">
+          {error}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="default"
+          size="sm"
+          disabled={isPending}
+          onClick={() => void run("approve", t("approved"))}
+          data-testid="idea-approve"
+        >
+          {t("approve")}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={isPending}
+          onClick={() => setRejecting((open) => !open)}
+          data-testid="idea-reject-toggle"
+        >
+          {t("reject")}
+        </Button>
+      </div>
+      {rejecting ? (
+        <div className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-[var(--border-subtle)] p-3">
+          <Textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            rows={2}
+            placeholder={t("reasonOptional")}
+            aria-label={t("reasonOptional")}
+            data-testid="idea-reject-reason"
+          />
+          <div>
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              disabled={isPending}
+              onClick={() => void run("reject", t("rejected"))}
+              data-testid="idea-reject-send"
+            >
+              {t("rejectConfirm")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function IdeaDetail({ accountId, idea }: { accountId: string; idea: EquipeIdeaJson }) {
   const t = useTranslations("equipe.ideas");
   const locale = useLocale();
   const { title, summary, rest } = ideaText(idea);
@@ -126,12 +232,7 @@ function IdeaDetail({ idea }: { idea: EquipeIdeaJson }) {
               .join(" · ")}
           </p>
         ) : null}
-        <p
-          className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-inset)] px-3 py-2 text-xs text-[var(--text-secondary)]"
-          data-testid="idea-readonly-note"
-        >
-          {t("readOnlyNote")}
-        </p>
+        <IdeaDecision accountId={accountId} idea={idea} />
         <div>
           <Link
             href="/assistant"
@@ -146,7 +247,7 @@ function IdeaDetail({ idea }: { idea: EquipeIdeaJson }) {
   );
 }
 
-function IdeasBoard({ ideas }: { ideas: EquipeIdeaJson[] }) {
+function IdeasBoard({ accountId, ideas }: { accountId: string; ideas: EquipeIdeaJson[] }) {
   const t = useTranslations("equipe.ideas");
   const locale = useLocale();
   const router = useRouter();
@@ -220,7 +321,7 @@ function IdeasBoard({ ideas }: { ideas: EquipeIdeaJson[] }) {
       </ul>
       <Dialog open={Boolean(selected)} onOpenChange={(open) => { if (!open) closeIdea(); }}>
         <DialogContent size="md" data-testid="idea-detail">
-          {selected ? <IdeaDetail idea={selected} /> : null}
+          {selected ? <IdeaDetail accountId={accountId} idea={selected} /> : null}
         </DialogContent>
       </Dialog>
     </>
@@ -266,7 +367,7 @@ export default function IdeasView() {
           <EquipeErrorNotice onRetry={() => void ideasQuery.refetch()} />
         ) : null}
         {selected && ideasQuery.data ? (
-          <IdeasBoard ideas={ideasQuery.data.ideas} />
+          <IdeasBoard accountId={selected} ideas={ideasQuery.data.ideas} />
         ) : null}
       </div>
     </PageFrame>

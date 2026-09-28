@@ -149,7 +149,7 @@ function PipelineBoard({ accountId, pipeline }: { accountId: string; pipeline: C
                 <p className="px-1 py-2 text-xs text-[var(--text-muted)]">{t("columnEmpty")}</p>
               ) : (
                 views.map((view) => (
-                  <PipelineCard key={view.item.id} accountId={accountId} view={view} />
+                  <PipelineCard key={view.item.id} view={view} />
                 ))
               )}
             </PipelineColumn>
@@ -165,7 +165,7 @@ function PipelineBoard({ accountId, pipeline }: { accountId: string; pipeline: C
           </h2>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
             {missed.map((view) => (
-              <PipelineCard key={view.item.id} accountId={accountId} view={view} />
+              <PipelineCard key={view.item.id} view={view} />
             ))}
           </div>
         </section>

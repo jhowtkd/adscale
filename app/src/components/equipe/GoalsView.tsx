@@ -12,6 +12,7 @@ import type {
   EquipeMandateJson,
   EquipeOnboardingStepJson,
   EquipePlanJson,
+  GoalsDecisionsJson,
 } from "@/lib/equipe/api";
 import {
   useEquipeAccounts,
@@ -19,6 +20,15 @@ import {
   useEquipeGoals,
 } from "@/lib/equipe/use-equipe";
 import EquipeTopActions, { RequestSupportButton } from "./EquipeTopActions";
+import {
+  BrandVoiceCard,
+  ConnectionStepAction,
+  ContextStepActions,
+  MandateStepActions,
+  MaterialsAction,
+  PlanStepAction,
+  ScopeConfirmAction,
+} from "./GoalsActions";
 import {
   EquipeAccountSwitcher,
   EquipeDisabledNotice,
@@ -58,7 +68,61 @@ function StepStatusPill({ status }: { status: string }) {
   return <Badge variant={tone}>{t.has(key) ? t(key) : status}</Badge>;
 }
 
-function ImplantationSteps({ steps }: { steps: EquipeOnboardingStepJson[] }) {
+function StepAction({
+  accountId,
+  step,
+  decisions,
+  mandates,
+  locale,
+}: {
+  accountId: string;
+  step: string;
+  decisions: GoalsDecisionsJson;
+  mandates: EquipeMandateJson[];
+  locale: string;
+}) {
+  switch (step) {
+    case "scope_confirm":
+      return <ScopeConfirmAction accountId={accountId} scope={decisions.scope} />;
+    case "materials":
+      return <MaterialsAction accountId={accountId} materials={decisions.materials} />;
+    case "context":
+      return (
+        <ContextStepActions
+          accountId={accountId}
+          sections={decisions.contextSections}
+          conflicts={decisions.conflicts}
+        />
+      );
+    case "plan":
+      return <PlanStepAction accountId={accountId} plan={decisions.plan} />;
+    case "mandate":
+      return (
+        <MandateStepActions
+          accountId={accountId}
+          mandates={decisions.mandates}
+          rows={mandates}
+          locale={locale}
+        />
+      );
+    case "connection":
+      return <ConnectionStepAction accountId={accountId} connection={decisions.connection} />;
+    default:
+      return null;
+  }
+}
+
+function ImplantationSteps({
+  accountId,
+  steps,
+  decisions,
+  mandates,
+}: {
+  accountId: string;
+  steps: EquipeOnboardingStepJson[];
+  decisions: GoalsDecisionsJson;
+  mandates: EquipeMandateJson[];
+}) {
   const t = useTranslations("equipe.goals");
   const locale = useLocale();
   const ordered = useMemo(() => {
@@ -81,33 +145,44 @@ function ImplantationSteps({ steps }: { steps: EquipeOnboardingStepJson[] }) {
             <li
               key={step.id}
               data-testid={`goals-step-${step.step}`}
-              className="flex items-start gap-3 rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3"
+              className="rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3"
             >
-              <span
-                aria-hidden="true"
-                className={
-                  step.status === "done"
-                    ? "grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[var(--success-bg)] text-[var(--success-text)]"
-                    : "h-5 w-5 shrink-0 rounded border border-[var(--border-strong)]"
-                }
-              >
-                {step.status === "done" ? <Check size={14} /> : null}
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="text-sm font-medium text-[var(--text-primary)]">
-                  {t.has(key) ? t(key) : step.step}
+              <div className="flex items-start gap-3">
+                <span
+                  aria-hidden="true"
+                  className={
+                    step.status === "done"
+                      ? "grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[var(--success-bg)] text-[var(--success-text)]"
+                      : "h-5 w-5 shrink-0 rounded border border-[var(--border-strong)]"
+                  }
+                >
+                  {step.status === "done" ? <Check size={14} /> : null}
                 </span>
-                <span className="text-xs text-[var(--text-muted)]">
-                  {[
-                    step.owner,
-                    due ? t("dueAt", { date: due }) : null,
-                    completed ? t("completedAt", { date: completed }) : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || "—"}
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="text-sm font-medium text-[var(--text-primary)]">
+                    {t.has(key) ? t(key) : step.step}
+                  </span>
+                  <span className="text-xs text-[var(--text-muted)]">
+                    {[
+                      step.owner,
+                      due ? t("dueAt", { date: due }) : null,
+                      completed ? t("completedAt", { date: completed }) : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
+                  </span>
                 </span>
-              </span>
-              <StepStatusPill status={step.status} />
+                <StepStatusPill status={step.status} />
+              </div>
+              <div className="mt-2">
+                <StepAction
+                  accountId={accountId}
+                  step={step.step}
+                  decisions={decisions}
+                  mandates={mandates}
+                  locale={locale}
+                />
+              </div>
             </li>
           );
         })}
@@ -286,6 +361,7 @@ function GoalsBoard({
   plan,
   mandates,
   onboarding,
+  decisions,
 }: {
   accountId: string;
   accountStatus: string;
@@ -293,11 +369,22 @@ function GoalsBoard({
   plan: EquipePlanJson | null;
   mandates: EquipeMandateJson[];
   onboarding: EquipeOnboardingStepJson[];
+  decisions: GoalsDecisionsJson;
 }) {
   const inOperation = accountStatus === "active";
   return (
     <div className="flex flex-col gap-6">
-      {!inOperation ? <ImplantationSteps steps={onboarding} /> : null}
+      {!inOperation ? (
+        <ImplantationSteps
+          accountId={accountId}
+          steps={onboarding}
+          decisions={decisions}
+          mandates={mandates}
+        />
+      ) : null}
+      {!inOperation ? (
+        <BrandVoiceCard accountId={accountId} brandVoice={decisions.brandVoice} />
+      ) : null}
       <FrontsState fronts={fronts} />
       <PlanState plan={plan} />
       <MandatesState mandates={mandates} fronts={fronts} />
@@ -361,6 +448,7 @@ export default function GoalsView() {
             plan={goalsQuery.data.plan}
             mandates={goalsQuery.data.mandates}
             onboarding={goalsQuery.data.onboarding}
+            decisions={goalsQuery.data.decisions}
           />
         ) : null}
       </div>

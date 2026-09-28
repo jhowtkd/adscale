@@ -12,6 +12,7 @@ export * from "./platform-owner-staff";
 export * from "./scope-materials";
 export * from "./context";
 export * from "./plan-mandate";
+export * from "./ideas-decide";
 export * from "./onboarding";
 export * from "./item-shared";
 export * from "./items-deliver";

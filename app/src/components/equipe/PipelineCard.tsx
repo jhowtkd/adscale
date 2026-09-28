@@ -3,34 +3,23 @@
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { ImageIcon } from "lucide-react";
-import { currentVersionOf, itemImageUrl, type PipelineItemJson } from "@/lib/equipe/api";
-import { useEquipeItemDetail } from "@/lib/equipe/use-equipe";
+import { itemImageUrl, type PipelineItemJson } from "@/lib/equipe/api";
 import EquipeStatePill from "./EquipeStatePill";
 import { captionTitle, formatDateTime } from "./equipe-format";
 
 // One pipeline card: thumbnail, title, the single state pill and the
-// deadline. The current version (thumbnail + caption) comes from the same
-// item-detail query the overlay uses, so opening it is instant.
+// deadline. Title and thumbnail ride the pipeline read model itself, so a
+// board of N items needs no per-card detail fetch; the overlay keeps its
+// own detail query.
 
-export default function PipelineCard({
-  accountId,
-  view,
-}: {
-  accountId: string;
-  view: PipelineItemJson;
-}) {
+export default function PipelineCard({ view }: { view: PipelineItemJson }) {
   const t = useTranslations("equipe.pipeline");
   const locale = useLocale();
-  const { data } = useEquipeItemDetail(accountId, view.item.id);
-  const version = data ? currentVersionOf(data) : null;
-  const image = itemImageUrl(view.item, version);
+  const image = itemImageUrl(view.item, view.preview);
   const title =
-    captionTitle(version?.caption, 60) ??
-    data?.batch?.title ??
-    view.batch?.title ??
-    t("untitledItem");
+    captionTitle(view.preview?.caption ?? null, 60) ?? view.batch?.title ?? t("untitledItem");
   const when = formatDateTime(view.item.scheduledFor, locale);
-  const deadline = formatDateTime(view.item.deadlineAt ?? data?.batch?.approveByAt ?? null, locale);
+  const deadline = formatDateTime(view.item.deadlineAt ?? view.batch?.approveByAt ?? null, locale);
 
   return (
     <Link

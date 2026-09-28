@@ -15,12 +15,15 @@ export class EquipeCommandError extends Error {
   readonly status: number;
   /** The module error code (version_mismatch, item_not_ready, …). */
   readonly code: string | null;
+  /** The API's reason, when it carries one (409 details). */
+  readonly detail: string | null;
 
-  constructor(message: string, status: number, code: string | null = null) {
+  constructor(message: string, status: number, code: string | null = null, detail: string | null = null) {
     super(message);
     this.name = "EquipeCommandError";
     this.status = status;
     this.code = code;
+    this.detail = detail;
   }
 }
 
@@ -36,12 +39,15 @@ export async function postEquipeCommand(
   const body = (await response.json().catch(() => null)) as {
     error?: string;
     code?: string;
+    details?: { message?: unknown };
   } | null;
   if (!response.ok) {
+    const detail = body?.details;
     throw new EquipeCommandError(
       body?.error ?? "Erro ao enviar comando",
       response.status,
       typeof body?.code === "string" ? body.code : null,
+      typeof detail?.message === "string" ? detail.message : null,
     );
   }
   return body;
@@ -200,5 +206,121 @@ export async function requestEquipeSupport(
   return postEquipeCommand(accountId, {
     type: "request_support",
     payload: { ...(input.note?.trim() ? { note: input.note.trim() } : {}) },
+  });
+}
+
+/** Implantação step 1: the approver/substitute confirms the contract scope. */
+export async function confirmEquipeScope(
+  accountId: string,
+  input: { scopeDigest: string; note?: string },
+): Promise<unknown> {
+  return postEquipeCommand(accountId, {
+    type: "confirm_scope",
+    payload: {
+      scopeDigest: input.scopeDigest,
+      ...(input.note?.trim() ? { note: input.note.trim() } : {}),
+    },
+  });
+}
+
+/** Implantação step 2: reference an existing workspace asset as material. */
+export async function registerEquipeMaterial(
+  accountId: string,
+  input: { assetId: string; kind: string; origin?: string },
+): Promise<unknown> {
+  return postEquipeCommand(accountId, {
+    type: "register_material",
+    payload: {
+      assetId: input.assetId,
+      kind: input.kind,
+      ...(input.origin?.trim() ? { origin: input.origin.trim() } : {}),
+    },
+  });
+}
+
+/** Approve a proposed context section at the exact version seen. */
+export async function approveEquipeContextSection(
+  accountId: string,
+  input: { section: string; expectedVersionHash: string },
+): Promise<unknown> {
+  return postEquipeCommand(accountId, {
+    type: "approve_context_section",
+    payload: { section: input.section, expectedVersionHash: input.expectedVersionHash },
+  });
+}
+
+/** Answer an open fact conflict on a context section. */
+export async function answerEquipeConflict(
+  accountId: string,
+  input: { section: string; field: string; answer: string },
+): Promise<unknown> {
+  return postEquipeCommand(accountId, {
+    type: "answer_conflict",
+    payload: { section: input.section, field: input.field, answer: input.answer },
+  });
+}
+
+/** Approve the open plan at the exact version seen. */
+export async function approveEquipePlan(
+  accountId: string,
+  input: { expectedVersionHash: string },
+): Promise<unknown> {
+  return postEquipeCommand(accountId, {
+    type: "approve_plan",
+    payload: { expectedVersionHash: input.expectedVersionHash },
+  });
+}
+
+/** Approve the open mandate at the exact version seen. */
+export async function approveEquipeMandate(
+  accountId: string,
+  input: { expectedVersionHash: string },
+): Promise<unknown> {
+  return postEquipeCommand(accountId, {
+    type: "approve_mandate",
+    payload: { expectedVersionHash: input.expectedVersionHash },
+  });
+}
+
+/** Approve the brand voice text agreed with the Strategist. */
+export async function approveEquipeBrandVoice(
+  accountId: string,
+  input: { voice: string },
+): Promise<unknown> {
+  return postEquipeCommand(accountId, {
+    type: "approve_brand_voice",
+    payload: { voice: input.voice },
+  });
+}
+
+/** Agree to run the account in manual mode (no verified connection). */
+export async function agreeEquipeManualMode(accountId: string): Promise<unknown> {
+  return postEquipeCommand(accountId, { type: "agree_manual_mode", payload: {} });
+}
+
+/** Decide an open Strategist idea at the exact version seen. */
+export async function decideEquipeIdea(
+  accountId: string,
+  input: { ideaId: string; decision: "approve" | "reject"; expectedVersionHash: string; reason?: string },
+): Promise<unknown> {
+  return postEquipeCommand(accountId, {
+    type: "decide_idea",
+    payload: {
+      ideaId: input.ideaId,
+      decision: input.decision,
+      expectedVersionHash: input.expectedVersionHash,
+      ...(input.reason?.trim() ? { reason: input.reason.trim() } : {}),
+    },
+  });
+}
+
+/** Lift one pause (the module decides who may resume each origin). */
+export async function resumeEquipePause(
+  accountId: string,
+  input: { pauseId: string },
+): Promise<unknown> {
+  return postEquipeCommand(accountId, {
+    type: "resume_pause",
+    payload: { pauseId: input.pauseId },
   });
 }

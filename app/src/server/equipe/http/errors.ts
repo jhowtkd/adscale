@@ -40,6 +40,7 @@ const BAD_REQUEST_CODES = new Set([
   "evidence_required",
   "front_mismatch",
   "front_required",
+  "invalid_idea_payload",
   "item_not_in_round",
   "merge_requires_same_item",
   "no_change",

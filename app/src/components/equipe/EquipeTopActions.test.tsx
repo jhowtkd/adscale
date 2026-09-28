@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import EquipeTopActions from "./EquipeTopActions";
+import { EquipeCommandError } from "@/lib/equipe/commands";
+import { toast } from "sonner";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
@@ -12,15 +14,27 @@ vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-const { pauseMock, supportMock } = vi.hoisted(() => ({ pauseMock: vi.fn(), supportMock: vi.fn() }));
+const { pauseMock, supportMock, resumeMock } = vi.hoisted(() => ({
+  pauseMock: vi.fn(),
+  supportMock: vi.fn(),
+  resumeMock: vi.fn(),
+}));
 
 vi.mock("@/lib/equipe/commands", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/equipe/commands")>();
-  return { ...original, pauseEquipePublications: pauseMock, requestEquipeSupport: supportMock };
+  return {
+    ...original,
+    pauseEquipePublications: pauseMock,
+    requestEquipeSupport: supportMock,
+    resumeEquipePause: resumeMock,
+  };
 });
+
+let accountStateFixture: { activePauses?: Array<{ id: string; origin: string; status: string }> } | null = null;
 
 vi.mock("@/lib/equipe/use-equipe", () => ({
   useInvalidateEquipe: () => () => {},
+  useEquipeAccountState: () => ({ data: accountStateFixture }),
 }));
 
 function renderActions(accountId: string | null = "acc-1") {
@@ -35,8 +49,10 @@ function renderActions(accountId: string | null = "acc-1") {
 describe("EquipeTopActions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    accountStateFixture = null;
     pauseMock.mockResolvedValue({});
     supportMock.mockResolvedValue({});
+    resumeMock.mockResolvedValue({});
   });
 
   it("links Painel to the conversation and Pipeline to the pipeline", () => {
@@ -70,5 +86,35 @@ describe("EquipeTopActions", () => {
     renderActions(null);
     expect(screen.getByTestId("equipe-pause-button")).toBeDisabled();
     expect(screen.getByTestId("equipe-support-button")).toBeDisabled();
+  });
+
+  it("offers to resume while the client's own pause is active", async () => {
+    accountStateFixture = { activePauses: [{ id: "pause-1", origin: "client", status: "active" }] };
+    renderActions();
+    expect(screen.queryByTestId("equipe-pause-button")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("equipe-resume-button"));
+    expect(await screen.findByTestId("equipe-resume-dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("equipe-resume-confirm"));
+    await waitFor(() => {
+      expect(resumeMock).toHaveBeenCalledWith("acc-1", { pauseId: "pause-1" });
+    });
+  });
+
+  it("keeps the pause button for pauses from other origins", () => {
+    accountStateFixture = { activePauses: [{ id: "pause-9", origin: "team", status: "active" }] };
+    renderActions();
+    expect(screen.getByTestId("equipe-pause-button")).toBeInTheDocument();
+    expect(screen.queryByTestId("equipe-resume-button")).not.toBeInTheDocument();
+  });
+
+  it("explains in plain language when someone else must resume", async () => {
+    accountStateFixture = { activePauses: [{ id: "pause-1", origin: "client", status: "active" }] };
+    resumeMock.mockRejectedValueOnce(new EquipeCommandError("forbidden", 403, "forbidden_actor"));
+    renderActions();
+    fireEvent.click(screen.getByTestId("equipe-resume-button"));
+    fireEvent.click(await screen.findByTestId("equipe-resume-confirm"));
+    await waitFor(() => {
+      expect(vi.mocked(toast.error)).toHaveBeenCalledWith("resumeForbidden");
+    });
   });
 });

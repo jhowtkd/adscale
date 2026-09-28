@@ -84,6 +84,11 @@ function itemView(id: string, displayState: string, status: string) {
       batchApprovable: displayState === "ready",
       triage: null,
     },
+    preview: {
+      versionHash: `hash-${id}`,
+      caption: `Caption ${id}`,
+      creativeWorkOutputId: "out-1",
+    },
   };
 }
 
@@ -145,7 +150,14 @@ function routeFetch(accountsStatus = 200) {
       return accountsStatus === 200 ? json({ accounts: [ACCOUNT] }) : json({ error: "x" }, 404);
     }
     if (path === "/api/equipe/accounts/acc-1") {
-      return json({ workspaceId: "ws-1", accountId: "acc-1", status: "active", fronts: [], pendingSteps: [] });
+      return json({
+        workspaceId: "ws-1",
+        accountId: "acc-1",
+        status: "active",
+        fronts: [],
+        pendingSteps: [],
+        activePauses: [],
+      });
     }
     if (path === "/api/equipe/accounts/acc-1/pipeline") return json(PIPELINE);
     const itemMatch = path.match(/\/api\/equipe\/accounts\/acc-1\/items\/(.+)$/);
@@ -183,6 +195,17 @@ describe("PipelineView", () => {
     expect(screen.getByTestId("pipeline-card-f")).toHaveAttribute("data-state", "missed_window");
     // Card links open the overlay through ?item=.
     expect(screen.getByTestId("pipeline-card-a")).toHaveAttribute("href", "/pipeline?item=a");
+  });
+
+  it("renders card titles from the read model with no per-card detail fetch", async () => {
+    routeFetch();
+    renderView();
+    expect(await screen.findByTestId("pipeline-card-a")).toHaveTextContent("Caption a");
+    expect(screen.getByTestId("pipeline-card-f")).toHaveTextContent("Caption f");
+    const itemFetches = mockedFetch.mock.calls.filter((call) =>
+      String(call[0]).includes("/items/"),
+    );
+    expect(itemFetches).toHaveLength(0);
   });
 
   it("opens the batch review from the needs-you column", async () => {

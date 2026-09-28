@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import IdeasView from "./IdeasView";
 import { apiFetch } from "@/lib/api-client";
+import { EquipeCommandError } from "@/lib/equipe/commands";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => {
@@ -35,6 +36,13 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/api-client", () => ({
   apiFetch: vi.fn(),
 }));
+
+const { decideMock } = vi.hoisted(() => ({ decideMock: vi.fn() }));
+
+vi.mock("@/lib/equipe/commands", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/equipe/commands")>();
+  return { ...original, decideEquipeIdea: decideMock };
+});
 
 const mockedFetch = vi.mocked(apiFetch);
 
@@ -69,6 +77,7 @@ const IDEAS = {
       receiptId: null,
       createdAt: "2026-11-17T00:00:00.000Z",
       updatedAt: "2026-11-17T00:00:00.000Z",
+      versionHash: "hash-ideia-1",
     },
     {
       id: "idea-2",
@@ -81,6 +90,7 @@ const IDEAS = {
       receiptId: "rc-1",
       createdAt: "2026-11-15T00:00:00.000Z",
       updatedAt: "2026-11-16T00:00:00.000Z",
+      versionHash: null,
     },
   ],
 };
@@ -89,6 +99,16 @@ function renderView() {
   mockedFetch.mockImplementation(async (input) => {
     const path = String(input);
     if (path === "/api/equipe/accounts") return json({ accounts: [ACCOUNT] });
+    if (path === "/api/equipe/accounts/acc-1") {
+      return json({
+        workspaceId: "ws-1",
+        accountId: "acc-1",
+        status: "active",
+        fronts: [],
+        pendingSteps: [],
+        activePauses: [],
+      });
+    }
     if (path === "/api/equipe/accounts/acc-1/ideas") return json(IDEAS);
     throw new Error(`unexpected fetch ${path}`);
   });
@@ -104,9 +124,10 @@ describe("IdeasView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     searchString = "";
+    decideMock.mockResolvedValue({});
   });
 
-  it("lists proposals with kind and status, read-only", async () => {
+  it("lists proposals with kind and status", async () => {
     renderView();
     expect(await screen.findByTestId("ideas-list")).toBeInTheDocument();
     expect(screen.getByTestId("idea-row-idea-1")).toHaveTextContent("December gifts");
@@ -114,16 +135,62 @@ describe("IdeasView", () => {
     expect(screen.getByTestId("idea-row-idea-2")).toHaveTextContent("status_accepted");
   });
 
-  it("opens the detail through ?idea= with the read-only note and no approval", async () => {
+  it("opens the detail through ?idea= with the approve/reject decision", async () => {
     searchString = "idea=idea-1";
     renderView();
     expect(await screen.findByTestId("idea-detail")).toBeInTheDocument();
     expect(screen.getByTestId("idea-detail-title")).toHaveTextContent("December gifts");
     expect(screen.getByTestId("idea-detail-summary")).toHaveTextContent("Gift kit focus");
-    expect(screen.getByTestId("idea-readonly-note")).toBeInTheDocument();
+    expect(screen.getByTestId("idea-decision")).toBeInTheDocument();
     expect(screen.getByTestId("idea-talk")).toHaveAttribute("href", "/assistant");
-    // Only the dialog close button: no approve/reject controls (read-only).
-    expect(within(screen.getByTestId("idea-detail")).queryAllByRole("button")).toHaveLength(1);
+  });
+
+  it("approves the open idea echoing the server hash", async () => {
+    searchString = "idea=idea-1";
+    renderView();
+    fireEvent.click(await screen.findByTestId("idea-approve"));
+    await waitFor(() => {
+      expect(decideMock).toHaveBeenCalledWith("acc-1", {
+        ideaId: "idea-1",
+        decision: "approve",
+        expectedVersionHash: "hash-ideia-1",
+      });
+    });
+  });
+
+  it("rejects with an optional reason", async () => {
+    searchString = "idea=idea-1";
+    renderView();
+    fireEvent.click(await screen.findByTestId("idea-reject-toggle"));
+    fireEvent.change(screen.getByTestId("idea-reject-reason"), {
+      target: { value: "not this cycle" },
+    });
+    fireEvent.click(screen.getByTestId("idea-reject-send"));
+    await waitFor(() => {
+      expect(decideMock).toHaveBeenCalledWith("acc-1", {
+        ideaId: "idea-1",
+        decision: "reject",
+        expectedVersionHash: "hash-ideia-1",
+        reason: "not this cycle",
+      });
+    });
+  });
+
+  it("asks to review again when the idea went stale", async () => {
+    decideMock.mockRejectedValueOnce(new EquipeCommandError("stale", 409, "stale_version"));
+    searchString = "idea=idea-1";
+    renderView();
+    fireEvent.click(await screen.findByTestId("idea-approve"));
+    await waitFor(() => {
+      expect(screen.getByTestId("idea-decide-error")).toHaveTextContent("staleVersion");
+    });
+  });
+
+  it("shows no decision controls for decided ideas", async () => {
+    searchString = "idea=idea-2";
+    renderView();
+    expect(await screen.findByTestId("idea-detail")).toBeInTheDocument();
+    expect(screen.queryByTestId("idea-decision")).not.toBeInTheDocument();
   });
 
   it("selects an idea by updating the search params", async () => {

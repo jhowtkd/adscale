@@ -42,6 +42,7 @@ const CASES: Array<{ code: string; status: number }> = [
   { code: "evidence_required", status: 400 },
   { code: "front_mismatch", status: 400 },
   { code: "front_required", status: 400 },
+  { code: "invalid_idea_payload", status: 400 },
   { code: "item_not_in_round", status: 400 },
   { code: "merge_requires_same_item", status: 400 },
   { code: "no_change", status: 400 },

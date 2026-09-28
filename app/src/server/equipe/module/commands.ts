@@ -21,6 +21,7 @@ import {
   runProposeMandate,
   runProposePlan,
 } from "./plan-mandate";
+import { runDecideIdea } from "./ideas-decide";
 import {
   runAdvanceOnboarding,
   runAgreeManualMode,
@@ -115,6 +116,7 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   approve_plan: "approve_plan",
   propose_mandate: "propose_mandate",
   approve_mandate: "approve_mandate",
+  decide_idea: "decide_idea",
   approve_brand_voice: "approve_brand_voice",
   agree_manual_mode: "agree_manual_mode",
   record_installment_paid: "record_installment_paid",
@@ -264,6 +266,9 @@ export async function executeCommand(
       break;
     case "approve_mandate":
       outcome = await runApproveMandate(deps, base, command.payload);
+      break;
+    case "decide_idea":
+      outcome = await runDecideIdea(deps, base, command.payload);
       break;
     case "approve_brand_voice":
       outcome = await runApproveBrandVoice(deps, base, command.payload);

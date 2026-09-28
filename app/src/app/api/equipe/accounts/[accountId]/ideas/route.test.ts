@@ -63,6 +63,7 @@ describe("GET /api/equipe/accounts/[accountId]/ideas", () => {
     expect(body.accountId).toBe(account.accountId);
     expect(body.ideas).toHaveLength(1);
     expect(body.ideas[0]).toMatchObject({ id: idea.id, kind: "content", status: "proposed" });
+    expect(body.ideas[0].versionHash).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it("returns 400 for a malformed account id", async () => {

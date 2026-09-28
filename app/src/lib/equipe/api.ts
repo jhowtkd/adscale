@@ -123,6 +123,51 @@ export type EquipeIdeaJson = {
   receiptId: string | null;
   createdAt: string;
   updatedAt: string;
+  /** The hash `decide_idea` verifies — set only while the idea is open. */
+  versionHash: string | null;
+};
+
+export type EquipePauseJson = {
+  id: string;
+  frontId: string | null;
+  level: string;
+  scope: string;
+  origin: string;
+  resumableBy: string;
+  status: string;
+  reason: string | null;
+  liftedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type EquipeContextFieldJson = {
+  status: string;
+  value?: unknown;
+  source?: string;
+};
+
+export type GoalsDecisionsJson = {
+  scope: { confirmed: boolean; digest: string | null; note: string | null };
+  materials: Array<{ assetId: string; kind: string; origin: string | null }>;
+  contextSections: Array<{
+    section: string;
+    version: number;
+    versionId: string;
+    versionHash: string;
+    fields: Record<string, EquipeContextFieldJson>;
+  }>;
+  conflicts: Array<{
+    section: string;
+    version: number;
+    versionId: string;
+    field: string;
+    question: string;
+  }>;
+  plan: { id: string; version: number; versionHash: string } | null;
+  mandates: Array<{ id: string; version: number; versionHash: string }>;
+  brandVoice: { approved: boolean; versionHash: string | null };
+  connection: { verified: boolean; manualAgreed: boolean };
 };
 
 export type EquipePlanJson = {
@@ -188,6 +233,11 @@ export type PipelineItemJson = {
   batch: EquipeBatchJson | null;
   displayState: string;
   review: ItemReviewJson;
+  preview: {
+    versionHash: string;
+    caption: string;
+    creativeWorkOutputId: string | null;
+  } | null;
 };
 
 export type ClientPipelineJson = {
@@ -228,6 +278,7 @@ export type GoalsViewJson = {
   plan: EquipePlanJson | null;
   mandates: EquipeMandateJson[];
   onboarding: EquipeOnboardingStepJson[];
+  decisions: GoalsDecisionsJson;
 };
 
 export type AccountStateJson = {
@@ -236,6 +287,7 @@ export type AccountStateJson = {
   status: string;
   fronts: EquipeFrontJson[];
   pendingSteps: EquipeOnboardingStepJson[];
+  activePauses: EquipePauseJson[];
 };
 
 export async function fetchEquipeAccounts(): Promise<{ accounts: EquipeAccountJson[] }> {
@@ -263,7 +315,10 @@ export async function fetchItemDetail(accountId: string, itemId: string): Promis
 }
 
 /** Final-image URL for an item version (302 redirect, works as <img src>). */
-export function itemImageUrl(item: EquipeItemJson, version: EquipeItemVersionJson | null): string | null {
+export function itemImageUrl(
+  item: EquipeItemJson,
+  version: Pick<EquipeItemVersionJson, "creativeWorkOutputId"> | null,
+): string | null {
   if (!item.creativeWorkId || !version?.creativeWorkOutputId) return null;
   return `/api/creative-work/${item.creativeWorkId}/outputs/${version.creativeWorkOutputId}/download`;
 }
