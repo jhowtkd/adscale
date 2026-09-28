@@ -114,6 +114,31 @@ describe("actors table", () => {
     expect(authorize(agent, "release_front").ok).toBe(false);
   });
 
+  it("grants implantation steps to their flow owners", () => {
+    expect(authorize(operations, "open_account").ok).toBe(true);
+    expect(authorize(support, "open_account").ok).toBe(false);
+    expect(authorize(approver, "confirm_scope").ok).toBe(true);
+    expect(authorize(substitute, "answer_conflict").ok).toBe(true);
+    expect(authorize(member, "confirm_scope").ok).toBe(false);
+    expect(authorize(member, "register_material").ok).toBe(true);
+    expect(authorize(support, "register_material").ok).toBe(true);
+    expect(authorize(agent, "register_material").ok).toBe(false);
+    expect(authorize(agent, "propose_context_section").ok).toBe(true);
+    expect(authorize(agent, "propose_plan").ok).toBe(true);
+    expect(authorize(agent, "propose_mandate").ok).toBe(true);
+    expect(authorize(approver, "propose_plan").ok).toBe(false);
+    expect(authorize(agent, "advance_onboarding").ok).toBe(true);
+    expect(authorize(system, "advance_onboarding").ok).toBe(true);
+    expect(authorize(support, "advance_onboarding").ok).toBe(true);
+    expect(authorize(approver, "advance_onboarding").ok).toBe(false);
+    expect(authorize(system, "pause_onboarding").ok).toBe(true);
+    expect(authorize(support, "pause_onboarding").ok).toBe(true);
+    expect(authorize(agent, "pause_onboarding").ok).toBe(false);
+    expect(authorize(agent, "approve_context_section").ok).toBe(false);
+    expect(authorize(system, "approve_plan").ok).toBe(false);
+    expect(authorize(system, "approve_mandate").ok).toBe(false);
+  });
+
   it("keeps jobs on reminding, holding and dispatching", () => {
     expect(authorize(system, "remind").ok).toBe(true);
     expect(authorize(system, "hold_item").ok).toBe(true);

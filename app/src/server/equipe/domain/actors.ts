@@ -80,7 +80,17 @@ export type EquipeAction =
   | "reconcile_publication"
   | "open_auto_exception"
   | "open_auto_escalation"
-  | "apply_automatic_pause";
+  | "apply_automatic_pause"
+  // Implantation (module #544; owners from the implantação flow)
+  | "open_account"
+  | "confirm_scope"
+  | "register_material"
+  | "propose_context_section"
+  | "answer_conflict"
+  | "propose_plan"
+  | "propose_mandate"
+  | "advance_onboarding"
+  | "pause_onboarding";
 
 type Permission =
   | { kind: "client_person"; roles: ClientPersonRole[] }
@@ -144,6 +154,15 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   open_auto_exception: [SYSTEM],
   open_auto_escalation: [SYSTEM],
   apply_automatic_pause: [SYSTEM],
+  open_account: [OPERATIONS],
+  confirm_scope: [CLIENT_DECISION],
+  register_material: [ANY_CLIENT, SUPPORT],
+  propose_context_section: [AGENT],
+  answer_conflict: [CLIENT_DECISION],
+  propose_plan: [AGENT],
+  propose_mandate: [AGENT],
+  advance_onboarding: [SUPPORT, OPERATIONS, AGENT, SYSTEM],
+  pause_onboarding: [SUPPORT, OPERATIONS, SYSTEM],
 };
 
 function permissionGrants(permission: Permission, actor: Actor): boolean {

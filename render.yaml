@@ -104,6 +104,11 @@ services:
         value: https://adscale.jhonatansoares.com/settings?tab=plans&checkout=cancel
       - key: CREATIVE_WORK_QUALITY_RECOVERY_ENABLED
         value: "false"
+      # ADScale Equipe pilot (#544): off by default, allowlisted per workspace.
+      - key: EQUIPE_ENABLED
+        value: "false"
+      - key: EQUIPE_PILOT_WORKSPACES
+        value: ""
       - key: BRAND_CORTEX_SINGLE_PIECE_ENABLED
         value: "false"
       - key: STUDIO_CAROUSEL_ROLLOUT_PERCENT
@@ -204,6 +209,11 @@ services:
         value: "100"
       - key: STUDIO_PROGRESSIVE_ROLLOUT_PERCENT
         value: "100"
+      # ADScale Equipe pilot (#544): off by default, allowlisted per workspace.
+      - key: EQUIPE_ENABLED
+        value: "false"
+      - key: EQUIPE_PILOT_WORKSPACES
+        value: ""
       # Traceability rollout (#397): frozen defaults (capture off). See web
       # service comment; staged execution needs per-stage authorization.
       - key: OBSERVABILITY_ENABLED
