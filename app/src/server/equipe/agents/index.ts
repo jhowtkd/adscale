@@ -14,3 +14,7 @@ export * from "./measurement";
 export * from "./gateway";
 export * from "./runner";
 export * from "./agent-work";
+// #551
+export * from "./cards";
+export * from "./chat-turn";
+export * from "./proactive";

@@ -154,4 +154,106 @@ describe("assistant-message repository", () => {
       jobRef: { kind: "derivation", id: "deriv-1" },
     });
   });
+
+  it("creates equipe_card messages with item references", async () => {
+    state.insertResult = [{ id: "msg-2", type: "equipe_card" }];
+
+    const message = await createAssistantMessage("ws-1", {
+      threadId: "thread-1",
+      type: "equipe_card",
+      content: "Lote pronto",
+      payload: {
+        kind: "batch",
+        accountId: "account-1",
+        title: "Calendário 23–27/11",
+        batchId: "batch-1",
+        items: [{ itemId: "item-1", versionHash: "hash-1" }],
+      },
+    });
+
+    expect(message.type).toBe("equipe_card");
+  });
+
+  it("rejects equipe_card messages without the closed list", async () => {
+    await expect(
+      createAssistantMessage("ws-1", {
+        threadId: "thread-1",
+        type: "equipe_card",
+        content: "Lote pronto",
+        payload: {
+          kind: "batch",
+          accountId: "account-1",
+          title: "Lote",
+          items: [],
+        },
+      })
+    ).rejects.toBeInstanceOf(AssistantMessageValidationError);
+
+    await expect(
+      createAssistantMessage("ws-1", {
+        threadId: "thread-1",
+        type: "equipe_card",
+        content: "Lote pronto",
+        payload: {
+          kind: "batch",
+          accountId: "account-1",
+          title: "Lote",
+          items: [{ itemId: "item-1", versionHash: "" }],
+        },
+      })
+    ).rejects.toBeInstanceOf(AssistantMessageValidationError);
+  });
+
+  it("rejects equipe_card idea messages without ideaId", async () => {
+    await expect(
+      createAssistantMessage("ws-1", {
+        threadId: "thread-1",
+        type: "equipe_card",
+        content: "Ideia",
+        payload: { kind: "idea", accountId: "account-1", title: "Ideia", items: [] },
+      })
+    ).rejects.toBeInstanceOf(AssistantMessageValidationError);
+  });
+
+  it("creates equipe_event and staff_message messages", async () => {
+    state.insertResult = [{ id: "msg-3", type: "equipe_event" }];
+
+    const event = await createAssistantMessage("ws-1", {
+      threadId: "thread-1",
+      type: "equipe_event",
+      content: "Redação IA criou a v2",
+      payload: { kind: "version_created", text: "Redação IA criou a v2", actor: "agent" },
+    });
+    expect(event.type).toBe("equipe_event");
+
+    state.insertResult = [{ id: "msg-4", type: "staff_message" }];
+
+    const staff = await createAssistantMessage("ws-1", {
+      threadId: "thread-1",
+      type: "staff_message",
+      content: "Oi, sou a Bruna",
+      payload: { staffId: "staff-1", name: "Bruna Lima", photoUrl: null },
+    });
+    expect(staff.type).toBe("staff_message");
+  });
+
+  it("rejects equipe_event without text and staff_message without name", async () => {
+    await expect(
+      createAssistantMessage("ws-1", {
+        threadId: "thread-1",
+        type: "equipe_event",
+        content: "",
+        payload: { kind: "reminder", text: "" },
+      })
+    ).rejects.toBeInstanceOf(AssistantMessageValidationError);
+
+    await expect(
+      createAssistantMessage("ws-1", {
+        threadId: "thread-1",
+        type: "staff_message",
+        content: "Oi",
+        payload: { staffId: "staff-1", name: "" },
+      })
+    ).rejects.toBeInstanceOf(AssistantMessageValidationError);
+  });
 });

@@ -40,6 +40,8 @@ import {
 } from "./items-adjust";
 import { runChoosePiece } from "./items-choose";
 import { runExpireItemDeadline, runProposeNewSchedule } from "./items-deadline";
+// #551
+import { runEnsurePrimaryThread, runOpenParallelThread } from "./threads";
 
 const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   open_account: "open_account",
@@ -69,6 +71,9 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   choose_piece: "choose_piece",
   expire_item_deadline: "expire_deadline",
   propose_new_schedule: "propose_new_schedule",
+  // #551
+  ensure_primary_thread: "manage_threads",
+  open_parallel_thread: "manage_threads",
 };
 
 export type ExecutedCommand = CommandSuccess & { type: CommandType };
@@ -197,6 +202,13 @@ export async function executeCommand(
       break;
     case "propose_new_schedule":
       outcome = await runProposeNewSchedule(deps, base, command.payload);
+      break;
+    // #551
+    case "ensure_primary_thread":
+      outcome = await runEnsurePrimaryThread(deps, base, command.payload);
+      break;
+    case "open_parallel_thread":
+      outcome = await runOpenParallelThread(deps, base, command.payload);
       break;
   }
   if (!outcome.ok) return outcome;

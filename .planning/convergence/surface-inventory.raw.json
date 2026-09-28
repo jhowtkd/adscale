@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-24T17:34:18.664Z",
+  "generatedAt": "2026-09-28T09:22:05.758Z",
   "schemaVersion": 2,
-  "fingerprint": "79865d13d652d69d489bf1b74955a29681475c6b24642354536f992924967967",
+  "fingerprint": "f0c72d090813c0c607676704d2cda9a6c6012572d140fc31538196c279814f4c",
   "counts": {
     "dashboardPages": 16,
     "apiRoutes": 197,
-    "ctas": 80,
+    "ctas": 81,
     "requiringDecision": 1
   },
   "dashboardPages": [
@@ -1511,6 +1511,15 @@
       "file": "app/src/components/assistant/AssistantStartComposer.tsx",
       "line": 237,
       "evidence": "app/src/components/assistant/AssistantStartComposer.tsx:237",
+      "requiresDecision": false
+    },
+    {
+      "id": "nav:app/src/components/assistant/EquipeCard.tsx:114",
+      "kind": "cta_navigation",
+      "destination": "/pipeline?item=${item.itemId}",
+      "file": "app/src/components/assistant/EquipeCard.tsx",
+      "line": 114,
+      "evidence": "app/src/components/assistant/EquipeCard.tsx:114",
       "requiresDecision": false
     },
     {

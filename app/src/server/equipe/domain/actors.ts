@@ -98,7 +98,9 @@ export type EquipeAction =
   | "agree_manual_mode"
   | "record_installment_paid"
   | "advance_onboarding"
-  | "pause_onboarding";
+  | "pause_onboarding"
+  // Conversation map (#551): mapping assistant threads to the account.
+  | "manage_threads";
 
 type Permission =
   | { kind: "client_person"; roles: ClientPersonRole[] }
@@ -178,6 +180,10 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   record_installment_paid: [SUPPORT, OPERATIONS],
   advance_onboarding: [SUPPORT, OPERATIONS, AGENT, SYSTEM],
   pause_onboarding: [SUPPORT, OPERATIONS, SYSTEM],
+  // #551: clients open parallel conversations, the strategist/system ensure
+  // the primary for proactive messages, support joins for exceptions. Mapping
+  // a conversation decides nothing — approvals stay human-only elsewhere.
+  manage_threads: [ANY_CLIENT, SUPPORT, AGENT, SYSTEM],
 };
 
 function permissionGrants(permission: Permission, actor: Actor): boolean {

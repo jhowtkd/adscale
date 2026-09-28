@@ -4132,6 +4132,23 @@
       "attachmentTypeError": "Use apenas imagens PNG, JPG ou WebP.",
       "maxAttachments": "Você pode anexar até 5 imagens por mensagem."
     },
+    "equipe": {
+      "review": "Revisar",
+      "approveBatch": "Aprovar os {count}",
+      "approveItem": "Aprovar esta versão",
+      "approveBy": "Aprovar até {date}",
+      "confirmTitle": "Confirmar aprovação",
+      "confirmBatchTitle": "Aprovar {count}",
+      "confirmClosedList": "Esta aprovação vale exatamente para estas versões:",
+      "confirmExcluded": "Ficam de fora",
+      "confirmNote": "Cada item fica aprovado exatamente nesta versão. Dá para cancelar até o envio.",
+      "confirm": "Confirmar",
+      "back": "Voltar",
+      "approving": "Aprovando…",
+      "approveError": "Não foi possível aprovar. Tente novamente.",
+      "approvedOk": "Aprovado.",
+      "versionShort": "versão {hash}"
+    },
     "drawer": {
       "title": "Assistente da campanha",
       "open": "Abrir assistente",

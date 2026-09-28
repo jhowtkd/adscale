@@ -1,0 +1,160 @@
+// Equipe chat turn (#551): the adapter between the assistant chat route and
+// the #550 strategist.
+//
+// The turn writes through an injected conversation writer (live: the
+// assistant message repository) and thinks through the #550 Agents port —
+// so the monthly budget cap and the cost ledger apply to chat turns exactly
+// like job turns. Approval intent in text ("ok, pode postar") short-circuits
+// before any model call: the turn answers with the `equipe_card` of the
+// pending batch/item. That path never calls the model and never runs a
+// command — the chat cannot approve anything.
+
+import type { EquipeCardPayload } from "@/server/repositories/assistant-types";
+import { createAssistantMessage, type CreateAssistantMessageInput } from "@/server/repositories/assistant-message";
+import type { Agents, EquipeModuleDeps } from "../module/ports";
+import { resolvePendingCard } from "./cards";
+import { BUDGET_EXCEEDED_ERROR } from "./runner";
+
+export type ConversationPostInput = CreateAssistantMessageInput;
+
+/** Message sink for turns and proactive posts. Live: assistant repository. */
+export type EquipeConversationWriter = {
+  post(input: ConversationPostInput): Promise<{ id: string }>;
+};
+
+export function liveConversationWriter(workspaceId: string): EquipeConversationWriter {
+  return {
+    async post(input) {
+      const row = await createAssistantMessage(workspaceId, input);
+      return { id: row.id };
+    },
+  };
+}
+
+export type EquipeChatTurnEvent =
+  | { type: "text_delta"; text: string }
+  | { type: "equipe_card"; messageId: string; card: EquipeCardPayload }
+  | { type: "done"; assistantMessageId: string }
+  | { type: "error"; message: string };
+
+export type EquipeChatTurnInput = {
+  deps: EquipeModuleDeps;
+  agents: Agents;
+  messages: EquipeConversationWriter;
+  workspaceId: string;
+  accountId: string;
+  /** Assistant thread id (the map entry's `assistantThreadId`). */
+  threadId: string;
+  userMessage: string;
+  maxIterations?: number;
+};
+
+const APPROVAL_PATTERNS = [
+  /\bpode\s+(postar|publicar|subir|mandar|enviar)\b/,
+  /\bpode\s+colocar\s+no\s+ar\b/,
+  /\baprov(ad[oa]s?|o)\b/,
+];
+
+function normalizeApprovalText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+/**
+ * Conservative approval-intent detector (pt-BR). A question mark ("posso
+ * postar?") or a negation ("não pode postar") vetoes the match — when in
+ * doubt the message goes to the strategist, never to a card.
+ */
+export function detectApprovalIntent(text: string): boolean {
+  if (text.includes("?")) return false;
+  const normalized = normalizeApprovalText(text);
+  if (/\bnao\b/.test(normalized)) return false;
+  return APPROVAL_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+function cardMessageContent(card: EquipeCardPayload): string {
+  if (card.kind === "batch") {
+    return `${card.title} — ${card.items.length} pronto(s) para revisar`;
+  }
+  return `Para revisar: ${card.title}`;
+}
+
+async function* runApprovalIntentTurn(
+  input: EquipeChatTurnInput,
+): AsyncGenerator<EquipeChatTurnEvent> {
+  const card = await resolvePendingCard(input.deps.uow.repos, input.workspaceId, input.accountId);
+  if (!card) {
+    const content = "Não há nada aguardando sua aprovação agora. Quando um lote ficar pronto, eu aviso aqui.";
+    const posted = await input.messages.post({
+      threadId: input.threadId,
+      type: "assistant",
+      content,
+    });
+    yield { type: "text_delta", text: content };
+    yield { type: "done", assistantMessageId: posted.id };
+    return;
+  }
+  const content = cardMessageContent(card);
+  const posted = await input.messages.post({
+    threadId: input.threadId,
+    type: "equipe_card",
+    content,
+    payload: { ...card, items: card.items.map((item) => ({ ...item })) },
+  });
+  yield { type: "equipe_card", messageId: posted.id, card };
+  yield { type: "done", assistantMessageId: posted.id };
+}
+
+export async function* runEquipeStrategistTurn(
+  input: EquipeChatTurnInput,
+): AsyncGenerator<EquipeChatTurnEvent> {
+  await input.messages.post({
+    threadId: input.threadId,
+    type: "user",
+    content: input.userMessage,
+  });
+
+  if (detectApprovalIntent(input.userMessage)) {
+    yield* runApprovalIntentTurn(input);
+    return;
+  }
+
+  const result = await input.agents.runTask({
+    kind: "strategist_turn",
+    workspaceId: input.workspaceId,
+    accountId: input.accountId,
+    input: {
+      message: input.userMessage,
+      ...(input.maxIterations !== undefined ? { maxIterations: input.maxIterations } : {}),
+    },
+  });
+
+  if (!result.ok) {
+    const content =
+      result.error === BUDGET_EXCEEDED_ERROR
+        ? "Passei do limite de IA deste mês, então não consigo responder agora. Nossa equipe já foi avisada."
+        : "Não consegui processar sua mensagem agora. Tente de novo em instantes.";
+    const posted = await input.messages.post({
+      threadId: input.threadId,
+      type: "assistant",
+      content,
+    });
+    yield { type: "text_delta", text: content };
+    yield { type: "done", assistantMessageId: posted.id };
+    return;
+  }
+
+  const output = result.output as { text?: string | null } | undefined;
+  const content =
+    output?.text?.trim() ||
+    "Atualizei a conta, mas não consegui escrever o resumo. Pergunte de novo que eu detalho.";
+  const posted = await input.messages.post({
+    threadId: input.threadId,
+    type: "assistant",
+    content,
+  });
+  yield { type: "text_delta", text: content };
+  yield { type: "done", assistantMessageId: posted.id };
+}

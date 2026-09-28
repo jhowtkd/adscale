@@ -41,16 +41,51 @@ vi.mock("@/server/storage", () => ({
     publicUrl: vi.fn((key: string) => `https://cdn.example/${key}`),
   },}));
 
+// Equipe dispatch (#551): the pilot gate stays closed by default so the
+// classic tests below never touch the Equipe modules.
+vi.mock("@/server/db", () => ({ db: {} }));
+vi.mock("@/server/equipe/domain", () => ({
+  systemClock: vi.fn(() => ({ now: () => new Date("2026-10-05T14:00:00.000Z") })),
+}));
+vi.mock("@/server/equipe/data/postgres", () => ({
+  createPostgresEquipeUnitOfWork: vi.fn(() => ({ repos: {} })),
+}));
+vi.mock("@/server/equipe/module/equipe-enabled", () => ({
+  isEquipeEnabledForWorkspace: vi.fn(() => false),
+}));
+vi.mock("@/server/equipe/module/threads", () => ({
+  findEquipeThreadByAssistantThread: vi.fn(),
+}));
+vi.mock("@/server/equipe/agents/gateway", () => ({
+  LiveAdscaleGateway: vi.fn(),
+}));
+vi.mock("@/server/equipe/agents/ledger", () => ({
+  DrizzleLedgerStore: vi.fn(),
+}));
+vi.mock("@/server/equipe/agents/runner", () => ({
+  createEquipeAgents: vi.fn(() => ({})),
+}));
+vi.mock("@/server/equipe/agents/chat-turn", () => ({
+  liveConversationWriter: vi.fn(() => ({})),
+  runEquipeStrategistTurn: vi.fn(),
+}));
+
 import { requireWorkspaceAccess, requireRole } from "@/server/auth/workspace";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { runAssistantTurn } from "@/server/assistant/orchestrator";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
+import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
+import { findEquipeThreadByAssistantThread } from "@/server/equipe/module/threads";
+import { runEquipeStrategistTurn } from "@/server/equipe/agents/chat-turn";
 
 const mockRequireAccess = vi.mocked(requireWorkspaceAccess);
 const mockRequireRole = vi.mocked(requireRole);
 const mockGetThread = vi.mocked(getAssistantThreadById);
 const mockRunTurn = vi.mocked(runAssistantTurn);
 const mockGetWorkspaceAsset = vi.mocked(getWorkspaceAssetById);
+const mockEquipeEnabled = vi.mocked(isEquipeEnabledForWorkspace);
+const mockFindEquipeThread = vi.mocked(findEquipeThreadByAssistantThread);
+const mockRunEquipeTurn = vi.mocked(runEquipeStrategistTurn);
 
 async function collectSseBody(response: Response): Promise<string> {
   const reader = response.body?.getReader();
@@ -234,5 +269,95 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     );
 
     expect(res.status).toBe(401);
+  });
+
+  it("routes Equipe threads to the strategist turn and streams equipe_card", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue({
+      account: { id: "account-1" },
+      thread: { id: "map-1", kind: "primary" },
+    });
+    const card = {
+      kind: "batch",
+      accountId: "account-1",
+      title: "Lote",
+      batchId: "batch-1",
+      items: [{ itemId: "item-1", versionHash: "hash-1" }],
+    };
+    mockRunEquipeTurn.mockImplementation(async function* () {
+      yield { type: "equipe_card", messageId: "msg-card", card };
+      yield { type: "done", assistantMessageId: "msg-card" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "ok, pode postar" }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockRunEquipeTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "ws-1",
+        accountId: "account-1",
+        threadId: "t1",
+        userMessage: "ok, pode postar",
+      })
+    );
+    expect(mockRunTurn).not.toHaveBeenCalled();
+
+    const body = await collectSseBody(res);
+    expect(body).toContain("event: equipe_card");
+    expect(body).toContain('"messageId":"msg-card"');
+    expect(body).toContain("event: done");
+  });
+
+  it("keeps classic behavior for threads outside the Equipe map", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue(null);
+    mockRunTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Hi" }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    const body = await collectSseBody(res);
+    expect(body).toContain("event: done");
+    expect(mockRunTurn).toHaveBeenCalled();
+    expect(mockRunEquipeTurn).not.toHaveBeenCalled();
+  });
+
+  it("skips the map lookup when the pilot gate is closed", async () => {
+    mockEquipeEnabled.mockReturnValue(false);
+    mockRunTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Hi" }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    const body = await collectSseBody(res);
+    expect(body).toContain("event: done");
+    expect(mockFindEquipeThread).not.toHaveBeenCalled();
+    expect(mockRunEquipeTurn).not.toHaveBeenCalled();
+    expect(mockRunTurn).toHaveBeenCalled();
   });
 });

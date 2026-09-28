@@ -4,8 +4,11 @@ import { assistantMessages, assistantThreads } from "../db/schema";
 import {
   containsDeniedPersistenceKeys,
   type ActionStatus,
+  type EquipeCardPayload,
+  type EquipeEventPayload,
   type JobRef,
   type MessageType,
+  type StaffMessagePayload,
   type ToolMessagePayload,
 } from "./assistant-types";
 import { getAssistantThreadById } from "./assistant-thread";
@@ -47,7 +50,73 @@ export type CreateAssistantMessageInput =
         display: Record<string, unknown>;
       };
       actionRecordId?: string;
-    });
+    })
+  | (BaseMessageInput & { type: "equipe_card"; payload: EquipeCardPayload })
+  | (BaseMessageInput & { type: "equipe_event"; payload: EquipeEventPayload })
+  | (BaseMessageInput & { type: "staff_message"; payload: StaffMessagePayload });
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function validateEquipeCardPayload(payload: Record<string, unknown>) {
+  if (payload.kind !== "item" && payload.kind !== "batch" && payload.kind !== "idea") {
+    throw new AssistantMessageValidationError(
+      "equipe_card messages require kind item, batch or idea"
+    );
+  }
+  if (!isNonEmptyString(payload.accountId)) {
+    throw new AssistantMessageValidationError("equipe_card messages require accountId");
+  }
+  if (!isNonEmptyString(payload.title)) {
+    throw new AssistantMessageValidationError("equipe_card messages require title");
+  }
+  if (!Array.isArray(payload.items)) {
+    throw new AssistantMessageValidationError("equipe_card messages require items");
+  }
+  if (payload.kind !== "idea" && payload.items.length === 0) {
+    throw new AssistantMessageValidationError(
+      "equipe_card item/batch messages require at least one item"
+    );
+  }
+  if (payload.items.length > 50) {
+    throw new AssistantMessageValidationError("equipe_card messages hold at most 50 items");
+  }
+  for (const item of payload.items) {
+    const ref = item as Record<string, unknown> | null;
+    if (
+      !ref ||
+      typeof ref !== "object" ||
+      !isNonEmptyString(ref.itemId) ||
+      !isNonEmptyString(ref.versionHash)
+    ) {
+      throw new AssistantMessageValidationError(
+        "equipe_card items require itemId and versionHash"
+      );
+    }
+  }
+  if (payload.kind === "idea" && !isNonEmptyString(payload.ideaId)) {
+    throw new AssistantMessageValidationError("equipe_card idea messages require ideaId");
+  }
+}
+
+function validateEquipeEventPayload(payload: Record<string, unknown>) {
+  if (!isNonEmptyString(payload.kind)) {
+    throw new AssistantMessageValidationError("equipe_event messages require kind");
+  }
+  if (!isNonEmptyString(payload.text)) {
+    throw new AssistantMessageValidationError("equipe_event messages require text");
+  }
+}
+
+function validateStaffMessagePayload(payload: Record<string, unknown>) {
+  if (!isNonEmptyString(payload.staffId)) {
+    throw new AssistantMessageValidationError("staff_message messages require staffId");
+  }
+  if (!isNonEmptyString(payload.name)) {
+    throw new AssistantMessageValidationError("staff_message messages require name");
+  }
+}
 
 function validatePayload(type: MessageType, payload: Record<string, unknown>) {
   if (containsDeniedPersistenceKeys(payload)) {
@@ -66,6 +135,18 @@ function validatePayload(type: MessageType, payload: Record<string, unknown>) {
     if ("rawArgs" in payload) {
       throw new AssistantMessageValidationError("tool messages cannot include rawArgs");
     }
+  }
+
+  if (type === "equipe_card") {
+    validateEquipeCardPayload(payload);
+  }
+
+  if (type === "equipe_event") {
+    validateEquipeEventPayload(payload);
+  }
+
+  if (type === "staff_message") {
+    validateStaffMessagePayload(payload);
   }
 }
 

@@ -20,10 +20,19 @@ import { renderMarkdownLite } from "./markdown-lite";
 import { ActionCard } from "./ActionCard";
 import AssistantActionCard from "./AssistantActionCard";
 import AssistantEmptyState from "./AssistantEmptyState";
+import EquipeCard, { parseEquipeCard } from "./EquipeCard";
+import { EquipeEventLine, StaffMessageBubble } from "./EquipeFeed";
 
 export interface AssistantDisplayMessage {
   id: string;
-  type: "user" | "assistant" | "tool" | "action_card";
+  type:
+    | "user"
+    | "assistant"
+    | "tool"
+    | "action_card"
+    | "equipe_card"
+    | "equipe_event"
+    | "staff_message";
   content: string;
   payload: Record<string, unknown>;
 }
@@ -35,6 +44,12 @@ export interface AssistantMessageListProps {
   threadId: string | null;
   artifactLineages?: ArtifactVersionPresentation[];
   openVersionComparison?: (request: VersionComparisonRequest) => void;
+  /**
+   * Equipe approval actions (#551). Off unless the host passes true: the
+   * "Revisar" links always render, but the approve flow stays hidden while
+   * the Equipe is disabled for the workspace.
+   */
+  equipeEnabled?: boolean;
 }
 
 function looksLikeJsonPayload(value: string): boolean {
@@ -262,6 +277,7 @@ export default function AssistantMessageList({
   threadId,
   artifactLineages,
   openVersionComparison,
+  equipeEnabled = false,
 }: AssistantMessageListProps) {
   const t = useTranslations("assistant.chat");
   const sanitizedStreamingText = useMemo(
@@ -287,6 +303,34 @@ export default function AssistantMessageList({
               threadId={threadId}
               artifactLineages={artifactLineages}
               openVersionComparison={openVersionComparison}
+            />
+          );
+        }
+        if (message.type === "equipe_card") {
+          const card = parseEquipeCard(message.payload);
+          if (!card) {
+            return <MessageBubble key={message.id} message={message} />;
+          }
+          return <EquipeCard key={message.id} card={card} equipeEnabled={equipeEnabled} />;
+        }
+        if (message.type === "equipe_event") {
+          const text =
+            typeof message.payload.text === "string" ? message.payload.text : message.content;
+          return <EquipeEventLine key={message.id} text={text} />;
+        }
+        if (message.type === "staff_message") {
+          const name =
+            typeof message.payload.name === "string" && message.payload.name
+              ? message.payload.name
+              : "Equipe ADScale";
+          const photoUrl =
+            typeof message.payload.photoUrl === "string" ? message.payload.photoUrl : null;
+          return (
+            <StaffMessageBubble
+              key={message.id}
+              name={name}
+              photoUrl={photoUrl}
+              content={message.content}
             />
           );
         }

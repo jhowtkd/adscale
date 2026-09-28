@@ -11,6 +11,19 @@ import { checkRateLimit } from "@/lib/with-rate-limit";
 import { isAllowedImageType } from "@/lib/upload-config";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
+import { db } from "@/server/db";
+import { systemClock } from "@/server/equipe/domain";
+import { createPostgresEquipeUnitOfWork } from "@/server/equipe/data/postgres";
+import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
+import { findEquipeThreadByAssistantThread } from "@/server/equipe/module/threads";
+import type { EquipeModuleDeps } from "@/server/equipe/module/ports";
+import { LiveAdscaleGateway } from "@/server/equipe/agents/gateway";
+import { DrizzleLedgerStore } from "@/server/equipe/agents/ledger";
+import { createEquipeAgents } from "@/server/equipe/agents/runner";
+import {
+  liveConversationWriter,
+  runEquipeStrategistTurn,
+} from "@/server/equipe/agents/chat-turn";
 
 const attachmentSchema = z.object({
   assetId: z.string().uuid(),
@@ -74,6 +87,33 @@ async function normalizeAttachments(
   return normalized;
 }
 
+function runEquipeTurn(input: {
+  workspaceId: string;
+  accountId: string;
+  threadId: string;
+  userMessage: string;
+}) {
+  const moduleDeps: EquipeModuleDeps = {
+    uow: createPostgresEquipeUnitOfWork(db),
+    clock: systemClock(),
+    gateway: new LiveAdscaleGateway(input.workspaceId),
+  };
+  const agents = createEquipeAgents({
+    moduleDeps,
+    ledger: new DrizzleLedgerStore(db),
+    now: () => moduleDeps.clock.now(),
+  });
+  return runEquipeStrategistTurn({
+    deps: moduleDeps,
+    agents,
+    messages: liveConversationWriter(input.workspaceId),
+    workspaceId: input.workspaceId,
+    accountId: input.accountId,
+    threadId: input.threadId,
+    userMessage: input.userMessage,
+  });
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ threadId: string }> }
@@ -110,12 +150,29 @@ export async function POST(
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          // Goal-agent threads run the bounded tool-result loop; classic
-          // threads keep the existing single-pass guided orchestrator so the
-          // legacy experience is unchanged.
-          const goalRun = await getGoalRunByThread(workspace.id, threadId);
-          const turn =
-            goalRun && goalRun.stage !== "completed" && goalRun.stage !== "stopped"
+          // Equipe conversations (#551): when the workspace is in the pilot
+          // and the thread is in the account's conversation map, the turn
+          // goes to the strategist. Every other thread keeps its current
+          // behavior — goal-agent threads run the bounded tool-result loop
+          // and classic threads keep the guided orchestrator.
+          const equipeMatch = isEquipeEnabledForWorkspace(workspace.id)
+            ? await findEquipeThreadByAssistantThread(
+                createPostgresEquipeUnitOfWork(db).repos,
+                workspace.id,
+                thread.clientProfileId,
+                threadId
+              )
+            : null;
+          const goalRun =
+            equipeMatch === null ? await getGoalRunByThread(workspace.id, threadId) : null;
+          const turn = equipeMatch
+            ? runEquipeTurn({
+                workspaceId: workspace.id,
+                accountId: equipeMatch.account.id,
+                threadId,
+                userMessage: parsed.data.message,
+              })
+            : goalRun && goalRun.stage !== "completed" && goalRun.stage !== "stopped"
               ? runGoalAgentTurn({
                   workspaceId: workspace.id,
                   clientProfileId: thread.clientProfileId,
@@ -150,6 +207,13 @@ export async function POST(
                 encodeAssistantSseEvent("action_card", {
                   actionRecordId: event.actionRecordId,
                   status: event.status,
+                })
+              );
+            } else if (event.type === "equipe_card") {
+              controller.enqueue(
+                encodeAssistantSseEvent("equipe_card", {
+                  messageId: event.messageId,
+                  card: event.card,
                 })
               );
             } else if (event.type === "goal_state") {

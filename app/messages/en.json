@@ -4056,6 +4056,23 @@
       "attachmentTypeError": "Use PNG, JPG, or WebP images only.",
       "maxAttachments": "You can attach up to 5 images per message."
     },
+    "equipe": {
+      "review": "Review",
+      "approveBatch": "Approve all {count}",
+      "approveItem": "Approve this version",
+      "approveBy": "Approve by {date}",
+      "confirmTitle": "Confirm approval",
+      "confirmBatchTitle": "Approve {count}",
+      "confirmClosedList": "This approval covers exactly these versions:",
+      "confirmExcluded": "Left out",
+      "confirmNote": "Each item is approved at exactly this version. You can cancel until dispatch.",
+      "confirm": "Confirm",
+      "back": "Back",
+      "approving": "Approving…",
+      "approveError": "Approval failed. Try again.",
+      "approvedOk": "Approved.",
+      "versionShort": "version {hash}"
+    },
     "drawer": {
       "title": "Campaign assistant",
       "open": "Open assistant",
