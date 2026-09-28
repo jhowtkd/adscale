@@ -44,6 +44,31 @@ describe("client pipeline", () => {
       await getClientPipeline(t.deps.uow.repos, ids.workspaceId, "00000000-0000-0000-0000-000000000000"),
     ).toBeNull();
   });
+
+  it("carries each item's current title and thumbnail source, no detail fetch per card", async () => {
+    const { t, ids } = await setup();
+    const { itemIds, versionHashes } = await deliverTestBatch(t, ids, {
+      items: [{ caption: "First caption" }],
+    });
+    await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "edit_caption",
+      payload: { itemId: itemIds[0]!, caption: "Edited caption" },
+    });
+
+    const pipeline = await getClientPipeline(t.deps.uow.repos, ids.workspaceId, ids.accountId);
+    const found = pipeline!.items.find((i) => i.item.id === itemIds[0]!);
+    const current = await t.deps.uow.repos.itemVersions.getByHash(
+      { workspaceId: ids.workspaceId, accountId: ids.accountId },
+      itemIds[0]!,
+      found!.item.currentVersionHash!,
+    );
+    expect(found?.preview).not.toBeNull();
+    // The preview follows the current version, not the delivered one.
+    expect(found?.preview?.caption).toBe("Edited caption");
+    expect(found?.preview?.creativeWorkOutputId).toBe(current?.creativeWorkOutputId);
+    expect(found?.preview?.versionHash).not.toBe(versionHashes[0]);
+    expect(found?.preview?.versionHash).toBe(found?.item.currentVersionHash);
+  });
 });
 
 describe("item detail", () => {

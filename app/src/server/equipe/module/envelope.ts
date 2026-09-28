@@ -125,6 +125,13 @@ export const approveMandatePayloadSchema = z.object({
   expectedVersionHash: versionHash,
 });
 
+export const decideIdeaPayloadSchema = z.object({
+  ideaId: uuid,
+  decision: z.enum(["approve", "reject"]),
+  expectedVersionHash: versionHash,
+  reason: z.string().max(2000).optional(),
+});
+
 export const approveBrandVoicePayloadSchema = z.object({
   voice: z.string().min(1).max(8000),
 });
@@ -550,6 +557,7 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("approve_plan", approvePlanPayloadSchema),
   command("propose_mandate", proposeMandatePayloadSchema),
   command("approve_mandate", approveMandatePayloadSchema),
+  command("decide_idea", decideIdeaPayloadSchema),
   command("approve_brand_voice", approveBrandVoicePayloadSchema),
   command("agree_manual_mode", agreeManualModePayloadSchema),
   command("record_installment_paid", recordInstallmentPaidPayloadSchema),

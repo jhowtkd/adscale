@@ -4,7 +4,9 @@
 
 import type { ItemReviewStatus, ItemStatus } from "../domain";
 import type {
+  EquipeAccount,
   EquipeBatch,
+  EquipeContextFields,
   EquipeEvent,
   EquipeFront,
   EquipeIdea,
@@ -13,11 +15,18 @@ import type {
   EquipeMandate,
   EquipeOnboardingStep,
   EquipeOnboardingStepKey,
+  EquipePause,
   EquipePlan,
   EquipePublicationIntent,
   EquipeReceipt,
   EquipeRepositories,
 } from "../data";
+import type { EquipeModuleDeps } from "./ports";
+import { CONFLICT_SOURCE_PREFIX, contextVersionHash } from "./context";
+import { ideaVersionHash } from "./ideas-decide";
+import { BRAND_VOICE_APPROVED_EVENT, MANUAL_MODE_AGREED_EVENT } from "./onboarding";
+import { mandateRuleOf, mandateVersionHash, planVersionHash } from "./plan-mandate";
+import { MATERIAL_REGISTERED_EVENT, SCOPE_CONFIRMED_EVENT } from "./scope-materials";
 import {
   hasOpenItemEscalation,
   loadItemReview,
@@ -49,6 +58,58 @@ function byStepOrder(a: EquipeOnboardingStep, b: EquipeOnboardingStep): number {
   return rank(a.step) - rank(b.step);
 }
 
+/** Steps still open: pending, in progress, or paused. */
+function isOpenOnboardingStep(status: string): boolean {
+  return status === "pending" || status === "in_progress" || status === "paused";
+}
+
+export type ClientAccountView = EquipeAccount & {
+  /** Brand name from the client profile; null when the profile is gone. */
+  clientProfileName: string | null;
+  /** True while the account holds a decision for the client. */
+  pendingDecisions: boolean;
+};
+
+/**
+ * The workspace's accounts for the client screens, oldest first: each
+ * with its brand name and whether it holds a pending client decision —
+ * an open implantação step, a proposed idea, or an item awaiting the
+ * client. The screens default to the first pending account. One pipeline
+ * build per account; workspaces hold few accounts and the client caches
+ * the list.
+ */
+export async function getClientAccounts(
+  deps: EquipeModuleDeps,
+  workspaceId: string,
+): Promise<ClientAccountView[]> {
+  const repos = deps.uow.repos;
+  const accounts = [...(await repos.accounts.list(workspaceId))].sort(
+    (a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id),
+  );
+  // Sequential on purpose: repos may share one transaction client, where
+  // parallel queries warn today and break in pg@9 (#574).
+  const views: ClientAccountView[] = [];
+  for (const account of accounts) {
+    const scope = { workspaceId, accountId: account.id };
+    const profile = await deps.gateway.getClientProfile(workspaceId, account.clientProfileId);
+    const steps = await repos.onboarding.list(scope);
+    const ideas = await repos.ideas.list(scope);
+    const pipeline = await getClientPipeline(repos, workspaceId, account.id);
+    const needsYou =
+      pipeline?.columns.find((column) => column.key === "needs_you")?.itemIds.length ?? 0;
+    views.push({
+      ...account,
+      clientProfileName:
+        profile && profile.workspaceId === workspaceId ? (profile.name ?? null) : null,
+      pendingDecisions:
+        steps.some((step) => isOpenOnboardingStep(step.status)) ||
+        ideas.some((idea) => idea.status === "proposed") ||
+        needsYou > 0,
+    });
+  }
+  return views;
+}
+
 export type AccountStateView = {
   workspaceId: string;
   accountId: string;
@@ -56,6 +117,8 @@ export type AccountStateView = {
   fronts: EquipeFront[];
   /** Steps still open (pending, in progress, or paused), in flow order. */
   pendingSteps: EquipeOnboardingStep[];
+  /** Pauses in force: who may resume each one rides `origin`/`resumableBy`. */
+  activePauses: EquipePause[];
 };
 
 export async function getAccountState(
@@ -68,9 +131,12 @@ export async function getAccountState(
   const scope = { workspaceId, accountId };
   const fronts = (await repos.fronts.list(scope)).sort((a, b) => a.key.localeCompare(b.key));
   const pendingSteps = (await repos.onboarding.list(scope))
-    .filter((step) => step.status === "pending" || step.status === "in_progress" || step.status === "paused")
+    .filter((step) => isOpenOnboardingStep(step.status))
     .sort(byStepOrder);
-  return { workspaceId, accountId, status: account.status, fronts, pendingSteps };
+  const activePauses = (await repos.pauses.list(scope))
+    .filter((pause) => pause.status === "active")
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  return { workspaceId, accountId, status: account.status, fronts, pendingSteps, activePauses };
 }
 
 export type GoalsView = {
@@ -80,6 +146,35 @@ export type GoalsView = {
   plan: EquipePlan | null;
   mandates: EquipeMandate[];
   onboarding: EquipeOnboardingStep[];
+  /** Every pending implantação decision with what the client echoes back. */
+  decisions: GoalsDecisions;
+};
+
+export type GoalsDecisions = {
+  scope: { confirmed: boolean; digest: string | null; note: string | null };
+  materials: Array<{ assetId: string; kind: string; origin: string | null }>;
+  /** Proposed context sections: the client reviews the fields, then echoes the hash. */
+  contextSections: Array<{
+    section: string;
+    version: number;
+    versionId: string;
+    versionHash: string;
+    fields: EquipeContextFields;
+  }>;
+  /** Open fact conflicts on draft/proposed sections, with their questions. */
+  conflicts: Array<{
+    section: string;
+    version: number;
+    versionId: string;
+    field: string;
+    question: string;
+  }>;
+  /** The open plan proposal, with the hash `approve_plan` verifies. */
+  plan: { id: string; version: number; versionHash: string } | null;
+  /** Open mandate proposals, each with the hash `approve_mandate` verifies. */
+  mandates: Array<{ id: string; version: number; versionHash: string }>;
+  brandVoice: { approved: boolean; versionHash: string | null };
+  connection: { verified: boolean; manualAgreed: boolean };
 };
 
 function latestByVersion<T extends { version: number }>(rows: T[]): T | null {
@@ -88,6 +183,15 @@ function latestByVersion<T extends { version: number }>(rows: T[]): T | null {
     if (!best || row.version > best.version) best = row;
   }
   return best;
+}
+
+function eventPayloadOf(event: EquipeEvent | undefined): Record<string, unknown> {
+  if (!event || typeof event.payload !== "object" || event.payload === null) return {};
+  return event.payload as Record<string, unknown>;
+}
+
+function textOf(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
 }
 
 export async function getGoalsView(
@@ -105,14 +209,92 @@ export async function getGoalsView(
     null;
   const mandates = (await repos.mandates.list(scope)).sort((a, b) => a.version - b.version);
   const onboarding = (await repos.onboarding.list(scope)).sort(byStepOrder);
-  return { workspaceId, accountId, plan, mandates, onboarding };
+
+  // Sequential on purpose: repos may share one transaction client, where
+  // parallel queries warn today and break in pg@9 (#574).
+  const contexts = await repos.contexts.list(scope);
+  const connections = await repos.connections.list(scope);
+  const scopeEvents = await repos.events.list(scope, { eventType: SCOPE_CONFIRMED_EVENT });
+  const materialEvents = await repos.events.list(scope, { eventType: MATERIAL_REGISTERED_EVENT });
+  const brandVoiceEvents = await repos.events.list(scope, { eventType: BRAND_VOICE_APPROVED_EVENT });
+  const manualModeEvents = await repos.events.list(scope, { eventType: MANUAL_MODE_AGREED_EVENT });
+  const scopePayload = eventPayloadOf(scopeEvents[0]);
+  const brandVoicePayload = eventPayloadOf(brandVoiceEvents[brandVoiceEvents.length - 1]);
+  const openPlan = latestByVersion(plans.filter((p) => p.status === "proposed"));
+  const decisions: GoalsDecisions = {
+    scope: {
+      confirmed: scopeEvents.length > 0,
+      digest: textOf(scopePayload.scopeDigest),
+      note: textOf(scopePayload.note),
+    },
+    materials: materialEvents.map((event) => {
+      const payload = eventPayloadOf(event);
+      return {
+        assetId: textOf(payload.assetId) ?? "",
+        kind: textOf(payload.kind) ?? "",
+        origin: textOf(payload.origin),
+      };
+    }),
+    contextSections: contexts
+      .filter((version) => version.status === "proposed")
+      .map((version) => ({
+        section: version.section,
+        version: version.version,
+        versionId: version.id,
+        versionHash: contextVersionHash(version.fields as EquipeContextFields),
+        fields: version.fields as EquipeContextFields,
+      }))
+      .sort((a, b) => a.section.localeCompare(b.section)),
+    conflicts: contexts
+      .filter((version) => version.status === "proposed" || version.status === "draft")
+      .flatMap((version) =>
+        Object.entries((version.fields as EquipeContextFields) ?? {}).flatMap(([field, entry]) =>
+          entry?.status === "unknown" && entry.source?.startsWith(CONFLICT_SOURCE_PREFIX)
+            ? [
+                {
+                  section: version.section,
+                  version: version.version,
+                  versionId: version.id,
+                  field,
+                  question: entry.source.slice(CONFLICT_SOURCE_PREFIX.length),
+                },
+              ]
+            : [],
+        ),
+      )
+      .sort((a, b) => a.section.localeCompare(b.section) || a.field.localeCompare(b.field)),
+    plan: openPlan
+      ? { id: openPlan.id, version: openPlan.version, versionHash: planVersionHash(openPlan.content) }
+      : null,
+    mandates: mandates
+      .filter((mandate) => mandate.status === "proposed")
+      .map((mandate) => ({
+        id: mandate.id,
+        version: mandate.version,
+        versionHash: mandateVersionHash(mandateRuleOf(mandate)),
+      })),
+    brandVoice: {
+      approved: brandVoiceEvents.length > 0,
+      versionHash: textOf(brandVoicePayload.versionHash),
+    },
+    connection: {
+      verified: connections.some((connection) => connection.status === "active"),
+      manualAgreed: manualModeEvents.length > 0,
+    },
+  };
+  return { workspaceId, accountId, plan, mandates, onboarding, decisions };
 }
+
+export type IdeaWithDecision = EquipeIdea & {
+  /** The hash `decide_idea` verifies — set only while the idea is open. */
+  versionHash: string | null;
+};
 
 export type IdeasView = {
   workspaceId: string;
   accountId: string;
   /** All ideas, oldest first — proposals, acceptances and rejections alike. */
-  ideas: EquipeIdea[];
+  ideas: IdeaWithDecision[];
 };
 
 /** The client ideas feed: the account's ideas through a module query. */
@@ -127,9 +309,14 @@ export async function getIdeasView(
   return {
     workspaceId,
     accountId,
-    ideas: [...ideas].sort(
-      (a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id),
-    ),
+    ideas: [...ideas]
+      .sort(
+        (a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id),
+      )
+      .map((idea) => ({
+        ...idea,
+        versionHash: idea.status === "proposed" ? ideaVersionHash(idea) : null,
+      })),
   };
 }
 
@@ -146,6 +333,12 @@ export type PipelineItem = {
   /** The single state: review status while awaiting decision, else lifecycle. */
   displayState: ItemReviewStatus | ItemStatus;
   review: ItemReview;
+  /** Title and thumbnail source of the current version — no detail fetch per card. */
+  preview: {
+    versionHash: string;
+    caption: string;
+    creativeWorkOutputId: string | null;
+  } | null;
 };
 
 export type ClientPipelineView = {
@@ -234,11 +427,21 @@ export async function getClientPipeline(
       lifecycle === "awaiting_approval" || review.status !== "ready"
         ? review.status
         : (lifecycle ?? "awaiting_approval");
+    const current = item.currentVersionHash
+      ? await repos.itemVersions.getByHash(scope, item.id, item.currentVersionHash)
+      : null;
     views.push({
       item,
       batch: (item.batchId && byBatch.get(item.batchId)) || null,
       displayState,
       review,
+      preview: current
+        ? {
+            versionHash: current.versionHash,
+            caption: current.caption,
+            creativeWorkOutputId: current.creativeWorkOutputId,
+          }
+        : null,
     });
     byColumn.get(columnOf(item))?.itemIds.push(item.id);
   }

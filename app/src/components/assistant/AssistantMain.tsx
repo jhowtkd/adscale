@@ -10,9 +10,11 @@ import { useAssistantThread } from "@/lib/hooks/use-assistant-threads";
 export default function AssistantMain({
   threadId,
   goalAgentEligible = false,
+  equipeEnabled = false,
 }: {
   threadId?: string;
   goalAgentEligible?: boolean;
+  equipeEnabled?: boolean;
 }) {
   const router = useRouter();
   const {
@@ -67,6 +69,7 @@ export default function AssistantMain({
         variant="full"
         pendingFirstMessage={pendingFirstMessage}
         onPendingFirstMessageConsumed={() => setPendingFirstMessage(null)}
+        equipeEnabled={equipeEnabled}
       />
     </div>
   );

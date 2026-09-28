@@ -16,6 +16,7 @@ vi.mock("next-intl/server", () => ({
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
 import { AUTH_ERROR_CODES, WorkspaceAuthError } from "@/server/auth/errors";
+import { executeCommand } from "@/server/equipe/module/commands";
 import { makeTestDeps, openTestAccount } from "@/server/equipe/module/testing/deps";
 
 const mockRequireAccess = vi.mocked(requireWorkspaceAccess);
@@ -59,6 +60,35 @@ describe("GET /api/equipe/accounts/[accountId]/goals", () => {
     expect(body.plan).toBeNull();
     expect(body.mandates).toEqual([]);
     expect(body.onboarding).toHaveLength(7);
+    expect(body.decisions).toMatchObject({
+      scope: { confirmed: false, digest: null, note: null },
+      materials: [],
+      contextSections: [],
+      conflicts: [],
+      plan: null,
+      mandates: [],
+      brandVoice: { approved: false, versionHash: null },
+      connection: { verified: false, manualAgreed: false },
+    });
+  });
+
+  it("carries the open plan proposal with the hash approve_plan verifies", async () => {
+    const { t, account } = await seed();
+    const content = { goals: ["go"], fronts: ["social_instagram"], rhythm: "weekly" };
+    const proposed = await executeCommand(
+      t.deps,
+      { actor: account.actors.agent, workspaceId: account.workspaceId, accountId: account.accountId },
+      { type: "propose_plan", payload: { content } },
+    );
+    expect(proposed.ok).toBe(true);
+
+    const res = await callGet(account.accountId);
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.decisions.plan).toMatchObject({ version: 1 });
+    expect(body.decisions.plan.id).toBe(body.plan.id);
+    expect(body.decisions.plan.versionHash).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it("returns 400 for a malformed account id", async () => {

@@ -59,6 +59,40 @@ describe("GET /api/equipe/accounts", () => {
     });
   });
 
+  it("carries the brand name and the pending-decision flag per account", async () => {
+    const t = makeTestDeps();
+    const seeded = await openTestAccount(t, { profileName: "Café Aurora" });
+    mockRequireAccess.mockResolvedValue({
+      user: { id: USER_ID },
+      workspace: { id: seeded.workspaceId },
+    } as never);
+    mockCreateDeps.mockReturnValue(t.deps);
+
+    const res = await callGet();
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // Freshly opened: implantação steps still open, so decisions pending.
+    expect(body.accounts[0]).toMatchObject({
+      id: seeded.accountId,
+      clientProfileName: "Café Aurora",
+      pendingDecisions: true,
+    });
+
+    for (const step of await t.deps.uow.repos.onboarding.list({
+      workspaceId: seeded.workspaceId,
+      accountId: seeded.accountId,
+    })) {
+      await t.deps.uow.repos.onboarding.update(
+        { workspaceId: seeded.workspaceId, accountId: seeded.accountId },
+        step.id,
+        { status: "done" },
+      );
+    }
+    const quiet = await callGet();
+    expect((await quiet.json()).accounts[0]).toMatchObject({ pendingDecisions: false });
+  });
+
   it("returns an empty list when the workspace has no accounts", async () => {
     const t = makeTestDeps();
     mockRequireAccess.mockResolvedValue({

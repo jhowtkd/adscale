@@ -16,6 +16,7 @@ vi.mock("next-intl/server", () => ({
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
 import { AUTH_ERROR_CODES, WorkspaceAuthError } from "@/server/auth/errors";
+import { executeCommand } from "@/server/equipe/module/commands";
 import { makeTestDeps, openTestAccount } from "@/server/equipe/module/testing/deps";
 
 const mockRequireAccess = vi.mocked(requireWorkspaceAccess);
@@ -61,6 +62,29 @@ describe("GET /api/equipe/accounts/[accountId]", () => {
     });
     expect(body.fronts).toHaveLength(1);
     expect(body.pendingSteps).toHaveLength(7);
+    expect(body.activePauses).toEqual([]);
+  });
+
+  it("exposes the active pauses with who may resume them", async () => {
+    const { t, account } = await seed();
+    const outcome = await executeCommand(
+      t.deps,
+      { actor: account.actors.approver, workspaceId: account.workspaceId, accountId: account.accountId },
+      { type: "pause_publications", payload: {} },
+    );
+    expect(outcome.ok).toBe(true);
+
+    const res = await callGet(account.accountId);
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.activePauses).toHaveLength(1);
+    expect(body.activePauses[0]).toMatchObject({
+      level: "publishing",
+      origin: "client",
+      resumableBy: "client",
+      status: "active",
+    });
   });
 
   it("returns 400 for a malformed account id", async () => {

@@ -30,7 +30,7 @@ export class LiveAdscaleGateway implements AdscaleGateway {
     if (workspaceId !== this.workspaceId) return null;
     const profile = await getClientProfile(workspaceId, clientProfileId);
     if (!profile) return null;
-    return { id: profile.id, workspaceId: profile.workspaceId };
+    return { id: profile.id, workspaceId: profile.workspaceId, name: profile.name };
   }
 
   async getAsset(assetId: string): Promise<AdscaleAssetRef | null> {

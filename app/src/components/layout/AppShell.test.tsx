@@ -7,6 +7,7 @@ let pathname = "/campaigns";
 vi.mock("next/navigation", () => ({
   usePathname: () => pathname,
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock("next-intl", () => ({
@@ -44,6 +45,10 @@ vi.mock("@/components/feedback/FeedbackBreadcrumbTracker", () => ({
 
 vi.mock("./DeploymentVersionGuard", () => ({
   default: () => null,
+}));
+
+vi.mock("@/lib/equipe/use-equipe", () => ({
+  useEquipeEnabled: () => false,
 }));
 
 describe("AppShell", () => {
