@@ -86,28 +86,28 @@ export async function getClientAccounts(
   const accounts = [...(await repos.accounts.list(workspaceId))].sort(
     (a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id),
   );
-  return Promise.all(
-    accounts.map(async (account): Promise<ClientAccountView> => {
-      const scope = { workspaceId, accountId: account.id };
-      const [profile, steps, ideas, pipeline] = await Promise.all([
-        deps.gateway.getClientProfile(workspaceId, account.clientProfileId),
-        repos.onboarding.list(scope),
-        repos.ideas.list(scope),
-        getClientPipeline(repos, workspaceId, account.id),
-      ]);
-      const needsYou =
-        pipeline?.columns.find((column) => column.key === "needs_you")?.itemIds.length ?? 0;
-      return {
-        ...account,
-        clientProfileName:
-          profile && profile.workspaceId === workspaceId ? (profile.name ?? null) : null,
-        pendingDecisions:
-          steps.some((step) => isOpenOnboardingStep(step.status)) ||
-          ideas.some((idea) => idea.status === "proposed") ||
-          needsYou > 0,
-      };
-    }),
-  );
+  // Sequential on purpose: repos may share one transaction client, where
+  // parallel queries warn today and break in pg@9 (#574).
+  const views: ClientAccountView[] = [];
+  for (const account of accounts) {
+    const scope = { workspaceId, accountId: account.id };
+    const profile = await deps.gateway.getClientProfile(workspaceId, account.clientProfileId);
+    const steps = await repos.onboarding.list(scope);
+    const ideas = await repos.ideas.list(scope);
+    const pipeline = await getClientPipeline(repos, workspaceId, account.id);
+    const needsYou =
+      pipeline?.columns.find((column) => column.key === "needs_you")?.itemIds.length ?? 0;
+    views.push({
+      ...account,
+      clientProfileName:
+        profile && profile.workspaceId === workspaceId ? (profile.name ?? null) : null,
+      pendingDecisions:
+        steps.some((step) => isOpenOnboardingStep(step.status)) ||
+        ideas.some((idea) => idea.status === "proposed") ||
+        needsYou > 0,
+    });
+  }
+  return views;
 }
 
 export type AccountStateView = {
@@ -210,15 +210,14 @@ export async function getGoalsView(
   const mandates = (await repos.mandates.list(scope)).sort((a, b) => a.version - b.version);
   const onboarding = (await repos.onboarding.list(scope)).sort(byStepOrder);
 
-  const [contexts, connections, scopeEvents, materialEvents, brandVoiceEvents, manualModeEvents] =
-    await Promise.all([
-      repos.contexts.list(scope),
-      repos.connections.list(scope),
-      repos.events.list(scope, { eventType: SCOPE_CONFIRMED_EVENT }),
-      repos.events.list(scope, { eventType: MATERIAL_REGISTERED_EVENT }),
-      repos.events.list(scope, { eventType: BRAND_VOICE_APPROVED_EVENT }),
-      repos.events.list(scope, { eventType: MANUAL_MODE_AGREED_EVENT }),
-    ]);
+  // Sequential on purpose: repos may share one transaction client, where
+  // parallel queries warn today and break in pg@9 (#574).
+  const contexts = await repos.contexts.list(scope);
+  const connections = await repos.connections.list(scope);
+  const scopeEvents = await repos.events.list(scope, { eventType: SCOPE_CONFIRMED_EVENT });
+  const materialEvents = await repos.events.list(scope, { eventType: MATERIAL_REGISTERED_EVENT });
+  const brandVoiceEvents = await repos.events.list(scope, { eventType: BRAND_VOICE_APPROVED_EVENT });
+  const manualModeEvents = await repos.events.list(scope, { eventType: MANUAL_MODE_AGREED_EVENT });
   const scopePayload = eventPayloadOf(scopeEvents[0]);
   const brandVoicePayload = eventPayloadOf(brandVoiceEvents[brandVoiceEvents.length - 1]);
   const openPlan = latestByVersion(plans.filter((p) => p.status === "proposed"));
