@@ -16,6 +16,7 @@ import { makeMemoryGovernanceRepositories } from "./memory-governance";
 import {
   claimMemoryDueIntents,
   listMemoryAccountsByStatus,
+  listMemoryCalibrationRounds,
   makeMemoryDispatchRepositories,
 } from "./memory-dispatch";
 
@@ -47,6 +48,7 @@ export function createMemoryInternalEquipeRepositories(
     staff: makeMemoryStaff(store),
     claimDueIntents: (input) => claimMemoryDueIntents(store, input),
     listAccountsByStatus: (status) => listMemoryAccountsByStatus(store, status),
+    listCalibrationRounds: (filter) => listMemoryCalibrationRounds(store, filter),
   };
 }
 

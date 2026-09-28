@@ -34,6 +34,7 @@ import {
   loadItemOrError,
   loadItemReview,
 } from "./item-shared";
+import { conferencePendingMessage, isItemConferring } from "./calibration-conference";
 
 export type ApproveItemPayload = z.infer<typeof approveItemPayloadSchema>;
 export type ApproveBatchPayload = z.infer<typeof approveBatchPayloadSchema>;
@@ -50,6 +51,8 @@ export type BatchItemResult = {
   outcome: BatchItemOutcome;
   receiptId?: string;
   reviewStatus?: ItemReviewStatus;
+  /** Set when not_ready means "still in calibration conference". */
+  conferencePending?: true;
 };
 
 async function approveOne(
@@ -57,11 +60,16 @@ async function approveOne(
   action: "approve_item" | "approve_batch",
   itemId: string,
   versionHash: string,
+  accountStatus: string,
 ): Promise<BatchItemResult> {
   const scope = scopeOf(ctx);
   const loaded = await loadItemOrError(ctx, itemId);
   if (!loaded.ok) return { itemId, outcome: "unknown_item" };
   const item = loaded.value;
+  // Calibration conference: un-conferred items are per-item "not_ready".
+  if (await isItemConferring(ctx.repos, scope, accountStatus, item)) {
+    return { itemId, outcome: "not_ready", conferencePending: true };
+  }
   if (versionHash !== item.currentVersionHash) {
     return { itemId, outcome: "changed_since_opened" };
   }
@@ -130,7 +138,13 @@ export async function runApproveItem(
   return transact(deps, base, async (ctx) => {
     const account = await loadAccountOrError(ctx);
     if (!account.ok) return account;
-    const result = await approveOne(ctx, "approve_item", payload.itemId, payload.expectedVersionHash);
+    const result = await approveOne(
+      ctx,
+      "approve_item",
+      payload.itemId,
+      payload.expectedVersionHash,
+      account.value.status,
+    );
     if (result.outcome === "unknown_item") {
       return err("unknown_item", `unknown item ${payload.itemId}`);
     }
@@ -138,6 +152,9 @@ export async function runApproveItem(
       return err("version_mismatch", "mudou desde que você abriu, revise de novo");
     }
     if (result.outcome === "not_ready") {
+      if (result.conferencePending) {
+        return err("conference_pending", conferencePendingMessage(payload.itemId));
+      }
       return err(
         "item_not_ready",
         `item ${payload.itemId} is not ready for approval (${result.reviewStatus ?? "undecidable"})`,
@@ -170,7 +187,9 @@ export async function runApproveBatch(
     if (!account.ok) return account;
     const results: BatchItemResult[] = [];
     for (const entry of payload.items) {
-      results.push(await approveOne(ctx, "approve_batch", entry.itemId, entry.versionHash));
+      results.push(
+        await approveOne(ctx, "approve_batch", entry.itemId, entry.versionHash, account.value.status),
+      );
     }
     const approved = results.filter((r) => r.outcome === "approved").length;
     await appendEvent(ctx, {

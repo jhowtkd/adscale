@@ -59,6 +59,11 @@ export function requiredDecisionsFor(frontKind: FrontKind): number {
   return REQUIRED_DECISIONS[frontKind];
 }
 
+/** Items per round: 4 posts for Social, 3 angles for paid media. */
+export function roundSizeFor(frontKind: FrontKind): number {
+  return ROUND_SIZE[frontKind];
+}
+
 function validateScore(item: RoundItemScore, index: number): Result<void> {
   if (!Number.isInteger(item.attemptScore) || item.attemptScore < 0 || item.attemptScore > 16) {
     return err("invalid_score", `item ${index}: attemptScore must be an integer 0–16`);

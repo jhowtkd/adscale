@@ -385,6 +385,95 @@ export const resumePausePayloadSchema = z.object({
   pauseId: uuid,
 });
 
+// Calibration (#546): weekly rounds per front, quality scoring, release.
+const rubricDimension = z.number().int().min(0).max(4);
+
+export const openRoundPayloadSchema = z.object({
+  frontId: uuid,
+  batchId: uuid,
+});
+
+export const scoreAttemptPayloadSchema = z.object({
+  roundId: uuid,
+  itemId: uuid,
+  facts: rubricDimension,
+  brand: rubricDimension,
+  usefulness: rubricDimension,
+  execution: rubricDimension,
+  feedback: z.string().max(2000).optional(),
+});
+
+export const returnItemForFixPayloadSchema = z.object({
+  roundId: uuid,
+  itemId: uuid,
+  note: z.string().min(1).max(2000),
+});
+
+export const submitCorrectedVersionPayloadSchema = z
+  .object({
+    roundId: uuid,
+    itemId: uuid,
+    caption: z.string().min(1).max(4000).optional(),
+    creativeWorkOutputId: uuid.optional(),
+  })
+  .superRefine((payload, ctx) => {
+    if (payload.caption === undefined && payload.creativeWorkOutputId === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "caption or creativeWorkOutputId is required",
+      });
+    }
+  });
+
+export const releaseItemToClientPayloadSchema = z.object({
+  roundId: uuid,
+  itemId: uuid,
+});
+
+export const markCriticalFailurePayloadSchema = z.object({
+  roundId: uuid,
+  itemId: uuid,
+  reason: z.string().min(1).max(2000),
+});
+
+export const withdrawRoundItemPayloadSchema = z.object({
+  roundId: uuid,
+  itemId: uuid,
+  reason: z.string().max(2000).optional(),
+});
+
+export const classifyRejectionPayloadSchema = z.object({
+  roundId: uuid,
+  itemId: uuid,
+  category: z.enum(["fact", "brand", "taste"]),
+  evidence: z.string().max(4000).optional(),
+});
+
+export const closeRoundPayloadSchema = z.object({
+  roundId: uuid,
+});
+
+export const releaseFrontPayloadSchema = z.object({
+  frontId: uuid,
+  notes: z.string().max(4000).optional(),
+});
+
+export const resolveScopeDecisionPayloadSchema = z.object({
+  frontId: uuid,
+  decision: z.enum(["reduce_scope", "pause_front", "close_front"]),
+  note: z.string().max(4000).optional(),
+});
+
+export const openScopeDecisionPayloadSchema = z.object({
+  frontId: uuid,
+});
+
+export const reopenCalibrationPayloadSchema = z.object({
+  frontId: uuid,
+  reason: z.string().min(1).max(2000),
+  escalationId: uuid.optional(),
+});
+
 /** Adapter-provided scope: session + URL, never the request body. */
 export const adapterContextSchema = z.object({
   actor: actorSchema,
@@ -454,6 +543,20 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("revoke_connection", revokeConnectionPayloadSchema),
   command("pause_delinquency", pauseDelinquencyPayloadSchema),
   command("resume_pause", resumePausePayloadSchema),
+  // Calibration (#546)
+  command("open_round", openRoundPayloadSchema),
+  command("score_attempt", scoreAttemptPayloadSchema),
+  command("return_item_for_fix", returnItemForFixPayloadSchema),
+  command("submit_corrected_version", submitCorrectedVersionPayloadSchema),
+  command("release_item_to_client", releaseItemToClientPayloadSchema),
+  command("mark_critical_failure", markCriticalFailurePayloadSchema),
+  command("withdraw_round_item", withdrawRoundItemPayloadSchema),
+  command("classify_rejection", classifyRejectionPayloadSchema),
+  command("close_round", closeRoundPayloadSchema),
+  command("release_front", releaseFrontPayloadSchema),
+  command("resolve_scope_decision", resolveScopeDecisionPayloadSchema),
+  command("open_scope_decision", openScopeDecisionPayloadSchema),
+  command("reopen_calibration", reopenCalibrationPayloadSchema),
 ]);
 
 /** Validated untrusted half of the call: { type, payload } only. */

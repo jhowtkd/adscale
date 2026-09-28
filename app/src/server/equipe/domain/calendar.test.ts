@@ -5,6 +5,7 @@ import {
   fromSaoPauloWallTime,
   isBusinessDay,
   isHoliday,
+  isoWeekKey,
   isWithinAssistedWindow,
   itemApprovalDeadline,
   monthKey,
@@ -125,5 +126,24 @@ describe("month window", () => {
     // 2026-09-01T01:00Z is still 2026-08-31 22:00 in São Paulo (UTC-3).
     expect(monthKey(new Date("2026-09-01T01:00:00.000Z"))).toBe("2026-08");
     expect(monthKey(new Date("2026-09-01T03:00:00.000Z"))).toBe("2026-09");
+  });
+});
+
+describe("iso week key", () => {
+  it("keys Monday to Sunday of the same ISO week together", () => {
+    expect(isoWeekKey(fromSaoPauloWallTime(2026, 9, 28, 9, 0))).toBe("2026-W40");
+    expect(isoWeekKey(fromSaoPauloWallTime(2026, 10, 4, 23, 59))).toBe("2026-W40");
+    expect(isoWeekKey(fromSaoPauloWallTime(2026, 10, 5, 0, 0))).toBe("2026-W41");
+  });
+
+  it("reads the week from the São Paulo wall clock, not UTC", () => {
+    // 2026-10-05T02:00Z is still Sunday 2026-10-04 23:00 in São Paulo.
+    expect(isoWeekKey(new Date("2026-10-05T02:00:00.000Z"))).toBe("2026-W40");
+    expect(isoWeekKey(new Date("2026-10-05T03:00:00.000Z"))).toBe("2026-W41");
+  });
+
+  it("keeps early-January days in the previous week-year when they belong there", () => {
+    expect(isoWeekKey(fromSaoPauloWallTime(2027, 1, 1, 12, 0))).toBe("2026-W53");
+    expect(isoWeekKey(fromSaoPauloWallTime(2027, 1, 4, 12, 0))).toBe("2027-W01");
   });
 });

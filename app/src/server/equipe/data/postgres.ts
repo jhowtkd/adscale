@@ -61,6 +61,7 @@ import {
 import {
   claimDueIntents,
   listAccountsByStatus,
+  listCalibrationRounds,
   makePgConnections,
   makePgEvents,
   makePgIntents,
@@ -431,6 +432,7 @@ export function createPostgresInternalEquipeRepositories(
     staff: makePgStaff(executor),
     claimDueIntents: (input) => claimDueIntents(executor, input),
     listAccountsByStatus: (status) => listAccountsByStatus(executor, status),
+    listCalibrationRounds: (filter) => listCalibrationRounds(executor, filter),
   };
 }
 

@@ -23,6 +23,7 @@ import {
   type EquipeEventFilter,
   type EquipeIntentFilter,
   type EquipePublicationIntent,
+  type EquipeRoundStatus,
   type NewEquipePublicationIntent,
 } from "./types";
 
@@ -213,4 +214,16 @@ export async function listMemoryAccountsByStatus(
   status: EquipeAccountStatus
 ) {
   return [...store.accounts.rows.values()].filter((row) => row.status === status).map(copy);
+}
+
+// Internal cross-account scan of calibration rounds (#546): the quality
+// pipeline groups rounds by state across the staff's accounts.
+export async function listMemoryCalibrationRounds(
+  store: MemoryEquipeStore,
+  filter: { status?: EquipeRoundStatus | EquipeRoundStatus[] } = {}
+) {
+  const wanted = asList(filter.status);
+  return [...store.calibrationRounds.rows.values()]
+    .filter((row) => !wanted || wanted.includes(row.status as EquipeRoundStatus))
+    .map(copy);
 }

@@ -52,6 +52,7 @@ import {
   versionContentOf,
   voidIntentForVersion,
 } from "./item-shared";
+import { conferencePendingMessage, isItemConferring } from "./calibration-conference";
 
 export type RequestAdjustmentPayload = z.infer<typeof requestAdjustmentPayloadSchema>;
 export type EditCaptionPayload = z.infer<typeof editCaptionPayloadSchema>;
@@ -71,6 +72,9 @@ export async function runRequestAdjustment(
     if (!account.ok) return account;
     const loaded = await loadItemOrError(ctx, payload.itemId);
     if (!loaded.ok) return loaded;
+    if (await isItemConferring(ctx.repos, scopeOf(ctx), account.value.status, loaded.value)) {
+      return err("conference_pending", conferencePendingMessage(payload.itemId));
+    }
     const receipts = await ctx.repos.receipts.listByObject(scopeOf(ctx), "item", payload.itemId);
     const state = domainStateOf(loaded.value, receipts);
     if (!state.ok) return state;
@@ -122,6 +126,9 @@ export async function runEditCaption(
     if (!loaded.ok) return loaded;
     const scope = scopeOf(ctx);
     const item = loaded.value;
+    if (await isItemConferring(ctx.repos, scope, account.value.status, item)) {
+      return err("conference_pending", conferencePendingMessage(payload.itemId));
+    }
     if (!item.currentVersionHash) {
       return err("invalid_transition", `item ${item.id} has no current version`);
     }
@@ -293,6 +300,9 @@ export async function runConfirmBusinessFact(
     if (!loaded.ok) return loaded;
     const scope = scopeOf(ctx);
     const item = loaded.value;
+    if (await isItemConferring(ctx.repos, scope, account.value.status, item)) {
+      return err("conference_pending", conferencePendingMessage(payload.itemId));
+    }
     if (item.status !== "awaiting_approval" || !item.currentVersionHash) {
       return err("invalid_transition", `item ${item.id} is not awaiting a decision`);
     }
