@@ -4,6 +4,7 @@
 import type {
   AdscaleAssetRef,
   AdscaleClientProfileRef,
+  AdscaleCreativeWorkOutputRef,
   AdscaleCreativeWorkRef,
   AdscaleGateway,
   AdscaleOfferRef,
@@ -21,6 +22,7 @@ export class FakeAdscaleGateway implements AdscaleGateway {
   profiles = new Map<string, AdscaleClientProfileRef>();
   assets = new Map<string, AdscaleAssetRef>();
   works = new Map<string, AdscaleCreativeWorkRef>();
+  outputs = new Map<string, AdscaleCreativeWorkOutputRef>();
   offers = new Map<string, AdscaleOfferRef>();
 
   addProfile(ref: AdscaleClientProfileRef): void {
@@ -45,6 +47,14 @@ export class FakeAdscaleGateway implements AdscaleGateway {
 
   async getCreativeWork(workId: string): Promise<AdscaleCreativeWorkRef | null> {
     return this.works.get(workId) ?? null;
+  }
+
+  addOutput(ref: AdscaleCreativeWorkOutputRef): void {
+    this.outputs.set(ref.id, ref);
+  }
+
+  async getCreativeWorkOutput(outputId: string): Promise<AdscaleCreativeWorkOutputRef | null> {
+    return this.outputs.get(outputId) ?? null;
   }
 
   async getOffer(offerId: string): Promise<AdscaleOfferRef | null> {

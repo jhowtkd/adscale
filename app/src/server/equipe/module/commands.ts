@@ -28,6 +28,18 @@ import {
   runPauseOnboarding,
   runRecordInstallmentPaid,
 } from "./onboarding";
+import { runDeliverBatch } from "./items-deliver";
+import { runApproveBatch, runApproveItem } from "./items-approve";
+import {
+  runCancelScheduled,
+  runConfirmBusinessFact,
+  runDeclinePublish,
+  runEditCaption,
+  runRecordCaptionTriage,
+  runRequestAdjustment,
+} from "./items-adjust";
+import { runChoosePiece } from "./items-choose";
+import { runExpireItemDeadline, runProposeNewSchedule } from "./items-deadline";
 
 const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   open_account: "open_account",
@@ -45,6 +57,18 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   record_installment_paid: "record_installment_paid",
   advance_onboarding: "advance_onboarding",
   pause_onboarding: "pause_onboarding",
+  deliver_batch: "deliver_batch",
+  approve_item: "approve_item",
+  approve_batch: "approve_batch",
+  request_adjustment: "request_adjustment",
+  edit_caption: "edit_caption",
+  record_caption_triage: "record_caption_triage",
+  confirm_business_fact: "confirm_business_fact",
+  decline_publish: "decline_publish",
+  cancel_scheduled: "cancel_scheduled",
+  choose_piece: "choose_piece",
+  expire_item_deadline: "expire_deadline",
+  propose_new_schedule: "propose_new_schedule",
 };
 
 export type ExecutedCommand = CommandSuccess & { type: CommandType };
@@ -137,6 +161,42 @@ export async function executeCommand(
       break;
     case "pause_onboarding":
       outcome = await runPauseOnboarding(deps, base, command.payload);
+      break;
+    case "deliver_batch":
+      outcome = await runDeliverBatch(deps, base, command.payload);
+      break;
+    case "approve_item":
+      outcome = await runApproveItem(deps, base, command.payload);
+      break;
+    case "approve_batch":
+      outcome = await runApproveBatch(deps, base, command.payload);
+      break;
+    case "request_adjustment":
+      outcome = await runRequestAdjustment(deps, base, command.payload);
+      break;
+    case "edit_caption":
+      outcome = await runEditCaption(deps, base, command.payload);
+      break;
+    case "record_caption_triage":
+      outcome = await runRecordCaptionTriage(deps, base, command.payload);
+      break;
+    case "confirm_business_fact":
+      outcome = await runConfirmBusinessFact(deps, base, command.payload);
+      break;
+    case "decline_publish":
+      outcome = await runDeclinePublish(deps, base, command.payload);
+      break;
+    case "cancel_scheduled":
+      outcome = await runCancelScheduled(deps, base, command.payload);
+      break;
+    case "choose_piece":
+      outcome = await runChoosePiece(deps, base, command.payload);
+      break;
+    case "expire_item_deadline":
+      outcome = await runExpireItemDeadline(deps, base, command.payload);
+      break;
+    case "propose_new_schedule":
+      outcome = await runProposeNewSchedule(deps, base, command.payload);
       break;
   }
   if (!outcome.ok) return outcome;

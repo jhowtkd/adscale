@@ -145,6 +145,83 @@ export const pauseOnboardingPayloadSchema = z.object({
   reason: z.string().max(2000).optional(),
 });
 
+export const deliverBatchItemSchema = z.object({
+  creativeWorkId: uuid,
+  creativeWorkOutputId: uuid,
+  caption: z.string().max(4000).default(""),
+  destinationAccount: z.string().min(1).max(200),
+  scheduledFor: z.coerce.date(),
+  needsConfirmation: z.boolean().default(false),
+});
+
+export const deliverBatchPayloadSchema = z.object({
+  title: z.string().min(1).max(200),
+  frontId: uuid,
+  approveByAt: z.coerce.date(),
+  items: z.array(deliverBatchItemSchema).min(1).max(50),
+});
+
+export const approveItemPayloadSchema = z.object({
+  itemId: uuid,
+  expectedVersionHash: versionHash,
+});
+
+export const approveBatchPayloadSchema = z.object({
+  items: z
+    .array(z.object({ itemId: uuid, versionHash }))
+    .min(1)
+    .max(50),
+});
+
+export const requestAdjustmentPayloadSchema = z.object({
+  itemId: uuid,
+  category: z.enum(["fact", "brand", "voice", "visual", "other"]),
+  note: z.string().max(2000).optional(),
+});
+
+export const editCaptionPayloadSchema = z.object({
+  itemId: uuid,
+  caption: z.string().min(1).max(4000),
+});
+
+export const recordCaptionTriagePayloadSchema = z.object({
+  itemId: uuid,
+  natures: z
+    .array(z.enum(["permanent_fact", "commercial_condition", "regulated_claim", "none"]))
+    .max(4),
+  warnings: z.array(z.string().min(1).max(500)).max(10).default([]),
+  qualityRecheckPassed: z.boolean().default(false),
+});
+
+export const confirmBusinessFactPayloadSchema = z.object({
+  itemId: uuid,
+  expectedVersionHash: versionHash,
+});
+
+export const declinePublishPayloadSchema = z.object({
+  itemId: uuid,
+  reason: z.string().min(1).max(2000),
+});
+
+export const cancelScheduledPayloadSchema = z.object({
+  itemId: uuid,
+});
+
+export const choosePiecePayloadSchema = z.object({
+  itemId: uuid,
+  expectedVersionHash: versionHash,
+  creativeWorkOutputId: uuid,
+});
+
+export const expireItemDeadlinePayloadSchema = z.object({
+  itemId: uuid,
+});
+
+export const proposeNewSchedulePayloadSchema = z.object({
+  itemId: uuid,
+  scheduledFor: z.coerce.date(),
+});
+
 /** Adapter-provided scope: session + URL, never the request body. */
 export const adapterContextSchema = z.object({
   actor: actorSchema,
@@ -174,6 +251,18 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("record_installment_paid", recordInstallmentPaidPayloadSchema),
   command("advance_onboarding", advanceOnboardingPayloadSchema),
   command("pause_onboarding", pauseOnboardingPayloadSchema),
+  command("deliver_batch", deliverBatchPayloadSchema),
+  command("approve_item", approveItemPayloadSchema),
+  command("approve_batch", approveBatchPayloadSchema),
+  command("request_adjustment", requestAdjustmentPayloadSchema),
+  command("edit_caption", editCaptionPayloadSchema),
+  command("record_caption_triage", recordCaptionTriagePayloadSchema),
+  command("confirm_business_fact", confirmBusinessFactPayloadSchema),
+  command("decline_publish", declinePublishPayloadSchema),
+  command("cancel_scheduled", cancelScheduledPayloadSchema),
+  command("choose_piece", choosePiecePayloadSchema),
+  command("expire_item_deadline", expireItemDeadlinePayloadSchema),
+  command("propose_new_schedule", proposeNewSchedulePayloadSchema),
 ]);
 
 /** Validated untrusted half of the call: { type, payload } only. */
