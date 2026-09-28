@@ -101,7 +101,7 @@ import { runCompleteInstagramConnect, runFailInstagramConnect } from "./instagra
 // #549 — jobs duráveis e notificações.
 import { runReminders } from "./jobs-reminders";
 import { runDeadlines } from "./jobs-deadlines";
-import { runCalibrationMonitor } from "./jobs-monitor";
+import { runCalibrationMonitor, runRecordQualityEffort } from "./jobs-monitor";
 import { runRecordNotificationDelivered } from "./jobs-delivery";
 
 const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
@@ -186,6 +186,7 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   run_deadlines: "expire_deadline",
   run_calibration_monitor: "open_auto_escalation",
   record_notification_delivered: "record_delivery",
+  record_quality_effort: "record_quality_effort",
 };
 
 export type ExecutedCommand = CommandSuccess & { type: CommandType };
@@ -466,6 +467,9 @@ export async function executeCommand(
       break;
     case "record_notification_delivered":
       outcome = await runRecordNotificationDelivered(deps, base, command.payload);
+      break;
+    case "record_quality_effort":
+      outcome = await runRecordQualityEffort(deps, base, command.payload);
       break;
   }
   if (!outcome.ok) return outcome;

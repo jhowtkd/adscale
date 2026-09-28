@@ -2,7 +2,19 @@
 // filtering, partial-failure resume, idempotent re-runs, and the proof
 // that a send failure never undoes the requesting command.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    child: vi.fn(),
+  },
+}));
+
+import { logger } from "@/lib/logger";
 import { executeCommand } from "../module/commands";
 import {
   ctx,
@@ -118,7 +130,7 @@ describe("notification types", () => {
 });
 
 describe("recipient resolution", () => {
-  it("resolves client, staff and founder roles", async () => {
+  it("resolves client, staff and internal roles", async () => {
     const { t, ids } = await setupPeople();
     const stores = { repos: t.deps.uow.repos, internal: t.deps.uow.internal };
     expect(await resolveNotificationRecipients(stores, SCOPE(ids), "approver")).toEqual([
@@ -131,7 +143,7 @@ describe("recipient resolution", () => {
     expect(await resolveNotificationRecipients(stores, SCOPE(ids), "nope")).toEqual({
       unknown: true,
     });
-    // Staff and founder read the global staff rows.
+    // Staff roles read the global staff rows.
     await t.deps.uow.internal.staff.create({
       role: "quality",
       displayName: "Q",
@@ -144,15 +156,81 @@ describe("recipient resolution", () => {
       active: true,
       userId: "user-founder",
     });
-    // The queue includes the login-less seeded row; founder skips nulls.
+    // The queue includes the login-less seeded row.
     expect(await resolveNotificationRecipients(stores, SCOPE(ids), "quality")).toEqual([
       { userId: null, email: null },
       { userId: "user-founder", email: null },
     ]);
-    // Founder fans out to every active staffer, deduped by user.
-    expect(await resolveNotificationRecipients(stores, SCOPE(ids), "founder")).toEqual([
-      { userId: "user-founder", email: null },
+  });
+
+  it("resolves the founder to allowlisted staff users only", async () => {
+    const { t, ids } = await setupPeople();
+    const stores = { repos: t.deps.uow.repos, internal: t.deps.uow.internal };
+    await t.deps.uow.internal.staff.create({
+      role: "quality",
+      displayName: "Q",
+      active: true,
+      userId: "user-founder",
+    });
+    await t.deps.uow.internal.staff.create({
+      role: "operations",
+      displayName: "Ops",
+      active: true,
+      userId: "user-founder",
+    });
+    await t.deps.uow.internal.staff.create({
+      role: "support",
+      displayName: "S",
+      active: true,
+      userId: "user-other",
+    });
+    const { adapters } = makeAdapters({
+      "user-founder": { ...VERIFIED_USER, email: "Founder@Adscale.test" },
+      "user-other": { ...VERIFIED_USER, email: "other@adscale.test" },
+    });
+    vi.mocked(logger.warn).mockClear();
+    const resolved = await resolveNotificationRecipients(stores, SCOPE(ids), "founder", {
+      users: adapters.users,
+      ownerEmails: new Set(["founder@adscale.test"]),
+    });
+    // One row for the founder despite two staff roles; other staff and the
+    // login-less seeded rows are excluded. Matching is case-insensitive.
+    expect(resolved).toEqual([{ userId: "user-founder", email: null }]);
+    expect(vi.mocked(logger.warn)).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the operations queue when the allowlist matches nobody", async () => {
+    const { t, ids } = await setupPeople();
+    const stores = { repos: t.deps.uow.repos, internal: t.deps.uow.internal };
+    await t.deps.uow.internal.staff.create({
+      role: "quality",
+      displayName: "Q",
+      active: true,
+      userId: "user-q",
+    });
+    await t.deps.uow.internal.staff.create({
+      role: "operations",
+      displayName: "Ops",
+      active: true,
+      userId: "user-ops",
+    });
+    const { adapters } = makeAdapters({
+      "user-q": VERIFIED_USER,
+      "user-ops": { ...VERIFIED_USER, email: "ops@adscale.test" },
+    });
+    vi.mocked(logger.warn).mockClear();
+    const resolved = await resolveNotificationRecipients(stores, SCOPE(ids), "founder", {
+      users: adapters.users,
+      ownerEmails: new Set(["owner-without-login@adscale.test"]),
+    });
+    // The allowlist owner holds no staff login: the breach pages the
+    // operations queue (login-less seeded row included, like the role).
+    expect(resolved).toEqual([
+      { userId: null, email: null },
+      { userId: "user-ops", email: null },
     ]);
+    expect(vi.mocked(logger.warn)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(logger.warn).mock.calls[0]?.[0]).toContain("falling back to operations");
   });
 });
 

@@ -54,6 +54,7 @@ export type EquipeAction =
   | "resolve_content_escalation"
   | "pause_front_content"
   | "resume_content_pause"
+  | "record_quality_effort"
   // Staff: operations ("operação")
   | "resolve_technical_escalation"
   | "suspend_execution"
@@ -169,6 +170,7 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   resolve_content_escalation: [QUALITY],
   pause_front_content: [QUALITY, SYSTEM],
   resume_content_pause: [QUALITY],
+  record_quality_effort: [QUALITY],
   resolve_technical_escalation: [OPERATIONS],
   suspend_execution: [OPERATIONS, SYSTEM],
   revoke_connection: [OPERATIONS],

@@ -10,13 +10,14 @@
 // - Calibrating fronts: recorded quality effort above 6 h alerts quality,
 //   above 8 h alerts the founder to decide. Each fires once per front.
 //   Effort is read from `quality.effort_recorded` events (minutes per
-//   front); the staff command recording them is a later ticket.
+//   front), booked by the quality staff through `record_quality_effort`.
 
 import { z } from "zod";
-import { ok, type Result } from "../domain";
+import { err, ok, type Result } from "../domain";
 import type { EquipeEvent, EquipeFront, EquipeItem } from "../data";
 import type { EquipeModuleDeps } from "./ports";
-import { runCalibrationMonitorPayloadSchema } from "./envelope";
+import { recordQualityEffortPayloadSchema, runCalibrationMonitorPayloadSchema } from "./envelope";
+import { loadFrontOrError, loadRoundOrError } from "./calibration-shared";
 import {
   appendEvent,
   loadAccountOrError,
@@ -37,6 +38,7 @@ import {
 } from "./escalations-shared";
 
 export type RunCalibrationMonitorPayload = z.infer<typeof runCalibrationMonitorPayloadSchema>;
+export type RecordQualityEffortPayload = z.infer<typeof recordQualityEffortPayloadSchema>;
 
 /** Quality effort bookings the monitor sums, in minutes per front. */
 export const QUALITY_EFFORT_RECORDED_EVENT = "quality.effort_recorded";
@@ -177,6 +179,45 @@ async function sweepCalibratingFront(
     result.escalated = true;
   }
   return result;
+}
+
+/**
+ * Book quality time on a front (QUALITY staff only): appends a
+ * `quality.effort_recorded` event the monitor sums per front. The round is
+ * an optional annotation — when given it must exist on this front. Each
+ * booking is its own event; there is no daily cap beyond the 8 h payload
+ * limit, so a long day is booked as several entries.
+ */
+export async function runRecordQualityEffort(
+  deps: EquipeModuleDeps,
+  base: TxBase,
+  payload: RecordQualityEffortPayload,
+): Promise<Result<CommandSuccess>> {
+  return transact(deps, base, async (ctx) => {
+    const account = await loadAccountOrError(ctx);
+    if (!account.ok) return account;
+    const front = await loadFrontOrError(ctx, payload.frontId);
+    if (!front.ok) return front;
+    if (payload.roundId) {
+      const round = await loadRoundOrError(ctx, payload.roundId);
+      if (!round.ok) return round;
+      if (round.value.frontId !== front.value.id) {
+        return err("round_not_in_front", `round ${payload.roundId} is not on front ${front.value.id}`);
+      }
+    }
+    const event = await appendEvent(ctx, {
+      eventType: QUALITY_EFFORT_RECORDED_EVENT,
+      objectType: "front",
+      objectId: front.value.id,
+      payload: {
+        frontId: front.value.id,
+        ...(payload.roundId ? { roundId: payload.roundId } : {}),
+        minutes: payload.minutes,
+        ...(payload.note ? { note: payload.note } : {}),
+      },
+    });
+    return ok({ eventId: event.id, frontId: front.value.id, minutes: payload.minutes });
+  });
 }
 
 /**

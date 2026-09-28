@@ -519,6 +519,13 @@ export const recordNotificationDeliveredPayloadSchema = z.object({
     .max(4),
 });
 
+export const recordQualityEffortPayloadSchema = z.object({
+  frontId: uuid,
+  roundId: uuid.optional(),
+  minutes: z.number().int().min(1).max(480),
+  note: z.string().max(2000).optional(),
+});
+
 /** Adapter-provided scope: session + URL, never the request body. */
 export const adapterContextSchema = z.object({
   actor: actorSchema,
@@ -614,6 +621,7 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("run_deadlines", runDeadlinesPayloadSchema),
   command("run_calibration_monitor", runCalibrationMonitorPayloadSchema),
   command("record_notification_delivered", recordNotificationDeliveredPayloadSchema),
+  command("record_quality_effort", recordQualityEffortPayloadSchema),
 ]);
 
 /** Validated untrusted half of the call: { type, payload } only. */

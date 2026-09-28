@@ -14,10 +14,11 @@ import {
   deliverTestBatch,
   frontIdOf,
   setup,
+  uuid,
   type ItemIds,
   type TestDeps,
 } from "./testing/items";
-import { setNow } from "./testing/calibration";
+import { openTestRound, setNow } from "./testing/calibration";
 
 const SCOPE = (ids: ItemIds) => ({ workspaceId: ids.workspaceId, accountId: ids.accountId });
 
@@ -158,15 +159,15 @@ describe("run_calibration_monitor rejections", () => {
   });
 });
 
-describe("run_calibration_monitor quality hours", () => {
-  async function setupBudget() {
-    const { t, ids } = await setup();
-    await t.deps.uow.repos.accounts.update(ids.workspaceId, ids.accountId, { status: "active" });
-    const frontId = await frontIdOf(t, ids, "social_instagram");
-    await t.deps.uow.repos.fronts.update(SCOPE(ids), frontId, { status: "calibrating" });
-    return { t, ids, frontId };
-  }
+async function setupBudget() {
+  const { t, ids } = await setup();
+  await t.deps.uow.repos.accounts.update(ids.workspaceId, ids.accountId, { status: "active" });
+  const frontId = await frontIdOf(t, ids, "social_instagram");
+  await t.deps.uow.repos.fronts.update(SCOPE(ids), frontId, { status: "calibrating" });
+  return { t, ids, frontId };
+}
 
+describe("run_calibration_monitor quality hours", () => {
   async function recordEffort(t: TestDeps, ids: ItemIds, frontId: string, minutes: number) {
     await t.deps.uow.repos.events.create(SCOPE(ids), {
       actorType: "staff",
@@ -239,5 +240,112 @@ describe("run_calibration_monitor gates", () => {
       payload: {},
     });
     expect(outcome.ok).toBe(false);
+  });
+});
+
+describe("record_quality_effort", () => {
+  it("lets quality book time, with optional round and note", async () => {
+    const { t, ids, frontId } = await setupBudget();
+    const round = await openTestRound(t, ids, { front: "social_instagram" });
+    const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.quality), {
+      type: "record_quality_effort",
+      payload: { frontId, roundId: round.roundId, minutes: 90, note: "revisão do lote" },
+    });
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.value.data).toMatchObject({ frontId, minutes: 90 });
+    const events = await t.deps.uow.repos.events.list(SCOPE(ids), {
+      objectType: "front",
+      objectId: frontId,
+    });
+    const booked = events.filter((event) => event.eventType === QUALITY_EFFORT_RECORDED_EVENT);
+    expect(booked).toHaveLength(1);
+    expect(booked[0]).toMatchObject({
+      actorRole: "quality",
+      payload: { frontId, roundId: round.roundId, minutes: 90, note: "revisão do lote" },
+    });
+  });
+
+  it("forbids agent, system and support actors", async () => {
+    const { t, ids, frontId } = await setupBudget();
+    for (const actor of [ids.actors.agent, ids.actors.system, ids.actors.support]) {
+      const outcome = await executeCommand(t.deps, ctx(ids, actor), {
+        type: "record_quality_effort",
+        payload: { frontId, minutes: 30 },
+      });
+      expect(outcome.ok).toBe(false);
+      if (outcome.ok) continue;
+      expect(outcome.error.code).toBe("forbidden_actor");
+    }
+    const booked = await t.deps.uow.repos.events.list(SCOPE(ids), {
+      eventType: QUALITY_EFFORT_RECORDED_EVENT,
+    });
+    expect(booked).toHaveLength(0);
+  });
+
+  it("rejects bad minutes, unknown fronts and foreign rounds", async () => {
+    const { t, ids, frontId } = await setupBudget();
+    const otherFrontRound = await openTestRound(t, ids, { front: "midia_paga" });
+    const quality = ctx(ids, ids.actors.quality);
+    for (const minutes of [0, 481, 1.5]) {
+      const outcome = await executeCommand(t.deps, quality, {
+        type: "record_quality_effort",
+        payload: { frontId, minutes },
+      });
+      expect(outcome.ok).toBe(false);
+      if (outcome.ok) continue;
+      expect(outcome.error.code).toBe("invalid_command");
+    }
+    const unknownFront = await executeCommand(t.deps, quality, {
+      type: "record_quality_effort",
+      payload: { frontId: uuid(), minutes: 30 },
+    });
+    expect(unknownFront.ok).toBe(false);
+    if (!unknownFront.ok) expect(unknownFront.error.code).toBe("unknown_front");
+    const unknownRound = await executeCommand(t.deps, quality, {
+      type: "record_quality_effort",
+      payload: { frontId, roundId: uuid(), minutes: 30 },
+    });
+    expect(unknownRound.ok).toBe(false);
+    if (!unknownRound.ok) expect(unknownRound.error.code).toBe("unknown_round");
+    const foreignRound = await executeCommand(t.deps, quality, {
+      type: "record_quality_effort",
+      payload: { frontId, roundId: otherFrontRound.roundId, minutes: 30 },
+    });
+    expect(foreignRound.ok).toBe(false);
+    if (!foreignRound.ok) expect(foreignRound.error.code).toBe("round_not_in_front");
+  });
+});
+
+describe("record_quality_effort feeds the monitor", () => {
+  it("fires the 6 h warning and the 8 h escalation once each per front", async () => {
+    const { t, ids, frontId } = await setupBudget();
+    const quality = ctx(ids, ids.actors.quality);
+    async function book(minutes: number) {
+      const outcome = await executeCommand(t.deps, quality, {
+        type: "record_quality_effort",
+        payload: { frontId, minutes },
+      });
+      if (!outcome.ok) throw new Error(`book failed: ${outcome.error.code}`);
+    }
+    await book(200);
+    await book(170);
+    expect(await runMonitor(t, ids)).toMatchObject({
+      budgets: [{ frontId, minutes: 370, warned: true, escalated: false }],
+    });
+    expect(await notificationsFor(t, ids, "quality.hours_warning")).toHaveLength(1);
+    expect(await runMonitor(t, ids)).toMatchObject({
+      budgets: [{ warned: false, escalated: false }],
+    });
+    await book(120);
+    expect(await runMonitor(t, ids)).toMatchObject({
+      budgets: [{ minutes: 490, warned: false, escalated: true }],
+    });
+    expect(await notificationsFor(t, ids, "quality.hours_over_budget")).toHaveLength(1);
+    expect(await runMonitor(t, ids)).toMatchObject({
+      budgets: [{ warned: false, escalated: false }],
+    });
+    expect(await notificationsFor(t, ids, "quality.hours_warning")).toHaveLength(1);
+    expect(await notificationsFor(t, ids, "quality.hours_over_budget")).toHaveLength(1);
   });
 });
