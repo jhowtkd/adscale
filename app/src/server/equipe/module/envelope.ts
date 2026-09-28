@@ -374,8 +374,13 @@ export const pauseConnectionPayloadSchema = z.object({
   connectionId: uuid.optional(),
 });
 
-export const pauseGlobalPayloadSchema = z.object({
-  reason: z.string().max(2000).optional(),
+// #583 — parada global: motivo obrigatório nos dois sentidos.
+export const stopAllPublicationsPayloadSchema = z.object({
+  reason: z.string().min(1).max(2000),
+});
+
+export const resumeAllPublicationsPayloadSchema = z.object({
+  reason: z.string().min(1).max(2000),
 });
 
 export const suspendExecutionPayloadSchema = z.object({
@@ -605,7 +610,9 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("pause_account_team", pauseAccountTeamPayloadSchema),
   command("pause_front_content", pauseFrontContentPayloadSchema),
   command("pause_connection", pauseConnectionPayloadSchema),
-  command("pause_global", pauseGlobalPayloadSchema),
+  // #583 — a per-conta `pause_global` saiu: parar/retomar é global.
+  command("stop_all_publications", stopAllPublicationsPayloadSchema),
+  command("resume_all_publications", resumeAllPublicationsPayloadSchema),
   command("suspend_execution", suspendExecutionPayloadSchema),
   command("revoke_connection", revokeConnectionPayloadSchema),
   command("pause_delinquency", pauseDelinquencyPayloadSchema),

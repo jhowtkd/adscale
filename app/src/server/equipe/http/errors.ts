@@ -67,6 +67,9 @@ const CONFLICT_CODES = new Set([
   "deadline_not_reached",
   "duplicate_pause",
   "front_not_released",
+  // #583 — stopping twice / resuming without a stop.
+  "global_stop_already_active",
+  "global_stop_not_active",
   "invalid_transition",
   "item_critical",
   "item_limit_passed",

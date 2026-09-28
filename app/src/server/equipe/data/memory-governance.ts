@@ -1,21 +1,29 @@
 import { z } from "zod";
-import type { EquipeRepositories } from "./repositories";
+import type { EquipeGlobalStopRepository, EquipeRepositories } from "./repositories";
 import {
+  assertUnique,
   buildRow,
   checkFields,
+  copy,
   makeMemoryAccountRepo,
   makeMemoryAppendRepo,
+  stripUndefined,
   type MemoryEquipeStore,
 } from "./memory-core";
 import {
+  EquipeNotFoundError,
   equipeEscalationStatusSchema,
   equipeExceptionStatusSchema,
+  equipeGlobalStopStatusSchema,
   equipePauseLevelSchema,
   equipePauseScopeSchema,
   equipePauseStatusSchema,
   equipeRoundStatusSchema,
   equipeScoreVerdictSchema,
   equipeSeveritySchema,
+  type EquipeGlobalStop,
+  type EquipeGlobalStopPatch,
+  type NewEquipeGlobalStop,
 } from "./types";
 
 // Agregado qualidade/operação em memória: rodadas e notas de calibração
@@ -130,5 +138,54 @@ export function makeMemoryGovernanceRepositories(
         status: equipePauseStatusSchema,
       }),
     }),
+  };
+}
+
+// Parada global em memória (#583): sem escopo, uma ativa no máximo —
+// espelha o índice parcial do banco (conflito vira EquipeConflictError).
+export function makeMemoryGlobalStops(store: MemoryEquipeStore): EquipeGlobalStopRepository {
+  const validate = checkFields({ status: equipeGlobalStopStatusSchema });
+  const singleActive = (row: EquipeGlobalStop): string | null =>
+    row.status === "active" ? "active" : null;
+  return {
+    async getActive() {
+      const found = [...store.globalStops.rows.values()].find((row) => row.status === "active");
+      return found ? copy(found) : null;
+    },
+    async create(input: NewEquipeGlobalStop) {
+      validate(input);
+      if (typeof input.reason !== "string" || typeof input.stoppedBy !== "string") {
+        throw new Error("equipe_missing_global_stop_fields");
+      }
+      const now = new Date();
+      const row: EquipeGlobalStop = {
+        id: crypto.randomUUID(),
+        status: "active",
+        stoppedAt: now,
+        liftedAt: null,
+        liftedBy: null,
+        liftReason: null,
+        ...stripUndefined(input),
+        createdAt: now,
+        updatedAt: now,
+      } as EquipeGlobalStop;
+      assertUnique([...store.globalStops.rows.values()], row, [singleActive]);
+      store.globalStops.rows.set(row.id, row);
+      return copy(row);
+    },
+    async update(id: string, patch: EquipeGlobalStopPatch) {
+      const current = store.globalStops.rows.get(id);
+      if (!current) throw new EquipeNotFoundError("equipe_not_found");
+      validate(patch);
+      const next: EquipeGlobalStop = {
+        ...current,
+        ...stripUndefined(patch),
+        id: current.id,
+        updatedAt: new Date(),
+      };
+      assertUnique([...store.globalStops.rows.values()], next, [singleActive], current.id);
+      store.globalStops.rows.set(id, next);
+      return copy(next);
+    },
   };
 }

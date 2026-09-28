@@ -1,7 +1,10 @@
 // Pausas (#547), apply side: client, team, content-incident, connection,
-// global stop, execution suspension and delinquency. Stacked pauses: the
-// most restrictive wins and the front only returns when every covering pause
-// is lifted. Resume + revalidation live in ./pauses-resume.
+// execution suspension and delinquency. Stacked pauses: the most restrictive
+// wins and the front only returns when every covering pause is lifted.
+// Resume + revalidation live in ./pauses-resume.
+//
+// (#583) The per-account `global_stop` row is gone: stopping is global now
+// (./global-stop), and old rows stay resumable through resume_pause.
 
 import { z } from "zod";
 import {
@@ -20,7 +23,6 @@ import {
   pauseConnectionPayloadSchema,
   pauseDelinquencyPayloadSchema,
   pauseFrontContentPayloadSchema,
-  pauseGlobalPayloadSchema,
   pausePublicationsPayloadSchema,
   suspendExecutionPayloadSchema,
 } from "./envelope";
@@ -42,7 +44,6 @@ export type PausePublicationsPayload = z.infer<typeof pausePublicationsPayloadSc
 export type PauseAccountTeamPayload = z.infer<typeof pauseAccountTeamPayloadSchema>;
 export type PauseFrontContentPayload = z.infer<typeof pauseFrontContentPayloadSchema>;
 export type PauseConnectionPayload = z.infer<typeof pauseConnectionPayloadSchema>;
-export type PauseGlobalPayload = z.infer<typeof pauseGlobalPayloadSchema>;
 export type SuspendExecutionPayload = z.infer<typeof suspendExecutionPayloadSchema>;
 export type PauseDelinquencyPayload = z.infer<typeof pauseDelinquencyPayloadSchema>;
 
@@ -89,10 +90,11 @@ function notifyRoleFor(origin: PauseOrigin): string {
 
 export type ApplyPauseInput = {
   origin: PauseOrigin;
-  /** Front scope; null for account/global scope. */
+  /** Front scope; null for account scope. */
   frontId?: string | null;
-  /** "global" only for the global stop (still an account-scoped row). */
-  scope: "account" | "front" | "global";
+  // (#583) No "global" scope anymore: stopping is global (./global-stop),
+  // never an account-scoped row. Old rows keep their stored value.
+  scope: "account" | "front";
   reason?: string | null;
   escalationId?: string;
   connectionId?: string;
@@ -266,19 +268,6 @@ export async function runPauseConnection(
     reason: payload.reason,
     connectionId: payload.connectionId,
     connectionMustExist: payload.connectionId,
-  });
-}
-
-/** Authorized operations halt publications everywhere (one row per account). */
-export async function runPauseGlobal(
-  deps: EquipeModuleDeps,
-  base: TxBase,
-  payload: PauseGlobalPayload,
-): Promise<Result<CommandSuccess>> {
-  return applyExplicitPause(deps, base, {
-    origin: "global_stop",
-    scope: "global",
-    reason: payload.reason,
   });
 }
 

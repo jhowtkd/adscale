@@ -267,6 +267,11 @@ export async function listMemoryAccountsByStatus(
   return [...store.accounts.rows.values()].filter((row) => row.status === status).map(copy);
 }
 
+// #583 — todas as contas, qualquer estado (a parada global filtra no módulo).
+export async function listMemoryAccounts(store: MemoryEquipeStore) {
+  return [...store.accounts.rows.values()].map(copy);
+}
+
 // Internal cross-account scan of calibration rounds (#546): the quality
 // pipeline groups rounds by state across the staff's accounts.
 export async function listMemoryCalibrationRounds(

@@ -86,6 +86,9 @@ describe("staff-api", () => {
     expect(STAFF_ROLE_FOR_COMMAND.reopen_front_calibration).toBe("quality");
     expect(STAFF_ROLE_FOR_COMMAND.revoke_connection).toBe("operations");
     expect(STAFF_ROLE_FOR_COMMAND.record_quality_effort).toBe("quality");
+    // #583 — the global stop is operations-only in both directions.
+    expect(STAFF_ROLE_FOR_COMMAND.stop_all_publications).toBe("operations");
+    expect(STAFF_ROLE_FOR_COMMAND.resume_all_publications).toBe("operations");
   });
 
   it("closes escalations as the owner role", () => {

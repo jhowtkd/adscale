@@ -230,6 +230,15 @@ const TEMPLATES: Record<string, Template> = {
   },
   "pause.applied": { title: "Pausa aplicada", message: "Uma pausa foi aplicada." },
   "pause.lifted": { title: "Pausa retirada", message: "Uma pausa foi retirada." },
+  // #583 — parada global de publicações sem deploy.
+  "global_stop.applied": {
+    title: "Publicações paradas em todas as contas",
+    message: "A operação parou todas as publicações. Os itens agendados estão segurados.",
+  },
+  "global_stop.lifted": {
+    title: "Publicações retomadas",
+    message: "A operação retomou as publicações. Os itens segurados estão em revalidação.",
+  },
   "quality.hours_warning": {
     title: "Qualidade acima de 6 h",
     message: "Uma frente passou de 6 horas de qualidade.",

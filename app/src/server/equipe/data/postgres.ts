@@ -63,12 +63,14 @@ import {
   getCalibrationRound,
   getEscalation,
   listAccountLabels,
+  listAccounts,
   listAccountsByStatus,
   listCalibrationRounds,
   listFronts,
   makePgConnections,
   makePgDeliveries,
   makePgEvents,
+  makePgGlobalStops,
   makePgIntents,
   makePgThreads,
 } from "./postgres-dispatch";
@@ -436,6 +438,8 @@ export function createPostgresInternalEquipeRepositories(
 ): InternalEquipeRepositories {
   return {
     staff: makePgStaff(executor),
+    globalStops: makePgGlobalStops(executor),
+    listAccounts: () => listAccounts(executor),
     claimDueIntents: (input) => claimDueIntents(executor, input),
     listAccountsByStatus: (status) => listAccountsByStatus(executor, status),
     listCalibrationRounds: (filter) => listCalibrationRounds(executor, filter),

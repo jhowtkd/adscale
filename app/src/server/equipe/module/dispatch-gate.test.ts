@@ -159,6 +159,52 @@ describe("dispatch_publication gate", () => {
     expect((await t.deps.uow.repos.intents.get(scope, intent.id))?.status).toBe("held");
   });
 
+  it("sends nothing while the global stop is active (#583)", async () => {
+    const { t, ids } = await setupReady();
+    const scope = scopeOf(ids);
+    const { itemId, intentId } = await deliverDueApprovedItem(t, ids);
+    const stopped = await executeCommand(
+      t.deps,
+      { actor: ids.actors.operations, workspaceId: ids.workspaceId },
+      { type: "stop_all_publications", payload: { reason: "provedor instável" } },
+    );
+    expect(stopped.ok).toBe(true);
+    // The stop already held the due item; dispatch stays out either way.
+    expect((await t.deps.uow.repos.items.get(scope, itemId))?.status).toBe("held");
+    const outcome = await dispatchOf(t, ids, intentId);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.value.data).toMatchObject({
+      action: "none",
+      held: true,
+      reason: "parada global",
+    });
+    expect(t.publisher.publishes).toHaveLength(0);
+  });
+
+  it("the deploy switch stays on top of the global stop (#583)", async () => {
+    const t = makeTestDeps({ publishEnabled: false });
+    const ids = await openTestAccount(t);
+    await approveLiveMandate(t, ids);
+    await seedInstagramConnection(t, ids);
+    const stopped = await executeCommand(
+      t.deps,
+      { actor: ids.actors.operations, workspaceId: ids.workspaceId },
+      { type: "stop_all_publications", payload: { reason: "provedor instável" } },
+    );
+    expect(stopped.ok).toBe(true);
+    const { intentId } = await deliverDueApprovedItem(t, ids);
+    const outcome = await dispatchOf(t, ids, intentId);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    // Kill switch first: the held reason is the deploy switch, not the stop.
+    expect(outcome.value.data).toMatchObject({
+      action: "held",
+      reasons: ["publish_disabled"],
+    });
+    expect(t.publisher.publishes).toHaveLength(0);
+  });
+
   it("nothing is sent while the account is paused", async () => {
     const { t, ids } = await setupReady();
     const scope = scopeOf(ids);

@@ -43,6 +43,9 @@ const CODE_TO_KEY: Record<string, string> = {
   part_kind_required: "partKindRequired",
   recalibration_requires_closed_critical_content: "recalibrationNeedsClosedCritical",
   front_not_released: "frontNotReleased",
+  // #583 — stopping twice / resuming without a stop.
+  global_stop_already_active: "globalStopAlreadyActive",
+  global_stop_not_active: "globalStopNotActive",
   pause_not_active: "pauseNotActive",
   pause_already_active: "pauseAlreadyActive",
   connection_already_revoked: "connectionAlreadyRevoked",

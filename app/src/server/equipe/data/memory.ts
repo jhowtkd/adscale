@@ -12,12 +12,13 @@ import {
 import { makeMemoryAccounts, makeMemoryPeople, makeMemoryStaff } from "./memory-accounts";
 import { makeMemoryPlanningRepositories } from "./memory-planning";
 import { makeMemoryProductionRepositories } from "./memory-production";
-import { makeMemoryGovernanceRepositories } from "./memory-governance";
+import { makeMemoryGlobalStops, makeMemoryGovernanceRepositories } from "./memory-governance";
 import {
   claimMemoryDueIntents,
   getMemoryCalibrationRound,
   getMemoryEscalation,
   listMemoryAccountLabels,
+  listMemoryAccounts,
   listMemoryAccountsByStatus,
   listMemoryCalibrationRounds,
   listMemoryFronts,
@@ -51,6 +52,8 @@ export function createMemoryInternalEquipeRepositories(
 ): InternalEquipeRepositories {
   return {
     staff: makeMemoryStaff(store),
+    globalStops: makeMemoryGlobalStops(store),
+    listAccounts: () => listMemoryAccounts(store),
     claimDueIntents: (input) => claimMemoryDueIntents(store, input),
     listAccountsByStatus: (status) => listMemoryAccountsByStatus(store, status),
     listCalibrationRounds: (filter) => listMemoryCalibrationRounds(store, filter),

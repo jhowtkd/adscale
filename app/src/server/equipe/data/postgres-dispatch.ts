@@ -7,6 +7,7 @@ import {
   equipeEvents,
   equipeNotificationDeliveries,
   equipeFronts,
+  equipeGlobalStops,
   equipePublicationIntents,
   equipeThreads,
 } from "../../db/equipe-schema";
@@ -15,6 +16,7 @@ import type {
   EquipeConnectionRepository,
   EquipeDeliveryRepository,
   EquipeEventRepository,
+  EquipeGlobalStopRepository,
   EquipeIntentRepository,
   EquipeThreadRepository,
 } from "./repositories";
@@ -40,6 +42,7 @@ import {
   type EquipeEscalation,
   type EquipeEventFilter,
   type EquipeFront,
+  type EquipeGlobalStopPatch,
   type EquipeIntentFilter,
   type EquipeCalibrationRound,
   type EquipeNotificationDelivery,
@@ -49,6 +52,7 @@ import {
   type EquipeThreadPatch,
   type NewEquipeConnection,
   type NewEquipeEvent,
+  type NewEquipeGlobalStop,
   type NewEquipeNotificationDelivery,
   type NewEquipePublicationIntent,
   type NewEquipeThread,
@@ -315,6 +319,54 @@ export async function claimDueIntents(
       intent.updated_at AS updated_at
   `);
   return (result.rows as IntentRow[]).map(mapIntentRow);
+}
+
+// Parada global (#583): fonte única sem escopo. O índice parcial garante
+// uma ativa no máximo — a violação vira EquipeConflictError via mapPgError,
+// como nas demais escritas (o módulo traduz para global_stop_already_active).
+export function makePgGlobalStops(
+  executor: PostgresEquipeExecutor
+): EquipeGlobalStopRepository {
+  return {
+    async getActive() {
+      const rows = await executor
+        .select()
+        .from(equipeGlobalStops)
+        .where(eq(equipeGlobalStops.status, "active"))
+        .limit(1);
+      return rows[0] ?? null;
+    },
+    async create(input: NewEquipeGlobalStop) {
+      try {
+        const [row] = await executor
+          .insert(equipeGlobalStops)
+          .values(stripUndefinedRecord(input))
+          .returning();
+        if (!row) throw new Error("equipe_insert_without_row");
+        return row;
+      } catch (error) {
+        throw mapPgError(error);
+      }
+    },
+    async update(id: string, patch: EquipeGlobalStopPatch) {
+      try {
+        const [row] = await executor
+          .update(equipeGlobalStops)
+          .set({ ...stripUndefinedRecord(patch), updatedAt: new Date() })
+          .where(eq(equipeGlobalStops.id, id))
+          .returning();
+        if (!row) throw new EquipeNotFoundError("equipe_not_found");
+        return row;
+      } catch (error) {
+        throw mapPgError(error);
+      }
+    },
+  };
+}
+
+// #583 — todas as contas, qualquer estado (a parada global filtra no módulo).
+export async function listAccounts(executor: PostgresEquipeExecutor): Promise<EquipeAccount[]> {
+  return executor.select().from(equipeAccounts);
 }
 
 // Varredura entre contas (lado interno): contas por estado, para jobs/monitores.

@@ -207,6 +207,37 @@ describe("POST /api/equipe/staff/commands", () => {
     expect(res.status).toBe(400);
   });
 
+  it("runs the platform-wide global stop without any scope (#583)", async () => {
+    const { t } = await seed(["operations"]);
+
+    const res = await callPost({
+      type: "stop_all_publications",
+      payload: { reason: "provedor instável" },
+      role: "operations",
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.type).toBe("stop_all_publications");
+    expect(await t.deps.uow.internal.globalStops.getActive()).toMatchObject({
+      reason: "provedor instável",
+    });
+  });
+
+  it("refuses the global stop to non-operations staff (#583)", async () => {
+    await seed(["support"]);
+
+    const res = await callPost({
+      type: "stop_all_publications",
+      payload: { reason: "x" },
+      role: "support",
+    });
+
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.code).toBe("forbidden_actor");
+  });
+
   it("returns 404 for an unknown account", async () => {
     const { workspaceId } = await seed(["support"]);
 

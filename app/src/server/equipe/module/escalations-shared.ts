@@ -24,6 +24,7 @@ import {
 } from "./shared";
 import { applyPauseInternal } from "./pauses";
 import { createExceptionInternal } from "./exceptions";
+import { applyGlobalStopInternal } from "./global-stop";
 
 export const ESCALATION_OPENED_EVENT = "escalation.opened";
 export const ESCALATION_MERGED_EVENT = "escalation.merged";
@@ -147,6 +148,8 @@ export type CreatedEscalation = {
   pauseIds: string[];
   exceptionId: string | null;
   isolatedConnectionIds: string[];
+  // #583 — systemic applies the real global stop (null when not systemic).
+  globalStopId: string | null;
 };
 
 /**
@@ -199,6 +202,10 @@ export async function createEscalationInternal(
   });
   const pauseIds: string[] = [];
   let exceptionId: string | null = null;
+  // #583 — systemic containment is the real global stop, applied here so
+  // containment comes before any other action. Idempotent while active;
+  // lifting stays human via resume_all_publications.
+  let globalStopId: string | null = null;
   const isolatedConnectionIds: string[] = [...connectionIds];
   if (input.severity === "critical") {
     const paused = await applyPauseInternal(ctx, {
@@ -222,14 +229,11 @@ export async function createEscalationInternal(
     if (!suspended.ok) return suspended;
     pauseIds.push(suspended.value.pause.id);
     if (input.systemic) {
-      const stopped = await applyPauseInternal(ctx, {
-        origin: "global_stop",
-        scope: "global",
+      const applied = await applyGlobalStopInternal(ctx, {
         reason: `systemic cause suspected (escalation ${escalation.id})`,
         escalationId: escalation.id,
       });
-      if (!stopped.ok) return stopped;
-      pauseIds.push(stopped.value.pause.id);
+      globalStopId = applied.stopId;
     }
   }
   if (input.severity === "critical" || input.severity === "critical_cross_account") {
@@ -256,6 +260,7 @@ export async function createEscalationInternal(
       pauseIds,
       exceptionId,
       isolatedConnectionIds,
+      ...(globalStopId ? { globalStopId } : {}),
       ...(input.sourceEventId ? { sourceEventId: input.sourceEventId } : {}),
     },
   });
@@ -264,5 +269,5 @@ export async function createEscalationInternal(
     templateKey: "escalation.opened",
     detail: { escalationId: escalation.id, severity: input.severity, itemId: input.itemId ?? null },
   });
-  return ok({ escalation, pauseIds, exceptionId, isolatedConnectionIds });
+  return ok({ escalation, pauseIds, exceptionId, isolatedConnectionIds, globalStopId });
 }

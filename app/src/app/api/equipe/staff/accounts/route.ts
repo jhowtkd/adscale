@@ -3,12 +3,14 @@ import { handleApiError } from "@/lib/api-response";
 import { EQUIPE_ACCOUNT_STATUS } from "@/server/db/equipe-schema";
 import { equipeStaffContext } from "@/server/equipe/http/guards";
 import { getCrossAccountPipeline } from "@/server/equipe/module/escalation-queries";
+import { getGlobalStopState } from "@/server/equipe/module/global-stop";
 
 /**
  * GET /api/equipe/staff/accounts — the between-accounts pipeline: open
- * escalations, open exceptions and active pauses per account. Behind the
- * internal-staff guard; scopes come from the internal account listing,
- * the only cross-account read, and the module query does the filtering.
+ * escalations, open exceptions and active pauses per account, plus the
+ * global publication stop state (#583). Behind the internal-staff guard;
+ * scopes come from the internal account listing, the only cross-account
+ * read, and the module query does the filtering.
  */
 export async function GET(request: Request) {
   try {
@@ -24,7 +26,8 @@ export async function GET(request: Request) {
       guard.deps.uow.internal,
       accounts.map((account) => ({ workspaceId: account.workspaceId, accountId: account.id })),
     );
-    return NextResponse.json(view);
+    const globalStop = await getGlobalStopState(guard.deps.uow.internal);
+    return NextResponse.json({ ...view, globalStop });
   } catch (error) {
     return handleApiError(error, "equipe.staff.accounts.GET");
   }

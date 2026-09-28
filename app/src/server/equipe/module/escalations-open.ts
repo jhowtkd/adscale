@@ -46,6 +46,8 @@ export async function runOpenEscalation(
       pauseIds: created.value.pauseIds,
       exceptionId: created.value.exceptionId,
       isolatedConnectionIds: created.value.isolatedConnectionIds,
+      // #583 — systemic applies the real global stop (null when not systemic).
+      globalStopId: created.value.globalStopId,
     });
   });
 }
