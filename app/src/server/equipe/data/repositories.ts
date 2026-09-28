@@ -32,6 +32,7 @@ import type {
   EquipeItemVersion,
   EquipeMandate,
   EquipeMandatePatch,
+  EquipeNotificationDelivery,
   EquipeOnboardingStep,
   EquipeOnboardingStepPatch,
   EquipePause,
@@ -62,6 +63,7 @@ import type {
   NewEquipeItem,
   NewEquipeItemVersion,
   NewEquipeMandate,
+  NewEquipeNotificationDelivery,
   NewEquipeOnboardingStep,
   NewEquipePause,
   NewEquipePlan,
@@ -194,6 +196,21 @@ export type EquipeEventRepository = AppendOnlyRepository<
   EquipeEventFilter
 >;
 
+// Outbox delivery records (#549). One row per delivered
+// `notification.requested` event; `record` is idempotent per event and
+// unions the channels, so a retried run only delivers what is missing.
+export interface EquipeDeliveryRepository {
+  record(
+    scope: AccountScope,
+    input: NewEquipeNotificationDelivery
+  ): Promise<EquipeNotificationDelivery>;
+  getByEvent(
+    scope: AccountScope,
+    eventId: string
+  ): Promise<EquipeNotificationDelivery | null>;
+  list(scope: AccountScope): Promise<EquipeNotificationDelivery[]>;
+}
+
 // Versões imutáveis: sem update/delete. Unicidade por (item, hash).
 export interface EquipeItemVersionRepository
   extends AppendOnlyRepository<EquipeItemVersion, NewEquipeItemVersion, { itemId?: string }> {
@@ -277,6 +294,7 @@ export interface EquipeRepositories {
   connections: EquipeConnectionRepository;
   threads: EquipeThreadRepository;
   events: EquipeEventRepository;
+  deliveries: EquipeDeliveryRepository;
 }
 
 // Unidade de trabalho: um comando futuro escreve estado + equipe_events +

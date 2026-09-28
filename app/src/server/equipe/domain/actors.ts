@@ -121,6 +121,9 @@ export type EquipeAction =
   | "record_installment_paid"
   | "advance_onboarding"
   | "pause_onboarding"
+  // Notification outbox (#549): record that a `notification.requested`
+  // event was delivered, so retried runs skip it.
+  | "record_delivery"
   // Conversation map (#551): mapping assistant threads to the account.
   | "manage_threads"
   // Platform-owner bootstrap (#552): the owner holds every internal role
@@ -197,6 +200,8 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   open_auto_exception: [SYSTEM],
   open_auto_escalation: [SYSTEM],
   apply_automatic_pause: [SYSTEM],
+  // #549
+  record_delivery: [SYSTEM],
   // #547: fine-grained owner checks (part kind, pause origin, escalation
   // owner) run inside the command; the action grants the candidate set.
   merge_escalations: [QUALITY, OPERATIONS],

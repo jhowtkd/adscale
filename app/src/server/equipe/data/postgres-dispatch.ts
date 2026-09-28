@@ -4,11 +4,13 @@ import {
   equipeCalibrationRounds,
   equipeConnections,
   equipeEvents,
+  equipeNotificationDeliveries,
   equipePublicationIntents,
   equipeThreads,
 } from "../../db/equipe-schema";
 import type {
   EquipeConnectionRepository,
+  EquipeDeliveryRepository,
   EquipeEventRepository,
   EquipeIntentRepository,
   EquipeThreadRepository,
@@ -34,12 +36,14 @@ import {
   type EquipeEventFilter,
   type EquipeIntentFilter,
   type EquipeCalibrationRound,
+  type EquipeNotificationDelivery,
   type EquipePublicationIntent,
   type EquipePublicationIntentPatch,
   type EquipeRoundStatus,
   type EquipeThreadPatch,
   type NewEquipeConnection,
   type NewEquipeEvent,
+  type NewEquipeNotificationDelivery,
   type NewEquipePublicationIntent,
   type NewEquipeThread,
 } from "./types";
@@ -131,6 +135,59 @@ export function makePgThreads(executor: PostgresEquipeExecutor): EquipeThreadRep
     executor,
     { table: equipeThreads }
   );
+}
+
+// Outbox delivery records (#549): idempotent per event, channels unioned.
+// Insert-or-merge in the caller's transaction: a racing insert loses the
+// conflict and falls through to the merge update on the winner's row.
+export function makePgDeliveries(executor: PostgresEquipeExecutor): EquipeDeliveryRepository {
+  async function getByEvent(
+    scope: AccountScope,
+    eventId: string
+  ): Promise<EquipeNotificationDelivery | null> {
+    const rows = await pgList(executor, equipeNotificationDeliveries, scope, and(
+      eq(equipeNotificationDeliveries.eventId, eventId)
+    ));
+    return rows[0] ?? null;
+  }
+  return {
+    getByEvent,
+    async record(
+      scope: AccountScope,
+      input: NewEquipeNotificationDelivery
+    ): Promise<EquipeNotificationDelivery> {
+      const channels = [...new Set(input.channels)];
+      try {
+        const [created] = await executor
+          .insert(equipeNotificationDeliveries)
+          .values({
+            ...scope,
+            eventId: input.eventId,
+            channels,
+            ...(input.deliveredAt ? { deliveredAt: input.deliveredAt } : {}),
+          })
+          .onConflictDoNothing({
+            target: [
+              equipeNotificationDeliveries.accountId,
+              equipeNotificationDeliveries.eventId,
+            ],
+          })
+          .returning();
+        if (created) return created;
+      } catch (error) {
+        throw mapPgError(error);
+      }
+      const existing = await getByEvent(scope, input.eventId);
+      if (!existing) throw new EquipeNotFoundError("equipe_delivery_conflict_without_row");
+      const merged = [...new Set([...(existing.channels as string[]), ...channels])];
+      return pgUpdate(executor, equipeNotificationDeliveries, scope, existing.id, {
+        channels: merged,
+      });
+    },
+    async list(scope: AccountScope): Promise<EquipeNotificationDelivery[]> {
+      return pgList(executor, equipeNotificationDeliveries, scope);
+    },
+  };
 }
 
 export function makePgEvents(executor: PostgresEquipeExecutor): EquipeEventRepository {

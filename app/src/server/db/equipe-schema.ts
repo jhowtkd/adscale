@@ -776,6 +776,37 @@ export const equipeEvents = equipeSchema.table(
   ]
 );
 
+// Registro de entrega das notificações (#549): uma linha por evento
+// `notification.requested` que o outbox entregou. A entrega roda DEPOIS do
+// commit do comando que pediu a notificação, então uma falha de envio nunca
+// desfaz o comando; a linha existe para as repetições pularem o que já saiu
+// (ao menos uma vez, idempotente por evento). `channels` acumula os canais
+// concluídos ("inapp", "email", "internal") para uma falha parcial retomar
+// só o que falta.
+export const equipeNotificationDeliveries = equipeSchema.table(
+  "equipe_notification_deliveries",
+  {
+    id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => equipeAccounts.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => equipeEvents.id, { onDelete: "cascade" }),
+    channels: jsonb("channels").notNull().$type<string[]>(),
+    deliveredAt: timestamp("delivered_at", { mode: "date" }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("equipe_notification_deliveries_event_uq").on(t.accountId, t.eventId),
+    index("equipe_notification_deliveries_account_idx").on(t.accountId),
+  ]
+);
+
 // Ledger de custo dos agentes de IA (#550): uma linha por chamada direta
 // de modelo, com papel, modelo, tokens, custo estimado em centavos de USD
 // e versão do prompt. Append-only; o teto mensal por conta

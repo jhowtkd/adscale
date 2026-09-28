@@ -92,9 +92,13 @@ export async function runIngestAgentSignal(
     if (source.eventType === TURN_FAILED_EVENT) {
       const taskKind = typeof detail.taskKind === "string" ? detail.taskKind : "unknown";
       const error = typeof detail.error === "string" ? detail.error : "unknown";
-      const severity: EscalationSeverity = detail.severity === "critical" ? "critical" : "normal";
       const itemId =
         source.objectType === "item" && source.objectId ? source.objectId : undefined;
+      // No signal is lost: a critical turn without item context cannot pause
+      // a front (front_required), so it lands as a normal technical
+      // escalation instead of failing the ingest. (#549)
+      const severity: EscalationSeverity =
+        detail.severity === "critical" && itemId ? "critical" : "normal";
       const created = await createEscalationInternal(ctx, {
         kind: "technical",
         severity,

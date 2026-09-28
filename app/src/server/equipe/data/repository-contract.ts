@@ -347,6 +347,29 @@ export function defineEquipeRepositoryContract(
       expect(pending.map((row) => row.id)).toContain(first.intent.id);
     });
 
+    it("entregas: idempotente por evento, com união de canais e escopo", async () => {
+      const fresh = await harness.createScope();
+      const event = await repos.events.create(fresh, {
+        actorType: "system",
+        eventType: "notification.requested",
+        occurredAt: new Date("2026-09-01T12:00:00.000Z"),
+      });
+      const first = await repos.deliveries.record(fresh, {
+        eventId: event.id,
+        channels: ["inapp"],
+      });
+      expect(first.channels).toEqual(["inapp"]);
+      const second = await repos.deliveries.record(fresh, {
+        eventId: event.id,
+        channels: ["email", "inapp"],
+      });
+      expect(second.id).toBe(first.id);
+      expect(second.channels).toEqual(["inapp", "email"]);
+      expect((await repos.deliveries.getByEvent(fresh, event.id))?.id).toBe(first.id);
+      expect(await repos.deliveries.getByEvent(otherScope, event.id)).toBeNull();
+      expect(await repos.deliveries.list(fresh)).toHaveLength(1);
+    });
+
     it("claim: só intenção vencida sem lease; lease ativo não é retomado", async () => {
       expect("claimDueIntents" in repos).toBe(false);
       const fresh = await harness.createScope();

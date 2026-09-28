@@ -14,6 +14,7 @@ import {
   requestNotification,
   scopeOf,
   transact,
+  type CommandContext,
   type CommandSuccess,
   type TxBase,
 } from "./shared";
@@ -33,6 +34,61 @@ export type ExpireItemDeadlinePayload = z.infer<typeof expireItemDeadlinePayload
 export type ProposeNewSchedulePayload = z.infer<typeof proposeNewSchedulePayloadSchema>;
 
 /**
+ * Expire one item inside the caller's transaction. Shared by the single
+ * command and the #549 deadlines sweep: already-decided items are a no-op
+ * — a timeout path never approves anything.
+ */
+export async function expireItemDeadlineInTx(
+  ctx: CommandContext,
+  itemId: string,
+): Promise<Result<Record<string, unknown>>> {
+  const loaded = await loadItemOrError(ctx, itemId);
+  if (!loaded.ok) return loaded;
+  const scope = scopeOf(ctx);
+  const item = loaded.value;
+  const receipts = await ctx.repos.receipts.listByObject(scope, "item", item.id);
+  const state = domainStateOf(item, receipts);
+  if (!state.ok) return state;
+  const expirable =
+    state.value.status === "awaiting_approval" ||
+    state.value.status === "adjusting" ||
+    state.value.status === "held";
+  if (!expirable) {
+    return ok({ itemId: item.id, expired: false, status: item.status });
+  }
+  const limit = item.deadlineAt ?? (item.scheduledFor ? itemDeadlineFor(item.scheduledFor) : null);
+  if (!limit) {
+    return err("no_deadline", `item ${item.id} has no scheduled time`);
+  }
+  if (ctx.now < limit) {
+    return err("deadline_not_reached", `item ${item.id} is still decidable until ${limit.toISOString()}`);
+  }
+  const decided = markWindowMissed(state.value);
+  if (!decided.ok) return decided;
+  await ctx.repos.items.update(scope, item.id, {
+    status: decided.value.state.status,
+  });
+  await appendEvent(ctx, {
+    eventType: ITEM_WINDOW_MISSED_EVENT,
+    objectType: "item",
+    objectId: item.id,
+    payload: { scheduledFor: item.scheduledFor?.toISOString() ?? null },
+  });
+  await appendEvent(ctx, {
+    eventType: AGENT_WORK_REQUESTED_EVENT,
+    objectType: "item",
+    objectId: item.id,
+    payload: { kind: "reschedule_proposal" },
+  });
+  await requestNotification(ctx, {
+    recipientRole: "approver",
+    templateKey: "item.window_missed",
+    detail: { itemId: item.id },
+  });
+  return ok({ itemId: item.id, expired: true });
+}
+
+/**
  * At the item limit, undecided/adjusting/held items miss their window and
  * nothing is published. Already-decided items are a no-op — a timeout path
  * never approves anything.
@@ -45,50 +101,7 @@ export async function runExpireItemDeadline(
   return transact(deps, base, async (ctx) => {
     const account = await loadAccountOrError(ctx);
     if (!account.ok) return account;
-    const loaded = await loadItemOrError(ctx, payload.itemId);
-    if (!loaded.ok) return loaded;
-    const scope = scopeOf(ctx);
-    const item = loaded.value;
-    const receipts = await ctx.repos.receipts.listByObject(scope, "item", item.id);
-    const state = domainStateOf(item, receipts);
-    if (!state.ok) return state;
-    const expirable =
-      state.value.status === "awaiting_approval" ||
-      state.value.status === "adjusting" ||
-      state.value.status === "held";
-    if (!expirable) {
-      return ok({ itemId: item.id, expired: false, status: item.status });
-    }
-    const limit = item.deadlineAt ?? (item.scheduledFor ? itemDeadlineFor(item.scheduledFor) : null);
-    if (!limit) {
-      return err("no_deadline", `item ${item.id} has no scheduled time`);
-    }
-    if (ctx.now < limit) {
-      return err("deadline_not_reached", `item ${item.id} is still decidable until ${limit.toISOString()}`);
-    }
-    const decided = markWindowMissed(state.value);
-    if (!decided.ok) return decided;
-    await ctx.repos.items.update(scope, item.id, {
-      status: decided.value.state.status,
-    });
-    await appendEvent(ctx, {
-      eventType: ITEM_WINDOW_MISSED_EVENT,
-      objectType: "item",
-      objectId: item.id,
-      payload: { scheduledFor: item.scheduledFor?.toISOString() ?? null },
-    });
-    await appendEvent(ctx, {
-      eventType: AGENT_WORK_REQUESTED_EVENT,
-      objectType: "item",
-      objectId: item.id,
-      payload: { kind: "reschedule_proposal" },
-    });
-    await requestNotification(ctx, {
-      recipientRole: "approver",
-      templateKey: "item.window_missed",
-      detail: { itemId: item.id },
-    });
-    return ok({ itemId: item.id, expired: true });
+    return expireItemDeadlineInTx(ctx, payload.itemId);
   });
 }
 

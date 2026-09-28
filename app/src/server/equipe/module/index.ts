@@ -42,3 +42,9 @@ export * from "./reconcile";
 export * from "./manual-publishing";
 export * from "./removal";
 export * from "./instagram-connect";
+// #549 — jobs duráveis e notificações.
+export * from "./jobs-reminders";
+export * from "./jobs-deadlines";
+export * from "./jobs-monitor";
+export * from "./jobs-signals";
+export * from "./jobs-delivery";

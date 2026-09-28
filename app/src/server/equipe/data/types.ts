@@ -40,6 +40,7 @@ import {
   equipeItemVersions,
   equipeItems,
   equipeMandates,
+  equipeNotificationDeliveries,
   equipeOnboardingSteps,
   equipePauses,
   equipePlans,
@@ -82,6 +83,7 @@ export type EquipePublicationIntent = typeof equipePublicationIntents.$inferSele
 export type EquipeConnection = typeof equipeConnections.$inferSelect;
 export type EquipeThread = typeof equipeThreads.$inferSelect;
 export type EquipeEvent = typeof equipeEvents.$inferSelect;
+export type EquipeNotificationDelivery = typeof equipeNotificationDeliveries.$inferSelect;
 
 // Status: os literais vivem no schema (fonte única dos checks SQL).
 export type EquipeAccountStatus = (typeof EQUIPE_ACCOUNT_STATUS)[number];
@@ -231,6 +233,13 @@ export type NewEquipeEvent = Omit<
   typeof equipeEvents.$inferInsert,
   "id" | "workspaceId" | "accountId"
 > & { actorType: EquipeActorType };
+// Delivery record (#549): channels already completed for the event, so a
+// retried outbox run only delivers what is still missing.
+export type NewEquipeNotificationDelivery = {
+  eventId: string;
+  channels: string[];
+  deliveredAt?: Date;
+};
 
 // Atualizações parciais (versões, recibos, notas e eventos não têm update).
 export type EquipeAccountPatch = Partial<NewEquipeAccount>;

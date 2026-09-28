@@ -284,6 +284,37 @@ export async function runAdvanceOnboarding(
   });
 }
 
+/**
+ * Pause the implantation inside the caller's transaction. Shared by the
+ * pause command and the #549 reminders sweep (10 business days stalled).
+ */
+export async function pauseImplantationInTx(
+  ctx: CommandContext,
+  accountStatus: string,
+  reason?: string,
+): Promise<Result<Record<string, unknown>>> {
+  if (accountStatus !== "deploying") {
+    return err("invalid_transition", `cannot pause implantation from ${accountStatus}`);
+  }
+  const decided = pauseImplantation({ status: "implantation" });
+  if (!decided.ok) return decided;
+  await ctx.repos.accounts.update(ctx.workspaceId, ctx.accountId, {
+    status: fromDomainAccountStatus(decided.value.state.status),
+  });
+  for (const step of await ctx.repos.onboarding.list(scopeOf(ctx))) {
+    if (step.status === "pending" || step.status === "in_progress") {
+      await ctx.repos.onboarding.update(scopeOf(ctx), step.id, { status: "paused" });
+    }
+  }
+  await appendDomainEvents(ctx, decided.value.events);
+  await requestNotification(ctx, {
+    recipientRole: "approver",
+    templateKey: "implantation.paused",
+    detail: reason ? { reason } : undefined,
+  });
+  return ok({ direction: "pause" as const });
+}
+
 /** Pause (10 business days without progress) or resume the implantation. */
 export async function runPauseOnboarding(
   deps: EquipeModuleDeps,
@@ -295,26 +326,7 @@ export async function runPauseOnboarding(
     if (!account.ok) return account;
     const scope = scopeOf(ctx);
     if (payload.direction === "pause") {
-      if (account.value.status !== "deploying") {
-        return err("invalid_transition", `cannot pause implantation from ${account.value.status}`);
-      }
-      const decided = pauseImplantation({ status: "implantation" });
-      if (!decided.ok) return decided;
-      await ctx.repos.accounts.update(ctx.workspaceId, ctx.accountId, {
-        status: fromDomainAccountStatus(decided.value.state.status),
-      });
-      for (const step of await ctx.repos.onboarding.list(scope)) {
-        if (step.status === "pending" || step.status === "in_progress") {
-          await ctx.repos.onboarding.update(scope, step.id, { status: "paused" });
-        }
-      }
-      await appendDomainEvents(ctx, decided.value.events);
-      await requestNotification(ctx, {
-        recipientRole: "approver",
-        templateKey: "implantation.paused",
-        detail: payload.reason ? { reason: payload.reason } : undefined,
-      });
-      return ok({ direction: "pause" as const });
+      return pauseImplantationInTx(ctx, account.value.status, payload.reason);
     }
     if (account.value.status !== "paused") {
       return err("invalid_transition", `cannot resume implantation from ${account.value.status}`);
