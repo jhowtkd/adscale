@@ -2,6 +2,7 @@ import { Pool } from "pg";
 import "server-only";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "./schema";
+import * as equipeSchema from "./equipe-schema";
 import { env } from "../validation/env";
 
 const pool = new Pool({
@@ -13,4 +14,4 @@ const pool = new Pool({
   connectionTimeoutMillis: 10000,
   keepAlive: true,
 });
-export const db = drizzle(pool, { schema });
+export const db = drizzle(pool, { schema: { ...schema, ...equipeSchema } });

@@ -813,6 +813,13 @@
       "when": 1790259868228,
       "tag": "0115_creative_work_comparison_leases",
       "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1790551700442,
+      "tag": "0116_equipe-compartment",
+      "breakpoints": true
     }
   ]
 }
