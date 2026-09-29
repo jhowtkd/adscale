@@ -57,5 +57,6 @@ describe("first-response SLA", () => {
     expect(firstResponseSla("stuck_connection")).toEqual({ businessDays: 1 });
     expect(firstResponseSla("client_requested_person")).toEqual({ businessDays: 1 });
     expect(firstResponseSla("off_app_material")).toEqual({ businessDays: 1 });
+    expect(firstResponseSla("production_fix")).toEqual({ businessDays: 1 });
   });
 });

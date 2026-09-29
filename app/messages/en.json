@@ -5061,6 +5061,7 @@
         "repeated_silence": "Repeated silence",
         "out_of_contract_request": "Commercial request",
         "dissatisfaction_signal": "Dissatisfaction",
+        "production_fix": "Production correction",
         "cancel_request": "Cancel request",
         "critical_incident": "Critical incident",
         "off_app_material": "Off-app material"

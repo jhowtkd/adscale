@@ -4,7 +4,7 @@
 // prompt carries only the context authorized for its task — the caller
 // supplies the materials; broad workspace history never enters.
 
-export const EQUIPE_PROMPT_VERSION = "equipe-prompts/v1";
+export const EQUIPE_PROMPT_VERSION = "equipe-prompts/v2";
 
 const AUTHORIZED_CONTEXT = [
   "Use ONLY the context given in this conversation: the account state, the",

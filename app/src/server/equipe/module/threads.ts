@@ -17,6 +17,7 @@ import {
   loadAccountOrError,
   scopeOf,
   transact,
+  type CommandContext,
   type CommandSuccess,
   type TxBase,
 } from "./shared";
@@ -37,41 +38,42 @@ export async function runEnsurePrimaryThread(
   base: TxBase,
   payload: EnsurePrimaryThreadPayload,
 ): Promise<Result<CommandSuccess>> {
-  return transact(deps, base, async (ctx) => {
-    const account = await loadAccountOrError(ctx);
-    if (!account.ok) return account;
-    const scope = scopeOf(ctx);
-    const existing = await ctx.repos.threads.list(scope);
-    const mapped = existing.find((row) => row.assistantThreadId === payload.assistantThreadId);
-    if (mapped && mapped.kind !== "primary") {
-      return err(
-        "thread_conflict",
-        `assistant thread ${payload.assistantThreadId} is already a parallel conversation`,
-      );
-    }
-    const primary = existing.find((row) => row.kind === "primary");
-    if (primary) {
-      if (primary.assistantThreadId !== payload.assistantThreadId) {
-        return err(
-          "thread_conflict",
-          `account already has a primary thread on another conversation`,
-        );
-      }
-      return ok({ threadId: primary.id, created: false });
-    }
-    const created = await ctx.repos.threads.create(scope, {
-      kind: "primary",
-      topic: null,
-      assistantThreadId: payload.assistantThreadId,
-    });
-    await appendEvent(ctx, {
-      eventType: PRIMARY_THREAD_ENSURED_EVENT,
-      objectType: "thread",
-      objectId: created.id,
-      payload: { assistantThreadId: payload.assistantThreadId },
-    });
-    return ok({ threadId: created.id, created: true });
+  return transact(deps, base, (ctx) => ensurePrimaryThreadInTx(ctx, payload.assistantThreadId));
+}
+
+export async function ensurePrimaryThreadInTx(
+  ctx: CommandContext,
+  assistantThreadId?: string,
+): Promise<Result<Record<string, unknown>>> {
+  const account = await ctx.repos.accounts.get(ctx.workspaceId, ctx.accountId, { forUpdate: true });
+  if (!account) return err("unknown_account", "unknown account");
+  const scope = scopeOf(ctx);
+  const existing = await ctx.repos.threads.list(scope);
+  const primary = existing.find((row) => row.kind === "primary");
+  if (primary?.assistantThreadId && assistantThreadId && primary.assistantThreadId !== assistantThreadId) {
+    return err("thread_conflict", "account already has a primary conversation");
+  }
+  const targetId = assistantThreadId ?? primary?.assistantThreadId;
+  const thread = targetId
+    ? await ctx.repos.conversations.get(ctx.workspaceId, targetId)
+    : await ctx.repos.conversations.ensurePrimary(ctx.workspaceId, account.clientProfileId);
+  if (!thread || thread.clientProfileId !== account.clientProfileId) {
+    return err("thread_conflict", "conversation must belong to the account's workspace and brand");
+  }
+  if (primary?.assistantThreadId) return ok({ threadId: primary.id, assistantThreadId: thread.id, created: false });
+  if (existing.some((row) => row.assistantThreadId === thread.id)) {
+    return err("thread_conflict", "conversation is already parallel");
+  }
+  const created = primary
+    ? await ctx.repos.threads.update(scope, primary.id, { assistantThreadId: thread.id })
+    : await ctx.repos.threads.create(scope, { kind: "primary", topic: null, assistantThreadId: thread.id });
+  await appendEvent(ctx, {
+    eventType: PRIMARY_THREAD_ENSURED_EVENT,
+    objectType: "thread",
+    objectId: created.id,
+    payload: { assistantThreadId: thread.id },
   });
+  return ok({ threadId: created.id, assistantThreadId: thread.id, created: true });
 }
 
 /**
@@ -86,6 +88,11 @@ export async function runOpenParallelThread(
   return transact(deps, base, async (ctx) => {
     const account = await loadAccountOrError(ctx);
     if (!account.ok) return account;
+    await ctx.repos.accounts.get(ctx.workspaceId, ctx.accountId, { forUpdate: true });
+    const thread = await ctx.repos.conversations.get(ctx.workspaceId, payload.assistantThreadId);
+    if (!thread || thread.clientProfileId !== account.value.clientProfileId) {
+      return err("thread_conflict", "conversation must belong to the account's workspace and brand");
+    }
     const scope = scopeOf(ctx);
     const existing = await ctx.repos.threads.list(scope);
     const mapped = existing.find((row) => row.assistantThreadId === payload.assistantThreadId);

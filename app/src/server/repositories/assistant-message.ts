@@ -11,7 +11,7 @@ import {
   type StaffMessagePayload,
   type ToolMessagePayload,
 } from "./assistant-types";
-import { getAssistantThreadById } from "./assistant-thread";
+import type { PostgresEquipeExecutor } from "../equipe/data/postgres";
 
 export class AssistantMessageValidationError extends Error {
   constructor(message: string) {
@@ -158,32 +158,47 @@ export async function createAssistantMessage(
   workspaceId: string,
   input: CreateAssistantMessageInput
 ) {
-  const thread = await getAssistantThreadById(workspaceId, input.threadId);
-  if (!thread) {
-    throw new AssistantMessageValidationError("Thread not found");
-  }
+  return db.transaction((tx) => createAssistantMessageInTransaction(tx, workspaceId, input));
+}
 
+/** The Equipe projection supplies its source event UUID as the message id. */
+export async function createAssistantMessageInTransaction(
+  executor: PostgresEquipeExecutor,
+  workspaceId: string,
+  input: CreateAssistantMessageInput,
+  sourceEventId?: string,
+) {
+  // Serialize sequence allocation with every other message on this thread.
+  const [thread] = await executor.select().from(assistantThreads).where(and(
+    eq(assistantThreads.workspaceId, workspaceId), eq(assistantThreads.id, input.threadId),
+  )).for("update");
+  if (!thread) throw new AssistantMessageValidationError("Thread not found");
   const payload = (input.payload ?? {}) as Record<string, unknown>;
   validatePayload(input.type, payload);
-
-  const [row] = await db
-    .insert(assistantMessages)
-    .values({
-      workspaceId,
-      threadId: input.threadId,
-      sequence: sql`(SELECT COALESCE(MAX(${assistantMessages.sequence}), 0) + 1 FROM ${assistantMessages} WHERE ${assistantMessages.threadId} = ${input.threadId})`,
-      type: input.type,
-      content: input.content,
-      payload,
-      actionRecordId:
-        input.type === "action_card"
-          ? (input.payload.actionRecordId ?? input.actionRecordId ?? null)
-          : null,
-    })
-    .returning();
-
-  await touchAssistantThread(workspaceId, input.threadId);
-
+  if (sourceEventId) {
+    const [existing] = await executor.select().from(assistantMessages)
+      .where(eq(assistantMessages.id, sourceEventId));
+    if (existing) {
+      if (existing.workspaceId !== workspaceId || existing.threadId !== input.threadId) {
+        throw new AssistantMessageValidationError("Message source belongs to another thread");
+      }
+      return existing;
+    }
+  }
+  const [row] = await executor.insert(assistantMessages).values({
+    ...(sourceEventId ? { id: sourceEventId } : {}),
+    workspaceId,
+    threadId: input.threadId,
+    sequence: sql`(SELECT COALESCE(MAX(${assistantMessages.sequence}), 0) + 1 FROM ${assistantMessages} WHERE ${assistantMessages.threadId} = ${input.threadId})`,
+    type: input.type,
+    content: input.content,
+    payload,
+    actionRecordId: input.type === "action_card"
+      ? (input.payload.actionRecordId ?? input.actionRecordId ?? null) : null,
+  }).returning();
+  await executor.update(assistantThreads).set({ updatedAt: new Date() }).where(and(
+    eq(assistantThreads.workspaceId, workspaceId), eq(assistantThreads.id, input.threadId),
+  ));
   return row;
 }
 

@@ -38,6 +38,30 @@ export { seedMemoryAdscaleLabels } from "./memory-dispatch";
 
 export function createMemoryEquipeRepositories(store: MemoryEquipeStore): EquipeRepositories {
   return {
+    conversations: {
+      async get(workspaceId, threadId) {
+        const row = store.assistantThreads.rows.get(threadId);
+        return row?.workspaceId === workspaceId ? { ...row } : null;
+      },
+      async ensurePrimary(workspaceId, clientProfileId) {
+        const existing = [...store.assistantThreads.rows.values()].find((row) =>
+          row.workspaceId === workspaceId && row.clientProfileId === clientProfileId && !row.campaignId);
+        if (existing) return { ...existing };
+        const row = { id: crypto.randomUUID(), workspaceId, clientProfileId, campaignId: null };
+        store.assistantThreads.rows.set(row.id, row);
+        return { ...row };
+      },
+      async post(workspaceId, sourceEventId, input) {
+        const thread = store.assistantThreads.rows.get(input.threadId);
+        if (thread?.workspaceId !== workspaceId) throw new Error("Thread not found");
+        const existing = store.assistantMessages.rows.get(sourceEventId);
+        if (existing && (existing.workspaceId !== workspaceId || existing.threadId !== input.threadId)) {
+          throw new Error("Message source belongs to another thread");
+        }
+        if (!existing) store.assistantMessages.rows.set(sourceEventId, { ...input, workspaceId, id: sourceEventId });
+        return { id: sourceEventId };
+      },
+    },
     accounts: makeMemoryAccounts(store),
     people: makeMemoryPeople(store),
     ...makeMemoryPlanningRepositories(store),

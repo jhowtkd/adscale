@@ -71,6 +71,7 @@ describe("atomicity", () => {
     expect(await t.deps.uow.repos.receipts.list(scope)).toHaveLength(0);
     const events = await t.deps.uow.repos.events.list(scope);
     expect(events.map((e) => e.eventType)).toEqual([
+      "thread.primary_ensured",
       "account.opened",
       "notification.requested",
       "context_section.proposed",

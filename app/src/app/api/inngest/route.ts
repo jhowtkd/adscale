@@ -1,6 +1,7 @@
 import { serve } from "inngest/next";
 import { inngest } from "@/server/jobs/client";
 import { equipeAgentWorkJob } from "@/server/equipe/agents/agent-work";
+import { equipeAgentWorkOutboxJob } from "@/server/equipe/jobs/agent-work-outbox";
 import { equipeDispatchJob } from "@/server/equipe/jobs/dispatch";
 import { equipeReconcileJob } from "@/server/equipe/jobs/reconcile";
 import { equipeRemindersJob } from "@/server/equipe/jobs/reminders";
@@ -52,6 +53,7 @@ export const { GET, POST, PUT } = serve({
     metaAdsSyncJob,
     selectionEffectsProcessorJob,
     equipeAgentWorkJob,
+    equipeAgentWorkOutboxJob,
     equipeDispatchJob,
     equipeReconcileJob,
     equipeRemindersJob,

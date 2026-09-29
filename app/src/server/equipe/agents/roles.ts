@@ -26,6 +26,10 @@ export const EQUIPE_AGENT_TASK_KINDS = [
   "art_direction",
   "review_text",
   "review_visual",
+  "review_caption",
+  "plan_adjustment",
+  "plan_replacement",
+  "plan_reschedule",
   "measurement",
 ] as const;
 

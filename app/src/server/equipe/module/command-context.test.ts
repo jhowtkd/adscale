@@ -23,7 +23,7 @@ describe("command trust boundary", () => {
     }
     expect(
       await t.deps.uow.repos.events.list({ workspaceId: ids.workspaceId, accountId: ids.accountId }),
-    ).toHaveLength(2); // open_account only
+    ).toHaveLength(3); // open_account + primary thread
   });
 
   it("requires accountId in context for every command except open_account", async () => {

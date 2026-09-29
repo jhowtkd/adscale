@@ -40,7 +40,7 @@ describe("MemoryLedgerStore", () => {
   it("stores the prompt version with each call", async () => {
     const ledger = new MemoryLedgerStore();
     const row = await ledger.record(entry());
-    expect(row.promptVersion).toBe("equipe-prompts/v1");
+    expect(row.promptVersion).toBe("equipe-prompts/v2");
   });
 
   it("records cache reads/writes per call, defaulting to zero", async () => {

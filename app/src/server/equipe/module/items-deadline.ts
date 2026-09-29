@@ -30,6 +30,8 @@ import {
   storedDestinationOf,
   versionContentOf,
   voidIntentForVersion,
+  resolveItemReview,
+  versionFindings,
 } from "./item-shared";
 
 export type ExpireItemDeadlinePayload = z.infer<typeof expireItemDeadlinePayloadSchema>;
@@ -80,7 +82,7 @@ export async function expireItemDeadlineInTx(
     eventType: AGENT_WORK_REQUESTED_EVENT,
     objectType: "item",
     objectId: item.id,
-    payload: { kind: "reschedule_proposal" },
+    payload: { kind: "reschedule_proposal", versionHash: item.currentVersionHash },
   });
   await requestNotification(ctx, {
     recipientRole: "approver",
@@ -116,10 +118,13 @@ export async function runProposeNewSchedule(
   base: TxBase,
   payload: ProposeNewSchedulePayload,
 ): Promise<Result<CommandSuccess>> {
-  return transact(deps, base, async (ctx) => {
+  return transact(deps, base, (ctx) => proposeNewScheduleInTx(ctx, payload));
+}
+
+export async function proposeNewScheduleInTx(ctx: CommandContext, payload: ProposeNewSchedulePayload): Promise<Result<Record<string, unknown>>> {
     const account = await loadAccountOrError(ctx);
     if (!account.ok) return account;
-    const loaded = await loadItemOrError(ctx, payload.itemId);
+    const loaded = await loadItemOrError(ctx, payload.itemId, true);
     if (!loaded.ok) return loaded;
     const scope = scopeOf(ctx);
     const item = loaded.value;
@@ -155,6 +160,14 @@ export async function runProposeNewSchedule(
     if (!state.ok) return state;
     const decided = proposeNewSchedule(state.value);
     if (!decided.ok) return decided;
+    // Moving a date must not erase a pending review or a content blocker.
+    const itemEvents = await ctx.repos.events.list(scope, { objectType: "item", objectId: item.id });
+    const review = resolveItemReview({ item, currentVersion: current, itemEvents });
+    const findings = versionFindings(current, itemEvents);
+    const needsReview = review.flags.editedInReview;
+    const pendingAdjustment = itemEvents.findLast((event) => event.eventType === AGENT_WORK_REQUESTED_EVENT &&
+      (event.payload as { kind?: string; versionHash?: string } | null)?.kind === "adjustment" &&
+      (event.payload as { versionHash?: string }).versionHash === item.currentVersionHash);
     const versionHash = itemVersionHash({
       ...versionContentOf(current, destination),
       destinationIgUserId,
@@ -171,10 +184,14 @@ export async function runProposeNewSchedule(
       destinationIgUserId,
       authorRole: "agent",
       authorId: actorId(ctx.actor),
-      reviewerFindings: null,
+      reviewerFindings: { ...findings,
+        blocked: findings.blocked === true || review.triage?.path === "block_and_escalate" || review.triage?.path === "update_catalog_only",
+        needsConfirmation: review.flags.needsConfirmation,
+        warnings: review.triage?.warnings ?? findings.warnings ?? [],
+      },
     });
     await ctx.repos.items.update(scope, item.id, {
-      status: decided.value.state.status,
+      status: needsReview || pendingAdjustment ? "adjusting" : decided.value.state.status,
       destination,
       currentVersionHash: versionHash,
       scheduledFor: payload.scheduledFor,
@@ -190,13 +207,24 @@ export async function runProposeNewSchedule(
         previousVersionHash: item.currentVersionHash,
         destinationAccount: destination,
         scheduledFor: payload.scheduledFor.toISOString(),
+        needsReview,
       },
     });
+    if (needsReview) {
+      const reviewVisual = itemEvents.some((event) => event.eventType === AGENT_WORK_REQUESTED_EVENT &&
+        (event.payload as { versionHash?: string; reviewVisual?: boolean } | null)?.versionHash === item.currentVersionHash &&
+        (event.payload as { reviewVisual?: boolean }).reviewVisual === true);
+      await appendEvent(ctx, { eventType: AGENT_WORK_REQUESTED_EVENT, objectType: "item", objectId: item.id,
+        payload: { kind: "caption_revalidation", versionHash, ...(reviewVisual ? { reviewVisual: true } : {}) } });
+    }
+    if (pendingAdjustment) {
+      await appendEvent(ctx, { eventType: AGENT_WORK_REQUESTED_EVENT, objectType: "item", objectId: item.id,
+        payload: { ...(pendingAdjustment.payload as Record<string, unknown>), versionHash } });
+    }
     await requestNotification(ctx, {
       recipientRole: "approver",
       templateKey: "item.rescheduled",
       detail: { itemId: item.id, versionHash },
     });
     return ok({ itemId: item.id, versionHash, scheduledFor: payload.scheduledFor });
-  });
 }

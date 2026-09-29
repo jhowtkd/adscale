@@ -22,7 +22,7 @@ describe("actor binding", () => {
     if (!outcome.ok) expect(outcome.error.code).toBe("forbidden_actor");
     expect(
       await t.deps.uow.repos.events.list({ workspaceId: a.workspaceId, accountId: a.accountId }),
-    ).toHaveLength(2); // open_account only: the binding failure wrote nothing
+    ).toHaveLength(3); // open_account + primary thread: binding failure wrote nothing
   });
 
   it("rejects a member claiming the approver role", async () => {
@@ -105,7 +105,7 @@ describe("actor binding", () => {
     expect(inactive.ok).toBe(false);
     if (!inactive.ok) expect(inactive.error.code).toBe("forbidden_actor");
 
-    expect(await t.deps.uow.repos.events.list(scope)).toHaveLength(2); // open_account only
+    expect(await t.deps.uow.repos.events.list(scope)).toHaveLength(3); // open_account + primary thread
   });
 
   it("binds staff on open_account too", async () => {

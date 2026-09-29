@@ -4,6 +4,7 @@
 // work — see commands.ts).
 
 import { createHash } from "node:crypto";
+import { projectConversationEvent } from "./conversation-events";
 import {
   actorId,
   type AccountStatus,
@@ -306,6 +307,7 @@ export async function transact(
       ctx.actor = bound.value;
       const outcome = await fn(ctx);
       if (!outcome.ok) throw new CommandRolledBack(outcome.error);
+      for (const event of ctx.events) await projectConversationEvent(ctx, event);
       return outcome.value;
     });
     return ok({ accountId: ctx.accountId, events: ctx.events, data });

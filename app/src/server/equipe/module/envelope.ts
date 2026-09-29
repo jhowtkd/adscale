@@ -1,3 +1,4 @@
+import { claimAgentWorkPayloadSchema, completeAgentWorkPayloadSchema, submitItemVersionPayloadSchema } from "./agent-work-contract";
 // Trust boundary of executeCommand(deps, context, rawCommand).
 //
 // - `context` is TRUSTED: the adapter builds it from the session and the
@@ -198,6 +199,7 @@ export const editCaptionPayloadSchema = z.object({
 
 export const recordCaptionTriagePayloadSchema = z.object({
   itemId: uuid,
+  expectedVersionHash: versionHash.optional(),
   natures: z
     .array(z.enum(["permanent_fact", "commercial_condition", "regulated_claim", "none"]))
     .max(4),
@@ -236,7 +238,7 @@ export const proposeNewSchedulePayloadSchema = z.object({
 
 // #551 — conversation map: the module maps assistant threads to the account.
 export const ensurePrimaryThreadPayloadSchema = z.object({
-  assistantThreadId: uuid,
+  assistantThreadId: uuid.optional(),
 });
 
 export const openParallelThreadPayloadSchema = z.object({
@@ -267,6 +269,7 @@ export const supportTriggerSchema = z.enum([
   "repeated_silence",
   "out_of_contract_request",
   "dissatisfaction_signal",
+  "production_fix",
   "cancel_request",
   "critical_incident",
   "off_app_material",
@@ -558,6 +561,9 @@ function command<T extends string, P extends z.ZodTypeAny>(type: T, payload: P) 
 
 export const commandSchema = z.discriminatedUnion("type", [
   command("open_account", openAccountPayloadSchema),
+  command("claim_agent_work", claimAgentWorkPayloadSchema),
+  command("complete_agent_work", completeAgentWorkPayloadSchema),
+  command("submit_item_version", submitItemVersionPayloadSchema),
   command("confirm_scope", confirmScopePayloadSchema),
   command("register_material", registerMaterialPayloadSchema),
   command("propose_context_section", proposeContextSectionPayloadSchema),

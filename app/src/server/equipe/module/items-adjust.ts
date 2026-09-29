@@ -14,6 +14,7 @@ import {
   ok,
   requestItemAdjustment,
   triageCaptionEdit,
+  submitNewVersion,
   type Result,
 } from "../domain";
 import type { EquipeModuleDeps } from "./ports";
@@ -32,6 +33,7 @@ import {
   scopeOf,
   transact,
   writeReceipt,
+  type CommandContext,
   type CommandSuccess,
   type TxBase,
 } from "./shared";
@@ -96,7 +98,7 @@ export async function runRequestAdjustment(
       eventType: AGENT_WORK_REQUESTED_EVENT,
       objectType: "item",
       objectId: payload.itemId,
-      payload: { kind: "adjustment", category: payload.category },
+      payload: { kind: "adjustment", category: payload.category, note: payload.note ?? null, versionHash: loaded.value.currentVersionHash },
     });
     await requestNotification(ctx, {
       recipientRole: "strategist",
@@ -119,10 +121,13 @@ export async function runEditCaption(
   base: TxBase,
   payload: EditCaptionPayload,
 ): Promise<Result<CommandSuccess>> {
-  return transact(deps, base, async (ctx) => {
+  return transact(deps, base, (ctx) => editCaptionInTx(ctx, payload));
+}
+
+export async function editCaptionInTx(ctx: CommandContext, payload: EditCaptionPayload, outputId?: string): Promise<Result<Record<string, unknown>>> {
     const account = await loadAccountOrError(ctx);
     if (!account.ok) return account;
-    const loaded = await loadItemOrError(ctx, payload.itemId);
+    const loaded = await loadItemOrError(ctx, payload.itemId, true);
     if (!loaded.ok) return loaded;
     const scope = scopeOf(ctx);
     const item = loaded.value;
@@ -136,7 +141,7 @@ export async function runEditCaption(
     if (!current) {
       return err("invalid_transition", `item ${item.id} has no current version`);
     }
-    if (current.caption === payload.caption) {
+    if (current.caption === payload.caption && (!outputId || outputId === current.creativeWorkOutputId)) {
       return err("no_change", "the caption is unchanged");
     }
     const destination = storedDestinationOf(item, current);
@@ -146,26 +151,29 @@ export async function runEditCaption(
     const versionHash = itemVersionHash({
       ...versionContentOf(current, destination),
       caption: payload.caption,
+      output: outputId ?? current.creativeWorkOutputId,
     });
     const receipts = await ctx.repos.receipts.listByObject(scope, "item", item.id);
     const state = domainStateOf(item, receipts);
     if (!state.ok) return state;
-    const decided = editItem(state.value, versionHash);
+    const decided = ctx.actor.kind === "agent"
+      ? submitNewVersion(state.value, versionHash)
+      : editItem(state.value, versionHash);
     if (!decided.ok) return decided;
     await ctx.repos.itemVersions.create(scope, {
       itemId: item.id,
       versionHash,
-      creativeWorkOutputId: current.creativeWorkOutputId,
+      creativeWorkOutputId: outputId ?? current.creativeWorkOutputId,
       caption: payload.caption,
       scheduledFor: current.scheduledFor,
       destination,
       destinationIgUserId: current.destinationIgUserId,
-      authorRole: "client_person",
+      authorRole: ctx.actor.kind,
       authorId: actorId(ctx.actor),
       reviewerFindings: null,
     });
     await ctx.repos.items.update(scope, item.id, {
-      status: decided.value.state.status,
+      status: "adjusting", // Remains undecidable until the new review is applied.
       destination,
       currentVersionHash: versionHash,
     });
@@ -175,7 +183,7 @@ export async function runEditCaption(
       intentId = (await voidIntentForVersion(ctx, item.id, superseded)).intentId;
     }
     await appendEvent(ctx, {
-      eventType: CAPTION_EDITED_EVENT,
+      eventType: ctx.actor.kind === "agent" ? "item.version_submitted" : CAPTION_EDITED_EVENT,
       objectType: "item",
       objectId: item.id,
       payload: {
@@ -190,7 +198,8 @@ export async function runEditCaption(
       eventType: AGENT_WORK_REQUESTED_EVENT,
       objectType: "item",
       objectId: item.id,
-      payload: { kind: "caption_revalidation", versionHash },
+      payload: { kind: "caption_revalidation", versionHash,
+        ...(outputId && outputId !== current.creativeWorkOutputId ? { reviewVisual: true } : {}) },
     });
     await requestNotification(ctx, {
       recipientRole: "strategist",
@@ -198,7 +207,6 @@ export async function runEditCaption(
       detail: { itemId: item.id, versionHash },
     });
     return ok({ itemId: item.id, versionHash, voidedIntentId: intentId });
-  });
 }
 
 function isCalibrating(front: { status: string } | null): boolean {
@@ -218,22 +226,29 @@ export async function runRecordCaptionTriage(
   base: TxBase,
   payload: RecordCaptionTriagePayload,
 ): Promise<Result<CommandSuccess>> {
-  return transact(deps, base, async (ctx) => {
+  return transact(deps, base, (ctx) => recordCaptionTriageInTx(ctx, payload));
+}
+
+export async function recordCaptionTriageInTx(ctx: CommandContext, payload: RecordCaptionTriagePayload): Promise<Result<Record<string, unknown>>> {
     const account = await loadAccountOrError(ctx);
     if (!account.ok) return account;
-    const loaded = await loadItemOrError(ctx, payload.itemId);
+    const loaded = await loadItemOrError(ctx, payload.itemId, true);
     if (!loaded.ok) return loaded;
     const scope = scopeOf(ctx);
     const item = loaded.value;
     if (item.status !== "adjusting" || !item.currentVersionHash) {
       return err("invalid_transition", `item ${item.id} is not awaiting caption triage`);
     }
+    if (payload.expectedVersionHash && item.currentVersionHash !== payload.expectedVersionHash) {
+      return err("version_mismatch", "review refers to a previous version");
+    }
     // Adjustment requests store `adjusting` too but never await triage —
     // only a caption edit for the current version does.
     const itemEvents = await ctx.repos.events.list(scope, { objectType: "item", objectId: item.id });
     const edited = itemEvents.some(
       (event) =>
-        event.eventType === CAPTION_EDITED_EVENT &&
+        (event.eventType === CAPTION_EDITED_EVENT || event.eventType === "item.version_submitted" ||
+          (event.eventType === "item.rescheduled" && (event.payload as { needsReview?: boolean } | null)?.needsReview === true)) &&
         (event.payload as { versionHash?: unknown } | null)?.versionHash ===
           item.currentVersionHash,
     );
@@ -285,7 +300,6 @@ export async function runRecordCaptionTriage(
       detail: { itemId: item.id, path: triage.path },
     });
     return ok({ itemId: item.id, path: triage.path, matched: triage.matched, backToDecision });
-  });
 }
 
 /** The client confirms an asserted permanent fact as business fact (receipt). */
@@ -381,7 +395,7 @@ export async function runDeclinePublish(
       eventType: AGENT_WORK_REQUESTED_EVENT,
       objectType: "item",
       objectId: item.id,
-      payload: { kind: "replacement_proposal" },
+      payload: { kind: "replacement_proposal", versionHash: item.currentVersionHash, reason: payload.reason },
     });
     await requestNotification(ctx, {
       recipientRole: "strategist",

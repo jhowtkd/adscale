@@ -11,6 +11,7 @@ vi.mock("../db", () => {
     from: vi.fn(() => chain),
     where: vi.fn(() => chain),
     orderBy: vi.fn(() => chain),
+    for: vi.fn(async () => [{ id: "thread-1", workspaceId: "ws-1" }]),
     limit: vi.fn(async () => state.selectResults.shift() ?? []),
     then(resolve: (value: unknown) => void) {
       resolve(state.selectResults.shift() ?? []);
@@ -20,6 +21,15 @@ vi.mock("../db", () => {
   return {
     db: {
       select: vi.fn(() => chain),
+      transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn({
+        select: vi.fn(() => chain),
+        insert: vi.fn(() => ({
+          values: vi.fn(() => ({ returning: vi.fn(async () => state.insertResult) })),
+        })),
+        update: vi.fn(() => ({
+          set: vi.fn(() => ({ where: vi.fn(async () => state.updateResult) })),
+        })),
+      })),
       insert: vi.fn(() => ({
         values: vi.fn(() => ({
           returning: vi.fn(async () => state.insertResult),
@@ -36,11 +46,6 @@ vi.mock("../db", () => {
   };
 });
 
-vi.mock("./assistant-thread", () => ({
-  getAssistantThreadById: vi.fn(),
-}));
-
-import { getAssistantThreadById } from "./assistant-thread";
 import {
   AssistantMessageValidationError,
   createAssistantMessage,
@@ -48,18 +53,12 @@ import {
   updateActionCardPayload,
 } from "./assistant-message";
 
-const mockGetThread = vi.mocked(getAssistantThreadById);
-
 describe("assistant-message repository", () => {
   beforeEach(() => {
     state.selectResults = [];
     state.insertResult = [];
     state.updateResult = [];
     vi.clearAllMocks();
-    mockGetThread.mockResolvedValue({
-      id: "thread-1",
-      workspaceId: "ws-1",
-    } as Awaited<ReturnType<typeof getAssistantThreadById>>);
   });
 
   it("rejects denied persistence keys", async () => {
