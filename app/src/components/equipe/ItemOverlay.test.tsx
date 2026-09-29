@@ -164,6 +164,17 @@ describe("ItemOverlay", () => {
     expect(screen.getByTestId("item-overlay-history")).toHaveTextContent("history");
   });
 
+  it("shows the reconnect and reapproval warning for a changed Instagram destination", () => {
+    detailFixture = baseDetail({
+      activeIntent: {
+        id: "intent-1", status: "held", versionHash: "hash-v2", scheduledFor: null,
+        lastError: "instagram_destination_changed",
+      },
+    });
+    renderOverlay();
+    expect(screen.getByText("instagramDestinationChanged")).toBeInTheDocument();
+  });
+
   it("approves the exact version seen", async () => {
     renderOverlay();
     fireEvent.click(screen.getByTestId("item-approve"));

@@ -5614,6 +5614,7 @@
       "receipts": "Receipts ({count})",
       "noReceipts": "No receipts yet.",
       "noCaption": "No caption.",
+      "instagramDestinationChanged": "The Instagram profile changed or is not pinned to this version. A new version and approval are required.",
       "factConfirmed": "Fact confirmed.",
       "approved": "Approved."
     },

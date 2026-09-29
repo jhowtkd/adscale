@@ -7,20 +7,21 @@ import {
   WorkspaceAuthError,
 } from "@/server/auth/workspace";
 import { db } from "@/server/db";
+import { getSessionFromHeaders } from "@/server/auth/session";
+import { createEquipeIgOAuthState } from "@/server/equipe/publishing/oauth-nonce";
 import { createPostgresEquipeUnitOfWork } from "@/server/equipe/data/postgres";
 import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
 import { findCustodianPersonForUser } from "@/server/equipe/module/instagram-connect";
 import {
   buildEquipeIgStartUrl,
   equipeIgCallbackUrl,
-  signEquipeIgState,
 } from "@/server/equipe/publishing/oauth";
 import { env } from "@/server/validation/env";
 
 /**
  * GET: starts the Equipe Instagram OAuth, custodian only. The session user
  * is bound to the account's custodian row through the module; the signed
- * state carries the account, so the fixed callback URL needs no session.
+ * state binds the account and a single-use nonce to this authenticated session.
  */
 export async function GET(
   request: Request,
@@ -28,6 +29,10 @@ export async function GET(
 ) {
   try {
     const { user, workspace } = await requireWorkspaceAccess(request);
+    const session = await getSessionFromHeaders(request.headers);
+    if (!session || session.user.id !== user.id) {
+      throw new WorkspaceAuthError(AUTH_ERROR_CODES.unauthorized, "Unauthorized");
+    }
     if (!isEquipeEnabledForWorkspace(workspace.id)) {
       throw new WorkspaceAuthError(AUTH_ERROR_CODES.forbidden, "Forbidden");
     }
@@ -50,11 +55,12 @@ export async function GET(
     }
     const appId = env.EQUIPE_IG_APP_ID;
     if (!appId) return apiError("instagramNotConfigured", 503);
-    const state = signEquipeIgState({
+    const state = await createEquipeIgOAuthState({
       workspaceId: workspace.id,
       accountId,
       custodianPersonId: custodian.id,
       userId: user.id,
+      sessionId: session.session.id,
     });
     const callback = equipeIgCallbackUrl();
     return NextResponse.redirect(

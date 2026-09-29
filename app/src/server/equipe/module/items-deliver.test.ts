@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { executeCommand } from "./commands";
 import { itemVersionHash } from "./item-shared";
+import { approveTestItem, encryptedInstagramToken } from "./testing/publication";
 import { ctx, deliverTestBatch, frontIdOf, seedWork, setup, uuid } from "./testing/items";
 
 const SCHEDULED = new Date("2026-10-09T12:00:00.000Z");
@@ -38,6 +39,7 @@ describe("deliver_batch", () => {
       versionHash: versionHashes[0],
       caption: "legenda 1",
       destination: "instagram:@brand",
+      destinationIgUserId: null,
       authorRole: "agent",
     });
 
@@ -195,4 +197,165 @@ describe("deliver_batch", () => {
     const versions = await t.deps.uow.repos.itemVersions.list(scope, { itemId: itemIds[0]! });
     expect(versions[0]?.reviewerFindings).toMatchObject({ needsConfirmation: true });
   });
+
+  it.each(["instagram:@bRAND", "instagram:ig-brand-17"])("pins %s to the server's canonical handle in version, hash and intent", async (destinationAccount) => {
+    const { t, ids } = await setup();
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    await seedConnection(t, ids, { igUserId: "ig-brand-17", igUsername: "Brand" });
+    const seeded = seedWork(t, ids.workspaceId);
+    const frontId = await frontIdOf(t, ids, "social_instagram");
+    const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.agent), {
+      type: "deliver_batch",
+      payload: {
+        title: "Lote Instagram conectado",
+        frontId,
+        approveByAt: new Date("2026-10-07T17:00:00.000Z"),
+        items: [{
+          creativeWorkId: seeded.workId,
+          creativeWorkOutputId: seeded.outputId,
+          caption: "olá",
+          destinationAccount,
+          scheduledFor: SCHEDULED,
+        }],
+      },
+    });
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    const expectedHash = itemVersionHash({
+      output: seeded.outputId,
+      caption: "olá",
+      destination: "instagram:@Brand",
+      destinationIgUserId: "ig-brand-17",
+      scheduledFor: SCHEDULED,
+    });
+    const itemId = (outcome.value.data as { itemIds: string[] }).itemIds[0]!;
+    const item = await t.deps.uow.repos.items.get(scope, itemId);
+    const version = (await t.deps.uow.repos.itemVersions.list(scope, { itemId }))[0];
+    await approveTestItem(t, ids, itemId, expectedHash);
+    const intent = await t.deps.uow.repos.intents.getByItemVersion(scope, itemId, expectedHash);
+    expect(item).toMatchObject({ destination: "instagram:@Brand", currentVersionHash: expectedHash });
+    expect(version).toMatchObject({
+      destination: "instagram:@Brand", destinationIgUserId: "ig-brand-17", versionHash: expectedHash,
+    });
+    expect(intent).toMatchObject({ destinationIgUserId: "ig-brand-17", versionHash: expectedHash });
+  });
+
+  it("canonicalizes an ID destination when an active connection has no username", async () => {
+    const { t, ids } = await setup();
+    await seedConnection(t, ids, { igUserId: "ig-no-handle", igUsername: null });
+    const { itemIds } = await deliverTestBatch(t, ids, {
+      items: [{ destinationAccount: "instagram:ig-no-handle" }],
+    });
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    const version = (await t.deps.uow.repos.itemVersions.list(scope, { itemId: itemIds[0]! }))[0];
+    expect(version).toMatchObject({ destination: "instagram:ig-no-handle", destinationIgUserId: "ig-no-handle" });
+  });
+
+  it.each(["missing", "inactive"] as const)("preserves Instagram destination without pin when connection is %s", async (connectionState) => {
+    const { t, ids } = await setup();
+    if (connectionState === "inactive") {
+      await seedConnection(t, ids, { igUserId: "ig-other", igUsername: "elsewhere", status: "revoked" });
+    }
+    const { itemIds, versionHashes } = await deliverTestBatch(t, ids, {
+      items: [{ destinationAccount: "instagram:@external-handle", scheduledFor: new Date("2026-10-05T13:55:00.000Z") }],
+    });
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    const version = (await t.deps.uow.repos.itemVersions.list(scope, { itemId: itemIds[0]! }))[0];
+    expect(version).toMatchObject({ destination: "instagram:@external-handle", destinationIgUserId: null });
+    await approveTestItem(t, ids, itemIds[0]!, versionHashes[0]!);
+    const intent = await t.deps.uow.repos.intents.getByItemVersion(scope, itemIds[0]!, versionHashes[0]!);
+    const dispatch = await executeCommand(t.deps, ctx(ids, ids.actors.system), {
+      type: "dispatch_publication", payload: { intentId: intent!.id },
+    });
+    expect(dispatch).toMatchObject({ ok: true, value: { data: { action: "held", reasons: ["instagram_destination_changed"] } } });
+    expect(t.publisher.creates).toHaveLength(0);
+    expect(t.publisher.publishes).toHaveLength(0);
+  });
+
+  it.each(["instagram:@outro", "facebook:@brand"])("rejects mismatched second destination %s without persisting batch data", async (destinationAccount) => {
+    const { t, ids } = await setup();
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    await seedConnection(t, ids, { igUserId: "ig-brand", igUsername: "brand" });
+    const first = seedWork(t, ids.workspaceId);
+    const second = seedWork(t, ids.workspaceId);
+    const frontId = await frontIdOf(t, ids, "social_instagram");
+    const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.agent), {
+      type: "deliver_batch",
+      payload: {
+        title: "Lote com destino divergente",
+        frontId,
+        approveByAt: new Date("2026-10-07T17:00:00.000Z"),
+        items: [
+          { creativeWorkId: first.workId, creativeWorkOutputId: first.outputId, caption: "válido", destinationAccount: "instagram:@BRAND", scheduledFor: SCHEDULED },
+          { creativeWorkId: second.workId, creativeWorkOutputId: second.outputId, caption: "divergente", destinationAccount, scheduledFor: SCHEDULED },
+        ],
+      },
+    });
+    expect(outcome).toMatchObject({ ok: false, error: { code: "destination_mismatch" } });
+    expect(await t.deps.uow.repos.batches.list(scope)).toHaveLength(0);
+    expect(await t.deps.uow.repos.items.list(scope)).toHaveLength(0);
+    expect(await t.deps.uow.repos.itemVersions.list(scope)).toHaveLength(0);
+    expect(await t.deps.uow.repos.intents.list(scope)).toHaveLength(0);
+    expect(t.publisher.creates).toHaveLength(0);
+    expect(t.publisher.publishes).toHaveLength(0);
+    const events = await t.deps.uow.repos.events.list(scope);
+    expect(events.some((event) => event.eventType === "batch.delivered" || event.eventType === "item.delivered")).toBe(false);
+  });
+
+  it("refuses an active but unreadable Instagram token", async () => {
+    const { t, ids } = await setup();
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    await seedConnection(t, ids, { encryptedToken: "not-a-valid-encrypted-token" });
+    const outcome = await deliverOutcome(t, ids, "instagram:@brand");
+    expect(outcome).toMatchObject({ ok: false, error: { code: "invalid_token" } });
+    expect(await t.deps.uow.repos.batches.list(scope)).toHaveLength(0);
+    expect(await t.deps.uow.repos.items.list(scope)).toHaveLength(0);
+    expect(await t.deps.uow.repos.itemVersions.list(scope)).toHaveLength(0);
+    expect(await t.deps.uow.repos.intents.list(scope)).toHaveLength(0);
+    expect(t.publisher.creates).toHaveLength(0);
+    expect(t.publisher.publishes).toHaveLength(0);
+    const events = await t.deps.uow.repos.events.list(scope);
+    expect(events.some((event) => event.eventType === "batch.delivered" || event.eventType === "item.delivered")).toBe(false);
+  });
 });
+
+async function seedConnection(
+  t: Awaited<ReturnType<typeof setup>>["t"],
+  ids: Awaited<ReturnType<typeof setup>>["ids"],
+  options: { igUserId?: string; igUsername?: string | null; status?: "active" | "revoked"; encryptedToken?: string },
+) {
+  const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+  const custodian = (await t.deps.uow.repos.people.list(scope)).find((person) => person.role === "custodian");
+  return t.deps.uow.repos.connections.create(scope, {
+    provider: "instagram",
+    encryptedToken: options.encryptedToken ?? encryptedInstagramToken(
+      options.igUserId ?? "ig_brand", options.igUsername === undefined ? "brand" : options.igUsername,
+    ),
+    custodianPersonId: custodian?.id ?? null,
+    status: options.status ?? "active",
+  });
+}
+
+async function deliverOutcome(
+  t: Awaited<ReturnType<typeof setup>>["t"],
+  ids: Awaited<ReturnType<typeof setup>>["ids"],
+  destinationAccount: string,
+) {
+  const seeded = seedWork(t, ids.workspaceId);
+  const frontId = await frontIdOf(t, ids, "social_instagram");
+  return executeCommand(t.deps, ctx(ids, ids.actors.agent), {
+    type: "deliver_batch",
+    payload: {
+      title: "Lote",
+      frontId,
+      approveByAt: new Date("2026-10-07T17:00:00.000Z"),
+      items: [{
+        creativeWorkId: seeded.workId,
+        creativeWorkOutputId: seeded.outputId,
+        caption: "legenda",
+        destinationAccount,
+        scheduledFor: SCHEDULED,
+      }],
+    },
+  });
+}

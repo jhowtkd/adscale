@@ -95,6 +95,7 @@ export async function runChoosePiece(
       caption: current.caption,
       scheduledFor: current.scheduledFor,
       destination,
+      destinationIgUserId: current.destinationIgUserId,
       authorRole: "client_person",
       authorId: actorId(ctx.actor),
       reviewerFindings: null,

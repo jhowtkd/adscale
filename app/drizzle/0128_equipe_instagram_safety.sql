@@ -1,0 +1,2 @@
+ALTER TABLE "adscale_equipe"."equipe_item_versions" ADD COLUMN "destination_ig_user_id" text;--> statement-breakpoint
+ALTER TABLE "adscale_equipe"."equipe_publication_intents" ADD COLUMN "destination_ig_user_id" text;

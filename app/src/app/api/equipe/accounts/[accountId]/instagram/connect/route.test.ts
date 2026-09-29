@@ -8,9 +8,11 @@ vi.mock("next-intl/server", () => ({
 const mocks = vi.hoisted(() => ({
   userId: "user-cid",
   workspaceId: "",
+  sessionId: "session-a",
   enabled: true,
   appId: "ig-app-1" as string | undefined,
   uow: null as unknown,
+  states: new Map<string, string>(),
 }));
 
 vi.mock("@/server/auth/workspace", async (importOriginal) => {
@@ -23,6 +25,12 @@ vi.mock("@/server/auth/workspace", async (importOriginal) => {
     })),
   };
 });
+vi.mock("@/server/auth/session", () => ({
+  getSessionFromHeaders: vi.fn(async () => ({
+    user: { id: mocks.userId },
+    session: { id: mocks.sessionId },
+  })),
+}));
 vi.mock("@/server/db", () => ({ db: {} }));
 vi.mock("@/server/equipe/data/postgres", () => ({
   createPostgresEquipeUnitOfWork: () => mocks.uow,
@@ -30,6 +38,23 @@ vi.mock("@/server/equipe/data/postgres", () => ({
 vi.mock("@/server/equipe/module/equipe-enabled", () => ({
   isEquipeEnabledForWorkspace: () => mocks.enabled,
 }));
+vi.mock("@/server/equipe/publishing/oauth-nonce", async () => {
+  const { randomBytes } = await import("node:crypto");
+  const { signEquipeIgState } = await import("@/server/equipe/publishing/oauth");
+  return {
+    createEquipeIgOAuthState: async (input: Record<string, string>) => {
+      const nonce = randomBytes(32).toString("hex");
+      const state = signEquipeIgState({ ...input, nonce } as Parameters<typeof signEquipeIgState>[0]);
+      mocks.states.set(state, nonce);
+      return state;
+    },
+    consumeEquipeIgOAuthState: async (state: string, nonce: string) => {
+      if (mocks.states.get(state) !== nonce) return false;
+      mocks.states.delete(state);
+      return true;
+    },
+  };
+});
 vi.mock("@/server/validation/env", () => ({
   env: {
     BETTER_AUTH_SECRET: "segredo-de-teste-com-32-caracteres!!",
@@ -66,8 +91,10 @@ describe("equipe instagram connect", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.userId = "user-cid";
+    mocks.sessionId = "session-a";
     mocks.enabled = true;
     mocks.appId = "ig-app-1";
+    mocks.states.clear();
   });
 
   it("the custodian starts OAuth with a signed state carrying the account", async () => {
@@ -84,6 +111,8 @@ describe("equipe instagram connect", () => {
     const state = verifyEquipeIgState(location.searchParams.get("state") ?? "");
     expect(state).toMatchObject({ workspaceId: ids.workspaceId, accountId: ids.accountId });
     expect(state?.userId).toBe("user-cid");
+    expect(state?.sessionId).toBe("session-a");
+    expect(state?.nonce).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it("anyone but the custodian is refused", async () => {

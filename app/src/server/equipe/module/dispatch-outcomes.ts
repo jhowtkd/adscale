@@ -192,7 +192,7 @@ export async function writePublishedOutcome(
   ctx: CommandContext,
   item: EquipeItem,
   intent: EquipePublicationIntent,
-  input: { externalId: string; permalink?: string; containerId: string | null; versionHash: string },
+  input: { externalId: string; permalink?: string; containerId: string | null; versionHash: string; via?: "reconcile" },
 ): Promise<Result<void>> {
   const scope = scopeOf(ctx);
   const state = itemStateOf(item);
@@ -216,6 +216,8 @@ export async function writePublishedOutcome(
       externalId: input.externalId,
       containerId: input.containerId,
       permalink: input.permalink ?? null,
+      destinationIgUserId: intent.destinationIgUserId,
+      ...(input.via ? { via: input.via } : {}),
     },
   });
   await appendEvent(ctx, {
@@ -226,6 +228,8 @@ export async function writePublishedOutcome(
       externalId: input.externalId,
       containerId: input.containerId,
       permalink: input.permalink ?? null,
+      destinationIgUserId: intent.destinationIgUserId,
+      ...(input.via ? { via: input.via } : {}),
       receiptId: receipt.id,
     },
   });

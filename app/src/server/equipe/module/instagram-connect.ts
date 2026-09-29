@@ -6,7 +6,7 @@
 // provider never reach here (the route redirects without recording).
 
 import { z } from "zod";
-import { ok, type Result } from "../domain";
+import { err, ok, type Result } from "../domain";
 import type { AccountScope, EquipeAccountPerson, EquipeRepositories } from "../data";
 import type { EquipeModuleDeps } from "./ports";
 import {
@@ -25,6 +25,8 @@ import {
 } from "./shared";
 import { createExceptionInternal } from "./exceptions";
 import { instagramFailureMessage } from "../publishing/connection-errors";
+import { decryptEquipeIgToken, EquipeIgCryptoError } from "../publishing/crypto";
+import { holdInstagramDestination, instagramIdentityOf } from "./instagram-destination";
 
 export type CompleteInstagramConnectPayload = z.infer<typeof completeInstagramConnectPayloadSchema>;
 export type FailInstagramConnectPayload = z.infer<typeof failInstagramConnectPayloadSchema>;
@@ -71,9 +73,17 @@ export async function runCompleteInstagramConnect(
     const account = await loadAccountOrError(ctx);
     if (!account.ok) return account;
     const scope = scopeOf(ctx);
+    let identity;
+    try {
+      identity = decryptEquipeIgToken(payload.encryptedToken);
+    } catch (error) {
+      if (error instanceof EquipeIgCryptoError) return err("invalid_token", "credencial do Instagram inválida");
+      throw error;
+    }
     const existing = (await ctx.repos.connections.list(scope)).find(
       (row) => row.provider === INSTAGRAM_PROVIDER,
     );
+    const previousIgUserId = instagramIdentityOf(existing ?? null)?.igUserId ?? null;
     const custodianPersonId = custodianPersonIdOf(ctx);
     let connectionId: string;
     if (existing) {
@@ -94,6 +104,16 @@ export async function runCompleteInstagramConnect(
       });
       connectionId = created.id;
     }
+    if (previousIgUserId !== identity.igUserId) {
+      const intents = await ctx.repos.intents.list(scope, { status: ["pending", "held"] });
+      for (const intent of intents) {
+        if (intent.destinationIgUserId === identity.igUserId) continue;
+        const item = await ctx.repos.items.get(scope, intent.itemId);
+        if (item && (item.status === "scheduled" || item.status === "held")) {
+          await holdInstagramDestination(ctx, item, intent);
+        }
+      }
+    }
     await appendEvent(ctx, {
       eventType: CONNECTION_CONNECTED_EVENT,
       objectType: "connection",
@@ -101,7 +121,9 @@ export async function runCompleteInstagramConnect(
       payload: {
         provider: INSTAGRAM_PROVIDER,
         reconnected: existing != null,
-        igUsername: payload.igUsername ?? null,
+        igUsername: identity.igUsername,
+        igUserId: identity.igUserId,
+        previousIgUserId,
       },
     });
     await requestNotification(ctx, {

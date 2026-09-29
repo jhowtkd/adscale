@@ -7,6 +7,7 @@ import { z } from "zod";
 import { actorId, err, ok, type Result } from "../domain";
 import type { EquipeModuleDeps } from "./ports";
 import { deliverBatchPayloadSchema } from "./envelope";
+import { resolveInstagramDestination } from "./instagram-destination";
 import {
   appendEvent,
   loadAccountOrError,
@@ -65,10 +66,14 @@ export async function runDeliverBatch(
     const versionHashes: string[] = [];
     for (let index = 0; index < payload.items.length; index += 1) {
       const input = payload.items[index]!;
+      const resolved = await resolveInstagramDestination(ctx.repos, scope, input.destinationAccount);
+      if (!resolved.ok) return resolved;
+      const { destination, destinationIgUserId } = resolved.value;
       const versionHash = itemVersionHash({
         output: input.creativeWorkOutputId,
         caption: input.caption,
-        destination: input.destinationAccount,
+        destination,
+        destinationIgUserId,
         scheduledFor: input.scheduledFor,
       });
       const item = await ctx.repos.items.create(scope, {
@@ -78,7 +83,7 @@ export async function runDeliverBatch(
         status: "awaiting_approval",
         scheduledFor: input.scheduledFor,
         deadlineAt: itemDeadlineFor(input.scheduledFor),
-        destination: input.destinationAccount,
+        destination,
         currentVersionHash: versionHash,
       });
       await ctx.repos.itemVersions.create(scope, {
@@ -87,7 +92,8 @@ export async function runDeliverBatch(
         creativeWorkOutputId: input.creativeWorkOutputId,
         caption: input.caption,
         scheduledFor: input.scheduledFor,
-        destination: input.destinationAccount,
+        destination,
+        destinationIgUserId,
         authorRole: author.role,
         authorId: author.id,
         reviewerFindings: input.needsConfirmation ? { needsConfirmation: true } : null,
@@ -99,7 +105,7 @@ export async function runDeliverBatch(
         payload: {
           batchId: batch.id,
           versionHash,
-          destinationAccount: input.destinationAccount,
+          destinationAccount: destination,
           scheduledFor: input.scheduledFor.toISOString(),
           needsConfirmation: input.needsConfirmation,
         },

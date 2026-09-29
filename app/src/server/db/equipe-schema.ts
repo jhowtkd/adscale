@@ -451,6 +451,7 @@ export const equipeItemVersions = equipeSchema.table(
     scheduledFor: timestamp("scheduled_for", { mode: "date" }),
     // Destination hashed into this version; set on INSERT only (immutable row).
     destination: text("destination"),
+    destinationIgUserId: text("destination_ig_user_id"),
     authorRole: text("author_role").notNull(),
     authorId: text("author_id"),
     reviewerFindings: jsonb("reviewer_findings"),
@@ -671,6 +672,7 @@ export const equipePublicationIntents = equipeSchema.table(
       .references(() => equipeItems.id, { onDelete: "cascade" }),
     versionHash: text("version_hash").notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
+    destinationIgUserId: text("destination_ig_user_id"),
     status: text("status").notNull().default("pending"),
     leaseOwner: text("lease_owner"),
     leaseExpiresAt: timestamp("lease_expires_at", { mode: "date" }),

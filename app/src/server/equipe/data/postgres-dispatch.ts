@@ -91,6 +91,14 @@ export function makePgIntents(executor: PostgresEquipeExecutor): EquipeIntentRep
       return { intent: existing[0], created: false };
     },
     get: (scope, id) => pgGet(executor, equipePublicationIntents, scope, id),
+    async getForUpdate(scope, id) {
+      const [row] = await executor.select().from(equipePublicationIntents).where(and(
+        eq(equipePublicationIntents.workspaceId, scope.workspaceId),
+        eq(equipePublicationIntents.accountId, scope.accountId),
+        eq(equipePublicationIntents.id, id),
+      )).for("update");
+      return row ?? null;
+    },
     async getByItemVersion(
       scope: AccountScope,
       itemId: string,
@@ -239,6 +247,7 @@ function mapIntentRow(row: IntentRow): EquipePublicationIntent {
     accountId: row.account_id as string,
     itemId: row.item_id as string,
     versionHash: row.version_hash as string,
+    destinationIgUserId: (row.destination_ig_user_id as string | null) ?? null,
     idempotencyKey: row.idempotency_key as string,
     status: row.status as EquipePublicationIntent["status"],
     leaseOwner: (row.lease_owner as string | null) ?? null,

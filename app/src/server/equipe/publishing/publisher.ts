@@ -17,6 +17,7 @@ import {
   type RecentMediaInput,
 } from "../module/ports";
 import { InstagramAuthError } from "./auth";
+import { INSTAGRAM_DESTINATION_CHANGED, INSTAGRAM_DESTINATION_MESSAGE } from "../module/instagram-destination";
 import {
   InstagramGraphClient,
   InstagramGraphError,
@@ -75,9 +76,13 @@ export class InstagramPublisher implements Publisher {
     this.resolveMediaUrl = deps.resolveMediaUrl;
   }
 
-  private async authOf(input: { workspaceId: string; accountId: string }): Promise<InstagramPublisherAuth> {
+  private async authOf(input: { workspaceId: string; accountId: string; destinationIgUserId?: string | null }, requireDestination = true): Promise<InstagramPublisherAuth> {
     try {
-      return await this.loadAuth(input);
+      const auth = await this.loadAuth(input);
+      if (requireDestination && (!input.destinationIgUserId || auth.igUserId !== input.destinationIgUserId)) {
+        throw new PublisherFailedError(INSTAGRAM_DESTINATION_MESSAGE, INSTAGRAM_DESTINATION_CHANGED);
+      }
+      return auth;
     } catch (error) {
       if (error instanceof InstagramAuthError) {
         throw new PublisherFailedError(error.message, mapAuthFailure(error));
@@ -100,7 +105,7 @@ export class InstagramPublisher implements Publisher {
   }
 
   async createContainer(input: CreateContainerInput): Promise<{ containerId: string }> {
-    const auth = await this.authOf(input);
+    await this.authOf(input);
     let imageUrl: string;
     try {
       imageUrl = await this.resolveMediaUrl(input.mediaRef);
@@ -110,6 +115,8 @@ export class InstagramPublisher implements Publisher {
         "media_unresolvable",
       );
     }
+    // Resolving the URL can take time: reload and compare immediately before the write.
+    const auth = await this.authOf(input);
     try {
       return await this.client.createImageContainer(auth.accessToken, auth.igUserId, {
         imageUrl,
@@ -139,9 +146,9 @@ export class InstagramPublisher implements Publisher {
   }
 
   /**
-   * Recent media for reconcile. The Graph has no server-side caption /
-   * container filter, so this returns the listing and the MODULE matches
-   * by container context + caption + recency (see reconcile.ts).
+   * The known Graph contract does not expose container→media correlation.
+   * Listing the pinned account proves ownership, not which send created a
+   * post. The module additionally requires a recorded provider media id.
    */
   async findRecentMedia(input: RecentMediaInput): Promise<RecentMedia[]> {
     const auth = await this.authOf(input);
@@ -149,6 +156,7 @@ export class InstagramPublisher implements Publisher {
       const rows = await this.client.listRecentMedia(auth.accessToken, auth.igUserId);
       return rows.map((row) => ({
         externalId: row.id,
+        igUserId: auth.igUserId,
         caption: row.caption,
         permalink: row.permalink,
         takenAt: row.timestamp ? new Date(row.timestamp) : null,
@@ -159,7 +167,7 @@ export class InstagramPublisher implements Publisher {
   }
 
   async deleteMedia(input: DeleteMediaInput): Promise<{ deleted: boolean }> {
-    const auth = await this.authOf(input);
+    const auth = await this.authOf(input, false);
     try {
       return await this.client.deleteMedia(auth.accessToken, input.externalId);
     } catch (error) {

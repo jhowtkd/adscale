@@ -3,6 +3,7 @@
 // real executeCommand path.
 
 import { executeCommand } from "../commands";
+import { encryptEquipeIgToken } from "../../publishing/crypto";
 import { mandateRuleOf, mandateVersionHash } from "../plan-mandate";
 import {
   ctx,
@@ -61,11 +62,23 @@ export async function seedInstagramConnection(
   }
   const created = await t.deps.uow.repos.connections.create(scope, {
     provider: "instagram",
-    encryptedToken: "v1:test-token",
+    encryptedToken: encryptEquipeIgToken({
+      accessToken: "test-token",
+      igUserId: "ig_test_brand",
+      igUsername: "brand",
+    }),
     custodianPersonId,
     status: options.status ?? "active",
   });
   return created.id;
+}
+
+export function encryptedInstagramToken(
+  igUserId = "ig_test_brand",
+  igUsername: string | null = "brand",
+  accessToken = "test-token",
+): string {
+  return encryptEquipeIgToken({ accessToken, igUserId, igUsername });
 }
 
 /** Approve one item at its delivered version. */

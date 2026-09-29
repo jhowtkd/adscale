@@ -104,7 +104,7 @@ describe("reconcile handler", () => {
     await approveLiveMandate(t, ids);
     await seedInstagramConnection(t, ids);
     t.publisher.failNext("publish", { kind: "uncertain" });
-    const { itemId } = await deliverDueApprovedItem(t, ids, { caption: "post reconciliado" });
+    const { itemId, intentId } = await deliverDueApprovedItem(t, ids, { caption: "post reconciliado" });
     const dispatched = await executeCommand(t.deps, ctx(ids, ids.actors.system), {
       type: "dispatch_publication",
       payload: {
@@ -115,9 +115,12 @@ describe("reconcile handler", () => {
     });
     expect(dispatched.ok).toBe(true);
     expect((await t.deps.uow.repos.items.get(scope, itemId))?.status).toBe("verifying");
+    // A provider acknowledgement survived while the final receipt did not.
+    await t.deps.uow.repos.intents.update(scope, intentId, { externalId: "ig_1" });
     t.publisher.recentMedia = [
       {
         externalId: "ig_1",
+        igUserId: "ig_test_brand",
         caption: "post reconciliado",
         permalink: "https://ig/post/1",
         takenAt: new Date("2026-10-05T14:01:00.000Z"),

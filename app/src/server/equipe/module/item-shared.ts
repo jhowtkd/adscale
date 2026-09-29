@@ -67,22 +67,24 @@ export type ItemVersionContent = {
   output: string | null;
   caption: string;
   destination: string;
+  destinationIgUserId?: string | null;
   scheduledFor: Date | string | null;
 };
 
 /** Hash of the canonical version content; approvals bind to the exact hash. */
 export function itemVersionHash(content: ItemVersionContent): string {
-  return versionHash(content);
+  return versionHash({ ...content, destinationIgUserId: content.destinationIgUserId ?? null });
 }
 
 export function versionContentOf(
-  version: Pick<EquipeItemVersion, "creativeWorkOutputId" | "caption" | "scheduledFor">,
+  version: Pick<EquipeItemVersion, "creativeWorkOutputId" | "caption" | "scheduledFor" | "destinationIgUserId">,
   destinationAccount: string,
 ): ItemVersionContent {
   return {
     output: version.creativeWorkOutputId,
     caption: version.caption,
     destination: destinationAccount,
+    destinationIgUserId: version.destinationIgUserId,
     scheduledFor: version.scheduledFor,
   };
 }

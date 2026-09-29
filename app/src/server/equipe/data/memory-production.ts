@@ -59,6 +59,7 @@ export function makeMemoryProductionRepositories(
         input,
         {
           caption: "",
+          destinationIgUserId: null,
           creativeWorkOutputId: null,
           scheduledFor: null,
           destination: null,

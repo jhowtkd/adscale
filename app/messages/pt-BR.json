@@ -5690,6 +5690,7 @@
       "receipts": "Recibos ({count})",
       "noReceipts": "Nenhum recibo ainda.",
       "noCaption": "Sem legenda.",
+      "instagramDestinationChanged": "O perfil do Instagram mudou ou não está fixado nesta versão. É necessária uma nova versão e aprovação.",
       "factConfirmed": "Fato confirmado.",
       "approved": "Aprovado."
     },

@@ -258,7 +258,7 @@ export class InstagramGraphClient {
     }
   }
 
-  /** Recent media of the account, newest first (reconcile matches by caption). */
+  /** Recent media of this account; a listing alone does not prove which send created it. */
   async listRecentMedia(
     accessToken: string,
     igUserId: string,

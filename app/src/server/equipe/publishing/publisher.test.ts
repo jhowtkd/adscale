@@ -17,12 +17,14 @@ function publisherOf(graph: FakeGraph, overrides: Partial<Parameters<typeof make
 function make(options: {
   graph: FakeGraph;
   authError?: InstagramAuthError;
+  loadAuth?: () => Promise<{ accessToken: string; igUserId: string }>;
   resolveMediaUrl?: (ref: string) => Promise<string>;
 }) {
   const { graph } = options;
   return new InstagramPublisher({
     fetchFn: graph.fetch,
     loadAuth: async () => {
+      if (options.loadAuth) return options.loadAuth();
       if (options.authError) throw options.authError;
       return AUTH;
     },
@@ -37,6 +39,7 @@ const CREATE: CreateContainerInput = {
   versionHash: "v1",
   caption: "olá",
   mediaRef: "out-1",
+  destinationIgUserId: "ig_1",
 };
 
 describe("instagram publisher", () => {
@@ -64,6 +67,36 @@ describe("instagram publisher", () => {
     const published = await publisherOf(graph).publishContainer({ ...CREATE, containerId: "c1" });
     expect(published.externalId).toBe("media_1");
     expect(published.permalink).toBeUndefined();
+  });
+
+  it("requires the pinned destination before each write and reloads after resolving media", async () => {
+    const graph = new FakeGraph();
+    await expect(publisherOf(graph).createContainer({ ...CREATE, destinationIgUserId: "" }))
+      .rejects.toMatchObject({ code: "instagram_destination_changed" });
+
+    let loads = 0;
+    const publisher = make({
+      graph,
+      loadAuth: async () => ({ accessToken: "tok", igUserId: ++loads === 1 ? "ig_1" : "ig_other" }),
+    });
+    await expect(publisher.createContainer(CREATE)).rejects.toMatchObject({ code: "instagram_destination_changed" });
+    expect(loads).toBe(2);
+    expect(graph.requests).toHaveLength(0);
+  });
+
+  it("does not publish on a newly connected destination between container creation and publish", async () => {
+    const graph = new FakeGraph();
+    let identity = "ig_1";
+    const publisher = make({
+      graph,
+      loadAuth: async () => ({ accessToken: "tok", igUserId: identity }),
+    });
+    const { containerId } = await publisher.createContainer(CREATE);
+    identity = "ig_B";
+    await expect(publisher.publishContainer({ ...CREATE, containerId }))
+      .rejects.toMatchObject({ code: "instagram_destination_changed" });
+    expect(graph.requests.filter((request) => request.method === "POST").map((request) => request.path))
+      .toEqual(["/ig_1/media"]);
   });
 
   it("maps expired auth to connection_expired", async () => {
@@ -134,9 +167,13 @@ describe("instagram publisher", () => {
       { id: "media_9", caption: "olá", permalink: "https://instagram.test/p/9", timestamp: "2026-10-05T12:00:00.000Z" },
     ];
     const publisher = publisherOf(graph);
-    const rows = await publisher.findRecentMedia({ workspaceId: "ws", accountId: "acc", caption: "olá" });
+    const rows = await publisher.findRecentMedia({
+      workspaceId: "ws", accountId: "acc", caption: "olá", destinationIgUserId: "ig_1",
+    });
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ externalId: "media_9", caption: "olá" });
+    expect(rows[0]?.igUserId).toBe("ig_1");
+    expect(rows[0]).not.toHaveProperty("containerId");
     expect(rows[0]!.takenAt).toBeInstanceOf(Date);
     expect(await publisher.deleteMedia({ workspaceId: "ws", accountId: "acc", externalId: "media_9" })).toEqual({
       deleted: true,

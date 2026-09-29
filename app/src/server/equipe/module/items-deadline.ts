@@ -8,6 +8,7 @@ import { z } from "zod";
 import { actorId, err, markWindowMissed, ok, proposeNewSchedule, type Result } from "../domain";
 import type { EquipeModuleDeps } from "./ports";
 import { expireItemDeadlinePayloadSchema, proposeNewSchedulePayloadSchema } from "./envelope";
+import { instagramIdentityOf, INSTAGRAM_DESTINATION_CHANGED } from "./instagram-destination";
 import {
   appendEvent,
   loadAccountOrError,
@@ -28,6 +29,7 @@ import {
   loadItemOrError,
   storedDestinationOf,
   versionContentOf,
+  voidIntentForVersion,
 } from "./item-shared";
 
 export type ExpireItemDeadlinePayload = z.infer<typeof expireItemDeadlinePayloadSchema>;
@@ -131,7 +133,20 @@ export async function runProposeNewSchedule(
     if (!current) {
       return err("invalid_transition", `item ${item.id} has no current version`);
     }
-    const destination = storedDestinationOf(item, current);
+    let destination = storedDestinationOf(item, current);
+    let destinationIgUserId = current.destinationIgUserId;
+    const oldIntent = await ctx.repos.intents.getByItemVersion(scope, item.id, item.currentVersionHash);
+    const destinationChanged = oldIntent?.lastError === INSTAGRAM_DESTINATION_CHANGED;
+    if (item.status === "held" && !destinationChanged) {
+      return err("invalid_transition", "item segurado por outro motivo; retome a pausa antes de reagendar");
+    }
+    if (destinationChanged) {
+      const connection = (await ctx.repos.connections.list(scope)).find((row) => row.provider === "instagram");
+      const identity = connection?.status === "active" ? instagramIdentityOf(connection) : null;
+      if (!identity) return err("connection_missing", "conecte o Instagram antes de propor a nova versão");
+      destinationIgUserId = identity.igUserId;
+      destination = `instagram:${identity.igUsername ? `@${identity.igUsername}` : identity.igUserId}`;
+    }
     if (!destination) {
       return err("invalid_transition", `item ${item.id} has no recorded destination account`);
     }
@@ -142,8 +157,10 @@ export async function runProposeNewSchedule(
     if (!decided.ok) return decided;
     const versionHash = itemVersionHash({
       ...versionContentOf(current, destination),
+      destinationIgUserId,
       scheduledFor: payload.scheduledFor,
     });
+    if (versionHash === item.currentVersionHash) return err("no_change", "a nova versão precisa alterar destino ou horário");
     await ctx.repos.itemVersions.create(scope, {
       itemId: item.id,
       versionHash,
@@ -151,6 +168,7 @@ export async function runProposeNewSchedule(
       caption: current.caption,
       scheduledFor: payload.scheduledFor,
       destination,
+      destinationIgUserId,
       authorRole: "agent",
       authorId: actorId(ctx.actor),
       reviewerFindings: null,
@@ -162,6 +180,7 @@ export async function runProposeNewSchedule(
       scheduledFor: payload.scheduledFor,
       deadlineAt: itemDeadlineFor(payload.scheduledFor),
     });
+    await voidIntentForVersion(ctx, item.id, item.currentVersionHash);
     await appendEvent(ctx, {
       eventType: ITEM_RESCHEDULED_EVENT,
       objectType: "item",

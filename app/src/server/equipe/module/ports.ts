@@ -118,6 +118,7 @@ export type CreateContainerInput = {
   accountId: string;
   itemId: string;
   versionHash: string;
+  destinationIgUserId: string;
   caption: string;
   /** Creative-work output id; the publisher resolves the media URL. */
   mediaRef: string;
@@ -130,6 +131,9 @@ export type PublishContainerInput = CreateContainerInput & {
 export type RecentMediaInput = {
   workspaceId: string;
   accountId: string;
+  destinationIgUserId: string | null;
+  /** Media id returned by our publish request, if it was durably recorded. */
+  externalId?: string | null;
   /** Stored container id, when the send reached the container step. */
   containerId?: string | null;
   caption: string;
@@ -139,6 +143,10 @@ export type RecentMediaInput = {
 
 export type RecentMedia = {
   externalId: string;
+  /** Identity of the account whose media was read with the scoped credential. */
+  igUserId?: string;
+  /** Only set when the provider itself proves the container→media relationship. */
+  containerId?: string;
   caption: string | null;
   permalink: string | null;
   takenAt: Date | null;

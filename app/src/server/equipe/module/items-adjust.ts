@@ -159,6 +159,7 @@ export async function runEditCaption(
       caption: payload.caption,
       scheduledFor: current.scheduledFor,
       destination,
+      destinationIgUserId: current.destinationIgUserId,
       authorRole: "client_person",
       authorId: actorId(ctx.actor),
       reviewerFindings: null,
