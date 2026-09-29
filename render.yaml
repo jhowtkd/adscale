@@ -1,3 +1,9 @@
+# REFERENCE ONLY — this blueprint is NOT synced to Render production.
+# Production env is managed in the Render dashboard. adscale-image-worker
+# does NOT exist there; IMAGE_JOB_TARGET is unset on adscale-app (default: web).
+# The split-worker definition below is retained for an explicitly provisioned
+# staging/cutover environment; editing this file does not change production.
+# See docs/runbooks/image-worker-cutover.md before using this reference.
 services:
   - type: web
     name: adscale-app

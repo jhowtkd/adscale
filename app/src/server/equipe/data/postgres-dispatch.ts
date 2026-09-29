@@ -274,7 +274,7 @@ function toUtcWallClock(value: Date): string {
 // FOR UPDATE SKIP LOCKED para despachantes concorrentes não colidirem.
 export async function claimDueIntents(
   executor: PostgresEquipeExecutor,
-  input: { owner: string; now: Date; limit?: number; leaseTtlMs?: number }
+  input: { owner: string; now: Date; limit?: number; leaseTtlMs?: number; revalidatePublishDisabled?: boolean }
 ): Promise<EquipePublicationIntent[]> {
   const limit = input.limit ?? 25;
   const leaseTtlMs = input.leaseTtlMs ?? EQUIPE_INTENT_LEASE_TTL_MS;
@@ -295,12 +295,30 @@ export async function claimDueIntents(
         AND (intent.next_attempt_at IS NULL OR intent.next_attempt_at <= ${nowWall})
         AND (intent.lease_expires_at IS NULL OR intent.lease_expires_at <= ${nowWall}))
          OR (intent.status = 'sending' AND intent.lease_expires_at <= ${nowWall})
+         OR (${input.revalidatePublishDisabled ?? false} AND intent.status = 'held'
+           AND (intent.lease_expires_at IS NULL OR intent.lease_expires_at <= ${nowWall})
+           AND (
+             SELECT (
+               held.payload ->> 'reason' = 'publish_disabled'
+               AND held.payload -> 'reasons' = '["publish_disabled"]'::jsonb
+               AND held.payload -> 'heldIntentIds' @> jsonb_build_array(intent.id::text)
+             ) AS only_publish_disabled
+             FROM adscale_equipe.equipe_events AS held
+             WHERE held.workspace_id = intent.workspace_id
+               AND held.account_id = intent.account_id
+               AND held.object_type = 'item' AND held.object_id = intent.item_id
+               AND held.event_type = 'item.held'
+             -- An ambiguous timestamp fails closed if another hold is present.
+             ORDER BY held.occurred_at DESC, only_publish_disabled ASC NULLS FIRST
+             LIMIT 1
+           ))
       ORDER BY intent.scheduled_for ASC, intent.id ASC
       LIMIT ${limit}
       FOR UPDATE OF intent SKIP LOCKED
     )
     UPDATE adscale_equipe.equipe_publication_intents AS intent
-    SET status = 'sending',
+    -- Keep both halves held so dispatch revalidates rather than bypassing resume.
+    SET status = CASE WHEN intent.status = 'held' THEN 'held' ELSE 'sending' END,
         lease_owner = ${input.owner},
         lease_expires_at = ${expiresAtWall},
         attempts = intent.attempts + 1,
@@ -313,6 +331,7 @@ export async function claimDueIntents(
       intent.account_id AS account_id,
       intent.item_id AS item_id,
       intent.version_hash AS version_hash,
+      intent.destination_ig_user_id AS destination_ig_user_id,
       intent.idempotency_key AS idempotency_key,
       intent.status AS status,
       intent.lease_owner AS lease_owner,

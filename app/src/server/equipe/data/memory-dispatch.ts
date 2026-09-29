@@ -235,16 +235,35 @@ function isDue(row: EquipePublicationIntent, now: Date): boolean {
   return isLeaseFree(row, now);
 }
 
+function heldOnlyForPublishDisabled(store: MemoryEquipeStore, row: EquipePublicationIntent): boolean {
+  const holds = [...store.events.rows.values()].filter((event) =>
+    inScope(event, row) && event.objectType === "item" && event.objectId === row.itemId &&
+    event.eventType === "item.held",
+  );
+  if (holds.length === 0) return false;
+  const latest = Math.max(...holds.map((event) => event.occurredAt.getTime()));
+  // Match Postgres: equal timestamps with conflicting reasons fail closed.
+  return holds.filter((event) => event.occurredAt.getTime() === latest).every((event) => {
+    const payload = event.payload as { reason?: unknown; reasons?: unknown; heldIntentIds?: unknown } | null;
+    return payload?.reason === "publish_disabled" && Array.isArray(payload.reasons) &&
+      payload.reasons.length === 1 && payload.reasons[0] === "publish_disabled" &&
+      Array.isArray(payload.heldIntentIds) && payload.heldIntentIds.includes(row.id);
+  });
+}
+
 // Claim global com lease (lado interno, para o job de despacho): pega
 // intenções vencidas ainda sem dono ou com lease expirado.
 export async function claimMemoryDueIntents(
   store: MemoryEquipeStore,
-  input: { owner: string; now: Date; limit?: number; leaseTtlMs?: number }
+  input: { owner: string; now: Date; limit?: number; leaseTtlMs?: number; revalidatePublishDisabled?: boolean }
 ): Promise<EquipePublicationIntent[]> {
   const limit = input.limit ?? 25;
   const leaseTtlMs = input.leaseTtlMs ?? EQUIPE_INTENT_LEASE_TTL_MS;
   const due = [...store.intents.rows.values()]
-    .filter((row) => isDue(row, input.now))
+    .filter((row) => isDue(row, input.now) || (
+      input.revalidatePublishDisabled && row.status === "held" &&
+      isLeaseFree(row, input.now) && heldOnlyForPublishDisabled(store, row)
+    ))
     .sort(
       (a, b) =>
         a.scheduledFor.getTime() - b.scheduledFor.getTime() || a.id.localeCompare(b.id)
@@ -252,7 +271,7 @@ export async function claimMemoryDueIntents(
     .slice(0, limit);
   const now = new Date();
   for (const row of due) {
-    row.status = "sending";
+    if (row.status !== "held") row.status = "sending";
     row.leaseOwner = input.owner;
     row.leaseExpiresAt = new Date(input.now.getTime() + leaseTtlMs);
     row.attempts += 1;
