@@ -33,6 +33,7 @@ import {
   hasOpenItemEscalation,
   isManualMode,
   ITEM_WINDOW_MISSED_EVENT,
+  loadItemOrError,
   loadItemReview,
   storedDestinationOf,
 } from "./item-shared";
@@ -111,6 +112,10 @@ export async function revalidateHeldItem(
   item: EquipeItem,
 ): Promise<Result<RevalidationOutcome>> {
   const scope = scopeOf(ctx);
+  const loaded = await loadItemOrError(ctx, item.id);
+  if (!loaded.ok) return loaded;
+  item = loaded.value;
+  if (item.status !== "held") return err("invalid_transition", `cannot resume item from ${item.status}`);
   if (!item.currentVersionHash) {
     return err("invalid_transition", `item ${item.id} has no current version`);
   }
@@ -230,7 +235,7 @@ export async function runResumePause(
     const resumed: string[] = [];
     const missed: string[] = [];
     const deferred: Array<{ itemId: string; reasons: string[] }> = [];
-    for (const item of held) {
+    for (const item of held.sort((a, b) => a.id.localeCompare(b.id))) {
       const outcome = await revalidateHeldItem(ctx, item);
       if (!outcome.ok) return outcome;
       if (outcome.value.result === "resumed") resumed.push(item.id);

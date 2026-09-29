@@ -84,6 +84,7 @@ export const EQUIPE_ITEM_STATUS = [
   "published_confirmed",
 ] as const;
 export const EQUIPE_ACTOR_TYPE = ["client_person", "staff", "agent", "system"] as const;
+export const EQUIPE_ITEM_APPROVAL_ACTIONS = ["approve_item", "approve_batch", "choose_piece"] as const;
 export const EQUIPE_AGENT_ROLE = [
   "strategist",
   "research",
@@ -488,6 +489,9 @@ export const equipeReceipts = equipeSchema.table(
   },
   (t) => [
     index("equipe_receipts_account_object_idx").on(t.accountId, t.objectType, t.objectId),
+    uniqueIndex("equipe_receipts_item_approval_uq")
+      .on(t.workspaceId, t.accountId, t.objectId, t.objectVersion)
+      .where(sql`${t.objectType} = 'item' and ${inList(t.action, EQUIPE_ITEM_APPROVAL_ACTIONS)}`),
     check("equipe_receipts_person_kind_check", inList(t.personKind, EQUIPE_ACTOR_TYPE)),
   ]
 );

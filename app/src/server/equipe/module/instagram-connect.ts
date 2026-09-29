@@ -106,9 +106,11 @@ export async function runCompleteInstagramConnect(
     }
     if (previousIgUserId !== identity.igUserId) {
       const intents = await ctx.repos.intents.list(scope, { status: ["pending", "held"] });
-      for (const intent of intents) {
-        if (intent.destinationIgUserId === identity.igUserId) continue;
-        const item = await ctx.repos.items.get(scope, intent.itemId);
+      for (const candidate of intents.sort((a, b) => a.itemId.localeCompare(b.itemId))) {
+        if (candidate.destinationIgUserId === identity.igUserId) continue;
+        const item = await ctx.repos.items.get(scope, candidate.itemId, { forUpdate: true });
+        const intent = await ctx.repos.intents.get(scope, candidate.id);
+        if (!intent || !["pending", "held"].includes(intent.status)) continue;
         if (item && (item.status === "scheduled" || item.status === "held")) {
           await holdInstagramDestination(ctx, item, intent);
         }

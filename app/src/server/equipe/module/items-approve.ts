@@ -10,7 +10,7 @@
 // available_for_download, no intent.
 
 import { z } from "zod";
-import { approveItem, err, ok, type ItemReviewStatus, type Result } from "../domain";
+import { approveItem, err, ok, type Clock, type ItemReviewStatus, type Result } from "../domain";
 import type { EquipeModuleDeps } from "./ports";
 import { approveBatchPayloadSchema, approveItemPayloadSchema } from "./envelope";
 import {
@@ -30,9 +30,11 @@ import {
   approvedByOf,
   BATCH_APPROVED_EVENT,
   domainStateOf,
+  hasApprovedItemStatus,
   ITEM_APPROVED_EVENT,
   loadItemOrError,
   loadItemReview,
+  requireItemApprovalWindow,
 } from "./item-shared";
 import { conferencePendingMessage, isItemConferring } from "./calibration-conference";
 
@@ -53,6 +55,7 @@ export type BatchItemResult = {
   reviewStatus?: ItemReviewStatus;
   /** Set when not_ready means "still in calibration conference". */
   conferencePending?: true;
+  code?: "invalid_transition" | "item_limit_passed";
 };
 
 async function approveOne(
@@ -61,6 +64,7 @@ async function approveOne(
   itemId: string,
   versionHash: string,
   accountStatus: string,
+  clock: Clock,
 ): Promise<BatchItemResult> {
   const scope = scopeOf(ctx);
   const loaded = await loadItemOrError(ctx, itemId);
@@ -75,11 +79,16 @@ async function approveOne(
   }
   const first = await approvalReceiptFor(ctx, itemId, versionHash);
   if (first) {
-    return { itemId, outcome: "already_decided", receiptId: first.id };
+    return hasApprovedItemStatus(item)
+      ? { itemId, outcome: "already_decided", receiptId: first.id }
+      : { itemId, outcome: "not_ready", code: "invalid_transition" };
   }
   const receipts = await ctx.repos.receipts.listByObject(scope, "item", itemId);
   const state = domainStateOf(item, receipts);
   if (!state.ok) return { itemId, outcome: "not_ready" };
+  if (state.value.status !== "awaiting_approval") {
+    return { itemId, outcome: "not_ready", code: "invalid_transition" };
+  }
   const review = await loadItemReview(ctx.repos, scope, item);
   const individuallyApprovable =
     action === "approve_item"
@@ -99,6 +108,11 @@ async function approveOne(
   });
   if (!decided.ok) {
     return { itemId, outcome: "not_ready", reviewStatus: review.status };
+  }
+  // A request may have waited for a concurrent decision past the deadline.
+  ctx.now = clock.now();
+  if (!requireItemApprovalWindow(item, ctx.now).ok) {
+    return { itemId, outcome: "not_ready", code: "item_limit_passed" };
   }
   const receipt = await writeReceipt(ctx, {
     objectType: "item",
@@ -146,6 +160,7 @@ export async function runApproveItem(
       payload.itemId,
       payload.expectedVersionHash,
       account.value.status,
+      deps.clock,
     );
     if (result.outcome === "unknown_item") {
       return err("unknown_item", `unknown item ${payload.itemId}`);
@@ -154,6 +169,12 @@ export async function runApproveItem(
       return err("version_mismatch", "mudou desde que você abriu, revise de novo");
     }
     if (result.outcome === "not_ready") {
+      if (result.code === "item_limit_passed") {
+        return err(result.code, "o prazo de aprovação passou; aguarde uma nova proposta de horário");
+      }
+      if (result.code === "invalid_transition") {
+        return err(result.code, "o item já recebeu outra decisão; revise de novo");
+      }
       if (result.conferencePending) {
         return err("conference_pending", conferencePendingMessage(payload.itemId));
       }
@@ -188,10 +209,11 @@ export async function runApproveBatch(
     const account = await loadAccountOrError(ctx);
     if (!account.ok) return account;
     const results: BatchItemResult[] = [];
-    for (const entry of payload.items) {
-      results.push(
-        await approveOne(ctx, "approve_batch", entry.itemId, entry.versionHash, account.value.status),
-      );
+    // Lock in a stable order across batches; keep the response in request order.
+    const ordered = payload.items.map((entry, index) => ({ entry, index }))
+      .sort((a, b) => a.entry.itemId.localeCompare(b.entry.itemId));
+    for (const { entry, index } of ordered) {
+      results[index] = await approveOne(ctx, "approve_batch", entry.itemId, entry.versionHash, account.value.status, deps.clock);
     }
     const approved = results.filter((r) => r.outcome === "approved").length;
     await appendEvent(ctx, {

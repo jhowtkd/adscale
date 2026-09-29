@@ -65,7 +65,7 @@ export async function loadRoundItemState(
   const scope = scopeOf(ctx);
   // Sequential on purpose: one transaction client, where parallel queries
   // warn today and break in pg@9 (#574).
-  const item = await ctx.repos.items.get(scope, itemId);
+  const item = await ctx.repos.items.get(scope, itemId, { forUpdate: true });
   const roundEvents = await ctx.repos.events.list(scope, {
     objectType: "round",
     objectId: round.id,

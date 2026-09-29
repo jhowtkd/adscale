@@ -17,7 +17,7 @@ import {
   type Result,
   type TriagePath,
 } from "../domain";
-import { equipeItemStatusSchema } from "../data";
+import { equipeItemStatusSchema, ITEM_APPROVAL_ACTIONS } from "../data";
 import type {
   AccountScope,
   EquipeEvent,
@@ -46,13 +46,38 @@ export const AGENT_WORK_REQUESTED_EVENT = "agent_work.requested";
 export const ESCALATION_REQUESTED_EVENT = "escalation.requested";
 
 /** Approval actions that write the first-wins receipt on an item version. */
-export const ITEM_APPROVAL_ACTIONS = ["approve_item", "approve_batch", "choose_piece"] as const;
+export { ITEM_APPROVAL_ACTIONS } from "../data";
 
 /** Item limit: each item stays decidable until 2 h before its time. */
 export const ITEM_DECISION_LEAD_MS = 2 * 60 * 60 * 1000;
 
 export function itemDeadlineFor(scheduledFor: Date): Date {
   return new Date(scheduledFor.getTime() - ITEM_DECISION_LEAD_MS);
+}
+
+/** Called under the item lock, with the clock read at the approval decision. */
+export function requireItemApprovalWindow(item: EquipeItem, now: Date): Result<void> {
+  const limit = item.deadlineAt ?? (item.scheduledFor ? itemDeadlineFor(item.scheduledFor) : null);
+  return limit && now >= limit
+    ? err("item_limit_passed", `item ${item.id} already passed its decision limit`)
+    : ok(undefined);
+}
+
+export function checkItemExpectation(
+  item: EquipeItem,
+  expected: { expectedVersionHash?: string; expectedStatus?: ItemStatus },
+): Result<void> {
+  if ((expected.expectedVersionHash !== undefined && expected.expectedVersionHash !== item.currentVersionHash) ||
+      (expected.expectedStatus !== undefined && expected.expectedStatus !== item.status)) {
+    return err("stale_version", "mudou desde que você abriu, revise de novo");
+  }
+  return ok(undefined);
+}
+
+/** A historical receipt must not turn a cancellation/refusal into approval success. */
+export function hasApprovedItemStatus(item: EquipeItem): boolean {
+  return ["scheduled", "held", "sending", "verifying", "published", "available_for_download",
+    "published_declared", "published_confirmed"].includes(item.status);
 }
 
 // The stored row status IS the domain machine status (same enum, same
@@ -274,7 +299,7 @@ export function storedDestinationOf(
 export async function loadItemOrError(
   ctx: CommandContext,
   itemId: string,
-  forUpdate = false,
+  forUpdate = true,
 ): Promise<Result<EquipeItem>> {
   const item = await ctx.repos.items.get(scopeOf(ctx), itemId, { forUpdate });
   if (!item) return err("unknown_item", `unknown item ${itemId}`);

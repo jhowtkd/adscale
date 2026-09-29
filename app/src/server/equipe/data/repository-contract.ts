@@ -202,6 +202,28 @@ export function defineEquipeRepositoryContract(
       expect(byObject.map((row) => row.id)).toContain(receipt.id);
     });
 
+    it("impede duas decisões de aprovação para o mesmo item e hash, sem limitar outros recibos", async () => {
+      const itemId = await newItemId();
+      const approval = {
+        personKind: "client_person" as const,
+        personRole: "approver",
+        objectType: "item" as const,
+        objectId: itemId,
+        objectVersion: "decision-hash",
+      };
+      await repos.receipts.create(scope, { ...approval, action: "approve_item" });
+      await expect(
+        repos.receipts.create(scope, { ...approval, action: "approve_batch" })
+      ).rejects.toBeInstanceOf(EquipeConflictError);
+      await expect(
+        repos.receipts.create(scope, { ...approval, action: "choose_piece" })
+      ).rejects.toBeInstanceOf(EquipeConflictError);
+      const other = await repos.receipts.create(scope, { ...approval, action: "decline_publish" });
+      expect((await repos.receipts.listByObject(scope, "item", itemId)).map((row) => row.action))
+        .toEqual(expect.arrayContaining(["approve_item", "decline_publish"]));
+      expect(other.objectVersion).toBe("decision-hash");
+    });
+
     it("calibração: rodada e notas por tentativa", async () => {
       expect("update" in repos.calibrationScores).toBe(false);
       const fresh = await harness.createScope();

@@ -5637,11 +5637,14 @@
       "outcome_approved": "aprovado",
       "outcome_changed_since_opened": "mudou desde que você abriu",
       "outcome_not_ready": "não está pronto",
+      "outcome_item_limit_passed": "prazo de aprovação encerrado",
+      "outcome_invalid_transition": "o item já recebeu outra decisão",
       "outcome_already_decided": "já decidido",
       "outcome_unknown_item": "item desconhecido"
     },
     "item": {
       "versionMismatch": "Mudou desde que você abriu, revise de novo.",
+      "deadlinePassed": "O prazo de aprovação passou. Aguarde uma nova proposta de horário.",
       "conferencePending": "Este item ainda está em conferência de calibração.",
       "notReady": "Este item não está pronto para aprovação.",
       "forbidden": "Só o aprovador ou o substituto decide.",

@@ -39,7 +39,7 @@ export async function runReconcilePublication(
     const account = await loadAccountOrError(ctx);
     if (!account.ok) return account;
     const scope = scopeOf(ctx);
-    const item = await ctx.repos.items.get(scope, payload.itemId);
+    const item = await ctx.repos.items.get(scope, payload.itemId, { forUpdate: true });
     if (!item) return err("unknown_item", `unknown item ${payload.itemId}`);
     if (item.status === "published_declared") {
       // Manual declarations have no provider acknowledgement from our send.
@@ -95,8 +95,9 @@ export async function runReconcilePublication(
     if (!account.ok) return account;
     const scope = scopeOf(ctx);
     // Serializes receipt/escalation creation even if two jobs looked up together.
+    // Same lock order as dispatch and client decisions: item, then intent.
+    const item = await ctx.repos.items.get(scope, data.itemId, { forUpdate: true });
     const intent = await ctx.repos.intents.getForUpdate(scope, data.intentId);
-    const item = await ctx.repos.items.get(scope, data.itemId);
     if (!intent || !item) return err("unknown_intent", "item/intenção ausente");
     if (item.status !== "verifying" || intent.status !== "verifying" ||
         item.currentVersionHash !== data.versionHash) {

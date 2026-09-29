@@ -24,6 +24,7 @@ import {
 } from "./shared";
 import { applyPauseInternal } from "./pauses-apply";
 import { instagramFailureMessage } from "../publishing/connection-errors";
+import { loadItemOrError } from "./item-shared";
 
 export const ITEM_DISPATCH_STARTED_EVENT = "item.dispatch_started";
 export const ITEM_CONTAINER_CREATED_EVENT = "item.container_created";
@@ -251,9 +252,12 @@ export async function loadIntentItemOrError(
   intentId: string,
 ): Promise<Result<{ intent: EquipePublicationIntent; item: EquipeItem }>> {
   const scope = scopeOf(ctx);
-  const intent = await ctx.repos.intents.get(scope, intentId);
+  const ref = await ctx.repos.intents.get(scope, intentId);
+  if (!ref) return err("unknown_intent", `unknown intent ${intentId}`);
+  // Every path locks item → intent, and discards the pre-lock intent snapshot.
+  const loaded = await loadItemOrError(ctx, ref.itemId);
+  if (!loaded.ok) return loaded;
+  const intent = await ctx.repos.intents.getForUpdate(scope, intentId);
   if (!intent) return err("unknown_intent", `unknown intent ${intentId}`);
-  const item = await ctx.repos.items.get(scope, intent.itemId);
-  if (!item) return err("unknown_item", `unknown item ${intent.itemId}`);
-  return ok({ intent, item });
+  return ok({ intent, item: loaded.value });
 }

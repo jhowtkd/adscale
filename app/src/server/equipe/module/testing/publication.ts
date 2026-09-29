@@ -3,6 +3,7 @@
 // real executeCommand path.
 
 import { executeCommand } from "../commands";
+import { fixedClock } from "../../domain";
 import { encryptEquipeIgToken } from "../../publishing/crypto";
 import { mandateRuleOf, mandateVersionHash } from "../plan-mandate";
 import {
@@ -88,14 +89,25 @@ export async function approveTestItem(
   itemId: string,
   versionHash: string,
 ) {
-  const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
-    type: "approve_item",
-    payload: { itemId, expectedVersionHash: versionHash },
-  });
-  if (!outcome.ok) {
-    throw new Error(`approve_item failed: ${outcome.error.code} ${outcome.error.message}`);
+  const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+  const item = await t.deps.uow.repos.items.get(scope, itemId);
+  const deadline = item?.deadlineAt ?? (item?.scheduledFor
+    ? new Date(item.scheduledFor.getTime() - 2 * 60 * 60 * 1000)
+    : null);
+  const originalNow = t.deps.clock.now();
+  if (deadline && originalNow >= deadline) t.deps.clock = fixedClock(new Date(deadline.getTime() - 1));
+  try {
+    const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "approve_item",
+      payload: { itemId, expectedVersionHash: versionHash },
+    });
+    if (!outcome.ok) {
+      throw new Error(`approve_item failed: ${outcome.error.code} ${outcome.error.message}`);
+    }
+    return outcome.value;
+  } finally {
+    t.deps.clock = fixedClock(originalNow);
   }
-  return outcome.value;
 }
 
 /** Intent the approval created for an item version. */

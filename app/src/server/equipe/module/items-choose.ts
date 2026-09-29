@@ -21,8 +21,10 @@ import {
   approvalReceiptFor,
   approvedByOf,
   domainStateOf,
+  hasApprovedItemStatus,
   itemVersionHash,
   loadItemOrError,
+  requireItemApprovalWindow,
   PIECE_CHOSEN_EVENT,
   storedDestinationOf,
   versionContentOf,
@@ -53,12 +55,22 @@ export async function runChoosePiece(
     if (!item.currentVersionHash) {
       return err("invalid_transition", `item ${item.id} has no current version`);
     }
+    const current = await ctx.repos.itemVersions.getByHash(scope, item.id, item.currentVersionHash);
+    if (!current) {
+      return err("invalid_transition", `item ${item.id} has no current version`);
+    }
+    const first = await approvalReceiptFor(ctx, item.id, item.currentVersionHash);
+    const previousHash = (first?.detail as { previousVersionHash?: string } | null)?.previousVersionHash;
+    // Choosing creates a hash: a retry carries the pre-choice hash from that receipt.
+    if (first && hasApprovedItemStatus(item) && current.creativeWorkOutputId === payload.creativeWorkOutputId &&
+        (payload.expectedVersionHash === item.currentVersionHash || payload.expectedVersionHash === previousHash)) {
+      return ok({ alreadyChosen: true, receiptId: first.id, versionHash: item.currentVersionHash });
+    }
     if (payload.expectedVersionHash !== item.currentVersionHash) {
       return err("version_mismatch", "mudou desde que você abriu, revise de novo");
     }
-    const first = await approvalReceiptFor(ctx, item.id, item.currentVersionHash);
-    if (first) {
-      return ok({ alreadyChosen: true, receiptId: first.id });
+    if (first || item.status !== "awaiting_approval") {
+      return err("invalid_transition", "o item já recebeu outra decisão; revise de novo");
     }
     const output = await deps.gateway.getCreativeWorkOutput(payload.creativeWorkOutputId);
     if (!output || output.workspaceId !== ctx.workspaceId) {
@@ -73,10 +85,6 @@ export async function runChoosePiece(
         `creative output ${payload.creativeWorkOutputId} is not from this angle's work`,
       );
     }
-    const current = await ctx.repos.itemVersions.getByHash(scope, item.id, item.currentVersionHash);
-    if (!current) {
-      return err("invalid_transition", `item ${item.id} has no current version`);
-    }
     const destination = storedDestinationOf(item, current);
     if (!destination) {
       return err("invalid_transition", `item ${item.id} has no recorded destination account`);
@@ -88,7 +96,15 @@ export async function runChoosePiece(
       ...versionContentOf(current, destination),
       output: payload.creativeWorkOutputId,
     });
-    await ctx.repos.itemVersions.create(scope, {
+    const decided = approveItem(
+      { ...state.value, currentVersion: versionHash },
+      { version: versionHash, approvedBy: approvedByOf(ctx), mode: "manual" },
+    );
+    if (!decided.ok) return decided;
+    ctx.now = deps.clock.now();
+    const window = requireItemApprovalWindow(item, ctx.now);
+    if (!window.ok) return window;
+    if (versionHash !== item.currentVersionHash) await ctx.repos.itemVersions.create(scope, {
       itemId: item.id,
       versionHash,
       creativeWorkOutputId: payload.creativeWorkOutputId,
@@ -100,11 +116,6 @@ export async function runChoosePiece(
       authorId: actorId(ctx.actor),
       reviewerFindings: null,
     });
-    const decided = approveItem(
-      { ...state.value, currentVersion: versionHash },
-      { version: versionHash, approvedBy: approvedByOf(ctx), mode: "manual" },
-    );
-    if (!decided.ok) return decided;
     const receipt = await writeReceipt(ctx, {
       objectType: "item",
       objectId: item.id,

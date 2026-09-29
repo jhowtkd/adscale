@@ -11,6 +11,12 @@ export type EquipeApprovalRef = {
   versionHash: string;
 };
 
+export type EquipeItemDecisionRef = {
+  itemId: string;
+  expectedVersionHash?: string;
+  expectedStatus?: string;
+};
+
 export class EquipeCommandError extends Error {
   readonly status: number;
   /** The module error code (version_mismatch, item_not_ready, …). */
@@ -83,6 +89,7 @@ export type EquipeBatchItemResult = {
   receiptId?: string;
   reviewStatus?: string;
   conferencePending?: true;
+  code?: "invalid_transition" | "item_limit_passed";
 };
 
 /** Closed-list batch approval result, per item. */
@@ -110,6 +117,7 @@ export function parseBatchResults(value: unknown): EquipeBatchItemResult[] {
         ...(typeof row.receiptId === "string" ? { receiptId: row.receiptId } : {}),
         ...(typeof row.reviewStatus === "string" ? { reviewStatus: row.reviewStatus } : {}),
         ...(row.conferencePending === true ? { conferencePending: true as const } : {}),
+        ...(row.code === "invalid_transition" || row.code === "item_limit_passed" ? { code: row.code } : {}),
       },
     ];
   });
@@ -120,12 +128,14 @@ export type AdjustmentCategory = "fact" | "brand" | "voice" | "visual" | "other"
 /** Categorized adjustment request: the IA produces a new version. */
 export async function requestEquipeAdjustment(
   accountId: string,
-  input: { itemId: string; category: AdjustmentCategory; note?: string },
+  input: EquipeItemDecisionRef & { category: AdjustmentCategory; note?: string },
 ): Promise<unknown> {
   return postEquipeCommand(accountId, {
     type: "request_adjustment",
     payload: {
       itemId: input.itemId,
+      expectedVersionHash: input.expectedVersionHash,
+      expectedStatus: input.expectedStatus,
       category: input.category,
       ...(input.note?.trim() ? { note: input.note.trim() } : {}),
     },
@@ -135,11 +145,11 @@ export async function requestEquipeAdjustment(
 /** Client caption edit: births a new immutable version ("editada por você"). */
 export async function editEquipeCaption(
   accountId: string,
-  input: { itemId: string; caption: string },
+  input: EquipeItemDecisionRef & { caption: string },
 ): Promise<unknown> {
   return postEquipeCommand(accountId, {
     type: "edit_caption",
-    payload: { itemId: input.itemId, caption: input.caption },
+    payload: { ...input },
   });
 }
 
@@ -157,22 +167,22 @@ export async function confirmEquipeBusinessFact(
 /** Drop the item from the calendar with a reason ("não publicar"). */
 export async function declineEquipePublish(
   accountId: string,
-  input: { itemId: string; reason: string },
+  input: EquipeItemDecisionRef & { reason: string },
 ): Promise<unknown> {
   return postEquipeCommand(accountId, {
     type: "decline_publish",
-    payload: { itemId: input.itemId, reason: input.reason },
+    payload: { ...input },
   });
 }
 
 /** Cancel a scheduled item before dispatch. */
 export async function cancelEquipeScheduled(
   accountId: string,
-  input: { itemId: string },
+  input: EquipeItemDecisionRef,
 ): Promise<unknown> {
   return postEquipeCommand(accountId, {
     type: "cancel_scheduled",
-    payload: { itemId: input.itemId },
+    payload: { ...input },
   });
 }
 

@@ -42,6 +42,7 @@ import {
   BUSINESS_FACT_CONFIRMED_EVENT,
   CAPTION_EDITED_EVENT,
   CAPTION_TRIAGED_EVENT,
+  checkItemExpectation,
   domainStateOf,
   ESCALATION_REQUESTED_EVENT,
   ITEM_ADJUSTMENT_REQUESTED_EVENT,
@@ -74,6 +75,8 @@ export async function runRequestAdjustment(
     if (!account.ok) return account;
     const loaded = await loadItemOrError(ctx, payload.itemId);
     if (!loaded.ok) return loaded;
+    const expected = checkItemExpectation(loaded.value, payload);
+    if (!expected.ok) return expected;
     if (await isItemConferring(ctx.repos, scopeOf(ctx), account.value.status, loaded.value)) {
       return err("conference_pending", conferencePendingMessage(payload.itemId));
     }
@@ -129,6 +132,8 @@ export async function editCaptionInTx(ctx: CommandContext, payload: EditCaptionP
     if (!account.ok) return account;
     const loaded = await loadItemOrError(ctx, payload.itemId, true);
     if (!loaded.ok) return loaded;
+    const expected = checkItemExpectation(loaded.value, payload);
+    if (!expected.ok) return expected;
     const scope = scopeOf(ctx);
     const item = loaded.value;
     if (await isItemConferring(ctx.repos, scope, account.value.status, item)) {
@@ -368,6 +373,8 @@ export async function runDeclinePublish(
     if (!account.ok) return account;
     const loaded = await loadItemOrError(ctx, payload.itemId);
     if (!loaded.ok) return loaded;
+    const expected = checkItemExpectation(loaded.value, payload);
+    if (!expected.ok) return expected;
     const scope = scopeOf(ctx);
     const item = loaded.value;
     const receipts = await ctx.repos.receipts.listByObject(scope, "item", item.id);
@@ -417,6 +424,8 @@ export async function runCancelScheduled(
     if (!account.ok) return account;
     const loaded = await loadItemOrError(ctx, payload.itemId);
     if (!loaded.ok) return loaded;
+    const expected = checkItemExpectation(loaded.value, payload);
+    if (!expected.ok) return expected;
     const scope = scopeOf(ctx);
     const item = loaded.value;
     const receipts = await ctx.repos.receipts.listByObject(scope, "item", item.id);

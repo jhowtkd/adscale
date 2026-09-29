@@ -88,19 +88,26 @@ export function createMemoryInternalEquipeRepositories(
   };
 }
 
+// ponytail: serialize the whole fake store; use per-row locks if memory-store throughput matters.
+const transactions = new WeakMap<MemoryEquipeStore, Promise<void>>();
+
 export function createMemoryEquipeUnitOfWork(
   store: MemoryEquipeStore = createMemoryEquipeStore()
 ): EquipeUnitOfWork {
   return {
     repos: createMemoryEquipeRepositories(store),
     internal: createMemoryInternalEquipeRepositories(store),
-    run: async (fn) => {
-      const draft = cloneStore(store);
-      const result = await fn(
-        createMemoryEquipeRepositories(draft),
-        createMemoryInternalEquipeRepositories(draft)
-      );
-      commitStore(store, draft);
+    run: (fn) => {
+      const result = (transactions.get(store) ?? Promise.resolve()).then(async () => {
+        const draft = cloneStore(store);
+        const value = await fn(
+          createMemoryEquipeRepositories(draft),
+          createMemoryInternalEquipeRepositories(draft)
+        );
+        commitStore(store, draft);
+        return value;
+      });
+      transactions.set(store, result.then(() => {}, () => {}));
       return result;
     },
   };

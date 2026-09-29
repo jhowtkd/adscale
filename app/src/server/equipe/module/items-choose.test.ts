@@ -48,6 +48,48 @@ describe("choose_piece", () => {
     });
     expect(receipts[0]?.detail).toMatchObject({ creativeWorkOutputId: chosen });
     expect(await t.deps.uow.repos.intents.list(scope)).toHaveLength(0);
+
+    const retry = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "choose_piece",
+      payload: {
+        itemId: itemIds[0]!,
+        expectedVersionHash: versionHashes[0]!,
+        creativeWorkOutputId: chosen,
+      },
+    });
+    expect(retry).toMatchObject({ ok: true, value: { data: { alreadyChosen: true, versionHash }, events: [] } });
+    const differentChoice = uuid();
+    t.gateway.addOutput({ id: differentChoice, workspaceId: ids.workspaceId, workId: item!.creativeWorkId! });
+    const rejected = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "choose_piece",
+      payload: {
+        itemId: itemIds[0]!,
+        expectedVersionHash: versionHashes[0]!,
+        creativeWorkOutputId: differentChoice,
+      },
+    });
+    expect(rejected).toMatchObject({ ok: false, error: { code: "version_mismatch" } });
+  });
+
+  it("enforces the exact item deadline for choose_piece", async () => {
+    const { t, ids } = await setup();
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    const { itemIds, versionHashes } = await deliverTestBatch(t, ids, {
+      front: "midia_paga",
+      items: [{ scheduledFor: new Date("2026-10-09T12:00:00.000Z") }],
+    });
+    const item = await t.deps.uow.repos.items.get(scope, itemIds[0]!);
+    const chosen = uuid();
+    t.gateway.addOutput({ id: chosen, workspaceId: ids.workspaceId, workId: item!.creativeWorkId! });
+    t.deps.clock = { now: () => new Date("2026-10-09T10:00:00.000Z") };
+    const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "choose_piece",
+      payload: { itemId: itemIds[0]!, expectedVersionHash: versionHashes[0]!, creativeWorkOutputId: chosen },
+    });
+    expect(outcome).toMatchObject({ ok: false, error: { code: "item_limit_passed" } });
+    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("awaiting_approval");
+    expect(await t.deps.uow.repos.receipts.list(scope)).toHaveLength(0);
+    expect(await t.deps.uow.repos.intents.list(scope)).toHaveLength(0);
   });
 
   it("agent cannot choose a piece — Selection stays distinct from Approval", async () => {

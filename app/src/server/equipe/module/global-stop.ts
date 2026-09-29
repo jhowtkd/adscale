@@ -39,6 +39,7 @@ import {
 } from "./shared";
 import { ITEM_HELD_EVENT } from "./pauses-apply";
 import { revalidateHeldItem } from "./pauses-resume";
+import { loadItemOrError } from "./item-shared";
 
 export type StopAllPublicationsPayload = z.infer<typeof stopAllPublicationsPayloadSchema>;
 export type ResumeAllPublicationsPayload = z.infer<typeof resumeAllPublicationsPayloadSchema>;
@@ -68,7 +69,10 @@ async function holdScheduledItemsForGlobalStop(ctx: CommandContext): Promise<str
   const scope = scopeOf(ctx);
   const items = await ctx.repos.items.list(scope);
   const held: string[] = [];
-  for (const item of items) {
+  for (const candidate of items.filter((item) => item.status === "scheduled").sort((a, b) => a.id.localeCompare(b.id))) {
+    const loaded = await loadItemOrError(ctx, candidate.id);
+    if (!loaded.ok) continue;
+    const item = loaded.value;
     if (item.status !== "scheduled") continue;
     const decided = holdItem(
       { status: "scheduled", currentVersion: item.currentVersionHash ?? "", approvedVersion: null },
@@ -256,7 +260,7 @@ export async function runResumeAllPublications(
       const accountResumed: string[] = [];
       const accountMissed: string[] = [];
       const accountDeferred: Array<{ itemId: string; reasons: string[] }> = [];
-      for (const item of held) {
+      for (const item of held.sort((a, b) => a.id.localeCompare(b.id))) {
         const outcome = await revalidateHeldItem(ctx, item);
         if (!outcome.ok) return outcome;
         if (outcome.value.result === "resumed") {

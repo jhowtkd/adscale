@@ -51,6 +51,7 @@ import {
   ITEM_DISPATCH_STARTED_EVENT,
   ITEM_PUBLISHED_EVENT,
   itemStateOf,
+  loadIntentItemOrError,
   providerOf,
   writeFailedOutcome,
   hasPublishAttemptFor,
@@ -270,10 +271,9 @@ export async function prepareDispatch(
   const account = await loadAccountOrError(ctx);
   if (!account.ok) return account;
   const scope = scopeOf(ctx);
-  const intent = await ctx.repos.intents.get(scope, intentId);
-  if (!intent) return err("unknown_intent", `unknown intent ${intentId}`);
-  const item = await ctx.repos.items.get(scope, intent.itemId);
-  if (!item) return err("unknown_item", `unknown item ${intent.itemId}`);
+  const loaded = await loadIntentItemOrError(ctx, intentId);
+  if (!loaded.ok) return loaded;
+  const { intent, item } = loaded.value;
   const ids = { itemId: item.id, intentId: intent.id };
 
   // Terminal or foreign states: never touch, never send.

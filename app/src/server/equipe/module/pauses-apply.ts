@@ -18,6 +18,7 @@ import {
 } from "../domain";
 import type { AccountScope, EquipePause } from "../data";
 import type { EquipeModuleDeps } from "./ports";
+import { loadItemOrError } from "./item-shared";
 import {
   pauseAccountTeamPayloadSchema,
   pauseConnectionPayloadSchema,
@@ -169,7 +170,10 @@ async function holdScheduledItems(
 ): Promise<string[]> {
   const items = await ctx.repos.items.list(scope, frontId ? { frontId } : undefined);
   const held: string[] = [];
-  for (const item of items) {
+  for (const candidate of items.filter((item) => item.status === "scheduled").sort((a, b) => a.id.localeCompare(b.id))) {
+    const loaded = await loadItemOrError(ctx, candidate.id);
+    if (!loaded.ok) continue;
+    const item = loaded.value;
     if (item.status !== "scheduled") continue;
     const decided = holdItem(
       { status: "scheduled", currentVersion: item.currentVersionHash ?? "", approvedVersion: null },
