@@ -108,12 +108,14 @@ export function versionHashOf(input: {
   output: string;
   caption: string;
   destination: string;
+  destinationIgUserId?: string | null;
   scheduledFor: Date;
 }): string {
   return itemVersionHash({
     output: input.output,
     caption: input.caption,
     destination: input.destination,
+    destinationIgUserId: input.destinationIgUserId,
     scheduledFor: input.scheduledFor,
   });
 }

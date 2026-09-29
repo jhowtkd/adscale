@@ -112,9 +112,11 @@ async function approveOne(
   });
   let intentId: string | null = null;
   if (mode === "auto" && item.scheduledFor) {
+    const version = await ctx.repos.itemVersions.getByHash(scope, item.id, versionHash);
     const { intent } = await ctx.repos.intents.insertOrGet(scope, {
       itemId: item.id,
       versionHash,
+      destinationIgUserId: version?.destinationIgUserId ?? null,
       status: "pending",
       scheduledFor: item.scheduledFor,
     });

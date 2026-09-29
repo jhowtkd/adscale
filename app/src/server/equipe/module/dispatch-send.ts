@@ -24,6 +24,7 @@ import {
   type TxBase,
 } from "./shared";
 import { storedDestinationOf } from "./item-shared";
+import { holdInstagramDestination, INSTAGRAM_DESTINATION_CHANGED } from "./instagram-destination";
 import { prepareDispatch, type PrepareDispatch } from "./dispatch-gate";
 import {
   ITEM_CONTAINER_CREATED_EVENT,
@@ -70,6 +71,7 @@ export async function runDispatchPublication(
     versionHash: prep.versionHash,
     caption: prep.caption,
     mediaRef: prep.mediaRef,
+    destinationIgUserId: prep.destinationIgUserId,
   };
   let containerId = prep.containerId;
   if (!containerId) {
@@ -102,6 +104,11 @@ export async function runDispatchPublication(
   const claimed = await transact(deps, base, async (ctx) => {
     const loaded = await loadIntentItemOrError(ctx, payload.intentId);
     if (!loaded.ok) return loaded;
+    if (loaded.value.item.status !== "sending" || loaded.value.intent.status !== "sending" ||
+        loaded.value.item.currentVersionHash !== prep.versionHash ||
+        loaded.value.intent.lastError === INSTAGRAM_DESTINATION_CHANGED) {
+      return ok({ stopped: true, status: loaded.value.item.status });
+    }
     if (await hasPublishAttemptFor(ctx, loaded.value.item.id, containerId)) {
       return ok({ alreadyAttempted: true });
     }
@@ -109,12 +116,15 @@ export async function runDispatchPublication(
       eventType: ITEM_PUBLISH_ATTEMPTED_EVENT,
       objectType: "item",
       objectId: loaded.value.item.id,
-      payload: { containerId, intentId: payload.intentId },
+      payload: { containerId, intentId: payload.intentId, destinationIgUserId: prep.destinationIgUserId },
     });
     return ok({ alreadyAttempted: false });
   });
   if (!claimed.ok) return claimed;
   events.push(...claimed.value.events);
+  if (claimed.value.data.stopped) {
+    return ok({ accountId: claimed.value.accountId, events, data: { action: "none", ...claimed.value.data } });
+  }
   if ((claimed.value.data as { alreadyAttempted: boolean }).alreadyAttempted) {
     return returnUncertainOutcome(
       deps,
@@ -132,6 +142,14 @@ export async function runDispatchPublication(
   } catch (error) {
     return failFromPublisher(deps, base, events, payload.intentId, "publish", containerId, error);
   }
+
+  // Preserve the provider acknowledgement even if writing the final receipt
+  // later fails. Reconciliation can verify this exact media on the pinned account.
+  const acknowledged = await transact(deps, base, async (ctx) => {
+    await ctx.repos.intents.update(scopeOf(ctx), payload.intentId, { externalId: published.externalId });
+    return ok({ externalId: published.externalId });
+  });
+  if (!acknowledged.ok) return acknowledged;
 
   const done = await transact(deps, base, async (ctx) => {
     const loaded = await loadIntentItemOrError(ctx, payload.intentId);
@@ -203,6 +221,10 @@ async function failFromPublisher(
     const outcome = await transact(deps, base, async (ctx) => {
       const loaded = await loadIntentItemOrError(ctx, intentId);
       if (!loaded.ok) return loaded;
+      if (error.code === INSTAGRAM_DESTINATION_CHANGED) {
+        await holdInstagramDestination(ctx, loaded.value.item, loaded.value.intent);
+        return ok({ action: "held", reasons: [error.code], itemId: loaded.value.item.id, intentId });
+      }
       const version = loaded.value.item.currentVersionHash
         ? await ctx.repos.itemVersions.getByHash(
             scopeOf(ctx),

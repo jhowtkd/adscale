@@ -6,13 +6,14 @@ import { env } from "@/server/validation/env";
  * OAuth do Instagram da Equipe (#548). Reaproveita o state HMAC da Conexão
  * Meta (`served-ads/oauth.ts`): o state amarra workspace + conta da Equipe +
  * custodiante com HMAC (BETTER_AUTH_SECRET) e expira em 10 min. A URL do
- * callback é fixa; a conta vem do state assinado, nunca da query.
+ * callback é fixa; a conta vem do state assinado, nunca da query. O nonce
+ * persistido é consumido uma vez e só pela sessão que iniciou o fluxo.
  *
  * Escopos: publicar conteúdo numa conta profissional ligada a uma Página
  * (validação final no App Review da Meta).
  */
 
-const STATE_TTL_MS = 10 * 60 * 1000;
+export const STATE_TTL_MS = 10 * 60 * 1000;
 
 export const EQUIPE_IG_OAUTH_SCOPES = [
   "instagram_basic",
@@ -25,6 +26,8 @@ export type EquipeIgOAuthState = {
   accountId: string;
   custodianPersonId: string;
   userId: string;
+  sessionId: string;
+  nonce: string;
 };
 
 function stateSecret(): string {
@@ -40,8 +43,8 @@ export function signEquipeIgState(state: EquipeIgOAuthState, now = Date.now()): 
 }
 
 export function verifyEquipeIgState(raw: string, now = Date.now()): EquipeIgOAuthState | null {
-  const [payload, sig] = raw.split(".");
-  if (!payload || !sig) return null;
+  const [payload, sig, extra] = raw.split(".");
+  if (!payload || !sig || extra !== undefined || !/^[a-f0-9]{64}$/.test(sig)) return null;
   const expected = createHmac("sha256", stateSecret()).update(payload).digest();
   const given = Buffer.from(sig, "hex");
   if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
@@ -52,12 +55,16 @@ export function verifyEquipeIgState(raw: string, now = Date.now()): EquipeIgOAut
     if (typeof parsed.accountId !== "string") return null;
     if (typeof parsed.custodianPersonId !== "string") return null;
     if (typeof parsed.userId !== "string") return null;
-    if (typeof parsed.exp !== "number" || parsed.exp < now) return null;
+    if (typeof parsed.sessionId !== "string" || !parsed.sessionId) return null;
+    if (typeof parsed.nonce !== "string" || !/^[a-f0-9]{64}$/.test(parsed.nonce)) return null;
+    if (typeof parsed.exp !== "number" || parsed.exp <= now) return null;
     return {
       workspaceId: parsed.workspaceId,
       accountId: parsed.accountId,
       custodianPersonId: parsed.custodianPersonId,
       userId: parsed.userId,
+      sessionId: parsed.sessionId,
+      nonce: parsed.nonce,
     };
   } catch {
     return null;

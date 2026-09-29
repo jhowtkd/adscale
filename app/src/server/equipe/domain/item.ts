@@ -142,9 +142,9 @@ export function markWindowMissed(state: ItemState): Result<Transition<ItemState,
   });
 }
 
-/** New time proposed (after a miss or a failure) → back to decision. */
+/** New time proposed (after a miss, failure or invalidated destination) → decision. */
 export function proposeNewSchedule(state: ItemState): Result<Transition<ItemState, ItemEvent>> {
-  const gate = mustBeIn(state, ["missed_window", "failed"], "propose new schedule");
+  const gate = mustBeIn(state, ["missed_window", "failed", "held"], "propose new schedule");
   if (!gate.ok) return gate;
   return ok({
     state: { ...state, status: "awaiting_approval" },

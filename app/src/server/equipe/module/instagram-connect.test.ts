@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { executeCommand } from "./commands";
 import { findCustodianPersonForUser } from "./instagram-connect";
-import { ctx, makeTestDeps, openTestAccount, setup, type ItemIds } from "./testing/publication";
+import {
+  approveLiveMandate, ctx, deliverDueApprovedItem, encryptedInstagramToken,
+  makeTestDeps, openTestAccount, seedInstagramConnection, setup, type ItemIds,
+} from "./testing/publication";
 import { testActors as unboundActors } from "./testing/deps";
 
 function scopeOf(ids: ItemIds) {
@@ -12,9 +15,10 @@ describe("complete_instagram_connect", () => {
   it("stores the Equipe connection as active with the custodian owner", async () => {
     const { t, ids } = await setup();
     const scope = scopeOf(ids);
+    const encryptedToken = encryptedInstagramToken();
     const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.custodian), {
       type: "complete_instagram_connect",
-      payload: { encryptedToken: "v1:token-cifrado", igUsername: "marca" },
+      payload: { encryptedToken, igUsername: "brand" },
     });
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
@@ -23,7 +27,7 @@ describe("complete_instagram_connect", () => {
     expect(connections).toHaveLength(1);
     expect(connections[0]).toMatchObject({
       provider: "instagram",
-      encryptedToken: "v1:token-cifrado",
+      encryptedToken,
       status: "active",
     });
     expect(connections[0]?.custodianPersonId).toBe(
@@ -38,18 +42,19 @@ describe("complete_instagram_connect", () => {
     const actor = ctx(ids, ids.actors.custodian);
     await executeCommand(t.deps, actor, {
       type: "complete_instagram_connect",
-      payload: { encryptedToken: "v1:primeiro" },
+      payload: { encryptedToken: encryptedInstagramToken("ig_test_brand", "brand", "first") },
     });
+    const secondToken = encryptedInstagramToken("ig_test_brand", "brand", "second");
     const second = await executeCommand(t.deps, actor, {
       type: "complete_instagram_connect",
-      payload: { encryptedToken: "v1:segundo" },
+      payload: { encryptedToken: secondToken },
     });
     expect(second.ok).toBe(true);
     if (!second.ok) return;
     expect(second.value.data).toMatchObject({ reconnected: true });
     const connections = await t.deps.uow.repos.connections.list(scope);
     expect(connections).toHaveLength(1);
-    expect(connections[0]?.encryptedToken).toBe("v1:segundo");
+    expect(connections[0]?.encryptedToken).toBe(secondToken);
   });
 
   it("only the custodian connects", async () => {
@@ -57,17 +62,52 @@ describe("complete_instagram_connect", () => {
     for (const actor of [ids.actors.approver, ids.actors.member, ids.actors.operations]) {
       const outcome = await executeCommand(t.deps, ctx(ids, actor), {
         type: "complete_instagram_connect",
-        payload: { encryptedToken: "v1:x" },
+        payload: { encryptedToken: encryptedInstagramToken() },
       });
       expect(outcome.ok).toBe(false);
     }
     const unbound = await executeCommand(t.deps, ctx(ids, unboundActors.custodian!), {
       type: "complete_instagram_connect",
-      payload: { encryptedToken: "v1:x" },
+      payload: { encryptedToken: encryptedInstagramToken() },
     });
     expect(unbound.ok).toBe(false);
     if (unbound.ok) return;
     expect(unbound.error.code).toBe("forbidden_actor");
+  });
+
+  it.each([false, true])("preserves approval only for the same profile (different profile: %s)", async (different) => {
+    const { t, ids } = await setup();
+    const scope = scopeOf(ids);
+    await approveLiveMandate(t, ids);
+    await seedInstagramConnection(t, ids);
+    const { itemId, intentId, versionHash } = await deliverDueApprovedItem(t, ids);
+    const reconnected = await executeCommand(t.deps, ctx(ids, ids.actors.custodian), {
+      type: "complete_instagram_connect",
+      payload: { encryptedToken: encryptedInstagramToken(different ? "ig_other" : "ig_test_brand", "brand", "renewed") },
+    });
+    expect(reconnected.ok).toBe(true);
+    expect(await t.deps.uow.repos.items.get(scope, itemId)).toMatchObject({
+      currentVersionHash: versionHash, status: different ? "held" : "scheduled",
+    });
+    expect(await t.deps.uow.repos.intents.get(scope, intentId)).toMatchObject({
+      destinationIgUserId: "ig_test_brand", status: different ? "held" : "pending",
+      lastError: different ? "instagram_destination_changed" : null,
+    });
+    expect(await t.deps.uow.repos.itemVersions.list(scope, { itemId })).toHaveLength(1);
+    const receipts = await t.deps.uow.repos.receipts.listByObject(scope, "item", itemId);
+    expect(receipts).toHaveLength(1);
+    expect(receipts[0]?.objectVersion).toBe(versionHash);
+    if (different) {
+      // Returning to the old identity cannot silently restore an invalidated approval.
+      await executeCommand(t.deps, ctx(ids, ids.actors.custodian), {
+        type: "complete_instagram_connect", payload: { encryptedToken: encryptedInstagramToken() },
+      });
+    }
+    const dispatch = await executeCommand(t.deps, ctx(ids, ids.actors.system), {
+      type: "dispatch_publication", payload: { intentId },
+    });
+    expect(dispatch.ok && dispatch.value.data).toMatchObject({ action: different ? "held" : "published" });
+    expect(t.publisher.publishes).toHaveLength(different ? 0 : 1);
   });
 });
 
@@ -77,7 +117,7 @@ describe("fail_instagram_connect", () => {
     const scope = scopeOf(ids);
     await executeCommand(t.deps, ctx(ids, ids.actors.custodian), {
       type: "complete_instagram_connect",
-      payload: { encryptedToken: "v1:primeiro" },
+      payload: { encryptedToken: encryptedInstagramToken() },
     });
     const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.custodian), {
       type: "fail_instagram_connect",
@@ -131,7 +171,7 @@ describe("fail_instagram_connect", () => {
     });
     await executeCommand(t.deps, actor, {
       type: "complete_instagram_connect",
-      payload: { encryptedToken: "v1:ok" },
+      payload: { encryptedToken: encryptedInstagramToken() },
     });
     const after = await executeCommand(t.deps, actor, {
       type: "fail_instagram_connect",

@@ -239,6 +239,8 @@ export interface EquipeIntentRepository {
     input: NewEquipePublicationIntent
   ): Promise<{ intent: EquipePublicationIntent; created: boolean }>;
   get(scope: AccountScope, id: string): Promise<EquipePublicationIntent | null>;
+  /** Serialize reconciliation outcomes inside the caller's transaction. */
+  getForUpdate(scope: AccountScope, id: string): Promise<EquipePublicationIntent | null>;
   getByItemVersion(
     scope: AccountScope,
     itemId: string,

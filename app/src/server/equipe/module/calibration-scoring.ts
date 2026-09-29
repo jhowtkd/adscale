@@ -262,6 +262,7 @@ export async function runSubmitCorrectedVersion(
       caption: payload.caption ?? current.caption,
       scheduledFor: current.scheduledFor,
       destination,
+      destinationIgUserId: current.destinationIgUserId,
       authorRole: "agent",
       authorId: actorId(ctx.actor),
       reviewerFindings: null,

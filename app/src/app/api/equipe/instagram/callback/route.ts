@@ -2,15 +2,19 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { handleApiError } from "@/lib/api-response";
 import { db } from "@/server/db";
+import { getSessionFromHeaders } from "@/server/auth/session";
+import { getWorkspaceForUserInWorkspace } from "@/server/repositories/workspace";
 import { systemClock } from "@/server/equipe/domain";
 import { createPostgresEquipeUnitOfWork } from "@/server/equipe/data/postgres";
 import { LiveAdscaleGateway } from "@/server/equipe/agents/gateway";
 import { executeCommand } from "@/server/equipe/module/commands";
+import { findCustodianPersonForUser } from "@/server/equipe/module/instagram-connect";
 import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
 import type { EquipeModuleDeps } from "@/server/equipe/module/ports";
 import { encryptEquipeIgToken } from "@/server/equipe/publishing/crypto";
 import { InstagramGraphClient } from "@/server/equipe/publishing/graph";
 import { equipeIgCallbackUrl, verifyEquipeIgState } from "@/server/equipe/publishing/oauth";
+import { consumeEquipeIgOAuthState } from "@/server/equipe/publishing/oauth-nonce";
 import { env } from "@/server/validation/env";
 
 const querySchema = z.object({
@@ -26,8 +30,9 @@ function pipelineRedirect(flag: string, reason?: string): NextResponse {
 }
 
 /**
- * GET: fixed OAuth callback (no session; the signed state carries the
- * account + custodian). Exchanges the code, resolves the IG account,
+ * GET: fixed OAuth callback bound to the initiating session and one-use nonce.
+ * Revalidates the custodian before exchanging and persisting credentials.
+ * Exchanges the code, resolves the IG account,
  * encrypts the bundle and records the outcome through the module — success
  * connects, failure records a plain-language error (two failures open a
  * "conexão travada" support exception). A denial at the provider redirects
@@ -45,9 +50,6 @@ export async function GET(request: Request) {
     if (!parsed.success) {
       return pipelineRedirect("error", "invalid_request");
     }
-    if (parsed.data.error || !parsed.data.code) {
-      return pipelineRedirect("error", parsed.data.error ?? "missing_code");
-    }
     const state = verifyEquipeIgState(parsed.data.state);
     if (!state) {
       return pipelineRedirect("error", "invalid_state");
@@ -57,6 +59,18 @@ export async function GET(request: Request) {
     }
     if (!env.EQUIPE_IG_APP_ID || !env.EQUIPE_IG_APP_SECRET) {
       return pipelineRedirect("error", "app_not_configured");
+    }
+
+    const session = await getSessionFromHeaders(request.headers);
+    if (!session || session.user.id !== state.userId || session.session.id !== state.sessionId) {
+      return pipelineRedirect("error", "invalid_session");
+    }
+    const workspace = await getWorkspaceForUserInWorkspace(session.user.id, state.workspaceId);
+    if (!workspace) {
+      return pipelineRedirect("error", "invalid_session");
+    }
+    if (!(await consumeEquipeIgOAuthState(parsed.data.state, state.nonce))) {
+      return pipelineRedirect("error", "invalid_state");
     }
 
     const deps: EquipeModuleDeps = {
@@ -73,7 +87,17 @@ export async function GET(request: Request) {
       workspaceId: state.workspaceId,
       accountId: state.accountId,
     };
+    const stillAuthorized = async () => {
+      const account = await deps.uow.repos.accounts.get(state.workspaceId, state.accountId);
+      const custodian = await findCustodianPersonForUser(deps.uow.repos, state, session.user.id);
+      return account && custodian?.id === state.custodianPersonId;
+    };
+    if (!(await stillAuthorized())) return pipelineRedirect("error", "invalid_custodian");
+    if (parsed.data.error || !parsed.data.code) {
+      return pipelineRedirect("error", parsed.data.error ? "access_denied" : "missing_code");
+    }
     const recordFailure = async (code: string): Promise<void> => {
+      if (!(await stillAuthorized())) return;
       await executeCommand(deps, context, {
         type: "fail_instagram_connect",
         payload: { code },
@@ -101,6 +125,7 @@ export async function GET(request: Request) {
       igUserId: ig.igUserId,
       igUsername: ig.igUsername,
     });
+    if (!(await stillAuthorized())) return pipelineRedirect("error", "invalid_custodian");
     const completed = await executeCommand(deps, context, {
       type: "complete_instagram_connect",
       payload: { encryptedToken, igUsername: ig.igUsername ?? undefined },

@@ -62,6 +62,7 @@ function ItemOverlayBody({ accountId, itemId }: { accountId: string; itemId: str
   const when = formatDateTime(data.item.scheduledFor ?? current?.scheduledFor, locale);
   const batchDue = formatDateTime(data.batch?.approveByAt, locale);
   const warnings = [
+    ...(data.activeIntent?.lastError === "instagram_destination_changed" ? [t("instagramDestinationChanged")] : []),
     ...(data.review.triage?.warnings ?? []),
     ...((data.findings.find((f) => f.versionHash === data.item.currentVersionHash)?.findings as { warnings?: string[] } | null)?.warnings ?? []),
   ];

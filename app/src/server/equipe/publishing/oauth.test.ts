@@ -19,6 +19,8 @@ const STATE = {
   accountId: "acc-1",
   custodianPersonId: "person-cid",
   userId: "user-1",
+  sessionId: "session-1",
+  nonce: "a".repeat(64),
 };
 
 describe("equipe instagram oauth state", () => {
@@ -36,6 +38,13 @@ describe("equipe instagram oauth state", () => {
     expect(verifyEquipeIgState(`${tamperedPayload}.${sig}`, 2_000)).toBeNull();
     expect(verifyEquipeIgState(`${payload}.deadbeef`, 2_000)).toBeNull();
     expect(verifyEquipeIgState("lixo", 2_000)).toBeNull();
+  });
+
+  it("requires a 64-hex nonce and initiating session in state", () => {
+    expect(verifyEquipeIgState(signEquipeIgState({ ...STATE, nonce: "short" }, 1_000), 2_000)).toBeNull();
+    expect(verifyEquipeIgState(signEquipeIgState({ ...STATE, sessionId: "" }, 1_000), 2_000)).toBeNull();
+    const extra = signEquipeIgState(STATE, 1_000) + ".extra";
+    expect(verifyEquipeIgState(extra, 2_000)).toBeNull();
   });
 
   it("rejeita state expirado", () => {

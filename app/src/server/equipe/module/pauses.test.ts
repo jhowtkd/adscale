@@ -3,6 +3,7 @@ import { fixedClock, type Actor } from "../domain";
 import { executeCommand } from "./commands";
 import { ctx, deliverTestBatch, frontIdOf, setup, type ItemIds } from "./testing/items";
 import { seedStaff } from "./testing/deps";
+import { encryptedInstagramToken } from "./testing/publication";
 
 const SCOPE = (ids: ItemIds) => ({ workspaceId: ids.workspaceId, accountId: ids.accountId });
 
@@ -38,7 +39,7 @@ async function approveFirstScheduled(
 async function seedConnection(t: Awaited<ReturnType<typeof setup>>["t"], ids: ItemIds) {
   return t.deps.uow.repos.connections.create(SCOPE(ids), {
     provider: "instagram",
-    encryptedToken: "tok",
+    encryptedToken: encryptedInstagramToken(),
   });
 }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { EquipeUnitOfWork } from "../data";
 import { executeCommand } from "./commands";
 import { ctx, deliverTestBatch, setup, versionHashOf } from "./testing/items";
+import { approveTestItem, encryptedInstagramToken, seedInstagramConnection } from "./testing/publication";
 
 // Fixed clock: 2026-10-05T14:00:00Z. The item limit is scheduled − 2 h.
 const PAST_LIMIT = new Date("2026-10-05T15:00:00.000Z");
@@ -222,5 +223,80 @@ describe("propose_new_schedule", () => {
         scheduledFor: FUTURE,
       }),
     });
+  });
+
+  it("rebinds a destination-held item only into a new hash that needs approval", async () => {
+    const { t, ids } = await setup();
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    await seedInstagramConnection(t, ids);
+    const { itemIds, versionHashes } = await deliverTestBatch(t, ids, {
+      items: [{ scheduledFor: FUTURE, destinationAccount: "instagram:@brand" }],
+    });
+    await approveTestItem(t, ids, itemIds[0]!, versionHashes[0]!);
+    const oldIntent = await t.deps.uow.repos.intents.getByItemVersion(scope, itemIds[0]!, versionHashes[0]!);
+    expect(oldIntent?.destinationIgUserId).toBe("ig_test_brand");
+
+    await executeCommand(t.deps, ctx(ids, ids.actors.custodian), {
+      type: "complete_instagram_connect",
+      payload: { encryptedToken: encryptedInstagramToken("ig_reconnected", "newbrand") },
+    });
+    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("held");
+    const newTime = new Date("2026-10-09T13:00:00.000Z");
+    const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.agent), {
+      type: "propose_new_schedule",
+      payload: { itemId: itemIds[0]!, scheduledFor: newTime },
+    });
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    const nextHash = outcome.value.data.versionHash as string;
+    expect(nextHash).not.toBe(versionHashes[0]);
+    const current = await t.deps.uow.repos.itemVersions.getByHash(scope, itemIds[0]!, nextHash);
+    expect(current).toMatchObject({
+      destination: "instagram:@newbrand", destinationIgUserId: "ig_reconnected", scheduledFor: newTime,
+    });
+    expect(nextHash).toBe(versionHashOf({
+      output: current!.creativeWorkOutputId!, caption: current!.caption,
+      destination: "instagram:@newbrand", destinationIgUserId: "ig_reconnected", scheduledFor: newTime,
+    }));
+    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("awaiting_approval");
+    const receipts = await t.deps.uow.repos.receipts.listByObject(scope, "item", itemIds[0]!);
+    expect(receipts.some((receipt) => receipt.objectVersion === nextHash)).toBe(false);
+  });
+
+  it("does not use rescheduling to release an item held for another reason", async () => {
+    const { t, ids } = await setup();
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    const { itemIds, versionHashes } = await deliverTestBatch(t, ids, { items: [{ scheduledFor: FUTURE }] });
+    await approveTestItem(t, ids, itemIds[0]!, versionHashes[0]!);
+    const intent = await t.deps.uow.repos.intents.getByItemVersion(scope, itemIds[0]!, versionHashes[0]!);
+    await t.deps.uow.repos.items.update(scope, itemIds[0]!, { status: "held" });
+    await t.deps.uow.repos.intents.update(scope, intent!.id, { status: "held", lastError: "global_stop" });
+    const result = await executeCommand(t.deps, ctx(ids, ids.actors.agent), {
+      type: "propose_new_schedule", payload: { itemId: itemIds[0]!, scheduledFor: new Date("2026-10-09T13:00:00.000Z") },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("invalid_transition");
+    expect(await t.deps.uow.repos.itemVersions.list(scope, { itemId: itemIds[0]! })).toHaveLength(1);
+  });
+
+  it("returns no_change when the pinned identity and all version content are unchanged", async () => {
+    const { t, ids } = await setup();
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    await seedInstagramConnection(t, ids);
+    const { itemIds, versionHashes } = await deliverTestBatch(t, ids, {
+      items: [{ scheduledFor: FUTURE, destinationAccount: "instagram:@brand" }],
+    });
+    await approveTestItem(t, ids, itemIds[0]!, versionHashes[0]!);
+    const intent = await t.deps.uow.repos.intents.getByItemVersion(scope, itemIds[0]!, versionHashes[0]!);
+    await t.deps.uow.repos.items.update(scope, itemIds[0]!, { status: "held" });
+    await t.deps.uow.repos.intents.update(scope, intent!.id, {
+      status: "held", lastError: "instagram_destination_changed",
+    });
+    const result = await executeCommand(t.deps, ctx(ids, ids.actors.agent), {
+      type: "propose_new_schedule", payload: { itemId: itemIds[0]!, scheduledFor: FUTURE },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("no_change");
+    expect(await t.deps.uow.repos.itemVersions.list(scope, { itemId: itemIds[0]! })).toHaveLength(1);
   });
 });

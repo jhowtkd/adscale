@@ -81,7 +81,7 @@ describe("dispatch_publication gate", () => {
     expect(t.publisher.publishes).toHaveLength(0);
   });
 
-  it("without a verified connection nothing is sent", async () => {
+  it("without a pinned connection the approval cannot authorize sending", async () => {
     const { t, ids } = await setup();
     await approveLiveMandate(t, ids);
     const { intentId } = await deliverDueApprovedItem(t, ids);
@@ -89,8 +89,8 @@ describe("dispatch_publication gate", () => {
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
     expect(outcome.value.data).toMatchObject({
-      action: "missed_window",
-      reasons: ["connection_not_verified"],
+      action: "held",
+      reasons: ["instagram_destination_changed"],
     });
     expect(t.publisher.publishes).toHaveLength(0);
   });
@@ -98,8 +98,9 @@ describe("dispatch_publication gate", () => {
   it("an expired connection row blocks the gate without flipping anything", async () => {
     const { t, ids } = await setup();
     await approveLiveMandate(t, ids);
-    await seedInstagramConnection(t, ids, { status: "expired" });
+    const connectionId = await seedInstagramConnection(t, ids);
     const { intentId } = await deliverDueApprovedItem(t, ids);
+    await t.deps.uow.repos.connections.update(scopeOf(ids), connectionId, { status: "expired" });
     const outcome = await dispatchOf(t, ids, intentId);
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;

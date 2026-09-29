@@ -96,6 +96,7 @@ export function makeMemoryDispatchRepositories(
           nextAttemptAt: null,
           externalId: null,
           containerId: null,
+          destinationIgUserId: null,
           lastError: null,
           publishedAt: null,
         },
@@ -108,6 +109,7 @@ export function makeMemoryDispatchRepositories(
   });
   const intents: EquipeIntentRepository = {
     get: intentsBase.get,
+    getForUpdate: intentsBase.get,
     list: intentsBase.list,
     update: intentsBase.update,
     async getByItemVersion(scope, itemId, versionHash) {

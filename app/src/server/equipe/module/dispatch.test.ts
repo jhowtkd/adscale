@@ -49,6 +49,7 @@ describe("dispatch_publication", () => {
       status: "published",
       containerId: "container_1",
       externalId: "ig_media_1",
+      destinationIgUserId: "ig_test_brand",
     });
     expect(intent?.publishedAt).toBeInstanceOf(Date);
     const receipts = await t.deps.uow.repos.receipts.listByObject(scope, "item", itemId);
@@ -56,6 +57,7 @@ describe("dispatch_publication", () => {
     expect(dispatchReceipt?.detail).toMatchObject({
       externalId: "ig_media_1",
       containerId: "container_1",
+      destinationIgUserId: "ig_test_brand",
     });
     expect(outcome.value.events.map((e) => e.eventType)).toContain("item.published");
   });
@@ -233,19 +235,19 @@ describe("dispatch_publication", () => {
     expect(t.publisher.publishes[0]!.containerId).toBe("container_kept");
   });
 
-  it("a crash after publish retries into verifying and never publishes twice", async () => {
+  it.each([false, true])("a crash after publish never resends (acknowledgement persisted: %s)", async (afterAck) => {
     const { t, ids } = await setupReady();
     const scope = scopeOf(ids);
     const { itemId, intentId } = await deliverDueApprovedItem(t, ids);
 
-    // Crash AFTER publishContainer succeeded but BEFORE the "done"
-    // transaction: the first unit of work after the publish throws.
+    // Crash after the provider response, on either side of persisting its id.
     const innerRun = t.deps.uow.run.bind(t.deps.uow);
     let crashed = false;
     t.deps.uow.run = async <T,>(
       fn: (repos: EquipeRepositories, internal: InternalEquipeRepositories) => Promise<T>,
     ): Promise<T> => {
-      if (!crashed && t.publisher.publishes.length === 1) {
+      if (!crashed && t.publisher.publishes.length === 1 &&
+          (!afterAck || (await t.deps.uow.repos.intents.get(scope, intentId))?.externalId)) {
         crashed = true;
         throw new Error("simulated crash after publish");
       }
@@ -280,17 +282,19 @@ describe("dispatch_publication", () => {
     });
     expect(retry.ok).toBe(true);
     if (!retry.ok) return;
-    expect(retry.value.data).toMatchObject({ action: "verifying", step: "publish" });
+    expect(retry.value.data).toMatchObject({ action: "none", status: "verifying" });
     expect(t.publisher.creates).toHaveLength(1);
     expect(t.publisher.publishes).toHaveLength(1);
     expect((await t.deps.uow.repos.items.get(scope, itemId))?.status).toBe("verifying");
     const intent = await t.deps.uow.repos.intents.get(scope, intentId);
     expect(intent).toMatchObject({ status: "verifying", containerId: "container_1" });
+    expect(intent?.externalId).toBe(afterAck ? "ig_media_1" : null);
 
-    // The post is live: reconcile finds it and publishes the item.
+    // The same listing proves our send only when its media id survived.
     t.publisher.recentMedia = [
       {
         externalId: "ig_media_1",
+        igUserId: "ig_test_brand",
         caption: "legenda 1",
         permalink: "https://instagram.test/p/1",
         takenAt: new Date("2026-10-05T14:00:00.000Z"),
@@ -302,9 +306,14 @@ describe("dispatch_publication", () => {
     });
     expect(reconciled.ok).toBe(true);
     if (!reconciled.ok) return;
-    expect(reconciled.value.data).toMatchObject({ reconciled: true, externalId: "ig_media_1" });
-    expect((await t.deps.uow.repos.items.get(scope, itemId))?.status).toBe("published");
-    expect((await t.deps.uow.repos.intents.get(scope, intentId))?.status).toBe("published");
+    expect(reconciled.value.data).toMatchObject(afterAck
+      ? { reconciled: true, externalId: "ig_media_1" }
+      : { reconciled: false, reason: "still_verifying" });
+    expect((await t.deps.uow.repos.items.get(scope, itemId))?.status).toBe(afterAck ? "published" : "verifying");
+    expect((await t.deps.uow.repos.intents.get(scope, intentId))?.status).toBe(afterAck ? "published" : "verifying");
+    const receipts = await t.deps.uow.repos.receipts.listByObject(scope, "item", itemId);
+    expect(receipts.filter((receipt) => receipt.action === "dispatch_publication")).toHaveLength(afterAck ? 1 : 0);
+    expect(t.publisher.publishes).toHaveLength(1);
   });
 
   it("with the kill switch off nothing is sent and the intent stays held", async () => {

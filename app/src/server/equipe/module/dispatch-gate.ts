@@ -53,6 +53,8 @@ import {
   itemStateOf,
   providerOf,
   writeFailedOutcome,
+  hasPublishAttemptFor,
+  writeUncertainOutcome,
 } from "./dispatch-outcomes";
 import { isReleasedVersion, loadReleasedVersions } from "./calibration-conference";
 import { calibrationGateSlice } from "./calibration-shared";
@@ -60,6 +62,7 @@ import { GLOBAL_STOP_HOLD_REASON } from "./global-stop";
 import { ITEM_HELD_EVENT } from "./pauses-apply";
 import { domainPauseOf, ITEM_RESUMED_EVENT } from "./pauses-resume";
 import { MANUAL_PUBLISH_DECLARED_EVENT } from "./manual-publishing";
+import { holdInstagramDestination, instagramIdentityOf, INSTAGRAM_DESTINATION_CHANGED } from "./instagram-destination";
 
 /** Hold reasons this command writes (gate reasons or the kill switch). */
 export const PUBLISH_DISABLED_HOLD_REASON = "publish_disabled";
@@ -256,7 +259,7 @@ async function missForDispatch(
 }
 
 export type PrepareDispatch =
-  | { action: "send"; itemId: string; intentId: string; caption: string; mediaRef: string; versionHash: string; containerId: string | null }
+  | { action: "send"; itemId: string; intentId: string; caption: string; mediaRef: string; versionHash: string; containerId: string | null; destinationIgUserId: string }
   | { action: "already_published" | "none" | "stale" | "not_due" | "held" | "released" | "missed_window" | "failed"; itemId: string; intentId: string; [key: string]: unknown };
 
 export async function prepareDispatch(
@@ -279,6 +282,14 @@ export async function prepareDispatch(
     return ok({ action: "none", intentStatus: intent.status, ...ids });
   }
   if (intent.status === "verifying" || item.status === "verifying") {
+    return ok({ action: "none", status: "verifying", owner: "reconcile", ...ids });
+  }
+  if (item.status === "sending" && intent.containerId && await hasPublishAttemptFor(ctx, item.id, intent.containerId)) {
+    const written = await writeUncertainOutcome(ctx, item, intent, {
+      step: "publish", containerId: intent.containerId,
+      error: "tentativa de publish já registrada — resultado desconhecido após queda",
+    });
+    if (!written.ok) return written;
     return ok({ action: "none", status: "verifying", owner: "reconcile", ...ids });
   }
   const held = item.status === "held" || intent.status === "held";
@@ -339,6 +350,13 @@ export async function prepareDispatch(
 
   const built = await buildDispatchGate(ctx, item);
   if (!built.ok) return built;
+  const pinned = built.value.version.destinationIgUserId;
+  if (!pinned || pinned !== intent.destinationIgUserId ||
+      pinned !== instagramIdentityOf(built.value.connection)?.igUserId ||
+      intent.lastError === INSTAGRAM_DESTINATION_CHANGED) {
+    await holdInstagramDestination(ctx, item, intent);
+    return ok({ action: "held", reasons: [INSTAGRAM_DESTINATION_CHANGED], ...ids });
+  }
   const gate = evaluatePublicationGate(built.value.snapshot);
   const reasons: string[] = gate.allowed ? [] : [...gate.reasons];
   if (
@@ -429,6 +447,7 @@ export async function prepareDispatch(
     mediaRef: built.value.version.creativeWorkOutputId,
     versionHash: item.currentVersionHash,
     containerId: intent.containerId,
+    destinationIgUserId: pinned,
     ...ids,
   });
 }

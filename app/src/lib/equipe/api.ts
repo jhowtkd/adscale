@@ -267,6 +267,7 @@ export type ItemDetailJson = {
     status: string;
     versionHash: string;
     scheduledFor: string | null;
+    lastError?: string | null;
   } | null;
 };
 
