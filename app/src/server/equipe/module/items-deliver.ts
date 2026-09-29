@@ -8,9 +8,9 @@ import { actorId, err, ok, type Result } from "../domain";
 import type { EquipeModuleDeps } from "./ports";
 import { deliverBatchPayloadSchema } from "./envelope";
 import { resolveInstagramDestination } from "./instagram-destination";
+import { authorizeAccountExecution } from "./execution-authorization";
 import {
   appendEvent,
-  loadAccountOrError,
   requestNotification,
   scopeOf,
   transact,
@@ -38,15 +38,9 @@ export async function runDeliverBatch(
   payload: DeliverBatchPayload,
 ): Promise<Result<CommandSuccess>> {
   return transact(deps, base, async (ctx) => {
-    const account = await loadAccountOrError(ctx);
-    if (!account.ok) return account;
-    if (account.value.status === "suspended" || account.value.status === "closed") {
-      return err(
-        "invalid_transition",
-        `cannot deliver a batch on a ${account.value.status} account`,
-      );
-    }
     const scope = scopeOf(ctx);
+    const allowed = await authorizeAccountExecution(ctx.repos, scope, { forUpdate: true });
+    if (!allowed.ok) return allowed;
     const front = await ctx.repos.fronts.get(scope, payload.frontId);
     if (!front) {
       return err("unknown_front", `unknown front ${payload.frontId}`);

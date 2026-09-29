@@ -1,8 +1,10 @@
 // Equipe chat turn (#551): approval intent answers with a card, everything
 // else delegates to the #550 strategist through the Agents port.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Agents, AgentTask, AgentTaskResult } from "../module/ports";
+import { executeCommand } from "../module/commands";
+import { ctx as itemCtx, setup as setupItems } from "../module/testing/items";
 import { BUDGET_EXCEEDED_ERROR } from "./runner";
 import {
   detectApprovalIntent,
@@ -71,6 +73,33 @@ describe("detectApprovalIntent", () => {
 });
 
 describe("runEquipeStrategistTurn", () => {
+  it.each([
+    { command: "suspend_execution", actor: "operations", message: "ok, pode postar", notice: "O trabalho da equipe está pausado no momento. Sua mensagem ficou registrada para uma pessoa da equipe responder." },
+    { command: "pause_delinquency", actor: "system", message: "oi, como está?", notice: "The team's work is paused at the moment. Your message has been saved so a team member can reply." },
+  ])("stores a human message and returns the localized pause notice before reads or AI ($command)", async ({ command, actor, message, notice }) => {
+    const { t, ids } = await setupItems();
+    const pause = await executeCommand(t.deps, itemCtx(ids, ids.actors[actor as keyof typeof ids.actors]), {
+      type: command as "suspend_execution" | "pause_delinquency", payload: {},
+    });
+    expect(pause.ok).toBe(true);
+    const itemsRead = vi.spyOn(t.deps.uow.repos.items, "list");
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "must not run" } });
+    const events = await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId: ids.workspaceId, accountId: ids.accountId,
+      threadId: "thread-1", userMessage: message, executionPausedMessage: notice,
+    }));
+
+    expect(messages.posts.map(({ type, content }) => ({ type, content }))).toEqual([
+      { type: "user", content: message }, { type: "assistant", content: notice },
+    ]);
+    expect(events).toEqual([
+      { type: "text_delta", text: notice }, { type: "done", assistantMessageId: "msg-2" },
+    ]);
+    expect(agents.tasks).toHaveLength(0);
+    expect(itemsRead).not.toHaveBeenCalled();
+  });
+
   it("answers approval intent with the pending batch card, never an approval", async () => {
     const { t, ids } = await setup();
     const delivered = await deliverTestBatch(t, ids, { title: "Calendário 23–27/11" });
@@ -86,6 +115,7 @@ describe("runEquipeStrategistTurn", () => {
         accountId: ids.accountId,
         threadId: "thread-1",
         userMessage: "ok, pode postar",
+        executionPausedMessage: "A execução desta conta está pausada.",
       }),
     );
 
@@ -138,6 +168,7 @@ describe("runEquipeStrategistTurn", () => {
         accountId: ids.accountId,
         threadId: "thread-1",
         userMessage: "aprovado!",
+        executionPausedMessage: "A execução desta conta está pausada.",
       }),
     );
 
@@ -163,6 +194,7 @@ describe("runEquipeStrategistTurn", () => {
         accountId: ids.accountId,
         threadId: "thread-1",
         userMessage: "quando chega o lote?",
+        executionPausedMessage: "A execução desta conta está pausada.",
       }),
     );
 
@@ -194,6 +226,7 @@ describe("runEquipeStrategistTurn", () => {
         accountId: ids.accountId,
         threadId: "thread-1",
         userMessage: "e aí?",
+        executionPausedMessage: "A execução desta conta está pausada.",
       }),
     );
 
@@ -217,6 +250,7 @@ describe("runEquipeStrategistTurn", () => {
         accountId: ids.accountId,
         threadId: "thread-1",
         userMessage: "e aí?",
+        executionPausedMessage: "A execução desta conta está pausada.",
       }),
     );
 

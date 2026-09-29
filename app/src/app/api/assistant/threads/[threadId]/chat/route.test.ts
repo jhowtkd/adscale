@@ -299,6 +299,7 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     );
 
     expect(res.status).toBe(200);
+    const body = await res.text();
     expect(mockRunEquipeTurn).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId: "ws-1",
@@ -309,7 +310,6 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     );
     expect(mockRunTurn).not.toHaveBeenCalled();
 
-    const body = await collectSseBody(res);
     expect(body).toContain("event: equipe_card");
     expect(body).toContain('"messageId":"msg-card"');
     expect(body).toContain("event: done");

@@ -8,6 +8,8 @@
 import { z } from "zod";
 import type { FailureEventPayload } from "inngest";
 import { executeCommand } from "../module/commands";
+import { deferAgentWork } from "../module/agent-work";
+import { authorizeAccountExecution, isExecutionBlocked } from "../module/execution-authorization";
 import { inngest } from "@/server/jobs/client";
 import { logger } from "@/lib/logger";
 import { db } from "@/server/db";
@@ -15,7 +17,7 @@ import { systemClock } from "../domain";
 import type { EquipeUnitOfWork } from "../data";
 import { createPostgresEquipeUnitOfWork } from "../data/postgres";
 import { isEquipeEnabledForWorkspace } from "../module/equipe-enabled";
-import type { Agents, AgentTask, EquipeModuleDeps } from "../module/ports";
+import type { Agents, AgentTask, AgentTaskResult, EquipeModuleDeps } from "../module/ports";
 import { DrizzleLedgerStore } from "./ledger";
 import { createEquipeAgents, BUDGET_EXCEEDED_ERROR } from "./runner";
 import { LiveAdscaleGateway } from "./gateway";
@@ -76,24 +78,49 @@ export function createAgentWorkHandler(runtime: AgentWorkRuntime) {
     const deps = runtime.depsFor(workspaceId);
     const owner = runId ?? event.id;
     let task: AgentTask = { kind, workspaceId, accountId, input };
+    let savedResult: AgentTaskResult | undefined;
     if (sourceEventId) {
       if (!owner) throw new Error("agent work requires a durable run id");
       const claim = await step.run("claim-work", () => executeCommand(deps,
         { actor: { kind: "system", job: EQUIPE_AGENT_WORK_ID }, workspaceId, accountId },
         { type: "claim_agent_work", payload: { sourceEventId, runId: owner } }));
-      if (!claim.ok) throw new Error(`claim agent work: ${claim.error.code}`);
+      if (!claim.ok) {
+        if (isExecutionBlocked(claim.error.code)) return { refused: true as const, error: claim.error.code };
+        throw new Error(`claim agent work: ${claim.error.code}`);
+      }
       if (!claim.value.data.claimed) return { refused: false as const, ...claim.value.data };
       task = claim.value.data.task as AgentTask;
+      savedResult = claim.value.data.result as AgentTaskResult | undefined;
     }
+    const defer = async (error: string, result?: AgentTaskResult) => {
+      if (sourceEventId && owner) {
+        const deferred = await step.run("defer-agent-work", () => deferAgentWork(deps, { workspaceId, accountId }, sourceEventId, owner, result));
+        if (!deferred.ok) throw new Error(`defer agent work: ${deferred.error.code}`);
+      }
+      return { refused: true as const, error };
+    };
     if (!isAgentTaskKind(task.kind)) throw new Error(`unknown agent task kind: ${task.kind}`);
-    const result = await step.run("run-agent-task", () => runtime.agentsFor(deps).runTask(task));
+    const result: AgentTaskResult = savedResult ?? await step.run("run-agent-task", async (): Promise<AgentTaskResult> => {
+      // Recheck on actual execution, after a possibly cached claim. Replays
+      // must still retrieve a completed step's result so it can be deferred
+      // without losing it if suspension landed between Inngest invocations.
+      const allowed = await authorizeAccountExecution(deps.uow.repos, { workspaceId, accountId });
+      return allowed.ok ? runtime.agentsFor(deps).runTask(task) : { ok: false, error: allowed.error.code };
+    });
+    if (!result.ok && isExecutionBlocked(result.error)) return defer(result.error!);
     if (!result.ok && result.error !== BUDGET_EXCEEDED_ERROR) throw new Error(`agent task ${task.kind} failed: ${result.error}`);
     if (sourceEventId) {
       const applied = await step.run("apply-agent-result", () => executeCommand(deps,
         { actor: { kind: "agent", agentId: STRATEGIST_AGENT_ID }, workspaceId, accountId },
         { type: "complete_agent_work", payload: { sourceEventId, runId: owner, output: result.output,
           ...(result.error === BUDGET_EXCEEDED_ERROR ? { refusal: "budget_exceeded" } : {}) } }));
-      if (!applied.ok) throw new Error(`apply agent result: ${applied.error.code}`);
+      if (!applied.ok) {
+        if (isExecutionBlocked(applied.error.code)) return defer(applied.error.code, result);
+        throw new Error(`apply agent result: ${applied.error.code}`);
+      }
+    } else {
+      const allowed = await authorizeAccountExecution(deps.uow.repos, { workspaceId, accountId });
+      if (!allowed.ok) return { refused: true as const, error: allowed.error.code };
     }
     return result.ok ? { refused: false as const, output: result.output }
       : { refused: true as const, error: result.error };

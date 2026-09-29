@@ -113,6 +113,8 @@ export async function applyPauseInternal(
   input: ApplyPauseInput,
 ): Promise<Result<{ pause: EquipePause; created: boolean; heldItemIds: string[] }>> {
   const scope = scopeOf(ctx);
+  // Serialize suspension with the execution gate used by delivery/claim commands.
+  await ctx.repos.accounts.get(scope.workspaceId, scope.accountId, { forUpdate: true });
   const frontId = input.scope === "front" ? (input.frontId ?? null) : null;
   const active = (await ctx.repos.pauses.list(scope)).filter((row) => row.status === "active");
   const existing = active.find(

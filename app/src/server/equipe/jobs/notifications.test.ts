@@ -51,7 +51,7 @@ function makeAdapters(users: Record<string, NotificationUser> = {}) {
   const inbox: Array<{ userId: string; type: string; title: string; message: string }> = [];
   const sent: Array<{ to: string; subject: string }> = [];
   const adapters: NotificationDeliveryAdapters = {
-    users: { get: async (userId) => users[userId] ?? null },
+    users: { get: vi.fn(async (userId: string) => users[userId] ?? null) },
     inbox: {
       insert: async (row) => {
         inbox.push(row);
@@ -81,9 +81,10 @@ async function seedRequested(
   t: TestDeps,
   ids: ItemIds,
   payload: { recipientRole: string; templateKey: string; detail?: unknown },
+  actorType: "system" | "agent" = "system",
 ): Promise<string> {
   const event = await t.deps.uow.repos.events.create(SCOPE(ids), {
-    actorType: "system",
+    actorType,
     actorId: "probe",
     actorRole: "system",
     eventType: "notification.requested",
@@ -106,6 +107,7 @@ async function deliver(
   ids: ItemIds,
   adapters: NotificationDeliveryAdapters,
   eventId: string,
+  recordFn?: (id: string, channels: string[]) => Promise<void>,
 ) {
   const outbox = await listNotificationOutbox(t.deps.uow.repos, SCOPE(ids));
   const entry = outbox.find((row) => row.event.id === eventId)!;
@@ -114,7 +116,7 @@ async function deliver(
     adapters,
     scope: SCOPE(ids),
     entry,
-    record: (id, channels) => record(t, ids, id, channels),
+    record: recordFn ?? ((id, channels) => record(t, ids, id, channels)),
   });
 }
 
@@ -235,6 +237,40 @@ describe("recipient resolution", () => {
 });
 
 describe("deliverOutboxEntry", () => {
+  it("defers automated delivery during suspension and delivers once after resume", async () => {
+    const { t, ids } = await setupPeople();
+    const { inbox, sent, adapters } = makeAdapters({ "user-ana": VERIFIED_USER });
+    const eventId = await seedRequested(t, ids, { recipientRole: "approver", templateKey: "batch.delivered" }, "agent");
+    const suspended = await executeCommand(t.deps, ctx(ids, ids.actors.operations), { type: "suspend_execution", payload: {} });
+    expect(suspended.ok).toBe(true);
+    const recordSpy = vi.fn(async () => {});
+    const blocked = await deliver(t, ids, adapters, eventId, recordSpy);
+    expect(blocked).toEqual({ eventId, channels: [], delivered: false });
+    expect(adapters.users.get).not.toHaveBeenCalled();
+    expect(inbox).toHaveLength(0);
+    expect(sent).toHaveLength(0);
+    expect(recordSpy).not.toHaveBeenCalled();
+    const pauseId = suspended.ok ? suspended.value.data.pauseId as string : "";
+    expect((await executeCommand(t.deps, ctx(ids, ids.actors.operations), { type: "resume_pause", payload: { pauseId } })).ok).toBe(true);
+    const resumed = await deliver(t, ids, adapters, eventId);
+    expect(resumed).toMatchObject({ eventId, channels: ["inapp", "email"], delivered: true });
+    expect(await deliver(t, ids, adapters, eventId)).toMatchObject({ delivered: false });
+    expect(inbox).toHaveLength(1);
+    expect(sent).toHaveLength(1);
+  });
+
+  it("still records operational notices while execution is suspended", async () => {
+    const { t, ids } = await setupPeople();
+    const suspended = await executeCommand(t.deps, ctx(ids, ids.actors.operations), { type: "suspend_execution", payload: {} });
+    expect(suspended.ok).toBe(true);
+    const eventId = await seedRequested(t, ids, { recipientRole: "strategist", templateKey: "pause.applied" }, "agent");
+    const { adapters } = makeAdapters();
+    const result = await deliver(t, ids, adapters, eventId);
+    expect(result).toMatchObject({ eventId, channels: ["internal"], delivered: false });
+    const recorded = await t.deps.uow.repos.deliveries.list(SCOPE(ids));
+    expect(recorded.find((row) => row.eventId === eventId)?.channels).toEqual(["internal"]);
+  });
+
   it("delivers in-app + email and records both", async () => {
     const { t, ids } = await setupPeople();
     const { inbox, sent, adapters } = makeAdapters({ "user-ana": VERIFIED_USER });

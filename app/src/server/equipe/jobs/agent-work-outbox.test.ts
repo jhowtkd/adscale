@@ -4,7 +4,7 @@ import { ctx, deliverTestBatch, setup } from "../module/testing/items";
 import { createAgentWorkOutboxHandler } from "./agent-work-outbox";
 
 describe("agent work outbox", () => {
-  it("emits a stable event from the persisted UI command", async () => {
+  it("emits retryable transport events for persisted work", async () => {
     const { t, ids } = await setup();
     const { itemIds } = await deliverTestBatch(t, ids);
     const edited = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
@@ -13,7 +13,7 @@ describe("agent work outbox", () => {
     expect(edited.ok).toBe(true);
     if (!edited.ok) return;
     const source = edited.value.events.find((event) => event.eventType === "agent_work.requested")!;
-    const sent: Array<{ id: string; name: string; data: unknown }> = [];
+    const sent: Array<{ name: string; data: unknown }> = [];
     const handler = createAgentWorkOutboxHandler({
       uow: t.deps.uow,
       clock: t.deps.clock,
@@ -22,7 +22,7 @@ describe("agent work outbox", () => {
     });
     const step = {
       run: async <T>(_name: string, fn: () => Promise<T>) => fn(),
-      sendEvent: async (_name: string, event: { id: string; name: string; data: unknown }) => { sent.push(event); },
+      sendEvent: async (_name: string, event: { name: string; data: unknown }) => { sent.push(event); },
     };
 
     const first = await handler({ step });
@@ -32,9 +32,9 @@ describe("agent work outbox", () => {
     expect(replay).toEqual(first);
     expect(sent).toHaveLength(2);
     expect(sent[0]).toEqual({
-      id: source.id,
       name: "equipe.agent.work",
       data: { workspaceId: ids.workspaceId, accountId: ids.accountId, sourceEventId: source.id, kind: "caption_revalidation" },
     });
+    expect(sent[1]).toEqual(sent[0]);
   });
 });

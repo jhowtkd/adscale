@@ -17,6 +17,7 @@ import { sendEmail } from "@/server/services/email";
 import { escapeHtml } from "@/server/services/email-template";
 import type { AccountScope } from "../data";
 import type { OutboxEntry } from "../module/jobs-delivery";
+import { authorizeAccountExecution, requiresExecutionForMessage } from "../module/execution-authorization";
 import { notificationTypeFor, templateFor } from "./notification-templates";
 import {
   EQUIPE_NOTIFICATIONS_ID,
@@ -129,6 +130,10 @@ export async function deliverOutboxEntry(
 ): Promise<DeliverOutboxEntryResult> {
   const { stores, adapters, scope, entry } = input;
   const eventId = entry.event.id;
+  if (requiresExecutionForMessage(entry.event) && !(await authorizeAccountExecution(stores.repos, scope)).ok) {
+    // Leave the outbox entry pending so resumption can deliver it once.
+    return { eventId, channels: entry.deliveredChannels, delivered: false };
+  }
   const parsed = requestedPayloadSchema.safeParse(entry.event.payload);
   if (!parsed.success) {
     logger.error(`[${EQUIPE_NOTIFICATIONS_ID}] malformed notification payload, skipping`, {
