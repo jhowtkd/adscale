@@ -25,6 +25,7 @@ async function approveFirstScheduled(
   ids: ItemIds,
   scheduledFor = new Date("2026-10-09T12:00:00.000Z"),
 ): Promise<{ itemId: string; versionHash: string }> {
+  if (!(await t.deps.uow.repos.connections.list(SCOPE(ids))).length) await seedConnection(t, ids);
   const { itemIds, versionHashes } = await deliverTestBatch(t, ids, {
     items: [{ scheduledFor }],
   });
@@ -256,7 +257,6 @@ describe("resume_pause", () => {
     const { t, ids } = await setup();
     const scope = SCOPE(ids);
     const { itemId } = await approveFirstScheduled(t, ids);
-    await seedConnection(t, ids);
     const first = await pauseAs(t, ids, ids.actors.approver, "pause_publications");
     const second = await pauseAs(t, ids, ids.actors.support, "pause_account_team");
     if (!first.ok || !second.ok) throw new Error("pause failed");
@@ -282,7 +282,6 @@ describe("resume_pause", () => {
     const { t, ids } = await setup();
     const scope = SCOPE(ids);
     const { itemId: goodId, versionHash } = await approveFirstScheduled(t, ids);
-    await seedConnection(t, ids);
     const paused = await pauseAs(t, ids, ids.actors.approver, "pause_publications");
     if (!paused.ok) throw new Error("pause failed");
     const resumed = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
@@ -339,6 +338,8 @@ describe("resume_pause", () => {
     });
     const paused = await pauseAs(t, ids, ids.actors.approver, "pause_publications");
     if (!paused.ok) throw new Error("pause failed");
+    const connection = (await t.deps.uow.repos.connections.list(scope))[0]!;
+    await t.deps.uow.repos.connections.update(scope, connection.id, { status: "expired" });
     // An escalation opened while held blocks the resume.
     await executeCommand(t.deps, ctx(ids, ids.actors.agent), {
       type: "open_escalation",

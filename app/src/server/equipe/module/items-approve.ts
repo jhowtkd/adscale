@@ -26,10 +26,10 @@ import {
 } from "./shared";
 import {
   approvalReceiptFor,
+  approvalModeFor,
   approvedByOf,
   BATCH_APPROVED_EVENT,
   domainStateOf,
-  isManualMode,
   ITEM_APPROVED_EVENT,
   loadItemOrError,
   loadItemReview,
@@ -88,7 +88,7 @@ async function approveOne(
   if (!individuallyApprovable) {
     return { itemId, outcome: "not_ready", reviewStatus: review.status };
   }
-  const mode = (await isManualMode(ctx)) ? ("manual" as const) : ("auto" as const);
+  const mode = await approvalModeFor(ctx, item);
   if (mode === "auto" && !item.scheduledFor) {
     return { itemId, outcome: "not_ready", reviewStatus: review.status };
   }

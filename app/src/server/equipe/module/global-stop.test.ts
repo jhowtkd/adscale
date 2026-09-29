@@ -36,6 +36,7 @@ async function approveScheduled(
   ids: ItemIds,
   scheduledFor = new Date("2026-10-09T12:00:00.000Z"),
 ): Promise<{ itemId: string; versionHash: string }> {
+  if (!(await t.deps.uow.repos.connections.list(SCOPE(ids))).length) await seedInstagramConnection(t, ids);
   const { itemIds, versionHashes } = await deliverTestBatch(t, ids, {
     items: [{ scheduledFor }],
   });
@@ -178,15 +179,14 @@ describe("resume_all_publications", () => {
     const d = await openTestAccount(t);
     // Good: still future at resume time, approved, connection verified.
     const good = await approveScheduled(t, a, new Date("2026-10-20T12:00:00.000Z"));
-    await seedInstagramConnection(t, a);
     // Late: future at stop time, past at resume time.
     const late = await approveScheduled(t, b, new Date("2026-10-06T12:00:00.000Z"));
-    await seedInstagramConnection(t, b);
     // Covered by another pause: the client pauses after the stop.
     const covered = await approveScheduled(t, c);
-    await seedInstagramConnection(t, c);
     // Offline: no verified connection.
     const offline = await approveScheduled(t, d, new Date("2026-10-20T12:00:00.000Z"));
+    const connection = (await t.deps.uow.repos.connections.list(SCOPE(d)))[0]!;
+    await t.deps.uow.repos.connections.update(SCOPE(d), connection.id, { status: "expired" });
 
     const stopped = await stopAll(t, a, a.actors.operations);
     expect(stopped.ok).toBe(true);

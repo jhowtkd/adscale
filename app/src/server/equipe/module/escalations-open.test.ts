@@ -1,3 +1,4 @@
+import { seedInstagramConnection } from "./testing/publication";
 import { describe, expect, it } from "vitest";
 import { executeCommand } from "./commands";
 import { getItemDetail } from "./queries";
@@ -75,6 +76,7 @@ describe("open_escalation", () => {
 
   it("pauses the front and opens a support case on critical", async () => {
     const { t, ids } = await setup();
+    await seedInstagramConnection(t, ids);
     const scope = SCOPE(ids);
     const frontId = await frontIdOf(t, ids, "social_instagram");
     const { itemIds, versionHashes } = await deliverTestBatch(t, ids);

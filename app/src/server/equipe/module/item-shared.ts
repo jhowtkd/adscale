@@ -26,7 +26,7 @@ import type {
   EquipeReceipt,
   EquipeRepositories,
 } from "../data";
-import { MANUAL_MODE_AGREED_EVENT } from "./onboarding";
+import { readPublicationMode } from "./publication-mode";
 import { scopeOf, versionHash, type CommandContext } from "./shared";
 
 export const ITEM_DELIVERED_EVENT = "item.delivered";
@@ -306,10 +306,16 @@ export async function approvalReceiptFor(
   );
 }
 
-/** Manual mode was agreed on this account → approvals download, never dispatch. */
+/** Only the last valid client decision controls new approvals and dispatch. */
 export async function isManualMode(ctx: CommandContext): Promise<boolean> {
-  const events = await ctx.repos.events.list(scopeOf(ctx), { eventType: MANUAL_MODE_AGREED_EVENT });
-  return events.length > 0;
+  return (await readPublicationMode(ctx.repos, scopeOf(ctx))).mode === "manual";
+}
+
+/** Versions prepared before connection keep the manual path after the account switches. */
+export async function approvalModeFor(ctx: CommandContext, item: EquipeItem): Promise<"auto" | "manual"> {
+  if (!item.currentVersionHash || await isManualMode(ctx)) return "manual";
+  const version = await ctx.repos.itemVersions.getByHash(scopeOf(ctx), item.id, item.currentVersionHash);
+  return version?.destinationIgUserId ? "auto" : "manual";
 }
 
 export function approvedByOf(ctx: CommandContext): string {

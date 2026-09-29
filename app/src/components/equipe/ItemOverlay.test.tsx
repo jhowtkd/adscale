@@ -186,6 +186,16 @@ describe("ItemOverlay", () => {
     });
   });
 
+  it.each([null, "ig-brand"])("explains manual publication only for a version without a destination pin (%s)", (pin) => {
+    detailFixture.item.status = "awaiting_approval";
+    detailFixture.versions = detailFixture.versions.map((version) => ({
+      ...version, destination: "instagram:@brand", destinationIgUserId: pin,
+    }));
+    renderOverlay();
+    if (pin) expect(screen.queryByTestId("item-prepared-before-connection")).not.toBeInTheDocument();
+    else expect(screen.getByTestId("item-prepared-before-connection")).toHaveTextContent("preparedBeforeConnection");
+  });
+
   it("tells the client to review again on a stale version", async () => {
     commandMocks.approveEquipeItem.mockRejectedValueOnce(
       new EquipeCommandError("stale", 409, "version_mismatch"),

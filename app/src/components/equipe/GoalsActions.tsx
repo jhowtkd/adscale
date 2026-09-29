@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   agreeEquipeManualMode,
   answerEquipeConflict,
+  approveEquipeAutomaticPublication,
   approveEquipeContextSection,
   approveEquipeMandate,
   approveEquipePlan,
@@ -32,6 +33,8 @@ function commandMessage(error: unknown, t: (key: string) => string): string {
     if (error.code === "stale_version") return t("staleVersion");
     if (error.code === "unknown_asset") return t("materialUnknownAsset");
     if (error.status === 403) return t("forbidden");
+    if (error.code === "automatic_publication_requires_connection" ||
+        error.code === "automatic_publication_requires_mandate") return t(error.code);
     if (error.status === 409 && error.detail) return error.detail;
   }
   return t("commandError");
@@ -457,5 +460,56 @@ export function ConnectionStepAction({
         </Button>
       </div>
     </div>
+  );
+}
+
+export function PublicationModeAction({
+  accountId,
+  publication,
+}: {
+  accountId: string;
+  publication: GoalsDecisionsJson["publication"];
+}) {
+  const t = useTranslations("equipe.goals");
+  const { isPending, error, run } = useDecisionRunner(accountId);
+  if (publication.mode === "automatic" && !publication.receiptId) return null;
+  return (
+    <section aria-label={t("publicationMode")} data-testid="goals-publication-mode">
+      <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("publicationMode")}</h2>
+      <div className="mt-2 flex flex-col gap-2 rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3">
+        <p className="text-sm font-medium text-[var(--text-primary)]">
+          {t(publication.mode === "manual" ? "manualAgreed" : "automaticPublicationApproved")}
+        </p>
+        <p className="text-xs text-[var(--text-secondary)]">{t("automaticPublicationExplainer")}</p>
+        {publication.mode === "manual" && publication.igAccount ? (
+          <p className="text-xs text-[var(--text-secondary)]">
+            {t("automaticPublicationTarget", { account: publication.igAccount, version: publication.mandateVersion ?? "" })}
+          </p>
+        ) : null}
+        {publication.mode === "manual" && publication.blockedReason ? (
+          <p className="text-xs text-[var(--text-muted)]">{t(publication.blockedReason)}</p>
+        ) : null}
+        {publication.receiptId ? (
+          <p className="break-all text-xs text-[var(--text-muted)]">{t("publicationReceipt", { id: publication.receiptId })}</p>
+        ) : null}
+        <ActionError message={error} testId="goals-publication-error" />
+        {publication.mode === "manual" && publication.canApprove ? (
+          <div>
+            <Button
+              type="button"
+              size="sm"
+              disabled={isPending || !publication.versionHash || !!publication.blockedReason}
+              onClick={() => publication.versionHash && void run(
+                () => approveEquipeAutomaticPublication(accountId, { expectedVersionHash: publication.versionHash! }),
+                t("automaticPublicationApproved"),
+              )}
+              data-testid="goals-publication-approve"
+            >
+              {t("approveAutomaticPublication")}
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    </section>
   );
 }

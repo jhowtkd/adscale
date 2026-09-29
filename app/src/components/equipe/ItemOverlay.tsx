@@ -130,6 +130,13 @@ function ItemOverlayBody({ accountId, itemId }: { accountId: string; itemId: str
           </div>
         </dl>
 
+        {current && !current.destinationIgUserId && current.destination?.startsWith("instagram:") &&
+          (data.item.status === "awaiting_approval" || data.item.status === "available_for_download") ? (
+            <p className="text-xs text-[var(--text-secondary)]" data-testid="item-prepared-before-connection">
+              {t("preparedBeforeConnection")}
+            </p>
+          ) : null}
+
         {warnings.length > 0 ? (
           <div
             className="rounded-[var(--radius-md)] border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2"

@@ -24,6 +24,7 @@ import {
 } from "./plan-mandate";
 // #584
 import { runProposeMandateActivation } from "./mandate-activation";
+import { runApproveAutomaticPublication } from "./publication-mode";
 import { runDecideIdea } from "./ideas-decide";
 import {
   runAdvanceOnboarding,
@@ -123,6 +124,7 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   approve_plan: "approve_plan",
   propose_mandate: "propose_mandate",
   approve_mandate: "approve_mandate",
+  approve_automatic_publication: "approve_automatic_publication",
   // #584
   propose_mandate_activation: "propose_mandate_activation",
   decide_idea: "decide_idea",
@@ -298,6 +300,9 @@ export async function executeCommand(
       break;
     case "approve_mandate":
       outcome = await runApproveMandate(deps, base, command.payload);
+      break;
+    case "approve_automatic_publication":
+      outcome = await runApproveAutomaticPublication(deps, base, command.payload);
       break;
     // #584
     case "propose_mandate_activation":

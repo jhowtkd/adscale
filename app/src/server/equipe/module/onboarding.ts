@@ -27,6 +27,7 @@ import {
   recordInstallmentPaidPayloadSchema,
 } from "./envelope";
 import { MATERIAL_REGISTERED_EVENT, SCOPE_CONFIRMED_EVENT } from "./scope-materials";
+import { MANUAL_MODE_AGREED_EVENT, readPublicationMode } from "./publication-mode";
 import {
   appendEvent,
   fromDomainAccountStatus,
@@ -50,7 +51,7 @@ export type RecordInstallmentPaidPayload = z.infer<typeof recordInstallmentPaidP
 
 export const INSTALLMENT_PAID_EVENT = "billing.installment_paid";
 export const BRAND_VOICE_APPROVED_EVENT = "brand.voice_approved";
-export const MANUAL_MODE_AGREED_EVENT = "connection.manual_mode_agreed";
+export { MANUAL_MODE_AGREED_EVENT } from "./publication-mode";
 export const ONBOARDING_STEP_ADVANCED_EVENT = "onboarding.step_advanced";
 
 async function hasEvent(ctx: CommandContext, eventType: string): Promise<boolean> {
@@ -106,7 +107,7 @@ async function checkStepGate(
     case "connection": {
       const connections = await ctx.repos.connections.list(scope);
       if (connections.some((c) => c.status === "active")) return ok(undefined);
-      return (await hasEvent(ctx, MANUAL_MODE_AGREED_EVENT))
+      return (await readPublicationMode(ctx.repos, scope)).mode === "manual"
         ? ok(undefined)
         : err("invalid_transition", "no verified connection or manual mode yet");
     }
@@ -126,7 +127,7 @@ async function checkCalibrationEntry(ctx: CommandContext): Promise<Result<void>>
       mandates.some((m) => m.status === "approved"),
     brandVoiceApproved: await hasEvent(ctx, BRAND_VOICE_APPROVED_EVENT),
     connectionsVerified: connections.some((c) => c.status === "active"),
-    manualModeAgreed: await hasEvent(ctx, MANUAL_MODE_AGREED_EVENT),
+    manualModeAgreed: (await readPublicationMode(ctx.repos, scope)).mode === "manual",
     secondInstallmentPaid: await hasInstallment(ctx, 2),
   };
   const decided = enterCalibration({ status: "implantation" }, entry);
@@ -192,10 +193,15 @@ export async function runAgreeManualMode(
 ): Promise<Result<CommandSuccess>> {
   void payload;
   return transact(deps, base, async (ctx) => {
-    const account = await loadAccountOrError(ctx);
-    if (!account.ok) return account;
-    const deploying = requireDeploying(account.value);
+    const account = await ctx.repos.accounts.get(ctx.workspaceId, ctx.accountId, { forUpdate: true });
+    if (!account) return err("unknown_account", `unknown account ${ctx.accountId}`);
+    const deploying = requireDeploying(account);
     if (!deploying.ok) return deploying;
+    const mode = await readPublicationMode(ctx.repos, scopeOf(ctx));
+    if (mode.mode === "automatic" && mode.event) {
+      return err("invalid_transition", "A publicação automática já foi aprovada. Use a pausa de publicações para interromper os envios.");
+    }
+    if (mode.mode === "manual") return ok({ receiptId: mode.receipt.id });
     const receipt = await writeReceipt(ctx, {
       objectType: "connection",
       objectId: ctx.accountId,
@@ -206,6 +212,7 @@ export async function runAgreeManualMode(
       eventType: MANUAL_MODE_AGREED_EVENT,
       objectType: "account",
       objectId: ctx.accountId,
+      payload: { receiptId: receipt.id },
     });
     await requestNotification(ctx, {
       recipientRole: "strategist",

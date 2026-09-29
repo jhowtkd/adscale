@@ -264,10 +264,8 @@ describe("deliver_batch", () => {
     expect(version).toMatchObject({ destination: "instagram:@external-handle", destinationIgUserId: null });
     await approveTestItem(t, ids, itemIds[0]!, versionHashes[0]!);
     const intent = await t.deps.uow.repos.intents.getByItemVersion(scope, itemIds[0]!, versionHashes[0]!);
-    const dispatch = await executeCommand(t.deps, ctx(ids, ids.actors.system), {
-      type: "dispatch_publication", payload: { intentId: intent!.id },
-    });
-    expect(dispatch).toMatchObject({ ok: true, value: { data: { action: "held", reasons: ["instagram_destination_changed"] } } });
+    expect(intent).toBeNull();
+    expect(await t.deps.uow.repos.items.get(scope, itemIds[0]!)).toMatchObject({ status: "available_for_download" });
     expect(t.publisher.creates).toHaveLength(0);
     expect(t.publisher.publishes).toHaveLength(0);
   });

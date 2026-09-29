@@ -1,3 +1,4 @@
+import { seedInstagramConnection } from "./testing/publication";
 import { describe, expect, it } from "vitest";
 import { executeCommand } from "./commands";
 import { getItemDetail } from "./queries";
@@ -87,6 +88,7 @@ describe("edit_caption", () => {
 
   it("editing a scheduled item supersedes the approval and voids its intent", async () => {
     const { t, ids } = await setup();
+    await seedInstagramConnection(t, ids);
     const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
     const { itemIds, versionHashes } = await deliverTestBatch(t, ids);
     const approved = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {

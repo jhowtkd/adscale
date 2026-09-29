@@ -32,6 +32,7 @@ export type EquipeAction =
   | "approve_batch"
   | "approve_plan"
   | "approve_mandate"
+  | "approve_automatic_publication"
   | "approve_context_section"
   | "decide_idea"
   | "confirm_business_fact"
@@ -156,6 +157,7 @@ const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
   approve_batch: [CLIENT_DECISION],
   approve_plan: [CLIENT_DECISION],
   approve_mandate: [CLIENT_DECISION],
+  approve_automatic_publication: [CLIENT_DECISION],
   approve_context_section: [CLIENT_DECISION],
   decide_idea: [CLIENT_DECISION],
   confirm_business_fact: [CLIENT_DECISION],

@@ -5692,6 +5692,7 @@
       "noReceipts": "Nenhum recibo ainda.",
       "noCaption": "Sem legenda.",
       "instagramDestinationChanged": "O perfil do Instagram mudou ou não está fixado nesta versão. É necessária uma nova versão e aprovação.",
+      "preparedBeforeConnection": "Esta peça foi preparada antes da conexão. Publique manualmente ou peça uma nova versão.",
       "factConfirmed": "Fato confirmado.",
       "approved": "Aprovado."
     },
@@ -5828,7 +5829,16 @@
       "materialKind_text": "Texto",
       "materialEmpty": "Nenhum material no seu espaço ainda.",
       "materialLoading": "Carregando materiais…",
-      "mandateActivationExplainer": "A partir da aprovação, os itens aprovados passam a ser publicados automaticamente, dentro da janela e dos limites."
+      "mandateActivationExplainer": "A aprovação autoriza a publicação dentro da janela e dos limites. Se a conta estiver no modo manual, aprove também a mudança para publicação automática em Metas.",
+      "publicationMode": "Forma de publicação",
+      "automaticPublicationApproved": "Publicação automática aprovada.",
+      "automaticPublicationExplainer": "Ao aprovar a mudança, os novos itens que você aprovar poderão ser publicados automaticamente, dentro do mandato, da janela e dos limites. Itens já disponíveis para baixar ou publicados por você continuam manuais. Peças preparadas antes da conexão também continuam manuais; peça uma nova versão para publicá-las automaticamente.",
+      "automaticPublicationTarget": "Perfil {account} · Mandato v{version}",
+      "publicationReceipt": "Recibo: {id}",
+      "approveAutomaticPublication": "Aprovar publicação automática",
+      "automatic_publication_requires_connection": "O custodiante precisa conectar um perfil ativo do Instagram antes da mudança.",
+      "automatic_publication_requires_mandate": "Aprove um mandato de publicação válido fora do modo sombra antes da mudança.",
+      "automatic_publication_unavailable": "A conta precisa estar em implantação, calibração ou ativa para mudar a forma de publicação."
     },
     "fronts": {
       "social_instagram": "Social · Instagram",

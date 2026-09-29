@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-28T18:12:36.999Z",
+  "generatedAt": "2026-09-29T13:02:36.491Z",
   "schemaVersion": 2,
-  "fingerprint": "4180ddfdb258fb0db39364f5ab68dd9e59ff1c973bda909447b0573920dae63e",
+  "fingerprint": "6e0738192597c2f2918fa0ab4ff5947eaecc7239f9b6ad89722440c3caa8fa65",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
@@ -2035,12 +2035,12 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/equipe/GoalsView.tsx:358",
+      "id": "nav:app/src/components/equipe/GoalsView.tsx:359",
       "kind": "cta_navigation",
       "destination": "/assistant",
       "file": "app/src/components/equipe/GoalsView.tsx",
-      "line": 358,
-      "evidence": "app/src/components/equipe/GoalsView.tsx:358",
+      "line": 359,
+      "evidence": "app/src/components/equipe/GoalsView.tsx:359",
       "requiresDecision": false
     },
     {

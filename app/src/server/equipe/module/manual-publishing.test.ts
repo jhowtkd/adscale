@@ -122,11 +122,8 @@ describe("declare_manual_publication", () => {
       payload: { itemId: itemIds[0]! },
     });
     expect(declared.ok).toBe(true);
-    // No command path creates intents for manual items: approval is the
-    // only intent source, and manual approvals create none — so migrating
-    // the account to automatic later cannot schedule what was downloaded.
-    // (Manual mode is event-sticky; the future switch-to-automatic command
-    // owns the "você já publicou este?" question for these items.)
+    // Manual approvals create no intent. A later mode change does not
+    // backfill intents for these already-approved versions.
     expect(await t.deps.uow.repos.intents.list(scope, { itemId: itemIds[0]! })).toHaveLength(0);
     expect(await t.deps.uow.repos.intents.list(scope, { itemId: itemIds[1]! })).toHaveLength(0);
   });

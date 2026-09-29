@@ -37,9 +37,22 @@ describe("GET /api/equipe/accounts/[accountId]/goals", () => {
     vi.clearAllMocks();
   });
 
-  async function seed() {
+  async function seed(person?: { role: "approver" | "substitute" | "member"; active?: boolean }) {
     const t = makeTestDeps();
-    const account = await openTestAccount(t);
+    const account = await openTestAccount(t, {
+      people: person
+        ? [
+            { name: "Ana", role: "approver", userId: person.role === "approver" ? USER_ID : undefined },
+            { name: "Carla", role: "substitute", userId: person.role === "substitute" ? USER_ID : undefined },
+            { name: "Cid", role: "custodian" },
+            { name: "Rui", role: "member", userId: person.role === "member" ? USER_ID : undefined },
+          ]
+        : undefined,
+    });
+    if (person?.active === false) {
+      const row = [...t.store.people.rows.values()].find((candidate) => candidate.userId === USER_ID);
+      if (row) t.store.people.rows.set(row.id, { ...row, active: false });
+    }
     mockRequireAccess.mockResolvedValue({
       user: { id: USER_ID },
       workspace: { id: account.workspaceId },
@@ -89,6 +102,18 @@ describe("GET /api/equipe/accounts/[accountId]/goals", () => {
     expect(body.decisions.plan).toMatchObject({ version: 1 });
     expect(body.decisions.plan.id).toBe(body.plan.id);
     expect(body.decisions.plan.versionHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it.each([
+    ["approver", true, true],
+    ["substitute", true, true],
+    ["member", true, false],
+    ["approver", false, false],
+  ] as const)("sets canApprove for %s (active: %s) to %s", async (role, active, expected) => {
+    const { account } = await seed({ role, active });
+    const res = await callGet(account.accountId);
+    expect(res.status).toBe(200);
+    expect((await res.json()).decisions.publication.canApprove).toBe(expected);
   });
 
   it("returns 400 for a malformed account id", async () => {

@@ -298,6 +298,13 @@ export async function agreeEquipeManualMode(accountId: string): Promise<unknown>
   return postEquipeCommand(accountId, { type: "agree_manual_mode", payload: {} });
 }
 
+export async function approveEquipeAutomaticPublication(
+  accountId: string,
+  input: { expectedVersionHash: string },
+): Promise<unknown> {
+  return postEquipeCommand(accountId, { type: "approve_automatic_publication", payload: input });
+}
+
 /** Decide an open Strategist idea at the exact version seen. */
 export async function decideEquipeIdea(
   accountId: string,
