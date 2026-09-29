@@ -17,6 +17,7 @@ import {
   equipeActorTypeSchema,
   equipeBatchStatusSchema,
   equipeItemStatusSchema,
+  ITEM_APPROVAL_ACTIONS,
   type EquipeItem,
   type EquipeItemFilter,
   type EquipeItemVersion,
@@ -95,6 +96,9 @@ export function makeMemoryProductionRepositories(
         "created"
       ),
     validateCreate: checkFields({ personKind: equipeActorTypeSchema }, ["personKind"]),
+    uniques: [(row) => row.objectType === "item" && row.objectVersion !== null &&
+      (ITEM_APPROVAL_ACTIONS as readonly string[]).includes(row.action)
+      ? `${row.objectId}:${row.objectVersion}` : null],
   });
   const receipts: EquipeReceiptRepository = {
     ...receiptsBase,

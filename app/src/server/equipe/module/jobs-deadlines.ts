@@ -90,7 +90,7 @@ async function sweepItems(ctx: CommandContext): Promise<{ expired: string[]; fai
   const items = await ctx.repos.items.list(scopeOf(ctx), {
     status: ["awaiting_approval", "adjusting", "held"],
   });
-  for (const item of items) {
+  for (const item of items.sort((a, b) => a.id.localeCompare(b.id))) {
     const limit = item.deadlineAt ?? (item.scheduledFor ? itemDeadlineFor(item.scheduledFor) : null);
     if (!limit || limit > ctx.now) continue;
     const outcome = await expireItemDeadlineInTx(ctx, item.id);

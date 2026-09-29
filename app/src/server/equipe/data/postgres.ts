@@ -288,7 +288,10 @@ function makePgAccounts(executor: PostgresEquipeExecutor): EquipeAccountReposito
           )
         )
         .limit(1);
-      const rows = await (options?.forUpdate ? query.for("update") : query);
+      // NO KEY UPDATE: still exclusive between account lockers, but does not block the
+      // FOR KEY SHARE that every child insert (events, versions, intents) takes through
+      // its account FK. FOR UPDATE here deadlocks against item-lock-then-insert commands.
+      const rows = await (options?.forUpdate ? query.for("no key update") : query);
       return rows[0] ?? null;
     },
     async findByClientProfile(

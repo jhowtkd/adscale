@@ -208,8 +208,16 @@ describe("ItemOverlay", () => {
   });
 
   it("edits the caption as a new version", async () => {
-    renderOverlay();
+    const view = renderOverlay();
     fireEvent.click(screen.getByTestId("item-edit-toggle"));
+    detailFixture = baseDetail({
+      item: { ...baseDetail().item, status: "scheduled", currentVersionHash: "hash-v3" },
+    });
+    view.rerender(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ItemOverlay accountId="acc-1" itemId="item-1" open onOpenChange={() => {}} />
+      </QueryClientProvider>,
+    );
     fireEvent.change(screen.getByTestId("item-edit-caption"), {
       target: { value: "Edited caption" },
     });
@@ -217,6 +225,8 @@ describe("ItemOverlay", () => {
     await waitFor(() => {
       expect(commandMocks.editEquipeCaption).toHaveBeenCalledWith("acc-1", {
         itemId: "item-1",
+        expectedVersionHash: "hash-v2",
+        expectedStatus: "awaiting_approval",
         caption: "Edited caption",
       });
     });
@@ -231,6 +241,8 @@ describe("ItemOverlay", () => {
     await waitFor(() => {
       expect(commandMocks.requestEquipeAdjustment).toHaveBeenCalledWith("acc-1", {
         itemId: "item-1",
+        expectedVersionHash: "hash-v2",
+        expectedStatus: "awaiting_approval",
         category: "brand",
         note: "off-voice",
       });
@@ -238,7 +250,7 @@ describe("ItemOverlay", () => {
   });
 
   it("declines with a reason and cancels scheduled items", async () => {
-    renderOverlay();
+    const view = renderOverlay();
     fireEvent.click(screen.getByTestId("item-decline-toggle"));
     expect(screen.getByTestId("item-decline-send")).toBeDisabled();
     fireEvent.change(screen.getByTestId("item-decline-reason"), { target: { value: "off-topic" } });
@@ -246,7 +258,26 @@ describe("ItemOverlay", () => {
     await waitFor(() => {
       expect(commandMocks.declineEquipePublish).toHaveBeenCalledWith("acc-1", {
         itemId: "item-1",
+        expectedVersionHash: "hash-v2",
+        expectedStatus: "awaiting_approval",
         reason: "off-topic",
+      });
+    });
+    detailFixture = baseDetail({
+      item: { ...baseDetail().item, status: "scheduled" },
+    });
+    view.rerender(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ItemOverlay accountId="acc-1" itemId="item-1" open onOpenChange={() => {}} />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(screen.getByTestId("item-cancel-toggle"));
+    fireEvent.click(screen.getByTestId("item-cancel-send"));
+    await waitFor(() => {
+      expect(commandMocks.cancelEquipeScheduled).toHaveBeenCalledWith("acc-1", {
+        itemId: "item-1",
+        expectedVersionHash: "hash-v2",
+        expectedStatus: "scheduled",
       });
     });
   });

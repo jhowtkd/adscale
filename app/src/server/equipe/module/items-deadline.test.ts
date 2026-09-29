@@ -68,7 +68,7 @@ describe("expire_item_deadline", () => {
     await seedInstagramConnection(t, ids);
     const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
     const { itemIds, versionHashes } = await deliverTestBatch(t, ids, {
-      items: [{ scheduledFor: PAST_LIMIT }, { scheduledFor: PAST_LIMIT }],
+      items: [{ scheduledFor: PAST_LIMIT }, { scheduledFor: FUTURE }],
     });
     await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
       type: "request_adjustment",

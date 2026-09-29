@@ -10,6 +10,7 @@ import { claimAgentWorkPayloadSchema, completeAgentWorkPayloadSchema, submitItem
 import { z } from "zod";
 import {
   equipeFrontKeySchema,
+  equipeItemStatusSchema,
   equipeOnboardingStepKeySchema,
   equipePersonRoleSchema,
 } from "../data";
@@ -190,14 +191,21 @@ export const approveBatchPayloadSchema = z.object({
     .max(50),
 });
 
+const itemDecisionExpectation = {
+  expectedVersionHash: versionHash.optional(),
+  expectedStatus: equipeItemStatusSchema.optional(),
+};
+
 export const requestAdjustmentPayloadSchema = z.object({
   itemId: uuid,
+  ...itemDecisionExpectation,
   category: z.enum(["fact", "brand", "voice", "visual", "other"]),
   note: z.string().max(2000).optional(),
 });
 
 export const editCaptionPayloadSchema = z.object({
   itemId: uuid,
+  ...itemDecisionExpectation,
   caption: z.string().min(1).max(4000),
 });
 
@@ -218,11 +226,13 @@ export const confirmBusinessFactPayloadSchema = z.object({
 
 export const declinePublishPayloadSchema = z.object({
   itemId: uuid,
+  ...itemDecisionExpectation,
   reason: z.string().min(1).max(2000),
 });
 
 export const cancelScheduledPayloadSchema = z.object({
   itemId: uuid,
+  ...itemDecisionExpectation,
 });
 
 export const choosePiecePayloadSchema = z.object({

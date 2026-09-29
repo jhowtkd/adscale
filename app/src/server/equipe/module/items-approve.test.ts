@@ -1,5 +1,6 @@
 import { seedInstagramConnection } from "./testing/publication";
 import { describe, expect, it } from "vitest";
+import { fixedClock } from "../domain";
 import { publicationIntentIdempotencyKey } from "../data";
 import { executeCommand } from "./commands";
 import type { BatchItemResult } from "./items-approve";
@@ -137,6 +138,61 @@ describe("approve_item", () => {
     });
     expect(outcome.ok).toBe(true);
     expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("scheduled");
+  });
+
+  it("rejects approval at the exact item deadline without writing a receipt or intent", async () => {
+    const { t, ids } = await setup();
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    const { itemIds, versionHashes } = await deliverTestBatch(t, ids, {
+      items: [{ scheduledFor: new Date("2026-10-09T12:00:00.000Z") }],
+    });
+    t.deps.clock = fixedClock(new Date("2026-10-09T10:00:00.000Z"));
+    const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "approve_item",
+      payload: { itemId: itemIds[0]!, expectedVersionHash: versionHashes[0]! },
+    });
+    expect(outcome).toMatchObject({ ok: false, error: { code: "item_limit_passed" } });
+    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("awaiting_approval");
+    expect(await t.deps.uow.repos.receipts.listByObject(scope, "item", itemIds[0]!)).toHaveLength(0);
+    expect(await t.deps.uow.repos.intents.list(scope)).toHaveLength(0);
+  });
+
+  it("reports an expired entry inside approve_batch", async () => {
+    const { t, ids } = await setup();
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    const { itemIds, versionHashes } = await deliverTestBatch(t, ids, {
+      items: [{ scheduledFor: new Date("2026-10-09T12:00:00.000Z") }],
+    });
+    t.deps.clock = fixedClock(new Date("2026-10-09T10:00:00.000Z"));
+    const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "approve_batch",
+      payload: { items: [{ itemId: itemIds[0]!, versionHash: versionHashes[0]! }] },
+    });
+    expect(outcome).toMatchObject({
+      ok: true,
+      value: { data: { results: [{ outcome: "not_ready", code: "item_limit_passed" }] } },
+    });
+    expect(await t.deps.uow.repos.receipts.list(scope)).toHaveLength(0);
+    expect(await t.deps.uow.repos.intents.list(scope)).toHaveLength(0);
+  });
+
+  it("does not treat a cancelled item's approval receipt as an idempotent approval", async () => {
+    const { t, ids } = await setup();
+    await seedInstagramConnection(t, ids);
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    const { itemIds, versionHashes } = await deliverTestBatch(t, ids);
+    expect((await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "approve_item", payload: { itemId: itemIds[0]!, expectedVersionHash: versionHashes[0]! },
+    })).ok).toBe(true);
+    expect((await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "cancel_scheduled", payload: { itemId: itemIds[0]! },
+    })).ok).toBe(true);
+    const retry = await executeCommand(t.deps, ctx(ids, ids.actors.substitute), {
+      type: "approve_item", payload: { itemId: itemIds[0]!, expectedVersionHash: versionHashes[0]! },
+    });
+    expect(retry).toMatchObject({ ok: false, error: { code: "invalid_transition" } });
+    expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("cancelled");
+    expect(await t.deps.uow.repos.receipts.listByObject(scope, "item", itemIds[0]!)).toHaveLength(2);
   });
 });
 

@@ -15,6 +15,7 @@ import {
   requestEquipeAdjustment,
   EquipeCommandError,
   type AdjustmentCategory,
+  type EquipeItemDecisionRef,
 } from "@/lib/equipe/commands";
 import { currentVersionOf, type ItemDetailJson } from "@/lib/equipe/api";
 import { useInvalidateEquipe } from "@/lib/equipe/use-equipe";
@@ -28,7 +29,8 @@ const ADJUSTMENT_CATEGORIES: AdjustmentCategory[] = ["fact", "brand", "voice", "
 
 function commandMessage(error: unknown, t: (key: string) => string): string {
   if (error instanceof EquipeCommandError) {
-    if (error.code === "version_mismatch") return t("versionMismatch");
+    if (["version_mismatch", "stale_version", "invalid_transition"].includes(error.code ?? "")) return t("versionMismatch");
+    if (error.code === "item_limit_passed") return t("deadlinePassed");
     if (error.code === "conference_pending") return t("conferencePending");
     if (error.code === "item_not_ready") return t("notReady");
     if (error.status === 403) return t("forbidden");
@@ -47,6 +49,7 @@ export default function ItemOverlayActions({
   const invalidate = useInvalidateEquipe(accountId);
   const [panel, setPanel] = useState<"edit" | "adjust" | "decline" | "report" | "cancel" | null>(null);
   const [draft, setDraft] = useState("");
+  const [decision, setDecision] = useState<EquipeItemDecisionRef | null>(null);
   const [category, setCategory] = useState<AdjustmentCategory>("fact");
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +85,11 @@ export default function ItemOverlayActions({
   const canAdjust = item.status === "awaiting_approval";
   const canDecline = item.status === "awaiting_approval" || item.status === "held";
   const canCancel = item.status === "scheduled" || item.status === "held";
-  const toggle = (next: typeof panel) => setPanel((open) => (open === next ? null : next));
+  const toggle = (next: typeof panel) => {
+    // Keep what the person opened, even if a background refetch updates detail.
+    setDecision({ itemId: item.id, expectedVersionHash: versionHash ?? undefined, expectedStatus: item.status });
+    setPanel((open) => (open === next ? null : next));
+  };
 
   return (
     <div className="flex flex-col gap-2" data-testid="item-actions">
@@ -190,7 +197,7 @@ export default function ItemOverlayActions({
         </p>
       ) : null}
 
-      {panel === "edit" ? (
+      {panel === "edit" && decision ? (
         <div className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-[var(--border-subtle)] p-3">
           <Textarea
             value={draft}
@@ -207,7 +214,7 @@ export default function ItemOverlayActions({
               size="sm"
               disabled={isPending || draft.trim().length === 0 || draft === (current?.caption ?? "")}
               onClick={() =>
-                void run(() => editEquipeCaption(accountId, { itemId: item.id, caption: draft }), t("editSaved"))
+                void run(() => editEquipeCaption(accountId, { ...decision, caption: draft }), t("editSaved"))
               }
               data-testid="item-edit-save"
             >
@@ -217,7 +224,7 @@ export default function ItemOverlayActions({
         </div>
       ) : null}
 
-      {panel === "adjust" ? (
+      {panel === "adjust" && decision ? (
         <div className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-[var(--border-subtle)] p-3">
           <label className="flex flex-col gap-1 text-xs text-[var(--text-secondary)]">
             {t("adjustCategory")}
@@ -252,7 +259,7 @@ export default function ItemOverlayActions({
                 void run(
                   () =>
                     requestEquipeAdjustment(accountId, {
-                      itemId: item.id,
+                      ...decision,
                       category,
                       ...(draft.trim() ? { note: draft.trim() } : {}),
                     }),
@@ -267,7 +274,7 @@ export default function ItemOverlayActions({
         </div>
       ) : null}
 
-      {panel === "decline" ? (
+      {panel === "decline" && decision ? (
         <div className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-[var(--border-subtle)] p-3">
           <Textarea
             value={draft}
@@ -285,7 +292,7 @@ export default function ItemOverlayActions({
               disabled={isPending || draft.trim().length === 0}
               onClick={() =>
                 void run(
-                  () => declineEquipePublish(accountId, { itemId: item.id, reason: draft.trim() }),
+                  () => declineEquipePublish(accountId, { ...decision, reason: draft.trim() }),
                   t("declined"),
                 )
               }
@@ -297,7 +304,7 @@ export default function ItemOverlayActions({
         </div>
       ) : null}
 
-      {panel === "cancel" ? (
+      {panel === "cancel" && decision ? (
         <div className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-[var(--border-subtle)] p-3">
           <p className="text-xs text-[var(--text-secondary)]">{t("cancelHint")}</p>
           <div>
@@ -306,7 +313,7 @@ export default function ItemOverlayActions({
               variant="default"
               size="sm"
               disabled={isPending}
-              onClick={() => void run(() => cancelEquipeScheduled(accountId, { itemId: item.id }), t("cancelled"))}
+              onClick={() => void run(() => cancelEquipeScheduled(accountId, decision), t("cancelled"))}
               data-testid="item-cancel-send"
             >
               {t("cancelConfirm")}

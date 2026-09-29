@@ -73,11 +73,20 @@ describe("equipe commands", () => {
 
   it("sends categorized adjustments, edits, declines, cancels, confirms and reports", async () => {
     mockedFetch.mockResolvedValue(okResponse({}));
-    await requestEquipeAdjustment("acc-1", { itemId: "i", category: "visual", note: "crop" });
-    await editEquipeCaption("acc-1", { itemId: "i", caption: "new" });
+    await requestEquipeAdjustment("acc-1", {
+      itemId: "i", expectedVersionHash: "h1", expectedStatus: "awaiting_approval",
+      category: "visual", note: "crop",
+    });
+    await editEquipeCaption("acc-1", {
+      itemId: "i", expectedVersionHash: "h1", expectedStatus: "awaiting_approval", caption: "new",
+    });
     await confirmEquipeBusinessFact("acc-1", { itemId: "i", expectedVersionHash: "h" });
-    await declineEquipePublish("acc-1", { itemId: "i", reason: "off-brand" });
-    await cancelEquipeScheduled("acc-1", { itemId: "i" });
+    await declineEquipePublish("acc-1", {
+      itemId: "i", expectedVersionHash: "h1", expectedStatus: "awaiting_approval", reason: "off-brand",
+    });
+    await cancelEquipeScheduled("acc-1", {
+      itemId: "i", expectedVersionHash: "h1", expectedStatus: "scheduled",
+    });
     await reportEquipeItemProblem("acc-1", { itemId: "i", note: "wrong price" });
     const types = mockedFetch.mock.calls.map(([, init]) =>
       (JSON.parse((init?.body as string) ?? "{}") as { type: string }).type,
@@ -93,7 +102,20 @@ describe("equipe commands", () => {
     const adjustment = JSON.parse(mockedFetch.mock.calls[0]![1]?.body as string) as {
       payload: Record<string, unknown>;
     };
-    expect(adjustment.payload).toEqual({ itemId: "i", category: "visual", note: "crop" });
+    expect(adjustment.payload).toEqual({
+      itemId: "i", expectedVersionHash: "h1", expectedStatus: "awaiting_approval",
+      category: "visual", note: "crop",
+    });
+    const payloads = mockedFetch.mock.calls.map(([, init]) =>
+      (JSON.parse((init?.body as string) ?? "{}") as { payload: Record<string, unknown> }).payload,
+    );
+    expect(payloads.slice(0, 5)).toEqual([
+      { itemId: "i", expectedVersionHash: "h1", expectedStatus: "awaiting_approval", category: "visual", note: "crop" },
+      { itemId: "i", expectedVersionHash: "h1", expectedStatus: "awaiting_approval", caption: "new" },
+      { itemId: "i", expectedVersionHash: "h" },
+      { itemId: "i", expectedVersionHash: "h1", expectedStatus: "awaiting_approval", reason: "off-brand" },
+      { itemId: "i", expectedVersionHash: "h1", expectedStatus: "scheduled" },
+    ]);
   });
 
   it("sends pause_publications and request_support without smuggled scope", async () => {

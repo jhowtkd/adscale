@@ -345,7 +345,7 @@ export async function expireEscalationClientWaitInTx(
   });
   let itemDeclined = false;
   if (row.itemId) {
-    const item = await ctx.repos.items.get(scope, row.itemId);
+    const item = await ctx.repos.items.get(scope, row.itemId, { forUpdate: true });
     if (
       item?.currentVersionHash &&
       (item.status === "awaiting_approval" || item.status === "held")

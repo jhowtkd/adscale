@@ -107,7 +107,7 @@ function ResultRow({ result, accountId }: { result: EquipeBatchItemResult; accou
     >
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] font-medium text-[var(--text-primary)]">{title}</p>
-        <p className="text-xs text-[var(--text-muted)]">{t(`outcome_${result.outcome}`)}</p>
+        <p className="text-xs text-[var(--text-muted)]">{t(`outcome_${result.code ?? result.outcome}`)}</p>
       </div>
       {ok ? null : (
         <Link

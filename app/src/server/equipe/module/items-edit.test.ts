@@ -115,6 +115,30 @@ describe("edit_caption", () => {
     expect((await t.deps.uow.repos.items.get(scope, itemIds[0]!))?.status).toBe("adjusting");
   });
 
+  it("rejects an edit form opened before approval without changing the scheduled item", async () => {
+    const { t, ids } = await setup();
+    await seedInstagramConnection(t, ids);
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    const { itemIds, versionHashes } = await deliverTestBatch(t, ids, { items: [{}] });
+    const openedWith = { expectedVersionHash: versionHashes[0]!, expectedStatus: "awaiting_approval" };
+    const approved = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "approve_item", payload: { itemId: itemIds[0]!, expectedVersionHash: versionHashes[0]! },
+    });
+    expect(approved.ok).toBe(true);
+
+    const staleEdit = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "edit_caption",
+      payload: { itemId: itemIds[0]!, ...openedWith, caption: "versão antiga do formulário" },
+    });
+    expect(staleEdit).toMatchObject({ ok: false, error: { code: "stale_version" } });
+    const item = await t.deps.uow.repos.items.get(scope, itemIds[0]!);
+    expect(item).toMatchObject({ status: "scheduled", currentVersionHash: versionHashes[0]! });
+    expect(await t.deps.uow.repos.itemVersions.list(scope, { itemId: itemIds[0]! })).toHaveLength(1);
+    expect(await t.deps.uow.repos.receipts.listByObject(scope, "item", itemIds[0]!)).toHaveLength(1);
+    expect(await t.deps.uow.repos.intents.getByItemVersion(scope, itemIds[0]!, versionHashes[0]!))
+      .toMatchObject({ status: "pending" });
+  });
+
   it("rejects an unchanged caption", async () => {
     const { t, ids } = await setup();
     const { itemIds } = await deliverTestBatch(t, ids);

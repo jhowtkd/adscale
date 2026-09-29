@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "equipe_receipts_item_approval_uq" ON "adscale_equipe"."equipe_receipts" USING btree ("workspace_id","account_id","object_id","object_version") WHERE "adscale_equipe"."equipe_receipts"."object_type" = 'item' and "adscale_equipe"."equipe_receipts"."action" in ('approve_item', 'approve_batch', 'choose_piece');

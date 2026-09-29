@@ -5561,11 +5561,14 @@
       "outcome_approved": "approved",
       "outcome_changed_since_opened": "changed since you opened it",
       "outcome_not_ready": "not ready",
+      "outcome_item_limit_passed": "approval deadline passed",
+      "outcome_invalid_transition": "this item already received another decision",
       "outcome_already_decided": "already decided",
       "outcome_unknown_item": "unknown item"
     },
     "item": {
       "versionMismatch": "Changed since you opened it, review again.",
+      "deadlinePassed": "The approval deadline passed. Wait for a new proposed time.",
       "conferencePending": "This item is still in calibration conference.",
       "notReady": "This item is not ready for approval.",
       "forbidden": "Only the approver or the substitute decides.",

@@ -109,10 +109,20 @@ export async function approveAll(
   const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
   for (const itemId of itemIds) {
     const item = await t.deps.uow.repos.items.get(scope, itemId);
-    const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
-      type: "approve_item",
-      payload: { itemId, expectedVersionHash: item?.currentVersionHash ?? "missing" },
-    });
+    const originalNow = t.deps.clock.now();
+    const limit = item?.deadlineAt ?? (item?.scheduledFor
+      ? new Date(item.scheduledFor.getTime() - 2 * 60 * 60 * 1000)
+      : null);
+    if (limit && originalNow >= limit) t.deps.clock = fixedClock(new Date(limit.getTime() - 1));
+    let outcome;
+    try {
+      outcome = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+        type: "approve_item",
+        payload: { itemId, expectedVersionHash: item?.currentVersionHash ?? "missing" },
+      });
+    } finally {
+      t.deps.clock = fixedClock(originalNow);
+    }
     if (!outcome.ok) {
       throw new Error(`approveAll failed: ${outcome.error.code} ${outcome.error.message}`);
     }
