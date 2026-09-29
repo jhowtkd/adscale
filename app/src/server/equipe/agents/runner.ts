@@ -6,6 +6,7 @@
 // an `agent.budget_exceeded` event. (The exception command itself arrives
 // with #547.)
 
+import { itemWorkInputSchema, runItemWork } from "./item-work";
 import { z } from "zod";
 import type { Agents, AgentTask, AgentTaskResult, EquipeModuleDeps } from "../module/ports";
 import { runArtDirection } from "./art-direction";
@@ -67,6 +68,10 @@ const taskInputSchemas = {
     copy: z.object({ headline: z.string(), body: z.string(), cta: z.string() }),
     facts: z.array(z.string()).optional(),
   }),
+  review_caption: itemWorkInputSchema,
+  plan_adjustment: itemWorkInputSchema,
+  plan_replacement: itemWorkInputSchema,
+  plan_reschedule: itemWorkInputSchema,
   review_visual: z.object({ imageUrl: z.string().min(1), brief: z.string().default("") }),
   measurement: z.object({
     brandId: z.string().min(1),
@@ -81,6 +86,10 @@ const KIND_ROLES: Record<EquipeAgentTaskKind, EquipeAgentRole> = {
   art_direction: "strategist",
   review_text: "reviewer_text",
   review_visual: "reviewer_visual",
+  review_caption: "reviewer_text",
+  plan_adjustment: "research",
+  plan_replacement: "strategist",
+  plan_reschedule: "strategist",
   measurement: "measurement",
 };
 
@@ -195,6 +204,17 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
       try {
         const input = parsedInput.data as { message?: string; maxIterations?: number } & Record<string, unknown>;
         switch (kind) {
+          case "review_caption":
+          case "plan_adjustment":
+          case "plan_replacement":
+          case "plan_reschedule": {
+            const model = kind === "review_caption" ? resolveReviewerModel()
+              : kind === "plan_adjustment" ? resolveResearchModel() : resolveStrategistModel();
+            const effort = kind === "review_caption" ? resolveReviewerEffort()
+              : kind === "plan_adjustment" ? resolveResearchEffort() : resolveStrategistEffort();
+            return { ok: true, output: await runItemWork({ kind, input: itemWorkInputSchema.parse(task.input),
+              client: clientForModel(model), model, effort, onModelCall: recordCall }) };
+          }
           case "strategist_turn": {
             const model = resolveStrategistModel();
             const output = await runStrategistTurn({

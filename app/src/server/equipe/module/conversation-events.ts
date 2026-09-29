@@ -1,0 +1,52 @@
+import type { EquipeEvent } from "../data";
+import type { CommandContext } from "./shared";
+import type { CreateAssistantMessageInput } from "../../repositories/assistant-message";
+import { buildBatchCard } from "../agents/cards";
+import { templateFor } from "../jobs/notification-templates";
+
+/** One source event -> one message, in the same store read by the Assistant. */
+export async function projectConversationEvent(ctx: CommandContext, event: EquipeEvent) {
+  const payload = (event.payload ?? {}) as Record<string, unknown>;
+  const reminders = ["implantation.reminder_day2", "implantation.reminder_day5", "batch.reminder_24h", "batch.reminder_item_4h", "escalation.client_reminder"];
+  const reminder = event.eventType === "notification.requested" && reminders.includes(String(payload.templateKey));
+  if (!reminder && ![
+    "staff.message_posted", "staff.contact_registered", "support_exception.assumed",
+    "support_exception.closed", "support_exception.opened", "batch.delivered",
+  ].includes(event.eventType)) return null;
+  const scope = { workspaceId: ctx.workspaceId, accountId: ctx.accountId };
+  if (event.workspaceId !== scope.workspaceId || event.accountId !== scope.accountId) {
+    throw new Error("conversation_event_scope_mismatch");
+  }
+  const primary = (await ctx.repos.threads.list(scope)).find((row) => row.kind === "primary");
+  if (!primary?.assistantThreadId) return null;
+  const account = await ctx.repos.accounts.get(scope.workspaceId, scope.accountId);
+  const thread = await ctx.repos.conversations.get(scope.workspaceId, primary.assistantThreadId);
+  if (!account || !thread || thread.clientProfileId !== account.clientProfileId) {
+    throw new Error("conversation_thread_scope_mismatch");
+  }
+  const actor = event.actorType === "staff" ? "staff" : event.actorType === "agent" ? "agent" : "system";
+  const staff = actor === "staff" && event.actorId ? await ctx.internal.staff.get(event.actorId) : null;
+  const name = typeof payload.staffName === "string" ? payload.staffName : staff?.displayName ?? "Equipe";
+  let input: CreateAssistantMessageInput;
+  if (event.eventType === "staff.message_posted" || event.eventType === "staff.contact_registered") {
+    if (actor !== "staff" || !event.actorId) throw new Error("invalid_staff_message_author");
+    input = {
+      threadId: thread.id, type: "staff_message",
+      content: String(payload.body ?? payload.summary ?? ""),
+      payload: { staffId: event.actorId, name },
+    };
+  } else if (event.eventType === "batch.delivered" && event.objectId) {
+    const card = await buildBatchCard(ctx.repos, scope.workspaceId, scope.accountId, event.objectId);
+    if (!card || card.items.length === 0) return null;
+    input = { threadId: thread.id, type: "equipe_card", content: `Lote pronto para revisar: ${card.title}`, payload: { ...card, actor, actorId: event.actorId } };
+  } else {
+    const text = reminder ? templateFor(String(payload.templateKey)).template.message
+      : event.eventType === "support_exception.assumed" ? `${name} entrou na conversa.`
+        : event.eventType === "support_exception.closed" ? `${name} devolveu a conversa ao Estrategista IA.`
+          : "Chamei uma pessoa da equipe para ajudar aqui.";
+    input = { threadId: thread.id, type: "equipe_event", content: text,
+      payload: { kind: reminder ? "reminder" : event.eventType, text, actor, actorId: event.actorId, ...(actor === "staff" ? { actorName: name } : {}) } };
+  }
+  const posted = await ctx.repos.conversations.post(scope.workspaceId, event.id, input);
+  return { messageId: posted.id, threadId: thread.id };
+}

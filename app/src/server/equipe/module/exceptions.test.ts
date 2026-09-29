@@ -25,6 +25,7 @@ describe("open_exception / request_support", () => {
       "repeated_silence",
       "out_of_contract_request",
       "dissatisfaction_signal",
+      "production_fix",
       "cancel_request",
       "critical_incident",
       "off_app_material",

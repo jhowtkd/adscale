@@ -1,12 +1,8 @@
 // Estrategista IA: tool-calling loop over the module (#550).
 //
-// Tools are ONLY the module's read queries and the commands the `agent`
-// actor may run that exist today: propose context section, propose
-// plan/mandate, advance onboarding. Commands arrive later for propose
-// idea, ask a question, create version, record finding, open
-// exception/escalation (#545/#547) — they join this list when they exist.
-// There is NO approval tool, and unknown tool names (a hallucinated
-// `approve_*`) are rejected before reaching the module.
+// Tools expose account queries, implantation proposals and delivery/version
+// commands over existing Trabalhos/Peças. No approval action is available;
+// hallucinated or unknown tool names are rejected before the module.
 
 import type { EquipeModuleDeps } from "../module/ports";
 import { executeCommand } from "../module/commands";
@@ -15,9 +11,13 @@ import {
   proposeContextSectionPayloadSchema,
   proposeMandatePayloadSchema,
   proposePlanPayloadSchema,
+  deliverBatchPayloadSchema,
+  submitCorrectedVersionPayloadSchema,
   type CommandType,
 } from "../module/envelope";
-import { getAccountState, getGoalsView } from "../module/queries";
+import { submitItemVersionPayloadSchema } from "../module/agent-work-contract";
+import { getAccountState, getGoalsView, getClientPipeline, getItemDetail } from "../module/queries";
+import { z } from "zod";
 import {
   EquipeModelRefusalError,
   EquipeModelTruncatedError,
@@ -29,6 +29,7 @@ import {
 import type { EquipeEffort } from "./provider";
 import { EQUIPE_PROMPT_VERSION, strategistSystemPrompt } from "./prompts";
 import { resolveStrategistEffort, resolveStrategistModel } from "./roles";
+import { loadInstagramAuth } from "../publishing/auth";
 
 export const STRATEGIST_AGENT_ID = "estrategista";
 
@@ -37,7 +38,14 @@ const AGENT_COMMAND_TOOLS: CommandType[] = [
   "propose_plan",
   "propose_mandate",
   "advance_onboarding",
+  "deliver_batch",
+  "submit_item_version",
+  "submit_corrected_version",
 ];
+
+const strategistBatchPayloadSchema = deliverBatchPayloadSchema.extend({
+  items: z.array(deliverBatchPayloadSchema.shape.items.element.omit({ destinationAccount: true })).min(1).max(50),
+});
 
 export type StrategistToolContext = {
   deps: EquipeModuleDeps;
@@ -80,6 +88,64 @@ async function runCommandTool(
 /** The exact tool list the strategist sees. No approval action exists here. */
 export function buildStrategistTools(ctx: StrategistToolContext): StrategistTool[] {
   return [
+    {
+      name: "submit_corrected_version",
+      description: "Submit an existing corrected Peça/caption for a calibration item returned by Quality. Returns to Quality conference; never releases or approves.",
+      parameters: { type: "object", properties: {
+        roundId: { type: "string" }, itemId: { type: "string" },
+        caption: { type: "string" }, creativeWorkOutputId: { type: "string" },
+      }, required: ["roundId", "itemId"], additionalProperties: false },
+      run: (args) => runCommandTool(ctx, "submit_corrected_version", submitCorrectedVersionPayloadSchema.parse(args)),
+    },
+    {
+      name: "get_pipeline",
+      description: "Read this account's items and their review/decision states.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+      run: () => getClientPipeline(ctx.deps.uow.repos, ctx.workspaceId, ctx.accountId),
+    },
+    {
+      name: "get_item",
+      description: "Read an item, its Trabalho, versions and review findings, within this account.",
+      parameters: { type: "object", properties: { itemId: { type: "string" } }, required: ["itemId"], additionalProperties: false },
+      run: (args) => getItemDetail(ctx.deps.uow.repos, ctx.workspaceId, ctx.accountId, z.object({ itemId: z.string().uuid() }).parse(args).itemId),
+    },
+    {
+      name: "submit_item_version",
+      description: "Submit a corrected caption or an existing Peça from the item's Trabalho. Requires the current hash and goes through review; never approves.",
+      parameters: { type: "object", properties: {
+        itemId: { type: "string" }, expectedVersionHash: { type: "string" },
+        caption: { type: "string" }, creativeWorkOutputId: { type: "string" },
+      }, required: ["itemId", "expectedVersionHash", "caption"], additionalProperties: false },
+      run: (args) => runCommandTool(ctx, "submit_item_version", submitItemVersionPayloadSchema.parse(args)),
+    },
+    {
+      name: "deliver_batch",
+      description: "Deliver existing Trabalhos/Peças for client review on the social_instagram front. The server selects the connected Instagram or a neutral manual destination. Never invent output IDs and never approves or publishes.",
+      parameters: { type: "object", properties: {
+        title: { type: "string" }, frontId: { type: "string" }, approveByAt: { type: "string" },
+        items: { type: "array", items: { type: "object", properties: {
+          creativeWorkId: { type: "string" }, creativeWorkOutputId: { type: "string" }, caption: { type: "string" },
+          scheduledFor: { type: "string" }, needsConfirmation: { type: "boolean" },
+        }, required: ["creativeWorkId", "creativeWorkOutputId", "caption", "scheduledFor", "needsConfirmation"], additionalProperties: false } },
+      }, required: ["title", "frontId", "approveByAt", "items"], additionalProperties: false },
+      run: async (args) => {
+        const payload = strategistBatchPayloadSchema.parse(args);
+        const scope = { workspaceId: ctx.workspaceId, accountId: ctx.accountId };
+        const front = await ctx.deps.uow.repos.fronts.get(scope, payload.frontId);
+        if (front?.key !== "social_instagram") {
+          throw new Error("deliver_batch requires this account's social_instagram front");
+        }
+        const connection = (await ctx.deps.uow.repos.connections.list(scope)).find((row) => row.provider === "instagram");
+        let destinationAccount = "instagram";
+        if (connection?.status === "active") {
+          const auth = await loadInstagramAuth(ctx.deps.uow.repos, scope);
+          destinationAccount = `instagram:${auth.igUsername ? `@${auth.igUsername}` : auth.igUserId}`;
+        }
+        return runCommandTool(ctx, "deliver_batch", {
+          ...payload, items: payload.items.map((item) => ({ ...item, destinationAccount })),
+        });
+      },
+    },
     {
       name: "get_account_state",
       description: "Read the account status, fronts, and pending onboarding steps.",

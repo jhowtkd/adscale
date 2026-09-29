@@ -31,6 +31,8 @@ import type {
   EquipeThread,
 } from "./types";
 import { EquipeConflictError, EquipeNotFoundError } from "./types";
+import type { ConversationThread } from "./repositories";
+import type { CreateAssistantMessageInput } from "../../repositories/assistant-message";
 
 // Núcleo da implementação em memória: loja (tabelas), construção de linhas,
 // validações que espelham os checks do banco e as fábricas genéricas de
@@ -50,6 +52,8 @@ export type MemoryAdscaleProfile = { id: string; workspaceId: string; name: stri
 export type MemoryAdscaleWorkspace = { id: string; name: string };
 
 export type MemoryEquipeStore = {
+  assistantThreads: MemoryTable<ConversationThread>;
+  assistantMessages: MemoryTable<CreateAssistantMessageInput & { id: string; workspaceId: string }>;
   accounts: MemoryTable<EquipeAccount>;
   adscaleProfiles: MemoryTable<MemoryAdscaleProfile>;
   adscaleWorkspaces: MemoryTable<MemoryAdscaleWorkspace>;
@@ -81,6 +85,8 @@ export type MemoryEquipeStore = {
 
 export function createMemoryEquipeStore(): MemoryEquipeStore {
   return {
+    assistantThreads: new MemoryTable(),
+    assistantMessages: new MemoryTable(),
     accounts: new MemoryTable(),
     adscaleProfiles: new MemoryTable(),
     adscaleWorkspaces: new MemoryTable(),

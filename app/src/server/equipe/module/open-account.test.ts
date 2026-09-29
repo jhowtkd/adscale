@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { addBusinessDays, type Actor } from "../domain";
 import { executeCommand } from "./commands";
+import { PRIMARY_THREAD_ENSURED_EVENT } from "./threads";
 import { makeTestDeps, openTestAccount, seedStaff, testActors, uuid } from "./testing/deps";
 
 const NOW = new Date("2026-10-05T14:00:00.000Z");
@@ -10,6 +11,25 @@ function setup() {
 }
 
 describe("open_account", () => {
+  it("reuses an existing client conversation without a hand-seeded Equipe link", async () => {
+    const t = setup();
+    const operations = await seedStaff(t, "operations");
+    const workspaceId = uuid();
+    const clientProfileId = uuid();
+    t.gateway.addProfile({ id: clientProfileId, workspaceId });
+    const thread = await t.deps.uow.repos.conversations.ensurePrimary(workspaceId, clientProfileId);
+    const opened = await executeCommand(t.deps, { actor: operations, workspaceId }, {
+      type: "open_account", payload: { clientProfileId, fronts: ["social_instagram"], people: [{ name: "Ana", role: "approver" }] },
+    });
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+    expect(opened.value.data.assistantThreadId).toBe(thread.id);
+    expect(t.store.assistantThreads.rows.size).toBe(1);
+    expect(await t.deps.uow.repos.threads.list({ workspaceId, accountId: opened.value.accountId })).toEqual([
+      expect.objectContaining({ kind: "primary", assistantThreadId: thread.id }),
+    ]);
+  });
+
   it("creates the account, fronts, 7 steps and people in one command", async () => {
     const t = setup();
     const operations = await seedStaff(t, "operations");
@@ -59,8 +79,9 @@ describe("open_account", () => {
     expect(people.map((p) => p.role).sort()).toEqual(["approver", "member", "substitute"]);
 
     const eventTypes = outcome.value.events.map((e) => e.eventType);
-    expect(eventTypes).toEqual(["account.opened", "notification.requested"]);
-    const notification = outcome.value.events[1]?.payload as Record<string, unknown>;
+    expect(eventTypes).toEqual([PRIMARY_THREAD_ENSURED_EVENT, "account.opened", "notification.requested"]);
+    expect(outcome.value.data.assistantThreadId).toBeTruthy();
+    const notification = outcome.value.events[2]?.payload as Record<string, unknown>;
     expect(notification).toMatchObject({ recipientRole: "approver", templateKey: "account.opened" });
 
     // The Notifier port is never called inside the transaction.

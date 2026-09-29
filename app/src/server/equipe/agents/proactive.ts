@@ -1,89 +1,23 @@
-// Proactive Equipe messages (#551): batch ready, reminders, and
-// "chamei uma pessoa", written by the module side (actor system/agent) to
-// the account's MAIN thread through the assistant message repository.
-// Jobs and agents call this; the chat UI never does. When the account has
-// no primary thread yet, the post is skipped (null) instead of failing.
-
-import type { EquipeEventPayload } from "@/server/repositories/assistant-types";
+// Reproject a persisted module event. New commands project in their transaction;
+// jobs can replay older events using the same source id without duplicate posts.
 import type { EquipeModuleDeps } from "../module/ports";
-import { getEquipeThreads } from "../module/threads";
-import { buildBatchCard } from "./cards";
-import type { EquipeConversationWriter } from "./chat-turn";
-
-export type ProactiveEquipeMessage =
-  | { kind: "batch_ready"; batchId: string; text?: string; actor?: "system" | "agent" }
-  | { kind: "reminder"; text: string; actor?: "system" | "agent"; ref?: { itemId?: string; batchId?: string } }
-  | { kind: "staff_called"; staffName: string; text?: string; actor?: "system" | "agent" }
-  | { kind: "custom_event"; eventKind: string; text: string; actor?: "system" | "agent" };
+import { projectConversationEvent } from "../module/conversation-events";
 
 export type PostProactiveMessageInput = {
   deps: EquipeModuleDeps;
-  messages: EquipeConversationWriter;
   workspaceId: string;
   accountId: string;
-  message: ProactiveEquipeMessage;
+  sourceEventId: string;
 };
 
-export type ProactivePostResult = {
-  messageId: string;
-  threadId: string;
-};
-
-export async function postProactiveMessage(
-  input: PostProactiveMessageInput,
-): Promise<ProactivePostResult | null> {
-  const view = await getEquipeThreads(input.deps.uow.repos, input.workspaceId, input.accountId);
-  const assistantThreadId = view?.primary?.assistantThreadId ?? null;
-  if (!assistantThreadId) return null;
-
-  if (input.message.kind === "batch_ready") {
-    const card = await buildBatchCard(
-      input.deps.uow.repos,
-      input.workspaceId,
-      input.accountId,
-      input.message.batchId,
-    );
-    if (card) {
-      const content = input.message.text ?? `Lote pronto para revisar: ${card.title}`;
-      const posted = await input.messages.post({
-        threadId: assistantThreadId,
-        type: "equipe_card",
-        content,
-        payload: { ...card, items: card.items.map((item) => ({ ...item })) },
-      });
-      return { messageId: posted.id, threadId: assistantThreadId };
-    }
-  }
-
-  const event = toEventPayload(input.message);
-  const posted = await input.messages.post({
-    threadId: assistantThreadId,
-    type: "equipe_event",
-    content: event.text,
-    payload: { ...event },
+export async function postProactiveMessage(input: PostProactiveMessageInput) {
+  return input.deps.uow.run(async (repos, internal) => {
+    const scope = { workspaceId: input.workspaceId, accountId: input.accountId };
+    const event = await repos.events.get(scope, input.sourceEventId);
+    if (!event) throw new Error("unknown_conversation_event");
+    return projectConversationEvent({
+      ...scope, repos, internal, actor: { kind: "system", job: "conversation-projection" },
+      now: input.deps.clock.now(), events: [],
+    }, event);
   });
-  return { messageId: posted.id, threadId: assistantThreadId };
-}
-
-function toEventPayload(message: ProactiveEquipeMessage): EquipeEventPayload {
-  switch (message.kind) {
-    case "batch_ready":
-      return { kind: "batch_ready", text: message.text ?? "Um lote ficou pronto para revisar.", actor: message.actor ?? "agent" };
-    case "reminder":
-      return {
-        kind: "reminder",
-        text: message.text,
-        actor: message.actor ?? "system",
-        ...(message.ref ? { ref: message.ref } : {}),
-      };
-    case "staff_called":
-      return {
-        kind: "staff_called",
-        text: message.text ?? `Chamei ${message.staffName} para ajudar aqui.`,
-        actor: message.actor ?? "agent",
-        actorName: message.staffName,
-      };
-    case "custom_event":
-      return { kind: message.eventKind, text: message.text, actor: message.actor ?? "system" };
-  }
 }

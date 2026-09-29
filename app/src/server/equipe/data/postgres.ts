@@ -75,6 +75,8 @@ import {
   makePgThreads,
 } from "./postgres-dispatch";
 
+import { makePgConversations } from "./conversations";
+
 // Implementação Postgres dos repositórios da Equipe. Recebe o executor
 // (db ou transação) por parâmetro — nunca importa o db global, para os
 // testes unitários poderem importar este módulo sem DATABASE_URL.
@@ -154,13 +156,12 @@ export async function pgGet<T extends ScopedPgTable>(
   executor: PostgresEquipeExecutor,
   table: T,
   scope: AccountScope,
-  id: string
+  id: string,
+  options?: { forUpdate: boolean },
 ): Promise<T["$inferSelect"] | null> {
-  const rows = (await executor
-    .select()
-    .from(table as PgTable)
-    .where(and(...scopeConditions(table, scope), eq(table.id, id)))
-    .limit(1)) as T["$inferSelect"][];
+  const query = executor.select().from(table as PgTable)
+    .where(and(...scopeConditions(table, scope), eq(table.id, id))).limit(1);
+  const rows = (await (options?.forUpdate ? query.for("update") : query)) as T["$inferSelect"][];
   return rows[0] ?? null;
 }
 
@@ -226,7 +227,7 @@ export function makePgAccountRepo<T extends MutablePgTable, C, P, F = undefined>
   return {
     create: (scope, input) =>
       pgCreate(executor, opts.table, scope, input as T["$inferInsert"]),
-    get: (scope, id) => pgGet(executor, opts.table, scope, id),
+    get: (scope, id, options) => pgGet(executor, opts.table, scope, id, options),
     list: (scope, filter) =>
       pgList(
         executor,
@@ -251,7 +252,7 @@ export function makePgAppendRepo<T extends ScopedPgTable, C, F = undefined>(
   return {
     create: (scope, input) =>
       pgCreate(executor, opts.table, scope, input as T["$inferInsert"]),
-    get: (scope, id) => pgGet(executor, opts.table, scope, id),
+    get: (scope, id, options) => pgGet(executor, opts.table, scope, id, options),
     list: (scope, filter) => {
       const extra =
         filter === undefined ? undefined : opts.buildFilter?.(opts.table, filter);
@@ -276,8 +277,8 @@ function makePgAccounts(executor: PostgresEquipeExecutor): EquipeAccountReposito
         throw mapPgError(error);
       }
     },
-    async get(workspaceId: string, accountId: string): Promise<EquipeAccount | null> {
-      const rows = await executor
+    async get(workspaceId: string, accountId: string, options?: { forUpdate: boolean }): Promise<EquipeAccount | null> {
+      const query = executor
         .select()
         .from(equipeAccounts)
         .where(
@@ -287,6 +288,7 @@ function makePgAccounts(executor: PostgresEquipeExecutor): EquipeAccountReposito
           )
         )
         .limit(1);
+      const rows = await (options?.forUpdate ? query.for("update") : query);
       return rows[0] ?? null;
     },
     async findByClientProfile(
@@ -388,6 +390,7 @@ export function createPostgresEquipeRepositories(
   executor: PostgresEquipeExecutor
 ): EquipeRepositories {
   return {
+    conversations: makePgConversations(executor),
     accounts: makePgAccounts(executor),
     people: makePgAccountRepo<typeof equipeAccountPeople, NewEquipeAccountPerson, EquipeAccountPersonPatch>(
       executor,

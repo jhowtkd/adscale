@@ -1,3 +1,4 @@
+import { runClaimAgentWork, runCompleteAgentWork, runSubmitItemVersion } from "./agent-work";
 // executeCommand: the module's single entry point.
 //
 // Trust boundary: `context` ({ actor, workspaceId, accountId? }) is trusted
@@ -110,6 +111,9 @@ import { runRecordNotificationDelivered } from "./jobs-delivery";
 
 const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
   open_account: "open_account",
+  claim_agent_work: "record_delivery",
+  complete_agent_work: "create_version",
+  submit_item_version: "create_version",
   confirm_scope: "confirm_scope",
   register_material: "register_material",
   propose_context_section: "propose_context_section",
@@ -256,6 +260,15 @@ export async function executeCommand(
   };
   let outcome: Result<CommandSuccess>;
   switch (command.type) {
+    case "claim_agent_work":
+      outcome = await runClaimAgentWork(deps, base, command.payload);
+      break;
+    case "complete_agent_work":
+      outcome = await runCompleteAgentWork(deps, base, command.payload);
+      break;
+    case "submit_item_version":
+      outcome = await runSubmitItemVersion(deps, base, command.payload);
+      break;
     case "open_account":
       outcome = await runOpenAccount(deps, base, command.payload);
       break;

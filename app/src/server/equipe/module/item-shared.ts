@@ -96,6 +96,8 @@ export type ItemVersionFindings = {
   needsConfirmation?: boolean;
   blocked?: boolean;
   warnings?: string[];
+  findings?: Array<{ severity: string; area: string; message: string; suggestion: string | null }>;
+  summary?: string;
 };
 
 export function parseVersionFindings(value: unknown): ItemVersionFindings {
@@ -107,7 +109,15 @@ export function parseVersionFindings(value: unknown): ItemVersionFindings {
   if (Array.isArray(findings.warnings)) {
     out.warnings = findings.warnings.filter((w): w is string => typeof w === "string");
   }
+  if (Array.isArray(findings.findings)) out.findings = findings.findings as NonNullable<ItemVersionFindings["findings"]>;
+  if (typeof findings.summary === "string") out.summary = findings.summary;
   return out;
+}
+
+export function versionFindings(version: EquipeItemVersion | null, events: EquipeEvent[]): ItemVersionFindings {
+  const review = events.findLast((event) => event.eventType === "item.reviewed" &&
+    (event.payload as { versionHash?: string } | null)?.versionHash === version?.versionHash);
+  return { ...parseVersionFindings(version?.reviewerFindings), ...parseVersionFindings(review?.payload) };
 }
 
 export type CaptionTriageRecord = {
@@ -179,7 +189,7 @@ export function resolveItemReview(input: {
   hasOpenEscalation?: boolean;
 }): ItemReview {
   const { item, currentVersion, itemEvents, hasOpenEscalation = false } = input;
-  const findings = parseVersionFindings(currentVersion?.reviewerFindings);
+  const findings = versionFindings(currentVersion, itemEvents);
   let triage: CaptionTriageRecord | null = null;
   for (const event of itemEvents) {
     const record = parseTriageEvent(event);
@@ -201,7 +211,8 @@ export function resolveItemReview(input: {
   }
   const editedCurrent = itemEvents.some(
     (event) =>
-      event.eventType === CAPTION_EDITED_EVENT &&
+      (event.eventType === CAPTION_EDITED_EVENT || event.eventType === "item.version_submitted" ||
+          (event.eventType === "item.rescheduled" && (event.payload as { needsReview?: boolean } | null)?.needsReview === true)) &&
       (event.payload as { versionHash?: unknown } | null)?.versionHash === item.currentVersionHash,
   );
   const flags: ItemReviewFlags = {
@@ -213,10 +224,9 @@ export function resolveItemReview(input: {
       triage?.path === "update_catalog_only",
     editedInReview: editedCurrent && (!triage || triage.qualityRecheckPending),
     editWarning:
-      triage !== null &&
-      triage.warnings.length > 0 &&
-      triage.path !== "block_and_escalate" &&
-      triage.path !== "update_catalog_only",
+      ((triage?.warnings.length ?? 0) > 0 || (findings.warnings?.length ?? 0) > 0) &&
+      triage?.path !== "block_and_escalate" &&
+      triage?.path !== "update_catalog_only",
     needsConfirmation:
       !factConfirmed &&
       (triage?.path === "confirm_as_business_fact" || findings.needsConfirmation === true),
@@ -264,8 +274,9 @@ export function storedDestinationOf(
 export async function loadItemOrError(
   ctx: CommandContext,
   itemId: string,
+  forUpdate = false,
 ): Promise<Result<EquipeItem>> {
-  const item = await ctx.repos.items.get(scopeOf(ctx), itemId);
+  const item = await ctx.repos.items.get(scopeOf(ctx), itemId, { forUpdate });
   if (!item) return err("unknown_item", `unknown item ${itemId}`);
   return ok(item);
 }

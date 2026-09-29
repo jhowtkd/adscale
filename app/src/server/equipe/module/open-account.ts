@@ -4,6 +4,7 @@
 //
 // Not named in the plan; needed to start everything, kept minimal.
 
+import { ensurePrimaryThreadInTx } from "./threads";
 import { z } from "zod";
 import { addBusinessDays } from "../domain";
 import type { EquipeOnboardingStepKey } from "../data";
@@ -80,6 +81,8 @@ export async function runOpenAccount(
         dueAt: addBusinessDays(ctx.now, plan.dueInBusinessDays),
       });
     }
+    const thread = await ensurePrimaryThreadInTx(ctx);
+    if (!thread.ok) return thread;
     await appendEvent(ctx, {
       eventType: "account.opened",
       objectType: "account",
@@ -87,6 +90,6 @@ export async function runOpenAccount(
       payload: { clientProfileId: payload.clientProfileId, fronts: payload.fronts },
     });
     await requestNotification(ctx, { recipientRole: "approver", templateKey: "account.opened" });
-    return ok({ accountId: account.id });
+    return ok({ accountId: account.id, assistantThreadId: thread.value.assistantThreadId });
   });
 }

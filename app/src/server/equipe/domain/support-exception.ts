@@ -15,6 +15,7 @@ export type SupportExceptionTrigger =
   | "repeated_silence" // Three batches missing windows, or 2nd inconclusive round
   | "out_of_contract_request" // Commercial exception
   | "dissatisfaction_signal" // Complaint, negative tone
+  | "production_fix" // A person must produce a corrected piece
   | "cancel_request" // Client asks to cancel
   | "critical_incident" // Critical or cross-account incident
   | "off_app_material"; // Material only exists outside the app

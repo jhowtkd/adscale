@@ -8,6 +8,7 @@ import { getClientProfile, getClientProfiles } from "@/server/repositories/clien
 import { getCreativeWork, getCreativeWorkOutputInWorkspace } from "@/server/repositories/creative-work";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getCommercialOfferInWorkspace } from "@/server/repositories/commercial-offer";
+import { objectStorage } from "@/server/storage";
 import { getWorkspaceById } from "@/server/repositories/workspace";
 import { getWorkspaceMembers } from "@/server/auth/team";
 import type {
@@ -52,7 +53,8 @@ export class LiveAdscaleGateway implements AdscaleGateway {
   async getCreativeWorkOutput(outputId: string): Promise<AdscaleCreativeWorkOutputRef | null> {
     const found = await getCreativeWorkOutputInWorkspace(this.workspaceId, outputId);
     if (!found) return null;
-    return { id: found.id, workspaceId: found.workspaceId, workId: found.workItemId };
+    return { id: found.id, workspaceId: found.workspaceId, workId: found.workItemId,
+      ...(found.outputKey ? { imageUrl: objectStorage.publicUrl(found.outputKey) } : {}) };
   }
 
   async getOffer(offerId: string): Promise<AdscaleOfferRef | null> {

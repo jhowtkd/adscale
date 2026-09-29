@@ -34,6 +34,7 @@ import {
   loadItemReview,
   parseTriageEvent,
   parseVersionFindings,
+  versionFindings,
   resolveItemReview,
   storedItemStatusOf,
   type ItemReview,
@@ -515,7 +516,7 @@ export async function getItemDetail(
     destinationAccount: item.destination ?? currentVersion?.destination ?? null,
     findings: ordered.map((version) => ({
       versionHash: version.versionHash,
-      findings: parseVersionFindings(version.reviewerFindings),
+      findings: versionFindings(version, itemEvents),
     })),
     triage: itemEvents.filter((event) => parseTriageEvent(event) !== null),
     activeIntent: intents && intents.status !== "canceled" ? intents : null,

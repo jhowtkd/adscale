@@ -269,7 +269,7 @@ describe("advance_onboarding", () => {
       expect(blocked.error.message).toContain("plan_and_mandates");
     }
     // Atomic: nothing was written by the blocked entry.
-    expect(await t.deps.uow.repos.events.list(scope)).toHaveLength(2); // open_account only
+    expect(await t.deps.uow.repos.events.list(scope)).toHaveLength(3); // open_account + primary thread
     const account = await t.deps.uow.repos.accounts.get(workspaceId, accountId);
     expect(account?.status).toBe("deploying");
 

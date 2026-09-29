@@ -76,6 +76,16 @@ import type {
   NewEquipeStaffMember,
   NewEquipeThread,
 } from "./types";
+import type { CreateAssistantMessageInput } from "../../repositories/assistant-message";
+
+export type ConversationThread = { id: string; workspaceId: string; clientProfileId: string; campaignId: string | null };
+
+/** Uses the Assistant's store, on the same transaction as the module. */
+export interface EquipeConversationRepository {
+  get(workspaceId: string, threadId: string): Promise<ConversationThread | null>;
+  ensurePrimary(workspaceId: string, clientProfileId: string): Promise<ConversationThread>;
+  post(workspaceId: string, sourceEventId: string, input: CreateAssistantMessageInput): Promise<{ id: string }>;
+}
 
 // Contrato de persistência da Equipe. Regras do contrato (valem nas duas
 // implementações e são cobradas pela suíte compartilhada):
@@ -86,21 +96,21 @@ import type {
 
 export interface AccountScopedRepository<R, C, P, F = undefined> {
   create(scope: AccountScope, input: C): Promise<R>;
-  get(scope: AccountScope, id: string): Promise<R | null>;
+  get(scope: AccountScope, id: string, options?: { forUpdate: boolean }): Promise<R | null>;
   list(scope: AccountScope, filter?: F): Promise<R[]>;
   update(scope: AccountScope, id: string, patch: P): Promise<R>;
 }
 
 export interface AppendOnlyRepository<R, C, F = undefined> {
   create(scope: AccountScope, input: C): Promise<R>;
-  get(scope: AccountScope, id: string): Promise<R | null>;
+  get(scope: AccountScope, id: string, options?: { forUpdate: boolean }): Promise<R | null>;
   list(scope: AccountScope, filter?: F): Promise<R[]>;
 }
 
 // Conta = marca num workspace. O próprio id é o account_id das demais tabelas.
 export interface EquipeAccountRepository {
   create(workspaceId: string, input: NewEquipeAccount): Promise<EquipeAccount>;
-  get(workspaceId: string, accountId: string): Promise<EquipeAccount | null>;
+  get(workspaceId: string, accountId: string, options?: { forUpdate: boolean }): Promise<EquipeAccount | null>;
   findByClientProfile(
     workspaceId: string,
     clientProfileId: string
@@ -309,6 +319,7 @@ export interface InternalEquipeRepositories {
 }
 
 export interface EquipeRepositories {
+  conversations: EquipeConversationRepository;
   accounts: EquipeAccountRepository;
   people: EquipeAccountPersonRepository;
   fronts: EquipeFrontRepository;

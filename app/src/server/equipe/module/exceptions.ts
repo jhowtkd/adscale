@@ -75,6 +75,9 @@ export type CreateExceptionInput = {
   reason?: string | null;
   sourceEventId?: string;
   escalationId?: string;
+  itemId?: string;
+  workId?: string | null;
+  roundId?: string;
 };
 
 /**
@@ -101,6 +104,8 @@ export async function createExceptionInternal(
       trigger: input.trigger,
       reason: input.reason ?? null,
       dueAt: dueAt.toISOString(),
+      ...(input.itemId ? { itemId: input.itemId, workId: input.workId } : {}),
+      ...(input.roundId ? { roundId: input.roundId } : {}),
       ...(input.sourceEventId ? { sourceEventId: input.sourceEventId } : {}),
       ...(input.escalationId ? { escalationId: input.escalationId } : {}),
     },
@@ -223,11 +228,12 @@ export async function runPostStaffMessage(
         `cannot post to exception ${loaded.value.id} from ${loaded.value.status}`,
       );
     }
+    const staff = await ctx.internal.staff.get(actorId(ctx.actor));
     const event = await appendEvent(ctx, {
       eventType: STAFF_MESSAGE_POSTED_EVENT,
       objectType: "exception",
       objectId: loaded.value.id,
-      payload: { body: payload.body, staffId: actorId(ctx.actor) },
+      payload: { body: payload.body, staffId: actorId(ctx.actor), staffName: staff?.displayName },
     });
     return ok({ exceptionId: loaded.value.id, messageEventId: event.id });
   });

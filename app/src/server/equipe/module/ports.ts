@@ -31,6 +31,8 @@ export type AdscaleCreativeWorkOutputRef = {
   id: string;
   workspaceId: string;
   workId: string;
+  /** Existing media URL, for visual review of a submitted Peça. */
+  imageUrl?: string;
 };
 
 export type AdscaleOfferRef = {
