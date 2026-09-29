@@ -1,14 +1,15 @@
 /**
- * Release smoke gate: web + worker + schema on the same candidate SHA (Task 14 / PR-04).
+ * Release smoke gate: schema + the selected image topology on one candidate SHA.
  *
  * Executor, not a checker: it drives an on-demand isolated staging environment
- * (web and worker as SEPARATE processes, both deployed from the SAME candidate
- * SHA) through the five proofs from the plan, then archives a per-SHA report.
- * It reuses the existing eight v2 worker functions and the Inngest wiring — it
- * never creates another business worker.
+ * and archives a per-SHA report. IMAGE_JOB_TARGET defaults to web, matching
+ * dashboard-managed Render production (no blueprint sync, no image worker).
+ * Explicit worker mode tests split-worker staging on the same candidate SHA.
+ * Web mode proves redelivery/ack, but has no process-restart instrumentation;
+ * only worker mode exercises restart and records a new Connect connection ID.
  *
- * The gate produces positive evidence or an explicit block. Anything it cannot
- * prove — missing staging wiring, stale worker signal, absent restart hook,
+ * The gate produces positive evidence or an explicit block for the selected
+ * topology — missing staging wiring, stale worker signal, absent worker restart hook,
  * provider ceiling — is verdict `blocked`, which MUST be read as red. It never
  * passes in a vacuum.
  *
@@ -20,13 +21,14 @@
  *   STAGING_DATABASE_URL      required — isolated staging Postgres 16.
  *   SMOKE_AUTH_COOKIE         required — staging session cookie for the API.
  *   SMOKE_CLIENT_PROFILE_ID   required — synthetic client profile (uuid).
- *   SMOKE_WORKER_SIGNAL_CMD   preferred — prints the worker's OWN signal as JSON
+ *   IMAGE_JOB_TARGET         web (default) or worker; match the staging target.
+ *   SMOKE_WORKER_SIGNAL_CMD   worker mode only — prints its OWN signal as JSON
  *                             ({ connectionId, observedAt, service,
  *                             syncedV2FunctionIds[, sha] }). Tails
  *                             `image_worker_connected` from the worker's logs.
  *   SMOKE_WORKER_SIGNAL_FILE  fallback — static JSON snapshot, same shape (or an
  *                             array of them; the freshest wins).
- *   SMOKE_WORKER_RESTART_HOOK required for proof 3 — restarts staging worker.
+ *   SMOKE_WORKER_RESTART_HOOK worker mode only, required for proof 3.
  *   SMOKE_OWNER_AUTHORIZED    must be "true" for --provider real (each run).
  *   REAL_PROVIDER_MAX_CALLS   ceiling for real-provider calls (default 5).
  *   SMOKE_CANCEL_DELAY_MS     delay before the proof-4 cancel (default 0).
@@ -43,6 +45,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { getImageJobTarget, type ImageJobTarget } from "../src/server/ai/image-runtime-config";
 
 // pg ships no bundled types in this repo's lockfile, so the import goes through
 // createRequire against a minimal structural type. Runtime resolution is the
@@ -163,6 +166,7 @@ function parseArgs(argv: string[]): CliOptions {
 }
 
 type SmokeEnv = {
+  imageJobTarget: ImageJobTarget;
   databaseUrl: string;
   authCookie: string;
   clientProfileId: string;
@@ -174,7 +178,8 @@ type SmokeEnv = {
   cancelDelayMs: number;
 };
 
-function readEnv(): SmokeEnv {
+export function readEnv(): SmokeEnv {
+  const imageJobTarget = getImageJobTarget();
   const databaseUrl = process.env.STAGING_DATABASE_URL ?? "";
   const authCookie = process.env.SMOKE_AUTH_COOKIE ?? "";
   const clientProfileId = process.env.SMOKE_CLIENT_PROFILE_ID ?? "";
@@ -188,7 +193,9 @@ function readEnv(): SmokeEnv {
   if (!databaseUrl) missing.push("STAGING_DATABASE_URL");
   if (!authCookie) missing.push("SMOKE_AUTH_COOKIE");
   if (!clientProfileId) missing.push("SMOKE_CLIENT_PROFILE_ID");
-  if (!signalCmd && !signalFile) missing.push("SMOKE_WORKER_SIGNAL_CMD or SMOKE_WORKER_SIGNAL_FILE");
+  if (imageJobTarget === "worker" && !signalCmd && !signalFile) {
+    missing.push("SMOKE_WORKER_SIGNAL_CMD or SMOKE_WORKER_SIGNAL_FILE");
+  }
   if (missing.length > 0) {
     process.stderr.write(`error: missing required staging wiring: ${missing.join(", ")}\n`);
     process.exit(2);
@@ -198,6 +205,7 @@ function readEnv(): SmokeEnv {
     process.exit(2);
   }
   return {
+    imageJobTarget,
     databaseUrl,
     authCookie,
     clientProfileId,
@@ -572,17 +580,20 @@ async function createPrepareDispatch(
   return { workItemId, preparedRevision };
 }
 
-// --- Proof 1: migrate-before-release + readiness of BOTH processes ----------------
+// --- Proof 1: migrate-before-release + readiness of the selected topology ----------
 
-async function proofSchemaAndReadiness(
+export async function proofSchemaAndReadiness(
   opts: CliOptions,
   env: SmokeEnv,
   pool: PgPool,
   runStartMs: number,
 ): Promise<{ proof: ProofResult; workerConnectionId: string | null }> {
+  const name = env.imageJobTarget === "worker"
+    ? "Schema first, web ready, worker ready on its own signal"
+    : "Schema first, web ready (image jobs on web)";
   const fail = (summary: string, evidence: Record<string, unknown>): ProofResult => ({
     id: "schema_and_readiness",
-    name: "Schema first, web ready, worker ready on its own signal",
+    name,
     status: "fail",
     summary,
     evidence,
@@ -613,18 +624,19 @@ async function proofSchemaAndReadiness(
     let signal: WorkerSignal | null = null;
     let signalErr = "";
     try {
-      signal = collectWorkerSignal(env);
+      if (env.imageJobTarget === "worker") signal = collectWorkerSignal(env);
     } catch (error) {
       signalErr = error instanceof Error ? redact(error.message) : "signal command failed";
     }
     const signalCheck = validateWorkerSignal(signal, opts.sha, runStartMs);
     const evidence = {
+      imageJobTarget: env.imageJobTarget,
       expectedTag,
       appliedTag,
       journalEntries: journal.length,
       appliedRows: applied.size,
       web: { httpStatus: health.status, ok: healthRec?.ok ?? null, service: healthRec?.service ?? null },
-      worker: {
+      ...(env.imageJobTarget === "worker" ? { worker: {
         event: WORKER_CONNECTED_EVENT,
         connectionId: signal?.connectionId ?? null,
         observedAt: signal?.observedAt ?? null,
@@ -633,7 +645,7 @@ async function proofSchemaAndReadiness(
         sha: signal?.sha ?? "not-self-reported",
         check: signalCheck.reason,
         ...(signalErr ? { collectError: signalErr } : {}),
-      },
+      } } : {}),
     };
     if (!schemaOk) {
       return {
@@ -647,11 +659,11 @@ async function proofSchemaAndReadiness(
         workerConnectionId: null,
       };
     }
-    if (!signalCheck.ok) {
+    if (env.imageJobTarget === "worker" && !signalCheck.ok) {
       return {
         proof: {
           id: "schema_and_readiness",
-          name: "Schema first, web ready, worker ready on its own signal",
+          name,
           status: "blocked",
           summary: `worker readiness unproven: ${signalCheck.reason}`,
           evidence,
@@ -662,9 +674,12 @@ async function proofSchemaAndReadiness(
     return {
       proof: {
         id: "schema_and_readiness",
-        name: "Schema first, web ready, worker ready on its own signal",
+        name,
         status: "pass",
-        summary: `schema ${expectedTag} applied before release; web /api/health ok; worker ${signal?.connectionId} fresh with 8/8 v2`,
+        summary: `schema ${expectedTag} applied before release; web /api/health ok; ` +
+          (env.imageJobTarget === "worker"
+            ? `worker ${signal?.connectionId} fresh with 8/8 v2`
+            : "image jobs on web; consumption checked by the correlated flow"),
         evidence,
       },
       workerConnectionId: signal?.connectionId ?? null,
@@ -674,7 +689,7 @@ async function proofSchemaAndReadiness(
     return {
       proof: {
         id: "schema_and_readiness",
-        name: "Schema first, web ready, worker ready on its own signal",
+        name,
         status: "blocked",
         summary: `could not collect readiness evidence: ${message}`,
         evidence: {},
@@ -850,14 +865,18 @@ function checkTerminalCoherence(rows: OutputRow[], quiescent: boolean): Coherenc
   return { coherent: true, detail: "quiescent, statuses set, completed present, <=1 selected", histogram };
 }
 
-async function proofRedeliveryRestartAck(
+export async function proofRedeliveryRestartAck(
   opts: CliOptions,
   env: SmokeEnv,
   pool: PgPool,
   windowStartIso: string,
   preRestartConnectionId: string | null,
 ): Promise<ProofResult> {
-  const name = "Redelivery, mid-run worker restart, ambiguous ack; ledger not duplicated";
+  const workerMode = env.imageJobTarget === "worker";
+  const name = workerMode
+    ? "Redelivery, mid-run worker restart, ambiguous ack; ledger not duplicated"
+    : "Redelivery, ambiguous ack on web; ledger not duplicated";
+  const restartNote = "restart não exercitado (sem instrumentação no web)";
   const blocked = (summary: string, evidence: Record<string, unknown>): ProofResult => ({
     id: "redelivery_restart_ack",
     name,
@@ -873,40 +892,44 @@ async function proofRedeliveryRestartAck(
     evidence,
   });
   try {
-    if (!env.restartHook) {
+    if (workerMode && !env.restartHook) {
       return blocked("SMOKE_WORKER_RESTART_HOOK not configured: cannot prove mid-run restart", {});
     }
     const ledgerBefore = await snapshotLedger(pool, windowStartIso);
-    // Redelivery through the REAL path: the web re-dispatches the v2 event.
+    // Redelivery through the real path, using staging's configured target.
     const work = await createPrepareDispatch(opts, env, "proof3-redeliver");
     const redelivered = await dispatchGenerate(opts, env, work);
     const redeliveryCoherent = redelivered.status === 202 || redelivered.status === 409;
-    // Restart with work in flight, then demand a NEW worker connection id.
-    const inFlight = await createPrepareDispatch(opts, env, "proof3-restart");
-    runOwnerHook("worker-restart", env.restartHook, 300_000);
+    const workItemIds = [work.workItemId];
     let postRestartConnectionId: string | null = null;
-    const restartDeadline = Date.now() + 5 * 60_000;
-    while (Date.now() < restartDeadline) {
-      try {
-        const signal = collectWorkerSignal(env);
-        if (signal && signal.connectionId !== preRestartConnectionId) {
-          postRestartConnectionId = signal.connectionId;
-          break;
+    if (workerMode && env.restartHook) {
+      // Restart with work in flight, then demand a NEW worker connection id.
+      const inFlight = await createPrepareDispatch(opts, env, "proof3-restart");
+      workItemIds.push(inFlight.workItemId);
+      runOwnerHook("worker-restart", env.restartHook, 300_000);
+      const restartDeadline = Date.now() + 5 * 60_000;
+      while (Date.now() < restartDeadline) {
+        try {
+          const signal = collectWorkerSignal(env);
+          if (signal && signal.connectionId !== preRestartConnectionId) {
+            postRestartConnectionId = signal.connectionId;
+            break;
+          }
+        } catch {
+          // Signal source may flap during the restart; keep polling.
         }
-      } catch {
-        // Signal source may flap during the restart; keep polling.
+        await sleep(15_000);
       }
-      await sleep(15_000);
-    }
-    if (!postRestartConnectionId) {
-      return blocked("no new worker connection id observed after the restart hook", {
-        preRestartConnectionId,
-        redeliverHttpStatus: redelivered.status,
-      });
+      if (!postRestartConnectionId) {
+        return blocked("no new worker connection id observed after the restart hook", {
+          preRestartConnectionId,
+          redeliverHttpStatus: redelivered.status,
+        });
+      }
     }
     const waited = await waitForQuiescence(
       pool,
-      [work.workItemId, inFlight.workItemId],
+      workItemIds,
       opts.timeoutS * 1000,
       "proof3",
     );
@@ -918,7 +941,7 @@ async function proofRedeliveryRestartAck(
     if (candidate) {
       // Find which work owns the candidate output for the cancel/retry URLs.
       let ackWorkId = work.workItemId;
-      for (const id of [work.workItemId, inFlight.workItemId]) {
+      for (const id of workItemIds) {
         const rows = await listOutputs(pool, id);
         if (rows.some((r) => r.id === candidate.id)) {
           ackWorkId = id;
@@ -934,7 +957,7 @@ async function proofRedeliveryRestartAck(
     }
     const final = await waitForQuiescence(
       pool,
-      [work.workItemId, inFlight.workItemId],
+      workItemIds,
       opts.timeoutS * 1000,
       "proof3-after-ack",
     );
@@ -943,8 +966,9 @@ async function proofRedeliveryRestartAck(
     const evidence = {
       redeliverHttpStatus: redelivered.status,
       redeliveryCoherent,
-      preRestartConnectionId,
-      postRestartConnectionId,
+      imageJobTarget: env.imageJobTarget,
+      restartExercised: workerMode,
+      ...(workerMode ? { preRestartConnectionId, postRestartConnectionId } : { restartNote }),
       cancelHttpStatus: cancelHttp,
       retryHttpStatus: retryHttp,
       coherence: coherence.detail,
@@ -967,7 +991,9 @@ async function proofRedeliveryRestartAck(
       id: "redelivery_restart_ack",
       name,
       status: "pass",
-      summary: `redelivery ${redelivered.status}, restart ${preRestartConnectionId}->${postRestartConnectionId}, cancel/retry ${cancelHttp}/${retryHttp}, terminal coherent, no ledger duplicates`,
+      summary: `redelivery ${redelivered.status}, ` +
+        (workerMode ? `restart ${preRestartConnectionId}->${postRestartConnectionId}` : restartNote) +
+        `, cancel/retry ${cancelHttp}/${retryHttp}, terminal coherent, no ledger duplicates`,
       evidence,
     };
   } catch (error) {
@@ -1130,7 +1156,7 @@ async function main(): Promise<void> {
     const message = error instanceof Error ? redact(error.message) : String(error);
     proofs.push({
       id: "schema_and_readiness",
-      name: "Schema first, web ready, worker ready on its own signal",
+      name: "Schema first, readiness of the selected image topology",
       status: "blocked",
       summary: `staging database unreachable: ${message}`,
       evidence: {},
@@ -1169,7 +1195,7 @@ async function main(): Promise<void> {
   } else {
     for (const [id, proofName] of [
       ["end_to_end_correlation", "publish -> consume -> persist -> select -> download, one correlation id"],
-      ["redelivery_restart_ack", "Redelivery, mid-run worker restart, ambiguous ack; ledger not duplicated"],
+      ["redelivery_restart_ack", "Redelivery, ambiguous ack; restart in worker mode only"],
       ["partial_batch_reuse", "Partial batch failure; completed pieces reused, only pending redone"],
     ] as const) {
       proofs.push({ id, name: proofName, status: "blocked", summary: "skipped: proof 1 did not pass", evidence: {} });
@@ -1199,7 +1225,12 @@ async function main(): Promise<void> {
     provider: opts.provider,
     startedAt,
     finishedAt,
-    environment: { name: "staging-on-demand", webHost, workerService: WORKER_SERVICE },
+    environment: {
+      name: "staging-on-demand", webHost, imageJobTarget: env.imageJobTarget,
+      ...(env.imageJobTarget === "worker" ? { workerService: WORKER_SERVICE } : {
+        limitation: "restart não exercitado (sem instrumentação no web)",
+      }),
+    },
     flags: {
       provider: opts.provider,
       ownerAuthorized: env.ownerAuthorized,
@@ -1213,12 +1244,12 @@ async function main(): Promise<void> {
       migratedBeforeRelease: proofs[0]?.status === "pass",
     },
     processes: {
-      // Deploy provenance, not self-report: the workflow deploys both from the
-      // candidate SHA. A self-reported worker sha, when wired, is enforced in
-      // proof 1 and echoed here.
+      // Candidate deploy input, not self-reported runtime provenance. The
+      // split-worker workflow deploys both; web mode has no worker process.
       web: { sha: opts.sha, source: "workflow-deploy-input" },
-      worker: { sha: opts.sha, source: "workflow-deploy-input" },
-      workerConnectionId,
+      ...(env.imageJobTarget === "worker" ? {
+        worker: { sha: opts.sha, source: "workflow-deploy-input" }, workerConnectionId,
+      } : {}),
     },
     proofs,
     providerCalls: {

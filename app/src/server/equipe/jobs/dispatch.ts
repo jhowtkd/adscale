@@ -14,6 +14,7 @@ import { logger } from "@/lib/logger";
 import { isWithinAssistedWindow } from "../domain";
 import { EQUIPE_INTENT_LEASE_TTL_MS } from "../data";
 import { executeCommand } from "../module/commands";
+import { isEquipePublishEnabled } from "../module/publish-enabled";
 import {
   createProdJobDeps,
   moduleDepsFor,
@@ -60,6 +61,7 @@ export function createDispatchHandler(deps: EquipeJobDeps) {
         now,
         limit: EQUIPE_DISPATCH_CLAIM_LIMIT,
         leaseTtlMs: EQUIPE_INTENT_LEASE_TTL_MS,
+        revalidatePublishDisabled: (deps.isPublishEnabled ?? isEquipePublishEnabled)(),
       }),
     );
     const dispatched: string[] = [];

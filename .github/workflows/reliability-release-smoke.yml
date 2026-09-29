@@ -168,6 +168,8 @@ jobs:
       - name: Run the five proofs
         working-directory: app
         env:
+          # This workflow provisions split-worker staging; production uses web.
+          IMAGE_JOB_TARGET: worker
           STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           SMOKE_AUTH_COOKIE: ${{ secrets.SMOKE_AUTH_COOKIE }}
           SMOKE_CLIENT_PROFILE_ID: ${{ secrets.SMOKE_CLIENT_PROFILE_ID }}

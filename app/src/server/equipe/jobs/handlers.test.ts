@@ -9,6 +9,7 @@ import {
   ctx,
   deliverDueApprovedItem,
   deliverTestBatch,
+  encryptedInstagramToken,
   frontIdOf,
   makeTestDeps,
   openTestAccount,
@@ -30,14 +31,14 @@ import {
 
 const step = { run: async <T>(_name: string, fn: () => Promise<T>) => fn() };
 
-function makeJobDeps(t: TestDeps, enabled = true): EquipeJobDeps {
+function makeJobDeps(t: TestDeps, enabled = true, publishEnabled = () => true): EquipeJobDeps {
   return {
     uow: t.deps.uow,
     clock: t.deps.clock,
     isEnabledForWorkspace: () => enabled,
     gatewayFor: () => t.gateway,
     publisher: t.publisher,
-    isPublishEnabled: () => true,
+    isPublishEnabled: publishEnabled,
   };
 }
 
@@ -79,6 +80,99 @@ describe("dispatch handler", () => {
       itemId,
     );
     expect(item?.status).toBe("published");
+  });
+
+  it("retoma hold de publish_disabled vencido e perde a janela sem publicar", async () => {
+    const t = makeTestDeps({ now: new Date("2026-10-05T14:00:00.000Z"), publishEnabled: false });
+    const ids = await setupEnabled(t);
+    await approveLiveMandate(t, ids);
+    await seedInstagramConnection(t, ids);
+    const { itemId, intentId } = await deliverDueApprovedItem(t, ids);
+    const held = await createDispatchHandler(makeJobDeps(t, true, () => false))({
+      event: { data: {} }, step,
+    });
+    expect(held).toMatchObject({ claimed: 1, failed: [] });
+    expect(t.publisher.publishes).toHaveLength(0);
+
+    // Claim leases are five minutes; the next cron after expiry revalidates
+    // the held intent through the normal gate and records a reschedule request.
+    setNow(t, new Date("2026-10-05T14:06:00.000Z"));
+    const deps = makeJobDeps(t, true, () => true);
+    const first = await createDispatchHandler(deps)({ event: { data: {} }, step });
+    const second = await createDispatchHandler(deps)({ event: { data: {} }, step });
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    expect(first).toMatchObject({ claimed: 1, failed: [] });
+    expect(second).toMatchObject({ claimed: 0, dispatched: [], failed: [] });
+    expect(t.publisher.publishes).toHaveLength(0);
+    expect((await t.deps.uow.repos.items.get(scope, itemId))?.status).toBe("missed_window");
+    expect((await t.deps.uow.repos.intents.get(scope, intentId))?.status).toBe("canceled");
+    expect(await t.deps.uow.repos.events.list(scope, {
+      eventType: "agent_work.requested", objectId: itemId,
+    })).toEqual(expect.arrayContaining([
+      expect.objectContaining({ payload: expect.objectContaining({ kind: "reschedule_proposal" }) }),
+    ]));
+  });
+
+  it("hold de horário futuro é revalidado, espera o horário e publica uma vez", async () => {
+    const t = makeTestDeps({ now: new Date("2026-10-05T14:00:00.000Z"), publishEnabled: false });
+    const ids = await setupEnabled(t);
+    await approveLiveMandate(t, ids);
+    await seedInstagramConnection(t, ids);
+    const { itemId, intentId } = await deliverDueApprovedItem(t, ids);
+    await createDispatchHandler(makeJobDeps(t, true, () => false))({ event: { data: {} }, step });
+    const future = new Date("2026-10-05T14:30:00.000Z");
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    expect((await t.deps.uow.repos.intents.get(scope, intentId))?.status).toBe("held");
+    expect((await t.deps.uow.repos.events.list(scope, { eventType: "item.held", objectId: itemId })).at(-1)?.payload)
+      .toMatchObject({ reason: "publish_disabled", reasons: ["publish_disabled"], heldIntentIds: [intentId] });
+    await t.deps.uow.repos.items.update(scope, itemId, { scheduledFor: future });
+    await t.deps.uow.repos.intents.update(scope, intentId, { scheduledFor: future });
+
+    setNow(t, new Date("2026-10-05T14:06:00.000Z"));
+    const deps = makeJobDeps(t, true, () => true);
+    const revalidated = await createDispatchHandler(deps)({ event: { data: {} }, step });
+    expect(revalidated).toMatchObject({ claimed: 1, failed: [] });
+    expect(t.publisher.publishes).toHaveLength(0);
+    setNow(t, future);
+    const futureDeps = makeJobDeps(t, true, () => true);
+    const sent = await createDispatchHandler(futureDeps)({ event: { data: {} }, step });
+    const retried = await createDispatchHandler(futureDeps)({ event: { data: {} }, step });
+    expect(sent).toMatchObject({ claimed: 1, dispatched: [intentId], failed: [] });
+    expect(retried).toMatchObject({ claimed: 0, dispatched: [], failed: [] });
+    expect(t.publisher.publishes).toHaveLength(1);
+  });
+
+  it("revalida destino novamente depois do claim e não publica se ele mudou", async () => {
+    const t = makeTestDeps({ now: new Date("2026-10-05T14:00:00.000Z"), publishEnabled: false });
+    const ids = await setupEnabled(t);
+    await approveLiveMandate(t, ids);
+    const connectionId = await seedInstagramConnection(t, ids);
+    const { itemId, intentId } = await deliverDueApprovedItem(t, ids);
+    await createDispatchHandler(makeJobDeps(t, true, () => false))({ event: { data: {} }, step });
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    const future = new Date("2026-10-05T14:30:00.000Z");
+    await t.deps.uow.repos.items.update(scope, itemId, { scheduledFor: future });
+    await t.deps.uow.repos.intents.update(scope, intentId, { scheduledFor: future });
+    setNow(t, new Date("2026-10-05T14:06:00.000Z"));
+
+    const gateChangesAfterClaim = {
+      run: async <T>(name: string, fn: () => Promise<T>): Promise<T> => {
+        if (name === `dispatch-${intentId}`) {
+          await t.deps.uow.repos.connections.update(scope, connectionId, {
+            encryptedToken: encryptedInstagramToken("ig_changed_after_claim"),
+          });
+        }
+        return fn();
+      },
+    };
+    const outcome = await createDispatchHandler(makeJobDeps(t, true, () => true))({
+      event: { data: {} }, step: gateChangesAfterClaim,
+    });
+    expect(outcome).toMatchObject({ claimed: 1, failed: [] });
+    expect(t.publisher.publishes).toHaveLength(0);
+    expect(await t.deps.uow.repos.intents.get(scope, intentId)).toMatchObject({
+      status: "held", lastError: "instagram_destination_changed",
+    });
   });
 
   it("skips intents of workspaces outside the pilot", async () => {

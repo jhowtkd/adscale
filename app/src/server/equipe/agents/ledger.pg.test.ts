@@ -11,11 +11,10 @@
  *   TEST_DATABASE_URL=postgres://test:test@localhost:5433/adscale_test npm test -- src/server/equipe/agents/ledger.pg.test.ts
  */
 import { afterAll, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { equipeAgentLedger } from "@/server/db/equipe-schema";
 import { fromSaoPauloWallTime } from "../domain";
 import { resolveEquipeTestDatabaseUrl } from "../data/test-database";
-import { DrizzleLedgerStore } from "./ledger";
 import { EQUIPE_PROMPT_VERSION } from "./prompts";
 
 const TEST_DATABASE_URL = resolveEquipeTestDatabaseUrl();
@@ -23,12 +22,23 @@ if (TEST_DATABASE_URL) process.env.DATABASE_URL = TEST_DATABASE_URL;
 const TEST_DB_EXPLICITLY_CONFIGURED = TEST_DATABASE_URL !== null;
 
 async function loadDb() {
-  const [{ db }, schema] = await Promise.all([
+  const [{ db }, schema, { DrizzleLedgerStore }] = await Promise.all([
     import("@/server/db"),
     import("@/server/db/schema"),
+    // ledger imports the production pool: load only AFTER resolving the test URL.
+    import("./ledger"),
   ]);
+  // Fail before any write even if another import cached a different pool.
+  if (!TEST_DATABASE_URL || db.$client.options.connectionString !== TEST_DATABASE_URL) {
+    throw new Error("ledger_test_database_mismatch");
+  }
+  const [{ name }] = (await db.execute(sql`select current_database() as name`)).rows as {
+    name: string;
+  }[];
+  const expectedDatabase = new URL(TEST_DATABASE_URL).pathname.slice(1);
+  if (name !== expectedDatabase) throw new Error("ledger_test_database_name_mismatch");
   const { createPostgresEquipeUnitOfWork } = await import("../data/postgres");
-  return { db, schema, createPostgresEquipeUnitOfWork };
+  return { db, schema, createPostgresEquipeUnitOfWork, DrizzleLedgerStore };
 }
 
 const createdWorkspaceIds: string[] = [];
@@ -71,7 +81,7 @@ async function createAccount(): Promise<{ workspaceId: string; accountId: string
 
 describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("DrizzleLedgerStore (pg)", () => {
   it("sums the current São Paulo month scoped to the account", async () => {
-    const { db } = await loadDb();
+    const { db, DrizzleLedgerStore } = await loadDb();
     const store = new DrizzleLedgerStore(db);
     const a = await createAccount();
     const b = await createAccount();
@@ -109,7 +119,7 @@ describe.skipIf(!TEST_DB_EXPLICITLY_CONFIGURED)("DrizzleLedgerStore (pg)", () =>
   });
 
   it("records a call and reads it back", async () => {
-    const { db } = await loadDb();
+    const { db, DrizzleLedgerStore } = await loadDb();
     const store = new DrizzleLedgerStore(db);
     const a = await createAccount();
     const entry = await store.record({

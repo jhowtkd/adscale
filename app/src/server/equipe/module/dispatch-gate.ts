@@ -413,7 +413,9 @@ export async function prepareDispatch(
     const resumed = resumeHeldItem(state.value, true);
     if (!resumed.ok) return resumed;
     await ctx.repos.items.update(scope, item.id, { status: resumed.value.state.status });
-    await ctx.repos.intents.update(scope, intent.id, { status: "pending" });
+    await ctx.repos.intents.update(scope, intent.id, {
+      status: "pending", leaseOwner: null, leaseExpiresAt: null,
+    });
     await appendEvent(ctx, {
       eventType: ITEM_RESUMED_EVENT,
       objectType: "item",

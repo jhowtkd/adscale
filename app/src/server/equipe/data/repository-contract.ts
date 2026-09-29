@@ -417,6 +417,124 @@ export function defineEquipeRepositoryContract(
       expect(resumed?.attempts).toBe(2);
     });
 
+    it("claim opcional: retoma apenas holds exclusivos de publish_disabled", async () => {
+      const fresh = await harness.createScope();
+      const other = await harness.createScope();
+      const now = new Date("2026-09-01T12:00:00.000Z");
+      const eligibleItem = await newItemId(fresh);
+      const ineligibleItems = await Promise.all(Array.from({ length: 8 }, () => newItemId(fresh)));
+      const eligible = await repos.intents.insertOrGet(fresh, {
+        itemId: eligibleItem,
+        versionHash: "held-publish-disabled",
+        scheduledFor: new Date("2026-09-01T11:00:00.000Z"),
+        destinationIgUserId: "ig-pinned",
+      });
+      await repos.intents.update(fresh, eligible.intent.id, {
+        status: "held",
+        leaseOwner: null,
+        leaseExpiresAt: null,
+      });
+      const makeHeld = async (scope: AccountScope, itemId: string, hash: string) => {
+        const { intent } = await repos.intents.insertOrGet(scope, {
+          itemId,
+          versionHash: hash,
+          scheduledFor: new Date("2026-09-01T11:00:00.000Z"),
+        });
+        await repos.intents.update(scope, intent.id, { status: "held" });
+        return intent;
+      };
+      const ineligible = await Promise.all(
+        ineligibleItems.slice(0, 4).map((itemId, index) =>
+          makeHeld(fresh, itemId, `held-other-${index}`),
+        ),
+      );
+      const laterWrongReason = await makeHeld(fresh, ineligibleItems[4]!, "held-later-wrong-reason");
+      const multiReason = ineligible[1]!;
+      const otherAccount = ineligible[3]!;
+      const otherReasons = await Promise.all(ineligibleItems.slice(5).map((itemId, index) =>
+        makeHeld(fresh, itemId, `held-reason-${index}`),
+      ));
+
+      const hold = async (
+        scope: AccountScope,
+        itemId: string,
+        occurredAt: Date,
+        payload: Record<string, unknown>,
+      ) => repos.events.create(scope, {
+        actorType: "system",
+        eventType: "item.held",
+        objectType: "item",
+        objectId: itemId,
+        payload,
+        occurredAt,
+      });
+      const flag = (intentId: string) => ({
+        reason: "publish_disabled",
+        reasons: ["publish_disabled"],
+        heldIntentIds: [intentId],
+      });
+      await hold(fresh, eligibleItem, new Date(now.getTime() - 2_000), flag(eligible.intent.id));
+      await hold(fresh, ineligibleItems[4]!, new Date(now.getTime() - 2_000), flag(laterWrongReason.id));
+      await hold(fresh, ineligibleItems[4]!, new Date(now.getTime() - 1_000), {
+        reason: "pause", reasons: ["pause"], heldIntentIds: [laterWrongReason.id],
+      });
+      await hold(fresh, ineligibleItems[1]!, now, {
+        reason: "publish_disabled", reasons: ["publish_disabled", "pause"], heldIntentIds: [multiReason.id],
+      });
+      await hold(fresh, ineligibleItems[2]!, now, flag(crypto.randomUUID()));
+      await hold(other, ineligibleItems[3]!, now, flag(otherAccount.id));
+      for (const [index, reason] of ["global_stop", "manual_mode", "instagram_destination_changed"].entries()) {
+        await hold(fresh, ineligibleItems[index + 5]!, now, {
+          reason, reasons: [reason], heldIntentIds: [otherReasons[index]!.id],
+        });
+      }
+
+      const claimed = await internal.claimDueIntents({
+        owner: "retomada-flag", now, limit: 20, leaseTtlMs: 60_000,
+        revalidatePublishDisabled: true,
+      });
+      expect(claimed.map((row) => row.id)).toEqual([eligible.intent.id]);
+      expect(claimed[0]).toMatchObject({
+        status: "held",
+        leaseOwner: "retomada-flag",
+        attempts: 1,
+        destinationIgUserId: "ig-pinned",
+      });
+      expect(claimed[0]?.leaseExpiresAt?.getTime()).toBe(now.getTime() + 60_000);
+      expect((await internal.claimDueIntents({
+        owner: "concorrente", now, revalidatePublishDisabled: true,
+      })).some((row) => row.id === eligible.intent.id)).toBe(false);
+      const expired = await internal.claimDueIntents({
+        owner: "após-lease", now: new Date(now.getTime() + 60_001),
+        revalidatePublishDisabled: true,
+      });
+      expect(expired.find((row) => row.id === eligible.intent.id)).toMatchObject({
+        status: "held", leaseOwner: "após-lease", attempts: 2,
+      });
+    });
+
+    it("claim opcional: timestamp empatado com outro motivo falha fechado", async () => {
+      const fresh = await harness.createScope();
+      const now = new Date("2026-09-01T12:00:00.000Z");
+      const itemId = await newItemId(fresh);
+      const { intent } = await repos.intents.insertOrGet(fresh, {
+        itemId, versionHash: "held-tie", scheduledFor: new Date(now.getTime() - 1_000),
+      });
+      await repos.intents.update(fresh, intent.id, { status: "held" });
+      const occurredAt = new Date(now.getTime() - 500);
+      for (const payload of [
+        { reason: "publish_disabled", reasons: ["publish_disabled"], heldIntentIds: [intent.id] },
+        { reason: "pause", reasons: ["pause"], heldIntentIds: [intent.id] },
+      ]) await repos.events.create(fresh, {
+        actorType: "system", eventType: "item.held", objectType: "item", objectId: itemId,
+        payload, occurredAt,
+      });
+      const claimed = await internal.claimDueIntents({
+        owner: "retomada-empate", now, revalidatePublishDisabled: true,
+      });
+      expect(claimed.some((row) => row.id === intent.id)).toBe(false);
+    });
+
     it("transação: estado + evento + intenção confirmam juntos", async () => {
       const fresh = await harness.createScope();
       const front = await repos.fronts.create(fresh, { key: "social_instagram" });

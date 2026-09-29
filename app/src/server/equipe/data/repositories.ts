@@ -292,6 +292,8 @@ export interface InternalEquipeRepositories {
     now: Date;
     limit?: number;
     leaseTtlMs?: number;
+    /** Revalidate only publish_disabled holds, through the normal dispatch gate. */
+    revalidatePublishDisabled?: boolean;
   }): Promise<EquipePublicationIntent[]>;
   listAccountsByStatus(status: EquipeAccountStatus): Promise<EquipeAccount[]>;
   /** Cross-account round scan for the internal quality pipeline (#546). */
