@@ -166,8 +166,8 @@ describe("execution authorization", () => {
     const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client }), isEnabled: () => true });
     const contextsRead = vi.spyOn(t.deps.uow.repos.contexts, "list");
     const outbox = createAgentWorkOutboxHandler({ uow: t.deps.uow, clock: t.deps.clock, isEnabledForWorkspace: () => true, gatewayFor: () => t.gateway });
-    const sent: Array<{ name: string; data: unknown }> = [];
-    const outboxStep = { ...step, sendEvent: async (_name: string, event: { name: string; data: unknown }) => { sent.push(event); } };
+    const sent: Array<{ id: string; name: string; data: unknown }> = [];
+    const outboxStep = { ...step, sendEvent: async (_name: string, event: { id: string; name: string; data: unknown }) => { sent.push(event); } };
     const pauseId = await pause(t, ids, level);
     expect(await outbox({ step: outboxStep })).toEqual({ emitted: 0 });
     const refused = await handler({ event: { data: { workspaceId: ids.workspaceId, accountId: ids.accountId, sourceEventId: source.id, kind: "caption_revalidation" } }, step, runId: "paused-run" });
@@ -197,6 +197,13 @@ describe("execution authorization", () => {
     const source = edited.value.events.find((event) => event.eventType === "agent_work.requested")!;
     const client = new FakeModelClient([]);
     const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client }), isEnabled: () => true });
+    const outbox = createAgentWorkOutboxHandler({ uow: t.deps.uow, clock: t.deps.clock, isEnabledForWorkspace: () => true, gatewayFor: () => t.gateway });
+    const transportIds: string[] = [];
+    const outboxStep = { ...step, sendEvent: async (_name: string, sent: { id: string }) => { transportIds.push(sent.id); } };
+    // Re-sweeps of the same generation reuse one transport id (Inngest dedupes).
+    await outbox({ step: outboxStep });
+    await outbox({ step: outboxStep });
+    expect(transportIds).toEqual([`${source.id}:0`, `${source.id}:0`]);
     let didPause = false;
     let pauseId = "";
     const claimStep = { run: async <T>(name: string, fn: () => Promise<T>) => {
@@ -215,6 +222,9 @@ describe("execution authorization", () => {
     const resumedHandler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client: resumedClient }), isEnabled: () => true });
     const pending = await import("./agent-work").then(({ pendingAgentWork }) => pendingAgentWork(t.deps.uow.repos, { workspaceId: ids.workspaceId, accountId: ids.accountId }));
     expect(pending.map((item) => item.id)).toContain(source.id);
+    // A deferral starts a new generation, so the resume is not swallowed.
+    await outbox({ step: outboxStep });
+    expect(transportIds.at(-1)).toBe(`${source.id}:1`);
     expect(await resumedHandler({ event, step, runId: "resumed-claim" })).toMatchObject({ refused: false });
     await resumedHandler({ event, step, runId: "resumed-redelivery" });
     expect(resumedClient.requests).toHaveLength(1);

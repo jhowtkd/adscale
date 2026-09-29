@@ -32,7 +32,15 @@ export async function pendingAgentWork(repos: EquipeRepositories, scope: Account
   const events = await repos.events.list(scope);
   const started = new Set([...activeClaims(events), ...events.filter((e) => [WORK_COMPLETED, "agent.turn_failed"].includes(e.eventType))]
     .map((e) => (e.payload as { sourceEventId?: string } | null)?.sourceEventId));
-  return events.filter((e) => e.eventType === AGENT_WORK_REQUESTED_EVENT && !started.has(e.id));
+  // Generation = deferrals of that source: the transport id changes only after a resume.
+  const generations = new Map<string, number>();
+  for (const e of events) {
+    if (e.eventType !== WORK_DEFERRED) continue;
+    const id = (e.payload as { sourceEventId?: string } | null)?.sourceEventId;
+    if (id) generations.set(id, (generations.get(id) ?? 0) + 1);
+  }
+  return events.filter((e) => e.eventType === AGENT_WORK_REQUESTED_EVENT && !started.has(e.id))
+    .map((e) => ({ ...e, generation: generations.get(e.id) ?? 0 }));
 }
 
 async function workState(ctx: CommandContext, sourceEventId: string): Promise<Result<{

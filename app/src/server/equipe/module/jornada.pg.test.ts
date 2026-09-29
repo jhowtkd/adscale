@@ -49,7 +49,7 @@ function request(userId: string, workspaceId: string, path: string, body?: unkno
   });
 }
 
-type WorkEvent = { name: string; data: { workspaceId: string; accountId: string; sourceEventId: string; kind: string } };
+type WorkEvent = { id: string; name: string; data: { workspaceId: string; accountId: string; sourceEventId: string; kind: string } };
 type Conversation = { messages: Array<{ id: string; type: string; content: string; payload: Record<string, unknown> }> };
 
 describe.skipIf(!TEST_DATABASE_URL)("jornada HTTP e jobs Equipe em Postgres", () => {
@@ -183,7 +183,7 @@ describe.skipIf(!TEST_DATABASE_URL)("jornada HTTP e jobs Equipe em Postgres", ()
       const source = edit.events.find((event) => event.eventType === "agent_work.requested")!;
       const emitted = await emit();
       expect(emitted).toHaveLength(1);
-      expect(emitted[0]).toMatchObject({ name: "equipe.agent.work", data: { ...scope, sourceEventId: source.id, kind: "caption_revalidation" } });
+      expect(emitted[0]).toMatchObject({ id: `${source.id}:0`, name: "equipe.agent.work", data: { ...scope, sourceEventId: source.id, kind: "caption_revalidation" } });
       await handleWork({ event: emitted[0]!, step, runId: `run-${source.id}` });
       const calls = client.requests.length;
       await handleWork({ event: emitted[0]!, step, runId: `redelivery-${source.id}` });
