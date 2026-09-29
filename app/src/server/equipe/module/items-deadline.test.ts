@@ -65,6 +65,7 @@ describe("expire_item_deadline", () => {
 
   it("expires adjusting items too, but never approves decided ones", async () => {
     const { t, ids } = await setup();
+    await seedInstagramConnection(t, ids);
     const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
     const { itemIds, versionHashes } = await deliverTestBatch(t, ids, {
       items: [{ scheduledFor: PAST_LIMIT }, { scheduledFor: PAST_LIMIT }],
@@ -380,6 +381,7 @@ describe("propose_new_schedule", () => {
 
   it("does not use rescheduling to release an item held for another reason", async () => {
     const { t, ids } = await setup();
+    await seedInstagramConnection(t, ids);
     const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
     const { itemIds, versionHashes } = await deliverTestBatch(t, ids, { items: [{ scheduledFor: FUTURE }] });
     await approveTestItem(t, ids, itemIds[0]!, versionHashes[0]!);

@@ -27,6 +27,7 @@ import {
   MandateActivationActions,
   MandateStepActions,
   PlanStepAction,
+  PublicationModeAction,
   ScopeConfirmAction,
 } from "./GoalsActions";
 import { BrandVoiceCard } from "./GoalsBrandVoice";
@@ -404,6 +405,7 @@ function GoalsBoard({
         <BrandVoiceCard accountId={accountId} brandVoice={decisions.brandVoice} />
       ) : null}
       <FrontsState fronts={fronts} />
+      <PublicationModeAction accountId={accountId} publication={decisions.publication} />
       <PlanState plan={plan} />
       <MandatesState
         accountId={accountId}

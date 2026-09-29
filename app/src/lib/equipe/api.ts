@@ -97,6 +97,7 @@ export type EquipeItemVersionJson = {
   caption: string;
   scheduledFor: string | null;
   destination: string | null;
+  destinationIgUserId?: string | null;
   authorRole: string;
   authorId: string | null;
   reviewerFindings: unknown;
@@ -172,6 +173,15 @@ export type GoalsDecisionsJson = {
   mandates: Array<{ id: string; version: number; versionHash: string; activation?: boolean }>;
   brandVoice: { approved: boolean; versionHash: string | null };
   connection: { verified: boolean; manualAgreed: boolean };
+  publication: {
+    mode: "manual" | "automatic";
+    canApprove: boolean;
+    blockedReason: string | null;
+    versionHash: string | null;
+    igAccount: string | null;
+    mandateVersion: number | null;
+    receiptId: string | null;
+  };
 };
 
 export type EquipePlanJson = {

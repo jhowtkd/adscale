@@ -5617,6 +5617,7 @@
       "noReceipts": "No receipts yet.",
       "noCaption": "No caption.",
       "instagramDestinationChanged": "The Instagram profile changed or is not pinned to this version. A new version and approval are required.",
+      "preparedBeforeConnection": "This item was prepared before the connection. Publish it manually or request a new version.",
       "factConfirmed": "Fact confirmed.",
       "approved": "Approved."
     },
@@ -5753,7 +5754,19 @@
       "materialKind_text": "Text",
       "materialEmpty": "No material in your workspace yet.",
       "materialLoading": "Loading materials…",
-      "mandateActivationExplainer": "After approval, approved items start publishing automatically, within the window and limits."
+      "mandateActivationExplainer": "Approval authorizes publishing within the window and limits. If the account is in manual mode, also approve the switch to automatic publishing in Goals.",
+      "publicationMode": "Publishing mode",
+      "automaticPublicationApproved": "Automatic publishing approved.",
+      "automaticPublicationExplainer": "After you approve the switch, newly approved items may publish automatically within the mandate, window and limits. Items already available for download or published by you remain manual. Items prepared before connecting also remain manual; request a new version to publish them automatically.",
+      "automaticPublicationTarget": "Profile {account} · Mandate v{version}",
+      "automaticPublicationState": "Newly approved items are published automatically, within the mandate, window and limits. Items already available for download remain manual.",
+      "automaticPublicationConfirmPrompt": "This change cannot be undone from this screen. The publishing pause remains available. Confirm automatic publishing?",
+      "automaticPublicationConfirm": "Confirm",
+      "publicationReceipt": "Receipt: {id}",
+      "approveAutomaticPublication": "Approve automatic publishing",
+      "automatic_publication_requires_connection": "The custodian needs to connect an active Instagram profile before switching.",
+      "automatic_publication_requires_mandate": "Approve a valid publishing mandate outside shadow mode before switching.",
+      "automatic_publication_unavailable": "The account must be in setup, calibration or active to change its publishing mode."
     },
     "fronts": {
       "social_instagram": "Social · Instagram",

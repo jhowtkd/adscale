@@ -1,3 +1,4 @@
+import { seedInstagramConnection } from "./testing/publication";
 import { describe, expect, it } from "vitest";
 import { executeCommand } from "./commands";
 import { getItemDetail } from "./queries";
@@ -121,6 +122,7 @@ describe("decline_publish", () => {
 describe("cancel_scheduled", () => {
   it("cancels before dispatch and voids the intent", async () => {
     const { t, ids } = await setup();
+    await seedInstagramConnection(t, ids);
     const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
     const { itemIds, versionHashes } = await deliverTestBatch(t, ids);
     await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
@@ -165,6 +167,7 @@ describe("cancel_scheduled", () => {
 describe("decline vs cancel", () => {
   it("stores distinct states: do_not_publish for decline, cancelled for cancel", async () => {
     const { t, ids } = await setup();
+    await seedInstagramConnection(t, ids);
     const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
     const { itemIds, versionHashes } = await deliverTestBatch(t, ids);
     await executeCommand(t.deps, ctx(ids, ids.actors.approver), {

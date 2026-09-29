@@ -24,7 +24,9 @@ import type {
 import type { EquipeModuleDeps } from "./ports";
 import { CONFLICT_SOURCE_PREFIX, contextVersionHash } from "./context";
 import { ideaVersionHash } from "./ideas-decide";
-import { BRAND_VOICE_APPROVED_EVENT, MANUAL_MODE_AGREED_EVENT } from "./onboarding";
+import { BRAND_VOICE_APPROVED_EVENT } from "./onboarding";
+import { automaticPublicationProposal, readPublicationMode } from "./publication-mode";
+import { requireActivationAccount } from "./shared";
 import { mandateRuleOf, mandateVersionHash, planVersionHash } from "./plan-mandate";
 // #584
 import { activationBaseOf } from "./plan-mandate";
@@ -178,7 +180,28 @@ export type GoalsDecisions = {
   mandates: Array<{ id: string; version: number; versionHash: string; activation: boolean }>;
   brandVoice: { approved: boolean; versionHash: string | null };
   connection: { verified: boolean; manualAgreed: boolean };
+  publication: {
+    mode: "manual" | "automatic";
+    canApprove: boolean;
+    blockedReason: string | null;
+    versionHash: string | null;
+    igAccount: string | null;
+    mandateVersion: number | null;
+    receiptId: string | null;
+  };
 };
+
+function approvedPublicationOf(
+  detail: unknown,
+  mandates: EquipeMandate[],
+): { igAccount: string | null; mandateVersion: number | null } {
+  const d = (detail ?? {}) as { igUsername?: unknown; destinationIgUserId?: unknown; mandateId?: unknown };
+  const username = typeof d.igUsername === "string" && d.igUsername ? `@${d.igUsername}` : null;
+  return {
+    igAccount: username ?? (typeof d.destinationIgUserId === "string" ? d.destinationIgUserId : null),
+    mandateVersion: mandates.find((row) => row.id === d.mandateId)?.version ?? null,
+  };
+}
 
 function latestByVersion<T extends { version: number }>(rows: T[]): T | null {
   let best: T | null = null;
@@ -201,6 +224,7 @@ export async function getGoalsView(
   repos: EquipeRepositories,
   workspaceId: string,
   accountId: string,
+  now: Date = new Date(),
 ): Promise<GoalsView | null> {
   const account = await repos.accounts.get(workspaceId, accountId);
   if (!account) return null;
@@ -220,7 +244,16 @@ export async function getGoalsView(
   const scopeEvents = await repos.events.list(scope, { eventType: SCOPE_CONFIRMED_EVENT });
   const materialEvents = await repos.events.list(scope, { eventType: MATERIAL_REGISTERED_EVENT });
   const brandVoiceEvents = await repos.events.list(scope, { eventType: BRAND_VOICE_APPROVED_EVENT });
-  const manualModeEvents = await repos.events.list(scope, { eventType: MANUAL_MODE_AGREED_EVENT });
+  const mode = await readPublicationMode(repos, scope);
+  const activationAllowed = requireActivationAccount(account).ok;
+  const automatic = mode.mode === "manual" && activationAllowed
+    ? await automaticPublicationProposal(repos, scope, mode, now)
+    : null;
+  // Automatic mode reads the profile and mandate off the approved receipt's
+  // detail — never a recomputed proposal.
+  const approved = mode.mode === "automatic" && mode.receipt
+    ? approvedPublicationOf(mode.receipt.detail, mandates)
+    : null;
   const scopePayload = eventPayloadOf(scopeEvents[0]);
   const brandVoicePayload = eventPayloadOf(brandVoiceEvents[brandVoiceEvents.length - 1]);
   const openPlan = latestByVersion(plans.filter((p) => p.status === "proposed"));
@@ -285,7 +318,21 @@ export async function getGoalsView(
     },
     connection: {
       verified: connections.some((connection) => connection.status === "active"),
-      manualAgreed: manualModeEvents.length > 0,
+      manualAgreed: mode.mode === "manual",
+    },
+    publication: {
+      mode: mode.mode,
+      // The HTTP adapter fills this from the caller's active account role.
+      canApprove: false,
+      blockedReason: !activationAllowed ? "automatic_publication_unavailable"
+        : automatic && !automatic.ok ? automatic.error.code : null,
+      versionHash: automatic?.ok ? automatic.value.versionHash : null,
+      igAccount: approved ? approved.igAccount
+        : automatic?.ok
+          ? (automatic.value.detail.igUsername ? `@${automatic.value.detail.igUsername}` : automatic.value.detail.destinationIgUserId)
+          : null,
+      mandateVersion: approved ? approved.mandateVersion : automatic?.ok ? automatic.value.mandateVersion : null,
+      receiptId: mode.receipt?.id ?? null,
     },
   };
   return { workspaceId, accountId, plan, mandates, onboarding, decisions };

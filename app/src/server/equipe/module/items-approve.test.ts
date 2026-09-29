@@ -1,3 +1,4 @@
+import { seedInstagramConnection } from "./testing/publication";
 import { describe, expect, it } from "vitest";
 import { publicationIntentIdempotencyKey } from "../data";
 import { executeCommand } from "./commands";
@@ -7,6 +8,7 @@ import { ctx, deliverTestBatch, setup, uuid } from "./testing/items";
 describe("approve_item", () => {
   it("approves the exact version: scheduled + intent + receipt + events", async () => {
     const { t, ids } = await setup();
+    await seedInstagramConnection(t, ids);
     const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
     const { itemIds, versionHashes } = await deliverTestBatch(t, ids);
     const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
@@ -124,6 +126,7 @@ describe("approve_item", () => {
 
   it("individually approves an item that asks for confirmation", async () => {
     const { t, ids } = await setup();
+    await seedInstagramConnection(t, ids);
     const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
     const { itemIds, versionHashes } = await deliverTestBatch(t, ids, {
       items: [{ caption: "50% off hoje", needsConfirmation: true }],
@@ -140,6 +143,7 @@ describe("approve_item", () => {
 describe("approve_batch", () => {
   it("approves a closed list with a per-item result", async () => {
     const { t, ids } = await setup();
+    await seedInstagramConnection(t, ids);
     const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
     const { itemIds, versionHashes } = await deliverTestBatch(t, ids);
 

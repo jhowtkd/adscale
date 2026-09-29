@@ -81,10 +81,12 @@ describe("dispatch_publication gate", () => {
     expect(t.publisher.publishes).toHaveLength(0);
   });
 
-  it("without a pinned connection the approval cannot authorize sending", async () => {
+  it("a legacy intent without a destination pin cannot authorize sending", async () => {
     const { t, ids } = await setup();
     await approveLiveMandate(t, ids);
+    await seedInstagramConnection(t, ids);
     const { intentId } = await deliverDueApprovedItem(t, ids);
+    await t.deps.uow.repos.intents.update(scopeOf(ids), intentId, { destinationIgUserId: null });
     const outcome = await dispatchOf(t, ids, intentId);
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;

@@ -1,3 +1,4 @@
+import { seedInstagramConnection } from "./testing/publication";
 import { describe, expect, it } from "vitest";
 import { executeCommand } from "./commands";
 import { getClientPipeline, getItemDetail } from "./queries";
@@ -6,6 +7,7 @@ import { ctx, deliverTestBatch, setup } from "./testing/items";
 describe("client pipeline", () => {
   it("groups items in columns with the single state per item", async () => {
     const { t, ids } = await setup();
+    await seedInstagramConnection(t, ids);
     const { itemIds, versionHashes } = await deliverTestBatch(t, ids, {
       items: [{}, {}, { needsConfirmation: true }],
     });
@@ -74,6 +76,7 @@ describe("client pipeline", () => {
 describe("item detail", () => {
   it("shows versions, receipts, findings, triage, destination and intent", async () => {
     const { t, ids } = await setup();
+    await seedInstagramConnection(t, ids);
     const { itemIds } = await deliverTestBatch(t, ids, { items: [{}] });
     await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
       type: "edit_caption",
@@ -127,6 +130,7 @@ describe("item detail", () => {
 
   it("hides voided intents and returns null for unknown items", async () => {
     const { t, ids } = await setup();
+    await seedInstagramConnection(t, ids);
     const { itemIds, versionHashes } = await deliverTestBatch(t, ids, { items: [{}] });
     await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
       type: "approve_item",
