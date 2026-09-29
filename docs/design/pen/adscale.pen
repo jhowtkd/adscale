@@ -93890,6 +93890,938 @@
                   ]
                 }
               ]
+            },
+            {
+              "type": "frame",
+              "id": "YfsOv",
+              "name": "Mesa · inspirações",
+              "reusable": true,
+              "width": 1016,
+              "height": 420,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "EQhKS",
+                  "x": 70,
+                  "y": 78,
+                  "name": "Carta 1",
+                  "rotation": 8,
+                  "metadata": {
+                    "type": "unsplash",
+                    "username": "joshudiaz",
+                    "link": "https://unsplash.com/@joshudiaz",
+                    "author": "Joshua Díaz"
+                  },
+                  "clip": true,
+                  "width": 200,
+                  "height": 250,
+                  "fill": [
+                    {
+                      "type": "image",
+                      "enabled": true,
+                      "url": "https://images.unsplash.com/photo-1696954895463-343839741541?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3OTA3MTEwMTN8&ixlib=rb-4.1.0&q=80&w=1080",
+                      "mode": "fill"
+                    },
+                    {
+                      "type": "gradient",
+                      "gradientType": "linear",
+                      "enabled": true,
+                      "rotation": 180,
+                      "size": {
+                        "height": 1
+                      },
+                      "colors": [
+                        {
+                          "color": "#00000000",
+                          "position": 0
+                        },
+                        {
+                          "color": "#00000000",
+                          "position": 0.4
+                        },
+                        {
+                          "color": "#000000D9",
+                          "position": 1
+                        }
+                      ]
+                    }
+                  ],
+                  "cornerRadius": 18,
+                  "stroke": "#FFFFFF1F",
+                  "strokeWidth": 1,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#000000B3",
+                    "offset": {
+                      "x": 0,
+                      "y": 24
+                    },
+                    "blur": 48
+                  },
+                  "layout": "vertical",
+                  "padding": 14,
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "N5ys8l",
+                      "name": "Etiqueta",
+                      "fill": "#00000080",
+                      "cornerRadius": 999,
+                      "padding": [
+                        3,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "GtJ2T",
+                          "name": "Texto",
+                          "fill": "#FFFFFF",
+                          "content": "INSPIRAÇÃO",
+                          "fontFamily": "Space Mono",
+                          "fontSize": 9,
+                          "fontWeight": "normal",
+                          "letterSpacing": 1.2
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "MFMxi",
+                      "name": "Título",
+                      "fill": "#FFFFFF",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Novo drop. Mesma pegada.",
+                      "lineHeight": 1.05,
+                      "fontFamily": "Inter",
+                      "fontSize": 21,
+                      "fontWeight": "800",
+                      "letterSpacing": -0.4
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "IBD73",
+                  "x": 250,
+                  "y": 38,
+                  "name": "Carta 2",
+                  "rotation": 4,
+                  "metadata": {
+                    "type": "unsplash",
+                    "username": "majedswan",
+                    "link": "https://unsplash.com/@majedswan",
+                    "author": "majed swan"
+                  },
+                  "clip": true,
+                  "width": 200,
+                  "height": 250,
+                  "fill": [
+                    {
+                      "type": "image",
+                      "enabled": true,
+                      "url": "https://images.unsplash.com/photo-1760860991924-237b4160efbd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3OTA3MTEwMTR8&ixlib=rb-4.1.0&q=80&w=1080",
+                      "mode": "fill"
+                    },
+                    {
+                      "type": "gradient",
+                      "gradientType": "linear",
+                      "enabled": true,
+                      "rotation": 180,
+                      "size": {
+                        "height": 1
+                      },
+                      "colors": [
+                        {
+                          "color": "#00000000",
+                          "position": 0
+                        },
+                        {
+                          "color": "#00000000",
+                          "position": 0.4
+                        },
+                        {
+                          "color": "#000000D9",
+                          "position": 1
+                        }
+                      ]
+                    }
+                  ],
+                  "cornerRadius": 18,
+                  "stroke": "#FFFFFF1F",
+                  "strokeWidth": 1,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#000000B3",
+                    "offset": {
+                      "x": 0,
+                      "y": 24
+                    },
+                    "blur": 48
+                  },
+                  "layout": "vertical",
+                  "padding": 14,
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "SYsPC",
+                      "name": "Etiqueta",
+                      "fill": "#00000080",
+                      "cornerRadius": 999,
+                      "padding": [
+                        3,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "VJ4jU",
+                          "name": "Texto",
+                          "fill": "#FFFFFF",
+                          "content": "INSPIRAÇÃO",
+                          "fontFamily": "Space Mono",
+                          "fontSize": 9,
+                          "fontWeight": "normal",
+                          "letterSpacing": 1.2
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "Gb1S5",
+                      "name": "Título",
+                      "fill": "#FFFFFF",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Pele de manhã, sem esforço.",
+                      "lineHeight": 1.05,
+                      "fontFamily": "Inter",
+                      "fontSize": 21,
+                      "fontWeight": "800",
+                      "letterSpacing": -0.4
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "PrxP6",
+                  "x": 430,
+                  "y": 22,
+                  "name": "Carta 3",
+                  "metadata": {
+                    "type": "unsplash",
+                    "username": "schoelderle",
+                    "link": "https://unsplash.com/@schoelderle",
+                    "author": "Greta Schölderle Möller"
+                  },
+                  "clip": true,
+                  "width": 200,
+                  "height": 250,
+                  "fill": [
+                    {
+                      "type": "image",
+                      "enabled": true,
+                      "url": "https://images.unsplash.com/photo-1596138641000-42fda7eeb97f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3OTA3MTEwMTN8&ixlib=rb-4.1.0&q=80&w=1080",
+                      "mode": "fill"
+                    },
+                    {
+                      "type": "gradient",
+                      "gradientType": "linear",
+                      "enabled": true,
+                      "rotation": 180,
+                      "size": {
+                        "height": 1
+                      },
+                      "colors": [
+                        {
+                          "color": "#00000000",
+                          "position": 0
+                        },
+                        {
+                          "color": "#00000000",
+                          "position": 0.4
+                        },
+                        {
+                          "color": "#000000D9",
+                          "position": 1
+                        }
+                      ]
+                    }
+                  ],
+                  "cornerRadius": 18,
+                  "stroke": "#FFFFFF1F",
+                  "strokeWidth": 1,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#000000B3",
+                    "offset": {
+                      "x": 0,
+                      "y": 24
+                    },
+                    "blur": 48
+                  },
+                  "layout": "vertical",
+                  "padding": 14,
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "M8G3kd",
+                      "name": "Etiqueta",
+                      "fill": "#00000080",
+                      "cornerRadius": 999,
+                      "padding": [
+                        3,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "KG22c",
+                          "name": "Texto",
+                          "fill": "#FFFFFF",
+                          "content": "INSPIRAÇÃO",
+                          "fontFamily": "Space Mono",
+                          "fontSize": 9,
+                          "fontWeight": "normal",
+                          "letterSpacing": 1.2
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "K9gNr7",
+                      "name": "Título",
+                      "fill": "#FFFFFF",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Sexta pede smash duplo.",
+                      "lineHeight": 1.05,
+                      "fontFamily": "Inter",
+                      "fontSize": 21,
+                      "fontWeight": "800",
+                      "letterSpacing": -0.4
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "t94ot",
+                  "x": 610,
+                  "y": 38,
+                  "name": "Carta 4",
+                  "rotation": -4,
+                  "metadata": {
+                    "type": "unsplash",
+                    "username": "elisabethjurenka",
+                    "link": "https://unsplash.com/@elisabethjurenka",
+                    "author": "Elisabeth Jurenka"
+                  },
+                  "clip": true,
+                  "width": 200,
+                  "height": 250,
+                  "fill": [
+                    {
+                      "type": "image",
+                      "enabled": true,
+                      "url": "https://images.unsplash.com/photo-1678797394182-d596a918ee95?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3OTA3MTEwMTN8&ixlib=rb-4.1.0&q=80&w=1080",
+                      "mode": "fill"
+                    },
+                    {
+                      "type": "gradient",
+                      "gradientType": "linear",
+                      "enabled": true,
+                      "rotation": 180,
+                      "size": {
+                        "height": 1
+                      },
+                      "colors": [
+                        {
+                          "color": "#00000000",
+                          "position": 0
+                        },
+                        {
+                          "color": "#00000000",
+                          "position": 0.4
+                        },
+                        {
+                          "color": "#000000D9",
+                          "position": 1
+                        }
+                      ]
+                    }
+                  ],
+                  "cornerRadius": 18,
+                  "stroke": "#FFFFFF1F",
+                  "strokeWidth": 1,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#000000B3",
+                    "offset": {
+                      "x": 0,
+                      "y": 24
+                    },
+                    "blur": 48
+                  },
+                  "layout": "vertical",
+                  "padding": 14,
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "PLAs8",
+                      "name": "Etiqueta",
+                      "fill": "#00000080",
+                      "cornerRadius": 999,
+                      "padding": [
+                        3,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "gaxWs",
+                          "name": "Texto",
+                          "fill": "#FFFFFF",
+                          "content": "INSPIRAÇÃO",
+                          "fontFamily": "Space Mono",
+                          "fontSize": 9,
+                          "fontWeight": "normal",
+                          "letterSpacing": 1.2
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "H2jJ0",
+                      "name": "Título",
+                      "fill": "#FFFFFF",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Corra antes da cidade acordar.",
+                      "lineHeight": 1.05,
+                      "fontFamily": "Inter",
+                      "fontSize": 21,
+                      "fontWeight": "800",
+                      "letterSpacing": -0.4
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "uxlEj",
+                  "x": 790,
+                  "y": 78,
+                  "name": "Carta 5",
+                  "rotation": -8,
+                  "metadata": {
+                    "type": "unsplash",
+                    "username": "raysontjr",
+                    "link": "https://unsplash.com/@raysontjr",
+                    "author": "Rayson Tan"
+                  },
+                  "clip": true,
+                  "width": 200,
+                  "height": 250,
+                  "fill": [
+                    {
+                      "type": "image",
+                      "enabled": true,
+                      "url": "https://images.unsplash.com/photo-1583545889266-55be2d76c6c5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3OTA3MTEwMTN8&ixlib=rb-4.1.0&q=80&w=1080",
+                      "mode": "fill"
+                    },
+                    {
+                      "type": "gradient",
+                      "gradientType": "linear",
+                      "enabled": true,
+                      "rotation": 180,
+                      "size": {
+                        "height": 1
+                      },
+                      "colors": [
+                        {
+                          "color": "#00000000",
+                          "position": 0
+                        },
+                        {
+                          "color": "#00000000",
+                          "position": 0.4
+                        },
+                        {
+                          "color": "#000000D9",
+                          "position": 1
+                        }
+                      ]
+                    }
+                  ],
+                  "cornerRadius": 18,
+                  "stroke": "#FFFFFF1F",
+                  "strokeWidth": 1,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#000000B3",
+                    "offset": {
+                      "x": 0,
+                      "y": 24
+                    },
+                    "blur": 48
+                  },
+                  "layout": "vertical",
+                  "padding": 14,
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "BRgyo",
+                      "name": "Etiqueta",
+                      "fill": "#00000080",
+                      "cornerRadius": 999,
+                      "padding": [
+                        3,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "XZe8r",
+                          "name": "Texto",
+                          "fill": "#FFFFFF",
+                          "content": "INSPIRAÇÃO",
+                          "fontFamily": "Space Mono",
+                          "fontSize": 9,
+                          "fontWeight": "normal",
+                          "letterSpacing": 1.2
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "f0iKGs",
+                      "name": "Título",
+                      "fill": "#FFFFFF",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Um cheiro que fica.",
+                      "lineHeight": 1.05,
+                      "fontFamily": "Inter",
+                      "fontSize": 21,
+                      "fontWeight": "800",
+                      "letterSpacing": -0.4
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "i11zV9",
+              "name": "Mesa · marca",
+              "reusable": true,
+              "width": 1016,
+              "height": 260,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "F0Fj8",
+                  "x": 163,
+                  "y": 40,
+                  "name": "Carta do site",
+                  "rotation": 8,
+                  "clip": true,
+                  "width": 150,
+                  "height": 188,
+                  "fill": [
+                    {
+                      "type": "image",
+                      "enabled": true,
+                      "url": "images/generated-2.png",
+                      "mode": "fill"
+                    },
+                    {
+                      "type": "gradient",
+                      "gradientType": "linear",
+                      "enabled": true,
+                      "rotation": 180,
+                      "size": {
+                        "height": 1
+                      },
+                      "colors": [
+                        {
+                          "color": "#00000000",
+                          "position": 0
+                        },
+                        {
+                          "color": "#00000000",
+                          "position": 0.45
+                        },
+                        {
+                          "color": "#000000D9",
+                          "position": 1
+                        }
+                      ]
+                    }
+                  ],
+                  "cornerRadius": 18,
+                  "stroke": "#FFFFFF1F",
+                  "strokeWidth": 1,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#000000B3",
+                    "offset": {
+                      "x": 0,
+                      "y": 24
+                    },
+                    "blur": 48
+                  },
+                  "layout": "vertical",
+                  "padding": 10,
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "QIcYH",
+                      "name": "Etiqueta",
+                      "fill": "#00000080",
+                      "cornerRadius": 999,
+                      "padding": [
+                        3,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "y1jnJO",
+                          "name": "Texto",
+                          "fill": "#FFFFFF",
+                          "content": "DO SITE",
+                          "fontFamily": "Space Mono",
+                          "fontSize": 9,
+                          "fontWeight": "normal",
+                          "letterSpacing": 1.2
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "jQNje",
+                  "x": 298,
+                  "y": 16,
+                  "name": "Carta logo",
+                  "rotation": 4,
+                  "clip": true,
+                  "width": 150,
+                  "height": 188,
+                  "fill": "#F4EDE3",
+                  "cornerRadius": 18,
+                  "stroke": "#FFFFFF1F",
+                  "strokeWidth": 1,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#000000B3",
+                    "offset": {
+                      "x": 0,
+                      "y": 24
+                    },
+                    "blur": 48
+                  },
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 10,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "L2D8mz",
+                      "name": "Marca",
+                      "fill": "#3B2416",
+                      "content": "café aurora",
+                      "fontFamily": "Fraunces",
+                      "fontSize": 19,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "gs8c2",
+                      "name": "Sub",
+                      "fill": "#8A6A55",
+                      "content": "TORRA PRÓPRIA",
+                      "fontFamily": "Space Mono",
+                      "fontSize": 8,
+                      "fontWeight": "normal",
+                      "letterSpacing": 2
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Hw4HH",
+                  "x": 433,
+                  "y": 6,
+                  "name": "Carta do Instagram",
+                  "clip": true,
+                  "width": 150,
+                  "height": 188,
+                  "fill": [
+                    {
+                      "type": "image",
+                      "enabled": true,
+                      "url": "images/generated-4.png",
+                      "mode": "fill"
+                    },
+                    {
+                      "type": "gradient",
+                      "gradientType": "linear",
+                      "enabled": true,
+                      "rotation": 180,
+                      "size": {
+                        "height": 1
+                      },
+                      "colors": [
+                        {
+                          "color": "#00000000",
+                          "position": 0
+                        },
+                        {
+                          "color": "#00000000",
+                          "position": 0.45
+                        },
+                        {
+                          "color": "#000000D9",
+                          "position": 1
+                        }
+                      ]
+                    }
+                  ],
+                  "cornerRadius": 18,
+                  "stroke": "#FFFFFF1F",
+                  "strokeWidth": 1,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#000000B3",
+                    "offset": {
+                      "x": 0,
+                      "y": 24
+                    },
+                    "blur": 48
+                  },
+                  "layout": "vertical",
+                  "padding": 10,
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "F7x3jE",
+                      "name": "Etiqueta",
+                      "fill": "#00000080",
+                      "cornerRadius": 999,
+                      "padding": [
+                        3,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Xgstc",
+                          "name": "Texto",
+                          "fill": "#FFFFFF",
+                          "content": "DO INSTAGRAM",
+                          "fontFamily": "Space Mono",
+                          "fontSize": 9,
+                          "fontWeight": "normal",
+                          "letterSpacing": 1.2
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "CQ1WL",
+                  "x": 568,
+                  "y": 16,
+                  "name": "Carta paleta",
+                  "rotation": -4,
+                  "clip": true,
+                  "width": 150,
+                  "height": 188,
+                  "fill": "#111315",
+                  "cornerRadius": 18,
+                  "stroke": "#FFFFFF1F",
+                  "strokeWidth": 1,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#000000B3",
+                    "offset": {
+                      "x": 0,
+                      "y": 24
+                    },
+                    "blur": 48
+                  },
+                  "layout": "vertical",
+                  "padding": 10,
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Leo7d",
+                      "name": "Amostras",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 5,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "w2tXJT",
+                          "name": "Faixa",
+                          "width": "fill_container",
+                          "height": 26,
+                          "fill": "#3B2416",
+                          "cornerRadius": 8
+                        },
+                        {
+                          "type": "frame",
+                          "id": "c3Cw9",
+                          "name": "Faixa",
+                          "width": "fill_container",
+                          "height": 26,
+                          "fill": "#C8782E",
+                          "cornerRadius": 8
+                        },
+                        {
+                          "type": "frame",
+                          "id": "C0TIb",
+                          "name": "Faixa",
+                          "width": "fill_container",
+                          "height": 26,
+                          "fill": "#F4EDE3",
+                          "cornerRadius": 8
+                        },
+                        {
+                          "type": "frame",
+                          "id": "zkq5e",
+                          "name": "Faixa",
+                          "width": "fill_container",
+                          "height": 26,
+                          "fill": "#1F3A2E",
+                          "cornerRadius": 8
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "g1pSVO",
+                      "name": "Rótulo",
+                      "fill": "$d-text2",
+                      "content": "PALETA · 4 CORES",
+                      "fontFamily": "Space Mono",
+                      "fontSize": 9,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1.4
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Quf0J",
+                  "x": 703,
+                  "y": 40,
+                  "name": "Carta do Instagram",
+                  "rotation": -8,
+                  "clip": true,
+                  "width": 150,
+                  "height": 188,
+                  "fill": [
+                    {
+                      "type": "image",
+                      "enabled": true,
+                      "url": "images/generated-5.png",
+                      "mode": "fill"
+                    },
+                    {
+                      "type": "gradient",
+                      "gradientType": "linear",
+                      "enabled": true,
+                      "rotation": 180,
+                      "size": {
+                        "height": 1
+                      },
+                      "colors": [
+                        {
+                          "color": "#00000000",
+                          "position": 0
+                        },
+                        {
+                          "color": "#00000000",
+                          "position": 0.45
+                        },
+                        {
+                          "color": "#000000D9",
+                          "position": 1
+                        }
+                      ]
+                    }
+                  ],
+                  "cornerRadius": 18,
+                  "stroke": "#FFFFFF1F",
+                  "strokeWidth": 1,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#000000B3",
+                    "offset": {
+                      "x": 0,
+                      "y": 24
+                    },
+                    "blur": 48
+                  },
+                  "layout": "vertical",
+                  "padding": 10,
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "K6WEm",
+                      "name": "Etiqueta",
+                      "fill": "#00000080",
+                      "cornerRadius": 999,
+                      "padding": [
+                        3,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "O6q3Nm",
+                          "name": "Texto",
+                          "fill": "#FFFFFF",
+                          "content": "DO INSTAGRAM",
+                          "fontFamily": "Space Mono",
+                          "fontSize": 9,
+                          "fontWeight": "normal",
+                          "letterSpacing": 1.2
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -94285,6 +95217,52 @@
                       "justifyContent": "center",
                       "alignItems": "center",
                       "children": [
+                        {
+                          "id": "iAL6g",
+                          "type": "ref",
+                          "ref": "YfsOv",
+                          "name": "Mesa",
+                          "layoutPosition": "absolute",
+                          "x": 0,
+                          "y": 0
+                        },
+                        {
+                          "type": "frame",
+                          "id": "lVc1p",
+                          "layoutPosition": "absolute",
+                          "x": 0,
+                          "y": 0,
+                          "name": "Degradê da mesa",
+                          "width": 1016,
+                          "height": 712,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 180,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#090A0C00",
+                                "position": 0
+                              },
+                              {
+                                "color": "#090A0C00",
+                                "position": 0.44
+                              },
+                              {
+                                "color": "#090A0C",
+                                "position": 0.55
+                              },
+                              {
+                                "color": "#090A0C",
+                                "position": 1
+                              }
+                            ]
+                          }
+                        },
                         {
                           "type": "frame",
                           "id": "ByOxU",
@@ -94989,13 +95967,77 @@
                       "alignItems": "center",
                       "children": [
                         {
+                          "id": "F6hJWu",
+                          "type": "ref",
+                          "ref": "i11zV9",
+                          "name": "Mesa",
+                          "layoutPosition": "absolute",
+                          "x": 0,
+                          "y": 0,
+                          "descendants": {
+                            "Hw4HH": {
+                              "enabled": true,
+                              "fill": "#15171B",
+                              "stroke": "#FFFFFF14"
+                            },
+                            "Xgstc": {
+                              "content": "NA FILA"
+                            },
+                            "Quf0J": {
+                              "enabled": true,
+                              "fill": "#15171B",
+                              "stroke": "#FFFFFF14"
+                            },
+                            "O6q3Nm": {
+                              "content": "NA FILA"
+                            }
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "aiFfM",
+                          "layoutPosition": "absolute",
+                          "x": 0,
+                          "y": 0,
+                          "name": "Degradê da mesa",
+                          "width": 1016,
+                          "height": 712,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 180,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#090A0C00",
+                                "position": 0
+                              },
+                              {
+                                "color": "#090A0C00",
+                                "position": 0.15589887640449437
+                              },
+                              {
+                                "color": "#090A0C",
+                                "position": 0.27668539325842695
+                              },
+                              {
+                                "color": "#090A0C",
+                                "position": 1
+                              }
+                            ]
+                          }
+                        },
+                        {
                           "type": "frame",
                           "id": "fymQI",
                           "name": "Conversa",
                           "width": 680,
                           "height": "fill_container",
                           "layout": "vertical",
-                          "gap": 16,
+                          "gap": 14,
                           "justifyContent": "end",
                           "children": [
                             {
@@ -96066,6 +97108,72 @@
                       "justifyContent": "center",
                       "alignItems": "center",
                       "children": [
+                        {
+                          "id": "ALWcc",
+                          "type": "ref",
+                          "ref": "i11zV9",
+                          "name": "Mesa",
+                          "layoutPosition": "absolute",
+                          "x": 0,
+                          "y": 0,
+                          "enabled": false,
+                          "descendants": {
+                            "Hw4HH": {
+                              "enabled": true,
+                              "fill": "#15171B",
+                              "stroke": "#FFFFFF14"
+                            },
+                            "Xgstc": {
+                              "content": "NA FILA"
+                            },
+                            "Quf0J": {
+                              "enabled": true,
+                              "fill": "#15171B",
+                              "stroke": "#FFFFFF14"
+                            },
+                            "O6q3Nm": {
+                              "content": "NA FILA"
+                            }
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "lI6F4",
+                          "layoutPosition": "absolute",
+                          "x": 0,
+                          "y": 0,
+                          "name": "Degradê da mesa",
+                          "enabled": false,
+                          "width": 1016,
+                          "height": 712,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 180,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#090A0C00",
+                                "position": 0
+                              },
+                              {
+                                "color": "#090A0C00",
+                                "position": 0.06320224719101124
+                              },
+                              {
+                                "color": "#090A0CF2",
+                                "position": 0.18398876404494383
+                              },
+                              {
+                                "color": "#090A0C",
+                                "position": 1
+                              }
+                            ]
+                          }
+                        },
                         {
                           "type": "frame",
                           "id": "Q9ebV",
@@ -97309,6 +98417,52 @@
                       "alignItems": "center",
                       "children": [
                         {
+                          "id": "QIWz6",
+                          "type": "ref",
+                          "ref": "i11zV9",
+                          "name": "Mesa",
+                          "layoutPosition": "absolute",
+                          "x": 0,
+                          "y": 0
+                        },
+                        {
+                          "type": "frame",
+                          "id": "dFbOe",
+                          "layoutPosition": "absolute",
+                          "x": 0,
+                          "y": 0,
+                          "name": "Degradê da mesa",
+                          "width": 1016,
+                          "height": 712,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 180,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#090A0C00",
+                                "position": 0
+                              },
+                              {
+                                "color": "#090A0C00",
+                                "position": 0.11235955056179775
+                              },
+                              {
+                                "color": "#090A0C",
+                                "position": 0.23314606741573032
+                              },
+                              {
+                                "color": "#090A0C",
+                                "position": 1
+                              }
+                            ]
+                          }
+                        },
+                        {
                           "type": "frame",
                           "id": "F9uynE",
                           "name": "Conversa",
@@ -98333,6 +99487,52 @@
                       "justifyContent": "center",
                       "alignItems": "center",
                       "children": [
+                        {
+                          "id": "lpq7Q",
+                          "type": "ref",
+                          "ref": "i11zV9",
+                          "name": "Mesa",
+                          "layoutPosition": "absolute",
+                          "x": 0,
+                          "y": 0
+                        },
+                        {
+                          "type": "frame",
+                          "id": "fbQ4J",
+                          "layoutPosition": "absolute",
+                          "x": 0,
+                          "y": 0,
+                          "name": "Degradê da mesa",
+                          "width": 1016,
+                          "height": 712,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 180,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#090A0C00",
+                                "position": 0
+                              },
+                              {
+                                "color": "#090A0C00",
+                                "position": 0.11797752808988764
+                              },
+                              {
+                                "color": "#090A0C",
+                                "position": 0.23876404494382023
+                              },
+                              {
+                                "color": "#090A0C",
+                                "position": 1
+                              }
+                            ]
+                          }
+                        },
                         {
                           "type": "frame",
                           "id": "M1h9GA",
@@ -99863,6 +101063,54 @@
                       "alignItems": "center",
                       "children": [
                         {
+                          "id": "X10wyF",
+                          "type": "ref",
+                          "ref": "i11zV9",
+                          "name": "Mesa",
+                          "layoutPosition": "absolute",
+                          "x": 0,
+                          "y": 0,
+                          "enabled": false
+                        },
+                        {
+                          "type": "frame",
+                          "id": "OA558",
+                          "layoutPosition": "absolute",
+                          "x": 0,
+                          "y": 0,
+                          "name": "Degradê da mesa",
+                          "enabled": false,
+                          "width": 1016,
+                          "height": 712,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 180,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#090A0C00",
+                                "position": 0
+                              },
+                              {
+                                "color": "#090A0C00",
+                                "position": 0.07303370786516854
+                              },
+                              {
+                                "color": "#090A0CF2",
+                                "position": 0.19382022471910113
+                              },
+                              {
+                                "color": "#090A0C",
+                                "position": 1
+                              }
+                            ]
+                          }
+                        },
+                        {
                           "type": "frame",
                           "id": "gaWrF",
                           "name": "Conversa",
@@ -101013,6 +102261,54 @@
                       "alignItems": "center",
                       "children": [
                         {
+                          "id": "vKmkR",
+                          "type": "ref",
+                          "ref": "i11zV9",
+                          "name": "Mesa",
+                          "layoutPosition": "absolute",
+                          "x": 0,
+                          "y": 0,
+                          "enabled": false
+                        },
+                        {
+                          "type": "frame",
+                          "id": "q1umH",
+                          "layoutPosition": "absolute",
+                          "x": 0,
+                          "y": 0,
+                          "name": "Degradê da mesa",
+                          "enabled": false,
+                          "width": 1016,
+                          "height": 712,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 180,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#090A0C00",
+                                "position": 0
+                              },
+                              {
+                                "color": "#090A0C00",
+                                "position": 0.012640449438202247
+                              },
+                              {
+                                "color": "#090A0CF2",
+                                "position": 0.13342696629213482
+                              },
+                              {
+                                "color": "#090A0C",
+                                "position": 1
+                              }
+                            ]
+                          }
+                        },
+                        {
                           "type": "frame",
                           "id": "x8gJpP",
                           "name": "Conversa",
@@ -102059,6 +103355,54 @@
                       "justifyContent": "center",
                       "alignItems": "center",
                       "children": [
+                        {
+                          "id": "QuOZG",
+                          "type": "ref",
+                          "ref": "i11zV9",
+                          "name": "Mesa",
+                          "layoutPosition": "absolute",
+                          "x": 0,
+                          "y": 0,
+                          "enabled": false
+                        },
+                        {
+                          "type": "frame",
+                          "id": "E3HBL",
+                          "layoutPosition": "absolute",
+                          "x": 0,
+                          "y": 0,
+                          "name": "Degradê da mesa",
+                          "enabled": false,
+                          "width": 1016,
+                          "height": 712,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 180,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#090A0C00",
+                                "position": 0
+                              },
+                              {
+                                "color": "#090A0C00",
+                                "position": 0.0800561797752809
+                              },
+                              {
+                                "color": "#090A0CF2",
+                                "position": 0.20084269662921347
+                              },
+                              {
+                                "color": "#090A0C",
+                                "position": 1
+                              }
+                            ]
+                          }
+                        },
                         {
                           "type": "frame",
                           "id": "SWN4k",
