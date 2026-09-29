@@ -191,6 +191,18 @@ export type GoalsDecisions = {
   };
 };
 
+function approvedPublicationOf(
+  detail: unknown,
+  mandates: EquipeMandate[],
+): { igAccount: string | null; mandateVersion: number | null } {
+  const d = (detail ?? {}) as { igUsername?: unknown; destinationIgUserId?: unknown; mandateId?: unknown };
+  const username = typeof d.igUsername === "string" && d.igUsername ? `@${d.igUsername}` : null;
+  return {
+    igAccount: username ?? (typeof d.destinationIgUserId === "string" ? d.destinationIgUserId : null),
+    mandateVersion: mandates.find((row) => row.id === d.mandateId)?.version ?? null,
+  };
+}
+
 function latestByVersion<T extends { version: number }>(rows: T[]): T | null {
   let best: T | null = null;
   for (const row of rows) {
@@ -236,6 +248,11 @@ export async function getGoalsView(
   const activationAllowed = requireActivationAccount(account).ok;
   const automatic = mode.mode === "manual" && activationAllowed
     ? await automaticPublicationProposal(repos, scope, mode, now)
+    : null;
+  // Automatic mode reads the profile and mandate off the approved receipt's
+  // detail — never a recomputed proposal.
+  const approved = mode.mode === "automatic" && mode.receipt
+    ? approvedPublicationOf(mode.receipt.detail, mandates)
     : null;
   const scopePayload = eventPayloadOf(scopeEvents[0]);
   const brandVoicePayload = eventPayloadOf(brandVoiceEvents[brandVoiceEvents.length - 1]);
@@ -310,10 +327,11 @@ export async function getGoalsView(
       blockedReason: !activationAllowed ? "automatic_publication_unavailable"
         : automatic && !automatic.ok ? automatic.error.code : null,
       versionHash: automatic?.ok ? automatic.value.versionHash : null,
-      igAccount: automatic?.ok
-        ? (automatic.value.detail.igUsername ? `@${automatic.value.detail.igUsername}` : automatic.value.detail.destinationIgUserId)
-        : null,
-      mandateVersion: automatic?.ok ? automatic.value.mandateVersion : null,
+      igAccount: approved ? approved.igAccount
+        : automatic?.ok
+          ? (automatic.value.detail.igUsername ? `@${automatic.value.detail.igUsername}` : automatic.value.detail.destinationIgUserId)
+          : null,
+      mandateVersion: approved ? approved.mandateVersion : automatic?.ok ? automatic.value.mandateVersion : null,
       receiptId: mode.receipt?.id ?? null,
     },
   };

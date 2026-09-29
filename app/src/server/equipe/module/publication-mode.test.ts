@@ -129,7 +129,12 @@ describe("approve_automatic_publication", () => {
     ]);
     const after = await getGoalsView(t.deps.uow.repos, ids.workspaceId, ids.accountId, t.deps.clock.now());
     expect(after?.decisions.connection.manualAgreed).toBe(false);
-    expect(after?.decisions.publication).toMatchObject({ mode: "automatic", receiptId: receipt?.id });
+    expect(after?.decisions.publication).toMatchObject({
+      mode: "automatic", receiptId: receipt?.id, versionHash: null,
+      igAccount: proposal!.decisions.publication.igAccount,
+      mandateVersion: proposal!.decisions.publication.mandateVersion,
+    });
+    expect(after?.decisions.publication.mandateVersion).not.toBeNull();
     expect(await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
       type: "agree_manual_mode", payload: {},
     })).toMatchObject({ ok: false, error: { code: "invalid_transition" } });

@@ -398,11 +398,62 @@ describe("GoalsView", () => {
       },
     });
     fireEvent.click(await screen.findByTestId("goals-publication-approve"));
+    // Nothing is sent before the second step.
+    expect(commandMocks.approveEquipeAutomaticPublication).not.toHaveBeenCalled();
+    expect(screen.getByTestId("goals-publication-confirmation")).toHaveTextContent(
+      "automaticPublicationConfirmPrompt",
+    );
+    fireEvent.click(screen.getByTestId("goals-publication-confirm"));
     await waitFor(() => {
       expect(commandMocks.approveEquipeAutomaticPublication).toHaveBeenCalledWith("acc-1", {
         expectedVersionHash: "hash-publicacao",
       });
     });
+  });
+
+  it("cancels the automatic publication confirmation without sending anything", async () => {
+    renderView("active", {
+      ...DECISIONS,
+      publication: {
+        mode: "manual",
+        canApprove: true,
+        blockedReason: null,
+        versionHash: "hash-publicacao",
+        igAccount: "@brand",
+        mandateVersion: 2,
+        receiptId: "rc-manual",
+      },
+    });
+    fireEvent.click(await screen.findByTestId("goals-publication-approve"));
+    fireEvent.click(screen.getByTestId("goals-publication-cancel"));
+    expect(screen.queryByTestId("goals-publication-confirm")).not.toBeInTheDocument();
+    expect(screen.getByTestId("goals-publication-approve")).toBeInTheDocument();
+    expect(commandMocks.approveEquipeAutomaticPublication).not.toHaveBeenCalled();
+  });
+
+  it("shows the recorded state, profile and mandate version once approved", async () => {
+    renderView("active", {
+      ...DECISIONS,
+      publication: {
+        mode: "automatic",
+        canApprove: true,
+        blockedReason: null,
+        versionHash: null,
+        igAccount: "@brand",
+        mandateVersion: 2,
+        receiptId: "rc-auto",
+      },
+    });
+    const section = await screen.findByTestId("goals-publication-mode");
+    expect(screen.getByTestId("goals-publication-explainer")).toHaveTextContent(
+      "automaticPublicationState",
+    );
+    expect(section).not.toHaveTextContent("automaticPublicationExplainer");
+    expect(screen.getByTestId("goals-publication-target")).toHaveTextContent(
+      "automaticPublicationTarget",
+    );
+    expect(section).toHaveTextContent("publicationReceipt");
+    expect(screen.queryByTestId("goals-publication-approve")).not.toBeInTheDocument();
   });
 
   it("hides or disables automatic publication approval when the server blocks it", async () => {
