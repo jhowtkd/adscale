@@ -21,8 +21,9 @@ export const WORK_DEFERRED = "agent_work.deferred";
 export const ITEM_REVIEWED = "item.reviewed";
 
 function activeClaims(events: EquipeEvent[]) {
+  // A deferral without claimId records a refused claim and releases nothing.
   const deferred = new Set(events.filter((event) => event.eventType === WORK_DEFERRED)
-    .map((event) => (event.payload as { claimId: string }).claimId));
+    .map((event) => (event.payload as { claimId?: string | null }).claimId).filter(Boolean));
   return events.filter((event) => event.eventType === WORK_STARTED && !deferred.has(event.id));
 }
 
@@ -159,6 +160,22 @@ export async function deferAgentWork(
     if (completed || !started || claim?.runId !== runId) return ok({ deferred: false });
     await appendEvent(ctx, { eventType: WORK_DEFERRED, objectType: "agent_work", objectId: sourceEventId,
       payload: { sourceEventId, claimId: started.id, versionHash: claim.versionHash, inputHash: claim.inputHash, result: result ?? claim.result } });
+    return ok({ deferred: true });
+  });
+}
+
+/** Claim refused by the execution gate: no claim exists, but the transport
+ * generation must advance so the resume is not swallowed by Inngest's dedupe.
+ * Idempotent per runId, so a replay of the same run adds no generation.
+ */
+export async function deferRefusedClaim(deps: EquipeModuleDeps, scope: AccountScope, sourceEventId: string, runId: string) {
+  return transact(deps, { ...scope, actor: { kind: "system", job: "equipe-agent-work" }, now: deps.clock.now() }, async (ctx) => {
+    const state = await workState(ctx, sourceEventId);
+    if (!state.ok) return state;
+    if (state.value.completed) return ok({ deferred: false });
+    if (state.value.deferred.some((event) => (event.payload as { runId?: string }).runId === runId)) return ok({ deferred: false });
+    await appendEvent(ctx, { eventType: WORK_DEFERRED, objectType: "agent_work", objectId: sourceEventId,
+      payload: { sourceEventId, claimId: null, reason: "claim_refused", runId } });
     return ok({ deferred: true });
   });
 }

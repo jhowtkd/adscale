@@ -8,7 +8,7 @@
 import { z } from "zod";
 import type { FailureEventPayload } from "inngest";
 import { executeCommand } from "../module/commands";
-import { deferAgentWork } from "../module/agent-work";
+import { deferAgentWork, deferRefusedClaim } from "../module/agent-work";
 import { authorizeAccountExecution, isExecutionBlocked } from "../module/execution-authorization";
 import { inngest } from "@/server/jobs/client";
 import { logger } from "@/lib/logger";
@@ -85,7 +85,13 @@ export function createAgentWorkHandler(runtime: AgentWorkRuntime) {
         { actor: { kind: "system", job: EQUIPE_AGENT_WORK_ID }, workspaceId, accountId },
         { type: "claim_agent_work", payload: { sourceEventId, runId: owner } }));
       if (!claim.ok) {
-        if (isExecutionBlocked(claim.error.code)) return { refused: true as const, error: claim.error.code };
+        if (isExecutionBlocked(claim.error.code)) {
+          // The gated claim tx rolled back; record the refusal so the next
+          // sweep uses a new transport id after resume.
+          const deferred = await step.run("defer-refused-claim", () => deferRefusedClaim(deps, { workspaceId, accountId }, sourceEventId, owner));
+          if (!deferred.ok) throw new Error(`defer refused claim: ${deferred.error.code}`);
+          return { refused: true as const, error: claim.error.code };
+        }
         throw new Error(`claim agent work: ${claim.error.code}`);
       }
       if (!claim.value.data.claimed) return { refused: false as const, ...claim.value.data };

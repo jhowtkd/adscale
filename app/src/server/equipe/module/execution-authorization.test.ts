@@ -189,6 +189,40 @@ describe("execution authorization", () => {
     expect(await outbox({ step: outboxStep })).toEqual({ emitted: 0 });
   });
 
+  it("advances the transport generation when suspension refuses the claim itself", async () => {
+    const { t, ids } = await setup();
+    const { itemIds } = await deliverTestBatch(t, ids, { items: [{ caption: "antes" }] });
+    const edited = await executeCommand(t.deps, ctx(ids, ids.actors.approver), { type: "edit_caption", payload: { itemId: itemIds[0]!, caption: "depois" } });
+    if (!edited.ok) throw new Error("edit failed");
+    const source = edited.value.events.find((event) => event.eventType === "agent_work.requested")!;
+    const scope = { workspaceId: ids.workspaceId, accountId: ids.accountId };
+    const outbox = createAgentWorkOutboxHandler({ uow: t.deps.uow, clock: t.deps.clock, isEnabledForWorkspace: () => true, gatewayFor: () => t.gateway });
+    const sent: Array<{ id: string; data: { workspaceId: string; accountId: string; kind: string; sourceEventId: string } }> = [];
+    const outboxStep = { ...step, sendEvent: async (_name: string, event: (typeof sent)[number]) => { sent.push(event); } };
+    await outbox({ step: outboxStep });
+    expect(sent.map((event) => event.id)).toEqual([`${source.id}:0`]);
+    const pauseId = await pause(t, ids, "execution");
+    const client = new FakeModelClient([]);
+    const handler = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client }), isEnabled: () => true });
+    const event = { id: sent[0]!.id, data: sent[0]!.data };
+    expect(await handler({ event, step, runId: "refused-claim" })).toMatchObject({ refused: true, error: "execution_suspended" });
+    // Replay of the same run adds no generation.
+    await handler({ event, step, runId: "refused-claim" });
+    expect(client.requests).toHaveLength(0);
+    const deferred = await t.deps.uow.repos.events.list(scope, { eventType: "agent_work.deferred" });
+    expect(deferred).toHaveLength(1);
+    expect(deferred[0]!.payload).toMatchObject({ claimId: null, reason: "claim_refused", runId: "refused-claim" });
+    expect((await resume(t, ids, pauseId, "execution")).ok).toBe(true);
+    await outbox({ step: outboxStep });
+    expect(sent.at(-1)!.id).toBe(`${source.id}:1`);
+    const resumedClient = new FakeModelClient([{ content: JSON.stringify({ findings: [], summary: "ok", natures: ["none"] }) }]);
+    const resumed = createAgentWorkHandler({ depsFor: () => t.deps, agentsFor: () => createEquipeAgents({ moduleDeps: t.deps, client: resumedClient }), isEnabled: () => true });
+    const resumedEvent = { id: sent.at(-1)!.id, data: sent.at(-1)!.data };
+    expect(await resumed({ event: resumedEvent, step, runId: "resumed-run" })).toMatchObject({ refused: false });
+    await resumed({ event: resumedEvent, step, runId: "resumed-redelivery" });
+    expect(resumedClient.requests).toHaveLength(1);
+  });
+
   it("releases a claim when suspension lands between claim and model call", async () => {
     const { t, ids } = await setup();
     const { itemIds } = await deliverTestBatch(t, ids, { items: [{ caption: "antes" }] });
