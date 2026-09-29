@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getTranslations } from "next-intl/server";
 import { requireRole, requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { runAssistantTurn } from "@/server/assistant/orchestrator";
@@ -92,6 +93,7 @@ function runEquipeTurn(input: {
   accountId: string;
   threadId: string;
   userMessage: string;
+  executionPausedMessage: string;
 }) {
   const moduleDeps: EquipeModuleDeps = {
     uow: createPostgresEquipeUnitOfWork(db),
@@ -111,6 +113,7 @@ function runEquipeTurn(input: {
     accountId: input.accountId,
     threadId: input.threadId,
     userMessage: input.userMessage,
+    executionPausedMessage: input.executionPausedMessage,
   });
 }
 
@@ -171,6 +174,7 @@ export async function POST(
                 accountId: equipeMatch.account.id,
                 threadId,
                 userMessage: parsed.data.message,
+                executionPausedMessage: (await getTranslations("assistant.equipe"))("executionPaused"),
               })
             : goalRun && goalRun.stage !== "completed" && goalRun.stage !== "stopped"
               ? runGoalAgentTurn({

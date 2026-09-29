@@ -48,6 +48,7 @@ import {
 } from "./roles";
 import { STRATEGIST_AGENT_ID, runStrategistTurn } from "./strategist";
 import { runWriting, type WritingDeps } from "./writing";
+import { assertAccountExecution, authorizeAccountExecution } from "../module/execution-authorization";
 
 export const BUDGET_EXCEEDED_ERROR = "budget_exceeded";
 
@@ -173,6 +174,18 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
         return invalidTask(`invalid_agent_input:${parsedInput.error.issues[0]?.message ?? "invalid"}`);
       }
 
+      const allowed = await authorizeAccountExecution(options.moduleDeps.uow.repos, task);
+      if (!allowed.ok) return invalidTask(allowed.error.code);
+
+      // Recheck every model request, including a second reviewer call or a
+      // strategist iteration after suspension was applied during a turn.
+      const taskClient = (model: string): EquipeModelClient => ({
+        async chat(request) {
+          await assertAccountExecution(options.moduleDeps.uow.repos, task);
+          return clientForModel(model).chat(request);
+        },
+      });
+
       const budgetUsdCents = resolveAgentMonthlyBudgetUsdCents();
       const totalCostUsdCents = await ledger.monthlyTotalCostUsdCents(task.workspaceId, task.accountId, now());
       if (totalCostUsdCents >= budgetUsdCents) {
@@ -202,6 +215,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
       };
 
       try {
+        await assertAccountExecution(options.moduleDeps.uow.repos, task);
         const input = parsedInput.data as { message?: string; maxIterations?: number } & Record<string, unknown>;
         switch (kind) {
           case "review_caption":
@@ -213,12 +227,12 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
             const effort = kind === "review_caption" ? resolveReviewerEffort()
               : kind === "plan_adjustment" ? resolveResearchEffort() : resolveStrategistEffort();
             return { ok: true, output: await runItemWork({ kind, input: itemWorkInputSchema.parse(task.input),
-              client: clientForModel(model), model, effort, onModelCall: recordCall }) };
+              client: taskClient(model), model, effort, onModelCall: recordCall }) };
           }
           case "strategist_turn": {
             const model = resolveStrategistModel();
             const output = await runStrategistTurn({
-              client: clientForModel(model),
+              client: taskClient(model),
               model,
               effort: resolveStrategistEffort(),
               ctx: { deps: options.moduleDeps, workspaceId: task.workspaceId, accountId: task.accountId },
@@ -231,7 +245,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
           case "research": {
             const model = resolveResearchModel();
             const output = await runResearch({
-              client: clientForModel(model),
+              client: taskClient(model),
               model,
               effort: resolveResearchEffort(),
               materials: input.materials as ResearchMaterial[],
@@ -259,7 +273,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
           case "review_text": {
             const model = resolveReviewerModel();
             const output = await runTextReview({
-              client: clientForModel(model),
+              client: taskClient(model),
               model,
               effort: resolveReviewerEffort(),
               copy: input.copy as { headline: string; body: string; cta: string },
@@ -271,7 +285,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
           case "review_visual": {
             const model = resolveReviewerModel();
             const output = await runVisualReview({
-              client: clientForModel(model),
+              client: taskClient(model),
               model,
               effort: resolveReviewerEffort(),
               imageUrl: input.imageUrl as string,

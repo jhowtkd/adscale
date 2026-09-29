@@ -66,6 +66,9 @@ const CONFLICT_CODES = new Set([
   "correction_pending",
   "deadline_not_reached",
   "duplicate_pause",
+  "execution_suspended",
+  "execution_delinquent",
+  "execution_closed",
   "front_not_released",
   // #583 — stopping twice / resuming without a stop.
   "global_stop_already_active",

@@ -13,8 +13,10 @@ export function createAgentWorkOutboxHandler(deps: EquipeJobDeps) {
       const scope = { workspaceId: account.workspaceId, accountId: account.accountId };
       const pending = await step.run(`pending-${account.accountId}`, () => pendingAgentWork(deps.uow.repos, scope));
       for (const source of pending) {
-        // Stable Inngest id + persisted claim: both redelivery windows are covered.
-        await step.sendEvent(`emit-${source.id}`, { id: source.id, name: EQUIPE_AGENT_WORK_EVENT,
+        // Inngest dedupes by id, so re-sweeps of a stalled queue add no events.
+        // A deferral bumps the generation, so a resume gets a fresh id; the
+        // persisted claim remains the idempotency guard.
+        await step.sendEvent(`emit-${source.id}`, { id: `${source.id}:${source.generation}`, name: EQUIPE_AGENT_WORK_EVENT,
           data: { ...scope, sourceEventId: source.id, kind: String((source.payload as { kind?: string })?.kind ?? "unknown") } });
         emitted += 1;
       }

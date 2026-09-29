@@ -4,7 +4,7 @@ import { ctx, deliverTestBatch, setup } from "../module/testing/items";
 import { createAgentWorkOutboxHandler } from "./agent-work-outbox";
 
 describe("agent work outbox", () => {
-  it("emits a stable event from the persisted UI command", async () => {
+  it("emits a generation-stable transport id for persisted work", async () => {
     const { t, ids } = await setup();
     const { itemIds } = await deliverTestBatch(t, ids);
     const edited = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
@@ -32,9 +32,10 @@ describe("agent work outbox", () => {
     expect(replay).toEqual(first);
     expect(sent).toHaveLength(2);
     expect(sent[0]).toEqual({
-      id: source.id,
+      id: `${source.id}:0`,
       name: "equipe.agent.work",
       data: { workspaceId: ids.workspaceId, accountId: ids.accountId, sourceEventId: source.id, kind: "caption_revalidation" },
     });
+    expect(sent[1]).toEqual(sent[0]);
   });
 });

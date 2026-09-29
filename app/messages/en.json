@@ -4064,6 +4064,7 @@
       "maxAttachments": "You can attach up to 5 images per message."
     },
     "equipe": {
+      "executionPaused": "The team's work is paused at the moment. Your message has been saved so a team member can reply.",
       "review": "Review",
       "approveBatch": "Approve all {count}",
       "approveItem": "Approve this version",

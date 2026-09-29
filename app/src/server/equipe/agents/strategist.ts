@@ -30,6 +30,7 @@ import type { EquipeEffort } from "./provider";
 import { EQUIPE_PROMPT_VERSION, strategistSystemPrompt } from "./prompts";
 import { resolveStrategistEffort, resolveStrategistModel } from "./roles";
 import { loadInstagramAuth } from "../publishing/auth";
+import { assertAccountExecution } from "../module/execution-authorization";
 
 export const STRATEGIST_AGENT_ID = "estrategista";
 
@@ -87,7 +88,7 @@ async function runCommandTool(
 
 /** The exact tool list the strategist sees. No approval action exists here. */
 export function buildStrategistTools(ctx: StrategistToolContext): StrategistTool[] {
-  return [
+  const tools: StrategistTool[] = [
     {
       name: "submit_corrected_version",
       description: "Submit an existing corrected Peça/caption for a calibration item returned by Quality. Returns to Quality conference; never releases or approves.",
@@ -228,6 +229,13 @@ export function buildStrategistTools(ctx: StrategistToolContext): StrategistTool
         runCommandTool(ctx, "advance_onboarding", advanceOnboardingPayloadSchema.parse(args)),
     },
   ];
+  return tools.map((tool) => ({
+    ...tool,
+    async run(args) {
+      await assertAccountExecution(ctx.deps.uow.repos, ctx);
+      return tool.run(args);
+    },
+  }));
 }
 
 /** Command types the strategist may invoke. Used by the no-approval test. */
@@ -306,9 +314,11 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
   let toolCallsExecuted = 0;
   let iterations = 0;
   for (;;) {
+    await assertAccountExecution(input.ctx.deps.uow.repos, input.ctx);
     iterations += 1;
     const response = await input.client.chat({ model, messages, tools, effort, maxTokens, cache: "auto" });
     await input.onModelCall?.({ model, ...response.usage });
+    await assertAccountExecution(input.ctx.deps.uow.repos, input.ctx);
     // History is append-only: a truncated or refused turn fails instead of
     // editing or dropping messages inside the loop.
     if (response.stopReason === "refusal") {

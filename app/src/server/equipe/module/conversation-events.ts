@@ -3,12 +3,12 @@ import type { CommandContext } from "./shared";
 import type { CreateAssistantMessageInput } from "../../repositories/assistant-message";
 import { buildBatchCard } from "../agents/cards";
 import { templateFor } from "../jobs/notification-templates";
+import { authorizeAccountExecution, PROACTIVE_REMINDERS, requiresExecutionForMessage } from "./execution-authorization";
 
 /** One source event -> one message, in the same store read by the Assistant. */
 export async function projectConversationEvent(ctx: CommandContext, event: EquipeEvent) {
   const payload = (event.payload ?? {}) as Record<string, unknown>;
-  const reminders = ["implantation.reminder_day2", "implantation.reminder_day5", "batch.reminder_24h", "batch.reminder_item_4h", "escalation.client_reminder"];
-  const reminder = event.eventType === "notification.requested" && reminders.includes(String(payload.templateKey));
+  const reminder = event.eventType === "notification.requested" && PROACTIVE_REMINDERS.includes(String(payload.templateKey));
   if (!reminder && ![
     "staff.message_posted", "staff.contact_registered", "support_exception.assumed",
     "support_exception.closed", "support_exception.opened", "batch.delivered",
@@ -16,6 +16,12 @@ export async function projectConversationEvent(ctx: CommandContext, event: Equip
   const scope = { workspaceId: ctx.workspaceId, accountId: ctx.accountId };
   if (event.workspaceId !== scope.workspaceId || event.accountId !== scope.accountId) {
     throw new Error("conversation_event_scope_mismatch");
+  }
+  // Human incident/support communication remains available. Automated content
+  // and reminders must stop before reading cards or conversation context.
+  if (requiresExecutionForMessage(event)) {
+    const allowed = await authorizeAccountExecution(ctx.repos, scope);
+    if (!allowed.ok) return null;
   }
   const primary = (await ctx.repos.threads.list(scope)).find((row) => row.kind === "primary");
   if (!primary?.assistantThreadId) return null;

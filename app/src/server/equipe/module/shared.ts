@@ -5,6 +5,7 @@
 
 import { createHash } from "node:crypto";
 import { projectConversationEvent } from "./conversation-events";
+import { authorizeAccountExecution } from "./execution-authorization";
 import {
   actorId,
   type AccountStatus,
@@ -305,6 +306,10 @@ export async function transact(
       const bound = await bindActor(ctx);
       if (!bound.ok) throw new CommandRolledBack(bound.error);
       ctx.actor = bound.value;
+      if (ctx.actor.kind === "agent") {
+        const allowed = await authorizeAccountExecution(repos, scopeOf(ctx), { forUpdate: true });
+        if (!allowed.ok) throw new CommandRolledBack(allowed.error);
+      }
       const outcome = await fn(ctx);
       if (!outcome.ok) throw new CommandRolledBack(outcome.error);
       for (const event of ctx.events) await projectConversationEvent(ctx, event);

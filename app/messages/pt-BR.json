@@ -4140,6 +4140,7 @@
       "maxAttachments": "Você pode anexar até 5 imagens por mensagem."
     },
     "equipe": {
+      "executionPaused": "O trabalho da equipe está pausado no momento. Sua mensagem ficou registrada para uma pessoa da equipe responder.",
       "review": "Revisar",
       "approveBatch": "Aprovar os {count}",
       "approveItem": "Aprovar esta versão",
