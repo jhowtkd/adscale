@@ -4,7 +4,7 @@ export function filterSuggestions(value: unknown): string[] {
   const valid = value.filter((item): item is string => {
     if (typeof item !== "string" || !item.trim() || Array.from(item.trim()).length > 60) return false;
     const text = item.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    return !/\b(aprov(?:[oa]|em?)|aprovad[oa]s?|aprova(?:r|cao|coes)|confirm(?:[oa]|ar|ad[oa]s?|acao|acoes|ed|ation)?|autoriz(?:[oa]|em?|ar|ad[oa]s?|acao|acoes)|publiquem?|approve[ds]?|authoriz(?:e[ds]?|ation)|publish)\b|\bpode\s+(postar|publicar|subir|mandar|enviar|colocar\s+no\s+ar)\b/.test(text);
+    return !/\b(aprov(?:[oa]|em?)|aprovad[oa]s?|aprova(?:r|cao|coes)|confirm(?:[oa]|em?|ar|ad[oa]s?|acao|acoes|ed|ation)?|autoriz(?:[oa]|em?|ar|ad[oa]s?|acao|acoes)|publiquem?|approve[ds]?|authoriz(?:e[ds]?|ation)|publish)\b|\bpode\s+(postar|publicar|subir|mandar|enviar|colocar\s+no\s+ar)\b/.test(text);
   }).map((item) => item.trim());
   return [...new Set(valid)].slice(0, 3);
 }

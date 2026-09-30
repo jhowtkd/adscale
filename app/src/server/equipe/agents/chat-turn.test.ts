@@ -400,6 +400,8 @@ describe("runEquipeStrategistTurn — history and iscas (ticket 02)", () => {
           "Aprovem o calendário",
           "Publiquem agora",
           "Autorizem a publicação",
+          "Confirme o calendário",
+          "Confirmem o calendário",
           "Me explica a oportunidade 2",
           "x".repeat(70),
           "Quero aproveitar as oportunidades",
