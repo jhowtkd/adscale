@@ -48,7 +48,7 @@ describe("task intent outbox reconciliation", () => {
   const SYSTEM = { kind: "system", job: "free-open" } as const;
   async function freeAccountWithIntent(t: TestDeps, data: Record<string, unknown> = { n: 1 }) {
     const workspaceId = uuid(); const userId = `u-${uuid()}`;
-    t.store.workspaceMembers.rows.set(uuid(), { id: uuid(), workspaceId, userId, name: "Ana", email: "a@x.com", emailVerified: true });
+    t.store.workspaceMembers.rows.set(uuid(), { id: uuid(), workspaceId, userId, name: "Ana", email: "a@x.com", emailVerified: true, role: "owner", createdAt: new Date("2026-01-01T00:00:00.000Z") });
     const opened = await executeCommand(t.deps, { actor: SYSTEM, workspaceId }, { type: "open_free_account", payload: { userId } });
     if (!opened.ok) throw new Error(opened.error.code);
     const accountId = opened.value.accountId!;

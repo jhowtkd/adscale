@@ -111,6 +111,12 @@ export function createMemoryInternalEquipeRepositories(
       const member = [...store.workspaceMembers.rows.values()].find((row) => row.workspaceId === workspaceId && row.userId === userId && row.emailVerified);
       return member ? { name: member.name, email: member.email } : null;
     },
+    async getVerifiedWorkspaceOwner(workspaceId) {
+      const [owner] = [...store.workspaceMembers.rows.values()]
+        .filter((row) => row.workspaceId === workspaceId && row.role === "owner" && row.emailVerified)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id));
+      return owner ? { userId: owner.userId, name: owner.name, email: owner.email } : null;
+    },
     async createClientProfile(workspaceId, name) {
       const row = { id: crypto.randomUUID(), workspaceId, name };
       store.adscaleProfiles.rows.set(row.id, row);

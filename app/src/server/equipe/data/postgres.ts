@@ -475,6 +475,13 @@ export function createPostgresInternalEquipeRepositories(
         .where(and(eq(user.id, userId), eq(user.emailVerified, true), eq(workspaceMembers.workspaceId, workspaceId))).limit(1);
       return member ?? null;
     },
+    async getVerifiedWorkspaceOwner(workspaceId) {
+      const [owner] = await executor.select({ userId: user.id, name: user.name, email: user.email }).from(user)
+        .innerJoin(workspaceMembers, eq(workspaceMembers.userId, user.id))
+        .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.role, "owner"), eq(user.emailVerified, true)))
+        .orderBy(asc(workspaceMembers.createdAt), asc(workspaceMembers.id)).limit(1);
+      return owner ?? null;
+    },
     async createClientProfile(workspaceId, name) {
       const [profile] = await executor.insert(clientProfiles).values({ workspaceId, name }).returning({ id: clientProfiles.id });
       if (!profile) throw new Error("profile_insert_failed");

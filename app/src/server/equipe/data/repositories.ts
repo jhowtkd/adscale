@@ -291,6 +291,8 @@ export interface InternalEquipeRepositories {
   listPendingTaskIntents(): Promise<EquipeTaskIntent[]>;
   listWorkspaceIds(options?: { after?: string; limit?: number }): Promise<string[]>;
   getVerifiedWorkspaceMember(workspaceId: string, userId: string): Promise<{ name: string; email: string } | null>;
+  /** Oldest verified owner by membership createdAt, then id. */
+  getVerifiedWorkspaceOwner(workspaceId: string): Promise<{ userId: string; name: string; email: string } | null>;
   createClientProfile(workspaceId: string, name: string): Promise<{ id: string }>;
   staff: EquipeStaffRepository;
   // #583 — parada global de publicações.
