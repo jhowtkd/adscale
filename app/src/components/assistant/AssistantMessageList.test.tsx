@@ -513,6 +513,7 @@ describe("AssistantMessageList", () => {
           streamingText=""
           isStreaming={false}
           threadId="thread-1"
+          equipeEnabled
           onSuggestion={onSuggestion}
         />
       );
@@ -523,6 +524,23 @@ describe("AssistantMessageList", () => {
 
       fireEvent.click(firstChip);
       expect(onSuggestion).toHaveBeenCalledWith("Me explica a oportunidade 2");
+    });
+
+    it("disables persisted suggestions when Equipe is turned off", () => {
+      const onSuggestion = vi.fn();
+      const { rerender } = render(
+        <AssistantMessageList messages={[assistantWithSuggestions]} streamingText="" isStreaming={false}
+          threadId="thread-1" equipeEnabled onSuggestion={onSuggestion} />
+      );
+      rerender(
+        <AssistantMessageList messages={[assistantWithSuggestions]} streamingText="" isStreaming={false}
+          threadId="thread-1" equipeEnabled={false} onSuggestion={onSuggestion} />
+      );
+      for (const button of within(screen.getByTestId("assistant-suggestions")).getAllByRole("button")) {
+        expect(button).toBeDisabled();
+        fireEvent.click(button);
+      }
+      expect(onSuggestion).not.toHaveBeenCalled();
     });
 
     it("renders no suggestion chips when payload.suggestions is absent or empty", () => {

@@ -95,6 +95,7 @@ function runEquipeTurn(input: {
   threadId: string;
   userMessage: string;
   fromSuggestion?: boolean;
+  hasAttachments?: boolean;
   executionPausedMessage: string;
 }) {
   const moduleDeps: EquipeModuleDeps = {
@@ -116,6 +117,7 @@ function runEquipeTurn(input: {
     threadId: input.threadId,
     userMessage: input.userMessage,
     fromSuggestion: input.fromSuggestion,
+    hasAttachments: input.hasAttachments,
     executionPausedMessage: input.executionPausedMessage,
   });
 }
@@ -178,6 +180,7 @@ export async function POST(
                 threadId,
                 userMessage: parsed.data.message,
                 fromSuggestion: parsed.data.payload?.fromSuggestion,
+                hasAttachments: Boolean(attachments?.length),
                 executionPausedMessage: (await getTranslations("assistant.equipe"))("executionPaused"),
               })
             : goalRun && goalRun.stage !== "completed" && goalRun.stage !== "stopped"
