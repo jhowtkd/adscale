@@ -238,6 +238,7 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     const [resumed] = await f.second.deps.uow.repos.handoffs.list(f.scope);
     expect(resumed!.readingId).toBe(row!.readingId);
     expect(resumed!.reading.name).toMatchObject({ status: "found" });
+    expect(resumed!.reading.name?.bySource?.site).toMatchObject({ status: "found", runId: nameGroup.runId });
     expect(resumed!.captured.name?.[0]).toMatchObject({ value: "Acme" });
 
     const confirmed = await f.executeCommand(f.second.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
@@ -248,6 +249,36 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     // to act on it, not that this particular command succeeds.
     expect(confirmed.ok).toBe(false);
     if (!confirmed.ok) expect(confirmed.error.code).toBe("invalid_transition");
+  });
+
+  it("resumes after the claim commits in Postgres but its step acknowledgement is lost", async () => {
+    const f = await setup();
+    const row = await withSource(f);
+    const [{ createHandoffReadHandler }, { FakeSiteReader, FakeInstagramReader }, { HANDOFF_GROUPS }] = await Promise.all([
+      import("../handoff/read"), import("../handoff/readers"), import("../domain/handoff"),
+    ]);
+    const taskIntentId = row.reading.name!.taskIntentId;
+    const intent = await f.t.deps.uow.repos.taskOutbox.get(f.scope, taskIntentId);
+    const event = { data: { ...f.scope, taskIntentId, ...(intent!.data as object) } };
+    const cache = new Map<string, unknown>();
+    let loseClaim = true;
+    const step = { async run<T>(id: string, fn: () => Promise<T>): Promise<T> {
+      if (cache.has(id)) return cache.get(id) as T;
+      const value = await fn();
+      if (id.startsWith("claim-") && loseClaim) { loseClaim = false; throw new Error("lost claim acknowledgement"); }
+      cache.set(id, value); return value;
+    } };
+    const site = new FakeSiteReader();
+    const handler = createHandoffReadHandler(f.t.deps, { site, instagram: new FakeInstagramReader() });
+    await expect(handler({ event, step })).rejects.toThrow("lost claim acknowledgement");
+    const claims = (await f.second.deps.uow.repos.events.list(f.scope)).filter(e => e.eventType === "handoff.read_claimed");
+    expect(claims).toHaveLength(1);
+    expect(await handler({ event, step })).toEqual({ recorded: HANDOFF_GROUPS.length });
+    expect(site.calls).toHaveLength(1);
+    const [resumed] = await f.second.deps.uow.repos.handoffs.list(f.scope);
+    expect(resumed!.readsUsed).toBe(1);
+    expect(HANDOFF_GROUPS.every(group => resumed!.reading[group]?.status === "found")).toBe(true);
+    expect((await f.second.deps.uow.repos.events.list(f.scope)).filter(e => e.eventType === "handoff.read_claimed")).toHaveLength(1);
   });
 
   it("confirming the summary commits the identity, the handoff row and the diagnose intent atomically", async () => {

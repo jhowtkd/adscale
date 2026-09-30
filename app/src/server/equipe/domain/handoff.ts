@@ -10,10 +10,22 @@ export type HandoffItem = {
   id: string; value: string; origin: HandoffOrigin; key?: string;
   caption?: string; width?: number; height?: number; platform?: string;
 };
-export type HandoffReading = Partial<Record<HandoffGroup, {
+export type HandoffRun = {
   runId: string; taskIntentId: string; status: "pending" | "running" | "found" | "not_found" | "failed";
   error?: string;
-}>>;
+};
+export type HandoffReading = Partial<Record<HandoffGroup, HandoffRun & { bySource?: Partial<Record<"site" | "instagram", HandoffRun>> }>>;
+export function readingRun(group: HandoffReading[HandoffGroup], origin: "site" | "instagram") {
+  return group?.bySource ? group.bySource[origin] : group;
+}
+/** A group remains unfinished until all its current sources have returned. */
+export function withReadingRun(group: HandoffReading[HandoffGroup], origin: "site" | "instagram", run: HandoffRun) {
+  const bySource = { ...group?.bySource, [origin]: run };
+  const runs = Object.values(bySource);
+  const status = runs.some(r => r.status === "running") ? "running" : runs.some(r => r.status === "pending") ? "pending"
+    : runs.some(r => r.status === "found") ? "found" : runs.some(r => r.status === "failed") ? "failed" : "not_found";
+  return { ...run, status, bySource } satisfies NonNullable<HandoffReading[HandoffGroup]>;
+}
 export type HandoffCaptured = Partial<Record<HandoffGroup, HandoffItem[]>> & { publicContent?: HandoffItem[] };
 export type HandoffDecisions = {
   revising?: boolean;

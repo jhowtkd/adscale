@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { err, ok } from "../domain";
-import { HANDOFF_GROUPS, transitionHandoff, type HandoffState, type HandoffItem, type HandoffGroup, type HandoffSource } from "../domain/handoff";
+import { HANDOFF_GROUPS, transitionHandoff, readingRun, withReadingRun, type HandoffState, type HandoffItem, type HandoffGroup, type HandoffSource } from "../domain/handoff";
 import { HANDOFF_READ_EVENT, HANDOFF_DIAGNOSE_EVENT, type HandoffCommand } from "../handoff/contract";
 import { normalizeSource, normalizeInstagram } from "../handoff/source";
 import type { EquipeModuleDeps } from "./ports";
@@ -16,7 +16,11 @@ async function startRead(ctx: CommandContext, s: HandoffState, source: HandoffSo
   const runIds = Object.fromEntries(groups.map(group => [group, randomUUID()]));
   const intent = await requestTask(ctx, { eventName: HANDOFF_READ_EVENT, data: { readingId, source, groups, runIds } });
   const reading = fresh ? {} : { ...s.reading };
-  for (const group of groups) reading[group] = { runId: runIds[group]!, taskIntentId: intent.id, status: "pending" };
+  for (const group of groups) {
+    const previous = reading[group];
+    const tracked = previous && !previous.bySource && s.source ? withReadingRun(undefined, s.source.kind, previous) : previous;
+    reading[group] = withReadingRun(tracked, source.kind, { runId: runIds[group]!, taskIntentId: intent.id, status: "pending" });
+  }
   return { ...s, source: fresh ? source : s.source, readingId, readsUsed: s.readsUsed + 1, reading,
     captured: fresh ? {} : s.captured, decisions: fresh ? {} : s.decisions };
 }
@@ -33,12 +37,13 @@ export function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, command:
     if (command.type === "handoff_record_group") {
       if (ctx.actor.kind !== "system" || ctx.actor.job !== HANDOFF_READ_EVENT) return err("forbidden_actor", "Only the handoff reading task records groups.");
       const p = command.payload;
-      const group = s.reading[p.group];
       const intent = await ctx.repos.taskOutbox.get(scope, p.taskIntentId);
-      if (s.step === "done" || s.readingId !== p.readingId || !group || group.runId !== p.runId || group.taskIntentId !== p.taskIntentId || intent?.eventName !== HANDOFF_READ_EVENT || !["pending", "running"].includes(group.status)) return ok({ ignored: true });
+      if (intent?.eventName !== HANDOFF_READ_EVENT) return ok({ ignored: true });
       const source = (intent.data as { source: HandoffSource }).source;
+      const group = readingRun(s.reading[p.group], source.kind);
+      if (s.step === "done" || s.readingId !== p.readingId || !group || group.runId !== p.runId || group.taskIntentId !== p.taskIntentId || !["pending", "running"].includes(group.status)) return ok({ ignored: true });
       if ([...p.result.items, ...(p.result.content ?? [])].some(item => item.origin !== source.kind) || (p.result.status === "found" && !p.result.items.length) || (p.result.status !== "found" && p.result.items.length)) return err("invalid_command", "Invalid captured group origin or status.");
-      s.reading = { ...s.reading, [p.group]: { ...group, status: p.result.status, ...(p.result.error ? { error: p.result.error } : {}) } };
+      s.reading = { ...s.reading, [p.group]: withReadingRun(s.reading[p.group], source.kind, { runId: group.runId, taskIntentId: group.taskIntentId, status: p.result.status, ...(p.result.error ? { error: p.result.error } : {}) }) };
       if (p.result.status !== "running") s.captured = { ...s.captured, [p.group]: [...(s.captured[p.group] ?? []).filter(item => item.origin !== source.kind), ...p.result.items] };
       if (p.result.content) s.captured.publicContent = [...(s.captured.publicContent ?? []).filter(i => i.origin !== source.kind), ...p.result.content];
       const next = transitionHandoff(s, "progress");
@@ -112,8 +117,11 @@ export function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, command:
             }
             s.decisions = { ...s.decisions, needsConfirmation: [...needsConfirmation] };
             s.captured = Object.fromEntries(Object.entries(s.captured).map(([g, items]) => [g, items?.filter(i => i.origin !== "instagram")])) as HandoffState["captured"];
-            // Invalidate only the rejected Instagram runs; completed site groups remain valid.
-            for (const group of ["colors", "images"] as const) s.reading = { ...s.reading, [group]: { ...s.reading[group]!, runId: randomUUID(), status: (s.captured[group]?.length ? "found" : "not_found") } };
+            // Drop only rejected Instagram runs, including pending runs. Site runs remain resumable.
+            for (const group of ["colors", "images"] as const) {
+              const siteRun = s.reading[group]?.bySource?.site;
+              s.reading = { ...s.reading, [group]: siteRun ? withReadingRun(undefined, "site", siteRun) : { runId: randomUUID(), taskIntentId: s.reading[group]!.taskIntentId, status: s.captured[group]?.length ? "found" : "not_found", bySource: {} } };
+            }
           }
           if (handle && changed && !(s.source?.kind === "instagram" && s.source.normalized === handle)) {
             if (s.source?.kind === "instagram") {
@@ -128,15 +136,17 @@ export function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, command:
         }
         case "handoff_confirm_images": {
           const p = command.payload;
-          const ids = new Set((s.captured.images ?? []).map(i => i.id));
-          if (new Set(p.kept).size !== p.kept.length || new Set(p.removed).size !== p.removed.length || [...p.kept, ...p.removed].some(id => !ids.has(id)) || p.kept.some(id => p.removed.includes(id)) || new Set([...p.kept, ...p.removed]).size !== ids.size) return err("invalid_command", "Decide each captured image once.");
           const uploaded: HandoffItem[] = [];
           for (const id of [...new Set(p.uploaded)]) {
             const asset = await deps.gateway.getAsset(id);
             if (!asset || asset.workspaceId !== ctx.workspaceId || !(asset.kind === "image" || asset.kind.startsWith("image/"))) return err("invalid_command", "Upload must be an image from this workspace.");
             uploaded.push({ id, value: `/api/workspace/assets/${id}/file`, key: asset.key, origin: "user" });
           }
-          s.decisions = { ...s.decisions, images: { kept: p.kept, removed: p.removed, uploaded } };
+          // Older cards sent uploads separately; unspecified uploads remain selected.
+          const kept = [...p.kept, ...uploaded.filter(i => !p.kept.includes(i.id) && !p.removed.includes(i.id)).map(i => i.id)];
+          const ids = new Set([...(s.captured.images ?? []), ...uploaded].map(i => i.id));
+          if (new Set(p.kept).size !== p.kept.length || new Set(p.removed).size !== p.removed.length || [...kept, ...p.removed].some(id => !ids.has(id)) || kept.some(id => p.removed.includes(id)) || new Set([...kept, ...p.removed]).size !== ids.size) return err("invalid_command", "Decide each image once.");
+          s.decisions = { ...s.decisions, images: { kept, removed: p.removed, uploaded } };
           s.decisions.needsConfirmation = s.decisions.needsConfirmation?.filter(d => d !== "images");
           const next = transitionHandoff(s, "images"); if (!next.ok) return next; s = next.value; break;
         }

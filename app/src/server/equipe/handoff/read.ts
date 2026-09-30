@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { HANDOFF_GROUPS, type HandoffGroup, type HandoffItem } from "../domain/handoff";
+import { HANDOFF_GROUPS, readingRun, isGroupFinished, type HandoffGroup, type HandoffItem } from "../domain/handoff";
 import type { EquipeModuleDeps } from "../module/ports";
 import { stableStringify } from "../module/shared";
 import { executeCommand } from "../module/commands";
@@ -55,11 +55,16 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
       const intent = await repos.taskOutbox.get(scope, p.taskIntentId);
       const [h] = await repos.handoffs.list(scope);
       if (!h || h.step === "done" || h.readingId !== p.readingId || intent?.eventName !== HANDOFF_READ_EVENT || stableStringify(intent.data) !== stableStringify({ readingId: p.readingId, source: p.source, groups: p.groups, runIds: p.runIds })) return false;
-      if ((await repos.events.list(scope)).some(e => e.eventType === "handoff.read_claimed" && (e.payload as { taskIntentId?: string })?.taskIntentId === p.taskIntentId)) return false;
+      let unfinished = false;
       for (const group of p.groups) {
-        if (h.reading[group]?.runId !== p.runIds[group] || h.reading[group]?.taskIntentId !== p.taskIntentId) return false;
+        const run = readingRun(h.reading[group], p.source.kind);
+        if (run?.runId !== p.runIds[group] || run?.taskIntentId !== p.taskIntentId) return false;
+        if (!isGroupFinished(run.status)) unfinished = true;
       }
-      await repos.events.create(scope, { actorType: "system", actorId: HANDOFF_READ_EVENT, actorRole: "system", eventType: "handoff.read_claimed", payload: { taskIntentId: p.taskIntentId }, occurredAt: deps.clock.now() });
+      if (!unfinished) return false;
+      if (!(await repos.events.list(scope)).some(e => e.eventType === "handoff.read_claimed" && (e.payload as { taskIntentId?: string })?.taskIntentId === p.taskIntentId)) {
+        await repos.events.create(scope, { actorType: "system", actorId: HANDOFF_READ_EVENT, actorRole: "system", eventType: "handoff.read_claimed", payload: { taskIntentId: p.taskIntentId }, occurredAt: deps.clock.now() });
+      }
       return true;
     }));
     if (!claimed) return { ignored: true };

@@ -19,7 +19,7 @@ export const handoffConfirmIdentitySchema = z.object({
   paletteChoice: z.enum(["site", "instagram", "user"]),
 }).strict();
 export const handoffConfirmNetworksSchema = z.object({ ...expected, kept: z.array(z.string().min(1).max(300)).max(10), added: z.array(z.object({ platform: z.enum(["instagram", "facebook", "tiktok", "linkedin", "youtube"]), value: z.string().trim().min(1).max(2048) }).strict()).max(10) }).strict();
-export const handoffConfirmImagesSchema = z.object({ ...expected, kept: z.array(z.string().min(1).max(300)).max(30), removed: z.array(z.string().min(1).max(300)).max(30), uploaded: z.array(z.string().uuid()).max(30) }).strict();
+export const handoffConfirmImagesSchema = z.object({ ...expected, kept: z.array(z.string().min(1).max(300)).max(90), removed: z.array(z.string().min(1).max(300)).max(90), uploaded: z.array(z.string().uuid()).max(30) }).strict();
 export const handoffBackToSchema = z.object({ ...expected, step: z.enum(["source", "identity", "networks", "images"]) }).strict();
 export const handoffConfirmSummarySchema = z.object(expected).strict();
 export const handoffSchemas = {
