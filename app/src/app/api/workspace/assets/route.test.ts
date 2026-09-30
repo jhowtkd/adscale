@@ -170,6 +170,24 @@ describe("GET /api/workspace/assets", () => {
     expect(res.status).toBe(400);
     expect(mockGetWorkspaceAssets).not.toHaveBeenCalled();
   });
+
+  it.each(["upload", "brand_upload", "brand_site", "brand_instagram", "brand_training", "brand_font", "curated_inspiration", "curated_inspiration_copy", "creative_work"])(
+    "review: accepts the known asset source %s as a filter", async source => {
+      mockGetWorkspaceAssets.mockResolvedValue([]);
+
+      const res = await GET(new Request(`http://localhost/api/workspace/assets?source=${source}`));
+
+      expect(res.status).toBe(200);
+      expect(mockGetWorkspaceAssets).toHaveBeenCalledWith("workspace-1", expect.objectContaining({ source }));
+    });
+
+  it.each(["constructor", "toString", "__proto__", "hasOwnProperty", "bogus"])(
+    "review: rejects the unknown asset source %s with 400, never reaching the repository", async source => {
+      const res = await GET(new Request(`http://localhost/api/workspace/assets?source=${source}`));
+
+      expect(res.status).toBe(400);
+      expect(mockGetWorkspaceAssets).not.toHaveBeenCalled();
+    });
 });
 
 describe("POST /api/workspace/assets", () => {
