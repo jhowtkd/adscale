@@ -25,6 +25,29 @@ function assetGlyph(name: string): string {
   return name.slice(0, 4).toUpperCase();
 }
 
+const originOfSource = (source?: string | null) => source === "brand_site" ? "site" : source === "brand_instagram" ? "instagram" : "user";
+
+/**
+ * Where the brand's CURRENT identity came from, for the origin filter: the logo from its own asset,
+ * a color or font from the handoff snapshot only while the current value still matches it, and
+ * otherwise from the person (typed in the Brand Kit).
+ */
+export function identityOriginsOf(input: {
+  hasLogo: boolean;
+  logoSource?: string | null;
+  colors: readonly string[];
+  fonts: readonly string[];
+  snapshot?: { colors: ReadonlyArray<{ value: string; origin: string }>; fonts: ReadonlyArray<{ value: string; origin: string }> };
+}) {
+  const originOf = (value: string, captured: ReadonlyArray<{ value: string; origin: string }> = []) =>
+    captured.find((item) => item.value.trim().toLowerCase() === value.trim().toLowerCase())?.origin ?? "user";
+  return {
+    logo: input.hasLogo ? originOfSource(input.logoSource) : undefined,
+    colors: input.colors.map((color) => originOf(color, input.snapshot?.colors)),
+    fonts: input.fonts.map((font) => originOf(font, input.snapshot?.fonts)),
+  };
+}
+
 export function mapWorkspaceAssetToV6(
   asset: WorkspaceAsset,
   index: number,
