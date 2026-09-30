@@ -83,6 +83,7 @@ export async function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, co
             if (!asset || asset.workspaceId !== ctx.workspaceId || !asset.kind.startsWith("image/")) return err("invalid_command", "Choose a captured logo or upload an image.");
             logo = { id: asset.id, value: `/api/workspace/assets/${asset.id}/file`, origin: "user", key: asset.key };
           }
+          if (logo && !logo.key) return err("invalid_command", "Upload a managed copy before confirming this logo.");
           if (p.paletteChoice === "instagram" && !s.decisions.networks?.some(i => i.platform === "instagram")) return err("invalid_command", "Confirm the Instagram profile before using its palette.");
           s.decisions = { ...s.decisions, identity: { name: picked([p.name], s.captured.name ?? [])[0]!, logo: logo ?? null,
             colors: picked(p.colors, (s.captured.colors ?? []).filter(i => i.origin === p.paletteChoice)), fonts: picked(p.fonts, s.captured.fonts ?? []), paletteChoice: p.paletteChoice } };
@@ -114,9 +115,9 @@ export async function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, co
               s.decisions = { ...s.decisions, identity: { ...s.decisions.identity, colors: s.decisions.identity.colors.filter(i => i.origin !== "instagram") } };
               needsConfirmation.add("identity");
             }
-            if (s.decisions.images?.kept.some(id => rejectedImages.has(id))) {
+            if (s.decisions.images) {
+              if ([...s.decisions.images.kept, ...s.decisions.images.removed].some(id => rejectedImages.has(id))) needsConfirmation.add("images");
               s.decisions = { ...s.decisions, images: { ...s.decisions.images, kept: s.decisions.images.kept.filter(id => !rejectedImages.has(id)), removed: s.decisions.images.removed.filter(id => !rejectedImages.has(id)) } };
-              needsConfirmation.add("images");
             }
             s.decisions = { ...s.decisions, needsConfirmation: [...needsConfirmation] };
             s.captured = Object.fromEntries(Object.entries(s.captured).map(([g, items]) => [g, items?.filter(i => i.origin !== "instagram")])) as HandoffState["captured"];
@@ -133,6 +134,7 @@ export async function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, co
               break;
             }
             s = await startRead(ctx, s, normalizeSource("instagram", handle), ["colors", "images"], false);
+            if (s.decisions.images) s.decisions = { ...s.decisions, needsConfirmation: [...new Set([...(s.decisions.needsConfirmation ?? []), "images" as const])] };
           }
           s.decisions = { ...s.decisions, networks };
           const next = transitionHandoff(s, "networks"); if (!next.ok) return next; s = next.value; break;

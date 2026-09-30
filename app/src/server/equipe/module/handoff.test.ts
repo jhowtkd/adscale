@@ -86,8 +86,13 @@ describe("handoff: happy path via site", () => {
     }
 
     const nameId = uuid(); const logoId = uuid();
+    t.store.workspaceAssets.rows.set(logoId, {
+      id: logoId, workspaceId: scope.workspaceId, clientProfileId: null, name: "logo.png", key: "workspaces/logo.png",
+      type: "image/png", size: 1, width: null, height: null, source: "brand_site", tags: [], aiDescription: null,
+      metadata: { provisional: true, handoffId: row.id }, createdAt: new Date(), updatedAt: new Date(),
+    });
     await recordGroup(t, scope, "name", "found", [siteItem(nameId, "Acme")]);
-    await recordGroup(t, scope, "logo", "found", [siteItem(logoId, "logo.png")]);
+    await recordGroup(t, scope, "logo", "found", [siteItem(logoId, "logo.png", { key: "workspaces/logo.png" })]);
     await recordGroup(t, scope, "colors", "found", [siteItem(uuid(), "#112233")]);
     await recordGroup(t, scope, "fonts", "found", [siteItem(uuid(), "Inter")]);
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createHandoffReadHandler } from "./read";
-import { FakeInstagramReader, FakeSiteReader } from "./readers";
+import { FakeInstagramReader, FakeSiteReader, type HandoffReaders } from "./readers";
 import { executeCommand } from "../module/commands";
 import { makeTestDeps, uuid } from "../module/testing/deps";
 import { HANDOFF_GROUPS, readingRun, type HandoffGroup, type HandoffItem } from "../domain/handoff";
@@ -33,6 +33,12 @@ async function fixture() {
     return executeCommand(t.deps, { ...scope, actor: { kind: "system", job: HANDOFF_READ_EVENT } }, { type: "handoff_record_group", payload: { group, readingId: h.readingId, runId: g.runId, taskIntentId: g.taskIntentId, result: { status: items.length ? "found" : "not_found", items } } });
   };
   return { t, scope, command, row, event, record };
+}
+async function runPendingRead(f: Awaited<ReturnType<typeof fixture>>, readers: HandoffReaders, group: HandoffGroup = "name") {
+  const h = await f.row();
+  const taskIntentId = h.reading[group]!.taskIntentId;
+  const intent = await f.t.deps.uow.repos.taskOutbox.get(f.scope, taskIntentId);
+  return createHandoffReadHandler(f.t.deps, readers)({ event: { data: { ...f.scope, taskIntentId, ...(intent!.data as object) } }, step: { run: async (_id, fn) => fn() } });
 }
 
 describe("review PR608: uncovered concurrency and recovery paths", () => {
@@ -158,5 +164,85 @@ describe("review PR608: uncovered concurrency and recovery paths", () => {
     await f.command("handoff_confirm_images", { kept: [], removed: ids, uploaded });
     expect((await f.row()).decisions.images).toMatchObject({ kept: [], removed: ids });
     expect((await f.row()).decisions.images?.uploaded).toHaveLength(30);
+  });
+});
+
+describe("PR608 bot review: managed logos and decisions for confirmed Instagram", () => {
+  it("rejects confirming a captured logo without a managed key", async () => {
+    const f = await fixture();
+    await runPendingRead(f, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() });
+    const h = await f.row();
+    await expect(f.command("handoff_confirm_identity", { name: "Acme", logo: h.captured.logo![0]!.id, colors: [], fonts: [], paletteChoice: "site" })).rejects.toThrow("invalid_command");
+    expect((await f.row()).step).toBe("identity");
+    expect((await f.row()).decisions.identity).toBeUndefined();
+  });
+
+  it.each(["site", "instagram", "user"] as const)("persists the managed %s logo in the existing profile", async (origin) => {
+    const f = await fixture();
+    if (origin === "instagram") await f.command("handoff_set_source", { kind: "instagram", value: "acme" });
+    const key = `workspaces/${f.scope.workspaceId}/${origin}-logo.png`;
+    await runPendingRead(f, {
+      site: new FakeSiteReader({ title: "Acme", siteName: "Acme", markdown: "", links: [], images: [], screenshotUrl: null, branding: origin === "site" ? { logo: { url: "/logo.png", key } } : undefined }),
+      instagram: new FakeInstagramReader({ exists: true, isPrivate: false, name: "Acme", avatarUrl: "/logo.png", avatarKey: key, bio: "", posts: [] }),
+    });
+    let h = await f.row();
+    const logo = origin === "user" ? uuid() : h.captured.logo![0]!.id;
+    if (origin === "user") f.t.gateway.addAsset({ id: logo, workspaceId: f.scope.workspaceId, kind: "image/png", key });
+    await f.command("handoff_confirm_identity", { name: "Acme", logo, colors: [], fonts: [], paletteChoice: "user" });
+    h = await f.row();
+    await f.command("handoff_confirm_networks", { kept: (h.decisions.networks ?? []).map(i => i.id), added: [] });
+    await f.command("handoff_confirm_images", { kept: [], removed: [], uploaded: [] });
+    await f.command("handoff_confirm_summary");
+    h = await f.row();
+    expect(h.step).toBe("done");
+    expect(f.t.store.adscaleProfiles.rows.get(h.clientProfileId)).toMatchObject({ logoAssetKey: key });
+  });
+
+  it.each(["private", "missing", "provider"])("blocks diagnosis for a %s confirmed Instagram despite successful site groups, then allows removal", async (failure) => {
+    const f = await fixture();
+    await runPendingRead(f, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() });
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    await f.command("handoff_confirm_networks", { kept: (await f.row()).captured.networks!.map(i => i.id), added: [] });
+    await runPendingRead(f, {
+      site: new FakeSiteReader(), instagram: new FakeInstagramReader(failure === "provider" ? new Error("provider_failure") : { exists: failure !== "missing", isPrivate: failure === "private", avatarUrl: null, bio: "", posts: [] }),
+    }, "colors");
+    let h = await f.row();
+    expect(h.reading.images?.status).toBe("found"); // Site succeeded; the Instagram run still failed.
+    expect(h.reading.images?.bySource?.instagram?.status).toBe("failed");
+    await f.command("handoff_confirm_images", { kept: h.captured.images!.map(i => i.id), removed: [], uploaded: [] });
+    await expect(f.command("handoff_confirm_summary")).rejects.toThrow("invalid_transition");
+    expect([...(f.t.store.taskOutbox.rows.values())].some(i => i.eventName === "equipe.handoff.diagnose")).toBe(false);
+    await f.command("handoff_back_to", { step: "networks" });
+    await f.command("handoff_confirm_networks", { kept: [], added: [] });
+    await f.command("handoff_confirm_summary");
+    h = await f.row();
+    expect(h.step).toBe("done");
+    expect(h.readsUsed).toBe(2);
+  });
+
+  it.each([false, true])("reconfirms images after replacing Instagram, all old images removed=%s", async (allRemoved) => {
+    const f = await fixture();
+    const readers = { site: new FakeSiteReader(), instagram: new FakeInstagramReader() };
+    await runPendingRead(f, readers);
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    await f.command("handoff_confirm_networks", { kept: (await f.row()).captured.networks!.map(i => i.id), added: [] });
+    await runPendingRead(f, readers, "colors");
+    let h = await f.row();
+    const siteIds = h.captured.images!.filter(i => i.origin === "site").map(i => i.id);
+    const oldIds = h.captured.images!.filter(i => i.origin === "instagram").map(i => i.id);
+    await f.command("handoff_confirm_images", { kept: allRemoved ? siteIds : [...siteIds, ...oldIds], removed: allRemoved ? oldIds : [], uploaded: [] });
+    await f.command("handoff_back_to", { step: "networks" });
+    await f.command("handoff_confirm_networks", { kept: [], added: [{ platform: "instagram", value: "new.profile" }] });
+    h = await f.row();
+    expect(h.step).toBe("images");
+    expect(h.decisions.needsConfirmation).toContain("images");
+    expect(h.decisions.images?.kept).toEqual(siteIds);
+    expect(h.decisions.images?.removed).toEqual([]);
+    await runPendingRead(f, readers, "colors");
+    await expect(f.command("handoff_confirm_summary")).rejects.toThrow("invalid_transition");
+    h = await f.row();
+    await f.command("handoff_confirm_images", { kept: h.captured.images!.map(i => i.id), removed: [], uploaded: [] });
+    await f.command("handoff_confirm_summary");
+    expect((await f.row()).step).toBe("done");
   });
 });

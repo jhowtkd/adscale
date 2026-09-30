@@ -4,7 +4,7 @@ const mockCreateChatCompletion = vi.hoisted(() => vi.fn());
 const mockGetObject = vi.hoisted(() => vi.fn());
 const mockGetWorkspaceAssetById = vi.hoisted(() => vi.fn());
 const mockUpdateWorkspaceAsset = vi.hoisted(() => vi.fn());
-const mockIsFreeAssetWorkspace = vi.hoisted(() => vi.fn());
+const mockHasNonFreeAssetAccount = vi.hoisted(() => vi.fn());
 
 vi.mock("openai", () => ({
   default: class MockOpenAI {
@@ -29,7 +29,7 @@ vi.mock("@/server/repositories/workspace-asset", () => ({
 }));
 
 vi.mock("@/server/equipe/handoff/assets", () => ({
-  isFreeAssetWorkspace: (...args: unknown[]) => mockIsFreeAssetWorkspace(...args),
+  hasNonFreeAssetAccount: (...args: unknown[]) => mockHasNonFreeAssetAccount(...args),
 }));
 
 vi.mock("@/server/validation/env", () => ({
@@ -66,7 +66,7 @@ describe("workspaceAssetAnalyzeJob (ticket 07: free-plan guard survives legacy/q
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetWorkspaceAssetById.mockResolvedValue({ id: baseEventData.assetId, workspaceId: baseEventData.workspaceId, key: baseEventData.key });
-    mockIsFreeAssetWorkspace.mockResolvedValue(false);
+    mockHasNonFreeAssetAccount.mockResolvedValue(true);
     mockGetObject.mockResolvedValue(Buffer.from("fake-png-bytes"));
     mockCreateChatCompletion.mockResolvedValue({
       choices: [{ message: { content: JSON.stringify({
@@ -77,7 +77,7 @@ describe("workspaceAssetAnalyzeJob (ticket 07: free-plan guard survives legacy/q
   });
 
   it("free workspace: never reaches storage/OpenAI, even for an event already queued before the account turned free", async () => {
-    mockIsFreeAssetWorkspace.mockResolvedValue(true);
+    mockHasNonFreeAssetAccount.mockResolvedValue(false);
 
     const result = await runAnalyzeJob();
 
@@ -90,9 +90,9 @@ describe("workspaceAssetAnalyzeJob (ticket 07: free-plan guard survives legacy/q
   it("checks the free-plan gate before touching OpenAI, not only in the upload route (defense in depth for an old event)", async () => {
     // Simulates a `workspace.asset.analyze` event sent while the workspace was
     // still paid, then dispatched only after the account dropped to free.
-    mockIsFreeAssetWorkspace.mockResolvedValue(true);
+    mockHasNonFreeAssetAccount.mockResolvedValue(false);
     await runAnalyzeJob();
-    expect(mockIsFreeAssetWorkspace).toHaveBeenCalledWith(baseEventData.workspaceId);
+    expect(mockHasNonFreeAssetAccount).toHaveBeenCalledWith(baseEventData.workspaceId, undefined);
     expect(mockGetObject).not.toHaveBeenCalled();
   });
 
@@ -104,6 +104,20 @@ describe("workspaceAssetAnalyzeJob (ticket 07: free-plan guard survives legacy/q
     expect(mockGetObject).not.toHaveBeenCalled();
     expect(mockUpdateWorkspaceAsset).not.toHaveBeenCalled();
     expect(result).toEqual({ success: true, assetId: baseEventData.assetId, skipped: true });
+  });
+
+  it.each([false, true])("mixed workspace: analysis follows the asset's brand account, paid=%s", async paid => {
+    mockGetWorkspaceAssetById.mockResolvedValue({ ...baseEventData, clientProfileId: "brand-1" });
+    mockHasNonFreeAssetAccount.mockImplementation(async (_workspaceId, clientProfileId) => clientProfileId ? paid : true);
+    await runAnalyzeJob();
+    expect(mockHasNonFreeAssetAccount).toHaveBeenCalledWith(baseEventData.workspaceId, "brand-1");
+    expect(mockCreateChatCompletion).toHaveBeenCalledTimes(paid ? 1 : 0);
+  });
+
+  it("skips legacy handoff uploads carrying only handoffId, without a provisional flag", async () => {
+    mockGetWorkspaceAssetById.mockResolvedValue({ ...baseEventData, metadata: { handoffId: "handoff-1" } });
+    await runAnalyzeJob();
+    expect(mockCreateChatCompletion).not.toHaveBeenCalled();
   });
 
   it("ticket 07: skips a provisional handoff asset, even on a paid workspace (the confirm step decides what survives)", async () => {

@@ -1,7 +1,7 @@
 import { inngest } from "./client";
 import { logger } from "@/lib/logger";
 import { updateWorkspaceAsset, getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
-import { isFreeAssetWorkspace } from "@/server/equipe/handoff/assets";
+import { hasNonFreeAssetAccount } from "@/server/equipe/handoff/assets";
 import { objectStorage } from "@/server/storage";
 import { env } from "@/server/validation/env";
 import { normalizeImageForAi } from "@/server/ai/normalize-image-for-ai";
@@ -27,7 +27,8 @@ async function workspaceAssetAnalyzeHandler({
 
   const analysis = await step.run("analyze-with-vision", async () => {
     const asset = await getWorkspaceAssetById(assetId, workspaceId);
-    if (!asset || asset.key !== key || (asset.metadata as Record<string, unknown> | null)?.provisional === true || await isFreeAssetWorkspace(workspaceId)) return null;
+    const metadata = asset?.metadata as Record<string, unknown> | null;
+    if (!asset || asset.key !== key || metadata?.provisional === true || metadata?.handoffId || !await hasNonFreeAssetAccount(workspaceId, asset.clientProfileId)) return null;
     const imageBuffer = await objectStorage.get(key);
     const raw = Buffer.isBuffer(imageBuffer)
       ? imageBuffer
