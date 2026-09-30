@@ -171,6 +171,32 @@ describe("AssistantChatCore", () => {
     expect(screen.getByText("Thinking")).toBeInTheDocument();
   });
 
+  it("sends a suggestion click as a fromSuggestion message (ticket 02)", () => {
+    mockUseAssistantChat.mockReturnValue({
+      messages: [
+        {
+          id: "a1",
+          type: "assistant",
+          content: "Aqui está o resumo.",
+          payload: { suggestions: ["Me explica a oportunidade 2"] },
+        },
+      ],
+      streamingText: "",
+      isStreaming: false,
+      error: null,
+      sendMessage: mockSendMessage,
+    });
+
+    renderCore(<AssistantChatCore threadId="thread-1" variant="full" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Me explica a oportunidade 2" }));
+
+    expect(mockSendMessage).toHaveBeenCalledWith({
+      text: "Me explica a oportunidade 2",
+      fromSuggestion: true,
+    });
+  });
+
   it("does not expose internal assistant error codes to the user", () => {
     mockUseAssistantChat.mockReturnValue({
       messages: [],

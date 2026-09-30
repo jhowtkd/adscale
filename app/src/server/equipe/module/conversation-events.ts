@@ -4,10 +4,13 @@ import type { CreateAssistantMessageInput } from "../../repositories/assistant-m
 import { buildBatchCard } from "../agents/cards";
 import { templateFor } from "../jobs/notification-templates";
 import { authorizeAccountExecution, PROACTIVE_REMINDERS, requiresExecutionForMessage } from "./execution-authorization";
+import { requestSupportPayloadSchema } from "./envelope";
 
 /** One source event -> one message, in the same store read by the Assistant. */
 export async function projectConversationEvent(ctx: CommandContext, event: EquipeEvent) {
   const payload = (event.payload ?? {}) as Record<string, unknown>;
+  const purpose = event.eventType === "support_exception.opened"
+    ? requestSupportPayloadSchema.shape.purpose.parse(payload.purpose) : undefined;
   const reminder = event.eventType === "notification.requested" && PROACTIVE_REMINDERS.includes(String(payload.templateKey));
   if (!reminder && ![
     "staff.message_posted", "staff.contact_registered", "support_exception.assumed",
@@ -49,6 +52,7 @@ export async function projectConversationEvent(ctx: CommandContext, event: Equip
     const text = reminder ? templateFor(String(payload.templateKey)).template.message
       : event.eventType === "support_exception.assumed" ? `${name} entrou na conversa.`
         : event.eventType === "support_exception.closed" ? `${name} devolveu a conversa ao Estrategista IA.`
+          : payload.trigger === "out_of_contract_request" && purpose === "plan" ? "Recebemos seu pedido sobre o plano. Uma pessoa vai falar com você em até 1 dia útil."
           : "Chamei uma pessoa da equipe para ajudar aqui.";
     input = { threadId: thread.id, type: "equipe_event", content: text,
       payload: { kind: reminder ? "reminder" : event.eventType, text, actor, actorId: event.actorId, ...(actor === "staff" ? { actorName: name } : {}) } };

@@ -7,7 +7,7 @@ vi.mock("@/server/validation/env", () => ({
 }));
 import { executeCommand } from "../module/commands";
 import { getGoalsView } from "../module/queries";
-import { makeTestDeps, openTestAccount } from "../module/testing/deps";
+import { makeTestDeps, openTestAccount, uuid, type TestDeps } from "../module/testing/deps";
 import {
   buildStrategistTools,
   executeStrategistTool,
@@ -18,6 +18,26 @@ import {
 import { FakeModelClient } from "./testing";
 import { frontIdOf, seedWork } from "../module/testing/items";
 import { encryptEquipeIgToken } from "../publishing/crypto";
+import { DIAGNOSTIC_RECORDED_EVENT, freeStrategistMaxTokens } from "./free-budget";
+
+/**
+ * Opens a free account (ticket 02): the strategist's tool list and the
+ * `oferecer_plano` gate both depend on account.status === "free", so these
+ * tests need the real open_free_account command, not openTestAccount
+ * (which always opens a paid account).
+ */
+async function freeAccount(t: TestDeps = makeTestDeps()) {
+  const workspaceId = uuid();
+  const userId = `user-${uuid()}`;
+  t.store.workspaceMembers.rows.set(uuid(), {
+    id: uuid(), workspaceId, userId, name: "Ana", email: "a@x.com", emailVerified: true,
+  });
+  const opened = await executeCommand(t.deps, { actor: { kind: "system", job: "free" }, workspaceId }, {
+    type: "open_free_account", payload: { userId },
+  });
+  if (!opened.ok) throw new Error(opened.error.code);
+  return { t, workspaceId, accountId: opened.value.accountId! };
+}
 
 describe("strategist tools", () => {
   it("exposes no approval action", () => {
@@ -170,7 +190,7 @@ describe("strategist tools", () => {
     });
     expect(result.text).toBe("Plano proposto, aguardando sua aprovação.");
     expect(result.toolCallsExecuted).toBe(1);
-    expect(result.promptVersion).toBe("equipe-prompts/v2");
+    expect(result.promptVersion).toBe("equipe-prompts/v3");
     expect(calls).toHaveLength(2);
 
     const goals = await getGoalsView(t.deps.uow.repos, account.workspaceId, account.accountId);
@@ -305,5 +325,188 @@ describe("strategist tools", () => {
     const toolMessage = client.requests[1]?.messages.find((message) => message.role === "tool");
     expect(toolMessage?.role).toBe("tool");
     expect(toolMessage && toolMessage.role === "tool" ? toolMessage.content : "").toMatch(/unknown tool/);
+  });
+});
+
+// Ticket 02: history, iscas (sugerir_proximos_passos), the free account tool
+// set and the oferecer_plano gate. See fluxo-0/tickets/02-estrategista.
+describe("strategist history and iscas (ticket 02)", () => {
+  it("sends only the last 20 history entries, each truncated to 2000 chars, before the current message", async () => {
+    const t = makeTestDeps();
+    const account = await openTestAccount(t);
+    const long = "y".repeat(2500);
+    const history = Array.from({ length: 25 }, (_, i) => ({
+      role: "user" as const,
+      content: i === 24 ? long : `mensagem-${i}`,
+    }));
+    const client = new FakeModelClient([{ content: "Resumo." }]);
+    await runStrategistTurn({
+      client,
+      ctx: { deps: t.deps, workspaceId: account.workspaceId, accountId: account.accountId },
+      message: "mensagem-atual",
+      history,
+    });
+    const request = client.requests[0]!;
+    const nonSystem = request.messages.filter((message) => message.role !== "system");
+    // 20 kept history entries + the current message.
+    expect(nonSystem).toHaveLength(21);
+    expect(nonSystem[0]).toMatchObject({ role: "user", content: "mensagem-5" });
+    const truncated = nonSystem[19];
+    expect(truncated?.role).toBe("user");
+    expect(truncated && truncated.role === "user" ? truncated.content : "").toHaveLength(2000);
+    expect(truncated && truncated.role === "user" ? truncated.content : "").toBe(long.slice(0, 2000));
+    expect(nonSystem.at(-1)).toMatchObject({ role: "user", content: "mensagem-atual" });
+  });
+
+  it("works without history (backward compatible with the existing [system, message] shape)", async () => {
+    const t = makeTestDeps();
+    const account = await openTestAccount(t);
+    const client = new FakeModelClient([{ content: "Resumo." }]);
+    await runStrategistTurn({
+      client,
+      ctx: { deps: t.deps, workspaceId: account.workspaceId, accountId: account.accountId },
+      message: "Oi",
+    });
+    expect(client.requests[0]!.messages).toHaveLength(2);
+  });
+
+  it("exposes sugerir_proximos_passos on the full (paid) tool list, never oferecer_plano", () => {
+    const t = makeTestDeps();
+    const names = buildStrategistTools({ deps: t.deps, workspaceId: "w", accountId: "a" }).map((tool) => tool.name);
+    expect(names).toContain("sugerir_proximos_passos");
+    expect(names).not.toContain("oferecer_plano");
+  });
+
+  it("restricts the free account to get_account_state, oferecer_plano and sugerir_proximos_passos", async () => {
+    const free = await freeAccount();
+    const tools = buildStrategistTools(
+      { deps: free.t.deps, workspaceId: free.workspaceId, accountId: free.accountId },
+      true,
+    );
+    expect(tools.map((tool) => tool.name).sort()).toEqual(
+      ["get_account_state", "oferecer_plano", "sugerir_proximos_passos"].sort(),
+    );
+  });
+
+  it("ends the turn on sugerir_proximos_passos in the same model call, without another round trip", async () => {
+    const t = makeTestDeps();
+    const account = await openTestAccount(t);
+    const client = new FakeModelClient([
+      {
+        content: "Aqui está o resumo da sua marca.",
+        toolCalls: [{
+          id: "call-1", name: "sugerir_proximos_passos",
+          argumentsJson: JSON.stringify({ itens: ["Me explica a oportunidade 2", "Confirmado, está correto", "Quero ver mais exemplos"] }),
+        }],
+      },
+    ]);
+    const result = await runStrategistTurn({
+      client,
+      ctx: { deps: t.deps, workspaceId: account.workspaceId, accountId: account.accountId },
+      message: "Como está minha marca?",
+    });
+    expect(client.requests).toHaveLength(1);
+    expect(result.text).toBe("Aqui está o resumo da sua marca.");
+    expect(result.suggestions).toEqual(["Me explica a oportunidade 2", "Quero ver mais exemplos"]);
+    expect(result.toolCallsExecuted).toBe(1);
+    expect(result.iterations).toBe(1);
+    expect(result.planOffered).toBeFalsy();
+  });
+
+  it.each(["suggestion-first", "command-first"])("executes the paid plan alongside suggestions in either order: %s", async (order) => {
+    const t = makeTestDeps();
+    const account = await openTestAccount(t);
+    const scope = { workspaceId: account.workspaceId, accountId: account.accountId };
+    const suggestion = { id: "suggest", name: "sugerir_proximos_passos", argumentsJson: JSON.stringify({ itens: ["Me explica o plano"] }) };
+    const proposal = { id: "plan", name: "propose_plan", argumentsJson: JSON.stringify({ content: { goals: ["launch instagram"] } }) };
+    const client = new FakeModelClient([{ content: "Plano proposto, aguardando aprovação.",
+      toolCalls: order === "suggestion-first" ? [suggestion, proposal] : [proposal, suggestion] }]);
+    const result = await runStrategistTurn({ client, ctx: { deps: t.deps, ...scope }, message: "Monte o plano." });
+    expect((await getGoalsView(t.deps.uow.repos, scope.workspaceId, scope.accountId))?.plan?.status).toBe("proposed");
+    expect(result).toMatchObject({ suggestions: ["Me explica o plano"], toolCallsExecuted: 2, iterations: 1 });
+    expect(client.requests).toHaveLength(1);
+  });
+
+  it.each(["invalid-json", "command-rejected"])("feeds %s back to the model even when the same response has suggestions", async (failure) => {
+    const t = makeTestDeps();
+    const account = await openTestAccount(t);
+    const scope = { workspaceId: account.workspaceId, accountId: account.accountId };
+    if (failure === "command-rejected") await t.deps.uow.repos.accounts.update(scope.workspaceId, scope.accountId, { status: "active" });
+    const client = new FakeModelClient([
+      { content: "Plano proposto.", toolCalls: [
+        { id: "suggest", name: "sugerir_proximos_passos", argumentsJson: JSON.stringify({ itens: ["Me explica o plano"] }) },
+        { id: "plan", name: "propose_plan", argumentsJson: failure === "invalid-json" ? "{" : JSON.stringify({ content: { goals: ["launch instagram"] } }) },
+      ] },
+      { content: "Não consegui propor o plano." },
+    ]);
+    const result = await runStrategistTurn({ client, ctx: { deps: t.deps, ...scope }, message: "Monte o plano." });
+    expect(client.requests).toHaveLength(2);
+    expect(result.text).toBe("Não consegui propor o plano.");
+    expect(result.suggestions).toBeUndefined();
+    expect((await getGoalsView(t.deps.uow.repos, scope.workspaceId, scope.accountId))?.plan).toBeNull();
+    const feedback = client.requests[1]!.messages.filter((message) => message.role === "tool");
+    expect(feedback).toHaveLength(2);
+    expect(feedback.some((message) => message.content.includes('"error"') || message.content.includes('"ok":false'))).toBe(true);
+  });
+
+  it("keeps the command iteration limit when suggestions share its last response", async () => {
+    const t = makeTestDeps();
+    const account = await openTestAccount(t);
+    const scope = { workspaceId: account.workspaceId, accountId: account.accountId };
+    const client = new FakeModelClient([{ content: "Resumo.", toolCalls: [
+      { id: "suggest", name: "sugerir_proximos_passos", argumentsJson: JSON.stringify({ itens: ["Me explica o plano"] }) },
+      { id: "plan", name: "propose_plan", argumentsJson: JSON.stringify({ content: { goals: ["launch instagram"] } }) },
+    ] }]);
+    const result = await runStrategistTurn({ client, ctx: { deps: t.deps, ...scope }, message: "Monte o plano.", maxIterations: 1 });
+    expect(client.requests).toHaveLength(1);
+    expect(result).toMatchObject({ iterations: 1, toolCallsExecuted: 1, suggestions: ["Me explica o plano"] });
+    expect((await getGoalsView(t.deps.uow.repos, scope.workspaceId, scope.accountId))?.plan).toBeNull();
+  });
+
+  it("defaults to no suggestions and no plan offer when neither tool is called", async () => {
+    const t = makeTestDeps();
+    const account = await openTestAccount(t);
+    const client = new FakeModelClient([{ content: "Tudo certo." }]);
+    const result = await runStrategistTurn({
+      client,
+      ctx: { deps: t.deps, workspaceId: account.workspaceId, accountId: account.accountId },
+      message: "Oi",
+    });
+    expect(result.suggestions).toBeFalsy();
+    expect(result.planOffered).toBeFalsy();
+  });
+
+  it("oferecer_plano ends the turn with planOffered only once the diagnostic is recorded", async () => {
+    const free = await freeAccount();
+    const scope = { workspaceId: free.workspaceId, accountId: free.accountId };
+    const ctx = { deps: free.t.deps, ...scope };
+
+    const blockedClient = new FakeModelClient([
+      { content: null, toolCalls: [{ id: "c1", name: "oferecer_plano", argumentsJson: "{}" }] },
+      { content: "Ainda não tenho o diagnóstico pronto para oferecer o plano." },
+    ]);
+    const blocked = await runStrategistTurn({
+      client: blockedClient, ctx, message: "Quero um calendário completo.",
+      maxTokens: freeStrategistMaxTokens(),
+    });
+    expect(blocked.planOffered).toBeFalsy();
+    // Not eligible yet: the tool call is fed back as an error, so the model
+    // gets a chance to answer without the card — never a silent success.
+    expect(blockedClient.requests).toHaveLength(2);
+
+    await free.t.deps.uow.repos.events.create(scope, {
+      actorType: "system", actorId: "diag", actorRole: "system",
+      eventType: DIAGNOSTIC_RECORDED_EVENT, payload: { documentId: uuid() }, occurredAt: new Date(),
+    });
+
+    const offeredClient = new FakeModelClient([
+      { content: "Aqui está o plano.", toolCalls: [{ id: "c2", name: "oferecer_plano", argumentsJson: "{}" }] },
+    ]);
+    const offered = await runStrategistTurn({
+      client: offeredClient, ctx, message: "Quero um calendário completo.",
+      maxTokens: freeStrategistMaxTokens(),
+    });
+    expect(offered.planOffered).toBe(true);
+    expect(offeredClient.requests).toHaveLength(1);
   });
 });

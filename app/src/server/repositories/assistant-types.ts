@@ -44,7 +44,7 @@ export interface EquipeCardItemRef {
 }
 
 export interface EquipeCardPayload {
-  kind: "item" | "batch" | "idea";
+  kind: "item" | "batch" | "idea" | "plan_offer";
   accountId: string;
   title: string;
   batchId?: string;

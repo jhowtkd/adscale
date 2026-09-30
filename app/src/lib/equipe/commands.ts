@@ -211,11 +211,11 @@ export async function pauseEquipePublications(
 /** "Falar com uma pessoa": opens a support exception. */
 export async function requestEquipeSupport(
   accountId: string,
-  input: { note?: string } = {},
+  input: { note?: string; purpose?: "plan" } = {},
 ): Promise<unknown> {
   return postEquipeCommand(accountId, {
     type: "request_support",
-    payload: { ...(input.note?.trim() ? { note: input.note.trim() } : {}) },
+    payload: { ...(input.note?.trim() ? { note: input.note.trim() } : {}), ...(input.purpose ? { purpose: input.purpose } : {}) },
   });
 }
 

@@ -12,6 +12,7 @@ import {
   type ToolMessagePayload,
 } from "./assistant-types";
 import type { PostgresEquipeExecutor } from "../equipe/data/postgres";
+import { filterSuggestions } from "@/lib/equipe/suggestions";
 
 export class AssistantMessageValidationError extends Error {
   constructor(message: string) {
@@ -38,9 +39,9 @@ export interface UserMessageAttachment {
 export type CreateAssistantMessageInput =
   | (BaseMessageInput & {
       type: "user";
-      payload?: { attachments?: UserMessageAttachment[] };
+      payload?: { attachments?: UserMessageAttachment[]; fromSuggestion?: boolean };
     })
-  | (BaseMessageInput & { type: "assistant"; payload?: Record<string, never> })
+  | (BaseMessageInput & { type: "assistant"; payload?: { suggestions?: string[] } })
   | (BaseMessageInput & { type: "tool"; payload: ToolMessagePayload })
   | (BaseMessageInput & {
       type: "action_card";
@@ -60,9 +61,9 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 function validateEquipeCardPayload(payload: Record<string, unknown>) {
-  if (payload.kind !== "item" && payload.kind !== "batch" && payload.kind !== "idea") {
+  if (payload.kind !== "item" && payload.kind !== "batch" && payload.kind !== "idea" && payload.kind !== "plan_offer") {
     throw new AssistantMessageValidationError(
-      "equipe_card messages require kind item, batch or idea"
+      "equipe_card messages require kind item, batch, idea or plan_offer"
     );
   }
   if (!isNonEmptyString(payload.accountId)) {
@@ -74,10 +75,13 @@ function validateEquipeCardPayload(payload: Record<string, unknown>) {
   if (!Array.isArray(payload.items)) {
     throw new AssistantMessageValidationError("equipe_card messages require items");
   }
-  if (payload.kind !== "idea" && payload.items.length === 0) {
+  if ((payload.kind === "item" || payload.kind === "batch") && payload.items.length === 0) {
     throw new AssistantMessageValidationError(
       "equipe_card item/batch messages require at least one item"
     );
+  }
+  if (payload.kind === "plan_offer" && payload.items.length !== 0) {
+    throw new AssistantMessageValidationError("plan_offer messages cannot include approval items");
   }
   if (payload.items.length > 50) {
     throw new AssistantMessageValidationError("equipe_card messages hold at most 50 items");
@@ -123,6 +127,13 @@ function validatePayload(type: MessageType, payload: Record<string, unknown>) {
     throw new AssistantMessageValidationError(
       "Payload contains denied persistence keys"
     );
+  }
+  if (type === "user" && payload.fromSuggestion !== undefined && typeof payload.fromSuggestion !== "boolean") {
+    throw new AssistantMessageValidationError("fromSuggestion must be boolean");
+  }
+  if (type === "assistant" && payload.suggestions !== undefined
+    && JSON.stringify(payload.suggestions) !== JSON.stringify(filterSuggestions(payload.suggestions))) {
+    throw new AssistantMessageValidationError("assistant suggestions must be valid conversation starters");
   }
 
   if (type === "tool") {

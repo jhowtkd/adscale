@@ -294,11 +294,18 @@ describe("free account serialization and hard cap", () => {
     let inFlight = 0; let maxInFlight = 0; let calls = 0;
     const releases: Array<() => void> = [];
     const client: EquipeModelClient = {
-      async chat() {
+      async chat(request) {
         calls += 1; inFlight += 1; maxInFlight = Math.max(maxInFlight, inFlight);
         await new Promise<void>((resolve) => releases.push(resolve));
         inFlight -= 1;
-        return { content: "ok", toolCalls: [], usage: { inputTokens: 8000, outputTokens: 2000, cacheReadTokens: 0, cacheWriteTokens: 0 }, stopReason: "stop" };
+        // Usage must fit under THIS request's own declared bound/maxTokens:
+        // ticket 02 shrank the free tool set (3 tools instead of ~12), so
+        // the serialized payload — and the bound it produces — shrank too.
+        // A fixed 8000/2000 no longer fits every request, so derive both
+        // from what the caller actually declared.
+        const inputTokens = Math.max(1, Math.min(8000, (request.inputTokenBound ?? 8000) - 200));
+        const outputTokens = Math.max(1, Math.min(2000, request.maxTokens ?? 2000));
+        return { content: "ok", toolCalls: [], usage: { inputTokens, outputTokens, cacheReadTokens: 0, cacheWriteTokens: 0 }, stopReason: "stop" };
       },
     };
     return { client, stats: () => ({ inFlight, maxInFlight, calls }), releases };
@@ -352,16 +359,35 @@ describe("free account serialization and hard cap", () => {
     const ledger = new MemoryLedgerStore();
     await ledger.record({ ...a.scope, role: "research", model: "muse-spark-1.3-contributor", promptVersion: "v", taskKind: "research",
       inputTokens: 0, outputTokens: 0, costUsdCents: 60 });
-    const looping = new FakeModelClient(Array.from({ length: 10 }, () => ({
-      content: null, toolCalls: [{ id: "c", name: "get_goals", argumentsJson: "{}" }],
-      usage: { inputTokens: 8000, outputTokens: 2000 },
-    })));
+    // get_goals is not on the free tool list (ticket 02 restricts free to
+    // get_account_state/oferecer_plano/sugerir_proximos_passos); a call to
+    // an authorized, non-terminal free tool keeps the loop going the same way.
+    // Usage is pinned near each request's own bound/maxTokens (not a fixed
+    // constant): ticket 02 changed the free payload size (smaller tool set,
+    // growing per-iteration history), so only a request-relative maximum
+    // usage reliably forces the cap within a handful of iterations.
+    const requests: Array<{ noRetries?: boolean }> = [];
+    const looping: EquipeModelClient = {
+      async chat(request) {
+        requests.push(request);
+        const inputTokens = Math.max(1, Math.min(8000, (request.inputTokenBound ?? 8000) - 50));
+        const outputTokens = Math.max(1, request.maxTokens ?? 2000);
+        return {
+          content: null,
+          toolCalls: [{ id: `c${requests.length}`, name: "get_account_state", argumentsJson: "{}" }],
+          usage: { inputTokens, outputTokens, cacheReadTokens: 0, cacheWriteTokens: 0 },
+          stopReason: "tool_calls",
+        };
+      },
+    };
     const agents = createEquipeAgents({ moduleDeps: a.t.deps, client: looping, ledger, now: () => NOW });
     const result = await agents.runTask({ ...strategist(a), input: { message: "loop", maxIterations: 10 } });
     expect(result).toEqual({ ok: false, error: BUDGET_EXCEEDED_ERROR });
-    // 60 spent, each iteration settles at 8c and reserves 9c: 4 fit (92), the 5th (92+9) does not.
-    expect(looping.requests).toHaveLength(4);
-    expect(looping.requests.every((r) => r.noRetries === true)).toBe(true);
+    // 60 already spent: near-maximum usage on every call exhausts the
+    // remaining 40c well before the 10-iteration ceiling.
+    expect(requests.length).toBeGreaterThan(0);
+    expect(requests.length).toBeLessThan(10);
+    expect(requests.every((r) => r.noRetries === true)).toBe(true);
     expect(await ledger.lifetimeTotalCostUsdCents(a.workspaceId, a.accountId)).toBeLessThanOrEqual(100);
   });
 

@@ -353,6 +353,7 @@ export const openExceptionPayloadSchema = z.object({
 
 export const requestSupportPayloadSchema = z.object({
   note: z.string().max(2000).optional(),
+  purpose: z.literal("plan").optional(),
 });
 
 export const assumeExceptionPayloadSchema = z.object({

@@ -28,6 +28,10 @@ import type { EquipeModelClient, ModelCallRequest, ModelCallResponse } from "./m
 
 const usage = (over: Partial<ModelCallResponse["usage"]> = {}) =>
   ({ inputTokens: 8000, outputTokens: 2000, cacheReadTokens: 0, cacheWriteTokens: 0, ...over });
+// Happy-path usage must fit the complete payload bound of this request.
+const requestUsage = (request: ModelCallRequest) => usage({
+  inputTokens: Math.min(8000, request.inputTokenBound!), outputTokens: request.maxTokens!,
+});
 
 describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
   let m: Mods; let A: Pool; let B: Pool; let C: Pool; // C = observador independente
@@ -133,12 +137,12 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
     it("serializes calls from two pools: the 2nd reserves only after the 1st settled, never overlapping on the provider", async () => {
       const a = await freeAccount();
       let inFlight = 0; let maxInFlight = 0; const gates: Array<() => void> = []; let unsettledAtSecondReserve = -1;
-      const clientFor = (label: string): EquipeModelClient => ({ async chat() {
+      const clientFor = (label: string): EquipeModelClient => ({ async chat(request) {
         inFlight += 1; maxInFlight = Math.max(maxInFlight, inFlight);
         if (label === "second") unsettledAtSecondReserve = (await ledgerRows(C, a)).filter((r) => !r.settledAt).length;
         await new Promise<void>((r) => gates.push(r));
         inFlight -= 1;
-        return { content: "ok", toolCalls: [], stopReason: "stop", usage: usage() };
+        return { content: "ok", toolCalls: [], stopReason: "stop", usage: requestUsage(request) };
       } });
       const p1 = agentsOn(A, clientFor("first")).runTask(strategist(a));
       await m.free.waitUntil(async () => gates.length === 1, "first in provider");
@@ -147,20 +151,22 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
       expect(await ledgerRows(C, a)).toHaveLength(1);   // second has not reserved
       gates.shift()!();
       await m.free.waitUntil(async () => gates.length === 1, "second in provider");
-      expect(unsettledAtSecondReserve).toBe(1);          // only ITS own reservation is open
       gates.shift()!();
       expect((await Promise.all([p1, p2])).every((r) => r.ok)).toBe(true);
+      expect(unsettledAtSecondReserve).toBe(1);          // only ITS own reservation is open
       expect(maxInFlight).toBe(1);
     });
 
     it("never exceeds the US$ 1 lifetime cap with 40 concurrent strategist calls across two pools", async () => {
       const a = await freeAccount();
-      let inFlight = 0; let maxInFlight = 0; let calls = 0;
-      const client: EquipeModelClient = { async chat() {
+      let inFlight = 0; let maxInFlight = 0; let calls = 0; let expectedCost = 0;
+      const client: EquipeModelClient = { async chat(request) {
         calls += 1; inFlight += 1; maxInFlight = Math.max(maxInFlight, inFlight);
         await new Promise((r) => setTimeout(r, 1));
         inFlight -= 1;
-        return { content: "ok", toolCalls: [], stopReason: "stop", usage: usage() };
+        const reported = requestUsage(request);
+        expectedCost += m.ledger.estimateCostUsdCents(request.model, reported.inputTokens, reported.outputTokens);
+        return { content: "ok", toolCalls: [], stopReason: "stop", usage: reported };
       } };
       const agentA = agentsOn(A, client); const agentB = agentsOn(B, client);
       const results = await Promise.all(Array.from({ length: 40 }, (_, i) => (i % 2 ? agentA : agentB).runTask(strategist(a))));
@@ -171,7 +177,7 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
       expect(maxInFlight).toBe(1);
       const t = await total(a);
       expect(t).toBeLessThanOrEqual(100);
-      expect(t).toBe(ok * 8);                              // each settled at the actual 8c
+      expect(t).toBe(expectedCost);                        // each settled at its reported actual cost
       expect((await ledgerRows(C, a)).every((r) => r.settledAt)).toBe(true);
     });
 
@@ -179,12 +185,21 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
       const a = await freeAccount();
       await insertSpend(a, 60, NOW);
       const requests: ModelCallRequest[] = [];
+      let expectedCost = 60;
       const client: EquipeModelClient = { async chat(r) { requests.push(r);
-        return { content: null, toolCalls: [{ id: "c", name: "get_goals", argumentsJson: "{}" }], stopReason: "tool_calls", usage: usage() } as ModelCallResponse; } };
+        const reported = requestUsage(r);
+        expectedCost += m.ledger.estimateCostUsdCents(r.model, reported.inputTokens, reported.outputTokens);
+        return { content: null, toolCalls: [{ id: `c${requests.length}`, name: "get_account_state", argumentsJson: "{}" }], stopReason: "tool_calls", usage: reported } as ModelCallResponse; } };
       const out = await agentsOn(A, client).runTask({ ...strategist(a), input: { message: "loop", maxIterations: 10 } });
       expect(out).toEqual({ ok: false, error: m.runner.BUDGET_EXCEEDED_ERROR });
-      expect(requests).toHaveLength(4);
-      expect(await total(a)).toBe(92);
+      expect(requests.length).toBeGreaterThan(0);
+      expect(requests.length).toBeLessThan(10);
+      expect(requests.every((r) => r.noRetries === true)).toBe(true);
+      expect(await total(a)).toBe(expectedCost);
+      expect(expectedCost).toBeLessThanOrEqual(100);
+      const reservations = (await ledgerRows(C, a)).filter((r) => r.reservedCostUsdCents !== null);
+      expect(reservations).toHaveLength(requests.length);
+      expect(reservations.every((r) => r.settledAt)).toBe(true);
     });
 
     it("counts lifetime spend (an old month still consumes the cap)", async () => {

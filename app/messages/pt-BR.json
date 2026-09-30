@@ -4158,7 +4158,24 @@
       "approveError": "Não foi possível aprovar. Tente novamente.",
       "approvedOk": "Aprovado.",
       "versionShort": "versão {hash}",
-      "viewIdea": "Ver ideia"
+      "viewIdea": "Ver ideia",
+      "plan": {
+        "intro": "Para montar o calendário e produzir as peças, sua marca precisa de um plano. O diagnóstico e a Biblioteca continuam seus.",
+        "label": "Plano",
+        "title": "ADScale para a sua marca",
+        "calendar": "Calendário do mês e peças feitas pela IA com a sua Biblioteca",
+        "review": "Uma pessoa confere as primeiras entregas antes de você ver",
+        "publication": "Publicação no Instagram só quando você aprovar, com recibo",
+        "results": "Pesquisa de concorrentes e acompanhamento dos resultados",
+        "later": "Agora não",
+        "subscribe": "Assinar o plano",
+        "contact": "Fale com a gente para conhecer o plano.",
+        "continueMessage": "Continuar no grátis por enquanto",
+        "sending": "Enviando…",
+        "requested": "Pedido enviado",
+        "confirmation": "Uma pessoa vai falar com você em até 1 dia útil.",
+        "error": "Não consegui enviar seu pedido. Tente novamente."
+      }
     },
     "drawer": {
       "title": "Assistente da campanha",

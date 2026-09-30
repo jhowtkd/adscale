@@ -57,6 +57,7 @@ export const BUDGET_EXCEEDED_ERROR = "budget_exceeded";
 const taskInputSchemas = {
   strategist_turn: z.object({
     message: z.string().min(1).max(8000),
+    history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(2000) })).max(20).optional(),
     maxIterations: z.number().int().min(1).max(10).optional(),
   }),
   research: z.object({
@@ -276,6 +277,7 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
               effort: resolveStrategistEffort(),
               ctx: { deps: options.moduleDeps, workspaceId: task.workspaceId, accountId: task.accountId },
               message: input.message as string,
+              history: input.history as Array<{ role: "user" | "assistant"; content: string }> | undefined,
               maxIterations: input.maxIterations as number | undefined,
               ...(free ? { maxTokens: freeStrategistMaxTokens() } : {}),
               onModelCall: recordCall,

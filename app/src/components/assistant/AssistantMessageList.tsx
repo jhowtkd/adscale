@@ -22,6 +22,8 @@ import AssistantActionCard from "./AssistantActionCard";
 import AssistantEmptyState from "./AssistantEmptyState";
 import EquipeCard, { parseEquipeCard } from "./EquipeCard";
 import { EquipeEventLine, StaffMessageBubble } from "./EquipeFeed";
+import EquipePlanOffer from "./EquipePlanOffer";
+import { filterSuggestions } from "@/lib/equipe/suggestions";
 
 export interface AssistantDisplayMessage {
   id: string;
@@ -50,6 +52,7 @@ export interface AssistantMessageListProps {
    * the Equipe is disabled for the workspace.
    */
   equipeEnabled?: boolean;
+  onSuggestion?: (text: string) => void;
 }
 
 function looksLikeJsonPayload(value: string): boolean {
@@ -278,6 +281,7 @@ export default function AssistantMessageList({
   artifactLineages,
   openVersionComparison,
   equipeEnabled = false,
+  onSuggestion,
 }: AssistantMessageListProps) {
   const t = useTranslations("assistant.chat");
   const sanitizedStreamingText = useMemo(
@@ -307,6 +311,10 @@ export default function AssistantMessageList({
           );
         }
         if (message.type === "equipe_card") {
+          if (message.payload.kind === "plan_offer" && typeof message.payload.accountId === "string" && message.payload.accountId) {
+            return <EquipePlanOffer key={message.id} accountId={message.payload.accountId} threadId={threadId}
+              disabled={isStreaming || !equipeEnabled} onSuggestion={onSuggestion} />;
+          }
           const card = parseEquipeCard(message.payload);
           if (!card) {
             return <MessageBubble key={message.id} message={message} />;
@@ -334,7 +342,22 @@ export default function AssistantMessageList({
             />
           );
         }
-        return <MessageBubble key={message.id} message={message} />;
+        const suggestions = message.type === "assistant" ? filterSuggestions(message.payload.suggestions) : [];
+        return (
+          <div key={message.id} className="flex flex-col gap-2">
+            <MessageBubble message={message} />
+            {suggestions.length > 0 ? (
+              <div className="flex max-w-[85%] flex-col gap-1.5" data-testid="assistant-suggestions">
+                {suggestions.map((text) => (
+                  <button key={text} type="button" disabled={isStreaming || !onSuggestion} onClick={() => onSuggestion?.(text)}
+                    className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--surface-inset)] disabled:opacity-50">
+                    <span aria-hidden="true">→ </span>{text}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        );
       })}
       {isStreaming && sanitizedStreamingText ? (
         <div

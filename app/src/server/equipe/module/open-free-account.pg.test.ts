@@ -160,6 +160,33 @@ describe.skipIf(!ENABLED)("open_free_account (pg, dois pools)", () => {
     expect((await m.free.depsFor(A).uow.repos.accounts.get(workspaceId, paid.id))?.status).toBe("deploying");
   });
 
+  it("selects the oldest account, breaks date ties by UUID and keeps it after conversion", async () => {
+    const { workspaceId, userId } = await seed();
+    const profiles = await A.db.insert(m.schema.clientProfiles).values(
+      ["Mais nova", "Antiga B", "Antiga A"].map((name) => ({ workspaceId, name })),
+    ).returning();
+    const ids = Array.from({ length: 3 }, () => crypto.randomUUID()).sort();
+    const oldest = new Date("2026-01-01T00:00:00Z");
+    await A.db.insert(m.equipeSchema.equipeAccounts).values([
+      { id: ids[0]!, workspaceId, clientProfileId: profiles[0]!.id, status: "free", createdAt: new Date("2026-02-01T00:00:00Z") },
+      { id: ids[2]!, workspaceId, clientProfileId: profiles[1]!.id, status: "free", createdAt: oldest },
+      { id: ids[1]!, workspaceId, clientProfileId: profiles[2]!.id, status: "free", createdAt: oldest },
+    ]);
+    const first = await open(A, workspaceId, userId);
+    expect(first.ok).toBe(true);
+    if (!first.ok) throw new Error(first.error.code);
+    expect(first.value.accountId).toBe(ids[1]);
+    expect(first.value.data).toMatchObject({ created: false });
+    await A.db.update(m.equipeSchema.equipeAccounts).set({ status: "deploying" }).where(eq(m.equipeSchema.equipeAccounts.id, ids[1]!));
+    const second = await open(B, workspaceId, userId);
+    expect(second.ok).toBe(true);
+    if (!second.ok) throw new Error(second.error.code);
+    expect(second.value.accountId).toBe(first.value.accountId);
+    expect(second.value.data).toEqual(first.value.data);
+    expect(await counts(workspaceId)).toEqual({ accounts: 3, profiles: 3, people: 0, handoffs: 0 });
+    expect(await m.free.depsFor(A).uow.repos.threads.list({ workspaceId, accountId: ids[1]! })).toHaveLength(1);
+  });
+
   it("the DB rejects a status outside the allowed list (free is allowed, junk is not)", async () => {
     const { workspaceId, userId } = await seed();
     const out = await open(A, workspaceId, userId);

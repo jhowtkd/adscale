@@ -38,6 +38,7 @@ const chatBodySchema = z
   .object({
     message: z.string().trim(),
     attachments: z.array(attachmentSchema).max(5).optional(),
+    payload: z.object({ fromSuggestion: z.boolean().optional() }).strict().optional(),
   })
   .superRefine((value, ctx) => {
     if (!value.message && (!value.attachments || value.attachments.length === 0)) {
@@ -93,6 +94,7 @@ function runEquipeTurn(input: {
   accountId: string;
   threadId: string;
   userMessage: string;
+  fromSuggestion?: boolean;
   executionPausedMessage: string;
 }) {
   const moduleDeps: EquipeModuleDeps = {
@@ -113,6 +115,7 @@ function runEquipeTurn(input: {
     accountId: input.accountId,
     threadId: input.threadId,
     userMessage: input.userMessage,
+    fromSuggestion: input.fromSuggestion,
     executionPausedMessage: input.executionPausedMessage,
   });
 }
@@ -174,6 +177,7 @@ export async function POST(
                 accountId: equipeMatch.account.id,
                 threadId,
                 userMessage: parsed.data.message,
+                fromSuggestion: parsed.data.payload?.fromSuggestion,
                 executionPausedMessage: (await getTranslations("assistant.equipe"))("executionPaused"),
               })
             : goalRun && goalRun.stage !== "completed" && goalRun.stage !== "stopped"

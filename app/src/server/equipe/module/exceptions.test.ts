@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { executeCommand } from "./commands";
+import { DIAGNOSTIC_RECORDED_EVENT } from "../agents/free-budget";
+import { projectConversationEvent } from "./conversation-events";
 import { ctx, setup, type ItemIds, type TestDeps } from "./testing/items";
 
 const SCOPE = (ids: ItemIds) => ({ workspaceId: ids.workspaceId, accountId: ids.accountId });
@@ -177,5 +179,106 @@ describe("assume / post / register / close", () => {
       payload: { exceptionId, channel: "phone", summary: "x" },
     });
     expect(contact.ok).toBe(false);
+  });
+});
+
+// Ticket 02: "Assinar o plano" opens a commercial exception through
+// request_support purpose:"plan" — gated on the diagnostic, priced by no one
+// but a person, on the out_of_contract_request SLA. Never a price here.
+describe("request_support purpose: plan (ticket 02)", () => {
+  it("refuses purpose: plan before the diagnostic is recorded", async () => {
+    const { t, ids } = await setup();
+    const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.member), {
+      type: "request_support",
+      payload: { purpose: "plan" },
+    });
+    expect(outcome.ok).toBe(false);
+    const exceptions = await t.deps.uow.repos.exceptions.list(SCOPE(ids));
+    expect(exceptions).toHaveLength(0);
+  });
+
+  it("opens an out_of_contract_request exception with its SLA due date once the diagnostic exists, never a price", async () => {
+    const { t, ids } = await setup();
+    const scope = SCOPE(ids);
+    await t.deps.uow.repos.events.create(scope, {
+      actorType: "system", actorId: "diag", actorRole: "system",
+      eventType: DIAGNOSTIC_RECORDED_EVENT, payload: { documentId: "doc-1" }, occurredAt: new Date("2026-10-05T14:00:00.000Z"),
+    });
+    const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.member), {
+      type: "request_support",
+      payload: { purpose: "plan" },
+    });
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.value.data.exceptionId).toBeTruthy();
+    expect(outcome.value.data.dueAt).toBeTruthy();
+    expect(JSON.stringify(outcome.value.data)).not.toMatch(/pri[cç]e|valor|R\$/i);
+    const row = await t.deps.uow.repos.exceptions.get(scope, outcome.value.data.exceptionId as string);
+    expect(row?.trigger).toBe("out_of_contract_request");
+    expect(outcome.value.events.find((event) => event.eventType === "support_exception.opened")?.payload).toMatchObject({ purpose: "plan" });
+    expect([...t.store.assistantMessages.rows.values()]).toEqual([
+      expect.objectContaining({ content: "Recebemos seu pedido sobre o plano. Uma pessoa vai falar com você em até 1 dia útil." }),
+    ]);
+    // The SP-calendar 1-business-day SLA (not the 2h fast-track), matching
+    // the fixture clock used across this suite.
+    expect(row?.dueAt).toEqual(new Date("2026-10-06T14:00:00.000Z"));
+  });
+
+  it("reuses the open exceptionId and requests only one notification for a repeated purpose: plan request", async () => {
+    const { t, ids } = await setup();
+    const scope = SCOPE(ids);
+    await t.deps.uow.repos.events.create(scope, {
+      actorType: "system", actorId: "diag", actorRole: "system",
+      eventType: DIAGNOSTIC_RECORDED_EVENT, payload: { documentId: "doc-1" }, occurredAt: new Date("2026-10-05T14:00:00.000Z"),
+    });
+    const first = await executeCommand(t.deps, ctx(ids, ids.actors.member), {
+      type: "request_support", payload: { purpose: "plan" },
+    });
+    const second = await executeCommand(t.deps, ctx(ids, ids.actors.member), {
+      type: "request_support", payload: { purpose: "plan" },
+    });
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    if (!first.ok || !second.ok) return;
+    expect(second.value.data.exceptionId).toBe(first.value.data.exceptionId);
+    expect(second.value.data.dueAt).toEqual(first.value.data.dueAt);
+
+    const exceptions = await t.deps.uow.repos.exceptions.list(scope);
+    expect(exceptions).toHaveLength(1);
+    const notifications = (await t.deps.uow.repos.events.list(scope, { eventType: "notification.requested" }))
+      .filter((event) => (event.payload as { templateKey?: string } | null)?.templateKey === "exception.opened");
+    expect(notifications).toHaveLength(1);
+  });
+
+  it("keeps ordinary request_support (no purpose) on client_requested_person, unaffected by the diagnostic gate", async () => {
+    const { t, ids } = await setup();
+    const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.member), {
+      type: "request_support",
+      payload: {},
+    });
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    const row = await t.deps.uow.repos.exceptions.get(SCOPE(ids), outcome.value.data.exceptionId as string);
+    expect(row?.trigger).toBe("client_requested_person");
+  });
+
+  it.each([undefined, "other", null])("validates purpose on old and invalid exception events: %s", async (purpose) => {
+    const { t, ids } = await setup();
+    const scope = SCOPE(ids);
+    const event = await t.deps.uow.repos.events.create(scope, {
+      actorType: "system", actorId: "legacy", actorRole: "system", eventType: "support_exception.opened",
+      payload: { trigger: "out_of_contract_request", ...(purpose === undefined ? {} : { purpose }) }, occurredAt: t.deps.clock.now(),
+    });
+    const projected = projectConversationEvent({ ...scope, actor: ids.actors.system, repos: t.deps.uow.repos,
+      internal: t.deps.uow.internal, now: t.deps.clock.now(), events: [] }, event);
+    if (purpose === undefined) {
+      await expect(projected).resolves.toMatchObject({ messageId: expect.any(String) });
+      expect([...t.store.assistantMessages.rows.values()]).toEqual([
+        expect.objectContaining({ content: "Chamei uma pessoa da equipe para ajudar aqui." }),
+      ]);
+    } else {
+      await expect(projected).rejects.toThrow();
+      expect(t.store.assistantMessages.rows.size).toBe(0);
+    }
   });
 });
