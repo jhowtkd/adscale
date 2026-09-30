@@ -13,7 +13,7 @@ vi.mock("@/server/auth/session", () => ({ getSessionFromHeaders: vi.fn(), getSes
 vi.mock("@/server/equipe/http/deps", () => ({ createEquipeRouteDeps: vi.fn() }));
 vi.mock("@/server/equipe/module/equipe-enabled", () => ({ isEquipeEnabledForWorkspace: vi.fn() }));
 vi.mock("@/lib/with-rate-limit", () => ({ checkRateLimit: vi.fn(async () => null) }));
-vi.mock("next-intl/server", () => ({ getTranslations: vi.fn(async () => (key: string) => key) }));
+vi.mock("next-intl/server", () => ({ getLocale: vi.fn(async () => "pt-BR"), getTranslations: vi.fn(async () => (key: string) => key) }));
 vi.mock("@/server/assistant/orchestrator", () => ({
   runAssistantTurn: () => { throw new Error("unexpected classic turn"); },
 }));
