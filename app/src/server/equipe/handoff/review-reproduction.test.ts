@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createHandoffReadHandler } from "./read";
-import { FakeInstagramReader, FakeSiteReader, type HandoffReaders } from "./readers";
+import { FakeInstagramReader, FakeSiteReader, type HandoffReaders, type HandoffReadingContext } from "./readers";
 import { executeCommand } from "../module/commands";
 import { makeTestDeps, uuid } from "../module/testing/deps";
 import { HANDOFF_GROUPS, readingRun, type HandoffGroup, type HandoffItem } from "../domain/handoff";
@@ -39,6 +39,30 @@ async function runPendingRead(f: Awaited<ReturnType<typeof fixture>>, readers: H
   const taskIntentId = h.reading[group]!.taskIntentId;
   const intent = await f.t.deps.uow.repos.taskOutbox.get(f.scope, taskIntentId);
   return createHandoffReadHandler(f.t.deps, readers)({ event: { data: { ...f.scope, taskIntentId, ...(intent!.data as object) } }, step: { run: async (_id, fn) => fn() } });
+}
+/** An image is only confirmable with a managed copy. Real readers save each image as a provisional asset of the reading and return its R2 key; the URL-only fakes return none. */
+function withManagedImages(f: Awaited<ReturnType<typeof fixture>>, readers: HandoffReaders): HandoffReaders {
+  const save = (context: HandoffReadingContext | undefined, origin: "site" | "instagram", index: number) => {
+    if (!context) throw new Error("reading_context_required");
+    const id = uuid();
+    const key = `workspaces/${context.workspaceId}/handoff/${context.handoffId}/${context.readingId}/${context.taskIntentId}/${origin}-${index}.png`;
+    f.t.store.workspaceAssets.rows.set(id, {
+      id, workspaceId: context.workspaceId, clientProfileId: null, name: `${origin}-${index}.png`, key, type: "image/png", size: 1,
+      width: null, height: null, source: `brand_${origin}`, tags: [], aiDescription: null,
+      metadata: { handoffId: context.handoffId, readingId: context.readingId, provisional: true, kind: `${origin}_image` }, createdAt: new Date(), updatedAt: new Date(),
+    });
+    return key;
+  };
+  return {
+    site: { read: async (url, context) => {
+      const data = await readers.site.read(url, context);
+      return { ...data, images: data.images.map((image, i) => ({ ...image, key: save(context, "site", i) })) };
+    } },
+    instagram: { profile: async (handle, context) => {
+      const data = await readers.instagram.profile(handle, context);
+      return { ...data, posts: data.posts.map((post, i) => ({ ...post, key: save(context, "instagram", i) })) };
+    } },
+  };
 }
 
 describe("review PR608: uncovered concurrency and recovery paths", () => {
@@ -100,7 +124,7 @@ describe("review PR608: uncovered concurrency and recovery paths", () => {
       const run = readingRun(active.reading[group], origin)!;
       return executeCommand(f.t.deps, { ...f.scope, actor: { kind: "system", job: HANDOFF_READ_EVENT } }, { type: "handoff_record_group", payload: {
         group, readingId: active.readingId, runId: run.runId, taskIntentId: run.taskIntentId,
-        result: { status: "found", items: [{ id: `${origin}-${group}`, value: group === "colors" ? "#222222" : `/${origin}.png`, origin }] },
+        result: { status: "found", items: [{ id: `${origin}-${group}`, value: group === "colors" ? "#222222" : `/${origin}.png`, origin, ...(group === "images" ? { key: `workspaces/${f.scope.workspaceId}/${origin}.png` } : {}) }] },
       } });
     };
     expect((await record(first, "images")).ok).toBe(true);
@@ -121,7 +145,7 @@ describe("review PR608: uncovered concurrency and recovery paths", () => {
 
   it("keeps removed uploaded items across summary and return, then restores their selection", async () => {
     const f = await fixture();
-    await createHandoffReadHandler(f.t.deps, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() })({ event: await f.event(), step: { run: async (_id, fn) => fn() } });
+    await createHandoffReadHandler(f.t.deps, withManagedImages(f, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() }))({ event: await f.event(), step: { run: async (_id, fn) => fn() } });
     await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
     await f.command("handoff_confirm_networks", { kept: [], added: [] });
     const id = uuid();
@@ -142,12 +166,12 @@ describe("review PR608: uncovered concurrency and recovery paths", () => {
     const f = await fixture();
     await f.record("name", [{ id: "name", value: "Acme", origin: "site" }]);
     for (const group of ["logo", "colors", "fonts"] as const) await f.record(group, []);
-    const siteImages = Array.from({ length: 30 }, (_, i) => ({ id: `site-${i}`, value: `/site-${i}.png`, origin: "site" as const }));
+    const siteImages = Array.from({ length: 30 }, (_, i) => ({ id: `site-${i}`, value: `/site-${i}.png`, key: `workspaces/${f.scope.workspaceId}/site-${i}.png`, origin: "site" as const }));
     await f.record("images", siteImages);
     await f.record("networks", [{ id: "net", value: "acme", platform: "instagram", origin: "site" }]);
     await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
     await f.command("handoff_confirm_networks", { kept: ["net"], added: [] });
-    const instagramImages = Array.from({ length: 30 }, (_, i) => ({ id: `ig-${i}`, value: `/ig-${i}.png`, origin: "instagram" as const }));
+    const instagramImages = Array.from({ length: 30 }, (_, i) => ({ id: `ig-${i}`, value: `/ig-${i}.png`, key: `workspaces/${f.scope.workspaceId}/ig-${i}.png`, origin: "instagram" as const }));
     await f.record("colors", []);
     await f.record("images", instagramImages);
     const uploaded = Array.from({ length: 30 }, () => uuid());
@@ -175,6 +199,20 @@ describe("PR608 bot review: managed logos and decisions for confirmed Instagram"
     await expect(f.command("handoff_confirm_identity", { name: "Acme", logo: h.captured.logo![0]!.id, colors: [], fonts: [], paletteChoice: "site" })).rejects.toThrow("invalid_command");
     expect((await f.row()).step).toBe("identity");
     expect((await f.row()).decisions.identity).toBeUndefined();
+  });
+
+  it("rejects keeping a captured image without a managed key, but lets the person remove it", async () => {
+    const f = await fixture();
+    await runPendingRead(f, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() });
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    await f.command("handoff_confirm_networks", { kept: [], added: [] });
+    const ids = (await f.row()).captured.images!.map(i => i.id);
+    expect(ids).not.toHaveLength(0);
+    await expect(f.command("handoff_confirm_images", { kept: ids, removed: [], uploaded: [] })).rejects.toThrow("invalid_command");
+    expect((await f.row()).step).toBe("images");
+    expect((await f.row()).decisions.images).toBeUndefined();
+    await f.command("handoff_confirm_images", { kept: [], removed: ids, uploaded: [] });
+    expect((await f.row()).step).toBe("summary");
   });
 
   it.each(["site", "instagram", "user"] as const)("persists the managed %s logo in the existing profile", async (origin) => {
@@ -205,7 +243,7 @@ describe("PR608 bot review: managed logos and decisions for confirmed Instagram"
 
   it.each(["private", "missing", "provider"])("blocks diagnosis for a %s confirmed Instagram despite successful site groups, then allows removal", async (failure) => {
     const f = await fixture();
-    await runPendingRead(f, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() });
+    await runPendingRead(f, withManagedImages(f, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() }));
     await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
     await f.command("handoff_confirm_networks", { kept: (await f.row()).captured.networks!.map(i => i.id), added: [] });
     await runPendingRead(f, {
@@ -227,7 +265,7 @@ describe("PR608 bot review: managed logos and decisions for confirmed Instagram"
 
   it.each([false, true])("reconfirms images after replacing Instagram, all old images removed=%s", async (allRemoved) => {
     const f = await fixture();
-    const readers = { site: new FakeSiteReader(), instagram: new FakeInstagramReader() };
+    const readers = withManagedImages(f, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() });
     await runPendingRead(f, readers);
     await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
     await f.command("handoff_confirm_networks", { kept: (await f.row()).captured.networks!.map(i => i.id), added: [] });

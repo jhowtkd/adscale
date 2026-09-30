@@ -92,7 +92,7 @@ describe("review PR608: uploaded-image restoration and late palette", () => {
   it("defaults new profile images to selected while keeping the site's previous removal", async () => {
     mockPostEquipeCommand.mockResolvedValue({});
     renderCard(baseHandoff({ step: "images", reading: { images: { runId: "r", taskIntentId: "t", status: "found" } },
-      captured: { images: [{ id: "site-kept", value: "/a.png", origin: "site" }, { id: "site-removed", value: "/b.png", origin: "site" }, { id: "new-ig", value: "/c.png", origin: "instagram" }] },
+      captured: { images: [{ id: "site-kept", value: "/a.png", origin: "site", key: "workspaces/ws-1/a.png" }, { id: "site-removed", value: "/b.png", origin: "site", key: "workspaces/ws-1/b.png" }, { id: "new-ig", value: "/c.png", origin: "instagram", key: "workspaces/ws-1/c.png" }] },
       decisions: { needsConfirmation: ["images"], images: { kept: ["site-kept"], removed: ["site-removed"], uploaded: [] } },
     }));
     expect(screen.getByRole("checkbox", { name: /Remover imagem new-ig/ })).toBeChecked();
@@ -106,7 +106,7 @@ describe("review PR608: uploaded-image restoration and late palette", () => {
     mockPostEquipeCommand.mockResolvedValue({});
     renderCard(baseHandoff({
       step: "images", reading: { images: { runId: "r", taskIntentId: "t", status: "not_found" } },
-      decisions: { images: { kept: [], removed: removed ? ["upload-1"] : [], uploaded: [{ id: "upload-1", value: "/api/workspace/assets/upload-1/file", origin: "user" }] } },
+      decisions: { images: { kept: [], removed: removed ? ["upload-1"] : [], uploaded: [{ id: "upload-1", value: "/api/workspace/assets/upload-1/file", origin: "user", key: "workspaces/ws-1/upload-1.png" }] } },
     }));
     if (!removed) fireEvent.click(screen.getByRole("checkbox", { name: /Remover imagem/ }));
     expect(screen.getByRole("checkbox", { name: /Restaurar imagem/ })).toBeInTheDocument();
