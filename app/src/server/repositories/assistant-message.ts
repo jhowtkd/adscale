@@ -1,3 +1,4 @@
+import { HANDOFF_STEPS, type HandoffStep } from "../equipe/domain/handoff";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../db";
 import { assistantMessages, assistantThreads } from "../db/schema";
@@ -61,9 +62,9 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 function validateEquipeCardPayload(payload: Record<string, unknown>) {
-  if (payload.kind !== "item" && payload.kind !== "batch" && payload.kind !== "idea" && payload.kind !== "plan_offer") {
+  if (payload.kind !== "item" && payload.kind !== "batch" && payload.kind !== "idea" && payload.kind !== "plan_offer" && payload.kind !== "handoff") {
     throw new AssistantMessageValidationError(
-      "equipe_card messages require kind item, batch, idea or plan_offer"
+      "equipe_card messages require kind item, batch, idea, plan_offer or handoff"
     );
   }
   if (!isNonEmptyString(payload.accountId)) {
@@ -79,6 +80,9 @@ function validateEquipeCardPayload(payload: Record<string, unknown>) {
     throw new AssistantMessageValidationError(
       "equipe_card item/batch messages require at least one item"
     );
+  }
+  if (payload.kind === "handoff" && (!isNonEmptyString(payload.handoffId) || !HANDOFF_STEPS.includes(payload.step as HandoffStep) || payload.items.length !== 0)) {
+    throw new AssistantMessageValidationError("handoff messages require handoffId, a valid step and no approval items");
   }
   if (payload.kind === "plan_offer" && payload.items.length !== 0) {
     throw new AssistantMessageValidationError("plan_offer messages cannot include approval items");

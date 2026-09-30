@@ -1,3 +1,4 @@
+import { handoffText } from "@/lib/equipe/handoff-copy";
 import type { EquipeEvent } from "../data";
 import type { CommandContext } from "./shared";
 import type { CreateAssistantMessageInput } from "../../repositories/assistant-message";
@@ -13,6 +14,7 @@ export async function projectConversationEvent(ctx: CommandContext, event: Equip
     ? requestSupportPayloadSchema.shape.purpose.parse(payload.purpose) : undefined;
   const reminder = event.eventType === "notification.requested" && PROACTIVE_REMINDERS.includes(String(payload.templateKey));
   if (!reminder && ![
+    "handoff.decided", "handoff.card", "account.free_opened",
     "staff.message_posted", "staff.contact_registered", "support_exception.assumed",
     "support_exception.closed", "support_exception.opened", "batch.delivered",
   ].includes(event.eventType)) return null;
@@ -37,7 +39,15 @@ export async function projectConversationEvent(ctx: CommandContext, event: Equip
   const staff = actor === "staff" && event.actorId ? await ctx.internal.staff.get(event.actorId) : null;
   const name = typeof payload.staffName === "string" ? payload.staffName : staff?.displayName ?? "Equipe";
   let input: CreateAssistantMessageInput;
-  if (event.eventType === "staff.message_posted" || event.eventType === "staff.contact_registered") {
+  if (["handoff.card", "account.free_opened"].includes(event.eventType)) {
+    const [h] = await ctx.repos.handoffs.list(scope);
+    if (!h) return null;
+    input = h.step === "done" ? { threadId: thread.id, type: "assistant", content: handoffText("done"), payload: { handoffStep: "done" } }
+      : { threadId: thread.id, type: "equipe_card", content: handoffText(h.step), payload: { kind: "handoff", accountId: scope.accountId, handoffId: h.id, step: h.step, title: handoffText(h.step), items: [] } };
+  } else if (event.eventType === "handoff.decided") {
+    const text = `Você confirmou uma parte da marca · ${ctx.now.toISOString()}`;
+    input = { threadId: thread.id, type: "equipe_event", content: text, payload: { kind: "handoff.decided", text, command: payload.command, step: payload.step } };
+  } else if (event.eventType === "staff.message_posted" || event.eventType === "staff.contact_registered") {
     if (actor !== "staff" || !event.actorId) throw new Error("invalid_staff_message_author");
     input = {
       threadId: thread.id, type: "staff_message",

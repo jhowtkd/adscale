@@ -4,6 +4,7 @@
 
 import type { ItemReviewStatus, ItemStatus } from "../domain";
 import type {
+  EquipeBrandHandoff,
   EquipeAccount,
   EquipeBatch,
   EquipeContextFields,
@@ -119,6 +120,7 @@ export type AccountStateView = {
   workspaceId: string;
   accountId: string;
   status: string;
+  handoff: EquipeBrandHandoff | null;
   fronts: EquipeFront[];
   /** Steps still open (pending, in progress, or paused), in flow order. */
   pendingSteps: EquipeOnboardingStep[];
@@ -141,7 +143,8 @@ export async function getAccountState(
   const activePauses = (await repos.pauses.list(scope))
     .filter((pause) => pause.status === "active")
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-  return { workspaceId, accountId, status: account.status, fronts, pendingSteps, activePauses };
+  const [handoff] = await repos.handoffs.list(scope);
+  return { workspaceId, accountId, status: account.status, handoff: handoff ?? null, fronts, pendingSteps, activePauses };
 }
 
 export type GoalsView = {

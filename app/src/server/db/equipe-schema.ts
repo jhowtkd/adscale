@@ -1,3 +1,4 @@
+import type { HandoffStep, HandoffSource, HandoffReading, HandoffCaptured, HandoffDecisions } from "../equipe/domain/handoff";
 import { sql, type SQL, type SQLWrapper } from "drizzle-orm";
 import {
   boolean,
@@ -150,13 +151,19 @@ export const equipeAccounts = equipeSchema.table(
   ]
 );
 
-// Initial handoff only; ticket 04 adds the source/reading state machine.
+// Server-owned handoff; only the domain machine writes step.
 export const equipeBrandHandoffs = equipeSchema.table("equipe_brand_handoffs", {
   id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   accountId: uuid("account_id").notNull().references(() => equipeAccounts.id, { onDelete: "cascade" }),
   clientProfileId: uuid("client_profile_id").notNull().references(() => clientProfiles.id, { onDelete: "cascade" }),
-  step: text("step").notNull().default("source"),
+  step: text("step").$type<HandoffStep>().notNull().default("source"),
+  source: jsonb("source").$type<HandoffSource>(),
+  readingId: uuid("reading_id"),
+  readsUsed: integer("reads_used").notNull().default(0),
+  reading: jsonb("reading").$type<HandoffReading>().notNull().default({}),
+  captured: jsonb("captured").$type<HandoffCaptured>().notNull().default({}),
+  decisions: jsonb("decisions").$type<HandoffDecisions>().notNull().default({}),
   version: integer("version").notNull().default(1),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),

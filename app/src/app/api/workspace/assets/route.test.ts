@@ -33,15 +33,25 @@ vi.mock("@/server/jobs/client", () => ({
 vi.mock("@/lib/upload-config", () => ({
   isAllowedImageType: vi.fn((type: string) => type === "image/png"),
   validateImageMagicBytes: vi.fn(() => Promise.resolve(true)),
+  sanitizeStorageFilename: vi.fn((name: string) => name),
 }));
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
 }));
 
-import { getWorkspaceAssets } from "@/server/repositories/workspace-asset";
+vi.mock("@/server/equipe/handoff/assets", () => ({
+  isFreeAssetWorkspace: vi.fn(() => Promise.resolve(false)),
+}));
+
+import { getWorkspaceAssets, createWorkspaceAsset } from "@/server/repositories/workspace-asset";
+import { objectStorage } from "@/server/storage";
+import { inngest } from "@/server/jobs/client";
+import { isFreeAssetWorkspace } from "@/server/equipe/handoff/assets";
 
 const mockGetWorkspaceAssets = vi.mocked(getWorkspaceAssets);
+const mockCreateWorkspaceAsset = vi.mocked(createWorkspaceAsset);
+const mockIsFreeAssetWorkspace = vi.mocked(isFreeAssetWorkspace);
 
 describe("GET /api/workspace/assets", () => {
   beforeEach(() => {
@@ -146,8 +156,55 @@ describe("POST /api/workspace/assets", () => {
     expect(res.status).toBe(400);
   });
 
-  it.skip("creates asset and triggers analysis job — requires integration test with real file upload", async () => {
-    // Skipped: unit test with File/Blob arrayBuffer is unreliable in Node test env.
-    // This should be covered by integration tests or E2E tests instead.
+  function uploadRequest() {
+    const form = new FormData();
+    form.append("file", new File([new Uint8Array([137, 80, 78, 71])], "logo.png", { type: "image/png" }));
+    return new Request("http://localhost/api/workspace/assets", { method: "POST", body: form });
+  }
+
+  it("paid workspace: creates the asset and triggers the analysis job (ticket 04: default, unchanged behavior)", async () => {
+    mockIsFreeAssetWorkspace.mockResolvedValue(false);
+    mockCreateWorkspaceAsset.mockResolvedValue({ id: "wa-1", workspaceId: "workspace-1", name: "logo.png", key: "assets/logo.png" } as Awaited<ReturnType<typeof createWorkspaceAsset>>);
+
+    const res = await POST(uploadRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(body.asset).toMatchObject({ id: "wa-1", url: "/api/workspace/assets/wa-1/file" });
+    expect(mockIsFreeAssetWorkspace).toHaveBeenCalledWith("workspace-1");
+    expect(vi.mocked(inngest.send)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(inngest.send)).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ assetId: "wa-1", workspaceId: "workspace-1" }),
+    }));
+  });
+
+  it("free workspace (ticket 04, handoff logo/image upload): creates the asset but never triggers the analysis job", async () => {
+    mockIsFreeAssetWorkspace.mockResolvedValue(true);
+    mockCreateWorkspaceAsset.mockResolvedValue({ id: "wa-2", workspaceId: "workspace-1", name: "logo.png", key: "assets/logo.png" } as Awaited<ReturnType<typeof createWorkspaceAsset>>);
+
+    const res = await POST(uploadRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(body.asset).toMatchObject({ id: "wa-2" });
+    expect(mockIsFreeAssetWorkspace).toHaveBeenCalledWith("workspace-1");
+    expect(vi.mocked(inngest.send)).not.toHaveBeenCalled();
+    // The upload itself still ran — the ledger guard only skips the AI job.
+    expect(mockCreateWorkspaceAsset).toHaveBeenCalledWith(expect.objectContaining({ name: "logo.png", type: "image/png" }));
+    expect(vi.mocked(objectStorage.put)).toHaveBeenCalledTimes(1);
+  });
+
+  it("still fails closed when isFreeAssetWorkspace itself rejects, and — since it's checked BEFORE creating the asset — nothing is left orphaned", async () => {
+    mockIsFreeAssetWorkspace.mockRejectedValue(new Error("db down"));
+    mockCreateWorkspaceAsset.mockResolvedValue({ id: "wa-3", workspaceId: "workspace-1", name: "logo.png", key: "assets/logo.png" } as Awaited<ReturnType<typeof createWorkspaceAsset>>);
+
+    const res = await POST(uploadRequest());
+
+    expect(res.status).toBe(500);
+    expect(vi.mocked(inngest.send)).not.toHaveBeenCalled();
+    // No asset row, no object storage write: the free-workspace check runs
+    // before either, so a failure here never leaves an orphaned upload.
+    expect(mockCreateWorkspaceAsset).not.toHaveBeenCalled();
+    expect(vi.mocked(objectStorage.put)).not.toHaveBeenCalled();
   });
 });

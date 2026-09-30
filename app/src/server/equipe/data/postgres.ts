@@ -404,7 +404,10 @@ export function createPostgresEquipeRepositories(
         ));
       },
     },
-    handoffs: makePgAppendRepo<typeof equipeBrandHandoffs, import("./types").NewEquipeBrandHandoff>(executor, { table: equipeBrandHandoffs }),
+    handoffs: {
+      ...makePgAppendRepo<typeof equipeBrandHandoffs, import("./types").NewEquipeBrandHandoff>(executor, { table: equipeBrandHandoffs }),
+      update: (scope, id, patch) => pgUpdate(executor, equipeBrandHandoffs, scope, id, patch),
+    },
     conversations: makePgConversations(executor),
     accounts: makePgAccounts(executor),
     people: makePgAccountRepo<typeof equipeAccountPeople, NewEquipeAccountPerson, EquipeAccountPersonPatch>(
@@ -470,6 +473,12 @@ export function createPostgresInternalEquipeRepositories(
         .innerJoin(workspaceMembers, eq(workspaceMembers.userId, user.id))
         .where(and(eq(user.id, userId), eq(user.emailVerified, true), eq(workspaceMembers.workspaceId, workspaceId))).limit(1);
       return member ?? null;
+    },
+    async saveHandoffIdentity(scope, profileId, identity) {
+      const rows = await executor.update(clientProfiles).set({ ...identity, updatedAt: new Date() })
+        .where(and(eq(clientProfiles.id, profileId), eq(clientProfiles.workspaceId, scope.workspaceId))).returning({ id: clientProfiles.id });
+      if (!rows.length) throw new Error("profile_not_found");
+      await executor.update(workspaces).set({ name: identity.name, updatedAt: new Date() }).where(eq(workspaces.id, scope.workspaceId));
     },
     async createClientProfile(workspaceId, name) {
       const [profile] = await executor.insert(clientProfiles).values({ workspaceId, name }).returning({ id: clientProfiles.id });

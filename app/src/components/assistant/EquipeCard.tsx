@@ -1,4 +1,6 @@
 "use client";
+import { HANDOFF_STEPS, type HandoffStep } from "@/server/equipe/domain/handoff";
+import HandoffCard from "./HandoffCard";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -16,6 +18,10 @@ import {
 /** Defensive parse: server payloads are untyped records at the boundary. */
 export function parseEquipeCard(payload: Record<string, unknown>): EquipeCardPayload | null {
   const kind = payload.kind;
+  if (kind === "handoff") {
+    if (typeof payload.accountId !== "string" || !payload.accountId || typeof payload.handoffId !== "string" || !payload.handoffId || !HANDOFF_STEPS.includes(payload.step as HandoffStep)) return null;
+    return { kind, accountId: payload.accountId, handoffId: payload.handoffId, step: payload.step as HandoffStep, title: typeof payload.title === "string" ? payload.title : "", items: [] };
+  }
   if (kind !== "item" && kind !== "batch" && kind !== "idea") return null;
   if (typeof payload.accountId !== "string" || !payload.accountId) return null;
   if (typeof payload.title !== "string" || !payload.title) return null;
@@ -247,15 +253,21 @@ function accountIdOf(card: EquipeCardPayload): string {
 export default function EquipeCard({
   card,
   equipeEnabled,
+  threadId,
+  latest,
 }: {
   card: EquipeCardPayload;
   equipeEnabled: boolean;
+  threadId?: string | null;
+  latest?: boolean;
 }) {
   const t = useTranslations("assistant.equipe");
   const [confirming, setConfirming] = useState(false);
   const [approved, setApproved] = useState(false);
 
   const approveBy = card.approveByAt ? formatDateTime(card.approveByAt) : null;
+
+  if (card.kind === "handoff" && card.handoffId && card.step) return <HandoffCard accountId={card.accountId} handoffId={card.handoffId} step={card.step} threadId={threadId} disabled={!equipeEnabled} latest={latest} />;
 
   if (card.kind === "idea") {
     return (

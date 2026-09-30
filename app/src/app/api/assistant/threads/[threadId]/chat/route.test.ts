@@ -3,6 +3,7 @@ import { POST } from "./route";
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(() => Promise.resolve((key: string) => key)),
+  getLocale: vi.fn(() => Promise.resolve("pt-BR")),
 }));
 
 vi.mock("@/server/auth/workspace", () => ({
@@ -69,6 +70,12 @@ vi.mock("@/server/equipe/agents/chat-turn", () => ({
   liveConversationWriter: vi.fn(() => ({})),
   runEquipeStrategistTurn: vi.fn(),
 }));
+// Ticket 04: runEquipeTurn now builds its module deps through the shared
+// route factory (real uow.repos.people.list, live clock/gateway/outbox)
+// instead of assembling them inline from separate mocks.
+vi.mock("@/server/equipe/http/deps", () => ({
+  createEquipeRouteDeps: vi.fn(),
+}));
 
 import { requireWorkspaceAccess, requireRole } from "@/server/auth/workspace";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
@@ -77,6 +84,7 @@ import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
 import { findEquipeThreadByAssistantThread } from "@/server/equipe/module/threads";
 import { runEquipeStrategistTurn } from "@/server/equipe/agents/chat-turn";
+import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
 
 const mockRequireAccess = vi.mocked(requireWorkspaceAccess);
 const mockRequireRole = vi.mocked(requireRole);
@@ -86,6 +94,17 @@ const mockGetWorkspaceAsset = vi.mocked(getWorkspaceAssetById);
 const mockEquipeEnabled = vi.mocked(isEquipeEnabledForWorkspace);
 const mockFindEquipeThread = vi.mocked(findEquipeThreadByAssistantThread);
 const mockRunEquipeTurn = vi.mocked(runEquipeStrategistTurn);
+const mockCreateEquipeRouteDeps = vi.mocked(createEquipeRouteDeps);
+
+/** People bound by runEquipeTurn for actor resolution; empty unless a test seeds an approver. */
+function equipeRouteDeps(people: Array<{ id: string; userId: string; role: string; active: boolean }> = []) {
+  return {
+    uow: { repos: { people: { list: vi.fn(() => Promise.resolve(people)) } } },
+    clock: { now: () => new Date("2026-10-05T14:00:00.000Z") },
+    gateway: {},
+    sendTaskEvent: vi.fn(),
+  } as unknown as ReturnType<typeof createEquipeRouteDeps>;
+}
 
 async function collectSseBody(response: Response): Promise<string> {
   const reader = response.body?.getReader();
@@ -120,6 +139,7 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
       name: "test.png",
       size: 1024,
     } as Awaited<ReturnType<typeof getWorkspaceAssetById>>);
+    mockCreateEquipeRouteDeps.mockReturnValue(equipeRouteDeps());
   });
 
   it("returns 404 when thread is missing", async () => {
@@ -313,6 +333,68 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     expect(body).toContain("event: equipe_card");
     expect(body).toContain('"messageId":"msg-card"');
     expect(body).toContain("event: done");
+  });
+
+  it("binds the active approver as actor and forwards the request locale (ticket 04)", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue({
+      account: { id: "account-1" },
+      thread: { id: "map-1", kind: "primary" },
+    });
+    mockCreateEquipeRouteDeps.mockReturnValue(equipeRouteDeps([
+      { id: "person-1", userId: "user-1", role: "approver", active: true },
+      { id: "person-2", userId: "user-1", role: "member", active: true },
+    ]));
+    mockRunEquipeTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "https://acme.com" }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) },
+    );
+    await collectSseBody(res);
+
+    expect(mockRunEquipeTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        locale: "pt-BR",
+        actor: { kind: "client_person", role: "approver", personId: "person-1" },
+      }),
+    );
+  });
+
+  it("omits actor when the signed-in user is not an active approver of the account", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue({
+      account: { id: "account-1" },
+      thread: { id: "map-1", kind: "primary" },
+    });
+    mockCreateEquipeRouteDeps.mockReturnValue(equipeRouteDeps([
+      { id: "person-1", userId: "user-1", role: "member", active: true },
+      { id: "person-2", userId: "user-1", role: "approver", active: false },
+      { id: "person-3", userId: "someone-else", role: "approver", active: true },
+    ]));
+    mockRunEquipeTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/assistant/threads/t1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "oi" }),
+      }),
+      { params: Promise.resolve({ threadId: "t1" }) },
+    );
+    await collectSseBody(res);
+
+    const call = mockRunEquipeTurn.mock.calls[0]?.[0] as { actor?: unknown } | undefined;
+    expect(call).toBeDefined();
+    expect(call && "actor" in call).toBe(false);
   });
 
   it("forwards payload.fromSuggestion from the body to the strategist turn (ticket 02)", async () => {

@@ -1,3 +1,4 @@
+import { runHandoffCommand } from "./handoff";
 import { runClaimAgentWork, runCompleteAgentWork, runSubmitItemVersion } from "./agent-work";
 // executeCommand: the module's single entry point.
 //
@@ -112,6 +113,14 @@ import { runCalibrationMonitor, runRecordQualityEffort } from "./jobs-monitor";
 import { runRecordNotificationDelivered } from "./jobs-delivery";
 
 const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
+  handoff_set_source: "handoff_decide",
+  handoff_retry_reading: "handoff_decide",
+  handoff_record_group: "handoff_record_group",
+  handoff_confirm_identity: "handoff_decide",
+  handoff_confirm_networks: "handoff_decide",
+  handoff_confirm_images: "handoff_decide",
+  handoff_back_to: "handoff_decide",
+  handoff_confirm_summary: "handoff_decide",
   open_account: "open_account",
   open_free_account: "open_free_account",
   claim_agent_work: "record_delivery",
@@ -208,8 +217,9 @@ const COMMAND_ACTIONS: Record<CommandType, EquipeAction> = {
 
 export type ExecutedCommand = CommandSuccess & { type: CommandType };
 
-// Ticket 04 explicitly adds its handoff commands here. New commands fail closed.
+// Explicit free-account allowlist; unknown commands fail closed.
 export const FREE_ACCOUNT_COMMANDS: ReadonlySet<CommandType> = new Set<CommandType>([
+  "handoff_set_source", "handoff_retry_reading", "handoff_record_group", "handoff_confirm_identity", "handoff_confirm_networks", "handoff_confirm_images", "handoff_back_to", "handoff_confirm_summary",
   "ensure_primary_thread", "open_parallel_thread", "request_support", "post_staff_message",
   "assume_exception", "register_contact", "close_exception", "record_notification_delivered",
 ]);
@@ -276,6 +286,16 @@ export async function executeCommand(
   };
   let outcome: Result<CommandSuccess>;
   switch (command.type) {
+    case "handoff_set_source":
+    case "handoff_retry_reading":
+    case "handoff_record_group":
+    case "handoff_confirm_identity":
+    case "handoff_confirm_networks":
+    case "handoff_confirm_images":
+    case "handoff_back_to":
+    case "handoff_confirm_summary":
+      outcome = await runHandoffCommand(deps, base, command);
+      break;
     case "open_free_account":
       outcome = await runOpenFreeAccount(deps, base, command.payload);
       break;

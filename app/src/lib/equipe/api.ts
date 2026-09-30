@@ -297,6 +297,7 @@ export type GoalsViewJson = {
 };
 
 export type AccountStateJson = {
+  handoff?: (import("@/server/equipe/domain/handoff").HandoffState & { id: string }) | null;
   workspaceId: string;
   accountId: string;
   status: string;

@@ -44,7 +44,9 @@ export interface EquipeCardItemRef {
 }
 
 export interface EquipeCardPayload {
-  kind: "item" | "batch" | "idea" | "plan_offer";
+  kind: "item" | "batch" | "idea" | "plan_offer" | "handoff";
+  handoffId?: string;
+  step?: import("../equipe/domain/handoff").HandoffStep;
   accountId: string;
   title: string;
   batchId?: string;

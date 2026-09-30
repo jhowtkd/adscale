@@ -1,3 +1,4 @@
+import { isFreeAssetWorkspace } from "@/server/equipe/handoff/assets";
 import { NextResponse } from "next/server";
 import { isAllowedImageType, validateImageMagicBytes, sanitizeStorageFilename } from "@/lib/upload-config";
 import { z } from "zod";
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
       return apiError("invalidInput", 400, parsed.error.flatten());
     }
 
+    const freeWorkspace = await isFreeAssetWorkspace(workspace.id);
     const safeName = sanitizeStorageFilename(file.name);
     const key = `workspaces/${workspace.id}/assets/${crypto.randomUUID()}-${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -87,8 +89,8 @@ export async function POST(request: Request) {
       throw error;
     });
 
-    // Trigger async AI analysis
-    await inngest.send({
+    // Free uploads must never bypass the account's AI ledger.
+    if (!freeWorkspace) await inngest.send({
       name: heavyImageEventName("workspace.asset.analyze"),
       data: { assetId: asset.id, workspaceId: workspace.id, key },
     });

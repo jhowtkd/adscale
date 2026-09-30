@@ -56,11 +56,20 @@ export function createMemoryEquipeRepositories(store: MemoryEquipeStore): Equipe
         if (row && inScope(row, scope)) row.dispatchedAt = at;
       },
     },
-    handoffs: makeMemoryAppendRepo<EquipeBrandHandoff, NewEquipeBrandHandoff>({
+    handoffs: {
+      ...makeMemoryAppendRepo<EquipeBrandHandoff, NewEquipeBrandHandoff>({
       table: store.handoffs,
-      build: (scope, input) => buildRow(scope, input, { step: "source", version: 1 }, "full"),
+      build: (scope, input) => buildRow(scope, input, { step: "source", version: 1, source: null, readingId: null, readsUsed: 0, reading: {}, captured: {}, decisions: {} }, "full"),
       uniques: [(row) => row.accountId],
-    }),
+      }),
+      async update(scope, id, patch) {
+        const row = store.handoffs.rows.get(id);
+        if (!row || !inScope(row, scope)) throw new Error("handoff_not_found");
+        const next = { ...row, ...patch, updatedAt: new Date() };
+        store.handoffs.rows.set(id, next);
+        return copy(next);
+      },
+    },
     conversations: {
       async get(workspaceId, threadId) {
         const row = store.assistantThreads.rows.get(threadId);
@@ -107,6 +116,13 @@ export function createMemoryInternalEquipeRepositories(
     async getVerifiedWorkspaceMember(workspaceId, userId) {
       const member = [...store.workspaceMembers.rows.values()].find((row) => row.workspaceId === workspaceId && row.userId === userId && row.emailVerified);
       return member ? { name: member.name, email: member.email } : null;
+    },
+    async saveHandoffIdentity(scope, profileId, identity) {
+      const row = store.adscaleProfiles.rows.get(profileId);
+      if (!row || row.workspaceId !== scope.workspaceId) throw new Error("profile_not_found");
+      store.adscaleProfiles.rows.set(profileId, { ...row, ...identity });
+      const workspace = store.adscaleWorkspaces.rows.get(scope.workspaceId);
+      if (workspace) store.adscaleWorkspaces.rows.set(workspace.id, { ...workspace, name: identity.name });
     },
     async createClientProfile(workspaceId, name) {
       const row = { id: crypto.randomUUID(), workspaceId, name };

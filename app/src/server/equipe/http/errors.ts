@@ -18,6 +18,7 @@ import type { DomainError } from "../domain";
 
 /** invalid_* minus invalid_transition, which is a state conflict (409). */
 const INVALID_REQUEST_CODES = new Set([
+  "invalid_source",
   "invalid_actor",
   "invalid_command",
   "invalid_context",
@@ -53,6 +54,7 @@ const BAD_REQUEST_CODES = new Set([
 
 /** Deliberate domain rejections: legal request, illegal transition/state. */
 const CONFLICT_CODES = new Set([
+  "reading_limit",
   "requires_plan",
   "automatic_publication_requires_connection",
   "automatic_publication_requires_mandate",

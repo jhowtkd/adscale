@@ -473,6 +473,12 @@ describe("AssistantMessageList", () => {
       expect(screen.queryByTestId("equipe-card")).not.toBeInTheDocument();
     });
 
+    it("localizes the persisted handoff completion notice", () => {
+      render(<AssistantMessageList messages={[{ id: "handoff-done", type: "assistant", content: "Sua marca está confirmada.", payload: { handoffStep: "done" } }]} streamingText="" isStreaming={false} threadId="thread-1" />);
+      expect(screen.getByText("doneText")).toBeInTheDocument();
+      expect(screen.queryByText("Sua marca está confirmada.")).not.toBeInTheDocument();
+    });
+
     it("falls back to a plain bubble for malformed card payloads", () => {
       render(
         <AssistantMessageList

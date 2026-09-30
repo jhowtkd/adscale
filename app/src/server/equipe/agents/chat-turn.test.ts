@@ -59,6 +59,18 @@ async function freeAccount(t: TestDeps = makeTestDeps()) {
   return { t, workspaceId, accountId: opened.value.accountId! };
 }
 
+/**
+ * Ticket 04: open_free_account also opens a source-step brand handoff, and
+ * the strategist never runs (no model, no plan-offer card) until it reaches
+ * `done`. Tests of post-handoff chat behavior (budget exhaustion, plan
+ * offers) mark it done directly rather than driving the full flow.
+ */
+async function completeHandoff(t: TestDeps, workspaceId: string, accountId: string) {
+  const scope = { workspaceId, accountId };
+  const [row] = await t.deps.uow.repos.handoffs.list(scope);
+  if (row) await t.deps.uow.repos.handoffs.update(scope, row.id, { step: "done" });
+}
+
 class RecordingAgents implements Agents {
   readonly tasks: AgentTask[] = [];
 
@@ -431,6 +443,7 @@ describe("runEquipeStrategistTurn — history and iscas (ticket 02)", () => {
   it("answers with the plan_offer card (never provider text) once budget is exhausted AFTER the diagnostic", async () => {
     const free = await freeAccount();
     const scope = { workspaceId: free.workspaceId, accountId: free.accountId };
+    await completeHandoff(free.t, free.workspaceId, free.accountId);
     await free.t.deps.uow.repos.events.create(scope, {
       actorType: "system", actorId: "diag", actorRole: "system",
       eventType: DIAGNOSTIC_RECORDED_EVENT, payload: { documentId: uuid() }, occurredAt: new Date(),
@@ -453,6 +466,7 @@ describe("runEquipeStrategistTurn — history and iscas (ticket 02)", () => {
 
   it("output.planOffered only posts the plan_offer card AFTER the diagnostic — never before, even if the strategist says so", async () => {
     const before = await freeAccount();
+    await completeHandoff(before.t, before.workspaceId, before.accountId);
     const beforeMessages = new RecordingWriter();
     const beforeAgents = new RecordingAgents({ ok: true, output: { text: "Aqui está o plano!", planOffered: true } });
     const beforeEvents = await collect(runEquipeStrategistTurn({
@@ -465,6 +479,7 @@ describe("runEquipeStrategistTurn — history and iscas (ticket 02)", () => {
 
     const after = await freeAccount();
     const afterScope = { workspaceId: after.workspaceId, accountId: after.accountId };
+    await completeHandoff(after.t, after.workspaceId, after.accountId);
     await after.t.deps.uow.repos.events.create(afterScope, {
       actorType: "system", actorId: "diag", actorRole: "system",
       eventType: DIAGNOSTIC_RECORDED_EVENT, payload: { documentId: uuid() }, occurredAt: new Date(),
@@ -483,6 +498,7 @@ describe("runEquipeStrategistTurn — history and iscas (ticket 02)", () => {
 
   it("never offers the plan on budget exhaustion BEFORE the diagnostic is recorded", async () => {
     const free = await freeAccount();
+    await completeHandoff(free.t, free.workspaceId, free.accountId);
     const messages = new RecordingWriter();
     const agents = new RecordingAgents({ ok: false, error: BUDGET_EXCEEDED_ERROR });
 
@@ -512,5 +528,195 @@ describe("runEquipeStrategistTurn — history and iscas (ticket 02)", () => {
     expect(events.some((event) => event.type === "equipe_card")).toBe(false);
     const assistant = messages.posts.find((post) => post.type === "assistant");
     expect(assistant?.content).toContain("limite de IA");
+  });
+});
+
+// Ticket 04: while the brand handoff is in progress, the strategist never
+// runs — the server answers with fixed copy and the current step's card. A
+// source address/handle in the message is only ever applied by the approver,
+// and only on the `source` step. See fluxo-0/handoff.
+describe("runEquipeStrategistTurn — handoff (ticket 04)", () => {
+  async function approverActor(t: TestDeps, workspaceId: string, accountId: string) {
+    const [person] = await t.deps.uow.repos.people.list({ workspaceId, accountId });
+    return { kind: "client_person", role: "approver", personId: person!.id } as const;
+  }
+
+  it("never calls the model while a source-step handoff is pending, even with an approving message", async () => {
+    const { t, workspaceId, accountId } = await freeAccount();
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "must not run" } });
+
+    const events = await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId, accountId,
+      threadId: "thread-1", userMessage: "ok, pode postar", executionPausedMessage: "pausa",
+    }));
+
+    expect(agents.tasks).toHaveLength(0);
+    expect(events.some((e) => e.type === "equipe_card")).toBe(true);
+    const assistant = messages.posts.find((post) => post.type === "assistant");
+    expect(assistant?.content).toBe("Preciso de um site ou de um @ público para ler sua marca.");
+  });
+
+  it("never calls the model on any other handoff step, and ignores a URL in the message once past source", async () => {
+    const { t, workspaceId, accountId } = await freeAccount();
+    const approver = await approverActor(t, workspaceId, accountId);
+    const scope = { workspaceId, accountId };
+    const set = await executeCommand(t.deps, { actor: approver, workspaceId, accountId }, {
+      type: "handoff_set_source", payload: { expectedStep: "source", expectedVersion: 1, kind: "site", value: "https://acme.com" },
+    });
+    if (!set.ok) throw new Error(set.error.code);
+
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "must not run" } });
+    const events = await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId, accountId, actor: approver,
+      threadId: "thread-1", userMessage: "tenta https://outro-site.com agora", executionPausedMessage: "pausa",
+    }));
+
+    expect(agents.tasks).toHaveLength(0);
+    const [handoff] = await t.deps.uow.repos.handoffs.list(scope);
+    // The message never reached handoff_set_source: still the same source and version.
+    expect(handoff!.source).toMatchObject({ normalized: "https://acme.com/" });
+    const assistant = messages.posts.find((post) => post.type === "assistant");
+    expect(assistant?.content).toBe("Vamos terminar sua marca primeiro.");
+    expect(events.find((e) => e.type === "equipe_card")).toMatchObject({ card: { kind: "handoff", step: "reading" } });
+  });
+
+  it("applies a source address from the message only for the approver; other actors fall back to the invalid-source copy", async () => {
+    const { t, workspaceId, accountId } = await freeAccount();
+    const operations = { kind: "staff", role: "operations", staffId: (await t.deps.uow.internal.staff.create({ role: "operations", displayName: "Ops", active: true })).id } as const;
+
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "must not run" } });
+    const events = await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId, accountId, actor: operations,
+      threadId: "thread-1", userMessage: "https://acme.com", executionPausedMessage: "pausa",
+    }));
+
+    expect(agents.tasks).toHaveLength(0);
+    const [handoff] = await t.deps.uow.repos.handoffs.list({ workspaceId, accountId });
+    expect(handoff!.step).toBe("source");
+    expect(handoff!.source).toBeNull();
+    const assistant = messages.posts.find((post) => post.type === "assistant");
+    expect(assistant?.content).toBe("Confira o endereço ou @ público. Sua conta continua preservada.");
+    expect(events.find((e) => e.type === "equipe_card")).toMatchObject({ card: { kind: "handoff", step: "source" } });
+  });
+
+  it("skips the source attempt entirely when no actor is given, even with a URL in the message", async () => {
+    const { t, workspaceId, accountId } = await freeAccount();
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "must not run" } });
+    await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId, accountId,
+      threadId: "thread-1", userMessage: "https://acme.com", executionPausedMessage: "pausa",
+    }));
+
+    expect(agents.tasks).toHaveLength(0);
+    const [handoff] = await t.deps.uow.repos.handoffs.list({ workspaceId, accountId });
+    expect(handoff!.step).toBe("source");
+    expect(handoff!.source).toBeNull();
+    const assistant = messages.posts.find((post) => post.type === "assistant");
+    expect(assistant?.content).toBe("Preciso de um site ou de um @ público para ler sua marca.");
+  });
+
+  it("the approver setting a valid source answers with the reading card alone — no text_delta, no plain assistant post", async () => {
+    const { t, workspaceId, accountId } = await freeAccount();
+    const approver = await approverActor(t, workspaceId, accountId);
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "must not run" } });
+
+    const events = await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId, accountId, actor: approver,
+      threadId: "thread-1", userMessage: "https://acme.com", executionPausedMessage: "pausa",
+    }));
+
+    expect(agents.tasks).toHaveLength(0);
+    expect(events.map((e) => e.type)).toEqual(["equipe_card", "done"]);
+    expect(events[0]).toMatchObject({ card: { kind: "handoff", step: "reading" } });
+    // The card is projected straight from the command's own transaction
+    // (conversation-events.ts), not posted through the chat writer: only the
+    // user's own message goes through `messages`.
+    expect(messages.posts.map((post) => post.type)).toEqual(["user"]);
+    // The open_free_account command also projects its own source-step card;
+    // the one from THIS turn is the one carrying the reading step.
+    const projected = [...t.store.assistantMessages.rows.values()]
+      .find((row) => row.type === "equipe_card" && (row.payload as { step?: string } | undefined)?.step === "reading");
+    expect(projected?.payload).toMatchObject({ kind: "handoff", step: "reading" });
+    const [handoff] = await t.deps.uow.repos.handoffs.list({ workspaceId, accountId });
+    expect(handoff!.step).toBe("reading");
+  });
+
+  it("the approver with an unparsable address falls back to the invalid-source copy, and nothing changes", async () => {
+    const { t, workspaceId, accountId } = await freeAccount();
+    const approver = await approverActor(t, workspaceId, accountId);
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "must not run" } });
+
+    const events = await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId, accountId, actor: approver,
+      threadId: "thread-1", userMessage: "http://127.0.0.1", executionPausedMessage: "pausa",
+    }));
+
+    expect(agents.tasks).toHaveLength(0);
+    const assistant = messages.posts.find((post) => post.type === "assistant");
+    expect(assistant?.content).toBe("Confira o endereço ou @ público. Sua conta continua preservada.");
+    const [handoff] = await t.deps.uow.repos.handoffs.list({ workspaceId, accountId });
+    expect(handoff!.step).toBe("source");
+    expect(events.find((e) => e.type === "equipe_card")).toMatchObject({ card: { kind: "handoff", step: "source" } });
+  });
+
+  it("the approver hitting the reading limit while back on the source step sees the limit copy", async () => {
+    const { t, workspaceId, accountId } = await freeAccount();
+    const approver = await approverActor(t, workspaceId, accountId);
+    const scope = { workspaceId, accountId };
+    const [row] = await t.deps.uow.repos.handoffs.list(scope);
+    await t.deps.uow.repos.handoffs.update(scope, row!.id, { readsUsed: 3 });
+
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "must not run" } });
+    await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId, accountId, actor: approver,
+      threadId: "thread-1", userMessage: "https://acme.com", executionPausedMessage: "pausa",
+    }));
+
+    expect(agents.tasks).toHaveLength(0);
+    const assistant = messages.posts.find((post) => post.type === "assistant");
+    expect(assistant?.content).toBe("Você usou as 3 leituras. Sua conta e o que já foi lido continuam disponíveis.");
+    const [handoff] = await t.deps.uow.repos.handoffs.list(scope);
+    expect(handoff!.step).toBe("source");
+    expect(handoff!.readsUsed).toBe(3);
+  });
+
+  it("localizes the fixed copy to English via locale, still without any model call", async () => {
+    const { t, workspaceId, accountId } = await freeAccount();
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "must not run" } });
+
+    await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId, accountId, locale: "en-US",
+      threadId: "thread-1", userMessage: "hi there", executionPausedMessage: "pausa",
+    }));
+
+    expect(agents.tasks).toHaveLength(0);
+    const assistant = messages.posts.find((post) => post.type === "assistant");
+    expect(assistant?.content).toBe("I need a website or public Instagram handle to read your brand.");
+  });
+
+  it("resumes normal strategist behavior, model included, once the handoff is done", async () => {
+    const { t, workspaceId, accountId } = await freeAccount();
+    await t.deps.uow.repos.handoffs.update({ workspaceId, accountId }, (await t.deps.uow.repos.handoffs.list({ workspaceId, accountId }))[0]!.id, { step: "done" });
+
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "Oi! Como posso ajudar?" } });
+    const events = await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId, accountId,
+      threadId: "thread-1", userMessage: "oi", executionPausedMessage: "pausa",
+    }));
+
+    expect(agents.tasks).toHaveLength(1);
+    expect(events).toEqual([
+      { type: "text_delta", text: "Oi! Como posso ajudar?" },
+      { type: "done", assistantMessageId: "msg-2" },
+    ]);
   });
 });

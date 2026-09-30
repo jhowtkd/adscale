@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { requireRole, requireWorkspaceAccess } from "@/server/auth/workspace";
 import { getAssistantThreadById } from "@/server/repositories/assistant-thread";
 import { runAssistantTurn } from "@/server/assistant/orchestrator";
@@ -13,12 +13,11 @@ import { isAllowedImageType } from "@/lib/upload-config";
 import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
 import { db } from "@/server/db";
-import { systemClock } from "@/server/equipe/domain";
+import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
 import { createPostgresEquipeUnitOfWork } from "@/server/equipe/data/postgres";
 import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
 import { findEquipeThreadByAssistantThread } from "@/server/equipe/module/threads";
 import type { EquipeModuleDeps } from "@/server/equipe/module/ports";
-import { LiveAdscaleGateway } from "@/server/equipe/agents/gateway";
 import { DrizzleLedgerStore } from "@/server/equipe/agents/ledger";
 import { createEquipeAgents } from "@/server/equipe/agents/runner";
 import {
@@ -89,25 +88,27 @@ async function normalizeAttachments(
   return normalized;
 }
 
-function runEquipeTurn(input: {
+async function* runEquipeTurn(input: {
   workspaceId: string;
   accountId: string;
   threadId: string;
   userMessage: string;
   fromSuggestion?: boolean;
   executionPausedMessage: string;
+  userId: string;
+  locale: string;
 }) {
-  const moduleDeps: EquipeModuleDeps = {
-    uow: createPostgresEquipeUnitOfWork(db),
-    clock: systemClock(),
-    gateway: new LiveAdscaleGateway(input.workspaceId),
-  };
+  const moduleDeps: EquipeModuleDeps = createEquipeRouteDeps(input.workspaceId);
   const agents = createEquipeAgents({
     moduleDeps,
     ledger: new DrizzleLedgerStore(db),
     now: () => moduleDeps.clock.now(),
   });
-  return runEquipeStrategistTurn({
+  const people = await moduleDeps.uow.repos.people.list(input);
+  const person = people.find(p => p.active && p.userId === input.userId && p.role === "approver");
+  yield* runEquipeStrategistTurn({
+    locale: input.locale,
+    ...(person ? { actor: { kind: "client_person" as const, role: "approver" as const, personId: person.id } } : {}),
     deps: moduleDeps,
     agents,
     messages: liveConversationWriter(input.workspaceId),
@@ -178,6 +179,8 @@ export async function POST(
                 threadId,
                 userMessage: parsed.data.message,
                 fromSuggestion: parsed.data.payload?.fromSuggestion,
+                userId: user.id,
+                locale: await getLocale(),
                 executionPausedMessage: (await getTranslations("assistant.equipe"))("executionPaused"),
               })
             : goalRun && goalRun.stage !== "completed" && goalRun.stage !== "stopped"

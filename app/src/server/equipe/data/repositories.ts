@@ -291,6 +291,7 @@ export interface InternalEquipeRepositories {
   listPendingTaskIntents(): Promise<EquipeTaskIntent[]>;
   listWorkspaceIds(): Promise<string[]>;
   getVerifiedWorkspaceMember(workspaceId: string, userId: string): Promise<{ name: string; email: string } | null>;
+  saveHandoffIdentity(scope: AccountScope, clientProfileId: string, identity: { name: string; logoAssetKey: string | null; brandColors: string[]; brandFonts: string[] }): Promise<void>;
   createClientProfile(workspaceId: string, name: string): Promise<{ id: string }>;
   staff: EquipeStaffRepository;
   // #583 — parada global de publicações.
@@ -334,7 +335,9 @@ export interface EquipeRepositories {
   taskOutbox: AppendOnlyRepository<EquipeTaskIntent, NewEquipeTaskIntent> & {
     markDispatched(scope: AccountScope, id: string, at: Date): Promise<void>;
   };
-  handoffs: AppendOnlyRepository<EquipeBrandHandoff, NewEquipeBrandHandoff>;
+  handoffs: AppendOnlyRepository<EquipeBrandHandoff, NewEquipeBrandHandoff> & {
+    update(scope: AccountScope, id: string, patch: Partial<Omit<EquipeBrandHandoff, "id" | "workspaceId" | "accountId" | "clientProfileId" | "createdAt">>): Promise<EquipeBrandHandoff>;
+  };
   conversations: EquipeConversationRepository;
   accounts: EquipeAccountRepository;
   people: EquipeAccountPersonRepository;

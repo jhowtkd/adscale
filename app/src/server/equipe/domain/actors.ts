@@ -114,6 +114,8 @@ export type EquipeAction =
   | "open_scope_decision"
   | "reopen_calibration"
   // Implantation (module #544; owners from the implantação flow)
+  | "handoff_decide"
+  | "handoff_record_group"
   | "open_free_account"
   | "open_account"
   | "confirm_scope"
@@ -154,6 +156,8 @@ const AGENT: Permission = { kind: "agent" };
 const SYSTEM: Permission = { kind: "system" };
 
 const ACTION_PERMISSIONS: Record<EquipeAction, Permission[]> = {
+  handoff_decide: [{ kind: "client_person", roles: ["approver"] }],
+  handoff_record_group: [SYSTEM],
   approve_item: [CLIENT_DECISION],
   approve_batch: [CLIENT_DECISION],
   approve_plan: [CLIENT_DECISION],

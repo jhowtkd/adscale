@@ -41,7 +41,7 @@ export class LiveAdscaleGateway implements AdscaleGateway {
   async getAsset(assetId: string): Promise<AdscaleAssetRef | null> {
     const asset = await getWorkspaceAssetById(assetId, this.workspaceId);
     if (!asset) return null;
-    return { id: asset.id, workspaceId: asset.workspaceId, kind: asset.type };
+    return { id: asset.id, workspaceId: asset.workspaceId, kind: asset.type, key: asset.key };
   }
 
   async getCreativeWork(workId: string): Promise<AdscaleCreativeWorkRef | null> {

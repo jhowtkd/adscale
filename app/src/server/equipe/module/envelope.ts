@@ -1,3 +1,4 @@
+import { handoffSchemas } from "../handoff/contract";
 import { claimAgentWorkPayloadSchema, completeAgentWorkPayloadSchema, submitItemVersionPayloadSchema } from "./agent-work-contract";
 // Trust boundary of executeCommand(deps, context, rawCommand).
 //
@@ -577,6 +578,14 @@ function command<T extends string, P extends z.ZodTypeAny>(type: T, payload: P) 
 }
 
 export const commandSchema = z.discriminatedUnion("type", [
+  command("handoff_set_source", handoffSchemas.handoff_set_source),
+  command("handoff_retry_reading", handoffSchemas.handoff_retry_reading),
+  command("handoff_record_group", handoffSchemas.handoff_record_group),
+  command("handoff_confirm_identity", handoffSchemas.handoff_confirm_identity),
+  command("handoff_confirm_networks", handoffSchemas.handoff_confirm_networks),
+  command("handoff_confirm_images", handoffSchemas.handoff_confirm_images),
+  command("handoff_back_to", handoffSchemas.handoff_back_to),
+  command("handoff_confirm_summary", handoffSchemas.handoff_confirm_summary),
   command("open_account", openAccountPayloadSchema),
   command("open_free_account", openFreeAccountPayloadSchema),
   command("claim_agent_work", claimAgentWorkPayloadSchema),

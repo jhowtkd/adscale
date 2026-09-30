@@ -20,6 +20,7 @@ export type AdscaleAssetRef = {
   id: string;
   workspaceId: string;
   kind: string;
+  key?: string;
 };
 
 export type AdscaleCreativeWorkRef = {

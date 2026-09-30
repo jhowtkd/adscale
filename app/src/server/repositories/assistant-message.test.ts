@@ -221,6 +221,60 @@ describe("assistant-message repository", () => {
     expect(message.type).toBe("equipe_card");
   });
 
+  it("creates equipe_card handoff messages (ticket 04) with an empty items list", async () => {
+    state.insertResult = [{ id: "msg-handoff", type: "equipe_card" }];
+
+    const message = await createAssistantMessage("ws-1", {
+      threadId: "thread-1",
+      type: "equipe_card",
+      content: "Vamos conhecer sua marca",
+      payload: {
+        kind: "handoff",
+        accountId: "account-1",
+        title: "Vamos conhecer sua marca",
+        handoffId: "handoff-1",
+        step: "source",
+        items: [],
+      },
+    });
+
+    expect(message.type).toBe("equipe_card");
+  });
+
+  it("rejects equipe_card handoff messages missing handoffId or with an invalid step", async () => {
+    await expect(
+      createAssistantMessage("ws-1", {
+        threadId: "thread-1",
+        type: "equipe_card",
+        content: "Vamos conhecer sua marca",
+        payload: { kind: "handoff", accountId: "account-1", title: "x", step: "source", items: [] },
+      })
+    ).rejects.toBeInstanceOf(AssistantMessageValidationError);
+
+    await expect(
+      createAssistantMessage("ws-1", {
+        threadId: "thread-1",
+        type: "equipe_card",
+        content: "Vamos conhecer sua marca",
+        payload: { kind: "handoff", accountId: "account-1", title: "x", handoffId: "handoff-1", step: "not_a_real_step", items: [] },
+      })
+    ).rejects.toBeInstanceOf(AssistantMessageValidationError);
+  });
+
+  it("rejects equipe_card handoff messages carrying approval items — a handoff card never approves anything", async () => {
+    await expect(
+      createAssistantMessage("ws-1", {
+        threadId: "thread-1",
+        type: "equipe_card",
+        content: "Vamos conhecer sua marca",
+        payload: {
+          kind: "handoff", accountId: "account-1", title: "x", handoffId: "handoff-1", step: "source",
+          items: [{ itemId: "item-1", versionHash: "hash-1" }],
+        },
+      })
+    ).rejects.toBeInstanceOf(AssistantMessageValidationError);
+  });
+
   it("rejects equipe_card idea messages without ideaId", async () => {
     await expect(
       createAssistantMessage("ws-1", {
