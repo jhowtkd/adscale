@@ -5,7 +5,6 @@ import AssistantSidebarPanel from "./AssistantSidebarPanel";
 import { AssistantSurfaceProvider } from "./AssistantSurfaceContext";
 
 const mockUseSearchParams = vi.fn(() => new URLSearchParams());
-const mockUsePathname = vi.fn(() => "/assistant");
 const mockUseAssistantThread = vi.fn<(threadId: string | null) => {
   data: { thread: { clientProfileId: string } } | undefined;
 }>(() => ({ data: undefined }));
@@ -13,7 +12,6 @@ const mockUseAssistantThread = vi.fn<(threadId: string | null) => {
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn() }),
   useSearchParams: () => mockUseSearchParams(),
-  usePathname: () => mockUsePathname(),
 }));
 
 vi.mock("@/lib/hooks/use-assistant-threads", () => ({
@@ -46,15 +44,12 @@ vi.mock("./AssistantTreeSidebar", () => ({
     <div
       data-testid="tree-sidebar"
       data-selected-thread-id={selectedThreadId ?? ""}
-      data-allow-creation={String(Boolean(onNewClient) && Boolean(onNewThread))}
+      data-allow-client-creation={String(Boolean(onNewClient))}
+      data-allow-thread-creation={String(Boolean(onNewThread))}
       data-context-client-id={contextClientId ?? ""}
       data-expand-client-id={expandClientId ?? ""}
     />
   ),
-}));
-
-vi.mock("./AssistantCreateClientDialog", () => ({
-  default: () => null,
 }));
 
 describe("AssistantSidebarPanel", () => {
@@ -63,7 +58,6 @@ describe("AssistantSidebarPanel", () => {
   });
 
   it("uses the threadId query param when no explicit threadId prop is given", () => {
-    mockUsePathname.mockReturnValue("/assistant");
     mockUseSearchParams.mockReturnValue(new URLSearchParams("threadId=thread-from-url"));
     renderPanel(<AssistantSidebarPanel />);
 
@@ -74,7 +68,6 @@ describe("AssistantSidebarPanel", () => {
   });
 
   it("prefers an explicit threadId prop over an absent query param, as on the home route", () => {
-    mockUsePathname.mockReturnValue("/");
     mockUseSearchParams.mockReturnValue(new URLSearchParams());
     renderPanel(<AssistantSidebarPanel threadId="thread-from-home" />);
 
@@ -85,23 +78,23 @@ describe("AssistantSidebarPanel", () => {
   });
 
   it("disables the new-client/new-chat creation actions on the home route", () => {
-    mockUsePathname.mockReturnValue("/");
     mockUseSearchParams.mockReturnValue(new URLSearchParams());
     renderPanel(<AssistantSidebarPanel threadId="thread-from-home" />);
 
-    expect(screen.getByTestId("tree-sidebar")).toHaveAttribute("data-allow-creation", "false");
+    expect(screen.getByTestId("tree-sidebar")).toHaveAttribute("data-allow-client-creation", "false");
+    expect(screen.getByTestId("tree-sidebar")).toHaveAttribute("data-allow-thread-creation", "false");
   });
 
-  it("keeps the new-client/new-chat creation actions on /assistant", () => {
-    mockUsePathname.mockReturnValue("/assistant");
+  it("hides the new-client/new-chat creation actions for an existing /assistant conversation", () => {
     mockUseSearchParams.mockReturnValue(new URLSearchParams("threadId=thread-1"));
     renderPanel(<AssistantSidebarPanel />);
 
-    expect(screen.getByTestId("tree-sidebar")).toHaveAttribute("data-allow-creation", "true");
+    expect(screen.getByTestId("tree-sidebar")).toHaveAttribute("data-selected-thread-id", "thread-1");
+    expect(screen.getByTestId("tree-sidebar")).toHaveAttribute("data-allow-client-creation", "false");
+    expect(screen.getByTestId("tree-sidebar")).toHaveAttribute("data-allow-thread-creation", "false");
   });
 
   it("auto-expands and selects the primary thread's client on the home route", () => {
-    mockUsePathname.mockReturnValue("/");
     mockUseSearchParams.mockReturnValue(new URLSearchParams());
     mockUseAssistantThread.mockReturnValue({
       data: { thread: { clientProfileId: "client-primary" } },

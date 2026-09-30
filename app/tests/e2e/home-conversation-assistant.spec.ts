@@ -99,6 +99,7 @@ test.describe("home conversation (Equipe gate on)", () => {
     // Parallel-conversation creation (new client / new chat) is out of scope
     // for the home route — it moves to ticket 09.
     await expect(sidebar.getByRole("button", { name: "Novo cliente" })).toHaveCount(0);
+    await expect(sidebar.getByRole("button", { name: "Novo chat" })).toHaveCount(0);
 
     await waitForHomeConversationReady(page);
     await page.screenshot({
@@ -141,6 +142,33 @@ test.describe("home conversation (Equipe gate on)", () => {
     await page.goto("/assistant");
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByTestId("assistant-desktop-main")).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("existing /assistant conversations keep selection without exposing creation actions", async ({ page }) => {
+    const primaryThreadId = await openHomeConversation(page);
+    const homeSidebar = page.getByTestId("assistant-desktop-sidebar");
+    const primaryClientName = await homeSidebar.locator('button[aria-expanded="true"]').getAttribute("aria-label");
+    expect(primaryClientName).toBeTruthy();
+    const homeThread = homeSidebar.locator('[aria-pressed="true"]');
+    await expect(homeThread).toHaveCount(1);
+    await homeThread.click();
+    await expect(page).toHaveURL(new RegExp(`/assistant\\?threadId=${primaryThreadId}$`));
+    await waitForHomeConversationReady(page);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByRole("button", { name: "Árvore", exact: true }).click();
+    const tree = page.getByTestId("assistant-mobile-tree");
+    await expect(tree).toBeVisible();
+    const client = tree.getByRole("button", { name: primaryClientName!, exact: true });
+    await expect(client).toBeVisible();
+    if (await client.getAttribute("aria-expanded") !== "true") await client.click();
+    await expect(client).toHaveAttribute("aria-expanded", "true");
+    await expect(tree.getByRole("button", { name: "Novo cliente" })).toHaveCount(0);
+    await expect(tree.getByRole("button", { name: "Novo chat" })).toHaveCount(0);
+    const selectedThread = tree.locator('[aria-pressed="true"]');
+    await expect(selectedThread).toHaveCount(1);
+    await selectedThread.click();
+    await expect(page).toHaveURL(new RegExp(`/assistant\\?threadId=${primaryThreadId}$`));
   });
 
   test("the primary thread is server-chosen and ignores a spoofed ?threadId= on /", async ({ page }) => {
