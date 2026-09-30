@@ -102,6 +102,8 @@ export const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   FIRECRAWL_API_KEY: z.string().optional(),
   SITE_READER_PROVIDER: z.enum(["fake", "firecrawl"]).optional(),
+  APIFY_TOKEN: z.string().optional(),
+  INSTAGRAM_READER_PROVIDER: z.enum(["fake", "apify"]).optional(),
   /**
    * Monthly per-account AI budget for Equipe agent work, in USD cents.
    * Prices are provider USD estimates (see agents/ledger.ts), and the

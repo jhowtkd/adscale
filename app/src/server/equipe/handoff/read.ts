@@ -8,13 +8,41 @@ import { HANDOFF_READ_EVENT } from "./contract";
 import { normalizeInstagram } from "./source";
 import type { HandoffReaders, InstagramReadResult, SiteReadResult } from "./readers";
 import { SiteReaderError } from "./readers/firecrawl";
+import { InstagramReaderError } from "./readers/apify";
 import type { SiteEnrichment, SiteReadingContext } from "./site-enrichment";
+import type { InstagramEnrichment } from "./instagram-enrichment";
 const eventSchema = z.object({ workspaceId: z.string().uuid(), accountId: z.string().uuid(), taskIntentId: z.string().uuid(), readingId: z.string().uuid(),
   source: z.object({ kind: z.enum(["site", "instagram"]), value: z.string(), normalized: z.string() }),
   groups: z.array(z.enum(HANDOFF_GROUPS)).min(1).max(6), runIds: z.record(z.string().uuid()) });
 type Step = { run<T>(id: string, fn: () => Promise<T>): Promise<T> };
+type ProviderContext = Pick<SiteReadingContext, "workspaceId" | "accountId" | "readingId" | "taskIntentId">;
+export async function loadHandoffInstagramRun(deps: EquipeModuleDeps, context: ProviderContext) {
+  const events = await deps.uow.repos.events.list(context, { eventType: "handoff.instagram_run" });
+  const payload = events.find(e => (e.payload as { taskIntentId?: string }).taskIntentId === context.taskIntentId)?.payload as { providerRunId?: string } | undefined;
+  return payload?.providerRunId ?? null;
+}
+export async function recordHandoffInstagramRun(deps: EquipeModuleDeps, context: ProviderContext, providerRunId: string, usageTotalUsd?: number | null) {
+  await deps.uow.run(async repos => {
+    await repos.accounts.get(context.workspaceId, context.accountId, { forUpdate: true });
+    const dispatched = (await repos.events.list(context, { eventType: "handoff.instagram_dispatched" })).some(e => (e.payload as { taskIntentId?: string }).taskIntentId === context.taskIntentId);
+    if (!dispatched) throw new Error("reading_failed");
+    const runs = await repos.events.list(context, { eventType: "handoff.instagram_run" });
+    const prior = runs.find(e => (e.payload as { taskIntentId?: string }).taskIntentId === context.taskIntentId)?.payload as { providerRunId?: string } | undefined;
+    if (prior && prior.providerRunId !== providerRunId) throw new Error("reading_failed");
+    const eventType = usageTotalUsd === undefined ? "handoff.instagram_run" : "handoff.instagram_usage";
+    if (usageTotalUsd !== undefined && !prior) throw new Error("reading_failed");
+    if (usageTotalUsd === undefined && prior) return;
+    if (usageTotalUsd !== undefined && (await repos.events.list(context, { eventType })).some(e => {
+      const p = e.payload as { taskIntentId?: string; usageTotalUsd?: number | null };
+      return p.taskIntentId === context.taskIntentId && (p.usageTotalUsd !== null || usageTotalUsd === null);
+    })) return;
+    await repos.events.create(context, { actorType: "system", actorId: HANDOFF_READ_EVENT, actorRole: "system", eventType,
+      payload: { taskIntentId: context.taskIntentId, readingId: context.readingId, providerRunId,
+        usageTotalUsd: usageTotalUsd ?? null, costPending: usageTotalUsd == null }, occurredAt: deps.clock.now() });
+  });
+}
 /** A sync provider has no resumable remote run: an uncertain dispatch must never be silently repeated. */
-export async function claimHandoffProviderAttempt(deps: EquipeModuleDeps, context: Pick<SiteReadingContext, "workspaceId" | "accountId" | "readingId" | "taskIntentId">, provider: "site" | "vision") {
+export async function claimHandoffProviderAttempt(deps: EquipeModuleDeps, context: ProviderContext, provider: "site" | "instagram" | "vision") {
   return deps.uow.run(async repos => {
     await repos.accounts.get(context.workspaceId, context.accountId, { forUpdate: true });
     const allowed = await authorizeAccountExecution(repos, context);
@@ -22,7 +50,7 @@ export async function claimHandoffProviderAttempt(deps: EquipeModuleDeps, contex
     const intent = await repos.taskOutbox.get(context, context.taskIntentId);
     if (!allowed.ok || !(deps.isEnabledForWorkspace?.(context.workspaceId) ?? true) || !h || h.step === "done" || h.readingId !== context.readingId || intent?.eventName !== HANDOFF_READ_EVENT) return false;
     const p = intent.data as { readingId: string; source: { kind: string }; groups: HandoffGroup[]; runIds: Record<string, string> };
-    if (p.source.kind !== "site" || p.readingId !== context.readingId || !p.groups.some(g => readingRun(h.reading[g], "site")?.taskIntentId === context.taskIntentId && !isGroupFinished(readingRun(h.reading[g], "site")?.status))) return false;
+    if ((provider !== "vision" && p.source.kind !== provider) || p.readingId !== context.readingId || !p.groups.some(g => readingRun(h.reading[g], p.source.kind as "site" | "instagram")?.taskIntentId === context.taskIntentId && !isGroupFinished(readingRun(h.reading[g], p.source.kind as "site" | "instagram")?.status))) return false;
     const eventType = `handoff.${provider}_dispatched`;
     if ((await repos.events.list(context, { eventType })).some(e => (e.payload as { taskIntentId?: string }).taskIntentId === context.taskIntentId)) return false;
     if ((await repos.events.list(context, { eventType: "handoff.read_not_billed" })).some(e => (e.payload as { taskIntentId?: string }).taskIntentId === context.taskIntentId)) return false;
@@ -57,14 +85,14 @@ function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | Insta
     const instagram = data as InstagramReadResult;
     if (!instagram.exists || instagram.isPrivate) throw new Error(instagram.exists ? "instagram_private" : "instagram_not_found");
     if (instagram.name?.trim()) add("name", instagram.name.trim().slice(0, 200));
-    if (instagram.avatarUrl) add("logo", instagram.avatarUrl, { key: instagram.avatarKey });
+    if (instagram.avatarUrl) add("logo", instagram.avatarUrl, { key: instagram.avatarKey, ...(instagram.avatarAssetId ? { id: instagram.avatarAssetId } : {}) });
     for (const color of instagram.colors ?? []) if (/^#[0-9a-f]{6}$/i.test(color)) add("colors", color);
     add("networks", handle, { platform: "instagram" });
-    for (const post of instagram.posts.slice(0, 12)) add("images", post.imageUrl, { key: post.key, caption: post.caption, width: post.width, height: post.height });
+    for (const post of instagram.posts.slice(0, 12)) add("images", post.imageUrl, { key: post.key, caption: post.caption, width: post.width, height: post.height, ...(post.assetId ? { id: post.assetId } : {}) });
   }
   return captured;
 }
-export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: HandoffReaders, siteEnrichment?: SiteEnrichment) {
+export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: HandoffReaders, siteEnrichment?: SiteEnrichment, instagramEnrichment?: InstagramEnrichment) {
   return async ({ event, step }: { event: { data: unknown }; step: Step }) => {
     const p = eventSchema.parse(event.data);
     const scope = { workspaceId: p.workspaceId, accountId: p.accountId };
@@ -103,7 +131,7 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
         capturedGroups(p.source.kind, data, p.source.normalized, p.taskIntentId); // Reject inaccessible sources before saving any content/assets.
         return { data, error: null };
       } catch (e) {
-        const code = e instanceof SiteReaderError ? e.message : e instanceof Error && ["reader_unavailable", "site_unavailable", "instagram_private", "instagram_not_found"].includes(e.message) ? e.message : "reading_failed";
+        const code = e instanceof SiteReaderError || e instanceof InstagramReaderError ? e.message : e instanceof Error && ["reader_unavailable", "site_unavailable", "instagram_private", "instagram_not_found"].includes(e.message) ? e.message : "reading_failed";
         return { data: null, error: code };
       }
     });
@@ -113,13 +141,18 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
     // Independent durable groups: name/networks arrive immediately while identity/images finish concurrently.
     const identity = site && siteEnrichment ? step.run(`site-identity-${p.taskIntentId}`, () => siteEnrichment.identity(site, context)) : null;
     const images = site && siteEnrichment ? step.run(`site-images-${p.taskIntentId}`, () => siteEnrichment.images(site, context)) : null;
+    const instagram = p.source.kind === "instagram" && data ? data as InstagramReadResult : null;
+    const instagramImages = instagram && instagramEnrichment ? step.run(`instagram-images-${p.taskIntentId}`, () => instagramEnrichment.images(instagram, context)) : null;
+    const instagramIdentity = instagramImages && instagramEnrichment ? step.run(`instagram-identity-${p.taskIntentId}`, async () => instagramEnrichment.identity(await instagramImages, context)) : null;
     let records: Promise<unknown> = Promise.resolve();
     const outcomes = await Promise.allSettled(p.groups.map(async group => {
       let enriched = data; let error = result.error;
       try {
         if (site && ["logo", "colors", "fonts"].includes(group) && identity) enriched = { ...site, ...await identity };
         if (site && group === "images" && images) enriched = { ...site, ...await images };
-        if (p.source.kind === "site" && enriched) error = (enriched as SiteReadResult).groupErrors?.[group as keyof NonNullable<SiteReadResult["groupErrors"]>] ?? error;
+        if (instagram && ["logo", "images", "colors"].includes(group) && instagramImages) enriched = await instagramImages;
+        if (instagram && group === "colors" && instagramIdentity) enriched = { ...enriched as InstagramReadResult, ...await instagramIdentity };
+        if (enriched) error = enriched.groupErrors?.[group as keyof NonNullable<SiteReadResult["groupErrors"]>] ?? error;
       } catch { error = "reading_failed"; }
       const items = !error && enriched ? capturedGroups(p.source.kind, enriched, p.source.normalized, p.taskIntentId)[group] : [];
       const text = data ? (site ? site.markdown : (data as InstagramReadResult).bio) : "";

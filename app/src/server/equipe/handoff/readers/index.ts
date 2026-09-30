@@ -1,4 +1,5 @@
 import { FirecrawlSiteReader } from "./firecrawl";
+import { ApifyInstagramReader, type ApifyReaderOptions } from "./apify";
 export type ReaderImage = { url: string; key?: string; assetId?: string; width?: number; height?: number };
 export type SiteReadResult = {
   title: string | null; siteName: string | null; markdown: string; links: string[];
@@ -8,9 +9,10 @@ export type SiteReadResult = {
   groupErrors?: Partial<Record<"logo" | "colors" | "fonts" | "images", string>>;
 };
 export type InstagramReadResult = {
-  exists: boolean; isPrivate: boolean; name?: string; avatarUrl: string | null; avatarKey?: string; bio: string;
-  posts: Array<{ imageUrl: string; caption: string; key?: string; width?: number; height?: number }>;
+  exists: boolean; isPrivate: boolean; name?: string; avatarUrl: string | null; avatarKey?: string; avatarAssetId?: string; bio: string;
+  posts: Array<{ imageUrl: string; caption: string; key?: string; assetId?: string; width?: number; height?: number }>;
   colors?: string[];
+  groupErrors?: SiteReadResult["groupErrors"];
 };
 export interface SiteReader { read(url: string): Promise<SiteReadResult> }
 export interface InstagramReader { profile(handle: string): Promise<InstagramReadResult> }
@@ -35,9 +37,9 @@ export class FakeInstagramReader implements InstagramReader {
   async profile(handle: string) { this.calls.push(handle); if (this.result instanceof Error) throw this.result; return structuredClone(this.result); }
 }
 /** Explicit provider selection; missing configuration fails inside the reading job. */
-export function createHandoffReaders(options: { beforeSiteRequest?: () => Promise<boolean> } = {}): HandoffReaders {
+export function createHandoffReaders(options: { beforeSiteRequest?: () => Promise<boolean>; instagram?: ApifyReaderOptions } = {}): HandoffReaders {
   return {
     site: process.env.SITE_READER_PROVIDER === "fake" ? new FakeSiteReader() : process.env.SITE_READER_PROVIDER === "firecrawl" ? new FirecrawlSiteReader({ beforeRequest: options.beforeSiteRequest }) : { async read() { throw new Error("reader_unavailable"); } },
-    instagram: process.env.INSTAGRAM_READER_PROVIDER === "fake" ? new FakeInstagramReader() : { async profile() { throw new Error("reader_unavailable"); } },
+    instagram: process.env.INSTAGRAM_READER_PROVIDER === "fake" ? new FakeInstagramReader() : process.env.INSTAGRAM_READER_PROVIDER === "apify" ? new ApifyInstagramReader(options.instagram) : { async profile() { throw new Error("reader_unavailable"); } },
   };
 }

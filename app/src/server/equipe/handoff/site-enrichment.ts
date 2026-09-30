@@ -1,48 +1,19 @@
-import { createHash } from "node:crypto";
 import sharp from "sharp";
-import type { ObjectStorage } from "@/server/storage/object-storage";
-import type { CreateWorkspaceAssetInput } from "@/server/repositories/workspace-asset";
-import { abortable, downloadSafeImage } from "./safe-image-download";
+import { abortable } from "./safe-image-download";
 import type { ReaderImage, SiteReadResult } from "./readers";
 import type { SiteVision } from "./site-vision";
+import { createHandoffImageImporter, type HandoffImageOptions } from "./image-import";
 
 export type SiteReadingContext = { workspaceId: string; accountId: string; handoffId: string; readingId: string; taskIntentId: string };
-type StoredAsset = { id: string; key: string; width: number | null; height: number | null };
 export type SiteEnrichment = {
   identity(data: SiteReadResult, context: SiteReadingContext): Promise<Pick<SiteReadResult, "branding" | "groupErrors">>;
   images(data: SiteReadResult, context: SiteReadingContext): Promise<Pick<SiteReadResult, "images" | "groupErrors">>;
 };
-export function createSiteEnrichment(options: {
-  storage: ObjectStorage; saveAsset: (data: CreateWorkspaceAssetInput) => Promise<StoredAsset | null | undefined>;
-  findAsset: (workspaceId: string, key: string) => Promise<StoredAsset | null>;
+export function createSiteEnrichment(options: HandoffImageOptions & {
   vision: (context: SiteReadingContext, signal: AbortSignal) => SiteVision;
-  download?: typeof downloadSafeImage; timeoutMs?: number;
+  timeoutMs?: number;
 }): SiteEnrichment {
-  const importImage = async (url: string, kind: string, c: SiteReadingContext, signal: AbortSignal, normalized = false): Promise<ReaderImage> => {
-    signal.throwIfAborted();
-    const hash = createHash("sha256").update(url).digest("hex");
-    const key = `workspaces/${c.workspaceId}/handoff/${c.handoffId}/${c.readingId}/${hash}${normalized ? "-vision.jpg" : ""}`;
-    const existing = await abortable(options.findAsset(c.workspaceId, key), signal);
-    if (existing) return { url, key, assetId: existing.id, width: existing.width ?? undefined, height: existing.height ?? undefined };
-    signal.throwIfAborted();
-    const { bytes, contentType } = await abortable((options.download ?? downloadSafeImage)(url, { signal }), signal);
-    const image = sharp(bytes, { limitInputPixels: 40_000_000, animated: false });
-    const m = await abortable(image.metadata(), signal);
-    const formats: Record<string, string> = { png: "image/png", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", avif: "image/avif", heif: "image/avif" };
-    if (!m.format || formats[m.format] !== contentType || (m.format === "heif" && m.compression !== "av1") || !m.width || !m.height) throw new Error("image_bytes_invalid");
-    if (!normalized) await abortable(image.clone().resize(1, 1).raw().toBuffer(), signal); // Decode before preserving the original, including truncated raster payloads.
-    const output = normalized ? await abortable(image.rotate().resize(1024, 1024, { fit: "inside", withoutEnlargement: true }).flatten({ background: "#ffffff" }).jpeg({ quality: 90 }).toBuffer({ resolveWithObject: true }), signal) : { data: bytes, info: { width: m.width, height: m.height } };
-    signal.throwIfAborted();
-    await abortable(options.storage.put(key, output.data, normalized ? "image/jpeg" : contentType), signal);
-    signal.throwIfAborted();
-    const asset = await abortable(options.saveAsset({ workspaceId: c.workspaceId, name: kind, key, type: normalized ? "image/jpeg" : contentType,
-      size: output.data.length, width: output.info.width, height: output.info.height, source: "brand_site",
-      metadata: { handoffId: c.handoffId, readingId: c.readingId, provisional: true, originUrl: url, kind } }), signal);
-    signal.throwIfAborted();
-    const row = asset ?? await abortable(options.findAsset(c.workspaceId, key), signal);
-    if (!row) throw new Error("site_asset_not_saved");
-    return { url, key, assetId: row.id, width: output.info.width, height: output.info.height };
-  };
+  const importImage = createHandoffImageImporter({ ...options, source: "brand_site" });
   return {
     async identity(data, context) {
       const signal = AbortSignal.timeout(options.timeoutMs ?? 45_000);

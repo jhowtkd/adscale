@@ -62,7 +62,7 @@ export function modelInputTokenBound(request: ModelCallRequest): number | null {
       return { type: "text" as const, text: part.image_url.url };
     }) };
   });
-  if (!Number.isFinite(images) || images > 2) return null;
+  if (!Number.isFinite(images) || images > 4) return null;
   const text = textInputTokenBound({ ...request, messages });
   // <=1024px JPEG: <=1369 visual patches (28px), with conservative framing margin.
   return text === null ? null : text + images * 4096;

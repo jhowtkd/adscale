@@ -41,9 +41,10 @@ export function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, command:
       if (intent?.eventName !== HANDOFF_READ_EVENT) return ok({ ignored: true });
       const source = (intent.data as { source: HandoffSource }).source;
       const scheduled = intent.data as { readingId: string; groups: string[]; runIds: Record<string, string> };
-      if (source.kind === "site" && p.result.status === "failed" && ["reader_unavailable", "invalid_site", "site_dns_or_address", "reading_not_started", "site_provider_dns"].includes(p.result.error ?? "")
+      const unbilledErrors = source.kind === "site" ? ["reader_unavailable", "invalid_site", "site_dns_or_address", "reading_not_started", "site_provider_dns"] : ["reader_unavailable", "invalid_instagram"];
+      if (p.result.status === "failed" && unbilledErrors.includes(p.result.error ?? "")
         && scheduled.readingId === p.readingId && scheduled.groups.includes(p.group) && scheduled.runIds[p.group] === p.runId) {
-        const dispatched = (await ctx.repos.events.list(scope, { eventType: "handoff.site_dispatched" })).some(e => (e.payload as { taskIntentId?: string }).taskIntentId === p.taskIntentId);
+        const dispatched = (await ctx.repos.events.list(scope, { eventType: `handoff.${source.kind}_dispatched` })).some(e => (e.payload as { taskIntentId?: string }).taskIntentId === p.taskIntentId);
         // A local error on resumption says nothing about an earlier POST. Provider proof belongs to its dispatched attempt.
         if (dispatched === (p.result.error === "site_provider_dns")
           && !(await ctx.repos.events.list(scope, { eventType: "handoff.read_not_billed" })).some(e => (e.payload as { taskIntentId?: string }).taskIntentId === p.taskIntentId)) {
