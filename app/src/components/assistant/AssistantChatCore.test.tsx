@@ -187,7 +187,7 @@ describe("AssistantChatCore", () => {
       sendMessage: mockSendMessage,
     });
 
-    renderCore(<AssistantChatCore threadId="thread-1" variant="full" />);
+    renderCore(<AssistantChatCore threadId="thread-1" variant="full" equipeEnabled />);
 
     fireEvent.click(screen.getByRole("button", { name: "Me explica a oportunidade 2" }));
 

@@ -94,6 +94,7 @@ async function* runEquipeTurn(input: {
   threadId: string;
   userMessage: string;
   fromSuggestion?: boolean;
+  hasAttachments?: boolean;
   executionPausedMessage: string;
   userId: string;
   locale: string;
@@ -117,6 +118,7 @@ async function* runEquipeTurn(input: {
     threadId: input.threadId,
     userMessage: input.userMessage,
     fromSuggestion: input.fromSuggestion,
+    hasAttachments: input.hasAttachments,
     executionPausedMessage: input.executionPausedMessage,
   });
 }
@@ -181,6 +183,7 @@ export async function POST(
                 fromSuggestion: parsed.data.payload?.fromSuggestion,
                 userId: user.id,
                 locale: await getLocale(),
+                hasAttachments: Boolean(attachments?.length),
                 executionPausedMessage: (await getTranslations("assistant.equipe"))("executionPaused"),
               })
             : goalRun && goalRun.stage !== "completed" && goalRun.stage !== "stopped"

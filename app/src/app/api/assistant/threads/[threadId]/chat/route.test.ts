@@ -454,6 +454,25 @@ describe("POST /api/assistant/threads/[threadId]/chat", () => {
     );
   });
 
+  it("forwards the presence of validated attachments to the Equipe turn", async () => {
+    mockEquipeEnabled.mockReturnValue(true);
+    mockFindEquipeThread.mockResolvedValue({ account: { id: "account-1" }, thread: { id: "map-1", kind: "primary" } });
+    mockRunEquipeTurn.mockImplementation(async function* () {
+      yield { type: "done", assistantMessageId: "msg-1" };
+    });
+    const res = await POST(new Request("http://localhost/api/assistant/threads/t1/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "Analise esta imagem", attachments: [{
+        assetId: "00000000-0000-4000-8000-000000000001", key: "workspaces/ws-1/assets/test.png",
+        type: "image/png", name: "test.png", size: 1024,
+      }] }),
+    }), { params: Promise.resolve({ threadId: "t1" }) });
+    expect(res.status).toBe(200);
+    await collectSseBody(res);
+    expect(mockRunEquipeTurn).toHaveBeenCalledWith(expect.objectContaining({ hasAttachments: true }));
+    expect(mockRunTurn).not.toHaveBeenCalled();
+  });
+
   it("rejects unknown keys inside payload", async () => {
     const res = await POST(
       new Request("http://localhost/api/assistant/threads/t1/chat", {

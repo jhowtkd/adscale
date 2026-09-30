@@ -176,8 +176,12 @@ export async function runRequestSupport(
     const reason = payload.note ?? (payload.purpose === "plan" ? "Quero falar com vocês sobre o plano." : null);
     if (payload.purpose === "plan") {
       await ctx.repos.accounts.get(ctx.workspaceId, ctx.accountId, { forUpdate: true });
+      const planRequests = new Set((await ctx.repos.events.list(scopeOf(ctx), {
+        eventType: SUPPORT_EXCEPTION_OPENED_EVENT, objectType: "exception",
+      })).filter((event) => (event.payload as { purpose?: string } | null)?.purpose === "plan")
+        .map((event) => event.objectId));
       const existing = (await ctx.repos.exceptions.list(scopeOf(ctx))).find((row) =>
-        row.trigger === "out_of_contract_request" && row.reason === reason && row.status !== "closed");
+        row.trigger === "out_of_contract_request" && planRequests.has(row.id) && row.status !== "closed");
       if (existing) return ok({ exceptionId: existing.id, dueAt: existing.dueAt });
     }
     const created = await createExceptionInternal(ctx, {

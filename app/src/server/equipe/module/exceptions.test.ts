@@ -224,7 +224,7 @@ describe("request_support purpose: plan (ticket 02)", () => {
     expect(row?.dueAt).toEqual(new Date("2026-10-06T14:00:00.000Z"));
   });
 
-  it("reuses the open exceptionId and requests only one notification for a repeated purpose: plan request", async () => {
+  it.each(["open", "claimed"] as const)("reuses a %s plan request despite changed notes and requests only one notification", async (status) => {
     const { t, ids } = await setup();
     const scope = SCOPE(ids);
     await t.deps.uow.repos.events.create(scope, {
@@ -234,13 +234,20 @@ describe("request_support purpose: plan (ticket 02)", () => {
     const first = await executeCommand(t.deps, ctx(ids, ids.actors.member), {
       type: "request_support", payload: { purpose: "plan" },
     });
-    const second = await executeCommand(t.deps, ctx(ids, ids.actors.member), {
-      type: "request_support", payload: { purpose: "plan" },
-    });
     expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    await t.deps.uow.repos.exceptions.update(scope, first.value.data.exceptionId as string, { status });
+    const second = await executeCommand(t.deps, ctx(ids, ids.actors.member), {
+      type: "request_support", payload: { purpose: "plan", note: "Quero saber mais sobre o plano" },
+    });
+    const third = await executeCommand(t.deps, ctx(ids, ids.actors.member), {
+      type: "request_support", payload: { purpose: "plan", note: "Prefiro conversar amanhã" },
+    });
     expect(second.ok).toBe(true);
-    if (!first.ok || !second.ok) return;
+    expect(third.ok).toBe(true);
+    if (!second.ok || !third.ok) return;
     expect(second.value.data.exceptionId).toBe(first.value.data.exceptionId);
+    expect(third.value.data.exceptionId).toBe(first.value.data.exceptionId);
     expect(second.value.data.dueAt).toEqual(first.value.data.dueAt);
 
     const exceptions = await t.deps.uow.repos.exceptions.list(scope);
@@ -248,6 +255,33 @@ describe("request_support purpose: plan (ticket 02)", () => {
     const notifications = (await t.deps.uow.repos.events.list(scope, { eventType: "notification.requested" }))
       .filter((event) => (event.payload as { templateKey?: string } | null)?.templateKey === "exception.opened");
     expect(notifications).toHaveLength(1);
+  });
+
+  it("opens a new plan request after closure and does not reuse unrelated out-of-contract exceptions", async () => {
+    const { t, ids } = await setup();
+    const scope = SCOPE(ids);
+    await t.deps.uow.repos.events.create(scope, {
+      actorType: "system", actorId: "diag", actorRole: "system",
+      eventType: DIAGNOSTIC_RECORDED_EVENT, payload: { documentId: "doc-1" }, occurredAt: t.deps.clock.now(),
+    });
+    const unrelated = await executeCommand(t.deps, ctx(ids, ids.actors.support), {
+      type: "open_exception", payload: { trigger: "out_of_contract_request", reason: "Quero falar com vocês sobre o plano." },
+    });
+    const first = await executeCommand(t.deps, ctx(ids, ids.actors.member), {
+      type: "request_support", payload: { purpose: "plan" },
+    });
+    expect(unrelated.ok && first.ok).toBe(true);
+    if (!unrelated.ok || !first.ok) return;
+    expect(first.value.data.exceptionId).not.toBe(unrelated.value.data.exceptionId);
+    await t.deps.uow.repos.exceptions.update(scope, first.value.data.exceptionId as string, { status: "closed" });
+    const second = await executeCommand(t.deps, ctx(ids, ids.actors.member), {
+      type: "request_support", payload: { purpose: "plan" },
+    });
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.value.data.exceptionId).not.toBe(first.value.data.exceptionId);
+    expect(second.value.data.exceptionId).not.toBe(unrelated.value.data.exceptionId);
+    expect(await t.deps.uow.repos.exceptions.list(scope)).toHaveLength(3);
   });
 
   it("keeps ordinary request_support (no purpose) on client_requested_person, unaffected by the diagnostic gate", async () => {

@@ -407,6 +407,14 @@ describe("runEquipeStrategistTurn — history and iscas (ticket 02)", () => {
           "Approved for publication",
           "Confirmed, that's correct",
           "Authorized to publish",
+          "Aprove o calendário",
+          "Publique agora",
+          "Autorize a publicação",
+          "Aprovem o calendário",
+          "Publiquem agora",
+          "Autorizem a publicação",
+          "Confirme o calendário",
+          "Confirmem o calendário",
           "Me explica a oportunidade 2",
           "x".repeat(70),
           "Quero aproveitar as oportunidades",
@@ -513,6 +521,7 @@ describe("runEquipeStrategistTurn — history and iscas (ticket 02)", () => {
     // Free-account copy, distinct from the paid "limite de IA" message —
     // never mentions a plan/price before the diagnostic exists.
     expect(assistant?.content).toContain("Biblioteca");
+    expect(assistant?.content).not.toMatch(/mensal|deste mês|reset/i);
     expect(assistant?.content).not.toMatch(/pri[cç]e|valor|R\$/i);
   });
 
@@ -529,6 +538,26 @@ describe("runEquipeStrategistTurn — history and iscas (ticket 02)", () => {
     expect(events.some((event) => event.type === "equipe_card")).toBe(false);
     const assistant = messages.posts.find((post) => post.type === "assistant");
     expect(assistant?.content).toContain("limite de IA");
+  });
+
+  it.each(["Analise esta imagem", ""])("refuses free attachments with a clear persisted answer and no AI call: %s", async (userMessage) => {
+    const free = await freeAccount();
+    await completeHandoff(free.t, free.workspaceId, free.accountId); // post-handoff rule; during the handoff see the ticket 04 block
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "must not run" } });
+    const events = await collect(runEquipeStrategistTurn({
+      deps: free.t.deps, agents, messages, workspaceId: free.workspaceId, accountId: free.accountId,
+      threadId: "thread-1", userMessage, hasAttachments: true, executionPausedMessage: "pausa",
+    }));
+    expect(agents.tasks).toHaveLength(0);
+    expect(messages.posts[0]).toMatchObject({ type: "user", content: userMessage });
+    const assistant = messages.posts.find((post) => post.type === "assistant");
+    expect(assistant?.content).toMatch(/conta grátis.*imagens anexadas/);
+    expect(assistant?.content).toContain("texto");
+    expect(events).toEqual([
+      { type: "text_delta", text: assistant?.content },
+      { type: "done", assistantMessageId: "msg-2" },
+    ]);
   });
 });
 
@@ -556,6 +585,22 @@ describe("runEquipeStrategistTurn — handoff (ticket 04)", () => {
     expect(events.some((e) => e.type === "equipe_card")).toBe(true);
     const assistant = messages.posts.find((post) => post.type === "assistant");
     expect(assistant?.content).toBe("Preciso de um site ou de um @ público para ler sua marca.");
+  });
+
+  it("answers attachments during the handoff with the fixed handoff copy and the step card, never the model nor the attachment refusal", async () => {
+    const { t, workspaceId, accountId } = await freeAccount();
+    const messages = new RecordingWriter();
+    const agents = new RecordingAgents({ ok: true, output: { text: "must not run" } });
+
+    const events = await collect(runEquipeStrategistTurn({
+      deps: t.deps, agents, messages, workspaceId, accountId,
+      threadId: "thread-1", userMessage: "Analise esta imagem", hasAttachments: true, executionPausedMessage: "pausa",
+    }));
+
+    expect(agents.tasks).toHaveLength(0);
+    const assistant = messages.posts.find((post) => post.type === "assistant");
+    expect(assistant?.content).toBe("Preciso de um site ou de um @ público para ler sua marca.");
+    expect(events.find((e) => e.type === "equipe_card")).toMatchObject({ card: { kind: "handoff", step: "source" } });
   });
 
   it("never calls the model on any other handoff step, and ignores a URL in the message once past source", async () => {

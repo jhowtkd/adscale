@@ -354,7 +354,7 @@ export default function AssistantMessageList({
             {suggestions.length > 0 ? (
               <div className="flex max-w-[85%] flex-col gap-1.5" data-testid="assistant-suggestions">
                 {suggestions.map((text) => (
-                  <button key={text} type="button" disabled={isStreaming || !onSuggestion} onClick={() => onSuggestion?.(text)}
+                  <button key={text} type="button" disabled={isStreaming || !equipeEnabled || !onSuggestion} onClick={() => onSuggestion?.(text)}
                     className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--surface-inset)] disabled:opacity-50">
                     <span aria-hidden="true">→ </span>{text}
                   </button>
