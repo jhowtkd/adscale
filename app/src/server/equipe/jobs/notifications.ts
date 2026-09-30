@@ -25,6 +25,7 @@ import { executeCommand } from "../module/commands";
 import { listNotificationOutbox } from "../module/jobs-delivery";
 import {
   createProdJobDeps,
+  EQUIPE_JOB_ACCOUNT_STATUSES,
   listEnabledAccounts,
   moduleDepsFor,
   systemJobActor,
@@ -79,7 +80,9 @@ export function createNotificationsHandler(deps: NotificationsJobDeps) {
     event: { data: unknown };
     step: JobStep;
   }): Promise<EquipeNotificationsResult> {
-    const accounts = await step.run("list-enabled-accounts", () => listEnabledAccounts(deps));
+    // Deliver explicit requests from free accounts without enabling paid cron work.
+    const accounts = await step.run("list-enabled-accounts", () =>
+      listEnabledAccounts(deps, [...EQUIPE_JOB_ACCOUNT_STATUSES, "free"]));
     const delivered: string[] = [];
     const failed: Array<{ eventId: string; code: string; message: string }> = [];
     for (const account of accounts) {

@@ -100,12 +100,13 @@ export function moduleDepsFor(deps: EquipeJobDeps, workspaceId: string): EquipeM
   };
 }
 
-/** Every non-closed account whose workspace is inside the Equipe pilot. */
+/** Enabled accounts in the requested states; paid sweeps are the default. */
 export async function listEnabledAccounts(
   deps: EquipeJobDeps,
+  statuses: readonly EquipeAccountStatus[] = EQUIPE_JOB_ACCOUNT_STATUSES,
 ): Promise<Array<{ workspaceId: string; accountId: string; status: string }>> {
   const found: EquipeAccount[] = [];
-  for (const status of EQUIPE_JOB_ACCOUNT_STATUSES) {
+  for (const status of statuses) {
     found.push(...(await deps.uow.internal.listAccountsByStatus(status)));
   }
   return found

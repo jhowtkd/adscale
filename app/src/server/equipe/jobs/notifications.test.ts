@@ -36,7 +36,7 @@ import {
   type NotificationUser,
   type NotificationsJobDeps,
 } from "./notifications";
-import type { EquipeJobDeps } from "./shared";
+import { listEnabledAccounts, type EquipeJobDeps } from "./shared";
 
 const SCOPE = (ids: ItemIds) => ({ workspaceId: ids.workspaceId, accountId: ids.accountId });
 const step = { run: async <T>(_name: string, fn: () => Promise<T>) => fn() };
@@ -476,5 +476,90 @@ describe("notifications handler", () => {
       step,
     });
     expect(quiet).toMatchObject({ delivered: [], failed: [] });
+  });
+});
+
+describe("free accounts still notify Support (request_support → Assinar o plano)", () => {
+  async function setupFree(options: { status?: "free" | "closed" } = {}) {
+    const t = makeTestDeps();
+    const ids = await openTestAccount(t, {
+      people: [{ name: "Ana", role: "approver", userId: "user-ana", email: "ana@client.com" }],
+    });
+    await t.deps.uow.internal.staff.create({ role: "support", displayName: "Suporte", active: true, userId: "user-support" });
+    // The real request happens while the account is free (allowed by FREE_ACCOUNT_COMMANDS).
+    t.store.accounts.rows.get(ids.accountId)!.status = "free";
+    const requested = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "request_support", payload: { note: "Quero assinar o plano" },
+    });
+    if (!requested.ok) throw new Error(`request_support failed: ${requested.error.code}`);
+    if (options.status) t.store.accounts.rows.get(ids.accountId)!.status = options.status;
+    return { t, ids };
+  }
+  const supportUser: NotificationUser = { email: "suporte@adscale.test", emailVerified: true, emailNotificationsEnabled: true };
+  const depsFor = (t: TestDeps, adapters: NotificationDeliveryAdapters, enabled = true): NotificationsJobDeps => ({
+    uow: t.deps.uow, clock: t.deps.clock, isEnabledForWorkspace: () => enabled,
+    gatewayFor: () => t.gateway, publisher: t.publisher, delivery: adapters,
+  });
+  const run = (t: TestDeps, adapters: NotificationDeliveryAdapters, enabled = true) =>
+    createNotificationsHandler(depsFor(t, adapters, enabled))({ event: { data: {} }, step });
+
+  it("delivers the support notification for a FREE account, persists the delivery, and a rerun is quiet", async () => {
+    const { t, ids } = await setupFree();
+    const { inbox, sent, adapters } = makeAdapters({ "user-support": supportUser });
+    const requested = await t.deps.uow.repos.events.list(SCOPE(ids), { eventType: "notification.requested" });
+    expect(requested.some((e) => (e.payload as { recipientRole?: string }).recipientRole === "support")).toBe(true);
+
+    const first = await run(t, adapters);
+    expect(first.failed).toEqual([]);
+    expect(first.delivered.length).toBeGreaterThan(0);
+    expect(inbox.filter((row) => row.userId === "user-support")).toHaveLength(1);
+    expect(sent.filter((mail) => mail.to === "suporte@adscale.test")).toHaveLength(1);
+    for (const id of first.delivered) expect(await t.deps.uow.repos.deliveries.getByEvent(SCOPE(ids), id)).not.toBeNull();
+
+    const inboxCount = inbox.length; const sentCount = sent.length;
+    const quiet = await run(t, adapters);
+    expect(quiet).toMatchObject({ delivered: [], failed: [] });
+    expect(inbox).toHaveLength(inboxCount);
+    expect(sent).toHaveLength(sentCount);
+  });
+
+  it("resumes after a partial failure without duplicating what already went out", async () => {
+    const { t } = await setupFree();
+    const { inbox, sent, adapters } = makeAdapters({ "user-support": supportUser });
+    let failMail = true;
+    const flaky: NotificationDeliveryAdapters = { ...adapters, mailer: { send: async (mail) => {
+      if (failMail) throw new Error("smtp down");
+      await adapters.mailer.send(mail);
+    } } };
+    const failed = await run(t, flaky);
+    expect(failed.failed.length).toBeGreaterThan(0);
+    failMail = false;
+    const resumed = await run(t, flaky);
+    expect(resumed.failed).toEqual([]);
+    expect(sent.filter((mail) => mail.to === "suporte@adscale.test")).toHaveLength(1);
+    expect(inbox.filter((row) => row.userId === "user-support")).toHaveLength(1);
+    const quiet = await run(t, flaky);
+    expect(quiet).toMatchObject({ delivered: [], failed: [] });
+    expect(sent.filter((mail) => mail.to === "suporte@adscale.test")).toHaveLength(1);
+  });
+
+  it("the paid-account sweep selection (default listEnabledAccounts) still does NOT list free accounts", async () => {
+    const { t, ids } = await setupFree();
+    const listed = await listEnabledAccounts(depsFor(t, makeAdapters().adapters));
+    expect(listed.map((a) => a.accountId)).not.toContain(ids.accountId);
+  });
+
+  it("respects the workspace gate and never notifies a closed account", async () => {
+    const gated = await setupFree();
+    const g = makeAdapters({ "user-support": supportUser });
+    expect(await run(gated.t, g.adapters, false)).toMatchObject({ delivered: [], failed: [] });
+    expect(g.inbox).toEqual([]);
+    expect(g.sent).toEqual([]);
+
+    const closed = await setupFree({ status: "closed" });
+    const c = makeAdapters({ "user-support": supportUser });
+    expect(await run(closed.t, c.adapters)).toMatchObject({ delivered: [], failed: [] });
+    expect(c.inbox).toEqual([]);
+    expect(c.sent).toEqual([]);
   });
 });
