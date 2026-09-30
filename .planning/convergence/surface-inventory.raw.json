@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-29T13:02:36.491Z",
+  "generatedAt": "2026-09-30T09:41:19.353Z",
   "schemaVersion": 2,
-  "fingerprint": "6e0738192597c2f2918fa0ab4ff5947eaecc7239f9b6ad89722440c3caa8fa65",
+  "fingerprint": "f0d0540d4a62687fcea1ba39f66c6c3df1f87b58e6e9324d0c9d4da1f1675043",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
@@ -2269,21 +2269,21 @@
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/DashboardShellSwitcher.tsx:24",
+      "id": "nav:app/src/components/layout/DashboardShellSwitcher.tsx:26",
       "kind": "cta_navigation",
       "destination": "/",
       "file": "app/src/components/layout/DashboardShellSwitcher.tsx",
-      "line": 24,
-      "evidence": "app/src/components/layout/DashboardShellSwitcher.tsx:24",
+      "line": 26,
+      "evidence": "app/src/components/layout/DashboardShellSwitcher.tsx:26",
       "requiresDecision": false
     },
     {
-      "id": "nav:app/src/components/layout/DashboardShellSwitcher.tsx:25",
+      "id": "nav:app/src/components/layout/DashboardShellSwitcher.tsx:27",
       "kind": "cta_navigation",
       "destination": "/campaigns",
       "file": "app/src/components/layout/DashboardShellSwitcher.tsx",
-      "line": 25,
-      "evidence": "app/src/components/layout/DashboardShellSwitcher.tsx:25",
+      "line": 27,
+      "evidence": "app/src/components/layout/DashboardShellSwitcher.tsx:27",
       "requiresDecision": false
     },
     {

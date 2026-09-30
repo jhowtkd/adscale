@@ -2,6 +2,8 @@ import DashboardShellSwitcher from "@/components/layout/DashboardShellSwitcher";
 import AdminAgentation from "@/components/admin/AdminAgentation";
 import { getSession } from "@/server/auth/session";
 import { isPlatformOwnerEmail } from "@/server/auth/platform-owner";
+import { requireWorkspaceAccess, isWorkspaceAuthError, AUTH_ERROR_CODES } from "@/server/auth/workspace";
+import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
 
 export default async function DashboardLayout({
   children,
@@ -10,10 +12,19 @@ export default async function DashboardLayout({
 }) {
   const session = await getSession();
   const canAnnotate = !!session?.user?.email && isPlatformOwnerEmail(session.user.email);
+  let homeConversationEnabled = false;
+  if (session?.user) {
+    try {
+      const { workspace } = await requireWorkspaceAccess();
+      homeConversationEnabled = isEquipeEnabledForWorkspace(workspace.id);
+    } catch (error) {
+      if (!isWorkspaceAuthError(error) || error.code !== AUTH_ERROR_CODES.noWorkspace) throw error;
+    }
+  }
 
   return (
     <>
-      <DashboardShellSwitcher>{children}</DashboardShellSwitcher>
+      <DashboardShellSwitcher homeConversationEnabled={homeConversationEnabled}>{children}</DashboardShellSwitcher>
       {canAnnotate && <AdminAgentation />}
     </>
   );

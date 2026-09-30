@@ -1,4 +1,5 @@
 import AssistantMain from "@/components/assistant/AssistantMain";
+import { redirect } from "next/navigation";
 import { getSession } from "@/server/auth/session";
 import { getWorkspaceForUser } from "@/server/repositories/workspace";
 import { isPlatformOwnerEmail } from "@/server/auth/platform-owner";
@@ -8,9 +9,10 @@ import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabl
 export default async function AssistantPage({
   searchParams,
 }: {
-  searchParams: Promise<{ threadId?: string }>;
+  searchParams: Promise<{ threadId?: string | string[] }>;
 }) {
   const { threadId } = await searchParams;
+  if (typeof threadId !== "string" || !threadId.trim()) redirect("/");
 
   // Compute goal-agent eligibility server-side. The composer treats this as a
   // UX hint; thread creation re-checks eligibility authoritatively.

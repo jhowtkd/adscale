@@ -3879,6 +3879,8 @@
     "reviewDecisionChanges": "Requested changes"
   },
   "assistant": {
+    "homeVerifyEmail": "Confirm your email to start your conversation with ADScale.",
+    "homeOpenError": "We could not open your conversation. Reload the page to try again.",
     "mode": {
       "panel": "Panel",
       "chat": "Chat",
@@ -4050,7 +4052,7 @@
     },
     "chat": {
       "errorGeneric": "The response could not be completed. Try again.",
-      "inputPlaceholder": "Type a message…",
+      "inputPlaceholder": "Message ADScale",
       "send": "Send",
       "noThreadHint": "Select a conversation to begin",
       "close": "Close",

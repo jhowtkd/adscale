@@ -3927,6 +3927,8 @@
     "reviewDecisionChanges": "Pediu ajuste"
   },
   "assistant": {
+    "homeVerifyEmail": "Confirme seu e-mail para começar a conversa com o ADScale.",
+    "homeOpenError": "Não foi possível abrir sua conversa. Recarregue a página para tentar novamente.",
     "mode": {
       "panel": "Painel",
       "chat": "Chat",
@@ -4126,7 +4128,7 @@
     },
     "chat": {
       "errorGeneric": "Não foi possível concluir a resposta. Tente novamente.",
-      "inputPlaceholder": "Digite uma mensagem…",
+      "inputPlaceholder": "Mensagem para o ADScale",
       "send": "Enviar",
       "noThreadHint": "Selecione uma conversa para começar",
       "close": "Fechar",

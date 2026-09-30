@@ -1,11 +1,15 @@
 import DashboardHomeActions from "@/components/dashboard/DashboardHomeActions";
-import GuestStudioEntry from "@/components/guest-home/GuestStudioEntry";
+import AssistantMain from "@/components/assistant/AssistantMain";
+import AssistantShell from "@/components/assistant/AssistantShell";
+import AssistantSidebarPanel from "@/components/assistant/AssistantSidebarPanel";
+import AssistantContextPanelSlot from "@/components/assistant/AssistantContextPanelSlot";
+import { getTranslations } from "next-intl/server";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { AUTH_ERROR_CODES, isWorkspaceAuthError } from "@/server/auth/errors";
+import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
+import { executeCommand } from "@/server/equipe/module/commands";
+import { createEquipeRouteDeps } from "@/server/equipe/http/deps";
 import { isStudioCarouselEnabled, isStudioEntryInterviewEnabled, resolveStudioRolloutVariant } from "@/server/studio-rollout";
 import { env } from "@/server/validation/env";
-import { readPublicStudioFlags } from "@/lib/public-studio-config";
-import { parseGuestHandoff } from "@/lib/guest-home/handoff";
 import { parseDashboardSearchParams } from "./dashboard-search-params";
 
 type DashboardSearchParams = Record<string, string | string[] | undefined>;
@@ -14,34 +18,30 @@ export default async function DashboardPage({ searchParams }: {
   searchParams: Promise<DashboardSearchParams>;
 }) {
   const params = await searchParams;
-  const handoff = parseGuestHandoff(params);
-  if (handoff.kind === "guest" || handoff.kind === "conflict") {
-    const flags = readPublicStudioFlags(process.env);
-    const parsed = parseDashboardSearchParams(params);
-    const conflict = handoff.kind === "conflict"
-      ? { workId: parsed.workId, templateId: parsed.templateId, campaignId: parsed.campaignId }
-      : null;
-    let session: { userId: string | null; workspaceId: string | null };
-    try {
-      const { user, workspace } = await requireWorkspaceAccess();
-      session = { userId: user.id, workspaceId: workspace.id };
-    } catch (error) {
-      if (isWorkspaceAuthError(error) && error.code === AUTH_ERROR_CODES.noWorkspace) {
-        session = { userId: null, workspaceId: null };
-      } else {
-        throw error;
-      }
+  const { user, workspace } = await requireWorkspaceAccess();
+  if (isEquipeEnabledForWorkspace(workspace.id)) {
+    const t = await getTranslations("assistant");
+    if (!user.emailVerified) {
+      return <p className="p-6 text-sm text-[var(--text-secondary)]" role="status">{t("homeVerifyEmail")}</p>;
     }
-    return <GuestStudioEntry
-      guestDraftId={handoff.id}
-      userId={session.userId}
-      workspaceId={session.workspaceId}
-      importEnabled={flags.importEnabled}
-      attachmentsEnabled={flags.attachmentsEnabled}
-      conflict={conflict}
-    />;
+    const opened = await executeCommand(
+      createEquipeRouteDeps(workspace.id),
+      { actor: { kind: "system", job: "home.first_open" }, workspaceId: workspace.id },
+      { type: "open_free_account", payload: { userId: user.id } },
+    );
+    const threadId = opened.ok ? opened.value.data.assistantThreadId : null;
+    if (typeof threadId !== "string" || !threadId) {
+      return <p className="p-6 text-sm text-[var(--danger-text)]" role="alert">{t("homeOpenError")}</p>;
+    }
+    return (
+      <AssistantShell
+        threadId={threadId}
+        sidebar={<AssistantSidebarPanel threadId={threadId} />}
+        main={<AssistantMain threadId={threadId} equipeEnabled />}
+        contextPanel={<AssistantContextPanelSlot threadId={threadId} />}
+      />
+    );
   }
-  const { workspace } = await requireWorkspaceAccess();
   return <DashboardHomeActions
     {...parseDashboardSearchParams(params)}
     workspaceId={workspace.id}

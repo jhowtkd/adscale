@@ -9,12 +9,14 @@ import { NotificationMenu } from "./TopBar";
 
 export default function DashboardShellSwitcher({
   children,
+  homeConversationEnabled = false,
 }: {
   children: React.ReactNode;
+  homeConversationEnabled?: boolean;
 }) {
   const pathname = usePathname();
   const tNav = useTranslations("navigation");
-  const isAssistant = pathname.startsWith("/assistant");
+  const isAssistant = pathname.startsWith("/assistant") || (pathname === "/" && homeConversationEnabled);
 
   if (isAssistant) {
     return (

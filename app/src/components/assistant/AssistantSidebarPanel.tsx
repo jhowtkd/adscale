@@ -1,15 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AssistantCreateClientDialog from "./AssistantCreateClientDialog";
 import AssistantTreeSidebar from "./AssistantTreeSidebar";
 import { useAssistantSurface } from "./AssistantSurfaceContext";
+import { useAssistantThread } from "@/lib/hooks/use-assistant-threads";
 
-export default function AssistantSidebarPanel() {
+export default function AssistantSidebarPanel({ threadId }: { threadId?: string }) {
   const router = useRouter();
+  const allowCreation = usePathname() !== "/";
   const searchParams = useSearchParams();
-  const selectedThreadId = searchParams.get("threadId") ?? undefined;
+  const selectedThreadId = threadId ?? searchParams.get("threadId") ?? undefined;
+  const { data } = useAssistantThread(threadId ?? null);
+  const mainClientId = data?.thread.clientProfileId;
   const {
     registerFocusTree,
     registerOpenCreateClient,
@@ -67,12 +71,12 @@ export default function AssistantSidebarPanel() {
       <AssistantTreeSidebar
         selectedThreadId={selectedThreadId}
         onSelectThread={() => {}}
-        contextClientId={contextClientId}
+        contextClientId={mainClientId ?? contextClientId}
         onContextClientChange={handleContextClientChange}
         onActiveClientChange={setActiveClientId}
-        expandClientId={expandClientId}
-        onNewClient={() => setClientDialogOpen(true)}
-        onNewThread={handleNewThread}
+        expandClientId={mainClientId ?? expandClientId}
+        onNewClient={allowCreation ? () => setClientDialogOpen(true) : undefined}
+        onNewThread={allowCreation ? handleNewThread : undefined}
       />
 
       <AssistantCreateClientDialog
