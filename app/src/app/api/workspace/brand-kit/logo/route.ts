@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAllowedImageType, validateImageMagicBytes } from "@/lib/upload-config";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
+import { createWorkspaceAsset } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
 import { createClientReference } from "@/server/repositories/client-reference";
 import {
@@ -56,8 +57,6 @@ export async function POST(request: Request) {
     const key = `workspaces/${workspace.id}/brand-kit/${crypto.randomUUID()}-${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    await objectStorage.put(key, buffer, file.type);
-
     let brandKit = clientProfileId
       ? await getBrandKit(workspace.id, clientProfileId)
       : await getBrandKitByWorkspace(workspace.id);
@@ -75,6 +74,14 @@ export async function POST(request: Request) {
       }
       brandKit = await upsertBrandKit(workspace.id, { name: "Brand Kit" }, clientProfileId);
     }
+
+    await objectStorage.put(key, buffer, file.type);
+    await createWorkspaceAsset({ workspaceId: workspace.id, clientProfileId: brandKit.id,
+      key, name: file.name, type: file.type, size: file.size, source: "brand_upload", metadata: { kind: "brand_logo" },
+    }).catch(async error => {
+      await objectStorage.delete(key).catch(() => null);
+      throw error;
+    });
 
     const reference = await createClientReference(workspace.id, {
       clientProfileId: brandKit.id,

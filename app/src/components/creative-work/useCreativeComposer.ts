@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useState, type RefObject } from "react";
 import { useTranslations } from "next-intl";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import type { CreativeWorkItem } from "@/lib/hooks/use-creative-work";
@@ -251,6 +251,18 @@ export function useCreativeComposer({
     exposeWorkId(storedWorkId);
   }, [active.activeClientProfileId, exposeWorkId, freshEntry, initialWorkId, intentRef, progressivePlainEntry, restoredProfileRef, setWorkId, workIdRef]);
 
+  const [createdWorkOwners, setCreatedWorkOwners] = useState<Record<string, string>>({});
+  const detail = detailQuery.data;
+  const storedProfileId = detail?.work.clientProfileId;
+  const clientProfileId = workId ? storedProfileId ?? createdWorkOwners[workId] ?? null : active.activeClientProfileId;
+  const isRestoringWork = Boolean(workId && !clientProfileId);
+  const exposeOwnedWorkId = useCallback((id: string) => {
+    // A newly created work already has this owner while its detail query loads.
+    // Resumed works still wait for their persisted owner; the global selector cannot substitute it.
+    if (clientProfileId) setCreatedWorkOwners(owners => ({ ...owners, [id]: clientProfileId }));
+    exposeWorkId(id);
+  }, [clientProfileId, exposeWorkId]);
+
   const {
     flushAutosave,
     resolveCanonicalWorkRevision,
@@ -296,9 +308,9 @@ export function useCreativeComposer({
     initialTemplateId,
     focusComposer,
     studioSessionId,
-    activeClientProfileId: active.activeClientProfileId ?? null,
+    activeClientProfileId: clientProfileId ?? null,
     isLoadingProfile: active.isLoading,
-    exposeWorkId,
+    exposeWorkId: exposeOwnedWorkId,
     exposeIntent,
     exposeCampaignId,
     consumeInitialTemplateParams,
@@ -309,7 +321,6 @@ export function useCreativeComposer({
     onGenerationAccepted,
   });
 
-  const detail = detailQuery.data;
   const objectiveSelected = objective !== null;
   const preparedPlan = detail?.preparedPlan ?? null;
   const stage = projectComposerStage({ objectiveSelected, detail: detail ?? null });
@@ -342,9 +353,6 @@ export function useCreativeComposer({
     hasSources: Boolean(detail?.sources.length),
   }), [autosaveMutation.isPending, createMutation.isPending, detail, generateMutation.isPending, isUploading, prepareMutation.isPending, request, sourceMutation.isPending, workId]);
 
-  const storedProfileId = detail?.work.clientProfileId;
-  const isRestoringWork = Boolean(initialWorkId && !detail);
-  const clientProfileId = isRestoringWork ? null : storedProfileId ?? active.activeClientProfileId;
   const brandName = active.profiles.find((profile) => profile.id === storedProfileId)?.name
     ?? (isRestoringWork ? null : active.activeProfile?.name)
     ?? null;

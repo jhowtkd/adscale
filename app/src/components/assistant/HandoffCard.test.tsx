@@ -139,7 +139,7 @@ describe("HandoffCard: all six interactive steps render with synthetic data", ()
     renderCard(baseHandoff({
       step: "images",
       reading: { images: { runId: "r1", taskIntentId: "t1", status: "found" } },
-      captured: { images: [{ id: "img1", value: "https://cdn/img1.png", origin: "site" }] },
+      captured: { images: [{ id: "img1", value: "https://cdn/img1.png", origin: "site", key: "workspaces/ws/img1.png" }] },
     }));
     expect(screen.getByText("Quais imagens ficam?")).toBeInTheDocument();
     expect(screen.getByText("Desmarque para remover. Você pode restaurar a imagem até confirmar o resumo.")).toBeInTheDocument();
@@ -165,6 +165,37 @@ describe("HandoffCard: all six interactive steps render with synthetic data", ()
     expect(screen.getByText("Essa é a sua marca?")).toBeInTheDocument();
     expect(screen.getByText("Acme")).toBeInTheDocument();
     // Images is still pending: the finish button stays disabled.
+    expect(screen.getByRole("button", { name: "É isso →" })).toBeDisabled();
+  });
+
+  it("images: a captured image without a managed key renders unavailable — dimmed, unchecked and disabled", () => {
+    renderCard(baseHandoff({
+      step: "images",
+      reading: { images: { runId: "r1", taskIntentId: "t1", status: "found" } },
+      captured: { images: [{ id: "img-keyless", value: "https://cdn/keyless.png", origin: "site" }] },
+    }));
+
+    const toggle = screen.getByRole("checkbox", { name: "Imagem indisponível — envie o arquivo para usá-la. img-keyless" });
+    expect(toggle).toBeDisabled();
+    expect(toggle).not.toBeChecked();
+    expect(screen.getByText("Imagem indisponível — envie o arquivo para usá-la.")).toBeInTheDocument();
+  });
+
+  it("summary: \"É isso\" stays disabled when a kept image has no managed key, even with every group finished", () => {
+    renderCard(baseHandoff({
+      step: "summary",
+      source: { kind: "site", value: "https://acme.com", normalized: "https://acme.com/" },
+      reading: {
+        name: { runId: "r", taskIntentId: "t", status: "found" }, logo: { runId: "r", taskIntentId: "t", status: "not_found" },
+        colors: { runId: "r", taskIntentId: "t", status: "found" }, fonts: { runId: "r", taskIntentId: "t", status: "found" },
+        networks: { runId: "r", taskIntentId: "t", status: "not_found" }, images: { runId: "r", taskIntentId: "t", status: "found" },
+      },
+      captured: { images: [{ id: "img-keyless", value: "https://cdn/keyless.png", origin: "site" }] },
+      decisions: {
+        identity: { name: { id: "n1", value: "Acme", origin: "site" }, logo: null, colors: [], fonts: [], paletteChoice: "site" },
+        networks: [], images: { kept: ["img-keyless"], removed: [], uploaded: [] },
+      },
+    }));
     expect(screen.getByRole("button", { name: "É isso →" })).toBeDisabled();
   });
 });
@@ -313,7 +344,7 @@ describe("HandoffCard: a background group finishing (images/networks) refreshes 
     const found = baseHandoff({
       step: "images", version: 9, // same version: background progress never bumps it
       reading: { images: { runId: "r1", taskIntentId: "t1", status: "found" } },
-      captured: { images: [{ id: "img-new", value: "https://cdn/new.png", origin: "site" }] },
+      captured: { images: [{ id: "img-new", value: "https://cdn/new.png", origin: "site", key: "workspaces/ws/img-new.png" }] },
     });
     refetch(rerender, client, found);
 
@@ -374,7 +405,10 @@ describe("HandoffCard: images restoration", () => {
     renderCard(baseHandoff({
       step: "images",
       reading: { images: { runId: "r1", taskIntentId: "t1", status: "found" } },
-      captured: { images: [{ id: "img-1", value: "https://cdn/1.png", origin: "site" }, { id: "img-2", value: "https://cdn/2.png", origin: "site" }] },
+      captured: { images: [
+        { id: "img-1", value: "https://cdn/1.png", origin: "site", key: "workspaces/ws/1.png" },
+        { id: "img-2", value: "https://cdn/2.png", origin: "site", key: "workspaces/ws/2.png" },
+      ] },
       decisions: { images: { kept: ["img-1"], removed: ["img-2"], uploaded: [] } },
     }));
 

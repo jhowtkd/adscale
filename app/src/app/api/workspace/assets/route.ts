@@ -1,4 +1,4 @@
-import { shouldAnalyzeWorkspaceAssets, getHandoffAssetScope } from "@/server/equipe/handoff/assets";
+import { shouldAnalyzeWorkspaceAssets, getHandoffAssetScope, createHandoffWorkspaceAsset } from "@/server/equipe/handoff/assets";
 import { getClientProfile } from "@/server/repositories/client-reference";
 import { resolveBrandKitProfileId } from "@/server/repositories/brand-kit";
 import { NextResponse } from "next/server";
@@ -6,7 +6,7 @@ import { isAllowedImageType, validateImageMagicBytes, sanitizeStorageFilename } 
 import { z } from "zod";
 import { apiError, handleApiError } from "@/lib/api-response";
 import { requireWorkspaceAccess } from "@/server/auth/workspace";
-import { createWorkspaceAsset, deleteWorkspaceAsset, getWorkspaceAssets, getWorkspaceAssetsCount } from "@/server/repositories/workspace-asset";
+import { createWorkspaceAsset, getWorkspaceAssets, getWorkspaceAssetsCount } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
 import { inngest } from "@/server/jobs/client";
 import { heavyImageEventName } from "@/server/jobs/heavy-image-events";
@@ -76,9 +76,10 @@ export async function POST(request: Request) {
     const key = `workspaces/${workspace.id}/assets/${crypto.randomUUID()}-${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    let createdAsset: Awaited<ReturnType<typeof createWorkspaceAsset>> | null = null;
-    const [asset] = await Promise.all([
-      createWorkspaceAsset({
+    await objectStorage.put(key, buffer, file.type);
+    let asset: Awaited<ReturnType<typeof createWorkspaceAsset>> | null;
+    try {
+      const input = {
         workspaceId: workspace.id,
         clientProfileId,
         name: file.name,
@@ -89,17 +90,16 @@ export async function POST(request: Request) {
         height: parsed.data.height,
         source: "brand_upload",
         ...(handoff ? { metadata: { handoffId: handoff.id, readingId: handoff.readingId, provisional: true } } : {}),
-      }).then((asset) => {
-        createdAsset = asset;
-        return asset;
-      }),
-      objectStorage.put(key, buffer, file.type),
-    ]).catch(async (error) => {
-      if (createdAsset) {
-        await deleteWorkspaceAsset(createdAsset.id, workspace.id).catch(() => null);
-      }
+      };
+      asset = handoff ? await createHandoffWorkspaceAsset(input, handoff.id) : await createWorkspaceAsset(input);
+    } catch (error) {
+      await objectStorage.delete(key).catch(() => null);
       throw error;
-    });
+    }
+    if (!asset) {
+      await objectStorage.delete(key);
+      return apiError("invalidInput", 400);
+    }
 
     // Free uploads must never bypass the account's AI ledger.
     if (analyze) await inngest.send({

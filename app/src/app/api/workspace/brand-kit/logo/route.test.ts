@@ -30,8 +30,13 @@ vi.mock("@/server/repositories/brand-kit", () => ({
 vi.mock("@/server/storage", () => ({
   objectStorage: {
     put: vi.fn(),
+    delete: vi.fn(),
     publicUrl: vi.fn((key: string) => `https://cdn.example/${key}`),
   },}));
+
+vi.mock("@/server/repositories/workspace-asset", () => ({
+  createWorkspaceAsset: vi.fn(),
+}));
 
 vi.mock("@/lib/upload-config", () => ({
   isAllowedImageType: vi.fn(() => true),
@@ -49,6 +54,8 @@ import {
   upsertBrandKit,
 } from "@/server/repositories/brand-kit";
 import { createClientReference } from "@/server/repositories/client-reference";
+import { createWorkspaceAsset } from "@/server/repositories/workspace-asset";
+import { objectStorage } from "@/server/storage";
 
 const PROFILE_A = "00000000-0000-4000-8000-000000000001";
 const PROFILE_B = "00000000-0000-4000-8000-000000000002";
@@ -58,6 +65,7 @@ const mockGetBrandKit = vi.mocked(getBrandKit);
 const mockGetBrandKitByWorkspace = vi.mocked(getBrandKitByWorkspace);
 const mockUpsertBrandKit = vi.mocked(upsertBrandKit);
 const mockCreateClientReference = vi.mocked(createClientReference);
+const mockCreateWorkspaceAsset = vi.mocked(createWorkspaceAsset);
 
 function logoRequest(clientProfileId?: string, file?: File | null) {
   const url = clientProfileId
@@ -94,6 +102,7 @@ describe("POST /api/workspace/brand-kit/logo", () => {
       id: PROFILE_A,
       logoAssetKey: "logo.png",
     } as Awaited<ReturnType<typeof upsertBrandKit>>);
+    mockCreateWorkspaceAsset.mockResolvedValue({ id: "asset-1", key: "logo.png" } as Awaited<ReturnType<typeof createWorkspaceAsset>>);
   });
 
   it("uploads logo for an explicit profile", async () => {
@@ -105,9 +114,28 @@ describe("POST /api/workspace/brand-kit/logo", () => {
       expect.objectContaining({ logoAssetKey: expect.any(String) }),
       PROFILE_A
     );
+    // Ticket 07 (review R4): the logo producer materializes a real workspace_asset,
+    // branded to the profile, with source/kind matching the Library's classification.
+    expect(mockCreateWorkspaceAsset).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: "workspace-1", clientProfileId: PROFILE_A,
+      key: expect.stringContaining("workspaces/workspace-1/brand-kit/"),
+      name: "logo.png", type: "image/png", source: "brand_upload",
+      metadata: { kind: "brand_logo" },
+    }));
   });
 
-  it("returns 409 when multiple profiles exist without clientProfileId", async () => {
+  it("uploads logo for a second, distinct profile (B), branding the asset to B — never to A", async () => {
+    mockGetBrandKit.mockResolvedValue({ id: PROFILE_B, logoAssetKey: null } as Awaited<ReturnType<typeof getBrandKit>>);
+    mockUpsertBrandKit.mockResolvedValue({ id: PROFILE_B, logoAssetKey: "logo.png" } as Awaited<ReturnType<typeof upsertBrandKit>>);
+
+    const res = await POST(logoRequest(PROFILE_B));
+
+    expect(res.status).toBe(201);
+    expect(mockGetBrandKit).toHaveBeenCalledWith("workspace-1", PROFILE_B);
+    expect(mockCreateWorkspaceAsset).toHaveBeenCalledWith(expect.objectContaining({ clientProfileId: PROFILE_B }));
+  });
+
+  it("returns 409 when multiple profiles exist without clientProfileId, and never writes anything", async () => {
     mockGetBrandKitByWorkspace.mockResolvedValue(null);
     mockGetClientProfiles.mockResolvedValue([
       { id: PROFILE_A, name: "Acme" },
@@ -115,6 +143,24 @@ describe("POST /api/workspace/brand-kit/logo", () => {
     ] as Awaited<ReturnType<typeof getClientProfiles>>);
 
     const res = await POST(logoRequest());
+
     expect(res.status).toBe(409);
+    // Ambiguity is caught before any side effect — no orphaned R2 object or asset row.
+    expect(vi.mocked(objectStorage.put)).not.toHaveBeenCalled();
+    expect(mockCreateWorkspaceAsset).not.toHaveBeenCalled();
+    expect(mockCreateClientReference).not.toHaveBeenCalled();
+  });
+
+  it("compensates the R2 object when creating the workspace asset fails, and never registers the client reference", async () => {
+    mockCreateWorkspaceAsset.mockRejectedValue(new Error("db down"));
+
+    const res = await POST(logoRequest(PROFILE_A));
+
+    expect(res.status).toBe(500);
+    expect(vi.mocked(objectStorage.put)).toHaveBeenCalledTimes(1);
+    const [putKey] = vi.mocked(objectStorage.put).mock.calls[0]!;
+    expect(vi.mocked(objectStorage.delete)).toHaveBeenCalledWith(putKey);
+    expect(mockCreateClientReference).not.toHaveBeenCalled();
+    expect(mockUpsertBrandKit).toHaveBeenCalledTimes(0);
   });
 });

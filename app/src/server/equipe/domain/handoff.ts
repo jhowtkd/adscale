@@ -43,6 +43,8 @@ export const identityReady = (s: HandoffState) => ["name", "logo", "colors", "fo
 export const allGroupsFinished = (s: HandoffState) => HANDOFF_GROUPS.every(g => isGroupFinished(s.reading[g]?.status));
 export const hasFailedConfirmedInstagram = (s: HandoffState) => Boolean(s.decisions.networks?.some(i => i.platform === "instagram") &&
   Object.values(s.reading).some(g => (g?.bySource?.instagram ?? (s.source?.kind === "instagram" ? g : undefined))?.status === "failed"));
+export const hasUnmanagedKeptImages = (s: HandoffState) => [...(s.captured.images ?? []), ...(s.decisions.images?.uploaded ?? [])]
+  .some(item => s.decisions.images?.kept.includes(item.id) && !item.key);
 
 /** Only this machine changes step. Progress bumps version only on a step transition. */
 export function transitionHandoff(s: HandoffState, action: "source" | "progress" | "identity" | "networks" | "images" | "summary" | "back", target?: HandoffStep): Result<HandoffState> {
@@ -64,7 +66,7 @@ export function transitionHandoff(s: HandoffState, action: "source" | "progress"
       if (s.step !== "images" || !isGroupFinished(s.reading.images?.status)) return err("invalid_transition", "Images are still being read.");
       step = "summary"; break;
     case "summary":
-      if (s.step !== "summary" || !allGroupsFinished(s) || !s.source || s.reading.name?.status === "failed" || hasFailedConfirmedInstagram(s) || !s.decisions.identity || (s.decisions.identity.logo && !s.decisions.identity.logo.key) || !s.decisions.networks || !s.decisions.images || s.decisions.needsConfirmation?.length || s.captured.images?.some(i => !s.decisions.images?.kept.includes(i.id) && !s.decisions.images?.removed.includes(i.id))) return err("invalid_transition", "Finish reading and confirming your brand first.");
+      if (s.step !== "summary" || !allGroupsFinished(s) || !s.source || s.reading.name?.status === "failed" || hasFailedConfirmedInstagram(s) || hasUnmanagedKeptImages(s) || !s.decisions.identity || (s.decisions.identity.logo && !s.decisions.identity.logo.key) || !s.decisions.networks || !s.decisions.images || s.decisions.needsConfirmation?.length || s.captured.images?.some(i => !s.decisions.images?.kept.includes(i.id) && !s.decisions.images?.removed.includes(i.id))) return err("invalid_transition", "Finish reading and confirming your brand first.");
       step = "done"; break;
     case "back":
       if (s.step !== "summary" || !target || !["source", "identity", "networks", "images"].includes(target)) return err("invalid_transition", "Return from the summary to a brand step.");

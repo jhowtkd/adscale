@@ -112,6 +112,23 @@ async function waitUntilBlocked(client: Fixture["clientA"], pid: number) {
   throw new Error("command did not wait on the other PostgreSQL connection's account lock");
 }
 
+/** Like waitUntilBlocked, but for a caller (createHandoffWorkspaceAsset) that
+ * borrows a connection from the app's own pool instead of a fixture pool, so
+ * its backend pid is not known ahead of time — probes for ANY backend
+ * currently blocked by `blockerPid`'s lock. */
+async function waitUntilAnyBlockedBy(client: Fixture["clientA"], blockerPid: number) {
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const result = await client.query<{ pid: number }>(
+      "select pid from pg_stat_activity where wait_event_type = 'Lock' and $1 = any(pg_blocking_pids(pid))",
+      [blockerPid],
+    );
+    if (result.rows.length > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("no connection blocked on the holder's account lock");
+}
+
 /** Runs `first` on the primary connection, pauses it right after it locks the
  * account row, starts `second` on the independent connection, confirms it is
  * genuinely BLOCKED on that same lock (never a sleep-based guess), then lets
@@ -184,6 +201,9 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
       { name: "Legacy LOGO" },
       { name: "Generated logo", source: "creative_work", tags: ["logo"] },
       { name: "Instagram logo post", source: "brand_instagram", metadata: { category: "logo" } },
+      // Explicit Instagram avatar kind (ticket 07 review follow-up): classified as
+      // logo by metadata.kind alone, with no logoAssetKey match and no "logo" text.
+      { name: "Avatar", source: "brand_instagram", metadata: { kind: "instagram_avatar" } },
       { name: "Public page", type: "text/markdown", metadata: { kind: "site_page" } },
       { name: "Product", metadata: { category: "PRODUCT" } },
       { name: "Font", type: "font/woff2" },
@@ -200,16 +220,76 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     ]);
     const mapped = rows.map(row => ({ row, kind: mapWorkspaceAssetToV6({ ...row, url: "", createdAt: row.createdAt.toISOString() }, 0, String, String, logoKey).kind }));
     for (const kind of ["identity", "images", "post", "page"] as const) {
+      // "images" is exclusive of logo/post/page (SQL+UI parity, PR 610 review follow-up).
       const expected = mapped.filter(({ row, kind: classified }) => kind === "identity" ? classified === "logo" || row.type.startsWith("font/")
-        : kind === "page" ? classified === "page" : row.type.startsWith("image/") && classified !== "logo" && (kind !== "post" || classified === "post"));
+        : kind === "page" ? classified === "page"
+        : kind === "post" ? row.type.startsWith("image/") && classified === "post"
+        : row.type.startsWith("image/") && !["logo", "post", "page"].includes(classified));
       const actual = await getWorkspaceAssets(f.workspaceId, { clientProfileId: profileId, kind, limit: 100 });
       expect(actual.map(row => row.id).sort()).toEqual(expected.map(({ row }) => row.id).sort());
       expect(await getWorkspaceAssetsCount(f.workspaceId, { clientProfileId: profileId, kind })).toBe(expected.length);
     }
+    // Explicit assertion for the Instagram avatar: classified logo by both the
+    // mapper and the SQL kind filters, never as a "post" despite its source.
+    const avatarRow = rows.find(row => row.name === "Avatar")!;
+    expect(mapped.find(({ row }) => row.id === avatarRow.id)?.kind).toBe("logo");
+    const identityIds = (await getWorkspaceAssets(f.workspaceId, { clientProfileId: profileId, kind: "identity", limit: 100 })).map(row => row.id);
+    const imagesIds = (await getWorkspaceAssets(f.workspaceId, { clientProfileId: profileId, kind: "images", limit: 100 })).map(row => row.id);
+    const postIds = (await getWorkspaceAssets(f.workspaceId, { clientProfileId: profileId, kind: "post", limit: 100 })).map(row => row.id);
+    expect(identityIds).toContain(avatarRow.id);
+    expect(imagesIds).not.toContain(avatarRow.id);
+    expect(postIds).not.toContain(avatarRow.id);
     const firstIdentityPage = await getWorkspaceAssets(f.workspaceId, { clientProfileId: profileId, kind: "identity", limit: 1 });
     expect(firstIdentityPage[0]?.key).toBe(logoKey);
     const firstGalleryPage = await getWorkspaceAssets(f.workspaceId, { clientProfileId: profileId, limit: 24 });
     expect(firstGalleryPage.some(row => row.key === logoKey)).toBe(false);
+  });
+
+  it("ticket 07 (review R2, real PG): assignWorkspaceAssetBrand's SQL guard only claims a NULL non-provisional asset in this workspace, never overwriting branded/provisional/foreign-workspace rows", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const profileHome = account!.clientProfileId;
+    const [profileOther] = await f.dbA.insert(f.schema.clientProfiles).values({ workspaceId: f.workspaceId, name: "Outra marca" }).returning();
+    const foreignWorkspaceId = crypto.randomUUID();
+    await f.dbA.insert(f.schema.workspaces).values({ id: foreignWorkspaceId, name: "outro-ws", slug: `outro-ws-${foreignWorkspaceId}` });
+    const [profileForeign] = await f.dbA.insert(f.schema.clientProfiles).values({ workspaceId: foreignWorkspaceId, name: "Marca de outro workspace" }).returning();
+
+    const { assignWorkspaceAssetBrand } = await import("@/server/repositories/workspace-asset");
+
+    const [legacy] = await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: null, name: "legacy", key: `workspaces/${f.workspaceId}/assign-legacy.png`, size: 1, type: "image/png", source: "upload",
+    }).returning();
+    const [branded] = await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: profileOther!.id, name: "already-branded", key: `workspaces/${f.workspaceId}/assign-branded.png`, size: 1, type: "image/png", source: "upload",
+    }).returning();
+    const [provisional] = await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: null, name: "provisional", key: `workspaces/${f.workspaceId}/assign-provisional.png`, size: 1, type: "image/png", source: "upload",
+      metadata: { provisional: true },
+    }).returning();
+
+    // Real claim: NULL + non-provisional + profile belongs to this workspace.
+    const claimed = await assignWorkspaceAssetBrand(legacy!.id, f.workspaceId, profileHome);
+    expect(claimed?.clientProfileId).toBe(profileHome);
+
+    // Already branded to a DIFFERENT profile: refused, stays as-is.
+    expect(await assignWorkspaceAssetBrand(branded!.id, f.workspaceId, profileHome)).toBeNull();
+    const [afterBranded] = await f.dbA.select().from(f.schema.workspaceAssets).where(eq(f.schema.workspaceAssets.id, branded!.id));
+    expect(afterBranded?.clientProfileId).toBe(profileOther!.id);
+
+    // Provisional: refused, stays NULL (only the handoff confirmation path may claim it).
+    expect(await assignWorkspaceAssetBrand(provisional!.id, f.workspaceId, profileHome)).toBeNull();
+    const [afterProvisional] = await f.dbA.select().from(f.schema.workspaceAssets).where(eq(f.schema.workspaceAssets.id, provisional!.id));
+    expect(afterProvisional?.clientProfileId).toBeNull();
+
+    // The target profile belongs to a FOREIGN workspace: refused even though the asset itself is eligible.
+    const [foreignTarget] = await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: null, name: "foreign-target", key: `workspaces/${f.workspaceId}/assign-foreign.png`, size: 1, type: "image/png", source: "upload",
+    }).returning();
+    expect(await assignWorkspaceAssetBrand(foreignTarget!.id, f.workspaceId, profileForeign!.id)).toBeNull();
+    const [afterForeign] = await f.dbA.select().from(f.schema.workspaceAssets).where(eq(f.schema.workspaceAssets.id, foreignTarget!.id));
+    expect(afterForeign?.clientProfileId).toBeNull();
+
+    await f.dbA.delete(f.schema.workspaces).where(eq(f.schema.workspaces.id, foreignWorkspaceId));
   });
 
   it("ticket 07: an unbranded (NULL) asset matching a brand's logo key is still prioritized as that brand's identity, without ever leaking another brand's own assets or a provisional row", async () => {
@@ -384,6 +464,75 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
       const profiles = await f.dbB.select().from(f.schema.clientProfiles).where(eq(f.schema.clientProfiles.workspaceId, f.workspaceId));
       expect(profiles.some(p => p.name === "Outra marca")).toBe(true);
     }
+  });
+
+  it("ticket 07 (review R3, real PG): createHandoffWorkspaceAsset takes the SAME account lock as É isso — a late upload that loses the race is rejected, no row inserted", async () => {
+    const f = await setup();
+    const scope = f.scope;
+    const groups = ["name", "logo", "colors", "fonts", "networks", "images"] as const;
+    let row = await withSource(f);
+    for (const group of groups) {
+      const g = row!.reading[group]!;
+      const out = await f.executeCommand(f.t.deps, { actor: READER, workspaceId: f.workspaceId, accountId: f.accountId }, {
+        type: "handoff_record_group",
+        payload: { readingId: row!.readingId!, runId: g.runId, taskIntentId: g.taskIntentId, group, result: { status: "not_found", items: [] } },
+      });
+      if (!out.ok) throw new Error(`record ${group} failed: ${out.error.code}`);
+      row = (await f.t.deps.uow.repos.handoffs.list(scope))[0]!;
+    }
+    const confirmIdentity = await f.executeCommand(f.t.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+      type: "handoff_confirm_identity", payload: { expectedStep: row!.step, expectedVersion: row!.version, name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" },
+    });
+    if (!confirmIdentity.ok) throw new Error(confirmIdentity.error.code);
+    row = (await f.t.deps.uow.repos.handoffs.list(scope))[0]!;
+    const confirmNetworks = await f.executeCommand(f.t.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+      type: "handoff_confirm_networks", payload: { expectedStep: row!.step, expectedVersion: row!.version, kept: [], added: [] },
+    });
+    if (!confirmNetworks.ok) throw new Error(confirmNetworks.error.code);
+    row = (await f.t.deps.uow.repos.handoffs.list(scope))[0]!;
+    const confirmImages = await f.executeCommand(f.t.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+      type: "handoff_confirm_images", payload: { expectedStep: row!.step, expectedVersion: row!.version, kept: [], removed: [], uploaded: [] },
+    });
+    if (!confirmImages.ok) throw new Error(confirmImages.error.code);
+    row = (await f.t.deps.uow.repos.handoffs.list(scope))[0]!;
+    expect(row.step).toBe("summary");
+
+    const { createHandoffWorkspaceAsset } = await import("../handoff/assets");
+
+    // Pause "É isso" right after it takes the account lock — same barrier the
+    // other contention tests in this file use — then start the late upload's
+    // OWN transaction (it borrows a connection from the app's pool, not one
+    // of this fixture's, so its backend pid is discovered by probing, not known ahead of time).
+    const originalUow = f.t.deps.uow;
+    const barrier = pauseAfterLockedAccount(originalUow, f.accountId);
+    f.t.deps.uow = barrier.uow;
+    const confirmSummary = f.executeCommand(f.t.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+      type: "handoff_confirm_summary", payload: { expectedStep: row.step, expectedVersion: row.version },
+    });
+    await barrier.entered;
+
+    const lateUpload = createHandoffWorkspaceAsset({
+      workspaceId: f.workspaceId, name: "late.png",
+      key: `workspaces/${f.workspaceId}/late-${crypto.randomUUID()}.png`,
+      type: "image/png", size: 10,
+    }, row.id);
+
+    try {
+      await waitUntilAnyBlockedBy(f.clientA, f.pidA);
+    } finally {
+      barrier.proceed();
+      await Promise.allSettled([confirmSummary, lateUpload]);
+      f.t.deps.uow = originalUow;
+    }
+    const [summaryResult, lateAsset] = await Promise.all([confirmSummary, lateUpload]);
+
+    expect(summaryResult.ok).toBe(true);
+    // The late upload's transaction only resumed AFTER "É isso" committed and
+    // closed the handoff — it must see step "done" and insert nothing.
+    expect(lateAsset).toBeNull();
+    const rows = await f.dbA.select().from(f.schema.workspaceAssets)
+      .where(eq(f.schema.workspaceAssets.workspaceId, f.workspaceId));
+    expect(rows.some(r => (r.metadata as { handoffId?: string } | null)?.handoffId === row.id)).toBe(false);
   });
 
   it("resumes after the claim commits in Postgres but its step acknowledgement is lost", async () => {

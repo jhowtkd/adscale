@@ -668,7 +668,9 @@ describe("handoff: regression — revising the Instagram choice discards everyth
     const netSiteId = uuid();
     await recordGroup(t, scope, "networks", "found", [siteItem(netSiteId, "acme.oficial", { platform: "instagram" })]);
     const imgSiteId = uuid();
-    await recordGroup(t, scope, "images", "found", [siteItem(imgSiteId, "https://cdn/site.png")]);
+    // A managed key is required to confirm a kept image (ticket 07 follow-up:
+    // keyless captures stay "unavailable" until a real download materializes them).
+    await recordGroup(t, scope, "images", "found", [siteItem(imgSiteId, "https://cdn/site.png", { key: "workspaces/ws/site-img.png" })]);
 
     // 2) First pass: identity with the SITE palette (Instagram isn't confirmed yet, so its palette is not choosable).
     let row = await currentHandoff(t, scope);
@@ -689,7 +691,7 @@ describe("handoff: regression — revising the Instagram choice discards everyth
     const igColorId = uuid();
     await recordGroup(t, scope, "colors", "found", [igItem(igColorId, "#222222")]);
     const igImageId = uuid();
-    await recordGroup(t, scope, "images", "found", [igItem(igImageId, "https://cdn/ig.png")]);
+    await recordGroup(t, scope, "images", "found", [igItem(igImageId, "https://cdn/ig.png", { key: "workspaces/ws/ig-img.png" })]);
 
     // 4) Keep both images (site + Instagram), reach summary.
     row = await currentHandoff(t, scope);

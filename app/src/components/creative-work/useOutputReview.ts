@@ -91,11 +91,13 @@ type PendingSession = {
  */
 export function useOutputReview({
   workItemId,
+  clientProfileId,
   output,
   revisionCreditCost,
   autosaveDelayMs = 500,
 }: {
   workItemId: string;
+  clientProfileId?: string | null;
   output: CreativeWorkOutput;
   revisionCreditCost: number | null;
   autosaveDelayMs?: number;
@@ -441,7 +443,7 @@ export function useOutputReview({
     setReferencePending(true);
     setError(null);
     try {
-      const uploaded = await uploadChatAttachment(file);
+      const uploaded = await uploadChatAttachment(file, { clientProfileId: clientProfileId ?? null });
       if (outputIdRef.current !== sourceOutputId) return;
       update({ revisionAssetId: uploaded.assetId });
       await flush();
@@ -452,7 +454,7 @@ export function useOutputReview({
     } finally {
       setReferencePending(false);
     }
-  }, [flush, setReferencePending, t, update]);
+  }, [clientProfileId, flush, setReferencePending, t, update]);
 
   // A refetched server draft never overwrites local edits or an in-flight
   // submission; when clean, it rehydrates BOTH the text and the canonical

@@ -19,6 +19,7 @@ vi.mock("@/server/repositories/workspace-asset", () => ({
 vi.mock("@/server/storage", () => ({
   objectStorage: {
     put: vi.fn(),
+    delete: vi.fn(),
     publicUrl: vi.fn((key: string) => `https://cdn.example.com/${key}`),
     signedDownloadUrl: vi.fn((key: string) =>
       Promise.resolve(`https://signed.example.com/${key}`)
@@ -43,6 +44,7 @@ vi.mock("next-intl/server", () => ({
 vi.mock("@/server/equipe/handoff/assets", () => ({
   shouldAnalyzeWorkspaceAssets: vi.fn(() => Promise.resolve(true)),
   getHandoffAssetScope: vi.fn(() => Promise.resolve(null)),
+  createHandoffWorkspaceAsset: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/brand-kit", () => ({
@@ -56,7 +58,7 @@ vi.mock("@/server/repositories/client-reference", () => ({
 import { getWorkspaceAssets, createWorkspaceAsset } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
 import { inngest } from "@/server/jobs/client";
-import { shouldAnalyzeWorkspaceAssets, getHandoffAssetScope } from "@/server/equipe/handoff/assets";
+import { shouldAnalyzeWorkspaceAssets, getHandoffAssetScope, createHandoffWorkspaceAsset } from "@/server/equipe/handoff/assets";
 import { resolveBrandKitProfileId } from "@/server/repositories/brand-kit";
 import { getClientProfile } from "@/server/repositories/client-reference";
 
@@ -64,6 +66,7 @@ const mockGetWorkspaceAssets = vi.mocked(getWorkspaceAssets);
 const mockCreateWorkspaceAsset = vi.mocked(createWorkspaceAsset);
 const mockShouldAnalyzeWorkspaceAssets = vi.mocked(shouldAnalyzeWorkspaceAssets);
 const mockGetHandoffAssetScope = vi.mocked(getHandoffAssetScope);
+const mockCreateHandoffWorkspaceAsset = vi.mocked(createHandoffWorkspaceAsset);
 const mockResolveBrandKitProfileId = vi.mocked(resolveBrandKitProfileId);
 const mockGetClientProfile = vi.mocked(getClientProfile);
 const PROFILE_ID = "00000000-0000-4000-8000-000000000001";
@@ -273,7 +276,7 @@ describe("POST /api/workspace/assets", () => {
   it("ticket 07: a handoff-scoped upload (handoffId) is unbranded and marked provisional, never analyzed even on a paid workspace", async () => {
     mockShouldAnalyzeWorkspaceAssets.mockResolvedValue(true);
     mockGetHandoffAssetScope.mockResolvedValue({ id: HANDOFF_ID, readingId: "reading-1", step: "images" } as never);
-    mockCreateWorkspaceAsset.mockResolvedValue({ id: "wa-4", workspaceId: "workspace-1", name: "logo.png", key: "assets/logo.png" } as Awaited<ReturnType<typeof createWorkspaceAsset>>);
+    mockCreateHandoffWorkspaceAsset.mockResolvedValue({ id: "wa-4", workspaceId: "workspace-1", name: "logo.png", key: "assets/logo.png" } as Awaited<ReturnType<typeof createHandoffWorkspaceAsset>>);
 
     const form = new FormData();
     form.append("file", new File([new Uint8Array([137, 80, 78, 71])], "logo.png", { type: "image/png" }));
@@ -284,10 +287,13 @@ describe("POST /api/workspace/assets", () => {
     expect(mockGetHandoffAssetScope).toHaveBeenCalledWith("workspace-1", HANDOFF_ID);
     expect(mockResolveBrandKitProfileId).not.toHaveBeenCalled();
     expect(mockShouldAnalyzeWorkspaceAssets).not.toHaveBeenCalled();
-    expect(mockCreateWorkspaceAsset).toHaveBeenCalledWith(expect.objectContaining({
+    // The handoff path locks the SAME account row "É isso" locks, via the
+    // dedicated helper — never the plain createWorkspaceAsset.
+    expect(mockCreateWorkspaceAsset).not.toHaveBeenCalled();
+    expect(mockCreateHandoffWorkspaceAsset).toHaveBeenCalledWith(expect.objectContaining({
       clientProfileId: null, source: "brand_upload",
       metadata: { handoffId: HANDOFF_ID, readingId: "reading-1", provisional: true },
-    }));
+    }), HANDOFF_ID);
     // Provisional handoff uploads are never analyzed, paid workspace or not —
     // the handoff confirmation step (not this route) decides what survives.
     expect(vi.mocked(inngest.send)).not.toHaveBeenCalled();
@@ -332,4 +338,64 @@ describe("POST /api/workspace/assets", () => {
     expect(mockCreateWorkspaceAsset).not.toHaveBeenCalled();
     expect(vi.mocked(objectStorage.put)).not.toHaveBeenCalled();
   });
+});
+
+// Independent review (PR 610, R3): a slow upload's transaction can still be
+// mid-flight when "É isso" confirms the summary and cleans up every
+// provisional row it saw. Reproduced against the REAL route contract:
+// createHandoffWorkspaceAsset takes the same account lock "É isso" takes, so
+// by the time it resumes and re-reads the handoff, it must see "done" and
+// return null — no row inserted, and the route must compensate the R2 put.
+it("review: a late handoff upload whose transaction loses the account-lock race to É isso is rejected and its R2 object is compensated", async () => {
+  vi.clearAllMocks();
+  const handoffId = crypto.randomUUID();
+  let closed = false;
+  let resumeHelper!: () => void;
+  let entered!: () => void;
+  const helperStarted = new Promise<void>(resolve => { entered = resolve; });
+  mockGetHandoffAssetScope.mockResolvedValue({ id: handoffId, readingId: "reading-1", step: "images" } as never);
+  mockCreateHandoffWorkspaceAsset.mockImplementation(async () => {
+    entered();
+    await new Promise<void>(resolve => { resumeHelper = resolve; });
+    // By the time this transaction acquires the account lock, "É isso" has
+    // already committed and closed the handoff — the helper re-reads that
+    // inside its own lock and returns null, inserting nothing.
+    return closed ? null : { id: "late-upload" } as never;
+  });
+
+  const form = new FormData();
+  form.append("handoffId", handoffId);
+  form.append("file", new File([new Uint8Array([137, 80, 78, 71])], "late.png", { type: "image/png" }));
+  const pending = POST(new Request("http://localhost/api/workspace/assets", { method: "POST", body: form }));
+  await helperStarted;
+  // Another tab commits "É isso" and its cleanup while this upload is
+  // blocked on the account lock inside createHandoffWorkspaceAsset.
+  closed = true;
+  resumeHelper();
+  const res = await pending;
+
+  expect(res.status).toBe(400);
+  expect(mockCreateWorkspaceAsset).not.toHaveBeenCalled();
+  // The R2 object this route already put() must be cleaned up — never an orphan.
+  expect(vi.mocked(objectStorage.delete)).toHaveBeenCalledTimes(1);
+  expect(vi.mocked(objectStorage.delete)).toHaveBeenCalledWith(vi.mocked(objectStorage.put).mock.calls[0]![0]);
+});
+
+it("review (R3): when the R2 compensation delete itself fails, the route still fails closed instead of pretending the upload succeeded", async () => {
+  vi.clearAllMocks();
+  const handoffId = "00000000-0000-4000-8000-000000000003";
+  mockGetHandoffAssetScope.mockResolvedValue({ id: handoffId, readingId: "reading-1", step: "summary" } as never);
+  mockCreateHandoffWorkspaceAsset.mockResolvedValue(null);
+  vi.mocked(objectStorage.delete).mockRejectedValueOnce(new Error("R2 unavailable"));
+
+  const form = new FormData();
+  form.append("handoffId", handoffId);
+  form.append("file", new File([new Uint8Array([137, 80, 78, 71])], "late.png", { type: "image/png" }));
+  const res = await POST(new Request("http://localhost/api/workspace/assets", { method: "POST", body: form }));
+
+  // The compensating delete was attempted (and rejected) — the route must
+  // never report 201/2xx for an upload whose asset row was never created.
+  expect(vi.mocked(objectStorage.delete)).toHaveBeenCalledTimes(1);
+  expect(res.status).toBeGreaterThanOrEqual(400);
+  expect(mockCreateWorkspaceAsset).not.toHaveBeenCalled();
 });

@@ -103,7 +103,7 @@ export default function FromZeroReferencesPanel({
           if (!file) return;
           setError(null);
           setIsUploading(true);
-          void uploadChatAttachment(file)
+          void uploadChatAttachment(file, { clientProfileId })
             .then((asset) => {
               setSelected((current) => new Set([...current, asset.assetId]));
             })

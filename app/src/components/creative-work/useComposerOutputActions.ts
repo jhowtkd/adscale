@@ -10,6 +10,7 @@ type RevisionAttempt = { revisionKey: string; revisionAssetId: string | null };
 
 export function useComposerOutputActions(input: {
   workIdRef: RefObject<string | null>;
+  clientProfileId?: string | null;
   revisionAttemptsRef: MutableRefObject<Map<string, RevisionAttempt>>;
   retryOutputMutation: { mutateAsync: (vars: { workItemId: string; outputId: string }) => Promise<unknown> };
   layerizeOutputMutation: {
@@ -52,6 +53,7 @@ export function useComposerOutputActions(input: {
 }) {
   const {
     workIdRef,
+    clientProfileId,
     revisionAttemptsRef,
     retryOutputMutation,
     layerizeOutputMutation,
@@ -152,7 +154,7 @@ export function useComposerOutputActions(input: {
     try {
       let attempt = revisionAttemptsRef.current.get(attemptKey);
       if (!attempt) {
-        const uploaded = attachment ? await uploadChatAttachment(attachment) : null;
+        const uploaded = attachment ? await uploadChatAttachment(attachment, { clientProfileId: clientProfileId ?? null }) : null;
         attempt = { revisionKey: crypto.randomUUID(), revisionAssetId: uploaded?.assetId ?? null };
         revisionAttemptsRef.current.set(attemptKey, attempt);
       }
@@ -171,6 +173,7 @@ export function useComposerOutputActions(input: {
   }, [
     recordStudioEvent,
     reviseOutputMutation,
+    clientProfileId,
     revisionAttemptsRef,
     setAnnouncement,
     setError,

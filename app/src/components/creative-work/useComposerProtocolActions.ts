@@ -307,7 +307,7 @@ export function useComposerProtocolActions({
           uploadInFlightRef.current = true;
           setIsUploading(true);
           try {
-            const uploaded = await uploadChatAttachment(bufferedFile);
+            const uploaded = await uploadChatAttachment(bufferedFile, { clientProfileId: currentWork?.clientProfileId ?? activeClientProfileId });
             const usage = firstProgressiveObjectiveUsage(next);
             if (await ensureDraft({ assetId: uploaded.assetId, usage })) setBufferedFile(null);
           } catch (cause) {
@@ -338,6 +338,8 @@ export function useComposerProtocolActions({
     if (awaitTransition) return transition;
     void transition;
   }, [
+    activeClientProfileId,
+    currentWork,
     actionPhase,
     bufferedFile,
     captureSnapshot,

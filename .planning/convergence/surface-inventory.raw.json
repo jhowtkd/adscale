@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-30T14:18:15.897Z",
+  "generatedAt": "2026-09-30T18:21:18.414Z",
   "schemaVersion": 2,
-  "fingerprint": "7cc530912af447091998a0745549eefca155f4ac28b5182829c3ed8b60fc49ea",
+  "fingerprint": "feb1a3100010e5feda657a13c4986436e7a1f6d8d49b28eb8e8bb31ff956c2e5",
   "counts": {
     "dashboardPages": 24,
     "apiRoutes": 212,
@@ -1666,12 +1666,12 @@
   ],
   "ctas": [
     {
-      "id": "nav:app/src/components/assistant/AssistantStartComposer.tsx:237",
+      "id": "nav:app/src/components/assistant/AssistantStartComposer.tsx:238",
       "kind": "cta_navigation",
       "destination": "/?compose=1",
       "file": "app/src/components/assistant/AssistantStartComposer.tsx",
-      "line": 237,
-      "evidence": "app/src/components/assistant/AssistantStartComposer.tsx:237",
+      "line": 238,
+      "evidence": "app/src/components/assistant/AssistantStartComposer.tsx:238",
       "requiresDecision": false
     },
     {

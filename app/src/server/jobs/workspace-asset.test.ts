@@ -4,7 +4,7 @@ const mockCreateChatCompletion = vi.hoisted(() => vi.fn());
 const mockGetObject = vi.hoisted(() => vi.fn());
 const mockGetWorkspaceAssetById = vi.hoisted(() => vi.fn());
 const mockUpdateWorkspaceAsset = vi.hoisted(() => vi.fn());
-const mockHasNonFreeAssetAccount = vi.hoisted(() => vi.fn());
+const mockShouldAnalyzeWorkspaceAssets = vi.hoisted(() => vi.fn());
 
 vi.mock("openai", () => ({
   default: class MockOpenAI {
@@ -29,7 +29,7 @@ vi.mock("@/server/repositories/workspace-asset", () => ({
 }));
 
 vi.mock("@/server/equipe/handoff/assets", () => ({
-  hasNonFreeAssetAccount: (...args: unknown[]) => mockHasNonFreeAssetAccount(...args),
+  shouldAnalyzeWorkspaceAssets: (...args: unknown[]) => mockShouldAnalyzeWorkspaceAssets(...args),
 }));
 
 vi.mock("@/server/validation/env", () => ({
@@ -66,7 +66,7 @@ describe("workspaceAssetAnalyzeJob (ticket 07: free-plan guard survives legacy/q
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetWorkspaceAssetById.mockResolvedValue({ id: baseEventData.assetId, workspaceId: baseEventData.workspaceId, key: baseEventData.key });
-    mockHasNonFreeAssetAccount.mockResolvedValue(true);
+    mockShouldAnalyzeWorkspaceAssets.mockResolvedValue(true);
     mockGetObject.mockResolvedValue(Buffer.from("fake-png-bytes"));
     mockCreateChatCompletion.mockResolvedValue({
       choices: [{ message: { content: JSON.stringify({
@@ -77,7 +77,7 @@ describe("workspaceAssetAnalyzeJob (ticket 07: free-plan guard survives legacy/q
   });
 
   it("free workspace: never reaches storage/OpenAI, even for an event already queued before the account turned free", async () => {
-    mockHasNonFreeAssetAccount.mockResolvedValue(false);
+    mockShouldAnalyzeWorkspaceAssets.mockResolvedValue(false);
 
     const result = await runAnalyzeJob();
 
@@ -90,9 +90,9 @@ describe("workspaceAssetAnalyzeJob (ticket 07: free-plan guard survives legacy/q
   it("checks the free-plan gate before touching OpenAI, not only in the upload route (defense in depth for an old event)", async () => {
     // Simulates a `workspace.asset.analyze` event sent while the workspace was
     // still paid, then dispatched only after the account dropped to free.
-    mockHasNonFreeAssetAccount.mockResolvedValue(false);
+    mockShouldAnalyzeWorkspaceAssets.mockResolvedValue(false);
     await runAnalyzeJob();
-    expect(mockHasNonFreeAssetAccount).toHaveBeenCalledWith(baseEventData.workspaceId, undefined);
+    expect(mockShouldAnalyzeWorkspaceAssets).toHaveBeenCalledWith(baseEventData.workspaceId, undefined);
     expect(mockGetObject).not.toHaveBeenCalled();
   });
 
@@ -108,9 +108,9 @@ describe("workspaceAssetAnalyzeJob (ticket 07: free-plan guard survives legacy/q
 
   it.each([false, true])("mixed workspace: analysis follows the asset's brand account, paid=%s", async paid => {
     mockGetWorkspaceAssetById.mockResolvedValue({ ...baseEventData, clientProfileId: "brand-1" });
-    mockHasNonFreeAssetAccount.mockImplementation(async (_workspaceId, clientProfileId) => clientProfileId ? paid : true);
+    mockShouldAnalyzeWorkspaceAssets.mockImplementation(async (_workspaceId, clientProfileId) => clientProfileId ? paid : true);
     await runAnalyzeJob();
-    expect(mockHasNonFreeAssetAccount).toHaveBeenCalledWith(baseEventData.workspaceId, "brand-1");
+    expect(mockShouldAnalyzeWorkspaceAssets).toHaveBeenCalledWith(baseEventData.workspaceId, "brand-1");
     expect(mockCreateChatCompletion).toHaveBeenCalledTimes(paid ? 1 : 0);
   });
 

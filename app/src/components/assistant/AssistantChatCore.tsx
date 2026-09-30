@@ -270,6 +270,7 @@ export default function AssistantChatCore({
           data?.guidedFlow?.path === "existing_creative" &&
           data.guidedFlow.currentStep === "select_creative" ? (
             <ExistingCreativeSelectPanel
+              clientProfileId={data.thread.clientProfileId}
               threadId={threadId}
               guidedFlow={data.guidedFlow}
             />
@@ -330,6 +331,7 @@ export default function AssistantChatCore({
         ) : null}
 
         <AssistantChatInput
+        clientProfileId={data?.thread.clientProfileId ?? null}
         disabled={inputDisabled}
         isStreaming={isStreaming}
         noThread={!threadId}

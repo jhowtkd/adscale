@@ -4186,6 +4186,7 @@
       "removedCount": "{count} retiradas",
       "removeImage": "Remover imagem",
       "restoreImage": "Restaurar imagem",
+      "imageUnavailable": "Imagem indisponível — envie o arquivo para usá-la.",
       "summaryHint": "Tudo isso fica guardado para sua Biblioteca. Dá para mudar depois.",
       "progress": "Passo {step} de 6",
       "loading": "Lendo sua marca…",

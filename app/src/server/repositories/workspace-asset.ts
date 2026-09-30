@@ -22,8 +22,8 @@ export interface CreateWorkspaceAssetInput {
   metadata?: Record<string, unknown>;
 }
 
-export async function createWorkspaceAsset(data: CreateWorkspaceAssetInput) {
-  const result = await db
+export async function createWorkspaceAsset(data: CreateWorkspaceAssetInput, executor: Pick<typeof db, "insert"> = db) {
+  const result = await executor
     .insert(workspaceAssets)
     .values({
       workspaceId: data.workspaceId,
@@ -83,7 +83,7 @@ function libraryAssetKind(workspaceId: string, clientProfileId?: string) {
   return classifyLibraryAsset({
     logo: sql`(${workspaceAssets.key} in (select ${clientProfiles.logoAssetKey} from ${clientProfiles}
       where ${clientProfiles.workspaceId} = ${workspaceId} and ${clientProfiles.id} = ${clientProfileId ?? workspaceAssets.clientProfileId})
-      OR ${workspaceAssets.metadata}->>'kind' like '%logo%')`,
+      OR ${workspaceAssets.metadata}->>'kind' like '%logo%' OR ${workspaceAssets.metadata}->>'kind' = 'instagram_avatar')`,
     page: sql`${workspaceAssets.metadata}->>'kind' = 'site_page'`,
     post: sql`${workspaceAssets.source} = 'brand_instagram'`,
     generated: sql`(${workspaceAssets.source} = 'creative_work' OR ${tagged(["generated"])})`,
@@ -107,6 +107,7 @@ function buildAssetConditions(workspaceId: string, options: WorkspaceAssetFilter
     else {
       conditions.push(sql`(${workspaceAssets.type} like 'image/%' OR ${workspaceAssets.type} = 'image') AND NOT coalesce(${isLogo}, false)`);
       if (options.kind === "post") conditions.push(sql`${kind} = 'post'`);
+      else conditions.push(sql`${kind} not in ('post', 'page')`);
     }
   }
 
@@ -313,6 +314,18 @@ export async function updateWorkspaceAsset(
     )
     .returning();
   return result[0] ?? null;
+}
+
+export async function assignWorkspaceAssetBrand(id: string, workspaceId: string, clientProfileId: string) {
+  const [asset] = await db.update(workspaceAssets)
+    .set({ clientProfileId, updatedAt: new Date() })
+    .where(and(
+      eq(workspaceAssets.id, id), eq(workspaceAssets.workspaceId, workspaceId),
+      isNull(workspaceAssets.clientProfileId),
+      sql`coalesce(${workspaceAssets.metadata}->>'provisional', 'false') <> 'true'`,
+      sql`exists (select 1 from ${clientProfiles} where ${clientProfiles.id} = ${clientProfileId} and ${clientProfiles.workspaceId} = ${workspaceId})`,
+    )).returning();
+  return asset ?? null;
 }
 
 export async function deleteWorkspaceAsset(id: string, workspaceId: string) {

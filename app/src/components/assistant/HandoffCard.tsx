@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, Circle, Globe, LoaderCircle, RotateCcw, TriangleAlert, Upload, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { HANDOFF_GROUPS, HANDOFF_STEPS, allGroupsFinished, hasFailedConfirmedInstagram, identityReady, isGroupFinished, type HandoffState, type HandoffStep } from "@/server/equipe/domain/handoff";
+import { HANDOFF_GROUPS, HANDOFF_STEPS, allGroupsFinished, hasFailedConfirmedInstagram, hasUnmanagedKeptImages, identityReady, isGroupFinished, type HandoffState, type HandoffStep } from "@/server/equipe/domain/handoff";
 import { handoffText } from "@/lib/equipe/handoff-copy";
 import { postEquipeCommand, EquipeCommandError } from "@/lib/equipe/commands";
 import { equipeKeys, useEquipeAccountState } from "@/lib/equipe/use-equipe";
@@ -76,7 +76,10 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
   const networkItems = [...new Map([...(h.captured.networks ?? []), ...(h.decisions.networks ?? [])].map(i => [i.id, i])).values()];
   const [networks, setNetworks] = useState(h.decisions.networks?.map(i => i.id) ?? (h.captured.networks ?? []).map(i => i.id));
   const [handle, setHandle] = useState("");
-  const [kept, setKept] = useState(() => h.decisions.images ? [...new Set([...h.decisions.images.kept, ...(h.captured.images ?? []).filter(i => !h.decisions.images!.removed.includes(i.id)).map(i => i.id), ...h.decisions.images.uploaded.filter(i => !h.decisions.images!.removed.includes(i.id)).map(i => i.id)])] : (h.captured.images ?? []).map(i => i.id));
+  const [kept, setKept] = useState(() => {
+    const candidates = [...(h.captured.images ?? []), ...(h.decisions.images?.uploaded ?? [])];
+    return [...new Set(candidates.filter(i => i.key && !h.decisions.images?.removed.includes(i.id)).map(i => i.id))];
+  });
   const [uploaded, setUploaded] = useState(h.decisions.images?.uploaded ?? []);
   const [back, setBack] = useState("identity");
   const [editing, setEditing] = useState<string | null>(null);
@@ -101,8 +104,8 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
     busy.current = true; setPending(true); setError(null);
     try {
       const asset = await uploadChatAttachment(file, { handoffId: h.id });
+      if (!asset.key) throw new Error("unmanaged_image");
       if (asLogo) {
-        if (!asset.key) throw new Error("unmanaged_logo");
         setLogo(asset.assetId); setUploadedLogo(asset.assetId);
       }
       else {
@@ -161,9 +164,10 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
       {!isGroupFinished(h.reading.images?.status) ? <p role="status">{t("queued")}</p> : <>
         <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-base font-semibold">{t("imageCount", { count: (h.captured.images?.length ?? 0) + uploaded.length })}<span className="ml-2 text-xs font-normal text-[var(--text-muted)]">· {t("removedCount", { count: [...(h.captured.images ?? []), ...uploaded].filter(i => !kept.includes(i.id)).length })}</span></p><label className={`${secondaryClass} flex cursor-pointer items-center gap-2 text-xs`}><Upload className="h-4 w-4" aria-hidden="true" />{t("uploadImages")}<input className="sr-only" disabled={blocked || uploaded.length >= 30} type="file" accept="image/png,image/jpeg,image/webp" onChange={e => void upload(e.target.files?.[0], false)} /></label></div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">{[...(h.captured.images ?? []), ...uploaded].map(i => {
-          const selected = kept.includes(i.id);
-          return <div key={i.id} className={`relative aspect-square overflow-hidden rounded-xl ${selected ? "" : "opacity-35"}`}><Image src={i.value} alt={i.caption ?? t("groups.images")} fill unoptimized sizes="(min-width: 640px) 120px, 160px" className="object-cover" /><span className="absolute bottom-1 left-1 rounded bg-black/65 px-1.5 py-1 font-mono text-[8px] uppercase tracking-wider text-white">{t(`origin.${i.origin}`)}</span><button type="button" role="checkbox" aria-checked={selected} aria-label={`${selected ? t("removeImage") : t("restoreImage")} ${i.caption ?? i.id}`} className="absolute right-1 top-1 rounded-full bg-black/65 p-1.5 text-white focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" disabled={blocked} onClick={() => setKept(toggle(kept, i.id))}>{selected ? <X className="h-3 w-3" aria-hidden="true" /> : <RotateCcw className="h-3 w-3" aria-hidden="true" />}</button></div>;
+          const selected = Boolean(i.key) && kept.includes(i.id);
+          return <div key={i.id} className={`relative aspect-square overflow-hidden rounded-xl ${selected ? "" : "opacity-35"}`}><Image src={i.value} alt={i.caption ?? t("groups.images")} fill unoptimized sizes="(min-width: 640px) 120px, 160px" className="object-cover" /><span className="absolute bottom-1 left-1 rounded bg-black/65 px-1.5 py-1 font-mono text-[8px] uppercase tracking-wider text-white">{t(`origin.${i.origin}`)}</span><button type="button" role="checkbox" aria-checked={selected} aria-label={`${!i.key ? t("imageUnavailable") : selected ? t("removeImage") : t("restoreImage")} ${i.caption ?? i.id}`} className="absolute right-1 top-1 rounded-full bg-black/65 p-1.5 text-white focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" disabled={blocked || !i.key} onClick={() => setKept(toggle(kept, i.id))}>{selected ? <X className="h-3 w-3" aria-hidden="true" /> : <RotateCcw className="h-3 w-3" aria-hidden="true" />}</button></div>;
         })}</div>
+        {h.captured.images?.some(i => !i.key) ? <p className="text-xs text-[var(--text-muted)]">{t("imageUnavailable")}</p> : null}
         <p className="sr-only">{t("restore")}</p>
         <div className="mt-1 flex flex-wrap justify-end gap-2"><button type="button" className={secondaryClass} disabled={blocked} onClick={() => void send("handoff_confirm_images", { kept: [], removed: [...(h.captured.images ?? []), ...uploaded].map(i => i.id), uploaded: uploaded.map(i => i.id) })}>{t("skipImages")}</button><button className={buttonClass} disabled={blocked} onClick={() => void send("handoff_confirm_images", { kept, removed: [...(h.captured.images ?? []), ...uploaded].filter(i => !kept.includes(i.id)).map(i => i.id), uploaded: uploaded.map(i => i.id) })}>{t("confirm")}</button></div>
       </>}
@@ -178,7 +182,7 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
       </div>
       <p className="text-xs text-[var(--text-muted)]">{t("summaryHint")}</p>
       {correcting ? <div className="flex flex-wrap items-end gap-2"><label className="min-w-0 flex-1 text-xs">{t("correct")}<select className={inputClass} value={back} disabled={blocked} onChange={e => setBack(e.target.value)}>{["source", "identity", "networks", "images"].map(s => <option key={s} value={s}>{t(`steps.${s}`)}</option>)}</select></label><button type="button" disabled={blocked} className={secondaryClass} onClick={() => void send("handoff_back_to", { step: back })}>{t("edit")}</button></div> : null}
-      <div className="flex flex-wrap justify-end gap-2"><button type="button" className={secondaryClass} disabled={blocked} aria-expanded={correcting} onClick={() => setCorrecting(!correcting)}>{t("correct")}</button><button className={buttonClass} disabled={blocked || !allGroupsFinished(h) || hasFailedConfirmedInstagram(h) || Boolean(h.decisions.identity?.logo && !h.decisions.identity.logo.key)} onClick={() => void send("handoff_confirm_summary")}>{t("finish")}</button></div>
+      <div className="flex flex-wrap justify-end gap-2"><button type="button" className={secondaryClass} disabled={blocked} aria-expanded={correcting} onClick={() => setCorrecting(!correcting)}>{t("correct")}</button><button className={buttonClass} disabled={blocked || !allGroupsFinished(h) || hasFailedConfirmedInstagram(h) || hasUnmanagedKeptImages(h) || Boolean(h.decisions.identity?.logo && !h.decisions.identity.logo.key)} onClick={() => void send("handoff_confirm_summary")}>{t("finish")}</button></div>
     </> : null}
     {["reading", "identity", "networks", "images"].includes(h.step) ? <details><summary className="cursor-pointer text-xs text-[var(--text-muted)]">{t("correctSource")}</summary><div className="mt-3">{sourceForm}</div></details> : null}
     {h.readsUsed >= 3 && h.step !== "done" ? <p className="text-xs text-[var(--text-muted)]">{handoffText("limit", locale)}</p> : null}

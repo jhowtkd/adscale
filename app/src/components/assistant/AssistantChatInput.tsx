@@ -10,6 +10,7 @@ import { useChatComposerAttachments } from "@/lib/assistant/use-chat-composer-at
 import { assistantIconSendClass } from "./assistant-chrome";
 
 export interface AssistantChatInputProps {
+  clientProfileId?: string | null;
   disabled: boolean;
   isStreaming: boolean;
   noThread: boolean;
@@ -19,6 +20,7 @@ export interface AssistantChatInputProps {
 }
 
 export default function AssistantChatInput({
+  clientProfileId,
   disabled,
   isStreaming,
   noThread,
@@ -49,6 +51,7 @@ export default function AssistantChatInput({
     dragHandlers,
     addFiles,
   } = useChatComposerAttachments({
+    clientProfileId,
     onError: onUploadError,
     maxAttachmentsError: t("maxAttachments"),
     invalidTypeError: t("attachmentTypeError"),

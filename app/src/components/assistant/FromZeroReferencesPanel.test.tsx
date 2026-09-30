@@ -1,11 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import FromZeroReferencesPanel from "./FromZeroReferencesPanel";
 import type { GuidedFlow } from "@/lib/hooks/use-guided-flow";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
+}));
+
+const activeClientProfileId = vi.hoisted(() => ({ current: null as string | null }));
+vi.mock("@/lib/store", () => ({
+  useAppStore: { getState: () => ({ activeClientProfileId: activeClientProfileId.current }) },
 }));
 
 vi.mock("@/lib/hooks/use-guided-flow-commands", () => ({
@@ -52,13 +57,13 @@ const guidedFlow: GuidedFlow = {
   updatedAt: new Date().toISOString(),
 };
 
-function renderPanel() {
+function renderPanel(overrides: { threadId?: string; clientProfileId?: string } = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
       <FromZeroReferencesPanel
-        threadId="thread-1"
-        clientProfileId="cp-1"
+        threadId={overrides.threadId ?? "thread-1"}
+        clientProfileId={overrides.clientProfileId ?? "cp-1"}
         guidedFlow={guidedFlow}
       />
     </QueryClientProvider>,
@@ -77,6 +82,33 @@ describe("FromZeroReferencesPanel thumbnails", () => {
       // cookie, so the src must stay raw — never /_next/image?... (401).
       expect(img).toHaveAttribute("src", url);
       expect(img.getAttribute("src")).not.toContain("/_next/image");
+    }
+  });
+});
+
+describe("FromZeroReferencesPanel upload scope (PR 610 review R1)", () => {
+  it("uploads a thread B reference to B, even while the global brand selector remains A", async () => {
+    activeClientProfileId.current = "brand-A";
+    const request = vi.fn().mockResolvedValue(Response.json({
+      asset: { id: "asset", key: "managed/image.png", url: "/image.png", type: "image/png", name: "image.png", size: 8 },
+    }));
+    vi.stubGlobal("fetch", request);
+    try {
+      const { container } = renderPanel({ threadId: "thread-B", clientProfileId: "brand-B" });
+      const file = new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], "image.png", { type: "image/png" });
+      const input = container.querySelector('input[type="file"]');
+      fireEvent.change(input!, { target: { files: [file] } });
+
+      await waitFor(() => expect(request).toHaveBeenCalled());
+
+      const form = request.mock.calls[0]![1].body as FormData;
+      // The thread's OWN brand must travel with the upload — never the
+      // unrelated global selector, which would put thread B's reference in
+      // brand A's Library instead.
+      expect(form.get("clientProfileId")).toBe("brand-B");
+    } finally {
+      vi.unstubAllGlobals();
+      activeClientProfileId.current = null;
     }
   });
 });

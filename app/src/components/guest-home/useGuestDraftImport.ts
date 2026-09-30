@@ -51,9 +51,9 @@ function toCreateInput(input: CreateTextDraftInput): CreativeDraftInput {
 
 const DEFINITE_UPLOAD_FAILURES = ['Tipo de arquivo não suportado', 'Arquivo inválido ou corrompido'];
 
-async function uploadReference(file: File): Promise<{ assetId: string }> {
+async function uploadReference(file: File, clientProfileId: string): Promise<{ assetId: string }> {
   try {
-    const uploaded = await uploadChatAttachment(file);
+    const uploaded = await uploadChatAttachment(file, { clientProfileId });
     return { assetId: uploaded.assetId };
   } catch (error) {
     // Pre-send validation failures are definite; anything else may have
@@ -121,7 +121,7 @@ export function useGuestDraftImport(attachmentsEnabled: boolean): {
       const referencePorts: ReferenceImportPorts = {
         loadReceipt: (id) => loadImportReceipt(id),
         saveReceipt: (receipt) => saveImportReceipt(receipt, receipt.revision).then(() => undefined),
-        uploadFile: uploadReference,
+        uploadFile: (file) => uploadReference(file, context.clientProfileId),
         attachSource: async ({ workItemId, assetId, expectedUpdatedAt }) => {
           const attached = await sourceActions.mutateAsync({
             workItemId, action: 'attachSource', assetId, usage: 'content', expectedUpdatedAt,

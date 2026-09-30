@@ -530,6 +530,7 @@ export function useComposerActions({
   });
 
   const { retryOutput, layerizeOutput, approveOutput, reviseOutput, retryRevisionOutput } = useComposerOutputActions({
+    clientProfileId: queries.detailQuery.data?.work.clientProfileId ?? null,
     workIdRef: workIdRef,
     revisionAttemptsRef: revisionAttemptsRef,
     retryOutputMutation: queries.retryOutputMutation,

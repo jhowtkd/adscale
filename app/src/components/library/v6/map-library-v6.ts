@@ -8,7 +8,7 @@ function assetKind(asset: WorkspaceAsset, logoAssetKey?: string | null): Library
   const tags = (asset.tags ?? []).map((tag) => tag.toLowerCase());
   const category = typeof asset.metadata?.category === "string" ? asset.metadata.category.toLowerCase() : "";
   return classifyLibraryAsset({
-    logo: Boolean(logoAssetKey && asset.key === logoAssetKey) || (typeof kind === "string" && kind.includes("logo")),
+    logo: kind === "instagram_avatar" || Boolean(logoAssetKey && asset.key === logoAssetKey) || (typeof kind === "string" && kind.includes("logo")),
     page: kind === "site_page",
     post: asset.source === "brand_instagram",
     generated: asset.source === "creative_work" || tags.includes("generated"),

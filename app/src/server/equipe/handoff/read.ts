@@ -21,7 +21,7 @@ function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | Insta
     if ((site.statusCode ?? 200) >= 400) throw new Error("site_unavailable");
     const name = site.siteName?.trim() || site.title?.trim();
     if (name) add("name", name.slice(0, 200));
-    if (site.branding?.logo) add("logo", site.branding.logo.url, { key: site.branding.logo.key });
+    if (site.branding?.logo) add("logo", site.branding.logo.url, { ...(site.branding.logo.assetId ? { id: site.branding.logo.assetId } : {}), key: site.branding.logo.key });
     for (const color of site.branding?.colors ?? []) if (/^#[0-9a-f]{6}$/i.test(color)) add("colors", color);
     for (const font of site.branding?.fonts ?? []) add("fonts", font);
     for (const link of site.links) {
@@ -32,15 +32,15 @@ function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | Insta
         else if (platform && ["http:", "https:"].includes(url.protocol)) add("networks", url.toString(), { platform });
       } catch { /* A malformed public link is not a social profile. */ }
     }
-    for (const image of site.images.slice(0, 30)) add("images", image.url, { key: image.key, width: image.width, height: image.height });
+    for (const image of site.images.slice(0, 30)) add("images", image.url, { ...(image.assetId ? { id: image.assetId } : {}), key: image.key, width: image.width, height: image.height });
   } else {
     const instagram = data as InstagramReadResult;
     if (!instagram.exists || instagram.isPrivate) throw new Error(instagram.exists ? "instagram_private" : "instagram_not_found");
     if (instagram.name?.trim()) add("name", instagram.name.trim().slice(0, 200));
-    if (instagram.avatarUrl) add("logo", instagram.avatarUrl, { key: instagram.avatarKey });
+    if (instagram.avatarUrl) add("logo", instagram.avatarUrl, { ...(instagram.avatarAssetId ? { id: instagram.avatarAssetId } : {}), key: instagram.avatarKey });
     for (const color of instagram.colors ?? []) if (/^#[0-9a-f]{6}$/i.test(color)) add("colors", color);
     add("networks", handle, { platform: "instagram" });
-    for (const post of instagram.posts.slice(0, 12)) add("images", post.imageUrl, { key: post.key, caption: post.caption, width: post.width, height: post.height });
+    for (const post of instagram.posts.slice(0, 12)) add("images", post.imageUrl, { ...(post.assetId ? { id: post.assetId } : {}), key: post.key, caption: post.caption, width: post.width, height: post.height });
   }
   return captured;
 }
@@ -68,6 +68,11 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
       return true;
     }));
     if (!claimed) return { ignored: true };
+    const context = await step.run(`context-${p.taskIntentId}`, async () => {
+      const [handoff] = await deps.uow.repos.handoffs.list(scope);
+      if (!handoff) throw new Error("handoff_not_found");
+      return { ...scope, handoffId: handoff.id, readingId: p.readingId, taskIntentId: p.taskIntentId };
+    });
     for (const group of p.groups) {
       await step.run(`start-${p.taskIntentId}-${group}`, async () => {
         const result = await executeCommand(deps, { ...scope, actor: { kind: "system", job: HANDOFF_READ_EVENT } }, {
@@ -79,7 +84,7 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
     }
     const result = await step.run(`reader-${p.taskIntentId}`, async () => {
       try {
-        const data = p.source.kind === "site" ? await readers.site.read(p.source.normalized) : await readers.instagram.profile(p.source.normalized);
+        const data = p.source.kind === "site" ? await readers.site.read(p.source.normalized, context) : await readers.instagram.profile(p.source.normalized, context);
         const text = p.source.kind === "site" ? (data as SiteReadResult).markdown : (data as InstagramReadResult).bio;
         return { captured: capturedGroups(p.source.kind, data, p.source.normalized, p.taskIntentId), content: text.trim() ? [{ id: `${p.taskIntentId}:public-content`, value: text.slice(0, 50000), origin: p.source.kind }] : [], error: null };
       } catch (e) {

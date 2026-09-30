@@ -4110,6 +4110,7 @@
       "removedCount": "{count} removed",
       "removeImage": "Remove image",
       "restoreImage": "Restore image",
+      "imageUnavailable": "Image unavailable — upload the file to use it.",
       "summaryHint": "This is saved for your Library. You can change it later.",
       "progress": "Step {step} of 6",
       "loading": "Reading your brand…",

@@ -17,6 +17,7 @@ import { mapWorkspaceAssetToV6 } from "@/components/library/v6/map-library-v6";
 import { useLibraryFavorites, useSetPieceFavorite, type LibraryFavoriteItem } from "@/lib/hooks/use-piece-favorite";
 import type { LibraryV6Filter } from "@/components/library/v6/library-v6-types";
 import { pickSurfaceGradient } from "@/lib/v6-surface-gradients";
+import { useBrandKit } from "@/lib/hooks/use-brand-kit";
 import { useActiveClientProfile } from "@/lib/hooks/use-active-client-profile";
 import { useEquipeAccounts, useEquipeAccountState } from "@/lib/equipe/use-equipe";
 
@@ -104,6 +105,8 @@ export default function LibraryPage() {
     kind: "identity",
     limit: 1,
   });
+  const brandKitQuery = useBrandKit(activeClientProfileId ?? undefined, { enabled: Boolean(activeClientProfileId) && Boolean(activeProfile?.logoAssetKey) && ["all", "identity"].includes(filter) });
+  const legacyLogoUrl = brandKitQuery.data?.id === activeClientProfileId && brandKitQuery.data.logoAssetKey === activeProfile?.logoAssetKey ? brandKitQuery.data.logoUrl : undefined;
   const logoAsset = identityAssetsQuery.data?.assets.find(asset => activeProfile?.logoAssetKey ? asset.key === activeProfile.logoAssetKey : true);
   const favoritesQuery = useLibraryFavorites(filter === "favorite" && Boolean(activeClientProfileId), activeClientProfileId ?? undefined);
   const setFavorite = useSetPieceFavorite();
@@ -123,7 +126,7 @@ export default function LibraryPage() {
     );
     if (filter === "documents") return [];
     if (filter === "identity") return assets.filter(asset => asset.kind === "logo");
-    if (filter === "images") return assets.filter(asset => !["logo", "page"].includes(asset.kind));
+    if (filter === "images") return assets.filter(asset => !["logo", "post", "page"].includes(asset.kind));
     return filter === "all" ? assets : assets.filter((asset) => asset.kind === filter);
   }, [assets, favoriteAssets, filter, debouncedSearch]);
   const totalCount = filter === "favorite"
@@ -285,7 +288,7 @@ export default function LibraryPage() {
 
       <LibraryV6View
         profile={activeProfile}
-        logoImageUrl={logoAsset?.type.startsWith("image") ? logoAsset.url : undefined}
+        logoImageUrl={logoAsset?.type.startsWith("image") ? logoAsset.url : legacyLogoUrl ?? undefined}
         brandLabels={t.raw("brand") as Record<string, string>}
         documents={debouncedSearch ? documents.filter(document => JSON.stringify(document.content).toLocaleLowerCase().includes(debouncedSearch.toLocaleLowerCase())) : documents}
         originFilter={state.origin}

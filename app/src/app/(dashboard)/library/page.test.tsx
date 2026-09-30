@@ -10,6 +10,7 @@ const useSetPieceFavoriteMock = vi.fn();
 const useActiveClientProfileMock = vi.fn();
 const useEquipeAccountsMock = vi.fn();
 const useEquipeAccountStateMock = vi.fn();
+const useBrandKitMock = vi.fn();
 const invalidateQueriesMock = vi.fn();
 const ACTIVE_PROFILE_ID = "profile-1";
 const ACTIVE_ACCOUNT_ID = "account-1";
@@ -49,6 +50,10 @@ vi.mock("@/lib/hooks/use-active-client-profile", () => ({
 vi.mock("@/lib/equipe/use-equipe", () => ({
   useEquipeAccounts: (...args: unknown[]) => useEquipeAccountsMock(...args),
   useEquipeAccountState: (...args: unknown[]) => useEquipeAccountStateMock(...args),
+}));
+
+vi.mock("@/lib/hooks/use-brand-kit", () => ({
+  useBrandKit: (...args: unknown[]) => useBrandKitMock(...args),
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -139,6 +144,7 @@ describe("LibraryPage favorites filter", () => {
       data: { documents: [], handoff: undefined },
       isLoading: false,
     });
+    useBrandKitMock.mockReturnValue({ data: undefined, isLoading: false });
   });
 
   it("loads favorites only under the favorites filter with download and unfavorite actions", () => {
@@ -223,6 +229,7 @@ describe("LibraryPage (ticket 07): scoped to the active brand", () => {
       isLoading: false,
     });
     useEquipeAccountStateMock.mockReturnValue({ data: { documents: [], handoff: undefined }, isLoading: false });
+    useBrandKitMock.mockReturnValue({ data: undefined, isLoading: false });
   });
 
   it("queries the workspace assets and documents scoped to the active brand", () => {
@@ -285,4 +292,23 @@ describe("LibraryPage (ticket 07): scoped to the active brand", () => {
     expect(capturedViewProps?.assets.map(asset => asset.id)).toEqual(["legacy-image"]);
     expect(capturedViewProps?.shownCount).toBe(2);
   });
+});
+
+// Independent review (PR 610, R4): a logo the old brand-kit producer wrote to
+// client_profiles.logoAssetKey but never materialized as a workspace_asset
+// row must still render, using the profile's authoritative key directly.
+it("review: displays an existing profile logo when the old logo producer has no workspace asset row", () => {
+  useActiveClientProfileMock.mockReturnValue({ activeClientProfileId: ACTIVE_PROFILE_ID, activeProfile: { id: ACTIVE_PROFILE_ID, name: "Acme", logoAssetKey: "workspaces/ws-1/brand-kit/old-logo.png" }, isLoading: false });
+  useWorkspaceAssetsMock.mockReturnValue({ data: { assets: [], total: 0 }, isLoading: false, isFetching: false, isError: false });
+  useLibraryFavoritesMock.mockReturnValue({ data: [], isLoading: false, isError: false });
+  useDeleteWorkspaceAssetMock.mockReturnValue({ mutateAsync: vi.fn() });
+  useSetPieceFavoriteMock.mockReturnValue({ mutate: vi.fn(), isPending: false });
+  useEquipeAccountsMock.mockReturnValue({ data: { accounts: [] }, isLoading: false });
+  useEquipeAccountStateMock.mockReturnValue({ data: { documents: [] }, isLoading: false });
+  useBrandKitMock.mockReturnValue({
+    data: { id: ACTIVE_PROFILE_ID, logoAssetKey: "workspaces/ws-1/brand-kit/old-logo.png", logoUrl: "https://cdn.example.com/old-logo.png" },
+    isLoading: false,
+  });
+  render(<LibraryPage />);
+  expect(capturedViewProps?.logoImageUrl).toBeTruthy();
 });

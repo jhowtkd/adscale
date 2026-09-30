@@ -151,6 +151,7 @@ export async function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, co
           const kept = [...p.kept, ...uploaded.filter(i => !p.kept.includes(i.id) && !p.removed.includes(i.id)).map(i => i.id)];
           const ids = new Set([...(s.captured.images ?? []), ...uploaded].map(i => i.id));
           if (new Set(p.kept).size !== p.kept.length || new Set(p.removed).size !== p.removed.length || [...kept, ...p.removed].some(id => !ids.has(id)) || kept.some(id => p.removed.includes(id)) || new Set([...kept, ...p.removed]).size !== ids.size) return err("invalid_command", "Decide each image once.");
+          if ([...(s.captured.images ?? []), ...uploaded].some(item => kept.includes(item.id) && !item.key)) return err("invalid_command", "Upload a managed copy before confirming this image.");
           s.decisions = { ...s.decisions, images: { kept, removed: p.removed, uploaded } };
           s.decisions.needsConfirmation = s.decisions.needsConfirmation?.filter(d => d !== "images");
           const next = transitionHandoff(s, "images"); if (!next.ok) return next; s = next.value; break;

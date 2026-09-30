@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   allGroupsFinished,
+  hasUnmanagedKeptImages,
   identityReady,
   isGroupFinished,
   transitionHandoff,
@@ -368,6 +369,55 @@ describe("transitionHandoff: summary -> done (\"É isso\" blocked with a pending
     const ready = readyState();
     ready.decisions = { ...fullDecisions, revising: true, needsConfirmation: [] };
     expect(transitionHandoff(ready, "summary").ok).toBe(true);
+  });
+
+  it("blocks \"É isso\" when a kept captured image has no managed key (old persisted summary, keyless kept item)", () => {
+    const keptImage = item("img-1");
+    const blocked = readyState();
+    blocked.captured = { images: [keptImage] };
+    blocked.decisions = { ...fullDecisions, images: { kept: [keptImage.id], removed: [], uploaded: [] } };
+    const result = transitionHandoff(blocked, "summary");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe("invalid_transition");
+  });
+
+  it("allows \"É isso\" once the unmanaged kept image is removed instead", () => {
+    const keptImage = item("img-1");
+    const ready = readyState();
+    ready.captured = { images: [keptImage] };
+    ready.decisions = { ...fullDecisions, images: { kept: [], removed: [keptImage.id], uploaded: [] } };
+    expect(transitionHandoff(ready, "summary").ok).toBe(true);
+  });
+});
+
+describe("hasUnmanagedKeptImages", () => {
+  it("is false when there are no images at all", () => {
+    expect(hasUnmanagedKeptImages(state({ decisions: fullDecisions }))).toBe(false);
+  });
+
+  it("is false when every kept captured image has a managed key", () => {
+    const managed: HandoffItem = { ...item("img-1"), key: "workspaces/ws/img-1.png" };
+    const s = state({ captured: { images: [managed] }, decisions: { ...fullDecisions, images: { kept: [managed.id], removed: [], uploaded: [] } } });
+    expect(hasUnmanagedKeptImages(s)).toBe(false);
+  });
+
+  it("is true when a kept captured image has no key", () => {
+    const unmanaged = item("img-1");
+    const s = state({ captured: { images: [unmanaged] }, decisions: { ...fullDecisions, images: { kept: [unmanaged.id], removed: [], uploaded: [] } } });
+    expect(hasUnmanagedKeptImages(s)).toBe(true);
+  });
+
+  it("is true when a kept UPLOADED image has no key", () => {
+    const unmanagedUpload = item("upload-1");
+    const s = state({ decisions: { ...fullDecisions, images: { kept: [unmanagedUpload.id], removed: [], uploaded: [unmanagedUpload] } } });
+    expect(hasUnmanagedKeptImages(s)).toBe(true);
+  });
+
+  it("is false for a keyless image that was REMOVED, not kept", () => {
+    const unmanaged = item("img-1");
+    const s = state({ captured: { images: [unmanaged] }, decisions: { ...fullDecisions, images: { kept: [], removed: [unmanaged.id], uploaded: [] } } });
+    expect(hasUnmanagedKeptImages(s)).toBe(false);
   });
 });
 
