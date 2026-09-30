@@ -339,4 +339,54 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     const [handoff] = await f.second.deps.uow.repos.handoffs.list(scope);
     expect(handoff!.step).toBe("done");
   });
+
+  it("claimHandoffProviderAttempt: two concurrent callers for the SAME taskIntentId — exactly one true, one false, one durable event", async () => {
+    const f = await setup();
+    const row = await withSource(f);
+    const { claimHandoffProviderAttempt } = await import("../handoff/read");
+    const context = { workspaceId: f.workspaceId, accountId: f.accountId, readingId: row.readingId!, taskIntentId: row.reading.name!.taskIntentId };
+    const [first, second] = await contend(
+      f,
+      (deps) => claimHandoffProviderAttempt(deps, context, "site"),
+      (deps) => claimHandoffProviderAttempt(deps, context, "site"),
+    );
+    const results = [first, second] as boolean[];
+    expect(results.filter(Boolean)).toHaveLength(1);
+    expect(results.filter((r) => !r)).toHaveLength(1);
+    const events = await f.t.deps.uow.repos.events.list(f.scope, { eventType: "handoff.site_dispatched" });
+    expect(events).toHaveLength(1);
+    expect(events[0]!.payload).toMatchObject({ taskIntentId: context.taskIntentId, readingId: context.readingId });
+  });
+
+  it("readsUsed refund for an unbilled failure: two DIFFERENT groups under the SAME taskIntentId, recorded concurrently, refund exactly once", async () => {
+    const f = await setup();
+    const row = await withSource(f);
+    expect(row.readsUsed).toBe(1);
+    const nameGroup = row.reading.name!;
+    const logoGroup = row.reading.logo!;
+    const recordName = { type: "handoff_record_group" as const, payload: {
+      readingId: row.readingId!, runId: nameGroup.runId, taskIntentId: nameGroup.taskIntentId, group: "name" as const,
+      result: { status: "failed" as const, items: [], error: "site_dns_or_address" },
+    } };
+    const recordLogo = { type: "handoff_record_group" as const, payload: {
+      readingId: row.readingId!, runId: logoGroup.runId, taskIntentId: logoGroup.taskIntentId, group: "logo" as const,
+      result: { status: "failed" as const, items: [], error: "site_dns_or_address" },
+    } };
+    const [first, second] = await contend(
+      f,
+      (deps) => f.executeCommand(deps, { actor: READER, workspaceId: f.workspaceId, accountId: f.accountId }, recordName),
+      (deps) => f.executeCommand(deps, { actor: READER, workspaceId: f.workspaceId, accountId: f.accountId }, recordLogo),
+    );
+    expect((first as { ok: boolean }).ok).toBe(true);
+    expect((second as { ok: boolean }).ok).toBe(true);
+
+    const [after] = await f.t.deps.uow.repos.handoffs.list(f.scope);
+    // Both groups shared ONE taskIntentId (one reading dispatch): the row-lock
+    // serializes the two concurrent commands, and the idempotency check on
+    // handoff.read_not_billed must still see exactly one refund, not two.
+    expect(after!.readsUsed).toBe(0);
+    const events = await f.t.deps.uow.repos.events.list(f.scope, { eventType: "handoff.read_not_billed" });
+    expect(events).toHaveLength(1);
+    expect(events[0]!.payload).toMatchObject({ taskIntentId: nameGroup.taskIntentId });
+  });
 });

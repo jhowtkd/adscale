@@ -1,8 +1,11 @@
-export type ReaderImage = { url: string; key?: string; width?: number; height?: number };
+import { FirecrawlSiteReader } from "./firecrawl";
+export type ReaderImage = { url: string; key?: string; assetId?: string; width?: number; height?: number };
 export type SiteReadResult = {
   title: string | null; siteName: string | null; markdown: string; links: string[];
   images: ReaderImage[]; screenshotUrl: string | null; statusCode?: number;
   branding?: { logo?: ReaderImage; colors?: string[]; fonts?: string[] };
+  logoCandidates?: string[];
+  groupErrors?: Partial<Record<"logo" | "colors" | "fonts" | "images", string>>;
 };
 export type InstagramReadResult = {
   exists: boolean; isPrivate: boolean; name?: string; avatarUrl: string | null; bio: string;
@@ -31,10 +34,10 @@ export class FakeInstagramReader implements InstagramReader {
   }) {}
   async profile(handle: string) { this.calls.push(handle); if (this.result instanceof Error) throw this.result; return structuredClone(this.result); }
 }
-/** Explicit fake mode only; missing/real providers fail until tickets 05/06 install them. */
-export function createHandoffReaders(): HandoffReaders {
+/** Explicit provider selection; missing configuration fails inside the reading job. */
+export function createHandoffReaders(options: { beforeSiteRequest?: () => Promise<boolean> } = {}): HandoffReaders {
   return {
-    site: process.env.SITE_READER_PROVIDER === "fake" ? new FakeSiteReader() : { async read() { throw new Error("reader_unavailable"); } },
+    site: process.env.SITE_READER_PROVIDER === "fake" ? new FakeSiteReader() : process.env.SITE_READER_PROVIDER === "firecrawl" ? new FirecrawlSiteReader({ beforeRequest: options.beforeSiteRequest }) : { async read() { throw new Error("reader_unavailable"); } },
     instagram: process.env.INSTAGRAM_READER_PROVIDER === "fake" ? new FakeInstagramReader() : { async profile() { throw new Error("reader_unavailable"); } },
   };
 }

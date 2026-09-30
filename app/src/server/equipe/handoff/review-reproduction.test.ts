@@ -160,3 +160,96 @@ describe("review PR608: uncovered concurrency and recovery paths", () => {
     expect((await f.row()).decisions.images?.uploaded).toHaveLength(30);
   });
 });
+
+async function instagramFixture() {
+  const t = makeTestDeps();
+  const workspaceId = uuid(); const userId = uuid();
+  t.store.workspaceMembers.rows.set(uuid(), { id: uuid(), workspaceId, userId, name: "Ana", email: "ana@example.com", emailVerified: true });
+  const opened = await executeCommand(t.deps, { workspaceId, actor: { kind: "system", job: "free-open" } }, { type: "open_free_account", payload: { userId } });
+  if (!opened.ok) throw new Error(opened.error.code);
+  const scope = { workspaceId, accountId: opened.value.accountId };
+  const [person] = await t.deps.uow.repos.people.list(scope);
+  const actor = { kind: "client_person", role: "approver", personId: person!.id } as const;
+  const row = async () => (await t.deps.uow.repos.handoffs.list(scope))[0]!;
+  const command = async (type: string, payload: Record<string, unknown> = {}) => {
+    const h = await row();
+    const out = await executeCommand(t.deps, { ...scope, actor }, { type, payload: { expectedStep: h.step, expectedVersion: h.version, ...payload } });
+    if (!out.ok) throw new Error(out.error.code);
+    return out;
+  };
+  await command("handoff_set_source", { kind: "instagram", value: "marca_exemplo" });
+  return { t, scope, row };
+}
+
+async function recordFailed(f: Awaited<ReturnType<typeof fixture>>, group: HandoffGroup, error: string, overrides: Partial<{ readingId: string; runId: string; taskIntentId: string }> = {}) {
+  const h = await f.row(); const g = h.reading[group]!;
+  return executeCommand(f.t.deps, { ...f.scope, actor: { kind: "system", job: HANDOFF_READ_EVENT } }, { type: "handoff_record_group", payload: {
+    group, readingId: overrides.readingId ?? h.readingId, runId: overrides.runId ?? g.runId, taskIntentId: overrides.taskIntentId ?? g.taskIntentId,
+    result: { status: "failed", items: [], error },
+  } });
+}
+
+describe("readsUsed refund on an unbilled site failure (handoff.read_not_billed)", () => {
+  it("refunds readsUsed once for an unbilled failure, and never again for a second group under the same taskIntentId", async () => {
+    const f = await fixture();
+    expect((await f.row()).readsUsed).toBe(1);
+    const first = await recordFailed(f, "name", "site_dns_or_address");
+    expect(first.ok).toBe(true);
+    expect((await f.row()).readsUsed).toBe(0);
+    expect(await f.t.deps.uow.repos.events.list(f.scope, { eventType: "handoff.read_not_billed" })).toHaveLength(1);
+    // "logo" shares the SAME taskIntentId (one reading dispatch, one intent) — must not refund a second time.
+    const second = await recordFailed(f, "logo", "site_dns_or_address");
+    expect(second.ok).toBe(true);
+    expect((await f.row()).readsUsed).toBe(0);
+    expect(await f.t.deps.uow.repos.events.list(f.scope, { eventType: "handoff.read_not_billed" })).toHaveLength(1);
+  });
+
+  it("does not refund a billed/charged failure (e.g. site_unavailable)", async () => {
+    const f = await fixture();
+    await recordFailed(f, "name", "site_unavailable");
+    expect((await f.row()).readsUsed).toBe(1);
+    expect(await f.t.deps.uow.repos.events.list(f.scope, { eventType: "handoff.read_not_billed" })).toEqual([]);
+  });
+
+  it("never refunds an Instagram source failure, even with a free-looking error code (the refund is site-only)", async () => {
+    const f = await instagramFixture();
+    const h = await f.row(); const g = h.reading.name!;
+    const out = await executeCommand(f.t.deps, { ...f.scope, actor: { kind: "system", job: HANDOFF_READ_EVENT } }, { type: "handoff_record_group", payload: {
+      group: "name", readingId: h.readingId, runId: g.runId, taskIntentId: g.taskIntentId,
+      result: { status: "failed", items: [], error: "reader_unavailable" },
+    } });
+    expect(out.ok).toBe(true);
+    expect((await f.row()).readsUsed).toBe(1);
+    expect(await f.t.deps.uow.repos.events.list(f.scope, { eventType: "handoff.read_not_billed" })).toEqual([]);
+  });
+
+  it("an unbilled failure for an OBSOLETE reading still refunds readsUsed, even though the group update itself is ignored", async () => {
+    const f = await fixture();
+    const stale = await f.row();
+    const staleGroup = stale.reading.colors!;
+    const staleReadingId = stale.readingId; const staleRunId = staleGroup.runId; const staleTaskIntentId = staleGroup.taskIntentId;
+
+    // A billed failure on "name" makes the retry legitimate (some group failed).
+    await recordFailed(f, "name", "site_unavailable");
+    await f.command("handoff_retry_reading");
+    const fresh = await f.row();
+    expect(fresh.readsUsed).toBe(2);
+    expect(fresh.readingId).not.toBe(staleReadingId);
+    expect(fresh.reading.colors!.taskIntentId).not.toBe(staleTaskIntentId);
+
+    // A late, unbilled result for the OLD reading's "colors" group arrives after the retry.
+    const late = await executeCommand(f.t.deps, { ...f.scope, actor: { kind: "system", job: HANDOFF_READ_EVENT } }, { type: "handoff_record_group", payload: {
+      group: "colors", readingId: staleReadingId, runId: staleRunId, taskIntentId: staleTaskIntentId,
+      result: { status: "failed", items: [], error: "site_dns_or_address" },
+    } });
+    expect(late.ok && late.value.data).toEqual({ ignored: true });
+
+    const after = await f.row();
+    // The stale reading's proven-free failure still released its admission...
+    expect(after.readsUsed).toBe(1);
+    const events = await f.t.deps.uow.repos.events.list(f.scope, { eventType: "handoff.read_not_billed" });
+    expect(events).toEqual([expect.objectContaining({ payload: expect.objectContaining({ taskIntentId: staleTaskIntentId, reason: "site_dns_or_address" }) })]);
+    // ...but the CURRENT reading's "colors" group itself was not touched by the stale delivery.
+    expect(after.reading.colors).toEqual(fresh.reading.colors);
+  });
+});

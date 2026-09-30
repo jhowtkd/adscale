@@ -4179,7 +4179,7 @@
       "restore": "Desmarque para remover. Você pode restaurar a imagem até confirmar o resumo.",
       "queued": "Na fila — a leitura continua em segundo plano.",
       "provisional": "Provisório — ainda não foi lido",
-      "failed": "Não consegui ler essa fonte. Confira o site ou o @ público e retome aqui. Sua conta continua preservada.",
+      "failed": "A leitura não terminou. Confira o site ou o @ público. Tentar de novo usa 1 das suas leituras. Sua conta continua preservada.",
       "retry": "Tentar de novo",
       "stale": "O passo mudou. Recarreguei o card; confira antes de confirmar.",
       "error": "Não consegui confirmar. Confira os campos e tente de novo.",

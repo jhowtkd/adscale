@@ -58,6 +58,7 @@ export type AnthropicSdkLike = {
 export type AnthropicEquipeModelClientDeps = {
   sdk?: AnthropicSdkLike;
   apiKey?: string;
+  timeoutMs?: number;
 };
 
 /**
@@ -69,8 +70,8 @@ export const ANTHROPIC_MAX_RETRIES = 3;
 /** Fallback when the caller sends no limit; every agent passes its own. */
 export const ANTHROPIC_DEFAULT_MAX_TOKENS = 16000;
 
-export function createAnthropicSdk(apiKey: string): Anthropic {
-  return new Anthropic({ apiKey, maxRetries: ANTHROPIC_MAX_RETRIES });
+export function createAnthropicSdk(apiKey: string, timeoutMs?: number): Anthropic {
+  return new Anthropic({ apiKey, maxRetries: ANTHROPIC_MAX_RETRIES, ...(timeoutMs !== undefined ? { timeout: timeoutMs } : {}) });
 }
 
 function toSystem(messages: ModelMessage[]): string | undefined {
@@ -237,10 +238,12 @@ function toAnthropicModelResponse(response: AnthropicMessageResponse): ModelCall
 export class AnthropicEquipeModelClient implements EquipeModelClient {
   private sdk: AnthropicSdkLike | null;
   private readonly apiKey: string | undefined;
+  private readonly timeoutMs: number | undefined;
 
   constructor(deps?: AnthropicEquipeModelClientDeps) {
     this.sdk = deps?.sdk ?? null;
     this.apiKey = deps?.apiKey;
+    this.timeoutMs = deps?.timeoutMs;
   }
 
   private getSdk(): AnthropicSdkLike {
@@ -249,7 +252,7 @@ export class AnthropicEquipeModelClient implements EquipeModelClient {
       if (!apiKey) {
         throw new Error("anthropic_api_key_missing");
       }
-      this.sdk = createAnthropicSdk(apiKey);
+      this.sdk = createAnthropicSdk(apiKey, this.timeoutMs);
     }
     return this.sdk;
   }

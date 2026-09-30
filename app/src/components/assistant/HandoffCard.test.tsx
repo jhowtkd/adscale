@@ -169,6 +169,47 @@ describe("HandoffCard: all six interactive steps render with synthetic data", ()
   });
 });
 
+describe("HandoffCard: own-asset image URLs and the exhausted-reading-limit alert (regression)", () => {
+  it("serves a captured item with a key + UUID id through our own asset route, and falls back to the raw captured URL otherwise", () => {
+    const uuidLogoId = "11111111-1111-1111-1111-111111111111";
+    renderCard(baseHandoff({
+      step: "summary",
+      source: { kind: "site", value: "https://acme.com", normalized: "https://acme.com/" },
+      reading: {
+        name: { runId: "r", taskIntentId: "t", status: "found" }, logo: { runId: "r", taskIntentId: "t", status: "found" },
+        colors: { runId: "r", taskIntentId: "t", status: "found" }, fonts: { runId: "r", taskIntentId: "t", status: "found" },
+        networks: { runId: "r", taskIntentId: "t", status: "found" }, images: { runId: "r", taskIntentId: "t", status: "found" },
+      },
+      decisions: {
+        identity: {
+          name: { id: "n1", value: "Acme", origin: "site" },
+          // Own copy in R2: UUID asset id AND a key — must go through /api/workspace/assets/{id}/file, never the original site URL.
+          logo: { id: uuidLogoId, value: "https://original-site.example/logo.png", origin: "site", key: "workspaces/w/handoff/h/r/abc-vision.jpg" },
+          colors: [], fonts: [], paletteChoice: "site",
+        },
+        networks: [], images: { kept: ["img-external"], removed: [], uploaded: [] },
+      },
+      // Still points at the supplier's own URL (no key yet): not one of our assets, so it must render as-is.
+      captured: { images: [{ id: "img-external", value: "https://original-site.example/photo.png", origin: "site" }] },
+    }));
+    const logoImg = screen.getByAltText("Logo") as HTMLImageElement;
+    expect(logoImg.src).toContain(`/api/workspace/assets/${uuidLogoId}/file`);
+    expect(logoImg.src).not.toContain("original-site.example");
+    const galleryImg = screen.getByAltText("Imagens") as HTMLImageElement;
+    expect(galleryImg.src).toContain("https://original-site.example/photo.png");
+  });
+
+  it("shows the exhausted-limit copy instead of the generic failed alert once readsUsed reaches 3, and disables retry", () => {
+    renderCard(baseHandoff({
+      step: "reading", readsUsed: 3,
+      source: { kind: "site", value: "https://acme.com", normalized: "https://acme.com/" },
+      reading: { name: { runId: "r", taskIntentId: "t", status: "failed", error: "site_unavailable" } },
+    }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Você usou as 3 leituras. Sua conta e o que já foi lido continuam disponíveis.");
+    expect(screen.getByRole("button", { name: "Tentar de novo" })).toBeDisabled();
+  });
+});
+
 describe("HandoffCard: correcting the source stays collapsed by default (identity/networks/images)", () => {
   it("reveals the source form only after opening the disclosure", () => {
     renderCard(baseHandoff({

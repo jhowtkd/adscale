@@ -7,8 +7,9 @@ import { executeCommand } from "../module/commands";
 import { makeTestDeps, uuid, type TestDeps } from "../module/testing/deps";
 import {
   DIAGNOSTIC_RECORDED_EVENT, diagnosticReserveUsdCents, freeBudgetUsdCents, freeStrategistMaxTokens,
-  hasRecordedDiagnostic, textInputTokenBound, withTextInputBound,
+  hasRecordedDiagnostic, modelInputTokenBound, normalizedImagePart, textInputTokenBound, withTextInputBound,
 } from "./free-budget";
+import { createBudgetedModelClient } from "./budgeted-client";
 import { MemoryLedgerStore, maximumCallCostUsdCents } from "./ledger";
 import OpenAI from "openai";
 import { MetaEquipeModelClient, OpenAIEquipeModelClient, type EquipeModelClient, type ModelCallRequest, type ModelCallResponse } from "./model-client";
@@ -125,6 +126,60 @@ describe("textInputTokenBound", () => {
     // opus: max(input .4, cacheRead .02, cacheWrite .5) = .5/1k in; 2.0/1k out
     expect(maximumCallCostUsdCents(STRATEGIST_MODEL, 1000, 1000)).toBe(3);
     expect(maximumCallCostUsdCents(STRATEGIST_MODEL, 1, 1)).toBe(1);
+  });
+});
+
+describe("normalizedImagePart / modelInputTokenBound (the handoff site-vision image admission)", () => {
+  const withImages = (...images: ReturnType<typeof normalizedImagePart>[]): ModelCallRequest => ({
+    model: STRATEGIST_MODEL,
+    messages: [{ role: "user", content: [...images, { type: "text", text: "legenda" }] }],
+  });
+
+  it("normalizedImagePart refuses a forged/oversized size or a non-https URL", () => {
+    expect(() => normalizedImagePart("https://x/y.jpg", 1024, 1024)).not.toThrow();
+    for (const [url, width, height] of [
+      ["https://x/y.jpg", 1025, 1024],
+      ["https://x/y.jpg", 1024, 1025],
+      ["https://x/y.jpg", 0, 1024],
+      ["https://x/y.jpg", -1, 1024],
+      ["https://x/y.jpg", 1.5, 1024],
+      ["http://x/y.jpg", 1024, 1024], // not https
+    ] as const) {
+      expect(() => normalizedImagePart(url, width, height)).toThrow("free_image_unbounded");
+    }
+  });
+
+  function asTextEquivalent(request: ModelCallRequest): ModelCallRequest {
+    // Mirrors what modelInputTokenBound does internally for a trusted image:
+    // it folds each part's URL in as text before computing the text bound.
+    return { ...request, messages: request.messages.map(m => m.role !== "user" || typeof m.content === "string" ? m
+      : { ...m, content: m.content.map(p => p.type === "image_url" ? { type: "text" as const, text: p.image_url.url } : p) }) };
+  }
+
+  it("bounds a request with up to 2 TRUSTED (normalizedImagePart) images, at +4096 tokens each on top of the text bound", () => {
+    const one = withImages(normalizedImagePart("https://x/a.jpg", 800, 600));
+    expect(modelInputTokenBound(one)).toBe(textInputTokenBound(asTextEquivalent(one))! + 4096);
+
+    const two = withImages(normalizedImagePart("https://x/a.jpg", 800, 600), normalizedImagePart("https://x/b.jpg", 300, 300));
+    expect(modelInputTokenBound(two)).toBe(textInputTokenBound(asTextEquivalent(two))! + 2 * 4096);
+  });
+
+  it("returns null for MORE than 2 trusted images, even though each one is individually valid", () => {
+    const three = withImages(
+      normalizedImagePart("https://x/a.jpg", 100, 100),
+      normalizedImagePart("https://x/b.jpg", 100, 100),
+      normalizedImagePart("https://x/c.jpg", 100, 100),
+    );
+    expect(modelInputTokenBound(three)).toBeNull();
+  });
+
+  it("returns null for a FORGED image_url part — same shape as normalizedImagePart's output, but never run through it", () => {
+    const forged = { type: "image_url" as const, image_url: { url: "https://x/a.jpg" } };
+    const request: ModelCallRequest = { model: STRATEGIST_MODEL, messages: [{ role: "user", content: [forged, { type: "text", text: "legenda" }] }] };
+    expect(modelInputTokenBound(request)).toBeNull();
+    // Mixing one trusted and one forged image is still untrusted overall.
+    const mixed: ModelCallRequest = { model: STRATEGIST_MODEL, messages: [{ role: "user", content: [normalizedImagePart("https://x/a.jpg", 100, 100), forged] }] };
+    expect(modelInputTokenBound(mixed)).toBeNull();
   });
 });
 
@@ -286,6 +341,127 @@ describe("free account runner admission", () => {
     expect(result.ok).toBe(true);
     expect(client.requests[0]!.noRetries).toBeUndefined();
     expect(ledger.entries[0]!.reservedCostUsdCents).toBeUndefined();
+  });
+});
+
+// createBudgetedModelClient is the admission the runner delegates to AND the
+// seam the handoff site-vision call reuses (ticket 05) — same reserve/settle
+// contract, exercised directly instead of through a full agent task.
+describe("createBudgetedModelClient (shared admission)", () => {
+  // The bound must cover the COMPLETE request the client will receive
+  // (including maxTokens, folded into the payload by modelInputTokenBound),
+  // so it is always derived from the fully-formed request, never a partial one.
+  const boundedRequest = (maxTokens: number): ModelCallRequest => {
+    const request: ModelCallRequest = { model: STRATEGIST_MODEL, messages: [{ role: "user", content: "descreva a marca" }], maxTokens };
+    return { ...request, inputTokenBound: modelInputTokenBound(request)! };
+  };
+
+  it("reserves the maximum before the call, then settles to actual usage on success", async () => {
+    const a = await freeAccount();
+    const ledger = new MemoryLedgerStore();
+    let seenDuringCall: unknown[] = [];
+    const client: EquipeModelClient = {
+      async chat() {
+        seenDuringCall = ledger.entries.map((e) => ({ ...e }));
+        return { content: "ok", toolCalls: [], usage: { inputTokens: 20, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0 }, stopReason: "stop" };
+      },
+    };
+    const budgeted = createBudgetedModelClient({
+      scope: a.scope, repos: a.t.deps.uow.repos, ledger, client: () => client,
+      free: true, model: STRATEGIST_MODEL, role: "strategist", taskKind: "strategist_turn", now: () => NOW,
+    });
+    const result = await budgeted.chat(boundedRequest(500));
+    expect(result.content).toBe("ok");
+    expect(seenDuringCall).toHaveLength(1);
+    expect(seenDuringCall[0]).toMatchObject({ reservedCostUsdCents: expect.any(Number) });
+    expect((seenDuringCall[0] as { settledAt?: Date }).settledAt).toBeUndefined();
+    expect(ledger.entries).toHaveLength(1);
+    expect(ledger.entries[0]).toMatchObject({ inputTokens: 20, outputTokens: 5, settledAt: NOW });
+    expect(ledger.entries[0]!.costUsdCents).toBeLessThanOrEqual(ledger.entries[0]!.reservedCostUsdCents!);
+  });
+
+  it("always sends noRetries and clamps maxTokens to the caller's ceiling", async () => {
+    const a = await freeAccount();
+    const client = new FakeModelClient([{ content: "ok" }]);
+    const budgeted = createBudgetedModelClient({
+      scope: a.scope, repos: a.t.deps.uow.repos, ledger: new MemoryLedgerStore(), client: () => client,
+      free: true, model: STRATEGIST_MODEL, role: "strategist", taskKind: "strategist_turn", now: () => NOW, maxTokens: 300,
+    });
+    await budgeted.chat(boundedRequest(5000));
+    expect(client.requests[0]!.noRetries).toBe(true);
+    expect(client.requests[0]!.maxTokens).toBe(300);
+  });
+
+  it("keeps the reservation at its maximum, unsettled, with no refund when the model call fails", async () => {
+    const a = await freeAccount();
+    const ledger = new MemoryLedgerStore();
+    const client: EquipeModelClient = { async chat() { throw new Error("provider_down"); } };
+    const budgeted = createBudgetedModelClient({
+      scope: a.scope, repos: a.t.deps.uow.repos, ledger, client: () => client,
+      free: true, model: STRATEGIST_MODEL, role: "strategist", taskKind: "strategist_turn", now: () => NOW,
+    });
+    await expect(budgeted.chat(boundedRequest(500))).rejects.toThrow("provider_down");
+    expect(ledger.entries).toHaveLength(1);
+    const entry = ledger.entries[0]!;
+    expect(entry.settledAt).toBeUndefined();
+    // The reservation stays at the maximum forever: a failed attempt still
+    // spends its worst-case cost against the free cap, never refunded.
+    expect(entry.costUsdCents).toBe(entry.reservedCostUsdCents);
+    // A second attempt sees the same account already carrying that cost.
+    const total = await ledger.lifetimeTotalCostUsdCents(a.workspaceId, a.accountId);
+    expect(total).toBe(entry.reservedCostUsdCents);
+  });
+
+  it("fails closed without touching the ledger or the client when the bound is missing, too small, NaN, or the request carries an untrusted image", async () => {
+    const hostile: Array<(r: ModelCallRequest) => ModelCallRequest> = [
+      (r) => r,
+      (r) => ({ ...r, inputTokenBound: 1 }),
+      (r) => ({ ...r, inputTokenBound: Number.NaN }),
+      (r) => ({ ...r, inputTokenBound: 10_000_000, messages: [...r.messages, { role: "user", content: [{ type: "image_url", image_url: { url: "https://x/y.png" } }] }] }),
+    ];
+    for (const mutate of hostile) {
+      const a = await freeAccount();
+      const ledger = new MemoryLedgerStore();
+      const client = new FakeModelClient([{ content: "never" }]);
+      const budgeted = createBudgetedModelClient({
+        scope: a.scope, repos: a.t.deps.uow.repos, ledger, client: () => client,
+        free: true, model: STRATEGIST_MODEL, role: "strategist", taskKind: "strategist_turn", now: () => NOW,
+      });
+      const { inputTokenBound: _drop, ...plain } = boundedRequest(500); void _drop;
+      await expect(budgeted.chat(mutate(plain))).rejects.toThrow("free_call_unbounded");
+      expect(client.requests).toHaveLength(0);
+      expect(ledger.entries).toHaveLength(0);
+    }
+  });
+
+  it("the diagnostic reserve blocks admission until recorded, when reserveDiagnostic is set", async () => {
+    const a = await freeAccount(); // reserve defaults to the whole cap
+    const ledger = new MemoryLedgerStore();
+    const client = new FakeModelClient([{ content: "ok" }]);
+    const budgeted = createBudgetedModelClient({
+      scope: a.scope, repos: a.t.deps.uow.repos, ledger, client: () => client,
+      free: true, model: STRATEGIST_MODEL, role: "strategist", taskKind: "strategist_turn", now: () => NOW, reserveDiagnostic: true,
+    });
+    await expect(budgeted.chat(boundedRequest(500))).rejects.toThrow(BUDGET_EXCEEDED_ERROR);
+    expect(client.requests).toHaveLength(0);
+    await recordDiagnostic(a);
+    await expect(budgeted.chat(boundedRequest(500))).resolves.toMatchObject({ content: "ok" });
+  });
+
+  it("paid accounts bypass the ledger entirely and forward the request untouched", async () => {
+    const t = makeTestDeps({ now: NOW });
+    const { openTestAccount } = await import("../module/testing/deps");
+    const account = await openTestAccount(t);
+    const ledger = new MemoryLedgerStore();
+    const client = new FakeModelClient([{ content: "ok" }]);
+    const budgeted = createBudgetedModelClient({
+      scope: account, repos: t.deps.uow.repos, ledger, client: () => client,
+      free: false, model: STRATEGIST_MODEL, role: "strategist", taskKind: "strategist_turn", now: () => NOW,
+    });
+    const request: ModelCallRequest = { model: STRATEGIST_MODEL, messages: [{ role: "user", content: "descreva a marca" }] };
+    await budgeted.chat(request);
+    expect(client.requests[0]).toEqual(request);
+    expect(ledger.entries).toHaveLength(0);
   });
 });
 

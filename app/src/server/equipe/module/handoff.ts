@@ -40,6 +40,15 @@ export function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, command:
       const intent = await ctx.repos.taskOutbox.get(scope, p.taskIntentId);
       if (intent?.eventName !== HANDOFF_READ_EVENT) return ok({ ignored: true });
       const source = (intent.data as { source: HandoffSource }).source;
+      const scheduled = intent.data as { readingId: string; groups: string[]; runIds: Record<string, string> };
+      if (source.kind === "site" && p.result.status === "failed" && ["reader_unavailable", "invalid_site", "site_dns_or_address", "reading_not_started"].includes(p.result.error ?? "")
+        && scheduled.readingId === p.readingId && scheduled.groups.includes(p.group) && scheduled.runIds[p.group] === p.runId
+        && !(await ctx.repos.events.list(scope, { eventType: "handoff.read_not_billed" })).some(e => (e.payload as { taskIntentId?: string }).taskIntentId === p.taskIntentId)) {
+        s.readsUsed = Math.max(0, s.readsUsed - 1);
+        await appendEvent(ctx, { eventType: "handoff.read_not_billed", objectType: "handoff", objectId: row.id, payload: { taskIntentId: p.taskIntentId, reason: p.result.error } });
+        // The counter is account-wide; even an obsolete source's proven free failure releases its admission.
+        await ctx.repos.handoffs.update(scope, row.id, { readsUsed: s.readsUsed });
+      }
       const group = readingRun(s.reading[p.group], source.kind);
       if (s.step === "done" || s.readingId !== p.readingId || !group || group.runId !== p.runId || group.taskIntentId !== p.taskIntentId || !["pending", "running"].includes(group.status)) return ok({ ignored: true });
       if ([...p.result.items, ...(p.result.content ?? [])].some(item => item.origin !== source.kind) || (p.result.status === "found" && !p.result.items.length) || (p.result.status !== "found" && p.result.items.length)) return err("invalid_command", "Invalid captured group origin or status.");

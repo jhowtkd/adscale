@@ -14,7 +14,6 @@ import {
   BUDGET_EXCEEDED_EVENT,
   MemoryLedgerStore,
   estimateCostUsdCents,
-  maximumCallCostUsdCents,
   type LedgerStore,
 } from "./ledger";
 import {
@@ -49,7 +48,8 @@ import {
 } from "./roles";
 import { STRATEGIST_AGENT_ID, runStrategistTurn } from "./strategist";
 import { runWriting, type WritingDeps } from "./writing";
-import { diagnosticReserveUsdCents, freeBudgetUsdCents, freeStrategistMaxTokens, hasRecordedDiagnostic, textInputTokenBound } from "./free-budget";
+import { freeBudgetUsdCents, freeStrategistMaxTokens } from "./free-budget";
+import { createBudgetedModelClient } from "./budgeted-client";
 import { assertAccountExecution, authorizeAccountExecution } from "../module/execution-authorization";
 
 export const BUDGET_EXCEEDED_ERROR = "budget_exceeded";
@@ -192,43 +192,10 @@ export function createEquipeAgents(options: EquipeAgentsOptions): Agents {
 
       // Every free call is serialized across processes; its maximum commits
       // before sending, and its reported usage settles before releasing the lock.
-      const taskClient = (model: string): EquipeModelClient => ({
-        async chat(request) {
-          if (!free) {
-            await assertAccountExecution(options.moduleDeps.uow.repos, task);
-            return clientForModel(model).chat(request);
-          }
-          return ledger.withAccountLock(task, async (lockedLedger, lockedRepos) => {
-            const repos = lockedRepos ?? options.moduleDeps.uow.repos;
-            await assertAccountExecution(repos, task);
-            const minimumBound = textInputTokenBound(request);
-            const bound = request.inputTokenBound;
-            const maxTokens = kind === "strategist_turn"
-              ? Math.min(request.maxTokens ?? freeStrategistMaxTokens(), freeStrategistMaxTokens()) : request.maxTokens;
-            const maximum = bound !== undefined && maxTokens !== undefined
-              ? maximumCallCostUsdCents(model, bound, maxTokens) : null;
-            if (minimumBound === null || bound === undefined || bound < minimumBound || maximum === null) {
-              throw new Error("free_call_unbounded");
-            }
-            const total = await lockedLedger.lifetimeTotalCostUsdCents(task.workspaceId, task.accountId);
-            const reserve = kind === "strategist_turn" && !(await hasRecordedDiagnostic(repos, task)) ? diagnosticReserveUsdCents() : 0;
-            if (total + reserve + maximum > budgetUsdCents) throw new Error(BUDGET_EXCEEDED_ERROR);
-            const entry = await lockedLedger.record({ ...task, role: KIND_ROLES[kind], model,
-              promptVersion: EQUIPE_PROMPT_VERSION, taskKind: kind, inputTokens: 0, outputTokens: 0,
-              costUsdCents: maximum, reservedCostUsdCents: maximum,
-              reservationExpiresAt: new Date(now().getTime() + 15 * 60 * 1000) });
-            const response = await clientForModel(model).chat({ ...request, maxTokens, noRetries: true });
-            if (response.usageKnown === false) throw new Error("free_usage_unknown");
-            const usage = { model, ...response.usage };
-            const counts = [usage.inputTokens, usage.outputTokens, usage.cacheReadTokens, usage.cacheWriteTokens];
-            if (counts.some((count) => !Number.isSafeInteger(count) || count < 0)
-              || usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens > bound
-              || usage.outputTokens > maxTokens!) throw new Error("free_call_bound_exceeded");
-            const actual = estimateCostUsdCents(model, usage.inputTokens, usage.outputTokens, usage.cacheReadTokens, usage.cacheWriteTokens);
-            await lockedLedger.settle(task, entry.id, usage, actual, now());
-            return response;
-          });
-        },
+      const taskClient = (model: string): EquipeModelClient => createBudgetedModelClient({
+        scope: task, repos: options.moduleDeps.uow.repos, ledger, client: () => clientForModel(model),
+        free, model, role: KIND_ROLES[kind], taskKind: kind, now,
+        ...(kind === "strategist_turn" ? { maxTokens: freeStrategistMaxTokens(), reserveDiagnostic: true } : {}),
       });
 
       const recordCall = async (call: ModelCallUsage) => {

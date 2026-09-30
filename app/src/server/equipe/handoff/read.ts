@@ -7,10 +7,29 @@ import { authorizeAccountExecution } from "../module/execution-authorization";
 import { HANDOFF_READ_EVENT } from "./contract";
 import { normalizeInstagram } from "./source";
 import type { HandoffReaders, InstagramReadResult, SiteReadResult } from "./readers";
+import { SiteReaderError } from "./readers/firecrawl";
+import type { SiteEnrichment, SiteReadingContext } from "./site-enrichment";
 const eventSchema = z.object({ workspaceId: z.string().uuid(), accountId: z.string().uuid(), taskIntentId: z.string().uuid(), readingId: z.string().uuid(),
   source: z.object({ kind: z.enum(["site", "instagram"]), value: z.string(), normalized: z.string() }),
   groups: z.array(z.enum(HANDOFF_GROUPS)).min(1).max(6), runIds: z.record(z.string().uuid()) });
 type Step = { run<T>(id: string, fn: () => Promise<T>): Promise<T> };
+/** A sync provider has no resumable remote run: an uncertain dispatch must never be silently repeated. */
+export async function claimHandoffProviderAttempt(deps: EquipeModuleDeps, context: Pick<SiteReadingContext, "workspaceId" | "accountId" | "readingId" | "taskIntentId">, provider: "site" | "vision") {
+  return deps.uow.run(async repos => {
+    await repos.accounts.get(context.workspaceId, context.accountId, { forUpdate: true });
+    const allowed = await authorizeAccountExecution(repos, context);
+    const [h] = await repos.handoffs.list(context);
+    const intent = await repos.taskOutbox.get(context, context.taskIntentId);
+    if (!allowed.ok || !(deps.isEnabledForWorkspace?.(context.workspaceId) ?? true) || !h || h.step === "done" || h.readingId !== context.readingId || intent?.eventName !== HANDOFF_READ_EVENT) return false;
+    const p = intent.data as { readingId: string; source: { kind: string }; groups: HandoffGroup[]; runIds: Record<string, string> };
+    if (p.source.kind !== "site" || p.readingId !== context.readingId || !p.groups.some(g => readingRun(h.reading[g], "site")?.taskIntentId === context.taskIntentId && !isGroupFinished(readingRun(h.reading[g], "site")?.status))) return false;
+    const eventType = `handoff.${provider}_dispatched`;
+    if ((await repos.events.list(context, { eventType })).some(e => (e.payload as { taskIntentId?: string }).taskIntentId === context.taskIntentId)) return false;
+    await repos.events.create(context, { actorType: "system", actorId: HANDOFF_READ_EVENT, actorRole: "system", eventType,
+      payload: { taskIntentId: context.taskIntentId, readingId: context.readingId }, occurredAt: deps.clock.now() });
+    return true;
+  });
+}
 function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | InstagramReadResult, handle: string, runId: string) {
   const captured: Record<HandoffGroup, HandoffItem[]> = { name: [], logo: [], colors: [], fonts: [], networks: [], images: [] };
   const add = (group: HandoffGroup, value: string, extra: Partial<HandoffItem> = {}) => {
@@ -21,18 +40,18 @@ function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | Insta
     if ((site.statusCode ?? 200) >= 400) throw new Error("site_unavailable");
     const name = site.siteName?.trim() || site.title?.trim();
     if (name) add("name", name.slice(0, 200));
-    if (site.branding?.logo) add("logo", site.branding.logo.url, { key: site.branding.logo.key });
+    if (site.branding?.logo) add("logo", site.branding.logo.url, { key: site.branding.logo.key, ...(site.branding.logo.assetId ? { id: site.branding.logo.assetId } : {}) });
     for (const color of site.branding?.colors ?? []) if (/^#[0-9a-f]{6}$/i.test(color)) add("colors", color);
     for (const font of site.branding?.fonts ?? []) add("fonts", font);
     for (const link of site.links) {
       try {
         const url = new URL(link); const host = url.hostname.replace(/^www\./, "");
         const platform = ["instagram", "facebook", "tiktok", "linkedin", "youtube"].find(p => host === `${p}.com`);
-        if (platform === "instagram") add("networks", normalizeInstagram(link), { platform });
+        if (platform === "instagram") add("networks", normalizeInstagram(`${url.origin}${url.pathname}`), { platform });
         else if (platform && ["http:", "https:"].includes(url.protocol)) add("networks", url.toString(), { platform });
       } catch { /* A malformed public link is not a social profile. */ }
     }
-    for (const image of site.images.slice(0, 30)) add("images", image.url, { key: image.key, width: image.width, height: image.height });
+    for (const image of site.images.slice(0, 30)) add("images", image.url, { key: image.key, width: image.width, height: image.height, ...(image.assetId ? { id: image.assetId } : {}) });
   } else {
     const instagram = data as InstagramReadResult;
     if (!instagram.exists || instagram.isPrivate) throw new Error(instagram.exists ? "instagram_private" : "instagram_not_found");
@@ -44,7 +63,7 @@ function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | Insta
   }
   return captured;
 }
-export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: HandoffReaders) {
+export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: HandoffReaders, siteEnrichment?: SiteEnrichment) {
   return async ({ event, step }: { event: { data: unknown }; step: Step }) => {
     const p = eventSchema.parse(event.data);
     const scope = { workspaceId: p.workspaceId, accountId: p.accountId };
@@ -65,7 +84,7 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
       if (!(await repos.events.list(scope)).some(e => e.eventType === "handoff.read_claimed" && (e.payload as { taskIntentId?: string })?.taskIntentId === p.taskIntentId)) {
         await repos.events.create(scope, { actorType: "system", actorId: HANDOFF_READ_EVENT, actorRole: "system", eventType: "handoff.read_claimed", payload: { taskIntentId: p.taskIntentId }, occurredAt: deps.clock.now() });
       }
-      return true;
+      return { handoffId: h.id };
     }));
     if (!claimed) return { ignored: true };
     for (const group of p.groups) {
@@ -80,24 +99,44 @@ export function createHandoffReadHandler(deps: EquipeModuleDeps, readers: Handof
     const result = await step.run(`reader-${p.taskIntentId}`, async () => {
       try {
         const data = p.source.kind === "site" ? await readers.site.read(p.source.normalized) : await readers.instagram.profile(p.source.normalized);
-        const text = p.source.kind === "site" ? (data as SiteReadResult).markdown : (data as InstagramReadResult).bio;
-        return { captured: capturedGroups(p.source.kind, data, p.source.normalized, p.taskIntentId), content: text.trim() ? [{ id: `${p.taskIntentId}:public-content`, value: text.slice(0, 50000), origin: p.source.kind }] : [], error: null };
+        capturedGroups(p.source.kind, data, p.source.normalized, p.taskIntentId); // Reject inaccessible sources before saving any content/assets.
+        return { data, error: null };
       } catch (e) {
-        const code = e instanceof Error && ["reader_unavailable", "site_unavailable", "instagram_private", "instagram_not_found"].includes(e.message) ? e.message : "reading_failed";
-        return { captured: null, content: [], error: code };
+        const code = e instanceof SiteReaderError ? e.message : e instanceof Error && ["reader_unavailable", "site_unavailable", "instagram_private", "instagram_not_found"].includes(e.message) ? e.message : "reading_failed";
+        return { data: null, error: code };
       }
     });
-    for (const group of p.groups) {
-      const items = result.captured?.[group] ?? [];
-      await step.run(`record-${p.taskIntentId}-${group}`, async () => {
+    const context: SiteReadingContext = { ...scope, handoffId: claimed.handoffId, readingId: p.readingId, taskIntentId: p.taskIntentId };
+    const data = result.data;
+    const site = p.source.kind === "site" && data ? data as SiteReadResult : null;
+    // Independent durable groups: name/networks arrive immediately while identity/images finish concurrently.
+    const identity = site && siteEnrichment ? step.run(`site-identity-${p.taskIntentId}`, () => siteEnrichment.identity(site, context)) : null;
+    const images = site && siteEnrichment ? step.run(`site-images-${p.taskIntentId}`, () => siteEnrichment.images(site, context)) : null;
+    let records: Promise<unknown> = Promise.resolve();
+    const outcomes = await Promise.allSettled(p.groups.map(async group => {
+      let enriched = data; let error = result.error;
+      try {
+        if (site && ["logo", "colors", "fonts"].includes(group) && identity) enriched = { ...site, ...await identity };
+        if (site && group === "images" && images) enriched = { ...site, ...await images };
+        if (p.source.kind === "site" && enriched) error = (enriched as SiteReadResult).groupErrors?.[group as keyof NonNullable<SiteReadResult["groupErrors"]>] ?? error;
+      } catch { error = "reading_failed"; }
+      const items = !error && enriched ? capturedGroups(p.source.kind, enriched, p.source.normalized, p.taskIntentId)[group] : [];
+      const text = data ? (site ? site.markdown : (data as InstagramReadResult).bio) : "";
+      const content = text.trim() ? [{ id: `${p.taskIntentId}:public-content`, value: text.slice(0, 50000), origin: p.source.kind }] : [];
+      // Reads are parallel; commands on a shared transaction client must remain sequential (#574).
+      const record = records.then(() => step.run(`record-${p.taskIntentId}-${group}`, async () => {
         const outcome = await executeCommand(deps, { ...scope, actor: { kind: "system", job: HANDOFF_READ_EVENT } }, {
           type: "handoff_record_group", payload: { readingId: p.readingId, runId: p.runIds[group], taskIntentId: p.taskIntentId, group,
-            result: { ...(group === p.groups[0] ? { content: result.content } : {}), status: result.error ? "failed" : items.length ? "found" : "not_found", items, ...(result.error ? { error: result.error } : {}) } },
+            result: { ...(group === p.groups[0] ? { content } : {}), status: error ? "failed" : items.length ? "found" : "not_found", items, ...(error ? { error } : {}) } },
         });
         if (!outcome.ok) throw new Error(outcome.error.code);
         return outcome.value.data;
-      });
-    }
+      }));
+      records = record.catch(() => {});
+      await record;
+    }));
+    const failed = outcomes.find(outcome => outcome.status === "rejected");
+    if (failed?.status === "rejected") throw failed.reason;
     return { recorded: p.groups.length };
   };
 }
