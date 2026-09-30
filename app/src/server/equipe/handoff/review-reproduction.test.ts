@@ -9,7 +9,7 @@ import { HANDOFF_READ_EVENT, handoffConfirmImagesSchema } from "./contract";
 async function fixture() {
   const t = makeTestDeps();
   const workspaceId = uuid(); const userId = uuid();
-  t.store.workspaceMembers.rows.set(uuid(), { id: uuid(), workspaceId, userId, name: "Ana", email: "ana@example.com", emailVerified: true });
+  t.store.workspaceMembers.rows.set(uuid(), { id: uuid(), workspaceId, userId, name: "Ana", email: "ana@example.com", emailVerified: true, role: "owner", createdAt: new Date("2026-01-01T00:00:00.000Z") });
   const opened = await executeCommand(t.deps, { workspaceId, actor: { kind: "system", job: "free-open" } }, { type: "open_free_account", payload: { userId } });
   if (!opened.ok) throw new Error(opened.error.code);
   const scope = { workspaceId, accountId: opened.value.accountId };
@@ -194,7 +194,7 @@ describe("review PR608: uncovered concurrency and recovery paths", () => {
 async function instagramFixture() {
   const t = makeTestDeps();
   const workspaceId = uuid(); const userId = uuid();
-  t.store.workspaceMembers.rows.set(uuid(), { id: uuid(), workspaceId, userId, name: "Ana", email: "ana@example.com", emailVerified: true });
+  t.store.workspaceMembers.rows.set(uuid(), { id: uuid(), workspaceId, userId, name: "Ana", email: "ana@example.com", emailVerified: true, role: "owner", createdAt: new Date("2026-01-01T00:00:00.000Z") });
   const opened = await executeCommand(t.deps, { workspaceId, actor: { kind: "system", job: "free-open" } }, { type: "open_free_account", payload: { userId } });
   if (!opened.ok) throw new Error(opened.error.code);
   const scope = { workspaceId, accountId: opened.value.accountId };

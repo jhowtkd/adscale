@@ -1,9 +1,11 @@
-import { and, asc, eq, isNull, sql, notInArray, type SQL } from "drizzle-orm";
+import { and, asc, eq, getTableColumns, gt, isNull, sql, notInArray, type SQL } from "drizzle-orm";
 import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
 import type { db as appDb } from "../../db/index";
 import {
   equipeAccountPeople,
   equipeAccounts,
+  equipeEvents,
+  equipeNotificationDeliveries,
   equipeBrandHandoffs,
   equipeBrandDocuments,
   equipeTaskOutbox,
@@ -91,7 +93,7 @@ export type PostgresEquipeTransaction = Parameters<
 >[0];
 export type PostgresEquipeExecutor = Pick<
   PostgresEquipeDatabase,
-  "insert" | "select" | "update" | "delete" | "execute"
+  "insert" | "select" | "selectDistinct" | "update" | "delete" | "execute"
 >;
 
 export type ScopedPgTable = PgTable & {
@@ -469,8 +471,10 @@ export function createPostgresInternalEquipeRepositories(
   executor: PostgresEquipeExecutor
 ): InternalEquipeRepositories {
   return {
-    async listWorkspaceIds() {
-      return (await executor.select({ id: workspaces.id }).from(workspaces)).map((row) => row.id);
+    async listWorkspaceIds(options) {
+      const query = executor.select({ id: workspaces.id }).from(workspaces)
+        .where(options?.after ? gt(workspaces.id, options.after) : undefined).orderBy(asc(workspaces.id));
+      return (await (options?.limit === undefined ? query : query.limit(options.limit))).map((row) => row.id);
     },
     async listPendingTaskIntents() {
       return executor.select().from(equipeTaskOutbox).where(isNull(equipeTaskOutbox.dispatchedAt))
@@ -524,6 +528,13 @@ export function createPostgresInternalEquipeRepositories(
       )).returning({ key: workspaceAssets.key });
       return deleted.map(asset => asset.key);
     },
+    async getVerifiedWorkspaceOwner(workspaceId) {
+      const [owner] = await executor.select({ userId: user.id, name: user.name, email: user.email }).from(user)
+        .innerJoin(workspaceMembers, eq(workspaceMembers.userId, user.id))
+        .where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.role, "owner"), eq(user.emailVerified, true)))
+        .orderBy(asc(workspaceMembers.createdAt), asc(workspaceMembers.id)).limit(1);
+      return owner ?? null;
+    },
     async createClientProfile(workspaceId, name) {
       const [profile] = await executor.insert(clientProfiles).values({ workspaceId, name }).returning({ id: clientProfiles.id });
       if (!profile) throw new Error("profile_insert_failed");
@@ -534,6 +545,20 @@ export function createPostgresInternalEquipeRepositories(
     listAccounts: () => listAccounts(executor),
     claimDueIntents: (input) => claimDueIntents(executor, input),
     listAccountsByStatus: (status) => listAccountsByStatus(executor, status),
+    async listFreeAccountsWithPendingNotifications() {
+      return executor.selectDistinct(getTableColumns(equipeAccounts)).from(equipeEvents)
+        .innerJoin(equipeAccounts, and(eq(equipeAccounts.id, equipeEvents.accountId),
+          eq(equipeAccounts.workspaceId, equipeEvents.workspaceId)))
+        .leftJoin(equipeNotificationDeliveries, and(eq(equipeNotificationDeliveries.eventId, equipeEvents.id),
+          eq(equipeNotificationDeliveries.accountId, equipeEvents.accountId),
+          eq(equipeNotificationDeliveries.workspaceId, equipeEvents.workspaceId)))
+        .where(and(eq(equipeAccounts.status, "free"), eq(equipeEvents.eventType, "notification.requested"),
+          sql`not coalesce(${equipeNotificationDeliveries.channels} @> '["completed"]'::jsonb
+            or ${equipeNotificationDeliveries.channels} @> '["internal"]'::jsonb
+            or ${equipeNotificationDeliveries.channels} @> '["skipped"]'::jsonb
+            or ${equipeNotificationDeliveries.channels} @> '["inapp","email"]'::jsonb, false)`))
+        .orderBy(asc(equipeAccounts.id));
+    },
     listCalibrationRounds: (filter) => listCalibrationRounds(executor, filter),
     getCalibrationRound: (id) => getCalibrationRound(executor, id),
     getEscalation: (id) => getEscalation(executor, id),

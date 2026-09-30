@@ -40,7 +40,7 @@ describe.skipIf(!ENABLED)("open_free_account (pg, dois pools)", () => {
     await A.pool.end(); await B.pool.end();
   });
 
-  async function seed(options?: { verified?: boolean; member?: boolean }) {
+  async function seed(options?: { verified?: boolean; member?: boolean; role?: string }) {
     const seeded = await m.free.seedWorkspace(A, options);
     workspaces.push(seeded.workspaceId); users.push(seeded.userId);
     return seeded;
@@ -148,6 +148,85 @@ describe.skipIf(!ENABLED)("open_free_account (pg, dois pools)", () => {
     for (const ws of [unverified.workspaceId, stranger.workspaceId]) {
       expect(await counts(ws)).toEqual({ accounts: 0, profiles: 0, people: 0, handoffs: 0 });
     }
+  });
+
+  describe("owner is the approver (real PG)", () => {
+    const peopleOf = async (workspaceId: string) => (await A.db.execute(sql`select p.user_id as "userId", p.role as role
+      from adscale_equipe.equipe_account_people p where p.workspace_id = ${workspaceId} order by p.role`)).rows as Array<{ userId: string; role: string }>;
+
+    it("a guest opening first: owner is the only approver, the opener is a member", async () => {
+      const { workspaceId, userId: ownerId } = await seed();
+      const guest = await m.free.seedExtraMember(A, workspaceId, { role: "member" }); users.push(guest.userId);
+      const out = await open(B, workspaceId, guest.userId);
+      expect(out.ok).toBe(true);
+      const people = await peopleOf(workspaceId);
+      expect(people).toHaveLength(2);
+      expect(people.filter((p) => p.role === "approver")).toEqual([{ userId: ownerId, role: "approver" }]);
+      expect(people.find((p) => p.userId === guest.userId)?.role).toBe("member");
+    });
+
+    it("an admin opening first does not become approver either", async () => {
+      const { workspaceId, userId: ownerId } = await seed();
+      const admin = await m.free.seedExtraMember(A, workspaceId, { role: "admin" }); users.push(admin.userId);
+      expect((await open(A, workspaceId, admin.userId)).ok).toBe(true);
+      expect((await peopleOf(workspaceId)).filter((p) => p.role === "approver").map((p) => p.userId)).toEqual([ownerId]);
+    });
+
+    it("two concurrent openings (owner vs guest, parked at the lock) keep the owner as the single approver", async () => {
+      const { workspaceId, userId: ownerId } = await seed();
+      const guest = await m.free.seedExtraMember(A, workspaceId, { role: "member" }); users.push(guest.userId);
+      const holder = await B.pool.connect();
+      let outcomes: Array<Awaited<ReturnType<typeof open>>>;
+      try {
+        await holder.query("begin");
+        await holder.query("select pg_advisory_xact_lock(hashtextextended($1, 0))", [lockKey(workspaceId)]);
+        const runs = [open(A, workspaceId, ownerId), open(B, workspaceId, guest.userId)];
+        await m.free.waitUntil(async () => (await m.free.waitingOnAdvisoryKey(A, lockKey(workspaceId))) === 2, "both openings waiting");
+        await holder.query("commit");
+        outcomes = await Promise.all(runs);
+      } finally { holder.release(); }
+      expect(outcomes.every((o) => o.ok)).toBe(true);
+      expect(new Set(outcomes.map((o) => (o.ok ? o.value.accountId : ""))).size).toBe(1);
+      const people = await peopleOf(workspaceId);
+      expect(people.filter((p) => p.role === "approver")).toEqual([{ userId: ownerId, role: "approver" }]);
+      expect(people.filter((p) => p.userId === guest.userId).every((p) => p.role === "member")).toBe(true);
+      expect(people.length).toBeLessThanOrEqual(2);
+      expect((await counts(workspaceId)).accounts).toBe(1);
+    });
+
+    it("missing owner or unverified owner closes before any write; other workspace's owner does not serve", async () => {
+      const noOwner = await seed({ role: "member" });                      // the only member is a guest
+      const unverified = await seed({ verified: false });                  // owner exists but is unverified
+      const verifiedGuest = await m.free.seedExtraMember(A, unverified.workspaceId, { role: "member" }); users.push(verifiedGuest.userId);
+      await seed();                                                        // another workspace's owner
+      for (const [ws, uid] of [[noOwner.workspaceId, noOwner.userId], [unverified.workspaceId, verifiedGuest.userId]] as const) {
+        const out = await open(A, ws, uid);
+        expect(out.ok).toBe(false);
+        if (!out.ok) expect(out.error.code).toBe("forbidden_actor");
+        expect(await counts(ws)).toEqual({ accounts: 0, profiles: 0, people: 0, handoffs: 0 });
+      }
+    });
+
+    it("picks the OLDEST verified owner by workspace_members.created_at, then id; unverified owners are skipped", async () => {
+      const first = await seed();                                          // owner #1 (created now)
+      const older = await m.free.seedExtraMember(A, first.workspaceId, { role: "owner", createdAt: new Date("2020-01-01T00:00:00Z") });
+      const unverifiedOldest = await m.free.seedExtraMember(A, first.workspaceId, { role: "owner", verified: false, createdAt: new Date("2019-01-01T00:00:00Z") });
+      const guest = await m.free.seedExtraMember(A, first.workspaceId, { role: "member" });
+      users.push(older.userId, unverifiedOldest.userId, guest.userId);
+      expect((await open(B, first.workspaceId, guest.userId)).ok).toBe(true);
+      expect((await peopleOf(first.workspaceId)).filter((p) => p.role === "approver").map((p) => p.userId)).toEqual([older.userId]);
+
+      // createdAt tie → smaller member id wins (deterministic, independent of insertion order)
+      const tie = await seed({ role: "member" });
+      const at = new Date("2021-06-01T00:00:00Z");
+      const a1 = await m.free.seedExtraMember(A, tie.workspaceId, { role: "owner", createdAt: at });
+      const a2 = await m.free.seedExtraMember(A, tie.workspaceId, { role: "owner", createdAt: at });
+      users.push(a1.userId, a2.userId);
+      const rows = (await A.db.execute(sql`select id, user_id as "userId" from adscale_app.workspace_members
+        where workspace_id = ${tie.workspaceId} and role = 'owner' order by id asc`)).rows as Array<{ id: string; userId: string }>;
+      expect((await open(A, tie.workspaceId, tie.userId)).ok).toBe(true);
+      expect((await peopleOf(tie.workspaceId)).filter((p) => p.role === "approver").map((p) => p.userId)).toEqual([rows[0]!.userId]);
+    });
   });
 
   it("returns an existing paid account untouched", async () => {

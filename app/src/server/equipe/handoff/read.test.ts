@@ -18,6 +18,7 @@ function seedMember(t: Deps, workspaceId: string) {
   t.store.workspaceMembers.rows.set(uuid(), {
     id: uuid(), workspaceId, userId, name: "Ana Souza",
     email: "ana@example.com", emailVerified: true,
+    role: "owner", createdAt: new Date("2026-01-01T00:00:00.000Z"),
   });
   return userId;
 }

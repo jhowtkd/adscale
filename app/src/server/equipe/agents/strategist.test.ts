@@ -31,6 +31,7 @@ async function freeAccount(t: TestDeps = makeTestDeps()) {
   const userId = `user-${uuid()}`;
   t.store.workspaceMembers.rows.set(uuid(), {
     id: uuid(), workspaceId, userId, name: "Ana", email: "a@x.com", emailVerified: true,
+    role: "owner", createdAt: new Date("2026-01-01T00:00:00.000Z"),
   });
   const opened = await executeCommand(t.deps, { actor: { kind: "system", job: "free" }, workspaceId }, {
     type: "open_free_account", payload: { userId },

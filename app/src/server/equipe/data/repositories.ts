@@ -291,10 +291,12 @@ export interface InternalEquipeRepositories {
   /** Called inside the opening transaction, before checking existing accounts. */
   lockWorkspace(workspaceId: string): Promise<void>;
   listPendingTaskIntents(): Promise<EquipeTaskIntent[]>;
-  listWorkspaceIds(): Promise<string[]>;
+  listWorkspaceIds(options?: { after?: string; limit?: number }): Promise<string[]>;
   getVerifiedWorkspaceMember(workspaceId: string, userId: string): Promise<{ name: string; email: string } | null>;
   saveHandoffIdentity(scope: AccountScope, clientProfileId: string, identity: { name: string; logoAssetKey: string | null; brandColors: string[]; brandFonts: string[]; website: string | null; instagramHandle: string | null; socialLinks: Array<{ platform: string; value: string; origin: "site" | "instagram" | "user" }> }): Promise<void>;
   materializeHandoffAssets(scope: AccountScope, handoff: EquipeBrandHandoff, pages: import("../handoff/library").HandoffLibraryPage[]): Promise<string[]>;
+  /** Oldest verified owner by membership createdAt, then id. */
+  getVerifiedWorkspaceOwner(workspaceId: string): Promise<{ userId: string; name: string; email: string } | null>;
   createClientProfile(workspaceId: string, name: string): Promise<{ id: string }>;
   staff: EquipeStaffRepository;
   // #583 — parada global de publicações.
@@ -310,6 +312,8 @@ export interface InternalEquipeRepositories {
     revalidatePublishDisabled?: boolean;
   }): Promise<EquipePublicationIntent[]>;
   listAccountsByStatus(status: EquipeAccountStatus): Promise<EquipeAccount[]>;
+  /** Free accounts with at least one unfinished notification request. */
+  listFreeAccountsWithPendingNotifications(): Promise<EquipeAccount[]>;
   /** Cross-account round scan for the internal quality pipeline (#546). */
   listCalibrationRounds(filter?: {
     status?: EquipeRoundStatus | EquipeRoundStatus[];

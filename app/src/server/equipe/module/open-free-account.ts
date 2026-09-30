@@ -21,11 +21,16 @@ export function runOpenFreeAccount(
       const thread = await ensurePrimaryThreadInTx(ctx);
       return thread.ok ? ok({ accountId: existing.id, ...thread.value, created: false }) : thread;
     }
+    const owner = await ctx.internal.getVerifiedWorkspaceOwner(ctx.workspaceId);
+    if (!owner) return err("forbidden_actor", "Peça ao dono deste workspace para abrir o ADScale primeiro");
     const profile = await ctx.internal.createClientProfile(ctx.workspaceId, "Minha marca");
     const account = await ctx.repos.accounts.create(ctx.workspaceId, { clientProfileId: profile.id, status: "free" });
     ctx.accountId = account.id;
     const scope = scopeOf(ctx);
-    await ctx.repos.people.create(scope, { userId: payload.userId, role: "approver", name: member.name, email: member.email });
+    await ctx.repos.people.create(scope, { ...owner, role: "approver" });
+    if (payload.userId !== owner.userId) {
+      await ctx.repos.people.create(scope, { userId: payload.userId, role: "member", name: member.name, email: member.email });
+    }
     await ctx.repos.handoffs.create(scope, { clientProfileId: profile.id });
     const thread = await ensurePrimaryThreadInTx(ctx);
     if (!thread.ok) return thread;

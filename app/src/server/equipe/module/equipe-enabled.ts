@@ -59,12 +59,18 @@ export function isEquipeEnabledForWorkspace(
 }
 
 /** Preserve the paid Operations form when the pilot opens to all workspaces. */
+export const OPEN_ACCOUNT_WORKSPACE_PAGE_SIZE = 20;
+
+/** One bounded page plus a sentinel for the Operations form's next link. */
 export async function listPilotWorkspaceIdsForOpening(
-  internal: Pick<InternalEquipeRepositories, "listWorkspaceIds">, overrides?: EquipeEnabledOverrides,
+  internal: Pick<InternalEquipeRepositories, "listWorkspaceIds">, overrides?: EquipeEnabledOverrides, after?: string,
 ): Promise<string[]> {
   if ((overrides?.enabledRaw ?? env.EQUIPE_ENABLED) !== "true") return [];
+  if (after !== undefined && !UUID_PATTERN.test(after)) return [];
   let entries: string[];
   try { entries = parseAllowlist(overrides?.allowlistRaw ?? env.EQUIPE_PILOT_WORKSPACES); }
   catch { return []; }
-  return entries.includes("*") ? internal.listWorkspaceIds() : [...new Set(entries)];
+  const limit = OPEN_ACCOUNT_WORKSPACE_PAGE_SIZE + 1;
+  return entries.includes("*") ? internal.listWorkspaceIds({ after, limit })
+    : [...new Set(entries)].sort().filter((id) => !after || id > after).slice(0, limit);
 }

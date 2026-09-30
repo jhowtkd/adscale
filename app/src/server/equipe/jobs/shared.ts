@@ -100,7 +100,7 @@ export function moduleDepsFor(deps: EquipeJobDeps, workspaceId: string): EquipeM
   };
 }
 
-/** Every non-closed account whose workspace is inside the Equipe pilot. */
+/** Enabled paid accounts for pilot sweeps. */
 export async function listEnabledAccounts(
   deps: EquipeJobDeps,
 ): Promise<Array<{ workspaceId: string; accountId: string; status: string }>> {

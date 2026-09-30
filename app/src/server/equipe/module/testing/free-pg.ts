@@ -37,14 +37,26 @@ export function depsFor(h: FreePgHarness, now = new Date("2026-10-15T15:00:00.00
 }
 
 let seq = 0;
-export async function seedWorkspace(h: FreePgHarness, options: { verified?: boolean; member?: boolean } = {}) {
+export async function seedWorkspace(h: FreePgHarness, options: { verified?: boolean; member?: boolean; role?: string } = {}) {
   seq += 1;
   const tag = `free-${Date.now().toString(36)}-${seq}-${Math.random().toString(36).slice(2, 8)}`;
   const userId = `user-${tag}`;
   await h.db.insert(schema.user).values({ id: userId, name: "Ana Free", email: `${tag}@example.com`, emailVerified: options.verified ?? true });
   const [workspace] = await h.db.insert(schema.workspaces).values({ name: tag, slug: tag }).returning();
-  if (options.member ?? true) await h.db.insert(schema.workspaceMembers).values({ workspaceId: workspace!.id, userId });
+  if (options.member ?? true) await h.db.insert(schema.workspaceMembers).values({ workspaceId: workspace!.id, userId, role: options.role ?? "owner" });
   return { workspaceId: workspace!.id, userId, tag };
+}
+
+/** Adds one more user (default: verified guest) to an existing workspace. */
+export async function seedExtraMember(h: FreePgHarness, workspaceId: string,
+  options: { role?: string; verified?: boolean; createdAt?: Date } = {}) {
+  seq += 1;
+  const tag = `free-x-${Date.now().toString(36)}-${seq}-${Math.random().toString(36).slice(2, 8)}`;
+  const userId = `user-${tag}`;
+  await h.db.insert(schema.user).values({ id: userId, name: `Extra ${tag}`, email: `${tag}@example.com`, emailVerified: options.verified ?? true });
+  await h.db.insert(schema.workspaceMembers).values({ workspaceId, userId, role: options.role ?? "member",
+    ...(options.createdAt ? { createdAt: options.createdAt } : {}) });
+  return { userId };
 }
 
 export async function cleanup(h: FreePgHarness, workspaceIds: string[], userIds: string[]) {

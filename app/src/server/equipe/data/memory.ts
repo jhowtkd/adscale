@@ -1,4 +1,4 @@
-import { EquipeConflictError, EquipeNotFoundError, type EquipeTaskIntent, type NewEquipeTaskIntent, type EquipeBrandHandoff, type NewEquipeBrandHandoff } from "./types";
+import { EquipeConflictError, EquipeNotFoundError, type EquipeAccount, type EquipeTaskIntent, type NewEquipeTaskIntent, type EquipeBrandHandoff, type NewEquipeBrandHandoff } from "./types";
 import { handoffLibraryItems, handoffAssetMetadata, handoffAssetSource } from "../handoff/library";
 import type {
   EquipeRepositories,
@@ -126,7 +126,10 @@ export function createMemoryInternalEquipeRepositories(
   store: MemoryEquipeStore
 ): InternalEquipeRepositories {
   return {
-    async listWorkspaceIds() { return [...store.adscaleWorkspaces.rows.keys()]; },
+    async listWorkspaceIds(options) {
+      const ids = [...store.adscaleWorkspaces.rows.keys()].sort().filter((id) => !options?.after || id > options.after);
+      return options?.limit === undefined ? ids : ids.slice(0, options.limit);
+    },
     async listPendingTaskIntents() {
       return [...store.taskOutbox.rows.values()].filter((row) => !row.dispatchedAt)
         .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).map(copy);
@@ -175,6 +178,12 @@ export function createMemoryInternalEquipeRepositories(
       }
       return deleted;
     },
+    async getVerifiedWorkspaceOwner(workspaceId) {
+      const [owner] = [...store.workspaceMembers.rows.values()]
+        .filter((row) => row.workspaceId === workspaceId && row.role === "owner" && row.emailVerified)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id));
+      return owner ? { userId: owner.userId, name: owner.name, email: owner.email } : null;
+    },
     async createClientProfile(workspaceId, name) {
       const row = { id: crypto.randomUUID(), workspaceId, name };
       store.adscaleProfiles.rows.set(row.id, row);
@@ -185,6 +194,20 @@ export function createMemoryInternalEquipeRepositories(
     listAccounts: () => listMemoryAccounts(store),
     claimDueIntents: (input) => claimMemoryDueIntents(store, input),
     listAccountsByStatus: (status) => listMemoryAccountsByStatus(store, status),
+    async listFreeAccountsWithPendingNotifications() {
+      const terminal = new Set([...store.deliveries.rows.values()]
+        .filter(({ channels }) => channels.includes("completed") || channels.includes("internal")
+          || channels.includes("skipped") || (channels.includes("inapp") && channels.includes("email")))
+        .map((row) => `${row.workspaceId}:${row.accountId}:${row.eventId}`));
+      const found = new Map<string, EquipeAccount>();
+      for (const event of store.events.rows.values()) {
+        if (event.eventType !== "notification.requested"
+          || terminal.has(`${event.workspaceId}:${event.accountId}:${event.id}`)) continue;
+        const account = store.accounts.rows.get(event.accountId);
+        if (account?.status === "free" && account.workspaceId === event.workspaceId) found.set(account.id, account);
+      }
+      return [...found.values()].sort((a, b) => a.id.localeCompare(b.id)).map(copy);
+    },
     listCalibrationRounds: (filter) => listMemoryCalibrationRounds(store, filter),
     getCalibrationRound: (id) => getMemoryCalibrationRound(store, id),
     getEscalation: (id) => getMemoryEscalation(store, id),

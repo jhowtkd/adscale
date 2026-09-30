@@ -1,17 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { executeCommand, FREE_ACCOUNT_COMMANDS } from "./commands";
 import { commandSchema } from "./envelope";
+import { authorize } from "../domain";
 import { makeTestDeps, seedStaff, testActors, uuid } from "./testing/deps";
 import { requestTask } from "./task-outbox";
 import { transact } from "./shared";
 
 const SYSTEM = { kind: "system", job: "free-open" } as const;
 
-function seedMember(t: ReturnType<typeof makeTestDeps>, workspaceId: string, over: Partial<{ userId: string; verified: boolean; name: string; email: string }> = {}) {
+let memberSeq = 0;
+function seedMember(t: ReturnType<typeof makeTestDeps>, workspaceId: string,
+  over: Partial<{ userId: string; verified: boolean; name: string; email: string; role: string; createdAt: Date; id: string }> = {}) {
   const userId = over.userId ?? `user-${uuid()}`;
-  t.store.workspaceMembers.rows.set(uuid(), {
-    id: uuid(), workspaceId, userId, name: over.name ?? "Ana Souza",
+  memberSeq += 1;
+  const id = over.id ?? uuid();
+  t.store.workspaceMembers.rows.set(id, {
+    id, workspaceId, userId, name: over.name ?? "Ana Souza",
     email: over.email ?? "ana@example.com", emailVerified: over.verified ?? true,
+    role: over.role ?? "owner", createdAt: over.createdAt ?? new Date(Date.UTC(2026, 0, 1) + memberSeq * 1000),
   });
   return userId;
 }
@@ -304,5 +310,141 @@ describe("requestTask outbox", () => {
     const [intent] = await t.deps.uow.repos.taskOutbox.list({ workspaceId, accountId });
     expect(intent!.dispatchedAt).toBeNull();
     expect(await t.deps.uow.internal.listPendingTaskIntents()).toHaveLength(1);
+  });
+});
+
+describe("bootstrap approver is the verified workspace OWNER", () => {
+  const peopleOf = (t: ReturnType<typeof makeTestDeps>, workspaceId: string, accountId: string) =>
+    t.deps.uow.repos.people.list({ workspaceId, accountId });
+  const snapshot = async (t: ReturnType<typeof makeTestDeps>, workspaceId: string) => ({
+    accounts: (await t.deps.uow.repos.accounts.list(workspaceId)).length,
+    profiles: t.store.adscaleProfiles.rows.size,
+    threads: t.store.assistantThreads.rows.size,
+  });
+
+  it("a guest or admin opening first does NOT become approver: the owner does, the opener is a member", async () => {
+    for (const role of ["member", "admin"]) {
+      const t = makeTestDeps();
+      const workspaceId = uuid();
+      const ownerId = seedMember(t, workspaceId, { name: "Dona", email: "dona@x.com", role: "owner" });
+      const openerId = seedMember(t, workspaceId, { name: "Convidado", email: "guest@x.com", role });
+      const out = await open(t, workspaceId, openerId);
+      expect(out.ok, role).toBe(true);
+      if (!out.ok) return;
+      const people = await peopleOf(t, workspaceId, out.value.accountId!);
+      expect(people).toHaveLength(2);
+      expect(people.find((p) => p.role === "approver")).toMatchObject({ userId: ownerId, name: "Dona", email: "dona@x.com" });
+      expect(people.filter((p) => p.role === "approver")).toHaveLength(1);
+      expect(people.find((p) => p.userId === openerId)).toMatchObject({ role: "member" });
+      // Permissions follow the stored role: the opener cannot approve or confirm a business fact.
+      const actorOf = (r: "approver" | "member") => ({ kind: "client_person" as const, role: r, personId: people.find((p) => p.role === r)!.id });
+      for (const action of ["approve_item", "confirm_business_fact"] as const) {
+        expect(authorize(actorOf("member"), action).ok, `${role} ${action}`).toBe(false);
+        expect(authorize(actorOf("approver"), action).ok, `owner ${action}`).toBe(true);
+      }
+    }
+  });
+
+  it("the owner opening first is the only person; a guest replay or later adoption creates no people", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const ownerId = seedMember(t, workspaceId, { role: "owner" });
+    const guestId = seedMember(t, workspaceId, { role: "member" });
+    const first = await open(t, workspaceId, ownerId);
+    if (!first.ok) throw new Error(first.error.code);
+    const accountId = first.value.accountId!;
+    expect(await peopleOf(t, workspaceId, accountId)).toEqual([expect.objectContaining({ userId: ownerId, role: "approver" })]);
+    const adopted = await open(t, workspaceId, guestId);
+    expect(adopted.ok && adopted.value.accountId).toBe(accountId);
+    expect(adopted.ok && adopted.value.data).toMatchObject({ created: false });
+    expect(await peopleOf(t, workspaceId, accountId)).toHaveLength(1);
+    const again = await open(t, workspaceId, ownerId);
+    expect(again.ok && again.value.data).toMatchObject({ created: false });
+    expect(await peopleOf(t, workspaceId, accountId)).toHaveLength(1);
+  });
+
+  it("guest-first then the opener replays: still exactly 2 people, approver unchanged", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const ownerId = seedMember(t, workspaceId, { role: "owner" });
+    const guestId = seedMember(t, workspaceId, { role: "member" });
+    const first = await open(t, workspaceId, guestId);
+    if (!first.ok) throw new Error(first.error.code);
+    for (let i = 0; i < 3; i += 1) {
+      const replay = await open(t, workspaceId, guestId);
+      expect(replay.ok && replay.value.data).toMatchObject({ created: false });
+    }
+    const people = await peopleOf(t, workspaceId, first.value.accountId!);
+    expect(people).toHaveLength(2);
+    expect(people.find((p) => p.role === "approver")?.userId).toBe(ownerId);
+  });
+
+  it("an owner of ANOTHER workspace does not serve: refused before any write", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    seedMember(t, uuid(), { role: "owner" });                      // other workspace
+    const guestId = seedMember(t, workspaceId, { role: "member" });
+    const out = await open(t, workspaceId, guestId);
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.error.code).toBe("forbidden_actor");
+    expect(await snapshot(t, workspaceId)).toEqual({ accounts: 0, profiles: 0, threads: 0 });
+  });
+
+  it("no owner, or only an UNVERIFIED owner, closes before any write (even for a verified opener)", async () => {
+    for (const ownerRows of [[], [{ verified: false }]]) {
+      const t = makeTestDeps();
+      const workspaceId = uuid();
+      for (const row of ownerRows) seedMember(t, workspaceId, { role: "owner", verified: row.verified });
+      const openerId = seedMember(t, workspaceId, { role: "admin" });
+      const out = await open(t, workspaceId, openerId);
+      expect(out.ok).toBe(false);
+      if (!out.ok) expect(out.error.code).toBe("forbidden_actor");
+      expect(await snapshot(t, workspaceId)).toEqual({ accounts: 0, profiles: 0, threads: 0 });
+      expect(t.store.adscaleProfiles.rows.size).toBe(0);
+    }
+  });
+
+  it("picks the OLDEST verified owner (createdAt ASC, id ASC); unverified owners are skipped before ordering", async () => {
+    const OLD = new Date("2025-01-01T00:00:00.000Z"); const NEW = new Date("2026-01-01T00:00:00.000Z");
+    const cases: Array<{ name: string; rows: Array<{ label: string; createdAt: Date; id: string; verified?: boolean }>; expected: string }> = [
+      { name: "older wins", expected: "old", rows: [
+        { label: "new", createdAt: NEW, id: "00000000-0000-4000-8000-000000000001" },
+        { label: "old", createdAt: OLD, id: "ffffffff-ffff-4fff-8fff-ffffffffffff" }] },
+      { name: "createdAt tie → smaller member id", expected: "low", rows: [
+        { label: "high", createdAt: OLD, id: "ffffffff-ffff-4fff-8fff-ffffffffffff" },
+        { label: "low", createdAt: OLD, id: "00000000-0000-4000-8000-000000000001" }] },
+      { name: "older unverified, newer verified → newer", expected: "verified", rows: [
+        { label: "unverified", createdAt: OLD, id: "00000000-0000-4000-8000-000000000001", verified: false },
+        { label: "verified", createdAt: NEW, id: "ffffffff-ffff-4fff-8fff-ffffffffffff" }] },
+    ];
+    for (const c of cases) {
+      for (const reversed of [false, true]) {
+        const t = makeTestDeps();
+        const workspaceId = uuid();
+        const users: Record<string, string> = {};
+        for (const row of reversed ? [...c.rows].reverse() : c.rows) {
+          users[row.label] = seedMember(t, workspaceId, { role: "owner", createdAt: row.createdAt, id: row.id, verified: row.verified ?? true, name: row.label });
+        }
+        const guestId = seedMember(t, workspaceId, { role: "member", createdAt: new Date("2027-01-01T00:00:00.000Z") });
+        const out = await open(t, workspaceId, guestId);
+        expect(out.ok, c.name).toBe(true);
+        if (!out.ok) return;
+        const approver = (await peopleOf(t, workspaceId, out.value.accountId!)).find((p) => p.role === "approver");
+        expect(approver?.userId, `${c.name} reversed=${reversed}`).toBe(users[c.expected]);
+      }
+    }
+  });
+
+  it("an existing PAID account stays intact (no owner required, no people, no approver change)", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid();
+    const profile = await t.deps.uow.internal.createClientProfile(workspaceId, "Paga");
+    const paid = await t.deps.uow.repos.accounts.create(workspaceId, { clientProfileId: profile.id });
+    const guestId = seedMember(t, workspaceId, { role: "member" });
+    const out = await open(t, workspaceId, guestId);
+    expect(out.ok && out.value.accountId).toBe(paid.id);
+    expect(out.ok && out.value.data).toMatchObject({ created: false });
+    expect(await peopleOf(t, workspaceId, paid.id)).toEqual([]);
+    expect((await t.deps.uow.repos.accounts.get(workspaceId, paid.id))?.status).toBe("deploying");
   });
 });

@@ -13,7 +13,7 @@ import { InMemoryObjectStorage } from "@/server/storage/in-memory-object-storage
 describe("PR609 independent review probes", () => {
   it("keeps a possibly billed attempt counted after lost ACK and later DNS failure", async () => {
     const t = makeTestDeps(); const workspaceId = uuid(); const userId = `user-${uuid()}`;
-    t.store.workspaceMembers.rows.set(uuid(), { id: uuid(), workspaceId, userId, name: "Ana", email: "ana@example.com", emailVerified: true });
+    t.store.workspaceMembers.rows.set(uuid(), { id: uuid(), workspaceId, userId, name: "Ana", email: "ana@example.com", emailVerified: true, role: "owner", createdAt: new Date("2026-01-01T00:00:00.000Z") });
     const opened = await executeCommand(t.deps, { actor: { kind: "system", job: "free-open" }, workspaceId }, { type: "open_free_account", payload: { userId } });
     if (!opened.ok) throw new Error(opened.error.code);
     const scope = { workspaceId, accountId: opened.value.accountId! };
@@ -57,7 +57,7 @@ describe("PR609 independent review probes", () => {
 
   async function openFreeHandoffWithSite(t: ReturnType<typeof makeTestDeps>) {
     const workspaceId = uuid(); const userId = `user-${uuid()}`;
-    t.store.workspaceMembers.rows.set(uuid(), { id: uuid(), workspaceId, userId, name: "Ana", email: "ana@example.com", emailVerified: true });
+    t.store.workspaceMembers.rows.set(uuid(), { id: uuid(), workspaceId, userId, name: "Ana", email: "ana@example.com", emailVerified: true, role: "owner", createdAt: new Date("2026-01-01T00:00:00.000Z") });
     const opened = await executeCommand(t.deps, { actor: { kind: "system", job: "free-open" }, workspaceId }, { type: "open_free_account", payload: { userId } });
     if (!opened.ok) throw new Error(opened.error.code);
     const scope = { workspaceId, accountId: opened.value.accountId! };

@@ -118,8 +118,11 @@ export class MemoryLedgerStore implements LedgerStore {
 
 type LedgerDb = Pick<typeof db, "insert" | "select" | "update"> & { $client: Pool | PoolClient };
 
+// Bound provider concurrency without occupying the application's query pool.
+const freeCallLockPools = new WeakMap<Pool, Pool>();
+
 export class DrizzleLedgerStore implements LedgerStore {
-  constructor(private readonly database: LedgerDb = db) {}
+  constructor(private readonly database: LedgerDb = db, private readonly lockPool?: Pool) {}
 
   async record(entry: LedgerEntryInput): Promise<LedgerEntry> {
     // equipe_agent_ledger has no cache columns (adding them needs a
@@ -166,7 +169,13 @@ export class DrizzleLedgerStore implements LedgerStore {
   async withAccountLock<T>(scope: AccountScope, fn: (store: LedgerStore, repos?: EquipeRepositories) => Promise<T>): Promise<T> {
     const pool = this.database.$client;
     if (!(pool instanceof Pool)) throw new Error("free_lock_requires_pool");
-    const client = await pool.connect();
+    let lockPool = this.lockPool ?? freeCallLockPools.get(pool);
+    if (!lockPool) {
+      lockPool = new Pool({ ...pool.options, password: pool.options.password,
+        max: 10, allowExitOnIdle: true, application_name: "equipe-free-ai" });
+      freeCallLockPools.set(pool, lockPool);
+    }
+    const client = await lockPool.connect();
     const key = `equipe-free-ai:${scope.workspaceId}:${scope.accountId}`;
     let discard = false;
     try {

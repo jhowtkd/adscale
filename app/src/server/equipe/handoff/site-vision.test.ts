@@ -146,7 +146,7 @@ describe("createSiteVision", () => {
     const t = makeTestDeps({ now: new Date("2026-10-15T15:00:00.000Z") });
     const workspaceId = uuid();
     const userId = `user-${uuid()}`;
-    t.store.workspaceMembers.rows.set(uuid(), { id: uuid(), workspaceId, userId, name: "Ana", email: "a@x.com", emailVerified: true });
+    t.store.workspaceMembers.rows.set(uuid(), { id: uuid(), workspaceId, userId, name: "Ana", email: "a@x.com", emailVerified: true, role: "owner", createdAt: new Date("2026-01-01T00:00:00.000Z") });
     const opened = await executeCommand(t.deps, { actor: { kind: "system", job: "free" }, workspaceId }, { type: "open_free_account", payload: { userId } });
     if (!opened.ok) throw new Error(opened.error.code);
     const scope = { workspaceId, accountId: opened.value.accountId! };
@@ -172,7 +172,7 @@ describe("createSiteVision", () => {
     const t = makeTestDeps({ now: new Date("2026-10-15T15:00:00.000Z") });
     const workspaceId = uuid();
     const userId = `user-${uuid()}`;
-    t.store.workspaceMembers.rows.set(uuid(), { id: uuid(), workspaceId, userId, name: "Ana", email: "a@x.com", emailVerified: true });
+    t.store.workspaceMembers.rows.set(uuid(), { id: uuid(), workspaceId, userId, name: "Ana", email: "a@x.com", emailVerified: true, role: "owner", createdAt: new Date("2026-01-01T00:00:00.000Z") });
     const opened = await executeCommand(t.deps, { actor: { kind: "system", job: "free" }, workspaceId }, { type: "open_free_account", payload: { userId } });
     if (!opened.ok) throw new Error(opened.error.code);
     const scope = { workspaceId, accountId: opened.value.accountId! };

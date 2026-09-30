@@ -51,7 +51,7 @@ async function createFixture() {
   const userId = `handoff-${workspaceId}`;
   await dbA.insert(schema.user).values({ id: userId, name: tag, email: `${userId}@example.test`, emailVerified: true });
   await dbA.insert(schema.workspaces).values({ id: workspaceId, name: tag, slug: tag });
-  await dbA.insert(schema.workspaceMembers).values({ workspaceId, userId });
+  await dbA.insert(schema.workspaceMembers).values({ workspaceId, userId, role: "owner" });
   const opened = await executeCommand(t.deps, { actor: SYSTEM_OPEN, workspaceId }, { type: "open_free_account", payload: { userId } });
   if (!opened.ok) throw new Error(`open_free_account failed: ${opened.error.code}`);
   const accountId = opened.value.accountId!;

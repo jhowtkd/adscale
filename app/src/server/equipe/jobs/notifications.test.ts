@@ -36,7 +36,7 @@ import {
   type NotificationUser,
   type NotificationsJobDeps,
 } from "./notifications";
-import type { EquipeJobDeps } from "./shared";
+import { listEnabledAccounts, type EquipeJobDeps } from "./shared";
 
 const SCOPE = (ids: ItemIds) => ({ workspaceId: ids.workspaceId, accountId: ids.accountId });
 const step = { run: async <T>(_name: string, fn: () => Promise<T>) => fn() };
@@ -476,5 +476,249 @@ describe("notifications handler", () => {
       step,
     });
     expect(quiet).toMatchObject({ delivered: [], failed: [] });
+  });
+});
+
+describe("free accounts still notify Support (request_support → Assinar o plano)", () => {
+  async function setupFree(options: { status?: "free" | "closed" } = {}) {
+    const t = makeTestDeps();
+    const ids = await openTestAccount(t, {
+      people: [{ name: "Ana", role: "approver", userId: "user-ana", email: "ana@client.com" }],
+    });
+    await t.deps.uow.internal.staff.create({ role: "support", displayName: "Suporte", active: true, userId: "user-support" });
+    // The real request happens while the account is free (allowed by FREE_ACCOUNT_COMMANDS).
+    t.store.accounts.rows.get(ids.accountId)!.status = "free";
+    const requested = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "request_support", payload: { note: "Quero assinar o plano" },
+    });
+    if (!requested.ok) throw new Error(`request_support failed: ${requested.error.code}`);
+    if (options.status) t.store.accounts.rows.get(ids.accountId)!.status = options.status;
+    return { t, ids };
+  }
+  const supportUser: NotificationUser = { email: "suporte@adscale.test", emailVerified: true, emailNotificationsEnabled: true };
+  const depsFor = (t: TestDeps, adapters: NotificationDeliveryAdapters, enabled = true): NotificationsJobDeps => ({
+    uow: t.deps.uow, clock: t.deps.clock, isEnabledForWorkspace: () => enabled,
+    gatewayFor: () => t.gateway, publisher: t.publisher, delivery: adapters,
+  });
+  const run = (t: TestDeps, adapters: NotificationDeliveryAdapters, enabled = true) =>
+    createNotificationsHandler(depsFor(t, adapters, enabled))({ event: { data: {} }, step });
+
+  it("delivers the support notification for a FREE account, persists the delivery, and a rerun is quiet", async () => {
+    const { t, ids } = await setupFree();
+    const { inbox, sent, adapters } = makeAdapters({ "user-support": supportUser });
+    const requested = await t.deps.uow.repos.events.list(SCOPE(ids), { eventType: "notification.requested" });
+    expect(requested.some((e) => (e.payload as { recipientRole?: string }).recipientRole === "support")).toBe(true);
+
+    const first = await run(t, adapters);
+    expect(first.failed).toEqual([]);
+    expect(first.delivered.length).toBeGreaterThan(0);
+    expect(inbox.filter((row) => row.userId === "user-support")).toHaveLength(1);
+    expect(sent.filter((mail) => mail.to === "suporte@adscale.test")).toHaveLength(1);
+    for (const id of first.delivered) expect(await t.deps.uow.repos.deliveries.getByEvent(SCOPE(ids), id)).not.toBeNull();
+    // Every eligible channel finished → the terminal marker is persisted.
+    const receipt = await t.deps.uow.repos.deliveries.getByEvent(SCOPE(ids), first.delivered[0]!);
+    expect(receipt?.channels).toContain("completed");
+
+    const inboxCount = inbox.length; const sentCount = sent.length;
+    const quiet = await run(t, adapters);
+    expect(quiet).toMatchObject({ delivered: [], failed: [] });
+    expect(inbox).toHaveLength(inboxCount);
+    expect(sent).toHaveLength(sentCount);
+  });
+
+  it("resumes after a partial failure without duplicating what already went out", async () => {
+    const { t } = await setupFree();
+    const { inbox, sent, adapters } = makeAdapters({ "user-support": supportUser });
+    let failMail = true;
+    const flaky: NotificationDeliveryAdapters = { ...adapters, mailer: { send: async (mail) => {
+      if (failMail) throw new Error("smtp down");
+      await adapters.mailer.send(mail);
+    } } };
+    const failed = await run(t, flaky);
+    expect(failed.failed.length).toBeGreaterThan(0);
+    failMail = false;
+    const resumed = await run(t, flaky);
+    expect(resumed.failed).toEqual([]);
+    expect(sent.filter((mail) => mail.to === "suporte@adscale.test")).toHaveLength(1);
+    expect(inbox.filter((row) => row.userId === "user-support")).toHaveLength(1);
+    const quiet = await run(t, flaky);
+    expect(quiet).toMatchObject({ delivered: [], failed: [] });
+    expect(sent.filter((mail) => mail.to === "suporte@adscale.test")).toHaveLength(1);
+  });
+
+  it("the paid-account sweep selection (default listEnabledAccounts) still does NOT list free accounts", async () => {
+    const { t, ids } = await setupFree();
+    const listed = await listEnabledAccounts(depsFor(t, makeAdapters().adapters));
+    expect(listed.map((a) => a.accountId)).not.toContain(ids.accountId);
+  });
+
+  it("respects the workspace gate and never notifies a closed account", async () => {
+    const gated = await setupFree();
+    const g = makeAdapters({ "user-support": supportUser });
+    expect(await run(gated.t, g.adapters, false)).toMatchObject({ delivered: [], failed: [] });
+    expect(g.inbox).toEqual([]);
+    expect(g.sent).toEqual([]);
+
+    const closed = await setupFree({ status: "closed" });
+    const c = makeAdapters({ "user-support": supportUser });
+    expect(await run(closed.t, c.adapters)).toMatchObject({ delivered: [], failed: [] });
+    expect(c.inbox).toEqual([]);
+    expect(c.sent).toEqual([]);
+  });
+});
+
+describe("free accounts are visited only while a notification is pending", () => {
+  const supportUser: NotificationUser = { email: "suporte@adscale.test", emailVerified: true, emailNotificationsEnabled: true };
+  const optOutUser: NotificationUser = { ...supportUser, emailNotificationsEnabled: false };
+
+  /** A free account whose approver asked for support (real command), optionally without any request. */
+  async function freeAccount(t: TestDeps, options: { request?: boolean } = {}) {
+    const ids = await openTestAccount(t, { people: [{ name: "Ana", role: "approver", userId: "user-ana", email: "ana@client.com" }] });
+    t.store.accounts.rows.get(ids.accountId)!.status = "free";
+    if (options.request !== false) {
+      const out = await executeCommand(t.deps, ctx(ids, ids.actors.approver), { type: "request_support", payload: { note: "Assinar" } });
+      if (!out.ok) throw new Error(`request_support failed: ${out.error.code}`);
+      // Only the Support request is under test: close the approver's own notice as already handled.
+      const requested = await t.deps.uow.repos.events.list(SCOPE(ids), { eventType: "notification.requested" });
+      for (const event of requested) {
+        if ((event.payload as { recipientRole?: string }).recipientRole !== "support") {
+          await t.deps.uow.repos.deliveries.record(SCOPE(ids), { eventId: event.id, channels: ["completed"] });
+        }
+      }
+    }
+    return ids;
+  }
+  const depsFor = (t: TestDeps, adapters: NotificationDeliveryAdapters, enabled: (w: string) => boolean = () => true): NotificationsJobDeps => ({
+    uow: t.deps.uow, clock: t.deps.clock, isEnabledForWorkspace: enabled, gatewayFor: () => t.gateway,
+    publisher: t.publisher, delivery: adapters,
+  });
+  const run = (t: TestDeps, adapters: NotificationDeliveryAdapters, enabled?: (w: string) => boolean) =>
+    createNotificationsHandler(depsFor(t, adapters, enabled))({ event: { data: {} }, step });
+  async function support(t: TestDeps, user: NotificationUser = supportUser) {
+    await t.deps.uow.internal.staff.create({ role: "support", displayName: "Suporte", active: true, userId: "user-support" });
+    return makeAdapters({ "user-support": user });
+  }
+  /** Spies proving WHICH reads the handler performs. */
+  function spies(t: TestDeps) {
+    return {
+      outbox: vi.spyOn(t.deps.uow.repos.events, "list"),
+      byStatus: vi.spyOn(t.deps.uow.internal, "listAccountsByStatus"),
+    };
+  }
+  const freeSweeps = (s: ReturnType<typeof spies>) => s.byStatus.mock.calls.filter(([status]) => status === "free");
+
+  it("many free accounts with no requests or only terminal receipts cause NO outbox reads and no free-status sweep", async () => {
+    const t = makeTestDeps();
+    const { adapters } = await support(t);
+    await freeAccount(t, { request: false });
+    await freeAccount(t, { request: false });
+    const done = await freeAccount(t);
+    await run(t, adapters);                               // delivers + marks the only pending one
+    const s = spies(t);
+    const quiet = await run(t, adapters);
+    expect(quiet).toMatchObject({ delivered: [], failed: [] });
+    expect(s.outbox).not.toHaveBeenCalled();              // no outbox enumeration for any free account
+    expect(freeSweeps(s)).toEqual([]);                    // never lists every free account
+    void done;
+  });
+
+  it("a completed free notification is not re-enumerated on later runs", async () => {
+    const t = makeTestDeps();
+    const { inbox, sent, adapters } = await support(t);
+    const ids = await freeAccount(t);
+    expect((await run(t, adapters)).delivered.length).toBeGreaterThan(0);
+    const inboxCount = inbox.length; const sentCount = sent.length;
+    const s = spies(t);
+    for (let i = 0; i < 3; i += 1) expect(await run(t, adapters)).toMatchObject({ delivered: [], failed: [] });
+    expect(s.outbox.mock.calls.filter(([scope]) => scope.accountId === ids.accountId)).toEqual([]);
+    expect(inbox).toHaveLength(inboxCount);
+    expect(sent).toHaveLength(sentCount);
+  });
+
+  it("a partial delivery stays pending and resumes without duplicating, then completes", async () => {
+    const t = makeTestDeps();
+    const { inbox, sent, adapters } = await support(t);
+    const ids = await freeAccount(t);
+    let failMail = true;
+    const flaky: NotificationDeliveryAdapters = { ...adapters, mailer: { send: async (mail) => {
+      if (failMail) throw new Error("smtp down");
+      await adapters.mailer.send(mail);
+    } } };
+    expect((await run(t, flaky)).failed.length).toBeGreaterThan(0);
+    const inappAfterFailure = inbox.filter((r) => r.userId === "user-support").length;
+    const pendingEvent = (await t.deps.uow.repos.events.list(SCOPE(ids), { eventType: "notification.requested" }))
+      .find((e) => (e.payload as { recipientRole?: string }).recipientRole === "support")!;
+    const partial = await t.deps.uow.repos.deliveries.getByEvent(SCOPE(ids), pendingEvent.id);
+    expect(partial?.channels ?? []).not.toContain("completed");          // partial is NOT terminal
+    failMail = false;
+    const resumed = await run(t, flaky);
+    expect(resumed.failed).toEqual([]);
+    expect(inbox.filter((r) => r.userId === "user-support")).toHaveLength(inappAfterFailure); // inapp not resent
+    expect(sent.filter((m) => m.to === "suporte@adscale.test")).toHaveLength(1);
+    expect((await t.deps.uow.repos.deliveries.getByEvent(SCOPE(ids), pendingEvent.id))?.channels).toContain("completed");
+    const s = spies(t);
+    await run(t, flaky);
+    expect(s.outbox.mock.calls.filter(([scope]) => scope.accountId === ids.accountId)).toEqual([]);
+  });
+
+  it("an email opt-out finishes inapp-only, is marked completed and never comes back", async () => {
+    const t = makeTestDeps();
+    const { inbox, sent, adapters } = await support(t, optOutUser);
+    const ids = await freeAccount(t);
+    const first = await run(t, adapters);
+    expect(first.failed).toEqual([]);
+    expect(inbox.filter((r) => r.userId === "user-support")).toHaveLength(1);
+    expect(sent).toEqual([]);
+    const event = (await t.deps.uow.repos.events.list(SCOPE(ids), { eventType: "notification.requested" }))
+      .find((e) => (e.payload as { recipientRole?: string }).recipientRole === "support")!;
+    expect((await t.deps.uow.repos.deliveries.getByEvent(SCOPE(ids), event.id))?.channels).toEqual(expect.arrayContaining(["inapp", "completed"]));
+    const s = spies(t);
+    await run(t, adapters);
+    expect(s.outbox.mock.calls.filter(([scope]) => scope.accountId === ids.accountId)).toEqual([]);
+    expect(inbox.filter((r) => r.userId === "user-support")).toHaveLength(1);
+  });
+
+  it("legacy receipts: inapp+email without marker is terminal; inapp-only is re-evaluated once without duplicating", async () => {
+    const t = makeTestDeps();
+    const { inbox, sent, adapters } = await support(t, optOutUser);
+    const full = await freeAccount(t);
+    const inappOnly = await freeAccount(t);
+    const eventOf = async (ids: ItemIds) => (await t.deps.uow.repos.events.list(SCOPE(ids), { eventType: "notification.requested" }))
+      .find((e) => (e.payload as { recipientRole?: string }).recipientRole === "support")!;
+    await t.deps.uow.repos.deliveries.record(SCOPE(full), { eventId: (await eventOf(full)).id, channels: ["inapp", "email"] });
+    await t.deps.uow.repos.deliveries.record(SCOPE(inappOnly), { eventId: (await eventOf(inappOnly)).id, channels: ["inapp"] });
+    const s = spies(t);
+    const first = await run(t, adapters);
+    expect(first.failed).toEqual([]);
+    // legacy full receipt: never enumerated; legacy inapp-only (email opted out): evaluated, nothing resent
+    expect(s.outbox.mock.calls.some(([scope]) => scope.accountId === full.accountId)).toBe(false);
+    expect(s.outbox.mock.calls.some(([scope]) => scope.accountId === inappOnly.accountId)).toBe(true);
+    expect(inbox.filter((r) => r.userId === "user-support")).toHaveLength(0);
+    expect(sent).toEqual([]);
+    expect((await t.deps.uow.repos.deliveries.getByEvent(SCOPE(inappOnly), (await eventOf(inappOnly)).id))?.channels).toContain("completed");
+    s.outbox.mockClear();
+    await run(t, adapters);
+    expect(s.outbox.mock.calls.some(([scope]) => scope.accountId === inappOnly.accountId)).toBe(false);
+    // legacy inapp-only WITH a deliverable email: only the missing email goes out
+    const t2 = makeTestDeps();
+    const r2 = await support(t2);
+    const ids2 = await freeAccount(t2);
+    const ev2 = (await t2.deps.uow.repos.events.list(SCOPE(ids2), { eventType: "notification.requested" }))
+      .find((e) => (e.payload as { recipientRole?: string }).recipientRole === "support")!;
+    await t2.deps.uow.repos.deliveries.record(SCOPE(ids2), { eventId: ev2.id, channels: ["inapp"] });
+    await run(t2, r2.adapters);
+    expect(r2.inbox).toHaveLength(0);
+    expect(r2.sent).toHaveLength(1);
+  });
+
+  it("keeps the workspace gate and ignores closed or paid accounts in the free pending selection", async () => {
+    const t = makeTestDeps();
+    const { inbox, sent, adapters } = await support(t);
+    const gated = await freeAccount(t);
+    expect(await run(t, adapters, (w) => w !== gated.workspaceId)).toMatchObject({ delivered: [], failed: [] });
+    expect(inbox).toEqual([]); expect(sent).toEqual([]);
+    t.store.accounts.rows.get(gated.accountId)!.status = "closed";
+    expect(await run(t, adapters)).toMatchObject({ delivered: [], failed: [] });
+    expect(inbox).toEqual([]); expect(sent).toEqual([]);
   });
 });
