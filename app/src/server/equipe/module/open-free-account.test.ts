@@ -116,6 +116,104 @@ describe("open_free_account", () => {
   });
 });
 
+describe("open_free_account entry-account selection", () => {
+  // Same order as getClientAccounts: createdAt ASC, id ASC — independent of status
+  // and of the repository/Map iteration order.
+  async function seedAccount(t: ReturnType<typeof makeTestDeps>, workspaceId: string,
+    over: { id: string; createdAt: string; status?: "free" | "deploying" | "active" }) {
+    const profile = await t.deps.uow.internal.createClientProfile(workspaceId, `Marca ${over.id.slice(0, 4)}`);
+    const created = await t.deps.uow.repos.accounts.create(workspaceId, { clientProfileId: profile.id, status: over.status ?? "deploying" });
+    const row = t.store.accounts.rows.get(created.id)!;
+    t.store.accounts.rows.delete(created.id);
+    t.store.accounts.rows.set(over.id, { ...row, id: over.id, createdAt: new Date(over.createdAt) });
+    return over.id;
+  }
+  const reverseAccountOrder = (t: ReturnType<typeof makeTestDeps>) => {
+    t.store.accounts.rows = new Map([...t.store.accounts.rows].reverse());
+  };
+  const OLD = "2026-01-01T00:00:00.000Z"; const NEW = "2026-06-01T00:00:00.000Z";
+  const LOW = "00000000-0000-4000-8000-000000000001"; const HIGH = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+  const MID = "88888888-8888-4888-8888-888888888888";
+
+  async function snapshot(t: ReturnType<typeof makeTestDeps>, workspaceId: string) {
+    const accounts = await t.deps.uow.repos.accounts.list(workspaceId);
+    const people = await Promise.all(accounts.map((a) => t.deps.uow.repos.people.list({ workspaceId, accountId: a.id })));
+    const handoffs = await Promise.all(accounts.map((a) => t.deps.uow.repos.handoffs.list({ workspaceId, accountId: a.id })));
+    return { accounts: accounts.length, profiles: t.store.adscaleProfiles.rows.size, threads: t.store.assistantThreads.rows.size,
+      people: people.flat().length, handoffs: handoffs.flat().length };
+  }
+
+  it("the OLDEST account wins even when a newer account has the smaller UUID, in either Map order", async () => {
+    for (const newerFirst of [true, false]) {
+      const t = makeTestDeps();
+      const workspaceId = uuid(); const userId = seedMember(t, workspaceId);
+      if (newerFirst) { await seedAccount(t, workspaceId, { id: LOW, createdAt: NEW }); await seedAccount(t, workspaceId, { id: HIGH, createdAt: OLD }); }
+      else { await seedAccount(t, workspaceId, { id: HIGH, createdAt: OLD }); await seedAccount(t, workspaceId, { id: LOW, createdAt: NEW }); }
+      const outcome = await open(t, workspaceId, userId);
+      expect(outcome.ok).toBe(true);
+      if (!outcome.ok) return;
+      expect(outcome.value.accountId).toBe(HIGH);
+      expect(outcome.value.data).toMatchObject({ created: false });
+    }
+  });
+
+  it("a createdAt tie is resolved by the smaller account UUID, in either Map order", async () => {
+    for (const lowFirst of [true, false]) {
+      const t = makeTestDeps();
+      const workspaceId = uuid(); const userId = seedMember(t, workspaceId);
+      await seedAccount(t, workspaceId, { id: MID, createdAt: OLD });
+      const order = lowFirst ? [LOW, HIGH] : [HIGH, LOW];
+      for (const id of order) await seedAccount(t, workspaceId, { id, createdAt: OLD });
+      const outcome = await open(t, workspaceId, userId);
+      expect(outcome.ok && outcome.value.accountId).toBe(LOW);
+    }
+  });
+
+  it("reversing repository/Map order between reopenings keeps account and thread and creates nothing extra", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid(); const userId = seedMember(t, workspaceId);
+    await seedAccount(t, workspaceId, { id: HIGH, createdAt: OLD });
+    await seedAccount(t, workspaceId, { id: LOW, createdAt: NEW });
+    await seedAccount(t, workspaceId, { id: MID, createdAt: NEW });
+    const first = await open(t, workspaceId, userId);
+    if (!first.ok) throw new Error(first.error.code);
+    const before = await snapshot(t, workspaceId);
+    const threadsBefore = await t.deps.uow.repos.threads.list({ workspaceId, accountId: first.value.accountId! });
+    for (let i = 0; i < 3; i += 1) {
+      reverseAccountOrder(t);
+      const again = await open(t, workspaceId, userId);
+      expect(again.ok && again.value.accountId).toBe(HIGH);
+      expect(again.ok && again.value.data).toMatchObject({ created: false });
+    }
+    expect(await snapshot(t, workspaceId)).toEqual(before);
+    expect(await t.deps.uow.repos.threads.list({ workspaceId, accountId: first.value.accountId! })).toEqual(threadsBefore);
+    expect(before.accounts).toBe(3);
+    expect(before.people).toBe(0);
+    expect(before.handoffs).toBe(0);
+  });
+
+  it("converting the selected account free → paid never switches the entry account", async () => {
+    const t = makeTestDeps();
+    const workspaceId = uuid(); const userId = seedMember(t, workspaceId);
+    const opened = await open(t, workspaceId, userId);
+    if (!opened.ok) throw new Error(opened.error.code);
+    const freeId = opened.value.accountId!;
+    // A later account with a smaller UUID appears (e.g. a second brand).
+    await seedAccount(t, workspaceId, { id: LOW, createdAt: "2099-01-01T00:00:00.000Z", status: "free" });
+    const withSecond = await open(t, workspaceId, userId);
+    expect(withSecond.ok && withSecond.value.accountId).toBe(freeId);
+    const before = await snapshot(t, workspaceId);
+    for (const status of ["deploying", "active"] as const) {
+      t.store.accounts.rows.get(freeId)!.status = status;
+      reverseAccountOrder(t);
+      const again = await open(t, workspaceId, userId);
+      expect(again.ok && again.value.accountId).toBe(freeId);
+      expect(again.ok && again.value.data).toMatchObject({ created: false });
+    }
+    expect(await snapshot(t, workspaceId)).toEqual(before);
+  });
+});
+
 describe("free account command allowlist", () => {
   async function freeSetup() {
     const t = makeTestDeps();

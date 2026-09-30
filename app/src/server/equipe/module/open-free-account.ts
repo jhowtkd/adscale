@@ -12,7 +12,10 @@ export function runOpenFreeAccount(
     await ctx.internal.lockWorkspace(ctx.workspaceId);
     const member = await ctx.internal.getVerifiedWorkspaceMember(ctx.workspaceId, payload.userId);
     if (!member) return err("forbidden_actor", "Opening requires a verified workspace member.");
-    const [existing] = await ctx.repos.accounts.list(ctx.workspaceId);
+    // Match the client account order; free→paid conversion keeps the entry account.
+    const [existing] = [...(await ctx.repos.accounts.list(ctx.workspaceId))].sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id),
+    );
     if (existing) {
       ctx.accountId = existing.id;
       const thread = await ensurePrimaryThreadInTx(ctx);
