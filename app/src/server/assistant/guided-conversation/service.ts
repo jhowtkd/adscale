@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { emitGuidedFlowTelemetry } from "@/server/assistant/guided-flow-telemetry";
 import { analyzeExistingCreativeForJourney } from "@/server/assistant/guided-paths/existing-creative";
 import { getClientReferencesByIds } from "@/server/repositories/client-reference";
-import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
+import { getAssetIdsVisibleToBrand } from "@/server/repositories/workspace-asset";
 import { getGuidedFlowTransitionByCommand } from "@/server/repositories/guided-flow-transition";
 import {
   getGuidedFlowByThread,
@@ -42,19 +42,17 @@ async function assertScopedReferences(input: {
       .map((reference) => reference.id)
   );
 
+  // Existing assets count only when the thread's brand may see them in its Library: its own or shared, never another brand's.
   const unresolved = uniqueIds.filter((id) => !validClientIds.has(id));
-  const workspaceAssets = await Promise.all(
-    unresolved.map((id) => getWorkspaceAssetById(id, input.workspaceId))
-  );
   const validWorkspaceIds = new Set(
-    workspaceAssets.filter(Boolean).map((asset) => asset!.id)
+    await getAssetIdsVisibleToBrand(input.workspaceId, input.clientProfileId, unresolved)
   );
 
   const invalid = uniqueIds.filter(
     (id) => !validClientIds.has(id) && !validWorkspaceIds.has(id)
   );
   if (invalid.length > 0) {
-    throw new GuidedFlowValidationError("References must belong to the current client or workspace");
+    throw new GuidedFlowValidationError("References must belong to the current brand or be shared by the workspace");
   }
   return uniqueIds;
 }

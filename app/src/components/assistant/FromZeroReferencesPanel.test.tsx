@@ -20,8 +20,9 @@ vi.mock("@/lib/hooks/use-guided-flow-commands", () => ({
   }),
 }));
 
-vi.mock("@/lib/hooks/use-workspace-assets", () => ({
-  useWorkspaceAssets: () => ({
+const useWorkspaceAssetsMock = vi.hoisted(() => vi.fn((options: unknown) => {
+  void options;
+  return {
     data: {
       assets: [
         { id: "asset-1", name: "referencia-1.png", url: "/api/workspace/assets/asset-1/file" },
@@ -29,7 +30,10 @@ vi.mock("@/lib/hooks/use-workspace-assets", () => ({
       total: 1,
     },
     isLoading: false,
-  }),
+  };
+}));
+vi.mock("@/lib/hooks/use-workspace-assets", () => ({
+  useWorkspaceAssets: useWorkspaceAssetsMock,
 }));
 
 vi.mock("@/lib/hooks/use-client-profiles", () => ({
@@ -82,6 +86,19 @@ describe("FromZeroReferencesPanel thumbnails", () => {
       // cookie, so the src must stay raw — never /_next/image?... (401).
       expect(img).toHaveAttribute("src", url);
       expect(img.getAttribute("src")).not.toContain("/_next/image");
+    }
+  });
+});
+
+describe("FromZeroReferencesPanel picker scope (PR 612 review)", () => {
+  it("lists the existing assets of the thread's own brand, never the whole workspace", () => {
+    useWorkspaceAssetsMock.mockClear();
+    renderPanel({ threadId: "thread-B", clientProfileId: "brand-B" });
+
+    expect(useWorkspaceAssetsMock).toHaveBeenCalled();
+    // With several brands an unscoped list would offer brand A's assets to brand B's work.
+    for (const [options] of useWorkspaceAssetsMock.mock.calls) {
+      expect(options).toMatchObject({ clientProfileId: "brand-B" });
     }
   });
 });

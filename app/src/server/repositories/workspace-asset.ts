@@ -210,6 +210,17 @@ export async function getWorkspaceAssetsByIds(workspaceId: string, ids: readonly
     ));
 }
 
+/** Of `ids`, the assets this brand may use: the Library's own visibility rule (the brand's assets plus unbranded, non-provisional ones). */
+export async function getAssetIdsVisibleToBrand(workspaceId: string, clientProfileId: string, ids: readonly string[]) {
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) return [];
+  const rows = await db
+    .select({ id: workspaceAssets.id })
+    .from(workspaceAssets)
+    .where(and(...buildAssetConditions(workspaceId, { clientProfileId }), inArray(workspaceAssets.id, uniqueIds)));
+  return rows.map((row) => row.id);
+}
+
 export async function getWorkspaceAssetByKey(
   workspaceId: string,
   key: string

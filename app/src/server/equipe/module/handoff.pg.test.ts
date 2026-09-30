@@ -790,6 +790,34 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     expect(await ids()).toEqual([legacyShared.id, legacyBranded.id, fresh.id, site.id, instagram.id].sort());
   });
 
+  it("ticket 07 (PR 612 review, real PG): getAssetIdsVisibleToBrand keeps only what the brand may reference: its own and shared, never another brand's, provisional or foreign-workspace assets", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const brandA = account!.clientProfileId;
+    const [brandB] = await f.dbA.insert(f.schema.clientProfiles).values({ workspaceId: f.workspaceId, name: "Brand B" }).returning();
+    const foreignWorkspace = crypto.randomUUID();
+    await f.dbA.insert(f.schema.workspaces).values({ id: foreignWorkspace, name: `fw-${foreignWorkspace}`, slug: `fw-${foreignWorkspace}` });
+    try {
+      const mk = async (workspaceId: string, name: string, values: { clientProfileId?: string | null; metadata?: Record<string, unknown> | null } = {}) => (await f.dbA.insert(f.schema.workspaceAssets).values({
+        workspaceId, clientProfileId: values.clientProfileId ?? null, name, key: `workspaces/${workspaceId}/${name}.png`, size: 1, type: "image/png",
+        source: "upload", metadata: values.metadata ?? null,
+      }).returning())[0]!;
+      const ownB = await mk(f.workspaceId, "own-b", { clientProfileId: brandB!.id });
+      const ownA = await mk(f.workspaceId, "own-a", { clientProfileId: brandA });
+      const shared = await mk(f.workspaceId, "shared");
+      const provisional = await mk(f.workspaceId, "provisional", { metadata: { provisional: true, handoffId: crypto.randomUUID() } });
+      const foreign = await mk(foreignWorkspace, "foreign");
+      const { getAssetIdsVisibleToBrand } = await import("@/server/repositories/workspace-asset");
+      const asked = [ownB, ownA, shared, provisional, foreign].map(asset => asset.id);
+
+      expect((await getAssetIdsVisibleToBrand(f.workspaceId, brandB!.id, asked)).sort()).toEqual([ownB.id, shared.id].sort());
+      expect((await getAssetIdsVisibleToBrand(f.workspaceId, brandA, asked)).sort()).toEqual([ownA.id, shared.id].sort());
+      expect(await getAssetIdsVisibleToBrand(f.workspaceId, brandB!.id, [])).toEqual([]);
+    } finally {
+      await f.dbA.delete(f.schema.workspaces).where(eq(f.schema.workspaces.id, foreignWorkspace));
+    }
+  });
+
   it("ticket 07 (review, real PG): a source filter named like an Object.prototype member is an ordinary unknown origin: empty list, empty count, no error", async () => {
     const f = await setup();
     const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
