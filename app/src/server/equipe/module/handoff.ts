@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { err, ok } from "../domain";
 import { HANDOFF_GROUPS, transitionHandoff, readingRun, withReadingRun, type HandoffState, type HandoffItem, type HandoffGroup, type HandoffSource } from "../domain/handoff";
 import { HANDOFF_READ_EVENT, HANDOFF_DIAGNOSE_EVENT, HANDOFF_MAX_UPLOADED_IMAGES, type HandoffCommand } from "../handoff/contract";
-import { normalizeSource, normalizeInstagram } from "../handoff/source";
+import { normalizeSource, normalizeInstagram, normalizeSocial, socialHint } from "../handoff/source";
 import type { EquipeModuleDeps } from "./ports";
 import { appendEvent, scopeOf, transact, type CommandContext, type TxBase } from "./shared";
 import { requestTask } from "./task-outbox";
@@ -118,9 +118,9 @@ export function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, command:
           const networks = kept as HandoffItem[];
           for (const added of p.added) {
             try {
-              const value = added.platform === "instagram" ? normalizeInstagram(added.value) : normalizeSource("site", added.value).normalized;
+              const value = added.platform === "instagram" ? normalizeInstagram(added.value) : normalizeSocial(added.platform, added.value);
               networks.push({ id: randomUUID(), value, origin: "user", platform: added.platform });
-            } catch { return err("invalid_source", "Provide a public social profile."); }
+            } catch { return err("invalid_source", added.platform === "instagram" ? "Provide a public Instagram profile." : socialHint(added.platform)); }
           }
           const instagrams = networks.filter(i => i.platform === "instagram");
           if (instagrams.length > 1) return err("invalid_command", "Confirm at most one Instagram profile.");

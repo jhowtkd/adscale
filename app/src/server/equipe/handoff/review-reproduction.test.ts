@@ -256,9 +256,14 @@ async function atIdentity() {
   expect((await f.row()).step).toBe("identity");
   return f;
 }
-async function atImages() {
+async function atNetworks() {
   const f = await atIdentity();
   await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+  expect((await f.row()).step).toBe("networks");
+  return f;
+}
+async function atImages() {
+  const f = await atNetworks();
   await f.command("handoff_confirm_networks", { kept: [], added: [] });
   expect((await f.row()).step).toBe("images");
   return f;
@@ -500,6 +505,70 @@ describe("PR610 bot review: images uploaded before confirming are persisted too"
     expect(handoffAttachImageSchema.safeParse({ ...expected, image: null }).success).toBe(false);
     expect(handoffAttachImageSchema.safeParse({ ...expected, image: uuid(), extra: true }).success).toBe(false);
     expect(handoffAttachImageSchema.safeParse({ image: uuid() }).success).toBe(false);
+  });
+});
+
+describe("PR612 bot review: a social link must belong to the platform it is saved under", () => {
+  it.each([
+    ["facebook", "https://www.facebook.com/acme"],
+    ["facebook", "https://fb.com/acme"],
+    ["tiktok", "https://www.tiktok.com/@acme"],
+    ["linkedin", "https://br.linkedin.com/company/acme"],
+    ["youtube", "https://youtu.be/abc123"],
+  ] as const)("keeps the %s link %s the person added", async (platform, value) => {
+    const f = await atNetworks();
+    await f.command("handoff_confirm_networks", { kept: [], added: [{ platform, value }] });
+    expect((await f.row()).decisions.networks).toEqual([expect.objectContaining({ platform, value, origin: "user" })]);
+  });
+
+  it.each([
+    ["facebook", "https://unrelated.com/acme"],
+    ["facebook", "https://facebook.com.evil.com/acme"],
+    ["tiktok", "https://www.facebook.com/acme"],
+    ["linkedin", "https://fakelinkedin.com/company/acme"],
+    ["youtube", "https://youtube.evil.com/@acme"],
+  ] as const)("refuses the %s link %s and saves nothing", async (platform, value) => {
+    const f = await atNetworks(); const before = await f.row();
+    await expect(f.command("handoff_confirm_networks", { kept: [], added: [{ platform, value }] })).rejects.toThrow("invalid_source");
+    const after = await f.row();
+    expect(after.decisions.networks).toBeUndefined();
+    expect([after.step, after.version]).toEqual([before.step, before.version]);
+  });
+
+  it("refuses the whole command when one added link is on the wrong host, even next to valid ones", async () => {
+    const f = await atNetworks();
+    await expect(f.command("handoff_confirm_networks", { kept: [], added: [
+      { platform: "facebook", value: "https://www.facebook.com/acme" },
+      { platform: "youtube", value: "https://www.facebook.com/acme" },
+    ] })).rejects.toThrow("invalid_source");
+    expect((await f.row()).decisions.networks).toBeUndefined();
+  });
+
+  it("still accepts an Instagram profile next to a valid link for another platform", async () => {
+    const f = await atNetworks();
+    await f.command("handoff_confirm_networks", { kept: [], added: [
+      { platform: "instagram", value: "@acme" },
+      { platform: "facebook", value: "https://www.facebook.com/acme" },
+    ] });
+    expect((await f.row()).decisions.networks?.map(i => [i.platform, i.value])).toEqual([["instagram", "acme"], ["facebook", "https://www.facebook.com/acme"]]);
+  });
+
+  it.each([
+    ["facebook", ["Facebook", "facebook.com", "fb.com"]],
+    ["tiktok", ["TikTok", "tiktok.com"]],
+    ["linkedin", ["LinkedIn", "linkedin.com"]],
+    ["youtube", ["YouTube", "youtube.com", "youtu.be"]],
+  ] as const)("tells the person which link the %s network expects", async (platform, expected) => {
+    const f = await atNetworks(); const before = await f.row();
+    const [person] = await f.t.deps.uow.repos.people.list(f.scope);
+    const actor = { kind: "client_person", role: "approver", personId: person!.id } as const;
+    const out = await executeCommand(f.t.deps, { ...f.scope, actor }, { type: "handoff_confirm_networks", payload: {
+      expectedStep: before.step, expectedVersion: before.version, kept: [], added: [{ platform, value: "https://unrelated.com/acme" }],
+    } });
+    expect(out.ok).toBe(false);
+    if (out.ok) return;
+    expect(out.error.code).toBe("invalid_source");
+    for (const part of expected) expect(out.error.message).toContain(part);
   });
 });
 

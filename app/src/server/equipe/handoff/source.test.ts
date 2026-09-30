@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeInstagram, normalizeSource } from "./source";
+import { SOCIAL_HOSTS, normalizeInstagram, normalizeSocial, normalizeSource } from "./source";
 
 describe("normalizeSource: site", () => {
   it("accepts a public http(s) address and lowercases the host", () => {
@@ -62,5 +62,61 @@ describe("normalizeSource: instagram", () => {
     expect(() => normalizeInstagram("bad handle")).toThrow("invalid_instagram");
     expect(() => normalizeInstagram("bad..handle")).toThrow("invalid_instagram");
     expect(() => normalizeInstagram("")).toThrow("invalid_instagram");
+  });
+});
+
+describe("normalizeSocial: a link must belong to the platform it is saved under", () => {
+  it.each([
+    ["facebook", "https://facebook.com/acme"],
+    ["facebook", "https://www.facebook.com/acme"],
+    ["facebook", "https://m.facebook.com/acme"],
+    ["facebook", "https://pt-br.facebook.com/acme"],
+    ["facebook", "https://fb.com/acme"],
+    ["facebook", "https://www.fb.com/acme"],
+    ["tiktok", "https://www.tiktok.com/@acme"],
+    ["tiktok", "https://vm.tiktok.com/ZM8abc/"],
+    ["linkedin", "https://linkedin.com/company/acme"],
+    ["linkedin", "https://www.linkedin.com/company/acme"],
+    ["linkedin", "https://br.linkedin.com/company/acme"],
+    ["youtube", "https://youtube.com/@acme"],
+    ["youtube", "https://www.youtube.com/@acme"],
+    ["youtube", "https://m.youtube.com/@acme"],
+    ["youtube", "https://youtu.be/abc123"],
+  ] as const)("accepts %s on %s", (platform, url) => {
+    expect(normalizeSocial(platform, url)).toBe(new URL(url).toString());
+  });
+
+  it("lowercases the host like any other public address", () => {
+    expect(normalizeSocial("facebook", "https://WWW.Facebook.com/Acme")).toBe("https://www.facebook.com/Acme");
+  });
+
+  it.each([
+    ["facebook", "https://unrelated.com/acme"],
+    ["facebook", "https://facebook.com.evil.com/acme"],
+    ["facebook", "https://evilfacebook.com/acme"],
+    ["facebook", "https://notfb.com/acme"],
+    ["facebook", "https://youtu.be/abc123"],
+    ["tiktok", "https://tiktok.com.evil.io/@acme"],
+    ["tiktok", "https://www.facebook.com/acme"],
+    ["linkedin", "https://linkedin.evil.com/company/acme"],
+    ["linkedin", "https://fakelinkedin.com/company/acme"],
+    ["youtube", "https://www.facebook.com/acme"],
+    ["youtube", "https://youtube.evil.com/@acme"],
+    ["youtube", "https://fakeyoutu.be/abc123"],
+  ] as const)("refuses %s on %s", (platform, url) => {
+    expect(() => normalizeSocial(platform, url)).toThrow("invalid_social");
+  });
+
+  it("still applies the public-address rules before looking at the platform", () => {
+    expect(() => normalizeSocial("facebook", "https://facebook.com@evil.com/acme")).toThrow("invalid_site");
+    expect(() => normalizeSocial("youtube", "https://youtube.com:8443/@acme")).toThrow("invalid_site");
+    expect(() => normalizeSocial("youtube", "ftp://youtube.com/@acme")).toThrow("invalid_site");
+    expect(() => normalizeSocial("facebook", "not a url")).toThrow();
+  });
+
+  it("names every supported platform's hostnames, www/m subdomains and short domains included", () => {
+    expect(SOCIAL_HOSTS).toEqual({
+      facebook: ["facebook.com", "fb.com"], tiktok: ["tiktok.com"], linkedin: ["linkedin.com"], youtube: ["youtube.com", "youtu.be"],
+    });
   });
 });

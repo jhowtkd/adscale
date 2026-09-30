@@ -16,3 +16,24 @@ export function normalizeSource(kind: HandoffSource["kind"], value: string): Han
   url.hostname = host; url.hash = "";
   return { kind, value, normalized: url.toString() };
 }
+
+/** Hostnames each supported platform serves profiles from. Any subdomain of them (www, m, country codes) counts too. */
+export const SOCIAL_HOSTS = {
+  facebook: ["facebook.com", "fb.com"],
+  tiktok: ["tiktok.com"],
+  linkedin: ["linkedin.com"],
+  youtube: ["youtube.com", "youtu.be"],
+} as const;
+export type SocialPlatform = keyof typeof SOCIAL_HOSTS;
+const SOCIAL_LABELS: Record<SocialPlatform, string> = { facebook: "Facebook", tiktok: "TikTok", linkedin: "LinkedIn", youtube: "YouTube" };
+
+/** A public address that belongs to the platform it is saved under, so a link is never filed under the wrong network. */
+export function normalizeSocial(platform: SocialPlatform, value: string) {
+  const { normalized } = normalizeSource("site", value);
+  const host = new URL(normalized).hostname;
+  if (!SOCIAL_HOSTS[platform].some(domain => host === domain || host.endsWith(`.${domain}`))) throw new Error("invalid_social");
+  return normalized;
+}
+
+/** What to tell the person when the link is not one the platform serves. */
+export const socialHint = (platform: SocialPlatform) => `Provide a public ${SOCIAL_LABELS[platform]} link (${SOCIAL_HOSTS[platform].join(" or ")}).`;
