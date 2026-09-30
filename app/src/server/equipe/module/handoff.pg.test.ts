@@ -790,6 +790,33 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     expect(await ids()).toEqual([legacyShared.id, legacyBranded.id, fresh.id, site.id, instagram.id].sort());
   });
 
+  it("ticket 07 (goals materials, real PG): register_material, through the live gateway, accepts only assets the account's brand may use", async () => {
+    const f = await setup();
+    const account = (await f.t.deps.uow.repos.accounts.get(f.workspaceId, f.accountId))!;
+    const [otherBrand] = await f.dbA.insert(f.schema.clientProfiles).values({ workspaceId: f.workspaceId, name: "Other brand" }).returning();
+    await f.dbA.update(f.equipeSchema.equipeAccounts).set({ status: "deploying" }).where(eq(f.equipeSchema.equipeAccounts.id, f.accountId));
+    const mk = async (name: string, values: { clientProfileId?: string | null; metadata?: Record<string, unknown> | null } = {}) => (await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: values.clientProfileId ?? null, name, key: `workspaces/${f.workspaceId}/${name}.png`, size: 1, type: "image/png",
+      source: "upload", metadata: values.metadata ?? null,
+    }).returning())[0]!;
+    const own = await mk("own", { clientProfileId: account.clientProfileId });
+    const shared = await mk("shared");
+    const ofOtherBrand = await mk("of-other-brand", { clientProfileId: otherBrand!.id });
+    const provisional = await mk("provisional", { metadata: { provisional: true, handoffId: crypto.randomUUID() } });
+    const { LiveAdscaleGateway } = await import("../agents/gateway");
+    f.t.deps.gateway = new LiveAdscaleGateway(f.workspaceId);
+    const register = (assetId: string) => f.executeCommand(f.t.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+      type: "register_material", payload: { assetId, kind: "deck" },
+    });
+
+    for (const allowed of [own, shared]) expect((await register(allowed.id)).ok).toBe(true);
+    for (const refused of [ofOtherBrand, provisional]) {
+      const outcome = await register(refused.id);
+      expect(outcome.ok).toBe(false);
+      if (!outcome.ok) expect(outcome.error.code).toBe("unknown_asset");
+    }
+  });
+
   it("ticket 07 (PR 612 review, real PG): getAssetIdsVisibleToBrand keeps only what the brand may reference: its own and shared, never another brand's, provisional or foreign-workspace assets", async () => {
     const f = await setup();
     const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);

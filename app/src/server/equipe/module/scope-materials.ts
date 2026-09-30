@@ -59,10 +59,15 @@ export async function runRegisterMaterial(
   base: TxBase,
   payload: RegisterMaterialPayload,
 ): Promise<Result<CommandSuccess>> {
-  // Read-only gateway lookup BEFORE the transaction (no external I/O inside).
-  const asset = await deps.gateway.getAsset(payload.assetId);
-  if (!asset || asset.workspaceId !== base.workspaceId) {
-    return err("unknown_asset", `unknown asset ${payload.assetId} in workspace ${base.workspaceId}`);
+  // Read-only lookups BEFORE the transaction (no external I/O inside): the account's brand, then the
+  // asset as that brand may see it. With several brands a workspace asset of another brand is unknown.
+  // A missing account falls through: the transaction answers unknown_account.
+  const existing = await deps.uow.repos.accounts.get(base.workspaceId, base.accountId);
+  if (existing) {
+    const asset = await deps.gateway.getAssetForBrand(payload.assetId, existing.clientProfileId);
+    if (!asset || asset.workspaceId !== base.workspaceId) {
+      return err("unknown_asset", `unknown asset ${payload.assetId} for this brand in workspace ${base.workspaceId}`);
+    }
   }
   return transact(deps, base, async (ctx) => {
     const account = await loadAccountOrError(ctx);

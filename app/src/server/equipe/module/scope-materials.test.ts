@@ -144,4 +144,25 @@ describe("register_material", () => {
     expect(foreign.ok).toBe(false);
     if (!foreign.ok) expect(foreign.error.code).toBe("unknown_asset");
   });
+
+  it.each([
+    { name: "an asset of another brand", allowed: false, owner: () => ({ clientProfileId: uuid() }) },
+    { name: "a provisional upload nobody adopted yet", allowed: false, owner: () => ({ clientProfileId: null, metadata: { provisional: true, handoffId: uuid() } }) },
+    { name: "a shared (unbranded) asset", allowed: true, owner: () => ({ clientProfileId: null }) },
+    { name: "an asset of the account's own brand", allowed: true, owner: (brandId: string) => ({ clientProfileId: brandId }) },
+  ])("registers only materials the account's brand may use: $name, allowed=$allowed", async ({ allowed, owner }) => {
+    const t = makeTestDeps();
+    const ids = await openTestAccount(t);
+    const account = (await t.deps.uow.repos.accounts.get(ids.workspaceId, ids.accountId))!;
+    const assetId = uuid();
+    t.gateway.addAsset({ id: assetId, workspaceId: ids.workspaceId, kind: "deck", ...owner(account.clientProfileId) });
+
+    const outcome = await executeCommand(t.deps, ctx(ids, ids.actors.approver), {
+      type: "register_material",
+      payload: { assetId, kind: "deck" },
+    });
+
+    expect(outcome.ok).toBe(allowed);
+    if (!outcome.ok) expect(outcome.error.code).toBe("unknown_asset");
+  });
 });

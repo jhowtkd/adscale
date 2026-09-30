@@ -6,7 +6,7 @@
 
 import { getClientProfile, getClientProfiles } from "@/server/repositories/client-reference";
 import { getCreativeWork, getCreativeWorkOutputInWorkspace } from "@/server/repositories/creative-work";
-import { getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
+import { getAssetIdsVisibleToBrand, getWorkspaceAssetById } from "@/server/repositories/workspace-asset";
 import { getCommercialOfferInWorkspace } from "@/server/repositories/commercial-offer";
 import { objectStorage } from "@/server/storage";
 import { getWorkspaceById } from "@/server/repositories/workspace";
@@ -43,6 +43,11 @@ export class LiveAdscaleGateway implements AdscaleGateway {
     if (!asset) return null;
     return { id: asset.id, workspaceId: asset.workspaceId, kind: asset.type, key: asset.key,
       clientProfileId: asset.clientProfileId, metadata: asset.metadata as Record<string, unknown> | null };
+  }
+
+  async getAssetForBrand(assetId: string, clientProfileId: string): Promise<AdscaleAssetRef | null> {
+    const visible = await getAssetIdsVisibleToBrand(this.workspaceId, clientProfileId, [assetId]);
+    return visible.length > 0 ? this.getAsset(assetId) : null;
   }
 
   async getCreativeWork(workId: string): Promise<AdscaleCreativeWorkRef | null> {

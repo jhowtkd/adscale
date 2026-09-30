@@ -52,6 +52,14 @@ export class FakeAdscaleGateway implements AdscaleGateway {
     return this.assets.get(assetId) ?? null;
   }
 
+  async getAssetForBrand(assetId: string, clientProfileId: string): Promise<AdscaleAssetRef | null> {
+    const asset = this.assets.get(assetId);
+    if (!asset) return null;
+    // Same rule as the Library's SQL: the brand's own, or unbranded and not provisional.
+    const visible = asset.clientProfileId ? asset.clientProfileId === clientProfileId : asset.metadata?.provisional !== true;
+    return visible ? asset : null;
+  }
+
   async getCreativeWork(workId: string): Promise<AdscaleCreativeWorkRef | null> {
     return this.works.get(workId) ?? null;
   }
