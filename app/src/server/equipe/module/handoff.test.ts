@@ -898,6 +898,41 @@ describe("handoff: ticket 07 — confirm_summary materializes brand assets and d
     expect(assets.find(a => a.key === decoyKey)).toMatchObject({ clientProfileId: null });
     expect((assets.find(a => a.key === decoyKey)!.metadata as Record<string, unknown>).provisional).toBe(true);
   });
+
+  it.each([
+    { name: "an unbranded legacy upload", metadata: null },
+    { name: "another handoff's provisional download", metadata: { provisional: true, handoffId: "other-handoff" } },
+  ])("refuses to adopt $name kept in the summary: rolls back and leaves every row untouched", async ({ metadata }) => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openWithSite(t);
+    const workspaceId = scope.workspaceId;
+    const handoffBefore = await currentHandoff(t, scope);
+    const logoKey = `workspaces/${workspaceId}/handoff/${handoffBefore.id}/logo.png`;
+    const imgKey = `workspaces/${workspaceId}/assets/shared-legacy.png`;
+    const decoyKey = `workspaces/${workspaceId}/handoff/${handoffBefore.id}/decoy.png`;
+
+    seedAsset(t, { key: logoKey, workspaceId, metadata: { provisional: true, handoffId: handoffBefore.id } });
+    // Not this handoff's download: adopting it would silently take a shared asset away from the other brands.
+    seedAsset(t, { key: imgKey, workspaceId, source: "upload", metadata });
+    seedAsset(t, { key: decoyKey, workspaceId, metadata: { provisional: true, handoffId: handoffBefore.id } });
+
+    const row = await reachSummary(t, scope, approver, { logoKey, imgKey });
+    const { deleteCalls, handoffStorage } = fakeHandoffStorage();
+    t.deps.handoffStorage = handoffStorage;
+
+    await expect(executeCommand(t.deps, { actor: approver, workspaceId: scope.workspaceId, accountId: scope.accountId }, {
+      type: "handoff_confirm_summary", payload: { expectedStep: row.step, expectedVersion: row.version },
+    })).rejects.toThrow();
+
+    expect(deleteCalls).toEqual([]);
+    const after = await currentHandoff(t, scope);
+    expect(after.step).toBe("summary");
+    expect(after.version).toBe(row.version);
+    const assets = [...t.store.workspaceAssets.rows.values()];
+    expect(assets.find(a => a.key === imgKey)).toMatchObject({ clientProfileId: null, source: "upload", metadata });
+    expect(assets.find(a => a.key === logoKey)).toMatchObject({ clientProfileId: null });
+    expect((assets.find(a => a.key === decoyKey)!.metadata as Record<string, unknown>).provisional).toBe(true);
+  });
 });
 
 describe("handoff: rereading the current state is idempotent", () => {

@@ -734,6 +734,62 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     expect(await getClientProfile(f.workspaceId, doomed!.id)).toBeNull();
   });
 
+  it("ticket 07 (bot review, real PG): materializeHandoffAssets adopts only this handoff's provisional download or the brand's own asset, never a shared legacy row", async () => {
+    const f = await setup();
+    const [handoff] = await f.t.deps.uow.repos.handoffs.list(f.scope);
+    const [otherBrand] = await f.dbA.insert(f.schema.clientProfiles).values({ workspaceId: f.workspaceId, name: "Other brand" }).returning();
+    const mk = async (name: string, values: { clientProfileId?: string | null; metadata?: Record<string, unknown> | null }) => (await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: values.clientProfileId ?? null, name, key: `workspaces/${f.workspaceId}/${name}.png`,
+      size: 1, type: "image/png", source: "upload", metadata: values.metadata ?? null,
+    }).returning())[0]!;
+    const own = await mk("own-download", { metadata: { provisional: true, handoffId: handoff!.id } });
+    const brandOwned = await mk("brand-owned", { clientProfileId: handoff!.clientProfileId });
+    const legacy = await mk("legacy-shared", {});
+    const otherHandoff = await mk("other-handoff", { metadata: { provisional: true, handoffId: crypto.randomUUID() } });
+    const foreign = await mk("other-brand", { clientProfileId: otherBrand!.id });
+    const materialize = (asset: { key: string }) => {
+      const item = { id: crypto.randomUUID(), value: "/x.png", origin: "site" as const, key: asset.key };
+      return f.t.deps.uow.run((_repos, internal) => internal.materializeHandoffAssets(f.scope,
+        { ...handoff!, captured: { images: [item] }, decisions: { images: { kept: [item.id], removed: [], uploaded: [] } } }, []));
+    };
+    const read = async (id: string) => (await f.dbA.select().from(f.schema.workspaceAssets).where(eq(f.schema.workspaceAssets.id, id)))[0]!;
+
+    await materialize(own);
+    await materialize(brandOwned);
+    expect(await read(own.id)).toMatchObject({ clientProfileId: handoff!.clientProfileId, source: "brand_site" });
+    expect(await read(brandOwned.id)).toMatchObject({ clientProfileId: handoff!.clientProfileId });
+
+    for (const refused of [legacy, otherHandoff, foreign]) {
+      await expect(materialize(refused)).rejects.toThrow("handoff_asset_not_found");
+      // Refused rows are byte-for-byte as seeded: a shared asset is never claimed by the brand.
+      expect(await read(refused.id)).toMatchObject({ clientProfileId: refused.clientProfileId, source: "upload", metadata: refused.metadata });
+    }
+  });
+
+  it("ticket 07 (bot review, real PG): the 'Enviado por você' origin filter also lists legacy 'upload' assets, with list and count in agreement", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const home = account!.clientProfileId;
+    const mk = async (name: string, source: string, clientProfileId: string | null = home) => (await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId, name, key: `workspaces/${f.workspaceId}/${name}.png`, size: 1, type: "image/png", source,
+    }).returning())[0]!;
+    const legacyShared = await mk("legacy-shared", "upload", null); // before the brand-scoped Library, left unbranded by the backfill
+    const legacyBranded = await mk("legacy-branded", "upload");      // before the brand-scoped Library, backfilled to this brand
+    const fresh = await mk("fresh-upload", "brand_upload");
+    const site = await mk("from-site", "brand_site");
+    const instagram = await mk("from-instagram", "brand_instagram");
+    const { getWorkspaceAssets, getWorkspaceAssetsCount } = await import("@/server/repositories/workspace-asset");
+    const ids = async (source?: string) => (await getWorkspaceAssets(f.workspaceId, { clientProfileId: home, source, limit: 100 })).map(row => row.id).sort();
+
+    expect(await ids("brand_upload")).toEqual([legacyShared.id, legacyBranded.id, fresh.id].sort());
+    expect(await getWorkspaceAssetsCount(f.workspaceId, { clientProfileId: home, source: "brand_upload" })).toBe(3);
+    // The other origins stay exact: a legacy upload is never "from the site" or "from Instagram".
+    expect(await ids("brand_site")).toEqual([site.id]);
+    expect(await ids("brand_instagram")).toEqual([instagram.id]);
+    // "Todos" still lists everything.
+    expect(await ids()).toEqual([legacyShared.id, legacyBranded.id, fresh.id, site.id, instagram.id].sort());
+  });
+
   it("ticket 07 (review P3, real PG): shared (NULL) assets and other brands' assets never keep an otherwise empty brand from being deleted", async () => {
     const f = await setup();
     const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);

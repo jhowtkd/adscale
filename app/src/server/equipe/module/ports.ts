@@ -21,6 +21,9 @@ export type AdscaleAssetRef = {
   workspaceId: string;
   kind: string;
   key?: string;
+  /** Owner brand; null while the asset is unbranded (a provisional upload or a legacy shared asset). */
+  clientProfileId?: string | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 export type AdscaleCreativeWorkRef = {

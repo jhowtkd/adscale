@@ -6,7 +6,7 @@ import { normalizeSource, normalizeInstagram } from "../handoff/source";
 import type { EquipeModuleDeps } from "./ports";
 import { appendEvent, scopeOf, transact, type CommandContext, type TxBase } from "./shared";
 import { requestTask } from "./task-outbox";
-import { handoffLibraryPages } from "../handoff/library";
+import { canAdoptHandoffAsset, handoffLibraryPages } from "../handoff/library";
 import { logger } from "@/lib/logger";
 
 function picked(values: string[], items: HandoffItem[]) {
@@ -94,7 +94,7 @@ export async function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, co
           let logo = p.logo ? s.captured.logo?.find(i => i.id === p.logo) : null;
           if (p.logo && !logo) {
             const asset = await deps.gateway.getAsset(p.logo);
-            if (!asset || asset.workspaceId !== ctx.workspaceId || !asset.kind.startsWith("image/")) return err("invalid_command", "Choose a captured logo or upload an image.");
+            if (!asset || asset.workspaceId !== ctx.workspaceId || !asset.kind.startsWith("image/") || !canAdoptHandoffAsset(asset, row)) return err("invalid_command", "Choose a captured logo or upload an image.");
             logo = { id: asset.id, value: `/api/workspace/assets/${asset.id}/file`, origin: "user", key: asset.key };
           }
           if (logo && !logo.key) return err("invalid_command", "Upload a managed copy before confirming this logo.");
@@ -158,7 +158,7 @@ export async function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, co
           const uploaded: HandoffItem[] = [];
           for (const id of [...new Set(p.uploaded)]) {
             const asset = await deps.gateway.getAsset(id);
-            if (!asset || asset.workspaceId !== ctx.workspaceId || !(asset.kind === "image" || asset.kind.startsWith("image/"))) return err("invalid_command", "Upload must be an image from this workspace.");
+            if (!asset || asset.workspaceId !== ctx.workspaceId || !(asset.kind === "image" || asset.kind.startsWith("image/")) || !canAdoptHandoffAsset(asset, row)) return err("invalid_command", "Upload must be an image uploaded for this brand.");
             uploaded.push({ id, value: `/api/workspace/assets/${id}/file`, key: asset.key, origin: "user" });
           }
           // Older cards sent uploads separately; unspecified uploads remain selected.

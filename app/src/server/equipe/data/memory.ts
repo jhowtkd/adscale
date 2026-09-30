@@ -1,5 +1,5 @@
 import { EquipeConflictError, EquipeNotFoundError, type EquipeAccount, type EquipeTaskIntent, type NewEquipeTaskIntent, type EquipeBrandHandoff, type NewEquipeBrandHandoff } from "./types";
-import { handoffLibraryItems, handoffAssetMetadata, handoffAssetSource } from "../handoff/library";
+import { canAdoptHandoffAsset, handoffLibraryItems, handoffAssetMetadata, handoffAssetSource } from "../handoff/library";
 import type {
   EquipeRepositories,
   EquipeUnitOfWork,
@@ -156,8 +156,7 @@ export function createMemoryInternalEquipeRepositories(
       for (const item of items) {
         const asset = [...store.workspaceAssets.rows.values()].find(row => row.workspaceId === scope.workspaceId && row.key === item.key);
         const metadata = asset?.metadata as Record<string, unknown> | null;
-        if (!asset || (asset.clientProfileId && asset.clientProfileId !== handoff.clientProfileId)
-          || (metadata?.provisional === true && metadata.handoffId !== handoff.id)) throw new Error("handoff_asset_not_found");
+        if (!asset || !canAdoptHandoffAsset(asset, handoff)) throw new Error("handoff_asset_not_found");
         store.workspaceAssets.rows.set(asset.id, { ...asset, clientProfileId: handoff.clientProfileId, source: handoffAssetSource(item),
           metadata: { ...metadata, ...handoffAssetMetadata(handoff.id, item) }, updatedAt: new Date() });
       }

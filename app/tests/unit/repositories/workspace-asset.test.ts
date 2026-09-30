@@ -269,6 +269,38 @@ describe("workspace-asset repository", () => {
       expect(sql).toContain("provisional");
     });
 
+    it("getWorkspaceAssets(source brand_upload) also matches legacy uploads stored with the default 'upload' source", async () => {
+      const mockOffset = vi.fn().mockResolvedValue([]);
+      const mockLimit = vi.fn().mockReturnValue({ offset: mockOffset });
+      const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+      const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+
+      await getWorkspaceAssets(workspaceId, { source: "brand_upload" });
+
+      const { sql, params } = serializedCondition(mockWhere.mock.calls[0]?.[0]);
+      // Uploads made before the brand-scoped Library keep source "upload": "Enviado por você" must not hide them.
+      expect(sql).toMatch(/"source" in \(/i);
+      expect(params).toEqual(expect.arrayContaining(["brand_upload", "upload"]));
+    });
+
+    it("getWorkspaceAssets(source brand_site) stays an exact match, never widened to legacy uploads", async () => {
+      const mockOffset = vi.fn().mockResolvedValue([]);
+      const mockLimit = vi.fn().mockReturnValue({ offset: mockOffset });
+      const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+      const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+      const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+      (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+
+      await getWorkspaceAssets(workspaceId, { source: "brand_site" });
+
+      const { sql, params } = serializedCondition(mockWhere.mock.calls[0]?.[0]);
+      expect(params).toContain("brand_site");
+      expect(params).not.toContain("upload");
+      expect(sql).not.toMatch(/"source" in \(/i);
+    });
+
     it("updateWorkspaceAsset merges metadata instead of replacing it, so caption/originUrl survive a later analysis write", async () => {
       const mockReturning = vi.fn().mockResolvedValue([{ id: "wa-1" }]);
       const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });

@@ -40,6 +40,11 @@ async function runPendingRead(f: Awaited<ReturnType<typeof fixture>>, readers: H
   const intent = await f.t.deps.uow.repos.taskOutbox.get(f.scope, taskIntentId);
   return createHandoffReadHandler(f.t.deps, readers)({ event: { data: { ...f.scope, taskIntentId, ...(intent!.data as object) } }, step: { run: async (_id, fn) => fn() } });
 }
+/** The real upload route records every handoff upload as an unbranded provisional asset of that handoff. */
+function addHandoffUpload(f: Awaited<ReturnType<typeof fixture>>, handoffId: string, asset: { id: string; key: string }) {
+  f.t.gateway.addAsset({ id: asset.id, workspaceId: f.scope.workspaceId, kind: "image/png", key: asset.key,
+    clientProfileId: null, metadata: { provisional: true, handoffId } });
+}
 /** An image is only confirmable with a managed copy. Real readers save each image as a provisional asset of the reading and return its R2 key; the URL-only fakes return none. */
 function withManagedImages(f: Awaited<ReturnType<typeof fixture>>, readers: HandoffReaders): HandoffReaders {
   const save = (context: HandoffReadingContext | undefined, origin: "site" | "instagram", index: number) => {
@@ -149,7 +154,7 @@ describe("review PR608: uncovered concurrency and recovery paths", () => {
     await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
     await f.command("handoff_confirm_networks", { kept: [], added: [] });
     const id = uuid();
-    f.t.gateway.addAsset({ id, workspaceId: f.scope.workspaceId, key: "upload.png", kind: "image/png" });
+    addHandoffUpload(f, (await f.row()).id, { id, key: "upload.png" });
     const captured = (await f.row()).captured.images!.map(i => i.id);
     await f.command("handoff_confirm_images", { kept: captured, removed: [id], uploaded: [id] });
     let row = await f.row();
@@ -175,7 +180,8 @@ describe("review PR608: uncovered concurrency and recovery paths", () => {
     await f.record("colors", []);
     await f.record("images", instagramImages);
     const uploaded = Array.from({ length: 30 }, () => uuid());
-    for (const id of uploaded) f.t.gateway.addAsset({ id, workspaceId: f.scope.workspaceId, key: `${id}.png`, kind: "image/png" });
+    const handoffId = (await f.row()).id;
+    for (const id of uploaded) addHandoffUpload(f, handoffId, { id, key: `${id}.png` });
     const ids = [...siteImages, ...instagramImages].map(i => i.id).concat(uploaded);
     await expect(f.command("handoff_confirm_images", { kept: ids, removed: [ids[0]], uploaded })).rejects.toThrow("invalid_command");
     await expect(f.command("handoff_confirm_images", { kept: [...ids.slice(0, -1), "unknown"], removed: [], uploaded })).rejects.toThrow("invalid_command");
@@ -344,7 +350,7 @@ describe("PR608 bot review: managed logos and decisions for confirmed Instagram"
     });
     let h = await f.row();
     const logo = origin === "user" ? uuid() : h.captured.logo![0]!.id;
-    if (origin === "user") f.t.gateway.addAsset({ id: logo, workspaceId: f.scope.workspaceId, kind: "image/png", key });
+    if (origin === "user") addHandoffUpload(f, h.id, { id: logo, key });
     await f.command("handoff_confirm_identity", { name: "Acme", logo, colors: [], fonts: [], paletteChoice: "user" });
     h = await f.row();
     await f.command("handoff_confirm_networks", { kept: (h.decisions.networks ?? []).map(i => i.id), added: [] });
@@ -425,5 +431,54 @@ describe("PR610 workspace/brand name separation", () => {
     });
     expect(f.t.store.adscaleProfiles.rows.get(row.clientProfileId)?.name).toBe("Acme");
     expect(f.t.store.adscaleWorkspaces.rows.get(f.scope.workspaceId)?.name).toBe(scenario === "single-default" ? "Acme" : originalName);
+  });
+});
+
+describe("PR610 bot review: an upload joins the brand only when it belongs to this handoff", () => {
+  type Owner = { id: string; clientProfileId: string };
+  const uploads: Array<{ name: string; adoptable: boolean; owner: (handoff: Owner) => { clientProfileId: string | null; metadata: Record<string, unknown> | null } }> = [
+    { name: "an unbranded legacy asset", adoptable: false, owner: () => ({ clientProfileId: null, metadata: null }) },
+    { name: "another handoff's provisional upload", adoptable: false, owner: () => ({ clientProfileId: null, metadata: { provisional: true, handoffId: uuid() } }) },
+    { name: "an asset of another brand", adoptable: false, owner: () => ({ clientProfileId: uuid(), metadata: null }) },
+    { name: "this handoff's provisional upload", adoptable: true, owner: handoff => ({ clientProfileId: null, metadata: { provisional: true, handoffId: handoff.id } }) },
+    { name: "an asset already owned by this brand", adoptable: true, owner: handoff => ({ clientProfileId: handoff.clientProfileId, metadata: null }) },
+  ];
+
+  it.each(uploads)("images: $name is accepted=$adoptable as an upload", async ({ adoptable, owner }) => {
+    const f = await fixture();
+    await createHandoffReadHandler(f.t.deps, withManagedImages(f, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() }))({ event: await f.event(), step: { run: async (_id, fn) => fn() } });
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "site" });
+    await f.command("handoff_confirm_networks", { kept: [], added: [] });
+    const h = await f.row();
+    const id = uuid();
+    f.t.gateway.addAsset({ id, workspaceId: f.scope.workspaceId, key: `workspaces/${f.scope.workspaceId}/${id}.png`, kind: "image/png", ...owner(h) });
+    const confirm = () => f.command("handoff_confirm_images", { kept: [...h.captured.images!.map(i => i.id), id], removed: [], uploaded: [id] });
+
+    if (adoptable) {
+      await confirm();
+      expect((await f.row()).decisions.images?.uploaded).toEqual([expect.objectContaining({ id, origin: "user" })]);
+    } else {
+      await expect(confirm()).rejects.toThrow("invalid_command");
+      expect((await f.row()).step).toBe("images");
+      expect((await f.row()).decisions.images).toBeUndefined();
+    }
+  });
+
+  it.each(uploads)("logo: $name is accepted=$adoptable as the uploaded logo", async ({ adoptable, owner }) => {
+    const f = await fixture();
+    await runPendingRead(f, withManagedImages(f, { site: new FakeSiteReader(), instagram: new FakeInstagramReader() }));
+    const h = await f.row();
+    const id = uuid();
+    f.t.gateway.addAsset({ id, workspaceId: f.scope.workspaceId, key: `workspaces/${f.scope.workspaceId}/${id}.png`, kind: "image/png", ...owner(h) });
+    const confirm = () => f.command("handoff_confirm_identity", { name: "Acme", logo: id, colors: [], fonts: [], paletteChoice: "site" });
+
+    if (adoptable) {
+      await confirm();
+      expect((await f.row()).decisions.identity?.logo).toMatchObject({ id, origin: "user" });
+    } else {
+      await expect(confirm()).rejects.toThrow("invalid_command");
+      expect((await f.row()).step).toBe("identity");
+      expect((await f.row()).decisions.identity).toBeUndefined();
+    }
   });
 });
