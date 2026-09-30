@@ -192,6 +192,11 @@ describe("PR608 bot review: managed logos and decisions for confirmed Instagram"
     h = await f.row();
     await f.command("handoff_confirm_networks", { kept: (h.decisions.networks ?? []).map(i => i.id), added: [] });
     await f.command("handoff_confirm_images", { kept: [], removed: [], uploaded: [] });
+    f.t.store.workspaceAssets.rows.set(logo, {
+      id: logo, workspaceId: f.scope.workspaceId, clientProfileId: null, name: "logo.png", key, type: "image/png", size: 1,
+      width: null, height: null, source: "brand_upload", tags: [], aiDescription: null,
+      metadata: { provisional: true, handoffId: h.id }, createdAt: new Date(), updatedAt: new Date(),
+    });
     await f.command("handoff_confirm_summary");
     h = await f.row();
     expect(h.step).toBe("done");

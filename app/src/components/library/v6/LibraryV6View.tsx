@@ -92,8 +92,10 @@ function DocumentBody({ value, labels, depth = 0 }: { value: unknown; labels: Re
   }
   // ponytail: six nested levels cover diagnosis documents; use a typed renderer if richer documents need more.
   if (depth > 6) return null;
-  if (Array.isArray(value)) return <ul className="list-inside list-disc space-y-3">{value.map((item, index) => <li key={index}><DocumentBody value={item} labels={labels} depth={depth + 1} /></li>)}</ul>;
-  if (typeof value === "object") return <div className="space-y-4">{Object.entries(value).map(([key, item]) => <section key={key}><h3 className="mb-1 font-semibold">{labels[key] ?? key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ")}</h3><DocumentBody value={item} labels={labels} depth={depth + 1} /></section>)}</div>;
+  if (Array.isArray(value)) return value.some(item => item !== null && typeof item === "object")
+    ? <div className="space-y-4">{value.map((item, index) => <DocumentBody key={index} value={item} labels={labels} depth={depth + 1} />)}</div>
+    : <ul className="list-outside list-disc space-y-3 pl-5">{value.map((item, index) => <li key={index}><DocumentBody value={item} labels={labels} depth={depth + 1} /></li>)}</ul>;
+  if (typeof value === "object") return <div className="space-y-4">{Object.entries(value).sort(([a], [b]) => a === "title" ? -1 : b === "title" ? 1 : 0).map(([key, item]) => <section key={key}>{key === "title" && depth > 0 && typeof item === "string" ? <h3 className="font-semibold">{item}</h3> : <><h3 className="mb-1 font-semibold">{labels[key] ?? key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ")}</h3><DocumentBody value={item} labels={labels} depth={depth + 1} /></>}</section>)}</div>;
   return null;
 }
 
@@ -127,7 +129,7 @@ export default function LibraryV6View({
   const controlClass = "rounded-full border border-[var(--border-subtle)] px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]";
   return (
     <div className="grid min-h-[calc(100dvh-8rem)] gap-8 lg:grid-cols-[248px_minmax(0,1fr)]" aria-busy={isLoading}>
-      <aside className="rounded-[24px] border border-[var(--border-subtle)] p-3 lg:sticky lg:top-4 lg:self-start lg:min-h-[calc(100dvh-8rem)]">
+      <aside aria-label={labels.filtersAria} className="rounded-[24px] border border-[var(--border-subtle)] p-3 lg:sticky lg:top-4 lg:self-start lg:-mt-4 lg:min-h-[calc(100dvh-2rem)]">
         <div className="relative mb-5">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-[var(--utility-icon)]" aria-hidden="true" />
           <input type="search" placeholder={labels.searchPlaceholder} aria-label={labels.searchAria} value={searchQuery}
@@ -149,10 +151,10 @@ export default function LibraryV6View({
           </button>)}
         </div>
       </aside>
-      <main className="min-w-0 space-y-7 pb-8" onDragOver={interactive ? onDragOver : undefined} onDragLeave={interactive ? onDragLeave : undefined} onDrop={interactive ? onDrop : undefined}>
+      <div className="min-w-0 space-y-7 pb-8" onDragOver={interactive ? onDragOver : undefined} onDragLeave={interactive ? onDragLeave : undefined} onDrop={interactive ? onDrop : undefined}>
         <p className={`${sectionClass} pt-1`}>{labels.sectionLabel}</p>
         <header className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="product-page-title">{labels.title}{profile ? ` · ${profile.name}` : ""}</h1>
+          <h1 className="text-2xl font-semibold leading-tight sm:text-[28px]">{labels.title}{profile ? ` · ${profile.name}` : ""}</h1>
           <button type="button" onClick={interactive ? onUploadClick : undefined} disabled={isUploading || !profile} className={`${controlClass} flex h-10 items-center gap-3 bg-[var(--text-primary)] text-[var(--surface-base)] disabled:opacity-50`}>
             {isUploading ? `${uploadProgress}%` : text("add", "Adicionar")}<Plus className="size-4" aria-hidden="true" />
           </button>
@@ -169,7 +171,7 @@ export default function LibraryV6View({
               <div className="flex justify-between text-xs"><span>{text("colors", "Cores")}</span><IdentityOrigins origins={identityOrigins?.colors} label={originText} /></div>
             </div> : null}
             {identityVisible(identityOrigins?.fonts) ? <div className="flex min-h-[132px] flex-col justify-between gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3.5">
-              <div><p className="text-2xl font-semibold" style={{ fontFamily: profile!.brandFonts?.[0] }}>{profile!.brandFonts?.[0] ?? text("notDefined", "Ainda não definido")}</p><p className="mt-1 text-sm text-[var(--text-secondary)]">{profile!.brandFonts?.slice(1).join(" · ")}</p></div>
+              <div><p className="text-2xl font-semibold" style={{ fontFamily: profile!.brandFonts?.[0] ? `${profile!.brandFonts[0]}, var(--font-sans)` : undefined }}>{profile!.brandFonts?.[0] ?? text("notDefined", "Ainda não definido")}</p><p className="mt-1 text-sm text-[var(--text-secondary)]">{profile!.brandFonts?.slice(1).join(" · ")}</p></div>
               <div className="flex justify-between text-xs"><span>{text("fonts", "Fontes")}</span><IdentityOrigins origins={identityOrigins?.fonts} label={originText} /></div>
             </div> : null}
           </div>
@@ -187,9 +189,10 @@ export default function LibraryV6View({
           <div className="flex items-center gap-3"><FileText className="size-8 rounded-xl bg-white/5 p-2" aria-hidden="true" /><div><p className="text-sm font-medium">{typeof document.content.title === "string" ? document.content.title : text("diagnosis", "Diagnóstico da marca")} <span className="rounded border border-[var(--border-subtle)] px-1 font-mono text-[9px] text-[var(--text-muted)]">{text("ai", "IA")}</span></p><p className="mt-1 text-xs text-[var(--text-muted)]">{text(document.createdByRole, document.createdByRole)} · {new Date(document.createdAt).toLocaleDateString()} · {text("version", "Versão")} {document.version}</p></div></div>
           <button type="button" className={controlClass} onClick={() => setDocumentId(document.id)}>↗ {text("open", "Abrir")}</button>
         </div>)}</section> : null}
-        {!isLoading && !assets.length && !documents.length && !emptyState ? <button type="button" aria-label={labels.dropzoneAria} onClick={interactive ? onDropzoneClick : undefined} className={cn("w-full rounded-2xl border border-dashed border-[var(--border-subtle)] py-16 text-center focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]", dragOver && "bg-[var(--selection-bg)]")}><p className="text-sm text-[var(--text-secondary)]">{labels.dropzoneTitle}</p><p className="mt-1 text-xs text-[var(--text-muted)]">{labels.dropzoneHint}</p></button> : null}
+        {!isLoading && !emptyState && activeFilter === "documents" && (!documents.length || originFilter !== "all") ? <section className="space-y-3"><h2 className={sectionClass}>{text("documents", "Documentos")}</h2><p className="text-sm text-[var(--text-muted)]">{text("notDefined", "Ainda não definido")}</p></section> : null}
+        {!isLoading && !assets.length && !documents.length && !emptyState && !["documents", "identity"].includes(activeFilter) ? <button type="button" aria-label={labels.dropzoneAria} onClick={interactive ? onDropzoneClick : undefined} className={cn("w-full rounded-2xl border border-dashed border-[var(--border-subtle)] py-16 text-center focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]", dragOver && "bg-[var(--selection-bg)]")}><p className="text-sm text-[var(--text-secondary)]">{labels.dropzoneTitle}</p><p className="mt-1 text-xs text-[var(--text-muted)]">{labels.dropzoneHint}</p></button> : null}
         {!isLoading && interactive && shownCount < totalCount ? <button type="button" onClick={onLoadMore} disabled={isLoadingMore} className={`${controlClass} text-[var(--text-muted)]`}>{isLoadingMore ? labels.loadingMore : labels.loadMore}</button> : null}
-      </main>
+      </div>
       <Dialog open={Boolean(selectedDocument)} onOpenChange={open => !open && setDocumentId(null)}><DialogContent size="lg" className="p-6"><DialogTitle>{selectedDocument && typeof selectedDocument.content.title === "string" ? selectedDocument.content.title : text("diagnosis", "Diagnóstico da marca")}</DialogTitle><DialogDescription>{text("version", "Versão")} {selectedDocument?.version}</DialogDescription><div className="mt-4 overflow-y-auto text-sm leading-relaxed"><DocumentBody value={selectedDocument?.content} labels={brandLabels} /></div></DialogContent></Dialog>
     </div>
   );
@@ -267,7 +270,7 @@ function AssetCard({
             onError={() => setPreviewState("error")}
           />
         ) : previewState === "error" ? (
-          <div className="flex aspect-[4/5] flex-col items-center justify-center gap-2 px-3 text-center text-xs text-[var(--text-muted)]">
+          <div className="flex aspect-[5/4] flex-col items-center justify-center gap-2 px-3 text-center text-xs text-[var(--text-muted)]">
             <span role="img" aria-label={labels.previewError}>{labels.previewError}</span>
             <div className="flex flex-wrap justify-center gap-2">
               <button
@@ -289,7 +292,7 @@ function AssetCard({
             </div>
           </div>
         ) : (
-          <div className="flex aspect-[4/5] items-center justify-center">
+          <div className="flex aspect-[5/4] items-center justify-center">
             {previewState === "loading" ? (
               <span role="status" aria-label={labels.previewLoading} className="text-xs text-[var(--text-muted)]">
                 {labels.previewLoading}

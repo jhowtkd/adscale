@@ -110,7 +110,7 @@ export default function LibraryPage() {
   const labels = useMemo(() => buildLibraryV6Labels(t), [t]);
 
   const assets = useMemo(
-    () => (activeClientProfileId ? data?.assets ?? [] : []).map((asset, index) => mapWorkspaceAssetToV6(asset, index, formatSize, (date) => new Date(date).toLocaleDateString(), activeProfile?.logoAssetKey)),
+    () => (activeClientProfileId ? data?.assets ?? [] : []).filter(asset => asset.type.startsWith("image/") || asset.metadata?.kind === "site_page").map((asset, index) => mapWorkspaceAssetToV6(asset, index, formatSize, (date) => new Date(date).toLocaleDateString(), activeProfile?.logoAssetKey)),
     [data?.assets, activeClientProfileId, activeProfile?.logoAssetKey],
   );
   const favoriteAssets = useMemo(
@@ -238,7 +238,7 @@ export default function LibraryPage() {
     [handleUpload],
   );
 
-  const emptyState = (filter === "favorite" ? favoritesQuery.isError : isError) ? (
+  const emptyState = (filter === "favorite" ? favoritesQuery.isError : filter === "documents" ? accountQuery.isError : isError) ? (
     <EmptyState
       icon={AlertCircle}
       title={t("errorTitle")}
@@ -247,6 +247,7 @@ export default function LibraryPage() {
         label: tCommon("retry"),
         onClick: () => filter === "favorite"
           ? void favoritesQuery.refetch()
+          : filter === "documents" ? void accountQuery.refetch()
           : void queryClient.invalidateQueries({ queryKey: ["workspace-assets"] }),
       }}
     />
@@ -292,9 +293,9 @@ export default function LibraryPage() {
         identityOrigins={identity ? { logo: identity.logo?.origin, colors: identity.colors.map(item => item.origin), fonts: identity.fonts.map(item => item.origin) } : undefined}
         labels={labels}
         assets={visibleAssets}
-        shownCount={filter === "all" ? data?.assets.length ?? 0 : visibleAssets.length}
+        shownCount={filter === "favorite" ? visibleAssets.length : data?.assets.length ?? 0}
         totalCount={totalCount}
-        isLoading={active.isLoading || (filter === "favorite" ? favoritesQuery.isLoading : isLoading)}
+        isLoading={active.isLoading || (filter === "favorite" ? favoritesQuery.isLoading : filter === "documents" ? accountsQuery.isLoading || accountQuery.isLoading : isLoading)}
         searchQuery={search}
         onSearchChange={handleSearch}
         activeFilter={filter}

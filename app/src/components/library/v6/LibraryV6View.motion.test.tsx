@@ -53,6 +53,13 @@ const profile = {
 } as ClientProfile;
 
 describe("LibraryV6View visual role contract (ticket 07 / B1)", () => {
+  it("keeps an empty documents filter readable without prompting for an image upload", () => {
+    render(<LibraryV6View labels={labels} profile={profile} assets={[]} documents={[]} shownCount={0} totalCount={0} searchQuery="" activeFilter="documents" />);
+    expect(screen.getByRole("heading", { name: "Documentos" })).toBeInTheDocument();
+    expect(screen.getByText("Ainda não definido")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: labels.dropzoneAria })).not.toBeInTheDocument();
+  });
+
   it("keeps keyboard focus and delete affordance semantics on an asset card", () => {
     const { container } = render(
       <LibraryV6View

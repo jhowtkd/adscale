@@ -74,7 +74,7 @@ describe("review PR608: uploaded-image restoration and late palette", () => {
     expect(screen.getByRole("option", { name: "Do site" })).toBeDisabled();
     const file = new File(["image"], "logo.png", { type: "image/png" });
     fireEvent.change(screen.getByLabelText("Enviar logo"), { target: { files: [file] } });
-    await waitFor(() => expect(mockUploadChatAttachment).toHaveBeenCalledWith(file, "handoff-1"));
+    await waitFor(() => expect(mockUploadChatAttachment).toHaveBeenCalledWith(file, { handoffId: "handoff-1" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar →" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
     await waitFor(() => expect(mockPostEquipeCommand).toHaveBeenCalled());

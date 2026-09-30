@@ -1406,7 +1406,7 @@ describe("useCreativeComposer", () => {
 
     await act(() => result.current.addFiles([file]));
 
-    expect(mocks.upload).toHaveBeenCalledWith(file);
+    expect(mocks.upload).toHaveBeenCalledWith(file, { clientProfileId: profileA.id });
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
       request: "",
       assetId: "asset-1",
@@ -1520,7 +1520,7 @@ describe("useCreativeComposer", () => {
     await act(() => result.current.addFiles(files));
 
     expect(mocks.upload).toHaveBeenCalledTimes(1);
-    expect(mocks.upload).toHaveBeenCalledWith(files[0]);
+    expect(mocks.upload).toHaveBeenCalledWith(files[0], { clientProfileId: profileA.id });
     expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({
       workItemId: "work-1", action: "attachSource", assetId: "asset-1", usage: "both",
     }));
@@ -1889,7 +1889,7 @@ describe("useCreativeComposer", () => {
 
     expect(mocks.apiFetch).toHaveBeenCalledWith(
       "/api/creative-work/inspirations/curated-1",
-      { method: "POST", timeoutMs: 60_000 },
+      { method: "POST", timeoutMs: 60_000, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientProfileId: profileA.id }) },
     );
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
       assetId: "asset-curated",
