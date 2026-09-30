@@ -6,7 +6,7 @@ test.beforeAll(() => {
   seedVisualManifest();
 });
 
-test("login preserva guestDraft e origem até a entrada", async ({ page }) => {
+test("login preserva o callback com guestDraft; a Home normal ignora o pedido (ramo de convidado removido)", async ({ page }) => {
   await page.goto("/hi");
   await page.getByLabel("Descreva o que você precisa criar").fill("Anúncio de lançamento");
   await page.locator('[data-action="continue"]').click();
@@ -16,8 +16,12 @@ test("login preserva guestDraft e origem até a entrada", async ({ page }) => {
   expect(draftId).not.toBeNull();
 
   await loginOnCurrentPage(page, VISUAL_EMAIL);
+  // The callback target still carries guestDraft — login/callback handling
+  // is untouched — but `/` no longer renders the old guest entry for it.
   await page.waitForURL((url) => url.searchParams.get("guestDraft") === draftId, { timeout: 45_000 });
-  await expect(page.getByText("Anúncio de lançamento").first()).toBeVisible();
+  await expect(page.locator('#creative-composer-request, [data-testid="assistant-chat-input"]')).toBeVisible();
+  await expect(page.getByText("Anúncio de lançamento")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Usar este pedido" })).toHaveCount(0);
 });
 
 test("sessão válida em /login com callback salta para o destino", async ({ page }) => {

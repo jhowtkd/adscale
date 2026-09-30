@@ -4,6 +4,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { quoteCreativeWork } from "../../src/server/creative-work/contracts";
+import { gotoLegacyComposerHome } from "./support/guided-auth";
 
 const FIXTURE_PATH = process.env.CREATE_POST_E2E_FIXTURE_PATH
   ? path.resolve(process.env.CREATE_POST_E2E_FIXTURE_PATH)
@@ -330,7 +331,7 @@ test.describe("Frictionless operational Home", () => {
 
     const campaignCountBefore = await campaignsCount(page);
     const usageBefore = await usageIds(page);
-    await page.goto("/");
+    await gotoLegacyComposerHome(page);
     await assertSingleActiveBrand(page);
     await expect(page.getByTestId("studio-talk-box")).toBeVisible();
     await expect(page.locator("#creative-composer-request")).toHaveCount(1);
@@ -437,7 +438,7 @@ test.describe("Frictionless operational Home", () => {
 
   test("source failures stay isolated from a ready source", async ({ page }) => {
     const usageBefore = await usageIds(page);
-    await page.goto("/");
+    await gotoLegacyComposerHome(page);
     await assertSingleActiveBrand(page);
     const request = "Variações de campanha [e2e:retry-twice-bold]";
     await chooseVariations(page);
@@ -480,7 +481,7 @@ test.describe("Frictionless operational Home", () => {
     const insufficient = fixture().insufficientBalance;
     await page.context().clearCookies();
     await login(page, insufficient);
-    await page.goto("/");
+    await gotoLegacyComposerHome(page);
     await expect(page.locator("aside").getByText(
       new RegExp(`^${insufficient.expectedCredits}\\s*(créditos|credits)$`, "i"),
     )).toBeVisible({ timeout: 30_000 });
@@ -551,7 +552,7 @@ test.describe("Frictionless operational Home", () => {
       if (viewport.name === "desktop") {
         await page.emulateMedia({ reducedMotion: "reduce" });
       }
-      await page.goto("/");
+      await gotoLegacyComposerHome(page);
       await assertSingleActiveBrand(page);
 
       await page.evaluate(() => {
@@ -647,7 +648,7 @@ test.describe("Frictionless operational Home", () => {
         generation.push(request.url());
       }
     });
-    await page.goto("/");
+    await gotoLegacyComposerHome(page);
     await assertSingleActiveBrand(page);
     const request = page.locator("#creative-composer-request");
     await expect(request).toHaveCount(1);

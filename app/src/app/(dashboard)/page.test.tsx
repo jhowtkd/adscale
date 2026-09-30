@@ -1,19 +1,40 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AUTH_ERROR_CODES, WorkspaceAuthError } from "@/server/auth/errors";
 import { parseDashboardSearchParams } from "./dashboard-search-params";
 
 const TEMPLATE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const WORK_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const CAMPAIGN_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const GUEST_ID = "dd111111-1111-4111-8111-111111111111";
+const THREAD_ID = "ee222222-2222-4222-8222-222222222222";
 
 const mockRequireWorkspaceAccess = vi.fn(async () => ({
-  user: { id: "user-1" },
+  user: { id: "user-1", emailVerified: true },
   workspace: { id: "ws-e2e-1" },
 }));
+const mockIsEquipeEnabledForWorkspace = vi.fn(() => false);
+const mockExecuteCommand = vi.fn();
+const mockCreateEquipeRouteDeps = vi.fn((workspaceId: string) => ({ workspaceId }));
 
 vi.mock("@/server/auth/workspace", () => ({
-  requireWorkspaceAccess: (...args: unknown[]) => mockRequireWorkspaceAccess(...args),
+  requireWorkspaceAccess: () => mockRequireWorkspaceAccess(),
+}));
+vi.mock("@/server/equipe/module/equipe-enabled", () => ({
+  isEquipeEnabledForWorkspace: () => mockIsEquipeEnabledForWorkspace(),
+}));
+vi.mock("@/server/equipe/module/commands", () => ({
+  executeCommand: (...args: unknown[]) => mockExecuteCommand(...args),
+}));
+vi.mock("@/server/equipe/http/deps", () => ({
+  createEquipeRouteDeps: (workspaceId: string) => mockCreateEquipeRouteDeps(workspaceId),
+}));
+vi.mock("next-intl/server", () => ({
+  getTranslations: async () => (key: string) => {
+    const map: Record<string, string> = {
+      homeVerifyEmail: "Confirme seu e-mail para começar a conversa com o ADScale.",
+      homeOpenError: "Não foi possível abrir sua conversa. Recarregue a página para tentar novamente.",
+    };
+    return map[key] ?? key;
+  },
 }));
 vi.mock("@/server/validation/env", () => ({
   env: new Proxy({}, {
@@ -28,8 +49,17 @@ vi.mock("@/server/validation/env", () => ({
 vi.mock("@/components/dashboard/DashboardHomeActions", () => ({
   default: function DashboardHomeActionsStub() { return null; },
 }));
-vi.mock("@/components/guest-home/GuestStudioEntry", () => ({
-  default: function GuestStudioEntryStub() { return null; },
+vi.mock("@/components/assistant/AssistantMain", () => ({
+  default: function AssistantMainStub() { return null; },
+}));
+vi.mock("@/components/assistant/AssistantShell", () => ({
+  default: function AssistantShellStub() { return null; },
+}));
+vi.mock("@/components/assistant/AssistantSidebarPanel", () => ({
+  default: function AssistantSidebarPanelStub() { return null; },
+}));
+vi.mock("@/components/assistant/AssistantContextPanelSlot", () => ({
+  default: function AssistantContextPanelSlotStub() { return null; },
 }));
 
 type PageElement = { type: unknown; props: Record<string, unknown> };
@@ -150,63 +180,84 @@ describe("parseDashboardSearchParams", () => {
   });
 });
 
-describe("DashboardPage guest entry switch", () => {
+describe("DashboardPage home conversation gate", () => {
   beforeEach(() => {
     mockRequireWorkspaceAccess.mockReset();
     mockRequireWorkspaceAccess.mockResolvedValue({
-      user: { id: "user-1" },
+      user: { id: "user-1", emailVerified: true },
       workspace: { id: "ws-e2e-1" },
     });
-    delete process.env.PUBLIC_STUDIO_HOME_ENABLED;
-    delete process.env.PUBLIC_STUDIO_IMPORT_ENABLED;
-    delete process.env.PUBLIC_STUDIO_ATTACHMENTS_ENABLED;
-  });
-
-  it("renders the guest entry for an isolated public draft", async () => {
-    process.env.PUBLIC_STUDIO_IMPORT_ENABLED = "true";
-    const element = await renderDashboardPage({ guestDraft: GUEST_ID, compose: "1" });
-    expect(renderedName(element)).toBe("GuestStudioEntryStub");
-    expect(element.props).toMatchObject({
-      guestDraftId: GUEST_ID,
-      userId: "user-1",
-      workspaceId: "ws-e2e-1",
-      importEnabled: true,
-      conflict: null,
+    mockIsEquipeEnabledForWorkspace.mockReset();
+    mockIsEquipeEnabledForWorkspace.mockReturnValue(false);
+    mockExecuteCommand.mockReset();
+    mockExecuteCommand.mockResolvedValue({
+      ok: true,
+      value: { type: "open_free_account", data: { assistantThreadId: THREAD_ID, created: true } },
     });
+    mockCreateEquipeRouteDeps.mockClear();
   });
 
-  it("passes the import flag through to the entry", async () => {
+  it("renders the old Studio home with the gate off, ignoring a guest query", async () => {
     const element = await renderDashboardPage({ guestDraft: GUEST_ID });
-    expect(renderedName(element)).toBe("GuestStudioEntryStub");
-    expect(element.props).toMatchObject({ importEnabled: false });
-  });
-
-  it("renders the entry in conflict mode over an open work item", async () => {
-    const element = await renderDashboardPage({ guestDraft: GUEST_ID, workId: WORK_ID });
-    expect(renderedName(element)).toBe("GuestStudioEntryStub");
-    expect(element.props).toMatchObject({
-      guestDraftId: GUEST_ID,
-      conflict: { workId: WORK_ID, templateId: undefined, campaignId: undefined },
-    });
-  });
-
-  it("ignores an invalid guest draft and keeps the normal Studio", async () => {
-    const element = await renderDashboardPage({ guestDraft: "../../x" });
     expect(renderedName(element)).toBe("DashboardHomeActionsStub");
     expect(element.props).toMatchObject({ workspaceId: "ws-e2e-1" });
+    expect(mockExecuteCommand).not.toHaveBeenCalled();
   });
 
-  it("preserves the draft without a workspace instead of throwing", async () => {
-    mockRequireWorkspaceAccess.mockRejectedValue(
-      new WorkspaceAuthError(AUTH_ERROR_CODES.noWorkspace, "No workspace"),
-    );
+  it("opens the free account and renders the assistant shell with the gate on", async () => {
+    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+    const element = await renderDashboardPage();
+
+    expect(mockCreateEquipeRouteDeps).toHaveBeenCalledWith("ws-e2e-1");
+    expect(mockExecuteCommand).toHaveBeenCalledTimes(1);
+    const [, context, command] = mockExecuteCommand.mock.calls[0];
+    expect(context).toMatchObject({ workspaceId: "ws-e2e-1" });
+    expect(command).toMatchObject({ type: "open_free_account", payload: { userId: "user-1" } });
+
+    expect(renderedName(element)).toBe("AssistantShellStub");
+    expect(element.props.threadId).toBe(THREAD_ID);
+    expect(element.props.sidebar).toMatchObject({ props: { threadId: THREAD_ID } });
+    expect(element.props.main).toMatchObject({ props: { threadId: THREAD_ID, equipeEnabled: true } });
+    expect(element.props.contextPanel).toMatchObject({ props: { threadId: THREAD_ID } });
+  });
+
+  it("is idempotent: opening again for an existing primary account still returns the same thread", async () => {
+    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+    mockExecuteCommand.mockResolvedValue({
+      ok: true,
+      value: { type: "open_free_account", data: { assistantThreadId: THREAD_ID, created: false } },
+    });
+    const element = await renderDashboardPage();
+    expect(renderedName(element)).toBe("AssistantShellStub");
+    expect(element.props.threadId).toBe(THREAD_ID);
+  });
+
+  it("does not open the account and shows a status message when the email is unverified", async () => {
+    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+    mockRequireWorkspaceAccess.mockResolvedValue({
+      user: { id: "user-1", emailVerified: false },
+      workspace: { id: "ws-e2e-1" },
+    });
+    const element = await renderDashboardPage();
+
+    expect(mockExecuteCommand).not.toHaveBeenCalled();
+    expect(element.type).toBe("p");
+    expect(element.props).toMatchObject({ role: "status" });
+  });
+
+  it("shows an alert when opening the account fails", async () => {
+    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
+    mockExecuteCommand.mockResolvedValue({ ok: false, code: "forbidden_actor", message: "nope" });
+    const element = await renderDashboardPage();
+
+    expect(element.type).toBe("p");
+    expect(element.props).toMatchObject({ role: "alert" });
+  });
+
+  it("ignores a guest query with the gate on and still opens the home conversation", async () => {
+    mockIsEquipeEnabledForWorkspace.mockReturnValue(true);
     const element = await renderDashboardPage({ guestDraft: GUEST_ID });
-    expect(renderedName(element)).toBe("GuestStudioEntryStub");
-    expect(element.props).toMatchObject({ guestDraftId: GUEST_ID, userId: null, workspaceId: null });
-  });
-
-  it("rethrows other workspace errors", async () => {
-    mockRequireWorkspaceAccess.mockRejectedValue(new Error("boom"));
-    await expect(renderDashboardPage({ guestDraft: GUEST_ID })).rejects.toThrow("boom");
+    expect(renderedName(element)).toBe("AssistantShellStub");
+    expect(element.props.threadId).toBe(THREAD_ID);
   });
 });

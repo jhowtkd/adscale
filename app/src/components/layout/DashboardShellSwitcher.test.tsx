@@ -44,6 +44,26 @@ describe("DashboardShellSwitcher", () => {
     expect(screen.queryByRole("link", { name: "Studio" })).not.toBeInTheDocument();
   });
 
+  it("uses the assistant shell on the home route once the home conversation is enabled", () => {
+    pathname = "/";
+    render(
+      <DashboardShellSwitcher homeConversationEnabled>
+        <p>Home conversation</p>
+      </DashboardShellSwitcher>,
+    );
+
+    expect(screen.getByTestId("v6-shell")).toHaveTextContent("Home conversation");
+    expect(screen.queryByTestId("app-shell")).not.toBeInTheDocument();
+  });
+
+  it("keeps the regular shell on the home route while the home conversation gate is off", () => {
+    pathname = "/";
+    render(<DashboardShellSwitcher><p>Old Studio home</p></DashboardShellSwitcher>);
+
+    expect(screen.getByTestId("app-shell")).toHaveTextContent("Old Studio home");
+    expect(screen.queryByTestId("v6-shell")).not.toBeInTheDocument();
+  });
+
   it("leaves mobile tab reservation to AssistantShell after reserving only the product header", () => {
     const styles = readFileSync("src/app/globals.css", "utf8");
     const mobileStyles = styles.slice(styles.indexOf("@media (max-width: 767px)"));

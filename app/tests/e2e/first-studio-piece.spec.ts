@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
+import { gotoLegacyComposerHome } from "./support/guided-auth";
 
 /**
  * M02 first Studio piece: empty occupancy stays centered even if the
@@ -44,7 +45,7 @@ test.describe("First studio piece (M02)", () => {
     const data = fixture();
     await signInHome(page, data.firstVisit);
 
-    await page.goto("/");
+    await gotoLegacyComposerHome(page);
     const talkBox = page.getByTestId("studio-talk-box");
     await expect(talkBox).toBeVisible({ timeout: 60_000 });
     await expect(talkBox).toHaveAttribute("data-placement", "center");
@@ -56,7 +57,7 @@ test.describe("First studio piece (M02)", () => {
     const data = fixture();
     await signInHome(page, data);
 
-    await page.goto(`/?workId=${data.readyWorkId}`);
+    await gotoLegacyComposerHome(page, `/?workId=${data.readyWorkId}`);
     const talkBox = page.getByTestId("studio-talk-box");
     await expect(talkBox).toBeVisible({ timeout: 60_000 });
     await expect(talkBox).toHaveAttribute("data-placement", "dock");
@@ -67,7 +68,7 @@ test.describe("First studio piece (M02)", () => {
     const data = fixture();
     await signInHome(page, data.firstVisit);
 
-    await page.goto("/");
+    await gotoLegacyComposerHome(page);
     const talkBox = page.getByTestId("studio-talk-box");
     await expect(talkBox).toBeVisible({ timeout: 60_000 });
     await expect(talkBox).toHaveAttribute("data-placement", "center");

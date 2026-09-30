@@ -180,6 +180,43 @@ describe("AssistantTreeSidebar", () => {
     expect(mockOnNewThread).toHaveBeenCalledWith("client-1");
   });
 
+  it("hides creation actions but still preserves and selects existing threads when their callbacks are absent, as on the home route", async () => {
+    render(<AssistantTreeSidebar onSelectThread={mockOnSelectThread} />, {
+      wrapper: createWrapper(),
+    });
+
+    expect(screen.queryByRole("button", { name: "newClient" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Acme Corp/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Main thread/i })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: "newChat" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Main thread/i }));
+
+    expect(mockOnSelectThread).toHaveBeenCalledWith("thread-1");
+    expect(mockReplace).toHaveBeenCalledWith("/assistant?threadId=thread-1");
+  });
+
+  it("shows an informative message instead of a create action for an empty client with no onNewThread", async () => {
+    mockUseAssistantThreads.mockImplementation(
+      () => ({ data: [], isLoading: false } as ReturnType<typeof useAssistantThreads>),
+    );
+
+    render(<AssistantTreeSidebar onSelectThread={mockOnSelectThread} />, {
+      wrapper: createWrapper(),
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Acme Corp/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("noThreads")).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: "noThreads" })).not.toBeInTheDocument();
+  });
+
   it("highlights the active thread from selectedThreadId", async () => {
     render(
       <AssistantTreeSidebar

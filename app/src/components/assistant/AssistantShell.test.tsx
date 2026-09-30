@@ -127,6 +127,23 @@ describe("AssistantShell", () => {
     expect(screen.getByRole("button", { name: "Expand context panel" })).toBeInTheDocument();
   });
 
+  it("treats an explicit threadId prop as the active thread even without a threadId query param", () => {
+    mockUseSearchParams.mockReturnValue(new URLSearchParams());
+    mockUseIsMobile.mockReturnValue(false);
+    render(
+      <AssistantSurfaceProvider>
+        <AssistantShell
+          threadId="thread-from-home"
+          sidebar={<div>Sidebar slot</div>}
+          main={<div>Main slot</div>}
+          contextPanel={<div>Context slot</div>}
+        />
+      </AssistantSurfaceProvider>
+    );
+
+    expect(screen.getByRole("button", { name: "Expand context panel" })).toBeInTheDocument();
+  });
+
   it("switches to workspace grid and renders the workspace column in workspace mode", () => {
     mockUseIsMobile.mockReturnValue(false);
     shell({

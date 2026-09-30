@@ -81,11 +81,13 @@ export async function loginVisualFoundation(
   await page.addInitScript((selectedTheme) => {
     localStorage.setItem("theme", selectedTheme);
     localStorage.setItem("adscale_cookie_consent", JSON.stringify({ necessary: true, analytics: false, marketing: false }));
-    const style = document.createElement("style");
-    style.dataset.visualRelease = "deterministic-motion";
-    style.textContent =
-      "*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}";
-    document.documentElement.appendChild(style);
+    document.addEventListener("DOMContentLoaded", () => {
+      const style = document.createElement("style");
+      style.dataset.visualRelease = "deterministic-motion";
+      style.textContent =
+        "*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}";
+      document.documentElement.appendChild(style);
+    }, { once: true });
   }, theme);
 }
 

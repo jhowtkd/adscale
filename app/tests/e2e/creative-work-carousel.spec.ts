@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import JSZip from "jszip";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { gotoLegacyComposerHome } from "./support/guided-auth";
 
 /**
  * Studio Carousel — researched editorial flow (Task 8) on the controlled provider.
@@ -177,7 +178,7 @@ test.describe("Studio Carousel editorial controlled-provider gate", () => {
     // -- Steps 1 + 2: choose `Criar carrossel` first, then enter the request.
     // Filling beforehand dirties the first-visit single composer and opens the
     // protocol-switch confirmation instead of creating the carousel draft.
-    await page.goto("/", { waitUntil: "commit" });
+    await gotoLegacyComposerHome(page, "/", { waitUntil: "commit" });
     const requestBox = page.locator("#creative-composer-request");
     await expect(requestBox).toBeVisible({ timeout: 30_000 });
     await expect(requestBox).toHaveCount(1);
@@ -208,7 +209,7 @@ test.describe("Studio Carousel editorial controlled-provider gate", () => {
     }, { timeout: 60_000 }).toBe(true);
     workId = resolvedWorkId!;
     if (new URL(page.url()).searchParams.get("workId") !== workId) {
-      await page.goto(`/?workId=${workId}`, { waitUntil: "commit" });
+      await gotoLegacyComposerHome(page, `/?workId=${workId}`, { waitUntil: "commit" });
     }
     await expect(page.locator("#creative-composer-request")).toHaveValue(carouselRequest);
     await expect(page.locator("#creative-composer-request")).toHaveCount(1);
