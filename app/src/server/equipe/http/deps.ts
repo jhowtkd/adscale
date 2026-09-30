@@ -8,6 +8,8 @@ import { objectStorage } from "@/server/storage";
 import { systemClock } from "../domain";
 import { createPostgresEquipeUnitOfWork } from "../data/postgres";
 import { LiveAdscaleGateway } from "../agents/gateway";
+import { DrizzleLedgerStore } from "../agents/ledger";
+import { createFreeBudgetReader } from "../agents/free-balance";
 import type { EquipeModuleDeps } from "../module/ports";
 
 /**
@@ -20,6 +22,7 @@ export function createEquipeRouteDeps(workspaceId?: string): EquipeModuleDeps {
     handoffStorage: objectStorage,
     uow: createPostgresEquipeUnitOfWork(db),
     sendTaskEvent: (event) => inngest.send(event),
+    freeBudget: createFreeBudgetReader(new DrizzleLedgerStore(db)),
     clock: systemClock(),
     gateway: new LiveAdscaleGateway(workspaceId ?? ""),
   };

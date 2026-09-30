@@ -2,13 +2,22 @@ import { zodResponseFormat } from "openai/helpers/zod";
 import { env } from "@/server/validation/env";
 import type { EquipeEvent, EquipeRepositories, AccountScope } from "../data";
 import type { ModelCallRequest, ModelImagePart } from "./model-client";
+import { DIAGNOSIS_REOPENED_EVENT } from "../handoff/diagnosis-contract";
 
 export const DIAGNOSTIC_RECORDED_EVENT = "diagnostic.recorded";
 export type DiagnosticRecordedPayload = { documentId: string };
 
-/** Ticket 08 writes this event in the SAME transaction as its diagnostic document. */
+/**
+ * Ticket 08 writes `diagnostic.recorded` in the SAME transaction as its diagnostic document.
+ * A diagnosis the person sent back for a better source (`diagnosis.reopened`) stops counting
+ * until its successor is recorded: the reserve and the plan-card gate apply to the new attempt again.
+ */
 export async function hasRecordedDiagnostic(repos: EquipeRepositories, scope: AccountScope) {
-  return (await repos.events.list(scope, { eventType: DIAGNOSTIC_RECORDED_EVENT })).some(isRecordedDiagnostic);
+  const recorded = (await repos.events.list(scope, { eventType: DIAGNOSTIC_RECORDED_EVENT })).filter(isRecordedDiagnostic);
+  if (!recorded.length) return false;
+  const reopened = new Set((await repos.events.list(scope, { eventType: DIAGNOSIS_REOPENED_EVENT }))
+    .map(event => (event.payload as { documentId?: unknown } | null)?.documentId));
+  return recorded.some(event => !reopened.has((event.payload as DiagnosticRecordedPayload).documentId));
 }
 
 function isRecordedDiagnostic(event: EquipeEvent) {

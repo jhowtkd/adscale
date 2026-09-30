@@ -9,9 +9,10 @@ import { err, ok, type Result } from "../domain";
 import { DIAGNOSTIC_RECORDED_EVENT } from "../agents/free-budget";
 import { HANDOFF_DIAGNOSE_EVENT } from "../handoff/contract";
 import {
-  DIAGNOSIS_AUTHOR_ROLE, DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_KIND, DIAGNOSIS_MAX_INTENTS, DIAGNOSIS_RETRYABLE_CODES,
-  DIAGNOSIS_STARTED_EVENT, type DiagnosisCommand,
+  DIAGNOSIS_AUTHOR_ROLE, DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_KIND, DIAGNOSIS_MAX_INTENTS, DIAGNOSIS_READ_LIMIT,
+  DIAGNOSIS_REOPENED_EVENT, DIAGNOSIS_RETRYABLE_CODES, DIAGNOSIS_STARTED_EVENT, type DiagnosisCommand,
 } from "../handoff/diagnosis-contract";
+import { sourceCorrectionRequirementUsdCents } from "../agents/free-balance";
 import { assembleDiagnosis, buildDiagnosisInput, diagnosisInformed, hasEnoughPublicText } from "../handoff/diagnosis";
 import type { EquipeModuleDeps } from "./ports";
 import { appendEvent, requestNotification, scopeOf, transact, type CommandContext, type TxBase } from "./shared";
@@ -45,7 +46,8 @@ async function diagnoseIntents(ctx: CommandContext, readingId: string) {
       const requested = payloadOf(event) as { eventName?: string; data?: { readingId?: string } };
       return requested.eventName === HANDOFF_DIAGNOSE_EVENT && requested.data?.readingId === readingId;
     })
-    .sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime() || a.id.localeCompare(b.id));
+    // Stable sort: events of the same instant keep the repository's insertion order.
+    .sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
 }
 
 const eventsFor = async (ctx: CommandContext, eventType: string, taskIntentId: string) =>
@@ -70,10 +72,15 @@ export async function runDiagnosisCommand(deps: EquipeModuleDeps, base: TxBase, 
       if (command.type === "diagnosis_correct_source") {
         // Only an honest "insufficient" diagnosis reopens the source; a complete one has nothing to fix.
         if ((recorded?.content as { status?: string } | undefined)?.status !== "insufficient") return err("invalid_transition", "Only an insufficient diagnosis reopens the source.");
-        // Leaves one read to retry a failure: a person stuck in the brand steps never reaches the plan card.
-        if (handoff.readsUsed > 1) return err("reading_limit", "Not enough readings left to correct the source.");
+        if (handoff.readsUsed >= DIAGNOSIS_READ_LIMIT) return err("reading_limit", "No readings left to correct the source.");
+        // The insufficient document released the reserve: re-reserve under the strict cap. The balance must cover one
+        // more reading and the diagnosis after it, or nothing starts (the chat says so, without calling a model).
+        const remaining = await deps.freeBudget?.remainingUsdCents(scope);
+        if (remaining === undefined || remaining < sourceCorrectionRequirementUsdCents()) return err("insufficient_balance", "The free AI balance does not cover a new reading and diagnosis.");
         const version = handoff.version + 1;
         await ctx.repos.handoffs.update(scope, handoff.id, { step: "source", version });
+        // Until its successor is recorded, this diagnosis no longer releases the reserve nor unlocks the plan card.
+        await appendEvent(ctx, { eventType: DIAGNOSIS_REOPENED_EVENT, objectType: "document", objectId: recorded!.id, payload: { documentId: recorded!.id } });
         await appendEvent(ctx, { eventType: "handoff.card", objectType: "handoff", objectId: handoff.id, payload: { step: "source" } });
         return ok({ handoffId: handoff.id, step: "source", version });
       }

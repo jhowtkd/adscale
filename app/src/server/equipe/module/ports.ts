@@ -6,7 +6,7 @@
 // plug the real adapters; test fakes live in ./testing.
 
 import type { Clock } from "../domain";
-import type { EquipeUnitOfWork } from "../data";
+import type { AccountScope, EquipeUnitOfWork } from "../data";
 
 /** Read-only lookups into Trabalho, Peça, oferta and marca. */
 export type AdscaleClientProfileRef = {
@@ -203,9 +203,16 @@ export const PUBLISHER_CONNECTION_REVOKED = "connection_revoked";
 
 export type EquipeTaskEvent = { id: string; name: string; data: Record<string, unknown> };
 
+/** Remaining free AI balance (cap minus lifetime spend), for commands that must not start work the cap cannot finish. */
+export interface FreeBudgetReader {
+  remainingUsdCents(scope: AccountScope): Promise<number>;
+}
+
 export type EquipeModuleDeps = {
   handoffStorage?: { put(key: string, buffer: Buffer, type: string): Promise<unknown>; delete(key: string): Promise<unknown> };
   sendTaskEvent?: (event: EquipeTaskEvent) => Promise<unknown>;
+  /** Wired by the request deps; a command that needs it fails closed without it. */
+  freeBudget?: FreeBudgetReader;
   uow: EquipeUnitOfWork;
   clock: Clock;
   gateway: AdscaleGateway;

@@ -226,6 +226,18 @@ export async function* runEquipeStrategistTurn(
     }
     // Always a fixed answer: an old card's isca clicked twice must not spend a model call.
     const code = outcome.ok ? "ok" : outcome.error.code;
+    if (code === "insufficient_balance") {
+      // The cap cannot cover one more reading plus the diagnosis: say so plainly, then the plan card (the diagnosis is recorded).
+      const content = "Seu saldo grátis de IA não cobre uma nova leitura e um novo diagnóstico. Sua conta e sua Biblioteca continuam disponíveis.";
+      const posted = await input.messages.post({ threadId: input.threadId, type: "assistant", content });
+      yield { type: "text_delta", text: content };
+      if (await hasRecordedDiagnostic(input.deps.uow.repos, input)) {
+        yield* planOfferTurn(input);
+        return;
+      }
+      yield { type: "done", assistantMessageId: posted.id };
+      return;
+    }
     const content = code === "ok" ? "Vou montar o diagnóstico de novo. Aviso quando estiver pronto."
       : code === "diagnosis_retry_limit" || code === "reading_limit" ? "Não consigo tentar de novo por aqui. Sua conta e sua Biblioteca continuam disponíveis."
         : retry ? "O diagnóstico não está com falha agora, então não há o que tentar de novo."

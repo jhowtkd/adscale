@@ -16,7 +16,7 @@ export default function DiagnosisDocument({ content }: { content: DiagnosisConte
   const t = useTranslations("assistant.equipe.diagnosis");
   const supports = (value: string) => value === "summary" ? t("supportsSummary")
     : value.startsWith("channel:") ? `${t("supportsChannel")} · ${originLabel(t, value.slice(8))}`
-      : t("supportsOpportunity", { n: Number(value.slice(12)) || 1 });
+      : /^opportunity:\d+$/.test(value) ? t("supportsOpportunity", { n: Number(value.slice(12)) }) : value;
   return (
     <div className="space-y-5 text-sm leading-relaxed" data-testid="diagnosis-document">
       <section>

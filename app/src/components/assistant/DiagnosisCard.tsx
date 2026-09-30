@@ -14,7 +14,7 @@ const tile = "rounded-xl bg-[var(--surface-raised)] px-3 py-2.5";
 function fromCard(card: EquipeCardPayload) {
   return parseDiagnosisContent({
     status: card.status === "insufficient" ? "insufficient" : "complete", brand: card.brand ?? null, summary: card.summary ?? "",
-    channels: card.channels ?? [], opportunities: (card.opportunities ?? []).map(item => ({ title: item.title, sources: item.sources ?? [] })),
+    channels: (card.channels ?? []).filter(channel => (channel.source === "site" || channel.source === "instagram") && (channel.name === "Site" || channel.name === "Instagram")), opportunities: (card.opportunities ?? []).map(item => ({ title: item.title, sources: item.sources ?? [] })),
     notFound: card.notFound ?? [], sources: [], meta: { readingId: "", taskIntentId: null, model: null, promptVersion: null, inputSources: [] },
   });
 }

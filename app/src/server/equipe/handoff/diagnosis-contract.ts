@@ -7,6 +7,10 @@ export const DIAGNOSIS_SOURCE_NAMES: Record<DiagnosisSource, "Site" | "Instagram
 
 export const DIAGNOSIS_STARTED_EVENT = "diagnosis.started";
 export const DIAGNOSIS_FAILED_EVENT = "diagnosis.failed";
+/** The approver sent an insufficient diagnosis back for a better source: its `{documentId}` stops counting as recorded. */
+export const DIAGNOSIS_REOPENED_EVENT = "diagnosis.reopened";
+/** Same limit as the handoff (module/handoff.ts): readings that may still be started. */
+export const DIAGNOSIS_READ_LIMIT = 3;
 export const DIAGNOSIS_KIND = "diagnosis";
 /** `created_by_role` of the document: the Pesquisa role wrote it. */
 export const DIAGNOSIS_AUTHOR_ROLE = "research";

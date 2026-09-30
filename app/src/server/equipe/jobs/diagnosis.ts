@@ -48,8 +48,8 @@ export function classifyDiagnosisFailure(error: string | undefined): { code: str
   if (Object.hasOwn(OWN_CODES, message)) return { code: message, retry: OWN_CODES[message]! };
   if (message === BUDGET_EXCEEDED_ERROR) return { code: "budget_exceeded", retry: false };
   if (isExecutionBlocked(message) || message === "execution_blocked") return { code: "execution_blocked", retry: false };
-  if (message.startsWith("model_refused")) return { code: "model_refused", retry: false };
-  if (message.startsWith("model_truncated")) return { code: "model_truncated", retry: true };
+  if (message.startsWith("model_refused") || message === "equipe_model_refused") return { code: "model_refused", retry: false };
+  if (message.startsWith("model_truncated") || message === "equipe_model_truncated") return { code: "model_truncated", retry: true };
   if (/diagnosis_(invalid_json|schema_mismatch)/.test(message)) return { code: "diagnosis_invalid", retry: true };
   if (message === "requires_plan" || message.startsWith("invalid_agent_input") || message === "free_call_unbounded") return { code: "diagnosis_unavailable", retry: false };
   return { code: "provider_error", retry: true };

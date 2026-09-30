@@ -6,7 +6,7 @@ import { DIAGNOSIS_CARD_TITLE, diagnosisSuggestions } from "@/lib/equipe/diagnos
 import { filterSuggestions } from "@/lib/equipe/suggestions";
 import type { HandoffItem, HandoffOrigin, HandoffState } from "../domain/handoff";
 import {
-  DIAGNOSIS_LIMITS, DIAGNOSIS_SOURCES, DIAGNOSIS_SOURCE_NAMES,
+  DIAGNOSIS_LIMITS, DIAGNOSIS_READ_LIMIT, DIAGNOSIS_SOURCES, DIAGNOSIS_SOURCE_NAMES,
   type DiagnosisContent, type DiagnosisInput, type DiagnosisModelOutput, type DiagnosisSource,
 } from "./diagnosis-contract";
 
@@ -102,7 +102,7 @@ export function normalizeForMatch(text: string) {
   return text.normalize("NFKC").toLowerCase().replace(/[\p{P}\p{S}\p{Cc}]+/gu, " ").replace(/\s+/g, " ").trim();
 }
 
-const COMPETITOR = /concorr|competidor|competitor|\brival|concurrent/;
+const COMPETITOR = /concorr|competidor|competitor|\briva(?:l|is)|concurrent/;
 const mentionsCompetitors = (text: string) => COMPETITOR.test(text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase());
 
 type Evidence = { source: DiagnosisSource; quote: string };
@@ -240,9 +240,9 @@ export function diagnosisCardPayload(args: { accountId: string; documentId: stri
     status: content.status === "insufficient" ? "insufficient" : "ready",
     documentId: args.documentId, brand: content.brand, summary: content.summary,
     channels: content.channels, opportunities: content.opportunities, notFound: content.notFound,
-    // Correcting the source re-runs the handoff: only offered while a failed read can still be retried.
+    // Correcting the source re-runs the handoff: only offered while a reading is left (the balance is checked when it is clicked).
     suggestions: filterSuggestions(content.status === "insufficient"
-      ? diagnosisSuggestions({ status: "insufficient", readsLeft: args.readsUsed <= 1 })
+      ? diagnosisSuggestions({ status: "insufficient", readsLeft: args.readsUsed < DIAGNOSIS_READ_LIMIT })
       : diagnosisSuggestions({ status: "ready", opportunities: content.opportunities.length, notFound: content.notFound.length })),
   };
 }
