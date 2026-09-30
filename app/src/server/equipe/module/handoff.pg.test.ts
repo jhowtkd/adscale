@@ -251,6 +251,19 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     if (!confirmed.ok) expect(confirmed.error.code).toBe("invalid_transition");
   });
 
+  it("asset policy isolates the handoff and preserves analysis for a mixed-plan workspace", async () => {
+    const f = await setup();
+    const row = await withSource(f);
+    const { hasNonFreeAssetAccount, isHandoffInWorkspace } = await import("../handoff/assets");
+    expect(await hasNonFreeAssetAccount(f.workspaceId)).toBe(false);
+    expect(await isHandoffInWorkspace(f.workspaceId, row.id)).toBe(true);
+    expect(await isHandoffInWorkspace(crypto.randomUUID(), row.id)).toBe(false);
+    const [profile] = await f.dbA.insert(f.schema.clientProfiles).values({ workspaceId: f.workspaceId, name: "Paid brand" }).returning();
+    await f.t.deps.uow.repos.accounts.create(f.workspaceId, { clientProfileId: profile!.id, status: "active" });
+    expect(await hasNonFreeAssetAccount(f.workspaceId)).toBe(true);
+    expect(await hasNonFreeAssetAccount(crypto.randomUUID())).toBe(false);
+  });
+
   it("resumes after the claim commits in Postgres but its step acknowledgement is lost", async () => {
     const f = await setup();
     const row = await withSource(f);

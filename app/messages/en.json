@@ -4093,6 +4093,8 @@
       "edit": "Edit",
       "correct": "Correct something",
       "palette": "Which palette should we use?",
+      "logoNeedsUpload": "The discovered logo does not have a saved copy yet. Upload the file in Edit Logo to use it, or continue without a logo.",
+      "instagramFailed": "Reading the confirmed Instagram failed. Correct the source or return to networks from the summary to remove or replace the profile.",
       "uploadLogo": "Upload logo",
       "uploadImages": "Upload image",
       "uploadError": "Could not upload the image. Check the file and try again.",

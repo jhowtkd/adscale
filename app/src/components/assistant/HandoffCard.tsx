@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, Circle, Globe, LoaderCircle, RotateCcw, TriangleAlert, Upload, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { HANDOFF_GROUPS, HANDOFF_STEPS, allGroupsFinished, identityReady, isGroupFinished, type HandoffState, type HandoffStep, type HandoffItem } from "@/server/equipe/domain/handoff";
+import { HANDOFF_GROUPS, HANDOFF_STEPS, allGroupsFinished, hasFailedConfirmedInstagram, identityReady, isGroupFinished, type HandoffState, type HandoffStep, type HandoffItem } from "@/server/equipe/domain/handoff";
 import { handoffText } from "@/lib/equipe/handoff-copy";
 import { postEquipeCommand, EquipeCommandError } from "@/lib/equipe/commands";
 import { equipeKeys, useEquipeAccountState } from "@/lib/equipe/use-equipe";
@@ -67,7 +67,8 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
   const [kind, setKind] = useState<"site" | "instagram">(h.source?.kind ?? "site");
   const [source, setSource] = useState(h.source?.value ?? "");
   const [name, setName] = useState(h.decisions.identity?.name.value ?? h.captured.name?.[0]?.value ?? "");
-  const [logo, setLogo] = useState(h.decisions.identity?.logo?.id ?? h.captured.logo?.[0]?.id ?? "");
+  const [logo, setLogo] = useState(h.decisions.identity?.logo?.id ?? h.captured.logo?.find(i => i.key)?.id ?? "");
+  const [uploadedLogo, setUploadedLogo] = useState<string | null>(null);
   const [palette, setPalette] = useState(h.decisions.identity?.paletteChoice ?? h.source?.kind ?? "site");
   const [colors, setColors] = useState((h.decisions.identity?.colors ?? (h.captured.colors ?? []).filter(i => i.origin === palette)).map(i => i.value).join(", "));
   const [colorsEdited, setColorsEdited] = useState(false);
@@ -77,7 +78,7 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
   const networkItems = [...new Map([...(h.captured.networks ?? []), ...(h.decisions.networks ?? [])].map(i => [i.id, i])).values()];
   const [networks, setNetworks] = useState(h.decisions.networks?.map(i => i.id) ?? (h.captured.networks ?? []).map(i => i.id));
   const [handle, setHandle] = useState("");
-  const [kept, setKept] = useState(() => h.decisions.images ? [...new Set([...h.decisions.images.kept, ...h.decisions.images.uploaded.filter(i => !h.decisions.images!.removed.includes(i.id)).map(i => i.id)])] : (h.captured.images ?? []).map(i => i.id));
+  const [kept, setKept] = useState(() => h.decisions.images ? [...new Set([...h.decisions.images.kept, ...(h.captured.images ?? []).filter(i => !h.decisions.images!.removed.includes(i.id)).map(i => i.id), ...h.decisions.images.uploaded.filter(i => !h.decisions.images!.removed.includes(i.id)).map(i => i.id)])] : (h.captured.images ?? []).map(i => i.id));
   const [uploaded, setUploaded] = useState(h.decisions.images?.uploaded ?? []);
   const [back, setBack] = useState("identity");
   const [editing, setEditing] = useState<string | null>(null);
@@ -101,8 +102,11 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
     if (!file || busy.current || disabled) return;
     busy.current = true; setPending(true); setError(null);
     try {
-      const asset = await uploadChatAttachment(file);
-      if (asLogo) setLogo(asset.assetId);
+      const asset = await uploadChatAttachment(file, h.id);
+      if (asLogo) {
+        if (!asset.key) throw new Error("unmanaged_logo");
+        setLogo(asset.assetId); setUploadedLogo(asset.assetId);
+      }
       else {
         setUploaded(items => [...items, { id: asset.assetId, value: asset.url ?? asset.assetId, origin: "user", key: asset.key }]);
         setKept(ids => [...ids, asset.assetId]);
@@ -116,7 +120,8 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
     <div className="flex flex-wrap justify-between gap-2"><button type="button" className={secondaryClass} disabled={blocked} onClick={() => { setKind(kind === "site" ? "instagram" : "site"); setSource(""); }}>{kind === "site" ? t("noSite") : t("useSite")}</button><button className={buttonClass} disabled={blocked || h.readsUsed >= 3} type="submit">{t("read")}</button></div>
   </form>;
   const confirmIdentity = () => void send("handoff_confirm_identity", { name, logo: logo || null, colors: split(currentColors), fonts: split(fonts), paletteChoice: palette });
-  const identityBlocked = !identityReady(h) || !name.trim() || (palette === "instagram" && !h.decisions.networks?.some(i => i.platform === "instagram"));
+  const selectedLogo = h.captured.logo?.find(i => i.id === logo) ?? (h.decisions.identity?.logo?.id === logo ? h.decisions.identity.logo : undefined);
+  const identityBlocked = !identityReady(h) || !name.trim() || (logo && !selectedLogo?.key && logo !== uploadedLogo) || (palette === "instagram" && !h.decisions.networks?.some(i => i.platform === "instagram"));
   const editButton = (group: string) => <button type="button" className={editClass} aria-label={`${t("edit")} ${t(`groups.${group}`)}`} aria-expanded={editing === group} onClick={() => setEditing(editing === group ? null : group)}>{t("edit")}</button>;
   const paletteChoices = (h.captured.colors?.some(i => i.origin === "site") && h.captured.colors.some(i => i.origin === "instagram")) || h.decisions.needsConfirmation?.includes("identity");
   const currentLogo = h.captured.logo?.find(i => i.id === logo);
@@ -131,13 +136,15 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
       <p className="mt-2 break-all text-xs text-[var(--text-muted)]">{t("sourceKind")} · {h.source?.normalized}</p>
       {Object.values(h.reading).some(g => g?.status === "failed") ? <><p role="alert">{h.readsUsed >= 3 ? handoffText("limit", locale) : t("failed")}</p><button className={buttonClass} disabled={blocked || h.readsUsed >= 3} onClick={() => void send("handoff_retry_reading")}>{t("retry")}</button></> : null}
     </> : null}
+    {hasFailedConfirmedInstagram(h) ? <p role="alert" className="text-sm text-[var(--danger-text)]">{t("instagramFailed")}</p> : null}
     {h.decisions.needsConfirmation?.length ? <p role="status">{t("reconfirm")}</p> : null}
     {h.step === "identity" ? <form onSubmit={e => { e.preventDefault(); confirmIdentity(); }}>
       <fieldset disabled={blocked}>
         <HandoffRow label={t("groups.name")} action={editButton("name")}>{editing === "name" ? <input aria-label={t("groups.name")} className={inputClass} value={name} maxLength={200} required autoFocus onChange={e => setName(e.target.value)} /> : <span className="font-medium">{name || t("nameMissing")}</span>}</HandoffRow>
         <HandoffRow label={t("groups.logo")} action={editButton("logo")}>
-          {editing === "logo" ? <div className="space-y-2"><select aria-label={t("groups.logo")} className={inputClass} value={logo} onChange={e => setLogo(e.target.value)}><option value="">{t("skip")}</option>{(h.captured.logo ?? []).map(i => <option key={i.id} value={i.id}>{t(`origin.${i.origin}`)}</option>)}{logo && !h.captured.logo?.some(i => i.id === logo) ? <option value={logo}>{t("origin.user")}</option> : null}</select><label className="block text-xs">{t("uploadLogo")}<input className="mt-1 block w-full text-xs" type="file" accept="image/png,image/jpeg,image/webp" onChange={e => void upload(e.target.files?.[0], true)} /></label></div> : logo ? <Image src={currentLogo ? imageSource(currentLogo) : `/api/workspace/assets/${logo}/file`} alt={t("groups.logo")} width={120} height={44} unoptimized className="h-11 w-[120px] rounded-lg border border-[var(--border-subtle)] object-contain p-2" /> : t("skip")}
+          {editing === "logo" ? <div className="space-y-2"><select aria-label={t("groups.logo")} className={inputClass} value={logo} onChange={e => setLogo(e.target.value)}><option value="">{t("skip")}</option>{(h.captured.logo ?? []).map(i => <option key={i.id} value={i.id} disabled={!i.key}>{t(`origin.${i.origin}`)}</option>)}{logo && !h.captured.logo?.some(i => i.id === logo) ? <option value={logo}>{t("origin.user")}</option> : null}</select><label className="block text-xs">{t("uploadLogo")}<input className="mt-1 block w-full text-xs" type="file" accept="image/png,image/jpeg,image/webp" onChange={e => void upload(e.target.files?.[0], true)} /></label></div> : logo ? <Image src={currentLogo ? imageSource(currentLogo) : `/api/workspace/assets/${logo}/file`} alt={t("groups.logo")} width={120} height={44} unoptimized className="h-11 w-[120px] rounded-lg border border-[var(--border-subtle)] object-contain p-2" /> : t("skip")}
         </HandoffRow>
+        {h.captured.logo?.some(i => !i.key) || (h.decisions.identity?.logo && !h.decisions.identity.logo.key) ? <p className="text-xs text-[var(--text-muted)]">{t("logoNeedsUpload")}</p> : null}
         <HandoffRow label={t("groups.colors")} action={editButton("colors")}>{editing === "colors" ? <input aria-label={t("groups.colors")} className={inputClass} value={currentColors} placeholder="#333333, #FFFFFF" onChange={e => { setColors(e.target.value); setColorsEdited(true); setPalette("user"); }} /> : currentColors ? <ColorSwatches colors={split(currentColors)} showHex /> : t("skip")}</HandoffRow>
         {paletteChoices ? <div className="my-2 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[var(--warning-bg)] p-3 text-xs text-[var(--warning-text)]"><span className="flex items-center gap-2"><TriangleAlert className="h-4 w-4" aria-hidden="true" />{t("palette")}</span><div className="flex gap-2">{(["site", "instagram"] as const).map(p => <button type="button" key={p} className="rounded-full border border-current px-3 py-1 aria-pressed:font-semibold aria-pressed:bg-[var(--warning-bg)] disabled:opacity-40" aria-pressed={palette === p} disabled={p === "instagram" && (!h.decisions.networks?.some(i => i.platform === "instagram") || !h.captured.colors?.some(i => i.origin === "instagram"))} onClick={() => { setPalette(p); setColorsEdited(true); setColors((h.captured.colors ?? []).filter(i => i.origin === p).map(i => i.value).join(", ")); }}>{t(`origin.${p}`)}</button>)}</div></div> : null}
         <HandoffRow label={t("groups.fonts")} action={editButton("fonts")}>{editing === "fonts" ? <input aria-label={t("groups.fonts")} className={inputClass} value={fonts} onChange={e => setFonts(e.target.value)} /> : fonts || t("skip")}</HandoffRow>
@@ -174,7 +181,7 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
       </div>
       <p className="text-xs text-[var(--text-muted)]">{t("summaryHint")}</p>
       {correcting ? <div className="flex flex-wrap items-end gap-2"><label className="min-w-0 flex-1 text-xs">{t("correct")}<select className={inputClass} value={back} disabled={blocked} onChange={e => setBack(e.target.value)}>{["source", "identity", "networks", "images"].map(s => <option key={s} value={s}>{t(`steps.${s}`)}</option>)}</select></label><button type="button" disabled={blocked} className={secondaryClass} onClick={() => void send("handoff_back_to", { step: back })}>{t("edit")}</button></div> : null}
-      <div className="flex flex-wrap justify-end gap-2"><button type="button" className={secondaryClass} disabled={blocked} aria-expanded={correcting} onClick={() => setCorrecting(!correcting)}>{t("correct")}</button><button className={buttonClass} disabled={blocked || !allGroupsFinished(h)} onClick={() => void send("handoff_confirm_summary")}>{t("finish")}</button></div>
+      <div className="flex flex-wrap justify-end gap-2"><button type="button" className={secondaryClass} disabled={blocked} aria-expanded={correcting} onClick={() => setCorrecting(!correcting)}>{t("correct")}</button><button className={buttonClass} disabled={blocked || !allGroupsFinished(h) || hasFailedConfirmedInstagram(h) || Boolean(h.decisions.identity?.logo && !h.decisions.identity.logo.key)} onClick={() => void send("handoff_confirm_summary")}>{t("finish")}</button></div>
     </> : null}
     {["reading", "identity", "networks", "images"].includes(h.step) ? <details><summary className="cursor-pointer text-xs text-[var(--text-muted)]">{t("correctSource")}</summary><div className="mt-3">{sourceForm}</div></details> : null}
     {h.readsUsed >= 3 && h.step !== "done" ? <p className="text-xs text-[var(--text-muted)]">{handoffText("limit", locale)}</p> : null}

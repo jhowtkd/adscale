@@ -62,6 +62,46 @@ function renderCard(handoff: Handoff, extraProps: Partial<{ latest: boolean; dis
 }
 
 describe("review PR608: uploaded-image restoration and late palette", () => {
+  it("offers upload and disables an unmanaged captured logo, then confirms the managed upload with handoff context", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    mockUploadChatAttachment.mockResolvedValue({ assetId: "managed-upload", key: "workspaces/logo.png", url: "/logo.png" });
+    renderCard(baseHandoff({ step: "identity", source: { kind: "site", value: "https://acme.com", normalized: "https://acme.com/" },
+      reading: Object.fromEntries(["name", "logo", "colors", "fonts"].map(group => [group, { runId: "r", taskIntentId: "t", status: "found" }])),
+      captured: { name: [{ id: "name", value: "Acme", origin: "site" }], logo: [{ id: "logo", value: "/logo.png", origin: "site" }] },
+    }));
+    expect(screen.getByText(/O logo encontrado ainda não tem uma cópia salva/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Editar Logo" }));
+    expect(screen.getByRole("option", { name: "Do site" })).toBeDisabled();
+    const file = new File(["image"], "logo.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Enviar logo"), { target: { files: [file] } });
+    await waitFor(() => expect(mockUploadChatAttachment).toHaveBeenCalledWith(file, "handoff-1"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar →" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
+    await waitFor(() => expect(mockPostEquipeCommand).toHaveBeenCalled());
+    expect(mockPostEquipeCommand.mock.calls[0][1].payload.logo).toBe("managed-upload");
+  });
+
+  it("blocks finishing and displays the fixed message when the confirmed Instagram failed", () => {
+    renderCard(baseHandoff({ step: "summary", decisions: { networks: [{ id: "ig", value: "private", platform: "instagram", origin: "user" }] },
+      reading: Object.fromEntries(["name", "logo", "colors", "fonts", "networks", "images"].map(group => [group, { runId: "r", taskIntentId: "t", status: "found", ...(group === "images" ? { bySource: { site: { runId: "r", taskIntentId: "t", status: "found" }, instagram: { runId: "ig", taskIntentId: "ig", status: "failed" } } } : {}) }])),
+    }));
+    expect(screen.getByRole("alert")).toHaveTextContent("A leitura do Instagram confirmado falhou");
+    expect(screen.getByRole("button", { name: "É isso →" })).toBeDisabled();
+  });
+
+  it("defaults new profile images to selected while keeping the site's previous removal", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    renderCard(baseHandoff({ step: "images", reading: { images: { runId: "r", taskIntentId: "t", status: "found" } },
+      captured: { images: [{ id: "site-kept", value: "/a.png", origin: "site" }, { id: "site-removed", value: "/b.png", origin: "site" }, { id: "new-ig", value: "/c.png", origin: "instagram" }] },
+      decisions: { needsConfirmation: ["images"], images: { kept: ["site-kept"], removed: ["site-removed"], uploaded: [] } },
+    }));
+    expect(screen.getByRole("checkbox", { name: /Remover imagem new-ig/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Restaurar imagem site-removed/ })).not.toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
+    await waitFor(() => expect(mockPostEquipeCommand).toHaveBeenCalled());
+    expect(mockPostEquipeCommand.mock.calls[0][1].payload).toMatchObject({ kept: ["site-kept", "new-ig"], removed: ["site-removed"] });
+  });
+
   it.each([false, true])("restores an uploaded image, already removed on reload=%s", async (removed) => {
     mockPostEquipeCommand.mockResolvedValue({});
     renderCard(baseHandoff({

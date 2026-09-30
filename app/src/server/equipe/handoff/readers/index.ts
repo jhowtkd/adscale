@@ -8,7 +8,7 @@ export type SiteReadResult = {
   groupErrors?: Partial<Record<"logo" | "colors" | "fonts" | "images", string>>;
 };
 export type InstagramReadResult = {
-  exists: boolean; isPrivate: boolean; name?: string; avatarUrl: string | null; bio: string;
+  exists: boolean; isPrivate: boolean; name?: string; avatarUrl: string | null; avatarKey?: string; bio: string;
   posts: Array<{ imageUrl: string; caption: string; key?: string; width?: number; height?: number }>;
   colors?: string[];
 };

@@ -56,7 +56,7 @@ function capturedGroups(kind: "site" | "instagram", data: SiteReadResult | Insta
     const instagram = data as InstagramReadResult;
     if (!instagram.exists || instagram.isPrivate) throw new Error(instagram.exists ? "instagram_private" : "instagram_not_found");
     if (instagram.name?.trim()) add("name", instagram.name.trim().slice(0, 200));
-    if (instagram.avatarUrl) add("logo", instagram.avatarUrl);
+    if (instagram.avatarUrl) add("logo", instagram.avatarUrl, { key: instagram.avatarKey });
     for (const color of instagram.colors ?? []) if (/^#[0-9a-f]{6}$/i.test(color)) add("colors", color);
     add("networks", handle, { platform: "instagram" });
     for (const post of instagram.posts.slice(0, 12)) add("images", post.imageUrl, { key: post.key, caption: post.caption, width: post.width, height: post.height });

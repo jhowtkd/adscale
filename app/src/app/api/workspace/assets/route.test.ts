@@ -41,17 +41,18 @@ vi.mock("next-intl/server", () => ({
 }));
 
 vi.mock("@/server/equipe/handoff/assets", () => ({
-  isFreeAssetWorkspace: vi.fn(() => Promise.resolve(false)),
+  hasNonFreeAssetAccount: vi.fn(() => Promise.resolve(true)),
+  isHandoffInWorkspace: vi.fn(() => Promise.resolve(true)),
 }));
 
 import { getWorkspaceAssets, createWorkspaceAsset } from "@/server/repositories/workspace-asset";
 import { objectStorage } from "@/server/storage";
 import { inngest } from "@/server/jobs/client";
-import { isFreeAssetWorkspace } from "@/server/equipe/handoff/assets";
+import { hasNonFreeAssetAccount, isHandoffInWorkspace } from "@/server/equipe/handoff/assets";
 
 const mockGetWorkspaceAssets = vi.mocked(getWorkspaceAssets);
 const mockCreateWorkspaceAsset = vi.mocked(createWorkspaceAsset);
-const mockIsFreeAssetWorkspace = vi.mocked(isFreeAssetWorkspace);
+const mockHasNonFreeAssetAccount = vi.mocked(hasNonFreeAssetAccount);
 
 describe("GET /api/workspace/assets", () => {
   beforeEach(() => {
@@ -117,6 +118,8 @@ describe("GET /api/workspace/assets", () => {
 describe("POST /api/workspace/assets", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHasNonFreeAssetAccount.mockResolvedValue(true);
+    vi.mocked(isHandoffInWorkspace).mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -156,14 +159,15 @@ describe("POST /api/workspace/assets", () => {
     expect(res.status).toBe(400);
   });
 
-  function uploadRequest() {
+  function uploadRequest(handoffId?: string) {
     const form = new FormData();
     form.append("file", new File([new Uint8Array([137, 80, 78, 71])], "logo.png", { type: "image/png" }));
+    if (handoffId) form.append("handoffId", handoffId);
     return new Request("http://localhost/api/workspace/assets", { method: "POST", body: form });
   }
 
   it("paid workspace: creates the asset and triggers the analysis job (ticket 04: default, unchanged behavior)", async () => {
-    mockIsFreeAssetWorkspace.mockResolvedValue(false);
+    mockHasNonFreeAssetAccount.mockResolvedValue(true);
     mockCreateWorkspaceAsset.mockResolvedValue({ id: "wa-1", workspaceId: "workspace-1", name: "logo.png", key: "assets/logo.png" } as Awaited<ReturnType<typeof createWorkspaceAsset>>);
 
     const res = await POST(uploadRequest());
@@ -171,7 +175,7 @@ describe("POST /api/workspace/assets", () => {
 
     expect(res.status).toBe(201);
     expect(body.asset).toMatchObject({ id: "wa-1", url: "/api/workspace/assets/wa-1/file" });
-    expect(mockIsFreeAssetWorkspace).toHaveBeenCalledWith("workspace-1");
+    expect(mockHasNonFreeAssetAccount).toHaveBeenCalledWith("workspace-1");
     expect(vi.mocked(inngest.send)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(inngest.send)).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ assetId: "wa-1", workspaceId: "workspace-1" }),
@@ -179,7 +183,7 @@ describe("POST /api/workspace/assets", () => {
   });
 
   it("free workspace (ticket 04, handoff logo/image upload): creates the asset but never triggers the analysis job", async () => {
-    mockIsFreeAssetWorkspace.mockResolvedValue(true);
+    mockHasNonFreeAssetAccount.mockResolvedValue(false);
     mockCreateWorkspaceAsset.mockResolvedValue({ id: "wa-2", workspaceId: "workspace-1", name: "logo.png", key: "assets/logo.png" } as Awaited<ReturnType<typeof createWorkspaceAsset>>);
 
     const res = await POST(uploadRequest());
@@ -187,15 +191,41 @@ describe("POST /api/workspace/assets", () => {
 
     expect(res.status).toBe(201);
     expect(body.asset).toMatchObject({ id: "wa-2" });
-    expect(mockIsFreeAssetWorkspace).toHaveBeenCalledWith("workspace-1");
+    expect(mockHasNonFreeAssetAccount).toHaveBeenCalledWith("workspace-1");
     expect(vi.mocked(inngest.send)).not.toHaveBeenCalled();
     // The upload itself still ran — the ledger guard only skips the AI job.
     expect(mockCreateWorkspaceAsset).toHaveBeenCalledWith(expect.objectContaining({ name: "logo.png", type: "image/png" }));
     expect(vi.mocked(objectStorage.put)).toHaveBeenCalledTimes(1);
   });
 
-  it("still fails closed when isFreeAssetWorkspace itself rejects, and — since it's checked BEFORE creating the asset — nothing is left orphaned", async () => {
-    mockIsFreeAssetWorkspace.mockRejectedValue(new Error("db down"));
+  it("mixed workspace: a handoff upload is saved with its scoped ID and never analyzed", async () => {
+    mockCreateWorkspaceAsset.mockResolvedValue({ id: "wa-handoff" } as Awaited<ReturnType<typeof createWorkspaceAsset>>);
+    const handoffId = crypto.randomUUID();
+    const res = await POST(uploadRequest(handoffId));
+    expect(res.status).toBe(201);
+    expect(isHandoffInWorkspace).toHaveBeenCalledWith("workspace-1", handoffId);
+    expect(mockHasNonFreeAssetAccount).not.toHaveBeenCalled();
+    expect(inngest.send).not.toHaveBeenCalled();
+    expect(mockCreateWorkspaceAsset).toHaveBeenCalledWith(expect.objectContaining({ metadata: { handoffId } }));
+  });
+
+  it("mixed workspace: an ordinary upload keeps the paid analysis event", async () => {
+    mockHasNonFreeAssetAccount.mockResolvedValue(true);
+    mockCreateWorkspaceAsset.mockResolvedValue({ id: "wa-paid" } as Awaited<ReturnType<typeof createWorkspaceAsset>>);
+    expect((await POST(uploadRequest())).status).toBe(201);
+    expect(inngest.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects an unknown or foreign-workspace handoff before asset/storage writes", async () => {
+    vi.mocked(isHandoffInWorkspace).mockResolvedValue(false);
+    expect((await POST(uploadRequest(crypto.randomUUID()))).status).toBe(400);
+    expect(mockCreateWorkspaceAsset).not.toHaveBeenCalled();
+    expect(objectStorage.put).not.toHaveBeenCalled();
+    expect(inngest.send).not.toHaveBeenCalled();
+  });
+
+  it("still fails closed when hasNonFreeAssetAccount itself rejects, and — since it's checked BEFORE creating the asset — nothing is left orphaned", async () => {
+    mockHasNonFreeAssetAccount.mockRejectedValue(new Error("db down"));
     mockCreateWorkspaceAsset.mockResolvedValue({ id: "wa-3", workspaceId: "workspace-1", name: "logo.png", key: "assets/logo.png" } as Awaited<ReturnType<typeof createWorkspaceAsset>>);
 
     const res = await POST(uploadRequest());
