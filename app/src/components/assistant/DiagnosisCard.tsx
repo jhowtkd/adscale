@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
-import { ArrowUpRight, Info, TriangleAlert } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { ArrowRight, ArrowUpRight, Info, TriangleAlert } from "lucide-react";
 import type { EquipeCardPayload } from "@/server/repositories/assistant-types";
 import { useEquipeAccountState } from "@/lib/equipe/use-equipe";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -29,7 +29,7 @@ function DocumentDialog({ card, open, onClose }: { card: EquipeCardPayload; open
       <DialogContent size="lg" className="p-6">
         <DialogTitle>{t("title")}</DialogTitle>
         <DialogDescription>{stored ? t("documentVersion", { version: stored.version }) : query.isLoading ? t("loadingDocument") : card.brand ?? ""}</DialogDescription>
-        <div className="mt-4 overflow-y-auto">{content ? <DiagnosisDocument content={content} /> : null}</div>
+        <div className="mt-4 overflow-y-auto focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" tabIndex={0}>{content ? <DiagnosisDocument content={content} /> : null}</div>
       </DialogContent>
     </Dialog>
   );
@@ -39,6 +39,7 @@ export default function DiagnosisCard({ card, latest = true, disabled, onSuggest
   card: EquipeCardPayload; latest?: boolean; disabled?: boolean; onSuggestion?: (text: string) => void;
 }) {
   const t = useTranslations("assistant.equipe.diagnosis");
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   // Only the newest diagnosis card offers its iscas; an old one would send a stale request.
   const suggestions = latest ? card.suggestions ?? [] : [];
@@ -73,7 +74,7 @@ export default function DiagnosisCard({ card, latest = true, disabled, onSuggest
                     <span aria-hidden="true" className="size-1.5 rounded-full" style={{ backgroundColor: channel.source === "instagram" ? "var(--info-dot)" : "var(--warning-dot)" }} />
                     {channel.source === "instagram" ? t("fromInstagram") : t("fromSite")}
                   </span>
-                  <span className="mt-1 block text-sm">{channel.message}</span>
+                  <span className="mt-1 block text-sm font-medium">{channel.message}</span>
                 </div>
               ))}
             </div>
@@ -83,7 +84,7 @@ export default function DiagnosisCard({ card, latest = true, disabled, onSuggest
             <ol className="mt-2 space-y-3">
               {opportunities.map((opportunity, index) => (
                 <li key={index} className="flex items-start gap-3 text-sm">
-                  <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-xs">{index + 1}</span>
+                  <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-full bg-[var(--surface-raised)] text-xs font-semibold">{index + 1}</span>
                   <span className="pt-0.5">{opportunity.title}</span>
                 </li>
               ))}
@@ -92,7 +93,7 @@ export default function DiagnosisCard({ card, latest = true, disabled, onSuggest
           {card.notFound?.length ? (
             <p className="mt-4 flex items-start gap-2 text-xs text-[var(--text-muted)]">
               <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-              <span>{t("notFound", { items: card.notFound.join(", ") })}</span>
+              <span>{t("notFound", { items: new Intl.ListFormat(locale, { style: "long", type: "conjunction" }).format(card.notFound) })}</span>
             </p>
           ) : null}
         </div>
@@ -101,8 +102,8 @@ export default function DiagnosisCard({ card, latest = true, disabled, onSuggest
         <div className="mt-2 flex w-full flex-col gap-1.5" data-testid="assistant-suggestions">
           {suggestions.map(text => (
             <button key={text} type="button" disabled={disabled || !onSuggestion} onClick={() => onSuggestion?.(text)}
-              className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--surface-inset)] disabled:opacity-50">
-              <span aria-hidden="true">→ </span>{text}
+              className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] px-4 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--surface-inset)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50">
+              <ArrowRight className="size-3.5 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />{text}
             </button>
           ))}
         </div>
