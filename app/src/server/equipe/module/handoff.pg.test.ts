@@ -790,6 +790,30 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     expect(await ids()).toEqual([legacyShared.id, legacyBranded.id, fresh.id, site.id, instagram.id].sort());
   });
 
+  it("ticket 07 (bot review, real PG): clearing the Brand Kit also removes the logo's Library row, and only that row", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const profileId = account!.clientProfileId;
+    const logoKey = `workspaces/${f.workspaceId}/brand-kit/logo.png`;
+    await f.dbA.update(f.schema.clientProfiles).set({ logoAssetKey: logoKey }).where(eq(f.schema.clientProfiles.id, profileId));
+    const mk = async (name: string, key: string) => (await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId: profileId, name, key, size: 1, type: "image/png", source: "brand_upload", metadata: null,
+    }).returning())[0]!;
+    await mk("logo.png", logoKey);
+    const other = await mk("other.png", `workspaces/${f.workspaceId}/other.png`);
+    await f.dbA.insert(f.schema.clientReferences).values({ workspaceId: f.workspaceId, clientProfileId: profileId, assetKey: logoKey, label: "logo.png", kind: "logo" });
+    const { deleteBrandKit } = await import("@/server/repositories/brand-kit");
+
+    await deleteBrandKit(f.workspaceId, profileId);
+
+    // The route deletes the stored logo: a Library row left behind would be a permanently broken card.
+    const assets = await f.dbA.select().from(f.schema.workspaceAssets).where(eq(f.schema.workspaceAssets.workspaceId, f.workspaceId));
+    expect(assets.map(row => row.id)).toEqual([other.id]);
+    expect(await f.dbA.select().from(f.schema.clientReferences).where(eq(f.schema.clientReferences.workspaceId, f.workspaceId))).toEqual([]);
+    const [profile] = await f.dbA.select().from(f.schema.clientProfiles).where(eq(f.schema.clientProfiles.id, profileId));
+    expect(profile?.logoAssetKey).toBeNull();
+  });
+
   it("ticket 07 (goals materials, real PG): register_material, through the live gateway, accepts only assets the account's brand may use", async () => {
     const f = await setup();
     const account = (await f.t.deps.uow.repos.accounts.get(f.workspaceId, f.accountId))!;

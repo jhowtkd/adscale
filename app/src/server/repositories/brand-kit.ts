@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "../db";
-import { clientProfiles, clientReferences } from "../db/schema";
+import { clientProfiles, clientReferences, workspaceAssets } from "../db/schema";
 
 export interface BrandKitData {
   name?: string;
@@ -229,6 +229,10 @@ export async function deleteBrandKit(
       .catch(() => {
         // Ignore errors — reference may not exist
       });
+    // The route deletes the stored logo, so its Library row would be a permanently broken card.
+    await db
+      .delete(workspaceAssets)
+      .where(and(eq(workspaceAssets.workspaceId, workspaceId), eq(workspaceAssets.key, existing.logoAssetKey)));
   }
 
   const result = await db
