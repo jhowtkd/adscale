@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { executeCommand } from "./commands";
 import { DIAGNOSTIC_RECORDED_EVENT } from "../agents/free-budget";
+import { projectConversationEvent } from "./conversation-events";
 import { ctx, setup, type ItemIds, type TestDeps } from "./testing/items";
 
 const SCOPE = (ids: ItemIds) => ({ workspaceId: ids.workspaceId, accountId: ids.accountId });
@@ -214,6 +215,10 @@ describe("request_support purpose: plan (ticket 02)", () => {
     expect(JSON.stringify(outcome.value.data)).not.toMatch(/pri[cç]e|valor|R\$/i);
     const row = await t.deps.uow.repos.exceptions.get(scope, outcome.value.data.exceptionId as string);
     expect(row?.trigger).toBe("out_of_contract_request");
+    expect(outcome.value.events.find((event) => event.eventType === "support_exception.opened")?.payload).toMatchObject({ purpose: "plan" });
+    expect([...t.store.assistantMessages.rows.values()]).toEqual([
+      expect.objectContaining({ content: "Recebemos seu pedido sobre o plano. Uma pessoa vai falar com você em até 1 dia útil." }),
+    ]);
     // The SP-calendar 1-business-day SLA (not the 2h fast-track), matching
     // the fixture clock used across this suite.
     expect(row?.dueAt).toEqual(new Date("2026-10-06T14:00:00.000Z"));
@@ -255,5 +260,25 @@ describe("request_support purpose: plan (ticket 02)", () => {
     if (!outcome.ok) return;
     const row = await t.deps.uow.repos.exceptions.get(SCOPE(ids), outcome.value.data.exceptionId as string);
     expect(row?.trigger).toBe("client_requested_person");
+  });
+
+  it.each([undefined, "other", null])("validates purpose on old and invalid exception events: %s", async (purpose) => {
+    const { t, ids } = await setup();
+    const scope = SCOPE(ids);
+    const event = await t.deps.uow.repos.events.create(scope, {
+      actorType: "system", actorId: "legacy", actorRole: "system", eventType: "support_exception.opened",
+      payload: { trigger: "out_of_contract_request", ...(purpose === undefined ? {} : { purpose }) }, occurredAt: t.deps.clock.now(),
+    });
+    const projected = projectConversationEvent({ ...scope, actor: ids.actors.system, repos: t.deps.uow.repos,
+      internal: t.deps.uow.internal, now: t.deps.clock.now(), events: [] }, event);
+    if (purpose === undefined) {
+      await expect(projected).resolves.toMatchObject({ messageId: expect.any(String) });
+      expect([...t.store.assistantMessages.rows.values()]).toEqual([
+        expect.objectContaining({ content: "Chamei uma pessoa da equipe para ajudar aqui." }),
+      ]);
+    } else {
+      await expect(projected).rejects.toThrow();
+      expect(t.store.assistantMessages.rows.size).toBe(0);
+    }
   });
 });

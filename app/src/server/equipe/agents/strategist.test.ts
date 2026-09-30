@@ -396,7 +396,7 @@ describe("strategist history and iscas (ticket 02)", () => {
         content: "Aqui está o resumo da sua marca.",
         toolCalls: [{
           id: "call-1", name: "sugerir_proximos_passos",
-          argumentsJson: JSON.stringify({ itens: ["Me explica a oportunidade 2", "Quero ver mais exemplos"] }),
+          argumentsJson: JSON.stringify({ itens: ["Me explica a oportunidade 2", "Confirmado, está correto", "Quero ver mais exemplos"] }),
         }],
       },
     ]);
@@ -411,6 +411,56 @@ describe("strategist history and iscas (ticket 02)", () => {
     expect(result.toolCallsExecuted).toBe(1);
     expect(result.iterations).toBe(1);
     expect(result.planOffered).toBeFalsy();
+  });
+
+  it.each(["suggestion-first", "command-first"])("executes the paid plan alongside suggestions in either order: %s", async (order) => {
+    const t = makeTestDeps();
+    const account = await openTestAccount(t);
+    const scope = { workspaceId: account.workspaceId, accountId: account.accountId };
+    const suggestion = { id: "suggest", name: "sugerir_proximos_passos", argumentsJson: JSON.stringify({ itens: ["Me explica o plano"] }) };
+    const proposal = { id: "plan", name: "propose_plan", argumentsJson: JSON.stringify({ content: { goals: ["launch instagram"] } }) };
+    const client = new FakeModelClient([{ content: "Plano proposto, aguardando aprovação.",
+      toolCalls: order === "suggestion-first" ? [suggestion, proposal] : [proposal, suggestion] }]);
+    const result = await runStrategistTurn({ client, ctx: { deps: t.deps, ...scope }, message: "Monte o plano." });
+    expect((await getGoalsView(t.deps.uow.repos, scope.workspaceId, scope.accountId))?.plan?.status).toBe("proposed");
+    expect(result).toMatchObject({ suggestions: ["Me explica o plano"], toolCallsExecuted: 2, iterations: 1 });
+    expect(client.requests).toHaveLength(1);
+  });
+
+  it.each(["invalid-json", "command-rejected"])("feeds %s back to the model even when the same response has suggestions", async (failure) => {
+    const t = makeTestDeps();
+    const account = await openTestAccount(t);
+    const scope = { workspaceId: account.workspaceId, accountId: account.accountId };
+    if (failure === "command-rejected") await t.deps.uow.repos.accounts.update(scope.workspaceId, scope.accountId, { status: "active" });
+    const client = new FakeModelClient([
+      { content: "Plano proposto.", toolCalls: [
+        { id: "suggest", name: "sugerir_proximos_passos", argumentsJson: JSON.stringify({ itens: ["Me explica o plano"] }) },
+        { id: "plan", name: "propose_plan", argumentsJson: failure === "invalid-json" ? "{" : JSON.stringify({ content: { goals: ["launch instagram"] } }) },
+      ] },
+      { content: "Não consegui propor o plano." },
+    ]);
+    const result = await runStrategistTurn({ client, ctx: { deps: t.deps, ...scope }, message: "Monte o plano." });
+    expect(client.requests).toHaveLength(2);
+    expect(result.text).toBe("Não consegui propor o plano.");
+    expect(result.suggestions).toBeUndefined();
+    expect((await getGoalsView(t.deps.uow.repos, scope.workspaceId, scope.accountId))?.plan).toBeNull();
+    const feedback = client.requests[1]!.messages.filter((message) => message.role === "tool");
+    expect(feedback).toHaveLength(2);
+    expect(feedback.some((message) => message.content.includes('"error"') || message.content.includes('"ok":false'))).toBe(true);
+  });
+
+  it("keeps the command iteration limit when suggestions share its last response", async () => {
+    const t = makeTestDeps();
+    const account = await openTestAccount(t);
+    const scope = { workspaceId: account.workspaceId, accountId: account.accountId };
+    const client = new FakeModelClient([{ content: "Resumo.", toolCalls: [
+      { id: "suggest", name: "sugerir_proximos_passos", argumentsJson: JSON.stringify({ itens: ["Me explica o plano"] }) },
+      { id: "plan", name: "propose_plan", argumentsJson: JSON.stringify({ content: { goals: ["launch instagram"] } }) },
+    ] }]);
+    const result = await runStrategistTurn({ client, ctx: { deps: t.deps, ...scope }, message: "Monte o plano.", maxIterations: 1 });
+    expect(client.requests).toHaveLength(1);
+    expect(result).toMatchObject({ iterations: 1, toolCallsExecuted: 1, suggestions: ["Me explica o plano"] });
+    expect((await getGoalsView(t.deps.uow.repos, scope.workspaceId, scope.accountId))?.plan).toBeNull();
   });
 
   it("defaults to no suggestions and no plan offer when neither tool is called", async () => {

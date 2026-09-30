@@ -73,6 +73,7 @@ export function exceptionDueAt(trigger: SupportExceptionTrigger, now: Date): Dat
 
 export type CreateExceptionInput = {
   trigger: SupportExceptionTrigger;
+  purpose?: "plan";
   reason?: string | null;
   sourceEventId?: string;
   escalationId?: string;
@@ -105,6 +106,7 @@ export async function createExceptionInternal(
       trigger: input.trigger,
       reason: input.reason ?? null,
       dueAt: dueAt.toISOString(),
+      ...(input.purpose ? { purpose: input.purpose } : {}),
       ...(input.itemId ? { itemId: input.itemId, workId: input.workId } : {}),
       ...(input.roundId ? { roundId: input.roundId } : {}),
       ...(input.sourceEventId ? { sourceEventId: input.sourceEventId } : {}),
@@ -180,6 +182,7 @@ export async function runRequestSupport(
     }
     const created = await createExceptionInternal(ctx, {
       trigger: payload.purpose === "plan" ? "out_of_contract_request" : "client_requested_person",
+      purpose: payload.purpose,
       reason,
     });
     if (!created.ok) return created;

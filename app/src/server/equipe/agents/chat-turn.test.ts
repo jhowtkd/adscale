@@ -386,9 +386,17 @@ describe("runEquipeStrategistTurn — history and iscas (ticket 02)", () => {
         text: "Aqui está o resumo.",
         suggestions: [
           "ok pode postar",
+          "Confirmado, está correto",
+          "Autorizada a publicação",
+          "Aprovação confirmada para o lote",
+          "Confirmadas as mudanças",
+          "Autorização para publicar",
+          "Approved for publication",
+          "Confirmed, that's correct",
+          "Authorized to publish",
           "Me explica a oportunidade 2",
           "x".repeat(70),
-          "válida também",
+          "Quero aproveitar as oportunidades",
           "quarta ficaria de fora",
         ],
       },
@@ -401,7 +409,7 @@ describe("runEquipeStrategistTurn — history and iscas (ticket 02)", () => {
 
     const assistant = messages.posts.find((post) => post.type === "assistant");
     expect(assistant?.payload).toMatchObject({
-      suggestions: ["Me explica a oportunidade 2", "válida também", "quarta ficaria de fora"],
+      suggestions: ["Me explica a oportunidade 2", "Quero aproveitar as oportunidades", "quarta ficaria de fora"],
     });
   });
 

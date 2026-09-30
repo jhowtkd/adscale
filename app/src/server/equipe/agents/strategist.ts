@@ -371,21 +371,26 @@ export async function runStrategistTurn(input: StrategistTurnInput): Promise<Str
       toolCalls: response.toolCalls,
       ...(response.providerContent !== undefined ? { providerContent: response.providerContent } : {}),
     });
+    let completion: Pick<StrategistTurnResult, "suggestions" | "planOffered"> | undefined;
+    let failed = false;
     for (const call of response.toolCalls) {
       // Keep the existing iteration limit for commands, while accepting a
       // final suggestion/offer without paying for another model call.
       if (iterations >= maxIterations && call.name !== "sugerir_proximos_passos" && call.name !== "oferecer_plano") continue;
       toolCallsExecuted += 1;
       const execution = await executeStrategistTool(tools, call.name, call.argumentsJson);
+      failed ||= !execution.ok || (execution.result as { ok?: boolean } | null)?.ok === false;
       if (execution.ok && (call.name === "sugerir_proximos_passos" || call.name === "oferecer_plano")) {
-        return { text: response.content, toolCallsExecuted, iterations, promptVersion: EQUIPE_PROMPT_VERSION,
-          ...(execution.result as { suggestions?: string[]; planOffered?: boolean }) };
+        completion = { ...completion, ...(execution.result as typeof completion) };
       }
       messages.push({
         role: "tool",
         toolCallId: call.id,
         content: JSON.stringify(execution.ok ? execution.result : { error: execution.error }),
       });
+    }
+    if (completion && !failed) {
+      return { text: response.content, toolCallsExecuted, iterations, promptVersion: EQUIPE_PROMPT_VERSION, ...completion };
     }
     if (iterations >= maxIterations) {
       logger.info("[equipe.strategist] suggestions_missing", { accountId: input.ctx.accountId, iterations });
