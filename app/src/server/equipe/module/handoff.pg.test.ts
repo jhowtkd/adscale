@@ -376,4 +376,44 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     const [handoff] = await f.second.deps.uow.repos.handoffs.list(scope);
     expect(handoff!.step).toBe("done");
   });
+
+  it("a logo uploaded before confirming identity survives a reload on a brand-new connection and is what gets confirmed", async () => {
+    const f = await setup();
+    let row = await withSource(f);
+    for (const group of ["name", "logo", "colors", "fonts", "networks", "images"] as const) {
+      const g = row.reading[group]!;
+      const items = group === "name" ? [{ id: crypto.randomUUID(), value: "Acme", origin: "site" as const }] : [];
+      const out = await f.executeCommand(f.t.deps, { actor: READER, workspaceId: f.workspaceId, accountId: f.accountId }, {
+        type: "handoff_record_group",
+        payload: { readingId: row.readingId!, runId: g.runId, taskIntentId: g.taskIntentId, group, result: { status: items.length ? "found" : "not_found", items } },
+      });
+      if (!out.ok) throw new Error(`record ${group} failed: ${out.error.code}`);
+      row = (await f.t.deps.uow.repos.handoffs.list(f.scope))[0]!;
+    }
+    expect(row.step).toBe("identity");
+
+    const assetId = crypto.randomUUID();
+    const key = `workspaces/${f.workspaceId}/${assetId}.png`;
+    f.t.gateway.addAsset({ id: assetId, workspaceId: f.workspaceId, kind: "image/png", key });
+    const attached = await f.executeCommand(f.t.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+      type: "handoff_attach_logo", payload: { expectedStep: row.step, expectedVersion: row.version, logo: assetId },
+    });
+    if (!attached.ok) throw new Error(`handoff_attach_logo failed: ${attached.error.code}`);
+
+    // Reload: a completely independent connection/unit of work reads the stored state.
+    const [reloaded] = await f.second.deps.uow.repos.handoffs.list(f.scope);
+    expect([reloaded!.step, reloaded!.version]).toEqual([row.step, row.version]);
+    expect(reloaded!.decisions.uploadedLogo).toEqual({ id: assetId, value: `/api/workspace/assets/${assetId}/file`, origin: "user", key });
+    expect(reloaded!.decisions.identity).toBeUndefined();
+
+    // The reloaded card confirms exactly that logo, with the step/version it read back.
+    const confirmed = await f.executeCommand(f.second.deps, { actor: f.approver, workspaceId: f.workspaceId, accountId: f.accountId }, {
+      type: "handoff_confirm_identity",
+      payload: { expectedStep: reloaded!.step, expectedVersion: reloaded!.version, name: "Acme", logo: assetId, colors: [], fonts: [], paletteChoice: "user" },
+    });
+    if (!confirmed.ok) throw new Error(`handoff_confirm_identity failed: ${confirmed.error.code}`);
+    const [after] = await f.t.deps.uow.repos.handoffs.list(f.scope);
+    expect(after!.decisions.identity?.logo).toMatchObject({ id: assetId, key });
+    expect(after!.decisions.uploadedLogo).toBeUndefined();
+  });
 });

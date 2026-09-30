@@ -65,8 +65,9 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
   const [kind, setKind] = useState<"site" | "instagram">(h.source?.kind ?? "site");
   const [source, setSource] = useState(h.source?.value ?? "");
   const [name, setName] = useState(h.decisions.identity?.name.value ?? h.captured.name?.[0]?.value ?? "");
-  const [logo, setLogo] = useState(h.decisions.identity?.logo?.id ?? h.captured.logo?.find(i => i.key)?.id ?? "");
-  const [uploadedLogo, setUploadedLogo] = useState<string | null>(null);
+  // A logo uploaded earlier is saved with the handoff (draft), so a reload resumes with it.
+  const [logo, setLogo] = useState(h.decisions.uploadedLogo?.id ?? h.decisions.identity?.logo?.id ?? h.captured.logo?.find(i => i.key)?.id ?? "");
+  const [uploadedLogo, setUploadedLogo] = useState<string | null>(h.decisions.uploadedLogo?.id ?? null);
   const [palette, setPalette] = useState(h.decisions.identity?.paletteChoice ?? h.source?.kind ?? "site");
   const [colors, setColors] = useState((h.decisions.identity?.colors ?? (h.captured.colors ?? []).filter(i => i.origin === palette)).map(i => i.value).join(", "));
   const [colorsEdited, setColorsEdited] = useState(false);
@@ -103,13 +104,20 @@ function HandoffForm({ h, accountId, disabled, threadId }: { h: HandoffState & {
       const asset = await uploadChatAttachment(file, h.id);
       if (asLogo) {
         if (!asset.key) throw new Error("unmanaged_logo");
+        // Saved with the handoff before it is selected, so reloading the card does not lose the upload.
+        await postEquipeCommand(accountId, { type: "handoff_attach_logo", payload: { logo: asset.assetId, expectedStep: h.step, expectedVersion: h.version } });
+        await client.invalidateQueries({ queryKey: equipeKeys(accountId).accountState });
         setLogo(asset.assetId); setUploadedLogo(asset.assetId);
       }
       else {
         setUploaded(items => [...items, { id: asset.assetId, value: asset.url ?? asset.assetId, origin: "user", key: asset.key }]);
         setKept(ids => [...ids, asset.assetId]);
       }
-    } catch { setError(t("uploadError")); }
+    } catch (e) {
+      const stale = e instanceof EquipeCommandError && e.code === "stale_version";
+      setError(stale ? t("stale") : t("uploadError"));
+      if (stale) await client.invalidateQueries({ queryKey: equipeKeys(accountId).accountState });
+    }
     finally { busy.current = false; setPending(false); }
   }
   const sourceForm = <form onSubmit={e => { e.preventDefault(); void send("handoff_set_source", { kind, value: source }); }} className="flex flex-col gap-3">

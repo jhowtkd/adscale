@@ -31,6 +31,9 @@ export type HandoffDecisions = {
   revising?: boolean;
   needsConfirmation?: Array<"identity" | "images">;
   identity?: { name: HandoffItem; logo: HandoffItem | null; colors: HandoffItem[]; fonts: HandoffItem[]; paletteChoice: HandoffOrigin };
+  /** Managed logo the person uploaded on the identity step. It is a draft, not a decision: it leaves the version alone and
+   *  lives only until identity is confirmed, so reloading the card resumes with the same upload. */
+  uploadedLogo?: HandoffItem;
   networks?: HandoffItem[];
   images?: { kept: string[]; removed: string[]; uploaded: HandoffItem[] };
 };

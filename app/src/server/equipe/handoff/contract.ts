@@ -18,13 +18,14 @@ export const handoffConfirmIdentitySchema = z.object({
   colors: z.array(z.string().regex(/^#[0-9a-f]{6}$/i)).max(6), fonts: z.array(z.string().trim().min(1).max(100)).max(8),
   paletteChoice: z.enum(["site", "instagram", "user"]),
 }).strict();
+export const handoffAttachLogoSchema = z.object({ ...expected, logo: z.string().uuid() }).strict();
 export const handoffConfirmNetworksSchema = z.object({ ...expected, kept: z.array(z.string().min(1).max(300)).max(10), added: z.array(z.object({ platform: z.enum(["instagram", "facebook", "tiktok", "linkedin", "youtube"]), value: z.string().trim().min(1).max(2048) }).strict()).max(10) }).strict();
 export const handoffConfirmImagesSchema = z.object({ ...expected, kept: z.array(z.string().min(1).max(300)).max(90), removed: z.array(z.string().min(1).max(300)).max(90), uploaded: z.array(z.string().uuid()).max(30) }).strict();
 export const handoffBackToSchema = z.object({ ...expected, step: z.enum(["source", "identity", "networks", "images"]) }).strict();
 export const handoffConfirmSummarySchema = z.object(expected).strict();
 export const handoffSchemas = {
   handoff_set_source: handoffSetSourceSchema, handoff_retry_reading: handoffRetryReadingSchema,
-  handoff_record_group: handoffRecordGroupSchema, handoff_confirm_identity: handoffConfirmIdentitySchema,
+  handoff_record_group: handoffRecordGroupSchema, handoff_attach_logo: handoffAttachLogoSchema, handoff_confirm_identity: handoffConfirmIdentitySchema,
   handoff_confirm_networks: handoffConfirmNetworksSchema, handoff_confirm_images: handoffConfirmImagesSchema,
   handoff_back_to: handoffBackToSchema, handoff_confirm_summary: handoffConfirmSummarySchema,
 };

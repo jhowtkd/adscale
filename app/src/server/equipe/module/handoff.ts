@@ -11,6 +11,13 @@ function picked(values: string[], items: HandoffItem[]) {
   return values.map(value => items.find(item => item.value === value) ?? { id: randomUUID(), value, origin: "user" as const });
 }
 
+/** An image of this workspace that can stand as the brand logo. Only a managed copy (key) is usable; the caller checks it. */
+async function uploadedLogoItem(deps: EquipeModuleDeps, ctx: CommandContext, id: string): Promise<HandoffItem | null> {
+  const asset = await deps.gateway.getAsset(id);
+  if (!asset || asset.workspaceId !== ctx.workspaceId || !asset.kind.startsWith("image/")) return null;
+  return { id: asset.id, value: `/api/workspace/assets/${asset.id}/file`, origin: "user", key: asset.key };
+}
+
 async function startRead(ctx: CommandContext, s: HandoffState, source: HandoffSource, groups: readonly HandoffGroup[], fresh: boolean) {
   const readingId = fresh ? randomUUID() : s.readingId!;
   const runIds = Object.fromEntries(groups.map(group => [group, randomUUID()]));
@@ -76,16 +83,26 @@ export function runHandoffCommand(deps: EquipeModuleDeps, base: TxBase, command:
           const p = command.payload;
           let logo = p.logo ? s.captured.logo?.find(i => i.id === p.logo) : null;
           if (p.logo && !logo) {
-            const asset = await deps.gateway.getAsset(p.logo);
-            if (!asset || asset.workspaceId !== ctx.workspaceId || !asset.kind.startsWith("image/")) return err("invalid_command", "Choose a captured logo or upload an image.");
-            logo = { id: asset.id, value: `/api/workspace/assets/${asset.id}/file`, origin: "user", key: asset.key };
+            logo = await uploadedLogoItem(deps, ctx, p.logo);
+            if (!logo) return err("invalid_command", "Choose a captured logo or upload an image.");
           }
           if (logo && !logo.key) return err("invalid_command", "Upload a managed copy before confirming this logo.");
           if (p.paletteChoice === "instagram" && !s.decisions.networks?.some(i => i.platform === "instagram")) return err("invalid_command", "Confirm the Instagram profile before using its palette.");
           s.decisions = { ...s.decisions, identity: { name: picked([p.name], s.captured.name ?? [])[0]!, logo: logo ?? null,
             colors: picked(p.colors, (s.captured.colors ?? []).filter(i => i.origin === p.paletteChoice)), fonts: picked(p.fonts, s.captured.fonts ?? []), paletteChoice: p.paletteChoice } };
           s.decisions.needsConfirmation = s.decisions.needsConfirmation?.filter(d => d !== "identity");
+          delete s.decisions.uploadedLogo; // The draft upload is now either the decided logo or dropped.
           const next = transitionHandoff(s, "identity"); if (!next.ok) return next; s = next.value; break;
+        }
+        case "handoff_attach_logo": {
+          if (s.step !== "identity") return err("invalid_transition", "Upload the logo while confirming name, logo, colors and fonts.");
+          const logo = await uploadedLogoItem(deps, ctx, command.payload.logo);
+          if (!logo?.key) return err("invalid_command", "Upload an image with a managed copy.");
+          s.decisions = { ...s.decisions, uploadedLogo: logo };
+          await appendEvent(ctx, { eventType: "handoff.logo_attached", objectType: "handoff", objectId: row.id, payload: { assetId: logo.id } });
+          // A draft upload is not a decision: the version stays and nothing is posted to the conversation.
+          await ctx.repos.handoffs.update(scope, row.id, s);
+          return ok({ handoffId: row.id, step: s.step, version: s.version });
         }
         case "handoff_confirm_networks": {
           const p = command.payload;

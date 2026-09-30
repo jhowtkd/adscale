@@ -3,8 +3,10 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import HandoffCard from "./HandoffCard";
+import { EquipeCommandError } from "@/lib/equipe/commands";
 import ptBR from "../../../messages/pt-BR.json";
 import type { HandoffState } from "@/server/equipe/domain/handoff";
+import { handoffAttachLogoSchema } from "@/server/equipe/handoff/contract";
 
 const mockUseEquipeAccountState = vi.fn();
 vi.mock("@/lib/equipe/use-equipe", async (importOriginal) => {
@@ -46,6 +48,11 @@ function baseHandoff(overrides: Partial<Handoff>): Handoff {
   };
 }
 
+/** The commands the card posted, in order, optionally narrowed to one type. */
+const sent = (type?: string) => mockPostEquipeCommand.mock.calls
+  .map(([, command]) => command as { type: string; payload: Record<string, unknown> })
+  .filter(command => !type || command.type === type);
+
 function renderCard(handoff: Handoff, extraProps: Partial<{ latest: boolean; disabled: boolean }> = {}) {
   mockUseEquipeAccountState.mockReturnValue({ data: { handoff }, isLoading: false, error: null, refetch: vi.fn() });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -77,8 +84,8 @@ describe("review PR608: uploaded-image restoration and late palette", () => {
     await waitFor(() => expect(mockUploadChatAttachment).toHaveBeenCalledWith(file, "handoff-1"));
     await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar →" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
-    await waitFor(() => expect(mockPostEquipeCommand).toHaveBeenCalled());
-    expect(mockPostEquipeCommand.mock.calls[0][1].payload.logo).toBe("managed-upload");
+    await waitFor(() => expect(sent("handoff_confirm_identity")).toHaveLength(1));
+    expect(sent("handoff_confirm_identity")[0]!.payload.logo).toBe("managed-upload");
   });
 
   it("blocks finishing and displays the fixed message when the confirmed Instagram failed", () => {
@@ -172,5 +179,66 @@ describe("review PR608: uploaded-image restoration and late palette", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
     await waitFor(() => expect(mockPostEquipeCommand).toHaveBeenCalled());
     expect(mockPostEquipeCommand.mock.calls[0][1].payload).toMatchObject({ name: "Nome editado", colors: [edited ? "#123456" : "#222222"], paletteChoice: edited ? "user" : "instagram" });
+  });
+});
+
+describe("review PR610: an uploaded logo is saved with the handoff and survives a reload", () => {
+  const UPLOAD_ID = "0b6f2a54-3c1e-4d7a-9a51-2f0f5d8c7e11";
+  const UPLOAD_KEY = "workspaces/ws-1/logo.png";
+  const uploadUrl = `/api/workspace/assets/${UPLOAD_ID}/file`;
+  const identity = (overrides: Partial<Handoff> = {}) => baseHandoff({
+    step: "identity", version: 7, source: { kind: "site", value: "https://acme.com", normalized: "https://acme.com/" },
+    reading: Object.fromEntries(["name", "logo", "colors", "fonts"].map(group => [group, { runId: "r", taskIntentId: "t", status: "found" }])),
+    captured: { name: [{ id: "name", value: "Acme", origin: "site" }], logo: [{ id: "logo", value: "/logo.png", origin: "site" }] },
+    ...overrides,
+  });
+  function pickLogoFile() {
+    fireEvent.click(screen.getByRole("button", { name: "Editar Logo" }));
+    fireEvent.change(screen.getByLabelText("Enviar logo"), { target: { files: [new File(["image"], "logo.png", { type: "image/png" })] } });
+  }
+
+  it("records the upload with the handoff command and, after a reload, shows it again and confirms it without a new upload", async () => {
+    mockPostEquipeCommand.mockResolvedValue({});
+    mockUploadChatAttachment.mockResolvedValue({ assetId: UPLOAD_ID, key: UPLOAD_KEY, url: "/logo.png" });
+    const firstVisit = renderCard(identity());
+    pickLogoFile();
+    await waitFor(() => expect(sent("handoff_attach_logo")).toHaveLength(1));
+    const [attach] = sent("handoff_attach_logo");
+    expect(attach!.payload).toEqual({ logo: UPLOAD_ID, expectedStep: "identity", expectedVersion: 7 });
+    expect(handoffAttachLogoSchema.safeParse(attach!.payload).success).toBe(true);
+    expect(await screen.findByRole("option", { name: "Enviado por você" })).toBeInTheDocument();
+    expect(sent("handoff_confirm_identity")).toHaveLength(0);
+
+    // Reload before confirming: a brand-new card built from what the server stored.
+    firstVisit.unmount();
+    renderCard(identity({ decisions: { uploadedLogo: { id: UPLOAD_ID, value: uploadUrl, origin: "user", key: UPLOAD_KEY } } }));
+    expect(screen.getByRole("img", { name: "Logo" })).toHaveAttribute("src", uploadUrl);
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar →" }));
+    await waitFor(() => expect(sent("handoff_confirm_identity")).toHaveLength(1));
+    expect(sent("handoff_confirm_identity")[0]!.payload.logo).toBe(UPLOAD_ID);
+    expect(mockUploadChatAttachment).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the saved upload selectable in the logo editor after a reload", () => {
+    renderCard(identity({ decisions: { uploadedLogo: { id: UPLOAD_ID, value: uploadUrl, origin: "user", key: UPLOAD_KEY } } }));
+    fireEvent.click(screen.getByRole("button", { name: "Editar Logo" }));
+    const select = screen.getByRole("combobox", { name: "Logo" }) as HTMLSelectElement;
+    expect(select.value).toBe(UPLOAD_ID);
+    expect(screen.getByRole("option", { name: "Enviado por você" })).toBeEnabled();
+  });
+
+  it("does not select a logo the server could not store, and says the step changed", async () => {
+    mockUploadChatAttachment.mockResolvedValue({ assetId: UPLOAD_ID, key: UPLOAD_KEY, url: "/logo.png" });
+    mockPostEquipeCommand.mockRejectedValueOnce(new EquipeCommandError("stale_version", 409, "stale_version"));
+    renderCard(identity());
+    pickLogoFile();
+    expect(await screen.findByRole("alert")).toHaveTextContent("O passo mudou");
+    expect(screen.queryByRole("option", { name: "Enviado por você" })).not.toBeInTheDocument();
+    expect(sent("handoff_confirm_identity")).toHaveLength(0);
+  });
+
+  it("without a saved upload, a reload still starts from the reader's logo choices", () => {
+    renderCard(identity({ captured: { name: [{ id: "name", value: "Acme", origin: "site" }], logo: [{ id: "logo", value: "/logo.png", origin: "site", key: "workspaces/ws-1/site-logo.png" }] } }));
+    expect(screen.getByRole("img", { name: "Logo" })).toHaveAttribute("src", "/logo.png");
   });
 });

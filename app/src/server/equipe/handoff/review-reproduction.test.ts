@@ -4,7 +4,8 @@ import { FakeInstagramReader, FakeSiteReader, type HandoffReaders } from "./read
 import { executeCommand } from "../module/commands";
 import { makeTestDeps, uuid } from "../module/testing/deps";
 import { HANDOFF_GROUPS, readingRun, type HandoffGroup, type HandoffItem } from "../domain/handoff";
-import { HANDOFF_READ_EVENT, handoffConfirmImagesSchema } from "./contract";
+import { HANDOFF_READ_EVENT, handoffAttachLogoSchema, handoffConfirmImagesSchema } from "./contract";
+import type { AdscaleAssetRef } from "../module/ports";
 
 async function fixture() {
   const t = makeTestDeps();
@@ -244,6 +245,122 @@ describe("PR608 bot review: managed logos and decisions for confirmed Instagram"
     await f.command("handoff_confirm_images", { kept: h.captured.images!.map(i => i.id), removed: [], uploaded: [] });
     await f.command("handoff_confirm_summary");
     expect((await f.row()).step).toBe("done");
+  });
+});
+
+describe("PR610 bot review: an uploaded logo is persisted before identity is confirmed", () => {
+  type Fixture = Awaited<ReturnType<typeof fixture>>;
+  const readers = () => ({ site: new FakeSiteReader(), instagram: new FakeInstagramReader() });
+  async function atIdentity() {
+    const f = await fixture();
+    await runPendingRead(f, readers());
+    expect((await f.row()).step).toBe("identity");
+    return f;
+  }
+  function upload(f: Fixture, extra: Partial<AdscaleAssetRef> = {}) {
+    const id = uuid();
+    const key = `workspaces/${f.scope.workspaceId}/${id}.png`;
+    f.t.gateway.addAsset({ id, workspaceId: f.scope.workspaceId, kind: "image/png", key, ...extra });
+    return { id, key };
+  }
+
+  it("keeps the managed upload as the provisional logo without advancing, bumping or deciding anything", async () => {
+    const f = await atIdentity(); const before = await f.row();
+    const { id, key } = upload(f);
+    const out = await f.command("handoff_attach_logo", { logo: id });
+    const after = await f.row();
+    expect(after.decisions.uploadedLogo).toEqual({ id, value: `/api/workspace/assets/${id}/file`, origin: "user", key });
+    expect(after.decisions.identity).toBeUndefined();
+    expect([after.step, after.version]).toEqual([before.step, before.version]);
+    // Recorded for audit, but nothing is posted to the conversation for a draft upload.
+    expect(out.value.events.map(e => e.eventType)).toEqual(["handoff.logo_attached"]);
+  });
+
+  it("replaces the provisional logo when the person uploads another one", async () => {
+    const f = await atIdentity();
+    const first = upload(f); const second = upload(f);
+    await f.command("handoff_attach_logo", { logo: first.id });
+    await f.command("handoff_attach_logo", { logo: second.id });
+    expect((await f.row()).decisions.uploadedLogo?.id).toBe(second.id);
+  });
+
+  it("confirming identity with the uploaded logo moves it into the decision and clears the draft", async () => {
+    const f = await atIdentity(); const { id, key } = upload(f);
+    await f.command("handoff_attach_logo", { logo: id });
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: id, colors: [], fonts: [], paletteChoice: "user" });
+    const row = await f.row();
+    expect(row.decisions.identity?.logo).toEqual({ id, value: `/api/workspace/assets/${id}/file`, origin: "user", key });
+    expect(row.decisions.uploadedLogo).toBeUndefined();
+  });
+
+  it("confirming identity without the uploaded logo drops the draft instead of letting it linger", async () => {
+    const f = await atIdentity(); const { id } = upload(f);
+    await f.command("handoff_attach_logo", { logo: id });
+    await f.command("handoff_confirm_identity", { name: "Acme", logo: null, colors: [], fonts: [], paletteChoice: "user" });
+    const row = await f.row();
+    expect(row.decisions.identity?.logo).toBeNull();
+    expect(row.decisions.uploadedLogo).toBeUndefined();
+  });
+
+  it("a fresh reading discards the draft together with the rest of the decisions", async () => {
+    const f = await atIdentity(); const { id } = upload(f);
+    await f.command("handoff_attach_logo", { logo: id });
+    await f.command("handoff_set_source", { kind: "site", value: "https://other.example.com" });
+    const row = await f.row();
+    expect(row.step).toBe("reading");
+    expect(row.decisions.uploadedLogo).toBeUndefined();
+  });
+
+  it.each([
+    ["an upload without a managed copy", { key: undefined }],
+    ["an asset of another workspace", { workspaceId: uuid() }],
+    ["an asset that is not an image", { kind: "application/pdf" }],
+  ] as const)("refuses %s and keeps the state untouched", async (_name, extra) => {
+    const f = await atIdentity(); const before = await f.row();
+    const { id } = upload(f, extra);
+    await expect(f.command("handoff_attach_logo", { logo: id })).rejects.toThrow("invalid_command");
+    const after = await f.row();
+    expect(after.decisions.uploadedLogo).toBeUndefined();
+    expect(after.version).toBe(before.version);
+  });
+
+  it("refuses an asset id the gateway does not know", async () => {
+    const f = await atIdentity();
+    await expect(f.command("handoff_attach_logo", { logo: uuid() })).rejects.toThrow("invalid_command");
+    expect((await f.row()).decisions.uploadedLogo).toBeUndefined();
+  });
+
+  it("only takes the logo while the identity step is open", async () => {
+    const f = await fixture(); // still reading
+    const { id } = upload(f);
+    await expect(f.command("handoff_attach_logo", { logo: id })).rejects.toThrow("invalid_transition");
+    expect((await f.row()).decisions.uploadedLogo).toBeUndefined();
+  });
+
+  it("refuses a card that no longer matches the step/version it saw", async () => {
+    const f = await atIdentity(); const before = await f.row(); const { id } = upload(f);
+    await expect(f.command("handoff_attach_logo", { logo: id, expectedVersion: before.version + 1 })).rejects.toThrow("stale_version");
+    expect((await f.row()).decisions.uploadedLogo).toBeUndefined();
+  });
+
+  it.each([
+    ["a system job", { kind: "system", job: "someone-else" } as const],
+    ["the reading task", { kind: "system", job: HANDOFF_READ_EVENT } as const],
+  ])("is reserved to the approver, not %s", async (_name, actor) => {
+    const f = await atIdentity(); const before = await f.row(); const { id } = upload(f);
+    const out = await executeCommand(f.t.deps, { ...f.scope, actor }, { type: "handoff_attach_logo", payload: { expectedStep: before.step, expectedVersion: before.version, logo: id } });
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.error.code).toBe("forbidden_actor");
+    expect((await f.row()).decisions.uploadedLogo).toBeUndefined();
+  });
+
+  it("is part of the command contract: an uploaded asset id only, with the step and version the card saw", () => {
+    const expected = { expectedStep: "identity", expectedVersion: 3 };
+    expect(handoffAttachLogoSchema.safeParse({ ...expected, logo: uuid() }).success).toBe(true);
+    expect(handoffAttachLogoSchema.safeParse({ ...expected, logo: "not-an-asset-id" }).success).toBe(false);
+    expect(handoffAttachLogoSchema.safeParse({ ...expected, logo: null }).success).toBe(false);
+    expect(handoffAttachLogoSchema.safeParse({ ...expected, logo: uuid(), extra: true }).success).toBe(false);
+    expect(handoffAttachLogoSchema.safeParse({ logo: uuid() }).success).toBe(false);
   });
 });
 
