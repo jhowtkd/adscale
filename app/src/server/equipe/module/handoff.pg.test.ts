@@ -734,6 +734,30 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     expect(await getClientProfile(f.workspaceId, doomed!.id)).toBeNull();
   });
 
+  it("ticket 07 (bot review, real PG): the 'Enviado por você' origin filter also lists legacy 'upload' assets, with list and count in agreement", async () => {
+    const f = await setup();
+    const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
+    const home = account!.clientProfileId;
+    const mk = async (name: string, source: string, clientProfileId: string | null = home) => (await f.dbA.insert(f.schema.workspaceAssets).values({
+      workspaceId: f.workspaceId, clientProfileId, name, key: `workspaces/${f.workspaceId}/${name}.png`, size: 1, type: "image/png", source,
+    }).returning())[0]!;
+    const legacyShared = await mk("legacy-shared", "upload", null); // before the brand-scoped Library, left unbranded by the backfill
+    const legacyBranded = await mk("legacy-branded", "upload");      // before the brand-scoped Library, backfilled to this brand
+    const fresh = await mk("fresh-upload", "brand_upload");
+    const site = await mk("from-site", "brand_site");
+    const instagram = await mk("from-instagram", "brand_instagram");
+    const { getWorkspaceAssets, getWorkspaceAssetsCount } = await import("@/server/repositories/workspace-asset");
+    const ids = async (source?: string) => (await getWorkspaceAssets(f.workspaceId, { clientProfileId: home, source, limit: 100 })).map(row => row.id).sort();
+
+    expect(await ids("brand_upload")).toEqual([legacyShared.id, legacyBranded.id, fresh.id].sort());
+    expect(await getWorkspaceAssetsCount(f.workspaceId, { clientProfileId: home, source: "brand_upload" })).toBe(3);
+    // The other origins stay exact: a legacy upload is never "from the site" or "from Instagram".
+    expect(await ids("brand_site")).toEqual([site.id]);
+    expect(await ids("brand_instagram")).toEqual([instagram.id]);
+    // "Todos" still lists everything.
+    expect(await ids()).toEqual([legacyShared.id, legacyBranded.id, fresh.id, site.id, instagram.id].sort());
+  });
+
   it("ticket 07 (review P3, real PG): shared (NULL) assets and other brands' assets never keep an otherwise empty brand from being deleted", async () => {
     const f = await setup();
     const [account] = await f.t.deps.uow.repos.accounts.list(f.workspaceId);
