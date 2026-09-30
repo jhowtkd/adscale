@@ -1,7 +1,6 @@
 import AssistantMain from "@/components/assistant/AssistantMain";
 import { redirect } from "next/navigation";
-import { getSession } from "@/server/auth/session";
-import { getWorkspaceForUser } from "@/server/repositories/workspace";
+import { requireWorkspaceAccess } from "@/server/auth/workspace";
 import { isPlatformOwnerEmail } from "@/server/auth/platform-owner";
 import { getActiveTesterEntitlementByWorkspace } from "@/server/repositories/entitlements";
 import { isEquipeEnabledForWorkspace } from "@/server/equipe/module/equipe-enabled";
@@ -19,16 +18,11 @@ export default async function AssistantPage({
   let goalAgentEligible = false;
   let equipeEnabled = false;
   try {
-    const session = await getSession();
-    if (session?.user) {
-      const workspace = await getWorkspaceForUser(session.user.id);
-      if (workspace) {
-        equipeEnabled = isEquipeEnabledForWorkspace(workspace.id);
-        goalAgentEligible =
-          isPlatformOwnerEmail(session.user.email) ||
-          Boolean(await getActiveTesterEntitlementByWorkspace(workspace.id));
-      }
-    }
+    const { user, workspace } = await requireWorkspaceAccess();
+    equipeEnabled = isEquipeEnabledForWorkspace(workspace.id);
+    goalAgentEligible =
+      isPlatformOwnerEmail(user.email) ||
+      Boolean(await getActiveTesterEntitlementByWorkspace(workspace.id));
   } catch {
     // Eligibility is a hint only; default to classic on any failure.
   }

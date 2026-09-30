@@ -9,13 +9,11 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/components/assistant/AssistantMain", () => ({
   default: function AssistantMainStub() { return null; },
 }));
-const mockGetSession = vi.fn();
-const mockGetWorkspace = vi.fn();
+const mockWorkspaceAccess = vi.fn();
 const mockEntitlement = vi.fn();
 const mockIsEquipeEnabledForWorkspace = vi.fn<(workspaceId: string) => boolean>();
-vi.mock("@/server/auth/session", () => ({ getSession: () => mockGetSession() }));
-vi.mock("@/server/repositories/workspace", () => ({
-  getWorkspaceForUser: (userId: string) => mockGetWorkspace(userId),
+vi.mock("@/server/auth/workspace", () => ({
+  requireWorkspaceAccess: () => mockWorkspaceAccess(),
 }));
 vi.mock("@/server/auth/platform-owner", () => ({ isPlatformOwnerEmail: vi.fn(() => false) }));
 vi.mock("@/server/repositories/entitlements", () => ({
@@ -32,8 +30,9 @@ const missingThreads: (string | string[] | undefined)[] = [undefined, "   ", ["t
 describe("AssistantPage gate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetSession.mockResolvedValue({ user: { id: "user-1", email: "user@example.test" } });
-    mockGetWorkspace.mockResolvedValue({ id: "workspace-1" });
+    mockWorkspaceAccess.mockResolvedValue({
+      user: { id: "user-1", email: "user@example.test" }, workspace: { id: "workspace-1" },
+    });
     mockEntitlement.mockResolvedValue(null);
     mockIsEquipeEnabledForWorkspace.mockReturnValue(false);
   });
@@ -68,10 +67,20 @@ describe("AssistantPage gate", () => {
   });
 
   it("does not redirect without a session/workspace", async () => {
-    mockGetSession.mockResolvedValue(null);
+    mockWorkspaceAccess.mockRejectedValue(new Error("Unauthorized"));
     const element = await AssistantPage({ searchParams: Promise.resolve({}) });
-    expect(mockGetWorkspace).not.toHaveBeenCalled();
     expect(redirect).not.toHaveBeenCalled();
     expect(element.props).toMatchObject({ threadId: undefined, equipeEnabled: false });
+  });
+
+  it.each([false, true])("uses the active workspace gate %j instead of another workspace's opposite gate", async (enabled) => {
+    mockWorkspaceAccess.mockResolvedValue({
+      user: { id: "user-1", email: "user@example.test" }, workspace: { id: "workspace-active" },
+    });
+    mockIsEquipeEnabledForWorkspace.mockImplementation((id) => id === "workspace-active" ? enabled : !enabled);
+    const element = await AssistantPage({ searchParams: Promise.resolve({ threadId: "thread-1" }) });
+    expect(mockWorkspaceAccess).toHaveBeenCalledWith();
+    expect(mockIsEquipeEnabledForWorkspace).toHaveBeenCalledWith("workspace-active");
+    expect(element.props.equipeEnabled).toBe(enabled);
   });
 });
