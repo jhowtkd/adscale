@@ -121,7 +121,7 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
       const r = await C.db.execute(sql`select distinct l.pid as pid, a.application_name as app from pg_locks l
         join pg_stat_activity a on a.pid = l.pid
         where l.locktype = 'advisory' and l.granted
-          and ((l.classid::bigint << 32) | l.objid::bigint) in (select hashtextextended(k, 0) from unnest(${keys}::text[]) k)`);
+          and ((l.classid::bigint << 32) | l.objid::bigint) in (select hashtextextended(k, 0) from unnest(${sql.param(keys)}::text[]) k)`);
       return (r.rows as { pid: number; app: string }[]).sort((x, y) => x.pid - y.pid);
     }
 
