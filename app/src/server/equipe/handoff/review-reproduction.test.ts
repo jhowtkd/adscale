@@ -365,3 +365,22 @@ describe("PR608 bot review: managed logos and decisions for confirmed Instagram"
     expect((await f.row()).step).toBe("done");
   });
 });
+
+describe("PR610 workspace/brand name separation", () => {
+  it.each(["single-default", "multiple-default", "single-edited", "single-other-default"])("memory matches the workspace rename guard: %s", async (scenario) => {
+    const f = await fixture();
+    const [memberId, member] = [...f.t.store.workspaceMembers.rows.entries()][0]!;
+    f.t.store.workspaceMembers.rows.set(memberId, { ...member, role: "owner" });
+    const originalName = scenario === "single-edited" ? "Minha agência" : scenario === "single-other-default" ? "Outra pessoa's Workspace" : "Ana's Workspace";
+    f.t.store.adscaleWorkspaces.rows.set(f.scope.workspaceId, { id: f.scope.workspaceId, name: originalName });
+    const row = await f.row();
+    if (scenario === "multiple-default") {
+      const id = uuid(); f.t.store.adscaleProfiles.rows.set(id, { id, workspaceId: f.scope.workspaceId, name: "Outra marca" });
+    }
+    await f.t.deps.uow.run(async (_repos, internal) => {
+      await internal.saveHandoffIdentity(f.scope, row.clientProfileId, { name: "Acme", logoAssetKey: null, brandColors: [], brandFonts: [] });
+    });
+    expect(f.t.store.adscaleProfiles.rows.get(row.clientProfileId)?.name).toBe("Acme");
+    expect(f.t.store.adscaleWorkspaces.rows.get(f.scope.workspaceId)?.name).toBe(scenario === "single-default" ? "Acme" : originalName);
+  });
+});

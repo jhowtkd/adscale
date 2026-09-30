@@ -478,7 +478,13 @@ export function createPostgresInternalEquipeRepositories(
       const rows = await executor.update(clientProfiles).set({ ...identity, updatedAt: new Date() })
         .where(and(eq(clientProfiles.id, profileId), eq(clientProfiles.workspaceId, scope.workspaceId))).returning({ id: clientProfiles.id });
       if (!rows.length) throw new Error("profile_not_found");
-      await executor.update(workspaces).set({ name: identity.name, updatedAt: new Date() }).where(eq(workspaces.id, scope.workspaceId));
+      await executor.update(workspaces).set({ name: identity.name, updatedAt: new Date() }).where(and(
+        eq(workspaces.id, scope.workspaceId),
+        sql`(select count(*) from ${clientProfiles} where ${clientProfiles.workspaceId} = ${scope.workspaceId}) = 1`,
+        sql`exists (select 1 from ${workspaceMembers} join ${user} on ${user.id} = ${workspaceMembers.userId}
+          where ${workspaceMembers.workspaceId} = ${scope.workspaceId} and ${workspaceMembers.role} = 'owner'
+          and ${workspaces.name} = coalesce(nullif(${user.name}, ''), ${user.email}) || ${"'s Workspace"})`,
+      ));
     },
     async createClientProfile(workspaceId, name) {
       const [profile] = await executor.insert(clientProfiles).values({ workspaceId, name }).returning({ id: clientProfiles.id });
