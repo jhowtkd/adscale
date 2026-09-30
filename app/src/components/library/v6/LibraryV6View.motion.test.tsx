@@ -129,6 +129,23 @@ describe("LibraryV6View visual role contract (ticket 07 / B1)", () => {
     expect(onOriginChange).toHaveBeenCalledWith("brand_site");
   });
 
+  it("hides the origin filter under Favoritos: favorites are pieces and have no origin", () => {
+    render(
+      <LibraryV6View
+        labels={labels}
+        assets={[]}
+        shownCount={0}
+        totalCount={0}
+        searchQuery=""
+        activeFilter="favorite"
+        onOriginChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("radiogroup", { name: "Origem" })).not.toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: "Filtrar" })).toBeInTheDocument();
+  });
+
   it("keeps loading, ready, error, retry, and no-preview states distinct", async () => {
     const onReplace = vi.fn();
     const { container } = render(

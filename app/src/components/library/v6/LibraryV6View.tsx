@@ -143,13 +143,15 @@ export default function LibraryV6View({
             <Icon className="size-3.5 shrink-0" aria-hidden="true" />{label}
           </button>)}
         </div>
-        <p className={`${sectionClass} mb-2 mt-6 px-3`}>{labels.originLabel}</p>
-        <div role="radiogroup" aria-label={labels.originLabel} className="flex flex-wrap gap-1 lg:flex-col">
-          {["all", "brand_site", "brand_instagram", "brand_upload"].map(source => <button key={source} type="button" role="radio" aria-checked={originFilter === source}
-            onClick={() => interactive && onOriginChange?.(source)} className={cn("rounded-lg px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]", originFilter === source && "bg-[var(--surface-hover)]")}>
-            {source === "all" ? <span className="text-xs text-[var(--text-secondary)]">{labels.filterAll}</span> : <Origin source={source} text={originText(source)} />}
-          </button>)}
-        </div>
+        {activeFilter !== "favorite" ? <>
+          <p className={`${sectionClass} mb-2 mt-6 px-3`}>{labels.originLabel}</p>
+          <div role="radiogroup" aria-label={labels.originLabel} className="flex flex-wrap gap-1 lg:flex-col">
+            {["all", "brand_site", "brand_instagram", "brand_upload"].map(source => <button key={source} type="button" role="radio" aria-checked={originFilter === source}
+              onClick={() => interactive && onOriginChange?.(source)} className={cn("rounded-lg px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]", originFilter === source && "bg-[var(--surface-hover)]")}>
+              {source === "all" ? <span className="text-xs text-[var(--text-secondary)]">{labels.filterAll}</span> : <Origin source={source} text={originText(source)} />}
+            </button>)}
+          </div>
+        </> : null}
       </aside>
       <div className="min-w-0 space-y-7 pb-8" onDragOver={interactive ? onDragOver : undefined} onDragLeave={interactive ? onDragLeave : undefined} onDrop={interactive ? onDrop : undefined}>
         <p className={`${sectionClass} pt-1`}>{labels.sectionLabel}</p>

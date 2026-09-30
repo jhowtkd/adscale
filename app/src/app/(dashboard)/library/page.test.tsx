@@ -20,6 +20,8 @@ let capturedViewProps: {
   shownCount: number;
   assets: Array<{ id: string; name: string }>;
   emptyState?: React.ReactNode;
+  originFilter?: string;
+  onOriginChange?: (value: string) => void;
   onFilterChange: (value: "all" | "favorite") => void;
   onSearchChange: (value: string) => void;
   renderAssetActions?: (asset: { id: string; name: string }) => React.ReactNode;
@@ -276,6 +278,20 @@ describe("LibraryPage (ticket 07): scoped to the active brand", () => {
     render(<LibraryPage />);
     expect(useWorkspaceAssetsMock).toHaveBeenCalledWith(expect.objectContaining({ clientProfileId: ACTIVE_PROFILE_ID, kind: "identity", limit: 1 }));
     expect(capturedViewProps?.logoImageUrl).toBe("/logo-file");
+  });
+
+  it("clears the origin filter on entering Favoritos: favorites are pieces and have no origin", () => {
+    useActiveClientProfileMock.mockReturnValue({ activeClientProfileId: ACTIVE_PROFILE_ID,
+      activeProfile: { id: ACTIVE_PROFILE_ID, name: "Acme" }, isLoading: false });
+    render(<LibraryPage />);
+    act(() => capturedViewProps!.onOriginChange!("brand_site"));
+    expect(capturedViewProps?.originFilter).toBe("brand_site");
+
+    act(() => capturedViewProps!.onFilterChange("favorite"));
+
+    // Otherwise "Do site" stays selected while every favorite is listed, contradicting the visible filter.
+    expect(capturedViewProps?.activeFilter).toBe("favorite");
+    expect(capturedViewProps?.originFilter).toBe("all");
   });
 
   it("shows no logo for a brand without logoAssetKey, even when an old logo asset is still in the Library", () => {

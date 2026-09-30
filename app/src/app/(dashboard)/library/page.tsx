@@ -302,7 +302,7 @@ export default function LibraryPage() {
         searchQuery={search}
         onSearchChange={handleSearch}
         activeFilter={filter}
-        onFilterChange={(value) => updateState({ filter: value, limit: PAGE_SIZE })}
+        onFilterChange={(value) => updateState({ filter: value, limit: PAGE_SIZE, ...(value === "favorite" ? { origin: "all" } : {}) })}
         dragOver={dragOver}
         isUploading={isUploading}
         uploadProgress={uploadProgress}
