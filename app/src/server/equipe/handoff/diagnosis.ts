@@ -97,7 +97,7 @@ export function diagnosisSourceTexts(input: DiagnosisInput): Partial<Record<Diag
   return out;
 }
 
-/** Punctuation, markdown and case differences never make an honest quote fail. */
+/** Coarse comparison used where exact wording does not matter (opportunity titles). */
 export function normalizeForMatch(text: string) {
   return text.normalize("NFKC").toLowerCase().replace(/[\p{P}\p{S}\p{Cc}]+/gu, " ").replace(/\s+/g, " ").trim();
 }
@@ -105,19 +105,59 @@ export function normalizeForMatch(text: string) {
 const COMPETITOR = /concorr|competidor|competitor|\briva(?:l|is)|concurrent/;
 const mentionsCompetitors = (text: string) => COMPETITOR.test(text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase());
 
-type Evidence = { source: DiagnosisSource; quote: string };
+const TYPOGRAPHIC: Record<string, string> = { "“": '"', "”": '"', "„": '"', "‟": '"', "«": '"', "»": '"', "‘": "'", "’": "'", "‚": "'", "‛": "'", "–": "-", "—": "-", "―": "-", "−": "-" };
+const DECORATION = new Set(["*", "`", "~"]);
+const EDGE = /^[\s.,;:!?"'()[\]]+|[\s.,;:!?"'()[\]]+$/g;
 
-function verifiedEvidence(evidence: Evidence[], haystacks: Partial<Record<DiagnosisSource, string>>) {
+/**
+ * Canonical form for verifying a quote, with the source index of every canonical character. Only case,
+ * whitespace, markdown emphasis/code marks and typographic quote/dash variants are ignored: every symbol
+ * that can carry meaning ("+", "-", "%", "$", "=", digits...) still has to match.
+ */
+export function canonicalizeWithMap(text: string) {
+  let norm = "";
+  const map: number[] = [];
+  let pendingSpace = false;
+  for (let index = 0; index < text.length;) {
+    const at = index;
+    const char = String.fromCodePoint(text.codePointAt(index)!);
+    index += char.length;
+    for (const raw of char.normalize("NFKC").toLowerCase()) {
+      const c = TYPOGRAPHIC[raw] ?? raw;
+      if (DECORATION.has(c)) continue;
+      if (/\s/.test(c)) { pendingSpace = norm.length > 0; continue; }
+      if (pendingSpace) { norm += " "; map.push(at); pendingSpace = false; }
+      norm += c;
+      for (let unit = 0; unit < c.length; unit++) map.push(at);
+    }
+  }
+  return { norm, map };
+}
+
+type Evidence = { source: DiagnosisSource; quote: string };
+type SourceText = { text: string; norm: string; map: number[] };
+
+/**
+ * Keeps only quotes that literally exist in the source they name, and returns the SOURCE's own
+ * wording for each (never the model's spelling). Quotes that talk about competitors are dropped.
+ */
+function verifiedEvidence(evidence: Evidence[], sources: Partial<Record<DiagnosisSource, SourceText>>) {
   const seen = new Set<string>();
   const out: Evidence[] = [];
   for (const item of evidence) {
-    const quote = item.quote.trim();
-    const haystack = haystacks[item.source];
-    if (!haystack || quote.length > DIAGNOSIS_LIMITS.quoteMaxChars) continue;
-    const needle = normalizeForMatch(quote);
-    if (needle.length < DIAGNOSIS_LIMITS.quoteMinChars || !haystack.includes(needle)) continue;
-    const key = `${item.source}:${needle}`;
-    if (seen.has(key)) continue;
+    const source = sources[item.source];
+    if (!source || item.quote.trim().length > DIAGNOSIS_LIMITS.quoteMaxChars) continue;
+    const needle = canonicalizeWithMap(item.quote).norm.replace(EDGE, "");
+    if (needle.length < DIAGNOSIS_LIMITS.quoteMinChars) continue;
+    const start = source.norm.indexOf(needle);
+    if (start < 0) continue;
+    const from = source.map[start]!;
+    const last = source.map[start + needle.length - 1]!;
+    // The source's own words; only the markdown marks and line breaks that were ignored while matching are dropped for display.
+    const quote = source.text.slice(from, last + String.fromCodePoint(source.text.codePointAt(last)!).length)
+      .replace(/[*`~]/g, "").replace(/\s+/g, " ").trim().slice(0, DIAGNOSIS_LIMITS.quoteMaxChars + 120);
+    const key = `${item.source}:${from}:${last}`;
+    if (seen.has(key) || mentionsCompetitors(quote)) continue;
     seen.add(key);
     out.push({ source: item.source, quote });
     if (out.length >= DIAGNOSIS_LIMITS.evidencePerItem) break;
@@ -186,7 +226,7 @@ export function assembleDiagnosis(args: { input: DiagnosisInput; output: Diagnos
   const informed = args.informed ?? { site: false, instagram: false };
   const inputSources = diagnosisInputSources(input);
   if (!output || !hasEnoughPublicText(input)) return insufficientContent(input, brand, meta, "too_short", output?.notFound ?? [], informed);
-  const haystacks = Object.fromEntries(Object.entries(diagnosisSourceTexts(input)).map(([source, text]) => [source, normalizeForMatch(text)])) as Partial<Record<DiagnosisSource, string>>;
+  const haystacks = Object.fromEntries(Object.entries(diagnosisSourceTexts(input)).map(([source, text]) => [source, { text, ...canonicalizeWithMap(text) }])) as Partial<Record<DiagnosisSource, SourceText>>;
   const backing: DiagnosisContent["sources"] = [];
   const back = (evidence: Evidence[], supports: string) => { for (const item of evidence) backing.push({ origin: item.source, quote: item.quote, supports }); };
 
