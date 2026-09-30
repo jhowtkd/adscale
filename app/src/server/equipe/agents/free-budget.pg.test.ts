@@ -7,7 +7,7 @@
  *   TEST_DATABASE_URL=postgres://test:test@localhost:55433/fluxo0_ticket01_test npm test -- src/server/equipe/agents/free-budget.pg.test.ts
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { resolveEquipeTestDatabaseUrl } from "../data/test-database";
 
 const TEST_DATABASE_URL = resolveEquipeTestDatabaseUrl();
@@ -31,18 +31,26 @@ const usage = (over: Partial<ModelCallResponse["usage"]> = {}) =>
 
 describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
   let m: Mods; let A: Pool; let B: Pool; let C: Pool; // C = observador independente
+  // Dedicated session-lock pools per "process" (A/B), ended in afterAll. The 2nd constructor
+  // argument is the lock pool; C (read-only observer) never locks.
+  const lockPools = new Map<Pool, import("pg").Pool>();
+  const makeStore = (db: unknown, lockPool?: import("pg").Pool) => new m.ledger.DrizzleLedgerStore(db as never, lockPool);
+  const storeOn = (p: Pool) => makeStore(p.db, lockPools.get(p));
   const workspaces: string[] = []; const users: string[] = [];
 
   beforeAll(async () => {
     m = await load();
     [A, B, C] = [m.free.openPool(TEST_DATABASE_URL!), m.free.openPool(TEST_DATABASE_URL!), m.free.openPool(TEST_DATABASE_URL!)];
     for (const p of [A, B, C]) await m.free.assertEffectiveDatabase(p, TEST_DATABASE_URL!);
+    const { Pool: PgPool } = await import("pg");
+    for (const p of [A, B]) lockPools.set(p, new PgPool({ connectionString: TEST_DATABASE_URL!, max: 10, application_name: "free_lock" }));
     process.env.EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS = "0";
   });
   afterAll(async () => {
     if (!ENABLED) return;
     delete process.env.EQUIPE_FREE_DIAGNOSTIC_RESERVE_USD_CENTS;
     await m.free.cleanup(A, workspaces, users);
+    await Promise.all([...lockPools.values()].map((l) => l.end()));
     await Promise.all([A.pool.end(), B.pool.end(), C.pool.end()]);
   });
 
@@ -56,12 +64,12 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
   }
   const scopeKey = (s: { workspaceId: string; accountId: string }) => `equipe-free-ai:${s.workspaceId}:${s.accountId}`;
   const agentsOn = (p: Pool, client: EquipeModelClient, now = NOW) =>
-    m.runner.createEquipeAgents({ moduleDeps: m.free.depsFor(p, now), client, ledger: new m.ledger.DrizzleLedgerStore(p.db as never), now: () => now });
+    m.runner.createEquipeAgents({ moduleDeps: m.free.depsFor(p, now), client, ledger: storeOn(p), now: () => now });
   const strategist = (a: { workspaceId: string; accountId: string }) => ({ kind: "strategist_turn", ...a, input: { message: "Oi" } });
   const ledgerRows = (p: Pool, a: { accountId: string }) =>
     p.db.select().from(m.equipeSchema.equipeAgentLedger).where(eq(m.equipeSchema.equipeAgentLedger.accountId, a.accountId));
   const total = async (a: { workspaceId: string; accountId: string }) =>
-    new m.ledger.DrizzleLedgerStore(C.db as never).lifetimeTotalCostUsdCents(a.workspaceId, a.accountId);
+    makeStore(C.db).lifetimeTotalCostUsdCents(a.workspaceId, a.accountId);
   const insertSpend = (a: { workspaceId: string; accountId: string }, cents: number, createdAt: Date) =>
     A.db.insert(m.equipeSchema.equipeAgentLedger).values({ ...a, role: "research", model: "muse-spark-1.3-contributor",
       promptVersion: "v", taskKind: "research", inputTokens: 0, outputTokens: 0, costUsdCents: cents, createdAt });
@@ -69,7 +77,7 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
   describe("withAccountLock", () => {
     it("blocks a second pool on the same account until the first releases; other accounts are unaffected", async () => {
       const a = await freeAccount(); const b = await freeAccount();
-      const storeA = new m.ledger.DrizzleLedgerStore(A.db as never); const storeB = new m.ledger.DrizzleLedgerStore(B.db as never);
+      const storeA = storeOn(A); const storeB = storeOn(B);
       const gate = m.free.deferred(); const entered: string[] = [];
       const first = storeA.withAccountLock(a, async () => { entered.push("A"); await gate.promise; });
       await m.free.waitUntil(async () => (await m.free.holdingAdvisoryKey(C, scopeKey(a))) === 1, "A holds lock");
@@ -85,15 +93,15 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
 
     it("releases the lock when the callback throws (no leaked session lock, connection reusable)", async () => {
       const a = await freeAccount();
-      const store = new m.ledger.DrizzleLedgerStore(A.db as never);
+      const store = storeOn(A);
       await expect(store.withAccountLock(a, async () => { throw new Error("boom"); })).rejects.toThrow("boom");
       expect(await m.free.holdingAdvisoryKey(C, scopeKey(a))).toBe(0);
-      await expect(new m.ledger.DrizzleLedgerStore(B.db as never).withAccountLock(a, async () => "ok")).resolves.toBe("ok");
+      await expect(storeOn(B).withAccountLock(a, async () => "ok")).resolves.toBe("ok");
     });
 
     it("commits each ledger write immediately: a reservation is visible to another pool while the lock is still held", async () => {
       const a = await freeAccount();
-      const store = new m.ledger.DrizzleLedgerStore(A.db as never);
+      const store = storeOn(A);
       const gate = m.free.deferred();
       const run = store.withAccountLock(a, async (locked) => {
         await locked.record({ ...a, role: "research", model: "m", promptVersion: "v", taskKind: "research", inputTokens: 0, outputTokens: 0,
@@ -104,6 +112,145 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
       expect((await ledgerRows(C, a))[0]).toMatchObject({ costUsdCents: 7, reservedCostUsdCents: 7, settledAt: null });
       expect(await total(a)).toBe(7);
       gate.resolve(); await run;
+    });
+  });
+
+  describe("dedicated lock pool", () => {
+    // Observability: backend pids + application_name holding the account advisory locks.
+    async function lockHolders(keys: string[]) {
+      const r = await C.db.execute(sql`select distinct l.pid as pid, a.application_name as app from pg_locks l
+        join pg_stat_activity a on a.pid = l.pid
+        where l.locktype = 'advisory' and l.granted
+          and ((l.classid::bigint << 32) | l.objid::bigint) in (select hashtextextended(k, 0) from unnest(${keys}::text[]) k)`);
+      return (r.rows as { pid: number; app: string }[]).sort((x, y) => x.pid - y.pid);
+    }
+
+    /**
+     * Blocked providers on a TINY app pool. `lockPool` undefined = the production DEFAULT
+     * (lazy dedicated singleton); otherwise the injected pool. gate/runs live OUTSIDE try so
+     * `finally` can always release providers and drain runs before ending pools.
+     */
+    async function blockedProvidersScenario(lockPool: import("pg").Pool | undefined) {
+      const { Pool: PgPool } = await import("pg");
+      const { drizzle } = await import("drizzle-orm/node-postgres");
+      const appPool = new PgPool({ connectionString: TEST_DATABASE_URL!, max: 2, application_name: "free_app", connectionTimeoutMillis: 3000 });
+      const appPids = new Set<number>();
+      appPool.on("connect", (c) => { const pid = (c as unknown as { processID?: number }).processID; if (pid) appPids.add(pid); });
+      const appDb = drizzle(appPool, { schema: { ...m.schema, ...m.equipeSchema } });
+      const ACCOUNTS = 4;                                             // > app pool size (2)
+      const gate = m.free.deferred();
+      let runs: Array<Promise<{ ok: boolean }>> = [];
+      let entered = 0;
+      try {
+        const accounts = await Promise.all(Array.from({ length: ACCOUNTS }, () => freeAccount()));
+        const client: EquipeModelClient = { async chat() {
+          entered += 1; await gate.promise;
+          return { content: "ok", toolCalls: [], stopReason: "stop", usage: usage({ inputTokens: 100, outputTokens: 10 }) };
+        } };
+        const agents = m.runner.createEquipeAgents({ moduleDeps: m.free.depsFor({ pool: appPool, db: appDb } as never, NOW),
+          client, ledger: makeStore(appDb, lockPool), now: () => NOW });
+        runs = accounts.map((a) => agents.runTask(strategist(a)));
+        await m.free.waitUntil(async () => entered === ACCOUNTS, "all providers blocked");
+
+        // Every account lock lives on its own session, NEVER on an app-pool connection.
+        const holders = await lockHolders(accounts.map(scopeKey));
+        expect(holders).toHaveLength(ACCOUNTS);
+        expect(holders.some((h) => appPids.has(h.pid))).toBe(false);
+        expect(holders.every((h) => h.app !== "free_app")).toBe(true);
+        if (lockPool) {
+          expect(holders.every((h) => h.app === "free_lock")).toBe(true);
+          expect(lockPool.totalCount).toBeGreaterThanOrEqual(ACCOUNTS);
+        }
+        for (const a of accounts) expect(await m.free.holdingAdvisoryKey(C, scopeKey(a))).toBe(1);
+        // The app pool is neither exhausted nor queued: a query completes NOW, with providers still stuck.
+        expect(appPool.waitingCount).toBe(0);
+        const probe = await Promise.race([
+          appDb.execute(sql`select 1 as ok`).then(() => "done"),
+          new Promise<string>((r) => setTimeout(() => r("starved"), 2000)),
+        ]);
+        expect(probe).toBe("done");
+        expect(appPool.waitingCount).toBe(0);
+
+        gate.resolve();
+        const results = await Promise.all(runs);
+        expect(results.every((r) => r.ok)).toBe(true);
+        for (const a of accounts) {
+          expect(await m.free.holdingAdvisoryKey(C, scopeKey(a))).toBe(0);            // released in finally
+          const [row] = await ledgerRows(C, a);
+          expect(row!.settledAt).toBeInstanceOf(Date);                                 // settle before unlock preserved
+        }
+        expect(await lockHolders(accounts.map(scopeKey))).toEqual([]);
+      } finally {
+        gate.resolve();                                   // never leave providers/locks stuck on a failed assertion
+        await Promise.allSettled(runs);
+        await appPool.end();
+        if (lockPool) await lockPool.end();
+      }
+    }
+
+    it("INJECTED lock pool: account locks stay outside a tiny app pool while providers are stuck", async () => {
+      const { Pool: PgPool } = await import("pg");
+      await blockedProvidersScenario(new PgPool({ connectionString: TEST_DATABASE_URL!, max: 10, application_name: "free_lock" }));
+    });
+
+    it("production DEFAULT (no injection, new DrizzleLedgerStore(db)) also uses a separate session pool", async () => {
+      await blockedProvidersScenario(undefined);
+    });
+
+    it("keeps same-account serialization on the dedicated pool and releases the session lock after a failure", async () => {
+      const a = await freeAccount();
+      const gate = m.free.deferred(); const order: string[] = [];
+      const client: EquipeModelClient = { async chat() {
+        order.push("provider"); await gate.promise;
+        return { content: "ok", toolCalls: [], stopReason: "stop", usage: usage({ inputTokens: 100, outputTokens: 10 }) };
+      } };
+      let runs: Array<Promise<{ ok: boolean }>> = [];
+      try {
+        const p1 = agentsOn(A, client).runTask(strategist(a));
+        runs = [p1];
+        await m.free.waitUntil(async () => order.length === 1, "first in provider");
+        const p2 = agentsOn(B, client).runTask(strategist(a));
+        runs = [p1, p2];
+        await m.free.waitUntil(async () => (await m.free.waitingOnAdvisoryKey(C, scopeKey(a))) === 1, "second waits on the dedicated session lock");
+        expect((await lockHolders([scopeKey(a)])).every((h) => h.app === "free_lock")).toBe(true);
+        gate.resolve();
+        expect((await Promise.all(runs)).every((r) => r.ok)).toBe(true);
+        expect(await m.free.holdingAdvisoryKey(C, scopeKey(a))).toBe(0);
+        await expect(storeOn(A).withAccountLock(a, async () => { throw new Error("boom"); })).rejects.toThrow("boom");
+        expect(await m.free.holdingAdvisoryKey(C, scopeKey(a))).toBe(0);
+      } finally {
+        gate.resolve();
+        await Promise.allSettled(runs);
+      }
+    });
+  });
+
+  describe("listWorkspaceIds (real PG keyset page)", () => {
+    it("honours limit, id ASC order and an exclusive cursor without assuming an empty database", async () => {
+      const seeded = (await Promise.all([1, 2, 3].map(async () => {
+        const w = await m.free.seedWorkspace(A); workspaces.push(w.workspaceId); users.push(w.userId); return w.workspaceId;
+      }))).sort();
+      const internal = m.free.depsFor(A).uow.internal;
+      const asc = (ids: string[]) => ids.every((id, i) => i === 0 || ids[i - 1]! < id);
+
+      const first = await internal.listWorkspaceIds({ limit: 2 });
+      expect(first).toHaveLength(2);
+      expect(asc(first)).toBe(true);
+
+      const afterFirst = await internal.listWorkspaceIds({ after: first[0]!, limit: 2 });
+      expect(afterFirst.length).toBeLessThanOrEqual(2);
+      expect(afterFirst.every((id) => id > first[0]!)).toBe(true);      // cursor is exclusive
+      expect(afterFirst).not.toContain(first[0]);
+      expect(asc(afterFirst)).toBe(true);
+
+      const beyondSeeded = await internal.listWorkspaceIds({ after: seeded[2]!, limit: 2 });
+      expect(beyondSeeded.some((id) => seeded.includes(id))).toBe(false);
+      expect(beyondSeeded.every((id) => id > seeded[2]!)).toBe(true);
+
+      const tail = await internal.listWorkspaceIds({ after: seeded[0]!, limit: 100_000 });
+      expect(asc(tail)).toBe(true);
+      expect(tail).toEqual(expect.arrayContaining([seeded[1], seeded[2]]));
+      expect(tail).not.toContain(seeded[0]);
     });
   });
 
@@ -244,7 +391,7 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
       const dead: EquipeModelClient = { async chat() { throw new Error("process killed"); } };
       await agentsOn(A, dead).runTask(strategist(a));
       await agentsOn(A, dead, new Date(NOW.getTime() + 14 * 60_000)).runTask(strategist(fresh));
-      const store = new m.ledger.DrizzleLedgerStore(B.db as never);
+      const store = storeOn(B);
       await store.record({ ...withoutReservation, role: "research", model: "m", promptVersion: "v", taskKind: "research",
         inputTokens: 0, outputTokens: 0, costUsdCents: 1, reservationExpiresAt: NOW });
       await store.settleExpiredReservations(new Date(NOW.getTime() + 15 * 60_000 - 1));
@@ -263,7 +410,7 @@ describe.skipIf(!ENABLED)("free budget (pg, dois pools)", () => {
 
     it("settle is scoped, idempotent and bounded by the reservation", async () => {
       const a = await freeAccount(); const other = await freeAccount();
-      const store = new m.ledger.DrizzleLedgerStore(A.db as never);
+      const store = storeOn(A);
       const row = await store.record({ ...a, role: "research", model: "m", promptVersion: "v", taskKind: "research", inputTokens: 0, outputTokens: 0,
         costUsdCents: 5, reservedCostUsdCents: 5, reservationExpiresAt: new Date(NOW.getTime() + 900_000) });
       const u = { model: "m", inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0 };

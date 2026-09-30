@@ -98,7 +98,10 @@ export function createMemoryInternalEquipeRepositories(
   store: MemoryEquipeStore
 ): InternalEquipeRepositories {
   return {
-    async listWorkspaceIds() { return [...store.adscaleWorkspaces.rows.keys()]; },
+    async listWorkspaceIds(options) {
+      const ids = [...store.adscaleWorkspaces.rows.keys()].sort().filter((id) => !options?.after || id > options.after);
+      return options?.limit === undefined ? ids : ids.slice(0, options.limit);
+    },
     async listPendingTaskIntents() {
       return [...store.taskOutbox.rows.values()].filter((row) => !row.dispatchedAt)
         .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).map(copy);

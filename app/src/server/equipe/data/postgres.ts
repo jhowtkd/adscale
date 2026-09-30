@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, sql, type SQL } from "drizzle-orm";
 import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
 import type { db as appDb } from "../../db/index";
 import {
@@ -455,8 +455,10 @@ export function createPostgresInternalEquipeRepositories(
   executor: PostgresEquipeExecutor
 ): InternalEquipeRepositories {
   return {
-    async listWorkspaceIds() {
-      return (await executor.select({ id: workspaces.id }).from(workspaces)).map((row) => row.id);
+    async listWorkspaceIds(options) {
+      const query = executor.select({ id: workspaces.id }).from(workspaces)
+        .where(options?.after ? gt(workspaces.id, options.after) : undefined).orderBy(asc(workspaces.id));
+      return (await (options?.limit === undefined ? query : query.limit(options.limit))).map((row) => row.id);
     },
     async listPendingTaskIntents() {
       return executor.select().from(equipeTaskOutbox).where(isNull(equipeTaskOutbox.dispatchedAt))

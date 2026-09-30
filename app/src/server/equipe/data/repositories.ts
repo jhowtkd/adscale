@@ -289,7 +289,7 @@ export interface InternalEquipeRepositories {
   /** Called inside the opening transaction, before checking existing accounts. */
   lockWorkspace(workspaceId: string): Promise<void>;
   listPendingTaskIntents(): Promise<EquipeTaskIntent[]>;
-  listWorkspaceIds(): Promise<string[]>;
+  listWorkspaceIds(options?: { after?: string; limit?: number }): Promise<string[]>;
   getVerifiedWorkspaceMember(workspaceId: string, userId: string): Promise<{ name: string; email: string } | null>;
   createClientProfile(workspaceId: string, name: string): Promise<{ id: string }>;
   staff: EquipeStaffRepository;
