@@ -141,7 +141,10 @@ export function createMemoryInternalEquipeRepositories(
       if (!row || row.workspaceId !== scope.workspaceId) throw new Error("profile_not_found");
       store.adscaleProfiles.rows.set(profileId, { ...row, ...identity });
       const workspace = store.adscaleWorkspaces.rows.get(scope.workspaceId);
-      if (workspace) store.adscaleWorkspaces.rows.set(workspace.id, { ...workspace, name: identity.name });
+      const profiles = [...store.adscaleProfiles.rows.values()].filter(p => p.workspaceId === scope.workspaceId);
+      const isSignupName = [...store.workspaceMembers.rows.values()].some(member => member.workspaceId === scope.workspaceId && member.role === "owner"
+        && workspace?.name === `${member.name || member.email}'s Workspace`);
+      if (workspace && profiles.length === 1 && isSignupName) store.adscaleWorkspaces.rows.set(workspace.id, { ...workspace, name: identity.name });
     },
     async materializeHandoffAssets(scope, handoff, pages) {
       if (handoff.workspaceId !== scope.workspaceId || handoff.accountId !== scope.accountId) throw new Error("handoff_scope_mismatch");

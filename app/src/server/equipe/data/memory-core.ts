@@ -62,7 +62,7 @@ export type MemoryEquipeStore = {
   documents: MemoryTable<EquipeBrandDocument>;
   workspaceAssets: MemoryTable<typeof import("../../db/schema").workspaceAssets.$inferSelect>;
   taskOutbox: MemoryTable<EquipeTaskIntent>;
-  workspaceMembers: MemoryTable<{ id: string; workspaceId: string; userId: string; name: string; email: string; emailVerified: boolean }>;
+  workspaceMembers: MemoryTable<{ id: string; workspaceId: string; userId: string; name: string; email: string; emailVerified: boolean; role?: string }>;
   adscaleProfiles: MemoryTable<MemoryAdscaleProfile>;
   adscaleWorkspaces: MemoryTable<MemoryAdscaleWorkspace>;
   people: MemoryTable<EquipeAccountPerson>;

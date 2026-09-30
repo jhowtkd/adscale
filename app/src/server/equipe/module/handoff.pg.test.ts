@@ -365,6 +365,27 @@ describe.skipIf(!TEST_DATABASE_URL)("handoff commands, two independent Postgres 
     expect(await shouldAnalyzeWorkspaceAssets(f.workspaceId)).toBe(true); // no Equipe account
   });
 
+  it.each(["single-default", "multiple-default", "single-edited", "single-other-default"])("identity persists the brand and protects the workspace: %s", async (scenario) => {
+    const f = await setup();
+    const [row] = await f.t.deps.uow.repos.handoffs.list(f.scope);
+    const originalName = scenario === "single-edited" ? "Minha agência" : scenario === "single-other-default" ? "Outra pessoa's Workspace" : "Ana's Workspace";
+    await f.dbA.update(f.schema.user).set({ name: "Ana" }).where(eq(f.schema.user.id, f.userId));
+    await f.dbA.update(f.schema.workspaceMembers).set({ role: "owner" }).where(eq(f.schema.workspaceMembers.workspaceId, f.workspaceId));
+    await f.dbA.update(f.schema.workspaces).set({ name: originalName }).where(eq(f.schema.workspaces.id, f.workspaceId));
+    if (scenario === "multiple-default") await f.dbA.insert(f.schema.clientProfiles).values({ workspaceId: f.workspaceId, name: "Outra marca" });
+    await f.t.deps.uow.run(async (_repos, internal) => {
+      await internal.saveHandoffIdentity(f.scope, row!.clientProfileId, { name: "Acme", logoAssetKey: null, brandColors: [], brandFonts: [] });
+    });
+    const [profile] = await f.dbB.select().from(f.schema.clientProfiles).where(eq(f.schema.clientProfiles.id, row!.clientProfileId));
+    const [workspace] = await f.dbB.select().from(f.schema.workspaces).where(eq(f.schema.workspaces.id, f.workspaceId));
+    expect(profile!.name).toBe("Acme");
+    expect(workspace!.name).toBe(scenario === "single-default" ? "Acme" : originalName);
+    if (scenario === "multiple-default") {
+      const profiles = await f.dbB.select().from(f.schema.clientProfiles).where(eq(f.schema.clientProfiles.workspaceId, f.workspaceId));
+      expect(profiles.some(p => p.name === "Outra marca")).toBe(true);
+    }
+  });
+
   it("resumes after the claim commits in Postgres but its step acknowledgement is lost", async () => {
     const f = await setup();
     const row = await withSource(f);
