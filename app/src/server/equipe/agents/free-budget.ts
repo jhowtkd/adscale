@@ -1,7 +1,7 @@
 import { zodResponseFormat } from "openai/helpers/zod";
 import { env } from "@/server/validation/env";
 import type { EquipeEvent, EquipeRepositories, AccountScope } from "../data";
-import type { ModelCallRequest } from "./model-client";
+import type { ModelCallRequest, ModelImagePart } from "./model-client";
 
 export const DIAGNOSTIC_RECORDED_EVENT = "diagnostic.recorded";
 export type DiagnosticRecordedPayload = { documentId: string };
@@ -41,4 +41,29 @@ export function textInputTokenBound(request: ModelCallRequest): number | null {
 export function withTextInputBound(request: ModelCallRequest): ModelCallRequest {
   const inputTokenBound = textInputTokenBound(request);
   return { ...request, ...(inputTokenBound !== null ? { inputTokenBound } : {}) };
+}
+
+const normalizedImages = new WeakSet<ModelImagePart>();
+/** Only trusted server callers that checked the stored JPEG dimensions use this constructor. */
+export function normalizedImagePart(url: string, width: number, height: number): ModelImagePart {
+  if (![width, height].every(n => Number.isSafeInteger(n) && n > 0 && n <= 1024) || !/^https:\/\//.test(url)) throw new Error("free_image_unbounded");
+  const part: ModelImagePart = Object.freeze({ type: "image_url", image_url: Object.freeze({ url }) });
+  normalizedImages.add(part);
+  return part;
+}
+export function modelInputTokenBound(request: ModelCallRequest): number | null {
+  let images = 0;
+  const messages = request.messages.map(message => {
+    if (message.role !== "user" || !Array.isArray(message.content)) return message;
+    return { ...message, content: message.content.map(part => {
+      if (part.type !== "image_url") return part;
+      if (!normalizedImages.has(part)) images = Number.POSITIVE_INFINITY;
+      else images++;
+      return { type: "text" as const, text: part.image_url.url };
+    }) };
+  });
+  if (!Number.isFinite(images) || images > 4) return null;
+  const text = textInputTokenBound({ ...request, messages });
+  // <=1024px JPEG: <=1369 visual patches (28px), with conservative framing margin.
+  return text === null ? null : text + images * 4096;
 }

@@ -4139,7 +4139,7 @@
       "restore": "Uncheck to remove. You can restore an image before confirming the summary.",
       "queued": "Queued — reading continues in the background.",
       "provisional": "Provisional — not read yet",
-      "failed": "Could not read this source. Check the website or public handle and resume here. Your account is preserved.",
+      "failed": "The reading did not finish. Check the website or public handle. Trying again uses 1 of your readings. Your account is preserved.",
       "retry": "Try again",
       "stale": "The step changed. The card was refreshed; review it before confirming.",
       "error": "Could not confirm. Check the fields and try again.",

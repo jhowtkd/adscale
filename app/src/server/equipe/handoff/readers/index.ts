@@ -1,14 +1,19 @@
+import { FirecrawlSiteReader } from "./firecrawl";
+import { ApifyInstagramReader, type ApifyReaderOptions } from "./apify";
 export type HandoffReadingContext = { workspaceId: string; accountId: string; handoffId: string; readingId: string; taskIntentId: string };
 export type ReaderImage = { url: string; key?: string; assetId?: string; width?: number; height?: number };
 export type SiteReadResult = {
   title: string | null; siteName: string | null; markdown: string; links: string[];
   images: ReaderImage[]; screenshotUrl: string | null; statusCode?: number;
   branding?: { logo?: ReaderImage; colors?: string[]; fonts?: string[] };
+  logoCandidates?: string[];
+  groupErrors?: Partial<Record<"logo" | "colors" | "fonts" | "images", string>>;
 };
 export type InstagramReadResult = {
   exists: boolean; isPrivate: boolean; name?: string; avatarUrl: string | null; avatarKey?: string; avatarAssetId?: string; bio: string;
   posts: Array<{ imageUrl: string; caption: string; key?: string; assetId?: string; width?: number; height?: number }>;
   colors?: string[];
+  groupErrors?: SiteReadResult["groupErrors"];
 };
 export interface SiteReader { read(url: string, context?: HandoffReadingContext): Promise<SiteReadResult> }
 export interface InstagramReader { profile(handle: string, context?: HandoffReadingContext): Promise<InstagramReadResult> }
@@ -32,8 +37,8 @@ export class FakeInstagramReader implements InstagramReader {
   }) {}
   async profile(handle: string) { this.calls.push(handle); if (this.result instanceof Error) throw this.result; return structuredClone(this.result); }
 }
-/** Explicit fake mode only; missing/real providers fail until tickets 05/06 install them. */
-export function createHandoffReaders(): HandoffReaders {
+/** Explicit provider selection; missing configuration fails inside the reading job. */
+export function createHandoffReaders(options: { beforeSiteRequest?: () => Promise<boolean>; instagram?: ApifyReaderOptions } = {}): HandoffReaders {
   return {
     site: process.env.SITE_READER_PROVIDER === "fake" ? { async read(url, context) {
       const data = await new FakeSiteReader().read(url);
@@ -41,7 +46,7 @@ export function createHandoffReaders(): HandoffReaders {
       data.images = await Promise.all(data.images.map(async (image, index) => ({ ...image, ...await saveFakeAsset(context, "site", image.url, `site_image_${index}`) })));
       if (data.branding?.logo) data.branding.logo = { ...data.branding.logo, ...await saveFakeAsset(context, "site", data.branding.logo.url, "site_logo") };
       return data;
-    } } : { async read() { throw new Error("reader_unavailable"); } },
+    } } : process.env.SITE_READER_PROVIDER === "firecrawl" ? new FirecrawlSiteReader({ beforeRequest: options.beforeSiteRequest }) : { async read() { throw new Error("reader_unavailable"); } },
     instagram: process.env.INSTAGRAM_READER_PROVIDER === "fake" ? { async profile(handle, context) {
       const data = await new FakeInstagramReader().profile(handle);
       if (!context) throw new Error("fake_reading_context_required");
@@ -54,7 +59,7 @@ export function createHandoffReaders(): HandoffReaders {
         data.avatarUrl = asset.url; data.avatarKey = asset.key; data.avatarAssetId = asset.assetId;
       }
       return data;
-    } } : { async profile() { throw new Error("reader_unavailable"); } },
+    } } : process.env.INSTAGRAM_READER_PROVIDER === "apify" ? new ApifyInstagramReader(options.instagram) : { async profile() { throw new Error("reader_unavailable"); } },
   };
 }
 

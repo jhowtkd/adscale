@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { createHandoffReadHandler } from "./read";
-import { FakeInstagramReader, FakeSiteReader, type InstagramReadResult, type SiteReadResult } from "./readers";
+import { claimHandoffProviderAttempt, createHandoffReadHandler, loadHandoffInstagramRun, recordHandoffInstagramRun } from "./read";
+import { FakeInstagramReader, FakeSiteReader, type InstagramReadResult, type SiteReader, type SiteReadResult } from "./readers";
+import { SiteReaderError } from "./readers/firecrawl";
 import { executeCommand } from "../module/commands";
 import { makeTestDeps, uuid } from "../module/testing/deps";
 import { HANDOFF_GROUPS, type HandoffState } from "../domain/handoff";
@@ -124,6 +125,145 @@ describe("createHandoffReadHandler: site", () => {
   });
 });
 
+describe("createHandoffReadHandler: SiteEnrichment (identity/images) wiring", () => {
+  it("feeds identity() into logo/colors/fonts and images() into images, on top of the reader's own capture", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const reader = new FakeSiteReader();
+    const enrichment = {
+      identity: async () => ({ branding: { logo: { url: "https://r2.example/logo.jpg", key: "k-logo" }, colors: ["#123456"], fonts: ["Vision Font"] } }),
+      images: async () => ({ images: [{ url: "https://r2.example/a.jpg", key: "k-a", width: 10, height: 10 }] }),
+    };
+    const handler = createHandoffReadHandler(t.deps, { site: reader, instagram: new FakeInstagramReader() }, enrichment);
+    const { event } = await readEvent(t, scope);
+    await handler({ event, step });
+
+    const row = await currentHandoff(t, scope);
+    expect(row.captured.colors).toEqual([expect.objectContaining({ value: "#123456" })]);
+    expect(row.captured.fonts).toEqual([expect.objectContaining({ value: "Vision Font" })]);
+    expect(row.captured.logo?.[0]).toMatchObject({ value: "https://r2.example/logo.jpg", key: "k-logo" });
+    expect(row.captured.images).toEqual([expect.objectContaining({ value: "https://r2.example/a.jpg", key: "k-a" })]);
+  });
+
+  it("fails only logo/colors/fonts with the reported groupError when identity() reports one, leaving name/networks/images untouched", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const reader = new FakeSiteReader();
+    const enrichment = {
+      identity: async () => ({ branding: { colors: [], fonts: [] }, groupErrors: { logo: "logo_download_failed", colors: "site_vision_failed" } }),
+      images: async () => ({ images: [{ url: "https://r2.example/a.jpg", key: "k-a" }] }),
+    };
+    const handler = createHandoffReadHandler(t.deps, { site: reader, instagram: new FakeInstagramReader() }, enrichment);
+    const { event } = await readEvent(t, scope);
+    await handler({ event, step });
+
+    const row = await currentHandoff(t, scope);
+    expect(row.reading.logo).toMatchObject({ status: "failed", error: "logo_download_failed" });
+    expect(row.reading.colors).toMatchObject({ status: "failed", error: "site_vision_failed" });
+    // fonts has no groupError of its own: it just comes back empty.
+    expect(row.reading.fonts).toMatchObject({ status: "not_found" });
+    expect(row.reading.name).toMatchObject({ status: "found" });
+    expect(row.reading.images).toMatchObject({ status: "found" });
+  });
+
+  it("records the independent name/networks groups before the still-pending identity/images groups settle", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const reader = new FakeSiteReader();
+    let resolveIdentity!: (v: { branding: { colors: string[]; fonts: string[] } }) => void;
+    let resolveImages!: (v: { images: [] }) => void;
+    const enrichment = {
+      identity: () => new Promise<{ branding: { colors: string[]; fonts: string[] } }>((r) => { resolveIdentity = r; }),
+      images: () => new Promise<{ images: [] }>((r) => { resolveImages = r; }),
+    };
+    const handler = createHandoffReadHandler(t.deps, { site: reader, instagram: new FakeInstagramReader() }, enrichment);
+    const { event } = await readEvent(t, scope);
+    const done = handler({ event, step });
+
+    // Give the synchronous name/networks groups a chance to complete while identity/images stay pending.
+    await new Promise((r) => setTimeout(r, 10));
+    const mid = await currentHandoff(t, scope);
+    expect(mid.reading.name?.status).toBe("found");
+    expect(mid.reading.networks?.status).toBe("found");
+    expect(mid.reading.logo?.status).toBe("running");
+    expect(mid.reading.images?.status).toBe("running");
+
+    resolveIdentity({ branding: { colors: [], fonts: [] } });
+    resolveImages({ images: [] });
+    await done;
+    const finished = await currentHandoff(t, scope);
+    expect(finished.reading.logo?.status).toBe("not_found");
+    expect(finished.reading.images?.status).toBe("not_found");
+  });
+});
+
+class ThrowingSiteReader implements SiteReader {
+  readonly calls: string[] = [];
+  constructor(private readonly error: Error) {}
+  async read(url: string): Promise<SiteReadResult> { this.calls.push(url); throw this.error; }
+}
+
+describe("createHandoffReadHandler: billed vs unbilled site reader failures", () => {
+  it("refunds readsUsed and records handoff.read_not_billed exactly once when the site fails for a free reason (DNS)", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://nowhere.example.com");
+    expect((await currentHandoff(t, scope)).readsUsed).toBe(1);
+    const reader = new ThrowingSiteReader(new SiteReaderError("site_dns_or_address", true));
+    const handler = createHandoffReadHandler(t.deps, { site: reader, instagram: new FakeInstagramReader() });
+    const { event } = await readEvent(t, scope);
+    await handler({ event, step });
+
+    const row = await currentHandoff(t, scope);
+    expect(row.readsUsed).toBe(0);
+    for (const group of HANDOFF_GROUPS) expect(row.reading[group]).toMatchObject({ status: "failed", error: "site_dns_or_address" });
+    const events = await t.deps.uow.repos.events.list(scope, { eventType: "handoff.read_not_billed" });
+    expect(events).toHaveLength(1);
+  });
+
+  it("refunds readsUsed when the site reader is unavailable (no Firecrawl key configured)", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const reader = new ThrowingSiteReader(new SiteReaderError("reader_unavailable", true));
+    const handler = createHandoffReadHandler(t.deps, { site: reader, instagram: new FakeInstagramReader() });
+    const { event } = await readEvent(t, scope);
+    await handler({ event, step });
+
+    expect((await currentHandoff(t, scope)).readsUsed).toBe(0);
+  });
+
+  it("does NOT refund readsUsed when the site is reachable but unavailable (billed/uncertain, e.g. a 404 the supplier charged for)", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com/404");
+    const reader = new ThrowingSiteReader(new SiteReaderError("site_unavailable"));
+    const handler = createHandoffReadHandler(t.deps, { site: reader, instagram: new FakeInstagramReader() });
+    const { event } = await readEvent(t, scope);
+    await handler({ event, step });
+
+    const row = await currentHandoff(t, scope);
+    expect(row.readsUsed).toBe(1);
+    for (const group of HANDOFF_GROUPS) expect(row.reading[group]).toMatchObject({ status: "failed", error: "site_unavailable" });
+    expect(await t.deps.uow.repos.events.list(scope, { eventType: "handoff.read_not_billed" })).toEqual([]);
+  });
+
+  it("does NOT refund readsUsed for a generic reading_failed (unmapped/uncertain transport error)", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const reader = new ThrowingSiteReader(new Error("boom"));
+    const handler = createHandoffReadHandler(t.deps, { site: reader, instagram: new FakeInstagramReader() });
+    const { event } = await readEvent(t, scope);
+    await handler({ event, step });
+
+    expect((await currentHandoff(t, scope)).readsUsed).toBe(1);
+  });
+});
+
 describe("createHandoffReadHandler: capturing groups caps at 30 and never duplicates a value", () => {
   it("dedupes repeated links and caps a large link list at 30 captured networks", async () => {
     const t = makeTestDeps();
@@ -144,6 +284,26 @@ describe("createHandoffReadHandler: capturing groups caps at 30 and never duplic
     const values = row.captured.networks!.map((i) => i.value);
     expect(new Set(values).size).toBe(30);
     expect(values).toEqual(distinctLinks.slice(0, 30));
+  });
+
+  it("extracts the clean @ from an Instagram link carrying tracking query params and a hash fragment", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const reader = new FakeSiteReader({
+      title: "Marca", siteName: "Marca", markdown: "Marca de exemplo.",
+      links: ["https://www.instagram.com/marca_exemplo/?utm_source=footer&igshid=abc123#comments"],
+      images: [], screenshotUrl: null, statusCode: 200,
+    });
+    const handler = createHandoffReadHandler(t.deps, { site: reader, instagram: new FakeInstagramReader() });
+    const { event } = await readEvent(t, scope);
+    await handler({ event, step });
+
+    const row = await currentHandoff(t, scope);
+    expect(row.reading.networks).toMatchObject({ status: "found" });
+    // Still only PROVISIONAL: the site-found @ is never read/confirmed here.
+    expect(row.captured.networks?.[0]).toMatchObject({ origin: "site", platform: "instagram", value: "marca_exemplo" });
+    expect(row.decisions.networks).toBeUndefined();
   });
 });
 
@@ -348,5 +508,287 @@ describe("createHandoffReadHandler: only handoff_record_group ever writes the re
     });
     expect(attempt.ok).toBe(false);
     expect((await currentHandoff(t, scope)).reading.name?.status).toBe("pending");
+  });
+});
+
+describe("claimHandoffProviderAttempt: guards a lost ACK from a synchronous, non-resumable provider call", () => {
+  it("claims true the first time; a resend for the SAME taskIntentId (the ACK got lost) claims false and never adds a second event", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const { event } = await readEvent(t, scope);
+    const context = { workspaceId: scope.workspaceId, accountId: scope.accountId, readingId: event.data.readingId, taskIntentId: event.data.taskIntentId };
+
+    const first = await claimHandoffProviderAttempt(t.deps, context, "site");
+    expect(first).toBe(true);
+    const events = await t.deps.uow.repos.events.list(scope, { eventType: "handoff.site_dispatched" });
+    expect(events).toHaveLength(1);
+    expect(events[0]!.payload).toMatchObject({ taskIntentId: context.taskIntentId, readingId: context.readingId });
+
+    // The caller lost the true ACK and retries the exact same attempt: must never dispatch twice.
+    const second = await claimHandoffProviderAttempt(t.deps, context, "site");
+    expect(second).toBe(false);
+    expect(await t.deps.uow.repos.events.list(scope, { eventType: "handoff.site_dispatched" })).toHaveLength(1);
+  });
+
+  it("a NEW reading (fresh taskIntentId, e.g. after handoff_retry_reading) is free to claim again", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const first = await readEvent(t, scope);
+    const firstContext = { workspaceId: scope.workspaceId, accountId: scope.accountId, readingId: first.event.data.readingId, taskIntentId: first.event.data.taskIntentId };
+    expect(await claimHandoffProviderAttempt(t.deps, firstContext, "site")).toBe(true);
+
+    // Fail the reading (billed reason, so a retry is legitimate) and start a fresh one.
+    const row = await currentHandoff(t, scope);
+    await executeCommand(t.deps, { ...scope, actor: { kind: "system", job: "equipe.handoff.read" } }, { type: "handoff_record_group",
+      payload: { readingId: row.readingId!, runId: row.reading.name!.runId, taskIntentId: row.reading.name!.taskIntentId, group: "name", result: { status: "failed", items: [], error: "site_unavailable" } } });
+    await executeCommand(t.deps, { actor: approver, workspaceId: scope.workspaceId, accountId: scope.accountId }, {
+      type: "handoff_retry_reading", payload: { expectedStep: (await currentHandoff(t, scope)).step, expectedVersion: (await currentHandoff(t, scope)).version },
+    });
+    const second = await readEvent(t, scope);
+    const secondContext = { workspaceId: scope.workspaceId, accountId: scope.accountId, readingId: second.event.data.readingId, taskIntentId: second.event.data.taskIntentId };
+    expect(secondContext.taskIntentId).not.toBe(firstContext.taskIntentId);
+
+    expect(await claimHandoffProviderAttempt(t.deps, secondContext, "site")).toBe(true);
+    const events = await t.deps.uow.repos.events.list(scope, { eventType: "handoff.site_dispatched" });
+    expect(events).toHaveLength(2);
+  });
+
+  it("site and vision claims are independent: claiming one does not block the other for the SAME taskIntentId", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const { event } = await readEvent(t, scope);
+    const context = { workspaceId: scope.workspaceId, accountId: scope.accountId, readingId: event.data.readingId, taskIntentId: event.data.taskIntentId };
+
+    expect(await claimHandoffProviderAttempt(t.deps, context, "site")).toBe(true);
+    expect(await claimHandoffProviderAttempt(t.deps, context, "vision")).toBe(true);
+    expect(await claimHandoffProviderAttempt(t.deps, context, "site")).toBe(false);
+    expect(await claimHandoffProviderAttempt(t.deps, context, "vision")).toBe(false);
+    expect(await t.deps.uow.repos.events.list(scope, { eventType: "handoff.site_dispatched" })).toHaveLength(1);
+    expect(await t.deps.uow.repos.events.list(scope, { eventType: "handoff.vision_dispatched" })).toHaveLength(1);
+  });
+
+  it("claims false once the reading has moved on (readingId no longer current)", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const { event } = await readEvent(t, scope);
+    const staleContext = { workspaceId: scope.workspaceId, accountId: scope.accountId, readingId: event.data.readingId, taskIntentId: event.data.taskIntentId };
+
+    const row = await currentHandoff(t, scope);
+    await executeCommand(t.deps, { ...scope, actor: { kind: "system", job: "equipe.handoff.read" } }, { type: "handoff_record_group",
+      payload: { readingId: row.readingId!, runId: row.reading.name!.runId, taskIntentId: row.reading.name!.taskIntentId, group: "name", result: { status: "failed", items: [], error: "site_unavailable" } } });
+    await executeCommand(t.deps, { actor: approver, workspaceId: scope.workspaceId, accountId: scope.accountId }, {
+      type: "handoff_retry_reading", payload: { expectedStep: (await currentHandoff(t, scope)).step, expectedVersion: (await currentHandoff(t, scope)).version },
+    });
+
+    expect(await claimHandoffProviderAttempt(t.deps, staleContext, "site")).toBe(false);
+    expect(await t.deps.uow.repos.events.list(scope, { eventType: "handoff.site_dispatched" })).toEqual([]);
+  });
+
+  it("claimHandoffProviderAttempt now also dispatches an instagram provider, independent of site/vision claims for the same taskIntentId", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const { event } = await readEvent(t, scope);
+    const context = { workspaceId: scope.workspaceId, accountId: scope.accountId, readingId: event.data.readingId, taskIntentId: event.data.taskIntentId };
+
+    expect(await claimHandoffProviderAttempt(t.deps, context, "instagram")).toBe(true);
+    expect(await claimHandoffProviderAttempt(t.deps, context, "vision")).toBe(true);
+    expect(await claimHandoffProviderAttempt(t.deps, context, "instagram")).toBe(false);
+    expect(await claimHandoffProviderAttempt(t.deps, context, "vision")).toBe(false);
+    expect(await t.deps.uow.repos.events.list(scope, { eventType: "handoff.instagram_dispatched" })).toHaveLength(1);
+    expect(await t.deps.uow.repos.events.list(scope, { eventType: "handoff.vision_dispatched" })).toHaveLength(1);
+  });
+
+  it("claimHandoffProviderAttempt('instagram') never claims for a SITE source (provider must match the reading's own source kind)", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "site", "https://acme.com");
+    const { event } = await readEvent(t, scope);
+    const context = { workspaceId: scope.workspaceId, accountId: scope.accountId, readingId: event.data.readingId, taskIntentId: event.data.taskIntentId };
+    expect(await claimHandoffProviderAttempt(t.deps, context, "instagram")).toBe(false);
+    expect(await t.deps.uow.repos.events.list(scope, { eventType: "handoff.instagram_dispatched" })).toEqual([]);
+  });
+});
+
+describe("createHandoffReadHandler: InstagramEnrichment (images/identity) wiring", () => {
+  it("feeds images() into logo/images and identity() into colors, on top of the reader's own raw capture for name/networks", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const reader = new FakeInstagramReader();
+    const enrichment = {
+      images: async (data: InstagramReadResult) => ({ ...data, avatarUrl: "https://r2.example/avatar.jpg", avatarKey: "k-avatar",
+        posts: [{ imageUrl: "https://r2.example/p1.jpg", caption: "c1", key: "k-p1" }] }),
+      identity: async () => ({ colors: ["#123456"] }),
+    };
+    const handler = createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: reader }, undefined, enrichment);
+    const { event } = await readEvent(t, scope);
+    const outcome = await handler({ event, step });
+    expect(outcome).toEqual({ recorded: HANDOFF_GROUPS.length });
+
+    const row = await currentHandoff(t, scope);
+    expect(row.captured.logo?.[0]).toMatchObject({ value: "https://r2.example/avatar.jpg", key: "k-avatar" });
+    expect(row.captured.images).toEqual([expect.objectContaining({ value: "https://r2.example/p1.jpg", key: "k-p1" })]);
+    expect(row.captured.colors).toEqual([expect.objectContaining({ value: "#123456" })]);
+    // name/networks are NOT touched by images()/identity(): they still come from the raw reader result.
+    expect(row.captured.name?.[0]).toMatchObject({ value: "Marca de exemplo", origin: "instagram" });
+    expect(row.captured.networks?.[0]).toMatchObject({ value: "acme.oficial", origin: "instagram" });
+  });
+
+  it("fails only logo/images/colors with the reported groupError when images()/identity() report one, leaving name/networks untouched", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const reader = new FakeInstagramReader();
+    const enrichment = {
+      images: async (data: InstagramReadResult) => ({ ...data, avatarUrl: null, avatarKey: undefined, posts: [],
+        groupErrors: { logo: "logo_download_failed", images: "image_download_failed" } }),
+      identity: async () => ({ colors: [], groupErrors: { colors: "instagram_vision_failed" } }),
+    };
+    const handler = createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: reader }, undefined, enrichment);
+    const { event } = await readEvent(t, scope);
+    await handler({ event, step });
+
+    const row = await currentHandoff(t, scope);
+    expect(row.reading.logo).toMatchObject({ status: "failed", error: "logo_download_failed" });
+    expect(row.reading.images).toMatchObject({ status: "failed", error: "image_download_failed" });
+    expect(row.reading.colors).toMatchObject({ status: "failed", error: "instagram_vision_failed" });
+    expect(row.reading.name).toMatchObject({ status: "found" });
+    expect(row.reading.networks).toMatchObject({ status: "found" });
+  });
+
+  it("calls identity() with the images()-enriched data (so it sees the stored avatarKey/post keys), never the raw reader result", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const reader = new FakeInstagramReader();
+    const capturedIdentityInput: InstagramReadResult[] = [];
+    const enrichment = {
+      images: async (data: InstagramReadResult) => ({ ...data, avatarUrl: "https://r2.example/avatar.jpg", avatarKey: "k-avatar", posts: [] }),
+      identity: async (data: InstagramReadResult) => { capturedIdentityInput.push(data); return { colors: ["#111111"] }; },
+    };
+    const handler = createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: reader }, undefined, enrichment);
+    const { event } = await readEvent(t, scope);
+    await handler({ event, step });
+    expect(capturedIdentityInput).toHaveLength(1);
+    expect(capturedIdentityInput[0]?.avatarKey).toBe("k-avatar");
+  });
+
+  it("works without an instagramEnrichment configured (no 4th argument): the handler still records every group from the raw reader result", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const reader = new FakeInstagramReader();
+    const handler = createHandoffReadHandler(t.deps, { site: new FakeSiteReader(), instagram: reader });
+    const { event } = await readEvent(t, scope);
+    const outcome = await handler({ event, step });
+    expect(outcome).toEqual({ recorded: HANDOFF_GROUPS.length });
+    const row = await currentHandoff(t, scope);
+    expect(row.reading.logo).toMatchObject({ status: "found" });
+  });
+});
+
+describe("loadHandoffInstagramRun / recordHandoffInstagramRun: durable run-id + usage markers for the Apify reader", () => {
+  it("loadHandoffInstagramRun returns null when no run was ever recorded", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const { event } = await readEvent(t, scope);
+    const context = { workspaceId: scope.workspaceId, accountId: scope.accountId, readingId: event.data.readingId, taskIntentId: event.data.taskIntentId };
+    expect(await loadHandoffInstagramRun(t.deps, context)).toBeNull();
+  });
+
+  it("recordHandoffInstagramRun refuses without a prior handoff.instagram_dispatched marker (the lost-ACK guard)", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const { event } = await readEvent(t, scope);
+    const context = { workspaceId: scope.workspaceId, accountId: scope.accountId, readingId: event.data.readingId, taskIntentId: event.data.taskIntentId };
+    await expect(recordHandoffInstagramRun(t.deps, context, "run-1")).rejects.toThrow("reading_failed");
+    expect(await loadHandoffInstagramRun(t.deps, context)).toBeNull();
+  });
+
+  it("saves the run id right after dispatch; loadHandoffInstagramRun then resumes it (the lost-ACK case)", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const { event } = await readEvent(t, scope);
+    const context = { workspaceId: scope.workspaceId, accountId: scope.accountId, readingId: event.data.readingId, taskIntentId: event.data.taskIntentId };
+    expect(await claimHandoffProviderAttempt(t.deps, context, "instagram")).toBe(true);
+
+    await recordHandoffInstagramRun(t.deps, context, "run-1");
+    expect(await loadHandoffInstagramRun(t.deps, context)).toBe("run-1");
+    // Idempotent: recording the SAME run id again never throws and stays resolvable.
+    await recordHandoffInstagramRun(t.deps, context, "run-1");
+    expect(await loadHandoffInstagramRun(t.deps, context)).toBe("run-1");
+  });
+
+  it("rejects recording a DIFFERENT run id for the same taskIntentId once one is already saved (never silently switches runs)", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const { event } = await readEvent(t, scope);
+    const context = { workspaceId: scope.workspaceId, accountId: scope.accountId, readingId: event.data.readingId, taskIntentId: event.data.taskIntentId };
+    expect(await claimHandoffProviderAttempt(t.deps, context, "instagram")).toBe(true);
+    await recordHandoffInstagramRun(t.deps, context, "run-1");
+
+    await expect(recordHandoffInstagramRun(t.deps, context, "run-2")).rejects.toThrow("reading_failed");
+    expect(await loadHandoffInstagramRun(t.deps, context)).toBe("run-1");
+  });
+
+  it("records usage null as pending, then a later measured (non-null) value is accepted for the SAME run", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const { event } = await readEvent(t, scope);
+    const context = { workspaceId: scope.workspaceId, accountId: scope.accountId, readingId: event.data.readingId, taskIntentId: event.data.taskIntentId };
+    expect(await claimHandoffProviderAttempt(t.deps, context, "instagram")).toBe(true);
+    await recordHandoffInstagramRun(t.deps, context, "run-1");
+
+    await recordHandoffInstagramRun(t.deps, context, "run-1", null);
+    let usageEvents = await t.deps.uow.repos.events.list(scope, { eventType: "handoff.instagram_usage" });
+    expect(usageEvents).toHaveLength(1);
+    expect(usageEvents[0]!.payload).toMatchObject({ providerRunId: "run-1", usageTotalUsd: null, costPending: true });
+
+    await recordHandoffInstagramRun(t.deps, context, "run-1", 0.0032);
+    usageEvents = await t.deps.uow.repos.events.list(scope, { eventType: "handoff.instagram_usage" });
+    expect(usageEvents).toHaveLength(2);
+    expect(usageEvents[1]!.payload).toMatchObject({ providerRunId: "run-1", usageTotalUsd: 0.0032, costPending: false });
+  });
+
+  it("a measured (non-null) usage value is never overwritten by a later null/duplicate call", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const { event } = await readEvent(t, scope);
+    const context = { workspaceId: scope.workspaceId, accountId: scope.accountId, readingId: event.data.readingId, taskIntentId: event.data.taskIntentId };
+    expect(await claimHandoffProviderAttempt(t.deps, context, "instagram")).toBe(true);
+    await recordHandoffInstagramRun(t.deps, context, "run-1");
+
+    await recordHandoffInstagramRun(t.deps, context, "run-1", 0.0032);
+    await recordHandoffInstagramRun(t.deps, context, "run-1", null);
+    await recordHandoffInstagramRun(t.deps, context, "run-1", 0.0099);
+
+    const usageEvents = await t.deps.uow.repos.events.list(scope, { eventType: "handoff.instagram_usage" });
+    expect(usageEvents).toHaveLength(1);
+    expect(usageEvents[0]!.payload).toMatchObject({ providerRunId: "run-1", usageTotalUsd: 0.0032 });
+  });
+
+  it("recording the run marker again after it was already saved is a harmless no-op (never appends a second handoff.instagram_run event)", async () => {
+    const t = makeTestDeps();
+    const { scope, approver } = await openHandoff(t);
+    await setSource(t, scope, approver, "instagram", "acme.oficial");
+    const { event } = await readEvent(t, scope);
+    const context = { workspaceId: scope.workspaceId, accountId: scope.accountId, readingId: event.data.readingId, taskIntentId: event.data.taskIntentId };
+    expect(await claimHandoffProviderAttempt(t.deps, context, "instagram")).toBe(true);
+
+    await recordHandoffInstagramRun(t.deps, context, "run-1");
+    await recordHandoffInstagramRun(t.deps, context, "run-1");
+    const runEvents = await t.deps.uow.repos.events.list(scope, { eventType: "handoff.instagram_run" });
+    expect(runEvents).toHaveLength(1);
   });
 });
