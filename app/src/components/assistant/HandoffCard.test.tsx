@@ -548,3 +548,10 @@ it("summary only exposes the correction selector after the person asks, then sen
   fireEvent.click(screen.getByRole("button", { name: "Editar" }));
   await waitFor(() => expect(mockPostEquipeCommand).toHaveBeenCalledWith("acc-1", { type: "handoff_back_to", payload: { expectedStep: "summary", expectedVersion: 3, step: "networks" } }));
 });
+
+it("asks for an uploaded logo when all raster candidates failed and none was captured", () => {
+  renderCard(baseHandoff({ step: "identity", reading: { logo: { runId: "r", taskIntentId: "t", status: "failed", error: "logo_download_failed" } } }));
+  expect(screen.getByText(ptBR.assistant.handoff.logoNeedsUpload)).toBeInTheDocument();
+  clickEditField("Logo");
+  expect(screen.getByLabelText("Enviar logo")).toHaveAttribute("type", "file");
+});
