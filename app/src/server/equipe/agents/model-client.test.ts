@@ -314,6 +314,7 @@ describe("noRetries (free-account single attempt)", () => {
       await expect(client.chat({ model: "muse-spark-1.3-contributor", messages: [], noRetries: true }))
         .rejects.toBeInstanceOf(OpenAI.APIError);
       expect(rec.calls).toHaveLength(1);
+      expect(rec.options).toEqual([{ maxRetries: 0 }]);
       expect(slept).toEqual([]);
     }
   });
