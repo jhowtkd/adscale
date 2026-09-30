@@ -107,7 +107,7 @@ export default function LibraryPage() {
   });
   const brandKitQuery = useBrandKit(activeClientProfileId ?? undefined, { enabled: Boolean(activeClientProfileId) && Boolean(activeProfile?.logoAssetKey) && ["all", "identity"].includes(filter) });
   const legacyLogoUrl = brandKitQuery.data?.id === activeClientProfileId && brandKitQuery.data.logoAssetKey === activeProfile?.logoAssetKey ? brandKitQuery.data.logoUrl : undefined;
-  const logoAsset = identityAssetsQuery.data?.assets.find(asset => activeProfile?.logoAssetKey ? asset.key === activeProfile.logoAssetKey : true);
+  const logoAsset = activeProfile?.logoAssetKey ? identityAssetsQuery.data?.assets.find(asset => asset.key === activeProfile.logoAssetKey) : undefined;
   const favoritesQuery = useLibraryFavorites(filter === "favorite" && Boolean(activeClientProfileId), activeClientProfileId ?? undefined);
   const setFavorite = useSetPieceFavorite();
   const labels = useMemo(() => buildLibraryV6Labels(t), [t]);

@@ -278,6 +278,32 @@ describe("LibraryPage (ticket 07): scoped to the active brand", () => {
     expect(capturedViewProps?.logoImageUrl).toBe("/logo-file");
   });
 
+  it("shows no logo for a brand without logoAssetKey, even when an old logo asset is still in the Library", () => {
+    // Removing the logo in Brand Kit only clears the profile key: the old file stays in the Library.
+    useActiveClientProfileMock.mockReturnValue({ activeClientProfileId: ACTIVE_PROFILE_ID,
+      activeProfile: { id: ACTIVE_PROFILE_ID, name: "Acme", logoAssetKey: null }, isLoading: false });
+    useWorkspaceAssetsMock.mockImplementation((options: { kind?: string }) => ({
+      data: { assets: options.kind === "identity" ? [{ key: "brand/old-logo.png", type: "image/png", url: "/old-logo-file" }] : [], total: 1 },
+      isLoading: false, isFetching: false, isError: false,
+    }));
+    render(<LibraryPage />);
+    expect(capturedViewProps?.logoImageUrl).toBeUndefined();
+  });
+
+  it("shows only the identity asset whose key is the brand's logoAssetKey, never another one", () => {
+    useActiveClientProfileMock.mockReturnValue({ activeClientProfileId: ACTIVE_PROFILE_ID,
+      activeProfile: { id: ACTIVE_PROFILE_ID, name: "Acme", logoAssetKey: "brand/current-logo.png" }, isLoading: false });
+    useWorkspaceAssetsMock.mockImplementation((options: { kind?: string }) => ({
+      data: { assets: options.kind === "identity" ? [
+        { key: "brand/old-logo.png", type: "image/png", url: "/old-logo-file" },
+        { key: "brand/current-logo.png", type: "image/png", url: "/current-logo-file" },
+      ] : [], total: 2 },
+      isLoading: false, isFetching: false, isError: false,
+    }));
+    render(<LibraryPage />);
+    expect(capturedViewProps?.logoImageUrl).toBe("/current-logo-file");
+  });
+
   it("keeps legacy image MIME values visible while font rows still count toward pagination", () => {
     useActiveClientProfileMock.mockReturnValue({ activeClientProfileId: ACTIVE_PROFILE_ID,
       activeProfile: { id: ACTIVE_PROFILE_ID, name: "Acme" }, isLoading: false });
