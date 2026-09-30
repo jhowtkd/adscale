@@ -12,7 +12,7 @@ import {
   DIAGNOSIS_AUTHOR_ROLE, DIAGNOSIS_FAILED_EVENT, DIAGNOSIS_KIND, DIAGNOSIS_MAX_INTENTS, DIAGNOSIS_RETRYABLE_CODES,
   DIAGNOSIS_STARTED_EVENT, type DiagnosisCommand,
 } from "../handoff/diagnosis-contract";
-import { assembleDiagnosis, buildDiagnosisInput, hasEnoughPublicText } from "../handoff/diagnosis";
+import { assembleDiagnosis, buildDiagnosisInput, diagnosisInformed, hasEnoughPublicText } from "../handoff/diagnosis";
 import type { EquipeModuleDeps } from "./ports";
 import { appendEvent, requestNotification, scopeOf, transact, type CommandContext, type TxBase } from "./shared";
 import { requestTask } from "./task-outbox";
@@ -131,7 +131,7 @@ export async function runDiagnosisCommand(deps: EquipeModuleDeps, base: TxBase, 
     if (output === null && hasEnoughPublicText(input)) return err("invalid_command", "A model answer is required for this content.");
     const content = assembleDiagnosis({
       input, output, brand: run.handoff.decisions.identity?.name.value ?? null,
-      meta: { readingId: run.readingId, taskIntentId, model, promptVersion },
+      meta: { readingId: run.readingId, taskIntentId, model, promptVersion }, informed: diagnosisInformed(run.handoff),
     });
     const version = (documents.at(-1)?.version ?? 0) + 1;
     const document = await ctx.repos.documents.create(scope, {

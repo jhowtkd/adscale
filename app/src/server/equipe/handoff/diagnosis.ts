@@ -25,8 +25,9 @@ export function cleanPublicText(markdown: string) {
     .trim();
 }
 
-const values = (items: HandoffItem[] | undefined, max: number) => (items ?? []).filter(item => isPublicOrigin(item.origin)).slice(0, max)
-  .map(item => ({ origin: item.origin as DiagnosisSource, value: item.value }));
+/** Public-origin values only, clamped to what the task schema accepts (a long scraped font name must not fail the run). */
+const values = (items: HandoffItem[] | undefined, count: number, chars: number) => (items ?? []).filter(item => isPublicOrigin(item.origin)).slice(0, count)
+  .map(item => ({ origin: item.origin as DiagnosisSource, value: item.value.slice(0, chars) }));
 
 /**
  * The ONLY door to the Pesquisa model (a provider that trains on its inputs,
@@ -49,8 +50,8 @@ export function buildDiagnosisInput(handoff: Pick<HandoffState, "captured" | "de
   const identity = decisions.identity;
   return {
     name: identity && isPublicOrigin(identity.name.origin) ? cut(identity.name.value, 200) : null,
-    colors: values(identity?.colors, 12),
-    fonts: values(identity?.fonts, 12),
+    colors: values(identity?.colors, 12, 20),
+    fonts: values(identity?.fonts, 12, 100),
     site: siteText ? { text: siteText } : null,
     instagram: bio || posts.length ? { bio, posts } : null,
   };
@@ -140,17 +141,24 @@ const notFoundList = (modelItems: string[], leading: string[] = []) => {
   return out;
 };
 
+/** Sources the person gave (site address / confirmed Instagram), as opposed to sources that yielded text. */
+export type DiagnosisInformed = { site: boolean; instagram: boolean };
+
 /** What this run could not read at all: the single-source design says so instead of hiding it. */
-function missingSources(inputSources: DiagnosisSource[]) {
+function missingSources(inputSources: DiagnosisSource[], informed: DiagnosisInformed) {
   return [
-    ...(!inputSources.includes("site") ? ["Site (não informado)"] : []),
-    ...(!inputSources.includes("instagram") ? ["Instagram (não confirmado)"] : []),
+    ...(!inputSources.includes("site") ? [informed.site ? "Site (sem texto público)" : "Site (não informado)"] : []),
+    ...(!inputSources.includes("instagram") ? [informed.instagram ? "Instagram (sem texto público)" : "Instagram (não confirmado)"] : []),
   ];
+}
+
+export function diagnosisInformed(handoff: Pick<HandoffState, "source" | "decisions">): DiagnosisInformed {
+  return { site: handoff.source?.kind === "site", instagram: Boolean(handoff.decisions.networks?.some(network => network.platform === "instagram")) };
 }
 
 export type DiagnosisMeta = { readingId: string; taskIntentId: string | null; model: string | null; promptVersion: string | null };
 
-function insufficientContent(input: DiagnosisInput, brand: string | null, meta: DiagnosisMeta, reason: "too_short" | "unsupported", modelNotFound: string[]): DiagnosisContent {
+function insufficientContent(input: DiagnosisInput, brand: string | null, meta: DiagnosisMeta, reason: "too_short" | "unsupported", modelNotFound: string[], informed: DiagnosisInformed): DiagnosisContent {
   const inputSources = diagnosisInputSources(input);
   const read: Record<DiagnosisSource, string> = reason === "too_short"
     ? { site: "texto público curto demais para analisar", instagram: "bio e legendas curtas demais para analisar" }
@@ -161,7 +169,7 @@ function insufficientContent(input: DiagnosisInput, brand: string | null, meta: 
     summary: `Li o que está público ${brand ? `sobre ${brand}` : "da sua marca"}, mas não encontrei conteúdo suficiente para apontar oportunidades com fonte. Nada foi inventado.`,
     channels: inputSources.map(source => ({ name: DIAGNOSIS_SOURCE_NAMES[source], source, message: read[source] })),
     opportunities: [],
-    notFound: notFoundList(modelNotFound, [...missingSources(inputSources), "oportunidades com fonte"]),
+    notFound: notFoundList(modelNotFound, [...missingSources(inputSources, informed), "oportunidades com fonte"]),
     sources: [],
     meta: { ...meta, inputSources },
   };
@@ -173,10 +181,11 @@ function insufficientContent(input: DiagnosisInput, brand: string | null, meta: 
  * dropped, never shown. No verified opportunity = an honest "insufficient"
  * document (the person is never left without a diagnosis).
  */
-export function assembleDiagnosis(args: { input: DiagnosisInput; output: DiagnosisModelOutput | null; brand: string | null; meta: DiagnosisMeta }): DiagnosisContent {
+export function assembleDiagnosis(args: { input: DiagnosisInput; output: DiagnosisModelOutput | null; brand: string | null; meta: DiagnosisMeta; informed?: DiagnosisInformed }): DiagnosisContent {
   const { input, output, brand, meta } = args;
+  const informed = args.informed ?? { site: false, instagram: false };
   const inputSources = diagnosisInputSources(input);
-  if (!output || !hasEnoughPublicText(input)) return insufficientContent(input, brand, meta, "too_short", output?.notFound ?? []);
+  if (!output || !hasEnoughPublicText(input)) return insufficientContent(input, brand, meta, "too_short", output?.notFound ?? [], informed);
   const haystacks = Object.fromEntries(Object.entries(diagnosisSourceTexts(input)).map(([source, text]) => [source, normalizeForMatch(text)])) as Partial<Record<DiagnosisSource, string>>;
   const backing: DiagnosisContent["sources"] = [];
   const back = (evidence: Evidence[], supports: string) => { for (const item of evidence) backing.push({ origin: item.source, quote: item.quote, supports }); };
@@ -186,11 +195,11 @@ export function assembleDiagnosis(args: { input: DiagnosisInput; output: Diagnos
     if (opportunities.length >= DIAGNOSIS_LIMITS.opportunities) break;
     const title = cut(candidate.title.replace(/\s+/g, " ").trim(), DIAGNOSIS_LIMITS.opportunityChars);
     const evidence = verifiedEvidence(candidate.evidence, haystacks);
-    if (!title || !evidence.length || mentionsCompetitors(title)) continue;
+    if (!title || !evidence.length || mentionsCompetitors(title) || opportunities.some(item => normalizeForMatch(item.title) === normalizeForMatch(title))) continue;
     opportunities.push({ title, sources: sourcesOf(evidence) });
     back(evidence, `opportunity:${opportunities.length}`);
   }
-  if (!opportunities.length) return insufficientContent(input, brand, meta, "unsupported", output.notFound);
+  if (!opportunities.length) return insufficientContent(input, brand, meta, "unsupported", output.notFound, informed);
 
   const channels: DiagnosisContent["channels"] = [];
   for (const candidate of output.channels) {
@@ -211,7 +220,7 @@ export function assembleDiagnosis(args: { input: DiagnosisInput; output: Diagnos
 
   return {
     status: "complete", brand, summary, channels, opportunities,
-    notFound: notFoundList(output.notFound, missingSources(inputSources)),
+    notFound: notFoundList(output.notFound, missingSources(inputSources, informed)),
     sources: backing,
     meta: { ...meta, inputSources },
   };
