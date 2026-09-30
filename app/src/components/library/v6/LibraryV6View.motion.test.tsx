@@ -129,6 +129,32 @@ describe("LibraryV6View visual role contract (ticket 07 / B1)", () => {
     expect(onOriginChange).toHaveBeenCalledWith("brand_site");
   });
 
+  it("keeps non-current logos reachable in the gallery: only the current logo moves to the identity card", () => {
+    const base = { tags: [], sizeLabel: "1 MB", dimensionsLabel: "—", aspectRatioLabel: "—", source: "brand_upload", createdAtLabel: "10/08/2026", imageUrl: "", gradient: "bg-[var(--surface-inset)]" };
+    render(
+      <LibraryV6View
+        labels={labels}
+        profile={{ ...profile, logoAssetKey: "brand/current.png" } as ClientProfile}
+        assets={[
+          { ...base, id: "current", name: "Logo atual", glyph: "LA", kind: "logo", key: "brand/current.png" },
+          { ...base, id: "old", name: "Logo antigo", glyph: "LN", kind: "logo", key: "brand/old.png" },
+          { ...base, id: "photo", name: "Foto", glyph: "FO", kind: "photo", key: "brand/photo.png" },
+        ]}
+        shownCount={3}
+        totalCount={3}
+        searchQuery=""
+        useImagePreview={false}
+        onDeleteAsset={vi.fn()}
+      />,
+    );
+
+    const gallery = within(screen.getByTestId("library-bento"));
+    // A replaced logo keeps its row: it must stay viewable and deletable, while the current one lives in the identity card.
+    expect(gallery.getByText("Logo antigo")).toBeInTheDocument();
+    expect(gallery.getByText("Foto")).toBeInTheDocument();
+    expect(gallery.queryByText("Logo atual")).not.toBeInTheDocument();
+  });
+
   it("hides the origin filter under Favoritos: favorites are pieces and have no origin", () => {
     render(
       <LibraryV6View

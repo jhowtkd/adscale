@@ -111,7 +111,9 @@ export default function LibraryV6View({
   const selectedDocument = documents.find(document => document.id === documentId);
   const text = (key: string, fallback: string) => brandLabels[key] ?? fallback;
   const originText = (source: string) => text(source, source === "brand_site" ? "Do site" : source === "brand_instagram" ? "Do Instagram" : "Enviado por você");
-  const images = assets.filter(asset => !["logo", "page"].includes(asset.kind));
+  // Only the CURRENT logo lives in the identity card; a replaced logo keeps its row and stays reachable (and deletable) here.
+  const isCurrentLogo = (asset: { kind: string; key?: string }) => asset.kind === "logo" && Boolean(profile?.logoAssetKey) && asset.key === profile?.logoAssetKey;
+  const images = assets.filter(asset => asset.kind !== "page" && !isCurrentLogo(asset));
   const pages = assets.filter(asset => asset.kind === "page");
   const logoUrl = logoImageUrl ?? assets.find(asset => profile?.logoAssetKey ? asset.key === profile.logoAssetKey : asset.kind === "logo")?.imageUrl;
   const showIdentity = ["all", "identity", "logo"].includes(activeFilter) && Boolean(profile);
